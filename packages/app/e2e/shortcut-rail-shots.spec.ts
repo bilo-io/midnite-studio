@@ -1,7 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import { fixtures, installMockBridge, SHOT_VIEWPORTS, shotPath } from './shots-helper';
 
 /**
  * Phase 39 Theme G — the density × state screenshot matrix for the shortcut
@@ -51,36 +50,36 @@ async function openWide(page: Page): Promise<void> {
 test('full density, at rest', async ({ page }) => {
   await open(page);
   await expect(page.getByTestId('status-bar')).toHaveAttribute('data-density', 'full');
-  await page.getByTestId('status-bar-left').screenshot({ path: `${OUT}/full-inactive.png` });
+  await page.getByTestId('status-bar-left').screenshot({ path: shotPath(OUT, 'full-inactive.png') });
 });
 
 test('full density, one toggle active', async ({ page }) => {
   await open(page);
   await page.getByTestId('terminal-toggle').click();
   await expect(page.getByTestId('terminal-toggle')).toHaveAttribute('aria-pressed', 'true');
-  await page.getByTestId('status-bar-left').screenshot({ path: `${OUT}/full-active.png` });
+  await page.getByTestId('status-bar-left').screenshot({ path: shotPath(OUT, 'full-active.png') });
 });
 
 test('full density, hovered', async ({ page }) => {
   await open(page);
   await page.getByTestId('browser-toggle').hover();
   await expect(page.getByTestId('browser-toggle').locator('.status-label')).toBeVisible();
-  await page.getByTestId('status-bar-left').screenshot({ path: `${OUT}/full-hovered.png` });
+  await page.getByTestId('status-bar-left').screenshot({ path: shotPath(OUT, 'full-hovered.png') });
 });
 
 test('compact density', async ({ page }) => {
   await openWide(page);
-  await page.setViewportSize({ width: 1080, height: 800 });
+  await page.setViewportSize(SHOT_VIEWPORTS.compact);
   await expect(page.getByTestId('status-bar')).toHaveAttribute('data-density', 'compact');
-  await page.getByTestId('status-bar-left').screenshot({ path: `${OUT}/compact.png` });
+  await page.getByTestId('status-bar-left').screenshot({ path: shotPath(OUT, 'compact.png') });
 });
 
 test('collapsed density, overflow popover open', async ({ page }) => {
   await openWide(page);
-  await page.setViewportSize({ width: 900, height: 800 });
+  await page.setViewportSize(SHOT_VIEWPORTS.collapsed);
   await expect(page.getByTestId('status-bar')).toHaveAttribute('data-density', 'collapsed');
   await page.getByTestId('status-overflow').click();
   const panel = page.getByTestId('status-overflow-panel');
   await expect(panel).toBeVisible();
-  await panel.screenshot({ path: `${OUT}/collapsed-popover.png` });
+  await panel.screenshot({ path: shotPath(OUT, 'collapsed-popover.png') });
 });

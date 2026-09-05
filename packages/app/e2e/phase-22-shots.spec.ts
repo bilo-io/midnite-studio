@@ -1,7 +1,14 @@
 import { test } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  mockSha,
+  settle,
+  shotPath,
+  SHOT_VIEWPORTS,
+} from './shots-helper';
 
 /**
  * Phase 22 (Stash, the reflog, and writes you can take back) screenshots —
@@ -18,12 +25,12 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 const OUT = '../../docs/screenshots/phase-22-stash-and-safety-net';
 const SETTLE_MS = 300;
 
-const SHA_A = 'a'.repeat(40);
-const SHA_B = 'b'.repeat(40);
+const SHA_A = mockSha('', 'a');
+const SHA_B = mockSha('', 'b');
 
 test.describe('Phase 22 screenshots', () => {
   test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
-  test.use({ viewport: { width: 1600, height: 1000 } });
+  test.use({ viewport: SHOT_VIEWPORTS.wide });
 
   test('Theme B — Stashes in the sidebar', async ({ page }) => {
     const data: MockFixtures = {
@@ -50,8 +57,8 @@ test.describe('Phase 22 screenshots', () => {
     await installMockBridge(page, data);
     await page.goto('/');
     await page.getByRole('heading', { name: 'Stashes' }).waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/theme-b-sidebar-stashes.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'theme-b-sidebar-stashes.png') });
   });
 
   test('Theme C — Stashes above the graph', async ({ page }) => {
@@ -71,8 +78,8 @@ test.describe('Phase 22 screenshots', () => {
     await installMockBridge(page, data);
     await page.goto('/');
     await page.getByRole('button', { name: /Stash: WIP on main/ }).waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/theme-c-stashes-above-graph.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'theme-c-stashes-above-graph.png') });
   });
 
   test('Theme D — the stash inspector', async ({ page }) => {
@@ -100,8 +107,8 @@ test.describe('Phase 22 screenshots', () => {
     await page.goto('/');
     await page.getByRole('button', { name: /Stash: WIP on main/ }).click();
     await page.getByRole('heading', { name: 'Untracked files' }).waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/theme-d-stash-inspector.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'theme-d-stash-inspector.png') });
   });
 
   test('Theme E — Stash prompt from the Changes view', async ({ page }) => {
@@ -119,8 +126,8 @@ test.describe('Phase 22 screenshots', () => {
     await link.click();
     await page.getByRole('button', { name: 'Stash changes' }).click();
     await page.getByRole('dialog', { name: 'Stash changes' }).waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/theme-e-changes-stash-prompt.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'theme-e-changes-stash-prompt.png') });
   });
 
   test('Theme F — Git Safety settings page', async ({ page }) => {
@@ -129,8 +136,8 @@ test.describe('Phase 22 screenshots', () => {
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByRole('button', { name: 'Git Safety' }).click();
     await page.getByText('Allow force-push (with lease)').first().waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/theme-f-git-safety-settings.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'theme-f-git-safety-settings.png') });
   });
 
   test('Theme G — the Reflog tab', async ({ page }) => {
@@ -168,7 +175,7 @@ test.describe('Phase 22 screenshots', () => {
     await page.keyboard.press('Enter');
     await page.getByRole('tab', { name: 'Reflog' }).click();
     await page.getByRole('list', { name: 'Reflog' }).waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/theme-g-reflog-tab.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'theme-g-reflog-tab.png') });
   });
 });

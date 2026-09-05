@@ -1,7 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  mockSha,
+  REPRODUCIBLE_REMOTE,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The committed screenshots for Phase 20 Theme C.
@@ -15,16 +22,9 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
    two levels up. */
 const OUT = '../../docs/screenshots/phase-20-pr-detail';
 
-const HEAD_SHA = 'c0ffee'.padEnd(40, '0');
+const HEAD_SHA = mockSha('c0ffee', '0');
 
-const REMOTES = [
-  {
-    name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
-  },
-];
+const REMOTES = [REPRODUCIBLE_REMOTE];
 
 const pull = {
   number: 128,
@@ -256,27 +256,26 @@ async function openPull(page: Page): Promise<void> {
 
 test('files light', async ({ page }) => {
   await openPull(page);
-  await page.screenshot({ path: `${OUT}/pr-files-light.png` });
+  await page.screenshot({ path: shotPath(OUT, 'pr-files-light.png') });
 });
 
 test('files dark', async ({ page }) => {
-  await page.emulateMedia({ colorScheme: 'dark' });
+  await setTheme(page, 'dark');
   await openPull(page);
-  await page.evaluate(() => document.documentElement.classList.add('dark'));
-  await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/pr-files-dark.png` });
+  await setTheme(page, 'dark', { settleMs: 400 });
+  await page.screenshot({ path: shotPath(OUT, 'pr-files-dark.png') });
 });
 
 test('conversation', async ({ page }) => {
   await openPull(page);
   await page.getByRole('tab', { name: 'Conversation', exact: true }).click();
   await page.waitForTimeout(500);
-  await page.screenshot({ path: `${OUT}/pr-conversation.png` });
+  await page.screenshot({ path: shotPath(OUT, 'pr-conversation.png') });
 });
 
 test('checks', async ({ page }) => {
   await openPull(page);
   await page.getByRole('tab', { name: /Checks/ }).click();
   await page.waitForTimeout(700);
-  await page.screenshot({ path: `${OUT}/pr-checks.png` });
+  await page.screenshot({ path: shotPath(OUT, 'pr-checks.png') });
 });

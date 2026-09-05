@@ -1,7 +1,14 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  mockWeatherApi,
+  REPRODUCIBLE_NOW_MS,
+  setReducedMotion,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * Phase 46 Theme G — the committed, re-runnable screenshot spec its own doc
@@ -23,19 +30,8 @@ const OUT = '../../docs/screenshots/p46-g-lock-screen';
 
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
 
-async function mockWeather(page: Page): Promise<void> {
-  await page.route('https://geocoding-api.open-meteo.com/v1/search**', (route: Route) =>
-    route.fulfill({
-      json: { results: [{ name: 'London', latitude: 51.5, longitude: -0.13, country: 'United Kingdom' }] },
-    }),
-  );
-  await page.route('https://api.open-meteo.com/v1/forecast**', (route: Route) =>
-    route.fulfill({ json: { current: { temperature_2m: 18.4, weather_code: 0 } } }),
-  );
-}
-
 async function open(page: Page): Promise<void> {
-  await mockWeather(page);
+  await mockWeatherApi(page);
   await page.addInitScript(() => {
     window.localStorage.setItem(
       'midnite.weather',
@@ -52,7 +48,7 @@ async function open(page: Page): Promise<void> {
     ...fixtures,
     metricsSamples: [
       {
-        at: Date.now(),
+        at: REPRODUCIBLE_NOW_MS,
         cpu: 40,
         memory: 60,
         gpu: 15,
@@ -72,16 +68,13 @@ async function open(page: Page): Promise<void> {
 for (const motion of ['full', 'reduced'] as const) {
   for (const theme of ['light', 'dark'] as const) {
     test(`lock screen — ${motion} motion, ${theme} theme`, async ({ page }) => {
-      if (theme === 'dark') await page.emulateMedia({ colorScheme: 'dark' });
+      await setTheme(page, theme);
       await open(page);
-      if (theme === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
-      await page.evaluate(
-        (m) => document.documentElement.setAttribute('data-motion', m),
-        motion,
-      );
+      if (theme === 'dark') await setTheme(page, 'dark');
+      await setReducedMotion(page, motion === 'reduced');
       await page.waitForTimeout(300);
 
-      await page.screenshot({ path: `${OUT}/lock-screen-${motion}-${theme}.png` });
+      await page.screenshot({ path: shotPath(OUT, `lock-screen-${motion}-${theme}.png`) });
     });
   }
 }

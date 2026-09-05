@@ -1,7 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  clickRailLink,
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  settle,
+  SHOT_VIEWPORTS,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The Phase 44 Video Studio screenshots. Not assertions —
@@ -30,20 +37,20 @@ async function openVideo(page: import('@playwright/test').Page, data: MockFixtur
 
 test.describe('video studio screenshots', () => {
   test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
-  test.use({ viewport: { width: 1400, height: 900 } });
+  test.use({ viewport: SHOT_VIEWPORTS.board });
 
   test('no projects yet', async ({ page }) => {
     await openVideo(page, fixtures);
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/no-projects.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'no-projects.png') });
   });
 
   test('a project selected, studio stopped', async ({ page }) => {
     await openVideo(page, { ...fixtures, video: { projects: [PROJECT] } });
     await page.getByRole('button', { name: 'COP31 showreel' }).click();
     await page.getByText("The studio isn't running.").waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/project-stopped.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'project-stopped.png') });
   });
 
   test('the studio failed to start', async ({ page }) => {
@@ -59,7 +66,7 @@ test.describe('video studio screenshots', () => {
     await page.getByRole('button', { name: 'COP31 showreel' }).click();
     await page.getByRole('button', { name: 'Start studio' }).click();
     await page.getByText('The studio failed to start').waitFor();
-    await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/studio-failed.png` });
+    await settle(page, SETTLE_MS);
+    await page.screenshot({ path: shotPath(OUT, 'studio-failed.png') });
   });
 });

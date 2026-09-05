@@ -1,7 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  clickRailLink,
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  REPRODUCIBLE_REMOTE,
+  setReducedMotion,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * A Kanban card with a live agent — before/after shots for the recoloured
@@ -68,14 +76,7 @@ const OTHER = todo(3, 'Backlog: rename the thing', 'OPT_todo');
 
 const base: MockFixtures = {
   ...fixtures,
-  remotes: [
-    {
-      name: 'origin',
-      fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-      pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-      forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
-    },
-  ],
+  remotes: [REPRODUCIBLE_REMOTE],
   refs: [],
   statusEntries: [],
   statusByWorktree: { [MAIN]: [] },
@@ -107,9 +108,9 @@ async function openBoard(page: Page, mode: 'light' | 'dark'): Promise<void> {
   await installMockBridge(page, base);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  if (mode === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
+  if (mode === 'dark') await setTheme(page, 'dark');
   // The ramp must be at rest for two runs to be comparable — see the note above.
-  await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+  await setReducedMotion(page);
   await clickRailLink(page, 'Projects');
   await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
   await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
@@ -126,7 +127,7 @@ async function shotCard(page: Page, name: string): Promise<void> {
   const pad = 20;
   await page.waitForTimeout(300);
   await page.screenshot({
-    path: `${OUT}/${name}-${VARIANT}.png`,
+    path: shotPath(OUT, `${name}-${VARIANT}.png`),
     clip: { x: box.x - pad, y: box.y - pad, width: box.width + pad * 2, height: box.height + pad * 2 },
   });
 }
@@ -143,5 +144,5 @@ test('the detail pane, with the session controls', async ({ page }) => {
   await page.getByText('Wire the write path').click();
   await expect(page.getByTestId('card-detail')).toBeVisible();
   await page.waitForTimeout(300);
-  await page.getByTestId('card-detail').screenshot({ path: `${OUT}/detail-${VARIANT}.png` });
+  await page.getByTestId('card-detail').screenshot({ path: shotPath(OUT, `detail-${VARIANT}.png`) });
 });

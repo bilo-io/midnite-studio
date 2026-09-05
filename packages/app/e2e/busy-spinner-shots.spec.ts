@@ -1,7 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  mockSha,
+  REPRODUCIBLE_REMOTE,
+  seedForgeWritesConsent,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The app's busy marks, held still and photographed.
@@ -29,16 +36,9 @@ const OUT = '../../docs/screenshots/busy-spinner';
 */
 const LATENCY = 2500;
 
-const HEAD_SHA = 'ba5eba11'.padEnd(40, '0');
+const HEAD_SHA = mockSha('ba5eba11', '0');
 
-const REMOTES = [
-  {
-    name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
-  },
-];
+const REMOTES = [REPRODUCIBLE_REMOTE];
 
 const pull = {
   number: 300,
@@ -109,12 +109,7 @@ const data: MockFixtures = {
 
 /** Seed the write consent, then open the one pull request's Checks tab. */
 async function openChecks(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    window.localStorage.setItem(
-      'midnite-studio.ui',
-      JSON.stringify({ state: { forgeWritesEnabled: true }, version: 2 }),
-    );
-  });
+  await seedForgeWritesConsent(page);
   await installMockBridge(page, data);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
@@ -143,7 +138,7 @@ test('a re-run in flight, and the running checks beside it', async ({ page }) =>
   /* The pointer is left on the button it just clicked; park it off the row so
      no hover tint rides into the shot. */
   await page.mouse.move(700, 900);
-  await page.screenshot({ path: `${OUT}/checks-rerun-busy.png`, animations: 'disabled' });
+  await page.screenshot({ path: shotPath(OUT, 'checks-rerun-busy.png'), animations: 'disabled' });
 
   /*
     And the same frame again, cropped to the strip. The marks these shots exist
@@ -154,7 +149,7 @@ test('a re-run in flight, and the running checks beside it', async ({ page }) =>
   const box = await strip.boundingBox();
   if (box !== null) {
     await page.screenshot({
-      path: `${OUT}/checks-rerun-busy-detail.png`,
+      path: shotPath(OUT, 'checks-rerun-busy-detail.png'),
       animations: 'disabled',
       clip: { x: box.x, y: box.y + 150, width: box.width, height: 110 },
     });

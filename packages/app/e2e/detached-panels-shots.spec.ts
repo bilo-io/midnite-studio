@@ -1,7 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * Phase 55 Theme F.2 — the renderer-side half of multi-window verification
@@ -47,17 +52,13 @@ const OPEN_FLAG: Record<(typeof POPOUT_ROLES)[number], string> = {
   browser: 'browserOpen',
 };
 
-async function gotoDark(page: import('@playwright/test').Page, dark: boolean): Promise<void> {
-  if (dark) await page.emulateMedia({ colorScheme: 'dark' });
-}
-
 for (const role of POPOUT_ROLES) {
   for (const theme of ['light', 'dark'] as const) {
     test(`DetachedRoot(${role}) — ${theme} theme`, async ({ page }) => {
-      await gotoDark(page, theme === 'dark');
+      await setTheme(page, theme);
       await installMockBridge(page, { ...fixtures, windowRole: role } as MockFixtures);
       await page.goto('/graph');
-      if (theme === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
+      if (theme === 'dark') await setTheme(page, 'dark');
 
       // Every popout wraps its content in `DetachedWindowFrame`, whose
       // titlebar carries the role's title — the one thing all four share.
@@ -67,7 +68,7 @@ for (const role of POPOUT_ROLES) {
       // on it, so the popout terminal shot is not just its loading spinner.
       if (role === 'terminal') await expect(page.locator('.xterm-screen')).toHaveCount(1);
       await page.waitForTimeout(200);
-      await page.screenshot({ path: `${OUT}/detached-root-${role}-${theme}.png` });
+      await page.screenshot({ path: shotPath(OUT, `detached-root-${role}-${theme}.png`) });
     });
   }
 }
@@ -75,7 +76,7 @@ for (const role of POPOUT_ROLES) {
 for (const role of POPOUT_ROLES) {
   for (const theme of ['light', 'dark'] as const) {
     test(`detached ${role} collapses in the main layout — ${theme} theme`, async ({ page }) => {
-      await gotoDark(page, theme === 'dark');
+      await setTheme(page, theme);
       // `useWindowSync` reconciles the *Detached flags off `window.list()`,
       // not off anything written straight into localStorage — see that
       // hook's own doc and `openPopoutRoles`'s.
@@ -93,12 +94,12 @@ for (const role of POPOUT_ROLES) {
         }
       }, flag);
       await page.goto('/graph');
-      if (theme === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
+      if (theme === 'dark') await setTheme(page, 'dark');
 
       // The docked slot is fully collapsed — no placeholder banner, no
       // content — reclaiming its space rather than reserving it.
       await expect(page.locator(DOCKED_CONTENT[role])).toHaveCount(0);
-      await page.screenshot({ path: `${OUT}/detached-collapsed-${role}-${theme}.png` });
+      await page.screenshot({ path: shotPath(OUT, `detached-collapsed-${role}-${theme}.png`) });
     });
   }
 }

@@ -1,7 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import { createShotTaker, fixtures, installMockBridge } from './shots-helper';
 
 /**
  * The screenshots for the midnite menu — the row's three marks, the menu open,
@@ -24,9 +23,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 /** `animations: 'disabled'`, so the shell's cascade is settled in every shot. */
-async function shoot(page: Page, name: string): Promise<void> {
-  await page.screenshot({ path: `${OUT}/${name}.png`, animations: 'disabled' });
-}
+const shoot = createShotTaker(OUT, { animations: 'disabled' });
 
 test('the row, closed — three marks rather than three ellipses', async ({ page }) => {
   // Hovered, so the mark's hover colour (plain foreground, over the accent it

@@ -1,7 +1,16 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  clickRailLink,
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  mockSha,
+  REPRODUCIBLE_REMOTE,
+  setTheme,
+  shotPath,
+  SHOT_VIEWPORTS,
+} from './shots-helper';
 
 /**
  * The committed screenshots for Phase 20 Theme E.
@@ -22,18 +31,11 @@ const OUT = '../../docs/screenshots/phase-20-inline-threads';
   would show the feature with half its affordances cut off. This is a screenshot
   size, not a supported-minimum claim.
 */
-test.use({ viewport: { width: 1680, height: 1000 } });
+test.use({ viewport: SHOT_VIEWPORTS.ultraWide });
 
-const HEAD_SHA = 'c0ffee'.padEnd(40, '0');
+const HEAD_SHA = mockSha('c0ffee', '0');
 
-const REMOTES = [
-  {
-    name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
-  },
-];
+const REMOTES = [REPRODUCIBLE_REMOTE];
 
 const pull = {
   number: 131,
@@ -257,15 +259,14 @@ async function openThreads(page: Page): Promise<void> {
 
 test('threads light', async ({ page }) => {
   await openThreads(page);
-  await page.screenshot({ path: `${OUT}/threads-light.png` });
+  await page.screenshot({ path: shotPath(OUT, 'threads-light.png') });
 });
 
 test('threads dark', async ({ page }) => {
-  await page.emulateMedia({ colorScheme: 'dark' });
+  await setTheme(page, 'dark');
   await openThreads(page);
-  await page.evaluate(() => document.documentElement.classList.add('dark'));
-  await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/threads-dark.png` });
+  await setTheme(page, 'dark', { settleMs: 400 });
+  await page.screenshot({ path: shotPath(OUT, 'threads-dark.png') });
 });
 
 test('composer open on a line', async ({ page }) => {
@@ -277,12 +278,12 @@ test('composer open on a line', async ({ page }) => {
     .getByRole('textbox')
     .fill('Could this loop early-exit once `position` passes the last hunk?');
   await page.waitForTimeout(300);
-  await page.screenshot({ path: `${OUT}/composer.png` });
+  await page.screenshot({ path: shotPath(OUT, 'composer.png') });
 });
 
 test('outdated group expanded', async ({ page }) => {
   await openThreads(page);
   await page.getByRole('button', { name: /no longer in this diff/ }).click();
   await page.waitForTimeout(300);
-  await page.screenshot({ path: `${OUT}/outdated.png` });
+  await page.screenshot({ path: shotPath(OUT, 'outdated.png') });
 });

@@ -1,7 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  setReducedMotion,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The Phase 35 screenshots — the FAB loop console in its three states.
@@ -126,14 +132,14 @@ test('the waiting notice, in the bell', async ({ page }) => {
 for (const mode of ['light', 'dark'] as const) {
   test(`the FAB panel glow, per tab (${mode})`, async ({ page }) => {
     await open(page);
-    if (mode === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
+    if (mode === 'dark') await setTheme(page, 'dark');
     await openFab(page);
 
     const panel = page.locator('.fab-panel-gradient');
     for (const tab of ['Ideate', 'Create', 'Patrol', 'Medic']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(900);
-      await panel.screenshot({ path: `${OUT_P37}/${mode}-${tab.toLowerCase()}.png` });
+      await panel.screenshot({ path: shotPath(OUT_P37, `${mode}-${tab.toLowerCase()}.png`) });
     }
   });
 }
@@ -188,13 +194,13 @@ for (const mode of ['light', 'dark'] as const) {
   for (const variant of ['before', 'after'] as const) {
     test(`the inner glow rim, ${variant} (${mode})`, async ({ page }) => {
       await open(page);
-      if (mode === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
+      if (mode === 'dark') await setTheme(page, 'dark');
       if (variant === 'before') await page.addStyleTag({ content: BEFORE_CSS });
       await openFab(page, 'Ideate');
       const panel = page.locator('.fab-panel-gradient');
 
       await page.waitForTimeout(900);
-      await panel.screenshot({ path: `${OUT_GLOW}/${mode}-idle-${variant}.png` });
+      await panel.screenshot({ path: shotPath(OUT_GLOW, `${mode}-idle-${variant}.png`) });
 
       await page.getByRole('button', { name: 'Patrol', exact: true }).click();
       const composer = page.getByTestId('loop-composer-watchdog');
@@ -202,7 +208,7 @@ for (const mode of ['light', 'dark'] as const) {
       await composer.getByTestId('loop-start').click();
       await expect(composer.getByTestId('loop-stop')).toBeVisible();
       await page.waitForTimeout(900);
-      await panel.screenshot({ path: `${OUT_GLOW}/${mode}-running-${variant}.png` });
+      await panel.screenshot({ path: shotPath(OUT_GLOW, `${mode}-running-${variant}.png`) });
     });
   }
 }
@@ -231,14 +237,14 @@ for (const mode of ['light', 'dark'] as const) {
   for (const variant of ['before', 'after'] as const) {
     test(`the dimmed rim and thicker ring, ${variant} (${mode})`, async ({ page }) => {
       await open(page);
-      if (mode === 'dark') await page.evaluate(() => document.documentElement.classList.add('dark'));
+      if (mode === 'dark') await setTheme(page, 'dark');
       if (variant === 'before') await page.addStyleTag({ content: BEFORE_DIM_CSS });
       await openFab(page, 'Ideate');
-      await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+      await setReducedMotion(page);
       await page.waitForTimeout(300);
 
       const panel = page.locator('.fab-panel-gradient');
-      await panel.screenshot({ path: `${OUT_DIM}/${mode}-idle-${variant}.png` });
+      await panel.screenshot({ path: shotPath(OUT_DIM, `${mode}-idle-${variant}.png`) });
     });
   }
 }
@@ -264,16 +270,16 @@ const BEFORE_ARC_CSS = `
 for (const variant of ['before', 'after'] as const) {
   test(`the rim cut to the tab arc, ${variant} (dark, per tab)`, async ({ page }) => {
     await open(page);
-    await page.evaluate(() => document.documentElement.classList.add('dark'));
+    await setTheme(page, 'dark');
     if (variant === 'before') await page.addStyleTag({ content: BEFORE_ARC_CSS });
     await openFab(page);
-    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+    await setReducedMotion(page);
 
     const panel = page.locator('.fab-panel-gradient');
     for (const tab of ['Ideate', 'Create', 'Patrol', 'Medic']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(300);
-      await panel.screenshot({ path: `${OUT_ARC}/dark-${tab.toLowerCase()}-${variant}.png` });
+      await panel.screenshot({ path: shotPath(OUT_ARC, `dark-${tab.toLowerCase()}-${variant}.png`) });
     }
   });
 
@@ -281,8 +287,8 @@ for (const variant of ['before', 'after'] as const) {
     await open(page);
     if (variant === 'before') await page.addStyleTag({ content: BEFORE_ARC_CSS });
     await openFab(page, 'Ideate');
-    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+    await setReducedMotion(page);
     await page.waitForTimeout(300);
-    await page.locator('.fab-panel-gradient').screenshot({ path: `${OUT_ARC}/light-ideate-${variant}.png` });
+    await page.locator('.fab-panel-gradient').screenshot({ path: shotPath(OUT_ARC, `light-ideate-${variant}.png`) });
   });
 }
