@@ -21,7 +21,9 @@
       "@midnite/studio-shared": ["./packages/shared/src/index.ts"],
       "@midnite/studio-shared/*": ["./packages/shared/src/*"],
       "@midnite/studio-git-engine": ["./packages/git-engine/src/index.ts"],
-      "@midnite/studio-git-engine/*": ["./packages/git-engine/src/*"]
+      "@midnite/studio-git-engine/*": ["./packages/git-engine/src/*"],
+      "@midnite/studio-db-engine": ["./packages/db-engine/src/index.ts"],
+      "@midnite/studio-db-engine/*": ["./packages/db-engine/src/*"]
     }
   }
 }
