@@ -14,6 +14,54 @@ the **namespaced** tag `midnite-studio/vX.Y.Z`. See `CLAUDE.md` and
 [`packages/shared/src/release.ts`](../packages/shared/src/release.ts) for the URLs every surface
 reads.
 
+## The first release has not happened yet — and the flow could not have cut it
+
+Verified 2026-09-06 (Phase 53 Theme F), and each line is a command, so re-check rather than trust:
+
+| Link in the chain | State | How to check |
+|---|---|---|
+| Source tags here | **0** | `git tag \| wc -l` |
+| Releases in `midnite-apps` | **0** | `gh release list --repo bilo-io/midnite-apps` |
+| `midnite-studio/version.json` | `"version": null` | `curl -fsSL https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/version.json` |
+| `midnite-studio/feed/` | `README.md` only | `gh api repos/bilo-io/midnite-apps/contents/midnite-studio/feed --jq '.[].name'` |
+| `RELEASES_REPO_TOKEN` | **not created** | Settings ▸ Secrets ▸ Actions, in this repo |
+
+**The pre-release failure mode, confirmed.** `install.sh` resolves the version with
+`sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'` — a pattern that matches only a
+*quoted* string. The live feed's `"version": null` is unquoted, so `$version` comes back empty and
+the script exits on `Midnite Studio has no published release yet.` before downloading anything. That
+is the "before" the first release changes, and it is a property of the two files rather than of the
+machine you run it on — the feed and the shipped `install.sh` above are the whole proof.
+
+**A rehearsal of the flow planned the wrong version.** Running
+`/midnite-release-prep`'s step 2 + 3 against this repo's real state — 799 commits, **0** tags, every
+package `0.1.0` — falls back to the root commit, meets a `feat`, categorises as `minor`, and plans
+**v0.2.0**. Phase 53 settled on **v0.1.0**: the first release ships what is already in the tree.
+`/midnite-release-complete` fared no better — it reads `previousVersions` from "the last `v*` tag's
+tree", and there is no such tree. Both skills now carry an explicit `previous = null` branch and
+call [`planRelease`](../packages/shared/src/version.ts), which returns
+`{ firstRelease, level, next, tags }` in one call so the case cannot be dropped again.
+
+### What is left, and it needs a human
+
+Nothing below is automatable from a session — each step is irreversible, cross-repo, or needs a
+machine with no checkout of this repo:
+
+1. **Create `RELEASES_REPO_TOKEN`** (see the table below). Until it exists `release.yml` cannot
+   publish, and its `publish-feed` job is the one that fails *quietly* — the Release still looks
+   published.
+2. **Run `/midnite-release-prep`, review the branch, then `/midnite-release-complete`.** Expect
+   `firstRelease: true`, `level: none`, no version bumps, and the single source tag `v0.1.0`.
+3. **Confirm all four links flipped** — the tag here, the `midnite-studio/v0.1.0` Release with both
+   the dmg and the zip, `version.json` rewritten to `0.1.0` by the receiving repo's
+   `release-feed.yml`, and `feed/latest-mac.yml` committed *after* the Release.
+4. **Install it as a stranger would**, on a machine with no checkout:
+   `curl -fsSL https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/install.sh | sh`
+   — then check no Gatekeeper prompt, that `midnite-studio` works on the CLI, and that it launches
+   under `env -i` with a bare `PATH`.
+5. **Edit the receiving repo's `midnite-studio/README.md`** to drop its *"No public release yet."*
+   banner (and, per *Still open* below, to state that builds are ad-hoc signed).
+
 ## Secrets
 
 All six live in **this repo's** Settings ▸ Secrets and variables ▸ Actions — `release.yml` is what
