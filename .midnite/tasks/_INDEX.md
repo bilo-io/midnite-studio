@@ -79,7 +79,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [66 · API Client](phases/phase-66-api-client.md) | ◻ TODO | — | 0/58 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
 | [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | — | 0/49 | `░░░░░░░░░░` | 0% | A B C D | E |
-| [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 38/72 | `█████░░░░░` | 53% | — | E F G |
+| [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 38/72 | `█████░░░░░` | 53% | E F | G |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | 🔄 WIP | x1 | 0/32 | `░░░░░░░░░░` | 0% | A B C | — |
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | 🔄 WIP | — | 0/33 | `░░░░░░░░░░` | 0% | A B C | — |
 | [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 0/94 | `░░░░░░░░░░` | 0% | A B D E | C F G H I J |
