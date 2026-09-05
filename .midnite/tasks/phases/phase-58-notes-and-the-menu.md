@@ -303,7 +303,7 @@ than a second implementation**.
       prompt contains no backticks; `autoSend` is `false`; a handoff mutates only `status`; the
       button is disabled for a note whose repo is absent.
 
-### E — The quick-access menu (M)
+### E — The quick-access menu (M) · ✅ DONE (PR #183, 2026-09-05)
 
 - [x] Add [`packages/app/src/features/quick-access/quick-access-menu.tsx`](../../../packages/app/src/features/quick-access/quick-access-menu.tsx):
       `export function QuickAccessMenu({ onClose }: { onClose: () => void }): JSX.Element` — one
@@ -348,7 +348,7 @@ than a second implementation**.
       disabled mnemonics no-opping **without closing**; arrow roaming; the `quickAccessOpen` gate
       being set while open and cleared on close.
 
-### F — Commands, keybindings and the doc sync (S)
+### F — Commands, keybindings and the doc sync (S) · ✅ DONE (PR #183, 2026-09-05)
 
 - [x] In [`shared/src/keybindings.ts:128`](../../../packages/shared/src/keybindings.ts), re-point
       `fab.toggle`: `Mod+l` now **opens the quick-access menu**, not the Loops panel. Change its
@@ -378,7 +378,7 @@ than a second implementation**.
       [`GEMINI.md:175`](../../../GEMINI.md) — the same line number in all three. All three change
       together, per the rule at the top of each.
 
-### G — Verification, tests and the visual pass (M)
+### G — Verification, tests and the visual pass (M) · ✅ DONE (PR #183, 2026-09-05) — the final human-only bullet (living with it for a few days) stays open by design
 
 - [x] Playwright: the menu opens from **both** entry points and renders the same four rows.
 - [x] Playwright: `Mod+L` then `N` opens Notes; `Mod+L` then `L` opens the Loops panel; `Mod+L` then
