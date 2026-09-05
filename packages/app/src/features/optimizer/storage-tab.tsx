@@ -341,12 +341,10 @@ function firstNonEmptyLine(text: string): string {
  * path. Gated on the Theme C three-way AND; renders nothing otherwise, and
  * the tab is exactly as Phase 72 left it above.
  *
- * Deliberately has no `SegmentedBar` of its own: Phase 72 Theme D generalises
- * that component (`color`/`name` injected as functions over `Id extends
- * string`) and this section is meant to consume it, not fork a second
- * implementation. Until that lands, the list renders without a bar rather
- * than generalising the component independently — see the phase doc's Theme
- * E, first bullet.
+ * Consumes Phase 72 Theme D's generic `SegmentedBar` (`color`/`name` injected
+ * as functions over `Id extends string`) rather than forking a second
+ * implementation — `label="System caches by ecosystem"`, a distinct
+ * accessible name from the Storage tab's own two bars above it.
  */
 function SystemCachesSection() {
   const optimizerEnabled = useUiStore((s) => s.optimizerEnabled);
@@ -452,6 +450,15 @@ function SystemCachesSection() {
               minimums.
             </p>
           ) : null}
+          <SegmentedBar
+            label="System caches by ecosystem"
+            total={result.totalBytes}
+            segments={ECOSYSTEM_ORDER.filter((ecosystem) => (result.byEcosystem[ecosystem] ?? 0) > 0).map(
+              (ecosystem) => ({ id: ecosystem, bytes: result.byEcosystem[ecosystem] ?? 0 }),
+            )}
+            color={ecosystemColor}
+            name={(id) => ECOSYSTEM_LABELS[id]}
+          />
           <ul className="space-y-1">
             {result.items.map((item) => (
               <li

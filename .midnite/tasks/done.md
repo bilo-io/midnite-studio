@@ -12,6 +12,14 @@ in Theme F, both left `[ ]` rather than forced: `detectors.test.ts` has no asser
 above already corrected it to the real 28 — and no test enforces either number), and the human
 pass over a real Rust/Gradle/Python checkout is unautomatable and was not exercised this session.
 
+Rebasing this PR onto `main` (which had gained both Phase 73's PR #193 and Phase 74's PR #194 in
+the interim) surfaced and closed three cross-phase items that were only waiting on Theme D landing:
+Phase 73 Theme E's `SegmentedBar` consumption (its System section now renders
+`label="System caches by ecosystem"`), and Phase 74 Theme A's `category-palette.ts` entries for
+`'media'` (hue `135`, not the `120` Phase 74's own doc had proposed — `buildOutput` already sits at
+`115`, only 5° away) — which in turn confirmed Phase 74 Theme D's Plex-rows item was already
+satisfied by the merge, needing no new code. All three tracker docs updated in the same commit.
+
 - [x] **D** — The two hand-maintained `CATEGORY_ORDER` copies in `smart-scan-tab.tsx` and
       `storage-tab.tsx` collapse into one exported const in `category-palette.ts`, which also
       gains `ECOSYSTEM_ORDER`/`ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` and an exported `Hsl` type.

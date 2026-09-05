@@ -814,17 +814,12 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
 
 ### E — UI: a System section that never looks like "your project's stuff" (M)
 
-**Landed (PR #193) minus the two items below, both genuinely blocked on [Phase
-72](phase-72-every-build-systems-leftovers.md) Theme D, which had not merged at the time this PR
-was built (confirmed by inspection: `segmented-bar.tsx` was still bound to `ScanCategory`, and
-`category-palette.ts` had no `ECOSYSTEM_HUES`/`ECOSYSTEM_LABELS` map).** Per this item's own
-"If Phase 72 Theme D has not landed" fallback, the System section renders as a flat list with no
-bar and no per-ecosystem colour — everything else in this theme (gating, all five states, the
-banner, the `blastRadiusKind` arm, row shape, icons, mock bridge, e2e shots) is built and tested.
-Whoever picks up Phase 72 Theme D afterward: this item and the one below are the only remaining
-work in Theme E.
+**✅ DONE (PR #193 + PR #196, 2026-09-06).** PR #193 landed everything except the two items below,
+which were blocked on Phase 72 Theme D; Theme D landed in PR #196 (the same PR that resolved this
+theme's two residual items, since it was already touching `storage-tab.tsx`/`category-palette.ts`
+for its own work).
 
-- [ ] **Consume [Phase 72](phase-72-every-build-systems-leftovers.md)'s generic `SegmentedBar` —
+- [x] **Consume [Phase 72](phase-72-every-build-systems-leftovers.md)'s generic `SegmentedBar` —
       do not generalise it here.** Phase 72 Theme D turns
       [`segmented-bar.tsx`](../../../packages/app/src/features/optimizer/components/segmented-bar.tsx)
       into `SegmentedBar<Id extends string>({ segments, total, label, color, name })` where
@@ -842,17 +837,16 @@ work in Theme E.
     generalising the component independently.
   - **Acceptance:** the System bar renders with `label="System caches by ecosystem"` and no edit to
     `segmented-bar.tsx` appears in this phase's diff.
-- [ ] Add **one** `ECOSYSTEM_HUES` entry and **one** `ECOSYSTEM_LABELS` entry, for `'go'`, to
+- [x] Add **one** `ECOSYSTEM_HUES` entry and **one** `ECOSYSTEM_LABELS` entry, for `'go'`, to
       [`category-palette.ts`](../../../packages/app/src/features/optimizer/category-palette.ts) —
       Phase 72 Theme D creates both `Record<Ecosystem, …>` maps and fills the other ten members.
-  - **`'go'` → hue `195`** (Go's own cyan), `ECOSYSTEM_LABELS.go = 'Go'`.
-  - Phase 72 also adds `category-palette.test.ts`, which asserts every `ECOSYSTEM_HUES` hue sits
-    **≥12° (shortest arc)** from every `CATEGORY_HUES` hue and every `METRIC_HUES` hue (cpu 210,
-    memory 280, gpu 160, disk 35). `195` sits inside the free 192–197 band Phase 72 published and is
-    unclaimed; picking any other value is likely to fail that test rather than a review.
-  - Both maps are exhaustive `Record<Ecosystem, …>`, so adding `'go'` to `EcosystemSchema` without
-    these two entries is a **typecheck** failure — they land in the same commit as Decision 8's
-    enum edit, not later.
+  - Already satisfied by construction: Theme D built both maps fresh, as exhaustive `Record<Ecosystem,
+    …>` literals, so `'go'` (already in `EcosystemSchema` by the time Theme D was written) had to be
+    present for the file to typecheck at all — no separate edit was needed.
+  - **Landed value diverges from this doc's suggestion**: `go` → hue `315`, not the `195` proposed
+    here. Both are valid (`category-palette.test.ts`'s ≥12° separation holds either way); Theme D's
+    own author picked `315` when filling the table and the test doesn't prefer one over the other, so
+    this stays as shipped rather than being changed to match a doc that was itself a proposal.
 - [x] Add a "System" section to
       [`storage-tab.tsx`](../../../packages/app/src/features/optimizer/storage-tab.tsx), gated on the
       Theme C three-way AND and rendered only when true; otherwise the tab is exactly as Phase 72
@@ -1097,11 +1091,13 @@ work in Theme E.
 - [x] `ipc.test.ts` covers all five new channels by name and asserts each has a schema.
 - [x] `optimizer-store.test.ts`'s `localStorage.length === 0` still passes; `persisted-keys.test.ts`
       passes with both new preference keys.
-- [ ] Storage tab shots refreshed, gate-on state, light and dark — done for the shots themselves
-      (`optimizer-storage-{light,dark}.png` re-shot, `optimizer-system-caches-{light,dark}.png`
-      added under `docs/screenshots/p73-def/`), left unchecked because "the two bars carrying
-      distinct accessible names" does not apply yet — the System section has no bar of its own
-      until Phase 72 Theme D's generic `SegmentedBar` lands (see Theme E's own note above).
+- [ ] Storage tab shots refreshed, gate-on state, light and dark, **now that the System section has
+      its own bar** (`optimizer-storage-{light,dark}.png` and `optimizer-system-caches-{light,dark}.png`
+      were shot back when the section had no bar — Theme E's `SegmentedBar` consumption landed in
+      PR #196, so those are stale). Re-shoot once picked up; the two bars' accessible names
+      (`Reclaimable storage by ecosystem` vs `System caches by ecosystem`) are already distinct by
+      construction, verified by `moon run :typecheck :lint :test`, but not yet asserted by a
+      dedicated e2e case or re-captured in a screenshot.
 - [ ] **Human:** real-machine pass per Theme F.
 - [ ] **Open, for a human:** the by-hand symlink case in Theme F's last item — the one refusal no
       unit test proves end to end.

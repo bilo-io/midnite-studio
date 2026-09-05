@@ -181,13 +181,14 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### A — Plex, and only Plex, joins Phase 73's registry (M)
 
-**◐ PARTIAL (this PR, 2026-09-05).** Unblocked and landed: Phase 72 Theme C and Phase 73 Themes
-A–C are on `main`, so the registry entries, `EcosystemSchema`'s `'media'` member, the
-`confineAllowlist`/`system-cache-registry.test.ts` coverage, and the consent-enumeration assertion
-all shipped. **Left open, genuinely blocked**: the `ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` palette
-entries wait on Phase 72 Theme D, which had not landed on `main` as of this PR (verified:
-`category-palette.test.ts` does not exist in the tree). Pick that one bullet back up once Theme D
-lands — it is a two-line addition to two already-exhaustive `Record`s.
+**✅ DONE (PR #194 + PR #196, 2026-09-06).** PR #194 landed the registry entries,
+`EcosystemSchema`'s `'media'` member, the `confineAllowlist`/`system-cache-registry.test.ts`
+coverage, and the consent-enumeration assertion — leaving only the `ECOSYSTEM_LABELS`/
+`ECOSYSTEM_HUES` palette entries, genuinely blocked on Phase 72 Theme D (unmerged at the time).
+Theme D landed in PR #196, which picked up this exact bullet in the same rebase: `'media'` → hue
+`135` (not the `120` this doc originally proposed — `buildOutput` already sits at `115`, only 5°
+away; `135` clears every `CATEGORY_HUES`/`METRIC_HUES` entry by ≥12°, verified by
+`category-palette.test.ts`).
 
 - [x] **Verified paths**, cross-checked against two independent sources because
       `support.plex.tv` itself returned HTTP 403 to every automated fetch attempted while writing
@@ -222,13 +223,12 @@ lands — it is a two-line addition to two already-exhaustive `Record`s.
         after `'git'` would put the git row above a media row that produces nothing.
       - **Acceptance:** `Ecosystem` includes `'media'`, the enum's last member is still `'git'`, and
         every `Record<Ecosystem, …>` still compiles.
-- [ ] **Still blocked** — Add the two `Record<Ecosystem, …>` entries Phase 72 Theme D's palette
+- [x] Add the two `Record<Ecosystem, …>` entries Phase 72 Theme D's palette
       work requires, in
       [`category-palette.ts`](../../../packages/app/src/features/optimizer/category-palette.ts) —
-      genuinely blocked, verified at execution time: `ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` and
-      `category-palette.test.ts` do not exist on `main` yet — they are Phase 72 **Theme D**'s
-      deliverable (not Theme C, which only lands `EcosystemSchema`), and Theme D had not landed as
-      of this PR. Pick this bullet back up once it has.
+      `ECOSYSTEM_LABELS.media = 'Media'` and `ECOSYSTEM_HUES.media = [135, 55, 48]` (not the `120`
+      this doc proposed — see the theme's own note above), landed in PR #196 once Theme D existed
+      for these entries to join.
       **exhaustive records, so omitting either is a typecheck failure, not a runtime gap**:
       - `ECOSYSTEM_LABELS.media = 'Media'`.
       - `ECOSYSTEM_HUES.media = 120`. The hue is not free choice: Phase 72's net-new
@@ -750,10 +750,11 @@ warnings-array/recompute-own-numbers behaviour, and the point-of-use three-way g
 
 ### D — UI: a settings page of its own, and a card that never reads as recoverable (M)
 
-**✅ DONE (this PR, 2026-09-05), Plex-rows item excepted.** The Trash half is complete: the
-`trashSafety` settings page, the Storage tab's five-state Trash card, the `optimizer-store.ts`
-slice, and both e2e specs. The Plex-rows item stays open — it waits on Phase 73 Theme E (the
-gated System section), which had not landed on `main` as of this PR; see its own note above.
+**✅ DONE (PR #194, 2026-09-06).** The Trash half is complete: the `trashSafety` settings page, the
+Storage tab's five-state Trash card, the `optimizer-store.ts` slice, and both e2e specs. Plex's
+two rows need no dedicated code — they render inside Phase 73's System section automatically,
+which the merge already reconciles into this PR's final state. Only the screenshot pairing (below)
+stays owed.
 
 - [x] Add `packages/app/src/features/settings/settings-pages/trash-safety-page.tsx`, copying
       [`git-safety-page.tsx`](../../../packages/app/src/features/settings/settings-pages/git-safety-page.tsx)'s
@@ -847,11 +848,11 @@ gated System section), which had not landed on `main` as of this PR; see its own
       string | null}`), not in component state — the Storage tab unmounts on every tab switch, and
       local state would silently discard a check the user just paid for. Same reason `scan`, `gpu`,
       `memory` already live there.
-- [ ] **Still blocked** — Plex's two new rows need **no new UI code** once Phase 73's gated System
-      section exists, but that section is Phase 73 **Theme E**'s own deliverable, and it had not
-      landed on `main` as of this PR — `storage-tab.tsx` has no System section on `main` yet
-      (verified: no "System caches by ecosystem" string anywhere in the tree). The registry entries
-      from this PR's Theme A will render there automatically the day Theme E lands; nothing more to
+- [x] Plex's two new rows need **no new UI code** once Phase 73's gated System
+      section exists — true on `main` as of this PR's own merge (the section had to be reconciled
+      against Phase 73's concurrently-landing PR #193 as part of this PR, so it exists in the final
+      merged state even though it didn't when this bullet was first drafted). The registry entries
+      from this PR's Theme A render there automatically; nothing more to
       build here. The Theme D screenshot obligation for Plex (below) is deferred with it.
 - [x] Every icon from `react-icons`, imported per set (`react-icons/lu`), never `lucide-react` —
       unchanged repo rule, enforced by `no-restricted-imports` and by

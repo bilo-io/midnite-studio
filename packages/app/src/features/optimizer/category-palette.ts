@@ -91,12 +91,14 @@ export const ECOSYSTEM_LABELS: Record<Ecosystem, string> = {
   swift: 'Swift / Xcode',
   ruby: 'Ruby',
   go: 'Go',
+  media: 'Media',
   git: 'Git',
 };
 
 /**
- * Eleven hues (one per `EcosystemSchema` member, `'go'` included — it landed
- * via Phase 73 onto this same enum), each ≥12° from every `CATEGORY_HUES` and
+ * Twelve hues (one per `EcosystemSchema` member — `'go'` landed via Phase 73,
+ * `'media'` via Phase 74, both onto this same enum), each ≥12° from every
+ * `CATEGORY_HUES` and
  * `METRIC_HUES` entry (asserted in `category-palette.test.ts`). Chosen by
  * scanning the hue circle for the gaps those two tables leave open, assigned
  * in `EcosystemSchema`'s own order — not by trying to match each tool's brand
@@ -116,6 +118,10 @@ export const ECOSYSTEM_HUES: Record<Ecosystem, Hsl> = {
   swift: [246, 55, 58],
   ruby: [300, 60, 55],
   go: [315, 55, 55],
+  // Phase 74's doc proposed 120, but `buildOutput` already sits at 115
+  // (only 5° away) — 135 clears every CATEGORY_HUES/METRIC_HUES entry by
+  // >=12deg (20deg from buildOutput, the nearest).
+  media: [135, 55, 48],
   git: [330, 60, 55],
 };
 
