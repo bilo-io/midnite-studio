@@ -523,8 +523,22 @@ export type MockFixtures = {
     scanResult?: {
       totalBytes: number;
       byCategory: Record<string, number>;
-      items: Array<{ path: string; bytes: number; category: string; repoId: string | null }>;
+      /** Phase 72 Theme C — the ecosystem-grouped totals alongside `byCategory`. */
+      byEcosystem?: Record<string, number>;
+      /** Phase 72 Theme C — `label`/`producer` per matched `detectorId`. */
+      detectors?: Record<string, { label: string; producer: string }>;
+      items: Array<{
+        path: string;
+        bytes: number;
+        category: string;
+        repoId: string | null;
+        detectorId?: string;
+        ecosystem?: string;
+        reclaim?: string;
+      }>;
       truncated: boolean;
+      /** Phase 72 Theme E fills this; empty until then. */
+      truncatedRoots?: string[];
     };
     gpu?: { model: string | null; vramBytes: number | null; loadPercent: number | null };
     processes?: Array<{
@@ -2395,11 +2409,16 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       }),
       optimizer: {
         scan: async () => {
-          const result = data.optimizer?.scanResult ?? {
+          const fixture = data.optimizer?.scanResult;
+          const result = {
             totalBytes: 0,
             byCategory: {},
+            byEcosystem: {},
+            detectors: {},
             items: [],
             truncated: false,
+            truncatedRoots: [],
+            ...fixture,
           };
           // Real progress is the walker's own job in main; the mock fires
           // every registered handler once at 100% so the store's

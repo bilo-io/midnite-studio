@@ -6,8 +6,12 @@ import { formatBytes } from '../monitor/format-bytes';
 import { SegmentedBar } from './components/segmented-bar';
 import { CATEGORY_LABELS, categoryColor } from './category-palette';
 
+// Phase 72 Theme D groups this list by ecosystem; until it lands, this stays
+// the same flat four-of-five categories it always was (`toolCache` items are
+// found but not yet listed here — Theme C's own sequencing note says that is
+// safe on its own).
 const CATEGORY_ORDER: readonly ScanCategory[] = [
-  'nodeModules',
+  'dependencies',
   'buildOutput',
   'staleWorktree',
   'looseObjects',
