@@ -158,6 +158,11 @@ jobs:
     # write. `packages: read` isn't needed here; this job never installs.
     permissions:
       contents: write
+    # `publish-feed` (Phase 53 Theme E) needs the same version/tag derivation
+    # without recomputing it from `GITHUB_REF` a second time.
+    outputs:
+      source_tag: ${{ steps.version.outputs.source_tag }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Download installers
         uses: actions/download-artifact@v4
@@ -197,8 +202,11 @@ jobs:
         id: version
         run: |
           source_tag="${GITHUB_REF#refs/tags/}"
-          echo "source_tag=$source_tag" >> "$GITHUB_OUTPUT"
-          echo "release_tag=midnite-studio/$source_tag" >> "$GITHUB_OUTPUT"
+          {
+            echo "source_tag=$source_tag"
+            echo "release_tag=midnite-studio/$source_tag"
+            echo "version=${source_tag#v}"
+          } >> "$GITHUB_OUTPUT"
 
       # Cross-repo publish needs a fine-grained PAT with Contents:write on
       # bilo-io/midnite-apps — the default GITHUB_TOKEN is scoped to THIS
@@ -228,3 +236,109 @@ jobs:
             artifacts/**/*.zip
             artifacts/**/*.blockmap
             artifacts/**/latest-mac.yml
+
+  # Phase 53 Theme E. This app's feed is the `generic` provider (see
+  # electron-builder.yml's `publish:` block and CLAUDE.md), so unlike
+  # midnite's `github`-provider feed — a release asset, published the moment
+  # the assets are attached — `latest-mac.yml` here is a COMMITTED FILE in the
+  # receiving repo, and attaching it to nothing above never publishes it.
+  # `feed/README.md` in that repo already names the failure mode: a release
+  # that updates one feed (version.json, automatic via that repo's own
+  # release-feed.yml, triggered off the `release` job above) and not the
+  # other "leaves either the installer or the in-app updater pinned to the
+  # previous version."
+  #
+  # `needs: release` is load-bearing, not incidental: `latest-mac.yml`'s
+  # `path`/`sha512` name the release ASSETS, which must already be
+  # downloadable before this commits — committing first would publish a feed
+  # every running app finds, offers, and fails to download.
+  publish-feed:
+    name: Publish feed manifest + changelog mirror
+    needs: release
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Mirrors the receiving repo's own release-feed.yml guard on version.json
+    # — two midnite-studio releases close together must not race on the same
+    # push to midnite-apps' main.
+    concurrency:
+      group: publish-feed-midnite-studio
+      cancel-in-progress: false
+    steps:
+      - name: Checkout this repo (for CHANGELOG.md and the mirror scripts)
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # scripts/publish-feed-changelog.mjs imports extractChangelogSection
+      # from the BUILT package (packages/shared/dist/release.js) rather than
+      # duplicating its parsing — that function already has nine tests.
+      - name: Build shared
+        run: pnpm exec moon run shared:build
+
+      - name: Download the manifest built earlier
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-arm64
+          path: artifacts
+
+      # Cross-repo checkout, into a subdirectory — needs the same PAT as the
+      # `release` job above, since the default GITHUB_TOKEN cannot write to a
+      # different repo.
+      - name: Checkout bilo-io/midnite-apps
+        uses: actions/checkout@v4
+        with:
+          repository: bilo-io/midnite-apps
+          token: ${{ secrets.RELEASES_REPO_TOKEN }}
+          path: midnite-apps
+
+      - name: Commit the feed manifest
+        run: |
+          set -euo pipefail
+          mkdir -p midnite-apps/midnite-studio/feed
+          cp artifacts/latest-mac.yml midnite-apps/midnite-studio/feed/latest-mac.yml
+
+      # The THIRD propagation target, not a second — release.ts's
+      # RELEASE_CHANGELOG_RAW_URL points the in-app release-notes popover at
+      # this exact file. A release that updates the feed but not this mirror
+      # ships an empty notes panel for its own version. `has_section=false` on
+      # a lockstep release with a "docs/chore only" section is the normal
+      # case Theme B's own `## [Unreleased]`-reseed leaves behind — not
+      # every tag necessarily has curated notes, and this step does not fail
+      # the job over that.
+      - name: Extract + mirror this version's changelog section
+        id: notes
+        run: |
+          node scripts/publish-feed-changelog.mjs \
+            CHANGELOG.md \
+            "${{ needs.release.outputs.version }}" \
+            midnite-apps/midnite-studio/CHANGELOG.md \
+            "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-studio/v${{ needs.release.outputs.version }}" \
+            "$(date -u +%Y-%m-%d)"
+
+      - name: Commit + push
+        working-directory: midnite-apps
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add midnite-studio/feed/latest-mac.yml midnite-studio/CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "::notice::feed manifest + changelog already current for ${{ needs.release.outputs.version }}"
+            exit 0
+          fi
+          git commit -m "chore(midnite-studio): publish feed manifest + changelog for v${{ needs.release.outputs.version }}"
+          git push
