@@ -113,24 +113,35 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
           {DEFAULT_LOOPS.map((loop, index) => {
             const Icon = loopIcon(loop.icon);
             const status = statuses[index];
+            const isSelected = activeFabTab === loop.id;
             return (
               <button
                 key={loop.id}
+                data-fab-tab={loop.id}
+                data-selected={isSelected ? 'true' : 'false'}
                 onClick={() => onTabClick(loop.id as FabTab)}
-                className={`relative flex-1 flex flex-col items-center justify-center gap-1 overflow-hidden py-2 transition-colors ${
-                  activeFabTab === loop.id
-                    ? 'bg-accent text-accent-foreground'
-                    : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
+                className={`tab-loop-button relative flex-1 flex flex-col items-center justify-center gap-1 overflow-hidden py-2 ${
+                  isSelected ? 'is-selected' : ''
                 }`}
                 title={loop.label}
               >
                 {/*
-                  A tab with a live session cascades the same shimmer sweep
-                  the lock-screen status pills use (`.pill-shimmer`), just
-                  tinted to the loop's own colour and staggered by tab index
-                  instead of by distance from the middle pill.
+                  When a loop is running on this tab: rotating inner gradient arc
+                  with glow, constrained to this mode's sub-spectrum.
                 */}
                 {status?.running ? (
+                  <span
+                    aria-hidden
+                    data-testid={`loop-active-arc-${loop.id}`}
+                    data-fab-tab={loop.id}
+                    className="tab-loop-active-arc pointer-events-none absolute inset-0"
+                  />
+                ) : null}
+                {/*
+                  Tabs without a loop running carry the gentle shimmer sweep,
+                  half as frequent and moving half as fast.
+                */}
+                {!status?.running ? (
                   <span
                     aria-hidden
                     data-testid={`loop-shimmer-${loop.id}`}
@@ -145,12 +156,12 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                 ) : null}
                 <Icon className={`relative h-4 w-4 ${loop.color}`} />
                 <span
-                  className={`relative text-xs ${activeFabTab === loop.id ? 'font-semibold' : 'font-medium'} ${loop.color}`}
+                  className={`relative text-xs ${isSelected ? 'font-semibold' : 'font-medium'} ${loop.color}`}
                 >
                   {loop.label}
                 </span>
                 {/* The active tab's title carries its own underline sliver, in the loop's colour. */}
-                {activeFabTab === loop.id ? (
+                {isSelected ? (
                   <span
                     aria-hidden
                     className={`absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-current ${loop.color}`}

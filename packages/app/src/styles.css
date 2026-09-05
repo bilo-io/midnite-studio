@@ -632,13 +632,123 @@ html[data-motion='reduced'] .screensaver-title {
  * `.pill-shimmer` and `.tab-loop-shimmer` below need.
  */
 
-/* FAB Loop Tab Shimmer — a running loop's tab cascades the same sweep as the
- * screensaver pills above, tinted per-loop via an inline gradient rather than
- * the pills' `hueVar`, and staggered by tab index (`--tab-i`) instead of
- * distance from a middle pill. */
+/* FAB Loop Tab Buttons — color-coded hover and selected backgrounds.
+ * Matches each tab's theme color via `--fab-spec-3` (the mode's spectrum center),
+ * keeping subtle transparency even when selected. */
+.tab-loop-button {
+  background-color: transparent;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.tab-loop-button:hover {
+  background-color: rgb(var(--fab-spec-3) / 0.12);
+}
+
+.tab-loop-button.is-selected {
+  background-color: rgb(var(--fab-spec-3) / 0.22);
+}
+
+.tab-loop-button.is-selected:hover {
+  background-color: rgb(var(--fab-spec-3) / 0.28);
+}
+
+/* FAB Loop Running Tab Arc — a running tab wears a rotating inner gradient
+ * arc with glow, constrained to that mode's specific sub-spectrum
+ * ([--fab-arc-from, --fab-arc-to]).
+ *
+ * `::before` paints the rotating 1.5px inner border arc.
+ * `::after` paints the rotating blurred inner rim glow. */
+.tab-loop-active-arc {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.tab-loop-active-arc::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.5px solid transparent;
+  background: conic-gradient(from var(--loop-glow-angle, 0deg), var(--rainbow-ramp)) border-box;
+  mask-image:
+    conic-gradient(
+      from calc(var(--loop-glow-angle, 0deg) + var(--fab-arc-from, 0deg)),
+      #000 0deg,
+      #000 calc(var(--fab-arc-to, 360deg) - var(--fab-arc-from, 0deg)),
+      transparent calc(var(--fab-arc-to, 360deg) - var(--fab-arc-from, 0deg) + 30deg),
+      transparent 330deg,
+      #000 360deg
+    ),
+    radial-gradient(ellipse 95% 95% at 50% 50%, transparent 50%, #000 85%);
+  -webkit-mask-image:
+    conic-gradient(
+      from calc(var(--loop-glow-angle, 0deg) + var(--fab-arc-from, 0deg)),
+      #000 0deg,
+      #000 calc(var(--fab-arc-to, 360deg) - var(--fab-arc-from, 0deg)),
+      transparent calc(var(--fab-arc-to, 360deg) - var(--fab-arc-from, 0deg) + 30deg),
+      transparent 330deg,
+      #000 360deg
+    ),
+    radial-gradient(ellipse 95% 95% at 50% 50%, transparent 50%, #000 85%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+  animation: loop-glow-spin 4s linear infinite;
+}
+
+.tab-loop-active-arc::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(from var(--loop-glow-angle, 0deg), var(--rainbow-ramp));
+  filter: blur(4px);
+  opacity: 0.8;
+  mask-image:
+    conic-gradient(
+      from calc(var(--loop-glow-angle, 0deg) + var(--fab-arc-from, 0deg)),
+      #000 0deg,
+      #000 calc(var(--fab-arc-to, 360deg) - var(--fab-arc-from, 0deg)),
+      transparent calc(var(--fab-arc-to, 360deg) - var(--fab-arc-from, 0deg) + 30deg),
+      transparent 330deg,
+      #000 360deg
+    ),
+    radial-gradient(ellipse 95% 95% at 50% 50%, transparent 35%, #000 80%);
+  -webkit-mask-image:
+    conic-gradient(
+      from calc(var(--loop-glow-angle, 0deg) + var(--fab-arc-from, 0deg)),
+      #000 0deg,
+      #000 calc(var(--fab-arc-to, 360deg) - var(--fab-arc-from, 0deg)),
+      transparent calc(var(--fab-arc-to, 360deg) - var(--fab-arc-from, 0deg) + 30deg),
+      transparent 330deg,
+      #000 360deg
+    ),
+    radial-gradient(ellipse 95% 95% at 50% 50%, transparent 35%, #000 80%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+  animation: loop-glow-spin 4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .tab-loop-active-arc::before,
+  html:not([data-motion='full']) .tab-loop-active-arc::after {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .tab-loop-active-arc::before,
+html[data-motion='reduced'] .tab-loop-active-arc::after {
+  animation: none;
+}
+
+/* FAB Loop Tab Shimmer — only tabs without a running loop carry this gentle sweep,
+ * half as frequent and moving half as fast (4.8s period, 0.6s stagger). */
 .tab-loop-shimmer {
-  animation: pill-shimmer 2.4s ease-in-out infinite;
-  animation-delay: calc(var(--tab-i, 0) * 0.3s);
+  animation: pill-shimmer 4.8s ease-in-out infinite;
+  animation-delay: calc(var(--tab-i, 0) * 0.6s);
+  opacity: 0.35;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -927,28 +1037,44 @@ html[data-motion='reduced'] .landing-slide-in {
  */
 [data-fab-tab='medic'],
 [data-fab-tab='medic']::before,
-[data-fab-tab='medic'] .loop-run-glow {
+[data-fab-tab='medic']::after,
+[data-fab-tab='medic'] .loop-run-glow,
+[data-fab-tab='medic'] .tab-loop-active-arc,
+[data-fab-tab='medic'] .tab-loop-active-arc::before,
+[data-fab-tab='medic'] .tab-loop-active-arc::after {
   --fab-arc-from: -60deg;
   --fab-arc-to: 60deg;
 }
 
 [data-fab-tab='watchdog'],
 [data-fab-tab='watchdog']::before,
-[data-fab-tab='watchdog'] .loop-run-glow {
+[data-fab-tab='watchdog']::after,
+[data-fab-tab='watchdog'] .loop-run-glow,
+[data-fab-tab='watchdog'] .tab-loop-active-arc,
+[data-fab-tab='watchdog'] .tab-loop-active-arc::before,
+[data-fab-tab='watchdog'] .tab-loop-active-arc::after {
   --fab-arc-from: 0deg;
   --fab-arc-to: 120deg;
 }
 
 [data-fab-tab='automate'],
 [data-fab-tab='automate']::before,
-[data-fab-tab='automate'] .loop-run-glow {
+[data-fab-tab='automate']::after,
+[data-fab-tab='automate'] .loop-run-glow,
+[data-fab-tab='automate'] .tab-loop-active-arc,
+[data-fab-tab='automate'] .tab-loop-active-arc::before,
+[data-fab-tab='automate'] .tab-loop-active-arc::after {
   --fab-arc-from: 60deg;
   --fab-arc-to: 180deg;
 }
 
 [data-fab-tab='innovate'],
 [data-fab-tab='innovate']::before,
-[data-fab-tab='innovate'] .loop-run-glow {
+[data-fab-tab='innovate']::after,
+[data-fab-tab='innovate'] .loop-run-glow,
+[data-fab-tab='innovate'] .tab-loop-active-arc,
+[data-fab-tab='innovate'] .tab-loop-active-arc::before,
+[data-fab-tab='innovate'] .tab-loop-active-arc::after {
   --fab-arc-from: 120deg;
   --fab-arc-to: 240deg;
 }
