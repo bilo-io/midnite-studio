@@ -69,6 +69,16 @@ export function useKeybindings(runtime: CommandRuntime): void {
         return;
       }
 
+      // Same gate, for the quick-access menu (Phase 58 Theme E): while it is
+      // open, every OTHER bound chord falls through untouched rather than
+      // firing behind the menu's back. Its own single-letter mnemonics
+      // (`L`/`N`/`I`/`G`) are not in `DEFAULT_KEYMAP` at all — no unmodified
+      // single-letter chord is — so they were never at risk of double-firing
+      // here; this gate exists for every chord that IS bound (arrow keys,
+      // Escape-adjacent commands, a future addition) so the menu keeps
+      // uncontested ownership of the keyboard for as long as it is up.
+      if (useUiStore.getState().quickAccessOpen) return;
+
       const entry = runtime[binding.command];
       // Disabled is treated as unbound: the keystroke falls through to
       // whatever default the browser would have given it, rather than being

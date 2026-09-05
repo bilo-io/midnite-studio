@@ -115,9 +115,15 @@ export const COMMANDS = [
    */
   { id: 'browser.toggle', label: 'Toggle Browser', group: 'view', chord: 'Mod+b' },
   /**
-   * Mod+l — "L" for Loops, which is what the FAB panel actually is. It used to
-   * be Mod+m, picked by elimination back when g and b were the taken letters;
-   * a mnemonic that names the panel beats one that names the leftovers.
+   * Mod+l — "L" for Loops, which is what this used to open directly. Phase 58
+   * Theme E put a menu behind it instead (Loops, Notes, and two disabled
+   * future leaves, each one mnemonic-keystroke away once the menu is open),
+   * so the label changed with the behaviour: a stale "Toggle Loop Panel"
+   * would surface in the palette and the native menu bar, not just in source.
+   * It used to be Mod+m, picked by elimination back when g and b were the
+   * taken letters; a mnemonic that names the panel beats one that names the
+   * leftovers, and Loops is still one keystroke behind this one (`L`, then `L`
+   * again) rather than two.
    *
    * Listed in `TERMINAL_YIELD_COMMANDS` below, unlike the g/b toggles beside
    * it: `Mod` is Ctrl off macOS, and `Ctrl+L` there is the shell's own
@@ -125,7 +131,14 @@ export const COMMANDS = [
    * dispatcher grabs every bound chord app-wide, terminal focus included, so
    * `app` scope alone would swallow it.
    */
-  { id: 'fab.toggle', label: 'Toggle Loop Panel', group: 'view', chord: 'Mod+l' },
+  { id: 'fab.toggle', label: 'Quick Access', group: 'view', chord: 'Mod+l' },
+  /**
+   * Chord-free, like `view.refresh`/`sync.fetch` above: Notes is one of the
+   * quick-access menu's own rows (`N`), so a global chord for it would be a
+   * second way to reach the same place rather than a saved keystroke. Palette
+   * and menu-bar discoverability only.
+   */
+  { id: 'notes.toggle', label: 'Notes', group: 'view' },
   /**
    * Mod+Shift+a for the commit-activity timeline. Shifted because plain Mod+a
    * is select-all everywhere text can be selected, and `app` scope like the
