@@ -20,14 +20,39 @@ async function open(page: Page): Promise<void> {
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 }
 
-/** The rail's brand, which is the only home link visible in a framed window. */
+/**
+ * The rail's brand mark — the only one, since the title bar dropped its
+ * wordmark.
+ *
+ * Clicked through {@link goHome} rather than directly: the rail expands on
+ * hover, so the brand row is still moving when a synthetic click arrives at
+ * the coordinates it measured a moment earlier. A human never notices (the
+ * rail has finished expanding long before their finger comes down); a
+ * `locator.click()` lands on empty rail and the view never changes.
+ */
 function homeLink(page: Page) {
   return page.getByRole('button', { name: 'Go to the landing page' }).first();
 }
 
+/** Hover, let the rail finish expanding, then click what is now standing still. */
+async function goHome(page: Page): Promise<void> {
+  const link = homeLink(page);
+  await link.hover();
+  let box = await link.boundingBox();
+  await expect
+    .poll(async () => {
+      const next = await link.boundingBox();
+      const settled = !!next && !!box && next.x === box.x && next.width === box.width;
+      box = next;
+      return settled;
+    })
+    .toBe(true);
+  await link.click();
+}
+
 test('the brand mark navigates to the landing page', async ({ page }) => {
   await open(page);
-  await homeLink(page).click();
+  await goHome(page);
 
   const view = page.getByTestId('landing-view');
   await expect(view).toBeVisible();
@@ -37,7 +62,7 @@ test('the brand mark navigates to the landing page', async ({ page }) => {
 
 test('it keeps the lock screen frame around a four-slide carousel', async ({ page }) => {
   await open(page);
-  await homeLink(page).click();
+  await goHome(page);
 
   await expect(page.getByTestId('landing-brand')).toBeVisible();
   await expect(page.getByTestId('landing-brand')).toContainText('Midnite');
@@ -50,7 +75,7 @@ test('it keeps the lock screen frame around a four-slide carousel', async ({ pag
 
 test('a dot moves the middle and leaves the frame alone', async ({ page }) => {
   await open(page);
-  await homeLink(page).click();
+  await goHome(page);
 
   await page.getByTestId('landing-dot-1').click();
   await expect(page.getByTestId('landing-dot-1')).toHaveAttribute('aria-selected', 'true');
@@ -68,7 +93,7 @@ test('a dot moves the middle and leaves the frame alone', async ({ page }) => {
 
 test('the arrow keys wrap around the carousel', async ({ page }) => {
   await open(page);
-  await homeLink(page).click();
+  await goHome(page);
 
   /*
     Click the dot that is already selected first. It moves nothing (`goTo`
@@ -100,7 +125,7 @@ test('the arrow keys wrap around the carousel', async ({ page }) => {
 
 test('it is a view, not an overlay — the rail navigates away from it', async ({ page }) => {
   await open(page);
-  await homeLink(page).click();
+  await goHome(page);
   await expect(page.getByTestId('landing-view')).toBeVisible();
 
   /*
