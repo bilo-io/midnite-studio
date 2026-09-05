@@ -42,7 +42,8 @@ type RegisteredRepo = {
   repoRoot: string;
   /** The repo's registered (main-worktree) path — what `listRepos()` keys entries on. */
   mainRoot: string;
-  repoId: string;
+  /** The full descriptor, already fetched by this resolution — callers that need it (`repo.resolve`) reuse it rather than paying for a second `listRepos()`. */
+  descriptor: RepoDescriptor;
 };
 
 /**
@@ -82,7 +83,7 @@ async function resolveRegisteredRepo(
     };
   }
 
-  return { ok: true, repo: { repoRoot, mainRoot, repoId: registered.id } };
+  return { ok: true, repo: { repoRoot, mainRoot, descriptor: registered } };
 }
 
 /** The repo's GitHub remote, resolved from its worktree — same rule `githubForge` (`ipc/forge-handlers.ts`) applies from a `repoId`, applied here from a path since an MCP caller has no id. */
@@ -101,13 +102,7 @@ export async function repoResolve(
   const resolved = await resolveRegisteredRepo(input.repoPath);
   if (!resolved.ok) throw resolved.error;
 
-  const repos = await listRepos();
-  const repo = repos.find((r) => r.id === resolved.repo.repoId);
-  if (!repo) {
-    throw new McpToolError('not-found', `Repository "${resolved.repo.mainRoot}" is no longer open.`);
-  }
-
-  return { repo, branch: await currentBranch(resolved.repo.repoRoot) };
+  return { repo: resolved.repo.descriptor, branch: await currentBranch(resolved.repo.repoRoot) };
 }
 
 export async function statusGet(input: McpToolInput<'status.get'>): Promise<McpToolOutput<'status.get'>> {
