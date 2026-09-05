@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 20/70 | `███░░░░░░░` | 29% | A D E | C |
+| [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 65/70 | `█████████░` | 93% | A D E | — |
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 61/68 | `█████████░` | 90% | E | — |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 39/102 | `████░░░░░░` | 38% | D E F | — |
 | [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | ◻ TODO | x1 | 0/41 | `░░░░░░░░░░` | 0% | — | A B C D |
