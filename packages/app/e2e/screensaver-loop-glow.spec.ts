@@ -36,7 +36,10 @@ test('stays off while idle, lights up once a loop is running, off again once it 
   await lockScreen(page).click({ position: { x: 2, y: 2 } });
   await expect(lockScreen(page)).toHaveCount(0);
 
+  // The FAB opens the quick-access menu (Phase 58 Theme E); its `L` row opens
+  // the Loops panel this spec is actually after.
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
+  await page.keyboard.press('l');
   await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   const composer = page.getByTestId('loop-composer-guard');
   await composer.getByTestId('loop-start').click();

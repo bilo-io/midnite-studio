@@ -67,7 +67,10 @@ async function openWithAgent(page: Page): Promise<void> {
   await expect(page.getByTestId('status-bar')).toBeVisible();
 
   const fab = page.getByRole('button', { name: 'Open quick access panel' });
+  // The FAB opens the quick-access menu (Phase 58 Theme E); its `L` row opens
+  // the Loops panel this helper is actually after.
   await fab.click();
+  await page.keyboard.press('l');
   await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   await expect(page.getByTestId('titlebar-agent-count')).toBeVisible();
   /*
