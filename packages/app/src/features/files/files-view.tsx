@@ -5,6 +5,7 @@ import { LuFileText, LuFolderTree, LuRefreshCw } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
+import { PageDetachMark } from '../../components/page-detach-mark';
 import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
@@ -142,7 +143,8 @@ export function FilesView() {
         className={`flex shrink-0 flex-col ${tree.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}`}
         style={{ width: tree.current }}
       >
-        <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
+        <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-2">
+          <PageDetachMark role="files" />
           <span className="truncate text-xs font-semibold tracking-tight">{repoName}</span>
           <span className="ml-auto">
             <IconButton

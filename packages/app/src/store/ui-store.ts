@@ -6,6 +6,8 @@ import {
   type LoopModel,
   type LoopSchedule,
   type MetricId,
+  type PageWindowRole,
+  type PanelWindowRole,
 } from '@midnite/studio-shared';
 
 import type { ActivityTimeframe } from '../components/commit-activity-timeline/activity-buckets';
@@ -572,7 +574,22 @@ export type UiState = {
   reposDetached: boolean;
   fabDetached: boolean;
   browserDetached: boolean;
-  setDetached: (role: 'terminal' | 'repos' | 'fab' | 'browser', detached: boolean) => void;
+  setDetached: (role: PanelWindowRole, detached: boolean) => void;
+  /**
+   * Which *pages* currently have a popout window of their own — the five
+   * `PageWindowRole`s, as a plain array so it stays structurally comparable
+   * and cheap to relay.
+   *
+   * Deliberately NOT persisted, unlike the four panel flags above. A panel's
+   * flag has to survive a reload because it gates whether the docked slot
+   * renders at all, and a wrong value there is a missing panel. A page's does
+   * not gate anything — the main window renders the view either way — so the
+   * only thing a stale entry could do is draw the mark as "focus the detached
+   * window" for a window that no longer exists. `use-window-sync.ts` corrects
+   * it from main's registry on the first round trip regardless.
+   */
+  detachedPages: readonly PageWindowRole[];
+  setPageDetached: (role: PageWindowRole, detached: boolean) => void;
   /**
    * Whether the commit-activity timeline is shown. A flat boolean like
    * `browserOpen`; WHERE it shows is `activityTimelineOrientation`'s call —
@@ -1267,7 +1284,7 @@ adoptRenamedPersistKey('midnite-studio.ui', 'midnite-studio.ui');
 
 export const useUiStore = create<UiState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       activeView: 'graph',
       viewHistory: ['graph'],
       viewHistoryIndex: 0,
@@ -1355,6 +1372,16 @@ export const useUiStore = create<UiState>()(
         else if (role === 'repos') set({ reposDetached: detached });
         else if (role === 'fab') set({ fabDetached: detached });
         else set({ browserDetached: detached });
+      },
+      detachedPages: [],
+      setPageDetached: (role, detached) => {
+        const current = get().detachedPages;
+        if (current.includes(role) === detached) return;
+        set({
+          detachedPages: detached
+            ? [...current, role]
+            : current.filter((entry) => entry !== role),
+        });
       },
       activityTimelineOpen: false,
       activityTimelineStyle: 'bars',

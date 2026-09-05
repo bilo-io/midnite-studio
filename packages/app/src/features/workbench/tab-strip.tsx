@@ -58,7 +58,10 @@ export function TabStrip({
       // `overflow-x-auto` rather than a dropdown for the overflow: a horizontal
       // scroll keeps every tab reachable at any count without inventing a
       // second navigation surface for the rare case.
-      className="flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-card/40"
+      // The bottom border lives on the row `Workbench` wraps this in, so the
+      // detach mark beside the strip sits on the same rule rather than beside
+      // one.
+      className="flex shrink-0 items-stretch overflow-x-auto bg-card/40"
     >
       <Tab
         icon={LuDiff}
