@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
-
-import { useTheme } from '@bilo-io/ui/theme';
+import { useEffect, useState } from 'react';
 
 import { usePaletteStore } from './palette-store';
 import { resolveActivePalette } from './resolve-palette';
 import { STUDIO_TOKENS } from './theme-types';
+
+const resolvedFromDom = (): 'light' | 'dark' =>
+  document.documentElement.classList.contains('dark') ? 'dark' : 'light';
 
 /**
  * Pushes the active palette's `chrome` tokens onto `document.documentElement`
@@ -15,11 +16,27 @@ import { STUDIO_TOKENS } from './theme-types';
  * `:root`/`.dark` rules and `@bilo-io/shell`'s `html[data-accent]` overrides,
  * which is what makes this an extension of the existing systems rather than a
  * fork of either (Decision 7).
+ *
+ * NOT `useTheme()`: this hook is called directly in `App()`'s own body,
+ * which sits ABOVE `<ShellProviders>` in the tree — `App()` returns
+ * `<ShellProviders>…</ShellProviders>`, so `App()` itself is not a descendant
+ * of the `ThemeProvider` `ShellProviders` renders, and `useTheme()` throws
+ * outside one. The provider exposes no change event anyway, so this observes
+ * the `dark` class directly — the same `MutationObserver` pattern `app.tsx`'s
+ * own window-background sync, `broadcast-sync.ts` and `terminal-view.tsx`
+ * already use for the identical reason.
  */
 export function usePaletteSync(): void {
-  const { resolved } = useTheme();
+  const [resolved, setResolved] = useState(resolvedFromDom);
   const activePaletteId = usePaletteStore((s) => s.activePaletteId);
   const userPalettes = usePaletteStore((s) => s.userPalettes);
+
+  useEffect(() => {
+    if (typeof MutationObserver === 'undefined') return;
+    const observer = new MutationObserver(() => setResolved(resolvedFromDom()));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const palette = resolveActivePalette(resolved);
