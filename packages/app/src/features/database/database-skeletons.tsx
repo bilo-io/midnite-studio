@@ -25,3 +25,25 @@ export function ConnectionListSkeleton() {
     </LoadingRegion>
   );
 }
+
+const TABLE_WIDTHS = ['46%', '58%', '38%'];
+
+/**
+ * A connection's schema tree (Theme F), mid-fetch — three placeholder table
+ * rows, indented one rung under the connection heading (`TREE_INDENT[1]`, the
+ * same rung `connection-tree.tsx` uses for a table row with no schema group).
+ */
+export function SchemaTreeSkeleton() {
+  return (
+    <LoadingRegion label="Loading schema…" className="pl-8">
+      <ul className="flex flex-col gap-0.5 py-1">
+        {TABLE_WIDTHS.map((width) => (
+          <li key={width} className="flex h-6 items-center gap-1.5 pr-2">
+            <Skeleton className="h-3 w-3 shrink-0" />
+            <Skeleton className="h-3" style={{ width }} />
+          </li>
+        ))}
+      </ul>
+    </LoadingRegion>
+  );
+}
