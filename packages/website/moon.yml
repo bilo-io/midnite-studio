@@ -1,0 +1,26 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'typescript'
+
+tasks:
+  # No `src/` yet — assets only, per the commit that added this package
+  # ("start adding website assets"). The inherited `typecheck` runs `tsc
+  # --noEmit` unconditionally, which fails with TS18003 ("no inputs found")
+  # against an empty `include`. Override to a no-op until real source exists;
+  # remove this override the day `src/` does.
+  typecheck:
+    command: 'true'
+    inputs: []
+
+  # Same reason: vitest exits 1 when it finds zero test files, and there is
+  # nothing to test yet. Remove alongside the `typecheck` override above.
+  test:
+    command: 'true'
+    inputs: []
+
+  # Same reason again: `eslint .` errors on an unmatched pattern when nothing
+  # under this package matches the root config's `files` globs yet. Remove
+  # alongside the two overrides above once `src/` exists.
+  lint:
+    command: 'true'
+    inputs: []
