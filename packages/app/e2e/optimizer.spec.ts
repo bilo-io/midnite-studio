@@ -112,7 +112,7 @@ test.describe('the four tabs', () => {
     await expect(page.getByText('Run a Smart Scan first')).toBeVisible();
 
     await tab(page, 'Memory').click();
-    await expect(page.getByText('The Memory tab lands in a follow-up phase.')).toBeVisible();
+    await expect(page.getByPlaceholder('Filter processes or PID…')).toBeVisible();
 
     await tab(page, 'GPU').click();
     await expect(page.getByText('Load, last 60s')).toBeVisible();
@@ -201,3 +201,148 @@ test.describe('GPU tab', () => {
     await expect(page.locator('input[type="checkbox"][disabled]')).toHaveCount(2);
   });
 });
+
+test.describe('Memory tab', () => {
+  test('renders memory gauges, 4-segment breakdown, and process list', async ({ page }) => {
+    await openOptimizer(page, {
+      ...fixtures,
+      optimizer: {
+        memory: {
+          totalBytes: 16 * 1024 * 1024 * 1024,
+          usedBytes: 12 * 1024 * 1024 * 1024,
+          wiredBytes: 3 * 1024 * 1024 * 1024,
+          activeBytes: 5 * 1024 * 1024 * 1024,
+          compressedBytes: 2 * 1024 * 1024 * 1024,
+          cachedBytes: 2 * 1024 * 1024 * 1024,
+          freeBytes: 4 * 1024 * 1024 * 1024,
+        },
+        processes: [
+          {
+            pid: 1001,
+            ppid: 1,
+            name: 'node server.js',
+            argv: 'node /Users/bilo/project/server.js',
+            rssBytes: 450 * 1024 * 1024,
+            cpuPercent: 12.5,
+            ours: true,
+          },
+          {
+            pid: 2001,
+            ppid: 1,
+            name: 'WindowServer',
+            argv: '/System/Library/CoreServices/WindowServer -display',
+            rssBytes: 800 * 1024 * 1024,
+            cpuPercent: 5.2,
+            ours: false,
+          },
+        ],
+      },
+    });
+
+    await tab(page, 'Memory').click();
+
+    // Gauges
+    await expect(page.getByText('Memory Used')).toBeVisible();
+    await expect(page.getByText('Cached Files')).toBeVisible();
+    await expect(page.getByText('Free RAM')).toBeVisible();
+
+    // 4 segments
+    await expect(page.getByText('Wired', { exact: true })).toBeVisible();
+    await expect(page.getByText('Active', { exact: true })).toBeVisible();
+    await expect(page.getByText('Compressed', { exact: true })).toBeVisible();
+
+    // Processes
+    await expect(page.getByText('node server.js')).toBeVisible();
+    await expect(page.getByText('WindowServer', { exact: true })).toBeVisible();
+
+    // Foreign process is protected
+    await expect(page.getByText('Protected')).toBeVisible();
+
+    // Midnite-owned process has Terminate button
+    await expect(page.getByRole('button', { name: 'Terminate' })).toBeVisible();
+  });
+
+  test('filtering by process name or PID', async ({ page }) => {
+    await openOptimizer(page, {
+      ...fixtures,
+      optimizer: {
+        processes: [
+          {
+            pid: 1001,
+            ppid: 1,
+            name: 'node server.js',
+            argv: 'node /Users/bilo/project/server.js',
+            rssBytes: 450 * 1024 * 1024,
+            cpuPercent: 12.5,
+            ours: true,
+          },
+          {
+            pid: 2001,
+            ppid: 1,
+            name: 'WindowServer',
+            argv: '/System/Library/CoreServices/WindowServer -display',
+            rssBytes: 800 * 1024 * 1024,
+            cpuPercent: 5.2,
+            ours: false,
+          },
+        ],
+      },
+    });
+
+    await tab(page, 'Memory').click();
+    await expect(page.getByText('node server.js')).toBeVisible();
+    await expect(page.getByText('WindowServer', { exact: true })).toBeVisible();
+
+    const input = page.getByPlaceholder('Filter processes or PID…');
+    await input.fill('node');
+    await expect(page.getByText('node server.js')).toBeVisible();
+    await expect(page.getByText('WindowServer', { exact: true })).not.toBeVisible();
+
+    await input.fill('2001');
+    await expect(page.getByText('node server.js')).not.toBeVisible();
+    await expect(page.getByText('WindowServer', { exact: true })).toBeVisible();
+
+    await input.fill('nonexistent');
+    await expect(page.getByText('No matching processes found.')).toBeVisible();
+  });
+
+  test('terminating an owned process with confirmation dialog', async ({ page }) => {
+    await openOptimizer(page, {
+      ...fixtures,
+      optimizer: {
+        processes: [
+          {
+            pid: 1001,
+            ppid: 1,
+            name: 'node server.js',
+            argv: 'node /Users/bilo/project/server.js',
+            rssBytes: 450 * 1024 * 1024,
+            cpuPercent: 12.5,
+            ours: true,
+          },
+        ],
+      },
+    });
+
+    await tab(page, 'Memory').click();
+    await expect(page.getByText('node server.js')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Terminate' }).click();
+
+    // Confirm dialog is displayed
+    await expect(page.getByRole('heading', { name: 'Terminate Process (PID 1001)' })).toBeVisible();
+    await expect(page.getByText('Send SIGTERM to stop node server.js?')).toBeVisible();
+
+    // Dismissing keeps process
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('heading', { name: 'Terminate Process (PID 1001)' })).not.toBeVisible();
+    await expect(page.getByText('node server.js')).toBeVisible();
+
+    // Re-opening and confirming terminates process
+    await page.getByRole('button', { name: 'Terminate' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Terminate' }).click();
+
+    await expect(page.getByText('node server.js')).not.toBeVisible();
+  });
+});
+
