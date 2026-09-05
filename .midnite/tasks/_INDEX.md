@@ -19,7 +19,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 41/94 | `████░░░░░░` | 44% | — | C G H J |
 | [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | ✅ DONE | — | 28/34 | `████████░░` | 82% | — | — |
 | [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | ✅ DONE | x1 | 70/70 | `██████████` | 100% | — | — |
-| [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | 🔄 WIP | x1 | 39/78 | `█████░░░░░` | 50% | — | E F G |
+| [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | 🔄 WIP | x1 | 39/78 | `█████░░░░░` | 50% | E F G | — |
 | [57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md) | 🔄 WIP | x1 | 73/76 | `██████████` | 96% | — | Verification (3 human passes) |
 | [56 · E2E Suite Speed Run](phases/phase-56-e2e-speed-run.md) | 🔄 WIP | — | 27/29 | `█████████░` | 93% | — | D |
 | [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | 🔄 WIP | x1 | 50/65 | `████████░░` | 77% | — | F.3 (human pass) |
