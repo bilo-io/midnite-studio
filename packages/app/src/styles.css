@@ -1035,35 +1035,13 @@ html[data-motion='reduced'] .landing-slide-in {
  * (`[data-fab-tab]` is also set on each loop's pane wrapper, which has no
  * `::before` content, so the extra selector generates nothing there.)
  */
-[data-fab-tab='medic'],
-[data-fab-tab='medic']::before,
-[data-fab-tab='medic']::after,
-[data-fab-tab='medic'] .loop-run-glow,
-[data-fab-tab='medic'] .tab-loop-active-arc,
-[data-fab-tab='medic'] .tab-loop-active-arc::before,
-[data-fab-tab='medic'] .tab-loop-active-arc::after {
-  --fab-arc-from: -60deg;
-  --fab-arc-to: 60deg;
-}
-
-[data-fab-tab='watchdog'],
-[data-fab-tab='watchdog']::before,
-[data-fab-tab='watchdog']::after,
-[data-fab-tab='watchdog'] .loop-run-glow,
-[data-fab-tab='watchdog'] .tab-loop-active-arc,
-[data-fab-tab='watchdog'] .tab-loop-active-arc::before,
-[data-fab-tab='watchdog'] .tab-loop-active-arc::after {
-  --fab-arc-from: 0deg;
-  --fab-arc-to: 120deg;
-}
-
-[data-fab-tab='automate'],
-[data-fab-tab='automate']::before,
-[data-fab-tab='automate']::after,
-[data-fab-tab='automate'] .loop-run-glow,
-[data-fab-tab='automate'] .tab-loop-active-arc,
-[data-fab-tab='automate'] .tab-loop-active-arc::before,
-[data-fab-tab='automate'] .tab-loop-active-arc::after {
+[data-fab-tab='guard'],
+[data-fab-tab='guard']::before,
+[data-fab-tab='guard']::after,
+[data-fab-tab='guard'] .loop-run-glow,
+[data-fab-tab='guard'] .tab-loop-active-arc,
+[data-fab-tab='guard'] .tab-loop-active-arc::before,
+[data-fab-tab='guard'] .tab-loop-active-arc::after {
   --fab-arc-from: 60deg;
   --fab-arc-to: 180deg;
 }
@@ -1075,12 +1053,56 @@ html[data-motion='reduced'] .landing-slide-in {
 [data-fab-tab='innovate'] .tab-loop-active-arc,
 [data-fab-tab='innovate'] .tab-loop-active-arc::before,
 [data-fab-tab='innovate'] .tab-loop-active-arc::after {
+  --fab-arc-from: 90deg;
+  --fab-arc-to: 210deg;
+}
+
+[data-fab-tab='automate'],
+[data-fab-tab='automate']::before,
+[data-fab-tab='automate']::after,
+[data-fab-tab='automate'] .loop-run-glow,
+[data-fab-tab='automate'] .tab-loop-active-arc,
+[data-fab-tab='automate'] .tab-loop-active-arc::before,
+[data-fab-tab='automate'] .tab-loop-active-arc::after {
   --fab-arc-from: 120deg;
   --fab-arc-to: 240deg;
 }
 
+[data-fab-tab='watchdog'],
+[data-fab-tab='watchdog']::before,
+[data-fab-tab='watchdog']::after,
+[data-fab-tab='watchdog'] .loop-run-glow,
+[data-fab-tab='watchdog'] .tab-loop-active-arc,
+[data-fab-tab='watchdog'] .tab-loop-active-arc::before,
+[data-fab-tab='watchdog'] .tab-loop-active-arc::after {
+  --fab-arc-from: 180deg;
+  --fab-arc-to: 300deg;
+}
+
+[data-fab-tab='medic'],
+[data-fab-tab='medic']::before,
+[data-fab-tab='medic']::after,
+[data-fab-tab='medic'] .loop-run-glow,
+[data-fab-tab='medic'] .tab-loop-active-arc,
+[data-fab-tab='medic'] .tab-loop-active-arc::before,
+[data-fab-tab='medic'] .tab-loop-active-arc::after {
+  --fab-arc-from: -60deg;
+  --fab-arc-to: 60deg;
+}
+
+[data-fab-tab='overhaul'],
+[data-fab-tab='overhaul']::before,
+[data-fab-tab='overhaul']::after,
+[data-fab-tab='overhaul'] .loop-run-glow,
+[data-fab-tab='overhaul'] .tab-loop-active-arc,
+[data-fab-tab='overhaul'] .tab-loop-active-arc::before,
+[data-fab-tab='overhaul'] .tab-loop-active-arc::after {
+  --fab-arc-from: -30deg;
+  --fab-arc-to: 90deg;
+}
+
 /*
- * The same four arcs again, sampled — the sub-spectrum as five *colours*
+ * The same six arcs again, sampled — the sub-spectrum as five *colours*
  * rather than two angles.
  *
  * Everything above narrows a conic ring by masking it, which works because a
@@ -1094,48 +1116,76 @@ html[data-motion='reduced'] .landing-slide-in {
  * stop landing between two ramp stops is their midpoint, computed once and
  * written down rather than recomputed by the browser.
  *
- * Stop 3 of five is each tab's own centre, which is why they line up with the
- * `color` classes `DEFAULT_LOOPS` already carries: medic is rose (0°, its
- * `text-red-500`), watchdog amber (60°), automate emerald (120°), innovate
- * blue (180°). Change an arc above and these must be re-sampled with it —
- * they are two expressions of one decision, and `loop-spectrum.test.ts`
- * asserts every tab declares all five so a new loop cannot land with none.
+ * Stop 3 of five is each tab's own centre colour. Anchors:
+ *   guard    = emerald 120°  (text-green-500)
+ *   innovate = teal    150°  (text-cyan-500)
+ *   automate = blue    180°  (text-blue-500)
+ *   watchdog = violet  240°  (text-violet-500)
+ *   medic    = rose      0°  (text-red-500)
+ *   overhaul = orange   30°  (text-orange-500)
+ *
+ * Change an arc above and these must be re-sampled with it — they are two
+ * expressions of one decision, and `loop-spectrum.test.ts` asserts every tab
+ * declares all five so a new loop cannot land with none.
  *
  * Channel triplets rather than hex, so one declaration serves both the opaque
  * border ramp (`rgb(var(--fab-spec-1))`) and the ~10% background wash
  * (`rgb(var(--fab-spec-1) / 0.1)`) without a second set of values to keep in
  * step.
  */
-[data-fab-tab='medic'] {
-  --fab-spec-1: 236 72 153; /* 300deg — pink */
-  --fab-spec-2: 240 67 123; /* 330deg — pink/rose midpoint */
-  --fab-spec-3: 244 63 94; /*   0deg — rose */
-  --fab-spec-4: 244 110 52; /*  30deg — rose/amber midpoint */
-  --fab-spec-5: 245 158 11; /*  60deg — amber */
-}
 
-[data-fab-tab='watchdog'] {
-  --fab-spec-1: 244 63 94; /*   0deg — rose */
-  --fab-spec-2: 244 110 52; /*  30deg — rose/amber midpoint */
-  --fab-spec-3: 245 158 11; /*  60deg — amber */
-  --fab-spec-4: 130 171 70; /*  90deg — amber/emerald midpoint */
-  --fab-spec-5: 16 185 129; /* 120deg — emerald */
-}
-
-[data-fab-tab='automate'] {
+/* guard: arc 60°→180°, sampled at 60°, 90°, 120°, 150°, 180° */
+[data-fab-tab='guard'] {
   --fab-spec-1: 245 158 11; /*  60deg — amber */
   --fab-spec-2: 130 171 70; /*  90deg — amber/emerald midpoint */
-  --fab-spec-3: 16 185 129; /* 120deg — emerald */
+  --fab-spec-3: 16 185 129; /* 120deg — emerald (green-500 centre) */
   --fab-spec-4: 37 157 187; /* 150deg — emerald/blue midpoint */
   --fab-spec-5: 59 130 246; /* 180deg — blue */
 }
 
+/* innovate (Concepts): arc 90°→210°, sampled at 90°, 120°, 150°, 180°, 210° */
 [data-fab-tab='innovate'] {
+  --fab-spec-1: 130 171 70; /*  90deg — amber/emerald midpoint */
+  --fab-spec-2: 16 185 129; /* 120deg — emerald */
+  --fab-spec-3: 37 157 187; /* 150deg — teal (cyan-500 centre) */
+  --fab-spec-4: 59 130 246; /* 180deg — blue */
+  --fab-spec-5: 99 111 246; /* 210deg — blue/violet midpoint */
+}
+
+/* automate (Develop): arc 120°→240°, sampled at 120°, 150°, 180°, 210°, 240° */
+[data-fab-tab='automate'] {
   --fab-spec-1: 16 185 129; /* 120deg — emerald */
   --fab-spec-2: 37 157 187; /* 150deg — emerald/blue midpoint */
-  --fab-spec-3: 59 130 246; /* 180deg — blue */
+  --fab-spec-3: 59 130 246; /* 180deg — blue (blue-500 centre) */
   --fab-spec-4: 99 111 246; /* 210deg — blue/violet midpoint */
   --fab-spec-5: 139 92 246; /* 240deg — violet */
+}
+
+/* watchdog (Patrol): arc 180°→300°, sampled at 180°, 210°, 240°, 270°, 300° */
+[data-fab-tab='watchdog'] {
+  --fab-spec-1: 59 130 246;  /* 180deg — blue */
+  --fab-spec-2: 99 111 246;  /* 210deg — blue/violet midpoint */
+  --fab-spec-3: 139 92 246;  /* 240deg — violet (violet-500 centre) */
+  --fab-spec-4: 187 82 200;  /* 270deg — violet/pink midpoint */
+  --fab-spec-5: 236 72 153;  /* 300deg — pink */
+}
+
+/* medic: arc -60°→60°, sampled at -60°(=300°), -30°(=330°), 0°, 30°, 60° */
+[data-fab-tab='medic'] {
+  --fab-spec-1: 236 72 153; /* 300deg — pink */
+  --fab-spec-2: 240 67 123; /* 330deg — pink/rose midpoint */
+  --fab-spec-3: 244 63 94;  /*   0deg — rose (red-500 centre) */
+  --fab-spec-4: 244 110 52; /*  30deg — rose/amber midpoint */
+  --fab-spec-5: 245 158 11; /*  60deg — amber */
+}
+
+/* overhaul: arc -30°→90°, sampled at -30°(=330°), 0°, 30°, 60°, 90° */
+[data-fab-tab='overhaul'] {
+  --fab-spec-1: 240 67 123; /* 330deg — pink/rose midpoint */
+  --fab-spec-2: 244 63 94;  /*   0deg — rose */
+  --fab-spec-3: 244 110 52; /*  30deg — orange (orange-500 centre) */
+  --fab-spec-4: 245 158 11; /*  60deg — amber */
+  --fab-spec-5: 130 171 70; /*  90deg — amber/emerald midpoint */
 }
 
 /*
@@ -1844,7 +1894,7 @@ html[data-motion='reduced'] .gradient-frame::before {
   differs is the box-shadow, which pulses here rather than appearing on hover
   — a running loop is a state, not a pointer position — and `.is-waiting`,
   which drops the rotating rainbow for a steady amber ring: a loop with a
-  question on screen should read as one colour you can spot across four tabs,
+  question on screen should read as one colour you can spot across six tabs,
   not as more motion competing with the others.
 */
 @property --loop-glow-angle {
@@ -2237,7 +2287,7 @@ html[data-motion='reduced'] .fab-loop-halo {
  *
  * Sibling of the `.loop-run-glow` family further up this file, and built from
  * the same two techniques: a colour passed in as a custom property so one rule
- * serves four loops, and a pulse that animates nothing but `opacity`. Kept as
+ * serves six loops, and a pulse that animates nothing but `opacity`. Kept as
  * its own block at the end of the file rather than beside `.loop-run-glow`
  * purely to stay out of Phase 37's way, which is rewriting that block in
  * parallel; read the two together.

@@ -489,8 +489,8 @@ describe('DEFAULT_LOOPS', () => {
     expect(new Set(DEFAULT_LOOPS.map((l) => l.id)).size).toBe(DEFAULT_LOOPS.length);
   });
 
-  it('covers the four historical FAB tabs, so persisted activeFabTab keeps meaning', () => {
-    expect(DEFAULT_LOOPS.map((l) => l.id)).toEqual(['innovate', 'automate', 'watchdog', 'medic']);
+  it('covers the six FAB tabs, so persisted activeFabTab keeps meaning', () => {
+    expect(DEFAULT_LOOPS.map((l) => l.id)).toEqual(['guard', 'innovate', 'automate', 'watchdog', 'medic', 'overhaul']);
   });
 
   it('runs claude only — the one agent with honest activity markers', () => {

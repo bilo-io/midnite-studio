@@ -63,7 +63,7 @@ export type TerminalSidebarSide = 'left' | 'right';
 export type BrowserLayout = 'full' | 'left' | 'right';
 
 /** Active tab in the FAB panel. */
-export type FabTab = 'innovate' | 'automate' | 'watchdog' | 'medic';
+export type FabTab = 'guard' | 'innovate' | 'automate' | 'watchdog' | 'medic' | 'overhaul';
 
 /** How the commit inspector lists a commit's files. */
 export type CommitFileView = 'tree' | 'list';
@@ -1144,13 +1144,15 @@ export type AgentCommandId =
   | 'releaseComplete'
   | 'gitReport'
   | 'gitCleanup'
+  | 'loopGuard'
   | 'loopPatrol'
   | 'loopPrReview'
   | 'loopPrFeedback'
   | 'loopExecBacklog'
   | 'loopExecAdhoc'
   | 'loopAddressIssue'
-  | 'loopBrainstorm';
+  | 'loopBrainstorm'
+  | 'loopOverhaul';
 
 /**
  * A user-created group in the repositories sidebar.
@@ -1184,6 +1186,9 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   releaseComplete: '/midnite-release-complete',
   gitReport: '/midnite-git-report',
   gitCleanup: '/midnite-git-cleanup',
+  // Guard: security sweeps — secret scanning, dep audit, vuln review. No trailing
+  // skill: the modifiers themselves name what runs (same pattern as loopPatrol).
+  loopGuard: '/loop /midnite-address-issue',
   // Bare on purpose: the FAB's Patrol tab appends `/pr-review`, `/pr-feedback`
   // or `/midnite-triage` from its own checkboxes, so a skill named here would
   // be a fifth one every run carried whether or not a box was ticked.
@@ -1194,6 +1199,7 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   loopExecAdhoc: '/loop /midnite-exec-adhoc',
   loopAddressIssue: '/loop /midnite-address-issue',
   loopBrainstorm: '/loop /midnite-brainstorm',
+  loopOverhaul: '/loop /midnite-exec',
 };
 
 /**
@@ -1402,7 +1408,7 @@ export const useUiStore = create<UiState>()(
       activityTimelineGridlines: false,
       activityTimelineBarLayout: 'diverging',
       activityTimelineAreaLayout: 'overlaid',
-      activeFabTab: 'innovate',
+      activeFabTab: 'guard',
       fabSessions: {},
       setFabSession: (tab, sessionId) =>
         set((state) => {

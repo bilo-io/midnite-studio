@@ -30,7 +30,7 @@ const SETTLE_WAIT_MS = 300;
 
 const repos = (page: Page) => page.getByRole('complementary', { name: 'Repositories' });
 const frame = (page: Page) => page.locator('[data-terminal-frame]');
-const fabPanel = (page: Page) => page.getByRole('button', { name: 'Ideate', exact: true });
+const fabPanel = (page: Page) => page.getByRole('button', { name: 'Guard', exact: true });
 
 /**
  * Drag a splitter to an absolute point, in steps.

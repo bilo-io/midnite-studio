@@ -93,7 +93,7 @@ export function useAnyLoopRunning(): LoopsRunning {
   return {
     running: statuses.some((s) => s.running),
     waiting,
-    // Waiting outranks thinking on one shared button: with four loops behind
+    // Waiting outranks thinking on one shared button: with six loops behind
     // it, "one of these needs you" is the more urgent of the two to show.
     thinking: !waiting && statuses.some((s) => s.thinking),
   };

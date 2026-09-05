@@ -123,10 +123,12 @@ describe('tab sub-spectrum centres', () => {
     // is the arc's midpoint and must be the same hue, or the composer and the
     // tab strip disagree about what colour the tab is.
     const centres: Record<string, { colour: string; rgb: string }> = {
+      guard: { colour: 'text-green-500', rgb: '16 185 129' },
+      innovate: { colour: 'text-cyan-500', rgb: '37 157 187' },
+      automate: { colour: 'text-blue-500', rgb: '59 130 246' },
+      watchdog: { colour: 'text-violet-500', rgb: '139 92 246' },
       medic: { colour: 'text-red-500', rgb: '244 63 94' },
-      watchdog: { colour: 'text-yellow-500', rgb: '245 158 11' },
-      automate: { colour: 'text-green-500', rgb: '16 185 129' },
-      innovate: { colour: 'text-blue-500', rgb: '59 130 246' },
+      overhaul: { colour: 'text-orange-500', rgb: '244 110 52' },
     };
     for (const loop of DEFAULT_LOOPS) {
       const centre = centres[loop.id];

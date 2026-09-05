@@ -91,7 +91,7 @@ const FREQUENCY_OPTIONS: IconSelectOption[] = LOOP_FREQUENCIES.map(
  * The surface wears its tab's own slice of the app's rainbow — `styles.css`'s
  * `--fab-spec-1…5`, sampled from the same arc the panel's ring is masked to,
  * so the wash behind the form and the ramp around the extras field say which
- * of the four tabs you are in without a second colour vocabulary.
+ * of the six tabs you are in without a second colour vocabulary.
  */
 export function LoopComposer({
   loop,
@@ -149,7 +149,7 @@ export function LoopComposer({
     Every section starts open, and closing one is a this-sitting convenience
     rather than a preference: the composer is permanently mounted per tab, so
     the state survives every tab switch a session will make, and persisting it
-    would put four tabs × five sections of chrome bookkeeping into
+    would put six tabs × five sections of chrome bookkeeping into
     `settings.json` to remember something nobody would notice was forgotten.
     Open-by-default also means nothing a loop declares is ever one click away
     from being invisible when you first look at the tab.
@@ -876,7 +876,7 @@ function StartStopButton({
 }) {
   /*
     Three states, not two. A waiting loop drops the rotation for one steady
-    amber ring — the colour you can spot across four tabs. A thinking one
+    amber ring — the colour you can spot across six tabs. A thinking one
     breathes. A live-but-idle one keeps the rainbow ring without the pulse, so
     motion means "working" rather than merely "on".
   */

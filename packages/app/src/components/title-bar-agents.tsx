@@ -6,7 +6,7 @@ import { useTitleBarDensity } from './use-titlebar-density';
 
 /**
  * The title bar's agent cluster — how many agent sessions are live, then the
- * four loop launchers — mounted at the **head** of `<TitleBar>`'s `right` slot,
+ * six loop launchers — mounted at the **head** of `<TitleBar>`'s `right` slot,
  * ahead of the date/weather pill and the theme toggle.
  *
  * Both readouts used to be `STATUS_SEGMENTS` entries in the status bar's left

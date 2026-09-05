@@ -1018,7 +1018,7 @@ function Shell() {
         the other half of the window.
       */}
       {/*
-        Leads the cluster: the live-agent count and the four loop launchers,
+        Leads the cluster: the live-agent count and the six loop launchers,
         which used to be two segments in the status bar's left zone. They sit
         ahead of everything else on this side because they are the only part of
         it that changes on its own — the date and the theme toggle sit still

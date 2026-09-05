@@ -21,10 +21,12 @@
  * `DEFAULT_LOOPS`, which Phase 37's own decision 1 rejects.
  */
 const LOOP_GLOW: Record<string, string> = {
-  innovate: '#3b82f6', // blue-500  — text-blue-500
-  automate: '#22c55e', // green-500 — text-green-500
-  watchdog: '#eab308', // yellow-500 — text-yellow-500
-  medic: '#ef4444', // red-500   — text-red-500
+  guard: '#22c55e', // green-500  — text-green-500
+  innovate: '#06b6d4', // cyan-500   — text-cyan-500
+  automate: '#3b82f6', // blue-500   — text-blue-500
+  watchdog: '#8b5cf6', // violet-500 — text-violet-500
+  medic: '#ef4444', // red-500    — text-red-500
+  overhaul: '#f97316', // orange-500 — text-orange-500
 };
 
 /**
