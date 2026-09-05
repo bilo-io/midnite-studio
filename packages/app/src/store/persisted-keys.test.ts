@@ -69,9 +69,23 @@ describe('persisted-keys partition', () => {
     expect(stale).toEqual([]);
   });
 
-  it('has KNOWN_ORPHANS as exactly the five recorded, undocumented preferences', () => {
+  it('has KNOWN_ORPHANS as exactly the recorded, undocumented preferences', () => {
     expect([...KNOWN_ORPHANS].sort()).toEqual(
-      ['browserLayout', 'loopAgents', 'loopChoices', 'loopModels', 'loopSchedules'].sort(),
+      [
+        // Phase 63's own find (Decision 6).
+        'browserLayout',
+        'loopAgents',
+        'loopChoices',
+        'loopModels',
+        'loopSchedules',
+        // Phase 64's `editor*` preferences, orphaned by a sibling PR (#164)
+        // that landed mid-flight — not this phase's scope to build.
+        'editorFontFamily',
+        'editorFontSize',
+        'editorMinimap',
+        'editorTabSize',
+        'editorWordWrap',
+      ].sort(),
     );
   });
 

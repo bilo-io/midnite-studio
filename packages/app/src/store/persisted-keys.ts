@@ -72,6 +72,17 @@ export const PREFERENCE_KEYS = [
   'loopChoices',
   'loopModels',
   'loopSchedules',
+
+  // Landed by Phase 64 (merged onto `main` while this phase was in flight —
+  // #164) with no settings page of their own; that phase's Theme F only
+  // covers the palette override selectors, not these five. Not this phase's
+  // scope to build, but the partition has to account for `PersistedUi` as it
+  // actually stands. See `KNOWN_ORPHANS` below and `outstanding.md`.
+  'editorFontFamily',
+  'editorFontSize',
+  'editorMinimap',
+  'editorTabSize',
+  'editorWordWrap',
 ] as const;
 
 export const SESSION_STATE_KEYS = [
@@ -108,13 +119,19 @@ export const SESSION_STATE_KEYS = [
 ] as const;
 
 /**
- * The five `PREFERENCE_KEYS` this phase found orphaned but does not build
- * (Decision 6 — five exceeds the three-key threshold for fixing in place).
- * Each has a matching entry in `.midnite/tasks/outstanding.md` naming the
- * page it belongs on. `persisted-keys.test.ts` excuses exactly these five
- * from the "named under `features/settings/`" check — an allow-list that is
- * easy to add to is a broken invariant, so it stays this short and named.
- * Building one of these means deleting its entry here, not widening it.
+ * `PREFERENCE_KEYS` entries with no settings-page home yet — every one has a
+ * matching entry in `.midnite/tasks/outstanding.md` naming the page it
+ * belongs on. `persisted-keys.test.ts` excuses exactly these from the
+ * "named under `features/settings/`" check — an allow-list that is easy to
+ * add to is a broken invariant, so building one of these means *deleting*
+ * its entry here, not widening the list for a new one.
+ *
+ * The first five are this phase's own find (Decision 6 — five exceeds the
+ * three-key threshold for fixing in place instead of recording). The last
+ * five are Phase 64's `editor*` preferences, orphaned by a sibling PR (#164)
+ * that merged onto `main` mid-flight — not this phase's scope to build, but
+ * the allow-list still has to name them or the invariant would fail on code
+ * this phase never touched.
  */
 export const KNOWN_ORPHANS = [
   'browserLayout',
@@ -122,6 +139,11 @@ export const KNOWN_ORPHANS = [
   'loopChoices',
   'loopModels',
   'loopSchedules',
+  'editorFontFamily',
+  'editorFontSize',
+  'editorMinimap',
+  'editorTabSize',
+  'editorWordWrap',
 ] as const satisfies readonly (typeof PREFERENCE_KEYS)[number][];
 
 type PartitionedKey = (typeof PREFERENCE_KEYS)[number] | (typeof SESSION_STATE_KEYS)[number];

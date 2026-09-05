@@ -30,9 +30,19 @@ Recorded here when a phase punts on something; pick these up post-MVP.
 
   These four `loop*` keys are one coherent block — a "Loops" settings section — not four separate
   chores, and `loopSchedules`' own store comment already calls it *"a standing preference, not a
-  property of one run"*. Until they are built they sit in Phase 63's five-entry `KNOWN_ORPHANS`
-  allow-list, which is the only thing keeping `persisted-keys.test.ts` green; building them means
-  deleting entries from it.
+  property of one run"*. Until they are built they sit in `persisted-keys.ts`'s `KNOWN_ORPHANS`
+  allow-list, which (along with the entry below) is what keeps `persisted-keys.test.ts` green;
+  building one means deleting its entry from the list, not widening it.
+
+- **Five more persisted preferences with no settings page — `editor*`.** Landed by
+  [Phase 64](phases/phase-64-offline-monaco-and-themes.md) (`#164`, merged onto `main` while Phase
+  63 was in flight): `editorFontFamily`, `editorFontSize`, `editorMinimap`, `editorTabSize`,
+  `editorWordWrap` in `ui-store.ts`, created for the Monaco editor but never given a settings page —
+  Phase 64's own Theme F (still open) covers the palette override selectors, not these five. Sits in
+  `persisted-keys.ts`'s `KNOWN_ORPHANS` allow-list beside the five above, added there by Phase 63's
+  PR #167 only so its own exhaustiveness test would not fail on a gap this phase never touched.
+  Wants a home in `terminal-page.tsx`'s shape — an "Editor" settings page, or an accordion on
+  whichever page ends up owning the Monaco/CodeMirror surface.
 
 - **Interactive rebase** — via a `GIT_SEQUENCE_EDITOR` helper binary that writes the UI's todo
   list; `GIT_EDITOR` for reword. Impossible with libgit2/isomorphic-git; CLI-only trick.
