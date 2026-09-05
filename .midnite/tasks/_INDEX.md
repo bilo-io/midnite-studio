@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | ◻ TODO | — | 0/43 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | ◻ TODO | x1 | 0/65 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | ◻ TODO | x1 | 0/41 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E |
@@ -159,6 +160,28 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 73 — The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md)
+
+*[Phase 72](phases/phase-72-every-build-systems-leftovers.md) widened the scanner inside the repo
+roots the app already manages; this phase is everything Phase 72's own "Not in this phase"
+section named outside that boundary — `~/.cargo`, `~/.gradle`, `~/.m2`, `~/.nuget`, Go's build and
+module caches, Xcode DerivedData, Homebrew, pip, npm/pnpm/yarn — plus the vendor commands
+(`brew cleanup`, `go clean -cache`, `pnpm store prune`) that reclaim some of them more surgically
+than a delete. `knownRoots()` cannot simply widen to cover this: it is a registry of repo paths
+the user opened, not a confinement mechanism, so this phase adds a second, allowlist-only
+confinement primitive that accepts only an exact match against a fixed, hand-written registry —
+never a path prefix, never a user-picked root. Gated behind a three-factor consent (the existing
+Optimizer toggle, a new checkbox, and a one-time acknowledgment dialog) beyond anything else in
+the app. Media caches (Plex) and emptying the Trash are explicitly deferred to
+[Phase 74](phases/phase-74-media-caches-and-the-trash.md) — a different trust problem each.*
+
+- ◻ **A** — A hand-written system cache registry (Cargo, Go, Gradle, Maven, .NET, Xcode, CocoaPods, pip, npm/pnpm/yarn, Homebrew) and `confineAllowlist`, an exact-match-only confinement primitive that never touches `knownRoots()`.
+- ◻ **B** — A wire contract deliberately kept separate from the repo-scoped `ScanItem`/`ScanResult` family, and its own IPC channels.
+- ◻ **C** — A three-factor consent gate: the existing Optimizer toggle, a new checkbox, and a one-time acknowledgment dialog naming exactly what gets unlocked.
+- ◻ **D** — Vendor reclaim commands (`brew cleanup -s`, `go clean -cache`, `pnpm store prune`) run through the existing no-shell `runProcess` primitive, never a renderer-supplied command.
+- ◻ **E** — A gated "System" section inside the existing Storage tab, visually distinct from repo-scoped rows, with its own confirm copy.
+- ◻ **F** — Verification, weighted to the confinement primitive's refusal cases and the consent gate's three-way AND.
 
 ### [Phase 72 — Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md)
 
