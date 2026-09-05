@@ -257,16 +257,10 @@ count — leaves every progress number wrong.
    not change.
 4. **Headline.** Update only if the refinement materially changed what the phase is. Usually it
    doesn't — don't churn it.
-5. **Drift guard — run it, it must print nothing:**
+5. **Drift guard — run it, it must exit 0:**
 
    ```bash
-   for f in .midnite/tasks/phases/phase-*.md; do n=${f#.midnite/tasks/phases/phase-}; n=${n%%-*}; \
-     grep -qE "^\| \[$n ·" .midnite/tasks/_INDEX.md || echo "DRIFT: phase $n absent from _INDEX.md"; done
-   # and: every stamped doc must carry a matching index cell
-   for f in .midnite/tasks/phases/phase-*.md; do n=${f#.midnite/tasks/phases/phase-}; n=${n%%-*}; \
-     s=$(grep -m1 -oE '^\*\*Refined: x[0-9]+\*\*' "$f" | grep -oE 'x[0-9]+'); \
-     if [ -n "$s" ] && ! grep -E "^\| \[$n ·" .midnite/tasks/_INDEX.md | grep -q "| $s |"; then \
-       echo "DRIFT: phase $n stamped $s but index disagrees"; fi; done
+   moon run root:tracker-check
    ```
 
 ## ✅ Stage 10 — Commit to `main` & report
