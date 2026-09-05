@@ -91,8 +91,12 @@ export function createTerminalStore(directory: string): TerminalStore {
  * IPC and is interpolated straight into a path, and "can never fire" is exactly
  * the assumption that a later feature (named sessions, imported sessions)
  * quietly invalidates.
+ *
+ * Exported rather than copied: `session-history-store.ts` interpolates the same
+ * ids into its own `session-history/` directory, and two copies of a traversal
+ * guard is one copy that stops being updated.
  */
-function safeId(sessionId: string): string {
+export function safeId(sessionId: string): string {
   return sessionId.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
