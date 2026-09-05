@@ -2,6 +2,8 @@
 
 **Headlines:**
 
+- **[Phase 61 · Database Explorer](phases/phase-61-database-explorer.md)** (0% · 0/53) — **Planned, not started.** A DataGrip-style database client — the first phase to touch anything database-shaped, with no prior art anywhere in this tracker. A new **Database** entry joins the Workspace sidebar group (Explorer/Search/Tests), connecting to Postgres/MySQL/MariaDB/MSSQL/SQLite behind a new `packages/db-engine` (mirroring `git-engine`'s electron-free boundary), with a schema tree and multi-tab SQL query editors reusing the Changes view's own `WorkbenchTab`/`TabStrip` mechanism (generalized with a new `'query'` kind) and the existing CodeMirror 6 setup (`@codemirror/lang-sql`, new dependency). Results render in a `@tanstack/react-virtual`-windowed grid with inline-editable cells generating PK-keyed `UPDATE`s, staleness-checked before applying; non-`SELECT` statements route through the app's existing blast-radius confirm dialog. SQLite's `better-sqlite3` driver is isolated as its own theme for the same native-module ABI risk `node-pty` already carries. No SSH tunneling or SSL/TLS connection config in v1 — a real gap, recorded rather than dropped.
+
 - **[Phase 60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md)** (0% · 0/34) — **Planned, not started.** Three facts that are one problem: the renderer has **zero** error boundaries against eighteen `lazy()` calls, so one render throw or one 404'd chunk after an in-place reinstall blanks the whole window; the view switch is a 17-branch ternary sitting beside three per-`ViewId` records that already do the job declaratively, which is how `sessions` fell through to a `Placeholder` still pointing users at a `todo/` directory that no longer exists; and six views render no empty, loading **or** error state while both primitives exist with twenty and eighteen consumers. Deliberately small — 34 items, three themes, `packages/app` only, no new dependency, no new IPC channel, no new surface.
 
 - **[Phase 59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md)** (0% · 0/34) — **Planned, not started.** A CleanMyMac X / macOS System Settings-style optimizer page — Smart Scan, Storage, Memory, GPU — pointed at what this app actually owns rather than the whole Mac: known repos/worktrees plus one user-chosen extra root for the cleaner, and Midnite's own terminal/agent footprint (plus a system-wide, strongly-gated process table) for the monitor. Gated behind a default-off `Settings ▸ Workspace Optimizer` toggle, mirroring the force-push-with-lease posture, since kill-any-process and cross-repo deletion are real blast radius. No `recharts`/`framer-motion`/Shadcn added — reuses the footer monitor's hand-rolled SVG chart system and the existing Tailwind keyframe motion vocabulary.
@@ -59,6 +61,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [61 · Database Explorer](phases/phase-61-database-explorer.md) | ◻ TODO | — | 0/53 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C |
 | [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | ◻ TODO | — | 0/60 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
@@ -125,6 +128,37 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 61 — Database Explorer](phases/phase-61-database-explorer.md)
+
+*A DataGrip-style database client — new **Database** entry in the Workspace sidebar group,
+connections to Postgres/MySQL/MariaDB/MSSQL/SQLite, a schema tree, and multi-tab SQL query
+editors with an inline-editable, virtualized results grid. New `packages/db-engine`, mirroring
+`git-engine`'s electron-free boundary. No SSH tunneling / SSL config in v1 — recorded as a real
+gap, not silently dropped.*
+
+- ◻ **A** — Shared contracts: `ConnectionConfig`/`SchemaTree`/`QueryResult`/`StatementKind` zod
+  schemas in `shared`, new IPC channels, the `{ok:true|false}` envelope.
+- ◻ **B** — `db-engine`'s pure-JS drivers: Postgres/MySQL/MariaDB/MSSQL behind one `DbDriver`
+  interface, connection pooling, schema introspection, statement-kind sniffing.
+- ◻ **C** — `db-engine`'s SQLite driver: `better-sqlite3`, a native module carrying the same
+  ABI-rebuild risk as `node-pty`, isolated as its own theme.
+- ◻ **D** — `desktop`: IPC handlers wiring `db-engine` in, a `safeStorage`-backed credential
+  vault (first use of `safeStorage` in this repo) and a `userData`-rooted non-secret connections
+  store.
+- ◻ **E** — Sidebar nav: new `ViewId`, a `Database` entry in `WORKSPACE_NAV_ITEMS` (ungated),
+  the view shell.
+- ◻ **F** — Schema tree browser: per-connection lazy-loaded tree (tables/views/columns/PK-FK),
+  the add/edit-connection dialog.
+- ◻ **G** — Query tab editor: generalizes `workbench-store`'s `WorkbenchTab`/`TabStrip` beyond
+  the Changes view with a new `'query'` kind, CodeMirror 6 + `@codemirror/lang-sql` for the
+  editor.
+- ◻ **H** — Results grid: `@tanstack/react-virtual`-windowed, inline-editable cells generating
+  PK-keyed `UPDATE`s with a staleness re-check before applying.
+- ◻ **I** — Destructive-statement safety gate: sniffs non-`SELECT` statements, routes through
+  the existing blast-radius `confirm-dialog.tsx`.
+- ◻ **J** — Verification: full connect → browse → query → edit flow against a SQLite fixture in
+  CI, screenshots, a human pass against real Postgres/MySQL/MariaDB/MSSQL.
 
 ### [Phase 60 — A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md)
 
