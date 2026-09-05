@@ -60,7 +60,7 @@ const common = {
   because that is how the file was written. esbuild is happy to run them
   concurrently and does its own work off-thread.
 */
-const outfiles = ['main', 'preload', 'broker'].map((name) => ({
+const outfiles = ['main', 'preload', 'broker', 'mcp-shim'].map((name) => ({
   entry: resolve(root, `src/${name === 'main' ? 'main/index.ts' : `${name}/index.ts`}`),
   out: resolve(root, `dist/bundle/${name}.js`),
 }));
