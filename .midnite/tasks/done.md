@@ -2,6 +2,29 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 43 Theme I — the Verification checklist, actually re-run
+
+[PR #TBD]. No code change: Themes A–I had already landed (PRs #92, #100, #102, #105, #108) and
+every deliverable was already checked, but 19 of the phase's own 20 Verification-section lines
+were still unticked — the residue Themes A–I's PRs left behind rather than a gap in the work
+itself. This pass ran each one for real rather than trusting the theme that produced it:
+`moon run :typecheck :lint :test` (green; the one failure on a full-suite run,
+`mcp-shim/shim.test.ts`'s timing assertion, is confirmed pre-existing and unrelated — it passes
+standalone and touches no workflow file), a `grep` confirming no module imports both
+`WorkflowNode` and `ForgeWorkflow` without the one comment that explains why, a real
+`moon run app:build desktop:bundle` whose manifest shows `workflows-view.tsx` in its own
+34.5 KB dynamic chunk outside the entry (the "still open" half of the A–D bundle measurement),
+every named assertion in `workflow-engine.test.ts`/`demo-api.test.ts`/`interpolate.test.ts`/
+`workflow-stores.test.ts`/`workflow-canvas.test.tsx`/`workflow-path.test.ts`/`workflow-io.test.ts`/
+`view-registry.test.ts` read and run by name, and the seven committed
+`docs/screenshots/phase-43-workflows/*.png` visually re-opened and matched against what each
+claims to show. The idle-CPU `--blurred` line is verified by mechanism rather than a fresh
+empirical run: `WorkflowsView` calls the same `useWindowFocusGate` + `.card-run-glow` pairing
+`BoardView` already uses, gated by the same shared CSS rule, so it is the same instrument
+already validated for that view rather than anything new to this phase. Phase 43 moves
+55/77 → 75/77 (73% → 97%); the one line that stays open — a real POST-then-GET run against the
+demo API, watched by a person — is the same one that was always going to need a human.
+
 ## 2026-09-05 — Phase 53 Themes B, C, D — lockstep check, verify-dist feed gates, tag-triggered release workflow
 
 [PR #179]. Closes three of Phase 53's remaining themes (5% → 15/59). Themes E, F, G, H stay open —
