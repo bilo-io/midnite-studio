@@ -75,15 +75,15 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | ◻ TODO | — | 0/37 | `░░░░░░░░░░` | 0% | — | A B C D |
+| [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | 🔄 WIP | — | 0/37 | `░░░░░░░░░░` | 0% | A B C D | — |
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [66 · API Client](phases/phase-66-api-client.md) | ◻ TODO | — | 0/58 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
-| [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | ◻ TODO | — | 0/49 | `░░░░░░░░░░` | 0% | — | A B C D E |
+| [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | — | 0/49 | `░░░░░░░░░░` | 0% | A B C D | E |
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 0/72 | `░░░░░░░░░░` | 0% | A B C D | E F G |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | 🔄 WIP | x1 | 0/32 | `░░░░░░░░░░` | 0% | A B C | — |
-| [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C |
+| [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | 🔄 WIP | — | 0/33 | `░░░░░░░░░░` | 0% | A B C | — |
 | [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 0/94 | `░░░░░░░░░░` | 0% | A B D E | C F G H I J |
-| [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C |
+| [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | 🔄 WIP | — | 0/34 | `░░░░░░░░░░` | 0% | A B C | — |
 | [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | 🔄 WIP | x1 | 44/70 | `██████░░░░` | 63% | — | D F |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | 🔄 WIP | x1 | 0/78 | `░░░░░░░░░░` | 0% | A B C D | E F G |
 | [57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md) | 🔄 WIP | x1 | 0/76 | `░░░░░░░░░░` | 0% | A B C D | E F |
