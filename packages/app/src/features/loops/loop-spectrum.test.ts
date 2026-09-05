@@ -136,3 +136,34 @@ describe('tab sub-spectrum centres', () => {
     }
   });
 });
+
+describe('tab container button styling & theme colors', () => {
+  it('styles .tab-loop-button with hover and selected backgrounds using --fab-spec-3', () => {
+    expect(stylesCss).toContain('.tab-loop-button:hover');
+    expect(stylesCss).toContain('background-color: rgb(var(--fab-spec-3) / 0.12);');
+    expect(stylesCss).toContain('.tab-loop-button.is-selected');
+    expect(stylesCss).toContain('background-color: rgb(var(--fab-spec-3) / 0.22);');
+  });
+
+  it('assigns arc angles to .tab-loop-active-arc for every loop', () => {
+    for (const loop of DEFAULT_LOOPS) {
+      const block = stylesCss.match(
+        new RegExp(`\\[data-fab-tab='${loop.id}'\\][^{]*\\{([^}]*)\\}`, 'g'),
+      );
+      const arcSelectors = (block ?? []).filter((chunk) => chunk.includes('.tab-loop-active-arc'));
+      expect(arcSelectors.length, `active arc selectors for ${loop.id}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('configures .tab-loop-active-arc with rotating border and glow', () => {
+    expect(stylesCss).toContain('.tab-loop-active-arc::before');
+    expect(stylesCss).toContain('.tab-loop-active-arc::after');
+    expect(stylesCss).toMatch(/\.tab-loop-active-arc::before[^{]*\{[^}]*animation:\s*loop-glow-spin 4s linear infinite/);
+    expect(stylesCss).toMatch(/\.tab-loop-active-arc::after[^{]*\{[^}]*animation:\s*loop-glow-spin 4s linear infinite/);
+  });
+
+  it('configures .tab-loop-shimmer at half frequency (4.8s) and half speed', () => {
+    expect(stylesCss).toMatch(/\.tab-loop-shimmer[^{]*\{[^}]*animation:\s*pill-shimmer 4\.8s ease-in-out infinite/);
+    expect(stylesCss).toMatch(/animation-delay:\s*calc\(var\(--tab-i, 0\) \* 0\.6s\)/);
+  });
+});
