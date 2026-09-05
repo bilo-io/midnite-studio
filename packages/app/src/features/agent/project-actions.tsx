@@ -27,13 +27,11 @@ import { SetupDialog } from './setup-dialog';
  * in the sidebar and selected in the title bar must not be able to disagree
  * about whether Update is available to it.
  *
- * Neither action runs anything on click. Setup opens `SetupDialog` — a
- * preview, never a blind write. Update opens a plain shell with
- * `moon run desktop:install-local` TYPED at the prompt, not executed: the
- * same "your Return is the confirmation" posture `runLifecycleAction` and
- * `startAgent` take. A plain shell rather than `startAgent`, because that
- * function always wraps its prompt as an argument to an agent CLI
- * (`claude "…"`), which is exactly wrong for a literal command.
+ * Neither action runs a blind file modification on click. Setup opens `SetupDialog`
+ * — a preview, never a blind write. Update opens a plain shell and executes
+ * `moon run desktop:install-local` immediately. A plain shell rather than
+ * `startAgent`, because that function always wraps its prompt as an argument to an
+ * agent CLI (`claude "…"`), which is exactly wrong for a literal command.
  */
 export type ProjectAction = {
   key: 'setup' | 'update';
@@ -150,7 +148,7 @@ export function useProjectActions(target: ProjectActionsTarget): {
           cwd,
           repoId,
         });
-        useTerminalStore.getState().queueInput(session.id, 'moon run desktop:install-local');
+        useTerminalStore.getState().queueInput(session.id, 'moon run desktop:install-local\r');
         setUpdateSessionId(session.id);
       },
     },

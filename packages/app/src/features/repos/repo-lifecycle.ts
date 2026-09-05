@@ -94,10 +94,7 @@ function commandFor(
 
 /**
  * Open a shell on a repository's checkout with a guessed install/build/test/
- * launch command typed at the prompt — and NOT run, the same posture every
- * other terminal-opening action in this app takes (`start-claude.ts`,
- * `run-in-terminal.ts`): the command is a guess from the checkout's own
- * files, and the user's own Return is what decides whether it runs.
+ * launch command typed at the prompt and executed immediately with Return.
  */
 export async function runLifecycleAction(
   action: LifecycleAction,
@@ -114,5 +111,5 @@ export async function runLifecycleAction(
     cwd: target.cwd,
     repoId: target.repoId,
   });
-  useTerminalStore.getState().queueInput(session.id, command);
+  useTerminalStore.getState().queueInput(session.id, `${command}\r`);
 }

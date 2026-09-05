@@ -460,7 +460,7 @@ test.describe('Setup and Update', () => {
     await expect(update).toBeDisabled();
   });
 
-  test('Update types (never runs) the install command on the Midnite Studio checkout', async ({
+  test('Update types and runs the install command on the Midnite Studio checkout', async ({
     page,
   }) => {
     await installMockBridge(page, {
@@ -485,9 +485,9 @@ test.describe('Setup and Update', () => {
     // The literal shell command, NOT wrapped as an argument to an agent CLI —
     // `startAgent` would have produced `claude 'moon run desktop:install-local'`,
     // which is exactly the bug this action's own onSelect avoids by using a
-    // plain shell session instead.
-    await expect.poll(() => ptyInputs(page)).toEqual(['moon run desktop:install-local']);
+    // plain shell session instead. Includes trailing \r to run immediately.
+    await expect.poll(() => ptyInputs(page)).toEqual(['moon run desktop:install-local\r']);
     const inputs = await ptyInputs(page);
-    expect(inputs[0]).not.toContain('\r');
+    expect(inputs[0]).toContain('\r');
   });
 });
