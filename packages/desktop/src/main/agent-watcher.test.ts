@@ -50,14 +50,14 @@ function fakeClock() {
   };
 }
 
-const shellOnly: ProcessRow[] = [{ pid: SHELL_PID, ppid: 1, stat: 'Ss+', args: '/bin/zsh -l' }];
+const shellOnly: ProcessRow[] = [{ pid: SHELL_PID, ppid: 1, stat: 'Ss+', rssBytes: 0, cpuPercent: 0, args: '/bin/zsh -l' }];
 const withClaude: ProcessRow[] = [
   ...shellOnly,
-  { pid: 60_041, ppid: SHELL_PID, stat: 'S+', args: 'claude' },
+  { pid: 60_041, ppid: SHELL_PID, stat: 'S+', rssBytes: 0, cpuPercent: 0, args: 'claude' },
 ];
 const withCodex: ProcessRow[] = [
   ...shellOnly,
-  { pid: 60_072, ppid: SHELL_PID, stat: 'S+', args: 'node /opt/homebrew/bin/codex' },
+  { pid: 60_072, ppid: SHELL_PID, stat: 'S+', rssBytes: 0, cpuPercent: 0, args: 'node /opt/homebrew/bin/codex' },
 ];
 
 type Harness = {
@@ -409,7 +409,7 @@ describe('createAgentWatcher', () => {
   describe('foreground command (Theme E)', () => {
     const withPnpm: ProcessRow[] = [
       ...shellOnly,
-      { pid: 60_220, ppid: SHELL_PID, stat: 'S+', args: 'pnpm dev' },
+      { pid: 60_220, ppid: SHELL_PID, stat: 'S+', rssBytes: 0, cpuPercent: 0, args: 'pnpm dev' },
     ];
 
     it('reports a foreground command off the same snapshot as the agent probe', async () => {
