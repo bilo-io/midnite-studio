@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | ◻ TODO | — | 0/40 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | ◻ TODO | — | 0/43 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | ◻ TODO | x1 | 0/65 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | ◻ TODO | x1 | 0/41 | `░░░░░░░░░░` | 0% | — | A B C D |
@@ -160,6 +161,25 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 74 — Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md)
+
+*[Phase 73](phases/phase-73-the-optimizer-leaves-the-repo.md) explicitly declined to cover two
+things: media-tool caches (Plex) and emptying the system Trash. This is that phase, and it treats
+them as the different operation shapes they are — Plex's two verified cache directories slot into
+Phase 73's own registry and three-factor consent gate as two more entries (same trust tier, no new
+machinery), while emptying the Trash gets its own consent pair, its own settings page, and a new
+`osascript`/Finder-only mechanism, because it is the one operation in this whole arc that can
+destroy content the *user* — not a build tool — put somewhere with an explicit expectation of
+recoverability. A narrow, justified exception to Phase 73's own no-discovery rule lets the Trash's
+confirm dialog enumerate every mounted volume's own Trash — safe only because that discovery feeds
+a displayed number, never a delete target.*
+
+- ◻ **A** — Plex's two verified cache directories (`Cache/`, `Plug-in Support/Caches/`) join Phase 73's `DEFAULT_SYSTEM_CACHE_ENTRIES` and consent gate; a new `'media'` ecosystem member.
+- ◻ **B** — `computeTrashSummary()`: a read-only walk of `~/.Trash` plus every discovered mounted volume's own Trash, reusing Phase 59's walker and budgets.
+- ◻ **C** — `emptyTrash()` via `osascript`/Finder only, never a raw `fs.rm`; its own separate consent pair and settings page; a new `requireAck` checkbox-gated Confirm button.
+- ◻ **D** — UI: a dedicated `trashSafety` settings page and a Trash card in the Storage tab, visually distinct from Phase 73's System section.
+- ◻ **E** — Verification, weighted to the confinement/discovery boundary (Decision 7) and the consent gate's three-way AND.
 
 ### [Phase 73 — The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md)
 
