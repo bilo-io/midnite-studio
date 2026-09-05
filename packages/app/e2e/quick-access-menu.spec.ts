@@ -66,7 +66,7 @@ test('Meta+L opens the menu, then L opens the Loops panel', async ({ page }) => 
   await expect(menu(page)).toBeVisible();
 
   await page.keyboard.press('l');
-  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   await expect(menu(page)).toHaveCount(0);
 });
 
@@ -83,5 +83,5 @@ test('Meta+L opens the menu, then I changes nothing and leaves the menu open', a
   await expect(menu(page)).toBeVisible();
   await expect(menu(page).getByText('Coming soon')).toBeVisible();
   await expect(page.getByTestId('notes-modal')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Guard', exact: true })).toHaveCount(0);
 });
