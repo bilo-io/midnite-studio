@@ -67,80 +67,100 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — One record, not a seventeen-branch ternary (S)
+### A — One record, not a seventeen-branch ternary (S) — ✅ DONE (PR #PENDING, 2026-09-05)
 
 Land this first; B and C both attach to it.
 
-- [ ] Add [`packages/app/src/components/view-registry.tsx`](../../../packages/app/src/components/view-registry.tsx)
+> **Landed note — the global set is six, not five.** [Phase 59](phase-59-workspace-optimizer.md)
+> Theme A shipped `optimizer` as an 18th ternary branch *above* the `!selectedRepoId` guard after
+> this doc was written, so `VIEW_COMPONENT` carries `global: true` on **`landing`, `settings`,
+> `councils`, `workflows`, `video` and `optimizer`** — six ids, and `view-registry.test.ts` asserts
+> that exact set. Treating `optimizer` as repo-scoped to match the doc's five would have been a
+> silent regression, not fidelity.
+
+- [x] Add [`packages/app/src/components/view-registry.tsx`](../../../packages/app/src/components/view-registry.tsx)
       — **new.** Export `type ViewEntry = { Component: ComponentType; global?: true }` and
       `export const VIEW_COMPONENT: Record<ViewId, ViewEntry>`, one entry per `ViewId`, in
       `VIEW_IDS` order. The `lazy()` calls move here from
       [`app.tsx`](../../../packages/app/src/app.tsx); `GraphView` stays **eager** (it is first paint —
       the comment at `app.tsx:96` says why) and so does anything else `app.tsx` currently imports
       directly.
-- [ ] `global: true` on exactly `landing`, `settings`, `councils`, `workflows`, `video` — the five
+- [x] `global: true` on exactly `landing`, `settings`, `councils`, `workflows`, `video` — the five
       the current ternary places above the `!selectedRepoId` guard. The flag's docstring states the
       rule: *a global view renders whether or not a repo is selected; every other view yields to
       `EmptyWorkspace` when `selectedRepoId` is null.*
-- [ ] Type it as `Record<ViewId, ViewEntry>` and **not** `Partial<…>` — an added `ViewId` must fail
+- [x] Type it as `Record<ViewId, ViewEntry>` and **not** `Partial<…>` — an added `ViewId` must fail
       `moon run :typecheck`, not fall through to a placeholder. That failure mode is the reason this
       theme exists.
-- [ ] Replace the ternary at [`app.tsx:1312–1357`](../../../packages/app/src/app.tsx) with
+- [x] Replace the ternary at [`app.tsx:1312–1357`](../../../packages/app/src/app.tsx) with
       `const { Component, global } = VIEW_COMPONENT[activeView];` then
       `global || selectedRepoId ? <Component /> : <EmptyWorkspace />`. The surrounding
       `<Suspense fallback={<div className={viewBoxClassName}><DelayedFallback /></div>}>` and the
       `key={activeView}` box are **unchanged** — this theme moves the branch, not the frame.
-- [ ] `sessions` maps to `Placeholder` **explicitly** in the record, with a one-line comment naming
+- [x] `sessions` maps to `Placeholder` **explicitly** in the record, with a one-line comment naming
       the phase that will replace it. No `ViewId` reaches `Placeholder` by fallthrough any more,
       because there is no fallthrough.
-- [ ] Fix `Placeholder`'s stale copy at [`app.tsx:472`](../../../packages/app/src/app.tsx):
+- [x] Fix `Placeholder`'s stale copy at [`app.tsx:472`](../../../packages/app/src/app.tsx):
       `see <code>todo/</code>` → `see <code>.midnite/tasks/</code>`. The directory it names has not
       existed since the tracker moved, so the app currently points a user at nothing.
-- [ ] Vitest: `components/view-registry.test.ts` asserts (a) `Object.keys(VIEW_COMPONENT)` equals
+- [x] Vitest: `components/view-registry.test.ts` asserts (a) `Object.keys(VIEW_COMPONENT)` equals
       `VIEW_IDS` as a set, and (b) the set of ids with `global === true` is exactly
       `['landing','settings','councils','workflows','video']` — so widening the global set is a
       test change, made deliberately, rather than a silent reorder.
 
-### B — A boundary per view (M)
+### B — A boundary per view (M) — ✅ DONE (PR #PENDING, 2026-09-05)
 
 One class component, three mount points, and a fallback that is honest about what it does and does
 not know.
 
-- [ ] Add [`packages/app/src/components/error-boundary.tsx`](../../../packages/app/src/components/error-boundary.tsx)
+> **Landed note — `componentDidCatch` reports through Phase 65, not `console.error`.**
+> [`eslint.config.mjs:59`](../../../eslint.config.mjs) sets `no-console: 'error'` for
+> `packages/app`, so the console call this theme's item specifies would not lint. The suggestion
+> predates [Phase 65](phase-65-somewhere-for-a-crash-to-go.md), which landed in the same batch and
+> whose Decision 8 names this exact seam: the boundary calls
+> `reportError('boundary', error, { componentStack })` from `lib/report.ts`, asserted in
+> `error-boundary.test.tsx`.
+>
+> **`error-boundary.spec.ts` was not written.** The `window.__mstudioTestThrow` hook *does* ship,
+> gated behind `import.meta.env.DEV` exactly as Decision 5 recommends, and the RTL spec asserts it
+> trips the boundary — but the Playwright spec itself was not authored in this batch, so that item
+> and the two verification lines that depend on it stay open.
+
+- [x] Add [`packages/app/src/components/error-boundary.tsx`](../../../packages/app/src/components/error-boundary.tsx)
       — **new.** `export class ErrorBoundary extends Component<ErrorBoundaryProps, { error: Error | null }>`
       with `ErrorBoundaryProps = { children: ReactNode; resetKey?: string | number; label?: string }`,
       implementing `static getDerivedStateFromError(error: Error)` and `componentDidCatch`.
       A class, not a hook — React still offers no hook equivalent, and this is the one place in the
       renderer where that is the correct answer rather than a legacy one.
-- [ ] `resetKey` clears the caught error: `componentDidUpdate(prev)` sets `{ error: null }` when
+- [x] `resetKey` clears the caught error: `componentDidUpdate(prev)` sets `{ error: null }` when
       `prev.resetKey !== this.props.resetKey`. The view slot passes `resetKey={activeView}`, so
       navigating away from a broken view and back gives it a fresh attempt without a window reload.
       Without this, one throw poisons the slot for the session.
-- [ ] The fallback is `EmptyState` — `icon={LuTriangleAlert}` from `react-icons/lu`,
+- [x] The fallback is `EmptyState` — `icon={LuTriangleAlert}` from `react-icons/lu`,
       `title={`${label ?? 'This view'} stopped rendering`}`, `body` = the error's `message`,
       truncated to 200 characters — plus two `IconButton`s: **Try again** (sets `{ error: null }`)
       and **Copy details** (writes `${error.message}\n\n${error.stack}` to the clipboard). No raw
       stack on screen: it is unreadable in a 300px pane and the copy button is what a bug report
       actually needs.
-- [ ] `componentDidCatch(error, info)` calls `console.error('[view] ' + (this.props.label ?? 'unknown'), error, info.componentStack)`
+- [x] `componentDidCatch(error, info)` calls `console.error('[view] ' + (this.props.label ?? 'unknown'), error, info.componentStack)`
       and nothing else. **Chosen over an IPC report channel** because there is no renderer→main log
       channel today (`CHANNELS` has none) and adding one is a contract change that would swallow
       this phase; DevTools is where a developer already looks, and Copy-details is where a user's
       report comes from. Revisit as Decision 3.
-- [ ] Wrap the view slot: `<ErrorBoundary resetKey={activeView} label={ALL_NAV_ITEMS.find(i => i.view === activeView)?.label}>`
+- [x] Wrap the view slot: `<ErrorBoundary resetKey={activeView} label={ALL_NAV_ITEMS.find(i => i.view === activeView)?.label}>`
       **outside** the existing `<Suspense>` in [`app.tsx`](../../../packages/app/src/app.tsx), so a
       chunk-load rejection surfaces as the boundary's fallback rather than an unresolved promise.
       Outside, not inside — a boundary inside Suspense never sees the lazy import's failure.
-- [ ] Wrap the three `fallback={null}` Suspense sites the same way, each with its own boundary and
+- [x] Wrap the three `fallback={null}` Suspense sites the same way, each with its own boundary and
       no `resetKey`: `FirstRunModal` ([`app.tsx:1531`](../../../packages/app/src/app.tsx)),
       `OnboardingModal` ([`app.tsx:1654`](../../../packages/app/src/app.tsx)) and `SlidesModal`
       ([`app.tsx:1661`](../../../packages/app/src/app.tsx)). Their boundaries render `null` on
       error — a modal that fails to load must not paint an error card over the app it was optional
       to; it simply does not appear.
-- [ ] Wrap [`detached-root.tsx`](../../../packages/app/src/detached-root.tsx)'s root render in the
+- [x] Wrap [`detached-root.tsx`](../../../packages/app/src/detached-root.tsx)'s root render in the
       same boundary. A detached panel has no rail to navigate away with, so a blank one is a window
       the user can only close — it needs the Try-again button more than the main window does.
-- [ ] Vitest/RTL: `components/error-boundary.test.tsx` — a child that throws renders the fallback
+- [x] Vitest/RTL: `components/error-boundary.test.tsx` — a child that throws renders the fallback
       and does not propagate; **Try again** re-mounts the child (assert a child that throws once
       then succeeds ends up rendering its content); changing `resetKey` clears the error; the
       `console.error` call is asserted via a `vi.spyOn(console, 'error')` that is also what keeps
@@ -151,32 +171,32 @@ not know.
       **If the throw hook cannot be added without shipping test code, drop this item** and say so in
       the PR rather than shipping a hook into the product.
 
-### C — The three states, applied (M)
+### C — The three states, applied (M) — ✅ DONE (PR #PENDING, 2026-09-05)
 
 Not a redesign: the two primitives already exist and their docstrings already settle the rules.
 This theme is the checklist of views that never called them.
 
-- [ ] Establish the ordering as a written rule in
+- [x] Establish the ordering as a written rule in
       [`components/skeleton.tsx`](../../../packages/app/src/components/skeleton.tsx)'s existing
       docstring (extend it; do not start a second one): **error → empty → skeleton → content.**
       Every view below checks in that order. A skeleton must never stand in for a failure, because a
       grey bar that never resolves is indistinguishable from one that is still loading.
-- [ ] `features/dashboard/dashboard-view.tsx` — 0/0/0 today. Add all three.
-- [ ] `features/tests/tests-view.tsx` — 0/0/0 today. Add all three.
-- [ ] `features/history/history-view.tsx` — 0/0/0 today. Add all three.
-- [ ] `features/video/video-view.tsx` — 0/0/0 today. Add all three.
-- [ ] `features/files/files-view.tsx` — 0/0/0 today. Add all three.
-- [ ] `features/workbench/` (the `changes` view) — 0/0/0 today. Add all three.
-- [ ] For each of the six: the **error** branch reads `useQuery`'s `isError`/`error` and renders
+- [x] `features/dashboard/dashboard-view.tsx` — 0/0/0 today. Add all three.
+- [x] `features/tests/tests-view.tsx` — 0/0/0 today. Add all three.
+- [x] `features/history/history-view.tsx` — 0/0/0 today. Add all three.
+- [x] `features/video/video-view.tsx` — 0/0/0 today. Add all three.
+- [x] `features/files/files-view.tsx` — 0/0/0 today. Add all three.
+- [x] `features/workbench/` (the `changes` view) — 0/0/0 today. Add all three.
+- [x] For each of the six: the **error** branch reads `useQuery`'s `isError`/`error` and renders
       `EmptyState` with a `title` naming the operation that failed and a `body` carrying
       `error.message`; the **empty** branch renders `EmptyState` with the view's own copy; the
       **loading** branch renders a `Skeleton` shaped like the content it replaces, *not* a spinner —
       per the primitive's own docstring, a spinner belongs where content is already on screen.
-- [ ] `features/actions/actions-view.tsx` (2 error sites, no empty/skeleton),
+- [x] `features/actions/actions-view.tsx` (2 error sites, no empty/skeleton),
       `features/reviews/reviews-view.tsx` (3, has `reviews-skeletons.tsx`) and
       `features/projects/projects-view.tsx` (16) get only what they are missing — do not rewrite
       their existing handling.
-- [ ] Vitest/RTL: one spec per newly covered view, in the house pattern of
+- [x] Vitest/RTL: one spec per newly covered view, in the house pattern of
       [`features/landing/landing-view.test.tsx`](../../../packages/app/src/features/landing/landing-view.test.tsx)
       — render with a `QueryClient` seeded to each of the three states and assert the right one of
       the three appears, and that exactly one does.
@@ -206,17 +226,21 @@ This theme is the checklist of views that never called them.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
+- [x] `moon run :typecheck :lint :test` green.
 - [ ] Adding a member to `ViewId` without adding a `VIEW_COMPONENT` entry **fails typecheck** —
       check it by hand once, then delete the probe. This is the regression the phase exists to make
       impossible.
 - [ ] A view component that throws on render leaves the nav rail, the terminal and the status bar
       interactive; navigating to another view and back renders the broken view again, freshly.
-- [ ] The three optional modals still render `null` — not an error card — when their chunk fails.
-- [ ] Each of the six previously-bare views shows exactly one of error / empty / skeleton for the
+- [x] The three optional modals still render `null` — not an error card — when their chunk fails.
+- [x] Each of the six previously-bare views shows exactly one of error / empty / skeleton for the
       matching query state, never two at once.
 - [ ] Clicking **Copy details** puts `message` + `stack` on the clipboard.
-- [ ] `grep -rn "todo/" packages/app/src` returns nothing.
+- [ ] `grep -rn "todo/" packages/app/src` returns nothing. **Still open after this batch:** the
+      `Placeholder` copy itself is fixed (`SessionsPlaceholder` in `view-registry.tsx` names
+      `.midnite/tasks/`), but eight unrelated `todo/` references survive in docblocks and one
+      markdown-link test fixture — `checks-verdict.ts`, `branch-health.ts`, `repos-panel.tsx`,
+      `use-browser-bounds.ts`, `markdown-links.test.ts`. A comment sweep, not this phase's bug.
 - [ ] **Open, for a human:** run `moon run desktop:dist`, install over a running copy, then navigate
       to a lazy view in the still-open window. The chunk 404s; confirm the boundary's card appears
       with a working **Try again** rather than a blank window.

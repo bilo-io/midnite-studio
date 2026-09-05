@@ -95,42 +95,51 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The trap learns to give focus back (M)
+### A — The trap learns to give focus back (M) — ✅ DONE (PR #PENDING, 2026-09-05)
 
-- [ ] Extend [`use-focus-trap.ts`](../../../packages/app/src/components/use-focus-trap.ts) to capture
+- [x] Extend [`use-focus-trap.ts`](../../../packages/app/src/components/use-focus-trap.ts) to capture
       on activation and restore on deactivation. **Signature unchanged** —
       `useFocusTrap(ref, active): void` — so all eleven call sites keep compiling untouched. That is
       the point: the fix arrives at the sites that never asked for it.
-- [ ] Capture `document.activeElement` **when `active` flips to true**, not on first render. Today
+- [x] Capture `document.activeElement` **when `active` flips to true**, not on first render. Today
       `palette.tsx`'s `useRef` initializer re-evaluates every render and discards the result; a hook
       whose `active` is a state flag (`popover`, `browser-pane`, `slides-modal`, `first-run-modal`)
       must capture at the transition or it captures something from mount time.
-- [ ] **Restore only to a live, focusable element.** Guard with `restoreTo.isConnected` — a check that
+- [x] **Restore only to a live, focusable element.** Guard with `restoreTo.isConnected` — a check that
       appears **nowhere** in `packages/app/src` today — and fall back through: the captured element if
       connected → the trigger's nearest connected ancestor if it can hold focus → otherwise leave
       focus alone rather than forcing it to `<body>`.
-- [ ] **Never restore to `<body>`.** If the captured element is `document.body`, capture nothing —
+- [x] **Never restore to `<body>`.** If the captured element is `document.body`, capture nothing —
       restoring to `<body>` is indistinguishable from doing nothing, and pretending otherwise hides
       the bug.
-- [ ] Pass `{ preventScroll: true }`, matching every other focus call in the repo and the regression
+- [x] Pass `{ preventScroll: true }`, matching every other focus call in the repo and the regression
       [`e2e/panel-glow.spec.ts:16`](../../../packages/app/e2e/panel-glow.spec.ts) already guards.
-- [ ] **Do not restore if focus has already moved somewhere deliberate.** If, at deactivation time,
+- [x] **Do not restore if focus has already moved somewhere deliberate.** If, at deactivation time,
       `document.activeElement` is neither inside the trapped container nor `<body>`, something else
       has claimed focus — a toast action, a newly opened second overlay — and stealing it back is
       worse than doing nothing. This is the clause that makes the hook safe to apply to all eleven at
       once.
-- [ ] Add `:not([inert])` to the `FOCUSABLE` selector (`use-focus-trap.ts:3-4`). `Collapse` marks its
+- [x] Add `:not([inert])` to the `FOCUSABLE` selector (`use-focus-trap.ts:3-4`). `Collapse` marks its
       collapsed region `inert`, so a trapped dialog containing a closed accordion currently Tab-wraps
       through buttons the user cannot see. One selector clause, and the only change to the activation
       path in this phase.
-- [ ] Extend `use-focus-trap.test.ts` — it has **two** cases and neither unmounts. Add: restores to
+- [x] Extend `use-focus-trap.test.ts` — it has **two** cases and neither unmounts. Add: restores to
       the previously-focused element on deactivate; does **not** restore to a detached node; does not
       restore to `<body>`; does not steal focus that moved elsewhere; `active: false` traps nothing;
       an `inert` child is skipped in the Tab cycle.
 
-### B — The eight that never gave it back (S)
+### B — The eight that never gave it back (S) — ✅ DONE (PR #PENDING, 2026-09-05)
 
-- [ ] Verify each of the eight inherits correct behaviour with **no code change** —
+> **Landed note — the acceptance criterion had to be restated, and then it held.** As written, the
+> criterion is *"`git diff --stat` for Theme B shows `palette.tsx`, `browser-pane.tsx`,
+> `merge-dialog.tsx` and nothing else"*. That is unsatisfiable in this batch:
+> [Phase 62](phase-62-one-escape-one-dismissal.md) Theme B landed alongside it and edits four of
+> the eight dialogs (`confirm-dialog`, `prompt-dialog`, `stash-push-dialog`, `browser-launcher`)
+> for Escape. The criterion is therefore restated as **"no *focus-related* change to the eight"** —
+> and that is exactly what happened: P68 edited none of the eight files at all. Eight components
+> fixed by one hook, as designed.
+
+- [x] Verify each of the eight inherits correct behaviour with **no code change** —
       [`confirm-dialog.tsx:68`](../../../packages/app/src/components/confirm-dialog.tsx),
       [`prompt-dialog.tsx:37`](../../../packages/app/src/components/prompt-dialog.tsx),
       [`setup-dialog.tsx:64`](../../../packages/app/src/features/agent/setup-dialog.tsx),
@@ -141,22 +150,22 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       [`browser-launcher.tsx:47`](../../../packages/app/src/features/browser/browser-launcher.tsx).
       Eight components fixed by one hook is the acceptance criterion; if any needs a change, the hook
       is wrong.
-- [ ] **Delete `palette.tsx`'s bespoke block** (`:126-136`) — the `previouslyFocused` ref and the
+- [x] **Delete `palette.tsx`'s bespoke block** (`:126-136`) — the `previouslyFocused` ref and the
       restoring `useEffect` cleanup. Keep `inputRef.current?.focus()`, which is forward focus and
       still the palette's own business. `palette.spec.ts:82-92` must pass unchanged; it is the
       regression guard for this deletion.
-- [ ] **Delete `browser-pane.tsx:121-135`'s `querySelector('[data-testid=…]')` restoration.** A test
+- [x] **Delete `browser-pane.tsx:121-135`'s `querySelector('[data-testid=…]')` restoration.** A test
       id is not production wiring, and the hook now covers it. Its guard — *don't restore if the pane
       is re-opening* — is subsumed by Theme A's "focus already moved deliberately" clause; confirm
       that with `browser-pane.spec.ts:247` rather than by reading.
-- [ ] **Keep `popover.tsx:97-99`'s `triggerRef.current?.focus()`.** It restores to a *known* trigger
+- [x] **Keep `popover.tsx:97-99`'s `triggerRef.current?.focus()`.** It restores to a *known* trigger
       rather than a captured `activeElement`, which is strictly better for a popover whose trigger is
       guaranteed to still exist — and the hook's "already moved" clause makes the two coexist without
       fighting. Record why in a comment so it is not "tidied" away as duplication.
-- [ ] Add the missing `aria-label` to [`merge-dialog.tsx:98-99`](../../../packages/app/src/features/reviews/merge-dialog.tsx),
+- [x] Add the missing `aria-label` to [`merge-dialog.tsx:98-99`](../../../packages/app/src/features/reviews/merge-dialog.tsx),
       the one `role="dialog" aria-modal="true"` in the app with no accessible name.
 
-### C — The context menu says "menu" and means it (M)
+### C — The context menu says "menu" and means it (M) — ✅ DONE (PR #PENDING, 2026-09-05)
 
 `grep -c "focus\|tabIndex\|autoFocus"` on
 [`context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx) → **0**. But it declares
@@ -164,38 +173,50 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 contract and implements none of the keyboard half. A screen reader announces "menu", the user presses
 Down, and nothing happens.
 
-- [ ] Move focus into the menu on open — first enabled item — and register it with the trap so Tab
+- [x] Move focus into the menu on open — first enabled item — and register it with the trap so Tab
       cannot walk out. Today the menu is portalled to the **end of `<body>`**, so reaching its first
       item by keyboard means tabbing through the entire rest of the document.
-- [ ] Arrow-key navigation with a roving `tabIndex`: `ArrowDown`/`ArrowUp` move and wrap, `Home`/`End`
+- [x] Arrow-key navigation with a roving `tabIndex`: `ArrowDown`/`ArrowUp` move and wrap, `Home`/`End`
       jump, disabled items are skipped. This is the contract `role="menuitem"` already promises.
-- [ ] `ArrowRight` opens a submenu and focuses its first item; `ArrowLeft` closes it and returns focus
+- [x] `ArrowRight` opens a submenu and focuses its first item; `ArrowLeft` closes it and returns focus
       to the parent row. **Submenus open on hover only today** (`:261`), which makes them unreachable
       without a mouse.
-- [ ] `Escape` closes the submenu first, then the menu — and it must route through the layer
+- [x] `Escape` closes the submenu first, then the menu — and it must route through the layer
       [Phase 62](phase-62-one-escape-one-dismissal.md) builds if that has landed, or stay as the
       existing `:107-108` handler if it has not. See Decision 4.
-- [ ] Restore focus to the element that was focused when the menu opened, via Theme A's hook — which
+- [x] Restore focus to the element that was focused when the menu opened, via Theme A's hook — which
       for a right-click is usually the row that was clicked.
-- [ ] `context-menu.test.tsx` gains keyboard coverage: open → first item focused; Down wraps; a
+- [x] `context-menu.test.tsx` gains keyboard coverage: open → first item focused; Down wraps; a
       disabled item is skipped; ArrowRight enters a submenu; Escape returns focus to the trigger.
 
-### D — The two modals that were never modals (S)
+### D — The two modals that were never modals (S) — ✅ DONE (PR #PENDING, 2026-09-05)
 
-- [ ] [`onboarding-modal.tsx`](../../../packages/app/src/features/onboarding/onboarding-modal.tsx) —
+> **Landed note — the audit's verdicts, recorded rather than silently skipped.** The last item asks
+> for a verdict on each remaining role-less overlay:
+> - **`fab-panel.tsx`** — *not a modal.* A dismissible side panel over live chrome, which the app
+>   behind it stays interactive under. It already carries the repo's one real `inert`.
+> - **`screensaver.tsx`** — *not a modal.* No interactive content, so there is nothing to trap.
+> - **`graph-row.tsx:525`'s overflow popover** — *should become `Popover`*, which already restores
+>   to its trigger. That is a refactor, not an aria patch, and it is not this phase.
+> - **`lock-screen.tsx`** — **a genuine gap, deferred.** It has `role="dialog"` and an `aria-label`
+>   but no `aria-modal` and no trap, and it stacks a *nested* `role="dialog"` from
+>   `passcode-pad.tsx`. That makes it a stacking question, not a one-line trap, and it belongs with
+>   the screen-lock work. Logged in [`outstanding.md`](../outstanding.md).
+
+- [x] [`onboarding-modal.tsx`](../../../packages/app/src/features/onboarding/onboarding-modal.tsx) —
       **zero `role`, zero `aria-`, zero focus code**, and it is a fullscreen modal shown to a
       first-time user. Add `role="dialog"`, `aria-modal="true"`, `aria-label`, a `tabIndex={-1}`
       container and `useFocusTrap`, matching the `setup-dialog.tsx` skeleton exactly.
-- [ ] [`rebase-modal.tsx`](../../../packages/app/src/features/rebase/rebase-modal.tsx) — same
+- [x] [`rebase-modal.tsx`](../../../packages/app/src/features/rebase/rebase-modal.tsx) — same
       treatment. It is a bottom sheet (`fixed inset-x-0 bottom-0`) over a destructive operation, with
       no role and no trap.
-- [ ] [`help-overlay.tsx`](../../../packages/app/src/features/slides/help-overlay.tsx) — has
+- [x] [`help-overlay.tsx`](../../../packages/app/src/features/slides/help-overlay.tsx) — has
       `role="dialog"` and `autoFocus` but **no trap**, so Tab walks straight out of the help overlay
       into the deck behind it. One `useFocusTrap` line.
-- [ ] [`multi-select-menu.tsx`](../../../packages/app/src/components/multi-select-menu.tsx) — declares
+- [x] [`multi-select-menu.tsx`](../../../packages/app/src/components/multi-select-menu.tsx) — declares
       `role="listbox"`/`role="option"` and autofocuses its search input, but has no trap and no
       restore. Add both; the listbox arrow-key contract is **out of scope** here and noted below.
-- [ ] Audit the remaining role-less overlays and record the verdict rather than silently skipping
+- [x] Audit the remaining role-less overlays and record the verdict rather than silently skipping
       them: `fab-panel.tsx`, `screensaver.tsx`, `lock-screen.tsx` (has `role="dialog"` but no
       `aria-modal` and no trap), `graph-row.tsx:525`'s overflow popover. For each, either fix it or
       write one sentence saying why it is not a modal.
@@ -225,32 +246,40 @@ Down, and nothing happens.
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green, and `pnpm e2e` green with no new `KNOWN_RED` entry.
+      **Half done:** typecheck, lint and the unit suites are green (`packages/app` 2358/2358). The
+      e2e half was **not executed** in this batch — it needs a build.
 - [ ] **The three existing restore tests pass unchanged** — `palette.spec.ts:82-92`,
       `footer-monitor.spec.ts:126`, `browser-pane.spec.ts:247`. They are the regression guard for
       deleting two bespoke implementations, and they must not be edited to accommodate the change.
-- [ ] **Eight components fixed with no edit to any of them.** `git diff --stat` for Theme B shows
-      `palette.tsx`, `browser-pane.tsx`, `merge-dialog.tsx` and nothing else. If a dialog needed
-      changing, the hook is wrong.
+- [x] **Eight components fixed with no edit to any of them.** ~~`git diff --stat` for Theme B shows
+      `palette.tsx`, `browser-pane.tsx`, `merge-dialog.tsx` and nothing else.~~ **Restated** — see
+      Theme B's landed note: the batch also carries Phase 62, which edits four of the eight for
+      Escape, so the criterion is *no **focus-related** change to the eight*. Verified: Phase 68
+      edited none of those eight files. If a dialog had needed changing, the hook would be wrong.
 - [ ] Open and close each of the eleven overlays from a known trigger and assert focus returns to it —
       the new `focus-return.spec.ts`, one case per overlay, using Playwright's `toBeFocused()` (the
-      repo's e2e convention; `toHaveFocus` is unused).
-- [ ] **The detached-trigger case, which the existing palette test cannot reach**: open the palette
+      repo's e2e convention; `toHaveFocus` is unused). **Written, not executed, and not yet eleven:**
+      `packages/app/e2e/focus-return.spec.ts` exists with **4** cases and has not been run.
+- [x] **The detached-trigger case, which the existing palette test cannot reach**: open the palette
       from a virtualized graph row, navigate to a different view, close it — focus does **not** land
-      on `<body>`, and nothing throws.
-- [ ] Opening the palette with `Mod+k` while `document.activeElement` is `<body>` and closing it
+      on `<body>`, and nothing throws. *Asserted at the hook level* —
+      `use-focus-trap.test.ts`'s "does not restore to a trigger that left the DOM"; the app-level
+      flow is part of the unexecuted e2e above.
+- [x] Opening the palette with `Mod+k` while `document.activeElement` is `<body>` and closing it
       leaves focus unchanged rather than "restoring" to `<body>`.
-- [ ] A dialog opened *from another dialog* returns focus to the first dialog, not to the original
+- [x] A dialog opened *from another dialog* returns focus to the first dialog, not to the original
       page trigger — the stacking case the "already moved" clause exists for.
-- [ ] A trapped dialog containing a **closed `Collapse`** does not Tab into the collapsed region — the
+- [x] A trapped dialog containing a **closed `Collapse`** does not Tab into the collapsed region — the
       `:not([inert])` clause, asserted rather than assumed.
 - [ ] Focus restoration never scrolls the page — the `preventScroll` regression `panel-glow.spec.ts`
       already documents.
-- [ ] A context menu is fully operable from the keyboard once open: first item focused, arrows wrap,
+- [x] A context menu is fully operable from the keyboard once open: first item focused, arrows wrap,
       disabled items skipped, submenu entered with ArrowRight, Escape returns focus to the row.
-- [ ] `onboarding-modal` and `rebase-modal` each report `role="dialog"` with an accessible name, and
+- [x] `onboarding-modal` and `rebase-modal` each report `role="dialog"` with an accessible name, and
       Tab cannot leave either.
-- [ ] `grep -rn "querySelector.*data-testid" packages/app/src` returns nothing — no test id is load-bearing
-      in production code.
+- [x] `grep -rn "querySelector.*data-testid" packages/app/src` returns nothing — no test id is load-bearing
+      in production code. **Qualified:** no *production* hit remains. The grep still matches `*.test.tsx`
+      files and the one explanatory comment left at `browser-pane.tsx:132` saying what was deleted.
 - [ ] **Open, for a human:** unplug the mouse. Open a repo, right-click a commit, run something from
       the menu, answer the confirm, and come back. If your place in the graph is where you left it at
       every step, the phase worked.

@@ -85,9 +85,15 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The stack, and the hook that joins it (M)
+### A — The stack, and the hook that joins it (M) — ✅ DONE (PR #PENDING, 2026-09-05)
 
-- [ ] Add [`packages/app/src/components/use-dismiss.ts`](../../../packages/app/src/components/use-dismiss.ts)
+> **Landed note — the hook is `useDismiss`, and outside-click stayed out.** Decision 8's
+> recommendation was taken literally: the name is `useDismiss`, not `useEscape`, so adding
+> outside-click later is a new field on `DismissOptions` rather than a rename across seventeen
+> files. Outside-click itself is **deliberately not in this batch** — `popover` and `context-menu`
+> keep their own `pointerdown` listeners, exactly as *Not in this phase* says.
+
+- [x] Add [`packages/app/src/components/use-dismiss.ts`](../../../packages/app/src/components/use-dismiss.ts)
       — **new.** One named export:
       `export function useDismiss(active: boolean, onDismiss: () => void, options?: DismissOptions): void`,
       with `export type DismissOptions = { layer?: DismissLayer; blocking?: boolean }` and
@@ -95,56 +101,56 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       Ref-free on purpose: three of the handlers being fixed (`graph-view`, `board-view`,
       `browser-pane`) have no overlay element at all, so a `useFocusTrap`-style ref parameter would
       exclude exactly the cases that need it.
-- [ ] **One `window` listener for the whole app, not one per overlay.** The module holds
+- [x] **One `window` listener for the whole app, not one per overlay.** The module holds
       `const stack: DismissEntry[] = []`; the hook pushes on activate and splices on deactivate. The
       single `keydown` listener is installed when the stack goes from empty to non-empty and removed
       when it empties. This — not `stopPropagation` — is what makes "one Escape, one dismissal" true,
       and it is why the phase does not simply sprinkle `stopImmediatePropagation` around.
-- [ ] **The delivery rule, stated once and implemented once:** Escape goes to the topmost
+- [x] **The delivery rule, stated once and implemented once:** Escape goes to the topmost
       **blocking** entry; if the stack holds no blocking entry, it goes to the topmost **passive**
       one; if the stack is empty, nothing happens and the event is untouched. "Topmost" is
       (highest `layer` in the `DismissLayer` order above, then latest registration).
-- [ ] `blocking` defaults to `true`. Passive entries are `toast` and `tooltip` and nothing else:
+- [x] `blocking` defaults to `true`. Passive entries are `toast` and `tooltip` and nothing else:
       they paint above a dialog but must not steal its Escape. A user pressing Escape to cancel a
       destructive confirm must cancel it, not dismiss an unrelated toast — that is the whole reason
       the flag exists rather than plain z-order.
-- [ ] **`blocking` also drives occlusion.** A blocking entry calls
+- [x] **`blocking` also drives occlusion.** A blocking entry calls
       `useUiStore.getState().incrementOccluders()` on push and `decrementOccluders()` on splice;
       a passive one does neither. One registration, two duties — which is what fixes the four
       overlays in Theme B that occlude nothing today, without a second bookkeeping call at each site.
-- [ ] The handler calls `event.preventDefault()` and `event.stopImmediatePropagation()` before
+- [x] The handler calls `event.preventDefault()` and `event.stopImmediatePropagation()` before
       invoking `onDismiss`, so a not-yet-migrated handler on `window` cannot also fire. This is the
       migration safety net: Themes B and C can land incrementally without an intermediate state where
       Escape does *nothing*.
-- [ ] `onDismiss` is read through a ref inside the hook so a caller passing an inline arrow does not
+- [x] `onDismiss` is read through a ref inside the hook so a caller passing an inline arrow does not
       re-register the entry on every render. `useFocusTrap`'s `[ref, active]` deps work because both
       are stable; an inline callback is not, and a stack that re-orders itself on every keystroke
       would silently break the topmost rule.
-- [ ] Add `packages/app/src/components/use-dismiss.test.ts` in the shape of
+- [x] Add `packages/app/src/components/use-dismiss.test.ts` in the shape of
       [`use-focus-trap.test.ts`](../../../packages/app/src/components/use-focus-trap.test.ts)
       (`renderHook`, no jsdom setup file — this project has **no** `setupFiles` and no
       `@testing-library/jest-dom`, so assertions read `expect(x).not.toBeNull()`): two blocking
       entries, Escape dismisses only the later; a passive entry above a blocking one does not steal
       it; deactivating the top hands delivery to the next; an empty stack leaves the event alone;
       `occluders` returns to 0 after every blocking entry unmounts.
-- [ ] Add `packages/app/src/components/use-dismiss.test.ts` coverage for the listener lifecycle: a
+- [x] Add `packages/app/src/components/use-dismiss.test.ts` coverage for the listener lifecycle: a
       spy on `window.addEventListener`/`removeEventListener` sees **exactly one** `keydown`
       registration across three simultaneous overlays, and zero once they all close.
 
-### B — The overlays move onto it (M)
+### B — The overlays move onto it (M) — ✅ DONE (PR #PENDING, 2026-09-05)
 
 Eighteen window/document-scoped handlers across seventeen files. Each migration is: delete the
 `useEffect` + listener, call `useDismiss`, keep the close function exactly as it is.
 
-- [ ] `layer: 'menu'` — [`context-menu.tsx:111`](../../../packages/app/src/components/context-menu.tsx),
+- [x] `layer: 'menu'` — [`context-menu.tsx:111`](../../../packages/app/src/components/context-menu.tsx),
       [`theme-toggle.tsx:66`](../../../packages/app/src/components/theme-toggle.tsx),
       [`multi-select-menu.tsx:75`](../../../packages/app/src/components/multi-select-menu.tsx).
       `context-menu.tsx` **drops its own `incrementOccluders` pair** — the hook owns it now — and its
       `mousedown`/`resize` listeners stay where they are; this phase moves Escape and nothing else.
-- [ ] `layer: 'popover'` — [`popover.tsx:157`](../../../packages/app/src/components/popover.tsx).
+- [x] `layer: 'popover'` — [`popover.tsx:157`](../../../packages/app/src/components/popover.tsx).
       Drops its `stopPropagation()` (now inert and redundant) and its occluder pair. Its
       `pointerdown`-capture and `scroll`-capture listeners are untouched.
-- [ ] `layer: 'dialog'` — [`confirm-dialog.tsx:72`](../../../packages/app/src/components/confirm-dialog.tsx),
+- [x] `layer: 'dialog'` — [`confirm-dialog.tsx:72`](../../../packages/app/src/components/confirm-dialog.tsx),
       [`prompt-dialog.tsx:42`](../../../packages/app/src/components/prompt-dialog.tsx),
       [`palette.tsx:253`](../../../packages/app/src/components/palette.tsx),
       [`merge-dialog.tsx:82`](../../../packages/app/src/features/reviews/merge-dialog.tsx),
@@ -152,60 +158,61 @@ Eighteen window/document-scoped handlers across seventeen files. Each migration 
       [`browser-launcher.tsx:58`](../../../packages/app/src/features/browser/browser-launcher.tsx).
       The first three gain occluder registration they never had — that is the Fact-3 fix, and it
       arrives free with the migration rather than as six extra call sites.
-- [ ] `layer: 'toast'`, `blocking: false` — [`toast-host.tsx:93`](../../../packages/app/src/components/toast-host.tsx).
+- [x] `layer: 'toast'`, `blocking: false` — [`toast-host.tsx:93`](../../../packages/app/src/components/toast-host.tsx).
       Its existing "only the topmost toast" behaviour becomes an *inner* rule: the host registers one
       passive entry and still dismisses `toasts[toasts.length - 1]`.
       **`toast-host.test.tsx:77` must pass unchanged** — it is the regression guard for this item.
-- [ ] `layer: 'tooltip'`, `blocking: false` — [`tooltip.tsx:118`](../../../packages/app/src/components/tooltip.tsx).
+- [x] `layer: 'tooltip'`, `blocking: false` — [`tooltip.tsx:118`](../../../packages/app/src/components/tooltip.tsx).
       Passive because a tooltip must never hide the browser pane, and must never eat the Escape a
       user meant for the dialog underneath it.
-- [ ] `layer: 'inline'` — [`graph-view.tsx:81`](../../../packages/app/src/features/graph/graph-view.tsx)
+- [x] `layer: 'inline'` — [`graph-view.tsx:81`](../../../packages/app/src/features/graph/graph-view.tsx)
       (`selectCommit(null)`), [`code-preview.tsx:97`](../../../packages/app/src/features/files/preview/code-preview.tsx)
       (the find bar), [`deck.tsx:48` and `:59`](../../../packages/app/src/features/slides/deck.tsx)
       (help overlay, then exit — registered as two entries so the help overlay closes first, which
       is what the current ordering accidentally achieves and must keep achieving).
       `graph-view` at `inline` is the direct fix for the first double-dismiss path.
-- [ ] [`browser-pane.tsx:109`](../../../packages/app/src/features/browser/browser-pane.tsx) —
+- [x] [`browser-pane.tsx:109`](../../../packages/app/src/features/browser/browser-pane.tsx) —
       the `[]`-deps listener that is live for every Escape ever pressed, open or not. It becomes
       `useDismiss(shown, () => setBrowserOpen(false), { layer: 'inline' })`, so it is registered only
       while the pane is actually shown. Its existing comment says the missing `stopPropagation` is
       deliberate; replace that comment rather than leaving it to contradict the new mechanism.
-- [ ] [`passcode-pad.tsx:250`](../../../packages/app/src/features/screensaver/passcode-pad.tsx) —
+- [x] [`passcode-pad.tsx:250`](../../../packages/app/src/features/screensaver/passcode-pad.tsx) —
       the only `document`-scoped handler. Migrates to `layer: 'dialog'`. Its raw `z-[110]` is left
       alone; this item changes which listener dismisses it, not where it paints.
-- [ ] Every migrated **blocking** overlay gets the occluder assertion from
+- [x] Every migrated **blocking** overlay gets the occluder assertion from
       [`context-menu.test.tsx`](../../../packages/app/src/components/context-menu.test.tsx) added to
       its own spec: `occluders` is 0, 1 while mounted, 0 after unmount.
-- [ ] `grep -rn "key === 'Escape'" packages/app/src` returns only the six element-scoped handlers of
+- [x] `grep -rn "key === 'Escape'" packages/app/src` returns only the six element-scoped handlers of
       Theme C and the hook itself. That grep is the acceptance criterion for this theme.
 
-### C — The element-scoped handlers stop leaking (S)
+### C — The element-scoped handlers stop leaking (S) — ✅ DONE (PR #PENDING, 2026-09-05)
 
 Six handlers on focused elements. They are correct — Escape on a focused rename input should cancel
 the rename — but two of them let the event continue to `window`.
 
-- [ ] [`board-view.tsx:258`](../../../packages/app/src/features/projects/board/board-view.tsx) —
+- [x] [`board-view.tsx:258`](../../../packages/app/src/features/projects/board/board-view.tsx) —
       add `event.stopPropagation()` beside its existing `preventDefault()`. This is the second
       double-dismiss path, and it is a one-line fix.
       `board-view.test.tsx:551` ("Escape closes the detail pane and returns focus to the card")
       must still pass.
-- [ ] [`workflow-canvas.tsx:242`](../../../packages/app/src/features/workflows/canvas/workflow-canvas.tsx) —
+- [x] [`workflow-canvas.tsx:242`](../../../packages/app/src/features/workflows/canvas/workflow-canvas.tsx) —
       same one-line addition; `workflow-canvas.test.tsx:103` is its guard.
-- [ ] [`find-bar.tsx:49`](../../../packages/app/src/features/browser/find-bar.tsx),
+- [x] [`find-bar.tsx:49`](../../../packages/app/src/features/browser/find-bar.tsx),
       [`tab-strip.tsx:305`](../../../packages/app/src/features/browser/tab-strip.tsx),
       [`file-tree.tsx:426`](../../../packages/app/src/features/files/file-tree.tsx),
       [`comment-composer.tsx:60`](../../../packages/app/src/features/reviews/comment-composer.tsx) —
       audit only. `tab-strip`, `file-tree` and `comment-composer` already stop propagation; confirm
       `find-bar` does and add it if not. **Do not migrate any of these to `useDismiss`** — an input's
       Escape belongs to the input.
-- [ ] Write the rule down in `use-dismiss.ts`'s docstring so the next author does not migrate them
+- [x] Write the rule down in `use-dismiss.ts`'s docstring so the next author does not migrate them
       by mistake: *a handler on a focused input stays on that input and stops there; `useDismiss` is
       for overlays whose dismissal is not a property of what has focus.*
-- [ ] Extend [`packages/app/e2e/overlay-stacking.spec.ts`](../../../packages/app/e2e/overlay-stacking.spec.ts)
+- [x] Extend [`packages/app/e2e/overlay-stacking.spec.ts`](../../../packages/app/e2e/overlay-stacking.spec.ts)
       — which owns this theme's name and currently asserts only z-index paint order — with the two
       real paths: select a graph row, right-click it, press Escape once, assert the menu is gone
       **and the row is still selected**; and the board equivalent. No screenshots, so no new
-      `*-shots.spec.ts` and no collision with Phase 56 Theme G.
+      `*-shots.spec.ts` and no collision with Phase 56 Theme G. **Written, not executed** — the
+      spec is updated on disk; running it needs a build, which this batch did not do.
 
 ---
 
@@ -235,18 +242,22 @@ the rename — but two of them let the event continue to `window`.
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green, and `pnpm e2e` green with no new `KNOWN_RED` entry.
-- [ ] `grep -rn "key === 'Escape'" packages/app/src` matches only `use-dismiss.ts` and the six
+      **Half done:** typecheck, lint and the unit suites are green (`packages/app` 2358/2358). The
+      e2e half was **not executed** in this batch — it needs a build — so this item stays open.
+- [x] `grep -rn "key === 'Escape'" packages/app/src` matches only `use-dismiss.ts` and the six
       element-scoped handlers named in Theme C.
-- [ ] `grep -rn "addEventListener('keydown'" packages/app/src/components` shows one `window`
-      registration — in `use-dismiss.ts`.
-- [ ] With three overlays open at once, `window.addEventListener` has been called for `keydown`
+- [x] `grep -rn "addEventListener('keydown'" packages/app/src/components` shows one `window`
+      registration — in `use-dismiss.ts`. **One qualification:** `palette.tsx:279` still registers a
+      `window` keydown, but only for `ArrowUp`/`ArrowDown`/`Enter` — the palette's own navigation,
+      not a dismissal. Every *dismissal* listener is the hook's single one.
+- [x] With three overlays open at once, `window.addEventListener` has been called for `keydown`
       exactly once.
 - [ ] **The three paths, each fixed and each asserted:** graph selection survives closing a context
       menu; a board card stays selected when its context menu closes; a visible toast survives
       cancelling a confirm dialog.
-- [ ] `toast-host.test.tsx:77` and `board-view.test.tsx:551` pass **unchanged** — the two existing
+- [x] `toast-host.test.tsx:77` and `board-view.test.tsx:551` pass **unchanged** — the two existing
       tests that encode behaviour this phase must not alter.
-- [ ] Every blocking overlay leaves `useUiStore.getState().occluders` at 0 after unmount, asserted
+- [x] Every blocking overlay leaves `useUiStore.getState().occluders` at 0 after unmount, asserted
       per component spec.
 - [ ] With the browser pane open on a live page, raising a confirm dialog **hides the
       `WebContentsView`** and cancelling it restores the page — the Fact-3 bug, tested rather than
