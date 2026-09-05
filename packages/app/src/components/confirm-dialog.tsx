@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 import { LuTriangleAlert } from 'react-icons/lu';
 
@@ -40,6 +40,13 @@ const BLAST_RADIUS_COPY = {
     consequence: 'will be moved to the trash.',
     noEffect: 'Nothing is left to clean.',
   },
+  /** The one no-undo op in the app — deliberately reads "permanently deleted"
+   *  where `files` reads "moved to the trash". */
+  trash: {
+    subject: (n: number) => `${n} item${n === 1 ? '' : 's'}`,
+    consequence: 'will be permanently deleted — this cannot be undone.',
+    noEffect: 'The Trash is already empty.',
+  },
 } as const;
 
 export type ConfirmRequest = {
@@ -62,6 +69,14 @@ export type ConfirmRequest = {
    * warning region either way.
    */
   warnings?: string[];
+  /**
+   * When present, renders a checkbox with this exact label between the
+   * warnings box and the button row, and the Confirm button stays `disabled`
+   * until it is checked. The first friction beyond a plain button click in
+   * this dialog — reserved for the one operation in the app with true
+   * no-undo (emptying the Trash).
+   */
+  requireAck?: string;
   /**
    * Drop the Cancel button, for a dialog with nothing to cancel.
    *
@@ -89,6 +104,12 @@ export function ConfirmDialog({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
+  // Not reset on `request` identity: `dialog-host.tsx`'s `setBlastRadius`
+  // patches the open request into a new object when an async count lands,
+  // and an effect keyed on `request` would silently un-tick the box mid-
+  // flight. `DialogHost` instead keys `<ConfirmDialog>` on a counter that
+  // only changes for a genuinely new request, so this state resets there.
+  const [acked, setAcked] = useState(false);
 
   // The trap's first stop is Cancel, not Confirm: for a destructive action the
   // safe option is the one a stray Return should hit.
@@ -192,6 +213,18 @@ export function ConfirmDialog({
             <p className="mt-3 text-xs text-muted-foreground">{copy.noEffect}</p>
           ) : null}
 
+          {request.requireAck ? (
+            <label className="mt-3 flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+                checked={acked}
+                onChange={(event) => setAcked(event.target.checked)}
+              />
+              {request.requireAck}
+            </label>
+          ) : null}
+
           <div className="mt-4 flex justify-end gap-2">
             {request.hideCancel ? null : (
               <button
@@ -220,7 +253,8 @@ export function ConfirmDialog({
               // has nothing left to protect.
               autoFocus={request.hideCancel === true}
               onClick={request.onConfirm}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-90 ${
+              disabled={Boolean(request.requireAck) && !acked}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${
                 request.danger
                   ? 'bg-destructive text-destructive-foreground'
                   : 'bg-primary text-primary-foreground'
