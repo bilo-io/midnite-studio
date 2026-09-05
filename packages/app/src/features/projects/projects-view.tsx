@@ -20,6 +20,7 @@ import { EmptyState } from '../../components/empty-state';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { ItemFilterToolbar } from '../../components/item-filter-toolbar';
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
+import { UserAvatar } from '../../components/user-avatar';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { ExternalLink } from '../markdown/external-link';
 import { bridge } from '../../services/bridge';
@@ -439,8 +440,21 @@ function ProjectItemsTable({
                 <span className="min-w-0 flex-1 truncate">
                   {href ? <ExternalLink href={href}>{title}</ExternalLink> : title}
                 </span>
-                <span className="w-40 shrink-0 truncate text-muted-foreground">
-                  {item.content.assignees.join(', ')}
+                <span className="flex w-40 shrink-0 items-center gap-1.5 truncate text-muted-foreground">
+                  {item.content.assignees.length > 0 ? (
+                    <span className="flex -space-x-1 shrink-0">
+                      {item.content.assignees.map((login) => (
+                        <UserAvatar
+                          key={login}
+                          login={login}
+                          size={16}
+                          className="border border-background"
+                          detail="Assignee"
+                        />
+                      ))}
+                    </span>
+                  ) : null}
+                  <span className="truncate">{item.content.assignees.join(', ')}</span>
                 </span>
                 {fields.map((field) => (
                   <span key={field.id} className="w-32 shrink-0 px-2">

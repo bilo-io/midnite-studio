@@ -5,6 +5,7 @@ import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared
 
 import type { IconComponent } from '../../../components/icon-button';
 import { Tooltip } from '../../../components/tooltip';
+import { UserAvatar } from '../../../components/user-avatar';
 import { formatFieldValue } from '../field-editor';
 import { ExternalLink } from '../../markdown/external-link';
 import { revealSession } from '../../terminal/reveal-session';
@@ -153,12 +154,12 @@ export function TaskCard({
           {item.content.assignees.length > 0 ? (
             <div className="flex -space-x-1.5">
               {item.content.assignees.map((login) => (
-                <img
+                <UserAvatar
                   key={login}
-                  src={`https://github.com/${login}.png?size=32`}
-                  alt={login}
-                  title={login}
-                  className="h-4 w-4 rounded-full border border-background"
+                  login={login}
+                  size={16}
+                  className="border border-background"
+                  detail="Assignee"
                 />
               ))}
             </div>

@@ -10,6 +10,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { IconButton } from '../../components/icon-button';
+import { UserAvatar } from '../../components/user-avatar';
 import { formatNumber } from '../../lib/format-number';
 import { useSlidesStore } from '../slides/slides-store';
 import { PresentButton } from '../slides/present-button';
@@ -338,15 +339,18 @@ function PrHeader({
       </div>
 
       <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-        <span data-selectable>
-          {pull.author || 'someone'} wants to merge{' '}
-          <span className="text-foreground">{pull.headBranch}</span>
-          {detail !== null && detail.baseBranch.length > 0 ? (
-            <>
-              {' into '}
-              <span className="text-foreground">{detail.baseBranch}</span>
-            </>
-          ) : null}
+        <span data-selectable className="inline-flex items-center gap-1.5">
+          {pull.author ? <UserAvatar login={pull.author} size={16} detail="PR author" /> : null}
+          <span>
+            {pull.author || 'someone'} wants to merge{' '}
+            <span className="text-foreground">{pull.headBranch}</span>
+            {detail !== null && detail.baseBranch.length > 0 ? (
+              <>
+                {' into '}
+                <span className="text-foreground">{detail.baseBranch}</span>
+              </>
+            ) : null}
+          </span>
         </span>
         {detail !== null ? (
           <span className="tabular-nums">

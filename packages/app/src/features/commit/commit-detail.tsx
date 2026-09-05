@@ -17,6 +17,7 @@ import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { Tooltip } from '../../components/tooltip';
+import { UserAvatar } from '../../components/user-avatar';
 import { useWorkbenchStore } from '../../store/workbench-store';
 
 import { copyText, resolveRevision, useCommitDetail, useRemotes } from '../../services/queries';
@@ -548,11 +549,18 @@ function Identities({ author, committer }: { author: Identity; committer: Identi
 }
 
 function IdentityRow({ role, identity }: { role: string; identity: Identity }) {
+  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
   return (
     <>
       <dt className="text-muted-foreground">{role}</dt>
-      <dd className="min-w-0 truncate" title={`${identity.name} <${identity.email}>`}>
-        {identity.name}
+      <dd className="flex min-w-0 items-center gap-1.5 truncate">
+        <UserAvatar
+          name={identity.name}
+          email={identity.email}
+          size={16}
+          detail={roleLabel}
+        />
+        <span className="truncate">{identity.name}</span>
       </dd>
       {/*
         Relative, with the absolute date on hover — the same reading as the

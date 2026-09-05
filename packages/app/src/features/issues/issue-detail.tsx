@@ -10,6 +10,7 @@ import { IssueActionBar } from './issue-action-bar';
 import { IssueConversation } from './issue-conversation';
 import { IssueDetailSkeleton } from './issues-skeletons';
 import { LabelChip } from './label-chip';
+import { UserAvatar } from '../../components/user-avatar';
 
 /**
  * One issue, read in full — one pane, not tabs.
@@ -40,17 +41,36 @@ export function IssueDetail({ repoId, issue }: { repoId: string; issue: ForgeIss
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{issue.title}</h2>
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">#{issue.number}</span>
         </div>
-        {issue.labels.length > 0 || issue.assignees.length > 0 || issue.milestone !== null ? (
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            {issue.labels.map((label) => (
-              <LabelChip key={label.name} label={label} />
-            ))}
-            {issue.assignees.length > 0 ? (
-              <span className="truncate">Assigned: {issue.assignees.join(', ')}</span>
-            ) : null}
-            {issue.milestone !== null ? <span className="truncate">{issue.milestone.title}</span> : null}
-          </div>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {issue.author ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span>Opened by</span>
+              <UserAvatar login={issue.author} size={16} detail="Author" />
+              <span className="font-medium text-foreground">{issue.author}</span>
+            </span>
+          ) : null}
+          {issue.labels.map((label) => (
+            <LabelChip key={label.name} label={label} />
+          ))}
+          {issue.assignees.length > 0 ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span>Assigned:</span>
+              <span className="inline-flex -space-x-1">
+                {issue.assignees.map((assignee) => (
+                  <UserAvatar
+                    key={assignee}
+                    login={assignee}
+                    size={16}
+                    className="border border-background"
+                    detail="Assignee"
+                  />
+                ))}
+              </span>
+              <span className="truncate">{issue.assignees.join(', ')}</span>
+            </span>
+          ) : null}
+          {issue.milestone !== null ? <span className="truncate">{issue.milestone.title}</span> : null}
+        </div>
       </div>
 
       {/*
