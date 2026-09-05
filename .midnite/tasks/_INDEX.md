@@ -2,6 +2,8 @@
 
 **Headlines:**
 
+- **[Phase 64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md)** (0% · 0/33) — **Planned, not started.** Replaces the CodeMirror 6 text editor in the Files view with a locally-bundled Monaco Editor (`@monaco-editor/react` + local ESM workers), running 100% offline with zero CDN dependencies and compliant with strict Electron CSP. Keeps read-only file previews on Shiki for instant file tree navigation, mounting Monaco only when entering edit mode. Bundles a curated set of local Web Workers (`editor.worker`, `ts.worker`, `json.worker`, `css.worker`, `html.worker`), using lightweight Monarch tokenizers for other languages. Backed by a unified Cross-Surface Theme Engine synchronizing palettes across the Studio UI (CSS variables), xterm terminals (16 ANSI colors), and Monaco syntax tokens, with 6 built-in presets (GitHub Dark/Light, Darcula, Atom One, VS Code Dark+, Monokai) and a client-side VS Code theme JSON importer.
+
 - **[Phase 63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md)** (0% · 0/26) — **Planned, not started.** `useUiStore` persists 77 keys, and every preference cluster among them has a settings page that owns it — `activityTimelineStyle`, `hiddenMetrics`, `loopModifierDefaults`, `autoFetchIntervalMs` all do. Four do not: `diffLayout`, `diffShowOldGutter`, `commitFileView` and `changesFileView`. And the two diff controls are **conditionally rendered** — the layout toggle does not exist while you are looking at a binary or deleted file, so you can enter split layout on a text diff, open a binary one, and have no way back until you find another text file. A preference you can only change when the thing it governs happens to be in the right state is not a preference the user owns. One page, four `Choice` blocks, and an annotated partition of all 77 keys into preference vs session state — asserted by a test, so the fifth orphan is a typecheck failure rather than a discovery. No IPC, no dependency, no persistence version bump.
 
 - **[Phase 62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md)** (0% · 0/33) — **Planned, not started.** Twenty-four hand-rolled Escape handlers, no two of which agree, and no notion anywhere in the renderer of which overlay is on top. `stopPropagation()` on a `window` listener does nothing to sibling listeners on the same `window` — that needs `stopImmediatePropagation`, which appears **zero** times in the codebase — so the two overlays that try to be well-behaved are not, and one Escape dismisses two things by three reachable paths (graph selection + context menu; board card + context menu; a toast over any dialog). `palette-store.ts:115` already names the gap out loud: *"the whole nesting question, avoided in one check."* This builds the answer once — a module-level LIFO stack behind a single `window` listener, delivering to the topmost blocking entry — and folds occluder registration into the same call, which fixes the four blocking overlays currently painted underneath a live `WebContentsView`. 33 items, `packages/app` only, no new dependency.
@@ -65,6 +67,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ◻ TODO | — | 0/26 | `░░░░░░░░░░` | 0% | — | A B C |
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C |
 | [61 · Database Explorer](phases/phase-61-database-explorer.md) | ◻ TODO | — | 0/53 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
@@ -134,6 +137,17 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 64 — Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md)
+
+*A locally-bundled, offline Monaco editor replacing CodeMirror in the Files view, coupled with a unified Cross-Surface Theme Engine synchronizing palettes across the Studio UI, integrated xterm terminals, and Monaco syntax highlighting across 6 built-in presets and imported VS Code themes.*
+
+- ◻ **A** — Vite offline Monaco & worker pipeline: `@monaco-editor/react` with local `monaco-editor` assets, local Vite worker bundling (`editor.worker`, `ts.worker`, `json.worker`, `css.worker`, `html.worker`), `loader.config({ monaco })` for zero-CDN offline compliance, and dynamic lazy-loading.
+- ◻ **B** — Unified cross-surface theme registry: `StudioTheme` contract defining tokens for app chrome, xterm 16 ANSI colors, and Monaco syntax rules, shipping 6 curated presets (GitHub Dark/Light, Darcula, Atom One, VS Code Dark+, Monokai) with dynamic hot-swapping.
+- ◻ **C** — Writable Monaco editor in Files view: replaces CodeMirror 6 in `code-editor.tsx`, binds to `useFileEditorStore` for dirty/save/reload lifecycle, debounced `ResizeObserver` layout, while retaining Shiki for instant read-only browsing.
+- ◻ **D** — Keybinding yielding & Escape stack integration: yields global Studio chords (`Mod+k`, `Ctrl+``, `Mod+r`, `Mod+1..9`) to Studio dispatcher, and integrates with Phase 62 LIFO Escape stack (closing Monaco widgets before Studio panels).
+- ◻ **E** — VS Code theme JSON importer: client-side parser mapping standard VS Code theme JSON files to Monaco tokens, app CSS variables, and xterm ANSI palettes, stored in persistent settings.
+- ◻ **F** — Appearance settings & Command Palette controls: `Settings ▸ Appearance ▸ Themes` with preset cards, per-surface overrides, import button, and `theme.select` / `theme.import` palette commands.
 
 ### [Phase 63 — The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md)
 
