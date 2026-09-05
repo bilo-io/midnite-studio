@@ -39,11 +39,23 @@ afterAll(async () => {
 
 type JsonRpcLine = { id?: number; result?: unknown; error?: unknown };
 
-/** Speak newline-delimited JSON-RPC to the shim over real stdio, collecting every line it writes. */
+/**
+ * Speak newline-delimited JSON-RPC to the shim over real stdio, resolving as
+ * soon as every request carrying an `id` has a matching response — never a
+ * fixed sleep. A real child process (module load, the MCP SDK's own
+ * handshake) has no guaranteed latency, and a hardcoded "wait N ms then
+ * check" window is exactly the kind of test that passes locally and flakes
+ * under CI's heavier parallel load. `timeoutMs` is the ceiling for a run
+ * that never answers at all.
+ */
 function runShim(
   requests: Array<Record<string, unknown>>,
   opts: { homeDir: string; timeoutMs?: number },
 ): Promise<{ lines: string[]; parsed: JsonRpcLine[] }> {
+  const expectedIds = new Set(
+    requests.map((r) => r['id']).filter((id): id is number => typeof id === 'number'),
+  );
+
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [bundlePath], {
       env: { ...process.env, HOME: opts.homeDir, APPDATA: join(opts.homeDir, 'AppData', 'Roaming') },
@@ -51,25 +63,9 @@ function runShim(
     });
 
     let stdout = '';
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString('utf8');
-    });
-    // Consumed, not just piped: an unread stderr pipe can backpressure a
-    // child's own `process.stderr.write` (the shim's "[mcp-shim] ready" line)
-    // enough to stall it well past this test's 1.5s happy-path window.
-    child.stderr.resume();
-
-    const timer = setTimeout(() => {
-      child.kill();
-      finish();
-    }, opts.timeoutMs ?? 5000);
-
     let settled = false;
-    const finish = (): void => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      child.kill();
+
+    const parseStdout = (): { lines: string[]; parsed: JsonRpcLine[] } => {
       const lines = stdout.split('\n').filter((line) => line.length > 0);
       const parsed = lines
         .map((line) => {
@@ -80,18 +76,37 @@ function runShim(
           }
         })
         .filter((v): v is JsonRpcLine => v !== null);
-      resolve({ lines, parsed });
+      return { lines, parsed };
     };
+
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      child.kill();
+      resolve(parseStdout());
+    };
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8');
+      if (expectedIds.size === 0) return;
+      const { parsed } = parseStdout();
+      const answeredIds = new Set(parsed.map((m) => m.id).filter((id): id is number => typeof id === 'number'));
+      if ([...expectedIds].every((id) => answeredIds.has(id))) finish();
+    });
+
+    // Consumed, not just piped: an unread stderr pipe can backpressure a
+    // child's own `process.stderr.write` (the shim's "[mcp-shim] ready" line)
+    // enough to stall the rest of its output indefinitely.
+    child.stderr.resume();
+
+    const timer = setTimeout(finish, opts.timeoutMs ?? 8000);
 
     child.on('error', reject);
 
     for (const request of requests) {
       child.stdin.write(`${JSON.stringify(request)}\n`);
     }
-
-    // Give the child a moment to answer everything, then finish rather than
-    // waiting out the full timeout on the happy path.
-    setTimeout(finish, 1500);
   });
 }
 
