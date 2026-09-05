@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { LuCpu, LuHardDrive, LuMemoryStick, LuSparkles } from 'react-icons/lu';
 
 import type { OptimizerTab } from '../../store/optimizer-store';
+import { PageDetachMark } from '../../components/page-detach-mark';
 
 /**
  * The four-tab chrome (Phase 59 Theme A) — presentational only, so it can be
@@ -27,7 +28,15 @@ export function OptimizerLayout({
   return (
     <div className="flex h-full flex-col">
       <header className="border-b border-border px-4 pt-4">
-        <h1 className="pb-3 text-lg font-semibold tracking-tight">Workspace Optimizer</h1>
+        {/*
+          A row around the title, because this header is a two-row block stack
+          rather than a flex bar — the mark has to share the title's line, not
+          become a third row above it.
+        */}
+        <div className="flex items-center gap-2 pb-3">
+          <PageDetachMark role="optimizer" />
+          <h1 className="text-lg font-semibold tracking-tight">Workspace Optimizer</h1>
+        </div>
         <nav aria-label="Optimizer tabs" className="flex gap-1">
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = id === tab;

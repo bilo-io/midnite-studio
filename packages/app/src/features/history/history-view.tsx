@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useActiveWorktree } from '../../services/use-status';
 import { JournalList } from './journal-list';
 import { ReflogList } from './reflog-list';
+import { PageDetachMark } from '../../components/page-detach-mark';
 
 /**
  * The History view (Phase 22, Themes G + H) — two tabs over the same
@@ -36,29 +37,34 @@ export function HistoryView() {
 
   return (
     <section aria-label="History" className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      <div
-        role="tablist"
-        aria-label="History"
-        className="flex shrink-0 gap-1 border-b border-border px-2"
-      >
-        {TABS.map(({ id, label }) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            id={`history-tab-${id}`}
-            aria-selected={tab === id}
-            aria-controls={`history-panel-${id}`}
-            onClick={() => setTab(id)}
-            className={`-mb-px border-b-2 px-2.5 py-1.5 text-xs transition-colors ${
-              tab === id
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      {/*
+        The mark sits BESIDE the tablist, not inside it: a button that is not a
+        tab has no business being a child of `role="tablist"`. The border moves
+        out to this wrapper so the two still read as one bar — the same shape
+        `workbench.tsx` uses around its own tab strip.
+      */}
+      <div className="flex shrink-0 items-center gap-1 border-b border-border px-1.5">
+        <PageDetachMark role="history" />
+        <div role="tablist" aria-label="History" className="flex min-w-0 flex-1 gap-1">
+          {TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              id={`history-tab-${id}`}
+              aria-selected={tab === id}
+              aria-controls={`history-panel-${id}`}
+              onClick={() => setTab(id)}
+              className={`-mb-px border-b-2 px-2.5 py-1.5 text-xs transition-colors ${
+                tab === id
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
       <div
         id={`history-panel-${tab}`}

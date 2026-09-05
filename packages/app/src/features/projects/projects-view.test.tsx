@@ -76,6 +76,7 @@ vi.mock('../../store/ui-store', () => ({
         setProjectsMode: typeof setProjectsMode;
         projectViewByProject: Record<string, ProjectView>;
         setProjectView: typeof setProjectView;
+        detachedPages: readonly string[];
       }) => unknown,
     ) =>
       selector({
@@ -86,6 +87,9 @@ vi.mock('../../store/ui-store', () => ({
         setProjectsMode,
         projectViewByProject,
         setProjectView,
+        // The view's header carries a `<PageDetachMark>`, which reads this to
+        // decide between "detach" and "focus the window you already have".
+        detachedPages: [],
       }),
     {
       /*

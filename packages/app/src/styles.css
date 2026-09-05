@@ -1326,6 +1326,19 @@ html[data-motion='reduced'] .landing-slide-in {
  */
 .gradient-frame {
   animation: fab-panel-spin 4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .gradient-frame {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .gradient-frame {
+  animation: none;
+}
+
+.gradient-frame {
   /*
    * 2.5px, where the rest of the app's gradient borders are 1.5px (see
    * `.gradient-border--always` further up). That figure is calibrated for a

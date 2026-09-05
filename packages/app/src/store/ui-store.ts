@@ -554,6 +554,14 @@ export type UiState = {
    * nobody asked for.
    */
   browserLauncherOpen: boolean;
+  /** Whether the Notes modal is open. Unpersisted. */
+  notesOpen: boolean;
+  setNotesOpen: (open: boolean) => void;
+  toggleNotes: () => void;
+  /** Whether the Quick Access menu is open. Unpersisted. */
+  quickAccessOpen: boolean;
+  setQuickAccessOpen: (open: boolean) => void;
+  toggleQuickAccess: () => void;
   /** Whether the FAB panel is open. */
   fabPanelOpen: boolean;
   /**
@@ -1370,6 +1378,8 @@ export const useUiStore = create<UiState>()(
       browserOpen: false,
       browserLayout: 'full',
       browserLauncherOpen: false,
+      notesOpen: false,
+      quickAccessOpen: false,
       fabPanelOpen: false,
       terminalDetached: false,
       reposDetached: false,
@@ -1582,6 +1592,10 @@ export const useUiStore = create<UiState>()(
         set({ browserOpen: true, browserLayout, browserLauncherOpen: false }),
       setBrowserLayout: (browserLayout) => set({ browserLayout }),
       closeBrowserLauncher: () => set({ browserLauncherOpen: false }),
+      setNotesOpen: (notesOpen) => set({ notesOpen }),
+      toggleNotes: () => set((state) => ({ notesOpen: !state.notesOpen })),
+      setQuickAccessOpen: (quickAccessOpen) => set({ quickAccessOpen }),
+      toggleQuickAccess: () => set((state) => ({ quickAccessOpen: !state.quickAccessOpen })),
       toggleFabPanel: () => set((state) => ({ fabPanelOpen: !state.fabPanelOpen })),
       setFabPanelOpen: (fabPanelOpen) => set({ fabPanelOpen }),
       toggleActivityTimeline: () =>

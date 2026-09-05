@@ -5,7 +5,6 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useGraphStore } from '../features/graph/graph-store';
 import { bridge } from './bridge';
-import { relayWatchEvent } from './broadcast-sync';
 import { keys } from './queries';
 
 /**
@@ -109,6 +108,19 @@ export function invalidateForWatchKind(
  * Mounted at the app root rather than per-feature: the events are per
  * repository, not per view, and a status refresh has to happen whether or not
  * the changes panel is currently on screen.
+ *
+ * Mounted in EVERY window, main and popouts alike, and each one invalidates
+ * its own `QueryClient` off the event main sends it directly (Theme I). It
+ * used to end by rebroadcasting the event over the Theme E relay, because
+ * `watch-service.ts` bound one `BrowserWindow` and main was the only window
+ * that heard anything. That is gone: main fans out, so a relay here would be
+ * a second invalidation of the same event in every window — and, worse, a
+ * detached page's freshness would still be hostage to main's renderer staying
+ * mounted to forward for it.
+ *
+ * `requestRestream` stays per-window and is why this is not simply a shared
+ * subscription: only the window whose graph is showing `selectedRepoId` should
+ * pay for a re-stream, and each window answers that question for itself.
  */
 export function useWatchInvalidation(selectedRepoId: string | null): void {
   const client = useQueryClient();
@@ -126,10 +138,6 @@ export function useWatchInvalidation(selectedRepoId: string | null): void {
         useGraphStore.getState().requestRestream();
       }
 
-      // `watchEvent` reaches only the main window (`watch-service.ts` binds
-      // one `win`), so this is the one relay point — every other window
-      // invalidates off it instead of running a second watcher.
-      relayWatchEvent(event.repoId, event.kind);
     });
   }, [client, selectedRepoId]);
 }

@@ -20,5 +20,6 @@ export * from './perf';
 export * from './redact';
 export * from './release';
 export * from './terminal';
+export * from './version';
 export * from './video';
 export * from './workflow';

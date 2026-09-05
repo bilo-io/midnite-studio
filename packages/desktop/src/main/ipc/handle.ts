@@ -46,6 +46,24 @@ export function handleOp<S extends z.ZodTypeAny>(
 }
 
 /**
+ * {@link handleOp} for a channel whose work belongs to the window that asked.
+ *
+ * The distinction is load-bearing for anything that answers over an EVENT
+ * channel rather than the invoke's own return value. A stream started with
+ * `getWindow()` (main) sends its batches to main no matter which window called
+ * — so a detached page asks for a graph, main paints it, and the popout waits
+ * forever on a stream it will never be sent. That was the shape of the Graph
+ * popout rendering permanently empty.
+ */
+export function handleOpFromSender<S extends z.ZodTypeAny>(
+  channel: string,
+  schema: S,
+  handler: (payload: z.output<S>, win: BrowserWindow | null) => Promise<GitOpResult>,
+): void {
+  handleFromSender<S, GitOpResult>(channel, schema, handler, (issue) => failure(issue));
+}
+
+/**
  * The `ipcMain.on` counterpart to {@link handle} — Phase 65 Theme B.
  *
  * Forty one-way channels in this app hand-roll their own `safeParse` because

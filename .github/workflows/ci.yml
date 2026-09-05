@@ -40,6 +40,12 @@ jobs:
       - name: Tracker check
         run: pnpm exec moon run root:tracker-check
 
+      # Lockstep invariant (Phase 53 Theme B): every packages/*/package.json
+      # shares one MAJOR.MINOR. Runs before the build so a hand-edited version
+      # fails fast rather than surfacing later as a release-time surprise.
+      - name: Version check
+        run: pnpm exec moon run root:version-check
+
       - name: Typecheck, lint, test
         run: pnpm exec moon run :typecheck :lint :test
         env:

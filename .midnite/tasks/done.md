@@ -2,6 +2,108 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 53 Themes B, C, D — lockstep check, verify-dist feed gates, tag-triggered release workflow
+
+[PR #179]. Closes three of Phase 53's remaining themes (5% → 15/59). Themes E, F, G, H stay open —
+F cuts a real, public v0.1.0 release and needs a human in the loop; G depends on F's feed being
+live; H needs a real Apple Developer certificate that doesn't exist yet; E is release-workflow
+automation that's really part of the F/G release-cut story, deferred to that same later pass.
+
+- [x] **B** — Seeded root `CHANGELOG.md` (Keep a Changelog, empty `Unreleased`). New
+      `scripts/version-check.mjs` asserts the lockstep invariant — every `package.json` shares one
+      `MAJOR.MINOR`, `PATCH` free to diverge — as a **grouping**, not pairwise equality; import-free,
+      wired as `root:version-check` (moon.yml's second task) and a new CI step. `resources/bin/midnite-studio`'s
+      hardcoded `0.1.0` (Theme A's own release-blocker, the sixth version site) now **derives** its
+      version from `Contents/Info.plist` (packaged) or `package.json` (dev) rather than being
+      checked — a checked constant is still a constant to remember to bump. Ported the six helpers
+      the two `/midnite-release-*` skills call by name but that exist nowhere in this repo
+      (`planVersionBump`, `sharesLockstepMajorMinor`, `parseConventionalCommit`,
+      `bumpLevelFromCommits`, `planReleaseTags`, `versionFromReleaseBranch`) into a new
+      `packages/shared/src/version.ts` — all six in one file rather than split across
+      `version.ts`/`release.ts` as the sibling does, since this repo's `release.ts` already ships
+      unrelated, tested content. Restated `/midnite-release-complete`'s changelog precondition
+      against `extractChangelogSection`'s real `string | null` signature (it expected a `.date` that
+      doesn't exist) across all three homes (`.claude`, `.agents`, `.codex`) — `release.ts` itself
+      stays unchanged, per the phase doc's own file map. The ⚠️ banner and the six files' broader
+      drift stay untouched (Theme E's explicit scope). 31 + 9 new tests.
+- [x] **C** — `verify-dist.mjs` gains three gates, additive to the existing ten: `latest-mac.yml`
+      exists, its version matches `package.json`, and its `path`/`sha512` match the emitted zip
+      (computed for real via `node:crypto`); the `.blockmap` is present; `Info.plist`'s
+      `CFBundleShortVersionString` matches `package.json` — the version-skew gate the doc calls out
+      as passing silently today. All three proven against a real `moon run desktop:dist` build, each
+      broken on purpose once (missing manifest, corrupted sha512, missing blockmap) and confirmed to
+      fail loudly, not just inspected.
+- [x] **D** — `.github/workflows/release.yml`, triggered on `push: tags: v*`, single macOS-14 leg
+      reusing `ci.yml`'s `package` job as the literal build template so the release and CI paths
+      can't drift. Publishes to `bilo-io/midnite-apps` under the namespaced `midnite-studio/vX.Y.Z`
+      tag via `RELEASES_REPO_TOKEN` (does not exist as a secret yet — needs creating before this
+      workflow can run for real). Four guards cribbed from the sibling app's own `release.yml`, each
+      of which cost it a broken release: the `$GITHUB_ENV` `CSC_LINK` guard, an explicit asset
+      allowlist instead of a glob, a pre-flight on an empty/duplicate asset set, and
+      `if: ${{ !cancelled() }}` on the publish job. One addition beyond the crib: `APPLE_ID`/
+      `APPLE_APP_SPECIFIC_PASSWORD`/`APPLE_TEAM_ID` also go through `$GITHUB_ENV` rather than a
+      step-scoped `env:`, since `desktop:verify-dist` depends on `~:dist` with `cache: false` and
+      silently re-runs packaging a second time — a step-scoped env wouldn't survive into that second
+      invocation. `--publish never` baked into the shared `dist` moon task itself for the same
+      reason. Validated with `actionlint` (clean); a real tag push is Theme F's job, not this PR's.
+
+## 2026-09-05 — Phase 55 Themes H, I, J + Phase 65 Theme E — pages detach, and the crash log becomes reachable
+
+[PR #178]. Closes three new Phase 55 themes (55 → 50/65) and the last outstanding theme of Phase 65
+(→ 43/49). Two bugs reported against [PR #175] are fixed here, both regressions covered by tests
+verified to fail without the fix.
+
+- [x] **55.H** — Pages detach by **duplicating**, not moving: the main window goes on rendering the
+      view and a second window mounts a second instance of the same `VIEW_COMPONENT` entry, so there
+      is no placeholder and "dock" is just "close that window". `WindowRole` splits into
+      `PANEL_WINDOW_ROLES` (move) and `PAGE_WINDOW_ROLES` (duplicate) with `isPageWindowRole` as the
+      seam. Theme E's relay allowlist gains the three slices that visibly drift once one view runs in
+      two windows — Actions' selected run/job, the Explorer's scope + selected path, the Changes
+      workbench's tabs + active tab. View **furniture** (expanded dirs, collapsed workflow groups,
+      the editor's target line) deliberately stays local: syncing it is the pane-size fight Theme E
+      already ruled out, and expanding a directory in the popout would snap the other window's tree
+      open under the cursor.
+- [x] **55.H.4 (bug)** — The popout **theme flicker**. `applying` guards the zustand subscribers,
+      which run synchronously inside `applyIncoming`; it cannot guard the theme `MutationObserver`,
+      whose callback is a *microtask* delivered after the `finally` resets the flag. Every relayed
+      theme message therefore made the receiving window rebroadcast it — with two windows the echo
+      damps, with three (a main window and two detached pages, which page detachment made ordinary)
+      it amplifies and `<html>` flips class many times a second. `applyTheme` now records
+      `lastDark`/`lastPaletteId` before mutating, and writes `ThemeProvider`'s own `localStorage` key
+      so the DOM and its React state cannot disagree across a reload.
+- [x] **55.I** — Watch events reach every window directly. `watch-service.ts` captured one
+      `BrowserWindow` at start-up, so only main heard anything and every other window depended on
+      main's renderer relaying for it. Now `broadcastToAllWindows` fans out at the send, with
+      `watchers` still keyed by repoId — a repo open in three windows is watched **once** and costs
+      three `webContents.send` calls, not three recursive fs trees.
+- [x] **55.I.4 (bug)** — The detached Graph **never loaded**. `logStart`/`logCancel` (and
+      `searchStart`/`searchCancel`) resolved their target with `getWindow()` — always main — while
+      answering over an EVENT channel, so a popout started a stream and main received every row.
+      Resolved from the IPC sender now; `handle.ts` gains `handleOpFromSender`, and
+      `registerSearchHandlers` no longer takes a window accessor at all.
+- [x] **55.J** — Eight more detachable pages (thirteen in all): Dashboard, Search, Tests, Projects,
+      Reviews, Issues, History, Optimizer. Hand-placed per header rather than behind a shared
+      `PageHeader`, because those headers differ for good reasons — two are `role="tablist"` rows a
+      non-tab child has no business joining, one is a block-flow stack, one sizes its children
+      `flex-1`. Seven `ViewId`s stay out: `settings`/`landing`/`sessions` are surfaces nobody wants
+      twice, and `councils`/`workflows`/`video` because duplicate rendering is only safe for a view
+      whose mount has no load-bearing side effects — the trap `view-registry.tsx` records
+      `BrowserPane` falling into.
+- [x] **65.E** — The crash log becomes reachable. Themes A–D shipped the whole machine (rotating
+      NDJSON sink, `mstudio:report:*`, main's own `uncaughtException` hooks) with no way in. Three
+      controls in the **existing** Diagnostics accordion rather than an eighteenth settings page:
+      Reveal log (with the path printed beside it, because a support thread asks *where* it is),
+      Copy diagnostics (already redacted main-side), and Report a bug. That last one is here *and*
+      in the release-notes panel on purpose — `version-pill.tsx` hides itself on `'0.0.0'`, so the
+      panel never opens in a dev build, while this accordion renders in every build.
+- Coverage: `broadcast-sync.test.ts` (+9), `watch-service.test.ts` (new),
+  `stream-window-routing.test.ts` (new), `crash-reporting.test.tsx` (new),
+  `page-detach-mark.test.tsx`, `use-window-sync.test.tsx`, `domain/window.test.ts`, and
+  `detached-pages-shots.spec.ts` writing 31 frames to `docs/screenshots/adhoc-page-detach/`.
+
+[PR #178]: https://github.com/bilo-io/midnite-studio/pull/178
+[PR #175]: https://github.com/bilo-io/midnite-studio/pull/175
+
 ## 2026-09-05 — Phase 57 Themes E, F — MCP consent/audit and the Settings page
 
 [PR #177]. Closes Themes E and F of Phase 57 — 17 of the phase's 76 items, bringing the phase to
@@ -32,6 +134,17 @@
   in `tools.test.ts`, RTL coverage for `mcp-page.tsx` (row-per-tool, switch reflects `mcp.get`, toggle
   calls `mcp.set`, empty-state call list), the three-way registration assertion, and Playwright
   screenshots of the MCP Settings page.
+
+## 2026-09-05 — Phase 58 Themes A, B, C, D — Notes store, modal primitive, and skill handoff
+
+[PR #160]. Closes Phase 58 Themes A, B, C, D.
+
+- [x] **A** — `packages/app/src/store/notes-store.ts`: Notes store on zustand `persist` (`midnite-studio.notes`), `Record<noteId, Note>`, pure `notesForRepo` selector returning newest-first, `status` (`captured` | `planned` | `implemented`) and `done` moving independently, `adoptRenamedPersistKey`, manual repository prune.
+- [x] **B** — `packages/app/src/components/modal.tsx`: `Modal` primitive with enumerated `size`, `variant`, `align`, focus trap, focus restoration, backdrop dismiss, Escape dismiss, `.gradient-frame` motion reset in `styles.css`, and occluder registration. Migrated `prompt-dialog` and `browser-launcher`. Added `useOccluder` to the 4 still-unmigrated `z-dialog` overlays (`help-overlay`, `setup-dialog`, `council-create-dialog`, `first-run-modal`), with a coverage guard test; rebasing onto main's Phase 62 dismissal stack meant `modal.tsx` and five other overlays (`confirm-dialog`, `palette`, `merge-dialog`, `stash-push-dialog`, `slides-modal` — via its child `Deck`'s own `useDismiss`) already pick up occluder registration through `useDismiss`'s `blocking` default, so those reuse that instead of registering twice. Two self-review fixes before merge, both caught by rebasing onto phases that landed after this branch's own commits were authored: `slides-modal.tsx` shipped with a redundant explicit `useOccluder` call that double-counted (`occluder-coverage.test.tsx` caught it at 2 instead of 1 while open); and `modal.tsx` carried a second, hand-rolled focus-restoration effect written against the (pre-Phase-68) assumption that `useFocusTrap` doesn't restore focus — it does now (Phase 68 Theme A), and the redundant one raced it under React StrictMode's dev-only effect double-invoke, silently stealing focus back to the pre-open element a tick after open and breaking every keyboard interaction with `browser-launcher` in a real run (caught by CI's `e2e (1)` shard, not by any unit test, since RTL does not double-invoke effects). Both removed in favour of the already-landed mechanism.
+- [x] **C** — `packages/app/src/features/notes/notes-modal.tsx` & `note-row.tsx`: Notes modal surface with 80vh scrollable list, composer with Enter to add, in-place edit with Escape stopping propagation to preserve modal, per-status badge styling, done-count pill, show/hide-completed toggle, prune orphaned notes dialog, and empty states.
+- [x] **D** — `packages/app/src/features/agent/use-skill-handoff.ts`: Extracted `useSkillHandoff` from `midnite-menu.tsx`, reading dynamic `agentSkills`, launching typed-not-sent terminal sessions (`autoSend: false`) without literal backticks, handling brainstorm and adhoc task handoffs from notes.
+
+---
 
 ## 2026-09-05 — Phase 64 Themes E, F — VS Code theme importer & Appearance palette controls
 

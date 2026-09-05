@@ -5,10 +5,13 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { bridge } from './bridge';
 import { invalidateForWatchKind } from './watch-invalidation';
+import { useFilesStore } from '../features/files/files-store';
 import { usePaletteStore } from '../features/themes/palette-store';
+import { useActionsStore, type ActionsState } from '../store/actions-store';
 import { useAppearanceStore, type AppearanceState } from '../store/appearance-store';
 import { useBrowserStore, type BrowserTab, type BrowserTabGroup } from '../store/browser-store';
 import { useUiStore, type UiState } from '../store/ui-store';
+import { useWorkbenchStore, type WorkbenchTab } from '../store/workbench-store';
 
 /**
  * Cross-window state synchronization (Theme E).
@@ -32,12 +35,38 @@ import { useUiStore, type UiState } from '../store/ui-store';
  * unpersisted, main owns terminal durability via `terminals.json`, and a synced
  * second copy would be exactly the drifting duplicate its module doc warns
  * against.
+ *
+ * **Theme H widened that list once, for page popouts.** Pages detach by
+ * duplicating (`PAGE_WINDOW_ROLES`), so the same view can be live in two
+ * windows at once, and the per-view *selection* each one holds is renderer
+ * state no relay carried: which run Actions has open, which file the Explorer
+ * has open, which tabs the Changes workbench holds. Those three now travel.
+ *
+ * What deliberately does NOT travel is the line the same widening could easily
+ * have crossed: view **furniture** — `files-store.expanded`,
+ * `actions-store.collapsedWorkflows`, `file-editor-store`'s target line. Those
+ * are disclosure and scroll state, and syncing them is the pane-size fight the
+ * paragraph above rules out: expanding a directory in the popout would snap the
+ * main window's tree open under the user's cursor. Selection is a shared answer
+ * to "what am I looking at"; furniture is how one particular window is
+ * arranged to look at it.
  */
 
 const CHANNEL_NAME = 'midnite-studio';
+
+/** `@bilo-io/ui`'s own key, mirrored here so an applied theme survives a reload. */
+const THEME_STORAGE_KEY = 'midnite.theme';
 const MAX_SEEN_IDS = 200;
 
-type SyncKind = 'ui' | 'appearance' | 'browser' | 'theme' | 'watch';
+type SyncKind =
+  | 'ui'
+  | 'appearance'
+  | 'browser'
+  | 'theme'
+  | 'watch'
+  | 'actions'
+  | 'files'
+  | 'workbench';
 type SyncMessage = { id: string; origin: string; kind: SyncKind; payload: Record<string, unknown> };
 
 const newId = (): string =>
@@ -95,16 +124,69 @@ export function relayWatchEvent(repoId: string, kind: WatchKind): void {
   send('watch', { repoId, kind });
 }
 
+/**
+ * The last theme this window is known to be showing, and the palette with it.
+ *
+ * **Module-level, not closure-level, and that is the whole fix for the flicker.**
+ * `applying` cannot protect the theme observer the way it protects the zustand
+ * subscribers: a zustand subscriber runs synchronously inside `applyIncoming`,
+ * where the flag is still true, but a `MutationObserver` callback is delivered
+ * as a MICROTASK — it runs after `applyIncoming`'s `finally` has already set
+ * `applying` back to false. So every relayed theme message made the receiving
+ * window immediately rebroadcast it.
+ *
+ * With two windows that echo damps out. With three — a main window and two
+ * detached pages, which page detachment made ordinary — it does not: each
+ * window's rebroadcast reaches the other two, each of which rebroadcasts to
+ * two more, and the class flips on `<html>` many times a second. That is the
+ * flicker.
+ *
+ * Recording the value here, from inside `applyTheme`, closes it at the source:
+ * the observer that fires a microtask later sees the class it already knows
+ * about and returns before sending anything.
+ */
+let lastDark = typeof document === 'undefined' ? false : document.documentElement.classList.contains('dark');
+let lastPaletteId: string | null = null;
+
 function applyTheme(dark: boolean, paletteId?: string): void {
   const root = document.documentElement;
+  // Recorded BEFORE the mutation, so the observer's microtask cannot land in
+  // the window between the class changing and this being updated.
+  lastDark = dark;
   root.classList.toggle('dark', dark);
   root.style.colorScheme = dark ? 'dark' : 'light';
+  /*
+    Keep `ThemeProvider`'s own source of truth in step.
+
+    `@bilo-io/ui`'s provider reads `localStorage['midnite.theme']` once on mount
+    and thereafter drives the class off React state. Writing the class without
+    writing the key leaves the DOM and that state disagreeing, so the next
+    remount of this window — a reload, a re-open — snaps back to the old theme
+    and broadcasts the snap.
+
+    Always the RESOLVED value, never `'system'`, even when the OS happens to
+    agree right now. A relayed message says what the sending window resolved
+    to; storing `'system'` because the two currently coincide would silently
+    re-point this window at the OS, so a later OS flip would move a theme the
+    user had explicitly chosen. `'system'` remains reachable — it is what the
+    theme toggle writes, and this path never runs unless another window
+    actually changed something.
+  */
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, dark ? 'dark' : 'light');
+  } catch {
+    // A window with storage denied still applies the class; it just will not
+    // remember across a reload, which is the pre-existing behaviour anyway.
+  }
   // Phase 64 Theme B: the palette change reaches popouts on the SAME
   // message the dark-class flip already travels on, rather than a second
   // channel — `applying` is already true around this whole call (see
   // `applyIncoming`), so `usePaletteStore`'s own subscriber below stays
   // quiet and this does not ping-pong back out.
-  if (paletteId) usePaletteStore.getState().setActivePalette(paletteId);
+  if (paletteId) {
+    lastPaletteId = paletteId;
+    usePaletteStore.getState().setActivePalette(paletteId);
+  }
 }
 
 function applyIncoming(message: SyncMessage, client: QueryClient): void {
@@ -136,6 +218,24 @@ function applyIncoming(message: SyncMessage, client: QueryClient): void {
         invalidateForWatchKind(client, repoId, kind);
         break;
       }
+      case 'actions':
+        useActionsStore.setState(message.payload as unknown as ActionsSlice);
+        break;
+      case 'files':
+        /*
+          `scopeKey` rides along with the path rather than being left to each
+          window's own `ensureScope`. The two are one fact — a relPath means
+          nothing without the checkout it is relative to — and applying a path
+          under a stale scope would point the Explorer at a file in a different
+          repository. Both windows converge on the same scope anyway, since
+          `selectedRepoId`/`selectedWorktreePath` travel on the `ui` message;
+          this only removes the window between the two arriving.
+        */
+        useFilesStore.setState(message.payload as unknown as FilesSlice);
+        break;
+      case 'workbench':
+        useWorkbenchStore.setState(message.payload as unknown as WorkbenchSlice);
+        break;
     }
   } finally {
     applying = false;
@@ -185,6 +285,32 @@ type BrowserSlice = { tabs: BrowserTab[]; groups: BrowserTabGroup[]; activeTabId
 
 function pickBrowser(state: BrowserSlice): BrowserSlice {
   return { tabs: state.tabs, groups: state.groups, activeTabId: state.activeTabId };
+}
+
+/*
+  Theme H's three page-selection slices. Each is the *selection* its view
+  holds and nothing else — see the module doc on why furniture stays local.
+*/
+
+type ActionsSlice = Pick<ActionsState, 'selectedRun' | 'selectedJob'>;
+
+function pickActions(state: ActionsState): ActionsSlice {
+  // `selectedJob` comes along because `selectRun` clears it in the same
+  // update: relaying the run alone would leave the other window showing a job
+  // name from the previous run, which resolves to nothing in the new model.
+  return { selectedRun: state.selectedRun, selectedJob: state.selectedJob };
+}
+
+type FilesSlice = { scopeKey: string | null; selectedPath: string | null };
+
+function pickFiles(state: FilesSlice): FilesSlice {
+  return { scopeKey: state.scopeKey, selectedPath: state.selectedPath };
+}
+
+type WorkbenchSlice = { tabs: WorkbenchTab[]; activeTabId: string | null };
+
+function pickWorkbench(state: WorkbenchSlice): WorkbenchSlice {
+  return { tabs: state.tabs, activeTabId: state.activeTabId };
 }
 
 /**
@@ -251,13 +377,43 @@ export function useBroadcastSync(): void {
       send('browser', next);
     });
 
+    let lastActions = pickActions(useActionsStore.getState());
+    const unsubActions = useActionsStore.subscribe((state) => {
+      if (applying) return;
+      const next = pickActions(state);
+      if (shallowEqual(next, lastActions)) return;
+      lastActions = next;
+      send('actions', next);
+    });
+
+    let lastFiles = pickFiles(useFilesStore.getState());
+    const unsubFiles = useFilesStore.subscribe((state) => {
+      if (applying) return;
+      const next = pickFiles(state);
+      if (shallowEqual(next, lastFiles)) return;
+      lastFiles = next;
+      send('files', next);
+    });
+
+    let lastWorkbench = pickWorkbench(useWorkbenchStore.getState());
+    const unsubWorkbench = useWorkbenchStore.subscribe((state) => {
+      if (applying) return;
+      const next = pickWorkbench(state);
+      if (shallowEqual(next, lastWorkbench)) return;
+      lastWorkbench = next;
+      send('workbench', next);
+    });
+
     // ThemeProvider (`@bilo-io/ui`) exposes no change listener, so the `dark`
     // class it writes on `<html>` is observed instead — the same signal
     // `useWindowBackgroundSync` (`app.tsx`) already keys its own resync off.
-    let lastDark = document.documentElement.classList.contains('dark');
-    // Phase 64 Theme B: the active palette travels on the same `'theme'`
-    // message rather than a new channel — see `applyTheme`.
-    let lastPaletteId = usePaletteStore.getState().activePaletteId;
+    //
+    // `lastDark`/`lastPaletteId` are module-level and are written by
+    // `applyTheme` as well as here. That is deliberate and is what stops the
+    // echo: see their declaration for why `applying` alone cannot guard a
+    // MutationObserver.
+    lastDark = document.documentElement.classList.contains('dark');
+    lastPaletteId = usePaletteStore.getState().activePaletteId;
     const themeObserver =
       typeof MutationObserver === 'undefined'
         ? null
@@ -266,7 +422,7 @@ export function useBroadcastSync(): void {
             const dark = document.documentElement.classList.contains('dark');
             if (dark === lastDark) return;
             lastDark = dark;
-            send('theme', { dark, paletteId: lastPaletteId });
+            send('theme', { dark, paletteId: lastPaletteId ?? undefined });
           });
     themeObserver?.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
@@ -283,6 +439,9 @@ export function useBroadcastSync(): void {
       unsubUi();
       unsubAppearance();
       unsubBrowser();
+      unsubActions();
+      unsubFiles();
+      unsubWorkbench();
       unsubPalette();
       themeObserver?.disconnect();
     };
