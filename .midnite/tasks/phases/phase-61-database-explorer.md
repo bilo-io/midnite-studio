@@ -126,7 +126,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### A — Shared contracts (S)
 
-- [ ] Add [`packages/shared/src/domain/database.ts`](../../../packages/shared/src/domain/database.ts):
+- [x] Add [`packages/shared/src/domain/database.ts`](../../../packages/shared/src/domain/database.ts):
       zod schemas for `DbProvider` (`'postgres' | 'mysql' | 'mariadb' | 'mssql' | 'sqlite'`),
       `ConnectionConfig` (id, name, provider, host, port, database, username — no password field;
       the secret never crosses into a schema that could log or serialize it whole),
@@ -142,9 +142,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - Every driver normalises `Date`, `Buffer`, `bigint` and `null` before they reach the schema —
     `bigint` does not survive `JSON.stringify` over IPC and throws. Encode as string; the column's
     declared type tells the grid how to render it.
-- [ ] Add `StatementKind` (`'read' | 'write'`) to the same file — the discriminant Theme I's
+- [x] Add `StatementKind` (`'read' | 'write'`) to the same file — the discriminant Theme I's
       confirm gate switches on.
-- [ ] Add channel constants to
+- [x] Add channel constants to
       [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts). `mstudio:db:*` is
       free (`grep -rn "mstudio:db" packages/` → **0**) and follows the `mstudio:<domain>:<verb>` rule
       stated at `:6-8`. **Split across both objects**, per Decision 8:
@@ -153,43 +153,43 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     **`dbQueryStart`** and **`dbQueryCancel`** — mirroring `logStart`/`logCancel` at `:35-36`.
   - In `EVENT_CHANNELS` (`webContents.send` pushes, `:612-707`): **`dbQueryBatch`** and
     **`dbQueryDone`** — mirroring `logBatch` (`:614`) and `logDone` (`:616`).
-- [ ] Payload schemas in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) and signatures in
+- [x] Payload schemas in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) and signatures in
       [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts), copying the `log` group's shape
       (`bridge.ts:117-126`): `start`, `cancel`, `onBatch`, `onDone`, the last two returning
       `Unsubscribe`. `DbQueryDoneEvent` carries `{ requestId, rowCount, truncated, durationMs, error? }`
       — `truncated` is the capped-result signal, exactly as `LogDoneEvent` (`schemas.ts:186`) uses it.
-- [ ] `database.test.ts`: schema round-trips, `StatementKind` sniffing against representative
+- [x] `database.test.ts`: schema round-trips, `StatementKind` sniffing against representative
       SQL strings (SELECT/CTE-wrapped-SELECT vs UPDATE/DELETE/DROP/TRUNCATE/ALTER/INSERT), and the
       duplicate-column-name case surviving a round-trip intact.
 
 ### B — `db-engine`: pure-JS drivers (M)
 
-- [ ] Scaffold `packages/db-engine` (`@midnite/studio-db-engine`) from
+- [x] Scaffold `packages/db-engine` (`@midnite/studio-db-engine`) from
       [`packages/git-engine/package.json`](../../../packages/git-engine/package.json) verbatim:
       **no `"type"` field** (implicitly CommonJS), `main`/`types`/`exports`/`files: ["dist"]`, the
       four scripts, `dependencies` on `@midnite/studio-shared` (`workspace:*`) and `zod`, devDeps
       `@types/node`, `typescript`, `vitest`. `pnpm-workspace.yaml`'s `packages/*` glob and
       `.moon/workspace.yml`'s both pick it up with **zero config change**.
-- [ ] `packages/db-engine/tsconfig.json` copying git-engine's: `extends ../../tsconfig.base.json`,
+- [x] `packages/db-engine/tsconfig.json` copying git-engine's: `extends ../../tsconfig.base.json`,
       `module: "commonjs"`, `moduleResolution: "node"`, `types: ["node"]`,
       `references: [{ "path": "../shared" }]`. **Hand-written, because
       [`.moon/toolchain.yml:23-24`](../../../.moon/toolchain.yml) sets
       `typescript.syncProjectReferences: false`.** Add the matching `paths` pair to
       [`tsconfig.base.json:20-25`](../../../tsconfig.base.json).
-- [ ] `packages/db-engine/moon.yml` copying git-engine's: **declares no commands**, only
+- [x] `packages/db-engine/moon.yml` copying git-engine's: **declares no commands**, only
       `language: 'typescript'`, `dependsOn: ['shared']`, `typecheck.deps: ['^:build']`, and a
       `test.inputs` list that includes `/packages/shared/src/**/*` so a shared-only change
       invalidates the cache. Plus `vitest.config.ts` with the `@midnite/studio-shared` →
       `../shared/src/index.ts` alias.
-- [ ] Add `src/driver.ts`: one `DbDriver` interface every provider implements identically —
+- [x] Add `src/driver.ts`: one `DbDriver` interface every provider implements identically —
       `connect()`, `disconnect()`, `query(sql, onBatch)`, `introspect(): SchemaTree`.
       **`query` takes a batch callback rather than returning rows**, so the streaming contract of
       Theme A reaches all the way down and no driver ever materialises a whole result set.
-- [ ] Add `src/drivers/postgres.ts`, `mysql.ts`, `mariadb.ts`, `mssql.ts` against that interface,
+- [x] Add `src/drivers/postgres.ts`, `mysql.ts`, `mariadb.ts`, `mssql.ts` against that interface,
       each using its client's **cursor/stream API**, not its buffered one — `pg` via `pg-cursor`
       or `pg-query-stream`, `mysql2` via `connection.query(...).stream()`, `tedious` via its
       row-event callback.
-- [ ] Add `src/connection-pool.ts`: one pooled connection per `ConnectionConfig.id`, idle-timeout
+- [x] Add `src/connection-pool.ts`: one pooled connection per `ConnectionConfig.id`, idle-timeout
       eviction, never holding a password in a log-reachable field.
   - **Guard the concurrent-connect race with an in-flight promise map**, and put the check *after*
     no `await` — [`demo-api/server.ts:36-42`](../../../packages/desktop/src/main/demo-api/server.ts)
@@ -197,21 +197,21 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     first await, so two overlapping … invokes … both bound a socket."* Copy the fix, not the bug.
   - Note plainly: **connection pooling has no precedent in this repo** (`grep -n "pool\|Pool" packages/desktop/src/main/*.ts`
     → nothing relevant). This is new machinery, not a reuse.
-- [ ] Add `src/introspect.ts`: normalizes each driver's own information-schema query into one
+- [x] Add `src/introspect.ts`: normalizes each driver's own information-schema query into one
       `SchemaTree` shape (tables, views, columns, PK/FK only — see Scope guardrails).
-- [ ] Add `src/statement-kind.ts`: the `StatementKind` sniffer implementation Theme A's contract
+- [x] Add `src/statement-kind.ts`: the `StatementKind` sniffer implementation Theme A's contract
       declared, shared by Theme I's confirm gate and Theme F's editability checks.
   - Strip leading comments (`--`, `/* */`) and any `WITH …` CTE prefix before matching the first
     keyword — a `WITH x AS (…) DELETE FROM y` is a **write** whose first keyword is `WITH`, and
     naive prefix matching classifies it as a read. This is the one case that must not be wrong.
   - Multi-statement input (`a; b;`) classifies as `'write'` if **any** statement is a write.
-- [ ] Add the new `packages/db-engine/**/*.ts` boundary block to
+- [x] Add the new `packages/db-engine/**/*.ts` boundary block to
       [`eslint.config.mjs`](../../../eslint.config.mjs), copying the git-engine block at **`:82-92`**
       with the package name swapped (it reuses the shared `NO_ELECTRON` const at `:26-30`).
       **Two further edits the plan missed:** add `@midnite/studio-db-engine` to the renderer's deny
       group at **`:105-114`** (the renderer must reach the DB only over IPC), and add a `db-engine`
       line to the dependency-graph doc comment at **`:7-23`**.
-- [ ] Driver tests against a real, ephemeral instance per provider, following `git-engine`'s
+- [x] Driver tests against a real, ephemeral instance per provider, following `git-engine`'s
       `src/testing/` precedent — one file exporting a helper class, **deliberately absent from
       `src/index.ts`'s barrel** exactly as `temp-repo.ts` is. CI-gated per Decision 5.
 
@@ -256,7 +256,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### D — `desktop`: IPC + credential vault (M)
 
-- [ ] Add `desktop/src/main/db/connections-store.ts`, modelled on
+- [x] Add `desktop/src/main/db/connections-store.ts`, modelled on
       [`diagnostics/trust-store.ts`](../../../packages/desktop/src/main/diagnostics/trust-store.ts)
       rather than `repo-store.ts` — it is the closer template: a keyed map
       (`{version: 1, connections: Record<string, ConnectionConfig>}`), a lazy in-memory cache, a
@@ -268,7 +268,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - **Writes are not atomic in this codebase** (`repo-store.ts:44` is a plain `writeFile`;
     `grep -rn "rename" packages/desktop/src/main/*store*.ts` → 0). If the vault wants atomicity it is
     *introducing* a pattern — say so in the module docstring rather than implying precedent.
-- [ ] Add `desktop/src/main/db/credential-vault.ts` — the one module here importing `electron`:
+- [x] Add `desktop/src/main/db/credential-vault.ts` — the one module here importing `electron`:
       `safeStorage.encryptString`/`decryptString`, keyed per connection id, the encrypted blob stored
       **alongside, not inside** `db-connections.json`. First real use of `safeStorage` in this repo
       (`grep -rniE "safeStorage|keytar"` → one *comment*, no calls).
@@ -282,32 +282,32 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     connection still saves; the password is prompted per session). **Do not overstate this as a
     release blocker**: `grep -in linux packages/desktop/electron-builder.yml` → **0**; the only ship
     target is mac arm64. It is a dev-machine case.
-- [ ] Add `desktop/src/main/ipc/database.ts` following the repo's **`register*Handlers()` +
+- [x] Add `desktop/src/main/ipc/database.ts` following the repo's **`register*Handlers()` +
       `configure*()` split**, which is not optional here: handlers are registered at
       [`index.ts:241-301`](../../../packages/desktop/src/main/index.ts), **before** `userData` is
       resolved at `:309`. `registerDbHandlers()` takes no store; `configureDb(...)` is called in the
       synchronous store block at `:322-344`, beside `configureDiagnostics(createTrustStore(userData))`
       at `:343`. A vault factory that awaits breaks that block's stated invariant (`:316-321`).
-- [ ] Use the [`ipc/handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts) helpers, and never
+- [x] Use the [`ipc/handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts) helpers, and never
       throw: `handle(channel, schema, fn, onInvalid)` resolves on validation failure by design
       (`:15-19`), because an exception across `invoke` reaches the renderer as an opaque
       *"Error invoking remote method…"*.
-- [ ] Register `'query'` in [`stream-registry.ts`](../../../packages/desktop/src/main/stream-registry.ts):
+- [x] Register `'query'` in [`stream-registry.ts`](../../../packages/desktop/src/main/stream-registry.ts):
       add it to the `StreamKind` union (`:5`) **and** to `POLICY` (`:13`) as **`'supersede'`** — a new
       run in a tab replaces that tab's previous run, matching `log`. `POLICY` is a total `Record`, so
       forgetting the second edit is a compile error. Window teardown already cancels everything via
       the `win.once('closed')` hook at `:24-26`.
-- [ ] The query producer mirrors [`log-service.ts:35-80`](../../../packages/desktop/src/main/log-service.ts):
+- [x] The query producer mirrors [`log-service.ts:35-80`](../../../packages/desktop/src/main/log-service.ts):
       a guarded `if (!win.isDestroyed()) win.webContents.send(...)` closure, batches of
       `BATCH_SIZE` (500), a terminal `dbQueryDone` carrying `truncated`, a `finished` flag against
       post-cancel sends, and registry release in a **`.finally`, not `.then`** — the comment at
       `:77-80` documents the leak that caused.
-- [ ] Wire `window.midniteStudio.db.*` into
+- [x] Wire `window.midniteStudio.db.*` into
       [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts): add `| 'db'` to the
       `Pick<MidniteStudioBridge, …>` union at `:101-145` (ordering there is phase-landing order, not
       alphabetical) so a half-wired group is a compile error (`:95-100`), and implement it in the
       object body copying the `log:` group's shape at `:167-172`.
-- [ ] `connections-store.test.ts`, `credential-vault.test.ts`, `database-ipc.test.ts` (mocked
+- [x] `connections-store.test.ts`, `credential-vault.test.ts`, `database-ipc.test.ts` (mocked
       drivers): save/list/delete round-trip, a failed connection surfacing `{ok:false}` rather than
       throwing, the vault never appearing in a `JSON.stringify` of the non-secret store, and
       `isEncryptionAvailable() === false` degrading rather than throwing.
@@ -316,38 +316,38 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 *Re-tagged: adding a `ViewId` is **17 sites**, not the four this theme listed.*
 
-- [ ] Add `'database'` to the `ViewId` union
+- [x] Add `'database'` to the `ViewId` union
       ([`ui-store.ts:85-111`](../../../packages/app/src/store/ui-store.ts)) **and to `VIEW_IDS`
       (`:113-131`)**. `VIEW_IDS` is a plain array, **not** compiler-enforced — and `viewForPath`
       (`:1826`) derives from it, so omitting it silently breaks routing while everything compiles.
       `pathForView` (`:1815`) is generic and needs no edit.
-- [ ] The **seven compiler-enforced** `Record<ViewId, …>` sites, each of which fails the build until
+- [x] The **seven compiler-enforced** `Record<ViewId, …>` sites, each of which fails the build until
       filled: `VIEW_ICON` ([`nav-icons.ts:43`](../../../packages/app/src/components/nav-icons.ts)),
       `VIEW_LABELS` ([`title-bar-nav.tsx:32-50`](../../../packages/app/src/components/title-bar-nav.tsx)),
       `VIEW_LABELS` and `VIEW_KEYWORDS`
       ([`services/palette/providers.ts:26-45` and `:46-66`](../../../packages/app/src/services/palette/providers.ts)),
       `VIEW_LABELS` ([`sidebar-page.tsx:25-44`](../../../packages/app/src/features/settings/settings-pages/sidebar-page.tsx)),
       and `VIEW_FILTERS` ([`view-sections.ts:181-219`](../../../packages/app/src/features/repos/view-sections.ts)).
-- [ ] The **not-enforced** sites, which fail silently: `filtersByDefault` (`view-sections.ts:228-229`,
+- [x] The **not-enforced** sites, which fail silently: `filtersByDefault` (`view-sections.ts:228-229`,
       a ternary defaulting to `false`), `ALL_NAV_ITEMS` ([`app.tsx:357-362`](../../../packages/app/src/app.tsx),
       the label lookup `Placeholder` reads), and `VIEW_COMMAND`
       ([`nav-chords.ts:34-40`](../../../packages/app/src/components/nav-chords.ts), a `Partial` — no
       entry, per Decision 4).
-- [ ] Add a `Database` entry to `WORKSPACE_NAV_ITEMS`
+- [x] Add a `Database` entry to `WORKSPACE_NAV_ITEMS`
       ([`app.tsx:333-337`](../../../packages/app/src/app.tsx)) as the fourth entry after
       Explorer/Search/Tests: `{ view: 'database', label: 'Database', icon: VIEW_ICON.database }`.
       Ungated — **not** in `FORGE_GATED_VIEWS` (`app.tsx:371`), since this has nothing to do with a
       GitHub remote.
-- [ ] **Place the render arm ABOVE the `!selectedRepoId` guard.** The view-render ternary
+- [x] **Place the render arm ABOVE the `!selectedRepoId` guard.** The view-render ternary
       ([`app.tsx:1313-1356`](../../../packages/app/src/app.tsx)) is ordered, and the guard at
       **`:1334`** short-circuits to `<EmptyWorkspace/>`. Global views (`landing`, `settings`,
       `councils`, `workflows`, `video`) sit above it; repo-scoped ones below. **A database connection
       is not repo-scoped**, so Database belongs with the global group — put it below and the view is
       unreachable until a repo is open, for no reason. The chain has no exhaustiveness check: a
       missing arm silently renders `<Placeholder>` (`:457`).
-- [ ] Icon: `LuDatabase` from `react-icons/lu`, per [`CLAUDE.md`](../../../CLAUDE.md)'s
+- [x] Icon: `LuDatabase` from `react-icons/lu`, per [`CLAUDE.md`](../../../CLAUDE.md)'s
       one-icon-family rule.
-- [ ] Add `packages/app/src/features/database/database-view.tsx`: connection tree left, tab strip +
+- [x] Add `packages/app/src/features/database/database-view.tsx`: connection tree left, tab strip +
       active tab right.
   - Empty state via [`EmptyState`](../../../packages/app/src/components/empty-state.tsx)
     (`{icon?, title, body?, bodySize?}`) — `icon={VIEW_ICON.database}`,
@@ -358,9 +358,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     `skeleton.tsx:130` states every skeleton must go through `LoadingRegion` for its
     `role="status" aria-busy`.
   - Errors are prose through `EmptyState`, not a skeleton — the rule at `skeleton.tsx:7-20`.
-- [ ] Add `packages/app/src/store/database-connections-store.ts`: module-scope `create()` like every
+- [x] Add `packages/app/src/store/database-connections-store.ts`: module-scope `create()` like every
       other store in `packages/app/src/store/`.
-- [ ] No nav chord — see Decision 4.
+- [x] No nav chord — see Decision 4.
 
 ### F — Schema tree browser (M)
 

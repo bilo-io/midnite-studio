@@ -46,6 +46,69 @@ Phase 61/62, which are not being worked in this batch.
       deliberately: nothing binds a bare Escape today, so Phase 62's `useDismiss` wiring would be
       inert scaffolding until that phase actually exists (Decision 3).
 
+## 2026-09-05 — Phase 61 Themes A, B, D, E — Database Explorer: shared contracts, db-engine, IPC/vault, sidebar shell
+
+[PR #165]. Closes Themes A, B, D, E of Phase 61 — 32 of the phase's 94 items. Themes C (SQLite
+native driver, dual-ABI packaging), F (schema tree), G (query tab editor), H (results grid) and I
+(destructive-statement gate) stay open TODO, and J's dedicated Playwright suites/CI wiring beyond
+ordinary per-theme tests do too — Decision 12 recommends splitting into three phases along the
+package/IPC/view seams, left to a human to action.
+
+- [x] **A** — `packages/shared/src/domain/database.ts`: `DbProvider`, `ConnectionConfig` (no
+      password field — `sqlitePath?` and optional `host`/`port`/`username` so one shape covers a
+      file and a TCP connection), `SchemaTree`/`SchemaTable`/`SchemaColumn`, `StatementKind`,
+      positional `QueryResult.rows` (duplicate column names survive), and the `DbOpResult` two-arm
+      envelope (`{ok:true, data}` / `{ok:false, kind:'error', message}` — no `conflict` arm to
+      borrow from `GitOpResult`). Eight `mstudio:db:*` channels split across `CHANNELS`/
+      `EVENT_CHANNELS` per Decision 8, payload schemas, and a `db` bridge group shaped like `log`.
+- [x] **B** — New `packages/db-engine` package, git-engine's own structural template verbatim
+      (package.json/tsconfig/moon.yml/vitest.config.ts), wired into `tsconfig.base.json`'s paths
+      and a new boundary block in `eslint.config.mjs` (no `electron`, denied from the renderer).
+      `DbDriver` interface with a batch-callback `query`; `postgres.ts` (`pg` + `pg-cursor`, array
+      row mode), `mysql.ts`/`mariadb.ts` (`mysql2`/`mariadb`, `rowsAsArray`), `mssql.ts` (`tedious`)
+      — none buffer a whole result set. `connection-pool.ts` guards the concurrent-connect race
+      with an in-flight promise map, fixing rather than repeating the documented
+      `demo-api/server.ts` bug. `statement-kind.ts`'s sniffer is CTE-aware (`WITH x AS (SELECT …)
+      DELETE FROM y` classifies `write`) and also catches a data-modifying CTE body the doc did not
+      name. `introspect.ts` folds any provider's flat column rows into one `SchemaTree` shape.
+      SQLite (Theme C) untouched — no `better-sqlite3`, no dual-ABI packaging.
+- [x] **D** — `connections-store.ts` (`trust-store.ts`'s own shape — keyed map, lazy cache, real
+      zod) and `credential-vault.ts`, the first real `safeStorage` use in this repo: encrypted
+      blob alongside `db-connections.json`, degrading to "prompt per session" when
+      `isEncryptionAvailable()` is false, and a fingerprint (the `trust-store.ts` pattern) that
+      revokes a stored password the moment a connection's host/database/provider changes.
+      `query-service.ts` mirrors `log-service.ts`: `BATCH_SIZE` batches, a `MAX_QUERY_ROWS` cap
+      surfaced as `truncated` (no request-level limit exists yet — this is main's own fail-safe
+      ahead of Theme H's results grid), `AbortSignal` cancellation, registry release in `.finally`.
+      `'query'` joins `StreamKind`/`POLICY` as `'supersede'`. `registerDbHandlers()`/`configureDb()`
+      wired into `index.ts` at the documented seams; a module-level connection pool shared by every
+      channel; a `db` group in `preload/index.ts` shaped like `log`.
+- [x] **E** — `'database'` threaded through all 17 sites `ViewId` touches (`VIEW_ICON`, three
+      `VIEW_LABELS`, `VIEW_KEYWORDS`, `VIEW_FILTERS`, the sidebar settings page, and
+      `view-sections.test.ts`'s coverage check). Fourth `WORKSPACE_NAV_ITEMS` entry (after
+      Explorer/Search/Tests), ungated, `LuDatabase`. Render arm above the `!selectedRepoId` guard,
+      beside landing/settings/councils/workflows/video — a connection is not repo-scoped. No nav
+      chord (Decision 4). `database-connections-store.ts` (module-scope `create()`) and
+      `features/database/`: `database-view.tsx` (empty/loading/error via
+      `EmptyState`/`LoadingRegion`/prose), `database-skeletons.tsx`, and a placeholder where the
+      schema tree and query tabs land later.
+- **Deviation, disclosed:** `connection-dialog.tsx` is filed under Theme F in the phase doc (its
+  add/edit/test form is listed beside the schema tree), but a connections list with no way to add
+  a connection would leave Theme D's `dbSaveConnection`/`dbTestConnection` channels with no caller.
+  Built a reduced version now — add/edit/test, no PK/FK-aware editing, no "Preview data" — so the
+  shell is genuinely usable; Theme F's own schema-tree-aware dialog is unaffected. Driver tests
+  (`db-engine/src/drivers/drivers.test.ts`) skip when `MSTUDIO_TEST_<PROVIDER>_*` env vars are
+  unset (Decision 5's CI service containers) — untested against a live database in this sandbox
+  (no Docker daemon available); structurally correct against each client library's public API and
+  fully typechecked.
+- Coverage: `database.test.ts` (shared schema round-trips, envelope), `statement-kind.test.ts`
+  (CTE, data-modifying CTE, multi-statement), `connection-pool.test.ts` (race guard, idle
+  eviction), `introspect.test.ts`, `normalize.test.ts` (bigint/Date/Buffer), `connections-store
+  .test.ts`, `credential-vault.test.ts` (fingerprint revocation), `query-service.test.ts` (batching,
+  truncation, cancellation), `database.test.ts` (desktop IPC, mocked drivers),
+  `database-connections-store.test.ts`, `database-view.test.tsx`, and `database-shots.spec.ts`
+  (empty/connected/dialog, light + dark) using the shared shots fixture helper (Phase 56 Theme G).
+
 ## 2026-09-05 — Phase 59 Themes A, B, C, E — Workspace Optimizer: Smart Scan, Storage, GPU
 
 [PR #163]. Closes Themes A, B, C, E of Phase 59 — 44 of the phase's 70 items. Theme D (Memory
