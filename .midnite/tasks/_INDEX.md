@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 |-------|--------|---------|------|----------|---|--------|--------|
 | [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | ◻ TODO | x1 | 0/70 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | ◻ TODO | x1 | 0/68 | `░░░░░░░░░░` | 0% | — | A B C D E F |
-| [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | ◻ TODO | x2 | 0/102 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 0/102 | `░░░░░░░░░░` | 0% | A B C | D E F |
 | [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | ◻ TODO | x1 | 0/41 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
@@ -211,9 +211,9 @@ inside the repo roots the app already manages and replaces basename guessing wit
 `target/` counts only beside a `Cargo.toml`, a `build/` only with a `CMakeCache.txt` inside it. It
 also retires the shipped `.moon` detector, which offers checked-in configuration for deletion.*
 
-- ◻ **A** — An `ArtifactDetector` registry with a four-arm `EvidenceRule`; `classify` returns the detector, takes the parent's entry names (free) and reads a candidate's children only when an arm demands it.
-- ◻ **B** — Nine ecosystems catalogued — Node, moon, Rust, C/C++, .NET, Python, Java/Gradle/Maven, Swift/Xcode, Ruby — each naming what identifies it, what proves it, and what recreates it. Go ships nothing, deliberately.
-- ◻ **C** — One orthogonal `Ecosystem` axis instead of twelve categories; `nodeModules` → `dependencies`; a `cheap`/`costly` reclaim grade on every item.
+- 🔄 **A** — An `ArtifactDetector` registry with a four-arm `EvidenceRule`; `classify` returns the detector, takes the parent's entry names (free) and reads a candidate's children only when an arm demands it.
+- 🔄 **B** — Nine ecosystems catalogued — Node, moon, Rust, C/C++, .NET, Python, Java/Gradle/Maven, Swift/Xcode, Ruby — each naming what identifies it, what proves it, and what recreates it. Go ships nothing, deliberately.
+- 🔄 **C** — One orthogonal `Ecosystem` axis instead of twelve categories; `nodeModules` → `dependencies`; a `cheap`/`costly` reclaim grade on every item.
 - ◻ **D** — A result list grouped by ecosystem, with bulk clean restricted to `cheap` items and a confirm that names the build commands that will have to run again.
 - ◻ **E** — A per-root entry budget carried on `WalkState` so one pathological repo cannot silently starve the rest (and cannot cap `cleanItems`' delete-time sizing), per-ecosystem opt-outs applied in main, and the `.moon` fix.
 - ◻ **F** — Verification, weighted to negative fixtures: a `bin/` beside a `package.json`, a `build/` with no cache file, a `venv/` with no `pyvenv.cfg` must each produce zero items.
