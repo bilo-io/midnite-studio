@@ -91,6 +91,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
 export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   appearance: LuPalette,
   graph: IoIosGitNetwork,
+  diff: LuDiff,
   sidebar: LuPanelLeft,
   search: LuSearch,
   screenLock: LuLock,

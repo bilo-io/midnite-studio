@@ -17,6 +17,44 @@
       via `--fix`, updated `outstanding.md` to establish docs as the source of truth for work items, and
       replaced shell one-liner drift guards across 6 skill files with `moon run root:tracker-check`.
 
+## 2026-09-05 — Phase 63 Themes A, B, C — The preferences with nowhere to live
+
+[PR #167]. Closes all three themes of Phase 63 — the whole (refined, x1) phase in one batch.
+
+- [x] **A** — `settings-pages/diff-page.tsx`: two accordions ("Diff view" `defaultOpen`, "File
+      lists" not — Decision 3), a `Choice` per preference (`diffLayout`, `diffShowOldGutter` as
+      on/off per Decision 1, `commitFileView`, `changesFileView`), a "Reset to defaults" button per
+      accordion backed by a new exported `DIFF_PREF_DEFAULTS`/`DiffLayout` in `ui-store.ts` so the
+      page and the store's own initial state cannot disagree. `diff-page.test.tsx` (RTL) covers
+      render/reflect/set/reset for all four controls.
+- [x] **B** — `diff` registered in `SettingsPageId`, `SETTINGS_PAGES` (beside Graph), `PAGE_CONTENT`
+      and `SETTINGS_PAGE_ICON` (`LuDiff`). Verified by hand, not re-tested: the command palette and
+      title-bar breadcrumb both derive from `SETTINGS_PAGES` already, so neither needed an edit.
+- [x] **C** — `store/persisted-keys.ts`: `PREFERENCE_KEYS`/`SESSION_STATE_KEYS` partitioning every
+      persisted key, a type-level exhaustiveness assertion against `keyof PersistedUi` (hand-probed:
+      removing a key from both lists while it stays in `PersistedUi` fails typecheck), and a
+      `KNOWN_ORPHANS` five-entry allow-list (`browserLayout`, `loopChoices`, `loopAgents`,
+      `loopModels`, `loopSchedules` — Decision 6, already recorded in `outstanding.md`).
+      `persisted-keys.test.ts` checks no duplicates/overlap, full coverage against the store's own
+      `partialize` output (not a hand-typed total), and that every non-orphan preference is named
+      under `features/settings/` via `import.meta.glob` (matching `icon-names.test.ts`'s
+      node-builtin-free pattern — the renderer's eslint boundary blocks `node:fs` even in test
+      files). Also corrects the `*Detached` docblock that wrongly claimed those four flags aren't
+      persisted (Decision 7) — comment only, no `partialize`/`version`/`migrate` change.
+- **Deviation, disclosed:** the doc's x1 refinement counted 71 persisted keys with a 9/25
+  preference/session-state split of 34 audited orphans. A sibling PR (#163, workspace optimizer)
+  landed one more persisted key (`optimizerEnabled`) after that audit ran, and `sectionFilters`
+  turned out to already be a registered preference (`sidebar-page.tsx`'s "View filters" accordion)
+  rather than session state as the doc's seed table had it. The actual, test-verified partition is
+  42 preference / 30 session-state keys covering the real 72-key `PersistedUi` — re-derived from
+  the live tree rather than trusted from the doc's now-slightly-stale count, since that drift is
+  exactly what Theme C exists to catch. The grep test also checks `features/settings/` broadly
+  rather than only the `settings-pages/` subdirectory the Theme C bullet names, since several
+  already-registered preferences (`activityTimelineStyle`, `graphTheme`, `graphDensity`) live in
+  sibling files one level up.
+- Coverage: `diff-page.test.tsx`, `persisted-keys.test.ts`, and `diff-settings-shots.spec.ts`
+  (Playwright: Settings ▸ Diff, both accordions expanded, light + dark).
+
 ## 2026-09-05 — Phase 64 Themes A, B, C, D — offline Monaco + cross-surface theme registry
 
 [PR #164]. The editor half (A, C, D) and the palette half (B) of the phase's 50 deliverables,
