@@ -85,7 +85,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The stack, and the hook that joins it (M) — ✅ DONE (PR #PENDING, 2026-09-05)
+### A — The stack, and the hook that joins it (M) — ✅ DONE (PR #170, 2026-09-05)
 
 > **Landed note — the hook is `useDismiss`, and outside-click stayed out.** Decision 8's
 > recommendation was taken literally: the name is `useDismiss`, not `useEscape`, so adding
@@ -137,7 +137,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       spy on `window.addEventListener`/`removeEventListener` sees **exactly one** `keydown`
       registration across three simultaneous overlays, and zero once they all close.
 
-### B — The overlays move onto it (M) — ✅ DONE (PR #PENDING, 2026-09-05)
+### B — The overlays move onto it (M) — ✅ DONE (PR #170, 2026-09-05)
 
 Eighteen window/document-scoped handlers across seventeen files. Each migration is: delete the
 `useEffect` + listener, call `useDismiss`, keep the close function exactly as it is.
@@ -185,7 +185,7 @@ Eighteen window/document-scoped handlers across seventeen files. Each migration 
 - [x] `grep -rn "key === 'Escape'" packages/app/src` returns only the six element-scoped handlers of
       Theme C and the hook itself. That grep is the acceptance criterion for this theme.
 
-### C — The element-scoped handlers stop leaking (S) — ✅ DONE (PR #PENDING, 2026-09-05)
+### C — The element-scoped handlers stop leaking (S) — ✅ DONE (PR #170, 2026-09-05)
 
 Six handlers on focused elements. They are correct — Escape on a focused rename input should cancel
 the rename — but two of them let the event continue to `window`.

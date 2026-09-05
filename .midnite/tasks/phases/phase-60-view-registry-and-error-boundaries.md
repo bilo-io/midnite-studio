@@ -67,7 +67,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — One record, not a seventeen-branch ternary (S) — ✅ DONE (PR #PENDING, 2026-09-05)
+### A — One record, not a seventeen-branch ternary (S) — ✅ DONE (PR #170, 2026-09-05)
 
 Land this first; B and C both attach to it.
 
@@ -108,7 +108,7 @@ Land this first; B and C both attach to it.
       `['landing','settings','councils','workflows','video']` — so widening the global set is a
       test change, made deliberately, rather than a silent reorder.
 
-### B — A boundary per view (M) — ✅ DONE (PR #PENDING, 2026-09-05)
+### B — A boundary per view (M) — ✅ DONE (PR #170, 2026-09-05)
 
 One class component, three mount points, and a fallback that is honest about what it does and does
 not know.
@@ -171,7 +171,7 @@ not know.
       **If the throw hook cannot be added without shipping test code, drop this item** and say so in
       the PR rather than shipping a hook into the product.
 
-### C — The three states, applied (M) — ✅ DONE (PR #PENDING, 2026-09-05)
+### C — The three states, applied (M) — ✅ DONE (PR #170, 2026-09-05)
 
 Not a redesign: the two primitives already exist and their docstrings already settle the rules.
 This theme is the checklist of views that never called them.

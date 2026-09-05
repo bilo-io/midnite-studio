@@ -95,7 +95,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The trap learns to give focus back (M) — ✅ DONE (PR #PENDING, 2026-09-05)
+### A — The trap learns to give focus back (M) — ✅ DONE (PR #170, 2026-09-05)
 
 - [x] Extend [`use-focus-trap.ts`](../../../packages/app/src/components/use-focus-trap.ts) to capture
       on activation and restore on deactivation. **Signature unchanged** —
@@ -128,7 +128,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       restore to `<body>`; does not steal focus that moved elsewhere; `active: false` traps nothing;
       an `inert` child is skipped in the Tab cycle.
 
-### B — The eight that never gave it back (S) — ✅ DONE (PR #PENDING, 2026-09-05)
+### B — The eight that never gave it back (S) — ✅ DONE (PR #170, 2026-09-05)
 
 > **Landed note — the acceptance criterion had to be restated, and then it held.** As written, the
 > criterion is *"`git diff --stat` for Theme B shows `palette.tsx`, `browser-pane.tsx`,
@@ -165,7 +165,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] Add the missing `aria-label` to [`merge-dialog.tsx:98-99`](../../../packages/app/src/features/reviews/merge-dialog.tsx),
       the one `role="dialog" aria-modal="true"` in the app with no accessible name.
 
-### C — The context menu says "menu" and means it (M) — ✅ DONE (PR #PENDING, 2026-09-05)
+### C — The context menu says "menu" and means it (M) — ✅ DONE (PR #170, 2026-09-05)
 
 `grep -c "focus\|tabIndex\|autoFocus"` on
 [`context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx) → **0**. But it declares
@@ -189,7 +189,7 @@ Down, and nothing happens.
 - [x] `context-menu.test.tsx` gains keyboard coverage: open → first item focused; Down wraps; a
       disabled item is skipped; ArrowRight enters a submenu; Escape returns focus to the trigger.
 
-### D — The two modals that were never modals (S) — ✅ DONE (PR #PENDING, 2026-09-05)
+### D — The two modals that were never modals (S) — ✅ DONE (PR #170, 2026-09-05)
 
 > **Landed note — the audit's verdicts, recorded rather than silently skipped.** The last item asks
 > for a verdict on each remaining role-less overlay:

@@ -104,7 +104,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Levels on the one seam, and a file under it (M) — ✅ DONE (PR #PENDING, 2026-09-05)
+### A — Levels on the one seam, and a file under it (M) — ✅ DONE (PR #170, 2026-09-05)
 
 - [x] Widen [`main/log.ts`](../../../packages/desktop/src/main/log.ts)'s `Logger` **without touching
       a single call site**: `export type Logger = ((message: string) => void) & { info(message: string): void; warn(message: string): void; error(message: string, err?: unknown): void }`.
@@ -149,7 +149,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       exactly `generations` files; a write failure disables the sink without throwing and without
       spamming.
 
-### B — The channel, and the helper it deserves (M) — ✅ DONE (PR #PENDING, 2026-09-05)
+### B — The channel, and the helper it deserves (M) — ✅ DONE (PR #170, 2026-09-05)
 
 - [x] Add `handleSend(channel, schema, fn)` to
       [`main/ipc/handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts), beside `handle`,
@@ -193,7 +193,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] Schema round-trip tests beside the existing ipc schema tests, plus a `handleSend` test
       asserting an invalid payload is logged and not thrown.
 
-### C — The renderer learns to report (S) — ✅ DONE (PR #PENDING, 2026-09-05)
+### C — The renderer learns to report (S) — ✅ DONE (PR #170, 2026-09-05)
 
 > **Landed note — the cap is per-signature, which overrides Decision 10.** The doc's recommendation
 > was a flat 20-reports-per-session cap. What shipped is a **per-signature** cap: an FNV-1a hash
@@ -225,7 +225,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] `packages/app/src/lib/report.test.ts` — no bridge is a silent no-op; the same error twice
       sends once; the 21st distinct error does not send; a throwing bridge does not propagate.
 
-### D — Main's own crashes reach the same sink (S) — ✅ DONE (PR #PENDING, 2026-09-05)
+### D — Main's own crashes reach the same sink (S) — ✅ DONE (PR #170, 2026-09-05)
 
 - [x] `process.on('uncaughtException')` and `process.on('unhandledRejection')` in
       [`main/index.ts`](../../../packages/desktop/src/main/index.ts), installed **before**
@@ -249,7 +249,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### E — A user can get at it in two clicks (S)
 
-> **Not built in the PR #PENDING batch — deliberately out of scope, and still ◻ TODO.** Themes A–D
+> **Not built in the PR #170 batch — deliberately out of scope, and still ◻ TODO.** Themes A–D
 > ship the whole machine (sink, channels, `reportError`, main's own crash hooks); this theme is the
 > user-facing half — the two Diagnostics buttons, the `release.ts` issue URLs and the Report-a-bug
 > link — and it is unstarted. The verification items that depend on it stay open with it.

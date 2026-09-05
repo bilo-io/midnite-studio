@@ -222,7 +222,7 @@ package/IPC/view seams, left to a human to action.
 
 ## 2026-09-05 — Phases 60, 62, 65, 68 — the window fails well, and says where
 
-[PR #PENDING]. One batch, four phases, fourteen themes: **Phase 60 A–C** (all), **Phase 62 A–C**
+[PR #170]. One batch, four phases, fourteen themes: **Phase 60 A–C** (all), **Phase 62 A–C**
 (all), **Phase 65 A–D** (E deliberately not built), **Phase 68 A–D** (all). They were taken
 together because they are one chain — a boundary needs somewhere to report (60 → 65), an overlay
 that consumes Escape is an overlay that occludes (62), and the overlay that gave Escape back has
