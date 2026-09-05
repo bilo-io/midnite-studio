@@ -78,7 +78,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C |
 | [61 · Database Explorer](phases/phase-61-database-explorer.md) | ◻ TODO | — | 0/53 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C |
-| [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | ◻ TODO | x1 | 0/70 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | 🔄 WIP | x1 | 0/70 | `░░░░░░░░░░` | 0% | A B C E | D F |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | ◻ TODO | x1 | 0/78 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md) | ◻ TODO | x1 | 0/76 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [56 · E2E Suite Speed Run](phases/phase-56-e2e-speed-run.md) | 🔄 WIP | — | 24/29 | `████████░░` | 83% | G | D |
