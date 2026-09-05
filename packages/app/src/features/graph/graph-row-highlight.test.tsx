@@ -177,3 +177,40 @@ describe('branch halo', () => {
     expect(badge!.className).not.toContain('graph-badge-glow');
   });
 });
+
+describe('recent commit effects', () => {
+  afterEach(cleanup);
+
+  const now = 1_700_000_000_000;
+
+  it('applies shimmer and text-pulse for commits under 1 minute old (just now)', () => {
+    const committerDate = Math.floor((now - 20_000) / 1000);
+    const row = makeRow('recent1', 2);
+    row.commit.committerDate = committerDate;
+
+    const el = renderRow(row, { nowMs: now });
+    expect(el.querySelector('.commit-row-shimmer')).not.toBeNull();
+    expect(el.querySelector('.commit-text-pulse')).not.toBeNull();
+  });
+
+  it('applies text-pulse without shimmer for commits between 1 and 2 minutes old (1m ago)', () => {
+    const committerDate = Math.floor((now - 80_000) / 1000);
+    const row = makeRow('recent2', 2);
+    row.commit.committerDate = committerDate;
+
+    const el = renderRow(row, { nowMs: now });
+    expect(el.querySelector('.commit-row-shimmer')).toBeNull();
+    expect(el.querySelector('.commit-text-pulse')).not.toBeNull();
+  });
+
+  it('applies neither shimmer nor text-pulse for older commits (>= 2 minutes old)', () => {
+    const committerDate = Math.floor((now - 150_000) / 1000);
+    const row = makeRow('older', 2);
+    row.commit.committerDate = committerDate;
+
+    const el = renderRow(row, { nowMs: now });
+    expect(el.querySelector('.commit-row-shimmer')).toBeNull();
+    expect(el.querySelector('.commit-text-pulse')).toBeNull();
+  });
+});
+
