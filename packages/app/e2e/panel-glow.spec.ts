@@ -24,10 +24,16 @@ import { installMockBridge } from './mock-bridge';
  * tick.
  */
 
-/** The status bar is the only surface with two `Popover`s side by side. */
+/**
+ * The status bar is the only surface with two floating panels side by side.
+ * `assistant-menu`'s is `QuickAccessMenu` (Phase 58 Theme E) — self-contained
+ * rather than a `Popover`, so its testid is its own (`quick-access-menu`)
+ * rather than the `Popover`-derived `assistant-menu-panel` — but it is the
+ * same class of "gradient-glow, fixed-position panel" this spec guards.
+ */
 const PANELS = [
   { trigger: 'notification-bell', panel: 'notification-bell-panel' },
-  { trigger: 'assistant-menu', panel: 'assistant-menu-panel' },
+  { trigger: 'assistant-menu', panel: 'quick-access-menu' },
 ] as const;
 
 test.beforeEach(async ({ page }) => {
@@ -90,7 +96,7 @@ for (const { trigger, panel } of PANELS) {
  */
 test('the glow pseudo-element is disabled', async ({ page }) => {
   await open(page, 'assistant-menu');
-  const target = page.getByTestId('assistant-menu-panel');
+  const target = page.getByTestId('quick-access-menu');
   await expect(target).toBeVisible();
 
   const pseudos = await target.evaluate((el) => ({

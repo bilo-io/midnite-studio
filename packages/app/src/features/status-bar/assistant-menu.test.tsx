@@ -35,26 +35,27 @@ afterEach(() => {
 const trigger = () => screen.getByTestId('assistant-menu');
 
 describe('AssistantMenu', () => {
-  it('is the Midnite Assistant popover while the FAB panel is closed', () => {
+  it('opens the quick-access menu while the FAB panel is closed', () => {
     render(<AssistantMenu />);
     expect(trigger().getAttribute('aria-label')).toBe('Midnite Assistant');
     fireEvent.click(trigger());
-    expect(screen.getByText('Midnite Assistant Menu (Blank for now)')).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: /Loops/ })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: /Notes/ })).toBeDefined();
   });
 
   /**
    * The rightmost statusbar slot wears the FAB's own look while its panel is
-   * open, rather than its usual (currently blank) popover — the two never
-   * show at once.
+   * open, rather than its usual quick-access trigger — the two never show at
+   * once.
    */
-  it('wears the FAB look, not its own popover, while the FAB panel is open', () => {
+  it('wears the FAB look, not its own quick-access trigger, while the FAB panel is open', () => {
     useUiStore.setState({ fabPanelOpen: true, activeFabTab: 'medic' });
     render(<AssistantMenu />);
     const button = trigger();
     expect(button.getAttribute('aria-label')).toBe('Close quick access panel');
     expect(button.getAttribute('data-fab-tab')).toBe('medic');
     fireEvent.click(button);
-    expect(screen.queryByText('Midnite Assistant Menu (Blank for now)')).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /Loops/ })).toBeNull();
   });
 
   it('closes the FAB panel when clicked while open', () => {
