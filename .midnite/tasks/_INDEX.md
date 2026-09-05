@@ -85,11 +85,11 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 52/72 | `███████░░░` | 72% | — | G |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ✅ DONE | x1 | 32/32 | `██████████` | 100% | — | — |
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | 🔄 WIP | — | 0/33 | `░░░░░░░░░░` | 0% | A B C | — |
-| [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 32/94 | `███░░░░░░░` | 34% | — | C F G H I J |
+| [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 32/94 | `███░░░░░░░` | 34% | F I | C G H J |
 | [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | 🔄 WIP | — | 0/34 | `░░░░░░░░░░` | 0% | A B C | — |
 | [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | ✅ DONE | x1 | 70/70 | `██████████` | 100% | — | — |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | 🔄 WIP | x1 | 0/78 | `░░░░░░░░░░` | 0% | A B C D | E F G |
-| [57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md) | 🔄 WIP | x1 | 44/76 | `██████░░░░` | 58% | — | E F |
+| [57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md) | 🔄 WIP | x1 | 44/76 | `██████░░░░` | 58% | E F | — |
 | [56 · E2E Suite Speed Run](phases/phase-56-e2e-speed-run.md) | 🔄 WIP | — | 27/29 | `█████████░` | 93% | — | D |
 | [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | 🔄 WIP | x1 | 31/47 | `███████░░░` | 66% |  |  |
 | [54 · An Issues view](phases/phase-54-issues-view.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | Verification (2 human passes) |
