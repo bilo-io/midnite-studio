@@ -27,12 +27,17 @@ import { handle, handleBare, handleOp } from './handle';
  * exception renders as an error boundary.
  */
 export function registerRepoHandlers(getWindow: () => BrowserWindow | null): void {
-  /** Reconcile after any registry change, so no open repo is left unwatched. */
+  /*
+    Reconcile after any registry change, so no open repo is left unwatched.
+
+    No longer gated on a window existing (Theme I): a watcher fans its events
+    out to whatever windows are open at the time each event fires, rather than
+    capturing one at start-up, so there is nothing here that needs a window to
+    bind to. Skipping the reconcile because `getWindow()` happened to answer
+    null would leave a just-opened repo unwatched for the rest of the session.
+  */
   const syncWatchers = async (): Promise<void> => {
-    const win = getWindow();
-    if (!win) return;
     await reconcileWatchers(
-      win,
       (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })),
     );
   };

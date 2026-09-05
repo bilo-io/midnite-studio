@@ -344,6 +344,7 @@ describe('useBroadcastSync — page selection (Theme H)', () => {
       repoId: 'repo-1',
       runId: '7',
       label: 'CI #7',
+      url: 'https://github.com/bilo-io/midnite-studio/actions/runs/7',
     });
 
     const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'workbench');

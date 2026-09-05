@@ -307,6 +307,29 @@ export function closeAllPopouts(): void {
 }
 
 /**
+ * Send `payload` on `channel` to EVERY open window, main included.
+ *
+ * Theme I's seam. Until it, `watch-service.ts` captured one `BrowserWindow` at
+ * watcher-start time — always main — and every other window learned about a
+ * file change only because main's renderer rebroadcast it over the Theme E
+ * relay. That worked while popouts were panels; it stopped being enough once a
+ * PAGE can be detached, because a detached Graph or Changes window is a full
+ * data-driven view whose freshness now depends on a renderer in a different
+ * window staying mounted and awake to forward for it.
+ *
+ * Fan-out lives here rather than in `watch-service` because this module is the
+ * one that knows what windows exist — and it is fan-out, not a second watcher:
+ * `watchers` stays keyed by repoId, so a repo open in three windows is still
+ * watched exactly once. N windows cost N `webContents.send` calls, not N
+ * recursive fs trees.
+ */
+export function broadcastToAllWindows(channel: string, payload: unknown): void {
+  for (const { win } of windows.values()) {
+    if (!win.isDestroyed()) win.webContents.send(channel, payload);
+  }
+}
+
+/**
  * Theme E's cross-window relay: rebroadcast `message` to every window except
  * `originId` (the sender). Fire-and-forget, mirroring `emitWindowsChanged` —
  * the sender already applied its own change locally before asking for this.
