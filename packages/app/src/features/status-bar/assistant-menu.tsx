@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 
 import { BrandMark } from '../../components/brand';
-import { Popover } from '../../components/popover';
 import { MidniteIcon } from '../../components/icons/midnite-icon';
+import { QuickAccessMenu } from '../quick-access/quick-access-menu';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from '../loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from '../loops/fab-morph';
 import { useUiStore } from '../../store/ui-store';
@@ -10,15 +10,22 @@ import { useUiStore } from '../../store/ui-store';
 /**
  * The statusbar's rightmost segment.
  *
- * While the FAB panel is closed this is the (currently blank) Midnite
- * Assistant popover. While it is open, this slot instead wears a miniature
- * of the FAB itself — same brand mark, same loop glow/halo, same toggle — so
- * closing the panel never needs a second control to hunt for. The two looks
- * share one statusbar segment rather than sitting side by side: with the big
- * FAB hidden for the same duration (`app.tsx`), there is exactly one FAB
- * on screen at all times, and the FLIP transform in `fab-morph.ts` is what
- * sells the two as one button moving rather than one disappearing and
- * another appearing in its place.
+ * While the FAB panel is closed this is the trigger for the quick-access menu
+ * (Phase 58 Theme E) — "Midnite Assistant Menu (Blank for now)" until then.
+ * While the panel is open, this slot instead wears a miniature of the FAB
+ * itself — same brand mark, same loop glow/halo, same toggle — so closing the
+ * panel never needs a second control to hunt for. The two looks share one
+ * statusbar segment rather than sitting side by side: with the big FAB hidden
+ * for the same duration (`app.tsx`), there is exactly one FAB on screen at
+ * all times, and the FLIP transform in `fab-morph.ts` is what sells the two
+ * as one button moving rather than one disappearing and another appearing in
+ * its place.
+ *
+ * `QuickAccessMenu` is self-contained (its own portal, position, Escape and
+ * occluder registration — see its own doc comment), so this trigger's local
+ * `open` state is all the chrome it needs here; the FAB's own entry point
+ * (`app.tsx`) mounts the exact same component off the shared `quickAccessOpen`
+ * flag instead — two independent mounts of one component, never a fork.
  */
 export function AssistantMenu() {
   const [open, setOpen] = useState(false);
@@ -61,27 +68,20 @@ export function AssistantMenu() {
   }
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={setOpen}
-      side="top"
-      align="end"
-      label="Midnite Assistant"
-      testId="assistant-menu"
-      panelClassName="w-[400px] h-[300px] p-4 text-muted-foreground flex flex-col"
-      trigger={
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="Midnite Assistant"
+        data-testid="assistant-menu"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-3 rounded px-1 transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
+        data-open={open}
+      >
         <MidniteIcon aria-hidden className="h-3.5 w-3.5" />
-      }
-    >
-      <div className="flex h-full flex-col">
-        <div className="flex shrink-0 items-center gap-2 border-b border-border pb-2 text-xs font-semibold text-foreground">
-          <MidniteIcon aria-hidden className="h-3.5 w-3.5" />
-          <span>Assistant</span>
-        </div>
-        <div className="flex flex-1 items-center justify-center">
-          Midnite Assistant Menu (Blank for now)
-        </div>
-      </div>
-    </Popover>
+      </button>
+      {open ? <QuickAccessMenu onClose={() => setOpen(false)} /> : null}
+    </>
   );
 }
