@@ -30,7 +30,7 @@ Gather, and **stop with a clear message** on the first failure (nothing has chan
 - **Clean tree:** `git status --porcelain` empty.
 - **In sync:** `git fetch origin`; the branch's `main` base isn't ahead in a way that conflicts (rebase/merge `main` first if so).
 - **Versions match the branch:** read every `package.json`; for a lockstep release every package is `X.Y.0`; for a patch the bumped package(s) are `X.Y.Z`. The lockstep MAJOR.MINOR invariant holds (run `moon run root:version-check` if ported; otherwise eyeball).
-- **Changelog ready:** `extractChangelogSection(CHANGELOG.md, 'X.Y.Z')` returns a section with a non-null `date` (a dated `## [X.Y.Z] - YYYY-MM-DD`) and a non-empty body. An undated/`Unreleased`-only changelog means `/midnite-release-prep` wasn't finished — stop.
+- **Changelog ready:** this repo's `extractChangelogSection(markdown, version)` ([`release.ts`](../../../packages/shared/src/release.ts)) returns just the section body as `string | null` — no `.date` field — so check both halves directly: `extractChangelogSection(CHANGELOG.md, 'X.Y.Z')` is non-null and non-empty, AND the changelog literally has a dated heading for that version (`## [X.Y.Z] - YYYY-MM-DD`, not `## [Unreleased]` — grep the heading text). Either missing means `/midnite-release-prep` wasn't finished — stop.
 - **Green:** `moon ci` passes. (Run it; don't trust a stale cache for the gate.)
 
 ## 2 · Plan the tags & show the go/no-go — STOP for the human
