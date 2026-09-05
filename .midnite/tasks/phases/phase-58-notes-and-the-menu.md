@@ -106,36 +106,36 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The notes store (S)
+### A — The notes store (S) · ✅ DONE (PR #160, 2026-09-05)
 
 One store, per-repository, in the smallest `persist` shape this codebase uses.
 
-- [ ] Add [`packages/app/src/store/notes-store.ts`](../../../packages/app/src/store/notes-store.ts):
+- [x] Add [`packages/app/src/store/notes-store.ts`](../../../packages/app/src/store/notes-store.ts):
       `export type Note = { id: string; repoId: string; body: string; status: NoteStatus; done: boolean; createdAt: number; updatedAt: number }`
       with `export type NoteStatus = 'captured' | 'planned' | 'implemented'`. `status` and `done` are
       two independent axes, not one enum (Decision 2). `id` is `crypto.randomUUID()`.
-- [ ] Actions on the store: `addNote(repoId: string, body: string): Note`,
+- [x] Actions on the store: `addNote(repoId: string, body: string): Note`,
       `setBody(id: string, body: string): void`, `setStatus(id: string, status: NoteStatus): void`,
       `toggleDone(id: string): void`, `removeNote(id: string): void`. Every mutation bumps
       `updatedAt`; none of them bumps `createdAt`.
-- [ ] `export function notesForRepo(notes: Note[], repoId: string): Note[]` as a **module-level pure
+- [x] `export function notesForRepo(notes: Note[], repoId: string): Note[]` as a **module-level pure
       selector**, not a store method — sorted `createdAt` descending (newest first). Pure so
       `notes-store.test.ts` can assert ordering without mounting a store, matching how the other
       stores' selectors are tested.
-- [ ] Shape the collection as `notes: Record<string, Note>` keyed by note id, **not** a flat array
+- [x] Shape the collection as `notes: Record<string, Note>` keyed by note id, **not** a flat array
       and **not** `Record<repoId, Note[]>`. Keyed-by-id makes `setBody`/`toggleDone` O(1) and makes
       the repo GC a filter; `notesForRepo` does the grouping. (`dashboard-store.ts:53` uses
       `Record<repoId, DashboardBoard>` because a board *is* one-per-repo; a note is not.)
-- [ ] Deliberately **no `position` field.** `~/Dev/midnite`'s note model carries one that its UI
+- [x] Deliberately **no `position` field.** `~/Dev/midnite`'s note model carries one that its UI
       never reorders by; copying it would import a dead column and an ordering question nobody has.
-- [ ] `persist` with `name: 'midnite-studio.notes'`, `version: 1`, and
+- [x] `persist` with `name: 'midnite-studio.notes'`, `version: 1`, and
       `partialize: (s) => ({ notes: s.notes })` — nothing else. Follow
       [`dashboard-store.ts:208`](../../../packages/app/src/store/dashboard-store.ts) exactly,
       including having **no `migrate`** at version 1.
-- [ ] Call `adoptRenamedPersistKey('midnite-studio.notes', 'midnite-studio.notes')` at module scope,
+- [x] Call `adoptRenamedPersistKey('midnite-studio.notes', 'midnite-studio.notes')` at module scope,
       matching the identical-argument precedent at `dashboard-store.ts:115`, `search-store.ts:111`,
       `ui-store.ts:1206` and `browser-store.ts:166`, so a future rename has the hook in place.
-- [ ] **Repo GC — and the precedent it contradicts, resolved.**
+- [x] **Repo GC — and the precedent it contradicts, resolved.**
       [`dashboard-store.ts:198-207`](../../../packages/app/src/store/dashboard-store.ts) explicitly
       *declines* to prune boards for closed repos: *"re-adding one to find its dashboard reset would
       make the persistence pointless."* That argument applies to notes with more force, so
@@ -143,11 +143,11 @@ One store, per-repository, in the smallest `persist` shape this codebase uses.
       from the registry for good, offered as an explicit **"Remove notes for repositories you no
       longer have"** action on the Notes modal's header overflow — user-initiated, never automatic.
       *(This reverses the first draft's item; see Decision 12.)*
-- [ ] `notes-store.test.ts`: add/edit/remove; `notesForRepo` newest-first; `status` and `done` moving
+- [x] `notes-store.test.ts`: add/edit/remove; `notesForRepo` newest-first; `status` and `done` moving
       independently; `updatedAt` bumping and `createdAt` not; the `partialize` output containing
       exactly the `notes` key; the manual prune removing only the named repos' notes.
 
-### B — The modal primitive the app never had (M)
+### B — The modal primitive the app never had (M) · ✅ DONE (PR #160, 2026-09-05)
 
 **Twelve** hand-rolled `fixed inset-0 z-dialog` overlays exist today, not seven:
 [`confirm-dialog:84`](../../../packages/app/src/components/confirm-dialog.tsx),
@@ -165,17 +165,17 @@ thirteenth. **Ten of them already call `useFocusTrap`** — the trap is not the 
 duplication is the backdrop class string (`bg-background/70 p-6`, identical in nine of them) and the
 Escape handler; and the *defect* is that **only `browser-launcher` registers as an occluder**.
 
-- [ ] Add [`packages/app/src/components/modal.tsx`](../../../packages/app/src/components/modal.tsx)
+- [x] Add [`packages/app/src/components/modal.tsx`](../../../packages/app/src/components/modal.tsx)
       exporting
       `export function Modal(props: ModalProps): JSX.Element | null` with
       `export type ModalProps = { open: boolean; onClose: () => void; title?: string; children: ReactNode; size?: 'sm' | 'md' | 'lg' | 'full'; variant?: 'plain' | 'gradient'; align?: 'center' | 'top'; initialFocusRef?: RefObject<HTMLElement | null>; testId?: string }`.
       Enumerated unions, not free strings — `align: 'top'` exists because
       [`palette.tsx:279`](../../../packages/app/src/components/palette.tsx) is `items-start pt-[15vh]`
       and would otherwise be unmigratable.
-- [ ] `size` maps to a fixed table in the module — `sm: 'max-w-[420px]'`, `md: 'max-w-[640px]'`,
+- [x] `size` maps to a fixed table in the module — `sm: 'max-w-[420px]'`, `md: 'max-w-[640px]'`,
       `lg: 'max-w-[900px]'`, `full: 'max-w-none w-full h-full'` — so a caller never passes a raw
       class and the sizes cannot drift apart across thirteen surfaces.
-- [ ] It **registers as an occluder** for its whole lifetime — `incrementOccluders()` on mount,
+- [x] It **registers as an occluder** for its whole lifetime — `incrementOccluders()` on mount,
       `decrementOccluders()` on unmount, exactly as
       [`popover.tsx:185`/`:191`](../../../packages/app/src/components/popover.tsx) does. This is not
       optional and it is not cosmetic:
@@ -183,123 +183,123 @@ Escape handler; and the *defect* is that **only `browser-launcher` registers as 
       computes `effectiveVisible = visible && occluders === 0`, so a modal that skips it is painted
       *underneath a live web page* with no way to reach it — which is the state eleven of the twelve
       are in today.
-- [ ] Focus trap via `useFocusTrap(panelRef, open)`, `tabIndex={-1}` on the panel, and **focus
+- [x] Focus trap via `useFocusTrap(panelRef, open)`, `tabIndex={-1}` on the panel, and **focus
       restoration**: capture `document.activeElement` on open and restore it on close.
       `useFocusTrap` deliberately does not restore (it only sets initial focus when the container
       does not already contain `activeElement`), so restoration is `Modal`'s job and is the one
       behaviour none of the twelve currently get right.
-- [ ] Escape closes — **through [Phase 62](phase-62-one-escape-one-dismissal.md)'s
+- [x] Escape closes — **through [Phase 62](phase-62-one-escape-one-dismissal.md)'s
       `useDismiss(open, onClose, { layer: 'dialog' })` if that phase has landed, and through a plain
       `window` keydown effect if it has not.** Whichever lands second reconciles the two; see
       Decision 11. Do not invent a third mechanism.
-- [ ] `variant="gradient"` wears `.gradient-frame` ([`styles.css:1151`](../../../packages/app/src/styles.css)),
+- [x] `variant="gradient"` wears `.gradient-frame` ([`styles.css:1151`](../../../packages/app/src/styles.css)),
       the same CSS the FAB panel uses at [`fab-panel.tsx:77`](../../../packages/app/src/components/fab-panel.tsx).
       **Note the motion caveat:** `.gradient-frame` sets `animation: fab-panel-spin 4s linear infinite`
       unconditionally in CSS, so `motionMs()` cannot reach it — reduced motion for the ring is a
       `@media (prefers-reduced-motion)` rule in `styles.css` beside the keyframes, not a JS value.
-- [ ] Reduced motion for the modal's own enter/exit uses `motionMs()`
+- [x] Reduced motion for the modal's own enter/exit uses `motionMs()`
       ([`use-reveal.ts:41`](../../../packages/app/src/components/use-reveal.ts) —
       `document.documentElement.dataset['motion'] === 'reduced' ? 0 : REVEAL_MS`). It returns a single
       duration, not a scaler; use it as the transition duration and nothing else.
-- [ ] `testId` renders as `data-testid` on the panel — every existing overlay carries one
+- [x] `testId` renders as `data-testid` on the panel — every existing overlay carries one
       (`fab-launchers.tsx:151`, `assistant-menu.tsx:50`) and the e2e specs in Theme G depend on it.
-- [ ] **Migrate two existing dialogs onto it** as proof it fits real callers:
+- [x] **Migrate two existing dialogs onto it** as proof it fits real callers:
       [`prompt-dialog.tsx`](../../../packages/app/src/components/prompt-dialog.tsx) (the simplest
       consumer) and [`browser-launcher.tsx`](../../../packages/app/src/features/browser/browser-launcher.tsx)
       (which already hand-rolls the occluder pair, so its migration should be a net **deletion** and
       proves the primitive covers the hard case). `palette` and `slides-modal` stay put — Decision 5.
-- [ ] **Close the occluder gap for the ten unmigrated overlays too**, by adding the
+- [x] **Close the occluder gap for the ten unmigrated overlays too**, by adding the
       `incrementOccluders`/`decrementOccluders` pair to each. Ten two-line edits, no migration. This
       is separated from the migration deliberately (Decision 10): the bug is urgent and the refactor
       is not.
-- [ ] `modal.test.tsx`: Escape closes; the occluder count is 0 → 1 while open → 0 after unmount
+- [x] `modal.test.tsx`: Escape closes; the occluder count is 0 → 1 while open → 0 after unmount
       (the assertion shape from [`context-menu.test.tsx`](../../../packages/app/src/components/context-menu.test.tsx));
       focus is trapped; focus returns to the element that was active before opening;
       `initialFocusRef` wins over the default when supplied.
-- [ ] `occluder-coverage.test.tsx`: render each of the twelve overlays and assert
+- [x] `occluder-coverage.test.tsx`: render each of the twelve overlays and assert
       `useUiStore.getState().occluders` is 1 while mounted and 0 after. The regression guard for the
       item above — without it, the eleventh overlay to be added will skip the pair again.
 
-### C — The Notes surface (M)
+### C — The Notes surface (M) · ✅ DONE (PR #160, 2026-09-05)
 
-- [ ] Add [`packages/app/src/features/notes/notes-modal.tsx`](../../../packages/app/src/features/notes/notes-modal.tsx):
+- [x] Add [`packages/app/src/features/notes/notes-modal.tsx`](../../../packages/app/src/features/notes/notes-modal.tsx):
       `export function NotesModal(): JSX.Element | null`, rendering the Theme B `Modal` with
       `size="lg"`, `variant="gradient"`, `align="center"`, `testId="notes-modal"`, and a body pinned
       to `h-[80vh]`.
-- [ ] Header: the repo's **name**, a done-count pill, a show/hide-completed toggle, and an overflow
+- [x] Header: the repo's **name**, a done-count pill, a show/hide-completed toggle, and an overflow
       holding Theme A's manual prune. The name comes from the `RepoDescriptor` the repos query
       already returns — `useUiStore`'s `selectedRepoId` gives an id, not a name, so resolve it
       through the same query `repos-panel.tsx` reads rather than storing a second copy.
-- [ ] A composer at the top: a `<textarea>` that creates a note on **Enter** (Shift+Enter newlines),
+- [x] A composer at the top: a `<textarea>` that creates a note on **Enter** (Shift+Enter newlines),
       clears itself, and leaves focus in place so a second thought can follow the first. The new note
       appears first, which `notesForRepo`'s ordering gives for free.
-- [ ] Add [`packages/app/src/features/notes/note-row.tsx`](../../../packages/app/src/features/notes/note-row.tsx):
+- [x] Add [`packages/app/src/features/notes/note-row.tsx`](../../../packages/app/src/features/notes/note-row.tsx):
       `export function NoteRow({ note }: { note: Note }): JSX.Element` — checkbox · body · status
       badge · the two action icons (Theme D) · a hover-revealed delete.
-- [ ] **In-place editing**, cribbing Midnite's exact key contract: click the body to swap it for an
+- [x] **In-place editing**, cribbing Midnite's exact key contract: click the body to swap it for an
       autofocused `<textarea>`; **Enter** commits, **Shift+Enter** newlines, **Escape** cancels,
       blur commits, and an emptied body **cancels rather than deletes** — deletion is always the
       explicit trash affordance. The Escape here is an input-scoped handler and must
       `stopPropagation()`, per [Phase 62](phase-62-one-escape-one-dismissal.md) Theme C's rule, so it
       cancels the edit without closing the modal.
-- [ ] The status badge is one `<span>` per value with a distinct token: `captured` →
+- [x] The status badge is one `<span>` per value with a distinct token: `captured` →
       `text-muted-foreground border-border`, `planned` → `text-primary border-primary/40`,
       `implemented` → `text-emerald-500 border-emerald-500/40`. A `planned` note that is ticked off
       and an untouched note that is ticked off must be distinguishable at a glance — the checkbox
       alone does not carry it.
-- [ ] Delete routes through `useDialogs().confirm` ([`dialog-host.tsx:36`](../../../packages/app/src/components/dialog-host.tsx))
+- [x] Delete routes through `useDialogs().confirm` ([`dialog-host.tsx:36`](../../../packages/app/src/components/dialog-host.tsx))
       rather than vanishing the note, matching every other destructive action in the app.
-- [ ] Two empty states, which are different problems and read differently: **no repository open**
+- [x] Two empty states, which are different problems and read differently: **no repository open**
       (*"Notes are per-repository — open one to start"*) and **a repo with no notes yet**
       (*"Nothing captured yet. Write the thought you'd otherwise lose."*). Both render through
       [`components/empty-state.tsx`](../../../packages/app/src/components/empty-state.tsx).
-- [ ] `notes-modal.test.tsx` / `note-row.test.tsx` (RTL, in the shape of
+- [x] `notes-modal.test.tsx` / `note-row.test.tsx` (RTL, in the shape of
       [`toast-host.test.tsx`](../../../packages/app/src/components/toast-host.test.tsx) — note there
       is **no `setupFiles`** and no `jest-dom`, so assertions read `expect(x).not.toBeNull()`):
       create; the full edit key contract including cancel-on-empty and Escape-not-closing-the-modal;
       hide-completed filtering; both empty states.
 
-### D — Status, and the handoff to the workflow (M)
+### D — Status, and the handoff to the workflow (M) · ✅ DONE (PR #160, 2026-09-05)
 
 The half that makes a note more than a sticky — and, after the refinement, **an extraction rather
 than a second implementation**.
 
-- [ ] **Extract the handoff from [`midnite-menu.tsx`](../../../packages/app/src/features/agent/midnite-menu.tsx)**
+- [x] **Extract the handoff from [`midnite-menu.tsx`](../../../packages/app/src/features/agent/midnite-menu.tsx)**
       into `packages/app/src/features/agent/use-skill-handoff.ts`:
       `export function useSkillHandoff(): (opts: { skillId: 'brainstorm' | 'execAdhoc'; repo: RepoDescriptor; body: string }) => TerminalSession | null`.
       It carries `midnite-menu.tsx:61-65`'s primary-agent-with-Claude-fallback resolution and its
       empty-skill guard. `midnite-menu.tsx` is refactored to call it, so there is one path, not two.
-- [ ] The skill string comes from **`agentSkills`, not a literal** —
+- [x] The skill string comes from **`agentSkills`, not a literal** —
       `useUiStore.getState().agentSkills?.[skillId] ?? DEFAULT_AGENT_SKILLS[skillId]`
       ([`ui-store.ts:1101`](../../../packages/app/src/store/ui-store.ts)). A user who re-points
       `brainstorm` in Settings ▸ Agent must have the Notes button follow them; hard-coding
       `/midnite-brainstorm` is the exact drift `midnite-menu.tsx:75` already guards against.
-- [ ] `useSkillHandoff` calls `startAgent({ repoId, cwd, title, prompt, agentId, command, autoSend: false })`
+- [x] `useSkillHandoff` calls `startAgent({ repoId, cwd, title, prompt, agentId, command, autoSend: false })`
       with `cwd = primaryTarget(repo).worktreePath ?? repo.path`
       ([`use-repo-actions.ts:84`](../../../packages/app/src/features/repos/use-repo-actions.ts)) and
       `agentId`/`command` from the resolved agent. Both are **required** parameters that the first
       draft of this phase never named.
-- [ ] **The prompt is an argument, not typed text — say so and shape it accordingly.**
+- [x] **The prompt is an argument, not typed text — say so and shape it accordingly.**
       [`start-agent.ts:96-102`](../../../packages/app/src/features/terminal/start-agent.ts) builds
       `[command, ...extraArgs, ...agentInvocationArgs(agentId), shellQuote(toAgentPrompt(prompt, agentId))]`.
       So `prompt` is `` `${skill} ${body}` `` as a **plain string with no backticks** — the first
       draft's `` /midnite-brainstorm `<body>` `` would be passed through `shellQuote` and arrive with
       literal backticks in it. A body containing quotes or newlines is `shellQuote`'s problem and is
       already handled; do not pre-escape.
-- [ ] Two `IconButton`s per row ([`icon-button.tsx:101`](../../../packages/app/src/components/icon-button.tsx)),
+- [x] Two `IconButton`s per row ([`icon-button.tsx:101`](../../../packages/app/src/components/icon-button.tsx)),
       taking their `icon` and `label` from
       [`agent-commands.ts:132`/`:146`](../../../packages/app/src/features/agent/agent-commands.ts)'s
       existing `execAdhoc` and `brainstorm` entries rather than choosing new glyphs. The registry
       already made this decision.
-- [ ] Firing either sets `status: 'planned'` and leaves `body` and `done` untouched. **A note is
+- [x] Firing either sets `status: 'planned'` and leaves `body` and `done` untouched. **A note is
       never auto-deleted and never auto-completed** by a handoff.
-- [ ] `implemented` is set by the user, from the row (Decision 3) — no attempt to infer it from a
+- [x] `implemented` is set by the user, from the row (Decision 3) — no attempt to infer it from a
       session exiting or a PR merging in this phase.
-- [ ] The action buttons are disabled, with a `disabledReason` in the tooltip, when **the note's
+- [x] The action buttons are disabled, with a `disabledReason` in the tooltip, when **the note's
       `repoId` is not in the current repos query** — not when "there is no resolvable repo root",
       which cannot happen (`primaryTarget` always returns a path). A note outliving its repository is
       the real case, and it is reachable because Theme A no longer GCs.
-- [ ] `use-skill-handoff.test.ts`: the resolved skill follows a changed `agentSkills` value; the
+- [x] `use-skill-handoff.test.ts`: the resolved skill follows a changed `agentSkills` value; the
       prompt contains no backticks; `autoSend` is `false`; a handoff mutates only `status`; the
       button is disabled for a note whose repo is absent.
 
