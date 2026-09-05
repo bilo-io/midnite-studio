@@ -2,6 +2,51 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 74 Themes A (partial), D, E (partial) — Plex joins the registry, the Trash Safety settings page, and a Trash card on Storage
+
+[PR #194]. Moves Phase 74 20/70 → 65/70 (29% → 93%). **Theme A (partial)** — Plex's transcode
+cache and plug-in HTTP cache join Phase 73's system-cache registry (`'media'` added to
+`EcosystemSchema`, both entries + their `confineAllowlist`/`system-cache-registry.test.ts`
+coverage), everything reachable without Phase 72 Theme D's palette generalisation; the
+`ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` entries for `'media'` stay blocked — Theme D still had not
+landed as of this PR (`category-palette.test.ts` does not exist on `main`). **Theme D** — the
+Trash Safety settings page (`trash-safety-page.tsx`, its own one-time consent dialog, following
+Phase 73 Theme C's checkbox-never-sets-the-flag-directly pattern) and a Trash card on the Storage
+tab, gated on its own three-way AND (`optimizerEnabled && allowTrashEmpty &&
+trashEmptyConsentGiven`), independent of and rendered after Phase 73's System-caches section —
+never merged into it, since the Trash is not a tool cache. **Theme E (partial)** — screenshots for
+the Trash card, light and dark.
+
+This PR rebased onto `main` after [PR #193](Phase 73 Themes D/E/F) landed first, touching the same
+five files (`storage-tab.tsx`, `mock-bridge.ts`, `optimizer.spec.ts`, `optimizer-shots.spec.ts`,
+plus an add/add on `storage-tab.test.tsx`). Reconciled as a real semantic conflict, not a textual
+one: both features' sections now coexist in the Storage tab in the doc's stated order — the
+existing category breakdown, then Phase 73's System-caches section, then Phase 74's Trash card,
+each independently gated — and both branches' e2e fixtures/tests were merged rather than one
+overwriting the other. Phase 72 Theme D still had not landed as of this rebase, so Phase 73 Theme
+E's own two residual items (the `SegmentedBar` generalisation and the `'go'` palette entries) stay
+genuinely blocked and were not picked up here.
+
+## 2026-09-05 — Phase 73 Themes D, E (partial), F — vendor reclaim commands and a gated System caches section
+
+[PR #193]. Moves Phase 73 24/68 → 61/68 (35% → 90%). **Theme D** — `reclaim-commands.ts`'s
+`DEFAULT_RECLAIM_COMMANDS` (`brew cleanup -s`, `go clean -cache`, `go clean -modcache`,
+`pnpm store prune`) run through the existing no-shell `runProcess`/`realSpawn` primitive; a
+non-zero exit always maps to `{ok:false}`, output tail-capped at 8 KB from the end. **Theme E
+(partial)** — a gated "System caches" section on the Storage tab behind the existing three-way AND
+(`optimizerEnabled && allowSystemCacheClean && systemCacheConsentGiven`): its own idle/loading/
+empty/error/approximate states, a distinct-accent banner, a `blastRadiusKind: 'systemCache'`
+confirm arm, and per-row reclaim-or-trash actions (a registered vendor command as the default
+action, plain trash-delete as the confirm's secondary). **Left open, genuinely blocked** on
+[Phase 72](phase-72-every-build-systems-leftovers.md) Theme D, which had not landed at build time
+(`segmented-bar.tsx` was still bound to `ScanCategory`; `category-palette.ts` had no
+`ECOSYSTEM_HUES`/`ECOSYSTEM_LABELS`): the System bar consuming Phase 72's generic `SegmentedBar`,
+and the one `'go'` entry each in `ECOSYSTEM_HUES`/`ECOSYSTEM_LABELS` — the section renders as a
+flat list with no bar and no per-ecosystem colour until then. **Theme F** — `confine-allowlist.test.ts`
+beside the existing `confine-tree.test.ts`, the `ipc.test.ts` optimizer-channel coverage block, and
+the renderer's gating/five-state tests; the phase doc's two human-only real-machine passes stay
+open.
+
 ## 2026-09-05 — Phase 73 Themes A, B, C — the system-cache registry, its own confinement primitive, and a stronger consent gate
 
 [PR #191]. Moves Phase 73 0/68 → 24/68 (0% → 35%). Themes D (vendor reclaim commands), E (the
