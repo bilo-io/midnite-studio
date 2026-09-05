@@ -15,7 +15,10 @@ import { LuChevronRight, LuGlobe, LuPlus, LuSquareArrowOutUpRight, LuX } from 'r
 
 import { ContextMenu, type MenuItem, type MenuPosition } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
-import { usePopoutHeaderActions } from '../../components/detached-window-frame';
+import {
+  usePopoutHeaderActions,
+  usePopoutHeaderLeading,
+} from '../../components/detached-window-frame';
 import { IconButton } from '../../components/icon-button';
 import { MidniteIcon } from '../../components/icons/midnite-icon';
 import { Tooltip } from '../../components/tooltip';
@@ -65,9 +68,11 @@ export function BrowserTabStrip() {
   // advertise "detach me into a window" while already being one.
   const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
   // Set only once popped out AND the window has a frameless title bar to
-  // merge into (`DetachedWindowFrame`) — otherwise this falls back to the
-  // header row below, same as a plain, un-merged popout always has.
-  const portalTarget = usePopoutHeaderActions();
+  // merge into (`DetachedWindowFrame`) — leadingTarget aligns tabs to the left
+  // beside the window controls and dock mark; actionsTarget stays as fallback.
+  const leadingTarget = usePopoutHeaderLeading();
+  const actionsTarget = usePopoutHeaderActions();
+  const portalTarget = leadingTarget ?? actionsTarget;
   const tabs = useBrowserStore((s) => s.tabs);
   const groups = useBrowserStore((s) => s.groups);
   const activeTabId = useBrowserStore((s) => s.activeTabId);

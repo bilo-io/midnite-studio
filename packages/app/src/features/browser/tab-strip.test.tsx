@@ -9,6 +9,7 @@ import { BrowserTabStrip } from './tab-strip';
 const mocks = vi.hoisted(() => ({
   windowRole: 'main' as string,
   portalTarget: null as HTMLDivElement | null,
+  leadingTarget: null as HTMLDivElement | null,
 }));
 
 vi.mock('../../services/bridge', () => ({
@@ -17,6 +18,7 @@ vi.mock('../../services/bridge', () => ({
 
 vi.mock('../../components/detached-window-frame', () => ({
   usePopoutHeaderActions: () => mocks.portalTarget,
+  usePopoutHeaderLeading: () => mocks.leadingTarget,
 }));
 
 function tab(id: string, title: string): BrowserTab {
@@ -45,6 +47,7 @@ const renderStrip = () => render(<BrowserTabStrip />, { wrapper });
 beforeEach(() => {
   mocks.windowRole = 'main';
   mocks.portalTarget = null;
+  mocks.leadingTarget = null;
   useBrowserStore.setState({
     tabs: [tab('a', 'First tab'), tab('b', 'Second tab')],
     groups: [],
@@ -63,20 +66,36 @@ describe('BrowserTabStrip', () => {
     expect(screen.getByText('First tab')).toBeDefined();
   });
 
-  it('portals the whole strip into the title bar once popped out with a merged frame', () => {
+  it('portals the whole strip into the leading slot of the title bar once popped out', () => {
     mocks.windowRole = 'browser';
-    const portal = document.createElement('div');
-    document.body.appendChild(portal);
-    mocks.portalTarget = portal;
+    const leadingPortal = document.createElement('div');
+    document.body.appendChild(leadingPortal);
+    mocks.leadingTarget = leadingPortal;
 
     renderStrip();
 
-    // No strip at the panel's usual spot — it moved to the bar.
+    // No strip at the panel's usual spot — it moved to the bar's leading slot.
     expect(screen.queryByLabelText('Detach Browser into its own window')).toBeNull();
-    expect(portal.querySelector('[role="tablist"]')).not.toBeNull();
-    expect(portal.textContent).toContain('First tab');
+    expect(leadingPortal.querySelector('[role="tablist"]')).not.toBeNull();
+    expect(leadingPortal.textContent).toContain('First tab');
 
-    portal.remove();
+    leadingPortal.remove();
+  });
+
+  it('falls back to actionsTarget when leadingTarget is null', () => {
+    mocks.windowRole = 'browser';
+    const actionsPortal = document.createElement('div');
+    document.body.appendChild(actionsPortal);
+    mocks.portalTarget = actionsPortal;
+    mocks.leadingTarget = null;
+
+    renderStrip();
+
+    expect(screen.queryByLabelText('Detach Browser into its own window')).toBeNull();
+    expect(actionsPortal.querySelector('[role="tablist"]')).not.toBeNull();
+    expect(actionsPortal.textContent).toContain('First tab');
+
+    actionsPortal.remove();
   });
 
   it('falls back to the full docked strip when popped out but no merged frame exists', () => {

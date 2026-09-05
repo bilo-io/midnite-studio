@@ -3,13 +3,14 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 import { TitleBar } from '@bilo-io/shell';
 import { isPageWindowRole, type WindowRole } from '@midnite/studio-shared';
 import { FaGitAlt } from 'react-icons/fa';
-import { LuGlobe, LuSquareArrowDownLeft, LuTerminal } from 'react-icons/lu';
+import { LuSquareArrowDownLeft, LuTerminal } from 'react-icons/lu';
 
 import { bridge } from '../services/bridge';
 import { useRepos } from '../services/queries';
 import { useUiStore } from '../store/ui-store';
 import { IconButton } from './icon-button';
 import type { IconComponent } from './icon-button';
+import { MidniteIcon } from './icons/midnite-icon';
 
 /** The last path segment — `packages/app` may not import `node:path`. */
 function basename(path: string): string {
@@ -28,7 +29,7 @@ function isMergedRole(role: WindowRole): role is MergedRole {
 const ROLE_ICON: Record<MergedRole, IconComponent> = {
   terminal: LuTerminal,
   repos: FaGitAlt,
-  browser: LuGlobe,
+  browser: MidniteIcon,
 };
 
 /**
@@ -83,7 +84,9 @@ function PopoutHeaderMark({ role, title }: { role: MergedRole; title: string }) 
           onClick={() => bridge()?.window.dock({ role })}
         />
       </div>
-      {role !== 'terminal' && <span className="truncate text-xs font-medium">{title}</span>}
+      {role !== 'terminal' && role !== 'browser' && (
+        <span className="truncate text-xs font-medium">{title}</span>
+      )}
     </div>
   );
 }
@@ -135,7 +138,7 @@ export function DetachedWindowFrame({
               <PopoutHeaderMark role={role} title={title} />
               <div
                 ref={setLeadingEl}
-                className="flex min-w-0 items-center gap-2 overflow-hidden text-xs text-muted-foreground"
+                className="flex min-w-0 items-center gap-2 overflow-x-auto text-xs text-muted-foreground"
               />
             </div>
           ) : (
