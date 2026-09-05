@@ -55,8 +55,8 @@ describe('DetachedWindowFrame', () => {
     expect(root.style.paddingTop).toBe('var(--titlebar-h, 0px)');
   });
 
-  it('omits title text for terminal in merged titlebar but keeps dock-on-hover button', () => {
-    render(
+  it('omits title text for terminal and browser in merged titlebar but keeps dock-on-hover button', () => {
+    const { unmount } = render(
       <DetachedWindowFrame role="terminal" title="Terminal">
         <div data-testid="content">Terminal Content</div>
       </DetachedWindowFrame>,
@@ -64,6 +64,17 @@ describe('DetachedWindowFrame', () => {
 
     expect(screen.queryByText('Terminal')).toBeNull();
     expect(screen.getByLabelText('Dock Terminal')).toBeDefined();
+
+    unmount();
+
+    render(
+      <DetachedWindowFrame role="browser" title="Browser">
+        <div data-testid="content">Browser Content</div>
+      </DetachedWindowFrame>,
+    );
+
+    expect(screen.queryByText('Browser')).toBeNull();
+    expect(screen.getByLabelText('Dock Browser')).toBeDefined();
   });
 
   it('merges terminal/repos/browser into the bar: dock-on-hover mark, no separate re-dock button', () => {

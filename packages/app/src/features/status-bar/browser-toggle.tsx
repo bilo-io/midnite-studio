@@ -1,5 +1,4 @@
-import { GoGlobe } from 'react-icons/go';
-
+import { MidniteIcon } from '../../components/icons/midnite-icon';
 import { useUiStore } from '../../store/ui-store';
 
 import { chordFor, displayChord } from './chord-hint';
@@ -21,7 +20,7 @@ export function BrowserToggle() {
   return (
     <StatusToggle
       testId="browser-toggle"
-      icon={GoGlobe}
+      icon={MidniteIcon}
       name="Browser"
       chord={displayChord(browserChord)}
       active={browserOpen}

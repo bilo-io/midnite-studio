@@ -4,12 +4,12 @@ import {
   LuFolderGit2,
   LuGitBranch,
   LuGitFork,
-  LuGlobe,
   LuSearch,
   LuTerminal,
 } from 'react-icons/lu';
 
 import { BrandMark, Wordmark } from '../../components/brand';
+import { MidniteIcon } from '../../components/icons/midnite-icon';
 import { usePalette } from '../../components/palette-host';
 import { chordFor, displayChord } from '../status-bar/chord-hint';
 import { usePickAndOpenRepo } from '../../services/queries';
@@ -60,7 +60,7 @@ export function EmptyWorkspace() {
       id: 'toggle-browser',
       label: 'Toggle Browser',
       chord: displayChord(chordFor('browser.toggle', 'Mod+b')),
-      icon: LuGlobe,
+      icon: MidniteIcon,
       onClick: () => useUiStore.getState().toggleBrowser(),
     },
     {
