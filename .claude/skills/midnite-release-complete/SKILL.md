@@ -12,6 +12,8 @@ cuts a GitHub Release — so it **stops for explicit confirmation before the fir
 irreversible step** and refuses to run if preconditions aren't met.
 
 **Policy + math are fixed** — don't re-derive them (ported from midnite, Phase 53 Theme B):
+- whole plan = `planRelease` (the one entry point — it wraps the three below and is the only
+  thing that knows about the first release);
 - tag scheme = `planReleaseTags` (lockstep `vX.Y.Z` vs scoped `‹pkg›@X.Y.Z`);
 - bump math = `planVersionBump`; lockstep invariant = `sharesLockstepMajorMinor`;
 - changelog section = `extractChangelogSection`; branch→version = `versionFromReleaseBranch`.
@@ -28,7 +30,17 @@ Gather, and **stop with a clear message** on the first failure (nothing has chan
 - **Green:** `moon ci` passes. (Run it; don't trust a stale cache for the gate.)
 
 ## 2 · Plan the tags & show the go/no-go — STOP for the human
-- Compute the tag(s): `planReleaseTags(previousVersions, currentVersions)` — `previousVersions` from the last `v*` tag's tree (`git show ‹lastTag›:package.json` etc.), `currentVersions` from the working tree. Expect `['vX.Y.Z']` for a lockstep release or `['‹pkg›@X.Y.Z', …]` for a patch.
+- Compute the tag(s) with `planRelease({ current, previous, commits: [], changedPackages: [] })`.
+  `current` is the working tree's versions; `previous` is the version map read from the last `v*`
+  tag's tree (`git show ‹lastTag›:package.json` etc.). Expect `['vX.Y.Z']` for a lockstep release or
+  `['‹pkg›@X.Y.Z', …]` for a patch.
+- **First release — `git tag --list 'v*'` is empty, so there is no last tag to read `previous`
+  from.** Pass `previous: null`: `planRelease` then tags the versions already in the tree
+  (`['vX.Y.Z']`) instead of `planReleaseTags(current, current)` returning `[]` — nothing changed, so
+  the pairwise form finds nothing to tag and this step would silently produce no release at all.
+  `/midnite-release-prep` will have left no version bumps for the same reason, which is correct and
+  not a sign it failed: §1's *versions match the branch* check is satisfied by every package already
+  reading `X.Y.Z`.
 - **AskUserQuestion** with the full plan and an explicit go/no-go (recommended option = proceed only if every precondition passed): the version, the tag(s), the changelog section that will become the GitHub Release body, and that this will tag + push + merge to `main` + publish a Release. Do **not** proceed without an affirmative.
 
 ## 3 · Commit + tag (first irreversible step)
