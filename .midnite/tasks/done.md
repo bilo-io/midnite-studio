@@ -2,6 +2,24 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 53 Theme A — the CLI wrapper actually ships
+
+[PR #155]. A real bug, not a gap: `cli-handlers.ts`'s `getBundleBinPath()` has always resolved
+the CLI wrapper to `${process.resourcesPath}/bin/midnite-studio` when packaged, but that path
+was never in `extraResources` — `resources/` is only `directories.buildResources`, a source
+electron-builder reads build inputs from, not something it copies into the bundle. Every
+packaged build has shipped with the integration pointing at a file that does not exist.
+
+- [x] `resources/bin` added to `extraResources` (`electron-builder.yml`), copying to
+      `Resources/bin` — preserving the executable bit through the copy.
+- [x] `afterpack.cjs` re-asserts +x on the copied wrapper, alongside its existing
+      node-pty/dugite precedent.
+- [x] A gate in `verify-dist.mjs` asserting the wrapper is present **and executable** in the
+      packaged app — proven by breaking it twice on purpose (removed the file, chmod'd it
+      non-executable) against a real `desktop:dist` build, not by inspection.
+- [x] Shell completions confirmed out of scope — no completion file exists anywhere in the
+      repo; that is a missing feature, not this packaging bug.
+
 ## 2026-09-04 — Phase 56 Themes C, F — worker-count measurement, e2e screenshot gating
 
 [PR #152]. Closes the phase's build except Theme G (shots-helper extraction, 25 spec files, left

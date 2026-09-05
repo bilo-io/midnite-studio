@@ -21,11 +21,15 @@ exports.default = async function afterPack(context) {
    * (scripts/fix-node-pty.cjs) runs on `pnpm install` — never on a user's
    * machine. Without the bit, opening a terminal fails with "posix_spawnp
    * failed" and every git call fails with EACCES.
+   *
+   * The CLI wrapper (Resources/bin/midnite-studio) is copied by the same
+   * `extraResources` mechanism and needs the identical re-assertion.
    */
   const executables = [];
   walk(root, (file) => {
     if (file.endsWith('spawn-helper')) executables.push(file);
     else if (/\/dugite\/git\/(bin|libexec)\//.test(file)) executables.push(file);
+    else if (file.endsWith('/bin/midnite-studio')) executables.push(file);
   });
   for (const file of executables) {
     try {

@@ -81,4 +81,22 @@ if (!existsSync(templateIndexPath)) {
   process.exit(1);
 }
 
+// Phase 53 Theme A: the CLI wrapper is resolved at runtime from
+// `${process.resourcesPath}/bin/midnite-studio` (see `cli-handlers.ts`'s
+// `getBundleBinPath()`) but was never in `extraResources`, so every packaged
+// build shipped with the integration pointing at a path that does not exist.
+// This bug survived Phase 33's own verification because that verification
+// never looked here.
+console.log('Verifying the CLI wrapper shipped into Resources...');
+const cliWrapperPath = join(appPath, 'Contents', 'Resources', 'bin', 'midnite-studio');
+if (!existsSync(cliWrapperPath)) {
+  console.error(`Missing CLI wrapper at ${cliWrapperPath}`);
+  process.exit(1);
+}
+const cliWrapperMode = statSync(cliWrapperPath).mode;
+if ((cliWrapperMode & 0o111) === 0) {
+  console.error(`CLI wrapper at ${cliWrapperPath} is not executable (mode ${cliWrapperMode.toString(8)})`);
+  process.exit(1);
+}
+
 console.log('✓ All dist verification checks passed successfully!');

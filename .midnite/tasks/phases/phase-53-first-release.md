@@ -47,7 +47,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The CLI wrapper actually ships (S)
+### A — The CLI wrapper actually ships (S) — ✅ DONE (PR #155, 2026-09-05)
 
 A real bug, not a gap. [`cli-handlers.ts:12`](../../../packages/desktop/src/main/ipc/cli-handlers.ts)
 resolves the CLI wrapper from `${process.resourcesPath}/bin/midnite-studio` when packaged. That
@@ -58,14 +58,14 @@ inputs* and **does not copy into the bundle**, and `extraResources`
 renderer and the templates. So every packaged build has shipped with the CLI integration pointing
 at a path that does not exist.
 
-- [ ] Add `resources/bin` to `extraResources`, and preserve the executable bit through the copy —
+- [x] Add `resources/bin` to `extraResources`, and preserve the executable bit through the copy —
       the wrapper is useless without it and `afterpack.cjs` already has a precedent for re-asserting
       `+x` on files electron-builder moved.
-- [ ] A gate in [`verify-dist.mjs`](../../../packages/desktop/scripts/verify-dist.mjs) asserting the
+- [x] A gate in [`verify-dist.mjs`](../../../packages/desktop/scripts/verify-dist.mjs) asserting the
       wrapper is present **and executable** in the packaged app. The bug survived Phase 33's own
       verification because that verification never looked; a fix with no gate would be one
       `extraResources` edit away from regressing silently.
-- [ ] Shell completions stay out. Phase 33's doc says they are "shipped through extraResources", but
+- [x] Shell completions stay out. Phase 33's doc says they are "shipped through extraResources", but
       **no completion file exists anywhere in the repo** — that is a missing feature, not a
       packaging bug, and writing zsh/bash completions is its own slice.
 
