@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 |-------|--------|---------|------|----------|---|--------|--------|
 | [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 65/70 | `█████████░` | 93% | A D E | — |
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 61/68 | `█████████░` | 90% | E | — |
-| [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 39/102 | `████░░░░░░` | 38% | D E F | — |
+| [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 98/102 | `██████████` | 96% | F | — |
 | [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | ◻ TODO | x1 | 0/41 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
@@ -214,9 +214,9 @@ also retires the shipped `.moon` detector, which offers checked-in configuration
 - ✅ **A** (PR #190) — An `ArtifactDetector` registry with a four-arm `EvidenceRule`; `classify` returns the detector, takes the parent's entry names (free) and reads a candidate's children only when an arm demands it.
 - ✅ **B** (PR #190) — Nine ecosystems catalogued — Node, moon, Rust, C/C++, .NET, Python, Java/Gradle/Maven, Swift/Xcode, Ruby — each naming what identifies it, what proves it, and what recreates it. Go ships nothing, deliberately.
 - ✅ **C** (PR #190) — One orthogonal `Ecosystem` axis instead of twelve categories; `nodeModules` → `dependencies`; a `cheap`/`costly` reclaim grade on every item.
-- 🔄 **D** — A result list grouped by ecosystem, with bulk clean restricted to `cheap` items and a confirm that names the build commands that will have to run again.
-- 🔄 **E** — A per-root entry budget carried on `WalkState` so one pathological repo cannot silently starve the rest (and cannot cap `cleanItems`' delete-time sizing), per-ecosystem opt-outs applied in main, and the `.moon` fix.
-- 🔄 **F** — Verification, weighted to negative fixtures: a `bin/` beside a `package.json`, a `build/` with no cache file, a `venv/` with no `pyvenv.cfg` must each produce zero items.
+- ✅ **D** (PR #<n>) — The result list now groups by ecosystem, with the per-group bulk Clean button restricted to `cheap` items (a `costly` one — `node_modules`, `.venv`, `Pods`, `vendor/bundle` — always takes an explicit per-row action) and a confirm that names the build commands that will have to run again. `SegmentedBar` went generic over its id type so one component drives both the existing category bar and a new ecosystem bar on the Storage tab; Storage's per-item rows now show the detector's own label above the path.
+- ✅ **E** (PR #<n>) — A per-root entry budget (`MAX_ENTRIES_PER_ROOT = 50_000`) carried on `WalkState` so one pathological repo cannot silently starve every other root's share of the walk (and, via `newWalkState()`'s `Infinity` default, cannot cap `cleanItems`'s own delete-time sizing call); `MAX_WALK_ENTRIES` raised 200k → 500k against a measured ~6,600 entries/second on real hardware. Per-ecosystem scan opt-outs (`disabledEcosystems`, stored as the disabled set following `hiddenMetrics`'s own reasoning) are applied in main, before the walk spends its budget. The `.moon` fix itself (the bug motivating this whole phase) had already landed with Theme B.
+- 🔄 **F** (PR #<n>, partial) — Verification lands 23 of 25 items and all 16 of the shared Verification section's items this batch covers. Two stay genuinely open: `detectors.test.ts` has no assertion pinning `DETECTOR_COUNT`'s literal value (the doc's own "24" is stale — Theme B already corrected it to 28 in prose, but no test enforces either number), and the human pass over a real Rust/Gradle/Python checkout is unautomatable and undone.
 
 ### [Phase 71 — Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md)
 

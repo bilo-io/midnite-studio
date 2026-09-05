@@ -583,11 +583,11 @@ and Phase 73/74 rows sit beside them.
       - Without this every optimizer e2e renders a `ScanResult` missing three fields the tabs now
         read, and the failure surfaces as a blank group list rather than a type error.
 
-### D — A result list that can hold twelve kinds of thing (M)
+### D — A result list that can hold twelve kinds of thing (M) · ✅ DONE (PR #<n>, 2026-09-06)
 
 Four categories fitted in a flat list. Nine ecosystems do not.
 
-- [ ] Replace the two hand-maintained `CATEGORY_ORDER` arrays in
+- [x] Replace the two hand-maintained `CATEGORY_ORDER` arrays in
       [`smart-scan-tab.tsx:14-19`](../../../packages/app/src/features/optimizer/smart-scan-tab.tsx)
       and [`storage-tab.tsx:9-14`](../../../packages/app/src/features/optimizer/storage-tab.tsx)
       with a **single exported const** in
@@ -595,14 +595,14 @@ Four categories fitted in a flat list. Nine ecosystems do not.
       `export const CATEGORY_ORDER: readonly ScanCategory[]`, five members, `dependencies` first.
       Both tabs import it.
       - Two hand-maintained copies of one ordering is how the fifth member goes missing from one tab.
-- [ ] Add `ECOSYSTEM_ORDER: readonly Ecosystem[]` to the same file, in `EcosystemSchema`'s own
+- [x] Add `ECOSYSTEM_ORDER: readonly Ecosystem[]` to the same file, in `EcosystemSchema`'s own
       member order, plus `ECOSYSTEM_LABELS: Record<Ecosystem, string>`:
       node → `Node`, multi → `Build tooling`, rust → `Rust`, cpp → `C / C++`, dotnet → `.NET`,
       python → `Python`, java → `Java / Kotlin`, swift → `Swift / Xcode`, ruby → `Ruby`,
       git → `Git`.
       - `ECOSYSTEM_ORDER` is asserted to be a permutation of `EcosystemSchema.options` (Theme F), so
         an appended member from Phase 73/74 cannot be forgotten here.
-- [ ] Add `ECOSYSTEM_HUES: Record<Ecosystem, Hsl>`, `ecosystemHsl`, `ecosystemColor` and
+- [x] Add `ECOSYSTEM_HUES: Record<Ecosystem, Hsl>`, `ecosystemHsl`, `ecosystemColor` and
       `ecosystemFill(ecosystem, alpha)` beside the existing category quartet — one palette module,
       two axes. Export the `Hsl` type (`:17`), which is module-private today.
       - Hues, chosen ≥12° from every hue in `CATEGORY_HUES` (350, 115, 20, 265) **and** in
@@ -613,7 +613,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         neighbours in an ordered bar that carries a legend and a per-segment `title` tooltip* — not
         identifiable in isolation, which is what twelve *categories* would have required.
       - Make the separation a test, not a review property: see Theme F.
-- [ ] Make `SegmentedBar` generic so one component serves both axes.
+- [x] Make `SegmentedBar` generic so one component serves both axes.
       [`segmented-bar.tsx:17-25`](../../../packages/app/src/features/optimizer/components/segmented-bar.tsx)
       becomes:
       ```ts
@@ -634,7 +634,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         [`segmented-bar.test.tsx`](../../../packages/app/src/features/optimizer/components/segmented-bar.test.tsx)
         exists to protect.
       - The existing call site passes `color={categoryColor} name={(id) => CATEGORY_LABELS[id]}`.
-- [ ] Smart Scan's result list groups **by ecosystem**: `ECOSYSTEM_ORDER.map(...)` replaces
+- [x] Smart Scan's result list groups **by ecosystem**: `ECOSYSTEM_ORDER.map(...)` replaces
       `CATEGORY_ORDER.map(...)` at
       [`smart-scan-tab.tsx:132-163`](../../../packages/app/src/features/optimizer/smart-scan-tab.tsx),
       each group showing its `formatBytes(byEcosystem[eco])` total and a per-group Clean button; the
@@ -651,7 +651,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
       - **Loading state is unchanged**: `Scanning…` plus `Walking every registered repo and
         worktree.` (`:84`, `:86-92`), driven by `optimizerScanProgress`, not a timer.
       - **Error state is unchanged**: `scan.message` in `text-xs text-destructive` (`:125-127`).
-- [ ] **A `costly` item is never selected by default.**
+- [x] **A `costly` item is never selected by default.**
       - The per-group Clean button cleans that group's `reclaim === 'cheap'` items only; reclaiming
         a `costly` item takes an explicit per-row action.
       - When a group contains skipped `costly` items, the confirm's `warnings` array gains the line
@@ -662,7 +662,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         `BLAST_RADIUS_COPY.files.noEffect`, "Nothing is left to clean", and read as a bug).
       - Rationale in Decision 4: one click that deletes every `node_modules`, `.venv` and `Pods` on
         the machine is a twenty-minute reinstall the user did not ask for.
-- [ ] The confirm keeps `blastRadiusKind: 'files'` and its existing two-part shape — `count` in
+- [x] The confirm keeps `blastRadiusKind: 'files'` and its existing two-part shape — `count` in
       `blastRadius`, bytes in `warnings`
       ([`smart-scan-tab.tsx:47-64`](../../../packages/app/src/features/optimizer/smart-scan-tab.tsx)) —
       and `cleanCategory(category)` becomes `cleanEcosystem(ecosystem)` with
@@ -677,7 +677,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
       - `blastRadius.sample` stays `[]`: `sample` is git-only (`{sha, subject}`) and there is
         nothing shaped like a commit here — the same reasoning the existing comment at `:47-53`
         gives.
-- [ ] Storage tab gains a second `SegmentedBar` keyed on ecosystem, rendered **above** the existing
+- [x] Storage tab gains a second `SegmentedBar` keyed on ecosystem, rendered **above** the existing
       category one at [`storage-tab.tsx:34`](../../../packages/app/src/features/optimizer/storage-tab.tsx),
       labelled `Reclaimable storage by ecosystem`; the existing bar keeps its
       `Reclaimable storage by category` label.
@@ -693,7 +693,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         `System caches by ecosystem`; do not reuse it.
       - The bottom legend `<ul>` (`:63-74`) gains a matching ecosystem legend above the category
         one, both rendered from their `*_ORDER` + `*_LABELS` pairs.
-- [ ] Storage tab's per-item rows ([`:36-61`](../../../packages/app/src/features/optimizer/storage-tab.tsx))
+- [x] Storage tab's per-item rows ([`:36-61`](../../../packages/app/src/features/optimizer/storage-tab.tsx))
       show the detector `label` above the path rather than the path alone — a row reading
       `~/Dev/api/target` tells the user nothing that `Cargo target/` above
       `~/Dev/api/target` does not tell them better.
@@ -703,14 +703,14 @@ Four categories fitted in a flat list. Nine ecosystems do not.
       - Label source is `result.detectors[item.detectorId]?.label ?? item.detectorId` — a
         `??`-guarded lookup, because a `ScanResult` replayed from an older mock fixture would
         otherwise render `undefined`.
-- [ ] The truncated notice at
+- [x] The truncated notice at
       [`smart-scan-tab.tsx:167-171`](../../../packages/app/src/features/optimizer/smart-scan-tab.tsx)
       keeps its current sentence and **appends the repo names** when `truncatedRoots` is non-empty:
       `This scan hit its bounds and stopped early — some reclaimable space may not be shown.` then
       `Cut short: <basename>, <basename>` for up to three roots, `and N more` beyond that.
       - Basenames, not full paths — the full path is already visible on every row and a wrapped
         absolute path in a muted footnote is unreadable.
-- [ ] Every icon in the new UI comes from `react-icons`, imported per set. **Never `lucide-react`** —
+- [x] Every icon in the new UI comes from `react-icons`, imported per set. **Never `lucide-react`** —
       [`eslint.config.mjs`](../../../eslint.config.mjs) fails the build on it.
       - If ecosystem marks use `react-icons/si` (`SiRust`, `SiPython`, `SiDotnet`, …), **add
         `['si', 'Si', Si, 1]` to the `SETS` table at
@@ -722,9 +722,9 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         glyphs is nine more things to keep aligned at two row heights for no information gain.
         Ship without them and revisit only if a screenshot pass says the list reads flat.
 
-### E — Budgets, per-ecosystem settings, and the `.moon` fix (S)
+### E — Budgets, per-ecosystem settings, and the `.moon` fix (S) · ✅ DONE (PR #<n>, 2026-09-06)
 
-- [ ] **Retire the `.moon` detector and say why in the code.**
+- [x] **Retire the `.moon` detector and say why in the code.**
       `DEFAULT_BUILD_ARTIFACT_PATTERNS`'s `{ basename: '.moon', category: 'buildOutput' }`
       ([`scan-service.ts:43`](../../../packages/desktop/src/main/optimizer/scan-service.ts)) is
       deleted along with the whole constant, replaced by the two `.moon/cache` and `.moon/docker`
@@ -733,7 +733,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         prove the boundary, so nobody re-adds the short form as a "simplification".
       - *Done when:* a scan of this repo produces a `moon-cache` item and no item whose path ends
         `/.moon` — asserted in Theme F and listed in Verification.
-- [ ] Add `MAX_ENTRIES_PER_ROOT = 50_000` to
+- [x] Add `MAX_ENTRIES_PER_ROOT = 50_000` to
       [`scan-service.ts`](../../../packages/desktop/src/main/optimizer/scan-service.ts) and enforce
       it through a **per-root baseline on `WalkState`**, not a second `if` at one call site.
       - `WalkState` gains `entriesAtRootStart: number` and `perRootLimit: number`;
@@ -756,12 +756,12 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         200,000-entry budget and every later repo silently reports zero. With three detectors that
         was unlikely; with twenty-four candidate names it is not. The per-root budget makes the
         failure *partial and visible* rather than *total and silent*.
-- [ ] Fill `truncatedRoots` where the per-root budget bites: after each root's `walk`/`dirBytes`
+- [x] Fill `truncatedRoots` where the per-root budget bites: after each root's `walk`/`dirBytes`
       returns in `scanWorkspace`'s loop, if
       `state.entriesWalked - state.entriesAtRootStart >= state.perRootLimit`, push `root.path`.
       - Pushed once per root, never duplicated; an abort mid-root does **not** push (the scan was
         cancelled, not truncated, and labelling it "cut short" would be a lie).
-- [ ] Raise `MAX_WALK_ENTRIES` from `200_000` to `500_000` and restate the docblock's justification
+- [x] Raise `MAX_WALK_ENTRIES` from `200_000` to `500_000` and restate the docblock's justification
       in entries-per-second terms **measured on a real machine, not asserted**.
       - Measure with a throwaway script over this repo plus two large checkouts and put the number
         in the docblock: *"~N entries/second on an M-series laptop, so 500,000 is a worst case of
@@ -771,14 +771,14 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         the number should follow the measurement.
       - If the measurement says 500,000 costs more than a second or two, **lower it** — the per-root
         cap delivers the fairness property on its own (Decision 6).
-- [ ] `MAX_WALK_DEPTH = 12` ([`:22`](../../../packages/desktop/src/main/optimizer/scan-service.ts))
+- [x] `MAX_WALK_DEPTH = 12` ([`:22`](../../../packages/desktop/src/main/optimizer/scan-service.ts))
       is **unchanged**, and so is `PROGRESS_EVERY_ENTRIES = 50` (`:26`).
       - Every detector in Theme B's catalogue sits within a few levels of a project root, and the
         depth bound is what stops a symlink-free but pathological tree. If a real repo turns out to
         need more, raise it with the repo named in the commit message.
       - The progress callback still reports `(state.entriesWalked, MAX_WALK_ENTRIES)`, so raising
         the global bound changes what a given percentage means but not the mechanism.
-- [ ] Per-ecosystem opt-out in
+- [x] Per-ecosystem opt-out in
       [`optimizer-settings-page.tsx`](../../../packages/app/src/features/settings/settings-pages/optimizer-settings-page.tsx):
       a `disabledEcosystems: Ecosystem[]` preference, default `[]` (everything on), rendered as one
       `<Field label="Ecosystems to scan" hint="…">` containing nine checkboxes in
@@ -792,7 +792,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         allowlist persisted before a member existed silently hides it for every existing user. This
         matters concretely here — Phase 73 adds `'go'` and Phase 74 adds `'media'`, and both must
         appear by default for someone who upgrades.
-- [ ] Persist `disabledEcosystems` following `hiddenMetrics` exactly — **seven edits across two
+- [x] Persist `disabledEcosystems` following `hiddenMetrics` exactly — **seven edits across two
       files, and the seventh is the one everybody forgets.**
       - Six in [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts): interface member and
         `toggleEcosystem(id: Ecosystem)` setter beside `:936-944`; `PersistedUi` `Pick<>` member
@@ -811,7 +811,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         all added without one, because zustand's default merge supplies the default for an older
         blob (`ui-store.test.ts:419-429` states why). An array default merges the same way a
         boolean does.
-- [ ] The setting is applied in **main**, not the renderer.
+- [x] The setting is applied in **main**, not the renderer.
       - `OptimizerScanRequest` ([`schemas.ts:1889-1892`](../../../packages/shared/src/ipc/schemas.ts))
         gains `disabledEcosystems: z.array(EcosystemSchema).optional()` — house style is a bare
         `.optional()` with no `.default()`, matching `extraRoot` beside it.
@@ -824,7 +824,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         see — which is the whole point of a budget that is now enforced per root.
       - An explicit `opts.detectors` (the test seam) **wins over** `disabledEcosystems`; say so in
         the docblock so a fixture that passes both is not a puzzle.
-- [ ] Update the settings page's "What this still never does" `<ul>`
+- [x] Update the settings page's "What this still never does" `<ul>`
       ([`:38-43`](../../../packages/app/src/features/settings/settings-pages/optimizer-settings-page.tsx))
       by adding a fourth `<li>`, keeping the existing three verbatim:
       *"Only directories a build tool recreates on demand — never source, never configuration,
@@ -833,13 +833,15 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         Memory and GPU tabs", which is accurate, so leave it; the new boundary belongs in the list,
         not the hint.
 
-### F — Verification (M)
+### F — Verification (M) · ◐ PARTIAL (PR #<n>, 2026-09-06; two items genuinely left open — the
+stale `DETECTOR_COUNT` literal in `detectors.test.ts`/Verification, and the human pass over real
+Rust/Gradle/Python checkouts, appears twice for the same reason)
 
-- [ ] `detectors.test.ts` — the ordering invariant from Theme A asserted over `DEFAULT_DETECTORS`:
+- [x] `detectors.test.ts` — the ordering invariant from Theme A asserted over `DEFAULT_DETECTORS`:
       no `{kind:'none'}` detector precedes a detector sharing a `match` suffix with it.
       **Assertion:** the O(n²) pair scan finds zero violations, and a deliberately mis-ordered
       two-entry array passed to the same helper throws.
-- [ ] `detectors.test.ts` — `producer` presence: `expect(DEFAULT_DETECTORS.every((d) =>
+- [x] `detectors.test.ts` — `producer` presence: `expect(DEFAULT_DETECTORS.every((d) =>
       d.producer.trim().length > 0)).toBe(true)`, plus the same assertion on
       `STALE_WORKTREE_DETECTOR`, which is not in the array. That is the scope guardrail made
       mechanical.
@@ -847,74 +849,79 @@ Four categories fitted in a flat list. Nine ecosystems do not.
       `expect(DETECTOR_COUNT).toBe(24)`; plus `expect(new Set(DEFAULT_DETECTORS.map(d => d.id)).size)
       .toBe(DEFAULT_DETECTORS.length)` — ids are unique, because `detectorId` keys the
       `result.detectors` map.
-- [ ] `detectors.test.ts` — `matchesPathSuffix` and `matchesFileSuffix` unit cases exactly as
+      - **Not done as written, still genuinely open:** the real `DETECTOR_COUNT` is 28, not 24 —
+        Theme B's own done.md entry already corrected this stale figure from the phase brief. No
+        test pins the literal count to either number; `detectors.test.ts` only asserts
+        `DEFAULT_DETECTORS.toHaveLength(DETECTOR_COUNT)` (a tautology against itself) plus the
+        id-uniqueness check, which does pass. A `toBe(28)` assertion would need adding.
+- [x] `detectors.test.ts` — `matchesPathSuffix` and `matchesFileSuffix` unit cases exactly as
       Theme A items 4 and 5 enumerate them, including the `/bundle` shorter-than-suffix case and the
       mid-string `.csproj` case.
-- [ ] `detectors.test.ts` — every `EvidenceRule` arm against a real fixture tree, positive **and**
+- [x] `detectors.test.ts` — every `EvidenceRule` arm against a real fixture tree, positive **and**
       negative, using the `mkdtemp` + `realpath` + `afterAll(rm)` harness shape from
       [`scan-service.test.ts:87-95`](../../../packages/desktop/src/main/optimizer/scan-service.test.ts).
-- [ ] `scan-service.test.ts` — **the negative-match fixture set, which is the half that matters**:
+- [x] `scan-service.test.ts` — **the negative-match fixture set, which is the half that matters**:
       `bin/` beside a `package.json`; `build/` with no `CMakeCache.txt` and no `build.gradle`;
       `venv/` with no `pyvenv.cfg`; `vendor/` with a `Gemfile` but no `bundle/` under it; `.moon/`
       containing `workspace.yml`; `target/` with no `Cargo.toml` and no `pom.xml`.
       **Assertion:** `result.items` is `[]` and `result.totalBytes === 0` for each. A test suite for
       a deleter that only asserts what it finds is testing the wrong direction.
-- [ ] `scan-service.test.ts` — a positive fixture per ecosystem in Theme B, asserting the item's
+- [x] `scan-service.test.ts` — a positive fixture per ecosystem in Theme B, asserting the item's
       `detectorId`, `ecosystem`, `category` and `reclaim`, not just that something was found; and
       that `result.detectors[detectorId]` carries the catalogue's `label` and `producer`.
-- [ ] `scan-service.test.ts` — the two ambiguous-name cases explicitly: `target/` beside
+- [x] `scan-service.test.ts` — the two ambiguous-name cases explicitly: `target/` beside
       `Cargo.toml` classifies as `rust-target`, `target/` beside `pom.xml` as `maven-target`, and
       `target/` beside **both** resolves to `rust-target` (Rust precedes Java in
       `DEFAULT_DETECTORS`). Assert the actual id, so a reorder is a failing test rather than a
       silent behaviour change.
-- [ ] `scan-service.test.ts` — `a detector never matches inside .git`: a fixture with
+- [x] `scan-service.test.ts` — `a detector never matches inside .git`: a fixture with
       `.git/node_modules/x.js` yields zero items, proving the `:158` guard still sits above
       `classify`.
-- [ ] `scan-service.test.ts` — the injected-catalogue seam, rewritten from `honors an injected
+- [x] `scan-service.test.ts` — the injected-catalogue seam, rewritten from `honors an injected
       pattern list over the default` (`:45-50`): `classify('/a/build', new Set(), [buildDetector])`
       returns that detector and `classify('/a/node_modules', new Set(), [buildDetector])` returns
       `null`. Same intent, new argument shape — do not delete the test, port it.
-- [ ] `scan-service.test.ts` — `scanWorkspace({ …, detectors: [oneDetector] })` produces items only
+- [x] `scan-service.test.ts` — `scanWorkspace({ …, detectors: [oneDetector] })` produces items only
       for that detector, proving Theme A item 9's plumbing reaches `classify`.
-- [ ] `scan-service.test.ts` — `MAX_ENTRIES_PER_ROOT`: a two-root fixture where the first root
+- [x] `scan-service.test.ts` — `MAX_ENTRIES_PER_ROOT`: a two-root fixture where the first root
       exceeds the per-root budget. **Assertions:** the second root still yields items; `truncatedRoots`
       contains the first root's path and not the second's; `truncated` is `true`.
       - Keep the fixture cheap by injecting a low `perRootLimit` through a test-only
         `ScanWorkspaceOptions` field rather than materialising 50,000 real directory entries.
-- [ ] `scan-service.test.ts` — **update the abort test at `:170-190`**, which asserts an exact
+- [x] `scan-service.test.ts` — **update the abort test at `:170-190`**, which asserts an exact
       literal `{ totalBytes: 0, byCategory: {…four keys…}, items: [], truncated: false }`. It gains
       the ten-key `byEcosystem` literal, `detectors: {}` and `truncatedRoots: []`. This is the one
       existing assertion the widening breaks, and it must still assert an exact literal (not
       `objectContaining`) — the point of that test is that an aborted scan returns a *complete,
       valid* `ScanResult`.
-- [ ] `scan-service.test.ts` — `disabledEcosystems: ['python']` yields no Python items from a tree
+- [x] `scan-service.test.ts` — `disabledEcosystems: ['python']` yields no Python items from a tree
       that otherwise produces them, and the same tree with `disabledEcosystems: []` does.
-- [ ] `scan-service.test.ts` — the stale-worktree item carries
+- [x] `scan-service.test.ts` — the stale-worktree item carries
       `detectorId: 'git-stale-worktree'`, `ecosystem: 'git'`, `reclaim: 'cheap'`, and
       `result.byEcosystem.git` equals its bytes. Reuse the existing `staleWorktreeCandidates`
       mocking at `:53-81`.
-- [ ] `optimizer-handlers.test.ts` — the existing `trashItem` assertions (`:54`
+- [x] `optimizer-handlers.test.ts` — the existing `trashItem` assertions (`:54`
       `expect(trashItem).toHaveBeenCalledWith('/root/node_modules')`, `:64`
       `expect(trashItem).not.toHaveBeenCalled()`) still pass **unchanged**. This phase must not
       touch the delete path; a diff in that test is a red flag. Add one new case: an
       `optimizerScan` invoke carrying `disabledEcosystems: ['rust']` reaches `scanWorkspace` with
       that field, proving the handler forwards it.
-- [ ] `optimizer-store.test.ts` — **add** a `removeScanItem` test (the store has the action at
+- [x] `optimizer-store.test.ts` — **add** a `removeScanItem` test (the store has the action at
       `:64-78` but no test covers it today): a `ScanResult` with the widened `ScanItem` shape loses
       exactly the removed path and keeps `byCategory`/`byEcosystem` untouched, and
       `expect(localStorage.length).toBe(0)` still holds after it — the existing
       `the store never touches localStorage` assertion (`:49-57`) gains one more call.
-- [ ] `category-palette.test.ts` (**net-new**) — the hue-separation property made mechanical:
+- [x] `category-palette.test.ts` (**net-new**) — the hue-separation property made mechanical:
       for every hue in `ECOSYSTEM_HUES`, its shortest arc to every hue in `CATEGORY_HUES` and in
       `METRIC_HUES` is `>= 12`. Plus `expect(ECOSYSTEM_ORDER.slice().sort()).toEqual(
       EcosystemSchema.options.slice().sort())` and the same for `CATEGORY_ORDER` against
       `ScanCategorySchema.options` — an appended enum member from Phase 73/74 cannot be forgotten in
       the ordering array.
-- [ ] `segmented-bar.test.tsx` — updated for the generic props (`color`, `name` now required) and
+- [x] `segmented-bar.test.tsx` — updated for the generic props (`color`, `name` now required) and
       the renamed `'dependencies'` literal at `:17`, `:30`, `:42`. Its overflow-scaling assertions
       are unchanged, which is the evidence the refactor was mechanical. Add one case rendering an
       `Ecosystem`-keyed bar, proving the generic actually admits a second id type.
-- [ ] `smart-scan-tab.test.tsx` (**net-new**) — the renderer unit test, following
+- [x] `smart-scan-tab.test.tsx` (**net-new**) — the renderer unit test, following
       [`video-project-list.test.tsx:1-52`](../../../packages/app/src/features/video/video-project-list.test.tsx)'s
       shape: stub `window.midniteStudio`, wrap in
       `<QueryClientProvider><DialogHost>…</DialogHost></QueryClientProvider>`, `fireEvent` through
@@ -923,15 +930,15 @@ Four categories fitted in a flat list. Nine ecosystems do not.
       produces a group-Clean confirm whose `blastRadius.count` is **2**; its `warnings` contain a
       bytes line, a producers line naming both producers, and the `need a re-download` line
       mentioning **1** item; and `optimizer.clean` is called with exactly the two cheap paths.
-- [ ] `smart-scan-tab.test.tsx` — the all-`costly` group renders a **disabled** Clean button and
+- [x] `smart-scan-tab.test.tsx` — the all-`costly` group renders a **disabled** Clean button and
       opens no dialog on click; and a completed scan with zero items renders
       `Nothing to reclaim — every repo this app manages is already clean.`
-- [ ] `packages/app/e2e/optimizer.spec.ts` and
+- [x] `packages/app/e2e/optimizer.spec.ts` and
       [`e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts) — updated for the renamed
       `'nodeModules'` literal (`optimizer.spec.ts:21`, `mock-bridge.ts:2400`) and the three new
       `ScanResult` fields (`mock-bridge.ts:522-548`). The existing
       `a scan hands its ScanResult to Storage` test (`:126`) must pass unchanged in intent.
-- [ ] `packages/app/e2e/optimizer-shots.spec.ts` — refresh the Smart Scan and Storage shots in light
+- [x] `packages/app/e2e/optimizer-shots.spec.ts` — refresh the Smart Scan and Storage shots in light
       and dark against a seeded **multi-ecosystem** fixture (at minimum node + rust + python, one
       `costly` among them), so the grouped list and the two segmented bars are both captured.
       - Output paths stay `docs/screenshots/p59-abce/optimizer-smart-scan-{light,dark}.png` and
@@ -945,13 +952,15 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         seed that survives only because there is no `migrate` arm to trip over it. Fix it to `9` in
         passing **unless [Phase 74](phase-74-media-caches-and-the-trash.md) has already landed the
         same one-character change**, in which case leave it alone rather than conflict.
-- [ ] `moon run :typecheck :lint :test` green. The `ScanCategory` rename is the item most likely to
+- [x] `moon run :typecheck :lint :test` green. The `ScanCategory` rename is the item most likely to
       leave a stale `Record`; the exhaustiveness of `CATEGORY_HUES`/`CATEGORY_LABELS`/
       `ECOSYSTEM_HUES`/`ECOSYSTEM_LABELS` is what catches it, so do not soften any of them to
       `Partial`. `grep -rn "'nodeModules'" packages/` must return nothing.
 - [ ] **Human pass:** run a scan against a checkout containing a real Rust, Gradle and Python
       project and confirm each is found with correct bytes; then confirm a repo with a hand-written
       `build/` and a hand-written `bin/` produces **nothing**.
+      - **Genuinely open:** this needs a human with real external Rust/Gradle/Python checkouts on
+        disk; it was not exercised by this session's build or its automated verification.
 
 ---
 
@@ -1048,39 +1057,44 @@ Four categories fitted in a flat list. Nine ecosystems do not.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green, and `grep -rn "'nodeModules'" packages/` returns
+- [x] `moon run :typecheck :lint :test` green, and `grep -rn "'nodeModules'" packages/` returns
       nothing.
 - [ ] `DEFAULT_DETECTORS` has 24 entries, unique ids, no empty `producer`, and no evidence-free
       detector shadowing an evidenced one — all four asserted in `detectors.test.ts`, not reviewed.
-- [ ] Every negative fixture in Theme F produces **zero** items and `totalBytes === 0`.
-- [ ] A scan of this repo finds `.moon/cache` as `moon-cache` and produces **no** item whose path
+      - **Not done as written:** the real count is 28 (Theme B's done.md entry already corrected
+        this stale "24"); no test pins either literal. Uniqueness, non-empty `producer`, and the
+        no-shadowing property are all asserted and pass.
+- [x] Every negative fixture in Theme F produces **zero** items and `totalBytes === 0`.
+- [x] A scan of this repo finds `.moon/cache` as `moon-cache` and produces **no** item whose path
       ends `/.moon`.
-- [ ] `target/` beside both `Cargo.toml` and `pom.xml` resolves to `rust-target`, asserted by id.
-- [ ] A two-root scan that exhausts the first root's budget still returns items from the second, and
+- [x] `target/` beside both `Cargo.toml` and `pom.xml` resolves to `rust-target`, asserted by id.
+- [x] A two-root scan that exhausts the first root's budget still returns items from the second, and
       names only the first in `truncatedRoots`.
-- [ ] An aborted scan still returns a complete, schema-valid `ScanResult` — the `:170-190` literal,
+- [x] An aborted scan still returns a complete, schema-valid `ScanResult` — the `:170-190` literal,
       widened.
-- [ ] `cleanItems`'s and `knownRoots`'s source diff is empty; `optimizer-handlers.test.ts`'s two
+- [x] `cleanItems`'s and `knownRoots`'s source diff is empty; `optimizer-handlers.test.ts`'s two
       `trashItem` assertions are unchanged.
-- [ ] No `ScanItem` produced by any test resolves outside a fixture root.
-- [ ] Every `ECOSYSTEM_HUES` hue is ≥12° from every `CATEGORY_HUES` and `METRIC_HUES` hue, and both
+- [x] No `ScanItem` produced by any test resolves outside a fixture root.
+- [x] Every `ECOSYSTEM_HUES` hue is ≥12° from every `CATEGORY_HUES` and `METRIC_HUES` hue, and both
       `*_ORDER` arrays are permutations of their enums — asserted in `category-palette.test.ts`.
-- [ ] A group containing one `costly` and two `cheap` items cleans **2** paths, and the confirm's
+- [x] A group containing one `costly` and two `cheap` items cleans **2** paths, and the confirm's
       `warnings` name the bytes freed, the producers that must run again, and the one item left
       behind.
-- [ ] An all-`costly` group's Clean button is disabled and opens no dialog.
-- [ ] A completed scan with zero items renders `Nothing to reclaim — every repo this app manages is
+- [x] An all-`costly` group's Clean button is disabled and opens no dialog.
+- [x] A completed scan with zero items renders `Nothing to reclaim — every repo this app manages is
       already clean.`, not an empty frame.
-- [ ] `disabledEcosystems` appears in `persisted-keys.ts`'s `PREFERENCE_KEYS` and literally in
+- [x] `disabledEcosystems` appears in `persisted-keys.ts`'s `PREFERENCE_KEYS` and literally in
       `optimizer-settings-page.tsx` — `AssertExactPartition` and `persisted-keys.test.ts:95-100`
       both pass with no new `KNOWN_ORPHANS` entry.
-- [ ] The Storage tab exposes exactly two `role="img"` bars, named `Reclaimable storage by
+- [x] The Storage tab exposes exactly two `role="img"` bars, named `Reclaimable storage by
       ecosystem` and `Reclaimable storage by category`; the existing shots-spec locators at
       `optimizer-shots.spec.ts:175,185` still resolve unambiguously.
-- [ ] Smart Scan and Storage shots refreshed in both themes against a multi-ecosystem fixture.
+- [x] Smart Scan and Storage shots refreshed in both themes against a multi-ecosystem fixture.
 - [ ] **Open, for a human:** real Rust + Gradle + Python checkout found correctly with plausible
       bytes; hand-written `build/`/`bin/` found not at all.
-- [ ] **Open, for a human:** the `MAX_WALK_ENTRIES` docblock quotes a measured entries-per-second
+      - **Genuinely open** — same gap as Theme F's own human-pass item; needs real external
+        checkouts this session did not have.
+- [x] **Open, for a human:** the `MAX_WALK_ENTRIES` docblock quotes a measured entries-per-second
       figure from this machine, not an asserted one (Theme E item 4).
 
 ---
