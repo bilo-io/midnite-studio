@@ -52,6 +52,13 @@ export function classify(
   return patterns.find((pattern) => pattern.basename === name)?.category ?? null;
 }
 
+/**
+ * Exported for Phase 73's `system-cache-service.ts` (and, later, Phase 74's
+ * Trash walk — both need the identical symlink-skip/abort/budget machinery
+ * this walker already gets right, and a second copy is exactly where those
+ * would drift). Four `export` keywords, no behaviour change, no signature
+ * change, no budget change.
+ */
 export type WalkState = {
   items: ScanItem[];
   byCategory: Record<ScanCategory, number>;
