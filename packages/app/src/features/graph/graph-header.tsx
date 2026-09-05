@@ -9,6 +9,7 @@ import {
   useUiStore,
   type GraphColumns,
 } from '../../store/ui-store';
+import { bridge } from '../../services/bridge';
 import { AuthorFilter, type AuthorSummary } from './author-filter';
 import { RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { RefFilter } from './ref-filter';
@@ -132,6 +133,12 @@ export function GraphHeader({
   columns: GraphColumnResizables;
   theme: GraphTheme;
 }) {
+  // This exact header renders inside the Graph popout too (`DetachedRoot`
+  // reuses the view verbatim) — once detached, `DetachedWindowFrame`'s merged
+  // title bar already carries a hover-mark whose action is "dock" (close),
+  // so the panel's own mark here would just be a second, redundant close
+  // affordance for the same window.
+  const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
   const graphRefFilter = useUiStore((s) => s.graphRefFilter);
   const setGraphRefFilter = useUiStore((s) => s.setGraphRefFilter);
   const graphAuthorFilter = useUiStore((s) => s.graphAuthorFilter);
@@ -140,7 +147,7 @@ export function GraphHeader({
   return (
     <div className="shrink-0 border-b border-border">
       <div className="flex items-center gap-2 px-2 py-1.5">
-        <PageDetachMark role="graph" />
+        {!isPopout && <PageDetachMark role="graph" />}
         <RefFilter refs={refs} selected={graphRefFilter} onChange={setGraphRefFilter} />
         <AuthorFilter
           authors={authors}

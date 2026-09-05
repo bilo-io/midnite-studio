@@ -12,6 +12,9 @@ import { IconButton } from './icon-button';
 import type { IconComponent } from './icon-button';
 import { MidniteIcon } from './icons/midnite-icon';
 
+import { VIEW_ICON } from './nav-icons';
+import { Breadcrumbs, ReloadButton } from './title-bar-nav';
+
 /** The last path segment — `packages/app` may not import `node:path`. */
 function basename(path: string): string {
   const trimmed = path.replace(/\/+$/, '');
@@ -19,17 +22,18 @@ function basename(path: string): string {
   return slash === -1 ? trimmed : trimmed.slice(slash + 1);
 }
 
-type MergedRole = 'terminal' | 'repos' | 'browser';
+type MergedRole = 'terminal' | 'repos' | 'browser' | 'graph';
 
 /** A role gets the merged bar only if there is a bespoke header to merge in. */
 function isMergedRole(role: WindowRole): role is MergedRole {
-  return role === 'terminal' || role === 'repos' || role === 'browser';
+  return role === 'terminal' || role === 'repos' || role === 'browser' || role === 'graph';
 }
 
 const ROLE_ICON: Record<MergedRole, IconComponent> = {
   terminal: LuTerminal,
   repos: FaGitAlt,
   browser: MidniteIcon,
+  graph: VIEW_ICON.graph,
 };
 
 /**
@@ -66,7 +70,10 @@ export function usePopoutHeaderLeading(): HTMLDivElement | null {
 function PopoutHeaderMark({ role, title }: { role: MergedRole; title: string }) {
   const Icon = ROLE_ICON[role];
   return (
-    <div className="group flex min-w-0 shrink-0 items-center gap-1.5">
+    <div
+      data-page-detach-mark={role}
+      className="group flex min-w-0 shrink-0 items-center gap-1.5"
+    >
       <div className="relative flex h-6 w-6 shrink-0 items-center justify-center">
         <span
           aria-hidden
@@ -136,6 +143,14 @@ export function DetachedWindowFrame({
           merged ? (
             <div className="flex min-w-0 items-center gap-2">
               <PopoutHeaderMark role={role} title={title} />
+              {role === 'graph' ? (
+                <>
+                  <div aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
+                  <ReloadButton />
+                  <div aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
+                  <Breadcrumbs />
+                </>
+              ) : null}
               <div
                 ref={setLeadingEl}
                 className="flex min-w-0 items-center gap-2 overflow-x-auto text-xs text-muted-foreground"
