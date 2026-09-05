@@ -79,8 +79,8 @@ See Theme C and Decision 3.
   `BLAST_RADIUS_COPY` (`:31`) with its `files` arm, `ConfirmRequest.blastRadiusKind` (`:52`),
   `warnings?: string[]` (`:63`).
 - [`app/src/store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts) — `optimizerEnabled`
-  (`:1112`), its `PersistedUi` member (`:1282`), its default (`:1353`), its `partialize` entry
-  (`:1822`), `version: 9` (`:1744`). The gate this phase inherits and does not re-litigate.
+  (`:1112`), its `PersistedUi` member (`:1288`), its default (`:1359`), its `partialize` entry
+  (`:1828`), `version: 9` (`:1750`). The gate this phase inherits and does not re-litigate.
 - [`desktop/src/main/optimizer/scan-service.test.ts`](../../../packages/desktop/src/main/optimizer/scan-service.test.ts) —
   the fixture-tree harness (`:83`), including `honors an injected pattern list over the default`
   (`:45`), which is the seam this phase's tests extend.
@@ -377,7 +377,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
       a `disabledEcosystems: Ecosystem[]` preference, default `[]` (everything on). Persisted in
       [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) following `optimizerEnabled`
       exactly — interface member, `PersistedUi` `Pick<>` member, default + setter in the creator,
-      `partialize` entry. **Do not bump `version: 9`** (`:1744`) and do not write a `migrate` arm:
+      `partialize` entry. **Do not bump `version: 9`** (`:1750`) and do not write a `migrate` arm:
       `allowForceWithLease`, `launchAndRunEnabled` and `optimizerEnabled` were all added without
       one, because zustand's default merge supplies the default for an older blob. An array default
       merges the same way an boolean does.
