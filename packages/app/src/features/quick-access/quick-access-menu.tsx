@@ -76,13 +76,22 @@ function step(from: number | null, direction: 1 | -1): number | null {
 }
 
 /**
- * The menu behind the FAB and the (formerly blank) assistant popover —
- * one component, rendered from both places, never forked (Phase 58 Theme E).
+ * The menu behind the FAB and the assistant-menu trigger — one component,
+ * rendered from both places, never forked (Phase 58 Theme E).
  *
  * Self-contained: it portals itself, positions itself near the corner both
  * entry points already sit in, registers as an occluder and owns Escape for
  * as long as it is open (`useDismiss`, Phase 62), and traps focus — a caller
  * only ever needs to mount it and hand it an `onClose`.
+ *
+ * Both callers gate their render on the SAME shared `quickAccessOpen` flag
+ * (also what `use-keybindings.ts` gates the global dispatcher on) rather than
+ * each keeping its own local `open` state — this component does not touch
+ * that flag itself. A local flag per caller looks tidier in isolation, but it
+ * mounts a second instance the moment either trigger fires: whichever caller
+ * flips the shared flag makes BOTH conditionals — the FAB's and the
+ * assistant-menu's — true at once if each is reading its own copy instead of
+ * the one flag. `onClose` is always `() => setQuickAccessOpen(false)`.
  *
  * Disabled rows (`Report Issue`, `Guided tour`) stay reachable by arrow key
  * and by their own mnemonic — unlike `ContextMenu`, which skips a disabled
@@ -100,17 +109,6 @@ export function QuickAccessMenu({ onClose }: { onClose: () => void }) {
 
   useDismiss(true, onClose, { layer: 'popover' });
   useFocusTrap(containerRef, true);
-
-  // `quickAccessOpen` is the flag `use-keybindings.ts` gates the global
-  // dispatcher on, so it has to be true for as long as ANY instance of this
-  // menu is mounted — not only the FAB's, which is the one entry point that
-  // also uses this same flag to decide whether to render at all. Set here
-  // rather than only by that caller, so the assistant-menu entry point (which
-  // mounts off its own local `useState`) still closes the same gate.
-  useEffect(() => {
-    useUiStore.getState().setQuickAccessOpen(true);
-    return () => useUiStore.getState().setQuickAccessOpen(false);
-  }, []);
 
   useEffect(() => {
     const index = firstStop();

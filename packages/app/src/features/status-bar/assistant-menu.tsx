@@ -1,8 +1,7 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import { BrandMark } from '../../components/brand';
 import { MidniteIcon } from '../../components/icons/midnite-icon';
-import { QuickAccessMenu } from '../quick-access/quick-access-menu';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from '../loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from '../loops/fab-morph';
 import { useUiStore } from '../../store/ui-store';
@@ -21,14 +20,19 @@ import { useUiStore } from '../../store/ui-store';
  * as one button moving rather than one disappearing and another appearing in
  * its place.
  *
- * `QuickAccessMenu` is self-contained (its own portal, position, Escape and
- * occluder registration — see its own doc comment), so this trigger's local
- * `open` state is all the chrome it needs here; the FAB's own entry point
- * (`app.tsx`) mounts the exact same component off the shared `quickAccessOpen`
- * flag instead — two independent mounts of one component, never a fork.
+ * This trigger button is deliberately the ONLY thing this component renders
+ * for `QuickAccessMenu` — it toggles the shared `quickAccessOpen` flag but
+ * does not itself mount the menu. `app.tsx` mounts the single instance, once,
+ * off that same flag. Two entry points that each conditionally rendered their
+ * own `<QuickAccessMenu>` off the one shared flag looked like "one component,
+ * two mounts" but both conditionals go true together the instant either
+ * trigger flips it — since both are always in the tree, that is two menus on
+ * screen at once, not one. A single render site is what "one component, two
+ * entry points" actually requires: two buttons, one overlay.
  */
 export function AssistantMenu() {
-  const [open, setOpen] = useState(false);
+  const quickAccessOpen = useUiStore((s) => s.quickAccessOpen);
+  const toggleQuickAccess = useUiStore((s) => s.toggleQuickAccess);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const fabDetached = useUiStore((s) => s.fabDetached);
   const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
@@ -68,20 +72,17 @@ export function AssistantMenu() {
   }
 
   return (
-    <>
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label="Midnite Assistant"
-        data-testid="assistant-menu"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-3 rounded px-1 transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
-        data-open={open}
-      >
-        <MidniteIcon aria-hidden className="h-3.5 w-3.5" />
-      </button>
-      {open ? <QuickAccessMenu onClose={() => setOpen(false)} /> : null}
-    </>
+    <button
+      type="button"
+      aria-expanded={quickAccessOpen}
+      aria-haspopup="menu"
+      aria-label="Midnite Assistant"
+      data-testid="assistant-menu"
+      onClick={toggleQuickAccess}
+      className="flex items-center gap-3 rounded px-1 transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
+      data-open={quickAccessOpen}
+    >
+      <MidniteIcon aria-hidden className="h-3.5 w-3.5" />
+    </button>
   );
 }
