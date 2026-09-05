@@ -177,7 +177,8 @@ export type SettingsPageId =
   | 'cli'
   | 'updates'
   | 'health'
-  | 'optimizer';
+  | 'optimizer'
+  | 'mcp';
 
 /**
  * The categories the settings pages sort into, in UX priority order — the
@@ -216,6 +217,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'workflows', label: 'Workflows', group: 'tools' },
   { id: 'video', label: 'Video Studio', group: 'tools' },
   { id: 'gitSafety', label: 'Git Safety', group: 'tools' },
+  { id: 'mcp', label: 'MCP Server', group: 'tools' },
   { id: 'browser', label: 'Browser', group: 'tools' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
   { id: 'updates', label: 'App Updates', group: 'system' },

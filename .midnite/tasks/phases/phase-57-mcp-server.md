@@ -288,77 +288,77 @@ below is named with the real function it calls.
 The switch, the boundary, and the record. Re-tagged **S → M** in this refinement: the enable flag
 turned out to need a main-side store and two IPC channels, which the first draft did not see.
 
-- [ ] **The enable flag lives in main, not in the renderer's `localStorage`.** Add
+- [x] **The enable flag lives in main, not in the renderer's `localStorage`.** Add
       `packages/desktop/src/main/mcp-store.ts` — `createMcpStore(directory) → { load(): Promise<McpSettings>; save(s: McpSettings): Promise<void> }`
       over `mcp.json` with `{ version: 1, enabled: false }`, copying
       [`repo-store.ts`](../../../packages/desktop/src/main/repo-store.ts) line for line including its
       injected-directory / no-`electron` shape. The server must know its own setting at boot, before
       any window exists; a value in `useUiStore`'s persisted `localStorage` is not readable by main.
-- [ ] Add two channels to [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts):
+- [x] Add two channels to [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts):
       `mcpGet: 'mstudio:mcp:get'` and `mcpSet: 'mstudio:mcp:set'`, following the file's own
       `mstudio:<domain>:<verb>` rule and its "a channel string is never written as a literal anywhere
       else" header. Schemas in `ipc/schemas.ts`, bridge entries in `ipc/bridge.ts`, handlers in a new
       `main/ipc/mcp-handlers.ts` registered from `main/index.ts`.
-- [ ] Turning the switch on calls `startMcpServer`; off calls `handle.close()`. Both persist through
+- [x] Turning the switch on calls `startMcpServer`; off calls `handle.close()`. Both persist through
       `mcpStore.save` **before** acting, so a crash between the two leaves the app off rather than
       listening with the UI saying otherwise.
-- [ ] **Gate `repoPath` through `resolveRepoRoot` + `listRepos`, not `fs-scope.ts`.** The first
+- [x] **Gate `repoPath` through `resolveRepoRoot` + `listRepos`, not `fs-scope.ts`.** The first
       draft named `joinWithin`/`resolveScopeRoot`; neither can do this job —
       [`fs-scope.ts:23`](../../../packages/desktop/src/main/fs-scope.ts) `joinWithin` *refuses
       absolute paths outright*, and `resolveScopeRoot` takes a `repoId`. The rule is: resolve the
       supplied path to its repo root, and refuse unless that root is `listRepos()`-registered.
       Refuse, never clamp.
-- [ ] Symlink and TOCTOU rule, stated: resolve with `realpath` before the registry comparison, and
+- [x] Symlink and TOCTOU rule, stated: resolve with `realpath` before the registry comparison, and
       compare resolved-root to resolved-root. A path whose root resolves outside every registered
       repo is `{ ok: false, kind: 'refused' }`.
-- [ ] Audit: a bounded in-memory ring of the last **50** calls in `main/mcp/audit.ts` —
+- [x] Audit: a bounded in-memory ring of the last **50** calls in `main/mcp/audit.ts` —
       `{ at: number; tool: McpToolId; repoPath: string; ok: boolean; ms: number }` — plus one line
       per call through [`main/log.ts`](../../../packages/desktop/src/main/log.ts)'s `defaultLogger`
       formatted `[mcp] <tool> <ok|err> <ms>ms <repoRoot>`. **No payload bodies and no full paths
       beyond the repo root** — a diff hunk or a home-directory path in a log file is a leak.
-- [ ] Socket permissions `0o600` and placement under `userData` — both are already the broker's
+- [x] Socket permissions `0o600` and placement under `userData` — both are already the broker's
       behaviour ([`broker/server.ts:432`](../../../packages/desktop/src/broker/server.ts),
       [`broker-client.ts:144`](../../../packages/desktop/src/main/broker-client.ts)). This item is
       *"apply the existing pattern"*, not *"decide"*; the acceptance criterion is the `statSync` mode
       assertion in Theme B.
-- [ ] Vitest (`mcp-store.test.ts`, beside `repo-store.test.ts`): a fresh directory loads
+- [x] Vitest (`mcp-store.test.ts`, beside `repo-store.test.ts`): a fresh directory loads
       `{ enabled: false }`; a corrupt `mcp.json` loads `{ enabled: false }` rather than throwing, per
       `repo-store.ts`'s own precedent.
-- [ ] Vitest: `startMcpServer` refuses to bind while `enabled` is false; a `repoPath` outside every
+- [x] Vitest: `startMcpServer` refuses to bind while `enabled` is false; a `repoPath` outside every
       registered root is refused; a symlink pointing into an unregistered repo is refused.
 
 ### F — The Settings page and the status readout (S)
 
-- [ ] Add `packages/app/src/features/settings/settings-pages/mcp-page.tsx`, built from `<Accordion>`
+- [x] Add `packages/app/src/features/settings/settings-pages/mcp-page.tsx`, built from `<Accordion>`
       and `<Field>` in [`settings-pages/controls.tsx`](../../../packages/app/src/features/settings/settings-pages/controls.tsx),
       copying [`git-safety-page.tsx`](../../../packages/app/src/features/settings/settings-pages/git-safety-page.tsx)
       — the house precedent for a default-off switch with real blast radius.
-- [ ] **Three registration points, not one.** Add `'mcp'` to the `SettingsPageId` union
+- [x] **Three registration points, not one.** Add `'mcp'` to the `SettingsPageId` union
       ([`ui-store.ts:139`](../../../packages/app/src/store/ui-store.ts)), a row to the
       `SETTINGS_PAGES` array (`ui-store.ts:181`), **and** an entry in the `PAGES` record in
       [`settings-view.tsx:38-54`](../../../packages/app/src/features/settings/settings-view.tsx). The
       first draft named only the third, which would ship a page with no way to reach it.
-- [ ] The switch reads and writes through the new `mcp.get`/`mcp.set` bridge calls — **not** through
+- [x] The switch reads and writes through the new `mcp.get`/`mcp.set` bridge calls — **not** through
       `useUiStore`. No `PersistedUi` key, no `partialize` entry, no `version: 8 → 9` migration:
       main owns this setting (Decision 8), and putting a shadow copy in `localStorage` is exactly the
       drift the store's own `PersistedUi` docstring warns about.
-- [ ] Render the socket path and a copyable `claude mcp add midnite-studio -- node <shim path>` line,
+- [x] Render the socket path and a copyable `claude mcp add midnite-studio -- node <shim path>` line,
       with the shim path taken from the same resolution the packaged build uses so the printed path
       is the real one.
-- [ ] Render the tool list from `MCP_TOOLS` — id, title, description — so the page cannot drift from
+- [x] Render the tool list from `MCP_TOOLS` — id, title, description — so the page cannot drift from
       what the server serves.
-- [ ] Show the last 50 tool calls from Theme E's ring, pulled on an interval while the page is open
+- [x] Show the last 50 tool calls from Theme E's ring, pulled on an interval while the page is open
       via a `mcpCalls: 'mstudio:mcp:calls'` channel. **Pull, not push**: an event channel for a
       diagnostics list that only exists while one settings page is open would be a subscription to
       manage for no benefit.
-- [ ] A listening indicator in [`features/status-bar/`](../../../packages/app/src/features/status-bar/),
+- [x] A listening indicator in [`features/status-bar/`](../../../packages/app/src/features/status-bar/),
       reusing the existing status-bar item idiom rather than a new chrome element, visible only while
       the server is on.
-- [ ] Vitest/RTL (`mcp-page.test.tsx`, in the pattern of
+- [x] Vitest/RTL (`mcp-page.test.tsx`, in the pattern of
       [`workflows-page.test.tsx`](../../../packages/app/src/features/settings/settings-pages/workflows-page.test.tsx)):
       the page renders one row per `MCP_TOOLS` entry; the switch reflects a mocked `mcp.get`; toggling
       calls `mcp.set` with `{ enabled: true }`; the call list renders an empty state with no calls.
-- [ ] Vitest: `'mcp'` is present in all three of `SettingsPageId`, `SETTINGS_PAGES` and
+- [x] Vitest: `'mcp'` is present in all three of `SettingsPageId`, `SETTINGS_PAGES` and
       `settings-view.tsx`'s `PAGES` — the three-way registration asserted, since missing one is
       silent.
 
@@ -402,28 +402,28 @@ turned out to need a main-side store and two IPC channels, which the first draft
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: `shared/src/mcp.ts` imports zod and sibling `shared` modules only
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean: `shared/src/mcp.ts` imports zod and sibling `shared` modules only
       (asserted by its own vitest, since `eslint.config.mjs` has **no** `packages/desktop/src/**`
       block and cannot enforce the desktop half); `git-engine` untouched; the renderer reaches none
       of it except through the new bridge namespace.
-- [ ] Every `MCP_TOOLS` description is ≤ 220 characters and names the command it replaces.
-- [ ] Every tool's real return value parses against its declared `output` schema.
-- [ ] No tool handler enters `writeQueue.run` — asserted by spy, across the whole tool set.
+- [x] Every `MCP_TOOLS` description is ≤ 220 characters and names the command it replaces.
+- [x] Every tool's real return value parses against its declared `output` schema.
+- [x] No tool handler enters `writeQueue.run` — asserted by spy, across the whole tool set.
 - [ ] `claude mcp add midnite-studio -- node <shim>` followed by `claude` in the app's own terminal
       lists all eight tools, and a prompt like *"what's uncommitted here?"* answers from `status.get`
       rather than shelling out.
-- [ ] With the setting **off**, the socket file does not exist and the shim reports "not running"
+- [x] With the setting **off**, the socket file does not exist and the shim reports "not running"
       within 2 seconds.
 - [ ] Quitting the app mid-session leaves the shim answering errors, not hanging; relaunching
       restores service **without restarting the agent** — the per-call dial in Theme C is what makes
       this true.
-- [ ] `statSync(socketPath).mode & 0o777 === 0o600`.
-- [ ] A `repoPath` outside every registered repository is refused; so is a symlink into one.
-- [ ] A request over 256 kB is refused and the connection survives; a 9th connection is refused.
-- [ ] The audit ring holds tool id, repo root, outcome and duration — and **no** payload body and no
+- [x] `statSync(socketPath).mode & 0o777 === 0o600`.
+- [x] A `repoPath` outside every registered repository is refused; so is a symlink into one.
+- [x] A request over 256 kB is refused and the connection survives; a 9th connection is refused.
+- [x] The audit ring holds tool id, repo root, outcome and duration — and **no** payload body and no
       path below the repo root. Check the emitted `[mcp]` lines by eye once.
-- [ ] The Settings page is reachable: `'mcp'` resolves in all three registration points, and the
+- [x] The Settings page is reachable: `'mcp'` resolves in all three registration points, and the
       printed shim path is the one that exists after `moon run desktop:dist` + install.
 - [ ] **Open, for a human:** run a real task end-to-end — ask an agent to summarise the branch's diff
       against `main` using only MCP tools, and confirm it never invokes `git`.

@@ -990,6 +990,19 @@ export type MidniteStudioBridge = {
     onQueryBatch: (handler: (e: z.infer<typeof S.DbQueryBatchEvent>) => void) => Unsubscribe;
     onQueryDone: (handler: (e: z.infer<typeof S.DbQueryDoneEvent>) => void) => Unsubscribe;
   };
+
+  /**
+   * The MCP server's own Settings surface (Phase 57 Themes E, F) — the enable
+   * flag, live status, and the last-50 audit ring. The tool socket itself is a
+   * separate Unix-socket transport (`main/mcp/server.ts`) this bridge never
+   * touches; this is only the switch and the diagnostics readout.
+   */
+  mcp: {
+    get: () => Promise<z.infer<typeof S.McpGetResponse>>;
+    set: (req: In<typeof S.McpSetRequest>) => Promise<z.infer<typeof S.McpSetResponse>>;
+    /** Pulled on an interval while the Settings page is open, never pushed. */
+    calls: () => Promise<z.infer<typeof S.McpCallsResponse>>;
+  };
 };
 
 declare global {

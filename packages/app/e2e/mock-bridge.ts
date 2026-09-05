@@ -538,6 +538,18 @@ export type MockFixtures = {
       freeBytes: number;
     };
   };
+  /**
+   * The MCP server's Settings-page state (Phase 57 Theme F). Off by default —
+   * matching the real app's own default and keeping the status-bar
+   * `McpIndicator` out of every spec's DOM — because a segment only
+   * `mcp-shots.spec.ts` cares about was previously on for the whole suite and
+   * broke unrelated specs two ways: its `title` text (`"…open Settings"`)
+   * collided with `getByRole('button', { name: 'Settings' })` in
+   * `diagnostics.spec.ts`, and its extra status-bar width tipped
+   * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
+   * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
+   */
+  mcp?: { enabled?: boolean };
 };
 
 
@@ -2461,6 +2473,35 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         onQueryBatch: unsubscribe,
         onQueryDone: unsubscribe,
       },
+      mcp: {
+        get: async () => ({
+          enabled: mcpEnabled,
+          running: mcpEnabled,
+          socketPath: mcpEnabled
+            ? '/Users/demo/Library/Application Support/Midnite Studio/mcp/1.0.0-abc12345.sock'
+            : null,
+          shimPath: '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
+        }),
+        set: async (req: { enabled: boolean }) => {
+          mcpEnabled = req.enabled;
+          return {
+            enabled: mcpEnabled,
+            running: mcpEnabled,
+            socketPath: mcpEnabled
+              ? '/Users/demo/Library/Application Support/Midnite Studio/mcp/1.0.0-abc12345.sock'
+              : null,
+            shimPath: '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
+          };
+        },
+        calls: async () => ({
+          calls: mcpEnabled
+            ? [
+                { at: Date.now() - 2_000, tool: 'status.get', repoPath: '/tmp/midnite-studio', ok: true, ms: 8 },
+                { at: Date.now() - 9_000, tool: 'graph.log', repoPath: '/tmp/midnite-studio', ok: true, ms: 42 },
+              ]
+            : [],
+        }),
+      },
       windowChrome: {
         platform: 'darwin',
         /*
@@ -2507,6 +2548,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       argv: p.argv ?? p.name,
       ...p,
     }));
+    // Off by default, matching the real app's own default (Decision 8) and
+    // keeping the status-bar `McpIndicator` out of every spec but the one that
+    // asks for it — see `MockFixtures.mcp`'s own doc comment for why an
+    // always-on default broke two unrelated specs.
+    // eslint-disable-next-line no-var
+    var mcpEnabled = data.mcp?.enabled ?? false;
 
     // Published on `window` so a test can read the ops back, and clear the
     // array between gestures.
