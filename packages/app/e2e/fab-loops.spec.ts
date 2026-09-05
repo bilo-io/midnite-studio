@@ -1226,3 +1226,78 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
     await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-start')).toBeVisible();
   });
 });
+
+test.describe('FAB loop tab styling & indicators', () => {
+  test('tab buttons have theme attributes, idle shimmer, and active rotating arc when running', async ({
+    page,
+  }) => {
+    await open(page);
+    await openFab(page, 'Ideate');
+
+    // 1. All 4 tab buttons carry .tab-loop-button and their loop id
+    for (const [tab, id] of [
+      ['Ideate', 'innovate'],
+      ['Create', 'automate'],
+      ['Patrol', 'watchdog'],
+      ['Medic', 'medic'],
+    ] as const) {
+      const btn = page.getByRole('button', { name: tab, exact: true });
+      await expect(btn).toHaveClass(/tab-loop-button/);
+      await expect(btn).toHaveAttribute('data-fab-tab', id);
+    }
+
+    // Ideate is selected
+    const ideateBtn = page.getByRole('button', { name: 'Ideate', exact: true });
+    await expect(ideateBtn).toHaveClass(/is-selected/);
+    await expect(ideateBtn).toHaveAttribute('data-selected', 'true');
+
+    // Create is not selected
+    const createBtn = page.getByRole('button', { name: 'Create', exact: true });
+    await expect(createBtn).not.toHaveClass(/is-selected/);
+    await expect(createBtn).not.toHaveAttribute('data-selected', 'true');
+
+    // 2. Idle state: all 4 tabs have shimmer, none have active arc
+    for (const id of ['innovate', 'automate', 'watchdog', 'medic'] as const) {
+      await expect(page.getByTestId(`loop-shimmer-${id}`)).toHaveClass(/tab-loop-shimmer/);
+      await expect(page.getByTestId(`loop-active-arc-${id}`)).toHaveCount(0);
+    }
+
+    // 3. Start a loop on Patrol
+    await page.getByRole('button', { name: 'Patrol', exact: true }).click();
+    await page.waitForTimeout(SETTLE_WAIT_MS);
+    await expect(page.getByRole('button', { name: 'Patrol', exact: true })).toHaveClass(/is-selected/);
+
+    const composer = page.getByTestId('loop-composer-watchdog');
+    await composer.getByTestId('loop-start').click();
+    await expect(composer.getByTestId('loop-stop')).toBeVisible();
+
+    // Patrol now wears the rotating inner arc, not the shimmer
+    const watchdogArc = page.getByTestId('loop-active-arc-watchdog');
+    await expect(watchdogArc).toBeVisible();
+    await expect(watchdogArc).toHaveClass(/tab-loop-active-arc/);
+    await expect(page.getByTestId('loop-shimmer-watchdog')).toHaveCount(0);
+
+    // Watchdog's arc matches watchdog's mode sub-spectrum (0deg -> 120deg)
+    const arcAngles = await watchdogArc.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        from: cs.getPropertyValue('--fab-arc-from').trim(),
+        to: cs.getPropertyValue('--fab-arc-to').trim(),
+      };
+    });
+    expect(arcAngles).toEqual({ from: '0deg', to: '120deg' });
+
+    // The other 3 tabs still have shimmer and no active arc
+    for (const id of ['innovate', 'automate', 'medic'] as const) {
+      await expect(page.getByTestId(`loop-shimmer-${id}`)).toHaveCount(1);
+      await expect(page.getByTestId(`loop-active-arc-${id}`)).toHaveCount(0);
+    }
+
+    // 4. Stop Patrol: returns to idle shimmer, active arc removed
+    await composer.getByTestId('loop-stop').click();
+    await expect(composer.getByTestId('loop-start')).toBeVisible();
+    await expect(page.getByTestId('loop-active-arc-watchdog')).toHaveCount(0);
+    await expect(page.getByTestId('loop-shimmer-watchdog')).toHaveCount(1);
+  });
+});
+
