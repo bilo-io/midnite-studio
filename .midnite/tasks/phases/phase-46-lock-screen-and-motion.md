@@ -1,5 +1,7 @@
 # Phase 46 — The lock screen, and a motion policy that holds
 
+**Refined: x1** · 2026-09-05 · testing & verification, accessibility & keyboard, plan shape
+
 [`.midnite/_features.md`](../../_features.md) has three sections. The numbered list became Phases
 40–44 and is spent. The **Improvements** list lost #2 to [Phase 36](phase-36-performance-diet.md)
 and #1 to [Phase 45](phase-45-leak-audit.md). What is left is Improvements #3 and the whole **Lock
@@ -342,6 +344,106 @@ they did.
       (`screensaver.test.tsx`, plus a regression test for the redundant-second-dialog bug found
       along the way), weather's unset-location empty state and a fetch-failure case
       (`lock-screen-widgets.test.tsx`), and battery's absent state (pre-existing, PR #53). (PR #55)
+
+### H — The verification residue, as work (S)
+
+Themes A–G all landed, and everything still open in this phase sat under `## Verification` — which
+[`/midnite-exec`](../../../.claude/skills/midnite-exec/SKILL.md) never reads. That is the same shape
+Phases 24 and 29 were found in: real work, invisible to the workflow that would have done it. This
+theme is that residue, triaged. Three of the eleven verification lines turned out to be genuinely
+machine-executable and are lifted here; four were already covered by tests that landed with Themes
+E–G and are marked `(**unchanged**)` below; the remaining four need a person and stay in
+`## Verification` behind its own marker.
+
+- [ ] **Make the Theme F guard test prove itself, instead of asking a human to.** The open
+      verification line was *"prove it by adding an unguarded `@keyframes`, watching it fail, then
+      reverting"* — a manual mutation test, which is exactly the kind of check nobody re-runs.
+      Automate it:
+      - Extract the three pure helpers currently module-local in
+        [`styles-motion-guards.test.ts`](../../../packages/app/src/styles-motion-guards.test.ts)
+        (`keyframeNames`, `classesIn`/`reducedMotionBlocks`, `enclosingSelector`) into a new
+        sibling **`packages/app/src/styles-motion-guards.ts`** *(net-new)*, exporting exactly two
+        entry points over a CSS *string* — not over the virtual module — so the checker can be run
+        against a fixture:
+        `export function findDuplicateKeyframes(css: string): string[]` and
+        `export function findUnguardedKeyframes(css: string, allowlist?: Record<string, string>): string[]`.
+        `ALLOWLIST` moves to the module and is re-exported as
+        `export const MOTION_GUARD_ALLOWLIST: Record<string, string>` so the reason-per-entry rule
+        (Theme F) is unchanged — the entry is still a visible decision, just in a module the test
+        imports rather than owns.
+      - The existing three `it(...)` blocks keep their current assertions verbatim, now reading
+        `findUnguardedKeyframes(css)` / `findDuplicateKeyframes(css)` against
+        `virtual:midnite-styles-raw`. **The stylesheet-backed assertions do not change** — this is a
+        refactor beneath them, and a diff that alters what they assert is wrong.
+      - Add three fixture cases over inline CSS strings, in the same file:
+        `findUnguardedKeyframes('@keyframes ghost{}\n.x{animation: ghost 1s;}')` → `['ghost']`;
+        the same string with the rule's class also named inside a
+        `@media (prefers-reduced-motion: reduce){ .x{animation:none} }` block → `[]`;
+        `findDuplicateKeyframes('@keyframes a{}@keyframes a{}')` → `['a']`.
+      - **Why a module and not `expect(...).toThrow` inside the test file:** a pure function over a
+        string is the only shape that lets the negative case be asserted at all — the current
+        helpers close over nothing, but they are unexported, so a fixture can't reach them. The
+        alternative (a second test file that re-implements the regexes) would test a copy of the
+        checker, not the checker.
+      - **Verified by:** `moon run app:test -- styles-motion-guards` — six passing `it`s where there
+        are three today, three of them failing if either checker is weakened.
+- [ ] **Assert the pills are keyboard-reachable, in e2e rather than by hand.** The open line was
+      *"every pill is reachable and activatable by keyboard, with a visible focus ring"*. The
+      markup is already right — the four pills are `<button>`s carrying
+      `focus-visible:ring-2 focus-visible:ring-ring` and an
+      `aria-label={`${n} ${label} — ${destination}`}`
+      ([`screensaver-stage.tsx:163`](../../../packages/app/src/features/screensaver/screensaver-stage.tsx))
+      — so this is coverage, not a fix, and it belongs beside the widgets spec.
+      - Add one `test(...)` to
+        [`e2e/lock-screen-widgets.spec.ts`](../../../packages/app/e2e/lock-screen-widgets.spec.ts),
+        reusing that file's existing `open(page)` helper rather than a new fixture.
+      - Assert: `page.getByRole('button', { name: /my PRs/i })` is focusable
+        (`await pill.focus()`, then `expect(pill).toBeFocused()`), that
+        `page.keyboard.press('Enter')` on it closes the lock screen
+        (`await expect(page.locator('[data-testid="screensaver"]')).toHaveCount(0)`, matching how
+        the existing tests in that file locate the surface), and that the reviews view is showing.
+      - **Press `Enter`, not `Space`, and press no modifier chord.** A modifier would re-run the
+        Phase 38 `ControlOrMeta` hazard for no gain, and the click path is already covered by
+        [`pill-destinations.test.ts`](../../../packages/app/src/features/screensaver/pill-destinations.test.ts)
+        — what is uncovered is that the button is reachable *at all* while `LockScreen`'s own
+        `window` keydown listener is armed.
+      - **Verified by:** `moon run app:e2e -- lock-screen-widgets` green, and the new test failing
+        if `suppressUnlockTrigger`/`stopPropagation` (Theme C) regress into swallowing the keypress.
+- [ ] **Assert the lock screen's own CSS animation is actually stopped under reduced motion.**
+      Themes E and G proved the *JS* half (`useResolvedMotion`, `resolveSystemMotion`) and shot
+      the *pixels*; nothing asserts the CSS guard on the one animation unique to this surface.
+      - The animation is `screensaver-sheen`, applied by `.screensaver-title`
+        ([`styles.css:576`](../../../packages/app/src/styles.css)) — not by a `.screensaver-sheen`
+        class, which does not exist; the keyframe name and the class name differ here.
+      - Add one `test(...)` to `e2e/lock-screen-widgets.spec.ts` asserting
+        `getComputedStyle(el).animationName` on `.screensaver-title` is **not** `'none'` by default,
+        and **is** `'none'` after
+        `document.documentElement.setAttribute('data-motion', 'reduced')` — the plain-attribute
+        dialect, poked directly, exactly as
+        [`e2e/councils.spec.ts:198`](../../../packages/app/e2e/councils.spec.ts) does. That dialect
+        is the half Theme E had to restore after CI caught the pure-`@media` regression, so it is
+        the half worth a lock-screen assertion.
+      - **Do not add the `@media` (OS-emulated) counterpart here.** `councils.spec.ts` already
+        covers OS-emulation and setting-outranks-OS precedence at the app level via
+        `page.emulateMedia({ reducedMotion: 'reduce' })` + a seeded `midnite.settings`; a second
+        copy on this surface would assert the same mechanism twice.
+      - **Verified by:** the new test failing if either form of the `.screensaver-title` guard is
+        deleted from `styles.css`.
+- [ ] (**unchanged** — the motion-precedence pair, *"OS reduced + `Motion: system` is still"* and
+      *"`Motion: full` + OS reduced still animates"*, is already asserted three ways and needs no
+      new work: [`appearance-store.test.ts`](../../../packages/app/src/store/appearance-store.ts)'s
+      `resolveSystemMotion` / `useAppearanceSync` suites,
+      [`neuro-cloud-background.test.tsx`](../../../packages/app/src/features/screensaver/neuro-cloud-background.test.tsx)'s
+      four rAF cases, and `councils.spec.ts`'s three Theme-F e2e cases. Listed here so a future
+      sweep stops re-proposing it.)
+- [ ] (**unchanged** — *"`grep -c "@keyframes" styles.css` finds no duplicated names"* is the
+      Theme F test's second `it`, `declares no @keyframes name twice`. A grep in a checklist is
+      strictly weaker than an assertion in CI; the checklist line is retired, not re-implemented.)
+- [ ] (**unchanged** — *"weather's query is **not enabled** while the lock screen is closed"* is
+      retracted, for the reason Theme F's own struck item already gives: there is no literal
+      `enabled: screensaverOpen` to assert on, because the gate is that
+      `LockScreenWeatherWidget` is not mounted. The verification line was written before Theme A
+      landed and is now describing code that deliberately does not exist.)
 
 ## Files this phase touches
 
