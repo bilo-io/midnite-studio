@@ -391,6 +391,6 @@ test('reduced motion keeps a running launcher glow and full opacity', async ({ p
   await expect(launcher).toHaveCSS('opacity', '1');
   const shadow = await launcher.evaluate((el) => getComputedStyle(el).boxShadow);
   expect(shadow).not.toBe('none');
-  // Patrol is yellow-500 — the glow is the loop's own colour, not a generic one.
-  expect(shadow).toContain('234, 179, 8');
+  // Patrol is violet-500 — the glow is the loop's own colour, not a generic one.
+  expect(shadow).toContain('139, 92, 246');
 });
