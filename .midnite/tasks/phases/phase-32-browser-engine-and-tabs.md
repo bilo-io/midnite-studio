@@ -1,13 +1,13 @@
 # Phase 32 — The browser gets an engine, and the tabs to fill it
 
 Phase 27 Theme F built a browser with no browser in it. Ninety-seven lines in
-[`browser-pane.tsx`](../packages/app/src/features/browser/browser-pane.tsx) render a chrome strip
+[`browser-pane.tsx`](../../../packages/app/src/features/browser/browser-pane.tsx) render a chrome strip
 whose Back, Forward and Reload buttons are permanently `disabled`, an address field whose `onSubmit`
 calls `preventDefault()` and sets local state, and an `<EmptyState>` reading *"No web engine yet —
 ‹url› would load here."* Everything around it is real: `browser.toggle` is bound to `Mod+b` in
-[`keybindings.ts:91`](../packages/shared/src/keybindings.ts), the native View menu has an item
-([`menu.ts:72`](../packages/desktop/src/main/menu.ts)), the palette has an icon and a safety entry,
-`browserOpen` is persisted in [`ui-store.ts:312`](../packages/app/src/store/ui-store.ts), and
+[`keybindings.ts:91`](../../../packages/shared/src/keybindings.ts), the native View menu has an item
+([`menu.ts:72`](../../../packages/desktop/src/main/menu.ts)), the palette has an icon and a safety entry,
+`browserOpen` is persisted in [`ui-store.ts:312`](../../../packages/app/src/store/ui-store.ts), and
 `e2e/browser-pane.spec.ts` has 130 lines asserting the stub behaves. The shell is finished. The body
 is empty, deliberately.
 
@@ -18,9 +18,9 @@ security incident. Theme F builds the shell so that phase only has to fill the b
 inheritance. Theme B is not a nice-to-have here; it is the condition Phase 27 attached to the work.
 
 **The engine is available and the window is already configured for it.**
-[`packages/desktop/package.json:26`](../packages/desktop/package.json) pins `electron ^33.2.0`, which
+[`packages/desktop/package.json:26`](../../../packages/desktop/package.json) pins `electron ^33.2.0`, which
 ships `WebContentsView` — the supported successor to both `BrowserView` and the `<webview>` tag.
-[`window.ts:57–69`](../packages/desktop/src/main/window.ts) already sets `contextIsolation: true`,
+[`window.ts:57–69`](../../../packages/desktop/src/main/window.ts) already sets `contextIsolation: true`,
 `nodeIntegration: false` and does **not** enable `webviewTag`. Nothing has to be loosened for this
 phase; the embedded views get their own, stricter `webPreferences` than the renderer's.
 
@@ -33,18 +33,18 @@ exception that proves the rule: it sits *below* the content row, so bounds that 
 bottom edge leave it visible for free, preserving the demonstration Phase 27 built the pane to make.
 
 **Tabs are not a new problem in this repo.**
-[`features/workbench/tab-strip.tsx`](../packages/app/src/features/workbench/tab-strip.tsx) already
+[`features/workbench/tab-strip.tsx`](../../../packages/app/src/features/workbench/tab-strip.tsx) already
 solves closable tabs, a permanent first tab, `role="tablist"`, per-kind icons, tooltips and
 `overflow-x-auto` overflow — and its header comment records why `@bilo-io/ui`'s `Tabs` was rejected
 (*"a segmented control with no close affordance, no overflow behaviour and no notion of a tab that
-outlives the click that made it"*). [`sortable-list.tsx`](../packages/app/src/components/sortable-list.tsx)
+outlives the click that made it"*). [`sortable-list.tsx`](../../../packages/app/src/components/sortable-list.tsx)
 is the existing drag-to-reorder primitive. Theme C follows both rather than inventing a third
 convention.
 
 **And the new-tab page is a React page, not a web page.** This is the design decision the rest of
 Theme F hangs off: a new tab mounts no `WebContentsView` at all, so the home surface is ordinary DOM
 and inherits the app's tokens, theme, density and motion settings for nothing.
-[`brand.tsx`](../packages/app/src/components/brand.tsx) already exports `BrandMark`, `Wordmark` and
+[`brand.tsx`](../../../packages/app/src/components/brand.tsx) already exports `BrandMark`, `Wordmark` and
 `Brand`; `--font-brand` (Quick Kiss) is already a Tailwind utility. The logo hero costs an import.
 
 **Builds on.** Phase 9 (the `CommandId` registry and `Mod+b`), Phase 13 (`useResizable`, `useReveal`
@@ -59,13 +59,13 @@ event-push pattern).
 constants, no bridge — a page loaded from the network must have no path to the IPC surface, and the
 cheapest way to guarantee that is to hand it nothing. **The browser session is its own partition**
 (`persist:browser`), separate from the renderer's default session, so the `mstudio:` protocol registered
-in [`fs-protocol.ts`](../packages/desktop/src/main/fs-protocol.ts) is not reachable from a web page.
+in [`fs-protocol.ts`](../../../packages/desktop/src/main/fs-protocol.ts) is not reachable from a web page.
 **No git command, no git-engine change.** This phase adds no git subprocess; `packages/git-engine`
 is untouched end to end. **Browser IPC follows the existing envelope discipline** — ops return the
-`GitOpResult`-shaped result from [`domain/result.ts`](../packages/shared/src/domain/result.ts) rather
+`GitOpResult`-shaped result from [`domain/result.ts`](../../../packages/shared/src/domain/result.ts) rather
 than throwing across the boundary, so a failed load, a blocked navigation and a certificate error are
 all outcomes the UI renders. **The pane keeps its geometry.** It stays the `absolute inset-0 z-20`
-overlay of the content row mounted at [`app.tsx:847`](../packages/app/src/app.tsx); this phase fills
+overlay of the content row mounted at [`app.tsx:847`](../../../packages/app/src/app.tsx); this phase fills
 it, it does not promote it into the view router. **macOS arm64 is the only target** — Phase 11's
 packaging scope is unchanged and no Windows/Linux bounds quirk is chased.
 
@@ -83,20 +83,20 @@ still disabled.
       (branded string), `BrowserTabState` (`id`, `url`, `title`, `faviconUrl`, `loading`,
       `canGoBack`, `canGoForward`, `groupId`, `originRepoId`), `BrowserBounds`
       (`x`/`y`/`width`/`height`), and `BrowserNavError` (`code`, `description`, `validatedUrl`).
-      Exported from [`domain/index.ts`](../packages/shared/src/domain/index.ts) alongside the other
+      Exported from [`domain/index.ts`](../../../packages/shared/src/domain/index.ts) alongside the other
       domains. zod only — the package imports no other workspace package.
 - [x] `mstudio:browser:*` channel constants in
-      [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts), grouped and commented in the style
+      [`ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts), grouped and commented in the style
       of the `pty:*` / `terminal:*` split at `:248–271`: `browserCreate`, `browserClose`,
       `browserNavigate`, `browserBack`, `browserForward`, `browserReload`, `browserStop`,
       `browserSetBounds`, `browserSetVisible`, `browserActivate`, `browserZoom`, `browserFind`,
       `browserFindStop`, `browserDevtools`, `browserClearData`.
-- [x] Payload schemas in [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts) and the method
-      signatures on the preload bridge type in [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts).
+- [x] Payload schemas in [`ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) and the method
+      signatures on the preload bridge type in [`ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts).
       Every op returns the `GitOpResult` envelope, never throws.
 - [x] A single **event** channel `mstudio:browser:event` carrying a discriminated union
       (`navigated` | `title` | `favicon` | `loading` | `failed` | `destroyed`), pushed main→renderer.
-      Reuse the [`stream-registry.ts`](../packages/desktop/src/main/stream-registry.ts) subscription
+      Reuse the [`stream-registry.ts`](../../../packages/desktop/src/main/stream-registry.ts) subscription
       pattern rather than adding a second event mechanism.
 - [x] `packages/desktop/src/main/browser-service.ts` — owns a `Map<BrowserTabId, WebContentsView>`,
       creates views into the window's `contentView`, and is the only file in the repo that constructs
@@ -107,7 +107,7 @@ still disabled.
       `sandbox: false` only so its preload can `require` the channel constants — an embedded view has
       no preload and therefore no reason to relax it), and **no `preload`**.
 - [x] `packages/desktop/src/main/ipc/browser-handlers.ts` following the shape of the sibling handler
-      modules in [`main/ipc/`](../packages/desktop/src/main/ipc), registered through the existing
+      modules in [`main/ipc/`](../../../packages/desktop/src/main/ipc), registered through the existing
       `handle.ts` helper.
 - [x] Wire the `webContents` listeners that feed the event channel: `did-navigate`,
       `did-navigate-in-page`, `page-title-updated`, `page-favicon-updated`, `did-start-loading`,
@@ -133,7 +133,7 @@ week before its policy is the incident Phase 27 named.
       `mstudio:`, `javascript:`, `data:` and every custom scheme are blocked and reported as a
       `BrowserNavError` the pane renders.
 - [x] Prove the `mstudio:` protocol is registered on the **default** session only — read
-      [`fs-protocol.ts`](../packages/desktop/src/main/fs-protocol.ts), confirm the registration
+      [`fs-protocol.ts`](../../../packages/desktop/src/main/fs-protocol.ts), confirm the registration
       target, and add a test asserting a `persist:browser` view cannot resolve an `mstudio:` URL. If it
       is currently registered on `protocol` globally rather than per-session, fixing that is part of
       this theme.
@@ -143,12 +143,12 @@ week before its policy is the incident Phase 27 named.
       are out of scope, and cancelling loudly beats dropping silently.
 - [x] Confirm no embedded view can reach the bridge: a test that evaluates `typeof window.midniteStudio`
       in an embedded view's `webContents` and asserts `'undefined'`.
-- [x] Rewrite the now-false comment at [`window.ts:64–66`](../packages/desktop/src/main/window.ts)
+- [x] Rewrite the now-false comment at [`window.ts:64–66`](../../../packages/desktop/src/main/window.ts)
       (*"the renderer only ever loads local content"*). It stays true of the renderer and becomes
       misleading about the app — say that remote content lives in sibling views on a separate
       partition with no preload, and link the reader to `browser-service.ts`.
 - [x] A **Browser** settings page under
-      [`settings-pages/`](../packages/app/src/features/settings/settings-pages) with a
+      [`settings-pages/`](../../../packages/app/src/features/settings/settings-pages) with a
       "Clear browsing data" action (`session.clearStorageData()` + `clearCache()`), behind a
       `ConfirmDialog` naming what is cleared, plus the search-engine and link-handling settings
       Themes G and I need.
@@ -161,20 +161,20 @@ week before its policy is the incident Phase 27 named.
 - [x] Store actions with pure, testable reducers: `openTab`, `closeTab`, `closeOthers`,
       `closeToRight`, `activateTab`, `moveTab`, `duplicateTab`, `reopenClosed`, `updateTabState`.
 - [x] `features/browser/tab-strip.tsx`, modelled on
-      [`workbench/tab-strip.tsx`](../packages/app/src/features/workbench/tab-strip.tsx) — same
+      [`workbench/tab-strip.tsx`](../../../packages/app/src/features/workbench/tab-strip.tsx) — same
       `role="tablist"` semantics, same `overflow-x-auto` overflow decision, same close affordance.
       Read that file's header comment first and follow it rather than re-litigating it.
 - [x] Favicon slot per tab, falling back to the monochrome
-      [`midnite-icon.tsx`](../packages/app/src/components/icons/midnite-icon.tsx) for a new tab and to
+      [`midnite-icon.tsx`](../../../packages/app/src/components/icons/midnite-icon.tsx) for a new tab and to
       a generic globe for a page with no favicon. The PNG `BrandMark` is a hero asset and is wrong at
       16px — this is why the traced SVG exists.
 - [x] Loading state on the tab (spinner replacing the favicon), and a title that falls back to the
       URL's host while the page has none.
-- [x] Drag-to-reorder via [`sortable-list.tsx`](../packages/app/src/components/sortable-list.tsx),
+- [x] Drag-to-reorder via [`sortable-list.tsx`](../../../packages/app/src/components/sortable-list.tsx),
       including dragging a tab into and out of a group (Theme D consumes the same drop targets).
-- [x] Right-click menu via [`context-menu.tsx`](../packages/app/src/components/context-menu.tsx):
+- [x] Right-click menu via [`context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx):
       Reload, Duplicate, Copy URL, Move to group ▸, Close, Close others, Close to the right.
-- [x] New chords in [`keybindings.ts`](../packages/shared/src/keybindings.ts) under a **browser
+- [x] New chords in [`keybindings.ts`](../../../packages/shared/src/keybindings.ts) under a **browser
       scope**, not the app scope: `browser.newTab` (`Mod+t`), `browser.closeTab` (`Mod+w`),
       `browser.nextTab` / `browser.prevTab` (`Ctrl+Tab` / `Ctrl+Shift+Tab`), `browser.reopenTab`
       (`Mod+Shift+t`). Scoping is load-bearing: an app-scoped `Mod+w` would close the window.
@@ -194,7 +194,7 @@ are computed from where a tab came from and vanish when empty.
 - [x] Manual groups: create from a tab's context menu or a strip affordance, rename inline, pick a
       colour, collapse/expand, ungroup, delete-keeping-tabs.
 - [x] A small named colour palette defined as tokens in
-      [`styles.css`](../packages/app/src/styles.css) with a `.dark` override, in the style of the
+      [`styles.css`](../../../packages/app/src/styles.css) with a `.dark` override, in the style of the
       existing `--cal-1..4` and `--health-*` sets. Eight colours; do not reuse the graph lane ramp,
       which carries its own meaning.
 - [x] Repo-derived groups: a tab opened with an `originRepoId` (Theme I supplies it) is auto-placed in
@@ -202,7 +202,7 @@ are computed from where a tab came from and vanish when empty.
 - [x] Derived groups are implicit — they appear when their first tab does, disappear when their last
       tab closes, and are not persisted as objects. Dragging a tab out of one is allowed and sticks
       (an explicit `groupId: null` beats the derived default).
-- [x] Collapse rendering follows the [`tree-section.tsx`](../packages/app/src/components/tree-section.tsx)
+- [x] Collapse rendering follows the [`tree-section.tsx`](../../../packages/app/src/components/tree-section.tsx)
       idiom; a collapsed group shows its name, colour and tab count as one chip.
 - [x] Closing a collapsed group closes its tabs, behind a `ConfirmDialog` when the count is above a
       threshold — the same blast-radius discipline the git ops use.
@@ -223,8 +223,8 @@ it until told otherwise. Budget more than it looks like.
 - [ ] An **occluder registry** in the ui-store: a counter that any portalled overlay increments while
       open. While `occluders > 0`, the view is hidden via `browserSetVisible(false)`.
 - [ ] Register every existing overlay as an occluder:
-      [`popover.tsx`](../packages/app/src/components/popover.tsx),
-      [`context-menu.tsx`](../packages/app/src/components/context-menu.tsx), `ConfirmDialog`,
+      [`popover.tsx`](../../../packages/app/src/components/popover.tsx),
+      [`context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx), `ConfirmDialog`,
       `PromptDialog`, the `Mod+k` palette, and `tooltip.tsx`. A missed one is a tooltip that renders
       invisibly under a web page — enumerate them from the components directory rather than from
       memory.
@@ -240,7 +240,7 @@ it until told otherwise. Budget more than it looks like.
       so reopening is instant and page state survives.
 - [ ] Switching the active tab swaps which view is visible; only one is ever attached-and-visible.
 - [ ] The focus trap in the existing pane
-      ([`use-focus-trap.ts`](../packages/app/src/components/use-focus-trap.ts)) has to account for
+      ([`use-focus-trap.ts`](../../../packages/app/src/components/use-focus-trap.ts)) has to account for
       focus leaving the DOM entirely into the native view — pressing Tab out of the address bar should
       focus the page, and a chord to get back out (`Escape`) must still work. Document the boundary.
 - [ ] Unit-test the occluder counter (nested overlays, unmount-while-open, double-decrement safety)
@@ -253,7 +253,7 @@ tokens, theme, density and reduced-motion for free.
 
 - [ ] `features/browser/new-tab-page.tsx`, rendered in the pane body whenever the active tab's kind is
       `newtab`, with the view hidden.
-- [ ] The hero: `BrandMark` from [`brand.tsx`](../packages/app/src/components/brand.tsx) at a large
+- [ ] The hero: `BrandMark` from [`brand.tsx`](../../../packages/app/src/components/brand.tsx) at a large
       size over `Wordmark` in `font-brand`, centred, generously spaced. Minimal — one mark, one
       wordmark, one search field, one row of tiles.
 - [ ] A centred search/address field that focuses automatically on new tab and shares Theme G's
@@ -295,12 +295,12 @@ Everything the Phase 27 stub drew disabled, now wired — plus the parts a brows
 - [ ] Zoom per tab: `Mod+=` / `Mod+-` / `Mod+0`, persisted per origin, with the current factor shown
       in the chrome when it is not 100%.
 - [ ] Raise the status-bar toggle's overflow priority in
-      [`browser-toggle.tsx`](../packages/app/src/features/status-bar/browser-toggle.tsx) from `5` and
+      [`browser-toggle.tsx`](../../../packages/app/src/features/status-bar/browser-toggle.tsx) from `5` and
       rewrite the comment that justified it (*"the browser pane holds nothing yet"*) — it now holds
       work, and should no longer be the first control into the `…` popover.
 - [ ] New palette commands for the browser ops that deserve one (`browser.newTab`, `browser.devtools`,
       `browser.clearData`), added to `COMMANDS` and to
-      [`palette/command-icons.ts`](../packages/app/src/features/palette/command-icons.ts); anything
+      [`palette/command-icons.ts`](../../../packages/app/src/features/palette/command-icons.ts); anything
       destructive stays out of `PALETTE_SAFE`.
 
 ### H — Dev-companion powers (M) — ◐ PARTIAL (2026-08-30)
@@ -338,16 +338,16 @@ What makes it the browser of a git client rather than a browser that happens to 
 - [ ] Modifier escape hatches, documented in the setting's help text: `Cmd`/`Ctrl`-click opens in the
       *other* target, `Shift`-click forces the system browser, middle-click opens a background tab.
 - [ ] Route the existing call sites through it:
-      [`external-link.tsx`](../packages/app/src/features/markdown/external-link.tsx),
-      [`linkify-rehype.ts`](../packages/app/src/features/commit/linkify-rehype.ts), the remote links in
-      [`graph-view.tsx`](../packages/app/src/features/graph/graph-view.tsx), and the repo/branch
+      [`external-link.tsx`](../../../packages/app/src/features/markdown/external-link.tsx),
+      [`linkify-rehype.ts`](../../../packages/app/src/features/commit/linkify-rehype.ts), the remote links in
+      [`graph-view.tsx`](../../../packages/app/src/features/graph/graph-view.tsx), and the repo/branch
       context menus. Enumerate them from `grep -rn "openExternal"` rather than from this list.
-- [ ] `openExternal` in [`queries.ts`](../packages/app/src/services/queries.ts) stays and remains the
+- [ ] `openExternal` in [`queries.ts`](../../../packages/app/src/services/queries.ts) stays and remains the
       only path for non-`http(s)` protocols; `OPEN_EXTERNAL_PROTOCOLS` in main is unchanged.
       `ExternalLink`'s existing comment about `file://` same-window navigation stays true and should
       be extended, not replaced.
 - [ ] Reviews integration: PR links, commit links and compare links in
-      [`pr-detail.tsx`](../packages/app/src/features/reviews/pr-detail.tsx) open in-app, carrying the
+      [`pr-detail.tsx`](../../../packages/app/src/features/reviews/pr-detail.tsx) open in-app, carrying the
       PR's repo as `originRepoId`.
 - [ ] Actions integration: a workflow run's `details_url` opens in-app from the Actions view.
 - [x] `features/browser/preview-deploy.ts` — a **pure** matcher over a check run's `details_url` and PR
@@ -364,7 +364,7 @@ What makes it the browser of a git client rather than a browser that happens to 
 ## Files this phase touches
 
 **New — shared**
-- [`packages/shared/src/domain/browser.ts`](../packages/shared/src/domain/browser.ts) — tab, group,
+- [`packages/shared/src/domain/browser.ts`](../../../packages/shared/src/domain/browser.ts) — tab, group,
   bounds and error types.
 
 **New — desktop (main)**
@@ -380,31 +380,31 @@ What makes it the browser of a git client rather than a browser that happens to 
 - `packages/app/src/features/settings/settings-pages/browser-page.tsx`.
 
 **Modified**
-- [`packages/app/src/features/browser/browser-pane.tsx`](../packages/app/src/features/browser/browser-pane.tsx)
+- [`packages/app/src/features/browser/browser-pane.tsx`](../../../packages/app/src/features/browser/browser-pane.tsx)
   — the stub becomes the pane shell: tab strip, chrome row, body switching between the new-tab page,
   the error page and the (invisible, native) view.
-- [`packages/shared/src/ipc/channels.ts`](../packages/shared/src/ipc/channels.ts),
-  [`schemas.ts`](../packages/shared/src/ipc/schemas.ts),
-  [`bridge.ts`](../packages/shared/src/ipc/bridge.ts) — the `mstudio:browser:*` surface.
-- [`packages/shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) — browser-scoped
+- [`packages/shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts),
+  [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts),
+  [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) — the `mstudio:browser:*` surface.
+- [`packages/shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) — browser-scoped
   chords and the new palette commands.
-- [`packages/desktop/src/main/window.ts`](../packages/desktop/src/main/window.ts) — the corrected
+- [`packages/desktop/src/main/window.ts`](../../../packages/desktop/src/main/window.ts) — the corrected
   "local content only" comment; view teardown on close.
-- [`packages/desktop/src/main/fs-protocol.ts`](../packages/desktop/src/main/fs-protocol.ts) — confirm
+- [`packages/desktop/src/main/fs-protocol.ts`](../../../packages/desktop/src/main/fs-protocol.ts) — confirm
   (or fix) per-session registration.
-- [`packages/desktop/src/main/menu.ts`](../packages/desktop/src/main/menu.ts) — the new browser items.
-- [`packages/app/src/app.tsx`](../packages/app/src/app.tsx) — occluder wiring around the pane mount at
+- [`packages/desktop/src/main/menu.ts`](../../../packages/desktop/src/main/menu.ts) — the new browser items.
+- [`packages/app/src/app.tsx`](../../../packages/app/src/app.tsx) — occluder wiring around the pane mount at
   `:847`.
-- [`packages/app/src/store/ui-store.ts`](../packages/app/src/store/ui-store.ts) — the occluder counter.
-- [`packages/app/src/features/status-bar/browser-toggle.tsx`](../packages/app/src/features/status-bar/browser-toggle.tsx)
+- [`packages/app/src/store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts) — the occluder counter.
+- [`packages/app/src/features/status-bar/browser-toggle.tsx`](../../../packages/app/src/features/status-bar/browser-toggle.tsx)
   — priority raised off `5`, comment rewritten.
-- [`packages/app/src/styles.css`](../packages/app/src/styles.css) — the group colour tokens.
-- [`packages/app/src/features/markdown/external-link.tsx`](../packages/app/src/features/markdown/external-link.tsx),
-  [`linkify-rehype.ts`](../packages/app/src/features/commit/linkify-rehype.ts),
-  [`graph-view.tsx`](../packages/app/src/features/graph/graph-view.tsx),
-  [`pr-detail.tsx`](../packages/app/src/features/reviews/pr-detail.tsx) — routed through
+- [`packages/app/src/styles.css`](../../../packages/app/src/styles.css) — the group colour tokens.
+- [`packages/app/src/features/markdown/external-link.tsx`](../../../packages/app/src/features/markdown/external-link.tsx),
+  [`linkify-rehype.ts`](../../../packages/app/src/features/commit/linkify-rehype.ts),
+  [`graph-view.tsx`](../../../packages/app/src/features/graph/graph-view.tsx),
+  [`pr-detail.tsx`](../../../packages/app/src/features/reviews/pr-detail.tsx) — routed through
   `openInMidnite`.
-- [`packages/app/e2e/browser-pane.spec.ts`](../packages/app/e2e/browser-pane.spec.ts) — its 130 lines
+- [`packages/app/e2e/browser-pane.spec.ts`](../../../packages/app/e2e/browser-pane.spec.ts) — its 130 lines
   assert a stub that no longer exists; rewritten, not extended.
 
 **Untouched, deliberately**
