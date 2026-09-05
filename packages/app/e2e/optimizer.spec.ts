@@ -70,7 +70,7 @@ const tab = (page: Page, name: 'Smart Scan' | 'Storage' | 'Memory' | 'GPU') =>
 async function seedOptimizerEnabled(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const stored = localStorage.getItem('midnite-studio.ui');
-    const persisted = stored ? JSON.parse(stored) : { version: 8 };
+    const persisted = stored ? JSON.parse(stored) : { version: 9 };
     persisted.state = {
       ...persisted.state,
       optimizerEnabled: true,
@@ -79,6 +79,23 @@ async function seedOptimizerEnabled(page: Page): Promise<void> {
     };
     localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
   });
+}
+
+/** Phase 74 Theme D/E — the three-way Trash gate, seeded directly. */
+async function seedTrashGate(page: Page, opts: { allow?: boolean; consented?: boolean } = {}): Promise<void> {
+  await page.addInitScript(
+    ({ allow, consented }: { allow: boolean; consented: boolean }) => {
+      const stored = localStorage.getItem('midnite-studio.ui');
+      const persisted = stored ? JSON.parse(stored) : { version: 9 };
+      persisted.state = {
+        ...persisted.state,
+        allowTrashEmpty: allow,
+        trashEmptyConsentGiven: consented,
+      };
+      localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
+    },
+    { allow: opts.allow ?? true, consented: opts.consented ?? true },
+  );
 }
 
 async function openOptimizer(page: Page, data: MockFixtures = fixtures): Promise<void> {
@@ -128,7 +145,7 @@ test.describe('the feature gate', () => {
     await installMockBridge(page, fixtures);
     await page.addInitScript(() => {
       const stored = localStorage.getItem('midnite-studio.ui');
-      const persisted = stored ? JSON.parse(stored) : { version: 8 };
+      const persisted = stored ? JSON.parse(stored) : { version: 9 };
       persisted.state = { ...persisted.state, activeView: 'optimizer', optimizerEnabled: false };
       localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
     });
@@ -385,6 +402,54 @@ test.describe('Memory tab', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'Terminate' }).click();
 
     await expect(page.getByText('node server.js')).not.toBeVisible();
+  });
+});
+
+test.describe('Storage — Trash card (Phase 74 Theme D/E)', () => {
+  test('the card is visible with all three gates on, and absent with any one off', async ({ page }) => {
+    await seedTrashGate(page, { allow: true, consented: true });
+    await openOptimizer(page);
+    await tab(page, 'Storage').click();
+    await expect(page.getByText('Trash', { exact: true })).toBeVisible();
+  });
+
+  test('the card is absent when allowTrashEmpty is off', async ({ page }) => {
+    await seedTrashGate(page, { allow: false, consented: true });
+    await openOptimizer(page);
+    await tab(page, 'Storage').click();
+    await expect(page.getByText('Trash', { exact: true })).toHaveCount(0);
+  });
+
+  test('clicking "Empty Trash…" opens a confirm gated by the requireAck checkbox', async ({ page }) => {
+    await seedTrashGate(page, { allow: true, consented: true });
+    await openOptimizer(page, {
+      ...fixtures,
+      optimizer: {
+        trash: {
+          itemCount: 7,
+          totalBytes: 12_000_000,
+          oldestModifiedAt: '2026-01-01T00:00:00.000Z',
+          volumeCount: 1,
+          truncated: false,
+        },
+      },
+    });
+    await tab(page, 'Storage').click();
+
+    await page.getByRole('button', { name: 'Check Trash' }).click();
+    await expect(page.getByText(/^7 items/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Empty Trash…' }).click();
+    await expect(page.getByRole('heading', { name: 'Empty the Trash?' })).toBeVisible();
+
+    const confirmButton = page.getByRole('dialog').getByRole('button', { name: 'Empty Trash' });
+    await expect(confirmButton).toBeDisabled();
+
+    await page.getByRole('checkbox', { name: 'I understand this cannot be undone' }).check();
+    await expect(confirmButton).toBeEnabled();
+
+    await confirmButton.click();
+    await expect(page.getByText(/^0 items/).or(page.getByText('The Trash is empty.'))).toBeVisible();
   });
 });
 

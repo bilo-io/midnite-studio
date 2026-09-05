@@ -814,7 +814,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
 
 ### E — UI: a System section that never looks like "your project's stuff" (M)
 
-**Landed (PR #TBD) minus the two items below, both genuinely blocked on [Phase
+**Landed (PR #193) minus the two items below, both genuinely blocked on [Phase
 72](phase-72-every-build-systems-leftovers.md) Theme D, which had not merged at the time this PR
 was built (confirmed by inspection: `segmented-bar.tsx` was still bound to `ScanCategory`, and
 `category-palette.ts` had no `ECOSYSTEM_HUES`/`ECOSYSTEM_LABELS` map).** Per this item's own

@@ -33,6 +33,7 @@ export const PREFERENCE_KEYS = [
   'agentSkills', // agent-page.tsx
   'allowForceWithLease', // git-safety-page.tsx
   'allowSystemCacheClean', // optimizer-settings-page.tsx
+  'allowTrashEmpty', // trash-safety-page.tsx
   'autoFetchIntervalMs', // sidebar-page.tsx
   'cycleDurationS', // screen-lock-page.tsx
   'forgeWritesEnabled', // reviews-page.tsx / git-safety-page.tsx
@@ -55,6 +56,7 @@ export const PREFERENCE_KEYS = [
   'terminalFontSize', // terminal-page.tsx
   'terminalLineHeight', // terminal-page.tsx
   'terminalSidebarSide', // terminal-page.tsx
+  'trashEmptyConsentGiven', // trash-safety-page.tsx
   'updateChannel', // updates-page.tsx
   'updatesAutoCheck', // updates-page.tsx
   'workflowDefaultTimeoutS', // workflows-page.tsx

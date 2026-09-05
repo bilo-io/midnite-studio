@@ -25,6 +25,7 @@ import { ScreenLockPage } from './settings-pages/screen-lock-page';
 import { SearchSettingsPage } from './settings-pages/search-page';
 import { SidebarPage } from './settings-pages/sidebar-page';
 import { TerminalPage } from './settings-pages/terminal-page';
+import { TrashSafetyPage } from './settings-pages/trash-safety-page';
 import { UpdatesPage } from './settings-pages/updates-page';
 import { VideoSettingsPage } from './settings-pages/video-page';
 import { WorkflowsPage } from './settings-pages/workflows-page';
@@ -51,6 +52,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   workflows: () => <WorkflowsPage />,
   video: () => <VideoSettingsPage />,
   gitSafety: () => <GitSafetyPage />,
+  trashSafety: () => <TrashSafetyPage />,
   mcp: () => <McpSettingsPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,

@@ -176,6 +176,14 @@ const SYSTEM_SCAN_RESULT = {
   ],
 };
 
+const TRASH_SUMMARY = {
+  itemCount: 42,
+  totalBytes: 3_400_000_000,
+  oldestModifiedAt: '2026-06-01T09:30:00.000Z',
+  volumeCount: 1,
+  truncated: false,
+};
+
 const data: MockFixtures = {
   optimizer: {
     scanResult: SCAN_RESULT,
@@ -184,32 +192,37 @@ const data: MockFixtures = {
     processes: PROCESSES,
     systemCatalogue: SYSTEM_CATALOGUE,
     systemScanResult: SYSTEM_SCAN_RESULT,
+    trash: TRASH_SUMMARY,
   },
 };
 
 /**
- * Directly into the persisted store, following `seedForgeWritesConsent`'s
- * own precedent. Also seeds Phase 73 Theme C's two-factor System-cache gate
- * on, so the Storage tab's System section (Theme E) is reachable — the
+ * Directly into the persisted store, following `seedForgeWritesConsent`'s own
+ * precedent. Also seeds Phase 73 Theme C's two-factor System-cache gate on,
+ * so the Storage tab's System section (Theme E) is reachable — the
  * default-off state means the un-gated shot (Storage without this section)
- * stays the common case and needs no new coverage.
+ * stays the common case and needs no new coverage. `trashGate` (Phase 74
+ * Theme D/E) additionally seeds `allowTrashEmpty`/`trashEmptyConsentGiven` so
+ * the Trash card's shot doesn't have to choreograph the settings-page
+ * consent flow first.
  */
-async function seedOptimizerEnabled(page: Page): Promise<void> {
-  await page.addInitScript(() => {
+async function seedOptimizerEnabled(page: Page, opts: { trashGate?: boolean } = {}): Promise<void> {
+  await page.addInitScript((trashGate: boolean) => {
     const stored = localStorage.getItem('midnite-studio.ui');
-    const persisted = stored ? JSON.parse(stored) : { version: 8 };
+    const persisted = stored ? JSON.parse(stored) : { version: 9 };
     persisted.state = {
       ...persisted.state,
       optimizerEnabled: true,
       allowSystemCacheClean: true,
       systemCacheConsentGiven: true,
+      ...(trashGate ? { allowTrashEmpty: true, trashEmptyConsentGiven: true } : {}),
     };
     localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
-  });
+  }, opts.trashGate ?? false);
 }
 
-async function openOptimizer(page: Page): Promise<void> {
-  await seedOptimizerEnabled(page);
+async function openOptimizer(page: Page, opts: { trashGate?: boolean } = {}): Promise<void> {
+  await seedOptimizerEnabled(page, opts);
   await installShotsBridge(page, data);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
@@ -328,5 +341,25 @@ test.describe('optimizer screenshots', () => {
     await expect(page.getByText('Apple M2 Pro')).toBeVisible();
     await paintDark(page);
     await page.screenshot({ path: `${OUT}/optimizer-gpu-dark.png` });
+  });
+
+  // Phase 74 Theme D — the Trash card's has-items state, gate on.
+  test('Storage — Trash card, light', async ({ page }) => {
+    await openOptimizer(page, { trashGate: true });
+    await tab(page, 'Storage').click();
+    await page.getByRole('button', { name: 'Check Trash' }).click();
+    await expect(page.getByText(/^42 items/)).toBeVisible();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.screenshot({ path: `${OUT_DF}/optimizer-storage-trash-light.png` });
+  });
+
+  test('Storage — Trash card, dark', async ({ page }) => {
+    await goDark(page);
+    await openOptimizer(page, { trashGate: true });
+    await tab(page, 'Storage').click();
+    await page.getByRole('button', { name: 'Check Trash' }).click();
+    await expect(page.getByText(/^42 items/)).toBeVisible();
+    await paintDark(page);
+    await page.screenshot({ path: `${OUT_DF}/optimizer-storage-trash-dark.png` });
   });
 });
