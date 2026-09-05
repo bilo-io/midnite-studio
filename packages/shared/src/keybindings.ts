@@ -257,6 +257,17 @@ export const COMMANDS = [
   { id: 'workflow.run', label: 'Run Workflow', group: 'view' },
   { id: 'view.video', label: 'Go to Video Studio', group: 'view' },
   /**
+   * Phase 64 Theme F. Chord-free, like `view.refresh`/`app.screensaver` above
+   * — every single-letter `Mod` chord worth having is already taken, and a
+   * palette entry for something this occasional does not need one. Both
+   * navigate to Settings ▸ Appearance's new "Palette" accordion; `theme.import`
+   * additionally opens the accordion's own file picker when it is already
+   * mounted (see `theme-import-command-store.ts`), the same handle-if-present
+   * shape `workflow.run` uses.
+   */
+  { id: 'theme.select', label: 'Select Theme Palette', group: 'view' },
+  { id: 'theme.import', label: 'Import VS Code Theme', group: 'view' },
+  /**
    * Multi-window (Phase 55). One chord for the common case — detach whichever
    * panel currently has the top-left morph focus/hover — plus four chord-free
    * palette rows for a specific panel. `Mod+Shift+d` is unused: the

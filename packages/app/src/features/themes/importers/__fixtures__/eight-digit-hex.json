@@ -1,0 +1,20 @@
+{
+  "name": "Eight Digit Hex Test Theme",
+  "type": "light",
+  "colors": {
+    "editor.background": "#ffffffff",
+    "editor.foreground": "#24292eff",
+    "sideBar.background": "#f6f8faff",
+    "focusBorder": "#0969daff",
+    "panel.border": "#d0d7deff",
+    "editor.selectionBackground": "#0969da33"
+  },
+  "tokenColors": [
+    {
+      "scope": ["entity.name.function"],
+      "settings": {
+        "foreground": "#8250df80"
+      }
+    }
+  ]
+}

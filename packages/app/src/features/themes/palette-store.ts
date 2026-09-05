@@ -43,8 +43,17 @@ export const usePaletteStore = create<PaletteState>()(
       setActivePalette: (activePaletteId) => set({ activePaletteId }),
       setTerminalOverride: (terminalPaletteOverride) => set({ terminalPaletteOverride }),
       setEditorOverride: (editorPaletteOverride) => set({ editorPaletteOverride }),
+      // Replaces (rather than duplicates) an existing palette with the same
+      // id — the VS Code importer (Theme E) derives an id from the theme's
+      // `name`, so re-importing an edited copy of the same file is the
+      // expected path, not an edge case. Appending unconditionally would
+      // leave two `userPalettes` entries with one id: a duplicate React key
+      // on the settings page's preset-card list (Theme F) and an ambiguous
+      // `resolvePaletteById` lookup (`.find` silently keeps the first).
       addUserPalette: (palette) =>
-        set((state) => ({ userPalettes: [...state.userPalettes, palette] })),
+        set((state) => ({
+          userPalettes: [...state.userPalettes.filter((p) => p.id !== palette.id), palette],
+        })),
     }),
     {
       name: 'midnite.settings',

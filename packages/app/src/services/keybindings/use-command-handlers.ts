@@ -12,6 +12,7 @@ import { onMainSurface, useTerminalStore } from '../../features/terminal/termina
 import { useBrowserStore } from '../../store/browser-store';
 import { useCommitBoxStore } from '../../store/commit-box-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
+import { useThemeImportCommandStore } from '../../features/themes/theme-import-command-store';
 import { usePaletteStore } from '../../store/palette-store';
 import { useUiStore, type ViewId } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
@@ -317,6 +318,28 @@ export function useCommandHandlers(): CommandRuntime {
     'markdown.presentAsSlides': activeMarkdown
       ? { enabled: true, run: () => useSlidesStore.getState().presentActive() }
       : { enabled: false, disabledReason: 'No markdown in view', run: () => {} },
+
+    // Phase 64 Theme F. Always enabled, like `workflow.run`: navigating to
+    // Settings ▸ Appearance needs no repo and nothing else to be true first.
+    'theme.select': {
+      enabled: true,
+      run: () => {
+        useUiStore.getState().setActiveView('settings');
+        useUiStore.getState().setSettingsPage('appearance');
+      },
+    },
+    // Also calls the Palette accordion's own handle, if it is already
+    // mounted, to open its file picker directly — the same
+    // navigate-then-call-handle shape `workflow.run` uses for the canvas's
+    // Run button.
+    'theme.import': {
+      enabled: true,
+      run: () => {
+        useUiStore.getState().setActiveView('settings');
+        useUiStore.getState().setSettingsPage('appearance');
+        useThemeImportCommandStore.getState().handle?.run();
+      },
+    },
 
     // Panel-local (Phase 42 Theme D, joined by Phase 50 Theme D's board card
     // panel). `activePanelBack`/`Forward` route to whichever `panel-stack` a

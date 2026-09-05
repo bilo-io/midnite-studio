@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useAppearanceStore } from '../../store/appearance-store';
 import { usePaletteStore } from './palette-store';
+import type { StudioPalette } from './theme-types';
 
 /**
  * Phase 64 Theme B — `palette-store.ts` persists into `appearance-store.ts`'s
@@ -79,5 +80,29 @@ describe('palette-store persistence (Phase 64 Theme B)', () => {
     expect(useAppearanceStore.getState().accent).toBe('blue');
     expect(usePaletteStore.getState().activePaletteId).toBe('github-dark');
     expect(usePaletteStore.getState().userPalettes).toEqual([]);
+  });
+
+  it('addUserPalette replaces (rather than duplicates) an existing palette with the same id', () => {
+    // Phase 64 Theme F self-review: re-importing an edited VS Code theme file
+    // reuses the same id (derived from the theme's `name`) — appending would
+    // leave two entries sharing one id, a duplicate React key on the
+    // Appearance page's preset-card list and an ambiguous lookup.
+    const v1: StudioPalette = {
+      id: 'vscode-my-theme',
+      label: 'My Theme v1',
+      appearance: 'dark',
+      chrome: {},
+      terminal: {} as StudioPalette['terminal'],
+      editor: { base: 'vs-dark', rules: [], colors: {} },
+      highlight: 'github-dark',
+    };
+    const v2: StudioPalette = { ...v1, label: 'My Theme v2' };
+
+    usePaletteStore.getState().addUserPalette(v1);
+    usePaletteStore.getState().addUserPalette(v2);
+
+    const palettes = usePaletteStore.getState().userPalettes;
+    expect(palettes).toHaveLength(1);
+    expect(palettes[0]?.label).toBe('My Theme v2');
   });
 });
