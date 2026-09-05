@@ -1,11 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
-import { LuFileQuestion } from 'react-icons/lu';
+import { LuCode, LuFileQuestion, LuPen, LuPointer } from 'react-icons/lu';
 
 import { mstudioFileUrl } from '@midnite/studio-shared';
 
 import { EmptyState } from '../../../components/empty-state';
+import { IconButton } from '../../../components/icon-button';
 import { languageForFile, previewKindForFile } from '../../../lib/languages';
 import { bridge, hasBridge } from '../../../services/bridge';
 import { keys } from '../../../services/queries';
@@ -149,74 +150,75 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
           ●
         </span>
       ) : null}
-      {canEdit ? (
-        editing ? (
-          <>
-            <button
-              type="button"
-              onClick={() => void useFileEditorStore.getState().save()}
-              disabled={!dirty || saving}
-              className="ml-auto shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button
-              type="button"
-              onClick={exitEditing}
-              className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
-            >
-              Done
-            </button>
-          </>
+      <div className="ml-auto flex items-center gap-1">
+        {canEdit ? (
+          editing ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void useFileEditorStore.getState().save()}
+                disabled={!dirty || saving}
+                className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={exitEditing}
+                className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
+              >
+                Done
+              </button>
+            </>
+          ) : (
+            <IconButton
+              icon={LuPen}
+              label="Edit"
+              size="sm"
+              onClick={() => setEditing(true)}
+            />
+          )
         ) : (
+          <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            read-only
+          </span>
+        )}
+        {canCompare ? (
           <button
             type="button"
-            onClick={() => setEditing(true)}
-            className="ml-auto shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
-          >
-            Edit
-          </button>
-        )
-      ) : (
-        <span className="ml-auto shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-          read-only
-        </span>
-      )}
-      {canCompare ? (
-        <button
-          type="button"
-          onClick={() => setComparing((value) => !value)}
-          aria-pressed={comparing}
-          className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
-        >
-          {comparing ? 'Current' : 'Compare'}
-        </button>
-      ) : null}
-      {kind === 'markdown' && data?.kind === 'text' && !editing ? (
-        <>
-          <button
-            type="button"
-            onClick={() => setShowSource((value) => !value)}
-            aria-pressed={showSource}
+            onClick={() => setComparing((value) => !value)}
+            aria-pressed={comparing}
             className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
           >
-            {showSource ? 'Rendered' : 'Source'}
+            {comparing ? 'Current' : 'Compare'}
           </button>
-          <PresentButton source={{ content: data.content, label: fileName }} />
-        </>
-      ) : null}
-      {data?.kind === 'text' && !editing && repoId ? (
-        <button
-          type="button"
-          onClick={() => toggleBlame(fileKey)}
-          aria-pressed={showBlame}
-          className={`shrink-0 rounded-md border border-border px-2 py-0.5 text-[10px] transition-colors ${
-            showBlame ? 'bg-primary/20 text-primary font-medium border-primary/30' : 'text-muted-foreground hover:bg-accent'
-          }`}
-        >
-          Blame
-        </button>
-      ) : null}
+        ) : null}
+        {kind === 'markdown' && data?.kind === 'text' && !editing ? (
+          <>
+            <IconButton
+              icon={LuCode}
+              label={showSource ? 'Rendered' : 'Source'}
+              size="sm"
+              aria-pressed={showSource}
+              tone={showSource ? 'brand' : 'ghost'}
+              className={showSource ? 'bg-primary/20 text-primary border border-primary/30' : ''}
+              onClick={() => setShowSource((value) => !value)}
+            />
+            <PresentButton source={{ content: data.content, label: fileName }} />
+          </>
+        ) : null}
+        {data?.kind === 'text' && !editing && repoId ? (
+          <IconButton
+            icon={LuPointer}
+            label="Blame"
+            size="sm"
+            aria-pressed={showBlame}
+            tone={showBlame ? 'brand' : 'ghost'}
+            className={showBlame ? 'bg-primary/20 text-primary border border-primary/30' : ''}
+            onClick={() => toggleBlame(fileKey)}
+          />
+        ) : null}
+      </div>
     </div>
   );
 
