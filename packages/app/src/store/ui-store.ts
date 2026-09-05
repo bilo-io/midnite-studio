@@ -172,6 +172,7 @@ export type SettingsPageId =
   | 'workflows'
   | 'video'
   | 'gitSafety'
+  | 'trashSafety'
   | 'monitor'
   | 'browser'
   | 'cli'
@@ -217,6 +218,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'workflows', label: 'Workflows', group: 'tools' },
   { id: 'video', label: 'Video Studio', group: 'tools' },
   { id: 'gitSafety', label: 'Git Safety', group: 'tools' },
+  { id: 'trashSafety', label: 'Trash Safety', group: 'tools' },
   { id: 'mcp', label: 'MCP Server', group: 'tools' },
   { id: 'browser', label: 'Browser', group: 'tools' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
@@ -1129,6 +1131,24 @@ export type UiState = {
    */
   systemCacheConsentGiven: boolean;
   setSystemCacheConsentGiven: (given: boolean) => void;
+  /**
+   * Phase 74 Theme C/D — a separate consent pair, never sharing
+   * `allowSystemCacheClean`/`systemCacheConsentGiven`. Emptying the Trash is
+   * a qualitatively different blast radius: it destroys content the USER put
+   * somewhere with an explicit expectation of recoverability, not a build
+   * tool's own cache. Same shape as `allowSystemCacheClean` — clicking the
+   * checkbox does NOT set this directly; only the one-time acknowledgment
+   * dialog's confirm does. Default off.
+   */
+  allowTrashEmpty: boolean;
+  setAllowTrashEmpty: (allow: boolean) => void;
+  /**
+   * Set once, the first time the user confirms the one-time acknowledgment
+   * dialog. A fact about what the user was shown, not a live permission —
+   * toggling `allowTrashEmpty` off and back on does not re-ask.
+   */
+  trashEmptyConsentGiven: boolean;
+  setTrashEmptyConsentGiven: (given: boolean) => void;
   passcode: string | null;
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
@@ -1308,6 +1328,8 @@ export type PersistedUi = Pick<
   | 'optimizerEnabled'
   | 'allowSystemCacheClean'
   | 'systemCacheConsentGiven'
+  | 'allowTrashEmpty'
+  | 'trashEmptyConsentGiven'
   | 'terminalDetached'
   | 'reposDetached'
   | 'fabDetached'
@@ -1387,6 +1409,12 @@ export const useUiStore = create<UiState>()(
       setAllowSystemCacheClean: (allowSystemCacheClean) => set({ allowSystemCacheClean }),
       systemCacheConsentGiven: false,
       setSystemCacheConsentGiven: (systemCacheConsentGiven) => set({ systemCacheConsentGiven }),
+      // Phase 74 — a separate pair, never sharing the above: emptying the
+      // Trash is permanent, with no undo, unlike a rebuildable dev-tool cache.
+      allowTrashEmpty: false,
+      setAllowTrashEmpty: (allowTrashEmpty) => set({ allowTrashEmpty }),
+      trashEmptyConsentGiven: false,
+      setTrashEmptyConsentGiven: (trashEmptyConsentGiven) => set({ trashEmptyConsentGiven }),
       passcode: null,
       setPasscode: (passcode) => set({ passcode }),
       passcodeOnlyWhenLocked: false,
@@ -1857,6 +1885,8 @@ export const useUiStore = create<UiState>()(
         optimizerEnabled: state.optimizerEnabled,
         allowSystemCacheClean: state.allowSystemCacheClean,
         systemCacheConsentGiven: state.systemCacheConsentGiven,
+        allowTrashEmpty: state.allowTrashEmpty,
+        trashEmptyConsentGiven: state.trashEmptyConsentGiven,
         terminalDetached: state.terminalDetached,
         reposDetached: state.reposDetached,
         fabDetached: state.fabDetached,

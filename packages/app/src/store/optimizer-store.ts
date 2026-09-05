@@ -5,6 +5,7 @@ import type {
   ScanResult,
   SystemCacheCatalogueEntry,
   SystemScanResult,
+  TrashSummary,
 } from '@midnite/studio-shared';
 import { create } from 'zustand';
 
@@ -77,6 +78,19 @@ export type OptimizerState = {
    *  this rather than hardcoded prose. `null` until the first fetch resolves. */
   systemCatalogue: SystemCacheCatalogueEntry[] | null;
   setSystemCatalogue: (catalogue: SystemCacheCatalogueEntry[]) => void;
+
+  /**
+   * Phase 74 Theme D — the Storage tab's Trash card, held here rather than
+   * in component state: the Storage tab unmounts on every tab switch, and
+   * local state would silently discard a check the user just paid for. Same
+   * reason `scan`, `gpu`, `memory` already live here. Deliberately no
+   * auto-refresh: it updates only on "Check Trash" and again after a
+   * successful empty (Decision 11).
+   */
+  trash: { status: 'idle' | 'loading' | 'ready' | 'error'; summary: TrashSummary | null; message: string | null };
+  trashLoading: () => void;
+  trashReady: (summary: TrashSummary) => void;
+  trashFailed: (message: string) => void;
 };
 
 export const useOptimizerStore = create<OptimizerState>((set) => ({
@@ -139,4 +153,9 @@ export const useOptimizerStore = create<OptimizerState>((set) => ({
 
   systemCatalogue: null,
   setSystemCatalogue: (systemCatalogue) => set({ systemCatalogue }),
+
+  trash: { status: 'idle', summary: null, message: null },
+  trashLoading: () => set({ trash: { status: 'loading', summary: null, message: null } }),
+  trashReady: (summary) => set({ trash: { status: 'ready', summary, message: null } }),
+  trashFailed: (message) => set({ trash: { status: 'error', summary: null, message } }),
 }));
