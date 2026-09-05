@@ -90,6 +90,15 @@ export function Popover({
    * around: without it, dismissing the panel with Escape drops the keyboard
    * user at the top of the document, several tab stops from the footer control
    * they were just using.
+   *
+   * **Kept deliberately, even though `useFocusTrap` now restores focus by
+   * itself** (Phase 68 Theme A, Decision 2) — this is not duplication waiting
+   * to be tidied away. The trap restores to a *captured* `document.activeElement`;
+   * this restores to a *known* `triggerRef`, which is strictly more reliable for
+   * a popover whose trigger is guaranteed to outlive it. The two do not fight:
+   * this one runs first, and the trap's "focus already moved deliberately"
+   * clause then sees focus sitting on the trigger — outside the closing panel
+   * and not `<body>` — and leaves it exactly there.
    */
   const close = useCallback(() => {
     setOpen(false);

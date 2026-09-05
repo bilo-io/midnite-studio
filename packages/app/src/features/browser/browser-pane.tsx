@@ -125,25 +125,19 @@ export function BrowserPane({
     blocking: false,
   });
 
-  // Restore focus to the toggle the moment the pane stops being shown —
-  // Escape, the close button, or Mod+b again all funnel through `shown`
-  // flipping false, matching the half of Popover's close() this pane cannot
-  // share directly (its trigger lives in a sibling component).
-  useEffect(() => {
-    if (!shown) return;
-    return () => {
-      /*
-        Unless the pane is only being re-parented. Switching layout swaps the
-        pane between `app.tsx`'s overlay slot and its in-flow one, which is an
-        unmount and a fresh mount of THIS component with the browser still
-        open — and restoring focus to the status bar there would throw the
-        keyboard out of the browser on every use of the toolbar's layout
-        picker. `browserOpen` is the difference between the two cases.
-      */
-      if (useUiStore.getState().browserOpen) return;
-      document.querySelector<HTMLButtonElement>('[data-testid="browser-toggle"]')?.focus();
-    };
-  }, [shown]);
+  /*
+    Restoring focus to the toggle is `useFocusTrap(containerRef, shown)`'s job
+    now (Phase 68 Theme A), which is why there is no effect here any more. What
+    stood here reached for the toggle with
+    `document.querySelector('[data-testid="browser-toggle"]')` — a test id used
+    as production wiring — and focused it without `preventScroll`.
+
+    Its one piece of real logic, "don't restore if the pane is only being
+    re-parented between `app.tsx`'s overlay and in-flow slots", is subsumed:
+    the layout swap unmounts and remounts this component in the same commit, so
+    the fresh trap re-focuses its own container immediately afterwards and the
+    keyboard stays in the browser either way.
+  */
 
   const [findOpen, setFindOpen] = useState(false);
   const [viewportPreset, setViewportPreset] = useState<'full' | '390' | '834' | '1280'>('full');

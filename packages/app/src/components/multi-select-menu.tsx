@@ -4,6 +4,7 @@ import { LuCheck, LuChevronDown } from 'react-icons/lu';
 
 import { cascadeStyle } from '../lib/cascade';
 import { useDismiss } from './use-dismiss';
+import { useFocusTrap } from './use-focus-trap';
 
 export type MultiSelectOption = {
   /** Stable identity — what `selected` holds. */
@@ -57,6 +58,7 @@ export function MultiSelectMenu({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const boxRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -69,6 +71,19 @@ export function MultiSelectMenu({
 
   // Escape through the shared dismissal stack (Phase 62), at `menu`.
   useDismiss(open, () => setOpen(false), { layer: 'menu' });
+
+  /*
+    Trap and restore (Phase 68 Theme D). The search box's `autoFocus` put the
+    keyboard *into* the panel and nothing ever brought it back out: Tab walked
+    into the toolbar behind, and dismissing the menu left focus on the removed
+    input, i.e. on `<body>`. The trap returns it to the trigger button it was
+    opened from — and, closing by clicking that same trigger, its "focus already
+    moved deliberately" clause leaves the focus the click already placed there.
+
+    The `role="option"` arrow-key contract is deliberately still absent; that is
+    the same shape of work as the context menu's and belongs with it.
+  */
+  useFocusTrap(listRef, open);
 
   useEffect(() => {
     if (!open) return;
@@ -114,6 +129,8 @@ export function MultiSelectMenu({
 
       {open ? (
         <div
+          ref={listRef}
+          tabIndex={-1}
           role="listbox"
           aria-multiselectable
           aria-label={label}

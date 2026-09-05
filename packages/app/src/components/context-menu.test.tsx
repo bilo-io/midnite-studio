@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ContextMenu } from './context-menu';
+import { ContextMenu, type MenuItem } from './context-menu';
 import { useUiStore } from '../store/ui-store';
 
 /**
@@ -60,5 +61,133 @@ describe('ContextMenu Escape', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Phase 68 Theme C — the menu has always declared `role="menu"` and
+ * `role="menuitem"`; these are the keyboard half of that contract, which it
+ * advertised for its whole life and did not implement.
+ */
+describe('ContextMenu keyboard navigation', () => {
+  afterEach(cleanup);
+
+  /*
+    Indices matter to every assertion below, so they are named once:
+    0 Copy · 1 Paste (disabled) · 2 separator · 3 Open with (submenu) · 4 Delete.
+    Two unselectable rows back to back is the case a naive `index ± 1` gets
+    wrong, which is why the separator sits directly after the disabled row.
+  */
+  const items: MenuItem[] = [
+    { label: 'Copy', onSelect: () => {} },
+    { label: 'Paste', disabled: true, onSelect: () => {} },
+    { type: 'separator' },
+    {
+      label: 'Open with',
+      submenu: [
+        { label: 'Editor', onSelect: () => {} },
+        { label: 'Terminal', onSelect: () => {} },
+      ],
+    },
+    { label: 'Delete', danger: true, onSelect: () => {} },
+  ];
+
+  const item = (name: string) => screen.getByRole('menuitem', { name });
+  /** Keystrokes are aimed at whatever holds focus, as a real one would be. */
+  const press = (key: string) => fireEvent.keyDown(document.activeElement ?? document.body, { key });
+
+  function open(onClose: () => void = () => {}) {
+    render(<ContextMenu position={{ x: 0, y: 0 }} items={items} onClose={onClose} />);
+  }
+
+  it('focuses the first selectable item on open', () => {
+    open();
+    expect(document.activeElement).toBe(item('Copy'));
+    expect(item('Copy').tabIndex).toBe(0);
+    expect(item('Delete').tabIndex).toBe(-1);
+  });
+
+  it('skips disabled items and separators, and wraps at both ends', () => {
+    open();
+
+    press('ArrowDown');
+    expect(document.activeElement).toBe(item('Open with'));
+
+    press('ArrowDown');
+    expect(document.activeElement).toBe(item('Delete'));
+
+    // Past the end, back to the top.
+    press('ArrowDown');
+    expect(document.activeElement).toBe(item('Copy'));
+
+    // And past the top, back to the end.
+    press('ArrowUp');
+    expect(document.activeElement).toBe(item('Delete'));
+  });
+
+  it('jumps to either end with Home and End', () => {
+    open();
+
+    press('End');
+    expect(document.activeElement).toBe(item('Delete'));
+
+    press('Home');
+    expect(document.activeElement).toBe(item('Copy'));
+  });
+
+  it('enters a submenu with ArrowRight and leaves it with ArrowLeft', () => {
+    open();
+
+    press('ArrowDown');
+    expect(item('Open with').getAttribute('aria-expanded')).toBe('false');
+
+    press('ArrowRight');
+    expect(document.activeElement).toBe(item('Editor'));
+    expect(item('Open with').getAttribute('aria-expanded')).toBe('true');
+
+    // The submenu navigates on its own indices, not the parent's.
+    press('ArrowDown');
+    expect(document.activeElement).toBe(item('Terminal'));
+
+    press('ArrowLeft');
+    expect(screen.queryByText('Terminal')).toBeNull();
+    expect(document.activeElement).toBe(item('Open with'));
+  });
+
+  it('does not move the keyboard into a submenu the pointer opened', () => {
+    open();
+
+    fireEvent.mouseEnter(screen.getByText('Open with').closest('div.relative')!);
+    expect(screen.queryByText('Editor')).not.toBeNull();
+    // Hover opened the surface; focus stayed where the keyboard left it.
+    expect(document.activeElement).toBe(item('Copy'));
+  });
+
+  it('returns focus to the row that opened it (Theme A, through the trap)', () => {
+    function Harness() {
+      const [shown, setShown] = useState(false);
+      return (
+        <>
+          <button type="button" data-testid="row" onClick={() => setShown(true)}>
+            Row
+          </button>
+          {shown ? (
+            <ContextMenu position={{ x: 0, y: 0 }} items={items} onClose={() => setShown(false)} />
+          ) : null}
+        </>
+      );
+    }
+
+    render(<Harness />);
+    const row = screen.getByTestId('row');
+    row.focus();
+    fireEvent.click(row);
+
+    expect(document.activeElement).toBe(item('Copy'));
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(row);
   });
 });

@@ -124,16 +124,19 @@ export function Palette() {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const previouslyFocused = useRef<HTMLElement | null>(
-    typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null),
-  );
 
+  // Restoration on close is the trap's job now (Phase 68 Theme A). The bespoke
+  // block that used to sit here captured `document.activeElement` in a `useRef`
+  // initializer — which re-evaluates every render — and restored without an
+  // `isConnected` check, without a `<body>` guard and without `preventScroll`.
+  // The palette navigates views, so its trigger being gone by the time it
+  // closes is the normal case, not the edge one.
   useFocusTrap(containerRef, true);
 
+  // Forward focus stays the palette's own business: the search box is where a
+  // freshly opened palette expects the next keystroke.
   useEffect(() => {
     inputRef.current?.focus();
-    const restoreTo = previouslyFocused.current;
-    return () => restoreTo?.focus();
   }, []);
 
   const { needle } = parsePaletteQuery(query);
