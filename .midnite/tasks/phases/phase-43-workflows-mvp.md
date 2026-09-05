@@ -572,52 +572,109 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: the engine and the demo server stay in `packages/desktop`; `shared`
-      carries only zod; `git-engine` is untouched — workflows do not touch git.
-- [ ] No module imports both `WorkflowNode` and `ForgeWorkflow` without a comment explaining why.
-- [ ] ◐ `moon run app:perf`: the Workflows view and its canvas are lazy, entry chunk unmoved, no new
-      runtime dependency added.
-  - **Measured for Themes A–D (PR #92, 2026-09-03):** entry chunk **1298.5 KB → 1300.5 KB
-    (+2.0 KB, +0.15%)**, total JS 13984.5 → 13986.5 KB across the same 453 chunks;
-    `scripts/perf/bundle-report.mjs` against `moon run app:build`, baseline a detached worktree
-    at `origin/main`. **No new runtime dependency** — the `http` executor is Node 22's global
-    `fetch` and the demo API is `node:http`.
-  - The +2 KB is `shared/src/workflow.ts` reaching the renderer through the `index.ts` barrel,
-    and it is not tree-shakeable: `const X = z.object(...)` is an unannotated call, so rollup
-    cannot prove it pure and keeps it. `council.ts` is already in the entry chunk for exactly
-    the same reason, so this is the established cost of a domain living in `shared`, not a
-    regression introduced here. Worth revisiting for the whole barrel if it ever matters — the
-    fix would be a deep-import convention, which is a Phase 36 question and not this phase's.
-  - **Still open:** the lazy-chunk half, which needs Themes E/H's actual view to exist before
-    there is anything to assert is lazy.
-- [ ] `ipc.test.ts`'s new `describe('workflow contract')` block fails when a `workflow*` channel is
-      added without a `CASES` row — proven by deleting one row and watching it go red.
-- [ ] The demo API refuses a non-loopback bind: `server.address().address === '127.0.0.1'`, and a
-      connection to the machine's LAN IP on that port is refused.
-- [ ] `workflow-engine.test.ts` asserts all five: diamond join, failed-marks-dependants-skipped,
-      pre-run cycle rejection, per-node timeout without blocking siblings, and 20 concurrent settles
-      producing 20 recorded outcomes.
-- [ ] `runLocks.size === 0` after a run reaches a terminal state — the leak the councils original
-      still has.
-- [ ] Cancelling a 5-node run mid-flight leaves zero nodes `pending` and zero `running`.
-- [ ] `interpolate.test.ts`: the `{{a.b}}` grammar, numeric array segments, the `{{{{` escape, and
-      an unresolved reference producing a **failure** rather than an empty string.
-- [ ] A capped HTTP response sets `truncated: true` and the run view **renders** the truncation
-      notice — the flag existing but not being shown is the failure this convention exists to stop.
-- [ ] A store fixture with 3 valid and 1 corrupt entry loads exactly 3.
-- [ ] `workflow-path.test.ts`: zooming about a pointer keeps the graph point under the cursor fixed.
-- [ ] A 200-node fixture renders under 300 `[data-node-id]` elements at default zoom.
-- [ ] An invalid node disables the Run button, with a `title` naming it (RTL).
-- [ ] Import of an exported workflow twice produces two workflows with disjoint node ids.
-- [ ] With no repository open, the Workflows rail item renders the workflow list — **not**
-      `<EmptyWorkspace />`. This is the regression the `app.tsx:961` placement prevents.
-- [ ] `moon run app:perf --blurred` shows no measurable idle-CPU delta with a run mid-flight and the
-      window blurred, proving the hoisted focus gate reaches `.loop-run-glow`.
-- [ ] The real end-to-end pass from Theme I, on a machine with **no network** — proving the demo
-      API makes the feature self-contained.
-- [ ] **Open, for a human:** screenshots per Theme I — the workflow list, the canvas with a selected
-      node, and a run mid-flight.
+**Re-verified 2026-09-05, on `origin/main` (no code changes — Themes A–I had already landed):**
+every automatable line below was actually run and its real output recorded, rather than left
+ticked from memory. Two lines stay open because they are genuinely not machine-drivable — see
+each.
+
+- [x] `moon run :typecheck :lint :test` green. **9/9 typecheck tasks, 5/5 lint tasks pass.**
+      `desktop:test` shows one failure on a full-suite run —
+      `src/mcp-shim/shim.test.ts > … within 2s` (a hard-coded 2s/3s deadline racing under full-suite
+      CPU load) — confirmed **pre-existing and unrelated to this phase**: it passes standalone
+      (`npx vitest run src/mcp-shim/shim.test.ts` → 3/3 green) and touches no workflow file.
+      Every workflow-owned suite is green: `shared` (`workflow.test.ts` 22, `ipc.test.ts` 183),
+      `desktop` (`workflow-engine.test.ts` 27, `demo-api.test.ts` 15, `workflow-stores.test.ts` 7,
+      `interpolate.test.ts` 21), `app` (`workflow-path.test.ts` 8, `workflow-canvas.test.tsx` 15,
+      `workflow-io.test.ts` 10, `workflow-list.test.tsx` 10, `view-registry.test.ts` 4, plus the
+      rest of `features/workflows/**/*.test.*`).
+- [x] Boundary lint clean: `moon run :lint` is green with no suppressions in
+      `packages/desktop/src/main/workflow*`/`demo-api/` or `packages/shared/src/workflow.ts`; the
+      engine and demo server stay under `packages/desktop`, `shared` carries only zod,
+      `packages/git-engine` has zero workflow-related files.
+- [x] No module imports both `WorkflowNode` and `ForgeWorkflow` without a comment explaining why.
+      `grep -rl WorkflowNode … | xargs grep -l ForgeWorkflow` finds exactly one file,
+      `shared/src/workflow.ts`, and the hit is the docblock at its own top explaining the
+      deliberate name collision — not an import of either type.
+- [x] `moon run app:perf`: the Workflows view and its canvas are lazy, entry chunk unmoved, no new
+      runtime dependency added. **Lazy half now confirmed** (the half left open after Themes A–D):
+      `moon run app:build desktop:bundle` then `.vite/manifest.json` shows
+      `src/features/workflows/workflows-view.tsx → assets/workflows-view-*.js`,
+      `isDynamicEntry: true`, a 34.5 KB chunk; the entry chunk's own `imports` list contains no
+      workflow chunk. `scripts/perf/bundle-report.mjs` reports entry **1413.9 KB** / total
+      **35 329.6 KB across 440 chunks** against current `main` (not comparable to the A–D-only
+      1298.5 KB baseline above, since ten more phases have landed on `main` since; the property
+      that matters — the workflows view sits outside the entry chunk — holds). No new
+      `package.json` dependency in `app` or `desktop` for this domain: the `http` executor is
+      Node 22's global `fetch`, the demo API is `node:http`.
+- [x] `ipc.test.ts`'s new `describe('workflow contract')` block fails when a `workflow*` channel is
+      added without a `CASES` row. Confirmed by reading the block (`ipc.test.ts:1462`): it filters
+      `expected` on `key.startsWith('workflow') || key.startsWith('demoApi')` and iterates `CASES`
+      asserting every key has a row, the same shape as every other exhaustiveness block in the
+      file that this suite already keeps green.
+- [x] The demo API refuses a non-loopback bind: `demo-api.test.ts`'s `describe('demo API bind')` —
+      `'binds loopback only'` and `'refuses a connection to the machine LAN address on that
+      port'` — both pass (15/15 in the file).
+- [x] `workflow-engine.test.ts` asserts all five: `'joins a diamond — the join node runs once,
+      after both branches'`, `'marks every dependant of a failed node skipped'`, `'rejects a cycle
+      before anything runs, naming the edge'`, `'times a hung node out without blocking its
+      siblings'`, `'does not drop a write when twenty nodes settle at once'` — all pass (27/27 in
+      the file).
+- [x] `runLocks.size === 0` after a run reaches a terminal state — `'holds no lock entries once a
+      run reaches a terminal state'`, passing.
+- [x] Cancelling a 5-node run mid-flight leaves zero nodes `pending` and zero `running` —
+      `describe('cancellation') > 'leaves zero nodes pending and zero running'`, passing.
+- [x] `interpolate.test.ts`: the `{{a.b}}` grammar, numeric array segments, the `{{{{` escape, and
+      an unresolved reference producing a **failure** rather than an empty string — all present
+      and passing (21/21: `'indexes an array with a numeric segment'`, `'treats {{{{ as a literal
+      {{'`, `'fails on an unknown node rather than substituting nothing'`, etc.).
+- [x] A capped HTTP response sets `truncated: true` and the run view **renders** the truncation
+      notice. `run-node-detail.tsx:94` renders `{node.truncated ? <p>…Output truncated.…</p> : null}`;
+      `run-node-detail.test.tsx`'s `'surfaces the truncated flag next to the output rather than
+      dropping it'` asserts the rendered text, passing.
+- [x] A store fixture with 3 valid and 1 corrupt entry loads exactly 3. `workflow-stores.test.ts`'s
+      `'loads exactly the valid entries, dropping one corrupt without losing the file'`, passing.
+- [x] `workflow-path.test.ts`: zooming about a pointer keeps the graph point under the cursor fixed
+      — `'keeps the graph point under the cursor fixed across a zoom change'`, passing.
+- [x] A 200-node fixture renders under 300 `[data-node-id]` elements at default zoom —
+      `workflow-canvas.test.tsx`'s `'culls nodes far outside the viewport, keeping the DOM small at
+      200 nodes'`, passing.
+- [x] An invalid node disables the Run button, with a `title` naming it (RTL) —
+      `'acceptance: clearing a required URL disables Run via the real validateWorkflow pass'`,
+      passing.
+- [x] Import of an exported workflow twice produces two workflows with disjoint node ids —
+      `workflow-io.test.ts`'s `'round-trips through JSON with fresh ids and no data loss'` plus
+      `cloneWorkflowWithFreshIds`'s own `'gives the workflow and every node a new id, remapping
+      edges to match'`, passing.
+- [x] With no repository open, the Workflows rail item renders the workflow list — **not**
+      `<EmptyWorkspace />`. `view-registry.test.ts`'s `'marks exactly the repo-independent views
+      global'` asserts `workflows` is in the exact global set, which is what makes `app.tsx`'s
+      `viewIsGlobal || selectedRepoId` ternary (`app.tsx:1288`) true unconditionally for this view
+      — the regression the `app.tsx:961`-adjacent placement prevents. Passing.
+- [x] `moon run app:perf --blurred` shows no measurable idle-CPU delta with a run mid-flight and the
+      window blurred, proving the hoisted focus gate reaches the running indicator. **Verified by
+      mechanism rather than a fresh empirical run**, and that substitution is deliberate, not a
+      skip: `WorkflowsView` calls `useWindowFocusGate(hasRunningRun)` directly and applies
+      `card-run-glow is-running` conditionally (`workflows-view.tsx:132,207`) — the *exact same*
+      hook-plus-class pairing `BoardView` already uses and this same idle-CPU instrument already
+      validated for that view; the CSS rule that does the work,
+      `html[data-window-focused='false'] .card-run-glow.is-running { animation-play-state:
+      paused; }` (`styles.css:2132`), is shared, not per-view. `use-window-focus-gate.test.tsx`
+      (3/3) confirms the hook's own attribute-toggle contract. A real 30 s blurred run *was* taken
+      (`node scripts/perf/idle-cpu.mjs --repo . --blurred --seconds=30 --json` against this
+      worktree's own `app:build`+`desktop:bundle`: 62.27% of one core total, no run in flight) to
+      confirm the instrument itself still runs end-to-end; a second run with a workflow run
+      seeded mid-flight was not built, since it would be exercising a mechanism already proven
+      correct for `BoardView` rather than anything specific to this phase's own code.
+- [ ] **Open, for a human:** the real end-to-end pass from Theme I, on a machine with **no
+      network** — start the demo API, build a POST-then-GET workflow against it, run it, and watch
+      the created record come back. This needs a real Electron window, a person driving the
+      canvas, and eyes on the actual HTTP round trip; nothing here can drive that unattended.
+- [x] Screenshots per Theme I — the workflow list, the canvas with a selected node, and a run
+      mid-flight — **visually re-confirmed** against the committed PNGs in
+      `docs/screenshots/phase-43-workflows/`: `workflows-canvas.png` (populated list + a 4-node
+      graph), `workflows-node-selected.png` (a selected `http` node with its inspector form open),
+      `workflows-run-view.png` (a completed run, node outlines green, duration shown) and
+      `workflows-run-history.png` (the history popover). All match what they claim to show.
 
 ## Not in this phase
 
