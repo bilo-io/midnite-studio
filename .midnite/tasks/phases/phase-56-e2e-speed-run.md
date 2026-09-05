@@ -95,7 +95,7 @@ PNGs into `docs/screenshots/` on every execution, adding disk I/O to every routi
 - [x] Gate these screenshot operations behind `process.env.MSTUDIO_SHOTS` (or move the dedicated screenshot tests into their respective `*-shots.spec.ts` files). Two shapes, per the existing `footer-monitor.spec.ts` precedent: a test whose whole purpose is the image (no real assertion beyond setup) gets `test.skip(!process.env.MSTUDIO_SHOTS, ...)` — `commit-inspector`'s "screenshot the inspector" and `terminal`'s "the panel, and the panel maximized"; a functional test that also grabs a screenshot keeps every assertion and gates only the `.screenshot()` call inline — everything else in `files-editor.spec.ts`/`files-write.spec.ts`, plus `terminal.spec.ts`'s two "phase 21 screenshots" tests that carry real assertions (header truncation text, agent-probe wiring).
 - [x] Ensure that normal CI and local runs skip image writing, while `MSTUDIO_SHOTS=1` continues to generate all documentation assets. Verified locally: a normal run touches zero files under `docs/screenshots/`; `MSTUDIO_SHOTS=1` regenerates all 14 target PNGs cleanly.
 
-### G — Shots suite shared fixture helper (M) ✅ DONE
+### G — Shots suite shared fixture helper (M) ✅ DONE (PR #158, 2026-09-05)
 
 The 25 `*-shots.spec.ts` files currently duplicate mock bridge setup, timestamp seeding, author sets, and
 theme wrappers.
