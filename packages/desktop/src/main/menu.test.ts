@@ -70,12 +70,14 @@ describe('the View menu', () => {
    * `Cmd+L` is expand-line-selection there and already in the terminal's own
    * yield list, and `Cmd+O` opens a native folder picker mid-keystroke.
    */
-  it('offers Toggle Repositories and Toggle Loop Panel with no native accelerator', () => {
+  it('offers Toggle Repositories and Quick Access with no native accelerator', () => {
     const view = submenuOf('View');
     expect(row(view, 'Toggle Repositories')).toBeDefined();
     expect(row(view, 'Toggle Repositories')?.accelerator).toBeUndefined();
-    expect(row(view, 'Toggle Loop Panel')).toBeDefined();
-    expect(row(view, 'Toggle Loop Panel')?.accelerator).toBeUndefined();
+    // Relabelled (Phase 58 Theme F): `fab.toggle` now opens the quick-access
+    // menu, not the Loops panel directly.
+    expect(row(view, 'Quick Access')).toBeDefined();
+    expect(row(view, 'Quick Access')?.accelerator).toBeUndefined();
   });
 });
 

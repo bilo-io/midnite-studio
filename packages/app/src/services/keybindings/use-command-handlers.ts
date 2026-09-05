@@ -152,7 +152,11 @@ export function useCommandHandlers(): CommandRuntime {
       : { enabled: false, disabledReason: 'No terminal selected', run: () => {} },
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
     'browser.toggle': { enabled: true, run: () => useUiStore.getState().toggleBrowser() },
-    'fab.toggle': { enabled: true, run: () => useUiStore.getState().toggleFabPanel() },
+    // Re-pointed (Phase 58 Theme F): `fab.toggle` used to open the Loops panel
+    // directly; it now opens the quick-access menu the panel sits behind
+    // (Theme E), which is what its `L` row opens the Loops panel via.
+    'fab.toggle': { enabled: true, run: () => useUiStore.getState().toggleQuickAccess() },
+    'notes.toggle': { enabled: true, run: () => useUiStore.getState().toggleNotes() },
     /*
       Multi-window (Phase 55). `detach<Role>` is enabled only while that panel
       is docked — a detached panel's row is disabled with the standard

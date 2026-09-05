@@ -29,7 +29,10 @@ async function open(page: Page, over: Partial<MockFixtures> = {}): Promise<void>
  * over `REVEAL_MS`, and a click landing mid-slide is rejected as "not stable".
  */
 async function openFab(page: Page, tab?: string): Promise<void> {
+  // The FAB opens the quick-access menu (Phase 58 Theme E); its `L` row opens
+  // the Loops panel this helper is actually after.
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
+  await page.keyboard.press('l');
   await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   if (tab) await page.getByRole('button', { name: tab, exact: true }).click();
   await page.waitForTimeout(SETTLE_WAIT_MS);
