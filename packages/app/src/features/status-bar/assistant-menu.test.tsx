@@ -24,7 +24,10 @@ vi.mock('../loops/loop-status', () => ({
 
 beforeEach(() => {
   statuses = DEFAULT_LOOPS.map(() => IDLE);
-  useUiStore.setState({ fabPanelOpen: false, activeFabTab: 'innovate' });
+  // `quickAccessOpen` is a real, shared store field now that this component
+  // renders `QuickAccessMenu` off it rather than its own local `open` state
+  // — reset explicitly, or a prior test's click leaks into this one.
+  useUiStore.setState({ fabPanelOpen: false, activeFabTab: 'innovate', quickAccessOpen: false });
 });
 
 afterEach(() => {
@@ -35,12 +38,21 @@ afterEach(() => {
 const trigger = () => screen.getByTestId('assistant-menu');
 
 describe('AssistantMenu', () => {
-  it('opens the quick-access menu while the FAB panel is closed', () => {
+  /*
+   * The menu's own rows/mnemonics are `quick-access-menu.test.tsx`'s job, and
+   * which single spot actually mounts `QuickAccessMenu` is `app.tsx`'s — this
+   * trigger only has to flip the shared flag that decides whether it does.
+   */
+  it('toggles quickAccessOpen while the FAB panel is closed', () => {
     render(<AssistantMenu />);
     expect(trigger().getAttribute('aria-label')).toBe('Midnite Assistant');
+    expect(useUiStore.getState().quickAccessOpen).toBe(false);
+
     fireEvent.click(trigger());
-    expect(screen.getByRole('menuitem', { name: /Loops/ })).toBeDefined();
-    expect(screen.getByRole('menuitem', { name: /Notes/ })).toBeDefined();
+    expect(useUiStore.getState().quickAccessOpen).toBe(true);
+
+    fireEvent.click(trigger());
+    expect(useUiStore.getState().quickAccessOpen).toBe(false);
   });
 
   /**
@@ -55,7 +67,8 @@ describe('AssistantMenu', () => {
     expect(button.getAttribute('aria-label')).toBe('Close quick access panel');
     expect(button.getAttribute('data-fab-tab')).toBe('medic');
     fireEvent.click(button);
-    expect(screen.queryByRole('menuitem', { name: /Loops/ })).toBeNull();
+    // Clicking the mini-FAB toggles `fabPanelOpen`, not `quickAccessOpen`.
+    expect(useUiStore.getState().quickAccessOpen).toBe(false);
   });
 
   it('closes the FAB panel when clicked while open', () => {

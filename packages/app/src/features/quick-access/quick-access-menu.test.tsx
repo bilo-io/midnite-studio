@@ -68,14 +68,26 @@ describe('QuickAccessMenu', () => {
     expect(document.activeElement).toBe(screen.getByTestId('quick-access-row-n'));
   });
 
-  it('sets quickAccessOpen while mounted and clears it on unmount', () => {
-    expect(useUiStore.getState().quickAccessOpen).toBe(false);
+  /*
+    `quickAccessOpen` gates `use-keybindings.ts`'s global dispatcher AND is
+    the flag both entry points render off — this component deliberately does
+    not also set it itself. It used to (mount → true, unmount → false), which
+    reads correct in isolation but is what mounted a second, unwanted instance
+    the moment either caller's own conditional saw the flag flip: with the
+    FAB reading the same `quickAccessOpen` the assistant-menu's mount had just
+    set true, both rendered at once. One shared gate that only a caller's own
+    open/close toggles is what keeps exactly one instance mounted — see
+    `quick-access-menu.spec.ts`'s "the assistant menu opens the same
+    component" e2e spec, which is what caught the double-mount.
+  */
+  it('does not touch quickAccessOpen itself — that stays the caller-owned render gate', () => {
+    useUiStore.setState({ quickAccessOpen: true });
 
     const { unmount } = render(<QuickAccessMenu onClose={() => {}} />);
     expect(useUiStore.getState().quickAccessOpen).toBe(true);
 
     unmount();
-    expect(useUiStore.getState().quickAccessOpen).toBe(false);
+    expect(useUiStore.getState().quickAccessOpen).toBe(true);
   });
 
   it('clicking the Loops row opens the Loops panel and closes the menu', () => {
