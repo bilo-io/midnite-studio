@@ -1,3 +1,5 @@
+import { realpath } from 'node:fs/promises';
+
 import {
   currentBranch,
   getStatus,
@@ -46,6 +48,15 @@ type RegisteredRepo = {
   descriptor: RepoDescriptor;
 };
 
+/** `realpath`, or `null` for anything that cannot be resolved (missing, a broken symlink, a permissions error) — never thrown, since every caller here treats that the same as "does not match". */
+async function realpathOrNull(path: string): Promise<string | null> {
+  try {
+    return await realpath(path);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * `repoPath` → the repository it belongs to, refusing anything the app has
  * not opened. Every tool below resolves through this rather than trusting
@@ -54,11 +65,14 @@ type RegisteredRepo = {
  *
  * Uses `resolveRepoRoot` + the repo registry, not `fs-scope.ts`: `joinWithin`
  * there refuses absolute paths outright, and an MCP caller only ever has an
- * absolute path (Phase 57 Decision 9). The deeper hardening this needs before
- * the server is reachable outside a developer's own machine — `realpath`
- * symlink comparison, an audit trail — is Theme E, deferred with the rest of
- * consent-and-scope; this is the resolve-then-compare Theme D's own bullet
- * list requires so a tool can find the right repository at all.
+ * absolute path (Phase 57 Decision 9).
+ *
+ * **Symlink/TOCTOU hardening (Theme E).** Comparison is resolved-root to
+ * resolved-root, via `realpath`, not the raw strings `resolveMainWorktree`
+ * and the registry return — a `repoPath` reached only through a symlink
+ * whose real target is a repository Midnite Studio has not opened is refused
+ * exactly like any other unregistered path, even if some segment of the
+ * unresolved string happened to collide with a registered one.
  */
 async function resolveRegisteredRepo(
   repoPath: string,
@@ -72,7 +86,22 @@ async function resolveRegisteredRepo(
   }
 
   const mainRoot = (await resolveMainWorktree(repoPath)) ?? repoRoot;
-  const registered = (await listRepos()).find((repo) => repo.path === mainRoot);
+  const realMainRoot = await realpathOrNull(mainRoot);
+  if (!realMainRoot) {
+    return {
+      ok: false,
+      error: new McpToolError('refused', `"${mainRoot}" could not be resolved.`),
+    };
+  }
+
+  let registered: RepoDescriptor | undefined;
+  for (const repo of await listRepos()) {
+    if ((await realpathOrNull(repo.path)) === realMainRoot) {
+      registered = repo;
+      break;
+    }
+  }
+
   if (!registered) {
     return {
       ok: false,

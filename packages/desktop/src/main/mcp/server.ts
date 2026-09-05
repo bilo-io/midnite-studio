@@ -2,11 +2,18 @@ import { chmodSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import * as net from 'node:net';
 import { join } from 'node:path';
 
-import { MCP_MAX_REQUEST_BYTES, MCP_MAX_RESPONSE_BYTES, type McpRequest, type McpResponse } from '@midnite/studio-shared';
+import {
+  isMcpToolId,
+  MCP_MAX_REQUEST_BYTES,
+  MCP_MAX_RESPONSE_BYTES,
+  type McpRequest,
+  type McpResponse,
+} from '@midnite/studio-shared';
 
 import { createFrameDecoder, encodeJsonFrame } from '../../broker/protocol';
 import { defaultLogger, type Logger } from '../log';
 import { isSocketPathTooLong, mcpSocketName } from '../socket-name';
+import { recordMcpCall } from './audit';
 import { dispatchMcpCall } from './dispatch';
 
 /**
@@ -44,6 +51,15 @@ function tooManyConnectionsResponse(): McpResponse {
   return { id: '', ok: false, kind: 'refused', message: 'too many concurrent MCP connections' };
 }
 
+/** Every `MCP_TOOLS` input is `McpRepoTarget` or extends it — this is the one field the audit ring is allowed to keep. */
+function auditRepoPath(input: unknown): string {
+  if (input && typeof input === 'object' && 'repoPath' in input) {
+    const value = (input as { repoPath?: unknown }).repoPath;
+    if (typeof value === 'string') return value;
+  }
+  return '';
+}
+
 export async function startMcpServer(opts: StartMcpServerOptions): Promise<StartMcpServerResult> {
   const { userDataDir, appVersion, buildId, isPackaged } = opts;
   const log = opts.log ?? defaultLogger;
@@ -72,7 +88,26 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
     const id = typeof raw.id === 'string' ? raw.id : '';
     const tool = typeof raw.tool === 'string' ? raw.tool : '';
 
+    const startedAt = Date.now();
     const result = await dispatchMcpCall(tool, raw.input);
+    const ms = Date.now() - startedAt;
+
+    /*
+      Theme E's audit ring, plus one `[mcp]` line through the one log seam —
+      only for a recognised tool id, since an unknown-tool call never reached
+      a handler and has nothing a caller would recognise as "an audit entry"
+      for. `repoPath` is whatever the caller passed as that field and nothing
+      deeper: every tool's input is `McpRepoTarget` (or extends it), so this
+      never picks up a diff's file path or a branch name — the guardrail
+      the phase doc states ("no payload bodies, no full paths beyond the
+      repo root") made enforceable by construction rather than by convention.
+    */
+    if (isMcpToolId(tool)) {
+      const repoPath = auditRepoPath(raw.input);
+      recordMcpCall({ at: Date.now(), tool, repoPath, ok: result.ok, ms });
+      log(`[mcp] ${tool} ${result.ok ? 'ok' : 'err'} ${ms}ms ${repoPath || '-'}`);
+    }
+
     const response: McpResponse = result.ok
       ? { id, ok: true, value: result.value }
       : { id, ok: false, kind: result.kind, message: result.message };
