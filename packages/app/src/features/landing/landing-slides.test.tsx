@@ -20,7 +20,7 @@ describe('landing slides', () => {
     }
   });
 
-  it('explains the loop console with its chord and all four tabs', () => {
+  it('explains the loop console with its chord and all six tabs', () => {
     render(<FabSlide />);
 
     // The chord comes from the keymap; `Mod` must never reach the screen.
@@ -30,6 +30,6 @@ describe('landing slides', () => {
       const tab = screen.getByTestId(`landing-loop-${loop.id}`);
       expect(tab.textContent, loop.id).toContain(loop.label);
     }
-    expect(DEFAULT_LOOPS).toHaveLength(4);
+    expect(DEFAULT_LOOPS).toHaveLength(6);
   });
 });

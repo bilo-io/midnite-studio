@@ -53,12 +53,12 @@ for (const mode of ['light', 'dark'] as const) {
     await setReducedMotion(page);
 
     await fab(page).click();
-    await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
-    await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
-    await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
+    await page.getByTestId('loop-composer-guard').getByTestId('loop-start').click();
+    await expect(page.getByTestId('loop-composer-guard').getByTestId('loop-stop')).toBeVisible();
     await expect(page.locator('.xterm-screen')).toHaveCount(1);
 
-    for (const tab of ['Ideate', 'Create', 'Patrol', 'Medic']) {
+    for (const tab of ['Guard', 'Concepts', 'Develop', 'Patrol', 'Medic', 'Overhaul']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(300);
       await closeFab(page).click(); // close

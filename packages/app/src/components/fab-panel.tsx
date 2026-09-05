@@ -46,8 +46,8 @@ function loopGlowState(status: LoopStatus | undefined): LoopGlowState {
 /**
  * The FAB's loop console (Phase 35).
  *
- * The four tabs are data now — `DEFAULT_LOOPS` in `@midnite/studio-shared` —
- * not a fourth hard-coded copy of the prompts that already live in
+ * The six tabs are data now — `DEFAULT_LOOPS` in `@midnite/studio-shared` —
+ * not a sixth hard-coded copy of the prompts that already live in
  * `agentSkills`. Each loop's base prompt is read through its `agentCommandId`,
  * so editing a `/loop …` field in Settings ▸ Agent changes what the tab runs.
  */

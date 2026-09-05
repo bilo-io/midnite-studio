@@ -68,7 +68,7 @@ async function openWithAgent(page: Page): Promise<void> {
 
   const fab = page.getByRole('button', { name: 'Open quick access panel' });
   await fab.click();
-  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   await expect(page.getByTestId('titlebar-agent-count')).toBeVisible();
   /*
     Shut again — via the statusbar's mini FAB, the toggle that stands in for
@@ -78,7 +78,7 @@ async function openWithAgent(page: Page): Promise<void> {
     ever has.
   */
   await page.getByRole('button', { name: 'Close quick access panel' }).click();
-  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeHidden();
   await expect(page.getByTestId('fab-launchers')).toHaveAttribute('data-expanded', 'false');
 }
 
@@ -310,7 +310,7 @@ test('the theme toggle stays in the window once full no longer fits', async ({ p
  * permanently-visible bar is noise, so it collapses instead. Kept on the move
  * into the title bar, where the corner is the window's highest-attention one.
  */
-test('the loop strip rests as one glyph and expands to four on hover', async ({ page }) => {
+test('the loop strip rests as one glyph and expands to six on hover', async ({ page }) => {
   await open(page);
   const strip = page.getByTestId('fab-launchers');
   await expect(strip).toHaveAttribute('data-expanded', 'false');
@@ -318,7 +318,7 @@ test('the loop strip rests as one glyph and expands to four on hover', async ({ 
 
   await strip.hover();
   await expect(strip).toHaveAttribute('data-expanded', 'true');
-  for (const id of ['innovate', 'automate', 'watchdog', 'medic']) {
+  for (const id of ['guard', 'innovate', 'automate', 'watchdog', 'medic', 'overhaul']) {
     await expect(page.getByTestId(`loop-launcher-${id}`)).toBeVisible();
   }
 });
@@ -391,6 +391,6 @@ test('reduced motion keeps a running launcher glow and full opacity', async ({ p
   await expect(launcher).toHaveCSS('opacity', '1');
   const shadow = await launcher.evaluate((el) => getComputedStyle(el).boxShadow);
   expect(shadow).not.toBe('none');
-  // Patrol is yellow-500 — the glow is the loop's own colour, not a generic one.
-  expect(shadow).toContain('234, 179, 8');
+  // Patrol is violet-500 — the glow is the loop's own colour, not a generic one.
+  expect(shadow).toContain('139, 92, 246');
 });

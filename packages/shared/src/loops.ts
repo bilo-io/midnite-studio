@@ -629,16 +629,16 @@ export const AUTONOMY_CHOICE: LoopChoice = {
 };
 
 /**
- * The four loops the FAB ships with. Ids match the historical `FabTab` union
+ * The six loops the FAB ships with. Ids match the historical `FabTab` union
  * so persisted `activeFabTab` values keep meaning what they meant.
  *
- * Two of them read their whole job off the forge, and split it the way the two
- * words do. **Patrol** walks the pull requests — its base is a bare `/loop` and
- * its boxes append the PR skills themselves, so "review" and "feedback" are one
- * pass or two by checkbox rather than by tab. **Medic** treats what is already
- * sick: the dependency bots' PRs and the issue backlog, on `/midnite-address-issue`.
- * Either can be told to look and not touch, and `Triage only` on both means the
- * same thing — run `/midnite-triage` and report its table, change nothing.
+ * **Guard** runs security sweeps — secret scanning, dependency audits and
+ * vulnerability reviews. **Concepts** brainstorms new phase docs. **Develop**
+ * executes the backlog. **Patrol** walks the pull requests. **Medic** treats
+ * what is already sick: the dependency bots' PRs and the issue backlog.
+ * **Overhaul** is the performance loop — it profiles, measures and fixes.
+ * Either Patrol or Medic can be told to look and not touch; `Triage only`
+ * means the same thing on both — run `/midnite-triage` and report its table.
  *
  * Known seam: a *base* prompt is indirected through `agentCommandId`, so Settings
  * ▸ Agent can repoint it, but a modifier's `promptFragment` is not — the skill
@@ -649,10 +649,90 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  */
 export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   {
+    id: 'guard',
+    label: 'Guard',
+    icon: 'guard',
+    color: 'text-green-500',
+    agentId: 'claude',
+    agentCommandId: 'loopGuard',
+    fallbackPrompt: '/loop /midnite-address-issue',
+    requiresModifier: false,
+    modifiers: [
+      {
+        id: 'secret-scan',
+        label: 'Scan for secrets',
+        promptFragment:
+          'Scan for hardcoded secrets, tokens and credentials — report findings and redact or rotate any that are real.',
+        group: 'tasks',
+        control: 'checkbox',
+        defaultOn: true,
+      },
+      {
+        id: 'dep-audit',
+        label: 'Audit dependencies',
+        promptFragment:
+          'Run a dependency audit and file issues or PRs for any high- or critical-severity advisories found.',
+        group: 'tasks',
+        control: 'checkbox',
+        defaultOn: false,
+      },
+      {
+        id: 'security-review',
+        label: 'Review for vulnerabilities',
+        promptFragment:
+          'Review recent changes for injection, auth and supply-chain vulnerabilities and report findings.',
+        group: 'tasks',
+        control: 'checkbox',
+        defaultOn: false,
+      },
+      {
+        id: 'sbom',
+        label: 'Generate SBOM',
+        promptFragment:
+          'Generate or update a software bill of materials for the current build.',
+        group: 'tasks',
+        control: 'checkbox',
+        defaultOn: false,
+      },
+      {
+        id: 'report-only',
+        label: 'Report only — no fixes',
+        promptFragment:
+          'Report only: surface findings and write them up, but push no fixes and open no PRs.',
+        group: 'run',
+        control: 'switch',
+        defaultOn: false,
+      },
+      ...COMMON_RUN_MODIFIERS,
+    ],
+    choices: [
+      {
+        id: 'severity',
+        label: 'Severity gate',
+        group: 'scope',
+        defaultOptionId: 'high',
+        options: [
+          { id: 'all', label: 'All findings' },
+          {
+            id: 'high',
+            label: 'High +',
+            promptFragment: 'Focus on high- and critical-severity findings only.',
+          },
+          {
+            id: 'critical',
+            label: 'Critical only',
+            promptFragment: 'Focus on critical-severity findings only.',
+          },
+        ],
+      },
+      AUTONOMY_CHOICE,
+    ],
+  },
+  {
     id: 'innovate',
-    label: 'Ideate',
+    label: 'Concepts',
     icon: 'brain',
-    color: 'text-blue-500',
+    color: 'text-cyan-500',
     agentId: 'claude',
     agentCommandId: 'loopBrainstorm',
     fallbackPrompt: '/loop /midnite-brainstorm',
@@ -720,9 +800,9 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   },
   {
     id: 'automate',
-    label: 'Create',
+    label: 'Develop',
     icon: 'bot',
-    color: 'text-green-500',
+    color: 'text-blue-500',
     agentId: 'claude',
     agentCommandId: 'loopExecBacklog',
     fallbackPrompt: '/loop /midnite-exec',
@@ -790,7 +870,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     id: 'watchdog',
     label: 'Patrol',
     icon: 'watchdog',
-    color: 'text-yellow-500',
+    color: 'text-violet-500',
     agentId: 'claude',
     agentCommandId: 'loopPatrol',
     fallbackPrompt: '/loop',
@@ -826,10 +906,6 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'triage-only',
         label: 'Triage only',
-        // Names the boxes it overrides on purpose. `Review PRs` is `defaultOn`,
-        // so a triage-only run *will* still carry `/pr-review` on the line, and
-        // an instruction that only said "do not review" would read as a
-        // contradiction rather than as the later word winning.
         promptFragment:
           'Triage only: ignore any review or feedback skill named above — run /midnite-triage instead and report only its summary table. Leave no reviews, merge nothing and push no fixes.',
         group: 'run',
@@ -944,6 +1020,91 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
             id: 'highest-impact',
             label: 'Top issue',
             promptFragment: 'Take only the single highest-impact issue each iteration.',
+          },
+        ],
+      },
+      AUTONOMY_CHOICE,
+    ],
+  },
+  {
+    id: 'overhaul',
+    label: 'Overhaul',
+    icon: 'overhaul',
+    color: 'text-orange-500',
+    agentId: 'claude',
+    agentCommandId: 'loopOverhaul',
+    fallbackPrompt: '/loop /midnite-exec',
+    requiresModifier: false,
+    modifiers: [
+      {
+        id: 'perf-profile',
+        label: 'Profile startup & idle CPU',
+        promptFragment:
+          'Run scripts/perf/startup-report.mjs and scripts/perf/idle-cpu.mjs, surface regressions and fix what is measurably slow.',
+        group: 'tasks',
+        control: 'checkbox',
+        defaultOn: true,
+      },
+      {
+        id: 'bundle-size',
+        label: 'Audit bundle size',
+        promptFragment:
+          'Run scripts/perf/bundle-report.mjs and identify entry-chunk bloat — dead code, heavy imports, or missing code-splits.',
+        group: 'tasks',
+        control: 'checkbox',
+        defaultOn: false,
+      },
+      {
+        id: 'memory-leaks',
+        label: 'Check for memory leaks',
+        promptFragment:
+          'Audit for React component leaks and uncleaned subscriptions; fix or report any retained after unmount.',
+        group: 'tasks',
+        control: 'checkbox',
+        defaultOn: false,
+      },
+      {
+        id: 'render-budget',
+        label: 'Reduce unnecessary renders',
+        promptFragment:
+          'Profile component re-renders and apply memoisation or selector narrowing where the count is excessive.',
+        group: 'tasks',
+        control: 'checkbox',
+        defaultOn: false,
+      },
+      {
+        id: 'report-only',
+        label: 'Report only — no changes',
+        promptFragment:
+          'Report only: measure and document performance findings, but push no code changes.',
+        group: 'run',
+        control: 'switch',
+        defaultOn: false,
+      },
+      ...COMMON_RUN_MODIFIERS,
+    ],
+    choices: [
+      {
+        id: 'perf-target',
+        label: 'Focus',
+        group: 'scope',
+        defaultOptionId: 'all',
+        options: [
+          { id: 'all', label: 'All areas' },
+          {
+            id: 'startup',
+            label: 'Startup',
+            promptFragment: 'Focus on cold-start time — MSTUDIO_PERF=1 marks and the startup report.',
+          },
+          {
+            id: 'runtime',
+            label: 'Runtime',
+            promptFragment: 'Focus on runtime performance — idle CPU, render counts and memory.',
+          },
+          {
+            id: 'bundle',
+            label: 'Bundle',
+            promptFragment: 'Focus on bundle size — entry chunk, total JS and code-split boundaries.',
           },
         ],
       },

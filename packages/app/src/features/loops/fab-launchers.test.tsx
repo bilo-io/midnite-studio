@@ -33,7 +33,7 @@ function renderExpanded() {
 
 beforeEach(() => {
   statuses = DEFAULT_LOOPS.map(() => IDLE);
-  useUiStore.setState({ fabPanelOpen: false, activeFabTab: 'innovate' });
+  useUiStore.setState({ fabPanelOpen: false, activeFabTab: 'guard' });
 });
 
 afterEach(() => {
@@ -78,7 +78,7 @@ describe('FabLaunchers', () => {
   it('hands focus to the first launcher when it expands from the keyboard', () => {
     render(<FabLaunchers />);
     fireEvent.click(screen.getByTestId('fab-launchers-collapsed'));
-    expect(document.activeElement).toBe(launcher('innovate'));
+    expect(document.activeElement).toBe(launcher('guard'));
   });
 
   /**

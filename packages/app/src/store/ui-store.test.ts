@@ -682,7 +682,7 @@ describe('the midnite menu\'s skills', () => {
 
     useUiStore.getState().setAgentSkill('execBacklog', '/midnite-address-issue');
 
-    // One entry moves; the other four are untouched.
+    // One entry moves; all others are untouched.
     expect(useUiStore.getState().agentSkills).toEqual({
       ...DEFAULT_AGENT_SKILLS,
       execBacklog: '/midnite-address-issue',

@@ -40,7 +40,7 @@ async function open(page: Page): Promise<void> {
 
 async function openFab(page: Page, tab?: string): Promise<void> {
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
-  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   if (tab) await page.getByRole('button', { name: tab, exact: true }).click();
   await page.waitForTimeout(400);
 }
@@ -117,7 +117,7 @@ test('the waiting notice, in the bell', async ({ page }) => {
   });
 
   await page.getByTestId('notification-bell').click();
-  await expect(page.getByText('Ideate is waiting for input.')).toBeVisible();
+  await expect(page.getByText('Concepts is waiting for input.')).toBeVisible();
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT_FGHI}/waiting-notice.png` });
 });
@@ -136,7 +136,7 @@ for (const mode of ['light', 'dark'] as const) {
     await openFab(page);
 
     const panel = page.locator('.fab-panel-gradient');
-    for (const tab of ['Ideate', 'Create', 'Patrol', 'Medic']) {
+    for (const tab of ['Guard', 'Concepts', 'Develop', 'Patrol', 'Medic', 'Overhaul']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(900);
       await panel.screenshot({ path: shotPath(OUT_P37, `${mode}-${tab.toLowerCase()}.png`) });
@@ -196,7 +196,7 @@ for (const mode of ['light', 'dark'] as const) {
       await open(page);
       if (mode === 'dark') await setTheme(page, 'dark');
       if (variant === 'before') await page.addStyleTag({ content: BEFORE_CSS });
-      await openFab(page, 'Ideate');
+      await openFab(page, 'Guard');
       const panel = page.locator('.fab-panel-gradient');
 
       await page.waitForTimeout(900);
@@ -239,7 +239,7 @@ for (const mode of ['light', 'dark'] as const) {
       await open(page);
       if (mode === 'dark') await setTheme(page, 'dark');
       if (variant === 'before') await page.addStyleTag({ content: BEFORE_DIM_CSS });
-      await openFab(page, 'Ideate');
+      await openFab(page, 'Guard');
       await setReducedMotion(page);
       await page.waitForTimeout(300);
 
@@ -276,7 +276,7 @@ for (const variant of ['before', 'after'] as const) {
     await setReducedMotion(page);
 
     const panel = page.locator('.fab-panel-gradient');
-    for (const tab of ['Ideate', 'Create', 'Patrol', 'Medic']) {
+    for (const tab of ['Guard', 'Concepts', 'Develop', 'Patrol', 'Medic', 'Overhaul']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(300);
       await panel.screenshot({ path: shotPath(OUT_ARC, `dark-${tab.toLowerCase()}-${variant}.png`) });
@@ -286,9 +286,9 @@ for (const variant of ['before', 'after'] as const) {
   test(`the rim cut to the tab arc, ${variant} (light)`, async ({ page }) => {
     await open(page);
     if (variant === 'before') await page.addStyleTag({ content: BEFORE_ARC_CSS });
-    await openFab(page, 'Ideate');
+    await openFab(page, 'Guard');
     await setReducedMotion(page);
     await page.waitForTimeout(300);
-    await page.locator('.fab-panel-gradient').screenshot({ path: shotPath(OUT_ARC, `light-ideate-${variant}.png`) });
+    await page.locator('.fab-panel-gradient').screenshot({ path: shotPath(OUT_ARC, `light-guard-${variant}.png`) });
   });
 }

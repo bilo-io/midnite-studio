@@ -17,10 +17,12 @@ const OUT = process.env['SHOT_DIR'] ?? '../../docs/screenshots/adhoc-fab-control
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
 
 const TABS = [
-  ['Ideate', 'innovate'],
-  ['Create', 'automate'],
+  ['Guard', 'guard'],
+  ['Concepts', 'innovate'],
+  ['Develop', 'automate'],
   ['Patrol', 'watchdog'],
   ['Medic', 'medic'],
+  ['Overhaul', 'overhaul'],
 ] as const;
 
 async function shootEveryTab(page: Page, suffix: string): Promise<void> {
@@ -28,7 +30,7 @@ async function shootEveryTab(page: Page, suffix: string): Promise<void> {
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
-  await expect(page.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   await page.waitForTimeout(400);
   for (const [tab, id] of TABS) {
     await page.getByRole('button', { name: tab, exact: true }).click();

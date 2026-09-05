@@ -51,7 +51,7 @@ beforeEach(() => {
   statuses = DEFAULT_LOOPS.map(() => IDLE);
   useUiStore.setState({
     fabPanelOpen: true,
-    activeFabTab: 'innovate',
+    activeFabTab: 'guard',
   });
 });
 
@@ -75,11 +75,11 @@ describe('FabPanel tab buttons styling and states', () => {
     useUiStore.setState({ activeFabTab: 'automate' });
     render(<FabPanel isOpen={true} width={400} fitSignal={0} />);
 
-    const automateBtn = screen.getByRole('button', { name: 'Create' });
+    const automateBtn = screen.getByRole('button', { name: 'Develop' });
     expect(automateBtn.className).toContain('is-selected');
     expect(automateBtn.getAttribute('data-selected')).toBe('true');
 
-    const innovateBtn = screen.getByRole('button', { name: 'Ideate' });
+    const innovateBtn = screen.getByRole('button', { name: 'Concepts' });
     expect(innovateBtn.className).not.toContain('is-selected');
     expect(innovateBtn.getAttribute('data-selected')).toBe('false');
   });
