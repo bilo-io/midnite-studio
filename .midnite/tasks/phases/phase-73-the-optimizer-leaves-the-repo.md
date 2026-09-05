@@ -264,9 +264,9 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
 
 ## Deliverables
 
-### A — The system cache registry and its own confinement primitive (L)
+### A — The system cache registry and its own confinement primitive (L) — ✅ DONE (PR #191, 2026-09-05)
 
-- [ ] Add `packages/desktop/src/main/optimizer/system-cache-registry.ts` — a new module, not an
+- [x] Add `packages/desktop/src/main/optimizer/system-cache-registry.ts` — a new module, not an
       extension of [Phase 72](phase-72-every-build-systems-leftovers.md)'s `detectors.ts`.
   - The two catalogues answer different questions ("what's this repo's build output" vs. "what's
     this *machine's* tool cache") and mixing them risks exactly the accidental-widening bug the core
@@ -274,7 +274,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
   - **Acceptance:** the file imports `Ecosystem`/`ReclaimCost` from `@midnite/studio-shared` and
     nothing from `detectors.ts`; `detectors.ts` imports nothing from it. Asserted by inspection in
     review, not by a test — an import-direction test here would be ceremony.
-- [ ] Export the id union and the entry shape:
+- [x] Export the id union and the entry shape:
       ```ts
       /** Every id in DEFAULT_SYSTEM_CACHE_ENTRIES, as a closed union. Adding an entry is
        *  two edits in this file: a member here, an object there. */
@@ -303,7 +303,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
     fails to compile rather than failing to match at runtime. On the **wire** it degrades to
     `z.string()` — same reasoning Phase 72 gives for `detectorId`: the catalogue lives in `desktop/`
     and must not force a `shared/` enum edit per addition.
-- [ ] Export `PathResolver` as a two-arm union, and say in the docblock which is preferred:
+- [x] Export `PathResolver` as a two-arm union, and say in the docblock which is preferred:
       ```ts
       export type PathResolver =
         /** A fixed, well-known location, expressed RELATIVE TO THE HOME DIRECTORY:
@@ -333,7 +333,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
     this phase states in its own words: **a miss is silence, a false match is a data-loss incident.**
     (The previous draft attributed this phrasing to Phase 59's `looseObjects` posture; Phase 59 does
     not say it — the honest citation is `readDirSafe`'s behaviour above.)
-- [ ] Export `resolveSystemCacheEntries(entries, log): Promise<ResolvedSystemCacheEntry[]>` where
+- [x] Export `resolveSystemCacheEntries(entries, log): Promise<ResolvedSystemCacheEntry[]>` where
       `ResolvedSystemCacheEntry = { entry: SystemCacheEntry; path: string }` — the **only** place a
       `queryTool` command is ever run, and the only place a registry entry becomes a real path.
   - Per entry, in order, dropping the entry (and logging one line) at the first failure:
@@ -353,7 +353,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
   - **Acceptance:** with a fake `homedir` containing only `.npm`, the function returns exactly one
     entry, and calling it with every `queryTool` command stubbed to fail returns only the surviving
     `fixed` entries.
-- [ ] Export `DEFAULT_SYSTEM_CACHE_ENTRIES: readonly SystemCacheEntry[]`, seeded with the catalogue
+- [x] Export `DEFAULT_SYSTEM_CACHE_ENTRIES: readonly SystemCacheEntry[]`, seeded with the catalogue
       below — thirteen entries, every path verified against the tool's own documentation or its own
       `env`/`config` command, not guessed. Paths are written **homedir-relative**, per the rule above.
       - **Rust** — `cargo-registry` (`fixed`, `.cargo/registry`, ecosystem `rust`, producer
@@ -395,7 +395,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
     a browser's cache directory is not, and a wrong guess there is exactly the failure mode this
     phase's whole design exists to refuse. Add them one at a time, each with its own verified
     path, the way Phase 72 added ecosystems one at a time with a real repo to test against.
-- [ ] Add `confineAllowlist(allowed: readonly string[], target: string): Promise<string | null>`
+- [x] Add `confineAllowlist(allowed: readonly string[], target: string): Promise<string | null>`
       to [`fs-scope-write.ts`](../../../packages/desktop/src/main/fs-scope-write.ts), beside (not
       replacing) `confineTree`.
   - **The rule, exactly:** `realpath` the target; `realpath` every entry in `allowed`; return the
@@ -412,7 +412,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
     as the place that closes it.
   - **Acceptance:** exact match returns the resolved path; a subpath, a parent, a sibling whose name
     shares a prefix, and a path outside every entry each return `null`.
-- [ ] Export `dirBytes` (`:101`), `readDirSafe` (`:83`), `newWalkState` (`:63`) and the `WalkState`
+- [x] Export `dirBytes` (`:101`), `readDirSafe` (`:83`), `newWalkState` (`:63`) and the `WalkState`
       type (`:55`) from
       [`scan-service.ts`](../../../packages/desktop/src/main/optimizer/scan-service.ts) — **four
       `export` keywords, no behaviour change, no signature change, no budget change.**
@@ -428,7 +428,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
   - Say so in the PR description: **"`scan-service.ts` changes by four `export` keywords and nothing
     else"** is a claim a reviewer can verify from the diff, per Phase 72's own precedent for the
     same style of claim.
-- [ ] `system-cache-registry.test.ts` — the registry's own spec, colocated in
+- [x] `system-cache-registry.test.ts` — the registry's own spec, colocated in
       `packages/desktop/src/main/optimizer/`.
   - Every `fixed` entry's path resolves under a fake `homedir` and none begins with `~` or `/`.
   - Every `queryTool` entry's `parse` returns the right path from a **captured real stdout** —
@@ -442,9 +442,9 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
   - Every `id` in `DEFAULT_SYSTEM_CACHE_ENTRIES` is unique and is a member of `SystemCacheEntryId`;
     every entry has a non-empty `producer` (the scope guardrail, enforced).
 
-### B — A parallel wire contract, never merged with the repo-scoped one (L)
+### B — A parallel wire contract, never merged with the repo-scoped one (L) — ✅ DONE (PR #191, 2026-09-05)
 
-- [ ] Add `packages/shared/src/domain/system-optimizer.ts` — **not** an edit to
+- [x] Add `packages/shared/src/domain/system-optimizer.ts` — **not** an edit to
       `domain/optimizer.ts`, and add `export * from './system-optimizer';` to
       [`domain/index.ts`](../../../packages/shared/src/domain/index.ts) between `'./status'` and
       `'./tests'` (the barrel is alphabetical apart from a trailing `'./battery'`).
@@ -495,7 +495,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
     result is capped at 200 and can never exceed the registry's thirteen entries, so a map keyed by
     `entryId` would be pure indirection for a payload measured in bytes. Say so in the schema comment,
     because the asymmetry with `ScanResultSchema` will otherwise read as an oversight.
-- [ ] Add **five** channels following the `mstudio:<domain>:<verb>` rule
+- [x] Add **five** channels following the `mstudio:<domain>:<verb>` rule
       ([`channels.ts:1-9`](../../../packages/shared/src/ipc/channels.ts) states the convention) —
       four invoke, one event, in the **two separate objects** the file actually uses:
       ```ts
@@ -526,7 +526,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
   - **Acceptance:** `ipc.test.ts:26-38`'s two global assertions (no duplicate channel name; every
     name starts with `mstudio:`) pass unchanged. There is no `covers every optimizer channel` test
     today — Theme F adds one.
-- [ ] `OptimizerSystemCleanRequest` carries `entryIds: z.array(z.string().min(1)).min(1)` — **not
+- [x] `OptimizerSystemCleanRequest` carries `entryIds: z.array(z.string().min(1)).min(1)` — **not
       raw paths.** The renderer names *which registry entries* to clean, and main re-resolves +
       re-confines each one fresh at clean time rather than trusting a path the renderer remembers
       from its last scan.
@@ -539,7 +539,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
   - **Acceptance:** a clean request naming an `entryId` not in `DEFAULT_SYSTEM_CACHE_ENTRIES` is
     refused with `{ok:false}` before any filesystem call — asserted with a `trash` spy that must
     never be invoked.
-- [ ] Extend the bridge and the preload, copying the existing optimizer group verbatim in shape.
+- [x] Extend the bridge and the preload, copying the existing optimizer group verbatim in shape.
   - [`bridge.ts:896-916`](../../../packages/shared/src/ipc/bridge.ts) — add to the existing
     `optimizer: { … }` group (not a new top-level group): `systemCatalogue()`, `systemScan(req)`,
     `onSystemScanProgress(handler): Unsubscribe`, `systemClean(req)`, `systemReclaim(req)`.
@@ -549,7 +549,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
     type without adding here is a compile error**, by the `Pick<MidniteStudioBridge, … | 'optimizer' | …>`
     annotation at `:93-146` — that is the whole parity mechanism, and it is why no separate parity
     test is needed.
-- [ ] Add `packages/desktop/src/main/optimizer/system-cache-service.ts` with two functions plus
+- [x] Add `packages/desktop/src/main/optimizer/system-cache-service.ts` with two functions plus
       Theme D's third:
       ```ts
       export async function scanSystemCaches(opts: {
@@ -578,7 +578,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
     vanished path with a reason, exactly as `cleanItems` does at `:305-316`; (3) `confineAllowlist`
     against the freshly-resolved paths, then `dirBytes` for the freed figure, then `trash`.
     An `entryId` the registry does not know is skipped with `reason: 'not a known system cache'`.
-- [ ] **Per-entry walk budgets, so one enormous cache cannot silently zero the rest.**
+- [x] **Per-entry walk budgets, so one enormous cache cannot silently zero the rest.**
       `scanSystemCaches` gives **each entry its own `newWalkState()`**, and adds
       `MAX_ENTRIES_PER_SYSTEM_ENTRY = 50_000` to `system-cache-service.ts`.
   - This is Phase 72 Theme E's own fairness argument, applied to a strictly worse case: a shared
@@ -594,7 +594,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
   - **Acceptance:** a fixture entry with more than `MAX_ENTRIES_PER_SYSTEM_ENTRY` files yields
     `approximate: true` and a **non-zero** `bytes`, and a second entry scanned after it still
     reports its own real size.
-- [ ] Register four handlers in
+- [x] Register four handlers in
       [`optimizer-handlers.ts`](../../../packages/desktop/src/main/ipc/optimizer-handlers.ts), in the
       same file beside the existing ones, using the same `handle(channel, schema, fn, onInvalid)`
       pattern and the same `(issue) => ({ ok: false as const, message: issue })` arm.
@@ -606,7 +606,7 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
     (`const win = getWindow(); if (win && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.optimizerSystemScanProgress, { done, total })`).
   - The clean handler's `trash` argument is `(path) => shell.trashItem(path)` — the same one line as
     `:58`, and the only delete route this phase has.
-- [ ] Add a `systemScan` slice and a `systemCatalogue` field to
+- [x] Add a `systemScan` slice and a `systemCatalogue` field to
       [`optimizer-store.ts`](../../../packages/app/src/store/optimizer-store.ts), reusing the
       existing `OptimizerScanState` type verbatim (`{state, progress, result, message}`) with
       `result: SystemScanResult | null`, plus `systemCatalogue: SystemCacheCatalogueEntry[] | null`
@@ -616,20 +616,20 @@ renderer store slice and the per-entry walk budget rather than just a pair of sc
     pass with the new slice, which is a real check that nobody reached for `persist` out of habit.
   - `systemCatalogue` is fetched once when the settings page or the System section mounts, not per
     scan — it is a list of thirteen constants.
-- [ ] `system-cache-service.test.ts`: a scan produces `totalBytes` matching a fixture's real size
+- [x] `system-cache-service.test.ts`: a scan produces `totalBytes` matching a fixture's real size
       and a `byEcosystem` that sums to it; an entry whose resolved path no longer exists is silently
       absent, not an error; a clean request naming an unknown `entryId` never reaches `trash`; a
       clean whose entry has become a symlink between scan and clean is skipped with a reason rather
       than followed; an aborted scan resolves with a partial result rather than throwing (the
       cooperative-abort contract `scanWorkspace` already keeps).
 
-### C — A stronger consent gate than a checkbox (M)
+### C — A stronger consent gate than a checkbox (M) — ✅ DONE (PR #191, 2026-09-05)
 
 Phase 22's `allowForceWithLease` and Phase 59's `optimizerEnabled` are each one persisted boolean
 plus a runtime AND. The blast radius here is qualitatively larger — the whole machine's dev
 tooling, not one ref or one repo — so this theme adds a second factor beyond the checkbox itself.
 
-- [ ] Add `allowSystemCacheClean: boolean` (default `false`) following `allowForceWithLease`'s
+- [x] Add `allowSystemCacheClean: boolean` (default `false`) following `allowForceWithLease`'s
       **seven**-edit pattern across **two** files: `ui-store.ts` ×6 (interface field, interface
       setter, `PersistedUi` `Pick` member, default, setter impl, `partialize` entry) **plus
       [`persisted-keys.ts`](../../../packages/app/src/store/persisted-keys.ts)** as a
@@ -641,7 +641,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     (`persisted-keys.ts:158-163`'s `AssertExactPartition`), and a `PREFERENCE_KEY` whose identifier
     never appears under `features/settings/` is a **test** failure (`persisted-keys.test.ts:92-97`)
     — both are satisfied by writing this theme's settings control.
-- [ ] Add `systemCacheConsentGiven: boolean` (default `false`) as a second, separate persisted
+- [x] Add `systemCacheConsentGiven: boolean` (default `false`) as a second, separate persisted
       field, the same seven edits again — **14 edits across two files for the pair**, not the "eight
       edits total" the previous draft claimed.
   - Set once, the first time the user confirms the one-time acknowledgment dialog. **Toggling the
@@ -652,7 +652,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     records a fact about what the user was shown, not a live permission; the live permission is the
     three-way AND. Clearing it would re-prompt on every toggle, which trains people to dismiss the
     dialog — the opposite of what it is for.
-- [ ] **The checkbox opens the dialog; the dialog sets the checkbox.** Clicking the unchecked box
+- [x] **The checkbox opens the dialog; the dialog sets the checkbox.** Clicking the unchecked box
       does **not** call `setAllowSystemCacheClean(true)` — it calls
       `dialogs.confirm(consentRequest)`, and only `onConfirm` sets **both** booleans true.
       Unchecking (true → false) is immediate and asks nothing.
@@ -662,7 +662,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     acceptable for the switch that unlocks a machine-wide delete.
   - **Acceptance:** in a renderer test, firing a click on the unchecked box leaves
     `useUiStore.getState().allowSystemCacheClean === false` until the dialog's confirm is invoked.
-- [ ] The one-time dialog is a `ConfirmRequest` with `danger: true` and **no `blastRadius`** —
+- [x] The one-time dialog is a `ConfirmRequest` with `danger: true` and **no `blastRadius`** —
       nothing has been scanned yet, and `confirm-dialog.tsx:164` renders an absent radius as
       *"Checking what this affects…"*, which would be a lie here; pass `blastRadius: null` so the
       `noEffect` branch is skipped and only `body` + `warnings` render.
@@ -676,7 +676,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     joined `label`s of `systemCatalogue` (fetched over `optimizerSystemCatalogue`). See the next
     item and Decision 9.
   - Cancelling leaves both booleans `false`.
-- [ ] **The enumeration is derived, never hardcoded — in the dialog and on the settings page.**
+- [x] **The enumeration is derived, never hardcoded — in the dialog and on the settings page.**
       The dialog's list and a permanent list beside the checkbox both render from
       `systemCatalogue`.
   - The dialog's whole design promise is that it names *exactly* what got unlocked. Hardcoded prose
@@ -690,7 +690,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     would be circular.
   - The permanent list on the settings page is what makes Decision 9 (re-consent on catalogue
     growth) unnecessary: the covered set is always visible without a modal.
-- [ ] Add a "System caches" `Accordion` section to
+- [x] Add a "System caches" `Accordion` section to
       [`optimizer-settings-page.tsx`](../../../packages/app/src/features/settings/settings-pages/optimizer-settings-page.tsx) —
       **not a new settings page** (Decision 5). Phase 72 Theme E already put per-ecosystem opt-outs
       on this page; System caches is one more section on the same page.
@@ -713,7 +713,8 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
       condition instead of two. The same AND guards the main-side handlers is **not** true and must
       not be assumed: main has no view of renderer settings, which is exactly why the registry and
       `confineAllowlist` are the real defence and the gate is the second one.
-- [ ] `system-cache-consent.test.tsx` in
+      **Deferred to Theme E** — this gates Theme E's own Storage-tab UI, which has not landed yet.
+- [x] `system-cache-consent.test.tsx` in
       `packages/app/src/features/settings/settings-pages/` (an RTL test — `.tsx`, matching
       `mcp-page.test.tsx`'s naming and its `installBridge` + local `createWrapper` idiom; there is no
       shared renderer mock bridge, and `vitest.config.ts` has no `setupFiles`, so the file does its

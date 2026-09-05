@@ -1111,6 +1111,24 @@ export type UiState = {
    */
   optimizerEnabled: boolean;
   setOptimizerEnabled: (enabled: boolean) => void;
+  /**
+   * Phase 73 Theme C — the first of a three-factor gate (with
+   * `optimizerEnabled` and `systemCacheConsentGiven`) for cleaning caches
+   * outside any repo Midnite manages. Unlike `allowForceWithLease`, clicking
+   * this checkbox does NOT set it directly — only the one-time consent
+   * dialog's confirm does, so there is no window where the setting is on
+   * without consent recorded. Default off.
+   */
+  allowSystemCacheClean: boolean;
+  setAllowSystemCacheClean: (allow: boolean) => void;
+  /**
+   * Set once, the first time the user confirms the one-time consent dialog.
+   * Records a FACT about what the user was shown, not a live permission —
+   * toggling `allowSystemCacheClean` off and back on does not re-ask. Only a
+   * fresh install or a fresh profile does.
+   */
+  systemCacheConsentGiven: boolean;
+  setSystemCacheConsentGiven: (given: boolean) => void;
   passcode: string | null;
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
@@ -1286,6 +1304,8 @@ export type PersistedUi = Pick<
   | 'allowForceWithLease'
   | 'launchAndRunEnabled'
   | 'optimizerEnabled'
+  | 'allowSystemCacheClean'
+  | 'systemCacheConsentGiven'
   | 'terminalDetached'
   | 'reposDetached'
   | 'fabDetached'
@@ -1358,6 +1378,13 @@ export const useUiStore = create<UiState>()(
       // turns the optimizer on.
       optimizerEnabled: false,
       setOptimizerEnabled: (optimizerEnabled) => set({ optimizerEnabled }),
+      // Default off, same reasoning again — cleaning caches outside any repo
+      // Midnite manages needs its own opt-in, set only by the one-time
+      // consent dialog's confirm (see `setAllowSystemCacheClean`'s docblock).
+      allowSystemCacheClean: false,
+      setAllowSystemCacheClean: (allowSystemCacheClean) => set({ allowSystemCacheClean }),
+      systemCacheConsentGiven: false,
+      setSystemCacheConsentGiven: (systemCacheConsentGiven) => set({ systemCacheConsentGiven }),
       passcode: null,
       setPasscode: (passcode) => set({ passcode }),
       passcodeOnlyWhenLocked: false,
@@ -1826,6 +1853,8 @@ export const useUiStore = create<UiState>()(
         allowForceWithLease: state.allowForceWithLease,
         launchAndRunEnabled: state.launchAndRunEnabled,
         optimizerEnabled: state.optimizerEnabled,
+        allowSystemCacheClean: state.allowSystemCacheClean,
+        systemCacheConsentGiven: state.systemCacheConsentGiven,
         terminalDetached: state.terminalDetached,
         reposDetached: state.reposDetached,
         fabDetached: state.fabDetached,

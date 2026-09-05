@@ -32,6 +32,7 @@ export const PREFERENCE_KEYS = [
   'activityTimelineStyle', // activity-timeline-settings.tsx
   'agentSkills', // agent-page.tsx
   'allowForceWithLease', // git-safety-page.tsx
+  'allowSystemCacheClean', // optimizer-settings-page.tsx
   'autoFetchIntervalMs', // sidebar-page.tsx
   'cycleDurationS', // screen-lock-page.tsx
   'forgeWritesEnabled', // reviews-page.tsx / git-safety-page.tsx
@@ -49,6 +50,7 @@ export const PREFERENCE_KEYS = [
   'primaryAgent', // agent-page.tsx
   'requirePasscode', // screen-lock-page.tsx
   'sectionFilters', // sidebar-page.tsx — the "View filters" accordion
+  'systemCacheConsentGiven', // optimizer-settings-page.tsx
   'terminalFontFamily', // terminal-page.tsx
   'terminalFontSize', // terminal-page.tsx
   'terminalLineHeight', // terminal-page.tsx

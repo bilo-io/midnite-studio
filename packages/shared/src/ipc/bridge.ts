@@ -916,6 +916,30 @@ export type MidniteStudioBridge = {
     trashSummary: () => Promise<z.infer<typeof S.OptimizerTrashSummaryResponse>>;
     /** Fixed `osascript` argv, no parameters. Gated three ways in the renderer. */
     emptyTrash: () => Promise<z.infer<typeof S.OptimizerTrashEmptyResponse>>;
+
+    /**
+     * System-wide tool caches (Phase 73) — a hand-written, allowlist-only
+     * registry outside `knownRoots()` entirely, never widened from it. See
+     * `system-cache-registry.ts`'s own docblock for why this is a completely
+     * separate confinement primitive.
+     */
+    /** Labels/producers/ecosystem only, no paths — the renderer may not import
+     *  `packages/desktop`, so this is the only way it learns the catalogue. */
+    systemCatalogue: () => Promise<z.infer<typeof S.OptimizerSystemCatalogueResponse>>;
+    systemScan: (
+      req: In<typeof S.OptimizerSystemScanRequest>,
+    ) => Promise<z.infer<typeof S.OptimizerSystemScanResponse>>;
+    onSystemScanProgress: (
+      handler: (event: z.infer<typeof S.OptimizerSystemScanProgressEventSchema>) => void,
+    ) => Unsubscribe;
+    /** Names `entryIds` only — main re-resolves and re-confines fresh, never a raw path. */
+    systemClean: (
+      req: In<typeof S.OptimizerSystemCleanRequest>,
+    ) => Promise<z.infer<typeof S.OptimizerSystemCleanResponse>>;
+    /** Runs one `DEFAULT_RECLAIM_COMMANDS` entry by `entryId` — Theme D. */
+    systemReclaim: (
+      req: In<typeof S.OptimizerSystemReclaimRequest>,
+    ) => Promise<z.infer<typeof S.OptimizerSystemReclaimResponse>>;
   };
 
   protocol: {
