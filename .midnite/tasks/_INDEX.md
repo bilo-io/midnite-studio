@@ -2,6 +2,8 @@
 
 **Headlines:**
 
+- **[Phase 59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md)** (0% · 0/34) — **Planned, not started.** A CleanMyMac X / macOS System Settings-style optimizer page — Smart Scan, Storage, Memory, GPU — pointed at what this app actually owns rather than the whole Mac: known repos/worktrees plus one user-chosen extra root for the cleaner, and Midnite's own terminal/agent footprint (plus a system-wide, strongly-gated process table) for the monitor. Gated behind a default-off `Settings ▸ Workspace Optimizer` toggle, mirroring the force-push-with-lease posture, since kill-any-process and cross-repo deletion are real blast radius. No `recharts`/`framer-motion`/Shadcn added — reuses the footer monitor's hand-rolled SVG chart system and the existing Tailwind keyframe motion vocabulary.
+
 - **[Phase 58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md)** (0% · 0/60) — **Planned, not started.** A thought you have while reading a diff has nowhere to go: every surface in this app is about work that already exists, and nothing catches work that doesn't yet. This phase adds **Notes** — a per-repository list in a centred, gradient-ringed modal on `localStorage`, edited in place — where each note carries two icon buttons that hand it to the workflow the repo already runs, seeding `/midnite-brainstorm` or `/midnite-exec-adhoc` into a terminal cwd'd to that repo (typed, never auto-sent) and flipping the note to `planned`. It also builds the **modal primitive the app never had** (seven hand-rolled `fixed inset-0 z-dialog` copies exist; Notes would be the eighth) and collapses the FAB and the blank assistant-menu popover into **one quick-access menu with two entry points** — `Mod+L` then `L` Loops · `N` Notes · `I` Report Issue · `G` Guided tour, the last two shipped visibly disabled.
 
 - **[Phase 57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md)** (0% · 0/48) — **Planned, not started.** Every agent the app launches runs blind: a `claude`, `codex` or `opencode` process started in one of its terminals shells out for `git status` while `status-handlers.ts` holds the parsed answer, and pages `git log` while the lane layout for those commits sits in git-engine. This phase makes the app an **MCP server** — a build-fingerprinted Unix socket under `userData` plus a bundled stdio shim, cribbing the transport trick the pty broker already proved — serving eight read-only tools (`repo.list`, `repo.current`, `status.get`, `graph.log`, `diff.file`, `branch.list`, `forge.pulls`, `forge.checks`) whose input schemas are derived from the 2,052 lines of zod already in `ipc/schemas.ts`. Read-only and off by default on purpose: write tools need the write queue and a real consent model, and are deferred to a follow-up.
@@ -55,6 +57,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | ◻ TODO | — | 0/60 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md) | ◻ TODO | — | 0/48 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [56 · E2E Suite Speed Run](phases/phase-56-e2e-speed-run.md) | 🔄 WIP | — | 24/29 | `████████░░` | 83% | G | D |
@@ -119,6 +122,17 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 59 — Workspace Optimizer](phases/phase-59-workspace-optimizer.md)
+
+*A CleanMyMac X / macOS Settings-style optimizer scoped to what this app owns — repos, worktrees, and its own terminal/agent processes — not a general Mac cleaner. Gated behind a default-off setting given the blast radius of cross-repo deletion and system-wide kill.*
+
+- ◻ **A** — Foundation & feature gate: `ViewId`, a gated rail entry, the `shared/src/optimizer.ts` IPC contract, `optimizer-store.ts`, and the default-off `Settings ▸ Workspace Optimizer` toggle.
+- ◻ **B** — Aesthetic components: a segmented storage bar and a circular gauge, hand-rolled SVG sharing the footer monitor's colour tokens — no chart or animation library added.
+- ◻ **C** — Workspace Cleaner: Smart Scan + Storage tabs scanning known repos/worktrees plus one user-chosen extra root for `node_modules`/build output/stale worktrees/gc candidates, clean actions behind the existing blast-radius confirm dialog.
+- ◻ **D** — Memory & process monitor: real system RAM via the existing `metrics/memory.ts`, a full process table, and a strongly-gated kill-any-process action (OS user-permission boundary is the real backstop).
+- ◻ **E** — GPU tab: real model/VRAM/load via `app.getGPUInfo()` (temperature omitted — no public API), a 60s rolling chart, and UI-only "Tweak Settings" stubs.
+- ◻ **F** — Verification: the gate hiding/showing the view, the scan → clean → confirm flow, the kill flow, and screenshots of all four tabs in both themes.
 
 ### [Phase 58 — Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md)
 
