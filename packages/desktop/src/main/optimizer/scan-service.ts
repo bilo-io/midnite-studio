@@ -128,6 +128,7 @@ export function newWalkState(): WalkState {
       java: 0,
       swift: 0,
       ruby: 0,
+      go: 0,
       git: 0,
     },
     detectors: {},
