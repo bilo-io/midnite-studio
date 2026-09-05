@@ -251,6 +251,28 @@ export function GraphView() {
     return () => clearTimeout(timer);
   }, [isCascading, requestId, rows.length]);
 
+  // Live ticker for recent commits (< 2 minutes old). If any commit in the
+  // loaded window is within 2 minutes of now, tick every 5 seconds so the
+  // effects and relative time transition smoothly ('just now' -> '1m ago' -> normal).
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const hasRecentCommits = useMemo(() => {
+    // Only check the top 10 commits as history is reverse-chronological
+    const limit = Math.min(rows.length, 10);
+    const cutoff = (nowMs - 120_000) / 1000;
+    for (let i = 0; i < limit; i++) {
+      if (rows[i]!.commit.committerDate >= cutoff) return true;
+    }
+    return false;
+  }, [rows, rowCount, nowMs]);
+
+  useEffect(() => {
+    if (!hasRecentCommits) return;
+    const interval = setInterval(() => {
+      setNowMs(Date.now());
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [hasRecentCommits]);
+
   // dnd-kit's drag-end event carries no pointer position, and the drop menu has
   // to appear where the user released.
   const lastPointer = useRef({ clientX: 0, clientY: 0 });
@@ -446,6 +468,7 @@ export function GraphView() {
                       !highlightedEmails.has(row.commit.authorEmail.trim().toLowerCase())
                     }
                     glowColorIdx={glowColorIdx}
+                    nowMs={nowMs}
                     onSelect={selectCommit}
                     onContextMenu={onRowContextMenu}
                     onRefContextMenu={onRefContextMenu}

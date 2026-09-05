@@ -2523,6 +2523,81 @@ html[data-motion='reduced'] .graph-badge-glow {
     0 0 7px 1px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.45);
 }
 
+/* Recent commit styling (< 1m: shimmer + pulsating text glow/opacity; 1-2m: pulsating text glow/opacity; >= 2m: normal) */
+@keyframes commit-text-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    -webkit-text-stroke: 0.5px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.7);
+    text-shadow:
+      0 0 4px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.7),
+      0 0 8px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.4);
+  }
+  50% {
+    opacity: 1;
+    -webkit-text-stroke: 0.5px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 1);
+    text-shadow:
+      0 0 8px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 1),
+      0 0 14px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.65);
+  }
+}
+
+.commit-text-pulse {
+  animation: commit-text-pulse 2s ease-in-out infinite;
+}
+
+@keyframes commit-row-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.commit-row-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.28) 50%,
+    transparent 100%
+  );
+  animation: commit-row-shimmer 2.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .commit-text-pulse {
+    animation: none;
+    opacity: 1;
+    -webkit-text-stroke: 0.5px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.8);
+    text-shadow: 0 0 6px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.6);
+  }
+
+  html:not([data-motion='full']) .commit-row-shimmer::after {
+    animation: none;
+    display: none;
+  }
+}
+
+html[data-motion='reduced'] .commit-text-pulse {
+  animation: none;
+  opacity: 1;
+  -webkit-text-stroke: 0.5px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.8);
+  text-shadow: 0 0 6px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.6);
+}
+
+html[data-motion='reduced'] .commit-row-shimmer::after {
+  animation: none;
+  display: none;
+}
+
 /*
   `PanelStack` (Phase 42 Theme A/B) — a directional slide between a panel's
   history entries. `transition-property`/`timing-function` live here;
