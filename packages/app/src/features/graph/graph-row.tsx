@@ -109,6 +109,24 @@ function GraphRowInner({
   const onGlowingLane = glowColorIdx !== null && row.colorIdx === glowColorIdx;
 
   const recencyTier = commitRecencyTier(row.commit.committerDate, nowMs);
+  /*
+    The ink treatment the subject, date and sha all take — the three cells move
+    together, the same way they do under selection, because a row half-lit reads
+    as a rendering bug rather than as one commit.
+
+    The lane tint is dropped rather than overridden for `'fading'`: the text
+    going back to its normal ink is what separates that tier from `'recent'`,
+    and `text-muted-foreground` and `.commit-text-lane` are both single-class
+    rules, so which one won would come down to stylesheet order.
+  */
+  const laneInk = recencyTier === 'fresh' || recencyTier === 'recent';
+  const recencyInk = [
+    selected || laneInk ? '' : 'text-muted-foreground',
+    laneInk ? 'commit-text-lane' : '',
+    recencyTier === 'normal' ? '' : 'commit-text-pulse',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div
@@ -311,22 +329,7 @@ function GraphRowInner({
           dimmed ? 'opacity-40' : ''
         } ${recencyTier === 'fresh' ? 'commit-row-shimmer' : ''}`}
       >
-        {/*
-          The lane tint is dropped rather than overridden for `'fading'`: the
-          subject going back to its normal ink is what separates that tier from
-          `'recent'`, and `text-muted-foreground` and `.commit-text-lane` are
-          both single-class rules, so which one won would come down to
-          stylesheet order.
-        */}
-        <span
-          className={`graph-row-ink min-w-0 flex-1 truncate ${
-            selected || recencyTier === 'fresh' || recencyTier === 'recent'
-              ? ''
-              : 'text-muted-foreground'
-          } ${
-            recencyTier === 'fresh' || recencyTier === 'recent' ? 'commit-text-lane' : ''
-          } ${recencyTier === 'normal' ? '' : 'commit-text-pulse'}`}
-        >
+        <span className={`graph-row-ink min-w-0 flex-1 truncate ${recencyInk}`}>
           <CommitSubject subject={row.commit.subject} />
         </span>
       </div>
@@ -360,17 +363,17 @@ function GraphRowInner({
         </span>
       ) : null}
       <span
-        className={`graph-row-ink shrink-0 text-right text-xs tabular-nums text-muted-foreground transition-opacity duration-150 ease-in-out ${
+        className={`graph-row-ink shrink-0 text-right text-xs tabular-nums transition-opacity duration-150 ease-in-out ${
           dimmed ? 'opacity-40' : ''
-        }`}
+        } ${recencyInk}`}
         style={{ width: 'var(--col-date)' }}
       >
         {formatDate(row.commit.committerDate, nowMs)}
       </span>
       <span
-        className={`graph-row-ink shrink-0 text-right font-mono text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
+        className={`graph-row-ink shrink-0 text-right font-mono text-xs transition-opacity duration-150 ease-in-out ${
           dimmed ? 'opacity-40' : ''
-        }`}
+        } ${recencyInk}`}
         style={{ width: 'var(--col-sha)' }}
       >
         {row.commit.sha.slice(0, 7)}

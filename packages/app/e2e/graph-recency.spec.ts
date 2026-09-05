@@ -92,25 +92,30 @@ test.describe('commit recency decay', () => {
     }
   });
 
-  test('tints the subject for the first two tiers and returns it to the muted ink after', async ({
+  test('tints subject, date and sha together for the first two tiers, then returns them', async ({
     page,
   }) => {
     await openGraph(page);
 
-    const subjectColor = (subject: string) =>
-      rowFor(page, subject)
-        .locator('.graph-row-ink')
-        .first()
-        .evaluate((el) => getComputedStyle(el).color);
+    // Subject, date and sha — `git-graph` renders no Author column.
+    const inkColors = async (subject: string) => {
+      const ink = rowFor(page, subject).locator('.graph-row-ink');
+      await expect(ink).toHaveCount(3);
+      return ink.evaluateAll((els) => els.map((el) => getComputedStyle(el).color));
+    };
 
-    const normal = await subjectColor(TIERS[3]!.subject);
+    const normal = await inkColors(TIERS[3]!.subject);
     // `'fading'` is the tier whose whole point is that the ink came back: it
     // keeps the glow, so an assertion on the class alone would not catch a rule
     // that also left the colour behind.
-    expect(await subjectColor(TIERS[2]!.subject)).toBe(normal);
+    expect(await inkColors(TIERS[2]!.subject)).toEqual(normal);
 
     for (const tier of [TIERS[0]!, TIERS[1]!]) {
-      expect(await subjectColor(tier.subject)).not.toBe(normal);
+      const tinted = await inkColors(tier.subject);
+      // All three move together — the sha is the one most easily left behind,
+      // since it carries `font-mono` and `text-muted-foreground` of its own.
+      expect(new Set(tinted).size).toBe(1);
+      expect(tinted[0]).not.toBe(normal[0]);
     }
   });
 
@@ -126,7 +131,7 @@ test.describe('commit recency decay', () => {
       [TIERS[0]!, TIERS[1]!].map((tier) =>
         rowFor(page, tier.subject)
           .locator('.graph-row-ink')
-          .first()
+          .last()
           .evaluate((el) => getComputedStyle(el).color),
       ),
     );

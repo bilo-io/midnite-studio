@@ -190,18 +190,27 @@ describe('recent commit effects', () => {
     return renderRow(row, { nowMs: now });
   };
 
+  /*
+    The ink layers are counted, not merely detected. Subject, date and sha are
+    the three `.graph-row-ink` cells this theme renders (`git-graph` has no
+    Author column), and they take the treatment together — a count catches the
+    subject being lit while the two columns beside it stay dark, which a
+    `!== null` cannot.
+  */
   const layers = (el: HTMLElement) => ({
     shimmer: el.querySelector('.commit-row-shimmer') !== null,
-    laneInk: el.querySelector('.commit-text-lane') !== null,
-    textPulse: el.querySelector('.commit-text-pulse') !== null,
+    laneInk: el.querySelectorAll('.commit-text-lane').length,
+    textPulse: el.querySelectorAll('.commit-text-pulse').length,
     rowGlow: el.classList.contains('commit-row-glow'),
   });
+
+  const INK_CELLS = 3;
 
   it('gives a commit under 2 minutes old every layer', () => {
     expect(layers(renderAged('fresh', 30_000))).toEqual({
       shimmer: true,
-      laneInk: true,
-      textPulse: true,
+      laneInk: INK_CELLS,
+      textPulse: INK_CELLS,
       rowGlow: true,
     });
   });
@@ -209,8 +218,8 @@ describe('recent commit effects', () => {
   it('drops only the shimmer between 2 and 5 minutes', () => {
     expect(layers(renderAged('recent', 200_000))).toEqual({
       shimmer: false,
-      laneInk: true,
-      textPulse: true,
+      laneInk: INK_CELLS,
+      textPulse: INK_CELLS,
       rowGlow: true,
     });
   });
@@ -219,20 +228,22 @@ describe('recent commit effects', () => {
     const el = renderAged('fading', 400_000);
     expect(layers(el)).toEqual({
       shimmer: false,
-      laneInk: false,
-      textPulse: true,
+      laneInk: 0,
+      textPulse: INK_CELLS,
       rowGlow: true,
     });
-    // The muted utility comes back with the lane tint gone, so the subject is
-    // styled rather than merely un-tinted.
-    expect(el.querySelector('.commit-text-pulse')!.className).toContain('text-muted-foreground');
+    // The muted utility comes back with the lane tint gone, so all three cells
+    // are styled rather than merely un-tinted.
+    for (const cell of el.querySelectorAll('.commit-text-pulse')) {
+      expect(cell.className).toContain('text-muted-foreground');
+    }
   });
 
   it('drops every layer at 10 minutes and older', () => {
     expect(layers(renderAged('old', 900_000))).toEqual({
       shimmer: false,
-      laneInk: false,
-      textPulse: false,
+      laneInk: 0,
+      textPulse: 0,
       rowGlow: false,
     });
   });
