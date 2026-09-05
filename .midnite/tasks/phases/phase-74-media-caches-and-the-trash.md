@@ -325,16 +325,18 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### B — Computing what's in the Trash, honestly (M)
 
+**✅ DONE (PR #189, 2026-09-05).**
+
 *No upstream dependency. This is where to start the phase.*
 
-- [ ] Add `packages/desktop/src/main/trash-service.ts` — **not** under `optimizer/`, because
+- [x] Add `packages/desktop/src/main/trash-service.ts` — **not** under `optimizer/`, because
       emptying the Trash is not a cache-cleaning operation and does not belong beside
       `system-cache-service.ts` the way Plex's catalogue entries belong beside Cargo's. A new
       top-level main module, matching how
       [`system-health.ts`](../../../packages/desktop/src/main/system-health.ts) and
       [`browser-service.ts`](../../../packages/desktop/src/main/browser-service.ts) already sit
       beside `optimizer/` as siblings rather than inside it (both verified present at that level).
-- [ ] **Correct the walker claim before reusing it — `dirBytes` and friends are private today.**
+- [x] **Correct the walker claim before reusing it — `dirBytes` and friends are private today.**
       In [`scan-service.ts`](../../../packages/desktop/src/main/optimizer/scan-service.ts), add the
       `export` keyword to `readDirSafe` (`:83`), `dirBytes` (`:101`), `newWalkState` (`:63`) and the
       `WalkState` type (`:55`). Nothing else about them changes.
@@ -348,7 +350,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         wrong. Its behaviour is unchanged; its export surface is not.
       - If Phase 73's Theme B lands this same export first (its `scanSystemCaches` reuses the same
         primitives), this item degrades to a no-op — verify, do not re-apply.
-- [ ] Export `computeTrashSummary(opts: ComputeTrashSummaryOptions): Promise<TrashSummary>` from
+- [x] Export `computeTrashSummary(opts: ComputeTrashSummaryOptions): Promise<TrashSummary>` from
       `trash-service.ts`, with the injectable roots that make it testable without a real `~/.Trash`:
       ```ts
       export type ComputeTrashSummaryOptions = {
@@ -370,9 +372,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         [`fs-scope.ts:54`](../../../packages/desktop/src/main/fs-scope.ts) and elsewhere. Prefer
         `homedir()` over `app.getPath('home')` here so `trash-service.ts` needs no `electron` import
         and its spec runs under bare vitest.
-- [ ] The home Trash root: `join(home, '.Trash')`. If it does not exist, that is an **empty summary,
+- [x] The home Trash root: `join(home, '.Trash')`. If it does not exist, that is an **empty summary,
       not an error** — a fresh account has no `~/.Trash` until something is deleted.
-- [ ] Multi-volume discovery — **a shallow, one-level `readDirSafe(volumesDir)`, never recursive**:
+- [x] Multi-volume discovery — **a shallow, one-level `readDirSafe(volumesDir)`, never recursive**:
       - For each entry: **skip anything `entry.isSymbolicLink()`**. macOS puts a symlink to the boot
         volume in `/Volumes` (`/Volumes/Macintosh HD` → `/`); following it would walk the entire
         startup disk and double-count `~/.Trash`. This single `continue` is the difference between a
@@ -386,7 +388,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         behaviour for a mounted volume the user cannot read: it is skipped, not fatal.
       - This is the one discovery step this phase adds despite Phase 73's own no-discovery rule;
         Decision 7 explains exactly why it is safe anyway.
-- [ ] Returns `TrashSummary` — every field defined by what it actually measures:
+- [x] Returns `TrashSummary` — every field defined by what it actually measures:
       - `itemCount` — the number of **top-level entries** across every walked root, summed. This is
         deliberately Finder's own definition of "N items in the Trash", not a recursive file count.
       - `totalBytes` — the sum of `dirBytes(root, state, signal, log)` over every root, plus the
@@ -405,11 +407,11 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - One `WalkState` is shared across every root, so the 200,000-entry budget is a budget for the
         whole summary, not per volume — a single pathological root cannot be escaped by mounting a
         second disk.
-- [ ] Cancellation: poll `opts.signal.aborted` between roots and return the partial totals rather
+- [x] Cancellation: poll `opts.signal.aborted` between roots and return the partial totals rather
       than throwing. `dirBytes` already polls the same signal internally at `:111` and `:117`. The
       handler supersedes an in-flight summary the same way `optimizerScan` does
       (`optimizer-handlers.ts:24`, `currentScan?.abort()`), so a double-click cannot race two walks.
-- [ ] Add `TrashSummarySchema` to a new
+- [x] Add `TrashSummarySchema` to a new
       [`packages/shared/src/domain/trash.ts`](../../../packages/shared/src/domain/trash.ts):
       ```ts
       export const TrashSummarySchema = z.object({
@@ -431,7 +433,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         [`packages/shared/src/domain/index.ts`](../../../packages/shared/src/domain/index.ts)** —
         the barrel is how `@midnite/studio-shared` consumers see it (`optimizer.ts` is re-exported at
         `:13`). A new domain file that is not re-exported is invisible and the omission typechecks.
-- [ ] Add two channels following `mstudio:<domain>:<verb>`
+- [x] Add two channels following `mstudio:<domain>:<verb>`
       ([`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts), inside the
       existing `CHANNELS` object beside the Phase 59 optimizer block at `:299-309`):
       `optimizerTrashSummary: 'mstudio:optimizer:trash-summary'` and
@@ -445,7 +447,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         `export const OptimizerTrashEmptyResponse = OptimizerVoidResultSchema;`.
       - `schemas.ts` has **no channel-keyed registry** — the binding is made at the call site, so
         the two names above are the whole contract.
-- [ ] Add both to the bridge, **inside the existing `optimizer: { … }` namespace** at
+- [x] Add both to the bridge, **inside the existing `optimizer: { … }` namespace** at
       [`bridge.ts:902-914`](../../../packages/shared/src/ipc/bridge.ts):
       ```ts
       /** Read-only: walks ~/.Trash plus every mounted volume's own Trash. Never a delete target. */
@@ -458,7 +460,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `emptyTrash: () => call(CHANNELS.optimizerTrashEmpty),`. Because they live inside `optimizer`,
       the preload's `Pick<MidniteStudioBridge, …>` union at `:145` needs **no** change — a new
       top-level namespace would have needed one, and this is the reason not to make one.
-- [ ] `packages/desktop/src/main/trash-service.test.ts` — the real-temp-dir idiom from
+- [x] `packages/desktop/src/main/trash-service.test.ts` — the real-temp-dir idiom from
       `scan-service.test.ts`, no `fs` faking:
       - a fixture `.Trash` with three known files proves `itemCount === 3` and `totalBytes` equals
         their summed sizes;
@@ -479,9 +481,20 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### C — Emptying the Trash: Finder, never a raw unlink (L)
 
+**◐ PARTIAL (PR #189, 2026-09-05).** The backend/IPC half landed: `emptyTrash()`, its stderr
+mapping and timeout wording, `trash-handlers.ts`, packaging (entitlement + usage string), and
+`ConfirmDialog`'s `requireAck`/`trash` copy arm. **Left open, on purpose**: `ui-store.ts`'s
+`allowTrashEmpty`/`trashEmptyConsentGiven` (and the one-time acknowledgment dialog they gate) are
+asserted by `persisted-keys.test.ts` to be named literally under `features/settings/` — satisfied
+only once Theme D's `trash-safety-page.tsx` exists, so landing the flags alone here would either
+fail that test or require building Theme D's page in a PR scoped to B/C. `use-optimizer.ts`'s
+`loadTrashSummary`/`runEmptyTrash`, the confirm's warnings-array/recompute-own-numbers behaviour and
+the point-of-use three-way gate are storage-tab (Theme D) wiring and wait on the same page. Pick
+these back up together with Theme D.
+
 *No upstream dependency. This is the theme a reviewer should read most carefully — see Decision 4.*
 
-- [ ] Export `emptyTrash(deps?: EmptyTrashDeps): Promise<OptimizerVoidResult>` in `trash-service.ts`:
+- [x] Export `emptyTrash(deps?: EmptyTrashDeps): Promise<OptimizerVoidResult>` in `trash-service.ts`:
       ```ts
       export type EmptyTrashDeps = { spawn?: SpawnFn; timeoutMs?: number; log?: Logger };
 
@@ -515,7 +528,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         multi-volume discovery Theme B already does, with none of Finder's own guarantee that it
         actually knows about every mounted volume's Trash the way its own "Empty Trash" menu item
         does. Finder wins on all three.
-- [ ] **Read `runProcess`'s outcome correctly — a failed `osascript` still returns `ok: true`.**
+- [x] **Read `runProcess`'s outcome correctly — a failed `osascript` still returns `ok: true`.**
       `ProcessOutcome<T>` is `{ok: true; data; stderr; exitCode: number | null; ranAt; durationMs} |
       {ok: false; reason: 'not-installed' | 'timed-out' | 'parse-failed'; hint}`, and its `ok` means
       only *"the sink could read the output"*. So the mapping is, in order:
@@ -525,7 +538,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - `outcome.ok === true && exitCode !== 0` → inspect `outcome.stderr` and map, below.
       - Treating `outcome.ok` alone as success is the specific bug this item exists to prevent, and
         the spec asserts a non-zero exit with empty stderr still comes back `{ok: false}`.
-- [ ] Map AppleScript's three known stderr signatures to specific, actionable messages rather than a
+- [x] Map AppleScript's three known stderr signatures to specific, actionable messages rather than a
       bare command-failed string. Match on the error number substring, which `osascript` always
       prints (e.g. `execution error: Not authorized to send Apple events to Finder. (-1743)`):
       - **`-1743`** (automation not authorized) → *"Midnite Studio isn't allowed to control Finder.
@@ -540,7 +553,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - The `-1743` path is the first Automation-permission prompt this app has ever triggered;
         **flag for the human pass** (Theme E) since the grant UX cannot be exercised in a sandboxed
         session.
-- [ ] **Raise the timeout, and word a timeout truthfully.** Pass `timeoutMs: 10 * 60_000` explicitly
+- [x] **Raise the timeout, and word a timeout truthfully.** Pass `timeoutMs: 10 * 60_000` explicitly
       rather than accepting `DEFAULT_TIMEOUT_MS = 120_000`.
       - AppleScript's `empty trash` does not return until Finder has finished, and a Trash holding
         tens of gigabytes routinely takes longer than two minutes. At the default this app would
@@ -558,7 +571,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       acknowledgment dialog's copy names it in one clause (*"macOS may ask a second time"*) so it
       reads as expected rather than as a bug, and the `-128` mapping above is what makes cancelling
       that second sheet a clean outcome.
-- [ ] **Packaging: the entitlement and the usage string, both currently absent.** Verified in the
+- [x] **Packaging: the entitlement and the usage string, both currently absent.** Verified in the
       tree: `hardenedRuntime: true`
       ([`electron-builder.yml:82`](../../../packages/desktop/electron-builder.yml)),
       `com.apple.security.automation.apple-events` **not present** in
@@ -614,7 +627,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - Raised through `useDialogs().confirm({ danger: true, hideCancel: false, confirmLabel: 'I
         understand' })` — no `blastRadius`, because at this point nothing is being deleted and a
         count would imply otherwise.
-- [ ] Add `packages/desktop/src/main/ipc/trash-handlers.ts` exporting
+- [x] Add `packages/desktop/src/main/ipc/trash-handlers.ts` exporting
       `registerTrashHandlers(): void` — its own handler file, not folded into
       `optimizer-handlers.ts`, for the same separation-of-trust reason Phase 73 keeps
       `system-cache-registry.ts` out of `detectors.ts`: the two operations should never become easy
@@ -633,7 +646,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       - **The main process does not consult `allowTrashEmpty`.** Like every optimizer handler, the
         gate is renderer-side (Decision 14's note); the main-side safety property is that the argv is
         a constant, which no renderer can influence.
-- [ ] Add `requireAck?: string` to `ConfirmRequest`
+- [x] Add `requireAck?: string` to `ConfirmRequest`
       ([`confirm-dialog.tsx:45`](../../../packages/app/src/components/confirm-dialog.tsx)):
       - When present, render a checkbox with that exact label between the warnings box and the
         button row, using the same raw-input markup the settings pages use (`<label className="flex
@@ -654,7 +667,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         component — reserved for the one operation in this entire arc with true no-undo.
       - **Every existing caller is unaffected**: the field is optional and absent, so `acked` is
         never consulted.
-- [ ] Add a third arm to `BLAST_RADIUS_COPY` (`confirm-dialog.tsx:32`, module-private, so this is a
+- [x] Add a third arm to `BLAST_RADIUS_COPY` (`confirm-dialog.tsx:32`, module-private, so this is a
       local edit with no export change):
       ```ts
       trash: {
@@ -702,7 +715,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
         `'error'` — the user did that on purpose.
       - On a successful empty, immediately re-run `loadTrashSummary()` so the card shows
         `0 items` rather than a stale count.
-- [ ] `packages/desktop/src/main/trash-service.test.ts` (the `emptyTrash` half) and
+- [x] `packages/desktop/src/main/trash-service.test.ts` (the `emptyTrash` half) and
       `packages/desktop/src/main/ipc/trash-handlers.test.ts`:
       - **The literal-argv assertion**, modelled on
         [`diagnostics/runner.test.ts:62`](../../../packages/desktop/src/main/diagnostics/runner.test.ts):
