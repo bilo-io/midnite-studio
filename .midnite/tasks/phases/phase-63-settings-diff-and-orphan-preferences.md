@@ -1,10 +1,14 @@
 # Phase 63 — The preferences with nowhere to live
 
+**Refined: x1** · 2026-09-05 · premise audit, the orphan partition run for real, persistence contradiction, scope guardrails, acceptance criteria
+
 Small and additive: one settings page, four preferences that have never had a home, and one test
 that stops a fifth from being orphaned later. No IPC, no new dependency, no persistence version
 bump, no behaviour change to anything that already works.
 
-`useUiStore` persists **77 keys**. Every preference cluster among them has a settings page that owns
+`useUiStore` persists **71 keys** — not the 77 an earlier draft of this doc claimed; the count is
+`PersistedUi` at [`ui-store.ts:1127-1200`](../../../packages/app/src/store/ui-store.ts), and every one
+of them is in `partialize`. Every preference cluster among them has a settings page that owns
 it — `activityTimelineStyle` has `settings/activity-timeline-settings.tsx`, `hiddenMetrics` has
 `monitor-page.tsx`, `loopModifierDefaults` has `agent-page.tsx`, `autoFetchIntervalMs` has
 `sidebar-page.tsx`. Four do not:
@@ -25,10 +29,27 @@ text file. A preference you can only change when the thing it governs happens to
 state is not a preference the user owns.
 
 The third theme is the reason this is a phase rather than a chore. A settings page fixes four keys
-once; nothing stops the fifth. So the phase also lands **an explicit, annotated partition of all 77
+once; nothing stops the fifth. So the phase also lands **an explicit, annotated partition of all 71
 persisted keys** into *preference* (must be reachable from Settings) and *session state* (must not
 be), asserted by a test. That is the same instrument this repo already uses where a rule matters
 more than a reviewer's memory.
+
+**The x1 refinement ran that audit rather than leaving it to Theme C to discover.** Grepping every
+`PersistedUi` key against `features/settings/` returns **34 keys with no mention there at all**. Of
+those 34, **9 are preferences and 25 are session state** — so the fifth orphan this phase worries
+about is not hypothetical, and there are **five** of it. The full verdicts seed Theme C below; the
+five new orphans are `browserLayout`, `loopChoices`, `loopAgents`, `loopModels` and `loopSchedules`.
+Per Decision 6's own rule — under three, fix here; more than three, record and move on — **five means
+they are recorded, not built**, and this phase stays a 26-item phase.
+
+**The audit also found a contradiction that is squarely Theme C's business.** The docblock above the
+four `*Detached` flags ([`ui-store.ts:534-548`](../../../packages/app/src/store/ui-store.ts)) says, in
+those words, *"NOT persisted, deliberately"* — and then explains why: a popout is never recreated on
+launch, so a `true` saved before quitting is guaranteed stale, and starting from it would flash a
+spurious "detached" placeholder over a panel that is actually docked. All four are nonetheless in
+`PersistedUi` and in `partialize` (`:1699-1702`), and the v7→v8 `migrate` arm deliberately seeds them
+`false`. The comment is stale, not the code — but a key whose own documentation says it is not
+persisted is exactly the kind of drift the partition exists to catch. See Decision 7.
 
 **Builds on.**
 - [`settings-pages/sidebar-page.tsx`](../../../packages/app/src/features/settings/settings-pages/sidebar-page.tsx) —
@@ -144,13 +165,43 @@ The durable half. Four keys were orphaned because nothing said they could not be
       [`settings-pages/`](../../../packages/app/src/features/settings/settings-pages/) — a source-text
       grep, in the spirit of this repo's other structural tests. Crude on purpose: it cannot prove a
       control works, only that the key is not orphaned, which is the failure this phase is about.
-- [ ] Seed `SESSION_STATE_KEYS` with the obvious ones — `selectedRepoId`, `selectedWorktreePath`,
-      `layout`, `collapsedNavSections`, `collapsedSettingsGroups`, `collapsedRepoSections`,
-      `settingsPage`, `fabPanelOpen`, the three `*Detached` flags — and put everything genuinely
-      ambiguous in `PREFERENCE_KEYS`, because a false positive costs a settings control and a false
-      negative costs the invariant.
-- [ ] Where the test fails on a key **other** than the four this phase fixes, **do not add a control
-      for it** — add it to `SESSION_STATE_KEYS` with its reason, or note it in
+- [ ] Seed `SESSION_STATE_KEYS` from the x1 audit rather than from scratch. Of the 34 keys with no
+      mention under `settings/`, **25 are session state** and each already has its one-clause reason:
+
+      | Key | Reason (paste as the trailing comment) |
+      |---|---|
+      | `graphColumns` | drag-resized pixel widths, clamped at runtime by `useGraphColumns` — a measurement, not a visibility choice |
+      | `collapsedNavSections` · `collapsedRepoSections` · `collapsedRepoGroups` · `collapsedSettingsGroups` | folded-section ids — disclosure state |
+      | `commitMetaOpen` · `councilConfigCollapsed` | accordion/rail open state — disclosure state |
+      | `reposOpen` · `terminalOpen` · `terminalListOpen` · `browserOpen` · `fabPanelOpen` · `activityTimelineOpen` | whether a panel is currently showing |
+      | `terminalMaximized` | transient "terminal fills the window" mode |
+      | `terminalDetached` · `reposDetached` · `fabDetached` · `browserDetached` | runtime popout state, corrected from main's window registry — **and see Decision 7** |
+      | `fabSessions` | derived tab → live-session pairing, meaningless without `terminals.json` |
+      | `projectBoardByRepo` · `projectsMode` · `projectViewByProject` | last-viewed board/mode/view per repo |
+      | `repoGroups` · `repoGroupMembership` | user-created content, edited in the repos panel, not a setting |
+      | `onboardedAt` · `showOnboarding` | one-way first-run lifecycle latches |
+      | `selectedRepoId` · `selectedWorktreePath` · `settingsPage` · `layout` · `sectionFilters` | current selection and pane geometry |
+
+- [ ] Put the remaining **9 preferences** in `PREFERENCE_KEYS`. Four are this phase's own
+      (`diffShowOldGutter`, `diffLayout`, `commitFileView`, `changesFileView`); **five are new
+      orphans this phase does not build** (Decision 6): `browserLayout`, `loopChoices`, `loopAgents`,
+      `loopModels`, `loopSchedules`.
+- [ ] **The five new orphans will make `persisted-keys.test.ts` fail the moment it is written** —
+      they are in `PREFERENCE_KEYS` by their nature and named in no settings page. Resolve this the
+      way the phase's own rule says (Decision 6): record them in
+      [`outstanding.md`](../../../.midnite/tasks/outstanding.md) with the page each would belong to,
+      and give the test a short, *named* `KNOWN_ORPHANS` allow-list holding exactly those five, so
+      the invariant binds for every key except the ones deliberately owed a home. An allow-list that
+      is easy to add to is a broken invariant; this one is five entries and a comment pointing at
+      `outstanding.md`.
+- [ ] Correct the `*Detached` docblock at
+      [`ui-store.ts:534-548`](../../../packages/app/src/store/ui-store.ts), which says *"NOT
+      persisted, deliberately"* about four keys that are persisted (Decision 7). One sentence: they
+      *are* in `partialize`, and the v7→v8 `migrate` arm seeds them `false` on load, which is what
+      answers the staleness objection the rest of the comment raises. **Comment only — no
+      `partialize`, `version` or `migrate` edit.**
+- [ ] Where the test fails on a key **other** than the four this phase fixes and the five in
+      `KNOWN_ORPHANS`, **do not add a control for it** — add it to `SESSION_STATE_KEYS` with its reason, or note it in
       [`outstanding.md`](../../../.midnite/tasks/outstanding.md) as a preference wanting a home.
       Widening scope to whatever the audit turns up is how a 26-item phase becomes a 60-item one.
 
@@ -162,8 +213,8 @@ The durable half. Four keys were orphaned because nothing said they could not be
 |---|---|
 | [`packages/app/src/features/settings/settings-pages/diff-page.tsx`](../../../packages/app/src/features/settings/settings-pages/diff-page.tsx) | **new** — the page |
 | `packages/app/src/features/settings/settings-pages/diff-page.test.tsx` | **new** — render, reflect, set, reset |
-| `packages/app/src/store/persisted-keys.ts` + `persisted-keys.test.ts` | **new** — the partition and its guard |
-| [`packages/app/src/store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts) | `SettingsPageId` (`:139`), `SETTINGS_PAGES` (`:181`), and `DIFF_PREF_DEFAULTS` exported. **No `PersistedUi`, `partialize`, `version` or `migrate` change** |
+| `packages/app/src/store/persisted-keys.ts` + `persisted-keys.test.ts` | **new** — the partition (9 preference / 25 session-state, seeded from the x1 audit), its guard, and the five-entry `KNOWN_ORPHANS` allow-list |
+| [`packages/app/src/store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts) | `SettingsPageId` (`:139`), `SETTINGS_PAGES` (`:181`), `DIFF_PREF_DEFAULTS` exported, and the `*Detached` docblock (`:534-548`) corrected (Decision 7). **No `PersistedUi`, `partialize`, `version` or `migrate` change** |
 | [`packages/app/src/features/settings/settings-view.tsx`](../../../packages/app/src/features/settings/settings-view.tsx) | the `PAGE_CONTENT` entry (`:37`) |
 | [`packages/app/src/components/nav-icons.ts`](../../../packages/app/src/components/nav-icons.ts) | `SETTINGS_PAGE_ICON` (`:87`) — typecheck-enforced |
 | [`packages/app/src/features/settings/settings-pages/controls.tsx`](../../../packages/app/src/features/settings/settings-pages/controls.tsx) | (**unchanged**) — `Choice`/`Field` cover all four; do not widen |
@@ -189,14 +240,25 @@ The durable half. Four keys were orphaned because nothing said they could not be
       `PersistedUi` fails typecheck. Check by hand once, then revert the probe.
 - [ ] `persisted-keys.test.ts` passes, and deleting `diff-page.tsx` makes it fail — otherwise the
       test proves nothing.
+- [ ] `PREFERENCE_KEYS` has **9** entries and `SESSION_STATE_KEYS` has **25** of the 34 audited keys;
+      the two together cover all **71** `PersistedUi` keys with no overlap and no gap.
+- [ ] `KNOWN_ORPHANS` has exactly five entries — `browserLayout`, `loopChoices`, `loopAgents`,
+      `loopModels`, `loopSchedules` — each with a matching line in
+      [`outstanding.md`](../../../.midnite/tasks/outstanding.md).
+- [ ] The `*Detached` docblock no longer claims the flags are unpersisted, and `partialize`,
+      `version` and `migrate` are byte-identical to before the phase.
 
 ---
 
 ## Not in this phase
 
 - **Removing the toolbar's controls.** Decision 2 — they are the fast path and stay.
-- **Giving a home to every orphan the Theme C audit finds.** The audit records them; fixing them is
-  the next phase's if there are many, and a follow-up commit's if there are one or two.
+- **Giving a home to the five orphans the audit found.** They are named, classified and routed to a
+  page each (Decision 6) — `browserLayout` to the browser page, and `loopChoices`/`loopAgents`/
+  `loopModels`/`loopSchedules` to the agent page's existing Loops accordion. Building those controls
+  is a follow-up phase; the `loop*` four are one coherent block of work, not four chores.
+- **Un-persisting the four `*Detached` flags.** Decision 7 — the docblock gets corrected, the
+  `partialize` slice does not. Changing it is a version bump this phase forbids itself.
 - **Any new `controls.tsx` primitive.** Four two-valued preferences need `Choice` and nothing else.
 - **Unifying `commitFileView` and `changesFileView`.** They have different defaults and govern
   different panes; merging them silently changes one for every existing user.
@@ -232,8 +294,28 @@ The durable half. Four keys were orphaned because nothing said they could not be
    to check for four control labels is slower, more brittle, and would fail for reasons unrelated to
    the invariant.
 
-6. **Open — how many orphans will Theme C actually find?** Unknown until it runs; `PersistedUi` has
-   77 keys and most are plainly session state. *Recommendation:* if the count is under three, fix
-   them in this phase and say so; if it is more, list them in
-   [`outstanding.md`](../../../.midnite/tasks/outstanding.md) and let the invariant be the
-   deliverable. Do not let the audit's result silently redefine the phase's size.
+6. **Resolved by the x1 refinement — the audit was run, and it finds five.** `PersistedUi` has
+   **71** keys, not 77. **34** are named nowhere under `features/settings/`; of those, **25 are
+   session state and 9 are preferences**. Four of the nine are this phase's own, leaving **five new
+   orphans**: `browserLayout` (belongs on the **browser** page — a three-way Full / Split-left /
+   Split-right default) and `loopChoices`, `loopAgents`, `loopModels`, `loopSchedules` (all four
+   belong on the **agent** page, inside the `Accordion title="Loops"` that already holds their
+   sibling `loopModifierDefaults` at
+   [`agent-page.tsx:70`](../../../packages/app/src/features/settings/settings-pages/agent-page.tsx)).
+   Five is more than three, so this doc's own rule applies unchanged: **record them, do not build
+   them.** They go to [`outstanding.md`](../../../.midnite/tasks/outstanding.md) and into the
+   test's five-entry `KNOWN_ORPHANS` allow-list, and this phase stays 26 items. The `loop*` four
+   are one coherent follow-up — a "Loops" settings block — not four separate chores.
+
+7. **New, from the x1 refinement — the `*Detached` flags contradict their own docblock.**
+   [`ui-store.ts:534-548`](../../../packages/app/src/store/ui-store.ts) says *"NOT persisted,
+   deliberately"* and gives a real reason (a popout is never recreated on launch, so a saved `true`
+   is guaranteed stale and would flash a spurious detached placeholder over a docked panel). All
+   four are nonetheless in `PersistedUi`, in `partialize` (`:1699-1702`), and seeded `false` by the
+   v7→v8 `migrate` arm — which means the persistence was added *deliberately, later*, and the
+   comment was never updated. *Recommendation: fix the comment, not the code.* Removing four keys
+   from `PersistedUi` is a `partialize` change and a version bump, which this phase's scope
+   guardrail explicitly forbids; and the migrate arm shows someone already decided seeding them
+   `false` on load answers the staleness objection. Theme C's job is to record them as session
+   state and leave a one-line note at the docblock saying they *are* persisted and why that is
+   safe. If a later reader disagrees, that is a persistence phase, not this one.
