@@ -6,8 +6,12 @@ import { LuGauge, LuHardDrive } from 'react-icons/lu';
 import { useDialogs } from '../../../components/dialog-host';
 import { useOptimizerStore } from '../../../store/optimizer-store';
 import { useUiStore } from '../../../store/ui-store';
+import { ECOSYSTEM_LABELS, ECOSYSTEM_ORDER } from '../../optimizer/category-palette';
 import { loadSystemCatalogue } from '../../optimizer/use-optimizer';
 import { Field } from './controls';
+
+/** Every ecosystem except `'git'` — stale worktrees are not an opt-out. */
+const TOGGLEABLE_ECOSYSTEMS = ECOSYSTEM_ORDER.filter((ecosystem) => ecosystem !== 'git');
 
 /**
  * Phase 59 Theme A's opt-in, mirroring `GitSafetyPage`'s shape exactly: a
@@ -18,6 +22,8 @@ import { Field } from './controls';
 export function OptimizerSettingsPage() {
   const optimizerEnabled = useUiStore((s) => s.optimizerEnabled);
   const setOptimizerEnabled = useUiStore((s) => s.setOptimizerEnabled);
+  const disabledEcosystems = useUiStore((s) => s.disabledEcosystems);
+  const toggleEcosystem = useUiStore((s) => s.toggleEcosystem);
 
   return (
     <div className="flex flex-col gap-3">
@@ -38,12 +44,35 @@ export function OptimizerSettingsPage() {
             </label>
           </Field>
 
+          <Field
+            label="Ecosystems to scan"
+            hint="Smart Scan looks for every one of these by default. Unchecking one skips its detectors entirely — a new ecosystem this app learns later scans by default for everyone already using this switch, the same way hidden footer metrics work."
+          >
+            <div className="flex flex-col gap-1.5">
+              {TOGGLEABLE_ECOSYSTEMS.map((ecosystem) => (
+                <label key={ecosystem} className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={!disabledEcosystems.includes(ecosystem)}
+                    onChange={() => toggleEcosystem(ecosystem)}
+                    className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+                  />
+                  {ECOSYSTEM_LABELS[ecosystem]}
+                </label>
+              ))}
+            </div>
+          </Field>
+
           <div className="space-y-1.5 rounded-md border border-border/60 bg-card/50 p-3 text-[11px] text-muted-foreground">
             <p className="font-medium text-foreground">What this still never does</p>
             <ul className="list-disc space-y-1 pl-4">
               <li>No sudo and no GPU temperature — the load probe already made that call.</li>
               <li>Delete moves items to the trash, never a bare recursive unlink.</li>
               <li>A kill still asks first, with the process name and full command line shown.</li>
+              <li>
+                Only directories a build tool recreates on demand — never source, never
+                configuration, never anything outside a repo this app manages.
+              </li>
             </ul>
           </div>
         </div>

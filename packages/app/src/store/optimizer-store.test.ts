@@ -52,7 +52,49 @@ describe('useOptimizerStore', () => {
     useOptimizerStore.getState().scanDone(emptyResult);
     useOptimizerStore.getState().setTab('memory');
     useOptimizerStore.getState().setGpu({ model: 'x', vramBytes: 1, loadPercent: 2 });
+    useOptimizerStore.getState().removeScanItem('/repo/node_modules');
 
     expect(localStorage.length).toBe(0);
+  });
+
+  it('removeScanItem drops exactly the removed path and leaves byCategory/byEcosystem untouched (Phase 72 Theme F)', () => {
+    const result = {
+      totalBytes: 300,
+      byCategory: { dependencies: 200, buildOutput: 100 },
+      byEcosystem: { node: 300 },
+      detectors: {},
+      items: [
+        {
+          path: '/repo/node_modules',
+          bytes: 200,
+          category: 'dependencies',
+          repoId: 'repo-1',
+          detectorId: 'node-modules',
+          ecosystem: 'node',
+          reclaim: 'costly',
+        },
+        {
+          path: '/repo/dist',
+          bytes: 100,
+          category: 'buildOutput',
+          repoId: 'repo-1',
+          detectorId: 'node-dist',
+          ecosystem: 'node',
+          reclaim: 'cheap',
+        },
+      ],
+      truncated: false,
+      truncatedRoots: [],
+    } as never;
+
+    useOptimizerStore.getState().scanDone(result);
+    useOptimizerStore.getState().removeScanItem('/repo/node_modules');
+
+    const after = useOptimizerStore.getState().scan.result;
+    expect(after?.items.map((item) => item.path)).toEqual(['/repo/dist']);
+    // The aggregate totals are deliberately NOT recomputed here — they still
+    // reflect the scan that ran, not the list after a clean.
+    expect(after?.byCategory).toEqual({ dependencies: 200, buildOutput: 100 });
+    expect(after?.byEcosystem).toEqual({ node: 300 });
   });
 });
