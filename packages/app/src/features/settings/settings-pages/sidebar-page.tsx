@@ -28,6 +28,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   files: 'Files',
   search: 'Search',
   tests: 'Tests',
+  database: 'Database',
   graph: 'Graph',
   changes: 'Changes',
   actions: 'Actions',

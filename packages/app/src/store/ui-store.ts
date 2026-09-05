@@ -96,6 +96,7 @@ export type ViewId =
   | 'files'
   | 'search'
   | 'tests'
+  | 'database'
   | 'graph'
   | 'changes'
   | 'actions'
@@ -117,6 +118,7 @@ export const VIEW_IDS: readonly ViewId[] = [
   'files',
   'search',
   'tests',
+  'database',
   'projects',
   'graph',
   'changes',

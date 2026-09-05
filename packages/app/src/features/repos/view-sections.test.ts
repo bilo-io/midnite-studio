@@ -150,6 +150,7 @@ describe('view ids', () => {
       files: false,
       search: false,
       tests: false,
+      database: false,
       graph: false,
       changes: false,
       actions: false,
