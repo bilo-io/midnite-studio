@@ -15,7 +15,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | ✅ DONE | — | 32/37 | `█████████░` | 86% | — | — |
-| [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | ◻ TODO | x1 | 0/64 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | 🔄 WIP | x1 | 0/64 | `░░░░░░░░░░` | 0% | A B | C D E F |
 | [66 · API Client](phases/phase-66-api-client.md) | ◻ TODO | x1 | 0/73 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | — | 43/49 | `█████████░` | 88% | — | Verification (human passes) |
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 52/72 | `███████░░░` | 72% | — | G |
