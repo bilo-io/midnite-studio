@@ -307,6 +307,10 @@ export const CHANNELS = {
   optimizerKill: 'mstudio:optimizer:kill',
   /** Combined `app.getGPUInfo('complete')` model/VRAM plus the existing load probe. */
   optimizerGpu: 'mstudio:optimizer:gpu',
+  /** Read-only: sizes `~/.Trash` plus every mounted volume's own Trash (Phase 74). */
+  optimizerTrashSummary: 'mstudio:optimizer:trash-summary',
+  /** Asks Finder to empty the Trash via `osascript` — fixed argv, no parameters (Phase 74). */
+  optimizerTrashEmpty: 'mstudio:optimizer:trash-empty',
 
   // --- stash -----------------------------------------------------------------
   /** Every stash entry for one checkout, newest first — same shape `for-each-ref` gets. */
