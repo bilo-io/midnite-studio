@@ -88,6 +88,10 @@ mac:
   # CSC_IDENTITY_AUTO_DISCOVERY=false and afterpack.cjs ad-hoc signs it so it
   # still launches locally.
   notarize: false
+  # The Automation consent prompt's own copy (Phase 74 Theme C) — shown once,
+  # the first time the app sends Finder an Apple event to empty the Trash.
+  extendInfo:
+    NSAppleEventsUsageDescription: Midnite Studio asks Finder to empty the Trash when you choose Empty Trash in the Workspace Optimizer.
 
 afterSign: scripts/notarize.cjs
 
