@@ -46,7 +46,7 @@ export function registerTerminalHandlers(): void {
 
   ipcMain.on(CHANNELS.terminalForget, (_event, raw: unknown) => {
     const parsed = schemas.TerminalForgetRequest.safeParse(raw);
-    if (parsed.success) forgetTerminal(parsed.data.sessionId);
+    if (parsed.success) forgetTerminal(parsed.data.sessionId, parsed.data.reason ?? 'closed');
   });
 
   ipcMain.on(CHANNELS.terminalReorder, (_event, raw: unknown) => {

@@ -260,7 +260,9 @@ function usePruneSupersededSessions(activeFabTab: FabTab): void {
     const ui = useUiStore.getState();
     for (const [tab, sessionId] of Object.entries(ui.fabPrevSessions)) {
       if (tab === activeFabTab) continue;
-      useTerminalStore.getState().closeSession(sessionId);
+      // `'superseded'` rather than a plain close: history should be able to say
+      // this one was collected by a newer run, not chosen by the user.
+      useTerminalStore.getState().closeSession(sessionId, 'superseded');
       ui.setFabPrevSession(tab as FabTab, undefined);
     }
   }, [activeFabTab]);

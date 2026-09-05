@@ -339,6 +339,17 @@ export type MockFixtures = {
     legacy?: boolean;
   }[];
   /**
+   * Archived sessions for the Sessions view (Phase 67) — `ClosedSession` rows,
+   * newest last, the order main stores them in. The mock reverses on read the
+   * way the real store does.
+   */
+  closedSessions?: Record<string, unknown>[];
+  /**
+   * Archived transcripts keyed by session id, as plain strings encoded on the
+   * way out — a fixture should not have to spell out byte arrays.
+   */
+  sessionTranscripts?: Record<string, string>;
+  /**
    * Directory listings for the Files view and the Agent page's ~/.claude
    * tree, keyed `repo:<relPath>` / `claude:<relPath>` ('' is the root).
    */
@@ -1614,6 +1625,22 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
         forget: noop,
         reorder: noop,
+      },
+      /*
+        Closed-session history (Phase 67). Empty unless a spec seeds it, so the
+        Sessions view's own empty state is what every pre-existing spec sees.
+        `purge` mutates the seeded array rather than no-op'ing, because the one
+        thing worth asserting about a delete is that the row went.
+      */
+      sessions: {
+        history: async () => ({ sessions: [...closedSessions] }),
+        transcript: async (req: { sessionId: string }) => ({
+          bytes: encode(data.sessionTranscripts?.[req.sessionId] ?? ''),
+        }),
+        purge: async (req: { sessionId: string | null }) => {
+          closedSessions =
+            req.sessionId === null ? [] : closedSessions.filter((r) => r.id !== req.sessionId);
+        },
       },
       agent: {
         /*
@@ -2937,6 +2964,15 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     */
     // eslint-disable-next-line no-var
     var terminalSaves = [] as { id: string; cwd: string }[];
+    /*
+      Closed-session history, newest last on the way in and reversed on read —
+      the order `session-history-store.ts` actually keeps. Mutable because
+      `sessions.purge` is only worth mocking if the row it deletes goes.
+    */
+    // eslint-disable-next-line no-var
+    var closedSessions = [...(data.closedSessions ?? [])]
+      .reverse()
+      .map((r) => r as { id: string } & Record<string, unknown>);
     // eslint-disable-next-line no-var
     var ptyCalls = {
       creates: [] as { ptyId: string; sessionId: string }[],

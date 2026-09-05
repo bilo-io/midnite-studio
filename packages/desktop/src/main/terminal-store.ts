@@ -32,10 +32,22 @@ type StoredState = { version: 1; sessions: TerminalSession[] };
 const FILE_NAME = 'terminals.json';
 const SCROLLBACK_DIR = 'scrollback';
 
+/**
+ * Where a live session's scrollback lives, given the store's root.
+ *
+ * Exported because closing a session **moves** that file into the archive
+ * (`session-history-store.ts`) rather than deleting it, and the mover needs the
+ * path it is renaming *from*. Derived rather than passed around, so the two
+ * sides cannot disagree about it.
+ */
+export function scrollbackPath(directory: string, sessionId: string): string {
+  return join(directory, SCROLLBACK_DIR, `${safeId(sessionId)}.bin`);
+}
+
 export function createTerminalStore(directory: string): TerminalStore {
   const file = join(directory, FILE_NAME);
   const scrollbackDir = join(directory, SCROLLBACK_DIR);
-  const logFile = (sessionId: string) => join(scrollbackDir, `${safeId(sessionId)}.bin`);
+  const logFile = (sessionId: string) => scrollbackPath(directory, sessionId);
 
   return {
     load: async () => {

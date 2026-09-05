@@ -217,7 +217,15 @@ type TerminalState = {
   queueInput: (sessionId: string, input: string) => void;
   /** Consumed on pty creation — one paste per queue, never on a revive. */
   clearPendingInput: (sessionId: string) => void;
-  closeSession: (sessionId: string) => void;
+  /**
+   * Close a session for good. Main archives it — row, transcript and all — so
+   * the Sessions view can show it afterwards.
+   *
+   * `intent` is the half main cannot infer: `'superseded'` marks a loop session
+   * the FAB collected because a newer run replaced it, so history can tell that
+   * apart from a session the user chose to close.
+   */
+  closeSession: (sessionId: string, intent?: 'closed' | 'superseded') => void;
   /**
    * Put a live session to sleep: kills its pty process, marks the session asleep,
    * sets connection state to 'exited', and persists asleep: true in terminals.json.
@@ -469,11 +477,11 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
     return session;
   },
 
-  closeSession: (sessionId) => {
+  closeSession: (sessionId, intent = 'closed') => {
     const { ptyIds, sessions, activeId } = get();
     const ptyId = ptyIds[sessionId];
     if (ptyId) bridge()?.pty.kill({ ptyId });
-    bridge()?.terminal.forget({ sessionId });
+    bridge()?.terminal.forget({ sessionId, reason: intent });
 
     const remaining = sessions.filter((s) => s.id !== sessionId);
     set({
