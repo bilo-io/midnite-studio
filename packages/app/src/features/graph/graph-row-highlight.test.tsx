@@ -183,34 +183,57 @@ describe('recent commit effects', () => {
 
   const now = 1_700_000_000_000;
 
-  it('applies shimmer and text-pulse for commits under 1 minute old (just now)', () => {
-    const committerDate = Math.floor((now - 20_000) / 1000);
-    const row = makeRow('recent1', 2);
-    row.commit.committerDate = committerDate;
+  /** Render a row whose commit landed `msAgo` before `now`. */
+  const renderAged = (sha: string, msAgo: number) => {
+    const row = makeRow(sha, 2);
+    row.commit.committerDate = Math.floor((now - msAgo) / 1000);
+    return renderRow(row, { nowMs: now });
+  };
 
-    const el = renderRow(row, { nowMs: now });
-    expect(el.querySelector('.commit-row-shimmer')).not.toBeNull();
-    expect(el.querySelector('.commit-text-pulse')).not.toBeNull();
+  const layers = (el: HTMLElement) => ({
+    shimmer: el.querySelector('.commit-row-shimmer') !== null,
+    laneInk: el.querySelector('.commit-text-lane') !== null,
+    textPulse: el.querySelector('.commit-text-pulse') !== null,
+    rowGlow: el.classList.contains('commit-row-glow'),
   });
 
-  it('applies text-pulse without shimmer for commits between 1 and 2 minutes old (1m ago)', () => {
-    const committerDate = Math.floor((now - 80_000) / 1000);
-    const row = makeRow('recent2', 2);
-    row.commit.committerDate = committerDate;
-
-    const el = renderRow(row, { nowMs: now });
-    expect(el.querySelector('.commit-row-shimmer')).toBeNull();
-    expect(el.querySelector('.commit-text-pulse')).not.toBeNull();
+  it('gives a commit under 2 minutes old every layer', () => {
+    expect(layers(renderAged('fresh', 30_000))).toEqual({
+      shimmer: true,
+      laneInk: true,
+      textPulse: true,
+      rowGlow: true,
+    });
   });
 
-  it('applies neither shimmer nor text-pulse for older commits (>= 2 minutes old)', () => {
-    const committerDate = Math.floor((now - 150_000) / 1000);
-    const row = makeRow('older', 2);
-    row.commit.committerDate = committerDate;
+  it('drops only the shimmer between 2 and 5 minutes', () => {
+    expect(layers(renderAged('recent', 200_000))).toEqual({
+      shimmer: false,
+      laneInk: true,
+      textPulse: true,
+      rowGlow: true,
+    });
+  });
 
-    const el = renderRow(row, { nowMs: now });
-    expect(el.querySelector('.commit-row-shimmer')).toBeNull();
-    expect(el.querySelector('.commit-text-pulse')).toBeNull();
+  it('returns the subject to its normal ink between 5 and 10 minutes, keeping the glow', () => {
+    const el = renderAged('fading', 400_000);
+    expect(layers(el)).toEqual({
+      shimmer: false,
+      laneInk: false,
+      textPulse: true,
+      rowGlow: true,
+    });
+    // The muted utility comes back with the lane tint gone, so the subject is
+    // styled rather than merely un-tinted.
+    expect(el.querySelector('.commit-text-pulse')!.className).toContain('text-muted-foreground');
+  });
+
+  it('drops every layer at 10 minutes and older', () => {
+    expect(layers(renderAged('old', 900_000))).toEqual({
+      shimmer: false,
+      laneInk: false,
+      textPulse: false,
+      rowGlow: false,
+    });
   });
 });
-

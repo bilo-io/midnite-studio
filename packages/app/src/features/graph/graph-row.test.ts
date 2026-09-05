@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { commitRecencyTier, conventionalPrefix, formatDate } from './graph-row';
+import {
+  commitRecencyTier,
+  conventionalPrefix,
+  formatDate,
+  RECENCY_WINDOW_MS,
+} from './graph-row';
 
 describe('conventionalPrefix', () => {
   it('captures type(scope): up to and including the colon', () => {
@@ -27,22 +32,29 @@ describe('conventionalPrefix', () => {
 describe('commitRecencyTier', () => {
   const now = 1_700_000_000_000; // ms
 
-  it('returns "just-now" for commits under 60 seconds old', () => {
-    const committerSec = Math.floor((now - 30_000) / 1000);
-    expect(commitRecencyTier(committerSec, now)).toBe('just-now');
-    expect(formatDate(committerSec, now)).toBe('just now');
+  const at = (msAgo: number) => Math.floor((now - msAgo) / 1000);
+
+  it('returns "fresh" for commits under 2 minutes old', () => {
+    expect(commitRecencyTier(at(30_000), now)).toBe('fresh');
+    expect(formatDate(at(30_000), now)).toBe('just now');
+    expect(commitRecencyTier(at(119_000), now)).toBe('fresh');
   });
 
-  it('returns "one-min" for commits between 60 and 120 seconds old', () => {
-    const committerSec = Math.floor((now - 75_000) / 1000);
-    expect(commitRecencyTier(committerSec, now)).toBe('one-min');
-    expect(formatDate(committerSec, now)).toBe('1m ago');
+  it('returns "recent" from 2 up to 5 minutes old', () => {
+    expect(commitRecencyTier(at(121_000), now)).toBe('recent');
+    expect(formatDate(at(121_000), now)).toBe('2m ago');
+    expect(commitRecencyTier(at(299_000), now)).toBe('recent');
   });
 
-  it('returns "normal" for commits >= 120 seconds old', () => {
-    const committerSec = Math.floor((now - 130_000) / 1000);
-    expect(commitRecencyTier(committerSec, now)).toBe('normal');
-    expect(formatDate(committerSec, now)).toBe('2m ago');
+  it('returns "fading" from 5 up to 10 minutes old', () => {
+    expect(commitRecencyTier(at(301_000), now)).toBe('fading');
+    expect(formatDate(at(301_000), now)).toBe('5m ago');
+    expect(commitRecencyTier(at(599_000), now)).toBe('fading');
+  });
+
+  it('returns "normal" at 10 minutes and older', () => {
+    expect(commitRecencyTier(at(RECENCY_WINDOW_MS), now)).toBe('normal');
+    expect(commitRecencyTier(at(3_600_000), now)).toBe('normal');
+    expect(formatDate(at(RECENCY_WINDOW_MS), now)).toBe('10m ago');
   });
 });
-
