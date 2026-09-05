@@ -91,9 +91,11 @@ vi.mock('electron', () => ({
 vi.mock('./window-chrome', () => ({
   attachWindowChrome: vi.fn(),
   windowFrameless: vi.fn(() => false),
+  TRAFFIC_LIGHT_POSITION: { x: 16, y: 13 },
 }));
 vi.mock('./browser-service', () => ({ reparentBrowserTabs: vi.fn() }));
 
+import { TRAFFIC_LIGHT_POSITION } from './window-chrome';
 import {
   boundsWithinAnyDisplay,
   closeAllPopouts,
@@ -127,6 +129,14 @@ describe('window-manager (Phase 55)', () => {
     const win = createRoleWindow('terminal', log);
     const descriptors = listWindows();
     expect(descriptors).toEqual([{ id: win.id, role: 'terminal', repoId: null }]);
+  });
+
+  it('createRoleWindow applies TRAFFIC_LIGHT_POSITION when frameless', async () => {
+    const { windowFrameless } = await import('./window-chrome');
+    vi.mocked(windowFrameless).mockReturnValueOnce(true);
+    const win = createRoleWindow('repos', log) as unknown as InstanceType<typeof FakeBrowserWindow>;
+    expect(win.options['trafficLightPosition']).toEqual(TRAFFIC_LIGHT_POSITION);
+    expect(win.options['titleBarStyle']).toBe('hidden');
   });
 
   it('a repeat call for a live role focuses the existing window instead of opening a second', () => {

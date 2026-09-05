@@ -15,6 +15,17 @@ export function windowFrameless(): boolean {
   return process.platform === 'darwin';
 }
 
+/**
+ * Inset for native macOS window controls (traffic lights) hosted inside
+ * `@bilo-io/shell`'s 48px `<TitleBar>` (`TITLE_BAR_HEIGHT`).
+ *
+ * macOS window buttons have a 14px diameter in a 16px frame. An inset of
+ * `{ x: 16, y: 13 }` aligns their center with the 24px vertical center of the
+ * 48px bar's interactive controls (back/forward, search pill, repo badge),
+ * resolving the vertical offset where `y: 16` placed them noticeably low.
+ */
+export const TRAFFIC_LIGHT_POSITION = { x: 16, y: 13 } as const;
+
 /** `#rrggbb` only — anything else is dropped rather than handed to Electron. */
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 

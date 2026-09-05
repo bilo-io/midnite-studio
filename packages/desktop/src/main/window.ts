@@ -7,7 +7,7 @@ import { APP_VERSION_ARG, WINDOW_FRAMELESS_ARG } from '@midnite/studio-shared';
 
 import { maybeCapture } from './capture';
 import { bootMark } from './perf-marks';
-import { attachWindowChrome, windowFrameless } from './window-chrome';
+import { attachWindowChrome, TRAFFIC_LIGHT_POSITION, windowFrameless } from './window-chrome';
 
 /** Vite's dev server, matching `strictPort: true` in packages/app/vite.config.ts. */
 const DEV_SERVER_URL = process.env['MSTUDIO_RENDERER_URL'] ?? 'http://localhost:5173';
@@ -53,7 +53,7 @@ export function createWindow(): BrowserWindow {
     // <TitleBar> can host them. `trafficLightPosition` y is tuned against the
     // bar's 48px height (TITLE_BAR_HEIGHT in @bilo-io/shell).
     ...(frameless
-      ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 16, y: 16 } }
+      ? { titleBarStyle: 'hidden' as const, trafficLightPosition: TRAFFIC_LIGHT_POSITION }
       : {}),
     webPreferences: {
       // Sibling of the bundled main. Dev and production run the same esbuild
