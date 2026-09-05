@@ -793,6 +793,37 @@ describe('metrics schemas', () => {
   });
 });
 
+describe('optimizer contract (Phase 59, 73)', () => {
+  it('covers every optimizer channel with a schema', () => {
+    const expected: Record<string, string[]> = {
+      optimizerScan: ['OptimizerScanRequest', 'OptimizerScanResponse'],
+      optimizerScanProgress: ['OptimizerScanProgressEventSchema'],
+      optimizerClean: ['OptimizerCleanRequest', 'OptimizerCleanResponse'],
+      // `processes`/`gpu` are payload-free (`handleBare`) — only a response schema.
+      optimizerProcesses: ['OptimizerProcessesResponse'],
+      optimizerKill: ['OptimizerKillRequest', 'OptimizerKillResponse'],
+      optimizerGpu: ['OptimizerGpuResponse'],
+      // Phase 74's Trash pair — payload-free, response-only.
+      optimizerTrashSummary: ['OptimizerTrashSummaryResponse'],
+      optimizerTrashEmpty: ['OptimizerTrashEmptyResponse'],
+      // Phase 73's parallel system-cache contract — never merged with the
+      // repo-scoped channels above (see `domain/system-optimizer.ts`).
+      optimizerSystemCatalogue: ['OptimizerSystemCatalogueResponse'],
+      optimizerSystemScan: ['OptimizerSystemScanRequest', 'OptimizerSystemScanResponse'],
+      optimizerSystemScanProgress: ['OptimizerSystemScanProgressEventSchema'],
+      optimizerSystemClean: ['OptimizerSystemCleanRequest', 'OptimizerSystemCleanResponse'],
+      optimizerSystemReclaim: ['OptimizerSystemReclaimRequest', 'OptimizerSystemReclaimResponse'],
+    };
+    const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
+      key.startsWith('optimizer'),
+    );
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+    for (const names of Object.values(expected)) {
+      for (const name of names) expect(schemas).toHaveProperty(name);
+    }
+  });
+});
+
 describe('window contract (Phase 55)', () => {
   it('covers every window channel with a schema', () => {
     const expected: Record<string, string[]> = {

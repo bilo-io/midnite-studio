@@ -76,6 +76,110 @@ export async function runOptimizerClean(paths: string[]): Promise<OptimizerClean
 }
 
 /**
+ * Wires `optimizerSystemScanProgress` events into the store — the system
+ * scan's own stream, independent of `useOptimizerScanProgress`'s (Decision
+ * 14: two independent surfaces, two controllers, main-side and here).
+ */
+export function useSystemScanProgress(): void {
+  useEffect(() => {
+    const api = bridge();
+    if (!api) return;
+    return api.optimizer.onSystemScanProgress(({ done, total }) => {
+      useOptimizerStore.getState().systemScanProgress(done, total);
+    });
+  }, []);
+}
+
+export async function runSystemScan(): Promise<void> {
+  const store = useOptimizerStore.getState();
+  store.startSystemScan();
+
+  const api = bridge();
+  if (!api) {
+    store.systemScanError('The app bridge is unavailable.');
+    return;
+  }
+
+  const response = await api.optimizer.systemScan({});
+  if (response.ok) {
+    store.systemScanDone(response.value);
+  } else {
+    store.systemScanError(response.message);
+  }
+}
+
+/**
+ * Cleans the given system-cache registry entries (by `entryId`, never a raw
+ * path — main re-resolves and re-confines each one fresh at clean time) and
+ * reconciles the store's last scan result against what actually happened,
+ * mirroring `runOptimizerClean`'s own reconciliation shape.
+ */
+export async function runSystemClean(entryIds: string[]): Promise<OptimizerCleanOutcome | null> {
+  const api = bridge();
+  if (!api) {
+    useToastStore.getState().addToast({ message: 'The app bridge is unavailable.', status: 'error' });
+    return null;
+  }
+
+  const response = await api.optimizer.systemClean({ entryIds });
+  if (!response.ok) {
+    useToastStore.getState().addToast({ message: response.message, status: 'error' });
+    return null;
+  }
+
+  const store = useOptimizerStore.getState();
+  const requested = new Set(entryIds);
+  const skippedPaths = new Set(response.value.skipped.map((entry) => entry.path));
+  const priorResult = store.systemScan.result;
+  if (priorResult) {
+    store.systemScanDone({
+      ...priorResult,
+      // Drop every item whose entry was requested and actually cleaned;
+      // keep one back only if it came back in `skipped` (re-validated away
+      // at clean time — still there, so it still belongs in the list).
+      items: priorResult.items.filter(
+        (item) => !requested.has(item.entryId) || skippedPaths.has(item.path),
+      ),
+    });
+  }
+
+  if (response.value.skipped.length > 0) {
+    const count = response.value.skipped.length;
+    useToastStore.getState().addToast({
+      message: `${count} item${count === 1 ? '' : 's'} skipped — no longer there.`,
+      status: 'info',
+    });
+  }
+
+  return response.value;
+}
+
+/**
+ * Runs one vendor reclaim command by `entryId` (Phase 73 Theme D) — the
+ * argv itself is resolved main-side against a fixed table and never named
+ * by this call. Reports the outcome via toast; a successful run's output is
+ * shown by the caller (the confirm dialog's own result step), not here.
+ */
+export async function runSystemReclaim(
+  entryId: string,
+): Promise<{ ok: true; stdout: string; stderr: string; exitCode: number | null } | { ok: false; message: string }> {
+  const api = bridge();
+  if (!api) {
+    const message = 'The app bridge is unavailable.';
+    useToastStore.getState().addToast({ message, status: 'error' });
+    return { ok: false, message };
+  }
+
+  const response = await api.optimizer.systemReclaim({ entryId });
+  if (!response.ok) {
+    useToastStore.getState().addToast({ message: response.message, status: 'error' });
+    return { ok: false, message: response.message };
+  }
+
+  return { ok: true, ...response.value };
+}
+
+/**
  * Fetches the system-cache catalogue once (Phase 73 Theme B/C) — labels,
  * producers and ecosystem only, no paths. `packages/app` may not import
  * `packages/desktop`, so this channel is the only way the renderer ever

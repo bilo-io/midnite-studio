@@ -1,9 +1,12 @@
 import { lstat } from 'node:fs/promises';
+import { homedir } from 'node:os';
 
 import type { Ecosystem, SystemCacheItem, SystemScanResult } from '@midnite/studio-shared';
 
 import { confineAllowlist, describeFsError } from '../fs-scope-write';
 import { defaultLogger, type Logger } from '../log';
+import { firstLine, runProcess, type ProcessSink } from '../process-runner';
+import { DEFAULT_RECLAIM_COMMANDS } from './reclaim-commands';
 import { dirBytes, newWalkState, type CleanOutcome } from './scan-service';
 import {
   DEFAULT_SYSTEM_CACHE_ENTRIES,
@@ -14,7 +17,9 @@ import {
 /**
  * Phase 73 Theme B — the system-wide scan/clean pair, mirroring
  * `scan-service.ts`'s own shape over the allowlist instead of `knownRoots()`.
- * `runReclaimCommand` (Theme D) lives in this same file once it lands.
+ * `runReclaimCommand` (Theme D) below is a fourth caller of `runProcess` —
+ * the other three are `video/render-service.ts`, `testing/runner.ts` and
+ * `diagnostics/runner.ts`, each with its own private buffer sink.
  */
 
 /** Matches Phase 72 Theme E's own fairness number (`MAX_ENTRIES_PER_ROOT`) —
@@ -141,4 +146,75 @@ export async function cleanSystemCaches(
   }
 
   return { freedBytes, skipped };
+}
+
+/** 8 KB is the TAIL, not the head — `brew cleanup`'s useful summary line
+ *  ("Removed N files, M MB") is at the end, and a truncated head would hide
+ *  exactly what the user wants to see. `ProcessOutcome.stderr` is already
+ *  tail-capped at `OUTPUT_TAIL_CAP` (200,000) by `process-runner.ts`; stdout
+ *  is not, so both are re-sliced to this tighter cap before crossing IPC. */
+export const RECLAIM_OUTPUT_CAP = 8_000;
+
+const tail = (text: string, cap: number): string => (text.length > cap ? text.slice(-cap) : text);
+
+/** A trivial sink: a reclaim command's stdout just needs to be read whole,
+ *  and never fails to "parse" it — `reason: 'parse-failed'` is unreachable
+ *  for this caller. */
+export function collectStdout(): ProcessSink<string> {
+  let buf = '';
+  return {
+    push: (chunk) => {
+      buf += chunk;
+    },
+    finish: () => ({ ok: true, data: buf }),
+  };
+}
+
+export type ReclaimOutcome =
+  | { ok: true; value: { stdout: string; stderr: string; exitCode: number | null } }
+  | { ok: false; message: string };
+
+/**
+ * Runs one `DEFAULT_RECLAIM_COMMANDS` entry by `entryId` — the request
+ * carries only that string; the actual argv is resolved main-side against
+ * the fixed table and **never** accepted from the renderer.
+ *
+ * `cwd` is `os.homedir()` — guaranteed to exist and deliberately not a repo,
+ * so nothing here can pick up a repo-local tool configuration.
+ */
+export async function runReclaimCommand(entryId: string): Promise<ReclaimOutcome> {
+  const command = DEFAULT_RECLAIM_COMMANDS.find((c) => c.entryId === entryId);
+  if (!command) {
+    return { ok: false, message: `"${entryId}" has no registered reclaim command.` };
+  }
+
+  const outcome = await runProcess<string>(command.command, command.args, homedir(), {
+    sink: collectStdout(),
+  });
+
+  if (!outcome.ok) {
+    if (outcome.reason === 'not-installed') {
+      return { ok: false, message: `${command.command} is not installed or not on PATH.` };
+    }
+    return { ok: false, message: outcome.hint };
+  }
+
+  // `runProcess` returns `{ok: true}` with the exit code in `exitCode` for a
+  // command that ran and failed — a non-zero exit is a failure and must be
+  // mapped as one, or a failed `brew cleanup` reports as a success.
+  if (outcome.exitCode !== 0) {
+    return {
+      ok: false,
+      message: firstLine(outcome.stderr) || `${command.command} exited ${outcome.exitCode}`,
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      stdout: tail(outcome.data, RECLAIM_OUTPUT_CAP),
+      stderr: tail(outcome.stderr, RECLAIM_OUTPUT_CAP),
+      exitCode: outcome.exitCode,
+    },
+  };
 }

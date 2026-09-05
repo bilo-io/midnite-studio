@@ -707,7 +707,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     a named one. Never the system Trash (a separate review). Never Plex or another media tool's cache
     (a separate review). Never a path this registry doesn't name, and never one from a repo-scan
     `extraRoot` picker."*
-- [ ] The System section's scan action (Theme E) only renders once **all three** are true:
+- [x] The System section's scan action (Theme E) only renders once **all three** are true:
       `optimizerEnabled && allowSystemCacheClean && systemCacheConsentGiven` — matching the
       `use-graph-actions.ts:452-461` "the setting is never the only gate" pattern with a third
       condition instead of two. The same AND guards the main-side handlers is **not** true and must
@@ -729,7 +729,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
 
 ### D — Vendor reclaim commands, run through the existing trusted-spawn primitive (M)
 
-- [ ] Add `packages/desktop/src/main/optimizer/reclaim-commands.ts` exporting a fixed table:
+- [x] Add `packages/desktop/src/main/optimizer/reclaim-commands.ts` exporting a fixed table:
       ```ts
       export type ReclaimCommand = {
         entryId: SystemCacheEntryId;  // which SystemCacheEntry this offers an alternative to
@@ -751,7 +751,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     catalogue does not offer a command whose own absence would need a second "is it installed"
     probe beyond the existing `runProcess` "binary not found" outcome. Add it once `cargo-cache`'s
     prevalence is checked, not speculatively.
-- [ ] Run every command through **the existing** `runProcess`/`realSpawn`
+- [x] Run every command through **the existing** `runProcess`/`realSpawn`
       ([`process-runner.ts:44,126`](../../../packages/desktop/src/main/process-runner.ts)),
       unmodified — no shell, a fixed argv, `DEFAULT_TIMEOUT_MS` (2 minutes), `SIGKILL` on the
       process group at timeout. This is the same primitive `diagnostics/runner.ts` and
@@ -767,7 +767,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     can pick up a repo-local tool configuration. **`sink` is a small `collectStdout(): ProcessSink<string>`**
     defined in `system-cache-service.ts`: `push` appends, `finish` returns `{ok: true, data: joined}`.
     It never fails to parse, so `reason: 'parse-failed'` is unreachable for these callers.
-- [ ] Add `runReclaimCommand(entryId): Promise<OptimizerResultOf<{ stdout: string; stderr: string; exitCode: number | null }>>`
+- [x] Add `runReclaimCommand(entryId): Promise<OptimizerResultOf<{ stdout: string; stderr: string; exitCode: number | null }>>`
       in `system-cache-service.ts`, looked up against `DEFAULT_RECLAIM_COMMANDS` by `entryId` —
       **never accepts a command or args from the renderer.** The IPC request carries only an
       `entryId` string; the actual argv is resolved main-side from the fixed table.
@@ -782,13 +782,13 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     `runProcess` already writes.
   - Gated main-side by nothing (main has no view of renderer settings) and renderer-side by the same
     three-way AND as everything else in Theme C.
-- [ ] Cap the output this phase shows. `ProcessOutcome.stderr` is already tail-capped at
+- [x] Cap the output this phase shows. `ProcessOutcome.stderr` is already tail-capped at
       `OUTPUT_TAIL_CAP = 200_000` (`process-runner.ts:25`) — **stdout is not**, contrary to the
       previous draft's claim. Add `RECLAIM_OUTPUT_CAP = 8_000` in `system-cache-service.ts` and
       slice both streams to their last `RECLAIM_OUTPUT_CAP` characters before they cross IPC.
   - 8 KB is the tail, not the head: `brew cleanup`'s useful line ("Removed N files, M MB") is at the
     end, and a truncated head would hide exactly the summary the user wants.
-- [ ] A `costly` entry with a registered reclaim command offers it as the **default** action ahead
+- [x] A `costly` entry with a registered reclaim command offers it as the **default** action ahead
       of a plain trash-delete of the whole directory — see Decision 6 for why (targeted reclaim
       beats bulk delete for a shared, content-addressable store like pnpm's). An entry with no
       registered command only ever offers delete.
@@ -796,14 +796,14 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     `secondaryLabel` on the confirm (`ConfirmRequest.secondaryLabel`/`onSecondary`, `:75-81`, which
     exists precisely for "a third way out"). An entry with no command has no secondary and a
     primary of `"Move to Trash"`.
-- [ ] The confirm dialog for a reclaim command shows the **exact argv** in its `body` — the literal
+- [x] The confirm dialog for a reclaim command shows the **exact argv** in its `body` — the literal
       string `brew cleanup -s`, not "clean up Homebrew's cache" — so the user is never surprised by
       what literally runs. It carries **no `blastRadius`** (`blastRadius: null`): the command decides
       what it removes and this app cannot count it in advance, and inventing a number here would be
       the one dishonest confirm in the app.
   - Output is shown after the fact in the result toast/panel, never silently discarded; a
     `{ok:false}` renders its `message` in the same place.
-- [ ] `reclaim-commands.test.ts`: every command in `DEFAULT_RECLAIM_COMMANDS` names an `entryId`
+- [x] `reclaim-commands.test.ts`: every command in `DEFAULT_RECLAIM_COMMANDS` names an `entryId`
       present in `DEFAULT_SYSTEM_CACHE_ENTRIES`; `runReclaimCommand` for an unknown `entryId`
       returns `{ok:false}` **before spawning anything** (a fake `spawn` that must never be called);
       a fake `spawn` proves the argv passed to `runProcess` is exactly the table's `command`/`args`,
@@ -813,6 +813,16 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
       **end**.
 
 ### E — UI: a System section that never looks like "your project's stuff" (M)
+
+**Landed (PR #TBD) minus the two items below, both genuinely blocked on [Phase
+72](phase-72-every-build-systems-leftovers.md) Theme D, which had not merged at the time this PR
+was built (confirmed by inspection: `segmented-bar.tsx` was still bound to `ScanCategory`, and
+`category-palette.ts` had no `ECOSYSTEM_HUES`/`ECOSYSTEM_LABELS` map).** Per this item's own
+"If Phase 72 Theme D has not landed" fallback, the System section renders as a flat list with no
+bar and no per-ecosystem colour — everything else in this theme (gating, all five states, the
+banner, the `blastRadiusKind` arm, row shape, icons, mock bridge, e2e shots) is built and tested.
+Whoever picks up Phase 72 Theme D afterward: this item and the one below are the only remaining
+work in Theme E.
 
 - [ ] **Consume [Phase 72](phase-72-every-build-systems-leftovers.md)'s generic `SegmentedBar` —
       do not generalise it here.** Phase 72 Theme D turns
@@ -843,7 +853,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
   - Both maps are exhaustive `Record<Ecosystem, …>`, so adding `'go'` to `EcosystemSchema` without
     these two entries is a **typecheck** failure — they land in the same commit as Decision 8's
     enum edit, not later.
-- [ ] Add a "System" section to
+- [x] Add a "System" section to
       [`storage-tab.tsx`](../../../packages/app/src/features/optimizer/storage-tab.tsx), gated on the
       Theme C three-way AND and rendered only when true; otherwise the tab is exactly as Phase 72
       left it.
@@ -854,7 +864,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     because `optimizer-shots.spec.ts:175,185` locates the existing bar by
     `getByRole('img', { name: 'Reclaimable storage by category' })` and two bars sharing a name break
     that locator.
-- [ ] Give the System section its own **empty, loading, error and approximate** states, with literal
+- [x] Give the System section its own **empty, loading, error and approximate** states, with literal
       copy. `storage-tab.tsx` today has exactly one non-happy branch (`:20-26`, the "run a scan
       first" paragraph) and no loading or error branch at all — the Smart Scan tab owns those
       (`smart-scan-tab.tsx:125-127`). The System section cannot borrow them, so it states its own:
@@ -871,14 +881,14 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
   - **Approximate:** when `result.approximate`, a line above the list — *"One or more caches were too
     large to measure completely; the figures below are minimums."* — and every affected row's byte
     figure is prefixed `at least `. An under-report is visible, never silent.
-- [ ] A persistent banner above the System section: *"Outside any repo Midnite manages — your Cargo,
+- [x] A persistent banner above the System section: *"Outside any repo Midnite manages — your Cargo,
       Gradle, Homebrew, and other tool caches."* — visually distinct (a different accent, not just a
       label) from the repo-scoped rows above it, so a user scanning the page cannot mistake a
       home-directory cache for something inside a project they opened.
   - Distinct **accent**, deliberately not a warning/destructive colour: [Phase
     74](phase-74-media-caches-and-the-trash.md)'s Trash card reserves full destructive styling for
     the one operation with no undo, and if this section already shouts, that distinction is lost.
-- [ ] Add `blastRadiusKind: 'systemCache'` to `BLAST_RADIUS_COPY` in
+- [x] Add `blastRadiusKind: 'systemCache'` to `BLAST_RADIUS_COPY` in
       [`confirm-dialog.tsx`](../../../packages/app/src/components/confirm-dialog.tsx):
       `subject: (n) => \`\${n} cache\${n === 1 ? '' : 's'}\``,
       `consequence: 'will be moved to the trash. These sit outside any repo Midnite manages.'`,
@@ -886,14 +896,14 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
   - Adding the arm is the only edit — `blastRadiusKind` is typed `keyof typeof BLAST_RADIUS_COPY`
     (`:53`), so the union widens with no second change. The one sentence Theme C's gate promised
     would always be visible at the moment of the decision, not only in Settings.
-- [ ] Each row shows the entry's `label` and `producer`, never a raw path standing alone — *"Cargo
+- [x] Each row shows the entry's `label` and `producer`, never a raw path standing alone — *"Cargo
       registry · will need `cargo build` / `cargo install` to redownload"* — with the resolved path
       available but secondary (the existing row's `font-mono text-xs` treatment, `storage-tab.tsx:56`).
       A row is **not** a `selectRepo` deep link the way a Storage row is (`:44-48`): a system cache
       has no `repoId`, and the button must be absent rather than disabled-with-no-explanation.
-- [ ] Every icon from `react-icons`, imported per set (`react-icons/lu`), never `lucide-react` —
+- [x] Every icon from `react-icons`, imported per set (`react-icons/lu`), never `lucide-react` —
       unchanged repo rule, enforced by `eslint.config.mjs` and `components/icons/icon-names.test.ts`.
-- [ ] Teach the e2e mock bridge the new methods:
+- [x] Teach the e2e mock bridge the new methods:
       [`e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts) — one field per method in
       `MockFixtures['optimizer']` (`:522-540`) and one handler in the object at `:2396-2470`, beside
       `scan`/`onScanProgress`/`clean`.
@@ -902,7 +912,7 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     in `mock-bridge.ts` (`:525`, `:2400`), `optimizer.spec.ts` (`:16`, `:21`, `:24`) and
     `optimizer-shots.spec.ts` (`:24`, `:34`, `:40`, `:46`). Resolving a literal-string conflict by
     hand in three files is how one of them silently keeps the dead value.
-- [ ] [`packages/app/e2e/optimizer-shots.spec.ts`](../../../packages/app/e2e/optimizer-shots.spec.ts):
+- [x] [`packages/app/e2e/optimizer-shots.spec.ts`](../../../packages/app/e2e/optimizer-shots.spec.ts):
       the System section, light and dark, **with the gate on**.
   - Turn the gate on by adding both booleans to `seedOptimizerEnabled`'s
     `persisted.state = { ...persisted.state, optimizerEnabled: true }` spread (`:113-121`) — that
@@ -916,10 +926,10 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
 
 ### F — Verification (M)
 
-- [ ] `system-cache-registry.test.ts`, `system-cache-service.test.ts`, `reclaim-commands.test.ts`,
+- [x] `system-cache-registry.test.ts`, `system-cache-service.test.ts`, `reclaim-commands.test.ts`,
       `system-cache-consent.test.tsx` — all from Themes A, B, D, C above, each asserting the
       acceptance criteria named there.
-- [ ] `packages/desktop/src/main/confine-allowlist.test.ts`, beside the existing
+- [x] `packages/desktop/src/main/confine-allowlist.test.ts`, beside the existing
       [`confine-tree.test.ts`](../../../packages/desktop/src/main/confine-tree.test.ts) and following
       its setup exactly (`realpath` the tmpdir first — macOS resolves `/var` → `/private/var`, and a
       test that skips this fails for the wrong reason):
@@ -937,11 +947,11 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     tool) does not double-confine or double-count — assert the dedup rule explicitly rather than
     leaving it implied: `resolveSystemCacheEntries` keeps the **first** entry in array order and
     drops the later one with a logged line.
-- [ ] `optimizer-handlers.test.ts`: the existing `optimizerScan`/`optimizerClean` assertions are
+- [x] `optimizer-handlers.test.ts`: the existing `optimizerScan`/`optimizerClean` assertions are
       **unchanged** — a diff there is a red flag, per Phase 72's own precedent for the same claim.
       New assertions for the four new handlers use the same "look up the registered `ipcMain.handle`
       listener by channel" helper the file already has (`:25-31`).
-- [ ] Add a `covers every optimizer channel with a schema` block to
+- [x] Add a `covers every optimizer channel with a schema` block to
       [`ipc.test.ts`](../../../packages/shared/src/ipc/ipc.test.ts), matching the shape used for
       `metrics` (`:779-797`), `video` (`:1551`) and `db` (`:1599`): filter
       `[...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)]` by the `optimizer` prefix, assert
@@ -949,17 +959,17 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
   - There is **no such block today** (`grep -i optimizer ipc.test.ts` returns zero hits), so the
     five new channels would otherwise be covered only by the two global assertions. Adding it makes
     a future sixth channel that forgets its schema a test failure rather than a runtime `undefined`.
-- [ ] Renderer test: the System section is absent with any one of the three Theme C conditions
+- [x] Renderer test: the System section is absent with any one of the three Theme C conditions
       false, and present only with all three true — all four cases, driven by
       `useUiStore.setState({ … })`.
-- [ ] Renderer test: each of the System section's five states (idle, loading, empty result, error,
+- [x] Renderer test: each of the System section's five states (idle, loading, empty result, error,
       approximate) renders its named copy, driven by `useOptimizerStore.setState({ systemScan: … })`
       following `optimizer-store.test.ts`'s own `beforeEach` reset idiom.
-- [ ] `optimizer-store.test.ts`: the existing `expect(localStorage.length).toBe(0)` still passes with
+- [x] `optimizer-store.test.ts`: the existing `expect(localStorage.length).toBe(0)` still passes with
       the `systemScan`/`systemCatalogue` additions — the assertion that nobody reached for `persist`.
-- [ ] `persisted-keys.test.ts` passes with both new `PREFERENCE_KEYS` — which requires each
+- [x] `persisted-keys.test.ts` passes with both new `PREFERENCE_KEYS` — which requires each
       identifier to appear literally under `features/settings/`, satisfied by Theme C's controls.
-- [ ] `moon run :typecheck :lint :test` green.
+- [x] `moon run :typecheck :lint :test` green.
 - [ ] **Human pass, on a real machine with several of these tools installed:** confirm the scan
       reports real, correct byte figures for at least Homebrew, one of Node's stores, and one of
       Rust/Go/Gradle; confirm a clean actually only touches the reported path (check the Trash);
@@ -1063,32 +1073,35 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] `confineAllowlist` rejects every case in Theme F's list — outside, under, parent, prefix-sibling,
+- [x] `moon run :typecheck :lint :test` green.
+- [x] `confineAllowlist` rejects every case in Theme F's list — outside, under, parent, prefix-sibling,
       nonexistent — and `confineTree`/`cleanItems`'s own tests are unchanged (diff-empty).
-- [ ] `resolveSystemCacheEntries` drops a symlinked entry, a `queryTool` path outside
+- [x] `resolveSystemCacheEntries` drops a symlinked entry, a `queryTool` path outside
       `os.homedir()`, `os.homedir()` itself, a non-directory, and a duplicate resolving to an
       already-claimed real path — each asserted individually.
-- [ ] No `SystemCacheItem` produced by any test resolves to a path that is not exactly one of
+- [x] No `SystemCacheItem` produced by any test resolves to a path that is not exactly one of
       `DEFAULT_SYSTEM_CACHE_ENTRIES`'s resolved paths.
-- [ ] Every `fixed` entry's `resolve.path` is homedir-relative — no leading `~`, no leading `/` —
+- [x] Every `fixed` entry's `resolve.path` is homedir-relative — no leading `~`, no leading `/` —
       asserted over the whole catalogue in one test.
-- [ ] Every entry has a non-empty `producer`, and every `DEFAULT_RECLAIM_COMMANDS.entryId` exists in
+- [x] Every entry has a non-empty `producer`, and every `DEFAULT_RECLAIM_COMMANDS.entryId` exists in
       `DEFAULT_SYSTEM_CACHE_ENTRIES`.
-- [ ] The System section is unreachable with any one of the three Theme C gates off, and the
+- [x] The System section is unreachable with any one of the three Theme C gates off, and the
       one-time consent dialog cannot be bypassed by toggling the setting alone — the toggle does not
       set the boolean at all until confirm fires.
-- [ ] The consent dialog's and the settings page's enumerations both contain every label the
+- [x] The consent dialog's and the settings page's enumerations both contain every label the
       catalogue channel returns — the assertion that the derivation, not prose, is what renders.
-- [ ] Every `ReclaimCommand.args` is a literal array asserted never to contain renderer input, and a
+- [x] Every `ReclaimCommand.args` is a literal array asserted never to contain renderer input, and a
       non-zero `exitCode` is asserted to produce `{ok:false}`.
-- [ ] An entry that exceeds `MAX_ENTRIES_PER_SYSTEM_ENTRY` reports `approximate: true` with a
+- [x] An entry that exceeds `MAX_ENTRIES_PER_SYSTEM_ENTRY` reports `approximate: true` with a
       non-zero `bytes`, and the entry scanned after it still reports its own real size.
-- [ ] `ipc.test.ts` covers all five new channels by name and asserts each has a schema.
-- [ ] `optimizer-store.test.ts`'s `localStorage.length === 0` still passes; `persisted-keys.test.ts`
+- [x] `ipc.test.ts` covers all five new channels by name and asserts each has a schema.
+- [x] `optimizer-store.test.ts`'s `localStorage.length === 0` still passes; `persisted-keys.test.ts`
       passes with both new preference keys.
-- [ ] Storage tab shots refreshed, gate-on state, light and dark, with the two bars carrying distinct
-      accessible names.
+- [ ] Storage tab shots refreshed, gate-on state, light and dark — done for the shots themselves
+      (`optimizer-storage-{light,dark}.png` re-shot, `optimizer-system-caches-{light,dark}.png`
+      added under `docs/screenshots/p73-def/`), left unchecked because "the two bars carrying
+      distinct accessible names" does not apply yet — the System section has no bar of its own
+      until Phase 72 Theme D's generic `SegmentedBar` lands (see Theme E's own note above).
 - [ ] **Human:** real-machine pass per Theme F.
 - [ ] **Open, for a human:** the by-hand symlink case in Theme F's last item — the one refusal no
       unit test proves end to end.

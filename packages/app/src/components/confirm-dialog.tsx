@@ -47,6 +47,14 @@ const BLAST_RADIUS_COPY = {
     consequence: 'will be permanently deleted — this cannot be undone.',
     noEffect: 'The Trash is already empty.',
   },
+  /** Phase 73 Theme E — a system-wide cache clean. The one sentence Theme
+   *  C's consent gate promised would always be visible at the moment of the
+   *  decision, not only in Settings. */
+  systemCache: {
+    subject: (n: number) => `${n} cache${n === 1 ? '' : 's'}`,
+    consequence: 'will be moved to the trash. These sit outside any repo Midnite manages.',
+    noEffect: 'Nothing is left to clean.',
+  },
 } as const;
 
 export type ConfirmRequest = {

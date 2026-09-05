@@ -559,6 +559,33 @@ export type MockFixtures = {
       cachedBytes: number;
       freeBytes: number;
     };
+    /**
+     * Phase 73 — the system-wide cache registry's own catalogue/scan
+     * fixtures, a parallel family to `scanResult` above and never merged
+     * with it (see `domain/system-optimizer.ts`'s own docblock).
+     */
+    systemCatalogue?: Array<{
+      entryId: string;
+      label: string;
+      producer: string;
+      ecosystem: string;
+      reclaim: string;
+    }>;
+    systemScanResult?: {
+      totalBytes: number;
+      approximate: boolean;
+      byEcosystem?: Record<string, number>;
+      items: Array<{
+        path: string;
+        bytes: number;
+        approximate: boolean;
+        entryId: string;
+        ecosystem: string;
+        reclaim: string;
+        label: string;
+        producer: string;
+      }>;
+    };
   };
   /**
    * The MCP server's Settings-page state (Phase 57 Theme F). Off by default —
@@ -2486,6 +2513,43 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           ok: true as const,
           value: data.optimizer?.gpu ?? { model: null, vramBytes: null, loadPercent: null },
         }),
+        // Phase 73 — the system-wide cache registry's own methods, never
+        // sharing a fixture or a handler with the repo-scoped ones above.
+        systemCatalogue: async () => ({
+          ok: true as const,
+          value: data.optimizer?.systemCatalogue ?? [],
+        }),
+        systemScan: async () => {
+          const fixture = data.optimizer?.systemScanResult;
+          const result = {
+            totalBytes: 0,
+            approximate: false,
+            byEcosystem: {},
+            items: [],
+            ...fixture,
+          };
+          // Real progress is the walker's own job in main; the mock fires
+          // every registered handler once at 100%, mirroring `scan()` above.
+          systemScanProgressHandlers.forEach((handler) => handler({ done: 1, total: 1 }));
+          return { ok: true as const, value: result };
+        },
+        onSystemScanProgress: (handler: (e: { done: number; total: number }) => void) => {
+          systemScanProgressHandlers.push(handler);
+          return () => {
+            systemScanProgressHandlers = systemScanProgressHandlers.filter((h) => h !== handler);
+          };
+        },
+        systemClean: async (req: { entryIds: string[] }) => {
+          const items = data.optimizer?.systemScanResult?.items ?? [];
+          const freedBytes = items
+            .filter((item) => req.entryIds.includes(item.entryId))
+            .reduce((sum, item) => sum + item.bytes, 0);
+          return { ok: true as const, value: { freedBytes, skipped: [] } };
+        },
+        systemReclaim: async (_req: { entryId: string }) => ({
+          ok: true as const,
+          value: { stdout: 'done', stderr: '', exitCode: 0 },
+        }),
       },
       protocol: {
         onDeepLink: unsubscribe,
@@ -2571,6 +2635,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     // in `log.start` legal; keeping them here groups the stream plumbing.
     // eslint-disable-next-line no-var
     var scanProgressHandlers: Array<(e: { done: number; total: number }) => void> = [];
+    // eslint-disable-next-line no-var
+    var systemScanProgressHandlers: Array<(e: { done: number; total: number }) => void> = [];
     // eslint-disable-next-line no-var
     var batchHandlers: Array<(e: unknown) => void> = [];
     // eslint-disable-next-line no-var
