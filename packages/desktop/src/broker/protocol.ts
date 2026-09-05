@@ -83,6 +83,29 @@ export function encodeControl(msg: ControlMessage): Buffer {
   return buf;
 }
 
+/**
+ * Encode an arbitrary JSON-serialisable payload as a type-0x00 (control)
+ * frame — the same wire shape {@link encodeControl} writes, without narrowing
+ * the payload to this module's own `ControlMessage` union. The MCP server and
+ * its stdio shim (Phase 57 Themes B/C) carry `McpRequest`/`McpResponse`
+ * payloads over this identical length-prefixed framing; those types have
+ * nothing to do with the broker's own protocol, so forcing them through
+ * `encodeControl`'s `ControlMessage` parameter would be a lie the type
+ * checker only *looks* like it is catching.
+ */
+export function encodeJsonFrame(payload: unknown): Buffer {
+  const json = JSON.stringify(payload);
+  const payloadLen = Buffer.byteLength(json, 'utf8');
+  if (payloadLen > MAX_PAYLOAD_LENGTH) {
+    throw new Error(`Frame payload exceeds maximum size (${payloadLen} > ${MAX_PAYLOAD_LENGTH})`);
+  }
+  const buf = Buffer.allocUnsafe(5 + payloadLen);
+  buf[0] = 0x00;
+  buf.writeUInt32BE(payloadLen, 1);
+  buf.write(json, 5, payloadLen, 'utf8');
+  return buf;
+}
+
 export function encodeData(ptyId: string, bytes: Uint8Array): Buffer {
   // ptyId must be 36 characters (e.g. UUID)
   const idBuf = Buffer.alloc(36, 0x20); // space-pad if needed
@@ -100,11 +123,30 @@ export function encodeData(ptyId: string, bytes: Uint8Array): Buffer {
   return buf;
 }
 
-export function createFrameDecoder(): {
+/**
+ * `maxPayloadLength` defaults to {@link MAX_PAYLOAD_LENGTH} (sized for pty
+ * output) but is overridable — the MCP server (Phase 57 Theme B) passes its
+ * own, three orders of magnitude smaller `MCP_MAX_REQUEST_BYTES`, since
+ * nothing it serves should ever approach a pty frame's ceiling.
+ */
+export function createFrameDecoder(maxPayloadLength: number = MAX_PAYLOAD_LENGTH): {
   push: (chunk: Buffer) => Frame[];
   reset: () => void;
 } {
   let buffer: Buffer = Buffer.alloc(0);
+  /**
+   * Bytes still owed to a frame whose declared length exceeded the cap.
+   *
+   * A caller that catches this function's throw and keeps pushing (the MCP
+   * server does — Phase 57 Theme B needs the connection to survive one
+   * oversized request) would otherwise have the REST of that same frame's
+   * payload arrive in a later chunk and get misread as a brand-new frame's
+   * header, one bogus "frame" at a time until the real bytes ran out. This
+   * discards exactly the declared length, across as many `push` calls as it
+   * takes, before parsing resumes — so one oversized frame produces exactly
+   * one throw, not one per chunk it happened to arrive in.
+   */
+  let skipRemaining = 0;
 
   return {
     push(chunk: Buffer): Frame[] {
@@ -113,13 +155,28 @@ export function createFrameDecoder(): {
 
       const frames: Frame[] = [];
 
+      if (skipRemaining > 0) {
+        const discard = Math.min(skipRemaining, buffer.length);
+        buffer = buffer.subarray(discard);
+        skipRemaining -= discard;
+        if (skipRemaining > 0) return frames; // still waiting for the rest
+      }
+
       while (buffer.length >= 5) {
         const type = buffer[0];
         const payloadLen = buffer.readUInt32BE(1);
 
-        if (payloadLen > MAX_PAYLOAD_LENGTH) {
-          buffer = Buffer.alloc(0);
-          throw new Error(`Frame payload length exceeds maximum (${payloadLen} > ${MAX_PAYLOAD_LENGTH})`);
+        if (payloadLen > maxPayloadLength) {
+          // Header consumed; the payload itself (whatever part of it has
+          // already arrived) still needs to be skipped — set that up BEFORE
+          // throwing, so the next `push` resynchronises instead of reading
+          // this frame's tail as a new header.
+          buffer = buffer.subarray(5);
+          skipRemaining = payloadLen;
+          const discard = Math.min(skipRemaining, buffer.length);
+          buffer = buffer.subarray(discard);
+          skipRemaining -= discard;
+          throw new Error(`Frame payload length exceeds maximum (${payloadLen} > ${maxPayloadLength})`);
         }
 
         if (buffer.length < 5 + payloadLen) {
@@ -153,6 +210,7 @@ export function createFrameDecoder(): {
 
     reset() {
       buffer = Buffer.alloc(0);
+      skipRemaining = 0;
     },
   };
 }

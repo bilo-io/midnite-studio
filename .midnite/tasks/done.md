@@ -62,6 +62,43 @@
 - Coverage: `diff-page.test.tsx`, `persisted-keys.test.ts`, and `diff-settings-shots.spec.ts`
   (Playwright: Settings ▸ Diff, both accordions expanded, light + dark).
 
+## 2026-09-05 — Phase 57 Themes A, B, C, D — Midnite Studio speaks MCP
+
+[PR #166]. The app becomes an MCP server. Themes E (consent/scope/audit) and F (Settings
+page) stay open — the enable flag defaults off with no UI to change it yet, so nothing
+changes for any existing user.
+
+- [x] **A** — [`packages/shared/src/mcp.ts`](packages/shared/src/mcp.ts): the `MCP_TOOLS`
+      registry (id, model-facing description, zod input/output) in the `COMMANDS` house
+      style, with `McpToolId`/`MCP_TOOL_IDS` derived from it. Inputs are new
+      `McpRepoTarget`-keyed-by-path schemas (an agent knows its `cwd`, never an internal
+      `repoId`); outputs reuse existing `shared/domain` schemas verbatim. Lifts
+      `checksVerdict` out of `packages/app` into `shared/src/domain/checks-verdict.ts`
+      (Decision 12) since `forge.checks` needed the identical logic from main.
+- [x] **B** — [`packages/desktop/src/main/mcp/server.ts`](packages/desktop/src/main/mcp/server.ts):
+      a Unix-socket server cribbing the pty broker's transport (build-fingerprinted socket
+      under `userData`, `0o600` permissions, extracted into
+      [`main/socket-name.ts`](packages/desktop/src/main/socket-name.ts) alongside the
+      broker's own naming, Decision 6), capped at 8 connections and
+      `MCP_MAX_REQUEST_BYTES`/`MCP_MAX_RESPONSE_BYTES`, dispatching directly to the
+      underlying services rather than through `ipcMain` (Decision 2). The enable flag lives
+      in `main/mcp-store.ts`, copying `repo-store.ts`'s shape — off by default (Decision 8).
+      Also fixed a real bug the smaller request cap exposed in the reused
+      `broker/protocol.ts` frame decoder: an oversized frame split across several socket
+      reads was misread as a new frame's header on each leftover chunk after the first
+      throw reset its buffer.
+- [x] **C** — [`packages/desktop/src/mcp-shim/index.ts`](packages/desktop/src/mcp-shim/index.ts):
+      the stdio adapter an MCP client spawns as plain `node`, dialing the socket fresh per
+      call so relaunching the app restores service without restarting the shim. `tools/list`
+      answers from the shared registry regardless of whether the app is running;
+      `tools/call` against a missing/dead socket answers a clean error within 2 seconds.
+- [x] **D** — [`packages/desktop/src/main/mcp/tools.ts`](packages/desktop/src/main/mcp/tools.ts):
+      the eight read-only tools — `repo.list`, `repo.resolve`, `status.get`, `graph.log`,
+      `diff.file`, `branch.list`, `forge.pulls`, `forge.checks` — every one resolving
+      `repoPath` through `resolveRepoRoot` + the repo registry (Decision 9), never
+      `fs-scope.ts`. `diff.file` refuses a binary or over-cap diff instead of serving one;
+      no handler ever calls `writeQueue.run`, asserted by spy across the whole tool set.
+
 ## 2026-09-05 — Phase 64 Themes A, B, C, D — offline Monaco + cross-surface theme registry
 
 [PR #164]. The editor half (A, C, D) and the palette half (B) of the phase's 50 deliverables,
