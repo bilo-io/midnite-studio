@@ -1,9 +1,19 @@
 import type { ConnectionConfig, MidniteStudioBridge } from '@midnite/studio-shared';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useDatabaseConnectionsStore } from '../../store/database-connections-store';
 import { DatabaseView } from './database-view';
+
+function renderView() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <DatabaseView />
+    </QueryClientProvider>,
+  );
+}
 
 const postgres: ConnectionConfig = {
   id: 'c1',
@@ -23,7 +33,7 @@ function installBridge(overrides: Partial<MidniteStudioBridge['db']> = {}) {
       saveConnection: vi.fn(),
       deleteConnection: vi.fn(),
       testConnection: vi.fn(),
-      getSchema: vi.fn(),
+      getSchema: vi.fn().mockResolvedValue({ ok: true, data: { connectionId: 'c1', tables: [] } }),
       queryStart: vi.fn(),
       queryCancel: vi.fn(),
       onQueryBatch: vi.fn(() => () => {}),
@@ -52,18 +62,18 @@ describe('DatabaseView', () => {
 
   it('shows the empty state with no connections', async () => {
     installBridge();
-    render(<DatabaseView />);
+    renderView();
     expect(await screen.findByText('No connections yet')).toBeDefined();
   });
 
   it('shows an error state without throwing when there is no bridge', async () => {
-    render(<DatabaseView />);
+    renderView();
     expect(await screen.findByText("Couldn't load connections")).toBeDefined();
   });
 
   it('lists a loaded connection and lets it be selected', async () => {
     installBridge({ listConnections: vi.fn().mockResolvedValue([postgres]) });
-    render(<DatabaseView />);
+    renderView();
 
     const row = await screen.findByText('Local Postgres');
     fireEvent.click(row);
@@ -71,13 +81,14 @@ describe('DatabaseView', () => {
     await waitFor(() => {
       expect(useDatabaseConnectionsStore.getState().selectedConnectionId).toBe('c1');
     });
-    const placeholder = screen.getByText(/schema tree and query editor/i);
-    expect(placeholder.textContent).toContain('Local Postgres');
+    // The right pane now renders the connection's schema tree (Theme F) in
+    // place of the old "coming in a later phase" placeholder.
+    expect(await screen.findAllByText('Local Postgres')).not.toHaveLength(0);
   });
 
   it('opens the connection dialog from the New connection button', async () => {
     installBridge();
-    render(<DatabaseView />);
+    renderView();
     await screen.findByText('No connections yet');
 
     fireEvent.click(screen.getByLabelText('New connection'));

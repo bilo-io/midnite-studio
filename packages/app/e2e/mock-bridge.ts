@@ -454,6 +454,13 @@ export type MockFixtures = {
    */
   dbConnections?: Array<{ id: string; name: string; provider: string; [key: string]: unknown }>;
   /**
+   * A connection's introspected schema tree (Phase 61 Theme F), keyed by
+   * `connectionId`. Absent means `{ tables: [] }` — the shape `getSchema`
+   * always returned before this batch — so every spec that does not care
+   * about the schema tree keeps working unchanged.
+   */
+  dbSchemaByConnection?: Record<string, { tables: unknown[] }>;
+  /**
    * Which panel `main.tsx` renders (Phase 55) — `'main'`, the default, for
    * `<App />`; any popout role for `<DetachedRoot role={…} />` standalone.
    * Every spec but `detached-panels-shots.spec.ts` leaves this unset.
@@ -2423,7 +2430,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         testConnection: async () => ({ ok: true }),
         getSchema: async (req: { connectionId: string }) => ({
           ok: true,
-          data: { connectionId: req.connectionId, tables: [] },
+          data: {
+            connectionId: req.connectionId,
+            tables: data.dbSchemaByConnection?.[req.connectionId]?.tables ?? [],
+          },
         }),
         queryStart: noop,
         queryCancel: noop,
