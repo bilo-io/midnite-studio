@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
+import { reconcileWatchers, stopAllWatchers, watcherCount } from './watch-service';
+
 const mocks = vi.hoisted(() => ({
   sent: [] as Array<{ channel: string; payload: unknown }>,
   started: [] as Array<{ repoId: string; repoPath: string }>,
@@ -35,8 +37,6 @@ vi.mock('@midnite/studio-git-engine', () => ({
     },
   },
 }));
-
-const { reconcileWatchers, stopAllWatchers, watcherCount } = await import('./watch-service');
 
 const repo = (id: string) => ({ id, path: `/tmp/${id}` });
 

@@ -392,3 +392,74 @@ describe('useBroadcastSync — page selection (Theme H)', () => {
     expect(relay).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * The flicker regression.
+ *
+ * A relayed theme message used to make the receiving window immediately
+ * rebroadcast it, because `applying` is reset synchronously in `applyIncoming`'s
+ * `finally` while a `MutationObserver` callback is delivered a microtask later.
+ * Two windows echoed once and damped; three — a main window and two detached
+ * pages — amplified into a class flipping on `<html>` many times a second.
+ */
+describe('useBroadcastSync — theme echo', () => {
+  beforeEach(() => {
+    document.documentElement.classList.remove('dark');
+    try {
+      localStorage.removeItem('midnite.theme');
+    } catch {
+      /* jsdom always has storage; the guard mirrors the source. */
+    }
+  });
+
+  afterEach(() => {
+    cleanup();
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+    vi.restoreAllMocks();
+  });
+
+  it('does not rebroadcast a theme it was just told to apply', async () => {
+    const { relay, emit } = installBridge();
+    mount();
+
+    // Ids must be unique across the WHOLE file: `seenIds` is module-level and
+    // deliberately survives between tests, so reusing an earlier test's id is
+    // silently deduplicated and the message never applies.
+    emit({ id: 'echo-apply', origin: 'other-window', kind: 'theme', payload: { dark: true } });
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+
+    // The observer fires as a microtask, strictly after `applying` is back to
+    // false — so waiting is the whole point of this assertion.
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(relay.mock.calls.filter(([m]) => (m as RelayMessage).kind === 'theme')).toHaveLength(0);
+  });
+
+  it('still broadcasts a theme flip this window made itself', async () => {
+    const { relay } = installBridge();
+    mount();
+
+    document.documentElement.classList.add('dark');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'theme');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.payload).toMatchObject({ dark: true });
+  });
+
+  /*
+    `ThemeProvider` reads `localStorage['midnite.theme']` once on mount and then
+    drives the class off React state. Applying a relayed theme without writing
+    that key left the DOM and that state disagreeing, so the next reload snapped
+    back — and broadcast the snap.
+  */
+  it('writes the applied theme through to ThemeProvider own storage key', () => {
+    const { emit } = installBridge();
+    mount();
+
+    emit({ id: 'echo-storage', origin: 'other-window', kind: 'theme', payload: { dark: true } });
+
+    expect(localStorage.getItem('midnite.theme')).toBe('dark');
+  });
+});
