@@ -2,6 +2,40 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 53 Theme E, and Themes G/H partially — feed/changelog automation, the pill's blind spot, RELEASING.md
+
+[PR #188]. Moves Phase 53 21/59 → 33/59 (36% → 56%). Theme E fully lands; G and H land the parts
+an unattended session can do alone and leave the rest — a live feed and a purchased cert,
+respectively — genuinely blocked rather than faked.
+
+- [x] **E** — This app's update feed is the `generic` provider, so `latest-mac.yml` is a *committed
+      file* in `bilo-io/midnite-apps`, not a release asset — attaching the dmg/zip to a Release
+      never publishes it. A new `publish-feed` job in `release.yml` (`needs: release`, so it only
+      runs once the assets it names are actually downloadable) commits that manifest plus the
+      released changelog section mirrored via new `scripts/publish-feed-changelog.mjs` (its
+      `mirrorSection` pure function covered by 7 colocated tests) into `midnite-studio/CHANGELOG.md`
+      — the third propagation target, alongside the feed and the already-automatic `version.json`.
+      `RELEASES_REPO_TOKEN` still doesn't exist as a secret, so this can't run end to end yet — the
+      same posture Theme D already shipped in. All six release-skill files (`.claude`/`.agents`/
+      `.codex` × `midnite-release-prep`/`midnite-release-complete`) had their stale ⚠️ banner
+      removed — `packages/shared/src/{version,release}.ts`, `root:version-check` and the release
+      workflow all now exist (Theme B, D) — and `midnite-release-complete`'s `.agents`/`.codex`
+      copies, which had silently drifted to describe the old single-repo model while `.claude`'s own
+      copy had already moved to the two-repo one, were brought back in sync.
+- [x] **G (partial)** — `update-pill.tsx` returned `null` for both `error` and `checking`, so a
+      failed check looked identical to a healthy one to anyone who never opened Settings; it now
+      renders both (8 new RTL tests). The persisted update channel is pushed to main once on mount
+      (decision (a) from the phase doc) so a beta user survives a relaunch — main previously always
+      booted on `stable`/`latest` until Settings was re-touched. `feed-channel.ts` gains the
+      docblock its `stable → 'latest'` mapping test never explained. Left open: confirming the pill
+      reaches `available` for real, which needs Theme F's live feed to observe against.
+- [x] **H (partial)** — New `docs/RELEASING.md` documents all six release secrets (five signing +
+      `RELEASES_REPO_TOKEN`) and why the unsigned path is what runs today. `verify-dist.mjs` now
+      records which signing mode a build shipped in and requires `spctl --assess` only when one is
+      actually signed. Left open, genuinely blocked: flipping `notarize: true` needs a purchased
+      Apple Developer ID; stating ad-hoc signing's permanence in `bilo-io/midnite-apps`' own README
+      is a different repo's edit, left for the human pass alongside Theme F.
+
 ## 2026-09-05 — Phase 43 Theme I — the Verification checklist, actually re-run
 
 [PR #187]. No code change: Themes A–I had already landed (PRs #92, #100, #102, #105, #108) and
