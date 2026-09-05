@@ -761,20 +761,6 @@ history à la `councils-runs-store`). Claude-only this phase; Stop = sleep, tran
 - ✅ **E** — Mission control: FAB glow + per-loop dots (amber on waiting), an actionable waiting
   notice, `loop-runs-store.ts` capped history whose ENDS are owned by main (finalised off the
   pty's own exit) + per-tab history list, `fab-loops.spec.ts`. (2026-09-01)
-- ✅ **F** — Loop lifecycle: a pty that exits on its own flips Stop back to Start, drops the glow
-  and its dots, and finalises as `exited` rather than `stopped`; Stop keeps the transcript and the
-  next Start is a genuinely fresh session. Driven off a new `__mstudioPtyExit` seam rather than
-  the app-initiated kill path, which is the one Stop already covered. (PR #3)
-- ✅ **G** — Waiting notice, end to end: exactly one notification per waiting *transition*, in the
-  status-bar bell — the shipped surface, since there is no floating toast host — and its
-  `Open <Loop>` action reopens the panel on the right tab. (PR #3)
-- ✅ **H** — Reduced motion, asserted: `html[data-motion='reduced']` resolves `.loop-run-glow` to a
-  computed `animation-name: none`, read through the cascade rather than out of the stylesheet,
-  over both the plain ring and the thinking pulse. (PR #3)
-- ✅ **I** — Rehydration: a persisted `surface: 'fab'` session comes back asleep with its transcript
-  in the right tab, spawns no pty, and still never reaches the main session list — which it did
-  NOT, until this: `hydrate()` lived only in `TerminalPanel`, so a loop restored only if you
-  opened the main terminal panel first. The FAB now hydrates when it opens. (PR #3)
 
 ### [Phase 34 — Agent Councils](phases/phase-34-agent-councils.md)
 

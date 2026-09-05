@@ -276,12 +276,6 @@ tokens, theme, density and reduced-motion for free.
 
 Everything the Phase 27 stub drew disabled, now wired — plus the parts a browser is unusable without.
 
-### H — Dev-companion powers (M) — ✅ DONE (2026-08-30)
-
-What makes it the browser of a git client rather than a browser that happens to be in one.
-
-### I — The forge, opened in place (L) — ✅ DONE (2026-08-30)
-
 - [x] Back, Forward, Reload and Stop wired to Theme A's channels. Enabled state comes from
       `canGoBack` / `canGoForward` in tab state, not from guessing.
 - [x] `features/browser/resolve-input.ts` — a **pure** function turning what was typed into either a
@@ -309,7 +303,7 @@ What makes it the browser of a git client rather than a browser that happens to 
       [`palette/command-icons.ts`](../packages/app/src/features/palette/command-icons.ts); anything
       destructive stays out of `PALETTE_SAFE`.
 
-### H — Dev-companion powers (M) — ✅ PARTIAL (2026-08-30)
+### H — Dev-companion powers (M) — ◐ PARTIAL (2026-08-30)
 
 What makes it the browser of a git client rather than a browser that happens to be in one.
 

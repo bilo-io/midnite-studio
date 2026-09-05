@@ -586,7 +586,7 @@ land before either. Everything after them is blame proper.
       and clears on repo switch; and `blame-lines.test.ts` over the run-grouping that turns per-line
       records into bands.
 
-#### E — Inline entry points, and the filter input the repo keeps rewriting (M) ✅ DONE (PR #1, 2026-08-30)
+### E — Inline entry points, and the filter input the repo keeps rewriting (M) ✅ DONE (PR #1, 2026-08-30)
 
 The find bar depends on **D's first two items**.
 
