@@ -148,7 +148,7 @@ The keymap's doc comment describes this hook; it just was never written.
       `op.continue` remain deliberately unwired with a comment pointing at
       [Phase 22](phase-22-stash-and-safety-net.md), which owns operation state.
 
-### C — The surface (M) ✅ DONE (landed 2026-08-28)
+### C — The surface (M) ◐ PARTIAL (landed 2026-08-28; the native menu item reopened at x1)
 
 - [x] New `packages/app/src/store/palette-store.ts` on the house zustand shape — `create<T>()(…)`,
       colocated test, pure helpers exported for testing — and **deliberately not persisted**, with
@@ -212,7 +212,7 @@ The keymap's doc comment describes this hook; it just was never written.
       - This is what makes the phase's third "Open, for a human" check able to pass; today it
         cannot.
 
-### D — `fuzzy-match.ts` (S/M) ✅ DONE (landed 2026-08-28)
+### D — `fuzzy-match.ts` (S/M) ◐ PARTIAL (landed 2026-08-28; the frecency nudge reopened at x1)
 
 There is **no fuzzy library anywhere in the workspace** and no character-level match highlighting
 in the renderer. Both are net-new, and both are small.
@@ -254,7 +254,7 @@ in the renderer. Both are net-new, and both are small.
       beating scattered, a non-match returning `null`, and `indices` always ascending and in range —
       the invariant the highlighter depends on.
 
-### E — Navigation providers (M) ✅ DONE (landed 2026-08-28)
+### E — Navigation providers (M) ◐ PARTIAL (landed 2026-08-28; command grouping reopened at x1)
 
 - [x] The interface every source implements: `{ id, label, group, icon?: IconComponent, keywords?,
       detail?, chord?, run(): void }` plus a `PaletteSource = { key, items(): PaletteItem[] }`. This
