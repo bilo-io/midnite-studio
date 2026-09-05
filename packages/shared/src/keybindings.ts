@@ -140,6 +140,24 @@ export const COMMANDS = [
    */
   { id: 'notes.toggle', label: 'Notes', group: 'view' },
   /**
+   * Flip where a link opens between the embedded browser and the system one
+   * (Phase 71 Theme A). Deliberately chord-free: the modifiers are the
+   * per-click escape hatch (`Shift` for the system browser, `Mod` for the
+   * other one), so this row is for changing the standing preference without
+   * walking to Settings ▸ Browser — a want, not a keystroke worth a chord.
+   *
+   * A chord-free command's palette and menu label has to come from `COMMANDS`,
+   * not `DEFAULT_KEYMAP`, which drops every entry with no chord; read from the
+   * keymap it would render as the raw id.
+   */
+  { id: 'link.toggleTarget', label: 'Toggle Where Links Open', group: 'view' },
+  /**
+   * Open the dev server detected for the active repository (Phase 71 Theme C).
+   * Absent from the palette's own list when nothing is listening — detection
+   * is a hint, and a disabled row teaches nothing an absent one does not.
+   */
+  { id: 'browser.openDevServer', label: 'Open Dev Server', group: 'view' },
+  /**
    * Mod+Shift+a for the commit-activity timeline. Shifted because plain Mod+a
    * is select-all everywhere text can be selected, and `app` scope like the
    * other panel toggles: a chart is not something you reach for mid-command.

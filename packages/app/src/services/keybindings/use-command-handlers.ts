@@ -158,6 +158,13 @@ export function useCommandHandlers(): CommandRuntime {
     'fab.toggle': { enabled: true, run: () => useUiStore.getState().toggleQuickAccess() },
     'notes.toggle': { enabled: true, run: () => useUiStore.getState().toggleNotes() },
     /*
+      Flips `linkTarget` between the embedded browser and the system one
+      (Phase 71 Theme A). Enabled unconditionally: it needs no repo, no open
+      pane and no browser tab — it changes one persisted preference, and
+      Settings ▸ Browser shows and undoes it.
+    */
+    'link.toggleTarget': { enabled: true, run: () => useUiStore.getState().toggleLinkTarget() },
+    /*
       Multi-window (Phase 55). `detach<Role>` is enabled only while that panel
       is docked — a detached panel's row is disabled with the standard
       "already open" reason, same shape as every other disabled command here.

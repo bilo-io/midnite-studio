@@ -15,6 +15,7 @@ import {
   LuFolderTree,
   LuGitCommitHorizontal,
   LuGlobe,
+  LuLink,
   LuLock,
   LuNotebookPen,
   LuPalette,
@@ -24,6 +25,7 @@ import {
   LuRefreshCw,
   LuRotateCw,
   LuSearch,
+  LuServer,
   LuSparkles,
   LuSquareArrowOutUpRight,
   LuSquareTerminal,
@@ -46,6 +48,10 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'browser.toggle': LuGlobe,
   'fab.toggle': LuPanelRight,
   'notes.toggle': LuNotebookPen,
+  // A link, not a globe: the command is about WHERE a link goes, and every
+  // other `browser.*` row already wears the globe.
+  'link.toggleTarget': LuLink,
+  'browser.openDevServer': LuServer,
   'activity.toggle': LuActivity,
   'browser.newTab': LuGlobe,
   'browser.closeTab': LuGlobe,
