@@ -448,6 +448,12 @@ export type MockFixtures = {
     renders?: Record<string, Array<{ id: string; [key: string]: unknown }>>;
   };
   /**
+   * Database connections (Phase 61). Absent means an empty list — the
+   * default "No connections yet" empty state `database-shots.spec.ts` shoots
+   * first, before seeding one to shoot the connections list.
+   */
+  dbConnections?: Array<{ id: string; name: string; provider: string; [key: string]: unknown }>;
+  /**
    * Which panel `main.tsx` renders (Phase 55) — `'main'`, the default, for
    * `<App />`; any popout role for `<DetachedRoot role={…} />` standalone.
    * Every spec but `detached-panels-shots.spec.ts` leaves this unset.
@@ -2348,6 +2354,23 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       },
       protocol: {
         onDeepLink: unsubscribe,
+      },
+      db: {
+        listConnections: async () => (data.dbConnections ?? []).slice(),
+        saveConnection: async (req: { connection: { id: string; [key: string]: unknown } }) => ({
+          ok: true,
+          data: req.connection,
+        }),
+        deleteConnection: async () => ({ ok: true }),
+        testConnection: async () => ({ ok: true }),
+        getSchema: async (req: { connectionId: string }) => ({
+          ok: true,
+          data: { connectionId: req.connectionId, tables: [] },
+        }),
+        queryStart: noop,
+        queryCancel: noop,
+        onQueryBatch: unsubscribe,
+        onQueryDone: unsubscribe,
       },
       windowChrome: {
         platform: 'darwin',

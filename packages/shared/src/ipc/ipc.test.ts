@@ -1594,3 +1594,55 @@ describe('video contract', () => {
     }
   });
 });
+
+describe('database contract (Phase 61)', () => {
+  it('covers every db channel with a schema', () => {
+    const expected: Record<string, string[]> = {
+      dbListConnections: [],
+      dbSaveConnection: ['DbSaveConnectionRequest', 'DbSaveConnectionResponse'],
+      dbDeleteConnection: ['DbDeleteConnectionRequest', 'DbDeleteConnectionResponse'],
+      dbTestConnection: ['DbTestConnectionRequest', 'DbTestConnectionResponse'],
+      dbGetSchema: ['DbGetSchemaRequest', 'DbGetSchemaResponse'],
+      // Theme H's generated UPDATE — a contract constant ahead of its view.
+      dbApplyEdit: [],
+      dbQueryStart: ['DbQueryStartRequest'],
+      dbQueryCancel: ['DbQueryCancelRequest'],
+      dbQueryBatch: ['DbQueryBatchEvent'],
+      dbQueryDone: ['DbQueryDoneEvent'],
+    };
+    const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
+      key.startsWith('db'),
+    );
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+    for (const names of Object.values(expected)) {
+      for (const name of names) expect(schemas).toHaveProperty(name);
+    }
+  });
+
+  it('never carries a password on the persisted ConnectionConfig shape, only on save/test', () => {
+    expect(Object.keys(schemas.DbSaveConnectionRequest.shape)).toEqual(['connection', 'password']);
+    expect(Object.keys(schemas.DbSaveConnectionRequest.shape.connection.shape)).not.toContain(
+      'password',
+    );
+  });
+
+  it('resolves query-start immediately — results stream over batch/done, like log.start', () => {
+    const parsed = schemas.DbQueryStartRequest.parse({
+      connectionId: 'c1',
+      requestId: 'c1#1',
+      sql: 'SELECT 1',
+    });
+    expect(parsed).toMatchObject({ connectionId: 'c1', requestId: 'c1#1', sql: 'SELECT 1' });
+  });
+
+  it('carries a truncated flag on done, exactly as the log stream does', () => {
+    const done = schemas.DbQueryDoneEvent.parse({
+      requestId: 'c1#1',
+      rowCount: 500,
+      truncated: true,
+      durationMs: 12,
+    });
+    expect(done.truncated).toBe(true);
+    expect(done.error).toBeUndefined();
+  });
+});

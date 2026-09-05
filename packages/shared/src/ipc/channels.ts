@@ -618,6 +618,26 @@ export const CHANNELS = {
   /** Subscribe this window to one pty's output — see `pty-service.ts`'s registry. */
   ptySubscribe: 'mstudio:pty:subscribe',
   ptyUnsubscribe: 'mstudio:pty:unsubscribe',
+
+  // --- database (Phase 61) ---------------------------------------------------
+  // A DataGrip-style database client. Connections are non-secret except for a
+  // transient password on save/test, which `credential-vault.ts` encrypts
+  // immediately — see `ConnectionConfig`'s own doc comment for why the shape
+  // never carries one. `dbQueryStart`/`dbQueryCancel` mirror `logStart`/
+  // `logCancel`: the result streams over `dbQueryBatch`/`dbQueryDone` below
+  // rather than returning whole, for the same reason a `SELECT *` log stream
+  // does not return whole. `dbGetSchema` and `dbApplyEdit` are contract
+  // constants ahead of their consuming views (schema tree, inline edit) —
+  // exercisable from a test before either view exists.
+  dbListConnections: 'mstudio:db:list-connections',
+  dbSaveConnection: 'mstudio:db:save-connection',
+  dbDeleteConnection: 'mstudio:db:delete-connection',
+  dbTestConnection: 'mstudio:db:test-connection',
+  dbGetSchema: 'mstudio:db:get-schema',
+  /** Theme H's generated `UPDATE`, parameterised and staleness-checked. */
+  dbApplyEdit: 'mstudio:db:apply-edit',
+  dbQueryStart: 'mstudio:db:query-start',
+  dbQueryCancel: 'mstudio:db:query-cancel',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -710,6 +730,11 @@ export const EVENT_CHANNELS = {
   windowsChanged: 'mstudio:window:windows-changed',
   /** A `windowRelay` message rebroadcast to every window except its origin. */
   windowRelayed: 'mstudio:window:relayed',
+
+  /** A batch of rows for an in-flight query stream — mirrors `logBatch`. */
+  dbQueryBatch: 'mstudio:db:query-batch',
+  /** The query stream finished (or was cancelled) — mirrors `logDone`. */
+  dbQueryDone: 'mstudio:db:query-done',
 } as const;
 
 /**

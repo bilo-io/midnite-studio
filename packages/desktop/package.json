@@ -23,6 +23,7 @@
     "@electron/rebuild": "^3.7.0",
 
     "@midnite/studio-app": "workspace:*",
+    "@midnite/studio-db-engine": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "@types/node": "^22.10.2",

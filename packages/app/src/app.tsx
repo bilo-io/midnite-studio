@@ -124,6 +124,8 @@ const loadWorkflowsView = () => import('./features/workflows/workflows-view');
 const WorkflowsView = lazy(() => loadWorkflowsView().then((m) => ({ default: m.WorkflowsView })));
 const loadVideoView = () => import('./features/video/video-view');
 const VideoView = lazy(() => loadVideoView().then((m) => ({ default: m.VideoView })));
+const loadDatabaseView = () => import('./features/database/database-view');
+const DatabaseView = lazy(() => loadDatabaseView().then((m) => ({ default: m.DatabaseView })));
 const loadDashboardView = () => import('./features/dashboard/dashboard-view');
 const DashboardView = lazy(() => loadDashboardView().then((m) => ({ default: m.DashboardView })));
 const loadFilesView = () => import('./features/files/files-view');
@@ -338,6 +340,7 @@ const WORKSPACE_NAV_ITEMS: NavItem[] = [
   { view: 'search', label: 'Search', icon: VIEW_ICON.search },
   { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
   { view: 'optimizer', label: 'Optimizer', icon: VIEW_ICON.optimizer },
+  { view: 'database', label: 'Database', icon: VIEW_ICON.database },
 ];
 
 const GIT_NAV_ITEMS: NavItem[] = [
@@ -1342,6 +1345,11 @@ function Shell() {
                   // Global too (Phase 59) — Smart Scan and Storage walk every
                   // registered repo/worktree, not one open checkout.
                   <OptimizerPage />
+                ) : activeView === 'database' ? (
+                  // Global too (Phase 61) — a database connection is not scoped to a
+                  // repository, so it must be reachable ahead of the `!selectedRepoId`
+                  // guard below or the view is unreachable with no repo open, for no reason.
+                  <DatabaseView />
                 ) : !selectedRepoId ? (
                   <EmptyWorkspace />
                 ) : activeView === 'dashboard' ? (
