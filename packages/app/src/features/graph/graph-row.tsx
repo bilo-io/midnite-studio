@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Tooltip } from '../../components/tooltip';
+import { UserAvatar } from '../../components/user-avatar';
 import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
 import { CONNECTOR_OPACITY, RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
@@ -326,12 +327,18 @@ function GraphRowInner({
       */}
       {showsAuthorColumn(theme) ? (
         <span
-          className={`graph-row-ink shrink-0 truncate text-right text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
+          className={`graph-row-ink flex shrink-0 items-center justify-end gap-1.5 text-right text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
             dimmed ? 'opacity-40' : ''
           }`}
           style={{ width: 'var(--col-author)' }}
         >
-          {row.commit.authorName}
+          <UserAvatar
+            name={row.commit.authorName}
+            email={row.commit.authorEmail}
+            size={14}
+            detail={new Date(row.commit.authorDate * 1000).toLocaleString()}
+          />
+          <span className="truncate">{row.commit.authorName}</span>
         </span>
       ) : null}
       <span

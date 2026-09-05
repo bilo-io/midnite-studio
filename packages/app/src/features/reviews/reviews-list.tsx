@@ -10,6 +10,7 @@ import { Spinner } from '../../components/skeleton';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { TreeSection } from '../../components/tree-section';
+import { UserAvatar } from '../../components/user-avatar';
 import { cascadeStyle } from '../../lib/cascade';
 import { formatNumber } from '../../lib/format-number';
 import { useForgePulls, useRefreshForge } from '../../services/queries';
@@ -467,7 +468,13 @@ function PullRow({
       </span>
       <span className="flex w-full min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
         <span className="truncate">{pull.headBranch}</span>
-        {pull.author ? <span className="shrink-0">· {pull.author}</span> : null}
+        {pull.author ? (
+          <span className="inline-flex shrink-0 items-center gap-1">
+            <span>·</span>
+            <UserAvatar login={pull.author} size={14} detail="PR author" />
+            <span className="truncate">{pull.author}</span>
+          </span>
+        ) : null}
       </span>
     </button>
   );

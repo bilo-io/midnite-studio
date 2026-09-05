@@ -20,6 +20,7 @@ import {
 import { useNow } from '../../lib/use-now';
 import { useReflog, useRefs } from '../../services/queries';
 import { useActiveWorktree, useGitOp } from '../../services/use-status';
+import { UserAvatar } from '../../components/user-avatar';
 import { relativeAge } from '../actions/run-groups';
 
 const ACTION_ICON: Record<ReflogAction, IconType> = {
@@ -196,9 +197,14 @@ function ReflogRow({
       <Icon aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm text-foreground">{entry.subject}</p>
-        <p className="text-xs text-muted-foreground">
-          {relativeAge(new Date(entry.at * 1000).toISOString(), now)} · {entry.author}
-          {' · '}
+        <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+          <span>{relativeAge(new Date(entry.at * 1000).toISOString(), now)}</span>
+          <span>·</span>
+          <span className="inline-flex items-center gap-1">
+            <UserAvatar name={entry.author} size={14} detail="Reflog author" />
+            <span>{entry.author}</span>
+          </span>
+          <span>·</span>
           <button
             type="button"
             onClick={() => copy(entry.sha)}
@@ -208,7 +214,7 @@ function ReflogRow({
             {entry.oldSha ? `${short(entry.oldSha)} → ` : ''}
             {short(entry.sha)}
           </button>
-        </p>
+        </div>
       </div>
       <button
         type="button"

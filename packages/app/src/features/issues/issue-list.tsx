@@ -1,6 +1,7 @@
 import type { ForgeIssue } from '@midnite/studio-shared';
 
 import { cascadeStyle } from '../../lib/cascade';
+import { UserAvatar } from '../../components/user-avatar';
 import { issueStatus, StatusPill } from '../forge/forge-status';
 import { relativeAge, sortByUpdated } from './issue-order';
 import { LabelChip } from './label-chip';
@@ -79,7 +80,25 @@ function IssueRow({
         {issue.labels.slice(0, 3).map((label) => (
           <LabelChip key={label.name} label={label} />
         ))}
-        {issue.author ? <span className="shrink-0 truncate">{issue.author}</span> : null}
+        {issue.author ? (
+          <span className="inline-flex shrink-0 items-center gap-1">
+            <UserAvatar login={issue.author} size={14} detail="Issue author" />
+            <span className="shrink-0 truncate">{issue.author}</span>
+          </span>
+        ) : null}
+        {issue.assignees.length > 0 ? (
+          <span className="inline-flex -space-x-1 shrink-0">
+            {issue.assignees.map((assignee) => (
+              <UserAvatar
+                key={assignee}
+                login={assignee}
+                size={14}
+                className="border border-background"
+                detail="Assignee"
+              />
+            ))}
+          </span>
+        ) : null}
         <span className="ml-auto shrink-0 tabular-nums">{relativeAge(issue.updatedAt, now)}</span>
       </span>
     </button>
