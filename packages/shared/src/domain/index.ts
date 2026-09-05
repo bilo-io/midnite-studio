@@ -28,4 +28,5 @@ export * from './tests';
 export * from './trash';
 export * from './watch';
 export * from './battery';
+export * from './session-history';
 export * from './window';
