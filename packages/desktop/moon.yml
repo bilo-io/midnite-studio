@@ -101,8 +101,21 @@ tasks:
       - 'dist/bundle'
 
   # Produce the macOS arm64 dmg + zip.
+  #
+  # `--publish never`: this repo NEVER wants electron-builder itself to
+  # publish, in dev, in ci.yml's `package` job, or in the tag-triggered
+  # release workflow — publishing is deliberately a separate
+  # `action-gh-release` step against `bilo-io/midnite-apps` (Phase 53 Theme
+  # D), never electron-builder's own upload path, and the `generic` provider
+  # in `electron-builder.yml`'s `publish:` block is read-only by construction
+  # anyway (it only tells electron-updater where to fetch a manifest). Baked
+  # into the task itself rather than passed per-invocation: `verify-dist`
+  # depends on `~:dist`, and `options.cache: false` below means that
+  # dependency re-invokes this exact command on every run — a flag passed only
+  # via `moon run desktop:dist -- --publish never` would silently vanish the
+  # moment something downstream re-triggers this task unflagged.
   dist:
-    command: 'pnpm exec electron-builder --mac --config electron-builder.yml'
+    command: 'pnpm exec electron-builder --mac --config electron-builder.yml --publish never'
     deps:
       - '~:bundle'
       - 'app:build'
