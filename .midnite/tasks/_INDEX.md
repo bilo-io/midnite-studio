@@ -77,7 +77,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | ◻ TODO | — | 0/31 | `░░░░░░░░░░` | 0% | — | A B C |
+| [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 0/31 | `░░░░░░░░░░` | 0% | A B C | — |
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | 🔄 WIP | — | 0/37 | `░░░░░░░░░░` | 0% | A B C D | — |
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [66 · API Client](phases/phase-66-api-client.md) | ◻ TODO | — | 0/58 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
