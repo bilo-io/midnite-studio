@@ -14,7 +14,7 @@
 // its version from the bundle it ships inside rather than adding a sixth
 // hand-written site for this script to remember to check.
 
-import { readFile, readdir } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -119,7 +119,7 @@ async function main() {
   const packagesDir = path.join(repoRoot, 'packages');
   const entries = await readdir(packagesDir, { withFileTypes: true });
 
-  const targets = [
+  const candidates = [
     { pkgPath: path.join(repoRoot, 'package.json'), fallbackName: 'package.json (root)' },
     ...entries
       .filter((e) => e.isDirectory())
@@ -128,6 +128,24 @@ async function main() {
         fallbackName: `packages/${e.name}`,
       })),
   ];
+
+  /*
+    A `packages/*` directory with no package.json AT ALL is not a workspace
+    package and is not in lockstep with anything — `packages/website/` is
+    currently just an asset folder. A package.json that exists but has no
+    "version" is still a failure, which is why this filters on the file's
+    existence rather than on `readPackageVersion` coming back null: the two
+    cases are different, and only one of them is a mistake.
+  */
+  const present = await Promise.all(
+    candidates.map((t) =>
+      access(t.pkgPath).then(
+        () => true,
+        () => false,
+      ),
+    ),
+  );
+  const targets = candidates.filter((_, i) => present[i]);
 
   const packages = await Promise.all(
     targets.map((t) => readPackageVersion(t.pkgPath, t.fallbackName)),

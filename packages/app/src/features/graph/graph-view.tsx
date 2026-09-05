@@ -22,7 +22,7 @@ import { countLocalBranches } from './branch-count';
 import { firstCommitDate } from './first-commit-date';
 import { GraphDefs, avatarClipId } from './graph-defs';
 import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
-import { CommitGraphRow, formatDate } from './graph-row';
+import { CommitGraphRow, formatDate, RECENCY_WINDOW_MS } from './graph-row';
 import { CASCADE_STEP_MS, cascadeStyle } from '../../lib/cascade';
 import { formatNumber } from '../../lib/format-number';
 import { useGraphStore } from './graph-store';
@@ -251,14 +251,18 @@ export function GraphView() {
     return () => clearTimeout(timer);
   }, [isCascading, requestId, rows.length]);
 
-  // Live ticker for recent commits (< 2 minutes old). If any commit in the
-  // loaded window is within 2 minutes of now, tick every 5 seconds so the
-  // effects and relative time transition smoothly ('just now' -> '1m ago' -> normal).
+  // Live ticker for recent commits. If any commit in the loaded window is still
+  // inside `RECENCY_WINDOW_MS`, tick every 5 seconds so the row effects and the
+  // relative date decay smoothly through the tiers ('just now' -> '1m ago' ->
+  // ... -> normal) instead of only on the next render the store happens to cause.
   const [nowMs, setNowMs] = useState(() => Date.now());
   const hasRecentCommits = useMemo(() => {
-    // Only check the top 10 commits as history is reverse-chronological
-    const limit = Math.min(rows.length, 10);
-    const cutoff = (nowMs - 120_000) / 1000;
+    // Only check the top 10 commits as history is reverse-chronological.
+    // `rowCount`, not `rows.length` — same reason as every other memo here:
+    // `rows` never changes identity mid-stream, so reading the length off the
+    // array would leave this memo with nothing that ever invalidates it.
+    const limit = Math.min(rowCount, 10);
+    const cutoff = (nowMs - RECENCY_WINDOW_MS) / 1000;
     for (let i = 0; i < limit; i++) {
       if (rows[i]!.commit.committerDate >= cutoff) return true;
     }
