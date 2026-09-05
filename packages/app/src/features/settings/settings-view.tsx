@@ -16,6 +16,7 @@ import { DiffPage } from './settings-pages/diff-page';
 import { GitSafetyPage } from './settings-pages/git-safety-page';
 import { GraphPage } from './settings-pages/graph-page';
 import { HealthPage } from './settings-pages/health-page';
+import { McpSettingsPage } from './settings-pages/mcp-page';
 import { MonitorPage } from './settings-pages/monitor-page';
 import { OptimizerSettingsPage } from './settings-pages/optimizer-settings-page';
 import { ProjectsPage } from './settings-pages/projects-page';
@@ -50,6 +51,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   workflows: () => <WorkflowsPage />,
   video: () => <VideoSettingsPage />,
   gitSafety: () => <GitSafetyPage />,
+  mcp: () => <McpSettingsPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,
   cli: () => <CliPage />,
