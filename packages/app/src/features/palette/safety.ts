@@ -39,6 +39,11 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   'palette.files',
   'file.save',
   'markdown.presentAsSlides',
+  // Both are navigation plus, at most, opening a file picker — neither
+  // touches git or repository state, the same recoverability class as
+  // `app.reload` and `repo.open`.
+  'theme.select',
+  'theme.import',
   // Starting a workflow run is recoverable by the same logic as `sync.fetch`:
   // nothing it does cannot be inspected or re-run, and it never deletes state.
   'workflow.run',

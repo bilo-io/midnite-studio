@@ -16,6 +16,7 @@ import {
   LuGitCommitHorizontal,
   LuGlobe,
   LuLock,
+  LuPalette,
   LuPanelLeft,
   LuPanelRight,
   LuPlay,
@@ -93,4 +94,6 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'window.detachFab': LuPanelRight,
   'window.detachBrowser': LuGlobe,
   'markdown.presentAsSlides': LuSparkles,
+  'theme.select': LuPalette,
+  'theme.import': LuUpload,
 };
