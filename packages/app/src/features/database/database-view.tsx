@@ -7,6 +7,7 @@ import { EmptyState } from '../../components/empty-state';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { useDatabaseConnectionsStore } from '../../store/database-connections-store';
 import { ConnectionDialog } from './connection-dialog';
+import { ConnectionTree } from './connection-tree';
 import { ConnectionListSkeleton } from './database-skeletons';
 
 /**
@@ -121,14 +122,18 @@ export function DatabaseView() {
               </ul>
             </div>
 
-            <div className="flex min-h-0 flex-1 items-center justify-center p-8">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               {selected ? (
-                <p className="max-w-sm text-center text-sm text-muted-foreground">
-                  The schema tree and query editor for <span className="font-medium">{selected.name}</span>{' '}
-                  are coming in a later phase.
-                </p>
+                <ConnectionTree
+                  // Remounts the tree (and its fetch) on connection switch —
+                  // simpler and just as correct as diffing props on the same
+                  // instance, since only one connection is ever selected here.
+                  key={selected.id}
+                  connectionId={selected.id}
+                  connectionName={selected.name}
+                />
               ) : (
-                <p className="max-w-sm text-center text-sm text-muted-foreground">
+                <p className="max-w-sm p-8 text-center text-sm text-muted-foreground">
                   Select a connection to browse its schema and run queries.
                 </p>
               )}

@@ -364,7 +364,11 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### F — Schema tree browser (M)
 
-- [ ] Add `features/database/connection-tree.tsx` — per-connection lazy tree: connections → schemas →
+*Landed (2026-09-05, this batch): the tree, PK/FK markers, and the fold-AND lazy load. The
+row-action and connection-dialog bullets below are annotated with what shipped and what stayed
+out.*
+
+- [x] Add `features/database/connection-tree.tsx` — per-connection lazy tree: connections → schemas →
       tables/views → columns.
   - **`TreeSection` supplies the chrome only.** Its children go into a `<Collapse>` that keeps them
     **mounted while closed**, so the consumer must own `const [open, setOpen] = useState(false)` and
@@ -374,7 +378,18 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     keeps querying a database while its parent is shut.
   - **`depth` is typed `0 | 1 | 2 | 3`** ([`tree-section.tsx:69`](../../../packages/app/src/components/tree-section.tsx)).
     Four levels fits exactly; a fifth needs that union widened, which is a shared-component change.
-- [ ] Add `features/database/connection-dialog.tsx`: add/edit form with a **Test connection** action.
+  - Landed shape: the connections list stays the flat, already-shipped left panel from Theme E;
+    `ConnectionTree` renders in the right pane for the *selected* connection, so its own depth-0
+    `TreeSection` is the schema-group level (named-schema tables under it at depth 1, or, when no
+    table carries a `schema`, tables directly at depth 1), tables/views at depth 1-2, columns as
+    plain leaf rows one rung deeper — never a literal "connections" tree level, since that already
+    exists one component over.
+- [x] Add `features/database/connection-dialog.tsx`: add/edit form with a **Test connection** action.
+      **Already built under Theme E** (disclosed deviation in PR #165 — a connections list with no
+      way to add a connection would leave `dbSaveConnection`/`dbTestConnection` with no caller). No
+      dialog-polish delta was found for this batch: the shipped form already covers structure,
+      async-action state machine, password field and provider-conditional layout per the three cribs
+      below.
       There is no test-connection UX anywhere in the app today (`grep -rn "testConnection\|Test Connection"` → 0),
       so it is assembled from three real cribs, named so the executor does not invent a fourth:
   - Structure from [`council-create-dialog.tsx:11-45`](../../../packages/app/src/features/councils/council-create-dialog.tsx)
@@ -393,8 +408,11 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       action (runs `SELECT * FROM <table> LIMIT 200` into a new query tab, pre-filled), with the
       identifier quoted per provider (`"` for Postgres/SQLite, `` ` `` for MySQL/MariaDB, `[]` for
       MSSQL) rather than interpolated raw.
-- [ ] Column rows carry primary-key and foreign-key markers, feeding Theme H's editability check.
-- [ ] `connection-tree.test.tsx`: lazy-load triggering **only when both fold states agree**, PK/FK
+      **Deferred to Theme G.** Both actions open into a query tab, and `WorkbenchTab`'s `'query'`
+      kind does not exist yet (Theme G, explicitly out of scope this batch) — there is nowhere for
+      either action to open into. Browsing only lands here.
+- [x] Column rows carry primary-key and foreign-key markers, feeding Theme H's editability check.
+- [x] `connection-tree.test.tsx`: lazy-load triggering **only when both fold states agree**, PK/FK
       markers rendering, and a closed section issuing no query.
 
 ### G — Query tab editor (L — was M)
@@ -472,19 +490,37 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### I — Destructive-statement safety gate (S)
 
-- [ ] Before executing, run Theme B's sniffer; a `'write'` routes through
+*Landed (2026-09-05, this batch), as a standalone primitive — see the note below on why.*
+
+- [x] Before executing, run Theme B's sniffer; a `'write'` routes through
       [`useDialogs().confirm`](../../../packages/app/src/components/dialog-host.tsx) — callers never
       render `ConfirmDialog` directly.
-- [ ] **Do not pass `blastRadius`.** Its type is git-shaped —
+  - **The sniffer moved from `db-engine` to `shared`** (`packages/shared/src/domain/statement-kind.ts`),
+    a refinement this batch made and disclosed: `packages/app` may not import
+    `@midnite/studio-db-engine` (the renderer reaches the database only over IPC — see
+    `eslint.config.mjs`'s db-engine boundary block, added in Theme B), and the confirm gate needs
+    to classify client-side with no round trip. The sniffer is pure string classification with no
+    I/O, so `shared` — importable by both `db-engine` and `app` — is where it belongs.
+    `db-engine/src/statement-kind.ts` re-exports it so its own drivers and tests keep the same
+    import path.
+  - **Built as `features/database/statement-confirm.ts`'s `useStatementConfirm()` hook, not wired
+    into a call site.** There is no query tab editor yet (Theme G, out of scope this batch) to call
+    it from — Theme G's future "run" handler becomes one call:
+    `confirmStatement({ sql, connectionName, onRun: run })`.
+- [x] **Do not pass `blastRadius`.** Its type is git-shaped —
       `{count: number; sample: {sha: string; subject: string}[]}`
       ([`confirm-dialog.tsx:17-20`](../../../packages/app/src/components/confirm-dialog.tsx)) — and a
       SQL row estimate has no shas. Use `warnings: string[]` for the estimate and `danger: true`.
       The tri-state on `blastRadius` (`undefined` = still counting, `null` = nothing to lose) is
       load-bearing and easy to misuse; passing `null` is correct here.
-- [ ] The row-count estimate is `EXPLAIN`-derived where the provider supports it and **omitted
-      rather than guessed** otherwise.
-- [ ] `'read'` statements (including CTE-wrapped `SELECT`s) execute immediately, no dialog.
-- [ ] `statement-confirm.test.tsx`: the gate firing for UPDATE/DELETE/DROP/TRUNCATE/ALTER/INSERT and
+- [x] The row-count estimate is `EXPLAIN`-derived where the provider supports it and **omitted
+      rather than guessed** otherwise. The gate's contract enforces the "omitted rather than
+      guessed" half directly: `estimatedRowCount` is an optional caller-supplied number, and the
+      warning line is absent unless it is given. **Producing the number itself (running `EXPLAIN`)
+      is not built here** — it needs a live connection and a query call, which belongs with
+      whichever theme actually executes a statement (Theme G/H); nothing in this batch guesses one.
+- [x] `'read'` statements (including CTE-wrapped `SELECT`s) execute immediately, no dialog.
+- [x] `statement-confirm.test.tsx`: the gate firing for UPDATE/DELETE/DROP/TRUNCATE/ALTER/INSERT and
       for `WITH … DELETE`; SELECT, `WITH … SELECT` and EXPLAIN passing straight through.
 
 ### J — Test suites and CI wiring (M)

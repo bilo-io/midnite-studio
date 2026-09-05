@@ -20,6 +20,7 @@ export * from './result';
 export * from './scaffold';
 export * from './search';
 export * from './stash';
+export * from './statement-kind';
 export * from './stats';
 export * from './status';
 export * from './tests';
