@@ -33,6 +33,11 @@ vi.mock('../store/ui-store', () => ({
     selector({ selectedRepoId: null }),
 }));
 
+vi.mock('./title-bar-nav', () => ({
+  ReloadButton: () => <button aria-label="Reload window">Reload</button>,
+  Breadcrumbs: () => <nav aria-label="Location">Crumbs</nav>,
+}));
+
 describe('DetachedWindowFrame', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -89,6 +94,20 @@ describe('DetachedWindowFrame', () => {
 
     screen.getByLabelText('Dock Git Repos').click();
     expect(mockBridge.window.dock).toHaveBeenCalledWith({ role: 'repos' });
+  });
+
+  it('merges Graph into the bar with its reload button and breadcrumbs alongside the dock-on-hover mark', () => {
+    render(
+      <DetachedWindowFrame role="graph" title="Graph">
+        <div data-testid="content">Graph Content</div>
+      </DetachedWindowFrame>,
+    );
+
+    expect(screen.getByText('Graph')).toBeDefined();
+    expect(screen.getByLabelText('Dock Graph')).toBeDefined();
+    expect(screen.getByLabelText('Reload window')).toBeDefined();
+    expect(screen.getByLabelText('Location')).toBeDefined();
+    expect(screen.queryByLabelText('Re-dock Graph')).toBeNull();
   });
 
   it('leaves the FAB popout on the plain generic frame — a dedicated re-dock button, no merged mark', () => {

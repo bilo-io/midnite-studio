@@ -86,7 +86,7 @@ function HistoryButtons() {
  * reloads at all, and `Mod+R`/`Mod+Shift+R` are the gesture they will reach
  * for the second time.
  */
-function ReloadButton() {
+export function ReloadButton() {
   const dialogs = useDialogs();
 
   const softChord = displayChord(chordFor('app.reload', 'Mod+r'));
@@ -264,7 +264,7 @@ function usePageLabelReveal(): boolean {
   return revealed;
 }
 
-function Breadcrumbs() {
+export function Breadcrumbs() {
   const crumbs = useBreadcrumbs();
   const revealed = usePageLabelReveal();
 
