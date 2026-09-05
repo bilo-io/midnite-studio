@@ -1,7 +1,6 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import { BrandMark } from '../../components/brand';
-import { Popover } from '../../components/popover';
 import { MidniteIcon } from '../../components/icons/midnite-icon';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from '../loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from '../loops/fab-morph';
@@ -10,18 +9,30 @@ import { useUiStore } from '../../store/ui-store';
 /**
  * The statusbar's rightmost segment.
  *
- * While the FAB panel is closed this is the (currently blank) Midnite
- * Assistant popover. While it is open, this slot instead wears a miniature
- * of the FAB itself — same brand mark, same loop glow/halo, same toggle — so
- * closing the panel never needs a second control to hunt for. The two looks
- * share one statusbar segment rather than sitting side by side: with the big
- * FAB hidden for the same duration (`app.tsx`), there is exactly one FAB
- * on screen at all times, and the FLIP transform in `fab-morph.ts` is what
- * sells the two as one button moving rather than one disappearing and
- * another appearing in its place.
+ * While the FAB panel is closed this is the trigger for the quick-access menu
+ * (Phase 58 Theme E) — "Midnite Assistant Menu (Blank for now)" until then.
+ * While the panel is open, this slot instead wears a miniature of the FAB
+ * itself — same brand mark, same loop glow/halo, same toggle — so closing the
+ * panel never needs a second control to hunt for. The two looks share one
+ * statusbar segment rather than sitting side by side: with the big FAB hidden
+ * for the same duration (`app.tsx`), there is exactly one FAB on screen at
+ * all times, and the FLIP transform in `fab-morph.ts` is what sells the two
+ * as one button moving rather than one disappearing and another appearing in
+ * its place.
+ *
+ * This trigger button is deliberately the ONLY thing this component renders
+ * for `QuickAccessMenu` — it toggles the shared `quickAccessOpen` flag but
+ * does not itself mount the menu. `app.tsx` mounts the single instance, once,
+ * off that same flag. Two entry points that each conditionally rendered their
+ * own `<QuickAccessMenu>` off the one shared flag looked like "one component,
+ * two mounts" but both conditionals go true together the instant either
+ * trigger flips it — since both are always in the tree, that is two menus on
+ * screen at once, not one. A single render site is what "one component, two
+ * entry points" actually requires: two buttons, one overlay.
  */
 export function AssistantMenu() {
-  const [open, setOpen] = useState(false);
+  const quickAccessOpen = useUiStore((s) => s.quickAccessOpen);
+  const toggleQuickAccess = useUiStore((s) => s.toggleQuickAccess);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const fabDetached = useUiStore((s) => s.fabDetached);
   const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
@@ -61,27 +72,17 @@ export function AssistantMenu() {
   }
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={setOpen}
-      side="top"
-      align="end"
-      label="Midnite Assistant"
-      testId="assistant-menu"
-      panelClassName="w-[400px] h-[300px] p-4 text-muted-foreground flex flex-col"
-      trigger={
-        <MidniteIcon aria-hidden className="h-3.5 w-3.5" />
-      }
+    <button
+      type="button"
+      aria-expanded={quickAccessOpen}
+      aria-haspopup="menu"
+      aria-label="Midnite Assistant"
+      data-testid="assistant-menu"
+      onClick={toggleQuickAccess}
+      className="flex items-center gap-3 rounded px-1 transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
+      data-open={quickAccessOpen}
     >
-      <div className="flex h-full flex-col">
-        <div className="flex shrink-0 items-center gap-2 border-b border-border pb-2 text-xs font-semibold text-foreground">
-          <MidniteIcon aria-hidden className="h-3.5 w-3.5" />
-          <span>Assistant</span>
-        </div>
-        <div className="flex flex-1 items-center justify-center">
-          Midnite Assistant Menu (Blank for now)
-        </div>
-      </div>
-    </Popover>
+      <MidniteIcon aria-hidden className="h-3.5 w-3.5" />
+    </button>
   );
 }

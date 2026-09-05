@@ -144,6 +144,45 @@ verified to fail without the fix.
 - [x] **C** — `packages/app/src/features/notes/notes-modal.tsx` & `note-row.tsx`: Notes modal surface with 80vh scrollable list, composer with Enter to add, in-place edit with Escape stopping propagation to preserve modal, per-status badge styling, done-count pill, show/hide-completed toggle, prune orphaned notes dialog, and empty states.
 - [x] **D** — `packages/app/src/features/agent/use-skill-handoff.ts`: Extracted `useSkillHandoff` from `midnite-menu.tsx`, reading dynamic `agentSkills`, launching typed-not-sent terminal sessions (`autoSend: false`) without literal backticks, handling brainstorm and adhoc task handoffs from notes.
 
+## 2026-09-05 — Phase 58 Themes E, F, G — the quick-access menu, and closing the phase
+
+[PR #183]. Closes Phase 58 Themes E, F, G — the phase's remaining themes, bringing it to 76/78
+(97%; two human-only bullets stay open by design). Resumed from a worktree interrupted mid-flight
+by a machine restart; rebased 21 commits onto `main` (mostly docs/todo syncs plus #179/#180/#181).
+
+- [x] **E** — `packages/app/src/features/quick-access/quick-access-menu.tsx`: one `QuickAccessMenu`,
+      rendered from both the FAB button and the previously-blank assistant-menu popover, never
+      forked. Rows reuse `context-menu.tsx`'s `MenuEntry` shape plus one `mnemonic` field —
+      `L`/`N`/`I`/`G` for Loops/Notes/Report Issue (disabled)/Guided tour (disabled). Arrow-key
+      roaming, Enter to activate, a disabled row's mnemonic shows a "Coming soon" hint without
+      closing the menu, and the menu registers as an occluder through `useDismiss({ layer:
+      'popover' })`'s `blocking` default rather than a second registration.
+- [x] **F** — `Mod+l` (`fab.toggle`) re-pointed from the Loops panel directly to the quick-access
+      menu and relabelled "Quick Access"; new chord-free `notes.toggle`; both wired in
+      `use-command-handlers.ts`; `quickAccessOpen`/`notesOpen` added to `ui-store.ts` and excluded
+      from `PersistedUi` with no version bump. The native `CmdOrCtrl+L` accelerator fix
+      (`itemNoAccelerator`) turned out to already be in place from Phase 64, landed before this
+      branch existed — confirmed rather than re-applied. Three-way `CLAUDE.md`/`AGENTS.md`/
+      `GEMINI.md` sync on the `Mod+l` paragraph.
+- [x] **G** — Full Playwright coverage (`notes.spec.ts`, `quick-access-menu.spec.ts`): both entry
+      points render the same four rows; `Mod+L` → `N`/`L`/`I` dispatch; the complete note
+      lifecycle including hand-off to a plan/adhoc task (asserting the pty received no `\r` —
+      typed, not sent); the browser occluder contract; per-repo scoping; reload preserving notes;
+      closing a repo *not* deleting them (Theme A's deliberate reversal, asserted explicitly).
+      Screenshots for both entry points and the Notes modal, light and dark, in
+      `packages/app/e2e/notes-shots.spec.ts` under `docs/screenshots/p58-efg/`.
+- Rebase notes: ~37 unrelated screenshot baselines (phases 14–29) modified by a broad e2e run
+  before the crash were confirmed as accidental regeneration (none intersected this phase's own
+  commits) and discarded precisely. Six e2e specs conflicted with #181's six-loop FAB expansion
+  (`Ideate` → `Guard`, `innovate` → `guard` tab renames landing on the same lines this phase's
+  Theme E commit touched); resolved by keeping this branch's behavior change combined with the
+  renamed strings. `quick-access-menu.spec.ts` never conflicted (it doesn't exist on `main`) but
+  still silently referenced the retired `Ideate` name — caught by running the specs post-rebase
+  and fixed separately. Theme G's own screenshots regenerated post-rebase since they render the
+  whole app (now showing #181's six loop tabs) behind the menu.
+
+[PR #183]: https://github.com/bilo-io/midnite-studio/pull/183
+
 ---
 
 ## 2026-09-05 — Phase 64 Themes E, F — VS Code theme importer & Appearance palette controls
