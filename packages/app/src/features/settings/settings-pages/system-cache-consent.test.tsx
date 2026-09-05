@@ -144,6 +144,34 @@ describe('OptimizerSettingsPage — System caches (Phase 73 Theme C)', () => {
     }
   });
 
+  it("picks up Plex's two entries once the catalogue includes them, and no longer promises to never touch a media tool's cache (Phase 74 Theme A)", async () => {
+    reset();
+    useUiStore.setState({ optimizerEnabled: true });
+    const plexCatalogue = [
+      ...CATALOGUE,
+      {
+        entryId: 'plex-transcode-cache',
+        label: 'Plex transcode cache',
+        producer: 'Plex Media Server (regenerates on next transcode or thumbnail request)',
+        ecosystem: 'media',
+        reclaim: 'cheap',
+      },
+      {
+        entryId: 'plex-plugin-http-cache',
+        label: 'Plex metadata agent cache',
+        producer: "Plex Media Server's metadata agents (re-fetch over the network on next library scan)",
+        ecosystem: 'media',
+        reclaim: 'costly',
+      },
+    ];
+    installBridge(plexCatalogue);
+    render(<OptimizerSettingsPage />, { wrapper: createWrapper() });
+
+    expect(await screen.findByText('Plex transcode cache')).toBeTruthy();
+    expect(screen.getByText('Plex metadata agent cache')).toBeTruthy();
+    expect(screen.queryByText(/another media tool.s cache/)).toBeNull();
+  });
+
   it('the pair survives a simulated reload — both keys are in the persisted partition', () => {
     reset();
     useUiStore.setState({

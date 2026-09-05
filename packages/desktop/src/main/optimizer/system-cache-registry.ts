@@ -43,7 +43,9 @@ export type SystemCacheEntryId =
   | 'npm-cache'
   | 'pnpm-store'
   | 'yarn-cache'
-  | 'homebrew-cache';
+  | 'homebrew-cache'
+  | 'plex-transcode-cache'
+  | 'plex-plugin-http-cache';
 
 /**
  * How a registry entry's real path is obtained.
@@ -211,6 +213,33 @@ export const DEFAULT_SYSTEM_CACHE_ENTRIES: readonly SystemCacheEntry[] = [
       args: ['--cache'],
       timeoutMs: QUERY_TOOL_TIMEOUT_MS,
       parse: singleLine,
+    },
+  },
+  // Phase 74 Theme A — Plex, the first media-tool entries in this registry.
+  // Both paths are `fixed`: Plex exposes no `queryTool`-style command to ask
+  // for its own data directory the way `go env`/`brew --cache` do, so Phase
+  // 73's Decision 2 ("prefer `queryTool` whenever the tool exposes one")
+  // correctly falls through to `fixed` here. Verified against a second,
+  // independent source (plexopedia.com, quoting Plex's own support wording)
+  // rather than trusted from one search snippet alone — see Phase 74's
+  // Decision 3 for the full chain of custody.
+  {
+    id: 'plex-transcode-cache',
+    label: 'Plex transcode cache',
+    ecosystem: 'media',
+    producer: 'Plex Media Server (regenerates on next transcode or thumbnail request)',
+    reclaim: 'cheap', // recomputed from the original media file on this machine
+    resolve: { kind: 'fixed', path: 'Library/Application Support/Plex Media Server/Cache' },
+  },
+  {
+    id: 'plex-plugin-http-cache',
+    label: 'Plex metadata agent cache',
+    ecosystem: 'media',
+    producer: "Plex Media Server's metadata agents (re-fetch over the network on next library scan)",
+    reclaim: 'costly', // re-fetched from Plex's remote agents, not rebuilt locally
+    resolve: {
+      kind: 'fixed',
+      path: 'Library/Application Support/Plex Media Server/Plug-in Support/Caches',
     },
   },
 ];

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // `homedir()` is faked to a real tmpdir so `lstat`-based checks (existence,
 // symlink, directory) exercise the real filesystem — matching
@@ -39,7 +39,7 @@ describe('DEFAULT_SYSTEM_CACHE_ENTRIES', () => {
     expect(new Set(ids).size).toBe(ids.length);
     // Compile-time membership: `SystemCacheEntryId` is the exact union of ids.
     const _typedIds: SystemCacheEntryId[] = ids;
-    expect(_typedIds.length).toBe(13);
+    expect(_typedIds.length).toBe(15);
   });
 
   it('gives every entry a non-empty producer', () => {
@@ -77,6 +77,15 @@ describe('DEFAULT_SYSTEM_CACHE_ENTRIES', () => {
     // Empty output and multi-line noise both fail to produce a path.
     expect(goCache.resolve.parse('')).toBeNull();
     expect(goCache.resolve.parse('\n')).toBeNull();
+  });
+
+  it("grades Plex's two entries opposite ways, asserted by id so a reorder can't silently swap them", () => {
+    const transcode = DEFAULT_SYSTEM_CACHE_ENTRIES.find((e) => e.id === 'plex-transcode-cache');
+    const agentCache = DEFAULT_SYSTEM_CACHE_ENTRIES.find((e) => e.id === 'plex-plugin-http-cache');
+    expect(transcode?.reclaim).toBe('cheap');
+    expect(agentCache?.reclaim).toBe('costly');
+    expect(transcode?.ecosystem).toBe('media');
+    expect(agentCache?.ecosystem).toBe('media');
   });
 });
 
@@ -227,5 +236,70 @@ describe('resolveSystemCacheEntries', () => {
     const resolved = await resolveSystemCacheEntries(entries);
     expect(resolved).toHaveLength(1);
     expect(resolved[0]?.entry.id).toBe('npm-cache');
+  });
+
+  describe("Plex's two entries (Phase 74 Theme A)", () => {
+    // Own isolated fake home per test, swapped into `homeHolder` and restored
+    // after — the outer describe's shared `home` accumulates fixtures across
+    // tests, and a Plex "Cache" directory created by one test would corrupt
+    // the symlink/not-installed assertions of another.
+    const plexEntries = DEFAULT_SYSTEM_CACHE_ENTRIES.filter((e) => e.id.startsWith('plex-'));
+    let plexHome: string;
+    let outerHome: string;
+
+    beforeAll(async () => {
+      outerHome = homeHolder.value;
+    });
+
+    beforeEach(async () => {
+      plexHome = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-plex-')));
+      homeHolder.value = plexHome;
+    });
+
+    afterEach(async () => {
+      homeHolder.value = outerHome;
+      await rm(plexHome, { recursive: true, force: true });
+    });
+
+    it('resolve under a fake homedir when both directories exist', async () => {
+      await mkdir(join(plexHome, 'Library/Application Support/Plex Media Server/Cache'), {
+        recursive: true,
+      });
+      await mkdir(
+        join(plexHome, 'Library/Application Support/Plex Media Server/Plug-in Support/Caches'),
+        { recursive: true },
+      );
+
+      const resolved = await resolveSystemCacheEntries(plexEntries);
+
+      expect(resolved).toHaveLength(2);
+      const byId = new Map(resolved.map((r) => [r.entry.id, r.path]));
+      expect(byId.get('plex-transcode-cache')).toBe(
+        join(plexHome, 'Library/Application Support/Plex Media Server/Cache'),
+      );
+      expect(byId.get('plex-plugin-http-cache')).toBe(
+        join(plexHome, 'Library/Application Support/Plex Media Server/Plug-in Support/Caches'),
+      );
+    });
+
+    it('is a silent skip when Plex is not installed (neither directory exists)', async () => {
+      const resolved = await resolveSystemCacheEntries(plexEntries);
+      expect(resolved).toEqual([]);
+    });
+
+    it('drops a symlinked Plex "Cache" directory rather than following it', async () => {
+      const realTarget = join(plexHome, 'real-plex-cache-target');
+      await mkdir(realTarget, { recursive: true });
+      await mkdir(join(plexHome, 'Library/Application Support/Plex Media Server'), {
+        recursive: true,
+      });
+      await symlink(realTarget, join(plexHome, 'Library/Application Support/Plex Media Server/Cache'));
+
+      const resolved = await resolveSystemCacheEntries([
+        DEFAULT_SYSTEM_CACHE_ENTRIES.find((e) => e.id === 'plex-transcode-cache')!,
+      ]);
+
+      expect(resolved).toEqual([]);
+    });
   });
 });
