@@ -1,19 +1,26 @@
-import type { BrowserWindow } from 'electron';
-
 import { CHANNELS, failure, schemas } from '@midnite/studio-shared';
 
 import { getRepo } from '../repo-registry';
 import { cancelSearch, readBlame, startCommitSearch, startGrep } from '../search-service';
-import { handle, handleOp } from './handle';
+import { handleFromSender, handleOp, handleOpFromSender } from './handle';
 
 /**
  * Register search and blame IPC handlers.
+ *
+ * Takes no window accessor any more: every streaming handler here resolves its
+ * target from the IPC sender, so there is no longer a "the" window for this
+ * module to be handed.
  */
-export function registerSearchHandlers(getWindow: () => BrowserWindow | null): void {
-  handleOp(CHANNELS.searchStart, schemas.SearchStartRequest, async (req) => {
+export function registerSearchHandlers(): void {
+  /*
+    Resolved from the sender, not `getWindow()` — hits come back over the
+    `search:batch` EVENT channel, so the window that asked has to be the window
+    that is sent them. See `repo-handlers.ts`'s `logStart` for the failure this
+    is the same shape as: a detached page's stream silently painting main.
+  */
+  handleOpFromSender(CHANNELS.searchStart, schemas.SearchStartRequest, async (req, win) => {
     const entry = getRepo(req.repoId);
     if (!entry) return failure('That repository is no longer open.');
-    const win = getWindow();
     if (!win) return failure('Window is no longer active.');
 
     if (req.mode === 'commits') {
@@ -41,11 +48,10 @@ export function registerSearchHandlers(getWindow: () => BrowserWindow | null): v
     });
   });
 
-  handle(
+  handleFromSender(
     CHANNELS.searchCancel,
     schemas.SearchCancelRequest,
-    ({ requestId }) => {
-      const win = getWindow();
+    ({ requestId }, win) => {
       if (win) cancelSearch(win, requestId);
     },
     () => undefined,

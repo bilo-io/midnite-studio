@@ -23,7 +23,39 @@ export const PANEL_WINDOW_ROLES = ['terminal', 'repos', 'fab', 'browser'] as con
  * its own renderer process, and a second copy is affordable where an unbounded
  * number would not be.
  */
-export const PAGE_WINDOW_ROLES = ['graph', 'actions', 'changes', 'files', 'database'] as const;
+export const PAGE_WINDOW_ROLES = [
+  'graph',
+  'actions',
+  'changes',
+  'files',
+  'database',
+  'dashboard',
+  'search',
+  'tests',
+  'projects',
+  'reviews',
+  'issues',
+  'history',
+  'optimizer',
+] as const;
+
+/*
+  Seven `ViewId`s are deliberately absent, and the omissions are the interesting
+  part of this list.
+
+  `settings`, `landing` and `sessions` are surfaces nobody wants twice: a
+  preferences pane, the app's front door, and a placeholder with no view behind
+  it yet.
+
+  `councils`, `workflows` and `video` are excluded for a sharper reason — they
+  are repo-independent, long-running, and mount-heavy. Duplicate rendering is
+  only safe for a view whose mount has no load-bearing side effects, which is
+  exactly the trap `view-registry.tsx` records `BrowserPane` falling into: its
+  mount seeds the first tab and drives its own reveal, so a second instance
+  gets both wrong. Until each of those three is audited against that bar, a
+  second live copy is a bug waiting to be filed rather than a feature.
+*/
+
 
 /**
  * Which auxiliary surface a secondary `BrowserWindow` hosts, or `main` for the

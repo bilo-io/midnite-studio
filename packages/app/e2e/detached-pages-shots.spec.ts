@@ -28,7 +28,28 @@ const OUT = '../../docs/screenshots/adhoc-page-detach';
 
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
 
-const PAGE_ROLES = ['graph', 'actions', 'changes', 'files', 'database'] as const;
+/*
+  The five original page roles plus Theme J's eight. Not read from
+  `PAGE_WINDOW_ROLES` directly: each entry below needs a rail label, a route
+  and its own fixture, so the list has to be spelled out anyway — and a role
+  added to the shared tuple without a row here should be a visible omission
+  rather than a silently-skipped shot.
+*/
+const PAGE_ROLES = [
+  'graph',
+  'actions',
+  'changes',
+  'files',
+  'database',
+  'dashboard',
+  'search',
+  'tests',
+  'projects',
+  'reviews',
+  'issues',
+  'history',
+  'optimizer',
+] as const;
 
 type PageRole = (typeof PAGE_ROLES)[number];
 
@@ -39,6 +60,14 @@ const TITLE: Record<PageRole, string> = {
   changes: 'Changes',
   files: 'File Explorer',
   database: 'DB Explorer',
+  dashboard: 'Dashboard',
+  search: 'Search',
+  tests: 'Tests',
+  projects: 'Projects',
+  reviews: 'Reviews',
+  issues: 'Issues',
+  history: 'History',
+  optimizer: 'Workspace Optimizer',
 };
 
 /** The rail row each page is reached by in the main window. */
@@ -48,6 +77,14 @@ const RAIL_LABEL: Record<PageRole, string> = {
   changes: 'Changes',
   files: 'Explorer',
   database: 'Database',
+  dashboard: 'Dashboard',
+  search: 'Search',
+  tests: 'Tests',
+  projects: 'Projects',
+  reviews: 'Reviews',
+  issues: 'Issues',
+  history: 'History',
+  optimizer: 'Optimizer',
 };
 
 /** The route a popout of that page loads directly — it has no rail. */
@@ -57,6 +94,14 @@ const PATH: Record<PageRole, string> = {
   changes: '/changes',
   files: '/files',
   database: '/database',
+  dashboard: '/dashboard',
+  search: '/search',
+  tests: '/tests',
+  projects: '/projects',
+  reviews: '/reviews',
+  issues: '/issues',
+  history: '/history',
+  optimizer: '/optimizer',
 };
 
 /*
@@ -86,6 +131,30 @@ const run = (id: string, title: string, conclusion: string) => ({
 const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
   graph: {},
   changes: {},
+  /*
+    Theme J's eight. Four of them (`reviews`, `issues`, `projects`, `tests`)
+    read the forge, and three of those answer an empty payload with a
+    full-pane `EmptyState` that has NO header — so a bare `fixtures` would
+    shoot the empty state rather than the control this spec is about. The
+    forge payload below is the minimum that gets each header on screen.
+  */
+  dashboard: { remotes: [REPRODUCIBLE_REMOTE] },
+  search: {},
+  history: {},
+  optimizer: {},
+  tests: {},
+  projects: {
+    remotes: [REPRODUCIBLE_REMOTE],
+    forge: { cli: { reason: 'ready' } } as MockFixtures['forge'],
+  },
+  reviews: {
+    remotes: [REPRODUCIBLE_REMOTE],
+    forge: { cli: { reason: 'ready' } } as MockFixtures['forge'],
+  },
+  issues: {
+    remotes: [REPRODUCIBLE_REMOTE],
+    forge: { cli: { reason: 'ready' } } as MockFixtures['forge'],
+  },
   actions: {
     remotes: [REPRODUCIBLE_REMOTE],
     forge: {
@@ -120,7 +189,32 @@ const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
   },
 };
 
-for (const role of PAGE_ROLES) {
+/*
+  Which roles each shot can actually reach, and why the two lists differ.
+
+  Every one of the thirteen marks is unit-tested (`page-detach-mark.test.tsx`);
+  these lists are about what a SCREENSHOT can get on screen under the shared
+  fixtures, which is a narrower question.
+
+  `tests` and `projects` are absent from both: their headers sit behind a data
+  guard — `TestsView` early-returns an `EmptyState` until discovery finds at
+  least one package, `ProjectsView` until the forge returns at least one board
+  — so with no fixture there is no header to shoot, only the empty state. That
+  is the same behaviour `files` and `actions` already have and is not a defect;
+  it just means a shot of the mark needs a whole bespoke fixture set, which is
+  not worth carrying for an image.
+
+  `optimizer` is absent from the rail-walked shots only: its nav row is gated
+  behind the default-off `Settings ▸ Workspace Optimizer` switch, so
+  `clickRailLink` cannot reach it and `/optimizer` redirects to the graph. Its
+  popout renders standalone, so it keeps its `DetachedRoot` shot.
+*/
+const STANDALONE_ROLES = PAGE_ROLES.filter(
+  (role) => role !== 'tests' && role !== 'projects',
+);
+const RAIL_ROLES = STANDALONE_ROLES.filter((role) => role !== 'optimizer');
+
+for (const role of STANDALONE_ROLES) {
   test(`DetachedRoot(${role})`, async ({ page }) => {
     await setTheme(page, 'dark');
     await installMockBridge(page, {
@@ -139,6 +233,9 @@ for (const role of PAGE_ROLES) {
     await page.screenshot({ path: shotPath(OUT, `detached-page-${role}.png`) });
   });
 
+}
+
+for (const role of RAIL_ROLES) {
   test(`${role} — the mark morphs to detach on hover`, async ({ page }) => {
     await setTheme(page, 'dark');
     await installMockBridge(page, { ...fixtures, ...EXTRA[role] } as MockFixtures);

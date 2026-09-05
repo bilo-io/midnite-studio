@@ -1,8 +1,9 @@
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { LuExternalLink, LuFileText, LuLoaderCircle } from 'react-icons/lu';
+import { LuBug, LuExternalLink, LuFileText, LuLoaderCircle } from 'react-icons/lu';
 
 import {
+  NEW_ISSUE_URL,
   RELEASE_CHANGELOG_PAGE_URL,
   RELEASE_LIST_URL,
   releasePageUrl,
@@ -51,6 +52,19 @@ export function VersionNotesPanel({ version }: { version: string }) {
           label="Release page"
           href={data?.notes ? releasePageUrl(version) : RELEASE_LIST_URL}
         />
+        {/*
+          The third of the links that stand whether or not the notes arrived
+          (Phase 65 Theme E). Before it there was no way to report a bug from
+          inside the app at all.
+
+          **Packaged-only, by way of this panel.** `version-pill.tsx` hides
+          itself on `'0.0.0'`, so in a dev build nothing opens this panel and
+          this link is unreachable. That is deliberate rather than a gap: the
+          same action also sits in `Settings ▸ Monitor ▸ Diagnostics`, which
+          renders in every build, so the affordance exists either way and this
+          one is simply the convenient copy beside the release notes.
+        */}
+        <PanelLink icon={LuBug} label="Report a bug" href={NEW_ISSUE_URL} />
       </div>
     </div>
   );

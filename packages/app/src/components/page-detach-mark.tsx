@@ -13,6 +13,14 @@ export const PAGE_ROLE_TITLE: Record<PageWindowRole, string> = {
   changes: 'Changes',
   files: 'File Explorer',
   database: 'DB Explorer',
+  dashboard: 'Dashboard',
+  search: 'Search',
+  tests: 'Tests',
+  projects: 'Projects',
+  reviews: 'Reviews',
+  issues: 'Issues',
+  history: 'History',
+  optimizer: 'Workspace Optimizer',
 };
 
 /**

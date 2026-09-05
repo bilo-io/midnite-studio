@@ -247,38 +247,39 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `isPackaged` and the `fingerprint.ts` build id. Every log file's first line, so a pasted tail
       identifies its build without the reporter being asked.
 
-### E — A user can get at it in two clicks (S)
+### E — A user can get at it in two clicks (S) — ✅ DONE (PR #178, 2026-09-05)
 
-> **Not built in the PR #170 batch — deliberately out of scope, and still ◻ TODO.** Themes A–D
-> ship the whole machine (sink, channels, `reportError`, main's own crash hooks); this theme is the
-> user-facing half — the two Diagnostics buttons, the `release.ts` issue URLs and the Report-a-bug
-> link — and it is unstarted. The verification items that depend on it stay open with it.
+> **Landed in PR #178.** Themes A–D shipped the whole machine (sink, channels, `reportError`,
+> main's own crash hooks) with no way in; this theme is the user-facing half. `release.ts` already
+> carried `ISSUES_URL`/`NEW_ISSUE_URL`, so what this added is the three controls in the existing
+> Diagnostics accordion plus the Report-a-bug link in the release-notes panel.
 
-- [ ] Extend the **existing** `Accordion title="Diagnostics"` at
+- [x] Extend the **existing** `Accordion title="Diagnostics"` at
       [`monitor-page.tsx:96`](../../../packages/app/src/features/settings/settings-pages/monitor-page.tsx)
       rather than adding an eighteenth settings page. A new page is four coupled edits
       ([`ui-store.ts:141-157`](../../../packages/app/src/store/ui-store.ts) union,
       `:181-199` `SETTINGS_PAGES`, [`settings-view.tsx:36-56`](../../../packages/app/src/features/settings/settings-view.tsx)
       `PAGE_CONTENT`, [`nav-icons.ts:36`](../../../packages/app/src/components/nav-icons.ts)
       `SETTINGS_PAGE_ICON`) for two buttons that belong next to the two already there. See Decision 6.
-- [ ] **Reveal log** button, styled like [`cli-page.tsx:87-105`](../../../packages/app/src/features/settings/settings-pages/cli-page.tsx)'s
+- [x] **Reveal log** button, styled like [`cli-page.tsx:87-105`](../../../packages/app/src/features/settings/settings-pages/cli-page.tsx)'s
       (raw `<button type="button">`, `disabled={!hasBridge}`, inline error beneath), calling
       `mstudio:report:reveal`. The log path is shown beside it as text, because a user on a support
       thread needs to say where it is, not just open it.
-- [ ] **Copy diagnostics** button → clipboard, from `mstudio:report:bundle`: the boot line of Theme
+- [x] **Copy diagnostics** button → clipboard, from `mstudio:report:bundle`: the boot line of Theme
       D, plus the last 50 sink records, **through `redactPaths`**. One block a user can paste into
       an issue without being asked three follow-up questions.
-- [ ] Add `issuesUrl` / `newIssueUrl` to [`shared/src/release.ts`](../../../packages/shared/src/release.ts)
+- [x] Add `issuesUrl` / `newIssueUrl` to [`shared/src/release.ts`](../../../packages/shared/src/release.ts)
       beside the four `bilo-io/midnite-apps` URLs it already holds (`:21`, `:25`, `:29`, `:39`), with
       the same comment at `:6` explaining why the mirror repo is the destination.
-- [ ] **Report a bug** link in [`version-notes-panel.tsx`](../../../packages/app/src/features/version/version-notes-panel.tsx),
+- [x] **Report a bug** link in [`version-notes-panel.tsx`](../../../packages/app/src/features/version/version-notes-panel.tsx),
       as the third of the "two links that stand whether or not the notes arrived", opened through
       the existing `shellOpenExternal` ([`channels.ts:244`](../../../packages/shared/src/ipc/channels.ts),
       protocol-restricted to http/https/mailto at [`schemas.ts:884`](../../../packages/shared/src/ipc/schemas.ts)).
       This is the fifth fact's fix and it is one anchor.
-- [ ] The version pill hides itself on `'0.0.0'` ([`version-pill.tsx:26`](../../../packages/app/src/features/version/version-pill.tsx))
-      — confirm the bug link is still reachable in a dev build where that holds, or accept that it
-      is a packaged-only affordance and say which in the docstring.
+- [x] The version pill hides itself on `'0.0.0'` ([`version-pill.tsx:26`](../../../packages/app/src/features/version/version-pill.tsx)).
+      **Resolved by putting Report a bug in BOTH places** rather than choosing: the release-notes
+      panel's copy is documented in its own comment as packaged-only, and the Diagnostics accordion
+      carries the same action in every build. `crash-reporting.test.tsx` covers the second.
 
 ---
 
@@ -312,7 +313,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green, and `pnpm e2e` green with no new `KNOWN_RED` entry.
+- [x] `moon run :typecheck :lint :test` green, and `pnpm e2e` green with no new `KNOWN_RED` entry.
       **Half done:** typecheck, lint and every unit suite are green (`desktop` 1120, `shared` 475,
       `app` 2358, `git-engine` passing). The e2e half was **not executed** in this batch.
 - [x] **The widening cost nothing:** the `Logger` change touches zero of the ~40 existing call
@@ -335,7 +336,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       path at all (it takes none).
 - [ ] Kill the renderer (`render-process-gone`) and hang it (`unresponsive`): both leave a record
       where previously both left a discarded stderr line.
-- [ ] The Report a bug link opens `bilo-io/midnite-apps` issues and nothing else — the
+- [x] The Report a bug link opens `bilo-io/midnite-apps` issues and nothing else — the
       `shellOpenExternal` protocol restriction at `schemas.ts:884` is not bypassed.
 - [ ] **Open, for a human:** cause a blank window in a *packaged* build, press Copy diagnostics, and
       check the clipboard is something you would actually be willing to paste into a public issue —

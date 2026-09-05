@@ -39,6 +39,7 @@ import { nextSortState, sortItems, type SortState } from './sort';
 import { useForgeProjectFields, useForgeProjectItems, useForgeProjects } from '../../services/queries';
 import { useActiveWorktree } from '../../services/use-status';
 import { DEFAULT_PROJECT_VIEW, useUiStore } from '../../store/ui-store';
+import { PageDetachMark } from '../../components/page-detach-mark';
 
 /**
  * The Projects view (Phase 40 Theme D): a board picker above the picked
@@ -184,6 +185,7 @@ export function ProjectsView() {
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="projects-view">
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border px-4 py-2">
+        <PageDetachMark role="projects" />
         <h2 className="mr-auto text-sm font-semibold tracking-tight">Projects</h2>
 
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">

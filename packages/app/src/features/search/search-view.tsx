@@ -24,6 +24,7 @@ import {
   type SearchMode,
 } from './search-store';
 import { useSearch } from './use-search';
+import { PageDetachMark } from '../../components/page-detach-mark';
 
 export function SearchView() {
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
@@ -94,8 +95,13 @@ export function SearchView() {
         style={{ width: resizable.current }}
         className="flex h-full min-h-0 flex-col border-r border-border bg-card shrink-0"
       >
-        {/* Mode Selector Tabs */}
-        <div className="flex border-b border-border p-1 bg-muted/20">
+        {/*
+          Mode Selector Tabs. `items-center` is here for the detach mark: the
+          tab buttons are `flex-1`, so without it a fixed-size mark stretches
+          to the row height instead of sitting on the tabs' centre line.
+        */}
+        <div className="flex items-center border-b border-border p-1 bg-muted/20">
+          <PageDetachMark role="search" />
           {(['commits', 'content', 'files'] as SearchMode[]).map((tab) => (
             <button
               key={tab}

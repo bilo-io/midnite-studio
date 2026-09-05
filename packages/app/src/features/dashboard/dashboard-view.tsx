@@ -49,6 +49,7 @@ import { CalendarWidget } from './widgets/calendar-widget';
 import { ContributorsWidget } from './widgets/contributors-widget';
 import { IssuesWidget, PullsWidget, RunsWidget } from './widgets/forge-widgets';
 import { HealthWidget } from './widgets/health-widget';
+import { PageDetachMark } from '../../components/page-detach-mark';
 
 /**
  * The repository's front page.
@@ -220,6 +221,7 @@ export function DashboardView() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
+        <PageDetachMark role="dashboard" />
         <h2 className="mr-auto text-sm font-semibold tracking-tight">Dashboard</h2>
 
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">

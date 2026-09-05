@@ -20,6 +20,7 @@ import { checksStatus, pullStatus, StatusPill } from '../forge/forge-status';
 import { PrDetail } from './pr-detail';
 import { REVIEW_GROUPS, type ReviewGroup } from './review-groups';
 import { PrDetailSkeleton, PullListSkeleton } from './reviews-skeletons';
+import { PageDetachMark } from '../../components/page-detach-mark';
 
 const PULLS_PAGE_SIZE = 20;
 /** `ForgeListRequest`'s own zod ceiling — asking past it is a validation error, not a bigger page. */
@@ -198,6 +199,7 @@ export function ReviewsList({ repoId }: { repoId: string }) {
         className="flex min-h-0 shrink-0 flex-col border-r border-border"
       >
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-1.5">
+          <PageDetachMark role="reviews" />
           <Tabs options={TABS} value={tab} onChange={setTab} ariaLabel="Pull request status" />
 
           <MultiSelectMenu

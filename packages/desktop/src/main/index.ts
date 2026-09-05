@@ -297,7 +297,7 @@ if (!app.requestSingleInstanceLock()) {
     bootMark('when-ready');
     registerWindowChrome();
     registerRepoHandlers(getMainWindow);
-    registerSearchHandlers(getMainWindow);
+    registerSearchHandlers();
     registerStatusHandlers();
     registerConflictHandlers();
     registerStatsHandlers();
@@ -587,7 +587,6 @@ if (!app.requestSingleInstanceLock()) {
     // Watch what was restored. After this the handlers reconcile on every
     // open/close, so there is exactly one place that starts a watcher at boot.
     await reconcileWatchers(
-      mainWindow,
       (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })),
     );
 

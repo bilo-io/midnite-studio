@@ -6,10 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
+import { useFilesStore } from '../features/files/files-store';
 import { usePaletteStore } from '../features/themes/palette-store';
+import { useActionsStore } from '../store/actions-store';
 import { useAppearanceStore } from '../store/appearance-store';
 import { useBrowserStore } from '../store/browser-store';
 import { useUiStore } from '../store/ui-store';
+import { useWorkbenchStore } from '../store/workbench-store';
 import { relayWatchEvent, useBroadcastSync } from './broadcast-sync';
 
 type RelayMessage = { id: string; origin: string; kind: string; payload: Record<string, unknown> };
@@ -272,5 +275,191 @@ describe('useBroadcastSync (Theme E)', () => {
     emit({ id: 'watch-1', origin: 'other-window', kind: 'watch', payload: { repoId: 'repo-1', kind: 'index' } });
 
     expect(invalidateSpy).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Theme H — the page-selection slices. A page popout duplicates rather than
+ * moves, so the same view runs in two windows at once and its selection is
+ * what visibly drifts between them.
+ */
+describe('useBroadcastSync — page selection (Theme H)', () => {
+  beforeEach(() => {
+    useActionsStore.setState({ selectedRun: {}, selectedJob: {} });
+    useFilesStore.setState({ scopeKey: null, selectedPath: null });
+    useWorkbenchStore.setState({ tabs: [], activeTabId: null });
+  });
+
+  afterEach(() => {
+    cleanup();
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+    vi.restoreAllMocks();
+  });
+
+  it('relays the selected run, and the job it clears with it', () => {
+    const { relay } = installBridge();
+    mount();
+
+    useActionsStore.getState().selectRun('repo-1', '42');
+
+    const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'actions');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.payload).toEqual({ selectedRun: { 'repo-1': '42' }, selectedJob: {} });
+  });
+
+  it('applies an incoming run selection', () => {
+    const { emit } = installBridge();
+    mount();
+
+    emit({
+      id: 'run-1',
+      origin: 'other-window',
+      kind: 'actions',
+      payload: { selectedRun: { 'repo-1': '99' }, selectedJob: {} },
+    });
+
+    expect(useActionsStore.getState().selectedRun).toEqual({ 'repo-1': '99' });
+  });
+
+  it('carries the files scope alongside the path, so a relPath is never applied under a stale checkout', () => {
+    const { relay } = installBridge();
+    mount();
+
+    useFilesStore.getState().ensureScope('repo:main');
+    useFilesStore.getState().selectFile('packages/app/src/app.tsx');
+
+    const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'files');
+    expect(sent.at(-1)?.payload).toEqual({
+      scopeKey: 'repo:main',
+      selectedPath: 'packages/app/src/app.tsx',
+    });
+  });
+
+  it('relays workbench tabs and the active one', () => {
+    const { relay } = installBridge();
+    mount();
+
+    useWorkbenchStore.getState().openTab({
+      kind: 'run',
+      repoId: 'repo-1',
+      runId: '7',
+      label: 'CI #7',
+      url: 'https://github.com/bilo-io/midnite-studio/actions/runs/7',
+    });
+
+    const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'workbench');
+    const payload = sent.at(-1)?.payload as { tabs: unknown[]; activeTabId: string | null };
+    expect(payload.tabs).toHaveLength(1);
+    expect(payload.activeTabId).not.toBeNull();
+  });
+
+  /*
+    The line Theme H deliberately does not cross. Expanding a directory is how
+    ONE window is arranged to look at a checkout, not a shared answer to "what
+    am I looking at" — relaying it would snap the other window's tree open
+    under the user's cursor.
+  */
+  it('does not relay view furniture — expanded dirs and collapsed workflow groups stay local', () => {
+    const { relay } = installBridge();
+    mount();
+
+    useFilesStore.getState().ensureScope('repo:main');
+    relay.mockClear();
+
+    useFilesStore.getState().toggleDir('packages');
+    useActionsStore.getState().toggleWorkflow('repo-1', 'CI');
+
+    expect(relay).not.toHaveBeenCalled();
+  });
+
+  it('a relayed page selection does not ping-pong back out', () => {
+    const { relay, emit } = installBridge();
+    mount();
+
+    emit({
+      id: 'wb-1',
+      origin: 'other-window',
+      kind: 'workbench',
+      payload: { tabs: [], activeTabId: null },
+    });
+    emit({
+      id: 'act-1',
+      origin: 'other-window',
+      kind: 'actions',
+      payload: { selectedRun: { 'repo-1': '5' }, selectedJob: {} },
+    });
+
+    expect(relay).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The flicker regression.
+ *
+ * A relayed theme message used to make the receiving window immediately
+ * rebroadcast it, because `applying` is reset synchronously in `applyIncoming`'s
+ * `finally` while a `MutationObserver` callback is delivered a microtask later.
+ * Two windows echoed once and damped; three — a main window and two detached
+ * pages — amplified into a class flipping on `<html>` many times a second.
+ */
+describe('useBroadcastSync — theme echo', () => {
+  beforeEach(() => {
+    document.documentElement.classList.remove('dark');
+    try {
+      localStorage.removeItem('midnite.theme');
+    } catch {
+      /* jsdom always has storage; the guard mirrors the source. */
+    }
+  });
+
+  afterEach(() => {
+    cleanup();
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+    vi.restoreAllMocks();
+  });
+
+  it('does not rebroadcast a theme it was just told to apply', async () => {
+    const { relay, emit } = installBridge();
+    mount();
+
+    // Ids must be unique across the WHOLE file: `seenIds` is module-level and
+    // deliberately survives between tests, so reusing an earlier test's id is
+    // silently deduplicated and the message never applies.
+    emit({ id: 'echo-apply', origin: 'other-window', kind: 'theme', payload: { dark: true } });
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+
+    // The observer fires as a microtask, strictly after `applying` is back to
+    // false — so waiting is the whole point of this assertion.
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(relay.mock.calls.filter(([m]) => (m as RelayMessage).kind === 'theme')).toHaveLength(0);
+  });
+
+  it('still broadcasts a theme flip this window made itself', async () => {
+    const { relay } = installBridge();
+    mount();
+
+    document.documentElement.classList.add('dark');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'theme');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.payload).toMatchObject({ dark: true });
+  });
+
+  /*
+    `ThemeProvider` reads `localStorage['midnite.theme']` once on mount and then
+    drives the class off React state. Applying a relayed theme without writing
+    that key left the DOM and that state disagreeing, so the next reload snapped
+    back — and broadcast the snap.
+  */
+  it('writes the applied theme through to ThemeProvider own storage key', () => {
+    const { emit } = installBridge();
+    mount();
+
+    emit({ id: 'echo-storage', origin: 'other-window', kind: 'theme', payload: { dark: true } });
+
+    expect(localStorage.getItem('midnite.theme')).toBe('dark');
   });
 });
