@@ -12,7 +12,7 @@ import { useAllLoopStatuses, type LoopStatus } from './loop-status';
 const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
 
 /**
- * The four loop launchers, in the title bar's right cluster.
+ * The six loop launchers, in the title bar's right cluster.
  *
  * They were a `STATUS_SEGMENTS` entry in the status bar's left zone from
  * Phase 39 Themes E + F until this move, which put them beside the live-agent
@@ -221,7 +221,7 @@ function LoopLauncher({
           if (open) ui.setFabPanelOpen(false);
           else ui.openFabTab(loopId as FabTab);
         }}
-        // `--loop-launcher-color` is what lets one CSS rule serve four loops,
+        // `--loop-launcher-color` is what lets one CSS rule serve six loops,
         // the technique `.loop-run-glow` uses for `--loop-glow-angle`.
         style={{ ['--loop-launcher-color' as string]: color }}
         className={`loop-launcher flex items-center rounded px-0.5 ${

@@ -70,7 +70,7 @@ export function AgentPage() {
       <Accordion title="Loops" icon={<LuRepeat className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            The four loops the quick-access panel runs. Each takes its base prompt from the{' '}
+            The six loops the quick-access panel runs. Each takes its base prompt from the{' '}
             <em>midnite menu</em> field above with the same name, so there is one place to
             change what a loop invokes. What you set here is which of a loop&rsquo;s prompt
             toggles a <em>fresh</em> run starts with — the boxes you tick in the panel itself

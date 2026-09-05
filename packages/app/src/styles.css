@@ -1894,7 +1894,7 @@ html[data-motion='reduced'] .gradient-frame::before {
   differs is the box-shadow, which pulses here rather than appearing on hover
   — a running loop is a state, not a pointer position — and `.is-waiting`,
   which drops the rotating rainbow for a steady amber ring: a loop with a
-  question on screen should read as one colour you can spot across four tabs,
+  question on screen should read as one colour you can spot across six tabs,
   not as more motion competing with the others.
 */
 @property --loop-glow-angle {
@@ -2287,7 +2287,7 @@ html[data-motion='reduced'] .fab-loop-halo {
  *
  * Sibling of the `.loop-run-glow` family further up this file, and built from
  * the same two techniques: a colour passed in as a custom property so one rule
- * serves four loops, and a pulse that animates nothing but `opacity`. Kept as
+ * serves six loops, and a pulse that animates nothing but `opacity`. Kept as
  * its own block at the end of the file rather than beside `.loop-run-glow`
  * purely to stay out of Phase 37's way, which is rewriting that block in
  * parallel; read the two together.

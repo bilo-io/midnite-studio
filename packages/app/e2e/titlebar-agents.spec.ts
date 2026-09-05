@@ -310,7 +310,7 @@ test('the theme toggle stays in the window once full no longer fits', async ({ p
  * permanently-visible bar is noise, so it collapses instead. Kept on the move
  * into the title bar, where the corner is the window's highest-attention one.
  */
-test('the loop strip rests as one glyph and expands to four on hover', async ({ page }) => {
+test('the loop strip rests as one glyph and expands to six on hover', async ({ page }) => {
   await open(page);
   const strip = page.getByTestId('fab-launchers');
   await expect(strip).toHaveAttribute('data-expanded', 'false');
