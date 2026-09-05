@@ -4,21 +4,21 @@ Twenty-two phases in, Midnite Studio has fifteen named commands, thirteen keyboa
 menu that dispatches by command id, and no way to reach any of it by typing. The keymap module's own
 doc comment has been promising the missing surface since Phase 9 — it names "(later) a command
 palette" as dispatch source number three, beside the window keydown listener and the native menu —
-and [`outstanding.md`](outstanding.md) has carried the same note ever since. This phase builds
+and [`outstanding.md`](../outstanding.md) has carried the same note ever since. This phase builds
 source number three.
 
 It also has to fix the registry first, because the registry cannot feed a palette as it stands.
-Start with the link: both [`outstanding.md`](outstanding.md) and
+Start with the link: both [`outstanding.md`](../outstanding.md) and
 [Phase 22's out-of-scope list](phase-22-stash-and-safety-net.md) point at
 `packages/app/src/services/keybindings/commands.ts`, and **that file does not exist**. The registry
-is [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts), 89 lines of zod-free plain
+is [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts), 89 lines of zod-free plain
 data, and it is deliberately in `shared` because the native menu in
-[`menu.ts`](../packages/desktop/src/main/menu.ts) dispatches the same `CommandId` values across the
+[`menu.ts`](../../../packages/desktop/src/main/menu.ts) dispatches the same `CommandId` values across the
 IPC boundary. Then start with the shape: `COMMAND_IDS` has **fifteen** entries and `DEFAULT_KEYMAP`
 has **thirteen** — `op.abort` and `op.continue` are declared ids with no binding at all, so a
 palette iterating the keymap silently omits them, while a palette iterating the ids gets no label.
 Neither list alone is a sufficient data source. And most of all, start with the handlers: they live
-in a single inline object literal in [`app.tsx`](../packages/app/src/app.tsx), passed straight to
+in a single inline object literal in [`app.tsx`](../../../packages/app/src/app.tsx), passed straight to
 `useKeybindings({...})`, never exported, and **only nine of the fifteen ids have one**. `repo.open`,
 `repo.close` and `view.refresh` have keymap entries *and live native menu items* and do nothing when
 you use them. A palette is the surface that makes that visible — it would render six dead rows — so
@@ -39,12 +39,12 @@ grouped), Phase 21 (the agent roster and its structurally-typed brand marks).
 **Scope guardrails.** The registry stays **data-only**. `shared` is zod-only and imports no
 workspace package, so no `handler`, no `run`, no `icon` field goes into `KeyBinding` — a `group`
 string union is fine, a React component type is not, and command icons live in an `app`-side map
-keyed by `CommandId` exactly as [`nav-icons.ts`](../packages/app/src/components/nav-icons.ts)
+keyed by `CommandId` exactly as [`nav-icons.ts`](../../../packages/app/src/components/nav-icons.ts)
 already does for `ViewId`. The palette performs **safe writes only**: checkout, fetch, pull, stage,
 open-the-commit-box, and nothing whose inverse is a reset. Destructive ops stay in the graph where
 the Phase 7 blast radius is in front of you — a palette is a surface optimised for typing fast, and
 that is the wrong place to be one keystroke from orphaning commits. Every palette layer uses the
-`zIndex` tokens in [`tailwind.config.ts`](../packages/app/tailwind.config.ts) and never a literal;
+`zIndex` tokens in [`tailwind.config.ts`](../../../packages/app/tailwind.config.ts) and never a literal;
 `z-50` renders *under* `@bilo-io/shell`'s title bar and that bug has already been shipped twice. And
 the palette owns no dispatch machinery of its own: it is a third caller into the same
 `CommandId → handler` map the keyboard and the menu already use.
@@ -58,7 +58,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 Lands first; every other theme reads off it.
 
 - [x] Reconcile the fifteen-ids / thirteen-bindings split in
-      [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts). One list becomes the
+      [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts). One list becomes the
       source of truth and the other is derived: every `CommandId` gets a `label` and an optional
       `chord`, so an unbound command (`op.abort`, `op.continue`) is a first-class palette row with
       no shortcut rather than an entry that vanishes. Keep `GLOBAL_CHORDS` derived from
@@ -71,11 +71,11 @@ Lands first; every other theme reads off it.
 - [x] Add `palette.open` (`Mod+k`) and `palette.files` (`Mod+p`) to `COMMAND_IDS` and the keymap.
       `palette.open` is **`scope: 'global'`** — it joins `Ctrl+\`` as the second chord that escapes
       the terminal, because a palette you cannot open while a shell has focus is half a palette.
-- [x] Fix the phantom `commands.ts` link in [`outstanding.md`](outstanding.md) and in
+- [x] Fix the phantom `commands.ts` link in [`outstanding.md`](../outstanding.md) and in
       [`phase-22`](phase-22-stash-and-safety-net.md)'s "Not in this phase" list — both point at a
       path that has never existed. Note the real location in
-      [`CLAUDE.md`](../CLAUDE.md)'s keybindings bullet while we are there.
-- [x] Extend [`keybindings.test.ts`](../packages/app/src/services/keybindings/keybindings.test.ts):
+      [`CLAUDE.md`](../../../CLAUDE.md)'s keybindings bullet while we are there.
+- [x] Extend [`keybindings.test.ts`](../../../packages/app/src/services/keybindings/keybindings.test.ts):
       every `CommandId` has a label; no two bindings share a chord; `Mod+Shift+p` still resolves to
       `sync.pull`; `palette.open` is in `GLOBAL_CHORDS` and `palette.files` is not.
 
@@ -86,21 +86,21 @@ The keymap's doc comment describes this hook; it just was never written.
 - [x] New `packages/app/src/services/keybindings/use-command-handlers.ts` exporting
       `useCommandHandlers(): CommandRuntime`, where `CommandRuntime` is
       `Record<CommandId, { run: () => void; enabled: boolean; disabledReason?: string }>`. Move the
-      inline handler literal out of [`app.tsx`](../packages/app/src/app.tsx) verbatim first, then
+      inline handler literal out of [`app.tsx`](../../../packages/app/src/app.tsx) verbatim first, then
       extend it — the object is deliberately rebuilt every render so it closes over current state,
       and that property has to survive the move.
 - [x] Wire `repo.open` and `repo.close`. Both have keymap entries (`Mod+o`, `Mod+w`) **and** live
       native menu items and currently do nothing; `useRepos` and the repos panel already hold
       everything the handlers need.
 - [x] Wire `view.refresh` (`Mod+r`) onto the react-query invalidation the watcher already drives
-      through [`watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts), so the
+      through [`watch-invalidation.ts`](../../../packages/app/src/services/watch-invalidation.ts), so the
       manual refresh and the automatic one cannot drift apart.
 - [x] Wire `status.commit` (`Mod+Enter`) to focus-and-submit the commit box, matching what the
       Changes view does on click rather than reaching past it. Threaded through a new
       `commit-box-store.ts` — the one imperative seam between the global command and `StatusPanel`'s
       own local commit-box state, which stays where it was rather than lifting into the store.
 - [x] Give every entry `enabled` + `disabledReason`, following
-      [`icon-button.tsx`](../packages/app/src/components/icon-button.tsx)'s habit of appending the
+      [`icon-button.tsx`](../../../packages/app/src/components/icon-button.tsx)'s habit of appending the
       reason to the tooltip: with no repo open, `sync.*` and `status.*` are present-but-unavailable
       and say why, instead of being absent (a command that disappears teaches nothing) or failing
       silently (which is what happens today).
@@ -126,7 +126,7 @@ The keymap's doc comment describes this hook; it just was never written.
       `views`, `files`, `journal`) renders a one-line "arrives in Theme X" placeholder — one
       component, no second one invented ahead of its source landing.
 - [x] New `packages/app/src/components/palette-host.tsx` shaped after
-      [`dialog-host.tsx`](../packages/app/src/components/dialog-host.tsx): mounted once in
+      [`dialog-host.tsx`](../../../packages/app/src/components/dialog-host.tsx): mounted once in
       `app.tsx`, owning open/closed state, exposing an imperative `usePalette(): PaletteApi`
       (`open(mode?)`, `close()`). Unlike `DialogHost`, the open/closed bit itself lives in
       `palette-store.ts` (zustand), not local `useState` behind a Context — `use-keybindings.ts`
@@ -134,7 +134,7 @@ The keymap's doc comment describes this hook; it just was never written.
       [Phase 22 Theme H](phase-22-stash-and-safety-net.md) plans for `toast-host.tsx`; whichever
       lands first sets the precedent for the third global surface.
 - [x] A palette-open short-circuit at the top of `onKeyDown` in
-      [`use-keybindings.ts`](../packages/app/src/services/keybindings/use-keybindings.ts). The
+      [`use-keybindings.ts`](../../../packages/app/src/services/keybindings/use-keybindings.ts). The
       listener is on the **capture** phase with `stopPropagation()` — deliberately, so terminal-aimed
       keystrokes are seen — which means that without this guard, typing `Mod+g` or `Mod+r` into the
       palette input fires those commands out from under it. While the palette is open only
@@ -159,15 +159,15 @@ in the renderer. Both are net-new, and both are small.
       { score: number; indices: number[] } | null`. Subsequence matching with bonuses for a match at
       a word boundary, at the start of the string, and for consecutive runs; case-insensitive with a
       tie-break favouring an exact-case hit. Roughly sixty lines, hand-rolled on the same reasoning
-      as [`lane-colors.ts`](../packages/git-engine/src/layout/lane-colors.ts) and Phase 18's
+      as [`lane-colors.ts`](../../../packages/app/src/features/graph/lane-colors.ts) and Phase 18's
       hand-drawn chart: a dependency here buys less than it costs, and returning `indices` is what
       makes highlighting fall out for free.
 - [x] Matched-character highlighting in the result row, driven by those `indices`. The first `<mark>`
       in the renderer — the only existing "highlight" is Shiki in
-      [`line-highlight.ts`](../packages/app/src/features/diff/line-highlight.ts) — so it gets a
+      [`line-highlight.ts`](../../../packages/app/src/features/diff/line-highlight.ts) — so it gets a
       theme token, not a browser default.
 - [x] A `keywords?: string` field on the palette item, following the precedent already sitting in
-      [`multi-select-menu.tsx`](../packages/app/src/components/multi-select-menu.tsx), whose
+      [`multi-select-menu.tsx`](../../../packages/app/src/components/multi-select-menu.tsx), whose
       `MultiSelectOption` has had exactly this field for exactly this reason. It is how `Mod+Shift+u`
       is findable by typing "push" and how the Actions view is findable by typing "CI".
 - [x] Ranking across sources: score within a source, then a per-source weight so a repo name cannot
@@ -187,26 +187,26 @@ in the renderer. Both are net-new, and both are small.
 - [x] The command source, over Theme B's runtime — every `CommandId`, its label, its group, its
       chord, and its `disabledReason` when unavailable.
 - [x] The views and settings source. Reuse `VIEW_ICON` and `PAGE_ICON` from
-      [`nav-icons.ts`](../packages/app/src/components/nav-icons.ts) — **do not build a third map**;
+      [`nav-icons.ts`](../../../packages/app/src/components/nav-icons.ts) — **do not build a third map**;
       that file's comment warns that duplicating it lets surfaces drift, and "the same view wearing
       two different icons is worse than either icon". `SETTINGS_PAGES` in
-      [`ui-store.ts`](../packages/app/src/store/ui-store.ts) already carries `{id, label, group}`,
+      [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) already carries `{id, label, group}`,
       so the settings half is nearly free.
 - [x] The repos and worktrees source, off `useRepos` / `useWorktrees` in
-      [`queries.ts`](../packages/app/src/services/queries.ts) — both already react-query cached, so
+      [`queries.ts`](../../../packages/app/src/services/queries.ts) — both already react-query cached, so
       no IPC. A worktree row shows its checked-out branch as `detail` and its status pill count if
       Phase 17's counts are already loaded, and never fetches to fill a palette row.
 - [x] The terminal sessions and agent roster source, off
-      [`terminal-store.ts`](../packages/app/src/features/terminal/terminal-store.ts) and
-      [`use-agents.ts`](../packages/app/src/features/terminal/use-agents.ts): switch to a session by
+      [`terminal-store.ts`](../../../packages/app/src/features/terminal/terminal-store.ts) and
+      [`use-agents.ts`](../../../packages/app/src/features/terminal/use-agents.ts): switch to a session by
       name, or start a new agent session. Agent items carry their roster accent through
       `IconComponent`'s `style` prop — which is precisely why that type is declared structurally in
-      [`icon-button.tsx`](../packages/app/src/components/icon-button.tsx) rather than importing one
-      family's icon type. [`agent-commands.ts`](../packages/app/src/features/agent/agent-commands.ts)
+      [`icon-button.tsx`](../../../packages/app/src/components/icon-button.tsx) rather than importing one
+      family's icon type. [`agent-commands.ts`](../../../packages/app/src/features/agent/agent-commands.ts)
       already has `{id, label, icon, hint}` and is the shape to mirror.
 - [x] Command icons: a new `app`-side `Record<CommandId, IconComponent>` in the palette folder,
       react-icons per-set imports (`react-icons/lu`, never the root barrel), following
-      [`CLAUDE.md`](../CLAUDE.md)'s rule that new icons come from react-icons while `lucide-react`
+      [`CLAUDE.md`](../../../CLAUDE.md)'s rule that new icons come from react-icons while `lucide-react`
       stays where it already is.
 
 ### F — The refs source, and the safe-writes line (M) ✅ DONE (landed 2026-08-28)
@@ -223,7 +223,7 @@ in the renderer. Both are net-new, and both are small.
       silently.
 - [x] `palette-safety.test.ts` asserting the allowlist contains no command whose id is in the
       operation or reset families, in the string-shape style
-      [`gh-write.test.ts`](../packages/desktop/src/main/forge/gh-write.test.ts) uses to assert
+      [`gh-write.test.ts`](../../../packages/desktop/src/main/forge/gh-write.test.ts) uses to assert
       `--undo` never appears. The test is the guardrail; the comment above the list explains it to
       whoever is tempted to extend it.
 - [x] Honest empty states: with no repo open the palette still opens and still lists views, settings
@@ -234,21 +234,21 @@ in the renderer. Both are net-new, and both are small.
 **Land last, after A–F are green.** This is the only theme that crosses all four packages, and the
 one that can slip without costing the phase its point.
 
-- [x] `mstudio:fs:list-files` in [`channels.ts`](../packages/shared/src/ipc/channels.ts), with request
+- [x] `mstudio:fs:list-files` in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts), with request
       and response schemas beside the existing `FsListDirRequest` in
-      [`schemas.ts`](../packages/shared/src/ipc/schemas.ts) and an entry in
-      [`bridge.ts`](../packages/shared/src/ipc/bridge.ts). It takes `{ repoId }` and returns
+      [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) and an entry in
+      [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts). It takes `{ repoId }` and returns
       repo-relative paths plus a `truncated` flag — the renderer never sends or receives an absolute
       path, which is a property of the fs contract and not a habit.
 - [x] New `packages/git-engine/src/commands/list-files.ts` over `git ls-files -z --cached --others
       --exclude-standard`. NUL-delimited per the project-wide rule, and `.gitignore` respected for
       free by `--exclude-standard` — which is the actual reason to use `ls-files` rather than walking
       the tree with `fs`. `ls-files` already has two internal callers
-      ([`diff.ts`](../packages/git-engine/src/commands/diff.ts),
-      [`status-counts.ts`](../packages/git-engine/src/commands/status-counts.ts)); this is the first
+      ([`diff.ts`](../../../packages/git-engine/src/commands/diff.ts),
+      [`status-counts.ts`](../../../packages/git-engine/src/commands/status-counts.ts)); this is the first
       one with a channel.
 - [x] Main handler beside the existing fs handlers, and the preload passthrough in
-      [`preload/index.ts`](../packages/desktop/src/preload/index.ts).
+      [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts).
 - [x] The renderer file source: one index per repo, fetched on first file-mode open and cached under
       a key that includes the repo tip sha, so a commit or checkout invalidates it without a watcher
       subscription. A hard cap (**20 000 paths**) with the `truncated` flag surfaced in the palette
@@ -263,7 +263,7 @@ one that can slip without costing the phase its point.
 **Shrunk, not dropped: the extraction landed under Phase 27 Theme G**, whose browser pane needed
 `use-focus-trap.ts` before this phase existed to build it. `popover.tsx`'s inline trap — a
 `FOCUSABLE` selector, a wrapping Tab cycle, and focus restored to the trigger on Escape — is now
-[`components/use-focus-trap.ts`](../packages/app/src/components/use-focus-trap.ts), with no
+[`components/use-focus-trap.ts`](../../../packages/app/src/components/use-focus-trap.ts), with no
 behaviour change to `Popover` itself. `ConfirmDialog` and `PromptDialog` still have none; they
 `autoFocus` one control and let Tab walk out into the app behind them, which is what this theme
 now exists to fix.
@@ -273,8 +273,8 @@ now exists to fix.
       consume it; `footer-monitor.spec.ts`'s existing flyout keyboard assertions are the regression
       guard, plus a dedicated `use-focus-trap.test.ts` covering both Tab directions.
 - [x] `palette.tsx` consumes it rather than growing a third copy.
-- [x] Retrofit [`confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx) and
-      [`prompt-dialog.tsx`](../packages/app/src/components/prompt-dialog.tsx). Both are modal and
+- [x] Retrofit [`confirm-dialog.tsx`](../../../packages/app/src/components/confirm-dialog.tsx) and
+      [`prompt-dialog.tsx`](../../../packages/app/src/components/prompt-dialog.tsx). Both are modal and
       both are load-bearing — Phase 7's blast-radius gate is a `ConfirmDialog` — so the retrofit is
       last in the theme and each keeps its existing `autoFocus` target as the trap's initial focus.
 
@@ -288,15 +288,15 @@ coverage for the refs/files sources specifically, and the three "Open, for a hum
 
 | Area | Files |
 |------|-------|
-| Contract | [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) (the registry — reconciled, `group` added, still data-only), [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts), [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts), [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts) (all three for Theme G only) |
-| git-engine | new `commands/list-files.ts`, [`commands/index.ts`](../packages/git-engine/src/commands/index.ts) |
-| Main | new fs handler beside the existing `mstudio:fs:*` handlers, [`preload/index.ts`](../packages/desktop/src/preload/index.ts), [`main/menu.ts`](../packages/desktop/src/main/menu.ts) (a View ▸ Command Palette item on the new command id) |
-| Renderer — dispatch | new [`services/keybindings/use-command-handlers.ts`](../packages/app/src/services/keybindings/use-command-handlers.ts), [`services/keybindings/use-keybindings.ts`](../packages/app/src/services/keybindings/use-keybindings.ts), [`services/keybindings/chord.ts`](../packages/app/src/services/keybindings/chord.ts) (unchanged; load-bearing), [`app.tsx`](../packages/app/src/app.tsx) (ends thinner than it started) |
-| Renderer — palette | new `services/palette/source.ts`, new `services/palette/fuzzy-match.ts`, new `services/palette/command-icons.ts`, new `services/palette/sources/` (commands, views, repos, refs, sessions, files), new [`components/palette.tsx`](../packages/app/src/components/palette.tsx), new `components/palette-host.tsx`, new [`store/palette-store.ts`](../packages/app/src/store/palette-store.ts) |
-| Renderer — shared | new [`components/use-focus-trap.ts`](../packages/app/src/components/use-focus-trap.ts), [`components/popover.tsx`](../packages/app/src/components/popover.tsx), [`components/confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx), [`components/prompt-dialog.tsx`](../packages/app/src/components/prompt-dialog.tsx), [`components/dialog-host.tsx`](../packages/app/src/components/dialog-host.tsx) (the shape the host copies), [`components/nav-icons.ts`](../packages/app/src/components/nav-icons.ts) (reused, not extended), [`components/icon-button.tsx`](../packages/app/src/components/icon-button.tsx) (`IconComponent`, unchanged) |
-| Renderer — sources read | [`services/queries.ts`](../packages/app/src/services/queries.ts), [`store/ui-store.ts`](../packages/app/src/store/ui-store.ts), [`features/terminal/terminal-store.ts`](../packages/app/src/features/terminal/terminal-store.ts), [`features/terminal/use-agents.ts`](../packages/app/src/features/terminal/use-agents.ts), [`features/files/files-store.ts`](../packages/app/src/features/files/files-store.ts), [`features/graph/graph-store.ts`](../packages/app/src/features/graph/graph-store.ts) |
-| Docs | [`CLAUDE.md`](../CLAUDE.md) (the registry's real path, and `Mod+K` beside the `Ctrl+\`` note), [`docs/INITIAL_PLAN.md`](../docs/INITIAL_PLAN.md), [`todo/outstanding.md`](outstanding.md) (the palette comes off the list; the phantom link is fixed), [`phase-22`](phase-22-stash-and-safety-net.md) (same link) |
-| Tests | [`keybindings.test.ts`](../packages/app/src/services/keybindings/keybindings.test.ts), new `fuzzy-match.test.ts`, new `palette-store.test.ts`, new `palette-query.test.ts`, new `palette-safety.test.ts`, new `use-focus-trap.test.ts`, new `list-files.integration.test.ts`, new `e2e/palette.spec.ts`, [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts) |
+| Contract | [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) (the registry — reconciled, `group` added, still data-only), [`ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts), [`ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts), [`ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) (all three for Theme G only) |
+| git-engine | new `commands/list-files.ts`, [`commands/index.ts`](../../../packages/git-engine/src/commands/index.ts) |
+| Main | new fs handler beside the existing `mstudio:fs:*` handlers, [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts), [`main/menu.ts`](../../../packages/desktop/src/main/menu.ts) (a View ▸ Command Palette item on the new command id) |
+| Renderer — dispatch | new [`services/keybindings/use-command-handlers.ts`](../../../packages/app/src/services/keybindings/use-command-handlers.ts), [`services/keybindings/use-keybindings.ts`](../../../packages/app/src/services/keybindings/use-keybindings.ts), [`services/keybindings/chord.ts`](../../../packages/app/src/services/keybindings/chord.ts) (unchanged; load-bearing), [`app.tsx`](../../../packages/app/src/app.tsx) (ends thinner than it started) |
+| Renderer — palette | new `services/palette/source.ts`, new `services/palette/fuzzy-match.ts`, new `services/palette/command-icons.ts`, new `services/palette/sources/` (commands, views, repos, refs, sessions, files), new [`components/palette.tsx`](../../../packages/app/src/components/palette.tsx), new `components/palette-host.tsx`, new [`store/palette-store.ts`](../../../packages/app/src/store/palette-store.ts) |
+| Renderer — shared | new [`components/use-focus-trap.ts`](../../../packages/app/src/components/use-focus-trap.ts), [`components/popover.tsx`](../../../packages/app/src/components/popover.tsx), [`components/confirm-dialog.tsx`](../../../packages/app/src/components/confirm-dialog.tsx), [`components/prompt-dialog.tsx`](../../../packages/app/src/components/prompt-dialog.tsx), [`components/dialog-host.tsx`](../../../packages/app/src/components/dialog-host.tsx) (the shape the host copies), [`components/nav-icons.ts`](../../../packages/app/src/components/nav-icons.ts) (reused, not extended), [`components/icon-button.tsx`](../../../packages/app/src/components/icon-button.tsx) (`IconComponent`, unchanged) |
+| Renderer — sources read | [`services/queries.ts`](../../../packages/app/src/services/queries.ts), [`store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts), [`features/terminal/terminal-store.ts`](../../../packages/app/src/features/terminal/terminal-store.ts), [`features/terminal/use-agents.ts`](../../../packages/app/src/features/terminal/use-agents.ts), [`features/files/files-store.ts`](../../../packages/app/src/features/files/files-store.ts), [`features/graph/graph-store.ts`](../../../packages/app/src/features/graph/graph-store.ts) |
+| Docs | [`CLAUDE.md`](../../../CLAUDE.md) (the registry's real path, and `Mod+K` beside the `Ctrl+\`` note), [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md), [`outstanding.md`](../outstanding.md) (the palette comes off the list; the phantom link is fixed), [`phase-22`](phase-22-stash-and-safety-net.md) (same link) |
+| Tests | [`keybindings.test.ts`](../../../packages/app/src/services/keybindings/keybindings.test.ts), new `fuzzy-match.test.ts`, new `palette-store.test.ts`, new `palette-query.test.ts`, new `palette-safety.test.ts`, new `use-focus-trap.test.ts`, new `list-files.integration.test.ts`, new `e2e/palette.spec.ts`, [`e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts) |
 
 ## Verification
 
@@ -407,7 +407,7 @@ coverage for the refs/files sources specifically, and the three "Open, for a hum
   want real Smith-Waterman, that is the moment to reconsider — not before.
 - **Open — should the palette list agent *commands* as well as agents?**
   *Recommendation:* not in this phase.
-  [`agent-commands.ts`](../packages/app/src/features/agent/agent-commands.ts) is well-shaped for it,
+  [`agent-commands.ts`](../../../packages/app/src/features/agent/agent-commands.ts) is well-shaped for it,
   but those four entries write into a live pty, which is a different kind of action from anything
   else in the list and deserves its own thinking about confirmation.
 - **Open — does the palette get a mouse affordance, or is it keyboard-only?**
