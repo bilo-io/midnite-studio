@@ -53,6 +53,26 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
   },
+  /**
+   * The repo's first `worker` config — Phase 64 Theme A, Monaco's five
+   * language workers (`lib/monaco/monaco-loader.ts`).
+   *
+   * Each is imported with the `?worker&inline` query, not plain `?worker`:
+   * `main/window.ts`'s `win.loadFile(rendererEntry())` gives the packaged
+   * renderer an opaque `file://` origin, and a `new Worker(new URL(...))`
+   * pointing at a `file:` URL is blocked there — Chromium refuses to
+   * construct a worker from an opaque-origin document. `&inline` makes Vite
+   * emit the worker as a blob/data URL instead, which is not subject to that
+   * restriction. Precedent: Shiki's WASM already ships inlined into a JS
+   * chunk for the exact same reason (see `lib/highlighter.ts`'s doc comment).
+   *
+   * `format: 'es'` because Monaco's worker entry files are themselves ES
+   * modules (`monaco-editor/esm/vs/...worker`) — a classic/IIFE worker cannot
+   * `import`, so `?worker&inline` needs this to bundle them correctly.
+   */
+  worker: {
+    format: 'es',
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
