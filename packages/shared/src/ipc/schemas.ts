@@ -11,6 +11,9 @@ import {
   ConflictRegionSchema,
   ConflictSideSchema,
   InProgressOpSchema,
+  ConnectionConfigSchema,
+  DbOpResultOf,
+  DbOpResultSchema,
   DiagnosticsCandidateSchema,
   DiagnosticsCommandSchema,
   DiagnosticsRunSchema,
@@ -61,6 +64,7 @@ import {
   RepoStatsSchema,
   ScaffoldApplyResultSchema,
   ScaffoldPlanSchema,
+  SchemaTreeSchema,
   StashDetailSchema,
   StashDropResultSchema,
   StashEntrySchema,
@@ -2090,3 +2094,65 @@ export const VideoRootSetResponse = z.object({ root: z.string().nullable() });
  */
 export const VideoStudioChangedPayload = VideoStudioChangedEventSchema;
 export const VideoRenderProgressPayload = VideoRenderProgressEventSchema;
+
+// --- database (Phase 61) -----------------------------------------------------
+
+/**
+ * Save (create or update) a connection.
+ *
+ * `password` is the one place a plaintext secret is allowed to cross IPC: it
+ * is optional (omitted, an edit keeps the existing stored password unchanged)
+ * and is handed to `credential-vault.ts` immediately on the main side — see
+ * `ConnectionConfigSchema`'s own doc comment for why the persisted shape never
+ * carries it.
+ */
+export const DbSaveConnectionRequest = z.object({
+  connection: ConnectionConfigSchema,
+  password: z.string().optional(),
+});
+export const DbSaveConnectionResponse = DbOpResultOf(ConnectionConfigSchema);
+
+export const DbDeleteConnectionRequest = z.object({ id: z.string().min(1) });
+export const DbDeleteConnectionResponse = DbOpResultSchema;
+
+/**
+ * Test a connection before (or instead of) saving it — there is no
+ * test-connection UX anywhere else in the app today, so this is a new shape
+ * rather than a reuse. Shares `DbSaveConnectionRequest`'s payload: testing an
+ * unsaved edit needs the same not-yet-persisted password.
+ */
+export const DbTestConnectionRequest = DbSaveConnectionRequest;
+export const DbTestConnectionResponse = DbOpResultSchema;
+
+export const DbGetSchemaRequest = z.object({ connectionId: z.string().min(1) });
+export const DbGetSchemaResponse = DbOpResultOf(SchemaTreeSchema);
+
+/**
+ * `dbQueryStart` resolves `void` immediately, exactly like `logStart` —
+ * results stream over `dbQueryBatch`/`dbQueryDone`. A connection that cannot
+ * be found or opened surfaces as a `dbQueryDone` carrying `error`, not as a
+ * rejected `invoke`, so a failure to even begin is not a special case for the
+ * caller.
+ */
+export const DbQueryStartRequest = z.object({
+  connectionId: z.string().min(1),
+  /** Correlates batches with the request that produced them, like `LogStartRequest`. */
+  requestId: z.string().min(1),
+  sql: z.string().min(1),
+});
+export const DbQueryCancelRequest = z.object({ requestId: z.string().min(1) });
+
+export const DbQueryBatchEvent = z.object({
+  requestId: z.string(),
+  columns: z.array(z.string()),
+  rows: z.array(z.array(z.unknown())),
+});
+export const DbQueryDoneEvent = z.object({
+  requestId: z.string(),
+  rowCount: z.number().int().nonnegative(),
+  /** True when the stream stopped at the row cap rather than exhausting the result set. */
+  truncated: z.boolean(),
+  durationMs: z.number().int().nonnegative(),
+  /** Set when the query failed or the connection could not be reached. */
+  error: z.string().optional(),
+});

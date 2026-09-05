@@ -188,6 +188,12 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   dashboard: WORK_IN_PROGRESS,
   files: WORK_IN_PROGRESS,
   search: WORK_IN_PROGRESS,
+  /**
+   * A formality the `Record` demands, same reasoning as `landing`: a database
+   * connection is not repo-scoped, so this view shows no sidebar section to
+   * narrow in the first place.
+   */
+  database: WORK_IN_PROGRESS,
   graph: WORK_IN_PROGRESS,
   changes: WORK_IN_PROGRESS,
   actions: { sections: ['actions', 'worktrees'], dirtyOnly: false },

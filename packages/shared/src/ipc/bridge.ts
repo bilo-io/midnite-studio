@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 
 import type {
+  ConnectionConfig,
   GitOpResult,
   GraphRow,
   MetricSample,
@@ -936,6 +937,38 @@ export type MidniteStudioBridge = {
 
   /** Implements `@bilo-io/shell`'s WindowChromeBridge for <TitleBar>. */
   windowChrome: WindowChromeBridge;
+
+  /**
+   * The Database view's connections and streaming query runner (Phase 61).
+   *
+   * `listConnections` returns the plain array like `repos.list` — a read of
+   * the non-secret connections store, which degrades to `[]` rather than
+   * failing. Everything that can fail (a bad host, a wrong password) answers
+   * `DbOpResult`, never a thrown rejection.
+   *
+   * `queryStart`/`queryCancel` mirror `log.start`/`log.cancel` exactly:
+   * `start` resolves `void` immediately, and every result — including "the
+   * connection does not exist" — arrives on `onQueryBatch`/`onQueryDone`.
+   */
+  db: {
+    listConnections: () => Promise<ConnectionConfig[]>;
+    saveConnection: (
+      req: In<typeof S.DbSaveConnectionRequest>,
+    ) => Promise<z.infer<typeof S.DbSaveConnectionResponse>>;
+    deleteConnection: (
+      req: In<typeof S.DbDeleteConnectionRequest>,
+    ) => Promise<z.infer<typeof S.DbDeleteConnectionResponse>>;
+    testConnection: (
+      req: In<typeof S.DbTestConnectionRequest>,
+    ) => Promise<z.infer<typeof S.DbTestConnectionResponse>>;
+    getSchema: (
+      req: In<typeof S.DbGetSchemaRequest>,
+    ) => Promise<z.infer<typeof S.DbGetSchemaResponse>>;
+    queryStart: (req: In<typeof S.DbQueryStartRequest>) => Promise<void>;
+    queryCancel: (req: In<typeof S.DbQueryCancelRequest>) => Promise<void>;
+    onQueryBatch: (handler: (e: z.infer<typeof S.DbQueryBatchEvent>) => void) => Unsubscribe;
+    onQueryDone: (handler: (e: z.infer<typeof S.DbQueryDoneEvent>) => void) => Unsubscribe;
+  };
 };
 
 declare global {

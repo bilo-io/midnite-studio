@@ -8,14 +8,19 @@ import globals from 'globals';
  * Package boundary rules (docs/INITIAL_PLAN.md → "Architecture"):
  *
  *   shared ◀ git-engine ◀ desktop
+ *   shared ◀ db-engine ◀ desktop
  *   shared ◀ app
  *   shared ◀ desktop
  *
  * - `shared` is the wire contract: zod only, no workspace imports, no electron.
  * - `git-engine` is plain Node/TS so it stays vitest-testable outside Electron —
  *   it must never import `electron`.
+ * - `db-engine` (Phase 61) is the same shape as `git-engine`, one dependency
+ *   graph level over: plain Node/TS drivers, vitest-testable outside Electron,
+ *   never importing `electron`.
  * - `app` is the renderer: it talks to the main process ONLY through
- *   `window.midniteStudio`, so it must never import git-engine, desktop or electron.
+ *   `window.midniteStudio`, so it must never import git-engine, db-engine,
+ *   desktop or electron.
  *
  * Enforced with `no-restricted-imports` rather than a boundaries plugin so the
  * rule set stays dependency-free and the message explains the *why* at the
@@ -91,6 +96,19 @@ export default tseslint.config(
     ]),
   },
 
+  // --- Boundary: db-engine (Phase 61) -----------------------------------------
+  // Same shape as the git-engine block above, package name swapped.
+  {
+    files: ['packages/db-engine/**/*.ts'],
+    rules: deny([
+      NO_ELECTRON,
+      {
+        group: ['@midnite/studio-app', '@midnite/studio-app/*', '@midnite/studio-desktop', '@midnite/studio-desktop/*'],
+        message: 'db-engine sits below app/desktop in the dependency graph.',
+      },
+    ]),
+  },
+
   // --- Boundary: app (renderer) ----------------------------------------------
   // Scoped to `src/` — the app's own build configs (vite/vitest/tailwind) run in
   // Node at build time and legitimately use node builtins.
@@ -106,11 +124,13 @@ export default tseslint.config(
         group: [
           '@midnite/studio-git-engine',
           '@midnite/studio-git-engine/*',
+          '@midnite/studio-db-engine',
+          '@midnite/studio-db-engine/*',
           '@midnite/studio-desktop',
           '@midnite/studio-desktop/*',
         ],
         message:
-          'The renderer never imports the git engine directly — git runs in the main process. Add an IPC channel in packages/shared/src/ipc instead.',
+          'The renderer never imports the git or database engine directly — both run in the main process. Add an IPC channel in packages/shared/src/ipc instead.',
       },
       {
         group: ['node:*', 'fs', 'path', 'child_process'],

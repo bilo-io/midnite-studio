@@ -143,6 +143,7 @@ const bridge: Pick<
   | 'systemHealth'
   | 'optimizer'
   | 'protocol'
+  | 'db'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -496,6 +497,17 @@ const bridge: Pick<
   },
   protocol: {
     onDeepLink: (handler) => subscribe(EVENT_CHANNELS.deepLink, handler),
+  },
+  db: {
+    listConnections: () => call(CHANNELS.dbListConnections),
+    saveConnection: (req) => call(CHANNELS.dbSaveConnection, req),
+    deleteConnection: (req) => call(CHANNELS.dbDeleteConnection, req),
+    testConnection: (req) => call(CHANNELS.dbTestConnection, req),
+    getSchema: (req) => call(CHANNELS.dbGetSchema, req),
+    queryStart: (req) => call(CHANNELS.dbQueryStart, req),
+    queryCancel: (req) => call(CHANNELS.dbQueryCancel, req),
+    onQueryBatch: (handler) => subscribe(EVENT_CHANNELS.dbQueryBatch, handler),
+    onQueryDone: (handler) => subscribe(EVENT_CHANNELS.dbQueryDone, handler),
   },
   windowChrome,
   windowRole,

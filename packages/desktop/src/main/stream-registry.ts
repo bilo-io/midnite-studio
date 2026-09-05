@@ -2,7 +2,7 @@ import type { BrowserWindow } from 'electron';
 
 export const BATCH_SIZE = 500;
 
-export type StreamKind = 'log' | 'search';
+export type StreamKind = 'log' | 'search' | 'query';
 
 export type RegisteredStream = {
   requestId: string;
@@ -13,6 +13,11 @@ export type RegisteredStream = {
 export const POLICY: Record<StreamKind, 'supersede' | 'concurrent'> = {
   log: 'supersede',
   search: 'concurrent',
+  // A new run in a query tab replaces that tab's previous run, matching
+  // `log` — Phase 61's `requestId` is `${connectionId}#${seq}`, so this is
+  // per-request, not per-connection: a third run in one tab supersedes only
+  // that tab's own previous run.
+  query: 'supersede',
 };
 
 const windowStreams = new WeakMap<BrowserWindow, Map<string, RegisteredStream>>();
