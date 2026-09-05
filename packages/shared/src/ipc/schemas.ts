@@ -56,6 +56,8 @@ import {
   OptimizerVoidResultSchema,
   ProcessTableResultSchema,
   ScanResultSchema,
+  SystemCacheCatalogueEntrySchema,
+  SystemScanResultSchema,
   RefSchema,
   ReflogEntrySchema,
   RemoteSchema,
@@ -1928,6 +1930,46 @@ export const OptimizerGpuResponse = OptimizerResultOf(GpuStatsSchema);
 export const OptimizerTrashSummaryResponse = OptimizerResultOf(TrashSummarySchema);
 /** Payload-free — `emptyTrash` takes no parameters, so there is nothing to validate. */
 export const OptimizerTrashEmptyResponse = OptimizerVoidResultSchema;
+
+// --- system-wide optimizer caches (Phase 73) --------------------------------
+// A parallel wire contract, never merged with the repo-scoped one above — see
+// `domain/system-optimizer.ts`'s own docblock and the phase doc's Decision 3.
+
+export const OptimizerSystemCatalogueResponse = OptimizerResultOf(
+  z.array(SystemCacheCatalogueEntrySchema),
+);
+
+/** Empty on purpose — there is no `extraRoot` here and never will be. */
+export const OptimizerSystemScanRequest = z.object({});
+export const OptimizerSystemScanResponse = OptimizerResultOf(SystemScanResultSchema);
+
+/** `{done, total}`, identical shape to `OptimizerScanProgressEventSchema`. */
+export const OptimizerSystemScanProgressEventSchema = z.object({
+  done: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+});
+
+export const OptimizerSystemCleanRequest = z.object({
+  /** Which registry entries to clean — never a raw path. Main re-resolves and
+   *  re-confines each one fresh at clean time (the TOCTOU rule; see Theme B). */
+  entryIds: z.array(z.string().min(1)).min(1),
+});
+/** Reuses the existing `OptimizerCleanResultSchema` — an outcome carries
+ *  `freedBytes`/`skipped[].path` and nothing re-submittable, so Decision 3's
+ *  refusal to merge (which is about item/scan shapes a call site could feed
+ *  back into a confinement check) does not apply to it. */
+export const OptimizerSystemCleanResponse = OptimizerResultOf(OptimizerCleanResultSchema);
+
+export const OptimizerSystemReclaimRequest = z.object({
+  entryId: z.string().min(1),
+});
+export const OptimizerSystemReclaimResponse = OptimizerResultOf(
+  z.object({
+    stdout: z.string(),
+    stderr: z.string(),
+    exitCode: z.number().int().nullable(),
+  }),
+);
 
 // --- deep link (Phase 33) --------------------------------------------------
 export const DeepLinkSchema = z.discriminatedUnion('kind', [

@@ -23,6 +23,7 @@ export * from './stash';
 export * from './statement-kind';
 export * from './stats';
 export * from './status';
+export * from './system-optimizer';
 export * from './tests';
 export * from './trash';
 export * from './watch';

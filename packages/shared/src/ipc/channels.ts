@@ -311,6 +311,14 @@ export const CHANNELS = {
   optimizerTrashSummary: 'mstudio:optimizer:trash-summary',
   /** Asks Finder to empty the Trash via `osascript` — fixed argv, no parameters (Phase 74). */
   optimizerTrashEmpty: 'mstudio:optimizer:trash-empty',
+  /** The registry's labels/producers/ecosystem, no paths — Phase 73 Theme A/B. */
+  optimizerSystemCatalogue: 'mstudio:optimizer:system-catalogue',
+  /** Walks `DEFAULT_SYSTEM_CACHE_ENTRIES` only — never `knownRoots()`, never an extra root. */
+  optimizerSystemScan: 'mstudio:optimizer:system-scan',
+  /** Re-resolves + re-confines each named `entryId` fresh; never accepts a raw path. */
+  optimizerSystemClean: 'mstudio:optimizer:system-clean',
+  /** Runs one `DEFAULT_RECLAIM_COMMANDS` entry through `runProcess`, by `entryId` only. */
+  optimizerSystemReclaim: 'mstudio:optimizer:system-reclaim',
 
   // --- stash -----------------------------------------------------------------
   /** Every stash entry for one checkout, newest first — same shape `for-each-ref` gets. */
@@ -764,6 +772,8 @@ export const EVENT_CHANNELS = {
   videoRenderProgress: 'mstudio:video:render-progress',
   /** Smart Scan's walk advanced — `{done, total}` — see `OptimizerScanProgressEventSchema`. */
   optimizerScanProgress: 'mstudio:optimizer:scan-progress',
+  /** The system-cache walk advanced — its own event, its own single-flight controller. */
+  optimizerSystemScanProgress: 'mstudio:optimizer:system-scan-progress',
   updateState: 'mstudio:update:state',
   deepLink: 'mstudio:protocol:deep-link',
   /**
