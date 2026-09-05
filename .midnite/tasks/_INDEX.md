@@ -2,6 +2,8 @@
 
 **Headlines:**
 
+- **[Phase 66 · API Client](phases/phase-66-api-client.md)** (0% · 0/58) — **Planned, not started.** A Postman-compatible API client — the first phase to touch anything HTTP-client-shaped beyond one workflow-scoped `fetch` call — joining the Workspace sidebar group (Explorer/Search/Tests) as a fourth entry. Real `.postman_collection.json`/`.postman_environment.json` import and passthrough-preserving export, a full request builder (params/headers/body across seven content-type modes/auth limited to Bearer/Basic/API key), environments with `{{var}}` interpolation and a gitignored secret overlay, a CodeMirror-based test editor running a pinned `pm.*` subset in a main-process Node `vm` (no full sandbox isolation, no `pm.sendRequest`), and a sequential collection runner with an aggregate pass/fail summary (no data-file iteration). Collections and environments live repo-local under `.midnite/api/`, git-versioned. The HTTP send path reuses the existing workflow `http.ts` executor's cap/timeout pattern verbatim rather than a new package or engine.
+
 - **[Phase 65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md)** (0% · 0/49) — **Planned, not started.** [Phase 60](phases/phase-60-view-registry-and-error-boundaries.md) builds the error boundaries; this is the place their reports go, because today there is nowhere. The renderer has **no logging channel at all** — `console.error` and `console.warn` return **zero** hits in `packages/app/src`, enforced by `no-console: 'error'`, and there is no `window.onerror`, no `unhandledrejection` and no `componentDidCatch` anywhere. Main's seam is 14 lines (`Logger = (message: string) => void` over `console.warn`) with ~40 call sites writing to a stderr a packaged user never sees — and its own docstring wrongly claims the broker redirects it to a file, when `broker-client.ts:181` only redirects the *child process's* stdio. Nothing in `packages/desktop/src` rotates anything (**0** hits), and main catches almost none of its own crashes: no `uncaughtException`, no `unhandledRejection`, no `child-process-gone`, no `crashReporter`. Fifth fact: there is no **"report a bug"** link anywhere (**0** hits) even though the tracker lives in `bilo-io/midnite-apps` and `release.ts` already holds four URLs into it. This adds levels to the one seam (a callable type with methods, so all ~40 call sites compile unchanged), a rotating NDJSON sink under `userData` following the injected-directory convention every other store uses, an `mstudio:report:*` channel group (**not** `mstudio:diag:*` — already taken by the repo-lint runner), the missing `handleSend` counterpart to `handle.ts`'s four invoke helpers, and two buttons in the Diagnostics accordion that already exists. Home-dir redaction is a deliverable, not a nicety: the "Copy diagnostics" output is designed to be pasted in public. 49 items, five small themes, no new dependency, no telemetry, nothing leaves the machine without a button press.
 
 - **[Phase 64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md)** (0% · 0/33) — **Planned, not started.** Replaces the CodeMirror 6 text editor in the Files view with a locally-bundled Monaco Editor (`@monaco-editor/react` + local ESM workers), running 100% offline with zero CDN dependencies and compliant with strict Electron CSP. Keeps read-only file previews on Shiki for instant file tree navigation, mounting Monaco only when entering edit mode. Bundles a curated set of local Web Workers (`editor.worker`, `ts.worker`, `json.worker`, `css.worker`, `html.worker`), using lightweight Monarch tokenizers for other languages. Backed by a unified Cross-Surface Theme Engine synchronizing palettes across the Studio UI (CSS variables), xterm terminals (16 ANSI colors), and Monaco syntax tokens, with 6 built-in presets (GitHub Dark/Light, Darcula, Atom One, VS Code Dark+, Monokai) and a client-side VS Code theme JSON importer.
@@ -69,6 +71,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [66 · API Client](phases/phase-66-api-client.md) | ◻ TODO | — | 0/58 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
 | [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | ◻ TODO | — | 0/49 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ◻ TODO | — | 0/26 | `░░░░░░░░░░` | 0% | — | A B C |
@@ -140,6 +143,22 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 66 — API Client](phases/phase-66-api-client.md)
+
+*A Postman-compatible API client — import/export real collection and environment files, a full request builder, environments with variable interpolation, a sandboxed test-script runner, and a sequential collection runner — joining the Workspace sidebar group.*
+
+- ◻ **A** — Shared contracts: Postman v2.1 format, passthrough-preserving zod schemas, IPC channels.
+- ◻ **B** — Workspace nav + view registration: `apiClient` ViewId, rail entry, icon, command.
+- ◻ **C** — Sidebar tree + multi-request tabs.
+- ◻ **D** — Request builder: params/headers/auth/body across seven content-type modes.
+- ◻ **E** — Main-process HTTP send engine (new IPC, reusing the workflow `http.ts` cap/timeout pattern).
+- ◻ **F** — Response viewer: per-content-type rendering, per-request history.
+- ◻ **G** — Environments + `{{var}}` interpolation, gitignored secret overlay.
+- ◻ **H** — Test editor & sandboxed script runner (pinned `pm.*` subset via Node `vm`).
+- ◻ **I** — Collection runner: sequential run, aggregate pass/fail.
+- ◻ **J** — Import/export & git-friendliness under `.midnite/api/`.
+- ◻ **K** — Verification.
 
 ### [Phase 65 — Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md)
 
