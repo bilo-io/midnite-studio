@@ -462,6 +462,30 @@ export type MockFixtures = {
    * (this list) is the reconciliation's only source of truth.
    */
   openPopoutRoles?: ('terminal' | 'repos' | 'fab' | 'browser')[];
+  /**
+   * What `repos.pickDirectory()` answers — `null` (the default) is the user
+   * cancelling the native picker; a path is a spec driving the extra-root
+   * folder picker through to a real choice.
+   */
+  pickDirectoryResult?: string | null;
+  /**
+   * The Workspace Optimizer (Phase 59 Themes C/E). `scan()` answers with
+   * this `ScanResult`-shaped object after firing every registered
+   * `onScanProgress` handler once at `{done: total, total}` — real progress
+   * ticks are the walker's own job in main, not this fixture's — and `gpu()`
+   * answers with this `GpuStats`-shaped object, `{model: null, vramBytes:
+   * null, loadPercent: null}` if left unset (a headless-probe fixture, not
+   * an error state).
+   */
+  optimizer?: {
+    scanResult?: {
+      totalBytes: number;
+      byCategory: Record<string, number>;
+      items: Array<{ path: string; bytes: number; category: string; repoId: string | null }>;
+      truncated: boolean;
+    };
+    gpu?: { model: string | null; vramBytes: number | null; loadPercent: number | null };
+  };
 };
 
 
@@ -691,7 +715,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         worktreeAdd: ok,
         worktreeRemove: ok,
         reorder: noop,
-        pickDirectory: async () => null,
+        // Configurable per spec (Phase 59's extra-root scan picker is the
+        // first caller to need anything but the default "user cancelled").
+        pickDirectory: async () => data.pickDirectoryResult ?? null,
         revParse: async (req: { rev: string }) => ({ sha: data.revisions?.[req.rev] ?? null }),
       },
       log: {
@@ -2285,6 +2311,41 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         sshAgent: { running: true, keys: 1 },
         cli: { installed: false, path: null, target: null, managed: false },
       }),
+      optimizer: {
+        scan: async () => {
+          const result = data.optimizer?.scanResult ?? {
+            totalBytes: 0,
+            byCategory: {},
+            items: [],
+            truncated: false,
+          };
+          // Real progress is the walker's own job in main; the mock fires
+          // every registered handler once at 100% so the store's
+          // scanning -> done transition (and its progress bar) still exercises
+          // real code rather than a value nobody ever set.
+          scanProgressHandlers.forEach((handler) => handler({ done: 1, total: 1 }));
+          return { ok: true as const, value: result };
+        },
+        onScanProgress: (handler: (e: { done: number; total: number }) => void) => {
+          scanProgressHandlers.push(handler);
+          return () => {
+            scanProgressHandlers = scanProgressHandlers.filter((h) => h !== handler);
+          };
+        },
+        clean: async (req: { paths: string[] }) => {
+          const items = data.optimizer?.scanResult?.items ?? [];
+          const freedBytes = items
+            .filter((item) => req.paths.includes(item.path))
+            .reduce((sum, item) => sum + item.bytes, 0);
+          return { ok: true as const, value: { freedBytes, skipped: [] } };
+        },
+        processes: async () => ({ ok: true as const, value: [] }),
+        kill: async () => ({ ok: false as const, message: 'not wired in this build' }),
+        gpu: async () => ({
+          ok: true as const,
+          value: data.optimizer?.gpu ?? { model: null, vramBytes: null, loadPercent: null },
+        }),
+      },
       protocol: {
         onDeepLink: unsubscribe,
       },
@@ -2318,6 +2379,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
 
     // Declared after use above because `var` hoisting is what makes the closure
     // in `log.start` legal; keeping them here groups the stream plumbing.
+    // eslint-disable-next-line no-var
+    var scanProgressHandlers: Array<(e: { done: number; total: number }) => void> = [];
     // eslint-disable-next-line no-var
     var batchHandlers: Array<(e: unknown) => void> = [];
     // eslint-disable-next-line no-var

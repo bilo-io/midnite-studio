@@ -19,6 +19,28 @@ export type BlastRadius = {
   sample: { sha: string; subject: string }[];
 };
 
+/**
+ * `BlastRadius.sample` is `{sha, subject}[]` — git-only, since it exists to
+ * name the actual commits at risk. A non-git destructive op (Phase 59's
+ * Workspace Cleaner) reuses the `count` number but has nothing shaped like a
+ * commit to put in `sample`, so it renders with `blastRadiusKind: 'files'`
+ * instead: the copy below swaps "commit…reachable from any branch" for
+ * "item…moved to the trash" without a second component to keep in sync.
+ * `sample` stays empty for that kind — see `ConfirmDialog`'s own guard.
+ */
+const BLAST_RADIUS_COPY = {
+  commits: {
+    subject: (n: number) => `${n} commit${n === 1 ? '' : 's'}`,
+    consequence: 'will no longer be reachable from any branch.',
+    noEffect: 'No commits become unreachable — every one is still on another branch.',
+  },
+  files: {
+    subject: (n: number) => `${n} item${n === 1 ? '' : 's'}`,
+    consequence: 'will be moved to the trash.',
+    noEffect: 'Nothing is left to clean.',
+  },
+} as const;
+
 export type ConfirmRequest = {
   title: string;
   body?: string;
@@ -26,6 +48,8 @@ export type ConfirmRequest = {
   danger?: boolean;
   /** Absent while still being counted; null when there is nothing to lose. */
   blastRadius?: BlastRadius | null;
+  /** Which `BLAST_RADIUS_COPY` entry renders `blastRadius`'s count. Defaults to `'commits'` — every pre-Phase-59 caller is a git op. */
+  blastRadiusKind?: keyof typeof BLAST_RADIUS_COPY;
   /**
    * Consequences that are not measured in commits.
    *
@@ -78,6 +102,7 @@ export function ConfirmDialog({
   }, [onCancel]);
 
   const radius = request.blastRadius;
+  const copy = BLAST_RADIUS_COPY[request.blastRadiusKind ?? 'commits'];
 
   return (
     <div
@@ -138,26 +163,31 @@ export function ConfirmDialog({
           ) : radius && radius.count > 0 ? (
             <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2.5">
               <p className="text-xs font-medium text-destructive">
-                {radius.count} commit{radius.count === 1 ? '' : 's'} will no longer be reachable
-                from any branch.
+                {copy.subject(radius.count)} {copy.consequence}
               </p>
-              <ul className="mt-1.5 space-y-0.5">
-                {radius.sample.map((commit) => (
-                  <li key={commit.sha} className="truncate text-xs text-muted-foreground">
-                    <span className="font-mono">{commit.sha.slice(0, 7)}</span> {commit.subject}
-                  </li>
-                ))}
-                {radius.count > radius.sample.length ? (
-                  <li className="text-xs text-muted-foreground">
-                    …and {radius.count - radius.sample.length} more
-                  </li>
-                ) : null}
-              </ul>
+              {/*
+                `sample` is git-only and stays empty for a non-git blast
+                radius (Phase 59's item count has nothing shaped like a
+                commit to list) — skip the list entirely rather than render
+                an "…and N more" that only repeats the headline count.
+              */}
+              {radius.sample.length > 0 ? (
+                <ul className="mt-1.5 space-y-0.5">
+                  {radius.sample.map((commit) => (
+                    <li key={commit.sha} className="truncate text-xs text-muted-foreground">
+                      <span className="font-mono">{commit.sha.slice(0, 7)}</span> {commit.subject}
+                    </li>
+                  ))}
+                  {radius.count > radius.sample.length ? (
+                    <li className="text-xs text-muted-foreground">
+                      …and {radius.count - radius.sample.length} more
+                    </li>
+                  ) : null}
+                </ul>
+              ) : null}
             </div>
           ) : radius ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              No commits become unreachable — every one is still on another branch.
-            </p>
+            <p className="mt-3 text-xs text-muted-foreground">{copy.noEffect}</p>
           ) : null}
 
           <div className="mt-4 flex justify-end gap-2">

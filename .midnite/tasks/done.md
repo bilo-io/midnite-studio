@@ -2,6 +2,59 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 59 Themes A, B, C, E — Workspace Optimizer: Smart Scan, Storage, GPU
+
+[PR #163]. Closes Themes A, B, C, E of Phase 59 — 44 of the phase's 70 items. Theme D (Memory
+tab + kill-a-process) is out of scope, deliberately: it carries its own distinct blast radius
+(arbitrary process termination) and gets its own review, per the phase doc's Decision 14.
+
+- [x] **A** — The seven-edit gate: `optimizer` in `ViewId`/`VIEW_IDS`, an exhaustive `VIEW_ICON`
+      entry, a default-off `optimizerEnabled` setting (no `version` bump, following
+      `allowForceWithLease`'s precedent), a `SettingsPageId`/`SETTINGS_PAGES` row in group
+      `'system'`, and `OptimizerSettingsPage`. `shared/src/domain/optimizer.ts` (under `domain/`,
+      not top-level) with every schema field named, a 2,000-item cap on `ScanResult`, and
+      `OptimizerResultOf<T>` modelled on `GitOpResultOf` minus the git-only `conflict` arm. Six
+      `mstudio:optimizer:*` channels/schemas/bridge/preload entries, `optimizer-handlers.ts`
+      (scan/clean/gpu wired now; `optimizerProcesses`/`optimizerKill` declared for Theme D to
+      wire), an unpersisted `optimizer-store.ts`, and `optimizer-page.tsx`/`optimizer-layout.tsx`.
+      **Phase 60 had not landed** (no `view-registry.tsx`) when this theme built, so `optimizer`
+      shipped as the 18th ternary branch in `app.tsx` per the doc's own contingency for that case,
+      rather than a registry entry — Phase 60's own doc will need its branch count and line
+      anchors re-derived when it is picked up.
+- [x] **B** — `SegmentedBar` (a byte-domain bar, not a `MetricChart` variant — its domain is fixed
+      0–100 by contract) and `CircularGauge` (reusing `metric-path.ts`'s pure `ringGeometry`),
+      both clamping out-of-range input. A second `category-palette.ts`, deliberately separate from
+      the footer's `MetricId`-keyed `metric-palette.ts`, with hues chosen clear of `METRIC_HUES`.
+- [x] **C** — `confineTree(root, target)` added to `fs-scope-write.ts`: resolves both sides through
+      `realpath` and refuses unless `target` sits strictly under `root` — the jail a recursive
+      cross-repo delete needs that the existing single-final-segment confinement never provided.
+      `scan-service.ts` walks every registered repo/worktree plus one optional user-chosen extra
+      root (never an unscoped crawl), classifies `node_modules`/`dist`/`.moon` without descending
+      into them, treats a merged non-main non-detached worktree as a stale-worktree candidate, and
+      streams real progress via `optimizerScanProgress` rather than returning it. Delete goes
+      through `shell.trashItem` (never a bare `fs.rm`), re-validated against the live filesystem at
+      delete time, behind the two-step blast-radius confirm — `smart-scan-tab.tsx` also adds the
+      one-user-chosen-extra-root folder picker (`repos.pickDirectory`, Decision 3) and
+      `storage-tab.tsx` deep-links each item to its repo in the sidebar.
+- [x] **E** — `gpu-service.ts` combines `app.getGPUInfo('complete')` (zod-parsed, since Electron
+      types it `Promise<unknown>`) for model/VRAM with the existing self-disabling
+      `metrics/gpu.ts` probe for load — no new fallback logic, since the probe already has one.
+      `gpu-tab.tsx`'s 60s rolling chart reuses `MetricChart` with a custom geometry, not
+      `Sparkline`; no temperature field anywhere; the two "Tweak Settings" toggles ship visibly
+      disabled with a "not wired yet" caption.
+- **Deviation, disclosed:** `confirm-dialog.tsx`'s `BlastRadius` rendering was hardcoded to git
+  wording ("N commits will no longer be reachable from any branch"), which Decision 7 asks Clean
+  to reuse for an item count. Added an optional `blastRadiusKind: 'commits' | 'files'` (defaulting
+  to the existing behaviour, so the eight existing callers are unaffected) rather than show that
+  sentence for a file delete.
+- Coverage: `optimizer-handlers.test.ts`, `scan-service.test.ts`, `confine-tree.test.ts`,
+  `gpu-service.test.ts`, `optimizer-store.test.ts`, `segmented-bar.test.tsx`,
+  `circular-gauge.test.tsx`, and `optimizer.spec.ts`/`optimizer-shots.spec.ts` (Playwright: the
+  feature gate + redirect, all four tabs switching, Smart Scan → Storage handoff, Clean's confirm
+  + real removal, the extra-root picker, the GPU tab's chart and no-temperature guarantee, and
+  light/dark screenshots of all four tabs — Memory's own placeholder included, honestly, since
+  that is its real state today).
+
 ## 2026-09-05 — Phase 56 Theme G — Shots suite shared fixture helper
 
 [PR #158]. Closes Phase 56 Theme G.

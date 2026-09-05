@@ -195,6 +195,35 @@ export async function ensureConfinedDirs(root: string, relPath: string): Promise
   return true;
 }
 
+/**
+ * Confine a recursive delete's own target: unlike {@link confineParent}, which
+ * confines a single final segment under one root and never descends, this
+ * confines a whole TREE that Phase 59's Workspace Cleaner is about to walk and
+ * delete — potentially across several registered repos plus one user-picked
+ * extra root. Both `root` and `target` are resolved through `realpath`
+ * (following any symlink) and the call refuses unless the resolved target
+ * sits STRICTLY inside the resolved root — the root itself is never a valid
+ * target, and a symlink swapped in for either side resolves to where it
+ * really points before the comparison runs. Returns the resolved real path on
+ * success (what the caller must actually operate on) or `null` to refuse.
+ *
+ * This is the deliverable Phase 59's own doc flags as missing before it: none
+ * of `fs-scope-write`'s existing bounds (parent-only confinement, final
+ * symlink refusal, `.git` refusal, the `O_NOFOLLOW` TOCTOU close) reach a
+ * recursive tree delete, because all of them stop at one path segment.
+ */
+export async function confineTree(root: string, target: string): Promise<string | null> {
+  let rootReal: string;
+  let targetReal: string;
+  try {
+    [rootReal, targetReal] = await Promise.all([realpath(root), realpath(target)]);
+  } catch {
+    return null; // either side does not exist, or a stat raced it away
+  }
+  if (targetReal === rootReal) return null; // the root itself is never a target
+  return targetReal.startsWith(rootReal + sep) ? targetReal : null;
+}
+
 /** Human-readable text for the common `fs` error codes a write handler hits. */
 export function describeFsError(error: unknown): string {
   const code = (error as NodeJS.ErrnoException | undefined)?.code;
