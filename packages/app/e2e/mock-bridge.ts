@@ -2308,6 +2308,16 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       // Present but off: the renderer only marks when the preload says the
       // MSTUDIO_PERF flag was set, and an e2e run never sets it.
       perf: { enabled: false, mark: () => {} },
+      // Crash reporting (Phase 65) — `error` is fire-and-forget per the
+      // bridge contract, the other three are invokes the Monitor & Diagnostics
+      // settings page reads on mount. No fixture drives these: a spec that
+      // needs a real log path/bundle should seed `data` and read it here.
+      report: {
+        error: noop,
+        logPath: async () => ({ path: null }),
+        bundle: async () => ({ text: '' }),
+        reveal: async () => ({ ok: true as const }),
+      },
       metrics: {
         start: (req: { intervalMs: number; freshDisk?: boolean }) => {
           metricsCalls.push(req);
