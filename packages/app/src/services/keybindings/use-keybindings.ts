@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { DEFAULT_KEYMAP, GLOBAL_CHORDS, TERMINAL_YIELD_COMMANDS } from '@midnite/studio-shared';
+import { DEFAULT_KEYMAP, GLOBAL_CHORDS, YIELD_ROOTS, type CommandId } from '@midnite/studio-shared';
 
 import { bridge } from '../bridge';
 import { usePaletteStore } from '../../store/palette-store';
@@ -48,13 +48,12 @@ export function useKeybindings(runtime: CommandRuntime): void {
         : (terminalWins ? terminalBinding : restBinding);
       if (!binding) return;
 
-      // A handful of chords belong to the shell while the shell has focus —
-      // see `TERMINAL_YIELD_COMMANDS` for which and why. Matched off the
-      // event's own target rather than `document.activeElement`, so a
-      // keystroke aimed at one terminal is judged by THAT terminal.
-      if (TERMINAL_YIELD_COMMANDS.includes(binding.command) && insideTerminal(event.target)) {
-        return;
-      }
+      // A handful of chords belong to whatever widget owns the keyboard —
+      // see `YIELD_ROOTS` (Phase 64 Theme D generalised this from a single
+      // hard-coded `.xterm` check) for which, and why, per root. Matched off
+      // the event's own target rather than `document.activeElement`, so a
+      // keystroke aimed at one widget is judged by THAT widget.
+      if (yieldsToRoot(binding.command, event.target)) return;
 
       // The palette owns the keyboard while open: only its own chords (to
       // re-focus it, or re-pin the file mode) still resolve here. Every other
@@ -102,14 +101,17 @@ export function useKeybindings(runtime: CommandRuntime): void {
 }
 
 /**
- * Whether a keystroke was aimed at a terminal.
- *
- * `.xterm` is xterm.js's own root class on the element it takes over, so this
- * holds for the textarea it reads keystrokes through and for every layer it
- * paints — and for nothing else in the app.
+ * Whether `command`'s chord must yield to whatever root `target` sits inside
+ * — any `YIELD_ROOTS` entry the target matches wins; a command absent from
+ * that root's own list still fires (e.g. `Mod+1` from inside a terminal
+ * still jumps to the Graph).
  */
-const insideTerminal = (target: EventTarget | null): boolean =>
-  target instanceof Element && target.closest('.xterm') !== null;
+function yieldsToRoot(command: CommandId, target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  return YIELD_ROOTS.some(
+    (root) => target.closest(root.selector) !== null && root.commands.includes(command),
+  );
+}
 
 /**
  * Whether xterm should let a keystroke through to the app.
