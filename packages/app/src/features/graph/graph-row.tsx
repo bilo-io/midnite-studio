@@ -74,6 +74,8 @@ export type GraphRowProps = {
   currentBranch: string | null;
   /** Check if an agent is active on a ref's worktree. */
   isAgentActive?: (ref: Ref) => boolean;
+  /** Current timestamp (ms) for live recency calculations. */
+  nowMs?: number;
 };
 
 function GraphRowInner({
@@ -86,6 +88,7 @@ function GraphRowInner({
   clipId,
   dimmed,
   glowColorIdx = null,
+  nowMs = Date.now(),
   onSelect,
   onContextMenu,
   onRefContextMenu,
@@ -104,6 +107,8 @@ function GraphRowInner({
   // The row's own node sits on the lit lane — as opposed to merely having one
   // of its edges pass through it, which the SVG decides for itself.
   const onGlowingLane = glowColorIdx !== null && row.colorIdx === glowColorIdx;
+
+  const recencyTier = commitRecencyTier(row.commit.committerDate, nowMs);
 
   return (
     <div
@@ -300,13 +305,17 @@ function GraphRowInner({
         the row and nothing was allowed to give.
       */}
       <div
-        className={`flex min-w-0 flex-1 items-center overflow-hidden transition-opacity duration-150 ease-in-out ${
+        className={`relative flex min-w-0 flex-1 items-center overflow-hidden transition-opacity duration-150 ease-in-out ${
           dimmed ? 'opacity-40' : ''
-        }`}
+        } ${recencyTier === 'just-now' ? 'commit-row-shimmer' : ''}`}
       >
         <span
           className={`graph-row-ink min-w-0 flex-1 truncate ${
             selected ? '' : 'text-muted-foreground'
+          } ${
+            recencyTier === 'just-now' || recencyTier === 'one-min'
+              ? 'commit-text-pulse'
+              : ''
           }`}
         >
           <CommitSubject subject={row.commit.subject} />
@@ -347,7 +356,7 @@ function GraphRowInner({
         }`}
         style={{ width: 'var(--col-date)' }}
       >
-        {formatDate(row.commit.committerDate)}
+        {formatDate(row.commit.committerDate, nowMs)}
       </span>
       <span
         className={`graph-row-ink shrink-0 text-right font-mono text-xs text-muted-foreground transition-opacity duration-150 ease-in-out ${
@@ -359,6 +368,21 @@ function GraphRowInner({
       </span>
     </div>
   );
+}
+
+/**
+ * Recency tier based on committer date:
+ * - 'just-now': < 1 minute old (shimmer + pulsating text-stroke glow + opacity pulse)
+ * - 'one-min': 1 to 2 minutes old (pulsating text-stroke glow + opacity pulse, shimmer gone)
+ * - 'normal': >= 2 minutes old (standard appearance)
+ */
+export type CommitRecencyTier = 'just-now' | 'one-min' | 'normal';
+
+export function commitRecencyTier(committerDateSeconds: number, nowMs: number = Date.now()): CommitRecencyTier {
+  const deltaMs = nowMs - committerDateSeconds * 1000;
+  if (deltaMs < 60_000) return 'just-now';
+  if (deltaMs < 120_000) return 'one-min';
+  return 'normal';
 }
 
 /**
@@ -622,9 +646,9 @@ export function conventionalPrefix(subject: string): string | null {
  * while an exact date is what matters once a commit is old enough that the
  * relative form ("47 weeks ago") stops meaning anything.
  */
-export function formatDate(unixSeconds: number): string {
+export function formatDate(unixSeconds: number, nowMs: number = Date.now()): string {
   const then = unixSeconds * 1000;
-  const deltaMs = Date.now() - then;
+  const deltaMs = nowMs - then;
   const minutes = Math.floor(deltaMs / 60_000);
 
   if (minutes < 1) return 'just now';
