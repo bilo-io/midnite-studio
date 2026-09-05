@@ -2,6 +2,35 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 64 Themes A, B, C, D — offline Monaco + cross-surface theme registry
+
+[PR #164]. The editor half (A, C, D) and the palette half (B) of the phase's 50 deliverables,
+minus E/F/G which stay open TODO. Themes E, F, and G's dependency-removal half are gated on
+Phase 61/62, which are not being worked in this batch.
+
+- [x] **A** — `@monaco-editor/react`/`monaco-editor` (both pinned exact), `lib/monaco/monaco-loader.ts`'s
+      lazy `getMonaco()` singleton, five workers (`editor`/`ts`/`json`/`css`/`html`) imported with
+      `?worker&inline` — the fix for the packaged app's opaque `file://` origin, which blocks a
+      worker built off a `file:` URL otherwise. Found and fixed one more layer the doc's own x1
+      pass hadn't hit: `monaco-editor/esm/vs/...` import paths double up against the package's own
+      `exports` map (`"./*": "./esm/vs/*.js"`) and only fail at a production Rollup build, not the
+      dev server — `monaco-editor/editor/...`/`monaco-editor/language/...` is correct.
+- [x] **B** — `StudioPalette` (22 chrome tokens, a full 16-ANSI-key xterm theme, a Monaco theme
+      payload, a Shiki theme id — the fifth surface x1 found), six presets (github-dark/-light
+      byte-identical to today's `@bilo-io/ui` tokens), `palette-store.ts` sharing
+      `appearance-store.ts`'s own `midnite.settings` localStorage key via a new merge-on-write
+      `sharedSettingsStorage` (Decision 10), and `use-palette-sync.ts` reaching xterm (now with ANSI
+      colours), Monaco, Shiki and popout windows. No settings UI — Theme F's job, left open.
+- [x] **C** — `code-editor.tsx` rewritten on `@monaco-editor/react`, same signature and
+      `data-testid`; fixed the latent `key={editorKey}` bug the old comment claimed but the call
+      site never did. Five new `editor*` preferences in `ui-store.ts` (version 8 → 9).
+- [x] **D** — `YIELD_ROOTS` generalises the old flat `TERMINAL_YIELD_COMMANDS`/`insideTerminal()`
+      into a per-selector registry; `.monaco-editor` gets its own three-command yield set. Three
+      native Electron accelerators (`Cmd+G`/`Cmd+L`/`Cmd+O`) moved to `itemNoAccelerator()` — an OS
+      accelerator bypasses `YIELD_ROOTS` entirely. Escape/Monaco-widget dismissal left open
+      deliberately: nothing binds a bare Escape today, so Phase 62's `useDismiss` wiring would be
+      inert scaffolding until that phase actually exists (Decision 3).
+
 ## 2026-09-05 — Phase 59 Themes A, B, C, E — Workspace Optimizer: Smart Scan, Storage, GPU
 
 [PR #163]. Closes Themes A, B, C, E of Phase 59 — 44 of the phase's 70 items. Theme D (Memory
