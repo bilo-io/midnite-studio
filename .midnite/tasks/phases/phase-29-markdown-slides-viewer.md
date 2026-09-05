@@ -1,8 +1,8 @@
 # Phase 29 — Markdown slides, everywhere markdown already renders
 
-The app renders markdown in three places today — [`markdown-preview.tsx`](../packages/app/src/features/files/preview/markdown-preview.tsx)
-(Files preview, Phase 16), and [`pr-detail.tsx`](../packages/app/src/features/reviews/pr-detail.tsx) /
-[`comment-thread.tsx`](../packages/app/src/features/reviews/comment-thread.tsx) (Reviews, Phase 20) —
+The app renders markdown in three places today — [`markdown-preview.tsx`](../../../packages/app/src/features/files/preview/markdown-preview.tsx)
+(Files preview, Phase 16), and [`pr-detail.tsx`](../../../packages/app/src/features/reviews/pr-detail.tsx) /
+[`comment-thread.tsx`](../../../packages/app/src/features/reviews/comment-thread.tsx) (Reviews, Phase 20) —
 all three the same `react-markdown` + `remark-gfm` pattern, and none of them offers anything beyond
 a scrolling `.prose` block. This phase gives all three a second way to read: a fullscreen,
 heading-paginated slide deck, one press away, ported from the sibling `midnite` app's presentation
@@ -24,14 +24,14 @@ the surface this phase adds a button to, not replaces), Phase 20 (`pr-detail.tsx
 (`useCommandHandlers()`'s reactive `{enabled, disabledReason}` shape, already used for `sync.fetch`,
 `commit.focus` and others — Theme E's new command follows it rather than inventing a second
 convention), and the existing `z-dialog` fixed-overlay convention already shared by
-[`confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx),
-[`prompt-dialog.tsx`](../packages/app/src/components/prompt-dialog.tsx) and
-[`merge-dialog.tsx`](../packages/app/src/features/reviews/merge-dialog.tsx).
+[`confirm-dialog.tsx`](../../../packages/app/src/components/confirm-dialog.tsx),
+[`prompt-dialog.tsx`](../../../packages/app/src/components/prompt-dialog.tsx) and
+[`merge-dialog.tsx`](../../../packages/app/src/features/reviews/merge-dialog.tsx).
 
 **Scope guardrails.** **A viewer, not an editor.** No CRUD, no deck list, no localStorage
 persistence — closing the modal forgets the deck; reopening the same file rebuilds it from source,
 every time. **No new highlighting library.** Code fences inside a slide render through the shiki
-instance [`code-preview.tsx`](../packages/app/src/features/files/preview/code-preview.tsx) already
+instance [`code-preview.tsx`](../../../packages/app/src/features/files/preview/code-preview.tsx) already
 owns, not midnite's `highlight.js` — this app has shiki everywhere else a code block appears, and a
 second highlighter would only disagree with it cosmetically. **The modal never leaves the Electron
 window.** A frameless custom title bar (Phase 3) makes the OS Fullscreen API a real risk to the
@@ -95,9 +95,9 @@ output, so it lands first.
       no click to hand content directly — Theme E); `close()`.
 - [x] `packages/app/src/features/slides/slides-modal.tsx`: the `fixed inset-0 z-dialog` convention
       already shared by `confirm-dialog.tsx` / `prompt-dialog.tsx` / `merge-dialog.tsx`, mounted once
-      from [`app.tsx`](../packages/app/src/app.tsx) beside the existing `<DialogHost>` — reads `deck`
+      from [`app.tsx`](../../../packages/app/src/app.tsx) beside the existing `<DialogHost>` — reads `deck`
       off the store and renders nothing while it is `null`.
-- [x] Reuses the existing [`use-focus-trap.ts`](../packages/app/src/components/use-focus-trap.ts)
+- [x] Reuses the existing [`use-focus-trap.ts`](../../../packages/app/src/components/use-focus-trap.ts)
       (already extracted, already used by `popover.tsx`) rather than a fourth hand-rolled trap.
 - [x] Deliberately **not** folded into `DialogHost`'s own API — that host's whole point is "only one
       of confirm/prompt/menu open at a time," and a fullscreen deck is a different shape than any of
@@ -118,7 +118,7 @@ output, so it lands first.
       decision below.
 - [x] Icon: a `react-icons/lu` glyph (`LuPresentation`, or the nearest actual match in the set) via
       the existing `IconComponent` / `IconButton` primitives
-      ([`icon-button.tsx`](../packages/app/src/components/icon-button.tsx)), per the repo's icon
+      ([`icon-button.tsx`](../../../packages/app/src/components/icon-button.tsx)), per the repo's icon
       convention.
 
 *Themes A–D have landed (2026-08-28) — the viewer is feature-complete end to end: Present opens a
@@ -130,7 +130,7 @@ exists to read it.*
 ### E — Command registry entry (S) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
 
 - [x] A new `CommandId` (`markdown.presentAsSlides`, a label, a palette `group`) added to `COMMANDS`
-      in [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) — no chord bound.
+      in [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) — no chord bound.
       Phase 23's palette UI is not built yet, and every obvious free chord is already scarce; this is
       a registry entry waiting for a surface, the same position `repo.open`/`repo.close` were in
       before Phase 23 Theme B gave them handlers. Grouped under `'view'` (surface-agnostic display
@@ -150,14 +150,14 @@ and the three "Open, for a human" manual checks under Verification below.*
 
 | Area | Files |
 |------|-------|
-| Contract | `CommandId`/`COMMANDS` only in [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) — no IPC channel, no zod schema, no domain type. `packages/git-engine` is untouched. |
+| Contract | `CommandId`/`COMMANDS` only in [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) — no IPC channel, no zod schema, no domain type. `packages/git-engine` is untouched. |
 | Main | **None.** |
 | Renderer — new | `features/slides/{deck-parser.ts, deck-parser.test.ts, deck.tsx, help-overlay.tsx, slides-store.ts, slides-modal.tsx}` |
-| Renderer — wiring | [`features/files/preview/markdown-preview.tsx`](../packages/app/src/features/files/preview/markdown-preview.tsx), [`features/files/preview/file-preview.tsx`](../packages/app/src/features/files/preview/file-preview.tsx), [`features/reviews/pr-detail.tsx`](../packages/app/src/features/reviews/pr-detail.tsx), [`features/reviews/comment-thread.tsx`](../packages/app/src/features/reviews/comment-thread.tsx), [`app.tsx`](../packages/app/src/app.tsx) (mounts `SlidesModal`) |
-| Renderer — keybindings | [`services/keybindings/use-command-handlers.ts`](../packages/app/src/services/keybindings/use-command-handlers.ts) |
-| Shared primitives (read, not changed) | [`components/icon-button.tsx`](../packages/app/src/components/icon-button.tsx), [`components/use-focus-trap.ts`](../packages/app/src/components/use-focus-trap.ts) |
+| Renderer — wiring | [`features/files/preview/markdown-preview.tsx`](../../../packages/app/src/features/files/preview/markdown-preview.tsx), [`features/files/preview/file-preview.tsx`](../../../packages/app/src/features/files/preview/file-preview.tsx), [`features/reviews/pr-detail.tsx`](../../../packages/app/src/features/reviews/pr-detail.tsx), [`features/reviews/comment-thread.tsx`](../../../packages/app/src/features/reviews/comment-thread.tsx), [`app.tsx`](../../../packages/app/src/app.tsx) (mounts `SlidesModal`) |
+| Renderer — keybindings | [`services/keybindings/use-command-handlers.ts`](../../../packages/app/src/services/keybindings/use-command-handlers.ts) |
+| Shared primitives (read, not changed) | [`components/icon-button.tsx`](../../../packages/app/src/components/icon-button.tsx), [`components/use-focus-trap.ts`](../../../packages/app/src/components/use-focus-trap.ts) |
 | Tests | `features/slides/deck-parser.test.ts`, a `use-command-handlers.test.ts` arm, a new Playwright spec opening the deck from Files and from Reviews |
-| Docs | [`todo/outstanding.md`](outstanding.md) if anything gets deferred out mid-build |
+| Docs | [`.midnite/tasks/outstanding.md`](../outstanding.md) if anything gets deferred out mid-build |
 
 ## Verification
 
