@@ -66,6 +66,21 @@ export type FabTab = 'innovate' | 'automate' | 'watchdog' | 'medic';
 /** How the commit inspector lists a commit's files. */
 export type CommitFileView = 'tree' | 'list';
 
+/** Layout preference for diff rendering: unified (single column) or split (side-by-side). */
+export type DiffLayout = 'unified' | 'split';
+
+/**
+ * The literal defaults for the four diff/file-view preferences (Phase 63), named
+ * so `diff-page.tsx`'s "Reset to defaults" and this file's own initial state
+ * cannot disagree about what "default" means.
+ */
+export const DIFF_PREF_DEFAULTS = {
+  diffShowOldGutter: false,
+  diffLayout: 'unified' as DiffLayout,
+  commitFileView: 'tree' as CommitFileView,
+  changesFileView: 'list' as CommitFileView,
+};
+
 /** What the graph's detail panel shows (Phase 22 Theme D) — see `graphSelection`. */
 export type GraphSelection =
   | { kind: 'commit'; sha: string }
@@ -144,6 +159,7 @@ export const VIEW_IDS: readonly ViewId[] = [
 export type SettingsPageId =
   | 'appearance'
   | 'graph'
+  | 'diff'
   | 'sidebar'
   | 'search'
   | 'screenLock'
@@ -187,6 +203,7 @@ export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
 export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: SettingsGroupId }[] = [
   { id: 'appearance', label: 'Appearance', group: 'general' },
   { id: 'graph', label: 'Graph', group: 'general' },
+  { id: 'diff', label: 'Diff', group: 'general' },
   { id: 'sidebar', label: 'Sidebar', group: 'general' },
   { id: 'search', label: 'Search', group: 'general' },
   { id: 'screenLock', label: 'Screen Lock', group: 'general' },
@@ -540,14 +557,16 @@ export type UiState = {
    * showing in its own popout window rather than docked in the main one.
    * Main-window-local — a popout's own `ui-store` instance never reads these.
    *
-   * NOT persisted, deliberately: a popout is never recreated on launch (main
-   * only ever restores itself), so a `true` saved before quitting is
-   * guaranteed stale the next time the app opens — same reasoning
-   * `browserLauncherOpen` above gives for staying unpersisted. `use-window-
-   * sync.ts` corrects these from main's own window registry at runtime, but
-   * only after an async round trip; starting from the wrong default would
-   * flash a spurious "detached" placeholder over a panel that is actually
-   * docked until that correction lands.
+   * IS persisted, and seeded `false` on load (the v7→v8 `migrate` arm does
+   * this explicitly). That answers the staleness objection a popout otherwise
+   * raises — same reasoning `browserLauncherOpen` above gives for staying
+   * unpersisted, except this quartet was decided the other way, later, and a
+   * saved `true` is never trusted: `use-window-sync.ts` corrects these from
+   * main's own window registry at runtime, but only after an async round
+   * trip, so starting from anything but `false` would flash a spurious
+   * "detached" placeholder over a panel that is actually docked until that
+   * correction lands (Phase 63 Theme C — this comment previously, and
+   * wrongly, said these were not persisted at all).
    */
   terminalDetached: boolean;
   reposDetached: boolean;
@@ -765,8 +784,8 @@ export type UiState = {
    */
   diffShowOldGutter: boolean;
   /** Layout preference for diff rendering: unified (single column) or split (side-by-side) */
-  diffLayout: 'unified' | 'split';
-  setDiffLayout: (layout: 'unified' | 'split') => void;
+  diffLayout: DiffLayout;
+  setDiffLayout: (layout: DiffLayout) => void;
   toggleDiffLayout: () => void;
 
   /**
@@ -1153,8 +1172,13 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
 /**
  * The slice that reaches localStorage — the return type `partialize` produces
  * and `migrate` must therefore also produce. Named so the two cannot drift.
+ *
+ * Exported (Phase 63 Theme C) so `persisted-keys.ts` can assert, at the type
+ * level, that its `PREFERENCE_KEYS`/`SESSION_STATE_KEYS` partition covers
+ * `keyof PersistedUi` exactly — a key added here and to neither list is then a
+ * typecheck failure at the point of adding it, not a silently orphaned one.
  */
-type PersistedUi = Pick<
+export type PersistedUi = Pick<
   UiState,
   | 'layout'
   | 'graphColumns'
@@ -1420,12 +1444,12 @@ export const useUiStore = create<UiState>()(
       graphDensity: DEFAULT_GRAPH_DENSITY,
       graphRefFilter: [],
       graphAuthorFilter: [],
-      diffShowOldGutter: false,
-      diffLayout: 'unified',
+      diffShowOldGutter: DIFF_PREF_DEFAULTS.diffShowOldGutter,
+      diffLayout: DIFF_PREF_DEFAULTS.diffLayout,
 
-      commitFileView: 'tree',
+      commitFileView: DIFF_PREF_DEFAULTS.commitFileView,
       commitMetaOpen: true,
-      changesFileView: 'list',
+      changesFileView: DIFF_PREF_DEFAULTS.changesFileView,
 
       // Guarded: leaving Files with an unsaved edit open waits on the editor's
       // own Save/Discard/Cancel dialog rather than losing the edit silently.
