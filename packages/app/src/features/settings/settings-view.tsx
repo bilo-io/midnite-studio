@@ -12,6 +12,7 @@ import { AgentPage } from './settings-pages/agent-page';
 import { AppearancePage } from './settings-pages/appearance-page';
 import { BrowserPage } from './settings-pages/browser-page';
 import { CliPage } from './settings-pages/cli-page';
+import { DiffPage } from './settings-pages/diff-page';
 import { GitSafetyPage } from './settings-pages/git-safety-page';
 import { GraphPage } from './settings-pages/graph-page';
 import { HealthPage } from './settings-pages/health-page';
@@ -38,6 +39,7 @@ import { WorkflowsPage } from './settings-pages/workflows-page';
 const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   appearance: () => <AppearancePage />,
   graph: () => <GraphPage />,
+  diff: () => <DiffPage />,
   sidebar: () => <SidebarPage />,
   search: () => <SearchSettingsPage />,
   screenLock: () => <ScreenLockPage />,
