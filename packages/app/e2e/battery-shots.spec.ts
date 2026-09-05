@@ -1,6 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  REPRODUCIBLE_NOW_MS,
+  setShotViewport,
+  shotPath,
+} from './shots-helper';
 
 const OUT = '/tmp/battery-shots';
 
@@ -8,7 +14,7 @@ const data: MockFixtures = {
   ...fixtures,
   metricsSamples: [
     {
-      at: Date.now(),
+      at: REPRODUCIBLE_NOW_MS,
       battery: {
         percent: 85,
         hasBattery: true,
@@ -32,14 +38,14 @@ async function setupPage(page: Page, overrides?: Partial<MockFixtures>): Promise
 }
 
 test('capture battery widget screenshots', async ({ page }) => {
-  await page.setViewportSize({ width: 1200, height: 700 });
+  await setShotViewport(page, { width: 1200, height: 700 });
   await setupPage(page);
 
   const bar = page.getByTestId('status-bar');
   await expect(bar).toBeVisible();
 
   // 1. High tier (green) in status bar
-  await bar.screenshot({ path: `${OUT}/battery-status-bar-green.png` });
+  await bar.screenshot({ path: shotPath(OUT, 'battery-status-bar-green.png') });
 
   // 2. Open popover panel
   const triggerBtn = page.getByTestId('battery-segment');
@@ -47,14 +53,14 @@ test('capture battery widget screenshots', async ({ page }) => {
   const panel = page.getByTestId('battery-panel');
   await expect(panel).toBeVisible();
   await page.waitForTimeout(200);
-  await page.screenshot({ path: `${OUT}/battery-popover-open.png` });
+  await page.screenshot({ path: shotPath(OUT, 'battery-popover-open.png') });
   await page.keyboard.press('Escape');
 
   // 3. Low tier (red with glow)
   await setupPage(page, {
     metricsSamples: [
       {
-        at: Date.now(),
+        at: REPRODUCIBLE_NOW_MS,
         battery: {
           percent: 18,
           hasBattery: true,
@@ -67,5 +73,5 @@ test('capture battery widget screenshots', async ({ page }) => {
     ],
   });
   await expect(page.getByTestId('battery-trigger')).toHaveAttribute('data-tier', 'low');
-  await bar.screenshot({ path: `${OUT}/battery-status-bar-red-glow.png` });
+  await bar.screenshot({ path: shotPath(OUT, 'battery-status-bar-red-glow.png') });
 });

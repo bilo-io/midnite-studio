@@ -1,7 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  clickRailLink,
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  settle,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The committed screenshots for Phase 29 (Themes A-D): the Files-preview
@@ -41,22 +48,17 @@ async function openFile(page: Page): Promise<void> {
   await expect(page.getByText('A short deck to present.')).toBeVisible();
 }
 
-async function dark(page: Page): Promise<void> {
-  await page.emulateMedia({ colorScheme: 'dark' });
-  await page.evaluate(() => document.documentElement.classList.add('dark'));
-}
-
 test('light: the Present trigger in the Files preview header', async ({ page }) => {
   await openFile(page);
-  await page.waitForTimeout(300);
-  await page.screenshot({ path: `${OUT}/trigger-light.png` });
+  await settle(page, 300);
+  await page.screenshot({ path: shotPath(OUT, 'trigger-light.png') });
 });
 
 test('dark: the Present trigger in the Files preview header', async ({ page }) => {
-  await dark(page);
+  await setTheme(page, 'dark');
   await openFile(page);
-  await page.waitForTimeout(300);
-  await page.screenshot({ path: `${OUT}/trigger-dark.png` });
+  await settle(page, 300);
+  await page.screenshot({ path: shotPath(OUT, 'trigger-dark.png') });
 });
 
 async function midPresentation(page: Page): Promise<void> {
@@ -66,18 +68,18 @@ async function midPresentation(page: Page): Promise<void> {
   await expect(deck).toBeVisible();
   await page.keyboard.press('End'); // the code-fence slide, fully revealed
   await expect(deck.getByText('greet')).toBeVisible();
-  await page.waitForTimeout(400); // shiki highlight + title settle
+  await settle(page, 400); // shiki highlight + title settle
 }
 
 test('light: a mid-presentation slide with a highlighted code fence', async ({ page }) => {
   await midPresentation(page);
-  await page.screenshot({ path: `${OUT}/mid-presentation-light.png` });
+  await page.screenshot({ path: shotPath(OUT, 'mid-presentation-light.png') });
 });
 
 test('dark: a mid-presentation slide with a highlighted code fence', async ({ page }) => {
-  await dark(page);
+  await setTheme(page, 'dark');
   await midPresentation(page);
-  await page.screenshot({ path: `${OUT}/mid-presentation-dark.png` });
+  await page.screenshot({ path: shotPath(OUT, 'mid-presentation-dark.png') });
 });
 
 async function help(page: Page): Promise<void> {
@@ -90,11 +92,11 @@ async function help(page: Page): Promise<void> {
 
 test('light: the help overlay', async ({ page }) => {
   await help(page);
-  await page.screenshot({ path: `${OUT}/help-overlay-light.png` });
+  await page.screenshot({ path: shotPath(OUT, 'help-overlay-light.png') });
 });
 
 test('dark: the help overlay', async ({ page }) => {
-  await dark(page);
+  await setTheme(page, 'dark');
   await help(page);
-  await page.screenshot({ path: `${OUT}/help-overlay-dark.png` });
+  await page.screenshot({ path: shotPath(OUT, 'help-overlay-dark.png') });
 });

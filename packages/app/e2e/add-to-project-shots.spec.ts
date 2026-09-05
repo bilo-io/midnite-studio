@@ -1,7 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  mockSha,
+  REPRODUCIBLE_REMOTE,
+  seedForgeWritesConsent,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The committed screenshot for Phase 50 Theme E — "Add to project" from the
@@ -13,16 +20,9 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 const OUT = '../../docs/screenshots/phase-50-add-to-project';
 
 const MAIN = '/tmp/midnite-studio';
-const HEAD_SHA = 'beef'.padEnd(40, '0');
+const HEAD_SHA = mockSha('beef', '0');
 
-const REMOTES = [
-  {
-    name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
-  },
-];
+const REMOTES = [REPRODUCIBLE_REMOTE];
 
 const LOCAL_REF = {
   name: 'main',
@@ -101,12 +101,7 @@ const data: MockFixtures = {
 };
 
 test('add to project menu', async ({ page }) => {
-  await page.addInitScript(() => {
-    window.localStorage.setItem(
-      'midnite-studio.ui',
-      JSON.stringify({ state: { forgeWritesEnabled: true }, version: 2 }),
-    );
-  });
+  await seedForgeWritesConsent(page);
   await installMockBridge(page, data);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
@@ -117,5 +112,5 @@ test('add to project menu', async ({ page }) => {
   await page.waitForTimeout(800);
   await page.getByRole('button', { name: 'Add to project', exact: true }).click();
   await page.waitForTimeout(300);
-  await page.screenshot({ path: `${OUT}/add-to-project-menu.png` });
+  await page.screenshot({ path: shotPath(OUT, 'add-to-project-menu.png') });
 });

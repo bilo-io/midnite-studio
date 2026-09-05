@@ -1,7 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  settle,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The landing page's four slides, as PNGs for the PR.
@@ -18,13 +24,13 @@ async function openLanding(page: Page, dark = false): Promise<void> {
   await installMockBridge(page, fixtures as MockFixtures);
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
-  if (dark) await page.evaluate(() => document.documentElement.classList.add('dark'));
+  if (dark) await setTheme(page, 'dark');
   // Hover first, then click: the rail expands on hover, so the brand row is
   // still moving when a synthetic click reaches where it used to be. See
   // `landing.spec.ts`'s `goHome`.
   const home = page.getByRole('button', { name: 'Go to the landing page' }).first();
   await home.hover();
-  await page.waitForTimeout(400);
+  await settle(page, 400);
   await home.click();
   await expect(page.getByTestId('landing-view')).toBeVisible();
   // Let the gradient's 4s rotation reach a lit frame before the shutter.
@@ -41,19 +47,19 @@ for (const [index, name] of SLIDES.entries()) {
       // Past the 170ms exit and the 420ms bounce-in.
       await page.waitForTimeout(800);
     }
-    await page.screenshot({ path: `${OUT}/${index + 1}-${name}.png` });
+    await page.screenshot({ path: shotPath(OUT, `${index + 1}-${name}.png`) });
   });
 }
 
 /** One dark shot too — the gradient was tuned on a dark FAB panel. */
 test('slide 1, dark', async ({ page }) => {
   await openLanding(page, true);
-  await page.screenshot({ path: `${OUT}/1-stage-dark.png` });
+  await page.screenshot({ path: shotPath(OUT, '1-stage-dark.png') });
 });
 
 test('slide 4, dark', async ({ page }) => {
   await openLanding(page, true);
   await page.getByTestId('landing-dot-3').click();
   await page.waitForTimeout(800);
-  await page.screenshot({ path: `${OUT}/4-fab-dark.png` });
+  await page.screenshot({ path: shotPath(OUT, '4-fab-dark.png') });
 });

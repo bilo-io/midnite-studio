@@ -1,7 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  REPRODUCIBLE_NOW_MS,
+  REPRODUCIBLE_REMOTE,
+  settle,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The committed screenshots the Phase 27 doc's own Verification checklist
@@ -15,13 +23,6 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  */
 
 const OUT = '../../docs/screenshots/phase-27-status-bar';
-
-const GITHUB_REMOTE = {
-  name: 'origin',
-  fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-  pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-  forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
-};
 
 const FAILING_PR = {
   number: 7,
@@ -39,13 +40,13 @@ const FAILING_PR = {
 
 const data: MockFixtures = {
   ...fixtures,
-  remotes: [GITHUB_REMOTE],
+  remotes: [REPRODUCIBLE_REMOTE],
   diagnostics: {
     candidates: [{ id: 'eslint', label: 'ESLint' }],
-    trust: { state: 'trusted', command: null, trustedAt: Date.now() },
+    trust: { state: 'trusted', command: null, trustedAt: REPRODUCIBLE_NOW_MS },
     result: { total: 3 },
   },
-  metricsSamples: [{ at: Date.now(), cpu: 42, memory: 55, gpu: 30, disk: 72 }],
+  metricsSamples: [{ at: REPRODUCIBLE_NOW_MS, cpu: 42, memory: 55, gpu: 30, disk: 72 }],
   forge: { pulls: [FAILING_PR] },
 };
 
@@ -53,7 +54,7 @@ async function land(page: Page): Promise<void> {
   await installMockBridge(page, data);
   await page.goto('/');
   await expect(page.getByTestId('status-bar')).toBeVisible();
-  await page.waitForTimeout(300);
+  await settle(page, 300);
 }
 
 test.describe('status bar screenshots', () => {
@@ -61,41 +62,37 @@ test.describe('status bar screenshots', () => {
 
   for (const theme of ['light', 'dark'] as const) {
     test(theme, async ({ page }) => {
-      if (theme === 'dark') await page.emulateMedia({ colorScheme: 'dark' });
+      await setTheme(page, theme);
       await land(page);
-      if (theme === 'dark') {
-        await page.evaluate(() => document.documentElement.classList.add('dark'));
-        await page.waitForTimeout(300);
-      }
 
       const bar = page.getByTestId('status-bar');
 
       // Full density, repositories panel open — the phase's own premise: the
       // bar spans the whole content area, not just the view's width.
-      await bar.screenshot({ path: `${OUT}/status-bar-full-${theme}.png` });
+      await bar.screenshot({ path: shotPath(OUT, `status-bar-full-${theme}.png`) });
 
       // Shut — the bar's left edge does not move (Theme A).
       await page.getByRole('button', { name: 'Toggle Repositories' }).click();
-      await page.waitForTimeout(250);
-      await bar.screenshot({ path: `${OUT}/status-bar-repos-shut-${theme}.png` });
+      await settle(page, 250);
+      await bar.screenshot({ path: shotPath(OUT, `status-bar-repos-shut-${theme}.png`) });
       await page.getByRole('button', { name: 'Toggle Repositories' }).click();
-      await page.waitForTimeout(250);
+      await settle(page, 250);
 
       // Compact — labels drop to icons.
       await page.setViewportSize({ width: 900, height: 800 });
       await expect(bar).toHaveAttribute('data-density', 'compact');
-      await bar.screenshot({ path: `${OUT}/status-bar-compact-${theme}.png` });
+      await bar.screenshot({ path: shotPath(OUT, `status-bar-compact-${theme}.png`) });
 
       // Collapsed, then the overflow popover open. A taller viewport here so
       // the popover's full segment list — up to the checks-verdict pill at
       // the bottom — fits in frame instead of clipping against the window.
       await page.setViewportSize({ width: 780, height: 950 });
       await expect(bar).toHaveAttribute('data-density', 'collapsed');
-      await bar.screenshot({ path: `${OUT}/status-bar-collapsed-${theme}.png` });
+      await bar.screenshot({ path: shotPath(OUT, `status-bar-collapsed-${theme}.png`) });
       await page.getByTestId('status-overflow').click();
       await expect(page.getByTestId('status-overflow-panel')).toBeVisible();
-      await page.waitForTimeout(200);
-      await page.screenshot({ path: `${OUT}/status-bar-overflow-popover-${theme}.png` });
+      await settle(page, 200);
+      await page.screenshot({ path: shotPath(OUT, `status-bar-overflow-popover-${theme}.png`) });
       await page.keyboard.press('Escape');
 
       // Back to full width for the browser pane, which covers the whole
@@ -106,8 +103,8 @@ test.describe('status bar screenshots', () => {
       // shot is about, and it is the pre-selected option.
       await page.getByTestId('browser-layout-full').click();
       await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
-      await page.waitForTimeout(300);
-      await page.screenshot({ path: `${OUT}/status-bar-browser-pane-${theme}.png` });
+      await settle(page, 300);
+      await page.screenshot({ path: shotPath(OUT, `status-bar-browser-pane-${theme}.png`) });
     });
   }
 });

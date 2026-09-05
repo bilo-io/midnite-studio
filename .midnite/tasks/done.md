@@ -2,6 +2,19 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 56 Theme G — Shots suite shared fixture helper
+
+[PR #158]. Closes Phase 56 Theme G.
+
+- [x] **G** — Created [`packages/app/e2e/shots-helper.ts`](packages/app/e2e/shots-helper.ts) providing:
+      standardized mock bridge installation (`installShotsBridge`), reproducible timestamps/dates
+      (`REPRODUCIBLE_ISO_DATE`, `REPRODUCIBLE_NOW_MS`, `REPRODUCIBLE_NOW_S`), author sets
+      (`REPRODUCIBLE_AUTHORS`), remote stubs (`REPRODUCIBLE_REMOTE`), subject sets (`REPRODUCIBLE_SUBJECTS`),
+      viewport presets (`SHOT_VIEWPORTS`), theme toggles (`setTheme`), motion preferences (`setReducedMotion`),
+      network stubs (`stubGravatars`, `mockWeatherApi`), and screenshot path formatting (`shotPath`, `createShotTaker`).
+      Refactored all 25 `*-shots.spec.ts` files to consume the shared helper, deduplicating mock bridge setup,
+      manual CSS dark-mode classes, and screenshot destination paths.
+
 ## 2026-09-05 — Phase 53 Theme A — the CLI wrapper actually ships
 
 [PR #155]. A real bug, not a gap: `cli-handlers.ts`'s `getBundleBinPath()` has always resolved

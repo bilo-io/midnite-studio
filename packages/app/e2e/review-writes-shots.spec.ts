@@ -1,7 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import {
+  fixtures,
+  installMockBridge,
+  type MockFixtures,
+  mockSha,
+  REPRODUCIBLE_REMOTE,
+  seedForgeWritesConsent,
+  setTheme,
+  shotPath,
+} from './shots-helper';
 
 /**
  * The committed screenshots for Phase 20 Themes F and G.
@@ -21,16 +29,9 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
 const OUT = '../../docs/screenshots/phase-20-review-writes';
 
 const MAIN = '/tmp/midnite-studio';
-const HEAD_SHA = 'beef'.padEnd(40, '0');
+const HEAD_SHA = mockSha('beef', '0');
 
-const REMOTES = [
-  {
-    name: 'origin',
-    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
-    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
-  },
-];
+const REMOTES = [REPRODUCIBLE_REMOTE];
 
 const LOCAL_REF = {
   name: 'main',
@@ -245,12 +246,7 @@ const data: MockFixtures = {
 
 /** Seed the consent flag, then open the one pull request. */
 async function openPull(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    window.localStorage.setItem(
-      'midnite-studio.ui',
-      JSON.stringify({ state: { forgeWritesEnabled: true }, version: 2 }),
-    );
-  });
+  await seedForgeWritesConsent(page);
   await installMockBridge(page, data);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
@@ -270,16 +266,16 @@ test('action bar light', async ({ page }) => {
     .getByRole('textbox', { name: /Approve/ })
     .fill('Reads well. One note on the probe cache, otherwise ship it.');
   await page.waitForTimeout(300);
-  await page.screenshot({ path: `${OUT}/action-bar-light.png` });
+  await page.screenshot({ path: shotPath(OUT, 'action-bar-light.png') });
 });
 
 test('action bar dark', async ({ page }) => {
-  await page.emulateMedia({ colorScheme: 'dark' });
+  await setTheme(page, 'dark');
   await openPull(page);
-  await page.evaluate(() => document.documentElement.classList.add('dark'));
+  await setTheme(page, 'dark', { settleMs: 400 });
   await page.getByRole('button', { name: 'Request review' }).click();
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/action-bar-dark.png` });
+  await page.screenshot({ path: shotPath(OUT, 'action-bar-dark.png') });
 });
 
 test('merge confirm', async ({ page }) => {
@@ -289,14 +285,14 @@ test('merge confirm', async ({ page }) => {
   await expect(dialog).toBeVisible();
   await dialog.getByRole('radio', { name: /Squash and merge/ }).check();
   await page.waitForTimeout(300);
-  await page.screenshot({ path: `${OUT}/merge-confirm.png` });
+  await page.screenshot({ path: shotPath(OUT, 'merge-confirm.png') });
 });
 
 test('re-run on the checks tab', async ({ page }) => {
   await openPull(page);
   await page.getByRole('tab', { name: /Checks/ }).click();
   await page.waitForTimeout(700);
-  await page.screenshot({ path: `${OUT}/checks-rerun.png` });
+  await page.screenshot({ path: shotPath(OUT, 'checks-rerun.png') });
 });
 
 test('the settings switch', async ({ page }) => {
@@ -309,5 +305,5 @@ test('the settings switch', async ({ page }) => {
     .getByRole('button', { name: 'Reviews' })
     .click();
   await page.waitForTimeout(400);
-  await page.screenshot({ path: `${OUT}/settings-reviews.png` });
+  await page.screenshot({ path: shotPath(OUT, 'settings-reviews.png') });
 });
