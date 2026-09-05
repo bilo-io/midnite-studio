@@ -37,6 +37,9 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Tracker check
+        run: pnpm exec moon run root:tracker-check
+
       - name: Typecheck, lint, test
         run: pnpm exec moon run :typecheck :lint :test
         env:

@@ -102,7 +102,7 @@
     running `pnpm exec moon run desktop:verify-dist` between `desktop:dist` and the artifact upload,
     so a bundle that cannot pass `codesign --verify` never becomes a downloadable artifact.
 
-### Theme B — `midnite-studio` CLI Binary & System PATH Symlinking (S/M/L: L) — ✅ PARTIAL (2026-08-30)
+### Theme B — `midnite-studio` CLI Binary & System PATH Symlinking (S/M/L: L) — ◐ PARTIAL (2026-08-30)
 
 - [ ] Create the executable wrapper `packages/desktop/resources/bin/midnite-studio` (net-new), a POSIX `sh` script.
   - **Grammar** (the whole surface): `midnite-studio [path]`, `midnite-studio open <path>`,
@@ -190,7 +190,7 @@
   - Without this, every existing spec that mounts Settings (`settings-pages.spec.ts`) fails —
     `installMockBridge` is serialised through `addInitScript` and replaces the bridge wholesale.
 
-### Theme C — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch (S/M/L: M) — ✅ PARTIAL (2026-08-30)
+### Theme C — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch (S/M/L: M) — ◐ PARTIAL (2026-08-30)
 
 - [ ] Call `app.setAsDefaultProtocolClient('midnite-studio')` in [`main/index.ts`](../../../packages/desktop/src/main/index.ts).
   - Inside the existing single-instance `else` block, before `app.whenReady()`.
@@ -233,7 +233,7 @@
   - Preload: `protocol: { onDeepLink: (h) => subscribe(EVENT_CHANNELS.deepLink, h) }` returning
     `Unsubscribe`, plus `| 'protocol'` on the `Pick<>` union and the matching `bridge.ts` entry.
 
-### Theme D — Auto-Updater Service & Update Status Banner (S/M/L: L) — ✅ PARTIAL (2026-08-30)
+### Theme D — Auto-Updater Service & Update Status Banner (S/M/L: L) — ◐ PARTIAL (2026-08-30)
 
 - [ ] Add `electron-updater` to `dependencies` (not `devDependencies`) in [`packages/desktop/package.json`](../../../packages/desktop/package.json).
   - Import it as the **named** binding: `import { autoUpdater } from 'electron-updater'`. The

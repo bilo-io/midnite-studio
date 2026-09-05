@@ -67,70 +67,70 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The check (M)
+### A — The check (M) — ✅ DONE (PR #168, 2026-09-05)
 
-- [ ] Add `scripts/tracker-check.mjs` — **new.** Import-free Node, in the shape of Phase 53's
+- [x] Add `scripts/tracker-check.mjs` — **new.** Import-free Node, in the shape of Phase 53's
       `version-check.mjs`, exporting its pure comparison so a test does not have to shell out.
-- [ ] **Rule 1 — every phase doc has an index row.** The presence check the three skills already
+- [x] **Rule 1 — every phase doc has an index row.** The presence check the three skills already
       run, moved into one place so it stops being three copies of a shell one-liner.
-- [ ] **Rule 2 — every index row has a phase doc.** The inverse, which nothing checks today: a row
+- [x] **Rule 2 — every index row has a phase doc.** The inverse, which nothing checks today: a row
       whose linked file does not exist renders as a broken link and is invisible to `ls`.
-- [ ] **Rule 3 — the counts agree.** For each phase, `- [x]` and `- [ ]` in the doc must equal the
+- [x] **Rule 3 — the counts agree.** For each phase, `- [x]` and `- [ ]` in the doc must equal the
       index row's `done/total`, **excluding** items marked `❌ OUT OF SCOPE` or `⏳ deferred` — the
       same exclusion the skills already specify, implemented once instead of described three times.
       This is the rule that fails on fifteen phases today.
-- [ ] **Rule 4 — no duplicate theme letters.** A phase declaring `### H` twice is a bug regardless of
+- [x] **Rule 4 — no duplicate theme letters.** A phase declaring `### H` twice is a bug regardless of
       what the index says, because every per-theme count double-counts it. Fails on Phase 32 today.
-- [ ] **Rule 5 — theme letters agree.** The set of `### <Letter> —` headings in the doc equals the set
+- [x] **Rule 5 — theme letters agree.** The set of `### <Letter> —` headings in the doc equals the set
       of `- ◻ **<Letter>** —` entries in the index's theme key. Fails on phases 25 and 35 today.
       Accept both heading forms — `### A — …` and `### Theme A — …` — since phases 12, 31, 33, 55 and
       64 use the second and both are house style.
-- [ ] **Rule 6 — the `Refined: xN` stamp matches the index's `Refined` cell.** The second guard
+- [x] **Rule 6 — the `Refined: xN` stamp matches the index's `Refined` cell.** The second guard
       `midnite-refine` Stage 9.5 already runs, folded in.
-- [ ] **Rule 7 — the progress bar and `%` match the counts.** Ten cells, `█` × `round(done/total × 10)`.
+- [x] **Rule 7 — the progress bar and `%` match the counts.** Ten cells, `█` × `round(done/total × 10)`.
       Cheap to check, and a stale bar is the most visible wrongness in the file.
-- [ ] Output is one line per violation, `phase N: <rule> — <expected> vs <actual>`, and a final
+- [x] Output is one line per violation, `phase N: <rule> — <expected> vs <actual>`, and a final
       count. A check whose failure output requires opening the file to act on is a check people
       disable.
-- [ ] `--fix` for the arithmetic rules only (3 and 7) — recompute `done/total`, the bar and the `%`
+- [x] `--fix` for the arithmetic rules only (3 and 7) — recompute `done/total`, the bar and the `%`
       from the doc, which is the source of truth for its own boxes. **Never** `--fix` rules 4 or 5:
       a duplicate theme or a letter mismatch is a human decision about what the phase *is*.
-- [ ] Wire as `root:tracker-check` in [`moon.yml`](../../../moon.yml) and add it to `moon ci`,
+- [x] Wire as `root:tracker-check` in [`moon.yml`](../../../moon.yml) and add it to `moon ci`,
       beside Phase 53's `version-check`. See Decision 2 on what happens while fifteen phases fail.
-- [ ] `scripts/tracker-check.test.mjs`: each rule passes on a well-formed fixture and fails on a
+- [x] `scripts/tracker-check.test.mjs`: each rule passes on a well-formed fixture and fails on a
       malformed one; `OUT OF SCOPE`/`deferred` items are excluded from the denominator; both theme
       heading forms parse; `--fix` corrects rule 3 and 7 and leaves 4 and 5 alone.
 
-### B — The three structural bugs it fails on today (S)
+### B — The three structural bugs it fails on today (S) — ✅ DONE (PR #168, 2026-09-05)
 
-- [ ] **Phase 32's duplicate Themes H and I.** `### H — Dev-companion powers (M)` at `:279`
+- [x] **Phase 32's duplicate Themes H and I.** `### H — Dev-companion powers (M)` at `:279`
       (`✅ DONE`) and `:312` (`✅ PARTIAL`); `### I — The forge, opened in place (L)` at `:283`
       (`✅ DONE`) and `:337` (unstamped). Same titles, contradictory stamps. Merge each pair into one
       heading and reconcile the stamp against the items beneath it — `◐` is the symbol the index's
       key already uses for partial, and it is what belongs there.
-- [ ] **Phase 33's `✅ PARTIAL` where the index says `✅`.** Same fix, same symbol: the doc says
+- [x] **Phase 33's `✅ PARTIAL` where the index says `✅`.** Same fix, same symbol: the doc says
       PARTIAL for B, C and D; `outstanding.md` already names `◐` as the right mark.
-- [ ] **Phases 25 and 35's theme-letter drift.** Phase 25's doc has no `### E` heading while the key
+- [x] **Phases 25 and 35's theme-letter drift.** Phase 25's doc has no `### E` heading while the key
       lists E; Phase 35's doc has five themes while the key lists nine. Establish which is right by
       reading the doc — the doc is the source of truth for its own themes — and correct the key.
-- [ ] Re-run the check and confirm rules 4 and 5 pass. Rule 3 will still fail on fifteen phases; that
+- [x] Re-run the check and confirm rules 4 and 5 pass. Rule 3 will still fail on fifteen phases; that
       is Theme C's problem, not a regression.
 
-### C — Making the fifteen honest, without pretending (S)
+### C — Making the fifteen honest, without pretending (S) — ✅ DONE (PR #168, 2026-09-05)
 
-- [ ] Run `--fix` for the arithmetic. This makes the index's `done/total` match each doc's **actual
+- [x] Run `--fix` for the arithmetic. This makes the index's `done/total` match each doc's **actual
       box state** — which for phases 25, 32 and 33 means their `%` **drops** from 100% to something
       truthful. That is the point: an index that says 100% for a phase with 64 open items is not a
       more optimistic record, it is a wrong one.
-- [ ] Update each affected phase's `Status` cell to match its new `%`: a phase at 38% is `🔄 WIP`,
+- [x] Update each affected phase's `Status` cell to match its new `%`: a phase at 38% is `🔄 WIP`,
       not `✅ DONE`. Nine of the fifteen are currently marked done.
-- [ ] Move the three headline phases' entries in [`outstanding.md`](../outstanding.md) from
+- [x] Move the three headline phases' entries in [`outstanding.md`](../outstanding.md) from
       *"the index is the accurate record"* to *"the doc is"*, since after `--fix` that is true — and
       the remaining work (verifying 162 items against the tree) stays parked there, unchanged and
       now correctly described.
-- [ ] **Do not tick anything.** After this theme the tracker is honest about being incomplete. It is
+- [x] **Do not tick anything.** After this theme the tracker is honest about being incomplete. It is
       not more complete.
-- [ ] Add a line to the three skills' drift-guard steps pointing at `moon run root:tracker-check`
+- [x] Add a line to the three skills' drift-guard steps pointing at `moon run root:tracker-check`
       instead of restating a shell one-liner —
       [`midnite-brainstorm`](../../.claude/skills/midnite-brainstorm/SKILL.md) Stage 6.3 and
       [`midnite-refine`](../../.claude/skills/midnite-refine/SKILL.md) Stage 9.5. **Six files**, since
@@ -158,21 +158,21 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green, and `moon run root:tracker-check` **exits 0**.
-- [ ] Introduce each of the seven violations deliberately, one at a time, and confirm the check fails
+- [x] `moon run :typecheck :lint :test` green, and `moon run root:tracker-check` **exits 0**.
+- [x] Introduce each of the seven violations deliberately, one at a time, and confirm the check fails
       with a line naming that phase and that rule — seven negative tests, because a check that has
       never been seen to fail is not known to work.
-- [ ] `--fix` on a doc/index count mismatch corrects the row, the bar and the `%`, and **changes
+- [x] `--fix` on a doc/index count mismatch corrects the row, the bar and the `%`, and **changes
       nothing in the phase doc** — the doc is the source of truth for its own boxes.
-- [ ] `--fix` leaves a duplicate theme letter and a theme-letter mismatch untouched, and still exits
+- [x] `--fix` leaves a duplicate theme letter and a theme-letter mismatch untouched, and still exits
       non-zero for them.
-- [ ] A phase whose items are all `❌ OUT OF SCOPE` reports `0/0` and `—`, not a division by zero.
-- [ ] Phase 32 has nine theme headings for nine letters, and no theme carries two stamps.
-- [ ] After Theme C, phases 25, 32 and 33 show a `%` below 100 and a `🔄 WIP` status, and
+- [x] A phase whose items are all `❌ OUT OF SCOPE` reports `0/0` and `—`, not a division by zero.
+- [x] Phase 32 has nine theme headings for nine letters, and no theme carries two stamps.
+- [x] After Theme C, phases 25, 32 and 33 show a `%` below 100 and a `🔄 WIP` status, and
       `outstanding.md` describes the remaining work as verification rather than as a discrepancy.
-- [ ] The check runs in **under two seconds** over 69 docs — it is in `moon ci`, and a slow check in a
+- [x] The check runs in **under two seconds** over 69 docs — it is in `moon ci`, and a slow check in a
       hot path is a check somebody caches wrongly.
-- [ ] `grep -rn "grep -qE" .claude/skills .agents/skills .codex/skills` no longer finds the drift
+- [x] `grep -rn "grep -qE" .claude/skills .agents/skills .codex/skills` no longer finds the drift
       one-liner in six places.
 - [ ] **Open, for a human:** run `/midnite-exec` and confirm the phase it proposes is one that
       actually has open work. That is the whole point, and it is not assertable from a script.

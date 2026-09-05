@@ -3,18 +3,16 @@
 Recorded here when a phase punts on something; pick these up post-MVP.
 
 - **Tick the phase docs that landed without being ticked.** Three docs assert far less progress than
-  the tree does, and `_INDEX.md` — not the doc — is the accurate record in each case. Phase 25 has
-  39 of 103 boxes ticked while `search.ts`, `grep.ts`, `blame.ts`, `grep-parser.ts`,
-  `blame-parser.ts`, `stream-registry.ts`, `search-service.ts` and `search-view.tsx` all exist;
-  Themes D and E even carry a `✅ DONE` stamp above unticked items. Phase 32 has 39 unticked
-  deliverables (Themes E, F, H, I) and Phase 33 has 26 (Themes A–E) with `entitlements.mac.plist`,
-  `notarize.cjs`, `verify-dist.mjs` and the `dmg:`/`protocols:` blocks all present in
+  the tree does, and the doc — not `_INDEX.md` — is the accurate record in each case (Phase 69 reconciled
+  the index to match each doc's actual box state). Phase 25 has 39 of 101 boxes ticked while `search.ts`,
+  `grep.ts`, `blame.ts`, `grep-parser.ts`, `blame-parser.ts`, `stream-registry.ts`, `search-service.ts`
+  and `search-view.tsx` all exist; Themes D and E even carry a `✅ DONE` stamp above unticked items.
+  Phase 32 has 54 unticked deliverables (Themes E, F, H, I) and Phase 33 has 44 (Themes A–E) with
+  `entitlements.mac.plist`, `notarize.cjs`, `verify-dist.mjs` and the `dmg:`/`protocols:` blocks all present in
   `electron-builder.yml`. The fix is per-item verification against the tree, not a bulk tick —
-  which is why it is parked here rather than done in passing. Two structural bugs travel with it:
-  Phase 32 contains **Themes H and I twice**, with contradictory stamps (`✅ DONE` above,
-  `✅ PARTIAL`/unstamped below), so any per-theme automation double-counts them; and Phase 33's
-  doc says `✅ PARTIAL` for B, C and D where the index says `✅` — the `◐` symbol the key already
-  uses elsewhere is the one that belongs there.
+  which is why it is parked here rather than done in passing. The structural bugs (Phase 32's duplicate
+  Themes H/I and Phase 33's `◐` stamps) were resolved in Phase 69 Theme B; the remaining work is verifying
+  the unticked items against the codebase.
   *(Phase 25's own unreadability is fixed: it held four raw NUL bytes where `\0` was meant, which
   made every grep-based counter see an empty file. It is UTF-8 text again as of 2026-09-04.)*
 
