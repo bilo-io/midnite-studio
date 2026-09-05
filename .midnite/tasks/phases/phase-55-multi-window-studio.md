@@ -203,6 +203,32 @@ The three facts that shape every theme below, because each one contradicts an ob
   - This is the phase's first use of Electron's `screen` module; it is main-process only.
 - [x] **G.5** Per-window diagnostics: every `window-manager` mutation logs one line through the existing single log seam — `[window] open role=terminal id=3`, `[window] close role=terminal id=3 reason=redock|closed|crashed`. `MSTUDIO_PERF=1` boot marks stay main-window-only; a popout does not emit boot stages, because `startup-report.mjs` medians would otherwise mix two windows' marks.
 
+### Theme H — Detachable PAGES, and the state they must share (M) — ✅ DONE (PR #177, 2026-09-05)
+
+> Themes A–G detach **panels**, which *move*: the docked slot collapses and the popout becomes the
+> only copy. A page cannot work that way — the main window has to go on rendering the view — so a
+> page detaches by **duplicating**, and that one difference is what H, I and J are all about.
+> [PR #175](https://github.com/bilo-io/midnite-studio/pull/175) landed the first five pages; this
+> theme is the state-sharing half plus the two bugs #175 shipped with.
+
+- [x] **H.1** Split `WindowRole` into `PANEL_WINDOW_ROLES` (move) and `PAGE_WINDOW_ROLES` (duplicate) in [`shared/src/domain/window.ts`](../../../packages/shared/src/domain/window.ts), with `isPageWindowRole` as the seam every consumer branches on. One role per page rather than a `page` role carrying a `ViewId`, because `windowForRole` then enforces at most one window per page for free — which is also what bounds the cost of duplicate rendering.
+- [x] **H.2** Widen Theme E's relay allowlist with the three page-selection slices that visibly drift once the same view runs in two windows: `actions-store`'s `selectedRun`/`selectedJob`, `files-store`'s `scopeKey` + `selectedPath`, `workbench-store`'s `tabs` + `activeTabId`. `scopeKey` travels WITH the path — a relPath under a stale checkout points at a file in a different repository.
+- [x] **H.3** View **furniture** deliberately stays local: `files-store.expanded`, `actions-store.collapsedWorkflows`, `file-editor-store`'s target line. Selection is a shared answer to "what am I looking at"; furniture is how one window is arranged to look at it, and syncing it is the pane-size fight Theme E already ruled out. Asserted, not just described (`broadcast-sync.test.ts`).
+- [x] **H.4** **Bug, reported against #175 — the popout theme flicker.** `applying` guards the zustand subscribers, which run synchronously inside `applyIncoming`; it cannot guard the theme `MutationObserver`, whose callback is a **microtask** delivered after the `finally` has reset the flag. Every relayed theme message therefore made the receiving window rebroadcast it — with two windows the echo damps, with three it amplifies and `<html>` flips class many times a second. `applyTheme` now records `lastDark`/`lastPaletteId` (module-level) *before* mutating, and writes `ThemeProvider`'s own `localStorage` key so the DOM and its React state cannot disagree across a reload.
+
+### Theme I — One watcher, N consumers (M) — ✅ DONE (PR #177, 2026-09-05)
+
+- [x] **I.1** `watch-service.ts` captured one `BrowserWindow` at watcher-start time, so `watchEvent` reached main and nowhere else; every other window stayed fresh only because main's renderer rebroadcast it over the Theme E relay. A detached page is a full data-driven view, not a panel — its freshness must not depend on another window's renderer being mounted and awake to forward for it.
+- [x] **I.2** Fan-out at the send, **not** a watcher per window: `broadcastToAllWindows` in `window-manager.ts`, with `watchers` still keyed by repoId. A repo open in three windows is watched once and costs three `webContents.send` calls rather than three recursive fs trees.
+- [x] **I.3** `useWatchInvalidation` stops relaying watch events (main now delivers to every window, so a relay would double-invalidate). `requestRestream` stays per-window — only the window whose graph shows `selectedRepoId` should pay for a re-stream.
+- [x] **I.4** **Bug, reported against #175 — the detached Graph never loaded.** `logStart`/`logCancel` and `searchStart`/`searchCancel` resolved their target with `getWindow()` — always main — while answering over an EVENT channel. A popout started a stream and main received every row. Now `handleFromSender`/`handleOpFromSender` (`handle.ts` gains the latter); `registerSearchHandlers` no longer takes a window accessor at all.
+
+### Theme J — The rest of the pages (M) — ✅ DONE (PR #177, 2026-09-05)
+
+- [x] **J.1** Eight more marks: Dashboard, Search, Tests, Projects, Reviews, Issues, History, Optimizer — thirteen detachable pages in all.
+- [x] **J.2** Hand-placed per header rather than behind a shared `PageHeader`, because those headers differ for good reasons: History and Reviews are `role="tablist"` rows a non-tab child has no business joining (the mark goes *beside* the tablist, as `workbench.tsx` already does), Optimizer's is a block-flow two-row stack, and Search's sizes its children `flex-1`.
+- [x] **J.3** Seven `ViewId`s stay out, and the reason splits in two. `settings`/`landing`/`sessions` are surfaces nobody wants twice. `councils`/`workflows`/`video` are excluded because duplicate rendering is only safe for a view whose **mount has no load-bearing side effects** — the trap `view-registry.tsx` records `BrowserPane` falling into. Asserted in `page-detach-mark.test.ts`.
+
 ---
 
 ## Files this phase touches
@@ -225,12 +251,12 @@ The three facts that shape every theme below, because each one contradicts an ob
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green across all monorepo packages.
+- [x] `moon run :typecheck :lint :test` green across all monorepo packages.
 - [ ] `window-manager.test.ts`: `createRoleWindow(role)` registers one descriptor; a repeat call for a live role focuses rather than duplicates; `closed` removes the descriptor and every pty subscription that window held.
 - [ ] `windows-store.test.ts`: bounds survive a close/reopen round trip against a tmpdir; a corrupt `windows.json` falls back to role defaults without throwing.
 - [ ] `pty-subscribers.test.ts`: `subscribersFor(ptyId)` returns only subscribed windows; two windows subscribed to one ptyId both receive `ptyData`; an unsubscribed window receives none.
 - [ ] `ipc.test.ts`: the new `window*` block fails if any `window`-prefixed channel key lacks a row in its `expected` map.
-- [ ] `broadcast-sync.test.ts`: a duplicate message `id` applies once; a self-originated message is ignored; `applying` suppresses rebroadcast (no ping-pong).
+- [x] `broadcast-sync.test.ts`: a duplicate message `id` applies once; a self-originated message is ignored; `applying` suppresses rebroadcast (no ping-pong).
 - [ ] `ui-store` migrate: a persisted `version: 7` blob loads with all four `*Detached` flags `false` and no other field disturbed.
 - [ ] `icon-names.test.ts` still passes with `LuSquareArrowDownLeft` added — it resolves to a real `react-icons/lu` export and is imported with the `Lu` prefix via a plain named import.
 - [ ] Detaching and re-docking the Terminal panel preserves running shell sessions and WebGL terminal rendering — the pty's `pid` is unchanged across the round trip.
@@ -240,6 +266,16 @@ The three facts that shape every theme below, because each one contradicts an ob
 - [ ] `MSTUDIO_SHOTS=1` writes light and dark frames for all four `DetachedRoot` roles and all four placeholders into `docs/screenshots/phase-55-multi-window/`.
 - [ ] **Open, for a human:** the F.3 multi-monitor pass — four panels across two displays, a live agent session, a running loop, a theme flip, then a full re-dock.
 - [ ] **Open, for a human:** unplug or disable the display a popout occupies and relaunch; the popout must reappear on a visible display at its role default, never off-screen.
+
+**Themes H/I/J (PR #177):**
+
+- [x] `broadcast-sync.test.ts`: each page-selection slice relays and applies; a relayed slice does not ping-pong back out; furniture (`expanded`, `collapsedWorkflows`) relays nothing.
+- [x] `broadcast-sync.test.ts`: a relayed **theme** is not rebroadcast — asserted after a microtask *and* a macrotask turn, which is the only way to catch the `MutationObserver` timing the old `applying` guard missed. Verified to fail without the fix.
+- [x] `watch-service.test.ts`: one watcher per repo however many windows are open; each event fans out rather than going to one captured window; a repo leaving the registry stops its watcher.
+- [x] `stream-window-routing.test.ts`: `logStart` starts the stream for the window that ASKED, not the main window. Verified to fail without the fix.
+- [x] `page-detach-mark.test.tsx`: all three states of the mark; `PAGE_ROLE_TITLE` covers exactly `PAGE_WINDOW_ROLES`; the six excluded views are absent.
+- [x] `detached-pages-shots.spec.ts` writes 31 frames into `docs/screenshots/adhoc-page-detach/`. Three roles are out of the shot lists by design — `tests`/`projects` hide their header behind a data guard, `optimizer`'s rail row is behind a default-off setting — and the spec says so.
+- [ ] **Open, for a human:** open a page popout alongside two others and flip the theme; the class must settle once, not oscillate. Then detach the Graph and confirm rows stream into the popout, not the main window.
 
 ---
 

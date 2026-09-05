@@ -2,6 +2,63 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 55 Themes H, I, J + Phase 65 Theme E — pages detach, and the crash log becomes reachable
+
+[PR #177]. Closes three new Phase 55 themes (55 → 50/65) and the last outstanding theme of Phase 65
+(→ 43/49). Two bugs reported against [PR #175] are fixed here, both regressions covered by tests
+verified to fail without the fix.
+
+- [x] **55.H** — Pages detach by **duplicating**, not moving: the main window goes on rendering the
+      view and a second window mounts a second instance of the same `VIEW_COMPONENT` entry, so there
+      is no placeholder and "dock" is just "close that window". `WindowRole` splits into
+      `PANEL_WINDOW_ROLES` (move) and `PAGE_WINDOW_ROLES` (duplicate) with `isPageWindowRole` as the
+      seam. Theme E's relay allowlist gains the three slices that visibly drift once one view runs in
+      two windows — Actions' selected run/job, the Explorer's scope + selected path, the Changes
+      workbench's tabs + active tab. View **furniture** (expanded dirs, collapsed workflow groups,
+      the editor's target line) deliberately stays local: syncing it is the pane-size fight Theme E
+      already ruled out, and expanding a directory in the popout would snap the other window's tree
+      open under the cursor.
+- [x] **55.H.4 (bug)** — The popout **theme flicker**. `applying` guards the zustand subscribers,
+      which run synchronously inside `applyIncoming`; it cannot guard the theme `MutationObserver`,
+      whose callback is a *microtask* delivered after the `finally` resets the flag. Every relayed
+      theme message therefore made the receiving window rebroadcast it — with two windows the echo
+      damps, with three (a main window and two detached pages, which page detachment made ordinary)
+      it amplifies and `<html>` flips class many times a second. `applyTheme` now records
+      `lastDark`/`lastPaletteId` before mutating, and writes `ThemeProvider`'s own `localStorage` key
+      so the DOM and its React state cannot disagree across a reload.
+- [x] **55.I** — Watch events reach every window directly. `watch-service.ts` captured one
+      `BrowserWindow` at start-up, so only main heard anything and every other window depended on
+      main's renderer relaying for it. Now `broadcastToAllWindows` fans out at the send, with
+      `watchers` still keyed by repoId — a repo open in three windows is watched **once** and costs
+      three `webContents.send` calls, not three recursive fs trees.
+- [x] **55.I.4 (bug)** — The detached Graph **never loaded**. `logStart`/`logCancel` (and
+      `searchStart`/`searchCancel`) resolved their target with `getWindow()` — always main — while
+      answering over an EVENT channel, so a popout started a stream and main received every row.
+      Resolved from the IPC sender now; `handle.ts` gains `handleOpFromSender`, and
+      `registerSearchHandlers` no longer takes a window accessor at all.
+- [x] **55.J** — Eight more detachable pages (thirteen in all): Dashboard, Search, Tests, Projects,
+      Reviews, Issues, History, Optimizer. Hand-placed per header rather than behind a shared
+      `PageHeader`, because those headers differ for good reasons — two are `role="tablist"` rows a
+      non-tab child has no business joining, one is a block-flow stack, one sizes its children
+      `flex-1`. Seven `ViewId`s stay out: `settings`/`landing`/`sessions` are surfaces nobody wants
+      twice, and `councils`/`workflows`/`video` because duplicate rendering is only safe for a view
+      whose mount has no load-bearing side effects — the trap `view-registry.tsx` records
+      `BrowserPane` falling into.
+- [x] **65.E** — The crash log becomes reachable. Themes A–D shipped the whole machine (rotating
+      NDJSON sink, `mstudio:report:*`, main's own `uncaughtException` hooks) with no way in. Three
+      controls in the **existing** Diagnostics accordion rather than an eighteenth settings page:
+      Reveal log (with the path printed beside it, because a support thread asks *where* it is),
+      Copy diagnostics (already redacted main-side), and Report a bug. That last one is here *and*
+      in the release-notes panel on purpose — `version-pill.tsx` hides itself on `'0.0.0'`, so the
+      panel never opens in a dev build, while this accordion renders in every build.
+- Coverage: `broadcast-sync.test.ts` (+9), `watch-service.test.ts` (new),
+  `stream-window-routing.test.ts` (new), `crash-reporting.test.tsx` (new),
+  `page-detach-mark.test.tsx`, `use-window-sync.test.tsx`, `domain/window.test.ts`, and
+  `detached-pages-shots.spec.ts` writing 31 frames to `docs/screenshots/adhoc-page-detach/`.
+
+[PR #177]: https://github.com/bilo-io/midnite-studio/pull/177
+[PR #175]: https://github.com/bilo-io/midnite-studio/pull/175
+
 ## 2026-09-05 — Phase 57 Themes E, F — MCP consent/audit and the Settings page
 
 [PR #177]. Closes Themes E and F of Phase 57 — 17 of the phase's 76 items, bringing the phase to
