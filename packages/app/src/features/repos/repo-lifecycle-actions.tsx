@@ -36,7 +36,7 @@ const ACTIONS: { action: LifecycleAction; icon: typeof LuPackage; label: string 
  * menu.
  *
  * Each click is fire-and-forget: `runLifecycleAction` opens a terminal with
- * its guessed command typed in, not run, so there is no result to await here
+ * its guessed command typed in and run immediately, so there is no result to await here
  * — only a brief per-button disable so a slow filesystem read cannot be
  * double-clicked into two terminals.
  */
