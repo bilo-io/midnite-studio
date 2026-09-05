@@ -17,8 +17,9 @@ import type { ScanCategory } from '@midnite/studio-shared';
 type Hsl = readonly [number, number, number];
 
 const CATEGORY_HUES: Record<ScanCategory, Hsl> = {
-  nodeModules: [350, 70, 58], // rose
+  dependencies: [350, 70, 58], // rose — was `nodeModules` (Phase 72 Theme C rename)
   buildOutput: [115, 55, 45], // green
+  toolCache: [55, 60, 55], // amber — new in Phase 72 Theme C, ≥20° clear of every existing/METRIC_HUES entry
   staleWorktree: [20, 75, 55], // burnt orange
   looseObjects: [265, 55, 62], // indigo — unused until a later phase populates it
 };
@@ -36,8 +37,9 @@ export const categoryFill = (category: ScanCategory, alpha: number): string => {
 };
 
 export const CATEGORY_LABELS: Record<ScanCategory, string> = {
-  nodeModules: 'node_modules',
+  dependencies: 'Dependencies',
   buildOutput: 'Build output',
+  toolCache: 'Tool cache',
   staleWorktree: 'Stale worktrees',
   looseObjects: 'Loose objects',
 };

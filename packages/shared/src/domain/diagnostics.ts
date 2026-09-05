@@ -35,6 +35,11 @@ export type DiagnosticsParser = z.infer<typeof DiagnosticsParserSchema>;
  * separate problems, and this enum is the vocabulary a Go or python detector
  * will use when its parser lands. Purely descriptive — the UI labels with it,
  * nothing branches on it.
+ *
+ * Not the same axis as `optimizer.ts`'s `EcosystemSchema` (Decision 14): that
+ * one is the grouping key for the Workspace Optimizer's delete-shaped list,
+ * appended to by later phases; this one is descriptive toolchain metadata.
+ * Neither is widened to serve the other.
  */
 export const DiagnosticsEcosystemSchema = z.enum([
   'javascript',

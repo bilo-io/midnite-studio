@@ -2,9 +2,11 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { execGit } from '@midnite/studio-git-engine';
 import type { RepoDescriptor, Worktree } from '@midnite/studio-shared';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import type { ArtifactDetector } from './detectors';
 import { listRepos, worktreesFor } from '../repo-registry';
 import {
   classify,
@@ -19,6 +21,11 @@ vi.mock('../repo-registry', () => ({
   worktreesFor: vi.fn(),
 }));
 
+vi.mock('@midnite/studio-git-engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@midnite/studio-git-engine')>();
+  return { ...actual, execGit: vi.fn() };
+});
+
 const worktree = (overrides: Partial<Worktree>): Worktree => ({
   id: 'wt',
   repoId: 'repo',
@@ -32,21 +39,30 @@ const worktree = (overrides: Partial<Worktree>): Worktree => ({
 });
 
 describe('classify', () => {
-  it('matches each seeded pattern', () => {
-    expect(classify('/a/b/node_modules')).toBe('nodeModules');
-    expect(classify('/a/b/dist')).toBe('buildOutput');
-    expect(classify('/a/b/.moon')).toBe('buildOutput');
+  it('matches node_modules and dist against the default catalogue', async () => {
+    expect((await classify('/a/b/node_modules', new Set()))?.id).toBe('node-modules');
+    expect(
+      (await classify('/a/b/dist', new Set(['package.json'])))?.id,
+    ).toBe('node-dist');
   });
 
-  it('returns null for anything unmatched', () => {
-    expect(classify('/a/b/src')).toBeNull();
+  it('returns null for anything unmatched', async () => {
+    expect(await classify('/a/b/src', new Set())).toBeNull();
   });
 
-  it('honors an injected pattern list over the default', () => {
-    expect(classify('/a/build', [{ basename: 'build', category: 'buildOutput' }])).toBe(
-      'buildOutput',
-    );
-    expect(classify('/a/node_modules', [{ basename: 'build', category: 'buildOutput' }])).toBeNull();
+  it('honors an injected detector list over the default', async () => {
+    const buildDetector: ArtifactDetector = {
+      id: 'test-build',
+      label: 'build/',
+      category: 'buildOutput',
+      ecosystem: 'multi',
+      producer: 'test',
+      match: ['build'],
+      evidence: { kind: 'none' },
+      reclaim: 'cheap',
+    };
+    expect((await classify('/a/build', new Set(), [buildDetector]))?.id).toBe('test-build');
+    expect(await classify('/a/node_modules', new Set(), [buildDetector])).toBeNull();
   });
 });
 
@@ -111,6 +127,7 @@ describe('scanWorkspace (fixture-tree walk)', () => {
     const repoPath = join(root, 'repo-a');
     await mkdir(join(repoPath, 'node_modules', 'left-pad'), { recursive: true });
     await writeFile(join(repoPath, 'node_modules', 'left-pad', 'index.js'), 'x'.repeat(10));
+    await writeFile(join(repoPath, 'package.json'), '{}'); // node-dist's sibling evidence
     await mkdir(join(repoPath, 'dist'), { recursive: true });
     await writeFile(join(repoPath, 'dist', 'bundle.js'), 'y'.repeat(20));
     await mkdir(join(repoPath, 'src'), { recursive: true });
@@ -123,9 +140,20 @@ describe('scanWorkspace (fixture-tree walk)', () => {
       onProgress: () => {},
     });
 
-    expect(result.byCategory.nodeModules).toBe(10);
+    expect(result.byCategory.dependencies).toBe(10);
     expect(result.byCategory.buildOutput).toBe(20);
-    expect(result.items.map((i) => i.category).sort()).toEqual(['buildOutput', 'nodeModules']);
+    expect(result.byEcosystem.node).toBe(30);
+    expect(result.items.map((i) => i.category).sort()).toEqual(['buildOutput', 'dependencies']);
+
+    const nodeModulesItem = result.items.find((i) => i.detectorId === 'node-modules');
+    expect(nodeModulesItem).toMatchObject({ ecosystem: 'node', reclaim: 'costly' });
+    expect(result.detectors['node-modules']).toEqual({
+      label: 'node_modules',
+      producer: 'npm/pnpm/yarn install',
+    });
+
+    const distItem = result.items.find((i) => i.detectorId === 'node-dist');
+    expect(distItem).toMatchObject({ ecosystem: 'node', reclaim: 'cheap' });
   });
 
   it('refuses to traverse a symlinked directory, at any depth', async () => {
@@ -167,6 +195,21 @@ describe('scanWorkspace (fixture-tree walk)', () => {
     expect(result.items).toHaveLength(0);
   });
 
+  it('a detector never matches inside .git, even when a fixture plants one there', async () => {
+    const repoPath = join(root, 'repo-git-guard');
+    await mkdir(join(repoPath, '.git', 'node_modules'), { recursive: true });
+    await writeFile(join(repoPath, '.git', 'node_modules', 'x.js'), 'x'.repeat(50));
+
+    mockSingleRepo(repoPath);
+
+    const result = await scanWorkspace({
+      signal: new AbortController().signal,
+      onProgress: () => {},
+    });
+
+    expect(result.items).toHaveLength(0);
+  });
+
   it('aborting mid-walk returns a valid, non-throwing partial result', async () => {
     const repoPath = join(root, 'repo-abort');
     await mkdir(join(repoPath, 'a', 'node_modules'), { recursive: true });
@@ -183,9 +226,286 @@ describe('scanWorkspace (fixture-tree walk)', () => {
       scanWorkspace({ signal: controller.signal, onProgress: () => {} }),
     ).resolves.toEqual({
       totalBytes: 0,
-      byCategory: { nodeModules: 0, buildOutput: 0, staleWorktree: 0, looseObjects: 0 },
+      byCategory: { dependencies: 0, buildOutput: 0, toolCache: 0, staleWorktree: 0, looseObjects: 0 },
+      byEcosystem: {
+        node: 0,
+        multi: 0,
+        rust: 0,
+        cpp: 0,
+        dotnet: 0,
+        python: 0,
+        java: 0,
+        swift: 0,
+        ruby: 0,
+        go: 0,
+        git: 0,
+      },
+      detectors: {},
       items: [],
       truncated: false,
+      truncatedRoots: [],
+    });
+  });
+
+  it('the two ambiguous-name cases: target/ resolves by evidence, Rust winning when both apply', async () => {
+    const rustOnly = join(root, 'ambiguous-rust');
+    await mkdir(join(rustOnly, 'target'), { recursive: true });
+    await writeFile(join(rustOnly, 'Cargo.toml'), '[package]');
+
+    mockSingleRepo(rustOnly);
+    let result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+    expect(result.items.map((i) => i.detectorId)).toEqual(['rust-target']);
+
+    const mavenOnly = join(root, 'ambiguous-maven');
+    await mkdir(join(mavenOnly, 'target'), { recursive: true });
+    await writeFile(join(mavenOnly, 'pom.xml'), '<project/>');
+
+    mockSingleRepo(mavenOnly);
+    result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+    expect(result.items.map((i) => i.detectorId)).toEqual(['maven-target']);
+
+    const both = join(root, 'ambiguous-both');
+    await mkdir(join(both, 'target'), { recursive: true });
+    await writeFile(join(both, 'Cargo.toml'), '[package]');
+    await writeFile(join(both, 'pom.xml'), '<project/>');
+
+    mockSingleRepo(both);
+    result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+    expect(result.items.map((i) => i.detectorId)).toEqual(['rust-target']);
+  });
+
+  describe('a positive fixture per catalogued ecosystem', () => {
+    it('CMake (cpp): build/ with CMakeCache.txt inside it', async () => {
+      const repoPath = join(root, 'eco-cmake');
+      await mkdir(join(repoPath, 'build'), { recursive: true });
+      await writeFile(join(repoPath, 'build', 'CMakeCache.txt'), 'x');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toMatchObject([
+        { detectorId: 'cmake-build', ecosystem: 'cpp', category: 'buildOutput', reclaim: 'cheap' },
+      ]);
+    });
+
+    it('.NET (dotnet): obj/ beside a .csproj', async () => {
+      const repoPath = join(root, 'eco-dotnet');
+      await mkdir(join(repoPath, 'obj'), { recursive: true });
+      await writeFile(join(repoPath, 'App.csproj'), '<Project/>');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toMatchObject([
+        { detectorId: 'dotnet-obj', ecosystem: 'dotnet', category: 'buildOutput', reclaim: 'cheap' },
+      ]);
+    });
+
+    it('Python tool cache: __pycache__ needs no evidence', async () => {
+      const repoPath = join(root, 'eco-pycache');
+      await mkdir(join(repoPath, '__pycache__'), { recursive: true });
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toMatchObject([
+        { detectorId: 'py-pycache', ecosystem: 'python', category: 'toolCache', reclaim: 'cheap' },
+      ]);
+    });
+
+    it('Python venv: matched only with pyvenv.cfg inside it', async () => {
+      const repoPath = join(root, 'eco-venv');
+      await mkdir(join(repoPath, 'venv'), { recursive: true });
+      await writeFile(join(repoPath, 'venv', 'pyvenv.cfg'), 'home = /usr/bin');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toMatchObject([
+        { detectorId: 'py-venv', ecosystem: 'python', category: 'dependencies', reclaim: 'costly' },
+      ]);
+    });
+
+    it('Java (Gradle): build/ beside build.gradle', async () => {
+      const repoPath = join(root, 'eco-gradle');
+      await mkdir(join(repoPath, 'build'), { recursive: true });
+      await writeFile(join(repoPath, 'build.gradle'), '');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toMatchObject([
+        { detectorId: 'gradle-build', ecosystem: 'java', category: 'buildOutput', reclaim: 'cheap' },
+      ]);
+    });
+
+    it('Swift/Xcode: Pods/ beside a Podfile', async () => {
+      const repoPath = join(root, 'eco-cocoapods');
+      await mkdir(join(repoPath, 'Pods'), { recursive: true });
+      await writeFile(join(repoPath, 'Podfile'), '');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toMatchObject([
+        { detectorId: 'cocoapods-pods', ecosystem: 'swift', category: 'dependencies', reclaim: 'costly' },
+      ]);
+    });
+
+    it('Ruby: vendor/bundle/ with a "ruby" entry inside it', async () => {
+      const repoPath = join(root, 'eco-ruby');
+      await mkdir(join(repoPath, 'vendor', 'bundle', 'ruby'), { recursive: true });
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toMatchObject([
+        { detectorId: 'ruby-vendor-bundle', ecosystem: 'ruby', category: 'dependencies', reclaim: 'costly' },
+      ]);
+    });
+
+    it('moon: .moon/cache is matched, but .moon/workspace.yml (checked-in config) is not', async () => {
+      const repoPath = join(root, 'eco-moon');
+      await mkdir(join(repoPath, '.moon', 'cache'), { recursive: true });
+      await writeFile(join(repoPath, '.moon', 'workspace.yml'), 'projects: {}');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toMatchObject([
+        { detectorId: 'moon-cache', ecosystem: 'multi', category: 'toolCache', reclaim: 'cheap' },
+      ]);
+    });
+  });
+
+  describe('the negative-match fixture set — the half that matters', () => {
+    it('bin/ beside a package.json is never offered (no .csproj sibling)', async () => {
+      const repoPath = join(root, 'neg-bin');
+      await mkdir(join(repoPath, 'bin'), { recursive: true });
+      await writeFile(join(repoPath, 'bin', 'run.sh'), '#!/bin/sh');
+      await writeFile(join(repoPath, 'package.json'), '{}');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toEqual([]);
+      expect(result.totalBytes).toBe(0);
+    });
+
+    it('build/ with no CMakeCache.txt and no build.gradle is never offered', async () => {
+      const repoPath = join(root, 'neg-build');
+      await mkdir(join(repoPath, 'build'), { recursive: true });
+      await writeFile(join(repoPath, 'build', 'notes.txt'), 'hand-written');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toEqual([]);
+      expect(result.totalBytes).toBe(0);
+    });
+
+    it('venv/ with no pyvenv.cfg is never offered', async () => {
+      const repoPath = join(root, 'neg-venv');
+      await mkdir(join(repoPath, 'venv'), { recursive: true });
+      await writeFile(join(repoPath, 'venv', 'notes.txt'), 'hand-written');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toEqual([]);
+      expect(result.totalBytes).toBe(0);
+    });
+
+    it('vendor/bundle/ with no "ruby" entry inside it is never offered', async () => {
+      const repoPath = join(root, 'neg-vendor');
+      await mkdir(join(repoPath, 'vendor', 'bundle'), { recursive: true });
+      await writeFile(join(repoPath, 'vendor', 'bundle', 'README.md'), 'checked in');
+      await writeFile(join(repoPath, 'Gemfile'), '');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toEqual([]);
+      expect(result.totalBytes).toBe(0);
+    });
+
+    it('.moon/ containing only checked-in configuration is never offered', async () => {
+      const repoPath = join(root, 'neg-moon');
+      await mkdir(join(repoPath, '.moon'), { recursive: true });
+      await writeFile(join(repoPath, '.moon', 'workspace.yml'), 'projects: {}');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toEqual([]);
+      expect(result.totalBytes).toBe(0);
+    });
+
+    it('target/ with no Cargo.toml and no pom.xml is never offered', async () => {
+      const repoPath = join(root, 'neg-target');
+      await mkdir(join(repoPath, 'target'), { recursive: true });
+      await writeFile(join(repoPath, 'target', 'notes.txt'), 'hand-written');
+
+      mockSingleRepo(repoPath);
+      const result = await scanWorkspace({ signal: new AbortController().signal, onProgress: () => {} });
+      expect(result.items).toEqual([]);
+      expect(result.totalBytes).toBe(0);
+    });
+  });
+
+  it('scanWorkspace({ detectors: [oneDetector] }) produces items only for that detector', async () => {
+    const repoPath = join(root, 'injected-catalogue');
+    await mkdir(join(repoPath, 'node_modules'), { recursive: true });
+    await writeFile(join(repoPath, 'node_modules', 'f.js'), 'x'.repeat(10));
+    await mkdir(join(repoPath, 'dist'), { recursive: true });
+    await writeFile(join(repoPath, 'package.json'), '{}');
+    await writeFile(join(repoPath, 'dist', 'bundle.js'), 'y'.repeat(20));
+
+    mockSingleRepo(repoPath);
+
+    const distOnly: ArtifactDetector = {
+      id: 'node-dist',
+      label: 'dist/',
+      category: 'buildOutput',
+      ecosystem: 'node',
+      producer: 'npm run build',
+      match: ['dist'],
+      evidence: { kind: 'siblingAny', names: ['package.json'] },
+      reclaim: 'cheap',
+    };
+
+    const result = await scanWorkspace({
+      signal: new AbortController().signal,
+      onProgress: () => {},
+      detectors: [distOnly],
+    });
+
+    expect(result.items.map((i) => i.detectorId)).toEqual(['node-dist']);
+  });
+
+  it('the stale-worktree item carries its synthesised detector identity', async () => {
+    const repoPath = join(root, 'stale-main');
+    const stalePath = join(root, 'stale-wt');
+    await mkdir(repoPath, { recursive: true });
+    await mkdir(stalePath, { recursive: true });
+    await writeFile(join(stalePath, 'marker.txt'), 'x'.repeat(7));
+
+    vi.mocked(listRepos).mockResolvedValue([
+      { id: 'repo', path: repoPath, name: 'repo', headRef: 'main', worktrees: [] },
+    ]);
+    vi.mocked(worktreesFor).mockResolvedValue([
+      worktree({ path: repoPath, branch: 'main', isMain: true }),
+      worktree({ path: stalePath, branch: 'feature/gone', isMain: false }),
+    ]);
+    vi.mocked(execGit).mockResolvedValue({
+      exitCode: 0,
+      stdout: 'feature/gone\n',
+      stderr: '',
+      args: [],
+    });
+
+    const result = await scanWorkspace({
+      signal: new AbortController().signal,
+      onProgress: () => {},
+    });
+
+    const staleItem = result.items.find((i) => i.category === 'staleWorktree');
+    expect(staleItem).toMatchObject({
+      detectorId: 'git-stale-worktree',
+      ecosystem: 'git',
+      reclaim: 'cheap',
+    });
+    expect(result.byEcosystem.git).toBe(staleItem?.bytes ?? -1);
+    expect(result.detectors['git-stale-worktree']).toEqual({
+      label: 'Stale worktree',
+      producer: 'git worktree add',
     });
   });
 });

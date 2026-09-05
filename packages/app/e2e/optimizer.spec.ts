@@ -13,17 +13,45 @@ import { clickRailLink, installMockBridge, type MockFixtures } from './mock-brid
 
 const SCAN_RESULT = {
   totalBytes: 300,
-  byCategory: { nodeModules: 200, buildOutput: 100, staleWorktree: 0, looseObjects: 0 },
+  byCategory: { dependencies: 200, buildOutput: 100, toolCache: 0, staleWorktree: 0, looseObjects: 0 },
+  byEcosystem: {
+    node: 300,
+    multi: 0,
+    rust: 0,
+    cpp: 0,
+    dotnet: 0,
+    python: 0,
+    java: 0,
+    swift: 0,
+    ruby: 0,
+    git: 0,
+  },
+  detectors: {
+    'node-modules': { label: 'node_modules', producer: 'npm/pnpm/yarn install' },
+    'node-dist': { label: 'dist/', producer: 'npm run build' },
+  },
   items: [
     {
       path: '/tmp/midnite-studio/node_modules',
       bytes: 200,
-      category: 'nodeModules',
+      category: 'dependencies',
       repoId: 'repo-1',
+      detectorId: 'node-modules',
+      ecosystem: 'node',
+      reclaim: 'costly',
     },
-    { path: '/tmp/midnite-studio/dist', bytes: 100, category: 'buildOutput', repoId: 'repo-1' },
+    {
+      path: '/tmp/midnite-studio/dist',
+      bytes: 100,
+      category: 'buildOutput',
+      repoId: 'repo-1',
+      detectorId: 'node-dist',
+      ecosystem: 'node',
+      reclaim: 'cheap',
+    },
   ],
   truncated: false,
+  truncatedRoots: [],
 };
 
 const GPU_STATS = { model: 'Apple M2 Pro', vramBytes: 16 * 1024 * 1024 * 1024, loadPercent: 37 };
@@ -128,7 +156,10 @@ test.describe('Smart Scan + Storage', () => {
 
     await page.getByRole('button', { name: 'Run Smart Scan' }).click();
     await expect(page.getByText('300 B reclaimable')).toBeVisible();
-    await expect(page.getByText('node_modules')).toBeVisible();
+    // 'nodeModules' renamed to 'dependencies' (Phase 72 Theme C) — its category
+    // label is now the generic "Dependencies", not the detector-specific
+    // "node_modules" (that per-detector rendering is Theme D's job).
+    await expect(page.getByText('Dependencies')).toBeVisible();
     await expect(page.getByText('Build output')).toBeVisible();
 
     await tab(page, 'Storage').click();
@@ -142,21 +173,21 @@ test.describe('Smart Scan + Storage', () => {
   }) => {
     await openOptimizer(page, { ...fixtures, optimizer: { scanResult: SCAN_RESULT } });
     await page.getByRole('button', { name: 'Run Smart Scan' }).click();
-    await expect(page.getByText('node_modules')).toBeVisible();
+    await expect(page.getByText('Dependencies')).toBeVisible();
 
     await page
       .getByRole('listitem')
-      .filter({ hasText: 'node_modules' })
+      .filter({ hasText: 'Dependencies' })
       .getByRole('button', { name: 'Clean' })
       .click();
 
-    await expect(page.getByRole('heading', { name: 'Clean node_modules?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Clean Dependencies?' })).toBeVisible();
     await expect(page.getByText('1 item will be moved to the trash.')).toBeVisible();
     await expect(page.getByText('200 B will be freed.')).toBeVisible();
 
     await page.getByRole('button', { name: 'Move to Trash' }).click();
 
-    await expect(page.getByText('node_modules')).not.toBeVisible();
+    await expect(page.getByText('Dependencies')).not.toBeVisible();
     await expect(page.getByText('Build output')).toBeVisible();
   });
 
