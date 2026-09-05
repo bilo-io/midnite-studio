@@ -1,10 +1,16 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
 # The workspace-root project. It exists only to host repo-wide tasks; it has no
-# TypeScript sources of its own, so opt out of the inherited build/test/
-# typecheck/lint tasks (`.moon/tasks/typescript.yml`). `language: 'bash'` is NOT
-# enough on its own — moon 2 applies every `.moon/tasks/*.yml` to every project
-# regardless of the filename, so the exclusion has to be explicit.
+# TypeScript sources of its own, so opt out of the inherited build/typecheck/
+# lint tasks (`.moon/tasks/typescript.yml`). `language: 'bash'` is NOT enough on
+# its own — moon 2 applies every `.moon/tasks/*.yml` to every project regardless
+# of the filename, so the exclusion has to be explicit.
+#
+# `test` is deliberately NOT excluded (Phase 53 Theme F): the repo-wide
+# `scripts/*.test.mjs` files existed with no runner behind them, so `moon run
+# :test` skipped the root project entirely and CI never executed the guards over
+# version-check, tracker-check and the changelog mirror. `vitest.config.ts` at
+# the root scopes the inherited task to exactly those files.
 id: 'root'
 language: 'bash'
 layer: 'tool'
@@ -13,7 +19,6 @@ workspace:
   inheritedTasks:
     exclude:
       - 'build'
-      - 'test'
       - 'typecheck'
       - 'lint'
 
