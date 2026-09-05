@@ -2,6 +2,7 @@ import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared
 import { LuCircleDot, LuGitPullRequest, LuNotebookPen, LuX } from 'react-icons/lu';
 
 import type { IconComponent } from '../../../components/icon-button';
+import { UserAvatar } from '../../../components/user-avatar';
 import { ExternalLink } from '../../markdown/external-link';
 import { CardComposer } from './card-composer';
 import { ProjectFieldCell } from '../field-editor';
@@ -63,7 +64,14 @@ export function CardDetail({
         {item.content.assignees.length > 0 ? (
           <div className="mb-3">
             <p className="mb-1 text-[11px] font-medium text-muted-foreground">Assignees</p>
-            <p className="text-xs">{item.content.assignees.join(', ')}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {item.content.assignees.map((login) => (
+                <div key={login} className="flex items-center gap-1.5 text-xs">
+                  <UserAvatar login={login} size={16} detail="Assignee" />
+                  <span>{login}</span>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
 

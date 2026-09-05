@@ -11,6 +11,7 @@ import { PresentButton } from '../slides/present-button';
 import { RESOLVED_STATUS, StatusPill } from '../forge/forge-status';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
+import { UserAvatar } from '../../components/user-avatar';
 import { CommentComposer } from './comment-composer';
 import {
   checkSuggestionApplies,
@@ -148,6 +149,7 @@ function Thread({
           aria-expanded={open}
           className="flex min-w-0 flex-1 items-center gap-2 text-left hover:text-foreground"
         >
+          {first?.author ? <UserAvatar login={first.author} size={14} /> : null}
           <span className="truncate font-medium">{first?.author || 'someone'}</span>
           <span className="rounded bg-muted px-1 text-[10px] font-mono text-muted-foreground">
             {thread.side} L{thread.line}
@@ -253,6 +255,9 @@ function CommentBody({
   return (
     <div>
       <div className="flex items-center gap-2 text-[11px]">
+        {comment.author ? (
+          <UserAvatar login={comment.author} size={16} detail="Review comment" />
+        ) : null}
         <span className="font-medium">{comment.author || 'someone'}</span>
         <span className="text-muted-foreground/70 tabular-nums">
           {comment.createdAt.slice(0, 10)}

@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { reviewStatus, StatusPill } from '../forge/forge-status';
+import { UserAvatar } from '../../components/user-avatar';
 import { PrConversationSkeleton } from './reviews-skeletons';
 
 /**
@@ -51,6 +52,13 @@ export function PrConversation({
       {comments.map((comment) => (
         <li key={`${comment.kind}-${comment.id}`} className="px-4 py-3">
           <div className="flex flex-wrap items-center gap-2 text-xs">
+            {comment.author ? (
+              <UserAvatar
+                login={comment.author}
+                size={18}
+                detail={comment.reviewState ? `Review: ${comment.reviewState}` : 'Comment'}
+              />
+            ) : null}
             <span className="font-medium">{comment.author || 'someone'}</span>
             {comment.reviewState !== null ? (
               <StatusPill status={reviewStatus(comment.reviewState)} />
