@@ -11,9 +11,11 @@ import { configureRegistry, openRepo, resetRegistry } from '../repo-registry';
 import { nullRepoStore } from '../repo-store';
 import {
   branchList,
+  clampGraphLogLimit,
   diffFile,
   forgeChecks,
   forgePulls,
+  GRAPH_LOG_DEFAULT_LIMIT,
   GRAPH_LOG_MAX_LIMIT,
   graphLog,
   repoList,
@@ -157,14 +159,31 @@ describe('graphLog', () => {
     expect(result).toEqual([]);
   });
 
-  it('clamps the limit to the hard maximum', async () => {
+  it('accepts an over-max limit without erroring, clamped server-side', async () => {
     const repo = await newRepo();
     await repo.commitFile('a.txt', '1', 'first');
     await openRepo(repo.path);
 
-    await graphLog({ repoPath: repo.path, limit: GRAPH_LOG_MAX_LIMIT + 500 });
-    // Nothing to assert on row count with one commit; this exercises the
-    // clamp path without asserting on git's own argv.
+    // Real assertion of the clamp lives in `clampGraphLogLimit`'s own unit
+    // tests below; this just confirms an over-cap request is accepted
+    // (the schema's own `.max(200)` would otherwise have to reject it).
+    const result = await graphLog({ repoPath: repo.path, limit: GRAPH_LOG_MAX_LIMIT + 500 });
+    expect(result).toHaveLength(1);
+  });
+});
+
+describe('clampGraphLogLimit', () => {
+  it('defaults to 50 when no limit is given', () => {
+    expect(clampGraphLogLimit(undefined)).toBe(GRAPH_LOG_DEFAULT_LIMIT);
+  });
+
+  it('passes through a limit within range', () => {
+    expect(clampGraphLogLimit(10)).toBe(10);
+  });
+
+  it('clamps anything over the hard maximum down to it', () => {
+    expect(clampGraphLogLimit(GRAPH_LOG_MAX_LIMIT + 1)).toBe(GRAPH_LOG_MAX_LIMIT);
+    expect(clampGraphLogLimit(100_000)).toBe(GRAPH_LOG_MAX_LIMIT);
   });
 });
 

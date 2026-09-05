@@ -121,11 +121,16 @@ export async function statusGet(input: McpToolInput<'status.get'>): Promise<McpT
 export const GRAPH_LOG_DEFAULT_LIMIT = 50;
 export const GRAPH_LOG_MAX_LIMIT = 200;
 
+/** Pure, so the clamp itself — the one contract Decision 3 actually cares about — is unit-testable without a repo. */
+export function clampGraphLogLimit(requested: number | undefined): number {
+  return Math.min(requested ?? GRAPH_LOG_DEFAULT_LIMIT, GRAPH_LOG_MAX_LIMIT);
+}
+
 export async function graphLog(input: McpToolInput<'graph.log'>): Promise<McpToolOutput<'graph.log'>> {
   const resolved = await resolveRegisteredRepo(input.repoPath);
   if (!resolved.ok) throw resolved.error;
 
-  const limit = Math.min(input.limit ?? GRAPH_LOG_DEFAULT_LIMIT, GRAPH_LOG_MAX_LIMIT);
+  const limit = clampGraphLogLimit(input.limit);
   const commits = await readLog(resolved.repo.repoRoot, { limit, all: true });
   const rows: GraphRow[] = layoutGraph(commits);
   return rows;
