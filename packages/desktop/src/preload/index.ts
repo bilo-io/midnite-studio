@@ -506,6 +506,8 @@ const bridge: Pick<
     processes: () => call(CHANNELS.optimizerProcesses),
     kill: (req) => call(CHANNELS.optimizerKill, req),
     gpu: () => call(CHANNELS.optimizerGpu),
+    trashSummary: () => call(CHANNELS.optimizerTrashSummary),
+    emptyTrash: () => call(CHANNELS.optimizerTrashEmpty),
   },
   protocol: {
     onDeepLink: (handler) => subscribe(EVENT_CHANNELS.deepLink, handler),

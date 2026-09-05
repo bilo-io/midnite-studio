@@ -75,6 +75,7 @@ import {
   TestDiscoverySchema,
   TestRunResultSchema,
   TestTrustStatusSchema,
+  TrashSummarySchema,
   WatchEventSchema,
   WindowDescriptorSchema,
   WindowRoleSchema,
@@ -1920,6 +1921,13 @@ export const OptimizerKillRequest = z.object({
 export const OptimizerKillResponse = OptimizerVoidResultSchema;
 
 export const OptimizerGpuResponse = OptimizerResultOf(GpuStatsSchema);
+
+// --- optimizer: Trash (Phase 74) --------------------------------------------
+
+/** Payload-free — the whole contract is the response shape. */
+export const OptimizerTrashSummaryResponse = OptimizerResultOf(TrashSummarySchema);
+/** Payload-free — `emptyTrash` takes no parameters, so there is nothing to validate. */
+export const OptimizerTrashEmptyResponse = OptimizerVoidResultSchema;
 
 // --- deep link (Phase 33) --------------------------------------------------
 export const DeepLinkSchema = z.discriminatedUnion('kind', [

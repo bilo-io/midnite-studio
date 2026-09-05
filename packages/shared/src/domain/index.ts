@@ -24,6 +24,7 @@ export * from './statement-kind';
 export * from './stats';
 export * from './status';
 export * from './tests';
+export * from './trash';
 export * from './watch';
 export * from './battery';
 export * from './window';

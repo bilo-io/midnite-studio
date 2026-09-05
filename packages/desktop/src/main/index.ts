@@ -30,6 +30,7 @@ import { bindMetricsToWindow, registerMetricsHandlers } from './ipc/metrics-hand
 import { registerOptimizerHandlers } from './ipc/optimizer-handlers';
 import { registerPtyHandlers } from './ipc/pty-handlers';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
+import { registerTrashHandlers } from './ipc/trash-handlers';
 import { registerRefHandlers } from './ipc/ref-handlers';
 import { registerRebaseHandlers } from './ipc/rebase-handlers';
 import { registerClipboardHandlers } from './ipc/clipboard-handlers';
@@ -359,6 +360,7 @@ if (!app.requestSingleInstanceLock()) {
     registerReleaseNotesHandlers();
     ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
     registerOptimizerHandlers(getMainWindow);
+    registerTrashHandlers();
     registerPerfHandlers();
     registerReportHandlers({ log: defaultLogger });
     installMgitFileProtocol();
