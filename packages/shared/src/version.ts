@@ -256,3 +256,87 @@ export function versionFromReleaseBranch(branch: string): string | null {
   const match = /^release\/v(\d+\.\d+\.\d+)$/.exec(branch);
   return match ? (match[1] ?? null) : null;
 }
+
+// --- Planning a whole release, first one included ---------------------------
+
+/**
+ * The complete plan for one release: what to bump, and what to tag.
+ *
+ * `firstRelease` is not cosmetic — it is the case that broke a rehearsal of the
+ * flow (Phase 53 Theme F). See {@link planRelease}.
+ */
+export type ReleasePlan = {
+  /** True when this repo has never cut a lockstep `v*` tag. */
+  firstRelease: boolean;
+  /** The bump the commits imply. Always `'none'` for a first release. */
+  level: BumpLevel;
+  /** Every package's version after the bump (identical to `current` when `level` is `'none'`). */
+  next: Record<string, string>;
+  /** The source tag(s) to cut here, from {@link planReleaseTags}. */
+  tags: string[];
+};
+
+/**
+ * Plan a release end to end: categorise the commits, bump under the lockstep
+ * rule, and derive the source tag(s) — one call, so the two `/midnite-release-*`
+ * skills cannot disagree about the order or drop a step.
+ *
+ * **The first release is a distinct case, and getting it wrong is silent.**
+ * `previous` is `null` when `git tag --list 'v*'` is empty, i.e. nothing has
+ * ever been released. Then there is no "since the last release" range, so the
+ * commit history is the *whole* history — which contains `feat` commits and so
+ * categorises as `minor`. Feeding that to {@link planVersionBump} bumps a repo
+ * that is entirely `0.1.0` to `0.2.0` and cuts `v0.2.0`, when what the first
+ * release ships is the `0.1.0` already in the tree. A rehearsal against this
+ * repo's real history (799 commits, 0 tags) produced exactly that, so the rule
+ * is encoded here rather than left to a session to notice:
+ *
+ * > **A first release bumps nothing.** It publishes the versions already in the
+ * > tree and tags them — `level: 'none'`, `next === current`, `tags: ['vX.Y.Z']`.
+ *
+ * A first release therefore requires every package to already sit on one
+ * version; a repo whose patches have diverged before it has ever released has
+ * no single `vX.Y.Z` baseline to name, and this throws rather than cutting a
+ * pile of scoped tags for what should be one baseline.
+ *
+ * For every subsequent release `previous` is the version map read from the last
+ * `v*` tag's tree, and the usual path runs: level from the commits, bump from
+ * `current`, tags from `previous` → `next`.
+ */
+export function planRelease(input: {
+  /** Versions in the working tree, keyed by package name. */
+  current: Record<string, string>;
+  /** Versions at the last `v*` tag, or `null` when there has never been one. */
+  previous: Record<string, string> | null;
+  /** Commits in the release range, already parsed. Ignored for a first release. */
+  commits: ConventionalCommit[];
+  /** Packages whose files changed. Only consulted for a `patch` bump. */
+  changedPackages?: string[];
+}): ReleasePlan {
+  const { current, previous, commits, changedPackages = [] } = input;
+
+  if (previous === null) {
+    const versions = Object.values(current);
+    const [baseline] = versions;
+    if (baseline === undefined) {
+      throw new Error('cannot plan a first release: no packages were given');
+    }
+    if (!versions.every((version) => version === baseline)) {
+      throw new Error(
+        'cannot plan a first release: every package must already sit on one version ' +
+          `(got ${versions.join(', ')}). Align them, then release — a repo with no prior ` +
+          'release has no baseline to name.',
+      );
+    }
+    return {
+      firstRelease: true,
+      level: 'none',
+      next: { ...current },
+      tags: planReleaseTags({}, current),
+    };
+  }
+
+  const level = bumpLevelFromCommits(commits);
+  const next = planVersionBump(current, { level, changedPackages });
+  return { firstRelease: false, level, next, tags: planReleaseTags(previous, next) };
+}
