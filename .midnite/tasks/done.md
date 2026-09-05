@@ -4,7 +4,7 @@
 
 ## 2026-09-05 — Phase 55 Themes H, I, J + Phase 65 Theme E — pages detach, and the crash log becomes reachable
 
-[PR #177]. Closes three new Phase 55 themes (55 → 50/65) and the last outstanding theme of Phase 65
+[PR #178]. Closes three new Phase 55 themes (55 → 50/65) and the last outstanding theme of Phase 65
 (→ 43/49). Two bugs reported against [PR #175] are fixed here, both regressions covered by tests
 verified to fail without the fix.
 
@@ -56,7 +56,7 @@ verified to fail without the fix.
   `page-detach-mark.test.tsx`, `use-window-sync.test.tsx`, `domain/window.test.ts`, and
   `detached-pages-shots.spec.ts` writing 31 frames to `docs/screenshots/adhoc-page-detach/`.
 
-[PR #177]: https://github.com/bilo-io/midnite-studio/pull/177
+[PR #178]: https://github.com/bilo-io/midnite-studio/pull/178
 [PR #175]: https://github.com/bilo-io/midnite-studio/pull/175
 
 ## 2026-09-05 — Phase 57 Themes E, F — MCP consent/audit and the Settings page

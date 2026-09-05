@@ -203,7 +203,7 @@ The three facts that shape every theme below, because each one contradicts an ob
   - This is the phase's first use of Electron's `screen` module; it is main-process only.
 - [x] **G.5** Per-window diagnostics: every `window-manager` mutation logs one line through the existing single log seam — `[window] open role=terminal id=3`, `[window] close role=terminal id=3 reason=redock|closed|crashed`. `MSTUDIO_PERF=1` boot marks stay main-window-only; a popout does not emit boot stages, because `startup-report.mjs` medians would otherwise mix two windows' marks.
 
-### Theme H — Detachable PAGES, and the state they must share (M) — ✅ DONE (PR #177, 2026-09-05)
+### Theme H — Detachable PAGES, and the state they must share (M) — ✅ DONE (PR #178, 2026-09-05)
 
 > Themes A–G detach **panels**, which *move*: the docked slot collapses and the popout becomes the
 > only copy. A page cannot work that way — the main window has to go on rendering the view — so a
@@ -216,14 +216,14 @@ The three facts that shape every theme below, because each one contradicts an ob
 - [x] **H.3** View **furniture** deliberately stays local: `files-store.expanded`, `actions-store.collapsedWorkflows`, `file-editor-store`'s target line. Selection is a shared answer to "what am I looking at"; furniture is how one window is arranged to look at it, and syncing it is the pane-size fight Theme E already ruled out. Asserted, not just described (`broadcast-sync.test.ts`).
 - [x] **H.4** **Bug, reported against #175 — the popout theme flicker.** `applying` guards the zustand subscribers, which run synchronously inside `applyIncoming`; it cannot guard the theme `MutationObserver`, whose callback is a **microtask** delivered after the `finally` has reset the flag. Every relayed theme message therefore made the receiving window rebroadcast it — with two windows the echo damps, with three it amplifies and `<html>` flips class many times a second. `applyTheme` now records `lastDark`/`lastPaletteId` (module-level) *before* mutating, and writes `ThemeProvider`'s own `localStorage` key so the DOM and its React state cannot disagree across a reload.
 
-### Theme I — One watcher, N consumers (M) — ✅ DONE (PR #177, 2026-09-05)
+### Theme I — One watcher, N consumers (M) — ✅ DONE (PR #178, 2026-09-05)
 
 - [x] **I.1** `watch-service.ts` captured one `BrowserWindow` at watcher-start time, so `watchEvent` reached main and nowhere else; every other window stayed fresh only because main's renderer rebroadcast it over the Theme E relay. A detached page is a full data-driven view, not a panel — its freshness must not depend on another window's renderer being mounted and awake to forward for it.
 - [x] **I.2** Fan-out at the send, **not** a watcher per window: `broadcastToAllWindows` in `window-manager.ts`, with `watchers` still keyed by repoId. A repo open in three windows is watched once and costs three `webContents.send` calls rather than three recursive fs trees.
 - [x] **I.3** `useWatchInvalidation` stops relaying watch events (main now delivers to every window, so a relay would double-invalidate). `requestRestream` stays per-window — only the window whose graph shows `selectedRepoId` should pay for a re-stream.
 - [x] **I.4** **Bug, reported against #175 — the detached Graph never loaded.** `logStart`/`logCancel` and `searchStart`/`searchCancel` resolved their target with `getWindow()` — always main — while answering over an EVENT channel. A popout started a stream and main received every row. Now `handleFromSender`/`handleOpFromSender` (`handle.ts` gains the latter); `registerSearchHandlers` no longer takes a window accessor at all.
 
-### Theme J — The rest of the pages (M) — ✅ DONE (PR #177, 2026-09-05)
+### Theme J — The rest of the pages (M) — ✅ DONE (PR #178, 2026-09-05)
 
 - [x] **J.1** Eight more marks: Dashboard, Search, Tests, Projects, Reviews, Issues, History, Optimizer — thirteen detachable pages in all.
 - [x] **J.2** Hand-placed per header rather than behind a shared `PageHeader`, because those headers differ for good reasons: History and Reviews are `role="tablist"` rows a non-tab child has no business joining (the mark goes *beside* the tablist, as `workbench.tsx` already does), Optimizer's is a block-flow two-row stack, and Search's sizes its children `flex-1`.
@@ -267,7 +267,7 @@ The three facts that shape every theme below, because each one contradicts an ob
 - [ ] **Open, for a human:** the F.3 multi-monitor pass — four panels across two displays, a live agent session, a running loop, a theme flip, then a full re-dock.
 - [ ] **Open, for a human:** unplug or disable the display a popout occupies and relaunch; the popout must reappear on a visible display at its role default, never off-screen.
 
-**Themes H/I/J (PR #177):**
+**Themes H/I/J (PR #178):**
 
 - [x] `broadcast-sync.test.ts`: each page-selection slice relays and applies; a relayed slice does not ping-pong back out; furniture (`expanded`, `collapsedWorkflows`) relays nothing.
 - [x] `broadcast-sync.test.ts`: a relayed **theme** is not rebroadcast — asserted after a microtask *and* a macrotask turn, which is the only way to catch the `MutationObserver` timing the old `applying` guard missed. Verified to fail without the fix.

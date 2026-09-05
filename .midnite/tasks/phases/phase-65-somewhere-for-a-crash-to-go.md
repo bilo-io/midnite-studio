@@ -247,9 +247,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `isPackaged` and the `fingerprint.ts` build id. Every log file's first line, so a pasted tail
       identifies its build without the reporter being asked.
 
-### E — A user can get at it in two clicks (S) — ✅ DONE (PR #177, 2026-09-05)
+### E — A user can get at it in two clicks (S) — ✅ DONE (PR #178, 2026-09-05)
 
-> **Landed in PR #177.** Themes A–D shipped the whole machine (sink, channels, `reportError`,
+> **Landed in PR #178.** Themes A–D shipped the whole machine (sink, channels, `reportError`,
 > main's own crash hooks) with no way in; this theme is the user-facing half. `release.ts` already
 > carried `ISSUES_URL`/`NEW_ISSUE_URL`, so what this added is the three controls in the existing
 > Diagnostics accordion plus the Report-a-bug link in the release-notes panel.
