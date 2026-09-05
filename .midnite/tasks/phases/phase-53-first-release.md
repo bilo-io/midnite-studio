@@ -1,5 +1,7 @@
 # Phase 53 — The first release
 
+**Refined: x1** · 2026-09-05 · sequencing & dependencies, per-item acceptance criteria, testing & verification, file-map precision, observability & diagnostics, out-of-scope tightening
+
 [Phase 11](phase-11-packaging.md) taught this repo to build a `.dmg`.
 [Phase 33](phase-33-installable-app-and-cli-integration.md) taught it to install one, and shipped an
 in-app updater against a feed that did not exist yet. Everything a user *receives* is built and
@@ -7,6 +9,45 @@ documented. Nothing has ever been *sent*: `git tag | wc -l` is **0**, `bilo-io/m
 **zero releases**, and its `midnite-studio/version.json` still carries `"version": null`. This
 phase closes that gap and ships v0.1.0 — not by building new machinery, but by connecting machinery
 that already exists at both ends and has never been joined in the middle.
+
+**The x1 refinement re-verified every claim in this doc after Theme A landed.** Most held — `git tag`
+is still **0**, `midnite-apps` still has **zero releases**, `version.json` still reads
+`"version": null`, its `feed/` still holds only a `README.md`, and all four sibling-app cribs in
+Theme D are real, each with the broken release that taught it. Five things changed or were wrong:
+
+1. **Theme A shipped a new release-blocker.** The CLI wrapper PR #155 added
+   [`resources/bin/midnite-studio`](../../../packages/desktop/resources/bin/midnite-studio), and its
+   line 32 is `echo "midnite-studio 0.1.0"` — a **sixth** hand-written version site, outside every
+   check Theme B is about to build. The first bump ships a CLI whose `--version` lies. Theme B now
+   owns it.
+2. **The raw updater error is already surfaced — in the wrong place to matter.**
+   [`updates-page.tsx:92`](../../../packages/app/src/features/settings/settings-pages/updates-page.tsx)
+   renders `updateState.error ?? 'Failed to check for updates'`. What is blind is the **pill**:
+   [`update-pill.tsx:32-38`](../../../packages/app/src/features/status-bar/update-pill.tsx) returns
+   `null` for `error` *and* `checking`, so a user who never opens Settings sees a silent no-op.
+   Theme G is re-aimed accordingly.
+3. **`updateChannel` is renderer-only, so "read it at boot" is a design fork, not a one-liner.**
+   It lives at [`ui-store.ts:668`](../../../packages/app/src/store/ui-store.ts), persisted to
+   `localStorage` under `midnite-studio.ui` v8. `grep -rn "updateChannel" packages/desktop` → **0**.
+   Main cannot read it at `whenReady()` at all. See Decision — *how the channel survives a relaunch*.
+4. **The skills are far more broken than a stale banner.** They invoke **six** helpers by name that
+   exist nowhere in this repo — `planVersionBump`, `planReleaseTags`, `parseConventionalCommit`,
+   `bumpLevelFromCommits`, `sharesLockstepMajorMinor`, `versionFromReleaseBranch` (grep → 0 each) —
+   and `/midnite-release-complete`'s changelog precondition calls
+   `extractChangelogSection(CHANGELOG.md, 'X.Y.Z')` expecting an object with a `.date`, while the
+   shipped helper ([`release.ts:57`](../../../packages/shared/src/release.ts)) returns
+   `string | null`. That precondition **cannot pass as written**. The banner also lives in **six**
+   files, not two (`.claude`, `.agents`, `.codex` × prep/complete), so [`CLAUDE.md`](../../../CLAUDE.md)'s
+   three-way sync rule applies.
+5. **There are three propagation targets, not two.** The receiving repo's
+   `midnite-studio/CHANGELOG.md` states it is *"the public mirror of the changelog in the private
+   source repo … the release flow copies the released section across"*, and
+   [`release.ts:20`](../../../packages/shared/src/release.ts)'s `RELEASE_CHANGELOG_RAW_URL` points
+   the in-app release-notes popover at **that mirror**. `/midnite-release-complete` §4 makes copying
+   it a third manual step. A release that skips it ships with an empty notes panel.
+
+One crib correction: midnite publishes to **`bilo-io/midnite-app` (singular)**, a different repo from
+this app's `bilo-io/midnite-apps`. Copy its workflow's *shape*, never its `repository:` value.
 
 **Builds on.** The receiving half is complete and needs no work here:
 [`midnite-apps`](https://github.com/bilo-io/midnite-apps) already carries an `apps.json` registry
@@ -85,12 +126,47 @@ something CI can fail on.
 - [ ] A `scripts/version-check.mjs` asserting the lockstep invariant across the root and every
       `packages/*` `package.json`, wired as a `root:version-check` moon task inside `moon ci`. Crib
       the sibling app's `scripts/version-check.mjs` — the invariant is identical.
+  - The comparison is a **grouping, not a pairwise equality**: bucket every package by its
+    `MAJOR.MINOR` and require exactly one bucket, so `PATCH` may legitimately diverge. That is what
+    the sibling's `main()` does, and the error message must name every offending package, not just
+    report a mismatch.
+  - Take only the lockstep half. midnite's script also exports `checkManifestFreshness`, which
+    guards a locally-emitted `version.json`; this app's `version.json` is written **server-side** by
+    the receiving repo's `release-feed.yml`, so there is nothing here for it to check.
+  - Keep it import-free (no `@midnite/*`), as the sibling does — it runs in `moon ci` before
+    anything is built.
+  - **Root [`moon.yml`](../../../moon.yml) has exactly one task today (`install`).** `version-check`
+    is its second, not an addition to a list.
+- [ ] **Bring `resources/bin/midnite-studio` under the check — it is the sixth version site and it
+      is brand new.** PR #155 shipped
+      [`packages/desktop/resources/bin/midnite-studio:32`](../../../packages/desktop/resources/bin/midnite-studio)
+      hardcoding `echo "midnite-studio 0.1.0"`. Nothing bumps it and nothing reads it back. Either
+      have the wrapper derive its version from the bundle it sits inside (it already resolves
+      `$RESOURCES`), or add it to `version-check.mjs`'s file list with a regex. **Deriving is
+      preferred** — a sixth site that merely gets checked is still a sixth site to remember.
 - [ ] The check runs in CI, not only in the release skill. A rule enforced solely by the tool that
       performs the release is a rule that can only be discovered to be broken at the least
       convenient moment.
 - [ ] Tests for the pure comparison (`version-check.test.mjs` or equivalent): all-equal passes, a
       divergent `MINOR` fails, a divergent `PATCH` passes, and a missing package is reported rather
       than skipped.
+  - **Do not expect to inherit these.** The sibling app's only test
+    (`packages/shared/src/version-manifest-scripts.test.ts`) covers `checkManifestFreshness` — the
+    half this app is *not* taking. Its lockstep grouping in `main()` has **no test at all**, so this
+    is net-new coverage of the one thing that matters here.
+  - Export the comparison as a pure function so the test does not shell out; the sibling's
+    import-free style already makes this straightforward.
+- [ ] **Fix the two release skills' broken helper references, in all six files.** They call
+      `planVersionBump`, `planReleaseTags`, `parseConventionalCommit`, `bumpLevelFromCommits`,
+      `sharesLockstepMajorMinor` and `versionFromReleaseBranch` by name; `grep -rn` finds **zero** of
+      them. Either port them into `packages/shared/src/version.ts` alongside the lockstep helper this
+      theme is already adding, or rewrite those skill steps as hand-applied rules. **Porting is
+      preferred** — the skills are written around them and a rules-only rewrite loses the precision.
+- [ ] **Fix `/midnite-release-complete`'s unimplementable changelog precondition.** It asserts
+      `extractChangelogSection(CHANGELOG.md, 'X.Y.Z')` "returns a section with a non-null `date`";
+      the shipped helper ([`release.ts:57`](../../../packages/shared/src/release.ts)) returns
+      `string | null` and has no `date`. Either widen the helper's return (and its nine existing
+      tests in `release.test.ts`) or restate the precondition against the real signature.
 
 ### C — `verify-dist` learns what a *distributable* build is (S)
 
@@ -108,7 +184,16 @@ updater actually consumes and the one most likely to be missing or stale.
       cheapest possible guard against shipping a bundle whose internal version disagrees with the
       tag it was cut from, which is exactly the disagreement an updater compares against.
 - [ ] Keep every existing gate. This theme adds; it does not renegotiate what Phase 11 and Phase 49
-      each put there for a reason.
+      each put there for a reason. **There are ten of them today**, not six —
+      [`verify-dist.mjs`](../../../packages/desktop/scripts/verify-dist.mjs) exits on: dmg exists
+      (`:16`), zip exists (`:20`), dmg ≥ 50 MB (`:29`), zip ≥ 50 MB (`:33`), `codesign --verify`
+      (`:38`), `hdiutil verify` (`:46`), `Info.plist` names the URL scheme (`:54`), Phase 49's
+      template check (`:68`), and **two** from PR #155 — wrapper present (`:90`) and wrapper
+      executable (`:96`).
+- [ ] Note what the version gate is actually guarding against: `verify-dist.mjs:7-8` reads `version`
+      from `packages/desktop/package.json` and builds every expected artifact name from it, but never
+      compares it to the built bundle. A skew between the two passes today, silently, and it is
+      exactly the skew an updater compares against.
 
 ### D — A tag-triggered release workflow (M)
 
@@ -125,6 +210,16 @@ tag, holds `contents: read`, and uploads **the dmg only** — not the zip and no
       `midnite-studio/vX.Y.Z`, using a fine-grained PAT (`RELEASES_REPO_TOKEN`, Contents: write).
       The default `GITHUB_TOKEN` is scoped to this private repo and cannot write to the other one;
       the namespacing is not cosmetic, since a bare `vX.Y.Z` would collide with a sibling app's.
+  - **`RELEASES_REPO_TOKEN` does not exist yet** — `grep -rn "RELEASES_REPO_TOKEN"` → **0**.
+    Creating it and adding it to this repo's Actions secrets is a step, not an assumption. The only
+    secret any workflow references today is `secrets.GITHUB_TOKEN`, mapped to
+    `GITHUB_PACKAGES_TOKEN` at seven points in [`ci.yml`](../../../.github/workflows/ci.yml).
+  - Asset names come from `electron-builder.yml:14`'s `artifactName`
+    (`midnite-studio-${version}-${arch}.${ext}`) and must match `apps.json`'s declared
+    `midnite-studio-${version}-arm64.{dmg,zip}` in the receiving repo **exactly** — `install.sh`
+    builds its download URL from that template, so a rename there breaks installation silently.
+  - **Copy the sibling workflow's shape, never its `repository:` value.** midnite publishes to
+    `bilo-io/midnite-app` — *singular*, a different repo. This one targets `bilo-io/midnite-apps`.
 - [ ] **Crib four guards from the sibling app's `release.yml`, each of which cost it a broken
       release to learn:**
   - Write `CSC_LINK`/`CSC_KEY_PASSWORD` into `$GITHUB_ENV` from a conditional bash step, never
@@ -133,10 +228,26 @@ tag, holds `contents: read`, and uploads **the dmg only** — not the zip and no
     `CSC_IDENTITY_AUTO_DISCOVERY` is ever consulted — so an unsigned build fails outright instead
     of proceeding unsigned. Write `CSC_IDENTITY_AUTO_DISCOVERY=false` when there is no cert.
   - An explicit asset **allowlist**, not `artifacts/**/*`. Every build leg emits `builder-debug.yml`;
-    a glob uploads it and collides.
+    a glob uploads it and collides. The sibling's allowlist is
+    `.dmg .zip .exe .AppImage .blockmap latest*.yml`; this app needs
+    **`.dmg .zip .blockmap latest-mac.yml`** — one leg, but the `.blockmap` and the manifest must be
+    in it, since Theme C now gates on both and Theme E consumes the manifest. Its comment records the
+    cost of learning this: the glob "uploaded all three under that one basename … absorbed on v0.9.0,
+    fatal on v0.9.1/v0.10.0/v0.11.0, where the failed job left the release an **untagged draft**".
   - A pre-flight failing on an empty asset set or a duplicate basename, before anything is published.
   - `if: ${{ !cancelled() }}` on the publish job, so one flaky leg cannot silently skip the publish
     and leave a tag with no release behind it.
+- [ ] The workflow needs **`permissions: contents: write`** on its publish job. CI's existing
+      `package` job holds `contents: read` + `packages: read`
+      ([`ci.yml:179-181`](../../../.github/workflows/ci.yml)) — it could not publish even if it
+      wanted to, which is why this is a new workflow rather than a trigger added to that one.
+- [ ] Reuse `ci.yml`'s `package` job as the literal template for the build steps (checkout, pnpm
+      9.15.0 / node 22.12.0, `GITHUB_PACKAGES_TOKEN`, `desktop:rebuild-native`, `desktop:dist` with
+      `CSC_IDENTITY_AUTO_DISCOVERY: 'false'`, `desktop:verify-dist`) so the two paths cannot drift.
+      Note `desktop:dist`/`verify-dist` carry `options.runInCI: false` in
+      [`packages/desktop/moon.yml`](../../../packages/desktop/moon.yml) — that suppresses them under
+      `moon ci` only, and both CI and this workflow invoke them by explicit `moon run`, so they do
+      execute. Fragile, and worth a comment in the new workflow rather than a rediscovery.
 - [ ] `--publish never` on the electron-builder invocation. The `generic` provider is **read-only**
       — it describes where the app *fetches* its manifest, not somewhere anything can be uploaded —
       so the flag still generates `latest-mac.yml` while correctly attempting no upload. Publishing
@@ -157,6 +268,16 @@ installer or the in-app updater pinned to the previous version."*
 
 - [ ] A second job in the release workflow that commits `latest-mac.yml` into
       `midnite-studio/feed/` in `midnite-apps`, using the same `RELEASES_REPO_TOKEN`.
+  - That directory holds **only a `README.md`** today — confirmed against the live repo tree. The
+    manifest has never existed there, so the first run creates it rather than replacing it.
+- [ ] **Mirror the changelog section too — it is the third propagation target, not a second.** The
+      receiving repo's `midnite-studio/CHANGELOG.md` describes itself as *"the public mirror of the
+      changelog in the private source repo … the release flow copies the released section across"*,
+      and [`release.ts:20`](../../../packages/shared/src/release.ts)'s `RELEASE_CHANGELOG_RAW_URL`
+      points the in-app release-notes popover at **that mirror**, not at this repo. A release that
+      updates the feed but not the mirror ships an empty notes panel for its own version.
+      `/midnite-release-complete` §4 lists it as a third manual step; automate it in the same job as
+      the manifest, since both are commits to the same repo under the same token.
 - [ ] **Ordering is load-bearing:** the release must exist first, because the manifest's `path`
       resolves against release assets that must already be downloadable. Committing the manifest
       before the assets are attached publishes a feed that points at a 404 — and every running app
@@ -167,11 +288,17 @@ installer or the in-app updater pinned to the previous version."*
 - [ ] Update [`/midnite-release-complete`](../../.claude/skills/midnite-release-complete/SKILL.md)
       §4 to describe verifying the automated commit rather than performing a manual one, matching
       how it already treats `version.json`.
-- [ ] **De-stale both release skills.** Both open with a ⚠️ banner claiming release infrastructure
-      "doesn't exist here yet" and that there are no `packages/shared/src/{version,release}.ts`
-      helpers. `release.ts` and its tests exist today; after Theme B, `version.ts` and
-      `root:version-check` do too. A banner that is wrong is worse than no banner, because it
-      instructs a future session to rebuild what is already there.
+- [ ] **De-stale the release skills — six files, not two.** The ⚠️ banner is duplicated verbatim
+      across `.claude/`, `.agents/` and `.codex/` × `midnite-release-prep` and
+      `midnite-release-complete`, and [`CLAUDE.md`](../../../CLAUDE.md)'s three-way sync rule makes
+      updating all six mandatory, not tidy.
+  - It is **half** wrong, and only the wrong half should go: `packages/shared/src/release.ts`
+    **does** exist (88 lines, nine tests, two live consumers), so "no
+    `packages/shared/src/{version,release}.ts` helpers" misleads a future session into rebuilding it.
+    `version.ts`, `root:version-check`, `docs/RELEASING.md` and the release workflow genuinely do not
+    exist — until Theme B and Theme D land, at which point the whole banner comes out.
+  - Also stale in the same paragraph: *"packaging lands in Phase 11"* — it landed. And *"the updater
+    is post-MVP"* — it is built, wired and shipped; only its feed has been missing.
 
 ### F — The first release, end to end (M)
 
@@ -187,14 +314,24 @@ is deliberately the *verification* theme rather than an afterthought inside anot
       `midnite-apps` with **both** the dmg and the zip attached; `release-feed.yml` rewrote
       `version.json` from `"version": null` to `0.1.0`; and `latest-mac.yml` is committed under
       `midnite-studio/feed/`.
-- [ ] Install it the way a stranger would — `curl -fsSL …/install.sh | sh` on a machine with no
-      checkout of this repo — and launch the result. Then check what only that path can check: that
+- [ ] Install it the way a stranger would — the installer lives at **`midnite-studio/install.sh`**,
+      not the receiving repo's root, so the one-liner is
+      `curl -fsSL https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/install.sh | sh`
+      — on a machine with no checkout of this repo, then launch the result. Then check what only that path can check: that
       the app opens **without a Gatekeeper prompt** (curl sets no `com.apple.quarantine`, which is
       the entire reason the installer is the recommended route for an unsigned build), that
       `midnite-studio` on the CLI works (Theme A), and that it launches under `env -i` with a bare
       `PATH` — the check [Phase 11](phase-11-packaging.md) established after a packaged build
       shipped without git.
-- [ ] Update the app README in the receiving repo to drop its *"No public release yet"* banner.
+- [ ] Update the app README in the receiving repo to drop its *"No public release yet"* banner —
+      verbatim today: *"**No public release yet.** Midnite Studio is pre-1.0 and packaging is still
+      landing, so `version.json` carries `"version": null` and the installer below will tell you as
+      much rather than downloading anything."*
+- [ ] **Confirm the pre-release failure mode is what actually changes.** `install.sh` parses the
+      version with a `sed` that matches only a *quoted* string, so today's `"version": null` yields
+      an empty `$version` and the script exits with *"Midnite Studio has no published release yet."*
+      Run the installer **once before** cutting the release to see that message, so the after-state
+      is a proven change rather than an assumed one.
 
 ### G — An updater observed working, for the first time (S)
 
@@ -206,18 +343,37 @@ but a fail-soft that has never once succeeded is indistinguishable from a broken
 - [ ] With Theme F's feed live, confirm the pill and Settings ▸ Updates actually reach `available`,
       and that `manualInstall` routes an ad-hoc-signed build to the curl one-liner rather than
       offering a Restart that Squirrel.Mac cannot perform.
-- [ ] **Surface the raw updater error in Settings ▸ Updates.** Crib this directly: the sibling app
-      added exactly this line after its fail-soft banner concealed a broken feed *across multiple
-      releases*. A silent-by-design surface needs one place that is loud.
-- [ ] Read the persisted `updateChannel` at startup. `update-service.ts:50` hardcodes
-      `feedChannelFor('stable')` at boot and the preference is only applied through the
-      `updateSetChannel` IPC — so a user on beta is on stable again after every relaunch, until
-      something happens to re-send it.
-- [ ] Keep `feedChannelFor`'s `stable → 'latest'` mapping exactly as it is, and note why in a test:
-      the naive `autoUpdater.channel = 'stable'` makes the provider look for a `stable-mac.yml`
-      that is never published, producing `ERR_UPDATER_CHANNEL_FILE_NOT_FOUND` — which the fail-soft
-      rule then swallows. This is the sibling app's most expensive bug and this repo has already
-      avoided it; a test is what stops it being "simplified" back in.
+- [ ] **Surface the updater error in the status-bar pill — Settings already does it.**
+      [`updates-page.tsx:92`](../../../packages/app/src/features/settings/settings-pages/updates-page.tsx)
+      already renders `updateState.error ?? 'Failed to check for updates'`, so the original
+      deliverable was aimed at the one surface that was never blind. The blind one is
+      [`update-pill.tsx:32-38`](../../../packages/app/src/features/status-bar/update-pill.tsx), which
+      returns `null` for **both** `error` and `checking` — a user who never opens Settings gets a
+      Check button that does nothing visible, forever. Render at least an error affordance there.
+      The sibling app added its loud line after a fail-soft banner concealed a broken feed *across
+      multiple releases*; the lesson applies to whichever surface the user is actually looking at.
+- [ ] Make the channel survive a relaunch. [`update-service.ts:50`](../../../packages/desktop/src/main/update-service.ts)
+      is `const config = feedChannelFor('stable');` and the only other `feedChannelFor` call is at
+      `:100`, inside the `updateSetChannel` handler — so a beta user is back on `latest` after every
+      relaunch until they re-touch the Settings control.
+  - **This is not a one-line fix, because main cannot read the preference.** `updateChannel` lives at
+    [`ui-store.ts:668`](../../../packages/app/src/store/ui-store.ts), persisted to renderer
+    `localStorage` under `midnite-studio.ui` v8; `grep -rn "updateChannel" packages/desktop` → **0**.
+    Two options, and the phase picks one before writing code — see the Decision below.
+  - Whichever is chosen, the acceptance test is the same and is already in `## Verification`: set
+    beta, relaunch, and assert the app requests `beta-mac.yml`.
+- [ ] Keep `feedChannelFor`'s `stable → 'latest'` mapping, and **write down why — the test already
+      exists but the reasoning does not.**
+      [`feed-channel.test.ts:5`](../../../packages/desktop/src/updates/feed-channel.test.ts)
+      (*"maps stable to latest channel"*) pins the behaviour, but
+      [`feed-channel.ts`](../../../packages/desktop/src/updates/feed-channel.ts) has **zero
+      comments** and `grep -rn "ERR_UPDATER"` → **0** repo-wide. A test that pins a value without
+      saying why invites exactly the "simplification" it exists to prevent. Add the reason as a
+      docblock: `autoUpdater.channel` is appended to the generic feed base as
+      `<base>/<channel>-mac.yml`, so `'stable'` would request a `stable-mac.yml` that is never
+      published, producing `ERR_UPDATER_CHANNEL_FILE_NOT_FOUND` — which the fail-soft rule then
+      swallows. This is the sibling app's most expensive bug, and this repo has already avoided it by
+      accident of naming.
 
 ### H — Signing and notarization, wired and honestly blocked (M)
 
@@ -228,11 +384,26 @@ but a fail-soft that has never once succeeded is indistinguishable from a broken
 the step. Every piece is in place except a certificate, **and a certificate is a purchase, not a
 task.**
 
-- [ ] Document the four secrets (`CSC_LINK`, `CSC_KEY_PASSWORD`, and the three `APPLE_*`), where
-      each comes from and how to set them, so the day the cert exists this is configuration rather
-      than archaeology.
-- [ ] Verify the unsigned path stays green with all four absent — Theme D's `$GITHUB_ENV` guard is
+- [ ] Document the five secrets — `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`,
+      `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` (the doc previously said four; the three
+      `APPLE_*` plus the two `CSC_*` are five) — where each comes from and how to set them, in a new
+      `docs/RELEASING.md`, which both release skills already reference and which **does not exist**.
+  - Today `CSC_LINK`/`CSC_KEY_PASSWORD` appear only as prose in
+    [`README.md:114`](../../../README.md) and a comment in `electron-builder.yml:86`, and the three
+    `APPLE_*` only as `process.env` reads in
+    [`notarize.cjs:12-14`](../../../packages/desktop/scripts/notarize.cjs). **No workflow references
+    any of them.**
+- [ ] Verify the unsigned path stays green with all five absent — Theme D's `$GITHUB_ENV` guard is
       precisely what makes that true, and it is worth an explicit CI run rather than an assumption.
+- [ ] **Make the notarization skip visible.** [`notarize.cjs:16-19`](../../../packages/desktop/scripts/notarize.cjs)
+      logs `[notarize] skipped (missing Apple credentials in env)` and returns — and nothing
+      downstream asserts it ran, so an unnotarized build passes `verify-dist` (`codesign --verify`
+      succeeds on the ad-hoc signature from `afterpack.cjs`). That is correct today and a trap the
+      day a cert exists: a mistyped secret name would silently produce an unnotarized release.
+      Theme C's verify step should record which mode the build was in.
+- [ ] Note that [`afterpack.cjs:87`](../../../packages/desktop/scripts/afterpack.cjs) only
+      `console.warn`s when the ad-hoc `codesign` fails rather than throwing — a failed sign surfaces
+      two steps later at `verify-dist`'s `codesign --verify`, with a misleading proximate cause.
 - [ ] Flip `notarize: true` and require the signed path **only once a Developer ID exists**. Until
       then this box stays unticked on purpose, and the phase does not pretend otherwise.
 - [ ] Say plainly, in the receiving repo's README, that builds are ad-hoc signed and `manualInstall`
@@ -251,10 +422,15 @@ task.**
 | CI | `.github/workflows/release.yml` — new, tag-triggered, cross-repo publish + feed commit (D, E); [`ci.yml`](../../../.github/workflows/ci.yml) — unchanged, its `package` job stays the `main`-branch smoke test |
 | Contract | `packages/shared/src/version.ts` — new (B); [`release.ts`](../../../packages/shared/src/release.ts) — unchanged, already correct |
 | Main, updater | [`update-service.ts`](../../../packages/desktop/src/main/update-service.ts) — read the persisted channel at boot (G) |
-| Renderer | [`updates-page.tsx`](../../../packages/app/src/features/settings/settings-pages/updates-page.tsx) — a raw-error status line (G) |
+| Renderer | [`updates-page.tsx`](../../../packages/app/src/features/settings/settings-pages/updates-page.tsx) — (**unchanged**) `:92` already renders the raw error; the gap is the pill (G) |
 | Skills | [`midnite-release-prep`](../../.claude/skills/midnite-release-prep/SKILL.md), [`midnite-release-complete`](../../.claude/skills/midnite-release-complete/SKILL.md) — stale banners removed, §4 rewritten for the automated feed commit (E) |
 | Receiving repo (`bilo-io/midnite-apps`) | `midnite-studio/README.md` — drop the "no release yet" banner, state the ad-hoc-signing position (F, H); `midnite-studio/feed/latest-mac.yml` — written by the workflow, not by hand (E) |
-| Tests | `version-check.test.mjs` (B), a `feed-channel.test.ts` case pinning the `stable → 'latest'` mapping (G) |
+| Tests | `version-check.test.mjs` — net-new, the sibling's lockstep half is untested (B); [`feed-channel.ts`](../../../packages/desktop/src/updates/feed-channel.ts) — a docblock, since [`feed-channel.test.ts:5`](../../../packages/desktop/src/updates/feed-channel.test.ts) already pins the mapping (G) |
+| CLI wrapper | [`resources/bin/midnite-studio`](../../../packages/desktop/resources/bin/midnite-studio) — line 32's hardcoded `0.1.0`, the sixth version site, shipped by Theme A itself (B) |
+| Docs | `docs/RELEASING.md` — **new**; referenced by both skills and absent (H) |
+| Skills ×6 | `.claude/`, `.agents/` **and** `.codex/` × `midnite-release-prep`, `midnite-release-complete` — the banner, the six missing helper references, and §4's changelog precondition (B, E) |
+| Renderer | [`update-pill.tsx`](../../../packages/app/src/features/status-bar/update-pill.tsx) — an error affordance; it returns `null` for `error` and `checking` today (G) |
+| Receiving repo | `midnite-studio/CHANGELOG.md` — the **third** propagation target, mirrored by the release flow and read by the in-app notes popover (E) |
 
 ## Verification
 
@@ -277,7 +453,22 @@ task.**
 - [ ] A v0.1.1 published afterwards is offered in-app to a running v0.1.0, with the raw error line
       empty — the first end-to-end proof the updater works. **A human pass**, and the only one that
       can close [Phase 33](phase-33-installable-app-and-cli-integration.md)'s inert-feed decision (G).
-- [ ] A user on the beta channel is still on beta after a relaunch (G).
+- [ ] A user on the beta channel is still on beta after a relaunch — assert the app requests
+      `beta-mac.yml`, not `latest-mac.yml` (G).
+- [ ] `midnite-studio --version` on the **installed** build prints the released version, not a
+      hardcoded `0.1.0` (B). The sixth version site, proven rather than assumed.
+- [ ] `moon ci` fails when `resources/bin/midnite-studio`'s version disagrees with `package.json`,
+      or the wrapper derives it and there is nothing left to disagree (B).
+- [ ] The status-bar pill shows *something* when a check fails — today it renders `null` for `error`
+      and `checking`, so a failed check is indistinguishable from a successful one (G).
+- [ ] The in-app release-notes popover shows v0.1.0's notes, proving the **changelog mirror** was
+      propagated and not just the two feeds (E, F).
+- [ ] `grep -rn "planVersionBump\|versionFromReleaseBranch" .claude .agents .codex` either resolves
+      to real exports or the skills no longer name them (B).
+- [ ] The ⚠️ banner is gone from all **six** skill files, and `.claude`/`.agents`/`.codex` remain
+      byte-identical to each other (B, E).
+- [ ] Running `install.sh` **before** the release prints "no published release yet", and the same
+      command after it installs v0.1.0 — the before-state captured, not assumed (F).
 
 ## Not in this phase
 
@@ -327,6 +518,41 @@ task.**
   `release-feed.yml` already skips prereleases for the stable feed, so the seams exist. A
   `beta-mac.yml` with nothing in it is the exact shape of the `ERR_UPDATER_CHANNEL_FILE_NOT_FOUND`
   bug Theme G is pinning a test against.
+- **Settled (x1) — the release propagates THREE artifacts, not two.** `version.json` (automatic,
+  server-side, via the receiving repo's `release-feed.yml`), `latest-mac.yml` (Theme E automates it)
+  and `midnite-studio/CHANGELOG.md` (the public mirror the in-app notes popover actually reads, via
+  `release.ts`'s `RELEASE_CHANGELOG_RAW_URL`). `/midnite-release-complete` §4 and §5 already treat
+  the first two as a pair and call a release missing either "published but not installable"; the
+  third belongs in that same sentence, because a release missing it is installable but mute.
+
+- **Settled (x1) — the CLI wrapper's version is derived, not checked.** PR #155 shipped a sixth
+  hand-written version site (`resources/bin/midnite-studio:32`). Adding it to `version-check.mjs`
+  would work and is the smaller change; deriving it from the bundle the wrapper already resolves is
+  better, because a checked constant is still a constant somebody has to remember to bump, and the
+  whole point of Theme B is to stop relying on that.
+
+- **Open (x1) — how does the update channel survive a relaunch?** `updateChannel` is renderer state
+  in `localStorage`; main reads nothing at boot. Two options:
+  (a) **Push it from the renderer on mount** — one `updateSetChannel` call in an effect. Tiny, and it
+  leaves a window between `whenReady()` and first paint where main is on `latest`; harmless, since
+  nothing checks for updates in that window unless auto-check fires first.
+  (b) **Move the preference to a main-side store**, joining the `userData`-rooted JSON stores at
+  `index.ts:322-344`, with the renderer reading it over IPC. Correct, and it makes the renderer's
+  copy the derived one.
+  *Recommendation:* **(a) for this phase, and record (b) as the right end state.** The bug is that a
+  beta user silently reverts; an effect fixes that today for a handful of lines. (b) is a persistence
+  migration (a `ui-store` v9 with a key removed) in a phase whose job is to ship a release, and the
+  moment auto-check-on-boot becomes real, (b) stops being optional.
+
+- **Open (x1) — do the six missing skill helpers get ported, or the skills rewritten?** The skills
+  call `planVersionBump`, `planReleaseTags`, `parseConventionalCommit`, `bumpLevelFromCommits`,
+  `sharesLockstepMajorMinor` and `versionFromReleaseBranch`; none exists here.
+  *Recommendation:* **port them into `packages/shared/src/version.ts`** alongside Theme B's lockstep
+  helper. The sibling's are tested and self-contained, the skills are written around their exact
+  names, and Theme B is already creating that file. A rules-only rewrite makes both skills longer,
+  vaguer, and untestable — and the first release is precisely when you want the version math to be a
+  function with tests rather than a paragraph a session interprets.
+
 - **Open — should `verify-dist` also assert notarization once Theme H lands?** *Recommendation:*
   yes, but conditionally — `spctl --assess` passing should be *required when a cert was used* and
   skipped otherwise, mirroring how `notarize.cjs` itself is env-gated. An unconditional gate would
