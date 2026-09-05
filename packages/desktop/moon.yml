@@ -2,11 +2,11 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 language: 'typescript'
 
-# All three are `development` scope so moon's package.json sync keeps them in
+# All four are `development` scope so moon's package.json sync keeps them in
 # devDependencies. None is a RUNTIME dependency of the packaged app:
 #
-#   shared, git-engine  inlined into the esbuild bundles (scripts/bundle.mjs)
-#   app                 ships as a prebuilt static bundle loaded from disk
+#   shared, git-engine, db-engine  inlined into the esbuild bundles (scripts/bundle.mjs)
+#   app                            ships as a prebuilt static bundle loaded from disk
 #
 # The distinction is load-bearing, not cosmetic. electron-builder resolves
 # `dependencies` by walking node_modules, follows pnpm's workspace symlinks into
@@ -16,6 +16,8 @@ dependsOn:
   - id: 'shared'
     scope: 'development'
   - id: 'git-engine'
+    scope: 'development'
+  - id: 'db-engine'
     scope: 'development'
   - id: 'app'
     scope: 'development'
@@ -34,12 +36,14 @@ tasks:
     deps:
       - 'shared:build'
       - 'git-engine:build'
+      - 'db-engine:build'
     inputs:
       - 'src/**/*'
       - 'tsconfig.json'
       - 'package.json'
       - '/packages/shared/src/**/*'
       - '/packages/git-engine/src/**/*'
+      - '/packages/db-engine/src/**/*'
 
   # Same reasoning as `typecheck`, for the same reason it bites harder here:
   # vitest RESOLVES `@midnite/studio-shared` at run time, through the package's
@@ -51,12 +55,14 @@ tasks:
     deps:
       - 'shared:build'
       - 'git-engine:build'
+      - 'db-engine:build'
     inputs:
       - 'src/**/*'
       - 'vitest.config.ts'
       - 'package.json'
       - '/packages/shared/src/**/*'
       - '/packages/git-engine/src/**/*'
+      - '/packages/db-engine/src/**/*'
 
   lint:
     inputs:
@@ -78,6 +84,7 @@ tasks:
       - '$MSTUDIO_SOURCEMAP'
       - '/packages/shared/src/**/*'
       - '/packages/git-engine/src/**/*'
+      - '/packages/db-engine/src/**/*'
     outputs:
       - 'dist/bundle'
 

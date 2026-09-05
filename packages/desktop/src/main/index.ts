@@ -17,6 +17,7 @@ import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerConflictHandlers } from './ipc/conflict-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
 import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
+import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
@@ -60,6 +61,8 @@ import {
 } from './terminal-service';
 import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
+import { createConnectionsStore } from './db/connections-store';
+import { createCredentialVault } from './db/credential-vault';
 import { createTrustStore } from './diagnostics/trust-store';
 import { createTestTrustStore } from './testing/trust-store';
 import { createRepoStore } from './repo-store';
@@ -251,6 +254,7 @@ if (!app.requestSingleInstanceLock()) {
     registerForgeHandlers();
     registerForgeProjectHandlers();
     registerDiagHandlers();
+    registerDbHandlers(getMainWindow);
     registerScaffoldHandlers();
     registerTestsHandlers(getMainWindow);
     registerPtyHandlers(getMainWindow);
@@ -344,6 +348,7 @@ if (!app.requestSingleInstanceLock()) {
     configureVideo(createVideoProjectsStore(userData), getMainWindow);
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
+    configureDb(createConnectionsStore(userData), createCredentialVault(userData));
 
     /*
       Three independent boot chains, run at once (Theme B). They were sequential
@@ -513,6 +518,9 @@ if (!app.requestSingleInstanceLock()) {
       discards everything on purpose.
     */
     void stopDemoApi();
+    // Fire-and-forget, same reasoning: a pooled DB connection holds no state
+    // worth flushing across a restart, so closing the socket is the whole job.
+    void shutdownDb();
 
     if (flushed) {
       detachAll();
