@@ -4,9 +4,10 @@ import { fixtures } from './fixtures';
 import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
- * The preview pane becomes an editor (Phase 24 Theme D): CodeMirror 6 behind
- * an explicit Edit toggle, Cmd+S through the command registry, and an
- * unsaved-changes guard on navigating away from a dirty buffer.
+ * The preview pane becomes an editor (Phase 24 Theme D): Monaco (Phase 64
+ * Theme C — replacing CodeMirror 6) behind an explicit Edit toggle, Cmd+S
+ * through the command registry, and an unsaved-changes guard on navigating
+ * away from a dirty buffer.
  */
 
 const editorFixtures: MockFixtures = {
@@ -35,7 +36,7 @@ async function openFiles(page: Page): Promise<void> {
   await expect(page.getByRole('tree', { name: 'Files' })).toBeVisible();
 }
 
-test('Edit swaps the read-only preview for a CodeMirror editor with line numbers', async ({ page }) => {
+test('Edit swaps the read-only preview for a Monaco editor with a gutter', async ({ page }) => {
   await openFiles(page);
   await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
   // The static "read-only" label is only for what cannot be edited — a repo-
@@ -44,8 +45,8 @@ test('Edit swaps the read-only preview for a CodeMirror editor with line numbers
 
   await page.getByRole('button', { name: 'Edit' }).click();
   await expect(page.getByTestId('code-editor')).toBeVisible();
-  await expect(page.locator('.cm-gutters')).toBeVisible();
-  await expect(page.locator('.cm-content')).toContainText('const answer = 42;');
+  await expect(page.locator('.monaco-editor .margin')).toBeVisible();
+  await expect(page.locator('.monaco-editor .view-lines')).toContainText('const answer = 42;');
   // Phase 56 Theme F: this test's own assertions are the coverage, so only
   // the incidental screenshot is gated — an unconditional skip would drop
   // real functional coverage on every routine run.
@@ -59,7 +60,7 @@ test('typing shows a dirty indicator, and Save clears it', async ({ page }) => {
   await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
   await page.getByRole('button', { name: 'Edit' }).click();
 
-  await page.locator('.cm-content').click();
+  await page.locator('.monaco-editor .view-lines').click();
   await page.keyboard.type('// edited\n');
   await expect(page.getByTitle('Unsaved changes')).toBeVisible();
   if (process.env.MSTUDIO_SHOTS) {
@@ -74,7 +75,7 @@ test('leaving a dirty file for another shows the Save/Discard/Cancel guard', asy
   await openFiles(page);
   await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
   await page.getByRole('button', { name: 'Edit' }).click();
-  await page.locator('.cm-content').click();
+  await page.locator('.monaco-editor .view-lines').click();
   await page.keyboard.type('x');
 
   await page.getByRole('treeitem', { name: /^b\.ts$/ }).click();
@@ -97,7 +98,7 @@ test('Cancel on the guard keeps the original file selected and the edit intact',
   await openFiles(page);
   await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
   await page.getByRole('button', { name: 'Edit' }).click();
-  await page.locator('.cm-content').click();
+  await page.locator('.monaco-editor .view-lines').click();
   await page.keyboard.type('x');
 
   await page.getByRole('treeitem', { name: /^b\.ts$/ }).click();
@@ -121,7 +122,7 @@ test('a stale write on Save offers Reload rather than overwriting or discarding 
     (window as unknown as { __mstudioStaleFile: (relPath: string) => void }).__mstudioStaleFile('a.ts');
   });
 
-  await page.locator('.cm-content').click();
+  await page.locator('.monaco-editor .view-lines').click();
   await page.keyboard.type('x');
   await page.getByRole('button', { name: 'Save' }).click();
 

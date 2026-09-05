@@ -1,152 +1,167 @@
 import { useEffect, useRef } from 'react';
 
-import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { bracketMatching, indentOnInput, LanguageDescription } from '@codemirror/language';
-import { languages } from '@codemirror/language-data';
-import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
-import { Compartment } from '@codemirror/state';
-import {
-  drawSelection,
-  EditorView,
-  highlightActiveLine,
-  keymap,
-  lineNumbers,
-} from '@codemirror/view';
-
 import { useTheme } from '@bilo-io/ui/theme';
+import Editor, { type OnChange, type OnMount } from '@monaco-editor/react';
+import type { editor as MonacoEditorNS } from 'monaco-editor';
 
+import { DEFAULT_EDITOR_FONT_FAMILY } from '../../../lib/monaco/editor-prefs';
+import { getMonaco } from '../../../lib/monaco/monaco-loader';
+import { monacoLanguageForFile } from '../../../lib/monaco/monaco-languages';
 import { useFileEditorStore } from '../../../store/file-editor-store';
+import { useUiStore } from '../../../store/ui-store';
+import { usePaletteStore } from '../../themes/palette-store';
+import { resolveEditorPalette } from '../../themes/resolve-palette';
+
+// Eagerly configures `@monaco-editor/react`'s loader to use the locally
+// bundled `monaco` instance (and registers `MonacoEnvironment.getWorker`) the
+// moment THIS lazy chunk evaluates — before `<Editor>` below ever mounts and
+// reaches for its own `loader.init()`, which defaults to a CDN fetch. Calling
+// it inside an effect would race `<Editor>`'s own mount effect (child effects
+// commit before a parent's), so this runs at module scope instead.
+void getMonaco();
 
 /**
- * CodeMirror 6, hand-picked rather than the bundled `basicSetup` — the same
- * call the fuzzy matcher and the hand-drawn chart made: this editor's bar is
- * line numbers, history and bracket matching, not everything the meta-package
- * ships (fold gutters, lint panels, autocomplete-from-nothing).
+ * Monaco, via `@monaco-editor/react` (Phase 64 Theme C) — replaces CodeMirror
+ * 6. A semi-controlled component, same shape as before: keystrokes flow
+ * view → store via `onChange`, and the effect below flows store → view only
+ * when they have actually diverged (a Discard, a reload after a stale write,
+ * or a remote change) — never on the editor's own echo of what it just typed.
  *
- * A semi-controlled component: keystrokes flow view → store via
- * `updateListener`, and the effect below flows store → view only when they
- * have actually diverged — a Discard, a reload after a stale write, or a
- * remote change — never on the editor's own echo of what it just typed.
+ * One prop, content from the store — preserving `file-preview.tsx`'s call
+ * site unchanged is the point of keeping this signature.
  */
 export function CodeEditor({ fileName }: { fileName: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
-  const themeCompartmentRef = useRef<Compartment | null>(null);
+  const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const layoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Restore focus on unmount — Monaco takes it on mount, so without this,
+  // leaving edit mode drops focus to `<body>`. Lifted from `palette.tsx`'s
+  // exact pattern (capture ref before mount, restore in cleanup) — the only
+  // other place in the app that already does this.
+  const previouslyFocused = useRef<HTMLElement | null>(
+    typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null),
+  );
+
   const { resolved } = useTheme();
-  const dark = resolved === 'dark';
-  const darkRef = useRef(dark);
-  darkRef.current = dark;
+  const activePaletteId = usePaletteStore((s) => s.activePaletteId);
+  const editorPaletteOverride = usePaletteStore((s) => s.editorPaletteOverride);
+  const userPalettes = usePaletteStore((s) => s.userPalettes);
 
+  const fontFamily = useUiStore((s) => s.editorFontFamily) || DEFAULT_EDITOR_FONT_FAMILY;
+  const fontSize = useUiStore((s) => s.editorFontSize);
+  const minimap = useUiStore((s) => s.editorMinimap);
+  const tabSize = useUiStore((s) => s.editorTabSize);
+  const wordWrap = useUiStore((s) => s.editorWordWrap);
+
+  const language = monacoLanguageForFile(fileName);
+
+  // The active studio palette's `monaco.editor.defineTheme` payload (Phase 64
+  // Theme B). Monaco's theme is a process-wide singleton, not per-instance —
+  // `setTheme` re-themes every mounted editor immediately, which is exactly
+  // what a palette switch needs.
   useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-
-    const language = new Compartment();
-    const themeCompartment = new Compartment();
-
-    const view = new EditorView({
-      doc: useFileEditorStore.getState().content,
-      parent: host,
-      extensions: [
-        lineNumbers(),
-        history(),
-        drawSelection(),
-        indentOnInput(),
-        bracketMatching(),
-        closeBrackets(),
-        highlightActiveLine(),
-        highlightSelectionMatches(),
-        EditorView.lineWrapping,
-        keymap.of([...closeBracketsKeymap, ...searchKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
-        language.of([]),
-        themeCompartment.of(editorTheme(darkRef.current)),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) useFileEditorStore.getState().edit(update.state.doc.toString());
-        }),
-      ],
-    });
-    viewRef.current = view;
-    themeCompartmentRef.current = themeCompartment;
-
-    LanguageDescription.matchFilename(languages, fileName)
-      ?.load()
-      .then((support) => {
-        if (viewRef.current === view) view.dispatch({ effects: language.reconfigure(support) });
-      })
-      .catch(() => {
-        /* An unrecognised or failed grammar leaves plain text — the same
-           degrade-gracefully rule CodePreview's own highlight() follows. */
+    let cancelled = false;
+    void getMonaco().then((monaco) => {
+      if (cancelled) return;
+      const palette = resolveEditorPalette(resolved);
+      const themeId = `studio-${palette.id}`;
+      monaco.editor.defineTheme(themeId, {
+        base: palette.editor.base,
+        inherit: true,
+        rules: palette.editor.rules,
+        colors: palette.editor.colors,
       });
-
+      monaco.editor.setTheme(themeId);
+    });
     return () => {
-      view.destroy();
-      viewRef.current = null;
+      cancelled = true;
     };
-    // `fileName` only changes across a remount (`key`-forced by the caller),
-    // so this intentionally does not depend on it beyond the initial mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [resolved, activePaletteId, editorPaletteOverride, userPalettes]);
 
-  useEffect(() => {
-    const view = viewRef.current;
-    const compartment = themeCompartmentRef.current;
-    if (!view || !compartment) return;
-    view.dispatch({ effects: compartment.reconfigure(editorTheme(dark)) });
-  }, [dark]);
+  const handleMount: OnMount = (editor) => {
+    editorRef.current = editor;
+    editor.focus();
 
-  // Store → view sync, for changes that did not originate from typing here:
-  // Discard resets `content` to `savedContent`, and a stale-write Reload
-  // replaces it outright. Skipped when the two already agree, which is true
-  // on every keystroke's own round trip through `edit()`.
+    // Debounced `editor.layout()` on a `ResizeObserver` over the host
+    // element, trailing-edge at 60ms, disconnected on unmount — Monaco does
+    // not self-size, so without this it keeps its mount-time dimensions
+    // inside the resizable Files pane. Deliberately NOT the built-in
+    // `automaticLayout` option: that polls on an interval rather than
+    // reacting to a real resize, and isn't independently disconnectable.
+    const host = hostRef.current;
+    if (host) {
+      const observer = new ResizeObserver(() => {
+        if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current);
+        layoutTimerRef.current = setTimeout(() => editor.layout(), 60);
+      });
+      observer.observe(host);
+      resizeObserverRef.current = observer;
+    }
+  };
+
+  const handleChange: OnChange = (value) => {
+    useFileEditorStore.getState().edit(value ?? '');
+  };
+
+  // Store → view sync, for changes that did not originate from typing here —
+  // preserved as-is against `model.setValue` (Discard resets `content` to
+  // `savedContent`, and a stale-write Reload replaces it outright; both are
+  // reachable from the stale-write banner and the guard dialog).
   useEffect(
     () =>
       useFileEditorStore.subscribe((state, prev) => {
         if (state.content === prev.content) return;
-        const view = viewRef.current;
-        if (!view || view.state.doc.toString() === state.content) return;
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: state.content },
-        });
+        const editor = editorRef.current;
+        const model = editor?.getModel();
+        if (!editor || !model || model.getValue() === state.content) return;
+        model.setValue(state.content);
       }),
     [],
   );
 
+  useEffect(() => {
+    // Captured here, not read from the ref inside the cleanup below — same
+    // pattern `palette.tsx` uses, and for the same reason: the ref's value
+    // may have moved on by the time an unmount actually runs.
+    const restoreTo = previouslyFocused.current;
+    return () => {
+      if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current);
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
+      restoreTo?.focus();
+    };
+  }, []);
+
   return (
     <div
       ref={hostRef}
-      className="code-editor min-h-0 flex-1 overflow-auto text-xs [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono"
+      className="code-editor min-h-0 flex-1 overflow-hidden"
       data-testid="code-editor"
-    />
-  );
-}
-
-function editorTheme(dark: boolean) {
-  return EditorView.theme(
-    {
-      '&': {
-        height: '100%',
-        backgroundColor: 'hsl(var(--background))',
-        color: 'hsl(var(--foreground))',
-        fontSize: '0.75rem',
-      },
-      '.cm-content': { caretColor: 'hsl(var(--foreground))' },
-      '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'hsl(var(--foreground))' },
-      '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-        backgroundColor: 'hsl(var(--accent))',
-      },
-      '.cm-activeLine': { backgroundColor: 'hsl(var(--accent) / 0.4)' },
-      '.cm-activeLineGutter': { backgroundColor: 'hsl(var(--accent) / 0.4)' },
-      '.cm-gutters': {
-        backgroundColor: 'hsl(var(--background))',
-        color: 'hsl(var(--muted-foreground))',
-        border: 'none',
-        borderRight: '1px solid hsl(var(--border))',
-      },
-      '.cm-matchingBracket, .cm-nonmatchingBracket': {
-        backgroundColor: 'hsl(var(--accent))',
-      },
-    },
-    { dark },
+    >
+      <Editor
+        height="100%"
+        width="100%"
+        // Set once — `key={editorKey}` at the call site (`file-preview.tsx`)
+        // force-remounts this whole component per file, so Monaco always gets
+        // a fresh model rather than reusing a stale one across files.
+        defaultValue={useFileEditorStore.getState().content}
+        language={language}
+        theme={resolved === 'dark' ? 'vs-dark' : 'vs'}
+        onMount={handleMount}
+        onChange={handleChange}
+        loading={null}
+        options={{
+          fontFamily,
+          fontSize,
+          tabSize,
+          minimap: { enabled: minimap },
+          wordWrap: wordWrap ? 'on' : 'off',
+          automaticLayout: false,
+          scrollBeyondLastLine: false,
+          renderLineHighlight: 'line',
+        }}
+      />
+    </div>
   );
 }
