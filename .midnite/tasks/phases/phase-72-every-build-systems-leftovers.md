@@ -583,7 +583,7 @@ and Phase 73/74 rows sit beside them.
       - Without this every optimizer e2e renders a `ScanResult` missing three fields the tabs now
         read, and the failure surfaces as a blank group list rather than a type error.
 
-### D — A result list that can hold twelve kinds of thing (M) · ✅ DONE (PR #<n>, 2026-09-06)
+### D — A result list that can hold twelve kinds of thing (M) · ✅ DONE (PR #196, 2026-09-06)
 
 Four categories fitted in a flat list. Nine ecosystems do not.
 
@@ -722,7 +722,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         glyphs is nine more things to keep aligned at two row heights for no information gain.
         Ship without them and revisit only if a screenshot pass says the list reads flat.
 
-### E — Budgets, per-ecosystem settings, and the `.moon` fix (S) · ✅ DONE (PR #<n>, 2026-09-06)
+### E — Budgets, per-ecosystem settings, and the `.moon` fix (S) · ✅ DONE (PR #196, 2026-09-06)
 
 - [x] **Retire the `.moon` detector and say why in the code.**
       `DEFAULT_BUILD_ARTIFACT_PATTERNS`'s `{ basename: '.moon', category: 'buildOutput' }`
@@ -833,7 +833,7 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         Memory and GPU tabs", which is accurate, so leave it; the new boundary belongs in the list,
         not the hint.
 
-### F — Verification (M) · ◐ PARTIAL (PR #<n>, 2026-09-06; two items genuinely left open — the
+### F — Verification (M) · ◐ PARTIAL (PR #196, 2026-09-06; two items genuinely left open — the
 stale `DETECTOR_COUNT` literal in `detectors.test.ts`/Verification, and the human pass over real
 Rust/Gradle/Python checkouts, appears twice for the same reason)
 
