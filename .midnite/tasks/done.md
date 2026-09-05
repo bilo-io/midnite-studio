@@ -2,6 +2,63 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 53 Theme F (partial) — the release rehearsal that found the flow could not cut the release
+
+[PR #199]. Moves Phase 53 33/59 → 34/59 (56% → 58%). Theme F is the *verification* theme — "every
+theme above is untested speculation until a real release goes out" — and its four remaining items
+are all barred from a session (an unset secret, an irreversible tag and GitHub Release, a README in
+`bilo-io/midnite-apps`, and an install on a machine with no checkout of this repo). So this PR did
+the half a session can do, and that half turned out to be the theme's real work: **the flow as
+written would not have cut v0.1.0.**
+
+Rehearsing `/midnite-release-prep` steps 2 + 3 against the repo's real state — 799 commits, **0**
+tags, every package `0.1.0` — takes the skill's own "fall back to the root commit if there is none"
+branch, so the release range is the entire history, which contains `feat`s, which
+`bumpLevelFromCommits` categorises as `minor`, which `planVersionBump` turns into **v0.2.0**. The
+phase's Decisions section settled on **v0.1.0**: the first release ships what is already in the
+tree. `/midnite-release-complete` §2 fared no better — it reads `previousVersions` from "the last
+`v*` tag's tree" and there is no such tree; the pairwise `planReleaseTags(current, current)` it
+would otherwise reach returns `[]`, so it would have published nothing and reported success.
+
+The pre-release baseline was captured before anything else, five commands' worth, and is now in
+`docs/RELEASING.md` as a table so the "after" is a proven change rather than an assumed one.
+
+- [x] **F** — **Confirm the pre-release failure mode is what actually changes.** Confirmed from the
+      two files that decide it rather than by piping a remote script into `sh`: the live
+      `midnite-studio/version.json` still reads `"version": null` (**unquoted**), and the shipped
+      `install.sh` resolves the version with a `sed` matching only a *quoted* string, so `$version`
+      comes back empty and the script `fail`s on *"Midnite Studio has no published release yet."*
+      before downloading anything. Same evidence, no unreviewed code executed. Recorded alongside
+      the other four baseline checks — `git tag | wc -l` → 0, zero releases in `midnite-apps`,
+      `midnite-studio/feed/` holding only a `README.md`, and `RELEASES_REPO_TOKEN` uncreated.
+
+Landed with it, and not on any checklist:
+
+- `packages/shared/src/version.ts` gains **`planRelease`**, the one entry point the two skills now
+  call. It returns `{ firstRelease, level, next, tags }`, and `previous === null` — no prior `v*`
+  tag — bumps nothing and tags the versions already in the tree. It refuses a first release whose
+  packages have already diverged, because a repo with no prior release has no single baseline to
+  name. Additive: `planVersionBump` / `planReleaseTags` / `bumpLevelFromCommits` keep their
+  signatures and every existing call site. Nine new tests, four of them pinning the first-release
+  case (including that a `BREAKING CHANGE` still cannot bump it).
+- All **six** skill copies (`.claude` / `.agents` / `.codex` × prep / complete) carry the
+  `previous = null` branch explicitly, per `CLAUDE.md`'s three-way sync rule.
+- `docs/RELEASING.md` gains *"The first release has not happened yet — and the flow could not have
+  cut it"*: the baseline table with a command per row, the rehearsal finding, and a five-step
+  numbered run-book of what genuinely needs a person.
+- **`moon.yml` excluded `test` from the `root` project**, so `moon run :test` — the gate CI runs —
+  walked every package and skipped the workspace root entirely. `scripts/version-check.test.mjs`,
+  `scripts/tracker-check.test.mjs` and `scripts/publish-feed-changelog.test.mjs`, 36 tests with two
+  of the three files guarding release machinery, had **never executed in CI**. Un-excluded, scoped
+  by a new root `vitest.config.ts` including only `scripts/**/*.test.mjs`; `build`/`typecheck`/
+  `lint` stay excluded, since the root has no TypeScript sources.
+
+Deliberately **not** done, and left for a human: creating `RELEASES_REPO_TOKEN`, running
+`/midnite-release-prep` → `/midnite-release-complete` for real, cutting the source tag `v0.1.0` and
+the namespaced `midnite-studio/v0.1.0` Release, confirming the four propagation links flipped,
+installing as a stranger on a clean machine, and dropping the receiving repo's *"No public release
+yet."* banner.
+
 ## 2026-09-06 — Phase 72 Themes D, E, and F (partial) — ecosystem-grouped result lists, per-root budgets, per-ecosystem settings
 
 [PR #196]. Moves Phase 72 39/102 → 98/102 (38% → 96%). Builds on Themes A, B, C (PR #190): the
