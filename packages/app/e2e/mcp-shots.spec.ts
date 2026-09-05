@@ -4,9 +4,11 @@ import { installShotsBridge, SHOT_VIEWPORTS } from './shots-helper';
 
 /**
  * The committed screenshots for Phase 57 Theme F — the new Settings ▸ MCP
- * Server page, light and dark. The mock bridge (`mock-bridge.ts`) reports the
- * server on by default, with a couple of sample audit-ring entries, so both
- * shots show the populated state rather than the off-by-default empty one.
+ * Server page, light and dark. `openMcpSettings` passes `mcp: { enabled: true }`
+ * to `installShotsBridge` (the fixture is off by default, matching the real
+ * app — see `MockFixtures.mcp`'s own doc comment), which reports the server on
+ * with a couple of sample audit-ring entries, so both shots show the
+ * populated state rather than the off-by-default empty one.
  *
  * Run with `MSTUDIO_SHOTS=1`; skipped otherwise, matching every other
  * `*-shots.spec.ts` in this suite.
@@ -14,7 +16,7 @@ import { installShotsBridge, SHOT_VIEWPORTS } from './shots-helper';
 const OUT = '../../docs/screenshots/p57-ef';
 
 async function openMcpSettings(page: Page): Promise<void> {
-  await installShotsBridge(page);
+  await installShotsBridge(page, { mcp: { enabled: true } });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   // The bottom-of-rail Settings entry is a plain button, not a router link.

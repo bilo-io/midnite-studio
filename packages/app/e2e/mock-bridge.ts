@@ -538,6 +538,18 @@ export type MockFixtures = {
       freeBytes: number;
     };
   };
+  /**
+   * The MCP server's Settings-page state (Phase 57 Theme F). Off by default —
+   * matching the real app's own default and keeping the status-bar
+   * `McpIndicator` out of every spec's DOM — because a segment only
+   * `mcp-shots.spec.ts` cares about was previously on for the whole suite and
+   * broke unrelated specs two ways: its `title` text (`"…open Settings"`)
+   * collided with `getByRole('button', { name: 'Settings' })` in
+   * `diagnostics.spec.ts`, and its extra status-bar width tipped
+   * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
+   * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
+   */
+  mcp?: { enabled?: boolean };
 };
 
 
@@ -2536,11 +2548,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       argv: p.argv ?? p.name,
       ...p,
     }));
-    // Off by default in the real app, but on by default for the mock so a
-    // screenshot of Settings ▸ MCP Server shows the populated state without
-    // every spec having to flip the switch first.
+    // Off by default, matching the real app's own default (Decision 8) and
+    // keeping the status-bar `McpIndicator` out of every spec but the one that
+    // asks for it — see `MockFixtures.mcp`'s own doc comment for why an
+    // always-on default broke two unrelated specs.
     // eslint-disable-next-line no-var
-    var mcpEnabled = true;
+    var mcpEnabled = data.mcp?.enabled ?? false;
 
     // Published on `window` so a test can read the ops back, and clear the
     // array between gestures.
