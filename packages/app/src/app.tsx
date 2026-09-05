@@ -143,6 +143,8 @@ const loadProjectsView = () => import('./features/projects/projects-view');
 const ProjectsView = lazy(() => loadProjectsView().then((m) => ({ default: m.ProjectsView })));
 const loadHistoryView = () => import('./features/history/history-view');
 const HistoryView = lazy(() => loadHistoryView().then((m) => ({ default: m.HistoryView })));
+const loadOptimizerPage = () => import('./features/optimizer/optimizer-page');
+const OptimizerPage = lazy(() => loadOptimizerPage().then((m) => ({ default: m.OptimizerPage })));
 /*
   The three rarely-shown modals. Each keeps its own boundary with a `null`
   fallback rather than joining the view boundary: they are overlays, and a
@@ -334,6 +336,7 @@ const WORKSPACE_NAV_ITEMS: NavItem[] = [
   { view: 'files', label: 'Explorer', icon: VIEW_ICON.files },
   { view: 'search', label: 'Search', icon: VIEW_ICON.search },
   { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
+  { view: 'optimizer', label: 'Optimizer', icon: VIEW_ICON.optimizer },
 ];
 
 const GIT_NAV_ITEMS: NavItem[] = [
@@ -591,6 +594,7 @@ function Shell() {
   usePruneClosedRepos();
 
   const forgeAvailable = useForgeGateAvailable(selectedRepoId);
+  const optimizerEnabled = useUiStore((s) => s.optimizerEnabled);
 
   /**
    * Never leave the user standing in a view the rail no longer offers.
@@ -599,16 +603,20 @@ function Shell() {
    * Reviews items away; without this the pane one of them named would stay
    * mounted with no way back to it and no entry showing as current, which
    * reads as the rail having lost its selection rather than as the view
-   * having gone.
+   * having gone. Switching the Workspace Optimizer setting off strands the
+   * `optimizer` view the same way, so it redirects on the same rule.
    *
    * Graph is the fallback because it is the app's default view — the one a
    * launch already lands on.
    */
   useEffect(() => {
-    if (FORGE_GATED_VIEWS.includes(activeView) && !forgeAvailable) {
+    if (
+      (FORGE_GATED_VIEWS.includes(activeView) && !forgeAvailable) ||
+      (activeView === 'optimizer' && !optimizerEnabled)
+    ) {
       useUiStore.getState().setActiveView('graph');
     }
-  }, [activeView, forgeAvailable]);
+  }, [activeView, forgeAvailable, optimizerEnabled]);
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
   useTestsStream();
   useAutoFetch();
@@ -967,7 +975,9 @@ function Shell() {
           key: 'workspace',
           title: 'Workspace',
           items: WORKSPACE_NAV_ITEMS.filter(
-            (item) => !FORGE_GATED_VIEWS.includes(item.view) || forgeAvailable,
+            (item) =>
+              (!FORGE_GATED_VIEWS.includes(item.view) || forgeAvailable) &&
+              (item.view !== 'optimizer' || optimizerEnabled),
           ).map(navItem),
         },
         {
@@ -1035,7 +1045,7 @@ function Shell() {
         </div>
       ),
     }),
-    [navMode, setNavMode, activeView, forgeAvailable, navItem],
+    [navMode, setNavMode, activeView, forgeAvailable, optimizerEnabled, navItem],
   );
 
   // <TitleBar> renders nothing unless the bridge reports a frameless window, so
@@ -1327,6 +1337,10 @@ function Shell() {
                 ) : activeView === 'video' ? (
                   // Global too (Phase 44) — a video project is not a property of an open checkout.
                   <VideoView />
+                ) : activeView === 'optimizer' ? (
+                  // Global too (Phase 59) — Smart Scan and Storage walk every
+                  // registered repo/worktree, not one open checkout.
+                  <OptimizerPage />
                 ) : !selectedRepoId ? (
                   <EmptyWorkspace />
                 ) : activeView === 'dashboard' ? (

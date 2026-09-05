@@ -8,6 +8,7 @@ import {
   LuDiff,
   LuDownload,
   LuFolderTree,
+  LuGauge,
   LuHistory,
   LuHouse,
   LuLayoutDashboard,
@@ -75,6 +76,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   workflows: LuWorkflow,
   video: LuClapperboard,
   sessions: LuHistory,
+  optimizer: LuGauge,
   settings: LuSettings,
 };
 
@@ -100,6 +102,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   video: LuClapperboard,
   gitSafety: LuShieldAlert,
   monitor: LuActivity,
+  optimizer: LuGauge,
   browser: GoGlobe,
   cli: LuTerminal,
   updates: LuDownload,

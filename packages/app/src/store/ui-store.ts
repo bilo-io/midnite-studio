@@ -107,6 +107,7 @@ export type ViewId =
   | 'workflows'
   | 'video'
   | 'sessions'
+  | 'optimizer'
   | 'settings';
 
 /** Every view, in rail order — the domain of the per-view maps below. */
@@ -127,6 +128,7 @@ export const VIEW_IDS: readonly ViewId[] = [
   'workflows',
   'video',
   'sessions',
+  'optimizer',
   'settings',
 ];
 
@@ -153,7 +155,8 @@ export type SettingsPageId =
   | 'browser'
   | 'cli'
   | 'updates'
-  | 'health';
+  | 'health'
+  | 'optimizer';
 
 /**
  * The categories the settings pages sort into, in UX priority order — the
@@ -196,6 +199,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'updates', label: 'App Updates', group: 'system' },
   { id: 'health', label: 'System Health', group: 'system' },
   { id: 'monitor', label: 'Monitor & Diagnostics', group: 'system' },
+  { id: 'optimizer', label: 'Workspace Optimizer', group: 'system' },
 ];
 
 /** Pixel sizes of the draggable panes. */
@@ -1035,6 +1039,13 @@ export type UiState = {
    */
   launchAndRunEnabled: boolean;
   setLaunchAndRunEnabled: (enabled: boolean) => void;
+  /**
+   * Phase 59 Theme A — same shape as `allowForceWithLease`: default off, so
+   * a fresh install cannot scan/clean/kill anything until someone
+   * deliberately turns the Workspace Optimizer on.
+   */
+  optimizerEnabled: boolean;
+  setOptimizerEnabled: (enabled: boolean) => void;
   passcode: string | null;
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
@@ -1193,6 +1204,7 @@ type PersistedUi = Pick<
   | 'passcodeOnlyWhenLocked'
   | 'allowForceWithLease'
   | 'launchAndRunEnabled'
+  | 'optimizerEnabled'
   | 'terminalDetached'
   | 'reposDetached'
   | 'fabDetached'
@@ -1250,6 +1262,11 @@ export const useUiStore = create<UiState>()(
       // it on.
       launchAndRunEnabled: false,
       setLaunchAndRunEnabled: (launchAndRunEnabled) => set({ launchAndRunEnabled }),
+      // Default off, same reasoning: a fresh install cannot scan or delete
+      // anything, or list/kill a system process, until someone deliberately
+      // turns the optimizer on.
+      optimizerEnabled: false,
+      setOptimizerEnabled: (optimizerEnabled) => set({ optimizerEnabled }),
       passcode: null,
       setPasscode: (passcode) => set({ passcode }),
       passcodeOnlyWhenLocked: false,
@@ -1696,6 +1713,7 @@ export const useUiStore = create<UiState>()(
         passcodeOnlyWhenLocked: state.passcodeOnlyWhenLocked,
         allowForceWithLease: state.allowForceWithLease,
         launchAndRunEnabled: state.launchAndRunEnabled,
+        optimizerEnabled: state.optimizerEnabled,
         terminalDetached: state.terminalDetached,
         reposDetached: state.reposDetached,
         fabDetached: state.fabDetached,
