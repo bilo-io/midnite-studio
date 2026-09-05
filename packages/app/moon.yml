@@ -10,7 +10,18 @@ tasks:
   # moon's default is to APPEND a local task's args to the inherited ones, which
   # would run `pnpm exec tsc -b exec vite build`.
   build:
-    command: 'pnpm exec vite build'
+    # `node --max-old-space-size=4096`, not a bare `pnpm exec vite build`: Node's
+    # default old-space cap is ~2 GB on a 64-bit host, and this build peaks at
+    # ~3.4 GB RSS since Phase 64 Theme A inlined Monaco's five language workers
+    # (`?worker&inline` base64-encodes each into a JS chunk, and Rollup holds every
+    # chunk in memory until the end). Without the flag CI's `package` job dies in
+    # `transforming...` with "Reached heap limit" — every main run from #164 on.
+    # 4 GB clears it with headroom on a 7 GB macos-14 runner. The flag rides on
+    # the command rather than a task `env: NODE_OPTIONS`, because an ambient
+    # NODE_OPTIONS in the caller's shell wins over moon's task env (verified with
+    # `MOON_CACHE=off NODE_OPTIONS=--max-old-space-size=2048`), whereas a CLI flag
+    # is applied after NODE_OPTIONS and so always takes effect.
+    command: 'node --max-old-space-size=4096 node_modules/vite/bin/vite.js build'
     options:
       mergeArgs: 'replace'
     deps:
