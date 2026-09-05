@@ -707,12 +707,13 @@ tooling, not one ref or one repo — so this theme adds a second factor beyond t
     a named one. Never the system Trash (a separate review). Never Plex or another media tool's cache
     (a separate review). Never a path this registry doesn't name, and never one from a repo-scan
     `extraRoot` picker."*
-- [x] The System section's scan action (Theme E) only renders once **all three** are true:
+- [ ] The System section's scan action (Theme E) only renders once **all three** are true:
       `optimizerEnabled && allowSystemCacheClean && systemCacheConsentGiven` — matching the
       `use-graph-actions.ts:452-461` "the setting is never the only gate" pattern with a third
       condition instead of two. The same AND guards the main-side handlers is **not** true and must
       not be assumed: main has no view of renderer settings, which is exactly why the registry and
       `confineAllowlist` are the real defence and the gate is the second one.
+      **Deferred to Theme E** — this gates Theme E's own Storage-tab UI, which has not landed yet.
 - [x] `system-cache-consent.test.tsx` in
       `packages/app/src/features/settings/settings-pages/` (an RTL test — `.tsx`, matching
       `mcp-page.test.tsx`'s naming and its `installBridge` + local `createWrapper` idiom; there is no
