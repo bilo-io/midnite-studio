@@ -714,6 +714,61 @@ html[data-motion='reduced'] .breadcrumb-repo-pill {
 }
 
 /* ---------------------------------------------------------------------------
+ * The self-hiding page label in the title bar's breadcrumbs
+ * (`components/title-bar-nav.tsx`).
+ *
+ * The trailing crumbs name the page you are already looking at, so their text
+ * is worth exactly one reading — it announces the arrival and then costs
+ * horizontal room forever. It shows for `PAGE_LABEL_REVEAL_MS` after a
+ * navigation and then folds away behind its glyph, which stays as the
+ * permanent marker; hover or keyboard focus on the crumb brings it back.
+ *
+ * `max-width`, not `display` or `width`: the label has to stay in the
+ * accessibility tree (it is the crumb's only name) and an `auto` width is not
+ * animatable. Collapsing the left margin along with it is what keeps a folded
+ * label from leaving a phantom gap after its icon — which is also why the
+ * crumb rows set this margin here rather than a flex `gap`.
+ */
+.breadcrumb-page-label {
+  display: inline-block;
+  max-width: 12rem;
+  margin-left: 0.25rem;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 1;
+  transition:
+    max-width 260ms ease,
+    margin-left 260ms ease,
+    opacity 180ms ease;
+}
+
+.breadcrumb-page-label[data-revealed='false'] {
+  max-width: 0;
+  margin-left: 0;
+  opacity: 0;
+}
+
+.breadcrumb-crumb:hover .breadcrumb-page-label,
+.breadcrumb-crumb:focus-visible .breadcrumb-page-label,
+.breadcrumb-crumb:focus-within .breadcrumb-page-label {
+  max-width: 12rem;
+  margin-left: 0.25rem;
+  opacity: 1;
+}
+
+/* The fold still happens without motion preferences — it just happens at
+ * once, the same posture every other reduced-motion rule here takes. */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .breadcrumb-page-label {
+    transition: none;
+  }
+}
+
+html[data-motion='reduced'] .breadcrumb-page-label {
+  transition: none;
+}
+
+/* ---------------------------------------------------------------------------
  * The landing carousel's slide change (`features/landing/landing-carousel.tsx`).
  *
  * Two animations rather than one transition, because the change is two

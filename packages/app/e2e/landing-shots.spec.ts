@@ -19,7 +19,13 @@ async function openLanding(page: Page, dark = false): Promise<void> {
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
   if (dark) await page.evaluate(() => document.documentElement.classList.add('dark'));
-  await page.getByRole('button', { name: 'Go to the landing page' }).first().click();
+  // Hover first, then click: the rail expands on hover, so the brand row is
+  // still moving when a synthetic click reaches where it used to be. See
+  // `landing.spec.ts`'s `goHome`.
+  const home = page.getByRole('button', { name: 'Go to the landing page' }).first();
+  await home.hover();
+  await page.waitForTimeout(400);
+  await home.click();
   await expect(page.getByTestId('landing-view')).toBeVisible();
   // Let the gradient's 4s rotation reach a lit frame before the shutter.
   await page.waitForTimeout(900);
