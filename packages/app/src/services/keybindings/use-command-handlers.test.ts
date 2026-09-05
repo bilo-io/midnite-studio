@@ -289,15 +289,32 @@ describe('useCommandHandlers — terminal.close', () => {
 });
 
 describe('useCommandHandlers — fab.toggle', () => {
-  it('toggles the FAB panel', () => {
+  // Re-pointed (Phase 58 Theme F): `fab.toggle` used to toggle the Loops
+  // panel directly; it now toggles the quick-access menu the panel sits
+  // behind (Theme E), which is what its `L` row opens the Loops panel via.
+  it('toggles the quick-access menu, not the FAB panel directly', () => {
     const { result } = withProviders(new QueryClient());
+    expect(useUiStore.getState().quickAccessOpen).toBe(false);
+
+    result.current['fab.toggle'].run();
+    expect(useUiStore.getState().quickAccessOpen).toBe(true);
     expect(useUiStore.getState().fabPanelOpen).toBe(false);
 
     result.current['fab.toggle'].run();
-    expect(useUiStore.getState().fabPanelOpen).toBe(true);
+    expect(useUiStore.getState().quickAccessOpen).toBe(false);
+  });
+});
 
-    result.current['fab.toggle'].run();
-    expect(useUiStore.getState().fabPanelOpen).toBe(false);
+describe('useCommandHandlers — notes.toggle', () => {
+  it('toggles the Notes modal', () => {
+    const { result } = withProviders(new QueryClient());
+    expect(useUiStore.getState().notesOpen).toBe(false);
+
+    result.current['notes.toggle'].run();
+    expect(useUiStore.getState().notesOpen).toBe(true);
+
+    result.current['notes.toggle'].run();
+    expect(useUiStore.getState().notesOpen).toBe(false);
   });
 });
 

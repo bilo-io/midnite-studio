@@ -17,6 +17,7 @@ import { LuChevronLeft, LuSettings } from 'react-icons/lu';
 import { Brand, BrandHomeButton, BrandMark } from './components/brand';
 import { BrowserLauncher } from './features/browser/browser-launcher';
 import { NotesModal } from './features/notes/notes-modal';
+import { QuickAccessMenu } from './features/quick-access/quick-access-menu';
 import { BrowserPane } from './features/browser/browser-pane';
 import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
@@ -460,7 +461,9 @@ function Shell() {
   const browserOpen = useUiStore((s) => s.browserOpen);
   const browserLayout = useUiStore((s) => s.browserLayout);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
-  const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
+  // Theme E: the FAB opens the quick-access menu (Loops is behind its own
+  // `L` row now, not this button directly) — see the click handler below.
+  const quickAccessOpen = useUiStore((s) => s.quickAccessOpen);
   const terminalDetached = useUiStore((s) => s.terminalDetached);
   const reposDetached = useUiStore((s) => s.reposDetached);
   const fabDetached = useUiStore((s) => s.fabDetached);
@@ -1423,10 +1426,11 @@ function Shell() {
                     return;
                   }
                   captureFabMorphOrigin(fabButtonRef.current);
-                  toggleFabPanel();
+                  useUiStore.getState().toggleQuickAccess();
                 }}
                 aria-label={fabDetached ? 'Focus the detached Loops window' : 'Open quick access panel'}
                 title={fabDetached ? 'Midnite Loops (detached)' : 'Quick Access'}
+                data-testid="fab-button"
                 data-loops-running={loopsRunning.running ? 'true' : undefined}
                 data-fab-tab={activeFabTab}
                 /*
@@ -1459,6 +1463,15 @@ function Shell() {
         */}
         <BrowserLauncher />
         <NotesModal />
+        {/*
+          The FAB's own entry point (Theme E) — self-contained, so it only
+          needs mounting here. The assistant-menu segment's own instance
+          (`assistant-menu.tsx`) is a second, independent mount of the same
+          component, not a fork of it.
+        */}
+        {quickAccessOpen ? (
+          <QuickAccessMenu onClose={() => useUiStore.getState().setQuickAccessOpen(false)} />
+        ) : null}
         {/*
           Silent, like the two below: a modal whose chunk fails to load must not
           paint an error card over the app it was optional to. It renders

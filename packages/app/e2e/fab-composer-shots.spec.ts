@@ -29,7 +29,10 @@ async function shootEveryTab(page: Page, suffix: string): Promise<void> {
   await installMockBridge(page, fixtures as MockFixtures);
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+  // The FAB opens the quick-access menu (Phase 58 Theme E); its `L` row opens
+  // the Loops panel this spec is actually after.
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
+  await page.keyboard.press('l');
   await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   await page.waitForTimeout(400);
   for (const [tab, id] of TABS) {

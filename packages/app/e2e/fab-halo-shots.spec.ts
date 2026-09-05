@@ -36,6 +36,16 @@ async function open(page: Page): Promise<void> {
 const fab = (page: Page) => page.getByRole('button', { name: 'Open quick access panel' });
 const closeFab = (page: Page) => page.getByRole('button', { name: 'Close quick access panel' });
 
+/**
+ * The FAB now opens the quick-access menu (Phase 58 Theme E), not the Loops
+ * panel directly — its own `L` row does. Mnemonic-activate it rather than
+ * clicking a second button, matching how a keyboard user reaches the panel.
+ */
+async function openLoops(page: Page): Promise<void> {
+  await fab(page).click();
+  await page.keyboard.press('l');
+}
+
 async function shotFab(page: Page, name: string): Promise<void> {
   const box = (await fab(page).boundingBox())!;
   const pad = 28;
@@ -52,7 +62,7 @@ for (const mode of ['light', 'dark'] as const) {
     if (mode === 'dark') await setTheme(page, 'dark');
     await setReducedMotion(page);
 
-    await fab(page).click();
+    await openLoops(page);
     await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
     await page.getByTestId('loop-composer-guard').getByTestId('loop-start').click();
     await expect(page.getByTestId('loop-composer-guard').getByTestId('loop-stop')).toBeVisible();
@@ -64,7 +74,7 @@ for (const mode of ['light', 'dark'] as const) {
       await closeFab(page).click(); // close
       await page.waitForTimeout(400);
       await shotFab(page, `${mode}-${tab.toLowerCase()}`);
-      await fab(page).click(); // reopen for the next tab
+      await openLoops(page); // reopen for the next tab
       await page.waitForTimeout(400);
     }
 
