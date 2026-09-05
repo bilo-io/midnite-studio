@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useTheme } from '@bilo-io/ui/theme';
 import type { Highlighter } from 'shiki';
 
-import { getHighlighter, HIGHLIGHT_THEME } from '../../lib/highlighter';
+import { getHighlighter, resolveHighlightTheme } from '../../lib/highlighter';
 
 /** Matches `code-preview.tsx`'s own `highlight()` — same highlighter instance, same fallback-to-plain-on-any-failure rule. */
 async function highlight(code: string, lang: string | null, dark: boolean): Promise<string> {
@@ -16,7 +16,8 @@ async function highlight(code: string, lang: string | null, dark: boolean): Prom
       language = null;
     }
   }
-  return highlighter.codeToHtml(code, { lang: language ?? 'text', theme: HIGHLIGHT_THEME(dark) });
+  const theme = await resolveHighlightTheme(highlighter, dark);
+  return highlighter.codeToHtml(code, { lang: language ?? 'text', theme });
 }
 
 /**
