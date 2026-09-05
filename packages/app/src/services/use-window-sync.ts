@@ -1,16 +1,28 @@
 import { useEffect } from 'react';
 
-import type { WindowDescriptor, WindowRole } from '@midnite/studio-shared';
+import {
+  PAGE_WINDOW_ROLES,
+  type PanelWindowRole,
+  type WindowDescriptor,
+} from '@midnite/studio-shared';
 
 import { bridge } from './bridge';
 import { useBrowserStore } from '../store/browser-store';
 import { useUiStore } from '../store/ui-store';
 
-const ROLES: readonly Exclude<WindowRole, 'main'>[] = ['terminal', 'repos', 'fab', 'browser'];
+const ROLES: readonly PanelWindowRole[] = ['terminal', 'repos', 'fab', 'browser'];
 
 /**
- * Reconciles `ui-store`'s four `*Detached` flags against main's own window
- * registry (Phase 55) — the single source of truth for which popouts exist.
+ * Reconciles `ui-store`'s four `*Detached` flags — and the `detachedPages`
+ * list beside them — against main's own window registry (Phase 55), the
+ * single source of truth for which popouts exist.
+ *
+ * The two halves reconcile the same way and mean different things. A panel
+ * flag GATES the docked slot: flipping it to `true` is what collapses the
+ * panel out of the main window. A page entry gates nothing — the main window
+ * renders the view whether or not a duplicate of it is open elsewhere — and
+ * only decides whether that page's mark offers "detach" or "focus the window
+ * you already have".
  *
  * Covers both directions of closing a popout: the re-dock button (which asks
  * main to close it) and the window's own traffic light (A.6's rule that a
@@ -58,6 +70,9 @@ export function useWindowSync(): void {
         if (role === 'browser' && current === true && detached === false) {
           void useBrowserStore.persist.rehydrate();
         }
+      }
+      for (const role of PAGE_WINDOW_ROLES) {
+        store.setPageDetached(role, present.has(role));
       }
     };
 

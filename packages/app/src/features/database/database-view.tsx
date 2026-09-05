@@ -5,6 +5,7 @@ import { LuDatabase, LuPencil, LuPlus, LuTrash2 } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
 import { VIEW_ICON } from '../../components/nav-icons';
+import { PageDetachMark } from '../../components/page-detach-mark';
 import { useDatabaseConnectionsStore } from '../../store/database-connections-store';
 import { ConnectionDialog } from './connection-dialog';
 import { ConnectionTree } from './connection-tree';
@@ -41,7 +42,8 @@ export function DatabaseView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-1.5 py-1">
+        <PageDetachMark role="database" />
         <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           Connections
         </h2>

@@ -24,12 +24,22 @@ const DEV_SERVER_URL = process.env['MSTUDIO_RENDERER_URL'] ?? 'http://localhost:
  * bounds for that role. `main` is never created through this table — the
  * boot sequence's own `createWindow()` (`window.ts`) keeps its existing
  * 1440×900.
+ *
+ * The five page roles get main-window-ish sizes rather than the panels'
+ * deliberately narrow ones: a detached page is a duplicate of a full view, so
+ * it wants room to be *used*, not the 420-wide sliver that is the whole point
+ * of pulling the Repos rail out.
  */
 const DEFAULT_POPOUT_SIZE: Record<Exclude<WindowRole, 'main'>, { width: number; height: number }> = {
   terminal: { width: 1100, height: 640 },
   repos: { width: 420, height: 900 },
   fab: { width: 520, height: 820 },
   browser: { width: 1280, height: 860 },
+  graph: { width: 1280, height: 860 },
+  actions: { width: 1180, height: 800 },
+  changes: { width: 1280, height: 860 },
+  files: { width: 1180, height: 820 },
+  database: { width: 1280, height: 820 },
 };
 
 /**

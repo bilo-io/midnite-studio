@@ -11,6 +11,23 @@ import { expect, type Page } from '@playwright/test';
  * Serialised into the page via `addInitScript`, so this function body may not
  * close over anything from the test file.
  */
+/**
+ * Every role a second window can carry — the four panels first, then the five
+ * pages. Spelled out here rather than imported from `@midnite/studio-shared`
+ * because this module is serialised into the page whole (`addInitScript`) and
+ * may not close over anything, imports included.
+ */
+export type PopoutRole =
+  | 'terminal'
+  | 'repos'
+  | 'fab'
+  | 'browser'
+  | 'graph'
+  | 'actions'
+  | 'changes'
+  | 'files'
+  | 'database';
+
 export type MockFixtures = {
   /**
    * Hold every `forge.*` answer this long, in milliseconds.
@@ -461,11 +478,15 @@ export type MockFixtures = {
    */
   dbSchemaByConnection?: Record<string, { tables: unknown[] }>;
   /**
-   * Which panel `main.tsx` renders (Phase 55) — `'main'`, the default, for
+   * Which surface `main.tsx` renders (Phase 55) — `'main'`, the default, for
    * `<App />`; any popout role for `<DetachedRoot role={…} />` standalone.
-   * Every spec but `detached-panels-shots.spec.ts` leaves this unset.
+   * Only the two `detached-*-shots.spec.ts` files set it.
+   *
+   * Both kinds of popout role are accepted: the four panels, which MOVE out
+   * of the main window when detached, and the five pages, which duplicate
+   * into a second window instead.
    */
-  windowRole?: 'main' | 'terminal' | 'repos' | 'fab' | 'browser';
+  windowRole?: 'main' | PopoutRole;
   /**
    * Extra popout roles `window.list()` reports as open, alongside `main`.
    * `useWindowSync` (`use-window-sync.ts`) reconciles `ui-store`'s four
@@ -474,7 +495,7 @@ export type MockFixtures = {
    * clobbered back to `false` the instant that hook's effect runs, since main
    * (this list) is the reconciliation's only source of truth.
    */
-  openPopoutRoles?: ('terminal' | 'repos' | 'fab' | 'browser')[];
+  openPopoutRoles?: PopoutRole[];
   /**
    * What `repos.pickDirectory()` answers — `null` (the default) is the user
    * cancelling the native picker; a path is a spec driving the extra-root

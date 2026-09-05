@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
 import { TitleBar } from '@bilo-io/shell';
-import type { WindowRole } from '@midnite/studio-shared';
+import { isPageWindowRole, type WindowRole } from '@midnite/studio-shared';
 import { FaGitAlt } from 'react-icons/fa';
 import { LuGlobe, LuSquareArrowDownLeft, LuTerminal } from 'react-icons/lu';
 
@@ -161,9 +161,16 @@ export function DetachedWindowFrame({
                   {basename(selectedRepo.path)}
                 </span>
               ) : null}
+              {/*
+                "Close", not "Re-dock", for a page: a page popout is a
+                DUPLICATE of a view the main window never stopped rendering,
+                so there is nothing to dock back and the word would promise a
+                move that does not happen. Same IPC either way — `dock` on a
+                page role just closes the window.
+              */}
               <IconButton
                 icon={LuSquareArrowDownLeft}
-                label={`Re-dock ${title}`}
+                label={isPageWindowRole(role) ? `Close ${title}` : `Re-dock ${title}`}
                 size="sm"
                 onClick={() => bridge()?.window.dock({ role })}
               />
