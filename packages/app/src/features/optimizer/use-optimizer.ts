@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { bridge } from '../../services/bridge';
 import { useOptimizerStore } from '../../store/optimizer-store';
 import { useToastStore } from '../../store/toast-store';
+import { useUiStore } from '../../store/ui-store';
 
 /**
  * Wires `optimizerScanProgress` events into the store — a stream, not a
@@ -28,7 +29,13 @@ export async function runOptimizerScan(extraRoot?: string): Promise<void> {
     return;
   }
 
-  const response = await api.optimizer.scan(extraRoot === undefined ? {} : { extraRoot });
+  // Phase 72 Theme E — read the per-ecosystem opt-out fresh at scan time,
+  // not subscribed reactively: this is a one-shot request, not a render.
+  const disabledEcosystems = useUiStore.getState().disabledEcosystems;
+  const response = await api.optimizer.scan({
+    ...(extraRoot === undefined ? {} : { extraRoot }),
+    ...(disabledEcosystems.length === 0 ? {} : { disabledEcosystems }),
+  });
   if (response.ok) {
     store.scanDone(response.value);
   } else {

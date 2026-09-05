@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 
 import {
   METRICS_IDLE_INTERVAL_MS,
+  type Ecosystem,
   type LoopModel,
   type LoopSchedule,
   type MetricId,
@@ -1149,6 +1150,17 @@ export type UiState = {
    */
   trashEmptyConsentGiven: boolean;
   setTrashEmptyConsentGiven: (given: boolean) => void;
+  /**
+   * Phase 72 Theme E — the ecosystems (`Ecosystem`, `shared/domain/optimizer.ts`)
+   * a Smart Scan should skip. Stored as the DISABLED set rather than the
+   * enabled one, following `hiddenMetrics`'s own docblock reasoning: an
+   * allowlist persisted before a member existed would silently hide it for
+   * every existing user, and that is not hypothetical here — Phase 73 added
+   * `'go'` and Phase 74 adds `'media'`, both of which must scan by default
+   * for anyone who upgrades. Default `[]` — everything on.
+   */
+  disabledEcosystems: Ecosystem[];
+  toggleEcosystem: (id: Ecosystem) => void;
   passcode: string | null;
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
@@ -1330,6 +1342,7 @@ export type PersistedUi = Pick<
   | 'systemCacheConsentGiven'
   | 'allowTrashEmpty'
   | 'trashEmptyConsentGiven'
+  | 'disabledEcosystems'
   | 'terminalDetached'
   | 'reposDetached'
   | 'fabDetached'
@@ -1415,6 +1428,8 @@ export const useUiStore = create<UiState>()(
       setAllowTrashEmpty: (allowTrashEmpty) => set({ allowTrashEmpty }),
       trashEmptyConsentGiven: false,
       setTrashEmptyConsentGiven: (trashEmptyConsentGiven) => set({ trashEmptyConsentGiven }),
+      // Disabled set, not the enabled one — see the interface docblock.
+      disabledEcosystems: [],
       passcode: null,
       setPasscode: (passcode) => set({ passcode }),
       passcodeOnlyWhenLocked: false,
@@ -1779,6 +1794,12 @@ export const useUiStore = create<UiState>()(
             ? state.hiddenMetrics.filter((entry) => entry !== id)
             : [...state.hiddenMetrics, id],
         })),
+      toggleEcosystem: (id) =>
+        set((state) => ({
+          disabledEcosystems: state.disabledEcosystems.includes(id)
+            ? state.disabledEcosystems.filter((entry) => entry !== id)
+            : [...state.disabledEcosystems, id],
+        })),
       setAutoFetchIntervalMs: (autoFetchIntervalMs) => set({ autoFetchIntervalMs }),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
       setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),
@@ -1887,6 +1908,7 @@ export const useUiStore = create<UiState>()(
         systemCacheConsentGiven: state.systemCacheConsentGiven,
         allowTrashEmpty: state.allowTrashEmpty,
         trashEmptyConsentGiven: state.trashEmptyConsentGiven,
+        disabledEcosystems: state.disabledEcosystems,
         terminalDetached: state.terminalDetached,
         reposDetached: state.reposDetached,
         fabDetached: state.fabDetached,

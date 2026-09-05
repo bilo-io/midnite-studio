@@ -99,6 +99,17 @@ describe('registerOptimizerHandlers (Phase 59 Themes C, E)', () => {
 
       expect(result).toEqual({ ok: false, message: 'walk failed' });
     });
+
+    it('forwards disabledEcosystems into scanWorkspace (Phase 72 Theme E)', async () => {
+      const value = { totalBytes: 0, byCategory: {}, items: [], truncated: false };
+      scanWorkspace.mockResolvedValue(value);
+
+      await invoke(CHANNELS.optimizerScan, { disabledEcosystems: ['rust'] });
+
+      expect(scanWorkspace).toHaveBeenCalledWith(
+        expect.objectContaining({ disabledEcosystems: ['rust'] }),
+      );
+    });
   });
 
   describe('optimizerGpu', () => {

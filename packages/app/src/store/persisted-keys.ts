@@ -36,6 +36,7 @@ export const PREFERENCE_KEYS = [
   'allowTrashEmpty', // trash-safety-page.tsx
   'autoFetchIntervalMs', // sidebar-page.tsx
   'cycleDurationS', // screen-lock-page.tsx
+  'disabledEcosystems', // optimizer-settings-page.tsx
   'forgeWritesEnabled', // reviews-page.tsx / git-safety-page.tsx
   'graphDensity', // density-picker.tsx (via graph-page.tsx)
   'graphTheme', // graph-theme-picker.tsx (via graph-page.tsx)

@@ -20,6 +20,7 @@ import {
   DiagnosticsTrustStatusSchema,
   DIFF_DEFAULT_CONTEXT,
   DIFF_FULL_CONTEXT,
+  EcosystemSchema,
   FileDiffSchema,
   ForgeCliStatusSchema,
   ForgeIssueCommentsResultSchema,
@@ -1892,6 +1893,13 @@ export type SystemHealth = z.infer<typeof SystemHealthResponse>;
 export const OptimizerScanRequest = z.object({
   /** One user-chosen extra root per scan — never an unscoped crawl. */
   extraRoot: z.string().optional(),
+  /**
+   * Ecosystems (Phase 72 Theme E) to skip. Applied in main, before the walk
+   * spends its entry budget finding things the user asked not to see —
+   * filtering after the walk would be the wrong instinct. Bare `.optional()`,
+   * no `.default()`, matching `extraRoot` beside it.
+   */
+  disabledEcosystems: z.array(EcosystemSchema).optional(),
 });
 export const OptimizerScanResponse = OptimizerResultOf(ScanResultSchema);
 

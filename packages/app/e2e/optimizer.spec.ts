@@ -203,11 +203,10 @@ test.describe('Smart Scan + Storage', () => {
     await page.getByRole('button', { name: 'Run Smart Scan' }).click();
     await expect(page.getByText('Dependencies')).toBeVisible();
 
-    await page
-      .getByRole('listitem')
-      .filter({ hasText: 'Dependencies' })
-      .getByRole('button', { name: 'Clean' })
-      .click();
+    // Phase 72 Theme D: the per-category row's Clean button is now scoped to
+    // one (ecosystem, category) pair — every SCAN_RESULT item is `node`, so
+    // this is "clean Node's Dependencies row", not a global category clean.
+    await page.getByRole('button', { name: 'Clean Node Dependencies' }).click();
 
     await expect(page.getByRole('heading', { name: 'Clean Dependencies?' })).toBeVisible();
     await expect(page.getByText('1 item will be moved to the trash.')).toBeVisible();
@@ -217,6 +216,56 @@ test.describe('Smart Scan + Storage', () => {
 
     await expect(page.getByText('Dependencies')).not.toBeVisible();
     await expect(page.getByText('Build output')).toBeVisible();
+  });
+
+  test('the ecosystem group Clean button cleans only the cheap items in it, and a costly-only group is disabled', async ({
+    page,
+  }) => {
+    await openOptimizer(page, {
+      ...fixtures,
+      optimizer: {
+        scanResult: {
+          ...SCAN_RESULT,
+          totalBytes: 500,
+          byCategory: { dependencies: 400, buildOutput: 100, toolCache: 0, staleWorktree: 0, looseObjects: 0 },
+          byEcosystem: { ...SCAN_RESULT.byEcosystem, node: 500 },
+          items: [
+            ...SCAN_RESULT.items,
+            {
+              path: '/tmp/midnite-studio/other/node_modules',
+              bytes: 200,
+              category: 'dependencies',
+              repoId: 'repo-1',
+              detectorId: 'node-modules',
+              ecosystem: 'node',
+              reclaim: 'costly',
+            },
+          ],
+        },
+      },
+    });
+    await page.getByRole('button', { name: 'Run Smart Scan' }).click();
+    await expect(page.getByText('Dependencies')).toBeVisible();
+
+    // The group holds one cheap item (dist, 100 B) and two costly items
+    // (400 B of node_modules) — the group Clean button cleans the cheap one
+    // only, and names the two costly items left behind.
+    // `exact: true` — Playwright's accessible-name match is substring by
+    // default, and "Clean Node Dependencies" (the per-row button) would
+    // otherwise also match "Clean Node".
+    await page.getByRole('button', { name: 'Clean Node', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Clean Node?' })).toBeVisible();
+    await expect(page.getByText('100 B will be freed.')).toBeVisible();
+    await expect(page.getByText('npm run build will need to run again.')).toBeVisible();
+    await expect(
+      page.getByText('2 items need a re-download to restore and were left alone — clean them individually.'),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Move to Trash' }).click();
+
+    await expect(page.getByText('Build output')).not.toBeVisible();
+    // The two costly node_modules items remain — the group button is now
+    // disabled because only costly items are left in it.
+    await expect(page.getByRole('button', { name: 'Clean Node', exact: true })).toBeDisabled();
   });
 
   test('the extra-root folder picker', async ({ page }) => {
