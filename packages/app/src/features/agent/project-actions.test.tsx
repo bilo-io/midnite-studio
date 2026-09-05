@@ -106,4 +106,23 @@ describe('useProjectActions — Update pre-flight (Phase 49 Theme E)', () => {
       expect(update.buttonLabel).toBe('Update Midnite Studio — rebuild and install this checkout');
     });
   });
+
+  it('queues the install command with a trailing return to execute immediately', async () => {
+    installBridge();
+    const { result } = renderHook(() => useProjectActions(TARGET));
+
+    await waitFor(() => {
+      const update = result.current.actions.find((a) => a.key === 'update')!;
+      expect(update.disabled).toBeFalsy();
+    });
+
+    act(() => {
+      result.current.actions.find((a) => a.key === 'update')!.onSelect();
+    });
+
+    const sessionId = useTerminalStore.getState().sessions.at(-1)!.id;
+    expect(useTerminalStore.getState().pendingInput[sessionId]).toBe(
+      'moon run desktop:install-local\r',
+    );
+  });
 });
