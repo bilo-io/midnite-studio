@@ -1,0 +1,27 @@
+{
+  "name": "No Type Field Test Theme",
+  "colors": {
+    "editor.background": "#0d1117",
+    "editor.foreground": "#c9d1d9",
+    "sideBar.background": "#010409",
+    "focusBorder": "#58a6ff",
+    "panel.border": "#21262d",
+    "button.background": "#238636",
+    "button.foreground": "#ffffff"
+  },
+  "tokenColors": [
+    {
+      "scope": "comment",
+      "settings": {
+        "foreground": "#8b949e",
+        "fontStyle": "italic"
+      }
+    },
+    {
+      "scope": "variable.parameter",
+      "settings": {
+        "foreground": "#ffa657"
+      }
+    }
+  ]
+}
