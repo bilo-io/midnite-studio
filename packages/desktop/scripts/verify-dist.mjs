@@ -192,7 +192,7 @@ if (signingMode === 'signed (Developer ID)') {
   console.log('Signed build — verifying Gatekeeper accepts the notarization ticket...');
   try {
     execSync(`spctl --assess --type execute -vv "${appPath}"`, { stdio: 'inherit' });
-  } catch (err) {
+  } catch {
     console.error(
       'Build is signed with a Developer ID cert but Gatekeeper rejects it — a signed-but-unnotarized ' +
         'release would be quarantined on a stranger\'s Mac exactly like an unsigned one, just without saying so.',
