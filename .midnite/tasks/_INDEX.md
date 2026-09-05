@@ -77,7 +77,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [66 · API Client](phases/phase-66-api-client.md) | ◻ TODO | — | 0/58 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
 | [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | ◻ TODO | — | 0/49 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 0/72 | `░░░░░░░░░░` | 0% | A B C D | E F G |
-| [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ◻ TODO | x1 | 0/32 | `░░░░░░░░░░` | 0% | — | A B C |
+| [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | 🔄 WIP | x1 | 0/32 | `░░░░░░░░░░` | 0% | A B C | — |
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C |
 | [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 0/94 | `░░░░░░░░░░` | 0% | A B D E | C F G H I J |
 | [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C |
