@@ -18,6 +18,7 @@ import {
  */
 const OUT = '../../docs/screenshots/p59-abce';
 const OUT_DF = '../../docs/screenshots/p59-df';
+const OUT_P73 = '../../docs/screenshots/p73-def';
 
 const SCAN_RESULT = {
   totalBytes: 2_400_000_000,
@@ -129,21 +130,80 @@ const PROCESSES = [
   },
 ];
 
+// Phase 73 Theme E — the System section's own catalogue/scan fixtures, a
+// parallel family to SCAN_RESULT above and never merged with it.
+const SYSTEM_CATALOGUE = [
+  { entryId: 'cargo-registry', label: 'Cargo registry', producer: 'cargo build / cargo install', ecosystem: 'rust', reclaim: 'costly' },
+  { entryId: 'pnpm-store', label: 'pnpm store', producer: 'pnpm install', ecosystem: 'node', reclaim: 'costly' },
+  { entryId: 'go-build-cache', label: 'Go build cache', producer: 'go build', ecosystem: 'go', reclaim: 'cheap' },
+];
+
+const SYSTEM_SCAN_RESULT = {
+  totalBytes: 5_400_000_000,
+  approximate: true,
+  byEcosystem: { rust: 1_200_000_000, node: 4_100_000_000, go: 100_000_000 },
+  items: [
+    {
+      path: '/Users/bilo/.cargo/registry',
+      bytes: 1_200_000_000,
+      approximate: false,
+      entryId: 'cargo-registry',
+      ecosystem: 'rust',
+      reclaim: 'costly',
+      label: 'Cargo registry',
+      producer: 'cargo build / cargo install',
+    },
+    {
+      path: '/Users/bilo/Library/pnpm/store/v3',
+      bytes: 4_100_000_000,
+      approximate: true,
+      entryId: 'pnpm-store',
+      ecosystem: 'node',
+      reclaim: 'costly',
+      label: 'pnpm store',
+      producer: 'pnpm install',
+    },
+    {
+      path: '/Users/bilo/Library/Caches/go-build',
+      bytes: 100_000_000,
+      approximate: false,
+      entryId: 'go-build-cache',
+      ecosystem: 'go',
+      reclaim: 'cheap',
+      label: 'Go build cache',
+      producer: 'go build',
+    },
+  ],
+};
+
 const data: MockFixtures = {
   optimizer: {
     scanResult: SCAN_RESULT,
     gpu: GPU_STATS,
     memory: MEMORY_BREAKDOWN,
     processes: PROCESSES,
+    systemCatalogue: SYSTEM_CATALOGUE,
+    systemScanResult: SYSTEM_SCAN_RESULT,
   },
 };
 
-/** Directly into the persisted store, following `seedForgeWritesConsent`'s own precedent. */
+/**
+ * Directly into the persisted store, following `seedForgeWritesConsent`'s
+ * own precedent. Also seeds Phase 73 Theme C's two-factor System-cache gate
+ * on, so the Storage tab's System section (Theme E) is reachable — the
+ * default-off state means the un-gated shot (Storage without this section)
+ * stays the common case and needs no new coverage.
+ */
 async function seedOptimizerEnabled(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const stored = localStorage.getItem('midnite-studio.ui');
     const persisted = stored ? JSON.parse(stored) : { version: 8 };
-    persisted.state = { ...persisted.state, optimizerEnabled: true };
+    persisted.state = {
+      ...persisted.state,
+      optimizerEnabled: true,
+      allowSystemCacheClean: true,
+      systemCacheConsentGiven: true,
+    };
     localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
   });
 }
@@ -213,6 +273,25 @@ test.describe('optimizer screenshots', () => {
     await expect(page.getByRole('img', { name: 'Reclaimable storage by category' })).toBeVisible();
     await paintDark(page);
     await page.screenshot({ path: `${OUT}/optimizer-storage-dark.png` });
+  });
+
+  test('System caches, light', async ({ page }) => {
+    await openOptimizer(page);
+    await tab(page, 'Storage').click();
+    await page.getByRole('button', { name: 'Scan system caches' }).click();
+    await expect(page.getByText('Cargo registry')).toBeVisible();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.screenshot({ path: `${OUT_P73}/optimizer-system-caches-light.png` });
+  });
+
+  test('System caches, dark', async ({ page }) => {
+    await goDark(page);
+    await openOptimizer(page);
+    await tab(page, 'Storage').click();
+    await page.getByRole('button', { name: 'Scan system caches' }).click();
+    await expect(page.getByText('Cargo registry')).toBeVisible();
+    await paintDark(page);
+    await page.screenshot({ path: `${OUT_P73}/optimizer-system-caches-dark.png` });
   });
 
   test('Memory, light', async ({ page }) => {

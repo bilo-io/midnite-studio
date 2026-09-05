@@ -6,7 +6,11 @@ import { getGpuStats } from '../optimizer/gpu-service';
 import { getProcessTableResult, killProcess } from '../optimizer/kill-service';
 import { cleanItems, knownRoots, scanWorkspace } from '../optimizer/scan-service';
 import { DEFAULT_SYSTEM_CACHE_ENTRIES } from '../optimizer/system-cache-registry';
-import { cleanSystemCaches, scanSystemCaches } from '../optimizer/system-cache-service';
+import {
+  cleanSystemCaches,
+  runReclaimCommand,
+  scanSystemCaches,
+} from '../optimizer/system-cache-service';
 import { handle, handleBare } from './handle';
 
 /**
@@ -151,6 +155,22 @@ export function registerOptimizerHandlers(getWindow: () => BrowserWindow | null)
       try {
         const outcome = await cleanSystemCaches(req.entryIds, (path) => shell.trashItem(path));
         return { ok: true as const, value: outcome };
+      } catch (error) {
+        return {
+          ok: false as const,
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+    (issue) => ({ ok: false as const, message: issue }),
+  );
+
+  handle(
+    CHANNELS.optimizerSystemReclaim,
+    schemas.OptimizerSystemReclaimRequest,
+    async (req) => {
+      try {
+        return await runReclaimCommand(req.entryId);
       } catch (error) {
         return {
           ok: false as const,

@@ -60,12 +60,23 @@ const GPU_STATS = { model: 'Apple M2 Pro', vramBytes: 16 * 1024 * 1024 * 1024, l
 const tab = (page: Page, name: 'Smart Scan' | 'Storage' | 'Memory' | 'GPU') =>
   page.getByRole('navigation', { name: 'Optimizer tabs' }).getByRole('button', { name, exact: true });
 
-/** Seeds the persisted setting directly — flipping it live is its own test below. */
+/**
+ * Seeds the persisted setting directly — flipping it live is its own test
+ * below. Also seeds Phase 73 Theme C's two-factor System-cache gate on, so
+ * the Storage tab's System section (Theme E) is reachable from every test
+ * that opens the Optimizer through this helper, rather than invisible by
+ * construction the way it is by default in production.
+ */
 async function seedOptimizerEnabled(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const stored = localStorage.getItem('midnite-studio.ui');
     const persisted = stored ? JSON.parse(stored) : { version: 8 };
-    persisted.state = { ...persisted.state, optimizerEnabled: true };
+    persisted.state = {
+      ...persisted.state,
+      optimizerEnabled: true,
+      allowSystemCacheClean: true,
+      systemCacheConsentGiven: true,
+    };
     localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
   });
 }
