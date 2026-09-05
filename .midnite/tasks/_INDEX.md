@@ -280,7 +280,7 @@ gap, not silently dropped.*
 - ◻ **D** (attempted in PR #148, reverted) — Retry trim: 2 → 1 in CI to avoid 3-minute burns per failure now that `KNOWN_RED` is down to 1 file. Passed one CI run, then failed a previously-reliable spec twice on a second — CI-only variance the retry budget exists to absorb. Reverted to 2 pending a real fix.
 - ✅ **E** (PR #148) — Vite dev server build cache in CI: cache `packages/app/node_modules/.vite` keyed by source and config hash.
 - ✅ **F** (PR #152) — Screenshot gating in functional specs: gate raw `page.screenshot()` calls in functional specs behind `MSTUDIO_SHOTS`. Verified zero screenshot writes on a normal run; all 14 target PNGs regenerate under `MSTUDIO_SHOTS=1`.
-- ◻ **G** — Shots suite shared fixture helper: extract `packages/app/e2e/shots-helper.ts` and refactor the 25 `*-shots.spec.ts` files.
+- ✅ **G** ([PR #158]) — Shots suite shared fixture helper: extract `packages/app/e2e/shots-helper.ts` and refactor the 25 `*-shots.spec.ts` files.
 
 ### [Phase 55 — Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md)
 
