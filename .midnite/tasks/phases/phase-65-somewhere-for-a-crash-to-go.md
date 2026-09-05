@@ -104,69 +104,69 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Levels on the one seam, and a file under it (M)
+### A — Levels on the one seam, and a file under it (M) — ✅ DONE (PR #170, 2026-09-05)
 
-- [ ] Widen [`main/log.ts`](../../../packages/desktop/src/main/log.ts)'s `Logger` **without touching
+- [x] Widen [`main/log.ts`](../../../packages/desktop/src/main/log.ts)'s `Logger` **without touching
       a single call site**: `export type Logger = ((message: string) => void) & { info(message: string): void; warn(message: string): void; error(message: string, err?: unknown): void }`.
       A callable type with methods, not an interface replacing the call signature — that is what
       keeps all forty existing `log('[browser] …')` invocations compiling unchanged. See Decision 1.
-- [ ] `defaultLogger` gains the three methods; the bare call stays exactly `warn`-equivalent so no
+- [x] `defaultLogger` gains the three methods; the bare call stays exactly `warn`-equivalent so no
       existing line changes level by accident. Its `eslint-disable-next-line no-console` moves to
       cover the console fallbacks and nothing more.
-- [ ] **Correct the stale header at [`log.ts:6-9`](../../../packages/desktop/src/main/log.ts).** It
+- [x] **Correct the stale header at [`log.ts:6-9`](../../../packages/desktop/src/main/log.ts).** It
       states the broker redirects this seam to a file; `broker-client.ts:181` redirects the *child
       process's* stdio and this seam has never reached disk. The comment is the reason a reader
       would assume this phase's work already exists.
-- [ ] Add `packages/desktop/src/main/log-sink.ts` — **new.** `createFileSink({dir, name, maxBytes, generations, now}): { write(level, message): void; path: string; close(): void }`.
+- [x] Add `packages/desktop/src/main/log-sink.ts` — **new.** `createFileSink({dir, name, maxBytes, generations, now}): { write(level, message): void; path: string; close(): void }`.
       It takes a **directory**, never `app.getPath` — the same shape as `repo-store.ts` and every
       other `userData` writer, and the reason it can be tested under bare vitest with a temp dir.
-- [ ] One line per record, NDJSON: `{t, level, msg}`. Not a human log format — Theme E's "Copy
+- [x] One line per record, NDJSON: `{t, level, msg}`. Not a human log format — Theme E's "Copy
       diagnostics" reads the tail back and needs to parse it, and a `[perf] renderer boot 812` line
       is not parseable.
-- [ ] **Rotation, because fact 3 says nothing in this repo has any.** Size-capped at `maxBytes` with
+- [x] **Rotation, because fact 3 says nothing in this repo has any.** Size-capped at `maxBytes` with
       `generations` kept (`main.log`, `main.1.log`, …); the rotate check runs on write, not on a
       timer. Defaults: 2 MB × 3.
-- [ ] The sink **never throws into its caller.** A full disk, a read-only volume or a missing
+- [x] The sink **never throws into its caller.** A full disk, a read-only volume or a missing
       directory degrades to console-only for the rest of the session and logs that fact once. A
       logger that can crash the process it exists to diagnose is worse than no logger.
-- [ ] Wire it at [`index.ts:309`](../../../packages/desktop/src/main/index.ts), where `userData` is
+- [x] Wire it at [`index.ts:309`](../../../packages/desktop/src/main/index.ts), where `userData` is
       already resolved: `<userData>/logs/main.log`. One call, beside the existing store
       constructions, so the injection convention is visibly the same one.
-- [ ] Lift `fingerprintFile` out of
+- [x] Lift `fingerprintFile` out of
       [`broker-client.ts:105-113`](../../../packages/desktop/src/main/broker-client.ts) into
       `packages/desktop/src/main/fingerprint.ts` and re-export it from `broker-client.ts` so
       `brokerSocketName` is untouched. It is a pure `sha1(size:mtime)` → 8 hex chars, but it
       currently lives beside `net` and `spawn`; importing it from a log module would drag that graph
       in. Note in its docstring that it fingerprints **whichever file it is given** — today's
       `buildId` is `broker.js`, which is the broker's build, not main's.
-- [ ] Cap the broker's own log on open at
+- [x] Cap the broker's own log on open at
       [`broker-client.ts:507-511`](../../../packages/desktop/src/main/broker-client.ts) — reuse
       `log-sink.ts`'s rotate helper for the one file in this repo that grows forever. This is the
       only broker change in the phase, and it is here because "one sink rather than two" is P60's
       instruction and an unbounded second file is what that phrase is about.
-- [ ] `packages/desktop/src/main/log.test.ts` and `log-sink.test.ts` — the callable-plus-methods
+- [x] `packages/desktop/src/main/log.test.ts` and `log-sink.test.ts` — the callable-plus-methods
       type is exercised both ways (`log(x)` and `log.error(x, e)`); rotation at the boundary keeps
       exactly `generations` files; a write failure disables the sink without throwing and without
       spamming.
 
-### B — The channel, and the helper it deserves (M)
+### B — The channel, and the helper it deserves (M) — ✅ DONE (PR #170, 2026-09-05)
 
-- [ ] Add `handleSend(channel, schema, fn)` to
+- [x] Add `handleSend(channel, schema, fn)` to
       [`main/ipc/handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts), beside `handle`,
       `handleOp`, `handleBare` and `handleFromSender`. Forty `ipcMain.on` registrations hand-roll
       `safeParse` today because this helper does not exist. **Only this phase's channel is migrated
       onto it** — see the guardrails.
-- [ ] `mstudio:report:error` in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts),
+- [x] `mstudio:report:error` in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts),
       following the `mstudio:<domain>:<verb>` rule stated at `:1-8`, in the **one-way `send` group**
       — a crash report has no reply worth waiting for, and the renderer sending it may be seconds
       from being reloaded. Not `mstudio:diag:*`, which `:430-438` already owns.
-- [ ] `ErrorReportSchema` in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts), every
+- [x] `ErrorReportSchema` in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts), every
       string capped the way [`perf.ts:27-30`](../../../packages/shared/src/perf.ts) caps its two:
       `source` (`'boundary' | 'window-error' | 'unhandled-rejection'`), `name`, `message` (1 KB),
       `stack` (8 KB), `componentStack` (8 KB, optional), `view` (optional), `role`
       (`'main' | 'popout'`), `at` (epoch ms). A cap here is not tidiness — an unbounded string over
       IPC from a renderer that is already misbehaving is a second failure mode.
-- [ ] Three `invoke` channels for the user-facing half: `mstudio:report:log-path` (→ the sink's
+- [x] Three `invoke` channels for the user-facing half: `mstudio:report:log-path` (→ the sink's
       path), `mstudio:report:bundle` (→ the diagnostics text of Theme E), `mstudio:report:reveal`
       (→ `GitOpResult`). The last one is **a new channel and not a reuse**: `shellShowItemInFolder`
       ([`channels.ts:251`](../../../packages/shared/src/ipc/channels.ts)) takes `FsRepoScope`
@@ -174,70 +174,85 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       [`fs-handlers.ts:199-210`](../../../packages/desktop/src/main/ipc/fs-handlers.ts) confines it
       under a **repo** root. A file in `userData` is not under any repo, and widening that guard to
       reach it would be the wrong fix to the right check. See Decision 5.
-- [ ] `mstudio:report:reveal` takes **no path from the renderer.** It reveals the sink's own path,
+- [x] `mstudio:report:reveal` takes **no path from the renderer.** It reveals the sink's own path,
       which main already knows. A channel that accepts a path is a channel that has to defend one.
-- [ ] Bridge type in [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) as a `report` group;
+- [x] Bridge type in [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) as a `report` group;
       preload wiring in [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts) added
       to the `Pick<MidniteStudioBridge, …>` list at `:99`, so a half-wired group is a compile error
       exactly as the comment at `:96-99` intends.
-- [ ] Main handler registered from `index.ts` beside `registerPerfHandlers` (`:301`), taking
+- [x] Main handler registered from `index.ts` beside `registerPerfHandlers` (`:301`), taking
       `log: Logger` by injection like every other handler module. On a valid report it calls
       `log.error`; on an **invalid** one it logs the `safeParse` error rather than dropping —
       [`perf-handlers.ts:13-18`](../../../packages/desktop/src/main/ipc/perf-handlers.ts) explains
       why silent drop is correct for perf marks, and every clause of that reasoning inverts here.
-- [ ] **Redaction lives in `shared`, not in the renderer.** `redactPaths(text)` replaces the user's
+- [x] **Redaction lives in `shared`, not in the renderer.** `redactPaths(text)` replaces the user's
       home directory with `~` in any message, stack or component stack before it is written or
       copied. Theme E's output is destined for a public issue tracker; a stack trace is full of
       absolute paths carrying a username and every repo name on the machine. Unit-tested with
       POSIX and Windows-shaped paths.
-- [ ] Schema round-trip tests beside the existing ipc schema tests, plus a `handleSend` test
+- [x] Schema round-trip tests beside the existing ipc schema tests, plus a `handleSend` test
       asserting an invalid payload is logged and not thrown.
 
-### C — The renderer learns to report (S)
+### C — The renderer learns to report (S) — ✅ DONE (PR #170, 2026-09-05)
 
-- [ ] Add `packages/app/src/lib/report.ts` — **new**, in the shape of
+> **Landed note — the cap is per-signature, which overrides Decision 10.** The doc's recommendation
+> was a flat 20-reports-per-session cap. What shipped is a **per-signature** cap: an FNV-1a hash
+> over `name` + `message` + the first stack frame, **3 reports per signature**, then a single
+> suppression record saying reporting for that signature has stopped. The failure mode Decision 10
+> defends against — a render loop emitting thousands of reports a second — is fully covered by
+> three-per-signature, and unlike a flat session cap it cannot let a noisy first bug silence a
+> genuinely new second one, which is the objection Decision 10 raised against itself. Related:
+> Decision 11's recommendation *was* taken as written — the sink is synchronous on the `error`
+> level only, with `info`/`warn` buffered.
+
+- [x] Add `packages/app/src/lib/report.ts` — **new**, in the shape of
       [`lib/perf.ts`](../../../packages/app/src/lib/perf.ts): `reportError(source, error, extra?)`,
       reading `bridge()?.report` and no-op'ing without it (a jsdom test has no bridge, and
       `window.midniteStudio` is declared optional at `bridge.ts:921-930` for exactly this).
-- [ ] **A reporter that cannot storm.** Dedupe by `name+message+first stack frame` using the same
+- [x] **A reporter that cannot storm.** Dedupe by `name+message+first stack frame` using the same
       once-guard `Set` as [`perf.ts:28-38`](../../../packages/app/src/lib/perf.ts), plus a hard cap
       of 20 reports per session. A render loop that throws every frame must not turn into an IPC
       flood, and an error *inside* `reportError` is swallowed rather than re-reported.
-- [ ] `window.addEventListener('error', …)` and `'unhandledrejection'` installed once in
+- [x] `window.addEventListener('error', …)` and `'unhandledrejection'` installed once in
       [`main.tsx`](../../../packages/app/src/main.tsx) — before `createRoot` at `:23-25`, so a throw
       during the first render is caught. **Both roles get them**: that file is the shared entry for
       `App` and `DetachedRoot`, so popouts are covered by the same two lines, and `role` goes on the
       report.
-- [ ] The current `view` is stamped onto boundary reports so a report says *which* surface blanked.
+- [x] The current `view` is stamped onto boundary reports so a report says *which* surface blanked.
       Read at send time from the ui-store, not held in a closure.
-- [ ] Export `reportError` under the exact name P60 Theme B's `componentDidCatch` will call, and say
+- [x] Export `reportError` under the exact name P60 Theme B's `componentDidCatch` will call, and say
       so in its docstring with a link to that phase. This is the seam, and it is one function.
-- [ ] `packages/app/src/lib/report.test.ts` — no bridge is a silent no-op; the same error twice
+- [x] `packages/app/src/lib/report.test.ts` — no bridge is a silent no-op; the same error twice
       sends once; the 21st distinct error does not send; a throwing bridge does not propagate.
 
-### D — Main's own crashes reach the same sink (S)
+### D — Main's own crashes reach the same sink (S) — ✅ DONE (PR #170, 2026-09-05)
 
-- [ ] `process.on('uncaughtException')` and `process.on('unhandledRejection')` in
+- [x] `process.on('uncaughtException')` and `process.on('unhandledRejection')` in
       [`main/index.ts`](../../../packages/desktop/src/main/index.ts), installed **before**
       `app.whenReady()` — the boot path is where an unhandled rejection is both most likely and most
       invisible. Both `log.error`; neither exits, matching Electron's current default behaviour so
       this phase changes what is *recorded*, not what the app does.
-- [ ] `app.on('child-process-gone')` → `log.error` with `type` and `reason`. Zero hits today, and it
+- [x] `app.on('child-process-gone')` → `log.error` with `type` and `reason`. Zero hits today, and it
       is the only hook that reports a GPU or utility process dying — a class of failure that
       currently manifests as "the window went strange" with no record at all.
-- [ ] The three existing `render-process-gone` binds move from the bare seam to `log.error`:
+- [x] The three existing `render-process-gone` binds move from the bare seam to `log.error`:
       [`index.ts:129-136`](../../../packages/desktop/src/main/index.ts),
       [`window-manager.ts:172-179`](../../../packages/desktop/src/main/window-manager.ts),
       [`browser-service.ts:139-141`](../../../packages/desktop/src/main/browser-service.ts). Their
       message strings are already good; only the level changes, and with it whether they survive.
-- [ ] `webContents.on('unresponsive')` on the app's own windows. Today it is bound only for embedded
+- [x] `webContents.on('unresponsive')` on the app's own windows. Today it is bound only for embedded
       browser tabs ([`browser-service.ts:145`](../../../packages/desktop/src/main/browser-service.ts)),
       so a hung Studio window — the failure a user is most likely to actually report — logs nothing.
-- [ ] A boot line at startup recording app version, Electron/Chrome/Node versions, platform, arch,
+- [x] A boot line at startup recording app version, Electron/Chrome/Node versions, platform, arch,
       `isPackaged` and the `fingerprint.ts` build id. Every log file's first line, so a pasted tail
       identifies its build without the reporter being asked.
 
 ### E — A user can get at it in two clicks (S)
+
+> **Not built in the PR #170 batch — deliberately out of scope, and still ◻ TODO.** Themes A–D
+> ship the whole machine (sink, channels, `reportError`, main's own crash hooks); this theme is the
+> user-facing half — the two Diagnostics buttons, the `release.ts` issue URLs and the Report-a-bug
+> link — and it is unstarted. The verification items that depend on it stay open with it.
 
 - [ ] Extend the **existing** `Accordion title="Diagnostics"` at
       [`monitor-page.tsx:96`](../../../packages/app/src/features/settings/settings-pages/monitor-page.tsx)
@@ -298,18 +313,20 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green, and `pnpm e2e` green with no new `KNOWN_RED` entry.
-- [ ] **The widening cost nothing:** the `Logger` change touches zero of the ~40 existing call
+      **Half done:** typecheck, lint and every unit suite are green (`desktop` 1120, `shared` 475,
+      `app` 2358, `git-engine` passing). The e2e half was **not executed** in this batch.
+- [x] **The widening cost nothing:** the `Logger` change touches zero of the ~40 existing call
       sites. `git diff --stat` for Theme A shows `log.ts` and new files only — if any caller had to
       change, the type is wrong (Decision 1).
-- [ ] `grep -rn "mstudio:diag" packages/shared/src/ipc/channels.ts` still returns only the five
+- [x] `grep -rn "mstudio:diag" packages/shared/src/ipc/channels.ts` still returns only the five
       repo-lint channels at `:430-438` — no collision with the new group.
 - [ ] Throw in a view, and `<userData>/logs/main.log` gains one NDJSON record naming the view, the
       role and the stack. Then throw the *same* error four more times: still one record.
 - [ ] `Promise.reject(new Error('x'))` unhandled in the renderer, and again in main, each produce
       exactly one record with the right `source`.
-- [ ] Write 3 MB through the sink: exactly `generations + 1` files exist, the newest is under
+- [x] Write 3 MB through the sink: exactly `generations + 1` files exist, the newest is under
       `maxBytes`, and the oldest is gone.
-- [ ] Point the sink at a read-only directory and boot: the app starts normally, logs the failure
+- [x] Point the sink at a read-only directory and boot: the app starts normally, logs the failure
       once, and every later `log.error` still reaches console.
 - [ ] **Copy diagnostics contains no home directory.** Run it on a path under
       `/Users/<name>/…` and assert the output has `~` and not the username — the redaction test that

@@ -86,3 +86,40 @@ test('a context menu raised from the title bar paints over it', async ({ page })
   await expect(menu).toBeVisible();
   expect(await overlapsTitleBarOnTop(page, menu)).toBe(true);
 });
+
+/**
+ * One Escape, one dismissal (Phase 62).
+ *
+ * Both handlers used to be `window` listeners with no idea the other existed:
+ * `graph-view` mounted one whenever a commit was selected, `ContextMenu`
+ * mounted its own, and `stopPropagation` cannot separate two listeners on the
+ * same target. So the single keypress meant to close the menu also threw away
+ * the selection the user had spent a click getting to — and the detail panel
+ * with it.
+ *
+ * The menu is a blocking entry at `menu`; the selection is a passive entry at
+ * `inline`. Blocking outranks passive outright, so exactly one of them hears
+ * the key. This is the assertion, not the paint order the rest of this file is
+ * about — but it is the same question ("which surface is on top?") answered for
+ * the keyboard instead of the compositor, which is why it lives here.
+ */
+test('Escape closes a context menu without clearing the graph selection', async ({ page }) => {
+  const row = page.locator('[role="row"]').filter({ hasText: 'feat(phase-11)' }).first();
+  await row.click();
+  await expect(row).toHaveAttribute('aria-selected', 'true');
+
+  await row.click({ button: 'right' });
+  const menu = page.getByRole('menu').filter({ has: page.getByText('Create branch here…') });
+  await expect(menu).toBeVisible();
+
+  await page.keyboard.press('Escape');
+
+  await expect(menu).toHaveCount(0);
+  // The whole point: one press, one dismissal. The row is still selected.
+  await expect(row).toHaveAttribute('aria-selected', 'true');
+
+  // And a second press is now the selection's, which is what makes this an
+  // ordering fix rather than a swallowed key.
+  await page.keyboard.press('Escape');
+  await expect(row).toHaveAttribute('aria-selected', 'false');
+});

@@ -17,6 +17,8 @@ import {
   LuUndo2,
 } from 'react-icons/lu';
 
+import { EmptyState } from '../../components/empty-state';
+import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { useNow } from '../../lib/use-now';
 import { useReflog, useRefs } from '../../services/queries';
 import { useActiveWorktree, useGitOp } from '../../services/use-status';
@@ -92,7 +94,8 @@ export function ReflogList() {
   const [actionFilter, setActionFilter] = useState<ReflogAction | 'all'>('all');
   const now = useNow();
 
-  const { data: entries = EMPTY_ENTRIES, isLoading } = useReflog(repoId, selectedRef, worktreePath);
+  const reflog = useReflog(repoId, selectedRef, worktreePath);
+  const entries = reflog.data ?? EMPTY_ENTRIES;
   const checkout = useGitOp<{ target: string; detach?: boolean }>('checkout', (api, args, ctx) =>
     api.ops.checkout({ ...ctx, target: args.target, detach: args.detach ?? false }),
   );
@@ -152,8 +155,23 @@ export function ReflogList() {
         </div>
       </div>
 
-      {isLoading ? (
-        <Centered>Reading the reflog…</Centered>
+      {/*
+        Error → empty → skeleton → content, in that order
+        (`components/skeleton.tsx`). `git reflog` fails for real reasons — a
+        ref that no longer exists, a worktree that has moved — and until Phase
+        60 Theme C every one of them rendered as "No reflog entries for this
+        ref.", which is a claim about the repository rather than about the
+        call. The skeleton is last because a grey bar that never resolves is
+        indistinguishable from one still loading.
+      */}
+      {reflog.isError ? (
+        <EmptyState
+          icon={LuRotateCcw}
+          title="Could not read the reflog"
+          body={reflog.error instanceof Error ? reflog.error.message : String(reflog.error)}
+        />
+      ) : reflog.isPending ? (
+        <ReflogSkeleton />
       ) : filtered.length === 0 ? (
         <Centered>
           {entries.length === 0
@@ -178,6 +196,27 @@ export function ReflogList() {
         default — "it's in the reflog" is a time-limited promise, not a permanent one.
       </p>
     </div>
+  );
+}
+
+/**
+ * The reflog list, at rest — an icon, a subject and a metadata line per row,
+ * which is the shape `ReflogRow` paints. Six rows because six fill the pane;
+ * the count is not a claim about the page size (`components/skeleton.tsx`).
+ */
+function ReflogSkeleton() {
+  return (
+    <LoadingRegion label="Reading the reflog…" className="min-h-0 flex-1 overflow-hidden p-2">
+      {[52, 66, 44, 71, 58, 49].map((width, index) => (
+        <div key={width} className="flex items-start gap-2 border-b border-border/50 py-2">
+          <Skeleton className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className="h-3" style={{ width: `${width}%` }} />
+            <Skeleton className="h-2.5" style={{ width: index % 2 === 0 ? '34%' : '28%' }} />
+          </div>
+        </div>
+      ))}
+    </LoadingRegion>
   );
 }
 

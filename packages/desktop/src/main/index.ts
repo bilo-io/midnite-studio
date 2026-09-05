@@ -39,7 +39,7 @@ import { registerSearchHandlers } from './ipc/search-handlers';
 import { registerStatsHandlers } from './ipc/stats-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
 import { configureTests, registerTestsHandlers } from './ipc/tests-handlers';
-import { defaultLogger, type Logger } from './log';
+import { defaultLogger, setLogSink, type Logger } from './log';
 import { installMenu } from './menu';
 import {
   detachAll,
@@ -83,6 +83,8 @@ import { stopDemoApi } from './demo-api/server';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
+import { registerReportHandlers, setBootLine } from './ipc/report-handlers';
+import { createFileSink } from './log-sink';
 import { bootMark } from './perf-marks';
 import { startHeapSampler } from '../heap-sampler';
 import { ensureLoginShellPathAsync } from './shell-path';
@@ -138,11 +140,27 @@ async function openReposFromEnv(): Promise<void> {
  * never changed.
  */
 function bindRenderProcessGone(win: BrowserWindow, log: Logger): void {
+  // `log.error` since Phase 65 Theme D — the line was always this good, it just
+  // went to a stderr a packaged app discards.
   win.webContents.on('render-process-gone', (_event, details) => {
-    log(`[renderer] gone reason=${details.reason} exit=${details.exitCode}`);
+    log.error(`[renderer] gone reason=${details.reason} exit=${details.exitCode}`);
     if (details.reason === 'clean-exit') return;
     if (win.isDestroyed()) return;
     win.webContents.reload();
+  });
+  /*
+    A hung main window — recorded, not acted on. Until this, `unresponsive` was
+    bound only for embedded browser tabs (`browser-service.ts`), so the failure
+    a user is most likely to actually report was the one that left no trace.
+    Electron recovers from most of these unaided, so killing the window would be
+    a worse bug than the one being logged; the `responsive` line is what tells a
+    reader afterwards which it was.
+  */
+  win.webContents.on('unresponsive', () => {
+    log.error('[renderer] unresponsive');
+  });
+  win.webContents.on('responsive', () => {
+    log.info('[renderer] responsive again');
   });
 }
 
@@ -171,6 +189,38 @@ bootMark('modules-loaded');
 startHeapSampler({ enabled: perfEnabled(process.env), processName: 'main', log: defaultLogger });
 
 app.setName('Midnite Studio');
+
+/*
+  Main's own crashes, recorded — Phase 65 Theme D.
+
+  Installed here rather than inside `whenReady` on purpose: the boot path is
+  where an unhandled rejection is both most likely and most invisible, and a
+  handler registered after `whenReady` cannot see the ones raised before it.
+  Neither handler exits. Electron's default for an uncaught exception in main is
+  to log it and keep running, and this phase changes what is RECORDED, not what
+  the app does — turning a survivable exception into a quit would be a
+  behaviour change smuggled in under a logging one.
+*/
+process.on('uncaughtException', (err) => {
+  defaultLogger.error('[main] uncaughtException', err);
+});
+process.on('unhandledRejection', (reason) => {
+  defaultLogger.error('[main] unhandledRejection', reason);
+});
+
+/*
+  A GPU or utility process dying — the only hook that reports it, and it had
+  none until Phase 65. This class of failure currently manifests to a user as
+  "the window went strange" with no record at all, which is exactly the report
+  nobody can act on.
+*/
+app.on('child-process-gone', (_event, details) => {
+  defaultLogger.error(
+    `[main] child-process-gone type=${details.type} reason=${details.reason} exit=${details.exitCode}${
+      details.name === undefined ? '' : ` name=${details.name}`
+    }`,
+  );
+});
 
 if (!app.isPackaged) {
   const mainScript = process.argv[1] ? resolve(process.argv[1]) : process.cwd();
@@ -312,6 +362,7 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
     registerOptimizerHandlers(getMainWindow);
     registerPerfHandlers();
+    registerReportHandlers({ log: defaultLogger });
     installMgitFileProtocol();
     installMenu(getMainWindow);
     bootMark('handlers-registered');
@@ -320,6 +371,49 @@ if (!app.requestSingleInstanceLock()) {
     // on mount, and an empty answer there shows the empty state for a frame
     // even though repos are about to appear.
     const userData = app.getPath('userData');
+    /*
+      The file under main's one log seam — Phase 65 Theme A.
+
+      Constructed here, beside every other `userData` writer and from the same
+      once-resolved directory, because that injection convention is what keeps
+      `electron` out of the sink's module graph and lets it be tested under bare
+      vitest. `onFailure` goes to the console rather than back through the
+      logger: the logger is what just failed.
+    */
+    const logSink = createFileSink({
+      dir: join(userData, 'logs'),
+      name: 'main.log',
+      homeDir: app.getPath('home'),
+      // eslint-disable-next-line no-console
+      onFailure: (message) => console.error(message),
+    });
+    setLogSink(logSink);
+    // Buffered `info`/`warn` lines flush on the next tick, and a quit can beat
+    // it. `error` was already synchronous; this is what stops the ordinary
+    // lines leading up to a clean exit from being the ones that vanish.
+    app.on('will-quit', () => logSink.close());
+    /*
+      Every log file's first line, so a pasted tail identifies its build without
+      the reporter being asked.
+
+      `brokerBuild` is labelled honestly: `fingerprintFile` hashes whichever
+      file it is given, and the one this app fingerprints is `broker.js` — the
+      BROKER's build, not main's. `app.getVersion()` plus `isPackaged` already
+      identify the app build for every purpose a bug report has, and
+      fingerprinting the main bundle is a build-system question rather than a
+      logging one.
+    */
+    const bootLine = [
+      `midnite-studio ${app.getVersion()}`,
+      `packaged=${String(app.isPackaged)}`,
+      `brokerBuild=${fingerprintFile(join(__dirname, 'broker.js').replace('app.asar', 'app.asar.unpacked'))}`,
+      `electron=${process.versions.electron ?? '?'}`,
+      `chrome=${process.versions.chrome ?? '?'}`,
+      `node=${process.versions.node}`,
+      `${process.platform}/${process.arch}`,
+    ].join(' ');
+    setBootLine(bootLine);
+    defaultLogger.info(`[boot] ${bootLine}`);
     // Must run before the store is read: each rename ("Midnite Studio", then
     // "Midnite Studio") moved userData, and the user's repository list is
     // still under whichever name they last launched.

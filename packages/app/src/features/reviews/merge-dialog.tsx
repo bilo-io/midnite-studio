@@ -3,6 +3,7 @@ import { LuTriangleAlert } from 'react-icons/lu';
 import { useEffect, useRef, useState } from 'react';
 
 import { Spinner } from '../../components/skeleton';
+import { useDismiss } from '../../components/use-dismiss';
 import { formatNumber } from '../../lib/format-number';
 
 /**
@@ -77,17 +78,15 @@ export function MergeDialog({
   const [method, setMethod] = useState<ForgeMergeMethod | null>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
+  // Escape cancels, through the shared dismissal stack (Phase 62).
+  useDismiss(true, onCancel, { layer: 'dialog' });
+
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', onKeyDown);
     // Focus Cancel, matching `ConfirmDialog`: for a destructive action the safe
     // option is the one a stray Return should hit. Here it is doubly true —
     // Merge is not even reachable by Return until a method has been chosen.
     cancelRef.current?.focus();
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onCancel]);
+  }, []);
 
   const count = detail?.commitCount ?? null;
   const sample = detail?.commits ?? [];

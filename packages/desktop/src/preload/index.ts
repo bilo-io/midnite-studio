@@ -133,6 +133,7 @@ const bridge: Pick<
   | 'tests'
   | 'metrics'
   | 'perf'
+  | 'report'
   | 'watch'
   | 'window'
   | 'windowChrome'
@@ -485,6 +486,16 @@ const bridge: Pick<
     // boolean, so an unset flag makes every mark site a single false check.
     enabled: perfEnabled(process.env),
     mark: (m) => ipcRenderer.send(MSTUDIO_PERF_MARK, m),
+  },
+  report: {
+    // `send`, not `call`: a crash report has no answer worth awaiting, and the
+    // renderer making it may be seconds from a `render-process-gone` reload.
+    error: (r) => ipcRenderer.send(CHANNELS.reportError, r),
+    logPath: () => call(CHANNELS.reportLogPath),
+    bundle: () => call(CHANNELS.reportBundle),
+    // Deliberately argument-free — main reveals the file it owns. See
+    // `CHANNELS.reportReveal`.
+    reveal: () => call(CHANNELS.reportReveal),
   },
   systemHealth: () => call(CHANNELS.systemHealth),
   optimizer: {

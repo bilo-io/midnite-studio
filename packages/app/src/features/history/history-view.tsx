@@ -15,6 +15,13 @@ import { ReflogList } from './reflog-list';
  * Journal opens first, matching the order the two themes landed in (H's
  * journal, then G's reflog) — not a statement that one matters more than the
  * other now that both are real.
+ *
+ * The three states belong to the tabs, not to this frame, because the two tabs
+ * do not have the same ones to show. `ReflogList` runs the full error → empty
+ * → skeleton → content ladder over `git reflog` (`components/skeleton.tsx`);
+ * `JournalList` reads a synchronous in-process store, so its ladder is empty →
+ * content and a skeleton there would be a grey bar standing in for a value
+ * that is already in hand. A ladder here would have to guess which.
  */
 type HistoryTab = 'journal' | 'reflog';
 

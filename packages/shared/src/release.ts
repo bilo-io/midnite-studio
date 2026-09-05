@@ -29,6 +29,29 @@ export const RELEASE_LIST_URL =
   'https://github.com/bilo-io/midnite-apps/releases?q=midnite-studio&expanded=true';
 
 /**
+ * The bug tracker — Phase 65.
+ *
+ * Same reasoning as every URL above: this repo is private, so nothing a user
+ * touches can be served from it, and the tracker does the same job for every
+ * midnite app at once. Until this constant there was no way to report a bug at
+ * all — `grep -rni "report a bug"` over `packages` and `docs` returned zero.
+ *
+ * Not namespaced the way the release tags are: issues carry a label, not a tag,
+ * so one list serves the whole repo and the filter belongs in the query.
+ */
+export const ISSUES_URL = 'https://github.com/bilo-io/midnite-apps/issues';
+
+/**
+ * A new issue, pre-labelled for this app.
+ *
+ * The label is what keeps a sibling app's tracker readable, and pre-filling it
+ * is what stops a reporter having to know the convention. Opened through
+ * `shellOpenExternal`, which is protocol-restricted to http/https/mailto.
+ */
+export const NEW_ISSUE_URL =
+  'https://github.com/bilo-io/midnite-apps/issues/new?labels=midnite-studio';
+
+/**
  * The release page for one version.
  *
  * The tag is namespaced, and GitHub serves a slash inside a tag path verbatim —

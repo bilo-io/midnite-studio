@@ -1646,3 +1646,74 @@ describe('database contract (Phase 61)', () => {
     expect(done.error).toBeUndefined();
   });
 });
+
+describe('crash reporting contract (Phase 65)', () => {
+  const report = {
+    source: 'boundary' as const,
+    name: 'TypeError',
+    message: 'x is not a function',
+    stack: 'TypeError: x\n    at GraphView (graph-view.tsx:1:1)',
+    componentStack: '\n    in GraphView',
+    view: 'graph',
+    role: 'main' as const,
+    at: 1_700_000_000_000,
+  };
+
+  it('round-trips a full report', () => {
+    expect(schemas.ErrorReportSchema.parse(report)).toEqual(report);
+  });
+
+  it('round-trips the minimum a non-boundary source can produce', () => {
+    // A thrown non-Error has no stack and no component stack, and a report of
+    // it is still worth having.
+    const minimal = {
+      source: 'unhandled-rejection' as const,
+      name: 'thrown-string',
+      message: 'nope',
+      stack: '',
+      role: 'popout' as const,
+      at: 1,
+    };
+    expect(schemas.ErrorReportSchema.parse(minimal)).toEqual(minimal);
+  });
+
+  it('caps every string, so a misbehaving renderer cannot send an unbounded one', () => {
+    // Not tidiness: an unbounded string over IPC from a renderer that is
+    // already broken is a second failure mode layered on the first.
+    expect(() => schemas.ErrorReportSchema.parse({ ...report, message: 'x'.repeat(1025) })).toThrow();
+    expect(() => schemas.ErrorReportSchema.parse({ ...report, stack: 'x'.repeat(8193) })).toThrow();
+    expect(() =>
+      schemas.ErrorReportSchema.parse({ ...report, componentStack: 'x'.repeat(8193) }),
+    ).toThrow();
+    expect(() => schemas.ErrorReportSchema.parse({ ...report, name: 'x'.repeat(129) })).toThrow();
+    expect(() => schemas.ErrorReportSchema.parse({ ...report, view: 'x'.repeat(65) })).toThrow();
+  });
+
+  it('admits exactly three sources', () => {
+    expect(schemas.ErrorReportSourceSchema.options).toEqual([
+      'boundary',
+      'window-error',
+      'unhandled-rejection',
+    ]);
+  });
+
+  it('reveals no path — the channel takes none and the response carries one', () => {
+    // `mstudio:report:reveal` deliberately accepts nothing: a file in userData
+    // is under no repository, and widening `shellShowItemInFolder`'s repo-root
+    // guard to reach it would weaken a check that is correct.
+    expect(schemas.ReportLogPathResponse.parse({ path: null })).toEqual({ path: null });
+    expect(schemas.ReportBundleResponse.parse({ text: '' })).toEqual({ text: '' });
+  });
+
+  it('does not collide with the repo-lint runner, which owns mstudio:diag:*', () => {
+    const diag = Object.values(CHANNELS).filter((name) => name.startsWith('mstudio:diag:'));
+    expect(diag.sort()).toEqual([
+      'mstudio:diag:detect',
+      'mstudio:diag:run',
+      'mstudio:diag:trust',
+      'mstudio:diag:trust-status',
+      'mstudio:diag:untrust',
+    ]);
+    expect(Object.values(CHANNELS).filter((name) => name.startsWith('mstudio:report:'))).toHaveLength(4);
+  });
+});

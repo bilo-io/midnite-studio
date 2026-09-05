@@ -19,6 +19,16 @@ import type { CSSProperties, ReactNode } from 'react';
  * BEFORE reaching for a skeleton. That ordering is the whole reason a reader
  * can trust a grey bar to mean "still asking" rather than "nothing here".
  *
+ * **The order, written down — error → empty → skeleton → content.** Phase 60
+ * Theme C made this the rule every view checks in, in that sequence, rather
+ * than a habit most of them happened to follow. A skeleton must never stand in
+ * for a failure: a grey bar that never resolves is indistinguishable from one
+ * that is still loading, so a view that reaches for a skeleton before testing
+ * `isError` tells the user "still asking" about a question that already came
+ * back "no". Empty comes before the skeleton for the mirror-image reason — a
+ * query that has resolved to nothing is an answer, and answers outrank
+ * placeholders. Exactly ONE of the four ever renders.
+ *
  * **Reduced motion needs no guard here.** The shell's appearance layer stops
  * every animation under `html[data-motion='reduced']` with
  * `animation-fill-mode: forwards`, and `animate-pulse` ends its cycle at full

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 
 /**
@@ -36,14 +37,14 @@ export function PromptDialog({
 
   useFocusTrap(containerRef, true);
 
+  // Escape cancels, through the shared dismissal stack (Phase 62) — which is
+  // also where this dialog picks up the occluder registration it never had, so
+  // it can no longer be raised UNDERNEATH a live browser tab's native view.
+  useDismiss(true, onCancel, { layer: 'dialog' });
+
   useEffect(() => {
     inputRef.current?.select();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onCancel]);
+  }, []);
 
   const submit = () => {
     if (empty || error) return;

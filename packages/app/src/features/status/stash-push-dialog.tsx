@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useDismiss } from '../../components/use-dismiss';
 import { useFocusTrap } from '../../components/use-focus-trap';
 
 /**
@@ -30,14 +31,12 @@ export function StashPushDialog({ request, onCancel }: { request: StashPushReque
 
   useFocusTrap(containerRef, true);
 
+  // Escape cancels, through the shared dismissal stack (Phase 62).
+  useDismiss(true, onCancel, { layer: 'dialog' });
+
   useEffect(() => {
     inputRef.current?.select();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onCancel]);
+  }, []);
 
   const submit = () => {
     request.onConfirm({ message: message.trim() || undefined, keepIndex, includeUntracked });

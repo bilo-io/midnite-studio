@@ -27,6 +27,7 @@ import {
   createViewsSource,
 } from '../services/palette/providers';
 import { parsePaletteQuery, usePaletteStore, type PaletteMode } from '../store/palette-store';
+import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 
 const MODE_PLACEHOLDER: Partial<Record<PaletteMode, string>> = {
@@ -123,16 +124,19 @@ export function Palette() {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const previouslyFocused = useRef<HTMLElement | null>(
-    typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null),
-  );
 
+  // Restoration on close is the trap's job now (Phase 68 Theme A). The bespoke
+  // block that used to sit here captured `document.activeElement` in a `useRef`
+  // initializer — which re-evaluates every render — and restored without an
+  // `isConnected` check, without a `<body>` guard and without `preventScroll`.
+  // The palette navigates views, so its trigger being gone by the time it
+  // closes is the normal case, not the edge one.
   useFocusTrap(containerRef, true);
 
+  // Forward focus stays the palette's own business: the search box is where a
+  // freshly opened palette expects the next keystroke.
   useEffect(() => {
     inputRef.current?.focus();
-    const restoreTo = previouslyFocused.current;
-    return () => restoreTo?.focus();
   }, []);
 
   const { needle } = parsePaletteQuery(query);
@@ -248,13 +252,17 @@ export function Palette() {
   const runSelectedItemRef = useRef(runSelectedItem);
   runSelectedItemRef.current = runSelectedItem;
 
+  // Escape closes, through the shared dismissal stack (Phase 62). The
+  // `stopPropagation()` that used to guard it here was inert — every listener
+  // it was competing with was also on `window`, where `stopPropagation` does
+  // not stop siblings — and the blocking registration is what finally makes the
+  // palette an occluder, so it can no longer open UNDERNEATH a live browser
+  // tab's native view. Arrow keys and Enter stay on this listener: they are the
+  // palette's own navigation, not a dismissal.
+  useDismiss(true, close, { layer: 'dialog' });
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        close();
-        return;
-      }
       const length = scoredResultsLengthRef.current;
       if (length === 0) return;
       if (event.key === 'ArrowDown') {
@@ -270,7 +278,7 @@ export function Palette() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [close, setSelectedIndex]);
+  }, [setSelectedIndex]);
 
   const placeholder = MODE_PLACEHOLDER[mode];
 

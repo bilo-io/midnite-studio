@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@bilo-io/ui/theme';
 import type { Highlighter, ThemedToken } from 'shiki';
 
+import { useDismiss } from '../../../components/use-dismiss';
 import { getHighlighter, resolveHighlightTheme } from '../../../lib/highlighter';
 import { useBlameStore } from './blame-store';
 import { FindBar } from './find-bar';
@@ -86,6 +87,19 @@ export function CodePreview({
       .catch(() => undefined);
   }, [showBlame, repoId, relPath, fileKey, blameResult, setBlame]);
 
+  /*
+    Escape closes the find bar, through the shared dismissal stack (Phase 62) —
+    and only while it is open, which is what the `&& findOpen` guard on the old
+    `window` listener was standing in for.
+
+    Passive for the same reason `graph-view` is: `blocking` doubles as an
+    occluder registration, and this bar is pane-local — it never paints over the
+    browser's native `WebContentsView`, so it must not hide one. Delivery still
+    comes out right, because anything raised over it (a menu, a dialog) is
+    blocking and outranks a passive entry outright.
+  */
+  useDismiss(findOpen, () => setFindOpen(false), { layer: 'inline', blocking: false });
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
@@ -94,13 +108,11 @@ export function CodePreview({
           e.preventDefault();
           setFindOpen(true);
         }
-      } else if (e.key === 'Escape' && findOpen) {
-        setFindOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [findOpen]);
+  }, []);
 
   const handleFindSearch = (query: string, opts: { matchCase: boolean; useRegex: boolean }) => {
     if (!query) {

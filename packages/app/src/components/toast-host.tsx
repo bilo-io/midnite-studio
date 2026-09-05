@@ -10,6 +10,7 @@ import {
 } from 'react';
 
 import { Toast, type ToastRequest } from './toast';
+import { useDismiss } from './use-dismiss';
 
 /**
  * The toast primitive (Phase 22 Theme H) — shaped after `DialogHost`
@@ -88,15 +89,28 @@ export function ToastHost({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+  /*
+    One PASSIVE entry on the shared dismissal stack (Phase 62), registered only
+    while a toast is actually up — not for the app's whole lifetime, which is
+    what let Escape over a confirm dialog dismiss a toast *and* cancel the
+    dialog in one press.
+
+    Passive, even though `z-toast` (92) paints above `z-dialog` (90): a user
+    pressing Escape to cancel a destructive confirm must cancel it, not clear an
+    unrelated notification behind it. Paint order and dismissal order
+    deliberately differ for exactly this surface and the tooltip.
+
+    "Only the topmost toast" survives as an INNER rule — the host holds one
+    registration and still dismisses `toasts[toasts.length - 1]`.
+  */
+  useDismiss(
+    toasts.length > 0,
+    () => {
       const topmost = toasts[toasts.length - 1];
       if (topmost) dismiss(topmost.id);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [toasts, dismiss]);
+    },
+    { layer: 'toast', blocking: false },
+  );
 
   const api = useMemo<ToastApi>(() => ({ show, dismiss }), [show, dismiss]);
 

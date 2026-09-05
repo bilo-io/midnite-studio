@@ -240,6 +240,10 @@ export function WorkflowCanvas({
       const mod = event.metaKey || event.ctrlKey;
       const key = event.key.toLowerCase();
       if (event.key === 'Escape') {
+        // Stops here for the same reason the board's does: the canvas has
+        // consumed the key, and letting it reach `window` would dismiss an
+        // overlay on top of it as well as clearing the selection.
+        event.stopPropagation();
         setSelectionAnd(new Set());
         return;
       }

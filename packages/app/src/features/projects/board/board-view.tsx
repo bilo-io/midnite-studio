@@ -258,6 +258,11 @@ export function BoardView({
     if (event.key === 'Escape') {
       if (selectedItemId === null) return;
       event.preventDefault();
+      // The board owns this Escape, so it stops here. `ContextMenu` portals to
+      // `<body>` and focuses nothing, so without this the same keypress bubbles
+      // from the card through the board to `window` and closes the menu *and*
+      // clears the selection — one press, two dismissals.
+      event.stopPropagation();
       const origin = focusedItemId;
       setSelectedItemId(null);
       moveFocusTo(origin);

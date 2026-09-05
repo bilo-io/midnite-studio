@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { RebaseAction, RebaseEntry, RebaseSequencePlan } from '@midnite/studio-shared';
 import { LuMoveUp, LuMoveDown, LuTrash2, LuPlay, LuRotateCcw, LuPencil, LuTerminal } from 'react-icons/lu';
+
+import { useFocusTrap } from '../../components/use-focus-trap';
 
 export type RebaseModalProps = {
   isOpen: boolean;
@@ -37,6 +39,21 @@ export const RebaseModal: React.FC<RebaseModalProps> = ({
     })),
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  /*
+    A bottom sheet over a destructive, history-rewriting operation that until
+    Phase 68 Theme D declared no `role`, no accessible name and no focus
+    management — so a screen reader never announced that a dialog had opened and
+    Tab walked straight out of it into the graph it was about to rewrite.
+
+    The sheet has no separate backdrop to hang the role on, so the one element
+    is both the dialog and the trap container; `tabIndex={-1}` is what lets the
+    trap park focus on it when nothing inside can take it.
+
+    Called before the early return, because a hook cannot be conditional.
+  */
+  useFocusTrap(containerRef, isOpen);
 
   if (!isOpen) return null;
 
@@ -92,7 +109,14 @@ export const RebaseModal: React.FC<RebaseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-background/95 backdrop-blur border-t border-border shadow-2xl max-h-[60vh] transition-transform animate-in slide-in-from-bottom duration-150">
+    <div
+      ref={containerRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Interactive rebase onto ${targetRef}`}
+      className="fixed inset-x-0 bottom-0 z-50 flex flex-col bg-background/95 backdrop-blur border-t border-border shadow-2xl max-h-[60vh] transition-transform animate-in slide-in-from-bottom duration-150"
+    >
       {/* Header bar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40">
         <div className="flex items-center gap-2">

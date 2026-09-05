@@ -138,11 +138,20 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   });
   wc.on('render-process-gone', (_event, details) => {
     if (details.reason === 'clean-exit') return;
+    // Recorded as well as surfaced, since Phase 65 Theme D: the pane's
+    // `destroyed` event tells the user, and the log tells whoever reads the
+    // bug report afterwards.
+    defaultLogger.error(
+      `[browser] render-process-gone tab=${tabId} reason=${details.reason} exit=${details.exitCode}`,
+    );
     send(win, { kind: 'destroyed', tabId, reason: 'crashed' });
   });
   // Not a crash — the view is alive but has stopped answering. Surfaced the
   // same way so the pane offers a reload rather than a frozen rectangle.
-  wc.on('unresponsive', () => send(win, { kind: 'destroyed', tabId, reason: 'unresponsive' }));
+  wc.on('unresponsive', () => {
+    defaultLogger.error(`[browser] unresponsive tab=${tabId}`);
+    send(win, { kind: 'destroyed', tabId, reason: 'unresponsive' });
+  });
 
   /*
     Mod+w/Mod+t owned by hand, not by the app's usual keybinding path.

@@ -20,6 +20,7 @@ import { EmptyState } from '../../components/empty-state';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { ItemFilterToolbar } from '../../components/item-filter-toolbar';
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
+import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { UserAvatar } from '../../components/user-avatar';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { ExternalLink } from '../markdown/external-link';
@@ -102,9 +103,24 @@ export function ProjectsView() {
 
   if (scopeMissing) return <MissingScopeState />;
 
-  if (projects.isLoading) {
-    return <p className="p-4 text-xs text-muted-foreground">Loading projects…</p>;
+  /*
+    Error → empty → skeleton → content (`components/skeleton.tsx`), with the
+    transport rung added in Phase 60 Theme C: `projects.data.error` is the
+    envelope's own "gh said no", while `projects.isError` is the call never
+    returning — which fell through to "No projects" and asserted something
+    about the owner's account that this pane had not established.
+  */
+  if (projects.isError && projects.data === undefined) {
+    return (
+      <EmptyState
+        icon={VIEW_ICON.projects}
+        title="Could not reach the GitHub CLI"
+        body={projects.error instanceof Error ? projects.error.message : String(projects.error)}
+      />
+    );
   }
+
+  if (projects.isLoading) return <BoardPickerSkeleton />;
 
   if (projects.data?.error) {
     return (
@@ -271,7 +287,7 @@ export function ProjectsView() {
           body="Choose a project board above to see its items."
         />
       ) : itemsQuery.isLoading || fieldsQuery.isLoading ? (
-        <p className="p-4 text-xs text-muted-foreground">Loading items…</p>
+        <ItemsSkeleton />
       ) : itemsQuery.data?.error ? (
         <EmptyState icon={VIEW_ICON.projects} title="Could not load items" body={itemsQuery.data.error} />
       ) : mode === 'board' ? (
@@ -526,5 +542,53 @@ function MissingScopeState() {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * The board picker, at rest — a row of pill-shaped board tabs, which is what
+ * the header paints once `gh project list` answers. Prose ("Loading
+ * projects…") used to stand here; a skeleton keeps the layout the header is
+ * about to take (`components/skeleton.tsx`).
+ */
+function BoardPickerSkeleton() {
+  return (
+    <LoadingRegion label="Asking GitHub for this owner's project boards…" className="flex flex-col gap-3 p-4">
+      <div className="flex items-center gap-2">
+        {['w-28', 'w-20', 'w-24'].map((width) => (
+          <Skeleton key={width} className={`h-6 rounded-full ${width}`} />
+        ))}
+      </div>
+      <ItemsSkeletonRows />
+    </LoadingRegion>
+  );
+}
+
+/**
+ * The item table, at rest — a header strip and a run of rows, the shape both
+ * `ProjectItemsTable` and `BoardView` resolve into.
+ */
+function ItemsSkeleton() {
+  return (
+    <LoadingRegion label="Asking GitHub for this board's items…" className="flex flex-col gap-2 p-4">
+      <ItemsSkeletonRows />
+    </LoadingRegion>
+  );
+}
+
+const ITEM_SKELETON_WIDTHS: readonly string[] = ['64%', '48%', '72%', '40%', '58%', '52%', '66%'];
+
+function ItemsSkeletonRows() {
+  return (
+    <>
+      {ITEM_SKELETON_WIDTHS.map((width, index) => (
+        <div key={width} className="flex items-center gap-3">
+          <Skeleton className="h-3 w-3 shrink-0 rounded-full" />
+          <Skeleton className="h-3 min-w-0 flex-1" style={{ maxWidth: width }} />
+          <Skeleton className="h-3 w-16 shrink-0" />
+          <Skeleton className={`h-3 shrink-0 ${index % 2 === 0 ? 'w-10' : 'w-14'}`} />
+        </div>
+      ))}
+    </>
   );
 }

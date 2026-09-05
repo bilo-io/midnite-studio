@@ -170,13 +170,30 @@ export function closePopoutForRedock(win: BrowserWindow): void {
  * a dead popout with no visible content to reload is just a dead window.
  */
 export function bindPopoutRenderProcessGone(win: BrowserWindow, log: Logger): void {
+  // `log.error`, not the bare call, since Phase 65 Theme D. The message string
+  // was already good; what changes is the level, and with it whether the line
+  // survives past the stderr a packaged app discards.
   win.webContents.on('render-process-gone', (_event, details) => {
     if (details.reason === 'clean-exit') return;
-    log(
+    log.error(
       `[window] render-process-gone role=${resolveRole(win)} reason=${details.reason} exit=${details.exitCode}`,
     );
     pendingCloseReason.set(win.id, 'crashed');
     if (!win.isDestroyed()) win.close();
+  });
+  /*
+    Not a crash — the popout is alive and has stopped answering. Bound here
+    because until Phase 65 `unresponsive` was wired ONLY for embedded browser
+    tabs (`browser-service.ts`), so a hung Studio window — the failure a user is
+    most likely to actually report — left no record at all. Recorded and not
+    acted on: Electron recovers from most of these on its own, and killing a
+    window that was merely busy would be a worse bug than the one being logged.
+  */
+  win.webContents.on('unresponsive', () => {
+    log.error(`[window] unresponsive role=${resolveRole(win)}`);
+  });
+  win.webContents.on('responsive', () => {
+    log.info(`[window] responsive again role=${resolveRole(win)}`);
   });
 }
 

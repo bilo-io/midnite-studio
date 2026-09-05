@@ -638,6 +638,34 @@ export const CHANNELS = {
   dbApplyEdit: 'mstudio:db:apply-edit',
   dbQueryStart: 'mstudio:db:query-start',
   dbQueryCancel: 'mstudio:db:query-cancel',
+  // --- crash & error reporting (Phase 65) ----------------------------------
+  // `mstudio:report:*`, NOT `mstudio:diag:*` — that prefix already belongs to
+  // the per-repo lint runner above, which is a different thing entirely
+  // (it runs a binary out of a repository; this writes a line to a log file).
+  /**
+   * Renderer → main, one-way `send`: a crash the renderer caught.
+   *
+   * Fire-and-forget on purpose. A crash report has no reply worth waiting for,
+   * and the renderer sending it may be seconds from being reloaded by
+   * `render-process-gone` — an `invoke` whose promise never settles is one more
+   * thing for an already-broken renderer to trip over.
+   */
+  reportError: 'mstudio:report:error',
+  /** Where the log file is, so a user on a support thread can say where it is. */
+  reportLogPath: 'mstudio:report:log-path',
+  /** The boot line plus the tail of the sink, redacted — one paste-able block. */
+  reportBundle: 'mstudio:report:bundle',
+  /**
+   * Reveal the log in the OS file manager.
+   *
+   * Takes **no path.** `shellShowItemInFolder` confines its target under a
+   * repository root (`fs-handlers.ts`), and a file in `userData` is under no
+   * repository; widening that guard to reach it would weaken a check that is
+   * correct, to serve a case it was never about. So this channel reveals the
+   * one file main already knows, and a channel that accepts no path is a
+   * channel with nothing to defend.
+   */
+  reportReveal: 'mstudio:report:reveal',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */

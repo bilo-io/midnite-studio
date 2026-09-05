@@ -871,6 +871,27 @@ export type MidniteStudioBridge = {
     mark: (m: PerfMark) => void;
   };
 
+  /**
+   * Crash reporting — Phase 65.
+   *
+   * The renderer's only route to a durable record. Until this group there was
+   * none: `no-console: 'error'` in `packages/app` (correctly) forbids
+   * `console.error`, and a packaged user has no DevTools to read it in anyway,
+   * so a renderer throw reached nothing at all.
+   *
+   * `error` is fire-and-forget for the reason `perf.mark` is: the sender may be
+   * seconds from a `render-process-gone` reload, and there is no answer worth
+   * blocking on. The other three are `invoke`s serving the user-facing half —
+   * where the log is, what to paste, and open it in Finder.
+   */
+  report: {
+    error: (report: In<typeof S.ErrorReportSchema>) => void;
+    logPath: () => Promise<z.infer<typeof S.ReportLogPathResponse>>;
+    bundle: () => Promise<z.infer<typeof S.ReportBundleResponse>>;
+    /** Takes no path — main reveals the file it already knows. */
+    reveal: () => Promise<GitOpResult>;
+  };
+
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;
 
   /**

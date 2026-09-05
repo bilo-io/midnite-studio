@@ -108,3 +108,52 @@ describe('VideoProjectList', () => {
     await waitFor(() => expect(remove).toHaveBeenCalledWith({ id: 'p1' }));
   });
 });
+
+/**
+ * The scan of the video root, and its three states — Phase 60 Theme C.
+ *
+ * The root is a directory the user picks in Settings, so "that path is gone"
+ * is a real and recoverable failure; until this ladder existed it rendered as
+ * "No projects yet", which is an answer this pane did not have.
+ */
+describe('VideoProjectList — the three states', () => {
+  afterEach(() => {
+    cleanup();
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+  });
+
+  const showing = (): string[] =>
+    Object.entries({
+      error: screen.queryByText('Could not read the video root'),
+      empty: screen.queryByText('No projects yet'),
+      skeleton: screen.queryByText('Looking for video projects…'),
+      content: screen.queryByText('COP31 showreel'),
+    })
+      .filter(([, node]) => node !== null)
+      .map(([name]) => name);
+
+  it('shows the skeleton — not the empty state — while the first scan is out', () => {
+    installBridge({ list: vi.fn().mockReturnValue(new Promise(() => {})) });
+    renderList();
+    expect(showing()).toEqual(['skeleton']);
+  });
+
+  it('shows the failure, with its own message', async () => {
+    installBridge({ list: vi.fn().mockRejectedValue(new Error('ENOENT: /Videos is gone')) });
+    renderList();
+    await waitFor(() => expect(showing()).toEqual(['error']));
+    expect(screen.getByText('ENOENT: /Videos is gone')).toBeTruthy();
+  });
+
+  it('shows the empty state once a scan has resolved to nothing', async () => {
+    installBridge();
+    renderList();
+    await waitFor(() => expect(showing()).toEqual(['empty']));
+  });
+
+  it('shows the projects once there are some', async () => {
+    installBridge({ list: vi.fn().mockResolvedValue({ projects: [project()] }) });
+    renderList();
+    await waitFor(() => expect(showing()).toEqual(['content']));
+  });
+});

@@ -107,7 +107,16 @@ import {
   windowForRole,
 } from './window-manager';
 
-const log = vi.fn();
+/*
+  One spy behind all four call forms.
+
+  `Logger` became callable-with-levels in Phase 65 Theme A, and
+  `bindPopoutRenderProcessGone` now reports through `log.error` — routing every
+  level back to the same mock keeps these assertions about the MESSAGE, which is
+  what they were ever about, rather than about which method produced it.
+*/
+const logSpy = vi.fn();
+const log = Object.assign(logSpy, { info: logSpy, warn: logSpy, error: logSpy });
 
 describe('window-manager (Phase 55)', () => {
   afterEach(() => {

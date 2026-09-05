@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { useQueryClient } from '@tanstack/react-query';
-import { LuFolderTree, LuRefreshCw } from 'react-icons/lu';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { LuFileText, LuFolderTree, LuRefreshCw } from 'react-icons/lu';
 
+import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
+import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { bridge } from '../../services/bridge';
@@ -21,6 +23,14 @@ import { useFileSearch } from './use-file-search';
  * read-only preview of the selected file on the right. Follows the same
  * repo/worktree selection the graph uses — this is "browse what I have
  * checked out", not a second repo picker.
+ *
+ * The ROOT listing gets the house ladder — error → empty → skeleton → content
+ * (`components/skeleton.tsx`) — and the deeper ones keep theirs inside
+ * `DirectoryChildren`, which already answers per directory. The root is worth
+ * separating because its failures are the ones that are about the whole view
+ * rather than about one folder: a checkout that has been deleted or a worktree
+ * that has moved leaves every row missing, and before Phase 60 Theme C that
+ * rendered as an empty tree with nothing said.
  */
 export function FilesView() {
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
@@ -93,6 +103,19 @@ export function FilesView() {
     }
   }, [scopeKey, scope, ensureScope]);
 
+  /*
+    The root listing, read through the SAME query key `DirectoryChildren` uses
+    for `relPath: ''` — so this is the one fetch that pane already makes, read
+    a second time rather than made twice. It is here only to decide which of
+    the four states the tree column shows; the rows themselves still come from
+    `FileTree`.
+  */
+  const root = useQuery({
+    queryKey: [...(scope ? keys.fs(scope) : ['fs', 'none']), 'dir', ''],
+    queryFn: async () => bridge()!.fs.listDir({ ...scope!, relPath: '' }),
+    enabled: scope !== null && bridge() !== null,
+  });
+
   const tree = useResizable({
     size: layout.filesTreeWidth,
     onSize: (value) => setLayout('filesTreeWidth', value),
@@ -103,12 +126,11 @@ export function FilesView() {
 
   if (!scope) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-        <LuFolderTree aria-hidden className="h-10 w-10 text-muted-foreground/60" />
-        <p className="max-w-md text-sm text-muted-foreground">
-          Select a repository on the left to browse its files.
-        </p>
-      </div>
+      <EmptyState
+        icon={LuFolderTree}
+        title="No repository selected"
+        body="Select a repository on the left to browse its files."
+      />
     );
   }
 
@@ -138,6 +160,11 @@ export function FilesView() {
           setOptions={search.setOptions}
         />
         <div className="min-h-0 flex-1 overflow-auto">
+          {/*
+            Error → empty → skeleton → content, in that order, and only when
+            the pane is showing the TREE: a search has its own three states
+            inside `SearchResults`, over a different question.
+          */}
           {searching ? (
             <SearchResults
               state={search.state}
@@ -149,6 +176,26 @@ export function FilesView() {
                   setTargetLine(line);
                 })
               }
+            />
+          ) : root.isError || (root.data && !root.data.ok) ? (
+            <EmptyState
+              icon={LuFolderTree}
+              title="Could not read this checkout"
+              body={
+                root.data && !root.data.ok
+                  ? root.data.message
+                  : root.error instanceof Error
+                    ? root.error.message
+                    : String(root.error)
+              }
+            />
+          ) : root.isPending ? (
+            <FileTreeSkeleton />
+          ) : root.data.entries.length === 0 ? (
+            <EmptyState
+              icon={LuFolderTree}
+              title="Nothing here"
+              body="This checkout has no files at its root."
             />
           ) : (
             <FileTree
@@ -184,10 +231,46 @@ export function FilesView() {
           }
         />
       ) : (
-        <div className="flex min-w-0 flex-1 items-center justify-center p-6">
-          <p className="text-xs text-muted-foreground">Select a file to preview it.</p>
+        <div className="flex min-w-0 flex-1">
+          <EmptyState
+            icon={LuFileText}
+            title="No file selected"
+            body="Pick one in the tree to preview it."
+            bodySize="xs"
+          />
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The file tree, at rest — indented rows of varying width, which is the shape
+ * a directory listing paints. The indents alternate so it reads as a tree
+ * rather than a list; the count fills the pane and claims nothing about how
+ * many files this checkout has (`components/skeleton.tsx`).
+ */
+const TREE_SKELETON_ROWS: readonly { width: string; indent: number }[] = [
+  { width: '62%', indent: 0 },
+  { width: '48%', indent: 1 },
+  { width: '56%', indent: 1 },
+  { width: '40%', indent: 2 },
+  { width: '68%', indent: 0 },
+  { width: '52%', indent: 1 },
+  { width: '44%', indent: 1 },
+  { width: '58%', indent: 0 },
+];
+
+function FileTreeSkeleton() {
+  return (
+    <LoadingRegion label="Reading this checkout…" className="flex flex-col gap-2 p-2">
+      {TREE_SKELETON_ROWS.map((row, index) => (
+        <Skeleton
+          key={index}
+          className="h-3"
+          style={{ width: row.width, marginLeft: row.indent * 12 }}
+        />
+      ))}
+    </LoadingRegion>
   );
 }

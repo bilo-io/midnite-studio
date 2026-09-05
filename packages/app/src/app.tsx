@@ -19,8 +19,10 @@ import { BrowserLauncher } from './features/browser/browser-launcher';
 import { BrowserPane } from './features/browser/browser-pane';
 import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
+import { ErrorBoundary } from './components/error-boundary';
 import { ToastHost } from './components/toast-host';
 import { VIEW_ICON } from './components/nav-icons';
+import { VIEW_COMPONENT } from './components/view-registry';
 import { navChord } from './components/nav-chords';
 import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
@@ -41,7 +43,6 @@ import { ScreensaverHost } from './features/screensaver/screensaver-host';
 import { CommitActivityPanel } from './features/activity/commit-activity-panel';
 import { EmptyWorkspace } from './features/empty/empty-workspace';
 import { FileEditorGuard } from './features/files/preview/file-editor-guard';
-import { GraphView } from './features/graph/graph-view';
 import { ProjectActions } from './features/agent/project-actions';
 import { RepoLifecycleActions } from './features/repos/repo-lifecycle-actions';
 import { ReposPanel } from './features/repos/repos-panel';
@@ -85,74 +86,16 @@ import {
 } from './store/ui-store';
 
 /*
-  The views, split out of the entry chunk — Phase 36 Theme C.
+  The views themselves live in `components/view-registry.tsx` — Phase 60 Theme
+  A — as one `Record<ViewId, ViewEntry>` rather than the seventeen-branch
+  ternary that used to stand where `<Component />` does below. The `lazy()`
+  calls and the reasoning about which views stay eager moved there with them.
 
-  The entry chunk was 2.48 MB, and the reason is visible in this list: every view
-  the app can *reach* was in the file the app *boots*. A user who opens the
-  window to the graph paid for the settings pages, the councils runner, the
-  dashboard's grid layout, the markdown renderer behind reviews, and the embedded
-  browser — all before the first row of history appeared.
-
-  Eager on purpose, and not in this list: `GraphView` (the first paint, so
-  splitting it would trade boot bytes for a boot round-trip), `EmptyWorkspace`
-  and `Placeholder` (a lazy boundary for what amounts to a centred paragraph
-  costs more than it saves), `ScreensaverHost` (always mounted), and `BrowserPane`.
-
-  `BrowserPane` was in this list and came back out, which is the more interesting
-  case: its MOUNT has load-bearing side effects. It seeds the first browser tab,
-  and `useReveal` drives its fade-in from the parent — flipping `shown` on the
-  first quiet frame, ~16-32ms in. Behind a lazy boundary both go wrong on the
-  first open of a session: a `Mod+T` arriving before the chunk lands adds a tab to
-  an empty store and ends up with one tab instead of two (an e2e spec catches
-  exactly this), and the pane mounts with `shown` already true, so it pops instead
-  of fading. Preloading at idle does not fix it — the race is with the *user*, not
-  with the browser's spare time. Its chunk is 25.2 KB of a 1 085 KB entry, so the
-  trade is 2.3% of boot against two real defects, and a component whose mount
-  seeds state is simply the wrong shape for a lazy boundary.
-
-  `.then` destructuring rather than a default export each: these are named
-  exports throughout the app, and adding fourteen default re-exports to satisfy
-  `React.lazy` would be a worse trade than one line of ceremony per view here.
-*/
-const loadSettingsView = () => import('./features/settings/settings-view');
-const SettingsView = lazy(() => loadSettingsView().then((m) => ({ default: m.SettingsView })));
-const loadLandingView = () => import('./features/landing/landing-view');
-const LandingView = lazy(() => loadLandingView().then((m) => ({ default: m.LandingView })));
-const loadCouncilsView = () => import('./features/councils/councils-view');
-const CouncilsView = lazy(() => loadCouncilsView().then((m) => ({ default: m.CouncilsView })));
-const loadWorkflowsView = () => import('./features/workflows/workflows-view');
-const WorkflowsView = lazy(() => loadWorkflowsView().then((m) => ({ default: m.WorkflowsView })));
-const loadVideoView = () => import('./features/video/video-view');
-const VideoView = lazy(() => loadVideoView().then((m) => ({ default: m.VideoView })));
-const loadDatabaseView = () => import('./features/database/database-view');
-const DatabaseView = lazy(() => loadDatabaseView().then((m) => ({ default: m.DatabaseView })));
-const loadDashboardView = () => import('./features/dashboard/dashboard-view');
-const DashboardView = lazy(() => loadDashboardView().then((m) => ({ default: m.DashboardView })));
-const loadFilesView = () => import('./features/files/files-view');
-const FilesView = lazy(() => loadFilesView().then((m) => ({ default: m.FilesView })));
-const loadSearchView = () => import('./features/search/search-view');
-const SearchView = lazy(() => loadSearchView().then((m) => ({ default: m.SearchView })));
-const loadWorkbench = () => import('./features/workbench/workbench');
-const Workbench = lazy(() => loadWorkbench().then((m) => ({ default: m.Workbench })));
-const loadActionsView = () => import('./features/actions/actions-view');
-const ActionsView = lazy(() => loadActionsView().then((m) => ({ default: m.ActionsView })));
-const loadTestsView = () => import('./features/tests/tests-view');
-const TestsView = lazy(() => loadTestsView().then((m) => ({ default: m.TestsView })));
-const loadReviewsView = () => import('./features/reviews/reviews-view');
-const ReviewsView = lazy(() => loadReviewsView().then((m) => ({ default: m.ReviewsView })));
-const loadIssuesView = () => import('./features/issues/issues-view');
-const IssuesView = lazy(() => loadIssuesView().then((m) => ({ default: m.IssuesView })));
-const loadProjectsView = () => import('./features/projects/projects-view');
-const ProjectsView = lazy(() => loadProjectsView().then((m) => ({ default: m.ProjectsView })));
-const loadHistoryView = () => import('./features/history/history-view');
-const HistoryView = lazy(() => loadHistoryView().then((m) => ({ default: m.HistoryView })));
-const loadOptimizerPage = () => import('./features/optimizer/optimizer-page');
-const OptimizerPage = lazy(() => loadOptimizerPage().then((m) => ({ default: m.OptimizerPage })));
-/*
-  The three rarely-shown modals. Each keeps its own boundary with a `null`
-  fallback rather than joining the view boundary: they are overlays, and a
-  spinner floating over the app while a modal's chunk arrives would be a worse
-  frame than the modal simply appearing a beat later.
+  What is left here is the three rarely-shown modals, which are not views: each
+  keeps its own boundary with a `null` fallback rather than joining the view
+  boundary, because they are overlays, and a spinner floating over the app while
+  a modal's chunk arrives would be a worse frame than the modal simply appearing
+  a beat later.
 */
 const loadSlidesModal = () => import('./features/slides/slides-modal');
 const SlidesModal = lazy(() => loadSlidesModal().then((m) => ({ default: m.SlidesModal })));
@@ -360,8 +303,16 @@ const AGENT_NAV_ITEMS: NavItem[] = [
   { view: 'sessions', label: 'Sessions', icon: VIEW_ICON.sessions },
 ];
 
-/** Every rail item, pinned included — the label lookup the Placeholder needs. */
-const ALL_NAV_ITEMS: NavItem[] = [
+/**
+ * Every rail item, pinned included — the app's one `ViewId` → label lookup.
+ *
+ * Exported rather than module-private because nothing in this file reads it
+ * today: the placeholder that used to is now `SessionsPlaceholder` in
+ * `components/view-registry.tsx`, which carries its own copy. It stays here,
+ * beside the four lists it concatenates, as the label source for the per-view
+ * error boundary Phase 60 Theme B mounts around the view slot below.
+ */
+export const ALL_NAV_ITEMS: NavItem[] = [
   PINNED_ITEM,
   ...WORKSPACE_NAV_ITEMS,
   ...GIT_NAV_ITEMS,
@@ -459,33 +410,6 @@ function useAutoFetch() {
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [autoFetchIntervalMs, repos, client]);
-}
-
-function Placeholder({ view }: { view: ViewId }) {
-  const label = ALL_NAV_ITEMS.find((i) => i.view === view)?.label ?? view;
-  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
-  const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
-
-  return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
-      <BrandMark className="h-14 w-14 opacity-80" />
-      <h1 className="text-lg font-semibold tracking-tight">{label}</h1>
-      <p className="max-w-md text-sm text-muted-foreground">
-        {selectedRepoId ? (
-          <>
-            Active checkout:{' '}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs" data-selectable>
-              {selectedWorktreePath ?? 'main worktree'}
-            </code>
-            . The {label.toLowerCase()} view lands in a later phase — see{' '}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">todo/</code>.
-          </>
-        ) : (
-          <>Select a repository on the left to get started.</>
-        )}
-      </p>
-    </div>
-  );
 }
 
 /**
@@ -880,6 +804,23 @@ function Shell() {
     the room straight back rather than blanking the column.
   */
   const covering = terminalOpen && terminalMaximized;
+
+  /*
+    Which component this view is, and whether it needs a repository — the whole
+    of the old view switch, as one lookup. Destructured here rather than inline
+    in the JSX so `Component` is a capitalised binding React will treat as a
+    component rather than as an intrinsic element.
+  */
+  const { Component, global: viewIsGlobal } = VIEW_COMPONENT[activeView];
+
+  /*
+    What the error boundary calls the thing that just broke — "Graph stopped
+    rendering", not "This view stopped rendering". `ALL_NAV_ITEMS` is the app's
+    one `ViewId` → label lookup and is exported for exactly this; a view with no
+    rail row (`landing`, `settings`) has no label, and the boundary's own
+    default covers it.
+  */
+  const viewLabel = ALL_NAV_ITEMS.find((item) => item.view === activeView)?.label;
 
   /*
     The view box's classes, hoisted so the Suspense fallback outside the keyed div
@@ -1305,7 +1246,17 @@ function Shell() {
                 suspended too, with `DelayedFallback` inside it — nothing for the
                 first 120ms, then a spinner, so a warm switch never flashes and a
                 genuinely slow one still says something is happening.
+
+                The error boundary (Phase 60 Theme B) is immediately OUTSIDE
+                this `<Suspense>`, not inside it: a boundary inside Suspense
+                never sees a lazy import's rejection, so a chunk that 404s after
+                an in-place reinstall would hang on an unresolved promise
+                instead of offering Try again. `ALL_NAV_ITEMS` above is where
+                its `label` comes from, and `resetKey={activeView}` is what lets
+                a user leave a broken view and come back to a fresh attempt
+                rather than a poisoned slot.
               */}
+              <ErrorBoundary resetKey={activeView} label={viewLabel}>
               <Suspense
                 fallback={
                   <div className={viewBoxClassName}>
@@ -1318,68 +1269,23 @@ function Shell() {
                 className={viewBoxClassName}
               >
                 {/*
-                  The ternary's ORDER is load-bearing and does not change:
-                  `settings`, `councils`, `workflows` and `video` are global and
-                  must be reachable *before* the `!selectedRepoId` guard, or
-                  opening one of them with no repo selected would show the
-                  empty workspace instead.
+                  One lookup, not a chain — Phase 60 Theme A.
+
+                  The ORDERING that used to be load-bearing here (five views
+                  above the `!selectedRepoId` guard, the rest below it) is now
+                  `ViewEntry.global` in `components/view-registry.tsx`, which is
+                  the same rule stated as data rather than as position in a
+                  seventeen-branch ternary. `VIEW_COMPONENT` is
+                  `Record<ViewId, ViewEntry>`, so a view added to `ViewId`
+                  without an entry is a typecheck failure rather than a blank
+                  window — the fallthrough that quietly caught `sessions` for
+                  four phases no longer exists to catch anything.
                 */}
-                  {activeView === 'landing' ? (
-                  // The landing page shows no repository, so like Settings and
-                  // Councils it has to be reachable ahead of the
-                  // `!selectedRepoId` guard below.
-                  <LandingView />
-                ) : activeView === 'settings' ? (
-                  <SettingsView />
-                ) : activeView === 'councils' ? (
-                  // Global, like Settings — a council is not scoped to a repo, so
-                  // it renders whether or not one is selected/open.
-                  <CouncilsView />
-                ) : activeView === 'workflows' ? (
-                  // Global too (Phase 43) — a workflow is not scoped to a repo.
-                  <WorkflowsView />
-                ) : activeView === 'video' ? (
-                  // Global too (Phase 44) — a video project is not a property of an open checkout.
-                  <VideoView />
-                ) : activeView === 'optimizer' ? (
-                  // Global too (Phase 59) — Smart Scan and Storage walk every
-                  // registered repo/worktree, not one open checkout.
-                  <OptimizerPage />
-                ) : activeView === 'database' ? (
-                  // Global too (Phase 61) — a database connection is not scoped to a
-                  // repository, so it must be reachable ahead of the `!selectedRepoId`
-                  // guard below or the view is unreachable with no repo open, for no reason.
-                  <DatabaseView />
-                ) : !selectedRepoId ? (
-                  <EmptyWorkspace />
-                ) : activeView === 'dashboard' ? (
-                  <DashboardView />
-                ) : activeView === 'files' ? (
-                  <FilesView />
-                ) : activeView === 'search' ? (
-                  <SearchView />
-                ) : activeView === 'graph' ? (
-                  <GraphView />
-                ) : activeView === 'changes' ? (
-                  <Workbench />
-                ) : activeView === 'actions' ? (
-                  <ActionsView />
-                ) : activeView === 'tests' ? (
-                  <TestsView />
-                ) : activeView === 'reviews' ? (
-                  <ReviewsView />
-                ) : activeView === 'issues' ? (
-                  <IssuesView />
-                ) : activeView === 'projects' ? (
-                  <ProjectsView />
-                ) : activeView === 'history' ? (
-                  <HistoryView />
-                ) : (
-                  <Placeholder view={activeView} />
-                )}
+                {viewIsGlobal || selectedRepoId ? <Component /> : <EmptyWorkspace />}
 
               </div>
               </Suspense>
+              </ErrorBoundary>
 
               {/*
                 Mounted while open — and for the length of the slide shut — and
@@ -1551,9 +1457,18 @@ function Shell() {
           after the keystroke would swallow the `Enter` that follows it.
         */}
         <BrowserLauncher />
-        <Suspense fallback={null}>
-          <FirstRunModal />
-        </Suspense>
+        {/*
+          Silent, like the two below: a modal whose chunk fails to load must not
+          paint an error card over the app it was optional to. It renders
+          nothing, exactly as it renders nothing while loading — and the throw
+          still reaches `lib/report.ts`, so "it silently never appeared" is a
+          recorded fact rather than a mystery.
+        */}
+        <ErrorBoundary label="First run" silent>
+          <Suspense fallback={null}>
+            <FirstRunModal />
+          </Suspense>
+        </ErrorBoundary>
       </div>
     </AppFrame>
   );
@@ -1677,16 +1592,20 @@ export function App() {
         <ToastHost>
           <PaletteHost>
             <Shell />
-            <Suspense fallback={null}>
-              <OnboardingModal />
-            </Suspense>
+            <ErrorBoundary label="Onboarding" silent>
+              <Suspense fallback={null}>
+                <OnboardingModal />
+              </Suspense>
+            </ErrorBoundary>
           </PaletteHost>
         </ToastHost>
       </DialogHost>
       <FileEditorGuard />
-      <Suspense fallback={null}>
-        <SlidesModal />
-      </Suspense>
+      <ErrorBoundary label="Slides" silent>
+        <Suspense fallback={null}>
+          <SlidesModal />
+        </Suspense>
+      </ErrorBoundary>
       <ScreensaverHost />
     </ShellProviders>
   );

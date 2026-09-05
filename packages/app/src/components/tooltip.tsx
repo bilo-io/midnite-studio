@@ -11,6 +11,8 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useDismiss } from './use-dismiss';
+
 /**
  * A hover/focus tooltip.
  *
@@ -109,20 +111,20 @@ export function Tooltip({
     });
   }, [open, side, label]);
 
-  // Escape dismisses, matching every other transient surface in the app. The
-  // listener only exists while open, so it never competes with the context
-  // menu's own handler.
+  /*
+    Escape dismisses, matching every other transient surface in the app — but
+    PASSIVELY, through the shared dismissal stack (Phase 62). A tooltip paints
+    highest of all (`z-tooltip` 95) and matters least: it must never eat the
+    Escape a user meant for the dialog underneath it, and — the other half of
+    the same flag — it must never register as an occluder and blank a live
+    browser tab just because a pointer came to rest on a toolbar button.
+  */
+  useDismiss(open, hide, { layer: 'tooltip', blocking: false });
+
   useEffect(() => {
     if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') hide();
-    };
-    window.addEventListener('keydown', onKeyDown);
     window.addEventListener('scroll', hide, true);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('scroll', hide, true);
-    };
+    return () => window.removeEventListener('scroll', hide, true);
   }, [open, hide]);
 
   const trigger = cloneElement(children, {

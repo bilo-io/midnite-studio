@@ -220,6 +220,159 @@ package/IPC/view seams, left to a human to action.
   `database-connections-store.test.ts`, `database-view.test.tsx`, and `database-shots.spec.ts`
   (empty/connected/dialog, light + dark) using the shared shots fixture helper (Phase 56 Theme G).
 
+## 2026-09-05 — Phases 60, 62, 65, 68 — the window fails well, and says where
+
+[PR #170]. One batch, four phases, fourteen themes: **Phase 60 A–C** (all), **Phase 62 A–C**
+(all), **Phase 65 A–D** (E deliberately not built), **Phase 68 A–D** (all). They were taken
+together because they are one chain — a boundary needs somewhere to report (60 → 65), an overlay
+that consumes Escape is an overlay that occludes (62), and the overlay that gave Escape back has
+to give focus back too (62 → 68).
+
+### Phase 60 — A window that never goes blank (28/34)
+
+- [x] **A** — `components/view-registry.tsx`: `VIEW_COMPONENT: Record<ViewId, ViewEntry>` replaces
+      the 17-branch ternary at `app.tsx`, with the `lazy()` calls moved onto it and `GraphView`
+      left eager. Typed `Record`, not `Partial`, so a new `ViewId` fails typecheck rather than
+      falling through. `sessions` now names `SessionsPlaceholder` explicitly — no id reaches a
+      placeholder by fallthrough, because there is no fallthrough — and that placeholder points at
+      `.midnite/tasks/` rather than the `todo/` directory that has not existed for four phases.
+      **Deviation:** the global set is **six**, not the doc's five. Phase 59 added `optimizer`
+      above the `!selectedRepoId` guard after this doc was written; `view-registry.test.ts` asserts
+      the six, and treating `optimizer` as repo-scoped to match the doc would have been a silent
+      regression.
+- [x] **B** — `components/error-boundary.tsx`: a class boundary with `resetKey`, an `EmptyState`
+      fallback carrying **Try again** and **Copy details**, and a `silent` mode that renders `null`
+      so an optional modal whose chunk 404s simply does not appear. Mounted outside the view slot's
+      `Suspense` (so a chunk-load rejection surfaces as the card, not a hung promise), on the three
+      `fallback={null}` modal sites, and at `detached-root.tsx`'s root — the window with no rail to
+      navigate away with. **Deviation:** `componentDidCatch` reports through Phase 65's
+      `reportError('boundary', …)`, **not** `console.error` as the doc suggested —
+      `eslint.config.mjs:59` sets `no-console: 'error'` for `packages/app`, and the doc's
+      suggestion predates Phase 65. **Not done:** `e2e/error-boundary.spec.ts` was not written. The
+      `window.__mstudioTestThrow` hook *does* ship, `import.meta.env.DEV`-gated exactly as
+      Decision 5 recommends, and RTL asserts it trips the boundary — but the Playwright spec itself
+      is unwritten, so that item and its two verification lines stay open.
+- [x] **C** — The error → empty → skeleton → content ladder written into `skeleton.tsx`'s existing
+      docstring and applied to the six bare views. `history-view` is the one that reads differently
+      on purpose: the ladder lives in its two tabs, because `ReflogList` runs `git reflog` and
+      `JournalList` reads a synchronous in-process store, so a skeleton in the frame would stand in
+      for a value already in hand. `actions`/`reviews`/`projects` got only their missing rungs, as
+      Decision 6 asked.
+
+### Phase 62 — One Escape, one dismissal (29/33)
+
+- [x] **A** — `components/use-dismiss.ts`: a module-level LIFO stack behind **one** `window`
+      keydown listener, installed when the stack goes empty→non-empty and removed when it empties.
+      Escape goes to the topmost **blocking** entry, else the topmost passive one, else nothing —
+      and `blocking` also drives `incrementOccluders`/`decrementOccluders`, one registration with
+      two duties. The handler calls `stopImmediatePropagation()` before `onDismiss`, which is the
+      migration safety net that let Themes B and C land without an intermediate state where Escape
+      did nothing. `onDismiss` is read through a ref so an inline arrow does not re-order the stack
+      on every render.
+- [x] **B** — Eighteen window/document-scoped handlers migrated across seventeen files:
+      `context-menu`, `theme-toggle`, `multi-select-menu` (menu) · `popover` (popover) ·
+      `confirm-dialog`, `prompt-dialog`, `palette`, `merge-dialog`, `stash-push-dialog`,
+      `browser-launcher`, `passcode-pad` (dialog) · `toast-host`, `tooltip` (passive) ·
+      `graph-view`, `code-preview`, `deck` ×2, `browser-pane` (inline). The first three dialogs
+      gain the occluder registration they never had — the Fact-3 fix, arriving free with the
+      migration — so a confirm dialog over a live browser tab is no longer painted underneath a web
+      page. `browser-pane`'s `[]`-deps listener, live for every Escape ever pressed, is now
+      registered only while the pane is shown.
+- [x] **C** — `board-view.tsx` and `workflow-canvas.tsx` each gained the one-line
+      `stopPropagation()` beside their existing `preventDefault()`; `find-bar`, `tab-strip`,
+      `file-tree` and `comment-composer` audited and deliberately **not** migrated — an input's
+      Escape belongs to the input, and `use-dismiss.ts`'s docstring now says so.
+- **Deviation, disclosed:** the hook is `useDismiss`, not `useEscape`, per Decision 8 — so
+  outside-click can later be a new `DismissOptions` field rather than a rename across seventeen
+  files. Outside-click itself is **not** in scope; `popover` and `context-menu` keep their own
+  `pointerdown` listeners.
+- Verification greps hold: `key === 'Escape'` now matches exactly the six element-scoped handlers,
+  and the only *dismissal* keydown listener on `window` is the hook's. `palette.tsx:279` still has
+  one, for `ArrowUp`/`ArrowDown`/`Enter` — the palette's own navigation, not a dismissal.
+
+### Phase 65 — Somewhere for a crash to go (35/49)
+
+- [x] **A** — `Logger` widened to a **callable type with methods**
+      (`((message: string) => void) & { info; warn; error }`), so all ~40 existing
+      `log('[browser] …')` call sites compile untouched and the bare call stays `warn`-equivalent.
+      `main/log-sink.ts` is new: NDJSON one record per line, size-capped rotation (2 MB × 3,
+      checked on write), a **directory** injected rather than `app.getPath` — the same shape as
+      `repo-store.ts` — so it tests under bare vitest against a temp dir. It never throws into its
+      caller: a read-only volume degrades to console-only, once, for the session. `log.ts`'s stale
+      header (which claimed the broker redirects this seam to a file — it redirects the *child
+      process's* stdio) is corrected, `fingerprintFile` is lifted into `main/fingerprint.ts`, and
+      the broker's own forever-growing log is capped on open.
+- [x] **B** — `handleSend(channel, schema, fn)` added beside `handle`/`handleOp`/`handleBare`/
+      `handleFromSender` — the `ipcMain.on` counterpart forty hand-rolled `safeParse` calls have
+      been missing. Four `mstudio:report:*` channels (**not** `mstudio:diag:*`, which the repo-lint
+      runner owns), `ErrorReportSchema` with every string capped the way `perf.ts` caps its two,
+      the `report` bridge group and its preload `Pick` entry. `mstudio:report:reveal` takes **no
+      path** — it reveals the sink's own, which main already knows. `shared/src/redact.ts` replaces
+      the home directory with `~` on the way **in** as well as out, so the file on disk is safe to
+      hand over whole. Invalid reports are logged, not dropped: a payload malformed enough to fail
+      `safeParse` is itself evidence of the bug being reported.
+- [x] **C** — `app/src/lib/report.ts` in `lib/perf.ts`'s shape, no-op'ing without a bridge, with
+      `error` and `unhandledrejection` listeners installed in `main.tsx` before `createRoot` so a
+      throw during first render is caught and **both roles** (`App` and `DetachedRoot`) are
+      covered. **Deviation, and it overrides Decision 10:** the cap is **per-signature**, not the
+      recommended flat 20-per-session — FNV-1a over `name` + `message` + first stack frame, **3
+      per signature**, then one suppression record. It covers the render-loop storm just as well
+      and, unlike a session cap, cannot let a noisy first bug silence a genuinely new second one —
+      which is the objection Decision 10 raised against itself. Decision 11 *was* taken as written:
+      synchronous on `error` only, `info`/`warn` buffered.
+- [x] **D** — `uncaughtException` and `unhandledRejection` installed before `app.whenReady()`,
+      `child-process-gone` (zero hits before — the only hook that reports a GPU or utility process
+      dying), the three existing `render-process-gone` binds moved from the discarded stderr onto
+      `log.error`, `unresponsive` bound on the app's own windows and not just embedded browser
+      tabs, and a boot line carrying version/Electron/Chrome/Node/platform/arch/`isPackaged` as
+      every log file's first record.
+- **Theme E is NOT built** and stays `◻ TODO` — the two Diagnostics buttons, `release.ts`'s issue
+  URLs and the Report-a-bug link. Deliberately out of scope for this batch: A–D are the machine,
+  E is the user-facing half, and the verification items that depend on it stay open with it.
+
+### Phase 68 — Where focus goes when the dialog closes (32/37)
+
+- [x] **A** — `useFocusTrap` learned to give focus back, **signature unchanged**, so all eleven
+      call sites keep compiling untouched — which is the whole design: the fix arrives at the sites
+      that never asked for it. Captures on the `active` false→true transition (not first render),
+      restores only to a **live** element (`isConnected`, a check that appeared nowhere in the
+      renderer), never to `<body>`, always with `{ preventScroll: true }`, and never over a
+      deliberate move — if focus has gone somewhere that is neither the container nor `<body>`,
+      stealing it back is worse than doing nothing. That last clause is what made it safe to switch
+      all eleven on at once. `:not([inert])` added to `FOCUSABLE`, so a trapped dialog no longer
+      Tab-wraps through a closed `Collapse`.
+- [x] **B** — The eight inherited it with **no edit to any of them**. `palette.tsx`'s bespoke
+      block and `browser-pane.tsx`'s `querySelector('[data-testid="browser-toggle"]')` — a test id
+      used as production wiring — were deleted; `popover.tsx` keeps its `triggerRef` restore with a
+      comment saying why it is not duplication; `merge-dialog.tsx` got the one missing `aria-label`.
+      **Deviation:** the doc's acceptance criterion (`git diff --stat` shows exactly three files)
+      was unsatisfiable batched with Phase 62 Theme B, which edits four of the eight for Escape. It
+      is restated as *no **focus-related** change to the eight* — and verified: Phase 68 edited none
+      of those eight files at all.
+- [x] **C** — `context-menu.tsx` had `role="menu"`/`role="menuitem"` and **zero**
+      focus/tabIndex/autoFocus. It now focuses its first enabled item on open, does roving-tabIndex
+      arrows with wrap, `Home`/`End`, skips disabled items, enters a submenu with `ArrowRight` and
+      leaves with `ArrowLeft` (submenus opened on hover only, so they were unreachable without a
+      mouse), and restores to the row that opened it through Theme A's hook.
+- [x] **D** — `onboarding-modal.tsx` and `rebase-modal.tsx` got role + `aria-modal` + label + trap;
+      `help-overlay.tsx` and `multi-select-menu.tsx` got the missing trap. The audit's verdicts are
+      recorded rather than skipped: `fab-panel.tsx` and `screensaver.tsx` are **not modals**,
+      `graph-row.tsx`'s overflow popover should become `Popover` (a refactor, not an aria patch),
+      and **`lock-screen.tsx` is a genuine gap, deferred** — `role="dialog"` + `aria-label` but no
+      `aria-modal` and no trap, and it stacks a nested `role="dialog"` from `passcode-pad.tsx`, so
+      it is a stacking question that belongs with the screen-lock work. Logged in
+      [`outstanding.md`](outstanding.md).
+
+### Gate
+
+- `moon run :typecheck` and `moon run :lint` green across all four packages. Unit suites green:
+  `app` 2358/2358, `desktop` 1120, `shared` 475, `git-engine` passing.
+- **e2e was written but not executed** — it needs a build. `packages/app/e2e/focus-return.spec.ts`
+  is new (4 cases, not yet the eleven the doc asks for) and `overlay-stacking.spec.ts` is extended
+  with the two double-dismiss paths. `error-boundary.spec.ts` was never written. **No screenshots
+  were captured for this batch.** Every verification item resting on any of those is left unticked
+  in its phase doc, annotated with why.
+
 ## 2026-09-05 — Phase 59 Themes A, B, C, E — Workspace Optimizer: Smart Scan, Storage, GPU
 
 [PR #163]. Closes Themes A, B, C, E of Phase 59 — 44 of the phase's 70 items. Theme D (Memory

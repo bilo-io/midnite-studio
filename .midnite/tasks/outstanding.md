@@ -190,3 +190,23 @@ Also deferred with it, and separable: **the `@dnd-kit` entry-chunk split**, acqu
 in Phase 36 Theme C. The mechanism it would need — render-prop wiring components swapping an
 inert implementation for the real one across four eager hook call sites — is written up in the
 phase doc's Decisions section, so picking it up later is a matter of doing it, not re-deriving it.
+
+## `lock-screen.tsx` is a dialog that neither traps nor stacks (Phase 68 Theme D)
+
+Phase 68 Theme D swept the role-less overlays and fixed the ones that were plain omissions —
+`onboarding-modal.tsx` and `rebase-modal.tsx` got role + `aria-modal` + label + trap,
+`help-overlay.tsx` and `multi-select-menu.tsx` got the missing trap. `fab-panel.tsx` and
+`screensaver.tsx` were ruled *not modals* (a dismissible panel over live chrome; no interactive
+content), and `graph-row.tsx:525`'s overflow popover wants converting to `Popover`, which is a
+refactor rather than an aria patch.
+
+[`lock-screen.tsx`](../../packages/app/src/features/screensaver/lock-screen.tsx) is the one real
+gap left. It declares `role="dialog"` and carries an `aria-label`, but has **no `aria-modal` and
+no focus trap** — so Tab walks straight out of the lock screen into the application it exists to
+lock. It is not a one-line `useFocusTrap` call, which is why it was deferred rather than fixed in
+passing: it stacks a **nested `role="dialog"`** from
+[`passcode-pad.tsx`](../../packages/app/src/features/screensaver/passcode-pad.tsx), so the
+question is which of the two owns the trap and what the outer one does while the inner is up.
+That is a stacking decision about the screen-lock surface, and it belongs with the screen-lock
+work — alongside `passcode-pad`'s raw `z-[110]`, which
+[Phase 62](phases/phase-62-one-escape-one-dismissal.md) parked for the same reason.
