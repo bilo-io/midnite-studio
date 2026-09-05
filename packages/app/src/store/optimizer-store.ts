@@ -1,4 +1,11 @@
-import type { GpuStats, MemoryBreakdown, ProcessInfo, ScanResult } from '@midnite/studio-shared';
+import type {
+  GpuStats,
+  MemoryBreakdown,
+  ProcessInfo,
+  ScanResult,
+  SystemCacheCatalogueEntry,
+  SystemScanResult,
+} from '@midnite/studio-shared';
 import { create } from 'zustand';
 
 /**
@@ -12,15 +19,24 @@ import { create } from 'zustand';
 /** The four tabs the Optimizer view splits into. */
 export type OptimizerTab = 'smartScan' | 'storage' | 'memory' | 'gpu';
 
-export type OptimizerScanState = {
+/** Generic over the result shape so Phase 73's system-cache scan can mirror
+ *  this verbatim (`OptimizerScanState<SystemScanResult>`) without a second,
+ *  drifting copy of the same {state, progress, result, message} shape. */
+export type OptimizerScanState<R = ScanResult> = {
   state: 'idle' | 'scanning' | 'done' | 'error';
   /** 0–100, driven by `optimizerScanProgress` events, not a timer. */
   progress: number;
-  result: ScanResult | null;
+  result: R | null;
   message: string | null;
 };
 
 const initialScan: OptimizerScanState = { state: 'idle', progress: 0, result: null, message: null };
+const initialSystemScan: OptimizerScanState<SystemScanResult> = {
+  state: 'idle',
+  progress: 0,
+  result: null,
+  message: null,
+};
 
 export type OptimizerState = {
   tab: OptimizerTab;
@@ -43,6 +59,24 @@ export type OptimizerState = {
 
   gpu: GpuStats | null;
   setGpu: (gpu: GpuStats | null) => void;
+
+  /**
+   * Phase 73 Theme B — the system-wide cache scan, mirroring `scan` exactly
+   * (same {state, progress, result, message} shape, same action names) over
+   * a completely separate result type. Still deliberately unpersisted, for
+   * the identical reason `scan` is.
+   */
+  systemScan: OptimizerScanState<SystemScanResult>;
+  startSystemScan: () => void;
+  systemScanProgress: (done: number, total: number) => void;
+  systemScanDone: (result: SystemScanResult) => void;
+  systemScanError: (message: string) => void;
+
+  /** Labels/producers/ecosystem only, fetched once (not per scan) — the
+   *  consent dialog's and the settings page's enumerations both render from
+   *  this rather than hardcoded prose. `null` until the first fetch resolves. */
+  systemCatalogue: SystemCacheCatalogueEntry[] | null;
+  setSystemCatalogue: (catalogue: SystemCacheCatalogueEntry[]) => void;
 };
 
 export const useOptimizerStore = create<OptimizerState>((set) => ({
@@ -87,4 +121,22 @@ export const useOptimizerStore = create<OptimizerState>((set) => ({
 
   gpu: null,
   setGpu: (gpu) => set({ gpu }),
+
+  systemScan: initialSystemScan,
+  startSystemScan: () =>
+    set({ systemScan: { state: 'scanning', progress: 0, result: null, message: null } }),
+  systemScanProgress: (done, total) =>
+    set((state) => ({
+      systemScan: {
+        ...state.systemScan,
+        progress: total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0,
+      },
+    })),
+  systemScanDone: (result) =>
+    set({ systemScan: { state: 'done', progress: 100, result, message: null } }),
+  systemScanError: (message) =>
+    set((state) => ({ systemScan: { ...state.systemScan, state: 'error', message } })),
+
+  systemCatalogue: null,
+  setSystemCatalogue: (systemCatalogue) => set({ systemCatalogue }),
 }));

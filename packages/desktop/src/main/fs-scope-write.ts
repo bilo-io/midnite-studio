@@ -224,6 +224,54 @@ export async function confineTree(root: string, target: string): Promise<string 
   return targetReal.startsWith(rootReal + sep) ? targetReal : null;
 }
 
+/**
+ * Confine a target against a hand-written ALLOWLIST — Phase 73's system-cache
+ * registry, never `knownRoots()` and never a path-prefix check. Modelled on
+ * {@link confineTree} with one rule tightened and one added:
+ *
+ * - **Exact match only.** `confineTree` accepts anything *strictly under* its
+ *   root, which is correct for a repo tree (the root is trusted by
+ *   construction — the user "opened" it) and would be catastrophic here:
+ *   there is no equivalent trust to extend downward from a home-directory
+ *   path, so nothing is trusted beyond the literal registry entry itself. No
+ *   `startsWith`, no `+ sep`, no descent, no prefix match of any kind.
+ * - Refusal is `null`, never a throw — including when either side does not
+ *   exist, matching `confineTree`'s own `try/catch`.
+ *
+ * Takes already-resolved absolute path strings, not registry objects — the
+ * caller (`cleanSystemCaches`) builds `allowed` fresh from
+ * `resolveSystemCacheEntries` at clean time, so a stale pre-scan list is
+ * never trusted.
+ *
+ * **Exact-match alone is not enough on its own**, which is why this is
+ * paired with `resolveSystemCacheEntries`'s symlink refusal rather than
+ * relied on in isolation: `realpath`s both sides before comparing, so an
+ * allowlist entry that is *itself* a symlink resolves to its target on both
+ * sides and would compare equal to a delete of wherever that symlink points.
+ * `resolveSystemCacheEntries` closes that hole earlier, by dropping any
+ * entry whose own final segment is a symlink before it ever reaches here.
+ */
+export async function confineAllowlist(
+  allowed: readonly string[],
+  target: string,
+): Promise<string | null> {
+  let targetReal: string;
+  try {
+    targetReal = await realpath(target);
+  } catch {
+    return null; // does not exist, or a stat raced it away
+  }
+
+  for (const entry of allowed) {
+    try {
+      if ((await realpath(entry)) === targetReal) return targetReal;
+    } catch {
+      // an allowlist entry that no longer exists is simply not a match
+    }
+  }
+  return null;
+}
+
 /** Human-readable text for the common `fs` error codes a write handler hits. */
 export function describeFsError(error: unknown): string {
   const code = (error as NodeJS.ErrnoException | undefined)?.code;

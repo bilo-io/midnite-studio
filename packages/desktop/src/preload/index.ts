@@ -508,6 +508,12 @@ const bridge: Pick<
     gpu: () => call(CHANNELS.optimizerGpu),
     trashSummary: () => call(CHANNELS.optimizerTrashSummary),
     emptyTrash: () => call(CHANNELS.optimizerTrashEmpty),
+    systemCatalogue: () => call(CHANNELS.optimizerSystemCatalogue),
+    systemScan: (req) => call(CHANNELS.optimizerSystemScan, req),
+    onSystemScanProgress: (handler) =>
+      subscribe(EVENT_CHANNELS.optimizerSystemScanProgress, handler),
+    systemClean: (req) => call(CHANNELS.optimizerSystemClean, req),
+    systemReclaim: (req) => call(CHANNELS.optimizerSystemReclaim, req),
   },
   protocol: {
     onDeepLink: (handler) => subscribe(EVENT_CHANNELS.deepLink, handler),
