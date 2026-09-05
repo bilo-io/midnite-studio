@@ -1,11 +1,13 @@
 import type { TerminalSession } from '@midnite/studio-shared';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { Terminal } from '@xterm/xterm';
+import { Terminal, type ITheme } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { bridge } from '../../services/bridge';
+import { usePaletteStore } from '../themes/palette-store';
+import { resolveTerminalPalette } from '../themes/resolve-palette';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
 import { openExternal } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
@@ -65,19 +67,60 @@ const INPUT_QUEUE_CAP_BYTES = 4096;
  * terminal still knows how wide it is and its shell keeps the right column
  * count.
  */
-const DARK_THEME = {
+/**
+ * Fallback themes, used only before `usePaletteStore` hydrates or if a
+ * palette somehow fails to resolve — `resolveTerminalPalette` always returns
+ * a real `StudioPalette` (Phase 64 Theme B), whose own `terminal` field is
+ * what every mounted xterm actually renders with. These carry all 16 ANSI
+ * keys now too (they had none before this phase — xterm's built-in defaults
+ * supplied them), matching `github-dark`/`github-light`'s own `terminal`
+ * values exactly so the fallback and the default preset never disagree.
+ */
+const DARK_THEME: ITheme = {
   background: '#09090b',
   foreground: '#e4e4e7',
   cursor: '#e4e4e7',
   selectionBackground: '#3f3f46',
-} as const;
+  black: '#484f58',
+  red: '#ff7b72',
+  green: '#3fb950',
+  yellow: '#d29922',
+  blue: '#58a6ff',
+  magenta: '#bc8cff',
+  cyan: '#39c5cf',
+  white: '#b1bac4',
+  brightBlack: '#6e7681',
+  brightRed: '#ffa198',
+  brightGreen: '#56d364',
+  brightYellow: '#e3b341',
+  brightBlue: '#79c0ff',
+  brightMagenta: '#d2a8ff',
+  brightCyan: '#56d4dd',
+  brightWhite: '#f0f6fc',
+};
 
-const LIGHT_THEME = {
+const LIGHT_THEME: ITheme = {
   background: '#ffffff',
   foreground: '#18181b',
   cursor: '#18181b',
   selectionBackground: '#d4d4d8',
-} as const;
+  black: '#24292f',
+  red: '#cf222e',
+  green: '#116329',
+  yellow: '#4d2d00',
+  blue: '#0969da',
+  magenta: '#8250df',
+  cyan: '#1b7c83',
+  white: '#6e7781',
+  brightBlack: '#57606a',
+  brightRed: '#a40e26',
+  brightGreen: '#1a7f37',
+  brightYellow: '#633c01',
+  brightBlue: '#218bff',
+  brightMagenta: '#a475f9',
+  brightCyan: '#3192aa',
+  brightWhite: '#8c959f',
+};
 
 const isDark = (): boolean => document.documentElement.classList.contains('dark');
 
@@ -740,13 +783,26 @@ export function TerminalView({
   }, [session.id]);
 
   // Re-theme in place rather than recreating the terminal - a rebuild would
-  // wipe the scrollback and kill the shell.
+  // wipe the scrollback and kill the shell. Extended for Phase 64 Theme B to
+  // also depend on the active palette (or its terminal override): every
+  // mounted xterm already registers its own observer here, so a palette
+  // switch is O(mounted terminals) assignments and nothing heavier — no new
+  // broadcast, per the phase doc's own instruction to reuse this path.
   useEffect(() => {
-    const observer = new MutationObserver(() => {
-      if (termRef.current) termRef.current.options.theme = isDark() ? DARK_THEME : LIGHT_THEME;
-    });
+    const applyTheme = () => {
+      if (!termRef.current) return;
+      const dark = isDark();
+      const palette = resolveTerminalPalette(dark ? 'dark' : 'light');
+      termRef.current.options.theme = palette.terminal ?? (dark ? DARK_THEME : LIGHT_THEME);
+    };
+    const observer = new MutationObserver(applyTheme);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
+    const unsubPalette = usePaletteStore.subscribe(applyTheme);
+    applyTheme();
+    return () => {
+      observer.disconnect();
+      unsubPalette();
+    };
   }, []);
 
   // Focus follows selection, so switching sessions leaves you able to type.

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
+import { usePaletteStore } from '../features/themes/palette-store';
 import { useAppearanceStore } from '../store/appearance-store';
 import { useBrowserStore } from '../store/browser-store';
 import { useUiStore } from '../store/ui-store';
@@ -60,6 +61,12 @@ describe('useBroadcastSync (Theme E)', () => {
   beforeEach(() => {
     useUiStore.setState(UI_DEFAULTS);
     document.documentElement.classList.remove('dark');
+    usePaletteStore.setState({
+      activePaletteId: 'github-dark',
+      terminalPaletteOverride: null,
+      editorPaletteOverride: null,
+      userPalettes: [],
+    });
   });
 
   afterEach(() => {
@@ -200,8 +207,45 @@ describe('useBroadcastSync (Theme E)', () => {
     document.documentElement.classList.add('dark');
     // MutationObserver callbacks run in a microtask; flush it.
     return Promise.resolve().then(() => {
-      expect(relay).toHaveBeenCalledWith(expect.objectContaining({ kind: 'theme', payload: { dark: true } }));
+      expect(relay).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'theme',
+          // Phase 64 Theme B: the active palette id travels on this same
+          // message now — `payload` itself needs `objectContaining` too,
+          // since it is nested inside the outer matcher.
+          payload: expect.objectContaining({ dark: true }),
+        }),
+      );
     });
+  });
+
+  it('applies an incoming palette change alongside the dark-class flip', () => {
+    const { emit } = installBridge();
+    mount();
+
+    emit({
+      id: 'theme-2',
+      origin: 'other-window',
+      kind: 'theme',
+      payload: { dark: true, paletteId: 'monokai' },
+    });
+
+    expect(usePaletteStore.getState().activePaletteId).toBe('monokai');
+  });
+
+  it('a local palette change is relayed as a theme message, reaching popouts', () => {
+    const { relay } = installBridge();
+    mount();
+    relay.mockClear();
+
+    usePaletteStore.getState().setActivePalette('jetbrains-darcula');
+
+    expect(relay).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'theme',
+        payload: expect.objectContaining({ paletteId: 'jetbrains-darcula' }),
+      }),
+    );
   });
 
   it('relayWatchEvent sends a watch message through the relay', () => {

@@ -1,0 +1,81 @@
+import type { StudioPalette } from '../theme-types';
+
+/**
+ * The migration target and regression baseline (Decision 1, x1). `chrome` is
+ * copied verbatim from `@bilo-io/ui/dist/tokens.css`'s `.dark` block — a
+ * fresh install's first render must be pixel-identical to today's, before
+ * this phase existed.
+ */
+export const githubDark = {
+  id: 'github-dark',
+  label: 'GitHub Dark',
+  appearance: 'dark',
+  chrome: {
+    '--background': '240 10% 3.9%',
+    '--foreground': '0 0% 98%',
+    '--card': '240 10% 5.5%',
+    '--card-foreground': '0 0% 98%',
+    '--primary': '0 0% 98%',
+    '--primary-foreground': '240 5.9% 10%',
+    '--secondary': '240 3.7% 15.9%',
+    '--secondary-foreground': '0 0% 98%',
+    '--muted': '240 3.7% 15.9%',
+    '--muted-foreground': '240 5% 64.9%',
+    '--accent': '240 3.7% 15.9%',
+    '--accent-foreground': '0 0% 98%',
+    '--destructive': '0 72% 60%',
+    '--destructive-foreground': '0 0% 98%',
+    '--success': '142 65% 48%',
+    '--success-foreground': '0 0% 98%',
+    '--popover': '240 10% 7%',
+    '--popover-foreground': '0 0% 98%',
+    '--border': '240 3.7% 15.9%',
+    '--input': '240 3.7% 15.9%',
+    '--ring': '240 4.9% 83.9%',
+  },
+  terminal: {
+    background: '#09090b',
+    foreground: '#e4e4e7',
+    cursor: '#e4e4e7',
+    selectionBackground: '#3f3f46',
+    black: '#484f58',
+    red: '#ff7b72',
+    green: '#3fb950',
+    yellow: '#d29922',
+    blue: '#58a6ff',
+    magenta: '#bc8cff',
+    cyan: '#39c5cf',
+    white: '#b1bac4',
+    brightBlack: '#6e7681',
+    brightRed: '#ffa198',
+    brightGreen: '#56d364',
+    brightYellow: '#e3b341',
+    brightBlue: '#79c0ff',
+    brightMagenta: '#d2a8ff',
+    brightCyan: '#56d4dd',
+    brightWhite: '#f0f6fc',
+  },
+  editor: {
+    base: 'vs-dark',
+    rules: [
+      { token: 'comment', foreground: '8b949e', fontStyle: 'italic' },
+      { token: 'keyword', foreground: 'ff7b72' },
+      { token: 'string', foreground: 'a5d6ff' },
+      { token: 'number', foreground: '79c0ff' },
+      { token: 'type', foreground: 'ffa657' },
+      { token: 'function', foreground: 'd2a8ff' },
+      { token: 'variable', foreground: 'c9d1d9' },
+    ],
+    colors: {
+      'editor.background': '#0d1117',
+      'editor.foreground': '#c9d1d9',
+      'editorLineNumber.foreground': '#6e7681',
+      'editorLineNumber.activeForeground': '#c9d1d9',
+      'editorCursor.foreground': '#c9d1d9',
+      'editor.selectionBackground': '#3392ff44',
+      'editor.lineHighlightBackground': '#161b22',
+      'editorGutter.background': '#0d1117',
+    },
+  },
+  highlight: 'github-dark',
+} as const satisfies StudioPalette;

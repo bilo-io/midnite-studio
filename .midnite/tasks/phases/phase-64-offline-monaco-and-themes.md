@@ -119,18 +119,18 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 ### Theme A — Vite Offline Monaco & Worker Pipeline (L)
 *Bundles `@monaco-editor/react` with local `monaco-editor` assets and gets five Web Workers running from a `file://` origin — the actual hard problem.*
 
-- [ ] Add `@monaco-editor/react` and `monaco-editor` to [`packages/app/package.json`](../../../packages/app/package.json).
+- [x] Add `@monaco-editor/react` and `monaco-editor` to [`packages/app/package.json`](../../../packages/app/package.json).
   - Pin exact versions; `monaco-editor` ships breaking changes in minors.
   - Note in the PR body that this is a **second editor engine alongside CodeMirror 6** until Theme G
     lands, and that the seven `@codemirror/*` entries leave in Theme G, not here.
-- [ ] Add `packages/app/src/lib/monaco/monaco-loader.ts` — **new.** One named export:
+- [x] Add `packages/app/src/lib/monaco/monaco-loader.ts` — **new.** One named export:
       `export function getMonaco(): Promise<typeof import('monaco-editor')>`.
   - A memoised module-level promise, in the exact shape of
     [`highlighter.ts:21-26`](../../../packages/app/src/lib/highlighter.ts)'s `highlighterPromise`.
     **Zero eager languages**, same as Shiki's `langs: []`.
   - It calls `loader.config({ monaco })` with the statically-imported local `monaco` so
     `@monaco-editor/react` never reaches its default `cdn.jsdelivr.net` path.
-- [ ] **Workers are built with `?worker&inline`, not `?worker`.** This is the item the phase turns on.
+- [x] **Workers are built with `?worker&inline`, not `?worker`.** This is the item the phase turns on.
   - Vite's plain `?worker` emits a separate chunk loaded via `new Worker(new URL(…))`, which under
     [`window.ts:116`](../../../packages/desktop/src/main/window.ts)'s `loadFile` resolves to a
     `file:` URL from an **opaque origin** and is blocked by Chromium. `?worker&inline` emits a
@@ -142,34 +142,34 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     in [`vite.config.ts`](../../../packages/app/vite.config.ts) — this is the codebase's first
     worker, so it gets a comment explaining the `&inline` choice rather than leaving the next author
     to rediscover it.
-- [ ] Set `window.MonacoEnvironment.getWorker(_workerId, label)` in `monaco-loader.ts`, returning a
+- [x] Set `window.MonacoEnvironment.getWorker(_workerId, label)` in `monaco-loader.ts`, returning a
       new instance of the inlined worker constructor per `label`:
       `'typescript' | 'javascript' → ts`, `'json' → json`, `'css' | 'scss' | 'less' → css`,
       `'html' | 'handlebars' | 'razor' → html`, **default → `editor`**. The default arm is required:
       an unmatched label with no fallback throws inside Monaco with no useful message.
-- [ ] **Delete the CSP verification item.** There is no CSP (`grep -rn "Content-Security-Policy"` →
+- [x] **Delete the CSP verification item.** There is no CSP (`grep -rn "Content-Security-Policy"` →
       0), and `index.html:18-40` ships an inline script that a strict one would break. Replaced by
       the `file://`-origin assertion in Verification.
-- [ ] Add `monaco-editor` to `MUST_BE_ABSENT` in
+- [x] Add `monaco-editor` to `MUST_BE_ABSENT` in
       [`e2e/perf/bundle-budget.spec.ts:97-102`](../../../packages/app/e2e/perf/bundle-budget.spec.ts):
       `{ name: 'monaco-editor', needles: ['monaco-editor', 'MonacoEnvironment'] }`.
       This is the repo's existing mechanism for exactly this risk and it is a two-line change.
-- [ ] Keep Monaco off the entry chunk via the existing `React.lazy` boundary at
+- [x] Keep Monaco off the entry chunk via the existing `React.lazy` boundary at
       [`file-preview.tsx:25`](../../../packages/app/src/features/files/preview/file-preview.tsx) —
       **no `manualChunks`**, which does not exist anywhere in this repo (splitting is 100%
       dynamic-import driven; see the comment at [`vite.config.ts:11`](../../../packages/app/vite.config.ts)).
-- [ ] Swap that boundary's bespoke `"Loading editor…"` paragraph (`file-preview.tsx:305`) for
+- [x] Swap that boundary's bespoke `"Loading editor…"` paragraph (`file-preview.tsx:305`) for
       [`<DelayedFallback />`](../../../packages/app/src/components/delayed-fallback.tsx), the
       120 ms-delayed spinner described as *"the fallback every lazy boundary in the app uses"*.
       Monaco's chunk is large enough that an undelayed spinner would flash on a warm load.
-- [ ] **No asar work is needed, and the doc should say so** so nobody adds an `asarUnpack` entry:
+- [x] **No asar work is needed, and the doc should say so** so nobody adds an `asarUnpack` entry:
       [`electron-builder.yml:28-42`](../../../packages/desktop/electron-builder.yml) copies
       `packages/app/dist` as `extraResources` → `Resources/renderer`, **outside the asar entirely**.
 
 ### Theme B — Unified Cross-Surface Theme Registry (L)
 *A palette dimension orthogonal to `@bilo-io/ui`'s light/dark provider, reaching all five surfaces the app paints code on — not the three the original plan counted.*
 
-- [ ] Define `StudioPalette` in `packages/app/src/features/themes/theme-types.ts` — **new.**
+- [x] Define `StudioPalette` in `packages/app/src/features/themes/theme-types.ts` — **new.**
       Named `Palette`, not `Theme`, because `@bilo-io/ui` already owns the word and the mechanism
       (Decision 7). Exact shape:
   - `id: string`, `label: string`, `appearance: 'dark' | 'light'` — which of `@bilo-io/ui`'s two
@@ -190,13 +190,13 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     — the `monaco.editor.defineTheme` payload.
   - `highlight: BundledTheme` — **the fifth surface.** The Shiki theme id this palette maps to. See
     Decision 8.
-- [ ] Six presets under `packages/app/src/features/themes/presets/` — `github-dark.ts`,
+- [x] Six presets under `packages/app/src/features/themes/presets/` — `github-dark.ts`,
       `github-light.ts`, `jetbrains-darcula.ts`, `atom-one-dark.ts`, `vscode-dark-plus.ts`,
       `monokai.ts` — each a `const satisfies StudioPalette`, plus an `index.ts` exporting
       `BUILTIN_PALETTES: readonly StudioPalette[]` and `DEFAULT_PALETTE_ID = 'github-dark'`.
   - `github-dark` and `github-light` must be **byte-identical in effect to today's appearance** —
     they are the migration target for existing users and the regression baseline.
-- [ ] `packages/app/src/features/themes/palette-store.ts` — **new**, its own zustand store beside
+- [x] `packages/app/src/features/themes/palette-store.ts` — **new**, its own zustand store beside
       [`appearance-store.ts`](../../../packages/app/src/store/appearance-store.ts) rather than a
       slice of `ui-store`. State: `activePaletteId`, `terminalPaletteOverride: string | null`,
       `editorPaletteOverride: string | null`, `userPalettes: StudioPalette[]`.
@@ -206,7 +206,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - `appearance-store.ts` has **no `partialize` and no `migrate`** (grep → 0 for both) — adding
     `userPalettes` means adding both, and bumping to `version: 2` with a `version < 2` arm that
     seeds `activePaletteId: DEFAULT_PALETTE_ID` and `userPalettes: []`.
-- [ ] `packages/app/src/features/themes/use-palette-sync.ts` — **new.**
+- [x] `packages/app/src/features/themes/use-palette-sync.ts` — **new.**
       `export function usePaletteSync(): void`, called **once** from
       [`app.tsx`](../../../packages/app/src/app.tsx) beside the existing appearance sync.
   - Writes `chrome` tokens onto `document.documentElement.style` via `setProperty('--background', …)`.
@@ -215,7 +215,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     makes this an extension rather than a fork.
   - **Clears a token it does not set** (`removeProperty`) so switching from a palette that overrides
     `--ring` to one that doesn't restores the library value instead of stranding the old one.
-- [ ] **Reuse the existing xterm re-theme path; do not add a second one.**
+- [x] **Reuse the existing xterm re-theme path; do not add a second one.**
       [`terminal-view.tsx:743-751`](../../../packages/app/src/features/terminal/terminal-view.tsx)
       already re-themes in place on the `dark`-class `MutationObserver`, with the comment *"a rebuild
       would wipe the scrollback and kill the shell."* Extend that effect to also depend on the active
@@ -227,22 +227,22 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     all mounted simultaneously (inactive panes are `invisible`, never unmounted). Each already
     registers its own observer, so a palette change must be O(mounted terminals) assignments and
     nothing heavier.
-- [ ] Palette change reaches **popout windows**. [`broadcast-sync.ts:245-259`](../../../packages/app/src/services/broadcast-sync.ts)
+- [x] Palette change reaches **popout windows**. [`broadcast-sync.ts:245-259`](../../../packages/app/src/services/broadcast-sync.ts)
       already relays `{ dark }` to popouts and applies it at `:97-101`; extend that message with
       `paletteId` rather than adding a channel.
-- [ ] `theme-types.test.ts` asserting every preset satisfies the contract, every `chrome` value
+- [x] `theme-types.test.ts` asserting every preset satisfies the contract, every `chrome` value
       parses as an HSL triplet (`/^\d+(\.\d+)? \d+(\.\d+)?% \d+(\.\d+)?%$/`), and every preset
       defines all 16 ANSI keys.
 
 ### Theme C — Writable Monaco Editor in Files View (M)
 *Replaces the CodeMirror 6 writable editor with Monaco, against the store's real API.*
 
-- [ ] Reimplement [`code-editor.tsx`](../../../packages/app/src/features/files/preview/code-editor.tsx)
+- [x] Reimplement [`code-editor.tsx`](../../../packages/app/src/features/files/preview/code-editor.tsx)
       on `@monaco-editor/react`, **keeping the existing signature exactly**:
       `export function CodeEditor({ fileName }: { fileName: string })`. Content comes from the store,
       not props — preserving this is what keeps `file-preview.tsx`'s call site unchanged.
   - Keep `data-testid="code-editor"` (`:118-119`); it is the stable hook for both suites.
-- [ ] Wire to [`file-editor-store.ts`](../../../packages/app/src/store/file-editor-store.ts) by its
+- [x] Wire to [`file-editor-store.ts`](../../../packages/app/src/store/file-editor-store.ts) by its
       actual API, item by item:
   - `onChange` → `useFileEditorStore.getState().edit(value)`. **Nothing else** — `edit` is literally
     `set({ content })` at `:90`, and dirty is derived downstream.
@@ -252,15 +252,15 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     the stale-write banner and the guard dialog.
   - Do **not** add a watcher. `file-preview.tsx:105-106` records the deliberate decision that a
     background refetch must not clobber a buffer being typed into.
-- [ ] **Fix the latent remount bug while here.** `code-editor.tsx:86-87` claims the caller
+- [x] **Fix the latent remount bug while here.** `code-editor.tsx:86-87` claims the caller
       `key`-forces a remount, but `file-preview.tsx:304-308` renders `<CodeEditor>` **without a
       `key`**, though `editorKey` is computed at `:101-102`. Pass `key={editorKey}` or delete the
       claim — currently the comment and the call site disagree, and Monaco is far less forgiving of a
       stale model than CodeMirror was.
-- [ ] Debounced `editor.layout()` on a `ResizeObserver` over the host element, trailing-edge at
+- [x] Debounced `editor.layout()` on a `ResizeObserver` over the host element, trailing-edge at
       **60 ms**, disconnected on unmount. Monaco does not self-size; without this the editor keeps
       its mount-time dimensions inside the resizable Files pane.
-- [ ] **Create the editor preferences — they do not exist.** `grep -rn "editorFontSize|editorFontFamily|minimap|tabSize|wordWrap" packages/app/src packages/shared/src` → **0**.
+- [x] **Create the editor preferences — they do not exist.** `grep -rn "editorFontSize|editorFontFamily|minimap|tabSize|wordWrap" packages/app/src packages/shared/src` → **0**.
       Add `editorFontFamily`, `editorFontSize`, `editorMinimap`, `editorTabSize`, `editorWordWrap` to
       [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) mirroring the terminal trio
       exactly — declaration (`:1008-1012`), implementation (`:1234-1239`), the `PersistedUi` union
@@ -269,27 +269,27 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - Defaults live outside the store, mirroring
     [`terminal-font.ts:19`](../../../packages/app/src/features/terminal/terminal-font.ts): 13 px,
     the app's `font-mono` stack, minimap off, tab size 2, word wrap off.
-- [ ] Map the file extension to a **Monaco** language id.
+- [x] Map the file extension to a **Monaco** language id.
       [`languages.ts`](../../../packages/app/src/lib/languages.ts)'s `languageForFile` returns
       **Shiki** ids, and they differ: `shellscript`→`shell`, `docker`→`dockerfile`, `jsonc`→`json`.
       Add `monacoLanguageForFile(fileName): string | undefined` in `lib/monaco/monaco-languages.ts`
       as an explicit translation table over the ~57 extensions in `LANG_BY_EXT`, falling back to
       `'plaintext'`. Do not reuse the Shiki id directly.
-- [ ] Retain Shiki in [`code-preview.tsx`](../../../packages/app/src/features/files/preview/code-preview.tsx)
+- [x] Retain Shiki in [`code-preview.tsx`](../../../packages/app/src/features/files/preview/code-preview.tsx)
       unchanged, and preserve its `Escape`-closes-find guard at `:97` (`event.key === 'Escape' && findOpen`)
       — it is the existing find-bar-in-editor precedent Theme D must not break.
-- [ ] Restore focus on unmount. Nothing in the app does this except
+- [x] Restore focus on unmount. Nothing in the app does this except
       [`palette.tsx:126-137`](../../../packages/app/src/components/palette.tsx); lift that exact
       pattern (capture `document.activeElement` in a ref, restore in the effect's cleanup). Monaco
       takes focus on mount, so without it, leaving edit mode drops focus to `<body>`.
-- [ ] Add `code-editor.test.tsx` — **there is no unit test for this file today**; the directory's only
+- [x] Add `code-editor.test.tsx` — **there is no unit test for this file today**; the directory's only
       test is `markdown-links.test.ts`. Mock `getMonaco()`; assert `edit()` fires on change, that a
       store push updates the model, and that the `ResizeObserver` is disconnected on unmount.
 
 ### Theme D — Chord yielding, both directions (M)
 *Renamed and inverted: the dispatcher wins every chord today, so the work is teaching it to yield — plus the three native accelerators that bypass it entirely.*
 
-- [ ] **Generalise `insideTerminal` into a root registry.** Replace
+- [x] **Generalise `insideTerminal` into a root registry.** Replace
       [`use-keybindings.ts:111-112`](../../../packages/app/src/services/keybindings/use-keybindings.ts)'s
       single hard-coded `.xterm` selector and the flat `TERMINAL_YIELD_COMMANDS` with:
       `YIELD_ROOTS: readonly { selector: string; commands: readonly CommandId[] }[]` in
@@ -305,11 +305,11 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
     [`menu.ts:73`](../../../packages/desktop/src/main/menu.ts)'s doc comment.
   - Match off `event.target`, not `document.activeElement` — preserving the existing rationale at
     `:52-54` that a keystroke aimed at one widget is judged by that widget.
-- [ ] Monaco's yield set, named explicitly: `Mod+d` (add selection to next match), `Mod+/` (toggle
+- [x] Monaco's yield set, named explicitly: `Mod+d` (add selection to next match), `Mod+/` (toggle
       comment), `Mod+[` / `Mod+]` (outdent/indent), `Mod+Enter` (insert line below).
       **`Mod+f` needs no entry** — nothing binds it (`DEFAULT_KEYMAP` has no `Mod+f`; `search.open` is
       `Mod+Shift+f`) and no menu item registers it, so Monaco's find widget already works.
-- [ ] **Three native accelerators bypass the yield list entirely and must move to
+- [x] **Three native accelerators bypass the yield list entirely and must move to
       `itemNoAccelerator()`** in [`menu.ts`](../../../packages/desktop/src/main/menu.ts). An OS
       accelerator fires whenever the window is focused, which the renderer's listener never sees —
       the exact bug class the file's own comment at `:56-77` already describes:
@@ -326,10 +326,19 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       reaches Studio.
   - **`use-dismiss.ts` does not exist yet** (`grep -rn "use-dismiss|useDismiss"` → 0); Phase 62 is
     0%. See Decision 3 for what this phase does if it lands first.
-- [ ] **Do not apply [`useFocusTrap`](../../../packages/app/src/components/use-focus-trap.ts) to the
+  - **Left open, deliberately, rather than built as inert scaffolding**
+    ([PR #164](https://github.com/bilo-io/midnite-studio/pull/164)): today
+    nothing intercepts Escape before Monaco (no bound chord uses a bare
+    `Escape`), so Decision 3's fallback — a local `onKeyDown` guard shaped
+    like `code-preview.tsx`'s `event.key === 'Escape' && findOpen` — would be
+    behaviourally inert code poking Monaco's undocumented context-key
+    internals for zero present effect. Wiring it is one more migration once
+    Phase 62's `useDismiss` actually exists, per Decision 3's own "whichever
+    is second wires them" — still true here.
+- [x] **Do not apply [`useFocusTrap`](../../../packages/app/src/components/use-focus-trap.ts) to the
       editor.** Its `FOCUSABLE` selector would sweep Monaco's many internal `[tabindex]` nodes into
       the Tab cycle, and Tab inside an editor must insert indentation, not move focus.
-- [ ] Extend `use-keybindings.test.ts` — it already dispatches at an element inside an `.xterm` root
+- [x] Extend `use-keybindings.test.ts` — it already dispatches at an element inside an `.xterm` root
       (`:88`), so the harness extends directly. Assert: a Monaco-yielded chord inside
       `.monaco-editor` does **not** run; the same chord inside `.xterm` **does**; `fab.toggle` inside
       `.monaco-editor` **does** run.
@@ -466,7 +475,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green, and `pnpm e2e` green with **no new `KNOWN_RED` entry**
+- [x] `moon run :typecheck :lint :test` green, and `pnpm e2e` green with **no new `KNOWN_RED` entry**
       — including `files-editor.spec.ts`, retargeted rather than ratcheted (G).
 - [ ] **Offline, packaged, from `file://`.** `moon run app:build desktop:bundle`, launch the packaged
       app with Wi-Fi off, open a file, click Edit. Monaco loads and edits. **This is the assertion
@@ -475,9 +484,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] `grep -r "cdn.jsdelivr" packages/app/dist` → **no matches** after a build.
 - [ ] DevTools → Sources shows five workers running from blob URLs, none from `file://`, and the
       Network tab shows **zero** requests for editor assets.
-- [ ] `monaco-editor` does not resolve into the entry chunk — the `MUST_BE_ABSENT` test added in
+- [x] `monaco-editor` does not resolve into the entry chunk — the `MUST_BE_ABSENT` test added in
       Theme A, run via `moon run app:perf`.
-- [ ] `node scripts/perf/bundle-report.mjs --assert` passes: `entryKb` stays under **1520**, from a
+- [x] `node scripts/perf/bundle-report.mjs --assert` passes: `entryKb` stays under **1520**, from a
       measured baseline of 1335.8 (~184 KB headroom, against a ~2 MB dependency).
 - [ ] Single-clicking files in the tree renders the Shiki preview with **no Monaco chunk requested** —
       assert on the absence of a `monaco` chunk in the Network panel, not on a stopwatch.
@@ -488,24 +497,24 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       preview, and a rendered diff row. The last two are the surfaces x1 added.
 - [ ] Override isolation: master GitHub Dark + terminal override Monokai → terminal is Monokai, chrome
       and editor are GitHub Dark, and the read-only preview follows **chrome**, not the terminal.
-- [ ] A palette that omits `--ring` restores `@bilo-io/ui`'s value rather than stranding the previous
+- [x] A palette that omits `--ring` restores `@bilo-io/ui`'s value rather than stranding the previous
       palette's — the `removeProperty` behaviour in Theme B.
 - [ ] With **eight** terminals mounted (sessions + a board card + a loop tab), a palette switch
       re-themes all of them without recreating any: scrollback survives and no shell dies.
-- [ ] A palette change reaches an open **popout window**.
+- [x] A palette change reaches an open **popout window**.
 - [ ] Import a real third-party VS Code theme with **array-form `scope`s** (SynthWave '84) and one
       with **no `type` field**; both parse, persist across a reload, and render non-grey tokens.
 - [ ] A 3 MB JSON, a malformed JSON and `{}` each return `{ok:false}` with three distinct reasons and
       an inline error — no toast, no throw.
-- [ ] `appearance-store` migrates 1 → 2 and `ui-store` 8 → 9 **from a real pre-upgrade profile**, not
+- [x] `appearance-store` migrates 1 → 2 and `ui-store` 8 → 9 **from a real pre-upgrade profile**, not
       a fresh one: existing users keep their accent, density and terminal font.
-- [ ] **Chords, inside a focused Monaco:** `Mod+k` opens the palette · ``Ctrl+` `` toggles the terminal ·
+- [x] **Chords, inside a focused Monaco:** `Mod+k` opens the palette · ``Ctrl+` `` toggles the terminal ·
       `Mod+r` reloads · `Mod+f` opens **Monaco's** find, not the app's · `Mod+d` and `Mod+/` reach
       Monaco · `Cmd+G` does **not** toggle the repos panel · `Cmd+L` does **not** toggle the FAB.
       The last two are the native-accelerator fix and they cannot be tested from the renderer alone.
 - [ ] Escape with Monaco's find widget open closes only the widget; a second Escape reaches Studio.
 - [ ] Leaving edit mode returns focus to the Edit button, not `<body>`.
-- [ ] Resize the Files pane rapidly for 3 s: Monaco tracks it, and the `ResizeObserver` is
+- [x] Resize the Files pane rapidly for 3 s: Monaco tracks it, and the `ResizeObserver` is
       disconnected on unmount (asserted in `code-editor.test.tsx`, not by eye).
 - [ ] `grep -rn "@codemirror" packages/app/src` → **0** after Theme G (or the theme is recorded as
       skipped, with Phase 61 named as the reason).

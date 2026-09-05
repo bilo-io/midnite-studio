@@ -17,6 +17,7 @@ import {
   DEFAULT_KEYMAP,
   GLOBAL_CHORDS,
   TERMINAL_YIELD_COMMANDS,
+  YIELD_ROOTS,
   isCommandId,
 } from '../keybindings';
 import { CHANNELS, EVENT_CHANNELS } from './channels';
@@ -999,6 +1000,18 @@ describe('keybindings', () => {
       'window.detachActive',
     ]);
     for (const command of TERMINAL_YIELD_COMMANDS) expect(isCommandId(command)).toBe(true);
+  });
+
+  it('gives Monaco its OWN yield set (Phase 64 Theme D) — not a superset of the terminal\'s', () => {
+    const monacoRoot = YIELD_ROOTS.find((root) => root.selector === '.monaco-editor');
+    expect(monacoRoot).toBeDefined();
+    expect([...monacoRoot!.commands].sort()).toEqual(['panel.back', 'panel.forward', 'status.commit']);
+    for (const command of monacoRoot!.commands) expect(isCommandId(command)).toBe(true);
+    // `fab.toggle`/`window.detachActive` are the terminal's carve-out, not
+    // Monaco's — bolting `.monaco-editor` onto `insideTerminal` would have
+    // made Monaco swallow them too.
+    expect(monacoRoot!.commands).not.toContain('fab.toggle');
+    expect(monacoRoot!.commands).not.toContain('window.detachActive');
   });
 
   it('gives the loop panel Mod+l and the lock screen its shifted sibling', () => {

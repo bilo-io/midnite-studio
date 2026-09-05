@@ -5,6 +5,7 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { bridge } from './bridge';
 import { invalidateForWatchKind } from './watch-invalidation';
+import { usePaletteStore } from '../features/themes/palette-store';
 import { useAppearanceStore, type AppearanceState } from '../store/appearance-store';
 import { useBrowserStore, type BrowserTab, type BrowserTabGroup } from '../store/browser-store';
 import { useUiStore, type UiState } from '../store/ui-store';
@@ -94,10 +95,16 @@ export function relayWatchEvent(repoId: string, kind: WatchKind): void {
   send('watch', { repoId, kind });
 }
 
-function applyTheme(dark: boolean): void {
+function applyTheme(dark: boolean, paletteId?: string): void {
   const root = document.documentElement;
   root.classList.toggle('dark', dark);
   root.style.colorScheme = dark ? 'dark' : 'light';
+  // Phase 64 Theme B: the palette change reaches popouts on the SAME
+  // message the dark-class flip already travels on, rather than a second
+  // channel — `applying` is already true around this whole call (see
+  // `applyIncoming`), so `usePaletteStore`'s own subscriber below stays
+  // quiet and this does not ping-pong back out.
+  if (paletteId) usePaletteStore.getState().setActivePalette(paletteId);
 }
 
 function applyIncoming(message: SyncMessage, client: QueryClient): void {
@@ -119,9 +126,11 @@ function applyIncoming(message: SyncMessage, client: QueryClient): void {
           },
         );
         break;
-      case 'theme':
-        applyTheme(Boolean(message.payload['dark']));
+      case 'theme': {
+        const paletteId = message.payload['paletteId'];
+        applyTheme(Boolean(message.payload['dark']), typeof paletteId === 'string' ? paletteId : undefined);
         break;
+      }
       case 'watch': {
         const { repoId, kind } = message.payload as { repoId: string; kind: WatchKind };
         invalidateForWatchKind(client, repoId, kind);
@@ -246,6 +255,9 @@ export function useBroadcastSync(): void {
     // class it writes on `<html>` is observed instead — the same signal
     // `useWindowBackgroundSync` (`app.tsx`) already keys its own resync off.
     let lastDark = document.documentElement.classList.contains('dark');
+    // Phase 64 Theme B: the active palette travels on the same `'theme'`
+    // message rather than a new channel — see `applyTheme`.
+    let lastPaletteId = usePaletteStore.getState().activePaletteId;
     const themeObserver =
       typeof MutationObserver === 'undefined'
         ? null
@@ -254,9 +266,16 @@ export function useBroadcastSync(): void {
             const dark = document.documentElement.classList.contains('dark');
             if (dark === lastDark) return;
             lastDark = dark;
-            send('theme', { dark });
+            send('theme', { dark, paletteId: lastPaletteId });
           });
     themeObserver?.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    const unsubPalette = usePaletteStore.subscribe((state) => {
+      if (applying) return;
+      if (state.activePaletteId === lastPaletteId) return;
+      lastPaletteId = state.activePaletteId;
+      send('theme', { dark: lastDark, paletteId: lastPaletteId });
+    });
 
     return () => {
       channel?.removeEventListener('message', onChannelMessage);
@@ -264,6 +283,7 @@ export function useBroadcastSync(): void {
       unsubUi();
       unsubAppearance();
       unsubBrowser();
+      unsubPalette();
       themeObserver?.disconnect();
     };
   }, []);

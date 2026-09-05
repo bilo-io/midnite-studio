@@ -856,3 +856,49 @@ describe('v7 -> v8 migration (Phase 55)', () => {
     expect(useUiStore.getState().selectedRepoId).toBe('repo-legacy');
   });
 });
+
+describe('v8 -> v9 migration (Phase 64 Theme C)', () => {
+  it('seeds the five editor preferences, disturbing no sibling key', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({ selectedRepoId: 'repo-1' }, 8) as {
+      selectedRepoId: string;
+      editorFontFamily: string;
+      editorFontSize: number;
+      editorMinimap: boolean;
+      editorTabSize: number;
+      editorWordWrap: boolean;
+    };
+    expect(migrated.editorFontFamily).toBe('');
+    expect(migrated.editorFontSize).toBe(13);
+    expect(migrated.editorMinimap).toBe(false);
+    expect(migrated.editorTabSize).toBe(2);
+    expect(migrated.editorWordWrap).toBe(false);
+    expect(migrated.selectedRepoId).toBe('repo-1');
+  });
+
+  it('leaves an already-v9 payload alone', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const payload = {
+      editorFontFamily: 'monospace',
+      editorFontSize: 16,
+      editorMinimap: true,
+      editorTabSize: 4,
+      editorWordWrap: true,
+    };
+    expect(migrate?.(payload, 9)).toBe(payload);
+  });
+
+  it('a persisted version-8 blob round-trips through the real store with defaults seeded', () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({ state: { selectedRepoId: 'repo-legacy-2' }, version: 8 }),
+    );
+    void useUiStore.persist.rehydrate();
+    expect(useUiStore.getState().editorFontFamily).toBe('');
+    expect(useUiStore.getState().editorFontSize).toBe(13);
+    expect(useUiStore.getState().editorMinimap).toBe(false);
+    expect(useUiStore.getState().editorTabSize).toBe(2);
+    expect(useUiStore.getState().editorWordWrap).toBe(false);
+    expect(useUiStore.getState().selectedRepoId).toBe('repo-legacy-2');
+  });
+});

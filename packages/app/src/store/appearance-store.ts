@@ -15,6 +15,8 @@ import {
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { sharedSettingsStorage } from './shared-settings-storage';
+
 /**
  * Appearance preferences, mirroring `@bilo-io/shell`'s appearance runtime.
  *
@@ -88,8 +90,25 @@ export const useAppearanceStore = create<AppearanceState>()(
     {
       // The shell's own key, and its pre-paint init script reads this shape —
       // sharing it means a future no-flash script needs no translation layer.
+      // Phase 64 Theme B also persists `features/themes/palette-store.ts`
+      // into this same key (Decision 10) — `sharedSettingsStorage` is what
+      // lets both stores write here without clobbering each other's fields.
       name: 'midnite.settings',
-      version: 1,
+      version: 2,
+      storage: sharedSettingsStorage('midnite.settings'),
+      // Added alongside `migrate` for Phase 64 Theme B: this key now also
+      // carries `palette-store.ts`'s fields, so this store must only ever
+      // serialize its OWN eight, not whatever else has landed in the blob.
+      partialize: (state) => ({
+        accent: state.accent,
+        motion: state.motion,
+        density: state.density,
+        uiFont: state.uiFont,
+        background: state.background,
+        bgIntensity: state.bgIntensity,
+        effects: state.effects,
+        shimmer: state.shimmer,
+      }),
       merge: (persisted, current) => {
         const saved = (persisted ?? {}) as Partial<AppearanceState>;
         // Field-wise, so a payload predating a new effect gains it from the
@@ -97,6 +116,11 @@ export const useAppearanceStore = create<AppearanceState>()(
         // would read as "disabled".
         return { ...current, ...saved, effects: { ...current.effects, ...saved.effects } };
       },
+      // v1 → v2: no structural change to THIS store's own eight fields — the
+      // bump exists because the shared key gained palette-store's fields, not
+      // because accent/motion/density/… changed shape. `merge` above already
+      // tolerates a payload missing any of them.
+      migrate: (persisted) => persisted as Partial<AppearanceState>,
     },
   ),
 );

@@ -3,7 +3,7 @@ import { useCallback, useSyncExternalStore } from 'react';
 import type { DiffLine } from '@midnite/studio-shared';
 import type { Highlighter } from 'shiki';
 
-import { getHighlighter, HIGHLIGHT_THEME } from '../../lib/highlighter';
+import { getHighlighter, resolveHighlightTheme } from '../../lib/highlighter';
 import { languageForFile } from '../../lib/languages';
 
 /** shiki's bundled-language id type — narrower than the plain `string` our own grammar map returns. */
@@ -131,9 +131,10 @@ async function resolve(key: string, text: string, lang: string, dark: boolean): 
     if (!highlighter.getLoadedLanguages().includes(lang)) {
       await highlighter.loadLanguage(lang as Parameters<Highlighter['loadLanguage']>[0]);
     }
+    const theme = await resolveHighlightTheme(highlighter, dark);
     const lines = await highlighter.codeToTokensBase(text, {
       lang: lang as BundledLanguage,
-      theme: HIGHLIGHT_THEME(dark),
+      theme,
     });
     cacheSet(
       key,

@@ -5,6 +5,7 @@ import { LuCode, LuFileQuestion, LuPen, LuPointer } from 'react-icons/lu';
 
 import { mstudioFileUrl } from '@midnite/studio-shared';
 
+import { DelayedFallback } from '../../../components/delayed-fallback';
 import { EmptyState } from '../../../components/empty-state';
 import { IconButton } from '../../../components/icon-button';
 import { languageForFile, previewKindForFile } from '../../../lib/languages';
@@ -20,9 +21,9 @@ import { useBlameStore } from './blame-store';
 import { CodePreview } from './code-preview';
 import { MarkdownPreview } from './markdown-preview';
 
-// Code-split: CodeMirror is the one dependency this theme adds, and every
-// other Files-view load (the common case — most opens never click Edit)
-// should not pay to parse it.
+// Code-split: Monaco (Phase 64 Theme A/C) is the heaviest dependency in the
+// app — ~2 MB — and every other Files-view load (the common case — most
+// opens never click Edit) should not pay to parse it.
 const CodeEditor = lazy(() => import('./code-editor').then((m) => ({ default: m.CodeEditor })));
 
 /**
@@ -303,10 +304,8 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
           editing ? (
             <>
               {staleWriteBanner}
-              <Suspense
-                fallback={<p className="p-4 text-xs text-muted-foreground">Loading editor…</p>}
-              >
-                <CodeEditor fileName={fileName} />
+              <Suspense fallback={<DelayedFallback />}>
+                <CodeEditor key={editorKey} fileName={fileName} />
               </Suspense>
             </>
           ) : kind === 'markdown' && !showSource ? (

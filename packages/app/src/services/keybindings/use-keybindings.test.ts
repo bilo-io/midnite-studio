@@ -22,6 +22,28 @@ const dispatch = (over: Partial<KeyboardEventInit> & { key: string }) => {
   window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...over }));
 };
 
+/**
+ * Dispatched at an element inside a root of the given class rather than at
+ * `window`: the dispatcher judges a keystroke by its own target, which is
+ * what lets one terminal (or Monaco) keep a chord while the rest of the app
+ * resolves it to something else.
+ */
+const dispatchInside = (rootClassName: string, over: Partial<KeyboardEventInit> & { key: string }) => {
+  const root = document.createElement('div');
+  root.className = rootClassName;
+  const textarea = document.createElement('textarea');
+  root.appendChild(textarea);
+  document.body.appendChild(root);
+  try {
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...over }));
+  } finally {
+    root.remove();
+  }
+};
+const inXterm = (over: Partial<KeyboardEventInit> & { key: string }) => dispatchInside('xterm', over);
+const inMonaco = (over: Partial<KeyboardEventInit> & { key: string }) =>
+  dispatchInside('monaco-editor', over);
+
 /** Chords in these tests are all `Mod+...`; pinning the platform makes `Mod`
  * mean Cmd deterministically, regardless of what jsdom reports. */
 const originalPlatform = Object.getOwnPropertyDescriptor(navigator, 'platform');
@@ -84,26 +106,6 @@ describe('useKeybindings', () => {
 });
 
 describe('the reload pair yields to the shell', () => {
-  /**
-   * Dispatched at an element inside an `.xterm` root rather than at `window`:
-   * the dispatcher judges a keystroke by its own target, which is what lets
-   * one terminal keep Ctrl+R while the rest of the app reloads on it.
-   */
-  const inXterm = (over: Partial<KeyboardEventInit> & { key: string }) => {
-    const root = document.createElement('div');
-    root.className = 'xterm';
-    const textarea = document.createElement('textarea');
-    root.appendChild(textarea);
-    document.body.appendChild(root);
-    try {
-      textarea.dispatchEvent(
-        new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...over }),
-      );
-    } finally {
-      root.remove();
-    }
-  };
-
   it('does not reload on Mod+R aimed at a terminal', () => {
     const { runtime, run } = fakeRuntime();
     renderHook(() => useKeybindings(runtime));
@@ -137,6 +139,60 @@ describe('the reload pair yields to the shell', () => {
     inXterm({ key: 'g', metaKey: true });
 
     expect(run['repos.toggle']).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('YIELD_ROOTS — Monaco gets its own yield set (Phase 64 Theme D)', () => {
+  it('does not fire status.commit (Mod+Enter) aimed at Monaco', () => {
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    inMonaco({ key: 'Enter', metaKey: true });
+
+    expect(run['status.commit']).not.toHaveBeenCalled();
+  });
+
+  it('still fires status.commit (Mod+Enter) anywhere else', () => {
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    dispatch({ key: 'Enter', metaKey: true });
+
+    expect(run['status.commit']).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fire panel.back/panel.forward (Mod+[ / Mod+]) aimed at Monaco', () => {
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    inMonaco({ key: '[', metaKey: true });
+    inMonaco({ key: ']', metaKey: true });
+
+    expect(run['panel.back']).not.toHaveBeenCalled();
+    expect(run['panel.forward']).not.toHaveBeenCalled();
+  });
+
+  it('still fires status.commit (Mod+Enter) aimed at a terminal — the Monaco yield set is its own list', () => {
+    // `status.commit` is in Monaco's yield list but NOT the terminal's
+    // (`.xterm`'s own six are the reload pair, the panel-history pair,
+    // `fab.toggle` and `window.detachActive`) — proof that generalising
+    // `insideTerminal` into `YIELD_ROOTS` did not leak Monaco's carve-out
+    // into the terminal's.
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    inXterm({ key: 'Enter', metaKey: true });
+
+    expect(run['status.commit']).toHaveBeenCalledTimes(1);
+  });
+
+  it('still fires fab.toggle (Mod+L) aimed at Monaco — the terminal yield set does not apply here', () => {
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    inMonaco({ key: 'l', metaKey: true });
+
+    expect(run['fab.toggle']).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -86,3 +86,55 @@ describe('useAppearanceSync (Phase 46 Theme E)', () => {
     expect(document.documentElement.getAttribute('data-motion')).toBe('full');
   });
 });
+
+describe('persist v1 -> v2 (Phase 64 Theme B)', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('a real pre-Phase-64 (version 1) profile keeps its own eight fields untouched', () => {
+    const migrate = useAppearanceStore.persist.getOptions().migrate;
+    const preExisting = {
+      accent: 'violet',
+      motion: 'reduced',
+      density: 'compact',
+      uiFont: 'mono',
+      background: 'dots',
+      bgIntensity: 'bold',
+      effects: { pageReveal: false, typewriter: true, glass: true },
+      shimmer: 'rtl',
+    };
+    // v1 -> v2 changed nothing about THIS store's own shape (only the shared
+    // key gained palette-store's fields) — migrate is a passthrough.
+    expect(migrate?.(preExisting, 1)).toEqual(preExisting);
+  });
+
+  it('a real pre-Phase-64 localStorage blob round-trips through the real store unchanged', async () => {
+    localStorage.setItem(
+      'midnite.settings',
+      JSON.stringify({
+        state: {
+          accent: 'emerald',
+          motion: 'full',
+          density: 'compact',
+          uiFont: 'serif',
+          background: 'grid',
+          bgIntensity: 'subtle',
+          effects: { pageReveal: true, typewriter: false, glass: false },
+          shimmer: 'ltr',
+        },
+        version: 1,
+      }),
+    );
+    await useAppearanceStore.persist.rehydrate();
+    expect(useAppearanceStore.getState().accent).toBe('emerald');
+    expect(useAppearanceStore.getState().density).toBe('compact');
+    expect(useAppearanceStore.getState().uiFont).toBe('serif');
+  });
+
+  it('only serializes its own eight fields, never a sibling store\'s (partialize)', () => {
+    const partialize = useAppearanceStore.persist.getOptions().partialize;
+    const serialized = partialize?.(useAppearanceStore.getState());
+    expect(Object.keys(serialized ?? {}).sort()).toEqual(
+      ['accent', 'background', 'bgIntensity', 'density', 'effects', 'motion', 'shimmer', 'uiFont'].sort(),
+    );
+  });
+});

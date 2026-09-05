@@ -74,6 +74,17 @@ export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
    * the WINDOW is focused, xterm included, so it would reload the app out from
    * under someone's Ctrl+R reverse-i-search and undo that carve-out entirely.
    * The chord is real everywhere else; the menu row is for clicking.
+   *
+   * `repos.toggle`, `fab.toggle` and `repo.open` join them for Phase 64 Theme
+   * D, wearing yet another hat: an OS accelerator bypasses `YIELD_ROOTS`
+   * entirely (that registry only ever contests a keystroke the RENDERER'S OWN
+   * listener sees), so registering one here would fire even with Monaco
+   * focused — `Cmd+G` is find-next in Monaco and in every macOS text surface,
+   * `Cmd+L` is Monaco's expand-line-selection AND is already in the terminal's
+   * own yield list (proof the carve-out is bypassed), and `Cmd+O` pops a
+   * native folder picker mid-keystroke. Same remedy: the chord still works
+   * through the renderer's own listener everywhere it is not yielded; only
+   * the OS-level accelerator is gone.
    */
   const itemNoAccelerator = (command: CommandId): MenuItemConstructorOptions => ({
     label: labelOf(command),
@@ -89,7 +100,7 @@ export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
     {
       label: 'File',
       submenu: [
-        item('repo.open'),
+        itemNoAccelerator('repo.open'),
         itemNoAccelerator('repo.close'),
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
@@ -114,10 +125,10 @@ export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
         itemNoAccelerator('app.hardReload'),
         item('view.refresh'),
         { type: 'separator' },
-        item('repos.toggle'),
+        itemNoAccelerator('repos.toggle'),
         item('terminal.toggle'),
         item('browser.toggle'),
-        item('fab.toggle'),
+        itemNoAccelerator('fab.toggle'),
         item('activity.toggle'),
         item('workflow.run'),
         item('view.video'),

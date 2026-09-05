@@ -99,6 +99,17 @@ const MUST_BE_ABSENT = [
   { name: 'react-grid-layout', needles: ['react-grid-layout'] },
   { name: 'react-markdown', needles: ['remarkjs/react-markdown'] },
   { name: 'remark-gfm', needles: ['remark-gfm'] },
+  // Phase 64 Theme A: Monaco (~2 MB) stays behind the `React.lazy` boundary
+  // at `file-preview.tsx` — it should mount only once a file is opened for
+  // editing, never on boot.
+  //
+  // NOT the bare string `'monaco-editor'` — Theme D's `YIELD_ROOTS`
+  // (`shared/src/keybindings.ts`) ships a real, always-loaded CSS selector
+  // literal, `'.monaco-editor'`, which the entry chunk legitimately contains
+  // (the dispatcher needs it at all times, not lazily) and which false-
+  // positives on that needle. `MonacoEnvironment` is Monaco's own distinctive
+  // global config object name and is not used anywhere else in this repo.
+  { name: 'monaco-editor', needles: ['MonacoEnvironment'] },
 ] as const;
 
 for (const { name, needles } of MUST_BE_ABSENT) {
