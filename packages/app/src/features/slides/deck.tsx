@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { useDismiss } from '../../components/use-dismiss';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import type { Deck } from './deck-parser';
@@ -17,9 +18,10 @@ const MARKDOWN_COMPONENTS = { a: ExternalLink, code: SlideCode, pre: SlidePre };
  * The deck presenter: one slide at a time, a typewriter title, and a
  * step-by-step reveal of the rest — ported from midnite's `Deck` component
  * minus the OS Fullscreen API and the CRUD chrome (exit-to-route, a router),
- * neither of which apply to an in-app modal. Keyboard handling is a
- * bubble-phase `window` listener, matching `ConfirmDialog`'s own pattern —
- * the modal traps focus (Theme C), so nothing behind it ever sees the event.
+ * neither of which apply to an in-app modal. Navigation keys are a bubble-phase
+ * `window` listener — the modal traps focus (Theme C), so nothing behind it
+ * ever sees the event. Escape is not among them: it goes through the shared
+ * dismissal stack, like every other overlay's (Phase 62).
  */
 export function Deck({ deck, onClose }: { deck: Deck; onClose: () => void }) {
   const stepCounts = deck.slides.map((slide) => slide.steps.length);
@@ -41,11 +43,26 @@ export function Deck({ deck, onClose }: { deck: Deck; onClose: () => void }) {
   const latest = useRef({ showHelp, title, nav });
   latest.current = { showHelp, title, nav };
 
+  /*
+    TWO entries on the shared dismissal stack (Phase 62), not one handler with
+    an internal `if (showHelp)` — the ordering between them is the whole point,
+    and a conditional would hide it again.
+
+    The help overlay only registers while it is open, so it always carries the
+    later sequence number and outranks the deck's own exit at the same layer:
+    Escape closes help first, then the deck. That is exactly what the single
+    `window` listener achieved by accident, now stated rather than inferred.
+  */
+  useDismiss(showHelp, () => setShowHelp(false), { layer: 'inline' });
+  useDismiss(true, onClose, { layer: 'inline' });
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const { showHelp, title, nav } = latest.current;
       if (showHelp) {
-        if (event.key === '?' || event.key === 'Escape') {
+        // Escape is the stack's now; `?` is this overlay's own toggle. Every
+        // other key stays swallowed while help is up.
+        if (event.key === '?') {
           event.preventDefault();
           setShowHelp(false);
         }
@@ -55,10 +72,6 @@ export function Deck({ deck, onClose }: { deck: Deck; onClose: () => void }) {
         case '?':
           event.preventDefault();
           setShowHelp(true);
-          break;
-        case 'Escape':
-          event.preventDefault();
-          onClose();
           break;
         case 'ArrowRight':
         case 'ArrowDown':
@@ -89,7 +102,7 @@ export function Deck({ deck, onClose }: { deck: Deck; onClose: () => void }) {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  }, []);
 
   const onStageClick = (event: React.MouseEvent) => {
     if ((event.target as HTMLElement).closest('a')) return;

@@ -46,7 +46,16 @@ export function FindBar({ onClose }: { onClose: () => void }) {
             }
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') handleClose();
+            if (e.key === 'Escape') {
+              // Escape on a focused input belongs to that input and stops
+              // there — the last of the four element-scoped handlers that was
+              // still letting it bubble on to `window`, where it would also
+              // close the browser pane the find bar sits in. Deliberately NOT
+              // migrated to `useDismiss`: this dismissal IS a property of what
+              // has focus.
+              e.stopPropagation();
+              handleClose();
+            }
           }}
           placeholder="Find in page..."
           className="w-48 rounded border border-border bg-background px-2 py-0.5 text-xs outline-none focus-visible:ring-1 focus-visible:ring-primary"

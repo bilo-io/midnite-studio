@@ -5,6 +5,8 @@ import { useTheme, type ThemePreference } from '@bilo-io/ui/theme';
 import type { IconType } from 'react-icons';
 import { LuCheck, LuClock, LuMonitor, LuMoon, LuSun } from 'react-icons/lu';
 
+import { useDismiss } from './use-dismiss';
+
 /**
  * The light/dark/system/time switch, in the title bar's right cluster.
  *
@@ -55,6 +57,10 @@ export function ThemeToggle() {
     });
   }, [open]);
 
+  // Escape through the shared dismissal stack (Phase 62), at `menu` — the same
+  // layer <ContextMenu> takes, because this is the same kind of surface.
+  useDismiss(open, () => setOpen(false), { layer: 'menu' });
+
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
@@ -62,18 +68,13 @@ export function ThemeToggle() {
       if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
       setOpen(false);
     };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
     const close = () => setOpen(false);
     // `capture`, matching <ContextMenu>: the click still reaches the option's
     // own handler, but a click anywhere else closes the menu first.
     window.addEventListener('mousedown', onPointerDown, true);
-    window.addEventListener('keydown', onKeyDown);
     window.addEventListener('resize', close);
     return () => {
       window.removeEventListener('mousedown', onPointerDown, true);
-      window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('resize', close);
     };
   }, [open]);

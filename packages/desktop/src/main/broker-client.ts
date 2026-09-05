@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, openSync, readdirSync, unlinkSync } from 'node:fs';
 import * as net from 'node:net';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import {
   createFrameDecoder,
@@ -13,6 +13,7 @@ import {
   type Frame,
 } from '../broker/protocol';
 import { createQueuedSocketWriter, type QueuedSocketWriter } from '../broker/socket-write-queue';
+import { capFile } from './log-sink';
 import { brokerSocketName, fingerprintFile, isSocketPathTooLong } from './socket-name';
 
 export { brokerSocketName, fingerprintFile };
@@ -102,6 +103,10 @@ type Peer = {
    */
   inputQueue: QueuedSocketWriter;
 };
+
+/** The broker's own stdout log: 2 MB × 2 generations, checked at spawn. */
+const BROKER_LOG_MAX_BYTES = 2 * 1024 * 1024;
+const BROKER_LOG_GENERATIONS = 2;
 
 /** Bytes of queued-but-unsent pty input a backpressured peer may hold before the oldest is dropped. */
 const INPUT_QUEUE_CAP_BYTES = 8 * 1024 * 1024;
@@ -481,6 +486,18 @@ export function createBrokerClient(deps: BrokerClientDeps): BrokerClient {
 
     let logFd = 1;
     try {
+      /*
+        Capped before it is opened — Phase 65 Theme A.
+
+        This is the one file in the repo that has grown without bound: it is
+        opened `'a'` and handed to a DETACHED child that outlives every reload,
+        window close and relaunch of the app, so nothing has ever truncated it.
+        Spawn is the only moment no writer holds it, which is why the check is
+        here and not on a timer. Same rotate helper as the main sink, because
+        "one sink rather than two" is the instruction this phase is following
+        and a second unbounded file is exactly what that phrase is about.
+      */
+      capFile(brokerDir, basename(logPath), BROKER_LOG_MAX_BYTES, BROKER_LOG_GENERATIONS);
       logFd = openSync(logPath, 'a');
     } catch {
       // Use stdout

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { GoArrowLeft, GoArrowRight, GoSync, GoX } from 'react-icons/go';
 
 import { IconButton } from '../../components/icon-button';
+import { useDismiss } from '../../components/use-dismiss';
 import { useFocusTrap } from '../../components/use-focus-trap';
 import { motionMs } from '../../components/use-reveal';
 import { bridge } from '../../services/bridge';
@@ -104,35 +105,45 @@ export function BrowserPane({
     if (shown && activeTab?.kind === 'newtab') addressRef.current?.focus();
   }, [shown, activeTab?.id, activeTab?.kind]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') useUiStore.getState().setBrowserOpen(false);
-    };
-    // No `stopPropagation`: `Ctrl+`` must still reach the terminal's global
-    // escape allow-list while this pane is open.
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  /*
+    Escape closes the pane, through the shared dismissal stack (Phase 62), and
+    only while the pane is actually `shown` — the listener this replaces had
+    `[]` deps and was live for every Escape ever pressed, open or not.
 
-  // Restore focus to the toggle the moment the pane stops being shown —
-  // Escape, the close button, or Mod+b again all funnel through `shown`
-  // flipping false, matching the half of Popover's close() this pane cannot
-  // share directly (its trigger lives in a sibling component).
-  useEffect(() => {
-    if (!shown) return;
-    return () => {
-      /*
-        Unless the pane is only being re-parented. Switching layout swaps the
-        pane between `app.tsx`'s overlay slot and its in-flow one, which is an
-        unmount and a fresh mount of THIS component with the browser still
-        open — and restoring focus to the status bar there would throw the
-        keyboard out of the browser on every use of the toolbar's layout
-        picker. `browserOpen` is the difference between the two cases.
-      */
-      if (useUiStore.getState().browserOpen) return;
-      document.querySelector<HTMLButtonElement>('[data-testid="browser-toggle"]')?.focus();
-    };
-  }, [shown]);
+    PASSIVE, and this is the one place in the app where that is not a style
+    choice. `blocking` is one flag with two duties: it consumes Escape, and it
+    registers an occluder — and an occluder is precisely what hides this pane's
+    own native `WebContentsView` (`use-browser-bounds.ts` keys on
+    `occluders > 0`). A blocking registration here would blank the page for as
+    long as the browser was open, i.e. always. Passive is also the right answer
+    for delivery: a menu, popover or dialog raised over the pane is blocking, so
+    it takes Escape first and the pane survives — which is the rule this phase
+    is for.
+  */
+  useDismiss(shown, () => useUiStore.getState().setBrowserOpen(false), {
+    layer: 'inline',
+    blocking: false,
+  });
+
+  /*
+    Restoring focus to the toggle is `useFocusTrap(containerRef, shown)`'s job
+    now (Phase 68 Theme A), which is why there is no effect here any more. What
+    stood here reached for the toggle with
+    `document.querySelector('[data-testid="browser-toggle"]')` — a test id used
+    as production wiring — and focused it without `preventScroll`.
+
+    This pane is the reason that hook captures on its own first render as well
+    as on the false→true flip: `useReveal` mounts it with `shown={false}` so the
+    fade has a painted frame to travel from, and `NewTabPage`'s autoFocus search
+    box takes focus in that frame. By the time `shown` turns true, the toggle is
+    already a commit out of `document.activeElement`'s reach.
+
+    Its one piece of real logic, "don't restore if the pane is only being
+    re-parented between `app.tsx`'s overlay and in-flow slots", is subsumed:
+    the layout swap unmounts and remounts this component in the same commit, so
+    the fresh trap re-focuses its own container immediately afterwards and the
+    keyboard stays in the browser either way.
+  */
 
   const [findOpen, setFindOpen] = useState(false);
   const [viewportPreset, setViewportPreset] = useState<'full' | '390' | '834' | '1280'>('full');

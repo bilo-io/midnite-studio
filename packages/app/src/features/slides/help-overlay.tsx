@@ -1,3 +1,7 @@
+import { useRef } from 'react';
+
+import { useFocusTrap } from '../../components/use-focus-trap';
+
 const ROWS: { keys: string; label: string }[] = [
   { keys: '→ / Space / Enter', label: 'Next step, then next slide' },
   { keys: '← / Backspace', label: 'Previous step, then previous slide' },
@@ -13,6 +17,16 @@ const ROWS: { keys: string; label: string }[] = [
  * midnite's — this is a new component, not a port.
  */
 export function HelpOverlay({ onClose }: { onClose: () => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  /*
+    The overlay already announced itself as a dialog; without a trap, Tab still
+    walked out of it and into the deck behind (Phase 68 Theme D). The Close
+    button's `autoFocus` survives untouched — the trap only claims the container
+    when nothing inside it already holds focus.
+  */
+  useFocusTrap(containerRef, true);
+
   return (
     <div
       className="fixed inset-0 z-dialog grid place-items-center bg-background/70 p-6"
@@ -23,7 +37,11 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-sm rounded-lg border border-border bg-popover p-4 shadow-xl">
+      <div
+        ref={containerRef}
+        tabIndex={-1}
+        className="w-full max-w-sm rounded-lg border border-border bg-popover p-4 shadow-xl"
+      >
         <h2 className="text-sm font-semibold">Shortcuts</h2>
         <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
           {ROWS.map((row) => (

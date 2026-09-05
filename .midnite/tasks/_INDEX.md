@@ -78,15 +78,15 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
-| [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | 🔄 WIP | — | 0/37 | `░░░░░░░░░░` | 0% | A B C D | — |
+| [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | ✅ DONE | — | 32/37 | `█████████░` | 86% | — | — |
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | ◻ TODO | — | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [66 · API Client](phases/phase-66-api-client.md) | ◻ TODO | — | 0/58 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
-| [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | — | 0/49 | `░░░░░░░░░░` | 0% | A B C D | E |
+| [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | — | 35/49 | `███████░░░` | 71% | — | E |
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 52/72 | `███████░░░` | 72% | — | G |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ✅ DONE | x1 | 32/32 | `██████████` | 100% | — | — |
-| [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | 🔄 WIP | — | 0/33 | `░░░░░░░░░░` | 0% | A B C | — |
+| [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | ✅ DONE | — | 29/33 | `█████████░` | 88% | — | — |
 | [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 32/94 | `███░░░░░░░` | 34% | F I | C G H J |
-| [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | 🔄 WIP | — | 0/34 | `░░░░░░░░░░` | 0% | A B C | — |
+| [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | ✅ DONE | — | 28/34 | `████████░░` | 82% | — | — |
 | [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | ✅ DONE | x1 | 70/70 | `██████████` | 100% | — | — |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | 🔄 WIP | x1 | 0/78 | `░░░░░░░░░░` | 0% | A B C D | E F G |
 | [57 · Midnite Studio speaks MCP](phases/phase-57-mcp-server.md) | 🔄 WIP | x1 | 44/76 | `██████░░░░` | 58% | E F | — |
@@ -165,10 +165,10 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 *Eleven overlays trap focus, three restore it three different ways, eight drop it on `<body>`. The fix goes inside `useFocusTrap` rather than beside it, because the newest modal copied `ConfirmDialog` — which does not restore — and two more are the same skeleton byte for byte.*
 
-- ◻ **A** — The trap gives focus back: capture on activation not first render, restore only to a live element (`isConnected` appears **nowhere** in the renderer today), never to `<body>`, never over a focus that moved deliberately, always with `preventScroll` — plus `:not([inert])` on `FOCUSABLE`, since `Collapse` marks its collapsed region inert and a dialog containing one currently Tab-cycles through invisible buttons. Signature unchanged.
-- ◻ **B** — The eight that never gave it back: fixed with **no edit to any of them** — that is the acceptance criterion. Deletes `palette.tsx`'s three-bug implementation and `browser-pane.tsx`'s `data-testid` `querySelector`, keeps `popover.tsx`'s better `triggerRef` version with a comment saying why.
-- ◻ **C** — The context menu means what it says: `role="menu"`/`role="menuitem"` with **zero** focus/tabIndex/autoFocus today, portalled to the end of `<body>` so its first item is a whole document away, and submenus that open on hover only. Roving focus, arrows, Home/End, ArrowRight/Left for submenus.
-- ◻ **D** — The two modals that were never modals: `onboarding-modal.tsx` (shown to first-time users) and `rebase-modal.tsx` (over a destructive op) have no role, no `aria-modal`, no trap; plus the missing trap on `help-overlay.tsx`, whose Tab currently walks out into the deck behind it.
+- ✅ **A** — The trap gives focus back: capture on activation not first render, restore only to a live element (`isConnected` appears **nowhere** in the renderer today), never to `<body>`, never over a focus that moved deliberately, always with `preventScroll` — plus `:not([inert])` on `FOCUSABLE`, since `Collapse` marks its collapsed region inert and a dialog containing one currently Tab-cycles through invisible buttons. Signature unchanged.
+- ✅ **B** — The eight that never gave it back: fixed with **no edit to any of them** — that is the acceptance criterion. Deletes `palette.tsx`'s three-bug implementation and `browser-pane.tsx`'s `data-testid` `querySelector`, keeps `popover.tsx`'s better `triggerRef` version with a comment saying why.
+- ✅ **C** — The context menu means what it says: `role="menu"`/`role="menuitem"` with **zero** focus/tabIndex/autoFocus today, portalled to the end of `<body>` so its first item is a whole document away, and submenus that open on hover only. Roving focus, arrows, Home/End, ArrowRight/Left for submenus.
+- ✅ **D** — The two modals that were never modals: `onboarding-modal.tsx` (shown to first-time users) and `rebase-modal.tsx` (over a destructive op) have no role, no `aria-modal`, no trap; plus the missing trap on `help-overlay.tsx`, whose Tab currently walks out into the deck behind it.
 
 ### [Phase 67 — The sessions you closed](phases/phase-67-the-sessions-you-closed.md)
 
@@ -199,10 +199,10 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 *The sink and the channel Phase 60 Decision 3 deferred: structured levels on main's one 14-line log seam, a rotating file under `userData`, a renderer→main error-report path, main's own uncaught crashes, and two buttons plus a bug link so a user can actually hand any of it over.*
 
-- ◻ **A** — Levels on the one seam, and a file under it: `Logger` becomes a callable type with `info`/`warn`/`error` so all ~40 existing call sites compile unchanged; a directory-injected, size-capped, rotating NDJSON `log-sink.ts` that never throws into its caller; the stale `log.ts:6-9` header corrected; `fingerprintFile` lifted out of `broker-client.ts`.
-- ◻ **B** — The channel, and the helper it deserves: four `mstudio:report:*` channels (`diag` is taken), a capped `ErrorReportSchema`, `redactPaths` in `shared`, a reveal channel that takes no path, and `handleSend` — the `ipcMain.on` counterpart the 40 hand-rolled `safeParse` sites never had.
-- ◻ **C** — The renderer learns to report: `lib/report.ts` in `lib/perf.ts`'s shape, dedupe + a session cap so a render loop cannot storm IPC, `error`/`unhandledrejection` listeners in `main.tsx` covering both roles, and the one exported function Phase 60's `componentDidCatch` will call.
-- ◻ **D** — Main's own crashes reach the same sink: `uncaughtException`, `unhandledRejection`, `child-process-gone`, `unresponsive` on app windows (bound only for browser tabs today), the three existing `render-process-gone` binds moved to `log.error`, and a boot line identifying the build.
+- ✅ **A** — Levels on the one seam, and a file under it: `Logger` becomes a callable type with `info`/`warn`/`error` so all ~40 existing call sites compile unchanged; a directory-injected, size-capped, rotating NDJSON `log-sink.ts` that never throws into its caller; the stale `log.ts:6-9` header corrected; `fingerprintFile` lifted out of `broker-client.ts`.
+- ✅ **B** — The channel, and the helper it deserves: four `mstudio:report:*` channels (`diag` is taken), a capped `ErrorReportSchema`, `redactPaths` in `shared`, a reveal channel that takes no path, and `handleSend` — the `ipcMain.on` counterpart the 40 hand-rolled `safeParse` sites never had.
+- ✅ **C** — The renderer learns to report: `lib/report.ts` in `lib/perf.ts`'s shape, dedupe + a session cap so a render loop cannot storm IPC, `error`/`unhandledrejection` listeners in `main.tsx` covering both roles, and the one exported function Phase 60's `componentDidCatch` will call.
+- ✅ **D** — Main's own crashes reach the same sink: `uncaughtException`, `unhandledRejection`, `child-process-gone`, `unresponsive` on app windows (bound only for browser tabs today), the three existing `render-process-gone` binds moved to `log.error`, and a boot line identifying the build.
 - ◻ **E** — A user can get at it in two clicks: Reveal log + Copy diagnostics inside the Diagnostics accordion that already exists (not an 18th settings page), and the first "Report a bug" link in the app, pointed at `bilo-io/midnite-apps`.
 
 ### [Phase 64 — Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md)
@@ -229,9 +229,9 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 *Twenty-four hand-rolled Escape handlers, no two alike, and no notion anywhere in the renderer of which overlay is on top — so one Escape really does dismiss two things, by three reachable paths. Builds that notion once as a module-level LIFO stack behind a single `window` listener, and moves the eighteen window-scoped handlers onto it. Also closes the occluder gap that paints four blocking overlays underneath a live `WebContentsView`.*
 
-- ◻ **A** — The stack, and the hook that joins it: `components/use-dismiss.ts` in `use-focus-trap.ts`'s shape but ref-free, one `window` listener for the whole app, and a delivery rule — topmost blocking entry, else topmost passive — with `blocking` driving occluder registration too.
-- ◻ **B** — The overlays move onto it: eighteen window/document handlers across seventeen files, layered `menu`/`popover`/`dialog`/`toast`/`tooltip`/`inline`; `confirm-dialog`, `prompt-dialog` and `palette` gain the occluder pair they never had; `popover` drops a `stopPropagation` that was inert all along.
-- ◻ **C** — The element-scoped handlers stop leaking: `board-view` and `workflow-canvas` gain the one-line `stopPropagation()` that is the second double-dismiss path, the four input-scoped handlers are audited and deliberately left alone, and `e2e/overlay-stacking.spec.ts` finally asserts the theme it is named after.
+- ✅ **A** — The stack, and the hook that joins it: `components/use-dismiss.ts` in `use-focus-trap.ts`'s shape but ref-free, one `window` listener for the whole app, and a delivery rule — topmost blocking entry, else topmost passive — with `blocking` driving occluder registration too.
+- ✅ **B** — The overlays move onto it: eighteen window/document handlers across seventeen files, layered `menu`/`popover`/`dialog`/`toast`/`tooltip`/`inline`; `confirm-dialog`, `prompt-dialog` and `palette` gain the occluder pair they never had; `popover` drops a `stopPropagation` that was inert all along.
+- ✅ **C** — The element-scoped handlers stop leaking: `board-view` and `workflow-canvas` gain the one-line `stopPropagation()` that is the second double-dismiss path, the four input-scoped handlers are audited and deliberately left alone, and `e2e/overlay-stacking.spec.ts` finally asserts the theme it is named after.
 
 ### [Phase 61 — Database Explorer](phases/phase-61-database-explorer.md)
 
@@ -252,9 +252,9 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 *Sixteen views, eighteen `lazy()` calls and zero error boundaries — one render throw blanks the window. Collapses `app.tsx`'s 17-branch view ternary into an exhaustive `VIEW_COMPONENT` record, hangs a resettable boundary off it, and applies the existing `EmptyState`/`Skeleton` primitives to the six views that render none of the three states.*
 
-- ◻ **A** — One record, not a ternary: `components/view-registry.tsx`'s `Record<ViewId, ViewEntry>` with a `global` flag replacing the load-bearing branch order, so a new `ViewId` fails typecheck instead of falling through to `Placeholder` (which is also how the stale `todo/` copy gets fixed).
-- ◻ **B** — A boundary per view: `components/error-boundary.tsx`, reset on `activeView`, an `EmptyState` fallback with Try-again and Copy-details, mounted outside the view `Suspense`, on the three optional modals (silent `null`) and on the detached root.
-- ◻ **C** — The three states, applied: the error → empty → skeleton → content ordering written down, then applied to `dashboard`, `tests`, `history`, `video`, `files` and `changes`, which carry none of the three today.
+- ✅ **A** — One record, not a ternary: `components/view-registry.tsx`'s `Record<ViewId, ViewEntry>` with a `global` flag replacing the load-bearing branch order, so a new `ViewId` fails typecheck instead of falling through to `Placeholder` (which is also how the stale `todo/` copy gets fixed).
+- ✅ **B** — A boundary per view: `components/error-boundary.tsx`, reset on `activeView`, an `EmptyState` fallback with Try-again and Copy-details, mounted outside the view `Suspense`, on the three optional modals (silent `null`) and on the detached root.
+- ✅ **C** — The three states, applied: the error → empty → skeleton → content ordering written down, then applied to `dashboard`, `tests`, `history`, `video`, `files` and `changes`, which carry none of the three today.
 
 ### [Phase 59 — Workspace Optimizer](phases/phase-59-workspace-optimizer.md)
 

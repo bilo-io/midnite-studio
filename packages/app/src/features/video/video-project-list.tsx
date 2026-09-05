@@ -4,6 +4,7 @@ import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
+import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { useCreateVideoProject, useRemoveVideoProject, useVideoProjects } from './use-video';
 import { slugifyProjectTitle } from './video-slug';
 
@@ -14,6 +15,12 @@ import { slugifyProjectTitle } from './video-slug';
  * B's own `valid: false` state — a `project.json` that failed to parse) is
  * listed and greyed rather than hidden, so its folder is never silently gone
  * from view.
+ *
+ * Checked in the house order — error → empty → skeleton → content
+ * (`components/skeleton.tsx`). The scan reads a directory the user chooses in
+ * Settings, so "that path is gone" is a real and recoverable failure, and
+ * before Phase 60 Theme C it rendered as "No projects yet" — an answer this
+ * pane did not have.
  */
 export function VideoProjectList({
   selectedId,
@@ -69,8 +76,23 @@ export function VideoProjectList({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {projects.isLoading ? (
-          <p className="px-2 py-3 text-xs text-muted-foreground">Loading…</p>
+        {projects.isError ? (
+          <EmptyState
+            icon={LuClapperboard}
+            title="Could not read the video root"
+            body={
+              projects.error instanceof Error ? projects.error.message : String(projects.error)
+            }
+          />
+        ) : projects.isPending ? (
+          <LoadingRegion label="Looking for video projects…" className="flex flex-col gap-2 p-2">
+            {[0, 1, 2, 3].map((row) => (
+              <div key={row} className="flex flex-col gap-1">
+                <Skeleton className="h-3" style={{ width: row % 2 === 0 ? '62%' : '48%' }} />
+                <Skeleton className="h-2.5 w-24" />
+              </div>
+            ))}
+          </LoadingRegion>
         ) : all.length === 0 ? (
           <EmptyState
             icon={LuClapperboard}

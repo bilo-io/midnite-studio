@@ -6,6 +6,7 @@ import { LuGitBranch, LuGitCommitVertical, LuUsers } from 'react-icons/lu';
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
+import { useDismiss } from '../../components/use-dismiss';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { useRefs, useStashes } from '../../services/queries';
 import { useStatus } from '../../services/use-status';
@@ -74,15 +75,22 @@ export function GraphView() {
     Esc deselects whichever the graph currently has open, commit or stash —
     `selectCommit(null)` clears `graphSelection` outright regardless of its
     current `kind`, so one call covers both without branching on it.
+
+    On the shared dismissal stack (Phase 62) at the bottom layer, so a context
+    menu raised from a selected row takes Escape and the selection SURVIVES.
+    Both listeners used to be on `window`, so one keypress closed the menu and
+    threw away the selection the user had spent a click getting to.
+
+    Passive, unlike every other blocking surface: a selected row is long-lived
+    application state rather than an overlay, and `blocking` also registers an
+    occluder — which would blank a live browser tab's native `WebContentsView`
+    (`use-browser-bounds.ts`) for as long as a commit stayed selected beside it.
+    Nothing here ever paints over that view, so nothing here should hide it.
   */
-  useEffect(() => {
-    if (!graphSelection) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') selectCommit(null);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [graphSelection, selectCommit]);
+  useDismiss(graphSelection !== null, () => selectCommit(null), {
+    layer: 'inline',
+    blocking: false,
+  });
 
   // `rows` is a stable buffer the store mutates in place for the life of a
   // stream (see graph-store.ts), so `rowCount` — not the array's own identity

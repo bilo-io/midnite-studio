@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useDismiss } from '../../components/use-dismiss';
 import { useFocusTrap } from '../../components/use-focus-trap';
 import { useUiStore, type BrowserLayout } from '../../store/ui-store';
 
@@ -53,29 +54,19 @@ function LauncherDialog({ remembered }: { remembered: BrowserLayout }) {
     selectedRef.current?.focus({ preventScroll: true });
   }, [selected]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') useUiStore.getState().closeBrowserLauncher();
-    };
-    window.addEventListener('keydown', onKeyDown);
+  /*
+    Escape closes, through the shared dismissal stack (Phase 62) — which also
+    carries the occluder registration this effect used to make by hand.
 
-    /*
-      A loaded browser tab paints as an Electron `WebContentsView` — an
-      OS-composited layer above the entire renderer regardless of `z-index`
-      (see `use-browser-bounds.ts`) — so any DOM overlay that might share the
-      screen with one has to register as an occluder, the way the context menu
-      and popover do. Today's only route here is `toggleBrowser` from CLOSED,
-      where no view is up; this is what stops that from being a precondition
-      of the dialog being visible at all the first time something else raises
-      it over a live pane.
-    */
-    const store = useUiStore.getState();
-    store.incrementOccluders();
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      store.decrementOccluders();
-    };
-  }, []);
+    A loaded browser tab paints as an Electron `WebContentsView` — an
+    OS-composited layer above the entire renderer regardless of `z-index` (see
+    `use-browser-bounds.ts`) — so any DOM overlay that might share the screen
+    with one has to register as an occluder. Today's only route here is
+    `toggleBrowser` from CLOSED, where no view is up; the registration is what
+    stops that from being a precondition of the dialog being visible at all the
+    first time something else raises it over a live pane.
+  */
+  useDismiss(true, () => useUiStore.getState().closeBrowserLauncher(), { layer: 'dialog' });
 
   const choose = (layout: BrowserLayout) => useUiStore.getState().openBrowser(layout);
 

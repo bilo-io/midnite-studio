@@ -357,7 +357,21 @@ function ReviewGroupSection({
     cli !== undefined && cli.reason !== 'ready'
       ? cli.hint || 'The GitHub CLI is unavailable.'
       : null;
-  const error = cliHint === null ? (pulls.data?.error ?? null) : null;
+  /*
+    Two failures, one branch — Phase 60 Theme C added the second. `error` is
+    the envelope's own ("gh said no"); `pulls.error` is the call never
+    returning at all, which had no branch here and so fell through to
+    `group.empty` — "No pull requests" asserted about a question that was
+    never asked. The envelope wins when both are present: it is the more
+    specific of the two.
+  */
+  const transportError =
+    pulls.isError && pulls.data === undefined
+      ? pulls.error instanceof Error
+        ? pulls.error.message
+        : String(pulls.error)
+      : null;
+  const error = cliHint === null ? (pulls.data?.error ?? transportError) : null;
   const filtered = rows.filter(filter);
   /*
     No number until there is one to give.
