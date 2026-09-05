@@ -54,7 +54,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [27 · The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
 | [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | x1 | 51/70 | `███████░░░` | 73% | — | Verification (+ C, H reverted items) |
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | 🔄 WIP | x1 | 39/101 | `████░░░░░░` | 39% | — | — |
-| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | — | 43/55 | `████████░░` | 78% | — | — |
+| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | x1 | 43/70 | `██████░░░░` | 61% | — | H, I, J |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | 🔄 WIP | — | 42/55 | `████████░░` | 76% | — | — |
 | [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 56/70 | `████████░░` | 80% | — | — |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
@@ -1180,7 +1180,20 @@ write scope, so `agent-page.tsx` stays read-only without knowing writes exist.*
   `keys.fs`/`keys.fsRepo`, the watcher invalidates a repo's whole fs cache on a `worktree` event,
   and a new `fs-activity.ts` — mirroring `write-queue.ts`'s `onActivity` shape, per-repoId, 150ms
   settle — suppresses the echo of the app's own fs writes (landed 2026-08-28, merged locally — no
-  PR/no remote).
+  PR/no remote). It lives in **`git-engine/src/exec/`**, not `desktop/src/main/`: its consumer
+  `repo-watcher.ts` is in git-engine, and desktop is downstream of it.
+- ◻ **H** — drop the dead CodeMirror dependencies (S): Phase 64 C swapped the editor for Monaco and
+  left all seven `@codemirror/*` entries in `packages/app/package.json` with **zero importers
+  anywhere in the repo**. One `package.json`, one lockfile, a grep to prove it first and a
+  bundle-report to prove the entry chunk did not move.
+- ◻ **I** — the verification gaps that are real (S): `grep-parser.test.ts` has 2 cases against a
+  Verification line asking for five, and nothing asserts a `kind: 'context'` line despite the
+  fixture being named `grep-z-context`. The cap case moves to `fs-search-handlers.test.ts`, where
+  the cap actually is.
+- ◻ **J** — the visual and human passes (S): `phase-24-d/`'s three editor screenshots were taken
+  against CodeMirror and are now misleading; Phase 64's own pair covers the widget but not the dirty
+  buffer or the Save/Discard/Cancel guard, so they get regenerated rather than deleted. Plus the two
+  real-repository passes — Trash restorability, and whether the 150ms `fsSettleMs` window is right.
 
 ### [Phase 23 — A command palette, and the registry that can feed it](phases/phase-23-command-palette.md)
 
