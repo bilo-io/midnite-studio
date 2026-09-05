@@ -40,8 +40,35 @@ export const MAX_WALK_DEPTH = 12;
  * No pathological tree can walk past this many entries — `node_modules`
  * included. Raised from 200k (Decision 6) as a consequence of the per-root
  * budget (Phase 72 Theme E) giving more roots a fair share of it.
+ *
+ * Measured, not asserted: a throwaway readdir-driven walk (this file's own
+ * `walk`/`dirBytes` shape — no `lstat` per directory, symlinks skipped, no
+ * descent past a matched detector) over this repo's own `node_modules` plus
+ * a second worktree's copy — 123,649 real directory entries — on an
+ * M-series MacBook Pro took 18.6s, ~6,600 entries/second. At that rate the
+ * full 500,000-entry budget is a worst case of roughly 75 seconds, not "a
+ * second or two" — but that worst case is the SUM across every registered
+ * repo/worktree combined, cancellable, and shown behind a progress ring; it
+ * is not the number this phase actually needs to bound. `MAX_ENTRIES_PER_ROOT`
+ * below is: at this same measured rate, no single root can cost the scan
+ * more than ~7.5 seconds, which is the fairness property Decision 6 exists
+ * to deliver. Lower this constant if a future measurement on real hardware
+ * disagrees.
  */
 export const MAX_WALK_ENTRIES = 500_000;
+/**
+ * No single repo/worktree root can consume more than this share of the
+ * global budget above (Phase 72 Theme E, Decision 6). Before this existed, a
+ * pathological repo early in `collectRoots()`'s order could consume the
+ * entire budget and every later repo would silently report zero — this makes
+ * that failure *partial and visible* (`truncatedRoots`) rather than *total
+ * and silent*. Lives on `WalkState` (`perRootLimit`), not read directly here,
+ * because `cleanItems`'s own `dirBytes(confined, newWalkState(), …)` call
+ * sizes a single already-confirmed item and must never be capped by it —
+ * `newWalkState()`'s `Infinity` default is what keeps that call byte-for-byte
+ * unaffected (Decision 11).
+ */
+export const MAX_ENTRIES_PER_ROOT = 50_000;
 /** How often `onProgress` fires — every N entries walked, not on a timer. */
 const PROGRESS_EVERY_ENTRIES = 50;
 
@@ -96,7 +123,9 @@ export async function classify(
  * Trash walk — both need the identical symlink-skip/abort/budget machinery
  * this walker already gets right, and a second copy is exactly where those
  * would drift). Four `export` keywords, no behaviour change, no signature
- * change, no budget change.
+ * change, no budget change — Phase 73/74 only ever construct one through
+ * `newWalkState()`, never a literal, so the two fields Theme E adds below
+ * are invisible to them.
  */
 export type WalkState = {
   items: ScanItem[];
@@ -106,7 +135,36 @@ export type WalkState = {
   totalBytes: number;
   entriesWalked: number;
   itemsTruncated: boolean;
+  /**
+   * `entriesWalked`'s value at the moment the CURRENT root started —
+   * `scanWorkspace` resets this once per root, immediately before that
+   * root's own `walk`/`dirBytes` call. `budgetExhausted` subtracts this from
+   * `entriesWalked` to get the current root's own share.
+   */
+  entriesAtRootStart: number;
+  /**
+   * The per-root cap in force for this walk. Defaults to `Infinity` here —
+   * only `scanWorkspace` ever sets it to `MAX_ENTRIES_PER_ROOT` — so
+   * `cleanItems`'s own `dirBytes(confined, newWalkState(), …)` delete-time
+   * sizing call is never capped by it (Decision 11).
+   */
+  perRootLimit: number;
+  /** Repo roots dropped for exceeding `perRootLimit`, filled by `scanWorkspace`. */
+  truncatedRoots: string[];
 };
+
+/**
+ * `true` once the walk has spent either its global budget or its current
+ * root's own share of it. Replaces five separate `entriesWalked >=
+ * MAX_WALK_ENTRIES` comparisons (Phase 72 Theme E, Decision 6) with one
+ * check both bounds go through.
+ */
+function budgetExhausted(state: WalkState): boolean {
+  return (
+    state.entriesWalked >= MAX_WALK_ENTRIES ||
+    state.entriesWalked - state.entriesAtRootStart >= state.perRootLimit
+  );
+}
 
 export function newWalkState(): WalkState {
   return {
@@ -136,6 +194,11 @@ export function newWalkState(): WalkState {
     totalBytes: 0,
     entriesWalked: 0,
     itemsTruncated: false,
+    entriesAtRootStart: 0,
+    // Infinite by default — load-bearing for `cleanItems`'s delete-time
+    // sizing call (Decision 11). Only `scanWorkspace` sets the real cap.
+    perRootLimit: Number.POSITIVE_INFINITY,
+    truncatedRoots: [],
   };
 }
 
@@ -179,13 +242,13 @@ export async function dirBytes(
   const stack = [root];
 
   while (stack.length > 0) {
-    if (signal.aborted || state.entriesWalked >= MAX_WALK_ENTRIES) break;
+    if (signal.aborted || budgetExhausted(state)) break;
     const dir = stack.pop();
     if (dir === undefined) continue;
 
     const entries = await readDirSafe(dir, log);
     for (const entry of entries) {
-      if (signal.aborted || state.entriesWalked >= MAX_WALK_ENTRIES) break;
+      if (signal.aborted || budgetExhausted(state)) break;
       state.entriesWalked += 1;
       if (entry.isSymbolicLink()) continue; // never traversed or sized
 
@@ -217,7 +280,7 @@ async function walk(
   log: Logger,
   detectors: readonly ArtifactDetector[],
 ): Promise<void> {
-  if (signal.aborted || depth > MAX_WALK_DEPTH || state.entriesWalked >= MAX_WALK_ENTRIES) return;
+  if (signal.aborted || depth > MAX_WALK_DEPTH || budgetExhausted(state)) return;
 
   const entries = await readDirSafe(dir, log);
   // Built once per directory — even when no entry in it is a candidate —
@@ -226,7 +289,7 @@ async function walk(
   const siblingNames = new Set(entries.map((e) => e.name));
 
   for (const entry of entries) {
-    if (signal.aborted || state.entriesWalked >= MAX_WALK_ENTRIES) return;
+    if (signal.aborted || budgetExhausted(state)) return;
     state.entriesWalked += 1;
     if (state.entriesWalked % PROGRESS_EVERY_ENTRIES === 0) {
       onProgress(state.entriesWalked, MAX_WALK_ENTRIES);
@@ -326,16 +389,42 @@ export type ScanWorkspaceOptions = {
    * scan silently cross-contaminate. Defaults to the full catalogue.
    */
   detectors?: readonly ArtifactDetector[];
+  /**
+   * Ecosystems (Phase 72 Theme E) to skip. Filtered out of `DEFAULT_DETECTORS`
+   * once, before the root loop — filtering after the walk would spend the
+   * entry budget finding things the user asked not to see. An explicit
+   * `opts.detectors` (the test seam) wins over this: a fixture that injects
+   * both is not a puzzle, `opts.detectors` is simply what runs.
+   */
+  disabledEcosystems?: readonly Ecosystem[];
+  /**
+   * Test-only override of `MAX_ENTRIES_PER_ROOT` — lets
+   * `scan-service.test.ts` exercise the per-root budget over a handful of
+   * real directory entries instead of materialising 50,000 of them.
+   */
+  perRootLimit?: number;
 };
 
 export async function scanWorkspace(opts: ScanWorkspaceOptions): Promise<ScanResult> {
   const log = opts.log ?? defaultLogger;
-  const detectors = opts.detectors ?? DEFAULT_DETECTORS;
+  const detectors =
+    opts.detectors ??
+    DEFAULT_DETECTORS.filter((d) => !(opts.disabledEcosystems ?? []).includes(d.ecosystem));
   const roots = await collectRoots(opts.extraRoot);
   const state = newWalkState();
+  // The one place the real per-root cap is ever set — `newWalkState()`'s
+  // `Infinity` default is what keeps `cleanItems`'s own delete-time sizing
+  // call unaffected by it (Decision 11).
+  state.perRootLimit = opts.perRootLimit ?? MAX_ENTRIES_PER_ROOT;
 
   for (const root of roots) {
     if (opts.signal.aborted) break;
+    // Reset the per-root baseline BEFORE the exhaustion check below, so that
+    // check only ever reflects the GLOBAL bound here — the previous root's
+    // own share is already spent and must not carry over and wrongly stop
+    // every subsequent root.
+    state.entriesAtRootStart = state.entriesWalked;
+    if (budgetExhausted(state)) break;
 
     if (root.stale) {
       // The whole worktree is the candidate — sized as one item rather than
@@ -358,6 +447,15 @@ export async function scanWorkspace(opts: ScanWorkspaceOptions): Promise<ScanRes
     } else {
       await walk(root.path, 0, root.repoId, state, opts.signal, opts.onProgress, log, detectors);
     }
+
+    // Truncated if THIS root's own share of the budget is what stopped it —
+    // pushed once per root, never duplicated. An abort mid-root does NOT
+    // push: the scan was cancelled, not cut short, and labelling it that way
+    // would be a lie.
+    if (!opts.signal.aborted && state.entriesWalked - state.entriesAtRootStart >= state.perRootLimit) {
+      state.truncatedRoots.push(root.path);
+    }
+
     opts.onProgress(state.entriesWalked, MAX_WALK_ENTRIES);
   }
 
@@ -378,8 +476,11 @@ export async function scanWorkspace(opts: ScanWorkspaceOptions): Promise<ScanRes
     byEcosystem: state.byEcosystem,
     detectors: state.detectors,
     items: state.items,
-    truncated: state.itemsTruncated || state.entriesWalked >= MAX_WALK_ENTRIES,
-    truncatedRoots: [],
+    truncated:
+      state.itemsTruncated ||
+      state.entriesWalked >= MAX_WALK_ENTRIES ||
+      state.truncatedRoots.length > 0,
+    truncatedRoots: state.truncatedRoots,
   };
 }
 

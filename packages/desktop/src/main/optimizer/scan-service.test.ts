@@ -123,6 +123,19 @@ describe('scanWorkspace (fixture-tree walk)', () => {
     ]);
   }
 
+  /** Two independent repo roots, each resolved by its own id — for the
+   *  per-root budget test, which needs `collectRoots()` to walk them in a
+   *  known order rather than as two worktrees of one repo. */
+  function mockRepos(entries: readonly { id: string; path: string }[]): void {
+    vi.mocked(listRepos).mockResolvedValue(
+      entries.map(({ id, path }) => ({ id, path, name: id, headRef: null, worktrees: [] })),
+    );
+    vi.mocked(worktreesFor).mockImplementation(async (repoId: string) => {
+      const entry = entries.find((e) => e.id === repoId);
+      return entry ? [worktree({ path: entry.path, branch: 'main', isMain: true })] : [];
+    });
+  }
+
   it('finds node_modules and dist, sizes them, and does not descend into them', async () => {
     const repoPath = join(root, 'repo-a');
     await mkdir(join(repoPath, 'node_modules', 'left-pad'), { recursive: true });
@@ -508,6 +521,61 @@ describe('scanWorkspace (fixture-tree walk)', () => {
       label: 'Stale worktree',
       producer: 'git worktree add',
     });
+  });
+
+  it('MAX_ENTRIES_PER_ROOT: a root that exhausts its own budget does not starve the next one', async () => {
+    const heavyRoot = join(root, 'budget-heavy');
+    // Ten plain, unmatched subdirectories — enough entries to trip a
+    // deliberately low injected `perRootLimit` well before this root's own
+    // walk would otherwise finish.
+    for (let i = 0; i < 10; i += 1) {
+      await mkdir(join(heavyRoot, `d${i}`), { recursive: true });
+    }
+
+    const lightRoot = join(root, 'budget-light');
+    await mkdir(join(lightRoot, 'node_modules'), { recursive: true });
+    await writeFile(join(lightRoot, 'node_modules', 'f.js'), 'x'.repeat(10));
+
+    mockRepos([
+      { id: 'heavy', path: heavyRoot },
+      { id: 'light', path: lightRoot },
+    ]);
+
+    const result = await scanWorkspace({
+      signal: new AbortController().signal,
+      onProgress: () => {},
+      perRootLimit: 3,
+    });
+
+    // The second root still yields its item...
+    expect(result.items.map((i) => i.detectorId)).toEqual(['node-modules']);
+    // ...and only the FIRST root is named as truncated — pushed once, not twice.
+    expect(result.truncatedRoots).toEqual([heavyRoot]);
+    expect(result.truncated).toBe(true);
+  });
+
+  it('disabledEcosystems excludes a whole ecosystem from the catalogue', async () => {
+    const repoPath = join(root, 'disabled-ecosystem');
+    await mkdir(join(repoPath, '.venv'), { recursive: true });
+    await writeFile(join(repoPath, '.venv', 'pyvenv.cfg'), 'home = /usr/bin');
+    await mkdir(join(repoPath, 'node_modules'), { recursive: true });
+    await writeFile(join(repoPath, 'node_modules', 'f.js'), 'x'.repeat(10));
+
+    mockSingleRepo(repoPath);
+
+    const withoutPython = await scanWorkspace({
+      signal: new AbortController().signal,
+      onProgress: () => {},
+      disabledEcosystems: ['python'],
+    });
+    expect(withoutPython.items.map((i) => i.ecosystem).sort()).toEqual(['node']);
+
+    const everything = await scanWorkspace({
+      signal: new AbortController().signal,
+      onProgress: () => {},
+      disabledEcosystems: [],
+    });
+    expect(everything.items.map((i) => i.ecosystem).sort()).toEqual(['node', 'python']);
   });
 });
 

@@ -2,6 +2,76 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 72 Themes D, E, and F (partial) — ecosystem-grouped result lists, per-root budgets, per-ecosystem settings
+
+[PR #196]. Moves Phase 72 39/102 → 98/102 (38% → 96%). Builds on Themes A, B, C (PR #190): the
+detector registry and nine-ecosystem catalogue those themes shipped is what D's grouped list and
+E's opt-out settings now have something real to group and filter. Two items stay genuinely open
+in Theme F, both left `[ ]` rather than forced: `detectors.test.ts` has no assertion pinning
+`DETECTOR_COUNT`'s literal value (the phase doc's own "24" is stale prose — Theme B's own entry
+above already corrected it to the real 28 — and no test enforces either number), and the human
+pass over a real Rust/Gradle/Python checkout is unautomatable and was not exercised this session.
+
+Rebasing this PR onto `main` (which had gained both Phase 73's PR #193 and Phase 74's PR #194 in
+the interim) surfaced and closed three cross-phase items that were only waiting on Theme D landing:
+Phase 73 Theme E's `SegmentedBar` consumption (its System section now renders
+`label="System caches by ecosystem"`), and Phase 74 Theme A's `category-palette.ts` entries for
+`'media'` (hue `135`, not the `120` Phase 74's own doc had proposed — `buildOutput` already sits at
+`115`, only 5° away) — which in turn confirmed Phase 74 Theme D's Plex-rows item was already
+satisfied by the merge, needing no new code. All three tracker docs updated in the same commit.
+
+- [x] **D** — The two hand-maintained `CATEGORY_ORDER` copies in `smart-scan-tab.tsx` and
+      `storage-tab.tsx` collapse into one exported const in `category-palette.ts`, which also
+      gains `ECOSYSTEM_ORDER`/`ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` and an exported `Hsl` type.
+      `SegmentedBar` goes generic over its id type (`color`/`name` become props instead of calling
+      `categoryColor`/`CATEGORY_LABELS` internally) so one component drives both the existing
+      category bar and a new ecosystem bar on the Storage tab, rendered above the category one
+      with its own legend. Smart Scan's result list now groups by ecosystem first, category
+      second; the per-group Clean button cleans only that group's `reclaim === 'cheap'` items —
+      never a `costly` one (`node_modules`, `.venv`, `Pods`, `vendor/bundle`) by default — and is
+      `disabled` when a group is all-`costly`. The confirm's `warnings` gained a producers line
+      (`cargo build and gradle build will need to run again`) and a costly-skipped count, in that
+      fixed order after the bytes line. Storage's per-item rows show the detector's own `label`
+      above the path (`??`-guarded against an older mock fixture) instead of the bare path alone.
+      Ecosystem icons were deliberately **not** shipped — the phase doc's own stated simpler
+      alternative, since the group header's label and swatch already carry the identification.
+- [x] **E** — `MAX_ENTRIES_PER_ROOT = 50_000` lives on `WalkState` (`entriesAtRootStart`,
+      `perRootLimit`), not a second inline `if`; `budgetExhausted()` replaces all five previous
+      `entriesWalked >= MAX_WALK_ENTRIES` comparisons, including inside `dirBytes`. Because
+      `newWalkState()`'s `perRootLimit` still defaults to `Infinity`, `cleanItems`'s own
+      delete-time `dirBytes(confined, newWalkState(), …)` sizing call stays uncapped and
+      byte-identical. `MAX_WALK_ENTRIES` rises 200k → 500k against a measurement actually taken
+      this session (~6,600 entries/second over 123,649 real directory entries on an M-series
+      MacBook Pro, quoted in the docblock with the arithmetic that follows from it) rather than
+      an asserted number. `truncatedRoots` is filled once per root, never on an aborted scan.
+      Per-ecosystem opt-outs (`disabledEcosystems`) are applied in **main** — filtered out of
+      `DEFAULT_DETECTORS` once before the root loop, so a disabled ecosystem never spends any of
+      the walk's budget — via a new `OptimizerScanRequest.disabledEcosystems?` field (bare
+      `.optional()`, no `.default()`). The renderer's opt-out lives on `ui-store.ts` as the
+      *disabled* set (not the enabled one, following `hiddenMetrics`'s own reasoning: an allowlist
+      persisted before a member existed would silently hide it for every existing user — concrete
+      here, since Phase 73 already added `'go'` and Phase 74 adds `'media'`), all seven edits
+      including the one in `persisted-keys.ts`'s `PREFERENCE_KEYS` that `AssertExactPartition`
+      requires at typecheck. No `version` bump, no `migrate` arm — zustand's default merge already
+      supplies `[]` for an older persisted blob. The settings page gained one `Field` of nine
+      per-ecosystem checkboxes (`git` excluded — stale worktrees are not an opt-out) and a fourth
+      line on the "what this still never does" list. The `.moon` fix itself — the bug that
+      motivated this whole phase — had already shipped with Theme B; this theme's own retirement
+      item is satisfied by that prior work, not new code here.
+- [x] **F (partial)** — 23 of this theme's own 25 items land, plus all 16 of the shared
+      Verification section's items this batch covers: the negative-fixture set, the ambiguous
+      `target/` resolution, the two-root per-root-budget test, the widened abort-test literal, the
+      `disabledEcosystems` filtering test, the new `category-palette.test.ts` (hue separation +
+      both `*_ORDER` permutation assertions), the generalised `segmented-bar.test.tsx`, the
+      net-new `smart-scan-tab.test.tsx` (zero-item empty copy, all-`costly` disabled button, the
+      group-clean confirm's producers/skipped-item lines), and refreshed e2e specs and screenshots
+      against a multi-ecosystem (node + rust + python) fixture with a `costly` item among them.
+      **Left open, honestly:** no test in `detectors.test.ts` pins `DETECTOR_COUNT` to a literal
+      value — the assertion that exists (`toHaveLength(DETECTOR_COUNT)`) is tautological against
+      itself, and the doc's own "24" is stale (the real count is 28, per Theme B's entry above);
+      and the human pass over a real Rust/Gradle/Python checkout plus hand-written `build/`/`bin/`
+      negatives was not run this session.
+
 ## 2026-09-05 — Phase 74 Themes A (partial), D, E (partial) — Plex joins the registry, the Trash Safety settings page, and a Trash card on Storage
 
 [PR #194]. Moves Phase 74 20/70 → 65/70 (29% → 93%). **Theme A (partial)** — Plex's transcode

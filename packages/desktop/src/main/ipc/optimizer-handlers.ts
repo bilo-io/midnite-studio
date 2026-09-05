@@ -39,6 +39,9 @@ export function registerOptimizerHandlers(getWindow: () => BrowserWindow | null)
       try {
         const result = await scanWorkspace({
           ...(req.extraRoot === undefined ? {} : { extraRoot: req.extraRoot }),
+          ...(req.disabledEcosystems === undefined
+            ? {}
+            : { disabledEcosystems: req.disabledEcosystems }),
           signal: controller.signal,
           onProgress: (done, total) => {
             const win = getWindow();
