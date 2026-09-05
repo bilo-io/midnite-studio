@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 20/70 | `███░░░░░░░` | 29% | — | A C D E |
-| [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 24/68 | `████░░░░░░` | 35% | — | D E F |
+| [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 24/68 | `████░░░░░░` | 35% | D E F | — |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 39/102 | `████░░░░░░` | 38% | D E F | — |
 | [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | ◻ TODO | x1 | 0/41 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E |
