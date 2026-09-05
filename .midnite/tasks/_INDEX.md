@@ -1110,8 +1110,6 @@ newly possible. Only H touches a contract.*
   `diffShowOldGutter`, with a `ResizeObserver` fallback that never rewrites the preference (landed 2026-08-30, PR #1).
 - ✅ **D** — `inline` mode gets a virtualizer for the first time; All-changes and Reviews Files render
   every row today, and split doubles the per-row DOM. Brings `EXPAND_ALL_LIMIT` back up for review (landed 2026-08-30, PR #1).
-| [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | ✅ DONE | — | 68/68 | `██████████` | 100% | — | — |
-
 - ✅ **E** — a `DiffToolbar` the accordion surfaces can mount, with actions a surface cannot perform
   omitted rather than dead — `PrFiles` has one `gh pr diff` in memory and cannot refetch at `-U` (landed 2026-08-30).
 - ✅ **F** — LEFT-side comment anchoring: `leftSideLines`, a per-side `ThreadsByLine`, a `del` line
