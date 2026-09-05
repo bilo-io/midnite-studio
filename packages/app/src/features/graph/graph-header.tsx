@@ -9,6 +9,7 @@ import {
   useUiStore,
   type GraphColumns,
 } from '../../store/ui-store';
+import { bridge } from '../../services/bridge';
 import { AuthorFilter, type AuthorSummary } from './author-filter';
 import { RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { RefFilter } from './ref-filter';
