@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 20/70 | `███░░░░░░░` | 29% | A D E | C |
-| [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 24/68 | `████░░░░░░` | 35% | D E F | — |
+| [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 61/68 | `█████████░` | 90% | E | — |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 39/102 | `████░░░░░░` | 38% | D E F | — |
 | [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | ◻ TODO | x1 | 0/41 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E |
@@ -199,9 +199,9 @@ the app. Media caches (Plex) and emptying the Trash are explicitly deferred to
 - ✅ **A** (PR #191) — A hand-written system cache registry (Cargo, Go, Gradle, Maven, .NET, Xcode, CocoaPods, pip, npm/pnpm/yarn, Homebrew) and `confineAllowlist`, an exact-match-only confinement primitive that never touches `knownRoots()`.
 - ✅ **B** (PR #191) — A wire contract deliberately kept separate from the repo-scoped `ScanItem`/`ScanResult` family, five own IPC channels (including a catalogue read the consent dialog derives its copy from), and per-entry walk budgets that make an under-report visible rather than silent.
 - ✅ **C** (PR #191) — A three-factor consent gate: the existing Optimizer toggle, a new checkbox, and a one-time acknowledgment dialog naming exactly what gets unlocked.
-- ◻ **D** — Vendor reclaim commands (`brew cleanup -s`, `go clean -cache`, `pnpm store prune`) run through the existing no-shell `runProcess` primitive, never a renderer-supplied command.
-- ◻ **E** — A gated "System" section inside the existing Storage tab with its own empty/loading/error/approximate states, consuming Phase 72's generic `SegmentedBar` rather than forking it, plus a third `blastRadiusKind`.
-- ◻ **F** — Verification, weighted to the confinement primitive's refusal cases and the consent gate's three-way AND.
+- ✅ **D** (PR #193) — `DEFAULT_RECLAIM_COMMANDS` (`brew cleanup -s`, `go clean -cache`, `go clean -modcache`, `pnpm store prune`) run through the existing no-shell `runProcess` primitive via `runReclaimCommand`, wired to `optimizerSystemReclaim` — never a renderer-supplied command, a non-zero exit always maps to `{ok:false}`.
+- 🔄 **E** (PR #193, partial) — A gated "System" section inside the existing Storage tab with its own empty/loading/error/approximate states, a distinct-accent banner, and a third `blastRadiusKind`. **Two items stay open**, both genuinely blocked on [Phase 72](phases/phase-72-every-build-systems-leftovers.md) Theme D's generic `SegmentedBar` (unmerged as of this PR): the section renders as a flat list with no bar per the phase doc's own documented fallback, and the `'go'` `ECOSYSTEM_HUES`/`ECOSYSTEM_LABELS` entries wait on the `Record<Ecosystem, …>` maps Theme D creates.
+- ✅ **F** (PR #193) — Verification: `confine-allowlist.test.ts`/`system-cache-registry.test.ts` already covered the confinement primitive's refusal cases from A; this PR adds `reclaim-commands.test.ts`, an `ipc.test.ts` "covers every optimizer channel" block, the four new IPC handlers' own tests, and Storage tab gating/five-state coverage. Two human-only real-machine passes stay open (a real-tool-installed scan, and the by-hand symlink case).
 
 ### [Phase 72 — Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md)
 

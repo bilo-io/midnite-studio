@@ -1,10 +1,15 @@
-import type { ScanCategory } from '@midnite/studio-shared';
+import type { ScanCategory, SystemCacheItem } from '@midnite/studio-shared';
+import { LuHardDrive } from 'react-icons/lu';
 
+import { useDialogs } from '../../components/dialog-host';
 import { useOptimizerStore } from '../../store/optimizer-store';
+import { useToastStore } from '../../store/toast-store';
 import { useUiStore } from '../../store/ui-store';
 import { formatBytes } from '../monitor/format-bytes';
+import { CircularGauge } from './components/circular-gauge';
 import { SegmentedBar } from './components/segmented-bar';
 import { CATEGORY_LABELS, categoryColor } from './category-palette';
+import { runSystemClean, runSystemReclaim, runSystemScan } from './use-optimizer';
 
 // Phase 72 Theme D groups this list by ecosystem; until it lands, this stays
 // the same flat four-of-five categories it always was (`toolCache` items are
@@ -21,11 +26,18 @@ export function StorageTab() {
   const result = useOptimizerStore((s) => s.scan.result);
   const selectRepo = useUiStore((s) => s.selectRepo);
 
+  // The System section (Theme E) has its own, independent scan state and is
+  // NOT nested under "a Smart Scan hasn't run yet" — it is a variant of
+  // Storage's own "what's taking up space" question, not a fact this repo's
+  // own scan result gates. It renders in both branches below.
   if (!result) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Run a Smart Scan first — Storage shows the same result as a breakdown.
-      </p>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground">
+          Run a Smart Scan first — Storage shows the same result as a breakdown.
+        </p>
+        <SystemCachesSection />
+      </div>
     );
   }
 
@@ -76,6 +88,188 @@ export function StorageTab() {
           </li>
         ))}
       </ul>
+
+      <SystemCachesSection />
+    </div>
+  );
+}
+
+/**
+ * Phase 73 Theme D's own labels for the four registered vendor reclaim
+ * commands (`packages/desktop/src/main/optimizer/reclaim-commands.ts`'s
+ * `DEFAULT_RECLAIM_COMMANDS`), mirrored here **for display only** — the
+ * renderer may not import `packages/desktop`, so it has no way to learn
+ * which entries have a registered command from the wire (the catalogue
+ * schema deliberately carries no reclaim-command info, only `reclaim` cost).
+ * Nothing here ever runs: the actual argv is resolved and spawned main-side
+ * against its own copy of this table, keyed by the same `entryId`. A stale
+ * label here is a UI cosmetic (a button might read "Move to Trash" for an
+ * entry that actually has a reclaim command, or vice versa) — the safety
+ * property (never a renderer-supplied argv) does not depend on this map.
+ */
+const RECLAIM_LABELS: Partial<Record<string, string>> = {
+  'homebrew-cache': 'Run brew cleanup -s',
+  'go-build-cache': 'Run go clean -cache',
+  'go-mod-cache': 'Run go clean -modcache',
+  'pnpm-store': 'Run pnpm store prune',
+};
+
+/** One non-empty line — mirrors `process-runner.ts`'s `firstLine`, kept as a
+ *  tiny renderer-side copy since that file is desktop-only. */
+function firstNonEmptyLine(text: string): string {
+  const line = text
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length > 0);
+  return line ?? '';
+}
+
+/**
+ * Phase 73 Theme E — a System section that never looks like "your project's
+ * stuff": a distinct-accent banner, its own five states (idle/loading/empty/
+ * error/approximate), and rows naming a `label`/`producer` rather than a raw
+ * path. Gated on the Theme C three-way AND; renders nothing otherwise, and
+ * the tab is exactly as Phase 72 left it above.
+ *
+ * Deliberately has no `SegmentedBar` of its own: Phase 72 Theme D generalises
+ * that component (`color`/`name` injected as functions over `Id extends
+ * string`) and this section is meant to consume it, not fork a second
+ * implementation. Until that lands, the list renders without a bar rather
+ * than generalising the component independently — see the phase doc's Theme
+ * E, first bullet.
+ */
+function SystemCachesSection() {
+  const optimizerEnabled = useUiStore((s) => s.optimizerEnabled);
+  const allowSystemCacheClean = useUiStore((s) => s.allowSystemCacheClean);
+  const systemCacheConsentGiven = useUiStore((s) => s.systemCacheConsentGiven);
+  const systemScan = useOptimizerStore((s) => s.systemScan);
+  const dialogs = useDialogs();
+
+  const gated = optimizerEnabled && allowSystemCacheClean && systemCacheConsentGiven;
+  if (!gated) return null;
+
+  const trashEntry = (item: SystemCacheItem) => {
+    dialogs.confirm({
+      title: `Clean ${item.label}?`,
+      confirmLabel: 'Move to Trash',
+      danger: true,
+      blastRadius: { count: 1, sample: [] },
+      blastRadiusKind: 'systemCache',
+      warnings: [`${formatBytes(item.bytes)} will be freed.`],
+      onConfirm: () => {
+        void runSystemClean([item.entryId]);
+      },
+    });
+  };
+
+  const reclaimEntry = (item: SystemCacheItem, reclaimLabel: string) => {
+    dialogs.confirm({
+      title: `${reclaimLabel}?`,
+      // The exact argv, verbatim — never a paraphrase — so the user is never
+      // surprised by what literally runs.
+      body: `${reclaimLabel} for ${item.label}.`,
+      confirmLabel: reclaimLabel,
+      danger: true,
+      // No blastRadius: the command decides what it removes and this app
+      // cannot count it in advance — inventing a number here would be the
+      // one dishonest confirm in the app.
+      blastRadius: null,
+      // A third way out: the plain trash-delete stays available as the
+      // confirm's secondary, beside the reclaim command as the default.
+      secondaryLabel: 'Move to Trash instead',
+      onSecondary: () => trashEntry(item),
+      onConfirm: () => {
+        void (async () => {
+          const outcome = await runSystemReclaim(item.entryId);
+          if (outcome.ok) {
+            useToastStore.getState().addToast({
+              message: firstNonEmptyLine(outcome.stdout) || `${reclaimLabel} finished.`,
+              status: 'info',
+            });
+            void runSystemScan();
+          }
+          // A failure is already toasted by `runSystemReclaim` itself.
+        })();
+      },
+    });
+  };
+
+  const cleanEntry = (item: SystemCacheItem) => {
+    const reclaimLabel = RECLAIM_LABELS[item.entryId];
+    if (reclaimLabel) reclaimEntry(item, reclaimLabel);
+    else trashEntry(item);
+  };
+
+  const { state, progress, result, message } = systemScan;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-amber-500/30 bg-amber-500/[0.06] p-3">
+      <div className="flex items-start gap-2 text-xs text-muted-foreground">
+        <LuHardDrive aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <p>
+          Outside any repo Midnite manages — your Cargo, Gradle, Homebrew, and other tool caches.
+        </p>
+      </div>
+
+      {state === 'idle' ? (
+        <div className="flex flex-col items-center gap-2 py-3">
+          <p className="text-xs text-muted-foreground">
+            Scan your system caches to see what&rsquo;s reclaimable outside your repos.
+          </p>
+          <button
+            type="button"
+            onClick={() => void runSystemScan()}
+            className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            Scan system caches
+          </button>
+        </div>
+      ) : state === 'scanning' ? (
+        <div className="flex flex-col items-center gap-2 py-3">
+          <CircularGauge percent={progress} label="Checking your tool caches…" />
+        </div>
+      ) : state === 'error' ? (
+        <p className="text-xs text-destructive">{message}</p>
+      ) : result && result.items.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          None of the caches Midnite knows about are present on this machine.
+        </p>
+      ) : result ? (
+        <>
+          {result.approximate ? (
+            <p className="text-xs text-muted-foreground">
+              One or more caches were too large to measure completely; the figures below are
+              minimums.
+            </p>
+          ) : null}
+          <ul className="space-y-1">
+            {result.items.map((item) => (
+              <li
+                key={item.entryId}
+                className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/40"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-foreground">{item.label}</p>
+                  <p className="truncate font-mono text-xs text-muted-foreground">
+                    {item.producer}
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {item.approximate ? 'at least ' : ''}
+                  {formatBytes(item.bytes)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => cleanEntry(item)}
+                  className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                >
+                  {RECLAIM_LABELS[item.entryId] ?? 'Move to Trash'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
     </div>
   );
 }
