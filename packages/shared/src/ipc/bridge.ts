@@ -912,6 +912,10 @@ export type MidniteStudioBridge = {
     /** `expectArgv` guards against a recycled PID between render and confirm. */
     kill: (req: In<typeof S.OptimizerKillRequest>) => Promise<z.infer<typeof S.OptimizerKillResponse>>;
     gpu: () => Promise<z.infer<typeof S.OptimizerGpuResponse>>;
+    /** Read-only: walks ~/.Trash plus every mounted volume's own Trash. Never a delete target. */
+    trashSummary: () => Promise<z.infer<typeof S.OptimizerTrashSummaryResponse>>;
+    /** Fixed `osascript` argv, no parameters. Gated three ways in the renderer. */
+    emptyTrash: () => Promise<z.infer<typeof S.OptimizerTrashEmptyResponse>>;
   };
 
   protocol: {

@@ -52,7 +52,7 @@ export function classify(
   return patterns.find((pattern) => pattern.basename === name)?.category ?? null;
 }
 
-type WalkState = {
+export type WalkState = {
   items: ScanItem[];
   byCategory: Record<ScanCategory, number>;
   totalBytes: number;
@@ -60,7 +60,7 @@ type WalkState = {
   itemsTruncated: boolean;
 };
 
-function newWalkState(): WalkState {
+export function newWalkState(): WalkState {
   return {
     items: [],
     byCategory: { nodeModules: 0, buildOutput: 0, staleWorktree: 0, looseObjects: 0 },
@@ -80,7 +80,7 @@ function addItem(state: WalkState, item: ScanItem): void {
   }
 }
 
-async function readDirSafe(dir: string, log: Logger): Promise<Dirent[]> {
+export async function readDirSafe(dir: string, log: Logger): Promise<Dirent[]> {
   try {
     return await readdir(dir, { withFileTypes: true });
   } catch (error) {
@@ -98,7 +98,7 @@ async function readDirSafe(dir: string, log: Logger): Promise<Dirent[]> {
  * and abort signal with the outer walk: a matched directory that is itself
  * enormous still respects the same bounds.
  */
-async function dirBytes(
+export async function dirBytes(
   root: string,
   state: WalkState,
   signal: AbortSignal,

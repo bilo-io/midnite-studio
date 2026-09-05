@@ -43,6 +43,11 @@ export function DialogHost({ children }: { children: ReactNode }) {
   const [menu, setMenu] = useState<MenuState>(null);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const [promptRequest, setPromptRequest] = useState<PromptRequest | null>(null);
+  // Incremented only by `confirm()`/`notify()`, i.e. a genuinely new request —
+  // never by `setBlastRadius`'s patch of an already-open one. Keying
+  // `<ConfirmDialog>` on it is what lets `requireAck`'s checkbox reset for a
+  // new confirm without also resetting when an async blast-radius count lands.
+  const [confirmSeq, setConfirmSeq] = useState(0);
 
   const close = useCallback(() => {
     setMenu(null);
@@ -60,9 +65,11 @@ export function DialogHost({ children }: { children: ReactNode }) {
         // reads as two competing focus targets.
         setMenu(null);
         setConfirmRequest(request);
+        setConfirmSeq((n) => n + 1);
       },
       notify: ({ title, body, okLabel }) => {
         setMenu(null);
+        setConfirmSeq((n) => n + 1);
         setConfirmRequest({
           title,
           ...(body ? { body } : {}),
@@ -94,6 +101,7 @@ export function DialogHost({ children }: { children: ReactNode }) {
       ) : null}
       {confirmRequest ? (
         <ConfirmDialog
+          key={confirmSeq}
           request={{
             ...confirmRequest,
             onConfirm: () => {

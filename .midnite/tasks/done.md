@@ -2,6 +2,35 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 74 Theme B, and Theme C partially — the Trash summary and emptying it via Finder
+
+[PR #189]. Moves Phase 74 0/70 → 20/70 (0% → 29%). Theme A confirmed blocked rather than
+attempted: `EcosystemSchema` still has no `'media'` member and `system-cache-registry.ts` does not
+exist on `main` — Phase 72 Theme C and Phase 73 Themes A–C are claimed `🔄 WIP` by other in-flight
+work but unmerged, exactly the phase doc's own stated blocker. Theme B lands whole; Theme C lands
+its backend/IPC half and leaves the renderer wiring for Theme D, on purpose — see the phase doc's
+own note on why the two are coupled through `persisted-keys.test.ts`.
+
+- [x] **B** — `computeTrashSummary()` in a new `trash-service.ts`: walks `~/.Trash` plus every
+      mounted volume's own `/Volumes/<disk>/.Trashes/<uid>`, skips the `/Volumes` boot-volume
+      symlink, excludes another user's trash, shares `scan-service.ts`'s entry budget (now exported:
+      `readDirSafe`/`dirBytes`/`newWalkState`/`WalkState`), and returns a zeroed summary for a
+      missing `~/.Trash` rather than throwing. New `TrashSummarySchema`
+      (`packages/shared/src/domain/trash.ts`) and the `optimizerTrashSummary`/`optimizerTrashEmpty`
+      wire contract (channels, response schemas, bridge, preload).
+- [x] **C (partial)** — `emptyTrash()` runs exactly one fixed `osascript` argv through `runProcess`,
+      maps AppleScript's `-1743`/`-128`/`-600` stderr signatures to actionable messages, and treats a
+      non-zero exit as failure even though `runProcess` itself reports `ok: true`. Its own
+      `trash-handlers.ts` (never folded into `optimizer-handlers.ts`), the Automation entitlement +
+      `NSAppleEventsUsageDescription` (packaged builds only), and `ConfirmDialog`'s new `requireAck`
+      acknowledgment checkbox + `trash` `BLAST_RADIUS_COPY` arm (net-new `confirm-dialog.test.tsx` —
+      the component shipped untested before this phase). **Left open, coupled to Theme D**:
+      `ui-store.ts`'s `allowTrashEmpty`/`trashEmptyConsentGiven` (and the one-time acknowledgment
+      dialog they gate) are asserted by `persisted-keys.test.ts` to be named literally under
+      `features/settings/` — satisfied only once Theme D's `trash-safety-page.tsx` exists — plus
+      `use-optimizer.ts`'s `loadTrashSummary`/`runEmptyTrash` and the confirm's warnings-array/
+      recompute-own-numbers/point-of-use-gate behaviour, which are Storage-tab (Theme D) wiring.
+
 ## 2026-09-05 — Phase 53 Theme E, and Themes G/H partially — feed/changelog automation, the pill's blind spot, RELEASING.md
 
 [PR #188]. Moves Phase 53 21/59 → 33/59 (36% → 56%). Theme E fully lands; G and H land the parts
