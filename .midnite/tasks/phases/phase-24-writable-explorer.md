@@ -2,38 +2,38 @@
 
 [Phase 16](phase-16-explorer-and-settings-pages.md) shipped a Folder explorer that is read-only
 *by contract* rather than by omission, and it said so in four places. The header comment on
-[`shared/src/fs.ts`](../packages/shared/src/fs.ts) is the strongest of them: "There is deliberately
+[`shared/src/fs.ts`](../../../packages/shared/src/fs.ts) is the strongest of them: "There is deliberately
 no write/rename/delete channel: 'read-only' is a property of this contract, not of whichever buttons
-the UI happens to render." [`channels.ts`](../packages/shared/src/ipc/channels.ts) repeats it above
-the two `mstudio:fs:*` entries, [`bridge.ts`](../packages/shared/src/ipc/bridge.ts) repeats it above
+the UI happens to render." [`channels.ts`](../../../packages/shared/src/ipc/channels.ts) repeats it above
+the two `mstudio:fs:*` entries, [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) repeats it above
 `fs: { listDir, readFile }`, and
-[`file-tree.tsx`](../packages/app/src/features/files/file-tree.tsx) closes the loop from the other
+[`file-tree.tsx`](../../../packages/app/src/features/files/file-tree.tsx) closes the loop from the other
 end — "read-only by construction — rows have no rename/delete affordance and the bridge has no
 channel that could serve one."
 
 This phase makes all four of those sentences false, deliberately, and rewrites them in the same
 voice — the way [Phase 20](phase-20-reviews-page.md) handled `gh-cli.ts`'s "strictly reads" when it
-added [`gh-write.ts`](../packages/desktop/src/main/forge/gh-write.ts) beside it. That precedent is
+added [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts) beside it. That precedent is
 the whole shape of Theme B: a separate write module whose own doc comment states its bounds, so the
 reader's claim about *itself* stays true.
 
 The recon settled three things worth stating up front. First, **the jail cannot authorise a create
-as it stands.** `confineToRoot()` in [`fs-scope.ts`](../packages/desktop/src/main/fs-scope.ts)
+as it stands.** `confineToRoot()` in [`fs-scope.ts`](../../../packages/desktop/src/main/fs-scope.ts)
 `realpath`s the target and returns `null` when it does not exist — correct for a browser, where
 "not there" and "not allowed" earn the same answer, and useless for `new file`. A write path has to
 confine the *parent* and then join the final segment itself. Second, **there is no editor in the
 renderer at all** — no CodeMirror, no Monaco, no `contentEditable` anywhere;
-[`code-preview.tsx`](../packages/app/src/features/files/preview/code-preview.tsx) is shiki into
+[`code-preview.tsx`](../../../packages/app/src/features/files/preview/code-preview.tsx) is shiki into
 `dangerouslySetInnerHTML` behind a 200 KB cap. Theme D adds the app's first real editor dependency.
 Third, **the fs query keys were never registered** in
-[`services/queries.ts`](../packages/app/src/services/queries.ts) — they are local literals in
-`file-tree.tsx` — so [`watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts)
+[`services/queries.ts`](../../../packages/app/src/services/queries.ts) — they are local literals in
+`file-tree.tsx` — so [`watch-invalidation.ts`](../../../packages/app/src/services/watch-invalidation.ts)
 has never invalidated `['fs', …]` and an external edit does not refresh the tree today. Theme G
 fixes that, and it stops being a nicety the moment the app itself is the thing doing the writing.
 
 **Scope guardrails.** Writes are `scope: 'repo'` only — `claude-home` is rejected at the schema
 level, not by hiding buttons, because writing into `~/.claude` is a different blast radius from
-writing a repo file and [`agent-page.tsx`](../packages/app/src/features/settings/settings-pages/agent-page.tsx)
+writing a repo file and [`agent-page.tsx`](../../../packages/app/src/features/settings/settings-pages/agent-page.tsx)
 is the tree's second consumer. `FileTree` takes an opt-in `writable` prop for the same reason the
 comment gutter is opt-in on the shared `DiffView`. Search is `git grep` only, so ignored and
 untracked files are out of reach this phase. Nothing here edits binaries or files past the existing
@@ -49,7 +49,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 Lands first; every other theme reads off it.
 
-- [x] Widened [`shared/src/fs.ts`](../packages/shared/src/fs.ts) with the write half of the
+- [x] Widened [`shared/src/fs.ts`](../../../packages/shared/src/fs.ts) with the write half of the
       contract: `FsWriteScopeSchema` is `z.literal('repo')` — `claude-home` is not a member, so a
       write into `~/.claude` fails zod parsing at the boundary rather than being refused by a
       handler that someone can later "fix". Added `FS_WRITE_CAP_BYTES` (same ceiling as the read
@@ -58,15 +58,15 @@ Lands first; every other theme reads off it.
 - [x] Rewrote the module's header comment to say what the write channels *are* and what still
       holds — repo scope only, relative paths only, the jail confines the parent, and failures are
       data. Same for the block above the fs entries in
-      [`channels.ts`](../packages/shared/src/ipc/channels.ts) and the one above `fs:` in
-      [`bridge.ts`](../packages/shared/src/ipc/bridge.ts).
-- [x] Four new channels in [`channels.ts`](../packages/shared/src/ipc/channels.ts) —
+      [`channels.ts`](../../../packages/shared/src/ipc/channels.ts) and the one above `fs:` in
+      [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts).
+- [x] Four new channels in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts) —
       `fsWriteFile: 'mstudio:fs:write-file'`, `fsCreate: 'mstudio:fs:create'`, `fsRename: 'mstudio:fs:rename'`,
       `fsDelete: 'mstudio:fs:delete'` — with request schemas in
-      [`schemas.ts`](../packages/shared/src/ipc/schemas.ts) built on `FsWriteScopeSchema`.
+      [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) built on `FsWriteScopeSchema`.
       `fsRename` carries independent `fromRelPath`/`toRelPath` (a general move; the UI only offers
       same-directory rename today) and `fsCreate` takes `kind: 'file' | 'directory'`. Responses are
-      plain [`GitOpResult`](../packages/shared/src/domain/result.ts), the same envelope `handleOp`
+      plain [`GitOpResult`](../../../packages/shared/src/domain/result.ts), the same envelope `handleOp`
       returns everywhere else.
 - [x] Decided how a **stale write** rides that envelope: `GitOpResult`'s error arm gained an
       optional `code: 'stale-write'` discriminant rather than growing `ConflictOp` (which stays
@@ -76,7 +76,7 @@ Lands first; every other theme reads off it.
       fills it from the `fstat` it already has. `fsWriteFile` requires `expectedVersion` and main
       will refuse when it has moved (Theme B implements the actual refusal).
 - [x] `fs.writeFile` / `create` / `rename` / `delete` added to the preload bridge
-      ([`preload/index.ts`](../packages/desktop/src/preload/index.ts)) — `'fs'` was already in the
+      ([`preload/index.ts`](../../../packages/desktop/src/preload/index.ts)) — `'fs'` was already in the
       namespace union, so this was four entries and no new surface.
 - [x] Vitest in `ipc.test.ts`: every write request accepts repo scope and refuses `claude-home`;
       empty/NUL relPaths rejected; `fsCreate`'s kind is exactly `file | directory`; `fsRename`
@@ -90,8 +90,8 @@ Lands first; every other theme reads off it.
 The load-bearing theme. Everything a write can do wrong, it does wrong here.
 
 - [x] New `desktop/src/main/fs-scope-write.ts` beside
-      [`fs-scope.ts`](../packages/desktop/src/main/fs-scope.ts), following the
-      [`gh-write.ts`](../packages/desktop/src/main/forge/gh-write.ts) precedent — a separate module
+      [`fs-scope.ts`](../../../packages/desktop/src/main/fs-scope.ts), following the
+      [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts) precedent — a separate module
       with its own bounds comment. `confineParent(root, relPath)` shape-checks the whole path with
       `joinWithin` first (absolute paths, a `C:\` drive string, `..` traversal, NUL — the same guard
       the read jail applies, so a single-segment relPath with nothing to split on still gets it),
@@ -113,7 +113,7 @@ The load-bearing theme. Everything a write can do wrong, it does wrong here.
       narrower residual race with `mkdir` (which already refuses `EEXIST`) plus an immediate
       `lstat` re-check.
 - [x] New `desktop/src/main/ipc/fs-write-handlers.ts` with `registerFsWriteHandlers()`, mirroring
-      how [`fs-handlers.ts`](../packages/desktop/src/main/ipc/fs-handlers.ts) is laid out (and now
+      how [`fs-handlers.ts`](../../../packages/desktop/src/main/ipc/fs-handlers.ts) is laid out (and now
       exports the shared `SNIFF_BYTES` constant so the two files can't drift on the binary-sniff
       threshold). Delete goes through Electron's `shell.trashItem()` — macOS Trash, recoverable in
       Finder — not `unlink`. Enforces `FS_WRITE_CAP_BYTES` and re-sniffs the on-disk bytes for a
@@ -125,7 +125,7 @@ The load-bearing theme. Everything a write can do wrong, it does wrong here.
       **outside** `write-queue.ts` — that queue exists to serialise writers racing on
       `index.lock`, and a plain file write never touches it, exactly like an external editor
       saving the same file. The consequence (the watcher's own write-echo) is left for Theme G.
-- [x] Unit tests beside [`fs-scope.test.ts`](../packages/desktop/src/main/fs-scope.test.ts), in new
+- [x] Unit tests beside [`fs-scope.test.ts`](../../../packages/desktop/src/main/fs-scope.test.ts), in new
       `fs-scope-write.test.ts` (39 cases) and `ipc/fs-write-handlers.test.ts` (16 cases):
       `confineParent` over `..` traversal, absolute paths, a `C:\` string, NUL, an empty/separator
       final segment, a symlinked parent pointing out of the root, `.git` at any depth and as a final
@@ -179,7 +179,7 @@ The load-bearing theme. Everything a write can do wrong, it does wrong here.
 
 The largest theme, and the only one that adds a dependency.
 
-- [x] Added **CodeMirror 6** to [`packages/app/package.json`](../packages/app/package.json) — and
+- [x] Added **CodeMirror 6** to [`packages/app/package.json`](../../../packages/app/package.json) — and
       only there, as hand-picked `@codemirror/{state,view,commands,language,language-data,
       autocomplete,search}` extensions rather than the bundled `basicSetup` meta-package, the same
       call the fuzzy matcher and the hand-drawn chart made elsewhere in this repo. Phase 16's
@@ -187,8 +187,8 @@ The largest theme, and the only one that adds a dependency.
       *previewing*; nothing in it argued CodeMirror is wrong for an editor, because Phase 16 had no
       editor. The alternative considered here was a raw `<textarea>` over the shiki render — there
       is precedent for raw textareas in
-      [`status-panel.tsx`](../packages/app/src/features/status/status-panel.tsx) and
-      [`comment-composer.tsx`](../packages/app/src/features/reviews/comment-composer.tsx) — and it
+      [`status-panel.tsx`](../../../packages/app/src/features/status/status-panel.tsx) and
+      [`comment-composer.tsx`](../../../packages/app/src/features/reviews/comment-composer.tsx) — and it
       was rejected because re-highlighting a whole file per keystroke fights the 200 KB cap the
       preview already has, and because line numbers and bracket matching are the minimum bar for a
       thing calling itself an editor. Language grammar comes from `@codemirror/language-data`'s
@@ -215,7 +215,7 @@ The largest theme, and the only one that adds a dependency.
       `selectWorktree`/`goBack`/`goForward` all defer through a new `file-editor-store.guardNavigation`,
       which — when the open file is dirty — parks the real state change in `pendingNav` instead of
       applying it. A `beforeunload` listener in `app.tsx` does the same for closing the window,
-      re-issuing `window.close()` once the guard resolves. [`confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx)
+      re-issuing `window.close()` once the guard resolves. [`confirm-dialog.tsx`](../../../packages/app/src/components/confirm-dialog.tsx)
       gained an optional `secondaryLabel`/`onSecondary` pair for the three-way Save / Discard /
       Cancel prompt (`file-editor-guard.tsx`, mounted once from `app.tsx`), with Cancel — its
       existing built-in button — as the safe default.
@@ -233,11 +233,11 @@ fixed to the explicit `null` the delete confirm already established for a warnin
 
 ### E — Find in files (M) — ✅ DONE (2026-08-28)
 
-- [x] New [`git-engine/src/commands/grep.ts`](../packages/git-engine/src/commands/grep.ts) —
+- [x] New [`git-engine/src/commands/grep.ts`](../../../packages/git-engine/src/commands/grep.ts) —
       `git grep -z -n -I --no-color`, NUL-delimited like everything else, modelled on
-      [`ignore.ts`](../packages/git-engine/src/commands/ignore.ts)'s batched single call. Plain
+      [`ignore.ts`](../../../packages/git-engine/src/commands/ignore.ts)'s batched single call. Plain
       Node over `execGit`, no `electron`, exported from
-      [`commands/index.ts`](../packages/git-engine/src/commands/index.ts).
+      [`commands/index.ts`](../../../packages/git-engine/src/commands/index.ts).
 - [x] New `parsers/grep-parser.ts` with a pure `parseGrep(payload)` and its own unit tests, per the
       repo's split between the command that spawns and the parser that is testable without one.
 - [x] Options that matter and nothing else: case sensitivity, whole word, and fixed-string vs
@@ -250,7 +250,7 @@ fixed to the explicit `null` the delete confirm already established for a warnin
       that file's reads are plain `node:fs` confined by `fs-scope.ts`; this one's trust boundary is
       `resolveWorkdir`, the one every git-op handler already crosses.
 - [x] A search panel above the tree in
-      [`files-view.tsx`](../packages/app/src/features/files/files-view.tsx): a query input, results
+      [`files-view.tsx`](../../../packages/app/src/features/files/files-view.tsx): a query input, results
       grouped by file with matched-line context, and a click that opens the file in the preview
       **at the line**. Reuse the resizable split that is already there rather than adding a third
       pane. Split into an always-mounted `SearchBar` (the query has to stay typeable at zero
@@ -267,19 +267,19 @@ fixed to the explicit `null` the delete confirm already established for a warnin
 The cheapest theme in the phase; the join already exists in miniature.
 
 - [x] Join `StatusEntry` against tree rows by path. `StatusEntry.path` is documented in
-      [`shared/src/domain/status.ts`](../packages/shared/src/domain/status.ts) as "repo-relative,
+      [`shared/src/domain/status.ts`](../../../packages/shared/src/domain/status.ts) as "repo-relative,
       forward-slashed, already unquoted" — byte-identical to how `file-tree.tsx` builds `relPath`.
       No normalisation added; new `features/files/file-status.ts` keys `byPath` straight off
       `entry.path`.
 - [x] Read it off the existing cache: `useRepoStatus` inside a new `useFileStatusIndex` in
       `file-tree.tsx`, mirroring the single-path lookup
-      [`file-preview.tsx`](../packages/app/src/features/files/preview/file-preview.tsx) already
+      [`file-preview.tsx`](../../../packages/app/src/features/files/preview/file-preview.tsx) already
       does. A per-row badge costs a `Map` get, not a subprocess.
 - [x] Colour by `StatusCode` via the existing `StatusMark`/`primaryCode` — reused rather than a
       second glyph table. `isPlaceholderData` is respected: `resolveFileStatusIndex` returns
       `undefined` while status hasn't actually answered yet, so a row never renders a false
       "clean" (no-badge) state, matching the honesty rule in
-      [`use-status.ts`](../packages/app/src/services/use-status.ts).
+      [`use-status.ts`](../../../packages/app/src/services/use-status.ts).
 - [x] Directory rollup — **not** via `build-change-tree.ts`. That module collapses a single-child
       directory chain into one row for the Changes panel, but `file-tree.tsx` lists every literal
       fs level individually (lazy, one `listDir` per directory), so a collapsed intermediate level
@@ -296,9 +296,9 @@ The cheapest theme in the phase; the join already exists in miniature.
 ### G — fs invalidation, live (S) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)
 
 - [x] Moved the fs query keys out of the standalone `fs-scope-key.ts` and into
-      [`services/queries.ts`](../packages/app/src/services/queries.ts) as `keys.fs`/`keys.fsRepo`,
+      [`services/queries.ts`](../../../packages/app/src/services/queries.ts) as `keys.fs`/`keys.fsRepo`,
       beside `keys.status` / `keys.refs` / `keys.stats`.
-- [x] Taught [`watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts) to
+- [x] Taught [`watch-invalidation.ts`](../../../packages/app/src/services/watch-invalidation.ts) to
       invalidate `keys.fsRepo(repoId)` on a `worktree` event — a coarser prefix than `keys.fs`
       itself, since the watcher only ever learns a `repoId`, never which worktree changed.
 - [x] Suppressed the echo with a new `fs-activity.ts`, mirroring `write-queue.ts`'s `onActivity`
@@ -313,17 +313,17 @@ The cheapest theme in the phase; the join already exists in miniature.
 
 | Area | Files |
 |------|-------|
-| Contract | [`shared/src/fs.ts`](../packages/shared/src/fs.ts) (write scope, `FsVersion`, `FS_WRITE_CAP_BYTES`, header rewritten), [`ipc/channels.ts`](../packages/shared/src/ipc/channels.ts), [`ipc/schemas.ts`](../packages/shared/src/ipc/schemas.ts), [`ipc/bridge.ts`](../packages/shared/src/ipc/bridge.ts), [`domain/result.ts`](../packages/shared/src/domain/result.ts) (read, not changed) |
-| Main — fs write | new `main/fs-scope-write.ts`, new `main/ipc/fs-write-handlers.ts`, [`main/fs-scope.ts`](../packages/desktop/src/main/fs-scope.ts) (unchanged; load-bearing), [`main/ipc/fs-handlers.ts`](../packages/desktop/src/main/ipc/fs-handlers.ts) (version token on the read), [`main/ipc/handle.ts`](../packages/desktop/src/main/ipc/handle.ts), [`main/index.ts`](../packages/desktop/src/main/index.ts) (register), [`preload/index.ts`](../packages/desktop/src/preload/index.ts) |
+| Contract | [`shared/src/fs.ts`](../../../packages/shared/src/fs.ts) (write scope, `FsVersion`, `FS_WRITE_CAP_BYTES`, header rewritten), [`ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts), [`ipc/schemas.ts`](../../../packages/shared/src/ipc/schemas.ts), [`ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts), [`domain/result.ts`](../../../packages/shared/src/domain/result.ts) (read, not changed) |
+| Main — fs write | new `main/fs-scope-write.ts`, new `main/ipc/fs-write-handlers.ts`, [`main/fs-scope.ts`](../../../packages/desktop/src/main/fs-scope.ts) (unchanged; load-bearing), [`main/ipc/fs-handlers.ts`](../../../packages/desktop/src/main/ipc/fs-handlers.ts) (version token on the read), [`main/ipc/handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts), [`main/index.ts`](../../../packages/desktop/src/main/index.ts) (register), [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts) |
 | Main — search | new `main/ipc/fs-search-handler.ts` (or the entry beside the existing `mstudio:fs:*` handlers) |
-| git-engine | new [`commands/grep.ts`](../packages/git-engine/src/commands/grep.ts), new `parsers/grep-parser.ts`, [`commands/index.ts`](../packages/git-engine/src/commands/index.ts), [`exec/git-exec.ts`](../packages/git-engine/src/exec/git-exec.ts) (unchanged) |
-| Renderer — files | [`features/files/file-tree.tsx`](../packages/app/src/features/files/file-tree.tsx) (context menu, `writable`, badges, inline rename), [`features/files/files-view.tsx`](../packages/app/src/features/files/files-view.tsx) (search panel), [`features/files/files-store.ts`](../packages/app/src/features/files/files-store.ts) (dirty + edit mode), [`features/files/file-icons.tsx`](../packages/app/src/features/files/file-icons.tsx), new `features/files/use-file-actions.ts`, new `features/files/file-search.tsx` |
-| Renderer — preview | [`preview/file-preview.tsx`](../packages/app/src/features/files/preview/file-preview.tsx) (the `read-only` badge becomes a toggle), [`preview/code-preview.tsx`](../packages/app/src/features/files/preview/code-preview.tsx) (read mode, unchanged), new `preview/code-editor.tsx`, [`lib/languages.ts`](../packages/app/src/lib/languages.ts) (a CodeMirror language map beside `LANG_BY_EXT`), [`lib/highlighter.ts`](../packages/app/src/lib/highlighter.ts) (unchanged) |
-| Renderer — shared | [`services/queries.ts`](../packages/app/src/services/queries.ts), [`services/watch-invalidation.ts`](../packages/app/src/services/watch-invalidation.ts), [`services/use-status.ts`](../packages/app/src/services/use-status.ts) (read), [`components/context-menu.tsx`](../packages/app/src/components/context-menu.tsx) (reused), [`components/confirm-dialog.tsx`](../packages/app/src/components/confirm-dialog.tsx), [`components/build-change-tree.ts`](../packages/app/src/components/build-change-tree.ts) (reused for the rollup), [`shared/src/keybindings.ts`](../packages/shared/src/keybindings.ts) (`file.save`) |
-| Untouched, deliberately | [`features/settings/settings-pages/agent-page.tsx`](../packages/app/src/features/settings/settings-pages/agent-page.tsx) — the tree's second consumer stays read-only with no change at its call site |
-| Deps | [`packages/app/package.json`](../packages/app/package.json) (CodeMirror 6, app only) |
-| Docs | [`CLAUDE.md`](../CLAUDE.md), [`docs/INITIAL_PLAN.md`](../docs/INITIAL_PLAN.md), [`todo/outstanding.md`](outstanding.md) (explorer editing, search-in-files and status badges come off the list) |
-| Tests | [`main/fs-scope.test.ts`](../packages/desktop/src/main/fs-scope.test.ts), new `fs-scope-write.test.ts`, new `grep-parser.test.ts`, new `grep.integration.test.ts`, new `file-search.test.ts`, new `status-badge.test.ts`, new `e2e/files-write.spec.ts`, [`e2e/mock-bridge.ts`](../packages/app/e2e/mock-bridge.ts) |
+| git-engine | new [`commands/grep.ts`](../../../packages/git-engine/src/commands/grep.ts), new `parsers/grep-parser.ts`, [`commands/index.ts`](../../../packages/git-engine/src/commands/index.ts), [`exec/git-exec.ts`](../../../packages/git-engine/src/exec/git-exec.ts) (unchanged) |
+| Renderer — files | [`features/files/file-tree.tsx`](../../../packages/app/src/features/files/file-tree.tsx) (context menu, `writable`, badges, inline rename), [`features/files/files-view.tsx`](../../../packages/app/src/features/files/files-view.tsx) (search panel), [`features/files/files-store.ts`](../../../packages/app/src/features/files/files-store.ts) (dirty + edit mode), [`features/files/file-icons.tsx`](../../../packages/app/src/features/files/file-icons.tsx), new `features/files/use-file-actions.ts`, new `features/files/file-search.tsx` |
+| Renderer — preview | [`preview/file-preview.tsx`](../../../packages/app/src/features/files/preview/file-preview.tsx) (the `read-only` badge becomes a toggle), [`preview/code-preview.tsx`](../../../packages/app/src/features/files/preview/code-preview.tsx) (read mode, unchanged), new `preview/code-editor.tsx`, [`lib/languages.ts`](../../../packages/app/src/lib/languages.ts) (a CodeMirror language map beside `LANG_BY_EXT`), [`lib/highlighter.ts`](../../../packages/app/src/lib/highlighter.ts) (unchanged) |
+| Renderer — shared | [`services/queries.ts`](../../../packages/app/src/services/queries.ts), [`services/watch-invalidation.ts`](../../../packages/app/src/services/watch-invalidation.ts), [`services/use-status.ts`](../../../packages/app/src/services/use-status.ts) (read), [`components/context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx) (reused), [`components/confirm-dialog.tsx`](../../../packages/app/src/components/confirm-dialog.tsx), [`components/build-change-tree.ts`](../../../packages/app/src/components/build-change-tree.ts) (reused for the rollup), [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) (`file.save`) |
+| Untouched, deliberately | [`features/settings/settings-pages/agent-page.tsx`](../../../packages/app/src/features/settings/settings-pages/agent-page.tsx) — the tree's second consumer stays read-only with no change at its call site |
+| Deps | [`packages/app/package.json`](../../../packages/app/package.json) (CodeMirror 6, app only) |
+| Docs | [`CLAUDE.md`](../../../CLAUDE.md), [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md), [`.midnite/tasks/outstanding.md`](../outstanding.md) (explorer editing, search-in-files and status badges come off the list) |
+| Tests | [`main/fs-scope.test.ts`](../../../packages/desktop/src/main/fs-scope.test.ts), new `fs-scope-write.test.ts`, new `grep-parser.test.ts`, new `grep.integration.test.ts`, new `file-search.test.ts`, new `status-badge.test.ts`, new `e2e/files-write.spec.ts`, [`e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts) |
 
 ## Verification
 
@@ -409,7 +409,7 @@ The cheapest theme in the phase; the join already exists in miniature.
   `useKeybindings` handler map if it does not.
 - **Open — shiki and CodeMirror both in one app.** *Recommendation:* accept it. CodeMirror owns edit
   mode, shiki owns read mode and every diff in the app
-  ([`line-highlight.ts`](../packages/app/src/features/diff/line-highlight.ts), Phase 20). Unifying
+  ([`line-highlight.ts`](../../../packages/app/src/features/diff/line-highlight.ts), Phase 20). Unifying
   on CodeMirror's highlighter would mean re-theming every diff surface in the product to buy
   consistency nobody can see, since the two never render at the same time. Revisit only if the
   themes visibly disagree across the read/edit toggle — the same file should not change colour when
