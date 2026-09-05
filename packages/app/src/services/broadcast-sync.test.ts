@@ -6,10 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
+import { useFilesStore } from '../features/files/files-store';
 import { usePaletteStore } from '../features/themes/palette-store';
+import { useActionsStore } from '../store/actions-store';
 import { useAppearanceStore } from '../store/appearance-store';
 import { useBrowserStore } from '../store/browser-store';
 import { useUiStore } from '../store/ui-store';
+import { useWorkbenchStore } from '../store/workbench-store';
 import { relayWatchEvent, useBroadcastSync } from './broadcast-sync';
 
 type RelayMessage = { id: string; origin: string; kind: string; payload: Record<string, unknown> };
@@ -272,5 +275,119 @@ describe('useBroadcastSync (Theme E)', () => {
     emit({ id: 'watch-1', origin: 'other-window', kind: 'watch', payload: { repoId: 'repo-1', kind: 'index' } });
 
     expect(invalidateSpy).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Theme H — the page-selection slices. A page popout duplicates rather than
+ * moves, so the same view runs in two windows at once and its selection is
+ * what visibly drifts between them.
+ */
+describe('useBroadcastSync — page selection (Theme H)', () => {
+  beforeEach(() => {
+    useActionsStore.setState({ selectedRun: {}, selectedJob: {} });
+    useFilesStore.setState({ scopeKey: null, selectedPath: null });
+    useWorkbenchStore.setState({ tabs: [], activeTabId: null });
+  });
+
+  afterEach(() => {
+    cleanup();
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+    vi.restoreAllMocks();
+  });
+
+  it('relays the selected run, and the job it clears with it', () => {
+    const { relay } = installBridge();
+    mount();
+
+    useActionsStore.getState().selectRun('repo-1', '42');
+
+    const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'actions');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.payload).toEqual({ selectedRun: { 'repo-1': '42' }, selectedJob: {} });
+  });
+
+  it('applies an incoming run selection', () => {
+    const { emit } = installBridge();
+    mount();
+
+    emit({
+      id: 'run-1',
+      origin: 'other-window',
+      kind: 'actions',
+      payload: { selectedRun: { 'repo-1': '99' }, selectedJob: {} },
+    });
+
+    expect(useActionsStore.getState().selectedRun).toEqual({ 'repo-1': '99' });
+  });
+
+  it('carries the files scope alongside the path, so a relPath is never applied under a stale checkout', () => {
+    const { relay } = installBridge();
+    mount();
+
+    useFilesStore.getState().ensureScope('repo:main');
+    useFilesStore.getState().selectFile('packages/app/src/app.tsx');
+
+    const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'files');
+    expect(sent.at(-1)?.payload).toEqual({
+      scopeKey: 'repo:main',
+      selectedPath: 'packages/app/src/app.tsx',
+    });
+  });
+
+  it('relays workbench tabs and the active one', () => {
+    const { relay } = installBridge();
+    mount();
+
+    useWorkbenchStore.getState().openTab({
+      kind: 'run',
+      repoId: 'repo-1',
+      runId: '7',
+      label: 'CI #7',
+    });
+
+    const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'workbench');
+    const payload = sent.at(-1)?.payload as { tabs: unknown[]; activeTabId: string | null };
+    expect(payload.tabs).toHaveLength(1);
+    expect(payload.activeTabId).not.toBeNull();
+  });
+
+  /*
+    The line Theme H deliberately does not cross. Expanding a directory is how
+    ONE window is arranged to look at a checkout, not a shared answer to "what
+    am I looking at" — relaying it would snap the other window's tree open
+    under the user's cursor.
+  */
+  it('does not relay view furniture — expanded dirs and collapsed workflow groups stay local', () => {
+    const { relay } = installBridge();
+    mount();
+
+    useFilesStore.getState().ensureScope('repo:main');
+    relay.mockClear();
+
+    useFilesStore.getState().toggleDir('packages');
+    useActionsStore.getState().toggleWorkflow('repo-1', 'CI');
+
+    expect(relay).not.toHaveBeenCalled();
+  });
+
+  it('a relayed page selection does not ping-pong back out', () => {
+    const { relay, emit } = installBridge();
+    mount();
+
+    emit({
+      id: 'wb-1',
+      origin: 'other-window',
+      kind: 'workbench',
+      payload: { tabs: [], activeTabId: null },
+    });
+    emit({
+      id: 'act-1',
+      origin: 'other-window',
+      kind: 'actions',
+      payload: { selectedRun: { 'repo-1': '5' }, selectedJob: {} },
+    });
+
+    expect(relay).not.toHaveBeenCalled();
   });
 });
