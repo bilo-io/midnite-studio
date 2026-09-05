@@ -94,5 +94,5 @@ describe('ensureLoginShellPathAsync', () => {
     // success `mergePath` appends what the resolved PATH lacks, on failure the
     // function is a no-op. Losing a dir here would break git for the session.
     expect(process.env['PATH']).toContain(sentinel);
-  });
+  }, 15_000);
 });

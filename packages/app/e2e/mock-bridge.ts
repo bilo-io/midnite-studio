@@ -491,6 +491,24 @@ export type MockFixtures = {
       truncated: boolean;
     };
     gpu?: { model: string | null; vramBytes: number | null; loadPercent: number | null };
+    processes?: Array<{
+      pid: number;
+      ppid?: number;
+      name: string;
+      argv?: string;
+      rssBytes: number;
+      cpuPercent: number;
+      ours: boolean;
+    }>;
+    memory?: {
+      totalBytes: number;
+      usedBytes?: number;
+      wiredBytes: number;
+      activeBytes: number;
+      compressedBytes: number;
+      cachedBytes: number;
+      freeBytes: number;
+    };
   };
 };
 
@@ -2345,8 +2363,48 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             .reduce((sum, item) => sum + item.bytes, 0);
           return { ok: true as const, value: { freedBytes, skipped: [] } };
         },
-        processes: async () => ({ ok: true as const, value: [] }),
-        kill: async () => ({ ok: false as const, message: 'not wired in this build' }),
+        processes: async () => {
+          const defaultMemory = {
+            totalBytes: 16 * 1024 * 1024 * 1024,
+            usedBytes: 12 * 1024 * 1024 * 1024,
+            wiredBytes: 3 * 1024 * 1024 * 1024,
+            activeBytes: 5 * 1024 * 1024 * 1024,
+            compressedBytes: 2 * 1024 * 1024 * 1024,
+            cachedBytes: 2 * 1024 * 1024 * 1024,
+            freeBytes: 4 * 1024 * 1024 * 1024,
+          };
+          const mem = data.optimizer?.memory
+            ? {
+                ...defaultMemory,
+                ...data.optimizer.memory,
+                usedBytes:
+                  data.optimizer.memory.usedBytes ??
+                  (data.optimizer.memory.totalBytes - data.optimizer.memory.freeBytes),
+              }
+            : defaultMemory;
+
+          return {
+            ok: true as const,
+            value: {
+              processes: optimizerProcesses,
+              memory: mem,
+            },
+          };
+        },
+        kill: async (req: { pid: number; expectArgv?: string; force?: boolean }) => {
+          const target = optimizerProcesses.find((p) => p.pid === req.pid);
+          if (!target) {
+            return { ok: false as const, message: `Process ${req.pid} not found` };
+          }
+          if (!target.ours) {
+            return { ok: false as const, message: `Refusing to kill foreign process ${req.pid}` };
+          }
+          if (req.expectArgv && target.argv && req.expectArgv !== target.argv) {
+            return { ok: false as const, message: `Process ${req.pid} has changed command` };
+          }
+          optimizerProcesses = optimizerProcesses.filter((p) => p.pid !== req.pid);
+          return { ok: true as const };
+        },
         gpu: async () => ({
           ok: true as const,
           value: data.optimizer?.gpu ?? { model: null, vramBytes: null, loadPercent: null },
@@ -2412,7 +2470,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var searchBatchHandlers: Array<(e: unknown) => void> = [];
     // eslint-disable-next-line no-var
     var searchDoneHandlers: Array<(e: unknown) => void> = [];
-
+    // eslint-disable-next-line no-var
+    var optimizerProcesses = (data.optimizer?.processes ?? []).map((p) => ({
+      ppid: p.ppid ?? 1,
+      argv: p.argv ?? p.name,
+      ...p,
+    }));
 
     // Published on `window` so a test can read the ops back, and clear the
     // array between gestures.

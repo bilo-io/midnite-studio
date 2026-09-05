@@ -54,7 +54,7 @@ import {
   GpuStatsSchema,
   OptimizerResultOf,
   OptimizerVoidResultSchema,
-  ProcessInfoSchema,
+  ProcessTableResultSchema,
   ScanResultSchema,
   RefSchema,
   ReflogEntrySchema,
@@ -1900,12 +1900,14 @@ export const OptimizerCleanResultSchema = z.object({
 });
 export const OptimizerCleanResponse = OptimizerResultOf(OptimizerCleanResultSchema);
 
-export const OptimizerProcessesResponse = OptimizerResultOf(z.array(ProcessInfoSchema));
+export const OptimizerProcessesResponse = OptimizerResultOf(ProcessTableResultSchema);
 
 export const OptimizerKillRequest = z.object({
   pid: z.number().int().positive(),
   /** The PID-reuse guard — refused if the row no longer matches when re-read. */
   expectArgv: z.string(),
+  /** User-driven escalation: true sends SIGKILL, false/omitted sends SIGTERM */
+  force: z.boolean().optional(),
 });
 export const OptimizerKillResponse = OptimizerVoidResultSchema;
 

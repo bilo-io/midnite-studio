@@ -2,6 +2,13 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 59 Themes D, F — Workspace Optimizer: Memory tab & Verification
+
+[PR #169]. Closes Themes D and F of Phase 59 — completing the remaining 26 items (70/70, 100%). Phase 59 is now complete.
+
+- [x] **D** — Memory & process monitor (M): extended `agent-process.ts` with `rss=` and `pcpu=` columns without duplicating the system-wide `ps` reader or parser; added `detailedMemoryReading` and `probeDetailedMemory` to `metrics/memory.ts` for Apple Silicon 4-segment memory breakdown (Wired, Active, Compressed, Cached) from `vm_stat`; built `kill-service.ts` with strict PID-reuse guard (`expectArgv` verification before signaling), unbreakable self-preservation deny-list (PID <= 1, Midnite main PID, system daemons), ownership derivation from the pty/agent session registry (`isOurProcess`), and graceful SIGTERM with force SIGKILL escalation. Built `MemoryTab` in `packages/app` with circular gauges for Used/Cached/Free memory, 4-segment memory stats, process list with search/PID filter and agent badges, 5s focus-gated polling, and confirmation dialogs with danger styling.
+- [x] **F** — Verification (M): Playwright e2e test suite (`e2e/optimizer.spec.ts`) covering memory gauges, 4-segment breakdown, query/PID filtering, and safe process termination with confirmation; screenshot suite (`e2e/optimizer-shots.spec.ts`) generating committed light and dark mode screenshots under `docs/screenshots/p59-df/`. All verification items satisfied.
+
 ## 2026-09-05 — Phase 69 Themes A, B, C — A tracker that can count
 
 [PR #168]. Automated tracker consistency checker (`scripts/tracker-check.mjs`), four structural doc fixes, 19 reconciled index rows, and CI gate enforcement.

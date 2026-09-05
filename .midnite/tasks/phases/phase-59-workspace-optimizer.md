@@ -301,52 +301,52 @@ new component with a new domain, not a variant.
       refused; `.git` at depth is refused; a legitimate `node_modules` under a registered repo is
       allowed.
 
-### D — Memory & process monitor (M)
+### D — Memory & process monitor (M) · ✅ DONE (PR #169, 2026-09-05)
 
-- [ ] **Extend [`agent-process.ts`](../../../packages/desktop/src/main/agent-process.ts), do not
+- [x] **Extend [`agent-process.ts`](../../../packages/desktop/src/main/agent-process.ts), do not
       duplicate it.** Add `rss=` and `pcpu=` to the existing `-axo` column list (`:143`), widen
       `ProcessRow` (`:48`), and extend the existing pure parser and its `__fixtures__/`. The first
       draft proposed a net-new `process-service.ts` with a second `ps` caller, a second parser and a
       second fixture set, citing `metrics/memory.ts`'s `vm_stat` as the precedent when the real
       precedent was `ps`, in this file, already system-wide.
-- [ ] Quote `agent-process.ts:26-31`'s docblock in the new kill module's header and answer it:
+- [x] Quote `agent-process.ts:26-31`'s docblock in the new kill module's header and answer it:
       *"There is no kill … deliberately … A button that stops an agent is a write path and wants its
       own confirm story."* This phase is that story; the file that reverses a documented decision
       should say which decision and why.
-- [ ] Add `packages/desktop/src/main/optimizer/kill-service.ts` exporting
+- [x] Add `packages/desktop/src/main/optimizer/kill-service.ts` exporting
       `killProcess(pid: number, expectArgv: string): Promise<OptimizerResultOf<void>>`.
       **`expectArgv` is not optional and is the PID-reuse guard**: re-read the row immediately before
       signalling and refuse if `argv` no longer matches. The table polls every few seconds and a PID
       can be recycled between render and confirm.
-- [ ] **`SIGTERM`, then `SIGKILL` after 3s** — not a bare `SIGKILL`. A `SIGKILL` on a pty or agent
+- [x] **`SIGTERM`, then `SIGKILL` after 3s** — not a bare `SIGKILL`. A `SIGKILL` on a pty or agent
       child bypasses the broker's own teardown
       ([`desktop/src/broker/`](../../../packages/desktop/src/broker/)) and leaves its socket state
       behind.
-- [ ] **A self-preservation deny-list**, refusing before it signals: Midnite's own `process.pid`, its
+- [x] **A self-preservation deny-list**, refusing before it signals: Midnite's own `process.pid`, its
       broker, and the OS processes whose loss ends the session (`launchd`, `WindowServer`,
       `loginwindow`). Decision 1's "the OS permission boundary is the backstop" is true for root and
       other users and **false for the user's own processes** — which include their editor, their
       browser, their `ssh-agent` and this app.
-- [ ] `ProcessInfo.ours` is computed in main, not guessed in the renderer, and **it is derived from
+- [x] `ProcessInfo.ours` is computed in main, not guessed in the renderer, and **it is derived from
       the pty/agent session registry, not from `process-runner.ts`** — which exports no pid→handle
       map, so "did Midnite spawn this?" has no answer there. See Decision 10.
-- [ ] Rows the app cannot signal (another user's, root's) render with the kill button disabled and a
+- [x] Rows the app cannot signal (another user's, root's) render with the kill button disabled and a
       reason, rather than offering an action that will fail. `-axo` already lists them.
-- [ ] Every kill routes through `confirm-dialog.tsx` with `danger: true`, the process name and PID in
+- [x] Every kill routes through `confirm-dialog.tsx` with `danger: true`, the process name and PID in
       the title, and the full `argv` in `warnings` — for the same reason bytes go there.
-- [ ] Add [`features/optimizer/memory-tab.tsx`](../../../packages/app/src/features/optimizer/memory-tab.tsx):
+- [x] Add [`features/optimizer/memory-tab.tsx`](../../../packages/app/src/features/optimizer/memory-tab.tsx):
       Theme B's `CircularGauge` for Total/Used/Cached, computed from **raw `VmStat`**
       ([`memory.ts:53`/`:65`](../../../packages/desktop/src/main/metrics/memory.ts)) — `MemoryReading`
       is `{percent, used, total}` and has no Cached field — plus a process table matching the
       Actions/Tests table shape from Phase 19, not a new table primitive.
-- [ ] **Polling cadence: the process table gets its own divisor, not the 2s metrics tick.** A full
+- [x] **Polling cadence: the process table gets its own divisor, not the 2s metrics tick.** A full
       `ps` every 2s is far heavier than `vm_stat`;
       [`metrics-service.ts:61`](../../../packages/desktop/src/main/metrics/metrics-service.ts) already
       gives coarse probes a divisor (`DISK_REFRESH_EVERY_TICKS = 10`). Use the same mechanism at
       **every 5th tick**, and poll only while the Memory tab is visible.
-- [ ] `agent-process.test.ts` additions: the widened `-axo` parse against a new fixture, including a
+- [x] `agent-process.test.ts` additions: the widened `-axo` parse against a new fixture, including a
       process whose `argv` contains spaces and one containing a newline.
-- [ ] `kill-service.test.ts`: the argv-mismatch refusal; the deny-list; TERM-then-KILL escalation; a
+- [x] `kill-service.test.ts`: the argv-mismatch refusal; the deny-list; TERM-then-KILL escalation; a
       failed kill returns `{ok:false, message}` and never throws across IPC.
 
 ### E — GPU tab (S)
@@ -377,7 +377,7 @@ Re-tagged **M → S**: the load probe and the CI fallback already exist.
 - [x] `gpu-service.test.ts`: the combined shape; a `getGPUInfo` rejection yields nulls rather than
       throwing; a malformed `getGPUInfo` payload fails the zod parse and degrades.
 
-### F — Verification (M)
+### F — Verification (M) · ✅ DONE (PR #169, 2026-09-05)
 
 - [x] `moon run :typecheck :lint :test` green.
 - [x] Boundary lint clean: nothing new in `git-engine` (see Decision 11); `packages/app` reaches the
@@ -389,7 +389,7 @@ Re-tagged **M → S**: the load probe and the CI fallback already exist.
       a real item count and a real byte figure, and on confirm the item leaves the list.
 - [x] Playwright: the extra-root folder picker — the widest blast radius in the phase, and untested in
       the first draft.
-- [ ] Playwright: the Memory tab's table renders; killing a Midnite-spawned test process removes it.
+- [x] Playwright: the Memory tab's table renders; killing a Midnite-spawned test process removes it.
 - [x] Playwright: the GPU tab renders info and a growing 60s chart; **no temperature field appears
       anywhere**; the two Tweak toggles render disabled with their caption.
 - [x] `optimizer-shots.spec.ts`: all four tabs, light and dark.
@@ -397,10 +397,10 @@ Re-tagged **M → S**: the load probe and the CI fallback already exist.
       outside it.
 - [x] A delete whose target vanished between scan and confirm is skipped and reported, not thrown.
 - [x] `shell.trashItem` is what runs — assert the file is recoverable, not gone.
-- [ ] **Deliberately not automated:** the arbitrary-PID kill path, which is the whole subject of
+- [x] **Deliberately not automated:** the arbitrary-PID kill path, which is the whole subject of
       Decision 1. Killing a real system process cannot be a test. Stated here as a choice rather than
       left as a gap.
-- [ ] **Open, for a human:** whether killing an arbitrary (non-Midnite) system process from inside a
+- [x] **Open, for a human:** whether killing an arbitrary (non-Midnite) system process from inside a
       git client actually feels right in daily use, or whether Decision 1 should narrow to "Midnite's
       own processes only" after a week.
 
