@@ -87,6 +87,26 @@ describe('useDismiss', () => {
     second.unmount();
   });
 
+  it("does not let a tooltip steal an inline surface's Escape", () => {
+    // Both are passive, so `blocking` cannot separate them — only the layer
+    // order can. A pointer resting on the browser toggle leaves its tooltip
+    // open for as long as the browser pane is up, and Escape means the pane.
+    const tooltip = vi.fn();
+    const pane = vi.fn();
+    const first = register(pane, { layer: 'inline', blocking: false });
+    const second = register(tooltip, { layer: 'tooltip', blocking: false });
+
+    pressEscape();
+    expect(pane).toHaveBeenCalledTimes(1);
+    expect(tooltip).not.toHaveBeenCalled();
+
+    first.unmount();
+    pressEscape();
+    expect(tooltip).toHaveBeenCalledTimes(1);
+
+    second.unmount();
+  });
+
   it('leaves the event entirely alone when the stack is empty', () => {
     const event = pressEscape();
     expect(event.defaultPrevented).toBe(false);

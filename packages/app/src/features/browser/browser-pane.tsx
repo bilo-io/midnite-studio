@@ -132,6 +132,12 @@ export function BrowserPane({
     `document.querySelector('[data-testid="browser-toggle"]')` — a test id used
     as production wiring — and focused it without `preventScroll`.
 
+    This pane is the reason that hook captures on its own first render as well
+    as on the false→true flip: `useReveal` mounts it with `shown={false}` so the
+    fade has a painted frame to travel from, and `NewTabPage`'s autoFocus search
+    box takes focus in that frame. By the time `shown` turns true, the toggle is
+    already a commit out of `document.activeElement`'s reach.
+
     Its one piece of real logic, "don't restore if the pane is only being
     re-parented between `app.tsx`'s overlay and in-flow slots", is subsumed:
     the layout swap unmounts and remounts this component in the same commit, so

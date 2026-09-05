@@ -3,13 +3,27 @@ import { useEffect, useRef } from 'react';
 import { useUiStore } from '../store/ui-store';
 
 /**
- * Dismissal layers, lowest first. Named after `tailwind.config.ts`'s z-index
- * scale (`z-menu` 80 · `z-popover` 85 · `z-dialog` 90 · `z-toast` 92 ·
- * `z-tooltip` 95) because paint order is what a reader will reach for — but
- * `blocking` is what actually decides delivery, and for `toast`/`tooltip` the
- * two deliberately disagree. See `DismissOptions.blocking`.
+ * Dismissal layers, lowest first — in DISMISSAL order, which is not paint
+ * order. The two agree in the middle and disagree at both ends.
+ *
+ * `inline` → `menu` → `popover` → `dialog` climbs with `tailwind.config.ts`'s
+ * z scale (`z-menu` 80 · `z-popover` 85 · `z-dialog` 90), because for those the
+ * surface painted on top is the surface Escape means. `toast` (`z-toast` 92)
+ * and `tooltip` (`z-tooltip` 95) paint above all of them and mean least, so
+ * they sit at the BOTTOM of this list rather than the top.
+ *
+ * `blocking` gets half of that inversion on its own: a passive toast never
+ * takes the Escape a blocking confirm dialog wanted, which is the case both
+ * `toast-host.tsx` and `tooltip.tsx` describe in their own comments. It cannot
+ * get the other half, because `inline` surfaces are passive too — they are the
+ * ones with no overlay to occlude anything with (the browser pane, a graph
+ * selection). Ranked top of this list, as they were when Phase 62 first drew it
+ * from the z scale, a tooltip left open by the pointer resting on the browser
+ * toggle swallowed the Escape that should have closed the browser pane, and a
+ * toast did the same to a graph selection. Ordering is what fixes that;
+ * `blocking` cannot.
  */
-const LAYER_ORDER = ['inline', 'menu', 'popover', 'dialog', 'toast', 'tooltip'] as const;
+const LAYER_ORDER = ['tooltip', 'toast', 'inline', 'menu', 'popover', 'dialog'] as const;
 
 export type DismissLayer = (typeof LAYER_ORDER)[number];
 

@@ -168,6 +168,51 @@ describe('useFocusTrap', () => {
     expect(document.activeElement).not.toBe(document.body);
   });
 
+  it('restores to the opener when the surface mounted before it activated', () => {
+    // `useReveal` renders the browser pane with `shown={false}` for a frame, so
+    // its fade has a painted frame to travel from — and the new tab page's
+    // `autoFocus` search box takes focus in that frame. By the time `active`
+    // flips true, `document.activeElement` is therefore already inside the
+    // surface and the toggle that opened it is a commit out of reach; the
+    // mount-time capture is the only thing that still knows.
+    const { trigger, container } = mount();
+    const child = document.createElement('input');
+    container.appendChild(child);
+    trigger.focus();
+
+    const ref = { current: container as HTMLElement };
+    const { rerender } = renderHook(({ active }) => useFocusTrap(ref, active), {
+      initialProps: { active: false },
+    });
+    child.focus();
+
+    rerender({ active: true });
+    // The trap leaves an already-focused child alone, as ever.
+    expect(document.activeElement).toBe(child);
+
+    rerender({ active: false });
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('ignores a mount-time opener that has left the DOM', () => {
+    const { trigger, container } = mount();
+    const child = document.createElement('input');
+    container.appendChild(child);
+    trigger.focus();
+
+    const ref = { current: container as HTMLElement };
+    const { rerender } = renderHook(({ active }) => useFocusTrap(ref, active), {
+      initialProps: { active: false },
+    });
+    child.focus();
+    trigger.remove();
+
+    rerender({ active: true });
+    rerender({ active: false });
+    expect(document.activeElement).not.toBe(trigger);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it('captures nothing when <body> held focus', () => {
     // Opening the palette with Mod+k after clicking non-focusable chrome leaves
     // `document.activeElement === document.body`; "restoring" to it is a no-op

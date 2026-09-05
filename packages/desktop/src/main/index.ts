@@ -84,7 +84,6 @@ import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerMgitFileScheme } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
 import { registerReportHandlers, setBootLine } from './ipc/report-handlers';
-import { fingerprintFile } from './socket-name';
 import { createFileSink } from './log-sink';
 import { bootMark } from './perf-marks';
 import { startHeapSampler } from '../heap-sampler';

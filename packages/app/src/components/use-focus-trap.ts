@@ -33,19 +33,42 @@ const FOCUSABLE = [
 const RESTORABLE = `${FOCUSABLE}, [tabindex]${NOT_INERT}`;
 
 /**
+ * The mount-time capture, but only if it is still worth restoring to:
+ * connected, and outside the surface that is opening.
+ */
+function usableOpener(
+  container: HTMLElement | null,
+  opener: HTMLElement | null | undefined,
+): HTMLElement | null {
+  if (!opener || !opener.isConnected) return null;
+  if (container?.contains(opener)) return null;
+  return opener;
+}
+
+/**
  * The element focus should return to when the surface closes, or `null` for
  * "nothing worth returning to".
  *
  * `<body>` is never captured: restoring to it is indistinguishable from doing
  * nothing, and dressing a no-op up as a restore hides that nothing was ever
  * captured (Phase 68 Decision 3).
+ *
+ * `opener` is the fallback for a surface that mounted BEFORE it activated —
+ * see {@link useFocusTrap}. It is consulted in exactly one case, focus already
+ * being inside the surface, because that is the signature of the lag: whatever
+ * the surface's own `autoFocus` child grabbed in between says nothing about
+ * where the user came from, and the element that does is a commit out of
+ * reach of `document.activeElement` by then.
  */
-function captureRestoreTarget(container: HTMLElement | null): HTMLElement | null {
+function captureRestoreTarget(
+  container: HTMLElement | null,
+  opener?: HTMLElement | null,
+): HTMLElement | null {
   const focused = document.activeElement;
   if (!(focused instanceof HTMLElement)) return null;
   if (focused === document.body) return null;
   // Already inside the surface that is opening — not somewhere to come back to.
-  if (container?.contains(focused)) return null;
+  if (container?.contains(focused)) return usableOpener(container, opener);
   return focused;
 }
 
@@ -98,10 +121,36 @@ function restoreFocus(container: HTMLElement, target: HTMLElement | null): void 
  * not restore. The only fix that survives the next copy-paste is one that
  * arrives with the line the author already writes, which is why the signature
  * is unchanged (Phase 68 Theme A, Decision 1).
+ *
+ * That signature carries no explicit "restore to this" target and does not
+ * need one: a surface whose `active` lags its own mount is handled by the
+ * mount-time capture below rather than by the caller naming a node it does not
+ * own. The browser pane's toggle lives in the status bar, three trees away —
+ * the deleted bespoke version reached it with
+ * `document.querySelector('[data-testid=…]')`, and there is no honest ref to
+ * replace that with.
  */
 export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean): void {
   const restoreTargetRef = useRef<HTMLElement | null>(null);
   const wasActiveRef = useRef(false);
+  // `undefined` is the "not captured yet" sentinel, because `null` — nothing
+  // worth returning to — is a real captured value. Written on the first render
+  // only, and NOT through `useRef`'s initializer, which re-evaluates every
+  // render.
+  const openerRef = useRef<HTMLElement | null | undefined>(undefined);
+
+  // Where focus was when this surface came into being.
+  //
+  // `active` is not always the moment the surface appears. A panel with an
+  // entrance animation mounts first and flips `active` a frame later — the
+  // browser pane is rendered by `useReveal` as `shown={false}` so the fade has
+  // a painted frame to travel from, and only the next quiet frame turns it
+  // true. By then the pane's own DOM exists and its `autoFocus` child (the new
+  // tab page's search box) has taken focus, so the transition-time capture
+  // below correctly finds focus already inside the surface and the toggle that
+  // opened it is one commit out of reach. Reading it here, before this hook's
+  // container is committed at all, is what keeps it.
+  if (openerRef.current === undefined) openerRef.current = captureRestoreTarget(ref.current);
 
   // Captured during render, not in the effect, and only on the false→true
   // transition. A child's `autoFocus` is applied in React's commit phase, which
@@ -114,7 +163,7 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
   // flag it would capture something from mount time.
   if (active !== wasActiveRef.current) {
     wasActiveRef.current = active;
-    if (active) restoreTargetRef.current = captureRestoreTarget(ref.current);
+    if (active) restoreTargetRef.current = captureRestoreTarget(ref.current, openerRef.current);
   }
 
   useEffect(() => {
