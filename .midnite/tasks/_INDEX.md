@@ -49,7 +49,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | — | 45/99 | `█████░░░░░` | 45% | — | — |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 22/22 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phases/phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 90/91 | `██████████` | 99% | — | — |
-| [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | 🔄 WIP | — | 21/29 | `███████░░░` | 72% | — | — |
+| [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | 🔄 WIP | x1 | 21/49 | `████░░░░░░` | 43% | — | F, G |
 | [28 · Worktrees first, and the section tree that can say so](phases/phase-28-sidebar-section-tree.md) | ✅ DONE | — | 61/61 | `██████████` | 100% | — | — |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
 | [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | — | 54/68 | `████████░░` | 79% | — | — |
@@ -944,8 +944,17 @@ persistence — this is a read-only view over markdown a surface already has.*
   for keyboard invocation (landed 2026-08-28, merged locally — no PR/no remote).
 - ✅ **E** — a `markdown.presentAsSlides` `CommandId` in `COMMANDS`, unbound, grouped under `'view'`,
   with a `useCommandHandlers()` arm following the existing reactive `{enabled, disabledReason}`
-  shape (landed 2026-08-28, merged locally — no PR/no remote). Phase 29 is now feature-complete —
-  all five themes (A–E) have landed.
+  shape (landed 2026-08-28, merged locally — no PR/no remote). The palette Phase 23 later shipped
+  already consumes it, with a `LuSparkles` glyph rather than the button's `LuPresentation`.
+- ◻ **F** — the surfaces that arrived later (S): six of the nine `react-markdown` render sites in
+  `packages/app/src` have no Present button, because they post-date A–E. Four get one
+  (`issue-detail`, `version-notes-panel`, `pr-conversation`, `issue-conversation`);
+  `commit-message.tsx` explicitly does not. The claim rule is stated as a rule for the first time —
+  a surface claims `activeMarkdown` iff it renders one document-level body.
+- ◻ **G** — verification: run what is already written (S): every artifact the original Verification
+  list asked for exists on disk (4 e2e cases, 6 screenshot cases, four vitest files), so this is a
+  run-and-record theme plus the two real gaps — a fenced block whose contents contain a heading, and
+  `presentActive()` on an empty slot.
 
 ### [Phase 28 — Worktrees first, and the section tree that can say so](phases/phase-28-sidebar-section-tree.md)
 
