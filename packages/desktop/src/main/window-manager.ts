@@ -13,7 +13,7 @@ import { BrowserWindow, app, screen, shell, type Display, type WebContents } fro
 
 import { reparentBrowserTabs } from './browser-service';
 import type { Logger } from './log';
-import { attachWindowChrome, windowFrameless } from './window-chrome';
+import { attachWindowChrome, TRAFFIC_LIGHT_POSITION, windowFrameless } from './window-chrome';
 import type { WindowBounds, WindowsStore } from './windows-store';
 
 /** Vite's dev server, matching `window.ts`'s own constant. */
@@ -247,7 +247,7 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
     show: false,
     backgroundColor: INITIAL_BACKGROUND,
     ...(frameless
-      ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 16, y: 16 } }
+      ? { titleBarStyle: 'hidden' as const, trafficLightPosition: TRAFFIC_LIGHT_POSITION }
       : {}),
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
