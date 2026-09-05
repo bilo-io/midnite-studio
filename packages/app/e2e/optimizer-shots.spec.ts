@@ -76,7 +76,7 @@ async function openOptimizer(page: Page): Promise<void> {
   }).toPass({ timeout: 12000 });
 }
 
-const tab = (page: Page, name: 'Smart Scan' | 'Storage' | 'GPU') =>
+const tab = (page: Page, name: 'Smart Scan' | 'Storage' | 'Memory' | 'GPU') =>
   page.getByRole('navigation', { name: 'Optimizer tabs' }).getByRole('button', { name, exact: true });
 
 /** Same two-step dark sequence every `*-shots.spec.ts` dark case uses: emulate BEFORE navigation (persists across it), add the class AFTER (needs the loaded document). */
@@ -128,6 +128,29 @@ test.describe('optimizer screenshots', () => {
     await expect(page.getByRole('img', { name: 'Reclaimable storage by category' })).toBeVisible();
     await paintDark(page);
     await page.screenshot({ path: `${OUT}/optimizer-storage-dark.png` });
+  });
+
+  /*
+   * Memory is Theme D, out of scope for this batch — but Theme F's own
+   * checklist asks for all four tabs, light and dark, and the placeholder
+   * `optimizer-page.tsx` currently shows is itself the honest state of this
+   * tab today, worth documenting rather than skipping.
+   */
+  test('Memory (placeholder), light', async ({ page }) => {
+    await openOptimizer(page);
+    await tab(page, 'Memory').click();
+    await expect(page.getByText('The Memory tab lands in a follow-up phase.')).toBeVisible();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.screenshot({ path: `${OUT}/optimizer-memory-placeholder-light.png` });
+  });
+
+  test('Memory (placeholder), dark', async ({ page }) => {
+    await goDark(page);
+    await openOptimizer(page);
+    await tab(page, 'Memory').click();
+    await expect(page.getByText('The Memory tab lands in a follow-up phase.')).toBeVisible();
+    await paintDark(page);
+    await page.screenshot({ path: `${OUT}/optimizer-memory-placeholder-dark.png` });
   });
 
   test('GPU, light', async ({ page }) => {
