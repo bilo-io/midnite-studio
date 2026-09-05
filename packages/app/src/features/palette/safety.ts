@@ -21,6 +21,9 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   'repos.toggle',
   'browser.toggle',
   'fab.toggle',
+  // Opens the Notes modal — a UI toggle, not a data change, same
+  // recoverability class as `fab.toggle`/`browser.toggle` beside it.
+  'notes.toggle',
   'repo.open',
   'repo.close',
   'view.refresh',

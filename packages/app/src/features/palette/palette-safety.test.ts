@@ -11,6 +11,16 @@ describe('palette safety allowlist', () => {
     expect(isPaletteSafe('file.save')).toBe(true);
   });
 
+  // Phase 58 Theme F: chord-free, so the palette is its only keyboard route.
+  it('allows notes.toggle, which has no chord of its own', () => {
+    expect(isPaletteSafe('notes.toggle')).toBe(true);
+    expect(COMMANDS.find((c) => c.id === 'notes.toggle')).toMatchObject({
+      label: 'Notes',
+      group: 'view',
+    });
+    expect(COMMANDS.find((c) => c.id === 'notes.toggle')).not.toHaveProperty('chord');
+  });
+
   it('contains no destructive or reset/operation family commands', () => {
     // Operation commands like op.abort and op.continue are not safe / unbound
     expect(PALETTE_SAFE).not.toContain('op.abort');
