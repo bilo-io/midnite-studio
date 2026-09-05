@@ -26,7 +26,15 @@ export type PopoutRole =
   | 'actions'
   | 'changes'
   | 'files'
-  | 'database';
+  | 'database'
+  | 'dashboard'
+  | 'search'
+  | 'tests'
+  | 'projects'
+  | 'reviews'
+  | 'issues'
+  | 'history'
+  | 'optimizer';
 
 export type MockFixtures = {
   /**
