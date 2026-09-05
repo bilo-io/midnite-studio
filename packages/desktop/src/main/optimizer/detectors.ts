@@ -4,8 +4,9 @@ import type { Ecosystem, ReclaimCost, ScanCategory } from '@midnite/studio-share
 
 /**
  * The Optimizer's detector catalogue (Phase 72 Themes A & B) — replaces the
- * basename-only `BuildArtifactPattern` list `scan-service.ts` used to seed
- * `classify` with. The scanner (`scan-service.ts`) and this catalogue change
+ * basename-only pattern list `scan-service.ts` used to seed
+ * `classify` with (Phase 59's three-entry `DEFAULT_BUILD_ARTIFACT_PATTERNS`,
+ * now deleted). The scanner (`scan-service.ts`) and this catalogue change
  * for different reasons and at different rates: the walker is
  * security-critical machinery, the catalogue is a list that grows every time
  * someone uses a new build tool. This module imports nothing from
