@@ -4,6 +4,8 @@ import type { CommandId } from '@midnite/studio-shared';
 
 import { useDialogs } from '../../components/dialog-host';
 import { activePanelBack, activePanelForward } from '../../components/panel-stack/active-panel';
+import { devServerUrl } from '../../features/browser/dev-server';
+import { useDevServer } from '../../features/browser/use-dev-server';
 import { useGraphStore } from '../../features/graph/graph-store';
 import { useSlidesStore } from '../../features/slides/slides-store';
 import { syncAffordances } from '../../features/status/sync-availability';
@@ -18,6 +20,7 @@ import { useUiStore, type ViewId } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { useWorkflowRunCommandStore } from '../../store/workflow-run-command-store';
 import { bridge } from '../bridge';
+import { openInMidnite } from '../open-in-midnite';
 import { useCloseRepo, usePickAndOpenRepo, useRepos } from '../queries';
 import { useFetch, usePull, usePush, useStatus } from '../use-status';
 import { invalidateForWatchKind } from '../watch-invalidation';
@@ -57,6 +60,7 @@ export function useCommandHandlers(): CommandRuntime {
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const activeView = useUiStore((s) => s.activeView);
   const browserOpen = useUiStore((s) => s.browserOpen);
+  const devServer = useDevServer();
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const reposOpen = useUiStore((s) => s.reposOpen);
@@ -164,6 +168,26 @@ export function useCommandHandlers(): CommandRuntime {
       Settings ▸ Browser shows and undoes it.
     */
     'link.toggleTarget': { enabled: true, run: () => useUiStore.getState().toggleLinkTarget() },
+    /*
+      Phase 71 Theme C. Forced `target: 'in-app'` and tagged with the repo it
+      was detected for: a dev server is the one URL whose whole point is the
+      embedded pane beside the code, and honouring a "system browser"
+      preference here would send it to Safari for no gain.
+
+      Disabled — and, uniquely, HIDDEN from the palette rather than greyed out
+      (`providers.ts`) — when nothing was detected. Detection is a hint, and an
+      offer to open a port that is not listening is worse than no offer.
+    */
+    'browser.openDevServer': devServer
+      ? {
+          enabled: true,
+          run: () =>
+            openInMidnite(devServerUrl(devServer), {
+              target: 'in-app',
+              ...(selectedRepoId ? { originRepoId: selectedRepoId } : {}),
+            }),
+        }
+      : { enabled: false, disabledReason: 'No dev server detected', run: () => {} },
     /*
       Multi-window (Phase 55). `detach<Role>` is enabled only while that panel
       is docked — a detached panel's row is disabled with the standard

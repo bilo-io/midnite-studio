@@ -8,7 +8,7 @@ import { useFocusTrap } from '../../components/use-focus-trap';
 import { motionMs } from '../../components/use-reveal';
 import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
-import { useBrowserStore } from '../../store/browser-store';
+import { useBrowserStore, type BrowserViewportPreset } from '../../store/browser-store';
 import { BROWSER_LAYOUT_OPTIONS } from './browser-layouts';
 import { BrowserLayoutIllustration } from './layout-illustration';
 import { BrowserTabStrip } from './tab-strip';
@@ -146,7 +146,12 @@ export function BrowserPane({
   */
 
   const [findOpen, setFindOpen] = useState(false);
-  const [viewportPreset, setViewportPreset] = useState<'full' | '390' | '834' | '1280'>('full');
+  /*
+    Per tab and persisted (Phase 71 Theme C), where this was component-local
+    `useState` and reset every time the pane closed. A tab restored from a
+    pre-Phase-71 blob carries no preset, which reads as `'full'`.
+  */
+  const viewportPreset = activeTab?.viewportPreset ?? 'full';
   const browserLayout = useUiStore((s) => s.browserLayout);
   const fullScreen = browserLayout === 'full';
 
@@ -237,7 +242,13 @@ export function BrowserPane({
         <select
           aria-label="Responsive viewport preset"
           value={viewportPreset}
-          onChange={(e) => setViewportPreset(e.target.value as 'full' | '390' | '834' | '1280')}
+          disabled={!activeTab}
+          onChange={(e) =>
+            activeTab &&
+            useBrowserStore
+              .getState()
+              .setViewportPreset(activeTab.id, e.target.value as BrowserViewportPreset)
+          }
           className="rounded border border-border bg-card px-2 py-1 text-xs text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <option value="full">Full width</option>
@@ -298,6 +309,24 @@ export function BrowserPane({
           onClick={() => useUiStore.getState().setBrowserOpen(false)}
         />
       </div>
+
+      {/*
+        The emulation limit, written where a user sees it rather than only in
+        a comment (Phase 71 Theme C). The preset changes WIDTH ONLY:
+        `devicePixelRatio` and the user-agent string are untouched, so a page
+        that branches on either is not fooled by it. True device emulation
+        needs `Emulation.setDeviceMetricsOverride` through the debugger
+        protocol and is deliberately out of scope — a control that silently
+        did half of what its label implied would be worse than one that says
+        so. Shown only while a preset is active: with no constraint applied
+        there is no limit to warn about.
+      */}
+      {viewportPreset !== 'full' ? (
+        <p className="shrink-0 border-b border-border px-3 py-1 text-[11px] text-muted-foreground">
+          Width only — the device pixel ratio and user agent are unchanged, so a page that
+          branches on either still sees a desktop.
+        </p>
+      ) : null}
 
       <div
         ref={bodyRef}

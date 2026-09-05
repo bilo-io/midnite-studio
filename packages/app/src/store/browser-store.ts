@@ -21,6 +21,19 @@ import { adoptRenamedPersistKey } from './persist-rename';
 /** What a tab shows before anything has loaded — no view is mounted for one (Theme F owns its content). */
 export type BrowserTabKind = 'newtab' | 'page';
 
+/**
+ * The responsive width the pane renders a tab at (Phase 71 Theme C).
+ *
+ * Per tab, not global: one tab checking a mobile layout should not narrow the
+ * others. Phase 32 shipped this as component-local `useState`, so it reset
+ * every time the pane closed — which for a control whose whole use is
+ * "keep looking at this page narrow" is the one thing it must not do.
+ *
+ * The values are the widths themselves, as strings, because that is what the
+ * `<select>` and the style both want. `'full'` means no constraint at all.
+ */
+export type BrowserViewportPreset = 'full' | '390' | '834' | '1280';
+
 export type BrowserTab = {
   id: string;
   kind: BrowserTabKind;
@@ -38,6 +51,12 @@ export type BrowserTab = {
   groupId?: string | null;
   /** The repo this tab was opened from, if any — drives its derived group. */
   originRepoId?: string;
+  /**
+   * Responsive width preset — see {@link BrowserViewportPreset}. Absent on a
+   * tab created before this existed (and on every tab restored from a
+   * pre-Phase-71 persisted blob), which reads as `'full'`.
+   */
+  viewportPreset?: BrowserViewportPreset;
   /**
    * The view's process crashed or stopped answering (Theme A). Kept as tab
    * state rather than swallowed, so the pane can offer a reload instead of
@@ -157,6 +176,8 @@ type BrowserState = {
   ungroupKeepTabs: (groupId: string) => void;
   /** Closes every tab in a manual OR derived group, addressed by its effective id. */
   closeTabsInGroup: (targetGroupId: string) => void;
+  /** The pane's width picker (Phase 71 Theme C) — per tab, and persisted with it. */
+  setViewportPreset: (tabId: string, preset: BrowserViewportPreset) => void;
 };
 
 /**
@@ -347,6 +368,11 @@ export const useBrowserStore = create<BrowserState>()(
         set((state) => ({
           groups: state.groups.filter((g) => g.id !== groupId),
           tabs: state.tabs.map((tab) => (tab.groupId === groupId ? { ...tab, groupId: undefined } : tab)),
+        })),
+
+      setViewportPreset: (tabId, viewportPreset) =>
+        set((state) => ({
+          tabs: state.tabs.map((tab) => (tab.id === tabId ? { ...tab, viewportPreset } : tab)),
         })),
 
       closeTabsInGroup: (targetGroupId) =>
