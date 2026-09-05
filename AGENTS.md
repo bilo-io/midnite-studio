@@ -172,10 +172,14 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   whenever the window is focused, xterm included. They displaced `view.refresh` and `sync.fetch`,
   which are now declared with **no chord** — and a menu or palette label for a chord-free command
   has to come from `COMMANDS`, not `DEFAULT_KEYMAP` (which drops them), or it renders as the raw id.
-  **The "L" pair is `Mod+l` = `fab.toggle` (the Loops panel) and `Mod+Shift+l` = `app.lock`** — the
-  same letter one modifier apart, replacing `Mod+m` and `Mod+Alt+l`. `fab.toggle` joins the reload
+  **The "L" pair is `Mod+l` = `fab.toggle` (the quick-access menu) and `Mod+Shift+l` = `app.lock`**
+  — the same letter one modifier apart, replacing `Mod+m` and `Mod+Alt+l`. Phase 58 Theme E put a
+  menu behind `Mod+l` instead of opening the Loops panel directly — Loops, Notes, and two disabled
+  future leaves, each one single-letter mnemonic away (`L`/`N`/`I`/`G`) once the menu is open — so
+  Loops is now `Mod+l` then `L`, one keystroke further than before. `fab.toggle` joins the reload
   pair and `panel.back`/`panel.forward` in `TERMINAL_YIELD_COMMANDS` for the identical reason:
-  `Mod` is Ctrl off macOS, and `Ctrl+L` is every shell's clear-screen.
+  `Mod` is Ctrl off macOS, and `Ctrl+L` is every shell's clear-screen. Notes' own chord-free
+  `notes.toggle` is not in that list — a chord-free command has nothing to yield.
   **Each rail item that has a chord shows it on hover, and shows *only* it** —
   [`components/nav-chords.ts`](packages/app/src/components/nav-chords.ts) maps a `ViewId` to a
   `CommandId` (never a chord literal), and `app.tsx`'s `ViewLink` wraps the row in `<Tooltip
