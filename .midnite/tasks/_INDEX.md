@@ -85,7 +85,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 52/72 | `███████░░░` | 72% | — | G |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ✅ DONE | x1 | 32/32 | `██████████` | 100% | — | — |
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | ✅ DONE | — | 29/33 | `█████████░` | 88% | — | — |
-| [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 41/94 | `████░░░░░░` | 44% | F I | C G H J |
+| [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 41/94 | `████░░░░░░` | 44% | — | C G H J |
 | [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | ✅ DONE | — | 28/34 | `████████░░` | 82% | — | — |
 | [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | ✅ DONE | x1 | 70/70 | `██████████` | 100% | — | — |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | 🔄 WIP | x1 | 0/78 | `░░░░░░░░░░` | 0% | A B C D | E F G |
@@ -242,10 +242,10 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 - ◻ **C** — SQLite (**M, was S**): six packaging edits — `dependencies` not dev, esbuild `external`, `rebuild-native --only` list, `asarUnpack`, an unpacked-path `require` fallback, and the `verify-dist` native assertion that does not exist today. Gated on Decision 6, which recommends `node:sqlite` instead.
 - ◻ **D** — IPC + vault: `register`/`configure` split (handlers register *before* `userData` exists), trust-store's shape with real zod, first `safeStorage` use — but the app already has a plaintext key in localStorage that names `safeStorage` as what it skipped — plus `'query'` in `StreamKind` **and** `POLICY`, and a batch producer mirroring `log-service.ts`.
 - ◻ **E** — Nav + shell (**M, was S**): adding a `ViewId` is **17 sites**, seven compiler-enforced and ten silent — including `VIEW_IDS`, which routing derives from. The render arm must sit **above** the `!selectedRepoId` guard, because a database connection is not repo-scoped.
-- ◻ **F** — Schema tree: `TreeSection` supplies chrome only and fights lazy loading (`<Collapse>` keeps children mounted), so the consumer ANDs both fold states into `enabled`; `depth` is capped at 4 levels, which is exactly what a schema tree needs.
+- ✅ **F** (PR #173, 2026-09-05) — Schema tree: `TreeSection` supplies chrome only and fights lazy loading (`<Collapse>` keeps children mounted), so the consumer ANDs both fold states into `enabled`; `depth` is capped at 4 levels, which is exactly what a schema tree needs.
 - ◻ **G** — Query tabs (**L, was M**): a `'query'` arm carrying no `repoId` — which breaks `closeRepoTabs` and Phase 28's pruning — plus the `+` button `TabStrip` has never had, and a `●` in its `stats` slot. Decision 7 recommends **not** scoping the store.
 - ◻ **H** — Results grid: rows stream in by subscription with stale-batch discard, `truncated` rendered visibly, parameterised PK-keyed `UPDATE`s in one transaction with their staleness re-read, editing refused on joins and PK-less tables, and CSV via the `Blob` + `<a download>` precedent that settled policy against a new IPC channel.
-- ◻ **I** — Destructive gate: **not** `blastRadius`, whose type is git-shaped (`{sha, subject}[]`) — the row estimate goes in `warnings`, and `WITH … DELETE` is the sniffer's must-not-fail case.
+- ✅ **I** (PR #173, 2026-09-05) — Destructive gate: **not** `blastRadius`, whose type is git-shaped (`{sha, subject}[]`) — the row estimate goes in `warnings`, and `WITH … DELETE` is the sniffer's must-not-fail case.
 - ◻ **J** — Suites + CI: four Playwright specs, shots through Phase 56 Theme G's shared helper, and three providers as service containers with MSSQL manual (Decision 5, now settled).
 
 ### [Phase 60 — A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md)
