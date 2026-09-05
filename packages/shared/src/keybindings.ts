@@ -300,38 +300,84 @@ export const GLOBAL_CHORDS: readonly string[] = DEFAULT_KEYMAP.filter(
 ).map((b) => b.chord);
 
 /**
- * Commands whose chord must yield to the shell when xterm owns the keyboard.
+ * A root element selector, and the commands whose chord must yield to
+ * whatever is focused inside it rather than firing app-wide.
  *
- * The dispatcher grabs every bound chord app-wide, terminal focus included —
- * `scope` only governs xterm's own escape allow-list, so `app` is not, on its
- * own, "the terminal keeps this". For nearly every command that is right:
- * `Mod+1` should still jump to the Graph from inside a shell. The reload pair
- * is the exception, in both directions at once. `Mod` is Ctrl off macOS, and
- * `Ctrl+R` there is readline's reverse-i-search — the single most-used
- * keystroke a shell owns — and the command it would fire instead throws the
- * whole renderer away mid-command. So these two, and only these two, fall
- * through to the terminal when that is what has focus; the title bar's reload
- * button and the palette are both still one gesture away.
- *
- * `panel.back`/`panel.forward` (Phase 42 Theme D) join them for the identical
- * reason: `Mod+[` off macOS is `Ctrl+[`, which is `ESC` in every terminal —
- * the docked Terminal panel can be open regardless of which view is active,
- * so Councils being the active view is not enough on its own to know the
- * keystroke was meant for the panel rather than the shell sitting behind it.
- *
- * `fab.toggle` joins them the day it took `Mod+l`: `Ctrl+L` is clear-screen in
- * every shell, and a loop panel is never what someone reaching for it mid-
- * command meant. On macOS, where `Mod` is Cmd, the yield costs nothing —
- * `Ctrl+L` was never the chord there in the first place.
+ * Phase 64 Theme D generalised this from a single hard-coded `.xterm` check
+ * (`insideTerminal` in `use-keybindings.ts`) into a small registry — Monaco
+ * needed its OWN, different yield set, and `|| target.closest('.monaco-
+ * editor')` bolted onto `insideTerminal` would have made Monaco swallow
+ * `fab.toggle`/`window.detachActive` too, which it should not, while still not
+ * letting it keep the chords it actually needs (`Mod+d`, `Mod+/`, …).
+ * `landing-carousel.tsx:80-85`'s own multi-root selector list is the in-repo
+ * precedent this shape generalises toward.
  */
-export const TERMINAL_YIELD_COMMANDS: readonly CommandId[] = [
-  'app.reload',
-  'app.hardReload',
-  'panel.back',
-  'panel.forward',
-  'fab.toggle',
-  'window.detachActive',
+export type YieldRoot = { selector: string; commands: readonly CommandId[] };
+
+export const YIELD_ROOTS: readonly YieldRoot[] = [
+  {
+    selector: '.xterm',
+    /**
+     * The dispatcher grabs every bound chord app-wide, terminal focus
+     * included — `scope` only governs xterm's own escape allow-list, so `app`
+     * is not, on its own, "the terminal keeps this". For nearly every command
+     * that is right: `Mod+1` should still jump to the Graph from inside a
+     * shell. The reload pair is the exception, in both directions at once.
+     * `Mod` is Ctrl off macOS, and `Ctrl+R` there is readline's
+     * reverse-i-search — the single most-used keystroke a shell owns — and
+     * the command it would fire instead throws the whole renderer away
+     * mid-command. So these two, and only these two, fall through to the
+     * terminal when that is what has focus; the title bar's reload button
+     * and the palette are both still one gesture away.
+     *
+     * `panel.back`/`panel.forward` (Phase 42 Theme D) join them for the
+     * identical reason: `Mod+[` off macOS is `Ctrl+[`, which is `ESC` in
+     * every terminal — the docked Terminal panel can be open regardless of
+     * which view is active, so Councils being the active view is not enough
+     * on its own to know the keystroke was meant for the panel rather than
+     * the shell sitting behind it.
+     *
+     * `fab.toggle` joins them the day it took `Mod+l`: `Ctrl+L` is
+     * clear-screen in every shell, and a loop panel is never what someone
+     * reaching for it mid-command meant. On macOS, where `Mod` is Cmd, the
+     * yield costs nothing — `Ctrl+L` was never the chord there in the first
+     * place.
+     */
+    commands: [
+      'app.reload',
+      'app.hardReload',
+      'panel.back',
+      'panel.forward',
+      'fab.toggle',
+      'window.detachActive',
+    ],
+  },
+  {
+    selector: '.monaco-editor',
+    /**
+     * Phase 64 Theme D — Monaco's own yield set: `Mod+d` (add selection to
+     * next match), `Mod+/` (toggle comment), `Mod+[`/`Mod+]` (outdent/
+     * indent) and `Mod+Enter` (insert line below). Only `panel.back`
+     * (`Mod+[`), `panel.forward` (`Mod+]`) and `status.commit` (`Mod+Enter`)
+     * need an entry HERE — `use-keybindings.ts:90`'s capture-phase `window`
+     * listener only ever contests a chord that some `CommandId` is actually
+     * bound to. `Mod+d` and `Mod+/` bind to nothing in `DEFAULT_KEYMAP`
+     * (same reasoning the doc gives for `Mod+f`, which also needs no entry:
+     * `search.open` is `Mod+Shift+f`), so the dispatcher already finds no
+     * candidate for them and does nothing — Monaco gets all five unopposed.
+     */
+    commands: ['panel.back', 'panel.forward', 'status.commit'],
+  },
 ];
+
+/**
+ * The legacy flat alias, derived from `YIELD_ROOTS`'s `.xterm` entry — kept
+ * because it is exported and named in `menu.ts`'s doc comment, and because
+ * `use-keybindings.ts`'s allow-list check reads more plainly against a flat
+ * list at its one remaining call site.
+ */
+export const TERMINAL_YIELD_COMMANDS: readonly CommandId[] =
+  YIELD_ROOTS.find((root) => root.selector === '.xterm')!.commands;
 
 export const isCommandId = (value: string): value is CommandId =>
   (COMMAND_IDS as readonly string[]).includes(value);

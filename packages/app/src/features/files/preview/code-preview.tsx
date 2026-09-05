@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@bilo-io/ui/theme';
 import type { Highlighter, ThemedToken } from 'shiki';
 
-import { getHighlighter, HIGHLIGHT_THEME } from '../../../lib/highlighter';
+import { getHighlighter, resolveHighlightTheme } from '../../../lib/highlighter';
 import { useBlameStore } from './blame-store';
 import { FindBar } from './find-bar';
 
@@ -27,7 +27,7 @@ async function tokenizeLines(
   if (!language) {
     return null;
   }
-  const theme = HIGHLIGHT_THEME(dark);
+  const theme = await resolveHighlightTheme(highlighter, dark);
   const result = highlighter.codeToTokens(code, {
     lang: language as Parameters<Highlighter['codeToTokens']>[1]['lang'],
     theme,

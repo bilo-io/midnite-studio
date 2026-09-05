@@ -25,6 +25,7 @@ import {
   DEFAULT_TERMINAL_FONT_SIZE,
   DEFAULT_TERMINAL_LINE_HEIGHT,
 } from '../features/terminal/terminal-font';
+import { DEFAULT_EDITOR_FONT_SIZE, DEFAULT_EDITOR_TAB_SIZE } from '../lib/monaco/editor-prefs';
 import { EMPTY_PROJECT_ITEM_FILTER, type ProjectItemFilterState } from '../features/projects/filter';
 import { touchProjectView } from '../features/projects/project-view-lru';
 import type { SortState } from '../features/projects/sort';
@@ -1015,6 +1016,22 @@ export type UiState = {
   setTerminalFontSize: (fontSize: number) => void;
   terminalLineHeight: number;
   setTerminalLineHeight: (lineHeight: number) => void;
+  /**
+   * Phase 64 Theme C — the Files-view Monaco editor's own preferences,
+   * mirroring the terminal font trio above exactly. `editorFontFamily: ''` is
+   * this field's own "unset" state, resolved to `DEFAULT_EDITOR_FONT_FAMILY`
+   * by the editor rather than stored here, same reasoning as the terminal's.
+   */
+  editorFontFamily: string;
+  setEditorFontFamily: (fontFamily: string) => void;
+  editorFontSize: number;
+  setEditorFontSize: (fontSize: number) => void;
+  editorMinimap: boolean;
+  setEditorMinimap: (minimap: boolean) => void;
+  editorTabSize: number;
+  setEditorTabSize: (tabSize: number) => void;
+  editorWordWrap: boolean;
+  setEditorWordWrap: (wordWrap: boolean) => void;
   cycleDurationS: number;
   setCycleDuration: (seconds: number) => void;
   requirePasscode: boolean;
@@ -1198,6 +1215,11 @@ type PersistedUi = Pick<
   | 'terminalFontFamily'
   | 'terminalFontSize'
   | 'terminalLineHeight'
+  | 'editorFontFamily'
+  | 'editorFontSize'
+  | 'editorMinimap'
+  | 'editorTabSize'
+  | 'editorWordWrap'
   | 'cycleDurationS'
   | 'requirePasscode'
   | 'passcode'
@@ -1249,6 +1271,16 @@ export const useUiStore = create<UiState>()(
       setTerminalFontSize: (terminalFontSize) => set({ terminalFontSize }),
       terminalLineHeight: DEFAULT_TERMINAL_LINE_HEIGHT,
       setTerminalLineHeight: (terminalLineHeight) => set({ terminalLineHeight }),
+      editorFontFamily: '',
+      setEditorFontFamily: (editorFontFamily) => set({ editorFontFamily }),
+      editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
+      setEditorFontSize: (editorFontSize) => set({ editorFontSize }),
+      editorMinimap: false,
+      setEditorMinimap: (editorMinimap) => set({ editorMinimap }),
+      editorTabSize: DEFAULT_EDITOR_TAB_SIZE,
+      setEditorTabSize: (editorTabSize) => set({ editorTabSize }),
+      editorWordWrap: false,
+      setEditorWordWrap: (editorWordWrap) => set({ editorWordWrap }),
       cycleDurationS: 10,
       setCycleDuration: (cycleDurationS) => set({ cycleDurationS }),
       requirePasscode: false,
@@ -1640,7 +1672,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 8,
+      version: 9,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -1708,6 +1740,11 @@ export const useUiStore = create<UiState>()(
         terminalFontFamily: state.terminalFontFamily,
         terminalFontSize: state.terminalFontSize,
         terminalLineHeight: state.terminalLineHeight,
+        editorFontFamily: state.editorFontFamily,
+        editorFontSize: state.editorFontSize,
+        editorMinimap: state.editorMinimap,
+        editorTabSize: state.editorTabSize,
+        editorWordWrap: state.editorWordWrap,
         requirePasscode: state.requirePasscode,
         passcode: state.passcode,
         passcodeOnlyWhenLocked: state.passcodeOnlyWhenLocked,
@@ -1729,6 +1766,8 @@ export const useUiStore = create<UiState>()(
        * v6 → v7: seed `projectViewByProject` for existing installs.
        * v7 → v8: seed all four `*Detached` flags `false` — a persisted blob
        * from before Phase 55 has no popout to be detached from.
+       * v8 → v9: seed the five `editor*` preferences (Phase 64 Theme C) —
+       * a persisted blob from before this phase has none of them.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -1746,6 +1785,11 @@ export const useUiStore = create<UiState>()(
           reposDetached?: boolean;
           fabDetached?: boolean;
           browserDetached?: boolean;
+          editorFontFamily?: string;
+          editorFontSize?: number;
+          editorMinimap?: boolean;
+          editorTabSize?: number;
+          editorWordWrap?: boolean;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -1777,6 +1821,13 @@ export const useUiStore = create<UiState>()(
           state.reposDetached = false;
           state.fabDetached = false;
           state.browserDetached = false;
+        }
+        if (version < 9) {
+          state.editorFontFamily = '';
+          state.editorFontSize = DEFAULT_EDITOR_FONT_SIZE;
+          state.editorMinimap = false;
+          state.editorTabSize = DEFAULT_EDITOR_TAB_SIZE;
+          state.editorWordWrap = false;
         }
         return state as PersistedUi;
       },

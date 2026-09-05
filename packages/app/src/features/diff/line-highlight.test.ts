@@ -17,9 +17,10 @@ vi.mock('../../lib/highlighter', () => ({
   getHighlighter: async () => ({
     getLoadedLanguages: () => ['typescript'],
     loadLanguage: async () => undefined,
+    getLoadedThemes: () => ['github-dark'],
     codeToTokensBase: async (text: string) => [[{ content: text, color: '#abcdef' }]],
   }),
-  HIGHLIGHT_THEME: () => 'github-dark',
+  resolveHighlightTheme: async () => 'github-dark',
 }));
 
 const {

@@ -68,6 +68,7 @@ import { keys, useRemotes, useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useWindowSync } from './services/use-window-sync';
 import { useTestsStream } from './features/tests/use-tests-stream';
+import { usePaletteSync } from './features/themes/use-palette-sync';
 import { useAppearanceStore, useAppearanceSync } from './store/appearance-store';
 import { useFileEditorStore } from './store/file-editor-store';
 import {
@@ -1649,6 +1650,9 @@ export function App() {
   // The user's own appearance preferences, applied over the OS-derived motion
   // default above — an explicit `full`/`reduced` choice outranks the media query.
   useAppearanceSync();
+  // Phase 64 Theme B: the studio palette layer, orthogonal to light/dark —
+  // beside the appearance sync above, per the phase doc.
+  usePaletteSync();
   useUnsavedCloseGuard();
   // The window-lifetime `pty:activity` subscription — the session list's
   // glyphs must keep tracking rung changes while every TerminalView is
