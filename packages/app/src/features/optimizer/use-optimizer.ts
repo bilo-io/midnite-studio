@@ -75,6 +75,32 @@ export async function runOptimizerClean(paths: string[]): Promise<OptimizerClean
   return response.value;
 }
 
+/**
+ * Fetches the system-cache catalogue once (Phase 73 Theme B/C) — labels,
+ * producers and ecosystem only, no paths. `packages/app` may not import
+ * `packages/desktop`, so this channel is the only way the renderer ever
+ * learns what the registry covers; the consent dialog's and the settings
+ * page's enumerations both render from `useOptimizerStore`'s
+ * `systemCatalogue` rather than hardcoded prose.
+ *
+ * Wrapped in try/catch, unlike this file's other bridge calls: this is the
+ * one optimizer call a settings page mounts unconditionally whenever
+ * `optimizerEnabled` is on, so a bridge that has not yet wired the method
+ * (an older preload, or a test double) must leave the catalogue `null`
+ * rather than take the whole settings page down with an uncaught TypeError.
+ */
+export async function loadSystemCatalogue(): Promise<void> {
+  const api = bridge();
+  if (!api) return;
+  try {
+    const response = await api.optimizer.systemCatalogue();
+    if (response.ok) useOptimizerStore.getState().setSystemCatalogue(response.value);
+  } catch {
+    // Bridge method not present yet — leave `systemCatalogue` at its default
+    // `null`; callers already render an empty enumeration for that case.
+  }
+}
+
 export async function loadOptimizerGpu(): Promise<void> {
   const api = bridge();
   if (!api) return;
