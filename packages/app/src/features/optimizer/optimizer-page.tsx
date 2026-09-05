@@ -1,3 +1,4 @@
+import { MemoryTab } from './memory-tab';
 import { OptimizerLayout } from './optimizer-layout';
 import { GpuTab } from './gpu-tab';
 import { SmartScanTab } from './smart-scan-tab';
@@ -23,12 +24,7 @@ export function OptimizerPage() {
       ) : tab === 'gpu' ? (
         <GpuTab />
       ) : (
-        // Theme D (Memory & process monitor) lands in a follow-up batch —
-        // its own distinct blast radius (kill-any-process) is deliberately
-        // reviewed apart from this one, per the phase doc's Decision 14.
-        <p className="text-sm text-muted-foreground">
-          The Memory tab lands in a follow-up phase.
-        </p>
+        <MemoryTab />
       )}
     </OptimizerLayout>
   );

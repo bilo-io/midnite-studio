@@ -55,6 +55,10 @@ export type ProcessRow = {
    * argv for a name.
    */
   stat: string;
+  /** Resident memory in bytes (converted from ps's rss in KB). */
+  rssBytes: number;
+  /** CPU utilization percentage (from ps's pcpu). */
+  cpuPercent: number;
   /** The full command line, space-joined, exactly as `ps` printed it. */
   args: string;
 };
@@ -140,7 +144,7 @@ export async function readProcessRows(): Promise<ProcessRow[] | null> {
   const startedAt = performance.now();
   let ok = false;
   try {
-    const { stdout } = await exec('ps', ['-axo', 'pid=,ppid=,stat=,args='], {
+    const { stdout } = await exec('ps', ['-axo', 'pid=,ppid=,stat=,rss=,pcpu=,args='], {
       timeout: PS_TIMEOUT_MS,
       maxBuffer: PS_MAX_BUFFER,
     });
@@ -155,27 +159,46 @@ export async function readProcessRows(): Promise<ProcessRow[] | null> {
 }
 
 /**
- * `  1234  1200 S+   /bin/zsh -l` → `{ pid: 1234, ppid: 1200, stat: 'S+', args: '/bin/zsh -l' }`.
+ * `  1234  1200 S+  1024  0.0  /bin/zsh -l` → `{ pid: 1234, ppid: 1200, stat: 'S+', rssBytes: 1048576, cpuPercent: 0.0, args: '/bin/zsh -l' }`.
  *
  * Header-suppressed `ps` pads its numeric columns with leading spaces, so the
  * leading `\s*` is load-bearing rather than defensive. A line that does not
  * start with two integers and a STAT token is skipped rather than guessed
  * at — a wrapped argv or a stray banner has no pid, and inventing one would
- * attach a real command line to the wrong parent. Four columns, always: a
- * parser that tolerated three (pre-Theme-E output with no STAT) would be a
- * trap the next column change springs the same way.
+ * attach a real command line to the wrong parent. Supports the 6-column
+ * layout (`pid,ppid,stat,rss,pcpu,args`) with backward-compatibility for
+ * 4-column test fixtures (`pid,ppid,stat,args`).
  */
 export function parsePsOutput(output: string): ProcessRow[] {
   const rows: ProcessRow[] = [];
   for (const line of output.split('\n')) {
-    const match = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/.exec(line);
-    if (!match) continue;
-    const args = match[4]?.trim() ?? '';
+    // 6 columns: pid, ppid, stat, rss (in KB), pcpu (percentage), args
+    const match6 = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+([\d.]+)\s+(.*)$/.exec(line);
+    if (match6) {
+      const args = match6[6]?.trim() ?? '';
+      if (args === '') continue;
+      rows.push({
+        pid: Number(match6[1]),
+        ppid: Number(match6[2]),
+        stat: match6[3] ?? '',
+        rssBytes: Number(match6[4]) * 1024,
+        cpuPercent: Number(match6[5]),
+        args,
+      });
+      continue;
+    }
+
+    // 4 columns fallback: pid, ppid, stat, args
+    const match4 = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/.exec(line);
+    if (!match4) continue;
+    const args = match4[4]?.trim() ?? '';
     if (args === '') continue;
     rows.push({
-      pid: Number(match[1]),
-      ppid: Number(match[2]),
-      stat: match[3] ?? '',
+      pid: Number(match4[1]),
+      ppid: Number(match4[2]),
+      stat: match4[3] ?? '',
+      rssBytes: 0,
+      cpuPercent: 0,
       args,
     });
   }
@@ -464,4 +487,27 @@ export function commandLabel(args: string): string {
   return full.length <= COMMAND_LABEL_MAX
     ? full
     : `${full.slice(0, COMMAND_LABEL_MAX - 1)}…`;
+}
+
+/**
+ * Whether a process was spawned by this app — either its own process,
+ * a terminal/agent pty shell, or any descendant of either.
+ *
+ * Sourced from the pty/agent session registry (see Decision 10).
+ */
+export function isOurProcess(
+  pid: number,
+  rows: readonly ProcessRow[],
+  ptyRootPids: readonly number[],
+  midnitePid: number = process.pid,
+): boolean {
+  if (pid === midnitePid) return true;
+  if (ptyRootPids.includes(pid)) return true;
+
+  const roots = new Set<number>([midnitePid, ...ptyRootPids]);
+  for (const root of roots) {
+    const descendants = descendantsOf(rows, root);
+    if (descendants.some((d) => d.row.pid === pid)) return true;
+  }
+  return false;
 }

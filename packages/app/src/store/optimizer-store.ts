@@ -1,4 +1,4 @@
-import type { GpuStats, ProcessInfo, ScanResult } from '@midnite/studio-shared';
+import type { GpuStats, MemoryBreakdown, ProcessInfo, ScanResult } from '@midnite/studio-shared';
 import { create } from 'zustand';
 
 /**
@@ -36,6 +36,10 @@ export type OptimizerState = {
 
   processes: ProcessInfo[];
   setProcesses: (processes: ProcessInfo[]) => void;
+  removeProcess: (pid: number) => void;
+
+  memory: MemoryBreakdown | null;
+  setMemory: (memory: MemoryBreakdown | null) => void;
 
   gpu: GpuStats | null;
   setGpu: (gpu: GpuStats | null) => void;
@@ -73,6 +77,13 @@ export const useOptimizerStore = create<OptimizerState>((set) => ({
 
   processes: [],
   setProcesses: (processes) => set({ processes }),
+  removeProcess: (pid) =>
+    set((state) => ({
+      processes: state.processes.filter((p) => p.pid !== pid),
+    })),
+
+  memory: null,
+  setMemory: (memory) => set({ memory }),
 
   gpu: null,
   setGpu: (gpu) => set({ gpu }),

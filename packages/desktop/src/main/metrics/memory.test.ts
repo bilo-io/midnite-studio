@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { freememFallback, memoryUsedBytes, parseVmStat } from './memory';
+import { detailedMemoryReading, freememFallback, memoryUsedBytes, parseVmStat } from './memory';
 
 /**
  * Captured `vm_stat` output from an Apple Silicon machine — **16384-byte
@@ -111,3 +111,27 @@ describe('freememFallback', () => {
     expect(freememFallback(0, 0)).toBeUndefined();
   });
 });
+
+describe('detailedMemoryReading', () => {
+  it('computes wired, active, compressed, cached, and free bytes', () => {
+    const stat = parseVmStat(APPLE_SILICON)!;
+    const totalBytes = 32 * 1024 * 1024 * 1024; // 32 GB
+    const detailed = detailedMemoryReading(stat, totalBytes);
+
+    expect(detailed).toBeDefined();
+    expect(detailed?.totalBytes).toBe(totalBytes);
+    expect(detailed?.wiredBytes).toBe(131072 * 16384);
+    expect(detailed?.activeBytes).toBe((655360 - 16384) * 16384);
+    expect(detailed?.compressedBytes).toBe(65536 * 16384);
+    expect(detailed?.cachedBytes).toBe((262144 + 16384) * 16384);
+    expect(detailed?.freeBytes).toBe((9217 + 14006) * 16384);
+    expect(detailed?.usedBytes).toBe(
+      (detailed?.wiredBytes ?? 0) + (detailed?.activeBytes ?? 0) + (detailed?.compressedBytes ?? 0),
+    );
+  });
+
+  it('returns undefined if required fields are missing', () => {
+    expect(detailedMemoryReading({ pageSize: 4096 }, 1000)).toBeUndefined();
+  });
+});
+

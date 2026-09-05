@@ -216,4 +216,8 @@ export function inprocKillAllPtys(): void {
   for (const id of [...sessions.keys()]) inprocKillPty(id);
 }
 
+export function inprocActivePtyPids(): number[] {
+  return [...sessions.values()].map((s) => s.pty.pid);
+}
+
 export const inprocPtySessionCount = (): number => sessions.size;

@@ -58,6 +58,23 @@ export const ProcessInfoSchema = z.object({
 });
 export type ProcessInfo = z.infer<typeof ProcessInfoSchema>;
 
+export const MemoryBreakdownSchema = z.object({
+  totalBytes: z.number().nonnegative(),
+  usedBytes: z.number().nonnegative(),
+  wiredBytes: z.number().nonnegative(),
+  activeBytes: z.number().nonnegative(),
+  compressedBytes: z.number().nonnegative(),
+  cachedBytes: z.number().nonnegative(),
+  freeBytes: z.number().nonnegative(),
+});
+export type MemoryBreakdown = z.infer<typeof MemoryBreakdownSchema>;
+
+export const ProcessTableResultSchema = z.object({
+  processes: z.array(ProcessInfoSchema),
+  memory: MemoryBreakdownSchema.nullable(),
+});
+export type ProcessTableResult = z.infer<typeof ProcessTableResultSchema>;
+
 /** No temperature field — settled in code since Phase 18 (`metrics/gpu.ts`). */
 export const GpuStatsSchema = z.object({
   model: z.string().nullable(),

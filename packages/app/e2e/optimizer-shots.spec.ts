@@ -17,6 +17,7 @@ import {
  * Run with `MSTUDIO_SHOTS=1`; skipped otherwise, matching `workflows-shots.spec.ts`.
  */
 const OUT = '../../docs/screenshots/p59-abce';
+const OUT_DF = '../../docs/screenshots/p59-df';
 
 const SCAN_RESULT = {
   totalBytes: 2_400_000_000,
@@ -51,7 +52,63 @@ const SCAN_RESULT = {
 
 const GPU_STATS = { model: 'Apple M2 Pro', vramBytes: 16 * 1024 * 1024 * 1024, loadPercent: 42 };
 
-const data: MockFixtures = { optimizer: { scanResult: SCAN_RESULT, gpu: GPU_STATS } };
+const MEMORY_BREAKDOWN = {
+  totalBytes: 32 * 1024 * 1024 * 1024,
+  usedBytes: 18 * 1024 * 1024 * 1024,
+  wiredBytes: 4 * 1024 * 1024 * 1024,
+  activeBytes: 9 * 1024 * 1024 * 1024,
+  compressedBytes: 2 * 1024 * 1024 * 1024,
+  cachedBytes: 3 * 1024 * 1024 * 1024,
+  freeBytes: 14 * 1024 * 1024 * 1024,
+};
+
+const PROCESSES = [
+  {
+    pid: 48210,
+    ppid: 1,
+    name: 'claude',
+    argv: 'claude --session-id ses-391a --model opus',
+    rssBytes: 1_240_000_000,
+    cpuPercent: 18.4,
+    ours: true,
+  },
+  {
+    pid: 48215,
+    ppid: 1,
+    name: 'node vite',
+    argv: 'node /Users/bilo/Dev/midnite-studio/node_modules/vite/bin/vite.js',
+    rssBytes: 680_000_000,
+    cpuPercent: 2.1,
+    ours: true,
+  },
+  {
+    pid: 3102,
+    ppid: 1,
+    name: 'zsh',
+    argv: 'zsh -l',
+    rssBytes: 45_000_000,
+    cpuPercent: 0.0,
+    ours: true,
+  },
+  {
+    pid: 198,
+    ppid: 1,
+    name: 'WindowServer',
+    argv: '/System/Library/CoreServices/WindowServer -display',
+    rssBytes: 1_450_000_000,
+    cpuPercent: 14.8,
+    ours: false,
+  },
+];
+
+const data: MockFixtures = {
+  optimizer: {
+    scanResult: SCAN_RESULT,
+    gpu: GPU_STATS,
+    memory: MEMORY_BREAKDOWN,
+    processes: PROCESSES,
+  },
+};
 
 /** Directly into the persisted store, following `seedForgeWritesConsent`'s own precedent. */
 async function seedOptimizerEnabled(page: Page): Promise<void> {
@@ -130,27 +187,23 @@ test.describe('optimizer screenshots', () => {
     await page.screenshot({ path: `${OUT}/optimizer-storage-dark.png` });
   });
 
-  /*
-   * Memory is Theme D, out of scope for this batch — but Theme F's own
-   * checklist asks for all four tabs, light and dark, and the placeholder
-   * `optimizer-page.tsx` currently shows is itself the honest state of this
-   * tab today, worth documenting rather than skipping.
-   */
-  test('Memory (placeholder), light', async ({ page }) => {
+  test('Memory, light', async ({ page }) => {
     await openOptimizer(page);
     await tab(page, 'Memory').click();
-    await expect(page.getByText('The Memory tab lands in a follow-up phase.')).toBeVisible();
+    await expect(page.getByText('Memory Used')).toBeVisible();
+    await expect(page.getByText('claude', { exact: true })).toBeVisible();
     await page.waitForTimeout(SETTLE_MS);
-    await page.screenshot({ path: `${OUT}/optimizer-memory-placeholder-light.png` });
+    await page.screenshot({ path: `${OUT_DF}/optimizer-memory-light.png` });
   });
 
-  test('Memory (placeholder), dark', async ({ page }) => {
+  test('Memory, dark', async ({ page }) => {
     await goDark(page);
     await openOptimizer(page);
     await tab(page, 'Memory').click();
-    await expect(page.getByText('The Memory tab lands in a follow-up phase.')).toBeVisible();
+    await expect(page.getByText('Memory Used')).toBeVisible();
+    await expect(page.getByText('claude', { exact: true })).toBeVisible();
     await paintDark(page);
-    await page.screenshot({ path: `${OUT}/optimizer-memory-placeholder-dark.png` });
+    await page.screenshot({ path: `${OUT_DF}/optimizer-memory-dark.png` });
   });
 
   test('GPU, light', async ({ page }) => {

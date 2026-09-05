@@ -8,9 +8,11 @@ import {
   commandLabel,
   descendantsOf,
   foregroundOf,
+  isOurProcess,
   matchAgentInArgv,
   matchRunningAgent,
   parsePsOutput,
+  type ProcessRow,
 } from './agent-process';
 
 /**
@@ -43,15 +45,28 @@ describe('parsePsOutput', () => {
     const parsed = parsePsOutput('    1     0 Ss  /sbin/launchd\n60000 59980 S+  /bin/zsh -l\n');
 
     expect(parsed).toEqual([
-      { pid: 1, ppid: 0, stat: 'Ss', args: '/sbin/launchd' },
-      { pid: 60_000, ppid: 59_980, stat: 'S+', args: '/bin/zsh -l' },
+      { pid: 1, ppid: 0, stat: 'Ss', rssBytes: 0, cpuPercent: 0, args: '/sbin/launchd' },
+      { pid: 60_000, ppid: 59_980, stat: 'S+', rssBytes: 0, cpuPercent: 0, args: '/bin/zsh -l' },
     ]);
   });
 
-  it('keeps the spaces inside a command line, splitting only the three leading columns', () => {
-    const [row] = parsePsOutput('60072 60000 S+  node /opt/homebrew/bin/codex --model gpt-5');
+  it('parses the widened 6-column layout with RSS in bytes and CPU percent', () => {
+    const parsed = parsePsOutput(
+      '    1     0 Ss    19680   0.0 /sbin/launchd\n60000 59980 S+     1024  12.5 /bin/zsh -l\n',
+    );
+
+    expect(parsed).toEqual([
+      { pid: 1, ppid: 0, stat: 'Ss', rssBytes: 19_680 * 1024, cpuPercent: 0.0, args: '/sbin/launchd' },
+      { pid: 60_000, ppid: 59_980, stat: 'S+', rssBytes: 1_024 * 1024, cpuPercent: 12.5, args: '/bin/zsh -l' },
+    ]);
+  });
+
+  it('keeps the spaces inside a command line, splitting only the leading columns', () => {
+    const [row] = parsePsOutput('60072 60000 S+  2048  1.5  node /opt/homebrew/bin/codex --model gpt-5');
 
     expect(row?.args).toBe('node /opt/homebrew/bin/codex --model gpt-5');
+    expect(row?.rssBytes).toBe(2048 * 1024);
+    expect(row?.cpuPercent).toBe(1.5);
   });
 
   /**
@@ -63,19 +78,22 @@ describe('parsePsOutput', () => {
     expect(parsePsOutput('not a process row\n  60000 59980 S+  /bin/zsh\n')).toHaveLength(1);
   });
 
+  it('skips continuation lines when an argv contains a newline', () => {
+    const raw = '60000 59980 S+  1024  0.0  sh -c echo "hello\nworld"\n60001 60000 S+  512  0.0  grep foo\n';
+    const parsed = parsePsOutput(raw);
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]?.pid).toBe(60000);
+    expect(parsed[1]?.pid).toBe(60001);
+  });
+
   it('skips a row with a pid but no command line at all', () => {
     expect(parsePsOutput('60000 59980 S+     \n')).toEqual([]);
   });
 
   /**
-   * Four columns, always — the parser does not tolerate the pre-Theme-E
-   * three-column shape. A parser that guessed its column count is a trap the
-   * next column change springs the same way.
+   * Lines with missing STAT are rejected rather than guessed.
    */
-  it('reads exactly four columns, never guessing a missing STAT', () => {
-    // No stat token at all: "60000" "59980" "/bin/zsh" would otherwise be
-    // read as pid/ppid/stat with an empty args, and dropped as a row with no
-    // command line — which is the correct, if easy to get wrong, outcome.
+  it('rejects rows without required status column', () => {
     expect(parsePsOutput('60000 59980 /bin/zsh\n')).toEqual([]);
   });
 });
@@ -353,5 +371,35 @@ describe('commandLabel', () => {
     const label = commandLabel(`/usr/bin/git ${'a'.repeat(60)}`);
     expect(label).toHaveLength(40);
     expect(label.endsWith('…')).toBe(true);
+  });
+});
+
+describe('isOurProcess', () => {
+  const sampleRows: ProcessRow[] = [
+    { pid: 1000, ppid: 1, stat: 'S', rssBytes: 1024, cpuPercent: 0, args: 'midnite-studio' },
+    { pid: 1001, ppid: 1000, stat: 'S', rssBytes: 1024, cpuPercent: 0, args: 'electron-helper' },
+    { pid: 2000, ppid: 1, stat: 'S', rssBytes: 1024, cpuPercent: 0, args: 'zsh' },
+    { pid: 2001, ppid: 2000, stat: 'S+', rssBytes: 1024, cpuPercent: 0, args: 'claude' },
+    { pid: 3000, ppid: 1, stat: 'S', rssBytes: 1024, cpuPercent: 0, args: 'unrelated' },
+  ];
+
+  it('identifies midnite process itself as ours', () => {
+    expect(isOurProcess(1000, sampleRows, [2000], 1000)).toBe(true);
+  });
+
+  it('identifies midnite child helper as ours', () => {
+    expect(isOurProcess(1001, sampleRows, [2000], 1000)).toBe(true);
+  });
+
+  it('identifies pty root pid as ours', () => {
+    expect(isOurProcess(2000, sampleRows, [2000], 1000)).toBe(true);
+  });
+
+  it('identifies pty descendant as ours', () => {
+    expect(isOurProcess(2001, sampleRows, [2000], 1000)).toBe(true);
+  });
+
+  it('rejects unrelated process not spawned by midnite or ptys', () => {
+    expect(isOurProcess(3000, sampleRows, [2000], 1000)).toBe(false);
   });
 });

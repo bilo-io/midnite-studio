@@ -16,6 +16,7 @@ import {
   type BrokerStatus,
 } from './broker-client';
 import {
+  inprocActivePtyPids,
   inprocCreatePty,
   inprocDropScrollback,
   inprocKillAllPtys,
@@ -605,6 +606,13 @@ export function livePtyFor(
     return null;
   }
   return inprocLivePtyFor(sessionId);
+}
+
+export function activePtyPids(): number[] {
+  if (brokerClient && brokerClient.getStatus().mode === 'broker') {
+    return [...sessions.values()].map((s) => s.pid);
+  }
+  return inprocActivePtyPids();
 }
 
 export function killPty(ptyId: string): void {

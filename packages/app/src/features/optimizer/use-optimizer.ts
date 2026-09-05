@@ -81,3 +81,45 @@ export async function loadOptimizerGpu(): Promise<void> {
   const response = await api.optimizer.gpu();
   if (response.ok) useOptimizerStore.getState().setGpu(response.value);
 }
+
+export async function loadOptimizerProcesses(): Promise<void> {
+  const api = bridge();
+  if (!api) return;
+  const response = await api.optimizer.processes();
+  if (response.ok) {
+    useOptimizerStore.getState().setProcesses(response.value.processes);
+    useOptimizerStore.getState().setMemory(response.value.memory);
+  }
+}
+
+export async function killOptimizerProcess(
+  pid: number,
+  expectArgv: string,
+  force?: boolean,
+): Promise<{ ok: boolean; message?: string }> {
+  const api = bridge();
+  if (!api) {
+    useToastStore.getState().addToast({
+      message: 'The app bridge is unavailable.',
+      status: 'error',
+    });
+    return { ok: false, message: 'The app bridge is unavailable.' };
+  }
+
+  const response = await api.optimizer.kill({ pid, expectArgv, force });
+  if (response.ok) {
+    useOptimizerStore.getState().removeProcess(pid);
+    useToastStore.getState().addToast({
+      message: `Process ${pid} terminated.`,
+      status: 'info',
+    });
+    return { ok: true };
+  } else {
+    useToastStore.getState().addToast({
+      message: response.message,
+      status: 'error',
+    });
+    return { ok: false, message: response.message };
+  }
+}
+
