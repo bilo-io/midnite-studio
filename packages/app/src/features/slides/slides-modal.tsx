@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 
 import { useFocusTrap } from '../../components/use-focus-trap';
+import { useOccluder } from '../../components/use-occluder';
 import { Deck } from './deck';
 import { parseDeck } from './deck-parser';
 import { useSlidesStore } from './slides-store';
@@ -21,6 +22,7 @@ export function SlidesModal() {
   const source = useSlidesStore((state) => state.deck);
   const close = useSlidesStore((state) => state.close);
   const containerRef = useRef<HTMLDivElement>(null);
+  useOccluder(source !== null);
   useFocusTrap(containerRef, source !== null);
 
   if (source === null) return null;
