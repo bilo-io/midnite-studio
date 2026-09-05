@@ -1,55 +1,94 @@
 import type { Dirent } from 'node:fs';
 import { lstat, readdir } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { join } from 'node:path';
 
 import { execGit, mergedNames } from '@midnite/studio-git-engine';
-import { SCAN_ITEMS_CAP, type RepoDescriptor, type ScanCategory, type ScanItem, type ScanResult, type Worktree } from '@midnite/studio-shared';
+import {
+  SCAN_ITEMS_CAP,
+  type DetectorInfo,
+  type Ecosystem,
+  type RepoDescriptor,
+  type ScanCategory,
+  type ScanItem,
+  type ScanResult,
+  type Worktree,
+} from '@midnite/studio-shared';
 
 import { confineTree, describeFsError } from '../fs-scope-write';
 import { defaultLogger, type Logger } from '../log';
 import { listRepos, worktreesFor } from '../repo-registry';
+import {
+  DEFAULT_DETECTORS,
+  matchesFileSuffix,
+  matchesPathSuffix,
+  STALE_WORKTREE_DETECTOR,
+  type ArtifactDetector,
+} from './detectors';
 
 /**
- * Smart Scan + Storage's own walker (Phase 59 Theme C) — every registered
- * repo/worktree plus one optional user-chosen extra root, never an unscoped
- * disk crawl. Sizing is a plain JS `readdir`+`lstat` walk, not `du`: nothing
- * in this repo shells `du`, and a walk is cancellable via `AbortSignal`,
- * reports real progress, and cannot be defeated by a path with a newline
- * in it.
+ * Smart Scan + Storage's own walker (Phase 59 Theme C, widened by Phase 72
+ * Themes A-C) — every registered repo/worktree plus one optional
+ * user-chosen extra root, never an unscoped disk crawl. Sizing is a plain JS
+ * `readdir`+`lstat` walk, not `du`: nothing in this repo shells `du`, and a
+ * walk is cancellable via `AbortSignal`, reports real progress, and cannot be
+ * defeated by a path with a newline in it.
  */
 
 /** No pathological tree can walk past this many directory levels. */
 export const MAX_WALK_DEPTH = 12;
-/** No pathological tree can walk past this many entries — `node_modules` included. */
-export const MAX_WALK_ENTRIES = 200_000;
+/**
+ * No pathological tree can walk past this many entries — `node_modules`
+ * included. Raised from 200k (Decision 6) as a consequence of the per-root
+ * budget (Phase 72 Theme E) giving more roots a fair share of it.
+ */
+export const MAX_WALK_ENTRIES = 500_000;
 /** How often `onProgress` fires — every N entries walked, not on a timer. */
 const PROGRESS_EVERY_ENTRIES = 50;
 
-/** A build-artifact pattern, matched against a directory's basename. */
-export type BuildArtifactPattern = {
-  basename: string;
-  category: Extract<ScanCategory, 'nodeModules' | 'buildOutput'>;
-};
-
 /**
- * Seeded with exactly three patterns — widening this set is a later phase's
- * call (see the phase doc's Decision 6), not this one's. `classify` takes an
- * injectable pattern list so that later widening is a one-line change at the
- * call site rather than an edit here.
+ * Returns the whole detector, not just a category — `walk` needs `id`,
+ * `ecosystem`, `reclaim`, `label` and `producer` to build the `ScanItem` and
+ * the `detectors` map, and a second lookup by category would be ambiguous
+ * the moment two detectors share one. `classify` returns the **first**
+ * matching detector in `detectors` order (Theme A item 6's ordering
+ * invariant, asserted in `detectors.test.ts`).
+ *
+ * `siblingNames` is a pure argument the caller builds once per directory
+ * from the parent's own `readdir` (free — no extra syscall); the only
+ * impurity is the `childAny` arm's own `readdir`, confined to candidates
+ * whose name already matched (Decision 2).
  */
-export const DEFAULT_BUILD_ARTIFACT_PATTERNS: readonly BuildArtifactPattern[] = [
-  { basename: 'node_modules', category: 'nodeModules' },
-  { basename: 'dist', category: 'buildOutput' },
-  { basename: '.moon', category: 'buildOutput' },
-];
-
-/** Pure and exported so a fixture can assert it directory-name by directory-name. */
-export function classify(
+export async function classify(
   path: string,
-  patterns: readonly BuildArtifactPattern[] = DEFAULT_BUILD_ARTIFACT_PATTERNS,
-): ScanCategory | null {
-  const name = basename(path);
-  return patterns.find((pattern) => pattern.basename === name)?.category ?? null;
+  siblingNames: ReadonlySet<string>,
+  detectors: readonly ArtifactDetector[] = DEFAULT_DETECTORS,
+  log: Logger = defaultLogger,
+): Promise<ArtifactDetector | null> {
+  for (const detector of detectors) {
+    const matches = detector.match.some((suffix) => matchesPathSuffix(path, suffix));
+    if (!matches) continue;
+
+    switch (detector.evidence.kind) {
+      case 'none':
+        return detector;
+      case 'siblingAny':
+        if (detector.evidence.names.some((name) => siblingNames.has(name))) return detector;
+        break;
+      case 'siblingSuffix':
+        if (matchesFileSuffix(siblingNames, detector.evidence.suffixes)) return detector;
+        break;
+      case 'childAny': {
+        // Evidence, not traversal: does not touch `state.entriesWalked`, and
+        // a candidate the user cannot read fails closed (no match) rather
+        // than failing the scan.
+        const childNames = await readDirSafe(path, log);
+        const names = new Set(childNames.map((c) => c.name));
+        if (detector.evidence.names.some((name) => names.has(name))) return detector;
+        break;
+      }
+    }
+  }
+  return null;
 }
 
 /**
@@ -62,6 +101,8 @@ export function classify(
 export type WalkState = {
   items: ScanItem[];
   byCategory: Record<ScanCategory, number>;
+  byEcosystem: Record<Ecosystem, number>;
+  detectors: Record<string, DetectorInfo>;
   totalBytes: number;
   entriesWalked: number;
   itemsTruncated: boolean;
@@ -70,16 +111,38 @@ export type WalkState = {
 export function newWalkState(): WalkState {
   return {
     items: [],
-    byCategory: { nodeModules: 0, buildOutput: 0, staleWorktree: 0, looseObjects: 0 },
+    byCategory: {
+      dependencies: 0,
+      buildOutput: 0,
+      toolCache: 0,
+      staleWorktree: 0,
+      looseObjects: 0,
+    },
+    byEcosystem: {
+      node: 0,
+      multi: 0,
+      rust: 0,
+      cpp: 0,
+      dotnet: 0,
+      python: 0,
+      java: 0,
+      swift: 0,
+      ruby: 0,
+      go: 0,
+      git: 0,
+    },
+    detectors: {},
     totalBytes: 0,
     entriesWalked: 0,
     itemsTruncated: false,
   };
 }
 
-function addItem(state: WalkState, item: ScanItem): void {
+function addItem(state: WalkState, item: ScanItem, info: DetectorInfo): void {
   state.byCategory[item.category] += item.bytes;
+  state.byEcosystem[item.ecosystem] += item.bytes;
   state.totalBytes += item.bytes;
+  state.detectors[item.detectorId] = info;
   if (state.items.length < SCAN_ITEMS_CAP) {
     state.items.push(item);
   } else {
@@ -151,10 +214,16 @@ async function walk(
   signal: AbortSignal,
   onProgress: (done: number, total: number) => void,
   log: Logger,
+  detectors: readonly ArtifactDetector[],
 ): Promise<void> {
   if (signal.aborted || depth > MAX_WALK_DEPTH || state.entriesWalked >= MAX_WALK_ENTRIES) return;
 
   const entries = await readDirSafe(dir, log);
+  // Built once per directory — even when no entry in it is a candidate —
+  // rather than per-entry: a per-entry `Set` construction would turn an
+  // O(n) walk into O(n²) on a wide `node_modules`.
+  const siblingNames = new Set(entries.map((e) => e.name));
+
   for (const entry of entries) {
     if (signal.aborted || state.entriesWalked >= MAX_WALK_ENTRIES) return;
     state.entriesWalked += 1;
@@ -162,22 +231,34 @@ async function walk(
       onProgress(state.entriesWalked, MAX_WALK_ENTRIES);
     }
 
-    if (entry.name === '.git') continue; // refused at any depth
+    if (entry.name === '.git') continue; // refused at any depth, above classify
     if (entry.isSymbolicLink()) continue; // never traversed
 
     const full = join(dir, entry.name);
     if (!entry.isDirectory()) continue;
 
-    const category = classify(full);
-    if (category !== null) {
-      // A directory matching a pattern is SIZED and not descended into — the
-      // walk's entry budget must not be spent on npm's own tree.
+    const detector = await classify(full, siblingNames, detectors, log);
+    if (detector !== null) {
+      // A directory matching a detector is SIZED and not descended into —
+      // the walk's entry budget must not be spent on npm's own tree.
       const bytes = await dirBytes(full, state, signal, log);
-      addItem(state, { path: full, bytes, category, repoId });
+      addItem(
+        state,
+        {
+          path: full,
+          bytes,
+          category: detector.category,
+          repoId,
+          detectorId: detector.id,
+          ecosystem: detector.ecosystem,
+          reclaim: detector.reclaim,
+        },
+        { label: detector.label, producer: detector.producer },
+      );
       continue;
     }
 
-    await walk(full, depth + 1, repoId, state, signal, onProgress, log);
+    await walk(full, depth + 1, repoId, state, signal, onProgress, log, detectors);
   }
 }
 
@@ -238,10 +319,17 @@ export type ScanWorkspaceOptions = {
   /** A stream, not a return value — the Scan button's progress ring is driven by this. */
   onProgress: (done: number, total: number) => void;
   log?: Logger;
+  /**
+   * Injectable catalogue, exactly as `patterns` was — rejected alternative:
+   * a module-level mutable "active detectors" would make a future concurrent
+   * scan silently cross-contaminate. Defaults to the full catalogue.
+   */
+  detectors?: readonly ArtifactDetector[];
 };
 
 export async function scanWorkspace(opts: ScanWorkspaceOptions): Promise<ScanResult> {
   const log = opts.log ?? defaultLogger;
+  const detectors = opts.detectors ?? DEFAULT_DETECTORS;
   const roots = await collectRoots(opts.extraRoot);
   const state = newWalkState();
 
@@ -253,9 +341,21 @@ export async function scanWorkspace(opts: ScanWorkspaceOptions): Promise<ScanRes
       // also walked for node_modules/dist inside it, which would double-count
       // bytes reclaimable by the one delete that already covers them.
       const bytes = await dirBytes(root.path, state, opts.signal, log);
-      addItem(state, { path: root.path, bytes, category: 'staleWorktree', repoId: root.repoId });
+      addItem(
+        state,
+        {
+          path: root.path,
+          bytes,
+          category: STALE_WORKTREE_DETECTOR.category,
+          repoId: root.repoId,
+          detectorId: STALE_WORKTREE_DETECTOR.id,
+          ecosystem: STALE_WORKTREE_DETECTOR.ecosystem,
+          reclaim: STALE_WORKTREE_DETECTOR.reclaim,
+        },
+        { label: STALE_WORKTREE_DETECTOR.label, producer: STALE_WORKTREE_DETECTOR.producer },
+      );
     } else {
-      await walk(root.path, 0, root.repoId, state, opts.signal, opts.onProgress, log);
+      await walk(root.path, 0, root.repoId, state, opts.signal, opts.onProgress, log, detectors);
     }
     opts.onProgress(state.entriesWalked, MAX_WALK_ENTRIES);
   }
@@ -274,8 +374,11 @@ export async function scanWorkspace(opts: ScanWorkspaceOptions): Promise<ScanRes
   return {
     totalBytes: state.totalBytes,
     byCategory: state.byCategory,
+    byEcosystem: state.byEcosystem,
+    detectors: state.detectors,
     items: state.items,
     truncated: state.itemsTruncated || state.entriesWalked >= MAX_WALK_ENTRIES,
+    truncatedRoots: [],
   };
 }
 

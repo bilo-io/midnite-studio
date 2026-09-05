@@ -22,32 +22,60 @@ const OUT_DF = '../../docs/screenshots/p59-df';
 const SCAN_RESULT = {
   totalBytes: 2_400_000_000,
   byCategory: {
-    nodeModules: 1_800_000_000,
+    dependencies: 1_800_000_000,
     buildOutput: 500_000_000,
+    toolCache: 0,
     staleWorktree: 100_000_000,
     looseObjects: 0,
+  },
+  byEcosystem: {
+    node: 2_300_000_000,
+    multi: 0,
+    rust: 0,
+    cpp: 0,
+    dotnet: 0,
+    python: 0,
+    java: 0,
+    swift: 0,
+    ruby: 0,
+    git: 100_000_000,
+  },
+  detectors: {
+    'node-modules': { label: 'node_modules', producer: 'npm/pnpm/yarn install' },
+    'node-dist': { label: 'dist/', producer: 'npm run build' },
+    'git-stale-worktree': { label: 'Stale worktree', producer: 'git worktree add' },
   },
   items: [
     {
       path: '/tmp/midnite-studio/node_modules',
       bytes: 1_800_000_000,
-      category: 'nodeModules',
+      category: 'dependencies',
       repoId: 'repo-1',
+      detectorId: 'node-modules',
+      ecosystem: 'node',
+      reclaim: 'costly',
     },
     {
       path: '/tmp/midnite-studio/packages/app/dist',
       bytes: 500_000_000,
       category: 'buildOutput',
       repoId: 'repo-1',
+      detectorId: 'node-dist',
+      ecosystem: 'node',
+      reclaim: 'cheap',
     },
     {
       path: '/tmp/midnite-studio/.worktrees/old-feature',
       bytes: 100_000_000,
       category: 'staleWorktree',
       repoId: 'repo-1',
+      detectorId: 'git-stale-worktree',
+      ecosystem: 'git',
+      reclaim: 'cheap',
     },
   ],
   truncated: false,
+  truncatedRoots: [],
 };
 
 const GPU_STATS = { model: 'Apple M2 Pro', vramBytes: 16 * 1024 * 1024 * 1024, loadPercent: 42 };
@@ -154,7 +182,7 @@ test.describe('optimizer screenshots', () => {
   test('Smart Scan, light', async ({ page }) => {
     await openOptimizer(page);
     await page.getByRole('button', { name: 'Run Smart Scan' }).click();
-    await expect(page.getByText('node_modules')).toBeVisible();
+    await expect(page.getByText('Dependencies')).toBeVisible();
     await page.waitForTimeout(SETTLE_MS);
     await page.screenshot({ path: `${OUT}/optimizer-smart-scan-light.png` });
   });
@@ -163,7 +191,7 @@ test.describe('optimizer screenshots', () => {
     await goDark(page);
     await openOptimizer(page);
     await page.getByRole('button', { name: 'Run Smart Scan' }).click();
-    await expect(page.getByText('node_modules')).toBeVisible();
+    await expect(page.getByText('Dependencies')).toBeVisible();
     await paintDark(page);
     await page.screenshot({ path: `${OUT}/optimizer-smart-scan-dark.png` });
   });

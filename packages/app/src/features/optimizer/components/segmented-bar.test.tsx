@@ -14,7 +14,7 @@ describe('SegmentedBar', () => {
         label="Storage"
         total={100}
         segments={[
-          { id: 'nodeModules', bytes: 40 },
+          { id: 'dependencies', bytes: 40 },
           { id: 'buildOutput', bytes: 60 },
         ]}
       />,
@@ -27,7 +27,7 @@ describe('SegmentedBar', () => {
 
   it('renders an empty track rather than NaN when total is zero', () => {
     const { container } = render(
-      <SegmentedBar label="Storage" total={0} segments={[{ id: 'nodeModules', bytes: 10 }]} />,
+      <SegmentedBar label="Storage" total={0} segments={[{ id: 'dependencies', bytes: 10 }]} />,
     );
     expect(container.querySelectorAll('div[style]')).toHaveLength(0);
     expect(container.innerHTML).not.toContain('NaN');
@@ -39,7 +39,7 @@ describe('SegmentedBar', () => {
         label="Storage"
         total={100}
         segments={[
-          { id: 'nodeModules', bytes: 150 },
+          { id: 'dependencies', bytes: 150 },
           { id: 'buildOutput', bytes: 50 },
         ]}
       />,
