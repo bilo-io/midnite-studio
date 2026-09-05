@@ -346,28 +346,28 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 ### Theme E — VS Code Theme JSON Importer (M)
 *Parses a VS Code theme JSON into a `StudioPalette` — client-side, no network.*
 
-- [ ] `packages/app/src/features/themes/importers/vscode-theme-importer.ts` — **new.**
+- [x] `packages/app/src/features/themes/importers/vscode-theme-importer.ts` — **new.**
       `export function importVsCodeTheme(json: unknown): { ok: true; palette: StudioPalette } | { ok: false; reason: string }`.
       A result envelope, not a throw, mirroring the app's `GitOpResult` convention so the settings
       page renders a reason rather than catching.
-- [ ] Validate with **zod**, already a dependency via `@midnite/studio-shared`. Required:
+- [x] Validate with **zod**, already a dependency via `@midnite/studio-shared`. Required:
       `$schema`-agnostic, `type: 'dark' | 'light'` (default `'dark'` when absent — many themes omit
       it), `colors: Record<string, string>`, `tokenColors: {scope, settings}[]`. Reject anything
       over **2 MB** with `reason: 'File too large'`.
-- [ ] Map `tokenColors` → `ITokenThemeRule[]`. `scope` may be a **string or an array of strings** —
+- [x] Map `tokenColors` → `ITokenThemeRule[]`. `scope` may be a **string or an array of strings** —
       the array form must be flattened into one rule per scope, which is the single most common
       reason a naive importer renders a theme grey.
-- [ ] Map `colors.*` → `chrome` tokens, converting **hex → HSL triplet** (`#1e1e1e` → `"0 0% 12%"`)
+- [x] Map `colors.*` → `chrome` tokens, converting **hex → HSL triplet** (`#1e1e1e` → `"0 0% 12%"`)
       because Tailwind wraps every token as `hsl(var(--token))`. Handle 8-digit hex (`#rrggbbaa`) by
       dropping alpha. At minimum: `editor.background` → `--background`,
       `editor.foreground` → `--foreground`, `sideBar.background` → `--card`,
       `focusBorder` → `--ring`, `panel.border` → `--border`.
-- [ ] Map `colors['terminal.ansi*']` → the 16 ANSI keys, falling back to the palette's `appearance`
+- [x] Map `colors['terminal.ansi*']` → the 16 ANSI keys, falling back to the palette's `appearance`
       default for any the theme omits — most do omit several.
-- [ ] Set `highlight` to the nearest bundled Shiki theme by `type` (`'dark'` → `github-dark`), since
+- [x] Set `highlight` to the nearest bundled Shiki theme by `type` (`'dark'` → `github-dark`), since
       an imported VS Code theme has no Shiki equivalent. Recorded as a known limitation rather than
       guessed at (Decision 8).
-- [ ] `vscode-theme-importer.test.ts` with three real fixtures committed under
+- [x] `vscode-theme-importer.test.ts` with three real fixtures committed under
       `packages/app/src/features/themes/importers/__fixtures__/`: one with array-form scopes, one
       with no `type`, one with 8-digit hex. Plus: malformed JSON, a 3 MB file, and an empty object
       each return `{ok: false}` with a distinct reason.
@@ -375,7 +375,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 ### Theme F — Appearance Settings & Command Palette Controls (M)
 *Extends the Appearance page that already exists, and registers two commands through all four places a command actually needs.*
 
-- [ ] **Add a "Palette" accordion to the existing
+- [x] **Add a "Palette" accordion to the existing
       [`appearance-page.tsx`](../../../packages/app/src/features/settings/settings-pages/appearance-page.tsx)** —
       **not** a new `themes-page.tsx`. That page is 292 lines, registered at
       [`ui-store.ts:182`](../../../packages/app/src/store/ui-store.ts), and its first accordion is
@@ -383,21 +383,21 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       feature. See Decision 9.
   - Place it directly beneath the existing "Theme" accordion (`appearance-page.tsx:32-100`), above
     "Background".
-- [ ] Preset cards showing each palette's `chrome.background`, `chrome.foreground`, `chrome.primary`
+- [x] Preset cards showing each palette's `chrome.background`, `chrome.foreground`, `chrome.primary`
       and four ANSI swatches, using the `Choice` primitive re-exported from
       [`settings-pages/controls.tsx:6`](../../../packages/app/src/features/settings/settings-pages/controls.tsx).
-- [ ] Two override selectors — Terminal and Editor — each defaulting to *"Match app"* and writing
+- [x] Two override selectors — Terminal and Editor — each defaulting to *"Match app"* and writing
       `terminalPaletteOverride` / `editorPaletteOverride`.
-- [ ] **Also surface light/dark here.** The Appearance page has *no* light/dark control today
+- [x] **Also surface light/dark here.** The Appearance page has *no* light/dark control today
       (`useTheme` is not imported into it); the four-mode `ThemePreference` is reachable only from
       the title-bar [`ThemeToggle`](../../../packages/app/src/components/theme-toggle.tsx). A page
       called Appearance that cannot set light/dark is a gap this phase is already standing in.
-- [ ] "Import VS Code Theme (.json)" button, styled like
+- [x] "Import VS Code Theme (.json)" button, styled like
       [`cli-page.tsx:87-105`](../../../packages/app/src/features/settings/settings-pages/cli-page.tsx)'s
       (raw `<button type="button">`, `disabled` while working, inline error beneath), reading the
       file via a hidden `<input type="file" accept=".json">` — **client-side `FileReader`, no IPC
       channel**.
-- [ ] Register `theme.select` and `theme.import` in **all four** places a command needs. Neither id
+- [x] Register `theme.select` and `theme.import` in **all four** places a command needs. Neither id
       collides (`grep -rn "'theme\."` → 0):
   1. [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts) — the `COMMANDS`
      entries. Use `group: 'view'`; **do not** add a `theme` value to `CommandGroup` (`:23-33`) for
@@ -410,7 +410,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   4. [`services/keybindings/use-command-handlers.ts`](../../../packages/app/src/services/keybindings/use-command-handlers.ts) —
      a `CommandEntry` each. `CommandRuntime` is a **total** `Record<CommandId, CommandEntry>`, so
      typecheck fails until this is done — the one of the four the compiler catches.
-- [ ] **Neither command gets a chord.** Every single-letter `Mod` chord worth having is taken, and
+- [x] **Neither command gets a chord.** Every single-letter `Mod` chord worth having is taken, and
       a chord-free command's label must come from `COMMANDS`, not `DEFAULT_KEYMAP` (which drops them).
 
 ### Theme G — Decommissioning CodeMirror, and the suite that names it (S) — **new in x1**

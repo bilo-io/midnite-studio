@@ -2,6 +2,35 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-05 — Phase 64 Themes E, F — VS Code theme importer & Appearance palette controls
+
+[PR #171]. Closes Themes E and F of Phase 64 — 14 of the phase's 72 items, bringing the phase to
+52/72 (72%). Theme G (decommissioning CodeMirror) stays open, still gated on Phase 61.
+
+- [x] **E** — `packages/app/src/features/themes/importers/vscode-theme-importer.ts`: parses a VS
+      Code theme JSON into a `StudioPalette`, zod-validated, capped at 2 MB, returning a result
+      envelope rather than throwing (the app's `GitOpResult` convention). Handles the array form of
+      `tokenColors[].scope` (flattened to one rule per scope — the single most common reason a naive
+      importer renders a theme grey), hex→HSL conversion for Tailwind's `hsl(var(--token))` tokens
+      including 8-digit hex with alpha dropped, the 16 ANSI terminal colors with a fallback to the
+      palette's own defaults for any a theme omits, and a nearest-bundled-Shiki-theme fallback by
+      light/dark (a VS Code theme has no Shiki equivalent — a recorded limitation, not a guess).
+      Three fixture-backed test cases (array-scope, missing `type`, 8-digit hex) plus malformed
+      JSON / oversized / empty-object rejection, each with a distinct reason.
+- [x] **F** — A "Palette" accordion added to the existing `appearance-page.tsx` (not a new page —
+      that page already exists and already has a "Theme" accordion), directly beneath it: preset
+      cards showing each palette's chrome colors and ANSI swatches, two override selectors
+      (Terminal/Editor, defaulting to "Match app"), an "Import VS Code Theme (.json)" button reading
+      the file client-side via `FileReader` (no IPC channel), and — since the page had no light/dark
+      control at all before this — the four-mode `ThemePreference` surfaced here too via `useTheme`.
+      `theme.select`/`theme.import` registered in all four places a command needs (`COMMANDS`,
+      `PALETTE_SAFE`, `COMMAND_ICONS`, the command-handler's total `CommandRuntime` record); neither
+      gets a chord, since every single-letter `Mod` chord worth having is already taken.
+- Coverage: `vscode-theme-importer.test.ts` (fixture-backed), `palette-store.test.ts` (including a
+  self-review fix: re-importing an edited theme file now replaces the same-id `userPalettes` entry
+  instead of appending a duplicate), e2e command-palette coverage for `theme.select`/`theme.import`,
+  and Playwright screenshots of the Palette accordion, light + dark.
+
 ## 2026-09-05 — Phase 59 Themes D, F — Workspace Optimizer: Memory tab & Verification
 
 [PR #169]. Closes Themes D and F of Phase 59 — completing the remaining 26 items (70/70, 100%). Phase 59 is now complete.
