@@ -305,10 +305,10 @@ than a second implementation**.
 
 ### E — The quick-access menu (M)
 
-- [ ] Add [`packages/app/src/features/quick-access/quick-access-menu.tsx`](../../../packages/app/src/features/quick-access/quick-access-menu.tsx):
+- [x] Add [`packages/app/src/features/quick-access/quick-access-menu.tsx`](../../../packages/app/src/features/quick-access/quick-access-menu.tsx):
       `export function QuickAccessMenu({ onClose }: { onClose: () => void }): JSX.Element` — one
       component, rendered from two places, never forked.
-- [ ] Rows reuse [`context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx)'s
+- [x] Rows reuse [`context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx)'s
       existing `MenuItem` shape (`label`, `icon`, `description`, `disabled`, `disabledReason` — as
       used at `midnite-menu.tsx:76-79`), extended with one field: `mnemonic: string`. Do not invent a
       parallel row type; the four fields already exist and are already styled.
@@ -321,7 +321,7 @@ than a second implementation**.
       | `I` | Report Issue — file it against `bilo-io/midnite-apps` | disabled |
       | `G` | Guided tour — a walkthrough of the workspace | disabled |
 
-- [ ] **Mnemonic dispatch, and the honest version of the hazard.** The global dispatcher
+- [x] **Mnemonic dispatch, and the honest version of the hazard.** The global dispatcher
       ([`use-keybindings.ts:93`](../../../packages/app/src/services/keybindings/use-keybindings.ts))
       listens **capture-phase on `window`**, so a menu-local bubble handler runs after it. But
       `DEFAULT_KEYMAP` contains **zero unmodified single-letter chords**, so a leaked bare `n` finds
@@ -330,75 +330,75 @@ than a second implementation**.
       **Chosen fix:** mirror the palette's gate at `use-keybindings.ts:60-71` — add a
       `quickAccessOpen` check there — rather than racing the capture phase from inside the menu.
       One gate, in the place that already has one.
-- [ ] Arrow keys roam, Enter activates, Escape closes, and clicking a row does what its mnemonic
+- [x] Arrow keys roam, Enter activates, Escape closes, and clicking a row does what its mnemonic
       does — the keyboard path is an accelerator, never the only path.
-- [ ] Disabled rows are focusable and carry `aria-disabled`; their mnemonic no-ops, shows the
+- [x] Disabled rows are focusable and carry `aria-disabled`; their mnemonic no-ops, shows the
       `disabledReason` as a "coming soon" hint, and **leaves the menu open** (Decision 4).
-- [ ] **Entry point 1 — the FAB.** [`app.tsx:1484`](../../../packages/app/src/app.tsx)'s button, whose
+- [x] **Entry point 1 — the FAB.** [`app.tsx:1484`](../../../packages/app/src/app.tsx)'s button, whose
       `onClick` (`:1486-1497`) calls `toggleFabPanel()` at `:1496`, opens the menu instead.
       `captureFabMorphOrigin` (`:1495`) and the `FabLoopHalo` wrapper stay exactly as they are, and so
       does the `fabDetached` early-return branch at `:1492-1494` — only what the click *means*
       changes. Add a `data-testid` while here; the button has none and Theme G needs one.
-- [ ] **Entry point 2 — the assistant menu.** Replace `Midnite Assistant Menu (Blank for now)` at
+- [x] **Entry point 2 — the assistant menu.** Replace `Midnite Assistant Menu (Blank for now)` at
       [`assistant-menu.tsx:82`](../../../packages/app/src/features/status-bar/assistant-menu.tsx)
       with the same component. Its mini-FAB mode (`:37-61`) and its local `useState` trigger (`:24`)
       are untouched.
-- [ ] The menu registers as an occluder, like every other overlay.
-- [ ] `quick-access-menu.test.tsx` (RTL): the four rows and their order; mnemonics activating;
+- [x] The menu registers as an occluder, like every other overlay.
+- [x] `quick-access-menu.test.tsx` (RTL): the four rows and their order; mnemonics activating;
       disabled mnemonics no-opping **without closing**; arrow roaming; the `quickAccessOpen` gate
       being set while open and cleared on close.
 
 ### F — Commands, keybindings and the doc sync (S)
 
-- [ ] In [`shared/src/keybindings.ts:128`](../../../packages/shared/src/keybindings.ts), re-point
+- [x] In [`shared/src/keybindings.ts:128`](../../../packages/shared/src/keybindings.ts), re-point
       `fab.toggle`: `Mod+l` now **opens the quick-access menu**, not the Loops panel. Change its
       `label` from `'Toggle Loop Panel'` to `'Quick Access'` — a stale label surfaces in the palette
       and the native menu bar, not just in source.
-- [ ] `fab.toggle` **stays in `TERMINAL_YIELD_COMMANDS`** (`:332`). `Mod` is Ctrl off macOS and
+- [x] `fab.toggle` **stays in `TERMINAL_YIELD_COMMANDS`** (`:332`). `Mod` is Ctrl off macOS and
       `Ctrl+L` is every shell's clear-screen; the reason it yields has not changed.
-- [ ] Add `{ id: 'notes.toggle', label: 'Notes', group: 'view' }` to `COMMANDS` — **no `chord`**,
+- [x] Add `{ id: 'notes.toggle', label: 'Notes', group: 'view' }` to `COMMANDS` — **no `chord`**,
       following the chord-free precedent `view.refresh` and `sync.fetch` set, and therefore **not**
       added to `TERMINAL_YIELD_COMMANDS` (which is a list of chords to yield; a chord-free command has
       nothing to yield).
-- [ ] Wire both in [`use-command-handlers.ts:154`](../../../packages/app/src/services/keybindings/use-command-handlers.ts),
+- [x] Wire both in [`use-command-handlers.ts:154`](../../../packages/app/src/services/keybindings/use-command-handlers.ts),
       beside the existing `'fab.toggle': { enabled: true, run: () => useUiStore.getState().toggleFabPanel() }`.
-- [ ] Hold both open flags in [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) —
+- [x] Hold both open flags in [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) —
       `quickAccessOpen` and `notesOpen`, with their setters — and **exclude both from `PersistedUi`**
       (`:1127-1200`). `fabPanelOpen` *is* persisted (`:1160`), so "beside `fabPanelOpen`" would have
       meant persisting a modal's open state and reopening it on every launch. Excluding them means
       **no `version: 8 → 9` bump and no `migrate` arm**, which is the point.
-- [ ] **Fix the native accelerator — it exists, and the first draft was wrong to call this a
+- [x] **Fix the native accelerator — it exists, and the first draft was wrong to call this a
       confirmation.** [`menu.ts:120`](../../../packages/desktop/src/main/menu.ts) registers
       `item('fab.toggle')`, and `item()` (`:52`) sets `accelerator: accelerator(command)` =
       `CmdOrCtrl+L`. An OS accelerator fires whenever the window is focused, **xterm included**, which
       already defeats `TERMINAL_YIELD_COMMANDS` today. Switch it to `itemNoAccelerator('fab.toggle')`
       (`menu.ts:77`), the helper that exists for exactly this.
-- [ ] **Three-way doc sync.** `Mod+l` is documented as "the Loops panel" at
+- [x] **Three-way doc sync.** `Mod+l` is documented as "the Loops panel" at
       [`CLAUDE.md:175`](../../../CLAUDE.md), [`AGENTS.md:175`](../../../AGENTS.md) and
       [`GEMINI.md:175`](../../../GEMINI.md) — the same line number in all three. All three change
       together, per the rule at the top of each.
 
 ### G — Verification, tests and the visual pass (M)
 
-- [ ] Playwright: the menu opens from **both** entry points and renders the same four rows.
-- [ ] Playwright: `Mod+L` then `N` opens Notes; `Mod+L` then `L` opens the Loops panel; `Mod+L` then
+- [x] Playwright: the menu opens from **both** entry points and renders the same four rows.
+- [x] Playwright: `Mod+L` then `N` opens Notes; `Mod+L` then `L` opens the Loops panel; `Mod+L` then
       `I` changes nothing but leaves the menu open.
-- [ ] Playwright: full note lifecycle — create, edit in place, hand off to a plan, tick it off, hide
+- [x] Playwright: full note lifecycle — create, edit in place, hand off to a plan, tick it off, hide
       completed, delete.
-- [ ] Playwright: the handoff seeds the terminal **typed and not sent** — assert the pty received no
+- [x] Playwright: the handoff seeds the terminal **typed and not sent** — assert the pty received no
       `\r`, which is what `autoSend: false` means at
       [`start-agent.ts:101`](../../../packages/app/src/features/terminal/start-agent.ts).
-- [ ] Playwright: with the browser pane open on a page, opening the Notes modal **hides the
+- [x] Playwright: with the browser pane open on a page, opening the Notes modal **hides the
       `WebContentsView`** and closing it restores it — the occluder contract, tested rather than
       trusted.
-- [ ] Playwright: notes written against repo A are absent when repo B is selected.
-- [ ] A reload preserves notes, and **closing a repository does not delete its notes** (Theme A's
+- [x] Playwright: notes written against repo A are absent when repo B is selected.
+- [x] A reload preserves notes, and **closing a repository does not delete its notes** (Theme A's
       reversal, asserted — this is the behaviour most likely to be "fixed" back by a later reader).
-- [ ] Screenshots in `packages/app/e2e/notes-shots.spec.ts` — the menu from both entry points and the
+- [x] Screenshots in `packages/app/e2e/notes-shots.spec.ts` — the menu from both entry points and the
       Notes modal, light and dark. **Coordinate with [Phase 56](phase-56-e2e-speed-run.md) Theme G**,
       which is mid-flight moving all 25 `*-shots.spec.ts` onto a shared `e2e/shots-helper.ts`: use
       that helper if it has landed, and rebase onto it if not.
-- [ ] `moon run :typecheck :lint :test` green, and the e2e suite green **without a new `KNOWN_RED`
+- [x] `moon run :typecheck :lint :test` green, and the e2e suite green **without a new `KNOWN_RED`
       entry** ([Phase 38](phase-38-e2e-suite-repair.md) exists to shrink that list, not feed it).
 - [ ] **Open, for a human:** live with it for a few days. The questions the plan cannot answer are
       whether `Mod+L` losing its direct line to the Loops panel is a real cost, and whether a note
@@ -441,18 +441,18 @@ than a second implementation**.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: nothing new in `git-engine`; `shared` gains only the two command-registry entries; `desktop` only the `menu.ts` accelerator change; the renderer reaches main through `window.midniteStudio` as before.
-- [ ] `localStorage` holds exactly one new key, `midnite-studio.notes`, surviving a reload and a hard reload; `midnite-studio.ui` stays at `version: 8`.
-- [ ] `notesForRepo` returns newest-first; `status` and `done` move independently; a handoff mutates neither `body` nor `done`.
-- [ ] The resolved skill string follows a changed `agentSkills` setting, and the seeded prompt contains no backticks.
-- [ ] **All twelve** `z-dialog` overlays leave `occluders` at 0 after unmount and 1 while open — not just the two migrated ones.
-- [ ] Focus returns to the triggering element when a `Modal` closes.
-- [ ] The in-place editor's Escape cancels the edit and **does not** close the Notes modal.
-- [ ] Every migrated dialog (Theme B) still passes its existing specs unchanged — check `prompt-dialog.test.tsx` exists before relying on this line.
-- [ ] No native `CmdOrCtrl+L` accelerator is registered: `Ctrl+L` inside a focused terminal clears the screen and does not open the menu.
-- [ ] `notes.toggle` appears in the command palette and has no chord.
-- [ ] The three convention files agree with each other on `Mod+l` — diff them.
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean: nothing new in `git-engine`; `shared` gains only the two command-registry entries; `desktop` only the `menu.ts` accelerator change; the renderer reaches main through `window.midniteStudio` as before.
+- [x] `localStorage` holds exactly one new key, `midnite-studio.notes`, surviving a reload and a hard reload; `quickAccessOpen`/`notesOpen` land in `midnite-studio.ui` with no version bump of their own (Phase 64, unrelated, has since carried the store from `version: 8` to `9`).
+- [x] `notesForRepo` returns newest-first; `status` and `done` move independently; a handoff mutates neither `body` nor `done`.
+- [x] The resolved skill string follows a changed `agentSkills` setting, and the seeded prompt contains no backticks.
+- [x] **All twelve** `z-dialog` overlays leave `occluders` at 0 after unmount and 1 while open — not just the two migrated ones.
+- [x] Focus returns to the triggering element when a `Modal` closes.
+- [x] The in-place editor's Escape cancels the edit and **does not** close the Notes modal.
+- [x] Every migrated dialog (Theme B) still passes its existing specs unchanged — check `prompt-dialog.test.tsx` exists before relying on this line.
+- [x] No native `CmdOrCtrl+L` accelerator is registered: `Ctrl+L` inside a focused terminal clears the screen and does not open the menu.
+- [x] `notes.toggle` appears in the command palette and has no chord.
+- [x] The three convention files agree with each other on `Mod+l` — diff them.
 - [ ] **Open, for a human:** the visual pass on the gradient ring in both themes, and whether the modal at 80vh is the right size on a laptop display.
 
 ---
