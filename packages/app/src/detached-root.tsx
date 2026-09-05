@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 
 import { ShellProviders } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
 import type { WindowRole } from '@midnite/studio-shared';
 
+import { DelayedFallback } from './components/delayed-fallback';
 import { DetachedWindowFrame } from './components/detached-window-frame';
+import { PAGE_ROLE_TITLE } from './components/page-detach-mark';
+import { VIEW_COMPONENT } from './components/view-registry';
 import { DialogHost } from './components/dialog-host';
 import { ErrorBoundary } from './components/error-boundary';
 import { PaletteHost } from './components/palette-host';
@@ -62,6 +65,7 @@ const ROLE_TITLE: Record<Exclude<WindowRole, 'main'>, string> = {
   repos: 'Git Repos',
   fab: 'Midnite Loops',
   browser: 'Browser',
+  ...PAGE_ROLE_TITLE,
 };
 
 function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
@@ -89,10 +93,33 @@ function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
 
   if (role === 'fab') return <FabPanel isOpen width={width} fitSignal={fitSignal} />;
 
+  if (role === 'browser') {
+    return (
+      <div className="relative h-full w-full">
+        <BrowserPane shown />
+      </div>
+    );
+  }
+
+  /*
+    A page role: the SAME component `app.tsx` renders for that `ViewId`, from
+    the one registry, mounted a second time in this window's own renderer
+    process. Not a bespoke copy — a page whose popout drifted from its docked
+    self would be a second implementation of the view, which is the failure
+    mode `VIEW_COMPONENT` exists to prevent.
+
+    `Suspense` because most entries in that registry are `React.lazy`, and this
+    window has no `<Shell>` boundary above it to catch the promise. The `global`
+    flag is not consulted: `app.tsx` uses it to decide whether a view yields to
+    `EmptyWorkspace` with no repository selected, and a popout has no workspace
+    to fall back to — the five detachable pages each say their own "select a
+    repository" piece.
+  */
+  const { Component } = VIEW_COMPONENT[role];
   return (
-    <div className="relative h-full w-full">
-      <BrowserPane shown />
-    </div>
+    <Suspense fallback={<DelayedFallback />}>
+      <Component />
+    </Suspense>
   );
 }
 

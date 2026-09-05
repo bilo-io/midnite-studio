@@ -1,5 +1,6 @@
 import { EmptyState } from '../../components/empty-state';
 import { VIEW_ICON } from '../../components/nav-icons';
+import { PageDetachMark } from '../../components/page-detach-mark';
 import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { useStatus } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
@@ -66,13 +67,25 @@ export function Workbench() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <TabStrip
-        tabs={tabs}
-        activeTabId={active ? active.id : null}
-        workingTreeLabel={workingTreeLabel(selectedWorktreePath)}
-        onFocus={focusTab}
-        onClose={closeTab}
-      />
+      {/*
+        Beside the strip, not inside it: `TabStrip`'s root is a `role="tablist"`
+        and a button that is not a tab has no business being one of its
+        children. The border moves out here so the two still read as one bar.
+      */}
+      <div className="flex shrink-0 items-stretch border-b border-border">
+        <div className="flex shrink-0 items-center pl-1.5 pr-0.5">
+          <PageDetachMark role="changes" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <TabStrip
+            tabs={tabs}
+            activeTabId={active ? active.id : null}
+            workingTreeLabel={workingTreeLabel(selectedWorktreePath)}
+            onFocus={focusTab}
+            onClose={closeTab}
+          />
+        </div>
+      </div>
 
       <div className="min-h-0 flex-1">
         {/*
