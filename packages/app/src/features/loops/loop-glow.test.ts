@@ -14,6 +14,9 @@ const TAILWIND_500: Record<string, string> = {
   'text-green-500': '#22c55e',
   'text-yellow-500': '#eab308',
   'text-red-500': '#ef4444',
+  'text-cyan-500': '#06b6d4',
+  'text-violet-500': '#8b5cf6',
+  'text-orange-500': '#f97316',
 };
 
 describe('loopGlowColor', () => {

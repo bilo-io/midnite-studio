@@ -60,11 +60,11 @@ export function ShortcutSlide({ batch }: { batch: ShortcutBatch }) {
 }
 
 /**
- * The last slide: what the FAB panel is, its chord, and its four tabs in
+ * The last slide: what the FAB panel is, its chord, and its six tabs in
  * their own colours.
  *
  * The tabs are `DEFAULT_LOOPS` itself — the same array the panel's own tab bar
- * maps over — so a fifth loop appears here the day it is added, wearing the
+ * maps over — so a seventh loop appears here the day it is added, wearing the
  * glyph and the `text-*` class it wears there. Its *tile* would be untinted
  * until someone gives it a row in `loop-glow.ts` and a line in `LOOP_BLURBS`
  * below, which is the same cost every other consumer of those two maps pays.
@@ -146,8 +146,10 @@ export function FabSlide() {
  * than throwing, exactly as those two do.
  */
 const LOOP_BLURBS: Record<string, string> = {
+  guard: 'Sweeps for secrets, dependency and security risk',
   innovate: 'Proposes and refines the next phase',
   automate: 'Builds a phase and opens the PR',
   watchdog: 'Reviews PRs and answers feedback',
   medic: 'Chases failing checks until green',
+  overhaul: 'Profiles startup, bundle size and renders',
 };

@@ -4,6 +4,7 @@ import {
   LuChartLine,
   LuClipboardCheck,
   LuFilePen,
+  LuGauge,
   LuGitBranch,
   LuGitPullRequest,
   LuInfinity,
@@ -22,6 +23,7 @@ import {
   LuRotateCw,
   LuScanEye,
   LuScissors,
+  LuShieldCheck,
   LuZap,
 } from 'react-icons/lu';
 
@@ -199,6 +201,13 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     hint: 'Prune branches and worktrees that have fully landed. Dry-run first.',
   },
   {
+    id: 'loopGuard',
+    label: 'Loop: Guard',
+    icon: LuShieldCheck,
+    category: 'loops',
+    hint: 'Run security sweeps — secrets, dependency audits, vulnerability review — on a loop.',
+  },
+  {
     id: 'loopPatrol',
     label: 'Loop: Patrol',
     icon: LuRadar,
@@ -246,5 +255,12 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     icon: LuListTodo,
     category: 'loops',
     hint: 'Riff on a new phase and write the doc for it, on a loop.',
+  },
+  {
+    id: 'loopOverhaul',
+    label: 'Loop: Overhaul',
+    icon: LuGauge,
+    category: 'loops',
+    hint: 'Profile startup, idle CPU, bundle size and renders, and fix what is slow, on a loop.',
   },
 ];
