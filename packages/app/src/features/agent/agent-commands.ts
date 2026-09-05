@@ -13,6 +13,7 @@ import {
   LuListTodo,
   LuMessageSquare,
   LuMessageSquareReply,
+  LuNetwork,
   LuPackage,
   LuPackageCheck,
   LuPlay,
@@ -157,6 +158,13 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     icon: LuFilePen,
     category: 'tasks',
     hint: 'Deepen an existing phase doc until any model could execute it.',
+  },
+  {
+    id: 'execSwarm',
+    label: 'Swarm',
+    icon: LuNetwork,
+    category: 'tasks',
+    hint: 'Fan work out across parallel agents on several phases at once.',
   },
   {
     id: 'prReview',

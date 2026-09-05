@@ -12,7 +12,7 @@ copies this tree into a target repo; re-running it there is an upgrade, not a fr
   phase table), `tasks/done.md`, `tasks/outstanding.md`, an empty `tasks/phases/`, and
   `_features.md`.
 - **`.claude/skills/`, `.agents/skills/`, `.codex/skills/`** — three verbatim mirrors of the same
-  eight skills, because each CLI (Claude Code, Codex, Antigravity/Gemini) reads its own path.
+  nine skills, because each CLI (Claude Code, Codex, Antigravity/Gemini) reads its own path.
   Symlinks were considered and rejected: zero drift by construction, but broken the moment the
   repo is cloned onto another machine, since a symlink target under `~/.claude/skills/` is
   machine-local. Three copies plus the eventual hash manifest solves the same drift problem
@@ -23,12 +23,14 @@ copies this tree into a target repo; re-running it there is an upgrade, not a fr
   left as a marked `<!-- TODO -->` placeholder. A stub that reads as a template is honest; a copy
   that names this repo's own package boundaries in someone else's repo is not.
 
-## Why these eight skills, and not the other three
+## Why these nine skills, and not the other three
 
-Of the eleven skills this repo has, eight are the workflow core and ship here:
-`midnite-brainstorm`, `midnite-exec`, `midnite-exec-adhoc`, `midnite-refine`,
-`midnite-address-issue`, `midnite-triage`, `midnite-git-report`, `midnite-git-cleanup`. Three are
-deliberately excluded:
+Of the twelve skills this repo has, nine are the workflow core and ship here:
+`midnite-brainstorm`, `midnite-exec`, `midnite-exec-swarm`, `midnite-exec-adhoc`, `midnite-refine`,
+`midnite-address-issue`, `midnite-triage`, `midnite-git-report`, `midnite-git-cleanup`.
+`midnite-exec-swarm` holds true of any target repo — it is a pure orchestration layer over
+`midnite-exec` with no credentials or product-specific assumptions of its own, so it passes the
+test below and ships alongside it. Three are deliberately excluded:
 
 - **`midnite-setup`** — the bootstrapper itself. A repo that has just been onboarded does not need
   the skill that onboards repos; shipping it would be circular.
@@ -37,8 +39,9 @@ deliberately excluded:
   is true of an arbitrary target repo, and a skill that assumes it would fail (or worse, half-work)
   the first time someone actually ran it somewhere else.
 
-If a future onboarding pass wants to add a ninth skill, ask whether it holds true of *any* target
-repo or only of this one — that's the test these three failed.
+If a future onboarding pass wants to add a tenth skill, ask whether it holds true of *any* target
+repo or only of this one — that's the test these three failed (and the test `midnite-exec-swarm`
+passed).
 
 ## What Setup does not do
 

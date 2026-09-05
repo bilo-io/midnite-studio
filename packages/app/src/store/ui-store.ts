@@ -1156,6 +1156,7 @@ export type AgentCommandId =
   | 'addressIssue'
   | 'brainstorm'
   | 'refine'
+  | 'execSwarm'
   | 'prReview'
   | 'prFeedback'
   | 'releasePrep'
@@ -1198,6 +1199,7 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   addressIssue: '/midnite-address-issue',
   brainstorm: '/midnite-brainstorm',
   refine: '/midnite-refine',
+  execSwarm: '/midnite-exec-swarm',
   prReview: '/pr-review',
   prFeedback: '/pr-feedback',
   releasePrep: '/midnite-release-prep',
