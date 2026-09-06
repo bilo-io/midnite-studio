@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import type { ForgeIssue, ForgePull, ForgeRun } from '@midnite/studio-shared';
 
-import { openExternal } from '../../../services/queries';
+import { openInMidnite } from '../../../services/open-in-midnite';
 import { checksStatus, pullStatus, runStatus, StatusPill } from '../../forge/forge-status';
 import { WidgetState } from '../widget-frame';
 
@@ -11,10 +11,11 @@ import { WidgetState } from '../widget-frame';
  *
  * Every row here links OUT — the phase's read-only rule means nothing on this
  * board merges, closes, approves or re-runs, so a row's only action is to open
- * the thing on the forge. That is why they are `<button>`s calling
- * `openExternal` rather than anchors: the renderer is a `file://` origin in the
- * packaged app, and a real `href` would either do nothing or navigate the whole
- * window out of the application.
+ * the thing on the forge (Phase 71 Theme B: through `openInMidnite`, tagged
+ * with the dashboard's own `repoId` so the tab lands in its derived group).
+ * That is why they are `<button>`s rather than anchors: the renderer is a
+ * `file://` origin in the packaged app, and a real `href` would either do
+ * nothing or navigate the whole window out of the application.
  */
 
 /**
@@ -49,9 +50,11 @@ function forgeEmptyState({
 export function PullsWidget({
   result,
   isFetching,
+  repoId,
 }: {
   result: { cli: { reason: string; hint: string }; pulls: ForgePull[]; error: string | null } | undefined;
   isFetching: boolean;
+  repoId: string;
 }) {
   const state = forgeEmptyState({ result, isFetching, empty: 'No open pull requests.' });
   const pulls = result?.pulls ?? [];
@@ -67,7 +70,7 @@ export function PullsWidget({
         {pulls.map((pull) => (
           <ForgeListRow
             key={pull.number}
-            onOpen={() => openExternal(pull.url)}
+            onOpen={() => openInMidnite(pull.url, { originRepoId: repoId })}
             title={pull.title}
             openLabel={`Open pull request #${pull.number} on GitHub`}
             meta={<PullMeta pull={pull} />}
@@ -82,6 +85,7 @@ export function PullsWidget({
 export function IssuesWidget({
   result,
   isFetching,
+  repoId,
 }: {
   result:
     | {
@@ -92,6 +96,7 @@ export function IssuesWidget({
       }
     | undefined;
   isFetching: boolean;
+  repoId: string;
 }) {
   const state = forgeEmptyState({ result, isFetching, empty: 'No open issues.' });
   const issues = result?.issues ?? [];
@@ -117,7 +122,7 @@ export function IssuesWidget({
         {issues.map((issue) => (
           <ForgeListRow
             key={issue.number}
-            onOpen={() => openExternal(issue.url)}
+            onOpen={() => openInMidnite(issue.url, { originRepoId: repoId })}
             title={issue.title}
             openLabel={`Open issue #${issue.number} on GitHub`}
             meta={
@@ -155,9 +160,11 @@ export function IssuesWidget({
 export function RunsWidget({
   result,
   isFetching,
+  repoId,
 }: {
   result: { cli: { reason: string; hint: string }; runs: ForgeRun[]; error: string | null } | undefined;
   isFetching: boolean;
+  repoId: string;
 }) {
   const state = forgeEmptyState({ result, isFetching, empty: 'No workflow runs yet.' });
 
@@ -200,7 +207,7 @@ export function RunsWidget({
               {groupRuns.slice(0, 5).map((run) => (
                 <ForgeListRow
                   key={run.id}
-                  onOpen={() => openExternal(run.url)}
+                  onOpen={() => openInMidnite(run.url, { originRepoId: repoId })}
                   title={run.headBranch ?? 'detached'}
                   openLabel="Open run on GitHub"
                   meta={<StatusPill status={runStatus(run)} />}

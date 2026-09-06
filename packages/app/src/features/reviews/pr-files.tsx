@@ -2,7 +2,7 @@ import type { ForgePullFiles, ForgeReviewThread } from '@midnite/studio-shared';
 import { useState } from 'react';
 
 import { formatNumber } from '../../lib/format-number';
-import { openExternal } from '../../services/queries';
+import { openLinkFromEvent } from '../../services/open-in-midnite';
 import { PrFileAccordion } from './pr-file-accordion';
 import { PrFilesSkeleton } from './reviews-skeletons';
 
@@ -102,7 +102,7 @@ export function PrFiles({
           keeps the window responsive.{' '}
           <button
             type="button"
-            onClick={() => openExternal(pullUrl)}
+            onClick={(event) => openLinkFromEvent(pullUrl, event, { originRepoId: repoId })}
             className="underline underline-offset-2 hover:text-foreground"
           >
             Open the whole diff on GitHub

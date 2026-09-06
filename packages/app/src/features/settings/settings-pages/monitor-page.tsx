@@ -264,6 +264,9 @@ function CrashReporting() {
         <button
           type="button"
           disabled={!hasBridge}
+          // Deliberately `openExternal`, not `openInMidnite` (Phase 71 Theme B):
+          // filing a bug means typing credentials and a report into GitHub, and
+          // an in-app tab has no password manager to fill any of that in.
           onClick={() => openExternal(NEW_ISSUE_URL)}
           className="rounded border border-border px-2 py-1 transition-colors hover:bg-accent disabled:opacity-50"
         >

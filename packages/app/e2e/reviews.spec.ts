@@ -128,6 +128,10 @@ const withPull = (over: Partial<NonNullable<MockFixtures['forge']>> = {}): MockF
  * is intolerable now that CI blocks on it. Centring the row first puts it well
  * clear of the header.
  */
+/** Browser tabs opened in-app (Phase 71 Theme B's default routing for the escape links here). */
+const browserTabs = (page: Page) =>
+  page.getByRole('tablist', { name: 'Browser tabs' }).getByRole('tab');
+
 async function openPullRow(page: Page): Promise<void> {
   const row = page.getByText('Reviews page', { exact: true });
   await row.evaluate((el) => el.scrollIntoView({ block: 'center' }));
@@ -255,13 +259,11 @@ test('a capped diff says how much it dropped and offers the forge', async ({ pag
   // The whole point of the truncation contract: a short answer that says so.
   await expect(page.getByText(/37 more files are not shown/)).toBeVisible();
   await page.getByRole('button', { name: 'Open the whole diff on GitHub' }).click();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
-      ),
-    )
-    .toContain('https://github.com/bilo-io/midnite-studio/pull/42');
+  // Phase 71 Theme B: the escape routes through `openInMidnite`, which opens a
+  // browser tab under the default in-app preference rather than reaching
+  // `shell.openExternal` directly.
+  await expect(browserTabs(page)).toHaveCount(1);
+  await expect(browserTabs(page)).toHaveAccessibleName(/github\.com/);
 });
 
 test('Conversation interleaves discussion and review verdicts', async ({ page }) => {

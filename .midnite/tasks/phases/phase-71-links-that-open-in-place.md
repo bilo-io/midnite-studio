@@ -136,13 +136,20 @@ that is Theme B — so it can land and be tested on its own.
       `PALETTE_SAFE` — it flips a preference and destroys nothing. A chord-free command's label must
       come from `COMMANDS`, not `DEFAULT_KEYMAP`, or it renders as the raw id.
 
-### B — Twenty-five call sites, routed (L)
+### B — Twenty-five call sites, routed (L) 🔄 (PR #223, 2026-09-06 — all but the excluded terminal call site)
 
 Mechanical, but it is the theme that makes the phase visible. **Enumerate from
 `grep -rn "openExternal" packages/app/src`, not from this list** — the list below is what the grep
 returned on 2026-09-05 and exists to size the work, not to bound it.
 
-- [ ] [`external-link.tsx`](../../../packages/app/src/features/markdown/external-link.tsx) — the widest
+`grep -rn "openExternal" packages/app/src` on 2026-09-06 (excluding `.test.` files and comments)
+returned **21 real call sites**, not 25 — three fewer than the doc's own sizing count once
+`forgeRowMenu` is counted as the one function it is rather than the three menus it feeds, and once
+`video-studio-pane.tsx` (which never called `openExternal` at all — it called `browser-store`
+directly) is counted separately. All 21 are accounted for below: routed, deliberately left on
+`openExternal` with a reason, or — Terminal only — deliberately deferred past this PR.
+
+- [x] [`external-link.tsx`](../../../packages/app/src/features/markdown/external-link.tsx) — the widest
       blast radius, because every rendered markdown link in the app goes through it (commit messages,
       PR bodies, release notes, notes, slides).
   - Its `onClick` currently `preventDefault()`s unconditionally, which swallows `Cmd`, `Shift` and
@@ -153,16 +160,16 @@ returned on 2026-09-05 and exists to size the work, not to bound it.
     **extended**, not replaced — that reasoning is still exactly why the handler exists.
   - Correct the same comment's claim that protocols are "enforced in main": they are enforced in
     `packages/shared/src/ipc/schemas.ts` and re-checked in `remote-handlers.ts`.
-- [ ] Reviews — [`pr-detail.tsx:337`](../../../packages/app/src/features/reviews/pr-detail.tsx)
+- [x] Reviews — [`pr-detail.tsx:337`](../../../packages/app/src/features/reviews/pr-detail.tsx)
       (`pull.url`) and [`pr-files.tsx:105`](../../../packages/app/src/features/reviews/pr-files.tsx)
       (`pullUrl`, the truncated-patch escape). Both pass the PR's repo as `originRepoId` so the tabs
       land in that repo's derived group.
-- [ ] Actions — [`run-detail.tsx:206`](../../../packages/app/src/features/actions/run-detail.tsx)
+- [x] Actions — [`run-detail.tsx:206`](../../../packages/app/src/features/actions/run-detail.tsx)
       (`run.url`), `:235` (the workflow YAML file), `:316` (`job.url`), and
       [`log-pane.tsx:113`](../../../packages/app/src/features/actions/log-pane.tsx) (`runUrl`). A CI log
       you are reading and the run page it came from belong in the same window; this is the strongest
       single argument for the whole phase.
-- [ ] Repos sidebar — [`repos-panel.tsx:1429`](../../../packages/app/src/features/repos/repos-panel.tsx),
+- [x] Repos sidebar — [`repos-panel.tsx:1429`](../../../packages/app/src/features/repos/repos-panel.tsx),
       [`use-repo-actions.ts:223`](../../../packages/app/src/features/repos/use-repo-actions.ts), and
       [`forge-sections.tsx`](../../../packages/app/src/features/repos/forge-sections.tsx) `:223`, `:314`
       and the generic `forgeRowMenu(url, what)` at `:454`. **These are the ones the old Phase 32 bullet
@@ -170,7 +177,7 @@ returned on 2026-09-05 and exists to size the work, not to bound it.
       it is one edit covering three of the six.
   - Each of these knows its repo, so each passes `originRepoId`. This is the theme's payoff: open three
     PRs from three repos and the strip groups them without being asked.
-- [ ] Dashboard — [`forge-widgets.tsx`](../../../packages/app/src/features/dashboard/widgets/forge-widgets.tsx)
+- [x] Dashboard — [`forge-widgets.tsx`](../../../packages/app/src/features/dashboard/widgets/forge-widgets.tsx)
       `:70`, `:120`, `:203`; forge detail —
       [`forge-detail.tsx`](../../../packages/app/src/features/forge/forge-detail.tsx) `:61`, `:131`.
 - [ ] Terminal — [`terminal-view.tsx:573`](../../../packages/app/src/features/terminal/terminal-view.tsx)
@@ -179,24 +186,28 @@ returned on 2026-09-05 and exists to size the work, not to bound it.
       Swap the callback for one that calls `openInMidnite`. `terminal-links.ts` itself is
       **unchanged** — its whole design is that the opener is injected (`:211` says so), and a test
       already hands it a fake.
-- [ ] [`video-studio-pane.tsx:106–118`](../../../packages/app/src/features/video/video-studio-pane.tsx)
+  - **Deliberately not done in this PR.** `packages/app/src/features/terminal/**` was flagged live
+    (another workstream) at the time this PR was built, and touching it here would have collided with
+    it. Every other Theme B call site is routed; this one file remains on the bare `openExternal`
+    callback until a follow-up lands it — see `outstanding.md`.
+- [x] [`video-studio-pane.tsx:106–118`](../../../packages/app/src/features/video/video-studio-pane.tsx)
       — replace the hand-rolled two-liner with `openInMidnite(url, { target: 'in-app' })`. It stays
       forced in-app regardless of the preference: a Remotion studio on localhost is the one link in the
       app whose entire point is the embedded pane.
-- [ ] **Deliberately left on `openExternal`**, each with the one-line reason in the code:
+- [x] **Deliberately left on `openExternal`**, each with the one-line reason in the code:
       [`monitor-page.tsx:267`](../../../packages/app/src/features/settings/settings-pages/monitor-page.tsx)
       (filing a bug — the user is leaving to type into GitHub, and an in-app tab has no password
       manager), [`health-page.tsx:36`](../../../packages/app/src/features/settings/settings-pages/health-page.tsx)
       and [`version-notes-panel.tsx:85`](../../../packages/app/src/features/version/version-notes-panel.tsx)
       (release notes — read once, never returned to).
-- [ ] `window.open` from an already-open page is **not** part of this theme.
+- [x] `window.open` from an already-open page is **not** part of this theme.
       [`window.ts:100–104`](../../../packages/desktop/src/main/window.ts) and
       [`window-manager.ts:280–283`](../../../packages/desktop/src/main/window-manager.ts) both hold a
       `setWindowOpenHandler` using a `url.startsWith('http://')` prefix test — weaker than
       `normalizeExternalUrl`'s exact-protocol check, and duplicated verbatim in two files. Note it here,
       fix it in its own slice; it guards the *host* renderer, not the browser tabs (which have their
       own handler at `browser-service.ts:206–211`).
-- [ ] An e2e case in a new `packages/app/e2e/link-routing.spec.ts`: with the preference on **Midnite
+- [x] An e2e case in a new `packages/app/e2e/link-routing.spec.ts`: with the preference on **Midnite
       browser**, clicking the "Open on GitHub" control in Reviews opens a browser tab and reaches
       `shell.openExternal` **zero** times; with the preference flipped, the reverse. The mock bridge
       already records `shell.openExternal` calls (`remote-links.spec.ts` asserts on them), so the

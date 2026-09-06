@@ -134,6 +134,10 @@ async function open(page: Page, data: MockFixtures = base): Promise<void> {
 /** See `clickRailLink` in `mock-bridge.ts` for why a plain `.click()` races the rail's own hover-expand. */
 const goToChanges = (page: Page) => clickRailLink(page, 'Changes');
 
+/** Browser tabs opened in-app (Phase 71 Theme B's default routing for the "Open on GitHub" button). */
+const browserTabs = (page: Page) =>
+  page.getByRole('tablist', { name: 'Browser tabs' }).getByRole('tab');
+
 /**
  * The panel's own heading matches the status-bar button that summons it, word
  * for word and glyph for glyph — bare "Repos" beside an Octicons repo mark
@@ -401,14 +405,12 @@ test('Actions and Reviews list what gh reports, and open on GitHub', async ({ pa
 
   // "Open on GitHub" lives on the detail header now that Theme C gives PRs
   // an in-app detail — the row itself selects rather than opening out.
+  // Phase 71 Theme B: the button routes through `openInMidnite`, which opens a
+  // browser tab under the default in-app preference rather than reaching
+  // `shell.openExternal` directly.
   await page.getByRole('button', { name: 'Open #42 on GitHub' }).click();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
-      ),
-    )
-    .toContain('https://github.com/bilo-io/midnite-studio/pull/42');
+  await expect(browserTabs(page)).toHaveCount(1);
+  await expect(browserTabs(page)).toHaveAccessibleName(/github\.com/);
 });
 
 test('a signed-out gh says what to run rather than failing silently', async ({ page }) => {

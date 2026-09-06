@@ -33,6 +33,9 @@ function GitVersionValue({ raw, path }: { raw: string | null; path: string | nul
   return (
     <button
       type="button"
+      // Deliberately `openExternal`, not `openInMidnite` (Phase 71 Theme B):
+      // release notes are read once and never returned to, so a tab in the
+      // app's own browser would just be one more thing to close.
       onClick={() => openExternal(parsed.releaseNotesUrl)}
       title={title}
       aria-label={`git ${parsed.label} — open release notes`}

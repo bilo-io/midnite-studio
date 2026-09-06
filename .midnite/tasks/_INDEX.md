@@ -12,7 +12,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 67/70 | `██████████` | 96% | E | — |
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 64/68 | `█████████░` | 94% | — | — |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 100/102 | `██████████` | 98% | — | — |
-| [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | 🔄 WIP | x1 | 12/41 | `███░░░░░░░` | 29% | B | D |
+| [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | 🔄 WIP | x1 | 21/41 | `█████░░░░░` | 51% | — | D |
 | [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | ✅ DONE | — | 32/37 | `█████████░` | 86% | — | — |
@@ -255,9 +255,9 @@ I, lifted out and refined — they touch the rest of the app rather than the bro
 and share no file with what 32 keeps. `browser-store`'s `originRepoId` argument, and the derived
 groups it feeds, have existed and been tested since 2026-08-30 with no production caller.*
 
-- ◻ **A** — `openInMidnite(url, {originRepoId, target, background})`, a persisted `linkTarget` preference, and pure modifier resolution (`Shift` beats `Cmd`).
-- ◻ **B** — Twenty-five call sites routed — markdown, Reviews, Actions, the repos sidebar, the dashboard, the terminal — each passing its repo so tabs group themselves.
-- ◻ **C** — Dev-server detection: `package.json` script parsing plus a loopback, port-validated probe channel; a hint, never a navigation. Plus the viewport preset persisted per tab.
+- ✅ **A** (PR #200) — `openInMidnite(url, {originRepoId, target, background})`, a persisted `linkTarget` preference, and pure modifier resolution (`Shift` beats `Cmd`).
+- 🔄 **B** (PR #223) — 21 real call sites (`grep -rn "openExternal" packages/app/src`, not the doc's sizing count of 25) routed through `openInMidnite`/`openLinkFromEvent` — markdown, Reviews, Actions, the repos sidebar, the dashboard, forge detail, the video studio pane — each passing `originRepoId` where the surface knows its repo, so tabs group themselves. One call site, `terminal-view.tsx`, deliberately not done — `packages/app/src/features/terminal/**` was a live workstream when this PR was built; see `outstanding.md`.
+- ✅ **C** (PR #200) — Dev-server detection: `package.json` script parsing plus a loopback, port-validated probe channel; a hint, never a navigation. Plus the viewport preset persisted per tab.
 - ◻ **D** — Preview deploys: a settable host allowlist, fixture-backed tests, a new optional `url` on the check-run schema, and an Open-preview affordance in Reviews.
 ### [Phase 70 — The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md)
 

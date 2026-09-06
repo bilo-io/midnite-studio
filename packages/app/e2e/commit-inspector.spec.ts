@@ -50,6 +50,9 @@ const dir = (page: Page, path: string) =>
   files(page).getByRole('button', { name: path, exact: true });
 const clipboard = (page: Page) => page.evaluate(() => (window as never as { __mstudioClipboard: string[] }).__mstudioClipboard);
 const externals = (page: Page) => page.evaluate(() => (window as never as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls);
+/** Browser tabs opened in-app (Phase 71 Theme B's default routing for `ExternalLink`). */
+const browserTabs = (page: Page) =>
+  page.getByRole('tablist', { name: 'Browser tabs' }).getByRole('tab');
 
 // --- Theme A: the rendered message ----------------------------------------
 
@@ -76,23 +79,27 @@ test('an all-letter hex word in prose stays prose', async ({ page }) => {
   await expect(message(page).getByRole('button', { name: 'deadbeef' })).toHaveCount(0);
 });
 
-test('a URL in the message opens externally rather than navigating the window', async ({ page }) => {
+test('a URL in the message opens in a browser tab rather than navigating the window', async ({ page }) => {
   await openCommit(page);
 
   await message(page).getByRole('link', { name: 'https://example.com/notes' }).click();
 
-  // Still the app, and the URL went over the guarded channel. A real anchor
-  // navigation would have replaced the whole SPA — there is no browser chrome
-  // around it to come back with.
+  // Still the app, and the URL went through `openInMidnite` (Phase 71 Theme B) —
+  // a tab in the pane, under the default in-app preference — rather than a real
+  // anchor navigation, which would have replaced the whole SPA with no browser
+  // chrome to come back with.
   await expect(message(page)).toBeVisible();
-  expect(await externals(page)).toEqual(['https://example.com/notes']);
+  await expect(browserTabs(page)).toHaveCount(1);
+  expect(await externals(page)).toEqual([]);
 });
 
 test('#123 resolves against the forge remote', async ({ page }) => {
   await openCommit(page);
 
   await message(page).getByRole('link', { name: '#123' }).click();
-  expect(await externals(page)).toEqual(['https://github.com/bilo-io/midnite-studio/issues/123']);
+  await expect(browserTabs(page)).toHaveCount(1);
+  await expect(browserTabs(page)).toHaveAccessibleName(/github\.com/);
+  expect(await externals(page)).toEqual([]);
 });
 
 test('#123 stays plain text in a repo with no forge remote', async ({ page }) => {

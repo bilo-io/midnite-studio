@@ -1,6 +1,7 @@
 import { LuSquareArrowOutUpRight } from 'react-icons/lu';
 
-import { openExternal, useForgeRuns } from '../../services/queries';
+import { openInMidnite } from '../../services/open-in-midnite';
+import { useForgeRuns } from '../../services/queries';
 import { PrDetail } from '../reviews/pr-detail';
 import { runStatus, StatusPill } from './forge-status';
 
@@ -41,6 +42,7 @@ export function RunView({ repoId, runId }: { repoId: string; runId: string }) {
       title={run.name}
       pills={<StatusPill status={status} />}
       url={run.url}
+      repoId={repoId}
       openLabel="Open this run on GitHub"
       facts={[
         ['Branch', run.headBranch ?? 'detached'],
@@ -58,7 +60,7 @@ export function RunView({ repoId, runId }: { repoId: string; runId: string }) {
               <li key={other.id}>
                 <button
                   type="button"
-                  onClick={() => openExternal(other.url)}
+                  onClick={() => openInMidnite(other.url, { originRepoId: repoId })}
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent/30"
                 >
                   <StatusPill status={runStatus(other)} />
@@ -98,6 +100,7 @@ function Detail({
   title,
   pills,
   url,
+  repoId,
   openLabel,
   facts,
   children,
@@ -105,6 +108,7 @@ function Detail({
   title: string;
   pills: React.ReactNode;
   url: string;
+  repoId: string;
   openLabel: string;
   facts: [string, string][];
   children?: React.ReactNode;
@@ -128,7 +132,7 @@ function Detail({
 
         <button
           type="button"
-          onClick={() => openExternal(url)}
+          onClick={() => openInMidnite(url, { originRepoId: repoId })}
           className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           <LuSquareArrowOutUpRight aria-hidden className="h-3.5 w-3.5" />

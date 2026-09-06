@@ -35,7 +35,8 @@ import { useDialogs } from '../../components/dialog-host';
 import type { IconComponent } from '../../components/icon-button';
 import { validateRefName } from '../../components/prompt-dialog';
 import { bridge } from '../../services/bridge';
-import { openExternal, useCloseRepo, useRemoveWorktree } from '../../services/queries';
+import { openInMidnite } from '../../services/open-in-midnite';
+import { useCloseRepo, useRemoveWorktree } from '../../services/queries';
 import { useTargetedGitOp, type StatusTarget } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
@@ -220,11 +221,11 @@ export function useRepoActions(
         {
           label: `Open ${forge.owner}/${forge.repo} on ${forge.host}`,
           icon,
-          onSelect: () => openExternal(url),
+          onSelect: () => openInMidnite(url, { originRepoId: repo.id }),
         },
       ];
     },
-    [context.remotes],
+    [context.remotes, repo.id],
   );
 
   /** Create a worktree beside the repository, in a sibling directory. */
