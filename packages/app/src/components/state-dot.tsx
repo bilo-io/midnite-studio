@@ -27,6 +27,13 @@ export function StateDot({ state }: { state: DotState }) {
   if (state === 'asleep') {
     return <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/50" />;
   }
+  // A hollow ring rather than a third grey fill: `asleep` already owns `/50`
+  // and the fallback below owns `/40`, so a fourth opacity step would be a
+  // distinction nobody can see. "Ran, and is finished" reads as an outline;
+  // "idle" reads as a fill (Phase 67 Theme C).
+  if (state === 'exited') {
+    return <span className="size-1.5 shrink-0 rounded-full border border-muted-foreground/70" />;
+  }
   return <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />;
 }
 

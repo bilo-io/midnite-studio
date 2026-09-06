@@ -16,7 +16,7 @@ import { SETTINGS_PAGE_ICON, VIEW_ICON } from '../../components/nav-icons';
 import { COMMAND_ICONS } from '../../features/palette/command-icons';
 import { isPaletteSafe } from '../../features/palette/safety';
 import { startAgent } from '../../features/terminal/start-agent';
-import { useTerminalStore } from '../../features/terminal/terminal-store';
+import { agentLabelFor, sessionLabel, useTerminalStore } from '../../features/terminal/terminal-store';
 import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';
 import { useUiStore, VIEW_IDS, SETTINGS_PAGES, type ViewId } from '../../store/ui-store';
 import { chordOf } from '../../store/palette-store';
@@ -237,25 +237,37 @@ export function createTerminalSource(
     key: 'sessions',
     items: () => {
       // 1. Switch to existing terminal sessions
-      const sessionItems: PaletteItem[] = sessions.map((sess): PaletteItem => {
-        let icon: IconComponent = LuSquareTerminal;
-        if (sess.kind === 'agent' && sess.agentId) {
-          icon = resolveAgentIcon({ id: sess.agentId });
-        }
+      //
+      // `surface === 'fab'` rows are filtered out (Phase 67 Theme E,
+      // Decision 5): the panel excludes them via `inMainPanel`
+      // (`terminal-store.ts`), so selecting one here used to open the
+      // terminal panel to a blank pane — the palette's job is navigation,
+      // and it should not offer to navigate somewhere that renders nothing.
+      // Those sessions are reachable through Sessions history instead.
+      const sessionItems: PaletteItem[] = sessions
+        .filter((sess) => sess.surface !== 'fab')
+        .map((sess): PaletteItem => {
+          let icon: IconComponent = LuSquareTerminal;
+          if (sess.kind === 'agent' && sess.agentId) {
+            icon = resolveAgentIcon({ id: sess.agentId });
+          }
 
-        return {
-          id: `session:${sess.id}`,
-          label: sess.title || (sess.kind === 'agent' ? 'Agent Session' : 'Terminal'),
-          group: 'Terminal Sessions',
-          icon,
-          detail: sess.cwd,
-          run: () => {
-            onSelect();
-            useUiStore.getState().setTerminalOpen(true);
-            useTerminalStore.getState().setActive(sess.id);
-          },
-        };
-      });
+          return {
+            id: `session:${sess.id}`,
+            // Fact 4: `sess.title` is the REPO name, not this session's own
+            // label — `sessionLabel`'s own precedence, minus its `autoName`
+            // arm (live renderer state this call site has no reason to read).
+            label: sessionLabel(sess, undefined, agentLabelFor(sess.agentId, agents)),
+            group: 'Terminal Sessions',
+            icon,
+            detail: sess.cwd,
+            run: () => {
+              onSelect();
+              useUiStore.getState().setTerminalOpen(true);
+              useTerminalStore.getState().setActive(sess.id);
+            },
+          };
+        });
 
       // 2. Start new agent sessions
       const agentItems: PaletteItem[] = agents.map((agent): PaletteItem => {
