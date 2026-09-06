@@ -180,16 +180,16 @@ directly) is counted separately. All 21 are accounted for below: routed, deliber
 - [x] Dashboard — [`forge-widgets.tsx`](../../../packages/app/src/features/dashboard/widgets/forge-widgets.tsx)
       `:70`, `:120`, `:203`; forge detail —
       [`forge-detail.tsx`](../../../packages/app/src/features/forge/forge-detail.tsx) `:61`, `:131`.
-- [ ] Terminal — [`terminal-view.tsx:573`](../../../packages/app/src/features/terminal/terminal-view.tsx)
-      passes `openExternal` as a bare callback into
+- [x] Terminal — [`terminal-view.tsx:593`](../../../packages/app/src/features/terminal/terminal-view.tsx)
+      (`:573` was this doc's own stale citation) passed `openExternal` as a bare callback into
       [`attachTerminalLinks(term, open)`](../../../packages/app/src/features/terminal/terminal-links.ts).
-      Swap the callback for one that calls `openInMidnite`. `terminal-links.ts` itself is
-      **unchanged** — its whole design is that the opener is injected (`:211` says so), and a test
+      Swapped for one that calls `openInMidnite`. `terminal-links.ts` itself is
+      **unchanged** — its whole design is that the opener is injected, and a test
       already hands it a fake.
-  - **Deliberately not done in this PR.** `packages/app/src/features/terminal/**` was flagged live
-    (another workstream) at the time this PR was built, and touching it here would have collided with
-    it. Every other Theme B call site is routed; this one file remains on the bare `openExternal`
-    callback until a follow-up lands it — see `outstanding.md`.
+  - **Landed in Theme D's PR, not Theme B's.** `packages/app/src/features/terminal/**` was flagged live
+    (another workstream) when Theme B's PR was built, so it stayed on the bare `openExternal` callback —
+    logged in `outstanding.md` — until this directory was free again. Resolved here; the `outstanding.md`
+    entry is removed.
 - [x] [`video-studio-pane.tsx:106–118`](../../../packages/app/src/features/video/video-studio-pane.tsx)
       — replace the hand-rolled two-liner with `openInMidnite(url, { target: 'in-app' })`. It stays
       forced in-app regardless of the preference: a Remotion studio on localhost is the one link in the
@@ -259,12 +259,12 @@ app can work out for itself.
       port, a `start` script only, no scripts block at all, a `package.json` that is not an object) and
       the preset bounds arithmetic as a pure function of the pane rect and the preset width.
 
-### D — Preview deployments, found and offered (M)
+### D — Preview deployments, found and offered (M) ✅ DONE (PR #224, 2026-09-06)
 
 The one feature in this phase that could not exist without the browser: a check run posts a URL, and
 the app opens it beside the diff.
 
-- [ ] Give `preview-deploy.ts` a real shape. It is currently ten lines and one regex with the six hosts
+- [x] Give `preview-deploy.ts` a real shape. It is currently ten lines and one regex with the six hosts
       inlined in an alternation:
       `matchPreviewDeploy(text: string): string[]`.
   - Export the allowlist as `PREVIEW_DEPLOY_HOSTS: readonly string[]` and build the pattern from it, so
@@ -274,27 +274,35 @@ the app opens it beside the diff.
     `fly.dev`, `onrender.com`, in `browser-store` under `partialize` and edited from the Browser
     settings page. Self-hosted preview domains are the common case in private repos, and a constant
     makes that a code change. *(Resolved from Phase 32's open question.)*
-- [ ] Replace the two inline test strings with fixtures. Add a real GitHub check-run payload and a real
-      PR-comment payload under [`packages/app/src/test/fixtures/`](../../../packages/app/src/test) — the
-      shape the ticked Phase 32 item claimed and never delivered — and assert against them, keeping both
-      existing negatives.
-- [ ] Feed the matcher something to read. Check runs render in
-      [`pr-checks.tsx`](../../../packages/app/src/features/reviews/pr-checks.tsx), which today has **zero**
-      `url` matches — the domain type carries no per-check URL at all.
-  - Add `url: z.string().optional()` to the check-run schema in
-    [`domain/forge.ts`](../../../packages/shared/src/domain/forge.ts) and map GitHub's `details_url`
-    onto it in [`gh-parse.ts`](../../../packages/desktop/src/main/forge/gh-parse.ts) beside the existing
-    `html_url` mappings at `:336`/`:385`. Optional, because a check run genuinely may not have one.
-  - This is the item the old doc assumed was already done. It is the prerequisite for everything else in
-    this theme.
-- [ ] An **Open preview** affordance in the Reviews view: absent for zero candidates, a single button for
-      exactly one, a small [`ContextMenu`](../../../packages/app/src/components/context-menu.tsx) for
-      several. It calls `openInMidnite(url, { originRepoId: pull.repoId, target: 'in-app' })` — forced
-      in-app, because a preview deployment beside the diff that produced it is the entire feature.
-- [ ] Say in the code comment that this is a **heuristic over an allowlist** and will miss self-hosted
+- [x] Replace the two inline test strings with fixtures. Added a real GitHub check-run payload (its
+      preview link in `output.summary`, matching how a Vercel check actually carries one) and a real
+      PR-comment payload (a Netlify bot's table body) under
+      [`packages/app/src/features/browser/__fixtures__/`](../../../packages/app/src/features/browser/__fixtures__) —
+      **not** `packages/app/src/test/fixtures/` as this doc originally said; that path did not exist
+      anywhere in the tree, and every other fixture in the app (`themes/importers/__fixtures__`,
+      `projects/__fixtures__`) is colocated with its feature, so this follows that convention instead of
+      inventing a new top-level one. Both existing suffix-boundary negatives kept.
+- [x] Feed the matcher something to read: `detail.body` (the PR description, already fetched by
+      `useForgePullDetail` for the header — no extra fetch) plus whatever `useForgePullComments` has
+      already cached once the Conversation tab has been opened. **The `url: z.string().optional()` this
+      item originally proposed for the check-run schema was not added — it already exists.**
+      [`ForgeJob.url`](../../../packages/shared/src/domain/forge.ts) (*"The job's own page on the forge —
+      its log, in the browser"*) is mapped from `row['url']` in
+      [`gh-parse.ts`'s `parseJobs`](../../../packages/desktop/src/main/forge/gh-parse.ts) and already
+      routed through `openLinkFromEvent` in `run-detail.tsx`/`forge-sections.tsx` since Theme B — this
+      doc's `:336`/`:385` citations for it were stale (those lines map `ForgeComment.url`, not a
+      run/job). What Theme D actually needed was free **text** to run the regex over, which a clean
+      `.url` field never was; a GitHub check run's own free-text field (`output.summary`), and a PR
+      comment's `body`, are what a preview bot actually writes the link into — hence the fixtures above.
+- [x] An **Open preview** affordance in the Reviews view: absent for zero candidates, a single button for
+      exactly one, a small [`ContextMenu`](../../../packages/app/src/components/context-menu.tsx) (via
+      `useDialogs().openMenu`) for several. It calls
+      `openInMidnite(url, { originRepoId: repoId, target: 'in-app' })` — forced in-app, because a preview
+      deployment beside the diff that produced it is the entire feature.
+- [x] Said in the code comment that this is a **heuristic over an allowlist** and will miss self-hosted
       preview hosts. A false negative is an absent button, which is the right failure; a false positive
       would be a button that opens a marketing page.
-- [ ] Verified: `preview-deploy.test.ts` against the new fixtures; an RTL case in `pr-detail.test.tsx`
+- [x] Verified: `preview-deploy.test.ts` against the new fixtures; an RTL case in `pr-detail.test.tsx`
       asserting no button for zero candidates, a button for one, and a menu for three.
 
 ## Files this phase touches
