@@ -40,3 +40,13 @@ playwright-report/
 
 # Graphify knowledge graph artefacts
 graphify-out/
+
+# Local API/DB test fixtures generated against a running gateway — a snapshot of
+# ~/.midnite/midnite.db plus a Postman v2.1 export of the gateway's 324 routes.
+# Machine-local scratch for exercising the Database and API Client explorers;
+# regenerate rather than commit (the .db alone is >5 MB).
+/midnite-snapshot.db
+/midnite.postman_collection.json
+/*.postman_environment.json
+/postman_environments.json
+/gateway-routes.json
