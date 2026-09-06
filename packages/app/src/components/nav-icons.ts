@@ -18,6 +18,7 @@ import {
   LuPanelLeft,
   LuScrollText,
   LuSearch,
+  LuSend,
   LuServer,
   LuSettings,
   LuShieldAlert,
@@ -81,6 +82,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   video: LuClapperboard,
   sessions: LuHistory,
   optimizer: LuGauge,
+  apiClient: LuSend,
   settings: LuSettings,
 };
 

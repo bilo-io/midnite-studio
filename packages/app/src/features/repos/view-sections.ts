@@ -221,6 +221,9 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   video: WORK_IN_PROGRESS,
   sessions: WORK_IN_PROGRESS,
   optimizer: WORK_IN_PROGRESS,
+  // No dedicated sidebar section (its collections live under `.midnite/api/`
+  // in the tree, not the sidebar) — same reasoning as `projects` above.
+  apiClient: WORK_IN_PROGRESS,
   settings: WORK_IN_PROGRESS,
 };
 
