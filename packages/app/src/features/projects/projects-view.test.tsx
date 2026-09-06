@@ -71,12 +71,15 @@ const setProjectsMode = vi.fn((repoId: string, mode: 'table' | 'board' | 'graph'
   projectsMode = { ...projectsMode, [repoId]: mode };
 });
 
+type GraphFacets = { showContains: boolean; only: 'all' | 'blocked' | 'ready'; depth: 0 | 1 | 2; hideIsolated: boolean };
 type ProjectView = {
   filter: { query: string; assignees: string[]; labels: string[]; types: string[]; states: string[] };
   groupFieldId: string | null;
   sort: { fieldId: string; direction: 'asc' | 'desc' } | null;
   collapsedColumns: string[];
+  graph?: GraphFacets;
 };
+const DEFAULT_GRAPH_FACETS_MOCK: GraphFacets = { showContains: false, only: 'all', depth: 0, hideIsolated: false };
 // `vi.hoisted` because the mock factory below runs the moment some other
 // import (transitively, `DialogHost` → `context-menu.tsx` → `ui-store`)
 // pulls the mocked module in — which happens before this file's own
@@ -87,12 +90,17 @@ const DEFAULT_PROJECT_VIEW_MOCK = vi.hoisted(
     groupFieldId: null,
     sort: null,
     collapsedColumns: [],
+    graph: { showContains: false, only: 'all', depth: 0, hideIsolated: false },
   }),
 );
 let projectViewByProject: Record<string, ProjectView> = {};
 const setProjectView = vi.fn((projectId: string, patch: Partial<ProjectView>) => {
   const current = projectViewByProject[projectId] ?? DEFAULT_PROJECT_VIEW_MOCK;
   projectViewByProject = { ...projectViewByProject, [projectId]: { ...current, ...patch } };
+});
+let blockedByFieldName = 'Blocked by';
+const setBlockedByFieldName = vi.fn((name: string) => {
+  blockedByFieldName = name;
 });
 
 vi.mock('../../store/ui-store', () => ({
@@ -107,6 +115,8 @@ vi.mock('../../store/ui-store', () => ({
         setProjectsMode: typeof setProjectsMode;
         projectViewByProject: Record<string, ProjectView>;
         setProjectView: typeof setProjectView;
+        blockedByFieldName: string;
+        setBlockedByFieldName: typeof setBlockedByFieldName;
         detachedPages: readonly string[];
       }) => unknown,
     ) =>
@@ -118,6 +128,8 @@ vi.mock('../../store/ui-store', () => ({
         setProjectsMode,
         projectViewByProject,
         setProjectView,
+        blockedByFieldName,
+        setBlockedByFieldName,
         // The view's header carries a `<PageDetachMark>`, which reads this to
         // decide between "detach" and "focus the window you already have".
         detachedPages: [],
@@ -163,6 +175,8 @@ describe('ProjectsView', () => {
     setProjectsMode.mockClear();
     projectViewByProject = {};
     setProjectView.mockClear();
+    blockedByFieldName = 'Blocked by';
+    setBlockedByFieldName.mockClear();
   });
 
   it('issues zero item fetches when no board has been picked', async () => {
@@ -298,6 +312,8 @@ describe('Phase 52 — filter toolbar, group-by, sort', () => {
     setProjectsMode.mockClear();
     projectViewByProject = {};
     setProjectView.mockClear();
+    blockedByFieldName = 'Blocked by';
+    setBlockedByFieldName.mockClear();
 
     list.mockResolvedValue({
       cli: CLI_READY,
@@ -441,6 +457,8 @@ describe('Phase 75 Theme D — graph mode', () => {
     setProjectsMode.mockClear();
     projectViewByProject = {};
     setProjectView.mockClear();
+    blockedByFieldName = 'Blocked by';
+    setBlockedByFieldName.mockClear();
 
     list.mockResolvedValue({
       cli: CLI_READY,
