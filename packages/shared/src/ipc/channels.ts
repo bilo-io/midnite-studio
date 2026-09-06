@@ -725,6 +725,8 @@ export const CHANNELS = {
   /** Opens the native file picker in main; the renderer never sees a path. */
   apiImportCollection: 'mstudio:api-client:import-collection',
   apiDeleteCollection: 'mstudio:api-client:delete-collection',
+  /** Opens the native save dialog in main; writes the identical bytes `apiSaveCollection` would. */
+  apiExportCollection: 'mstudio:api-client:export-collection',
   apiSendRequest: 'mstudio:api-client:send-request',
   apiCancelRequest: 'mstudio:api-client:cancel-request',
 

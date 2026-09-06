@@ -126,6 +126,7 @@ const bridge: Pick<
   | 'loopRuns'
   | 'workflow'
   | 'demoApi'
+  | 'apiClient'
   | 'video'
   | 'fs'
   | 'stats'
@@ -375,6 +376,16 @@ const bridge: Pick<
     start: () => call(CHANNELS.demoApiStart),
     stop: () => call(CHANNELS.demoApiStop),
     status: () => call(CHANNELS.demoApiStatus),
+  },
+  apiClient: {
+    listCollections: (req) => call(CHANNELS.apiListCollections, req),
+    readCollection: (req) => call(CHANNELS.apiReadCollection, req),
+    saveCollection: (req) => call(CHANNELS.apiSaveCollection, req),
+    importCollection: (req) => call(CHANNELS.apiImportCollection, req),
+    deleteCollection: (req) => call(CHANNELS.apiDeleteCollection, req),
+    exportCollection: (req) => call(CHANNELS.apiExportCollection, req),
+    sendRequest: (req) => call(CHANNELS.apiSendRequest, req),
+    cancelRequest: (req) => call(CHANNELS.apiCancelRequest, req),
   },
   video: {
     project: {

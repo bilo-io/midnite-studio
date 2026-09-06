@@ -2316,6 +2316,18 @@ export const ApiDeleteCollectionRequest = z.object({
 export const ApiDeleteCollectionResponse = ApiOpResultSchema;
 
 /**
+ * No destination path — `apiExportCollection` opens the native save dialog in
+ * main (`dialog.showSaveDialog`, defaulted to the collection's own file name),
+ * the renderer never sees or picks one. Writes the identical bytes
+ * `apiSaveCollection` would; there is no separate serialiser.
+ */
+export const ApiExportCollectionRequest = z.object({
+  repoId: z.string().min(1),
+  collectionId: z.string().min(1),
+});
+export const ApiExportCollectionResponse = ApiOpResultSchema;
+
+/**
  * `requestId` mirrors `DbQueryStartRequest` — how `apiCancelRequest` finds the
  * in-flight operation to abort. `collectionVariables` is the collection's own
  * `variable[]`, the only `{{var}}` tier this phase resolves (Phase 70 Theme A

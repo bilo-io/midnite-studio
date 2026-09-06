@@ -2,6 +2,36 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 66 Themes E + G — The send engine, and collections on disk
+
+[PR #227](https://github.com/bilo-io/midnite-studio/pull/227). Moves Phase 66 19/73 → 35/73 (26% →
+48%), and clears three of the four Phase 66 themes [Phase
+70](phases/phase-70-api-client-environments-tests-and-runs.md) is blocked on — only Theme C is left
+between here and that phase starting.
+
+**E — the send engine in main.** `sendApiRequest` is built from `http.ts:84-161`'s shape rather
+than a copy of it: `readCapped` was made public there (gaining a `bytes` field) so the
+truncation-stops-reading contract lives in exactly one place and cannot drift between two callers.
+Interpolation resolves in main, never the renderer, so a value never lives in renderer state; an
+unresolved `{{var}}` is left literal with a named warning rather than substituted into a lie, one
+pass with no recursion so a self-referential collection cannot hang the main process. `cancelRequest`
+is a module-level `Map<requestId, AbortController>`; cancelling an unknown id is a no-op `{ok:true}`,
+because the race where a response lands as the user clicks Cancel is normal. Tests run against a real
+loopback server, not a `fetch` mock — a mock would not have caught truncation-stops-reading, and the
+suite asserts the server actually saw the socket close early.
+
+**G — collections on disk, under `.midnite/api/` in the open repo.** Every write goes through
+`fs-scope-write`'s `O_CREAT|O_EXCL` / `O_NOFOLLOW` / `confineTree`, so a symlinked `.midnite/api`
+is refused and writes nothing. One serializer for both save and export. The round-trip is asserted
+byte for byte, which forced the phase's sharpest finding: zod's `.passthrough()` **reorders keys on
+parse** (declared-shape keys first, then passthrough keys), so nothing serializes `.parse()` output
+— every write goes from the raw `JSON.parse`'d value, which is what keeps a one-header edit a
+one-hunk diff.
+
+Also: `apiExportCollection` — a genuine gap in Theme A's channel set, without which Theme G's
+Export… action was unreachable from the renderer — and a `Settings ▸ API Client` page carrying the
+request timeout (30s default) that Theme E's deadline reads.
+
 ## 2026-09-06 — Phase 66 Theme B — Nav, view registry and the command
 
 [PR #225](https://github.com/bilo-io/midnite-studio/pull/225). Moves Phase 66 12/73 → 19/73 (16% →
