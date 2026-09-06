@@ -404,7 +404,11 @@ export type ApiEnvironmentSummary = z.infer<typeof ApiEnvironmentSummarySchema>;
  * the `.gitignore`.
  */
 export const SaveEnvironmentOutcomeSchema = z.discriminatedUnion('status', [
-  z.object({ status: z.literal('saved') }),
+  // `fileName` is the environment's id (`ApiEnvironmentSummary.id` is its file
+  // name) — the caller's only way to learn what a brand-new environment
+  // (`environmentId: null` on the request) actually landed as, slug
+  // de-duplication included, so the UI can select it immediately.
+  z.object({ status: z.literal('saved'), fileName: z.string() }),
   z.object({
     status: z.literal('needs-confirm'),
     secretCount: z.number().int().nonnegative(),

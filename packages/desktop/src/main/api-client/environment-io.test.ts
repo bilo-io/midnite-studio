@@ -58,7 +58,7 @@ describe('environment-io', () => {
       const saved = await saveEnvironment(repoRoot, null, environment, true);
       expect(saved.ok).toBe(true);
       if (!saved.ok) return;
-      expect(saved.value).toEqual({ status: 'saved' });
+      expect(saved.value).toEqual({ status: 'saved', fileName: 'local.postman_environment.json' });
 
       const baseBytes = await readBaseFileBytes(repoRoot, 'local.postman_environment.json');
       // A substring assertion on the raw bytes, not a parsed compare — the
@@ -186,7 +186,9 @@ describe('environment-io', () => {
 
       const confirmed = await saveEnvironment(repoRoot, null, makeEnvironment(), true);
       expect(confirmed.ok).toBe(true);
-      if (confirmed.ok) expect(confirmed.value).toEqual({ status: 'saved' });
+      if (confirmed.ok) {
+        expect(confirmed.value).toEqual({ status: 'saved', fileName: 'local.postman_environment.json' });
+      }
     });
 
     it('does not ask again once the repo is already protected', async () => {
@@ -207,7 +209,9 @@ describe('environment-io', () => {
         false,
       );
       expect(second.ok).toBe(true);
-      if (second.ok) expect(second.value).toEqual({ status: 'saved' });
+      if (second.ok) {
+        expect(second.value).toEqual({ status: 'saved', fileName: 'remote.postman_environment.json' });
+      }
       void id;
     });
 
@@ -217,7 +221,9 @@ describe('environment-io', () => {
       });
       const result = await saveEnvironment(repoRoot, null, environment, false);
       expect(result.ok).toBe(true);
-      if (result.ok) expect(result.value).toEqual({ status: 'saved' });
+      if (result.ok) {
+        expect(result.value).toEqual({ status: 'saved', fileName: 'local.postman_environment.json' });
+      }
     });
   });
 

@@ -412,7 +412,7 @@ export async function saveEnvironment(
     } finally {
       await created.close();
     }
-    return apiOk<SaveEnvironmentOutcome>({ status: 'saved' });
+    return apiOk<SaveEnvironmentOutcome>({ status: 'saved', fileName });
   }
 
   const handle = await openForOverwrite(target);
@@ -423,7 +423,7 @@ export async function saveEnvironment(
   } finally {
     await handle.close();
   }
-  return apiOk<SaveEnvironmentOutcome>({ status: 'saved' });
+  return apiOk<SaveEnvironmentOutcome>({ status: 'saved', fileName });
 }
 
 /** Remove an environment's base file and its overlay, if either exists. */

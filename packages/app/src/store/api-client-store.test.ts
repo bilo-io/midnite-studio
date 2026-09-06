@@ -16,7 +16,7 @@ function installBridge(overrides: Partial<MidniteStudioBridge['apiClient']> = {}
     cancelRequest: vi.fn().mockResolvedValue({ ok: true }),
     listEnvironments: vi.fn().mockResolvedValue({ ok: true, value: [] }),
     readEnvironment: vi.fn(),
-    saveEnvironment: vi.fn().mockResolvedValue({ ok: true, value: { status: 'saved' } }),
+    saveEnvironment: vi.fn().mockResolvedValue({ ok: true, value: { status: 'saved', fileName: 'e.postman_environment.json' } }),
     deleteEnvironment: vi.fn().mockResolvedValue({ ok: true }),
     ...overrides,
   } as unknown as MidniteStudioBridge['apiClient'];
@@ -418,7 +418,9 @@ describe('api-client-store', () => {
 
     it('saveEnvironment refreshes the list once the outcome is saved', async () => {
       const { listEnvironments } = installBridge({
-        saveEnvironment: vi.fn().mockResolvedValue({ ok: true, value: { status: 'saved' } }),
+        saveEnvironment: vi
+          .fn()
+          .mockResolvedValue({ ok: true, value: { status: 'saved', fileName: summary.id } }),
         listEnvironments: vi.fn().mockResolvedValue({ ok: true, value: [summary] }),
       });
       useApiClientStore.setState({ environmentsRepoId: 'repo1' });
@@ -427,7 +429,7 @@ describe('api-client-store', () => {
         .getState()
         .saveEnvironment('repo1', null, { id: 'e', name: 'Local', values: [] }, true);
 
-      expect(result).toEqual({ ok: true, value: { status: 'saved' } });
+      expect(result).toEqual({ ok: true, value: { status: 'saved', fileName: summary.id } });
       expect(listEnvironments).toHaveBeenCalledWith({ repoId: 'repo1' });
       expect(useApiClientStore.getState().environments).toEqual([summary]);
     });
