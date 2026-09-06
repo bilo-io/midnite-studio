@@ -136,7 +136,7 @@ that is Theme B — so it can land and be tested on its own.
       `PALETTE_SAFE` — it flips a preference and destroys nothing. A chord-free command's label must
       come from `COMMANDS`, not `DEFAULT_KEYMAP`, or it renders as the raw id.
 
-### B — Twenty-five call sites, routed (L) ✅ DONE except Terminal (PR #TODO, 2026-09-06)
+### B — Twenty-five call sites, routed (L) 🔄 (PR #223, 2026-09-06 — all but the excluded terminal call site)
 
 Mechanical, but it is the theme that makes the phase visible. **Enumerate from
 `grep -rn "openExternal" packages/app/src`, not from this list** — the list below is what the grep
