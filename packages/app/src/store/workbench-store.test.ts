@@ -10,7 +10,16 @@ import {
 const allChanges = (repoId: string, worktreePath: string) =>
   ({ kind: 'all-changes', repoId, worktreePath, label: worktreePath }) as const;
 
-const reset = () => useWorkbenchStore.setState({ tabs: [], activeTabId: null });
+const reset = () =>
+  useWorkbenchStore.setState({
+    tabs: [],
+    activeTabId: null,
+    activeQueryTabId: null,
+    dirtyQueryTabIds: new Set(),
+  });
+
+const queryTab = (connectionId: string, label: string, sql = '') =>
+  ({ kind: 'query', connectionId, label, sql }) as const;
 
 describe('tabId', () => {
   it('derives identity from what the tab points at', () => {
@@ -104,6 +113,80 @@ describe('useWorkbenchStore', () => {
 
     useWorkbenchStore.getState().closeRepoTabs('r2');
     expect(useWorkbenchStore.getState().activeTabId).toBe('all-changes:r1:/a');
+  });
+});
+
+describe('query tab kind (Phase 61 Theme G, Decision 7)', () => {
+  beforeEach(reset);
+
+  it('opens into its own activeQueryTabId, not activeTabId', () => {
+    useWorkbenchStore.getState().openTab(queryTab('c1', 'Query 1'));
+    const state = useWorkbenchStore.getState();
+    expect(state.tabs).toHaveLength(1);
+    expect(state.activeQueryTabId).toBe('query:c1:Query 1');
+    expect(state.activeTabId).toBeNull();
+  });
+
+  it('keeps the two cursors independent — opening a Changes tab does not steal query focus, and vice versa', () => {
+    const store = useWorkbenchStore.getState();
+    store.openTab(queryTab('c1', 'Query 1'));
+    store.openTab(allChanges('r1', '/w/main'));
+    let state = useWorkbenchStore.getState();
+    expect(state.activeQueryTabId).toBe('query:c1:Query 1');
+    expect(state.activeTabId).toBe('all-changes:r1:/w/main');
+
+    store.openTab(queryTab('c1', 'Query 2'));
+    state = useWorkbenchStore.getState();
+    expect(state.activeQueryTabId).toBe('query:c1:Query 2');
+    expect(state.activeTabId).toBe('all-changes:r1:/w/main');
+  });
+
+  it('reopening the same connectionId+label refocuses rather than duplicating', () => {
+    const store = useWorkbenchStore.getState();
+    store.openTab(queryTab('c1', 'orders', 'SELECT 1'));
+    store.openTab(queryTab('c1', 'orders', 'SELECT * FROM orders LIMIT 200'));
+    const { tabs } = useWorkbenchStore.getState();
+    expect(tabs).toHaveLength(1);
+    expect((tabs[0] as { sql: string }).sql).toBe('SELECT * FROM orders LIMIT 200');
+  });
+
+  it('closeRepoTabs leaves query tabs alone — they carry no repoId', () => {
+    const store = useWorkbenchStore.getState();
+    store.openTab(allChanges('r1', '/w/main'));
+    store.openTab(queryTab('c1', 'Query 1'));
+
+    store.closeRepoTabs('r1');
+    const { tabs } = useWorkbenchStore.getState();
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0]?.kind).toBe('query');
+  });
+
+  it('closing a query tab falls back within the query subset only', () => {
+    const store = useWorkbenchStore.getState();
+    store.openTab(allChanges('r1', '/w/main'));
+    store.openTab(queryTab('c1', 'Query 1'));
+    store.openTab(queryTab('c1', 'Query 2'));
+
+    store.closeTab('query:c1:Query 2');
+    const state = useWorkbenchStore.getState();
+    expect(state.activeQueryTabId).toBe('query:c1:Query 1');
+    // The Changes cursor is untouched by a query tab closing.
+    expect(state.activeTabId).toBe('all-changes:r1:/w/main');
+  });
+
+  it('updateQueryTabSql edits the tab and marks it dirty; markQueryTabClean clears it', () => {
+    const store = useWorkbenchStore.getState();
+    store.openTab(queryTab('c1', 'Query 1', ''));
+    const id = 'query:c1:Query 1';
+
+    store.updateQueryTabSql(id, 'SELECT 1');
+    let state = useWorkbenchStore.getState();
+    expect((state.tabs[0] as { sql: string }).sql).toBe('SELECT 1');
+    expect(state.dirtyQueryTabIds.has(id)).toBe(true);
+
+    store.markQueryTabClean(id);
+    state = useWorkbenchStore.getState();
+    expect(state.dirtyQueryTabIds.has(id)).toBe(false);
   });
 });
 
