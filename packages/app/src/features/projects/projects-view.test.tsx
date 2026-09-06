@@ -37,14 +37,27 @@ const fields = vi.fn();
 const items = vi.fn();
 const setField = vi.fn();
 
+// `agent`/`terminal`/`hasBridge` are reached once a card's detail pane opens
+// (Phase 75 Theme G lifted selection into this view, so board mode and
+// graph mode both mount `CardPanelStack` → `CardDetail` → `CardComposer`,
+// which queries the agent roster the moment a card is open) — the same
+// fixtures `board-view.test.tsx`/`card-composer.test.tsx` already use.
 vi.mock('../../services/bridge', () => ({
   bridge: () => ({
     forgeProject: { list, fields, items, setField },
+    terminal: { list: vi.fn(async () => ({ sessions: [] })), save: vi.fn() },
+    agent: {
+      list: vi.fn(async () => ({
+        agents: [{ id: 'claude', label: 'Claude', command: 'claude', args: [], accent: '#000' }],
+        status: [],
+      })),
+    },
   }),
+  hasBridge: () => true,
 }));
 
 vi.mock('../../services/use-status', () => ({
-  useActiveWorktree: () => ({ repoId: 'repo-1' }),
+  useActiveWorktree: () => ({ repoId: 'repo-1', worktreePath: '/repo' }),
 }));
 
 let boardByRepo: Record<string, string> = {};
@@ -534,5 +547,156 @@ describe('Phase 75 Theme D — graph mode', () => {
 
     expect(await screen.findByText('Dependencies live on issues. This board has none.')).toBeDefined();
     expect(screen.queryByTestId('project-graph-view')).toBeNull();
+  });
+});
+
+describe('Phase 75 Theme G — one selection, agent gate', () => {
+  beforeEach(() => {
+    list.mockReset();
+    fields.mockReset();
+    items.mockReset();
+    boardByRepo = { 'repo-1': 'PVT_1' };
+    setProjectBoard.mockClear();
+    forgeWritesEnabled = false;
+    projectsMode = {};
+    setProjectsMode.mockClear();
+    projectViewByProject = {};
+    setProjectView.mockClear();
+
+    list.mockResolvedValue({
+      cli: CLI_READY,
+      projects: [
+        { id: 'PVT_1', number: 1, title: 'Roadmap', url: 'https://github.com/orgs/acme/projects/1', closed: false },
+      ],
+      error: null,
+      kind: 'ok',
+    });
+  });
+
+  it('selecting an item in board mode keeps card-detail open for it after switching to graph mode', async () => {
+    projectsMode = { 'repo-1': 'board' };
+    fields.mockResolvedValue({
+      cli: CLI_READY,
+      fields: [
+        { id: 'f1', name: 'Status', dataType: 'single_select', options: [{ id: 'todo', name: 'Todo', color: 'GRAY' }] },
+      ],
+      error: null,
+      kind: 'ok',
+    });
+    items.mockResolvedValue({
+      cli: CLI_READY,
+      items: [
+        {
+          id: 'item1',
+          content: {
+            type: 'issue',
+            id: 'I_1',
+            number: 30,
+            title: 'The issue card',
+            url: 'https://github.com/acme/widgets/issues/30',
+            state: 'open',
+            assignees: [],
+            body: '',
+            labels: [],
+            dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
+          },
+          fieldValues: { f1: { fieldId: 'f1', dataType: 'single_select', optionId: 'todo', name: 'Todo' } },
+        },
+      ],
+      nextCursor: null,
+      error: null,
+      kind: 'ok',
+    });
+
+    // Not `renderWithClient()`: this test needs the same `ProjectsView`
+    // instance to persist across the mode flip (its lifted `selectedItemId`
+    // is a `useState`), so it drives `render`/`rerender` on a freshly-built
+    // tree each time — a *cached* element would let `QueryClientProvider`
+    // bail out on referentially-equal props and never re-render `ProjectsView`
+    // at all, exactly the trap `board-view.test.tsx`'s own `tree(...)`
+    // function (not a plain constant) already avoids.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = () => (
+      <QueryClientProvider client={queryClient}>
+        <DialogHost>
+          <ProjectsView />
+        </DialogHost>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree());
+
+    await screen.findByTestId('board-view');
+    fireEvent.click(screen.getByText('The issue card'));
+    expect(await screen.findByTestId('card-detail')).toBeDefined();
+
+    projectsMode = { 'repo-1': 'graph' };
+    rerender(tree());
+
+    expect(await screen.findByTestId('project-graph-view')).toBeDefined();
+    expect(screen.getByTestId('card-detail')).toBeDefined();
+  });
+
+  it('an api-sourced blocker disables Start with a title naming it; a body-sourced one leaves it enabled', async () => {
+    projectsMode = { 'repo-1': 'graph' };
+    fields.mockResolvedValue({ cli: CLI_READY, fields: [], error: null, kind: 'ok' });
+    items.mockResolvedValue({
+      cli: CLI_READY,
+      items: [
+        {
+          id: 'item-api',
+          content: {
+            type: 'issue',
+            id: 'I_1',
+            number: 10,
+            title: 'Blocked via API',
+            url: 'https://github.com/acme/widgets/issues/10',
+            state: 'open',
+            assignees: [],
+            body: '',
+            labels: [],
+            dependencies: {
+              blockedBy: [{ number: 199, title: 'Upstream', state: 'open', repo: '' }],
+              parent: null,
+              subIssues: [],
+              blockedByTruncated: false,
+              subIssuesTruncated: false,
+            },
+          },
+          fieldValues: {},
+        },
+        {
+          id: 'item-body',
+          content: {
+            type: 'issue',
+            id: 'I_2',
+            number: 20,
+            title: 'Blocked via body',
+            url: 'https://github.com/acme/widgets/issues/20',
+            state: 'open',
+            assignees: [],
+            body: 'Blocked by #204',
+            labels: [],
+            dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
+          },
+          fieldValues: {},
+        },
+      ],
+      nextCursor: null,
+      error: null,
+      kind: 'ok',
+    });
+
+    renderWithClient();
+    await screen.findByTestId('project-graph-view');
+
+    fireEvent.click(screen.getByText('Blocked via API'));
+    const apiStart = await screen.findByTestId('card-start');
+    expect(apiStart).toHaveProperty('disabled', true);
+    expect(apiStart.getAttribute('title')).toBe('Blocked by #199');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByText('Blocked via body'));
+    const bodyStart = await screen.findByTestId('card-start');
+    expect(bodyStart).toHaveProperty('disabled', false);
   });
 });

@@ -27,6 +27,7 @@ import { VIEW_ICON } from '../../components/nav-icons';
 import { ExternalLink } from '../markdown/external-link';
 import { bridge } from '../../services/bridge';
 import { BoardView } from './board/board-view';
+import { CardPanelStack } from './board/card-panel-stack';
 import { groupableFields, resolveGroupField } from './board/resolve-group-field';
 import { ProjectFieldCell } from './field-editor';
 import {
@@ -36,6 +37,7 @@ import {
   type ItemFilterState,
   type ProjectItemFilterState,
 } from './filter';
+import { apiFieldBlockersFor } from './graph/graph-blockers';
 import { useGraphAgentStates } from './graph/use-graph-agent-states';
 import { ProjectGraphView } from './graph/project-graph-view';
 import { nextSortState, sortItems, type SortState } from './sort';
@@ -84,14 +86,13 @@ export function ProjectsView() {
   const mode = coerceProjectsMode(repoId !== null ? modeByRepo[repoId] : undefined);
 
   /**
-   * The graph mode's own selection (Phase 75 Theme D) — local to this view,
-   * not yet lifted alongside `BoardView`'s own `selectedItemId`. Theme G's
-   * own checklist item ("Lift card selection out of BoardView") is what
-   * consolidates this into one state shared with board mode; until then the
-   * two views simply don't share a selection, exactly the way board mode's
-   * own `selectedItemId` has never been reachable from here either.
+   * One selection for the whole view (Phase 75 Theme G) — lifted out of
+   * `BoardView`'s own local `useState` (Theme D left graph mode's copy here
+   * already; this consolidates both into the one piece of state). A card
+   * opened in board mode and a node opened in graph mode are the same
+   * panel, so switching modes keeps it open on the same item.
    */
-  const [graphSelectedItemId, setGraphSelectedItemId] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   // Fetching starts only once this view is mounted, matching every other
   // forge read's `enabled` gate — see the phase doc's own acceptance test.
@@ -206,6 +207,11 @@ export function ProjectsView() {
   };
 
   const groupField = mode === 'board' ? resolveGroupField(allFields, view.groupFieldId) : null;
+  // Only computed while graph mode is actually on screen — same reasoning as
+  // `groupField` above. Reused both for `ProjectGraphView`'s own `graph` prop
+  // and, below, for the selected item's Start-blocking `blockers` (Theme G) —
+  // one derivation, not two call sites disagreeing about the ladder.
+  const graph = mode === 'graph' ? resolveForgeGraph(filteredItems, allFields, { boardRepo: '' }) : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="projects-view">
@@ -329,6 +335,8 @@ export function ProjectsView() {
           collapsedColumns={collapsedColumns}
           onToggleColumn={toggleColumn}
           onExpandColumn={expandColumn}
+          selectedItemId={selectedItemId}
+          onSelectItem={setSelectedItemId}
         />
       ) : allItems.length === 0 ? (
         <EmptyState
@@ -342,21 +350,43 @@ export function ProjectsView() {
           title="No items match"
           body="No items match the current filter."
         />
-      ) : mode === 'graph' ? (
-        <ProjectGraphView
-          // `boardRepo: ''` — the renderer has no owner/repo string to hand
-          // this (adding one is a new IPC channel, which the phase's own
-          // guardrails rule out); the only effect is that an explicit
-          // same-repo self-reference in a field/body value won't collapse
-          // with the local item it actually names.
-          graph={resolveForgeGraph(filteredItems, allFields, { boardRepo: '' })}
-          items={filteredItems}
-          fields={allFields}
-          projectId={selectedProjectId}
-          selectedItemId={graphSelectedItemId}
-          onSelectItem={setGraphSelectedItemId}
-          agentStates={graphAgentStates}
-        />
+      ) : mode === 'graph' && graph ? (
+        <div className="flex min-h-0 flex-1">
+          <ProjectGraphView
+            // `boardRepo: ''` — the renderer has no owner/repo string to hand
+            // this (adding one is a new IPC channel, which the phase's own
+            // guardrails rule out); the only effect is that an explicit
+            // same-repo self-reference in a field/body value won't collapse
+            // with the local item it actually names.
+            graph={graph}
+            items={filteredItems}
+            fields={allFields}
+            projectId={selectedProjectId}
+            selectedItemId={selectedItemId}
+            onSelectItem={setSelectedItemId}
+            agentStates={graphAgentStates}
+          />
+          {/*
+            The graph mounts `CardPanelStack` on the same terms
+            `board-view.tsx` does — same `projectId`/`repoId`/`worktreePath`/
+            `items`/`fields`, same sibling position (it carries its own
+            `w-80 shrink-0 border-l` chrome) — one panel component, two mount
+            sites, never two panels that could disagree (Phase 75 Theme G).
+          */}
+          {selectedItemId ? (
+            <CardPanelStack
+              projectId={selectedProjectId}
+              repoId={repoId}
+              worktreePath={worktreePath}
+              items={filteredItems}
+              fields={allFields}
+              selectedItemId={selectedItemId}
+              onSelectItem={setSelectedItemId}
+              onClose={() => setSelectedItemId(null)}
+              blockers={apiFieldBlockersFor(graph, selectedItemId)}
+            />
+          ) : null}
+        </div>
       ) : (
         <ProjectItemsTable
           projectId={selectedProjectId}
