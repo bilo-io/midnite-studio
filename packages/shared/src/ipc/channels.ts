@@ -710,6 +710,24 @@ export const CHANNELS = {
    */
   reportReveal: 'mstudio:report:reveal',
 
+  // --- api client (Phase 66) ---------------------------------------------------
+  // A Postman-compatible client. Collections live repo-local, under
+  // `.midnite/api/` in the *open* repository — every read/write channel below
+  // takes a `repoId`, resolved through the repo registry exactly as
+  // `repo-handlers.ts` does, never a raw path. `apiSendRequest` is a single
+  // `invoke`, not a stream: the response body is capped before it reaches the
+  // renderer, so there is no unbounded payload to chunk the way `dbQueryBatch`
+  // chunks a result set. `apiCancelRequest` is still its own channel, keyed by
+  // `requestId`, exactly as `DbQueryCancelRequest` is.
+  apiListCollections: 'mstudio:api-client:list-collections',
+  apiReadCollection: 'mstudio:api-client:read-collection',
+  apiSaveCollection: 'mstudio:api-client:save-collection',
+  /** Opens the native file picker in main; the renderer never sees a path. */
+  apiImportCollection: 'mstudio:api-client:import-collection',
+  apiDeleteCollection: 'mstudio:api-client:delete-collection',
+  apiSendRequest: 'mstudio:api-client:send-request',
+  apiCancelRequest: 'mstudio:api-client:cancel-request',
+
   // --- MCP server (Phase 57 Themes E, F) --------------------------------------
   // The server itself is a Unix socket (`main/mcp/server.ts`), not `ipcMain` —
   // an MCP caller has no `event.sender` for `handleFromSender` to resolve. These
