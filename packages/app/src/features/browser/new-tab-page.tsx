@@ -1,11 +1,13 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { LuExternalLink, LuSearch, LuImage, LuRefreshCw } from 'react-icons/lu';
+import { LuExternalLink, LuSearch, LuImage, LuRefreshCw, LuServer } from 'react-icons/lu';
 import { SiGoogle, SiYoutube, SiFigma, SiGooglegemini, SiNotebooklm } from 'react-icons/si';
 import { ClaudeIcon } from '../../components/icons';
 import { BrandMark, Wordmark } from '../../components/brand';
 import { useBrowserStore } from '../../store/browser-store';
 import { bridge } from '../../services/bridge';
 import type { IconComponent } from '../../components/icon-button';
+import { devServerLabel, devServerUrl } from './dev-server';
+import { useDevServer } from './use-dev-server';
 import {
   type WallpaperTheme,
   WALLPAPER_THEMES,
@@ -81,6 +83,13 @@ const SHORTCUT_ROWS: BrowserShortcutTile[][] = [
 export function NewTabPage() {
   const activeTabId = useBrowserStore((s) => s.activeTabId);
   const recents: string[] = [];
+  /*
+    Absent, not disabled, when nothing is listening or no repo is active
+    (Phase 71 Theme C). A greyed-out "Dev server" tile teaches nothing an
+    absent one does not, and it would occupy the row every time the answer
+    was no — which is most of the time.
+  */
+  const devServer = useDevServer();
 
   const [query, setQuery] = useState('');
   const [theme, setTheme] = useState<WallpaperTheme>(() => getSavedWallpaperTheme());
@@ -208,6 +217,23 @@ export function NewTabPage() {
             </div>
           </div>
         </form>
+
+        {devServer ? (
+          <button
+            type="button"
+            data-testid="dev-server-tile"
+            onClick={() => handleTileClick(devServerUrl(devServer))}
+            title={
+              devServer.source === 'script'
+                ? `From this repository's "${devServer.script}" script`
+                : 'Something is listening on this port'
+            }
+            className="mb-4 flex items-center gap-2.5 rounded-full border border-border/50 bg-card/60 px-4 py-1.5 text-xs font-medium text-foreground/90 backdrop-blur-md transition-colors hover:bg-accent"
+          >
+            <LuServer className="h-3.5 w-3.5 text-primary" />
+            <span>{devServerLabel(devServer)}</span>
+          </button>
+        ) : null}
 
         {/* Shortcut Tiles Panel with Frosted Glass styling */}
         <div

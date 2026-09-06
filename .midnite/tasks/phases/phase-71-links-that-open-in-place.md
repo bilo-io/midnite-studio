@@ -90,7 +90,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 Lands first; B and D both call into it. Nothing in this theme changes a single existing call site —
 that is Theme B — so it can land and be tested on its own.
 
-- [ ] `packages/app/src/services/open-in-midnite.ts` — the single entry point:
+- [x] `packages/app/src/services/open-in-midnite.ts` — the single entry point:
       `openInMidnite(url: string, options?: { originRepoId?: string; target?: LinkTarget; background?: boolean }): void`,
       where `type LinkTarget = 'in-app' | 'system'`.
   - With `target` omitted it reads `linkTarget` from the store (below). With `target: 'system'`, or
@@ -105,14 +105,14 @@ that is Theme B — so it can land and be tested on its own.
   - Verified by a colocated `open-in-midnite.test.ts`: a `mailto:` URL reaches `openExternal` and never
     `openTab`, even with `target: 'in-app'`; an `https:` URL with `target: 'system'` reaches
     `openExternal`; the default reads the store.
-- [ ] `linkTarget: LinkTarget` in [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts),
+- [x] `linkTarget: LinkTarget` in [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts),
       defaulting to `'in-app'`, added to `PersistedUi` (`:1199–1208`) and `partialize` (`:1745`), with
       the persist `version` bumped **9 → 10** and a `migrate` arm (`:1841`) defaulting any older payload
       to `'in-app'`.
   - `ui-store`, not `browser-store`: it governs behaviour outside the browser feature — a markdown link
     in a commit message, a terminal hyperlink — and `browser-store` is scoped to tabs.
   - Verified: a seeded v9 payload migrates to v10 with `linkTarget: 'in-app'`.
-- [ ] A **Link handling** section on
+- [x] A **Link handling** section on
       [`browser-page.tsx`](../../../packages/app/src/features/settings/settings-pages/browser-page.tsx),
       above the existing **Data** section: *Open links in — **Midnite browser** (default) | System
       browser*, as a two-option radio group reusing
@@ -121,7 +121,7 @@ that is Theme B — so it can land and be tested on its own.
   - Help text names the escape hatches verbatim, because a modifier nobody is told about is a modifier
     nobody uses: *"`Cmd`-click opens a link in the other one. `Shift`-click always uses your system
     browser. Middle-click opens a background tab."*
-- [ ] Modifier resolution as a **pure** exported function, not inline in a handler:
+- [x] Modifier resolution as a **pure** exported function, not inline in a handler:
       `resolveLinkTarget(event: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; button: number }, preference: LinkTarget): { target: LinkTarget; background: boolean }`.
   - Rules, in precedence order: `shiftKey` → `{ target: 'system', background: false }`; `button === 1`
     (middle) → `{ target: preference, background: true }`; `metaKey || ctrlKey` → the *opposite* of
@@ -130,7 +130,7 @@ that is Theme B — so it can land and be tested on its own.
     user holding both is asking for the stronger of the two.
   - Exhaustively unit-tested — this is the piece every call site depends on and the only piece with a
     combinatorial input space.
-- [ ] A palette command `link.toggleTarget` ("Toggle where links open") in
+- [x] A palette command `link.toggleTarget` ("Toggle where links open") in
       [`keybindings.ts`](../../../packages/shared/src/keybindings.ts) with **no chord**, an icon in
       [`command-icons.ts`](../../../packages/app/src/features/palette/command-icons.ts), and a place in
       `PALETTE_SAFE` — it flips a preference and destroys nothing. A chord-free command's label must
@@ -207,7 +207,7 @@ returned on 2026-09-05 and exists to size the work, not to bound it.
 Phase 32 Theme H's unbuilt half. A dev server is the one URL a developer types most and the one the
 app can work out for itself.
 
-- [ ] `packages/app/src/features/browser/dev-server.ts` —
+- [x] `packages/app/src/features/browser/dev-server.ts` —
       `detectDevServer(pkgJson: unknown, probe: (port: number) => Promise<boolean>): Promise<DevServerHint | null>`
       where `DevServerHint = { port: number; source: 'script' | 'probe'; script?: string }`.
   - Read the repo's `package.json` `scripts` for a `dev` or `start` entry and extract an explicit
@@ -219,9 +219,9 @@ app can work out for itself.
   - Prior art to imitate rather than invent:
     [`repo-lifecycle.ts:89`](../../../packages/app/src/features/repos/repo-lifecycle.ts) already reads a
     repo's `package.json` scripts looking for conventional dev-server script names. Reuse its read path.
-- [ ] **Detection is a hint, never a navigation.** Nothing auto-opens. Say so in the module's doc
+- [x] **Detection is a hint, never a navigation.** Nothing auto-opens. Say so in the module's doc
       comment, because the next reader's first instinct will be to open it.
-- [ ] The probe itself needs main: a renderer cannot open a TCP socket. Add
+- [x] The probe itself needs main: a renderer cannot open a TCP socket. Add
       `devServerProbe: 'mstudio:browser:dev-server-probe'` alongside the browser channels
       ([`channels.ts:373–391`](../../../packages/shared/src/ipc/channels.ts)) taking
       `{ port: z.number().int().min(1).max(65535) }` and answering `{ listening: boolean }` — a
@@ -230,21 +230,21 @@ app can work out for itself.
     could otherwise be talked into scanning a host.
   - Verified in a `desktop` unit test against a fake `net` module: a refused connection answers
     `{listening: false}` without throwing, and a hung connection answers within the deadline.
-- [ ] A detected server appears as a tile on the new-tab page, labelled with the port
+- [x] A detected server appears as a tile on the new-tab page, labelled with the port
       (*"Dev server · 5173"*), and as a palette command `browser.openDevServer` ("Open dev server").
       Absent — no tile, no command in the list — when nothing is listening or no repo is active. A
       disabled tile teaches nothing that an absent one does not.
-- [ ] Persist the viewport preset. Phase 32 shipped the Mobile/Tablet/Laptop/Full `<select>` as
+- [x] Persist the viewport preset. Phase 32 shipped the Mobile/Tablet/Laptop/Full `<select>` as
       component-local `useState` at
       [`browser-pane.tsx:149`](../../../packages/app/src/features/browser/browser-pane.tsx), so it
       resets every time the pane closes. Move it into `browser-store` under `partialize` — per tab, not
       global: one tab checking a mobile layout should not narrow the others.
-- [ ] **Write the emulation limit down where a user sees it**, not only in a comment. The preset changes
+- [x] **Write the emulation limit down where a user sees it**, not only in a comment. The preset changes
       **width only**: `devicePixelRatio` and the user-agent string are untouched, so a page that branches
       on either is not fooled. True device emulation needs
       `Emulation.setDeviceMetricsOverride` through the debugger protocol and is out of scope. Put one
       muted line under the `<select>` saying so, and the same sentence in the code comment.
-- [ ] Unit-test the port extraction (`--port 3001`, `--port=3001`, `-p 3001`, a `dev` script with no
+- [x] Unit-test the port extraction (`--port 3001`, `--port=3001`, `-p 3001`, a `dev` script with no
       port, a `start` script only, no scripts block at all, a `package.json` that is not an object) and
       the preset bounds arithmetic as a pure function of the pane rect and the preset width.
 

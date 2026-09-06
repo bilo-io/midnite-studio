@@ -481,6 +481,22 @@ describe('phase 14 store additions', () => {
     expect(style({ activityTimelineStyle: 'heatmap' }, 5)).toBe('heatmap');
     expect(style({ activityTimelineStyle: 'sparkline' }, 6)).toBe('sparkline');
   });
+
+  // Phase 71 Theme A. `linkTarget` decides whether every hand-off link in the
+  // app opens in the embedded browser or leaves for the system one, so a
+  // payload that migrates without it would silently fall back to whatever
+  // `??` happened to be nearest a read site.
+  it('seeds linkTarget to in-app on the v9 to v10 migration', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const linkTarget = (persisted: Record<string, unknown>, version: number) =>
+      (migrate?.(persisted, version) as { linkTarget?: string }).linkTarget;
+
+    expect(linkTarget({ browserLayout: 'full' }, 9)).toBe('in-app');
+    // Sibling keys survive, and an explicit choice already on v10 is never
+    // rewritten back to the default.
+    expect(migrate?.({ browserLayout: 'left' }, 9)).toMatchObject({ browserLayout: 'left' });
+    expect(linkTarget({ linkTarget: 'system' }, 10)).toBe('system');
+  });
 });
 
 

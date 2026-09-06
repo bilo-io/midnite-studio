@@ -240,4 +240,42 @@ describe('useBrowserStore reducers', () => {
     expect(state.tabs).toHaveLength(1);
     expect(state.tabs[0]?.groupId).toBeUndefined();
   });
+
+  /*
+    Phase 71 Theme C. Phase 32 shipped the width picker as component-local
+    `useState` in `browser-pane.tsx`, so it reset every time the pane closed
+    — for a control whose whole use is "keep looking at this page narrow",
+    that is the one thing it must not do.
+  */
+  describe('the viewport preset', () => {
+    it('is per tab, so narrowing one leaves the others full width', () => {
+      useBrowserStore.setState({ tabs: [tab('a'), tab('b')], groups: [], activeTabId: 'a' });
+
+      useBrowserStore.getState().setViewportPreset('a', '390');
+
+      const state = useBrowserStore.getState();
+      expect(state.tabs[0]?.viewportPreset).toBe('390');
+      expect(state.tabs[1]?.viewportPreset).toBeUndefined();
+    });
+
+    it('is a no-op for a tab that is not open', () => {
+      useBrowserStore.setState({ tabs: [tab('a')], groups: [], activeTabId: 'a' });
+      useBrowserStore.getState().setViewportPreset('gone', '834');
+      expect(useBrowserStore.getState().tabs[0]?.viewportPreset).toBeUndefined();
+    });
+
+    // `partialize` spreads each tab, so the preset rides along with it — which
+    // is the whole point of moving it out of the component.
+    it('survives the persist round trip', () => {
+      useBrowserStore.setState({ tabs: [tab('a')], groups: [], activeTabId: 'a' });
+      useBrowserStore.getState().setViewportPreset('a', '1280');
+
+      const partialize = useBrowserStore.persist.getOptions().partialize;
+      const persisted = partialize?.(useBrowserStore.getState()) as {
+        tabs: { viewportPreset?: string }[];
+      };
+
+      expect(persisted.tabs[0]?.viewportPreset).toBe('1280');
+    });
+  });
 });

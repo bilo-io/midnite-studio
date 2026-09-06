@@ -24,6 +24,13 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   // Opens the Notes modal — a UI toggle, not a data change, same
   // recoverability class as `fab.toggle`/`browser.toggle` beside it.
   'notes.toggle',
+  // Flips one persisted preference and opens nothing — the same
+  // recoverability class as `theme.select` below, and one click in
+  // Settings ▸ Browser undoes it.
+  'link.toggleTarget',
+  // Opens a browser tab on a port already listening on loopback. Navigation
+  // only, and the same class as `browser.toggle` above.
+  'browser.openDevServer',
   'repo.open',
   'repo.close',
   'view.refresh',

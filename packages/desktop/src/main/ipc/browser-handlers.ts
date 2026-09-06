@@ -18,7 +18,8 @@ import {
   stopFindInBrowserTab,
   toggleBrowserDevTools,
 } from '../browser-service';
-import { handleBare, handleFromSender } from './handle';
+import { probeLoopbackPort } from '../dev-server-probe';
+import { handle, handleBare, handleFromSender } from './handle';
 
 /**
  * Registers the `mstudio:browser:*` channels over `browser-service.ts`.
@@ -108,4 +109,19 @@ export function registerBrowserHandlers(): void {
     await clearBrowserData();
     return ok();
   });
+
+  /*
+    The one request/response browser channel that touches neither a
+    `WebContentsView` nor the session (Phase 71 Theme C). An invalid payload —
+    a port outside `1..65535`, or not a number at all — answers
+    `{listening:false}` rather than an error envelope: the caller's question is
+    "should I offer a dev-server tile?", and "no" is the correct answer to a
+    question that was malformed.
+  */
+  handle(
+    CHANNELS.browserDevServerProbe,
+    schemas.BrowserDevServerProbeRequest,
+    async ({ port }) => ({ listening: await probeLoopbackPort(port) }),
+    () => ({ listening: false }),
+  );
 }

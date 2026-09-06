@@ -422,6 +422,15 @@ export const CHANNELS = {
   browserFind: 'mstudio:browser:find',
   browserFindStop: 'mstudio:browser:find-stop',
   browserClearData: 'mstudio:browser:clear-data',
+  /**
+   * Is anything listening on `127.0.0.1:<port>`? (Phase 71 Theme C.)
+   *
+   * A renderer cannot open a TCP socket, so dev-server detection needs main
+   * for exactly this one question. Loopback only, and the port range is bound
+   * in the schema — those two constraints are what keep one narrow channel
+   * from becoming a port scanner. It ANSWERS a question; it never navigates.
+   */
+  browserDevServerProbe: 'mstudio:browser:dev-server-probe',
 
   // --- filesystem (Phase 16 reads, Phase 24 writes) -------------------------
   // Reads are scope: repo | claude-home, exactly as before. The four write
