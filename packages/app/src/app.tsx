@@ -286,6 +286,7 @@ const WORKSPACE_NAV_ITEMS: NavItem[] = [
   { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
   { view: 'optimizer', label: 'Optimizer', icon: VIEW_ICON.optimizer },
   { view: 'database', label: 'Database', icon: VIEW_ICON.database },
+  { view: 'apiClient', label: 'API Client', icon: VIEW_ICON.apiClient },
 ];
 
 const GIT_NAV_ITEMS: NavItem[] = [

@@ -41,6 +41,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   video: 'Video',
   sessions: 'Sessions',
   optimizer: 'Optimizer',
+  apiClient: 'API Client',
   settings: 'Settings',
 };
 

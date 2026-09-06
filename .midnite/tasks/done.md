@@ -2,6 +2,40 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 66 Theme B — Nav, view registry and the command
+
+[PR #225](https://github.com/bilo-io/midnite-studio/pull/225). Moves Phase 66 12/73 → 19/73 (16% →
+26%). Registers `apiClient` as a real `ViewId` — the sixth **API Client** rail entry after
+Database, a chord-free `view.apiClient` command beside `view.video`, and a shell view — the
+prerequisite Themes C–H build against.
+
+- [x] `'apiClient'` added to the `ViewId` union and the `VIEW_IDS` array (`ui-store.ts`).
+- [x] `apiClient: { Component: ApiClientView }` in `VIEW_COMPONENT` (`view-registry.tsx`), lazy,
+      not `global` — the view needs an open repo.
+- [x] Sixth `WORKSPACE_NAV_ITEMS` row after Database (`app.tsx`); not added to `FORGE_GATED_VIEWS`.
+- [x] `apiClient: LuSend` in `VIEW_ICON` (`nav-icons.ts`).
+- [x] `view.apiClient` in `COMMANDS` — chord-free, `group: 'view'`, beside `view.video`
+      (Decision 5); **not** added to `nav-chords.ts`'s `VIEW_COMMAND`.
+- [x] `features/api-client/api-client-view.tsx` — the list/detail shell copying
+      `actions-view.tsx`'s skeleton, minus `<PageDetachMark>` (see the deviation below). A
+      resizable `apiTreeWidth` pane (`LayoutSizes`/`DEFAULT_LAYOUT`/`LAYOUT_BOUNDS`).
+- [x] Empty state: "No collections yet", the literal copy the doc specifies, and a disabled
+      "Import collection…" button (Theme G wires it up).
+- **The site count the task brief warned about, verified rather than trusted:** the doc named
+  four sites; `moon run :typecheck` found **fifteen edits across eleven files**. Nine more
+  exhaustive `Record<ViewId | CommandId, …>` maps the doc's file table never lists: three more
+  `VIEW_LABELS` maps (`sidebar-page.tsx`, `title-bar-nav.tsx`, `providers.ts`), `providers.ts`'s
+  `VIEW_KEYWORDS`, `view-sections.ts`'s `VIEW_FILTERS`, `view-sections.test.ts`'s hand-written
+  exhaustiveness check plus its `toHaveLength(19)` → `20`, and — once `view.apiClient` existed as
+  a `CommandId` — `command-icons.ts`'s `COMMAND_ICONS` and `use-command-handlers.ts`'s
+  `CommandRuntime`.
+- Two flagged deviations from the doc: `ApiClientView` has no `<PageDetachMark>` (needs
+  `apiClient` in `shared/domain/window.ts`'s `PAGE_WINDOW_ROLES`, which cascades into
+  `window-manager.ts` and `schemas.ts` — real scope outside this theme's file table); and
+  `apiTreeWidth` needed no `persisted-keys.ts` edit — its exhaustiveness check is over
+  `PersistedUi`'s top-level keys, and `layout` (the object the new field lives on) is already one,
+  classified `SESSION_STATE_KEYS`.
+
 ## 2026-09-06 — Phase 66 Theme A — Shared contracts: the Postman v2.1 wire shape
 
 [PR #222](https://github.com/bilo-io/midnite-studio/pull/222). Moves Phase 66 0/73 → 12/73 (0% →

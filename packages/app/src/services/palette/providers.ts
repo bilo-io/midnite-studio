@@ -43,6 +43,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   video: 'Video Studio',
   sessions: 'Agent Sessions',
   optimizer: 'Workspace Optimizer',
+  apiClient: 'API Client',
   settings: 'Settings',
 };
 
@@ -66,6 +67,7 @@ const VIEW_KEYWORDS: Record<ViewId, string> = {
   video: 'video studio remotion render project brief editorial script',
   sessions: 'agent session history transcripts',
   optimizer: 'clean scan storage memory gpu disk space node_modules trash',
+  apiClient: 'api client http request postman collection rest graphql send response',
   settings: 'preferences configuration options theme',
 };
 
