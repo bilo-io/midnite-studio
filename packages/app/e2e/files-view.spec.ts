@@ -135,6 +135,9 @@ test('markdown renders, toggles source, and navigates internal relative links', 
       () => (window as never as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
     ),
   ).toHaveLength(0);
+  // The browser pane the click just raised covers the file preview underneath
+  // it — close it before continuing, the same way a user would.
+  await page.keyboard.press('Escape');
 
   // Internal relative link navigates to docs/ARCH.md and expands docs directory in tree
   const archLink = page.getByRole('link', { name: 'Architecture doc' });

@@ -299,8 +299,13 @@ test('every stateful verb links out instead of being reimplemented', async ({ pa
   // Phase 71 Theme B: each of these routes through `openInMidnite`, which opens
   // a browser tab under the default in-app preference rather than reaching
   // `shell.openExternal` directly — three distinct URLs, three distinct tabs.
+  // Each click raises the browser pane over the detail underneath it, so
+  // Escape between clicks the way a user would before reaching for the next
+  // control; the tabs it already opened survive the pane closing.
   await detail(page).getByRole('button', { name: 'Open this run on GitHub' }).click();
+  await page.keyboard.press('Escape');
   await jobs(page).getByRole('button', { name: 'Open test (ubuntu-latest) on GitHub' }).click();
+  await page.keyboard.press('Escape');
   await detail(page).getByRole('button', { name: '.github/workflows/ci.yml' }).click();
 
   await expect(browserTabs(page)).toHaveCount(3);
