@@ -1,4 +1,4 @@
-import { existsSync, statSync, readFileSync } from 'node:fs';
+import { existsSync, statSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -201,6 +201,56 @@ if (signingMode === 'signed (Developer ID)') {
   }
 } else {
   console.log('  (no Developer ID cert present — notarization is not expected yet; see docs/RELEASING.md)');
+}
+
+// Phase 61 Theme C: no check anywhere verified a native module actually
+// survived packaging — not even for node-pty, which has shipped since Phase 1.
+// `better-sqlite3` is the first one written down: its `.node` binary must be
+// present under `app.asar.unpacked` (asar cannot load a native addon from
+// inside itself) and must actually `require` and open a database under
+// **Electron's own ABI** — not the host `node` running this script, which is
+// Node 22 (ABI 127) and would reject an Electron-ABI-130 binary outright, a
+// false failure this script must not produce. So the load check runs INSIDE
+// the packaged Electron binary itself, via `ELECTRON_RUN_AS_NODE=1`, exactly
+// the runtime the shipped app actually uses.
+console.log('Verifying native modules survived packaging (asarUnpack)...');
+const unpackedNodeModules = join(appPath, 'Contents', 'Resources', 'app.asar.unpacked', 'node_modules');
+for (const moduleName of ['node-pty', 'better-sqlite3']) {
+  const moduleDir = join(unpackedNodeModules, moduleName);
+  if (!existsSync(moduleDir)) {
+    console.error(`Missing unpacked native module directory: ${moduleDir}`);
+    process.exit(1);
+  }
+}
+const betterSqlite3Binary = execSync(
+  `find "${join(unpackedNodeModules, 'better-sqlite3')}" -name "*.node"`,
+  { encoding: 'utf8' },
+).trim();
+if (!betterSqlite3Binary) {
+  console.error('better-sqlite3 shipped unpacked but its .node binary is missing');
+  process.exit(1);
+}
+
+const probeScript = [
+  'const Database = require(process.argv[1]);',
+  'const db = new Database(":memory:");',
+  "db.prepare('SELECT 1 AS one').get();",
+  'db.close();',
+  "console.log('better-sqlite3 loaded and queried successfully under Electron\\'s ABI');",
+].join('\n');
+const probePath = join(releaseDir, '.better-sqlite3-probe.cjs');
+writeFileSync(probePath, probeScript);
+const electronBinary = join(appPath, 'Contents', 'MacOS', 'Midnite Studio');
+try {
+  execSync(`"${electronBinary}" "${probePath}" "${join(unpackedNodeModules, 'better-sqlite3')}"`, {
+    stdio: 'inherit',
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+  });
+} catch (err) {
+  console.error(`better-sqlite3 failed to load under the packaged Electron binary: ${err.message}`);
+  process.exit(1);
+} finally {
+  rmSync(probePath, { force: true });
 }
 
 console.log('✓ All dist verification checks passed successfully!');

@@ -55,10 +55,15 @@ asarUnpack:
   # dugite resolves them relative to its own __dirname and already rewrites an
   # `app.asar` segment to `app.asar.unpacked`, so unpacking here is all it needs.
   - '**/node_modules/dugite/git/**'
+  # Phase 61 Theme C's SQLite driver — the `**/*.node` glob above already covers
+  # the binary itself, but not better-sqlite3's own JS resolution path (it locates
+  # its `.node` file relative to its own package directory).
+  - '**/node_modules/better-sqlite3/**'
 
-# The only native module is node-pty, and it is rebuilt deliberately by
-# `moon run desktop:rebuild-native`. electron-builder's own rebuild pass walks
-# pnpm's virtual store and trips over its optional/dangling entries.
+# The native modules (node-pty, and Phase 61 Theme C's better-sqlite3) are
+# rebuilt deliberately by `moon run desktop:rebuild-native`. electron-builder's
+# own rebuild pass walks pnpm's virtual store and trips over its
+# optional/dangling entries.
 npmRebuild: false
 
 # Re-assert +x on node-pty's spawn-helper and on dugite's git binaries, prune
