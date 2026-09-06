@@ -2697,13 +2697,20 @@ html[data-motion='reduced'] .graph-badge-glow {
  *
  * A commit that landed while you were looking at the graph should announce
  * itself and then stop, without a hard cut back to plain text. `commitRecencyTier`
- * (features/graph/graph-row.tsx) picks the tier; these are the four layers it
- * composes, each dropped in turn:
+ * (features/graph/graph-row.tsx) picks the tier; these are the layers it
+ * composes, each dropped or muted in turn:
  *
- *   < 2m   shimmer + lane ink + text glow + row glow + opacity pulse
- *   2m-5m            lane ink + text glow + row glow + opacity pulse
- *   5m-10m                      text glow + row glow + opacity pulse
- *   >= 10m nothing
+ *   < 3m     shimmer + lane ink         + text pulse         + row glow
+ *   3m-5m              lane ink         + text pulse         + row glow
+ *   5m-10m             lane ink         + text pulse
+ *   10m-15m            lane ink (muted) + text pulse (muted)
+ *   >= 15m   nothing
+ *
+ * The row glow is the layer 'fading' (5m-10m) drops; the lane-coloured text
+ * pulse is the one layer that survives all the way to 'muted' (10m-15m),
+ * just turned down there rather than removed — `.commit-text-lane-muted` and
+ * `.commit-text-pulse-muted` are the same rules as their un-muted siblings
+ * with lower colour alpha and a narrower opacity swing.
  *
  * All of this rides `--lane-h/s/l`, set inline on every row from its own
  * `colorIdx`, so the effect names the branch the commit landed on rather than
@@ -2712,7 +2719,7 @@ html[data-motion='reduced'] .graph-badge-glow {
  * These animate paint properties (`box-shadow`, `text-shadow`), not just
  * `opacity` the way the lane halo above does. That is affordable only because
  * the tiers expire: at most a handful of rows in a repo anyone is working in
- * are under ten minutes old, where the halo can be running on ~30 at once.
+ * are under fifteen minutes old, where the halo can be running on ~30 at once.
  * ------------------------------------------------------------------------- */
 
 /* Subject in the branch's hue. `--lane-ink-l` rather than `--lane-l`, for the
@@ -2721,6 +2728,12 @@ html[data-motion='reduced'] .graph-badge-glow {
  * drops that utility anyway rather than leaning on stylesheet order. */
 .commit-text-lane {
   color: hsl(var(--lane-h) var(--lane-s) var(--lane-ink-l));
+}
+
+/* 'muted' (10m-15m): the same rule, alpha'd down rather than dropped — the
+ * branch-colour highlight is still there, just quieter than `.commit-text-lane`. */
+.commit-text-lane-muted {
+  color: hsl(var(--lane-h) var(--lane-s) var(--lane-ink-l) / 0.6);
 }
 
 @keyframes commit-text-pulse {
@@ -2743,6 +2756,32 @@ html[data-motion='reduced'] .graph-badge-glow {
 
 .commit-text-pulse {
   animation: commit-text-pulse 2s ease-in-out infinite;
+}
+
+/* 'muted' (10m-15m): the same pulse, both dimensions turned down — a
+ * narrower opacity swing (0.82-1 rather than 0.6-1) and roughly half the
+ * colour alpha at every stop, so the branch highlight is still visibly
+ * pulsing but reads as settling rather than freshly landed. */
+@keyframes commit-text-pulse-muted {
+  0%,
+  100% {
+    opacity: 0.82;
+    -webkit-text-stroke: 0.5px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.35);
+    text-shadow:
+      0 0 4px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.35),
+      0 0 8px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.2);
+  }
+  50% {
+    opacity: 1;
+    -webkit-text-stroke: 0.5px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.5);
+    text-shadow:
+      0 0 8px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.5),
+      0 0 14px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.32);
+  }
+}
+
+.commit-text-pulse-muted {
+  animation: commit-text-pulse-muted 2s ease-in-out infinite;
 }
 
 /* The row's own glow, `inset` on both stops. Rows are stacked flush in a
@@ -2802,6 +2841,13 @@ html[data-motion='reduced'] .graph-badge-glow {
     text-shadow: 0 0 6px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.6);
   }
 
+  html:not([data-motion='full']) .commit-text-pulse-muted {
+    animation: none;
+    opacity: 1;
+    -webkit-text-stroke: 0.5px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.45);
+    text-shadow: 0 0 4px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.35);
+  }
+
   html:not([data-motion='full']) .commit-row-glow {
     animation: none;
     box-shadow:
@@ -2820,6 +2866,13 @@ html[data-motion='reduced'] .commit-text-pulse {
   opacity: 1;
   -webkit-text-stroke: 0.5px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.8);
   text-shadow: 0 0 6px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.6);
+}
+
+html[data-motion='reduced'] .commit-text-pulse-muted {
+  animation: none;
+  opacity: 1;
+  -webkit-text-stroke: 0.5px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.45);
+  text-shadow: 0 0 4px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.35);
 }
 
 html[data-motion='reduced'] .commit-row-glow {

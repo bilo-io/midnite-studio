@@ -114,16 +114,18 @@ function GraphRowInner({
     together, the same way they do under selection, because a row half-lit reads
     as a rendering bug rather than as one commit.
 
-    The lane tint is dropped rather than overridden for `'fading'`: the text
-    going back to its normal ink is what separates that tier from `'recent'`,
-    and `text-muted-foreground` and `.commit-text-lane` are both single-class
-    rules, so which one won would come down to stylesheet order.
+    Unlike the row glow (dropped at `'fading'`, below), the lane tint survives
+    all the way through `'muted'` — the text pulsing in the branch colour is
+    the one layer this decay keeps until the last tier, just attenuated for
+    `'muted'` rather than removed. `'normal'` is the only tier that falls back
+    to `text-muted-foreground`.
   */
-  const laneInk = recencyTier === 'fresh' || recencyTier === 'recent';
+  const laneInk = recencyTier === 'fresh' || recencyTier === 'recent' || recencyTier === 'fading';
+  const laneInkMuted = recencyTier === 'muted';
   const recencyInk = [
-    selected || laneInk ? '' : 'text-muted-foreground',
-    laneInk ? 'commit-text-lane' : '',
-    recencyTier === 'normal' ? '' : 'commit-text-pulse',
+    selected || laneInk || laneInkMuted ? '' : 'text-muted-foreground',
+    laneInk ? 'commit-text-lane' : laneInkMuted ? 'commit-text-lane-muted' : '',
+    laneInk ? 'commit-text-pulse' : laneInkMuted ? 'commit-text-pulse-muted' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -143,7 +145,7 @@ function GraphRowInner({
       className={`graph-row relative flex cursor-default items-center gap-2 pr-3 text-sm transition-colors ${
         selected ? '' : 'hover:bg-accent/30'
       } ${dimmed ? 'opacity-40' : ''} ${
-        recencyTier === 'normal' ? '' : 'commit-row-glow'
+        recencyTier === 'fresh' || recencyTier === 'recent' ? 'commit-row-glow' : ''
       }`}
       /*
         The lane's hue as three components, on every row — the selected tint,
@@ -383,35 +385,39 @@ function GraphRowInner({
 }
 
 /**
- * How recently a commit landed, as a four-step decay the row styles itself from.
+ * How recently a commit landed, as a five-step decay the row styles itself from.
  *
- * Each tier drops one layer of the one before it, so a commit fades out of
- * notice rather than snapping back to plain text:
+ * Each tier drops or mutes one layer of the one before it, so a commit fades
+ * out of notice rather than snapping back to plain text:
  *
- * - `'fresh'`  (< 2m)    shimmer sweep + lane-coloured subject + pulsing text
- *                        glow, row glow and opacity
- * - `'recent'` (2m–5m)   the same, shimmer gone
- * - `'fading'` (5m–10m)  subject returns to its normal ink; the lane-coloured
- *                        text glow, row glow and opacity pulse stay
- * - `'normal'` (>= 10m)  nothing
+ * - `'fresh'`  (< 3m)     shimmer sweep + lane-coloured subject + pulsing text
+ *                         glow, row glow and opacity
+ * - `'recent'` (3m–5m)    the same, shimmer gone
+ * - `'fading'` (5m–10m)   row glow gone; the lane-coloured subject keeps its
+ *                         text glow and opacity pulse
+ * - `'muted'`  (10m–15m)  the same layers as `'fading'`, but attenuated: both
+ *                         the branch-colour intensity and the opacity swing
+ *                         are turned down, rather than dropped
+ * - `'normal'` (>= 15m)   nothing
  *
  * The boundaries are minutes, not seconds, because the date column beside it
  * only resolves to the minute — a tier that turned over mid-minute would change
  * the row's appearance while the text next to it still said the same thing.
  */
-export type CommitRecencyTier = 'fresh' | 'recent' | 'fading' | 'normal';
+export type CommitRecencyTier = 'fresh' | 'recent' | 'fading' | 'muted' | 'normal';
 
 /** The oldest a commit can be and still carry any recency styling, in ms. */
-export const RECENCY_WINDOW_MS = 600_000;
+export const RECENCY_WINDOW_MS = 900_000;
 
 export function commitRecencyTier(
   committerDateSeconds: number,
   nowMs: number = Date.now(),
 ): CommitRecencyTier {
   const deltaMs = nowMs - committerDateSeconds * 1000;
-  if (deltaMs < 120_000) return 'fresh';
+  if (deltaMs < 180_000) return 'fresh';
   if (deltaMs < 300_000) return 'recent';
-  if (deltaMs < RECENCY_WINDOW_MS) return 'fading';
+  if (deltaMs < 600_000) return 'fading';
+  if (deltaMs < RECENCY_WINDOW_MS) return 'muted';
   return 'normal';
 }
 
