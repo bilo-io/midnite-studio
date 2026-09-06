@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { PREVIEW_DEPLOY_HOSTS } from '../features/browser/preview-deploy';
+
 import { adoptRenamedPersistKey } from './persist-rename';
 
 /**
@@ -137,6 +139,14 @@ type BrowserState = {
   groups: BrowserTabGroup[];
   activeTabId: string | null;
   recentlyClosed: ClosedTab[];
+  /**
+   * The preview-deploy matcher's host allowlist (Phase 71 Theme D), seeded
+   * with {@link PREVIEW_DEPLOY_HOSTS} and editable from the Browser settings
+   * page. A setting, not a constant, because a self-hosted preview domain is
+   * the common case in a private repo — this one included — and a constant
+   * would make that a code change.
+   */
+  previewDeployHosts: string[];
 
   /** Opens a blank tab when `url` is omitted — including "zero tabs open" (Theme C's own rule). */
   openTab: (url?: string, originRepoId?: string) => string;
@@ -178,6 +188,8 @@ type BrowserState = {
   closeTabsInGroup: (targetGroupId: string) => void;
   /** The pane's width picker (Phase 71 Theme C) — per tab, and persisted with it. */
   setViewportPreset: (tabId: string, preset: BrowserViewportPreset) => void;
+  /** Replaces the whole preview-deploy allowlist — the Browser settings page's editor. */
+  setPreviewDeployHosts: (hosts: string[]) => void;
 };
 
 /**
@@ -193,6 +205,7 @@ export const useBrowserStore = create<BrowserState>()(
       groups: [],
       activeTabId: null,
       recentlyClosed: [],
+      previewDeployHosts: [...PREVIEW_DEPLOY_HOSTS],
 
       openTab: (url, originRepoId) => {
         const tab: BrowserTab = { ...makeTab(url), ...(originRepoId ? { originRepoId } : {}) };
@@ -375,6 +388,8 @@ export const useBrowserStore = create<BrowserState>()(
           tabs: state.tabs.map((tab) => (tab.id === tabId ? { ...tab, viewportPreset } : tab)),
         })),
 
+      setPreviewDeployHosts: (hosts) => set({ previewDeployHosts: hosts }),
+
       closeTabsInGroup: (targetGroupId) =>
         set((state) => {
           const manualIds = new Set(state.groups.map((g) => g.id));
@@ -392,6 +407,7 @@ export const useBrowserStore = create<BrowserState>()(
       partialize: (state) => ({
         activeTabId: state.activeTabId,
         groups: state.groups,
+        previewDeployHosts: state.previewDeployHosts,
         // Runtime-only fields reset to their idle defaults — a restored tab
         // is an inactive record until the user activates it (see the
         // module doc above).
