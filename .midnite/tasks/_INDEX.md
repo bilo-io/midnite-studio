@@ -22,7 +22,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 52/72 | `███████░░░` | 72% | — | G |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ✅ DONE | x1 | 32/32 | `██████████` | 100% | — | — |
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | ✅ DONE | — | 29/33 | `█████████░` | 88% | — | — |
-| [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 41/94 | `████░░░░░░` | 44% | — | C G H J |
+| [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 41/94 | `████░░░░░░` | 44% | C G H | J |
 | [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | ✅ DONE | — | 28/34 | `████████░░` | 82% | — | — |
 | [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | ✅ DONE | x1 | 70/70 | `██████████` | 100% | — | — |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | ✅ DONE | x1 | 76/78 | `██████████` | 97% | — | — |
