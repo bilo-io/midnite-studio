@@ -1,12 +1,16 @@
 import { useEffect } from 'react';
 
 import { useRepos } from '../../services/queries';
+import { useApiClientStore } from '../../store/api-client-store';
 import { useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 
 /**
  * Drops repo-keyed state that only ever grows once its repo leaves the
- * workspace: `Workbench`'s tabs, and the sidebar's `collapsedRepoSections`.
+ * workspace: `Workbench`'s tabs, the API Client's own request tabs
+ * (Phase 66 Theme C — `closeRepoTabs` there additionally aborts any
+ * in-flight send for the closed repo), and the sidebar's
+ * `collapsedRepoSections`.
  *
  * Reconciles against the live repo list rather than hooking whatever mutation
  * closes a repo, for the reason `Workbench` originally gave for its own tabs
@@ -30,6 +34,9 @@ export function usePruneClosedRepos(): void {
       // database connection is not a checkout, and has no `repoId` to read.
       if (tab.kind === 'query') continue;
       if (!open.has(tab.repoId)) useWorkbenchStore.getState().closeRepoTabs(tab.repoId);
+    }
+    for (const tab of useApiClientStore.getState().tabs) {
+      if (!open.has(tab.repoId)) useApiClientStore.getState().closeRepoTabs(tab.repoId);
     }
     for (const repoId of Object.keys(useUiStore.getState().collapsedRepoSections)) {
       if (!open.has(repoId)) useUiStore.getState().pruneRepoSections(repoId);
