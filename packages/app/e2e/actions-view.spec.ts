@@ -149,6 +149,9 @@ const runList = (page: Page) => page.getByRole('list', { name: 'Workflow runs' }
 const jobs = (page: Page) => page.getByRole('list', { name: 'Jobs' });
 const log = (page: Page) => page.getByRole('region', { name: 'Job log' });
 const detail = (page: Page) => page.getByRole('region', { name: 'Run detail' });
+/** Browser tabs opened in-app (Phase 71 Theme B's default routing for every "Open on GitHub" control here). */
+const browserTabs = (page: Page) =>
+  page.getByRole('tablist', { name: 'Browser tabs' }).getByRole('tab');
 
 /** Land on the Actions view. Only for fixtures where it has runs to show. */
 async function open(page: Page, data: MockFixtures = base): Promise<void> {
@@ -293,20 +296,19 @@ test('a sidebar run row opens the view rather than a Changes tab', async ({ page
 test('every stateful verb links out instead of being reimplemented', async ({ page }) => {
   await open(page);
 
+  // Phase 71 Theme B: each of these routes through `openInMidnite`, which opens
+  // a browser tab under the default in-app preference rather than reaching
+  // `shell.openExternal` directly — three distinct URLs, three distinct tabs.
   await detail(page).getByRole('button', { name: 'Open this run on GitHub' }).click();
   await jobs(page).getByRole('button', { name: 'Open test (ubuntu-latest) on GitHub' }).click();
   await detail(page).getByRole('button', { name: '.github/workflows/ci.yml' }).click();
 
-  const opened = await page.evaluate(
-    () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
-  );
-  expect(opened).toContain('https://github.com/bilo-io/midnite-studio/actions/runs/2');
-  expect(opened).toContain('https://github.com/bilo-io/midnite-studio/actions/runs/1/job/11');
-  // The workflow file's path comes from the lazy `gh workflow list` lookup —
-  // no run-list field carries it.
-  expect(opened).toContain(
-    'https://github.com/bilo-io/midnite-studio/blob/main/.github/workflows/ci.yml',
-  );
+  await expect(browserTabs(page)).toHaveCount(3);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
+    ),
+  ).toEqual([]);
 });
 
 test('an unfinished run is pending, not broken', async ({ page }) => {
