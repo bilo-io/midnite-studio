@@ -59,6 +59,27 @@ describe('ProjectGraphView', () => {
     expect(container.querySelectorAll('[data-edge-kind="blocks"]').length).toBe(1);
   });
 
+  it('renders a closed→closed edge solid dep-done, and an open, unmet edge idle', () => {
+    const blocker = issueItem({ content: { type: 'issue', state: 'closed' } as never });
+    const blockerNumber = blocker.content.type === 'issue' ? blocker.content.number : 0;
+    const dependent = withBlockedBy(issueItem({ content: { type: 'issue', state: 'closed' } as never }), [
+      { number: blockerNumber, title: '', state: 'closed', repo: '' },
+    ]);
+    const { container } = render(<Harness items={[blocker, dependent]} />);
+    const edge = container.querySelector('[data-edge-kind="blocks"]')!;
+    expect(edge.getAttribute('class')).toContain('dep-edge-done');
+    expect(edge.getAttribute('class')).not.toContain('dep-edge-animated');
+  });
+
+  it('renders an open, unmet edge as static dep-idle when no agent is running', () => {
+    const blocker = issueItem();
+    const blockerNumber = blocker.content.type === 'issue' ? blocker.content.number : 0;
+    const dependent = withBlockedBy(issueItem(), [{ number: blockerNumber, title: '', state: 'open', repo: '' }]);
+    const { container } = render(<Harness items={[blocker, dependent]} />);
+    const edge = container.querySelector('[data-edge-kind="blocks"]')!;
+    expect(edge.getAttribute('class')).toContain('dep-edge-idle');
+  });
+
   it('culls most of a 300-node chain — fewer than 60 mount at default zoom', () => {
     const chain: ForgeProjectItem[] = [];
     let previous: ForgeProjectItem | null = null;
