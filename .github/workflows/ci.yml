@@ -131,15 +131,17 @@ jobs:
           MARIADB_PASSWORD: mstudio
         ports:
           - 3307:3306
-        # NOT `-uroot`: the official mariadb image configures root for
-        # `unix_socket` auth by default, so a TCP + password probe as root is
-        # rejected regardless of `MARIADB_ROOT_PASSWORD` — confirmed live
-        # (this exact job: the server logged "ready for connections" within
-        # 7s, then the healthcheck still reported unhealthy for the full
-        # retry budget). `MARIADB_USER` is a normal account with standard
-        # password auth, so it actually works over TCP.
+        # Not `mysqladmin ping` — confirmed live, twice, on this exact job:
+        # the server logged "ready for connections" within seconds both
+        # times, with no auth-error trace at all (unlike postgres's very
+        # visible "role does not exist" the first time this file got it
+        # wrong), yet every health probe still reported unhealthy for the
+        # full retry budget — consistent with `mysqladmin` simply not
+        # existing in this image rather than a rejected connection. The
+        # official mariadb image ships its own purpose-built script for
+        # exactly this instead.
         options: >-
-          --health-cmd "mysqladmin ping -h 127.0.0.1 -umstudio -pmstudio"
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
