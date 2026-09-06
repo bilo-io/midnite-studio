@@ -494,8 +494,25 @@ export type MockFixtures = {
    * `connectionId`. Absent means `{ tables: [] }` — the shape `getSchema`
    * always returned before this batch — so every spec that does not care
    * about the schema tree keeps working unchanged.
+   *
+   * A `'*'` entry is a fallback answered for ANY connection id that has no
+   * exact match — Theme J's own specs add a connection through the real
+   * `ConnectionDialog` flow, which mints its id with `crypto.randomUUID()`
+   * (`connection-dialog.tsx`'s `buildConfig`), so no fixture can name it in
+   * advance. `database-shots.spec.ts` keys its schema by the fixed `c1` it
+   * seeds directly and never hits this fallback.
    */
   dbSchemaByConnection?: Record<string, { tables: unknown[] }>;
+  /**
+   * Phase 61 Theme J: seed rows for the query-stream mock's tiny in-memory
+   * SQL engine, keyed by table name — what a query tab's `SELECT * FROM
+   * <table>` renders, and what its generated `UPDATE` (Theme H's inline
+   * editing) mutates in place, so a staleness re-`SELECT` sees a prior edit
+   * or the test's own manufactured concurrent write (`__mstudioDbWrite`,
+   * below). Absent means every table reads as zero rows — a spec exercising
+   * only the destructive-statement gate never needs to seed this.
+   */
+  dbTableRows?: Record<string, { columns: string[]; rows: Array<Record<string, unknown>> }>;
   /**
    * Which surface `main.tsx` renders (Phase 55) — `'main'`, the default, for
    * `<App />`; any popout role for `<DetachedRoot role={…} />` standalone.
@@ -2623,13 +2640,59 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           ok: true,
           data: {
             connectionId: req.connectionId,
-            tables: data.dbSchemaByConnection?.[req.connectionId]?.tables ?? [],
+            tables:
+              data.dbSchemaByConnection?.[req.connectionId]?.tables ??
+              data.dbSchemaByConnection?.['*']?.tables ??
+              [],
           },
         }),
-        queryStart: noop,
-        queryCancel: noop,
-        onQueryBatch: unsubscribe,
-        onQueryDone: unsubscribe,
+        // Phase 61 Theme J — a tiny in-memory SQL "engine" (`runMockDbSql`,
+        // declared with the other stream plumbing below) rather than a dumb
+        // echo: Theme H's inline-editing flow round-trips a staleness
+        // re-`SELECT` and a real `UPDATE` through this exact channel
+        // (`run-statement.ts`), and only a mock that actually reads and
+        // mutates `dbTables` can answer either one correctly.
+        queryStart: async (req: { connectionId: string; requestId: string; sql: string; params?: unknown[] }) => {
+          dbCancelledRequestIds.delete(req.requestId);
+          setTimeout(() => {
+            if (dbCancelledRequestIds.has(req.requestId)) return;
+            const startedAt = Date.now();
+            const result = runMockDbSql(req.sql, req.params);
+            if (result.columns.length > 0 || result.rows.length > 0) {
+              for (const handler of dbQueryBatchHandlers) {
+                handler({ requestId: req.requestId, columns: result.columns, rows: result.rows });
+              }
+            }
+            for (const handler of dbQueryDoneHandlers) {
+              handler({
+                requestId: req.requestId,
+                rowCount: result.rowCount,
+                truncated: false,
+                durationMs: Math.max(1, Date.now() - startedAt),
+                ...(result.error === undefined ? {} : { error: result.error }),
+              });
+            }
+          }, 0);
+        },
+        queryCancel: async (req: { requestId: string }) => {
+          dbCancelledRequestIds.add(req.requestId);
+        },
+        onQueryBatch: (handler: (e: { requestId: string; columns: string[]; rows: unknown[][] }) => void) => {
+          dbQueryBatchHandlers.push(handler);
+          return () => dbQueryBatchHandlers.splice(dbQueryBatchHandlers.indexOf(handler), 1);
+        },
+        onQueryDone: (
+          handler: (e: {
+            requestId: string;
+            rowCount: number;
+            truncated: boolean;
+            durationMs: number;
+            error?: string;
+          }) => void,
+        ) => {
+          dbQueryDoneHandlers.push(handler);
+          return () => dbQueryDoneHandlers.splice(dbQueryDoneHandlers.indexOf(handler), 1);
+        },
       },
       mcp: {
         get: async () => ({
@@ -2702,6 +2765,102 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var searchBatchHandlers: Array<(e: unknown) => void> = [];
     // eslint-disable-next-line no-var
     var searchDoneHandlers: Array<(e: unknown) => void> = [];
+    // --- Database query stream (Phase 61 Theme J) ---------------------------
+    // eslint-disable-next-line no-var
+    var dbQueryBatchHandlers: Array<(e: { requestId: string; columns: string[]; rows: unknown[][] }) => void> = [];
+    // eslint-disable-next-line no-var
+    var dbQueryDoneHandlers: Array<
+      (e: { requestId: string; rowCount: number; truncated: boolean; durationMs: number; error?: string }) => void
+    > = [];
+    // A `queryCancel` marks a requestId here; `queryStart`'s own `setTimeout`
+    // checks it before emitting anything, mirroring the real
+    // `stream-registry.ts` behaviour of a cancelled run producing no further
+    // batches.
+    // eslint-disable-next-line no-var
+    var dbCancelledRequestIds = new Set<string>();
+    // The mock's tiny in-memory "database" — one row-array per table name,
+    // deep-copied from the fixture so mutating a row here (an `UPDATE`, or the
+    // test's own `__mstudioDbWrite`) never rewrites `data.dbTableRows` itself.
+    // eslint-disable-next-line no-var
+    var dbTables = new Map<string, { columns: string[]; rows: Array<Record<string, unknown>> }>(
+      Object.entries(data.dbTableRows ?? {}).map(([name, table]) => [
+        name,
+        { columns: [...table.columns], rows: table.rows.map((row) => ({ ...row })) },
+      ]),
+    );
+    /**
+     * A deliberately unsophisticated SQL "engine" — a shape-sniff, not a
+     * parser, exactly like the real app's own `detectEditableTable` and
+     * `sniffStatementKind` — that only has to answer the handful of statement
+     * shapes this suite's own query tabs and `run-statement.ts` ever generate:
+     * `SELECT * FROM <table>`, `SELECT <cols> FROM <table> WHERE <col> = ?`
+     * (the staleness re-check), `UPDATE <table> SET <col> = ? WHERE <col> = ?`
+     * (Theme H's generated, parameterised edit), and a bare `DELETE FROM
+     * <table>` (the destructive-statement gate spec). Anything else against an
+     * unknown table answers zero rows rather than throwing.
+     */
+    // eslint-disable-next-line no-var
+    var runMockDbSql = (
+      sql: string,
+      params?: unknown[],
+    ): { columns: string[]; rows: unknown[][]; rowCount: number; error?: string } => {
+      const trimmed = sql.trim();
+      const unquote = (raw: string) => raw.replace(/["`[\]]/g, '');
+
+      if (/^UPDATE\b/i.test(trimmed)) {
+        const tableName = unquote(/^UPDATE\s+"?`?\[?(\w+)/i.exec(trimmed)?.[1] ?? '');
+        const table = dbTables.get(tableName);
+        const setPart = /SET\s+(.+?)\s+WHERE/is.exec(trimmed)?.[1] ?? '';
+        const setColumns = [...setPart.matchAll(/"?`?\[?(\w+)\]?`?"?\s*=\s*(?:\$\d+|\?|@p\d+)/gi)].map(
+          (m) => m[1] ?? '',
+        );
+        const whereColumn = unquote(
+          /WHERE\s+"?`?\[?(\w+)\]?`?"?\s*=\s*(?:\$\d+|\?|@p\d+)/i.exec(trimmed)?.[1] ?? '',
+        );
+        if (!table || !whereColumn || !params || params.length === 0) {
+          return { columns: [], rows: [], rowCount: 0 };
+        }
+        const whereValue = params[params.length - 1];
+        const row = table.rows.find((r) => String(r[whereColumn]) === String(whereValue));
+        if (!row) return { columns: [], rows: [], rowCount: 0 };
+        setColumns.forEach((column, index) => {
+          row[column] = params[index];
+        });
+        return { columns: [], rows: [], rowCount: 1 };
+      }
+
+      if (/^DELETE\b/i.test(trimmed)) {
+        const tableName = unquote(/FROM\s+"?`?\[?(\w+)/i.exec(trimmed)?.[1] ?? '');
+        const table = dbTables.get(tableName);
+        if (!table) return { columns: [], rows: [], rowCount: 0 };
+        const deleted = table.rows.length;
+        table.rows = [];
+        return { columns: [], rows: [], rowCount: deleted };
+      }
+
+      // SELECT
+      const tableName = unquote(/FROM\s+"?`?\[?(\w+)/i.exec(trimmed)?.[1] ?? '');
+      const table = dbTables.get(tableName);
+      if (!table) return { columns: [], rows: [], rowCount: 0 };
+
+      let selected = table.rows;
+      const whereMatch = /WHERE\s+"?`?\[?(\w+)\]?`?"?\s*=\s*(?:\$\d+|\?|@p\d+)/i.exec(trimmed);
+      if (whereMatch && params && params.length > 0) {
+        const whereColumn = unquote(whereMatch[1] ?? '');
+        const whereValue = params[0];
+        selected = table.rows.filter((r) => String(r[whereColumn]) === String(whereValue));
+      }
+
+      const selectListMatch = /^SELECT\s+(.+?)\s+FROM/is.exec(trimmed);
+      const selectList = selectListMatch?.[1]?.trim();
+      const columns =
+        !selectList || selectList === '*'
+          ? table.columns
+          : selectList.split(',').map((c) => unquote(c.trim()).split('.').pop() ?? '');
+
+      const rows = selected.map((r) => columns.map((c) => r[c] ?? null));
+      return { columns, rows, rowCount: rows.length };
+    };
     // eslint-disable-next-line no-var
     var optimizerProcesses = (data.optimizer?.processes ?? []).map((p) => ({
       ppid: p.ppid ?? 1,
@@ -3115,6 +3274,28 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     */
     (window as unknown as { __mstudioPushMetric: unknown }).__mstudioPushMetric = (sample: unknown) => {
       for (const handler of metricsHandlers) handler(sample);
+    };
+    /**
+     * Manufactures a concurrent write against the mock's in-memory database —
+     * Phase 61 Theme J's "staleness conflict" spec has no real second
+     * connection to race, so it calls this directly (`page.evaluate`) between
+     * a query tab's initial `SELECT` and its own edit's submit, mutating the
+     * exact row Theme H's staleness re-`SELECT` will re-read. `match` finds
+     * the row by an exact column/value pair (typically the primary key);
+     * every key in `patch` is then written onto it.
+     */
+    (window as unknown as { __mstudioDbWrite: unknown }).__mstudioDbWrite = (
+      table: string,
+      match: Record<string, unknown>,
+      patch: Record<string, unknown>,
+    ) => {
+      const rows = dbTables.get(table)?.rows;
+      if (!rows) return;
+      for (const row of rows) {
+        if (Object.entries(match).every(([key, value]) => row[key] === value)) {
+          Object.assign(row, patch);
+        }
+      }
     };
   }, fixtures);
 }
