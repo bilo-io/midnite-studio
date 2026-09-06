@@ -105,6 +105,17 @@ describe('NotesModal', () => {
     expect(getByText('Completed note')).not.toBeNull();
   });
 
+  it('composes into a gradient-bordered textarea, not a text input', () => {
+    const { getByTestId } = render(withProviders(<NotesModal />));
+    const composer = getByTestId('notes-composer');
+
+    expect(composer.tagName).toBe('TEXTAREA');
+    // The glow and the conic ring both key off the wrapper's `:focus-within`,
+    // so the classes have to be on the element that *contains* the control.
+    expect(composer.parentElement?.className).toContain('gradient-border');
+    expect(composer.parentElement?.className).toContain('gradient-border--glow');
+  });
+
   it('updates done count indicator accurately', () => {
     const note1 = useNotesStore.getState().addNote('repo-1', 'Task 1');
     useNotesStore.getState().addNote('repo-1', 'Task 2');

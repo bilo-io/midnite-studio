@@ -71,8 +71,10 @@ test.describe('the full note lifecycle', () => {
     await expect(noteBody(page)).toHaveText('the retry logic here is wrong, look at it later');
     await expect(composer(page)).toHaveValue('');
 
-    // Edit in place: click swaps to a textarea, Enter commits.
-    await noteBody(page).click();
+    // Edit in place: a DOUBLE-click swaps to a textarea, Enter commits. A
+    // single click is left to text selection — the row shows the whole note
+    // now, and copying a line out of it is the other thing you do to one.
+    await noteBody(page).dblclick();
     const editor = page.getByTestId('note-edit-input');
     await expect(editor).toBeVisible();
     await editor.fill('the retry logic — fixed the backoff, still wrong on timeout');
@@ -83,7 +85,7 @@ test.describe('the full note lifecycle', () => {
 
     // Escape cancels the edit and does NOT close the modal (Phase 62 Theme C
     // rule: an input-scoped Escape stops propagation).
-    await noteBody(page).click();
+    await noteBody(page).dblclick();
     await page.getByTestId('note-edit-input').fill('a draft I will not keep');
     await page.keyboard.press('Escape');
     await expect(notesModal(page)).toBeVisible();
@@ -92,7 +94,7 @@ test.describe('the full note lifecycle', () => {
     );
 
     // An emptied body cancels rather than deletes.
-    await noteBody(page).click();
+    await noteBody(page).dblclick();
     await page.getByTestId('note-edit-input').fill('   ');
     await page.getByTestId('note-edit-input').press('Enter');
     await expect(noteBody(page)).toHaveText(
@@ -114,6 +116,62 @@ test.describe('the full note lifecycle', () => {
     await expect(dialog).toBeVisible();
     await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.getByText('Nothing captured yet')).toBeVisible();
+  });
+
+  test('shows a long note in full, and reorders the list by dragging a handle', async ({
+    page,
+  }) => {
+    await open(page);
+    await openNotes(page);
+
+    // Long enough to have been clipped by the old three-line clamp at this
+    // modal width — the assertion below is that every word of it is rendered.
+    const long =
+      'the write queue serialises on index.lock per repository, which is right for ' +
+      'a single checkout but says nothing about two worktrees of the same repo — ' +
+      'they share one .git/index only when one of them is the main one, so the key ' +
+      'has to be the gitdir and not the worktree path, and the fetch path is the ' +
+      'one that gets this wrong today';
+
+    await composer(page).fill(long);
+    await composer(page).press('Enter');
+    await composer(page).fill('second');
+    await composer(page).press('Enter');
+    await composer(page).fill('third');
+    await composer(page).press('Enter');
+
+    // Newest first, the order `addNote` prepends in.
+    await expect(noteBody(page)).toHaveText(['third', 'second', long]);
+
+    // In full: no clamp, and the rendered box is taller than the three lines
+    // the clamp used to allow. `line-clamp-3` also sets an ellipsis, so the
+    // text assertion above alone would still pass with it in place.
+    const longRow = noteBody(page).filter({ hasText: 'the write queue serialises' });
+    await expect(longRow).not.toHaveClass(/line-clamp/);
+    expect((await longRow.boundingBox())?.height ?? 0).toBeGreaterThan(60);
+
+    // Drag the top note down past the second. The handle only appears on
+    // hover, so the pointer has to arrive before the press — and dnd-kit's
+    // 6px activation constraint means one move to start the drag and another
+    // to travel, not a single jump.
+    const handles = page.getByTestId('note-drag-handle');
+    const from = await handles.nth(0).boundingBox();
+    const to = await handles.nth(1).boundingBox();
+    if (!from || !to) throw new Error('drag handles are not laid out');
+
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + 10, { steps: 5 });
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2 + 4, { steps: 10 });
+    await page.mouse.up();
+
+    await expect(noteBody(page)).toHaveText(['second', 'third', long]);
+
+    // And it survives a reload — the order is persisted, not view state.
+    await page.reload();
+    await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+    await openNotes(page);
+    await expect(noteBody(page)).toHaveText(['second', 'third', long]);
   });
 
   test('hands off to a plan: types at the prompt, sends nothing, marks the note planned', async ({

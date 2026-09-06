@@ -57,6 +57,7 @@ describe('NoteRow', () => {
     done: false,
     createdAt: 1000,
     updatedAt: 1000,
+    order: 0,
   };
 
   it('toggles done on checkbox click', () => {
@@ -75,7 +76,7 @@ describe('NoteRow', () => {
 
     const { getByTestId } = render(withProviders(<NoteRow note={baseNote} repo={MOCK_REPO} />));
     const bodyEl = getByTestId('note-body');
-    fireEvent.click(bodyEl);
+    fireEvent.doubleClick(bodyEl);
 
     const textarea = getByTestId('note-edit-input') as HTMLTextAreaElement;
     expect(textarea).not.toBeNull();
@@ -90,7 +91,7 @@ describe('NoteRow', () => {
     useNotesStore.setState({ notes: { [baseNote.id]: baseNote } });
 
     const { getByTestId } = render(withProviders(<NoteRow note={baseNote} repo={MOCK_REPO} />));
-    fireEvent.click(getByTestId('note-body'));
+    fireEvent.doubleClick(getByTestId('note-body'));
 
     const textarea = getByTestId('note-edit-input') as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'Line 1\nLine 2' } });
@@ -112,7 +113,7 @@ describe('NoteRow', () => {
         </div>,
       ),
     );
-    fireEvent.click(getByTestId('note-body'));
+    fireEvent.doubleClick(getByTestId('note-body'));
 
     const textarea = getByTestId('note-edit-input') as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'Changed text' } });
@@ -128,7 +129,7 @@ describe('NoteRow', () => {
     useNotesStore.setState({ notes: { [baseNote.id]: baseNote } });
 
     const { getByTestId } = render(withProviders(<NoteRow note={baseNote} repo={MOCK_REPO} />));
-    fireEvent.click(getByTestId('note-body'));
+    fireEvent.doubleClick(getByTestId('note-body'));
 
     const textarea = getByTestId('note-edit-input') as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: '   ' } });
@@ -179,5 +180,38 @@ describe('NoteRow', () => {
 
     expect(draftBtn.getAttribute('aria-disabled')).toBe('true');
     expect(adhocBtn.getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('opens the editor only on a double-click, so a single click can select text', () => {
+    useNotesStore.setState({ notes: { [baseNote.id]: baseNote } });
+
+    const { getByTestId, queryByTestId } = render(
+      withProviders(<NoteRow note={baseNote} repo={MOCK_REPO} />),
+    );
+
+    fireEvent.click(getByTestId('note-body'));
+    expect(queryByTestId('note-edit-input')).toBeNull();
+
+    fireEvent.doubleClick(getByTestId('note-body'));
+    expect(queryByTestId('note-edit-input')).not.toBeNull();
+  });
+
+  it('renders the whole body rather than clamping it', () => {
+    const longNote: Note = { ...baseNote, body: 'one\ntwo\nthree\nfour\nfive' };
+    useNotesStore.setState({ notes: { [longNote.id]: longNote } });
+
+    const { getByTestId } = render(withProviders(<NoteRow note={longNote} repo={MOCK_REPO} />));
+    const body = getByTestId('note-body');
+
+    expect(body.textContent).toBe('one\ntwo\nthree\nfour\nfive');
+    expect(body.className).not.toContain('line-clamp');
+  });
+
+  it('exposes a drag handle for reordering', () => {
+    useNotesStore.setState({ notes: { [baseNote.id]: baseNote } });
+
+    const { getByTestId } = render(withProviders(<NoteRow note={baseNote} repo={MOCK_REPO} />));
+
+    expect(getByTestId('note-drag-handle').getAttribute('aria-label')).toBe('Reorder note');
   });
 });
