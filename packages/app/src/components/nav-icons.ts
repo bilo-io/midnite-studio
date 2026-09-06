@@ -112,6 +112,7 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // `LuShieldCheck` and `gitSafety` owns `LuShieldAlert`, and a third shield
   // is indistinguishable at 16px.
   trashSafety: LuTrash2,
+  apiClient: LuSend,
   mcp: LuServer,
   monitor: LuActivity,
   optimizer: LuGauge,

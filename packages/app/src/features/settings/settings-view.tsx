@@ -9,6 +9,7 @@ import {
   type SettingsPageId,
 } from '../../store/ui-store';
 import { AgentPage } from './settings-pages/agent-page';
+import { ApiClientPage } from './settings-pages/api-client-page';
 import { AppearancePage } from './settings-pages/appearance-page';
 import { BrowserPage } from './settings-pages/browser-page';
 import { CliPage } from './settings-pages/cli-page';
@@ -53,6 +54,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   video: () => <VideoSettingsPage />,
   gitSafety: () => <GitSafetyPage />,
   trashSafety: () => <TrashSafetyPage />,
+  apiClient: () => <ApiClientPage />,
   mcp: () => <McpSettingsPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,

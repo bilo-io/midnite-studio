@@ -17,6 +17,7 @@ import { registerBrowserHandlers } from './ipc/browser-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerConflictHandlers } from './ipc/conflict-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
+import { registerApiClientHandlers } from './ipc/api-client-handlers';
 import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
@@ -359,6 +360,7 @@ if (!app.requestSingleInstanceLock()) {
     registerWorkflowHandlers();
     registerVideoHandlers();
     registerDemoApiHandlers();
+    registerApiClientHandlers(getMainWindow);
     registerMcpHandlers();
     registerUpdater(getMainWindow);
     registerReleaseNotesHandlers();

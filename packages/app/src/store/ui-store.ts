@@ -188,6 +188,7 @@ export type SettingsPageId =
   | 'video'
   | 'gitSafety'
   | 'trashSafety'
+  | 'apiClient'
   | 'monitor'
   | 'browser'
   | 'cli'
@@ -234,6 +235,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'video', label: 'Video Studio', group: 'tools' },
   { id: 'gitSafety', label: 'Git Safety', group: 'tools' },
   { id: 'trashSafety', label: 'Trash Safety', group: 'tools' },
+  { id: 'apiClient', label: 'API Client', group: 'tools' },
   { id: 'mcp', label: 'MCP Server', group: 'tools' },
   { id: 'browser', label: 'Browser', group: 'tools' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
@@ -1121,6 +1123,15 @@ export type UiState = {
   workflowRunHistoryCap: number;
   setWorkflowRunHistoryCap: (cap: number) => void;
   /**
+   * Phase 66 Theme E's one settings field — read directly at send time
+   * (`ApiSendRequestRequest.timeoutMs`), never synced to main the way
+   * `workflowDefaultTimeoutS` is: a send is a single `invoke` that already
+   * carries its own timeout on every call, so there is nothing in main to
+   * keep in sync with ahead of time.
+   */
+  apiClientRequestTimeoutS: number;
+  setApiClientRequestTimeoutS: (seconds: number) => void;
+  /**
    * Phase 51 Theme B — the three cell metrics `terminal-view.tsx` applies
    * live to every mounted xterm through `terminalFontOptions()`.
    * `terminalFontFamily: ''` is the field's own "unset" state, resolved to
@@ -1391,6 +1402,7 @@ export type PersistedUi = Pick<
   | 'inactivityTimeoutS'
   | 'workflowDefaultTimeoutS'
   | 'workflowRunHistoryCap'
+  | 'apiClientRequestTimeoutS'
   | 'terminalFontFamily'
   | 'terminalFontSize'
   | 'terminalLineHeight'
@@ -1450,6 +1462,11 @@ export const useUiStore = create<UiState>()(
       setWorkflowDefaultTimeoutS: (workflowDefaultTimeoutS) => set({ workflowDefaultTimeoutS }),
       workflowRunHistoryCap: 20,
       setWorkflowRunHistoryCap: (workflowRunHistoryCap) => set({ workflowRunHistoryCap }),
+      // 30s, per the phase doc — a slow staging API and a hung one are
+      // indistinguishable at any fixed value, so this is a starting point,
+      // not a claim about what's "right".
+      apiClientRequestTimeoutS: 30,
+      setApiClientRequestTimeoutS: (apiClientRequestTimeoutS) => set({ apiClientRequestTimeoutS }),
       terminalFontFamily: '',
       setTerminalFontFamily: (terminalFontFamily) => set({ terminalFontFamily }),
       terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
@@ -1966,6 +1983,7 @@ export const useUiStore = create<UiState>()(
         cycleDurationS: state.cycleDurationS,
         workflowDefaultTimeoutS: state.workflowDefaultTimeoutS,
         workflowRunHistoryCap: state.workflowRunHistoryCap,
+        apiClientRequestTimeoutS: state.apiClientRequestTimeoutS,
         terminalFontFamily: state.terminalFontFamily,
         terminalFontSize: state.terminalFontSize,
         terminalLineHeight: state.terminalLineHeight,
