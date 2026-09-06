@@ -59,7 +59,12 @@ export const useQueryResultsStore = create<QueryResultsState>()((set, get) => ({
 
   begin: (tabId, requestId) =>
     set((state) => ({
-      runs: { ...state.runs, [tabId]: { ...EMPTY_QUERY_RUN, requestId, loading: true } },
+      // `rows: []` explicitly, not inherited from the shared `EMPTY_QUERY_RUN`
+      // constant via spread: `appendBatch` mutates `rows` in place (push), so
+      // spreading the SAME array reference into every new run would let one
+      // tab's rows leak into every other run that ever spread from the same
+      // constant — every `begin()` needs its own fresh array.
+      runs: { ...state.runs, [tabId]: { ...EMPTY_QUERY_RUN, rows: [], requestId, loading: true } },
     })),
 
   appendBatch: (tabId, requestId, columns, rows) => {

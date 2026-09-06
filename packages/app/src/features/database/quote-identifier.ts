@@ -27,3 +27,23 @@ export function quoteQualifiedTable(
   const quotedTable = quoteIdentifier(provider, table.name);
   return table.schema ? `${quoteIdentifier(provider, table.schema)}.${quotedTable}` : quotedTable;
 }
+
+/**
+ * The bind-parameter placeholder for position `index` (0-based), per
+ * provider — the piece that makes a generated statement's parameterisation
+ * real rather than nominal. `db-engine`'s drivers bind values through each
+ * client's own native API (Theme H); this only has to emit the placeholder
+ * TEXT that API expects in the `sql` string itself.
+ */
+export function placeholderFor(provider: DbProvider, index: number): string {
+  switch (provider) {
+    case 'postgres':
+      return `$${index + 1}`;
+    case 'mssql':
+      return `@p${index}`;
+    case 'mysql':
+    case 'mariadb':
+    case 'sqlite':
+      return '?';
+  }
+}
