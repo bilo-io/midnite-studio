@@ -9,7 +9,7 @@ import { bridge } from '../../services/bridge';
 import { usePaletteStore } from '../themes/palette-store';
 import { resolveTerminalPalette } from '../themes/resolve-palette';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
-import { openExternal } from '../../services/queries';
+import { openInMidnite } from '../../services/open-in-midnite';
 import { useUiStore } from '../../store/ui-store';
 import { EndedStrip } from './ended-banner';
 import { createFitCoalescer } from './fit-coalescer';
@@ -586,11 +586,15 @@ export function TerminalView({
      *
      * Registered before `open()` on purpose: a link provider is a parser-side
      * concern, and the rows a session replays are already in the buffer by the
-     * time anything is hovered. `openExternal` rather than a navigation for the
-     * same reason `ExternalLink` uses it — the renderer is a `file://` origin
-     * with no browser chrome to come back from.
+     * time anything is hovered. `openInMidnite` rather than a bare navigation
+     * for the same reason `ExternalLink` avoids one — the renderer is a
+     * `file://` origin with no browser chrome to come back from — and, since
+     * Phase 71 Theme D, routed through the same entry point every other link
+     * in the app uses (Theme B left this one file on the bare `openExternal`
+     * callback; `terminal-links.ts` itself needs no change, its opener has
+     * always been injected).
      */
-    const links = attachTerminalLinks(term, openExternal);
+    const links = attachTerminalLinks(term, (url) => openInMidnite(url));
 
     let dataSub: { dispose: () => void } | null = null;
     /**

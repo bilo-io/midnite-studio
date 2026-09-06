@@ -4,14 +4,18 @@ import type {
   ForgePullDetail,
   ForgeWriteResult,
 } from '@midnite/studio-shared';
-import { LuSquareArrowOutUpRight } from 'react-icons/lu';
-import { useEffect, useState } from 'react';
+import { LuRocket, LuSquareArrowOutUpRight } from 'react-icons/lu';
+import { useEffect, useMemo, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import type { MenuItem } from '../../components/context-menu';
+import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import { UserAvatar } from '../../components/user-avatar';
 import { formatNumber } from '../../lib/format-number';
+import { useBrowserStore } from '../../store/browser-store';
+import { matchPreviewDeploy } from '../browser/preview-deploy';
 import { useSlidesStore } from '../slides/slides-store';
 import { PresentButton } from '../slides/present-button';
 import {
@@ -24,7 +28,7 @@ import {
   useReplyToReviewComment,
   useSetThreadResolved,
 } from '../../services/queries';
-import { openLinkFromEvent } from '../../services/open-in-midnite';
+import { openInMidnite, openLinkFromEvent } from '../../services/open-in-midnite';
 import { checksStatus, pullStatus, StatusPill } from '../forge/forge-status';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
@@ -89,6 +93,22 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
 
   const files = useForgePullFiles(repoId, number, tab === 'files');
   const comments = useForgePullComments(repoId, number, tab === 'conversation');
+  const previewDeployHosts = useBrowserStore((s) => s.previewDeployHosts);
+  /*
+    Preview-deployment candidates (Phase 71 Theme D), scanned from whatever
+    text is already in hand rather than a fetch of its own: the PR body comes
+    free with `detailQuery`, and the comments only join in once the
+    Conversation tab has actually been opened and cached — never fetched
+    just to feed this button. A preview link posted purely as a comment on a
+    PR nobody has opened Conversation on yet is a real miss, not a bug; it
+    appears the moment that tab is visited, and stays cached from then on.
+  */
+  const previewCandidates = useMemo(() => {
+    const text = [detail?.body ?? '', ...(comments.data?.comments.map((c) => c.body) ?? [])].join(
+      '\n',
+    );
+    return matchPreviewDeploy(text, previewDeployHosts);
+  }, [detail?.body, comments.data?.comments, previewDeployHosts]);
   // Same tab gate as the patch it decorates: threads are only ever drawn on the
   // Files tab, so a reader who opens a PR onto Checks pays for no GraphQL call.
   const threads = useForgePullThreads(repoId, number, tab === 'files');
@@ -136,7 +156,13 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
       aria-label={`Pull request #${pull.number}`}
       className="flex h-full min-h-0 min-w-0 flex-1 flex-col"
     >
-      <PrHeader repoId={repoId} pull={pull} detail={detail} loadingDetail={detailQuery.isLoading} />
+      <PrHeader
+        repoId={repoId}
+        pull={pull}
+        detail={detail}
+        loadingDetail={detailQuery.isLoading}
+        previewCandidates={previewCandidates}
+      />
 
       {/*
         Outside the tabpanel on purpose: these actions apply to the pull request,
@@ -314,12 +340,15 @@ function PrHeader({
   pull,
   detail,
   loadingDetail,
+  previewCandidates,
 }: {
   repoId: string;
   pull: ForgePull;
   detail: ForgePullDetail | null;
   /** Whether the fetch that fills in the base branch and the counts is still out. */
   loadingDetail: boolean;
+  /** Preview-deployment URLs found in the PR body/comments — see `PrDetail`. */
+  previewCandidates: string[];
 }) {
   const checks = checksStatus(pull);
 
@@ -331,11 +360,17 @@ function PrHeader({
         <h2 className="truncate text-sm font-semibold" data-selectable>
           <span className="text-muted-foreground">#{pull.number}</span> {pull.title}
         </h2>
+        <OpenPreviewButton
+          repoId={repoId}
+          pullNumber={pull.number}
+          candidates={previewCandidates}
+          className="ml-auto"
+        />
         <IconButton
           icon={LuSquareArrowOutUpRight}
           label={`Open #${pull.number} on GitHub`}
           size="sm"
-          className="ml-auto"
+          className={previewCandidates.length > 0 ? '' : 'ml-auto'}
           onClick={(event) => openLinkFromEvent(pull.url, event, { originRepoId: repoId })}
         />
       </div>
@@ -380,6 +415,65 @@ function PrHeader({
         ) : null}
       </p>
     </header>
+  );
+}
+
+/**
+ * The preview-deploy affordance (Phase 71 Theme D) — absent for zero
+ * candidates, a single button for exactly one, a small `ContextMenu` for
+ * several.
+ *
+ * Every candidate opens forced `target: 'in-app'`, never the stored
+ * preference: a preview deployment beside the diff that produced it is the
+ * entire feature, the same rule Theme A carved out for the video studio's
+ * localhost pane.
+ */
+function OpenPreviewButton({
+  repoId,
+  pullNumber,
+  candidates,
+  className,
+}: {
+  repoId: string;
+  pullNumber: number;
+  candidates: string[];
+  className?: string;
+}) {
+  const dialogs = useDialogs();
+
+  if (candidates.length === 0) return null;
+
+  const open = (url: string) => openInMidnite(url, { originRepoId: repoId, target: 'in-app' });
+
+  if (candidates.length === 1) {
+    const [url] = candidates;
+    return (
+      <IconButton
+        icon={LuRocket}
+        label={`Open preview deployment for #${pullNumber}`}
+        size="sm"
+        className={className}
+        onClick={() => open(url ?? '')}
+      />
+    );
+  }
+
+  const items: MenuItem[] = candidates.map((url) => ({
+    label: url,
+    onSelect: () => open(url),
+  }));
+
+  return (
+    <IconButton
+      icon={LuRocket}
+      label={`Open a preview deployment for #${pullNumber} (${candidates.length})`}
+      size="sm"
+      className={className}
+      onClick={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        dialogs.openMenu({ clientX: event.clientX || rect.left, clientY: event.clientY || rect.bottom }, items);
+      }}
+    />
   );
 }
 

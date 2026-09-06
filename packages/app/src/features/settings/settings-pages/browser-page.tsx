@@ -2,8 +2,9 @@ import { useState } from 'react';
 
 import { useDialogs } from '../../../components/dialog-host';
 import { bridge } from '../../../services/bridge';
+import { useBrowserStore } from '../../../store/browser-store';
 import { useUiStore } from '../../../store/ui-store';
-import { Choice } from './controls';
+import { Choice, TextArea } from './controls';
 
 /**
  * Browser settings.
@@ -12,12 +13,18 @@ import { Choice } from './controls';
  * Phase 71 Theme A — the one control that decides whether every hand-off link
  * in the app (a PR in Reviews, a run in Actions, a link in a rendered commit
  * message, a hyperlink a terminal emitted) opens in the pane below or leaves
- * for the system browser.
+ * for the system browser. "Preview deployments" is Theme D's own allowlist —
+ * the hosts the Reviews view will offer to open beside a diff.
  */
 export function BrowserPage() {
   const dialogs = useDialogs();
   const [clearing, setClearing] = useState(false);
   const linkTarget = useUiStore((s) => s.linkTarget);
+  const previewDeployHosts = useBrowserStore((s) => s.previewDeployHosts);
+  // Local, raw text rather than deriving straight from the store: parsing on
+  // every keystroke would rejoin the list and normalise blank lines out from
+  // under the cursor mid-edit. Committed to the store on blur instead.
+  const [hostsText, setHostsText] = useState(() => previewDeployHosts.join('\n'));
 
   const onClearData = () => {
     dialogs.confirm({
@@ -63,6 +70,38 @@ export function BrowserPage() {
             ['system', 'System browser', 'Links leave the app, the way they did before'],
           ]}
         />
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs">Preview deployments</h3>
+        <p className="text-muted-foreground text-[11px]">
+          Hosts a check or a PR comment's own link is matched against, before Reviews offers to
+          open it beside the diff. One per line. A self-hosted preview domain — the common case in
+          a private repo — belongs here; the seven public hosts below are the default.
+        </p>
+        <TextArea
+          label="Preview deployment hosts"
+          value={hostsText}
+          onChange={setHostsText}
+          rows={4}
+          placeholder="vercel.app"
+        />
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              const hosts = hostsText
+                .split('\n')
+                .map((host) => host.trim())
+                .filter((host) => host.length > 0);
+              useBrowserStore.getState().setPreviewDeployHosts(hosts);
+              setHostsText(hosts.join('\n'));
+            }}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            Save hosts
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
