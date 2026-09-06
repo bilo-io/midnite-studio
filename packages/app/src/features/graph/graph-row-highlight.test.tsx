@@ -200,51 +200,77 @@ describe('recent commit effects', () => {
   const layers = (el: HTMLElement) => ({
     shimmer: el.querySelector('.commit-row-shimmer') !== null,
     laneInk: el.querySelectorAll('.commit-text-lane').length,
+    laneInkMuted: el.querySelectorAll('.commit-text-lane-muted').length,
     textPulse: el.querySelectorAll('.commit-text-pulse').length,
+    textPulseMuted: el.querySelectorAll('.commit-text-pulse-muted').length,
     rowGlow: el.classList.contains('commit-row-glow'),
   });
 
   const INK_CELLS = 3;
 
-  it('gives a commit under 2 minutes old every layer', () => {
+  it('gives a commit under 3 minutes old every layer', () => {
     expect(layers(renderAged('fresh', 30_000))).toEqual({
       shimmer: true,
       laneInk: INK_CELLS,
+      laneInkMuted: 0,
       textPulse: INK_CELLS,
+      textPulseMuted: 0,
       rowGlow: true,
     });
   });
 
-  it('drops only the shimmer between 2 and 5 minutes', () => {
+  it('drops only the shimmer between 3 and 5 minutes', () => {
     expect(layers(renderAged('recent', 200_000))).toEqual({
       shimmer: false,
       laneInk: INK_CELLS,
+      laneInkMuted: 0,
       textPulse: INK_CELLS,
+      textPulseMuted: 0,
       rowGlow: true,
     });
   });
 
-  it('returns the subject to its normal ink between 5 and 10 minutes, keeping the glow', () => {
-    const el = renderAged('fading', 400_000);
+  it('drops the row glow between 5 and 10 minutes, keeping the lane-coloured pulse', () => {
+    expect(layers(renderAged('fading', 400_000))).toEqual({
+      shimmer: false,
+      laneInk: INK_CELLS,
+      laneInkMuted: 0,
+      textPulse: INK_CELLS,
+      textPulseMuted: 0,
+      rowGlow: false,
+    });
+  });
+
+  it('mutes the lane ink and pulse between 10 and 15 minutes, still no glow', () => {
+    const el = renderAged('muted', 700_000);
     expect(layers(el)).toEqual({
       shimmer: false,
       laneInk: 0,
-      textPulse: INK_CELLS,
-      rowGlow: true,
+      laneInkMuted: INK_CELLS,
+      textPulse: 0,
+      textPulseMuted: INK_CELLS,
+      rowGlow: false,
     });
-    // The muted utility comes back with the lane tint gone, so all three cells
-    // are styled rather than merely un-tinted.
-    for (const cell of el.querySelectorAll('.commit-text-pulse')) {
-      expect(cell.className).toContain('text-muted-foreground');
+    // The muted variant swaps in rather than stacking with `text-muted-foreground`.
+    for (const cell of el.querySelectorAll('.commit-text-pulse-muted')) {
+      expect(cell.className).not.toContain('text-muted-foreground');
     }
   });
 
-  it('drops every layer at 10 minutes and older', () => {
-    expect(layers(renderAged('old', 900_000))).toEqual({
+  it('drops every layer at 15 minutes and older', () => {
+    const el = renderAged('old', 900_000);
+    expect(layers(el)).toEqual({
       shimmer: false,
       laneInk: 0,
+      laneInkMuted: 0,
       textPulse: 0,
+      textPulseMuted: 0,
       rowGlow: false,
     });
+    // The lane tint is gone entirely, so the muted utility comes back — all
+    // three cells styled rather than merely un-tinted.
+    for (const cell of el.querySelectorAll('.graph-row-ink')) {
+      expect(cell.className).toContain('text-muted-foreground');
+    }
   });
 });
