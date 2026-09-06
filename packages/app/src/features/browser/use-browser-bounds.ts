@@ -13,7 +13,7 @@ import { useUiStore } from '../../store/ui-store';
  * Theme E's occluder registry: a popover, the command palette or a tooltip
  * opened while a page is loaded will still paint BENEATH the native view
  * until that theme wires every overlay as an occluder. Known, accepted gap
- * for this batch — see todo/phase-32-browser-engine-and-tabs.md Theme E.
+ * for this batch — see .midnite/tasks/phases/phase-32-browser-engine-and-tabs.md Theme E.
  */
 export function useBrowserBounds(activeTabId: string | null, visible: boolean) {
   const ref = useRef<HTMLDivElement>(null);
