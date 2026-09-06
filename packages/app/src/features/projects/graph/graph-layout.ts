@@ -59,7 +59,10 @@ const SOURCE_PRECEDENCE: Record<ForgeGraphEdge['source'], number> = { api: 3, fi
 
 const EMPTY_BOUNDS: Rect = { x: 0, y: 0, width: 0, height: 0 };
 
-function nodeKey(node: ForgeGraphNode): string {
+/** Exported (Theme H) so `graph-filter.ts` computes the same key over a raw
+ *  `ForgeGraph`, pre-layout — the formula must never drift between the two,
+ *  since faceting has to name nodes and edges the same way ranking does. */
+export function nodeKey(node: ForgeGraphNode): string {
   return node.kind === 'draft' ? node.itemId : `${node.repo}#${node.number}`;
 }
 

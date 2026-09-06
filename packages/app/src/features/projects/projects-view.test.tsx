@@ -71,28 +71,39 @@ const setProjectsMode = vi.fn((repoId: string, mode: 'table' | 'board' | 'graph'
   projectsMode = { ...projectsMode, [repoId]: mode };
 });
 
+type GraphFacets = { showContains: boolean; only: 'all' | 'blocked' | 'ready'; depth: 0 | 1 | 2; hideIsolated: boolean };
 type ProjectView = {
   filter: { query: string; assignees: string[]; labels: string[]; types: string[]; states: string[] };
   groupFieldId: string | null;
   sort: { fieldId: string; direction: 'asc' | 'desc' } | null;
   collapsedColumns: string[];
+  graph?: GraphFacets;
 };
 // `vi.hoisted` because the mock factory below runs the moment some other
 // import (transitively, `DialogHost` → `context-menu.tsx` → `ui-store`)
 // pulls the mocked module in — which happens before this file's own
-// top-level `const`s run, even though they read earlier on the page.
+// top-level `const`s run, even though they read earlier on the page. Its own
+// literal is inlined rather than reading `DEFAULT_GRAPH_FACETS_MOCK` below,
+// which is itself a plain (non-hoisted) `const` and so not yet initialised
+// the moment this factory runs.
 const DEFAULT_PROJECT_VIEW_MOCK = vi.hoisted(
   (): ProjectView => ({
     filter: { query: '', assignees: [], labels: [], types: [], states: [] },
     groupFieldId: null,
     sort: null,
     collapsedColumns: [],
+    graph: { showContains: false, only: 'all', depth: 0, hideIsolated: false },
   }),
 );
+const DEFAULT_GRAPH_FACETS_MOCK: GraphFacets = { showContains: false, only: 'all', depth: 0, hideIsolated: false };
 let projectViewByProject: Record<string, ProjectView> = {};
 const setProjectView = vi.fn((projectId: string, patch: Partial<ProjectView>) => {
   const current = projectViewByProject[projectId] ?? DEFAULT_PROJECT_VIEW_MOCK;
   projectViewByProject = { ...projectViewByProject, [projectId]: { ...current, ...patch } };
+});
+let blockedByFieldName = 'Blocked by';
+const setBlockedByFieldName = vi.fn((name: string) => {
+  blockedByFieldName = name;
 });
 
 vi.mock('../../store/ui-store', () => ({
@@ -107,6 +118,8 @@ vi.mock('../../store/ui-store', () => ({
         setProjectsMode: typeof setProjectsMode;
         projectViewByProject: Record<string, ProjectView>;
         setProjectView: typeof setProjectView;
+        blockedByFieldName: string;
+        setBlockedByFieldName: typeof setBlockedByFieldName;
         detachedPages: readonly string[];
       }) => unknown,
     ) =>
@@ -118,6 +131,8 @@ vi.mock('../../store/ui-store', () => ({
         setProjectsMode,
         projectViewByProject,
         setProjectView,
+        blockedByFieldName,
+        setBlockedByFieldName,
         // The view's header carries a `<PageDetachMark>`, which reads this to
         // decide between "detach" and "focus the window you already have".
         detachedPages: [],
@@ -163,6 +178,8 @@ describe('ProjectsView', () => {
     setProjectsMode.mockClear();
     projectViewByProject = {};
     setProjectView.mockClear();
+    blockedByFieldName = 'Blocked by';
+    setBlockedByFieldName.mockClear();
   });
 
   it('issues zero item fetches when no board has been picked', async () => {
@@ -298,6 +315,8 @@ describe('Phase 52 — filter toolbar, group-by, sort', () => {
     setProjectsMode.mockClear();
     projectViewByProject = {};
     setProjectView.mockClear();
+    blockedByFieldName = 'Blocked by';
+    setBlockedByFieldName.mockClear();
 
     list.mockResolvedValue({
       cli: CLI_READY,
@@ -441,6 +460,8 @@ describe('Phase 75 Theme D — graph mode', () => {
     setProjectsMode.mockClear();
     projectViewByProject = {};
     setProjectView.mockClear();
+    blockedByFieldName = 'Blocked by';
+    setBlockedByFieldName.mockClear();
 
     list.mockResolvedValue({
       cli: CLI_READY,
@@ -698,5 +719,168 @@ describe('Phase 75 Theme G — one selection, agent gate', () => {
     fireEvent.click(screen.getByText('Blocked via body'));
     const bodyStart = await screen.findByTestId('card-start');
     expect(bodyStart).toHaveProperty('disabled', false);
+  });
+});
+
+describe('Phase 75 Theme H — filters and the graph’s own facets', () => {
+  beforeEach(() => {
+    list.mockReset();
+    fields.mockReset();
+    items.mockReset();
+    boardByRepo = { 'repo-1': 'PVT_1' };
+    setProjectBoard.mockClear();
+    forgeWritesEnabled = false;
+    projectsMode = { 'repo-1': 'graph' };
+    setProjectsMode.mockClear();
+    projectViewByProject = {};
+    setProjectView.mockClear();
+    blockedByFieldName = 'Blocked by';
+    setBlockedByFieldName.mockClear();
+
+    list.mockResolvedValue({
+      cli: CLI_READY,
+      projects: [
+        { id: 'PVT_1', number: 1, title: 'Roadmap', url: 'https://github.com/orgs/acme/projects/1', closed: false },
+      ],
+      error: null,
+      kind: 'ok',
+    });
+    fields.mockResolvedValue({ cli: CLI_READY, fields: [], error: null, kind: 'ok' });
+    items.mockResolvedValue({
+      cli: CLI_READY,
+      items: [
+        {
+          id: 'item1',
+          content: {
+            type: 'issue',
+            id: 'I_1',
+            number: 1,
+            title: 'The blocker',
+            url: 'https://github.com/acme/widgets/issues/1',
+            state: 'open',
+            assignees: ['alice'],
+            body: '',
+            labels: [],
+            dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
+          },
+        },
+        {
+          id: 'item2',
+          content: {
+            type: 'issue',
+            id: 'I_2',
+            number: 2,
+            title: 'The dependent',
+            url: 'https://github.com/acme/widgets/issues/2',
+            state: 'open',
+            assignees: ['bob'],
+            body: '',
+            labels: [],
+            dependencies: {
+              blockedBy: [{ number: 1, title: 'The blocker', state: 'open', repo: '' }],
+              parent: null,
+              subIssues: [],
+              blockedByTruncated: false,
+              subIssuesTruncated: false,
+            },
+          },
+        },
+      ],
+      nextCursor: null,
+      error: null,
+      kind: 'ok',
+    });
+  });
+
+  it('a node whose item the shared filter hid vanishes, taking its edge with it', async () => {
+    projectViewByProject = {
+      PVT_1: {
+        ...DEFAULT_PROJECT_VIEW_MOCK,
+        filter: { ...DEFAULT_PROJECT_VIEW_MOCK.filter, assignees: ['bob'] },
+      },
+    };
+    const { container } = renderWithClient();
+
+    expect(await screen.findByTestId('project-graph-view')).toBeDefined();
+    expect(screen.getByText('The dependent')).toBeDefined();
+    // The blocker's own item was filtered out — it must not survive as an
+    // indistinguishable foreign node.
+    expect(screen.queryByText('The blocker')).toBeNull();
+    expect(container.querySelectorAll('[data-graph-node]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-edge-kind]')).toHaveLength(0);
+  });
+
+  it('shows the graph-only facet controls only in graph mode', async () => {
+    renderWithClient();
+    await screen.findByTestId('project-graph-view');
+
+    expect(screen.getByLabelText('Show')).toBeDefined();
+    expect(screen.getByLabelText('Depth from selection')).toBeDefined();
+    expect(screen.getByText('Show sub-issues')).toBeDefined();
+    expect(screen.getByText('Hide isolated')).toBeDefined();
+
+    cleanup();
+    projectsMode = { 'repo-1': 'table' };
+    renderWithClient();
+    // Table mode's virtualized rows aren't reliably renderable under jsdom
+    // (`useVirtualizer` needs real layout), so readiness is the toolbar
+    // itself, not row content — matching the "Phase 52" describe block's own
+    // convention above.
+    await screen.findByPlaceholderText('Search title, number or body…');
+
+    expect(screen.queryByLabelText('Show')).toBeNull();
+    expect(screen.queryByLabelText('Depth from selection')).toBeNull();
+  });
+
+  it('toggling "Hide isolated" persists the whole graph facets object (the shallow-merge trap)', async () => {
+    renderWithClient();
+    await screen.findByTestId('project-graph-view');
+
+    fireEvent.click(screen.getByLabelText('Hide isolated'));
+
+    expect(setProjectView).toHaveBeenCalledWith('PVT_1', {
+      graph: { ...DEFAULT_GRAPH_FACETS_MOCK, hideIsolated: true },
+    });
+  });
+
+  it('turning on a graph facet alone flips the shared filter-active indicator on', async () => {
+    renderWithClient();
+    await screen.findByTestId('project-graph-view');
+    expect(screen.queryByTestId('projects-filter-active-indicator')).toBeNull();
+
+    projectViewByProject = {
+      PVT_1: { ...DEFAULT_PROJECT_VIEW_MOCK, graph: { ...DEFAULT_GRAPH_FACETS_MOCK, hideIsolated: true } },
+    };
+    cleanup();
+    renderWithClient();
+    await screen.findByTestId('project-graph-view');
+
+    expect(screen.getByTestId('projects-filter-active-indicator')).toBeDefined();
+  });
+
+  it('disables the depth selector until a node is selected, then enables it', async () => {
+    renderWithClient();
+    await screen.findByTestId('project-graph-view');
+
+    const depth = screen.getByLabelText('Depth from selection') as HTMLSelectElement;
+    expect(depth.disabled).toBe(true);
+
+    fireEvent.click(screen.getByText('The blocker').closest('[data-graph-node]')!);
+
+    expect((screen.getByLabelText('Depth from selection') as HTMLSelectElement).disabled).toBe(false);
+  });
+
+  it('changing "Show" persists the chosen value, preserving the other facets', async () => {
+    projectViewByProject = {
+      PVT_1: { ...DEFAULT_PROJECT_VIEW_MOCK, graph: { ...DEFAULT_GRAPH_FACETS_MOCK, showContains: true } },
+    };
+    renderWithClient();
+    await screen.findByTestId('project-graph-view');
+
+    fireEvent.change(screen.getByLabelText('Show'), { target: { value: 'blocked' } });
+
+    expect(setProjectView).toHaveBeenCalledWith('PVT_1', {
+      graph: { ...DEFAULT_GRAPH_FACETS_MOCK, showContains: true, only: 'blocked' },
+    });
   });
 });
