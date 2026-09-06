@@ -207,7 +207,20 @@ export function DatabaseView() {
               <div className="min-h-0 flex-1">
                 {activeQueryTab ? (
                   <div key={activeQueryTab.id} className="flex h-full min-h-0 flex-col">
-                    <div className="h-1/2 min-h-0 border-b border-border">
+                    {/*
+                      `flex flex-col` here, not just `h-1/2 min-h-0`:
+                      `QueryEditor`'s host and `ResultsGrid`'s own root both
+                      size themselves with `flex-1`, which does nothing
+                      without a flex ancestor establishing that context — the
+                      child then collapses to its intrinsic content height
+                      (Monaco's own minimum, ~5px) instead of filling this
+                      pane. Found running Theme J's own Playwright specs:
+                      `.monaco-editor` measured a real 5px tall against a
+                      277px-tall parent with no `flex` class, which is exactly
+                      that bug, not a test-harness quirk — the shipped view
+                      had the same collapse.
+                    */}
+                    <div className="flex h-1/2 min-h-0 flex-col border-b border-border">
                       <Suspense fallback={null}>
                         <QueryEditor
                           sql={activeQueryTab.sql}
@@ -216,7 +229,7 @@ export function DatabaseView() {
                         />
                       </Suspense>
                     </div>
-                    <div className="h-1/2 min-h-0">
+                    <div className="flex h-1/2 min-h-0 flex-col">
                       <ResultsGrid
                         tabId={activeQueryTab.id}
                         connectionId={activeQueryTab.connectionId}
