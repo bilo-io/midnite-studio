@@ -413,31 +413,55 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] **Neither command gets a chord.** Every single-letter `Mod` chord worth having is taken, and
       a chord-free command's label must come from `COMMANDS`, not `DEFAULT_KEYMAP` (which drops them).
 
-### Theme G — Decommissioning CodeMirror, and the suite that names it (S) — **new in x1**
+### Theme G — Decommissioning CodeMirror, and the suite that names it (S) — **new in x1** — ✅ DONE (PR #221, 2026-09-06)
 *The original plan replaced the editor but never removed what it replaced, and never mentioned the e2e suite asserting on CodeMirror's DOM.*
 
-- [ ] **Migrate [`e2e/files-editor.spec.ts`](../../../packages/app/e2e/files-editor.spec.ts) — it
+- [x] **Gate this theme on [Phase 61](phase-61-database-explorer.md).** P61 Theme G adds
+      `@codemirror/lang-sql` and builds its SQL editor on `code-editor.tsx`'s CodeMirror setup. If
+      P61 has landed or is in flight, **this theme does not run** — the dependencies stay and the
+      phase ships Monaco alongside CodeMirror. See Decision 2.
+      **Cleared 2026-09-06**: P61 Theme G (PR #211) landed with a Monaco-based `query-editor.tsx`,
+      not CodeMirror — overriding P61's own Decision 9 because Phase 64's Monaco migration had
+      already shipped by the time P61 Theme G executed. Reconfirmed against the tree at execution
+      time: zero `@codemirror/*` import sites anywhere in `packages/`, only explanatory prose in
+      `query-editor.tsx`.
+- [x] **Migrate [`e2e/files-editor.spec.ts`](../../../packages/app/e2e/files-editor.spec.ts) — it
       breaks otherwise.** 131 lines asserting on CodeMirror-specific DOM: `.cm-gutters` at `:47`,
       `.cm-content` at `:48`, `:62`, `:77`, `:100`, `:124`. Monaco renders neither. Retarget onto
       `[data-testid="code-editor"]` and Monaco's `.view-lines`, and update the doc comment at `:7`.
       This is the phase's highest-risk unlisted item: the suite is green today and would go red on
-      the first commit of Theme C.
-- [ ] Remove the seven `@codemirror/*` dependencies from
+      the first commit of Theme C. **Already done, and stale in this doc**: PR #164 (Theme A/C)
+      retargeted this spec onto Monaco selectors — before Theme C could even land, the suite would
+      have gone red otherwise, exactly as this item predicted, so it landed with Theme C rather than
+      waiting for G. Verified: `grep -n "\.cm-" e2e/files-editor.spec.ts` → 0 matches; the file
+      already asserts on `[data-testid="code-editor"]` and `.monaco-editor .view-lines`. No edit
+      needed. `pnpm exec playwright test e2e/files-editor.spec.ts` run locally (with and without
+      `CI=1`): 4/5 green, 1 pre-existing flake (Monaco's cold-parse cost vs. a 5s local `expect`
+      timeout on the suite's first test) confirmed identical on `main` before this branch and not
+      introduced here — passes under CI's 2-retry allowance.
+- [x] Remove the seven `@codemirror/*` dependencies from
       [`packages/app/package.json:18-24`](../../../packages/app/package.json) —
       `autocomplete`, `commands`, `language`, `language-data`, `search`, `state`, `view`.
-      Verified safe: `code-editor.tsx` is the **only** importer in the repo.
-- [ ] Update the stale comment at
+      Verified safe: `code-editor.tsx` is the **only** importer in the repo. Removed; `pnpm install`
+      reports -30 packages, and `pnpm why @codemirror/view` resolves to nothing — the dependency
+      does not survive transitively via `@bilo-io/ui`/`@bilo-io/shell` either.
+- [x] Update the stale comment at
       [`file-preview.tsx:22-24`](../../../packages/app/src/features/files/preview/file-preview.tsx),
-      which explains the lazy boundary in terms of CodeMirror's weight.
-- [ ] **Gate this theme on [Phase 61](phase-61-database-explorer.md).** P61 Theme G adds
-      `@codemirror/lang-sql` and builds its SQL editor on `code-editor.tsx`'s CodeMirror setup. If
-      P61 has landed or is in flight, **this theme does not run** — the dependencies stay and the
-      phase ships Monaco alongside CodeMirror. See Decision 2.
-- [ ] Re-measure and record: `node scripts/perf/bundle-report.mjs` after
+      which explains the lazy boundary in terms of CodeMirror's weight. **Already done, and stale in
+      this doc**: PR #164 rewrote this comment when Theme A/C landed — it already reads "Monaco …
+      is the heaviest dependency in the app", not CodeMirror. No edit needed.
+- [x] Re-measure and record: `node scripts/perf/bundle-report.mjs` after
       `moon run app:build desktop:bundle`, and update `_measured` in
       [`scripts/perf/budgets.json`](../../../scripts/perf/budgets.json) — **never the budget
       numbers**, which that file says in its own `_` key must not change without the run that
-      justifies them.
+      justifies them. Measured entryKb/totalJsKb identical before and after the dependency removal
+      (1434.7 / 35405.7 KB both) — `@codemirror/*` had zero remaining importers and was already
+      excluded from the built output by tree-shaking, so this theme's win is dependency-tree hygiene,
+      not a bundle-byte reduction. `totalJsKb` now exceeds its 15950 KB budget — pre-existing
+      (confirmed identical on both sides of this removal, so unrelated to it), accumulated Monaco
+      worker-chunk growth from Themes A-C since the 2026-09-04 baseline; disclosed in the PR, not
+      fixed here (`bundle-budget.spec.ts` runs outside `moon run :test`'s gate, and rebaselining the
+      ceiling needs its own justifying run per this file's header rule).
 
 ---
 
@@ -486,8 +510,13 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       Network tab shows **zero** requests for editor assets.
 - [x] `monaco-editor` does not resolve into the entry chunk — the `MUST_BE_ABSENT` test added in
       Theme A, run via `moon run app:perf`.
-- [x] `node scripts/perf/bundle-report.mjs --assert` passes: `entryKb` stays under **1520**, from a
-      measured baseline of 1335.8 (~184 KB headroom, against a ~2 MB dependency).
+- [x] `node scripts/perf/bundle-report.mjs --assert`'s `entryKb` check passes: stays under **1520**,
+      from a measured baseline re-recorded 2026-09-06 (Theme G) at 1434.7 (~85 KB headroom against
+      the same ~2 MB dependency; drift from the 1335.8 figure this line originally cited is
+      accumulated growth since 2026-09-04, not Theme G's contribution — see its own item).
+      **`totalJsKb` fails** the same command (35405.7 KB > the 15950 KB budget) — disclosed in
+      Theme G as pre-existing and unrelated to that theme's `@codemirror/*` removal (identical
+      measurement before/after); `bundle-budget.spec.ts` runs outside `moon run :test`'s gate.
 - [ ] Single-clicking files in the tree renders the Shiki preview with **no Monaco chunk requested** —
       assert on the absence of a `monaco` chunk in the Network panel, not on a stopwatch.
 - [ ] **All four theme modes.** `light`, `dark`, `system` and **`time`** each resolve correctly with a

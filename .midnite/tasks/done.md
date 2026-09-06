@@ -50,6 +50,46 @@ plumbing between them.
   `data`), and `ApiResponseSchema` gained an undocumented `warnings: string[]` field that Theme E's
   own doc text requires but Theme A's field list omits.
 
+## 2026-09-06 — Phase 64 Theme G — Decommissioning CodeMirror
+
+[PR #221](https://github.com/bilo-io/midnite-studio/pull/221). Moves Phase 64 52/72 → 57/72
+(72% → 79%) — the phase's last open theme; every theme now lands, only the phase's own
+`## Verification` human passes are left open. Theme G's own gate on
+[Phase 61](phases/phase-61-database-explorer.md) cleared the same day: Phase 61 Theme G
+(PR #211) built its SQL query editor on Monaco rather than the CodeMirror setup Phase 61's own
+doc had planned (its Decision 9), because Phase 64's Monaco migration had already landed by the
+time Phase 61 Theme G executed — reconfirmed against the tree at execution time rather than
+taken on the earlier record's word: `grep -rn "@codemirror" packages/` turns up zero import
+sites, only explanatory prose in `query-editor.tsx`.
+
+- [x] Removed the seven `@codemirror/*` dependencies from `packages/app/package.json` —
+      `code-editor.tsx` was their only importer, and it has run on Monaco since Theme C.
+      `pnpm install` reports **-30 packages**; `pnpm why @codemirror/view` resolves to nothing,
+      so the dependency does not survive transitively via `@bilo-io/ui`/`@bilo-io/shell` either
+      (unlike `lucide-react`, which does).
+- [x] Two of the theme's four checklist items were **already done**, stale in the phase doc
+      rather than actually open: PR #164 (Theme A/C) had already retargeted
+      `e2e/files-editor.spec.ts` onto Monaco selectors (`[data-testid="code-editor"]`,
+      `.monaco-editor .view-lines` — zero `.cm-*` selectors remain) and already rewritten
+      `file-preview.tsx`'s lazy-boundary comment in terms of Monaco's weight, not CodeMirror's —
+      both landed the moment Theme C shipped, since the alternative was the suite going red
+      immediately, exactly as the phase doc's own risk note predicted. Verified rather than
+      re-edited.
+- [x] Re-measured `scripts/perf/bundle-report.mjs` packaged-equivalent (`moon run app:build
+      desktop:bundle`) and recorded it in `scripts/perf/budgets.json`'s `_measured` block, budget
+      ceilings untouched. entryKb/totalJsKb are **identical bit-for-bit** before and after the
+      dependency removal (1434.7 / 35405.7 KB both runs) — `@codemirror/*` had zero remaining
+      source importers and was already excluded from the built output by Vite's tree-shaking, so
+      this theme's win is dependency-tree hygiene, not a bundle-byte reduction. Disclosed, not
+      fixed here (confirmed pre-existing and unrelated to this removal — identical both sides of
+      it): `totalJsKb` now exceeds its 15950 KB budget from Monaco worker-chunk growth
+      accumulated across Themes A-C since the 2026-09-04 baseline; `bundle-budget.spec.ts` runs
+      outside `moon run :test`'s gate, and rebaselining the ceiling needs its own justifying run.
+- Also confirmed, not a regression: `e2e/files-editor.spec.ts`'s first test has a pre-existing
+  local flake (Monaco's ~13 MB lazy chunk cold-parsing against a 5s default `expect` timeout),
+  reproduced identically on `main` before this branch and passing reliably under CI's 2-retry
+  allowance — not introduced by this change, not touched.
+
 ## 2026-09-06 — Phase 61 Theme J — Database Explorer test suites and CI wiring
 
 [PR #217](https://github.com/bilo-io/midnite-studio/pull/217). Moves Phase 61 66/94 → 68/94
