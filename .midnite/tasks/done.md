@@ -90,6 +90,50 @@ sites, only explanatory prose in `query-editor.tsx`.
   reproduced identically on `main` before this branch and passing reliably under CI's 2-retry
   allowance — not introduced by this change, not touched.
 
+## 2026-09-06 — Phase 71 Theme B — Twenty-five call sites, routed
+
+[PR #223](https://github.com/bilo-io/midnite-studio/pull/223). Moves Phase 71 12/41 → 21/41
+(29% → 51%). Theme A (PR #200) built `openInMidnite(url, {originRepoId, target, background})` as
+the single seam for routing a link in-app or out, deliberately touching no existing call site;
+this is that migration.
+
+- [x] **Enumerated from `grep -rn "openExternal" packages/app/src`, not the phase doc's own list**,
+      per the doc's own instruction. The real count is **21 production call sites**, not 25 — three
+      fewer once `forgeRowMenu` is counted as the one function it is (it feeds three menus, not
+      three separate call sites) and `video-studio-pane.tsx` is recognised as never having called
+      `openExternal` at all (it called `browser-store` directly).
+- [x] `external-link.tsx` — the widest blast radius (every rendered markdown link in the app). Added
+      `onAuxClick` for middle-click, which `preventDefault()` used to swallow along with everything
+      else; a new colocated `external-link.test.tsx` covers plain/shift/middle click and a
+      non-middle auxclick no-op.
+- [x] Reviews (`pr-detail.tsx`, `pr-files.tsx`), Actions (`run-detail.tsx`, `log-pane.tsx`), the
+      repos sidebar (`repos-panel.tsx`, `use-repo-actions.ts`, `forge-sections.tsx`'s
+      `forgeRowMenu`), the Dashboard (`forge-widgets.tsx`) and forge detail (`forge-detail.tsx`) —
+      17 call sites routed, each passing `originRepoId` where the surface knows its repo so tabs
+      land in that repo's derived group. Several components (`RunHeader`, `JobRow`, `LogPane`,
+      `PrHeader`, `RemoteGroup`, `Detail`) grew a `repoId`/`originRepoId` prop to carry it down from
+      where it was already in scope.
+- [x] `video-studio-pane.tsx` — replaced the hand-rolled `setBrowserOpen` + `openTab` two-liner with
+      `openInMidnite(url, { target: 'in-app' })`, forced in-app as the phase doc's own resolved
+      decision requires.
+- [x] Three call sites deliberately left on `openExternal`, each with a one-line reason now in the
+      code: `monitor-page.tsx` (filing a bug — no password manager in an in-app tab),
+      `health-page.tsx` and `version-notes-panel.tsx` (release notes — read once, never returned
+      to).
+- [x] `packages/app/e2e/link-routing.spec.ts` — with the default **Midnite browser** preference the
+      Reviews "Open on GitHub" button opens a browser tab and reaches `shell.openExternal` zero
+      times; with **System browser** selected, the reverse; a Shift-click always reaches
+      `shell.openExternal` regardless of the stored preference.
+- **Not done in this PR, and disclosed rather than silently dropped**: `terminal-view.tsx:593`'s
+  bare `openExternal` callback into `attachTerminalLinks`. `packages/app/src/features/terminal/**`
+  was flagged as a live workstream when this PR was built, and Theme B's own task scope explicitly
+  excluded it. `terminal-links.ts` needs no change — its opener is injected by design — so the
+  follow-up is a one-line swap at the call site. See `outstanding.md`.
+- The `window.open` prefix-test duplication in `window.ts`/`window-manager.ts` (noted in the phase
+  doc as *not* part of this theme) was left exactly as found — it guards the host renderer, not the
+  browser tabs, and folding a security fix into a link-routing PR would get it reviewed as an
+  afterthought.
+
 ## 2026-09-06 — Phase 61 Theme J — Database Explorer test suites and CI wiring
 
 [PR #217](https://github.com/bilo-io/midnite-studio/pull/217). Moves Phase 61 66/94 → 68/94
