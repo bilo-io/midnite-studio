@@ -13,10 +13,9 @@ import {
 } from '@midnite/studio-shared';
 import type { z } from 'zod';
 
-import { appendCapped } from '../council-output';
 import { confineTree } from '../fs-scope-write';
 import { resolveWorkdir } from '../repo-registry';
-import { HTTP_RESPONSE_CAP_BYTES } from '../workflow/executors/http';
+import { HTTP_RESPONSE_CAP_BYTES, readCapped } from '../workflow/executors/http';
 import { interpolate } from './interpolate';
 
 /**
@@ -182,36 +181,6 @@ async function buildBody(
   const contentType = contentTypeFor(draft.bodyMode);
   if (contentType) setHeaderIfAbsent(headers, 'content-type', contentType);
   return { body: interp(draft.bodies[draft.bodyMode] ?? '') };
-}
-
-/** A `readCapped`-shaped reader (`http.ts`'s own is not exported): stop
- *  pulling bytes the moment the cap is hit, and always release the reader. */
-async function readCapped(
-  response: Response,
-): Promise<{ text: string; truncated: boolean; bytes: number }> {
-  if (!response.body) return { text: '', truncated: false, bytes: 0 };
-
-  let buffer: Uint8Array = new Uint8Array(0);
-  let truncated = false;
-  const reader = response.body.getReader();
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      const capped = appendCapped(buffer, value, HTTP_RESPONSE_CAP_BYTES);
-      buffer = capped.buffer;
-      truncated = truncated || capped.truncated;
-      // Nothing more can be kept, so stop pulling bytes off the wire — the
-      // `reader.cancel()` below is what closes the socket out from under a
-      // server still writing, rather than draining a 40 MB body to throw it
-      // away.
-      if (truncated) break;
-    }
-  } finally {
-    await reader.cancel().catch(() => undefined);
-  }
-  return { text: new TextDecoder().decode(buffer), truncated, bytes: buffer.byteLength };
 }
 
 /**

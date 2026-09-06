@@ -39,9 +39,18 @@ export type HttpNodeOutput = {
   truncated: boolean;
 };
 
-/** Reads the whole body, stopping at the cap rather than buffering the lot. */
-async function readCapped(response: Response): Promise<{ text: string; truncated: boolean }> {
-  if (!response.body) return { text: '', truncated: false };
+/**
+ * Reads the whole body, stopping at the cap rather than buffering the lot.
+ *
+ * Exported for Phase 66's API-client send engine, which needs the identical
+ * stop-at-the-cap behaviour and the byte count that goes with it — the phase
+ * doc asks for this to be *imported rather than copied*, and a second copy
+ * would be the one place the truncation-stops-reading contract could drift.
+ */
+export async function readCapped(
+  response: Response,
+): Promise<{ text: string; truncated: boolean; bytes: number }> {
+  if (!response.body) return { text: '', truncated: false, bytes: 0 };
 
   let buffer: Uint8Array<ArrayBuffer> = new Uint8Array(0);
   let truncated = false;
@@ -61,7 +70,7 @@ async function readCapped(response: Response): Promise<{ text: string; truncated
   } finally {
     await reader.cancel().catch(() => undefined);
   }
-  return { text: new TextDecoder().decode(buffer), truncated };
+  return { text: new TextDecoder().decode(buffer), truncated, bytes: buffer.byteLength };
 }
 
 export const httpExecutor: NodeExecutor = async (node, context): Promise<NodeOutcome> => {
