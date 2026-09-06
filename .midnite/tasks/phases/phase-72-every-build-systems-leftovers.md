@@ -833,8 +833,8 @@ Four categories fitted in a flat list. Nine ecosystems do not.
         Memory and GPU tabs", which is accurate, so leave it; the new boundary belongs in the list,
         not the hint.
 
-### F — Verification (M) · ◐ PARTIAL (PR #196, 2026-09-06; two items genuinely left open — the
-stale `DETECTOR_COUNT` literal in `detectors.test.ts`/Verification, and the human pass over real
+### F — Verification (M) · ◐ PARTIAL (PR #196, 2026-09-06; PR #202, 2026-09-06 closed the
+stale `DETECTOR_COUNT` literal — one item stays genuinely open: the human pass over real
 Rust/Gradle/Python checkouts, appears twice for the same reason)
 
 - [x] `detectors.test.ts` — the ordering invariant from Theme A asserted over `DEFAULT_DETECTORS`:
@@ -845,15 +845,14 @@ Rust/Gradle/Python checkouts, appears twice for the same reason)
       d.producer.trim().length > 0)).toBe(true)`, plus the same assertion on
       `STALE_WORKTREE_DETECTOR`, which is not in the array. That is the scope guardrail made
       mechanical.
-- [ ] `detectors.test.ts` — `expect(DEFAULT_DETECTORS).toHaveLength(DETECTOR_COUNT)` and
-      `expect(DETECTOR_COUNT).toBe(24)`; plus `expect(new Set(DEFAULT_DETECTORS.map(d => d.id)).size)
+- [x] `detectors.test.ts` — `expect(DEFAULT_DETECTORS).toHaveLength(DETECTOR_COUNT)` and
+      `expect(DETECTOR_COUNT).toBe(28)`; plus `expect(new Set(DEFAULT_DETECTORS.map(d => d.id)).size)
       .toBe(DEFAULT_DETECTORS.length)` — ids are unique, because `detectorId` keys the
       `result.detectors` map.
-      - **Not done as written, still genuinely open:** the real `DETECTOR_COUNT` is 28, not 24 —
-        Theme B's own done.md entry already corrected this stale figure from the phase brief. No
-        test pins the literal count to either number; `detectors.test.ts` only asserts
-        `DEFAULT_DETECTORS.toHaveLength(DETECTOR_COUNT)` (a tautology against itself) plus the
-        id-uniqueness check, which does pass. A `toBe(28)` assertion would need adding.
+      - **Closed in PR #202:** the real `DETECTOR_COUNT` is 28, not the phase brief's stale
+        24 — Theme B's own done.md entry already corrected this figure. The existing test only
+        asserted `DEFAULT_DETECTORS.toHaveLength(DETECTOR_COUNT)` (a tautology against itself) plus
+        the id-uniqueness check; a `toBe(28)` literal pin was added alongside it.
 - [x] `detectors.test.ts` — `matchesPathSuffix` and `matchesFileSuffix` unit cases exactly as
       Theme A items 4 and 5 enumerate them, including the `/bundle` shorter-than-suffix case and the
       mid-string `.csproj` case.
@@ -1059,11 +1058,11 @@ Rust/Gradle/Python checkouts, appears twice for the same reason)
 
 - [x] `moon run :typecheck :lint :test` green, and `grep -rn "'nodeModules'" packages/` returns
       nothing.
-- [ ] `DEFAULT_DETECTORS` has 24 entries, unique ids, no empty `producer`, and no evidence-free
-      detector shadowing an evidenced one — all four asserted in `detectors.test.ts`, not reviewed.
-      - **Not done as written:** the real count is 28 (Theme B's done.md entry already corrected
-        this stale "24"); no test pins either literal. Uniqueness, non-empty `producer`, and the
-        no-shadowing property are all asserted and pass.
+- [x] `DEFAULT_DETECTORS` has 28 entries, unique ids, no empty `producer`, and no evidence-free
+      detector shadowing an evidenced one — all four asserted in `detectors.test.ts`.
+      - **Closed in PR #202:** the real count is 28 (Theme B's done.md entry already corrected
+        this stale "24"); `detectors.test.ts` now pins `expect(DETECTOR_COUNT).toBe(28)` alongside
+        the existing uniqueness, non-empty-`producer`, and no-shadowing assertions.
 - [x] Every negative fixture in Theme F produces **zero** items and `totalBytes === 0`.
 - [x] A scan of this repo finds `.moon/cache` as `moon-cache` and produces **no** item whose path
       ends `/.moon`.

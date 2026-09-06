@@ -2,6 +2,22 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 72 Theme F (remainder) — the `DETECTOR_COUNT` literal, pinned
+
+[PR #202](https://github.com/bilo-io/midnite-studio/pull/202). Moves Phase 72 98/102 → 100/102 (96% → 98%).
+Closes the one automatable item PR #196 left open on Theme F: `detectors.test.ts` asserted
+`DEFAULT_DETECTORS.toHaveLength(DETECTOR_COUNT)`, a tautology against itself, with no test pinning
+the literal count to anything. The phase brief's own "24" was already stale — Theme B's catalogue
+(PR #190) shipped 28 — so `expect(DETECTOR_COUNT).toBe(28)` is the value added, not 24.
+
+- [x] `detectors.test.ts` — `expect(DETECTOR_COUNT).toBe(28)` alongside the existing
+      length/uniqueness assertions, so a silent addition or removal from the catalogue now fails
+      a test rather than passing by construction.
+
+Left open: the human pass over a real Rust/Gradle/Python checkout (Theme F's own item, and the
+identical item in the phase's shared `## Verification` section) — needs external toolchains on
+disk this session did not have.
+
 ## 2026-09-06 — Phase 71 Themes A and C — one entry point for every link, and a dev server it can find on its own
 
 [PR #200](https://github.com/bilo-io/midnite-studio/pull/200). Moves Phase 71 0/41 → 12/41 (0% → 29%). Theme A is the seam B and D both call
