@@ -119,7 +119,7 @@ rebase than a large late one.
 
 Lands first; every other theme reads what it produces. Nothing in this theme renders anything.
 
-- [ ] Extend `PROJECT_ITEMS_QUERY`'s `... on Issue{…}` fragment at
+- [x] Extend `PROJECT_ITEMS_QUERY`'s `... on Issue{…}` fragment at
       [`gh-project.ts:125`](../../../packages/desktop/src/main/forge/gh-project.ts) with, in one edit:
       `blockedBy(first:${DEPS_PAGE}){totalCount nodes{number title state repository{nameWithOwner}}}`,
       `parent{number title state repository{nameWithOwner}}` and
@@ -133,7 +133,7 @@ Lands first; every other theme reads what it produces. Nothing in this theme ren
     do not have these fields and asking would fail the *whole* query, not that one item.
   - *Acceptance:* `runInShell.mock.calls[0][0]` contains `blockedBy(first:20)` and does **not** contain
     `blockedBy` inside the `PullRequest` or `DraftIssue` fragment.
-- [ ] `ForgeIssueLinkSchema` and `ForgeIssueLinkSetSchema` in
+- [x] `ForgeIssueLinkSchema` and `ForgeIssueLinkSetSchema` in
       [`forge-project.ts`](../../../packages/shared/src/domain/forge-project.ts), above
       `ForgeProjectItemContentSchema`:
   ```ts
@@ -153,17 +153,17 @@ Lands first; every other theme reads what it produces. Nothing in this theme ren
   ```
   - `.default(…)` on every field, per this file's existing convention, so a board fetched by an older
     build parses rather than throws.
-- [ ] Add `dependencies: ForgeIssueLinkSetSchema.default({})` to the **issue** variant of
+- [x] Add `dependencies: ForgeIssueLinkSetSchema.default({})` to the **issue** variant of
       `ForgeProjectItemContentSchema` (`forge-project.ts:120–135`) and to **neither** the `pull`
       (`:136`) nor `draft` (`:147`) variant.
   - A `dependencies` field that is always empty on two of three variants is a lie the type system
     would then help spread. Theme B narrows on `content.type === 'issue'` before reading it.
-- [ ] Map the three connections in `gh-project.ts`'s `parseItemsPage` item mapper, each tolerant of
+- [x] Map the three connections in `gh-project.ts`'s `parseItemsPage` item mapper, each tolerant of
       `null` (an issue with no parent), an absent key (an older response), and a node missing
       `repository`. `blockedByTruncated = totalCount > nodes.length`.
   - `repo` is `''` when `nameWithOwner` equals the board's own `owner/repo`, so the renderer can show
     `#12` locally and `owner/repo#12` for a foreign one without re-deriving it.
-- [ ] Extend the `parseItemsPage` suite in
+- [x] Extend the `parseItemsPage` suite in
       [`gh-project.test.ts`](../../../packages/desktop/src/main/forge/gh-project.test.ts) (`:159`)
       against the existing `runInShell` seam — `vi.hoisted` mock at `:19–35`, responses fed as
       `runInShell.mockResolvedValueOnce(okShell(JSON.stringify({ data: { node: { items: {…} } } })))`
@@ -172,7 +172,7 @@ Lands first; every other theme reads what it produces. Nothing in this theme ren
     issue with a parent · five sub-issues · `totalCount: 30` with 20 nodes (asserting
     `blockedByTruncated === true`) · an issue with none of the three keys present · a `PullRequest`
     item and a `DraftIssue` item (asserting `content` has no `dependencies` key).
-- [ ] Transport assertion in the existing `listProjects / projectFields / projectItems — transport`
+- [x] Transport assertion in the existing `listProjects / projectFields / projectItems — transport`
       suite (`gh-project.test.ts:374`): the command string carries the new fragment and the existing
       `-f projectId=` / cursor assertions still pass unchanged.
 
