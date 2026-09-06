@@ -13,8 +13,18 @@ describe('ApiClientView', () => {
   it('renders the empty-collections state — nothing else fills the tree pane yet', () => {
     render(<ApiClientView />);
     expect(screen.getByText('No collections yet')).toBeDefined();
+    // The body sentence is split across text nodes by the two <code> spans it
+    // wraps around `.postman_collection.json` and `.midnite/api/`, so it is
+    // matched against the paragraph's combined textContent rather than a
+    // single node's text.
     expect(
-      screen.getByText(/Collections are stored in .midnite\/api\/ in this repository/),
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === 'P' &&
+          (element.textContent ?? '').includes(
+            'Collections are stored in .midnite/api/ in this repository',
+          ),
+      ),
     ).toBeDefined();
   });
 
