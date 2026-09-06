@@ -738,6 +738,19 @@ export const CHANNELS = {
    */
   apiPickBinaryFile: 'mstudio:api-client:pick-binary-file',
 
+  // --- api client environments (Phase 70 Theme A) -----------------------------
+  // One environment per file at `.midnite/api/environments/<slug>.postman_
+  // environment.json`, beside `collections/` — same repo, same `repoId`
+  // resolution, same shape of four verbs as the group above. `apiSaveEnvironment`
+  // is the one with a real decision inside its envelope's success arm (see
+  // `SaveEnvironmentOutcomeSchema`): a save that would write a secret into an
+  // unprotected repo answers `needs-confirm` rather than writing anything,
+  // and the renderer re-sends the identical payload with `confirmed: true`.
+  apiListEnvironments: 'mstudio:api-client:list-environments',
+  apiReadEnvironment: 'mstudio:api-client:read-environment',
+  apiSaveEnvironment: 'mstudio:api-client:save-environment',
+  apiDeleteEnvironment: 'mstudio:api-client:delete-environment',
+
   // --- MCP server (Phase 57 Themes E, F) --------------------------------------
   // The server itself is a Unix socket (`main/mcp/server.ts`), not `ipcMain` —
   // an MCP caller has no `event.sender` for `handleFromSender` to resolve. These

@@ -1079,6 +1079,24 @@ export type MidniteStudioBridge = {
     ) => Promise<z.infer<typeof S.ApiCancelRequestResponse>>;
     /** Opens the native file picker for a `binary` body or a `form-data` file row (Theme D). */
     pickBinaryFile: () => Promise<z.infer<typeof S.ApiPickBinaryFileResponse>>;
+    /**
+     * Environments (Phase 70 Theme A) — same repo-local store, same shape.
+     * `saveEnvironment`'s resolved value can be `{status:'needs-confirm', …}`
+     * rather than a write: the renderer's own confirm dialog is what turns a
+     * second call (`confirmed: true`) into the actual write.
+     */
+    listEnvironments: (
+      req: In<typeof S.ApiListEnvironmentsRequest>,
+    ) => Promise<z.infer<typeof S.ApiListEnvironmentsResponse>>;
+    readEnvironment: (
+      req: In<typeof S.ApiReadEnvironmentRequest>,
+    ) => Promise<z.infer<typeof S.ApiReadEnvironmentResponse>>;
+    saveEnvironment: (
+      req: In<typeof S.ApiSaveEnvironmentRequest>,
+    ) => Promise<z.infer<typeof S.ApiSaveEnvironmentResponse>>;
+    deleteEnvironment: (
+      req: In<typeof S.ApiDeleteEnvironmentRequest>,
+    ) => Promise<z.infer<typeof S.ApiDeleteEnvironmentResponse>>;
   };
 
   /**

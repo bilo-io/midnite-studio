@@ -373,3 +373,42 @@ export const ApiCollectionSummarySchema = z.object({
   collection: PostmanCollectionSchema,
 });
 export type ApiCollectionSummary = z.infer<typeof ApiCollectionSummarySchema>;
+
+/**
+ * Phase 70 Theme A — an environment as the renderer lists and browses it,
+ * mirroring `ApiCollectionSummary` exactly: the merged (base + `.local.json`
+ * overlay) document the editor reads and writes as a whole, plus the on-disk
+ * identity Postman's own file format has no field for. `id` is the file
+ * name, exactly as a collection's `id` is — `environment-io.ts`'s
+ * `listEnvironments`/`saveEnvironment` are the only source of one.
+ */
+export const ApiEnvironmentSummarySchema = z.object({
+  id: z.string(),
+  fileName: z.string(),
+  environment: PostmanEnvironmentSchema,
+});
+export type ApiEnvironmentSummary = z.infer<typeof ApiEnvironmentSummarySchema>;
+
+/**
+ * `saveEnvironment`'s own result, carried inside `ApiOpResultOf`'s success
+ * arm rather than as a new failure `kind` — the envelope every api-client op
+ * returns stays exactly `{ok:true, value} | {ok:false, kind:'error', message}`,
+ * and "the save needs a human decision first" is still a *successful* call
+ * (nothing was written, nothing threw), just one whose `value` says so.
+ *
+ * `needs-confirm` fires once per repo: the first time a save would write a
+ * secret-valued row into a repository `environment-io.ts`'s
+ * `isGitignoreProtected` cannot yet prove is protected. The renderer's own
+ * confirm (`ConfirmDialog`, `blastRadiusKind: 'secrets'`) re-sends the same
+ * save with `confirmed: true`, which is what actually writes the overlay and
+ * the `.gitignore`.
+ */
+export const SaveEnvironmentOutcomeSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('saved') }),
+  z.object({
+    status: z.literal('needs-confirm'),
+    secretCount: z.number().int().nonnegative(),
+    gitignorePath: z.string(),
+  }),
+]);
+export type SaveEnvironmentOutcome = z.infer<typeof SaveEnvironmentOutcomeSchema>;
