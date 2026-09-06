@@ -95,20 +95,35 @@ describe('ProjectGraphNode', () => {
     expect(el.className).toContain('is-running');
   });
 
-  it('marks selected via aria-pressed and a 0 tabIndex, -1 otherwise', () => {
+  it('marks selected via aria-pressed, independent of tabIndex', () => {
     const { container, rerender } = render(
       <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
     );
     let el = container.querySelector('[data-graph-node]')!;
     expect(el.getAttribute('aria-pressed')).toBe('false');
-    expect(el.getAttribute('tabindex')).toBe('-1');
+    expect(el.getAttribute('tabindex')).toBe('-1'); // default
 
     rerender(
       <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="idle" selected onSelect={() => {}} />,
     );
     el = container.querySelector('[data-graph-node]')!;
     expect(el.getAttribute('aria-pressed')).toBe('true');
-    expect(el.getAttribute('tabindex')).toBe('0');
+    expect(el.getAttribute('tabindex')).toBe('-1'); // selected does not imply the roving tab stop
+  });
+
+  it('the roving tab stop is a separate, explicit prop from selected', () => {
+    const { container } = render(
+      <ProjectGraphNode
+        node={baseNode()}
+        item={issueItem()}
+        fields={[]}
+        glow="idle"
+        selected={false}
+        tabIndex={0}
+        onSelect={() => {}}
+      />,
+    );
+    expect(container.querySelector('[data-graph-node]')?.getAttribute('tabindex')).toBe('0');
   });
 
   it('carries data-blocked/data-ready/data-foreign only when the node says so', () => {

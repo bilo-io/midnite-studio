@@ -24,6 +24,7 @@ export function ProjectGraphNode({
   fields,
   glow,
   selected,
+  tabIndex = -1,
   detailed = true,
   onSelect,
 }: {
@@ -33,7 +34,14 @@ export function ProjectGraphNode({
   item: ForgeProjectItem | undefined;
   fields: readonly ForgeProjectField[];
   glow: CardGlowState;
+  /** Whether this node's detail pane is the one currently open — a visual
+   *  ring, distinct from keyboard focus (`tabIndex` below). Mirrors
+   *  `TaskCard`'s own `isOpen`/roving-`tabIndex` split. */
   selected: boolean;
+  /** Roving tabindex (mirrors `board-view.tsx`'s pattern): exactly one node
+   *  on the canvas is `0` at a time, reachable by `Tab`; every other is `-1`,
+   *  reachable only via the graph's own arrow-key navigation. */
+  tabIndex?: number;
   /** Level of detail (Theme D's own rule): below `scale: 0.5` a node shows
    *  its title only — chips and avatars are illegible at that size and cost
    *  a DOM subtree per node nobody can read. */
@@ -60,7 +68,7 @@ export function ProjectGraphNode({
       data-foreign={node.foreign ? '' : undefined}
       role="button"
       aria-pressed={selected}
-      tabIndex={selected ? 0 : -1}
+      tabIndex={tabIndex}
       onClick={onSelect}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
