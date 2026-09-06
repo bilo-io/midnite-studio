@@ -1,10 +1,10 @@
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
-import { LuCircleDot, LuGitPullRequest, LuNotebookPen, LuX } from 'react-icons/lu';
+import { LuX } from 'react-icons/lu';
 
-import type { IconComponent } from '../../../components/icon-button';
 import { UserAvatar } from '../../../components/user-avatar';
 import { ExternalLink } from '../../markdown/external-link';
 import { CardComposer } from './card-composer';
+import { CONTENT_ICON } from './card-chrome';
 import { ProjectFieldCell } from '../field-editor';
 
 /**
@@ -100,9 +100,3 @@ export function CardDetail({
     </div>
   );
 }
-
-const CONTENT_ICON: Record<ForgeProjectItem['content']['type'], IconComponent> = {
-  issue: LuCircleDot,
-  pull: LuGitPullRequest,
-  draft: LuNotebookPen,
-};

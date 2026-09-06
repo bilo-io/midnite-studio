@@ -12,9 +12,10 @@ import {
   LuLayers,
   LuNotebookPen,
   LuTable,
+  LuWorkflow,
 } from 'react-icons/lu';
 
-import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import { resolveForgeGraph, type ForgeProjectField, type ForgeProjectItem } from '@midnite/studio-shared';
 
 import { EmptyState } from '../../components/empty-state';
 import { IconButton, type IconComponent } from '../../components/icon-button';
@@ -35,11 +36,22 @@ import {
   type ItemFilterState,
   type ProjectItemFilterState,
 } from './filter';
+import { useGraphAgentStates } from './graph/use-graph-agent-states';
+import { ProjectGraphView } from './graph/project-graph-view';
 import { nextSortState, sortItems, type SortState } from './sort';
 import { useForgeProjectFields, useForgeProjectItems, useForgeProjects } from '../../services/queries';
 import { useActiveWorktree } from '../../services/use-status';
 import { DEFAULT_PROJECT_VIEW, useUiStore } from '../../store/ui-store';
 import { PageDetachMark } from '../../components/page-detach-mark';
+
+const PROJECTS_MODES = ['table', 'board', 'graph'] as const;
+type ProjectsMode = (typeof PROJECTS_MODES)[number];
+
+/** A persisted value from an older build, or plain corruption, must not pass
+ *  through — see the phase doc's own rule for `projectsMode`. */
+function coerceProjectsMode(value: string | undefined): ProjectsMode {
+  return value !== undefined && (PROJECTS_MODES as readonly string[]).includes(value) ? (value as ProjectsMode) : 'table';
+}
 
 /**
  * The Projects view (Phase 40 Theme D): a board picker above the picked
@@ -69,7 +81,17 @@ export function ProjectsView() {
   const setProjectBoard = useUiStore((s) => s.setProjectBoard);
   const modeByRepo = useUiStore((s) => s.projectsMode);
   const setProjectsMode = useUiStore((s) => s.setProjectsMode);
-  const mode = repoId !== null ? (modeByRepo[repoId] ?? 'table') : 'table';
+  const mode = coerceProjectsMode(repoId !== null ? modeByRepo[repoId] : undefined);
+
+  /**
+   * The graph mode's own selection (Phase 75 Theme D) — local to this view,
+   * not yet lifted alongside `BoardView`'s own `selectedItemId`. Theme G's
+   * own checklist item ("Lift card selection out of BoardView") is what
+   * consolidates this into one state shared with board mode; until then the
+   * two views simply don't share a selection, exactly the way board mode's
+   * own `selectedItemId` has never been reachable from here either.
+   */
+  const [graphSelectedItemId, setGraphSelectedItemId] = useState<string | null>(null);
 
   // Fetching starts only once this view is mounted, matching every other
   // forge read's `enabled` gate — see the phase doc's own acceptance test.
@@ -77,6 +99,9 @@ export function ProjectsView() {
   const boards = projects.data?.projects ?? [];
 
   const selectedProjectId = repoId !== null ? (boardByRepo[repoId] ?? null) : null;
+  // One subscription for the whole canvas (Theme F) — a hook, so it is
+  // called unconditionally here rather than only while `mode === 'graph'`.
+  const graphAgentStates = useGraphAgentStates(selectedProjectId ?? '');
   const boardStillExists =
     selectedProjectId !== null && boards.some((b) => b.id === selectedProjectId);
 
@@ -220,6 +245,7 @@ export function ProjectsView() {
             [
               { id: 'table', label: 'Table view', icon: LuTable },
               { id: 'board', label: 'Board view', icon: LuKanban },
+              { id: 'graph', label: 'Graph view', icon: LuWorkflow },
             ] as const
           ).map((option) => (
             <IconButton
@@ -315,6 +341,21 @@ export function ProjectsView() {
           icon={VIEW_ICON.projects}
           title="No items match"
           body="No items match the current filter."
+        />
+      ) : mode === 'graph' ? (
+        <ProjectGraphView
+          // `boardRepo: ''` — the renderer has no owner/repo string to hand
+          // this (adding one is a new IPC channel, which the phase's own
+          // guardrails rule out); the only effect is that an explicit
+          // same-repo self-reference in a field/body value won't collapse
+          // with the local item it actually names.
+          graph={resolveForgeGraph(filteredItems, allFields, { boardRepo: '' })}
+          items={filteredItems}
+          fields={allFields}
+          projectId={selectedProjectId}
+          selectedItemId={graphSelectedItemId}
+          onSelectItem={setGraphSelectedItemId}
+          agentStates={graphAgentStates}
         />
       ) : (
         <ProjectItemsTable
