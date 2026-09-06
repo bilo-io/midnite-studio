@@ -18,6 +18,27 @@ Left open: the human pass over a real Rust/Gradle/Python checkout (Theme F's own
 identical item in the phase's shared `## Verification` section) — needs external toolchains on
 disk this session did not have.
 
+## 2026-09-06 — Phase 75 Theme A — four fields, one query
+
+[PR #204](https://github.com/bilo-io/midnite-studio/pull/204). Moves Phase 75 0/106 → 6/106
+(0% → 6%). The wire contract and the fetch every other theme in the phase reads from; nothing in it
+renders anything.
+
+- [x] **A** — `ForgeIssueLinkSchema`/`ForgeIssueLinkSetSchema` in `shared`, and `dependencies` on the
+      **issue** variant of `ForgeProjectItemContentSchema` alone — a field that is always empty on
+      two of three variants is a lie the type system would help spread. `PROJECT_ITEMS_QUERY`'s
+      `... on Issue` fragment grows `blockedBy`/`parent`/`subIssues` at `DEPS_PAGE = 20`, each with
+      `totalCount` (so an over-page blocker set says so rather than under-reporting, the one failure
+      a dependency view must not have) and `repository{nameWithOwner}` (so a cross-repo `#12` is not
+      ambiguous). Deliberately **not** on the `PullRequest`/`DraftIssue` fragments — those types lack
+      the fields, and asking would fail the whole query rather than that one item.
+  - `blocking` was not modelled: it is `blockedBy`'s inverse, Theme B never consumes it, and it would
+    double the query cost for a field nothing reads. `foreign` is not a schema flag either — Theme B
+    derives it from whether a node key resolves to a real item.
+  - Follow-on fix in the same PR: `dependencies` being required on the *output* type broke six
+    hand-built issue fixtures in `app`. `EMPTY_ISSUE_LINK_SET` is exported from shared so the
+    five-field literal is written once rather than six times drifting apart.
+
 ## 2026-09-06 — Phase 72 Theme F (closing) — the detector count pinned to its real literal
 
 [PR #202](https://github.com/bilo-io/midnite-studio/pull/202). Moves Phase 72 98/102 → 100/102
