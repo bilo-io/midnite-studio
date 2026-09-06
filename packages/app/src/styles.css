@@ -2741,14 +2741,14 @@ html[data-motion='reduced'] .graph-badge-glow {
  * (features/graph/graph-row.tsx) picks the tier; these are the layers it
  * composes, each dropped or muted in turn:
  *
- *   < 3m     shimmer + lane ink         + text pulse         + row glow
- *   3m-5m              lane ink         + text pulse         + row glow
- *   5m-10m             lane ink         + text pulse
- *   10m-15m            lane ink (muted) + text pulse (muted)
- *   >= 15m   nothing
+ *   < 6m     shimmer + lane ink         + text pulse         + row glow
+ *   6m-10m             lane ink         + text pulse         + row glow
+ *   10m-20m            lane ink         + text pulse
+ *   20m-30m            lane ink (muted) + text pulse (muted)
+ *   >= 30m   nothing
  *
- * The row glow is the layer 'fading' (5m-10m) drops; the lane-coloured text
- * pulse is the one layer that survives all the way to 'muted' (10m-15m),
+ * The row glow is the layer 'fading' (10m-20m) drops; the lane-coloured text
+ * pulse is the one layer that survives all the way to 'muted' (20m-30m),
  * just turned down there rather than removed — `.commit-text-lane-muted` and
  * `.commit-text-pulse-muted` are the same rules as their un-muted siblings
  * with lower colour alpha and a narrower opacity swing.
@@ -2760,7 +2760,7 @@ html[data-motion='reduced'] .graph-badge-glow {
  * These animate paint properties (`box-shadow`, `text-shadow`), not just
  * `opacity` the way the lane halo above does. That is affordable only because
  * the tiers expire: at most a handful of rows in a repo anyone is working in
- * are under fifteen minutes old, where the halo can be running on ~30 at once.
+ * are under thirty minutes old, where the halo can be running on ~30 at once.
  * ------------------------------------------------------------------------- */
 
 /* Subject in the branch's hue. `--lane-ink-l` rather than `--lane-l`, for the
@@ -2771,7 +2771,7 @@ html[data-motion='reduced'] .graph-badge-glow {
   color: hsl(var(--lane-h) var(--lane-s) var(--lane-ink-l));
 }
 
-/* 'muted' (10m-15m): the same rule, alpha'd down rather than dropped — the
+/* 'muted' (20m-30m): the same rule, alpha'd down rather than dropped — the
  * branch-colour highlight is still there, just quieter than `.commit-text-lane`. */
 .commit-text-lane-muted {
   color: hsl(var(--lane-h) var(--lane-s) var(--lane-ink-l) / 0.6);
@@ -2799,7 +2799,7 @@ html[data-motion='reduced'] .graph-badge-glow {
   animation: commit-text-pulse 2s ease-in-out infinite;
 }
 
-/* 'muted' (10m-15m): the same pulse, both dimensions turned down — a
+/* 'muted' (20m-30m): the same pulse, both dimensions turned down — a
  * narrower opacity swing (0.82-1 rather than 0.6-1) and roughly half the
  * colour alpha at every stop, so the branch highlight is still visibly
  * pulsing but reads as settling rather than freshly landed. */

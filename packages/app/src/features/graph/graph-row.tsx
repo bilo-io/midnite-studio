@@ -390,15 +390,15 @@ function GraphRowInner({
  * Each tier drops or mutes one layer of the one before it, so a commit fades
  * out of notice rather than snapping back to plain text:
  *
- * - `'fresh'`  (< 3m)     shimmer sweep + lane-coloured subject + pulsing text
+ * - `'fresh'`  (< 6m)     shimmer sweep + lane-coloured subject + pulsing text
  *                         glow, row glow and opacity
- * - `'recent'` (3m–5m)    the same, shimmer gone
- * - `'fading'` (5m–10m)   row glow gone; the lane-coloured subject keeps its
+ * - `'recent'` (6m–10m)   the same, shimmer gone
+ * - `'fading'` (10m–20m)  row glow gone; the lane-coloured subject keeps its
  *                         text glow and opacity pulse
- * - `'muted'`  (10m–15m)  the same layers as `'fading'`, but attenuated: both
+ * - `'muted'`  (20m–30m)  the same layers as `'fading'`, but attenuated: both
  *                         the branch-colour intensity and the opacity swing
  *                         are turned down, rather than dropped
- * - `'normal'` (>= 15m)   nothing
+ * - `'normal'` (>= 30m)   nothing
  *
  * The boundaries are minutes, not seconds, because the date column beside it
  * only resolves to the minute — a tier that turned over mid-minute would change
@@ -407,16 +407,16 @@ function GraphRowInner({
 export type CommitRecencyTier = 'fresh' | 'recent' | 'fading' | 'muted' | 'normal';
 
 /** The oldest a commit can be and still carry any recency styling, in ms. */
-export const RECENCY_WINDOW_MS = 900_000;
+export const RECENCY_WINDOW_MS = 1_800_000;
 
 export function commitRecencyTier(
   committerDateSeconds: number,
   nowMs: number = Date.now(),
 ): CommitRecencyTier {
   const deltaMs = nowMs - committerDateSeconds * 1000;
-  if (deltaMs < 180_000) return 'fresh';
-  if (deltaMs < 300_000) return 'recent';
-  if (deltaMs < 600_000) return 'fading';
+  if (deltaMs < 360_000) return 'fresh';
+  if (deltaMs < 600_000) return 'recent';
+  if (deltaMs < 1_200_000) return 'fading';
   if (deltaMs < RECENCY_WINDOW_MS) return 'muted';
   return 'normal';
 }

@@ -23,10 +23,10 @@ const sha = (i: number) => `${i}`.padStart(40, 'a');
  * boundary would change tier partway through the run.
  */
 const TIERS = [
-  { key: 'fresh', secondsAgo: 45, subject: 'feat(graph): under three minutes — fresh' },
-  { key: 'recent', secondsAgo: 240, subject: 'feat(graph): four minutes — recent' },
-  { key: 'fading', secondsAgo: 420, subject: 'fix(graph): seven minutes — fading' },
-  { key: 'muted', secondsAgo: 720, subject: 'refactor(graph): twelve minutes — muted' },
+  { key: 'fresh', secondsAgo: 90, subject: 'feat(graph): under six minutes — fresh' },
+  { key: 'recent', secondsAgo: 480, subject: 'feat(graph): eight minutes — recent' },
+  { key: 'fading', secondsAgo: 840, subject: 'fix(graph): fourteen minutes — fading' },
+  { key: 'muted', secondsAgo: 1440, subject: 'refactor(graph): twenty-four minutes — muted' },
   { key: 'normal', secondsAgo: 7200, subject: 'chore: two hours — normal' },
 ] as const;
 
