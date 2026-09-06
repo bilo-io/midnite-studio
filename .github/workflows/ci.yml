@@ -88,8 +88,14 @@ jobs:
           POSTGRES_DB: mstudio_test
         ports:
           - 5432:5432
+        # `pg_isready` with no `-U` connects as the OS user running the
+        # healthcheck inside the container — root — which this database never
+        # granted a role, so every probe failed `role "root" does not exist`
+        # until the retries ran out and GitHub killed the container (seen
+        # first-hand: this exact job's first run). Explicit `-U`/`-d` probes
+        # the role/database that actually exist.
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U mstudio -d mstudio_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -102,8 +108,14 @@ jobs:
           MYSQL_PASSWORD: mstudio
         ports:
           - 3306:3306
+        # Explicit root credentials for the same reason as postgres above —
+        # an unauthenticated `mysqladmin ping` happened to pass against this
+        # image, but the sibling mariadb container's own unauthenticated ping
+        # did not (its actual failure, same run), so both get the same
+        # explicit, unambiguous form rather than relying on an image-specific
+        # default that already proved inconsistent one container over.
         options: >-
-          --health-cmd "mysqladmin ping -h localhost"
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pmstudio"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -120,7 +132,7 @@ jobs:
         ports:
           - 3307:3306
         options: >-
-          --health-cmd "mysqladmin ping -h localhost"
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pmstudio"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
