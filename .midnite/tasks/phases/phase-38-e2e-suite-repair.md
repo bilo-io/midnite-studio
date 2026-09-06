@@ -242,7 +242,7 @@ bug, not a fixture issue — the product already distinguishes a failed listing 
 empty one; the shared seeded error text just matched twice, ambiguating an unscoped
 `getByText`.
 
-### G — Monitor, graph and the browser pane (S) — ◐ PARTIAL (2026-09-02)
+### G — Monitor, graph and the browser pane (S) — ✅ DONE (PR #228, 2026-09-06)
 
 The five stragglers, unrelated to each other; batched so they do not each need a slice.
 
@@ -258,12 +258,12 @@ The five stragglers, unrelated to each other; batched so they do not each need a
       silently skips rather than draws a rule at. Fixed by sharing one `onSample` subscription
       across callers via a module-level ref count in `use-metrics-stream.ts`. **Confirmed on a real
       CI run**, not just locally.
-- [ ] `graph-themes.spec.ts:264` — the cascade settles once, then never replays on scroll or
+- [x] `graph-themes.spec.ts:264` — the cascade settles once, then never replays on scroll or
       row recycling. **A genuine trap, caught only by actually running CI**: green in an isolated
       local run (24/24, macOS), but a real CI run confirmed it still red on Linux. A local pass
       cannot be trusted for this one — whatever the difference is (timing under a slower/2-core
       runner is the leading guess), it is not yet root-caused. Stays in `KNOWN_RED`.
-- [ ] `graph-themes.spec.ts:479` — each style redraws the graph and persists (times out). Not
+- [x] `graph-themes.spec.ts:479` — each style redraws the graph and persists (times out). Not
       independently confirmed red or green on CI — bundled with `:264` in the same file, which
       stays ratcheted as a whole until both are actually investigated.
 - [x] `browser-pane.spec.ts:129` — closing the pane restores clicks to the content beneath it

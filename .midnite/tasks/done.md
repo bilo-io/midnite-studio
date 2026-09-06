@@ -31,6 +31,28 @@ one-hunk diff.
 Also: `apiExportCollection` — a genuine gap in Theme A's channel set, without which Theme G's
 Export… action was unreachable from the renderer — and a `Settings ▸ API Client` page carrying the
 request timeout (30s default) that Theme E's deadline reads.
+## 2026-09-06 — Phase 38 Theme G — The last two ratcheted specs, root-caused
+
+[PR #228](https://github.com/bilo-io/midnite-studio/pull/228). Moves Phase 38 53/60 → 55/60 (88% →
+92%) and **empties `KNOWN_RED`**, which is Theme H's one precondition — the ratchet can now be
+retired.
+
+`graph-themes.spec.ts`'s two cascade specs were never a flaky race, which is why rounds of timing
+tweaks had never touched them. Both read a graph row's `animate-fade-in`/`cascade-delay` classes
+**live**, racing the product's fixed ~628ms settle window
+(`(GRAPH_CASCADE_MAX_STEPS + 1) * CASCADE_STEP_MS + 250`, `graph-view.tsx:247`) against
+`openGraph()`'s **unbounded** setup cost. A downloaded CI trace settled it: `page.goto('/graph')`
+alone took 2.9s and the repo button's click 755ms — each on its own longer than the entire window —
+before the first assertion ran. The row had always finished settling (33 identical polls over 15s in
+the trace), which is exactly why the pair was 100% red on Linux CI and 100% green locally, where the
+same setup clears in tens of milliseconds. The doc's cited `:479` was stale; the real second spec is
+`:251`.
+
+The fix records class changes through a `MutationObserver` installed via `page.addInitScript`, so it
+is watching before the row mounts, and asserts against that history rather than a snapshot that is
+already stale — the same shape as this phase's own `browser-pane.spec.ts:129` repair. **No timeout
+was raised and no retry added**, deliberately: `retries: 2` is what the phase doc warns "is how the
+next 45 hide". Confirmed green on three consecutive full CI runs.
 
 ## 2026-09-06 — Phase 66 Theme B — Nav, view registry and the command
 

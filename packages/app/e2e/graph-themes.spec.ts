@@ -208,6 +208,65 @@ async function chooseTheme(page: Page, label: string): Promise<void> {
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 }
 
+/**
+ * Records every class the graph's row wrappers ever carry, keyed to when the
+ * DOM actually changed — not to when the test gets around to checking.
+ *
+ * The two cascade specs below used to read `rowWrappers.first()`'s class
+ * live, racing the product's own fixed 628ms settle window
+ * (`(GRAPH_CASCADE_MAX_STEPS + 1) * CASCADE_STEP_MS + 250` in
+ * `graph-view.tsx`) against `openGraph`'s setup cost — `page.goto`, the
+ * repo button's `isVisible`/`click` — which is unbounded. A traced CI
+ * failure on the real Linux runner (Phase 38 Theme G) measured `page.goto`
+ * alone at 2.9s and the repo button's `click()` at 755ms, more than the
+ * whole cascade window, all before either test's first assertion ran: the
+ * row had already settled by the time either spec could observe it, every
+ * single run, which is exactly why it was 100% red on CI and 100% green
+ * locally (a warm dev-mode Vite server on a fast machine clears that setup
+ * in a few tens of milliseconds). A live poll can only see whichever side
+ * of that race it happens to land on; a MutationObserver installed before
+ * navigation sees every class change as it actually happens, so the
+ * assertion reads history instead of a snapshot — the same technique
+ * `browser-pane.spec.ts:129`'s fix landed on for the same shape of bug.
+ */
+async function installCascadeLog(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __midniteCascadeLog: Array<{ t: number; cls: string }> };
+    w.__midniteCascadeLog = [];
+    const isRowWrapper = (node: Element) => node.matches('[role="grid"] > div > div.absolute');
+    const record = (node: Element) => {
+      w.__midniteCascadeLog.push({ t: performance.now(), cls: node.className });
+    };
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList') {
+          for (const node of mutation.addedNodes) {
+            if (node instanceof Element && isRowWrapper(node)) record(node);
+          }
+        } else if (mutation.target instanceof Element && isRowWrapper(mutation.target)) {
+          record(mutation.target);
+        }
+      }
+      // `document` itself, not `document.documentElement`: this script runs
+      // before the HTML is parsed, so `<html>` does not exist yet — `document`
+      // always does, and its subtree covers everything parsed under it later.
+    }).observe(document, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+  });
+}
+
+/** The recorded log so far, oldest entry first. */
+const cascadeLog = (page: Page) =>
+  page.evaluate(
+    () =>
+      (window as unknown as { __midniteCascadeLog: Array<{ t: number; cls: string }> })
+        .__midniteCascadeLog ?? [],
+  );
+
 const THEMES = ['Classic', 'Git Graph', 'Git Extensions', 'Sourcetree', 'GitKraken'] as const;
 
 test.describe('graph themes', () => {
@@ -249,10 +308,17 @@ test.describe('graph themes', () => {
   });
 
   test('initial graph rows reveal with cascading fade-in classes', async ({ page }) => {
+    await installCascadeLog(page);
     await openGraph(page);
-    const rowWrappers = page.locator('[role="grid"] > div > div.absolute');
-    await expect(rowWrappers.first()).toHaveClass(/animate-fade-in/);
-    await expect(rowWrappers.first()).toHaveClass(/cascade-delay/);
+
+    // Read the DOM's own history rather than the class right now — see
+    // `installCascadeLog`'s comment for why the live version of this
+    // assertion was red on CI regardless of how long the `expect` timeout
+    // was raised, on every single run.
+    const log = await cascadeLog(page);
+    expect(log.length).toBeGreaterThan(0);
+    expect(log[0]!.cls).toMatch(/animate-fade-in/);
+    expect(log[0]!.cls).toMatch(/cascade-delay/);
   });
 
   /**
@@ -262,21 +328,33 @@ test.describe('graph themes', () => {
    * eat the perf the virtualisation was for.
    */
   test('the cascade settles once, then never replays on scroll or row recycling', async ({ page }) => {
+    await installCascadeLog(page);
     await openGraph(page, 'hit', chainFixtures);
+
+    // Whether it cascaded at all is read from the log, not live — see
+    // `installCascadeLog`'s comment; the window can already be over by the
+    // time this line runs on a loaded CI runner, even though it was very
+    // much open the moment React first painted the row.
+    const opened = await cascadeLog(page);
+    expect(opened.some((entry) => /cascade-delay/.test(entry.cls))).toBe(true);
 
     // Scoped to the grid: the sidebar's own (non-virtualized, one-shot) lists
     // carry `cascade-delay` too, and never remove it — the class alone never
     // replays their animation because their rows mount once, but a page-wide
     // selector here would make the graph's OWN teardown look like it never
     // fired.
+    //
+    // This assertion, unlike the one above, is safe to leave live: it waits
+    // for an ABSENCE that stays true forever once the cascade is done,
+    // rather than a presence that only exists for a fixed window, so it has
+    // nothing to race — `expect`'s retry budget is pure margin here, not a
+    // bet on beating a deadline.
     const gridCascading = page.locator('[role="grid"] .cascade-delay');
-    await expect(gridCascading.first()).toBeVisible();
-
-    // Longer than graph-view.tsx's own cascade duration
-    // ((GRAPH_CASCADE_MAX_STEPS + 1) * CASCADE_STEP_MS + 250 = 628ms), so the
-    // cascade has fully settled and isCascading has flipped off.
-    await page.waitForTimeout(750);
     await expect(gridCascading).toHaveCount(0);
+
+    // Marked so the final assertion can tell "before this test ever
+    // touched the scrollbar" apart from "after" in the recorded log.
+    const scrollMark = await page.evaluate(() => performance.now());
 
     // Scroll far enough that the virtualizer unmounts the original rows and
     // mounts a fresh batch outside its overscan window.
@@ -292,6 +370,15 @@ test.describe('graph themes', () => {
     });
     await expect(page.getByText('commit number 0')).toBeVisible();
     await expect(gridCascading).toHaveCount(0);
+
+    // The historical proof, immune to how the live checks above happened to
+    // time out against this run's own setup cost: nothing in the grid ever
+    // carried a cascade class again once this test started touching the
+    // scrollbar, in either direction.
+    const afterScroll = await cascadeLog(page);
+    expect(
+      afterScroll.some((entry) => entry.t >= scrollMark && /cascade-delay/.test(entry.cls)),
+    ).toBe(false);
   });
 
   test('ref chips render in the branch column, not beside the subject', async ({ page }) => {

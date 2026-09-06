@@ -28,15 +28,20 @@ import base from './playwright.config';
  * and Phase 38 exists to empty the list; when it is empty, delete this config
  * and the `app:e2e-ci` task with it and point CI back at `app:e2e`.
  */
-const KNOWN_RED = [
+const KNOWN_RED: string[] = [
   // --- drift: red everywhere, and Phase 38 Themes A-G own them --------------
   //
-  // `browser-pane.spec.ts` and `footer-monitor.spec.ts` are OUT — both
-  // confirmed green in a real CI run (not just locally). `graph-themes.spec.ts`
-  // stays: two of its specs (`:251`, `:264` — the row-cascade animation) are
-  // green in an isolated local run but confirmed still red on the real Linux
-  // CI runner, which a local macOS run cannot explain — genuinely unsolved.
-  '**/e2e/graph-themes.spec.ts', //          2 — cascade replay (:251, :264), CI-only
+  // Empty. `browser-pane.spec.ts`, `footer-monitor.spec.ts` and
+  // `graph-themes.spec.ts` are all OUT. The last one (Phase 38 Theme G,
+  // PR #228) was never a flaky race: its two cascade specs read a row's
+  // class live, racing the product's own fixed ~628ms settle window against
+  // `openGraph`'s setup cost (`page.goto`, the repo button's
+  // `isVisible`/`click`), which is unbounded — a traced CI failure caught
+  // `page.goto` alone at 2.9s and the click at 755ms, both well past the
+  // window, on every run. Fixed by reading the DOM's own mutation history
+  // (`installCascadeLog` in the spec) instead of its current state, the
+  // same technique `browser-pane.spec.ts:129`'s fix used for the identical
+  // shape of bug.
 ];
 
 export default defineConfig({
