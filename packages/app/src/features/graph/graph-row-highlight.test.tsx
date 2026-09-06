@@ -208,7 +208,7 @@ describe('recent commit effects', () => {
 
   const INK_CELLS = 3;
 
-  it('gives a commit under 3 minutes old every layer', () => {
+  it('gives a commit under 6 minutes old every layer', () => {
     expect(layers(renderAged('fresh', 30_000))).toEqual({
       shimmer: true,
       laneInk: INK_CELLS,
@@ -219,8 +219,8 @@ describe('recent commit effects', () => {
     });
   });
 
-  it('drops only the shimmer between 3 and 5 minutes', () => {
-    expect(layers(renderAged('recent', 200_000))).toEqual({
+  it('drops only the shimmer between 6 and 10 minutes', () => {
+    expect(layers(renderAged('recent', 400_000))).toEqual({
       shimmer: false,
       laneInk: INK_CELLS,
       laneInkMuted: 0,
@@ -230,8 +230,8 @@ describe('recent commit effects', () => {
     });
   });
 
-  it('drops the row glow between 5 and 10 minutes, keeping the lane-coloured pulse', () => {
-    expect(layers(renderAged('fading', 400_000))).toEqual({
+  it('drops the row glow between 10 and 20 minutes, keeping the lane-coloured pulse', () => {
+    expect(layers(renderAged('fading', 800_000))).toEqual({
       shimmer: false,
       laneInk: INK_CELLS,
       laneInkMuted: 0,
@@ -241,8 +241,8 @@ describe('recent commit effects', () => {
     });
   });
 
-  it('mutes the lane ink and pulse between 10 and 15 minutes, still no glow', () => {
-    const el = renderAged('muted', 700_000);
+  it('mutes the lane ink and pulse between 20 and 30 minutes, still no glow', () => {
+    const el = renderAged('muted', 1_400_000);
     expect(layers(el)).toEqual({
       shimmer: false,
       laneInk: 0,
@@ -257,8 +257,8 @@ describe('recent commit effects', () => {
     }
   });
 
-  it('drops every layer at 15 minutes and older', () => {
-    const el = renderAged('old', 900_000);
+  it('drops every layer at 30 minutes and older', () => {
+    const el = renderAged('old', 1_800_000);
     expect(layers(el)).toEqual({
       shimmer: false,
       laneInk: 0,
