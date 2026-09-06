@@ -56,6 +56,110 @@ jobs:
           GIT_COMMITTER_NAME: ci
           GIT_COMMITTER_EMAIL: ci@example.com
 
+  # Phase 61 Theme J / Decision 5 — the real-database driver tests
+  # (packages/db-engine/src/drivers/drivers.test.ts) skip themselves
+  # (`it.skipIf(!env)`) whenever `testConnectionFor` finds no
+  # `MSTUDIO_TEST_<PROVIDER>_*` env vars, which is every local run and — until
+  # this job — every CI run too, since `gate` runs on macos-14 and GitHub's
+  # `services:` containers are Docker-based, Linux-runner-only. So `gate`
+  # itself can never host these regardless of env vars; they need a job of
+  # their own on a Linux runner.
+  #
+  # Postgres/MySQL/MariaDB run here as service containers — small images,
+  # seconds to start. MSSQL does NOT: Decision 5 is explicit that its ~1.5 GB
+  # image, EULA env var and slow health-gate keep it a manual pass rather than
+  # a fourth container, so `MSTUDIO_TEST_MSSQL_*` is deliberately never set
+  # here — `mssql driver (CI service container)` in drivers.test.ts skips in
+  # this job exactly as it does on a bare laptop, and stays that way until a
+  # human runs it against a real instance.
+  #
+  # `db-engine:test` only, not `:typecheck :lint :test` — this job exists for
+  # the service containers, and `gate` already covers every other package's
+  # suite (including db-engine's OWN non-driver tests) on every PR.
+  db-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mstudio
+          POSTGRES_PASSWORD: mstudio
+          POSTGRES_DB: mstudio_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: mstudio
+          MYSQL_DATABASE: mstudio_test
+          MYSQL_USER: mstudio
+          MYSQL_PASSWORD: mstudio
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      # Mapped to host port 3307 — mysql's own container already claims 3306,
+      # and GitHub's service containers are exposed on the runner's network
+      # directly, not to each other, so both need distinct host ports.
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: mstudio
+          MARIADB_DATABASE: mstudio_test
+          MARIADB_USER: mstudio
+          MARIADB_PASSWORD: mstudio
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: db-engine test (against real service containers)
+        run: pnpm exec moon run db-engine:test
+        env:
+          MSTUDIO_TEST_POSTGRES_HOST: localhost
+          MSTUDIO_TEST_POSTGRES_PORT: '5432'
+          MSTUDIO_TEST_POSTGRES_DATABASE: mstudio_test
+          MSTUDIO_TEST_POSTGRES_USER: mstudio
+          MSTUDIO_TEST_POSTGRES_PASSWORD: mstudio
+          MSTUDIO_TEST_MYSQL_HOST: 127.0.0.1
+          MSTUDIO_TEST_MYSQL_PORT: '3306'
+          MSTUDIO_TEST_MYSQL_DATABASE: mstudio_test
+          MSTUDIO_TEST_MYSQL_USER: mstudio
+          MSTUDIO_TEST_MYSQL_PASSWORD: mstudio
+          MSTUDIO_TEST_MARIADB_HOST: 127.0.0.1
+          MSTUDIO_TEST_MARIADB_PORT: '3307'
+          MSTUDIO_TEST_MARIADB_DATABASE: mstudio_test
+          MSTUDIO_TEST_MARIADB_USER: mstudio
+          MSTUDIO_TEST_MARIADB_PASSWORD: mstudio
+
   # The Playwright suite is deliberately OUT of `moon run :test` — it needs a
   # chromium download, which is a poor thing to make the gate depend on — but
   # nothing ran it either, and on 2026-08-27 seventeen specs sat red on `main`
