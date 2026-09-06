@@ -1,4 +1,10 @@
-import { LOOP_MODELS, loopModelArgs, type ForgeProjectItem, type LoopModel } from '@midnite/studio-shared';
+import {
+  LOOP_MODELS,
+  loopModelArgs,
+  type ForgeIssueRef,
+  type ForgeProjectItem,
+  type LoopModel,
+} from '@midnite/studio-shared';
 import { useEffect, useMemo, useState } from 'react';
 import { LuCircleStop, LuPlay, LuSquareTerminal, LuX, LuZap } from 'react-icons/lu';
 
@@ -73,11 +79,21 @@ export function CardComposer({
   repoId,
   worktreePath,
   item,
+  blockers,
 }: {
   projectId: string;
   repoId: string;
   worktreePath: string;
   item: ForgeProjectItem;
+  /**
+   * The item's still-unmet `api`/`field`-sourced blockers (Phase 75 Theme G)
+   * — `undefined` on every call site but the dependency graph's, so board
+   * mode compiles and behaves exactly as before. A `body`-sourced blocker
+   * never appears here even when the graph knows about one: that layer is
+   * the app's own inference from prose, the likeliest of the three to be
+   * wrong, and a wrong parse must never lock a user out of their own card.
+   */
+  blockers?: readonly ForgeIssueRef[];
 }) {
   const { agents } = useAgents();
   const sessions = useTerminalStore((s) => s.sessions);
@@ -91,6 +107,16 @@ export function CardComposer({
   const anySession = findAnyCardSession(sessions, taskRef);
   const isLive = liveSession !== undefined;
   const phase = anySession ? sessionPhase(anySession, states[anySession.id]) : null;
+
+  // The gate the phase doc argues for made enforceable: `blockers` already
+  // excludes anything `body`-sourced or already met, so its mere presence is
+  // "disable Start" — no further filtering here. The `title` names the
+  // blockers themselves (`Blocked by #199, #204`), never a count, since the
+  // numbers are the actionable part and the graph already knows them.
+  const isBlocked = (blockers?.length ?? 0) > 0;
+  const blockedTitle = isBlocked
+    ? `Blocked by ${blockers!.map((ref) => (ref.repo ? `${ref.repo}#${ref.number}` : `#${ref.number}`)).join(', ')}`
+    : undefined;
 
   /*
     Defaulting per repo (the phase doc's own words) reads off this repo's
@@ -285,7 +311,8 @@ export function CardComposer({
             <button
               type="button"
               onClick={handleStart}
-              disabled={agentId === ''}
+              disabled={agentId === '' || isBlocked}
+              title={blockedTitle}
               data-testid="card-start"
               className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -296,9 +323,11 @@ export function CardComposer({
               <button
                 type="button"
                 onClick={handleLaunchAndRun}
-                disabled={agentId === ''}
+                disabled={agentId === '' || isBlocked}
                 data-testid="card-launch-and-run"
-                title="Confirms the exact command, then sends it — no typed-but-not-sent step."
+                title={
+                  blockedTitle ?? 'Confirms the exact command, then sends it — no typed-but-not-sent step.'
+                }
                 className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <LuZap aria-hidden className="h-3.5 w-3.5" />

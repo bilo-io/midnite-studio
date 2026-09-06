@@ -58,6 +58,8 @@ export function BoardView({
   collapsedColumns,
   onToggleColumn,
   onExpandColumn,
+  selectedItemId,
+  onSelectItem,
 }: {
   projectId: string;
   repoId: string | null;
@@ -74,8 +76,14 @@ export function BoardView({
   /** Idempotent "ensure expanded" — distinct from the toggle: a drag hovering
    *  a collapsed column's rail must only ever open it, never close it. */
   onExpandColumn: (columnId: string) => void;
+  /** Lifted to `ProjectsView` (Phase 75 Theme G) so board mode and graph mode
+   *  share one selection rather than owning two that can disagree across a
+   *  mode switch. */
+  selectedItemId: string | null;
+  /** `null` clears the selection — the same contract `ProjectGraphView`'s own
+   *  `onSelectItem` already uses for `Escape`. */
+  onSelectItem: (itemId: string | null) => void;
 }) {
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   /**
    * Grouping by an iteration field is read-only (Phase 52 Theme B): its
    * columns are discovered from the items themselves rather than a fixed
@@ -264,7 +272,7 @@ export function BoardView({
       // clears the selection — one press, two dismissals.
       event.stopPropagation();
       const origin = focusedItemId;
-      setSelectedItemId(null);
+      onSelectItem(null);
       moveFocusTo(origin);
       return;
     }
@@ -401,7 +409,7 @@ export function BoardView({
               onToggle={() => onToggleColumn(column.id)}
               onSelectItem={(itemId) => {
                 setFocusedItemId(itemId);
-                setSelectedItemId(itemId);
+                onSelectItem(itemId);
               }}
               onMoveToColumn={moveItemToColumn}
             />
@@ -416,8 +424,8 @@ export function BoardView({
             items={boardItems}
             fields={fields}
             selectedItemId={selectedItemId}
-            onSelectItem={setSelectedItemId}
-            onClose={() => setSelectedItemId(null)}
+            onSelectItem={onSelectItem}
+            onClose={() => onSelectItem(null)}
           />
         ) : null}
       </div>

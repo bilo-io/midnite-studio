@@ -2,6 +2,38 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 75 Theme G — point an agent at a node
+
+[PR #215](https://github.com/bilo-io/midnite-studio/pull/215). Moves Phase 75 67/106 → 75/106
+(63% → 71%). The graph node finally opens something: it selects the item, which opens the composer
+that already starts an agent — one start UI in the whole app, and `startAgent` keeps exactly one
+caller.
+
+- [x] `selectedItemId` lifted out of `BoardView`'s own local `useState` into `ProjectsView`, which
+      passes `selectedItemId`/`onSelectItem` down to both `BoardView` and `ProjectGraphView` — one
+      selection for the whole view, so a card opened in board mode stays open across a switch to
+      graph mode instead of the two modes disagreeing.
+- [x] The graph mounts `CardPanelStack` on the same terms `board-view.tsx` already does — same
+      `projectId`/`repoId`/`worktreePath`/`items`/`fields`, same sibling position. `CardPanelStack`
+      and `CardDetail` each gain one new *optional* `blockers` prop, forwarded unchanged, so board
+      mode's own mount (with no `ForgeGraph` to read from) is unaffected.
+- [x] `packages/app/src/features/projects/graph/graph-blockers.ts` — `apiFieldBlockersFor(graph,
+      itemId)`, a pure helper walking a resolved `ForgeGraph` for one item's still-unmet `blocks`
+      edges, keeping only `api`/`field`-sourced ones. A `body`-sourced edge — the app's own
+      inference from prose — never appears here, so a wrong parse can never lock a user out of
+      their own card.
+- [x] `CardComposer` takes one new optional `blockers?: readonly ForgeIssueRef[]` prop; its mere
+      presence disables both Start and Launch and run (the latter an addition beyond the doc's own
+      wording — both fire through the same `launch()`, and leaving one bypassable would be a hole
+      in the guard), with a `title` naming the blockers (`Blocked by #199, #204`), never a count.
+- [x] Selecting a node opens the existing detail panel unchanged — no second detail surface.
+- [x] RTL: selecting an item in board mode, switching to graph mode, and `card-detail` is still
+      mounted for the same item; a blocked node's panel renders a disabled `card-start` whose
+      `title` names both blockers, and a `body`-blocked node's panel renders an enabled one.
+- Left open: nothing — all six of Theme G's checklist items and both of its named Verification
+  lines landed in this PR. Theme H (filters, and the graph's own facets) is the phase's one
+  remaining theme.
+
 ## 2026-09-06 — Phase 75 Theme E — edge states, and what blocked looks like
 
 [PR #210](https://github.com/bilo-io/midnite-studio/pull/210). Moves Phase 75 55/106 → 67/106

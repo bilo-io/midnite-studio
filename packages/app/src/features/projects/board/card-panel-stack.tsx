@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import type { ForgeIssueRef, ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
 import { useRegisterActivePanel } from '../../../components/panel-stack/active-panel';
 import { PanelHeader } from '../../../components/panel-stack/panel-header';
@@ -36,6 +36,7 @@ export function CardPanelStack({
   selectedItemId,
   onSelectItem,
   onClose,
+  blockers,
 }: {
   projectId: string;
   repoId: string | null;
@@ -52,6 +53,14 @@ export function CardPanelStack({
    */
   onSelectItem: (itemId: string) => void;
   onClose: () => void;
+  /**
+   * The selected item's still-unmet `api`/`field`-sourced blockers (Phase 75
+   * Theme G) — `undefined` for every call site but the graph's, which is the
+   * only one that already has a `ForgeGraph` to read them from. Forwarded to
+   * `CardComposer` unchanged; board mode never supplies it, so its Start
+   * button behaves exactly as before.
+   */
+  blockers?: readonly ForgeIssueRef[];
 }) {
   const history = usePanelHistory<string>(selectedItemId);
 
@@ -109,6 +118,7 @@ export function CardPanelStack({
               item={item}
               fields={fields}
               onClose={onClose}
+              blockers={blockers}
             />
           );
         }}

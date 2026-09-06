@@ -16,13 +16,15 @@ beforeAll(() => {
 });
 
 /**
- * `BoardView` no longer resolves its own grouping field or owns collapse
- * state (Phase 52 Themes B/D lifted both to the caller, so they can be
- * persisted). This is that caller, standing in for `ProjectsView`: it
- * resolves the field the same way `resolveGroupField` always does (`Status`
- * by default) and keeps collapse state exactly the way `BoardView` itself
- * used to, so every pre-existing test below still exercises real behaviour
- * rather than a mock of it.
+ * `BoardView` no longer resolves its own grouping field, owns collapse
+ * state, or owns the selected card (Phase 52 Themes B/D lifted the first
+ * two to the caller so they can be persisted; Phase 75 Theme G lifted
+ * selection so board mode and graph mode can share it). This is that
+ * caller, standing in for `ProjectsView`: it resolves the field the same
+ * way `resolveGroupField` always does (`Status` by default), keeps collapse
+ * state and the selected item exactly the way `BoardView` itself used to,
+ * so every pre-existing test below still exercises real behaviour rather
+ * than a mock of it.
  */
 function Harness({
   fields,
@@ -30,9 +32,10 @@ function Harness({
   ...rest
 }: Omit<
   React.ComponentProps<typeof BoardView>,
-  'groupField' | 'collapsedColumns' | 'onToggleColumn' | 'onExpandColumn'
+  'groupField' | 'collapsedColumns' | 'onToggleColumn' | 'onExpandColumn' | 'selectedItemId' | 'onSelectItem'
 > & { groupFieldId?: string | null }) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   return (
     <BoardView
       {...rest}
@@ -48,6 +51,8 @@ function Harness({
         })
       }
       onExpandColumn={(id) => setCollapsed((prev) => (prev.has(id) ? new Set([...prev].filter((v) => v !== id)) : prev))}
+      selectedItemId={selectedItemId}
+      onSelectItem={setSelectedItemId}
     />
   );
 }

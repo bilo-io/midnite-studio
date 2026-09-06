@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ForgeProjectItem, TerminalSession } from '@midnite/studio-shared';
+import type { ForgeIssueRef, ForgeProjectItem, TerminalSession } from '@midnite/studio-shared';
 import { EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -45,7 +45,7 @@ const item: ForgeProjectItem = {
   fieldValues: {},
 };
 
-function renderComposer() {
+function renderComposer(blockers?: readonly ForgeIssueRef[]) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   // Launch and run's confirm (Theme B) reaches `useDialogs()` unconditionally
   // — every render needs the host it expects in the real app tree, same as
@@ -53,7 +53,7 @@ function renderComposer() {
   return render(
     <QueryClientProvider client={queryClient}>
       <DialogHost>
-        <CardComposer projectId="PVT_1" repoId="repo-1" worktreePath="/repo/widgets" item={item} />
+        <CardComposer projectId="PVT_1" repoId="repo-1" worktreePath="/repo/widgets" item={item} blockers={blockers} />
       </DialogHost>
     </QueryClientProvider>,
   );
@@ -390,6 +390,48 @@ describe('CardComposer', () => {
       const queued = useTerminalStore.getState().pendingInput[created.id];
       expect(queued).toContain('Fix the flaky test (#42)');
       expect(queued?.endsWith('\r')).toBe(true); // autoSend: true — sent, not just typed
+    });
+  });
+
+  describe('blockers (Phase 75 Theme G)', () => {
+    it('with no blockers prop at all (board mode), Start is enabled — the default call site is unaffected', () => {
+      renderComposer(undefined);
+      expect(screen.getByTestId('card-start')).toHaveProperty('disabled', false);
+      expect(screen.getByTestId('card-start').getAttribute('title')).toBeNull();
+    });
+
+    it('an api/field-sourced blocker disables Start, with a title naming both blockers', () => {
+      renderComposer([
+        { repo: '', number: 199 },
+        { repo: '', number: 204 },
+      ]);
+
+      const start = screen.getByTestId('card-start');
+      expect(start).toHaveProperty('disabled', true);
+      expect(start.getAttribute('title')).toBe('Blocked by #199, #204');
+    });
+
+    it('names a cross-repo blocker as owner/repo#number', () => {
+      renderComposer([{ repo: 'acme/other', number: 7 }]);
+
+      expect(screen.getByTestId('card-start').getAttribute('title')).toBe('Blocked by acme/other#7');
+    });
+
+    it('an empty blockers array leaves Start enabled — a body-blocked item never gates it', () => {
+      renderComposer([]);
+
+      const start = screen.getByTestId('card-start');
+      expect(start).toHaveProperty('disabled', false);
+      expect(start.getAttribute('title')).toBeNull();
+    });
+
+    it('also disables Launch and run, with the same blocked title', () => {
+      useUiStore.setState({ launchAndRunEnabled: true });
+      renderComposer([{ repo: '', number: 199 }]);
+
+      const launchAndRun = screen.getByTestId('card-launch-and-run');
+      expect(launchAndRun).toHaveProperty('disabled', true);
+      expect(launchAndRun.getAttribute('title')).toBe('Blocked by #199');
     });
   });
 });

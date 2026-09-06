@@ -1,4 +1,4 @@
-import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import type { ForgeIssueRef, ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { LuX } from 'react-icons/lu';
 
 import { UserAvatar } from '../../../components/user-avatar';
@@ -25,6 +25,7 @@ export function CardDetail({
   item,
   fields,
   onClose,
+  blockers,
 }: {
   projectId: string;
   repoId: string | null;
@@ -33,6 +34,9 @@ export function CardDetail({
   item: ForgeProjectItem;
   fields: readonly ForgeProjectField[];
   onClose: () => void;
+  /** Forwarded to `CardComposer` unchanged — see `CardPanelStack`'s own doc
+   *  comment (Phase 75 Theme G). */
+  blockers?: readonly ForgeIssueRef[];
 }) {
   const Icon = CONTENT_ICON[item.content.type];
   const href = item.content.type === 'draft' ? null : item.content.url;
@@ -91,7 +95,13 @@ export function CardDetail({
       </div>
 
       {repoId && worktreePath ? (
-        <CardComposer projectId={projectId} repoId={repoId} worktreePath={worktreePath} item={item} />
+        <CardComposer
+          projectId={projectId}
+          repoId={repoId}
+          worktreePath={worktreePath}
+          item={item}
+          blockers={blockers}
+        />
       ) : (
         <p className="border-t border-border/50 px-3 py-2.5 text-[11px] text-muted-foreground">
           Select a repo checkout to launch an agent from this card.
