@@ -1,3 +1,4 @@
+export * from './api-client';
 export * from './blame';
 export * from './browser';
 export * from './checks-verdict';
