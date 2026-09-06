@@ -4,7 +4,7 @@
 
 ## 2026-09-06 — Phase 67 Themes A and B — a session that ends leaves a record, and the channel that reads it
 
-[PR #PLACEHOLDER]. Moves Phase 67 0/64 → 16/64 (0% → 25%). The two foundation themes: the durable
+[PR #199](https://github.com/bilo-io/midnite-studio/pull/199). Moves Phase 67 0/64 → 16/64 (0% → 25%). The two foundation themes: the durable
 record a closed session leaves behind, and the three IPC channels the list, transcript pane and
 purge dialog (Themes C–F) will read it through. Nothing user-visible ships here — the archive fills
 up as you close sessions, and Theme C is what finally renders it.
