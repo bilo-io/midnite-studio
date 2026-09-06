@@ -1047,6 +1047,23 @@ test.describe('terminal panel', () => {
     expect(after.creates).toEqual(before.creates);
   });
 
+  test('Shift+Enter inserts a newline without submitting; Enter submits', async ({ page }) => {
+    await open(page);
+    await toggleTerminal(page);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+    await page.locator('.xterm-screen').click();
+
+    await page.keyboard.press('Shift+Enter');
+    await expect.poll(async () => (await ptyCalls(page)).inputs.length).toBe(1);
+    const inputsAfterShift = (await ptyCalls(page)).inputs;
+    expect(inputsAfterShift[0].data).toBe('\n');
+
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await ptyCalls(page)).inputs.length).toBe(2);
+    const inputsAfterEnter = (await ptyCalls(page)).inputs;
+    expect(inputsAfterEnter[1].data).toBe('\r');
+  });
+
   /**
    * Phase 30 Theme G: detection moved to main precisely because
    * `app.tsx`'s `terminalReveal.mounted` unmounts every `TerminalView` on a

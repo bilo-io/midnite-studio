@@ -531,19 +531,38 @@ export function TerminalView({
      * useless.
      */
     term.attachCustomKeyEventHandler((event) => {
+      /**
+       * Shift+Enter and Cmd+Enter mean "insert a newline / line break, don't submit."
+       *
+       * xterm has no concept of modifier keys on Enter — left alone it sends
+       * a bare '\r' (CR), which is indistinguishable from plain Enter and submits
+       * whatever the shell (or an agent CLI) is reading.
+       *
+       * For Shift+Enter: sending '\n' (linefeed / ^J / 0x0A) inserts a newline so
+       * the cursor / caret continues on a new line without submitting (plain Enter
+       * sends '\r' to submit).
+       *
+       * Note: `event.preventDefault()` and handling both keydown and keypress are
+       * necessary so the browser does not dispatch a default keypress / beforeinput
+       * that xterm would otherwise capture and translate to '\r'.
+       */
+      if (event.key === 'Enter' && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (event.type === 'keydown') {
+          if (stateRef.current === 'open') sendInputRef.current('\n');
+          else if (stateRef.current === 'starting') inputQueue.push('\n');
+        }
+        event.preventDefault();
+        return false;
+      }
+
       if (event.type !== 'keydown') return true;
 
       /**
-       * Cmd+Enter means "insert a newline, don't submit."
-       *
-       * xterm has no concept of the Cmd modifier on Enter — left alone it sends
-       * a bare '\r', which is indistinguishable from plain Enter and submits
-       * whatever the shell (or an agent CLI) is reading. Readline- and
-       * Ink-based CLIs, Claude Code included, already treat Meta+Enter
-       * (ESC then CR — the same sequence a terminal sends for Option+Enter) as
-       * a literal newline, so sending that sequence ourselves gets Cmd+Enter
-       * to mean the same thing without the CLI needing to know anything about
-       * Cmd specifically.
+       * For Cmd+Enter: readline- and Ink-based CLIs, Claude Code included,
+       * already treat Meta+Enter (ESC then CR — the same sequence a terminal sends
+       * for Option+Enter) as a literal newline, so sending that sequence ourselves
+       * gets Cmd+Enter to mean the same thing without the CLI needing to know
+       * anything about Cmd specifically.
        */
       if (event.key === 'Enter' && event.metaKey && !event.ctrlKey && !event.altKey) {
         // Same readiness gate `onData` uses below: while the pty is still
@@ -552,6 +571,7 @@ export function TerminalView({
         // the one this theme fixes for typed input.
         if (stateRef.current === 'open') sendInputRef.current('\x1b\r');
         else if (stateRef.current === 'starting') inputQueue.push('\x1b\r');
+        event.preventDefault();
         return false;
       }
 
