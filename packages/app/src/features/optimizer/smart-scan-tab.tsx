@@ -1,13 +1,18 @@
 import { useState } from 'react';
 
 import type { Ecosystem, ScanCategory } from '@midnite/studio-shared';
-import { LuFolderPlus, LuSparkles, LuX } from 'react-icons/lu';
+import { LuCheck, LuChevronDown, LuChevronRight, LuFolderPlus, LuSparkles, LuX } from 'react-icons/lu';
+import { PiBroom } from 'react-icons/pi';
 
 import { useDialogs } from '../../components/dialog-host';
 import { bridge } from '../../services/bridge';
 import { formatBytes } from '../monitor/format-bytes';
+import { TIMELINE_METRICS } from '../monitor/metric-geometry';
+import { buildSizeTree } from './build-size-tree';
 import { CircularGauge } from './components/circular-gauge';
-import { CATEGORY_LABELS, CATEGORY_ORDER, categoryColor, ECOSYSTEM_LABELS, ECOSYSTEM_ORDER } from './category-palette';
+import { OptimizerMetrics } from './components/optimizer-metrics';
+import { EXPAND_ALL, SizeTree } from './components/size-tree';
+import { CATEGORY_LABELS, CATEGORY_ORDER, categoryColor, ECOSYSTEM_LABELS, ECOSYSTEM_ORDER, ecosystemColor } from './category-palette';
 import { runOptimizerClean, runOptimizerScan } from './use-optimizer';
 import { useOptimizerStore } from '../../store/optimizer-store';
 
@@ -41,6 +46,46 @@ function joinTruncatedRoots(values: readonly string[], max: number): string {
   return rest > 0 ? `${shown.join(', ')}, and ${rest} more` : shown.join(', ');
 }
 
+/**
+ * The clean action, as a broom that grows a word.
+ *
+ * Every row and every group header carries one of these, and five stacked
+ * "Clean" buttons is five copies of the same word competing with the byte
+ * figures that are the actual content. Icon at rest, label on hover or focus
+ * — and the accessible name is the full `Clean <group>` either way, so what a
+ * screen reader hears never depends on where the pointer is.
+ */
+function CleanButton({
+  label,
+  onClick,
+  disabled,
+  title,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={title}
+      className="group/clean inline-flex shrink-0 items-center rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <PiBroom aria-hidden className="h-3.5 w-3.5 shrink-0" />
+      <span
+        aria-hidden
+        className="inline-flex w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/clean:ml-1 group-hover/clean:w-9 group-hover/clean:opacity-100 group-focus-visible/clean:ml-1 group-focus-visible/clean:w-9 group-focus-visible/clean:opacity-100"
+      >
+        Clean
+      </span>
+    </button>
+  );
+}
+
 export function SmartScanTab() {
   const scan = useOptimizerStore((s) => s.scan);
   const dialogs = useDialogs();
@@ -51,9 +96,19 @@ export function SmartScanTab() {
    * store's own shape is Theme A's fixed `{tab, scan, processes, gpu}`.
    */
   const [extraRoot, setExtraRoot] = useState<string | null>(null);
+  /** Which ecosystem accordions the user has explicitly opened or closed. */
+  const [openGroups, setOpenGroups] = useState<Partial<Record<Ecosystem, boolean>>>({});
 
   const scanning = scan.state === 'scanning';
   const result = scan.result;
+  /**
+   * Whether the hero has done its job. Drives the whole layout: before a
+   * scan it is a large, drifting, centred target and the tab has nothing
+   * else on it; afterwards it shrinks to a header mark above the results.
+   * The size and padding are a `transition-all` on the same element rather
+   * than two elements swapped, so it visibly travels rather than cutting.
+   */
+  const settled = Boolean(result) || scanning;
 
   const chooseExtraRoot = async () => {
     const path = await bridge()?.repos.pickDirectory();
@@ -87,6 +142,21 @@ export function SmartScanTab() {
       warnings: [`${formatBytes(bytes)} will be freed.`],
       onConfirm: () => {
         void runOptimizerClean(paths);
+      },
+    });
+  };
+
+  /** The single-item action, from a leaf of the drill-down tree. */
+  const cleanItemPath = (path: string, bytes: number, label: string) => {
+    dialogs.confirm({
+      title: `Clean ${label}?`,
+      confirmLabel: 'Move to Trash',
+      danger: true,
+      blastRadius: { count: 1, sample: [] },
+      blastRadiusKind: 'files',
+      warnings: [`${formatBytes(bytes)} will be freed.`, path],
+      onConfirm: () => {
+        void runOptimizerClean([path]);
       },
     });
   };
@@ -140,23 +210,85 @@ export function SmartScanTab() {
     });
   };
 
+  const groups = result
+    ? ECOSYSTEM_ORDER.filter((ecosystem) => (result.byEcosystem[ecosystem] ?? 0) > 0)
+    : [];
+  // The biggest group opens by itself: a page of collapsed headers makes the
+  // user click before the scan has told them anything.
+  const defaultOpen = groups[0];
+  const isOpen = (ecosystem: Ecosystem) => openGroups[ecosystem] ?? ecosystem === defaultOpen;
+
   return (
     <div className="flex flex-col items-center gap-6">
-      <div className="flex flex-col items-center gap-3 py-4">
+      {/*
+        The system monitor strip, at the top of the tab that spends the most
+        time waiting: a scan walks every registered repo, and what the CPU and
+        disk were doing during it is the context for how long it took.
+      */}
+      <div className="w-full max-w-3xl">
+        <OptimizerMetrics metrics={TIMELINE_METRICS} compact title="While you scan" />
+      </div>
+
+      <div
+        className={`flex flex-col items-center gap-3 transition-all duration-500 ease-out ${
+          settled ? 'py-2' : 'py-10'
+        }`}
+      >
         {scanning ? (
           <CircularGauge percent={scan.progress} label="Scanning" />
         ) : (
           <button
             type="button"
-            aria-label="Run Smart Scan"
+            aria-label={result ? 'Run Smart Scan again' : 'Run Smart Scan'}
             onClick={() => void runOptimizerScan(extraRoot ?? undefined)}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+            className={`group/hero relative flex items-center justify-center overflow-hidden rounded-full bg-primary text-primary-foreground transition-all duration-500 ease-out hover:opacity-90 ${
+              result ? 'h-16 w-16' : 'h-32 w-32'
+            }`}
           >
-            <LuSparkles aria-hidden className="h-7 w-7" />
+            {/*
+              The drifting gradient, only before a scan. Three radial layers
+              on their own slow, never-repeating periods (styles.css) — the
+              button is the only thing on the tab at that point, and a flat
+              disc reads as decoration rather than the one thing to press.
+            */}
+            {result ? null : (
+              <span aria-hidden className="optimizer-hero-drift absolute inset-0">
+                <span />
+                <span />
+                <span />
+              </span>
+            )}
+
+            {result ? (
+              <>
+                {/*
+                  A checkmark that turns back into the star on hover — the
+                  mark says "done", the hover says "and you can do it again",
+                  which is exactly what clicking it now means.
+                */}
+                <LuCheck
+                  aria-hidden
+                  className="absolute h-7 w-7 transition-opacity duration-200 group-hover/hero:opacity-0"
+                />
+                <LuSparkles
+                  aria-hidden
+                  className="absolute h-7 w-7 opacity-0 transition-opacity duration-200 group-hover/hero:opacity-100"
+                />
+              </>
+            ) : (
+              <LuSparkles aria-hidden className="relative h-14 w-14" />
+            )}
           </button>
         )}
+
         <div className="text-center">
-          <p className="text-sm font-medium text-foreground">
+          <p
+            className={
+              result || scanning
+                ? 'text-sm font-medium text-foreground'
+                : 'optimizer-text-shimmer text-xl font-semibold'
+            }
+          >
             {scanning ? 'Scanning…' : result ? 'Scan complete' : 'Smart Scan'}
           </p>
           <p className="text-xs text-muted-foreground">
@@ -193,9 +325,9 @@ export function SmartScanTab() {
             type="button"
             onClick={() => void chooseExtraRoot()}
             disabled={scanning}
-            className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+            className="optimizer-soft-glow flex items-center gap-1.5 rounded-md border border-primary/40 bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/70 hover:bg-accent disabled:opacity-50"
           >
-            <LuFolderPlus aria-hidden className="h-3.5 w-3.5" />
+            <LuFolderPlus aria-hidden className="h-4 w-4" />
             Add a folder to scan
           </button>
         )}
@@ -206,73 +338,119 @@ export function SmartScanTab() {
       </div>
 
       {result && result.items.length > 0 ? (
-        <ul className="w-full max-w-md space-y-3">
-          {ECOSYSTEM_ORDER.map((ecosystem) => {
+        <ul className="w-full max-w-3xl space-y-2">
+          {groups.map((ecosystem) => {
             const ecoBytes = result.byEcosystem[ecosystem] ?? 0;
-            if (ecoBytes === 0) return null;
             const groupItems = result.items.filter((item) => item.ecosystem === ecosystem);
             const cheapCount = groupItems.filter((item) => item.reclaim === 'cheap').length;
+            const open = isOpen(ecosystem);
 
             return (
-              <li key={ecosystem} className="rounded-md border border-border">
-                <div className="flex items-center justify-between px-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {ECOSYSTEM_LABELS[ecosystem]}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{formatBytes(ecoBytes)}</p>
-                  </div>
+              <li key={ecosystem} className="overflow-hidden rounded-md border border-border">
+                <div className="flex items-center justify-between gap-2 px-3 py-2">
                   <button
                     type="button"
+                    aria-expanded={open}
+                    onClick={() => setOpenGroups((prev) => ({ ...prev, [ecosystem]: !open }))}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    {open ? (
+                      <LuChevronDown aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <LuChevronRight aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <span
+                      aria-hidden
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: ecosystemColor(ecosystem) }}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {ECOSYSTEM_LABELS[ecosystem]}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {`${formatBytes(ecoBytes)} — ${groupItems.length} item${groupItems.length === 1 ? '' : 's'}`}
+                      </span>
+                    </span>
+                  </button>
+                  <CleanButton
+                    label={`Clean ${ECOSYSTEM_LABELS[ecosystem]}`}
                     onClick={() => cleanEcosystem(ecosystem)}
                     disabled={cheapCount === 0}
-                    aria-label={`Clean ${ECOSYSTEM_LABELS[ecosystem]}`}
                     title={
                       cheapCount === 0
                         ? 'Every item here needs a re-download to restore — clean them individually.'
                         : undefined
                     }
-                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Clean
-                  </button>
+                  />
                 </div>
-                <ul className="space-y-1 border-t border-border/60 px-3 py-2">
-                  {CATEGORY_ORDER.map((category) => {
-                    const categoryItems = groupItems.filter((item) => item.category === category);
-                    if (categoryItems.length === 0) return null;
-                    const bytes = categoryItems.reduce((sum, item) => sum + item.bytes, 0);
-                    const count = categoryItems.length;
-                    return (
-                      <li
-                        key={category}
-                        className="flex items-center justify-between gap-2 py-0.5"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span
-                            aria-hidden
-                            className="h-2.5 w-2.5 rounded-full"
-                            style={{ backgroundColor: categoryColor(category) }}
-                          />
-                          <div>
-                            <p className="text-sm text-foreground">{CATEGORY_LABELS[category]}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {count} item{count === 1 ? '' : 's'} — {formatBytes(bytes)}
-                            </p>
+
+                {open ? (
+                  <div className="space-y-2 border-t border-border/60 px-3 py-2">
+                    {CATEGORY_ORDER.map((category) => {
+                      const categoryItems = groupItems.filter((item) => item.category === category);
+                      if (categoryItems.length === 0) return null;
+                      const bytes = categoryItems.reduce((sum, item) => sum + item.bytes, 0);
+                      const count = categoryItems.length;
+
+                      return (
+                        <div key={category}>
+                          <div className="flex items-center justify-between gap-2 py-0.5">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span
+                                aria-hidden
+                                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: categoryColor(category) }}
+                              />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm text-foreground">
+                                  {CATEGORY_LABELS[category]}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {`${count} item${count === 1 ? '' : 's'} — ${formatBytes(bytes)}`}
+                                </p>
+                              </div>
+                            </div>
+                            <CleanButton
+                              label={`Clean ${ECOSYSTEM_LABELS[ecosystem]} ${CATEGORY_LABELS[category]}`}
+                              onClick={() => cleanGroupCategory(ecosystem, category)}
+                            />
+                          </div>
+
+                          {/*
+                            The drill-down: the actual paths, as a tree, so a
+                            group of forty `dist/` directories is navigable
+                            rather than forty near-identical lines. Leaves
+                            clean one path each — the only per-item path to a
+                            `costly` item, which no bulk button will take.
+                          */}
+                          <div className="ml-4 border-l border-border/60 pl-2">
+                            <SizeTree
+                              nodes={buildSizeTree(categoryItems)}
+                              defaultExpandedDepth={EXPAND_ALL}
+                              leafDot={(item) => categoryColor(item.category)}
+                              leafLabel={(item) =>
+                                result.detectors[item.detectorId]?.label ?? item.detectorId
+                              }
+                              leafAction={(item) => (
+                                <CleanButton
+                                  label={`Clean ${item.path}`}
+                                  onClick={() =>
+                                    cleanItemPath(
+                                      item.path,
+                                      item.bytes,
+                                      result.detectors[item.detectorId]?.label ?? item.detectorId,
+                                    )
+                                  }
+                                />
+                              )}
+                            />
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => cleanGroupCategory(ecosystem, category)}
-                          aria-label={`Clean ${ECOSYSTEM_LABELS[ecosystem]} ${CATEGORY_LABELS[category]}`}
-                          className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-                        >
-                          Clean
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </li>
             );
           })}

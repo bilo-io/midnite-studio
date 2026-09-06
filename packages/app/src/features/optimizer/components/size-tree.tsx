@@ -21,6 +21,11 @@ import type { SizeDirNode, SizeTreeNode, SizedItem } from '../build-size-tree';
 
 const INDENT_STEP = 12;
 
+/** `defaultExpandedDepth` for a tree that starts fully open — the Smart Scan
+ *  drill-down, which already sits behind an accordion of its own and whose
+ *  leaves are the point of opening it. */
+export const EXPAND_ALL = Number.MAX_SAFE_INTEGER;
+
 export function SizeTree<T extends SizedItem>({
   nodes,
   leafDot,

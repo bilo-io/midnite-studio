@@ -3235,6 +3235,15 @@ html[data-motion='reduced'] .optimizer-terminate {
   }
 }
 
+/* Each layer overhangs its button so a drifting gradient never exposes an
+ * edge inside the disc; the button's own `overflow-hidden` is what keeps the
+ * overhang from escaping. */
+.optimizer-hero-drift > span {
+  position: absolute;
+  inset: -30%;
+  border-radius: 9999px;
+}
+
 .optimizer-hero-drift > span:nth-child(1) {
   background: radial-gradient(circle at 30% 30%, hsl(var(--primary) / 0.75), transparent 62%);
   animation: optimizer-hero-drift-a 17s ease-in-out infinite;
