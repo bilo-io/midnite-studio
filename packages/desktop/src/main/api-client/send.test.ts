@@ -62,6 +62,7 @@ function send(over: Partial<ApiSendRequest> & { draft: ApiRequestDraft }): Retur
       repoId: 'demo',
       requestId: nextRequestId(),
       collectionVariables: [],
+      environmentId: null,
       ...over,
     },
     new AbortController().signal,
@@ -157,7 +158,7 @@ describe('sendApiRequest — abort mid-body', () => {
   it('throws and clears the controller map when cancelled mid-flight', async () => {
     const requestId = nextRequestId();
     const pending = sendApiRequest(
-      { repoId: 'demo', requestId, draft: draft({ url: origin }), collectionVariables: [] },
+      { repoId: 'demo', requestId, draft: draft({ url: origin }), collectionVariables: [], environmentId: null },
       new AbortController().signal,
     );
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { interpolate, interpolateAll } from './interpolate';
+import { interpolate, interpolateAll, interpolateTiered, mergeVariableTiers } from './interpolate';
 
 describe('interpolate', () => {
   it('resolves a token from the variable map', () => {
@@ -92,6 +92,56 @@ describe('interpolateAll', () => {
     const result = interpolateAll(['{{a}}', '{{b}}'], { a: '1', b: '2' });
 
     expect(result.texts).toEqual(['1', '2']);
+    expect(result.warnings).toEqual([]);
+  });
+});
+
+describe('mergeVariableTiers / interpolateTiered (Phase 70 Theme A)', () => {
+  it('an environment variable shadows a collection variable of the same name', () => {
+    const merged = mergeVariableTiers({ host: 'env-host' }, { host: 'collection-host' });
+    expect(merged.host).toBe('env-host');
+
+    const result = interpolateTiered('{{host}}', {
+      environment: { host: 'env-host' },
+      collection: { host: 'collection-host' },
+    });
+    expect(result.text).toBe('env-host');
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('falls back to the collection tier when the environment has no entry for that name', () => {
+    const result = interpolateTiered('{{host}}', {
+      environment: {},
+      collection: { host: 'collection-host' },
+    });
+    expect(result.text).toBe('collection-host');
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('a disabled environment row does not shadow — the caller filters it out before it ever reaches the merge', () => {
+    // send.ts's own tier-builder is what excludes `enabled: false` rows from
+    // the environment map it hands `interpolateTiered`; this asserts the
+    // merge itself has no special case for it, one is not needed once the
+    // disabled row is simply absent.
+    const result = interpolateTiered('{{host}}', {
+      environment: {}, // the disabled row never made it into this map
+      collection: { host: 'collection-host' },
+    });
+    expect(result.text).toBe('collection-host');
+  });
+
+  it('both tiers missing leaves the token literal with one warning naming it', () => {
+    const result = interpolateTiered('{{host}}', { environment: {}, collection: {} });
+    expect(result.text).toBe('{{host}}');
+    expect(result.warnings).toEqual(['Unresolved variable {{host}} — left as-is.']);
+  });
+
+  it('does not re-expand a {{b}} that appears inside a resolved environment value', () => {
+    const result = interpolateTiered('{{a}}', {
+      environment: { a: 'literal {{b}}' },
+      collection: { b: 'NEVER' },
+    });
+    expect(result.text).toBe('literal {{b}}');
     expect(result.warnings).toEqual([]);
   });
 });
