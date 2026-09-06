@@ -1,28 +1,39 @@
-import { VIEW_ICON } from '../../components/nav-icons';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
+import { useApiClientStore } from '../../store/api-client-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
+import { CollectionTree } from './collection-tree';
+import { RequestBar } from './request-bar';
+import { RequestTabStrip } from './request-tab-strip';
+import { ResponseViewer } from './response-viewer';
 
 /**
- * The API Client view's shell (Phase 66 Theme B).
+ * The API Client view's shell (Phase 66 Themes B, C, F).
  *
  * A left collection tree and a right request/response pane, copying
- * `features/actions/actions-view.tsx`'s list-detail skeleton. Theme C builds
- * the collection tree and the tabbed request pane that fill the right side;
- * until then — and whenever a repo genuinely has no imported collection —
- * this renders the one state it can: the empty one.
+ * `features/actions/actions-view.tsx`'s list-detail skeleton. Not global in
+ * `view-registry.tsx` — collections live under `.midnite/api/` in an open
+ * repo, so `selectedRepoId` is guaranteed non-null here exactly the way
+ * `FilesView` relies on the same guard for its own tree.
  *
- * No `<PageDetachMark>` in the header, unlike Actions/Database/Search/Tests:
- * that control needs `apiClient` registered as a `PageWindowRole`
- * (`shared/domain/window.ts`'s `PAGE_WINDOW_ROLES`), which cascades into
- * `window-manager.ts`'s per-role popout size and `schemas.ts`'s relay-message
- * enum — real scope this theme's own "Files this phase touches" table does
- * not list anywhere. Making the view detachable is a follow-on, not a
- * rendering detail this shell can absorb for free.
+ * The right side is deliberately small (Decision 2): a minimal method/URL
+ * bar (`RequestBar`) stands in for Theme D's full params/headers/auth/body
+ * builder, which is not being built this phase and will replace this
+ * wholesale. What's here is enough to open a request, send it, and read the
+ * answer.
+ *
+ * No `<PageDetachMark>` in the header, unlike Actions/Database/Search/Tests —
+ * see Theme B's original note: that control needs `apiClient` registered as
+ * a `PageWindowRole`, which is real scope this phase does not touch.
  */
 export function ApiClientView() {
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
+  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+
+  const tabs = useApiClientStore((s) => s.tabs);
+  const activeTabId = useApiClientStore((s) => s.activeTabId);
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
 
   const tree = useResizable({
     size: layout.apiTreeWidth,
@@ -31,6 +42,8 @@ export function ApiClientView() {
     axis: 'x',
     ...LAYOUT_BOUNDS.apiTreeWidth,
   });
+
+  if (!selectedRepoId) return null;
 
   return (
     <div className="flex h-full min-h-0">
@@ -43,46 +56,26 @@ export function ApiClientView() {
             API Client
           </h2>
         </div>
-        <EmptyCollections />
+        <CollectionTree repoId={selectedRepoId} />
       </div>
 
       <ResizeHandle resizable={tree} axis="x" label="Resize the API collection tree" />
 
-      <div className="flex min-h-0 flex-1 items-center justify-center p-8">
-        <p className="max-w-md text-center text-sm text-muted-foreground">
-          Import a collection to build and send a request.
-        </p>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <RequestTabStrip tabs={tabs} activeTabId={activeTabId} />
+        {activeTab ? (
+          <div className="flex min-h-0 flex-1 flex-col" key={activeTab.id}>
+            <RequestBar tabId={activeTab.id} />
+            <ResponseViewer tabId={activeTab.id} />
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 items-center justify-center p-8">
+            <p className="max-w-md text-center text-sm text-muted-foreground">
+              Open a request from the tree to build and send it.
+            </p>
+          </div>
+        )}
       </div>
-    </div>
-  );
-}
-
-/**
- * The tree pane's own empty state — the only one this theme can render, since
- * the collection tree and the store that would fill it are Theme C's job.
- *
- * The "Import collection…" button is disabled: it names the affordance
- * Theme G wires up rather than leaving it silently absent, but nothing here
- * can act on a click yet.
- */
-function EmptyCollections() {
-  const Icon = VIEW_ICON.apiClient;
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-      <Icon aria-hidden className="h-10 w-10 text-muted-foreground/60" />
-      <p className="text-sm font-medium">No collections yet</p>
-      <p className="max-w-sm text-xs text-muted-foreground">
-        Import a <code>.postman_collection.json</code> file to get started. Collections are
-        stored in <code>.midnite/api/</code> in this repository, so they travel with it.
-      </p>
-      <button
-        type="button"
-        disabled
-        title="Import lands in Theme G"
-        className="mt-1 flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground opacity-50 shadow-xs"
-      >
-        Import collection…
-      </button>
     </div>
   );
 }

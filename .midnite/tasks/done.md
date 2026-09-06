@@ -2,6 +2,34 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 66 Themes C + F — The tree, the tabs, and the answer
+
+[PR #233](https://github.com/bilo-io/midnite-studio/pull/233). Moves Phase 66 35/73 → 50/73 (48% →
+68%). With Themes A, B, C, E and G all landed, **[Phase
+70](phases/phase-70-api-client-environments-tests-and-runs.md) is unblocked** — its four blockers
+were exactly A, C, E and G.
+
+**C — the tree, the tabs, and a store of its own.** `api-client-store.ts` is not an arm of
+`workbench-store.ts`, whose `WorkbenchTab` is a closed four-arm union of read-only surfaces with no
+draft, no dirty flag and no editable buffer; an API request tab is all three. Dirty is **derived**
+(`draft !== savedDraft`), never stored, the way `file-preview.tsx` derives it — a stored boolean is a
+second source of truth that goes stale on undo. Requests are addressed by `itemPath`, the folder-name
+path, not an index: Postman items have no stable ids and an index breaks the moment a sibling is
+inserted above. Nothing in the store is persisted, because restoring unsaved edits into a file that
+changed underneath is a data-loss shape.
+
+**F — the response viewer.** Content-type-driven rendering with a Raw toggle, a body that fails to
+parse despite its content-type falling to text with a "Not valid JSON" note, images capped at 2 MB
+before a data: URL is built on the render thread, and a truncated **banner** rather than a toast —
+it has to stay on screen for as long as the body it describes. Ten responses per tab, in memory
+only: a response is not part of the collection file, and writing one under `.midnite/api/` would put
+a bearer token in a git-tracked file.
+
+Also a deliberately minimal method+URL+Send bar so the engine is exercisable at all; Theme D replaces
+it wholesale. **"Save response as…" ships disabled**: Theme G added `apiExportCollection` for a
+*collection* file addressed by id, and nothing for an arbitrary response body's bytes, so there is no
+channel to back it — the tooltip says so rather than the button doing nothing.
+
 ## 2026-09-06 — Phase 66 Themes E + G — The send engine, and collections on disk
 
 [PR #227](https://github.com/bilo-io/midnite-studio/pull/227). Moves Phase 66 19/73 → 35/73 (26% →

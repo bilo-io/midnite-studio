@@ -271,9 +271,9 @@ point; G needs A and E's handler file. H is last.
       instead, which the view registry already handles for non-`global` views. The button is
       disabled (`title="Import lands in Theme G"`) since Theme G does not exist yet.
 
-### C — Collection tree, request tabs, and the store (M)
+### C — Collection tree, request tabs, and the store (M) — ✅ DONE (PR #233, 2026-09-06)
 
-- [ ] Add `packages/app/src/store/api-client-store.ts` — zustand, its **own** store, not an arm of
+- [x] Add `packages/app/src/store/api-client-store.ts` — zustand, its **own** store, not an arm of
       `workbench-store.ts` (Decision 2). Shape:
       `{collections: ApiCollectionSummary[], tabs: ApiTab[], activeTabId: string | null,
       responses: Record<string, ApiResponse[]>, inFlight: Record<string, string>,
@@ -290,11 +290,11 @@ point; G needs A and E's handler file. H is last.
   - **Nothing in this store is persisted.** Tabs hold unsaved edits to a file that lives in a
     repo; restoring them across an app restart into a file that changed underneath is a data-loss
     shape, and `persisted-keys.ts` would have to classify every field. Session state, in memory.
-- [ ] `closeRepoTabs(repoId)` is called from the same place
+- [x] `closeRepoTabs(repoId)` is called from the same place
       [`features/repos/use-prune-closed-repos.ts`](../../../packages/app/src/features/repos/use-prune-closed-repos.ts)
       calls `workbench-store`'s, and additionally aborts any in-flight request for that repo via
       `apiClient.cancelRequest`. A closed repo's collections are gone from disk's point of view.
-- [ ] Add `features/api-client/collection-tree.tsx` exporting
+- [x] Add `features/api-client/collection-tree.tsx` exporting
       `export function CollectionTree({ repoId }: { repoId: string })`, built on
       [`components/tree-section.tsx`](../../../packages/app/src/components/tree-section.tsx) with
       one `TreeSection` per collection at `depth={0}` and one per folder at `depth={1..3}`,
@@ -302,25 +302,25 @@ point; G needs A and E's handler file. H is last.
       own ceiling) — the same way
       [`features/database/connection-tree.tsx`](../../../packages/app/src/features/database/connection-tree.tsx)
       nests schema levels.
-- [ ] A request row renders `<MethodBadge method={…} />` + name, and is the only clickable thing;
+- [x] A request row renders `<MethodBadge method={…} />` + name, and is the only clickable thing;
       `MethodBadge` is a small local component with a fixed colour per verb (GET green, POST blue,
       PUT amber, PATCH violet, DELETE red, everything else muted), taken from `@bilo-io/ui` tokens
       so it survives a `StudioPalette` change.
-- [ ] A tab in the strip shows `MethodBadge` + name + a `●` when derived-dirty, using
+- [x] A tab in the strip shows `MethodBadge` + name + a `●` when derived-dirty, using
       `file-preview.tsx`'s glyph and `title="Unsaved changes"` verbatim.
   - x1 correction: the pre-refinement doc said this mirrors "`tab-strip.tsx`'s existing unsaved-state
     convention". **There is no such convention** — `WorkbenchTab` is a four-arm union of read-only
     surfaces (`all-changes`/`run`/`review`/`commit`) with no dirty concept anywhere. The only
     dirty indicator in the app is `file-preview.tsx`'s.
-- [ ] Closing a dirty tab opens the app's existing `ConfirmDialog` — **"Discard unsaved changes to
+- [x] Closing a dirty tab opens the app's existing `ConfirmDialog` — **"Discard unsaved changes to
       *{name}*?"**, confirm label **"Discard"**, destructive tone. Closing a clean tab closes it.
-- [ ] Context menu per tree row, via
+- [x] Context menu per tree row, via
       [`components/context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx): on a
       collection — *New request*, *New folder*, *Rename*, *Export…*, *Remove from repo*; on a folder
       — *New request*, *New folder*, *Rename*, *Duplicate*, *Delete*; on a request — *Rename*,
       *Duplicate*, *Delete*. Every one of them mutates the in-memory collection and marks it dirty;
       **none of them writes to disk** — that is Theme G's explicit Save.
-- [ ] `api-client-store.test.ts`: open/focus/close lifecycle including `nextFocusAfterClose`-style
+- [x] `api-client-store.test.ts`: open/focus/close lifecycle including `nextFocusAfterClose`-style
       neighbour selection; `editDraft` flips derived-dirty and `markSaved` clears it;
       `closeRepoTabs` drops only the named repo's tabs and leaves another repo's alone.
 
@@ -450,15 +450,15 @@ point; G needs A and E's handler file. H is last.
       itself contains `{{b}}` **not** re-expanded (one pass, no recursion — the alternative is a
       cycle bomb in a file the user did not write).
 
-### F — Response viewer (M)
+### F — Response viewer (M) — ✅ DONE (PR #233, 2026-09-06)
 
-- [ ] Add `features/api-client/response-viewer.tsx` exporting
+- [x] Add `features/api-client/response-viewer.tsx` exporting
       `export function ResponseViewer({ tabId }: { tabId: string })`: a status/time/size strip, a
       `Body | Headers` tab pair, and the body pane.
-- [ ] The status strip: `<StatusPill status={…} />` coloured by class (2xx green, 3xx blue, 4xx
+- [x] The status strip: `<StatusPill status={…} />` coloured by class (2xx green, 3xx blue, 4xx
       amber, 5xx red), then `statusText`, then `durationMs` and `sizeBytes` formatted with the app's
       existing byte/duration helpers rather than a local `toFixed`.
-- [ ] Body rendering by `contentType`, in this order:
+- [x] Body rendering by `contentType`, in this order:
   - JSON (`application/json`, `+json`, or `bodyIsJson`) → `MonacoField` with `language: 'json'`,
     `readOnly`, pretty-printed via `JSON.stringify(JSON.parse(body), null, 2)` with the raw text
     behind a **Raw** toggle. A body that fails to parse despite the content-type falls to text and
@@ -469,19 +469,19 @@ point; G needs A and E's handler file. H is last.
     below instead of building a 2.7 MB base64 string on the render thread.
   - Anything else → a centred **"{contentType} · {size} — no preview"** with a **Save response
     as…** button going through the same main-side dialog Theme G uses.
-- [ ] The truncated banner, above the body, whenever `ApiResponse.truncated`: **"Response truncated
+- [x] The truncated banner, above the body, whenever `ApiResponse.truncated`: **"Response truncated
       at {cap} — the rest was not read."** Not a toast: it must stay on screen for as long as the
       body it is describing.
-- [ ] Empty and in-flight states: before the first send, **"Send the request to see a response."**;
+- [x] Empty and in-flight states: before the first send, **"Send the request to see a response."**;
       while in flight, the app's existing skeleton plus a **Cancel** button wired to
       `apiClient.cancelRequest({requestId})`; on `{ok:false}`, a red-toned block with the envelope's
       `message` and a **Retry** button, never a thrown error and never a blank pane.
-- [ ] In-memory response history per tab: `responses[tabId]` capped at **10**, newest first, with a
+- [x] In-memory response history per tab: `responses[tabId]` capped at **10**, newest first, with a
       small picker in the strip. Not persisted, because a response is not part of the collection
       file and writing one to `.midnite/api/` would put a bearer token in a git-tracked file.
       Persisted history is [Phase 70](phase-70-api-client-environments-tests-and-runs.md) Theme D,
       which has to answer that question properly.
-- [ ] `response-viewer.test.tsx`: each content-type branch picks the expected renderer; the
+- [x] `response-viewer.test.tsx`: each content-type branch picks the expected renderer; the
       truncated banner appears exactly when `truncated` is set; a `{ok:false}` envelope renders the
       message and a Retry, and never throws into the error boundary.
 
