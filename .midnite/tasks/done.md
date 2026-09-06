@@ -2,6 +2,45 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 75 Theme E — edge states, and what blocked looks like
+
+[PR #210](https://github.com/bilo-io/midnite-studio/pull/210). Moves Phase 75 55/106 → 67/106
+(52% → 63%). Theme D's canvas was monochrome; this is what makes it legible at a glance.
+
+- [x] `--dep-done`/`--dep-active`/`--dep-idle` in both the light `:root` and `.dark` blocks of
+      `styles.css`, beside `--health-*` — deliberately its own tokens, not health's, and not raw
+      hex. `--dep-done`/`--dep-idle` borrow `--success`/`--muted-foreground` (both already lift
+      themselves for dark); `--dep-active` has no existing token to borrow and is its own literal
+      HSL in each block.
+- [x] `packages/app/src/features/projects/graph/edge-appearance.ts` —
+      `edgeAppearance(edge, source, target, sourceGlow?)`, pure, ported from the crib's five-state
+      table (`source` = the blocker, `target` = the dependent — the reverse of `ForgeGraphEdge`'s
+      own `from`/`to` for a `'blocks'` edge). `contains` edges get one quiet, never-animated
+      appearance regardless of state; a `body`-sourced edge appends a dotted/reduced-opacity
+      modifier on top of whichever state the table chose (the two never conflict — the
+      containment layer is API-only).
+  - **Adapted:** "agent running" is not a `ForgeGraphNode` field, so a fourth, defaulted
+    `sourceGlow: CardGlowState = 'idle'` parameter carries it in from the same glow map the
+    node's own ring reads — still pure, and a foreign blocker (never in that map) falls through
+    to "otherwise" by the same default, which is correct.
+- [x] Wired into `project-graph-view.tsx`: every edge's `<path>` gets its class/width from
+      `edgeAppearance` instead of the placeholder `stroke-border`; the canvas calls
+      `useWindowFocusGate(true)` the way `BoardView` does; the legend names the five states with
+      swatches reading their colour off the same `--dep-*` tokens.
+- [x] `project-graph-node.tsx`: blocked-node dimming (`opacity: 0.55`, `saturate(0.4)`) lives on
+      an inner content wrapper, never the outer element carrying `agent-run-glow` — an explicit
+      precedence (Theme F's ring wins), not left to cascade order. A `ready` node gets an
+      affirmative `LuCircleCheck` badge rather than relying on the mere absence of dimming.
+- [x] The dash animation is `stroke-dashoffset` on a CSS keyframe, reduced-motion-guarded
+      (`styles-motion-guards.test.ts` passes with it) and focus-gated the same way
+      `.agent-run-glow` already is — a blurred window pays for no edge animation.
+- [x] Re-shot `project-graph-shots.spec.ts` and `project-graph-glow-shots.spec.ts` (the idle/
+      waiting nodes now visibly dim; running was never blocked in that fixture, so it is
+      unchanged) — `moon run :typecheck :lint :test` green throughout (2824 tests).
+- Left open, deliberately: Theme H's own filter toggle for `contains` edges (this theme only
+  defines its appearance); the phase's cross-cutting perf checks and human-only verification
+  items, which belong to whichever theme closes the phase out.
+
 ## 2026-09-06 — Phase 75 Theme D — the canvas, and Theme F's four deferred items
 
 [PR #208](https://github.com/bilo-io/midnite-studio/pull/208). Moves Phase 75 29/101 → 55/106

@@ -163,6 +163,36 @@ describe('ProjectGraphNode', () => {
     expect(el.hasAttribute('data-foreign')).toBe(true);
   });
 
+  it('dims the inner content, not the outer glow-bearing element, when blocked', () => {
+    const { container } = render(
+      <ProjectGraphNode node={baseNode({ blocked: true })} item={issueItem()} fields={[]} glow="running" selected={false} onSelect={() => {}} />,
+    );
+    const outer = container.querySelector('[data-graph-node]')!;
+    expect(outer.className).not.toContain('opacity-');
+    expect(outer.className).toContain('agent-run-glow'); // the ring still shows in full
+    const inner = outer.querySelector('.opacity-\\[0\\.55\\]');
+    expect(inner).not.toBeNull();
+  });
+
+  it('applies no dimming when not blocked', () => {
+    const { container } = render(
+      <ProjectGraphNode node={baseNode({ blocked: false })} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
+    );
+    expect(container.querySelector('.opacity-\\[0\\.55\\]')).toBeNull();
+  });
+
+  it('renders an affirmative ready badge only when the node is ready', () => {
+    const { container, rerender } = render(
+      <ProjectGraphNode node={baseNode({ ready: false })} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
+    );
+    expect(screen.queryByRole('img', { name: 'Ready to start' })).toBeNull();
+
+    rerender(
+      <ProjectGraphNode node={baseNode({ ready: true })} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
+    );
+    expect(container.querySelector('[data-graph-node]')?.querySelector('[role="img"][aria-label="Ready to start"]')).not.toBeNull();
+  });
+
   it('calls onSelect on click and on Enter/Space', () => {
     const onSelect = vi.fn();
     render(<ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={onSelect} />);

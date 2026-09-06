@@ -39,6 +39,20 @@
     --health-warn: 38 92% 50%;
     --health-fail: var(--destructive);
 
+    /* The dependency graph's own edge/node vocabulary
+     * (features/projects/graph/edge-appearance.ts, Phase 75 Theme E) —
+     * deliberately its own three tokens rather than `--health-*`: those mean
+     * repo health, and a future change to what "warn" looks like should not
+     * silently restyle a dependency graph. `--dep-done` borrows `--success`
+     * (a blocker that resolved is exactly that semantic); `--dep-active` has
+     * no existing token to borrow — no other surface means "work is
+     * happening right now" — so it is its own literal HSL; `--dep-idle`
+     * borrows the neutral `--muted-foreground` a quiet, not-yet-started edge
+     * already reads as everywhere else in the app. */
+    --dep-done: var(--success);
+    --dep-active: 217 91% 60%;
+    --dep-idle: var(--muted-foreground);
+
     /* Lightness of the label on a ref chip that is NOT the checked-out one
      * (features/graph/ref-badge.tsx). The chip's hue and saturation come from
      * the lane it belongs to, as `--lane-h` / `--lane-s` set inline per chip;
@@ -79,6 +93,11 @@
     /* Lifted for contrast against a near-black sidebar; the mid-tone amber that
      * reads on white goes muddy on it. */
     --health-warn: 38 95% 58%;
+    /* Lifted the same way, and for the same reason `--health-warn` is above:
+     * the light value goes muddy against a near-black canvas. `--dep-done`
+     * and `--dep-idle` keep tracking `--success`/`--muted-foreground`, which
+     * already lift themselves. */
+    --dep-active: 217 91% 68%;
     /* Above the lane's own 45–68%, so the label reads brighter than the line
      * that shares its hue rather than disappearing into the chip's tint. */
     --lane-ink-l: 76%;
@@ -2207,6 +2226,97 @@ html[data-window-focused='false'] .project-graph-node.agent-run-glow.is-running:
 }
 
 html[data-motion='reduced'] .project-graph-node.agent-run-glow.is-running::after {
+  animation: none;
+}
+
+/*
+  Dependency edge states (Phase 75 Theme E) — `edge-appearance.ts` picks
+  these classes off two endpoints (plus, for the fourth row, the same glow
+  map the node's own ring reads); nothing here inspects graph data itself.
+
+  `stroke-dashoffset` on a CSS keyframe, never a React-driven `animated` prop
+  — the phase doc's own rule: 300 edges animating through React state is the
+  frame budget gone before the graph has drawn a single node.
+
+  Reduced motion keeps every colour, dash pattern and stroke width — only
+  the movement drops — so the five states already separate with the
+  animation frozen: `.dep-edge-done`/`.dep-edge-active`/`.dep-edge-idle` are
+  three different colours, `.dep-edge-animated` a wider dash than the solid
+  rows, `.dep-edge-bloom` a filter that persists with no animation of its
+  own, and `.dep-edge-contains`/`.dep-edge-body` their own static patterns —
+  no state depends on motion to be legible.
+*/
+@keyframes dep-edge-dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.dep-edge {
+  fill: none;
+  transition:
+    stroke 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.dep-edge-done {
+  stroke: hsl(var(--dep-done));
+}
+
+.dep-edge-active {
+  stroke: hsl(var(--dep-active));
+}
+
+.dep-edge-idle {
+  stroke: hsl(var(--dep-idle));
+}
+
+.dep-edge-animated {
+  stroke-dasharray: 6 4;
+  animation: dep-edge-dash 1s linear infinite;
+}
+
+/* This blocker just cleared the path — a soft glow behind the dash, not an
+ * animation of its own, so it survives reduced motion untouched. */
+.dep-edge-bloom {
+  filter: drop-shadow(0 0 3px hsl(var(--dep-done) / 0.7));
+}
+
+/* A containment edge is never a blocker: one quiet appearance regardless of
+ * either endpoint's state, and a wider dash period than any blocking dash
+ * (`6 4` above) so the two separate at a glance with no reliance on colour. */
+.dep-edge-contains {
+  stroke: hsl(var(--dep-idle));
+  opacity: 0.4;
+  stroke-dasharray: 10 8;
+}
+
+/* An edge the app guessed at from an issue's body — dotted rather than
+ * dashed, and at reduced opacity, so it never reads as certain as one
+ * GitHub itself asserted (the same distinction Theme G gates the Start
+ * button on). Declared after `.dep-edge-animated` so its dash pattern wins
+ * for a `'blocks'` edge that is both animated and body-sourced — the only
+ * combination that ever occurs, since `resolveForgeGraph` never mints a
+ * `body`-sourced `'contains'` edge. */
+.dep-edge-body {
+  stroke-dasharray: 1.5 3;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+
+/* Same focus gate as every other looping animation on this canvas — a
+ * blurred window pays for none of them. */
+html[data-window-focused='false'] .dep-edge-animated {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .dep-edge-animated {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .dep-edge-animated {
   animation: none;
 }
 
