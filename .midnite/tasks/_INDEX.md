@@ -45,7 +45,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 49/57 | `█████████░` | 86% | H | — |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 38/53 | `███████░░░` | 72% | — | G (human screenshots + real-board pass) |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 61/63 | `██████████` | 97% | — | Verification (human keyboard + eye pass) |
-| [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 53/60 | `█████████░` | 88% | G | H (blocked on G — Theme H's own precondition is `KNOWN_RED` empty) |
+| [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 55/60 | `█████████░` | 92% | — | H (unblocked — `KNOWN_RED` is empty as of PR #228) |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 41/44 | `█████████░` | 93% | — | F (human idle-cpu + resize check) |
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
@@ -781,7 +781,7 @@ are the independent stragglers; H deletes the scaffolding.*
   was the same chord-mismatch wall this theme's platform pin already closed elsewhere. `grepInvert`
   stays as the mechanism, but zero specs carry `@linux-red` as of this batch — `KNOWN_RED` now
   holds only `graph-themes.spec.ts` (Theme G).
-- ◻ **H** — Retire the ratchet: full suite green twice, then delete `playwright.ci.config.ts`, the `app:e2e-ci` task, and point CI back at `app:e2e`. Blocked on Theme G — its own precondition is `KNOWN_RED` empty.
+- ◻ **H** — Retire the ratchet: full suite green twice, then delete `playwright.ci.config.ts`, the `app:e2e-ci` task, and point CI back at `app:e2e`. Unblocked by [PR #228](https://github.com/bilo-io/midnite-studio/pull/228): `KNOWN_RED` is now empty.
 
 ### [Phase 37 — A glow that knows which tab](phases/phase-37-fab-tab-glow.md)
 
