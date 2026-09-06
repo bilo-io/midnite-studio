@@ -74,10 +74,22 @@ describe('resolveLoginShellPathAsync', () => {
     if (resolved !== null) expect(resolved.length).toBeGreaterThan(0);
   });
 
-  it('resolves null rather than hanging when the shell outruns its timeout', async () => {
-    // 1ms cannot outrun a process spawn, so this exercises the kill path.
-    await expect(resolveLoginShellPathAsync(1)).resolves.toBeNull();
-  });
+  it('resolves rather than hanging when the shell outruns its timeout', async () => {
+    /*
+      1ms was assumed to be unbeatable by a process spawn — it is not. On an
+      idle CI runner the login shell occasionally answers first and the call
+      returns a real PATH, which made this the repo's most frequent CI flake
+      (four false reds across #195, #198 and #199 alone).
+
+      What the timeout actually guarantees is that the call SETTLES, not which
+      way: the kill path returns null and the winning shell returns its PATH,
+      and both are correct outcomes of a 1ms deadline. So the assertion is that
+      it resolves to one of the two within a real deadline — a hang, which is
+      the regression this test exists to catch, still fails it.
+    */
+    const resolved = await resolveLoginShellPathAsync(1);
+    expect(resolved === null || typeof resolved === 'string').toBe(true);
+  }, 5_000);
 });
 
 describe('ensureLoginShellPathAsync', () => {
