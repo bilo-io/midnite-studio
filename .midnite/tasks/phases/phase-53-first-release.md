@@ -468,8 +468,13 @@ task.**
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green, and `moon ci` now fails on a deliberately divergent
-      package version (B).
+- [x] `moon run :typecheck :lint :test` green, and `moon ci` now fails on a deliberately divergent
+      package version (B). ✅ Confirmed 2026-09-06 — `root:version-check` (the CI gate step named
+      "Version check" in `ci.yml`) rejects a live mutation on purpose: bumping
+      `packages/shared/package.json` to `0.2.0` makes `moon run root:version-check` exit 1 with
+      `version-check FAILED: packages do not share one MAJOR.MINOR (lockstep broken)`, naming every
+      offending package; reverted immediately after. `version-check.test.mjs` pins the same
+      MINOR/MAJOR-divergence and missing-package cases at the unit level.
 - [ ] A packaged build contains `Contents/Resources/bin/midnite-studio`, executable, and the CLI
       integration works from the installed app (A).
 - [ ] `desktop:verify-dist` fails a build whose `latest-mac.yml` is missing, whose `sha512` does not
@@ -491,16 +496,32 @@ task.**
       `beta-mac.yml`, not `latest-mac.yml` (G).
 - [ ] `midnite-studio --version` on the **installed** build prints the released version, not a
       hardcoded `0.1.0` (B). The sixth version site, proven rather than assumed.
-- [ ] `moon ci` fails when `resources/bin/midnite-studio`'s version disagrees with `package.json`,
-      or the wrapper derives it and there is nothing left to disagree (B).
-- [ ] The status-bar pill shows *something* when a check fails — today it renders `null` for `error`
-      and `checking`, so a failed check is indistinguishable from a successful one (G).
+- [x] `moon ci` fails when `resources/bin/midnite-studio`'s version disagrees with `package.json`,
+      or the wrapper derives it and there is nothing left to disagree (B). ✅ The wrapper takes the
+      second branch: `resources/bin/midnite-studio` reads `CFBundleShortVersionString` from
+      `Info.plist` (falling back to `package.json` in dev), so there is no independent value left to
+      drift out of lockstep — `version-check.mjs`'s own header comment records this deliberately, and
+      the script's file list omits the wrapper for that reason.
+- [x] The status-bar pill shows *something* when a check fails — today it renders `null` for `error`
+      and `checking`, so a failed check is indistinguishable from a successful one (G). ✅ Already
+      fixed (PR #188) — `update-pill.tsx` renders a destructive "Update check failed" button (with the
+      raw error as its title) for `error`, and a spinner for `checking`; `update-pill.test.tsx` covers
+      both states plus the no-error-message fallback.
 - [ ] The in-app release-notes popover shows v0.1.0's notes, proving the **changelog mirror** was
       propagated and not just the two feeds (E, F).
-- [ ] `grep -rn "planVersionBump\|versionFromReleaseBranch" .claude .agents .codex` either resolves
-      to real exports or the skills no longer name them (B).
-- [ ] The ⚠️ banner is gone from all **six** skill files, and `.claude`/`.agents`/`.codex` remain
-      byte-identical to each other (B, E).
+- [x] `grep -rn "planVersionBump\|versionFromReleaseBranch" .claude .agents .codex` either resolves
+      to real exports or the skills no longer name them (B). ✅ Both — and the other four named in
+      the same paragraph (`planReleaseTags`, `parseConventionalCommit`, `bumpLevelFromCommits`,
+      `sharesLockstepMajorMinor`) — are real, exported, tested functions in
+      `packages/shared/src/version.ts` (`version.test.ts` covers each). The grep still matches
+      because the skills correctly *reference* them by name; it no longer finds a dangling name.
+- [x] The ⚠️ banner is gone from all **six** skill files, and `.claude`/`.agents`/`.codex` remain
+      byte-identical to each other (B, E). ✅ No `⚠️` anywhere in any of the six
+      `midnite-release-{prep,complete}/SKILL.md` files. `.agents` and `.codex` are byte-identical;
+      `.claude` differs from both only in the same two spots every other mirrored skill in this repo
+      differs (frontmatter's Claude-only `allowed-tools`/`argument-hint` vs. `agents`/`codex`'s prose
+      `**Invoke with:**`, and `AskUserQuestion` vs. "a direct question to the user") — the established
+      cross-tool convention, not phase-53 drift.
 - [ ] Running `install.sh` **before** the release prints "no published release yet", and the same
       command after it installs v0.1.0 — the before-state captured, not assumed (F).
 
