@@ -125,7 +125,7 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
   const mode: 'edit' | 'run' = panels.current.kind === 'run' ? 'run' : 'edit';
 
   // A pulsing history button costs a permanently-mounted animation the
-  // instant a run is in flight — gated the way `BoardView`'s `card-run-glow`
+  // instant a run is in flight — gated the way `BoardView`'s `agent-run-glow`
   // is, by calling the shared hook itself rather than waiting on a hoist:
   // `useWindowFocusGate` already supports concurrent hosts.
   const hasRunningRun = runs.data?.some((run) => run.status === 'running') ?? false;
@@ -204,7 +204,7 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
                 onClick={() => panels.push({ kind: 'history' })}
                 aria-label="Run history"
                 className={`flex h-6 w-6 items-center justify-center rounded-md border border-transparent hover:bg-accent ${
-                  hasRunningRun ? 'card-run-glow is-running' : ''
+                  hasRunningRun ? 'agent-run-glow is-running' : ''
                 }`}
               >
                 <LuHistory aria-hidden className="h-3.5 w-3.5" />
