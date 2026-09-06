@@ -2,6 +2,32 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 66 Theme D — The request builder
+
+[PR #234](https://github.com/bilo-io/midnite-studio/pull/234). Moves Phase 66 50/73 → 60/73 (68% →
+82%), leaving only Theme H (verification). Replaces Theme C's deliberate stopgap — a bare method +
+URL + Send bar that existed only so the send engine was exercisable.
+
+All eight body modes, preserved independently through `ApiRequestDraft`'s
+`bodies: Record<BodyMode, string>`: json/raw/xml/graphql on the shared `MonacoField` (Monaco 0.56
+already ships Monarch grammars for every one of them, so no new dependency and no hand-rolled
+highlighter — Decision 3); form-data and urlencoded on the `KeyValueTable` family; binary behind a
+new `apiPickBinaryFile` channel, because the renderer cannot open a native picker; `none` a static
+line.
+
+The **URL ↔ params sync** runs in both directions as specified: a table edit rewrites the URL
+(disabled rows drop from the string but stay in the table), and the URL is authoritative **on blur
+only** — live-syncing while typing would let a half-typed query string destroy the table. The URL
+field highlights `{{var}}` with a transparent-text mirror and `<mark>` spans, scroll-synced; a plain
+input, not Monaco.
+
+Auth values are plain text and the tab says so (Decision 10) — masking without Phase 70's overlay
+implies a protection that is not there.
+
+**Known gap, named rather than half-worked:** `form-data` serialises its rows as JSON, not real
+multipart, because the send engine does not build a boundary or stream one. That is a gap in Theme
+E's main-process code, not something the builder can close from the renderer.
+
 ## 2026-09-06 — Phase 38 Theme H — The ratchet comes off — **Phase 38 closes at 60/60**
 
 [PR #232](https://github.com/bilo-io/midnite-studio/pull/232). Moves Phase 38 55/60 → **60/60

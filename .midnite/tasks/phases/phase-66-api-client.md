@@ -324,41 +324,41 @@ point; G needs A and E's handler file. H is last.
       neighbour selection; `editDraft` flips derived-dirty and `markSaved` clears it;
       `closeRepoTabs` drops only the named repo's tabs and leaves another repo's alone.
 
-### D — Request builder (L)
+### D — Request builder (L) — ✅ DONE (PR #234, 2026-09-07)
 
-- [ ] Add `features/api-client/request-builder.tsx` exporting
+- [x] Add `features/api-client/request-builder.tsx` exporting
       `export function RequestBuilder({ tabId }: { tabId: string })` — the method/URL bar above a
       four-tab row (Params · Headers · Auth · Body) above the tab's body, with the response viewer
       (Theme F) below a horizontal `ResizeHandle`.
-- [ ] Method dropdown offering GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS, plus a free-text arm so an
+- [x] Method dropdown offering GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS, plus a free-text arm so an
       imported request with an unusual verb round-trips (Theme A's `method: z.string()` is why this
       is possible; a select that silently rewrote it to GET would corrupt the file on save).
-- [ ] URL input with `{{var}}` tokens highlighted inline. Implementation: a single-line
+- [x] URL input with `{{var}}` tokens highlighted inline. Implementation: a single-line
       `contentEditable`-free approach — a plain `<input>` over a `<div aria-hidden>` mirror that
       re-renders the same text with `<mark>` spans, scroll-synced on `onScroll`. **Not** a Monaco
       instance: Monaco's smallest useful height is ~19px of line plus chrome, and one editor
       instance per open tab per URL field is a real cost for a field with no language.
   - A token whose name is not in the collection's `variable[]` gets a warning tone and a
     `title="No collection variable named foo"`. Unresolved-variable *behaviour* on send is Theme E's.
-- [ ] Params tab: a `KeyValueTable` (a local component, reused by Headers and the two form body
+- [x] Params tab: a `KeyValueTable` (a local component, reused by Headers and the two form body
       modes) bidirectionally synced with the URL's query string.
   - The rule, because both directions are plausible and they conflict: **the URL is authoritative
     on blur of the URL input; the table is authoritative on any table edit.** Typing in the table
     rewrites `draft.url`'s query string in row order, preserving rows with `enabled: false` in the
     table but omitting them from the URL. This is Postman's own behaviour and is what makes a
     disabled row survive a save.
-- [ ] Headers tab: the same `KeyValueTable` with the per-row `enabled` checkbox. A small set of
+- [x] Headers tab: the same `KeyValueTable` with the per-row `enabled` checkbox. A small set of
       computed headers (`Host`, `Content-Length`, and `Content-Type` when the body mode implies one)
       renders greyed and non-editable above the user rows, labelled **"Auto-generated"** — the same
       affordance Postman uses, and the answer to "why did my Content-Type change".
-- [ ] Auth tab: `None` / `Bearer Token` / `Basic Auth` / `API Key`, each with its own field set
+- [x] Auth tab: `None` / `Bearer Token` / `Basic Auth` / `API Key`, each with its own field set
       (`token`; `username`+`password`; `key`+`value`+`in: 'header'|'query'`). Values accept
       `{{var}}`. **Nothing here is masked and nothing is stored specially** — an auth value typed in
       this phase is written to the collection file in plain text, exactly as Postman does. Masking
       and the gitignored overlay are Phase 70 Theme A; until then the Auth tab carries a one-line
       hint: **"Values are saved to the collection file. Use an environment variable for secrets
       (coming in a later release)."**
-- [ ] Body tab, one editor per `BodyMode`:
+- [x] Body tab, one editor per `BodyMode`:
   - `json` / `raw` / `xml` / `graphql` → `features/api-client/monaco-field.tsx` (next item), with
     `language` `'json'` / `'plaintext'` / `'xml'` / `'graphql'`. All four grammars ship with
     Monaco 0.56.0; `graphql` in particular resolves what the pre-refinement doc left open (Decision 3).
@@ -367,7 +367,7 @@ point; G needs A and E's handler file. H is last.
   - `binary` → a button opening the native file picker through a new main-side channel, storing the
     absolute path in `draft.binaryPath`. The renderer never reads the file; Theme E does.
   - `none` → a centred **"This request does not send a body."**
-- [ ] Add `features/api-client/monaco-field.tsx` exporting
+- [x] Add `features/api-client/monaco-field.tsx` exporting
       `export function MonacoField({ value, onChange, language, height, readOnly }: {value: string;
       onChange: (v: string) => void; language: string; height?: string | number; readOnly?: boolean})`
       — a controlled `<Editor>` wrapper.
@@ -381,11 +381,11 @@ point; G needs A and E's handler file. H is last.
   - `automaticLayout: false` means the field must call `editor.layout()` on container resize —
     reuse whatever `code-editor.tsx` does for the same reason rather than turning the flag on, which
     installs a 100ms polling `ResizeObserver` per instance.
-- [ ] A **"Beautify"** action on the `json` and `xml` modes only, running Monaco's own
+- [x] A **"Beautify"** action on the `json` and `xml` modes only, running Monaco's own
       `editor.action.formatDocument` — free for `json` (the JSON worker is one of the loader's five),
       a no-op for `xml`, so the button hides when `getAction` returns null rather than failing
       silently on click.
-- [ ] `request-builder.test.tsx`: switching `json` → `raw` → `json` preserves the JSON text (the
+- [x] `request-builder.test.tsx`: switching `json` → `raw` → `json` preserves the JSON text (the
       `bodies: Record<BodyMode, string>` contract); editing a param row rewrites the URL's query
       string and leaves a disabled row out of it; the Auth tab's `apikey` + `in: 'query'` shows up
       in the computed-params preview and not in the user rows.
