@@ -72,6 +72,8 @@ const loadOptimizerPage = () => import('../features/optimizer/optimizer-page');
 const OptimizerPage = lazy(() => loadOptimizerPage().then((m) => ({ default: m.OptimizerPage })));
 const loadSessionsView = () => import('../features/sessions/sessions-view');
 const SessionsView = lazy(() => loadSessionsView().then((m) => ({ default: m.SessionsView })));
+const loadApiClientView = () => import('../features/api-client/api-client-view');
+const ApiClientView = lazy(() => loadApiClientView().then((m) => ({ default: m.ApiClientView })));
 
 /**
  * One view, as data.
@@ -145,5 +147,8 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
     which is what makes any further widening a deliberate test change.
   */
   optimizer: { Component: OptimizerPage, global: true },
+  // Not global: its collections live under `.midnite/api/` in an open repo, so
+  // it yields to `EmptyWorkspace` exactly like Files or Graph.
+  apiClient: { Component: ApiClientView },
   settings: { Component: SettingsView, global: true },
 };

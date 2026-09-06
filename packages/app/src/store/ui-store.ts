@@ -140,6 +140,7 @@ export type ViewId =
   | 'video'
   | 'sessions'
   | 'optimizer'
+  | 'apiClient'
   | 'settings';
 
 /** Every view, in rail order — the domain of the per-view maps below. */
@@ -162,6 +163,7 @@ export const VIEW_IDS: readonly ViewId[] = [
   'video',
   'sessions',
   'optimizer',
+  'apiClient',
   'settings',
 ];
 
@@ -296,6 +298,8 @@ export type LayoutSizes = {
   councilNavWidth: number;
   /** Councils' right configuration panel (Phase 42 Theme B). */
   councilConfigWidth: number;
+  /** The API Client view's collection tree, left of the request pane (Phase 66 Theme B). */
+  apiTreeWidth: number;
 };
 
 
@@ -368,6 +372,8 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // Wide enough for the member editor's three stacked controls (name,
   // provider select, role textarea) at a comfortable reading width.
   councilConfigWidth: 320,
+  // Same width as the other collection/tree panes (filesTreeWidth).
+  apiTreeWidth: 320,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -419,6 +425,7 @@ export const LAYOUT_BOUNDS = {
   browserWidth: { min: 320, max: 1600 },
   councilNavWidth: { min: 200, max: 420 },
   councilConfigWidth: { min: 240, max: 480 },
+  apiTreeWidth: { min: 200, max: 640 },
 } as const;
 
 /**
