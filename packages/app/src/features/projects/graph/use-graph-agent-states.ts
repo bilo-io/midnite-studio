@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { deriveCardGlowState, type CardGlowState } from '../board/glow-state';
 import { sessionPhase, useTerminalStore } from '../../terminal/terminal-store';
@@ -40,6 +40,25 @@ export function useGraphAgentStates(projectId: string): ReadonlyMap<string, Card
   const sessions = useTerminalStore((s) => s.sessions);
   const states = useTerminalStore((s) => s.states);
   const activity = useTerminalStore((s) => s.activity);
+
+  /*
+    Without this, this hook's glow is inert on a fresh boot — `board-view.tsx`
+    hits the exact same trap and names it precisely: `useTerminalStore` only
+    learns about restored (and live-reattached) sessions once something calls
+    `hydrate()`, and until Theme D's canvas existed, only `TerminalPanel` and
+    the FAB ever did. `BoardView`'s own call stays where it is (this hook does
+    not replace it — the board's glow still needs it whether or not the graph
+    was ever opened this session); this is graph mode's equivalent, since
+    `ProjectGraphView` can be the very first thing a session mounts. Costs
+    nothing the second time — `hydrate()` returns immediately once `hydrated`
+    is already set.
+  */
+  useEffect(() => {
+    useTerminalStore
+      .getState()
+      .hydrate()
+      .catch(() => {});
+  }, []);
 
   return useMemo(() => {
     const map = new Map<string, CardGlowState>();

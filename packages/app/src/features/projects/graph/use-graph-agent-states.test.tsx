@@ -10,12 +10,21 @@ const PROJECT_ID = 'proj1';
 
 describe('useGraphAgentStates', () => {
   beforeEach(() => {
-    useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
+    useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {}, hydrated: false });
   });
 
   it('empty map with no bound sessions', () => {
     const { result } = renderHook(() => useGraphAgentStates(PROJECT_ID));
     expect(result.current.size).toBe(0);
+  });
+
+  it('hydrates the terminal store on mount — a fresh boot must not leave the graph inert', () => {
+    // The exact trap `board-view.tsx` names for its own surface: nothing else
+    // reachable from a session that opens straight into graph mode ever
+    // calls `hydrate()`, so this hook has to be the one that does.
+    expect(useTerminalStore.getState().hydrated).toBe(false);
+    renderHook(() => useGraphAgentStates(PROJECT_ID));
+    expect(useTerminalStore.getState().hydrated).toBe(true);
   });
 
   it('running once a kanban session is bound to an item on this project', () => {
