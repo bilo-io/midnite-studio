@@ -33,17 +33,16 @@ import { quoteQualifiedTable } from './quote-identifier';
 export function ConnectionTree({
   connectionId,
   connectionName,
-  provider,
   sectionOpen = true,
   onOpenQueryTab,
   onPreviewTable,
 }: {
   connectionId: string;
   connectionName: string;
-  provider: DbProvider;
   /** Whether an ancestor section (if any) is itself open. Defaults to true for a standalone mount. */
   sectionOpen?: boolean;
   onOpenQueryTab: () => void;
+  /** The caller already knows this connection's provider — building the preview SQL is its job, not this tree's. */
   onPreviewTable: (table: SchemaTable) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -82,7 +81,6 @@ export function ConnectionTree({
             key={group.schema ?? ''}
             schema={group.schema}
             tables={group.tables}
-            provider={provider}
             onPreviewTable={onPreviewTable}
           />
         ))
@@ -116,12 +114,10 @@ function groupBySchema(tables: readonly SchemaTable[]): Group[] {
 function SchemaGroup({
   schema,
   tables,
-  provider,
   onPreviewTable,
 }: {
   schema: string | undefined;
   tables: SchemaTable[];
-  provider: DbProvider;
   onPreviewTable: (table: SchemaTable) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -136,7 +132,6 @@ function SchemaGroup({
             key={`${table.schema ?? ''}.${table.name}`}
             table={table}
             depth={1}
-            provider={provider}
             onPreviewTable={onPreviewTable}
           />
         ))}
@@ -159,7 +154,6 @@ function SchemaGroup({
           key={`${table.schema ?? ''}.${table.name}`}
           table={table}
           depth={2}
-          provider={provider}
           onPreviewTable={onPreviewTable}
         />
       ))}
@@ -170,12 +164,10 @@ function SchemaGroup({
 function TableRow({
   table,
   depth,
-  provider,
   onPreviewTable,
 }: {
   table: SchemaTable;
   depth: 1 | 2;
-  provider: DbProvider;
   onPreviewTable: (table: SchemaTable) => void;
 }) {
   const [open, setOpen] = useState(false);

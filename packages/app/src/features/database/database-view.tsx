@@ -185,7 +185,6 @@ export function DatabaseView() {
                     key={selected.id}
                     connectionId={selected.id}
                     connectionName={selected.name}
-                    provider={selected.provider}
                     onOpenQueryTab={() => openBlankTab(selected.id)}
                     onPreviewTable={(table) => previewTable(selected.id, selected.provider, table)}
                   />

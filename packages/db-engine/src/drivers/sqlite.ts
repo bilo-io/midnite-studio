@@ -7,7 +7,6 @@ import type { DbDriver } from '../driver';
 import { foldSchemaTree, type RawColumnRow } from '../introspect';
 import { normalizeRow } from '../normalize';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 type BetterSqlite3Ctor = typeof import('better-sqlite3');
 type BetterSqlite3Db = InstanceType<BetterSqlite3Ctor>;
 

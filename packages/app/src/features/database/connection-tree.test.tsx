@@ -41,7 +41,6 @@ function renderTree(props: Partial<Parameters<typeof ConnectionTree>[0]> = {}) {
       <ConnectionTree
         connectionId="c1"
         connectionName="Local Postgres"
-        provider="postgres"
         onOpenQueryTab={() => {}}
         onPreviewTable={() => {}}
         {...props}

@@ -172,11 +172,11 @@ export function ResultsGrid({
         editedColumnIndexes.every((colIndex, position) => {
           const current = currentValues[position];
           const original = originalRow[colIndex];
-          // Loose equality: the DB's re-SELECT and the originally streamed
-          // value may differ in JS type (string vs number) for the same SQL
-          // value without the row having actually changed.
-          // eslint-disable-next-line eqeqeq
-          return current == original;
+          // String-compared rather than `===`: the DB's re-SELECT and the
+          // originally streamed value may differ in JS type (a number vs.
+          // its string form) for the same underlying SQL value without the
+          // row having actually changed.
+          return (current === null ? '' : String(current)) === (original === null ? '' : String(original));
         });
 
       if (!stillMatches) {
