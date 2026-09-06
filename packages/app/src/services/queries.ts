@@ -1,4 +1,5 @@
 import type {
+  ClosedSession,
   DiagnosticsCandidate,
   DiagnosticsCommand,
   DiagnosticsRun,
@@ -306,6 +307,14 @@ export const keys = {
    * there is no repo close to drop it on.
    */
   dbSchema: (connectionId: string) => ['db', connectionId, 'schema'] as const,
+  /**
+   * The sessions you closed (Phase 67 Theme C). Outside the `repos` prefix on
+   * purpose — history spans every repo in one list (Theme E's `global: true`),
+   * so there is no repo close to drop it on; a manual refresh is the header's
+   * own affordance instead (`useRefreshSessionHistory`), the same relationship
+   * `forgeCli` has with `useRefreshForge`.
+   */
+  sessionsHistory: ['sessions', 'history'] as const,
 };
 
 /**
@@ -1411,6 +1420,41 @@ export function useRefreshForge(repoId: string | null) {
     // The probe too: the commonest reason a section is empty is that the user
     // has just run `gh auth login` in the terminal beside the app.
     void client.invalidateQueries({ queryKey: keys.forgeCli });
+  };
+}
+
+// --- session history (Phase 67) ---------------------------------------------
+
+/** Resting state for `useSessionHistory` with no bridge — jsdom, the e2e harness. */
+const EMPTY_SESSION_HISTORY: ClosedSession[] = [];
+
+/**
+ * The sessions you closed — read-only apart from `purge`, since an ending is
+ * recorded in main where it is observed, so there is nothing here for the
+ * renderer to append (see `bridge.ts`'s own doc on the `sessions` group).
+ *
+ * No `enabled` gate and no `staleTime`: unlike a forge listing this touches no
+ * subprocess and no rate limit, and history is genuinely global (Theme E's
+ * `global: true`) rather than following the active repo the way `useForgeIssues`
+ * does.
+ */
+export function useSessionHistory() {
+  return useQuery<ClosedSession[]>({
+    queryKey: keys.sessionsHistory,
+    queryFn: async () => {
+      const api = bridge();
+      if (!api) return EMPTY_SESSION_HISTORY;
+      const result = await api.sessions.history();
+      return result.sessions;
+    },
+  });
+}
+
+/** Re-run the closed-session listing, on the user's say-so — the header's refresh button. */
+export function useRefreshSessionHistory() {
+  const client = useQueryClient();
+  return () => {
+    void client.invalidateQueries({ queryKey: keys.sessionsHistory });
   };
 }
 
