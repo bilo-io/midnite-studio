@@ -45,7 +45,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 49/57 | `█████████░` | 86% | H | — |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 38/53 | `███████░░░` | 72% | — | G (human screenshots + real-board pass) |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 61/63 | `██████████` | 97% | — | Verification (human keyboard + eye pass) |
-| [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 53/60 | `█████████░` | 88% | G | H (blocked on G — Theme H's own precondition is `KNOWN_RED` empty) |
+| [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | 🔄 WIP | — | 55/60 | `█████████░` | 92% | — | H (unblocked — `KNOWN_RED` is empty as of PR #228) |
 | [37 · A glow that knows which tab](phases/phase-37-fab-tab-glow.md) | 🔄 WIP | — | 41/44 | `█████████░` | 93% | — | F (human idle-cpu + resize check) |
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
@@ -746,7 +746,7 @@ are the independent stragglers; H deletes the scaffolding.*
 - ✅ **D** — The terminal panel ([PR #47](https://github.com/bilo-io/midnite-studio/pull/47) + Theme I): reload rehydration + independent list resize — both genuine spec races (an async chunk-load beat, and a bounding box measured mid-tween), fixed and stable over 3 local runs each. **Attempted and reverted, then resolved**: dropping the whole file from `KNOWN_RED` — green at 38/38 on macOS, then CI surfaced real failures in *other* specs — turned out to be Theme I's `navigator.platform` chord-mismatch wall, not a GPU one; its fix closed those too.
 - ✅ **E** — Settings, files and tests: the same accessible-name substring collision hit three control pairs ("System"/"System Health", "Update"/"App Updates", an unscoped "Agent" match) — renamed the labels, not the selectors. (2026-09-02)
 - ✅ **F** — The forge surfaces: found the nav-rail hover/click-reflow hazard a second time, plus a real regression — "Load the full log" silently truncated to "Load full log" by an unrelated PR. (2026-09-02)
-- ◐ **G** — Monitor, graph and the browser pane, partial: `footer-monitor.spec.ts` and
+- ✅ **G** (PR #228) — Monitor, graph and the browser pane: `footer-monitor.spec.ts` and
   `browser-pane.spec.ts` are real, both confirmed on an actual CI run. `footer-monitor`'s cadence
   marker was a real product bug (`MonitorCluster` and `BatterySegment` each independently
   subscribing to the metrics stream, double-pushing every sample and corrupting
@@ -781,7 +781,7 @@ are the independent stragglers; H deletes the scaffolding.*
   was the same chord-mismatch wall this theme's platform pin already closed elsewhere. `grepInvert`
   stays as the mechanism, but zero specs carry `@linux-red` as of this batch — `KNOWN_RED` now
   holds only `graph-themes.spec.ts` (Theme G).
-- ◻ **H** — Retire the ratchet: full suite green twice, then delete `playwright.ci.config.ts`, the `app:e2e-ci` task, and point CI back at `app:e2e`. Blocked on Theme G — its own precondition is `KNOWN_RED` empty.
+- ◻ **H** — Retire the ratchet: full suite green twice, then delete `playwright.ci.config.ts`, the `app:e2e-ci` task, and point CI back at `app:e2e`. Unblocked by [PR #228](https://github.com/bilo-io/midnite-studio/pull/228): `KNOWN_RED` is now empty.
 
 ### [Phase 37 — A glow that knows which tab](phases/phase-37-fab-tab-glow.md)
 
