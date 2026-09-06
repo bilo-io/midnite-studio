@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { PREVIEW_DEPLOY_HOSTS } from '../features/browser/preview-deploy';
+
 import {
   derivedGroupIds,
   effectiveGroupId,
@@ -20,7 +22,13 @@ const tab = (id: string, extra: Partial<BrowserTab> = {}): BrowserTab => ({
 });
 
 beforeEach(() => {
-  useBrowserStore.setState({ tabs: [], groups: [], activeTabId: null, recentlyClosed: [] });
+  useBrowserStore.setState({
+    tabs: [],
+    groups: [],
+    activeTabId: null,
+    recentlyClosed: [],
+    previewDeployHosts: [...PREVIEW_DEPLOY_HOSTS],
+  });
 });
 
 describe('nextActiveAfterClose', () => {
@@ -276,6 +284,26 @@ describe('useBrowserStore reducers', () => {
       };
 
       expect(persisted.tabs[0]?.viewportPreset).toBe('1280');
+    });
+  });
+
+  describe('the preview-deploy allowlist (Phase 71 Theme D)', () => {
+    it('is seeded with the seven public hosts', () => {
+      expect(useBrowserStore.getState().previewDeployHosts).toEqual(PREVIEW_DEPLOY_HOSTS);
+    });
+
+    it('setPreviewDeployHosts replaces the whole list', () => {
+      useBrowserStore.getState().setPreviewDeployHosts(['example-hosting.dev']);
+      expect(useBrowserStore.getState().previewDeployHosts).toEqual(['example-hosting.dev']);
+    });
+
+    it('survives the persist round trip', () => {
+      useBrowserStore.getState().setPreviewDeployHosts(['example-hosting.dev']);
+      const partialize = useBrowserStore.persist.getOptions().partialize;
+      const persisted = partialize?.(useBrowserStore.getState()) as {
+        previewDeployHosts: string[];
+      };
+      expect(persisted.previewDeployHosts).toEqual(['example-hosting.dev']);
     });
   });
 });

@@ -1,0 +1,11 @@
+{
+  "id": 987654321,
+  "name": "Vercel",
+  "status": "completed",
+  "conclusion": "success",
+  "details_url": "https://vercel.com/acme/my-app/deployments/dpl_5xQ2f9K",
+  "output": {
+    "title": "Deployment ready",
+    "summary": "**[Visit Preview](https://my-app-git-feat-login-acme.vercel.app)**\n\nBuilt with commit 4a1f2c3."
+  }
+}
