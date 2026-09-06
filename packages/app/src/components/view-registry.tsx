@@ -1,8 +1,7 @@
 import { lazy, type ComponentType } from 'react';
 
-import { BrandMark } from './brand';
 import { GraphView } from '../features/graph/graph-view';
-import { useUiStore, type ViewId } from '../store/ui-store';
+import type { ViewId } from '../store/ui-store';
 
 /*
   The views, split out of the entry chunk — Phase 36 Theme C, moved here whole
@@ -15,11 +14,13 @@ import { useUiStore, type ViewId } from '../store/ui-store';
   embedded browser — all before the first row of history appeared.
 
   Eager on purpose, and not lazy below: `GraphView` (the first paint, so
-  splitting it would trade boot bytes for a boot round-trip) and
-  `SessionsPlaceholder` (a lazy boundary for what amounts to a centred paragraph
-  costs more than it saves). `EmptyWorkspace`, `ScreensaverHost` and
-  `BrowserPane` are eager too but are not entries here, so they stay in
-  `app.tsx`.
+  splitting it would trade boot bytes for a boot round-trip). `EmptyWorkspace`,
+  `ScreensaverHost` and `BrowserPane` are eager too but are not entries here, so
+  they stay in `app.tsx`. `sessions` was the one placeholder entry in this list
+  (`SessionsPlaceholder`, a lazy boundary for a centred paragraph costing more
+  than it saves) until Phase 67 built the real view — lazy now, like every
+  other view that is not the first paint, because it is not and it pulls in
+  xterm.
 
   `BrowserPane` was in this list once and came back out, which is the more
   interesting case: its MOUNT has load-bearing side effects. It seeds the first
@@ -69,41 +70,8 @@ const loadHistoryView = () => import('../features/history/history-view');
 const HistoryView = lazy(() => loadHistoryView().then((m) => ({ default: m.HistoryView })));
 const loadOptimizerPage = () => import('../features/optimizer/optimizer-page');
 const OptimizerPage = lazy(() => loadOptimizerPage().then((m) => ({ default: m.OptimizerPage })));
-
-/**
- * The stand-in for a `ViewId` that has a rail row, a path and a palette entry
- * but no surface yet.
- *
- * Named in `VIEW_COMPONENT` rather than reached by fallthrough — there is no
- * fallthrough any more — which is the difference between "this view is not
- * built yet" and "this view was forgotten". `sessions` is its only entry, and
- * the sessions surface is its own phase (Phase 67, `the-sessions-you-closed`).
- */
-function SessionsPlaceholder() {
-  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
-  const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
-
-  return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
-      <BrandMark className="h-14 w-14 opacity-80" />
-      <h1 className="text-lg font-semibold tracking-tight">Sessions</h1>
-      <p className="max-w-md text-sm text-muted-foreground">
-        {selectedRepoId ? (
-          <>
-            Active checkout:{' '}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs" data-selectable>
-              {selectedWorktreePath ?? 'main worktree'}
-            </code>
-            . The sessions view lands in a later phase — see{' '}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">.midnite/tasks/</code>.
-          </>
-        ) : (
-          <>Select a repository on the left to get started.</>
-        )}
-      </p>
-    </div>
-  );
-}
+const loadSessionsView = () => import('../features/sessions/sessions-view');
+const SessionsView = lazy(() => loadSessionsView().then((m) => ({ default: m.SessionsView })));
 
 /**
  * One view, as data.
@@ -162,8 +130,11 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   workflows: { Component: WorkflowsView, global: true },
   // Global too (Phase 44) — a video project is not a property of an open checkout.
   video: { Component: VideoView, global: true },
-  // Explicitly a placeholder, not a fallthrough — see `SessionsPlaceholder`.
-  sessions: { Component: SessionsPlaceholder },
+  // `global: true` is the substance of this entry, not decoration: session
+  // history spans repos, so without the flag the empty workspace would render
+  // until one is open, making every other repo's history unreachable
+  // (Phase 67 Theme E).
+  sessions: { Component: SessionsView, global: true },
   /*
     Global, and the one member of that set the phase doc does not name: Phase 59
     added `optimizer` to the ternary above the `!selectedRepoId` guard after this
