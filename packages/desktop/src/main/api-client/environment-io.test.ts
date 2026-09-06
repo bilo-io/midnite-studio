@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -256,6 +256,21 @@ describe('environment-io', () => {
 
       const result = await listEnvironments(repoRoot);
       expect(result.ok).toBe(false);
+
+      await rm(outsideRoot, { recursive: true, force: true });
+    });
+
+    it('confineTree refuses a save when environments/ itself is symlinked outside the repo, and writes nothing', async () => {
+      const outsideRoot = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-outside-envdir-')));
+
+      await mkdir(join(repoRoot, '.midnite', 'api'), { recursive: true });
+      await symlink(outsideRoot, join(repoRoot, '.midnite', 'api', 'environments'));
+
+      const result = await saveEnvironment(repoRoot, null, makeEnvironment(), true);
+      expect(result.ok).toBe(false);
+
+      // Nothing was written into the directory the symlink points at.
+      expect(await readdir(outsideRoot)).toEqual([]);
 
       await rm(outsideRoot, { recursive: true, force: true });
     });
