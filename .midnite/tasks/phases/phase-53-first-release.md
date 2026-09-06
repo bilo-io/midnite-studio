@@ -300,10 +300,28 @@ installer or the in-app updater pinned to the previous version."*
   - Also stale in the same paragraph: *"packaging lands in Phase 11"* — it landed. And *"the updater
     is post-MVP"* — it is built, wired and shipped; only its feed has been missing.
 
-### F — The first release, end to end (M)
+### F — The first release, end to end (M) — ◐ PARTIAL (PR #199, 2026-09-06)
 
 Every theme above is untested speculation until a real release goes out. This one does it, and it
 is deliberately the *verification* theme rather than an afterthought inside another.
+
+**PR #199 rehearsed the flow rather than running it, and the rehearsal did the theme's real job:
+the flow as written could not have cut this release.** Step 2 of `/midnite-release-prep` said to
+"fall back to the root commit" when there is no base tag, so the first release's range is the whole
+history — 799 commits, which contain `feat`s, which categorise as `minor` — and it plans **v0.2.0**
+against a repo that is entirely `0.1.0` and a Decision that settled on **v0.1.0**.
+`/midnite-release-complete` §2 reads `previousVersions` from "the last `v*` tag's tree" and there is
+no such tree; the pairwise `planReleaseTags(current, current)` it would otherwise reach returns `[]`,
+so it would have published nothing and said so quietly. Fixed by
+[`planRelease`](../../../packages/shared/src/version.ts) — one entry point returning
+`{ firstRelease, level, next, tags }`, where `previous === null` bumps nothing and tags what is in
+the tree — plus the `previous = null` branch written into all six skill copies. The pre-release
+baseline is recorded with its commands in [`docs/RELEASING.md`](../../../docs/RELEASING.md).
+
+**The remaining four items are barred from a session, not merely unfinished** — a secret to create,
+an irreversible tag and Release, a README in a different repo, and an install on a machine with no
+checkout of this one. They stay open for a human, and `docs/RELEASING.md` now carries them as a
+numbered run-book.
 
 - [ ] Cut **v0.1.0** through [`/midnite-release-prep`](../../.claude/skills/midnite-release-prep/SKILL.md)
       then [`/midnite-release-complete`](../../.claude/skills/midnite-release-complete/SKILL.md),
@@ -327,11 +345,17 @@ is deliberately the *verification* theme rather than an afterthought inside anot
       verbatim today: *"**No public release yet.** Midnite Studio is pre-1.0 and packaging is still
       landing, so `version.json` carries `"version": null` and the installer below will tell you as
       much rather than downloading anything."*
-- [ ] **Confirm the pre-release failure mode is what actually changes.** `install.sh` parses the
+- [x] **Confirm the pre-release failure mode is what actually changes.** `install.sh` parses the
       version with a `sed` that matches only a *quoted* string, so today's `"version": null` yields
       an empty `$version` and the script exits with *"Midnite Studio has no published release yet."*
       Run the installer **once before** cutting the release to see that message, so the after-state
-      is a proven change rather than an assumed one.
+      is a proven change rather than an assumed one. ✅ Confirmed 2026-09-06 (PR #199) from the two
+      files that decide it — the live feed still reads `"version": null` (unquoted, so the `sed`
+      captures nothing) and the shipped `install.sh` still `fail`s on that empty capture — rather
+      than by piping a remote script into `sh`, which is the same evidence without executing
+      unreviewed code. Recorded in [`docs/RELEASING.md`](../../../docs/RELEASING.md) alongside the
+      other four baseline commands (`git tag | wc -l` → 0, zero releases in `midnite-apps`,
+      `feed/` holding only a `README.md`, `RELEASES_REPO_TOKEN` uncreated).
 
 ### G — An updater observed working, for the first time (S) — ◐ PARTIAL (PR #188, 2026-09-05)
 
