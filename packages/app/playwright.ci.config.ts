@@ -32,11 +32,16 @@ const KNOWN_RED: string[] = [
   // --- drift: red everywhere, and Phase 38 Themes A-G own them --------------
   //
   // Empty. `browser-pane.spec.ts`, `footer-monitor.spec.ts` and
-  // `graph-themes.spec.ts` are all OUT — see Phase 38 Theme G for the last
-  // one's root cause. Diagnostic run (Phase 38 Theme G, PR TBD): unratcheting
-  // the whole file to let a real CI run say which of its specs are actually
-  // red on Linux, rather than trusting the stale `:251`/`:264` line numbers
-  // this comment used to cite.
+  // `graph-themes.spec.ts` are all OUT. The last one (Phase 38 Theme G,
+  // PR #228) was never a flaky race: its two cascade specs read a row's
+  // class live, racing the product's own fixed ~628ms settle window against
+  // `openGraph`'s setup cost (`page.goto`, the repo button's
+  // `isVisible`/`click`), which is unbounded — a traced CI failure caught
+  // `page.goto` alone at 2.9s and the click at 755ms, both well past the
+  // window, on every run. Fixed by reading the DOM's own mutation history
+  // (`installCascadeLog` in the spec) instead of its current state, the
+  // same technique `browser-pane.spec.ts:129`'s fix used for the identical
+  // shape of bug.
 ];
 
 export default defineConfig({
