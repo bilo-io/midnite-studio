@@ -141,9 +141,9 @@ point; G needs A and E's handler file. H is last.
 
 ## Deliverables
 
-### A — Shared contracts: the Postman v2.1 wire shape (M)
+### A — Shared contracts: the Postman v2.1 wire shape (M) — ✅ DONE (PR #222, 2026-09-06)
 
-- [ ] Add [`packages/shared/src/domain/api-client.ts`](../../../packages/shared/src/domain/api-client.ts)
+- [x] Add [`packages/shared/src/domain/api-client.ts`](../../../packages/shared/src/domain/api-client.ts)
       and one `export * from './api-client';` line in
       [`domain/index.ts`](../../../packages/shared/src/domain/index.ts) (alphabetical — the
       top-level [`src/index.ts`](../../../packages/shared/src/index.ts) already re-exports
@@ -156,24 +156,24 @@ point; G needs A and E's handler file. H is last.
     grep confirms it. Both are net-new here, both are correct zod v3 API (`packages/shared` pins
     `zod: ^3.23.8`), and a one-line comment in the file should say why each is needed so the next
     reader does not assume it was a slip.
-- [ ] Every object schema in the file is `.passthrough()`, including the recursive arm.
+- [x] Every object schema in the file is `.passthrough()`, including the recursive arm.
   - This is the whole "real Postman file compatibility" requirement: an exported collection carries
     `protocolProfileBehavior`, `_postman_id`, `event[]`, `variable[]`, `description` objects and
     `auth` shapes this app does not model, and a round-trip that dropped them would corrupt a file
     the user shares with a team.
   - The one exception is `ApiResponse`, which is ours and never round-trips to disk — strict.
-- [ ] `PostmanRequestSchema`: `{method: z.string(), url: PostmanUrlSchema, header: z.array(PostmanHeaderSchema).optional(), body: PostmanBodySchema.optional(), auth: PostmanAuthSchema.optional()}`.
+- [x] `PostmanRequestSchema`: `{method: z.string(), url: PostmanUrlSchema, header: z.array(PostmanHeaderSchema).optional(), body: PostmanBodySchema.optional(), auth: PostmanAuthSchema.optional()}`.
   - `method` is a bare `z.string()`, **not an enum** — Postman permits arbitrary verbs and a strict
     enum would reject a real file on import. The method *dropdown* in Theme D offers seven; the
     schema accepts what it is given.
   - `PostmanUrlSchema` is `z.union([z.string(), z.object({raw: z.string(), …}).passthrough()])` —
     Postman v2.1 writes both forms, and a v2.0-era export is frequently the string.
-- [ ] `PostmanEnvironmentSchema` (`{id, name, values: [{key, value, type: 'default'|'secret', enabled}]}`)
+- [x] `PostmanEnvironmentSchema` (`{id, name, values: [{key, value, type: 'default'|'secret', enabled}]}`)
       ships **here**, in this phase, even though nothing reads it until
       [Phase 70](phase-70-api-client-environments-tests-and-runs.md) Theme A.
   - Reason: Theme G's importer must *recognise and refuse* a `.postman_environment.json` with a
     real message rather than failing the collection parse with a schema-shaped wall of text.
-- [ ] `ApiRequestDraftSchema` — the renderer's editable shape, deliberately **not** the on-disk one:
+- [x] `ApiRequestDraftSchema` — the renderer's editable shape, deliberately **not** the on-disk one:
       `{id, name, method, url, params: KeyValueRow[], headers: KeyValueRow[], auth: ApiAuth,
       bodyMode: BodyMode, bodies: Record<BodyMode, string>, binaryPath: string | null}`, with
       `KeyValueRow = {key: string, value: string, enabled: boolean}`.
@@ -184,9 +184,9 @@ point; G needs A and E's handler file. H is last.
     `toPostmanRequest(draft: ApiRequestDraft, original: PostmanRequest | null): PostmanRequest`,
     live in this file. The second takes the original so passthrough keys survive the round trip —
     it merges over the original rather than constructing fresh.
-- [ ] `BodyMode = z.enum(['none','json','form-data','urlencoded','raw','binary','graphql','xml'])`
+- [x] `BodyMode = z.enum(['none','json','form-data','urlencoded','raw','binary','graphql','xml'])`
       and `ApiAuth = z.discriminatedUnion('type', [none, bearer, basic, apikey])`.
-- [ ] `ApiResponseSchema`: `{status: number, statusText: string, headers: Record<string,string>,
+- [x] `ApiResponseSchema`: `{status: number, statusText: string, headers: Record<string,string>,
       body: string, bodyIsJson: boolean, contentType: string | null, durationMs: number,
       sizeBytes: number, truncated: boolean}`.
   - `body` is a `string`, always, even for JSON — the renderer parses it. `HttpNodeOutput` in
@@ -195,25 +195,25 @@ point; G needs A and E's handler file. H is last.
     a parsed value loses the server's own key order.
   - `headers` is a flat `Record<string,string>` for the `Headers`-serialises-to-`{}` reason
     `http.ts:138-141` documents.
-- [ ] `ApiOpFailureSchema` / `ApiOpResultSchema` / `ApiOpResultOf(schema)` in the same file,
+- [x] `ApiOpFailureSchema` / `ApiOpResultSchema` / `ApiOpResultOf(schema)` in the same file,
       copying `database.ts:145-159`'s two-arm shape verbatim: `{ok:true, value} | {ok:false,
       kind:'error', message}`.
-- [ ] Channels in [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts)
+- [x] Channels in [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts)
       under a new `// --- api client (Phase 66) ---` group, **kebab-case verbs** per the file's own
       convention note at `:6` (`mstudio:<domain>:<verb>`, cf. `mstudio:db:list-connections`):
       `apiListCollections: 'mstudio:api-client:list-collections'`, `apiReadCollection`,
       `apiSaveCollection`, `apiImportCollection`, `apiDeleteCollection`, `apiSendRequest`,
       `apiCancelRequest`. Seven `CHANNELS` entries, no `EVENT_CHANNELS` entry (see Decision 6).
-- [ ] Payload schemas in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) as plain
+- [x] Payload schemas in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) as plain
       `export const X = z.object(…)` with no sibling `z.infer` type (the `Db*` group's convention);
       `ApiSendRequestRequest` carries `{repoId, requestId, draft, collectionVariables, timeoutMs}`
       and `ApiCancelRequestRequest` carries `{requestId}` — `requestId` mirrors
       `DbQueryStartRequest`, which is how a cancel finds its in-flight operation.
-- [ ] An `apiClient` namespace on `MidniteStudioBridge` in
+- [x] An `apiClient` namespace on `MidniteStudioBridge` in
       [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts), typed the way `db` is at `:974-992`
       — `In<typeof S.X>` for requests, `z.infer<typeof S.X>` for responses, `Unsubscribe` for
       nothing here.
-- [ ] `packages/shared/src/domain/api-client.test.ts`: three real Postman-exported collections
+- [x] `packages/shared/src/domain/api-client.test.ts`: three real Postman-exported collections
       committed under `packages/shared/src/domain/__fixtures__/api-client/`, each parsed and
       re-serialised, asserting **deep key-set equality with the original parsed JSON** — not
       `toEqual` on the object, which would pass even if a key were dropped and re-added with a
