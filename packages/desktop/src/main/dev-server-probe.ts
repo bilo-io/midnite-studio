@@ -47,7 +47,13 @@ export function probeLoopbackPort(
 
   return new Promise<boolean>((resolve) => {
     let settled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    /*
+      Explicitly `undefined` rather than a bare declaration, and `let` rather
+      than `const`: the socket construction below can throw, and its `catch`
+      calls `done` — which reads `timer` — before the timer is ever set. A
+      `const` declared after `done` would make that path a TDZ ReferenceError.
+    */
+    let timer: ReturnType<typeof setTimeout> | undefined = undefined;
     let socket: ProbeSocket | undefined;
 
     /*
