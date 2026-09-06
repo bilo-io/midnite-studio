@@ -18,6 +18,17 @@ Left open: the human pass over a real Rust/Gradle/Python checkout (Theme F's own
 identical item in the phase's shared `## Verification` section) — needs external toolchains on
 disk this session did not have.
 
+## 2026-09-06 — Phase 72 Theme F (closing) — the detector count pinned to its real literal
+
+[PR #202](https://github.com/bilo-io/midnite-studio/pull/202). Moves Phase 72 98/102 → 100/102
+(96% → 98%), which leaves only the phase's two explicitly human-only real-machine passes open.
+
+- [x] **F** — `expect(DETECTOR_COUNT).toBe(28)`. The phase doc asked for `24`, but that number went
+      stale the moment Theme B's catalogue landed with 28 entries, and the only existing assertion
+      was `DEFAULT_DETECTORS.toHaveLength(DETECTOR_COUNT)` — a tautology against itself, which would
+      never have failed on a silent addition to or removal from the catalogue. The literal pin is
+      what makes a catalogue change a deliberate act.
+
 ## 2026-09-06 — Phase 71 Themes A and C — one entry point for every link, and a dev server it can find on its own
 
 [PR #200](https://github.com/bilo-io/midnite-studio/pull/200). Moves Phase 71 0/41 → 12/41 (0% → 29%). Theme A is the seam B and D both call
