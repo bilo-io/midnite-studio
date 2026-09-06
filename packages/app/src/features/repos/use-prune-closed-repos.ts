@@ -26,6 +26,9 @@ export function usePruneClosedRepos(): void {
     const open = new Set(repos.map((repo) => repo.id));
 
     for (const tab of useWorkbenchStore.getState().tabs) {
+      // Query tabs are not repo-scoped (Phase 61 Theme G, Decision 7) — a
+      // database connection is not a checkout, and has no `repoId` to read.
+      if (tab.kind === 'query') continue;
       if (!open.has(tab.repoId)) useWorkbenchStore.getState().closeRepoTabs(tab.repoId);
     }
     for (const repoId of Object.keys(useUiStore.getState().collapsedRepoSections)) {

@@ -80,8 +80,8 @@ export function createPostgresDriver(config: ConnectionConfig, password: string 
       await client.end();
     },
 
-    query: async (sql, onBatch, { batchSize, signal }) => {
-      const cursor = client.query(new Cursor(sql, [], { rowMode: 'array' }));
+    query: async (sql, onBatch, { batchSize, signal, params }) => {
+      const cursor = client.query(new Cursor(sql, params ?? [], { rowMode: 'array' }));
       let cancelled = false;
       const onAbort = () => {
         cancelled = true;
