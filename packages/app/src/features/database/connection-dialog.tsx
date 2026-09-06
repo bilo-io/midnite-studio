@@ -19,10 +19,8 @@ import { bridge } from '../../services/bridge';
  * `finance-panel.tsx`'s `WatchlistEditor` (`<input type="password">`).
  *
  * The form is provider-conditional: SQLite shows a file path and hides
- * host/port/username/password. SQLite has no driver yet (Theme C is out of
- * scope), so it is offered here as a contract-complete option without a way
- * to actually connect one — saving a SQLite connection is harmless (it just
- * cannot be queried yet).
+ * host/port/username/password. SQLite has a real driver as of Phase 61 Theme
+ * C, so "Test connection" is enabled for it like every other provider.
  */
 
 type Phase = 'idle' | 'testing' | 'ok' | 'error' | 'saving';
@@ -276,7 +274,7 @@ export function ConnectionDialog({
           </button>
           <button
             type="button"
-            disabled={empty || isSqlite || phase === 'testing' || phase === 'saving'}
+            disabled={empty || phase === 'testing' || phase === 'saving'}
             onClick={() => void test()}
             className="flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm disabled:opacity-50"
           >
