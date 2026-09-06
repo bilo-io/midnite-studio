@@ -4,8 +4,8 @@
 
 ## 2026-09-06 — Phase 75 Theme B — the ladder, as a pure function
 
-[PR #206](https://github.com/bilo-io/midnite-studio/pull/206). Moves Phase 75 10/106 → 15/106
-(9% → 14%). `resolveForgeGraph(items, fields, options)` derives a `ForgeGraph` from
+[PR #206](https://github.com/bilo-io/midnite-studio/pull/206). Moves Phase 75 10/106 → 19/106
+(9% → 18%). `resolveForgeGraph(items, fields, options)` derives a `ForgeGraph` from
 `ForgeProjectItem[]` — the part of the phase with no UI in it, and the one every other theme reads.
 
 - [x] `packages/shared/src/domain/forge-graph.ts` — `ForgeGraphNodeSchema`/`ForgeGraphEdgeSchema`/
