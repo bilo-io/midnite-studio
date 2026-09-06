@@ -390,20 +390,20 @@ point; G needs A and E's handler file. H is last.
       string and leaves a disabled row out of it; the Auth tab's `apikey` + `in: 'query'` shows up
       in the computed-params preview and not in the user rows.
 
-### E — Main-process send engine (M)
+### E — Main-process send engine (M) — ✅ DONE (PR #227, 2026-09-06)
 
-- [ ] Add `packages/desktop/src/main/api-client/` for the logic and
+- [x] Add `packages/desktop/src/main/api-client/` for the logic and
       `packages/desktop/src/main/ipc/api-client-handlers.ts` for registration — the repo's split
       (thirteen `main/<feature>/` directories today, each with a thin
       `main/ipc/<feature>-handlers.ts` wrapper; `demo-api` is the exact pattern).
       `export function registerApiClientHandlers(getWindow: () => BrowserWindow | null): void`,
       called in [`main/index.ts`](../../../packages/desktop/src/main/index.ts) immediately after
       `registerDemoApiHandlers()` (`:356`).
-- [ ] **Every handler body wraps itself in try/catch and returns `{ok:false, kind:'error', message:
+- [x] **Every handler body wraps itself in try/catch and returns `{ok:false, kind:'error', message:
       describeFsError(e)}`.** `handleOp` converts a schema failure to an envelope but not a thrown
       exception (`handle.ts:40-45`) — an uncaught throw rejects the invoke and the renderer sees an
       opaque Electron error string instead of a rendered message.
-- [ ] Add `main/api-client/send.ts` exporting
+- [x] Add `main/api-client/send.ts` exporting
       `export async function sendApiRequest(req: ApiSendRequest, signal: AbortSignal): Promise<ApiResponse>`.
       Structure copied from `http.ts:84-161`:
   - Interpolate `{{var}}` against `req.collectionVariables` **here in main**, immediately before
@@ -423,29 +423,29 @@ point; G needs A and E's handler file. H is last.
   - Headers flattened with `response.headers.forEach`; `durationMs` from a `performance.now()`
     bracket; `sizeBytes` from the bytes actually read, which is the capped count when `truncated`
     (and the viewer says so rather than lying about the body's real size).
-- [ ] Timeouts: `const deadline = setTimeout(() => controller.abort(), req.timeoutMs ?? 30_000);
+- [x] Timeouts: `const deadline = setTimeout(() => controller.abort(), req.timeoutMs ?? 30_000);
       deadline.unref?.()`, cleared in a `finally`. 30 s default, taken from a new
       `Settings ▸ API Client ▸ Request timeout` number field, because a slow staging API and a hung
       one are indistinguishable at any fixed value.
-- [ ] `cancelRequest`: a module-level `Map<string, AbortController>` keyed by `requestId`, populated
+- [x] `cancelRequest`: a module-level `Map<string, AbortController>` keyed by `requestId`, populated
       on send and deleted in the send's `finally`. `cancelRequest` on an unknown id is a **no-op
       returning `{ok:true}`**, not an error — the race where a response lands as the user clicks
       Cancel is normal, and an error toast for it is noise.
   - No 100 ms cancel poll here: `http.ts` needs one only because a workflow's cancellation arrives
     on a `context.signal.cancelled()` poll rather than as an event. An IPC cancel is an event, so it
     calls `controller.abort()` directly.
-- [ ] Wire the `apiClient` namespace in
+- [x] Wire the `apiClient` namespace in
       [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts) — an object literal in
       the `workflow`/`demoApi` shape at `:351-366`, `call(CHANNELS.apiX, req)` per method — and add
       `| 'apiClient'` to the `Pick<MidniteStudioBridge, …>` at `:101-145`. Missing that `Pick` entry
       compiles and then hands the renderer `undefined` at runtime.
-- [ ] `main/api-client/send.test.ts` (vitest, no electron import needed by `send.ts` itself):
+- [x] `main/api-client/send.test.ts` (vitest, no electron import needed by `send.ts` itself):
       against `startFixtureServer()`, assert a 200 with a JSON body sets `bodyIsJson`; a **404
       resolves as `{ok:true}`** with `status: 404`; a route that never responds hits the timeout and
       returns `{ok:false}` with a message naming the millisecond budget; an abort mid-body returns
       `{ok:false}` and leaves the controller map empty; an oversized route sets `truncated: true`
       and stops reading (assert the server saw the socket close before it finished writing).
-- [ ] `main/api-client/interpolate.test.ts`: `{{a}}` resolved, `{{a}}` unresolved left literal with
+- [x] `main/api-client/interpolate.test.ts`: `{{a}}` resolved, `{{a}}` unresolved left literal with
       a warning, `{{{{a}}}}` and a `{{` with no closer both left alone, and a variable whose value
       itself contains `{{b}}` **not** re-expanded (one pass, no recursion — the alternative is a
       cycle bomb in a file the user did not write).
@@ -485,9 +485,9 @@ point; G needs A and E's handler file. H is last.
       truncated banner appears exactly when `truncated` is set; a `{ok:false}` envelope renders the
       message and a Retry, and never throws into the error boundary.
 
-### G — Import, export, and git-friendliness under `.midnite/api/` (M)
+### G — Import, export, and git-friendliness under `.midnite/api/` (M) — ✅ DONE (PR #227, 2026-09-06)
 
-- [ ] `importCollection` handler: `dialog.showOpenDialog(win, {title: 'Import Collection',
+- [x] `importCollection` handler: `dialog.showOpenDialog(win, {title: 'Import Collection',
       filters: [{name: 'Postman collection', extensions: ['json']}], properties: ['openFile']})`,
       copying `repoPickDirectory`'s `handleBare` shape (`repo-handlers.ts:186-198`) including its
       `win ? showOpenDialog(win, …) : showOpenDialog(…)` fallback.
@@ -498,34 +498,34 @@ point; G needs A and E's handler file. H is last.
     **"That file is not a Postman v2.1 collection."**), and a collection whose `info.schema` names
     a version this app does not know (imported anyway, with a warning — passthrough is what makes
     that safe).
-- [ ] The parsed collection is written to `.midnite/api/collections/<slug>.postman_collection.json`
+- [x] The parsed collection is written to `.midnite/api/collections/<slug>.postman_collection.json`
       **inside the open repository**, via `ensureConfinedDirs(repoRoot, '.midnite/api/collections')`
       then `createFile(confineParent(repoRoot, rel))`. `<slug>` is the collection's `info.name`
       slugified, de-duplicated with a `-2` suffix; a collision never overwrites, because
       `createFile` opens `O_CREAT|O_EXCL`.
-- [ ] `listCollections` / `readCollection` resolve `repoId` through the repo registry the same way
+- [x] `listCollections` / `readCollection` resolve `repoId` through the repo registry the same way
       `repo-handlers.ts` does, then `confineTree(repoRoot, target)` before reading — a symlink
       pointed out of the repo is refused, not followed.
-- [ ] `saveCollection` writes through `openForOverwrite` (`O_NOFOLLOW`), serialising with
+- [x] `saveCollection` writes through `openForOverwrite` (`O_NOFOLLOW`), serialising with
       **`JSON.stringify(value, null, 2)` plus a trailing newline, and key order taken from the
       parsed original** — `JSON.parse` preserves insertion order for string keys, and
       `toPostmanRequest`'s merge-over-original (Theme A) is what keeps it. Stable output is the
       whole point: a one-header edit must be a one-hunk diff, not a whole-file rewrite.
-- [ ] An `.midnite/api/README.md` is written on first import — three lines saying what the directory
+- [x] An `.midnite/api/README.md` is written on first import — three lines saying what the directory
       is, that it is safe to commit, and that Midnite Studio wrote it. A directory that appears in
       someone's `git status` with no explanation is a support thread.
-- [ ] Export: **Export…** on a collection's context menu opens `dialog.showSaveDialog` with the
+- [x] Export: **Export…** on a collection's context menu opens `dialog.showSaveDialog` with the
       collection's own filename defaulted, and writes the identical bytes `saveCollection` would.
       There is no separate serializer — one function, two destinations, so the round-trip test
       covers both.
-- [ ] Add `.midnite/api/**/*.local.json` to this repo's root
+- [x] Add `.midnite/api/**/*.local.json` to this repo's root
       [`.gitignore`](../../../.gitignore), beside the existing `.env`/`.claude/settings.local.json`
       entries. This is a **convenience for developing the app against its own repo only** — the rule
       that matters ships in [Phase 70](phase-70-api-client-environments-tests-and-runs.md) Theme A,
       which writes `.midnite/api/.gitignore` into the *user's* repository. x1 correction: the
       pre-refinement doc had only the root entry, which would have protected nobody's secrets but
       ours (Decision 9).
-- [ ] `main/api-client/collection-io.test.ts`: a fixture collection imported into a temp git repo,
+- [x] `main/api-client/collection-io.test.ts`: a fixture collection imported into a temp git repo,
       read back, saved with no edit, and compared to the original **byte for byte after both are
       normalised to 2-space-indent-plus-newline** — an exact-equality assertion, not "whitespace
       insignificant". Plus: an import whose target name already exists lands as `<slug>-2`; a

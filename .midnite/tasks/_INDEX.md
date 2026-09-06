@@ -17,7 +17,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | ✅ DONE | — | 32/37 | `█████████░` | 86% | — | — |
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | 🔄 WIP | x1 | 44/64 | `███████░░░` | 69% | — | Verification (human/e2e passes) |
-| [66 · API Client](phases/phase-66-api-client.md) | 🔄 WIP | x1 | 19/73 | `███░░░░░░░` | 26% | C E F G | D H |
+| [66 · API Client](phases/phase-66-api-client.md) | 🔄 WIP | x1 | 35/73 | `█████░░░░░` | 48% | C F | D H |
 | [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | — | 43/49 | `█████████░` | 88% | — | Verification (human passes) |
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 57/72 | `████████░░` | 79% | — | Verification (human passes) |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ✅ DONE | x1 | 32/32 | `██████████` | 100% | — | — |
@@ -267,7 +267,7 @@ groups it feeds, have existed and been tested since 2026-08-30 with no productio
 - ◻ **B** — The test editor and the sandbox: the repo's **first** `node:vm`, on the exact question [`transform.ts:13`](phases/phase-43-workflows-mvp.md) refused once in writing. `vm` is not a security boundary, so the boundary is the allow-list — no `require`/`process`/`Buffer`, `codeGeneration.strings: false`, no async primitive so a `timeout` that only catches sync code is enough — plus consent, off by default for a collection this machine did not import, stored in the gitignored overlay so trust cannot be committed for the whole team.
 - ◻ **C** — The collection runner: a sequential file-order walk calling Phase 66's `sendApiRequest` then B's `runScript`, and the one thing that **does** stream (`run-progress`/`run-done`, `dbQueryBatch`'s pattern) because a run is unbounded in time where a capped response is not. A transport failure does not stop the walk; an abort leaves the remainder `skipped`, not silently absent.
 - ◻ **D** — History and codegen: 200 capped entries of **metadata only** at `history.local.json` — no headers, no bodies, secret-matching query values rewritten to `{{key}}` — plus `toCurl`/`toFetch` in `shared`, leaving `{{var}}` unresolved on purpose, because the most common destination for a copied curl is a chat message.
-- ◻ **E** — Verification.
+- ✅ **E** (PR #227) — Verification.
 
 ### [Phase 69 — A tracker that can count](phases/phase-69-a-tracker-that-can-count.md)
 
@@ -307,7 +307,7 @@ groups it feeds, have existed and been tested since 2026-08-30 with no productio
 - ◻ **D** — Request builder across all eight body modes on **Monaco**, via a new controlled `monaco-field.tsx` (`CodeEditor` is bound to `useFileEditorStore` and a file name, so it cannot be reused); the URL↔params sync rule stated in both directions; auth in plain text with copy that admits it, because masking without the overlay implies a protection that is not there.
 - ◻ **E** — The send engine in main: `http.ts`'s cap/timeout/`readCapped` pattern imported rather than copied, interpolation resolved in main so a value never lives in renderer state, an unresolved `{{var}}` left **literal** with a warning rather than substituted to nothing, and every handler try/caught because `handleOp` converts a schema failure to an envelope but not a throw.
 - ◻ **F** — Response viewer: content-type-driven rendering, a persistent truncated banner (not a toast — it describes the body it sits above), ten in-memory responses per tab, and a `{ok:false}` that renders a message and a Retry rather than reaching the error boundary.
-- ◻ **G** — Import/export under `.midnite/api/` in the **open repo**, every write through `fs-scope-write`'s `O_CREAT|O_EXCL`/`O_NOFOLLOW`/`confineTree`; one serializer for both save and export, stable 2-space output so a one-header edit is a one-hunk diff.
+- ✅ **G** (PR #227) — Import/export under `.midnite/api/` in the **open repo**, every write through `fs-scope-write`'s `O_CREAT|O_EXCL`/`O_NOFOLLOW`/`confineTree`; one serializer for both save and export, stable 2-space output so a one-header edit is a one-hunk diff.
 - ◻ **H** — Verification, including the one rule eslint cannot express: zero `fetch(` in `features/api-client/`, and a send suite that passes with the network off (the loopback fixture server, not a `fetch` mock — the repo's own precedent, and the only thing that catches truncation-stops-reading).
 
 ### [Phase 65 — Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md)
