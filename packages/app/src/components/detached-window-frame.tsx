@@ -5,6 +5,10 @@ import { isPageWindowRole, type WindowRole } from '@midnite/studio-shared';
 import { FaGitAlt } from 'react-icons/fa';
 import { LuSquareArrowDownLeft, LuTerminal } from 'react-icons/lu';
 
+import { MidniteMenu } from '../features/agent/midnite-menu';
+import { ProjectActions } from '../features/agent/project-actions';
+import { RepoLifecycleActions } from '../features/repos/repo-lifecycle-actions';
+import { primaryTarget } from '../features/repos/use-repo-actions';
 import { bridge } from '../services/bridge';
 import { useRepos } from '../services/queries';
 import { useUiStore } from '../store/ui-store';
@@ -114,6 +118,18 @@ function PopoutHeaderMark({ role, title }: { role: MergedRole; title: string }) 
  * stacking a second header row below it — see `usePopoutHeaderActions`.
  * The FAB popout keeps the plain frame below (title, selected repo, a
  * dedicated re-dock button): undocked FAB behaviour is unchanged for now.
+ *
+ * The terminal popout additionally gets the main window's repo-action
+ * cluster and the midnite menu, ahead of its own portaled buttons — see the
+ * `right` slot below. `selectedRepoId`/`selectedWorktreePath` already reach
+ * every window live (`useBroadcastSync`'s `'ui'` `SyncKind`, mounted once per
+ * window by `DetachedShell`), so this frame reads them the same way the main
+ * window's own title bar does rather than capturing a repo at detach time —
+ * the cluster tracks whatever repo is selected in the main window as it
+ * changes. There is no separate "this popout's own repo": the terminal panel
+ * this same bar sits above resolves its `cwd` from this identical state
+ * (`DetachedContent` in `detached-root.tsx`), so the bar and the session it
+ * controls can never disagree.
  */
 export function DetachedWindowFrame({
   role,
@@ -126,11 +142,17 @@ export function DetachedWindowFrame({
 }) {
   const windowChrome = bridge()?.windowChrome ?? null;
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const { data: repos } = useRepos();
   const selectedRepo = repos?.find((repo) => repo.id === selectedRepoId) ?? null;
   const [leadingEl, setLeadingEl] = useState<HTMLDivElement | null>(null);
   const [actionsEl, setActionsEl] = useState<HTMLDivElement | null>(null);
   const merged = isMergedRole(role);
+  // Same resolution app.tsx's `centerActions` uses: prefer the selected
+  // worktree, then the repo's primary checkout, then its root path.
+  const repoCwd = selectedRepo
+    ? (selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path)
+    : null;
 
   return (
     <div
@@ -162,16 +184,56 @@ export function DetachedWindowFrame({
         }
         right={
           merged ? (
-            // Empty on purpose — the merged header's own actions portal in
-            // here (`usePopoutHeaderActions`). `overflow-x-auto` plus a
-            // viewport-relative cap is what keeps a wide row (the browser's
-            // tab strip, in particular) from blowing out the bar instead of
-            // scrolling within it — the slot itself is `shrink-0` upstream.
-            <div
-              ref={setActionsEl}
-              className="flex min-w-0 items-center gap-2 overflow-x-auto"
-              style={{ maxWidth: '60vw' }}
-            />
+            <div className="flex min-w-0 shrink-0 items-center gap-2">
+              {/*
+                Terminal only, and only once a repo is selected: with none
+                selected there is no checkout for these to act on or for the
+                midnite menu to run a skill against, so — mirroring
+                `app.tsx`'s `centerActions`, which renders `null` the same
+                way — the whole cluster (both delimiters included) is left
+                out rather than shown disabled, so no hairline is ever
+                stranded with nothing beside it.
+              */}
+              {role === 'terminal' && selectedRepo && repoCwd ? (
+                <>
+                  <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <ProjectActions
+                      repoId={selectedRepo.id}
+                      repoName={selectedRepo.name}
+                      cwd={repoCwd}
+                      {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
+                    />
+                    <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
+                    <RepoLifecycleActions
+                      repoId={selectedRepo.id}
+                      repoName={selectedRepo.name}
+                      cwd={repoCwd}
+                      {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
+                    />
+                  </div>
+                  <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
+                  <MidniteMenu
+                    repo={selectedRepo}
+                    repoId={selectedRepo.id}
+                    repoName={selectedRepo.name}
+                    cwd={repoCwd}
+                  />
+                </>
+              ) : null}
+              {/*
+                The merged header's own actions portal in here
+                (`usePopoutHeaderActions`). `overflow-x-auto` plus a
+                viewport-relative cap is what keeps a wide row (the browser's
+                tab strip, in particular) from blowing out the bar instead of
+                scrolling within it — the slot itself is `shrink-0` upstream.
+              */}
+              <div
+                ref={setActionsEl}
+                className="flex min-w-0 items-center gap-2 overflow-x-auto"
+                style={{ maxWidth: '60vw' }}
+              />
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               {selectedRepo ? (
