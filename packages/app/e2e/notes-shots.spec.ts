@@ -4,7 +4,10 @@ import { createShotTaker, fixtures, installMockBridge, setTheme } from './shots-
 
 /**
  * The screenshots for Phase 58 — the quick-access menu from both entry
- * points, and the Notes modal — light and dark.
+ * points, and the Notes modal — light and dark. The Notes shots were later
+ * re-taken, and one added, for the ad hoc pass that gave the composer a
+ * gradient border and a resize grip, un-clamped the rows and put a drag handle
+ * on them.
  *
  * Run with `MSTUDIO_SHOTS=1`; skipped otherwise, so the normal suite stays
  * fast and does not rewrite committed images on every run.
@@ -55,9 +58,45 @@ for (const mode of ['light', 'dark'] as const) {
     await composer.press('Enter');
     await composer.fill('draft the settings redesign plan');
     await composer.press('Enter');
-    await page.getByRole('checkbox', { name: 'Mark note completed' }).first().check();
+    /*
+      A note past three lines — the length the row used to clamp, and the one
+      the composer's four-line default is sized for.
+    */
+    await composer.fill(
+      'the write queue serialises per repo, but the watcher fans out per worktree, ' +
+        'so a fetch across five checkouts still queues behind the slowest one; ' +
+        'worth measuring before deciding whether the queue should be per worktree ' +
+        'instead, since that changes what index.lock actually protects',
+    );
+    await composer.press('Enter');
+    await page.getByRole('checkbox', { name: 'Mark note completed' }).last().check();
 
+    // Focused, so the composer's gradient border and glow are in the shot.
+    await composer.fill('a thought half-written');
     await page.waitForTimeout(200);
     await shoot(modal, `notes-modal-${mode}`);
+  });
+
+  test(`a note being edited in place (${mode})`, async ({ page }) => {
+    if (mode === 'dark') await setTheme(page, 'dark');
+
+    await page.getByRole('button', { name: 'Open quick access panel' }).click();
+    await page.keyboard.press('n');
+    const modal = page.getByTestId('notes-modal');
+    await expect(modal).toBeVisible();
+
+    const composer = page.getByTestId('notes-composer');
+    await composer.fill(
+      'the lane layout runs in main, so a 40k-commit repo never blocks the render ' +
+        'thread — but the batch size is still a guess; find the one where the first ' +
+        'paint lands under 200ms',
+    );
+    await composer.press('Enter');
+
+    await page.getByTestId('note-body').first().dblclick();
+    await expect(page.getByTestId('note-edit-input')).toBeVisible();
+
+    await page.waitForTimeout(200);
+    await shoot(modal, `notes-inline-editor-${mode}`);
   });
 }

@@ -73,24 +73,26 @@ describe('notes-store', () => {
     expect(afterStatus.updatedAt).toBeGreaterThan(afterBody.updatedAt);
   });
 
-  it('sorts notesForRepo newest first (createdAt descending)', () => {
+  it('sorts notesForRepo by the manual order, tie-breaking on createdAt', () => {
     const noteA: Note = {
       id: 'a',
       repoId: 'repo-1',
-      body: 'Oldest',
+      body: 'Dragged to the top',
       status: 'captured',
       done: false,
       createdAt: 1000,
       updatedAt: 1000,
+      order: 0,
     };
     const noteB: Note = {
       id: 'b',
       repoId: 'repo-1',
-      body: 'Newest',
+      body: 'Newest, but dragged down',
       status: 'captured',
       done: false,
       createdAt: 3000,
       updatedAt: 3000,
+      order: 2,
     };
     const noteC: Note = {
       id: 'c',
@@ -100,6 +102,7 @@ describe('notes-store', () => {
       done: false,
       createdAt: 2000,
       updatedAt: 2000,
+      order: 1,
     };
     const noteOtherRepo: Note = {
       id: 'd',
@@ -109,10 +112,50 @@ describe('notes-store', () => {
       done: false,
       createdAt: 4000,
       updatedAt: 4000,
+      order: 0,
     };
 
     const sorted = notesForRepo([noteA, noteB, noteC, noteOtherRepo], 'repo-1');
-    expect(sorted.map((n) => n.id)).toEqual(['b', 'c', 'a']);
+    expect(sorted.map((n) => n.id)).toEqual(['a', 'c', 'b']);
+
+    // Two notes captured in the same millisecond share an `order`; the newer
+    // one still comes first.
+    const tied = notesForRepo(
+      [
+        { ...noteA, id: 'tie-old', order: 5, createdAt: 10 },
+        { ...noteA, id: 'tie-new', order: 5, createdAt: 20 },
+      ],
+      'repo-1',
+    );
+    expect(tied.map((n) => n.id)).toEqual(['tie-new', 'tie-old']);
+  });
+
+  it('migrates a v1 blob by stamping order in the createdAt-descending sort it rendered in', () => {
+    const persistOptions = (
+      useNotesStore as unknown as {
+        persist: {
+          getOptions: () => {
+            migrate: (persisted: unknown, version: number) => { notes: Record<string, Note> };
+          };
+        };
+      }
+    ).persist.getOptions();
+
+    const v1 = {
+      notes: {
+        old: { id: 'old', repoId: 'r1', body: 'old', status: 'captured', done: false, createdAt: 1, updatedAt: 1 },
+        new: { id: 'new', repoId: 'r1', body: 'new', status: 'captured', done: false, createdAt: 9, updatedAt: 9 },
+        other: { id: 'other', repoId: 'r2', body: 'other', status: 'captured', done: false, createdAt: 5, updatedAt: 5 },
+      },
+    };
+
+    const migrated = persistOptions.migrate(v1, 1);
+    expect(notesForRepo(Object.values(migrated.notes), 'r1').map((n) => n.id)).toEqual([
+      'new',
+      'old',
+    ]);
+    // Numbering restarts per repository.
+    expect(migrated.notes.other?.order).toBe(0);
   });
 
   it('prunes notes only for absent repositories', () => {
@@ -145,6 +188,7 @@ describe('notes-store', () => {
           done: false,
           createdAt: 1,
           updatedAt: 1,
+          order: 0,
         },
       },
       addNote: () => ({}),
@@ -152,11 +196,59 @@ describe('notes-store', () => {
       setStatus: () => {},
       toggleDone: () => {},
       removeNote: () => {},
+      reorderNotes: () => {},
       pruneMissingRepos: () => 0,
     };
 
     const partialized = persistOptions.partialize(state);
     expect(partialized).toEqual({ notes: state.notes });
     expect(Object.keys(partialized as object)).toEqual(['notes']);
+  });
+
+  it('orders a repository by `order`, prepending each new note', () => {
+    const store = useNotesStore.getState();
+    const first = store.addNote('repo-1', 'first');
+    const second = store.addNote('repo-1', 'second');
+    const third = store.addNote('repo-1', 'third');
+
+    const ordered = notesForRepo(Object.values(useNotesStore.getState().notes), 'repo-1');
+    expect(ordered.map((n) => n.id)).toEqual([third.id, second.id, first.id]);
+  });
+
+  it('reorders a repository to the ids it is handed', () => {
+    const store = useNotesStore.getState();
+    const a = store.addNote('repo-1', 'a');
+    const b = store.addNote('repo-1', 'b');
+    const c = store.addNote('repo-1', 'c');
+
+    store.reorderNotes('repo-1', [a.id, c.id, b.id]);
+
+    const ordered = notesForRepo(Object.values(useNotesStore.getState().notes), 'repo-1');
+    expect(ordered.map((n) => n.id)).toEqual([a.id, c.id, b.id]);
+    // A drag moves a note, it does not edit one.
+    expect(useNotesStore.getState().notes[a.id]?.updatedAt).toBe(a.updatedAt);
+  });
+
+  it('leaves other repositories, and ids it does not own, alone', () => {
+    const store = useNotesStore.getState();
+    const mine = store.addNote('repo-1', 'mine');
+    const theirs = store.addNote('repo-2', 'theirs');
+
+    store.reorderNotes('repo-1', ['missing-id', theirs.id, mine.id]);
+
+    expect(useNotesStore.getState().notes[mine.id]?.order).toBe(0);
+    expect(useNotesStore.getState().notes[theirs.id]?.order).toBe(theirs.order);
+  });
+
+  it('keeps notes left out of a partial reorder, in their existing order, after it', () => {
+    const store = useNotesStore.getState();
+    const a = store.addNote('repo-1', 'a');
+    const b = store.addNote('repo-1', 'b');
+    const c = store.addNote('repo-1', 'c');
+    // Rendered order is c, b, a — reorder only the two the caller can see.
+    store.reorderNotes('repo-1', [b.id, c.id]);
+
+    const ordered = notesForRepo(Object.values(useNotesStore.getState().notes), 'repo-1');
+    expect(ordered.map((n) => n.id)).toEqual([b.id, c.id, a.id]);
   });
 });

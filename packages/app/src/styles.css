@@ -570,6 +570,47 @@ section.bg-card\/60 {
   display: none;
 }
 
+/*
+ * `.gradient-border--glow` — an opt-in focus halo for text controls.
+ *
+ * The halo above is switched off globally, and deliberately: on a `fixed`
+ * popover it fought the panel's own stacking context and painted a rainbow
+ * smear over the text. A text input has none of that problem — it is an
+ * in-flow box with nothing layered over it — but it is the one control where
+ * "this is where your keystrokes are going" has to read at a glance, and a
+ * 1.5px conic ring alone does not carry across a modal.
+ *
+ * So this is a `box-shadow` rather than a resurrected `::after`: no pseudo, no
+ * blur filter, no mask arithmetic, and it cannot participate in paint order at
+ * all. Three rings — a tight violet core and two wider, softer spectrum ones —
+ * approximate the conic border bleeding outward without any of them being
+ * strong enough to read as a selection outline. Opacities are low because the
+ * ring underneath is already at full saturation; this is the bloom around it.
+ *
+ * `:focus-within`, matching `.gradient-border`'s own trigger, so the ring and
+ * the bloom can never disagree about whether the control has focus.
+ */
+.gradient-border--glow {
+  transition: box-shadow 0.18s ease;
+}
+
+.gradient-border--glow:focus-within {
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.28),
+    0 0 12px -2px rgba(59, 130, 246, 0.35),
+    0 0 22px -6px rgba(236, 72, 153, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .gradient-border--glow {
+    transition: none;
+  }
+}
+
+html[data-motion='reduced'] .gradient-border--glow {
+  transition: none;
+}
+
 /* Screensaver / Lockscreen Title Sheen & Tint Glow */
 .screensaver-title {
   background-image: linear-gradient(

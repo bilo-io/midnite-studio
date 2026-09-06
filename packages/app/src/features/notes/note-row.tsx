@@ -1,9 +1,10 @@
 import type { RepoDescriptor } from '@midnite/studio-shared';
-import { KeyboardEvent, useEffect, useRef, useState } from 'react';
-import { LuLightbulb, LuTrash2, LuZap } from 'react-icons/lu';
+import { KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { LuGripVertical, LuLightbulb, LuTrash2, LuZap } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
+import { useSortableRow } from '../../components/sortable-list';
 import { Note, NoteStatus, useNotesStore } from '../../store/notes-store';
 import { useSkillHandoff } from '../agent/use-skill-handoff';
 
@@ -34,17 +35,44 @@ export function NoteRow({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dialogs = useDialogs();
   const handoff = useSkillHandoff();
+  const drag = useSortableRow(note.id);
 
   useEffect(() => {
     setDraft(note.body);
   }, [note.body]);
 
-  useEffect(() => {
+  /*
+    Layout effect, not effect: the textarea replaces a block of body text that
+    is already the note's full height, and focusing it a paint later is what
+    makes the swap visibly jump. `select()` puts the caret at the end of a
+    full selection rather than at character 0 — a double-click means "rewrite
+    this", and typing should replace it.
+  */
+  useLayoutEffect(() => {
     if (editing) {
       textareaRef.current?.focus();
       textareaRef.current?.select();
     }
   }, [editing]);
+
+  /*
+    Fit the editor to its content, with no ceiling — the box that replaces the
+    body opens at the body's own height and grows a line at a time as you type,
+    so editing a ten-line note is never done through a porthole. Unlike the
+    composer this one has no resize grip to fight, and the list it sits in
+    scrolls, so there is nothing for a maximum to protect.
+
+    `height = 'auto'` first is not redundant: `scrollHeight` on an element with
+    an explicit height never reports less than that height, so without the
+    reset the box could only ever grow. A layout effect for the same reason the
+    focus above is one — a size set after paint is a size the user watches jump.
+  */
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!editing || !textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [draft, editing]);
 
   const commitEdit = () => {
     const trimmed = draft.trim();
@@ -102,9 +130,33 @@ export function NoteRow({
 
   return (
     <div
+      ref={drag.setNodeRef}
+      style={drag.style}
       data-testid={`note-row-${note.id}`}
-      className="group flex items-start gap-3 rounded-lg border border-border/60 bg-card/60 p-3 transition-colors hover:bg-accent/30"
+      className={`group flex items-start gap-2 rounded-lg border border-border/60 bg-card/60 p-3 transition-colors hover:bg-accent/30 ${
+        drag.isDragging ? 'opacity-80' : ''
+      }`}
     >
+      {/*
+        A handle, not the whole row. Every other sortable list in the app
+        (repos, terminal sessions) drags by its row, because a row there is one
+        click target. A note is four — a checkbox, a body that takes a
+        double-click and wants its text selectable in between, a status badge
+        and three buttons — and a 6px drag threshold over the body would fight
+        the text selection that makes the body worth reading in full.
+      */}
+      <button
+        type="button"
+        ref={drag.setActivatorNodeRef}
+        {...drag.attributes}
+        {...drag.listeners}
+        data-testid="note-drag-handle"
+        aria-label="Reorder note"
+        className="mt-0.5 cursor-grab touch-none rounded p-0.5 text-muted-foreground/40 opacity-0 transition-opacity hover:text-muted-foreground focus-visible:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+      >
+        <LuGripVertical className="h-4 w-4" />
+      </button>
+
       <input
         type="checkbox"
         aria-label="Mark note completed"
@@ -115,21 +167,42 @@ export function NoteRow({
 
       <div className="min-w-0 flex-1">
         {editing ? (
-          <textarea
-            ref={textareaRef}
-            data-testid="note-edit-input"
-            value={draft}
-            rows={2}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commitEdit}
-            onKeyDown={handleKeyDown}
-            className="w-full resize-none rounded border border-input bg-background px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
-          />
+          /*
+            The same gradient border and focus glow the composer wears — the
+            row is being edited in place, so it should read as the same control
+            in the same list, not as a plain box that appeared where prose was.
+          */
+          <div className="gradient-border gradient-border--glow rounded-md">
+            <textarea
+              ref={textareaRef}
+              data-testid="note-edit-input"
+              value={draft}
+              rows={1}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={handleKeyDown}
+              /* `overflow-hidden`: the effect above guarantees the box already
+                 fits, so a scrollbar could only ever be a transient artefact of
+                 the measurement itself. */
+              className="block w-full resize-none overflow-hidden rounded-md border-0 bg-background px-2 py-1 text-sm leading-snug outline-none"
+            />
+          </div>
         ) : (
+          /*
+            The whole body, never a clamp. A note is the thought you'd
+            otherwise lose; three lines of it with the rest behind an ellipsis
+            is the same loss with extra steps.
+
+            Double-click to edit, not single: a single click is how you select
+            a phrase to copy out of a note, and it used to swallow that by
+            swapping the text for a textarea whose `select()` then blew the
+            selection away.
+          */
           <div
             data-testid="note-body"
-            onClick={() => setEditing(true)}
-            className={`cursor-text select-text whitespace-pre-wrap text-sm leading-snug line-clamp-3 hover:text-foreground ${
+            onDoubleClick={() => setEditing(true)}
+            title="Double-click to edit"
+            className={`cursor-text select-text whitespace-pre-wrap break-words text-sm leading-snug hover:text-foreground ${
               note.done ? 'line-through text-muted-foreground/70' : 'text-foreground'
             }`}
           >

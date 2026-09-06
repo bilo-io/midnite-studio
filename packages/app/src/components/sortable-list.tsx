@@ -83,17 +83,32 @@ export function SortableList({
  */
 export function useSortableRow(id: string): {
   setNodeRef: (node: HTMLElement | null) => void;
+  /**
+   * Optional: the element the drag gesture starts on, when that is not the
+   * whole row. Spread `attributes`/`listeners` onto the *handle* and this ref
+   * with them, so dnd-kit still measures and animates the row (`setNodeRef`)
+   * while listening on the grip alone — a note row's body has to stay
+   * selectable and double-clickable, which a row-wide 6px drag threshold eats.
+   */
+  setActivatorNodeRef: (node: HTMLElement | null) => void;
   style: CSSProperties;
   attributes: Record<string, unknown>;
   listeners: Record<string, unknown>;
   isDragging: boolean;
 } {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id,
-  });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
 
   return {
     setNodeRef,
+    setActivatorNodeRef,
     style: {
       transform: CSS.Translate.toString(transform),
       transition,
