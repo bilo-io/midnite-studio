@@ -16,7 +16,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | ◻ TODO | x1 | 0/50 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | ✅ DONE | — | 32/37 | `█████████░` | 86% | — | — |
-| [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | 🔄 WIP | x1 | 40/64 | `██████░░░░` | 63% | F | — |
+| [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | 🔄 WIP | x1 | 44/64 | `███████░░░` | 69% | — | Verification (human/e2e passes) |
 | [66 · API Client](phases/phase-66-api-client.md) | ◻ TODO | x1 | 0/73 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | — | 43/49 | `█████████░` | 88% | — | Verification (human passes) |
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 52/72 | `███████░░░` | 72% | — | G |
@@ -295,7 +295,7 @@ groups it feeds, have existed and been tested since 2026-08-30 with no productio
 - ✅ **C** (PR #209) — The list: `issues-view.tsx`'s split layout (flat, not Councils' hierarchy), rows labelled by the session's own name rather than `session.title` (the repo name), `exited` given a hollow-ring dot distinct from `idle`'s fill, a `reason` facet, a real skeleton since history is fetched, unpersisted single-id selection, and purge behind a `warnings` confirm (not the git-shaped `blastRadius`).
 - ✅ **D** (PR #209) — The transcript pane: a read-only `transcript-view.tsx`, **not** a mode of `TerminalView` — that component wakes a dead session on a keystroke, and a closed session's `cwd` may be gone. DOM renderer by never asking `xterm-budget` for a slot, so all twelve WebGL contexts stay with live terminals; row switches dispose and rebuild rather than `reset()`.
 - ✅ **E** (PR #209) — The rail row stops lying: `VIEW_COMPONENT.sessions` points at the real view with `global: true` (history spans repos), `SessionsPlaceholder` deleted, the registry test's global set widened to eight, the palette's repo-name-for-every-row label fixed, and the FAB gap closed — those sessions join history and leave the palette, which navigates to a blank pane today.
-- ◻ **F** — Detachable, like every other page: `'sessions'` into `PAGE_WINDOW_ROLES`, whose comment excludes it as *'a placeholder with no view behind it yet'* — a reason this phase retires. Everything else derives from the const array; only the selection joins `broadcast-sync`'s page allowlist, never the list.
+- ✅ **F** (PR #214) — Detachable, like every other page: `'sessions'` into `PAGE_WINDOW_ROLES`, whose comment excluded it as *'a placeholder with no view behind it yet'* — a reason this phase retires. Everything else derives from the const array, except two spots the doc's own count missed (`window-manager.ts`'s per-role popout size, `schemas.ts`'s hand-written relay-message enum) — both caught by `moon run :typecheck`. Only the selection joins `broadcast-sync`'s page allowlist, never the list.
 
 ### [Phase 66 — API Client](phases/phase-66-api-client.md)
 

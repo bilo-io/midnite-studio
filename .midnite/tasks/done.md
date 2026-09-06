@@ -34,6 +34,40 @@ caller.
   lines landed in this PR. Theme H (filters, and the graph's own facets) is the phase's one
   remaining theme.
 
+## 2026-09-06 — Phase 67 Theme F — detachable, like every other page
+
+[PR #214](https://github.com/bilo-io/midnite-studio/pull/214). Moves Phase 67 40/64 → 44/64
+(63% → 69%). The last lettered theme: Sessions becomes a detachable page, retiring the "no view
+behind it yet" reason `window.ts` gave for excluding it — Theme E's `SessionsView` already cleared
+that bar. Only Phase 67's shared Verification section (largely e2e/screenshot/human passes)
+remains.
+
+- [x] `'sessions'` into `PAGE_WINDOW_ROLES` (`shared/src/domain/window.ts`) and
+      `sessions: 'Sessions'` into `PAGE_ROLE_TITLE` (`page-detach-mark.tsx`) — everything else
+      (`WindowRoleSchema`, `isPageWindowRole`, `use-window-sync.ts`, `detached-window-frame.tsx`)
+      derives from the const array unchanged.
+  - Two more sites do branch per role and were not in the phase doc's "five files" count,
+    surfaced by `moon run :typecheck` the moment `'sessions'` joined the array:
+    `window-manager.ts`'s `DEFAULT_POPOUT_SIZE` (a total `Record` giving each popout its default
+    size — sessions got issues/history's 1180×820) and `schemas.ts`'s `WindowRelayMessage.kind`
+    (a hand-written `z.enum` mirroring `broadcast-sync.ts`'s `SyncKind`, not derived from it).
+  - The retired-reason comment at `window.ts:42-58` said "seven `ViewId`s absent" while listing
+    six names — already stale (13 page roles existed against 19 `ViewId`s, six absent, not
+    seven). Corrected to the arithmetically-consistent **five** once `sessions` moved out, rather
+    than the "six" the phase doc's item text implied (its own math didn't account for the
+    pre-existing staleness).
+- [x] `SessionsView`'s header gets `<PageDetachMark role="sessions" />`, per `issues-view.tsx`'s
+      pattern — its docblock now records the mount audit `window.ts` asks for: fetches a list and
+      renders it, seeds nothing, drives no reveal.
+- [x] `sessions-store.selectedClosedSessionId` joins `broadcast-sync.ts`'s page-selection
+      allowlist as a fourth `SyncKind`/slice, the same way Actions' open run and the Explorer's
+      open file already travel across a popout. The history list stays local (Decision 6).
+- [x] `page-detach-mark.test.tsx`'s excluded-roles list drops `sessions` and gains its own detach
+      test; `window.test.ts` needed no edit, as the doc predicted.
+- Left open: Phase 67's shared Verification section (`moon run :typecheck :lint :test` + `pnpm
+  e2e` green, the archive/purge/relaunch/screenshot passes, and the human read-a-transcript
+  check) — none of it is this theme's own item, and it spans every theme already landed.
+
 ## 2026-09-06 — Phase 75 Theme E — edge states, and what blocked looks like
 
 [PR #210](https://github.com/bilo-io/midnite-studio/pull/210). Moves Phase 75 55/106 → 67/106

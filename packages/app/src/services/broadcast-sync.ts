@@ -10,6 +10,7 @@ import { usePaletteStore } from '../features/themes/palette-store';
 import { useActionsStore, type ActionsState } from '../store/actions-store';
 import { useAppearanceStore, type AppearanceState } from '../store/appearance-store';
 import { useBrowserStore, type BrowserTab, type BrowserTabGroup } from '../store/browser-store';
+import { useSessionsStore, type SessionsState } from '../store/sessions-store';
 import { useUiStore, type UiState } from '../store/ui-store';
 import { useWorkbenchStore, type WorkbenchTab } from '../store/workbench-store';
 
@@ -40,7 +41,11 @@ import { useWorkbenchStore, type WorkbenchTab } from '../store/workbench-store';
  * duplicating (`PAGE_WINDOW_ROLES`), so the same view can be live in two
  * windows at once, and the per-view *selection* each one holds is renderer
  * state no relay carried: which run Actions has open, which file the Explorer
- * has open, which tabs the Changes workbench holds. Those three now travel.
+ * has open, which tabs the Changes workbench holds. Those three now travel —
+ * and Phase 67 Theme F adds a fourth, `sessions-store.selectedClosedSessionId`,
+ * once Sessions itself joined `PAGE_WINDOW_ROLES`. The history *list* stays
+ * out: it lives in main and each window fetches its own copy (Decision 6),
+ * the same reasoning that already keeps `terminal-store` off this allowlist.
  *
  * What deliberately does NOT travel is the line the same widening could easily
  * have crossed: view **furniture** — `files-store.expanded`,
@@ -66,7 +71,8 @@ type SyncKind =
   | 'watch'
   | 'actions'
   | 'files'
-  | 'workbench';
+  | 'workbench'
+  | 'sessions';
 type SyncMessage = { id: string; origin: string; kind: SyncKind; payload: Record<string, unknown> };
 
 const newId = (): string =>
@@ -236,6 +242,9 @@ function applyIncoming(message: SyncMessage, client: QueryClient): void {
       case 'workbench':
         useWorkbenchStore.setState(message.payload as unknown as WorkbenchSlice);
         break;
+      case 'sessions':
+        useSessionsStore.setState(message.payload as unknown as SessionsSlice);
+        break;
     }
   } finally {
     applying = false;
@@ -311,6 +320,17 @@ type WorkbenchSlice = { tabs: WorkbenchTab[]; activeTabId: string | null };
 
 function pickWorkbench(state: WorkbenchSlice): WorkbenchSlice {
   return { tabs: state.tabs, activeTabId: state.activeTabId };
+}
+
+/**
+ * Sessions' own page-selection slice (Phase 67 Theme F) — the fourth of
+ * Theme H's kind. The history list itself is not part of this: see the
+ * module doc and Decision 6.
+ */
+type SessionsSlice = Pick<SessionsState, 'selectedClosedSessionId'>;
+
+function pickSessions(state: SessionsState): SessionsSlice {
+  return { selectedClosedSessionId: state.selectedClosedSessionId };
 }
 
 /**
@@ -404,6 +424,15 @@ export function useBroadcastSync(): void {
       send('workbench', next);
     });
 
+    let lastSessions = pickSessions(useSessionsStore.getState());
+    const unsubSessions = useSessionsStore.subscribe((state) => {
+      if (applying) return;
+      const next = pickSessions(state);
+      if (shallowEqual(next, lastSessions)) return;
+      lastSessions = next;
+      send('sessions', next);
+    });
+
     // ThemeProvider (`@bilo-io/ui`) exposes no change listener, so the `dark`
     // class it writes on `<html>` is observed instead — the same signal
     // `useWindowBackgroundSync` (`app.tsx`) already keys its own resync off.
@@ -442,6 +471,7 @@ export function useBroadcastSync(): void {
       unsubActions();
       unsubFiles();
       unsubWorkbench();
+      unsubSessions();
       unsubPalette();
       themeObserver?.disconnect();
     };

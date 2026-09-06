@@ -76,6 +76,17 @@ describe('PageDetachMark', () => {
   });
 
   /*
+    Phase 67 Theme F: sessions became detachable once `SessionsView` (Theme E)
+    replaced the placeholder its mount comment used to point at.
+  */
+  it('detaches the Sessions page like any other', () => {
+    render(<PageDetachMark role="sessions" />);
+
+    fireEvent.click(screen.getByLabelText('Detach Sessions into its own window'));
+    expect(mocks.detach).toHaveBeenCalledWith({ role: 'sessions' });
+  });
+
+  /*
     A title per role, and the guard that keeps them in step: `PAGE_ROLE_TITLE`
     is a total `Record<PageWindowRole, string>`, so a role added to the shared
     tuple without a title here fails `moon run :typecheck` — but a title left
@@ -89,7 +100,7 @@ describe('PageDetachMark', () => {
   it('never offers a page the phase deliberately excluded', () => {
     // Duplicate rendering is only safe for a view whose mount has no
     // load-bearing side effects — see `PAGE_WINDOW_ROLES`' own note.
-    for (const excluded of ['settings', 'landing', 'sessions', 'councils', 'workflows', 'video']) {
+    for (const excluded of ['settings', 'landing', 'councils', 'workflows', 'video']) {
       expect(PAGE_WINDOW_ROLES as readonly string[]).not.toContain(excluded);
     }
   });
