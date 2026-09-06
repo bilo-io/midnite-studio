@@ -219,7 +219,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 *Re-tagged: the x1 audit found this theme carries the phase's only genuinely novel packaging risk.*
 
-*Landed (2026-09-06, PR #TBD). Decision 6 resolved to (a), not the doc's own (c) recommendation —
+*Landed (2026-09-06, PR #211). Decision 6 resolved to (a), not the doc's own (c) recommendation —
 verified rather than assumed: `node:sqlite` needs Node ≥22.5, and while this repo's own pin is
 22.12.0, **Electron 33.4.11 bundles Node 20.18.3**, confirmed by running the packaged Electron
 binary directly with `ELECTRON_RUN_AS_NODE=1` (`process.versions.node` → `20.18.3`,
@@ -441,7 +441,7 @@ out.*
 
 *Re-tagged: the store change is architectural, not mechanical (Decision 7).*
 
-*Landed (2026-09-06, PR #TBD). Decision 7 resolved to its own recommendation — the store stays
+*Landed (2026-09-06, PR #211). Decision 7 resolved to its own recommendation — the store stays
 single and unscoped, with a second `activeQueryTabId` cursor. Decision 9 resolved differently from
 what it anticipated: **by the time this batch executed, Phase 64's Monaco replacement of
 `code-editor.tsx` had already landed** (confirmed by reading the file). Building a NEW CodeMirror
@@ -491,7 +491,7 @@ now proceed to remove `@codemirror/*` without waiting on anything from this phas
 
 ### H — Results grid + inline editing (L)
 
-*Landed (2026-09-06, PR #TBD). One narrowing from Decision 2, disclosed rather than silently
+*Landed (2026-09-06, PR #211). One narrowing from Decision 2, disclosed rather than silently
 dropped: the staleness re-`SELECT` and the edit's own `UPDATE` are two sequential calls through the
 connection's pooled driver, **not wrapped in an explicit `BEGIN`/`COMMIT`** — closing that fully
 needs either a multi-statement single call per provider or session-aware sequential calls with a

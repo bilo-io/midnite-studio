@@ -132,7 +132,7 @@ in the Sessions header yet either, for the same reason: `'sessions'` isn't in
 
 ## 2026-09-06 — Phase 61 Themes C, G, H — SQLite driver + native packaging, the query tab, the results grid
 
-[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD). Moves Phase 61 41/94 → 66/94
+[PR #211](https://github.com/bilo-io/midnite-studio/pull/211). Moves Phase 61 41/94 → 66/94
 (44% → 70%). The last three deliverable themes of a DataGrip-style database client: `db-engine`'s
 SQLite driver and the packaging it needs as this repo's first dual-ABI native module, the
 `'query'` workbench-tab kind and its Monaco editor, and a virtualized, inline-editable results
