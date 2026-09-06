@@ -383,6 +383,7 @@ const bridge: Pick<
     saveCollection: (req) => call(CHANNELS.apiSaveCollection, req),
     importCollection: (req) => call(CHANNELS.apiImportCollection, req),
     deleteCollection: (req) => call(CHANNELS.apiDeleteCollection, req),
+    exportCollection: (req) => call(CHANNELS.apiExportCollection, req),
     sendRequest: (req) => call(CHANNELS.apiSendRequest, req),
     cancelRequest: (req) => call(CHANNELS.apiCancelRequest, req),
   },

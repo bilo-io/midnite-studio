@@ -15,7 +15,7 @@ import type { z } from 'zod';
 
 import { confineTree } from '../fs-scope-write';
 import { resolveWorkdir } from '../repo-registry';
-import { HTTP_RESPONSE_CAP_BYTES, readCapped } from '../workflow/executors/http';
+import { readCapped } from '../workflow/executors/http';
 import { interpolate } from './interpolate';
 
 /**

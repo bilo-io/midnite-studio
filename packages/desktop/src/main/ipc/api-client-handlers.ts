@@ -126,6 +126,15 @@ export function registerApiClientHandlers(getWindow: () => BrowserWindow | null)
     (issue) => apiFailure(issue),
   );
 
+  /** The native save dialog opens here, in main; the renderer never picks a path. */
+  handle(
+    CHANNELS.apiExportCollection,
+    schemas.ApiExportCollectionRequest,
+    (req): Promise<ApiOpResult> =>
+      exportCollectionViaDialog(getWindow, req.repoId, req.collectionId),
+    (issue) => apiFailure(issue),
+  );
+
   /**
    * Send resolves an `ApiResponse` for any settled HTTP exchange — a 404
    * included, because an HTTP error is a normal outcome, not a transport
@@ -164,8 +173,9 @@ export function registerApiClientHandlers(getWindow: () => BrowserWindow | null)
   );
 }
 
-/** Re-exported for the Export… context-menu action, which needs a save dialog. */
-export async function exportCollectionViaDialog(
+/** The Export… context-menu action's save dialog. Private: `apiExportCollection`
+ *  above is the only caller, and the renderer never sees a path. */
+async function exportCollectionViaDialog(
   getWindow: () => BrowserWindow | null,
   repoId: string,
   collectionId: string,

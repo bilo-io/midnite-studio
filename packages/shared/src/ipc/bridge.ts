@@ -1068,6 +1068,9 @@ export type MidniteStudioBridge = {
     deleteCollection: (
       req: In<typeof S.ApiDeleteCollectionRequest>,
     ) => Promise<z.infer<typeof S.ApiDeleteCollectionResponse>>;
+    exportCollection: (
+      req: In<typeof S.ApiExportCollectionRequest>,
+    ) => Promise<z.infer<typeof S.ApiExportCollectionResponse>>;
     sendRequest: (
       req: In<typeof S.ApiSendRequestRequest>,
     ) => Promise<z.infer<typeof S.ApiSendRequestResponse>>;
