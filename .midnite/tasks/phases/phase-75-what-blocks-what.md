@@ -183,7 +183,7 @@ derivation over the wire contract, needs zod and nothing else, and has to be tes
 mounting a canvas — the argument [`workflow-path.ts:5–14`](../../../packages/app/src/features/workflows/canvas/workflow-path.ts)
 already makes for its own arithmetic.
 
-- [ ] `packages/shared/src/domain/forge-graph.ts` — the graph's vocabulary:
+- [x] `packages/shared/src/domain/forge-graph.ts` — the graph's vocabulary:
   ```ts
   export const ForgeGraphEdgeKindSchema = z.enum(['blocks', 'contains']);
   export const ForgeGraphEdgeSourceSchema = z.enum(['api', 'field', 'body']);
@@ -224,7 +224,7 @@ already makes for its own arithmetic.
     same issue resolve to the same node rather than two.
   - `kind` on the graph mirrors `ForgeProjectReadKind` so a scope failure travels with the data
     instead of being inferred from an empty node list (Theme D renders it).
-- [ ] `resolveForgeGraph(items, fields, options): ForgeGraph` — the ladder, in precedence order:
+- [x] `resolveForgeGraph(items, fields, options): ForgeGraph` — the ladder, in precedence order:
   1. **`api`** — `content.dependencies.blockedBy` from Theme A. Authoritative; nothing overrides it.
   2. **`field`** — a project field whose `name` equals `options.blockedByFieldName` (default
      `'Blocked by'`, case-insensitive), read via the existing `ForgeProjectFieldValue` union and
@@ -238,7 +238,7 @@ already makes for its own arithmetic.
     unconditionally and independently, and they never contribute to `blocked` or `unmetBlockerCount`.
     A parent issue is not blocked by its children; treating containment as blocking would grey out
     every epic on the board and be read as a bug.
-- [ ] `parseBlockerRefs(body: string): ForgeIssueRef[]` where `ForgeIssueRef = { repo: string; number: number }`
+- [x] `parseBlockerRefs(body: string): ForgeIssueRef[]` where `ForgeIssueRef = { repo: string; number: number }`
       — its own exported, exhaustively tested function, never a regex inline in the resolver.
   - Matches, case-insensitively: `Blocked by`, `blocked-by:`, `Depends on`, `Requires`, each followed
     by `#12` or `owner/repo#12`, and each accepting a comma- or `and`-separated list
@@ -249,7 +249,7 @@ already makes for its own arithmetic.
     (`](…)`) **before** matching. A body pasting a diff or a URL containing `#12` is common.
   - Returns `[]` for an empty or whitespace body. This is the lowest-confidence layer and its failure
     mode must be "no edge", never "wrong edge" and never "throw".
-- [ ] Readiness, computed once and only here:
+- [x] Readiness, computed once and only here:
   - `unmetBlockerCount` = blockers whose `state` is neither `'closed'` nor `'merged'`. **Closed is the
     only satisfaction rule** — see Decisions; a Status-column rule cannot be evaluated for a foreign
     blocker at all, because a blocker in another repo has no field values on this board.
@@ -259,17 +259,17 @@ already makes for its own arithmetic.
   - `ready` = an open node with `unmetBlockerCount === 0` **and at least one blocker**. A node with no
     blockers is not "ready", it is unconstrained — flagging every isolated card as ready would make
     the badge meaningless on a board with no dependencies.
-- [ ] Foreign nodes: a blocker referenced by an in-scope node but not itself a board item becomes a
+- [x] Foreign nodes: a blocker referenced by an in-scope node but not itself a board item becomes a
       node with `foreign: true`, `itemId: ''`, built from the `title`/`state`/`repo` Theme A's query
       already returned. A blocker known only by number gets `title: ''` and `state: null` — visible,
       honestly incomplete, never dropped.
-- [ ] Hygiene, each its own assertion: self-edges dropped · duplicate edges for one pair collapsed to
+- [x] Hygiene, each its own assertion: self-edges dropped · duplicate edges for one pair collapsed to
       the highest-precedence `source` · a mutual `blockedBy` pair (GitHub permits it) keeps **both**
       edges, with Theme C responsible for not looping on it.
-- [ ] `FORGE_GRAPH_NODE_CAP = 300` with `truncated` / `totalCount`. Lower than the crib's 500: that is
+- [x] `FORGE_GRAPH_NODE_CAP = 300` with `truncated` / `totalCount`. Lower than the crib's 500: that is
       a browser tab, this is an Electron renderer that may also hold a pty and a Monaco. Truncation is
       by board order and is **always** surfaced (Theme D), never silent.
-- [ ] `describeGraphSources(graph): { api: number; field: number; body: number; contains: number }` —
+- [x] `describeGraphSources(graph): { api: number; field: number; body: number; contains: number }` —
       an exported counter over `edges`, so Theme D's zero-edge empty state can say *which* layer came
       up empty instead of only that the graph is empty.
 - [ ] `packages/app/src/features/projects/__fixtures__/project-item.ts` — **the repo's first shared
@@ -285,7 +285,15 @@ already makes for its own arithmetic.
     parse and which several call sites read unguarded.
   - Existing suites are **not** migrated in this phase. A factory nobody is forced to adopt is a
     smaller diff than five rewritten test files.
-- [ ] `forge-graph.test.ts` — the ladder's precedence (an item carrying all three sources yields
+  - **Deferred to Theme C/D.** This file lives in `packages/app`, and the test suites that would
+    actually consume it (`graph-layout.test.ts`, `project-graph-view.test.tsx`,
+    `project-graph-node.test.tsx`) are Theme C/D's own deliverables — Theme B's own
+    `forge-graph.test.ts` lives in `packages/shared`, which cannot import an app-level fixture
+    (the dependency direction runs the other way), and built its literals locally instead.
+    Building this factory here would be `packages/app` work under a `packages/shared`-scoped
+    theme, and risks colliding with whichever of C/D adds it first. Left for that theme to add
+    when it writes the suite that needs it.
+- [x] `forge-graph.test.ts` — the ladder's precedence (an item carrying all three sources yields
       exactly one `blocks` edge with `source: 'api'`; removing api promotes `field`; removing both
       promotes `body`) · the field layer skipped when the field is absent · containment never touching
       `blocked`/`ready`/`unmetBlockerCount` · a cross-repo blocker not collapsing with a same-numbered

@@ -2,6 +2,41 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 75 Theme B — the ladder, as a pure function
+
+[PR #206](https://github.com/bilo-io/midnite-studio/pull/206). Moves Phase 75 10/106 → 15/106
+(9% → 14%). `resolveForgeGraph(items, fields, options)` derives a `ForgeGraph` from
+`ForgeProjectItem[]` — the part of the phase with no UI in it, and the one every other theme reads.
+
+- [x] `packages/shared/src/domain/forge-graph.ts` — `ForgeGraphNodeSchema`/`ForgeGraphEdgeSchema`/
+      `ForgeGraphSchema`, `resolveForgeGraph`, `parseBlockerRefs`, `describeGraphSources`,
+      `FORGE_GRAPH_NODE_CAP = 300`. The `api` → `field` → `body` precedence ladder decides one
+      `'blocks'` edge per (dependent, blocker) pair when more than one source names it; `body` is
+      skipped outright once `api`/`field` already answered for that item. `parent`/`subIssues` are a
+      separate, unconditional `'contains'` layer (canonical direction parent → child, so learning the
+      same relationship from either side collapses to one edge) that never touches
+      `blocked`/`ready`/`unmetBlockerCount`.
+  - A merged PR matched by number through the `field`/`body` layers folds to `'closed'` at node
+    construction — `ForgeGraphNodeSchema.state` has no `'merged'` arm, since GraphQL's
+    `blockedBy`/`parent`/`subIssues` only ever return `Issue`. That is what lets every readiness
+    check collapse to one rule: `state !== 'closed'` is unmet.
+  - Foreign nodes (a blocker never itself a board item) carry real `title`/`state` when the `api`
+    layer supplied them, and `title: ''`/`state: null` when only a bare number is known from
+    `field`/`body` — enriched in place if a better source names the same node later.
+  - `parseBlockerRefs` strips fenced code, inline code and markdown link targets before matching
+    `Blocked by`/`blocked-by:`/`Depends on`/`Requires`, case-insensitively, across a comma/`and`
+    list and cross-repo `owner/repo#12` refs; `Blocks #12` (the inverse relation) is ignored.
+  - `forge-graph.test.ts` — 33 cases: ladder precedence, containment isolation, readiness (null/
+    closed/merged), foreign nodes from each of the three sources, a cross-repo blocker kept distinct
+    from a same-numbered local issue, a mutual pair, a self-reference, the node cap, and the full
+    `parseBlockerRefs` keyword × format matrix.
+
+Left open: the shared `ForgeProjectItem` fixture factory
+(`packages/app/src/features/projects/__fixtures__/project-item.ts`) that the phase doc's Theme B
+checklist also lists. It lives in `packages/app`, not `packages/shared`, and its only real
+consumers are Theme C/D's own new suites — building it here would be `app`-package work under a
+`shared`-scoped theme, with a real risk of colliding with whichever of C/D adds it first. Deferred
+to that theme.
 ## 2026-09-06 — Phase 75 Theme F — one rainbow, two surfaces
 
 [PR #205](https://github.com/bilo-io/midnite-studio/pull/205). Moves Phase 75 6/106 → 10/106

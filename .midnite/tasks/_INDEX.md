@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [75 · What blocks what, and the agent you point at it](phases/phase-75-what-blocks-what.md) | 🔄 WIP | x1 | 10/106 | `█░░░░░░░░░` | 9% | B | C D E G H |
+| [75 · What blocks what, and the agent you point at it](phases/phase-75-what-blocks-what.md) | 🔄 WIP | x1 | 19/106 | `██░░░░░░░░` | 18% | C | D E G H |
 | [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 67/70 | `██████████` | 96% | E | — |
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 64/68 | `█████████░` | 94% | — | — |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 100/102 | `██████████` | 98% | — | — |
@@ -182,8 +182,8 @@ its own `--dep-*` trio. It also replaced 300 per-node `useCardStatus` subscripti
 canvas-level hook. Costs four fields inside a query that already runs: no new IPC channel, no new
 dependency, read-only.*
 
-- ◻ **A** — Four fields (`blockedBy`, `blocking`, `parent`, `subIssues`) into `PROJECT_ITEMS_QUERY`'s existing Issue fragment and onto the issue variant of `ForgeProjectItemContent` — never the PR or draft variants, which lack the fields.
-- ◻ **B** — The `api` → `field` → `body` ladder plus a separate containment layer, as a pure resolver in shared: `ready` = blockers closed or merged, foreign nodes, `parseBlockerRefs`, `describeGraphSources`, the 300-node cap, and the repo's first shared `ForgeProjectItem` factory.
+- ✅ **A** — Four fields (`blockedBy`, `blocking`, `parent`, `subIssues`) into `PROJECT_ITEMS_QUERY`'s existing Issue fragment and onto the issue variant of `ForgeProjectItemContent` — never the PR or draft variants, which lack the fields. ([PR #204](https://github.com/bilo-io/midnite-studio/pull/204))
+- ✅ **B** — The `api` → `field` → `body` ladder plus a separate containment layer, as a pure resolver in shared: `ready` = blockers closed or merged, foreign nodes, `parseBlockerRefs`, `describeGraphSources`, the 300-node cap. (The shared `ForgeProjectItem` fixture factory is left to Theme C/D, whose own `packages/app` test suites are what actually need it.)
 - ◻ **C** — Longest-path LR ranking with barycentre ordering, a deterministic cycle-break rule and `topAlignedViewport` — `dagre`'s job in ~40 lines, pure and unit-testable.
 - ◻ **D** — The canvas: DOM nodes over an SVG edge layer reusing `workflow-geometry.ts`/`workflow-path.ts` verbatim, a non-passive wheel listener, graph-space culling as the only culling, a component-local viewport, edge-following arrow keys, and four empty states with literal copy.
 - ◻ **E** — `--dep-done`/`--dep-active`/`--dep-idle` in both themes, the five blocking-edge appearances, containment and body-inferred edges drawn less certainly, blocked dimming that loses to the glow, and the motion-guard rule stated as a rule.
