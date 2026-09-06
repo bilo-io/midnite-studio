@@ -29,6 +29,7 @@ export function MetricChart({
   geometry = CHART_GEOMETRY,
   showBreaks = true,
   label,
+  className = 'h-16 w-full',
 }: {
   series: readonly ChartSeries[];
   geometry?: MetricGeometry;
@@ -36,6 +37,10 @@ export function MetricChart({
   showBreaks?: boolean;
   /** Accessible name. The chart itself carries no readable text. */
   label: string;
+  /** Box the SVG fills. The default is the footer flyout's own height; the
+   *  Optimizer's System charts pass a taller one to match
+   *  `WIDE_CHART_GEOMETRY`'s aspect. */
+  className?: string;
 }) {
   const drawable = series.filter((entry) => entry.points.length > 0);
   if (drawable.length === 0) return null;
@@ -63,7 +68,7 @@ export function MetricChart({
       preserveAspectRatio="none"
       role="img"
       aria-label={label}
-      className="h-16 w-full"
+      className={className}
     >
       {breaks.map((x) => (
         <line

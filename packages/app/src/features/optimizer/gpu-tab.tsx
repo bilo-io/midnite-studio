@@ -5,6 +5,7 @@ import { MetricChart } from '../monitor/metric-chart';
 import type { MetricPoint } from '../../store/metrics-store';
 import { useOptimizerStore } from '../../store/optimizer-store';
 import { formatBytes } from '../monitor/format-bytes';
+import { OptimizerMetrics } from './components/optimizer-metrics';
 import { loadOptimizerGpu } from './use-optimizer';
 
 /** The rolling window the chart shows. */
@@ -45,6 +46,15 @@ export function GpuTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/*
+        The system monitor's own GPU line, at the top and over the 15-minute
+        window — the same series the footer strip draws. It is NOT the chart
+        below it: that one plots this tab's own `getGPUInfo` probe at its own
+        5s cadence over 60 seconds, and the two disagreeing is a fact worth
+        being able to see rather than one worth hiding by deleting a chart.
+      */}
+      <OptimizerMetrics metrics={['gpu']} title="GPU, system monitor" />
+
       <div className="rounded-md border border-border p-3">
         <p className="text-sm font-medium text-foreground">{gpu?.model ?? 'Unknown GPU'}</p>
         <p className="text-xs text-muted-foreground">

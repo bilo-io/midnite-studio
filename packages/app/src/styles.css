@@ -3130,3 +3130,207 @@ html[data-motion='reduced'] .loop-start-gradient:focus-visible:not(:disabled) {
   display: flex !important;
   justify-content: center !important;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Workspace Optimizer — the Memory tab's Terminate button, and the Smart
+ * Scan tab's hero.
+ *
+ * All four rules follow the same house pattern the rest of this file uses:
+ * the resting look is plain CSS, the motion is a `@keyframes` that both
+ * reduced-motion escapes turn off, and every colour comes from a token so
+ * the light and dark grounds are handled by the theme rather than by a
+ * second copy of each rule.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/* Terminate / Force Kill.
+ *
+ * At rest: destructive text and border, each with a soft same-hue glow — the
+ * button reads as armed without shouting. On hover (and on `:focus-visible`,
+ * because the row is reachable by Tab and a keyboard user has to see what a
+ * pointer user sees) it goes fully destructive with white text, and the
+ * trash icon widens in beside the label. The icon's own transition is a
+ * Tailwind width/opacity pair on the wrapper span — see `memory-tab.tsx`.
+ *
+ * `color: #fff`, not `--destructive-foreground`: the hover fill IS
+ * `--destructive`, so the token pairing is already correct — but the
+ * *stroke* glow underneath is white, and a foreground token that a theme
+ * later moves off white would leave a white halo around non-white text. */
+.optimizer-terminate {
+  border-color: hsl(var(--destructive) / 0.5);
+  color: hsl(var(--destructive));
+  text-shadow: 0 0 6px hsl(var(--destructive) / 0.45);
+  box-shadow: 0 0 8px hsl(var(--destructive) / 0.25);
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease,
+    box-shadow 200ms ease,
+    text-shadow 200ms ease;
+}
+
+/* The armed (SIGTERM already sent) variant: filled at rest, so only its glow
+ * has anywhere left to go on hover. */
+.optimizer-terminate--armed {
+  background-color: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
+  text-shadow: 0 0 6px rgb(255 255 255 / 0.35);
+  box-shadow: 0 0 10px hsl(var(--destructive) / 0.45);
+}
+
+.optimizer-terminate:hover,
+.optimizer-terminate:focus-visible {
+  outline: none;
+  background-color: hsl(var(--destructive));
+  border-color: hsl(var(--destructive));
+  color: #fff;
+  text-shadow: 0 0 8px rgb(255 255 255 / 0.55);
+  box-shadow: 0 0 16px hsl(var(--destructive) / 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .optimizer-terminate {
+    transition: none;
+  }
+}
+
+html[data-motion='reduced'] .optimizer-terminate {
+  transition: none;
+}
+
+/* The Smart Scan hero's drifting background.
+ *
+ * Three radial gradients on one element, each on its own slow, prime-ish
+ * period (17s / 23s / 29s) so they never line back up inside a session — the
+ * "softly and randomly" brief, without a random number generator whose
+ * output would differ between two windows showing the same button. Muted on
+ * purpose: this sits under a foreground icon and a gradient loud enough to
+ * notice on its own would bury it. */
+@keyframes optimizer-hero-drift-a {
+  0%,
+  100% {
+    transform: translate(-12%, -8%) scale(1.05);
+  }
+  50% {
+    transform: translate(10%, 12%) scale(1.25);
+  }
+}
+
+@keyframes optimizer-hero-drift-b {
+  0%,
+  100% {
+    transform: translate(14%, 10%) scale(1.2);
+  }
+  50% {
+    transform: translate(-10%, -14%) scale(1);
+  }
+}
+
+@keyframes optimizer-hero-drift-c {
+  0%,
+  100% {
+    transform: translate(6%, -14%) scale(1.1);
+  }
+  50% {
+    transform: translate(-14%, 8%) scale(1.3);
+  }
+}
+
+.optimizer-hero-drift > span:nth-child(1) {
+  background: radial-gradient(circle at 30% 30%, hsl(var(--primary) / 0.75), transparent 62%);
+  animation: optimizer-hero-drift-a 17s ease-in-out infinite;
+}
+
+.optimizer-hero-drift > span:nth-child(2) {
+  background: radial-gradient(circle at 70% 60%, hsl(var(--accent-foreground) / 0.28), transparent 60%);
+  animation: optimizer-hero-drift-b 23s ease-in-out infinite;
+}
+
+.optimizer-hero-drift > span:nth-child(3) {
+  background: radial-gradient(circle at 50% 80%, hsl(var(--primary) / 0.4), transparent 65%);
+  animation: optimizer-hero-drift-c 29s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .optimizer-hero-drift > span {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .optimizer-hero-drift > span {
+  animation: none;
+}
+
+/* The empty state's title shimmer — a highlight band travelling across the
+ * text itself via `background-clip: text`, which is why the gradient's two
+ * ends are the *same* foreground colour: anything else and the resting text
+ * would be a different colour from every other heading on the tab. */
+@keyframes optimizer-text-shimmer {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.optimizer-text-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    hsl(var(--foreground)) 0%,
+    hsl(var(--foreground)) 40%,
+    hsl(var(--primary)) 50%,
+    hsl(var(--foreground)) 60%,
+    hsl(var(--foreground)) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: optimizer-text-shimmer 4.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .optimizer-text-shimmer {
+    animation: none;
+    background-image: none;
+    color: hsl(var(--foreground));
+  }
+}
+
+html[data-motion='reduced'] .optimizer-text-shimmer {
+  animation: none;
+  background-image: none;
+  color: hsl(var(--foreground));
+}
+
+/* "Add a folder to scan" — a subtle ring of glow so the one control beside
+ * the hero does not read as disabled chrome next to it. It brightens on
+ * hover rather than pulsing: a second animated thing beside a drifting
+ * gradient is one too many. */
+.optimizer-soft-glow {
+  box-shadow:
+    0 0 10px hsl(var(--primary) / 0.25),
+    inset 0 0 8px hsl(var(--primary) / 0.08);
+  transition:
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease,
+    background-color 200ms ease;
+}
+
+.optimizer-soft-glow:hover,
+.optimizer-soft-glow:focus-visible {
+  box-shadow:
+    0 0 18px hsl(var(--primary) / 0.45),
+    inset 0 0 10px hsl(var(--primary) / 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .optimizer-soft-glow {
+    transition: none;
+  }
+}
+
+html[data-motion='reduced'] .optimizer-soft-glow {
+  transition: none;
+}

@@ -51,6 +51,23 @@ export const CHART_GEOMETRY: MetricGeometry = {
 };
 
 /**
+ * The Optimizer's System charts — the same drawing as the flyout's, given the
+ * room a full tab has.
+ *
+ * Wider *and* denser: it plots `METRICS_LONG_WINDOW_MS` (15 minutes) where
+ * the flyout plots five, so at the same width each point would get a third of
+ * the horizontal space and the line would read as noise. Twice the width and
+ * a taller box is what keeps a spike fifteen minutes ago legible as a spike.
+ */
+export const WIDE_CHART_GEOMETRY: MetricGeometry = {
+  width: 520,
+  height: 96,
+  strokeWidth: 1.5,
+  areaAlpha: 0.16,
+  padTop: 3,
+};
+
+/**
  * The gauge disk gets instead of a fourth chart.
  *
  * A capacity line is flat for hours; drawn as a timeline it would imply

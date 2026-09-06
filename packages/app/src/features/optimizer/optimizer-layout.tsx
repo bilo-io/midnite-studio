@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import { LuCpu, LuHardDrive, LuMemoryStick, LuSparkles } from 'react-icons/lu';
+import { LuActivity, LuCpu, LuHardDrive, LuMemoryStick, LuSparkles } from 'react-icons/lu';
 
 import type { OptimizerTab } from '../../store/optimizer-store';
 import { PageDetachMark } from '../../components/page-detach-mark';
 
 /**
- * The four-tab chrome (Phase 59 Theme A) — presentational only, so it can be
+ * The tab chrome (Phase 59 Theme A; a fifth, System, added later) — presentational only, so it can be
  * screenshot without a store. `optimizer-page.tsx` owns the store wiring and
  * is the `ViewId` entry point; this is its body.
  */
@@ -13,6 +13,7 @@ const TABS: { id: OptimizerTab; label: string; icon: typeof LuSparkles }[] = [
   { id: 'smartScan', label: 'Smart Scan', icon: LuSparkles },
   { id: 'storage', label: 'Storage', icon: LuHardDrive },
   { id: 'memory', label: 'Memory', icon: LuMemoryStick },
+  { id: 'system', label: 'System', icon: LuActivity },
   { id: 'gpu', label: 'GPU', icon: LuCpu },
 ];
 
