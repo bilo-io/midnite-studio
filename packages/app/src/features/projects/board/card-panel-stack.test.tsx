@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import type { ForgeIssueRef, ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -58,11 +58,13 @@ function Harness({
   items: itemsProp = items,
   onSelectItem = vi.fn(),
   onClose = vi.fn(),
+  blockers,
 }: {
   selectedItemId: string;
   items?: ForgeProjectItem[];
   onSelectItem?: (id: string) => void;
   onClose?: () => void;
+  blockers?: readonly ForgeIssueRef[];
 }) {
   return (
     <CardPanelStack
@@ -74,6 +76,7 @@ function Harness({
       selectedItemId={selectedItemId}
       onSelectItem={onSelectItem}
       onClose={onClose}
+      blockers={blockers}
     />
   );
 }
@@ -164,5 +167,18 @@ describe('CardPanelStack', () => {
     renderStack({ selectedItemId: 'gone', items: [], onClose });
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('forwards blockers through to the composer (Phase 75 Theme G) — undefined by default', () => {
+    renderStack({ selectedItemId: cardA.id });
+    expect(screen.getByTestId('card-start')).toHaveProperty('disabled', false);
+  });
+
+  it('forwards blockers through to the composer, disabling Start', () => {
+    renderStack({ selectedItemId: cardA.id, blockers: [{ repo: '', number: 199 }] });
+
+    const start = screen.getByTestId('card-start');
+    expect(start).toHaveProperty('disabled', true);
+    expect(start.getAttribute('title')).toBe('Blocked by #199');
   });
 });
