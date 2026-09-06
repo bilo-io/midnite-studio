@@ -210,3 +210,14 @@ question is which of the two owns the trap and what the outer one does while the
 That is a stacking decision about the screen-lock surface, and it belongs with the screen-lock
 work — alongside `passcode-pad`'s raw `z-[110]`, which
 [Phase 62](phases/phase-62-one-escape-one-dismissal.md) parked for the same reason.
+
+## Terminal's `openExternal` callback is not routed through `openInMidnite` (Phase 71 Theme B)
+
+`terminal-view.tsx:593` still passes the bare `openExternal` function into
+`attachTerminalLinks(term, open)` rather than a callback that calls `openInMidnite`. Every other
+Theme B call site — Reviews, Actions, the repos sidebar, Dashboard, forge detail, markdown links,
+the video studio pane — is routed. This one file is not, because `packages/app/src/features/terminal/**`
+was flagged as a live workstream when this PR was built, and Theme B's own task scope explicitly
+excluded it to avoid a collision. `terminal-links.ts` itself needs no change — its whole design is
+that the opener is injected — so landing this is a one-line swap at the call site once the
+terminal directory is free: `attachTerminalLinks(term, (url) => openInMidnite(url))`.

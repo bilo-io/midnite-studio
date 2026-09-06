@@ -53,7 +53,6 @@ import { cascadeStyle } from '../../lib/cascade';
 import { useNow } from '../../lib/use-now';
 import { relativeAge } from '../actions/run-groups';
 import {
-  openExternal,
   usePickAndOpenRepo,
   useForgeRuns,
   useRefs,
@@ -62,6 +61,7 @@ import {
   useRepos,
   useStashes,
 } from '../../services/queries';
+import { openInMidnite } from '../../services/open-in-midnite';
 import {
   useRepoStatus,
   useWorktreeStatuses,
@@ -1222,6 +1222,7 @@ export function RepoTree({
             name={group.name}
             refs={group.refs}
             forge={forgeByName.get(group.name) ?? null}
+            originRepoId={repo.id}
             menu={refMenu}
             depth={(depth + 1) as 2 | 3}
             {...remoteGroup(group.name)}
@@ -1394,6 +1395,7 @@ function RemoteGroup({
   name,
   refs,
   forge,
+  originRepoId,
   menu,
   depth,
   open,
@@ -1402,6 +1404,8 @@ function RemoteGroup({
   name: string;
   refs: Ref[];
   forge: Remote['forge'];
+  /** Feeds `openInMidnite`'s derived tab group for the project link below. */
+  originRepoId: string;
   menu: (ref: Ref) => MenuItem[];
   /** This group heading's own rung; its refs render one rung deeper. */
   depth: 2 | 3;
@@ -1426,7 +1430,7 @@ function RemoteGroup({
           : {
               icon: LuSquareArrowOutUpRight,
               label: `Open ${forge.owner}/${forge.repo} on ${forge.host}`,
-              onClick: () => openExternal(projectUrl),
+              onClick: () => openInMidnite(projectUrl, { originRepoId }),
             }
       }
     >

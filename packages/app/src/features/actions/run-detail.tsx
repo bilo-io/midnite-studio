@@ -6,7 +6,8 @@ import { LuChevronDown, LuChevronRight, LuSquareArrowOutUpRight } from 'react-ic
 import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
-import { openExternal, useForgeRunLog, useForgeWorkflows } from '../../services/queries';
+import { useForgeRunLog, useForgeWorkflows } from '../../services/queries';
+import { openLinkFromEvent } from '../../services/open-in-midnite';
 import { useActionsStore } from '../../store/actions-store';
 import { LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { jobStatus, runStatus, StatusPill } from '../forge/forge-status';
@@ -131,6 +132,7 @@ export function RunDetail({
               <JobRow
                 key={job.id}
                 job={job}
+                repoId={repoId}
                 selected={job.name === activeJob}
                 onSelect={() => selectJob(repoId, job.name)}
               />
@@ -169,6 +171,7 @@ export function RunDetail({
           omittedLines={log.data?.log?.omittedLines ?? 0}
           totalBytes={log.data?.log?.totalBytes ?? 0}
           runUrl={run.url}
+          repoId={repoId}
           // Nothing left to ask for once the un-capped fetch is the one showing.
           onLoadFull={full ? null : () => setRequest({ runId: run.id, full: true })}
           loadingFull={full && log.isFetching}
@@ -203,7 +206,7 @@ function RunHeader({ repoId, run }: { repoId: string; run: ForgeRun }) {
           label="Open this run on GitHub"
           size="sm"
           className="ml-auto"
-          onClick={() => openExternal(run.url)}
+          onClick={(event) => openLinkFromEvent(run.url, event, { originRepoId: repoId })}
         />
       </div>
 
@@ -232,7 +235,7 @@ function RunHeader({ repoId, run }: { repoId: string; run: ForgeRun }) {
             <dd>
               <button
                 type="button"
-                onClick={() => openExternal(fileUrl)}
+                onClick={(event) => openLinkFromEvent(fileUrl, event, { originRepoId: repoId })}
                 className="font-mono underline-offset-2 hover:underline"
               >
                 {file}
@@ -263,10 +266,12 @@ function Fact({ label, value }: { label: string; value: string }) {
  */
 function JobRow({
   job,
+  repoId,
   selected,
   onSelect,
 }: {
   job: ForgeJob;
+  repoId: string;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -313,7 +318,7 @@ function JobRow({
             icon={LuSquareArrowOutUpRight}
             label={`Open ${job.name} on GitHub`}
             size="sm"
-            onClick={() => openExternal(job.url)}
+            onClick={(event) => openLinkFromEvent(job.url, event, { originRepoId: repoId })}
           />
         )}
       </div>

@@ -124,15 +124,20 @@ test('markdown renders, toggles source, and navigates internal relative links', 
   await expect(page.getByText('git client', { exact: true })).toBeVisible();
   await expect(page.getByText('**git client**')).toHaveCount(0);
 
-  // External link routes to openExternal
+  // External link routes through `openInMidnite` (Phase 71 Theme B) — a
+  // browser tab under the default in-app preference, not `shell.openExternal`.
   const extLink = page.getByRole('link', { name: 'the site' });
   await expect(extLink).toBeVisible();
   await extLink.click();
+  await expect(page.getByRole('tablist', { name: 'Browser tabs' }).getByRole('tab')).toHaveCount(1);
   expect(
     await page.evaluate(
       () => (window as never as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
     ),
-  ).toHaveLength(1);
+  ).toHaveLength(0);
+  // The browser pane the click just raised covers the file preview underneath
+  // it — close it before continuing, the same way a user would.
+  await page.keyboard.press('Escape');
 
   // Internal relative link navigates to docs/ARCH.md and expands docs directory in tree
   const archLink = page.getByRole('link', { name: 'Architecture doc' });

@@ -5,8 +5,7 @@ import { useBrowserBounds } from '../browser/use-browser-bounds';
 import { EmptyState } from '../../components/empty-state';
 import { Spinner } from '../../components/skeleton';
 import { bridge } from '../../services/bridge';
-import { useBrowserStore } from '../../store/browser-store';
-import { useUiStore } from '../../store/ui-store';
+import { openInMidnite } from '../../services/open-in-midnite';
 import { useStartVideoStudio, useStopVideoStudio, useVideoStudioStatus, useVideoToolchain } from './use-video';
 
 /** Keyed by project id — one `WebContentsView` per hosted studio, never reused across projects. */
@@ -105,10 +104,10 @@ export function VideoStudioPane({ projectId }: { projectId: string | null }) {
           <div className="absolute right-2 top-2 flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => {
-                useUiStore.getState().setBrowserOpen(true);
-                useBrowserStore.getState().openTab(currentStatus.url);
-              }}
+              // Forced in-app (Phase 71 Theme B): a Remotion studio on
+              // localhost is the one link in the app whose entire point is the
+              // embedded pane, regardless of the stored link-target preference.
+              onClick={() => openInMidnite(currentStatus.url, { target: 'in-app' })}
               className="flex items-center gap-1.5 rounded-md border border-border bg-card/90 px-2 py-1 text-[11px] text-foreground shadow-sm hover:bg-accent"
               title="Open Remotion Studio in browser pane"
             >

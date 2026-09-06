@@ -64,6 +64,10 @@ async function open(page: Page, data: MockFixtures): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
 }
 
+/** Browser tabs opened in-app (Phase 71 Theme B's default routing for the row menu's forge link). */
+const browserTabs = (page: Page) =>
+  page.getByRole('tablist', { name: 'Browser tabs' }).getByRole('tab');
+
 test('Issues lists what gh reports, and each row links out', async ({ page }) => {
   await open(page, {
     ...base,
@@ -84,13 +88,11 @@ test('Issues lists what gh reports, and each row links out', async ({ page }) =>
 
   await page.getByRole('button', { name: 'Actions for Graph rows jump on resize' }).click();
   await page.getByRole('menuitem', { name: 'Open issue on GitHub' }).click();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
-      ),
-    )
-    .toContain('https://github.com/bilo-io/midnite-studio/issues/42');
+  // Phase 71 Theme B: `forgeRowMenu` routes through `openInMidnite`, which opens
+  // a browser tab under the default in-app preference rather than reaching
+  // `shell.openExternal` directly.
+  await expect(browserTabs(page)).toHaveCount(1);
+  await expect(browserTabs(page)).toHaveAccessibleName(/github\.com/);
 });
 
 test('a repo with issues turned off says so, and does not look broken', async ({ page }) => {

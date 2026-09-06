@@ -312,11 +312,15 @@ export function DashboardView() {
                 />
               );
             case 'pulls':
-              return <PullsWidget result={pulls.data} isFetching={pulls.isFetching} />;
+              return (
+                <PullsWidget result={pulls.data} isFetching={pulls.isFetching} repoId={repoId} />
+              );
             case 'issues':
-              return <IssuesWidget result={issues.data} isFetching={issues.isFetching} />;
+              return (
+                <IssuesWidget result={issues.data} isFetching={issues.isFetching} repoId={repoId} />
+              );
             case 'runs':
-              return <RunsWidget result={runs.data} isFetching={runs.isFetching} />;
+              return <RunsWidget result={runs.data} isFetching={runs.isFetching} repoId={repoId} />;
             case 'health':
               return <HealthWidget stats={stats} loading={statsFetching && !rawStats} />;
           }

@@ -65,6 +65,9 @@ async function openSidebar(page: Page, data: MockFixtures = withRemotes): Promis
 
 const externalUrls = (page: Page) =>
   page.evaluate(() => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls);
+/** Browser tabs opened in-app (Phase 71 Theme B's default routing for the remote's project link). */
+const browserTabs = (page: Page) =>
+  page.getByRole('tablist', { name: 'Browser tabs' }).getByRole('tab');
 
 test('a github remote offers a link to its project page', async ({ page }) => {
   await openSidebar(page);
@@ -75,7 +78,11 @@ test('a github remote offers a link to its project page', async ({ page }) => {
 
   // https, not the ssh URL the remote was configured with: the web page and the
   // clone URL are different things, and only one of them opens in a browser.
-  await expect.poll(() => externalUrls(page)).toEqual(['https://github.com/bilo-io/midnite-studio']);
+  // Phase 71 Theme B: the link routes through `openInMidnite`, which opens a
+  // tab under the default in-app preference rather than `shell.openExternal`.
+  await expect(browserTabs(page)).toHaveCount(1);
+  await expect(browserTabs(page)).toHaveAccessibleName(/github\.com/);
+  expect(await externalUrls(page)).toEqual([]);
 });
 
 test('a remote with no forge offers no link at all', async ({ page }) => {

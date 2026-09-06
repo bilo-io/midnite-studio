@@ -16,8 +16,8 @@ import { IconButton } from '../../components/icon-button';
 import { TREE_INDENT } from '../../components/tree-indent';
 import { TreeSection } from '../../components/tree-section';
 import { cascadeStyle } from '../../lib/cascade';
+import { openLinkFromEvent, openInMidnite } from '../../services/open-in-midnite';
 import {
-  openExternal,
   useForgeIssues,
   useForgePulls,
   useForgeRunDetail,
@@ -118,7 +118,7 @@ export function ActionsSection({
           status={runStatus(run)}
           title={run.name}
           subtitle={[run.headBranch ?? 'detached', run.event].filter(Boolean).join(' · ')}
-          menu={forgeRowMenu(run.url, 'run')}
+          menu={forgeRowMenu(run.url, 'run', repoId)}
           dialogs={dialogs}
           expand={{
             open: expandedRun === run.id,
@@ -220,7 +220,7 @@ function RunJobs({
           <StatusPill status={jobStatus(job)} />
           <button
             type="button"
-            onClick={() => openExternal(job.url)}
+            onClick={(event) => openLinkFromEvent(job.url, event, { originRepoId: repoId })}
             disabled={job.url.length === 0}
             className="min-w-0 flex-1 truncate text-left hover:underline disabled:no-underline"
             title={job.url ? `Open ${job.name} on GitHub` : job.name}
@@ -309,9 +309,9 @@ export function IssuesSection({
           ]
             .filter(Boolean)
             .join(' · ')}
-          menu={forgeRowMenu(issue.url, 'issue')}
+          menu={forgeRowMenu(issue.url, 'issue', repoId)}
           dialogs={dialogs}
-          onOpen={() => openExternal(issue.url)}
+          onOpen={() => openInMidnite(issue.url, { originRepoId: repoId })}
         />
       ))}
     </TreeSection>
@@ -430,7 +430,7 @@ function ReviewsGroup({
           extra={checksStatus(pull)}
           title={pull.title}
           subtitle={`#${pull.number} · ${pull.headBranch}`}
-          menu={forgeRowMenu(pull.url, 'pull request')}
+          menu={forgeRowMenu(pull.url, 'pull request', repoId)}
           dialogs={dialogs}
           /*
             The Reviews view, not a Changes tab — the same move Phase 19 made
@@ -450,8 +450,12 @@ function ReviewsGroup({
   );
 }
 
-const forgeRowMenu = (url: string, what: string): MenuItem[] => [
-  { label: `Open ${what} on GitHub`, icon: LuExternalLink, onSelect: () => openExternal(url) },
+const forgeRowMenu = (url: string, what: string, repoId: string): MenuItem[] => [
+  {
+    label: `Open ${what} on GitHub`,
+    icon: LuExternalLink,
+    onSelect: () => openInMidnite(url, { originRepoId: repoId }),
+  },
   {
     label: 'Copy link',
     icon: LuCopy,
