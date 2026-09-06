@@ -614,7 +614,7 @@ graph exists — and should, because `styles.css` is a contended file.
 The node does not start an agent. It selects the item, which opens the composer that already does —
 one start UI in the whole app, and `startAgent` keeps exactly one caller.
 
-- [ ] **Lift card selection out of `BoardView`.** `selectedItemId` moves from
+- [x] **Lift card selection out of `BoardView`.** `selectedItemId` moves from
       [`board-view.tsx:78`](../../../packages/app/src/features/projects/board/board-view.tsx)'s local
       `useState` up to [`projects-view.tsx`](../../../packages/app/src/features/projects/projects-view.tsx),
       which passes `selectedItemId` and `onSelectItem` down to `BoardView` and to `ProjectGraphView`.
@@ -626,10 +626,14 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
     `onClose` as plain props (`card-panel-stack.tsx:30–55`).
   - *Acceptance:* an RTL test selecting an item in board mode, switching to graph mode, and asserting
     `card-detail` is still mounted for the same item.
-- [ ] The graph mounts `CardPanelStack` on the same terms `board-view.tsx:411–421` does — same
+- [x] The graph mounts `CardPanelStack` on the same terms `board-view.tsx:411–421` does — same
       `projectId`/`repoId`/`worktreePath`/`items`/`fields`, same `w-80 shrink-0 border-l` sibling
       position — so there is one panel component with two mount sites, not two panels.
-- [ ] **Start is disabled on a blocked item**, in
+  - **Adapted:** `CardPanelStack` and `CardDetail` each gain one new *optional* `blockers` prop
+    (defaulting `undefined`), forwarded unchanged to `CardComposer` — the graph is the only mount site
+    that already has a `ForgeGraph` to read them from (`apiFieldBlockersFor`, new pure helper in
+    `graph/graph-blockers.ts`), so board mode's own mount supplies nothing and is unaffected.
+- [x] **Start is disabled on a blocked item**, in
       [`card-composer.tsx`](../../../packages/app/src/features/projects/board/card-composer.tsx)
       beside the existing `data-testid="card-start"` button at `:285`:
   - Disabled when the item has ≥1 unmet blocker **from an `api`- or `field`-sourced edge only**.
@@ -640,10 +644,14 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
   - `CardComposer` takes one new optional prop, `blockers?: readonly ForgeIssueRef[]`, defaulting
     `undefined` so every existing call site compiles unchanged and board mode is unaffected until the
     graph supplies it.
-- [ ] Selecting a node opens the existing detail panel unchanged. The graph is a way of *finding* a
+  - **Adapted:** "Launch and run" gets the identical disabled/title gate — both buttons fire through
+    the same `launch()`, and leaving one bypassable would be a hole in the guard rather than a smaller
+    diff.
+- [x] Selecting a node opens the existing detail panel unchanged. The graph is a way of *finding* a
       card; inventing a second detail surface would double the cost of every field the panel grows.
-- [ ] The running node's terminal stays on the card. See **Not in this phase**.
-- [ ] RTL: opening a blocked node's panel renders a disabled `card-start` whose `title` contains both
+- [x] The running node's terminal stays on the card. See **Not in this phase**. Nothing in this theme
+      touches `card-terminal.tsx` or where a session's pty lives.
+- [x] RTL: opening a blocked node's panel renders a disabled `card-start` whose `title` contains both
       blocker numbers; opening a `body`-blocked node's panel renders an **enabled** `card-start`.
 
 ### H — Filters, and the graph's own facets (M)
@@ -836,9 +844,9 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
 - [ ] RTL: turning on `hideIsolated` alone flips the filter-active indicator.
 - [ ] RTL: a facet change made via `setProjectView` preserves the other three facets (the
       shallow-merge trap).
-- [ ] RTL: selecting an item in board mode, switching to graph mode, and `card-detail` is still
+- [x] RTL: selecting an item in board mode, switching to graph mode, and `card-detail` is still
       mounted for the same item.
-- [ ] RTL: a blocked node's panel renders a disabled `card-start` whose `title` contains both blocker
+- [x] RTL: a blocked node's panel renders a disabled `card-start` whose `title` contains both blocker
       numbers; a **`body`-blocked** node's panel renders an enabled `card-start`.
 - [x] RTL: at `scale: 0.4` a node contains no `[data-card-chip]`; at `scale: 1` it does.
 - [x] RTL: with a 300-node fixture at default zoom, fewer than 60 `[data-graph-node]` elements are in
