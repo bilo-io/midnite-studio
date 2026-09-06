@@ -28,15 +28,15 @@ import base from './playwright.config';
  * and Phase 38 exists to empty the list; when it is empty, delete this config
  * and the `app:e2e-ci` task with it and point CI back at `app:e2e`.
  */
-const KNOWN_RED = [
+const KNOWN_RED: string[] = [
   // --- drift: red everywhere, and Phase 38 Themes A-G own them --------------
   //
-  // `browser-pane.spec.ts` and `footer-monitor.spec.ts` are OUT — both
-  // confirmed green in a real CI run (not just locally). `graph-themes.spec.ts`
-  // stays: two of its specs (`:251`, `:264` — the row-cascade animation) are
-  // green in an isolated local run but confirmed still red on the real Linux
-  // CI runner, which a local macOS run cannot explain — genuinely unsolved.
-  '**/e2e/graph-themes.spec.ts', //          2 — cascade replay (:251, :264), CI-only
+  // Empty. `browser-pane.spec.ts`, `footer-monitor.spec.ts` and
+  // `graph-themes.spec.ts` are all OUT — see Phase 38 Theme G for the last
+  // one's root cause. Diagnostic run (Phase 38 Theme G, PR TBD): unratcheting
+  // the whole file to let a real CI run say which of its specs are actually
+  // red on Linux, rather than trusting the stale `:251`/`:264` line numbers
+  // this comment used to cite.
 ];
 
 export default defineConfig({
