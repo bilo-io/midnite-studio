@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import type { ForgeIssueRef, ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -53,7 +53,10 @@ const item: ForgeProjectItem = {
   },
 };
 
-function renderDetail(onClose = vi.fn(), overrides: { repoId?: string | null; worktreePath?: string } = {}) {
+function renderDetail(
+  onClose = vi.fn(),
+  overrides: { repoId?: string | null; worktreePath?: string; blockers?: readonly ForgeIssueRef[] } = {},
+) {
   // Distinguishes "key absent, use the default" from "key present as
   // `undefined`" — the no-worktree test needs the latter, and `??` cannot
   // tell them apart.
@@ -70,6 +73,7 @@ function renderDetail(onClose = vi.fn(), overrides: { repoId?: string | null; wo
           item={item}
           fields={[statusField, priorityField]}
           onClose={onClose}
+          blockers={overrides.blockers}
         />
       </DialogHost>
     </QueryClientProvider>,
@@ -117,5 +121,13 @@ describe('CardDetail', () => {
     renderDetail(vi.fn(), { worktreePath: undefined });
     expect(screen.queryByTestId('card-composer')).toBeNull();
     expect(screen.getByText(/Select a repo checkout/)).toBeDefined();
+  });
+
+  it('forwards blockers to the composer, disabling Start (Phase 75 Theme G)', () => {
+    renderDetail(vi.fn(), { blockers: [{ repo: '', number: 199 }] });
+
+    const start = screen.getByTestId('card-start');
+    expect(start).toHaveProperty('disabled', true);
+    expect(start.getAttribute('title')).toBe('Blocked by #199');
   });
 });
