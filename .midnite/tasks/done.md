@@ -2,6 +2,31 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 75 Theme F — one rainbow, two surfaces
+
+[PR #205](https://github.com/bilo-io/midnite-studio/pull/205). Moves Phase 75 6/106 → 10/106
+(6% → 9%). The one theme in the phase that could land before any graph exists — a pure refactor of
+`styles.css` + `task-card.tsx`, per the phase doc's own framing — so it went first, alone, ahead of
+Themes B–E already in flight.
+
+- [x] `.card-run-glow` (Phase 37) generalised to `.agent-run-glow`: same conic ramp, same
+      `loop-glow-spin`/`card-glow-pulse` pair, same `is-running`/`is-waiting`/`is-open` states, same
+      focus gate and reduced-motion guard — nothing about how it looks changed. Also caught
+      `workflows-view.tsx`'s run-history button, which had quietly worn the old class alongside
+      `TaskCard` — a second consumer the x1 refinement's audit had missed.
+- [x] Renamed rather than aliased, per the doc's own "Open" recommendation: `kanban.spec.ts`'s four
+      literal-class assertions (`:265–314`) moved to `agent-run-glow` in the same commit.
+- [x] `useGraphAgentStates(projectId)` in `features/projects/graph/use-graph-agent-states.ts` — one
+      `useTerminalStore` subscription for the whole future canvas instead of 300 per-node
+      `useCardStatus` calls, building `Map<itemId, CardGlowState>` via the existing
+      `deriveCardGlowState` in a single pass over `sessions`. Unit-tested, including a render-count
+      test with a memoized stand-in consumer (no `ProjectGraphNode` exists yet to test against for
+      real).
+
+Left open, deferred to Theme D (no canvas exists to wire into or screenshot yet): the graph node
+actually consuming `useGraphAgentStates`/`deriveCardGlowState`, the graph-only blurred bloom behind a
+node, and `project-graph-glow-shots.spec.ts`.
+
 ## 2026-09-06 — Phase 72 Theme F (remainder) — the `DETECTOR_COUNT` literal, pinned
 
 [PR #202](https://github.com/bilo-io/midnite-studio/pull/202). Moves Phase 72 98/102 → 100/102 (96% → 98%).

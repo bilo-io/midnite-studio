@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [75 · What blocks what, and the agent you point at it](phases/phase-75-what-blocks-what.md) | 🔄 WIP | x1 | 6/106 | `█░░░░░░░░░` | 6% | B F | C D E G H |
+| [75 · What blocks what, and the agent you point at it](phases/phase-75-what-blocks-what.md) | 🔄 WIP | x1 | 10/106 | `█░░░░░░░░░` | 9% | B | C D E G H |
 | [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 67/70 | `██████████` | 96% | E | — |
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 64/68 | `█████████░` | 94% | — | — |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 100/102 | `██████████` | 98% | — | — |
@@ -187,7 +187,7 @@ dependency, read-only.*
 - ◻ **C** — Longest-path LR ranking with barycentre ordering, a deterministic cycle-break rule and `topAlignedViewport` — `dagre`'s job in ~40 lines, pure and unit-testable.
 - ◻ **D** — The canvas: DOM nodes over an SVG edge layer reusing `workflow-geometry.ts`/`workflow-path.ts` verbatim, a non-passive wheel listener, graph-space culling as the only culling, a component-local viewport, edge-following arrow keys, and four empty states with literal copy.
 - ◻ **E** — `--dep-done`/`--dep-active`/`--dep-idle` in both themes, the five blocking-edge appearances, containment and body-inferred edges drawn less certainly, blocked dimming that loses to the glow, and the motion-guard rule stated as a rule.
-- ◻ **F** — `.card-run-glow` generalised to `.agent-run-glow`, and one `useGraphAgentStates` subscription for the whole canvas instead of 300. `kanban.spec.ts` asserts the literal class name, so a rename is a same-commit spec edit.
+- ✅ **F** (PR #205) — `.card-run-glow` generalised to `.agent-run-glow` (also caught `workflows-view.tsx`'s run-history button, which wore it too), and one `useGraphAgentStates` subscription for the whole canvas instead of 300. `kanban.spec.ts`'s literal class assertions moved in the same commit. The node itself, the graph-only bloom, and `project-graph-glow-shots.spec.ts` are deferred to Theme D — nothing to wire them into or screenshot until the canvas exists.
 - ◻ **G** — Selection lifts into `ProjectsView` so both modes share one panel; the node opens the composer rather than starting an agent; Start is disabled on a blocked item, but never on a merely body-inferred one.
 - ◻ **H** — Phase 54's shared filter toolbar drives the graph with zero toolbar edit, plus four graph-only facets persisted as one shallow-merged object on `ProjectViewState`, and the configurable field name.
 

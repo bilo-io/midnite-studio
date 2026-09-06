@@ -495,19 +495,25 @@ layer is reused rather than rewritten.
 **Changes where the treatment is defined, never how it looks.** Can land first, alone, before any
 graph exists — and should, because `styles.css` is a contended file.
 
-- [ ] Generalise `.card-run-glow` (`styles.css:2094–2147`) into `.agent-run-glow`, carrying the same
+- [x] Generalise `.card-run-glow` (`styles.css:2094–2147`) into `.agent-run-glow`, carrying the same
       `--loop-glow-angle` conic ramp, the same `loop-glow-spin 4s` + `card-glow-pulse 2s` pair, the
       same `is-running` / `is-waiting` / `is-open` states, the same focus gate at `:2132` and the same
-      reduced-motion guard at `:2143`.
-- [ ] ⚠️ **`.card-run-glow` must survive as a real class, not be deleted.**
+      reduced-motion guard at `:2143`. ✅ PR #205. Also generalised `workflows-view.tsx`'s run-history
+      button, which the x1 audit had missed — it wore `.card-run-glow is-running` before this theme
+      even touched the graph.
+- [x] ⚠️ **`.card-run-glow` must survive as a real class, not be deleted.**
       [`kanban.spec.ts:265–314`](../../../packages/app/e2e/kanban.spec.ts) asserts the **literal
       string**: `await expect(card).toHaveClass(/card-run-glow/)`, `toHaveClass(/is-running/)`,
       `await expect(otherCard).not.toHaveClass(/card-run-glow/)`, and
       `expect(await card.evaluate(el => getComputedStyle(el).backgroundImage)).toContain('conic-gradient')`.
       Either keep `.card-run-glow` permanently as a co-applied alias on the card, **or** update those
       four assertions in the same commit. Pick one and say which in the code — a rename that leaves
-      the spec red is how this theme gets reverted.
-- [ ] `useGraphAgentStates(projectId: string): Map<string, CardGlowState>` in
+      the spec red is how this theme gets reverted. **Decided: renamed, not aliased** — the doc's own
+      "Open" decision recommended this (a permanent alias is a second name for one visual, and this
+      doc's own argument against two definitions applies to two names too), and `_INDEX.md`'s Theme F
+      summary already committed to it. `kanban.spec.ts`'s four assertions moved to `agent-run-glow` in
+      the same commit.
+- [x] `useGraphAgentStates(projectId: string): Map<string, CardGlowState>` in
       `features/projects/graph/use-graph-agent-states.ts` — **one subscription for the whole canvas**,
       not one per node.
   - Why: [`useCardStatus`](../../../packages/app/src/features/projects/board/use-card-status.ts) takes
@@ -521,22 +527,32 @@ graph exists — and should, because `styles.css` is a contended file.
     cards, not hundreds, and rewriting a working surface is not this phase's business.
   - *Acceptance:* a render-count test — with 300 nodes and one session transitioning
     `idle → open`, `ProjectGraphNode` renders at most twice for the affected node and zero times for
-    the other 299.
-- [ ] The graph node consumes `CardGlowState` through the same `deriveCardGlowState` the card uses, so
-      an agent started from the composer lights the node and the card simultaneously, by construction
-      rather than by coincidence.
-- [ ] `waiting`, `open` and `idle` keep their existing distinct treatments on both surfaces. They are
-      load-bearing — `glow-state.ts`'s docblock explains why `waiting` never decays — and turning all
-      four into the rainbow would delete three states to emphasise one.
-- [ ] The bloom is **graph-only**: a blurred copy behind the node (the crib's `::after`). A card in a
-      packed column has no room for it and does not get one; a node on an open canvas does, and at
-      0.5 zoom a 2px ring alone is nearly invisible. The ring itself is identical on both surfaces.
-- [ ] `project-graph-glow-shots.spec.ts` following
+    the other 299. **Adapted:** `ProjectGraphNode` does not exist yet (Theme D). The render-count test
+    in `use-graph-agent-states.test.tsx` uses a memoized stand-in consumer instead, locking in the
+    property the acceptance criterion actually needs — unaffected map entries keep the same string
+    reference across renders, which is what lets a real memoized node bail out later. Re-verify against
+    the real `ProjectGraphNode` once Theme D lands.
+- [ ] ⏳ **Deferred to Theme D** — the graph node consumes `CardGlowState` through the same
+      `deriveCardGlowState` the card uses, so an agent started from the composer lights the node and
+      the card simultaneously, by construction rather than by coincidence. No node exists yet to wire
+      this into; `useGraphAgentStates` above is the prepared, tested seam Theme D consumes.
+- [ ] ⏳ **Deferred to Theme D** — `waiting`, `open` and `idle` keep their existing distinct treatments
+      on both surfaces. True on the card today (unchanged by this theme); "both surfaces" cannot be
+      verified until the graph surface exists. The hook already derives all three states correctly
+      (see its unit tests), so this is a wiring step, not a design one, once Theme D lands.
+- [ ] ⏳ **Deferred to Theme D** — the bloom is **graph-only**: a blurred copy behind the node (the
+      crib's `::after`). Left unbuilt on purpose rather than added as dead CSS with no consumer and no
+      way to screenshot it: `styles.css` is a contended file, and a blind guess at the right selector
+      risks a second edit to it when Theme D's node markup turns out to want something different.
+- [ ] ⏳ **Deferred to Theme D** — `project-graph-glow-shots.spec.ts` following
       [`kanban-glow-shots.spec.ts`](../../../packages/app/e2e/kanban-glow-shots.spec.ts) exactly:
       gated on `MSTUDIO_SHOTS` (`:31`), `setReducedMotion(page)` **before** shooting so the conic ramp
       rests at `0deg` and runs are comparable (`:117`), running state faked by a seeded
       `terminalSessions` fixture with `surface: 'kanban'` and the node's `taskRef` (`:89–104`) rather
-      than a launched agent, `shotPath(OUT, …)` with a 20px clip pad so the bloom is in frame.
+      than a launched agent, `shotPath(OUT, …)` with a 20px clip pad so the bloom is in frame. Cannot be
+      written against a canvas that does not exist — there is nothing to navigate to and nothing to
+      screenshot. `kanban.spec.ts`/`kanban-glow-shots.spec.ts` were re-run against this rename instead
+      (both green, no pixel change) as the verification this theme *can* offer today.
 
 ### G — Point an agent at a node (M)
 
@@ -687,8 +703,8 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
   `card-chrome.tsx`'s `CONTENT_ICON`, deleting its duplicate at `:104–108`.
 - [`projects-page.tsx`](../../../packages/app/src/features/settings/settings-pages/projects-page.tsx)
   — the `blockedByFieldName` accordion.
-- [`kanban.spec.ts`](../../../packages/app/e2e/kanban.spec.ts) — **only if** Theme F renames rather
-  than aliases; the four class assertions at `:265–314`.
+- [`kanban.spec.ts`](../../../packages/app/e2e/kanban.spec.ts) — ✅ Theme F renamed rather than
+  aliased; the four class assertions at `:265–314` moved to `agent-run-glow` in the same commit.
 
 **Unchanged and load-bearing**
 - [`glow-state.ts`](../../../packages/app/src/features/projects/board/glow-state.ts) (**unchanged**) —
@@ -778,10 +794,12 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
       **required** in e2e fixtures because the mock bridge returns them verbatim with no zod parse.
       Switch to graph mode, assert nodes and edges, select a node and assert `card-detail` opens,
       `Home` re-fits, arrow keys walk an edge.
-- [ ] e2e: `kanban.spec.ts`'s four glow assertions at `:265–314` pass — unchanged if Theme F aliases,
-      updated in the same commit if it renames.
-- [ ] e2e: `project-graph-glow-shots.spec.ts` — the node in `running`, `waiting`, `open` and `idle`,
-      light and dark, under `setReducedMotion` so the ramp rests at `0deg`.
+- [x] e2e: `kanban.spec.ts`'s four glow assertions at `:265–314` pass — updated to `agent-run-glow`
+      in the same commit as the rename; also ran `kanban-glow-shots.spec.ts` under `MSTUDIO_SHOTS=1` —
+      both green, no pixel change.
+- [ ] ⏳ **Deferred to Theme D** — e2e: `project-graph-glow-shots.spec.ts` — the node in `running`,
+      `waiting`, `open` and `idle`, light and dark, under `setReducedMotion` so the ramp rests at
+      `0deg`. No canvas to shoot yet.
 - [ ] `moon run app:build desktop:bundle && node scripts/perf/bundle-report.mjs` — entry chunk within
       noise of its pre-phase value. A dependency graph that costs the app's startup is a bad trade.
 - [ ] `node scripts/perf/idle-cpu.mjs --blurred` on a board with running agents and a 200-node graph
@@ -902,8 +920,7 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
 - **Resolved — this phase adds the repo's first shared `ForgeProjectItem` factory.** *(x1)* Three
   local ones exist and this phase adds four suites; the fifth is where one shared factory gets
   cheaper. Existing suites are not migrated.
-- **Open — whether `.card-run-glow` is aliased or renamed.** *(x1)* `kanban.spec.ts:265–314` asserts
-  the literal class name, so a rename is a same-commit spec edit. *Recommendation:* rename and update
-  the four assertions — a permanent alias is a second name for one visual, and this doc's own
-  argument against two definitions applies to two names too. Either is defensible; the executor must
-  pick one and say which in the code.
+- **Resolved — `.card-run-glow` is renamed to `.agent-run-glow`, not aliased.** *(x1)* Followed the
+  doc's own recommendation: a permanent alias is a second name for one visual, and this doc's own
+  argument against two definitions applies to two names too. `kanban.spec.ts:265–314`'s four literal
+  class assertions moved to `agent-run-glow` in the same commit as the rename (PR #205).
