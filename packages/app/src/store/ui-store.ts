@@ -1015,8 +1015,8 @@ export type UiState = {
    * it is per-repo view state, not a pane size. A repo with no entry reads
    * as `'table'`, the phase's existing default.
    */
-  projectsMode: Record<string, 'table' | 'board'>;
-  setProjectsMode: (repoId: string, mode: 'table' | 'board') => void;
+  projectsMode: Record<string, 'table' | 'board' | 'graph'>;
+  setProjectsMode: (repoId: string, mode: 'table' | 'board' | 'graph') => void;
   /**
    * How you are looking at one project board (Phase 52 Theme D): its filter,
    * which field it groups by, the table's sort, and which board columns are
