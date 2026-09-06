@@ -63,6 +63,17 @@ export type TerminalSidebarSide = 'left' | 'right';
  */
 export type BrowserLayout = 'full' | 'left' | 'right';
 
+/**
+ * Where a link the app hands off should open — the embedded browser, or the
+ * OS's default one (Phase 71 Theme A).
+ *
+ * Here rather than in `browser-store` because it governs behaviour OUTSIDE the
+ * browser feature: a markdown link in a commit message, a hyperlink emitted by
+ * a terminal, an "Open on GitHub" button in Reviews. All three exist with the
+ * browser closed, and `browser-store` is scoped to tabs.
+ */
+export type LinkTarget = 'in-app' | 'system';
+
 /** Active tab in the FAB panel. */
 export type FabTab = 'guard' | 'innovate' | 'automate' | 'watchdog' | 'medic' | 'overhaul';
 
@@ -549,6 +560,16 @@ export type UiState = {
    */
   browserLayout: BrowserLayout;
   /**
+   * Where a hand-off link opens by default — see {@link LinkTarget}.
+   *
+   * `'in-app'` out of the box: a browser nobody's links reach is a browser
+   * nobody uses, and the three modifier escapes (`Shift` for the system
+   * browser, `Mod` for the other one, middle-click for a background tab) plus
+   * the one-click control on Settings ▸ Browser make the default cheap to
+   * reject. Read through `openInMidnite`, never inline at a call site.
+   */
+  linkTarget: LinkTarget;
+  /**
    * Whether the layout launcher is up.
    *
    * The browser is the one panel in the app that cannot simply appear: where
@@ -874,6 +895,9 @@ export type UiState = {
   openBrowser: (layout: BrowserLayout) => void;
   /** Change the layout of an already-open pane (the toolbar's picker). */
   setBrowserLayout: (layout: BrowserLayout) => void;
+  setLinkTarget: (target: LinkTarget) => void;
+  /** The `link.toggleTarget` palette command — flips the preference, nothing else. */
+  toggleLinkTarget: () => void;
   closeBrowserLauncher: () => void;
   toggleFabPanel: () => void;
   setFabPanelOpen: (open: boolean) => void;
@@ -1289,6 +1313,7 @@ export type PersistedUi = Pick<
   | 'terminalListOpen'
   | 'browserOpen'
   | 'browserLayout'
+  | 'linkTarget'
   | 'fabPanelOpen'
   | 'activityTimelineOpen'
   | 'activityTimelineStyle'
@@ -1449,6 +1474,7 @@ export const useUiStore = create<UiState>()(
       terminalListOpen: true,
       browserOpen: false,
       browserLayout: 'full',
+      linkTarget: 'in-app',
       browserLauncherOpen: false,
       notesOpen: false,
       quickAccessOpen: false,
@@ -1663,6 +1689,9 @@ export const useUiStore = create<UiState>()(
       openBrowser: (browserLayout) =>
         set({ browserOpen: true, browserLayout, browserLauncherOpen: false }),
       setBrowserLayout: (browserLayout) => set({ browserLayout }),
+      setLinkTarget: (linkTarget) => set({ linkTarget }),
+      toggleLinkTarget: () =>
+        set((state) => ({ linkTarget: state.linkTarget === 'in-app' ? 'system' : 'in-app' })),
       closeBrowserLauncher: () => set({ browserLauncherOpen: false }),
       setNotesOpen: (notesOpen) => set({ notesOpen }),
       toggleNotes: () => set((state) => ({ notesOpen: !state.notesOpen })),
@@ -1825,7 +1854,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 9,
+      version: 10,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -1851,6 +1880,7 @@ export const useUiStore = create<UiState>()(
         terminalListOpen: state.terminalListOpen,
         browserOpen: state.browserOpen,
         browserLayout: state.browserLayout,
+        linkTarget: state.linkTarget,
         fabPanelOpen: state.fabPanelOpen,
         activityTimelineOpen: state.activityTimelineOpen,
         activityTimelineStyle: state.activityTimelineStyle,
@@ -1926,6 +1956,10 @@ export const useUiStore = create<UiState>()(
        * from before Phase 55 has no popout to be detached from.
        * v8 → v9: seed the five `editor*` preferences (Phase 64 Theme C) —
        * a persisted blob from before this phase has none of them.
+       * v9 → v10: seed `linkTarget` (Phase 71 Theme A). Explicitly `'in-app'`
+       * rather than left absent: `PersistedUi` is what rehydrate merges over
+       * the initial state, and a migration that produces a shape the type says
+       * it produces is the only version of this that cannot drift.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -1948,6 +1982,7 @@ export const useUiStore = create<UiState>()(
           editorMinimap?: boolean;
           editorTabSize?: number;
           editorWordWrap?: boolean;
+          linkTarget?: LinkTarget;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -1986,6 +2021,9 @@ export const useUiStore = create<UiState>()(
           state.editorMinimap = false;
           state.editorTabSize = DEFAULT_EDITOR_TAB_SIZE;
           state.editorWordWrap = false;
+        }
+        if (version < 10) {
+          state.linkTarget = 'in-app';
         }
         return state as PersistedUi;
       },

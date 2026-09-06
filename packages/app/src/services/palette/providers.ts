@@ -1,6 +1,7 @@
 import type {
   AgentDefinition,
   CommandDescriptor,
+  CommandId,
   ForgeProject,
   Ref,
   RepoDescriptor,
@@ -69,6 +70,18 @@ const VIEW_KEYWORDS: Record<ViewId, string> = {
 };
 
 
+/**
+ * Commands the palette OMITS while disabled, rather than greying out.
+ *
+ * The palette's rule is otherwise "show every safe command, disabled rows
+ * included" — a disabled row with a reason teaches what the command needs.
+ * `browser.openDevServer` is the exception because its precondition is not
+ * something the user can act on from here: it is present only when a dev
+ * server was actually detected, and a permanently greyed row for a repo that
+ * has no dev server is noise in every search (Phase 71 Theme C).
+ */
+const HIDDEN_WHEN_DISABLED = new Set<CommandId>(['browser.openDevServer']);
+
 export function createCommandSource(
   runtime: CommandRuntime,
   onSelect: () => void,
@@ -76,7 +89,11 @@ export function createCommandSource(
   return {
     key: 'commands',
     items: () => {
-      return COMMANDS.filter((cmd) => isPaletteSafe(cmd.id)).map(
+      return COMMANDS.filter(
+        (cmd) =>
+          isPaletteSafe(cmd.id) &&
+          !(HIDDEN_WHEN_DISABLED.has(cmd.id) && !runtime[cmd.id]?.enabled),
+      ).map(
         (cmd: CommandDescriptor): PaletteItem => {
           const entry = runtime[cmd.id];
           const chord = chordOf(cmd);

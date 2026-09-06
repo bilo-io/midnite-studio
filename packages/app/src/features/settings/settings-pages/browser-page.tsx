@@ -2,15 +2,22 @@ import { useState } from 'react';
 
 import { useDialogs } from '../../../components/dialog-host';
 import { bridge } from '../../../services/bridge';
+import { useUiStore } from '../../../store/ui-store';
+import { Choice } from './controls';
 
 /**
- * Browser settings (Theme B). Just "Clear browsing data" this batch — the
- * search-engine and link-handling settings Themes G/I need are not part of
- * this slice.
+ * Browser settings.
+ *
+ * "Clear browsing data" landed with Phase 32 Theme B; "Link handling" is
+ * Phase 71 Theme A — the one control that decides whether every hand-off link
+ * in the app (a PR in Reviews, a run in Actions, a link in a rendered commit
+ * message, a hyperlink a terminal emitted) opens in the pane below or leaves
+ * for the system browser.
  */
 export function BrowserPage() {
   const dialogs = useDialogs();
   const [clearing, setClearing] = useState(false);
+  const linkTarget = useUiStore((s) => s.linkTarget);
 
   const onClearData = () => {
     dialogs.confirm({
@@ -36,6 +43,26 @@ export function BrowserPage() {
           The embedded browser (Mod+B) keeps its own persistent storage, separate from the app —
           logging into GitHub or Figma there survives a relaunch.
         </p>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs">Link handling</h3>
+        {/*
+          The help text names all three modifiers verbatim, and that is the
+          point of it: a modifier nobody is told about is a modifier nobody
+          uses, and these three are what make the default cheap to reject
+          without opening this page at all.
+        */}
+        <Choice<'in-app' | 'system'>
+          label="Open links in"
+          hint="Cmd-click opens a link in the other one. Shift-click always uses your system browser. Middle-click opens a background tab."
+          value={linkTarget}
+          onChange={(next) => useUiStore.getState().setLinkTarget(next)}
+          options={[
+            ['in-app', 'Midnite browser', 'The default — links open in a tab in the pane below'],
+            ['system', 'System browser', 'Links leave the app, the way they did before'],
+          ]}
+        />
       </div>
 
       <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">

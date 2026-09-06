@@ -43,6 +43,7 @@ export const PREFERENCE_KEYS = [
   'hiddenMetrics', // monitor-page.tsx
   'inactivityTimeoutS', // screen-lock-page.tsx
   'launchAndRunEnabled', // cli-page.tsx
+  'linkTarget', // browser-page.tsx — the "Link handling" section (Phase 71 Theme A)
   'loopModifierDefaults', // agent-page.tsx — the Loops accordion
   'metricsIdleIntervalMs', // monitor-page.tsx
   'navMode', // sidebar-page.tsx

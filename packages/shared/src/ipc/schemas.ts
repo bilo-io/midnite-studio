@@ -1821,6 +1821,20 @@ export const BrowserFindStopRequest = z.object({ tabId: z.string().min(1) });
 /** No payload: clears the whole `persist:browser` partition's storage and cache. */
 export const BrowserClearDataResponse = GitOpResultSchema;
 
+/**
+ * One loopback port to probe (Phase 71 Theme C).
+ *
+ * `1..65535` is not decoration: it is half of what stops this channel being a
+ * scanner, the other half being the hard-coded `127.0.0.1` in the handler. A
+ * payload outside the range fails here, at the boundary, rather than in a
+ * handler someone could later "fix".
+ */
+export const BrowserDevServerProbeRequest = z.object({
+  port: z.number().int().min(1).max(65535),
+});
+/** Whether the connection was accepted inside the deadline. Never an error — a refusal is the answer. */
+export const BrowserDevServerProbeResponse = z.object({ listening: z.boolean() });
+
 export const BrowserEventPayload = BrowserEventSchema;
 
 export type BrowserEventPayloadType = z.infer<typeof BrowserEventPayload>;
