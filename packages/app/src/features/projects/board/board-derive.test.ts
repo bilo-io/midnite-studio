@@ -1,4 +1,5 @@
 import type { ForgeProjectField, ForgeProjectItem, TerminalSession } from '@midnite/studio-shared';
+import { EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -135,6 +136,7 @@ describe('composeCardPrompt', () => {
       assignees: ['octocat'],
       body: 'Steps to reproduce…',
       labels: ['bug', 'flaky'],
+      dependencies: EMPTY_ISSUE_LINK_SET,
     },
     fieldValues: {},
   };

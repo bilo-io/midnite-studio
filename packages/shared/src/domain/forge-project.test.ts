@@ -139,7 +139,21 @@ describe('ForgeProjectItemSchema / ForgeProjectItemContent', () => {
         f1: { fieldId: 'f1', dataType: 'text' as const, text: 'a note' },
       },
     };
-    expect(ForgeProjectItemSchema.parse(item)).toEqual(item);
+    // `dependencies` (Phase 75 Theme A) is not in the input but defaults in
+    // on parse — the whole point of `.default({})` on that field.
+    expect(ForgeProjectItemSchema.parse(item)).toEqual({
+      ...item,
+      content: {
+        ...item.content,
+        dependencies: {
+          blockedBy: [],
+          parent: null,
+          subIssues: [],
+          blockedByTruncated: false,
+          subIssuesTruncated: false,
+        },
+      },
+    });
   });
 
   it('round-trips a pull item', () => {

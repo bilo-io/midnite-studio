@@ -215,6 +215,8 @@ describe('parseItemsPage', () => {
     expect(nextCursor).toBeNull();
     expect(items).toHaveLength(1);
     const [item] = items;
+    // No `blockedBy`/`parent`/`subIssues` key at all (an older response) —
+    // `dependencies` still parses, to its all-empty default.
     expect(item?.content).toEqual({
       type: 'issue',
       id: 'I_1',
@@ -225,6 +227,13 @@ describe('parseItemsPage', () => {
       assignees: ['octocat'],
       body: 'Steps to reproduce…',
       labels: ['bug'],
+      dependencies: {
+        blockedBy: [],
+        parent: null,
+        subIssues: [],
+        blockedByTruncated: false,
+        subIssuesTruncated: false,
+      },
     });
     expect(item?.fieldValues['F_status']).toEqual({
       fieldId: 'F_status',
@@ -267,6 +276,7 @@ describe('parseItemsPage', () => {
         fieldValues: {},
       },
     ]);
+    expect(items[0]?.content).not.toHaveProperty('dependencies');
   });
 
   it('reads a pull request item', () => {
@@ -297,6 +307,7 @@ describe('parseItemsPage', () => {
 
     const { items } = parseItemsPage(output);
     expect(items[0]?.content).toMatchObject({ type: 'pull', number: 9, state: 'merged' });
+    expect(items[0]?.content).not.toHaveProperty('dependencies');
   });
 
   it('carries the next cursor when a further page exists', () => {
@@ -369,6 +380,174 @@ describe('parseItemsPage', () => {
     expect(items).toHaveLength(1);
     expect(items[0]?.fieldValues).toEqual({ F_text: { fieldId: 'F_text', dataType: 'text', text: 'kept' } });
   });
+
+  describe('dependencies (Phase 75 Theme A)', () => {
+    const issueNode = (deps: Record<string, unknown>): Record<string, unknown> => ({
+      id: 'PVTI_1',
+      content: {
+        __typename: 'Issue',
+        id: 'I_1',
+        number: 42,
+        title: 'Fix the thing',
+        url: 'https://github.com/acme/widgets/issues/42',
+        state: 'OPEN',
+        body: '',
+        assignees: { nodes: [] },
+        labels: { nodes: [] },
+        ...deps,
+      },
+      fieldValues: { nodes: [] },
+    });
+
+    const page = (nodes: Record<string, unknown>[]): string =>
+      JSON.stringify({
+        data: { node: { items: { pageInfo: { hasNextPage: false, endCursor: null }, nodes } } },
+      });
+
+    it('reads two same-repo blockers as repo: ""', () => {
+      const output = page([
+        issueNode({
+          blockedBy: {
+            totalCount: 2,
+            nodes: [
+              { number: 10, title: 'A', state: 'OPEN', repository: { nameWithOwner: 'acme/widgets' } },
+              { number: 11, title: 'B', state: 'CLOSED', repository: { nameWithOwner: 'acme/widgets' } },
+            ],
+          },
+        }),
+      ]);
+      const { items } = parseItemsPage(output, 'acme/widgets');
+      const content = items[0]?.content;
+      expect(content?.type).toBe('issue');
+      expect(content && 'dependencies' in content ? content.dependencies.blockedBy : null).toEqual([
+        { number: 10, title: 'A', state: 'open', repo: '' },
+        { number: 11, title: 'B', state: 'closed', repo: '' },
+      ]);
+    });
+
+    it('keeps a cross-repo blocker\'s own repo', () => {
+      const output = page([
+        issueNode({
+          blockedBy: {
+            totalCount: 1,
+            nodes: [
+              { number: 5, title: 'Upstream', state: 'OPEN', repository: { nameWithOwner: 'other/repo' } },
+            ],
+          },
+        }),
+      ]);
+      const { items } = parseItemsPage(output, 'acme/widgets');
+      const content = items[0]?.content;
+      expect(content && 'dependencies' in content ? content.dependencies.blockedBy : null).toEqual([
+        { number: 5, title: 'Upstream', state: 'open', repo: 'other/repo' },
+      ]);
+    });
+
+    it('reads a parent issue', () => {
+      const output = page([
+        issueNode({
+          parent: { number: 1, title: 'Epic', state: 'OPEN', repository: { nameWithOwner: 'acme/widgets' } },
+        }),
+      ]);
+      const { items } = parseItemsPage(output, 'acme/widgets');
+      const content = items[0]?.content;
+      expect(content && 'dependencies' in content ? content.dependencies.parent : null).toEqual({
+        number: 1,
+        title: 'Epic',
+        state: 'open',
+        repo: '',
+      });
+    });
+
+    it('reads five sub-issues', () => {
+      const nodes = Array.from({ length: 5 }, (_, i) => ({
+        number: i + 100,
+        title: `Sub ${i}`,
+        state: 'OPEN',
+        repository: { nameWithOwner: 'acme/widgets' },
+      }));
+      const output = page([issueNode({ subIssues: { totalCount: 5, nodes } })]);
+      const { items } = parseItemsPage(output, 'acme/widgets');
+      const content = items[0]?.content;
+      expect(
+        content && 'dependencies' in content ? content.dependencies.subIssues.length : null,
+      ).toBe(5);
+      expect(
+        content && 'dependencies' in content ? content.dependencies.subIssuesTruncated : null,
+      ).toBe(false);
+    });
+
+    it('marks blockedByTruncated when totalCount exceeds the returned page', () => {
+      const nodes = Array.from({ length: 20 }, (_, i) => ({
+        number: i + 1,
+        title: `Blocker ${i}`,
+        state: 'OPEN',
+        repository: { nameWithOwner: 'acme/widgets' },
+      }));
+      const output = page([issueNode({ blockedBy: { totalCount: 30, nodes } })]);
+      const { items } = parseItemsPage(output, 'acme/widgets');
+      const content = items[0]?.content;
+      expect(
+        content && 'dependencies' in content ? content.dependencies.blockedByTruncated : null,
+      ).toBe(true);
+      expect(
+        content && 'dependencies' in content ? content.dependencies.blockedBy.length : null,
+      ).toBe(20);
+    });
+
+    it('defaults to all-empty when none of the three keys are present', () => {
+      const output = page([issueNode({})]);
+      const { items } = parseItemsPage(output, 'acme/widgets');
+      const content = items[0]?.content;
+      expect(content && 'dependencies' in content ? content.dependencies : null).toEqual({
+        blockedBy: [],
+        parent: null,
+        subIssues: [],
+        blockedByTruncated: false,
+        subIssuesTruncated: false,
+      });
+    });
+
+    it('grows no `dependencies` key on a PullRequest or DraftIssue item', () => {
+      const output = JSON.stringify({
+        data: {
+          node: {
+            items: {
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [
+                {
+                  id: 'PVTI_pr',
+                  content: {
+                    __typename: 'PullRequest',
+                    id: 'PR_1',
+                    number: 9,
+                    title: 'Add feature',
+                    url: 'https://github.com/acme/widgets/pull/9',
+                    state: 'OPEN',
+                    assignees: { nodes: [] },
+                  },
+                  fieldValues: { nodes: [] },
+                },
+                {
+                  id: 'PVTI_draft',
+                  content: {
+                    __typename: 'DraftIssue',
+                    id: 'DI_1',
+                    title: 'Idea',
+                    assignees: { nodes: [] },
+                  },
+                  fieldValues: { nodes: [] },
+                },
+              ],
+            },
+          },
+        },
+      });
+      const { items } = parseItemsPage(output, 'acme/widgets');
+      expect(items[0]?.content).not.toHaveProperty('dependencies');
+      expect(items[1]?.content).not.toHaveProperty('dependencies');
+    });
+  });
 });
 
 describe('listProjects / projectFields / projectItems — transport', () => {
@@ -415,6 +594,30 @@ describe('listProjects / projectFields / projectItems — transport', () => {
     await projectItems(forge, 'PVT_abc', 'cursor-1');
     const [command] = runInShell.mock.calls[0] ?? [];
     expect(command).toContain("-f cursor='cursor-1'");
+  });
+
+  it('asks for blockedBy/parent/subIssues only on the Issue fragment (Phase 75 Theme A)', async () => {
+    runInShell.mockResolvedValueOnce(
+      okShell(
+        JSON.stringify({
+          data: { node: { items: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] } } },
+        }),
+      ),
+    );
+    await projectItems(forge, 'PVT_abc');
+    const [command] = runInShell.mock.calls[0] ?? [];
+    expect(command).toContain('blockedBy(first:20)');
+    expect(command).toContain('parent{number title state repository{nameWithOwner}}');
+    expect(command).toContain('subIssues(first:20){totalCount nodes{number title state repository{nameWithOwner}}}');
+    // The exact, unmodified PullRequest/DraftIssue fragments (Theme A never touched them) —
+    // asserting them verbatim is what proves `blockedBy` appears nowhere inside either.
+    expect(command).toContain(
+      '... on PullRequest{id number title url state body assignees(first:10){nodes{login}} labels(first:20){nodes{name}}}',
+    );
+    expect(command).toContain('... on DraftIssue{id title body assignees(first:10){nodes{login}}}');
+    // `blockedBy` appears exactly once in the whole query — inside the Issue fragment only.
+    expect(command?.match(/blockedBy/g)).toHaveLength(1);
+    expect(command).toContain("-f projectId='PVT_abc'");
   });
 
   it('recognises an INSUFFICIENT_SCOPES error as a distinct kind, not a generic failure', async () => {
