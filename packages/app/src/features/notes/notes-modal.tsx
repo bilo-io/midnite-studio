@@ -5,10 +5,28 @@ import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
 import { Modal } from '../../components/modal';
+import { SortableList } from '../../components/sortable-list';
 import { notesForRepo, useNotesStore } from '../../store/notes-store';
 import { useUiStore } from '../../store/ui-store';
 import { useRepos } from '../../services/queries';
 import { NoteRow } from './note-row';
+import { spliceVisibleOrder } from './notes-reorder';
+
+/**
+ * The composer's resize range, in lines of its own `leading-5` (20px) text.
+ *
+ * Four by default rather than two: a note is a sentence or three, and a
+ * two-row box asks you to write inside a slot. Ten as the ceiling, and a
+ * `resize-y` grip in between — deliberately manual rather than auto-growing,
+ * because the two fight: an auto-grow effect writes `style.height` on every
+ * keystroke and would stamp straight over a height the user had just dragged.
+ * The row editor, which nobody resizes by hand, is the surface that auto-grows
+ * (see `note-row.tsx`).
+ */
+const COMPOSER_LINE_HEIGHT = 20;
+const COMPOSER_PADDING = 20; /* `p-2.5`, top + bottom */
+const COMPOSER_MIN_HEIGHT = 4 * COMPOSER_LINE_HEIGHT + COMPOSER_PADDING;
+const COMPOSER_MAX_HEIGHT = 10 * COMPOSER_LINE_HEIGHT + COMPOSER_PADDING;
 
 export function NotesModal() {
   const open = useUiStore((s) => s.notesOpen);
@@ -80,6 +98,20 @@ export function NotesModal() {
 
   const visibleNotes = hideCompleted ? repoNotes.filter((n) => !n.done) : repoNotes;
 
+  const handleReorder = (nextVisibleIds: string[]) => {
+    if (!selectedRepoId) return;
+    useNotesStore
+      .getState()
+      .reorderNotes(
+        selectedRepoId,
+        spliceVisibleOrder(
+          repoNotes.map((n) => n.id),
+          visibleNotes.map((n) => n.id),
+          nextVisibleIds,
+        ),
+      );
+  };
+
   return (
     <Modal
       open={open}
@@ -131,16 +163,30 @@ export function NotesModal() {
         {/* Composer */}
         {selectedRepoId ? (
           <div className="shrink-0 border-b border-border/50 p-4">
-            <textarea
-              ref={composerRef}
-              data-testid="notes-composer"
-              rows={2}
-              value={composerText}
-              placeholder="Write a thought to capture... (Enter to save, Shift+Enter for newline)"
-              onChange={(e) => setComposerText(e.target.value)}
-              onKeyDown={handleComposerKeyDown}
-              className="w-full resize-none rounded-md border border-input bg-background/80 p-2.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:ring-1 focus:ring-ring"
-            />
+            <div className="gradient-border gradient-border--glow rounded-md">
+              <textarea
+                ref={composerRef}
+                data-testid="notes-composer"
+                value={composerText}
+                placeholder="Write a thought to capture... (Enter to save, Shift+Enter for newline)"
+                onChange={(e) => setComposerText(e.target.value)}
+                onKeyDown={handleComposerKeyDown}
+                style={{ minHeight: COMPOSER_MIN_HEIGHT, maxHeight: COMPOSER_MAX_HEIGHT }}
+                /*
+                  `block`: a textarea is inline-block, so the `gradient-border`
+                  wrapper would size to the line box rather than the control
+                  and leave a descender gap under it — the same trap the commit
+                  box documents in `status-panel.tsx`.
+
+                  `resize-y`, and the height bounds in `style` rather than
+                  Tailwind classes so the line arithmetic above stays readable
+                  as arithmetic. A drag past either end is clamped by the
+                  browser, so the grip can never produce a one-line slit or a
+                  composer that has eaten the list.
+                */
+                className="block w-full resize-y overflow-y-auto rounded-md border-0 bg-background p-2.5 text-sm leading-5 outline-none placeholder:text-muted-foreground/60"
+              />
+            </div>
           </div>
         ) : null}
 
@@ -164,9 +210,11 @@ export function NotesModal() {
             </div>
           ) : (
             <div className="space-y-2 p-4">
-              {visibleNotes.map((note) => (
-                <NoteRow key={note.id} note={note} repo={activeRepo} onHandoff={onClose} />
-              ))}
+              <SortableList ids={visibleNotes.map((note) => note.id)} onReorder={handleReorder}>
+                {visibleNotes.map((note) => (
+                  <NoteRow key={note.id} note={note} repo={activeRepo} onHandoff={onClose} />
+                ))}
+              </SortableList>
             </div>
           )}
         </div>

@@ -71,8 +71,10 @@ test.describe('the full note lifecycle', () => {
     await expect(noteBody(page)).toHaveText('the retry logic here is wrong, look at it later');
     await expect(composer(page)).toHaveValue('');
 
-    // Edit in place: click swaps to a textarea, Enter commits.
-    await noteBody(page).click();
+    // Edit in place: a DOUBLE-click swaps to a textarea, Enter commits. A
+    // single click is left to text selection — the row shows the whole note
+    // now, and copying a line out of it is the other thing you do to one.
+    await noteBody(page).dblclick();
     const editor = page.getByTestId('note-edit-input');
     await expect(editor).toBeVisible();
     await editor.fill('the retry logic — fixed the backoff, still wrong on timeout');
@@ -83,7 +85,7 @@ test.describe('the full note lifecycle', () => {
 
     // Escape cancels the edit and does NOT close the modal (Phase 62 Theme C
     // rule: an input-scoped Escape stops propagation).
-    await noteBody(page).click();
+    await noteBody(page).dblclick();
     await page.getByTestId('note-edit-input').fill('a draft I will not keep');
     await page.keyboard.press('Escape');
     await expect(notesModal(page)).toBeVisible();
@@ -92,7 +94,7 @@ test.describe('the full note lifecycle', () => {
     );
 
     // An emptied body cancels rather than deletes.
-    await noteBody(page).click();
+    await noteBody(page).dblclick();
     await page.getByTestId('note-edit-input').fill('   ');
     await page.getByTestId('note-edit-input').press('Enter');
     await expect(noteBody(page)).toHaveText(
