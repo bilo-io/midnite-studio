@@ -15,7 +15,6 @@ import { formatNumber } from '../../lib/format-number';
 import { useSlidesStore } from '../slides/slides-store';
 import { PresentButton } from '../slides/present-button';
 import {
-  openExternal,
   useAddReviewComment,
   useForgePullComments,
   useForgePullDetail,
@@ -25,6 +24,7 @@ import {
   useReplyToReviewComment,
   useSetThreadResolved,
 } from '../../services/queries';
+import { openLinkFromEvent } from '../../services/open-in-midnite';
 import { checksStatus, pullStatus, StatusPill } from '../forge/forge-status';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
@@ -136,7 +136,7 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
       aria-label={`Pull request #${pull.number}`}
       className="flex h-full min-h-0 min-w-0 flex-1 flex-col"
     >
-      <PrHeader pull={pull} detail={detail} loadingDetail={detailQuery.isLoading} />
+      <PrHeader repoId={repoId} pull={pull} detail={detail} loadingDetail={detailQuery.isLoading} />
 
       {/*
         Outside the tabpanel on purpose: these actions apply to the pull request,
@@ -310,10 +310,12 @@ function PrOverview({
  * beneath it.
  */
 function PrHeader({
+  repoId,
   pull,
   detail,
   loadingDetail,
 }: {
+  repoId: string;
   pull: ForgePull;
   detail: ForgePullDetail | null;
   /** Whether the fetch that fills in the base branch and the counts is still out. */
@@ -334,7 +336,7 @@ function PrHeader({
           label={`Open #${pull.number} on GitHub`}
           size="sm"
           className="ml-auto"
-          onClick={() => openExternal(pull.url)}
+          onClick={(event) => openLinkFromEvent(pull.url, event, { originRepoId: repoId })}
         />
       </div>
 

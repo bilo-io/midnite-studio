@@ -5,7 +5,7 @@ import { LuChevronDown, LuChevronRight, LuSquareArrowOutUpRight } from 'react-ic
 
 import { IconButton } from '../../components/icon-button';
 import { formatNumber } from '../../lib/format-number';
-import { openExternal } from '../../services/queries';
+import { openLinkFromEvent } from '../../services/open-in-midnite';
 import { parseAnsi } from './ansi';
 import { groupCount, visibleRows, type LogNode } from './log-model';
 
@@ -27,6 +27,7 @@ export function LogPane({
   omittedLines,
   totalBytes,
   runUrl,
+  repoId,
   onLoadFull,
   loadingFull,
 }: {
@@ -35,6 +36,8 @@ export function LogPane({
   omittedLines: number;
   totalBytes: number;
   runUrl: string;
+  /** Feeds `openInMidnite`'s `originRepoId` so the tab lands in this repo's derived group. */
+  repoId?: string;
   /** Absent once the full log is already showing — there is nothing left to ask for. */
   onLoadFull: (() => void) | null;
   loadingFull: boolean;
@@ -110,7 +113,7 @@ export function LogPane({
             icon={LuSquareArrowOutUpRight}
             label="Open the full log on GitHub"
             size="sm"
-            onClick={() => openExternal(runUrl)}
+            onClick={(event) => openLinkFromEvent(runUrl, event, { originRepoId: repoId })}
           />
         </p>
       ) : null}
