@@ -82,6 +82,8 @@ function PanelLink({
   return (
     <button
       type="button"
+      // Deliberately `openExternal`, not `openInMidnite` (Phase 71 Theme B):
+      // release notes are read once and never returned to.
       onClick={() => openExternal(href)}
       title={href}
       className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
