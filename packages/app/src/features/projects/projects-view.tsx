@@ -38,6 +38,7 @@ import {
   type ProjectItemFilterState,
 } from './filter';
 import { apiFieldBlockersFor } from './graph/graph-blockers';
+import { DEFAULT_GRAPH_FACETS, isDefaultGraphFacets, type ProjectGraphFacets } from './graph/graph-filter';
 import { useGraphAgentStates } from './graph/use-graph-agent-states';
 import { ProjectGraphView } from './graph/project-graph-view';
 import { nextSortState, sortItems, type SortState } from './sort';
@@ -113,6 +114,14 @@ export function ProjectsView() {
     useUiStore((s) => (selectedProjectId ? s.projectViewByProject[selectedProjectId] : undefined)) ??
     DEFAULT_PROJECT_VIEW;
   const setProjectView = useUiStore((s) => s.setProjectView);
+  // A rehydrated `ProjectViewState` from before this theme has no `graph` at
+  // all (Theme H's own `ui-store.ts` note) — defaulted here, at the point of
+  // use, rather than relying on `DEFAULT_PROJECT_VIEW`'s own shape, since
+  // `projectViewByProject`'s persisted merge is per-project-id, not per-field.
+  const graphFacets: ProjectGraphFacets = view.graph ?? DEFAULT_GRAPH_FACETS;
+  // The dependency graph's `field` layer (Phase 75 Theme H) — a global
+  // preference, not per-project, so it lives on its own top-level slice.
+  const blockedByFieldName = useUiStore((s) => s.blockedByFieldName);
   // Hoisted above every conditional return — a hook cannot be called only on
   // the branch that happens to render Board mode.
   const collapsedColumns = useMemo(() => new Set(view.collapsedColumns), [view.collapsedColumns]);
@@ -124,7 +133,6 @@ export function ProjectsView() {
     () => groupableFields(fieldsQuery.data?.fields ?? []),
     [fieldsQuery.data?.fields],
   );
-
   const scopeMissing =
     projects.data?.kind === 'insufficient-scope' || itemsQuery.data?.kind === 'insufficient-scope';
 
@@ -172,7 +180,9 @@ export function ProjectsView() {
   const allFields = fieldsQuery.data?.fields ?? [];
   const allItems = itemsQuery.data?.items ?? [];
   const filteredItems = filterProjectItems(allItems, view.filter);
-  const filterActive = !isProjectItemFilterEmpty(view.filter);
+  // Extended (Theme H): a graph facet left non-default is exactly as much a
+  // filter as the shared toolbar's own, so it feeds the same indicator.
+  const filterActive = !isProjectItemFilterEmpty(view.filter) || !isDefaultGraphFacets(graphFacets);
   const dataReady = selectedProjectId !== null && !itemsQuery.isLoading && !fieldsQuery.isLoading && !itemsQuery.data?.error;
 
   const setFilter = (filter: ProjectItemFilterState): void => {
@@ -205,13 +215,39 @@ export function ProjectsView() {
     if (!selectedProjectId || !view.collapsedColumns.includes(columnId)) return;
     setProjectView(selectedProjectId, { collapsedColumns: view.collapsedColumns.filter((id) => id !== columnId) });
   };
+  /**
+   * `setProjectView` shallow-merges (`ui-store.ts`) — a patch must carry the
+   * whole `graph` object or the other three facets silently drop. Every
+   * facet control below goes through this rather than building its own
+   * partial patch.
+   */
+  const setGraphFacets = (patch: Partial<ProjectGraphFacets>): void => {
+    if (selectedProjectId) setProjectView(selectedProjectId, { graph: { ...graphFacets, ...patch } });
+  };
 
   const groupField = mode === 'board' ? resolveGroupField(allFields, view.groupFieldId) : null;
   // Only computed while graph mode is actually on screen — same reasoning as
   // `groupField` above. Reused both for `ProjectGraphView`'s own `graph` prop
   // and, below, for the selected item's Start-blocking `blockers` (Theme G) —
-  // one derivation, not two call sites disagreeing about the ladder.
-  const graph = mode === 'graph' ? resolveForgeGraph(filteredItems, allFields, { boardRepo: '' }) : null;
+  // one derivation, not two call sites disagreeing about the ladder. Reads
+  // the *whole* board (`allItems`, not `filteredItems` — Theme H): a blocker
+  // the shared toolbar filter hid vanishes with the item that named it
+  // instead of resolving as an indistinguishable foreign node, and
+  // `graph.truncated` reflects the real board size rather than whatever the
+  // filter left. `ProjectGraphView` narrows the result to what the filter
+  // and this graph's own facets allow through, via `filterForgeGraph`.
+  const graph =
+    mode === 'graph'
+      ? resolveForgeGraph(allItems, allFields, {
+          // The renderer has no owner/repo string to hand this (adding one
+          // is a new IPC channel, which the phase's own guardrails rule
+          // out); the only effect is that an explicit same-repo
+          // self-reference in a field/body value won't collapse with the
+          // local item it actually names.
+          boardRepo: '',
+          blockedByFieldName,
+        })
+      : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="projects-view">
@@ -311,6 +347,79 @@ export function ProjectsView() {
               </select>
             </label>
           ) : null}
+
+          {/*
+            Graph-only facets (Theme H) — same reasoning as the Group-by
+            picker above: how you are looking at the graph, not which board.
+            `ItemFilterToolbar` itself stays untouched; every mode-specific
+            addition renders as its own `children`.
+          */}
+          {mode === 'graph' ? (
+            <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={graphFacets.showContains}
+                  onChange={(event) => setGraphFacets({ showContains: event.target.checked })}
+                  className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+                />
+                Show sub-issues
+              </label>
+
+              <label className="flex items-center gap-1.5">
+                <span>Show</span>
+                <select
+                  aria-label="Show"
+                  value={graphFacets.only}
+                  onChange={(event) => setGraphFacets({ only: event.target.value as ProjectGraphFacets['only'] })}
+                  className="rounded border border-border bg-background px-1.5 py-1 text-xs"
+                >
+                  <option value="all">All</option>
+                  <option value="blocked">Blocked only</option>
+                  <option value="ready">Ready only</option>
+                </select>
+              </label>
+
+              <label
+                className="flex items-center gap-1.5"
+                title={selectedItemId === null ? 'Select a node first' : undefined}
+              >
+                <span>Depth</span>
+                <select
+                  aria-label="Depth from selection"
+                  value={graphFacets.depth}
+                  disabled={selectedItemId === null}
+                  onChange={(event) =>
+                    setGraphFacets({ depth: Number(event.target.value) as ProjectGraphFacets['depth'] })
+                  }
+                  className="rounded border border-border bg-background px-1.5 py-1 text-xs disabled:opacity-50"
+                >
+                  <option value={0}>Off</option>
+                  <option value={1}>1 hop</option>
+                  <option value={2}>2 hops</option>
+                </select>
+              </label>
+
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={graphFacets.hideIsolated}
+                  onChange={(event) => setGraphFacets({ hideIsolated: event.target.checked })}
+                  className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+                />
+                Hide isolated
+              </label>
+            </div>
+          ) : null}
+
+          {filterActive ? (
+            <span
+              data-testid="projects-filter-active-indicator"
+              className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
+            >
+              Filtered
+            </span>
+          ) : null}
         </ItemFilterToolbar>
       ) : null}
 
@@ -353,11 +462,10 @@ export function ProjectsView() {
       ) : mode === 'graph' && graph ? (
         <div className="flex min-h-0 flex-1">
           <ProjectGraphView
-            // `boardRepo: ''` — the renderer has no owner/repo string to hand
-            // this (adding one is a new IPC channel, which the phase's own
-            // guardrails rule out); the only effect is that an explicit
-            // same-repo self-reference in a field/body value won't collapse
-            // with the local item it actually names.
+            // The whole-board graph, computed above — `items={filteredItems}`
+            // is what tells `ProjectGraphView` which of its nodes survived
+            // the shared toolbar filter; the component itself narrows
+            // `graph` down to that plus its own facets (Theme H).
             graph={graph}
             items={filteredItems}
             fields={allFields}
@@ -365,6 +473,7 @@ export function ProjectsView() {
             selectedItemId={selectedItemId}
             onSelectItem={setSelectedItemId}
             agentStates={graphAgentStates}
+            facets={graphFacets}
           />
           {/*
             The graph mounts `CardPanelStack` on the same terms

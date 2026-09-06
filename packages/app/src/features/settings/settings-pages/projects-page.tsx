@@ -1,10 +1,10 @@
 import { Accordion } from '@bilo-io/ui';
 import { useState } from 'react';
-import { LuCheck, LuCopy, LuInfo, LuPlay, LuShieldAlert } from 'react-icons/lu';
+import { LuCheck, LuCopy, LuGitFork, LuInfo, LuPlay, LuShieldAlert } from 'react-icons/lu';
 
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
-import { Field } from './controls';
+import { Field, TextField } from './controls';
 
 /** How the fix is spelled — shown verbatim, matching `MissingScopeState` in `projects-view.tsx`. */
 const SCOPE_FIX_COMMAND = 'gh auth refresh -s project';
@@ -21,6 +21,8 @@ const SCOPE_FIX_COMMAND = 'gh auth refresh -s project';
 export function ProjectsPage() {
   const launchAndRunEnabled = useUiStore((s) => s.launchAndRunEnabled);
   const setLaunchAndRunEnabled = useUiStore((s) => s.setLaunchAndRunEnabled);
+  const blockedByFieldName = useUiStore((s) => s.blockedByFieldName);
+  const setBlockedByFieldName = useUiStore((s) => s.setBlockedByFieldName);
 
   return (
     <div className="flex flex-col gap-3">
@@ -79,6 +81,28 @@ export function ProjectsPage() {
               dropping the rest.
             </p>
           </div>
+        </div>
+      </Accordion>
+
+      <Accordion title="Dependency graph" icon={<LuGitFork className="h-4 w-4" />}>
+        <div className="flex flex-col gap-3 p-3">
+          <Field
+            label="Blocked-by field name"
+            hint={
+              'The dependency graph (Phase 75) reads three sources for what blocks what: GitHub’s ' +
+              'own blocked-by relation, an issue description it can parse, and a project field with ' +
+              'this name (case-insensitive), checked for every item regardless of type. Clear it to ' +
+              'disable the field layer entirely — the other two still run.'
+            }
+          >
+            <TextField
+              value={blockedByFieldName}
+              onChange={setBlockedByFieldName}
+              placeholder="Blocked by"
+              label="Blocked-by field name"
+              className="w-48"
+            />
+          </Field>
         </div>
       </Accordion>
     </div>

@@ -15,8 +15,9 @@ import {
 } from '../../workflows/canvas/workflow-path';
 import type { CardGlowState } from '../board/glow-state';
 import { edgeAppearance } from './edge-appearance';
+import { DEFAULT_GRAPH_FACETS, filterForgeGraph, type ProjectGraphFacets } from './graph-filter';
 import { moveAlongEdge, moveWithinRank } from './graph-keyboard';
-import { FORGE_GRAPH_GEOMETRY, layoutForgeGraph, topAlignedViewport, type PositionedNode } from './graph-layout';
+import { FORGE_GRAPH_GEOMETRY, layoutForgeGraph, nodeKey, topAlignedViewport, type PositionedNode } from './graph-layout';
 import { ProjectGraphNode } from './project-graph-node';
 
 /** How far outside the viewport a node's bounds may sit and still mount —
@@ -60,6 +61,11 @@ export interface ProjectGraphViewProps {
    *  — computed by the caller, not this component, so a store subscription
    *  never lives inside a canvas this deeply testable without one. */
   agentStates: ReadonlyMap<string, CardGlowState>;
+  /** Graph-only facets (Theme H), narrowing what `filterForgeGraph` allows
+   *  onto the canvas — optional and defaulted so every existing caller
+   *  (every test in this suite included) keeps compiling unchanged, the same
+   *  pattern Theme G's own `blockers?` follows on `CardComposer`. */
+  facets?: ProjectGraphFacets;
 }
 
 /**
@@ -83,6 +89,7 @@ export function ProjectGraphView({
   selectedItemId,
   onSelectItem,
   agentStates,
+  facets = DEFAULT_GRAPH_FACETS,
 }: ProjectGraphViewProps) {
   // Same gate `BoardView` calls for its own card ring: a blurred window pays
   // for no edge animation either (Theme E's own rule; `.dep-edge-animated`'s
@@ -90,7 +97,21 @@ export function ProjectGraphView({
   useWindowFocusGate(true);
 
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item] as const)), [items]);
-  const layout = useMemo(() => layoutForgeGraph(graph), [graph]);
+
+  // `items` is already the shared toolbar's own filtered array (Theme H) —
+  // its ids are exactly what "survived the item filter" means, so no second
+  // prop carries them.
+  const filteredItemIds = useMemo(() => new Set(items.map((item) => item.id)), [items]);
+  const selectedNodeKey = useMemo(() => {
+    if (!selectedItemId) return null;
+    const node = graph.nodes.find((n) => n.itemId === selectedItemId);
+    return node ? nodeKey(node) : null;
+  }, [graph.nodes, selectedItemId]);
+  const facetedGraph = useMemo(
+    () => filterForgeGraph(graph, { filteredItemIds, facets, selectedNodeKey }),
+    [graph, filteredItemIds, facets, selectedNodeKey],
+  );
+  const layout = useMemo(() => layoutForgeGraph(facetedGraph), [facetedGraph]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });

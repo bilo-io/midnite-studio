@@ -35,6 +35,7 @@ export const PREFERENCE_KEYS = [
   'allowSystemCacheClean', // optimizer-settings-page.tsx
   'allowTrashEmpty', // trash-safety-page.tsx
   'autoFetchIntervalMs', // sidebar-page.tsx
+  'blockedByFieldName', // projects-page.tsx
   'cycleDurationS', // screen-lock-page.tsx
   'disabledEcosystems', // optimizer-settings-page.tsx
   'forgeWritesEnabled', // reviews-page.tsx / git-safety-page.tsx

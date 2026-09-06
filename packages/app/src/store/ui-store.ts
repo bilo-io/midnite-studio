@@ -30,6 +30,7 @@ import {
 } from '../features/terminal/terminal-font';
 import { DEFAULT_EDITOR_FONT_SIZE, DEFAULT_EDITOR_TAB_SIZE } from '../lib/monaco/editor-prefs';
 import { EMPTY_PROJECT_ITEM_FILTER, type ProjectItemFilterState } from '../features/projects/filter';
+import { DEFAULT_GRAPH_FACETS, type ProjectGraphFacets } from '../features/projects/graph/graph-filter';
 import { touchProjectView } from '../features/projects/project-view-lru';
 import type { SortState } from '../features/projects/sort';
 import { useFileEditorStore } from './file-editor-store';
@@ -478,6 +479,21 @@ export type ProjectViewState = {
   groupFieldId: string | null;
   sort: SortState;
   collapsedColumns: readonly string[];
+  /**
+   * The dependency graph's own facets (Phase 75 Theme H) — kept on this same
+   * project-keyed record rather than a repo-keyed one, since a facet
+   * describing the board's own shape should follow the board across every
+   * repo that reaches it, exactly like `filter` already does. Only ever read
+   * while `projectsMode` is `'graph'`.
+   *
+   * **Optional, deliberately:** a `ProjectViewState` persisted before this
+   * theme landed has no `graph` at all, and `projectViewByProject`'s own
+   * persisted merge (`merge` below) replaces one project's whole record
+   * rather than re-spreading it field by field. A reader defaults this at
+   * the point of use (`view.graph ?? DEFAULT_GRAPH_FACETS`) rather than
+   * trusting this object's own presence.
+   */
+  graph?: ProjectGraphFacets;
 };
 
 export const DEFAULT_PROJECT_VIEW: ProjectViewState = {
@@ -485,6 +501,7 @@ export const DEFAULT_PROJECT_VIEW: ProjectViewState = {
   groupFieldId: null,
   sort: null,
   collapsedColumns: [],
+  graph: DEFAULT_GRAPH_FACETS,
 };
 
 /**
@@ -1040,6 +1057,18 @@ export type UiState = {
   projectViewByProject: Record<string, ProjectViewState>;
   setProjectView: (projectId: string, patch: Partial<ProjectViewState>) => void;
   /**
+   * Case-insensitive project-field name the dependency graph's `field` layer
+   * checks (Phase 75 Theme H) — `resolveForgeGraph`'s own default
+   * (`'Blocked by'`, what GitHub's own dependency UI calls the relation)
+   * when this reads as its initial value. A global preference, not
+   * per-project: which board is open is navigation state, but the field a
+   * whole install's boards happen to use for this is a stable choice about
+   * how every board is read, the same way `projects-page.tsx` already
+   * argues for not repeating the board picker here.
+   */
+  blockedByFieldName: string;
+  setBlockedByFieldName: (blockedByFieldName: string) => void;
+  /**
    * Which skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
@@ -1341,6 +1370,7 @@ export type PersistedUi = Pick<
   | 'projectBoardByRepo'
   | 'projectsMode'
   | 'projectViewByProject'
+  | 'blockedByFieldName'
   | 'agentSkills'
   | 'primaryAgent'
   | 'repoGroups'
@@ -1401,6 +1431,7 @@ export const useUiStore = create<UiState>()(
       projectBoardByRepo: {},
       projectsMode: {},
       projectViewByProject: {},
+      blockedByFieldName: 'Blocked by',
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
       inactivityTimeoutS: 900,
@@ -1854,6 +1885,7 @@ export const useUiStore = create<UiState>()(
             }),
           };
         }),
+      setBlockedByFieldName: (blockedByFieldName) => set({ blockedByFieldName }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
@@ -1908,6 +1940,7 @@ export const useUiStore = create<UiState>()(
         projectBoardByRepo: state.projectBoardByRepo,
         projectsMode: state.projectsMode,
         projectViewByProject: state.projectViewByProject,
+        blockedByFieldName: state.blockedByFieldName,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
         repoGroups: state.repoGroups,
