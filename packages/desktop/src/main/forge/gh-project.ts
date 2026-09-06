@@ -49,6 +49,8 @@ const ITEMS_PAGE = 100;
 const ASSIGNEES_PAGE = 10;
 /** Labels per item — matches `ForgeIssueSchema`'s own read elsewhere. */
 const LABELS_PAGE = 20;
+/** `blockedBy`/`subIssues` per item (Phase 75 Theme A) — a board item with more than this reports `truncated`. */
+const DEPS_PAGE = 20;
 
 /**
  * The boards visible to `$owner` — a repository's owner may be a `User` or an
@@ -122,7 +124,10 @@ const PROJECT_ITEMS_QUERY = [
   'id ',
   'content{',
   '__typename ',
-  `... on Issue{id number title url state body assignees(first:${ASSIGNEES_PAGE}){nodes{login}} labels(first:${LABELS_PAGE}){nodes{name}}}`,
+  `... on Issue{id number title url state body assignees(first:${ASSIGNEES_PAGE}){nodes{login}} labels(first:${LABELS_PAGE}){nodes{name}} ` +
+    `blockedBy(first:${DEPS_PAGE}){totalCount nodes{number title state repository{nameWithOwner}}} ` +
+    `parent{number title state repository{nameWithOwner}} ` +
+    `subIssues(first:${DEPS_PAGE}){totalCount nodes{number title state repository{nameWithOwner}}}}`,
   `... on PullRequest{id number title url state body assignees(first:${ASSIGNEES_PAGE}){nodes{login}} labels(first:${LABELS_PAGE}){nodes{name}}}`,
   `... on DraftIssue{id title body assignees(first:${ASSIGNEES_PAGE}){nodes{login}}}`,
   '}',
@@ -221,7 +226,7 @@ export async function projectItems(
     return { cli, items: [], nextCursor: null, error: describeGraphqlFailure(result.output), kind };
   }
 
-  const { items, nextCursor } = parseItemsPage(result.output);
+  const { items, nextCursor } = parseItemsPage(result.output, `${forge.owner}/${forge.repo}`);
   return { cli, items, nextCursor, error: null, kind: 'ok' };
 }
 
@@ -350,8 +355,18 @@ function parseOptions(value: unknown): { id: string; name: string; color: string
   return options;
 }
 
-/** `node.items`, as one page of `ForgeProjectItem[]` plus the next cursor. */
-export function parseItemsPage(output: string): {
+/**
+ * `node.items`, as one page of `ForgeProjectItem[]` plus the next cursor.
+ *
+ * `boardRepo` (`owner/name`) is what lets a dependency's `repository` collapse
+ * to `repo: ''` when it names the board's own repo (Phase 75 Theme A) — every
+ * existing caller before this phase left it unset, which is equivalent to
+ * "no dependency is ever local", the safe default for a board that never asks.
+ */
+export function parseItemsPage(
+  output: string,
+  boardRepo = '',
+): {
   items: ForgeProjectItem[];
   nextCursor: string | null;
 } {
@@ -364,7 +379,7 @@ export function parseItemsPage(output: string): {
 
   const parsedItems: ForgeProjectItem[] = [];
   for (const raw of nodes) {
-    const item = parseItem(raw);
+    const item = parseItem(raw, boardRepo);
     if (item) parsedItems.push(item);
   }
 
@@ -376,14 +391,14 @@ export function parseItemsPage(output: string): {
  * content cannot be understood, the same "drop the row, not the page" rule
  * every parser here follows.
  */
-function parseItem(raw: unknown): ForgeProjectItem | null {
+function parseItem(raw: unknown, boardRepo: string): ForgeProjectItem | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const row = raw as Record<string, unknown>;
 
   const id = asString(row['id']);
   if (id === null) return null;
 
-  const content = parseItemContent(row['content']);
+  const content = parseItemContent(row['content'], boardRepo);
   if (content === null) return null;
 
   const parsed = ForgeProjectItemSchema.safeParse({
@@ -394,7 +409,70 @@ function parseItem(raw: unknown): ForgeProjectItem | null {
   return parsed.success ? parsed.data : null;
 }
 
-function parseItemContent(value: unknown): ForgeProjectItem['content'] | null {
+/**
+ * One `blockedBy`/`subIssues` connection node, or `parent`, as a
+ * `ForgeIssueLink` — tolerant of a node missing `repository` entirely (an
+ * older response) and of `number`/`title`/`state` being absent. `repo`
+ * collapses to `''` when the node's `nameWithOwner` equals `boardRepo`, so the
+ * renderer can show a bare `#12` for a local reference and `owner/repo#12`
+ * for a foreign one without re-deriving which is which.
+ */
+function parseIssueLink(
+  raw: unknown,
+  boardRepo: string,
+): { number: number; title: string; state: 'open' | 'closed' | null; repo: string } | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const row = raw as Record<string, unknown>;
+  const number = row['number'];
+  if (typeof number !== 'number') return null;
+
+  const nameWithOwner = asString(pick(row['repository'], 'nameWithOwner')) ?? '';
+  const rawState = asString(row['state'])?.toLowerCase();
+  return {
+    number,
+    title: asString(row['title']) ?? '',
+    state: rawState === 'open' || rawState === 'closed' ? rawState : null,
+    repo: nameWithOwner === '' || nameWithOwner === boardRepo ? '' : nameWithOwner,
+  };
+}
+
+/**
+ * The three dependency connections on an `Issue` node — `blockedBy`, `parent`
+ * and `subIssues` — each tolerant of an absent key (an older response) or a
+ * `null` value (`parent` on an issue with none). `blockedByTruncated`/
+ * `subIssuesTruncated` compare `totalCount` against the page actually parsed,
+ * never the requested page size, so a connection with an out-of-range
+ * `totalCount` still reports honestly.
+ */
+function parseIssueLinkSet(row: Record<string, unknown>, boardRepo: string) {
+  const blockedByConn = row['blockedBy'];
+  const blockedByNodes = asArray(pick(blockedByConn, 'nodes'))
+    .map((node) => parseIssueLink(node, boardRepo))
+    .filter((link): link is NonNullable<typeof link> => link !== null);
+  const blockedByTotal = pick(blockedByConn, 'totalCount');
+  const blockedByTruncated =
+    typeof blockedByTotal === 'number' && blockedByTotal > blockedByNodes.length;
+
+  const subIssuesConn = row['subIssues'];
+  const subIssues = asArray(pick(subIssuesConn, 'nodes'))
+    .map((node) => parseIssueLink(node, boardRepo))
+    .filter((link): link is NonNullable<typeof link> => link !== null);
+  const subIssuesTotal = pick(subIssuesConn, 'totalCount');
+  const subIssuesTruncated = typeof subIssuesTotal === 'number' && subIssuesTotal > subIssues.length;
+
+  return {
+    blockedBy: blockedByNodes,
+    parent: parseIssueLink(row['parent'], boardRepo),
+    subIssues,
+    blockedByTruncated,
+    subIssuesTruncated,
+  };
+}
+
+function parseItemContent(
+  value: unknown,
+  boardRepo: string,
+): ForgeProjectItem['content'] | null {
   if (typeof value !== 'object' || value === null) return null;
   const row = value as Record<string, unknown>;
   const typename = asString(row['__typename']);
@@ -428,6 +506,7 @@ function parseItemContent(value: unknown): ForgeProjectItem['content'] | null {
           assignees,
           body,
           labels,
+          dependencies: parseIssueLinkSet(row, boardRepo),
         }
       : {
           type: 'pull',
