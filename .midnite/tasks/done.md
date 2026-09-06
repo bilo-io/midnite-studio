@@ -2,6 +2,71 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 71 Themes A and C — one entry point for every link, and a dev server it can find on its own
+
+[PR #PLACEHOLDER]. Moves Phase 71 0/41 → 12/41 (0% → 29%). Theme A is the seam B and D both call
+into, so it lands first and on its own; Theme C is the half of Phase 32 Theme H that was never
+built. **A changes no existing call site** — that is deliberately Theme B's job, and it is what lets
+this land and be tested without touching twenty-five files.
+
+- [x] **A** — `services/open-in-midnite.ts`: `openInMidnite(url, { originRepoId?, target?, background? })`,
+      one function with two outcomes, so no caller ever branches. With `target` omitted it reads the
+      preference; with `target: 'system'`, or a protocol that is not `http:`/`https:`, it delegates
+      to `openExternal` and returns. Store access through `getState()` rather than hooks — it is
+      called from click handlers *and* from non-component code (`terminal-links.ts` hands a bare
+      callback), and a hook would exclude half its callers.
+- [x] **A** — `resolveLinkTarget()` as a **pure** exported function, exhaustively unit-tested: it is
+      the piece every call site depends on and the only one with a combinatorial input space. Shift →
+      always the system browser; middle-click → the preference, in a background tab; Cmd/Ctrl → the
+      *opposite* of the preference. Shift wins over Cmd deliberately — "always leave the app" has to
+      be one unambiguous gesture, and a user holding both is asking for the stronger of the two.
+- [x] **A** — `linkTarget` in `ui-store` (not `browser-store`: it governs behaviour outside the
+      browser feature — a markdown link in a commit message, a terminal hyperlink — and
+      `browser-store` is scoped to tabs), persisted with the `version` bumped 9 → 10 and a `migrate`
+      arm defaulting any older payload to `'in-app'`. A **Link handling** section on Settings ▸
+      Browser naming the three escape hatches verbatim, because a modifier nobody is told about is a
+      modifier nobody uses. A chord-free `link.toggleTarget` palette command, its label from
+      `COMMANDS` rather than `DEFAULT_KEYMAP`.
+- [x] **C** — `features/browser/dev-server.ts`: `detectDevServer(pkgJson, probe)` reads the repo's
+      `dev`/`start` script for an explicit `--port <n>` / `--port=<n>` / `-p <n>` (`source: 'script'`,
+      no probe needed) and otherwise probes `[3000, 4200, 5173, 8000, 8080]` in order
+      (`source: 'probe'`). `probe` is **injected**, so the unit test needs no network and no listening
+      socket — the same shape that makes `terminal-links.ts` testable.
+- [x] **C** — **Detection is a hint, never a navigation.** Nothing auto-opens, and the module's doc
+      comment says so, because the next reader's first instinct will be to open it.
+- [x] **C** — `mstudio:browser:dev-server-probe`, since a renderer cannot open a TCP socket: a
+      `net.connect` to `127.0.0.1:<port>` with a 250 ms deadline, destroyed either way. Loopback only
+      and the port range validated in the schema — this is the one channel in the phase that could
+      otherwise be talked into scanning a host. Tested against a fake `net`: a refused connection
+      answers `{listening:false}` without throwing, and a hung one answers within the deadline.
+- [x] **C** — The detected server as a new-tab tile (*"Dev server · 5173"*) and a
+      `browser.openDevServer` palette row, both **absent** rather than disabled when nothing is
+      listening — a greyed-out tile teaches nothing an absent one does not. The viewport preset moved
+      out of `browser-pane.tsx`'s component-local `useState` into `browser-store` under `partialize`,
+      **per tab, not global**: one tab checking a mobile layout should not narrow the others.
+- [x] **C** — The emulation limit written where a user sees it, not only in a comment: the preset
+      changes **width only**, `devicePixelRatio` and the user-agent string are untouched, so a page
+      branching on either is not fooled. Shown only while a preset is active — with no constraint
+      applied there is no limit to warn about.
+
+Landed with it, and not on any checklist:
+
+- `useDevServer` is a react-query hook rather than a hook-shaped `useEffect`, for one reason that
+  matters: **two** surfaces ask this question — the tile and the palette row — and without a shared
+  cache each would run its own five-port probe sweep. Refreshed on mount and on window focus rather
+  than on a timer: the failure it guards against is a stale tile pointing at a server the user has
+  since stopped, and both are moments the user is about to look at it, where a background interval
+  would probe loopback forever for a pane that is closed most of the time.
+- A `prefer-const` fix in `dev-server-probe.ts` that is not one: merging `timer`'s declaration and
+  assignment would move it below the `done` closure that reads it, and the socket construction above
+  can throw into a `catch` that calls `done` before any timer exists — a TDZ `ReferenceError` on the
+  one path that matters.
+- `browser-links-shots.spec.ts` shoots the Settings section light and dark. Only that surface: the
+  dev-server tile appears only when a probe finds something listening, and the emulation line only
+  while a preset is active, so a shot of either would be a picture of a stub.
+
+Left open: **B** (twenty-five call sites, routed), **D** (preview deployments, found and offered).
+
 ## 2026-09-06 — Phase 67 Themes A and B — a session that ends leaves a record, and the channel that reads it
 
 [PR #199](https://github.com/bilo-io/midnite-studio/pull/199). Moves Phase 67 0/64 → 16/64 (0% → 25%). The two foundation themes: the durable
