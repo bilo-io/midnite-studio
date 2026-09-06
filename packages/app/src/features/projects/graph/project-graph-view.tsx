@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { LuChevronDown, LuChevronUp, LuGitFork } from 'react-icons/lu';
 
 import { EmptyState } from '../../../components/empty-state';
+import { useWindowFocusGate } from '../../../lib/use-window-focus-gate';
 import type { Viewport } from '../../workflows/canvas/workflow-geometry';
 import {
   edgePath,
@@ -13,6 +14,7 @@ import {
   type Rect,
 } from '../../workflows/canvas/workflow-path';
 import type { CardGlowState } from '../board/glow-state';
+import { edgeAppearance } from './edge-appearance';
 import { moveAlongEdge, moveWithinRank } from './graph-keyboard';
 import { FORGE_GRAPH_GEOMETRY, layoutForgeGraph, topAlignedViewport, type PositionedNode } from './graph-layout';
 import { ProjectGraphNode } from './project-graph-node';
@@ -82,6 +84,11 @@ export function ProjectGraphView({
   onSelectItem,
   agentStates,
 }: ProjectGraphViewProps) {
+  // Same gate `BoardView` calls for its own card ring: a blurred window pays
+  // for no edge animation either (Theme E's own rule; `.dep-edge-animated`'s
+  // focus-gate selector in `styles.css` is what actually pauses it).
+  useWindowFocusGate(true);
+
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item] as const)), [items]);
   const layout = useMemo(() => layoutForgeGraph(graph), [graph]);
 
@@ -257,19 +264,23 @@ export function ProjectGraphView({
         >
           <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
             {visibleEdges.map((edge) => {
-              const from = nodesByKey.get(edge.from)!;
-              const to = nodesByKey.get(edge.to)!;
+              const from = nodesByKey.get(edge.from)!; // the dependent, for a 'blocks' edge
+              const to = nodesByKey.get(edge.to)!; // the blocker, for a 'blocks' edge
               const start = outPort(from);
               const end = inPort(to);
+              // `edgeAppearance`'s own `source`/`target` naming is the
+              // blocker/dependent pair, the reverse of this edge's own
+              // `to`/`from` — see that module's doc comment.
+              const sourceGlow = to.itemId ? agentStates.get(to.itemId) ?? 'idle' : 'idle';
+              const appearance = edgeAppearance(edge, to, from, sourceGlow);
               return (
                 <path
                   key={`${edge.kind}|${edge.from}|${edge.to}`}
                   data-edge-kind={edge.kind}
                   data-edge-source={edge.source}
                   d={edgePath(start.x, start.y, end.x, end.y)}
-                  className="fill-none stroke-border"
-                  strokeWidth={1.5}
-                  strokeDasharray={edge.kind === 'contains' || edge.source === 'body' ? '4 3' : undefined}
+                  className={appearance.className}
+                  strokeWidth={appearance.strokeWidth}
                 />
               );
             })}
@@ -327,20 +338,36 @@ function GraphLegend({ projectId }: { projectId: string }) {
       </button>
       {expanded ? (
         <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 pb-2 text-[11px] text-muted-foreground">
-          <LegendRow swatch="border-solid border-border" label="Blocked / ready — Theme E's edge colours land here" />
+          <LegendRow swatch="border-solid" style={{ borderColor: 'hsl(var(--dep-done))' }} label="Done — this blocker is closed" />
+          <LegendRow swatch="border-dashed" style={{ borderColor: 'hsl(var(--dep-active))' }} label="Active — an agent is working the blocker" />
+          <LegendRow swatch="border-dashed" style={{ borderColor: 'hsl(var(--dep-idle))' }} label="Idle — not yet started" />
           <LegendRow swatch="border-dashed border-muted-foreground/60" label="Foreign — referenced, not on this board" />
-          <LegendRow swatch="border-dashed border-border" label="Contains — a parent's sub-issue, not a blocker" />
-          <LegendRow swatch="border-dashed border-border" label="Reduced confidence — parsed from an issue's body" />
+          <LegendRow swatch="border-dashed border-border opacity-40" label="Contains — a parent's sub-issue, not a blocker" />
+          <LegendRow
+            swatch="border-dotted border-border opacity-70"
+            label="Inferred from the issue description — may be incomplete"
+          />
         </div>
       ) : null}
     </div>
   );
 }
 
-function LegendRow({ swatch, label }: { swatch: string; label: string }) {
+function LegendRow({
+  swatch,
+  style,
+  label,
+}: {
+  swatch: string;
+  /** A dep-state swatch borrows its border colour from the same CSS custom
+   *  property the edge itself uses (`edge-appearance.ts`'s classes), rather
+   *  than a hard-coded Tailwind colour that would drift from it. */
+  style?: React.CSSProperties;
+  label: string;
+}) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className={`inline-block h-2.5 w-4 rounded-sm border ${swatch}`} aria-hidden />
+      <span className={`inline-block h-2.5 w-4 rounded-sm border ${swatch}`} style={style} aria-hidden />
       {label}
     </span>
   );

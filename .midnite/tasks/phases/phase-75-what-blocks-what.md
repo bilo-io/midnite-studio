@@ -476,9 +476,9 @@ layer is reused rather than rewritten.
   - jsdom has no `CSS` global, so the unit suite stubs `CSS.escape` exactly as
     `board-view.test.tsx:14–16` already does.
 
-### E — Edge states, and what blocked looks like (L)
+### E — Edge states, and what blocked looks like (L) ✅ DONE (PR #210, 2026-09-06)
 
-- [ ] Three CSS variables in [`styles.css`](../../../packages/app/src/styles.css), defined in **both**
+- [x] Three CSS variables in [`styles.css`](../../../packages/app/src/styles.css), defined in **both**
       the light `:root` block and the dark block, beside the existing `--health-*` group (`:37–40`):
       `--dep-done`, `--dep-active`, `--dep-idle`.
   - Deliberately **not** `--health-ok`/`--health-warn`/`--health-fail`: those mean repo health, and a
@@ -486,7 +486,10 @@ layer is reused rather than rewritten.
     tokens in two blocks is the cost of that independence.
   - Deliberately **not** raw hex: the graph is a themed surface and Phase 64 built the engine that
     themes it.
-- [ ] `packages/app/src/features/projects/graph/edge-appearance.ts` —
+  - `--dep-done` borrows `var(--success)` and `--dep-idle` borrows `var(--muted-foreground)` — both
+    already lift themselves for `.dark`; `--dep-active` has no existing token to borrow (no other
+    surface means "work is happening right now") and is declared literally in both blocks.
+- [x] `packages/app/src/features/projects/graph/edge-appearance.ts` —
       `edgeAppearance(edge: ForgeGraphEdge, source: ForgeGraphNode, target: ForgeGraphNode): { className: string; strokeWidth: number }`,
       pure, keyed off the two endpoints. The crib's five blocking states, kept intact because they are
       correct (source = the blocker, target = the dependent it feeds):
@@ -497,24 +500,31 @@ layer is reused rather than rewritten.
   | closed | still blocked | animated dash, `--dep-done` — done, but other blockers remain |
   | open, agent running | blocked | animated dash, `--dep-active` — work is happening upstream |
   | otherwise | — | static `--dep-idle`, 1.5px — a quiet, not-yet-started dependency |
-- [ ] `contains` edges: one appearance, never animated — `--dep-idle` at 0.4 opacity on a **wider dash
+  - **Adapted:** "agent running" is not a `ForgeGraphNode` field — it lives in `useGraphAgentStates`'
+    `CardGlowState` map, one level above this module. Rather than leave the fourth row undecidable
+    under the doc's literal two-node signature, the function takes a fourth, defaulted
+    `sourceGlow: CardGlowState = 'idle'` parameter: still pure, and a foreign blocker (never a board
+    item, never in the glow map) resolves to `'idle'` by the same default, which is correct — a node
+    nobody can start an agent on is never "agent running". `project-graph-view.tsx` looks the blocker
+    up at `edge.to` and passes its glow from the same `agentStates` map the nodes read.
+- [x] `contains` edges: one appearance, never animated — `--dep-idle` at 0.4 opacity on a **wider dash
       period** than any blocking dash, so the two separate at a glance without relying on colour. Off
       by default (Theme H).
-- [ ] A `source: 'body'` edge renders **dotted rather than dashed** and at 0.7 opacity, with the legend
+- [x] A `source: 'body'` edge renders **dotted rather than dashed** and at 0.7 opacity, with the legend
       saying why: *"inferred from the issue description — may be incomplete."* An edge the app guessed
       at must not look as certain as one GitHub asserted. This is the same distinction Theme G uses to
       decide whether an edge may disable a Start button.
-- [ ] The dash animation is `stroke-dashoffset` on a **CSS keyframe**, never a React-driven `animated`
+- [x] The dash animation is `stroke-dashoffset` on a **CSS keyframe**, never a React-driven `animated`
       prop. One keyframe, one class, N edges — 300 edges animating through React state is the frame
       budget gone.
-- [ ] Blocked nodes: `opacity: 0.55` plus `filter: saturate(0.4)`. Applied to the **node body**, never
+- [x] Blocked nodes: `opacity: 0.55` plus `filter: saturate(0.4)`. Applied to the **node body**, never
       to the glow layer — a blocked node whose agent is somehow running must still read as running, so
       Theme F's ring wins over Theme E's dimming. Stated as an explicit precedence, not left to
       cascade order.
-- [ ] `ready` nodes get an affirmative badge, not merely the absence of dimming. The graph's whole
+- [x] `ready` nodes get an affirmative badge, not merely the absence of dimming. The graph's whole
       argument is "here is what you can start now"; making that state legible only by *not* being grey
       wastes it.
-- [ ] **Motion policy — the rule, not the goal.**
+- [x] **Motion policy — the rule, not the goal.**
       [`styles-motion-guards.test.ts:110–128`](../../../packages/app/src/styles-motion-guards.test.ts)
       requires, for every `@keyframes` in `styles.css`: (i) it is referenced by at least one
       `animation:`/`animation-name:` declaration, and (ii) for at least one such usage, the
@@ -522,10 +532,10 @@ layer is reused rather than rewritten.
       `@media (prefers-reduced-motion: reduce) { … }` block. So each new keyframe's `animation:` must
       sit on a class that is itself named in a reduced-motion block. The escape hatch is `ALLOWLIST`
       at `:40–42`, whose value is a human-written reason and whose addition is therefore reviewed.
-- [ ] Reduced motion keeps every colour and drops every animation — so **the five states must already
+- [x] Reduced motion keeps every colour and drops every animation — so **the five states must already
       separate with the animation frozen**, by dash pattern and stroke width alone. A state
       distinction carried only by movement is unavailable to a reader who turned movement off.
-- [ ] Focus gating: the canvas calls `useWindowFocusGate` the way
+- [x] Focus gating: the canvas calls `useWindowFocusGate` the way
       [`BoardView`](../../../packages/app/src/features/projects/board/board-view.tsx) already does, and
       a blurred window pays for no edge animation.
 
@@ -803,7 +813,7 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
       zeroed bounds rather than `NaN`.
 - [x] Unit: `layoutForgeGraph` is deterministic — two runs over one graph produce identical positions.
 - [x] Unit: `topAlignedViewport` for fits-horizontally, overflows-horizontally, taller-than-canvas.
-- [ ] Unit: `edgeAppearance` for all five blocking states, containment, and a `body`-sourced edge.
+- [x] Unit: `edgeAppearance` for all five blocking states, containment, and a `body`-sourced edge.
 - [x] Unit: `moveAlongEdge` left/right across a diamond (deterministic tie-break) and returning `null`
       at a source/sink; `moveWithinRank` wrapping behaviour at both ends.
 - [ ] Unit: `gh-project.ts`'s mapper against the new fixtures — two blockers, a cross-repo blocker, a
@@ -811,7 +821,7 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
       item and a draft item growing no `dependencies` field.
 - [ ] Unit: the transport command string contains `blockedBy(first:20)` and the existing `-f
       projectId=` / cursor assertions still pass.
-- [ ] Unit: `styles-motion-guards.test.ts` passes with the new keyframes — each one's `animation:`
+- [x] Unit: `styles-motion-guards.test.ts` passes with the new keyframes — each one's `animation:`
       sits on a class named inside a `prefers-reduced-motion: reduce` block, or is allowlisted with a
       written reason.
 - [x] Unit: `useGraphAgentStates` render-count — 300 nodes, one session going `idle → open`; the

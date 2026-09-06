@@ -1,5 +1,7 @@
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
+import { LuCircleCheck } from 'react-icons/lu';
+
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from '../board/card-chrome';
 import type { CardGlowState } from '../board/glow-state';
 import { FORGE_GRAPH_GEOMETRY, type PositionedNode } from './graph-layout';
@@ -88,28 +90,58 @@ export function ProjectGraphNode({
         // `.project-graph-node.agent-run-glow::after`) bleeds 10px past this
         // box on purpose, and clipping it here would hide it entirely.
         // Title truncation is `CardTitleRow`'s own inner `truncate` span —
-        // it never depended on this element's overflow.
-        'project-graph-node flex cursor-pointer flex-col gap-1.5 rounded border bg-background px-2 py-1.5 text-left text-xs',
+        // it never depended on this element's overflow. `relative` anchors
+        // the ready badge below.
+        'project-graph-node relative flex cursor-pointer flex-col rounded border bg-background px-2 py-1.5 text-left text-xs',
         selected ? 'border-primary' : node.foreign ? 'border-dashed border-muted-foreground/50' : 'border-border',
         glow === 'idle' ? '' : `agent-run-glow is-${glow}`,
       ]
         .filter(Boolean)
         .join(' ')}
     >
-      <div className="flex items-start gap-1.5">
-        <CardTitleRow icon={Icon} title={title} />
+      {/*
+        Theme E's dimming lives on this inner wrapper, never the outer
+        element above — the outer one is what carries `agent-run-glow`, and
+        a blocked node whose agent is somehow still running must read as
+        running (Theme F's ring wins over Theme E's dimming; stated here as
+        the explicit precedence the phase doc calls for, not left to
+        cascade order). Tailwind's arbitrary `saturate-*`/`opacity-*` need
+        the bare `filter` utility alongside them to actually apply — Tailwind
+        only composites the filter chain through that class.
+      */}
+      <div className={['flex flex-col gap-1.5', node.blocked ? 'opacity-[0.55] saturate-[.4] filter' : ''].filter(Boolean).join(' ')}>
+        <div className="flex items-start gap-1.5">
+          <CardTitleRow icon={Icon} title={title} />
+        </div>
+
+        {detailed ? (
+          <>
+            {number !== null || assignees.length > 0 ? (
+              <div className="flex items-center justify-between gap-2">
+                <CardNumberRow number={number} href={href} />
+                <CardAssignees assignees={assignees} />
+              </div>
+            ) : null}
+            {item ? <CardFieldChips item={item} fields={fields} /> : null}
+          </>
+        ) : null}
       </div>
 
-      {detailed ? (
-        <>
-          {number !== null || assignees.length > 0 ? (
-            <div className="flex items-center justify-between gap-2">
-              <CardNumberRow number={number} href={href} />
-              <CardAssignees assignees={assignees} />
-            </div>
-          ) : null}
-          {item ? <CardFieldChips item={item} fields={fields} /> : null}
-        </>
+      {/*
+        An affirmative badge, not merely the absence of dimming — the
+        graph's whole argument is "here is what you can start now", and that
+        reads only if `ready` has its own positive mark rather than just
+        looking like every other un-blocked, un-touched node. Outside the
+        dimmed wrapper above (a `ready` node is, by construction, never also
+        `blocked` — `forge-graph.ts`'s own readiness rule), and outside the
+        glow ring's own precedence fight entirely.
+      */}
+      {node.ready ? (
+        <LuCircleCheck
+          role="img"
+          aria-label="Ready to start"
+          className="absolute -right-1.5 -top-1.5 h-3.5 w-3.5 rounded-full bg-background text-[hsl(var(--dep-done))]"
+        />
       ) : null}
     </div>
   );
