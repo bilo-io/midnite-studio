@@ -654,18 +654,18 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
 - [x] RTL: opening a blocked node's panel renders a disabled `card-start` whose `title` contains both
       blocker numbers; opening a `body`-blocked node's panel renders an **enabled** `card-start`.
 
-### H — Filters, and the graph's own facets (M)
+### H — Filters, and the graph's own facets (M) ✅ DONE (PR #TBD, 2026-09-06)
 
-- [ ] The graph reads the existing shared toolbar with **no toolbar edit at all**.
+- [x] The graph reads the existing shared toolbar with **no toolbar edit at all**.
       [`ItemFilterToolbar`](../../../packages/app/src/components/item-filter-toolbar.tsx) (`:32`,
       lifted out in **Phase 54 Theme E** — not Phase 52, which had the in-view original) is rendered
       once above the mode branch at `projects-view.tsx:239–282` and hands every mode an
       already-filtered array via `filterProjectItems(allItems, view.filter)` (`:148`). Query,
       assignees, labels, states and types all apply for free.
-- [ ] Filtering narrows the node set **before** layout, and an edge renders only when *both* endpoints
+- [x] Filtering narrows the node set **before** layout, and an edge renders only when *both* endpoints
       survive — the crib's rule, and why a filtered-out node's dependencies vanish cleanly rather than
       dangling into empty space.
-- [ ] Graph-only facets as one nested object on `ProjectViewState`
+- [x] Graph-only facets as one nested object on `ProjectViewState`
       ([`ui-store.ts:458`](../../../packages/app/src/store/ui-store.ts)), added to
       `DEFAULT_PROJECT_VIEW` (`:466`):
   ```ts
@@ -686,20 +686,20 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
     rehydrated record without `graph` falls back through `DEFAULT_PROJECT_VIEW`.
   - `PROJECT_VIEW_LRU_CAP = 20` ([`project-view-lru.ts:11`](../../../packages/app/src/features/projects/project-view-lru.ts))
     already bounds this record; nothing new to evict.
-- [ ] **Show sub-issue hierarchy** — the `contains` layer, off by default.
-- [ ] **Blocked only / Ready only** — a three-way `only` rather than two booleans, because "blocked and
+- [x] **Show sub-issue hierarchy** — the `contains` layer, off by default.
+- [x] **Blocked only / Ready only** — a three-way `only` rather than two booleans, because "blocked and
       ready" is empty by construction and two checkboxes would advertise a state that cannot exist.
-- [ ] **Depth from selection** — `off | 1 | 2` hops along `blocks` edges from the selected node. The
+- [x] **Depth from selection** — `off | 1 | 2` hops along `blocks` edges from the selected node. The
       answer to "why can't I start this", on a board too big to read whole. Disabled with a tooltip
       when nothing is selected.
-- [ ] **Hide isolated nodes** — a board where six items have dependencies and ninety do not is ninety
+- [x] **Hide isolated nodes** — a board where six items have dependencies and ninety do not is ninety
       boxes of noise. Off by default, and it must not be able to produce the empty state: with it on
       and zero edges, the zero-edge copy still renders.
-- [ ] The graph's facets feed the same filter-active indicator the toolbar already shows, extending
+- [x] The graph's facets feed the same filter-active indicator the toolbar already shows, extending
       `isProjectItemFilterEmpty`'s result with `graph` being non-default. A graph silently hiding half
       its nodes is worse than no graph.
       *Acceptance:* turning on `hideIsolated` alone flips the indicator on.
-- [ ] `blockedByFieldName` (default `'Blocked by'`) on
+- [x] `blockedByFieldName` (default `'Blocked by'`) on
       [`projects-page.tsx`](../../../packages/app/src/features/settings/settings-pages/projects-page.tsx)
       as a fourth `Accordion`, using `TextField` wrapped in `Field` — both re-exported by
       [`controls.tsx`](../../../packages/app/src/features/settings/settings-pages/controls.tsx) (a
@@ -838,11 +838,11 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
       property it locks in (unaffected map entries keep the same string reference) is what a real
       memoized node needs to bail out on, and `project-graph-node.test.tsx` separately proves the real
       node re-renders correctly off a changed `glow` prop.
-- [ ] RTL: filtering out one endpoint removes the edge; `only: 'blocked'` and `only: 'ready'` are
+- [x] RTL: filtering out one endpoint removes the edge; `only: 'blocked'` and `only: 'ready'` are
       mutually exclusive by construction; `depth: 1` and `depth: 2`; `hideIsolated` with zero edges
       still renders the zero-edge copy rather than the empty state.
-- [ ] RTL: turning on `hideIsolated` alone flips the filter-active indicator.
-- [ ] RTL: a facet change made via `setProjectView` preserves the other three facets (the
+- [x] RTL: turning on `hideIsolated` alone flips the filter-active indicator.
+- [x] RTL: a facet change made via `setProjectView` preserves the other three facets (the
       shallow-merge trap).
 - [x] RTL: selecting an item in board mode, switching to graph mode, and `card-detail` is still
       mounted for the same item.

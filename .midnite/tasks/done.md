@@ -2,6 +2,48 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 75 Theme H — filters, and the graph's own facets
+
+[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD). Moves Phase 75 75/106 → 87/106
+(71% → 82%). The last of Phase 75's eight themes: the graph now shares the same filter and gains
+the four facets that let a board too big to read whole narrow itself down.
+
+- [x] The graph reads the existing shared toolbar with **no toolbar edit at all** —
+      `ItemFilterToolbar` renders once above the mode branch and hands every mode an
+      already-filtered array; query, assignees, labels, states and types all apply for free.
+- [x] `packages/app/src/features/projects/graph/graph-filter.ts` — `filterForgeGraph`, pure,
+      applied after `resolveForgeGraph` and before `layoutForgeGraph`. The graph is now built from
+      the **whole board**, not `filteredItems`: a node naming a real board item that did not
+      survive the shared toolbar filter is dropped, and an edge renders only once both its
+      endpoints do — a filtered-out node's own dependencies vanish cleanly rather than resolving as
+      an indistinguishable foreign node. Also why `graph.truncated` now reflects the real board
+      size rather than whatever the filter happened to leave.
+- [x] Four graph-only facets — `showContains` (off by default), `only: 'all' | 'blocked' |
+      'ready'`, `depth: 0 | 1 | 2` (BFS over surviving `blocks` edges only, from the selected
+      node's own key), `hideIsolated` — as one optional, shallow-merge-safe object on
+      `ProjectViewState.graph` (`ui-store.ts`), defaulted at the point of use
+      (`view.graph ?? DEFAULT_GRAPH_FACETS`) rather than trusting the persisted record's own shape.
+      No persist version bump.
+- [x] Facet controls render as `ItemFilterToolbar` children, gated to graph mode — the same pattern
+      the board's own Group-by picker already uses, so the shared toolbar itself needed zero edit.
+      `setGraphFacets` always patches the whole `graph` object, guarding the shallow-merge trap.
+      Depth is disabled with a tooltip while nothing is selected.
+- [x] The shared filter-active indicator (a small "Filtered" chip in the toolbar) now also trips on
+      a non-default graph facet, extending `isProjectItemFilterEmpty`'s result at the call site
+      rather than inside `filter.ts` itself, which stays unchanged.
+- [x] `blockedByFieldName` (default `'Blocked by'`) — a new global preference, not per-project — on
+      `projects-page.tsx`'s fourth `Accordion`. Blank disables the field layer entirely; the api and
+      body layers keep running.
+- Rebased onto [PR #215](https://github.com/bilo-io/midnite-studio/pull/215) (Theme G, merged while
+  this was in flight): `selectedItemId` is Theme G's own lifted state, not a graph-mode-local one,
+  and the graph's `resolveForgeGraph` call is Theme G's own `graph` local, now reading `allItems`
+  (not `filteredItems`) and carrying `blockedByFieldName`.
+- Left open, deliberately: the phase's cross-cutting perf checks (`bundle-report.mjs`,
+  `idle-cpu.mjs --blurred`), the five "Open, for a human" items, and a dozen Theme A/B Unit-test
+  checklist lines that read unchecked despite those themes' own PRs (#204/#206) having merged —
+  doc bookkeeping this theme did not audit or re-verify. **All eight lettered themes are now
+  ✅ DONE, but Phase 75 is not flipped to ✅ DONE here** — those items are real, non-human-only gaps.
+
 ## 2026-09-06 — Phase 75 Theme G — point an agent at a node
 
 [PR #215](https://github.com/bilo-io/midnite-studio/pull/215). Moves Phase 75 67/106 → 75/106
