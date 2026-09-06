@@ -127,7 +127,7 @@ landing before C would ship an empty view**, so E is the one ordering that is no
 
 ### A — A session that ends leaves a record (M)
 
-- [ ] Add [`packages/shared/src/domain/session-history.ts`](../../../packages/shared/src/domain/session-history.ts) — **new** —
+- [x] Add [`packages/shared/src/domain/session-history.ts`](../../../packages/shared/src/domain/session-history.ts) — **new** —
       exporting `ClosedSessionSchema`, `type ClosedSession = z.infer<typeof ClosedSessionSchema>`,
       `MAX_CLOSED_SESSIONS = 200`, and `closedFromSession()`.
   - Shape: the durable half of `TerminalSession` — `id: z.string().min(1)`,
@@ -156,12 +156,12 @@ landing before C would ship an empty view**, so E is the one ordering that is no
   - Add `export * from './session-history';` to
     [`packages/shared/src/domain/index.ts`](../../../packages/shared/src/domain/index.ts) beside
     `./window` at `:29` — the barrel is how `@midnite/studio-shared` re-exports domain types.
-- [ ] **Export `safeId()`** from
+- [x] **Export `safeId()`** from
       [`terminal-store.ts:95-97`](../../../packages/desktop/src/main/terminal-store.ts) rather than
       copying it. It is private today and its docblock says exactly why it exists — *"the id arrives
       over IPC and is interpolated straight into a path"*. Two copies of a traversal guard is one
       copy that stops being updated; the history store imports the same function.
-- [ ] Add `packages/desktop/src/main/session-history-store.ts` — **new**, in
+- [x] Add `packages/desktop/src/main/session-history-store.ts` — **new**, in
       [`trust-store.ts`](../../../packages/desktop/src/main/diagnostics/trust-store.ts)'s shape:
       `createSessionHistoryStore(directory: string): SessionHistoryStore`, no `electron` import, a
       lazy in-memory cache, real zod validation, and a `nullSessionHistoryStore` fallback.
@@ -186,7 +186,7 @@ landing before C would ship an empty view**, so E is the one ordering that is no
   - **Directory-injected, `electron`-free**, matching `createTrustStore(directory)` and
     `createTerminalStore(directory)` — which is what lets the whole store be tested under bare
     vitest against a `mkdtemp` directory.
-- [ ] **Transcripts move rather than copy**: `<directory>/scrollback/<safeId(id)>.bin` →
+- [x] **Transcripts move rather than copy**: `<directory>/scrollback/<safeId(id)>.bin` →
       `<directory>/session-history/<safeId(id)>.bin` via `fs/promises`' `rename`. One rename, no
       re-read of a megabyte, and the archived bytes are byte-identical by construction.
   - Fall back to `copyFile` + `rm` **only** on `EXDEV`. Both directories live under the same
@@ -194,7 +194,7 @@ landing before C would ship an empty view**, so E is the one ordering that is no
     user-relocatable path and a silent `ENOENT`-shaped failure here loses the transcript.
   - `mkdir(join(directory, 'session-history'), { recursive: true })` on first append, the way
     `terminal-store.ts` does for `scrollback/`.
-- [ ] **Bound it, because nothing else in this repo does.** Cap at `MAX_CLOSED_SESSIONS = 200`
+- [x] **Bound it, because nothing else in this repo does.** Cap at `MAX_CLOSED_SESSIONS = 200`
       (matching `councils-runs-store.ts:22`'s `MAX_STORED_RUNS`), evicting oldest-first **and
       unlinking the evicted transcript in the same operation**.
   - One exported-for-test function:
@@ -204,7 +204,7 @@ landing before C would ship an empty view**, so E is the one ordering that is no
   - [Phase 45](phase-45-leak-audit.md) found this exact bug twice — a cap applied to the copy
     written to disk and never to the in-memory array. `councils-runs-store.ts:45-47` is the shape to
     copy and *not* the completeness to copy: it caps an array of records that own no files.
-- [ ] Rewrite `forgetTerminal` ([`terminal-service.ts:105-110`](../../../packages/desktop/src/main/terminal-service.ts))
+- [x] Rewrite `forgetTerminal` ([`terminal-service.ts:105-110`](../../../packages/desktop/src/main/terminal-service.ts))
       to **archive instead of delete**, in this order:
   1. **Flush first.** `await store.writeScrollback(id, trimScrollback(readScrollback(id)))` — the
      same pair `flushScrollback()` uses at `:154-158`. Without this the archive loses up to 15 s of
@@ -221,7 +221,7 @@ landing before C would ship an empty view**, so E is the one ordering that is no
     intent?: ForgetIntent): void` — the channel is a fire-and-forget `ipcMain.on`, so the renderer
     has nothing to await. Every failure is caught and logged through the one log seam; an archive
     that fails must still drop the row, or the `X` button stops working.
-- [ ] **Derive `reason` and `exitCode` in main, from a seam that already exists.** Subscribe once at
+- [x] **Derive `reason` and `exitCode` in main, from a seam that already exists.** Subscribe once at
       boot: `onSessionExit((sessionId, exitCode) => lastExit.set(sessionId, exitCode))`
       ([`pty-service.ts:167`](../../../packages/desktop/src/main/pty-service.ts), which returns an
       unsubscribe and has no consumer today).
@@ -238,23 +238,23 @@ landing before C would ship an empty view**, so E is the one ordering that is no
     [`features/terminal/terminal-store.ts:472-489`](../../../packages/app/src/features/terminal/terminal-store.ts)
     passes it through; `usePruneSupersededSessions` (`fab-panel.tsx:263`) is the one call site that
     passes `'superseded'`.
-- [ ] `session-history-store.test.ts` beside the store, under bare vitest against a `mkdtemp`
+- [x] `session-history-store.test.ts` beside the store, under bare vitest against a `mkdtemp`
       directory: append/list round-trip preserving order; `evictClosed` at 201 records leaving 200
       rows **and** 200 files; a corrupt `session-history.json` yielding `[]` rather than throwing;
       `transcript()` on a missing id returning a zero-length `Uint8Array`; and `safeId()` mapping
       `../../etc/passwd` to a name that stays inside `session-history/`.
-- [ ] `terminal-service.test.ts`: closing a session with unflushed bytes in the ring archives
+- [x] `terminal-service.test.ts`: closing a session with unflushed bytes in the ring archives
       **those bytes**, not the last 15-second snapshot — the assertion that pins the ordering above.
 
 ### B — The history channel (S)
 
-- [ ] Three channels in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts), in a new
+- [x] Three channels in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts), in a new
       `// --- session history ---` block beside the terminal block at `:360-365`:
       `sessionsHistory: 'mstudio:sessions:history'`,
       `sessionsTranscript: 'mstudio:sessions:transcript'`,
       `sessionsPurge: 'mstudio:sessions:purge'`. `grep -rn "mstudio:sessions" packages` → **0**
       today; the prefix is free.
-- [ ] Schemas in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts):
+- [x] Schemas in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts):
       `SessionsHistoryResponse = z.object({ sessions: z.array(ClosedSessionSchema) })`,
       `SessionsTranscriptRequest = z.object({ sessionId: z.string().min(1) })`,
       `SessionsTranscriptResponse = z.object({ bytes: z.instanceof(Uint8Array) })`,
@@ -264,7 +264,7 @@ landing before C would ship an empty view**, so E is the one ordering that is no
       cheap. `channels.ts:697` states the same rule for `mstudio:pty:data`.
   - `sessionId: null` on purge means "everything" — one channel, not two, because the confirm dialog
       and the blast radius are the same in both cases and a second channel would duplicate both.
-- [ ] Add `packages/desktop/src/main/ipc/sessions-handlers.ts` — **new**, following
+- [x] Add `packages/desktop/src/main/ipc/sessions-handlers.ts` — **new**, following
       [`diag-handlers.ts`](../../../packages/desktop/src/main/ipc/diag-handlers.ts): a module-level
       `let store: SessionHistoryStore = nullSessionHistoryStore`, an exported
       `configureSessions(next: SessionHistoryStore): void` setter, and an exported
@@ -278,13 +278,13 @@ landing before C would ship an empty view**, so E is the one ordering that is no
     and `undefined` respectively. `handle` resolves rather than rejects on a validation failure
     (`handle.ts:17-19`) precisely so the renderer sees an empty result instead of an opaque *"Error
     invoking remote method…"*.
-- [ ] Wire it at boot, respecting the ordering that forces the split:
+- [x] Wire it at boot, respecting the ordering that forces the split:
       `registerSessionsHandlers()` joins the `app.whenReady()` block at
       [`index.ts:298-365`](../../../packages/desktop/src/main/index.ts), which runs **before**
       `userData` is resolved at `:371`; `configureSessions(createSessionHistoryStore(userData))` goes
       in the store-construction block at `:427-465`, immediately after
       `configureTerminals(createTerminalStore(userData), userData)` at `:448`.
-- [ ] Bridge group in [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts), beside the
+- [x] Bridge group in [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts), beside the
       `terminal` group at `:491-502`:
       ```ts
       sessions: {
@@ -297,9 +297,9 @@ landing before C would ship an empty view**, so E is the one ordering that is no
       plus `| 'sessions'` added to the `Pick<MidniteStudioBridge, …>` at
       [`preload/index.ts:101-149`](../../../packages/desktop/src/preload/index.ts), so a half-wired
       group is a compile error rather than an `undefined` discovered at call time (`:95-100`).
-- [ ] Teach the renderer's mock bridge the three methods, so `sessions-view.test.tsx` and
+- [x] Teach the renderer's mock bridge the three methods, so `sessions-view.test.tsx` and
       `transcript-view.test.tsx` can drive them without an Electron process.
-- [ ] Schema round-trip tests beside the existing ipc schema tests: a `ClosedSession` with every
+- [x] Schema round-trip tests beside the existing ipc schema tests: a `ClosedSession` with every
       optional present and one with none both parse; a `reason` outside the enum fails; a
       `Uint8Array` survives `SessionsTranscriptResponse.parse`.
 

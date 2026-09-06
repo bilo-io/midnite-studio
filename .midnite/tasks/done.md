@@ -2,6 +2,53 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 67 Themes A and B — a session that ends leaves a record, and the channel that reads it
+
+[PR #PLACEHOLDER]. Moves Phase 67 0/64 → 16/64 (0% → 25%). The two foundation themes: the durable
+record a closed session leaves behind, and the three IPC channels the list, transcript pane and
+purge dialog (Themes C–F) will read it through. Nothing user-visible ships here — the archive fills
+up as you close sessions, and Theme C is what finally renders it.
+
+- [x] **A** — `packages/shared/src/domain/session-history.ts`: `ClosedSessionSchema`,
+      `MAX_CLOSED_SESSIONS = 200`, and `closedFromSession()` as the one place `TerminalSession` is
+      narrowed. Written as a fresh `z.object({…})` rather than `TerminalSessionSchema.extend()` —
+      that schema closes with `.superRefine(agentIdMatchesKind)` and the resulting `ZodEffects`
+      cannot be extended, a trap its own comment already documents. `reason` is an enum of the three
+      real endings (`closed` / `exited` / `superseded`), because a history that cannot tell "I closed
+      it" from "it crashed" is not worth keeping; `taskRef` is deliberately not carried.
+- [x] **A** — `session-history-store.ts` in `trust-store.ts`'s shape: directory-injected,
+      `electron`-free, lazy cache, real zod validation, `nullSessionHistoryStore` fallback, and a
+      corrupt file leaving the app bootable rather than throwing inside `app.whenReady()`.
+      Transcripts **move** rather than copy — one `rename`, byte-identical by construction, with a
+      `copyFile` + `rm` fallback only on `EXDEV`. Capped at 200, evicting oldest-first and unlinking
+      the evicted transcript in the same operation. `safeId()` is now exported from
+      `terminal-store.ts` rather than copied: two copies of a path-traversal guard is one copy that
+      stops being updated.
+- [x] **B** — Three channels under the previously-unused `mstudio:sessions:` prefix, their schemas,
+      and `sessions-handlers.ts` on `diag-handlers.ts`'s pattern (a module-level store plus a
+      `configureSessions` setter) rather than `terminal-handlers.ts`'s. The transcript crosses
+      structured-cloned as a `Uint8Array`, never base64. `sessionId: null` on purge means
+      "everything" — one channel, not two, because the confirm dialog and the blast radius are the
+      same in both cases.
+- [x] **B** — Wired at boot respecting the ordering that forces the split: `registerSessionsHandlers()`
+      in the `app.whenReady()` block, which runs *before* `userData` is resolved;
+      `configureSessions(createSessionHistoryStore(userData))` in the store-construction block after
+      `configureTerminals`. Bridge group + `| 'sessions'` in the preload `Pick`, so a half-wired group
+      is a compile error rather than an `undefined` found at call time. Mock bridge taught the three
+      methods so Themes C–F can be driven without an Electron process.
+
+Landed with it, and not on any checklist:
+
+- **A quit must not outrun an in-flight archive.** Closing a session archives asynchronously, and
+  `app.quit()` does not wait for a floating promise — so quitting right after closing a session
+  could lose the record and orphan its transcript. `whenArchivesSettle()` tracks the in-flight
+  renames and `shutdownTerminals` awaits it.
+- `terminal-service.test.ts` moved off a block of top-level `await import(...)` onto ordinary static
+  imports plus `vi.hoisted()` for the two values `vi.mock`'s factory closes over — the hoisted mock
+  would otherwise reach them inside their temporal dead zone.
+
+Left open: **C** (the list), **D** (the transcript pane), **E** (the rail row stops lying), **F**
+(detachable, like every other page).
 ## 2026-09-06 — Phase 53 Theme F (partial) — the release rehearsal that found the flow could not cut the release
 
 [PR #198](https://github.com/bilo-io/midnite-studio/pull/198). Moves Phase 53 33/59 → 34/59 (56% → 58%). Theme F is the *verification* theme — "every
