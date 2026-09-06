@@ -95,6 +95,26 @@ describe('ProjectGraphNode', () => {
     expect(el.className).toContain('is-running');
   });
 
+  it('waiting and open each get their own distinct class, same as the card (Theme F deferred item)', () => {
+    const { container, rerender } = render(
+      <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="waiting" selected={false} onSelect={() => {}} />,
+    );
+    let el = container.querySelector('[data-graph-node]')!;
+    expect(el.className).toContain('agent-run-glow');
+    expect(el.className).toContain('is-waiting');
+    expect(el.className).not.toContain('is-running');
+    expect(el.className).not.toContain('is-open');
+
+    rerender(
+      <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="open" selected={false} onSelect={() => {}} />,
+    );
+    el = container.querySelector('[data-graph-node]')!;
+    expect(el.className).toContain('agent-run-glow');
+    expect(el.className).toContain('is-open');
+    expect(el.className).not.toContain('is-running');
+    expect(el.className).not.toContain('is-waiting');
+  });
+
   it('marks selected via aria-pressed, independent of tabIndex', () => {
     const { container, rerender } = render(
       <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
