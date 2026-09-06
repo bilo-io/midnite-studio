@@ -303,9 +303,9 @@ already makes for its own arithmetic.
       matrix including the code-fence, inline-code and link-target negatives and the `Blocks #12`
       negative.
 
-### C — Ranked left-to-right layout, pure (M)
+### C — Ranked left-to-right layout, pure (M) ✅ DONE (PR #207, 2026-09-06)
 
-- [ ] `packages/app/src/features/projects/graph/graph-layout.ts` —
+- [x] `packages/app/src/features/projects/graph/graph-layout.ts` —
       `layoutForgeGraph(graph: ForgeGraph, geometry?: ForgeGraphGeometry): { nodes: PositionedNode[]; edges: PositionedEdge[]; bounds: Rect }`
       where `PositionedNode = ForgeGraphNode & { key: string; x: number; y: number; rank: number }`.
   - **Longest-path ranking** over `blocks` edges only: a node's rank is one past its deepest blocker,
@@ -317,28 +317,28 @@ already makes for its own arithmetic.
     pair, the edge whose `source` is lower-precedence (`body` < `field` < `api`); on a tie, the edge
     whose `from` key sorts later. Both edges still render. This is deterministic, so two runs over one
     board produce identical layouts.
-- [ ] Within-rank ordering: **barycentre** over two forward/backward sweeps, ties broken by the node's
+- [x] Within-rank ordering: **barycentre** over two forward/backward sweeps, ties broken by the node's
       index in `graph.nodes` — which is the board's own API order, since
       [`board-derive.ts:36`](../../../packages/app/src/features/projects/board/board-derive.ts)'s
       `deriveColumns` shows there is no persisted per-card ordering anywhere to inherit.
   - Two sweeps, not to convergence: crossing reduction is a heuristic either way, and an unbounded
     loop on a 300-node graph is a frame budget nobody agreed to spend.
-- [ ] `topAlignedViewport(bounds: Rect, width: number, zoom: number, padding: number): Viewport` —
+- [x] `topAlignedViewport(bounds: Rect, width: number, zoom: number, padding: number): Viewport` —
       ported from the crib for its stated reason: a fit that *centres* a graph taller than the canvas
       wastes a band at the top and clips the bottom. Top-align, centre horizontally when it fits,
       left-align when it does not. Returns `workflow-geometry.ts`'s `Viewport` shape so
       `panBy`/`zoomAtPointer` consume it unchanged.
-- [ ] `FORGE_GRAPH_GEOMETRY = { width: 200, height: 64, rankGap: 96, nodeGap: 20 } as const` beside it
+- [x] `FORGE_GRAPH_GEOMETRY = { width: 200, height: 64, rankGap: 96, nodeGap: 20 } as const` beside it
       — as data, the move [`workflow-geometry.ts:1–12`](../../../packages/app/src/features/workflows/canvas/workflow-geometry.ts)
       makes for the same reason: numbers that have to move together, out of JSX and out of the
       arithmetic, so both stay testable against one source.
-- [ ] `graph-layout.test.ts` — a three-rank chain (ranks 0/1/2) · a diamond · two disconnected
+- [x] `graph-layout.test.ts` — a three-rank chain (ranks 0/1/2) · a diamond · two disconnected
       components whose bounding boxes do not overlap · an isolated node · a mutual pair terminating ·
       a `contains`-only pair sharing a rank · an empty graph returning `{x:0,y:0,width:0,height:0}`
       rather than `NaN`.
   - *Acceptance for the cycle case:* `layoutForgeGraph` returns within one tick and both edges appear
     in `edges`.
-- [ ] `topAlignedViewport` unit cases: fits-horizontally (centred) · overflows-horizontally
+- [x] `topAlignedViewport` unit cases: fits-horizontally (centred) · overflows-horizontally
       (left-aligned at `padding`) · taller-than-canvas (top pinned at `padding`, not centred).
 
 ### D — The canvas (L)
@@ -758,14 +758,14 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
       issue.
 - [ ] Unit: foreign nodes from each of the three sources; a field/body-derived foreign node has
       `title: ''` and `state: null`.
-- [ ] Unit: a mutual `blockedBy` pair renders both edges and `layoutForgeGraph` terminates.
+- [x] Unit: a mutual `blockedBy` pair renders both edges and `layoutForgeGraph` terminates.
 - [ ] Unit: the 300 cap sets `truncated` and reports the true `totalCount`.
 - [ ] Unit: `describeGraphSources` counts each layer separately.
-- [ ] Unit: `layoutForgeGraph` — a three-rank chain, a diamond, two non-overlapping disconnected
+- [x] Unit: `layoutForgeGraph` — a three-rank chain, a diamond, two non-overlapping disconnected
       components, an isolated node, a `contains`-only pair sharing a rank, an empty graph returning
       zeroed bounds rather than `NaN`.
-- [ ] Unit: `layoutForgeGraph` is deterministic — two runs over one graph produce identical positions.
-- [ ] Unit: `topAlignedViewport` for fits-horizontally, overflows-horizontally, taller-than-canvas.
+- [x] Unit: `layoutForgeGraph` is deterministic — two runs over one graph produce identical positions.
+- [x] Unit: `topAlignedViewport` for fits-horizontally, overflows-horizontally, taller-than-canvas.
 - [ ] Unit: `edgeAppearance` for all five blocking states, containment, and a `body`-sourced edge.
 - [ ] Unit: `moveAlongEdge` left/right across a diamond (deterministic tie-break) and returning `null`
       at a source/sink; `moveWithinRank` wrapping behaviour at both ends.
