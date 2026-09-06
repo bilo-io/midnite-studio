@@ -80,12 +80,12 @@ describe('TaskCard', () => {
 
     it('no glow class with no projectId — a card with no board context stays plain', () => {
       const { container } = render(<TaskCard item={issue} fields={[]} />);
-      expect(container.querySelector('.card-run-glow')).toBeNull();
+      expect(container.querySelector('.agent-run-glow')).toBeNull();
     });
 
     it('no glow class with a projectId but no bound session', () => {
       const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
-      expect(container.querySelector('.card-run-glow')).toBeNull();
+      expect(container.querySelector('.agent-run-glow')).toBeNull();
     });
 
     it('pulses running once a kanban session is bound to this card', () => {
@@ -100,14 +100,14 @@ describe('TaskCard', () => {
       });
 
       const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
-      const card = container.querySelector('.card-run-glow');
+      const card = container.querySelector('.agent-run-glow');
       expect(card).not.toBeNull();
       expect(card?.className).toContain('is-running');
     });
 
     it('no glow for an open pane with no session ever launched — plain browsing, not a left-open terminal', () => {
       const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" isOpen />);
-      expect(container.querySelector('.card-run-glow')).toBeNull();
+      expect(container.querySelector('.agent-run-glow')).toBeNull();
     });
 
     it('a session bound to this card, ended, with the detail pane open: a static ring', () => {
@@ -123,7 +123,7 @@ describe('TaskCard', () => {
       useTerminalStore.getState().setState(session.id, 'exited');
 
       const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" isOpen />);
-      const card = container.querySelector('.card-run-glow');
+      const card = container.querySelector('.agent-run-glow');
       expect(card?.className).toContain('is-open');
     });
 
@@ -148,7 +148,7 @@ describe('TaskCard', () => {
       });
 
       const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
-      const card = container.querySelector('.card-run-glow') as HTMLElement;
+      const card = container.querySelector('.agent-run-glow') as HTMLElement;
       expect(card.style.getPropertyValue('--card-glow-color')).toBe('');
       expect(card.getAttribute('style')).toBeNull();
     });

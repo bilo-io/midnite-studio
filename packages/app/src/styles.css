@@ -2090,8 +2090,16 @@ html[data-motion='reduced'] .loop-run-glow {
   predecessor also carried — the card's own `border-border` Tailwind utility
   is the competing declaration, and this class is applied alongside it rather
   than in place of it.
+
+  Named `.card-run-glow` from Phase 37 through Phase 75 Theme F, when it was
+  generalised: `workflows-view.tsx`'s run-history button already wore it
+  alongside `TaskCard`, and Phase 75's project dependency graph (Theme D) is
+  a second surface again, over DOM nodes rather than the SVG edge layer next
+  to them (see that phase's own findings on why `<rect>` cannot wear this).
+  `kanban.spec.ts` asserted the old literal class name; renamed in the same
+  commit rather than kept as a second name for one visual.
 */
-.card-run-glow {
+.agent-run-glow {
   border-color: transparent !important;
   background-image:
     linear-gradient(hsl(var(--background)), hsl(var(--background))),
@@ -2100,14 +2108,14 @@ html[data-motion='reduced'] .loop-run-glow {
   background-clip: padding-box, border-box;
 }
 
-.card-run-glow.is-running {
+.agent-run-glow.is-running {
   animation:
     loop-glow-spin 4s linear infinite,
     card-glow-pulse 2s ease-in-out infinite;
 }
 
 /* Waiting on you: one steady amber ring, no ramp, no rotation. */
-.card-run-glow.is-waiting {
+.agent-run-glow.is-waiting {
   background-image:
     linear-gradient(hsl(var(--background)), hsl(var(--background))),
     linear-gradient(#f59e0b, #f59e0b);
@@ -2117,7 +2125,7 @@ html[data-motion='reduced'] .loop-run-glow {
 
 /* Open, nothing running: the ramp held at rest. No animation, no shadow —
  * the ring alone is the "you have this one open" mark. */
-.card-run-glow.is-open {
+.agent-run-glow.is-open {
   animation: none;
 }
 
@@ -2129,7 +2137,7 @@ html[data-motion='reduced'] .loop-run-glow {
   the hook already supports concurrent hosts (FabPanel and LandingView both
   call it today), so a third caller costs nothing extra.
 */
-html[data-window-focused='false'] .card-run-glow.is-running {
+html[data-window-focused='false'] .agent-run-glow.is-running {
   animation-play-state: paused;
 }
 
@@ -2140,13 +2148,13 @@ html[data-window-focused='false'] .card-run-glow.is-running {
   whatever frame the animation died on. Phase 37 Theme F's own rule.
 */
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-motion='full']) .card-run-glow.is-running {
+  html:not([data-motion='full']) .agent-run-glow.is-running {
     animation: none;
     box-shadow: 0 0 8px rgba(236, 72, 153, 0.4);
   }
 }
 
-html[data-motion='reduced'] .card-run-glow.is-running {
+html[data-motion='reduced'] .agent-run-glow.is-running {
   animation: none;
   box-shadow: 0 0 8px rgba(236, 72, 153, 0.4);
 }
