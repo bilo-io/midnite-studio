@@ -50,3 +50,10 @@ graphify-out/
 /*.postman_environment.json
 /postman_environments.json
 /gateway-routes.json
+
+# API Client (Phase 66 Theme G): a convenience for developing the app against
+# its own repo only — collections this repo's own `.midnite/api/` might pick up
+# while dogfooding the client never need to be committed. The rule that
+# actually protects a *user's* repo ships in Phase 70 Theme A, which writes
+# `.midnite/api/.gitignore` into the repository the app is opened on.
+.midnite/api/**/*.local.json
