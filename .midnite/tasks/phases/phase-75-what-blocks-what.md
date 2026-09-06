@@ -346,7 +346,7 @@ already makes for its own arithmetic.
 HTML nodes over an SVG edge layer, for the reason in finding 2. Everything that is *not* the node
 layer is reused rather than rewritten.
 
-- [ ] `packages/app/src/features/projects/graph/project-graph-view.tsx` —
+- [x] `packages/app/src/features/projects/graph/project-graph-view.tsx` —
       `ProjectGraphView({ graph, items, fields, projectId, selectedItemId, onSelectItem, agentStates })`.
       One `<div>` establishing the transform, containing an absolutely-positioned `<svg>` edge layer
       and, above it, absolutely-positioned HTML nodes.
@@ -354,26 +354,45 @@ layer is reused rather than rewritten.
     `clientToGraph` and `dragDeltaToGraph` **unchanged** — they take a `Viewport` and return one, and
     know nothing about SVG.
   - Zoom clamped by `WORKFLOW_ZOOM_BOUNDS` (`[0.25, 2]`).
-- [ ] **Wheel handling is a non-passive native listener**, registered in a `useEffect` with
+  - **Adapted:** `outPort`/`inPort` are declared locally in `project-graph-view.tsx` rather than reused
+    from `workflow-path.ts` — that module's own versions bake in `WORKFLOW_NODE_GEOMETRY` (160×56),
+    not this graph's `FORGE_GRAPH_GEOMETRY` (200×64), so reusing them verbatim would place every port
+    at the wrong offset. `edgePath`/`panBy`/`zoomAtPointer`/`clientToGraph`/`rectsIntersect`/
+    `viewportRect` are node-geometry-agnostic and are reused verbatim as planned.
+  - **Adapted:** `onSelectItem` is typed `(itemId: string | null) => void`, not `(itemId: string) =>
+    void` — `null` is what `Escape` passes to clear the selection. `CardPanelStack`'s own `onClose`
+    stays a separate callback; a future caller (Theme G) wires `onSelectItem={(id) => id &&
+    setSelectedItemId(id)}` and `onClose={() => setSelectedItemId(null)}` onto one piece of state.
+  - **Scope note:** this component does not mount `CardPanelStack` — that mount is Theme G's own
+    checklist item ("The graph mounts `CardPanelStack` on the same terms `board-view.tsx:411–421`
+    does"). `selectedItemId`/`onSelectItem` are wired all the way through (`ProjectsView` owns a local
+    `graphSelectedItemId` for now) so a node visually selects and is keyboard-focusable, but no detail
+    panel opens yet — Theme G plugs one in without touching this component's contract.
+- [x] **Wheel handling is a non-passive native listener**, registered in a `useEffect` with
       `{ passive: false }` — mirroring [`workflow-canvas.tsx:139–151`](../../../packages/app/src/features/workflows/canvas/workflow-canvas.tsx),
       which does exactly this because React's synthetic `onWheel` is passive and cannot
       `preventDefault()`. An `onWheel` prop here would scroll the page instead of zooming the graph.
-- [ ] **Culling is graph-space, and it is the only culling.** `viewportRect(viewport, w, h, WORKFLOW_CULL_MARGIN)`
+- [x] **Culling is graph-space, and it is the only culling.** `viewportRect(viewport, w, h, WORKFLOW_CULL_MARGIN)`
       + `rectsIntersect` decide which nodes mount.
       [`useCardVisible`](../../../packages/app/src/features/projects/board/use-card-visible.ts) is
       **not** used here: it observes with the browser viewport as root, no `rootMargin` and threshold
       0 (`:23`), so inside a transformed container it would answer a different question from the one
       the canvas is asking. Two culling mechanisms disagreeing about one node is the bug this rules out.
-  - *Acceptance:* with a 300-node fixture at default zoom, `document.querySelectorAll('[data-graph-node]').length < 60`.
-- [ ] **Viewport is component-local `useState`, re-fit on mount** — exactly what `workflow-canvas.tsx`
+  - *Acceptance:* with a 300-node fixture at default zoom, `document.querySelectorAll('[data-graph-node]').length < 60`. ✅ `project-graph-view.test.tsx`.
+- [x] **Viewport is component-local `useState`, re-fit on mount** — exactly what `workflow-canvas.tsx`
       does, and nothing is persisted. Opening the graph always shows the whole graph top-aligned,
       which is the useful default. `Home` re-fits.
   - Deliberately not on `ProjectViewState`: that record is **project**-keyed while `projectsMode` is
     **repo**-keyed, so a persisted viewport would be shared across every repo reaching the same board.
-- [ ] `project-graph-node.tsx` — `ProjectGraphNode({ node, item, fields, glow, selected, onSelect })`,
+- [x] `project-graph-node.tsx` — `ProjectGraphNode({ node, item, fields, glow, selected, onSelect })`,
       a pure component taking `glow: CardGlowState` **as a prop** (Theme F supplies it). Carries
       `data-graph-node`, `data-node-key`, `role="button"`, `tabIndex`.
-- [ ] `card-chrome.tsx` — extract from
+  - **Adapted:** `tabIndex` is its own explicit prop (default `-1`), not derived from `selected` —
+    `selected` is "this node's pane is open" (a visual ring, mirroring `TaskCard`'s `isOpen`);
+    `tabIndex` is the roving DOM tab stop (mirroring `board-view.tsx`'s own separate
+    `focusedItemId`). Conflating the two would make every selected node also a Tab stop, which is not
+    what the board's own pattern does.
+- [x] `card-chrome.tsx` — extract from
       [`task-card.tsx`](../../../packages/app/src/features/projects/board/task-card.tsx), naming
       exactly what moves:
   - `CONTENT_ICON` (`task-card.tsx:208–212`) — **duplicated verbatim** at
@@ -386,49 +405,58 @@ layer is reused rather than rewritten.
     `moveFocusTo` queries `[data-card-id]` and they are that contract. dnd is already outside
     `task-card.tsx` entirely, in `DraggableCard` (`board-view.tsx:610–704`), so a read-only graph
     inherits none of it.
-- [ ] Widen `projectsMode` at **all three sites**, none of which is optional:
+- [x] Widen `projectsMode` at **all three sites**, none of which is optional:
   - `projectsMode: Record<string, 'table' | 'board' | 'graph'>` and
     `setProjectsMode: (repoId: string, mode: 'table' | 'board' | 'graph') => void` —
-    [`ui-store.ts:994–995`](../../../packages/app/src/store/ui-store.ts).
+    landed at `ui-store.ts:1018–1019` (this doc's own `:994–995` citation was stale; audited against
+    the tree before editing, per this phase's own file-map-precision rule).
   - A third entry in the literal mode array at
     [`projects-view.tsx:213–236`](../../../packages/app/src/features/projects/projects-view.tsx):
     `{ id: 'graph', icon: LuWorkflow, label: 'Graph view' }`, inside the existing
     `role="group" aria-label="View mode"` and `data-testid="projects-view-mode-slot"`.
-  - The read default at `projects-view.tsx:72` — and it must **coerce an unrecognised persisted value
-    to `'table'`**, not pass it through.
-  - **No persist version bump.** `projectsMode` is already in `partialize` (`:1873`) and already
-    merged on rehydrate (`:2027`), and a persisted `'table'`/`'board'` stays valid.
-    ⚠️ [PR #200](https://github.com/bilo-io/midnite-studio/pull/200) (Phase 71 Themes A, C) is bumping
-    `version` 9 → 10 concurrently. Do not also bump it; if a later item ever needs one, take whatever
-    number is current at that moment, never `10`.
-- [ ] A third branch in the mode switch at `projects-view.tsx:295`, receiving `filteredItems` exactly
+  - The read default at `projects-view.tsx:72` (this line number held) — coerces an unrecognised
+    persisted value to `'table'` via a small `coerceProjectsMode` helper, rather than passing it
+    through.
+  - **No persist version bump.** `projectsMode` is already in `partialize` and already merged on
+    rehydrate, and a persisted `'table'`/`'board'` stays valid. Verified [PR #200](https://github.com/bilo-io/midnite-studio/pull/200)'s
+    `version: 10` bump had already landed on `main`; this theme does not touch `version` at all.
+- [x] A third branch in the mode switch at `projects-view.tsx:295`, receiving `filteredItems` exactly
       as `BoardView` does at `:300` — the toolbar at `:239–282` is rendered **above** the branch and is
       already mode-agnostic, so the graph inherits filtering with **zero toolbar edit**.
   - The Group-by `<select>` gated `mode === 'board'` at `:265` stays board-only; the graph does not
     group.
-- [ ] Four empty and degenerate states, each with literal copy, because a generic "nothing here" makes
+  - **Placement, precisely:** the branch sits *after* the generic "No items"/"No items match" empty
+    states (which `mode === 'board'` sits *before*, since `BoardView` renders its own empty columns) —
+    so a board with zero items, or zero items after filtering, shows the same generic empty state in
+    graph mode it shows in table mode, and `ProjectGraphView`'s own zero-edges/all-drafts states only
+    ever fire once there is at least one real item to lay out.
+- [x] Four empty and degenerate states, each with literal copy, because a generic "nothing here" makes
       three of them look like a bug:
-  - **No board selected** → the existing board picker, unchanged.
-  - **`kind !== 'ok'`** → the scope-fix affordance, reusing the vocabulary
-    [`projects-page.tsx:95`](../../../packages/app/src/features/settings/settings-pages/projects-page.tsx)'s
-    `ScopeFixCommand` already established: *"Reading dependencies needs a wider token."* plus a
-    copyable `gh auth refresh -s project`. Not a second vocabulary for a failure the app already names.
-  - **Items but zero edges** → the nodes laid out in board order, plus one line built from
-    `describeGraphSources`: *"No dependencies found. Checked GitHub's blocked-by field, a project
-    field named "Blocked by" (not on this board), and issue descriptions."* This is where a board that
-    has never used dependencies lands, and it must read as "nothing to draw yet".
+  - **No board selected** → the existing board picker, unchanged. **Inherited for free**: this check
+    sits above the mode switch entirely, so graph mode never needed its own copy of it.
+  - **`kind !== 'ok'`** → **inherited for free**, the same way: `scopeMissing` (the `MissingScopeState`)
+    and the generic `itemsQuery.data?.error` branch both sit above the mode switch already, exactly
+    like the "no board" case. Reusing `ScopeFixCommand`'s vocabulary literally meant *not building a
+    second copy of it* — the existing early return already is that vocabulary.
+  - **Items but zero edges** → the nodes laid out in board order, plus one line built inline (matching
+    `describeGraphSources`'s three-source breakdown by naming whether the `Blocked by` field exists on
+    this board): *"No dependencies found. Checked GitHub's blocked-by field, a project field named
+    "Blocked by" (not on this board), and issue descriptions."*
   - **All items are drafts or PRs** → *"Dependencies live on issues. This board has none."* — GitHub
     does not expose `blockedBy` on `PullRequest` or `DraftIssue`, and an all-drafts board would
     otherwise look broken.
-  - **`truncated`** → a persistent banner: *"Showing the first 300 of N items."* Never silent.
-- [ ] A collapsible legend, expanded on first open then remembered per project: the five blocking-edge
-      states, the containment edge, blocked and ready node treatments, the foreign node, and the
-      reduced-confidence `body` edge. An animated five-state vocabulary that is never explained is
-      decoration.
-- [ ] Level of detail below `scale < 0.5`: nodes render title only, chips and avatars dropped. Node
+  - **`truncated`** → a persistent banner: *"Showing the first N of M items."* Never silent.
+- [x] A collapsible legend, expanded on first open then remembered per project (via `localStorage`,
+      keyed by `projectId` — the same pattern `wallpaper.ts`/`use-weather.ts` already use for a
+      lightweight per-viewer preference, not a `ui-store.ts` field): the five blocking-edge states, the
+      containment edge, blocked and ready node treatments, the foreign node, and the reduced-confidence
+      `body` edge. **Adapted:** since Theme E has not landed, the legend's swatches are neutral
+      placeholders (solid/dashed borders) describing what each concept *will* look like once Theme E
+      supplies the real `--dep-*` treatment, rather than guessing at colours that theme owns.
+- [x] Level of detail below `scale < 0.5`: nodes render title only, chips and avatars dropped. Node
       text at 0.25 is illegible, so this is a level of detail, not a scrollbar.
-      *Acceptance:* at `scale: 0.4`, a node contains no `[data-card-chip]` element.
-- [ ] `packages/app/src/features/projects/graph/graph-keyboard.ts` — pure, **edge-following**, and
+      *Acceptance:* at `scale: 0.4`, a node contains no `[data-card-chip]` element. ✅ `project-graph-view.test.tsx`.
+- [x] `packages/app/src/features/projects/graph/graph-keyboard.ts` — pure, **edge-following**, and
       new: [`board-keyboard.ts`](../../../packages/app/src/features/projects/board/board-keyboard.ts)'s
       six exports are typed against `BoardColumn`, a 2-D column/row model that cannot describe
       free-positioned nodes.
@@ -438,10 +466,13 @@ layer is reused rather than rewritten.
   - `moveWithinRank(nodes, fromKey, delta: 1 | -1): string | null` — Up/Down among same-rank siblings.
   - Walking the graph *is* the view's purpose; this is the only scheme where the keyboard teaches you
     the dependency structure.
-- [ ] Focus follows the board's proven pattern: roving `tabIndex` (`0` on the focused node, `-1`
+- [x] Focus follows the board's proven pattern: roving `tabIndex` (`0` on the focused node, `-1`
       elsewhere) **plus** real DOM focus via a `[data-node-key]` query, mirroring `moveFocusTo` at
       `board-view.tsx:251–255`. `Enter`/`Space` on the node selects (Theme G); `Escape` clears
       selection; `Home` re-fits.
+  - **Adapted:** "selects" here calls the controlled `onSelectItem(node.itemId)` — the plumbing Theme G
+    needs is in place, but no panel opens on that call yet (see this theme's own scope note above);
+    "Escape clears selection" calls `onSelectItem(null)`.
   - jsdom has no `CSS` global, so the unit suite stubs `CSS.escape` exactly as
     `board-view.test.tsx:14–16` already does.
 
@@ -540,27 +571,33 @@ graph exists — and should, because `styles.css` is a contended file.
     property the acceptance criterion actually needs — unaffected map entries keep the same string
     reference across renders, which is what lets a real memoized node bail out later. Re-verify against
     the real `ProjectGraphNode` once Theme D lands.
-- [ ] ⏳ **Deferred to Theme D** — the graph node consumes `CardGlowState` through the same
+- [x] **Closed by Theme D** — the graph node consumes `CardGlowState` through the same
       `deriveCardGlowState` the card uses, so an agent started from the composer lights the node and
-      the card simultaneously, by construction rather than by coincidence. No node exists yet to wire
-      this into; `useGraphAgentStates` above is the prepared, tested seam Theme D consumes.
-- [ ] ⏳ **Deferred to Theme D** — `waiting`, `open` and `idle` keep their existing distinct treatments
-      on both surfaces. True on the card today (unchanged by this theme); "both surfaces" cannot be
-      verified until the graph surface exists. The hook already derives all three states correctly
-      (see its unit tests), so this is a wiring step, not a design one, once Theme D lands.
-- [ ] ⏳ **Deferred to Theme D** — the bloom is **graph-only**: a blurred copy behind the node (the
-      crib's `::after`). Left unbuilt on purpose rather than added as dead CSS with no consumer and no
-      way to screenshot it: `styles.css` is a contended file, and a blind guess at the right selector
-      risks a second edit to it when Theme D's node markup turns out to want something different.
-- [ ] ⏳ **Deferred to Theme D** — `project-graph-glow-shots.spec.ts` following
+      the card simultaneously, by construction rather than by coincidence. `ProjectGraphNode` takes
+      `glow` as a plain prop fed by `useGraphAgentStates`, wearing the identical `agent-run-glow
+      is-${glow}` class the card does.
+  - **Found wiring this up:** `useGraphAgentStates` read an always-empty terminal store, because
+    nothing reachable from graph mode ever called `hydrate()` — the exact trap `board-view.tsx`'s own
+    comment names for its surface ("a fresh boot leaves the glow inert" — only `TerminalPanel` and the
+    FAB called it before this). Fixed by hydrating inside the hook itself, so any future consumer gets
+    it for free without needing to know the trap exists.
+- [x] **Closed by Theme D** — `waiting`, `open` and `idle` keep their existing distinct treatments on
+      both surfaces. Proven directly on `ProjectGraphNode` (`project-graph-node.test.tsx`) now that a
+      real node exists to assert it against, and visually in
+      `project-graph-glow-shots.spec.ts` (running/waiting/idle, light and dark).
+- [x] **Closed by Theme D** — the bloom is **graph-only**: a blurred copy behind the node (the
+      crib's `::after`). `.project-graph-node.agent-run-glow.is-running::after` /
+      `.is-waiting::after` in `styles.css`, scoped to the graph node's own class so the card never
+      grows one; the node's `overflow-hidden` was removed (it isn't load-bearing — title truncation is
+      the inner span's own `truncate`) since it would otherwise clip the bloom's −10px bleed.
+- [x] **Closed by Theme D** — `project-graph-glow-shots.spec.ts` following
       [`kanban-glow-shots.spec.ts`](../../../packages/app/e2e/kanban-glow-shots.spec.ts) exactly:
-      gated on `MSTUDIO_SHOTS` (`:31`), `setReducedMotion(page)` **before** shooting so the conic ramp
-      rests at `0deg` and runs are comparable (`:117`), running state faked by a seeded
-      `terminalSessions` fixture with `surface: 'kanban'` and the node's `taskRef` (`:89–104`) rather
-      than a launched agent, `shotPath(OUT, …)` with a 20px clip pad so the bloom is in frame. Cannot be
-      written against a canvas that does not exist — there is nothing to navigate to and nothing to
-      screenshot. `kanban.spec.ts`/`kanban-glow-shots.spec.ts` were re-run against this rename instead
-      (both green, no pixel change) as the verification this theme *can* offer today.
+      gated on `MSTUDIO_SHOTS`, `setReducedMotion(page)` before shooting, running/waiting state faked
+      by a seeded `terminalSessions` fixture with `surface: 'kanban'` and the node's `taskRef` (waiting
+      via the same `window.__mstudioPtyActivity` seam `fab-halo-shots.spec.ts` already uses — the mock
+      bridge has no static fixture field for it), `shotPath(OUT, …)` with a 20px clip pad. Six shots
+      (running/waiting/idle × light/dark) confirmed the ramp, the amber ring and the bloom all render
+      correctly once the hydrate fix above landed.
 
 ### G — Point an agent at a node (M)
 
@@ -742,7 +779,7 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
+- [x] `moon run :typecheck :lint :test` green.
 - [ ] Unit: `parseBlockerRefs` across the keyword × format matrix — `Blocked by`, `blocked-by:`,
       `Depends on`, `Requires`, each with `#12` and `owner/repo#12`; a comma/`and` list;
       `Blocks #12` → `[]`; `#12` inside a fenced block, an inline-code span and a link target → `[]`;
@@ -767,7 +804,7 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
 - [x] Unit: `layoutForgeGraph` is deterministic — two runs over one graph produce identical positions.
 - [x] Unit: `topAlignedViewport` for fits-horizontally, overflows-horizontally, taller-than-canvas.
 - [ ] Unit: `edgeAppearance` for all five blocking states, containment, and a `body`-sourced edge.
-- [ ] Unit: `moveAlongEdge` left/right across a diamond (deterministic tie-break) and returning `null`
+- [x] Unit: `moveAlongEdge` left/right across a diamond (deterministic tie-break) and returning `null`
       at a source/sink; `moveWithinRank` wrapping behaviour at both ends.
 - [ ] Unit: `gh-project.ts`'s mapper against the new fixtures — two blockers, a cross-repo blocker, a
       parent, an over-page sub-issue set (`blockedByTruncated`), an issue with none of the keys, a PR
@@ -777,8 +814,12 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
 - [ ] Unit: `styles-motion-guards.test.ts` passes with the new keyframes — each one's `animation:`
       sits on a class named inside a `prefers-reduced-motion: reduce` block, or is allowlisted with a
       written reason.
-- [ ] Unit: `useGraphAgentStates` render-count — 300 nodes, one session going `idle → open`; the
-      affected node renders ≤2 times, the other 299 render zero times.
+- [x] Unit: `useGraphAgentStates` render-count — 300 nodes, one session going `idle → open`; the
+      affected node renders ≤2 times, the other 299 render zero times. Still the memoized stand-in
+      consumer (`use-graph-agent-states.test.tsx`) rather than the real `ProjectGraphNode` — the
+      property it locks in (unaffected map entries keep the same string reference) is what a real
+      memoized node needs to bail out on, and `project-graph-node.test.tsx` separately proves the real
+      node re-renders correctly off a changed `glow` prop.
 - [ ] RTL: filtering out one endpoint removes the edge; `only: 'blocked'` and `only: 'ready'` are
       mutually exclusive by construction; `depth: 1` and `depth: 2`; `hideIsolated` with zero edges
       still renders the zero-edge copy rather than the empty state.
@@ -789,25 +830,31 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
       mounted for the same item.
 - [ ] RTL: a blocked node's panel renders a disabled `card-start` whose `title` contains both blocker
       numbers; a **`body`-blocked** node's panel renders an enabled `card-start`.
-- [ ] RTL: at `scale: 0.4` a node contains no `[data-card-chip]`; at `scale: 1` it does.
-- [ ] RTL: with a 300-node fixture at default zoom, fewer than 60 `[data-graph-node]` elements are in
+- [x] RTL: at `scale: 0.4` a node contains no `[data-card-chip]`; at `scale: 1` it does.
+- [x] RTL: with a 300-node fixture at default zoom, fewer than 60 `[data-graph-node]` elements are in
       the DOM.
-- [ ] RTL: each of the four empty states renders its own literal copy — no board, `kind:
-      'insufficient-scope'` (with the copyable `gh auth refresh -s project`), zero edges (naming all
-      three sources), all-drafts.
-- [ ] RTL: an unrecognised persisted `projectsMode` value coerces to `'table'`.
-- [ ] e2e: `project-graph.spec.ts` — seeded through `installMockBridge` with
-      `MockFixtures['forgeProject']` (`mock-bridge.ts:270–298`) and the `openBoard` sequence
-      (`kanban.spec.ts:118–135`), remembering that `content.body: ''` and `content.labels: []` are
-      **required** in e2e fixtures because the mock bridge returns them verbatim with no zod parse.
-      Switch to graph mode, assert nodes and edges, select a node and assert `card-detail` opens,
-      `Home` re-fits, arrow keys walk an edge.
+- [x] RTL: each of the four empty states renders its own literal copy — no board and `kind:
+      'insufficient-scope'` inherited for free (the mode-agnostic early returns already above the mode
+      switch; both already had coverage before this theme), zero edges (naming whether the field
+      exists on this board) and all-drafts newly covered in `project-graph-view.test.tsx`/
+      `projects-view.test.tsx`.
+- [x] RTL: an unrecognised persisted `projectsMode` value coerces to `'table'`.
+- [x] e2e: `project-graph.spec.ts` — seeded through `installMockBridge` with
+      `MockFixtures['forgeProject']` and the `openBoard` sequence, remembering that `content.body: ''`
+      and `content.labels: []` are **required** in e2e fixtures because the mock bridge returns them
+      verbatim with no zod parse (this theme's own `dependencies: {…}` joins that list — see the mutual
+      `EMPTY_DEPS` constant every new fixture literal now carries). Switch to graph mode, assert nodes
+      and edges, click-select a node, `Home` re-fits, arrow keys walk an edge.
+  - **Adapted:** does not assert a node opening `card-detail` — that mount is explicitly Theme G's own
+    checklist item, not built here (see this theme's own scope note on `ProjectGraphView`). The spec
+    says so in its own doc comment, as the place Theme G adds that assertion.
 - [x] e2e: `kanban.spec.ts`'s four glow assertions at `:265–314` pass — updated to `agent-run-glow`
       in the same commit as the rename; also ran `kanban-glow-shots.spec.ts` under `MSTUDIO_SHOTS=1` —
       both green, no pixel change.
-- [ ] ⏳ **Deferred to Theme D** — e2e: `project-graph-glow-shots.spec.ts` — the node in `running`,
-      `waiting`, `open` and `idle`, light and dark, under `setReducedMotion` so the ramp rests at
-      `0deg`. No canvas to shoot yet.
+- [x] e2e: `project-graph-glow-shots.spec.ts` — the node in `running`, `waiting` and `idle`, light and
+      dark, under `setReducedMotion` so the ramp rests at `0deg`. (`open` is not shot: it needs a
+      lifted selection this theme deliberately doesn't wire yet — see the scope note above — so there
+      is no way to put a node in that state without Theme G.)
 - [ ] `moon run app:build desktop:bundle && node scripts/perf/bundle-report.mjs` — entry chunk within
       noise of its pre-phase value. A dependency graph that costs the app's startup is a bad trade.
 - [ ] `node scripts/perf/idle-cpu.mjs --blurred` on a board with running agents and a 200-node graph

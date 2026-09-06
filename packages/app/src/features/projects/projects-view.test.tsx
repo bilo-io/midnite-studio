@@ -1,9 +1,27 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
 import { ProjectsView } from './projects-view';
+
+/**
+ * jsdom has no `ResizeObserver`, and reports a fixed `clientWidth`/
+ * `clientHeight` of 0 — both needed once Graph mode mounts
+ * `ProjectGraphView`, whose graph-space culling would otherwise treat every
+ * node as outside a zero-size viewport. See `project-graph-view.test.tsx`
+ * for the same two stubs, for the same reason.
+ */
+beforeAll(() => {
+  class StubResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  vi.stubGlobal('ResizeObserver', StubResizeObserver);
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, value: 1200 });
+  Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, value: 800 });
+});
 
 afterEach(cleanup);
 
@@ -35,8 +53,8 @@ const setProjectBoard = vi.fn((repoId: string, projectId: string) => {
 });
 let forgeWritesEnabled = false;
 
-let projectsMode: Record<string, 'table' | 'board'> = {};
-const setProjectsMode = vi.fn((repoId: string, mode: 'table' | 'board') => {
+let projectsMode: Record<string, 'table' | 'board' | 'graph'> = {};
+const setProjectsMode = vi.fn((repoId: string, mode: 'table' | 'board' | 'graph') => {
   projectsMode = { ...projectsMode, [repoId]: mode };
 });
 
@@ -72,7 +90,7 @@ vi.mock('../../store/ui-store', () => ({
         projectBoardByRepo: Record<string, string>;
         setProjectBoard: typeof setProjectBoard;
         forgeWritesEnabled: boolean;
-        projectsMode: Record<string, 'table' | 'board'>;
+        projectsMode: Record<string, 'table' | 'board' | 'graph'>;
         setProjectsMode: typeof setProjectsMode;
         projectViewByProject: Record<string, ProjectView>;
         setProjectView: typeof setProjectView;
@@ -395,5 +413,126 @@ describe('Phase 52 — filter toolbar, group-by, sort', () => {
     fireEvent.change(picker, { target: { value: 'f2' } });
 
     expect(setProjectView).toHaveBeenCalledWith('PVT_1', { groupFieldId: 'f2' });
+  });
+});
+
+describe('Phase 75 Theme D — graph mode', () => {
+  beforeEach(() => {
+    list.mockReset();
+    fields.mockReset();
+    items.mockReset();
+    boardByRepo = { 'repo-1': 'PVT_1' };
+    setProjectBoard.mockClear();
+    forgeWritesEnabled = false;
+    projectsMode = {};
+    setProjectsMode.mockClear();
+    projectViewByProject = {};
+    setProjectView.mockClear();
+
+    list.mockResolvedValue({
+      cli: CLI_READY,
+      projects: [
+        { id: 'PVT_1', number: 1, title: 'Roadmap', url: 'https://github.com/orgs/acme/projects/1', closed: false },
+      ],
+      error: null,
+      kind: 'ok',
+    });
+    fields.mockResolvedValue({ cli: CLI_READY, fields: [], error: null, kind: 'ok' });
+  });
+
+  it('clicking Graph view persists the mode choice per repo', async () => {
+    items.mockResolvedValue({ cli: CLI_READY, items: [], nextCursor: null, error: null, kind: 'ok' });
+    renderWithClient();
+    await screen.findByText('No items');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Graph view' }));
+
+    expect(setProjectsMode).toHaveBeenCalledWith('repo-1', 'graph');
+  });
+
+  it('an unrecognised persisted mode coerces to table rather than passing through', async () => {
+    projectsMode = { 'repo-1': 'kanban-3000' as never };
+    items.mockResolvedValue({ cli: CLI_READY, items: [], nextCursor: null, error: null, kind: 'ok' });
+    renderWithClient();
+
+    // 'table' is the only mode whose "no items" path renders through the
+    // ProjectItemsTable branch's own empty state — reaching it at all is the
+    // proof the bogus value never reached `mode`.
+    expect(await screen.findByText('No items')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Table view' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('renders the dependency graph, with a real blocks edge, once items load', async () => {
+    items.mockResolvedValue({
+      cli: CLI_READY,
+      items: [
+        {
+          id: 'item1',
+          content: {
+            type: 'issue',
+            id: 'I_1',
+            number: 1,
+            title: 'The blocker',
+            url: 'https://github.com/acme/widgets/issues/1',
+            state: 'open',
+            assignees: [],
+            body: '',
+            labels: [],
+            // `bridge()` is mocked here with a raw object, skipping the real
+            // zod parse `.default({})` would otherwise supply — so this
+            // suite's own fixtures carry every field verbatim, the same rule
+            // `kanban.spec.ts` states for `body`/`labels`.
+            dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
+          },
+        },
+        {
+          id: 'item2',
+          content: {
+            type: 'issue',
+            id: 'I_2',
+            number: 2,
+            title: 'The dependent',
+            url: 'https://github.com/acme/widgets/issues/2',
+            state: 'open',
+            assignees: [],
+            body: '',
+            labels: [],
+            dependencies: {
+              blockedBy: [{ number: 1, title: 'The blocker', state: 'open', repo: '' }],
+              parent: null,
+              subIssues: [],
+              blockedByTruncated: false,
+              subIssuesTruncated: false,
+            },
+          },
+        },
+      ],
+      nextCursor: null,
+      error: null,
+      kind: 'ok',
+    });
+    projectsMode = { 'repo-1': 'graph' };
+    renderWithClient();
+
+    expect(await screen.findByTestId('project-graph-view')).toBeDefined();
+    expect(screen.getByText('The blocker')).toBeDefined();
+    expect(screen.getByText('The dependent')).toBeDefined();
+  });
+
+  it('all-drafts-or-PRs renders the dedicated empty state, not a canvas', async () => {
+    items.mockResolvedValue({
+      cli: CLI_READY,
+      items: [
+        { id: 'd1', content: { type: 'draft', id: 'DI_1', title: 'A draft item', assignees: [], body: '' } },
+      ],
+      nextCursor: null,
+      error: null,
+      kind: 'ok',
+    });
+    projectsMode = { 'repo-1': 'graph' };
+    renderWithClient();
+
+    expect(await screen.findByText('Dependencies live on issues. This board has none.')).toBeDefined();
+    expect(screen.queryByTestId('project-graph-view')).toBeNull();
   });
 });

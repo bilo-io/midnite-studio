@@ -1,15 +1,12 @@
 import { useRef } from 'react';
-import { LuCircleDot, LuGitPullRequest, LuNotebookPen, LuSquareTerminal } from 'react-icons/lu';
+import { LuSquareTerminal } from 'react-icons/lu';
 
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
-import type { IconComponent } from '../../../components/icon-button';
 import { Tooltip } from '../../../components/tooltip';
-import { UserAvatar } from '../../../components/user-avatar';
-import { formatFieldValue } from '../field-editor';
-import { ExternalLink } from '../../markdown/external-link';
 import { revealSession } from '../../terminal/reveal-session';
 import { CardActivityLine } from './card-activity-line';
+import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from './card-chrome';
 import { CardTerminal } from './card-terminal';
 import { deriveCardGlowState } from './glow-state';
 import { useCardStatus } from './use-card-status';
@@ -62,10 +59,6 @@ export function TaskCard({
   const href = item.content.type === 'draft' ? null : item.content.url;
   const number = item.content.type === 'draft' ? null : item.content.number;
 
-  const chips = fields
-    .map((field) => ({ field, text: formatFieldValue(item.fieldValues[field.id]) }))
-    .filter((chip) => chip.text.length > 0);
-
   // No board, no session to bind to — falls out of `useCardStatus` as idle.
   const status = useCardStatus(projectId ? { projectId, itemId: item.id } : { projectId: '', itemId: '' });
   // "Open" only means something once there is a session to point the ring
@@ -107,8 +100,7 @@ export function TaskCard({
       }`}
     >
       <div className="flex items-start gap-1.5">
-        <Icon aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate">{item.content.title}</span>
+        <CardTitleRow icon={Icon} title={item.content.title} />
         {/*
           The card's own answer to "where did my agent go" — shown only once
           this card HAS a session, so an untouched card carries no chrome for
@@ -136,49 +128,12 @@ export function TaskCard({
 
       {number !== null || item.content.assignees.length > 0 ? (
         <div className="flex items-center justify-between gap-2">
-          {number !== null ? (
-            href ? (
-              // Its own click target, not the card's — stopped from also
-              // opening the detail pane the card click would.
-              <span onClick={(event) => event.stopPropagation()}>
-                <ExternalLink href={href}>
-                  <span className="text-[11px] text-muted-foreground">#{number}</span>
-                </ExternalLink>
-              </span>
-            ) : (
-              <span className="text-[11px] text-muted-foreground">#{number}</span>
-            )
-          ) : (
-            <span />
-          )}
-          {item.content.assignees.length > 0 ? (
-            <div className="flex -space-x-1.5">
-              {item.content.assignees.map((login) => (
-                <UserAvatar
-                  key={login}
-                  login={login}
-                  size={16}
-                  className="border border-background"
-                  detail="Assignee"
-                />
-              ))}
-            </div>
-          ) : null}
+          <CardNumberRow number={number} href={href} />
+          <CardAssignees assignees={item.content.assignees} />
         </div>
       ) : null}
 
-      {chips.length > 0 ? (
-        <div className="flex flex-wrap gap-1">
-          {chips.map((chip) => (
-            <span
-              key={chip.field.id}
-              className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-            >
-              {chip.text}
-            </span>
-          ))}
-        </div>
-      ) : null}
+      <CardFieldChips item={item} fields={fields} />
 
       {/*
         Theme E: only ever rendered once a session is actually running — a
@@ -204,9 +159,3 @@ export function TaskCard({
     </div>
   );
 }
-
-const CONTENT_ICON: Record<ForgeProjectItem['content']['type'], IconComponent> = {
-  issue: LuCircleDot,
-  pull: LuGitPullRequest,
-  draft: LuNotebookPen,
-};
