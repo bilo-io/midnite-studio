@@ -34,15 +34,15 @@ describe('commitRecencyTier', () => {
 
   const at = (msAgo: number) => Math.floor((now - msAgo) / 1000);
 
-  it('returns "fresh" for commits under 2 minutes old', () => {
+  it('returns "fresh" for commits under 3 minutes old', () => {
     expect(commitRecencyTier(at(30_000), now)).toBe('fresh');
     expect(formatDate(at(30_000), now)).toBe('just now');
-    expect(commitRecencyTier(at(119_000), now)).toBe('fresh');
+    expect(commitRecencyTier(at(179_000), now)).toBe('fresh');
   });
 
-  it('returns "recent" from 2 up to 5 minutes old', () => {
-    expect(commitRecencyTier(at(121_000), now)).toBe('recent');
-    expect(formatDate(at(121_000), now)).toBe('2m ago');
+  it('returns "recent" from 3 up to 5 minutes old', () => {
+    expect(commitRecencyTier(at(181_000), now)).toBe('recent');
+    expect(formatDate(at(181_000), now)).toBe('3m ago');
     expect(commitRecencyTier(at(299_000), now)).toBe('recent');
   });
 
@@ -52,9 +52,51 @@ describe('commitRecencyTier', () => {
     expect(commitRecencyTier(at(599_000), now)).toBe('fading');
   });
 
-  it('returns "normal" at 10 minutes and older', () => {
+  it('returns "muted" from 10 up to 15 minutes old', () => {
+    expect(commitRecencyTier(at(601_000), now)).toBe('muted');
+    expect(formatDate(at(601_000), now)).toBe('10m ago');
+    expect(commitRecencyTier(at(899_000), now)).toBe('muted');
+  });
+
+  it('returns "normal" at 15 minutes and older', () => {
     expect(commitRecencyTier(at(RECENCY_WINDOW_MS), now)).toBe('normal');
     expect(commitRecencyTier(at(3_600_000), now)).toBe('normal');
-    expect(formatDate(at(RECENCY_WINDOW_MS), now)).toBe('10m ago');
+    expect(formatDate(at(RECENCY_WINDOW_MS), now)).toBe('15m ago');
+  });
+
+  /*
+    The tests above resolve `committerDateSeconds` from `msAgo` at second
+    precision (git commit dates are whole seconds), so they cannot pin a
+    boundary any tighter than a full second either side. These bypass that by
+    holding the commit's own timestamp fixed at the epoch and sliding `nowMs`
+    instead, which is where the millisecond precision the boundary actually
+    lives.
+  */
+  describe('at the exact millisecond boundary', () => {
+    const committedAtEpoch = 0;
+
+    it('flips fresh -> recent at exactly 3 minutes', () => {
+      expect(commitRecencyTier(committedAtEpoch, 179_999)).toBe('fresh');
+      expect(commitRecencyTier(committedAtEpoch, 180_000)).toBe('recent');
+      expect(commitRecencyTier(committedAtEpoch, 180_001)).toBe('recent');
+    });
+
+    it('flips recent -> fading at exactly 5 minutes', () => {
+      expect(commitRecencyTier(committedAtEpoch, 299_999)).toBe('recent');
+      expect(commitRecencyTier(committedAtEpoch, 300_000)).toBe('fading');
+      expect(commitRecencyTier(committedAtEpoch, 300_001)).toBe('fading');
+    });
+
+    it('flips fading -> muted at exactly 10 minutes', () => {
+      expect(commitRecencyTier(committedAtEpoch, 599_999)).toBe('fading');
+      expect(commitRecencyTier(committedAtEpoch, 600_000)).toBe('muted');
+      expect(commitRecencyTier(committedAtEpoch, 600_001)).toBe('muted');
+    });
+
+    it('flips muted -> normal at exactly 15 minutes', () => {
+      expect(commitRecencyTier(committedAtEpoch, 899_999)).toBe('muted');
+      expect(commitRecencyTier(committedAtEpoch, 900_000)).toBe('normal');
+      expect(commitRecencyTier(committedAtEpoch, 900_001)).toBe('normal');
+    });
   });
 });
