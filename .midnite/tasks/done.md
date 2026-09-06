@@ -2,6 +2,95 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 75 Theme D — the canvas, and Theme F's four deferred items
+
+[PR #208](https://github.com/bilo-io/midnite-studio/pull/208). Moves Phase 75 29/101 → 55/106
+(29% → 52%). The dependency graph's canvas — the surface every remaining theme (E, G, H) needs on
+screen before it can build anything — plus all four of Theme F's items left unbuilt for want of a
+node to wire them into.
+
+- [x] `packages/app/src/features/projects/graph/project-graph-view.tsx` —
+      `ProjectGraphView({ graph, items, fields, projectId, selectedItemId, onSelectItem, agentStates })`.
+      HTML nodes over an SVG edge layer, inside a CSS-transformed container carrying pan/zoom.
+      Reuses `workflow-path.ts`'s `edgePath`/`panBy`/`zoomAtPointer`/`clientToGraph`/
+      `rectsIntersect`/`viewportRect` verbatim — none of it knows about node geometry.
+      `outPort`/`inPort` are re-declared locally: the workflow canvas's own versions bake in its
+      160×56 node size, not this graph's 200×64, so reusing them verbatim would place every port at
+      the wrong offset.
+  - Non-passive native `wheel` listener (React's synthetic `onWheel` can't `preventDefault`).
+  - Graph-space culling only (`viewportRect` + `rectsIntersect`) — a 300-node fixture at default
+    zoom mounts under 60 `[data-graph-node]` elements. `useCardVisible` deliberately unused: it
+    roots against the browser viewport, which answers a different question inside a transformed
+    container.
+  - Viewport is component-local, re-fit exactly once on mount (never on a later `graph` prop
+    change — the graph is recomputed fresh every render by the caller, so "re-fit on mount" reads
+    the bounds captured in the effect's own closure at mount time). `Home` re-fits against the
+    latest layout.
+  - Level of detail below `scale: 0.5`: chips and avatars drop, title only.
+  - A collapsible legend, `localStorage`-remembered per `projectId` (the same lightweight
+    per-viewer-preference pattern `wallpaper.ts`/`use-weather.ts` already use, not a `ui-store.ts`
+    field) — swatches are neutral placeholders until Theme E lands the real `--dep-*` treatment.
+  - Four empty states: no-board and `kind !== 'ok'` are inherited for free from the existing
+    mode-agnostic early returns above the mode switch; zero-edges (naming whether the `Blocked by`
+    field exists on this board) and all-drafts-or-PRs are new.
+  - **Scope boundary with Theme G, stated explicitly**: does not mount `CardPanelStack` — that
+    stays Theme G's own checklist item. `selectedItemId`/`onSelectItem` are fully wired through
+    (`ProjectsView` owns a local `graphSelectedItemId` for now); a node visually selects and is
+    keyboard-focusable, but no detail panel opens yet.
+- [x] `packages/app/src/features/projects/graph/project-graph-node.tsx` —
+      `ProjectGraphNode({ node, item, fields, glow, selected, tabIndex, detailed, onSelect })`, a
+      pure, memoizable component. `tabIndex` is its own explicit prop (default `-1`), decoupled
+      from `selected` — mirrors `TaskCard`'s `isOpen` vs. `board-view.tsx`'s separate roving
+      `focusedItemId`; conflating the two would make every selected node also a Tab stop. A
+      foreign node (no board item) falls back to its own number as the title and skips the
+      redundant number row that would otherwise repeat it.
+- [x] `packages/app/src/features/projects/board/card-chrome.tsx` — `CardTitleRow`/`CardNumberRow`/
+      `CardAssignees`/`CardFieldChips`/`CONTENT_ICON` extracted from `task-card.tsx`, so the graph
+      node wears the exact same chrome a kanban card does. `card-detail.tsx`'s byte-for-byte
+      `CONTENT_ICON` duplicate is removed in the same commit — both import it from here now.
+- [x] `packages/app/src/features/projects/graph/graph-keyboard.ts` — `moveAlongEdge`/
+      `moveWithinRank`, pure and new (`board-keyboard.ts`'s `BoardColumn` model can't describe
+      free-positioned nodes). Left/Right follow `blocks` edges to a blocker/dependent; Up/Down wrap
+      within a rank's siblings.
+- [x] `projectsMode` widens to `'table' | 'board' | 'graph'` at all three sites (`ui-store.ts`, the
+      mode array and the mode switch in `projects-view.tsx`); an unrecognised persisted value
+      coerces to `'table'` via a small `coerceProjectsMode` helper. No persist version bump —
+      already merged field-by-field on rehydrate, and PR #200's `version: 10` bump had already
+      landed on `main` by the time this branched.
+- [x] The repo's first shared `ForgeProjectItem` fixture factory —
+      `packages/app/src/features/projects/__fixtures__/project-item.ts` (`issueItem`/`pullItem`/
+      `draftItem`/`withBlockedBy`) — listed under Theme B's own checklist but left unbuilt through
+      Theme C; this theme's four new suites are what actually needed one. Existing suites keep
+      their own local literals.
+- [x] **Closes Theme F's four items deferred to this theme:**
+  - The node consumes `CardGlowState` through `deriveCardGlowState`, via `useGraphAgentStates` —
+    the same class (`agent-run-glow is-${glow}`) the card wears.
+  - `waiting`/`open`/`idle` proven distinct directly on the real `ProjectGraphNode`
+    (`project-graph-node.test.tsx`), and visually in `project-graph-glow-shots.spec.ts`.
+  - The graph-only bloom: `.project-graph-node.agent-run-glow.is-running::after` /
+    `.is-waiting::after` in `styles.css`, scoped off the card by class. The node's `overflow-hidden`
+    was removed — not load-bearing (title truncation is the inner span's own `truncate`) but it
+    would otherwise clip the bloom's −10px bleed.
+  - `project-graph-glow-shots.spec.ts`, following `kanban-glow-shots.spec.ts` exactly: gated on
+    `MSTUDIO_SHOTS`, reduced motion before shooting, running/waiting faked via a seeded
+    `terminalSessions` fixture (waiting via `window.__mstudioPtyActivity`, the same seam
+    `fab-halo-shots.spec.ts` uses — the mock bridge has no static fixture field for it), a 20px
+    clip pad. Six shots (running/waiting/idle × light/dark).
+  - **Found while closing these:** `useGraphAgentStates` read an always-empty terminal store,
+    because nothing reachable from graph mode ever called `hydrate()` — `board-view.tsx`'s own
+    comment names this exact trap for its surface ("a fresh boot leaves the glow inert"). Fixed by
+    hydrating inside the hook itself, so any future consumer gets it for free.
+- [x] `project-graph.spec.ts` — nodes/edges render, click-to-select, arrow-key edge walking,
+      `Home` re-fits. Does not assert a node opening `card-detail` (Theme G's own mount); the spec
+      says so in its own doc comment.
+- [x] `project-graph-shots.spec.ts` — the canvas with a real dependency chain and its legend, and
+      the all-drafts-or-PRs empty state, light and dark.
+
+Left open: Theme E (edge-state colours), Theme G (`CardPanelStack` mount in graph mode,
+Start-disabled-on-a-blocked-item), Theme H (facets) — all unblocked by this landing. Perf
+verification (`bundle-report.mjs`, `idle-cpu.mjs`) and the phase's five "Open, for a human" items
+were not run; `package.json`'s empty diff already confirms no new runtime dependency.
+
 ## 2026-09-06 — Phase 75 Theme C — ranked left-to-right layout, pure
 
 [PR #207](https://github.com/bilo-io/midnite-studio/pull/207). Moves Phase 75 19/101 → 29/101
