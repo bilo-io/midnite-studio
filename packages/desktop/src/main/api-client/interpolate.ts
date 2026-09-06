@@ -53,7 +53,11 @@ export function interpolate(
   const text = input.replace(TOKEN, (whole, rawName: string) => {
     const name = rawName.trim();
     if (Object.prototype.hasOwnProperty.call(variables, name)) {
-      return variables[name];
+      // The `hasOwnProperty` check just proved this key is present; the `?? ''`
+      // is for the typechecker (a `Record` index signature always includes
+      // `undefined`), not a real fallback — an explicitly-empty variable and
+      // a resolved-to-`''` one are the same thing either way.
+      return variables[name] ?? '';
     }
     if (!unresolved.includes(name)) unresolved.push(name);
     return whole;
