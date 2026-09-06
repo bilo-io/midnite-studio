@@ -20,17 +20,50 @@ const mockBridge = {
   },
 };
 
+/** A single repo, matching `RepoDescriptor`, reused by the repo-cluster tests. */
+const REPO = {
+  id: 'r1',
+  path: '/repo',
+  name: 'demo',
+  headRef: 'main',
+  worktrees: [
+    {
+      id: 'r1:/repo',
+      repoId: 'r1',
+      path: '/repo',
+      branch: 'main',
+      headSha: 'abc123',
+      locked: false,
+      isMain: true,
+      prunable: false,
+    },
+  ],
+};
+
+/**
+ * Mutable per-test UI-store state — `useUiStore` reads live from this object
+ * rather than a value captured once, so a test can flip `selectedRepoId`
+ * after the initial mock setup (mirrors the real store's reactivity closely
+ * enough for these render-shape assertions).
+ */
+const mockUiState: { selectedRepoId: string | null; selectedWorktreePath: string | null } = {
+  selectedRepoId: null,
+  selectedWorktreePath: null,
+};
+
+/** Mutable per-test repo list — same reasoning as `mockUiState`. */
+const mockReposState: { data: (typeof REPO)[] } = { data: [] };
+
 vi.mock('../services/bridge', () => ({
   bridge: () => mockBridge,
 }));
 
 vi.mock('../services/queries', () => ({
-  useRepos: () => ({ data: [] }),
+  useRepos: () => mockReposState,
 }));
 
 vi.mock('../store/ui-store', () => ({
-  useUiStore: (selector: (s: { selectedRepoId: string | null }) => unknown) =>
-    selector({ selectedRepoId: null }),
+  useUiStore: (selector: (s: typeof mockUiState) => unknown) => selector(mockUiState),
 }));
 
 vi.mock('./title-bar-nav', () => ({
@@ -38,9 +71,38 @@ vi.mock('./title-bar-nav', () => ({
   Breadcrumbs: () => <nav aria-label="Location">Crumbs</nav>,
 }));
 
+/*
+  The repo-action cluster's own components (Setup/Update, Install/Build/
+  Test/Launch, the midnite skill menu) each carry substantial logic of their
+  own, already covered where they're defined. What belongs to THIS file is
+  only the composition `DetachedWindowFrame` adds around them — the
+  delimiters, the terminal-only scoping, and the props it forwards — so each
+  is stubbed down to a `data-testid` carrying the props it was given.
+*/
+vi.mock('../features/agent/project-actions', () => ({
+  ProjectActions: (props: { repoId: string; repoName: string; cwd: string }) => (
+    <div data-testid="project-actions" data-repo-id={props.repoId} data-cwd={props.cwd} />
+  ),
+}));
+
+vi.mock('../features/repos/repo-lifecycle-actions', () => ({
+  RepoLifecycleActions: (props: { repoId: string; repoName: string; cwd: string }) => (
+    <div data-testid="repo-lifecycle-actions" data-repo-id={props.repoId} data-cwd={props.cwd} />
+  ),
+}));
+
+vi.mock('../features/agent/midnite-menu', () => ({
+  MidniteMenu: (props: { repoId: string; repoName: string; cwd: string }) => (
+    <button data-testid="midnite-menu" data-repo-id={props.repoId} data-cwd={props.cwd} />
+  ),
+}));
+
 describe('DetachedWindowFrame', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUiState.selectedRepoId = null;
+    mockUiState.selectedWorktreePath = null;
+    mockReposState.data = [];
   });
 
   afterEach(cleanup);
@@ -163,5 +225,88 @@ describe('DetachedWindowFrame', () => {
     expect(leadingSlotForRepos).not.toBeNull();
     expect(actionsSlotForFab).toBeNull();
     expect(leadingSlotForFab).toBeNull();
+  });
+
+  describe('terminal popout — repo action cluster + midnite menu', () => {
+    it('renders nothing for the cluster, and no stray delimiters, with no repo selected', () => {
+      const { container } = render(
+        <DetachedWindowFrame role="terminal" title="Terminal">
+          <div data-testid="content">Terminal Content</div>
+        </DetachedWindowFrame>,
+      );
+
+      expect(screen.queryByTestId('project-actions')).toBeNull();
+      expect(screen.queryByTestId('repo-lifecycle-actions')).toBeNull();
+      expect(screen.queryByTestId('midnite-menu')).toBeNull();
+      // The cluster's own two delimiters plus the leading one ahead of it —
+      // none of `left`'s slots draw a bare `<span aria-hidden>` hairline for
+      // a non-graph role, so with the cluster absent there should be zero.
+      expect(container.querySelectorAll('span[aria-hidden].bg-border')).toHaveLength(0);
+    });
+
+    it('renders the cluster — delimiter, ProjectActions + divider + RepoLifecycleActions, delimiter, MidniteMenu — once a repo is selected', () => {
+      mockUiState.selectedRepoId = 'r1';
+      mockReposState.data = [REPO];
+
+      const { container } = render(
+        <DetachedWindowFrame role="terminal" title="Terminal">
+          <div data-testid="content">Terminal Content</div>
+        </DetachedWindowFrame>,
+      );
+
+      const projectActions = screen.getByTestId('project-actions');
+      const repoLifecycle = screen.getByTestId('repo-lifecycle-actions');
+      const midniteMenu = screen.getByTestId('midnite-menu');
+
+      for (const el of [projectActions, repoLifecycle, midniteMenu]) {
+        expect(el.getAttribute('data-repo-id')).toBe('r1');
+        // No worktree selected — falls back to the repo's primary checkout.
+        expect(el.getAttribute('data-cwd')).toBe('/repo');
+      }
+
+      // Exactly three hairlines: ahead of the cluster, between the two repo
+      // action groups, and ahead of the midnite menu.
+      expect(container.querySelectorAll('span[aria-hidden].bg-border')).toHaveLength(3);
+
+      // Left to right: ProjectActions, then RepoLifecycleActions, then the
+      // midnite menu — ahead of the portaled terminal-header actions slot.
+      const order = Array.from(
+        container.querySelectorAll(
+          '[data-testid="project-actions"], [data-testid="repo-lifecycle-actions"], [data-testid="midnite-menu"]',
+        ),
+      ).map((el) => el.getAttribute('data-testid'));
+      expect(order).toEqual(['project-actions', 'repo-lifecycle-actions', 'midnite-menu']);
+    });
+
+    it('prefers the selected worktree over the repo primary checkout for cwd', () => {
+      mockUiState.selectedRepoId = 'r1';
+      mockUiState.selectedWorktreePath = '/repo-worktrees/feature-x';
+      mockReposState.data = [REPO];
+
+      render(
+        <DetachedWindowFrame role="terminal" title="Terminal">
+          <div data-testid="content">Terminal Content</div>
+        </DetachedWindowFrame>,
+      );
+
+      expect(screen.getByTestId('project-actions').getAttribute('data-cwd')).toBe(
+        '/repo-worktrees/feature-x',
+      );
+    });
+
+    it('is scoped to the terminal role — a repos popout with a repo selected gets no cluster', () => {
+      mockUiState.selectedRepoId = 'r1';
+      mockReposState.data = [REPO];
+
+      render(
+        <DetachedWindowFrame role="repos" title="Git Repos">
+          <div data-testid="content">Repos Content</div>
+        </DetachedWindowFrame>,
+      );
+
+      expect(screen.queryByTestId('project-actions')).toBeNull();
+      expect(screen.queryByTestId('repo-lifecycle-actions')).toBeNull();
+      expect(screen.queryByTestId('midnite-menu')).toBeNull();
+    });
   });
 });

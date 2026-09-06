@@ -67,11 +67,60 @@ for (const role of POPOUT_ROLES) {
       // terminal spec (e.g. `terminal-links.spec.ts`) uses before asserting
       // on it, so the popout terminal shot is not just its loading spinner.
       if (role === 'terminal') await expect(page.locator('.xterm-screen')).toHaveCount(1);
+      if (role === 'terminal') {
+        // The repo-action cluster + midnite menu the fixtures' default
+        // `selectedRepoId` ('repo-1') puts in this bar, ahead of the
+        // terminal's own portaled buttons — see `detached-window-frame.tsx`.
+        await expect(page.getByLabel(/^Install midnite-studio$/)).toBeVisible();
+        await expect(page.getByLabel(/^Build midnite-studio$/)).toBeVisible();
+        await expect(page.getByLabel(/^Test midnite-studio$/)).toBeVisible();
+        await expect(page.getByLabel(/^Launch midnite-studio$/)).toBeVisible();
+        await expect(page.getByLabel('Run a midnite skill on midnite-studio')).toBeVisible();
+      }
       await page.waitForTimeout(200);
       await page.screenshot({ path: shotPath(OUT, `detached-root-${role}-${theme}.png`) });
     });
   }
 }
+
+test('DetachedRoot(terminal) hides the repo-action cluster with no repo selected', async ({
+  page,
+}) => {
+  await setTheme(page, 'light');
+  // Overrides the fixture default `selectedRepoId: 'repo-1'` that
+  // `installMockBridge` otherwise seeds — same `addInitScript`-before-install
+  // ordering the collapse tests below use for `openPopoutRoles`'s flags,
+  // since `installMockBridge`'s own init script only fills in what a prior
+  // one left unset (`...persisted.state` beats its hardcoded default).
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem(
+        'midnite-studio.ui',
+        JSON.stringify({ version: 8, state: { selectedRepoId: null } }),
+      );
+    } catch {
+      /* Same tolerance as every other spec seeding this key. */
+    }
+  });
+  await installMockBridge(page, { ...fixtures, windowRole: 'terminal' } as MockFixtures);
+  await page.goto('/graph');
+  // No repo selected means `TerminalPanel` has no `repoId` either, so unlike
+  // the fixture-default case above it never creates a session — there is no
+  // `.xterm-screen` here, which is correct: nothing to run these actions
+  // against is exactly the state this test means to capture.
+  await expect(page.locator('body')).toBeVisible();
+
+  await expect(page.getByLabel(/^Install midnite-studio$/)).toHaveCount(0);
+  await expect(page.getByLabel('Run a midnite skill on midnite-studio')).toHaveCount(0);
+  // Terminal's own dock-on-hover mark and portaled buttons stay — this is
+  // about the cluster this PR adds, not the pre-existing merged bar.
+  await expect(page.getByLabel('Dock Terminal')).toBeVisible();
+
+  await page.waitForTimeout(200);
+  await page.screenshot({
+    path: shotPath(OUT, 'detached-root-terminal-no-repo-selected-light.png'),
+  });
+});
 
 for (const role of POPOUT_ROLES) {
   for (const theme of ['light', 'dark'] as const) {
