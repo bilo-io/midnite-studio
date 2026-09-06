@@ -5,6 +5,7 @@ import {
   BrowserBoundsSchema,
   BrowserEventSchema,
   BrowserNavErrorSchema,
+  ClosedSessionSchema,
   CommitSchema,
   ConflictedHunkSchema,
   ConflictHunkSideSchema,
@@ -1320,9 +1321,35 @@ export const TerminalListResponse = z.object({
 });
 
 export const TerminalSaveRequest = z.object({ session: TerminalSessionSchema });
-export const TerminalForgetRequest = z.object({ sessionId: z.string().min(1) });
+/**
+ * Close a session for good — which now *archives* it rather than erasing it.
+ *
+ * `reason` is what the renderer knows and main cannot infer: whether the user
+ * pressed the `X` or the FAB collected a loop session a newer run superseded.
+ * `'exited'` is never sent — that is main's own reading, taken from the pty's
+ * exit, and the renderer does not reliably know. Optional so an older caller
+ * (and every existing call site) still means `'closed'`.
+ */
+export const TerminalForgetRequest = z.object({
+  sessionId: z.string().min(1),
+  reason: z.enum(['closed', 'superseded']).optional(),
+});
 /** The full ordered id list, not a moved-from/moved-to pair — idempotent on replay. */
 export const TerminalReorderRequest = z.object({ sessionIds: z.array(z.string().min(1)) });
+
+// --- session history (Phase 67) ---------------------------------------------
+
+/** Every archived session, newest first. */
+export const SessionsHistoryResponse = z.object({ sessions: z.array(ClosedSessionSchema) });
+export const SessionsTranscriptRequest = z.object({ sessionId: z.string().min(1) });
+/**
+ * Raw bytes, structured-cloned — `z.instanceof(Uint8Array)` exactly as
+ * `PtySnapshotResponse` above. Base64 would cost a third more wire and two
+ * copies for a payload that is a megabyte at the cap.
+ */
+export const SessionsTranscriptResponse = z.object({ bytes: z.instanceof(Uint8Array) });
+/** `sessionId: null` means every record — see the channel's own doc. */
+export const SessionsPurgeRequest = z.object({ sessionId: z.string().min(1).nullable() });
 
 /**
  * The roster, plus what main could learn about it on this machine.

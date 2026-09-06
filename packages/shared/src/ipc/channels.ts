@@ -382,6 +382,27 @@ export const CHANNELS = {
   /** Run the method-matched update command; resolves when it exits. */
   agentClaudeUpdate: 'mstudio:agent:claude-update',
 
+  // --- session history (Phase 67) ------------------------------------------
+  // The sessions you *closed*. `terminal:*` above owns rows that still exist;
+  // these own the ones that do not, and the transcripts they left behind. A
+  // close moves a record from the first set to the second — which is why there
+  // is no `sessions:save`: nothing writes here except an ending.
+  /** Every archived session, newest first. No request payload. */
+  sessionsHistory: 'mstudio:sessions:history',
+  /**
+   * One archived transcript, structured-cloned as raw bytes — never base64,
+   * for the same reason `pty:data` is not, and up to `SCROLLBACK_BYTES` of it.
+   */
+  sessionsTranscript: 'mstudio:sessions:transcript',
+  /**
+   * Delete one record, or every record when `sessionId` is null.
+   *
+   * One channel rather than two: the confirm dialog and the blast radius are
+   * the same shape in both cases, and a second channel would duplicate both.
+   * This is the **only** path that unlinks an archived transcript.
+   */
+  sessionsPurge: 'mstudio:sessions:purge',
+
   // --- browser (Phase 32) ---------------------------------------------------
   // A `WebContentsView` per tab, owned by `browser-service.ts`. Chrome state
   // (nav, title, favicon, loading) pushes over the single `browserEvent`

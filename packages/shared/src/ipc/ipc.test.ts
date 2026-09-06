@@ -20,6 +20,7 @@ import {
   YIELD_ROOTS,
   isCommandId,
 } from '../keybindings';
+import { ClosedSessionSchema, closedFromSession } from '../domain/session-history';
 import { CHANNELS, EVENT_CHANNELS } from './channels';
 import * as schemas from './schemas';
 
@@ -1746,5 +1747,121 @@ describe('crash reporting contract (Phase 65)', () => {
       'mstudio:diag:untrust',
     ]);
     expect(Object.values(CHANNELS).filter((name) => name.startsWith('mstudio:report:'))).toHaveLength(4);
+  });
+});
+
+describe('session history (Phase 67)', () => {
+  const record = {
+    id: 'sess-1',
+    kind: 'shell' as const,
+    title: 'midnite',
+    cwd: '/Users/x/Dev/midnite',
+    repoId: 'repo:/Users/x/Dev/midnite',
+    createdAt: 1_700_000_000_000,
+    closedAt: 1_700_000_060_000,
+    exitCode: 0,
+    reason: 'closed' as const,
+    transcriptBytes: 0,
+  };
+
+  it('parses a record with no optionals and one with every optional', () => {
+    expect(ClosedSessionSchema.parse(record)).toMatchObject({ id: 'sess-1' });
+    expect(
+      ClosedSessionSchema.parse({
+        ...record,
+        kind: 'agent',
+        agentId: 'claude',
+        name: 'build',
+        surface: 'fab',
+        exitCode: 130,
+        reason: 'exited',
+        transcriptBytes: 4096,
+      }),
+    ).toMatchObject({ agentId: 'claude', surface: 'fab', reason: 'exited' });
+  });
+
+  it('admits exactly three endings, and no fourth', () => {
+    expect(ClosedSessionSchema.shape.reason.options).toEqual(['closed', 'exited', 'superseded']);
+    expect(() => ClosedSessionSchema.parse({ ...record, reason: 'vanished' })).toThrow();
+  });
+
+  it('keeps exitCode nullable — a session can end without one being observed', () => {
+    expect(ClosedSessionSchema.parse({ ...record, exitCode: null }).exitCode).toBeNull();
+    expect(() => ClosedSessionSchema.parse({ ...record, exitCode: undefined })).toThrow();
+  });
+
+  it('carries the transcript as raw bytes, never base64', () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    expect(schemas.SessionsTranscriptResponse.parse({ bytes }).bytes).toBe(bytes);
+    expect(() => schemas.SessionsTranscriptResponse.parse({ bytes: 'AQID' })).toThrow();
+  });
+
+  it('takes null on purge to mean every record, and rejects an empty id', () => {
+    expect(schemas.SessionsPurgeRequest.parse({ sessionId: null })).toEqual({ sessionId: null });
+    expect(() => schemas.SessionsPurgeRequest.parse({ sessionId: '' })).toThrow();
+  });
+
+  it('lets the renderer name only the two endings it can actually know', () => {
+    // `'exited'` is main's own reading, taken from the pty's exit — the
+    // renderer does not reliably know, so the wire does not let it claim so.
+    expect(schemas.TerminalForgetRequest.parse({ sessionId: 'a' }).reason).toBeUndefined();
+    expect(schemas.TerminalForgetRequest.parse({ sessionId: 'a', reason: 'superseded' })).toEqual({
+      sessionId: 'a',
+      reason: 'superseded',
+    });
+    expect(() => schemas.TerminalForgetRequest.parse({ sessionId: 'a', reason: 'exited' })).toThrow();
+  });
+
+  it('owns the mstudio:sessions:* prefix, and nothing else does', () => {
+    expect(Object.values(CHANNELS).filter((n) => n.startsWith('mstudio:sessions:')).sort()).toEqual([
+      'mstudio:sessions:history',
+      'mstudio:sessions:purge',
+      'mstudio:sessions:transcript',
+    ]);
+  });
+
+  it('closedFromSession drops the fields a closed session cannot mean', () => {
+    const narrowed = closedFromSession(
+      {
+        id: 'sess-1',
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'midnite',
+        name: 'build',
+        cwd: '/Users/x/Dev/midnite',
+        repoId: 'repo:/Users/x/Dev/midnite',
+        createdAt: 1_700_000_000_000,
+        asleep: true,
+        surface: 'kanban',
+        taskRef: { projectId: 'p1', itemId: 'i1' },
+      },
+      { closedAt: 1_700_000_060_000, exitCode: 0, reason: 'closed', transcriptBytes: 12 },
+    );
+
+    // `asleep` is a claim about a process that no longer exists; `taskRef`
+    // points at a board card a closed session cannot be re-attached to.
+    expect(narrowed).not.toHaveProperty('asleep');
+    expect(narrowed).not.toHaveProperty('taskRef');
+    expect(narrowed).toMatchObject({ agentId: 'claude', name: 'build', surface: 'kanban' });
+    expect(ClosedSessionSchema.parse(narrowed)).toEqual(narrowed);
+  });
+
+  it('omits an absent optional rather than setting it undefined', () => {
+    // An `agentId: undefined` key survives JSON.stringify as nothing at all,
+    // but it is not the same object, and `toEqual` against a stored row is
+    // exactly where that difference surfaces.
+    const narrowed = closedFromSession(
+      {
+        id: 'sess-1',
+        kind: 'shell',
+        title: 'midnite',
+        cwd: '/Users/x/Dev/midnite',
+        repoId: 'repo:/Users/x/Dev/midnite',
+        createdAt: 1_700_000_000_000,
+      },
+      { closedAt: 1, exitCode: null, reason: 'closed', transcriptBytes: 0 },
+    );
+    expect(Object.keys(narrowed)).not.toContain('agentId');
+    expect(Object.keys(narrowed)).not.toContain('surface');
   });
 });

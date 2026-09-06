@@ -502,6 +502,24 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * The sessions you closed (Phase 67) — the archive `terminal.forget` now
+   * writes into instead of deleting.
+   *
+   * Read-only apart from `purge`: an ending is recorded in main, where it is
+   * observed, so there is nothing here for the renderer to append. `transcript`
+   * is its own call rather than bytes on `history()` for the reason
+   * `pty.snapshot` is separate from `terminal.list` — the list answers once for
+   * every record, a transcript is fetched for exactly one.
+   */
+  sessions: {
+    history: () => Promise<z.infer<typeof S.SessionsHistoryResponse>>;
+    transcript: (
+      req: In<typeof S.SessionsTranscriptRequest>,
+    ) => Promise<z.infer<typeof S.SessionsTranscriptResponse>>;
+    purge: (req: In<typeof S.SessionsPurgeRequest>) => Promise<void>;
+  };
+
+  /**
    * The embedded browser engine (Phase 32) — one `WebContentsView` per tab,
    * owned by main's `browser-service.ts`. Chrome state (nav, title, favicon,
    * loading) arrives on the single `onEvent` push rather than per-kind
