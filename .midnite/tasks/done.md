@@ -2,6 +2,54 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 66 Theme A — Shared contracts: the Postman v2.1 wire shape
+
+[PR #222](https://github.com/bilo-io/midnite-studio/pull/222). Moves Phase 66 0/73 → 12/73 (0% →
+16%). The foundation every other Phase 66 theme (B–H) and all of Phase 70 read from: the on-disk
+Postman v2.1 schemas, the renderer's editable request draft, the response envelope, and the IPC
+plumbing between them.
+
+- [x] Add `packages/shared/src/domain/api-client.ts` and one `export * from './api-client';` line
+      in `domain/index.ts` (alphabetical) — `PostmanItemSchema` as the one recursive schema
+      (`z.ZodType<PostmanItem> = z.lazy(() => …)`, hand-written `PostmanItem` interface above it),
+      with a one-line comment on why `z.lazy`/`.passthrough()` are both net-new to this package.
+- [x] Every object schema in the file is `.passthrough()`, including the recursive arm — the whole
+      "real Postman file compatibility" requirement — except `ApiResponse`, which is ours and
+      never round-trips to disk.
+- [x] `PostmanRequestSchema`: `method` a bare `z.string()` (not an enum — arbitrary verbs must
+      round-trip), `url: PostmanUrlSchema = z.union([z.string(), z.object({raw}).passthrough()])`.
+- [x] `PostmanEnvironmentSchema` ships here so Theme G's importer can recognise and refuse a
+      `.postman_environment.json` with a real message, even though nothing reads it until Phase 70
+      Theme A.
+- [x] `ApiRequestDraftSchema` — the renderer's editable shape, **not** the on-disk one: `bodies` is
+      a `Record<BodyMode, string>` so switching body modes never loses text. `toDraft`/
+      `toPostmanRequest` live in the same file; the second merges over the original so passthrough
+      keys survive the round trip.
+- [x] `BodyMode` (eight modes) and `ApiAuth` (`z.discriminatedUnion('type', …)`: none/bearer/basic/
+      apikey).
+- [x] `ApiResponseSchema`: `body` always a string (never re-stringified), `headers` a flat
+      `Record<string,string>` for the reason `http.ts:138-141` documents.
+- [x] `ApiOpFailureSchema`/`ApiOpResultSchema`/`ApiOpResultOf(schema)` — a third copy of
+      `database.ts`'s two-arm envelope shape, deliberately, with the success-arm field named
+      `value` per the phase doc's literal spelling (see the PR body's flagged deviation from
+      `database.ts`'s own `data`).
+- [x] Seven `mstudio:api-client:*` channels in `channels.ts`, kebab-case verbs, no `EVENT_CHANNELS`
+      entry.
+- [x] Payload schemas in `schemas.ts` in the `Db*` group's plain-`export const` style;
+      `ApiSendRequestRequest`/`ApiCancelRequestRequest` exactly as the doc specifies, the other five
+      channels' schemas and `ApiCollectionSummarySchema` filled in on the same convention (flagged
+      in the PR body as inferred, not doc-specified).
+- [x] An `apiClient` namespace on `MidniteStudioBridge` in `bridge.ts`, typed like `db`.
+- [x] `api-client.test.ts`: three **real, publicly-published** Postman v2.1 exports (JIRA, Auth0
+      Management API, Postman Echo) committed under `domain/__fixtures__/api-client/`, each parsed
+      through `PostmanCollectionSchema` and asserted key-set-identical, at every path recursively,
+      to the original after re-serialising. Plus `toDraft`/`toPostmanRequest` round-tripping an
+      unknown top-level key.
+- Two deliberate deviations from the phase doc, both flagged prominently in the PR body: the
+  `ApiOpResultOf` success field is `value` (the doc's own literal spelling, not `database.ts`'s
+  `data`), and `ApiResponseSchema` gained an undocumented `warnings: string[]` field that Theme E's
+  own doc text requires but Theme A's field list omits.
+
 ## 2026-09-06 — Phase 61 Theme J — Database Explorer test suites and CI wiring
 
 [PR #217](https://github.com/bilo-io/midnite-studio/pull/217). Moves Phase 61 66/94 → 68/94

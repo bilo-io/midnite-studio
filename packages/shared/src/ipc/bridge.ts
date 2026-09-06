@@ -1045,6 +1045,38 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * A Postman-compatible API client (Phase 66). Collections live repo-local
+   * under `.midnite/api/` in the open repository. `sendRequest` is a single
+   * `invoke`, not a stream — the response body is capped before it reaches
+   * here, so there is no unbounded payload to chunk the way `db`'s query
+   * result is. `cancelRequest` is its own channel, keyed by `requestId`,
+   * exactly as `queryCancel` is.
+   */
+  apiClient: {
+    listCollections: (
+      req: In<typeof S.ApiListCollectionsRequest>,
+    ) => Promise<z.infer<typeof S.ApiListCollectionsResponse>>;
+    readCollection: (
+      req: In<typeof S.ApiReadCollectionRequest>,
+    ) => Promise<z.infer<typeof S.ApiReadCollectionResponse>>;
+    saveCollection: (
+      req: In<typeof S.ApiSaveCollectionRequest>,
+    ) => Promise<z.infer<typeof S.ApiSaveCollectionResponse>>;
+    importCollection: (
+      req: In<typeof S.ApiImportCollectionRequest>,
+    ) => Promise<z.infer<typeof S.ApiImportCollectionResponse>>;
+    deleteCollection: (
+      req: In<typeof S.ApiDeleteCollectionRequest>,
+    ) => Promise<z.infer<typeof S.ApiDeleteCollectionResponse>>;
+    sendRequest: (
+      req: In<typeof S.ApiSendRequestRequest>,
+    ) => Promise<z.infer<typeof S.ApiSendRequestResponse>>;
+    cancelRequest: (
+      req: In<typeof S.ApiCancelRequestRequest>,
+    ) => Promise<z.infer<typeof S.ApiCancelRequestResponse>>;
+  };
+
+  /**
    * The MCP server's own Settings surface (Phase 57 Themes E, F) — the enable
    * flag, live status, and the last-50 audit ring. The tool socket itself is a
    * separate Unix-socket transport (`main/mcp/server.ts`) this bridge never

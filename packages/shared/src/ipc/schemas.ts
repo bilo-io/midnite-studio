@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
 import {
+  ApiCollectionSummarySchema,
+  ApiOpResultOf,
+  ApiOpResultSchema,
+  ApiRequestDraftSchema,
+  ApiResponseSchema,
+  PostmanCollectionSchema,
+  PostmanVariableSchema,
   BlameResultSchema,
   BrowserBoundsSchema,
   BrowserEventSchema,
@@ -2269,6 +2276,63 @@ export const DbQueryDoneEvent = z.object({
   /** Set when the query failed or the connection could not be reached. */
   error: z.string().optional(),
 });
+
+// --- api client (Phase 66) ---------------------------------------------------
+//
+// Collections live repo-local under `.midnite/api/` in the *open* repository,
+// so every one of these carries a `repoId`, resolved through the repo
+// registry exactly as `repo-handlers.ts` does — never a raw path. Payload
+// schemas here follow the `Db*` group's convention: a plain `export const X =
+// z.object(…)`, no sibling `z.infer` type.
+
+export const ApiListCollectionsRequest = z.object({ repoId: z.string().min(1) });
+export const ApiListCollectionsResponse = ApiOpResultOf(z.array(ApiCollectionSummarySchema));
+
+export const ApiReadCollectionRequest = z.object({
+  repoId: z.string().min(1),
+  collectionId: z.string().min(1),
+});
+export const ApiReadCollectionResponse = ApiOpResultOf(PostmanCollectionSchema);
+
+export const ApiSaveCollectionRequest = z.object({
+  repoId: z.string().min(1),
+  collectionId: z.string().min(1),
+  collection: PostmanCollectionSchema,
+});
+export const ApiSaveCollectionResponse = ApiOpResultSchema;
+
+/**
+ * No file path — `apiImportCollection` opens the native file picker in main
+ * (`repoPickDirectory`'s `showOpenDialog` shape), the renderer never sees one.
+ * A `value` of `null` on success is a cancelled dialog, not a failure.
+ */
+export const ApiImportCollectionRequest = z.object({ repoId: z.string().min(1) });
+export const ApiImportCollectionResponse = ApiOpResultOf(ApiCollectionSummarySchema.nullable());
+
+export const ApiDeleteCollectionRequest = z.object({
+  repoId: z.string().min(1),
+  collectionId: z.string().min(1),
+});
+export const ApiDeleteCollectionResponse = ApiOpResultSchema;
+
+/**
+ * `requestId` mirrors `DbQueryStartRequest` — how `apiCancelRequest` finds the
+ * in-flight operation to abort. `collectionVariables` is the collection's own
+ * `variable[]`, the only `{{var}}` tier this phase resolves (Phase 70 Theme A
+ * adds the environment tier at this same call site).
+ */
+export const ApiSendRequestRequest = z.object({
+  repoId: z.string().min(1),
+  requestId: z.string().min(1),
+  draft: ApiRequestDraftSchema,
+  collectionVariables: z.array(PostmanVariableSchema),
+  timeoutMs: z.number().int().positive().optional(),
+});
+export const ApiSendRequestResponse = ApiOpResultOf(ApiResponseSchema);
+
+export const ApiCancelRequestRequest = z.object({ requestId: z.string().min(1) });
+/** A cancel on an unknown id is a no-op `{ok:true}`, not an error. */
+export const ApiCancelRequestResponse = ApiOpResultSchema;
 
 /* --- crash & error reporting (Phase 65) ---------------------------------- */
 
