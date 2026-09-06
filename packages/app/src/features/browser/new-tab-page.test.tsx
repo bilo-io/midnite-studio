@@ -1,7 +1,23 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { NewTabPage } from './new-tab-page';
 import { WALLPAPER_STORAGE_KEY } from './wallpaper';
+
+/**
+ * The page reaches for a `QueryClient` since Theme C — `useDevServer` shares
+ * one probe sweep between this tile and the `browser.openDevServer` palette
+ * row, and a shared cache is the whole point of it being a query. A fresh
+ * client per render keeps the four cases below independent; retries are off so
+ * a probe that cannot reach a bridge fails once instead of backing off through
+ * the test's timeout.
+ */
+const renderPage = () =>
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <NewTabPage />
+    </QueryClientProvider>,
+  );
 
 describe('NewTabPage', () => {
   beforeEach(() => {
@@ -10,7 +26,7 @@ describe('NewTabPage', () => {
   });
 
   it('renders search input, shortcuts, and wallpaper controls', () => {
-    render(<NewTabPage />);
+    renderPage();
 
     expect(screen.getByPlaceholderText(/search the web or enter url/i)).toBeDefined();
     expect(screen.getByTestId('shortcuts-panel')).toBeDefined();
@@ -25,7 +41,7 @@ describe('NewTabPage', () => {
   });
 
   it('renders accurate brand colors for shortcut tiles', () => {
-    render(<NewTabPage />);
+    renderPage();
 
     const googleTile = screen.getByTestId('shortcut-tile-google');
     expect(googleTile).toBeDefined();
@@ -38,7 +54,7 @@ describe('NewTabPage', () => {
   });
 
   it('changes wallpaper theme and persists in localStorage', () => {
-    render(<NewTabPage />);
+    renderPage();
 
     const select = screen.getByTestId('wallpaper-theme-select') as HTMLSelectElement;
     expect(select.value).toBe('nature');
@@ -49,7 +65,7 @@ describe('NewTabPage', () => {
   });
 
   it('renders unsplash attribution', () => {
-    render(<NewTabPage />);
+    renderPage();
     expect(screen.getByText(/on unsplash/i)).toBeDefined();
   });
 });
