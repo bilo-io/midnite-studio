@@ -305,7 +305,7 @@ landing before C would ship an empty view**, so E is the one ordering that is no
 
 ### C — The list (M)
 
-- [ ] Add `packages/app/src/features/sessions/sessions-view.tsx` — **new** — list left, transcript
+- [x] Add `packages/app/src/features/sessions/sessions-view.tsx` — **new** — list left, transcript
       right, split by `useResizable` + `ResizeHandle`, copying
       [`issues-view.tsx:80-127`](../../../packages/app/src/features/issues/issues-view.tsx)'s layout
       exactly: `<div className="flex h-full min-h-0">`, a fixed-width left column with
@@ -318,19 +318,19 @@ landing before C would ship an empty view**, so E is the one ordering that is no
     uppercase `text-[11px] font-semibold tracking-wide text-muted-foreground` `<h2>` reading
     **Sessions**, a `shrink-0 tabular-nums text-[11px]` count of the filtered rows, then
     `ml-auto` for the facet, the refresh `IconButton` (`LuRefreshCw`) and **Clear history**.
-- [ ] Fetch through the app's query layer, not a bare `useEffect`: a `useSessionHistory()` hook in
+- [x] Fetch through the app's query layer, not a bare `useEffect`: a `useSessionHistory()` hook in
       [`services/queries.ts`](../../../packages/app/src/services/queries.ts) over
       `bridge()?.sessions.history()`, keyed `['sessions','history']`, so `useRefreshForge`'s sibling
       invalidation pattern gives the header's refresh button something to call and the popout of
       Theme F refetches on mount rather than syncing.
-- [ ] Rows read the session's **own** name, **not `session.title`** — `title` is the repo name
+- [x] Rows read the session's **own** name, **not `session.title`** — `title` is the repo name
       (`terminal.ts:389-390`). A history row's primary label is
       `record.name ?? agentLabelFor(record.agentId) ?? (record.kind === 'agent' ? 'Agent Session' : 'Terminal')`,
       mirroring `sessionLabel()`'s precedence
       ([`terminal-store.ts:921-925`](../../../packages/app/src/features/terminal/terminal-store.ts))
       minus its `autoName` arm, which is live renderer state that no closed record carries. The repo
       name is secondary text. This is fact 4, fixed here rather than repeated.
-- [ ] Row shape, following
+- [x] Row shape, following
       [`run-history-list.tsx:96-113`](../../../packages/app/src/features/workflows/run-history-list.tsx):
       a `<button type="button">` inside a `role="list"` container, laying out
       `dot | label | agent icon | duration · relative age | exit code`.
@@ -342,7 +342,7 @@ landing before C would ship an empty view**, so E is the one ordering that is no
     would say nothing.
   - Grouped by `repoId` under a sticky repo header, newest first inside each group. Groups ordered
     by their newest member, so the repo you were last working in is at the top.
-- [ ] **Make `exited` visually distinct** in
+- [x] **Make `exited` visually distinct** in
       [`state-dot.tsx`](../../../packages/app/src/components/state-dot.tsx). Add an arm **between**
       the `asleep` branch at `:27-29` and the fallback at `:30`:
       `if (state === 'exited') return <span className="size-1.5 shrink-0 rounded-full border border-muted-foreground/70" />;`
@@ -352,25 +352,25 @@ landing before C would ship an empty view**, so E is the one ordering that is no
   - `DotState` is unchanged — the member already exists, so this is a style arm, not an API change.
     A `state-dot.test.tsx` assertion that `exited` and `idle` render different `className`s is what
     keeps it that way.
-- [ ] A `reason` facet using
+- [x] A `reason` facet using
       [`MultiSelectMenu`](../../../packages/app/src/components/multi-select-menu.tsx), empty = all —
       the app-wide facet convention `run-history-list.tsx:75-85` already follows. Options are the
       three `reason` values with `label`s *Closed* / *Exited* / *Superseded*,
       `allLabel="All endings"`, `summarise={(n) => \`${n} endings\`}`,
       `label="Filter sessions by how they ended"`, `icon={<LuFilter …/>}`.
-- [ ] `sessions-skeletons.tsx` with `SessionListSkeleton`, wrapped in
+- [x] `sessions-skeletons.tsx` with `SessionListSkeleton`, wrapped in
       `<LoadingRegion label="Loading closed sessions…" className="min-h-0 flex-1 overflow-hidden py-1">`
       per [`issues-skeletons.tsx`](../../../packages/app/src/features/issues/issues-skeletons.tsx).
       Unlike the live session list (populated synchronously from zustand), history is fetched, so a
       skeleton has real work to do.
-- [ ] The four states render exactly one each, in `skeleton.tsx`'s stated order — error → empty →
+- [x] The four states render exactly one each, in `skeleton.tsx`'s stated order — error → empty →
       skeleton → content:
   - loading with nothing yet → `<SessionListSkeleton />`
   - fetched and empty → `<EmptyState icon={LuHistory} title="No closed sessions" body="Sessions you close will be kept here, transcript and all." />`
   - nothing selected (right pane) → `<Notice>Select a session to read its transcript.</Notice>`, the
     local `Notice` copied from `issues-view.tsx:130-148`
   - a `{ ok: false }`-shaped failure → `<Notice tone="destructive">…</Notice>` with the reason
-- [ ] `store/sessions-store.ts` — **new** — selection only, **unpersisted**, in
+- [x] `store/sessions-store.ts` — **new** — selection only, **unpersisted**, in
       [`issues-store.ts`](../../../packages/app/src/store/issues-store.ts)'s shape:
       `create<SessionsState>()` with no `persist` middleware.
   - `selectedClosedSessionId: string | null` and `selectClosedSession(id: string | null): void` —
@@ -380,7 +380,7 @@ landing before C would ship an empty view**, so E is the one ordering that is no
   - The auto-pick fallback lives in the **view**, not the store — `pickInitialClosedSession(rows,
     stored)` beside `sessions-view.tsx`, mirroring `pickInitialIssue` at `issues-view.tsx:57-63`.
     It returns the stored id when it is still in the fetched rows, else the newest row, else null.
-- [ ] A **Purge** action per row and **Clear history** in the header, both through `confirm-dialog`
+- [x] A **Purge** action per row and **Clear history** in the header, both through `confirm-dialog`
       with `danger: true` and `warnings: string[]` — **not** `blastRadius`, whose type is git-shaped
       (`{ count: number; sample: { sha: string; subject: string }[] }`,
       [`confirm-dialog.tsx:19-22`](../../../packages/app/src/components/confirm-dialog.tsx)) even
@@ -388,14 +388,14 @@ landing before C would ship an empty view**, so E is the one ordering that is no
   - Per-row warning: `["The transcript is deleted from disk. This cannot be undone."]`.
       Clear-history warning names the count: `` [`${rows.length} sessions and their transcripts are deleted from disk. This cannot be undone.`] ``.
   - Both call `bridge()?.sessions.purge(…)` and then invalidate `['sessions','history']`.
-- [ ] `sessions-view.test.tsx` (RTL, mock bridge): rows render newest-first grouped by repo; the
+- [x] `sessions-view.test.tsx` (RTL, mock bridge): rows render newest-first grouped by repo; the
       facet narrows to one `reason`; three sessions closed in one repo render three **distinct**
       labels; an empty history renders `EmptyState` and not a skeleton forever; the per-row purge
       opens a confirm and calls `sessions.purge` with that id only after confirmation.
 
 ### D — The transcript pane (M)
 
-- [ ] Add `packages/app/src/features/sessions/transcript-view.tsx` — **new** — a **read-only xterm**
+- [x] Add `packages/app/src/features/sessions/transcript-view.tsx` — **new** — a **read-only xterm**
       instance that writes the archived bytes once and takes no input. See Decision 3.
   - Props: `{ sessionId: string }`. It fetches its own bytes via
     `bridge()?.sessions.transcript({ sessionId })`, so the parent holds an id and never a megabyte.
@@ -408,7 +408,7 @@ landing before C would ship an empty view**, so E is the one ordering that is no
     `term.write(bytes); term.write(RESET_MODES);` — the same pairing at `terminal-view.tsx:646-650`,
     so a transcript that ended mid-alternate-screen or mid-bracketed-paste does not leave the
     emulator in that mode.
-- [ ] **DOM renderer, never WebGL.** `transcript-view.tsx` never calls `useXtermWebglSlot`
+- [x] **DOM renderer, never WebGL.** `transcript-view.tsx` never calls `useXtermWebglSlot`
       ([`xterm-budget.ts:107`](../../../packages/app/src/features/terminal/xterm-budget.ts)) and
       never loads the WebGL addon.
   - That module has no `forceDom` flag — the DOM fallback is chosen by the caller, which is what
@@ -416,29 +416,29 @@ landing before C would ship an empty view**, so E is the one ordering that is no
     ask", and the budget's `MAX_WEBGL_CONTEXTS = 12` stays entirely available to live terminals.
   - Recorded as a comment in the file, because "why is this one DOM" is exactly the question a later
     performance pass will otherwise answer wrongly.
-- [ ] Constructed read-only and disposed on unmount: `disableStdin: true`, `cursorBlink: false`,
+- [x] Constructed read-only and disposed on unmount: `disableStdin: true`, `cursorBlink: false`,
       `convertEol: false`, `scrollback: 0` is **wrong** here (the whole point is scrollback) — set it
       to `SCROLLBACK_BYTES / 40` lines as a generous upper bound and let the trim already applied on
       disk do the real bounding. `term.dispose()` in the effect's cleanup, plus the `ResizeObserver`
       teardown `TerminalView` already models.
-- [ ] Selection stays possible, input does not: `term.attachCustomKeyEventHandler` returns `false`
+- [x] Selection stays possible, input does not: `term.attachCustomKeyEventHandler` returns `false`
       for everything except copy (`Mod+c`) and select-all (`Mod+a`), so the pane is readable and
       copyable and cannot be typed into.
-- [ ] Switching rows tears down and rebuilds: a new `sessionId` disposes the previous `Terminal` and
+- [x] Switching rows tears down and rebuilds: a new `sessionId` disposes the previous `Terminal` and
       constructs a fresh one, rather than `term.reset()` + rewrite. A `reset()` keeps the old
       `Terminal`'s dimensions and any addon state, and the phase's own verification is that the pane
       looks like what you saw.
   - An in-flight `sessions.transcript` call for a superseded id is ignored on arrival — compare the
     resolved id against a ref before writing, the standard guard for a fetch racing a selection
     change.
-- [ ] `transcript-view.test.tsx` (RTL, mock bridge): a 1 MB payload writes once and only once;
+- [x] `transcript-view.test.tsx` (RTL, mock bridge): a 1 MB payload writes once and only once;
       selecting a second session disposes the first `Terminal`; a keystroke does not reach `onData`;
       a zero-length transcript renders `<EmptyState title="No transcript" body="This session ended before anything was written." />`
       rather than an empty black rectangle.
 
 ### E — The rail row stops lying (S)
 
-- [ ] Point the registry at the real view:
+- [x] Point the registry at the real view:
       [`view-registry.tsx:166`](../../../packages/app/src/components/view-registry.tsx) becomes
       `sessions: { Component: SessionsView, global: true }`, with
       `const loadSessionsView = () => import('../features/sessions/sessions-view');` and a
@@ -450,30 +450,30 @@ landing before C would ship an empty view**, so E is the one ordering that is no
     history of every other repo unreachable.
   - Phase 60's ternary is gone, so this is a one-line record edit, not a branch insertion. See
     Decision 1.
-- [ ] Delete `SessionsPlaceholder` (`view-registry.tsx:82-106`) and its `BrandMark`/`useUiStore`
+- [x] Delete `SessionsPlaceholder` (`view-registry.tsx:82-106`) and its `BrandMark`/`useUiStore`
       imports, and rewrite the module docblock at `:17-22` — it names `SessionsPlaceholder` as one of
       the two deliberately-eager entries, and that sentence stops being true.
-- [ ] Update [`view-registry.test.ts:37-50`](../../../packages/app/src/components/view-registry.test.ts)'s
+- [x] Update [`view-registry.test.ts:37-50`](../../../packages/app/src/components/view-registry.test.ts)'s
       global set from seven names to eight by adding `'sessions'`, and correct the test's own comment
       — which currently explains why it is seven and not the five a stale phase doc named.
-- [ ] Fix `createTerminalSource`'s label (fact 4):
+- [x] Fix `createTerminalSource`'s label (fact 4):
       [`providers.ts:231`](../../../packages/app/src/services/palette/providers.ts)'s
       `label: sess.title || (…)` becomes
       `label: sessionLabel(sess, undefined, agentLabelFor(sess.agentId))`, so the palette's live
       "Terminal Sessions" group stops showing the repo name for every row.
-- [ ] **Close the FAB gap** (Decision 5): filter `sess.surface === 'fab'` out of
+- [x] **Close the FAB gap** (Decision 5): filter `sess.surface === 'fab'` out of
       `createTerminalSource`'s `sessionItems` at `providers.ts:223-241`. Selecting one today opens
       the terminal panel to a blank pane, because the panel filters those rows out via `inMainPanel`
       ([`terminal-store.ts:397`, `:488`](../../../packages/app/src/features/terminal/terminal-store.ts)) —
       a live bug independent of this phase, fixed here because this phase is what makes those
       sessions reachable somewhere real. FAB sessions **do** appear in history.
-- [ ] **No chord, deliberately** (Decision 4): no entry in
+- [x] **No chord, deliberately** (Decision 4): no entry in
       [`nav-chords.ts`](../../../packages/app/src/components/nav-chords.ts)'s `VIEW_COMMAND` and no
       new `CommandId` in [`keybindings.ts`](../../../packages/shared/src/keybindings.ts). Record the
       consequence in the file's docblock at `:18-19`, which already states the rule — *"a view with
       no chord gets no tooltip at all, not an empty one"*. The palette reaches it, and the palette
       entry already exists.
-- [ ] While here, delete the one genuinely stale `todo/` reference left in the renderer:
+- [x] While here, delete the one genuinely stale `todo/` reference left in the renderer:
       [`features/browser/use-browser-bounds.ts:16`](../../../packages/app/src/features/browser/use-browser-bounds.ts)
       cites `todo/phase-32-browser-engine-and-tabs.md`, a directory removed in `1d6fd65`. The
       sessions placeholder's own copy was corrected to `.midnite/tasks/` by Phase 60 and needs

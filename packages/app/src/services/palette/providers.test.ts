@@ -87,8 +87,37 @@ describe('palette providers', () => {
 
   it('creates terminal sessions and agent roster source', () => {
     const onSelect = vi.fn();
+    // `title` is the REPO name (fact 4) — deliberately the same for both
+    // sessions here, to prove the label comes from `sessionLabel`'s own
+    // precedence and not from `title`.
     const sessions: TerminalSession[] = [
-      { id: 's1', title: 'zsh', kind: 'shell', cwd: '/dev/midnite-studio', repoId: 'r1', createdAt: Date.now() },
+      {
+        id: 's1',
+        title: 'midnite-studio',
+        name: 'zsh',
+        kind: 'shell',
+        cwd: '/dev/midnite-studio',
+        repoId: 'r1',
+        createdAt: Date.now(),
+      },
+      {
+        id: 's2',
+        title: 'midnite-studio',
+        kind: 'agent',
+        agentId: 'claude',
+        cwd: '/dev/midnite-studio',
+        repoId: 'r1',
+        createdAt: Date.now(),
+      },
+      {
+        id: 's3',
+        title: 'midnite-studio',
+        kind: 'shell',
+        cwd: '/dev/midnite-studio',
+        repoId: 'r1',
+        createdAt: Date.now(),
+        surface: 'fab',
+      },
     ];
     const agents: AgentDefinition[] = [
       { id: 'claude', label: 'Claude Code', command: 'claude', args: [], accent: '#f00' },
@@ -98,7 +127,14 @@ describe('palette providers', () => {
     expect(source.key).toBe('sessions');
 
     const items = source.items();
+    // A session's own name wins over the repo name every time (fact 4).
     expect(items.find((i) => i.id === 'session:s1')?.label).toBe('zsh');
+    // No name, kind `agent`, an agentId the roster resolves — falls back to
+    // that agent's own label, never the repo name.
+    expect(items.find((i) => i.id === 'session:s2')?.label).toBe('Claude Code');
+    // A `surface: 'fab'` row is filtered out of the palette's live source
+    // entirely (Theme E, Decision 5) — it stays reachable through history.
+    expect(items.find((i) => i.id === 'session:s3')).toBeUndefined();
     expect(items.find((i) => i.id === 'agent:claude')?.label).toBe('Start Claude Code');
   });
 

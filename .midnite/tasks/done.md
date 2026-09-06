@@ -91,6 +91,45 @@ Start-disabled-on-a-blocked-item), Theme H (facets) — all unblocked by this la
 verification (`bundle-report.mjs`, `idle-cpu.mjs`) and the phase's five "Open, for a human" items
 were not run; `package.json`'s empty diff already confirms no new runtime dependency.
 
+## 2026-09-06 — Phase 67 Themes C, D and E — the list, the transcript pane, a real rail row
+
+[PR #209](https://github.com/bilo-io/midnite-studio/pull/209). Moves Phase 67 16/64 → 40/64
+(25% → 63%). Themes A and B (#199) gave a closed session a durable record and a channel to read
+it through; this PR renders it — the Sessions rail row (a placeholder since Phase 23) now points
+at a real view.
+
+- [x] **C** — `packages/app/src/features/sessions/sessions-view.tsx`: `issues-view.tsx`'s split
+      layout, rows grouped by repo under a sticky header (newest-first, groups ordered by their
+      newest member), labelled by the session's own name — never `session.title`, which is the
+      repo name (fact 4) — a `reason` facet (`MultiSelectMenu`), the error → empty → skeleton →
+      content ladder, and per-row/header purge through the app's `warnings`-only confirm-dialog
+      pattern (`blastRadius: null`, per `statement-confirm.ts`'s precedent). Unpersisted
+      single-id selection (`store/sessions-store.ts`), not `ByRepo` — history spans every repo in
+      one list. `state-dot.tsx` gains a hollow-ring `exited` arm between `asleep` and the shared
+      fallback fill.
+- [x] **D** — `transcript-view.tsx`: a read-only xterm, DOM renderer only (never asks
+      `xterm-budget` for a WebGL slot), keyed on `sessionId` so a row switch tears down and
+      rebuilds the whole `Terminal` rather than `reset()`. Keeps only `TerminalView`'s
+      `term.write(bytes); term.write(RESET_MODES)` pairing — no input path, no `pty.snapshot`, no
+      wake-on-keystroke, since a closed session's `cwd` may be gone.
+- [x] **E** — `VIEW_COMPONENT.sessions` points at `SessionsView` (`global: true`, lazy);
+      `SessionsPlaceholder` deleted. Fixes two live bugs the phase names: the palette's "Terminal
+      Sessions" group showed the repo name for every row (now `sessionLabel` + a new
+      `agentLabelFor` helper), and it listed `surface: 'fab'` sessions that opened the panel to a
+      blank pane (filtered out of the live source; they're reachable through history instead).
+      Also fixes the one stale `todo/` doc citation the phase names
+      (`use-browser-bounds.ts`).
+
+Landed with it, and not on any checklist: a real bug caught by `transcript-view.test.tsx` —
+clearing transcript state to `null` on every `sessionId` change let a prop update and its effect
+disagree for one render, mounting a fresh `Terminal` (keyed on the new id) that still held the
+*previous* session's bytes before the new fetch landed. Fixed by tagging the loaded bytes with
+the id they answer and gating render on that match.
+
+Left open: **F** (detachable, like every other page) — untouched, per scope. No `PageDetachMark`
+in the Sessions header yet either, for the same reason: `'sessions'` isn't in
+`PAGE_WINDOW_ROLES` until Theme F lands.
+
 ## 2026-09-06 — Phase 75 Theme C — ranked left-to-right layout, pure
 
 [PR #207](https://github.com/bilo-io/midnite-studio/pull/207). Moves Phase 75 19/101 → 29/101
