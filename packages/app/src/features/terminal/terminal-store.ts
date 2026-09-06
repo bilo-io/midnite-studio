@@ -1,4 +1,5 @@
 import type {
+  AgentDefinition,
   SessionActivity,
   TerminalSession,
   TerminalSessionKind,
@@ -931,3 +932,21 @@ export const sessionLabel = (
   autoName: string | undefined,
   agentLabel?: string,
 ): string => session.name ?? autoName ?? agentLabel ?? 'Terminal';
+
+/**
+ * An agent id's roster label, or `undefined` for a plain shell (no id) or an
+ * id the roster no longer names.
+ *
+ * The one place `agents.find((a) => a.id === agentId)?.label` is written for
+ * the `sessionLabel` fallback chain — the palette's live source and the
+ * closed-session history both feed it the same roster, and a session whose
+ * agent has since been removed from `agents.json` degrades to no label
+ * rather than a lookup failure.
+ */
+export function agentLabelFor(
+  agentId: string | undefined,
+  agents: readonly AgentDefinition[],
+): string | undefined {
+  if (agentId === undefined) return undefined;
+  return agents.find((a) => a.id === agentId)?.label;
+}
