@@ -7,9 +7,10 @@ function installBridge(overrides: Partial<MidniteStudioBridge['apiClient']> = {}
   const apiClient = {
     listCollections: vi.fn().mockResolvedValue({ ok: true, value: [] }),
     readCollection: vi.fn(),
-    saveCollection: vi.fn(),
+    saveCollection: vi.fn().mockResolvedValue({ ok: true }),
     importCollection: vi.fn(),
     deleteCollection: vi.fn().mockResolvedValue({ ok: true }),
+    exportCollection: vi.fn().mockResolvedValue({ ok: true }),
     sendRequest: vi.fn(),
     cancelRequest: vi.fn().mockResolvedValue({ ok: true }),
     ...overrides,
@@ -21,6 +22,8 @@ function installBridge(overrides: Partial<MidniteStudioBridge['apiClient']> = {}
     sendRequest: apiClient.sendRequest,
     cancelRequest: apiClient.cancelRequest,
     deleteCollection: apiClient.deleteCollection,
+    saveCollection: apiClient.saveCollection,
+    exportCollection: apiClient.exportCollection,
   };
 }
 
@@ -205,6 +208,37 @@ describe('api-client-store', () => {
 
       expect(cancelRequest).toHaveBeenCalledTimes(1);
       expect(useApiClientStore.getState().inFlight[apiTabId(ref)]).toBeUndefined();
+    });
+  });
+
+  describe('renameCollection', () => {
+    const summary = {
+      id: 'col1',
+      fileName: 'demo.postman_collection.json',
+      collection: { info: { name: 'Old Name' }, item: [] },
+    };
+
+    it('persists via saveCollection and updates the in-memory name', async () => {
+      const { saveCollection } = installBridge();
+      useApiClientStore.setState({ collections: [summary], collectionsRepoId: 'repo1' });
+
+      await useApiClientStore.getState().renameCollection('col1', 'New Name');
+
+      expect(saveCollection).toHaveBeenCalledWith({
+        repoId: 'repo1',
+        collectionId: 'col1',
+        collection: { info: { name: 'New Name' }, item: [] },
+      });
+      expect(useApiClientStore.getState().collections[0]?.collection.info.name).toBe('New Name');
+    });
+
+    it('leaves the name unchanged when saveCollection fails', async () => {
+      installBridge({ saveCollection: vi.fn().mockResolvedValue({ ok: false, kind: 'error', message: 'nope' }) });
+      useApiClientStore.setState({ collections: [summary], collectionsRepoId: 'repo1' });
+
+      await useApiClientStore.getState().renameCollection('col1', 'New Name');
+
+      expect(useApiClientStore.getState().collections[0]?.collection.info.name).toBe('Old Name');
     });
   });
 

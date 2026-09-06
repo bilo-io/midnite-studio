@@ -173,6 +173,17 @@ export type ApiClientState = {
   duplicateItem: (collectionId: string, itemPath: string[]) => void;
   deleteItem: (collectionId: string, itemPath: string[]) => void;
   removeCollection: (collectionId: string) => Promise<void>;
+  /**
+   * Renames the collection itself (`info.name`), not an item in its `item[]`
+   * tree — `renameItem` cannot reach it. Unlike a folder/request rename,
+   * which only marks the collection dirty for Theme G's explicit Save, this
+   * persists immediately via `apiClient.saveCollection` (Phase 66 Themes E/G,
+   * PR #227): a collection's own name is metadata about the file, not
+   * content of the tree a Save button is deferring, and it sits beside
+   * `removeCollection` — the other collection-level action that is real I/O
+   * rather than an in-memory tree edit.
+   */
+  renameCollection: (collectionId: string, newName: string) => Promise<void>;
 
   /** Sends the tab's current draft. Used by both the Send button and Retry. */
   sendRequest: (tabId: string) => Promise<void>;
@@ -343,6 +354,21 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
     set((state) => ({
       collections: state.collections.filter((summary) => summary.id !== collectionId),
       tabs: state.tabs.filter((tab) => tab.collectionId !== collectionId),
+    }));
+  },
+
+  renameCollection: async (collectionId, newName) => {
+    const repoId = get().collectionsRepoId;
+    const summary = get().collections.find((s) => s.id === collectionId);
+    if (!summary) return;
+    const collection = { ...summary.collection, info: { ...summary.collection.info, name: newName } };
+    const api = bridge();
+    if (api && repoId) {
+      const result = await api.apiClient.saveCollection({ repoId, collectionId, collection });
+      if (!result.ok) return;
+    }
+    set((state) => ({
+      collections: state.collections.map((s) => (s.id === collectionId ? { ...s, collection } : s)),
     }));
   },
 

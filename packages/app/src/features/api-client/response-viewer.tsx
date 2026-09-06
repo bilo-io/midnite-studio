@@ -291,7 +291,11 @@ function NoPreview({
       <button
         type="button"
         disabled
-        title="Saving a response body to disk lands with Theme G's export"
+        // Checked against PR #227's shipped surface (Themes E, G): it added
+        // `apiExportCollection` — a *collection* file, opened by its own id —
+        // not a channel for saving arbitrary bytes a response body carries.
+        // Nothing in the current IPC contract can back this button yet.
+        title="No channel exists yet to save a response body to disk"
         className="mt-1 rounded-md border border-border px-3 py-1 text-xs text-muted-foreground opacity-50"
       >
         Save response as…

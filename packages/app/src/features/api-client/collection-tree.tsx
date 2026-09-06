@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { ApiCollectionSummary, PostmanItem } from '@midnite/studio-shared';
-import { LuFolderPlus, LuPlus } from 'react-icons/lu';
+import { LuDownload, LuFolderPlus, LuPlus } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
@@ -9,6 +9,7 @@ import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { TREE_INDENT } from '../../components/tree-indent';
 import { TreeSection } from '../../components/tree-section';
+import { bridge } from '../../services/bridge';
 import { useApiClientStore } from '../../store/api-client-store';
 import { MethodBadge } from './method-badge';
 
@@ -92,6 +93,7 @@ function CollectionSection({ repoId, summary }: { repoId: string; summary: ApiCo
   const addRequest = useApiClientStore((s) => s.addRequest);
   const addFolder = useApiClientStore((s) => s.addFolder);
   const removeCollection = useApiClientStore((s) => s.removeCollection);
+  const renameCollection = useApiClientStore((s) => s.renameCollection);
 
   const promptNewFolder = () =>
     dialogs.prompt({
@@ -100,6 +102,15 @@ function CollectionSection({ repoId, summary }: { repoId: string; summary: ApiCo
       confirmLabel: 'Create',
       initialValue: 'New Folder',
       onConfirm: (name) => addFolder(summary.id, [], name),
+    });
+
+  const promptRename = () =>
+    dialogs.prompt({
+      title: 'Rename collection',
+      label: 'Name',
+      confirmLabel: 'Rename',
+      initialValue: summary.collection.info.name,
+      onConfirm: (name) => void renameCollection(summary.id, name),
     });
 
   return (
@@ -120,22 +131,22 @@ function CollectionSection({ repoId, summary }: { repoId: string; summary: ApiCo
               { label: 'New request', icon: LuPlus, onSelect: () => addRequest(summary.id, [], 'New Request') },
               { label: 'New folder', icon: LuFolderPlus, onSelect: promptNewFolder },
               { type: 'separator' },
-              {
-                label: 'Rename',
-                disabled: true,
-                // The collection's own display name is `info.name`, not an
-                // item in the `item[]` tree `renameItem`/`deleteItem` walk —
-                // renaming the collection itself is out of this phase's
-                // minimal scope, and disabled rather than silently doing
-                // nothing on click.
-                disabledReason: 'Collection rename lands with Theme G',
-                onSelect: () => {},
-              },
+              // Renames `info.name` and persists immediately via
+              // `apiClient.saveCollection` (PR #227) — unlike a folder/
+              // request rename, which only marks the collection dirty for
+              // an explicit Save, a collection's own name is metadata about
+              // the file rather than tree content.
+              { label: 'Rename', onSelect: promptRename },
               {
                 label: 'Export…',
-                disabled: true,
-                disabledReason: 'Export lands with Theme G',
-                onSelect: () => {},
+                icon: LuDownload,
+                onSelect: () => {
+                  void bridge()
+                    ?.apiClient.exportCollection({ repoId, collectionId: summary.id })
+                    .then((result) => {
+                      if (!result.ok) dialogs.notify({ title: 'Could not export collection', body: result.message });
+                    });
+                },
               },
               {
                 label: 'Remove from repo',
