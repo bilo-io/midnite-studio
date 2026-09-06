@@ -2,6 +2,44 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 75 Theme C — ranked left-to-right layout, pure
+
+[PR #207](https://github.com/bilo-io/midnite-studio/pull/207). Moves Phase 75 19/101 → 29/101
+(19% → 29%). `layoutForgeGraph(graph, geometry?)` ranks a `ForgeGraph` left-to-right with blockers
+upstream — the crib's `dagre` (`rankdir: 'LR'`), replaced with ~40 lines of longest-path ranking, per
+the phase doc's declined dependency.
+
+- [x] `packages/app/src/features/projects/graph/graph-layout.ts` — `layoutForgeGraph` computes each
+      node's rank as one past its deepest `'blocks'`-edge blocker (`'contains'` edges never
+      influence rank), over a ranking DAG built by dropping the lower-precedence half of each mutual
+      `blockedBy` pair (`body` < `field` < `api`; a tie drops the edge whose `from` sorts later) —
+      both edges of a mutual pair still render. A memoised, cycle-guarded DFS computes it so any
+      residual cycle the mutual-pair rule doesn't cover still terminates rather than hangs.
+  - Within-rank order is a two-sweep barycentre against each rank's already-ordered neighbour,
+    ties broken by the node's index in `graph.nodes` (the board's own API order).
+  - Connected components (over both `'blocks'` and `'contains'` edges) are laid out independently
+    and stacked vertically, so two unrelated parts of a board never share a bounding box.
+  - `nodeKey(node)` recomputes the same key scheme Theme B's resolver used to mint edge endpoints
+    (`itemId` for a draft, `` `${repo}#${number}` `` otherwise) — `ForgeGraphNode` never carries its
+    own key, so every consumer has to derive it the same way.
+  - `topAlignedViewport(bounds, width, zoom, padding)` — unconditionally top-pinned vertically
+    (never centred, regardless of how tall the graph is against the canvas); horizontally centred
+    when the content plus padding fits the given width, else left-aligned at `padding`. Returns
+    `workflow-geometry.ts`'s `Viewport` shape unchanged.
+  - `FORGE_GRAPH_GEOMETRY` (`width: 200, height: 64, rankGap: 96, nodeGap: 20`) and `PositionedNode`/
+    `PositionedEdge`/`ForgeGraphGeometry` published exactly as the phase doc names them; `Rect` is
+    re-exported from `workflow-path.ts` rather than redefined, since it is the identical shape.
+  - `graph-layout.test.ts` — 11 cases: a three-rank chain, a diamond, two disconnected components
+    with non-overlapping bounding boxes, an isolated node, a mutual pair that terminates and renders
+    both edges, a `contains`-only pair sharing a rank, an empty graph returning zeroed bounds (not
+    `NaN`), determinism across repeated calls, and `topAlignedViewport`'s three alignment cases.
+
+Left open: the shared `ForgeProjectItem` fixture factory the phase doc's Theme B section also
+mentions as a possible Theme C/D consumer. `graph-layout.test.ts` operates on hand-built `ForgeGraph`
+fixtures directly — it never touches `ForgeProjectItem` — so this theme did not need it; still
+deferred to whichever of D/G/H first writes a suite that goes through `resolveForgeGraph` from board
+items.
+
 ## 2026-09-06 — Phase 75 Theme B — the ladder, as a pure function
 
 [PR #206](https://github.com/bilo-io/midnite-studio/pull/206). Moves Phase 75 10/102 → 19/101
