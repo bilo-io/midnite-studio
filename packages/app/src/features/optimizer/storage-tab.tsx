@@ -1,14 +1,28 @@
-import type { SystemCacheItem, TrashSummary } from '@midnite/studio-shared';
-import { LuHardDrive, LuTrash2 } from 'react-icons/lu';
+import { useMemo, useState } from 'react';
+
+import type { ScanItem, ScanResult, SystemCacheItem, TrashSummary } from '@midnite/studio-shared';
+import { LuHardDrive, LuList, LuListTree, LuTrash2 } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
+import { FilterInput } from '../../components/filter-input';
 import { bridge } from '../../services/bridge';
 import { useOptimizerStore } from '../../store/optimizer-store';
 import { useToastStore } from '../../store/toast-store';
 import { useUiStore } from '../../store/ui-store';
 import { formatBytes } from '../monitor/format-bytes';
+import { buildSizeTree } from './build-size-tree';
 import { CircularGauge } from './components/circular-gauge';
+import { FilterPill } from './components/filter-pill';
 import { SegmentedBar } from './components/segmented-bar';
+import { SizeTree } from './components/size-tree';
+import {
+  EMPTY_STORAGE_FILTER,
+  filterScanItems,
+  sortScanItems,
+  toggleFacet,
+  type StorageFilter,
+  type StorageSort,
+} from './storage-filter';
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
@@ -184,7 +198,6 @@ function TrashCard() {
 
 export function StorageTab() {
   const result = useOptimizerStore((s) => s.scan.result);
-  const selectRepo = useUiStore((s) => s.selectRepo);
 
   // The System section (Theme E) and the Trash card (Theme D) each have
   // their own, independent gating state and are NOT nested under "a Smart
@@ -203,6 +216,53 @@ export function StorageTab() {
     );
   }
 
+  return (
+    <div className="flex flex-col gap-4">
+      <ScannedStorage result={result} />
+      <SystemCachesSection />
+      <TrashCard />
+    </div>
+  );
+}
+
+const SORT_LABELS: Record<StorageSort, string> = {
+  'size-desc': 'Largest first',
+  'size-asc': 'Smallest first',
+  name: 'By path',
+};
+
+/**
+ * The scan result, filtered.
+ *
+ * Split out of `StorageTab` because it is the only part with state: the tab
+ * itself stays a three-section stack whose other two sections gate
+ * themselves. The filter lives here rather than in the optimizer store for
+ * the reason that store's own header gives — it is a fact about this
+ * rendering, not about the scan, and a query surviving a re-scan that no
+ * longer matches anything would look like a broken scan.
+ */
+function ScannedStorage({ result }: { result: ScanResult }) {
+  const selectRepo = useUiStore((s) => s.selectRepo);
+  const [filter, setFilter] = useState<StorageFilter>(EMPTY_STORAGE_FILTER);
+  const [sort, setSort] = useState<StorageSort>('size-desc');
+  const [view, setView] = useState<'tree' | 'list'>('tree');
+
+  // `??`-guarded: a `ScanResult` replayed from an older mock fixture has no
+  // `detectors` entry for an id, and a bare lookup would render `undefined`.
+  const label = (item: ScanItem) => result.detectors[item.detectorId]?.label ?? item.detectorId;
+
+  const visible = useMemo(
+    () => sortScanItems(filterScanItems(result.items, filter, label), sort),
+    // `label` closes over `result.detectors`, which `result` already covers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [result, filter, sort],
+  );
+
+  const tree = useMemo(
+    () => buildSizeTree(visible, sort === 'name' ? 'name' : 'size'),
+    [visible, sort],
+  );
+
   const ecosystemSegments = ECOSYSTEM_ORDER.filter(
     (ecosystem) => (result.byEcosystem[ecosystem] ?? 0) > 0,
   ).map((ecosystem) => ({ id: ecosystem, bytes: result.byEcosystem[ecosystem] ?? 0 }));
@@ -211,8 +271,14 @@ export function StorageTab() {
     (category) => (result.byCategory[category] ?? 0) > 0,
   ).map((category) => ({ id: category, bytes: result.byCategory[category] ?? 0 }));
 
+  const visibleBytes = visible.reduce((sum, item) => sum + item.bytes, 0);
+  const narrowed = visible.length !== result.items.length;
+  const summary =
+    `${visible.length} of ${result.items.length} item${result.items.length === 1 ? '' : 's'}` +
+    (narrowed ? ` — ${formatBytes(visibleBytes)}` : '');
+
   return (
-    <div className="flex flex-col gap-4">
+    <>
       {/*
         Ecosystem above category — the ecosystem is what the user recognises
         ("my Rust projects"); the category is the technical refinement.
@@ -224,18 +290,26 @@ export function StorageTab() {
         color={ecosystemColor}
         name={(id) => ECOSYSTEM_LABELS[id]}
       />
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+
+      <div className="flex flex-wrap gap-1.5">
         {ECOSYSTEM_ORDER.map((ecosystem) => (
-          <li key={ecosystem} className="flex items-center gap-1.5">
-            <span
-              aria-hidden
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: ecosystemColor(ecosystem) }}
-            />
-            {ECOSYSTEM_LABELS[ecosystem]}
-          </li>
+          <FilterPill
+            key={ecosystem}
+            color={ecosystemColor(ecosystem)}
+            label={ECOSYSTEM_LABELS[ecosystem]}
+            detail={
+              (result.byEcosystem[ecosystem] ?? 0) > 0
+                ? formatBytes(result.byEcosystem[ecosystem] ?? 0)
+                : undefined
+            }
+            selected={filter.ecosystems.includes(ecosystem)}
+            dimmed={filter.ecosystems.length > 0 && !filter.ecosystems.includes(ecosystem)}
+            onToggle={() =>
+              setFilter((prev) => ({ ...prev, ecosystems: toggleFacet(prev.ecosystems, ecosystem) }))
+            }
+          />
         ))}
-      </ul>
+      </div>
 
       <SegmentedBar
         label="Reclaimable storage by category"
@@ -245,22 +319,111 @@ export function StorageTab() {
         name={(id) => CATEGORY_LABELS[id]}
       />
 
-      <ul className="space-y-1">
-        {result.items.map((item) => {
-          // `??`-guarded: a `ScanResult` replayed from an older mock fixture
-          // has no `detectors` entry for this id, and a bare lookup would
-          // otherwise render `undefined`.
-          const label = result.detectors[item.detectorId]?.label ?? item.detectorId;
-          return (
+      <div className="flex flex-wrap gap-1.5">
+        {CATEGORY_ORDER.map((category) => (
+          <FilterPill
+            key={category}
+            color={categoryColor(category)}
+            label={CATEGORY_LABELS[category]}
+            detail={
+              (result.byCategory[category] ?? 0) > 0
+                ? formatBytes(result.byCategory[category] ?? 0)
+                : undefined
+            }
+            selected={filter.categories.includes(category)}
+            dimmed={filter.categories.length > 0 && !filter.categories.includes(category)}
+            onToggle={() =>
+              setFilter((prev) => ({ ...prev, categories: toggleFacet(prev.categories, category) }))
+            }
+          />
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterInput
+          value={filter.query}
+          onChange={(query) => setFilter((prev) => ({ ...prev, query }))}
+          placeholder="Filter by path or kind…"
+          className="w-60"
+        />
+
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          Sort
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value as StorageSort)}
+            aria-label="Sort storage items"
+            className="rounded border border-border bg-background px-1.5 py-1 text-xs text-foreground"
+          >
+            {(Object.keys(SORT_LABELS) as StorageSort[]).map((option) => (
+              <option key={option} value={option}>
+                {SORT_LABELS[option]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {/*
+          Tree first, and the default: paths from a repo scan share long
+          prefixes, and a flat list of forty of them is forty copies of the
+          same three directories. The list stays for the one question the
+          tree answers badly — "what are the biggest things anywhere".
+        */}
+        <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5">
+          <button
+            type="button"
+            aria-pressed={view === 'tree'}
+            onClick={() => setView('tree')}
+            className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
+              view === 'tree' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <LuListTree aria-hidden className="h-3.5 w-3.5" />
+            Tree
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === 'list'}
+            onClick={() => setView('list')}
+            className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
+              view === 'list' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <LuList aria-hidden className="h-3.5 w-3.5" />
+            List
+          </button>
+        </div>
+
+        {/* One string, not four interpolations: a count split across text
+            nodes is a count nobody can assert on, and this line exists to be
+            read at a glance. */}
+        <span className="ml-auto text-xs text-muted-foreground">{summary}</span>
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          Nothing matches that filter.
+        </p>
+      ) : view === 'tree' ? (
+        <SizeTree
+          nodes={tree}
+          defaultExpandedDepth={2}
+          leafDot={(item) => categoryColor(item.category)}
+          leafLabel={(item) => label(item)}
+          // Deep-links to the repo in the sidebar. Items sit at arbitrary
+          // depth under a worktree, so only the owning repo (not the exact
+          // worktree) is a reliable target to select.
+          onLeafClick={(item) => item.repoId && selectRepo(item.repoId)}
+        />
+      ) : (
+        <ul className="space-y-1">
+          {visible.map((item) => (
             <li
               key={item.path}
               className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/40"
             >
               <button
                 type="button"
-                // Deep-links to the repo in the sidebar. Items sit at arbitrary
-                // depth under a worktree, so only the owning repo (not the
-                // exact worktree) is a reliable target to select.
                 onClick={() => item.repoId && selectRepo(item.repoId)}
                 disabled={!item.repoId}
                 className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
@@ -271,7 +434,7 @@ export function StorageTab() {
                   style={{ backgroundColor: categoryColor(item.category) }}
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm text-foreground">{label}</span>
+                  <span className="block truncate text-sm text-foreground">{label(item)}</span>
                   <span className="block truncate font-mono text-xs text-foreground">
                     {item.path}
                   </span>
@@ -281,26 +444,10 @@ export function StorageTab() {
                 {formatBytes(item.bytes)}
               </span>
             </li>
-          );
-        })}
-      </ul>
-
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        {CATEGORY_ORDER.map((category) => (
-          <li key={category} className="flex items-center gap-1.5">
-            <span
-              aria-hidden
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: categoryColor(category) }}
-            />
-            {CATEGORY_LABELS[category]}
-          </li>
-        ))}
-      </ul>
-
-      <SystemCachesSection />
-      <TrashCard />
-    </div>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 
