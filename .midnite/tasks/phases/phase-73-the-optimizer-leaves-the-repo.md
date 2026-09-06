@@ -1091,13 +1091,11 @@ for its own work).
 - [x] `ipc.test.ts` covers all five new channels by name and asserts each has a schema.
 - [x] `optimizer-store.test.ts`'s `localStorage.length === 0` still passes; `persisted-keys.test.ts`
       passes with both new preference keys.
-- [ ] Storage tab shots refreshed, gate-on state, light and dark, **now that the System section has
+- [x] Storage tab shots refreshed, gate-on state, light and dark, **now that the System section has
       its own bar** (`optimizer-storage-{light,dark}.png` and `optimizer-system-caches-{light,dark}.png`
-      were shot back when the section had no bar — Theme E's `SegmentedBar` consumption landed in
-      PR #196, so those are stale). Re-shoot once picked up; the two bars' accessible names
-      (`Reclaimable storage by ecosystem` vs `System caches by ecosystem`) are already distinct by
-      construction, verified by `moon run :typecheck :lint :test`, but not yet asserted by a
-      dedicated e2e case or re-captured in a screenshot.
+      re-shot via `MSTUDIO_SHOTS=1 playwright test e2e/optimizer-shots.spec.ts`, confirming both
+      bars render — `Reclaimable storage by ecosystem`/`by category` stacked above the item list,
+      `System caches by ecosystem` above the catalogue).
 - [ ] **Human:** real-machine pass per Theme F.
 - [ ] **Open, for a human:** the by-hand symlink case in Theme F's last item — the one refusal no
       unit test proves end to end.
