@@ -5,6 +5,7 @@ import {
   compareSemVer,
   parseConventionalCommit,
   planReleaseTags,
+  planRelease,
   planVersionBump,
   sharesLockstepMajorMinor,
   versionFromReleaseBranch,
@@ -211,5 +212,91 @@ describe('versionFromReleaseBranch', () => {
   it('is null for a branch that is not a release branch', () => {
     expect(versionFromReleaseBranch('feature/p53-bcd')).toBeNull();
     expect(versionFromReleaseBranch('main')).toBeNull();
+  });
+});
+
+describe('planRelease', () => {
+  const ALL_ON_ONE = {
+    '@midnite/studio': '0.1.0',
+    '@midnite/studio-shared': '0.1.0',
+    '@midnite/studio-desktop': '0.1.0',
+  };
+  const featCommit = parseConventionalCommit('feat(graph): style commit message by recency')!;
+  const fixCommit = parseConventionalCommit('fix(app): stop the pill flickering')!;
+
+  describe('the first release (previous === null)', () => {
+    it('bumps nothing and tags the versions already in the tree', () => {
+      // The regression this whole helper exists for: with 0 tags the commit
+      // range is the entire history, which categorises as `minor` and would
+      // otherwise ship 0.2.0 from a repo that is entirely 0.1.0.
+      const plan = planRelease({
+        current: ALL_ON_ONE,
+        previous: null,
+        commits: [featCommit, fixCommit],
+      });
+      expect(plan).toEqual({
+        firstRelease: true,
+        level: 'none',
+        next: ALL_ON_ONE,
+        tags: ['v0.1.0'],
+      });
+    });
+
+    it('ignores the commits entirely — even a breaking change cannot bump it', () => {
+      const breaking = parseConventionalCommit('feat(ipc)!: replace the bridge')!;
+      expect(breaking.breaking).toBe(true);
+      const plan = planRelease({ current: ALL_ON_ONE, previous: null, commits: [breaking] });
+      expect(plan.level).toBe('none');
+      expect(plan.tags).toEqual(['v0.1.0']);
+    });
+
+    it('refuses a first release whose packages have already diverged', () => {
+      expect(() =>
+        planRelease({
+          current: { ...ALL_ON_ONE, '@midnite/studio-desktop': '0.1.3' },
+          previous: null,
+          commits: [],
+        }),
+      ).toThrow(/every package must already sit on one version/);
+    });
+
+    it('refuses an empty package map rather than planning a tagless release', () => {
+      expect(() => planRelease({ current: {}, previous: null, commits: [] })).toThrow(
+        /no packages were given/,
+      );
+    });
+  });
+
+  describe('every release after the first', () => {
+    it('takes the minor path when a feat is in range', () => {
+      const plan = planRelease({
+        current: ALL_ON_ONE,
+        previous: ALL_ON_ONE,
+        commits: [featCommit, fixCommit],
+      });
+      expect(plan.firstRelease).toBe(false);
+      expect(plan.level).toBe('minor');
+      expect(plan.next['@midnite/studio']).toBe('0.2.0');
+      expect(plan.tags).toEqual(['v0.2.0']);
+    });
+
+    it('scopes a fix-only release to the changed packages', () => {
+      const plan = planRelease({
+        current: ALL_ON_ONE,
+        previous: ALL_ON_ONE,
+        commits: [fixCommit],
+        changedPackages: ['@midnite/studio-desktop'],
+      });
+      expect(plan.level).toBe('patch');
+      expect(plan.next).toEqual({ ...ALL_ON_ONE, '@midnite/studio-desktop': '0.1.1' });
+      expect(plan.tags).toEqual(['@midnite/studio-desktop@0.1.1']);
+    });
+
+    it('plans nothing to tag when the range holds no releasable commits', () => {
+      const chore = parseConventionalCommit('chore(todo): claim Phase 53 Theme F (WIP)')!;
+      const plan = planRelease({ current: ALL_ON_ONE, previous: ALL_ON_ONE, commits: [chore] });
+      expect(plan.level).toBe('none');
+      expect(plan.tags).toEqual([]);
+    });
   });
 });

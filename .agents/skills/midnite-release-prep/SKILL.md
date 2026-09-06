@@ -24,7 +24,11 @@ don't invent new ones.
 - If `$ARGUMENTS` names a level (`major`/`minor`/`patch`), treat it as a hard override of step 3's auto-detect (still show the auto-detect reasoning so the user can sanity-check the override).
 
 ## 2 · Find the last release & gather changes
-- **Base:** latest lockstep tag — `git describe --tags --abbrev=0 --match 'v*'` (fall back to the root commit if there is none). Note any scoped `@midnite/*@*` tags newer than it.
+- **Base:** latest lockstep tag — `git describe --tags --abbrev=0 --match 'v*'`. Note any scoped
+  `@midnite/*@*` tags newer than it. **If that command fails, there is no prior release** — check
+  with `git tag --list 'v*'` and carry the answer forward as `previous = null`. Do **not** fall back
+  to the root commit and treat the whole history as an ordinary release range: that is the
+  first-release case, and it changes step 3's *answer*, not just its range (Phase 53 Theme F).
 - **Commits since:** `git log <base>..HEAD --no-merges --format='%H%x09%s%x09%b'` — one record per commit (subject + body, so `BREAKING CHANGE` footers are visible).
 - **Changed files:** `git diff --name-only <base>..HEAD` — feeds package attribution (step 3).
 - **PR context (optional but preferred):** `gh pr list --state merged --search "merged:>$(git log -1 --format=%cs <base>)" --json number,title,url --limit 200` for human-readable titles. If `gh` is unauthed, skip it — don't fail.
@@ -33,6 +37,14 @@ don't invent new ones.
 Apply the [`release.ts`](../../../packages/shared/src/release.ts) rules to the
 gathered commits (this is exactly what its unit tests pin):
 
+- **First release (`previous = null`) — step 3 collapses.** A repo that has never released ships
+  the versions already in its tree: `level` is `none`, nothing is bumped, and the tag is `vX.Y.Z`
+  built from the current version. The commits are *not* consulted, because "since the last release"
+  is the entire history and would categorise as `minor` on the first `feat` it meets — a rehearsal
+  against this repo (799 commits, 0 tags, every package `0.1.0`) planned **v0.2.0** for what
+  [Phase 53](../../../.midnite/tasks/phases/phase-53-first-release.md) settled as **v0.1.0**.
+  `planRelease` encodes this; skip to the *Show the reasoning* paragraph with its answer. Every
+  package must already sit on one version — it throws otherwise, since there is no baseline to name.
 - **Categorise** each commit subject with `parseConventionalCommit` (type / scope / `!` / `BREAKING CHANGE`).
 - **Bump level** = `bumpLevelFromCommits` — strongest signal wins (Decision §2):
 
@@ -46,9 +58,11 @@ gathered commits (this is exactly what its unit tests pin):
 - **Changed packages** (only matters for `patch`) = map the `git diff` paths onto the repo's `package.json` list (root; `@midnite/studio-*` = `packages/*`).
 - **Next versions** = `planVersionBump(current, { level, changedPackages })`, where `current` is read from every `package.json`.
 
-Build shared once and call the ported helper (`moon run shared:build` + a small
+Build shared once and call **`planRelease`** (`moon run shared:build` + a small
 `node --input-type=module` snippet that imports `packages/shared/dist/version.js` and prints
-`planVersionBump(...)`) rather than re-deriving the table by hand.
+`planRelease({ current, previous, commits, changedPackages })`) rather than re-deriving the table by
+hand or chaining the three helpers yourself. It returns `{ firstRelease, level, next, tags }` in one
+call, which is the only way the first-release rule above cannot be forgotten.
 
 **Show the reasoning:** the base tag, the bump level + the commit(s) that triggered
 it, and the resulting version(s). If the level is `none`, stop — there's nothing to
