@@ -259,7 +259,7 @@ app can work out for itself.
       port, a `start` script only, no scripts block at all, a `package.json` that is not an object) and
       the preset bounds arithmetic as a pure function of the pane rect and the preset width.
 
-### D — Preview deployments, found and offered (M) ✅ DONE (PR #224, 2026-09-06)
+### D — Preview deployments, found and offered (M) ✅ DONE (PR #226, 2026-09-06)
 
 The one feature in this phase that could not exist without the browser: a check run posts a URL, and
 the app opens it beside the diff.
