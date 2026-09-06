@@ -654,7 +654,7 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
 - [x] RTL: opening a blocked node's panel renders a disabled `card-start` whose `title` contains both
       blocker numbers; opening a `body`-blocked node's panel renders an **enabled** `card-start`.
 
-### H — Filters, and the graph's own facets (M) ✅ DONE (PR #TBD, 2026-09-06)
+### H — Filters, and the graph's own facets (M) ✅ DONE (PR #216, 2026-09-06)
 
 - [x] The graph reads the existing shared toolbar with **no toolbar edit at all**.
       [`ItemFilterToolbar`](../../../packages/app/src/components/item-filter-toolbar.tsx) (`:32`,
