@@ -62,6 +62,16 @@ describe('DEFAULT_DETECTORS shape', () => {
     expect(DEFAULT_DETECTORS).toHaveLength(DETECTOR_COUNT);
   });
 
+  it('pins DETECTOR_COUNT to a literal, so a silent addition or removal fails', () => {
+    // The catalogue is "every build system with a well-known artefact directory
+    // and a named producer and evidence," not a fixed count — but that count
+    // must still be *asserted*, not left as a tautology against itself. 28,
+    // not the phase brief's stale 24: Theme B's own catalogue landed with the
+    // Node/moon/Rust/C++/.NET/Python/Java/Swift/Ruby ecosystems already
+    // totalling this many entries.
+    expect(DETECTOR_COUNT).toBe(28);
+  });
+
   it('every id is unique — detectorId keys the result.detectors map', () => {
     expect(new Set(DEFAULT_DETECTORS.map((d) => d.id)).size).toBe(DEFAULT_DETECTORS.length);
   });
