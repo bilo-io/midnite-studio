@@ -2,6 +2,7 @@ import { MemoryTab } from './memory-tab';
 import { OptimizerLayout } from './optimizer-layout';
 import { GpuTab } from './gpu-tab';
 import { SmartScanTab } from './smart-scan-tab';
+import { SystemTab } from './system-tab';
 import { StorageTab } from './storage-tab';
 import { useOptimizerStore } from '../../store/optimizer-store';
 import { useOptimizerScanProgress, useSystemScanProgress } from './use-optimizer';
@@ -24,6 +25,8 @@ export function OptimizerPage() {
         <SmartScanTab />
       ) : tab === 'storage' ? (
         <StorageTab />
+      ) : tab === 'system' ? (
+        <SystemTab />
       ) : tab === 'gpu' ? (
         <GpuTab />
       ) : (

@@ -54,6 +54,14 @@ function installBridge(cleanImpl?: (req: { paths: string[] }) => Promise<unknown
       kill: vi.fn(),
       gpu: vi.fn(),
     },
+    // The tab's own monitor strip drives the metrics stream itself (a
+    // detached Optimizer window has no status bar to drive it), so the mock
+    // bridge has to carry the channel it starts.
+    metrics: {
+      onSample: vi.fn(() => () => {}),
+      start: vi.fn(),
+      stop: vi.fn(),
+    },
   } as unknown as Partial<MidniteStudioBridge>;
   return { clean };
 }
@@ -181,6 +189,125 @@ describe('SmartScanTab', () => {
 
     await waitFor(() => {
       expect(clean).toHaveBeenCalledWith({ paths: ['/repo/.cache-a', '/repo/build-b'] });
+    });
+  });
+});
+
+/**
+ * The hero and the accordions (adhoc: optimizer polish). The hero is one
+ * element whose size and glyph change, not two swapped elements — asserted
+ * through its accessible name and its size classes, since a CSS transition
+ * is the one part of it jsdom cannot see.
+ */
+describe('SmartScanTab — the hero and the result accordions', () => {
+  beforeEach(() => {
+    useOptimizerStore.setState({
+      scan: { state: 'idle', progress: 0, result: null, message: null },
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+  });
+
+  const RESULT = scanResult({
+    totalBytes: 660,
+    byCategory: { ...EMPTY_BY_CATEGORY, dependencies: 500, buildOutput: 160 },
+    byEcosystem: { ...EMPTY_BY_ECOSYSTEM, node: 660 },
+    detectors: {
+      'node-modules': { label: 'node_modules', producer: 'pnpm install' },
+      'node-dist': { label: 'dist/', producer: 'pnpm build' },
+    },
+    items: [
+      {
+        path: '/repos/app/node_modules',
+        bytes: 500,
+        category: 'dependencies',
+        repoId: 'repo-1',
+        detectorId: 'node-modules',
+        ecosystem: 'node',
+        reclaim: 'costly',
+      },
+      {
+        path: '/repos/app/packages/ui/dist',
+        bytes: 100,
+        category: 'buildOutput',
+        repoId: 'repo-1',
+        detectorId: 'node-dist',
+        ecosystem: 'node',
+        reclaim: 'cheap',
+      },
+      {
+        path: '/repos/app/packages/core/dist',
+        bytes: 60,
+        category: 'buildOutput',
+        repoId: 'repo-1',
+        detectorId: 'node-dist',
+        ecosystem: 'node',
+        reclaim: 'cheap',
+      },
+    ],
+  });
+
+  it('before a scan the hero is the large, unlabelled target', () => {
+    installBridge();
+    renderTab();
+
+    const hero = screen.getByRole('button', { name: 'Run Smart Scan' });
+    expect(hero.className).toContain('h-32');
+    expect(screen.getByText('Smart Scan')).toBeTruthy();
+  });
+
+  it('after a scan the same control shrinks and offers a re-run', () => {
+    useOptimizerStore.getState().scanDone(RESULT);
+    installBridge();
+    renderTab();
+
+    const hero = screen.getByRole('button', { name: 'Run Smart Scan again' });
+    expect(hero.className).toContain('h-16');
+    expect(hero.className).not.toContain('h-32');
+    expect(screen.getByText('Scan complete')).toBeTruthy();
+  });
+
+  it('the largest group opens by itself, and collapses on click', () => {
+    useOptimizerStore.getState().scanDone(RESULT);
+    installBridge();
+    renderTab();
+
+    const header = screen.getByRole('button', { expanded: true, name: /Node/ });
+    expect(screen.getByText('Build output')).toBeTruthy();
+
+    fireEvent.click(header);
+    expect(screen.queryByText('Build output')).toBeNull();
+    expect(screen.getByRole('button', { expanded: false, name: /Node/ })).toBeTruthy();
+  });
+
+  it('drills down to the individual paths, sharing one collapsed prefix row', () => {
+    useOptimizerStore.getState().scanDone(RESULT);
+    installBridge();
+    renderTab();
+
+    // Both `dist/` items live under `/repos/app/packages`, which the trie
+    // collapses into one row above the two leaves.
+    expect(screen.getByText('/repos/app/packages/ui/dist')).toBeTruthy();
+    expect(screen.getByText('/repos/app/packages/core/dist')).toBeTruthy();
+    expect(screen.getAllByText('dist/')).toHaveLength(2);
+  });
+
+  it('a leaf cleans exactly its own path, costly item included', async () => {
+    useOptimizerStore.getState().scanDone(RESULT);
+    const { clean } = installBridge();
+    renderTab();
+
+    // node_modules is `costly`, so no bulk button will ever take it — this
+    // per-item path is the only way to reclaim it.
+    fireEvent.click(screen.getByRole('button', { name: 'Clean /repos/app/node_modules' }));
+    expect(screen.getByRole('heading', { name: 'Clean node_modules?' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Move to Trash' }));
+
+    await waitFor(() => {
+      expect(clean).toHaveBeenCalledWith({ paths: ['/repos/app/node_modules'] });
     });
   });
 });

@@ -436,3 +436,201 @@ describe('StorageTab — Trash card (Phase 74 Theme D)', () => {
     await waitFor(() => expect(screen.getByText('5 items will be permanently deleted — this cannot be undone.')).toBeTruthy());
   });
 });
+
+/**
+ * The scanned-storage surface (adhoc: optimizer polish) — the tree, the
+ * facet pills and the sort. Rendered through the tab rather than against
+ * `ScannedStorage` directly, because "the pills sit under the bars they
+ * legend" is part of what is being asserted.
+ */
+const SCAN_RESULT = {
+  totalBytes: 660,
+  byCategory: {
+    dependencies: 500,
+    buildOutput: 150,
+    toolCache: 10,
+    staleWorktree: 0,
+    looseObjects: 0,
+  },
+  byEcosystem: {
+    node: 650,
+    multi: 0,
+    rust: 0,
+    cpp: 0,
+    dotnet: 0,
+    python: 10,
+    java: 0,
+    swift: 0,
+    ruby: 0,
+    go: 0,
+    media: 0,
+    git: 0,
+  },
+  detectors: {
+    'node-modules': { label: 'node_modules', producer: 'pnpm install' },
+    'node-dist': { label: 'dist/', producer: 'pnpm build' },
+    'py-cache': { label: '.pytest_cache/', producer: 'pytest' },
+  },
+  items: [
+    {
+      path: '/repos/app/node_modules',
+      bytes: 500,
+      category: 'dependencies' as const,
+      repoId: 'repo-1',
+      detectorId: 'node-modules',
+      ecosystem: 'node' as const,
+      reclaim: 'costly' as const,
+    },
+    {
+      path: '/repos/app/dist',
+      bytes: 150,
+      category: 'buildOutput' as const,
+      repoId: 'repo-1',
+      detectorId: 'node-dist',
+      ecosystem: 'node' as const,
+      reclaim: 'cheap' as const,
+    },
+    {
+      path: '/repos/api/.pytest_cache',
+      bytes: 10,
+      category: 'toolCache' as const,
+      repoId: 'repo-2',
+      detectorId: 'py-cache',
+      ecosystem: 'python' as const,
+      reclaim: 'cheap' as const,
+    },
+  ],
+  truncated: false,
+  truncatedRoots: [],
+};
+
+function renderScanned() {
+  resetStores();
+  installBridge();
+  useOptimizerStore.setState({
+    scan: { state: 'done', progress: 100, result: SCAN_RESULT, message: null },
+  });
+  render(<StorageTab />, { wrapper: createWrapper() });
+}
+
+describe('StorageTab — the scanned-storage tree, pills and sort', () => {
+  it('opens on the tree, with the shared prefix collapsed into one row', () => {
+    renderScanned();
+
+    // `/repos/app` and `/repos/api` share `/repos`, which the trie collapses
+    // to a single row rather than repeating it on every leaf.
+    expect(screen.getByRole('button', { expanded: true, name: /repos/ })).toBeTruthy();
+    expect(screen.getByText('/repos/app/node_modules')).toBeTruthy();
+    expect(screen.getByText('3 of 3 items')).toBeTruthy();
+  });
+
+  it('collapsing a directory hides the rows under it', () => {
+    renderScanned();
+
+    fireEvent.click(screen.getByRole('button', { expanded: true, name: /repos/ }));
+    expect(screen.queryByText('/repos/app/node_modules')).toBeNull();
+  });
+
+  it('typing narrows the tree to what matches', () => {
+    renderScanned();
+
+    fireEvent.change(screen.getByPlaceholderText('Filter by path or kind…'), {
+      target: { value: 'pytest' },
+    });
+
+    expect(screen.getByText('/repos/api/.pytest_cache')).toBeTruthy();
+    expect(screen.queryByText('/repos/app/dist')).toBeNull();
+    expect(screen.getByText(/^1 of 3 items/)).toBeTruthy();
+  });
+
+  it('an ecosystem pill toggles that ecosystem in and back out', () => {
+    renderScanned();
+
+    const python = screen.getByRole('button', { name: /^Python/, pressed: false });
+    fireEvent.click(python);
+
+    expect(screen.getByText(/^1 of 3 items/)).toBeTruthy();
+    expect(screen.queryByText('/repos/app/dist')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Python/, pressed: true }));
+    expect(screen.getByText('3 of 3 items')).toBeTruthy();
+  });
+
+  it('a category pill ANDs with the ecosystem one rather than widening it', () => {
+    renderScanned();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Python/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Build output/ }));
+
+    // Python's only item is a tool cache, so the pair matches nothing.
+    expect(screen.getByText('Nothing matches that filter.')).toBeTruthy();
+  });
+
+  it('the sort reaches the tree too, not only the list', () => {
+    renderScanned();
+
+    // Largest first: node_modules (500) above dist (150) under `/repos/app`.
+    const treePaths = () =>
+      screen.getAllByText(/^\/repos\//).map((node) => node.textContent);
+    expect(treePaths()[0]).toBe('/repos/app/node_modules');
+
+    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'size-asc' } });
+    // Smallest first has to reorder the tree — it used to be dropped on the
+    // way in, leaving the default view silently unsorted.
+    expect(treePaths()[0]).toBe('/repos/api/.pytest_cache');
+  });
+
+  it('a leaf with no repo to open renders disabled, exactly as the list row does', () => {
+    resetStores();
+    installBridge();
+    useOptimizerStore.setState({
+      scan: {
+        state: 'done',
+        progress: 100,
+        result: {
+          ...SCAN_RESULT,
+          items: [{ ...SCAN_RESULT.items[0]!, repoId: null }],
+        },
+        message: null,
+      },
+    });
+    render(<StorageTab />, { wrapper: createWrapper() });
+
+    const leaf = screen
+      .getByText('/repos/app/node_modules')
+      .closest('button') as HTMLButtonElement;
+    expect(leaf.disabled).toBe(true);
+  });
+
+  it('shows a pill only for a facet the scan actually found', () => {
+    renderScanned();
+
+    // Node and Python are in the fixture; Rust is not, and a pill for it
+    // could only ever produce "Nothing matches that filter."
+    expect(screen.getByRole('button', { name: /^Node/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Rust/ })).toBeNull();
+  });
+
+  it('the list view sorts by size, and the sort control flips it', () => {
+    renderScanned();
+
+    fireEvent.click(screen.getByRole('button', { name: /^List/ }));
+    const paths = () =>
+      screen
+        .getAllByText(/^\/repos\//)
+        .map((node) => node.textContent);
+
+    expect(paths()).toEqual([
+      '/repos/app/node_modules',
+      '/repos/app/dist',
+      '/repos/api/.pytest_cache',
+    ]);
+
+    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'size-asc' } });
+    expect(paths()).toEqual([
+      '/repos/api/.pytest_cache',
+      '/repos/app/dist',
+      '/repos/app/node_modules',
+    ]);
+  });
+});

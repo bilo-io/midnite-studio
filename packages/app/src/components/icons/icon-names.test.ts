@@ -1,5 +1,6 @@
 import * as Go from 'react-icons/go';
 import * as Lu from 'react-icons/lu';
+import * as Pi from 'react-icons/pi';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -59,6 +60,8 @@ function importedNames(set: string): Map<string, string[]> {
 const SETS = [
   ['lu', 'Lu', Lu, 50],
   ['go', 'Go', Go, 3],
+  // Phosphor: `metric-icons.ts`'s footer glyphs and the Optimizer's broom.
+  ['pi', 'Pi', Pi, 1],
 ] as const;
 
 describe.each(SETS)('react-icons/%s imports', (set, prefix, module, floor) => {
