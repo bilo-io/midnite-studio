@@ -161,7 +161,11 @@ export function registerDbHandlers(getWindow: () => BrowserWindow | null): void 
       try {
         const driver = await pool.get(connection, await passwordFor(connection));
         pool.touch(connection.id);
-        startQuery(win, driver, { requestId: req.requestId, sql: req.sql });
+        startQuery(win, driver, {
+          requestId: req.requestId,
+          sql: req.sql,
+          ...(req.params ? { params: req.params } : {}),
+        });
       } catch (err) {
         if (!win.isDestroyed()) {
           win.webContents.send(EVENT_CHANNELS.dbQueryDone, {

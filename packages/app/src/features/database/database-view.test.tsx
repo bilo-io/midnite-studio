@@ -3,14 +3,29 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../components/dialog-host';
 import { useDatabaseConnectionsStore } from '../../store/database-connections-store';
+import { useWorkbenchStore } from '../../store/workbench-store';
 import { DatabaseView } from './database-view';
+
+// `query-editor.tsx` is Monaco (`@monaco-editor/react`), which jsdom cannot
+// evaluate cleanly (`code-editor.test.tsx`'s own precedent) — this suite is
+// about the workbench/store wiring around the editor, not Monaco's own
+// behaviour, so it's replaced with a plain textarea standing in for
+// `sql`/`onChange`.
+vi.mock('./query-editor', () => ({
+  QueryEditor: ({ sql, onChange }: { sql: string; onChange: (sql: string) => void }) => (
+    <textarea aria-label="SQL" value={sql} onChange={(event) => onChange(event.target.value)} />
+  ),
+}));
 
 function renderView() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <DatabaseView />
+      <DialogHost>
+        <DatabaseView />
+      </DialogHost>
     </QueryClientProvider>,
   );
 }
@@ -50,6 +65,12 @@ function reset() {
     connections: [],
     error: null,
     selectedConnectionId: null,
+  });
+  useWorkbenchStore.setState({
+    tabs: [],
+    activeTabId: null,
+    activeQueryTabId: null,
+    dirtyQueryTabIds: new Set(),
   });
 }
 
@@ -93,5 +114,38 @@ describe('DatabaseView', () => {
 
     fireEvent.click(screen.getByLabelText('New connection'));
     expect(await screen.findByRole('dialog', { name: 'New connection' })).toBeDefined();
+  });
+
+  it('opens a query tab from the connection row, runs it, and shows a + for another (Phase 61 Themes G/H)', async () => {
+    const queryStart = vi.fn();
+    installBridge({ listConnections: vi.fn().mockResolvedValue([postgres]), queryStart });
+    renderView();
+
+    fireEvent.click(await screen.findByText('Local Postgres'));
+    await waitFor(() => {
+      expect(useDatabaseConnectionsStore.getState().selectedConnectionId).toBe('c1');
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open query tab' }));
+
+    // The new tab is a real WorkbenchTab of kind 'query', focused immediately.
+    await waitFor(() => {
+      const tabs = useWorkbenchStore.getState().tabs;
+      expect(tabs).toHaveLength(1);
+      expect(tabs[0]?.kind).toBe('query');
+      expect(useWorkbenchStore.getState().activeQueryTabId).toBe(tabs[0]?.id);
+    });
+
+    // A blank SELECT-less tab means no results yet.
+    expect(await screen.findByText('No results yet')).toBeDefined();
+    // The strip now has a "+" for another tab against the same connection.
+    expect(screen.getByRole('button', { name: 'New query tab' })).toBeDefined();
+
+    const editor = await screen.findByLabelText('SQL');
+    fireEvent.change(editor, { target: { value: 'SELECT 1' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(queryStart).toHaveBeenCalledTimes(1));
+    expect(queryStart.mock.calls[0]?.[0]).toMatchObject({ connectionId: 'c1', sql: 'SELECT 1' });
   });
 });

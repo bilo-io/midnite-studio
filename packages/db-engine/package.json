@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@midnite/studio-shared": "workspace:*",
+    "better-sqlite3": "^11.8.1",
     "mariadb": "^3.4.0",
     "mysql2": "^3.11.5",
     "pg": "^8.13.1",
@@ -29,6 +30,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
     "@types/pg-cursor": "^2.7.2",

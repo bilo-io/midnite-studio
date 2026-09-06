@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
-import type { SchemaColumn, SchemaTable } from '@midnite/studio-shared';
-import { LuEye, LuKey, LuLayers, LuLink, LuTable2 } from 'react-icons/lu';
+import type { DbProvider, SchemaColumn, SchemaTable } from '@midnite/studio-shared';
+import { LuEye, LuKey, LuLayers, LuLink, LuPlay, LuSquareTerminal, LuTable2 } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
 import { TreeSection } from '../../components/tree-section';
@@ -9,6 +9,7 @@ import { TREE_INDENT } from '../../components/tree-indent';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { useSchemaTree } from '../../services/queries';
 import { SchemaTreeSkeleton } from './database-skeletons';
+import { quoteQualifiedTable } from './quote-identifier';
 
 /**
  * A connection's schema tree (Phase 61 Theme F): tables and views, grouped by
@@ -24,19 +25,25 @@ import { SchemaTreeSkeleton } from './database-skeletons';
  * that precedent's shape, even though today's only caller
  * (`database-view.tsx`) always passes `sectionOpen` at its default.
  *
- * Deliberately excludes the doc's "Open query tab" / "Preview data" row
- * actions and identifier-quoting — both need a query tab to open into
- * (Theme G, out of scope this batch). Browsing only.
+ * The connection row's "Open query tab" action and each table's "Preview
+ * data" action (Theme G) both land here: a blank query tab against this
+ * connection, or one pre-filled with `SELECT * FROM <table> LIMIT 200`
+ * against it, its identifier quoted per provider — never interpolated raw.
  */
 export function ConnectionTree({
   connectionId,
   connectionName,
   sectionOpen = true,
+  onOpenQueryTab,
+  onPreviewTable,
 }: {
   connectionId: string;
   connectionName: string;
   /** Whether an ancestor section (if any) is itself open. Defaults to true for a standalone mount. */
   sectionOpen?: boolean;
+  onOpenQueryTab: () => void;
+  /** The caller already knows this connection's provider — building the preview SQL is its job, not this tree's. */
+  onPreviewTable: (table: SchemaTable) => void;
 }) {
   const [open, setOpen] = useState(true);
 
@@ -52,6 +59,7 @@ export function ConnectionTree({
       open={open}
       onToggle={() => setOpen((value) => !value)}
       hideWhenEmpty={false}
+      action={{ label: 'Open query tab', onClick: onOpenQueryTab, icon: LuSquareTerminal }}
     >
       {!sectionOpen || !open ? null : isLoading ? (
         <SchemaTreeSkeleton />
@@ -69,7 +77,12 @@ export function ConnectionTree({
         </p>
       ) : (
         groups.map((group) => (
-          <SchemaGroup key={group.schema ?? ''} schema={group.schema} tables={group.tables} />
+          <SchemaGroup
+            key={group.schema ?? ''}
+            schema={group.schema}
+            tables={group.tables}
+            onPreviewTable={onPreviewTable}
+          />
         ))
       )}
     </TreeSection>
@@ -98,7 +111,15 @@ function groupBySchema(tables: readonly SchemaTable[]): Group[] {
   return order.map((schema) => ({ schema, tables: bySchema.get(schema)! }));
 }
 
-function SchemaGroup({ schema, tables }: { schema: string | undefined; tables: SchemaTable[] }) {
+function SchemaGroup({
+  schema,
+  tables,
+  onPreviewTable,
+}: {
+  schema: string | undefined;
+  tables: SchemaTable[];
+  onPreviewTable: (table: SchemaTable) => void;
+}) {
   const [open, setOpen] = useState(true);
 
   // No namespace to group by — render the tables directly at depth 1, one
@@ -107,7 +128,12 @@ function SchemaGroup({ schema, tables }: { schema: string | undefined; tables: S
     return (
       <>
         {tables.map((table) => (
-          <TableRow key={`${table.schema ?? ''}.${table.name}`} table={table} depth={1} />
+          <TableRow
+            key={`${table.schema ?? ''}.${table.name}`}
+            table={table}
+            depth={1}
+            onPreviewTable={onPreviewTable}
+          />
         ))}
       </>
     );
@@ -124,13 +150,26 @@ function SchemaGroup({ schema, tables }: { schema: string | undefined; tables: S
       hideWhenEmpty={false}
     >
       {tables.map((table) => (
-        <TableRow key={`${table.schema ?? ''}.${table.name}`} table={table} depth={2} />
+        <TableRow
+          key={`${table.schema ?? ''}.${table.name}`}
+          table={table}
+          depth={2}
+          onPreviewTable={onPreviewTable}
+        />
       ))}
     </TreeSection>
   );
 }
 
-function TableRow({ table, depth }: { table: SchemaTable; depth: 1 | 2 }) {
+function TableRow({
+  table,
+  depth,
+  onPreviewTable,
+}: {
+  table: SchemaTable;
+  depth: 1 | 2;
+  onPreviewTable: (table: SchemaTable) => void;
+}) {
   const [open, setOpen] = useState(false);
   const columnDepth = (depth + 1) as 2 | 3;
 
@@ -150,6 +189,7 @@ function TableRow({ table, depth }: { table: SchemaTable; depth: 1 | 2 }) {
       onToggle={() => setOpen((value) => !value)}
       depth={depth}
       hideWhenEmpty={false}
+      action={{ label: 'Preview data', onClick: () => onPreviewTable(table), icon: LuPlay }}
     >
       <ul className={`${TREE_INDENT[columnDepth]} flex flex-col`}>
         {table.columns.map((column) => (
@@ -158,6 +198,11 @@ function TableRow({ table, depth }: { table: SchemaTable; depth: 1 | 2 }) {
       </ul>
     </TreeSection>
   );
+}
+
+/** `SELECT * FROM <table> LIMIT 200`, identifier-quoted per provider — never interpolated raw. */
+export function previewSql(provider: DbProvider, table: SchemaTable): string {
+  return `SELECT * FROM ${quoteQualifiedTable(provider, table)} LIMIT 200`;
 }
 
 function ColumnRow({ column }: { column: SchemaColumn }) {

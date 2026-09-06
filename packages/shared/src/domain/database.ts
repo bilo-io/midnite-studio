@@ -105,6 +105,16 @@ export type StatementKind = z.infer<typeof StatementKindSchema>;
 export const QueryRequestSchema = z.object({
   connectionId: z.string().min(1),
   sql: z.string().min(1),
+  /**
+   * Positional bind parameters (Phase 61 Theme H) — the generated `UPDATE` an
+   * inline edit produces is parameterised, never string-interpolated, so a
+   * cell value cannot break out of its own placeholder no matter what it
+   * contains. Each driver's own placeholder syntax differs (`$1` Postgres,
+   * `?` MySQL/MariaDB/SQLite, `@p0` MSSQL) — the caller building `sql` picks
+   * the right one for the connection's provider; this array is just the
+   * values in order.
+   */
+  params: z.array(z.unknown()).optional(),
 });
 export type QueryRequest = z.infer<typeof QueryRequestSchema>;
 

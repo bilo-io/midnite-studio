@@ -1,4 +1,4 @@
-import { Connection, Request } from 'tedious';
+import { Connection, Request, TYPES } from 'tedious';
 
 import type { ConnectionConfig } from '@midnite/studio-shared';
 
@@ -51,6 +51,30 @@ ORDER BY c.TABLE_SCHEMA, c.TABLE_NAME, c.ORDINAL_POSITION;
 type TediousRowColumn = { value: unknown };
 type TediousColumnMeta = { colName: string };
 
+/**
+ * tedious has no positional `?`/`$1` placeholder — every parameter is named
+ * (`@p0`, `@p1`, …, matching what the caller's generated `sql` must already
+ * use) and typed via `request.addParameter`. There is no single "just bind
+ * this value" call the way `pg`/`mysql2`/`mariadb` offer, so the type is
+ * inferred from the JS value's own type — `NVarChar` for anything else,
+ * which SQL Server implicitly converts against numeric/date columns in the
+ * common case a generated single-column `UPDATE … SET col = @p0` needs.
+ */
+function addParameters(request: Request, params: readonly unknown[]): void {
+  params.forEach((value, index) => {
+    const name = `p${index}`;
+    if (value === null || value === undefined) {
+      request.addParameter(name, TYPES.NVarChar, null);
+    } else if (typeof value === 'number') {
+      request.addParameter(name, Number.isInteger(value) ? TYPES.BigInt : TYPES.Float, value);
+    } else if (typeof value === 'boolean') {
+      request.addParameter(name, TYPES.Bit, value);
+    } else {
+      request.addParameter(name, TYPES.NVarChar, String(value));
+    }
+  });
+}
+
 function rowValues(columns: TediousRowColumn[] | Record<string, TediousRowColumn>): unknown[] {
   const list = Array.isArray(columns) ? columns : Object.values(columns);
   return list.map((c) => c.value);
@@ -89,7 +113,7 @@ export function createMssqlDriver(config: ConnectionConfig, password: string | u
         connection.close();
       }),
 
-    query: (sql, onBatch, { batchSize, signal }) =>
+    query: (sql, onBatch, { batchSize, signal, params }) =>
       new Promise((resolve, reject) => {
         let columns: string[] = [];
         let batch: unknown[][] = [];
@@ -125,6 +149,8 @@ export function createMssqlDriver(config: ConnectionConfig, password: string | u
           flush();
           resolve({ rowCount: total });
         });
+
+        if (params) addParameters(request, params);
 
         request.on('columnMetadata', (cols) => {
           columns = columnNames(cols as TediousColumnMeta[] | Record<string, TediousColumnMeta>);

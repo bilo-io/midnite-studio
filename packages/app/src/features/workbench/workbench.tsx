@@ -107,6 +107,12 @@ export function Workbench() {
             <RunView repoId={active.repoId} runId={active.runId} />
           ) : active.kind === 'commit' ? (
             <CommitDetailView repoId={active.repoId} sha={active.sha} worktreePath={active.worktreePath} />
+          ) : active.kind === 'query' ? (
+            // Query tabs never reach the Changes workbench's own strip — the
+            // Database view renders them through its own `<TabStrip>`
+            // (Decision 7) — but the chain here must still be exhaustive:
+            // this arm is unreachable in practice, not absent.
+            null
           ) : (
             <ReviewView repoId={active.repoId} number={active.number} />
           )}

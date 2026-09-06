@@ -63,7 +63,7 @@ export function createMariadbDriver(config: ConnectionConfig, password: string |
       connection = null;
     },
 
-    query: (sql, onBatch, { batchSize, signal }) =>
+    query: (sql, onBatch, { batchSize, signal, params }) =>
       new Promise((resolve, reject) => {
         const conn = requireConnection();
         let columns: string[] = [];
@@ -78,7 +78,7 @@ export function createMariadbDriver(config: ConnectionConfig, password: string |
           batch = [];
         };
 
-        const stream = conn.queryStream({ sql, rowsAsArray: true });
+        const stream = conn.queryStream({ sql, rowsAsArray: true }, params);
 
         const onAbort = () => {
           if (settled) return;

@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 import {
+  LuDatabase,
   LuDiff,
   LuFiles,
   LuGitCommitHorizontal,
   LuGitPullRequest,
   LuPlay,
+  LuPlus,
   LuX,
 } from 'react-icons/lu';
 
@@ -35,6 +37,7 @@ const KIND_ICON: Record<WorkbenchTabKind, IconComponent> = {
   run: LuPlay,
   review: LuGitPullRequest,
   commit: LuGitCommitHorizontal,
+  query: LuDatabase,
 };
 
 export function TabStrip({
@@ -43,13 +46,23 @@ export function TabStrip({
   workingTreeLabel,
   onFocus,
   onClose,
+  onNew,
+  dirtyTabIds,
 }: {
   tabs: readonly WorkbenchTab[];
   /** `null` is the permanent working-tree tab. */
   activeTabId: string | null;
-  workingTreeLabel: string;
+  /**
+   * Absent for a strip with no permanent first tab (the Database view's own
+   * `<TabStrip>` — a database connection has no "working tree" analogue).
+   */
+  workingTreeLabel?: string;
   onFocus: (id: string | null) => void;
   onClose: (id: string) => void;
+  /** Renders a trailing `+` button when supplied — the Database strip's "new query tab". */
+  onNew?: () => void;
+  /** Tab ids showing the unsaved-dot (Theme G) — a query tab whose SQL changed since it last ran. */
+  dirtyTabIds?: ReadonlySet<string>;
 }) {
   return (
     <div
@@ -63,13 +76,15 @@ export function TabStrip({
       // one.
       className="flex shrink-0 items-stretch overflow-x-auto bg-card/40"
     >
-      <Tab
-        icon={LuDiff}
-        label={workingTreeLabel}
-        title="Working tree — follows the checkout selected in the sidebar"
-        active={activeTabId === null}
-        onFocus={() => onFocus(null)}
-      />
+      {workingTreeLabel !== undefined ? (
+        <Tab
+          icon={LuDiff}
+          label={workingTreeLabel}
+          title="Working tree — follows the checkout selected in the sidebar"
+          active={activeTabId === null}
+          onFocus={() => onFocus(null)}
+        />
+      ) : null}
       {tabs.map((tab) => (
         <Tab
           key={tab.id}
@@ -82,10 +97,22 @@ export function TabStrip({
           stats={
             tab.kind === 'all-changes' ? (
               <AllChangesTabStats repoId={tab.repoId} worktreePath={tab.worktreePath} />
+            ) : tab.kind === 'query' && dirtyTabIds?.has(tab.id) ? (
+              <span aria-label="Unsaved changes" className="h-1.5 w-1.5 shrink-0 rounded-full bg-foreground/70" />
             ) : null
           }
         />
       ))}
+      {onNew ? (
+        <button
+          type="button"
+          onClick={onNew}
+          aria-label="New query tab"
+          className="flex shrink-0 items-center px-2 text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+        >
+          <LuPlus aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
     </div>
   );
 }

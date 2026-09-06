@@ -38,7 +38,13 @@ function renderTree(props: Partial<Parameters<typeof ConnectionTree>[0]> = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ConnectionTree connectionId="c1" connectionName="Local Postgres" {...props} />
+      <ConnectionTree
+        connectionId="c1"
+        connectionName="Local Postgres"
+        onOpenQueryTab={() => {}}
+        onPreviewTable={() => {}}
+        {...props}
+      />
     </QueryClientProvider>,
   );
 }
@@ -91,5 +97,23 @@ describe('ConnectionTree', () => {
     renderTree();
     expect(await screen.findByText("Couldn't load the schema")).toBeDefined();
     expect(screen.getByText('connection refused')).toBeDefined();
+  });
+
+  it('calls onOpenQueryTab from the connection row action (Phase 61 Theme G)', async () => {
+    installBridge();
+    const onOpenQueryTab = vi.fn();
+    renderTree({ onOpenQueryTab });
+    await screen.findByText('orders');
+    fireEvent.click(screen.getByRole('button', { name: 'Open query tab' }));
+    expect(onOpenQueryTab).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onPreviewTable with the table once expanded (Phase 61 Theme G)', async () => {
+    installBridge();
+    const onPreviewTable = vi.fn();
+    renderTree({ onPreviewTable });
+    fireEvent.click(await screen.findByRole('button', { name: /orders/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview data' }));
+    expect(onPreviewTable).toHaveBeenCalledWith(TREE.tables[0]);
   });
 });
