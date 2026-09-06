@@ -7,6 +7,7 @@ import { resolveAgentIcon } from '../../components/icons';
 import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
 import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
+import { PageDetachMark } from '../../components/page-detach-mark';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { StateDot, type DotState } from '../../components/state-dot';
@@ -53,8 +54,10 @@ function dotStateFor(record: ClosedSession): DotState {
  * a sticky header, since history spans every repo in one list rather than
  * following the sidebar's active selection (Theme E's `global: true`).
  *
- * No `PageDetachMark` in the header yet: that lands with Theme F, which adds
- * `'sessions'` to `PAGE_WINDOW_ROLES` — out of scope for this PR.
+ * Detachable like every other page (Theme F): `'sessions'` joined
+ * `PAGE_WINDOW_ROLES` once this mount was audited against the bar
+ * `window.ts` sets for a second live copy — it fetches a list and renders
+ * it, seeds nothing, and drives no reveal, unlike `BrowserPane`.
  */
 export function SessionsView() {
   const layout = useUiStore((s) => s.layout);
@@ -125,6 +128,7 @@ export function SessionsView() {
         className="flex min-h-0 shrink-0 flex-col border-r border-border"
       >
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-1.5 py-1">
+          <PageDetachMark role="sessions" />
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Sessions
           </h2>

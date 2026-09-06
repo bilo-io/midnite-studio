@@ -37,15 +37,15 @@ export const PAGE_WINDOW_ROLES = [
   'issues',
   'history',
   'optimizer',
+  'sessions',
 ] as const;
 
 /*
-  Seven `ViewId`s are deliberately absent, and the omissions are the interesting
+  Five `ViewId`s are deliberately absent, and the omissions are the interesting
   part of this list.
 
-  `settings`, `landing` and `sessions` are surfaces nobody wants twice: a
-  preferences pane, the app's front door, and a placeholder with no view behind
-  it yet.
+  `settings` and `landing` are surfaces nobody wants twice: a preferences pane
+  and the app's front door.
 
   `councils`, `workflows` and `video` are excluded for a sharper reason — they
   are repo-independent, long-running, and mount-heavy. Duplicate rendering is
@@ -54,6 +54,13 @@ export const PAGE_WINDOW_ROLES = [
   mount seeds the first tab and drives its own reveal, so a second instance
   gets both wrong. Until each of those three is audited against that bar, a
   second live copy is a bug waiting to be filed rather than a feature.
+
+  `sessions` used to sit in the first group — "a placeholder with no view
+  behind it yet" — and no longer does: Theme E replaced `SessionsPlaceholder`
+  with the real `SessionsView`, and its mount clears the bar the second
+  paragraph sets. It fetches a list and renders it; it seeds nothing and
+  drives no reveal, unlike `BrowserPane`. That audit is what moved it into the
+  array above rather than leaving it here unexamined.
 */
 
 

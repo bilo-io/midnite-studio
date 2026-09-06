@@ -21,6 +21,7 @@ export const PAGE_ROLE_TITLE: Record<PageWindowRole, string> = {
   issues: 'Issues',
   history: 'History',
   optimizer: 'Workspace Optimizer',
+  sessions: 'Sessions',
 };
 
 /**

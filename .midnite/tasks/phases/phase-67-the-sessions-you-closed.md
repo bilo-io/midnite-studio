@@ -481,29 +481,35 @@ landing before C would ship an empty view**, so E is the one ordering that is no
 
 ### F — Detachable, like every other page (S)
 
-- [ ] Add `'sessions'` to `PAGE_WINDOW_ROLES`
+- [x] Add `'sessions'` to `PAGE_WINDOW_ROLES`
       ([`shared/src/domain/window.ts:20-40`](../../../packages/shared/src/domain/window.ts)) and
       `sessions: 'Sessions'` to `PAGE_ROLE_TITLE`
       ([`page-detach-mark.tsx:10-24`](../../../packages/app/src/components/page-detach-mark.tsx)).
   - Everything else is derived: `WindowRoleSchema`, `PanelWindowRole`/`PageWindowRole`,
     `isPageWindowRole`, `use-window-sync.ts`'s reconciliation and `detached-window-frame.tsx` all
-    read the const array. Five files mention it and none of them branch per role.
-  - The reason for its current absence is retired by this phase and must be edited, not left:
-    `window.ts:42-58` says seven `ViewId`s are absent because `settings`, `landing` and `sessions`
+    read the const array. Five files mention it and none of them branch per role — **but two more
+    do, and were not in that count**: `window-manager.ts`'s `DEFAULT_POPOUT_SIZE` is a total
+    `Record<Exclude<WindowRole,'main'>,…>` (a per-role popout size, main-process side), and
+    `schemas.ts`'s `WindowRelayMessage.kind` is a separate hand-written `z.enum` mirroring
+    `broadcast-sync.ts`'s `SyncKind` rather than deriving from it. `moon run :typecheck` caught
+    both as compile errors the moment `'sessions'` joined the array.
+  - The reason for its current absence is retired by this phase and was edited, not left:
+    `window.ts:42-58` said seven `ViewId`s were absent because `settings`, `landing` and `sessions`
     are *"a preferences pane, the app's front door, and a placeholder with no view behind it yet."*
-    Make it six, and move `sessions` out of that sentence.
-- [ ] It clears the bar `window.ts:52-57` sets for a second live copy: `SessionsView`'s mount has
+    The count was already stale before this change (13 page roles existed against 19 `ViewId`s —
+    six absent, not seven), so this both moves `sessions` out of that sentence into its own
+    paragraph and corrects the number to **five**, not the six the phase doc's own math implied.
+- [x] It clears the bar `window.ts:52-57` sets for a second live copy: `SessionsView`'s mount has
       **no load-bearing side effects** — it fetches a list and renders it, seeds nothing, and drives
-      no reveal. That is the audit the comment asks for, and it belongs in the commit message as well
-      as the code.
-- [ ] Sessions' **selection** joins the `broadcast-sync.ts` allowlist, its **list** does not.
+      no reveal. That audit is recorded in `window.ts`'s own comment and in the commit message.
+- [x] Sessions' **selection** joins the `broadcast-sync.ts` allowlist, its **list** does not.
       [`broadcast-sync.ts:38-42`](../../../packages/app/src/services/broadcast-sync.ts) already
       widened for exactly this: page popouts duplicate a view, so *"the per-view selection each one
-      holds"* travels — Actions' open run, the Explorer's open file, the workbench's tabs. Add
-      `sessions-store.selectedClosedSessionId` to that set. The history array stays out, for the
-      reason Decision 6 gives.
-- [ ] `page-detach-mark.test.tsx` gains `sessions` to whatever it enumerates, and
-      `window.test.ts:29-33` needs no edit — it iterates `PAGE_WINDOW_ROLES` rather than naming
+      holds"* travels — Actions' open run, the Explorer's open file, the workbench's tabs. Added
+      `sessions-store.selectedClosedSessionId` to that set (a fourth `SyncKind`/slice, `'sessions'`).
+      The history array stays out, for the reason Decision 6 gives.
+- [x] `page-detach-mark.test.tsx` gains `sessions` to whatever it enumerates, and
+      `window.test.ts:29-33` needed no edit — it iterates `PAGE_WINDOW_ROLES` rather than naming
       members.
 
 ---

@@ -1766,14 +1766,16 @@ export const WindowRelayMessage = z.object({
   id: z.string().min(1),
   origin: z.string().min(1),
   /*
-    The last three are Theme H's page-selection slices — which run Actions has
-    open, which file the Explorer has open, which tabs the Changes workbench
-    holds. They exist because a PAGE popout duplicates rather than moves, so
-    the same view can be live in two windows and its selection is the one
-    thing that then visibly drifts. `broadcast-sync.ts` is the authority on
-    what each payload carries and on why view *furniture* is not in this list.
+    The last four are page-selection slices (Theme H, plus `sessions` in
+    Phase 67 Theme F) — which run Actions has open, which file the Explorer
+    has open, which tabs the Changes workbench holds, which closed session
+    Sessions has open. They exist because a PAGE popout duplicates rather
+    than moves, so the same view can be live in two windows and its selection
+    is the one thing that then visibly drifts. `broadcast-sync.ts` is the
+    authority on what each payload carries and on why view *furniture* is not
+    in this list.
   */
-  kind: z.enum(['ui', 'appearance', 'browser', 'theme', 'watch', 'actions', 'files', 'workbench']),
+  kind: z.enum(['ui', 'appearance', 'browser', 'theme', 'watch', 'actions', 'files', 'workbench', 'sessions']),
   payload: z.record(z.string(), z.unknown()),
 });
 

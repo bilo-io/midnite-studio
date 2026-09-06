@@ -11,6 +11,7 @@ import { usePaletteStore } from '../features/themes/palette-store';
 import { useActionsStore } from '../store/actions-store';
 import { useAppearanceStore } from '../store/appearance-store';
 import { useBrowserStore } from '../store/browser-store';
+import { useSessionsStore } from '../store/sessions-store';
 import { useUiStore } from '../store/ui-store';
 import { useWorkbenchStore } from '../store/workbench-store';
 import { relayWatchEvent, useBroadcastSync } from './broadcast-sync';
@@ -288,6 +289,7 @@ describe('useBroadcastSync — page selection (Theme H)', () => {
     useActionsStore.setState({ selectedRun: {}, selectedJob: {} });
     useFilesStore.setState({ scopeKey: null, selectedPath: null });
     useWorkbenchStore.setState({ tabs: [], activeTabId: null });
+    useSessionsStore.setState({ selectedClosedSessionId: null });
   });
 
   afterEach(() => {
@@ -354,6 +356,35 @@ describe('useBroadcastSync — page selection (Theme H)', () => {
   });
 
   /*
+    Phase 67 Theme F: the fourth page-selection slice. The history *list*
+    stays local (Decision 6) — only which closed session is selected travels.
+  */
+  it('relays the selected closed session', () => {
+    const { relay } = installBridge();
+    mount();
+
+    useSessionsStore.getState().selectClosedSession('term-1');
+
+    const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'sessions');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.payload).toEqual({ selectedClosedSessionId: 'term-1' });
+  });
+
+  it('applies an incoming closed-session selection', () => {
+    const { emit } = installBridge();
+    mount();
+
+    emit({
+      id: 'sess-1',
+      origin: 'other-window',
+      kind: 'sessions',
+      payload: { selectedClosedSessionId: 'term-2' },
+    });
+
+    expect(useSessionsStore.getState().selectedClosedSessionId).toBe('term-2');
+  });
+
+  /*
     The line Theme H deliberately does not cross. Expanding a directory is how
     ONE window is arranged to look at a checkout, not a shared answer to "what
     am I looking at" — relaying it would snap the other window's tree open
@@ -387,6 +418,12 @@ describe('useBroadcastSync — page selection (Theme H)', () => {
       origin: 'other-window',
       kind: 'actions',
       payload: { selectedRun: { 'repo-1': '5' }, selectedJob: {} },
+    });
+    emit({
+      id: 'sess-2',
+      origin: 'other-window',
+      kind: 'sessions',
+      payload: { selectedClosedSessionId: 'term-3' },
     });
 
     expect(relay).not.toHaveBeenCalled();
