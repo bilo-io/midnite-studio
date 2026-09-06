@@ -6,10 +6,18 @@ import { useWorkbenchStore } from '../../store/workbench-store';
 
 let requestSeq = 0;
 
-/** `requestId`s are `${tabId}#${seq}` — the batch/done listeners below split on it to
- *  find which tab's run a stale or fresh event belongs to, with no second index to keep in sync. */
-function tabIdFromRequestId(requestId: string): string {
-  return requestId.slice(0, requestId.lastIndexOf('#'));
+/**
+ * `requestId`s from a query tab's own run are `${tabId}#${seq}` — the
+ * batch/done listeners below split on it to find which tab's run a stale or
+ * fresh event belongs to, with no second index to keep in sync. `run-statement.ts`
+ * issues its own requestIds with no `#` at all (`stmt${seq}`) for the same
+ * `dbQueryBatch`/`dbQueryDone` channel, used for one-off statements outside
+ * any tab's displayed stream — `null` here means "not a tab's own run", and
+ * this listener leaves those alone.
+ */
+function tabIdFromRequestId(requestId: string): string | null {
+  const index = requestId.lastIndexOf('#');
+  return index === -1 ? null : requestId.slice(0, index);
 }
 
 /**
@@ -53,10 +61,14 @@ export function useQueryStreamEvents(): void {
     if (!api) return;
 
     const offBatch = api.db.onQueryBatch(({ requestId, columns, rows }) => {
-      useQueryResultsStore.getState().appendBatch(tabIdFromRequestId(requestId), requestId, columns, rows);
+      const tabId = tabIdFromRequestId(requestId);
+      if (tabId === null) return;
+      useQueryResultsStore.getState().appendBatch(tabId, requestId, columns, rows);
     });
     const offDone = api.db.onQueryDone(({ requestId, rowCount, truncated, durationMs, error }) => {
-      useQueryResultsStore.getState().finish(tabIdFromRequestId(requestId), requestId, {
+      const tabId = tabIdFromRequestId(requestId);
+      if (tabId === null) return;
+      useQueryResultsStore.getState().finish(tabId, requestId, {
         rowCount,
         truncated,
         durationMs,
