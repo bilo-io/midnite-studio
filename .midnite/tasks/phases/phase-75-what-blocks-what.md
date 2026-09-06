@@ -609,7 +609,7 @@ graph exists — and should, because `styles.css` is a contended file.
       (running/waiting/idle × light/dark) confirmed the ramp, the amber ring and the bloom all render
       correctly once the hydrate fix above landed.
 
-### G — Point an agent at a node (M)
+### G — Point an agent at a node (M) ✅ DONE (PR #215, 2026-09-06)
 
 The node does not start an agent. It selects the item, which opens the composer that already does —
 one start UI in the whole app, and `startAgent` keeps exactly one caller.
