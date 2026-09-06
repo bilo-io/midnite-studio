@@ -4,7 +4,7 @@
 
 ## 2026-09-06 — Phase 71 Themes A and C — one entry point for every link, and a dev server it can find on its own
 
-[PR #PLACEHOLDER]. Moves Phase 71 0/41 → 12/41 (0% → 29%). Theme A is the seam B and D both call
+[PR #200](https://github.com/bilo-io/midnite-studio/pull/200). Moves Phase 71 0/41 → 12/41 (0% → 29%). Theme A is the seam B and D both call
 into, so it lands first and on its own; Theme C is the half of Phase 32 Theme H that was never
 built. **A changes no existing call site** — that is deliberately Theme B's job, and it is what lets
 this land and be tested without touching twenty-five files.
