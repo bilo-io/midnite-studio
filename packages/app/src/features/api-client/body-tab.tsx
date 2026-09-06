@@ -132,7 +132,7 @@ export function BodyTab({ tabId }: { tabId: string }) {
           <KeyValueTable
             rows={parseQueryString(draft.bodies.urlencoded)}
             addLabel="Add field"
-            onChange={(rows) => setBody(buildQueryString(rows))}
+            onChange={(rows) => setBody(buildQueryString(rows, { includeEmptyKeys: true }))}
           />
         ) : null}
 

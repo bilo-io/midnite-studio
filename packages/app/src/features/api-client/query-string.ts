@@ -45,12 +45,22 @@ export function parseQueryString(query: string | undefined): KeyValueRow[] {
 /**
  * Rows → a query string, in row order, honouring `enabled` — a disabled row
  * is left out of the string entirely (Postman's own behaviour, and the phase
- * doc's rule). Rows with no key are skipped too; an empty key never
- * round-trips through a URL anyway.
+ * doc's rule).
+ *
+ * A blank-key row is dropped too by default — an empty key never
+ * round-trips through a *URL*, which is the only caller that matters for
+ * (`rewriteUrlParams`, below). `body-tab.tsx`'s `urlencoded` mode passes
+ * `includeEmptyKeys: true`: unlike the Params tab, that mode has nowhere
+ * else to hold a row's own row-list (`bodies['urlencoded']` *is* the
+ * storage), so a row started with its Value field before its Key would
+ * otherwise vanish the moment either field is typed into.
  */
-export function buildQueryString(rows: readonly KeyValueRow[]): string {
+export function buildQueryString(
+  rows: readonly KeyValueRow[],
+  options: { includeEmptyKeys?: boolean } = {},
+): string {
   return rows
-    .filter((row) => row.enabled && row.key.length > 0)
+    .filter((row) => row.enabled && (options.includeEmptyKeys || row.key.length > 0))
     .map((row) => `${encodeURIComponent(row.key)}=${encodeURIComponent(row.value)}`)
     .join('&');
 }

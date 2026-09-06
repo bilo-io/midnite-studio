@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { ApiCollectionSummary, ApiRequestDraft, ApiResponse, PostmanItem } from '@midnite/studio-shared';
 import { toDraft } from '@midnite/studio-shared';
 
+import { parseQueryString, splitUrl } from '../features/api-client/query-string';
 import { bridge } from '../services/bridge';
 
 /**
@@ -240,6 +241,12 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
       // blow away any unsaved edits the tab already carries.
       if (state.tabs.some((tab) => tab.id === id)) return { activeTabId: id };
       const draft = toDraft(ref.item);
+      // `toDraft` (Theme A) always seeds `params: []` — it has no Params tab
+      // to populate yet. Theme D's does, and the URL↔params sync rule makes
+      // the URL authoritative, so a request opened with `?a=1` already in
+      // its URL shows that row from the very first render rather than only
+      // after the URL field is blurred once.
+      draft.params = parseQueryString(splitUrl(draft.url).query);
       const tab: ApiTab = {
         id,
         repoId: ref.repoId,
