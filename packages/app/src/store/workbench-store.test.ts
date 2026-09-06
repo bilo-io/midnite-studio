@@ -100,7 +100,7 @@ describe('useWorkbenchStore', () => {
 
     useWorkbenchStore.getState().closeRepoTabs('r2');
     const { tabs, activeTabId } = useWorkbenchStore.getState();
-    expect(tabs.map((tab) => tab.repoId)).toEqual(['r1']);
+    expect(tabs.map((tab) => (tab.kind === 'query' ? null : tab.repoId))).toEqual(['r1']);
     // The focused tab went with the repo, so focus must not point at a ghost.
     expect(activeTabId).toBeNull();
   });
