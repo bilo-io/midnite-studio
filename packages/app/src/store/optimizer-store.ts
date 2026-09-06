@@ -17,8 +17,9 @@ import { create } from 'zustand';
  * about *right now*, not something to remember between launches.
  */
 
-/** The four tabs the Optimizer view splits into. */
-export type OptimizerTab = 'smartScan' | 'storage' | 'memory' | 'gpu';
+/** The five tabs the Optimizer view splits into — `system` (the long-window
+ *  monitor charts) joined the original four. */
+export type OptimizerTab = 'smartScan' | 'storage' | 'memory' | 'system' | 'gpu';
 
 /** Generic over the result shape so Phase 73's system-cache scan can mirror
  *  this verbatim (`OptimizerScanState<SystemScanResult>`) without a second,

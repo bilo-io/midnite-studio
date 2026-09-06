@@ -3,7 +3,7 @@ import {
   METRICS_IDLE_INTERVAL_MS,
 } from '@midnite/studio-shared';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { bridge } from '../../services/bridge';
 import { useMetricsStore } from '../../store/metrics-store';
@@ -42,9 +42,43 @@ function retainSampleSubscription(api: MidniteStudioBridge): () => void {
 }
 
 /**
+ * Every live caller's requested cadence, keyed by that caller's own token.
+ *
+ * The sampler's *lifetime* is ref-counted for the same reason its subscription
+ * is (above), and the bug is worse: `metrics.stop()` sets `wanted = false` in
+ * main (`metrics-service.ts`), and `resume()` re-arms only `if (wanted)` — so
+ * one caller unmounting used to stop sampling for the whole app, permanently,
+ * with the footer still mounted and its own effects' deps unchanged so it
+ * never issued a fresh `start()`. That was survivable while both callers lived
+ * for the app's lifetime; the Optimizer's System charts unmount on every tab
+ * switch, which is what made it real.
+ *
+ * The map holds the request rather than a count, because callers disagree
+ * about cadence: the **tightest** interval wins, which is the only answer that
+ * cannot starve a caller. An open flyout asking for 2s is not downgraded by
+ * something else mounting and asking for 5s.
+ */
+const cadenceRequests = new Map<symbol, { intervalMs: number; freshDisk: boolean }>();
+
+/** Reconcile main against every live request — or stop, if there are none. */
+function applyCadence(api: MidniteStudioBridge): void {
+  if (cadenceRequests.size === 0) {
+    api.metrics.stop();
+    return;
+  }
+  let intervalMs = Number.POSITIVE_INFINITY;
+  let freshDisk = false;
+  for (const request of cadenceRequests.values()) {
+    intervalMs = Math.min(intervalMs, request.intervalMs);
+    freshDisk = freshDisk || request.freshDisk;
+  }
+  api.metrics.start({ intervalMs, ...(freshDisk ? { freshDisk: true } : {}) });
+}
+
+/**
  * Drive the metrics stream.
  *
- * Two effects, deliberately split — the `use-graph-stream.ts` pattern, for the
+ * Three effects, deliberately split — the `use-graph-stream.ts` pattern, for the
  * same reason it exists there.
  *
  * The **subscription** effect has `[]` deps and writes through `getState()`
@@ -63,6 +97,8 @@ function retainSampleSubscription(api: MidniteStudioBridge): () => void {
 export function useMetricsStream(
   options: { enabled?: boolean; detailed?: boolean; idleIntervalMs?: number } = {},
 ): void {
+  /** This caller's identity in `cadenceRequests`, stable for its lifetime. */
+  const token = useMemo(() => Symbol('metrics-stream'), []);
   const enabled = options.enabled ?? true;
   const detailed = options.detailed ?? false;
   // Clamped in main regardless, so a stale persisted value cannot ask for a
@@ -80,30 +116,36 @@ export function useMetricsStream(
     if (!api) return;
 
     if (!enabled) {
-      api.metrics.stop();
+      // Withdraw this caller's request rather than stopping outright: another
+      // caller may still want samples, and `stop()` is not something one
+      // component gets to decide for the app.
+      cadenceRequests.delete(token);
+      applyCadence(api);
       return;
     }
 
-    api.metrics.start({
+    cadenceRequests.set(token, {
       intervalMs: detailed ? METRICS_ACTIVE_INTERVAL_MS : idleIntervalMs,
       // Opening the flyout is the one moment a stale capacity figure becomes
       // visible — the gauge shows it precisely enough to notice.
-      ...(detailed ? { freshDisk: true } : {}),
+      freshDisk: detailed,
     });
+    applyCadence(api);
 
-    // No stop() on cleanup: this effect re-runs on every cadence change, and
-    // stopping there would leave a window where main has no timer armed at all.
-    // `start` re-arms rather than stacking, and the sampler stops itself on
-    // window blur — see metrics-service.ts.
-  }, [enabled, detailed, idleIntervalMs]);
+    // No cleanup: this effect re-runs on every cadence change, and withdrawing
+    // the request there would flap through a stopped state whenever this is
+    // the only caller. `start` re-arms rather than stacking, and the sampler
+    // stops itself on window blur — see metrics-service.ts.
+  }, [enabled, detailed, idleIntervalMs, token]);
 
-  // Stopping is tied to the footer unmounting, which in practice is the app
-  // closing. Kept separate from the cadence effect so a cadence change never
-  // passes through a stopped state.
+  // Withdrawal is tied to *this* caller unmounting, and stops main only when
+  // it was the last one. Kept separate from the cadence effect above so a
+  // cadence change never passes through a stopped state.
   useEffect(() => {
-    if (!enabled) return;
     return () => {
-      bridge()?.metrics.stop();
+      const api = bridge();
+      cadenceRequests.delete(token);
+      if (api) applyCadence(api);
     };
-  }, [enabled]);
+  }, [token]);
 }

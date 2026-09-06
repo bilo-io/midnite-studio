@@ -45,10 +45,35 @@ export const METRICS_WINDOW_MS = 5 * 60 * 1000;
  */
 export const METRICS_MAX_POINTS = 600;
 
+/**
+ * The Optimizer's own window — three times the footer's.
+ *
+ * The footer strip and its flyout answer "what is the machine doing right
+ * now"; the Optimizer's System charts answer "what has it been doing while I
+ * was building", which is a different question and a five-minute window
+ * cannot hold the answer. Kept as a *second* window over the same samples
+ * rather than by widening `METRICS_WINDOW_MS`, because the flyout's own copy
+ * says "over the last five minutes" and its chart width is drawn for that
+ * span — a 15-minute series in a 260-unit-wide box is three times the points
+ * in the same pixels, which is a worse footer chart, not a better one.
+ */
+export const METRICS_LONG_WINDOW_MS = 15 * 60 * 1000;
+
+/** `METRICS_MAX_POINTS`'s backstop, scaled to the longer window. */
+export const METRICS_LONG_MAX_POINTS = 1800;
+
 export type MetricSeries = Record<MetricId, MetricPoint[]>;
 
 export type MetricsState = {
   series: MetricSeries;
+  /**
+   * The same samples over `METRICS_LONG_WINDOW_MS` — the Optimizer's System
+   * charts read this, the footer reads `series`. Appended in the same `push`
+   * so there is exactly one subscription and one arrival point for a sample;
+   * a second store fed by a second listener is what
+   * `use-metrics-stream.ts`'s ref-counting exists to prevent.
+   */
+  longSeries: MetricSeries;
   /** The most recent sample, for the footer's percentages and byte figures. */
   latest: MetricSample | null;
   push: (sample: MetricSample) => void;
@@ -59,13 +84,20 @@ const emptySeries = (): MetricSeries => ({ cpu: [], memory: [], gpu: [], disk: [
 
 export const useMetricsStore = create<MetricsState>((set) => ({
   series: emptySeries(),
+  longSeries: emptySeries(),
   latest: null,
   push: (sample) =>
     set((state) => ({
       latest: sample,
       series: appendSample(state.series, sample),
+      longSeries: appendSample(
+        state.longSeries,
+        sample,
+        METRICS_LONG_WINDOW_MS,
+        METRICS_LONG_MAX_POINTS,
+      ),
     })),
-  reset: () => set({ series: emptySeries(), latest: null }),
+  reset: () => set({ series: emptySeries(), longSeries: emptySeries(), latest: null }),
 }));
 
 /**
@@ -79,18 +111,30 @@ export const useMetricsStore = create<MetricsState>((set) => ({
  * placeholder. A GPU that vanished for a tick leaves a gap the timestamps
  * record, which is a truthful thing for the chart to show.
  */
-export function appendSample(series: MetricSeries, sample: MetricSample): MetricSeries {
+export function appendSample(
+  series: MetricSeries,
+  sample: MetricSample,
+  /** Defaulted so the footer's callers read exactly as they did before this
+   *  became a two-window store; only the long series passes them. */
+  windowMs: number = METRICS_WINDOW_MS,
+  maxPoints: number = METRICS_MAX_POINTS,
+): MetricSeries {
   const next: MetricSeries = { ...series };
   for (const id of METRIC_IDS) {
     const value = sample[id];
     if (typeof value !== 'number') continue;
-    next[id] = appendPoint(series[id], { value, at: sample.at });
+    next[id] = appendPoint(series[id], { value, at: sample.at }, windowMs, maxPoints);
   }
   return next;
 }
 
-function appendPoint(existing: MetricPoint[], point: MetricPoint): MetricPoint[] {
-  const cutoff = point.at - METRICS_WINDOW_MS;
+function appendPoint(
+  existing: MetricPoint[],
+  point: MetricPoint,
+  windowMs: number,
+  maxPoints: number,
+): MetricPoint[] {
+  const cutoff = point.at - windowMs;
 
   // One pass that both drops stale entries and appends the new point, rather
   // than an append-then-filter that copied the whole series twice every tick.
@@ -113,5 +157,5 @@ function appendPoint(existing: MetricPoint[], point: MetricPoint): MetricPoint[]
   // window), so it is never itself dropped here.
   kept.push(point);
 
-  return kept.length > METRICS_MAX_POINTS ? kept.slice(kept.length - METRICS_MAX_POINTS) : kept;
+  return kept.length > maxPoints ? kept.slice(kept.length - maxPoints) : kept;
 }

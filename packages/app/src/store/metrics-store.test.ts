@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { METRICS_MAX_POINTS, METRICS_WINDOW_MS, appendSample, type MetricSeries } from './metrics-store';
+import {
+  METRICS_LONG_MAX_POINTS,
+  METRICS_LONG_WINDOW_MS,
+  METRICS_MAX_POINTS,
+  METRICS_WINDOW_MS,
+  appendSample,
+  useMetricsStore,
+  type MetricSeries,
+} from './metrics-store';
 
 const empty = (): MetricSeries => ({ cpu: [], memory: [], gpu: [], disk: [] });
 
@@ -98,5 +106,46 @@ describe('appendSample', () => {
     const snapshot = [...before.cpu];
     appendSample(before, { at: 2_000, cpu: 20 });
     expect(before.cpu).toEqual(snapshot);
+  });
+});
+
+/**
+ * The Optimizer's 15-minute window (adhoc: optimizer polish) — the same
+ * append rules over a wider cutoff, driven from the same `push`. The
+ * assertion that matters is that the two windows disagree: a sample old
+ * enough to have left `series` is still in `longSeries`, which is the entire
+ * reason the second window exists.
+ */
+describe('the long window', () => {
+  it('keeps a sample the footer window has already evicted', () => {
+    useMetricsStore.getState().reset();
+    const start = 1_700_000_000_000;
+    useMetricsStore.getState().push({ at: start, cpu: 11 });
+    // One footer window plus a minute later: the first sample is outside
+    // `METRICS_WINDOW_MS` but comfortably inside `METRICS_LONG_WINDOW_MS`.
+    useMetricsStore.getState().push({ at: start + METRICS_WINDOW_MS + 60_000, cpu: 22 });
+
+    const { series, longSeries } = useMetricsStore.getState();
+    expect(series.cpu.map((p) => p.value)).toEqual([22]);
+    expect(longSeries.cpu.map((p) => p.value)).toEqual([11, 11, 22]);
+    useMetricsStore.getState().reset();
+  });
+
+  it('evicts by the long cutoff and caps at the long backstop', () => {
+    let series = empty();
+    for (let at = 0; at <= METRICS_LONG_WINDOW_MS * 2; at += 30_000) {
+      series = appendSample(series, { at, cpu: 50 }, METRICS_LONG_WINDOW_MS, METRICS_LONG_MAX_POINTS);
+    }
+    const span = series.cpu[series.cpu.length - 1]!.at - series.cpu[0]!.at;
+    expect(span).toBeLessThanOrEqual(METRICS_LONG_WINDOW_MS);
+    expect(span).toBeGreaterThan(METRICS_LONG_WINDOW_MS - 60_000);
+    expect(series.cpu.length).toBeLessThanOrEqual(METRICS_LONG_MAX_POINTS);
+  });
+
+  it('reset clears both windows', () => {
+    useMetricsStore.getState().push({ at: 1_000, cpu: 5 });
+    useMetricsStore.getState().reset();
+    expect(useMetricsStore.getState().longSeries.cpu).toEqual([]);
+    expect(useMetricsStore.getState().series.cpu).toEqual([]);
   });
 });
