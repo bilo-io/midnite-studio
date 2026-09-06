@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { draftItem, issueItem, pullItem, resetProjectItemSeq, withBlockedBy } from '../__fixtures__/project-item';
+import { DEFAULT_GRAPH_FACETS, type ProjectGraphFacets } from './graph-filter';
 import { ProjectGraphView } from './project-graph-view';
 
 /**
@@ -36,16 +37,29 @@ function graphFor(items: ForgeProjectItem[]) {
   return resolveForgeGraph(items, FIELDS, { boardRepo: 'acme/widgets' });
 }
 
-function Harness({ items, selectedItemId = null }: { items: ForgeProjectItem[]; selectedItemId?: string | null }) {
+function Harness({
+  items,
+  filteredItems,
+  selectedItemId = null,
+  facets,
+}: {
+  items: ForgeProjectItem[];
+  /** Defaults to `items` itself — pass a subset to exercise the item-filter
+   *  narrowing (Theme H) against a graph built over the *whole* set. */
+  filteredItems?: ForgeProjectItem[];
+  selectedItemId?: string | null;
+  facets?: ProjectGraphFacets;
+}) {
   return (
     <ProjectGraphView
       graph={graphFor(items)}
-      items={items}
+      items={filteredItems ?? items}
       fields={FIELDS}
       projectId="proj1"
       selectedItemId={selectedItemId}
       onSelectItem={() => {}}
       agentStates={new Map()}
+      facets={facets}
     />
   );
 }
@@ -189,5 +203,65 @@ describe('ProjectGraphView', () => {
     fireEvent.keyDown(screen.getByRole('application'), { key: 'ArrowLeft' });
     const blockerKey = `#${blocker.content.type === 'issue' ? blocker.content.number : 0}`;
     expect(document.activeElement?.getAttribute('data-node-key')).toBe(blockerKey);
+  });
+});
+
+describe('ProjectGraphView — Theme H facets', () => {
+  it('drops a node the item filter hid, and its edge with it', () => {
+    const blocker = issueItem();
+    const dependent = withBlockedBy(issueItem(), [
+      { number: blocker.content.type === 'issue' ? blocker.content.number : 0, title: '', state: 'open', repo: '' },
+    ]);
+    // `items` (the full graph) carries both; `filteredItems` (what the view
+    // narrows to) carries only the dependent — the blocker did not survive
+    // the shared toolbar filter.
+    const { container } = render(<Harness items={[blocker, dependent]} filteredItems={[dependent]} />);
+    expect(container.querySelectorAll('[data-graph-node]').length).toBe(1);
+    expect(container.querySelectorAll('[data-edge-kind]').length).toBe(0);
+  });
+
+  it('showContains: false (the default) hides a contains edge; true shows it', () => {
+    const parent = issueItem();
+    const parentNumber = parent.content.type === 'issue' ? parent.content.number : 0;
+    const child = issueItem({
+      content: {
+        type: 'issue',
+        dependencies: { blockedBy: [], parent: { number: parentNumber, title: '', state: 'open', repo: '' }, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
+      } as never,
+    });
+
+    const { container: hidden } = render(<Harness items={[parent, child]} />);
+    expect(hidden.querySelectorAll('[data-edge-kind="contains"]').length).toBe(0);
+
+    cleanup();
+    const { container: shown } = render(
+      <Harness items={[parent, child]} facets={{ ...DEFAULT_GRAPH_FACETS, showContains: true }} />,
+    );
+    expect(shown.querySelectorAll('[data-edge-kind="contains"]').length).toBe(1);
+  });
+
+  it('hideIsolated with a genuinely zero-edge graph still shows the zero-edge banner, not the canvas gone blank', () => {
+    render(<Harness items={[issueItem(), issueItem()]} facets={{ ...DEFAULT_GRAPH_FACETS, hideIsolated: true }} />);
+    expect(screen.getByText(/No dependencies found/)).toBeDefined();
+  });
+
+  it('only: "blocked" keeps the blocked node and drops the one that is not', () => {
+    const blocker = issueItem();
+    const dependent = withBlockedBy(issueItem(), [
+      { number: blocker.content.type === 'issue' ? blocker.content.number : 0, title: '', state: 'open', repo: '' },
+    ]);
+    const { container } = render(<Harness items={[blocker, dependent]} facets={{ ...DEFAULT_GRAPH_FACETS, only: 'blocked' }} />);
+    expect(container.querySelectorAll('[data-graph-node][data-blocked]').length).toBe(1);
+    expect(container.querySelectorAll('[data-graph-node]').length).toBe(1);
+  });
+
+  it('depth: 1 from the selected node keeps its immediate neighbour and drops a two-hop node', () => {
+    const a = issueItem();
+    const b = withBlockedBy(issueItem(), [{ number: a.content.type === 'issue' ? a.content.number : 0, title: '', state: 'open', repo: '' }]);
+    const c = withBlockedBy(issueItem(), [{ number: b.content.type === 'issue' ? b.content.number : 0, title: '', state: 'open', repo: '' }]);
+    const { container } = render(
+      <Harness items={[a, b, c]} selectedItemId={b.id} facets={{ ...DEFAULT_GRAPH_FACETS, depth: 1 }} />,
+    );
+    expect(container.querySelectorAll('[data-graph-node]').length).toBe(3); // a, b, c all one hop from b
   });
 });
