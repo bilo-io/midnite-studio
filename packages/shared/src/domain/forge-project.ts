@@ -107,6 +107,53 @@ export const ForgeProjectFieldValueSchema = z.discriminatedUnion('dataType', [
 export type ForgeProjectFieldValue = z.infer<typeof ForgeProjectFieldValueSchema>;
 
 /**
+ * A dependency-graph reference to one issue — either a board item or a
+ * `foreign` one the board never fetched directly (Phase 75 Theme B derives
+ * `foreign` from whether a node key resolves to a real item).
+ *
+ * `.default(…)` on every field, matching this file's existing convention, so
+ * a board fetched by an older build still parses.
+ */
+export const ForgeIssueLinkSchema = z.object({
+  number: z.number().int().positive(),
+  title: z.string().default(''),
+  state: ForgeIssueStateSchema.nullable().default(null),
+  /** `owner/name`; `''` means "same repo as the board". */
+  repo: z.string().default(''),
+});
+export type ForgeIssueLink = z.infer<typeof ForgeIssueLinkSchema>;
+
+/**
+ * The three dependency connections GitHub's `Issue` type carries —
+ * `blockedBy`/`parent`/`subIssues` — plus whether either paginated connection
+ * was truncated. `blocking` (the inverse of `blockedBy`) is deliberately not
+ * here: Phase 75 Theme B never consumes it (see that phase doc's own
+ * Decisions).
+ */
+export const ForgeIssueLinkSetSchema = z.object({
+  blockedBy: z.array(ForgeIssueLinkSchema).default([]),
+  parent: ForgeIssueLinkSchema.nullable().default(null),
+  subIssues: z.array(ForgeIssueLinkSchema).default([]),
+  blockedByTruncated: z.boolean().default(false),
+  subIssuesTruncated: z.boolean().default(false),
+});
+export type ForgeIssueLinkSet = z.infer<typeof ForgeIssueLinkSetSchema>;
+
+/**
+ * An issue with no dependency links at all — the shape `.default({})` parses to.
+ * Exported because the field is required on the *output* type, so every fixture
+ * and every hand-built `issue` content literal needs one; spelling it out five
+ * times is how the five drift apart.
+ */
+export const EMPTY_ISSUE_LINK_SET: ForgeIssueLinkSet = Object.freeze({
+  blockedBy: [],
+  parent: null,
+  subIssues: [],
+  blockedByTruncated: false,
+  subIssuesTruncated: false,
+});
+
+/**
  * What a project item actually is, discriminated on `type`.
  *
  * A union rather than one shape with optional `number`/`url` fields, and this
@@ -132,6 +179,11 @@ export const ForgeProjectItemContentSchema = z.discriminatedUnion('type', [
     body: z.string().default(''),
     /** Names only — Phase 41 Theme G's card composer is the only reader. */
     labels: z.array(z.string()).default([]),
+    /**
+     * `blockedBy`/`parent`/`subIssues` — GitHub only exposes these on
+     * `Issue`, never `PullRequest` or `DraftIssue` (Phase 75 Theme A).
+     */
+    dependencies: ForgeIssueLinkSetSchema.default({}),
   }),
   z.object({
     type: z.literal('pull'),

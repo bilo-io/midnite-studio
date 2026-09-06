@@ -1,4 +1,5 @@
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import { EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,6 +23,7 @@ const issue: ForgeProjectItem = {
     assignees: ['octocat'],
     body: '',
     labels: [],
+    dependencies: EMPTY_ISSUE_LINK_SET,
   },
   fieldValues: { 'f-priority': { fieldId: 'f-priority', dataType: 'text', text: 'High' } },
 };

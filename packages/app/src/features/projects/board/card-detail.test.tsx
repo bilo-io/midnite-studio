@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import { EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -44,6 +45,7 @@ const item: ForgeProjectItem = {
     assignees: ['octocat'],
     body: 'Steps to reproduce…',
     labels: ['bug'],
+    dependencies: EMPTY_ISSUE_LINK_SET,
   },
   fieldValues: {
     'f-status': { fieldId: 'f-status', dataType: 'single_select', optionId: 'todo', name: 'Todo' },
