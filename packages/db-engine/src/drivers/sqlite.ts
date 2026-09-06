@@ -131,7 +131,7 @@ export function createSqliteDriver(config: ConnectionConfig): DbDriver {
      * back to `db.exec`, which runs all of them but returns no rows, matching
      * a DDL/migration-style batch rather than a browsable result set.
      */
-    query: async (sql, onBatch, { batchSize, signal }) => {
+    query: async (sql, onBatch, { batchSize, signal, params }) => {
       const database = requireDb();
       let stmt;
       try {
@@ -145,8 +145,10 @@ export function createSqliteDriver(config: ConnectionConfig): DbDriver {
         throw err;
       }
 
+      const bindArgs = (params ?? []) as never[];
+
       if (!stmt.reader) {
-        const info = stmt.run();
+        const info = stmt.run(...bindArgs);
         return { rowCount: info.changes };
       }
 
@@ -154,7 +156,7 @@ export function createSqliteDriver(config: ConnectionConfig): DbDriver {
       const columns = stmt.columns().map((c) => c.name);
       let total = 0;
       let batch: unknown[][] = [];
-      for (const row of stmt.iterate() as IterableIterator<unknown[]>) {
+      for (const row of stmt.iterate(...bindArgs) as IterableIterator<unknown[]>) {
         if (signal.aborted) break;
         batch.push(normalizeRow(row));
         total += 1;

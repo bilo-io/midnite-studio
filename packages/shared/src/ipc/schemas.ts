@@ -2248,6 +2248,8 @@ export const DbQueryStartRequest = z.object({
   /** Correlates batches with the request that produced them, like `LogStartRequest`. */
   requestId: z.string().min(1),
   sql: z.string().min(1),
+  /** Positional bind parameters for a parameterised statement (Phase 61 Theme H). */
+  params: z.array(z.unknown()).optional(),
 });
 export const DbQueryCancelRequest = z.object({ requestId: z.string().min(1) });
 

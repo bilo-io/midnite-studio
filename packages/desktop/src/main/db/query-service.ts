@@ -23,6 +23,8 @@ export const MAX_QUERY_ROWS = 50_000;
 export type QueryStartOptions = {
   requestId: string;
   sql: string;
+  /** Positional bind parameters for a parameterised statement (Phase 61 Theme H). */
+  params?: unknown[];
 };
 
 export function startQuery(win: BrowserWindow, driver: DbDriver, options: QueryStartOptions): void {
@@ -61,7 +63,7 @@ export function startQuery(win: BrowserWindow, driver: DbDriver, options: QueryS
           controller.abort();
         }
       },
-      { batchSize: BATCH_SIZE, signal: controller.signal },
+      { batchSize: BATCH_SIZE, signal: controller.signal, ...(options.params ? { params: options.params } : {}) },
     )
     .then(() => {
       if (finished) return;

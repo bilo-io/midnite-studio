@@ -65,7 +65,7 @@ export function createMysqlDriver(config: ConnectionConfig, password: string | u
         connection.end((err) => (err ? reject(err) : resolve()));
       }),
 
-    query: (sql, onBatch, { batchSize, signal }) =>
+    query: (sql, onBatch, { batchSize, signal, params }) =>
       new Promise((resolve, reject) => {
         let columns: string[] = [];
         let batch: unknown[][] = [];
@@ -88,7 +88,7 @@ export function createMysqlDriver(config: ConnectionConfig, password: string | u
         signal.addEventListener('abort', onAbort, { once: true });
 
         connection
-          .query({ sql, rowsAsArray: true })
+          .query({ sql, rowsAsArray: true, values: params })
           .on('fields', (fields) => {
             const list = (Array.isArray(fields) ? fields : [fields]) as { name: string }[];
             columns = list.map((f) => f.name);

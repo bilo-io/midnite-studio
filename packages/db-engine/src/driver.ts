@@ -49,11 +49,17 @@ export type DbDriver = {
    * every driver must stop issuing batches the instant it fires, since a
    * batch delivered after cancellation is what `stream-registry.ts`'s
    * `finished` flag exists to guard against on the IPC side.
+   *
+   * `params` (Phase 61 Theme H) binds positional placeholders through each
+   * client's own native parameter API — never string-substituted into `sql`
+   * beforehand. `sql` must already use the calling provider's own placeholder
+   * syntax (`$1` Postgres, `?` MySQL/MariaDB/SQLite, `@p0` MSSQL); this
+   * interface does not translate between them.
    */
   query(
     sql: string,
     onBatch: (batch: DriverBatch) => void,
-    options: { batchSize: number; signal: AbortSignal },
+    options: { batchSize: number; signal: AbortSignal; params?: unknown[] },
   ): Promise<{ rowCount: number }>;
   /** Tables, views, columns, primary/foreign keys — nothing deeper (v1 scope). */
   introspect(): Promise<SchemaTree>;
