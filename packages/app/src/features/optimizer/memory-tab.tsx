@@ -410,7 +410,7 @@ export function MemoryTab() {
                             */}
                             <span
                               aria-hidden
-                              className="inline-flex w-0 -translate-x-1 overflow-hidden opacity-0 transition-all duration-200 group-hover/term:mr-1 group-hover/term:w-3 group-hover/term:translate-x-0 group-hover/term:opacity-100 group-focus-visible/term:mr-1 group-focus-visible/term:w-3 group-focus-visible/term:translate-x-0 group-focus-visible/term:opacity-100"
+                              className="inline-flex w-0 -translate-x-1 overflow-hidden opacity-0 transition-all duration-150 group-hover/term:mr-1 group-hover/term:w-3 group-hover/term:translate-x-0 group-hover/term:opacity-100 group-focus-visible/term:mr-1 group-focus-visible/term:w-3 group-focus-visible/term:translate-x-0 group-focus-visible/term:opacity-100"
                             >
                               <LuTrash2 className="h-3 w-3 shrink-0" />
                             </span>

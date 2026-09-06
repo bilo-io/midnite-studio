@@ -3161,11 +3161,11 @@ html[data-motion='reduced'] .loop-start-gradient:focus-visible:not(:disabled) {
   text-shadow: 0 0 6px hsl(var(--destructive) / 0.45);
   box-shadow: 0 0 8px hsl(var(--destructive) / 0.25);
   transition:
-    background-color 200ms ease,
-    border-color 200ms ease,
-    color 200ms ease,
-    box-shadow 200ms ease,
-    text-shadow 200ms ease;
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    text-shadow 150ms ease;
 }
 
 /* The armed (SIGTERM already sent) variant: filled at rest, so only its glow

@@ -78,7 +78,7 @@ function CleanButton({
       <PiBroom aria-hidden className="h-3.5 w-3.5 shrink-0" />
       <span
         aria-hidden
-        className="inline-flex w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/clean:ml-1 group-hover/clean:w-9 group-hover/clean:opacity-100 group-focus-visible/clean:ml-1 group-focus-visible/clean:w-9 group-focus-visible/clean:opacity-100"
+        className="inline-flex w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-150 group-hover/clean:ml-1 group-hover/clean:w-9 group-hover/clean:opacity-100 group-focus-visible/clean:ml-1 group-focus-visible/clean:w-9 group-focus-visible/clean:opacity-100"
       >
         Clean
       </span>
@@ -268,11 +268,11 @@ export function SmartScanTab() {
                 */}
                 <LuCheck
                   aria-hidden
-                  className="absolute h-7 w-7 transition-opacity duration-200 group-hover/hero:opacity-0"
+                  className="absolute h-7 w-7 transition-opacity duration-150 group-hover/hero:opacity-0"
                 />
                 <LuSparkles
                   aria-hidden
-                  className="absolute h-7 w-7 opacity-0 transition-opacity duration-200 group-hover/hero:opacity-100"
+                  className="absolute h-7 w-7 opacity-0 transition-opacity duration-150 group-hover/hero:opacity-100"
                 />
               </>
             ) : (
