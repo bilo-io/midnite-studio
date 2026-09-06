@@ -2,6 +2,51 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 61 Theme J — Database Explorer test suites and CI wiring
+
+[PR #217](https://github.com/bilo-io/midnite-studio/pull/217). Moves Phase 61 66/94 → 68/94
+(70% → 72%). The last of Phase 61's ten themes — Themes A–I landed across PRs #165/#173/#211;
+this is the re-scoped suites-and-CI job, with the assertions living in the phase doc's own
+`## Verification`.
+
+- [x] Four new Playwright specs under `packages/app/e2e/`: `database-query-flow.spec.ts`
+      (Database in the Workspace nav → add a SQLite connection through the real
+      `ConnectionDialog` → browse the schema tree → open a query tab → run a `SELECT` → see
+      rows), `database-destructive-confirm.spec.ts` (a write statement is blocked behind
+      `confirm-dialog.tsx` until confirmed; a plain read never shows it),
+      `database-edit-cell.spec.ts` (edit a cell, submit, re-query and see the edit stick; and a
+      manufactured staleness conflict — Decision 2 — that blocks the update and keeps the edit
+      pending), `database-query-tabs-independent.spec.ts` (two query tabs on one connection keep
+      independent streamed results).
+- [x] Extended `database-shots.spec.ts` (Phase 56 Theme G's shared `shots-helper.ts`, verified to
+      exist and read before writing anything) with the three states Theme J's own item names — a
+      query tab with results, the run-statement confirm dialog, and a staleness-conflict row —
+      light and dark, under `docs/screenshots/p61-j/`, rather than a 26th bespoke shots file.
+- [x] A small mocked SQL "engine" in `mock-bridge.ts` — `queryStart`/`queryCancel`/
+      `onQueryBatch`/`onQueryDone` were noop stubs before this — seeded from a new `dbTableRows`
+      fixture, a `getSchema` `'*'` fallback for a connection id minted by `crypto.randomUUID()`,
+      and a `__mstudioDbWrite` test hook standing in for a second real connection to manufacture
+      the staleness conflict.
+- [x] **CI service containers per Decision 5**: a new `db-integration` job on `ubuntu-24.04`
+      running Postgres/MySQL/MariaDB as service containers, wired to `db-engine`'s existing
+      `MSTUDIO_TEST_<PROVIDER>_*` env-var contract (`testing/test-connection.ts`, landed with
+      Theme B/C) so `drivers.test.ts`'s real-instance tests actually run instead of skipping.
+      `gate` runs on `macos-14` and GitHub's `services:` containers are Docker/Linux-only, so this
+      needed a job of its own rather than folding into `gate`. MSSQL stays a manual pass per
+      Decision 5 — documented in the workflow file's own comment.
+- One incidental bugfix, found running these specs: `database-view.tsx`'s query-editor and
+  results-grid panes each sat in an `h-1/2 min-h-0` wrapper with no `flex` class, so their
+  `flex-1`-sized children collapsed to intrinsic content height — Monaco measured a real 5px tall
+  against a 277px-tall parent. Not a test-harness quirk; the shipped Database view had the same
+  collapse (the editor was effectively an invisible sliver). One-line fix: `flex flex-col` on
+  both wrappers.
+- Left open, disclosed rather than silently dropped: the staleness check remains two sequential
+  calls rather than one transaction (Theme H's own known trade-off, tested as the behaviour that
+  exists), and `moon run desktop:dist && moon run desktop:verify-dist` — already wired in this
+  workflow's `package` job (macOS, push-to-`main` only) — was not run here; it needs a human pass
+  on a real machine, as does a live round-trip against real Postgres/MySQL/MariaDB/MSSQL/SQLite
+  instances. Phase 61 is buildable-complete; these are the remaining human/real-machine passes.
+
 ## 2026-09-06 — Phase 75 Theme H — filters, and the graph's own facets
 
 [PR #216](https://github.com/bilo-io/midnite-studio/pull/216). Moves Phase 75 75/106 → 87/106
