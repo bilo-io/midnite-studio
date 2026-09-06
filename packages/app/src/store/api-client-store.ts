@@ -1,10 +1,19 @@
 import { create } from 'zustand';
 
-import type { ApiCollectionSummary, ApiRequestDraft, ApiResponse, PostmanItem } from '@midnite/studio-shared';
+import type {
+  ApiCollectionSummary,
+  ApiEnvironmentSummary,
+  ApiRequestDraft,
+  ApiResponse,
+  PostmanEnvironment,
+  PostmanItem,
+  SaveEnvironmentOutcome,
+} from '@midnite/studio-shared';
 import { toDraft } from '@midnite/studio-shared';
 
 import { parseQueryString, splitUrl } from '../features/api-client/query-string';
 import { bridge } from '../services/bridge';
+import { useUiStore } from './ui-store';
 
 /**
  * The API Client view's own store (Phase 66 Theme C) — request tabs, their
@@ -148,6 +157,12 @@ export type ApiClientState = {
   /** Collections with unsaved in-memory tree edits — Theme G reads this. */
   dirtyCollectionIds: ReadonlySet<string>;
 
+  // --- environments (Phase 70 Theme A) ----------------------------------------
+  environments: ApiEnvironmentSummary[];
+  environmentsRepoId: string | null;
+  environmentsStatus: 'idle' | 'loading' | 'ready' | 'error';
+  environmentsError: string | null;
+
   // --- request tabs ----------------------------------------------------------
   tabs: ApiTab[];
   activeTabId: string | null;
@@ -159,6 +174,25 @@ export type ApiClientState = {
   lastError: Record<string, string>;
 
   loadCollections: (repoId: string) => Promise<void>;
+
+  loadEnvironments: (repoId: string) => Promise<void>;
+  /**
+   * Saves an existing (`environmentId` non-null) or brand-new environment.
+   * Returns the outcome as-is (`{status:'saved'}` or
+   * `{status:'needs-confirm', secretCount, gitignorePath}`) so the editor
+   * decides whether to raise the blast-radius confirm and resend with
+   * `confirmed: true` — this action never shows a dialog itself, since a
+   * store has no UI to raise one in. `environments` is refreshed from disk
+   * on `'saved'` — the base file's shape changed (a secret's value blanked),
+   * which only a re-read reflects correctly.
+   */
+  saveEnvironment: (
+    repoId: string,
+    environmentId: string | null,
+    environment: PostmanEnvironment,
+    confirmed?: boolean,
+  ) => Promise<{ ok: true; value: SaveEnvironmentOutcome } | { ok: false; message: string }>;
+  removeEnvironment: (repoId: string, environmentId: string) => Promise<void>;
 
   openTab: (ref: ApiTabRef) => void;
   focusTab: (id: string | null) => void;
@@ -209,6 +243,11 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
   collectionsError: null,
   dirtyCollectionIds: new Set(),
 
+  environments: [],
+  environmentsRepoId: null,
+  environmentsStatus: 'idle',
+  environmentsError: null,
+
   tabs: [],
   activeTabId: null,
   responses: {},
@@ -232,6 +271,52 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
     } catch {
       set({ collectionsStatus: 'error', collectionsError: 'Could not load API collections.' });
     }
+  },
+
+  loadEnvironments: async (repoId) => {
+    const api = bridge();
+    if (!api) {
+      set({ environmentsStatus: 'error', environmentsError: 'No connection to the app.' });
+      return;
+    }
+    set({ environmentsStatus: 'loading', environmentsError: null, environmentsRepoId: repoId });
+    try {
+      const result = await api.apiClient.listEnvironments({ repoId });
+      if (!result.ok) {
+        set({ environmentsStatus: 'error', environmentsError: result.message });
+        return;
+      }
+      set({ environmentsStatus: 'ready', environments: result.value, environmentsRepoId: repoId });
+    } catch {
+      set({ environmentsStatus: 'error', environmentsError: 'Could not load API environments.' });
+    }
+  },
+
+  saveEnvironment: async (repoId, environmentId, environment, confirmed = false) => {
+    const api = bridge();
+    if (!api) return { ok: false, message: 'No connection to the app.' };
+    try {
+      const result = await api.apiClient.saveEnvironment({ repoId, environmentId, environment, confirmed });
+      if (!result.ok) return { ok: false, message: result.message };
+      // A `needs-confirm` outcome wrote nothing — nothing to refresh yet;
+      // the editor resends with `confirmed: true` once the user accepts.
+      if (result.value.status === 'saved' && get().environmentsRepoId === repoId) {
+        await get().loadEnvironments(repoId);
+      }
+      return { ok: true, value: result.value };
+    } catch {
+      return { ok: false, message: 'Could not save the environment.' };
+    }
+  },
+
+  removeEnvironment: async (repoId, environmentId) => {
+    const api = bridge();
+    if (!api) return;
+    const result = await api.apiClient.deleteEnvironment({ repoId, environmentId });
+    if (!result.ok) return;
+    set((state) => ({
+      environments: state.environments.filter((summary) => summary.id !== environmentId),
+    }));
   },
 
   openTab: (ref) => {
@@ -402,6 +487,11 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
     const requestId = `${tabId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
     const collection = get().collections.find((summary) => summary.id === tab.collectionId);
     const collectionVariables = collection?.collection.variable ?? [];
+    // Read fresh from ui-store rather than threaded in as a parameter: the
+    // quick-switcher (Phase 70 Theme A) lives in a different store, and every
+    // caller of this action — the Send button, Retry — reaches it exactly
+    // this way rather than each having to know where the selection lives.
+    const environmentId = useUiStore.getState().activeEnvironmentByRepo[tab.repoId] ?? null;
 
     set((state) => {
       const lastError = { ...state.lastError };
@@ -415,6 +505,7 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
         requestId,
         draft: tab.draft,
         collectionVariables,
+        environmentId,
       });
       set((state) => {
         // Superseded by a cancel or a newer send while this was in flight.
