@@ -103,29 +103,17 @@ tasks:
       - '/scripts/perf/**/*'
       - '/packages/shared/src/**/*'
 
-  # What CI blocks on — `e2e` minus the files that were already red when the job
-  # was wired up. See playwright.ci.config.ts for why the split exists and
-  # `.midnite/tasks/phases/phase-38-e2e-suite-repair.md` for emptying the list.
-  # Deliberately NOT the task a human runs: locally you want the whole truth.
-  e2e-ci:
-    command: 'pnpm exec playwright test --config playwright.ci.config.ts'
-    options:
-      mergeArgs: 'replace'
-    deps:
-      - 'root:install'
-      - 'shared:build'
-    inputs:
-      - 'src/**/*'
-      - 'e2e/**/*'
-      - 'playwright.config.ts'
-      - 'playwright.ci.config.ts'
-      - 'vite.config.ts'
-      - '/packages/shared/src/**/*'
-
   # Browser-driven renderer tests against a mocked window.midniteStudio. Kept OUT
   # of the `:test` gate deliberately — it needs a chromium download, which is a
   # poor thing to make `moon run :test` depend on. Run it explicitly, or in CI
   # after `playwright install chromium`.
+  #
+  # This is also what CI blocks on directly — Phase 38 Theme H retired the
+  # `e2e-ci` ratchet task and `playwright.ci.config.ts` once `KNOWN_RED` emptied
+  # (Phase 38 Themes A-I). Re-examined at the same time whether this task should
+  # join `:test` now that it is fully green; the chromium-download argument above
+  # still holds on its own (a bare `moon run :test` should never need a browser
+  # download), so it stays a separate, explicitly-run task.
   e2e:
     command: 'pnpm exec playwright test'
     options:

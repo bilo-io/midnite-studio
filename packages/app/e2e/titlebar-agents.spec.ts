@@ -33,9 +33,10 @@ async function open(page: Page): Promise<void> {
  * first version opened the terminal panel and emitted `pty:agent-changed` on
  * its first pty, which works locally and cannot work on CI: xterm paints
  * through `@xterm/addon-webgl`, the runner has no GPU, and the panel never
- * becomes visible at all — the wall that puts four whole spec files in
- * `playwright.ci.config.ts`'s KNOWN_RED. This needs a *store* with a live
- * agent in it, not a rendered terminal.
+ * becomes visible at all — the wall that put four whole spec files in the
+ * CI ratchet's `KNOWN_RED` list (Phase 38 Theme I found the real cause and
+ * fixed it; Theme H later retired the ratchet config itself). This needs a
+ * *store* with a live agent in it, not a rendered terminal.
  *
  * So the session arrives through the fixture with a `live` pty, and opening the
  * FAB console is what calls `hydrate()` — which binds a live entry straight to

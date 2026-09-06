@@ -2,6 +2,26 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-06 — Phase 38 Theme H — The ratchet comes off — **Phase 38 closes at 60/60**
+
+[PR #232](https://github.com/bilo-io/midnite-studio/pull/232). Moves Phase 38 55/60 → **60/60
+(100%)**. CI now runs `app:e2e` — the same suite a human runs locally — instead of `app:e2e-ci`
+against a second config that blocked on everything except a named `KNOWN_RED` list.
+
+The ratchet existed because 17 spec files were already red when the job was wired up. It shrank
+theme by theme and emptied with Theme G (PR #228). Deletes `packages/app/playwright.ci.config.ts`
+and the `e2e-ci` moon task, and points the CI shard matrix at `app:e2e`.
+
+**`retries` stays at 2, deliberately.** The theme's own item asks whether the tolerance can come back
+out, and the honest answer is *not yet*: the full suite only becomes CI's blocking gate in this very
+change, so there is no week of green merges to measure against, and the only precedent in this repo
+(Phase 56 Theme D) is a documented failure of a *lower* value rather than evidence for `0`. Taking it
+to `0` here would be a guess, and `retries: 2` is exactly what this phase warns "is how the next 45
+hide". Re-check after `main` has held green for a week under the full gate.
+
+`e2e` stays out of the `:test` gate for the reason it always was — it needs a chromium download, and
+`moon run :test` should never require one.
+
 ## 2026-09-06 — Phase 66 Themes C + F — The tree, the tabs, and the answer
 
 [PR #233](https://github.com/bilo-io/midnite-studio/pull/233). Moves Phase 66 35/73 → 50/73 (48% →
