@@ -103,7 +103,7 @@ export function TaskCard({
         }
       }}
       className={`flex w-full flex-col gap-1.5 rounded border border-border bg-background px-2 py-1.5 text-left text-xs hover:border-foreground/30 ${
-        glow === 'idle' ? '' : `card-run-glow is-${glow}`
+        glow === 'idle' ? '' : `agent-run-glow is-${glow}`
       }`}
     >
       <div className="flex items-start gap-1.5">

@@ -293,12 +293,12 @@ test.describe('kanban card running glow (Theme F)', () => {
     // together — searching by role rather than counting div depth is what
     // stays correct if the card's internal markup ever grows a wrapper.
     const card = page.getByText('Wire the write path').locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
-    await expect(card).toHaveClass(/card-run-glow/);
+    await expect(card).toHaveClass(/agent-run-glow/);
     await expect(card).toHaveClass(/is-running/);
 
     // The other, untouched item has no session bound to it — no glow at all.
     const otherCard = page.getByText('A card nobody touches').locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
-    await expect(otherCard).not.toHaveClass(/card-run-glow/);
+    await expect(otherCard).not.toHaveClass(/agent-run-glow/);
 
     /*
       The ramp, not a solid: the ring is painted by the conic-gradient the
