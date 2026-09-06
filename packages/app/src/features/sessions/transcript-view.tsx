@@ -40,12 +40,14 @@ const isDark = (): boolean => document.documentElement.classList.contains('dark'
  * Fetches its own bytes from `sessionId` so the parent (`sessions-view.tsx`)
  * holds only an id, never a megabyte.
  */
+/** A fetched transcript, tagged with the id it answers — see the guard below. */
+type Loaded = { sessionId: string; bytes: Uint8Array };
+
 export function TranscriptView({ sessionId }: { sessionId: string }) {
-  const [bytes, setBytes] = useState<Uint8Array | null>(null);
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setBytes(null);
 
     void bridge()
       ?.sessions.transcript({ sessionId })
@@ -53,7 +55,7 @@ export function TranscriptView({ sessionId }: { sessionId: string }) {
         // Ignore an in-flight fetch for a session the user has since moved
         // past — the standard guard for a fetch racing a selection change.
         if (cancelled) return;
-        setBytes(res.bytes);
+        setLoaded({ sessionId, bytes: res.bytes });
       });
 
     return () => {
@@ -61,9 +63,15 @@ export function TranscriptView({ sessionId }: { sessionId: string }) {
     };
   }, [sessionId]);
 
-  if (bytes === null) return null;
+  // Tagging the fetched bytes with the id they answer — rather than clearing
+  // state to `null` on every `sessionId` change — is what keeps a prop change
+  // and its effect from disagreeing for one render: `key={sessionId}` below
+  // would otherwise mount a fresh `TranscriptTerminal` with the PREVIOUS
+  // session's still-resident bytes for the one render between the prop
+  // update and the new effect resolving.
+  if (loaded === null || loaded.sessionId !== sessionId) return null;
 
-  if (bytes.length === 0) {
+  if (loaded.bytes.length === 0) {
     return (
       <EmptyState
         icon={LuHistory}
@@ -77,7 +85,7 @@ export function TranscriptView({ sessionId }: { sessionId: string }) {
   // `Terminal` rather than `reset()` + rewrite, because `reset()` preserves
   // the old instance's dimensions and addon state and fidelity — the pane
   // looking like what you saw — is the deliverable.
-  return <TranscriptTerminal key={sessionId} bytes={bytes} />;
+  return <TranscriptTerminal key={sessionId} bytes={loaded.bytes} />;
 }
 
 function TranscriptTerminal({ bytes }: { bytes: Uint8Array }) {
