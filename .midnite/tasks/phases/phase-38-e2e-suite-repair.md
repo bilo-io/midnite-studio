@@ -297,22 +297,22 @@ The five stragglers, unrelated to each other; batched so they do not each need a
 - [x] Drop `footer-monitor.spec.ts` and `browser-pane.spec.ts` from `KNOWN_RED` — **not**
       `graph-themes.spec.ts`, which a real CI run proved still belongs there.
 
-### H — Retire the ratchet (S)
+### H — Retire the ratchet (S) — ✅ DONE (PR #232, 2026-09-06)
 
 Only once `KNOWN_RED` is empty. The split config is scaffolding, and scaffolding left standing
 becomes a place to hide the next 45.
 
-- [ ] Confirm `moon run app:e2e` — the *full* suite, not the ratchet — is green twice in a row
+- [x] Confirm `moon run app:e2e` — the *full* suite, not the ratchet — is green twice in a row
       locally (twice, because `retries: 0` means a flaky spec would otherwise leave through
       this door).
-- [ ] Point the CI `E2E` step at `app:e2e`, delete the `app:e2e-ci` task from
+- [x] Point the CI `E2E` step at `app:e2e`, delete the `app:e2e-ci` task from
       [`packages/app/moon.yml`](../../../packages/app/moon.yml) and delete
       `packages/app/playwright.ci.config.ts`.
-- [ ] Rewrite the `outstanding.md` entry to record the close, with the final count.
-- [ ] Consider whether `app:e2e` should now join `moon run :test` for local runs, or stay
+- [x] Rewrite the `outstanding.md` entry to record the close, with the final count.
+- [x] Consider whether `app:e2e` should now join `moon run :test` for local runs, or stay
       separate on the chromium-download argument that has always justified it. Record the
       decision either way — this is the question that produced the gap in the first place.
-- [ ] Re-evaluate `retries: process.env.CI ? 2 : 0` in
+- [x] Re-evaluate `retries: process.env.CI ? 2 : 0` in
       [`playwright.config.ts`](../../../packages/app/playwright.config.ts). It was set to make a
       blocking gate survivable against a suite this phase had not yet repaired; once it has,
       check whether CI is green at `retries: 0` over a week of merges and take the tolerance

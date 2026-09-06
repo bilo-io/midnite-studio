@@ -39,7 +39,9 @@ export default defineConfig({
     that off: with `fullyParallel: true`, every `test()` is scheduled
     independently, so a file with ten specs no longer forces one worker to run
     them one after another while a sibling worker sits idle waiting for the
-    next file. `playwright.ci.config.ts` inherits this by spreading `base`.
+    next file. Until Phase 38 Theme H, a second config
+    (`playwright.ci.config.ts`, the CI ratchet) inherited this by spreading
+    `base`; this is the only config now that the ratchet is retired.
   */
   fullyParallel: true,
   /*
@@ -89,6 +91,16 @@ export default defineConfig({
     So: strict where a failure is debuggable, tolerant where it is not. If a
     spec needs the retry every time, that is a real race and belongs in
     `.midnite/tasks/phases/phase-38-e2e-suite-repair.md`, not behind this flag.
+
+    Phase 38 Theme H re-checked this once `KNOWN_RED` emptied and the ratchet
+    config was retired, per its own item ("check whether CI is green at
+    `retries: 0` over a week of merges and take the tolerance back out if it
+    is"). Verdict: **not yet — left at 2, unchanged.** The full suite had only
+    just become CI's actual blocking gate (same day), so there was no week of
+    green merges to measure against, and the one precedent that exists
+    (Theme D, above) is a documented failure of a *lower* value, not evidence
+    for `0`. Re-run this check after the suite has held green on `main` for a
+    week under the full `app:e2e` gate.
   */
   retries: process.env.CI ? 2 : 0,
   /*
@@ -101,9 +113,9 @@ export default defineConfig({
     An earlier version of this comment blamed Phase 36's lazy boundaries and
     claimed these values fixed five terminal specs. They did not: those specs
     fail because xterm wants a WebGL context the runner has none of, raising the
-    timeout to 15s moved nothing, and they are ratcheted out in
-    playwright.ci.config.ts with Phase 38 Theme I owning the real fix. The
-    honest justification is only the hardware one above.
+    timeout to 15s moved nothing, and they were ratcheted out (in the now-
+    removed playwright.ci.config.ts) until Phase 38 Theme I found and fixed the
+    real cause. The honest justification is only the hardware one above.
 
     Note the cost, because it bit once already: every failing spec burns up
     to 60s per attempt and is retried twice, so a failure is 3 minutes of wall
