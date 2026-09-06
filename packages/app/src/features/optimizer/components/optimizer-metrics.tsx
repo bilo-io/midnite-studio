@@ -64,7 +64,17 @@ export function OptimizerMetrics({
       {present.length === 0 ? (
         <p className="py-2 text-xs text-muted-foreground">Waiting for the first sample…</p>
       ) : (
-        <div className={compact ? 'grid gap-3 sm:grid-cols-3' : 'flex flex-col gap-3'}>
+        // Compact lays the charts out by how many there are — a fixed
+        // three-column grid leaves a hole beside a two-metric strip, which
+        // reads as a chart that failed to render.
+        <div
+          className={compact ? 'grid gap-3' : 'flex flex-col gap-3'}
+          style={
+            compact
+              ? { gridTemplateColumns: `repeat(${Math.max(1, present.length)}, minmax(0, 1fr))` }
+              : undefined
+          }
+        >
           {present.map((id) => (
             <div key={id}>
               <MetricChart

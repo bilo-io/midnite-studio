@@ -233,7 +233,11 @@ export function MemoryTab() {
         15-minute window — the gauges below are this instant, and a gauge
         cannot tell you the machine was pinned while your build ran.
       */}
-      <OptimizerMetrics metrics={['cpu', 'memory']} title="CPU & RAM" />
+      {/*
+        Compact: two full-height charts would push the process table — the
+        thing this tab is for — below the fold on a 800px window.
+      */}
+      <OptimizerMetrics metrics={['cpu', 'memory']} compact title="CPU & RAM" />
 
       {/* Top Section: Memory Breakdown */}
       {memory ? (

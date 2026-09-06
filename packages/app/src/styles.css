@@ -3245,17 +3245,17 @@ html[data-motion='reduced'] .optimizer-terminate {
 }
 
 .optimizer-hero-drift > span:nth-child(1) {
-  background: radial-gradient(circle at 30% 30%, hsl(var(--primary) / 0.75), transparent 62%);
+  background: radial-gradient(circle at 30% 30%, hsl(var(--primary-foreground) / 0.34), transparent 62%);
   animation: optimizer-hero-drift-a 17s ease-in-out infinite;
 }
 
 .optimizer-hero-drift > span:nth-child(2) {
-  background: radial-gradient(circle at 70% 60%, hsl(var(--accent-foreground) / 0.28), transparent 60%);
+  background: radial-gradient(circle at 70% 60%, hsl(var(--primary-foreground) / 0.2), transparent 60%);
   animation: optimizer-hero-drift-b 23s ease-in-out infinite;
 }
 
 .optimizer-hero-drift > span:nth-child(3) {
-  background: radial-gradient(circle at 50% 80%, hsl(var(--primary) / 0.4), transparent 65%);
+  background: radial-gradient(circle at 50% 80%, hsl(var(--primary-foreground) / 0.26), transparent 65%);
   animation: optimizer-hero-drift-c 29s ease-in-out infinite;
 }
 
