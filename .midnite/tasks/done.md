@@ -4,7 +4,7 @@
 
 ## 2026-09-06 — Phase 53 Theme F (partial) — the release rehearsal that found the flow could not cut the release
 
-[PR #199]. Moves Phase 53 33/59 → 34/59 (56% → 58%). Theme F is the *verification* theme — "every
+[PR #198](https://github.com/bilo-io/midnite-studio/pull/198). Moves Phase 53 33/59 → 34/59 (56% → 58%). Theme F is the *verification* theme — "every
 theme above is untested speculation until a real release goes out" — and its four remaining items
 are all barred from a session (an unset secret, an irreversible tag and GitHub Release, a README in
 `bilo-io/midnite-apps`, and an install on a machine with no checkout of this repo). So this PR did
