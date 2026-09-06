@@ -34,6 +34,7 @@ export const PREFERENCE_KEYS = [
   'allowForceWithLease', // git-safety-page.tsx
   'allowSystemCacheClean', // optimizer-settings-page.tsx
   'allowTrashEmpty', // trash-safety-page.tsx
+  'apiClientRequestTimeoutS', // api-client-page.tsx
   'autoFetchIntervalMs', // sidebar-page.tsx
   'blockedByFieldName', // projects-page.tsx
   'cycleDurationS', // screen-lock-page.tsx
