@@ -5,6 +5,18 @@ import { join } from 'node:path';
 import type { TerminalSession } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createSessionHistoryStore } from './session-history-store';
+import { createTerminalStore } from './terminal-store';
+import {
+  configureTerminals,
+  forgetTerminal,
+  resetTerminalsForTest,
+  saveTerminal,
+  shutdownTerminals,
+  watchSessionExits,
+  whenArchivesSettle,
+} from './terminal-service';
+
 /**
  * The pty side is a stub: this file is about what `forgetTerminal` does with a
  * session's *bytes*, and the ring buffer they come out of belongs to a service
@@ -14,8 +26,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * and the whole ordering assertion below is that the archive contains what it
  * returns rather than what was last written to disk 15 seconds ago.
  */
-const ring = new Map<string, Uint8Array>();
-const exitHooks: ((sessionId: string, exitCode: number) => void)[] = [];
+/*
+  `vi.hoisted`, because `vi.mock` is hoisted above the imports and its factory
+  closes over both of these — a plain `const` here would still be in its
+  temporal dead zone when the mocked module is first pulled in.
+*/
+const { ring, exitHooks } = vi.hoisted(() => ({
+  ring: new Map<string, Uint8Array>(),
+  exitHooks: [] as ((sessionId: string, exitCode: number) => void)[],
+}));
 
 vi.mock('./pty-service', () => ({
   activityFor: () => null,
@@ -33,18 +52,6 @@ vi.mock('./pty-service', () => ({
   scrollbackSessionIds: () => [...ring.keys()],
   seedScrollback: () => {},
 }));
-
-const { createSessionHistoryStore } = await import('./session-history-store');
-const { createTerminalStore } = await import('./terminal-store');
-const {
-  configureTerminals,
-  forgetTerminal,
-  resetTerminalsForTest,
-  saveTerminal,
-  shutdownTerminals,
-  watchSessionExits,
-  whenArchivesSettle,
-} = await import('./terminal-service');
 
 let dirs: string[] = [];
 
