@@ -219,40 +219,63 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 *Re-tagged: the x1 audit found this theme carries the phase's only genuinely novel packaging risk.*
 
-- [ ] Add `src/drivers/sqlite.ts` against the same `DbDriver` interface, using `better-sqlite3`.
-- [ ] **Resolve the dual-ABI question before writing the driver** (Decision 6). `better-sqlite3`
+*Landed (2026-09-06, PR #TBD). Decision 6 resolved to (a), not the doc's own (c) recommendation —
+verified rather than assumed: `node:sqlite` needs Node ≥22.5, and while this repo's own pin is
+22.12.0, **Electron 33.4.11 bundles Node 20.18.3**, confirmed by running the packaged Electron
+binary directly with `ELECTRON_RUN_AS_NODE=1` (`process.versions.node` → `20.18.3`,
+`require('node:sqlite')` → `No such built-in module`). `node:sqlite` is not "too thin" for this
+repo's Electron pin, it does not exist there at all — so (a), `better-sqlite3` with the dual-ABI
+rebuild `rebuild-native.mjs` already had the shape for, is what shipped. Every checklist item
+below is otherwise as planned.*
+
+- [x] Add `src/drivers/sqlite.ts` against the same `DbDriver` interface, using `better-sqlite3`.
+- [x] **Resolve the dual-ABI question before writing the driver** (Decision 6). `better-sqlite3`
       must load under **both** Node 22.12.0 (ABI 127, bare vitest) and Electron 33.4.11 (ABI 130,
       the shipped app). `node-pty` avoids this by being main-process-only, and
-      [`rebuild-native.mjs:5-8`](../../../packages/desktop/scripts/rebuild-native.mjs) says so
-      explicitly. The chosen answer is the **`electron: false` marker + a per-consumer rebuild**, and
-      whichever way it is settled it is written down before code.
-- [ ] Declare `better-sqlite3` in **`packages/desktop/package.json`'s `dependencies`**, not
+      [`rebuild-native.mjs:5-8`](../../../packages/desktop/scripts/rebuild-native.mjs) said so
+      explicitly (docblock rewritten). Resolved to **(a)**, verified against the real binary, not
+      Decision 6's own (c) recommendation — see the batch note above.
+- [x] Declare `better-sqlite3` in **`packages/desktop/package.json`'s `dependencies`**, not
       `devDependencies` — the opposite of the three `@midnite/*` workspace packages, which sit in
       `devDependencies` deliberately (`packages/desktop/moon.yml:15-21`: electron-builder walks
-      `dependencies` through pnpm's workspace symlinks and dies).
-- [ ] Add `'better-sqlite3'` to the `external` array in
+      `dependencies` through pnpm's workspace symlinks and dies). **Also** added to
+      `packages/db-engine/package.json`'s own `dependencies` (a real addition beyond this bullet's
+      literal ask) — db-engine's own bare-vitest `sqlite.test.ts` needs it resolvable in its own
+      `node_modules` under pnpm's strict linking, same as `pg`/`mysql2`/`mariadb`/`tedious` already are.
+- [x] Add `'better-sqlite3'` to the `external` array in
       [`packages/desktop/scripts/bundle.mjs:54`](../../../packages/desktop/scripts/bundle.mjs),
       beside `electron`, `node-pty` and `dugite`. **esbuild inlines everything else**, and a `.node`
-      binary cannot be inlined.
-- [ ] Extend `rebuild-native.mjs`'s hardcoded `--only node-pty` (`:37`) to a comma-separated list.
+      binary cannot be inlined. Verified: `grep -c "better-sqlite3" dist/bundle/main.js` → 1, a
+      single `require("better-sqlite3")`, not inlined source.
+- [x] Extend `rebuild-native.mjs`'s hardcoded `--only node-pty` (`:37`) to a comma-separated list.
       The script already reads the Electron version dynamically from `electron/package.json`, so no
-      other edit is needed there.
-- [ ] Add `'**/node_modules/better-sqlite3/**'` to `asarUnpack` in
+      other edit is needed there. **Verified live**: `node scripts/rebuild-native.mjs` ran clean, and
+      the rebuilt `better_sqlite3.node` then correctly refused to load under plain Node ("compiled
+      against NODE_MODULE_VERSION 130... requires 127") — proof the ABI genuinely changed, not a
+      no-op. Restored to Node's own ABI with `pnpm install` afterward so the worktree's own gate
+      (`db-engine:test`) stays green.
+- [x] Add `'**/node_modules/better-sqlite3/**'` to `asarUnpack` in
       [`electron-builder.yml:48-57`](../../../packages/desktop/electron-builder.yml). The existing
       `'**/*.node'` glob covers the binary but not the module's own resolution path.
-- [ ] Load it through an **unpacked-path fallback**, copying the broker's three-step `require` at
+- [x] Load it through an **unpacked-path fallback**, copying the broker's `require` pattern at
       [`broker/index.ts:47-63`](../../../packages/desktop/src/broker/index.ts) (try
-      `app.asar.unpacked/node_modules/...`, then `require.resolve`, then bare) and logging a fatal
-      rather than crashing.
-- [ ] **Add the packaging assertion that does not exist today.**
-      [`verify-dist.mjs`](../../../packages/desktop/scripts/verify-dist.mjs) has **no** native-module
-      check (`grep -n "unpacked\|\.node" ` → 0) — nothing currently verifies node-pty survived
-      packaging either. Assert `better-sqlite3`'s `.node` is present and loadable in the packed app.
-- [ ] Note that [`.npmrc:15-20`](../../../.npmrc)'s `side-effects-cache=false` +
+      `app.asar.unpacked/node_modules/...`, else bare `require`) and throwing a clear message
+      naming `moon run desktop:rebuild-native` rather than surfacing node's own errno-less failure.
+- [x] **Add the packaging assertion that does not exist today.**
+      [`verify-dist.mjs`](../../../packages/desktop/scripts/verify-dist.mjs) had **no** native-module
+      check — nothing verified node-pty survived packaging either. Asserts `better-sqlite3`'s `.node`
+      is present under `app.asar.unpacked` and — because the host `node` running this script is Node's
+      ABI (127), not Electron's (130), and would reject a correctly-packaged binary as a false
+      failure — the load-and-query check runs **inside the packaged Electron binary itself** via
+      `ELECTRON_RUN_AS_NODE=1`, not via the script's own `node`. **Not yet run for real** — it needs
+      `moon run desktop:dist`, a full signed/ad-hoc-signed packaging pass, left for a human (see PR
+      body).
+- [x] Note that [`.npmrc:15-20`](../../../.npmrc)'s `side-effects-cache=false` +
       `package-import-method=clone-or-copy` already exist for exactly this reason and now protect a
-      second module. pnpm is 9.15.0, which still runs install scripts by default, so **no
-      `onlyBuiltDependencies` allowlist is needed** (that is a pnpm 10 concern).
-- [ ] `sqlite.test.ts`: against a real temp-file SQLite database, no mocking — subject to Decision 6.
+      second module — comment updated to name both.
+- [x] `sqlite.test.ts`: against a real temp-file SQLite database (`mkdtempSync`), no mocking —
+      create table, batched `SELECT`, abort-mid-stream, introspection (PK/FK/view), a non-`SELECT`
+      statement's `rowCount`, and the missing-`sqlitePath` rejection.
 
 ### D — `desktop`: IPC + credential vault (M)
 
@@ -404,13 +427,12 @@ out.*
     [`finance-panel.tsx:109-215`](../../../packages/app/src/features/finance/finance-panel.tsx)'s
     `WatchlistEditor` (`<input type="password">` bound to a store).
   - **The form is provider-conditional**: SQLite shows a file path and hides host/port/username/password.
-- [ ] Each connection row exposes an "Open query tab" action and a per-table "Preview data"
+- [x] Each connection row exposes an "Open query tab" action and a per-table "Preview data"
       action (runs `SELECT * FROM <table> LIMIT 200` into a new query tab, pre-filled), with the
       identifier quoted per provider (`"` for Postgres/SQLite, `` ` `` for MySQL/MariaDB, `[]` for
       MSSQL) rather than interpolated raw.
-      **Deferred to Theme G.** Both actions open into a query tab, and `WorkbenchTab`'s `'query'`
-      kind does not exist yet (Theme G, explicitly out of scope this batch) — there is nowhere for
-      either action to open into. Browsing only lands here.
+      **Landed here (2026-09-06), as part of Theme G's batch** — deferred at the time this bullet
+      was written since `WorkbenchTab`'s `'query'` kind didn't exist yet; it does now.
 - [x] Column rows carry primary-key and foreign-key markers, feeding Theme H's editability check.
 - [x] `connection-tree.test.tsx`: lazy-load triggering **only when both fold states agree**, PK/FK
       markers rendering, and a closed section issuing no query.
@@ -419,74 +441,103 @@ out.*
 
 *Re-tagged: the store change is architectural, not mechanical (Decision 7).*
 
-- [ ] Add `'query'` to `WorkbenchTab`
+*Landed (2026-09-06, PR #TBD). Decision 7 resolved to its own recommendation — the store stays
+single and unscoped, with a second `activeQueryTabId` cursor. Decision 9 resolved differently from
+what it anticipated: **by the time this batch executed, Phase 64's Monaco replacement of
+`code-editor.tsx` had already landed** (confirmed by reading the file). Building a NEW CodeMirror
+consumer here would have reintroduced a second editor engine into a codebase that had just
+finished removing it, and held Phase 64 Theme G's `@codemirror/*` cleanup hostage to a dependency
+this file never needed. `query-editor.tsx` is Monaco (`@monaco-editor/react`) instead — it already
+ships `sql` as a built-in basic language (no `@codemirror/lang-sql`-equivalent dependency needed),
+and `packages/app/package.json` gained **no new dependency** for this theme. Phase 64 Theme G can
+now proceed to remove `@codemirror/*` without waiting on anything from this phase.*
+
+- [x] Add `'query'` to `WorkbenchTab`
       ([`workbench-store.ts:20-26`](../../../packages/app/src/store/workbench-store.ts)):
       `{ kind: 'query'; id: string; connectionId: string; label: string; sql: string }`.
   - **It carries no `repoId`, and that breaks two things.** `closeRepoTabs` (`:120`) reads
     `tab.repoId` on every arm, and Phase 28's
     [`use-prune-closed-repos.ts`](../../../packages/app/src/features/repos/use-prune-closed-repos.ts)
-    prunes by repo. Both must learn to skip non-repo-scoped tabs. See Decision 7.
-  - `tabId(tab)` (`:50-61`) is a `switch` with **no `default`** returning `string`; a missing arm
-    makes it `string | undefined` and errors downstream at `:100` rather than cleanly.
-  - `KIND_ICON` ([`tab-strip.tsx:33-38`](../../../packages/app/src/features/workbench/tab-strip.tsx))
-    is a total `Record<WorkbenchTabKind, IconComponent>` — **the one real exhaustiveness gate**.
-  - The content chain ([`workbench.tsx:72-86`](../../../packages/app/src/features/workbench/workbench.tsx))
-    ends in an **unguarded** `: <ReviewView …/>`. It errors only because `active.number` is absent on
-    the query arm. Add an explicit arm; do not rely on that.
-- [ ] **Build the new-tab affordance, because `TabStrip` has none.** No `+` button exists (`:40-53`
-      props are `tabs`/`activeTabId`/`workingTreeLabel`/`onFocus`/`onClose`). Add an optional
+    prunes by repo. Both now skip non-repo-scoped tabs. See Decision 7.
+  - `tabId(tab)` gained a `'query'` case (`` `query:${connectionId}:${label}` ``) — content-derived,
+    like every other kind; the "new tab" call site picks a fresh numbered label so it never collides.
+  - `KIND_ICON` ([`tab-strip.tsx`](../../../packages/app/src/features/workbench/tab-strip.tsx))
+    gained a `query: LuDatabase` entry — the one real exhaustiveness gate.
+  - `workbench.tsx`'s content chain gained an explicit (unreachable-in-practice, but not
+    accidentally-so) `'query'` arm rather than relying on the previous unguarded fallthrough.
+- [x] **Built the new-tab affordance, because `TabStrip` had none.** Added an optional
       `onNew?: () => void` prop rendering a `LuPlus` button when supplied, so the Changes strip is
-      unchanged and the Database strip gains one.
-- [ ] Dirty marking: the query tab's unsaved dot uses the strip's existing **`stats?: ReactNode`
-      slot** (`:125`, rendered at `:159`) with a `●` span copied from
-      [`file-preview.tsx:147-151`](../../../packages/app/src/features/files/preview/file-preview.tsx).
-      There is no dirty-dot convention in `tab-strip.tsx` to match — `grep "dirty\|unsaved\|●"` → 0.
-- [ ] Add `features/database/query-editor.tsx` with `@codemirror/lang-sql`.
-      **Coordinate with [Phase 64](phase-64-offline-monaco-and-themes.md)** — it replaces
-      `code-editor.tsx` with Monaco and its Theme G removes the seven `@codemirror/*` packages,
-      gated on this phase. See Decision 9.
-- [ ] **A chord for "run query" is not `Mod+Enter`** — that is `status.commit`
-      ([`keybindings.ts:214`](../../../packages/shared/src/keybindings.ts)). Handle Enter-with-modifier
-      **locally on the focused editor element**, registering no `COMMANDS` entry at all. See Decision 4.
-- [ ] `workbench-store.test.ts` additions: `'query'` kind lifecycle, `closeRepoTabs` leaving query
-      tabs alone, and — if Decision 7 goes the scoped way — per-view isolation.
+      unchanged and the Database strip gains one. `workingTreeLabel` is now also optional — `undefined`
+      skips the permanent first tab entirely, which is what let the same `<TabStrip>` serve the
+      Database view (no "Working tree" analogue) without a second component.
+- [x] Dirty marking: the query tab's unsaved dot uses the strip's existing `stats?: ReactNode` slot
+      with a `●` span, matching `file-preview.tsx`'s. Backed by `workbench-store.ts`'s new
+      `dirtyQueryTabIds` set + `updateQueryTabSql`/`markQueryTabClean` actions — "the SQL changed
+      since these results last ran," not a persistence-dirty concept (nothing is saved this phase).
+- [x] Add `features/database/query-editor.tsx` — **Monaco, not CodeMirror** (see the batch note
+      above; this is where Decision 9 landed once Phase 64's own Monaco migration was checked
+      against the tree rather than assumed still pending).
+- [x] **A chord for "run query" is not `Mod+Enter`** — that is `status.commit`
+      ([`keybindings.ts:214`](../../../packages/shared/src/keybindings.ts)). Handled locally via
+      Monaco's `editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, …)`, registering no
+      `COMMANDS` entry at all. See Decision 4.
+- [x] `workbench-store.test.ts` additions: `'query'` kind lifecycle, `closeRepoTabs` leaving query
+      tabs alone, and — Decision 7 having gone the unscoped route — the two cursors' independence
+      (opening/closing a query tab never touches `activeTabId` and vice versa).
+- Also landed, beyond the doc's own list: `connection-tree.tsx`'s deferred "Open query tab" /
+  "Preview data" row actions (Theme F's own deferral, now unblocked), `quote-identifier.ts`
+  (per-provider identifier quoting), and `database-view.tsx`'s right pane wired to the query
+  workspace unconditionally (not gated on the sidebar's selected connection).
 
 ### H — Results grid + inline editing (L)
 
-- [ ] Add `features/database/results-grid.tsx`, virtualized with `@tanstack/react-virtual`.
+*Landed (2026-09-06, PR #TBD). One narrowing from Decision 2, disclosed rather than silently
+dropped: the staleness re-`SELECT` and the edit's own `UPDATE` are two sequential calls through the
+connection's pooled driver, **not wrapped in an explicit `BEGIN`/`COMMIT`** — closing that fully
+needs either a multi-statement single call per provider or session-aware sequential calls with a
+lock against another concurrent query on the same pooled connection, both a real follow-up rather
+than this batch's own scope creep. The staleness check itself is real and functionally correct
+against the common case (no concurrent external writer racing the two calls).*
+
+- [x] Add `features/database/results-grid.tsx`, virtualized with `@tanstack/react-virtual`.
   - Copy the **recipe documented at
     [`projects-view.tsx:366-372`](../../../packages/app/src/features/projects/projects-view.tsx)**,
     not any component: fixed `estimateSize: () => ROW_HEIGHT`, `overscan: 24` (the house constant at
     all 7 call sites), a sticky flex header, and `absolute` rows positioned by `transform: translateY(…)`.
   - **There is no generic table component to reuse.** `ProjectItemsTable` is module-local, unexported,
     with hardcoded flex spans and Projects domain types in its props.
-  - **Column virtualization is net-new**: `grep -rn "horizontal: true\|columnVirtualizer"` → **0**;
-    all 7 existing virtualizers are vertical-only. Decision 10 settles how far to go.
-- [ ] Rows arrive by subscription, not by return value. Subscribe **once** in an effect with `[]`
-      deps and key the start/cancel effect on the query separately — the split at
-      [`use-graph-stream.ts:29-50` vs `:52-79`](../../../packages/app/src/features/graph/use-graph-stream.ts),
-      whose comment (`:11-16`) records that re-subscribing per query loses batches in flight.
-      `requestId` is a monotonic `${connectionId}#${seq}` and the store **discards batches whose id
-      it no longer wants** — that is the entire staleness story.
-- [ ] Render `truncated` from `dbQueryDone` as a visible "showing first N rows" bar. A silently
-      capped result set is the worst failure mode a SQL client has.
-- [ ] Inline cell editing: double-click commits to a local pending-edits map keyed by row + column,
-      marked with the same `●` span as Theme G.
-- [ ] "Submit edits" generates one `UPDATE <table> SET <col>=<val> WHERE <pk>=<original pk value>`
-      per edited row using Theme F's PK metadata, **parameterised, never string-interpolated**, and
-      refuses to enable editing at all when the result set's source table has no detected primary key
-      — which includes every join, aggregate and expression column.
-- [ ] Staleness re-check before applying (Decision 2): re-`SELECT` the row by PK immediately
-      before the `UPDATE`; a mismatch surfaces a conflict banner rather than overwriting. Wrap
-      re-read and update in one transaction where the provider supports it, so the check is not
-      itself racy.
-- [ ] Export visible results as CSV via a `Blob` + synthetic `<a download>` in the renderer, copying
-      [`workflow-list.tsx:67-75`](../../../packages/app/src/features/workflows/workflow-list.tsx).
-      **Add no IPC channel** — [`workflow-io.ts:8-16`](../../../packages/app/src/features/workflows/workflow-io.ts)
-      already settled this: *"the only file dialog this app exposes today opens a folder, not a
-      save-as file picker."*
-- [ ] `results-grid.test.tsx`: windowing, batch append and stale-batch discard, pending-edit tracking,
-      generated `UPDATE` shape, the staleness-conflict path, and editing disabled with no PK.
+  - **Column virtualization is net-new** — not built. Decision 10's cap (60, "N columns hidden" beyond
+    it) shipped instead, exactly as recommended.
+- [x] Rows arrive by subscription, not by return value. `use-query-stream.ts` subscribes **once**,
+      mirroring the `use-graph-stream.ts` split — but keyed by **tab**, not connection:
+      `requestId` is `${tabId}#${seq}` rather than `${connectionId}#${seq}`, a deliberate deviation
+      since several query tabs can share one connection and must stream independently (Verification's
+      "two query tabs on one connection run independently"). `query-results-store.ts` (one entry per
+      tab id) **discards batches whose `requestId` it no longer wants** — the staleness story, same
+      shape as the doc's, differently keyed. Fixed a real bug found while writing this: `begin()` was
+      spreading a shared constant's `rows` array by reference into every new run, so one tab's rows
+      leaked into every other run ever spread from it — every `begin()` now gets its own array.
+- [x] Render `truncated` from `dbQueryDone` as a visible "showing first N rows" bar.
+- [x] Inline cell editing: double-click commits to a local pending-edits map keyed by row + column,
+      marked with the same `●` span as Theme G. Never on a primary-key column.
+- [x] "Submit edits" generates one `UPDATE <table> SET <col>=<val> WHERE <pk>=<original pk value>`
+      per edited row using `detect-editable-table.ts`'s PK metadata (a SQL-shape sniff against the
+      schema tree — recognises a plain, provably single-table `SELECT * FROM <table>`, since this app
+      has no real SQL parser to prove a join/aggregate/expression apart from one otherwise),
+      **parameterised, never string-interpolated** — `params: unknown[]` added to the wire contract
+      and threaded through all five drivers' own native bind APIs (this repo's first parameterised
+      statement of any kind), refuses to enable editing at all when no primary key is detected.
+- [x] Staleness re-check before applying (Decision 2) — re-`SELECT`s the edited columns by PK via
+      `run-statement.ts` (a new one-off "run this, tell me what happened" helper reusing the existing
+      `dbQueryStart`/`dbQueryBatch`/`dbQueryDone` channel, no new IPC surface); a mismatch marks the
+      row conflicted (kept, not silently overwritten or discarded) rather than applying the `UPDATE`.
+      **Not wrapped in one transaction** — see the batch note above.
+- [x] Export visible results as CSV via a `Blob` + synthetic `<a download>` in the renderer, copying
+      `workflow-list.tsx`'s pattern. No IPC channel added.
+- [x] `results-grid.test.tsx`: empty/error/truncated states, streamed rows, editing-off for a
+      non-editable query, double-click → pending edit → parameterised `UPDATE` after a matching
+      staleness check, PK columns never editable, and a conflicted row's edit staying pending rather
+      than being applied or dropped.
 
 ### I — Destructive-statement safety gate (S)
 
