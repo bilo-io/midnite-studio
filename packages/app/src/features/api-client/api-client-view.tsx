@@ -3,9 +3,8 @@ import { useResizable } from '../../components/resizable/use-resizable';
 import { useApiClientStore } from '../../store/api-client-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { CollectionTree } from './collection-tree';
-import { RequestBar } from './request-bar';
+import { RequestBuilder } from './request-builder';
 import { RequestTabStrip } from './request-tab-strip';
-import { ResponseViewer } from './response-viewer';
 
 /**
  * The API Client view's shell (Phase 66 Themes B, C, F).
@@ -16,11 +15,9 @@ import { ResponseViewer } from './response-viewer';
  * repo, so `selectedRepoId` is guaranteed non-null here exactly the way
  * `FilesView` relies on the same guard for its own tree.
  *
- * The right side is deliberately small (Decision 2): a minimal method/URL
- * bar (`RequestBar`) stands in for Theme D's full params/headers/auth/body
- * builder, which is not being built this phase and will replace this
- * wholesale. What's here is enough to open a request, send it, and read the
- * answer.
+ * The right side is `RequestBuilder` (Phase 66 Theme D) — the full
+ * params/headers/auth/body builder that replaced Theme C's minimal
+ * method/URL stopgap wholesale (Decision 2).
  *
  * No `<PageDetachMark>` in the header, unlike Actions/Database/Search/Tests —
  * see Theme B's original note: that control needs `apiClient` registered as
@@ -65,8 +62,7 @@ export function ApiClientView() {
         <RequestTabStrip tabs={tabs} activeTabId={activeTabId} />
         {activeTab ? (
           <div className="flex min-h-0 flex-1 flex-col" key={activeTab.id}>
-            <RequestBar tabId={activeTab.id} />
-            <ResponseViewer tabId={activeTab.id} />
+            <RequestBuilder tabId={activeTab.id} />
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 items-center justify-center p-8">

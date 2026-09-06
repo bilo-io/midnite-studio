@@ -729,6 +729,14 @@ export const CHANNELS = {
   apiExportCollection: 'mstudio:api-client:export-collection',
   apiSendRequest: 'mstudio:api-client:send-request',
   apiCancelRequest: 'mstudio:api-client:cancel-request',
+  /**
+   * Opens the native file picker in main for the Body tab's `binary` mode
+   * and a `form-data` file-type row (Phase 66 Theme D) — same reasoning as
+   * `apiImportCollection`: the renderer never sees a path it did not pick
+   * through this dialog. Takes no payload; the picked path (or `null` on
+   * cancel) is the whole response.
+   */
+  apiPickBinaryFile: 'mstudio:api-client:pick-binary-file',
 
   // --- MCP server (Phase 57 Themes E, F) --------------------------------------
   // The server itself is a Unix socket (`main/mcp/server.ts`), not `ipcMain` —

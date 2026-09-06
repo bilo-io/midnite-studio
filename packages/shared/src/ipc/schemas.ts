@@ -2342,6 +2342,13 @@ export const ApiSendRequestRequest = z.object({
 });
 export const ApiSendRequestResponse = ApiOpResultOf(ApiResponseSchema);
 
+/**
+ * No payload — `apiPickBinaryFile` opens the native file picker in main with
+ * no repo-scoped filter, the same as `apiImportCollection`'s dialog. A
+ * `value` of `null` on success is a cancelled dialog, not a failure.
+ */
+export const ApiPickBinaryFileResponse = ApiOpResultOf(z.string().nullable());
+
 export const ApiCancelRequestRequest = z.object({ requestId: z.string().min(1) });
 /** A cancel on an unknown id is a no-op `{ok:true}`, not an error. */
 export const ApiCancelRequestResponse = ApiOpResultSchema;

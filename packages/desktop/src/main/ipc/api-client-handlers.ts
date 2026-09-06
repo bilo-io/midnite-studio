@@ -21,7 +21,7 @@ import {
 import { cancelRequest, sendApiRequest } from '../api-client/send';
 import { describeFsError } from '../fs-scope-write';
 import { resolveWorkdir } from '../repo-registry';
-import { handle } from './handle';
+import { handle, handleBare } from './handle';
 
 /**
  * The API Client's IPC surface (Phase 66 Themes E and G).
@@ -171,6 +171,27 @@ export function registerApiClientHandlers(getWindow: () => BrowserWindow | null)
     },
     (issue) => apiFailure(issue),
   );
+
+  /**
+   * The Body tab's `binary` mode and a `form-data` file row share this one
+   * picker (Theme D) — no repo scoping, unlike `apiImportCollection`: the
+   * picked path is confined against the open repository only where it is
+   * actually read off disk, at send time (`confineTree` in `send.ts`), so a
+   * picker that ran that same check here would just duplicate it against a
+   * path nothing has read yet.
+   */
+  handleBare(CHANNELS.apiPickBinaryFile, async (): Promise<ApiOpResult<string | null>> => {
+    try {
+      const win = getWindow();
+      const options = { title: 'Choose File', properties: ['openFile' as const] };
+      const picked = win
+        ? await dialog.showOpenDialog(win, options)
+        : await dialog.showOpenDialog(options);
+      return apiOk<string | null>(picked.canceled ? null : (picked.filePaths[0] ?? null));
+    } catch (err) {
+      return apiFailure(messageOf(err));
+    }
+  });
 }
 
 /** The Export… context-menu action's save dialog. Private: `apiExportCollection`
