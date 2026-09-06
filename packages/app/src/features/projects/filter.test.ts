@@ -1,4 +1,5 @@
 import type { ForgeProjectItem } from '@midnite/studio-shared';
+import { EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -31,6 +32,7 @@ const issue = (
     assignees: [],
     body: '',
     labels: [],
+    dependencies: EMPTY_ISSUE_LINK_SET,
     ...overrides,
   },
   fieldValues: {},

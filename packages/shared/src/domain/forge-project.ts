@@ -140,6 +140,20 @@ export const ForgeIssueLinkSetSchema = z.object({
 export type ForgeIssueLinkSet = z.infer<typeof ForgeIssueLinkSetSchema>;
 
 /**
+ * An issue with no dependency links at all — the shape `.default({})` parses to.
+ * Exported because the field is required on the *output* type, so every fixture
+ * and every hand-built `issue` content literal needs one; spelling it out five
+ * times is how the five drift apart.
+ */
+export const EMPTY_ISSUE_LINK_SET: ForgeIssueLinkSet = Object.freeze({
+  blockedBy: [],
+  parent: null,
+  subIssues: [],
+  blockedByTruncated: false,
+  subIssuesTruncated: false,
+});
+
+/**
  * What a project item actually is, discriminated on `type`.
  *
  * A union rather than one shape with optional `number`/`url` fields, and this
