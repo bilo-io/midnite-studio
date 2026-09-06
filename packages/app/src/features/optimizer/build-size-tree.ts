@@ -11,6 +11,14 @@
  * Pure and tested on its own for the reason that file gives: a collapsing rule
  * and a roll-up sum both look plausible when they are off by one directory,
  * and no screenshot would catch it.
+ *
+ * The roll-up assumes **no item's path is an ancestor of another's** — an
+ * ancestor would become a leaf beside a directory of the same path and its
+ * bytes, which already include the descendant's, would be summed into the
+ * parent twice. That assumption is the scanner's own invariant, not a hope:
+ * `scan-service.ts` sizes a directory that matches a detector and does not
+ * descend into it (its Decision 2). A future producer that broke it would
+ * have to de-duplicate before calling this.
  */
 
 /** The minimum a row must carry to be placed and summed. */
@@ -39,13 +47,21 @@ export type SizeTreeNode<T extends SizedItem = SizedItem> = SizeFileNode<T> | Si
 /**
  * How siblings are ordered.
  *
- * `size` interleaves directories and files — the question it answers is "what
- * is taking up the space", and hoisting every directory above a file twice
- * its size would answer a different one. `name` is the explorer ordering:
- * directories first, then files, both alphabetical, which is the only
- * ordering nobody has to learn.
+ * `size-desc`/`size-asc` interleave directories and files — the question they
+ * answer is "what is taking up the space", and hoisting every directory above
+ * a file twice its size would answer a different one. `name` is the explorer
+ * ordering: directories first, then files, both alphabetical, which is the
+ * only ordering nobody has to learn.
+ *
+ * Ascending is a member here rather than a reverse applied by the caller: the
+ * order is per level, and reversing a flattened tree would put a directory's
+ * children before the directory.
+ *
+ * The member names match `StorageSort`'s (`storage-filter.ts`) deliberately,
+ * so the Storage tab's three-way control reaches the tree without a mapping
+ * step — the mapping is where "Smallest first" got silently dropped.
  */
-export type SizeSort = 'size' | 'name';
+export type SizeSort = 'size-desc' | 'size-asc' | 'name';
 
 type Building<T extends SizedItem> = {
   segment: string;
@@ -60,7 +76,7 @@ const compare = (a: string, b: string): number =>
 
 export function buildSizeTree<T extends SizedItem>(
   items: readonly T[],
-  sort: SizeSort = 'size',
+  sort: SizeSort = 'size-desc',
 ): SizeTreeNode<T>[] {
   const root: Building<T> = { segment: '', path: '', dirs: new Map(), files: [] };
 
@@ -123,23 +139,16 @@ function finish<T extends SizedItem>(node: Building<T>, sort: SizeSort): SizeDir
   }
 
   const children =
-    sort === 'size'
-      ? [...dirs, ...files].sort((a, b) => b.bytes - a.bytes || compare(a.name, b.name))
-      : [
+    sort === 'name'
+      ? [
           ...dirs.sort((a, b) => compare(a.name, b.name)),
           ...files.sort((a, b) => compare(a.name, b.name)),
-        ];
+        ]
+      : [...dirs, ...files].sort((a, b) =>
+          sort === 'size-asc'
+            ? a.bytes - b.bytes || compare(a.name, b.name)
+            : b.bytes - a.bytes || compare(a.name, b.name),
+        );
 
   return { kind: 'dir', name: node.segment, path: node.path, bytes, itemCount, children };
-}
-
-/** Every item path in a subtree — what a directory-scoped bulk action cleans. */
-export function collectSizePaths<T extends SizedItem>(node: SizeDirNode<T>): string[] {
-  const paths: string[] = [];
-  const walk = (child: SizeTreeNode<T>) => {
-    if (child.kind === 'file') paths.push(child.path);
-    else child.children.forEach(walk);
-  };
-  node.children.forEach(walk);
-  return paths;
 }

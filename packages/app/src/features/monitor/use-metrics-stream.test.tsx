@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
+import { METRICS_ACTIVE_INTERVAL_MS, METRICS_IDLE_INTERVAL_MS } from '@midnite/studio-shared';
+
 import { useMetricsStore } from '../../store/metrics-store';
 import { useMetricsStream } from './use-metrics-stream';
 
@@ -37,8 +39,14 @@ function installBridge() {
   return { handlers, start, stop };
 }
 
-function Consumer({ detailed = false }: { detailed?: boolean }) {
-  useMetricsStream({ detailed });
+function Consumer({
+  detailed = false,
+  idleIntervalMs,
+}: {
+  detailed?: boolean;
+  idleIntervalMs?: number;
+}) {
+  useMetricsStream({ detailed, ...(idleIntervalMs === undefined ? {} : { idleIntervalMs }) });
   return null;
 }
 
@@ -102,3 +110,83 @@ describe('useMetricsStream — shared sample subscription (Theme G)', () => {
     expect(handlers).toHaveLength(0);
   });
 });
+
+/**
+ * The sampler's *lifetime*, ref-counted the same way the subscription above
+ * is — the Optimizer's System charts (adhoc: optimizer polish) call this hook
+ * and unmount on every tab switch, where the footer's two callers live for the
+ * app's lifetime and never exposed this.
+ *
+ * `metrics.stop()` is not recoverable from the renderer: it sets `wanted =
+ * false` in main and `resume()` re-arms only `if (wanted)`, while a still-
+ * mounted footer's effect deps never change and so never re-`start()`. So the
+ * assertion that matters is the negative one — one caller leaving must not
+ * stop anything.
+ */
+describe('useMetricsStream — ref-counted sampler lifetime', () => {
+  // Its own copy of the suite above's teardown: `cadenceRequests` is module
+  // state, so a consumer left mounted by one case is a live request in the
+  // next one.
+  afterEach(() => {
+    cleanup();
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+    useMetricsStore.getState().reset();
+  });
+
+  it('one of two callers unmounting does NOT stop the sampler', () => {
+    const { stop } = installBridge();
+    const first = render(<Consumer />);
+    render(<Consumer />);
+
+    first.unmount();
+
+    expect(stop).not.toHaveBeenCalled();
+  });
+
+  it('the last caller unmounting stops it', () => {
+    const { stop } = installBridge();
+    const { unmount } = render(<Consumer />);
+
+    unmount();
+
+    expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('the tightest requested cadence wins, so a second caller cannot slow the flyout down', () => {
+    const { start } = installBridge();
+    render(<Consumer detailed />);
+    start.mockClear();
+
+    // The Optimizer's charts, asking for the idle cadence while the flyout is
+    // open and asking for the active one.
+    render(<Consumer />);
+
+    expect(start).toHaveBeenLastCalledWith(
+      expect.objectContaining({ intervalMs: METRICS_ACTIVE_INTERVAL_MS, freshDisk: true }),
+    );
+  });
+
+  it("a caller's own idleIntervalMs is honoured rather than replaced by the default", () => {
+    const { start } = installBridge();
+    render(<Consumer idleIntervalMs={12_000} />);
+
+    expect(start).toHaveBeenLastCalledWith(expect.objectContaining({ intervalMs: 12_000 }));
+    expect(METRICS_IDLE_INTERVAL_MS).not.toBe(12_000);
+  });
+
+  it('a disabled caller withdraws its request without stopping a live one', () => {
+    const { start, stop } = installBridge();
+    render(<Consumer detailed />);
+    start.mockClear();
+
+    const { unmount } = render(<DisabledConsumer />);
+    unmount();
+
+    expect(stop).not.toHaveBeenCalled();
+  });
+});
+
+function DisabledConsumer() {
+  useMetricsStream({ enabled: false });
+  return null;
+}

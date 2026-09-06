@@ -258,10 +258,10 @@ function ScannedStorage({ result }: { result: ScanResult }) {
     [result, filter, sort],
   );
 
-  const tree = useMemo(
-    () => buildSizeTree(visible, sort === 'name' ? 'name' : 'size'),
-    [visible, sort],
-  );
+  // The three-way sort reaches the tree intact — `StorageSort` and `SizeSort`
+  // share their member names for exactly this, so "Smallest first" is not
+  // silently a no-op in the view that opens by default.
+  const tree = useMemo(() => buildSizeTree(visible, sort), [visible, sort]);
 
   const ecosystemSegments = ECOSYSTEM_ORDER.filter(
     (ecosystem) => (result.byEcosystem[ecosystem] ?? 0) > 0,
@@ -291,8 +291,13 @@ function ScannedStorage({ result }: { result: ScanResult }) {
         name={(id) => ECOSYSTEM_LABELS[id]}
       />
 
+      {/*
+        Only the facets this scan found, matching the bar above rather than the
+        enum: a pill for an ecosystem with nothing in it is a control whose
+        only outcome is "Nothing matches that filter."
+      */}
       <div className="flex flex-wrap gap-1.5">
-        {ECOSYSTEM_ORDER.map((ecosystem) => (
+        {ECOSYSTEM_ORDER.filter((ecosystem) => (result.byEcosystem[ecosystem] ?? 0) > 0).map((ecosystem) => (
           <FilterPill
             key={ecosystem}
             color={ecosystemColor(ecosystem)}
@@ -320,7 +325,7 @@ function ScannedStorage({ result }: { result: ScanResult }) {
       />
 
       <div className="flex flex-wrap gap-1.5">
-        {CATEGORY_ORDER.map((category) => (
+        {CATEGORY_ORDER.filter((category) => (result.byCategory[category] ?? 0) > 0).map((category) => (
           <FilterPill
             key={category}
             color={categoryColor(category)}
@@ -347,12 +352,13 @@ function ScannedStorage({ result }: { result: ScanResult }) {
           className="w-60"
         />
 
+        {/* The wrapping label is the accessible name — an `aria-label` here
+            would replace the visible word with a different one. */}
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
           Sort
           <select
             value={sort}
             onChange={(event) => setSort(event.target.value as StorageSort)}
-            aria-label="Sort storage items"
             className="rounded border border-border bg-background px-1.5 py-1 text-xs text-foreground"
           >
             {(Object.keys(SORT_LABELS) as StorageSort[]).map((option) => (
@@ -414,6 +420,10 @@ function ScannedStorage({ result }: { result: ScanResult }) {
           // depth under a worktree, so only the owning repo (not the exact
           // worktree) is a reliable target to select.
           onLeafClick={(item) => item.repoId && selectRepo(item.repoId)}
+          // An item under the user-chosen extra root has no `repoId` and so
+          // nothing to deep-link to — the list view below renders those rows
+          // disabled, and the tree has to agree.
+          leafClickable={(item) => Boolean(item.repoId)}
         />
       ) : (
         <ul className="space-y-1">

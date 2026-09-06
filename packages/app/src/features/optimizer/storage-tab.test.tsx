@@ -566,6 +566,51 @@ describe('StorageTab — the scanned-storage tree, pills and sort', () => {
     expect(screen.getByText('Nothing matches that filter.')).toBeTruthy();
   });
 
+  it('the sort reaches the tree too, not only the list', () => {
+    renderScanned();
+
+    // Largest first: node_modules (500) above dist (150) under `/repos/app`.
+    const treePaths = () =>
+      screen.getAllByText(/^\/repos\//).map((node) => node.textContent);
+    expect(treePaths()[0]).toBe('/repos/app/node_modules');
+
+    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'size-asc' } });
+    // Smallest first has to reorder the tree — it used to be dropped on the
+    // way in, leaving the default view silently unsorted.
+    expect(treePaths()[0]).toBe('/repos/api/.pytest_cache');
+  });
+
+  it('a leaf with no repo to open renders disabled, exactly as the list row does', () => {
+    resetStores();
+    installBridge();
+    useOptimizerStore.setState({
+      scan: {
+        state: 'done',
+        progress: 100,
+        result: {
+          ...SCAN_RESULT,
+          items: [{ ...SCAN_RESULT.items[0]!, repoId: null }],
+        },
+        message: null,
+      },
+    });
+    render(<StorageTab />, { wrapper: createWrapper() });
+
+    const leaf = screen
+      .getByText('/repos/app/node_modules')
+      .closest('button') as HTMLButtonElement;
+    expect(leaf.disabled).toBe(true);
+  });
+
+  it('shows a pill only for a facet the scan actually found', () => {
+    renderScanned();
+
+    // Node and Python are in the fixture; Rust is not, and a pill for it
+    // could only ever produce "Nothing matches that filter."
+    expect(screen.getByRole('button', { name: /^Node/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Rust/ })).toBeNull();
+  });
+
   it('the list view sorts by size, and the sort control flips it', () => {
     renderScanned();
 
@@ -581,9 +626,7 @@ describe('StorageTab — the scanned-storage tree, pills and sort', () => {
       '/repos/api/.pytest_cache',
     ]);
 
-    fireEvent.change(screen.getByLabelText('Sort storage items'), {
-      target: { value: 'size-asc' },
-    });
+    fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'size-asc' } });
     expect(paths()).toEqual([
       '/repos/api/.pytest_cache',
       '/repos/app/dist',

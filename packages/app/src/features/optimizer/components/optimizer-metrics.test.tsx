@@ -59,6 +59,18 @@ describe('OptimizerMetrics', () => {
     expect(screen.getByText('Not readable on this machine: GPU')).toBeTruthy();
   });
 
+  it('stops waiting once a sample proves the metric is simply unreadable', () => {
+    installBridge();
+    // A sample with no GPU field at all — a machine whose GPU counter cannot
+    // be read. The GPU tab asks for exactly this one metric, so "waiting"
+    // would never resolve.
+    useMetricsStore.getState().push({ at: 1_000, cpu: 40 });
+    render(<OptimizerMetrics metrics={['gpu']} />);
+
+    expect(screen.queryByText('Waiting for the first sample…')).toBeNull();
+    expect(screen.getByText('Not readable on this machine: GPU')).toBeTruthy();
+  });
+
   it('draws disk as a capacity meter, never as a fourth chart', () => {
     installBridge();
     useMetricsStore.getState().push({ at: 1_000, cpu: 40, disk: 72 });

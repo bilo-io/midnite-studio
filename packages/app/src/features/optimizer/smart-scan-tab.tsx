@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import type { Ecosystem, ScanCategory } from '@midnite/studio-shared';
+import type { Ecosystem, ScanCategory, ScanItem } from '@midnite/studio-shared';
 import { LuCheck, LuChevronDown, LuChevronRight, LuFolderPlus, LuSparkles, LuX } from 'react-icons/lu';
 import { PiBroom } from 'react-icons/pi';
 
 import { useDialogs } from '../../components/dialog-host';
+import { EXPAND_ALL_LIMIT } from '../changes/expansion';
 import { bridge } from '../../services/bridge';
 import { formatBytes } from '../monitor/format-bytes';
 import { TIMELINE_METRICS } from '../monitor/metric-geometry';
-import { buildSizeTree } from './build-size-tree';
+import { buildSizeTree, type SizeTreeNode } from './build-size-tree';
 import { CircularGauge } from './components/circular-gauge';
 import { OptimizerMetrics } from './components/optimizer-metrics';
 import { EXPAND_ALL, SizeTree } from './components/size-tree';
@@ -210,24 +211,60 @@ export function SmartScanTab() {
     });
   };
 
-  const groups = result
-    ? ECOSYSTEM_ORDER.filter((ecosystem) => (result.byEcosystem[ecosystem] ?? 0) > 0)
-    : [];
+  /**
+   * The grouped items and their tries, built once per scan.
+   *
+   * Inline in JSX this was `items.filter(...)` twice plus a `buildSizeTree`
+   * per (ecosystem, category) pair on *every* render — an accordion toggle
+   * rebuilt every other group's trie too, and a scan is capped at 2,000
+   * items (`SCAN_ITEMS_CAP`), not a handful.
+   */
+  const grouped = useMemo(() => {
+    if (!result) return [];
+    return ECOSYSTEM_ORDER.filter((ecosystem) => (result.byEcosystem[ecosystem] ?? 0) > 0).map(
+      (ecosystem) => {
+        const items = result.items.filter((item) => item.ecosystem === ecosystem);
+        const categories = CATEGORY_ORDER.flatMap((category) => {
+          const categoryItems = items.filter((item) => item.category === category);
+          if (categoryItems.length === 0) return [];
+          return [
+            {
+              category,
+              items: categoryItems,
+              bytes: categoryItems.reduce((sum, item) => sum + item.bytes, 0),
+              tree: buildSizeTree(categoryItems) as SizeTreeNode<ScanItem>[],
+            },
+          ];
+        });
+        return {
+          ecosystem,
+          bytes: result.byEcosystem[ecosystem] ?? 0,
+          items,
+          cheapCount: items.filter((item) => item.reclaim === 'cheap').length,
+          categories,
+        };
+      },
+    );
+  }, [result]);
   // The biggest group opens by itself: a page of collapsed headers makes the
   // user click before the scan has told them anything.
-  const defaultOpen = groups[0];
+  const defaultOpen = grouped[0]?.ecosystem;
   const isOpen = (ecosystem: Ecosystem) => openGroups[ecosystem] ?? ecosystem === defaultOpen;
 
   return (
     <div className="flex flex-col items-center gap-6">
       {/*
-        The system monitor strip, at the top of the tab that spends the most
-        time waiting: a scan walks every registered repo, and what the CPU and
-        disk were doing during it is the context for how long it took.
+        The system monitor strip — what the machine was doing while the scan
+        walked every registered repo, which is the context for how long it
+        took. Only once a scan is running or done, though: before that the
+        hero is deliberately the only thing on the tab, and a metrics card
+        above it would be the first thing read on an empty Smart Scan.
       */}
-      <div className="w-full max-w-3xl">
-        <OptimizerMetrics metrics={TIMELINE_METRICS} compact title="While you scan" />
-      </div>
+      {settled ? (
+        <div className="w-full max-w-3xl">
+          <OptimizerMetrics metrics={TIMELINE_METRICS} compact title="While you scan" />
+        </div>
+      ) : null}
 
       <div
         className={`flex flex-col items-center gap-3 transition-all duration-500 ease-out ${
@@ -339,10 +376,7 @@ export function SmartScanTab() {
 
       {result && result.items.length > 0 ? (
         <ul className="w-full max-w-3xl space-y-2">
-          {groups.map((ecosystem) => {
-            const ecoBytes = result.byEcosystem[ecosystem] ?? 0;
-            const groupItems = result.items.filter((item) => item.ecosystem === ecosystem);
-            const cheapCount = groupItems.filter((item) => item.reclaim === 'cheap').length;
+          {grouped.map(({ ecosystem, bytes: ecoBytes, items: groupItems, cheapCount, categories }) => {
             const open = isOpen(ecosystem);
 
             return (
@@ -387,10 +421,7 @@ export function SmartScanTab() {
 
                 {open ? (
                   <div className="space-y-2 border-t border-border/60 px-3 py-2">
-                    {CATEGORY_ORDER.map((category) => {
-                      const categoryItems = groupItems.filter((item) => item.category === category);
-                      if (categoryItems.length === 0) return null;
-                      const bytes = categoryItems.reduce((sum, item) => sum + item.bytes, 0);
+                    {categories.map(({ category, items: categoryItems, bytes, tree }) => {
                       const count = categoryItems.length;
 
                       return (
@@ -426,8 +457,14 @@ export function SmartScanTab() {
                           */}
                           <div className="ml-4 border-l border-border/60 pl-2">
                             <SizeTree
-                              nodes={buildSizeTree(categoryItems)}
-                              defaultExpandedDepth={EXPAND_ALL}
+                              nodes={tree}
+                              // `EXPAND_ALL_LIMIT` is the repo's standing
+                              // answer to "how many rows may one click open"
+                              // (features/changes/expansion.ts): a small
+                              // group opens to its leaves, a
+                              // hundreds-of-items group opens one level and
+                              // is drilled by hand.
+                              defaultExpandedDepth={count <= EXPAND_ALL_LIMIT ? EXPAND_ALL : 1}
                               leafDot={(item) => categoryColor(item.category)}
                               leafLabel={(item) =>
                                 result.detectors[item.detectorId]?.label ?? item.detectorId

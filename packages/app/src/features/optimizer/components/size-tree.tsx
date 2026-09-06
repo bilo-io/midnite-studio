@@ -17,13 +17,30 @@ import type { SizeDirNode, SizeTreeNode, SizedItem } from '../build-size-tree';
  *
  * The 12px indent step is the one `tree-indent.ts` and `change-tree.tsx`
  * already use, so every tree in the app nests at the same rate.
+ *
+ * **Why not `components/change-tree.tsx`, which has render slots?** Its rows
+ * are typed on `ChangedFile` and its every row reads an insertions/deletions
+ * pair and a status code; these rows read a byte total and nothing else, and
+ * `build-size-tree.ts`'s own header gives the matching argument for the trie.
+ * Widening that component to a union of two measures would put a
+ * `formatBytes` branch and an optional-status branch into every Changes-panel
+ * row to save this file's forty lines of markup. Two trees, one indent step,
+ * is the cheaper trade — and it is the same call Phase 72 made when the
+ * Storage bar did not become a second `SegmentedBar` feature flag.
  */
 
 const INDENT_STEP = 12;
 
-/** `defaultExpandedDepth` for a tree that starts fully open — the Smart Scan
- *  drill-down, which already sits behind an accordion of its own and whose
- *  leaves are the point of opening it. */
+/**
+ * `defaultExpandedDepth` for a tree that starts fully open — the Smart Scan
+ * drill-down, which already sits behind an accordion of its own and whose
+ * leaves are the point of opening it.
+ *
+ * Callers must gate it on size themselves: `EXPAND_ALL_LIMIT`
+ * (`features/changes/expansion.ts`) is this repo's standing answer to "how
+ * many rows may one click open", and a scan across several repos produces
+ * hundreds of items. See `smart-scan-tab.tsx`'s own use.
+ */
 export const EXPAND_ALL = Number.MAX_SAFE_INTEGER;
 
 export function SizeTree<T extends SizedItem>({
@@ -31,8 +48,8 @@ export function SizeTree<T extends SizedItem>({
   leafDot,
   leafLabel,
   onLeafClick,
+  leafClickable,
   leafAction,
-  dirAction,
   defaultExpandedDepth = 1,
 }: {
   nodes: readonly SizeTreeNode<T>[];
@@ -41,8 +58,11 @@ export function SizeTree<T extends SizedItem>({
   /** What the leaf says above its path. Defaults to the path's own last segment. */
   leafLabel?: (item: T) => ReactNode;
   onLeafClick?: (item: T) => void;
+  /** Whether *this* leaf's click does anything. A handler that no-ops for
+   *  some rows has to render those rows disabled, or the tree offers a
+   *  control the list view beside it correctly refuses to. */
+  leafClickable?: (item: T) => boolean;
   leafAction?: (item: T) => ReactNode;
-  dirAction?: (node: SizeDirNode<T>) => ReactNode;
   /** Directories shallower than this start open. */
   defaultExpandedDepth?: number;
 }) {
@@ -101,7 +121,6 @@ export function SizeTree<T extends SizedItem>({
             <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
               {formatBytes(node.bytes)}
             </span>
-            {dirAction?.(node)}
           </div>
           {isOpen(node, depth) ? <ul>{renderNodes(node.children, depth + 1)}</ul> : null}
         </li>
@@ -114,7 +133,7 @@ export function SizeTree<T extends SizedItem>({
             <button
               type="button"
               onClick={() => onLeafClick?.(node)}
-              disabled={!onLeafClick}
+              disabled={!onLeafClick || (leafClickable ? !leafClickable(node) : false)}
               className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
             >
               <span

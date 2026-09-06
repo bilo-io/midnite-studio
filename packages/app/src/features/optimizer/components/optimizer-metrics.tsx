@@ -7,6 +7,7 @@ import { METRIC_ICONS } from '../../monitor/metric-icons';
 import { METRIC_LABELS, metricColor } from '../../monitor/metric-palette';
 import { useMetricsStream } from '../../monitor/use-metrics-stream';
 import { METRICS_LONG_WINDOW_MS, useMetricsStore } from '../../../store/metrics-store';
+import { useUiStore } from '../../../store/ui-store';
 
 /**
  * The System Monitor charts, inside the Optimizer.
@@ -42,7 +43,12 @@ export function OptimizerMetrics({
   compact?: boolean;
   title?: string;
 }) {
-  useMetricsStream();
+  // The same persisted cadence the footer asks for — not the bare default,
+  // which would quietly override the user's setting for as long as this tab
+  // is open. `detailed` stays false: these charts cover fifteen minutes, so a
+  // 2s tick buys them nothing the footer's flyout does not already pay for.
+  const idleIntervalMs = useUiStore((state) => state.metricsIdleIntervalMs);
+  useMetricsStream({ idleIntervalMs });
   const longSeries = useMetricsStore((state) => state.longSeries);
   const latest = useMetricsStore((state) => state.latest);
 
@@ -61,8 +67,18 @@ export function OptimizerMetrics({
         <span className="text-[10px] text-muted-foreground">last {WINDOW_LABEL}</span>
       </div>
 
+      {/*
+        Absent, not waiting. Once a sample has arrived, a metric with no points
+        is one this machine cannot read — a GPU-less machine on the GPU tab
+        would otherwise sit at "Waiting for the first sample…" forever, which
+        is the exact failure the flyout's own copy exists to avoid.
+      */}
       {present.length === 0 ? (
-        <p className="py-2 text-xs text-muted-foreground">Waiting for the first sample…</p>
+        <p className="py-2 text-xs text-muted-foreground">
+          {latest === null
+            ? 'Waiting for the first sample…'
+            : `Not readable on this machine: ${metrics.map((id) => METRIC_LABELS[id]).join(', ')}`}
+        </p>
       ) : (
         // Compact lays the charts out by how many there are — a fixed
         // three-column grid leaves a hole beside a two-metric strip, which

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildSizeTree, collectSizePaths, type SizeDirNode } from './build-size-tree';
+import { buildSizeTree, type SizeDirNode } from './build-size-tree';
 
 const item = (path: string, bytes: number) => ({ path, bytes });
 
@@ -54,6 +54,23 @@ describe('buildSizeTree', () => {
     ]);
   });
 
+  it('orders siblings smallest-first under the ascending size sort', () => {
+    const tree = buildSizeTree(
+      [
+        item('/root/small-dir/inner', 10),
+        item('/root/big-file', 500),
+        item('/root/mid-dir/inner', 100),
+      ],
+      'size-asc',
+    );
+
+    expect(dir(tree, 0).children.map((child) => child.name)).toEqual([
+      'small-dir',
+      'mid-dir',
+      'big-file',
+    ]);
+  });
+
   it('orders directories before files, alphabetically, under the name sort', () => {
     const tree = buildSizeTree(
       [
@@ -86,21 +103,5 @@ describe('buildSizeTree', () => {
     const tree = buildSizeTree([item('/a//b', 10)]);
     expect(tree[0]?.name).toBe('a');
     expect(dir(tree, 0).children[0]?.name).toBe('b');
-  });
-});
-
-describe('collectSizePaths', () => {
-  it('returns every leaf path in the subtree, not the directory rows', () => {
-    const tree = buildSizeTree([
-      item('/root/a/one', 10),
-      item('/root/a/two', 20),
-      item('/root/b/three', 30),
-    ]);
-
-    expect(collectSizePaths(dir(tree, 0)).sort()).toEqual([
-      '/root/a/one',
-      '/root/a/two',
-      '/root/b/three',
-    ]);
   });
 });

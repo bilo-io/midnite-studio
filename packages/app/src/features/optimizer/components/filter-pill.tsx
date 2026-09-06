@@ -39,12 +39,18 @@ export function FilterPill({
         selected
           ? 'border-primary/60 bg-primary/10 text-foreground'
           : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
-      } ${dimmed ? 'opacity-45' : ''}`}
+      }`}
     >
+      {/*
+        Dimming the swatch, not the whole pill: `opacity` over
+        `text-muted-foreground` drops the label under 3:1 on the light ground,
+        and the state being shown is "not part of the current selection",
+        which the colour dot carries perfectly well on its own.
+      */}
       <span
         aria-hidden
-        className="h-2 w-2 shrink-0 rounded-full"
-        style={{ backgroundColor: color }}
+        className="h-2 w-2 shrink-0 rounded-full transition-opacity"
+        style={{ backgroundColor: color, opacity: dimmed ? 0.3 : 1 }}
       />
       {label}
       {detail ? <span className="tabular-nums text-[10px] opacity-70">{detail}</span> : null}

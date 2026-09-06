@@ -3179,12 +3179,19 @@ html[data-motion='reduced'] .loop-start-gradient:focus-visible:not(:disabled) {
 
 .optimizer-terminate:hover,
 .optimizer-terminate:focus-visible {
-  outline: none;
   background-color: hsl(var(--destructive));
   border-color: hsl(var(--destructive));
   color: #fff;
   text-shadow: 0 0 8px rgb(255 255 255 / 0.55);
   box-shadow: 0 0 16px hsl(var(--destructive) / 0.6);
+}
+
+/* Unlike `.loop-start-gradient`, this one keeps its ring: the fill it takes on
+ * focus is the same fill it takes on hover, so without a ring a keyboard user
+ * cannot tell the destructive control is the one that will fire on Enter. */
+.optimizer-terminate:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
