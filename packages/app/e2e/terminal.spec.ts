@@ -591,10 +591,12 @@ test.describe('terminal panel', () => {
     await expect(path.locator('span').last()).toHaveText('midnite-studio');
 
     // A glyph and a status circle lead the row. The dot is the session list's
-    // own component, so a restored-but-not-revived session reads as idle: a
-    // plain muted dot with no pulse.
+    // own component: a restored-but-not-revived session has no live process,
+    // so `ConnectionState` reads `exited` — which (Phase 67 Theme C) draws as
+    // its own hollow ring rather than the shared muted fill `idle` and
+    // `unavailable` still share.
     await expect(header.locator('svg').first()).toBeVisible();
-    await expect(header.locator('span.rounded-full')).toHaveClass(/bg-muted-foreground/);
+    await expect(header.locator('span.rounded-full')).toHaveClass(/border-muted-foreground/);
   });
 
   /**
