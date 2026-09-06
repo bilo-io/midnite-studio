@@ -1077,6 +1077,8 @@ export type MidniteStudioBridge = {
     cancelRequest: (
       req: In<typeof S.ApiCancelRequestRequest>,
     ) => Promise<z.infer<typeof S.ApiCancelRequestResponse>>;
+    /** Opens the native file picker for a `binary` body or a `form-data` file row (Theme D). */
+    pickBinaryFile: () => Promise<z.infer<typeof S.ApiPickBinaryFileResponse>>;
   };
 
   /**

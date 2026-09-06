@@ -78,7 +78,7 @@ describe('ApiClientView', () => {
     expect(screen.getByText('Open a request from the tree to build and send it.')).toBeDefined();
   });
 
-  it('opens a request as a tab, showing its RequestBar and an empty response pane', async () => {
+  it('opens a request as a tab, showing its RequestBuilder and an empty response pane', async () => {
     (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
       apiClient: {
         listCollections: vi.fn().mockResolvedValue({ ok: true, value: [collection] }),

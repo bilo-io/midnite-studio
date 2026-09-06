@@ -386,6 +386,7 @@ const bridge: Pick<
     exportCollection: (req) => call(CHANNELS.apiExportCollection, req),
     sendRequest: (req) => call(CHANNELS.apiSendRequest, req),
     cancelRequest: (req) => call(CHANNELS.apiCancelRequest, req),
+    pickBinaryFile: () => call(CHANNELS.apiPickBinaryFile),
   },
   video: {
     project: {

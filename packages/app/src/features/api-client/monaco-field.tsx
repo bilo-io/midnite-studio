@@ -34,12 +34,20 @@ export function MonacoField({
   language,
   height,
   readOnly = false,
+  onEditorMount,
 }: {
   value: string;
   onChange: (value: string) => void;
   language: string;
   height?: string | number;
   readOnly?: boolean;
+  /**
+   * Hands the mounted editor instance up to the caller — `body-tab.tsx`'s
+   * Beautify button is the one caller today, which needs `editor.getAction`
+   * to know whether `editor.action.formatDocument` is even registered for
+   * the current language before offering the button at all.
+   */
+  onEditorMount?: (editor: MonacoEditorNS.IStandaloneCodeEditor) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
@@ -88,6 +96,8 @@ export function MonacoField({
       observer.observe(host);
       resizeObserverRef.current = observer;
     }
+
+    onEditorMount?.(editor);
   };
 
   const handleChange: OnChange = (next) => onChange(next ?? '');

@@ -85,6 +85,22 @@ describe('api-client-store', () => {
       expect(state.tabs[0]?.draft.url).toBe('https://edited.example.com');
     });
 
+    it('openTab seeds draft.params from the URL\'s own query string (Theme D — the URL is authoritative)', () => {
+      const ref: ApiTabRef = {
+        repoId: 'repo1',
+        collectionId: 'col1',
+        itemPath: ['Search'],
+        item: { name: 'Search', request: { method: 'GET', url: 'https://example.com/search?q=hello&page=2' } },
+      };
+      useApiClientStore.getState().openTab(ref);
+
+      const draft = useApiClientStore.getState().tabs[0]?.draft;
+      expect(draft?.params).toEqual([
+        { key: 'q', value: 'hello', enabled: true },
+        { key: 'page', value: '2', enabled: true },
+      ]);
+    });
+
     it('focusTab moves the active tab without changing the tab list', () => {
       const refA = refFor('repo1', 'col1', 'A');
       const refB = refFor('repo1', 'col1', 'B');
