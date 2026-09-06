@@ -1,15 +1,29 @@
-import type { AgentDefinition, SessionActivity, TerminalSession } from '@midnite/studio-shared';
+import {
+  closedFromSession,
+  type AgentDefinition,
+  type ClosedSession,
+  type SessionActivity,
+  type TerminalSession,
+} from '@midnite/studio-shared';
 
 import { createAgentsStore, type AgentsStore } from './agents-store';
+import { defaultLogger, formatError } from './log';
 import {
   activityFor,
   dropScrollback,
   livePtyFor,
+  onSessionExit,
   readScrollback,
   scrollbackSessionIds,
   seedScrollback,
 } from './pty-service';
-import { nullTerminalStore, trimScrollback, type TerminalStore } from './terminal-store';
+import { nullSessionHistoryStore, type SessionHistoryStore } from './session-history-store';
+import {
+  nullTerminalStore,
+  scrollbackPath,
+  trimScrollback,
+  type TerminalStore,
+} from './terminal-store';
 
 /**
  * The session list, between the IPC handlers and the two stores.
@@ -24,8 +38,40 @@ import { nullTerminalStore, trimScrollback, type TerminalStore } from './termina
  * still leaves a coherent `terminals.json`.
  */
 let store: TerminalStore = nullTerminalStore;
+let history: SessionHistoryStore = nullSessionHistoryStore;
 let agents: AgentsStore | null = null;
 let sessions: TerminalSession[] = [];
+let dataDir: string | null = null;
+
+/**
+ * The last exit code seen per session, so a close can say *how* it ended.
+ *
+ * A process exiting does not end a session — the row stays and `sessionPhase()`
+ * reports `ended`, which is exactly the window in which you read what it
+ * printed. Only `forget` ends it. But by then the exit is long past, so it is
+ * recorded here when it happens and read back when the close finally comes.
+ *
+ * Entries are deleted on close alongside the scrollback, so this cannot outgrow
+ * the session list — the append-only-map shape Phase 45 flags.
+ */
+const lastExit = new Map<string, number>();
+let stopExitWatch: (() => void) | null = null;
+
+/**
+ * Archives still in flight.
+ *
+ * `terminal:forget` is a one-way `ipcMain.on`, so the archive runs detached
+ * from any caller — which means a quit landing between the close and the rename
+ * would lose the record. `shutdownTerminals` awaits this set for the same
+ * reason it awaits the final `flushScrollback()`: the shutdown flush is the one
+ * that actually matters.
+ */
+const inFlightArchives = new Set<Promise<void>>();
+
+/** Resolve once every in-flight archive has settled. */
+export function whenArchivesSettle(): Promise<void> {
+  return Promise.allSettled([...inFlightArchives]).then(() => undefined);
+}
 
 /** Metadata is small and changes rarely — a short debounce coalesces a burst. */
 const SAVE_DEBOUNCE_MS = 1_000;
@@ -39,9 +85,29 @@ const FLUSH_INTERVAL_MS = 15_000;
 let saveTimer: NodeJS.Timeout | null = null;
 let flushTimer: NodeJS.Timeout | null = null;
 
-export function configureTerminals(terminalStore: TerminalStore, userDataDir: string): void {
+export function configureTerminals(
+  terminalStore: TerminalStore,
+  userDataDir: string,
+  historyStore: SessionHistoryStore = nullSessionHistoryStore,
+): void {
   store = terminalStore;
+  history = historyStore;
   agents = createAgentsStore(userDataDir);
+  dataDir = userDataDir;
+}
+
+/**
+ * Record every session exit, so `forgetTerminal` can tell a crash from a close.
+ *
+ * `onSessionExit` is a seam `pty-service.ts` added with no consumer; this is
+ * its second. Wired after the pty service is up — the hook registry is module
+ * state, but the exits it observes only exist once the service exists.
+ */
+export function watchSessionExits(): void {
+  if (stopExitWatch) return;
+  stopExitWatch = onSessionExit((sessionId, exitCode) => {
+    lastExit.set(sessionId, exitCode);
+  });
 }
 
 /**
@@ -102,11 +168,92 @@ export function saveTerminal(session: TerminalSession): void {
   scheduleSave();
 }
 
-export function forgetTerminal(sessionId: string): void {
+/**
+ * Why a session ended, as far as the renderer can tell.
+ *
+ * `'exited'` is deliberately absent: it is main's own reading of what happened,
+ * derived from `lastExit`, and the renderer does not reliably know.
+ */
+export type ForgetIntent = 'closed' | 'superseded';
+
+/**
+ * End a session by **archiving** it, not by erasing it.
+ *
+ * This used to be four lines that threw the transcript away. The order below is
+ * the substance of the change:
+ *
+ * 1. **Flush first.** Scrollback is written on a 15 s interval, so without this
+ *    the archive is up to fifteen seconds short — and the last fifteen seconds
+ *    of an agent session is the part you close it to read. This is the single
+ *    most load-bearing line here.
+ * 2. Append the record, handing the archive the live scrollback path to
+ *    `rename` in. The bytes move; they are never re-read.
+ * 3. Drop the in-memory ring (and the broker's copy) and the exit note.
+ * 4. Drop the row and schedule the save, unchanged.
+ *
+ * Stays `void` — `terminal:forget` is a fire-and-forget `ipcMain.on`, so the
+ * renderer has nothing to await. Every failure is caught and logged: an archive
+ * that fails must still drop the row, or the `X` button stops working.
+ */
+export function forgetTerminal(sessionId: string, intent: ForgetIntent = 'closed'): void {
+  const session = sessions.find((s) => s.id === sessionId);
+  // Take the row out synchronously so the renderer's next `list` cannot race
+  // the archive and see a session it just closed.
   sessions = sessions.filter((s) => s.id !== sessionId);
-  dropScrollback(sessionId);
-  void store.forget(sessionId);
   scheduleSave();
+
+  const archive = archiveSession(session, intent).finally(() => {
+    dropScrollback(sessionId);
+    lastExit.delete(sessionId);
+    inFlightArchives.delete(archive);
+  });
+  inFlightArchives.add(archive);
+}
+
+async function archiveSession(
+  session: TerminalSession | undefined,
+  intent: ForgetIntent,
+): Promise<void> {
+  if (!session) return;
+  try {
+    // 1 — flush, the same pair `flushScrollback()` uses.
+    const bytes = trimScrollback(readScrollback(session.id));
+    if (bytes.length > 0) await store.writeScrollback(session.id, bytes);
+
+    // 2 — archive. `transcriptFrom` is null when nothing was ever written, in
+    // which case there is no file to move and the record carries zero bytes.
+    const from =
+      bytes.length > 0 && dataDir !== null ? scrollbackPath(dataDir, session.id) : null;
+    const record: ClosedSession = closedFromSession(session, {
+      closedAt: Date.now(),
+      exitCode: lastExit.get(session.id) ?? null,
+      reason: endingFor(session.id, intent),
+      transcriptBytes: bytes.length,
+    });
+    await history.append(record, from);
+  } catch (error) {
+    defaultLogger(`terminal: archiving session ${session.id} failed: ${formatError(error)}`);
+  }
+  try {
+    /*
+      Whatever is *still* at the live scrollback path after the archive.
+
+      On the happy path the rename already took the file and this is a no-op
+      `rm --force`. On a failed archive it collects an orphan no session row
+      points at any more — a megabyte that would otherwise sit in `scrollback/`
+      until the userData directory is deleted. It can never remove an archived
+      transcript, because an archived transcript is not at this path.
+    */
+    await store.forget(session.id);
+  } catch {
+    // Already gone, or unlinkable — either way there is nothing to do.
+  }
+}
+
+/** A superseded close is stated by the caller; everything else is read off the exit. */
+function endingFor(sessionId: string, intent: ForgetIntent): ClosedSession['reason'] {
+  if (intent === 'superseded') return 'superseded';
+  return lastExit.has(sessionId) ? 'exited' : 'closed';
 }
 
 /**
@@ -170,6 +317,9 @@ export async function shutdownTerminals(): Promise<void> {
     clearInterval(flushTimer);
     flushTimer = null;
   }
+  // The archives first: a session closed a moment before the quit has a record
+  // to write, and `store.save` must not race it to `terminals.json`.
+  await whenArchivesSettle();
   await Promise.all([store.save(sessions), flushScrollback()]);
 }
 
@@ -186,5 +336,15 @@ function scheduleSave(): void {
 export function resetTerminalsForTest(): void {
   sessions = [];
   store = nullTerminalStore;
+  history = nullSessionHistoryStore;
   agents = null;
+  dataDir = null;
+  lastExit.clear();
+  stopExitWatch?.();
+  stopExitWatch = null;
+}
+
+/** Seed the exit note directly. Tests only — the app fills this from the pty. */
+export function noteSessionExitForTest(sessionId: string, exitCode: number): void {
+  lastExit.set(sessionId, exitCode);
 }

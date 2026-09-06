@@ -20,6 +20,8 @@ import { registerCouncilHandlers } from './ipc/council-handlers';
 import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
+import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
+import { createSessionHistoryStore } from './session-history-store';
 import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
 import { registerForgeProjectHandlers } from './ipc/forge-project-handlers';
@@ -60,6 +62,7 @@ import {
   listAgents,
   shutdownTerminals,
   startTerminalFlush,
+  watchSessionExits,
 } from './terminal-service';
 import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
@@ -309,6 +312,7 @@ if (!app.requestSingleInstanceLock()) {
     registerForgeHandlers();
     registerForgeProjectHandlers();
     registerDiagHandlers();
+    registerSessionsHandlers();
     registerDbHandlers(getMainWindow);
     registerScaffoldHandlers();
     registerTestsHandlers(getMainWindow);
@@ -447,7 +451,17 @@ if (!app.requestSingleInstanceLock()) {
     // three parallel chains below for data with no reader yet.
     const windowsStore = createWindowsStore(userData);
     void windowsStore.load().then((initial) => configureWindowsStore(windowsStore, initial));
-    configureTerminals(createTerminalStore(userData), userData);
+    /*
+      One store, two consumers, and the order matters: `configureSessions` hands
+      it to the IPC handlers so the renderer can read the archive, and
+      `configureTerminals` hands it the same instance so a close can write to
+      it. Sharing one instance rather than constructing two is what keeps the
+      lazy cache coherent — two stores over the same file would each hold a
+      copy, and the reader's would go stale the moment the writer appended.
+    */
+    const sessionHistory = createSessionHistoryStore(userData);
+    configureSessions(sessionHistory);
+    configureTerminals(createTerminalStore(userData), userData, sessionHistory);
     configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
     /*
       Wired here beside councils rather than in a boot chain: it is synchronous
@@ -503,6 +517,9 @@ if (!app.requestSingleInstanceLock()) {
         */
         configureLoopRuns(createLoopRunsStore(userData), getMainWindow);
         onSessionExit(noteSessionExit);
+        // The second consumer of the same seam: a session's exit code, kept
+        // until the close that archives it finally comes (Phase 67).
+        watchSessionExits();
       });
 
     /*

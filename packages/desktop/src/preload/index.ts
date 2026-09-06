@@ -119,6 +119,7 @@ const bridge: Pick<
   | 'stash'
   | 'pty'
   | 'terminal'
+  | 'sessions'
   | 'browser'
   | 'agent'
   | 'council'
@@ -308,6 +309,14 @@ const bridge: Pick<
     save: (req) => ipcRenderer.send(CHANNELS.terminalSave, req),
     forget: (req) => ipcRenderer.send(CHANNELS.terminalForget, req),
     reorder: (req) => ipcRenderer.send(CHANNELS.terminalReorder, req),
+  },
+  sessions: {
+    // All `invoke`, including purge: unlike `terminal.forget`, a dropped purge
+    // is a row the user asked to be gone and still sees, so the caller needs to
+    // know it happened before it refetches.
+    history: () => call(CHANNELS.sessionsHistory),
+    transcript: (req) => call(CHANNELS.sessionsTranscript, req),
+    purge: (req) => call(CHANNELS.sessionsPurge, req),
   },
   browser: {
     create: (req) => call(CHANNELS.browserCreate, req),
