@@ -574,20 +574,20 @@ against the common case (no concurrent external writer racing the two calls).*
 - [x] `statement-confirm.test.tsx`: the gate firing for UPDATE/DELETE/DROP/TRUNCATE/ALTER/INSERT and
       for `WITH … DELETE`; SELECT, `WITH … SELECT` and EXPLAIN passing straight through.
 
-### J — Test suites and CI wiring (M)
+### J — Test suites and CI wiring (M) ✅ DONE (PR #217, 2026-09-06)
 
 *Re-scoped: J is the work of building the suites; the assertions they must make now live in
 `## Verification`, per house style.*
 
-- [ ] Playwright spec: Database in the Workspace nav, add a SQLite connection, browse the schema
+- [x] Playwright spec: Database in the Workspace nav, add a SQLite connection, browse the schema
       tree, open a query tab, run a `SELECT`, see rows.
-- [ ] Playwright spec: destructive statement → confirm dialog → blocked until confirmed.
-- [ ] Playwright spec: edit a cell, submit, re-query; and a manufactured staleness conflict.
-- [ ] Playwright spec: two query tabs against one connection stay independent.
-- [ ] Screenshots (empty, connected, query+results, confirm, conflict), light and dark. **Coordinate
+- [x] Playwright spec: destructive statement → confirm dialog → blocked until confirmed.
+- [x] Playwright spec: edit a cell, submit, re-query; and a manufactured staleness conflict.
+- [x] Playwright spec: two query tabs against one connection stay independent.
+- [x] Screenshots (empty, connected, query+results, confirm, conflict), light and dark. **Coordinate
       with [Phase 56](phase-56-e2e-speed-run.md) Theme G**, which refactored all `*-shots.spec.ts`
       onto a shared fixture helper — use that helper, do not add a 26th bespoke shots file.
-- [ ] CI service containers per Decision 5, with the fallback documented in the workflow file itself.
+- [x] CI service containers per Decision 5, with the fallback documented in the workflow file itself.
 
 ## Files this phase touches
 
@@ -629,7 +629,7 @@ against the common case (no concurrent external writer racing the two calls).*
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
+- [x] `moon run :typecheck :lint :test` green.
 - [ ] Boundary lint clean **in both directions**: nothing in `db-engine` imports `electron`, `app` or
       `desktop`; and nothing in `packages/app/src` imports `@midnite/studio-db-engine` — the second
       needs the new deny entry at `eslint.config.mjs:105-114` or it is unenforced.
@@ -655,7 +655,7 @@ against the common case (no concurrent external writer racing the two calls).*
       columns.
 - [ ] A `bigint` column round-trips over IPC without throwing.
 - [ ] Editing is **disabled** on a join, an aggregate and a PK-less table, with a visible reason.
-- [ ] Submitting an edit whose row changed underneath shows the conflict banner and writes nothing.
+- [x] Submitting an edit whose row changed underneath shows the conflict banner and writes nothing.
 - [ ] The generated `UPDATE` is parameterised — a cell value of `'); DROP TABLE users;--` updates one
       cell and drops nothing.
 - [ ] A schema node left open, whose parent section is then collapsed, issues **no** further query —
