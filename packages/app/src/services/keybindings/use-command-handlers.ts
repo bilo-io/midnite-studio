@@ -304,6 +304,7 @@ export function useCommandHandlers(): CommandRuntime {
     'view.files': { enabled: true, run: () => useUiStore.getState().setActiveView('files') },
     'view.issues': { enabled: true, run: () => useUiStore.getState().setActiveView('issues') },
     'view.video': { enabled: true, run: () => useUiStore.getState().setActiveView('video') },
+    'view.apiClient': { enabled: true, run: () => useUiStore.getState().setActiveView('apiClient') },
     'graph.focus': { enabled: true, run: () => useUiStore.getState().setActiveView('graph') },
     'status.focus': { enabled: true, run: () => useUiStore.getState().setActiveView('changes') },
     'status.commit':

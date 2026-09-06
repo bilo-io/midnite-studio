@@ -288,6 +288,13 @@ export const COMMANDS = [
   { id: 'workflow.run', label: 'Run Workflow', group: 'view' },
   { id: 'view.video', label: 'Go to Video Studio', group: 'view' },
   /**
+   * Phase 66 Theme B. Chord-free like `view.video` above rather than a
+   * `Mod+Shift+…` chord (Decision 5): only five of nineteen views wear one,
+   * and `keybindings.ts`'s own `Mod+Shift+` space is nearly exhausted.
+   * Reachable from the rail and the palette.
+   */
+  { id: 'view.apiClient', label: 'Go to API Client', group: 'view' },
+  /**
    * Phase 64 Theme F. Chord-free, like `view.refresh`/`app.screensaver` above
    * — every single-letter `Mod` chord worth having is already taken, and a
    * palette entry for something this occasional does not need one. Both
