@@ -84,7 +84,12 @@ export function ProjectGraphNode({
         height: FORGE_GRAPH_GEOMETRY.height,
       }}
       className={[
-        'project-graph-node flex cursor-pointer flex-col gap-1.5 overflow-hidden rounded border bg-background px-2 py-1.5 text-left text-xs',
+        // No `overflow-hidden`: the graph-only bloom (`styles.css`'s
+        // `.project-graph-node.agent-run-glow::after`) bleeds 10px past this
+        // box on purpose, and clipping it here would hide it entirely.
+        // Title truncation is `CardTitleRow`'s own inner `truncate` span —
+        // it never depended on this element's overflow.
+        'project-graph-node flex cursor-pointer flex-col gap-1.5 rounded border bg-background px-2 py-1.5 text-left text-xs',
         selected ? 'border-primary' : node.foreign ? 'border-dashed border-muted-foreground/50' : 'border-border',
         glow === 'idle' ? '' : `agent-run-glow is-${glow}`,
       ]

@@ -2159,6 +2159,57 @@ html[data-motion='reduced'] .agent-run-glow.is-running {
   box-shadow: 0 0 8px rgba(236, 72, 153, 0.4);
 }
 
+/*
+  Graph-only bloom (Phase 75 Theme D — closing one of Theme F's four items
+  deferred here, since Theme F had no node to wire it into yet) — a blurred
+  copy of the ring behind a running/waiting node, the crib's own `::after`.
+  A glance across a 300-node canvas can spot the lit one this way without
+  reading every ring in turn. The card never wears this: a kanban column is
+  narrow enough for the ring alone to read, and a blur behind every card in
+  one column would smear into its neighbours — so this is scoped to
+  `.project-graph-node`, never bare `.agent-run-glow`.
+
+  `background: inherit` picks up whichever `background-image` the co-applied
+  `.is-running`/`.is-waiting` rule above painted, so the bloom is always the
+  same colour as the ring in front of it without a second copy of either
+  gradient. `::after` rather than a second DOM element — nothing here needs
+  to be inspectable, only visible, and `project-graph-node.tsx` carries no
+  extra markup for it.
+*/
+.project-graph-node.agent-run-glow.is-running::after,
+.project-graph-node.agent-run-glow.is-waiting::after {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  z-index: -1;
+  border-radius: inherit;
+  background: inherit;
+  filter: blur(10px);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.project-graph-node.agent-run-glow.is-running::after {
+  animation:
+    loop-glow-spin 4s linear infinite,
+    card-glow-pulse 2s ease-in-out infinite;
+}
+
+/* Same focus gate as the ring itself — a blurred window pays for neither. */
+html[data-window-focused='false'] .project-graph-node.agent-run-glow.is-running::after {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .project-graph-node.agent-run-glow.is-running::after {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .project-graph-node.agent-run-glow.is-running::after {
+  animation: none;
+}
+
 /* ---------------------------------------------------------------------------
  * The collapsed FAB's orbiting halo — the panel's inner rim, turned inside out.
  *
