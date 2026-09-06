@@ -220,20 +220,20 @@ point; G needs A and E's handler file. H is last.
       different value. Plus: `toDraft`/`toPostmanRequest` round-trips a request with an unknown
       top-level key and keeps it.
 
-### B — Nav, view registry and the command (S)
+### B — Nav, view registry and the command (S) — ✅ DONE (PR #225, 2026-09-06)
 
-- [ ] Add `'apiClient'` to the `ViewId` union in
+- [x] Add `'apiClient'` to the `ViewId` union in
       [`store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts)`:103-130` **and** to the
       `VIEW_IDS` array at `:133-152`. Both, or `viewForPath('/apiClient')` falls through to
       `'graph'`.
-- [ ] Add `apiClient: { Component: ApiClientView }` to `VIEW_COMPONENT` in
+- [x] Add `apiClient: { Component: ApiClientView }` to `VIEW_COMPONENT` in
       [`components/view-registry.tsx`](../../../packages/app/src/components/view-registry.tsx)`:140`,
       lazy-loaded in the file's `const loadX = () => import(…); const X = lazy(() => loadX().then((m) => ({default: m.X})))`
       form. No `global: true` — the view needs an open repo, because its collections live in one.
-- [ ] Add `{ view: 'apiClient', label: 'API Client', icon: VIEW_ICON.apiClient }` to
+- [x] Add `{ view: 'apiClient', label: 'API Client', icon: VIEW_ICON.apiClient }` to
       `WORKSPACE_NAV_ITEMS` in [`app.tsx`](../../../packages/app/src/app.tsx)`:282`, as the sixth
       entry after Database. Not added to `FORGE_GATED_VIEWS` (`:330`).
-- [ ] `apiClient: LuSend` in
+- [x] `apiClient: LuSend` in
       [`components/nav-icons.ts`](../../../packages/app/src/components/nav-icons.ts)'s
       `VIEW_ICON: Record<ViewId, IconType>` (`:46`) — `Record` again, so this is required, not
       optional. `LuSend` is already in the repo
@@ -241,26 +241,35 @@ point; G needs A and E's handler file. H is last.
       so no new import family and no
       [`components/icons/icon-names.test.ts`](../../../packages/app/src/components/icons/icon-names.test.ts)
       surprise.
-- [ ] Add `{ id: 'view.apiClient', label: 'Go to API Client', group: 'view' }` to `COMMANDS` in
+- [x] Add `{ id: 'view.apiClient', label: 'Go to API Client', group: 'view' }` to `COMMANDS` in
       [`keybindings.ts`](../../../packages/shared/src/keybindings.ts), beside `view.video` (`:258`)
       — no `chord` key at all (Decision 5). **Do not** add it to `nav-chords.ts`'s `VIEW_COMMAND`:
       that map exists to render a chord in the rail tooltip, and a chord-free entry would render an
-      empty bubble.
-- [ ] Add `packages/app/src/features/api-client/api-client-view.tsx` exporting
+      empty bubble. Landed with two sites the doc did not name: `CommandId` is also exhaustive over
+      `features/palette/command-icons.ts`'s `COMMAND_ICONS` and
+      `services/keybindings/use-command-handlers.ts`'s `CommandRuntime` — `moon run :typecheck`
+      fails without both.
+- [x] Add `packages/app/src/features/api-client/api-client-view.tsx` exporting
       `export function ApiClientView()`: the shell — `<div className="flex h-full min-h-0">`, a
       fixed-width left pane, a `<ResizeHandle resizable={tree} axis="x" label="Resize the API
       collection tree" />` and the right pane, copying
       [`features/actions/actions-view.tsx`](../../../packages/app/src/features/actions/actions-view.tsx)'s
-      skeleton including its `<PageDetachMark role="…" />` header slot.
+      skeleton. **Deviation:** no `<PageDetachMark role="…" />` — `apiClient` is not in
+      `shared/domain/window.ts`'s `PAGE_WINDOW_ROLES`, and registering it cascades into
+      `window-manager.ts`'s per-role popout size and `schemas.ts`'s relay-message enum (Phase 65
+      Theme F's own experience), none of which this theme's file table, Decisions, or `[S]` size
+      tag account for. A plain `<h2>` heads the tree pane instead; detachability is a follow-on.
   - The left-pane width persists through the same `layout.*` mechanism `actionsJobsHeight` uses,
-    under a new `apiTreeWidth` key. A new persisted key goes in
-    [`store/persisted-keys.ts`](../../../packages/app/src/store/persisted-keys.ts)'s **preference**
-    partition (Phase 63's exhaustiveness check fails the build otherwise).
-- [ ] Empty state, literal copy: heading **"No collections yet"**, body **"Import a
+    under a new `apiTreeWidth` key, added to `LayoutSizes`/`DEFAULT_LAYOUT`/`LAYOUT_BOUNDS`
+    alongside its siblings. **Correction:** no `persisted-keys.ts` edit was needed — that file's
+    exhaustiveness check operates on top-level `PersistedUi` keys, and `layout` (the object
+    `apiTreeWidth` is a field of) is already one, classified `SESSION_STATE_KEYS`.
+- [x] Empty state, literal copy: heading **"No collections yet"**, body **"Import a
       `.postman_collection.json` file to get started. Collections are stored in `.midnite/api/` in
       this repository, so they travel with it."**, and one primary button **"Import collection…"**
       wired to Theme G. A repo with no open repository shows the app's existing `EmptyWorkspace`
-      instead, which the view registry already handles for non-`global` views.
+      instead, which the view registry already handles for non-`global` views. The button is
+      disabled (`title="Import lands in Theme G"`) since Theme G does not exist yet.
 
 ### C — Collection tree, request tabs, and the store (M)
 
