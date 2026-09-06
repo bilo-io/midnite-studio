@@ -11,8 +11,11 @@ import { installMockBridge, type MockFixtures } from './mock-bridge';
  * our provider, and that what it answers reaches the screen: the pointer cursor
  * appears the moment the modifier goes down over a link — the DOM-visible half
  * of the same decoration that draws the underline — and the click that follows
- * hands `shell.openExternal` the URL. A provider registered but never consulted,
- * or one whose ranges are off by a column, looks identical from the outside.
+ * reaches `openInMidnite`, which opens an `https:` link in the embedded browser
+ * rather than handing it to `shell.openExternal` (Phase 71 Theme D — see
+ * `link-routing.spec.ts` for the same assertion pattern against a different call
+ * site). A provider registered but never consulted, or one whose ranges are off
+ * by a column, looks identical from the outside.
  */
 
 const URL = 'https://example.com/midnite';
@@ -78,6 +81,15 @@ const externalUrls = (page: Page) =>
     () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
   );
 
+/**
+ * The browser's own tabs, scoped to its strip — same helper and same
+ * `role="tablist"` name as `link-routing.spec.ts` and `browser-pane.spec.ts`,
+ * which is the existing pattern for proving a link landed in the embedded
+ * browser rather than the system one.
+ */
+const browserTabs = (page: Page) =>
+  page.getByRole('tablist', { name: 'Browser tabs' }).getByRole('tab');
+
 /** xterm's own pointer-cursor decoration, the one DOM trace a link leaves. */
 const screenClasses = (page: Page) =>
   page
@@ -86,7 +98,9 @@ const screenClasses = (page: Page) =>
     .then((value) => value ?? '');
 
 test.describe('terminal links', () => {
-  test('Cmd+click opens a URL in the output; a bare click does not', async ({ page }) => {
+  test('Cmd+click opens a URL in the embedded browser; a bare click does not', async ({
+    page,
+  }) => {
     await open(page);
     await printUrl(page);
 
@@ -97,6 +111,7 @@ test.describe('terminal links', () => {
     await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
     await page.mouse.click(x, y);
     expect(await externalUrls(page)).toEqual([]);
+    await expect(browserTabs(page)).toHaveCount(0);
 
     // The modifier goes down while the mouse is already parked on the link.
     await page.keyboard.down('Meta');
@@ -106,7 +121,12 @@ test.describe('terminal links', () => {
     await page.mouse.up();
     await page.keyboard.up('Meta');
 
-    await expect.poll(() => externalUrls(page)).toEqual([URL]);
+    // `openInMidnite`'s default preference is 'in-app' (see
+    // `link-routing.spec.ts`'s "no seeding needed" note), so the link opens a
+    // tab in the embedded browser and never reaches `shell.openExternal`.
+    await expect(browserTabs(page)).toHaveCount(1);
+    await expect(browserTabs(page)).toHaveAccessibleName(/example\.com/);
+    expect(await externalUrls(page)).toEqual([]);
     await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
   });
 
@@ -123,5 +143,6 @@ test.describe('terminal links', () => {
 
     expect(await screenClasses(page)).not.toContain('xterm-cursor-pointer');
     expect(await externalUrls(page)).toEqual([]);
+    await expect(browserTabs(page)).toHaveCount(0);
   });
 });
