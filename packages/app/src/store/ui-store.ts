@@ -302,6 +302,8 @@ export type LayoutSizes = {
   councilConfigWidth: number;
   /** The API Client view's collection tree, left of the request pane (Phase 66 Theme B). */
   apiTreeWidth: number;
+  /** The API Client view's request builder (method/URL bar + tabs), above the response viewer (Phase 66 Theme D). */
+  apiBuilderHeight: number;
 };
 
 
@@ -376,6 +378,9 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   councilConfigWidth: 320,
   // Same width as the other collection/tree panes (filesTreeWidth).
   apiTreeWidth: 320,
+  // Tall enough for the method/URL bar, the four-tab row and a handful of
+  // key/value rows without the response viewer being squeezed to nothing.
+  apiBuilderHeight: 260,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -428,6 +433,7 @@ export const LAYOUT_BOUNDS = {
   councilNavWidth: { min: 200, max: 420 },
   councilConfigWidth: { min: 240, max: 480 },
   apiTreeWidth: { min: 200, max: 640 },
+  apiBuilderHeight: { min: 140, max: 640 },
 } as const;
 
 /**

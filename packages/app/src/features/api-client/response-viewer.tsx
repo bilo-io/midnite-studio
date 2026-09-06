@@ -46,8 +46,8 @@ const MAX_INLINE_IMAGE_BYTES = 2 * 1024 * 1024;
  * size strip, a Body/Headers tab pair, and the body itself.
  *
  * Reads everything from `api-client-store` by `tabId` rather than taking the
- * response as a prop — the same reason `RequestBar` does: Send lives in one
- * component, Retry in this one, and both have to drive the exact same
+ * response as a prop — the same reason `RequestBuilder` does: Send lives in
+ * one component, Retry in this one, and both have to drive the exact same
  * `sendRequest` action for a cancelled-mid-flight race to behave the same
  * way from either button.
  */

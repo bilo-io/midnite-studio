@@ -188,6 +188,17 @@ export type ApiClientState = {
   /** Sends the tab's current draft. Used by both the Send button and Retry. */
   sendRequest: (tabId: string) => Promise<void>;
   cancelRequest: (tabId: string) => void;
+
+  /**
+   * Opens the native file picker for the Body tab's `binary` mode and a
+   * `form-data` file row (Theme D). A thin bridge wrapper, not a mutation —
+   * unlike `renameCollection`/`removeCollection` this touches no store
+   * state itself; both callers apply the picked path to whichever field it
+   * belongs to (`draft.binaryPath`, or one `FormDataRow`'s `value`)
+   * themselves, since only the caller knows which one that is. Resolves
+   * `null` on a cancelled dialog or a missing bridge, same as a cancel.
+   */
+  pickBinaryFile: () => Promise<string | null>;
 };
 
 export const useApiClientStore = create<ApiClientState>()((set, get) => ({
@@ -437,5 +448,12 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
     });
     const api = bridge();
     if (api) void api.apiClient.cancelRequest({ requestId });
+  },
+
+  pickBinaryFile: async () => {
+    const api = bridge();
+    if (!api) return null;
+    const result = await api.apiClient.pickBinaryFile();
+    return result.ok ? result.value : null;
   },
 }));
