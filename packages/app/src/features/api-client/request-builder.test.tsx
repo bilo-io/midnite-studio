@@ -3,6 +3,7 @@ import { toDraft } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../components/dialog-host';
 import { useApiClientStore, type ApiTab } from '../../store/api-client-store';
 import { DEFAULT_LAYOUT, useUiStore } from '../../store/ui-store';
 import { RequestBuilder } from './request-builder';
@@ -80,7 +81,11 @@ function setup(tab: ApiTab, collections: ApiCollectionSummary[] = [collectionWit
     inFlight: {},
     lastError: {},
   });
-  return render(<RequestBuilder tabId={tab.id} />);
+  return render(
+    <DialogHost>
+      <RequestBuilder tabId={tab.id} />
+    </DialogHost>,
+  );
 }
 
 afterEach(() => {

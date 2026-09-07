@@ -1,9 +1,13 @@
 import { useState } from 'react';
 
-import { LuLoaderCircle, LuSend } from 'react-icons/lu';
+import { toCurl, toFetch } from '@midnite/studio-shared';
+import { LuCopy, LuEllipsisVertical, LuLoaderCircle, LuSend } from 'react-icons/lu';
 
+import { useDialogs } from '../../components/dialog-host';
+import { IconButton } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
+import { bridge } from '../../services/bridge';
 import { useApiClientStore } from '../../store/api-client-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { AuthTab } from './auth-tab';
@@ -44,6 +48,7 @@ const BUILDER_TABS: { id: BuilderTab; label: string }[] = [
  * every change instead.
  */
 export function RequestBuilder({ tabId }: { tabId: string }) {
+  const dialogs = useDialogs();
   const tab = useApiClientStore((s) => s.tabs.find((t) => t.id === tabId));
   const editDraft = useApiClientStore((s) => s.editDraft);
   const sendRequest = useApiClientStore((s) => s.sendRequest);
@@ -68,6 +73,23 @@ export function RequestBuilder({ tabId }: { tabId: string }) {
 
   const knownMethod = (METHODS as readonly string[]).includes(draft.method.toUpperCase());
   const variableNames = new Set((collection?.collection.variable ?? []).map((variable) => variable.key));
+
+  /**
+   * Phase 70 Theme D's "Copy as curl" / "Copy as fetch" — generated from the
+   * draft as it stands right now, `{{var}}` left unresolved on purpose
+   * (Decision 7): the usual destination for a copied snippet is a chat
+   * message, and resolving a token would risk pasting a live secret straight
+   * into it.
+   */
+  const copyAs = (generator: 'curl' | 'fetch') => {
+    const text = generator === 'curl' ? toCurl(draft) : toFetch(draft);
+    void bridge()?.clipboard.writeText({ text });
+  };
+
+  const overflowMenu = [
+    { label: 'Copy as curl', icon: LuCopy, onSelect: () => copyAs('curl') },
+    { label: 'Copy as fetch', icon: LuCopy, onSelect: () => copyAs('fetch') },
+  ];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -112,6 +134,11 @@ export function RequestBuilder({ tabId }: { tabId: string }) {
               Send
             </button>
           )}
+          <IconButton
+            icon={LuEllipsisVertical}
+            label="More actions"
+            onClick={(event) => dialogs.openMenu(event, overflowMenu)}
+          />
         </div>
 
         <div className="flex h-7 shrink-0 items-center gap-3 border-b border-border px-2 text-xs">
