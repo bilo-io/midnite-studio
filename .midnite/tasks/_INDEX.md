@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [75 · What blocks what, and the agent you point at it](phases/phase-75-what-blocks-what.md) | ✅ DONE | x1 | 99/106 | `█████████░` | 93% | — | — |
-| [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 67/70 | `██████████` | 96% | E | — |
+| [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 68/70 | `██████████` | 97% | — | E (2 packaged-Mac human passes) |
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 64/68 | `█████████░` | 94% | — | — |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 100/102 | `██████████` | 98% | — | — |
 | [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | 🔄 WIP | x1 | 38/41 | `█████████░` | 93% | — | E (1 untestable e2e case + 2 human passes) |
@@ -42,7 +42,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [44 · Video Studio](phases/phase-44-video-studio.md) | 🔄 WIP | — | 59/64 | `█████████░` | 92% | F H | F (skill-presence check), H (per-item palette entries), human pass (real repo + `ps` checks) |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | 🔄 WIP | x1 | 75/77 | `██████████` | 97% | — | I (human pass) |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | 🔄 WIP | x1 | 38/44 | `█████████░` | 86% | — | — |
-| [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 49/57 | `█████████░` | 86% | H I | — |
+| [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 50/55 | `█████████░` | 91% | — | H, I (human + real-board passes) |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 38/53 | `███████░░░` | 72% | — | G (human screenshots + real-board pass) |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 61/63 | `██████████` | 97% | — | Verification (human keyboard + eye pass) |
 | [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | ✅ DONE | — | 60/60 | `██████████` | 100% | — | — |
