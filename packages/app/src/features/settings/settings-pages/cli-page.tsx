@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { LuTerminal } from 'react-icons/lu';
 import { Accordion } from '@bilo-io/ui';
 import { Field } from './controls';
+import { useToastStore } from '../../../store/toast-store';
 import type { CliStatusResponse } from '@midnite/studio-shared';
 
 export function CliPage() {
   const [status, setStatus] = useState<CliStatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const addToast = useToastStore((s) => s.addToast);
 
   const hasBridge = typeof window !== 'undefined' && Boolean(window.midniteStudio?.cli);
 
@@ -33,14 +35,16 @@ export function CliPage() {
       const res = await window.midniteStudio.cli.install({ target });
       if (res.ok) {
         setStatus(res.value);
-      } else if (res.kind === 'error') {
-        setError(res.message);
       } else {
-        setError('Installation failed');
+        const message = res.kind === 'error' ? res.message : 'Installation failed';
+        setError(message);
+        addToast({ message, status: 'error' });
       }
     } catch (err: unknown) {
       const errorObj = err as Error;
-      setError(errorObj.message ?? 'Failed to install CLI');
+      const message = errorObj.message ?? 'Failed to install CLI';
+      setError(message);
+      addToast({ message, status: 'error' });
     } finally {
       setLoading(false);
     }
@@ -54,14 +58,16 @@ export function CliPage() {
       const res = await window.midniteStudio.cli.uninstall();
       if (res.ok) {
         setStatus(res.value);
-      } else if (res.kind === 'error') {
-        setError(res.message);
       } else {
-        setError('Uninstall failed');
+        const message = res.kind === 'error' ? res.message : 'Uninstall failed';
+        setError(message);
+        addToast({ message, status: 'error' });
       }
     } catch (err: unknown) {
       const errorObj = err as Error;
-      setError(errorObj.message ?? 'Failed to uninstall CLI');
+      const message = errorObj.message ?? 'Failed to uninstall CLI';
+      setError(message);
+      addToast({ message, status: 'error' });
     } finally {
       setLoading(false);
     }
@@ -116,6 +122,32 @@ export function CliPage() {
                   </code>
                 </div>
               )}
+            </div>
+          </Field>
+
+          <Field
+            label="Shell completions"
+            hint="Ships inside the app bundle at Contents/Resources/completions — this never edits your shell profile automatically."
+          >
+            <div className="flex flex-col gap-2 text-xs">
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground">zsh — add to ~/.zshrc:</span>
+                <code className="select-all rounded bg-muted/40 p-1 font-mono text-foreground">
+                  fpath+=(&quot;/Applications/Midnite Studio.app/Contents/Resources/completions&quot;)
+                </code>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground">bash — add to ~/.bashrc:</span>
+                <code className="select-all rounded bg-muted/40 p-1 font-mono text-foreground">
+                  source &quot;/Applications/Midnite Studio.app/Contents/Resources/completions/midnite-studio.bash&quot;
+                </code>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground">fish — add to ~/.config/fish/config.fish:</span>
+                <code className="select-all rounded bg-muted/40 p-1 font-mono text-foreground">
+                  source &quot;/Applications/Midnite Studio.app/Contents/Resources/completions/midnite-studio.fish&quot;
+                </code>
+              </div>
             </div>
           </Field>
         </div>

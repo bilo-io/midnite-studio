@@ -101,6 +101,19 @@ if ((cliWrapperMode & 0o111) === 0) {
   process.exit(1);
 }
 
+// Same failure mode as the CLI wrapper check above, for the completions
+// `extraResources` entry: a typo'd `from` or an empty glob resolves fine
+// against the repo's own working tree and only fails once packaged.
+console.log('Verifying shell completions shipped into Resources...');
+const completionsDir = join(appPath, 'Contents', 'Resources', 'completions');
+for (const file of ['_midnite-studio', 'midnite-studio.bash', 'midnite-studio.fish']) {
+  const completionPath = join(completionsDir, file);
+  if (!existsSync(completionPath)) {
+    console.error(`Missing shell completion at ${completionPath}`);
+    process.exit(1);
+  }
+}
+
 // Phase 53 Theme C: none of the ten gates above are about the FEED, which is
 // the artifact the in-app updater actually consumes and the one most likely
 // to be missing or stale. `latest-mac.yml` is what electron-updater polls

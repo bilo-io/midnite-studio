@@ -1,0 +1,45 @@
+#compdef midnite-studio
+
+# zsh completion for the `midnite-studio` CLI wrapper (Phase 33 Theme B).
+#
+# Completes exactly the grammar the wrapper implements
+# (`resources/bin/midnite-studio`) and nothing else: the subcommands `open`
+# and `clone`, and the flags `--version`/`--help`. `open` completes
+# directories (the wrapper resolves a relative path with `cd "$1" && pwd`);
+# `clone` completes nothing — there is no way to enumerate remote URLs.
+
+_midnite_studio() {
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '--version[Print version]' \
+    '--help[Print help]' \
+    '1: :->command' \
+    '*::arg:->args' \
+    && return 0
+
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'open:Open repository at <path> in Midnite Studio'
+        'clone:Clone repository from <url> in Midnite Studio'
+      )
+      _describe -t commands 'command' commands
+      _files -/
+      ;;
+    args)
+      case ${words[1]} in
+        open)
+          _files -/
+          ;;
+        clone)
+          # No completion source for a remote URL.
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_midnite_studio "$@"

@@ -28,6 +28,38 @@ rather than faked with a same-repo double standing in for two. Two human-only pa
 design. `packages/*/src` carries no production diff — this PR is docs plus the missing test
 verification, per house convention for a verification theme.
 
+## 2026-09-07 — Phase 33 Theme B — CLI shell completions, error toasts, verify-dist gate
+
+[PR #255](https://github.com/bilo-io/midnite-studio/pull/255). Moves Phase 33 15/59 → 22/59 (25% →
+37%). Theme B closed out; the checklist itself was stale — the wrapper script, `cli-path.ts`, IPC
+channels/schemas, the preload bridge, `cli-handlers.ts` and the CLI settings page were already
+implemented in the tree but left unticked, so this PR audited each one against the actual code
+before ticking it.
+
+**The two genuine gaps.** zsh/bash/fish completions (`packages/desktop/resources/completions/`),
+shipped through a new `extraResources` entry into `Contents/Resources/completions`, completing
+exactly the wrapper's grammar (`open <path>`, `clone <url>`, `--version`, `--help`) and nothing
+else. And the two missing Verification-section suites: `cli-path.test.ts` (pure) and
+`cli-handlers.test.ts`, the latter reached through recorded `ipcMain.handle` calls the way
+`fs-handlers.test.ts`/`mcp-handlers.test.ts` do, covering the `/usr/local/bin` → `~/.local/bin`
+EACCES fallback and the unmanaged-symlink uninstall refusal — the EACCES test builds a real
+(non-electron) app root in a temp dir rather than a bare mock, because `getCliStatus()`'s
+`existsSync` follows the installed symlink and would misreport `installed: false` for a symlink
+whose target genuinely doesn't exist on disk.
+
+**Also while in the area.** `verify-dist.mjs` now asserts the completions actually shipped into the
+packaged bundle (the same failure mode as the existing CLI-wrapper check next to it — a typo'd
+`extraResources.from` resolves fine in dev and only fails once packaged). The CLI settings page
+shows the copyable `fpath+=`/`source` install lines per shell, and now calls `addToast` on error —
+the doc's "every state" item wanted this and it wasn't wired.
+
+**Left open.** Theme A is mostly landed already but `resources/dmg-background.png`/`@2x` genuinely
+don't exist (asset creation, not code). Theme C's main-process protocol handling is fully
+implemented, but `app.tsx` calls `useDeepLinks()` without consuming its `proposedLink` return value —
+an unknown-repo or `clone` deep link is silently swallowed instead of prompting for consent; left as
+its own themed gap rather than folded in here. Theme D (auto-updater) is still mostly unbuilt.
+`clone <url>` has no backing `git clone` implementation anywhere in `git-engine` yet.
+
 ## 2026-09-07 — Phase 64 Themes D + G — Escape yields to Monaco, and a focus bug
 
 [PR #252](https://github.com/bilo-io/midnite-studio/pull/252). Moves Phase 64 57/72 → 66/72 (79% →
