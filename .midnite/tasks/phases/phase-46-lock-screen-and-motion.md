@@ -355,7 +355,7 @@ machine-executable and are lifted here; four were already covered by tests that 
 E–G and are marked `(**unchanged**)` below; the remaining four need a person and stay in
 `## Verification` behind its own marker.
 
-- [ ] **Make the Theme F guard test prove itself, instead of asking a human to.** The open
+- [x] **Make the Theme F guard test prove itself, instead of asking a human to.** The open
       verification line was *"prove it by adding an unguarded `@keyframes`, watching it fail, then
       reverting"* — a manual mutation test, which is exactly the kind of check nobody re-runs.
       Automate it:
@@ -387,7 +387,7 @@ E–G and are marked `(**unchanged**)` below; the remaining four need a person a
         checker, not the checker.
       - **Verified by:** `moon run app:test -- styles-motion-guards` — six passing `it`s where there
         are three today, three of them failing if either checker is weakened.
-- [ ] **Assert the pills are keyboard-reachable, in e2e rather than by hand.** The open line was
+- [x] **Assert the pills are keyboard-reachable, in e2e rather than by hand.** The open line was
       *"every pill is reachable and activatable by keyboard, with a visible focus ring"*. The
       markup is already right — the four pills are `<button>`s carrying
       `focus-visible:ring-2 focus-visible:ring-ring` and an
@@ -409,7 +409,22 @@ E–G and are marked `(**unchanged**)` below; the remaining four need a person a
         `window` keydown listener is armed.
       - **Verified by:** `moon run app:e2e -- lock-screen-widgets` green, and the new test failing
         if `suppressUnlockTrigger`/`stopPropagation` (Theme C) regress into swallowing the keypress.
-- [ ] **Assert the lock screen's own CSS animation is actually stopped under reduced motion.**
+      - **Landed as more than coverage — writing the test caught a real bug.** `LockScreen`'s own
+        "any key dismisses" handler is a `window` `keydown` listener, outside the DOM subtree the
+        pill's `onClick`-only `stopPropagation()` covers. `Enter` on a focused pill raced the
+        browser's own keydown→click default action against that listener: the generic dismiss fired
+        on the bubbling `keydown` before the pill's `click` (and its destination) ran, so keyboard
+        activation silently downgraded to a no-op dismiss — invisible to mouse testing, since a
+        pointer click never dispatches a `keydown` for `window` to see. Fixed with a matching
+        `onKeyDown={(e) => e.stopPropagation()}` on the pill in
+        [`screensaver-stage.tsx`](../../../packages/app/src/features/screensaver/screensaver-stage.tsx).
+        Also: `reviews` is one of `app.tsx`'s `FORGE_GATED_VIEWS`, so asserting "the reviews view is
+        showing" needs a fixture with a GitHub remote and a ready `gh` — without one,
+        `useForgeGateAvailable` reports `false` regardless of which repo is selected and the app's own
+        redirect effect bounces `activeView` back to `'graph'` before `ReviewsView` renders anything.
+        The test asserts `getByTestId('reviews-groups')` (`ReviewsList` mounting), not the doc's
+        original "no repo selected" empty-state text — the default fixture already selects a repo.
+- [x] **Assert the lock screen's own CSS animation is actually stopped under reduced motion.**
       Themes E and G proved the *JS* half (`useResolvedMotion`, `resolveSystemMotion`) and shot
       the *pixels*; nothing asserts the CSS guard on the one animation unique to this surface.
       - The animation is `screensaver-sheen`, applied by `.screensaver-title`
