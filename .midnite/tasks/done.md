@@ -2,6 +2,30 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 33 Theme C — the deep-link consent gate
+
+[PR #262](https://github.com/bilo-io/midnite-studio/pull/262). Moves Phase 33 22/59 → 26/59 (37% →
+44%) and completes Theme C's own checklist.
+
+The main-process half of Theme C — `setAsDefaultProtocolClient`, `second-instance`/`open-url`
+forwarding with cold-start buffering, and a `known`-repo fast path — was already built and just
+undocumented; the checklist had drifted from the tree. The one real gap, per the phase doc's own
+Decision 5, was the consent half: main already computed and pushed `{link, known:false}` for an
+unregistered `open` or any `clone` link, but nothing in the renderer read it, so a deep link to an
+unknown path silently did nothing.
+
+`useDeepLinks()` now owns that gate. A known `open` still selects the repo directly with no
+dialog. An unknown `open` raises a `ConfirmDialog` (via the existing `useDialogs()`) naming the
+absolute path; confirming opens it through the existing `bridge().repos.open()` and selects the
+result, cancelling does nothing, and a failed open toasts the error rather than going nowhere
+silently. A `clone` link raises a notice rather than an action, since no clone flow exists
+anywhere in the app yet — that's real, larger scope the phase doc never actually assigned to this
+theme. `deep-link.test.tsx` (net-new) covers all six paths.
+
+Also corrected `_INDEX.md`'s Phase 33 narrative, which claimed Themes A and D done (dated
+2026-08-30) contradicting their own phase-doc checklists (A entirely unchecked, D mostly
+unchecked) — pre-existing drift, fixed while editing the same section.
+
 ## 2026-09-07 — Phase 25 Theme C — the footer search readout can navigate and stop
 
 [PR #257](https://github.com/bilo-io/midnite-studio/pull/257). Moves Phase 25 39/101 → 41/101 (39%

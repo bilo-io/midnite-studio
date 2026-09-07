@@ -50,7 +50,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [36 · Faster, lighter, same app](phases/phase-36-performance-diet.md) | 🔄 WIP | x1 | 58/64 | `█████████░` | 91% | — | G (human passes) |
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
-| [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | 🔄 WIP | x1 | 22/59 | `████░░░░░░` | 37% | C | — |
+| [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | 🔄 WIP | x1 | 26/59 | `████░░░░░░` | 44% | — | — |
 | [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | x1 | 45/92 | `█████░░░░░` | 49% | E F G | — |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 22/22 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phases/phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 90/91 | `██████████` | 99% | — | — |
@@ -927,7 +927,7 @@ wrapper over the protocol), with A and D independent and E last.*
 
 - ◻ **A** — Polished DMG Package & macOS Desktop Integration. Not started: `dmg:` window layout + @1x/@2x PNG artwork, hardened-runtime entitlements, `protocols:` registration, an env-gated `afterSign` notarize hook, and a `verify-dist` gate asserting `codesign --verify` / `hdiutil verify`.
 - ✅ **B** — `midnite-studio` CLI Binary & System PATH Symlinking. A POSIX `sh` wrapper execing `open` on the URL scheme, `mstudio:cli:*` channels behind `GitOpResultOf`, a `/usr/local/bin` → `~/.local/bin` fallback that never uses sudo, zsh/bash/fish completions, and the CLI Integration settings page. ([PR #255](https://github.com/bilo-io/midnite-studio/pull/255), 2026-09-07)
-- 🔄 **C** — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch. Claimed — the single-instance lock, `open-url`, argv forwarding and a pure `parseDeepLink` already exist; closing out the jail's consent UI for an unknown `open`/`clone` proposal.
+- ✅ **C** — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch. The single-instance lock, `open-url`, argv forwarding and a pure `parseDeepLink` already existed; this closes out the jail's missing half — the renderer now renders the `known:false` proposal as a `ConfirmDialog` naming the absolute path (confirming opens and selects it), and a `clone` link as a notice, since no clone flow exists yet. ([PR #262](https://github.com/bilo-io/midnite-studio/pull/262), 2026-09-07)
 - ◐ **D** — Auto-Updater Service & Update Status Banner. Partial: the pure `update-state.ts`/`feed-channel.ts` modules and the `publish:` block (generic provider) exist; `electron-updater`, `update-service.ts`, the preload `update` group and the settings/status-bar UI are not yet built.
 - ✅ **E** — First-Run Onboarding & System Health. `onboardedAt` seeded by the shared `version < 5` migration, a focus-trapped first-run modal, and one `HealthChecklist` shared by the modal and a System Health settings page. (2026-08-30)
 

@@ -190,25 +190,33 @@
   - Without this, every existing spec that mounts Settings (`settings-pages.spec.ts`) fails —
     `installMockBridge` is serialised through `addInitScript` and replaces the bridge wholesale.
 
-### Theme C — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch (S/M/L: M) — ◐ PARTIAL (2026-08-30)
+### Theme C — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch (S/M/L: M) — ✅ DONE (2026-09-07)
 
-- [ ] Call `app.setAsDefaultProtocolClient('midnite-studio')` in [`main/index.ts`](../../../packages/desktop/src/main/index.ts).
+- [x] Call `app.setAsDefaultProtocolClient('midnite-studio')` in [`main/index.ts`](../../../packages/desktop/src/main/index.ts).
   - Inside the existing single-instance `else` block, before `app.whenReady()`.
   - In development (`!app.isPackaged`) it must be the three-argument form —
     `setAsDefaultProtocolClient('midnite-studio', process.execPath, [resolve(process.argv[1])])` —
     or the scheme registers against the Electron binary itself and a deep link opens a blank
     Electron app instead of Midnite Studio.
-- [ ] Extend the **existing** single-instance handler with a payload path — do not add a second one.
-  - `app.requestSingleInstanceLock()` and the `second-instance` restore/focus handler **already
-    exist** at `main/index.ts:122-129`. This item only adds the URL forwarding after the existing
-    focus call.
+  - **Found already landed** ahead of this pass, and correctly — the three-arg dev form guard is
+    present exactly as specified. This checklist item and the two below it were unchecked despite
+    the main-process half of the work already existing on `main`; only the checklist itself had
+    drifted from the tree (see this phase's note about stale line citations).
+- [x] Extend the **existing** single-instance handler with a payload path — do not add a second one.
+  - `app.requestSingleInstanceLock()` and the `second-instance` restore/focus handler already exist
+    in [`main/index.ts`](../../../packages/desktop/src/main/index.ts) (inside the
+    `requestSingleInstanceLock()` `else` branch — **not** the `:122-129` this item originally cited,
+    which is stale; verify by symbol, not line number). This item's URL forwarding is landed: it
+    adds the URL forwarding after the existing focus call.
   - `second-instance` gains its `argv` parameter and forwards the first member matching
     `midnite-studio://`.
-  - Add `app.on('open-url', (event, url) => { event.preventDefault(); … })` — on macOS a
+  - `app.on('open-url', (event, url) => { event.preventDefault(); … })` is wired — on macOS a
     **warm-start** deep link arrives through `open-url` and never appears in `argv`, so handling
-    only `second-instance` silently drops every link that arrives while the app is already running.
-  - **Cold start**: a URL already present in `process.argv` at boot is held and dispatched once the
-    renderer has subscribed (see the buffering item below).
+    only `second-instance` would silently drop every link that arrives while the app is already
+    running.
+  - **Cold start**: a `pendingDeepLink` held at module scope buffers a URL seen before the renderer
+    subscribes, and is dispatched once it does (see `handleDeepLinkUrl`/the renderer-ready hook in
+    `main/index.ts`).
 - [x] Create `packages/desktop/src/main/protocol-parse.ts` (net-new) — pure and electron-free.
   - `export type DeepLink = { kind: 'open'; repo: string } | { kind: 'clone'; url: string }`
   - `export function parseDeepLink(raw: string): DeepLink | null`
@@ -218,11 +226,19 @@
     unknown host; a missing or empty parameter; a `repo` that is not absolute; a `repo` containing
     a NUL byte; and a `clone` url whose scheme is not `https:`, `ssh:` or `git:`. A malformed URL
     is a normal outcome — anyone can type one.
-- [ ] Enforce the deep-link jail in main before anything is opened.
+- [x] Enforce the deep-link jail in main before anything is opened.
   - A parsed `open` whose resolved path is **already registered** in `repos.json` (via
     [`repo-registry.ts`](../../../packages/desktop/src/main/repo-registry.ts)) is dispatched
-    silently — that is the `midnite-studio .` case and it must stay one gesture.
+    silently — that is the `midnite-studio .` case and it must stay one gesture. Main already
+    computed this `known` flag and pushed it on the event; **what this pass adds is the consent
+    half that was missing** — nothing in the renderer read the proposal main was already sending.
   - Any other path is dispatched as a **proposal** and is never opened by main directly.
+    [`services/deep-link.ts`](../../../packages/app/src/services/deep-link.ts) now renders it as a
+    `ConfirmDialog` naming the absolute path (`useDialogs().confirm`, per
+    [`dialog-host.tsx`](../../../packages/app/src/components/dialog-host.tsx)); confirming calls
+    `bridge().repos.open` and selects the result, cancelling does nothing. A `clone` deep link is
+    shown as a notice rather than an action — the app has no clone flow yet (see *Not in this
+    phase*'s scope for the rest of Theme C) — so it cannot silently do anything either.
   - The reason, stated so nobody relaxes it later: a URL is remote-triggerable — any web page can
     issue one — so a deep link may not add a repository to the app without consent.
 - [x] Add the deep-link event channel and its preload subscriber.
@@ -449,7 +465,7 @@
 
 - [ ] `moon run :typecheck :lint :test` passes green across `shared`, `git-engine`, `app` and `desktop`.
 - [ ] `packages/shared/src/ipc/ipc.test.ts` still passes — every new channel is unique and `mstudio:`-prefixed.
-- [ ] `packages/desktop/src/main/protocol-parse.test.ts` (net-new): `parseDeepLink` returns the right
+- [x] `packages/desktop/src/main/protocol-parse.test.ts` (net-new): `parseDeepLink` returns the right
       `DeepLink` for `midnite-studio://open?repo=/abs/path` and `…//clone?url=https://…`, and returns
       **`null`** for each of a foreign scheme, an unknown host, a missing param, a relative `repo`, a
       `repo` containing `\0`, and a `clone` url with a `file:` scheme.
