@@ -483,20 +483,25 @@ is independent of D.
   - Focus order: query input → mode tabs → modifier toggles → results scroller. `ArrowDown` from
     the input moves focus into the list without submitting; `Escape` in the list returns focus to
     the input. `Enter` on a row does what a click does.
-- [ ] An in-flight-search readout in the footer, so a grep started here and left running while the
-      user switches view is visible rather than invisible: a `<FooterCluster>` child in
-      [`features/terminal/footer-bar.tsx`](../packages/app/src/features/terminal/footer-bar.tsx)
-      rendering “Searching… {n}” with a click that returns to the Search view and a stop button that
-      cancels.
+- [x] An in-flight-search readout in the footer, so a grep started here and left running while the
+      user switches view is visible rather than invisible: **shipped as `SearchProgressSegment`
+      in [`features/status-bar/search-progress.tsx`](../packages/app/src/features/status-bar/search-progress.tsx)**,
+      not the `<FooterCluster>` child this item originally named — Phase 27 had already moved the
+      footer into the status-bar zones (`segments.ts`) by the time this landed, ahead of the
+      note below. Renders "Searching {mode} ({n})" with a click that returns to the Search view
+      and a stop button that cancels in place.
   - It renders **only** while `countOf('search') > 0` in the renderer's own mirror of that count
     (the store's `requestId !== null`), and it is the phase's whole observability story — a
     `console.warn` when the ceiling refuses a search is the only thing logged, because that is the
     one failure a user cannot see and would otherwise report as “search stopped working”.
   - Phase 27 moves the footer into zones. This lands as a plain cluster child today and is named in
     that phase's file map as a segment to adopt; it does not wait for it.
-- [ ] `e2e/search-view.spec.ts` against the mock bridge: each mode returns and renders, a second
+- [x] `e2e/search-view.spec.ts` against the mock bridge: each mode returns and renders, a second
       query cancels the first, the truncation marker appears at the cap, and an invalid pattern shows
-      the error state rather than an empty list.
+      the error state rather than an empty list. Writing this test found that "a second query
+      cancels the first" was not actually true: `use-search.ts` started a new commit/content search
+      on every debounce without ever calling `search.cancel` on the one it replaced — fixed
+      alongside this spec.
 
 ### D — Blame (L) ✅ DONE (PR #1, 2026-08-30)
 

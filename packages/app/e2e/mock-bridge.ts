@@ -81,7 +81,11 @@ export type MockFixtures = {
   apiEnvironments?: {
     id: string;
     fileName: string;
-    environment: { id: string; name: string; values: { key: string; value?: string; type?: string; enabled?: boolean }[] };
+    environment: {
+      id: string;
+      name: string;
+      values: { key: string; value?: string; type?: string; enabled?: boolean }[];
+    };
   }[];
   /** Seeds `environment-io.ts`'s own once-per-repo confirm gate as already
    *  satisfied — a save with secret rows answers `saved` outright instead of
@@ -98,7 +102,10 @@ export type MockFixtures = {
   apiScriptRun?: {
     results: { name: string; passed: boolean; error?: string }[];
     logs?: string[];
-    mutations?: { environment: Record<string, string>; collectionVariables: Record<string, string> };
+    mutations?: {
+      environment: Record<string, string>;
+      collectionVariables: Record<string, string>;
+    };
     error?: string | null;
   };
   /**
@@ -451,8 +458,7 @@ export type MockFixtures = {
    * `fs.listFiles` results (Phase 23 Theme G). If omitted, defaults to extracting file keys from `fsFiles` or empty.
    */
   fsListFilesResult?:
-    | { ok: true; files: string[]; truncated: boolean }
-    | { ok: false; message: string };
+    { ok: true; files: string[]; truncated: boolean } | { ok: false; message: string };
   /** The onboarding kit's `scaffold.plan` answer (Phase 49). Defaults to an
    *  empty, already-up-to-date plan when omitted. */
   scaffoldPlanResult?:
@@ -505,12 +511,22 @@ export type MockFixtures = {
    * exactly as the real bridge does.
    */
   /**
-   * Search fixtures (Phase 25).
+   * Search fixtures (Phase 25). One fixed answer per spec, exactly like
+   * `fsSearchResult` above — the mock does not run `git log`/`git grep`
+   * over anything, so a spec's query text is under its own control.
+   *
+   * `delayMs` (default 0) is what lets `search-view.spec.ts` build a real
+   * race between two in-flight searches: fired via `setTimeout`, so a spec
+   * that wants a second query to land while the first is still "running"
+   * gives it enough headroom to fire `start` before the first's `setTimeout`
+   * elapses.
    */
   search?: {
     commits?: unknown[];
     contentHits?: unknown[];
     error?: string;
+    truncated?: boolean;
+    delayMs?: number;
   };
   /**
    * Blame fixtures (Phase 25), keyed by `${relPath}` or `${rev}:${relPath}`.
@@ -713,7 +729,6 @@ export type MockFixtures = {
   mcp?: { enabled?: boolean };
 };
 
-
 export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
   /*
     The packaged app ships macOS-only (`electron-builder.yml`: `mac` only,
@@ -870,7 +885,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
      * read the request itself.
      */
     const recordWrite = (channel: string, request: unknown): void => {
-      const store = (window as unknown as { __mstudioWrites?: unknown[] });
+      const store = window as unknown as { __mstudioWrites?: unknown[] };
       store.__mstudioWrites = [...(store.__mstudioWrites ?? []), { channel, request }];
     };
 
@@ -978,40 +993,52 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       },
       search: {
         start: async (req: { mode: 'commits' | 'content'; requestId: string }) => {
-          setTimeout(() => {
+          const requestId = req.requestId;
+          const timeoutId = setTimeout(() => {
+            searchPendingTimeouts.delete(requestId);
             if (req.mode === 'commits') {
               const commits = data.search?.commits ?? [];
               for (const handler of searchBatchHandlers) {
-                handler({ requestId: req.requestId, mode: 'commits', commits });
+                handler({ requestId, mode: 'commits', commits });
               }
               for (const handler of searchDoneHandlers) {
                 handler({
-                  requestId: req.requestId,
+                  requestId,
                   mode: 'commits',
                   total: commits.length,
-                  truncated: false,
+                  truncated: data.search?.truncated ?? false,
                   ...(data.search?.error ? { error: data.search.error } : {}),
                 });
               }
             } else {
               const hits = data.search?.contentHits ?? [];
               for (const handler of searchBatchHandlers) {
-                handler({ requestId: req.requestId, mode: 'content', hits });
+                handler({ requestId, mode: 'content', hits });
               }
               for (const handler of searchDoneHandlers) {
                 handler({
-                  requestId: req.requestId,
+                  requestId,
                   mode: 'content',
                   total: hits.length,
-                  truncated: false,
+                  truncated: data.search?.truncated ?? false,
                   ...(data.search?.error ? { error: data.search.error } : {}),
                 });
               }
             }
-          }, 0);
+          }, data.search?.delayMs ?? 0);
+          searchPendingTimeouts.set(requestId, timeoutId);
           return { ok: true as const, value: { started: true as const } };
         },
-        cancel: async () => undefined,
+        cancel: async (req: { requestId?: string }) => {
+          if (req.requestId) {
+            searchCancels.push(req.requestId);
+            const pending = searchPendingTimeouts.get(req.requestId);
+            if (pending) {
+              clearTimeout(pending);
+              searchPendingTimeouts.delete(req.requestId);
+            }
+          }
+        },
         onBatch: (handler: (e: unknown) => void) => {
           searchBatchHandlers.push(handler);
           return () => searchBatchHandlers.splice(searchBatchHandlers.indexOf(handler), 1);
@@ -1039,7 +1066,6 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
       },
       status: {
-
         get: async (req: { worktreePath?: string }) => ({
           branch: {
             head: 'main',
@@ -1407,7 +1433,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           const result = data.forgeProject?.writeResult;
           if (result && result.ok === false) {
             return result.kind === 'insufficient-scope'
-              ? { ok: false as const, kind: 'insufficient-scope' as const, hint: result.hint ?? 'gh auth refresh -s project' }
+              ? {
+                  ok: false as const,
+                  kind: 'insufficient-scope' as const,
+                  hint: result.hint ?? 'gh auth refresh -s project',
+                }
               : { ok: false as const, kind: 'error' as const, message: result.message };
           }
           const projectId = req['projectId'] as string;
@@ -1429,7 +1459,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           const result = data.forgeProject?.writeResult;
           if (result && result.ok === false) {
             return result.kind === 'insufficient-scope'
-              ? { ok: false as const, kind: 'insufficient-scope' as const, hint: result.hint ?? 'gh auth refresh -s project' }
+              ? {
+                  ok: false as const,
+                  kind: 'insufficient-scope' as const,
+                  hint: result.hint ?? 'gh auth refresh -s project',
+                }
               : { ok: false as const, kind: 'error' as const, message: result.message };
           }
           return { ok: true as const, kind: 'ok' as const };
@@ -1447,7 +1481,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           const result = data.forgeProject?.writeResult;
           if (result && result.ok === false) {
             return result.kind === 'insufficient-scope'
-              ? { ok: false as const, kind: 'insufficient-scope' as const, hint: result.hint ?? 'gh auth refresh -s project' }
+              ? {
+                  ok: false as const,
+                  kind: 'insufficient-scope' as const,
+                  hint: result.hint ?? 'gh auth refresh -s project',
+                }
               : { ok: false as const, kind: 'error' as const, message: result.message };
           }
           const projectId = req['projectId'] as string;
@@ -1864,7 +1902,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       */
       council: {
         list: async () => ({ councils }),
-        get: async (req: { id: string }) => ({ council: councils.find((c) => c.id === req.id) ?? null }),
+        get: async (req: { id: string }) => ({
+          council: councils.find((c) => c.id === req.id) ?? null,
+        }),
         create: async (req: { name: string; description?: string }) => {
           const now = Date.now();
           const council = {
@@ -1872,10 +1912,30 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             name: req.name,
             ...(req.description === undefined ? {} : { description: req.description }),
             members: [
-              { id: 'm1', name: 'Optimist', provider: 'agy' as const, role: 'Argue the best case.' },
-              { id: 'm2', name: 'Skeptic', provider: 'codex' as const, role: 'Find the strongest objection.' },
-              { id: 'm3', name: 'Pragmatist', provider: 'opencode' as const, role: 'Focus on what is achievable.' },
-              { id: 'm4', name: 'Visionary', provider: 'agy' as const, role: 'Ignore near-term constraints.' },
+              {
+                id: 'm1',
+                name: 'Optimist',
+                provider: 'agy' as const,
+                role: 'Argue the best case.',
+              },
+              {
+                id: 'm2',
+                name: 'Skeptic',
+                provider: 'codex' as const,
+                role: 'Find the strongest objection.',
+              },
+              {
+                id: 'm3',
+                name: 'Pragmatist',
+                provider: 'opencode' as const,
+                role: 'Focus on what is achievable.',
+              },
+              {
+                id: 'm4',
+                name: 'Visionary',
+                provider: 'agy' as const,
+                role: 'Ignore near-term constraints.',
+              },
             ],
             synthProvider: 'agy' as const,
             createdAt: now,
@@ -1886,8 +1946,14 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
         updateMembers: async (req: { id: string; members: unknown[]; synthProvider: string }) => {
           const index = councils.findIndex((c) => c.id === req.id);
-          if (index === -1) return { ok: false as const, kind: 'error' as const, message: 'Council not found.' };
-          const updated = { ...councils[index], members: req.members, synthProvider: req.synthProvider, updatedAt: Date.now() };
+          if (index === -1)
+            return { ok: false as const, kind: 'error' as const, message: 'Council not found.' };
+          const updated = {
+            ...councils[index],
+            members: req.members,
+            synthProvider: req.synthProvider,
+            updatedAt: Date.now(),
+          };
           councils = [...councils.slice(0, index), updated, ...councils.slice(index + 1)];
           return { ok: true as const, value: updated };
         },
@@ -1901,7 +1967,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         run: {
           start: async (req: { councilId: string; prompt: string }) => {
             const council = councils.find((c) => c.id === req.councilId);
-            if (!council) return { ok: false as const, kind: 'error' as const, message: 'Council not found.' };
+            if (!council)
+              return { ok: false as const, kind: 'error' as const, message: 'Council not found.' };
             const now = Date.now();
             const run = {
               id: `run-${++councilRunCounter}`,
@@ -1910,17 +1977,19 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
               format: 'brainstorm' as const,
               status: 'completed' as const,
               synthProvider: council.synthProvider,
-              members: council.members.map((m: { id: string; name: string; provider: string; role: string }) => ({
-                memberId: m.id,
-                name: m.name,
-                provider: m.provider,
-                role: m.role,
-                status: 'succeeded' as const,
-                output: `${m.name}'s answer to: ${req.prompt}`,
-                truncated: false,
-                startedAt: now,
-                endedAt: now,
-              })),
+              members: council.members.map(
+                (m: { id: string; name: string; provider: string; role: string }) => ({
+                  memberId: m.id,
+                  name: m.name,
+                  provider: m.provider,
+                  role: m.role,
+                  status: 'succeeded' as const,
+                  output: `${m.name}'s answer to: ${req.prompt}`,
+                  truncated: false,
+                  startedAt: now,
+                  endedAt: now,
+                }),
+              ),
               synthesisOutput: `Synthesis of the panel's views on: ${req.prompt}`,
               synthesisTruncated: false,
               createdAt: now,
@@ -1929,7 +1998,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             councilRuns = [...councilRuns, run];
             return { ok: true as const, value: run };
           },
-          get: async (req: { runId: string }) => ({ run: councilRuns.find((r) => r.id === req.runId) ?? null }),
+          get: async (req: { runId: string }) => ({
+            run: councilRuns.find((r) => r.id === req.runId) ?? null,
+          }),
           list: async (req: { councilId: string }) => ({
             runs: councilRuns.filter((r) => r.councilId === req.councilId),
           }),
@@ -1963,7 +2034,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
         run: async (req: { workflowId: string }) => {
           const workflow = workflows.find((w) => w.id === req.workflowId);
-          if (!workflow) return { ok: false as const, kind: 'error' as const, message: 'Workflow not found.' };
+          if (!workflow)
+            return { ok: false as const, kind: 'error' as const, message: 'Workflow not found.' };
           const now = Date.now();
           // Shaped to the real `WorkflowRunSchema` (`nodes`, not `nodeRuns` —
           // nothing consumed this object until Theme G's run view, which is
@@ -1996,7 +2068,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           list: async (req: { workflowId: string }) => ({
             runs: workflowRuns.filter((r) => r.workflowId === req.workflowId),
           }),
-          get: async (req: { runId: string }) => ({ run: workflowRuns.find((r) => r.id === req.runId) ?? null }),
+          get: async (req: { runId: string }) => ({
+            run: workflowRuns.find((r) => r.id === req.runId) ?? null,
+          }),
         },
         onRunChanged: () => () => {},
       },
@@ -2154,7 +2228,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             return { ok: true as const, value: render };
           },
           cancel: async () => ({ ok: true as const }),
-          list: async (req: { projectId: string }) => ({ renders: videoRenders[req.projectId] ?? [] }),
+          list: async (req: { projectId: string }) => ({
+            renders: videoRenders[req.projectId] ?? [],
+          }),
         },
         toolchain: async (req: { projectId: string }) => ({
           toolchain: data.video?.toolchain?.[req.projectId] ?? {
@@ -2179,8 +2255,19 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       },
       cli: {
         status: async () => ({ installed: false, path: null, target: null, managed: false }),
-        install: async () => ({ ok: true as const, value: { installed: true, path: '/usr/local/bin/midnite-studio', target: '/usr/local/bin/midnite-studio', managed: true } }),
-        uninstall: async () => ({ ok: true as const, value: { installed: false, path: null, target: null, managed: false } }),
+        install: async () => ({
+          ok: true as const,
+          value: {
+            installed: true,
+            path: '/usr/local/bin/midnite-studio',
+            target: '/usr/local/bin/midnite-studio',
+            managed: true,
+          },
+        }),
+        uninstall: async () => ({
+          ok: true as const,
+          value: { installed: false, path: null, target: null, managed: false },
+        }),
       },
       update: {
         check: noop,
@@ -2233,7 +2320,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         }) => {
           const key = `repo:${req.relPath}`;
           const entry = data.fsFiles?.[key];
-          if (!entry || entry.kind !== 'text') return { ok: false, message: 'no fixture for ' + key };
+          if (!entry || entry.kind !== 'text')
+            return { ok: false, message: 'no fixture for ' + key };
           const current = entry.version ?? { mtimeMs: 1, size: entry.content.length };
           if (
             current.mtimeMs !== req.expectedVersion.mtimeMs ||
@@ -2269,7 +2357,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           if (dir.some((entry) => entry.name === name)) {
             return { ok: false, message: 'already exists' };
           }
-          dir.push({ name, kind: req.kind === 'directory' ? 'dir' : 'file', size: 0, isIgnored: false });
+          dir.push({
+            name,
+            kind: req.kind === 'directory' ? 'dir' : 'file',
+            size: 0,
+            isIgnored: false,
+          });
           if (req.kind === 'directory') {
             data.fsDirs![`repo:${req.relPath}`] = [];
           } else {
@@ -2320,7 +2413,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           }
           return { ok: true as const, fileCount, totalBytes, truncated: false };
         },
-        search: async () => data.fsSearchResult ?? { ok: true as const, matches: [], truncated: false },
+        search: async () =>
+          data.fsSearchResult ?? { ok: true as const, matches: [], truncated: false },
         listFiles: async () => {
           if (data.fsListFilesResult) return data.fsListFilesResult;
           if (data.fsFiles) {
@@ -2541,8 +2635,19 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       },
       cli: {
         status: async () => ({ installed: false, path: null, target: null, managed: false }),
-        install: async () => ({ ok: true, value: { installed: true, path: '/usr/local/bin/midnite-studio', target: '/usr/local/bin/midnite-studio', managed: true } }),
-        uninstall: async () => ({ ok: true, value: { installed: false, path: null, target: null, managed: false } }),
+        install: async () => ({
+          ok: true,
+          value: {
+            installed: true,
+            path: '/usr/local/bin/midnite-studio',
+            target: '/usr/local/bin/midnite-studio',
+            managed: true,
+          },
+        }),
+        uninstall: async () => ({
+          ok: true,
+          value: { installed: false, path: null, target: null, managed: false },
+        }),
       },
       update: {
         check: noop,
@@ -2611,7 +2716,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
                 ...data.optimizer.memory,
                 usedBytes:
                   data.optimizer.memory.usedBytes ??
-                  (data.optimizer.memory.totalBytes - data.optimizer.memory.freeBytes),
+                  data.optimizer.memory.totalBytes - data.optimizer.memory.freeBytes,
               }
             : defaultMemory;
 
@@ -2691,7 +2796,13 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           },
         }),
         emptyTrash: async () => {
-          trashFixture = { itemCount: 0, totalBytes: 0, oldestModifiedAt: null, volumeCount: 1, truncated: false };
+          trashFixture = {
+            itemCount: 0,
+            totalBytes: 0,
+            oldestModifiedAt: null,
+            volumeCount: 1,
+            truncated: false,
+          };
           return { ok: true as const };
         },
       },
@@ -2723,10 +2834,17 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         const apiEnvironmentsState: {
           id: string;
           fileName: string;
-          environment: { id: string; name: string; values: { key: string; value?: string; type?: string; enabled?: boolean }[] };
+          environment: {
+            id: string;
+            name: string;
+            values: { key: string; value?: string; type?: string; enabled?: boolean }[];
+          };
         }[] = (data.apiEnvironments ?? []).map((entry) => ({
           ...entry,
-          environment: { ...entry.environment, values: entry.environment.values.map((row) => ({ ...row })) },
+          environment: {
+            ...entry.environment,
+            values: entry.environment.values.map((row) => ({ ...row })),
+          },
         }));
         let apiEnvGitignoreWritten = data.apiEnvGitignoreProtected ?? false;
 
@@ -2742,7 +2860,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           let suffix = 2;
           while (
             apiEnvironmentsState.some(
-              (entry) => entry.id === `${candidate}.postman_environment.json` && entry.id !== excludingId,
+              (entry) =>
+                entry.id === `${candidate}.postman_environment.json` && entry.id !== excludingId,
             )
           ) {
             candidate = `${base}-${suffix}`;
@@ -2772,7 +2891,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         const apiRunCancelled = new Map<string, boolean>();
 
         return {
-          listCollections: async () => ({ ok: true as const, value: (data.apiCollections ?? []).slice() }),
+          listCollections: async () => ({
+            ok: true as const,
+            value: (data.apiCollections ?? []).slice(),
+          }),
           readCollection: async (req: { collectionId: string }) => {
             const found = (data.apiCollections ?? []).find((c) => c.id === req.collectionId);
             return found
@@ -2813,15 +2935,25 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             const found = apiEnvironmentsState.find((entry) => entry.id === req.environmentId);
             return found
               ? { ok: true as const, value: found.environment }
-              : { ok: false as const, kind: 'error' as const, message: `No environment ${req.environmentId}` };
+              : {
+                  ok: false as const,
+                  kind: 'error' as const,
+                  message: `No environment ${req.environmentId}`,
+                };
           },
           saveEnvironment: async (req: {
             repoId: string;
             environmentId: string | null;
-            environment: { id: string; name: string; values: { key: string; value?: string; type?: string; enabled?: boolean }[] };
+            environment: {
+              id: string;
+              name: string;
+              values: { key: string; value?: string; type?: string; enabled?: boolean }[];
+            };
             confirmed?: boolean;
           }) => {
-            const secretCount = req.environment.values.filter((row) => row.type === 'secret').length;
+            const secretCount = req.environment.values.filter(
+              (row) => row.type === 'secret',
+            ).length;
             if (secretCount > 0 && !apiEnvGitignoreWritten && !req.confirmed) {
               return {
                 ok: true as const,
@@ -2837,8 +2969,17 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             const existing = req.environmentId
               ? apiEnvironmentsState.find((entry) => entry.id === req.environmentId)
               : undefined;
-            const fileName = existing ? existing.id : `${uniqueSlug(slugify(req.environment.name), null)}.postman_environment.json`;
-            const entry = { id: fileName, fileName, environment: { ...req.environment, values: req.environment.values.map((row) => ({ ...row })) } };
+            const fileName = existing
+              ? existing.id
+              : `${uniqueSlug(slugify(req.environment.name), null)}.postman_environment.json`;
+            const entry = {
+              id: fileName,
+              fileName,
+              environment: {
+                ...req.environment,
+                values: req.environment.values.map((row) => ({ ...row })),
+              },
+            };
             if (existing) {
               const index = apiEnvironmentsState.indexOf(existing);
               apiEnvironmentsState[index] = entry;
@@ -2897,7 +3038,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           // `skipped`, which is the UI-level claim this item makes; the
           // finer in-flight-vs-skipped distinction `runner.test.ts` proves is
           // main-process behaviour this mock does not re-implement.
-          runCollection: async (req: { runId: string; collectionId: string; runAnyway?: boolean }) => {
+          runCollection: async (req: {
+            runId: string;
+            collectionId: string;
+            runAnyway?: boolean;
+          }) => {
             const trusted = apiScriptTrust.has(req.collectionId);
             if (!trusted && !req.runAnyway) {
               return { ok: true as const, value: { status: 'needs-consent' as const } };
@@ -2909,11 +3054,19 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
               let cancelledAtIndex: number | null = null;
               for (let index = 0; index < items.length; index += 1) {
                 await new Promise((resolve) => setTimeout(resolve, delayMs));
-                if (apiRunCancelled.get(req.runId) && cancelledAtIndex === null) cancelledAtIndex = index;
+                if (apiRunCancelled.get(req.runId) && cancelledAtIndex === null)
+                  cancelledAtIndex = index;
                 const base = items[index]!;
                 const item =
                   cancelledAtIndex !== null
-                    ? { ...base, status: 'skipped' as const, response: null, assertions: [], error: null, durationMs: 0 }
+                    ? {
+                        ...base,
+                        status: 'skipped' as const,
+                        response: null,
+                        assertions: [],
+                        error: null,
+                        durationMs: 0,
+                      }
                     : base;
                 for (const handler of apiRunProgressHandlers) {
                   handler({ runId: req.runId, index, total: items.length, item });
@@ -2924,7 +3077,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
               const completed = total - skipped;
               const settled = items.slice(0, completed);
               const passed = settled.filter((item) => item.status === 'passed').length;
-              const failed = settled.filter((item) => item.status === 'failed' || item.status === 'error').length;
+              const failed = settled.filter(
+                (item) => item.status === 'failed' || item.status === 'error',
+              ).length;
               const summary = {
                 runId: req.runId,
                 total,
@@ -2986,7 +3141,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         // re-`SELECT` and a real `UPDATE` through this exact channel
         // (`run-statement.ts`), and only a mock that actually reads and
         // mutates `dbTables` can answer either one correctly.
-        queryStart: async (req: { connectionId: string; requestId: string; sql: string; params?: unknown[] }) => {
+        queryStart: async (req: {
+          connectionId: string;
+          requestId: string;
+          sql: string;
+          params?: unknown[];
+        }) => {
           dbCancelledRequestIds.delete(req.requestId);
           setTimeout(() => {
             if (dbCancelledRequestIds.has(req.requestId)) return;
@@ -3011,7 +3171,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         queryCancel: async (req: { requestId: string }) => {
           dbCancelledRequestIds.add(req.requestId);
         },
-        onQueryBatch: (handler: (e: { requestId: string; columns: string[]; rows: unknown[][] }) => void) => {
+        onQueryBatch: (
+          handler: (e: { requestId: string; columns: string[]; rows: unknown[][] }) => void,
+        ) => {
           dbQueryBatchHandlers.push(handler);
           return () => dbQueryBatchHandlers.splice(dbQueryBatchHandlers.indexOf(handler), 1);
         },
@@ -3035,7 +3197,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           socketPath: mcpEnabled
             ? '/Users/demo/Library/Application Support/Midnite Studio/mcp/1.0.0-abc12345.sock'
             : null,
-          shimPath: '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
+          shimPath:
+            '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
         }),
         set: async (req: { enabled: boolean }) => {
           mcpEnabled = req.enabled;
@@ -3045,14 +3208,27 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             socketPath: mcpEnabled
               ? '/Users/demo/Library/Application Support/Midnite Studio/mcp/1.0.0-abc12345.sock'
               : null,
-            shimPath: '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
+            shimPath:
+              '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
           };
         },
         calls: async () => ({
           calls: mcpEnabled
             ? [
-                { at: Date.now() - 2_000, tool: 'status.get', repoPath: '/tmp/midnite-studio', ok: true, ms: 8 },
-                { at: Date.now() - 9_000, tool: 'graph.log', repoPath: '/tmp/midnite-studio', ok: true, ms: 42 },
+                {
+                  at: Date.now() - 2_000,
+                  tool: 'status.get',
+                  repoPath: '/tmp/midnite-studio',
+                  ok: true,
+                  ms: 8,
+                },
+                {
+                  at: Date.now() - 9_000,
+                  tool: 'graph.log',
+                  repoPath: '/tmp/midnite-studio',
+                  ok: true,
+                  ms: 42,
+                },
               ]
             : [],
         }),
@@ -3099,12 +3275,30 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var searchBatchHandlers: Array<(e: unknown) => void> = [];
     // eslint-disable-next-line no-var
     var searchDoneHandlers: Array<(e: unknown) => void> = [];
+    // requestIds passed to `search.cancel`, in call order — read back via
+    // `__mstudioSearchCancels` so a spec can assert a second query cancelled
+    // the first (`e2e/search-view.spec.ts`).
+    // eslint-disable-next-line no-var
+    var searchCancels: string[] = [];
+    // `search.start`'s pending `setTimeout`s, keyed by requestId, so `cancel`
+    // can actually stop a still-running one from ever firing its batch/done
+    // handlers — not just record that it was asked to.
+    // eslint-disable-next-line no-var
+    var searchPendingTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
     // --- Database query stream (Phase 61 Theme J) ---------------------------
     // eslint-disable-next-line no-var
-    var dbQueryBatchHandlers: Array<(e: { requestId: string; columns: string[]; rows: unknown[][] }) => void> = [];
+    var dbQueryBatchHandlers: Array<
+      (e: { requestId: string; columns: string[]; rows: unknown[][] }) => void
+    > = [];
     // eslint-disable-next-line no-var
     var dbQueryDoneHandlers: Array<
-      (e: { requestId: string; rowCount: number; truncated: boolean; durationMs: number; error?: string }) => void
+      (e: {
+        requestId: string;
+        rowCount: number;
+        truncated: boolean;
+        durationMs: number;
+        error?: string;
+      }) => void
     > = [];
     // A `queryCancel` marks a requestId here; `queryStart`'s own `setTimeout`
     // checks it before emitting anything, mirroring the real
@@ -3145,9 +3339,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         const tableName = unquote(/^UPDATE\s+"?`?\[?(\w+)/i.exec(trimmed)?.[1] ?? '');
         const table = dbTables.get(tableName);
         const setPart = /SET\s+(.+?)\s+WHERE/is.exec(trimmed)?.[1] ?? '';
-        const setColumns = [...setPart.matchAll(/"?`?\[?(\w+)\]?`?"?\s*=\s*(?:\$\d+|\?|@p\d+)/gi)].map(
-          (m) => m[1] ?? '',
-        );
+        const setColumns = [
+          ...setPart.matchAll(/"?`?\[?(\w+)\]?`?"?\s*=\s*(?:\$\d+|\?|@p\d+)/gi),
+        ].map((m) => m[1] ?? '');
         const whereColumn = unquote(
           /WHERE\s+"?`?\[?(\w+)\]?`?"?\s*=\s*(?:\$\d+|\?|@p\d+)/i.exec(trimmed)?.[1] ?? '',
         );
@@ -3343,8 +3537,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
      * drives is the sequence the real store would go through.
      */
     // eslint-disable-next-line no-var
-    var diagTrust: { state: string; command: unknown; trustedAt: number | null } =
-      data.diagnostics?.trust ?? { state: 'no-command', command: null, trustedAt: null };
+    var diagTrust: { state: string; command: unknown; trustedAt: number | null } = data.diagnostics
+      ?.trust ?? { state: 'no-command', command: null, trustedAt: null };
 
     // --- the fake pty ------------------------------------------------------
     // eslint-disable-next-line no-var
@@ -3489,10 +3683,15 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       const entry = data.fsFiles?.[key];
       if (!entry || entry.kind !== 'text') return;
       const version = entry.version ?? { mtimeMs: 1, size: entry.content.length };
-      data.fsFiles![key] = { ...entry, version: { mtimeMs: version.mtimeMs + 100, size: version.size } };
+      data.fsFiles![key] = {
+        ...entry,
+        version: { mtimeMs: version.mtimeMs + 100, size: version.size },
+      };
     };
 
     (window as unknown as { __mstudioOps: unknown }).__mstudioOps = opCalls;
+    (window as unknown as { __mstudioSearchCancels: unknown }).__mstudioSearchCancels =
+      searchCancels;
     (window as unknown as { __mstudioPty: unknown }).__mstudioPty = ptyCalls;
     /*
       A spec's way to make the fake shell say something arbitrary — an escape
@@ -3577,13 +3776,16 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
      * a spec's only way to make a mocked engine crash, rename a page or
      * refuse a download, since no real `WebContentsView` exists here.
      */
-    (window as unknown as { __mstudioBrowserEvent: unknown }).__mstudioBrowserEvent = (event: unknown) => {
+    (window as unknown as { __mstudioBrowserEvent: unknown }).__mstudioBrowserEvent = (
+      event: unknown,
+    ) => {
       for (const handler of [...browserEventHandlers]) handler(event);
     };
-    (window as unknown as { __mstudioBrowserTabs: unknown }).__mstudioBrowserTabs = () => [...browserTabIds];
-    (window as unknown as { __mstudioBrowserVisibleCalls: unknown }).__mstudioBrowserVisibleCalls = () => [
-      ...browserVisibleCalls,
+    (window as unknown as { __mstudioBrowserTabs: unknown }).__mstudioBrowserTabs = () => [
+      ...browserTabIds,
     ];
+    (window as unknown as { __mstudioBrowserVisibleCalls: unknown }).__mstudioBrowserVisibleCalls =
+      () => [...browserVisibleCalls];
     /*
       A getter, not the array: `loopRuns` is REASSIGNED on every start and
       stop (the ledger is immutable-updated the way main's is), so a spec
@@ -3591,9 +3793,11 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       time and quietly assert nothing.
     */
     (window as unknown as { __mstudioLoopRuns: unknown }).__mstudioLoopRuns = () => loopRuns;
-    (window as unknown as { __mstudioTerminalSaves: unknown }).__mstudioTerminalSaves = terminalSaves;
+    (window as unknown as { __mstudioTerminalSaves: unknown }).__mstudioTerminalSaves =
+      terminalSaves;
     (window as unknown as { __mstudioExternalUrls: unknown }).__mstudioExternalUrls = externalUrls;
-    (window as unknown as { __mstudioRevealedPaths: unknown }).__mstudioRevealedPaths = revealedPaths;
+    (window as unknown as { __mstudioRevealedPaths: unknown }).__mstudioRevealedPaths =
+      revealedPaths;
     (window as unknown as { __mstudioClipboard: unknown }).__mstudioClipboard = clipboardWrites;
     (window as unknown as { __mstudioMetrics: unknown }).__mstudioMetrics = metricsCalls;
     (window as unknown as { __mstudioDiagRuns: unknown }).__mstudioDiagRuns = () => diagRuns;
@@ -3606,7 +3810,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       pushes the second half itself, at the wider spacing, through the same
       handler array the real stream uses.
     */
-    (window as unknown as { __mstudioPushMetric: unknown }).__mstudioPushMetric = (sample: unknown) => {
+    (window as unknown as { __mstudioPushMetric: unknown }).__mstudioPushMetric = (
+      sample: unknown,
+    ) => {
       for (const handler of metricsHandlers) handler(sample);
     };
     /**
