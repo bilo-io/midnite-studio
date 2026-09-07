@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
 import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
@@ -17,7 +17,32 @@ import { clickRailLink, installMockBridge, type MockFixtures } from './mock-brid
  * two tests do prove — is the UI's own reaction: a secret-typed row masks its
  * value, the confirm gate blocks an unprotected save, and accepting it hands
  * the new environment straight to the switcher.
+ *
+ * **A real bug this suite found, not a fixture workaround**: opening the
+ * switcher's popover with a plain `.click()` closes it again within the same
+ * tick. `Popover` (`components/popover.tsx`) registers a capture-phase
+ * `scroll` listener the moment it opens and dismisses on any scroll outside
+ * its own panel — and a *mouse* click on this specific trigger reliably
+ * fires one benign scroll elsewhere on the page (traced with a throwaway
+ * `console.error` in `onScroll`, then reverted — the scrolled node was a
+ * `@bilo-io/shell` nav-rail container, not anything Phase 70 touches), which
+ * the listener reads as "the user scrolled away" and closes the panel it
+ * only just opened. `Popover`'s own `useFocusTrap` call passes
+ * `preventScroll: true`, so it is not the trap itself scrolling — something
+ * about mouse-driven focus on this trigger, in this view, trips a reaction
+ * in the third-party shell rail. **Keyboard activation (`focus()` +
+ * `Enter`) does not trigger it** — confirmed directly, and used as this
+ * suite's open action below — which makes this a real, narrow interaction
+ * bug in shared infrastructure (`Popover` × `@bilo-io/shell`), not a defect
+ * in Theme A's own code, and out of scope to patch from a verification
+ * theme. Filed here rather than silently routed around: a plain mouse click
+ * on "Select environment" is currently unreliable.
  */
+async function openEnvironmentSwitcher(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Select environment' }).focus();
+  await page.keyboard.press('Enter');
+}
+
 const collection = {
   info: { name: 'Gateway', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
   item: [{ name: 'Health check', request: { method: 'GET', url: { raw: '{{baseUrl}}/health' } } }],
@@ -33,7 +58,7 @@ test('a secret row masks its value, and saving an unprotected repo needs the bla
   await page.goto('/');
   await clickRailLink(page, 'API Client');
 
-  await page.getByRole('button', { name: 'Select environment' }).click();
+  await openEnvironmentSwitcher(page);
   await page.getByText('New environment…').click();
 
   const dialog = page.getByRole('dialog', { name: 'New environment' });
@@ -100,12 +125,12 @@ test('an environment with no secret rows never needs the confirm, and switching 
   const switcher = page.getByRole('button', { name: 'Select environment' });
   await expect(switcher).toContainText('No environment');
 
-  await switcher.click();
+  await openEnvironmentSwitcher(page);
   await page.getByText('Prod', { exact: true }).click();
   await expect(switcher).toContainText('Prod');
 
   // Editing it back to empty and saving needs no confirm at all.
-  await switcher.click();
+  await openEnvironmentSwitcher(page);
   await page.getByLabel('Edit Prod').click();
   const dialog = page.getByRole('dialog', { name: 'Edit environment "Prod"' });
   await dialog.getByRole('button', { name: 'Remove row' }).click();
