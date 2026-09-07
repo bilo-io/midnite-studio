@@ -52,12 +52,15 @@ export type MockFixtures = {
    */
   forgeLatencyMs?: number;
   /**
-   * Phase 66 Theme H — API Client collections, as `listCollections` returns
-   * them (the summary shape the tree renders from).
+   * Phase 66 Theme H — API Client collections, in `ApiCollectionSummary`'s own
+   * shape: `{id, fileName, collection}`, where `collection` is the whole
+   * Postman v2.1 document.
+   *
+   * The summary embeds the document rather than a count, so `readCollection`
+   * needs no separate fixture — it answers from this same list, keyed by `id`
+   * (which is the file name, exactly as `collection-io.ts` mints it).
    */
-  apiCollections?: { id: string; name: string; requestCount: number }[];
-  /** Keyed by collection id — what `readCollection` hands back for each. */
-  apiCollectionsById?: Record<string, unknown>;
+  apiCollections?: { id: string; fileName: string; collection: unknown }[];
   /** Overrides the canned 200 that `sendRequest` answers with. */
   apiResponse?: unknown;
   /**
@@ -2654,10 +2657,14 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       apiClient: {
         listCollections: async () => ({ ok: true as const, value: (data.apiCollections ?? []).slice() }),
         readCollection: async (req: { collectionId: string }) => {
-          const found = data.apiCollectionsById?.[req.collectionId];
+          const found = (data.apiCollections ?? []).find((c) => c.id === req.collectionId);
           return found
-            ? { ok: true as const, value: found }
-            : { ok: false as const, kind: 'error' as const, message: `No collection ${req.collectionId}` };
+            ? { ok: true as const, value: found.collection }
+            : {
+                ok: false as const,
+                kind: 'error' as const,
+                message: `No collection ${req.collectionId}`,
+              };
         },
         saveCollection: async () => ({ ok: true as const }),
         importCollection: async () => ({ ok: true as const, value: null }),
