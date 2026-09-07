@@ -1107,6 +1107,23 @@ export type MidniteStudioBridge = {
     clearHistory: (
       req: In<typeof S.ApiClearHistoryRequest>,
     ) => Promise<z.infer<typeof S.ApiClearHistoryResponse>>;
+
+    /**
+     * Phase 70 Theme B — runs a tab's Pre-request/Tests script in main's
+     * sandboxed `pm.*` runner (a spawned `utilityProcess`, never main
+     * itself). `{status:'needs-consent'}` means exactly that and nothing
+     * ran; the caller resends with `runAnyway: true` (*Run once*) or after
+     * `setScriptTrust({trusted:true})` (*Always*) to actually execute it.
+     */
+    runScript: (
+      req: In<typeof S.ApiRunScriptRequest>,
+    ) => Promise<z.infer<typeof S.ApiRunScriptResponse>>;
+    /** Persists (or revokes) this machine's consent to run a collection's
+     *  scripts — the marker lives in a gitignored sibling `.local.json`,
+     *  never in the collection itself. */
+    setScriptTrust: (
+      req: In<typeof S.ApiSetScriptTrustRequest>,
+    ) => Promise<z.infer<typeof S.ApiSetScriptTrustResponse>>;
   };
 
   /**
