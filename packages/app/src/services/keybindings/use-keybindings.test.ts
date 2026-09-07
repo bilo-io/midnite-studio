@@ -262,3 +262,70 @@ describe('the Mod+w / Mod+t three-way carve-out', () => {
     expect(run['browser.newTab']).not.toHaveBeenCalled();
   });
 });
+
+describe('browser.find (Mod+f, Phase 32 Theme G)', () => {
+  it('does not fire aimed at a terminal — Mod+f off macOS is Ctrl+F, readline\'s forward-char', () => {
+    useUiStore.setState({ browserOpen: true });
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    inXterm({ key: 'f', metaKey: true });
+
+    expect(run['browser.find']).not.toHaveBeenCalled();
+  });
+
+  it('does not fire aimed at Monaco — Mod+f is Monaco\'s own find widget', () => {
+    useUiStore.setState({ browserOpen: true });
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    inMonaco({ key: 'f', metaKey: true });
+
+    expect(run['browser.find']).not.toHaveBeenCalled();
+  });
+
+  it('fires aimed at the pane while the browser is open', () => {
+    useUiStore.setState({ browserOpen: true });
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    dispatch({ key: 'f', metaKey: true });
+
+    expect(run['browser.find']).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('browser.zoomIn/zoomOut/zoomReset vs the host app.* pair (Phase 32 Theme G)', () => {
+  it('resolves Mod+=/Mod+-/Mod+0 to the browser reading while the pane is open', () => {
+    useUiStore.setState({ browserOpen: true });
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    dispatch({ key: '=', metaKey: true });
+    dispatch({ key: '-', metaKey: true });
+    dispatch({ key: '0', metaKey: true });
+
+    expect(run['browser.zoomIn']).toHaveBeenCalledTimes(1);
+    expect(run['browser.zoomOut']).toHaveBeenCalledTimes(1);
+    expect(run['browser.zoomReset']).toHaveBeenCalledTimes(1);
+    expect(run['app.zoomIn']).not.toHaveBeenCalled();
+    expect(run['app.zoomOut']).not.toHaveBeenCalled();
+    expect(run['app.zoomReset']).not.toHaveBeenCalled();
+  });
+
+  it('resolves the same three chords to the host reading with the pane closed', () => {
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    dispatch({ key: '=', metaKey: true });
+    dispatch({ key: '-', metaKey: true });
+    dispatch({ key: '0', metaKey: true });
+
+    expect(run['app.zoomIn']).toHaveBeenCalledTimes(1);
+    expect(run['app.zoomOut']).toHaveBeenCalledTimes(1);
+    expect(run['app.zoomReset']).toHaveBeenCalledTimes(1);
+    expect(run['browser.zoomIn']).not.toHaveBeenCalled();
+    expect(run['browser.zoomOut']).not.toHaveBeenCalled();
+    expect(run['browser.zoomReset']).not.toHaveBeenCalled();
+  });
+});
