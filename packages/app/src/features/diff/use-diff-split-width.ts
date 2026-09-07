@@ -32,6 +32,17 @@ export const DIFF_SPLIT_MIN_WIDTH = 720;
 export function useTooNarrowForSplit(ref: RefObject<HTMLElement | null>): boolean {
   const [tooNarrow, setTooNarrow] = useState(false);
 
+  /*
+    Deliberately no dependency array. `ref` (the object `useRef` returns) never
+    changes, so `[ref]` would only re-run this once — at the very first
+    commit. Every caller here attaches the ref to an element that is ABSENT
+    on that first commit (`DiffView`'s own `isLoading`/`!diff` early returns
+    render nothing at all until the diff query resolves; the accordions'
+    `<section>` exists earlier, but `open` gates whether its body — and this
+    element's actual layout — exists yet). Re-running after every render is
+    what catches the ref resolving later, at the one-render cost of
+    disconnecting and re-observing an already-unchanged element.
+  */
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -43,7 +54,7 @@ export function useTooNarrowForSplit(ref: RefObject<HTMLElement | null>): boolea
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [ref]);
+  });
 
   return tooNarrow;
 }
