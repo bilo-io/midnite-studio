@@ -1456,11 +1456,60 @@ export type PersistedUi = Pick<
  */
 adoptRenamedPersistKey('midnite-studio.ui', 'midnite-studio.ui');
 
+/**
+ * Where the reload-surviving `activeView` lives — deliberately `sessionStorage`,
+ * not the `midnite-studio.ui` `localStorage` key `PersistedUi` writes to.
+ *
+ * `activeView` is not one of `PersistedUi`'s keys (see the "does not persist
+ * the active view" test below), and that exclusion is itself deliberate: a
+ * fresh app launch has always landed on Graph, and nothing here should change
+ * that. But `app.reload`/`app.hardReload` (`Mod+r`/`Mod+Shift+r`) call
+ * `webContents.reload()`/`reloadIgnoringCache()` (`window-chrome.ts`), which —
+ * exactly like a browser tab's own refresh — keeps `sessionStorage` intact
+ * while dropping everything held only in memory. Closing the window (and so
+ * relaunching the app) throws `sessionStorage` away with it, same as a closed
+ * browser tab, which is what keeps a full restart landing on Graph.
+ */
+export const SESSION_ACTIVE_VIEW_KEY = 'midnite-studio.activeView';
+
+/**
+ * The view to boot into: whatever survived the last reload, or `'graph'` for
+ * a first launch, a cleared session, or a stored id `VIEW_IDS` no longer
+ * recognizes (a view renamed or removed since the value was written).
+ *
+ * Exported (like `writeSessionActiveView` below) so `ui-store.test.ts` can
+ * exercise the read/write pair directly, the same way `persist-rename.test.ts`
+ * covers `adoptRenamedPersistKey` — the alternative, reimporting the module
+ * with `vi.resetModules()` to re-run `INITIAL_ACTIVE_VIEW`, would only prove
+ * the one-time boot read and not the fallback rules themselves.
+ */
+export function readSessionActiveView(): ViewId {
+  try {
+    const stored = sessionStorage.getItem(SESSION_ACTIVE_VIEW_KEY);
+    if (stored && (VIEW_IDS as readonly string[]).includes(stored)) return stored as ViewId;
+  } catch {
+    // Private mode or a disabled-storage policy — starting on Graph is a
+    // worse return, never a broken one.
+  }
+  return 'graph';
+}
+
+/** Never throws — see `readSessionActiveView` for the same tolerances. */
+export function writeSessionActiveView(view: ViewId): void {
+  try {
+    sessionStorage.setItem(SESSION_ACTIVE_VIEW_KEY, view);
+  } catch {
+    // Same tolerances as the read side.
+  }
+}
+
+const INITIAL_ACTIVE_VIEW = readSessionActiveView();
+
 export const useUiStore = create<UiState>()(
   persist(
     (set, get) => ({
-      activeView: 'graph',
-      viewHistory: ['graph'],
+      activeView: INITIAL_ACTIVE_VIEW,
+      viewHistory: [INITIAL_ACTIVE_VIEW],
       viewHistoryIndex: 0,
       settingsPage: 'appearance',
       hiddenMetrics: [],
@@ -2171,6 +2220,15 @@ export const useUiStore = create<UiState>()(
     },
   ),
 );
+
+/**
+ * Keeps the reload-surviving copy of `activeView` in step with every place
+ * that changes it (`setActiveView`, `goBack`, `goForward`) without editing
+ * each one individually — see `readSessionActiveView` above.
+ */
+useUiStore.subscribe((state, prevState) => {
+  if (state.activeView !== prevState.activeView) writeSessionActiveView(state.activeView);
+});
 
 /**
  * Route path for a view — AppFrame is router-agnostic and compares strings.

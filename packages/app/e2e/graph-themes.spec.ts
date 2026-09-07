@@ -4,6 +4,15 @@ import { fixtures } from './fixtures';
 import { installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
+ * `SESSION_ACTIVE_VIEW_KEY` from `src/store/ui-store.ts`, as a literal.
+ *
+ * Spelled out rather than imported: no spec in this suite imports app source,
+ * and pulling the store in would run zustand and the store's own boot-time
+ * session read inside the Playwright process purely to read one string.
+ */
+const SESSION_ACTIVE_VIEW_KEY = 'midnite-studio.activeView';
+
+/**
  * A history with something to look at.
  *
  * The shipped fixture is one edgeless commit, which renders identically in all
@@ -195,11 +204,28 @@ async function openGraphSettings(page: Page): Promise<void> {
     .click();
 }
 
-/** Switch style via Settings, then come back to the graph. */
+/**
+ * Switch style via Settings, then come back to the graph.
+ *
+ * **Reloading is still how it gets back, but the restored view is reset
+ * first.** `activeView` now survives a reload through `sessionStorage`
+ * (`SESSION_ACTIVE_VIEW_KEY` in `store/ui-store.ts`), so a plain
+ * `goto('/graph')` issued from Settings boots straight back into Settings and
+ * the graph never renders. Writing `'graph'` into that key before the reload
+ * asks for the first-launch landing this helper always assumed, without
+ * depending on any of the app's own navigation UI: going back through the
+ * rail worked locally but timed out on CI, where the collapsed rail's
+ * hover-expansion left the link failing Playwright's actionability check.
+ *
+ * The key is written rather than removed so the intent reads plainly, and so
+ * a future default other than Graph cannot quietly change what this helper
+ * lands on. `openGraph` above needs none of this: it runs against a fresh
+ * context whose session storage is already empty.
+ */
 async function chooseTheme(page: Page, label: string): Promise<void> {
   await openGraphSettings(page);
   await page.getByRole('region', { name: 'Style' }).getByRole('button', { name: new RegExp(`^${label}`) }).click();
-  // Return to Graph view
+  await page.evaluate((key) => sessionStorage.setItem(key, 'graph'), SESSION_ACTIVE_VIEW_KEY);
   await page.goto('/graph');
   const repoButton = page.locator('aside[aria-label="Repositories"]').getByRole('button', { name: 'midnite-studio', exact: true });
   if (await repoButton.isVisible()) {
