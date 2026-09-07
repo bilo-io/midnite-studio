@@ -272,7 +272,7 @@ already makes for its own arithmetic.
 - [x] `describeGraphSources(graph): { api: number; field: number; body: number; contains: number }` —
       an exported counter over `edges`, so Theme D's zero-edge empty state can say *which* layer came
       up empty instead of only that the graph is empty.
-- [ ] `packages/app/src/features/projects/__fixtures__/project-item.ts` — **the repo's first shared
+- [x] `packages/app/src/features/projects/__fixtures__/project-item.ts` — **the repo's first shared
       `ForgeProjectItem` factory**. Three local ones exist today
       ([`filter.test.ts:19/39/59`](../../../packages/app/src/features/projects/filter.test.ts),
       [`sort.test.ts:6`](../../../packages/app/src/features/projects/sort.test.ts),
@@ -292,7 +292,8 @@ already makes for its own arithmetic.
     (the dependency direction runs the other way), and built its literals locally instead.
     Building this factory here would be `packages/app` work under a `packages/shared`-scoped
     theme, and risks colliding with whichever of C/D adds it first. Left for that theme to add
-    when it writes the suite that needs it.
+    when it writes the suite that needs it. **Landed in Theme D** — `issueItem`/`pullItem`/
+    `draftItem` consumed by `project-graph-node.test.tsx` and `project-graph-view.test.tsx`.
 - [x] `forge-graph.test.ts` — the ladder's precedence (an item carrying all three sources yields
       exactly one `blocks` edge with `source: 'api'`; removing api promotes `field`; removing both
       promotes `body`) · the field layer skipped when the field is absent · containment never touching
@@ -798,24 +799,24 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
 ## Verification
 
 - [x] `moon run :typecheck :lint :test` green.
-- [ ] Unit: `parseBlockerRefs` across the keyword × format matrix — `Blocked by`, `blocked-by:`,
+- [x] Unit: `parseBlockerRefs` across the keyword × format matrix — `Blocked by`, `blocked-by:`,
       `Depends on`, `Requires`, each with `#12` and `owner/repo#12`; a comma/`and` list;
       `Blocks #12` → `[]`; `#12` inside a fenced block, an inline-code span and a link target → `[]`;
       an empty body → `[]`.
-- [ ] Unit: ladder precedence — an item carrying all three sources yields exactly one `blocks` edge
+- [x] Unit: ladder precedence — an item carrying all three sources yields exactly one `blocks` edge
       with `source: 'api'`; removing api promotes `field`; removing both promotes `body`.
-- [ ] Unit: `parent`/`subIssues` never change `blocked`, `ready` or `unmetBlockerCount`.
-- [ ] Unit: a blocker with `state: null` counts as **unmet**; a `closed` and a `merged` blocker both
+- [x] Unit: `parent`/`subIssues` never change `blocked`, `ready` or `unmetBlockerCount`.
+- [x] Unit: a blocker with `state: null` counts as **unmet**; a `closed` and a `merged` blocker both
       count as met.
-- [ ] Unit: `ready` is false for a node with zero blockers and true for an open node whose one blocker
+- [x] Unit: `ready` is false for a node with zero blockers and true for an open node whose one blocker
       is closed.
-- [ ] Unit: a cross-repo blocker keeps its `repo` and does not collapse with a same-numbered local
+- [x] Unit: a cross-repo blocker keeps its `repo` and does not collapse with a same-numbered local
       issue.
-- [ ] Unit: foreign nodes from each of the three sources; a field/body-derived foreign node has
+- [x] Unit: foreign nodes from each of the three sources; a field/body-derived foreign node has
       `title: ''` and `state: null`.
 - [x] Unit: a mutual `blockedBy` pair renders both edges and `layoutForgeGraph` terminates.
-- [ ] Unit: the 300 cap sets `truncated` and reports the true `totalCount`.
-- [ ] Unit: `describeGraphSources` counts each layer separately.
+- [x] Unit: the 300 cap sets `truncated` and reports the true `totalCount`.
+- [x] Unit: `describeGraphSources` counts each layer separately.
 - [x] Unit: `layoutForgeGraph` — a three-rank chain, a diamond, two non-overlapping disconnected
       components, an isolated node, a `contains`-only pair sharing a rank, an empty graph returning
       zeroed bounds rather than `NaN`.
@@ -824,10 +825,10 @@ one start UI in the whole app, and `startAgent` keeps exactly one caller.
 - [x] Unit: `edgeAppearance` for all five blocking states, containment, and a `body`-sourced edge.
 - [x] Unit: `moveAlongEdge` left/right across a diamond (deterministic tie-break) and returning `null`
       at a source/sink; `moveWithinRank` wrapping behaviour at both ends.
-- [ ] Unit: `gh-project.ts`'s mapper against the new fixtures — two blockers, a cross-repo blocker, a
+- [x] Unit: `gh-project.ts`'s mapper against the new fixtures — two blockers, a cross-repo blocker, a
       parent, an over-page sub-issue set (`blockedByTruncated`), an issue with none of the keys, a PR
       item and a draft item growing no `dependencies` field.
-- [ ] Unit: the transport command string contains `blockedBy(first:20)` and the existing `-f
+- [x] Unit: the transport command string contains `blockedBy(first:20)` and the existing `-f
       projectId=` / cursor assertions still pass.
 - [x] Unit: `styles-motion-guards.test.ts` passes with the new keyframes — each one's `animation:`
       sits on a class named inside a `prefers-reduced-motion: reduce` block, or is allowlisted with a
