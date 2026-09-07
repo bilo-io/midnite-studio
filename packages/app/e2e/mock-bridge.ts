@@ -177,6 +177,13 @@ export type MockFixtures = {
   conflictRegions?: Record<string, unknown[]>;
   /** Paths whose `conflictRegions` answer should report `truncated: true` — the "file too large" banner. */
   conflictRegionsTruncated?: Record<string, boolean>;
+  /**
+   * Whether `git cat-file -e` would find a blob — the gate on a pull
+   * request's "Fetch to compare" affordance (Phase 26 Theme H), keyed by
+   * `${rev}:${path}`. Defaults to `true` (present) for any key not named
+   * here, so a spec that does not care about this never has to say so.
+   */
+  blobExists?: Record<string, boolean>;
   /** Refs the sidebar and the BRANCH / TAG column render. */
   refs?: unknown[];
   /** What `stash.list` answers — the sidebar's Stashes section (Phase 22 Theme B). */
@@ -1158,6 +1165,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           hunks: data.conflictRegions?.[req.path] ?? [],
           truncated: data.conflictRegionsTruncated?.[req.path] ?? false,
         }),
+        blobExists: async (req: { rev: string; path: string }) => ({
+          exists: data.blobExists?.[`${req.rev}:${req.path}`] ?? true,
+        }),
       },
       remotes: {
         list: async () => data.remotes ?? [],
@@ -1263,6 +1273,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
               pull: seeded['pull'] ?? listed,
               body: seeded['body'] ?? '',
               headSha: seeded['headSha'] ?? null,
+              // Phase 26 Theme H — the base sha the image diff and "Fetch to
+              // compare" (`use-base-blob-exists.ts`) both key off.
+              baseSha: seeded['baseSha'] ?? null,
               baseBranch: seeded['baseBranch'] ?? '',
               additions: seeded['additions'] ?? 0,
               deletions: seeded['deletions'] ?? 0,

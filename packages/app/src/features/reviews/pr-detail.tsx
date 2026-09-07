@@ -233,6 +233,8 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
             notReady={notReady(files.data?.cli)}
             pullUrl={pull.url}
             threads={threads.data?.threads ?? []}
+            repoId={repoId}
+            baseSha={detail?.baseSha ?? null}
             review={{
               headSha: detail?.headSha ?? null,
               /*
