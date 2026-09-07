@@ -260,3 +260,30 @@ this particular trigger reliably provokes. Keyboard activation (`focus()` then
 interaction, not a test workaround, but the mouse path is a real defect a user would
 hit. Not fixed here because a verification theme changing product behaviour to make
 its own assertion pass would measure nothing.
+
+## Phase 75's remaining verification (perf + human-only)
+
+All eight lettered themes (A–H) landed — [PR #204](https://github.com/bilo-io/midnite-studio/pull/204),
+[#206](https://github.com/bilo-io/midnite-studio/pull/206), [#207](https://github.com/bilo-io/midnite-studio/pull/207),
+[#208](https://github.com/bilo-io/midnite-studio/pull/208), [#205](https://github.com/bilo-io/midnite-studio/pull/205),
+[#210](https://github.com/bilo-io/midnite-studio/pull/210), [#215](https://github.com/bilo-io/midnite-studio/pull/215),
+[#216](https://github.com/bilo-io/midnite-studio/pull/216). The phase doc's own unit/RTL "Verification"
+checkboxes were reconciled against the tree 2026-09-07 (`forge-graph.test.ts` and `gh-project.test.ts`
+already cover every case cited; both suites pass — 33 and 25 tests respectively) — they were landed
+work left unticked, not missing work. Seven items in the phase doc genuinely remain open, none of
+them a lettered theme:
+
+- `moon run app:build desktop:bundle && node scripts/perf/bundle-report.mjs` — confirm the entry
+  chunk is unmoved by this phase (no new dependency was added, so this should be a formality, but
+  wants a real packaged-equivalent run to say so).
+- `node scripts/perf/idle-cpu.mjs --blurred` on a board with running agents and a 200-node graph
+  open — confirm the blurred figure matches a closed graph.
+- Four **human-only** product checks: a real GitHub board using the dependency feature (edges match
+  GitHub's own issue pages, both directions, including a cross-repo blocker); a real board using
+  none of the three sources (the zero-edge copy reads as "nothing to draw yet"); starting an agent
+  from a node's composer (the board card lights with the same ramp at the same time, and stopping it
+  clears both); the running node's ring/bloom at 0.5 zoom reading as the same treatment the card
+  wears at 1× (the phase's one visual requirement no assertion can judge).
+
+Closed as ✅ DONE in `_INDEX.md` rather than left `🔄 WIP` forever on items no agent can complete —
+matching the precedent set by Phases 22/23/24.
