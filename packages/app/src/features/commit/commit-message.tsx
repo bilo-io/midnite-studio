@@ -23,6 +23,15 @@ import { splitTrailers, type Trailer } from './parse-trailers';
  * component's problem. Leaving it inert as text removes the problem instead of
  * solving it — and a commit message containing literal `<div>` is far more often
  * a quoted code sample than an intended element.
+ *
+ * **Deliberately no `<PresentButton>` here (Phase 29 Theme F).** This is one of
+ * the nine `react-markdown` render sites in the app, and the only one of the
+ * six that arrived after the slides viewer that stays button-free on purpose,
+ * not by oversight: a commit message is SHA/issue-linkified prose with its own
+ * trailer styling (`TrailerList` below), not a document a reader would present
+ * — the same reasoning the phase's "Not in this phase" section already gave
+ * this file. See `slides-store.ts` for the general claim rule this exclusion
+ * follows.
  */
 export function CommitMessage({
   body,

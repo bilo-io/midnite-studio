@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { LuBug, LuExternalLink, LuFileText, LuLoaderCircle } from 'react-icons/lu';
@@ -12,16 +13,32 @@ import {
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { openExternal } from '../../services/queries';
+import { PresentButton } from '../slides/present-button';
+import { useSlidesStore } from '../slides/slides-store';
 import { useReleaseNotes } from './release-notes';
 
 export function VersionNotesPanel({ version }: { version: string }) {
   const { data, isLoading } = useReleaseNotes(version);
+  const label = `Release ${version}`;
+
+  // A single document-level body — claims `activeMarkdown` (Phase 29 Theme F,
+  // the rule stated in `slides-store.ts`). Release notes are the one surface
+  // in the app a human would plausibly actually present. Skipped while notes
+  // haven't arrived, cleared on unmount.
+  useEffect(() => {
+    if (!data?.notes) return;
+    useSlidesStore.getState().setActiveMarkdown({ content: data.notes, label });
+    return () => useSlidesStore.getState().setActiveMarkdown(null);
+  }, [data?.notes, label]);
 
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <LuFileText aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="text-sm font-semibold">What&apos;s new in v{version}</span>
+        {data?.notes ? (
+          <PresentButton source={{ content: data.notes, label }} className="ml-auto" />
+        ) : null}
       </div>
 
       <div className="max-h-[min(60vh,20rem)] overflow-auto px-3 py-2 text-xs leading-relaxed">
