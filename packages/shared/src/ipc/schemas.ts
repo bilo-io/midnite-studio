@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   ApiCollectionSummarySchema,
   ApiEnvironmentSummarySchema,
+  ApiHistoryEntrySchema,
   ApiOpResultOf,
   ApiOpResultSchema,
   ApiRequestDraftSchema,
@@ -2340,6 +2341,15 @@ export const ApiExportCollectionResponse = ApiOpResultSchema;
  * secret survives only as far as the outgoing request and never reaches
  * renderer memory through this channel.
  */
+/**
+ * `collectionId`/`itemPath` are carried here purely so the send engine can
+ * hand them to Theme D's history recorder alongside the resolved URL and the
+ * secret-typed environment values it already has in scope at the exact
+ * moment they are needed — nothing about *sending* the request reads either
+ * field. Both default `null`: a send with no known collection item (there is
+ * none today, but nothing requires one) still records a history row, just
+ * one that cannot be re-opened as a tab.
+ */
 export const ApiSendRequestRequest = z.object({
   repoId: z.string().min(1),
   requestId: z.string().min(1),
@@ -2347,6 +2357,8 @@ export const ApiSendRequestRequest = z.object({
   collectionVariables: z.array(PostmanVariableSchema),
   environmentId: z.string().nullable().default(null),
   timeoutMs: z.number().int().positive().optional(),
+  collectionId: z.string().nullable().default(null),
+  itemPath: z.array(z.string()).nullable().default(null),
 });
 export const ApiSendRequestResponse = ApiOpResultOf(ApiResponseSchema);
 
@@ -2397,6 +2409,22 @@ export const ApiDeleteEnvironmentRequest = z.object({
   environmentId: z.string().min(1),
 });
 export const ApiDeleteEnvironmentResponse = ApiOpResultSchema;
+
+// --- api client request history (Phase 70 Theme D) ---------------------------
+//
+// `.midnite/api/history.local.json` — gitignored by Theme A's `.gitignore`
+// (it lives beside the environment overlays under `.midnite/api/`), 200
+// entries capped, evicting oldest-first. Recording itself is not its own
+// channel: `sendApiRequest`'s own handler appends a row after every settled
+// response, since only main ever has the resolved URL and the secret-typed
+// environment values a row's redaction needs. These two are the renderer's
+// only way to read or clear what accumulates.
+
+export const ApiListHistoryRequest = z.object({ repoId: z.string().min(1) });
+export const ApiListHistoryResponse = ApiOpResultOf(z.array(ApiHistoryEntrySchema));
+
+export const ApiClearHistoryRequest = z.object({ repoId: z.string().min(1) });
+export const ApiClearHistoryResponse = ApiOpResultSchema;
 
 /* --- crash & error reporting (Phase 65) ---------------------------------- */
 

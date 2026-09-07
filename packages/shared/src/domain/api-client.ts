@@ -403,6 +403,38 @@ export type ApiEnvironmentSummary = z.infer<typeof ApiEnvironmentSummarySchema>;
  * save with `confirmed: true`, which is what actually writes the overlay and
  * the `.gitignore`.
  */
+/**
+ * Phase 70 Theme D — one row of the persisted request history at
+ * `.midnite/api/history.local.json`. Metadata only, deliberately: **no
+ * headers, no request body, no response body** ever reach this shape, which
+ * is what keeps a 200-row file small and safe to leave gitignored rather
+ * than encrypted. `url` is the resolved wire URL with its query string, any
+ * secret-typed environment variable's value already rewritten to `{{key}}`
+ * (`redactSecretValues`, `shared/src/redact.ts`) — never the raw draft URL,
+ * which would still carry an unresolved `{{token}}` that tells a reader
+ * nothing about what actually went out.
+ *
+ * `collectionId`/`itemPath` name the collection item the request came from,
+ * so a history row can be re-opened as a tab seeded from *that item* — never
+ * from the row itself, which carries no draft to reopen with (no headers, no
+ * body). Nullable because a row predates a request being tied to one, or
+ * names an item since renamed or deleted; the UI falls back to "open the
+ * collection" when the path no longer resolves.
+ */
+export const ApiHistoryEntrySchema = z.object({
+  id: z.string(),
+  at: z.number().int().nonnegative(),
+  method: z.string(),
+  url: z.string(),
+  status: z.number().int(),
+  durationMs: z.number().nonnegative(),
+  sizeBytes: z.number().int().nonnegative(),
+  collectionId: z.string().nullable(),
+  itemPath: z.array(z.string()).nullable(),
+  environmentId: z.string().nullable(),
+});
+export type ApiHistoryEntry = z.infer<typeof ApiHistoryEntrySchema>;
+
 export const SaveEnvironmentOutcomeSchema = z.discriminatedUnion('status', [
   // `fileName` is the environment's id (`ApiEnvironmentSummary.id` is its file
   // name) — the caller's only way to learn what a brand-new environment

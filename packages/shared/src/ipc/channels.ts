@@ -751,6 +751,15 @@ export const CHANNELS = {
   apiSaveEnvironment: 'mstudio:api-client:save-environment',
   apiDeleteEnvironment: 'mstudio:api-client:delete-environment',
 
+  // --- api client request history (Phase 70 Theme D) --------------------------
+  // `.midnite/api/history.local.json`, 200-capped and redacted — see
+  // `history.ts`. Recording is not its own channel: `apiSendRequest`'s own
+  // handler appends a row after every settled response, since only main ever
+  // has the resolved URL and the secret-typed environment values a row's
+  // redaction needs. These two are the renderer's read/clear surface.
+  apiListHistory: 'mstudio:api-client:list-history',
+  apiClearHistory: 'mstudio:api-client:clear-history',
+
   // --- MCP server (Phase 57 Themes E, F) --------------------------------------
   // The server itself is a Unix socket (`main/mcp/server.ts`), not `ipcMain` —
   // an MCP caller has no `event.sender` for `handleFromSender` to resolve. These
