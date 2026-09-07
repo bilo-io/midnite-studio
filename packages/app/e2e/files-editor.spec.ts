@@ -36,6 +36,38 @@ async function openFiles(page: Page): Promise<void> {
   await expect(page.getByRole('tree', { name: 'Files' })).toBeVisible();
 }
 
+test('single-clicking a file renders the Shiki preview, requesting no Monaco chunk (Phase 64 Theme G)', async ({
+  page,
+}) => {
+  const requestUrls: string[] = [];
+  page.on('request', (req) => requestUrls.push(req.url()));
+
+  await openFiles(page);
+  await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
+
+  // The read-only Shiki preview, plus its own Edit toggle — not Monaco.
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+  await expect(page.getByTestId('code-editor')).toHaveCount(0);
+
+  // `code-editor.tsx` (the `React.lazy` boundary around Monaco) is only
+  // imported once `editing` is true — a single click never sets it, so
+  // neither that module, `monaco-loader.ts`/`monaco-languages.ts`, nor the
+  // `monaco-editor`/`@monaco-editor/react` packages themselves should ever
+  // have been requested, even under Vite's dev-server on-demand graph.
+  //
+  // NOT a bare `/monaco/i` match: `ui-store.ts` eagerly imports
+  // `lib/monaco/editor-prefs.ts` for the editor's default font size/family —
+  // three plain constants, unrelated to Monaco the library actually loading,
+  // and legitimately requested on every boot regardless of this test. A
+  // broader match false-positives on that file's own path.
+  const monacoRequests = requestUrls.filter((url) =>
+    /monaco-editor|monaco-loader|monaco-languages|code-editor\.tsx/i.test(url),
+  );
+  expect(monacoRequests, `unexpected Monaco-related requests: ${monacoRequests.join(', ')}`).toEqual(
+    [],
+  );
+});
+
 test('Edit swaps the read-only preview for a Monaco editor with a gutter', async ({ page }) => {
   await openFiles(page);
   await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
