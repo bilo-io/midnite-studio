@@ -85,7 +85,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — One entry point, and the setting that steers it (M)
+### A — One entry point, and the setting that steers it (M) ✅ DONE (PR #200, 2026-09-06)
 
 Lands first; B and D both call into it. Nothing in this theme changes a single existing call site —
 that is Theme B — so it can land and be tested on its own.
@@ -136,7 +136,7 @@ that is Theme B — so it can land and be tested on its own.
       `PALETTE_SAFE` — it flips a preference and destroys nothing. A chord-free command's label must
       come from `COMMANDS`, not `DEFAULT_KEYMAP`, or it renders as the raw id.
 
-### B — Twenty-five call sites, routed (L) 🔄 (PR #223, 2026-09-06 — all but the excluded terminal call site)
+### B — Twenty-five call sites, routed (L) ✅ DONE (PR #223, PR #226, 2026-09-06 — the terminal call site landed in Theme D's PR, per its own item below)
 
 Mechanical, but it is the theme that makes the phase visible. **Enumerate from
 `grep -rn "openExternal" packages/app/src`, not from this list** — the list below is what the grep
@@ -213,7 +213,7 @@ directly) is counted separately. All 21 are accounted for below: routed, deliber
       already records `shell.openExternal` calls (`remote-links.spec.ts` asserts on them), so the
       assertion has a home.
 
-### C — The dev server, detected but never assumed (M)
+### C — The dev server, detected but never assumed (M) ✅ DONE (PR #200, 2026-09-06)
 
 Phase 32 Theme H's unbuilt half. A dev server is the one URL a developer types most and the one the
 app can work out for itself.
@@ -305,6 +305,45 @@ the app opens it beside the diff.
 - [x] Verified: `preview-deploy.test.ts` against the new fixtures; an RTL case in `pr-detail.test.tsx`
       asserting no button for zero candidates, a button for one, and a menu for three.
 
+### E — Verification (S)
+
+Closing the checklist below against what A–D actually shipped, not re-deriving it.
+
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Unit: `resolveLinkTarget` across the full modifier matrix — plain, Cmd, Ctrl, Shift, Shift+Cmd,
+      middle-click, middle+Cmd — against both preference values (`open-in-midnite.test.ts`).
+- [x] Unit: `openInMidnite` sends `mailto:` to `openExternal` even with `target: 'in-app'`, and never
+      calls `openTab` for a non-http(s) URL (`open-in-midnite.test.ts`).
+- [x] Unit: `ui-store` v9 → v10 migration defaults `linkTarget` to `'in-app'` (`ui-store.test.ts`).
+- [x] Unit: `detectDevServer` — `--port 3001`, `--port=3001`, `-p 3001`, a `dev` script with no port, a
+      `start`-only scripts block, no scripts block, a non-object `package.json`; and the probe order
+      `3000, 4200, 5173, 8000, 8080` with an injected fake (`dev-server.test.ts`).
+- [x] Unit: the loopback probe handler answers `{listening:false}` on a refused connection and inside
+      250 ms on a hung one (`dev-server-probe.test.ts`); the schema's `1..65535` bound rejects an
+      out-of-range port at the IPC boundary.
+- [x] Unit: `preview-deploy` against the new check-run and PR-comment fixtures, keeping both
+      suffix-boundary negatives; and against a user-edited allowlist (`preview-deploy.test.ts`).
+- [x] Unit: the viewport preset is per tab and survives a close/reopen of the pane
+      (`browser-store.test.ts`'s `the viewport preset` block).
+- [x] RTL: Reviews shows no Open-preview button for zero candidates, a button for one, a menu for three
+      (`pr-detail.test.tsx`).
+- [x] e2e: `link-routing.spec.ts` — with **Midnite browser** selected, the Reviews "Open on GitHub"
+      control opens a tab and `shell.openExternal` is called zero times; with **System browser**
+      selected, the reverse; `Shift`-click always reaches `shell.openExternal`.
+- [ ] e2e: a PR opened from the Reviews view of repo A and one from repo B land in two different
+      derived groups in the tab strip. **Cannot pass against the current mock bridge** — it hardcodes
+      a single `repo-1` (`repos.list` always answers one repo, and `reviews-view.tsx` scopes its pull
+      list to the active repo), so there is no second repo to switch to. The grouping itself is proven
+      at the store layer (`browser-store.test.ts`'s `effectiveGroupId` — *"lists one entry per distinct
+      originRepoId"*) and every call site's `originRepoId` wiring was reviewed in Theme B; only the
+      assembled-app proof is missing, and building it means teaching the mock bridge a multi-repo
+      fixture — its own slice. See `outstanding.md`.
+- [ ] **Open, for a human:** work a real PR review for ten minutes with the preference on Midnite
+      browser and confirm nothing unexpectedly escapes to the system browser — the failure mode of this
+      phase is a call site the grep missed.
+- [ ] **Open, for a human:** run a dev server in a repo, open a new tab, and confirm the tile appears
+      with the right port; stop the server and confirm it disappears rather than 404ing.
+
 ## Files this phase touches
 
 **New — app (renderer)**
@@ -377,31 +416,17 @@ the app opens it beside the diff.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Unit: `resolveLinkTarget` across the full modifier matrix — plain, Cmd, Ctrl, Shift, Shift+Cmd,
-      middle-click, middle+Cmd — against both preference values.
-- [ ] Unit: `openInMidnite` sends `mailto:` to `openExternal` even with `target: 'in-app'`, and never
-      calls `openTab` for a non-http(s) URL.
-- [ ] Unit: `ui-store` v9 → v10 migration defaults `linkTarget` to `'in-app'`.
-- [ ] Unit: `detectDevServer` — `--port 3001`, `--port=3001`, `-p 3001`, a `dev` script with no port, a
-      `start`-only scripts block, no scripts block, a non-object `package.json`; and the probe order
-      `3000, 4200, 5173, 8000, 8080` with an injected fake.
-- [ ] Unit: the loopback probe handler answers `{listening:false}` on a refused connection and inside
-      250 ms on a hung one, and rejects a port outside `1..65535` at the schema.
-- [ ] Unit: `preview-deploy` against the new check-run and PR-comment fixtures, keeping both
-      suffix-boundary negatives; and against a user-edited allowlist.
-- [ ] Unit: the viewport preset is per tab and survives a close/reopen of the pane.
-- [ ] RTL: Reviews shows no Open-preview button for zero candidates, a button for one, a menu for three.
-- [ ] e2e: `link-routing.spec.ts` — with **Midnite browser** selected, the Reviews "Open on GitHub"
-      control opens a tab and `shell.openExternal` is called zero times; with **System browser**
-      selected, the reverse; `Shift`-click always reaches `shell.openExternal`.
-- [ ] e2e: a PR opened from the Reviews view of repo A and one from repo B land in two different derived
-      groups in the tab strip.
-- [ ] **Open, for a human:** work a real PR review for ten minutes with the preference on Midnite
-      browser and confirm nothing unexpectedly escapes to the system browser — the failure mode of this
-      phase is a call site the grep missed.
-- [ ] **Open, for a human:** run a dev server in a repo, open a new tab, and confirm the tile appears
-      with the right port; stop the server and confirm it disappears rather than 404ing.
+Reproduced per house convention; Theme E above carries the checkable items. In short:
+`moon run :typecheck :lint :test` green; `resolveLinkTarget` proven across the full modifier
+matrix against both preference values; `openInMidnite` proven to never route `mailto:` or any
+non-http(s) URL into a tab; the `ui-store` v9→v10 migration; `detectDevServer`'s script-parsing
+and probe-order cases; the loopback probe's refused/hung/out-of-range cases; `preview-deploy`
+against real check-run and PR-comment fixtures; the viewport preset surviving a close/reopen;
+an RTL case over the Open-preview button's three states; and `link-routing.spec.ts` proving the
+Reviews "Open on GitHub" button honours the stored preference and the Shift-click escape both
+ways. One e2e case — two repos landing in two derived groups — is left unticked: the behaviour
+is proven at the store layer, but the mock bridge has no second repo to prove it end to end (see
+`outstanding.md`). Two human passes remain open by design.
 
 ## Not in this phase
 
