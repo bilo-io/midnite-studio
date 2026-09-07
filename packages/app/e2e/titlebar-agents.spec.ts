@@ -161,7 +161,14 @@ test('the live count wears the rainbow text and pulses, unless motion is reduced
     return { animation: cs.animationName, opacity: Number(cs.opacity), shadow: cs.boxShadow };
   });
   expect(live.animation).toBe('agent-count-breathe');
-  expect(live.opacity).toBeGreaterThanOrEqual(0.6);
+  /*
+    The keyframes run 0.6 -> 1 -> 0.6, so a sample taken mid-cycle sits inside
+    that band. Read with a rounding tolerance rather than against the exact
+    endpoints: the value sampled here is an INTERPOLATED one, and a keyframe
+    endpoint that survives interpolation as 0.5999996 is the animation working,
+    not a bug worth failing a build over.
+  */
+  expect(live.opacity).toBeGreaterThanOrEqual(0.6 - 1e-3);
   expect(live.opacity).toBeLessThanOrEqual(1);
   expect(live.shadow).not.toBe('none');
 
@@ -179,7 +186,16 @@ test('the live count wears the rainbow text and pulses, unless motion is reduced
   expect(gradient.image).toContain('linear-gradient');
   expect(gradient.fill).toBe('rgba(0, 0, 0, 0)');
 
-  await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+  /*
+    Reduced motion is asked for through the OS setting, NOT by stamping
+    `data-motion` on `<html>` by hand. Two effects in `app.tsx` own that
+    attribute — `useMotionPreference` and `useAppearanceSync` — and either can
+    rewrite it on its next run, so a hand-poked value is a value the app is
+    entitled to clobber a frame later. That race is what made this spec flake
+    on CI. `emulateMedia` drives `useMotionPreference`'s own `matchMedia`
+    listener instead, which is both stable and the path a real user takes.
+  */
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(button).toHaveCSS('animation-name', 'none');
   await expect(text).toHaveCSS('animation-name', 'none');
   await expect(text).toHaveCSS('background-clip', 'text');
