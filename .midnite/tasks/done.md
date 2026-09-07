@@ -2,6 +2,34 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 70 Theme D — Request history and code generation
+
+[PR #241](https://github.com/bilo-io/midnite-studio/pull/241). Moves Phase 70 10/50 → 16/50 (20% →
+32%).
+
+**History persists metadata only, and the type is what guarantees it.** `ApiHistoryEntry` has no
+field for a header, a request body or a response body — `{id, at, method, url, status, durationMs,
+sizeBytes, collectionId, itemPath, environmentId}` and nothing else — so there is no code path that
+could write one by accident, which `history.test.ts` asserts directly. That is deliberately the
+opposite of Theme F's ten-per-tab response history, which stays in memory precisely because a
+response body would put a bearer token in a git-tracked file.
+
+Query values are redacted before serialisation by `redactSecretValues`, fed from a new
+`collectSecretEnvironmentValues` that gathers only `type: 'secret'` rows — kept separate from the
+full interpolation map so a harmless `default` value is never rewritten. Recording is
+fire-and-forget, so a history-write failure can never turn a successful send into a failed one. 200
+entries in one capped file, evicting oldest-first, with no sidecar to forget to evict.
+
+**`toCurl`/`toFetch` leave `{{var}}` unresolved on purpose.** The usual destination for a copied
+curl is a chat message; resolving `{{authToken}}` first is how a bearer token ends up pasted into
+Slack. `toCurl` uses curl's own `--user` flag rather than pre-encoding, so an unresolved
+`{{username}}` stays legible; `toFetch` uses `btoa()`, since a copied fetch snippet runs in a
+browser context.
+
+Written through `fs-scope-write` exactly as `environment-io.ts` is, with the symlink refusal test
+mirrored, and serialised from the raw `JSON.parse`'d value — zod's `.passthrough()` reorders keys,
+and a reordering write turns a one-entry append into a whole-file diff.
+
 ## 2026-09-07 — Phase 70 Theme A — Environments and the secret overlay
 
 [PR #235](https://github.com/bilo-io/midnite-studio/pull/235). Opens Phase 70 at 10/50 (20%) — the

@@ -13,7 +13,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 64/68 | `█████████░` | 94% | — | — |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 100/102 | `██████████` | 98% | — | — |
 | [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | 🔄 WIP | x1 | 28/41 | `███████░░░` | 68% | — | — |
-| [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | 🔄 WIP | x1 | 10/50 | `██░░░░░░░░` | 20% | — | B C D E |
+| [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | 🔄 WIP | x1 | 16/50 | `███░░░░░░░` | 32% | — | B C E |
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | ✅ DONE | — | 32/37 | `█████████░` | 86% | — | — |
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | 🔄 WIP | x1 | 44/64 | `███████░░░` | 69% | — | Verification (human/e2e passes) |
@@ -266,7 +266,7 @@ groups it feeds, have existed and been tested since 2026-08-30 with no productio
 - ✅ **A** (PR #235) — Environments, two-tier `{{var}}`, and the secret overlay: a `type: 'secret'` row splits into a gitignored `*.local.json` while the committed file keeps the row with an empty value (a form to fill in, not a mystery), `.midnite/api/.gitignore` written into the **user's** repo — the rule Phase 66's root-`.gitignore` entry could never enforce — and a blast-radius confirm before the first secret is written.
 - ◻ **B** — The test editor and the sandbox: the repo's **first** `node:vm`, on the exact question [`transform.ts:13`](phases/phase-43-workflows-mvp.md) refused once in writing. `vm` is not a security boundary, so the boundary is the allow-list — no `require`/`process`/`Buffer`, `codeGeneration.strings: false`, no async primitive so a `timeout` that only catches sync code is enough — plus consent, off by default for a collection this machine did not import, stored in the gitignored overlay so trust cannot be committed for the whole team.
 - ◻ **C** — The collection runner: a sequential file-order walk calling Phase 66's `sendApiRequest` then B's `runScript`, and the one thing that **does** stream (`run-progress`/`run-done`, `dbQueryBatch`'s pattern) because a run is unbounded in time where a capped response is not. A transport failure does not stop the walk; an abort leaves the remainder `skipped`, not silently absent.
-- ◻ **D** — History and codegen: 200 capped entries of **metadata only** at `history.local.json` — no headers, no bodies, secret-matching query values rewritten to `{{key}}` — plus `toCurl`/`toFetch` in `shared`, leaving `{{var}}` unresolved on purpose, because the most common destination for a copied curl is a chat message.
+- ✅ **D** (PR #241) — History and codegen: 200 capped entries of **metadata only** at `history.local.json` — no headers, no bodies, secret-matching query values rewritten to `{{key}}` — plus `toCurl`/`toFetch` in `shared`, leaving `{{var}}` unresolved on purpose, because the most common destination for a copied curl is a chat message.
 - ◻ **E** — Verification.
 
 ### [Phase 69 — A tracker that can count](phases/phase-69-a-tracker-that-can-count.md)
