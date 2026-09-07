@@ -58,7 +58,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [28 · Worktrees first, and the section tree that can say so](phases/phase-28-sidebar-section-tree.md) | ✅ DONE | — | 61/61 | `██████████` | 100% | — | — |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
 | [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | x1 | 51/70 | `███████░░░` | 73% | — | Verification (+ C, H reverted items) |
-| [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | 🔄 WIP | x1 | 39/101 | `████░░░░░░` | 39% | C | — |
+| [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | 🔄 WIP | x1 | 41/101 | `████░░░░░░` | 41% | — | — |
 | [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | x1 | 53/70 | `████████░░` | 76% | — | J |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | 🔄 WIP | x1 | 42/59 | `███████░░░` | 71% | — | Verification (+ C, D, E reopened items) |
 | [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 56/70 | `████████░░` | 80% | — | — |
@@ -1193,7 +1193,10 @@ items excluded from the count and four one-line "if Phase 23/24 has landed" delt
   refine refusing a leading `-` on every string that reaches argv. (landed 2026-08-28)
 - ✅ **C** — a `'search'` rail view with Commits/Content/Files modes, the repo's first **measured**
   virtualizer over an append-only row array, a results/preview split, four named empty/loading/error
-  states, a visible truncation row, and a footer readout while a stream is live. (landed 2026-08-28)
+  states, a visible truncation row, and a footer readout while a stream is live (landed 2026-08-28);
+  the readout gained click-to-navigate and a stop button, `use-search.ts` was fixed to cancel the
+  previous request before starting the next, and `e2e/search-view.spec.ts` now covers every mode,
+  cancellation, truncation and the error state (landed 2026-09-07).
 - ✅ **D** — `CodePreview` rewritten from one `codeToHtml` blob into per-line `data-line` rows from
   `codeToTokens()`, which is what C's scroll-to-line and E's find bar need; a blame gutter as a
   sibling grid column so alignment is structural; `-C -M`; reblame with an unpersisted per-file stack. (landed 2026-08-30)
