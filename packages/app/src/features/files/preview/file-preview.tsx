@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 import { LuCode, LuFileQuestion, LuPen, LuPointer } from 'react-icons/lu';
@@ -59,6 +59,11 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
   const [comparing, setComparing] = useState(false);
   const [dims, setDims] = useState<{ width: number; height: number } | null>(null);
   const [editing, setEditing] = useState(false);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  // Whether the PREVIOUS render was editing — not `editing` itself — so the
+  // refocus below fires only on the true→false transition (Done, or the
+  // guard's Discard), never on first mount.
+  const wasEditingRef = useRef(false);
   const dirty = useFileEditorStore((s) => s.target !== null && s.content !== s.savedContent);
   const saving = useFileEditorStore((s) => s.saving);
   const repoId = scope.scope === 'repo' ? scope.repoId : '';
@@ -120,6 +125,25 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
 
+  /*
+    Leaving edit mode returns focus to the Edit button, not `<body>` (Phase
+    64 Theme D/G). `code-editor.tsx`'s own mount-time `previouslyFocused` ref
+    cannot do this alone: the Edit button it captures at that moment is
+    ABOUT TO be unmounted (this file swaps it for Save/Done the instant
+    `editing` becomes true), so by the time `CodeEditor` unmounts and tries
+    to restore focus to it, that node has been detached from the document
+    for as long as editing was open — calling `.focus()` on it is a no-op,
+    and focus falls back to `<body>`. The Edit button that exists once
+    editing ends is a DIFFERENT DOM node (a fresh one, mounted in the same
+    render that unmounts `CodeEditor`), so only something that outlives both
+    — this component — can hold a ref to the right one and focus it after
+    the swap.
+  */
+  useEffect(() => {
+    if (wasEditingRef.current && !editing) editButtonRef.current?.focus();
+    wasEditingRef.current = editing;
+  }, [editing]);
+
   const exitEditing = () =>
     useFileEditorStore.getState().guardNavigation(() => setEditing(false));
 
@@ -173,6 +197,7 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
             </>
           ) : (
             <IconButton
+              ref={editButtonRef}
               icon={LuPen}
               label="Edit"
               size="sm"
@@ -305,7 +330,7 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
             <>
               {staleWriteBanner}
               <Suspense fallback={<DelayedFallback />}>
-                <CodeEditor key={editorKey} fileName={fileName} />
+                <CodeEditor key={editorKey} fileName={fileName} onEscape={exitEditing} />
               </Suspense>
             </>
           ) : kind === 'markdown' && !showSource ? (

@@ -1,4 +1,4 @@
-import type { ComponentType, CSSProperties, MouseEventHandler, ReactNode } from 'react';
+import type { ComponentType, CSSProperties, MouseEventHandler, ReactNode, Ref } from 'react';
 
 import { Spinner } from './skeleton';
 import { Tooltip } from './tooltip';
@@ -96,6 +96,17 @@ export type IconButtonProps = {
   className?: string;
   'aria-pressed'?: boolean;
   'aria-expanded'?: boolean;
+  /**
+   * Forwarded straight to the underlying `<button>` — React 19 needs no
+   * `forwardRef` wrapper for this. `Tooltip` clones its child to install its
+   * own measuring ref and already merges it with whatever ref the child
+   * carried (`assignRef`, `tooltip.tsx`) precisely so a caller here can still
+   * get the real node, the way `code-editor.tsx`'s "leaving edit mode returns
+   * focus to the Edit button" needs (`file-preview.tsx`'s Edit button is
+   * unmounted and remounted across the toggle, not kept in place, so nothing
+   * upstream can hold a stable reference to it without this).
+   */
+  ref?: Ref<HTMLButtonElement>;
 };
 
 export function IconButton({
@@ -110,6 +121,7 @@ export function IconButton({
   size = 'md',
   tooltipSide = 'bottom',
   className = '',
+  ref,
   ...aria
 }: IconButtonProps) {
   const inert = (disabled || busy) ?? false;
@@ -129,6 +141,7 @@ export function IconButton({
   return (
     <Tooltip label={explained ? `${label} — ${disabledReason}` : label} side={tooltipSide}>
       <button
+        ref={ref}
         type="button"
         onClick={explained ? undefined : onClick}
         // `busy` blocks the click as well as `disabled` does. A fetch in flight

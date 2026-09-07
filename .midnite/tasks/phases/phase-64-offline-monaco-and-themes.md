@@ -318,7 +318,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - `Cmd+L` → `fab.toggle` (`menu.ts:120`). Monaco binds it to expand-line-selection, and
     `fab.toggle` is *already* in the terminal yield list — proof the carve-out is bypassed.
   - `Cmd+O` → `repo.open` (`menu.ts:92`). Opens a native folder picker mid-keystroke.
-- [ ] **Escape: prefer Monaco's own handling, then fall through.** Monaco consumes Escape internally
+- [x] **Escape: prefer Monaco's own handling, then fall through.** Monaco consumes Escape internally
       when its find widget, suggest list or parameter hints are open, via
       `editor.createContextKey`-backed conditions. Register the editor with
       [Phase 62](phase-62-one-escape-one-dismissal.md)'s `useDismiss` at `layer: 'inline'` and query
@@ -506,6 +506,13 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       that matters**: dev-mode over `http://localhost:5173` proves nothing about the origin the bug
       would appear in.
 - [ ] `grep -r "cdn.jsdelivr" packages/app/dist` → **no matches** after a build.
+  - **Not literally clean, and recorded rather than ticked.** After `moon run app:build` the
+    string survives once, in `monaco-loader-*.js`: `@monaco-editor/loader`'s own bundled default
+    `{paths:{vs:"https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs"}}`. It is inert —
+    `monaco-editor` is a *static* import with `?worker&inline` workers, and
+    `code-editor.tsx:46`'s module-scope `void getMonaco()` runs `loader.config({monaco})` before
+    `<Editor>` can mount, so `loader.init()` short-circuits on `state.monaco` and never reads
+    `paths.vs`. Dead vendor data, never requested. The item as written still fails, so it stays open.
 - [ ] DevTools → Sources shows five workers running from blob URLs, none from `file://`, and the
       Network tab shows **zero** requests for editor assets.
 - [x] `monaco-editor` does not resolve into the entry chunk — the `MUST_BE_ABSENT` test added in
@@ -517,23 +524,27 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       **`totalJsKb` fails** the same command (35405.7 KB > the 15950 KB budget) — disclosed in
       Theme G as pre-existing and unrelated to that theme's `@codemirror/*` removal (identical
       measurement before/after); `bundle-budget.spec.ts` runs outside `moon run :test`'s gate.
-- [ ] Single-clicking files in the tree renders the Shiki preview with **no Monaco chunk requested** —
+- [x] Single-clicking files in the tree renders the Shiki preview with **no Monaco chunk requested** —
       assert on the absence of a `monaco` chunk in the Network panel, not on a stopwatch.
-- [ ] **All four theme modes.** `light`, `dark`, `system` and **`time`** each resolve correctly with a
+- [x] **All four theme modes.** `light`, `dark`, `system` and **`time`** each resolve correctly with a
       palette selected — `time` is the one the original plan did not know existed.
 - [ ] **Five surfaces move together.** Select "JetBrains Darcula" and assert, in one frame: app chrome
+  - **Half done, left open.** `resolve-palette.test.ts` (new) proves the no-torn-state half: every
+    resolver reads one synchronous `usePaletteStore.getState()` snapshot, so a single change cannot
+    leave them disagreeing. The literal same-paint-frame assertion across five *mounted* surfaces
+    (chrome vars + xterm canvas + Monaco tokens + Shiki spans + a diff row) was not attempted.
       tokens, xterm background **and its 16 ANSI colours**, Monaco tokens, the Shiki read-only
       preview, and a rendered diff row. The last two are the surfaces x1 added.
-- [ ] Override isolation: master GitHub Dark + terminal override Monokai → terminal is Monokai, chrome
+- [x] Override isolation: master GitHub Dark + terminal override Monokai → terminal is Monokai, chrome
       and editor are GitHub Dark, and the read-only preview follows **chrome**, not the terminal.
 - [x] A palette that omits `--ring` restores `@bilo-io/ui`'s value rather than stranding the previous
       palette's — the `removeProperty` behaviour in Theme B.
-- [ ] With **eight** terminals mounted (sessions + a board card + a loop tab), a palette switch
+- [x] With **eight** terminals mounted (sessions + a board card + a loop tab), a palette switch
       re-themes all of them without recreating any: scrollback survives and no shell dies.
 - [x] A palette change reaches an open **popout window**.
-- [ ] Import a real third-party VS Code theme with **array-form `scope`s** (SynthWave '84) and one
+- [x] Import a real third-party VS Code theme with **array-form `scope`s** (SynthWave '84) and one
       with **no `type` field**; both parse, persist across a reload, and render non-grey tokens.
-- [ ] A 3 MB JSON, a malformed JSON and `{}` each return `{ok:false}` with three distinct reasons and
+- [x] A 3 MB JSON, a malformed JSON and `{}` each return `{ok:false}` with three distinct reasons and
       an inline error — no toast, no throw.
 - [x] `appearance-store` migrates 1 → 2 and `ui-store` 8 → 9 **from a real pre-upgrade profile**, not
       a fresh one: existing users keep their accent, density and terminal font.
@@ -542,10 +553,10 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       Monaco · `Cmd+G` does **not** toggle the repos panel · `Cmd+L` does **not** toggle the FAB.
       The last two are the native-accelerator fix and they cannot be tested from the renderer alone.
 - [ ] Escape with Monaco's find widget open closes only the widget; a second Escape reaches Studio.
-- [ ] Leaving edit mode returns focus to the Edit button, not `<body>`.
+- [x] Leaving edit mode returns focus to the Edit button, not `<body>`.
 - [x] Resize the Files pane rapidly for 3 s: Monaco tracks it, and the `ResizeObserver` is
       disconnected on unmount (asserted in `code-editor.test.tsx`, not by eye).
-- [ ] `grep -rn "@codemirror" packages/app/src` → **0** after Theme G (or the theme is recorded as
+- [x] `grep -rn "@codemirror" packages/app/src` → **0** after Theme G (or the theme is recorded as
       skipped, with Phase 61 named as the reason).
 - [ ] **Open, for a human:** edit a 5,000-line file, save it, hit a stale-write conflict from an
       outside edit, reload, and discard. The store's ten actions are all reachable through the new
