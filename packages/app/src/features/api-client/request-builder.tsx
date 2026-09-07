@@ -16,16 +16,19 @@ import { HeadersTab } from './headers-tab';
 import { ParamsTab } from './params-tab';
 import { ResponseViewer } from './response-viewer';
 import { parseQueryString, splitUrl } from './query-string';
+import { scriptCountBadge, TestEditor } from './test-editor';
+import { TestResultsPanel } from './test-results-panel';
 import { UrlField } from './url-field';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const;
 
-type BuilderTab = 'params' | 'headers' | 'auth' | 'body';
+type BuilderTab = 'params' | 'headers' | 'auth' | 'body' | 'scripts';
 const BUILDER_TABS: { id: BuilderTab; label: string }[] = [
   { id: 'params', label: 'Params' },
   { id: 'headers', label: 'Headers' },
   { id: 'auth', label: 'Auth' },
   { id: 'body', label: 'Body' },
+  { id: 'scripts', label: 'Scripts' },
 ];
 
 /**
@@ -142,19 +145,27 @@ export function RequestBuilder({ tabId }: { tabId: string }) {
         </div>
 
         <div className="flex h-7 shrink-0 items-center gap-3 border-b border-border px-2 text-xs">
-          {BUILDER_TABS.map((builderTab) => (
-            <button
-              key={builderTab.id}
-              type="button"
-              onClick={() => setActiveTab(builderTab.id)}
-              aria-pressed={activeTab === builderTab.id}
-              className={
-                activeTab === builderTab.id ? 'font-medium text-foreground' : 'text-muted-foreground'
-              }
-            >
-              {builderTab.label}
-            </button>
-          ))}
+          {BUILDER_TABS.map((builderTab) => {
+            const badge = builderTab.id === 'scripts' ? scriptCountBadge(draft) : 0;
+            return (
+              <button
+                key={builderTab.id}
+                type="button"
+                onClick={() => setActiveTab(builderTab.id)}
+                aria-pressed={activeTab === builderTab.id}
+                className={`flex items-center gap-1 ${
+                  activeTab === builderTab.id ? 'font-medium text-foreground' : 'text-muted-foreground'
+                }`}
+              >
+                {builderTab.label}
+                {badge > 0 ? (
+                  <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
+                    {badge}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
@@ -162,6 +173,12 @@ export function RequestBuilder({ tabId }: { tabId: string }) {
           {activeTab === 'headers' ? <HeadersTab tabId={tabId} /> : null}
           {activeTab === 'auth' ? <AuthTab tabId={tabId} /> : null}
           {activeTab === 'body' ? <BodyTab tabId={tabId} /> : null}
+          {activeTab === 'scripts' ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <TestEditor tabId={tabId} />
+              <TestResultsPanel tabId={tabId} />
+            </div>
+          ) : null}
         </div>
       </div>
 
