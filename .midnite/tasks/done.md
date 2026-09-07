@@ -2,6 +2,32 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 66 Theme H — Verification, less the screenshots and the human passes
+
+[PR #242](https://github.com/bilo-io/midnite-studio/pull/242). Moves Phase 66 60/73 → 70/73 (82% →
+96%). Ten of the theme's thirteen items; **three remain and are named rather than ticked** — the
+light/dark screenshot set, and the two the doc itself marks *"Open, for a human"* (send a real
+request against a real external API; import a collection exported from a *current* Postman install).
+
+**Phase 66 shipped seven themes with zero e2e coverage, and the reason was concrete:** the mock
+bridge carried no `apiClient` namespace at all, so there was nothing for a spec to run against.
+Every method now answers rather than being absent — `undefined` here does not fail a spec cleanly,
+because the renderer awaits `listCollections` on first render and a missing method throws inside an
+effect where the error boundary swallows it into a blank pane.
+
+Three e2e specs: the rail entry and empty state (the four registration sites Theme B had to keep in
+agreement, only one of which `tsc` can check); the tree rendering a nested v2.1 fixture and a
+request row opening a tab; and the dirty glyph plus its discard confirm — which is really a test
+that dirty is **derived**, not stored, since a stored boolean passes every unit test and then goes
+stale on undo.
+
+The last item is deliberately **not** the Playwright spec the doc asks for, because it cannot be
+one: a Playwright spec runs against a mocked bridge with no files and no repository, so `git diff
+--exit-code` has nothing to run against. It is a main-process test instead, and it is not a
+duplicate of the existing byte-for-byte round trip — that asserts equality against a normalised
+original, this asserts what the user sees: open a collection, save it unedited, and `git status` is
+still clean.
+
 ## 2026-09-07 — Phase 70 Theme D — Request history and code generation
 
 [PR #241](https://github.com/bilo-io/midnite-studio/pull/241). Moves Phase 70 10/50 → 16/50 (20% →

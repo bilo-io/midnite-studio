@@ -533,29 +533,29 @@ point; G needs A and E's handler file. H is last.
 
 ### H — Verification (M)
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: `packages/app` reaches every new capability only through
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean: `packages/app` reaches every new capability only through
       `window.midniteStudio.apiClient.*`; `packages/shared` gains one domain module and imports
       nothing but zod; `git-engine` is untouched; no new package.
-- [ ] A grep-level assertion in the renderer test suite that `packages/app/src/features/api-client/`
+- [x] A grep-level assertion in the renderer test suite that `packages/app/src/features/api-client/`
       contains **zero** occurrences of `fetch(` — the one rule of this phase that eslint's
       `no-restricted-imports` cannot express, and the one an executor is most likely to break
       because `fetch` is ambient in a jsdom test.
-- [ ] Vitest (A): the three-fixture passthrough round-trip, key-set equality, and the
+- [x] Vitest (A): the three-fixture passthrough round-trip, key-set equality, and the
       `toDraft`/`toPostmanRequest` unknown-key survival.
-- [ ] Vitest (E): the fixture-server suite — 200/404/timeout/abort/truncated — and the
+- [x] Vitest (E): the fixture-server suite — 200/404/timeout/abort/truncated — and the
       interpolation suite. No `vi.mock('node:fetch')` anywhere; the acceptance criterion is that
       `moon run desktop:test` passes with networking off.
-- [ ] Vitest (C, D, F): the store lifecycle, the body-mode round-trip, the params↔URL sync, and the
+- [x] Vitest (C, D, F): the store lifecycle, the body-mode round-trip, the params↔URL sync, and the
       content-type rendering branches.
-- [ ] Playwright: API Client appears in the Workspace rail group as the sixth entry and navigating
+- [x] Playwright: API Client appears in the Workspace rail group as the sixth entry and navigating
       to it renders the empty state (no collection in the fixture repo).
-- [ ] Playwright: with a fixture collection on disk, the tree renders its folders and requests,
+- [x] Playwright: with a fixture collection on disk, the tree renders its folders and requests,
       opening a request opens a tab, and sending it against `startFixtureServer()` renders the
       response — the one end-to-end path the phase exists for.
-- [ ] Playwright: editing a header marks the tab dirty (`●`), closing it prompts, discarding closes
+- [x] Playwright: editing a header marks the tab dirty (`●`), closing it prompts, discarding closes
       it, and re-opening shows the unedited request.
-- [ ] Playwright: import → no edit → export produces a file `git diff --exit-code` reports as
+- [x] Playwright: import → no edit → export produces a file `git diff --exit-code` reports as
       unchanged against the committed fixture.
 - [ ] Screenshots, light and dark: the empty state, the tree with a collection expanded, the request
       builder on the Body/JSON tab, the response viewer on a JSON body, and the truncated banner.
