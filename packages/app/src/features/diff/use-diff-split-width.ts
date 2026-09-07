@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 
 /**
  * Below this width a two-column split stops fitting.
@@ -24,37 +24,48 @@ export const DIFF_SPLIT_MIN_WIDTH = 720;
  * threshold must restore split with no second click, which only holds if
  * nothing here ever rewrites what the user actually asked for.
  *
- * Same shape as `useTitleBarDensity` (`components/use-titlebar-density.ts`):
- * `useLayoutEffect` so a resize during the same paint cannot flash the wrong
- * layout, and jsdom's lack of `ResizeObserver` is a documented gap covered by
- * `e2e/diff-split.spec.ts` rather than a rendered-component test.
+ * **No dependency array** — deliberately, and it is the whole reason this
+ * needs its own ref-tracking rather than `useTitleBarDensity`'s plain
+ * `[ref]`. `ref` (the object `useRef` returns) never changes, so `[ref]`
+ * would only ever check `ref.current` once, at the very first commit. Every
+ * caller here attaches the ref to an element that can be ABSENT on that
+ * first commit: `DiffView`'s own `isLoading`/`!diff` early returns render
+ * nothing at all until the diff query resolves, and an accordion's body
+ * exists only while `open`. Re-checking `ref.current` on every render is
+ * what catches it resolving later — cheaply, because `observedRef` below
+ * skips the actual `ResizeObserver` churn unless the element itself changed.
+ *
+ * jsdom's lack of `ResizeObserver` is a documented gap covered by
+ * `e2e/diff-split.spec.ts` rather than a rendered-component test — the same
+ * precedent `useTitleBarDensity` states for its own observer half.
  */
 export function useTooNarrowForSplit(ref: RefObject<HTMLElement | null>): boolean {
   const [tooNarrow, setTooNarrow] = useState(false);
+  const observedRef = useRef<HTMLElement | null>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
 
-  /*
-    Deliberately no dependency array. `ref` (the object `useRef` returns) never
-    changes, so `[ref]` would only re-run this once — at the very first
-    commit. Every caller here attaches the ref to an element that is ABSENT
-    on that first commit (`DiffView`'s own `isLoading`/`!diff` early returns
-    render nothing at all until the diff query resolves; the accordions'
-    `<section>` exists earlier, but `open` gates whether its body — and this
-    element's actual layout — exists yet). Re-running after every render is
-    what catches the ref resolving later, at the one-render cost of
-    disconnecting and re-observing an already-unchanged element.
-  */
   useLayoutEffect(() => {
     const el = ref.current;
+    if (el === observedRef.current) return;
+    observedRef.current = el;
+
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+
     if (!el) return;
 
     const measure = () => setTooNarrow(el.clientWidth < DIFF_SPLIT_MIN_WIDTH);
-
     measure();
+
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(el);
-    return () => observer.disconnect();
+    observerRef.current = observer;
   });
+
+  // Unmount only — the effect above already tears down and replaces the
+  // observer whenever the observed element itself changes.
+  useLayoutEffect(() => () => observerRef.current?.disconnect(), []);
 
   return tooNarrow;
 }
