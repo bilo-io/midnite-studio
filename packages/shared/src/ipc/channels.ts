@@ -773,6 +773,18 @@ export const CHANNELS = {
   apiRunScript: 'mstudio:api-client:run-script',
   apiSetScriptTrust: 'mstudio:api-client:set-script-trust',
 
+  // --- api client collection runner (Phase 70 Theme C) ------------------------
+  // A flat, depth-first walk of a collection's (or one folder's) item tree,
+  // calling `sendApiRequest` then `runScript` per request. `apiRunCollection`
+  // resolves immediately with `ApiRunStartOutcome` — `started` or
+  // `needs-consent`, mirroring `apiRunScript`'s own trust gate, checked once
+  // for the whole run rather than per request — and every result streams over
+  // `apiRunProgress`/`apiRunDone` below, exactly as `dbQueryStart`'s results
+  // stream over `dbQueryBatch`/`dbQueryDone`. `apiCancelRun` is keyed by
+  // `runId`, the collection-runner equivalent of `apiCancelRequest`.
+  apiRunCollection: 'mstudio:api-client:run-collection',
+  apiCancelRun: 'mstudio:api-client:cancel-run',
+
   // --- MCP server (Phase 57 Themes E, F) --------------------------------------
   // The server itself is a Unix socket (`main/mcp/server.ts`), not `ipcMain` —
   // an MCP caller has no `event.sender` for `handleFromSender` to resolve. These
@@ -883,6 +895,13 @@ export const EVENT_CHANNELS = {
   dbQueryBatch: 'mstudio:db:query-batch',
   /** The query stream finished (or was cancelled) — mirrors `logDone`. */
   dbQueryDone: 'mstudio:db:query-done',
+
+  /** One request leaf's just-settled result, during an in-flight collection
+   *  run (Phase 70 Theme C) — mirrors `dbQueryBatch`. */
+  apiRunProgress: 'mstudio:api-client:run-progress',
+  /** The run finished (or was aborted) — carries the whole `ApiRunSummary`,
+   *  mirroring `dbQueryDone`. */
+  apiRunDone: 'mstudio:api-client:run-done',
 } as const;
 
 /**

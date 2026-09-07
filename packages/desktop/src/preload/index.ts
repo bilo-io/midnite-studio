@@ -395,6 +395,10 @@ const bridge: Pick<
     clearHistory: (req) => call(CHANNELS.apiClearHistory, req),
     runScript: (req) => call(CHANNELS.apiRunScript, req),
     setScriptTrust: (req) => call(CHANNELS.apiSetScriptTrust, req),
+    runCollection: (req) => call(CHANNELS.apiRunCollection, req),
+    cancelRun: (req) => call(CHANNELS.apiCancelRun, req),
+    onRunProgress: (handler) => subscribe(EVENT_CHANNELS.apiRunProgress, handler),
+    onRunDone: (handler) => subscribe(EVENT_CHANNELS.apiRunDone, handler),
   },
   video: {
     project: {

@@ -245,39 +245,39 @@ B's results.
       outside becomes `error`; `pm.environment.set` appears in `mutations` and **not** on disk
       (assert the file is byte-identical after the run).
 
-### C — The collection runner (M)
+### C — The collection runner (M) — ✅ DONE (PR #250, 2026-09-07)
 
-- [ ] Add `features/api-client/collection-runner.tsx`:
+- [x] Add `features/api-client/collection-runner.tsx`:
       `export function CollectionRunner({ repoId, collectionId }: {...})` — a target picker (whole
       collection, or one folder), the environment picker from Theme A, a **Run** button, and a
       results pane, laid out like
       [`features/actions/actions-view.tsx`](../../../packages/app/src/features/actions/actions-view.tsx)'s
       list-plus-detail split.
-- [ ] Add `packages/desktop/src/main/api-client/runner.ts`:
+- [x] Add `packages/desktop/src/main/api-client/runner.ts`:
       `export async function runCollection(req: ApiRunCollectionRequest, emit: (e: ApiRunEvent) =>
       void, signal: AbortSignal): Promise<ApiRunSummary>` — a flat depth-first walk of the item tree
       in file order, calling Phase 66's `sendApiRequest` then Theme B's `runScript` per request.
-- [ ] **This one streams**, unlike `sendRequest` (Phase 66 Decision 6): a run is unbounded in
+- [x] **This one streams**, unlike `sendRequest` (Phase 66 Decision 6): a run is unbounded in
       duration and a partial run is exactly what the user wants to watch. Two `EVENT_CHANNELS`
       entries — `apiRunProgress: 'mstudio:api-client:run-progress'` and `apiRunDone:
       'mstudio:api-client:run-done'` — carrying a `runId`, following
       `dbQueryBatch`/`dbQueryDone`'s pattern and typed on the bridge as
       `onRunProgress(handler) => Unsubscribe`.
-- [ ] A request that fails at the transport level does **not** stop the run: it is recorded with
+- [x] A request that fails at the transport level does **not** stop the run: it is recorded with
       zero assertions and an error, and the walk continues. A run that stopped on the first
       unreachable host would be useless against a partly-deployed environment, which is when you run
       one.
-- [ ] Abort: **Stop** aborts the in-flight request's `AbortController` and stops before the next
+- [x] Abort: **Stop** aborts the in-flight request's `AbortController` and stops before the next
       one is dequeued. The summary is emitted anyway, marked `aborted: true`, with the requests that
       never ran listed as `skipped` rather than silently absent.
-- [ ] `ApiRunSummary = {runId, total, completed, skipped, passed, failed, durationMs, aborted}`,
+- [x] `ApiRunSummary = {runId, total, completed, skipped, passed, failed, durationMs, aborted}`,
       rendered as a header strip over an expandable per-request list: request name, status pill,
       duration, and its assertion rows (Theme B's `test-results-panel.tsx`, reused, not
       re-implemented).
-- [ ] A run is **in-memory only** — no run history on disk in this phase. Theme D persists *request*
+- [x] A run is **in-memory only** — no run history on disk in this phase. Theme D persists *request*
       history, which is a different and smaller thing; a run's responses would multiply the redaction
       surface by the size of a collection.
-- [ ] `main/api-client/runner.test.ts`: file-order sequencing across a nested folder fixture
+- [x] `main/api-client/runner.test.ts`: file-order sequencing across a nested folder fixture
       (assert the exact order, not just the count); a mid-run abort leaves later requests `skipped`
       and emits a summary; a transport failure on request 2 of 4 still runs 3 and 4; a script that
       calls `pm.environment.set` affects the *next* request in the same run (the one behaviour that

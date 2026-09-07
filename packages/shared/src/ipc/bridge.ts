@@ -1,6 +1,8 @@
 import type { z } from 'zod';
 
 import type {
+  ApiRunDoneEvent,
+  ApiRunEvent,
   ConnectionConfig,
   GitOpResult,
   GraphRow,
@@ -1124,6 +1126,24 @@ export type MidniteStudioBridge = {
     setScriptTrust: (
       req: In<typeof S.ApiSetScriptTrustRequest>,
     ) => Promise<z.infer<typeof S.ApiSetScriptTrustResponse>>;
+
+    /**
+     * Phase 70 Theme C — the collection runner. Resolves immediately with
+     * `{status:'started'}` or `{status:'needs-consent'}` (the trust gate,
+     * checked once for the whole run) — every request's result then streams
+     * over `onRunProgress`, and the run's own `ApiRunSummary` arrives on
+     * `onRunDone`, mirroring `db.queryStart`/`onQueryBatch`/`onQueryDone`.
+     */
+    runCollection: (
+      req: In<typeof S.ApiRunCollectionRequest>,
+    ) => Promise<z.infer<typeof S.ApiRunCollectionResponse>>;
+    /** Aborts the in-flight request and stops before the next is dequeued —
+     *  the remainder of the walk still emits, marked `skipped`. */
+    cancelRun: (
+      req: In<typeof S.ApiCancelRunRequest>,
+    ) => Promise<z.infer<typeof S.ApiCancelRunResponse>>;
+    onRunProgress: (handler: (e: ApiRunEvent) => void) => Unsubscribe;
+    onRunDone: (handler: (e: ApiRunDoneEvent) => void) => Unsubscribe;
   };
 
   /**
