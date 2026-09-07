@@ -84,12 +84,20 @@ export function LiveAgentCount() {
         because the parent is the flex container, and hiding a flex child is
         what collapses its `gap-3` slot too.
       */
-      className="status-collapsible flex items-center gap-1.5 rounded px-1.5 transition-colors hover:bg-accent hover:text-foreground"
+      className="status-collapsible agent-count-live flex items-center gap-1.5 rounded px-1.5 transition-colors hover:bg-accent hover:text-foreground"
     >
       <BsRobot aria-hidden className="h-3 w-3 shrink-0" />
       {/*
-        Two children with the container's `gap-1.5` between them, not one
-        string: the word is what `compact` sheds, and flex `gap` only applies
+        The digit and the word sit in ONE `.agent-count-text` wrapper, because
+        that wrapper is what wears the rainbow gradient (`styles.css`):
+        `background-clip: text` is resolved against its own box, so painting
+        the two spans separately would give each its own gradient origin and
+        the shimmer would jump at the space between them. The wrapper is
+        `inline-flex` with the same `gap-1.5` the button has, so the word
+        leaving at `compact` still takes its gap with it.
+
+        Inside it, two children with `gap-1.5` between them, not one string:
+        the word is what `compact` sheds, and flex `gap` only applies
         between VISIBLE items, so hiding it takes the space before it with no
         stray whitespace left behind. A single "{count} agent{s}" string could
         not be split by CSS at all.
@@ -101,8 +109,10 @@ export function LiveAgentCount() {
         between a screen reader and "one-agent" as a single word. It leaves with
         the word at `compact`, where the announcement is just the number.
       */}
-      <span className="tabular-nums">{count}</span>
-      <span className="status-label">{` agent${count === 1 ? '' : 's'}`}</span>
+      <span data-testid="titlebar-agent-count-text" className="agent-count-text inline-flex gap-1.5">
+        <span className="tabular-nums">{count}</span>
+        <span className="status-label">{` agent${count === 1 ? '' : 's'}`}</span>
+      </span>
     </button>
   );
 }

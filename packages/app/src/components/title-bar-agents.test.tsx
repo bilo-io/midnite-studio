@@ -104,12 +104,34 @@ describe('TitleBarAgents', () => {
     const button = screen.getByTestId('titlebar-agent-count');
     expect(button.classList.contains('status-collapsible')).toBe(true);
 
-    const spans = Array.from(button.querySelectorAll('span'));
+    const text = screen.getByTestId('titlebar-agent-count-text');
+    const spans = Array.from(text.querySelectorAll('span'));
     // The word owns the space between it and the digit, so the two leave
     // together and the button never reads "1agent" to a screen reader.
     expect(spans.map((span) => span.textContent)).toEqual(['1', ' agent']);
     expect(spans[1]!.classList.contains('status-label')).toBe(true);
     expect(spans[0]!.classList.contains('status-label')).toBe(false);
+  });
+
+  /**
+   * The hooks the shimmer CSS hangs off. `.agent-count-live` on the button
+   * carries the opacity/glow pulse; `.agent-count-text` on ONE wrapper around
+   * both spans carries the gradient text — one wrapper, because
+   * `background-clip: text` resolves against the painted element's own box,
+   * and two separately-painted spans would shimmer out of step. jsdom applies
+   * none of it; `e2e/titlebar-agents.spec.ts` checks the computed styles.
+   */
+  it('marks the button as live and wraps the digit and word in one gradient span', () => {
+    useTerminalStore.setState({ sessions: [session({ id: 'a' })], states: { a: 'open' } });
+    render(<TitleBarAgents />);
+
+    const button = screen.getByTestId('titlebar-agent-count');
+    expect(button.classList.contains('agent-count-live')).toBe(true);
+
+    const text = screen.getByTestId('titlebar-agent-count-text');
+    expect(text.parentElement).toBe(button);
+    expect(text.classList.contains('agent-count-text')).toBe(true);
+    expect(text.textContent).toBe('1 agent');
   });
 
   /**
