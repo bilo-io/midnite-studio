@@ -1,6 +1,5 @@
 import type {
   AgentDefinition,
-  CommandDescriptor,
   CommandGroup,
   CommandId,
   ForgeProject,
