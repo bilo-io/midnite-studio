@@ -206,6 +206,23 @@ export const ApiRequestDraftSchema = z.object({
   bodyMode: BodyModeSchema,
   bodies: z.record(BodyModeSchema, z.string()),
   binaryPath: z.string().nullable(),
+  /**
+   * Phase 70 Theme B — the two `pm.*` scripts a request tab carries, edited
+   * in the builder's fifth ("Scripts") tab. Both default `''` so every
+   * existing caller that builds an `ApiRequestDraft` object literal (every
+   * fixture in this package that predates Theme B) keeps compiling without
+   * having to know about a field it never asked for.
+   *
+   * Deliberately **not** the on-disk shape: a real Postman export carries
+   * these as `item.event: [{listen:'prerequest'|'test', script:{exec}}]`
+   * (`toDraft` below reads that shape in, seeding these two flat strings),
+   * but nothing here writes them back out to `item.event` — Theme F's own
+   * "Save" round trip (`toPostmanRequest`) does not yet persist *any*
+   * builder-tab edit to disk (headers and body included), and scripts are
+   * not a special case of that pre-existing gap.
+   */
+  preRequestScript: z.string().default(''),
+  testScript: z.string().default(''),
 });
 export type ApiRequestDraft = z.infer<typeof ApiRequestDraftSchema>;
 
@@ -244,6 +261,31 @@ function bodyModeOf(body: PostmanBody | undefined): BodyMode {
 }
 
 /**
+ * A real v2.1 export's `item.event[]` — sibling to `item.request`, not
+ * nested inside it — is how Postman itself carries a pre-request/test
+ * script. `script.exec` is either the array-of-lines shape a real export
+ * uses or a single string; either way this joins it back into the one
+ * multi-line string `MonacoField` edits. Absent/malformed/no matching
+ * `listen` all resolve to `''` — an item with no script is the overwhelming
+ * common case, not an error.
+ */
+function scriptFromEvent(item: PostmanItem, listen: 'prerequest' | 'test'): string {
+  const events = item['event'];
+  if (!Array.isArray(events)) return '';
+  for (const raw of events) {
+    if (!raw || typeof raw !== 'object') continue;
+    const event = raw as { listen?: unknown; script?: { exec?: unknown } };
+    if (event.listen !== listen) continue;
+    const exec = event.script?.exec;
+    if (Array.isArray(exec)) {
+      return exec.filter((line): line is string => typeof line === 'string').join('\n');
+    }
+    if (typeof exec === 'string') return exec;
+  }
+  return '';
+}
+
+/**
  * `PostmanItem` → `ApiRequestDraft`. Only ever called on a request-shaped
  * item (`item.request` present); callers are responsible for walking the
  * tree and only opening request leaves as tabs.
@@ -275,6 +317,8 @@ export function toDraft(item: PostmanItem): ApiRequestDraft {
     bodyMode,
     bodies,
     binaryPath: null,
+    preRequestScript: scriptFromEvent(item, 'prerequest'),
+    testScript: scriptFromEvent(item, 'test'),
   };
 }
 
@@ -448,3 +492,110 @@ export const SaveEnvironmentOutcomeSchema = z.discriminatedUnion('status', [
   }),
 ]);
 export type SaveEnvironmentOutcome = z.infer<typeof SaveEnvironmentOutcomeSchema>;
+
+// --- pm.* test runner (Phase 70 Theme B) --------------------------------------
+//
+// `main/api-client/script-runner.ts`'s wire shapes. The runner itself lives in
+// desktop (it runs a `vm` sandbox, in a spawned `utilityProcess` — see that
+// file's header for why), but its input/output cross two process boundaries
+// (main → the utilityProcess, main → renderer over IPC) and both cross
+// through this same shared, zod-validated shape rather than a bespoke one
+// per hop.
+
+/** The read-only `pm.request` a script sees — the *draft* as the renderer
+ *  already holds it, `{{var}}` tokens unresolved, never the interpolated
+ *  wire request `send.ts` actually sent. That is deliberate: the resolved
+ *  request can carry a secret (a bearer token substituted from an
+ *  environment's secret tier), and this object crosses back into
+ *  `logs`/`mutations` on the renderer's own screen the moment a script does
+ *  `console.log(pm.request)` — a risk this file's `pm.request` is built to
+ *  not carry in the first place, rather than a redaction bolted on after. */
+export const ScriptRequestInfoSchema = z.object({
+  method: z.string(),
+  url: z.string(),
+  headers: z.record(z.string(), z.string()),
+});
+export type ScriptRequestInfo = z.infer<typeof ScriptRequestInfoSchema>;
+
+/** The read-only `pm.response` a **Tests** script sees — `null` for a
+ *  **Pre-request** script, which runs before anything has been sent. Unlike
+ *  `ScriptRequestInfo` this is safe to pass through unmodified: it is what
+ *  the server sent back, already visible to the user in the Response Viewer
+ *  the moment `sendRequest` settles, so a script's `console.log(pm.response)`
+ *  discloses nothing the response pane was not already showing. */
+export const ScriptResponseInfoSchema = z.object({
+  code: z.number(),
+  status: z.string(),
+  headers: z.record(z.string(), z.string()),
+  body: z.string(),
+  bodyIsJson: z.boolean(),
+});
+export type ScriptResponseInfo = z.infer<typeof ScriptResponseInfoSchema>;
+
+/**
+ * Everything one `runScript` call needs, besides the source text itself.
+ * `environment`/`collectionVariables` are flat, already-merged
+ * `Record<string,string>` maps — exactly `send.ts`'s own
+ * `collectEnvironmentVariables`/`collectVariables` shape — loaded fresh in
+ * main immediately before the run, the same "never accept a variable *value*
+ * from the renderer, only the id that names where to load it from" rule
+ * `ApiSendRequestRequest.environmentId` already follows. A secret-typed
+ * environment value can be present here (a script may legitimately need
+ * `pm.environment.get('apiKey')`), which is why this object is built in main
+ * and never in the renderer.
+ */
+export const ScriptContextSchema = z.object({
+  environment: z.record(z.string(), z.string()),
+  collectionVariables: z.record(z.string(), z.string()),
+  request: ScriptRequestInfoSchema,
+  response: ScriptResponseInfoSchema.nullable(),
+});
+export type ScriptContext = z.infer<typeof ScriptContextSchema>;
+
+export const AssertionResultSchema = z.object({
+  name: z.string(),
+  passed: z.boolean(),
+  error: z.string().optional(),
+});
+export type AssertionResult = z.infer<typeof AssertionResultSchema>;
+
+/**
+ * `runScript`'s whole return value. **Never a thrown error, never a rejected
+ * promise** — a throw outside `pm.test` (or a `vm` timeout) lands in
+ * `error`, with `results` empty; a throw *inside* one becomes that test's
+ * own `{passed:false, error}` and every other test still runs.
+ *
+ * `mutations` is what `pm.environment.set`/`pm.collectionVariables.set`
+ * wrote — in memory only, during this one run. Nothing in this module ever
+ * touches disk; the IPC handler is what applies `mutations.environment`
+ * through Theme A's `saveEnvironment` (the secret split and the write-queue
+ * both stay exactly where Theme A put them) and folds
+ * `mutations.collectionVariables` into the collection's own `variable[]`
+ * through Theme A's own `saveCollection`.
+ */
+export const ScriptRunSchema = z.object({
+  results: z.array(AssertionResultSchema),
+  logs: z.array(z.string()),
+  mutations: z.object({
+    environment: z.record(z.string(), z.string()),
+    collectionVariables: z.record(z.string(), z.string()),
+  }),
+  error: z.string().nullable(),
+});
+export type ScriptRun = z.infer<typeof ScriptRunSchema>;
+
+/**
+ * `apiRunScript`'s success-arm payload — mirrors `SaveEnvironmentOutcome`'s
+ * own "a decision, not a write" shape: **`needs-consent` runs nothing at
+ * all**, script or sandbox included, and is what the renderer's consent bar
+ * (`test-results-panel.tsx`) renders instead of a result list. The renderer
+ * resends the identical request once the user picks *Run once* or *Always*
+ * (`ApiRunScriptRequest.runAnyway: true` — see that schema's own comment for
+ * why a third request field, not a second channel, is what lets "Run once"
+ * skip the trust check without persisting it).
+ */
+export const ScriptRunOutcomeSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('ran'), run: ScriptRunSchema }),
+  z.object({ status: z.literal('needs-consent') }),
+]);
+export type ScriptRunOutcome = z.infer<typeof ScriptRunOutcomeSchema>;
