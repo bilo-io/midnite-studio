@@ -2,6 +2,22 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 25 Theme C — the footer search readout can navigate and stop
+
+[PR #257](https://github.com/bilo-io/midnite-studio/pull/257). Moves Phase 25 39/101 → 41/101 (39%
+→ 41%) and completes Theme C's own checklist. Resumes and lands local work that had gone
+unpushed: three commits ahead of `origin/main` with every other Theme C item already checked off
+in an earlier, merged PR.
+
+`use-search.ts` started a new commit/content search on every debounced query without ever
+cancelling the one it replaced — the `requestId` guard kept stale results off screen, but the git
+subprocess behind a superseded search kept running server-side. Now cancels first, starts second.
+`SearchProgressSegment` (the footer's in-flight-search readout) was display-only; it now supports
+clicking the label to return to the Search view and a trailing Stop button that cancels in place.
+`e2e/search-view.spec.ts` covers every mode, the cancel-previous-request fix, truncation, and the
+error state, run for real against the dev server rather than only against the mock bridge, which
+surfaced and fixed two locator-ambiguity bugs in the process.
+
 ## 2026-09-07 — Phase 71 Theme E — Verification, and the e2e case the mock bridge can't run
 
 [PR #254](https://github.com/bilo-io/midnite-studio/pull/254). Moves Phase 71 to
