@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import arrayScopesJson from './__fixtures__/array-scopes.json?raw';
 import eightDigitHexJson from './__fixtures__/eight-digit-hex.json?raw';
 import noTypeJson from './__fixtures__/no-type.json?raw';
+import synthwave84Json from './__fixtures__/synthwave-84.json?raw';
 
 import { isHslTriplet } from '../theme-types';
 import { hexToHslTriplet, importVsCodeTheme } from './vscode-theme-importer';
@@ -32,6 +33,62 @@ describe('importVsCodeTheme', () => {
     expect(stringRules).toHaveLength(3);
     // A bare (non-array) scope string still becomes exactly one rule.
     expect(result.palette.editor.rules.some((r) => r.token === 'keyword.control')).toBe(true);
+  });
+
+  it('imports a real third-party theme (SynthWave \'84) with array-form scopes, rendering non-grey tokens', () => {
+    // `array-scopes.json` above is a synthetic fixture built to exercise the
+    // array-form-scope shape; this one is a curated subset of the real,
+    // published robb0wen/synthwave-vscode theme — the phase item's own
+    // example of "a real third-party VS Code theme with array-form scopes".
+    // Curated rather than the full ~800-line file: the same real name/scope/
+    // colour values, trimmed to the entries this test needs, and
+    // re-serialized as strict JSON (the published file is JSONC — VS Code
+    // tolerates its own trailing commas, `JSON.parse` does not).
+    const result = importVsCodeTheme(synthwave84Json);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.palette.appearance).toBe('dark');
+    expect(result.palette.label).toBe('SynthWave 84');
+
+    // Four scopes on "Comment" and three on "String" must each become their
+    // own rule with the theme's real (very much not grey) neon foreground —
+    // a naive importer that keeps the array as one `token` string, or drops
+    // array-form scopes entirely, renders every one of these grey instead.
+    const commentRules = result.palette.editor.rules.filter((r) =>
+      [
+        'comment',
+        'string.quoted.docstring.multi.python',
+        'string.quoted.docstring.multi.python punctuation.definition.string.begin.python',
+        'string.quoted.docstring.multi.python punctuation.definition.string.end.python',
+      ].includes(r.token),
+    );
+    expect(commentRules).toHaveLength(4);
+    expect(commentRules.every((r) => r.foreground === '848bbd')).toBe(true);
+
+    const stringRules = result.palette.editor.rules.filter((r) =>
+      ['string.quoted', 'string.template', 'punctuation.definition.string'].includes(r.token),
+    );
+    expect(stringRules).toHaveLength(3);
+    expect(stringRules.every((r) => r.foreground === 'ff8b39')).toBe(true);
+
+    const variableRules = result.palette.editor.rules.filter((r) =>
+      ['variable', 'entity.name.variable'].includes(r.token),
+    );
+    expect(variableRules).toHaveLength(2);
+    expect(variableRules.every((r) => r.foreground === 'ff7edb')).toBe(true);
+
+    // The real theme omits `terminal.ansiBlack`/`terminal.ansiWhite` (and
+    // their bright variants) entirely — "most [themes] do omit several"
+    // (Theme E's own framing) — so the importer's fallback onto the matching
+    // built-in GitHub palette must fill them rather than leaving them
+    // `undefined`, which xterm would otherwise render as black-on-black.
+    expect(result.palette.terminal.black).toBeTruthy();
+    expect(result.palette.terminal.white).toBeTruthy();
+    // But the ANSI colours it DOES set must be the theme's real ones, not the
+    // fallback's.
+    expect(result.palette.terminal.magenta).toBe('#ff7edb');
+    expect(result.palette.terminal.cyan).toBe('#03edf9');
   });
 
   it('imports a theme with no `type` field, defaulting to dark', () => {

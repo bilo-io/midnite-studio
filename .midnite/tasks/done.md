@@ -2,6 +2,41 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 64 Themes D + G — Escape yields to Monaco, and a focus bug
+
+[PR #252](https://github.com/bilo-io/midnite-studio/pull/252). Moves Phase 64 57/72 → 66/72 (79% →
+92%). Six items stay open and each says why: three need a human at a packaged app, one is the
+`cdn.jsdelivr` string, one is the five-surface same-frame assertion, one is the doc's own human
+stale-write pass.
+
+**Theme D — Escape yields, then falls through.** `CodeEditor` registers with Phase 62's `useDismiss`
+(which had landed since the doc was written, so Theme D wires it directly per Decision 3's
+"whichever is second wires them"). `onDismiss` reads Monaco's find-widget / suggest-list /
+parameter-hints context keys through the editor's private `_contextKeyService.getContextKeyValue` —
+**not** the public `editor.createContextKey`, which calls `reset()` on construction and would stomp
+Monaco's own live value the moment it ran. A footgun the code comments. Widget open → no-op (Monaco
+already stopped that keypress); nothing open → `exitEditing`.
+
+**A real focus bug, found by writing the assertion.** The item read "leaving edit mode returns focus
+to the Edit button, not `<body>`" as a check; it did not. `code-editor.tsx` captured
+`previouslyFocused` at mount, but `file-preview.tsx` unmounts that exact button the instant
+`editing` flips — swapped for Save/Done — so it is already detached when the editor tries to refocus
+it, and `.focus()` on a detached node is a no-op. Fixed at the owning level: `IconButton` gained an
+optional `ref` (React 19, no `forwardRef`; `Tooltip` already merges external refs via `assignRef`),
+and `file-preview.tsx` holds its own ref, refocusing on the `true→false` transition.
+
+**The `cdn.jsdelivr` grep is not clean, and is recorded rather than ticked.** The string survives
+once after a build, inside `@monaco-editor/loader`'s bundled default config. It is inert —
+`monaco-editor` is a static import with `?worker&inline` workers, and `code-editor.tsx:46`'s
+module-scope `void getMonaco()` runs `loader.config({monaco})` before `<Editor>` can mount, so
+`loader.init()` short-circuits and never reads `paths.vs`. Verified independently. Dead vendor data,
+but the item as written still fails.
+
+Also: all four theme modes actually *resolve* (`time` off faked timers — previously only the four
+options rendering was asserted); override isolation; a real SynthWave '84 fixture for array-form
+`scope`s, curated from the upstream JSONC; a no-Monaco-chunk network assertion on single click; and
+eight mounted terminals surviving a palette switch by DOM-node identity.
+
 ## 2026-09-07 — Phase 70 Theme E — Verification, and the feature it found missing
 
 [PR #251](https://github.com/bilo-io/midnite-studio/pull/251). Moves Phase 70 to 47/50 (94%). One

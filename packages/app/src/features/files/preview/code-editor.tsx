@@ -4,6 +4,7 @@ import { useTheme } from '@bilo-io/ui/theme';
 import Editor, { type OnChange, type OnMount } from '@monaco-editor/react';
 import type { editor as MonacoEditorNS } from 'monaco-editor';
 
+import { useDismiss } from '../../../components/use-dismiss';
 import { DEFAULT_EDITOR_FONT_FAMILY } from '../../../lib/monaco/editor-prefs';
 import { getMonaco } from '../../../lib/monaco/monaco-loader';
 import { monacoLanguageForFile } from '../../../lib/monaco/monaco-languages';
@@ -11,6 +12,30 @@ import { useFileEditorStore } from '../../../store/file-editor-store';
 import { useUiStore } from '../../../store/ui-store';
 import { usePaletteStore } from '../../themes/palette-store';
 import { resolveEditorPalette } from '../../themes/resolve-palette';
+
+/**
+ * Whether Monaco is currently showing its find widget, suggest list or
+ * parameter hints — read via the editor's own (private, undocumented)
+ * `_contextKeyService`, never via the public `editor.createContextKey`.
+ * `createContextKey(key, defaultValue)` calls `reset()` in its constructor,
+ * which writes `defaultValue` straight into the shared context the moment
+ * it's called — for a key Monaco's own find/suggest/parameter-hints
+ * contributions already own, that would stomp the live value (e.g. force
+ * `findWidgetVisible` back to `false` the instant we asked), breaking the
+ * very "when" clause that closes the widget on the first Escape. Reading
+ * through the private service sidesteps that; optional-chained so a future
+ * Monaco rename fails safe to "nothing is open" rather than throwing (Phase
+ * 64 Theme D, Decision 3).
+ */
+function isMonacoWidgetOpen(editor: MonacoEditorNS.IStandaloneCodeEditor): boolean {
+  const service = (
+    editor as unknown as {
+      _contextKeyService?: { getContextKeyValue?: (key: string) => unknown };
+    }
+  )._contextKeyService;
+  const isOpen = (key: string) => service?.getContextKeyValue?.(key) === true;
+  return isOpen('findWidgetVisible') || isOpen('suggestWidgetVisible') || isOpen('parameterHintsVisible');
+}
 
 // Eagerly configures `@monaco-editor/react`'s loader to use the locally
 // bundled `monaco` instance (and registers `MonacoEnvironment.getWorker`) the
@@ -27,10 +52,24 @@ void getMonaco();
  * when they have actually diverged (a Discard, a reload after a stale write,
  * or a remote change) — never on the editor's own echo of what it just typed.
  *
- * One prop, content from the store — preserving `file-preview.tsx`'s call
- * site unchanged is the point of keeping this signature.
+ * Two props, both from `file-preview.tsx`'s existing call site: `fileName`
+ * (content still comes from the store) and `onEscape` — Phase 64 Theme D's
+ * fallthrough action, defaulted to a no-op so the many pre-existing tests
+ * that render this without it keep passing unchanged.
  */
-export function CodeEditor({ fileName }: { fileName: string }) {
+export function CodeEditor({
+  fileName,
+  onEscape = () => undefined,
+}: {
+  fileName: string;
+  /**
+   * Called for an Escape that reaches Studio — i.e. one Monaco did *not*
+   * consume internally (no find widget, suggest list or parameter hints
+   * open). `file-preview.tsx` passes its `exitEditing`, so this Escape does
+   * exactly what the Done button does, guard dialog included.
+   */
+  onEscape?: () => void;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
@@ -103,6 +142,37 @@ export function CodeEditor({ fileName }: { fileName: string }) {
   const handleChange: OnChange = (value) => {
     useFileEditorStore.getState().edit(value ?? '');
   };
+
+  /*
+    Escape, registered through Phase 62's shared dismissal stack rather than a
+    local `window` listener (Phase 64 Theme D, Decision 3 — P62 landed first,
+    so Theme D calls `useDismiss` directly instead of the local `onKeyDown`
+    fallback that decision also names).
+
+    `layer: 'inline', blocking: false` — same shape as `code-preview.tsx`'s
+    find bar: the editor has no overlay hiding the native browser view, so it
+    is passive, not blocking. Active for as long as this component is
+    mounted, matching `file-preview.tsx`'s conditional render of it on
+    `editing`, so there is nothing separate to toggle here.
+
+    Monaco's own bound Escape already `stopPropagation()`s when it consumes
+    the key — closing the find widget, suggest list or parameter hints — so
+    in the overwhelmingly common case this callback never runs for THAT
+    keypress at all; it only reaches here once nothing internal claimed it.
+    `isMonacoWidgetOpen` is the belt-and-suspenders check the phase item asks
+    for anyway, so a future Monaco version that stops calling
+    `stopPropagation()` fails toward "do nothing" rather than exiting edit
+    mode out from under an open widget.
+  */
+  useDismiss(
+    true,
+    () => {
+      const editor = editorRef.current;
+      if (editor && isMonacoWidgetOpen(editor)) return;
+      onEscape();
+    },
+    { layer: 'inline', blocking: false },
+  );
 
   // Store → view sync, for changes that did not originate from typing here —
   // preserved as-is against `model.setValue` (Discard resets `content` to
