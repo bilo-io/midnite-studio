@@ -599,3 +599,104 @@ export const ScriptRunOutcomeSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('needs-consent') }),
 ]);
 export type ScriptRunOutcome = z.infer<typeof ScriptRunOutcomeSchema>;
+
+// --- the collection runner (Phase 70 Theme C) ---------------------------------
+//
+// `main/api-client/runner.ts`'s wire shapes. A run is a flat, depth-first walk
+// of the target's item tree in file order, calling Phase 66's `sendApiRequest`
+// then Theme B's `runScript` per request — streamed, unlike the single-request
+// `apiSendRequest`/`apiRunScript` calls above, because a run is unbounded in
+// duration and a partial run is exactly what the user wants to watch.
+
+/**
+ * What a run walks: the whole collection, or one folder inside it (picked by
+ * the same folder-name `path` a tab's `itemPath` already uses — Postman
+ * items have no stable id, so a path is the only address that survives a
+ * sibling being inserted above).
+ */
+export const ApiRunTargetSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('collection') }),
+  z.object({ kind: z.literal('folder'), path: z.array(z.string()) }),
+]);
+export type ApiRunTarget = z.infer<typeof ApiRunTargetSchema>;
+
+/** One request leaf's outcome, in `ApiRunEvent.item` and the summary's own
+ *  detail list alike. `'error'` covers both a transport failure (Property 2
+ *  — a settled `response` is `null`) and a script whose `pm.test` calls
+ *  themselves ran but whose script otherwise threw (`response` is present,
+ *  `error` names the script's own failure); `'failed'` is a settled response
+ *  whose script ran cleanly but produced at least one failing assertion;
+ *  `'skipped'` is Property 3 — never dequeued because Stop landed first. */
+export const ApiRunItemStatusSchema = z.enum(['passed', 'failed', 'error', 'skipped']);
+export type ApiRunItemStatus = z.infer<typeof ApiRunItemStatusSchema>;
+
+export const ApiRunItemResultSchema = z.object({
+  itemPath: z.array(z.string()),
+  name: z.string(),
+  method: z.string(),
+  status: ApiRunItemStatusSchema,
+  durationMs: z.number().nonnegative(),
+  /** `null` for a transport failure (nothing settled) and for `skipped`. */
+  response: ApiResponseSchema.nullable(),
+  /** Empty when the item carries no test script, or a settled `response`
+   *  never reached the script (a transport failure). */
+  assertions: z.array(AssertionResultSchema),
+  /** The transport failure's message, or the script's own `ScriptRun.error`
+   *  — never both, since a script only runs after a response has settled. */
+  error: z.string().nullable(),
+});
+export type ApiRunItemResult = z.infer<typeof ApiRunItemResultSchema>;
+
+/** One `apiRunProgress` push — one request leaf's just-settled result, plus
+ *  its place in the walk so the renderer's list can render it in order even
+ *  if a later batch somehow arrived first (it never does, over one IPC
+ *  channel, but `index`/`total` cost nothing and remove the assumption). */
+export const ApiRunEventSchema = z.object({
+  runId: z.string(),
+  index: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  item: ApiRunItemResultSchema,
+});
+export type ApiRunEvent = z.infer<typeof ApiRunEventSchema>;
+
+/** The header strip a finished (or aborted) run renders. `skipped` is the
+ *  requests that never ran at all (Property 3) — disjoint from `failed`,
+ *  which only ever counts a request that *did* run. `completed` is
+ *  `total - skipped`, `passed + failed` is `completed` minus any transport
+ *  failure recorded with `status: 'error'` and no assertions to fail. */
+export const ApiRunSummarySchema = z.object({
+  runId: z.string(),
+  total: z.number().int().nonnegative(),
+  completed: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+  passed: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+  durationMs: z.number().nonnegative(),
+  aborted: z.boolean(),
+});
+export type ApiRunSummary = z.infer<typeof ApiRunSummarySchema>;
+
+/** The terminal `apiRunDone` push — mirrors `dbQueryDone`'s "one event ends
+ *  the stream" shape, carrying the whole summary rather than a bare ping,
+ *  since nothing else holds the run's numbers once it is over (a run is
+ *  in-memory only; see the phase doc's own note on why it does not persist). */
+export const ApiRunDoneEventSchema = z.object({
+  runId: z.string(),
+  summary: ApiRunSummarySchema,
+});
+export type ApiRunDoneEvent = z.infer<typeof ApiRunDoneEventSchema>;
+
+/**
+ * `apiRunCollection`'s own success-arm payload — mirrors `ScriptRunOutcome`'s
+ * "a decision, not a result" shape: `needs-consent` starts nothing at all
+ * (no controller registered, no progress event, no `apiRunDone`), and is what
+ * the collection runner's own consent bar renders instead of the results
+ * pane. The renderer resends the identical request with `runAnyway: true`
+ * (*Run once*) or after `apiClient.setScriptTrust({trusted:true})` (*Always*),
+ * exactly as the single-script flow already does.
+ */
+export const ApiRunStartOutcomeSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('started') }),
+  z.object({ status: z.literal('needs-consent') }),
+]);
+export type ApiRunStartOutcome = z.infer<typeof ApiRunStartOutcomeSchema>;
