@@ -29,19 +29,13 @@ import { appendCapped } from '../council-output';
  *
  * **`vm` is not a security boundary, and nothing here should be read as
  * treating it as one.** Node's own documentation is explicit that the `vm`
- * module does not provide true isolation — a sufficiently determined script
- * can still reach the host's global scope through shared object prototypes
- * (`(() => {}).constructor` is `Function`, `[].constructor` is `Array`,
- * every constructor's own `constructor` chain eventually reaches something
- * defined outside the context). The actual boundary is three things
- * stacked, in order of how much they are trusted to hold alone:
+ * module does not provide true isolation. The actual boundary is three
+ * things stacked, in order of how much they are trusted to hold alone:
  *
  * 1. **The allow-list.** The sandbox object below is every global a script
  *    can see, built by hand rather than inherited from anything — no
- *    `require`, no `process`, no `Buffer`, no `globalThis`, no `module`. A
- *    script that cannot reach a constructor with genuine host power (`Buffer`,
- *    a `require` function, a live `process`) cannot do anything a `vm`
- *    context's own prototype-chain leakiness alone would exploit.
+ *    `require`, no `process`, no `Buffer`, no `globalThis` passthrough, no
+ *    `module`.
  * 2. **The utilityProcess.** Even a full escape past (1) — a script that
  *    somehow synthesises a `Function` and calls it — lands in a process
  *    with no Electron APIs, no filesystem access this app's own code wired
@@ -52,13 +46,55 @@ import { appendCapped } from '../council-output';
  *    said yes to the specific collection — see `collection-trust.ts` and
  *    the IPC handler that checks it before ever calling `runScript`.
  *
- * `codeGeneration: {strings: false, wasm: false}` on the context kills
- * `eval` and `new Function` from *inside* the context outright — the first
- * thing an escape attempt reaches for — and `timeout` bounds synchronous
- * execution. Neither stops an `await`-shaped hang, which is why the sandbox
- * exposes no async primitive at all (see the sandbox builder below); a
- * script that cannot start an async operation cannot hang one past the
- * timeout.
+ * **The prototype-chain leak, and why the allow-list is not just "which
+ * identifiers exist".** `codeGeneration: {strings: false, wasm: false}`
+ * blocks `eval`/`new Function` built *from the context's own intrinsics* —
+ * but it does **not** block calling a `Function` object that originated in
+ * a *different* realm, because V8 compiles a string against the realm that
+ * *owns* the `Function` being invoked, not the realm currently executing.
+ * Concretely: `globalThis.constructor.constructor('return 1')()` — walking
+ * `Object.prototype.constructor` from the sandbox's own global object up to
+ * `Function` — genuinely returns `2`, unrestricted, if that global object's
+ * prototype is left as the ordinary host-realm `Object.prototype` any plain
+ * `{}` literal gets. Verified directly against this repo's own Node/
+ * Electron pair with a throwaway repro before writing a single test that
+ * claims otherwise — the fix confirmed there is what
+ * `script-runner.test.ts`'s `globalThis.constructor` case now pins.
+ *
+ * Two things close it, together:
+ *
+ * - **Nothing from the host realm is exposed with an intact prototype
+ *   chain.** `harden()` below walks the *entire* sandbox object graph
+ *   (`pm`, `console`, and everything reachable from them) and nulls every
+ *   object's and function's own `[[Prototype]]` before the context is
+ *   created — so `pm.constructor`, `pm.test.constructor`,
+ *   `console.log.constructor`, and `globalThis.constructor` (the sandbox
+ *   object itself) are all `undefined`, not a leaked `Function`.
+ * - **The standard globals are never injected from the host at all.**
+ *   `JSON`, `Math`, `Date`, `String`, `Number`, `Boolean`, `Array`,
+ *   `Object`, `RegExp` and `Error` are not own-properties on the sandbox
+ *   object below — every ECMAScript realm, `vm`-created ones included,
+ *   already carries its *own*, correctly-restricted copies of every one of
+ *   these automatically. Setting `sandbox.Array = Array` (the process's
+ *   real, singleton `Array`, shared by every other part of this app) would
+ *   both re-introduce exactly this leak (`Array.constructor.constructor`)
+ *   *and* be a mutation nothing here is allowed to make on that shared
+ *   object in the first place (`harden()` must never be pointed at it).
+ *   Omitting them is simultaneously the safe choice and the one that needs
+ *   no code: a script's `new Date()`/`JSON.parse(...)`/`[].map(...)` already
+ *   work, verified in `script-runner.test.ts`'s own sanity check, because
+ *   they resolve to the context's *own* intrinsics rather than nothing.
+ *
+ * `pm.expect(...)`'s chain objects (`makeExpect` below) need no separate
+ * hardening despite being built fresh on every call: they are wrapped in
+ * `pinnedProxy`, whose `get` trap already throws for anything off the
+ * allow-list — `constructor` included — so the Proxy itself is the
+ * boundary there, not a nulled prototype.
+ *
+ * `timeout` (below) bounds synchronous execution; it does not stop an
+ * `await`-shaped hang, which is why the sandbox exposes no async primitive
+ * at all — a script that cannot start an async operation cannot hang one
+ * past the timeout.
  */
 
 /** `pm.expect(...).to.X` where `X` was not one of the pinned methods. Always
@@ -77,6 +113,23 @@ function stringify(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+/**
+ * A thrown value's message, without `instanceof Error` — a cross-realm gotcha
+ * `vm`'s own docs call out: an error V8 constructs against the *sandbox's*
+ * contextified realm (a `vm` timeout, some `codeGeneration` violations) is
+ * not `instanceof` this host module's `Error`, even though it carries a
+ * perfectly ordinary `.message` string reachable by plain property access.
+ * Reading `.message` structurally, rather than gating on `instanceof`,
+ * covers both that case and an ordinary same-realm `throw new Error(...)`
+ * identically; `String(err)` is only the fallback for a thrown non-object.
+ */
+function errorMessage(err: unknown): string {
+  if (err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string') {
+    return (err as { message: string }).message;
+  }
+  return String(err);
 }
 
 /** Structural deep equality — arrays and plain objects only, which is every
@@ -105,6 +158,37 @@ function typeOf(value: unknown, type: string): boolean {
   if (type === 'array') return Array.isArray(value);
   if (type === 'null') return value === null;
   return typeof value === type;
+}
+
+/**
+ * Nulls the `[[Prototype]]` of `value` and everything reachable from its own
+ * plain-value properties — see this file's header for exactly which escape
+ * this closes and why `codeGeneration: {strings: false}` alone does not.
+ *
+ * Only ever called on objects **this module built itself** (the sandbox
+ * object, `pm`, `console`, and everything under them), never on a shared,
+ * process-wide built-in (`Array`, `Object`, …) — those are never own-properties
+ * of the sandbox in the first place (see the header), and mutating the real,
+ * singleton `Array.prototype` chain would corrupt every other part of this
+ * process, not just this one sandbox.
+ *
+ * Getter/setter-defined properties are walked but never *read* — reading one
+ * would invoke it, and the one accessor surface in this module
+ * (`makeExpect`'s `to`/`not`/`be`/`have`) has real side effects (flipping the
+ * shared `negate` flag). Those objects need no separate hardening anyway:
+ * they are wrapped in {@link pinnedProxy}, whose `get` trap already refuses
+ * anything off the allow-list, `constructor` included.
+ */
+function harden(value: unknown, seen: Set<unknown> = new Set()): void {
+  if (value === null || (typeof value !== 'object' && typeof value !== 'function')) return;
+  if (seen.has(value)) return;
+  seen.add(value);
+  Object.setPrototypeOf(value, null);
+  for (const key of Object.getOwnPropertyNames(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || descriptor.get || descriptor.set) continue;
+    harden(descriptor.value, seen);
+  }
 }
 
 /**
@@ -296,7 +380,17 @@ function buildPm(
         status: context.response.status,
         headers: headerGetter(context.response.headers),
         json(): unknown {
-          return JSON.parse(context.response!.body);
+          // `JSON.parse` here is the HOST's own (this function runs as host
+          // code, called *from* the sandboxed script, not compiled inside
+          // it) — its result is a fresh, host-realm object crossing into
+          // script space at *run time*, the one such value in this whole
+          // module the initial `harden(sandbox)` pass (in `runScript`)
+          // cannot have already reached. `harden` it here, individually,
+          // for the same reason and the same fix as everything else in
+          // this file's header.
+          const parsed: unknown = JSON.parse(context.response!.body);
+          harden(parsed);
+          return parsed;
         },
         text(): string {
           return context.response!.body;
@@ -310,11 +404,7 @@ function buildPm(
         fn();
         results.push({ name, passed: true });
       } catch (error) {
-        results.push({
-          name,
-          passed: false,
-          error: error instanceof Error ? error.message : String(error),
-        });
+        results.push({ name, passed: false, error: errorMessage(error) });
       }
     },
     expect: makeExpect,
@@ -391,20 +481,16 @@ export function runScript(source: string, context: ScriptContext, timeoutMs: num
   const logs: string[] = [];
   const mutations: ScriptRun['mutations'] = { environment: {}, collectionVariables: {} };
 
+  // `JSON`/`Math`/`Date`/`String`/`Number`/`Boolean`/`Array`/`Object`/
+  // `RegExp`/`Error` are deliberately **not** own-properties here — see this
+  // file's header. A `vm`-created context already carries its own, correctly
+  // realm-scoped copies of every one of them; the only own-properties this
+  // sandbox needs are the two genuinely custom values.
   const sandbox: Record<string, unknown> = {
     pm: buildPm(context, mutations, results),
     console: buildConsole(logs),
-    JSON,
-    Math,
-    Date,
-    String,
-    Number,
-    Boolean,
-    Array,
-    Object,
-    RegExp,
-    Error,
   };
+  harden(sandbox);
 
   let error: string | null = null;
   try {
@@ -412,6 +498,7 @@ export function runScript(source: string, context: ScriptContext, timeoutMs: num
     const script = new vm.Script(source, { filename: 'pm-script.js' });
     script.runInContext(ctx, { timeout: timeoutMs, breakOnSigint: true });
   } catch (err) {
+    const message = errorMessage(err);
     // Node's own wording for a `vm` timeout has shifted across versions
     // ("Script execution timed out after Xms" is the current one); matching
     // on "timed out" rather than the whole sentence is what keeps this
@@ -419,11 +506,7 @@ export function runScript(source: string, context: ScriptContext, timeoutMs: num
     // thrown message (vanishingly unlikely to contain this exact phrase,
     // and this module's own budget for being wrong about that is zero
     // either way — the fallback branch below still reports *some* string).
-    if (err instanceof Error && /timed out/i.test(err.message)) {
-      error = `Script timed out after ${timeoutMs} ms.`;
-    } else {
-      error = err instanceof Error ? err.message : String(err);
-    }
+    error = /timed out/i.test(message) ? `Script timed out after ${timeoutMs} ms.` : message;
   }
 
   return { results, logs, mutations, error };
