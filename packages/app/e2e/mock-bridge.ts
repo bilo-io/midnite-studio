@@ -72,6 +72,56 @@ export type MockFixtures = {
   /** Overrides the canned 200 that `sendRequest` answers with. */
   apiResponse?: unknown;
   /**
+   * Phase 70 Theme A — environments, in `ApiEnvironmentSummary`'s own shape
+   * (`{id, fileName, environment}`, `id === fileName`). Seeds
+   * `apiClient.listEnvironments`/`readEnvironment`; `saveEnvironment` and
+   * `deleteEnvironment` mutate a copy of this list in place, so a spec that
+   * creates or edits an environment sees it reflected on the next list read.
+   */
+  apiEnvironments?: {
+    id: string;
+    fileName: string;
+    environment: { id: string; name: string; values: { key: string; value?: string; type?: string; enabled?: boolean }[] };
+  }[];
+  /** Seeds `environment-io.ts`'s own once-per-repo confirm gate as already
+   *  satisfied — a save with secret rows answers `saved` outright instead of
+   *  `needs-confirm`. Defaults to `false`, the real gate's own default for a
+   *  repo nothing has protected yet. */
+  apiEnvGitignoreProtected?: boolean;
+  /** Collection ids whose scripts start already trusted (Phase 70 Theme B) —
+   *  `runScript`/`runCollection` skip the consent gate for these; every other
+   *  collection id starts untrusted, exactly as a fresh checkout would. */
+  apiTrustedCollections?: string[];
+  /** The canned `ScriptRun` a trusted (or `runAnyway`) `runScript` call
+   *  resolves with — `{results, logs, mutations, error}`, Theme B's own
+   *  shape. Absent means an empty, error-free run. */
+  apiScriptRun?: {
+    results: { name: string; passed: boolean; error?: string }[];
+    logs?: string[];
+    mutations?: { environment: Record<string, string>; collectionVariables: Record<string, string> };
+    error?: string | null;
+  };
+  /**
+   * Phase 70 Theme C — the collection runner's per-item results, replayed in
+   * order as real `onRunProgress` events `apiRunItemDelayMs` apart (default
+   * 30ms) so a spec can click Stop between two of them, exactly the shape
+   * `ApiRunItemResult` carries.
+   */
+  apiRunItems?: {
+    itemPath: string[];
+    name: string;
+    method: string;
+    status: 'passed' | 'failed' | 'error' | 'skipped';
+    durationMs?: number;
+    response?: unknown;
+    assertions?: { name: string; passed: boolean; error?: string }[];
+    error?: string | null;
+  }[];
+  /** Milliseconds between two `apiRunItems` progress events — default 30. */
+  apiRunItemDelayMs?: number;
+  /** Seeds `apiClient.listHistory` (Phase 70 Theme D). */
+  apiHistory?: unknown[];
+  /**
    * Keyed by `${sha}:${path}` for commit diffs, `wt:${path}` for worktree ones,
    * and `stash:${selector}:${part}:${path}` for a stash part (Phase 22 Theme D)
    * — each also answers a `:${context}`-suffixed key first, same as commit
@@ -2649,60 +2699,269 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         onDeepLink: unsubscribe,
       },
       /**
-       * Phase 66 Theme H — the API Client's bridge namespace.
-       *
-       * Every method answers rather than being absent, because `undefined` on
-       * this namespace does not fail a spec cleanly: the renderer awaits
-       * `apiClient.listCollections(…)` during its first render, and a missing
-       * method throws inside an effect where the error boundary swallows it
-       * into a blank pane. An empty-but-present namespace is what lets a spec
-       * assert the *empty state* rather than a crash.
+       * Phase 66 Theme H — the API Client's bridge namespace. Extended in
+       * Phase 70 Theme E with environments (A), scripts (B) and the
+       * collection runner (C) — every addition below follows the same rule
+       * the Theme H header states: every method answers rather than being
+       * absent.
        *
        * `apiCollections` seeds the tree; `apiCollectionsById` seeds what
        * `readCollection` hands back. A spec that only needs navigation can
        * leave both unset and get the "no collections" copy.
+       *
+       * `apiEnvironmentsState` is a mutable copy of `data.apiEnvironments` —
+       * `saveEnvironment`/`deleteEnvironment` mutate it so a later
+       * `listEnvironments` sees the change, mirroring `environment-io.ts`'s
+       * own read-your-writes shape without a real file underneath it.
+       * `apiEnvGitignoreWritten` mirrors `environment-io.ts`'s own
+       * once-per-repo confirm gate (Theme A): the first secret-carrying save
+       * in an unprotected fixture answers `needs-confirm`, exactly as the
+       * real handler does, and only a `confirmed: true` resend (or a fixture
+       * pre-seeded via `apiEnvGitignoreProtected`) writes anything.
        */
-      apiClient: {
-        listCollections: async () => ({ ok: true as const, value: (data.apiCollections ?? []).slice() }),
-        readCollection: async (req: { collectionId: string }) => {
-          const found = (data.apiCollections ?? []).find((c) => c.id === req.collectionId);
-          return found
-            ? { ok: true as const, value: found.collection }
-            : {
-                ok: false as const,
-                kind: 'error' as const,
-                message: `No collection ${req.collectionId}`,
-              };
-        },
-        saveCollection: async () => ({ ok: true as const }),
-        importCollection: async () => ({ ok: true as const, value: null }),
-        deleteCollection: async () => ({ ok: true as const }),
-        exportCollection: async () => ({ ok: true as const }),
-        sendRequest: async () => ({
-          ok: true as const,
-          value: data.apiResponse ?? {
-            status: 200,
-            statusText: 'OK',
-            headers: { 'content-type': 'application/json' },
-            body: '{"ok":true}',
-            bodyIsJson: true,
-            durationMs: 12,
-            sizeBytes: 11,
-            truncated: false,
-            warnings: [],
+      apiClient: (() => {
+        const apiEnvironmentsState: {
+          id: string;
+          fileName: string;
+          environment: { id: string; name: string; values: { key: string; value?: string; type?: string; enabled?: boolean }[] };
+        }[] = (data.apiEnvironments ?? []).map((entry) => ({
+          ...entry,
+          environment: { ...entry.environment, values: entry.environment.values.map((row) => ({ ...row })) },
+        }));
+        let apiEnvGitignoreWritten = data.apiEnvGitignoreProtected ?? false;
+
+        const slugify = (name: string): string =>
+          name
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'environment';
+
+        const uniqueSlug = (base: string, excludingId: string | null): string => {
+          let candidate = base;
+          let suffix = 2;
+          while (
+            apiEnvironmentsState.some(
+              (entry) => entry.id === `${candidate}.postman_environment.json` && entry.id !== excludingId,
+            )
+          ) {
+            candidate = `${base}-${suffix}`;
+            suffix += 1;
+          }
+          return candidate;
+        };
+
+        /** Collections whose scripts are already trusted on this machine —
+         *  seeded from `data.apiTrustedCollections`, mutated by
+         *  `setScriptTrust` exactly as `collection-trust.ts`'s marker file
+         *  would be, and reset to the seed on every reload since this whole
+         *  closure is rebuilt by `addInitScript` on each navigation (there is
+         *  no real `.local.json` underneath a mocked bridge — see the
+         *  consent-bar spec's own note on why that is the honest substitute). */
+        const apiScriptTrust = new Set<string>(data.apiTrustedCollections ?? []);
+
+        type ApiRunProgressHandler = (event: {
+          runId: string;
+          index: number;
+          total: number;
+          item: unknown;
+        }) => void;
+        type ApiRunDoneHandler = (event: { runId: string; summary: unknown }) => void;
+        let apiRunProgressHandlers: ApiRunProgressHandler[] = [];
+        let apiRunDoneHandlers: ApiRunDoneHandler[] = [];
+        const apiRunCancelled = new Map<string, boolean>();
+
+        return {
+          listCollections: async () => ({ ok: true as const, value: (data.apiCollections ?? []).slice() }),
+          readCollection: async (req: { collectionId: string }) => {
+            const found = (data.apiCollections ?? []).find((c) => c.id === req.collectionId);
+            return found
+              ? { ok: true as const, value: found.collection }
+              : {
+                  ok: false as const,
+                  kind: 'error' as const,
+                  message: `No collection ${req.collectionId}`,
+                };
           },
-        }),
-        cancelRequest: async () => ({ ok: true as const }),
-        pickBinaryFile: async () => ({ ok: true as const, value: null }),
-        listEnvironments: async () => ({ ok: true as const, value: [] }),
-        readEnvironment: async () => ({
-          ok: false as const,
-          kind: 'error' as const,
-          message: 'no environments in this fixture',
-        }),
-        saveEnvironment: async () => ({ ok: true as const, value: { status: 'saved' as const, file: 'x.json' } }),
-        deleteEnvironment: async () => ({ ok: true as const }),
-      },
+          saveCollection: async () => ({ ok: true as const }),
+          importCollection: async () => ({ ok: true as const, value: null }),
+          deleteCollection: async () => ({ ok: true as const }),
+          exportCollection: async () => ({ ok: true as const }),
+          sendRequest: async () => ({
+            ok: true as const,
+            value: data.apiResponse ?? {
+              status: 200,
+              statusText: 'OK',
+              headers: { 'content-type': 'application/json' },
+              body: '{"ok":true}',
+              bodyIsJson: true,
+              durationMs: 12,
+              sizeBytes: 11,
+              truncated: false,
+              warnings: [],
+            },
+          }),
+          cancelRequest: async () => ({ ok: true as const }),
+          pickBinaryFile: async () => ({ ok: true as const, value: null }),
+
+          // --- environments (Phase 70 Theme A) --------------------------------
+          listEnvironments: async () => ({
+            ok: true as const,
+            value: apiEnvironmentsState.map((entry) => ({ ...entry })),
+          }),
+          readEnvironment: async (req: { environmentId: string }) => {
+            const found = apiEnvironmentsState.find((entry) => entry.id === req.environmentId);
+            return found
+              ? { ok: true as const, value: found.environment }
+              : { ok: false as const, kind: 'error' as const, message: `No environment ${req.environmentId}` };
+          },
+          saveEnvironment: async (req: {
+            repoId: string;
+            environmentId: string | null;
+            environment: { id: string; name: string; values: { key: string; value?: string; type?: string; enabled?: boolean }[] };
+            confirmed?: boolean;
+          }) => {
+            const secretCount = req.environment.values.filter((row) => row.type === 'secret').length;
+            if (secretCount > 0 && !apiEnvGitignoreWritten && !req.confirmed) {
+              return {
+                ok: true as const,
+                value: {
+                  status: 'needs-confirm' as const,
+                  secretCount,
+                  gitignorePath: '.midnite/api/.gitignore',
+                },
+              };
+            }
+            if (secretCount > 0) apiEnvGitignoreWritten = true;
+
+            const existing = req.environmentId
+              ? apiEnvironmentsState.find((entry) => entry.id === req.environmentId)
+              : undefined;
+            const fileName = existing ? existing.id : `${uniqueSlug(slugify(req.environment.name), null)}.postman_environment.json`;
+            const entry = { id: fileName, fileName, environment: { ...req.environment, values: req.environment.values.map((row) => ({ ...row })) } };
+            if (existing) {
+              const index = apiEnvironmentsState.indexOf(existing);
+              apiEnvironmentsState[index] = entry;
+            } else {
+              apiEnvironmentsState.push(entry);
+            }
+            return { ok: true as const, value: { status: 'saved' as const, fileName } };
+          },
+          deleteEnvironment: async (req: { environmentId: string }) => {
+            const index = apiEnvironmentsState.findIndex((entry) => entry.id === req.environmentId);
+            if (index >= 0) apiEnvironmentsState.splice(index, 1);
+            return { ok: true as const };
+          },
+
+          // --- scripts (Phase 70 Theme B) --------------------------------------
+          //
+          // A canned `ScriptRun` (`data.apiScriptRun`) rather than an actual
+          // `node:vm` sandbox — the sandbox itself (every pinned `pm.*` method,
+          // the five escape attempts, the timeout) is proven by
+          // `script-runner.test.ts` under bare vitest, which is the honest
+          // place for it: a mocked bridge cannot run real untrusted JS, and
+          // faking that it does would prove nothing. What this DOES prove is
+          // the UI's own reaction to each outcome — the pass/fail rows, the
+          // error row, and the consent bar's three buttons — which is exactly
+          // what a Playwright spec can check that a main-process vitest can't.
+          runScript: async (req: { collectionId: string; runAnyway?: boolean }) => {
+            const trusted = apiScriptTrust.has(req.collectionId);
+            if (!trusted && !req.runAnyway) {
+              return { ok: true as const, value: { status: 'needs-consent' as const } };
+            }
+            // `mutations` always present — even when a fixture's own
+            // `apiScriptRun` omits it — because the store reads
+            // `run.mutations.environment` unconditionally right after a
+            // 'ran' outcome (Theme B's own environment-mutation refresh).
+            const run = {
+              results: [],
+              logs: [],
+              error: null,
+              mutations: { environment: {}, collectionVariables: {} },
+              ...data.apiScriptRun,
+            };
+            return { ok: true as const, value: { status: 'ran' as const, run } };
+          },
+          setScriptTrust: async (req: { collectionId: string; trusted: boolean }) => {
+            if (req.trusted) apiScriptTrust.add(req.collectionId);
+            else apiScriptTrust.delete(req.collectionId);
+            return { ok: true as const };
+          },
+
+          // --- the collection runner (Phase 70 Theme C) ------------------------
+          //
+          // `data.apiRunItems` replays as a real `onRunProgress`/`onRunDone`
+          // stream — one event per item, `data.apiRunItemDelayMs` apart — so a
+          // spec can click Stop between two events exactly as it would against
+          // the real IPC. Everything from `cancelledAtIndex` on is answered
+          // `skipped`, which is the UI-level claim this item makes; the
+          // finer in-flight-vs-skipped distinction `runner.test.ts` proves is
+          // main-process behaviour this mock does not re-implement.
+          runCollection: async (req: { runId: string; collectionId: string; runAnyway?: boolean }) => {
+            const trusted = apiScriptTrust.has(req.collectionId);
+            if (!trusted && !req.runAnyway) {
+              return { ok: true as const, value: { status: 'needs-consent' as const } };
+            }
+            const items = (data.apiRunItems ?? []).slice();
+            const delayMs = data.apiRunItemDelayMs ?? 30;
+            apiRunCancelled.set(req.runId, false);
+            void (async () => {
+              let cancelledAtIndex: number | null = null;
+              for (let index = 0; index < items.length; index += 1) {
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
+                if (apiRunCancelled.get(req.runId) && cancelledAtIndex === null) cancelledAtIndex = index;
+                const base = items[index]!;
+                const item =
+                  cancelledAtIndex !== null
+                    ? { ...base, status: 'skipped' as const, response: null, assertions: [], error: null, durationMs: 0 }
+                    : base;
+                for (const handler of apiRunProgressHandlers) {
+                  handler({ runId: req.runId, index, total: items.length, item });
+                }
+              }
+              const total = items.length;
+              const skipped = cancelledAtIndex === null ? 0 : total - cancelledAtIndex;
+              const completed = total - skipped;
+              const settled = items.slice(0, completed);
+              const passed = settled.filter((item) => item.status === 'passed').length;
+              const failed = settled.filter((item) => item.status === 'failed' || item.status === 'error').length;
+              const summary = {
+                runId: req.runId,
+                total,
+                completed,
+                skipped,
+                passed,
+                failed,
+                durationMs: total * delayMs,
+                aborted: cancelledAtIndex !== null,
+              };
+              for (const handler of apiRunDoneHandlers) handler({ runId: req.runId, summary });
+              apiRunCancelled.delete(req.runId);
+            })();
+            return { ok: true as const, value: { status: 'started' as const } };
+          },
+          cancelRun: async (req: { runId: string }) => {
+            apiRunCancelled.set(req.runId, true);
+            return { ok: true as const };
+          },
+          onRunProgress: (handler: ApiRunProgressHandler) => {
+            apiRunProgressHandlers.push(handler);
+            return () => {
+              apiRunProgressHandlers = apiRunProgressHandlers.filter((h) => h !== handler);
+            };
+          },
+          onRunDone: (handler: ApiRunDoneHandler) => {
+            apiRunDoneHandlers.push(handler);
+            return () => {
+              apiRunDoneHandlers = apiRunDoneHandlers.filter((h) => h !== handler);
+            };
+          },
+
+          // --- history (Phase 70 Theme D) ---------------------------------------
+          listHistory: async () => ({ ok: true as const, value: (data.apiHistory ?? []).slice() }),
+          clearHistory: async () => ({ ok: true as const }),
+        };
+      })(),
       db: {
         listConnections: async () => (data.dbConnections ?? []).slice(),
         saveConnection: async (req: { connection: { id: string; [key: string]: unknown } }) => ({
