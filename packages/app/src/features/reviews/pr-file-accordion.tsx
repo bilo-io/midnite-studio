@@ -5,7 +5,7 @@ import type {
   StatusCode,
 } from '@midnite/studio-shared';
 import { LuChevronRight } from 'react-icons/lu';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import { Counts } from '../../components/change-tree';
 import { Spinner } from '../../components/skeleton';
@@ -14,6 +14,7 @@ import { positionForLine, threadsForFile } from '../diff/comment-anchors';
 import { DiffToolbar } from '../diff/diff-toolbar';
 import { DiffView } from '../diff/diff-view';
 import { imageDiffSources } from '../diff/image-sources';
+import { useTooNarrowForSplit } from '../diff/use-diff-split-width';
 
 import { StatusMark } from '../status/status-mark';
 import { CommentComposer } from './comment-composer';
@@ -83,6 +84,14 @@ export function PrFileAccordion({
   };
 }) {
   const bodyId = useId();
+  /*
+    Theme C's width fallback (Phase 26). The toolbar (header) and the diff
+    body are siblings here, not parent/child — see `use-diff-split-width.ts`'s
+    note on `DiffView`'s `tooNarrowForSplit` prop — so this section is the
+    narrowest ancestor both can share a width reading from.
+  */
+  const sectionRef = useRef<HTMLElement>(null);
+  const tooNarrowForSplit = useTooNarrowForSplit(sectionRef);
 
   /*
     One composer at a time, per file, and its line is the whole state.
@@ -155,7 +164,7 @@ export function PrFileAccordion({
   );
 
   return (
-    <section className="border-b border-border/60 last:border-b-0">
+    <section ref={sectionRef} className="border-b border-border/60 last:border-b-0">
       <header className="sticky top-0 z-10 flex items-center gap-2 bg-background/95 px-3 py-1.5 backdrop-blur">
         <button
           type="button"
@@ -178,7 +187,9 @@ export function PrFileAccordion({
           <Counts insertions={file.insertions} deletions={file.deletions} />
         </button>
 
-        {open ? <DiffToolbar diff={file} showStats={false} /> : null}
+        {open ? (
+          <DiffToolbar diff={file} showStats={false} tooNarrowForSplit={tooNarrowForSplit} />
+        ) : null}
       </header>
 
       {open ? (
@@ -228,6 +239,7 @@ export function PrFileAccordion({
           <DiffView
             diff={file}
             inline
+            tooNarrowForSplit={tooNarrowForSplit}
             threads={byLine}
             leftThreads={leftByLine}
             images={baseBlobMissing ? null : images}
