@@ -200,6 +200,7 @@ const bridge: Pick<
     fileDiff: (req) => call(CHANNELS.fileDiff, req),
     commitFileDiff: (req) => call(CHANNELS.commitFileDiff, req),
     conflictRegions: (req) => call(CHANNELS.conflictRegions, req),
+    blobExists: (req) => call(CHANNELS.blobExists, req),
   },
   remotes: {
     list: (req) => call(CHANNELS.remotesList, req),

@@ -173,6 +173,13 @@ export type MidniteStudioBridge = {
     conflictRegions: (
       req: In<typeof S.ConflictRegionsRequest>,
     ) => Promise<z.infer<typeof S.ConflictRegionsResponse>>;
+    /**
+     * Whether `git cat-file -e` finds the blob locally — the gate on a pull
+     * request's "Fetch to compare" affordance (Phase 26 Theme H).
+     */
+    blobExists: (
+      req: In<typeof S.BlobExistsRequest>,
+    ) => Promise<z.infer<typeof S.BlobExistsResponse>>;
   };
 
   /**
