@@ -1,4 +1,4 @@
-import { BUILTIN_AGENTS } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, VIDEO_SKILLS } from '@midnite/studio-shared';
 import { LuFilePen, LuFolderCog, LuPlay, LuX } from 'react-icons/lu';
 
 import { useUiStore } from '../../store/ui-store';
@@ -15,6 +15,7 @@ import {
   useVideoRenderProgress,
   useVideoRenders,
   useVideoRoot,
+  useVideoToolchain,
 } from './use-video';
 
 /** Resolves the agent that would actually run — the same fallback chain `midnite-menu.tsx` uses. */
@@ -37,14 +38,15 @@ function useResolvedAgent() {
  * list — and that menu's `toMenuItem` launches with the *currently open
  * repo's* `cwd` (`midnite-menu.tsx`), never a video project's. Putting these
  * two ids there would make them appear to work from any repo while actually
- * running in the wrong directory. A local constant, not a second remap
- * store: nothing else needs these two names to be user-remappable yet, and
+ * running in the wrong directory. `VIDEO_SKILLS` itself now lives in
+ * `@midnite/studio-shared` rather than as a constant local to this file —
+ * Theme F's presence probe (`toolchain.ts`'s `probeVideoSkills`) needs the
+ * identical two identifiers to derive each skill's `.claude/skills/<name>/`
+ * directory, so one shared source is what keeps the slash command and the
+ * directory it is checked against from drifting apart. Still not a second
+ * remap store: nothing needs these two names to be user-remappable, and
  * adding one earns its keep only when something does.
  */
-const VIDEO_SKILLS = {
-  videoWriteScript: '/video-write-editorial-script',
-  videoExecuteScript: '/video-execute-editorial-script',
-} as const;
 
 /**
  * The right pane (Phase 44 Themes D/E/F/G) — one project's composition,
@@ -70,6 +72,7 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
   const renders = useVideoRenders(projectId);
   const startRender = useStartVideoRender();
   const cancelRender = useCancelVideoRender();
+  const toolchain = useVideoToolchain(projectId);
 
   const valid = project.data?.valid ? project.data : null;
   const brief = useVideoProjectFile(projectId, valid?.brief ?? null);
@@ -99,6 +102,23 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
 
   const disabledReason = !repoId ? 'Open a repository first — agent sessions need one' : undefined;
 
+  /**
+   * Theme F's presence check: a skill known missing from this video root's
+   * own `.claude/skills/` blocks its button the same way a missing repo
+   * does, rather than the pre-existing behaviour of firing the `/command`
+   * regardless. `skills` is `undefined` while the toolchain probe is still
+   * in flight — treated as "not yet proven missing" (enabled), not blocked,
+   * the same optimistic default the rest of this pane already gives a
+   * loading query.
+   */
+  const skillReasonFor = (id: keyof typeof VIDEO_SKILLS): string | undefined => {
+    if (disabledReason) return disabledReason;
+    const status = toolchain.data?.skills?.[id];
+    return status && !status.found ? status.reason : undefined;
+  };
+  const skillBlockedFor = (id: keyof typeof VIDEO_SKILLS): boolean =>
+    !repoId || toolchain.data?.skills?.[id]?.found === false;
+
   const syncAssets = () => {
     if (!repoId || !cwd) return;
     useUiStore.getState().setTerminalOpen(true);
@@ -116,8 +136,8 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={!repoId}
-            title={disabledReason}
+            disabled={skillBlockedFor('videoWriteScript')}
+            title={skillReasonFor('videoWriteScript')}
             onClick={() => runSkill('videoWriteScript', `${data.title} — write script`)}
             className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 hover:bg-accent disabled:opacity-50"
           >
@@ -126,8 +146,8 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
           </button>
           <button
             type="button"
-            disabled={!repoId}
-            title={disabledReason}
+            disabled={skillBlockedFor('videoExecuteScript')}
+            title={skillReasonFor('videoExecuteScript')}
             onClick={() => runSkill('videoExecuteScript', `${data.title} — execute script`)}
             className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 hover:bg-accent disabled:opacity-50"
           >

@@ -194,6 +194,10 @@ export function useVideoToolchain(projectId: string | null) {
       (await bridge()?.video.toolchain({ projectId: projectId ?? '' }))?.toolchain ?? {
         node: { found: false, reason: 'Unavailable.' },
         npx: { found: false, reason: 'Unavailable.' },
+        skills: {
+          videoWriteScript: { found: false, reason: 'Unavailable.' },
+          videoExecuteScript: { found: false, reason: 'Unavailable.' },
+        },
       },
     enabled: projectId !== null,
   });

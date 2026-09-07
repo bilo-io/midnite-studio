@@ -1,4 +1,4 @@
-import type { MidniteStudioBridge, VideoProject, VideoRender } from '@midnite/studio-shared';
+import type { MidniteStudioBridge, VideoProject, VideoRender, VideoToolchain } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -17,7 +17,16 @@ const VALID_PROJECT: VideoProject = {
   script: 'EDITORIAL_SCRIPT.md',
 };
 
-function installBridge(overrides: { renders?: VideoRender[] } = {}) {
+const TOOLCHAIN_ALL_FOUND: VideoToolchain = {
+  node: { found: true, path: '/usr/local/bin/node' },
+  npx: { found: true, path: '/usr/local/bin/npx' },
+  skills: {
+    videoWriteScript: { found: true, path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md' },
+    videoExecuteScript: { found: true, path: '/videos/.claude/skills/video-execute-editorial-script/SKILL.md' },
+  },
+};
+
+function installBridge(overrides: { renders?: VideoRender[]; toolchain?: VideoToolchain } = {}) {
   const cancel = vi.fn().mockResolvedValue({ ok: true });
   const startRender = vi.fn().mockResolvedValue({ ok: true, value: { id: 'r2', projectId: 'p1', compositionId: 'MyComp', status: 'queued', startedAt: 0 } });
   const readFile = vi.fn().mockImplementation(({ relPath }: { relPath: string }) => {
@@ -31,7 +40,7 @@ function installBridge(overrides: { renders?: VideoRender[] } = {}) {
       project: { get: vi.fn().mockResolvedValue({ project: VALID_PROJECT }), list: vi.fn(), create: vi.fn(), remove: vi.fn() },
       studio: { start: vi.fn(), stop: vi.fn(), status: vi.fn() },
       render: { start: startRender, cancel, list: vi.fn().mockResolvedValue({ renders: overrides.renders ?? [] }) },
-      toolchain: vi.fn(),
+      toolchain: vi.fn().mockResolvedValue({ toolchain: overrides.toolchain ?? TOOLCHAIN_ALL_FOUND }),
       files: vi.fn().mockResolvedValue({ entries: [] }),
       readFile,
       root: { get: vi.fn().mockResolvedValue({ root: '/videos' }), set: vi.fn() },
@@ -94,6 +103,30 @@ describe('VideoProjectDetail', () => {
     const session = useTerminalStore.getState().sessions[0]!;
     expect(session.repoId).toBe('repo1');
     expect(session.cwd).toBe('/videos/projects/p1');
+  });
+
+  it('disables a Claude action whose skill is missing from the video root, with the reason', async () => {
+    installBridge({
+      toolchain: {
+        ...TOOLCHAIN_ALL_FOUND,
+        skills: {
+          ...TOOLCHAIN_ALL_FOUND.skills,
+          videoWriteScript: {
+            found: false,
+            reason: 'Not found at .claude/skills/video-write-editorial-script/SKILL.md in this video root.',
+          },
+        },
+      },
+    });
+    useUiStore.setState({ selectedRepoId: 'repo1' });
+    renderDetail();
+
+    await screen.findByText('COP31 showreel');
+    const write = await screen.findByRole('button', { name: /Write editorial script/ });
+    await waitFor(() => expect(write).toHaveProperty('disabled', true));
+    expect(write.title).toContain('Not found at .claude/skills/video-write-editorial-script/SKILL.md');
+    // The other action's own skill is still found — not collaterally blocked.
+    expect(screen.getByRole('button', { name: /Execute editorial script/ })).toHaveProperty('disabled', false);
   });
 
   it('lists renders with their status, and cancels an in-flight one', async () => {

@@ -18,6 +18,10 @@ beforeAll(() => {
 const FOUND_TOOLCHAIN: VideoToolchain = {
   node: { found: true, path: '/usr/bin/node' },
   npx: { found: true, path: '/usr/bin/npx' },
+  skills: {
+    videoWriteScript: { found: true, path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md' },
+    videoExecuteScript: { found: true, path: '/videos/.claude/skills/video-execute-editorial-script/SKILL.md' },
+  },
 };
 
 function installBridge(status: VideoStudioStatus, toolchain: VideoToolchain = FOUND_TOOLCHAIN) {
@@ -59,7 +63,11 @@ describe('VideoStudioPane', () => {
   });
 
   it('shows the no-toolchain state when node/npx are missing', async () => {
-    installBridge({ state: 'stopped' }, { node: { found: false, reason: 'node was not found on PATH.' }, npx: FOUND_TOOLCHAIN.npx });
+    installBridge({ state: 'stopped' }, {
+      node: { found: false, reason: 'node was not found on PATH.' },
+      npx: FOUND_TOOLCHAIN.npx,
+      skills: FOUND_TOOLCHAIN.skills,
+    });
     renderPane('p1');
     expect(await screen.findByText('node/npx not found')).toBeDefined();
     expect(await screen.findByText('node was not found on PATH.')).toBeDefined();

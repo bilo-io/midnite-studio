@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { VideoToolBinary, VideoToolchain } from '@midnite/studio-shared';
+import { VIDEO_SKILLS, type VideoToolBinary, type VideoToolchain } from '@midnite/studio-shared';
 
 import { parseWhichOutput, runInShell } from '../login-shell';
 
@@ -80,8 +80,17 @@ const REAL: ToolchainDeps = {
   readFile: (path) => readFile(path, 'utf8'),
 };
 
-let cached: VideoToolchain | null = null;
-let inFlight: Promise<VideoToolchain> | null = null;
+/**
+ * `VideoToolchain` minus `skills` — this module's own cached answer never
+ * carries that field. `probeVideoSkills` below computes it separately
+ * (it is a property of the *video root*, not the machine-wide `node`/`npx`
+ * answer this cache exists for), and `video-service.ts`'s `videoToolchain()`
+ * is what merges the two into a full `VideoToolchain` for callers.
+ */
+type NodeNpxToolchain = Omit<VideoToolchain, 'skills'>;
+
+let cached: NodeNpxToolchain | null = null;
+let inFlight: Promise<NodeNpxToolchain> | null = null;
 
 /**
  * Resolve the toolchain, reusing the last answer.
@@ -99,7 +108,7 @@ let inFlight: Promise<VideoToolchain> | null = null;
 export async function probeVideoToolchain(
   appDir?: string,
   deps: Partial<ToolchainDeps> = {},
-): Promise<VideoToolchain> {
+): Promise<NodeNpxToolchain> {
   const { run, readFile: read } = { ...REAL, ...deps };
 
   if (!cached) {
@@ -127,4 +136,56 @@ export async function probeVideoToolchain(
 export function resetVideoToolchainCache(): void {
   cached = null;
   inFlight = null;
+}
+
+/**
+ * Theme F's recorded follow-up: whether each of `VIDEO_SKILLS` actually
+ * exists in this video root's own `.claude/skills/` — the two actions on
+ * `video-project-detail.tsx` fire their `/command` unconditionally today,
+ * which is exactly the gap this closes. A skill's directory name is always
+ * its slash command with the leading `/` stripped (this repo's own
+ * `.claude/skills/` follows the identical convention), and "exists" means
+ * that directory has a `SKILL.md` — the one file every skill here carries.
+ *
+ * Styled as the same found/reason `VideoToolBinary` shape as `node`/`npx`
+ * above, so a caller treats a missing skill exactly like a missing binary,
+ * and reuses the same injectable `readFile` rather than adding a second
+ * filesystem dependency: a failed read is "not found," never a crash.
+ *
+ * Not folded into the cached `probeVideoToolchain` above — that cache keys
+ * on the machine-wide `node`/`npx` answer and deliberately never expires on
+ * its own (Theme C); a skill's presence is a property of the *video root*,
+ * which can change (a different root chosen in Settings) far more often
+ * than the machine's own PATH does, so this re-checks on every call.
+ */
+export async function probeVideoSkills(
+  root: string | undefined,
+  deps: Partial<Pick<ToolchainDeps, 'readFile'>> = {},
+): Promise<VideoToolchain['skills']> {
+  const { readFile: read } = { ...REAL, ...deps };
+
+  const check = async (id: keyof typeof VIDEO_SKILLS): Promise<VideoToolBinary> => {
+    const dirName = VIDEO_SKILLS[id].slice(1);
+    if (root === undefined) {
+      return { found: false, reason: 'Configure a video root in Settings first.' };
+    }
+    const path = join(root, '.claude', 'skills', dirName, 'SKILL.md');
+    try {
+      await read(path);
+      return { found: true, path };
+    } catch {
+      return {
+        found: false,
+        reason:
+          `Not found at .claude/skills/${dirName}/SKILL.md in this video root. ` +
+          'See ~/Dev/ekko-videos for the reference skill.',
+      };
+    }
+  };
+
+  const [videoWriteScript, videoExecuteScript] = await Promise.all([
+    check('videoWriteScript'),
+    check('videoExecuteScript'),
+  ]);
+  return { videoWriteScript, videoExecuteScript };
 }

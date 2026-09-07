@@ -39,7 +39,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [47 · Conflict Resolution Studio](phases/phase-47-conflict-resolution-studio.md) | 🔄 WIP | — | 22/23 | `██████████` | 96% | — | F (human diff3 pass) |
 | [46 · The lock screen, and a motion policy that holds](phases/phase-46-lock-screen-and-motion.md) | 🔄 WIP | x1 | 37/55 | `███████░░░` | 67% | — | H, Verification (human keyboard + eye pass) |
 | [45 · The leak audit](phases/phase-45-leak-audit.md) | 🔄 WIP | — | 32/35 | `█████████░` | 91% | — | F (human long-running-session pass) |
-| [44 · Video Studio](phases/phase-44-video-studio.md) | 🔄 WIP | — | 59/64 | `█████████░` | 92% | F H | F (skill-presence check), H (per-item palette entries), human pass (real repo + `ps` checks) |
+| [44 · Video Studio](phases/phase-44-video-studio.md) | 🔄 WIP | — | 61/64 | `██████████` | 95% | — | H (3 human passes) |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | 🔄 WIP | x1 | 75/77 | `██████████` | 97% | — | I (human pass) |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | 🔄 WIP | x1 | 38/44 | `█████████░` | 86% | — | — |
 | [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 50/55 | `█████████░` | 91% | — | H, I (human + real-board passes) |

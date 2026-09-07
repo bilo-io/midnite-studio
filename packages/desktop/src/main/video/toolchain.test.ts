@@ -4,6 +4,7 @@ import {
   buildToolchainProbeScript,
   parseRemotionVersion,
   parseToolchainProbeOutput,
+  probeVideoSkills,
   probeVideoToolchain,
   resetVideoToolchainCache,
 } from './toolchain';
@@ -114,5 +115,50 @@ describe('probeVideoToolchain', () => {
     const readFile = vi.fn().mockRejectedValue(new Error('ENOENT'));
     const result = await probeVideoToolchain('/repo/video-editor', { run, readFile });
     expect(result.remotionVersion).toBeUndefined();
+  });
+});
+
+describe('probeVideoSkills', () => {
+  it('reports both skills found when their SKILL.md is readable in the video root', async () => {
+    const readFile = vi.fn().mockResolvedValue('# a skill');
+    const result = await probeVideoSkills('/Users/bilo/Dev/ekko-videos', { readFile });
+
+    expect(result.videoWriteScript).toEqual({
+      found: true,
+      path: '/Users/bilo/Dev/ekko-videos/.claude/skills/video-write-editorial-script/SKILL.md',
+    });
+    expect(result.videoExecuteScript).toEqual({
+      found: true,
+      path: '/Users/bilo/Dev/ekko-videos/.claude/skills/video-execute-editorial-script/SKILL.md',
+    });
+  });
+
+  it('reports a skill not found, with a reason naming ekko-videos, when its SKILL.md cannot be read', async () => {
+    const readFile = vi.fn().mockRejectedValue(new Error('ENOENT'));
+    const result = await probeVideoSkills('/videos', { readFile });
+
+    expect(result.videoWriteScript.found).toBe(false);
+    expect(result.videoWriteScript).toMatchObject({
+      reason: expect.stringContaining('ekko-videos') as unknown as string,
+    });
+  });
+
+  it('reports both skills not found when no video root is configured yet', async () => {
+    const readFile = vi.fn();
+    const result = await probeVideoSkills(undefined, { readFile });
+
+    expect(readFile).not.toHaveBeenCalled();
+    expect(result.videoWriteScript).toEqual({ found: false, reason: 'Configure a video root in Settings first.' });
+    expect(result.videoExecuteScript).toEqual({ found: false, reason: 'Configure a video root in Settings first.' });
+  });
+
+  it('checks each skill against its own directory name, not a shared path', async () => {
+    const readFile = vi.fn().mockImplementation((path: string) =>
+      path.includes('video-write-editorial-script') ? Promise.resolve('# write') : Promise.reject(new Error('ENOENT')),
+    );
+    const result = await probeVideoSkills('/videos', { readFile });
+
+    expect(result.videoWriteScript.found).toBe(true);
+    expect(result.videoExecuteScript.found).toBe(false);
   });
 });
