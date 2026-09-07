@@ -226,3 +226,37 @@ either theme: wiring it means deciding *when* a pre-request script runs relative
 to `{{var}}` interpolation, and whether its `pm.environment.set` mutations must be
 visible to the very request that follows it in the same tick — a design question
 neither theme's scope covers. Worth its own slice.
+
+## The resolved-URL preview was never built (Phase 70 Themes A, E)
+
+Theme E's verification list asks for a Playwright case proving that *"switching
+environments changes a request's resolved-URL preview without reopening the tab"*.
+There is no such preview. Nothing in `features/api-client/` merges environment or
+collection variables into a displayed URL — the only `{{var}}` resolution anywhere
+in the app is `send.ts`'s, in the main process, at send time, which is deliberate
+(Phase 66's rule that a value never lives in renderer state).
+
+Theme A shipped the environment switcher and the editor but never wired a preview
+into `request-builder.tsx`/`url-field.tsx`, and no theme since noticed because
+nothing verified it. The item is left unticked in the phase doc rather than ticked
+against a test of something else.
+
+Building it needs a decision the existing rule makes non-trivial: a preview means
+resolving `{{var}}` **in the renderer**, which is exactly what Phase 66 forbade so a
+secret value never enters renderer state. Either the preview masks `type:'secret'`
+rows, or it asks main to resolve and return a display string. Worth its own slice.
+
+## Popover dismisses itself on a mouse click on the environment switcher (Phase 70)
+
+Found while writing Theme E's specs, and documented in
+`api-client-environments.spec.ts`'s header rather than patched.
+
+A plain mouse `.click()` on the Environment Switcher's "Select environment" trigger
+opens and then immediately closes the popover within the same tick.
+`components/popover.tsx`'s capture-phase scroll-dismiss listener fires on a benign
+scroll — traced to a `@bilo-io/shell` nav-rail container — that a mouse click on
+this particular trigger reliably provokes. Keyboard activation (`focus()` then
+`Enter`) does not trigger it, so the specs drive it that way; that is a legitimate
+interaction, not a test workaround, but the mouse path is a real defect a user would
+hit. Not fixed here because a verification theme changing product behaviour to make
+its own assertion pass would measure nothing.
