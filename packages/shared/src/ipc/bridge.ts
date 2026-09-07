@@ -985,6 +985,8 @@ export type MidniteStudioBridge = {
     ) => Unsubscribe;
     /** `false` for a plain reload, `true` to bypass the HTTP cache. */
     reload: (hard: boolean) => void;
+    /** Zoom the host window's own renderer — see {@link S.WindowZoomRequest}. */
+    zoom: (req: In<typeof S.WindowZoomRequest>) => void;
     /** Detach a panel role into its own window, creating it if needed. */
     detach: (req: In<typeof S.WindowDetachRequest>) => void;
     /** Re-dock a popout's panel and close the popout. */

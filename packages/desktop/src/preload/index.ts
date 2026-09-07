@@ -492,6 +492,7 @@ const bridge: Pick<
     getState: () => ipcRenderer.invoke(CHANNELS.windowState),
     onStateChange: (handler) => subscribe(EVENT_CHANNELS.windowStateChanged, handler),
     reload: (hard) => ipcRenderer.send(CHANNELS.windowReload, hard),
+    zoom: (req) => ipcRenderer.send(CHANNELS.windowZoom, req),
     detach: (req) => ipcRenderer.send(CHANNELS.windowDetach, req),
     dock: (req) => ipcRenderer.send(CHANNELS.windowDock, req),
     focusRole: (req) => ipcRenderer.send(CHANNELS.windowFocusRole, req),

@@ -1758,6 +1758,9 @@ export const WindowStateSchema = z.object({
   focused: z.boolean(),
 });
 
+/** The host window's own zoom (Phase 32 Theme G) — see `windowZoom`'s channel comment. */
+export const WindowZoomRequest = z.object({ action: z.enum(['in', 'out', 'reset']) });
+
 // --- multi-window (Phase 55) -------------------------------------------------
 
 export const WindowDetachRequest = z.object({ role: WindowRoleSchema });

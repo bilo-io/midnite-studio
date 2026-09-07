@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import type { BrowserShortcutTile } from '@midnite/studio-shared';
+import type { BrowserNavError, BrowserShortcutTile } from '@midnite/studio-shared';
 
 import { PREVIEW_DEPLOY_HOSTS } from '../features/browser/preview-deploy';
 import { WALLPAPER_STORAGE_KEY, WALLPAPER_THEMES, type WallpaperTheme } from '../features/browser/wallpaper';
@@ -70,6 +70,13 @@ export type BrowserTab = {
    * showing a blank rectangle; cleared the moment the tab navigates again.
    */
   crashed?: boolean;
+  /**
+   * A blocked or failed navigation (Theme G) — `null`/absent once a
+   * navigation is actually in flight (`did-start-loading`, i.e. a `loading:
+   * true` event) or has succeeded. Rendered as `error-page.tsx`'s styled,
+   * in-DOM surface rather than Chromium's own unstyled one.
+   */
+  navError?: BrowserNavError | null;
 };
 
 export type BrowserTabGroup = {
@@ -99,8 +106,16 @@ const DEFAULT_TILES: BrowserShortcutTile[] = [
   { id: 'notebook', label: 'Notebook', url: 'https://notebooklm.google.com', iconKey: 'notebook', brandColor: '#34A853', bgColor: 'rgba(52, 168, 83, 0.15)' },
 ];
 
+/** The step one `browser.zoomIn`/`zoomOut` command press moves the factor by (Theme G). */
+export const ZOOM_STEP = 0.1;
+
+/** Clamps to the same `0.25..5` range `BrowserZoomRequest` enforces at the IPC boundary. */
+export function clampZoomFactor(factor: number): number {
+  return Math.round(Math.min(5, Math.max(0.25, factor)) * 100) / 100;
+}
+
 /** `null` for an unparseable URL — callers treat that as "not an origin worth remembering". */
-function originOf(url: string): string | null {
+export function originOf(url: string): string | null {
   try {
     return new URL(url).origin;
   } catch {
@@ -215,6 +230,30 @@ type BrowserState = {
    */
   wallpaperTheme: WallpaperTheme;
 
+  /**
+   * A tab's zoom is an ABSOLUTE factor, persisted PER ORIGIN rather than per
+   * tab (Theme G): re-opening a site returns to the factor it was left at,
+   * where per-tab persistence would lose it the moment the tab that set it
+   * closes. Main is never the source of truth for it — `browser-service.ts`
+   * only ever applies whatever factor this store sends over `browser.zoom`.
+   */
+  zoomByOrigin: Record<string, number>;
+  /**
+   * Whether the find bar is open for the active tab (Theme G). Ephemeral —
+   * not persisted, and not keyed per tab: only the active tab's find bar can
+   * ever be open, so lifting this out of `browser-pane.tsx`'s own
+   * `useState` is what lets `Mod+f` (a command, resolved outside that
+   * component) toggle it.
+   */
+  findOpen: boolean;
+  /**
+   * The active tab's last `found-in-page` result (Theme G) — `null` before
+   * the first search and once the find bar closes. Ephemeral, and not keyed
+   * per tab for the same reason `findOpen` is not: only one find session can
+   * be live at a time.
+   */
+  findResult: { matches: number; activeMatchOrdinal: number } | null;
+
   /** Opens a blank tab when `url` is omitted — including "zero tabs open" (Theme C's own rule). */
   openTab: (url?: string, originRepoId?: string) => string;
   /**
@@ -267,6 +306,13 @@ type BrowserState = {
   /** The full new order, not a from/to pair — same contract `SortableList.onReorder` uses. */
   reorderTiles: (ids: string[]) => void;
   setWallpaperTheme: (theme: WallpaperTheme) => void;
+
+  /** Sets (or clears, at `1`) one origin's zoom factor — keyed by origin, never by tab. */
+  setZoomForOrigin: (origin: string, factor: number) => void;
+  toggleFind: () => void;
+  /** Closing clears `findResult` too — a stale match count must not survive to the next search. */
+  closeFind: () => void;
+  setFindResult: (result: { matches: number; activeMatchOrdinal: number } | null) => void;
 };
 
 /**
@@ -286,6 +332,9 @@ export const useBrowserStore = create<BrowserState>()(
       recents: [],
       tiles: [...DEFAULT_TILES],
       wallpaperTheme: 'nature',
+      zoomByOrigin: {},
+      findOpen: false,
+      findResult: null,
 
       openTab: (url, originRepoId) => {
         const tab: BrowserTab = { ...makeTab(url), ...(originRepoId ? { originRepoId } : {}) };
@@ -503,6 +552,19 @@ export const useBrowserStore = create<BrowserState>()(
 
       setWallpaperTheme: (theme) => set({ wallpaperTheme: theme }),
 
+      setZoomForOrigin: (origin, factor) =>
+        set((state) => ({ zoomByOrigin: { ...state.zoomByOrigin, [origin]: factor } })),
+
+      toggleFind: () =>
+        set((state) => {
+          const findOpen = !state.findOpen;
+          return { findOpen, findResult: findOpen ? state.findResult : null };
+        }),
+
+      closeFind: () => set({ findOpen: false, findResult: null }),
+
+      setFindResult: (result) => set({ findResult: result }),
+
       closeTabsInGroup: (targetGroupId) =>
         set((state) => {
           const manualIds = new Set(state.groups.map((g) => g.id));
@@ -533,6 +595,7 @@ export const useBrowserStore = create<BrowserState>()(
           recents?: string[];
           tiles?: BrowserShortcutTile[];
           wallpaperTheme?: WallpaperTheme;
+          zoomByOrigin?: Record<string, number>;
         };
         let wallpaperTheme = state.wallpaperTheme ?? 'nature';
         if (version < 2) {
@@ -554,6 +617,7 @@ export const useBrowserStore = create<BrowserState>()(
           recents: state.recents ?? [],
           tiles: state.tiles ?? [...DEFAULT_TILES],
           wallpaperTheme,
+          zoomByOrigin: state.zoomByOrigin ?? {},
         };
       },
       partialize: (state) => ({
@@ -563,6 +627,7 @@ export const useBrowserStore = create<BrowserState>()(
         recents: state.recents,
         tiles: state.tiles,
         wallpaperTheme: state.wallpaperTheme,
+        zoomByOrigin: state.zoomByOrigin,
         // Runtime-only fields reset to their idle defaults — a restored tab
         // is an inactive record until the user activates it (see the
         // module doc above).
@@ -572,6 +637,7 @@ export const useBrowserStore = create<BrowserState>()(
           canGoBack: false,
           canGoForward: false,
           crashed: false,
+          navError: null,
         })),
       }),
     },

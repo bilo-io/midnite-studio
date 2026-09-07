@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { PREVIEW_DEPLOY_HOSTS } from '../features/browser/preview-deploy';
 
 import {
+  clampZoomFactor,
   derivedGroupIds,
   effectiveGroupId,
   nextActiveAfterClose,
@@ -492,5 +493,87 @@ describe('wallpaperTheme (Phase 32 Theme F)', () => {
     const migrated = migrate({ wallpaperTheme: 'space' }, 2);
 
     expect(migrated.wallpaperTheme).toBe('space');
+  });
+});
+
+describe('clampZoomFactor', () => {
+  it('clamps to the 0.25..5 range BrowserZoomRequest enforces', () => {
+    expect(clampZoomFactor(0.1)).toBe(0.25);
+    expect(clampZoomFactor(10)).toBe(5);
+    expect(clampZoomFactor(1.23456)).toBe(1.23);
+  });
+});
+
+describe('zoomByOrigin (Phase 32 Theme G)', () => {
+  beforeEach(() => {
+    useBrowserStore.setState({ zoomByOrigin: {} });
+  });
+
+  it('setZoomForOrigin keys by origin, not by tab', () => {
+    useBrowserStore.getState().setZoomForOrigin('https://a.example', 1.5);
+    useBrowserStore.getState().setZoomForOrigin('https://b.example', 0.8);
+    expect(useBrowserStore.getState().zoomByOrigin).toEqual({
+      'https://a.example': 1.5,
+      'https://b.example': 0.8,
+    });
+  });
+
+  it('survives the persist round trip, and a pre-Theme-G payload migrates to an empty map', () => {
+    useBrowserStore.getState().setZoomForOrigin('https://a.example', 2);
+    const partialize = useBrowserStore.persist.getOptions().partialize;
+    const persisted = partialize?.(useBrowserStore.getState()) as {
+      zoomByOrigin: Record<string, number>;
+    };
+    expect(persisted.zoomByOrigin).toEqual({ 'https://a.example': 2 });
+
+    const migrate = useBrowserStore.persist.getOptions().migrate as (
+      persisted: unknown,
+      version: number,
+    ) => { zoomByOrigin: Record<string, number> };
+    expect(migrate({ activeTabId: null }, 2).zoomByOrigin).toEqual({});
+  });
+});
+
+describe('find (Phase 32 Theme G)', () => {
+  beforeEach(() => {
+    useBrowserStore.setState({ findOpen: false, findResult: null });
+  });
+
+  it('toggleFind flips findOpen and clears findResult on close', () => {
+    useBrowserStore.setState({ findResult: { matches: 3, activeMatchOrdinal: 1 } });
+    useBrowserStore.getState().toggleFind();
+    expect(useBrowserStore.getState().findOpen).toBe(true);
+    // Opening leaves a pre-existing result alone — only closing clears it.
+    expect(useBrowserStore.getState().findResult).toEqual({ matches: 3, activeMatchOrdinal: 1 });
+
+    useBrowserStore.getState().toggleFind();
+    expect(useBrowserStore.getState().findOpen).toBe(false);
+    expect(useBrowserStore.getState().findResult).toBeNull();
+  });
+
+  it('closeFind clears both findOpen and findResult directly', () => {
+    useBrowserStore.setState({
+      findOpen: true,
+      findResult: { matches: 2, activeMatchOrdinal: 2 },
+    });
+    useBrowserStore.getState().closeFind();
+    expect(useBrowserStore.getState().findOpen).toBe(false);
+    expect(useBrowserStore.getState().findResult).toBeNull();
+  });
+
+  it('setFindResult stores the latest found-in-page count', () => {
+    useBrowserStore.getState().setFindResult({ matches: 4, activeMatchOrdinal: 2 });
+    expect(useBrowserStore.getState().findResult).toEqual({ matches: 4, activeMatchOrdinal: 2 });
+  });
+
+  it('neither findOpen nor findResult survives the persist round trip', () => {
+    useBrowserStore.setState({
+      findOpen: true,
+      findResult: { matches: 1, activeMatchOrdinal: 1 },
+    });
+    const partialize = useBrowserStore.persist.getOptions().partialize;
+    const persisted = partialize?.(useBrowserStore.getState()) as Record<string, unknown>;
+    expect(persisted).not.toHaveProperty('findOpen');
+    expect(persisted).not.toHaveProperty('findResult');
   });
 });

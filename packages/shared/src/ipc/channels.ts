@@ -646,6 +646,18 @@ export const CHANNELS = {
    * a hard refresh that bypasses the HTTP cache (`webContents.reloadIgnoringCache`).
    */
   windowReload: 'mstudio:window:reload',
+  /**
+   * Renderer → main: zoom the HOST window's own renderer (not a browser
+   * tab's `WebContentsView` — see `browserZoom` above). Exists because
+   * `packages/app` may not import `electron` and so has no legal way to
+   * call `webFrame`/`webContents.setZoomLevel` itself; needed once
+   * `browser.zoomIn`/`zoomOut`/`zoomReset` (Phase 32 Theme G) claimed
+   * `Mod+=`/`Mod+-`/`Mod+0` and the host's own `zoomIn`/`zoomOut`/`resetZoom`
+   * menu roles lost their native accelerator to the collision — the menu
+   * item's click still zooms the window; this channel is what a keystroke
+   * reaches instead, while the browser pane is not the one that owns it.
+   */
+  windowZoom: 'mstudio:window:zoom',
 
   // --- multi-window (Phase 55) -----------------------------------------------
   /** Detach a panel role into its own `BrowserWindow`, creating it if needed. */
