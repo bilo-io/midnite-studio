@@ -118,8 +118,10 @@ test('a folded category stays folded across a reload', async ({ page }) => {
   await expect(page.locator('#settings-group-system > div')).toHaveAttribute('inert', '');
 
   await page.reload();
-  await page.getByRole('button', { name: 'Settings' }).click();
-
+  // No re-opening step: a reload now restores the view you were on, so
+  // Settings is still the active page. Clicking "Settings" again would also
+  // be ambiguous — with the page open, that name matches both the rail item
+  // and the Location breadcrumb, which is a strict-mode violation.
   const afterReload = page.getByRole('navigation', { name: 'Settings pages' });
   await expect(afterReload.getByRole('button', { name: 'System Info' })).toHaveAttribute(
     'aria-expanded',

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { toggleRepoSection } from '../features/repos/view-sections';
 import { useFileEditorStore } from './file-editor-store';
@@ -7,11 +7,14 @@ import {
   DEFAULT_GRAPH_COLUMNS,
   DEFAULT_LAYOUT,
   pathForView,
+  readSessionActiveView,
+  SESSION_ACTIVE_VIEW_KEY,
   SETTINGS_GROUPS,
   SETTINGS_PAGES,
   useUiStore,
   viewForPath,
   VIEW_IDS,
+  writeSessionActiveView,
 } from './ui-store';
 
 const reset = () =>
@@ -286,6 +289,67 @@ describe('phase 16 store additions', () => {
       state: Record<string, unknown>;
     };
     expect(saved.state).not.toHaveProperty('activeView');
+  });
+});
+
+/**
+ * A reload preserves the view (`app.reload`/`app.hardReload`) while a full
+ * restart still opens on Graph — the split `sessionStorage` gives for free
+ * over the `localStorage`-backed `PersistedUi` slice above. `readSessionActiveView`/
+ * `writeSessionActiveView` are the read/write pair `INITIAL_ACTIVE_VIEW` and the
+ * store's own `subscribe` call use; testing them directly proves the fallback
+ * rules without reimporting the module to re-run that one-time boot read.
+ */
+describe('the reload-surviving active view (sessionStorage)', () => {
+  beforeEach(() => sessionStorage.clear());
+
+  it('reads back a view it was asked to write', () => {
+    writeSessionActiveView('database');
+    expect(readSessionActiveView()).toBe('database');
+  });
+
+  it('falls back to the default for an id VIEW_IDS no longer recognizes', () => {
+    sessionStorage.setItem(SESSION_ACTIVE_VIEW_KEY, 'some-removed-view');
+    expect(readSessionActiveView()).toBe('graph');
+  });
+
+  it('falls back to the default with nothing stored — a first launch', () => {
+    expect(sessionStorage.getItem(SESSION_ACTIVE_VIEW_KEY)).toBeNull();
+    expect(readSessionActiveView()).toBe('graph');
+  });
+
+  it('writes through on every setActiveView call, unlike the localStorage slice', () => {
+    useUiStore.getState().setActiveView('sessions');
+    expect(sessionStorage.getItem(SESSION_ACTIVE_VIEW_KEY)).toBe('sessions');
+  });
+
+  it('writes through goBack/goForward as well as setActiveView', () => {
+    useUiStore.getState().setActiveView('database');
+    useUiStore.getState().setActiveView('settings');
+    expect(sessionStorage.getItem(SESSION_ACTIVE_VIEW_KEY)).toBe('settings');
+
+    useUiStore.getState().goBack();
+    expect(useUiStore.getState().activeView).toBe('database');
+    expect(sessionStorage.getItem(SESSION_ACTIVE_VIEW_KEY)).toBe('database');
+
+    useUiStore.getState().goForward();
+    expect(useUiStore.getState().activeView).toBe('settings');
+    expect(sessionStorage.getItem(SESSION_ACTIVE_VIEW_KEY)).toBe('settings');
+  });
+
+  it('survives storage that throws (private mode, blocked site data)', () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('The operation is insecure.');
+    });
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('The operation is insecure.');
+    });
+
+    expect(() => writeSessionActiveView('files')).not.toThrow();
+    expect(readSessionActiveView()).toBe('graph');
+
+    setItem.mockRestore();
+    getItem.mockRestore();
   });
 });
 
