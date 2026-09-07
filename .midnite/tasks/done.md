@@ -2,6 +2,30 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 70 Theme E — Verification, and the feature it found missing
+
+[PR #251](https://github.com/bilo-io/midnite-studio/pull/251). Moves Phase 70 to 47/50 (94%). One
+item is **left unticked on purpose** and two are the doc's own "Open, for a human".
+
+**Six of the Vitest items were already satisfied by Themes A–D**, and are ticked with the file and
+case cited rather than re-tested — a verification theme writing duplicate coverage to have something
+to show is worse than one that reads what exists. Four Playwright specs and ten screenshots are new.
+
+**The verification found a feature that was never built.** The list asks for a case proving that
+switching environments changes a request's resolved-URL preview. There is no preview: nothing in
+`features/api-client/` merges variables into a displayed URL, and the only `{{var}}` resolution in
+the app is `send.ts`'s, in main, at send time. Theme A shipped the switcher and editor and never
+wired one, and nothing noticed because nothing verified it. Recorded in `outstanding.md`, including
+why building it is not trivial — a renderer-side preview is exactly what Phase 66 forbade so a
+secret never enters renderer state.
+
+**And a real popover defect**, documented in the spec header rather than patched: a mouse click on
+the Environment Switcher trigger opens and immediately closes the popover, because
+`popover.tsx`'s capture-phase scroll-dismiss listener fires on a benign nav-rail scroll that the
+click provokes. Keyboard activation does not, so the specs use it — a legitimate interaction, not a
+workaround. Left unfixed deliberately: a verification theme that changes product behaviour to make
+its own assertion pass has measured nothing. `packages/*/src` has **zero** diff in this PR.
+
 ## 2026-09-07 — Phase 29 Themes F + G — The later surfaces, and the rule that decides the next one
 
 [PR #248](https://github.com/bilo-io/midnite-studio/pull/248). Moves Phase 29 to 47/49 (96%); the
