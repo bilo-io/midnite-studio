@@ -57,7 +57,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | 🔄 WIP | x1 | 47/49 | `██████████` | 96% | — | human stress-test pass |
 | [28 · Worktrees first, and the section tree that can say so](phases/phase-28-sidebar-section-tree.md) | ✅ DONE | — | 61/61 | `██████████` | 100% | — | — |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
-| [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | x1 | 51/70 | `███████░░░` | 73% | — | Verification (+ C, H reverted items) |
+| [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | x1 | 51/70 | `███████░░░` | 73% | C, H reverted items | Verification |
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | 🔄 WIP | x1 | 41/101 | `████░░░░░░` | 41% | — | — |
 | [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | x1 | 55/70 | `████████░░` | 79% | — | J (2 human passes) |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | 🔄 WIP | x1 | 42/59 | `███████░░░` | 71% | — | Verification (+ C, D, E reopened items) |
