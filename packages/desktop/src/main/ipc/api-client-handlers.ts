@@ -1,5 +1,6 @@
 import {
   CHANNELS,
+  EVENT_CHANNELS,
   apiFailure,
   apiOk,
   schemas,
@@ -8,6 +9,7 @@ import {
   type ApiHistoryEntry,
   type ApiOpResult,
   type ApiResponse,
+  type ApiRunStartOutcome,
   type PostmanCollection,
   type PostmanEnvironment,
   type PostmanEnvironmentValue,
@@ -34,6 +36,12 @@ import {
   saveEnvironment,
 } from '../api-client/environment-io';
 import { clearHistory, listHistory } from '../api-client/history';
+import {
+  applyCollectionVariableMutations,
+  applyEnvironmentMutations,
+  collectionHasScripts,
+  runCollection,
+} from '../api-client/runner';
 import { runScriptInUtilityProcess } from '../api-client/script-runner-broker';
 import { cancelRequest, sendApiRequest } from '../api-client/send';
 import { describeFsError } from '../fs-scope-write';
@@ -43,6 +51,11 @@ import { handle, handleBare } from './handle';
 /** A script's default bound — generous for a handful of `pm.test` blocks and
  *  short of anything a hung UI would read as the app itself being stuck. */
 const DEFAULT_SCRIPT_TIMEOUT_MS = 5_000;
+
+/** In-flight collection runs, keyed by `runId` — populated on start, removed
+ *  in the run's own `.finally`. `apiCancelRun`'s only source of truth for
+ *  which `AbortController` to abort (Phase 70 Theme C). */
+const activeRunControllers = new Map<string, AbortController>();
 
 /** `PostmanVariable[]` → the flat map `ScriptContext.collectionVariables`
  *  wants — the same reduction `send.ts`'s own (private) `collectVariables`
@@ -70,61 +83,6 @@ function toEnvironmentRecord(values: readonly PostmanEnvironmentValue[]): Record
     out[row.key] = row.value;
   }
   return out;
-}
-
-/**
- * Fold a script's `pm.environment.set` calls into the environment file,
- * through Theme A's own `saveEnvironment` — the secret split and the
- * write-queue both stay exactly where Theme A put them; this function only
- * ever builds the merged `PostmanEnvironment` value that call needs.
- *
- * `confirmed: true` unconditionally: this is an automatic side effect of a
- * script run, with no confirm dialog to show it to, and it is safe for the
- * same reason a fresh secret row can never appear here — `mutated` is a flat
- * `Record<string,string>`, which can update an *existing* row's value (a
- * `type:'secret'` row included, if the script legitimately reads and
- * rewrites one) but can never introduce a brand-new `type:'secret'` row: a
- * mutation carries no `type` at all, so an unmatched key always lands as
- * `type:'default'`. A repository ever reaching a secret-valued row in the
- * first place already went through the blast-radius confirm once, on the
- * save that created it — this call cannot be the first time.
- */
-async function applyEnvironmentMutations(
-  repoRoot: string,
-  environmentId: string,
-  mutated: Readonly<Record<string, string>>,
-): Promise<void> {
-  const current = await readEnvironment(repoRoot, environmentId);
-  if (!current.ok) return; // best-effort — a stale/deleted environment must not fail the script run itself
-  const byKey = new Map(current.value.values.map((row) => [row.key, row] as const));
-  for (const [key, value] of Object.entries(mutated)) {
-    const existing = byKey.get(key);
-    byKey.set(key, existing ? { ...existing, value } : { key, value, type: 'default', enabled: true });
-  }
-  const updated: PostmanEnvironment = { ...current.value, values: Array.from(byKey.values()) };
-  await saveEnvironment(repoRoot, environmentId, updated, true);
-}
-
-/** The collection-variable equivalent of {@link applyEnvironmentMutations} —
- *  folds `pm.collectionVariables.set` into the collection's own
- *  `variable[]`, through Theme A's `saveCollection`. Collection variables
- *  carry no secret split at all (Theme A's own scope), so there is no
- *  confirm gate to reason about here in the first place. */
-async function applyCollectionVariableMutations(
-  repoRoot: string,
-  collectionId: string,
-  mutated: Readonly<Record<string, string>>,
-): Promise<void> {
-  const current = await readCollection(repoRoot, collectionId);
-  if (!current.ok) return;
-  const variables = Array.isArray(current.value.variable) ? current.value.variable : [];
-  const byKey = new Map(variables.map((variable) => [variable.key, variable] as const));
-  for (const [key, value] of Object.entries(mutated)) {
-    const existing = byKey.get(key);
-    byKey.set(key, existing ? { ...existing, value } : { key, value });
-  }
-  const updated = { ...current.value, variable: Array.from(byKey.values()) };
-  await saveCollection(repoRoot, collectionId, updated);
 }
 
 /**
@@ -419,6 +377,65 @@ export function registerApiClientHandlers(getWindow: () => BrowserWindow | null)
         const ok = await setScriptTrust(root, req.collectionId, req.trusted);
         return ok ? apiOk() : apiFailure('Could not save that decision.');
       }),
+    (issue) => apiFailure(issue),
+  );
+
+  // --- api client collection runner (Phase 70 Theme C) ------------------------
+  // `apiRunCollection` resolves immediately — `started` once the walk begins
+  // streaming over `apiRunProgress`/`apiRunDone`, or `needs-consent` if the
+  // target carries a script and this machine has not (yet) trusted the
+  // collection, checked once for the whole run rather than per request
+  // (Decision 2 draws no distinction between a run and a single send).
+  // `activeRunControllers` is this handler's own cancel map, keyed by
+  // `runId` — the same shape `send.ts`'s own `activeControllers` is, one
+  // level up, since a run's `AbortController` is created here rather than
+  // inside `runCollection` itself (which only ever receives the signal).
+
+  handle(
+    CHANNELS.apiRunCollection,
+    schemas.ApiRunCollectionRequest,
+    (req): Promise<ApiOpResult<ApiRunStartOutcome>> =>
+      withRepoRoot(req.repoId, async (root) => {
+        if (!req.runAnyway) {
+          const hasScripts = await collectionHasScripts(root, req.collectionId, req.target);
+          if (hasScripts) {
+            const trusted = await readScriptTrust(root, req.collectionId);
+            if (trusted !== true) return apiOk<ApiRunStartOutcome>({ status: 'needs-consent' });
+          }
+        }
+
+        const win = getWindow();
+        const controller = new AbortController();
+        activeRunControllers.set(req.runId, controller);
+
+        void runCollection(
+          req,
+          (event) => {
+            if (win && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.apiRunProgress, event);
+          },
+          controller.signal,
+        )
+          .then((summary) => {
+            if (win && !win.isDestroyed()) {
+              win.webContents.send(EVENT_CHANNELS.apiRunDone, { runId: req.runId, summary });
+            }
+          })
+          .finally(() => activeRunControllers.delete(req.runId));
+
+        return apiOk<ApiRunStartOutcome>({ status: 'started' });
+      }),
+    (issue) => apiFailure(issue),
+  );
+
+  /** A cancel on an unknown/already-finished `runId` is a no-op `{ok:true}`,
+   *  the same race `apiCancelRequest` already treats as normal. */
+  handle(
+    CHANNELS.apiCancelRun,
+    schemas.ApiCancelRunRequest,
+    (req): ApiOpResult => {
+      activeRunControllers.get(req.runId)?.abort();
+      return apiOk();
+    },
     (issue) => apiFailure(issue),
   );
 }

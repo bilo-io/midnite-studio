@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { ApiCollectionSummary, PostmanItem } from '@midnite/studio-shared';
-import { LuDownload, LuFolderPlus, LuPlus } from 'react-icons/lu';
+import { LuDownload, LuFolderPlus, LuPlay, LuPlus } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
@@ -94,6 +94,7 @@ function CollectionSection({ repoId, summary }: { repoId: string; summary: ApiCo
   const addFolder = useApiClientStore((s) => s.addFolder);
   const removeCollection = useApiClientStore((s) => s.removeCollection);
   const renameCollection = useApiClientStore((s) => s.renameCollection);
+  const openRunner = useApiClientStore((s) => s.openRunner);
 
   const promptNewFolder = () =>
     dialogs.prompt({
@@ -130,6 +131,10 @@ function CollectionSection({ repoId, summary }: { repoId: string; summary: ApiCo
             dialogs.openMenu(event, [
               { label: 'New request', icon: LuPlus, onSelect: () => addRequest(summary.id, [], 'New Request') },
               { label: 'New folder', icon: LuFolderPlus, onSelect: promptNewFolder },
+              { type: 'separator' },
+              // Phase 70 Theme C — opens `<CollectionRunner>` in place of the
+              // request tab strip, `api-client-view.tsx`'s own toggle.
+              { label: 'Run collection…', icon: LuPlay, onSelect: () => openRunner(summary.id) },
               { type: 'separator' },
               // Renames `info.name` and persists immediately via
               // `apiClient.saveCollection` (PR #227) — unlike a folder/
