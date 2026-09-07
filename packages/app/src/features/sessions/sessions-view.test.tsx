@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DialogHost } from '../../components/dialog-host';
 import { SessionsView } from './sessions-view';
 
+import { BUILTIN_AGENTS } from '@midnite/studio-shared';
+
 const historyResult = vi.fn();
 const refresh = vi.fn();
 vi.mock('../../services/queries', () => ({
@@ -14,7 +16,7 @@ vi.mock('../../services/queries', () => ({
 }));
 
 vi.mock('../terminal/use-agents', () => ({
-  useAgents: () => ({ agents: [] }),
+  useAgents: () => ({ agents: [...BUILTIN_AGENTS] }),
 }));
 
 // Real `TranscriptView` needs xterm and a bridge of its own — out of scope
@@ -162,4 +164,115 @@ describe('SessionsView', () => {
     await waitFor(() => expect(purge).toHaveBeenCalledWith({ sessionId: 'a' }));
     expect(refresh).toHaveBeenCalled();
   });
+
+  it('renders provider icon in brand accent color', () => {
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({
+          id: 'claude-s1',
+          repoId: 'r1',
+          title: 'repo-one',
+          kind: 'agent',
+          agentId: 'claude',
+          createdAt: 1000,
+          closedAt: 2000,
+        }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderView();
+
+    const row = screen.getByRole('button', { name: /Claude/ });
+    const svg = row.querySelector('svg');
+    expect(svg).toBeTruthy();
+    expect(svg?.getAttribute('style')).toContain('color: rgb(217, 119, 87)');
+  });
+
+  it('filters sessions by provider multiselect', () => {
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({
+          id: 's1',
+          repoId: 'r1',
+          title: 'repo-one',
+          name: 'claude-run',
+          kind: 'agent',
+          agentId: 'claude',
+          createdAt: 1000,
+          closedAt: 2000,
+        }),
+        closedSession({
+          id: 's2',
+          repoId: 'r1',
+          title: 'repo-one',
+          name: 'codex-run',
+          kind: 'agent',
+          agentId: 'codex',
+          createdAt: 1000,
+          closedAt: 3000,
+        }),
+        closedSession({
+          id: 's3',
+          repoId: 'r1',
+          title: 'repo-one',
+          name: 'terminal-run',
+          kind: 'shell',
+          createdAt: 1000,
+          closedAt: 4000,
+        }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderView();
+
+    expect(screen.getByText(/claude-run/)).toBeTruthy();
+    expect(screen.getByText(/codex-run/)).toBeTruthy();
+    expect(screen.getByText(/terminal-run/)).toBeTruthy();
+
+    // Open provider filter
+    fireEvent.click(screen.getByRole('button', { name: 'All providers' }));
+    // Filter to Claude only
+    fireEvent.click(screen.getByRole('option', { name: /Claude/ }));
+
+    expect(screen.getByText(/claude-run/)).toBeTruthy();
+    expect(screen.queryByText(/codex-run/)).toBeNull();
+    expect(screen.queryByText(/terminal-run/)).toBeNull();
+
+    // Add Codex as well
+    fireEvent.click(screen.getByRole('option', { name: /Codex/ }));
+    expect(screen.getByText(/claude-run/)).toBeTruthy();
+    expect(screen.getByText(/codex-run/)).toBeTruthy();
+    expect(screen.queryByText(/terminal-run/)).toBeNull();
+  });
+
+  it('toggles repo group collapse when clicking group accordion header', () => {
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({
+          id: 'a',
+          repoId: 'r1',
+          title: 'repo-one',
+          name: 'session-in-r1',
+          createdAt: 1000,
+          closedAt: 2000,
+        }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderView();
+
+    const collapseButton = screen.getByRole('button', { name: 'Collapse repo-one' });
+    expect(collapseButton).toBeTruthy();
+    expect(collapseButton.getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.click(collapseButton);
+    expect(screen.getByRole('button', { name: 'Expand repo-one' })).toBeTruthy();
+  });
 });
+
