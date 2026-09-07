@@ -4,6 +4,7 @@ import { useApiClientStore } from '../../store/api-client-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { CollectionTree } from './collection-tree';
 import { EnvironmentSwitcher } from './environment-switcher';
+import { HistorySection } from './history-section';
 import { RequestBuilder } from './request-builder';
 import { RequestTabStrip } from './request-tab-strip';
 
@@ -56,6 +57,9 @@ export function ApiClientView() {
           <EnvironmentSwitcher repoId={selectedRepoId} />
         </div>
         <CollectionTree repoId={selectedRepoId} />
+        <div className="max-h-64 shrink-0 overflow-auto border-t border-border">
+          <HistorySection repoId={selectedRepoId} />
+        </div>
       </div>
 
       <ResizeHandle resizable={tree} axis="x" label="Resize the API collection tree" />

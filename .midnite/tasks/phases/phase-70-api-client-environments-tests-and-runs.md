@@ -271,9 +271,9 @@ B's results.
       calls `pm.environment.set` affects the *next* request in the same run (the one behaviour that
       makes a runner more than a for-loop).
 
-### D — Request history and code generation (S)
+### D — Request history and code generation (S) — ✅ DONE (PR #241, 2026-09-07)
 
-- [ ] Persist a redacted request history per repo at `.midnite/api/history.local.json` —
+- [x] Persist a redacted request history per repo at `.midnite/api/history.local.json` —
       **`.local.json`, therefore covered by Theme A's `.gitignore`**, capped at 200 entries,
       evicting oldest-first.
   - Each entry is `{id, at, method, url, status, durationMs, sizeBytes, collectionId, itemPath,
@@ -283,12 +283,12 @@ B's results.
     shape for a value redactor.
   - The cap evicts the **row**, and there is no sidecar file to evict with it — the bug Phase 45
     found twice in stores that had one is structurally absent here.
-- [ ] A **History** section below the collection tree, listing the last N for the open repo, newest
+- [x] A **History** section below the collection tree, listing the last N for the open repo, newest
       first, each row re-openable as a tab pre-filled from the collection item it names (not from the
       history row — the row has no body, and re-sending a stale body would be a lie about what it
       does).
-- [ ] A **Clear history** action with a confirm naming the entry count.
-- [ ] `Copy as curl` on a request tab's overflow menu, and on a history row: generates a
+- [x] A **Clear history** action with a confirm naming the entry count.
+- [x] `Copy as curl` on a request tab's overflow menu, and on a history row: generates a
       shell-quoted `curl` invocation from the **draft**, with `{{var}}`s **left unresolved**.
   - Unresolved on purpose, and a one-line note in the copied output says so: resolving them puts a
     bearer token on the clipboard and, very often, straight into a Slack message. A user who wants
@@ -296,8 +296,8 @@ B's results.
   - Add `packages/shared/src/domain/api-codegen.ts` — `toCurl(draft): string` and
     `toFetch(draft): string`, pure functions in `shared` so they are testable under bare vitest and
     usable from either process.
-- [ ] `Copy as fetch` — the same, emitting a JS `fetch(url, {method, headers, body})` snippet.
-- [ ] `api-codegen.test.ts`: shell-quoting a header value containing a single quote and a space;
+- [x] `Copy as fetch` — the same, emitting a JS `fetch(url, {method, headers, body})` snippet.
+- [x] `api-codegen.test.ts`: shell-quoting a header value containing a single quote and a space;
       a `form-data` body becoming repeated `-F` flags; a `binary` body becoming
       `--data-binary @path`; a disabled header omitted; `{{var}}` surviving verbatim through both
       generators.

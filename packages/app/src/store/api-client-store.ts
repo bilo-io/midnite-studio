@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type {
   ApiCollectionSummary,
   ApiEnvironmentSummary,
+  ApiHistoryEntry,
   ApiRequestDraft,
   ApiResponse,
   PostmanEnvironment,
@@ -173,6 +174,17 @@ export type ApiClientState = {
   /** tabId -> the last `{ok:false}` envelope's message, cleared on retry/success. */
   lastError: Record<string, string>;
 
+  // --- persisted request history (Phase 70 Theme D) --------------------------
+  // Metadata only — no headers, no bodies (`main/api-client/history.ts`'s own
+  // whole design). Recording happens as a side effect of every `sendRequest`
+  // on the main side; this slice only ever reads or clears what accumulated.
+  history: ApiHistoryEntry[];
+  historyRepoId: string | null;
+  historyStatus: 'idle' | 'loading' | 'ready' | 'error';
+  historyError: string | null;
+  loadHistory: (repoId: string) => Promise<void>;
+  clearHistory: (repoId: string) => Promise<void>;
+
   loadCollections: (repoId: string) => Promise<void>;
 
   loadEnvironments: (repoId: string) => Promise<void>;
@@ -253,6 +265,38 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
   responses: {},
   inFlight: {},
   lastError: {},
+
+  history: [],
+  historyRepoId: null,
+  historyStatus: 'idle',
+  historyError: null,
+
+  loadHistory: async (repoId) => {
+    const api = bridge();
+    if (!api) {
+      set({ historyStatus: 'error', historyError: 'No connection to the app.' });
+      return;
+    }
+    set({ historyStatus: 'loading', historyError: null, historyRepoId: repoId });
+    try {
+      const result = await api.apiClient.listHistory({ repoId });
+      if (!result.ok) {
+        set({ historyStatus: 'error', historyError: result.message });
+        return;
+      }
+      set({ historyStatus: 'ready', history: result.value, historyRepoId: repoId });
+    } catch {
+      set({ historyStatus: 'error', historyError: 'Could not load the request history.' });
+    }
+  },
+
+  clearHistory: async (repoId) => {
+    const api = bridge();
+    if (!api) return;
+    const result = await api.apiClient.clearHistory({ repoId });
+    if (!result.ok) return;
+    if (get().historyRepoId === repoId) set({ history: [] });
+  },
 
   loadCollections: async (repoId) => {
     const api = bridge();
@@ -506,6 +550,8 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
         draft: tab.draft,
         collectionVariables,
         environmentId,
+        collectionId: tab.collectionId,
+        itemPath: tab.itemPath,
       });
       set((state) => {
         // Superseded by a cancel or a newer send while this was in flight.
@@ -515,11 +561,22 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
         if (!result.ok) {
           return { inFlight, lastError: { ...state.lastError, [tabId]: result.message } };
         }
-        const history = [result.value, ...(state.responses[tabId] ?? [])].slice(0, MAX_RESPONSE_HISTORY);
+        const responseHistory = [result.value, ...(state.responses[tabId] ?? [])].slice(
+          0,
+          MAX_RESPONSE_HISTORY,
+        );
         const lastError = { ...state.lastError };
         delete lastError[tabId];
-        return { inFlight, responses: { ...state.responses, [tabId]: history }, lastError };
+        return { inFlight, responses: { ...state.responses, [tabId]: responseHistory }, lastError };
       });
+      // A settled response (2xx through 5xx alike) recorded a row on the main
+      // side (`send.ts`) — refresh this repo's history list to reflect it,
+      // same as `saveEnvironment` refreshing `environments` after a write it
+      // did not make from this slice's own state. Skipped on a failed send:
+      // `send.ts` only records a *settled* response, never a transport throw.
+      if (result.ok && get().historyRepoId === tab.repoId) {
+        void get().loadHistory(tab.repoId);
+      }
     } catch (error) {
       set((state) => {
         if (state.inFlight[tabId] !== requestId) return {};

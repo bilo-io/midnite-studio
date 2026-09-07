@@ -141,3 +141,26 @@ export function redactRecord<T extends Record<string, unknown>>(record: T, homeD
   }
   return out as T;
 }
+
+/**
+ * A value redactor, distinct from {@link redactPaths}' pattern-matching: this
+ * one is handed a set of known secret VALUES up front (Phase 70 Theme D's
+ * request history — a secret-typed environment variable's value, resolved at
+ * send time) and blanks out every literal occurrence of one, replacing it
+ * with `{{key}}` rather than a generic `<redacted>` token. `{{key}}` is
+ * deliberate: it is what the same value would have read as in the request
+ * *before* it was resolved, so a history row reads like the templated request
+ * that produced it rather than a redaction scar.
+ *
+ * An empty-string value is skipped outright — `''.split('')` would insert the
+ * placeholder between every character, which is never the intent for a
+ * variable that simply was not filled in.
+ */
+export function redactSecretValues(text: string, secrets: Readonly<Record<string, string>>): string {
+  let out = text;
+  for (const [key, value] of Object.entries(secrets)) {
+    if (value.length === 0) continue;
+    out = out.split(value).join(`{{${key}}}`);
+  }
+  return out;
+}

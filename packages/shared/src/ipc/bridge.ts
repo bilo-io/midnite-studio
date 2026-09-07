@@ -1097,6 +1097,16 @@ export type MidniteStudioBridge = {
     deleteEnvironment: (
       req: In<typeof S.ApiDeleteEnvironmentRequest>,
     ) => Promise<z.infer<typeof S.ApiDeleteEnvironmentResponse>>;
+
+    /** Phase 70 Theme D — the last N (200-capped) history rows for a repo,
+     *  newest first. Recording happens as a side effect of `sendRequest`
+     *  above; there is no separate "record" method on this namespace. */
+    listHistory: (
+      req: In<typeof S.ApiListHistoryRequest>,
+    ) => Promise<z.infer<typeof S.ApiListHistoryResponse>>;
+    clearHistory: (
+      req: In<typeof S.ApiClearHistoryRequest>,
+    ) => Promise<z.infer<typeof S.ApiClearHistoryResponse>>;
   };
 
   /**

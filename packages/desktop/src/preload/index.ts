@@ -391,6 +391,8 @@ const bridge: Pick<
     readEnvironment: (req) => call(CHANNELS.apiReadEnvironment, req),
     saveEnvironment: (req) => call(CHANNELS.apiSaveEnvironment, req),
     deleteEnvironment: (req) => call(CHANNELS.apiDeleteEnvironment, req),
+    listHistory: (req) => call(CHANNELS.apiListHistory, req),
+    clearHistory: (req) => call(CHANNELS.apiClearHistory, req),
   },
   video: {
     project: {
