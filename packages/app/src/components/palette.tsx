@@ -27,6 +27,7 @@ import {
   createViewsSource,
 } from '../services/palette/providers';
 import { parsePaletteQuery, usePaletteStore, type PaletteMode } from '../store/palette-store';
+import { useFrecencyStore } from '../services/palette/frecency-store';
 import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 
@@ -38,7 +39,22 @@ type FlatRow =
   | { kind: 'heading'; group: string }
   | { kind: 'item'; scored: ScoredPaletteItem; flatIndex: number };
 
-function buildFlatRows(scoredItems: ScoredPaletteItem[]): FlatRow[] {
+/**
+ * `flat`, when true, skips section headings entirely and returns the items in
+ * whatever order `scoredItems` already arrives in (score-sorted once a needle
+ * is typed). Grouping is for the *unfiltered* open — Theme A added
+ * `CommandGroup` to the registry specifically so commands could split into
+ * headings there — but once fuzzy scoring is ranking across every source,
+ * re-bucketing the already-ranked list by group would fight that ranking:
+ * a lower-scored item in an earlier-seen group would render above a
+ * higher-scored item from a group first seen later (Phase 23 Theme E,
+ * reopened).
+ */
+function buildFlatRows(scoredItems: ScoredPaletteItem[], flat: boolean): FlatRow[] {
+  if (flat) {
+    return scoredItems.map((scored, flatIndex) => ({ kind: 'item', scored, flatIndex }));
+  }
+
   const rows: FlatRow[] = [];
   const groups = new Map<string, ScoredPaletteItem[]>();
 
@@ -214,7 +230,10 @@ export function Palette() {
     return results;
   }, [sources, needle]);
 
-  const flatRows = useMemo(() => buildFlatRows(scoredResults), [scoredResults]);
+  const flatRows = useMemo(
+    () => buildFlatRows(scoredResults, Boolean(needle)),
+    [scoredResults, needle],
+  );
 
   const rowIndexForSelection = flatRows.findIndex(
     (row) => row.kind === 'item' && row.flatIndex === selectedIndex,
@@ -237,6 +256,10 @@ export function Palette() {
       const row = flatRows.find((r) => r.kind === 'item' && r.flatIndex === flatIndex);
       if (!row || row.kind !== 'item') return;
       if (row.scored.item.disabled) return;
+      // The frecency nudge (Phase 23 Theme D, reopened): every run, from any
+      // source, bumps that item's id — the one place a palette item actually
+      // fires, regardless of whether Enter or a click drove it.
+      useFrecencyStore.getState().bump(row.scored.item.id);
       row.scored.item.run();
     },
     [flatRows],

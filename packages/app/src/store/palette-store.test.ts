@@ -3,6 +3,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { CommandDescriptor } from '@midnite/studio-shared';
 
 import { filterCommands, groupCommands, matchesQuery, parsePaletteQuery, usePaletteStore } from './palette-store';
+import {
+  bumpFrecency,
+  evictLowestWeight,
+  frecencyMultiplier,
+  MAX_FRECENCY_ENTRIES,
+  useFrecencyStore,
+  type FrecencyMap,
+} from '../services/palette/frecency-store';
 
 const command = (id: string, label: string, group: CommandDescriptor['group']): CommandDescriptor =>
   ({ id, label, group }) as CommandDescriptor;
@@ -119,5 +127,82 @@ describe('usePaletteStore', () => {
     usePaletteStore.getState().setQuery('read');
     usePaletteStore.getState().setQuery('');
     expect(usePaletteStore.getState().mode).toBe('all');
+  });
+});
+
+/**
+ * Phase 23 Theme D, reopened: the frecency nudge. Its own tiny persisted
+ * slice (`services/palette/frecency-store.ts`), tested here alongside the
+ * rest of the palette suites per the phase doc.
+ */
+describe('frecency', () => {
+  beforeEach(() => {
+    useFrecencyStore.setState({ entries: {} });
+  });
+
+  it('a run bumps the item', () => {
+    const now = 1_000_000;
+    useFrecencyStore.setState({ entries: bumpFrecency({}, 'command:sync.pull', now) });
+    expect(useFrecencyStore.getState().entries['command:sync.pull']).toEqual({
+      count: 1,
+      lastAt: now,
+    });
+
+    useFrecencyStore.setState({
+      entries: bumpFrecency(useFrecencyStore.getState().entries, 'command:sync.pull', now + 1),
+    });
+    expect(useFrecencyStore.getState().entries['command:sync.pull']).toEqual({
+      count: 2,
+      lastAt: now + 1,
+    });
+  });
+
+  it('the cap evicts the lowest count * recencyDecay entry once over 50 keys', () => {
+    const now = 1_000_000;
+    let entries: FrecencyMap = {};
+    for (let i = 0; i < MAX_FRECENCY_ENTRIES; i++) {
+      // Ascending count, so index 0 is deliberately the lowest-weight entry.
+      entries[`cmd-${i}`] = { count: i + 1, lastAt: now };
+    }
+    expect(Object.keys(entries)).toHaveLength(MAX_FRECENCY_ENTRIES);
+
+    entries = bumpFrecency(entries, 'a-brand-new-command', now);
+
+    expect(Object.keys(entries)).toHaveLength(MAX_FRECENCY_ENTRIES);
+    expect(entries['cmd-0']).toBeUndefined();
+    expect(entries['a-brand-new-command']).toBeDefined();
+    // The rest of the low end survives — only the single lowest was evicted.
+    expect(entries['cmd-1']).toBeDefined();
+  });
+
+  it('evictLowestWeight is a no-op at or under the cap', () => {
+    const entries: FrecencyMap = { a: { count: 1, lastAt: 0 }, b: { count: 2, lastAt: 0 } };
+    expect(evictLowestWeight(entries)).toBe(entries);
+  });
+
+  it("a never-run item's ordering is unchanged relative to its peers", () => {
+    const entries: FrecencyMap = { 'command:sync.pull': { count: 5, lastAt: Date.now() } };
+    // Neither of these two ever ran — both must get the same neutral
+    // multiplier, so the nudge cannot reorder them relative to each other.
+    expect(frecencyMultiplier(entries, 'command:sync.push')).toBe(1);
+    expect(frecencyMultiplier(entries, 'view:graph')).toBe(1);
+    expect(frecencyMultiplier(entries, 'command:sync.push')).toBe(
+      frecencyMultiplier(entries, 'view:graph'),
+    );
+  });
+
+  it('bounds the multiplier at 1.25 even for a heavily-run, just-fired item', () => {
+    const now = Date.now();
+    const entries: FrecencyMap = { hot: { count: 1000, lastAt: now } };
+    expect(frecencyMultiplier(entries, 'hot', now)).toBeLessThanOrEqual(1.25);
+    expect(frecencyMultiplier(entries, 'hot', now)).toBeGreaterThan(1);
+  });
+
+  it('decays toward the neutral multiplier as lastAt recedes', () => {
+    const now = Date.now();
+    const entries: FrecencyMap = { stale: { count: 5, lastAt: now - 1000 * 60 * 60 * 24 * 60 } };
+    const multiplier = frecencyMultiplier(entries, 'stale', now);
+    expect(multiplier).toBeGreaterThanOrEqual(1);
+    expect(multiplier).toBeLessThan(frecencyMultiplier({ stale: { count: 5, lastAt: now } }, 'stale', now));
   });
 });
