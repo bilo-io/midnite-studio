@@ -137,6 +137,54 @@ test('the hairline holds with no agents running', async ({ page }) => {
   await expect(page.getByTestId('titlebar-agents-sep')).toBeVisible();
 });
 
+/**
+ * The live readout shimmers and breathes: rainbow gradient text on the digit
+ * and word, and an opacity + box-shadow pulse on the button — three effects
+ * the unit test can only see as class names. Read here as computed style, so
+ * a stylesheet edit that drops a rule fails loudly rather than leaving a
+ * static grey "2 agents" nobody notices.
+ *
+ * Under `html[data-motion='reduced']` — what `@bilo-io/shell` writes for a
+ * user who asked the OS for less motion — both animations stop; the gradient
+ * is colour, not movement, so it stays.
+ */
+test('the live count wears the rainbow text and pulses, unless motion is reduced', async ({
+  page,
+}) => {
+  await openWithAgent(page);
+
+  const button = page.getByTestId('titlebar-agent-count');
+  const text = page.getByTestId('titlebar-agent-count-text');
+
+  const live = await button.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return { animation: cs.animationName, opacity: Number(cs.opacity), shadow: cs.boxShadow };
+  });
+  expect(live.animation).toBe('agent-count-breathe');
+  expect(live.opacity).toBeGreaterThanOrEqual(0.6);
+  expect(live.opacity).toBeLessThanOrEqual(1);
+  expect(live.shadow).not.toBe('none');
+
+  const gradient = await text.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return {
+      animation: cs.animationName,
+      clip: cs.webkitBackgroundClip || cs.backgroundClip,
+      image: cs.backgroundImage,
+      fill: cs.webkitTextFillColor,
+    };
+  });
+  expect(gradient.animation).toBe('agent-count-shimmer');
+  expect(gradient.clip).toBe('text');
+  expect(gradient.image).toContain('linear-gradient');
+  expect(gradient.fill).toBe('rgba(0, 0, 0, 0)');
+
+  await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+  await expect(button).toHaveCSS('animation-name', 'none');
+  await expect(text).toHaveCSS('animation-name', 'none');
+  await expect(text).toHaveCSS('background-clip', 'text');
+});
+
 /** The header's overflow and the cluster's current step, read together. */
 async function barState(
   page: Page,
