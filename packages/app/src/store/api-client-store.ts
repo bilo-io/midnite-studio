@@ -238,6 +238,11 @@ export type ApiClientState = {
   /** collectionId -> that collection's current (or last) run. Never
    *  persisted — see `ApiRunState`. */
   runs: Record<string, ApiRunState>;
+  /** The collection `<CollectionRunner>` is open for, or `null` to show the
+   *  request tab strip instead — `api-client-view.tsx`'s own toggle,
+   *  mirroring `activeTabId` one level up. Never persisted, the same
+   *  reason every other `ui`-adjacent-but-repo-scoped field here is not. */
+  runnerCollectionId: string | null;
 
   // --- persisted request history (Phase 70 Theme D) --------------------------
   // Metadata only — no headers, no bodies (`main/api-client/history.ts`'s own
@@ -350,6 +355,10 @@ export type ApiClientState = {
   applyRunProgress: (event: ApiRunEvent) => void;
   /** The run's terminal summary, off `apiClient.onRunDone`. */
   applyRunDone: (event: ApiRunDoneEvent) => void;
+  /** Opens `<CollectionRunner>` for `collectionId`, in place of the request
+   *  tab strip — the collection tree's own "Run collection…" action. */
+  openRunner: (collectionId: string) => void;
+  closeRunner: () => void;
 };
 
 export const useApiClientStore = create<ApiClientState>()((set, get) => ({
@@ -371,6 +380,7 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
   lastError: {},
   scriptRuns: {},
   runs: {},
+  runnerCollectionId: null,
 
   history: [],
   historyRepoId: null,
@@ -890,4 +900,7 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
       };
     });
   },
+
+  openRunner: (collectionId) => set({ runnerCollectionId: collectionId }),
+  closeRunner: () => set({ runnerCollectionId: null }),
 }));
