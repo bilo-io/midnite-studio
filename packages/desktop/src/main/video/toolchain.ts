@@ -80,8 +80,17 @@ const REAL: ToolchainDeps = {
   readFile: (path) => readFile(path, 'utf8'),
 };
 
-let cached: VideoToolchain | null = null;
-let inFlight: Promise<VideoToolchain> | null = null;
+/**
+ * `VideoToolchain` minus `skills` — this module's own cached answer never
+ * carries that field. `probeVideoSkills` below computes it separately
+ * (it is a property of the *video root*, not the machine-wide `node`/`npx`
+ * answer this cache exists for), and `video-service.ts`'s `videoToolchain()`
+ * is what merges the two into a full `VideoToolchain` for callers.
+ */
+type NodeNpxToolchain = Omit<VideoToolchain, 'skills'>;
+
+let cached: NodeNpxToolchain | null = null;
+let inFlight: Promise<NodeNpxToolchain> | null = null;
 
 /**
  * Resolve the toolchain, reusing the last answer.
@@ -99,7 +108,7 @@ let inFlight: Promise<VideoToolchain> | null = null;
 export async function probeVideoToolchain(
   appDir?: string,
   deps: Partial<ToolchainDeps> = {},
-): Promise<VideoToolchain> {
+): Promise<NodeNpxToolchain> {
   const { run, readFile: read } = { ...REAL, ...deps };
 
   if (!cached) {

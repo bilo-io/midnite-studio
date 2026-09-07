@@ -96,6 +96,10 @@ export function registerVideoHandlers(): void {
     toolchain: {
       node: { found: false as const, reason: 'Invalid request.' },
       npx: { found: false as const, reason: 'Invalid request.' },
+      skills: {
+        videoWriteScript: { found: false as const, reason: 'Invalid request.' },
+        videoExecuteScript: { found: false as const, reason: 'Invalid request.' },
+      },
     },
   };
   handle(
