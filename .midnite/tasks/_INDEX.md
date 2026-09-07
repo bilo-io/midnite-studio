@@ -12,8 +12,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 68/70 | `██████████` | 97% | — | E (2 packaged-Mac human passes) |
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 64/68 | `█████████░` | 94% | — | — |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 100/102 | `██████████` | 98% | — | — |
-| [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | 🔄 WIP | x1 | 38/41 | `█████████░` | 93% | E | E (1 untestable e2e case + 2 human passes) |
-| [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | 🔄 WIP | x1 | 47/50 | `█████████░` | 94% | E | E (1 unbuilt feature + 2 human passes) |
+| [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | 🔄 WIP | x1 | 39/41 | `██████████` | 95% | — | E (2 human passes) |
+| [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | 🔄 WIP | x1 | 48/50 | `██████████` | 96% | — | E (2 human passes) |
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | ✅ DONE | — | 32/37 | `█████████░` | 86% | — | — |
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | 🔄 WIP | x1 | 44/64 | `███████░░░` | 69% | — | Verification (human/e2e passes) |
@@ -59,7 +59,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [27 · The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
 | [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | x1 | 51/70 | `███████░░░` | 73% | — | Verification (+ C, H reverted items) |
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | 🔄 WIP | x1 | 41/101 | `████░░░░░░` | 41% | — | — |
-| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | x1 | 53/70 | `████████░░` | 76% | J | J |
+| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | x1 | 55/70 | `████████░░` | 79% | — | J (2 human passes) |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | 🔄 WIP | x1 | 42/59 | `███████░░░` | 71% | — | Verification (+ C, D, E reopened items) |
 | [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 56/70 | `████████░░` | 80% | — | — |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
@@ -259,9 +259,10 @@ groups it feeds, have existed and been tested since 2026-08-30 with no productio
 - ✅ **B** (PR #223, PR #226) — 21 real call sites (`grep -rn "openExternal" packages/app/src`, not the doc's sizing count of 25) routed through `openInMidnite`/`openLinkFromEvent` — markdown, Reviews, Actions, the repos sidebar, the dashboard, forge detail, the video studio pane — each passing `originRepoId` where the surface knows its repo, so tabs group themselves. The one call site PR #223 left, `terminal-view.tsx` (`packages/app/src/features/terminal/**` was a live workstream when that PR was built), landed in PR #226 once the directory was free.
 - ✅ **C** (PR #200) — Dev-server detection: `package.json` script parsing plus a loopback, port-validated probe channel; a hint, never a navigation. Plus the viewport preset persisted per tab.
 - ✅ **D** (PR #226) — Preview deploys: `matchPreviewDeploy` rebuilt around a settable host allowlist (`browser-store`, edited from Browser settings) and fixture-backed tests; an Open-preview affordance in Reviews, sourced from the PR body plus cached comments. The doc's own proposed "new optional `url` on the check-run schema" turned out to already exist (`ForgeJob.url`) — see the phase doc's own note on the audit.
-- 🔄 **E** (PR #254) — Verification: closing the doc's own checklist against A–D. Found one case
-  that cannot pass against `e2e/mock-bridge.ts`'s single hardcoded repo (the cross-repo derived-group
-  proof), left unticked with the store-level test that does prove it; two human-only passes remain.
+- 🔄 **E** (PR #254, PR #261) — Verification: closing the doc's own checklist against A–D. PR #254
+  found one case that could not pass against `e2e/mock-bridge.ts`'s single hardcoded repo (the
+  cross-repo derived-group proof); PR #261 gave the mock bridge `extraRepos` and
+  `forge.pullsByRepo` so the case now runs for real. Two human-only passes remain.
 ### [Phase 70 — The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md)
 
 *Refined x1 at birth: the second half of [Phase 66](phases/phase-66-api-client.md)'s split. The parts that cost something — the phase that executes user-supplied JavaScript, and the phase that writes a secret to disk — reviewed as their own change rather than smuggled in behind a request builder. Blocked on Phase 66 Themes A, C, E and G.*
@@ -270,7 +271,10 @@ groups it feeds, have existed and been tested since 2026-08-30 with no productio
 - ◻ **B** — The test editor and the sandbox: the repo's **first** `node:vm`, on the exact question [`transform.ts:13`](phases/phase-43-workflows-mvp.md) refused once in writing. `vm` is not a security boundary, so the boundary is the allow-list — no `require`/`process`/`Buffer`, `codeGeneration.strings: false`, no async primitive so a `timeout` that only catches sync code is enough — plus consent, off by default for a collection this machine did not import, stored in the gitignored overlay so trust cannot be committed for the whole team.
 - ✅ **C** (PR #250) — The collection runner: a sequential file-order walk calling Phase 66's `sendApiRequest` then B's `runScript`, and the one thing that **does** stream (`run-progress`/`run-done`, `dbQueryBatch`'s pattern) because a run is unbounded in time where a capped response is not. A transport failure does not stop the walk; an abort leaves the remainder `skipped`, not silently absent.
 - ✅ **D** (PR #241) — History and codegen: 200 capped entries of **metadata only** at `history.local.json` — no headers, no bodies, secret-matching query values rewritten to `{{key}}` — plus `toCurl`/`toFetch` in `shared`, leaving `{{var}}` unresolved on purpose, because the most common destination for a copied curl is a chat message.
-- 🔄 **E** (PR #251) — Verification.
+- 🔄 **E** (PR #251, PR #261) — Verification. PR #251 found the resolved-URL preview case could not
+  pass because the feature did not exist; PR #261 built it — `computed-fields.ts`'s
+  `resolvedVariables`/`resolveUrlPreview`, rendered under the URL bar in `request-builder.tsx`. Two
+  human-only passes remain.
 
 ### [Phase 69 — A tracker that can count](phases/phase-69-a-tracker-that-can-count.md)
 
@@ -1299,10 +1303,10 @@ write scope, so `agent-page.tsx` stays read-only without knowing writes exist.*
   Verification line asking for five, and nothing asserts a `kind: 'context'` line despite the
   fixture being named `grep-z-context`. The cap case moves to `fs-search-handlers.test.ts`, where
   the cap actually is.
-- ◻ **J** — the visual and human passes (S): `phase-24-d/`'s three editor screenshots were taken
-  against CodeMirror and are now misleading; Phase 64's own pair covers the widget but not the dirty
-  buffer or the Save/Discard/Cancel guard, so they get regenerated rather than deleted. Plus the two
-  real-repository passes — Trash restorability, and whether the 150ms `fsSettleMs` window is right.
+- 🔄 **J** (PR #261) — the visual and human passes (S): `phase-24-d/`'s three editor screenshots were
+  regenerated against Monaco via `files-editor.spec.ts`'s existing `MSTUDIO_SHOTS` gate; `-c/-e/-f`
+  confirmed still accurate. Two real-repository passes remain, for a human — Trash restorability,
+  and whether the 150ms `fsSettleMs` window is right.
 
 ### [Phase 23 — A command palette, and the registry that can feed it](phases/phase-23-command-palette.md)
 
