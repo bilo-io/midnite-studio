@@ -1035,6 +1035,20 @@ export type UiState = {
   forgeWritesEnabled: boolean;
   setForgeWritesEnabled: (enabled: boolean) => void;
   /**
+   * The API Client's own quick-switcher selection, per repo (Phase 70 Theme
+   * A) — `null` for "no environment", the default for a repo with no entry.
+   * Persisted for the same reason `projectBoardByRepo` is just below: coming
+   * back to a repo and finding yourself pointed at prod because the app
+   * forgot which environment you had selected is the failure mode. Classified
+   * as session state rather than a Settings-page preference in
+   * `persisted-keys.ts` — a `Record<string, string | null>` keyed by an
+   * open-ended `repoId` has no sensible generic Settings row, exactly the
+   * same call `projectBoardByRepo`/`projectsMode` already make for the
+   * identical shape of "last choice, remembered per repo".
+   */
+  activeEnvironmentByRepo: Record<string, string | null>;
+  setActiveEnvironment: (repoId: string, environmentId: string | null) => void;
+  /**
    * The last ProjectV2 board opened per repo (Phase 40 Theme D).
    *
    * A top-level persisted key, like `repoGroupMembership`, rather than nested
@@ -1391,6 +1405,7 @@ export type PersistedUi = Pick<
   | 'autoFetchIntervalMs'
   | 'metricsIdleIntervalMs'
   | 'forgeWritesEnabled'
+  | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
   | 'projectsMode'
   | 'projectViewByProject'
@@ -1453,6 +1468,7 @@ export const useUiStore = create<UiState>()(
       metricsIdleIntervalMs: METRICS_IDLE_INTERVAL_MS,
       // Default off. A fresh install cannot change anything on GitHub.
       forgeWritesEnabled: false,
+      activeEnvironmentByRepo: {},
       projectBoardByRepo: {},
       projectsMode: {},
       projectViewByProject: {},
@@ -1899,6 +1915,10 @@ export const useUiStore = create<UiState>()(
       setAutoFetchIntervalMs: (autoFetchIntervalMs) => set({ autoFetchIntervalMs }),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
       setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),
+      setActiveEnvironment: (repoId, environmentId) =>
+        set((state) => ({
+          activeEnvironmentByRepo: { ...state.activeEnvironmentByRepo, [repoId]: environmentId },
+        })),
       setProjectBoard: (repoId, projectId) =>
         set((state) => ({
           projectBoardByRepo: { ...state.projectBoardByRepo, [repoId]: projectId },
@@ -1922,7 +1942,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 10,
+      version: 11,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -1967,6 +1987,7 @@ export const useUiStore = create<UiState>()(
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
         forgeWritesEnabled: state.forgeWritesEnabled,
+        activeEnvironmentByRepo: state.activeEnvironmentByRepo,
         projectBoardByRepo: state.projectBoardByRepo,
         projectsMode: state.projectsMode,
         projectViewByProject: state.projectViewByProject,
@@ -2030,6 +2051,9 @@ export const useUiStore = create<UiState>()(
        * rather than left absent: `PersistedUi` is what rehydrate merges over
        * the initial state, and a migration that produces a shape the type says
        * it produces is the only version of this that cannot drift.
+       * v10 → v11: seed `activeEnvironmentByRepo` (Phase 70 Theme A) — a
+       * persisted blob from before this phase has no environment selection to
+       * remember.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -2053,6 +2077,7 @@ export const useUiStore = create<UiState>()(
           editorTabSize?: number;
           editorWordWrap?: boolean;
           linkTarget?: LinkTarget;
+          activeEnvironmentByRepo?: Record<string, string | null>;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -2095,6 +2120,9 @@ export const useUiStore = create<UiState>()(
         if (version < 10) {
           state.linkTarget = 'in-app';
         }
+        if (version < 11) {
+          state.activeEnvironmentByRepo = {};
+        }
         return state as PersistedUi;
       },
       /**
@@ -2131,6 +2159,10 @@ export const useUiStore = create<UiState>()(
           loopModels: { ...current.loopModels, ...saved.loopModels },
           loopSchedules: { ...current.loopSchedules, ...saved.loopSchedules },
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
+          activeEnvironmentByRepo: {
+            ...current.activeEnvironmentByRepo,
+            ...saved.activeEnvironmentByRepo,
+          },
           projectBoardByRepo: { ...current.projectBoardByRepo, ...saved.projectBoardByRepo },
           projectsMode: { ...current.projectsMode, ...saved.projectsMode },
           projectViewByProject: { ...current.projectViewByProject, ...saved.projectViewByProject },

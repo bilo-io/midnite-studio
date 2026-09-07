@@ -387,6 +387,10 @@ const bridge: Pick<
     sendRequest: (req) => call(CHANNELS.apiSendRequest, req),
     cancelRequest: (req) => call(CHANNELS.apiCancelRequest, req),
     pickBinaryFile: () => call(CHANNELS.apiPickBinaryFile),
+    listEnvironments: (req) => call(CHANNELS.apiListEnvironments, req),
+    readEnvironment: (req) => call(CHANNELS.apiReadEnvironment, req),
+    saveEnvironment: (req) => call(CHANNELS.apiSaveEnvironment, req),
+    deleteEnvironment: (req) => call(CHANNELS.apiDeleteEnvironment, req),
   },
   video: {
     project: {

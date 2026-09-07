@@ -4,9 +4,12 @@ import {
   apiOk,
   schemas,
   type ApiCollectionSummary,
+  type ApiEnvironmentSummary,
   type ApiOpResult,
   type ApiResponse,
   type PostmanCollection,
+  type PostmanEnvironment,
+  type SaveEnvironmentOutcome,
 } from '@midnite/studio-shared';
 import { dialog, type BrowserWindow } from 'electron';
 
@@ -18,6 +21,12 @@ import {
   readCollection,
   saveCollection,
 } from '../api-client/collection-io';
+import {
+  deleteEnvironment,
+  listEnvironments,
+  readEnvironment,
+  saveEnvironment,
+} from '../api-client/environment-io';
 import { cancelRequest, sendApiRequest } from '../api-client/send';
 import { describeFsError } from '../fs-scope-write';
 import { resolveWorkdir } from '../repo-registry';
@@ -192,6 +201,42 @@ export function registerApiClientHandlers(getWindow: () => BrowserWindow | null)
       return apiFailure(messageOf(err));
     }
   });
+
+  // --- environments (Phase 70 Theme A) ----------------------------------------
+
+  handle(
+    CHANNELS.apiListEnvironments,
+    schemas.ApiListEnvironmentsRequest,
+    (req): Promise<ApiOpResult<ApiEnvironmentSummary[]>> =>
+      withRepoRoot(req.repoId, (root) => listEnvironments(root)),
+    (issue) => apiFailure(issue),
+  );
+
+  handle(
+    CHANNELS.apiReadEnvironment,
+    schemas.ApiReadEnvironmentRequest,
+    (req): Promise<ApiOpResult<PostmanEnvironment>> =>
+      withRepoRoot(req.repoId, (root) => readEnvironment(root, req.environmentId)),
+    (issue) => apiFailure(issue),
+  );
+
+  handle(
+    CHANNELS.apiSaveEnvironment,
+    schemas.ApiSaveEnvironmentRequest,
+    (req): Promise<ApiOpResult<SaveEnvironmentOutcome>> =>
+      withRepoRoot(req.repoId, (root) =>
+        saveEnvironment(root, req.environmentId, req.environment, req.confirmed),
+      ),
+    (issue) => apiFailure(issue),
+  );
+
+  handle(
+    CHANNELS.apiDeleteEnvironment,
+    schemas.ApiDeleteEnvironmentRequest,
+    (req): Promise<ApiOpResult> =>
+      withRepoRoot(req.repoId, (root) => deleteEnvironment(root, req.environmentId)),
+    (issue) => apiFailure(issue),
+  );
 }
 
 /** The Export… context-menu action's save dialog. Private: `apiExportCollection`

@@ -2,6 +2,34 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 70 Theme A — Environments and the secret overlay
+
+[PR #235](https://github.com/bilo-io/midnite-studio/pull/235). Opens Phase 70 at 10/50 (20%) — the
+phase was blocked on Phase 66 Themes A, C, E and G, all of which landed today. Themes B, C and D all
+read from this one.
+
+**The secret overlay.** A `type: 'secret'` row never has its value written into the committed base
+file: the value goes to a sibling, gitignored `<slug>.local.json`, while the base file keeps the row
+with `type: 'secret'` intact and an **empty value**. That empty row is the whole point — a teammate
+who pulls the repo sees *which* secrets a collection needs and gets a field to fill in, rather than
+discovering a missing key through an unresolved-variable warning at send time.
+
+**The `.gitignore` goes in the user's repo.** `.midnite/api/.gitignore` is written into the *open*
+repository, not this one — Phase 66's root entry protects exactly one repository's secrets, and it
+is ours. `isGitignoreProtected` is the read-only half `saveEnvironment` checks before writing.
+
+**Two-tier `{{var}}`, still one pass.** `mergeVariableTiers(environment, collection)` merges the two
+source maps *before* the single interpolation pass that already existed, so environment shadows
+collection and anything unresolved is left literal with a named warning. Merging first cannot
+reintroduce recursion — a resolved environment value containing `{{b}}` is exactly as literal as a
+resolved collection value containing one — which is why there is still only one interpolator.
+
+**The blast-radius confirm** returns `{status:'needs-confirm', secretCount}` instead of writing; the
+renderer's `ConfirmDialog` re-sends with `confirmed: true`, once per repo.
+
+Every write goes through `fs-scope-write` exactly as `collection-io.ts` does; a symlinked
+`environments/` directory is refused and writes nothing, with a test for that specific case.
+
 ## 2026-09-07 — Phase 66 Theme D — The request builder
 
 [PR #234](https://github.com/bilo-io/midnite-studio/pull/234). Moves Phase 66 50/73 → 60/73 (68% →

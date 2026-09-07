@@ -9,6 +9,7 @@ import {
   type ApiRequestDraft,
   type ApiResponse,
   type BodyMode,
+  type PostmanEnvironmentValue,
   type PostmanVariable,
 } from '@midnite/studio-shared';
 import type { z } from 'zod';
@@ -16,7 +17,8 @@ import type { z } from 'zod';
 import { confineTree } from '../fs-scope-write';
 import { resolveWorkdir } from '../repo-registry';
 import { readCapped } from '../workflow/executors/http';
-import { interpolate } from './interpolate';
+import { readEnvironment } from './environment-io';
+import { interpolateTiered } from './interpolate';
 
 /**
  * Phase 66 Theme E — the main-process send engine.
@@ -27,7 +29,11 @@ import { interpolate } from './interpolate';
  *
  * - `{{var}}` interpolation runs here, immediately before the request is
  *   built (Decision 7) — an unresolved token is left literally in place and
- *   named in `warnings[]` rather than substituted with `''`.
+ *   named in `warnings[]` rather than substituted with `''`. Phase 70 Theme A
+ *   adds the environment tier at this exact call site (`interpolateTiered`),
+ *   which is why interpolation was put in main from day one: the environment
+ *   is loaded from disk, right here, and a secret value never crosses into
+ *   renderer memory to get here.
  * - Cancellation is IPC-driven, not polled: `cancelRequest` calls
  *   `controller.abort()` directly from a module-level map, no 100 ms poll
  *   (Decision 6 / the phase doc's Theme E notes — `http.ts`'s poll exists
@@ -83,6 +89,26 @@ function collectVariables(variables: readonly PostmanVariable[]): Record<string,
   for (const variable of variables) {
     if (variable.value === undefined) continue;
     out[variable.key] = typeof variable.value === 'string' ? variable.value : String(variable.value);
+  }
+  return out;
+}
+
+/**
+ * An environment's `values[]` reduced to the plain string map
+ * `interpolateTiered` wants for its `environment` tier (Phase 70 Theme A).
+ * A row with `enabled: false` is excluded outright — never merely resolved
+ * to `''` — so it neither shadows the collection tier nor answers with an
+ * empty string; a disabled row behaves exactly as if it were not there.
+ * `type` ('default' vs 'secret') makes no difference here: by the time this
+ * runs, `readEnvironment` has already merged the secret overlay back in, so
+ * every row's `value` is simply a value.
+ */
+function collectEnvironmentVariables(values: readonly PostmanEnvironmentValue[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const row of values) {
+    if (row.enabled === false) continue;
+    if (row.value === undefined) continue;
+    out[row.key] = row.value;
   }
   return out;
 }
@@ -185,12 +211,14 @@ async function buildBody(
 
 /**
  * Send one API request, resolving `{{var}}` against `req.collectionVariables`
- * immediately before building it. Settles with the full `ApiResponse` for any
- * completed HTTP exchange — a 404 included — and throws for anything that
- * never got that far: an unresolvable URL, a refused binary path, a timeout,
- * an abort, or a transport-level failure. The caller (the IPC handler) is
- * expected to wrap this in its own try/catch and convert a throw into
- * `{ok:false, kind:'error', message}`.
+ * and — when `req.environmentId` names one — the merged environment loaded
+ * fresh from disk, immediately before building the request (Phase 70 Theme
+ * A's two-tier resolution: environment shadows collection). Settles with the
+ * full `ApiResponse` for any completed HTTP exchange — a 404 included — and
+ * throws for anything that never got that far: an unresolvable URL, a
+ * refused binary path, a timeout, an abort, or a transport-level failure.
+ * The caller (the IPC handler) is expected to wrap this in its own try/catch
+ * and convert a throw into `{ok:false, kind:'error', message}`.
  *
  * `signal` is an externally-supplied `AbortSignal` this send also honours
  * (e.g. the caller tearing down for an unrelated reason); `cancelRequest`
@@ -199,9 +227,32 @@ async function buildBody(
  */
 export async function sendApiRequest(req: ApiSendRequest, signal: AbortSignal): Promise<ApiResponse> {
   const warnings: string[] = [];
-  const variables = collectVariables(req.collectionVariables);
+
+  // A secret value is read from disk here, in main, interpolated into the
+  // outgoing request, and never stored anywhere else — it is never accepted
+  // as a variable *value* from the renderer (`ApiSendRequestRequest` carries
+  // only the id), and it never lives in this function's return value.
+  let environmentVariables: Record<string, string> = {};
+  if (req.environmentId !== null) {
+    const repoRoot = await resolveWorkdir(req.repoId);
+    if (!repoRoot) throw new Error('That repository is no longer open.');
+    const environment = await readEnvironment(repoRoot, req.environmentId);
+    if (environment.ok) {
+      environmentVariables = collectEnvironmentVariables(environment.value.values);
+    } else {
+      // The environment named by a stale tab (deleted since it was picked)
+      // is not a transport failure — the send still runs, against the
+      // collection tier alone, with a warning naming what happened.
+      warnings.push(`Could not load the selected environment: ${environment.message}`);
+    }
+  }
+
+  const collectionVariables = collectVariables(req.collectionVariables);
   const interp = (input: string): string => {
-    const result = interpolate(input, variables);
+    const result = interpolateTiered(input, {
+      environment: environmentVariables,
+      collection: collectionVariables,
+    });
     for (const warning of result.warnings) {
       if (!warnings.includes(warning)) warnings.push(warning);
     }
