@@ -8,14 +8,15 @@ import { useFocusTrap } from '../../components/use-focus-trap';
 import { motionMs } from '../../components/use-reveal';
 import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
-import { useBrowserStore, type BrowserViewportPreset } from '../../store/browser-store';
+import { originOf, useBrowserStore, type BrowserViewportPreset } from '../../store/browser-store';
 import { BROWSER_LAYOUT_OPTIONS } from './browser-layouts';
+import { BrowserErrorPage } from './error-page';
 import { BrowserLayoutIllustration } from './layout-illustration';
 import { BrowserTabStrip } from './tab-strip';
 import { NewTabPage } from './new-tab-page';
 import { useBrowserBounds } from './use-browser-bounds';
 import { useBrowserTabsEffects } from './use-browser-tabs';
-import { resolveInput } from './resolve-input';
+import { resolveInput, trimUrlForDisplay } from './resolve-input';
 import { FindBar } from './find-bar';
 
 /**
@@ -65,8 +66,10 @@ export function BrowserPane({
   const tabs = useBrowserStore((s) => s.tabs);
   const activeTabId = useBrowserStore((s) => s.activeTabId);
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+  const zoomByOrigin = useBrowserStore((s) => s.zoomByOrigin);
+  const findOpen = useBrowserStore((s) => s.findOpen);
 
-  const [draft, setDraft] = useState(activeTab?.url ?? '');
+  const [draft, setDraft] = useState(activeTab ? trimUrlForDisplay(activeTab.url) : '');
   const [editing, setEditing] = useState(false);
 
   /*
@@ -77,8 +80,13 @@ export function BrowserPane({
     column's current (narrower) edge. `nativeVisible` is what actually
     reaches the engine; `shown` on its own only controls this component's
     own DOM.
+
+    A `navError` (Theme G) hides it too, the same way `crashed`/`newtab`
+    already do — `error-page.tsx` renders in its place, and Chromium's own
+    unstyled error page must never show through.
   */
-  const nativeVisible = shown && settled && activeTab?.kind === 'page';
+  const hasNavError = activeTab?.kind === 'page' && Boolean(activeTab.navError);
+  const nativeVisible = shown && settled && activeTab?.kind === 'page' && !hasNavError;
   const { ref: bodyRef, sync: syncBrowserView } = useBrowserBounds(activeTabId, nativeVisible);
   useBrowserTabsEffects(shown, settled, syncBrowserView);
 
@@ -92,9 +100,21 @@ export function BrowserPane({
     if (shown) useBrowserStore.getState().ensureTab();
   }, [shown, tabs.length]);
 
+  // Blurred (or not editing at all): the trimmed `host + pathname` display
+  // form. Focused: the full raw URL — see the `onFocus` handler below,
+  // which sets both `editing` and the full-URL draft together so this
+  // effect (keyed on `editing`) does not immediately overwrite it back to
+  // the trimmed form on the very render that opens editing.
   useEffect(() => {
-    if (!editing) setDraft(activeTab?.url ?? '');
+    if (!editing) setDraft(activeTab?.url ? trimUrlForDisplay(activeTab.url) : '');
   }, [activeTab?.url, activeTab?.id, editing]);
+
+  // Focus selects the full URL — runs after the DOM has the full-URL value
+  // `onFocus` just set, so `.select()` selects the real thing rather than
+  // whatever the trimmed display still held mid-render.
+  useEffect(() => {
+    if (editing) addressRef.current?.select();
+  }, [editing]);
 
   // A brand new tab focuses the address bar automatically — the whole
   // surface of a blank tab is "type something here", alongside the fuller
@@ -143,7 +163,6 @@ export function BrowserPane({
     keyboard stays in the browser either way.
   */
 
-  const [findOpen, setFindOpen] = useState(false);
   /*
     Per tab and persisted (Phase 71 Theme C), where this was component-local
     `useState` and reset every time the pane closed. A tab restored from a
@@ -152,6 +171,30 @@ export function BrowserPane({
   const viewportPreset = activeTab?.viewportPreset ?? 'full';
   const browserLayout = useUiStore((s) => s.browserLayout);
   const fullScreen = browserLayout === 'full';
+
+  /*
+    An explicit "Not secure" chip for `http:`, nothing at all for `https:`
+    (Theme G, resolved deliberately — see the phase doc's `## Decisions`).
+    No padlock for the secure case: one that is always there teaches
+    nothing, and the one omission that would actively mislead is rendering
+    plaintext http identically to https.
+  */
+  const activeScheme =
+    activeTab?.kind === 'page' && activeTab.url
+      ? (() => {
+          try {
+            return new URL(activeTab.url).protocol;
+          } catch {
+            return null;
+          }
+        })()
+      : null;
+  const notSecure = activeScheme === 'http:';
+
+  // The tab's own zoom (Theme G) — rendered only when it is not 1, so a
+  // permanently-visible "100%" is not noise on every tab, every time.
+  const activeOrigin = activeTab?.kind === 'page' ? originOf(activeTab.url) : null;
+  const zoomFactor = activeOrigin ? (zoomByOrigin[activeOrigin] ?? 1) : 1;
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -217,26 +260,67 @@ export function BrowserPane({
           size="sm"
           onClick={() => activeTab && bridge()?.browser.forward({ tabId: activeTab.id })}
         />
-        <IconButton
-          icon={GoSync}
-          label="Reload"
-          disabled={!activeTab || activeTab.kind !== 'page'}
-          size="sm"
-          onClick={() => activeTab && bridge()?.browser.reload({ tabId: activeTab.id })}
-        />
-        <form onSubmit={onSubmit} className="min-w-0 flex-1">
+        {activeTab?.loading ? (
+          <IconButton
+            icon={GoX}
+            label="Stop loading"
+            size="sm"
+            onClick={() => activeTab && bridge()?.browser.stop({ tabId: activeTab.id })}
+          />
+        ) : (
+          <IconButton
+            icon={GoSync}
+            label="Reload"
+            disabled={!activeTab || activeTab.kind !== 'page'}
+            size="sm"
+            onClick={() => activeTab && bridge()?.browser.reload({ tabId: activeTab.id })}
+          />
+        )}
+        <form onSubmit={onSubmit} className="relative min-w-0 flex-1">
+          {notSecure ? (
+            <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 rounded bg-[hsl(var(--browser-insecure)/0.15)] px-1 py-0.5 text-[10px] font-medium leading-none text-[hsl(var(--browser-insecure))]">
+              Not secure
+            </span>
+          ) : null}
           <input
             ref={addressRef}
             type="text"
             value={draft}
-            onFocus={() => setEditing(true)}
+            onFocus={() => {
+              setEditing(true);
+              setDraft(activeTab?.url ?? '');
+            }}
             onBlur={() => setEditing(false)}
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              // Belongs to this field, not to the pane: stop it here before
+              // `use-dismiss`'s window listener sees it and closes the
+              // pane out from under an aborted edit.
+              event.stopPropagation();
+              setEditing(false);
+              addressRef.current?.blur();
+            }}
             placeholder="Search or enter address"
             aria-label="Address"
-            className="w-full rounded border border-border bg-card px-2 py-1 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className={`w-full rounded border border-border bg-card py-1 pr-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring ${
+              notSecure ? 'pl-[4.75rem]' : 'pl-2'
+            }`}
           />
+          {editing && draft.trim().length > 0 ? (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute right-2 top-1/2 max-w-[45%] -translate-y-1/2 truncate text-[10px] text-muted-foreground/70"
+            >
+              {resolveInput(draft)}
+            </span>
+          ) : null}
         </form>
+        {zoomFactor !== 1 ? (
+          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground" title="Browser zoom">
+            {Math.round(zoomFactor * 100)}%
+          </span>
+        ) : null}
         <select
           aria-label="Responsive viewport preset"
           value={viewportPreset}
@@ -258,7 +342,7 @@ export function BrowserPane({
           type="button"
           title="Find in page (Mod+F)"
           disabled={!activeTab || activeTab.kind !== 'page'}
-          onClick={() => setFindOpen((v) => !v)}
+          onClick={() => useBrowserStore.getState().toggleFind()}
           className="rounded px-2 py-1 text-xs border border-border bg-card text-muted-foreground hover:text-foreground disabled:opacity-50"
         >
           Find
@@ -309,6 +393,19 @@ export function BrowserPane({
       </div>
 
       {/*
+        An indeterminate 2px bar under the chrome row while the active tab is
+        loading (Theme G) — `h-0.5` on an empty div rather than an actual
+        progress element, since there is no real percentage to report.
+        `browser-loading-bar` is a no-op under reduced motion by way of the
+        shell's own blanket animation reset — see its comment in styles.css.
+      */}
+      {activeTab?.loading ? (
+        <div className="h-0.5 shrink-0 bg-border">
+          <div className="browser-loading-bar h-full w-full bg-primary" />
+        </div>
+      ) : null}
+
+      {/*
         The emulation limit, written where a user sees it rather than only in
         a comment (Phase 71 Theme C). The preset changes WIDTH ONLY:
         `devicePixelRatio` and the user-agent string are untouched, so a page
@@ -357,7 +454,10 @@ export function BrowserPane({
             </button>
           </div>
         ) : null}
-        {findOpen && <FindBar onClose={() => setFindOpen(false)} />}
+        {activeTab?.kind === 'page' && !activeTab.crashed && activeTab.navError ? (
+          <BrowserErrorPage tabId={activeTab.id} error={activeTab.navError} />
+        ) : null}
+        {findOpen && <FindBar onClose={() => useBrowserStore.getState().closeFind()} />}
       </div>
     </div>
   );

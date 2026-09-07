@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveInput } from './resolve-input';
+import { resolveInput, trimUrlForDisplay } from './resolve-input';
 
 describe('resolveInput', () => {
   it('resolves explicit scheme URLs', () => {
@@ -21,5 +21,23 @@ describe('resolveInput', () => {
     expect(resolveInput('react docs')).toBe('https://www.google.com/search?q=react%20docs');
     expect(resolveInput('react docs', 'duckduckgo')).toBe('https://duckduckgo.com/?q=react%20docs');
     expect(resolveInput('react docs', 'bing')).toBe('https://www.bing.com/search?q=react%20docs');
+  });
+});
+
+describe('trimUrlForDisplay', () => {
+  it('drops the scheme and a bare trailing slash', () => {
+    expect(trimUrlForDisplay('https://github.com/')).toBe('github.com');
+    expect(trimUrlForDisplay('http://example.com')).toBe('example.com');
+  });
+
+  it('keeps a real path, query and hash', () => {
+    expect(trimUrlForDisplay('https://github.com/o/r?tab=readme#top')).toBe(
+      'github.com/o/r?tab=readme#top',
+    );
+  });
+
+  it('falls back to the raw value for anything URL cannot parse', () => {
+    expect(trimUrlForDisplay('')).toBe('');
+    expect(trimUrlForDisplay('not a url')).toBe('not a url');
   });
 });
