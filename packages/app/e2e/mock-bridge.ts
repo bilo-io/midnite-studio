@@ -505,12 +505,22 @@ export type MockFixtures = {
    * exactly as the real bridge does.
    */
   /**
-   * Search fixtures (Phase 25).
+   * Search fixtures (Phase 25). One fixed answer per spec, exactly like
+   * `fsSearchResult` above — the mock does not run `git log`/`git grep`
+   * over anything, so a spec's query text is under its own control.
+   *
+   * `delayMs` (default 0) is what lets `search-view.spec.ts` build a real
+   * race between two in-flight searches: fired via `setTimeout`, so a spec
+   * that wants a second query to land while the first is still "running"
+   * gives it enough headroom to fire `start` before the first's `setTimeout`
+   * elapses.
    */
   search?: {
     commits?: unknown[];
     contentHits?: unknown[];
     error?: string;
+    truncated?: boolean;
+    delayMs?: number;
   };
   /**
    * Blame fixtures (Phase 25), keyed by `${relPath}` or `${rev}:${relPath}`.
@@ -978,40 +988,52 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       },
       search: {
         start: async (req: { mode: 'commits' | 'content'; requestId: string }) => {
-          setTimeout(() => {
+          const requestId = req.requestId;
+          const timeoutId = setTimeout(() => {
+            searchPendingTimeouts.delete(requestId);
             if (req.mode === 'commits') {
               const commits = data.search?.commits ?? [];
               for (const handler of searchBatchHandlers) {
-                handler({ requestId: req.requestId, mode: 'commits', commits });
+                handler({ requestId, mode: 'commits', commits });
               }
               for (const handler of searchDoneHandlers) {
                 handler({
-                  requestId: req.requestId,
+                  requestId,
                   mode: 'commits',
                   total: commits.length,
-                  truncated: false,
+                  truncated: data.search?.truncated ?? false,
                   ...(data.search?.error ? { error: data.search.error } : {}),
                 });
               }
             } else {
               const hits = data.search?.contentHits ?? [];
               for (const handler of searchBatchHandlers) {
-                handler({ requestId: req.requestId, mode: 'content', hits });
+                handler({ requestId, mode: 'content', hits });
               }
               for (const handler of searchDoneHandlers) {
                 handler({
-                  requestId: req.requestId,
+                  requestId,
                   mode: 'content',
                   total: hits.length,
-                  truncated: false,
+                  truncated: data.search?.truncated ?? false,
                   ...(data.search?.error ? { error: data.search.error } : {}),
                 });
               }
             }
-          }, 0);
+          }, data.search?.delayMs ?? 0);
+          searchPendingTimeouts.set(requestId, timeoutId);
           return { ok: true as const, value: { started: true as const } };
         },
-        cancel: async () => undefined,
+        cancel: async (req: { requestId?: string }) => {
+          if (req.requestId) {
+            searchCancels.push(req.requestId);
+            const pending = searchPendingTimeouts.get(req.requestId);
+            if (pending) {
+              clearTimeout(pending);
+              searchPendingTimeouts.delete(req.requestId);
+            }
+          }
+        },
         onBatch: (handler: (e: unknown) => void) => {
           searchBatchHandlers.push(handler);
           return () => searchBatchHandlers.splice(searchBatchHandlers.indexOf(handler), 1);
@@ -3099,6 +3121,16 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var searchBatchHandlers: Array<(e: unknown) => void> = [];
     // eslint-disable-next-line no-var
     var searchDoneHandlers: Array<(e: unknown) => void> = [];
+    // requestIds passed to `search.cancel`, in call order — read back via
+    // `__mstudioSearchCancels` so a spec can assert a second query cancelled
+    // the first (`e2e/search-view.spec.ts`).
+    // eslint-disable-next-line no-var
+    var searchCancels: string[] = [];
+    // `search.start`'s pending `setTimeout`s, keyed by requestId, so `cancel`
+    // can actually stop a still-running one from ever firing its batch/done
+    // handlers — not just record that it was asked to.
+    // eslint-disable-next-line no-var
+    var searchPendingTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
     // --- Database query stream (Phase 61 Theme J) ---------------------------
     // eslint-disable-next-line no-var
     var dbQueryBatchHandlers: Array<(e: { requestId: string; columns: string[]; rows: unknown[][] }) => void> = [];
@@ -3493,6 +3525,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     };
 
     (window as unknown as { __mstudioOps: unknown }).__mstudioOps = opCalls;
+    (window as unknown as { __mstudioSearchCancels: unknown }).__mstudioSearchCancels = searchCancels;
     (window as unknown as { __mstudioPty: unknown }).__mstudioPty = ptyCalls;
     /*
       A spec's way to make the fake shell say something arbitrary — an escape
