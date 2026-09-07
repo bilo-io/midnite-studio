@@ -1,8 +1,14 @@
-import type { ApiRequestDraft } from '@midnite/studio-shared';
+import type { ApiRequestDraft, PostmanEnvironmentValue, PostmanVariable } from '@midnite/studio-shared';
 import { toDraft } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { computedHeaders, computedParams, contentTypeForBodyMode } from './computed-fields';
+import {
+  computedHeaders,
+  computedParams,
+  contentTypeForBodyMode,
+  resolvedVariables,
+  resolveUrlPreview,
+} from './computed-fields';
 
 function draft(overrides: Partial<ApiRequestDraft> = {}): ApiRequestDraft {
   const base = toDraft({ name: 'req', request: { method: 'POST', url: 'https://api.test/users' } });
@@ -94,5 +100,59 @@ describe('computedParams', () => {
   it('bearer/basic/none contribute nothing to params', () => {
     expect(computedParams(draft({ auth: { type: 'none' } }))).toEqual([]);
     expect(computedParams(draft({ auth: { type: 'bearer', token: 't' } }))).toEqual([]);
+  });
+});
+
+describe('resolvedVariables', () => {
+  it('merges collection and environment tiers, environment shadowing collection', () => {
+    const collectionVars: PostmanVariable[] = [
+      { key: 'host', value: 'collection.example' },
+      { key: 'onlyCollection', value: 'c' },
+    ];
+    const envValues: PostmanEnvironmentValue[] = [
+      { key: 'host', value: 'env.example', type: 'default', enabled: true },
+      { key: 'onlyEnv', value: 'e', type: 'default', enabled: true },
+    ];
+    expect(resolvedVariables(envValues, collectionVars)).toEqual({
+      host: 'env.example',
+      onlyCollection: 'c',
+      onlyEnv: 'e',
+    });
+  });
+
+  it('excludes a disabled environment row outright, never as an empty string', () => {
+    const envValues: PostmanEnvironmentValue[] = [
+      { key: 'host', value: 'env.example', type: 'default', enabled: false },
+    ];
+    expect(resolvedVariables(envValues, [])).toEqual({});
+  });
+
+  it('a variable with no value at all resolves nothing', () => {
+    const collectionVars: PostmanVariable[] = [{ key: 'host' }];
+    expect(resolvedVariables([], collectionVars)).toEqual({});
+  });
+});
+
+describe('resolveUrlPreview', () => {
+  it('substitutes every resolvable token', () => {
+    expect(resolveUrlPreview('{{host}}/users/{{id}}', { host: 'api.test', id: '42' })).toBe(
+      'api.test/users/42',
+    );
+  });
+
+  it('leaves an unresolved token literally in place, never blanked', () => {
+    expect(resolveUrlPreview('{{host}}/{{missing}}', { host: 'api.test' })).toBe(
+      'api.test/{{missing}}',
+    );
+  });
+
+  it('does not re-scan a resolved value that itself contains a token', () => {
+    expect(resolveUrlPreview('{{a}}', { a: '{{b}}', b: 'leaked' })).toBe('{{b}}');
+  });
+
+  it('a URL with no token round-trips unchanged', () => {
+    expect(resolveUrlPreview('https://api.test/users', { host: 'unused' })).toBe(
+      'https://api.test/users',
+    );
   });
 });

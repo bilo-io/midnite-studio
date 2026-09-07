@@ -330,14 +330,16 @@ Closing the checklist below against what A–D actually shipped, not re-deriving
 - [x] e2e: `link-routing.spec.ts` — with **Midnite browser** selected, the Reviews "Open on GitHub"
       control opens a tab and `shell.openExternal` is called zero times; with **System browser**
       selected, the reverse; `Shift`-click always reaches `shell.openExternal`.
-- [ ] e2e: a PR opened from the Reviews view of repo A and one from repo B land in two different
-      derived groups in the tab strip. **Cannot pass against the current mock bridge** — it hardcodes
-      a single `repo-1` (`repos.list` always answers one repo, and `reviews-view.tsx` scopes its pull
-      list to the active repo), so there is no second repo to switch to. The grouping itself is proven
-      at the store layer (`browser-store.test.ts`'s `effectiveGroupId` — *"lists one entry per distinct
-      originRepoId"*) and every call site's `originRepoId` wiring was reviewed in Theme B; only the
-      assembled-app proof is missing, and building it means teaching the mock bridge a multi-repo
-      fixture — its own slice. See `outstanding.md`.
+- [x] e2e: a PR opened from the Reviews view of repo A and one from repo B land in two different
+      derived groups in the tab strip. **Built** (`link-routing.spec.ts`'s own new case): `mock-bridge.ts`
+      gained `extraRepos` (a second `repos.list` entry, each with its own main worktree) and
+      `forge.pullsByRepo` (per-`repoId` `gh pr list` answers), so `repos.list` now answers more than
+      the fixed `repo-1`. The row click itself is what switches the active repo — `ForgeRow`'s `onOpen`
+      calls `selectRepo(repoId)` before `selectPull`/`setActiveView('reviews')` — so the spec opens
+      each repo's own "Reviews › All Pull Requests" fold in the sidebar tree directly, no separate
+      repo-switch step needed. Discovered along the way: the default full-screen browser layout
+      overlays the whole content row, sidebar included, so the spec closes the pane between the two
+      opens to reach the second repo's tree.
 - [ ] **Open, for a human:** work a real PR review for ten minutes with the preference on Midnite
       browser and confirm nothing unexpectedly escapes to the system browser — the failure mode of this
       phase is a call site the grep missed.

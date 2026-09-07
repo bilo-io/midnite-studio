@@ -26,6 +26,44 @@ Also corrected `_INDEX.md`'s Phase 33 narrative, which claimed Themes A and D do
 2026-08-30) contradicting their own phase-doc checklists (A entirely unchecked, D mostly
 unchecked) — pre-existing drift, fixed while editing the same section.
 
+## 2026-09-07 — Phase 70 Theme E + Phase 71 Theme E + Phase 24 Theme J — the two verification gaps that were missing features, and a stale screenshot pass
+
+[PR #261](https://github.com/bilo-io/midnite-studio/pull/261). Phase 70 47/50 → 48/50 (94% → 96%);
+Phase 71 38/41 → 39/41 (93% → 95%); Phase 24 53/70 → 55/70 (76% → 79%). Each theme's last
+automatable gap needed a small piece of missing infrastructure or a genuinely missing feature, not
+more test-writing against what already existed.
+
+**Phase 71 Theme E** — the cross-repo derived-group e2e case couldn't run because
+`e2e/mock-bridge.ts` hardcoded a single `repo-1`. `mock-bridge.ts` gained `extraRepos` (a second
+and third `repos.list` entry, each its own worktree) and `forge.pullsByRepo` (per-`repoId` pull
+lists). `link-routing.spec.ts`'s new case opens a PR from each of two repos' own "Reviews › All
+Pull Requests" sidebar fold and asserts two distinct tab-group chips — `ForgeRow`'s `onOpen` calls
+`selectRepo(repoId)` before `selectPull`, so no separate repo-switch step is needed. The default
+full-screen browser layout overlays the sidebar, so the spec closes the pane between the two opens.
+
+**Phase 70 Theme E** — the resolved-URL preview case couldn't pass because the feature didn't
+exist: nothing in `features/api-client/` ever merged environment/collection variables into a
+displayed URL. `computed-fields.ts` gained `resolvedVariables` (environment tier over collection
+tier, matching `send.ts`'s own precedence) and `resolveUrlPreview` (a renderer-side duplicate of
+`interpolate.ts`'s one-pass substitution — `packages/app` cannot import `packages/desktop`'s main
+module graph, the same reason `contentTypeForBodyMode` is already duplicated here).
+`request-builder.tsx` renders the resolved preview under the URL bar whenever it differs from the
+raw draft, reading state the environment switcher already loads — no new IPC channel. Covered by
+`computed-fields.test.ts` (19 Vitest cases) and a new `api-client-environments.spec.ts` case.
+
+**Phase 24 Theme J** — three `phase-24-d/` reference screenshots were captured against CodeMirror
+before Phase 64 replaced it with Monaco. They were already wired against Monaco in
+`files-editor.spec.ts`'s own `MSTUDIO_SHOTS`-gated calls (the CodeMirror→Monaco switch happened in
+place, no new `-shots.spec.ts` file), just never re-run with the flag since Phase 64 landed;
+`MSTUDIO_SHOTS=1 pnpm exec playwright test e2e/files-editor.spec.ts --workers=1` regenerated all
+three. `phase-24-c/-e/-f` confirmed still accurate via their own `MSTUDIO_SHOTS` runs — `-f` had
+already picked up PR #162's icon-button toolbar change, and `-c/-e` picked up that same toolbar
+incidentally on this re-run.
+
+Each theme has two human-only passes left open by design, matching house convention for a
+verification theme. `outstanding.md`'s two entries documenting these gaps as future slices were
+removed now that both are built.
+
 ## 2026-09-07 — Phase 25 Theme C — the footer search readout can navigate and stop
 
 [PR #257](https://github.com/bilo-io/midnite-studio/pull/257). Moves Phase 25 39/101 → 41/101 (39%
