@@ -2,6 +2,68 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 32 Themes E, F, G — the browser's occlusion, new-tab and chrome residue
+
+[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD). Moves Phase 32 45/92 → 88/92 (49% →
+96%); the remaining 4 items are "Open, for a human" manual-verification passes the doc itself
+flags as untestable. Resumes and finishes an abandoned worktree (`feature/p32-next`, one prior WIP
+commit moving browser recents/tiles/wallpaper into `browser-store`) — the 2026-09-05 refinement had
+already corrected fifteen stale citations and restated E/F/G as the residue they really were after
+Themes A–D and the audit; this PR builds that residue out.
+
+**Theme E** (occlusion, bounds, the view that outlives its tab): closing a tab now destroys its
+`WebContentsView` (`useBrowserTabsEffects` diffs the store's live tab ids against a hoisted
+create-set); `setBrowserBounds` scales the incoming CSS-pixel rect by the host window's own
+`getZoomFactor()` before `view.setBounds`; `browserSetBounds`/`browserSetVisible` drop a push whose
+sender is not the tab's current owning window; the last bounds per tab are re-applied on
+`enter-full-screen`/`leave-full-screen`/`display-metrics-changed`; `use-dismiss.ts` gains an
+`occludes` option (defaulting to `blocking`) so `tooltip.tsx`/`toast-host.tsx` occlude a loaded page
+while still losing Escape to a dialog; six overlays (`activity-tooltip.tsx`, `graph-row.tsx`'s
+ref-overflow flyout, `ref-badge.tsx`'s sync strip, `lock-screen.tsx`, plus two — `project-actions.tsx`,
+`tab-strip.tsx`'s group chip — that turned out to already self-register through `SetupDialog`/
+`ContextMenu`) now register as occluders; `onboarding-modal.tsx`/`passcode-pad.tsx`'s hand-rolled
+`z-50`/`z-[110]` move onto `z-dialog`; `boundsFromRect` extracted as a pure, unit-tested function
+that skips a zero-size measurement rather than sending it.
+
+**Theme F** (new-tab page): `resolveInput` replaces the page's own divergent URL-vs-search
+heuristic; a repo-derived second row (project/pulls/actions, `forgePullsUrl`/`forgeActionsUrl`
+added to `shared/src/domain/remote.ts` beside the existing `forgeIssueUrl`) opens each tile with
+`originRepoId` set so Theme D's derived group picks it up; the shortcut-tile and repo-row grids
+move off a hard-coded 3-per-row chunk onto `flex-wrap` — three `w-24` tiles were wider than the
+pane's 320px side-by-side minimum once padding is subtracted, a horizontal scrollbar waiting to
+happen. Recents/editable tiles/wallpaper-out-of-raw-`localStorage` had already landed in the
+resumed WIP commit; the reduced-motion requirement turned out to already be covered by
+`@bilo-io/shell`'s blanket `html[data-motion='reduced']` transition reset.
+
+**Theme G** (browsing chrome): the whole zoom contract, built from nothing — `browserZoom` IPC
+channel, `BrowserZoomRequest` schema, `browser.zoomIn`/`zoomOut`/`zoomReset` (Mod+=/Mod+-/Mod+0) on
+the active tab, an absolute factor persisted per ORIGIN in `browser-store`'s new `zoomByOrigin`.
+Those three chords collide with the host window's own zoom menu roles, so `menu.ts` strips their
+native accelerator and a parallel `app.zoomIn`/`zoomOut`/`zoomReset` (same chords, a new
+`windowZoom` IPC channel since the renderer can't call `webContents.setZoomLevel` itself) is what
+they resolve to instead while the browser isn't the one that owns the keystroke —
+`use-keybindings.ts`'s existing `browser.*`-prefix preference routes between the two for free. A
+`failed` navigation renders `error-page.tsx` (a DOM surface, never Chromium's own) with a Retry
+button, hiding the native view for its duration; an indeterminate loading bar plus a Stop button
+that swaps in for Reload; full address-bar behaviour (focus selects the full URL, blur shows a
+trimmed `host + pathname`, Escape restores and blurs without closing the pane, typing previews the
+resolved destination); a "Not secure" chip for `http:` (a new `--browser-insecure` token); the find
+bar renders the `found-in-page` match count as `n / m`; `browser.find` (Mod+f, added to both
+`YIELD_ROOTS` entries); `browser.devtools` (in `PALETTE_SAFE`) and `browser.clearData`
+(deliberately not) reach the palette.
+
+Full `moon run :typecheck :lint :test` green across every package. New/updated coverage across
+`browser-service.test.ts`, a new `browser-handlers.test.ts`, `use-browser-tabs.test.ts`,
+`use-browser-bounds.test.tsx`, `use-dismiss.test.ts`, `occluder-coverage.test.tsx`,
+`ref-badge.test.tsx`, `browser-store.test.ts`, `resolve-input.test.ts`, `new-tab-page.test.tsx`,
+`browser-pane.test.tsx`, a new `find-bar.test.tsx`, `use-keybindings.test.ts`,
+`palette-safety.test.ts`, `overlay-dismissal.test.tsx` (rewritten — its "passive overlays do not
+occlude" tests encoded the old, buggy behaviour), plus `remote.test.ts` for the two new forge URL
+helpers. `e2e/browser-pane.spec.ts` gains a zoom case and a stop-button case, and three pre-existing
+specs were fixed for the address bar's new two-step Escape semantics (the field's own Escape now
+restores/blurs before a second Escape closes the pane). A new, `MSTUDIO_SHOTS`-gated
+`new-tab-page-shots.spec.ts` covers both themes and the 320px side-by-side width; density was
+deliberately left out as a screenshot axis (see the PR body for why).
 ## 2026-09-07 — Phase 46 Theme H — the verification residue, as work
 
 [PR #264](https://github.com/bilo-io/midnite-studio/pull/264). Moves Phase 46 37/55 → 40/55 (67%
