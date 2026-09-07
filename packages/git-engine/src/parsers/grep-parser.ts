@@ -9,6 +9,9 @@ export type GrepMatch = {
   text: string;
 };
 
+/** Re-derives whether a parsed line is a genuine hit — see `parseGrep`'s doc comment. */
+export type GrepTextMatcher = (text: string) => boolean;
+
 /**
  * Parse `git grep -z -n -I --no-color` output.
  *
@@ -18,8 +21,24 @@ export type GrepMatch = {
  * `-z` needs to protect against here (unlike `git log`, where every field,
  * including the last, is NUL-terminated). So this reads line by line and
  * splits each on its two NULs, rather than reusing `chunkNulRecords`.
+ *
+ * `-z` gives a matched line (`path:line:text`) and a `-C` context line
+ * (`path-line-text`) the exact same bytes: `path\0line\0text`. Confirmed
+ * against real git (2.39.5) — it replaces *both* separator occurrences in a
+ * record with NUL, not only the one right after the path, so the `:` vs `-`
+ * that would normally mark a line as matched or context never reaches this
+ * parser. There is no signal left in `payload` to recover it from.
+ *
+ * So `kind` is re-derived, not parsed: when the caller passes `isMatch`, each
+ * record's `text` is tested against it, same approximation
+ * `search-panel.tsx`'s `highlightedText` makes for the identical problem —
+ * cheap, case/whole-word-aware, and skipped (every line reports as `'match'`)
+ * for `regex` mode, where "the query" is not literal text to re-test against.
+ * Omitted, every record reports `kind: 'match'`, which is correct whenever
+ * context was never requested (`-C` omitted) in the first place — the only
+ * way `readGrep`/`streamGrep` call this today.
  */
-export function parseGrep(payload: string): GrepMatch[] {
+export function parseGrep(payload: string, isMatch?: GrepTextMatcher): GrepMatch[] {
   if (payload.length === 0) return [];
   const lines = payload.split('\n');
   // A trailing `\n` after the last match leaves one empty final element.
@@ -39,7 +58,8 @@ export function parseGrep(payload: string): GrepMatch[] {
       text = text.slice(0, -1);
     }
     if (!Number.isFinite(line)) continue;
-    matches.push({ path, line, kind: 'match', text });
+    const kind: GrepMatch['kind'] = isMatch === undefined || isMatch(text) ? 'match' : 'context';
+    matches.push({ path, line, kind, text });
   }
   return matches;
 }

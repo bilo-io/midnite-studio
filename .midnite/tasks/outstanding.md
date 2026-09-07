@@ -42,7 +42,7 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   `persisted-keys.ts`'s `KNOWN_ORPHANS` allow-list beside the five above, added there by Phase 63's
   PR #167 only so its own exhaustiveness test would not fail on a gap this phase never touched.
   Wants a home in `terminal-page.tsx`'s shape — an "Editor" settings page, or an accordion on
-  whichever page ends up owning the Monaco/CodeMirror surface.
+  whichever page ends up owning the Monaco surface.
 
 - **Interactive rebase** — via a `GIT_SEQUENCE_EDITOR` helper binary that writes the UI's todo
   list; `GIT_EDITOR` for reword. Impossible with libgit2/isomorphic-git; CLI-only trick.

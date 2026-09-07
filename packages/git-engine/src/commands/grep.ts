@@ -1,7 +1,7 @@
 import type { GrepHit } from '@midnite/studio-shared';
 
 import { execGit, spawnGit } from '../exec/git-exec';
-import { type GrepMatch, parseGrep } from '../parsers/grep-parser';
+import { type GrepMatch, type GrepTextMatcher, parseGrep } from '../parsers/grep-parser';
 
 export type GrepMode = 'fixed' | 'regex';
 
@@ -57,6 +57,41 @@ export function buildGrepArgs(options: GrepOptions): string[] {
   return args;
 }
 
+/**
+ * Builds `parseGrep`'s `isMatch` from the same options that built the git
+ * invocation — see `grep-parser.ts`'s doc comment for why it needs one at
+ * all. `undefined` for `regex` mode or an empty pattern: re-testing an
+ * extended-regex pattern against a JS `RegExp` risks a false negative on
+ * syntax the two dialects don't share, and `search-panel.tsx`'s
+ * `highlightedText` already sets the precedent of skipping this
+ * re-derivation there rather than risking it.
+ */
+function buildTextMatcher(options: GrepOptions): GrepTextMatcher | undefined {
+  const isRegex = options.regexp ?? (options.mode === 'regex');
+  if (isRegex) return undefined;
+
+  const pattern = options.pattern ?? options.query ?? '';
+  if (pattern.length === 0) return undefined;
+
+  const isCaseSensitive = options.caseSensitive ?? (options.ignoreCase !== undefined ? !options.ignoreCase : false);
+  const isWholeWord = options.wholeWord ?? options.wordMatch ?? false;
+  const needle = isCaseSensitive ? pattern : pattern.toLowerCase();
+
+  return (text: string): boolean => {
+    const haystack = isCaseSensitive ? text : text.toLowerCase();
+    if (!isWholeWord) return haystack.includes(needle);
+
+    const isWordChar = (char: string | undefined) => char !== undefined && /\w/.test(char);
+    let from = 0;
+    for (;;) {
+      const index = haystack.indexOf(needle, from);
+      if (index < 0) return false;
+      if (!isWordChar(haystack[index - 1]) && !isWordChar(haystack[index + needle.length])) return true;
+      from = index + 1;
+    }
+  };
+}
+
 export type GrepResult =
   | { ok: true; matches: GrepMatch[] }
   | { ok: false; message: string };
@@ -72,7 +107,7 @@ export type GrepResult =
  */
 export async function readGrep(repoPath: string, options: GrepOptions): Promise<GrepResult> {
   const res = await execGit(repoPath, buildGrepArgs(options));
-  if (res.exitCode === 0) return { ok: true, matches: parseGrep(res.stdout) };
+  if (res.exitCode === 0) return { ok: true, matches: parseGrep(res.stdout, buildTextMatcher(options)) };
   if (res.exitCode === 1) return { ok: true, matches: [] };
   return { ok: false, message: res.stderr.trim() || `git grep exited ${res.exitCode}` };
 }
@@ -92,6 +127,7 @@ export function streamGrep(
   batchSize = 500,
 ): GrepStream {
   const child = spawnGit(repoPath, buildGrepArgs(options));
+  const isMatch = buildTextMatcher(options);
 
   let remainder = '';
   let pending: GrepHit[] = [];
@@ -114,7 +150,7 @@ export function streamGrep(
 
     for (const line of lines) {
       if (!line) continue;
-      const parsed = parseGrep(line);
+      const parsed = parseGrep(line, isMatch);
       for (const m of parsed) {
         pending.push(m);
         total += 1;
@@ -131,7 +167,7 @@ export function streamGrep(
   const done = new Promise<{ total: number; error?: string }>((resolve) => {
     const finish = (code: number | null): void => {
       if (remainder.length > 0) {
-        const parsed = parseGrep(remainder);
+        const parsed = parseGrep(remainder, isMatch);
         for (const m of parsed) {
           pending.push(m);
           total += 1;

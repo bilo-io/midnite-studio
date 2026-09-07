@@ -29,6 +29,36 @@ Screenshots were regenerated through `slides-shots.spec.ts` and diffed, not redr
 `trigger-*` and `help-overlay-*` had drifted from unrelated title-bar and rail changes landed by
 later phases — verified as chrome drift, not regression. `mid-presentation-*` came back
 **byte-identical**, contrary to the doc's guess that Shiki would have moved it.
+## 2026-09-07 — Phase 24 Themes H + I — A parser that could never have been right
+
+[PR #249](https://github.com/bilo-io/midnite-studio/pull/249). Moves Phase 24 to 53/70 (76%).
+
+**Theme H was already done, and is recorded as such rather than re-done.** Phase 64 Theme G
+(PR #221) removed all seven `@codemirror/*` deps a day earlier, under a different phase. Confirmed
+independently: no hits in `packages/app/package.json`, zero in `pnpm-lock.yaml`, and the only
+remaining strings anywhere are prose comments. The bundle report this theme asked for — never
+recorded against it — is entry chunk **1453.8 KB**, total JS **35496.5 KB** across 448 chunks,
+against PR #221's own baseline of 1434.7 / 35405.7; the drift is a day of unrelated churn, not a
+CodeMirror regression. `query-editor.tsx`'s forward-looking comment ("Theme G *can* proceed to
+remove…") and `outstanding.md`'s "Monaco/CodeMirror surface" were corrected to past tense.
+
+**Theme I turned a missing assertion into a real defect.** Nothing asserted `kind: 'context'`
+despite a fixture named `grep-z-context` — and the reason was that `parseGrep` could never have
+produced one. Verified byte-for-byte against real git 2.39.5: `git grep -z -n -C<n>` NUL-terminates
+**both** separators in a record — after the path *and* between the line number and the text — for
+match and context lines alike, so every record arrives as `path\0line\0text` and the `:`-versus-`-`
+distinction git uses without `-z` is simply gone. `kind` was hardcoded to `'match'`.
+
+`parseGrep(payload, isMatch?)` now re-derives it from an optional text matcher, and
+`grep.ts`'s new `buildTextMatcher(options)` builds that matcher from the same query/mode/
+caseSensitive/wholeWord options that built the git argv — reusing the cheap, case- and
+whole-word-aware, regex-skipping approximation `search-panel.tsx`'s `highlightedText` already
+applies to the identical problem, rather than inventing a second one. **Production behaviour is
+unchanged today**, because `contextLines` is never requested above 0 anywhere yet; the parser simply
+stops being silently wrong the moment it is.
+
+`grep-parser.test.ts` reaches its five cases; the cap case the Verification line asks to *move* was
+**already** in `fs-search-handlers.test.ts`, so nothing moved.
 
 ## 2026-09-07 — Phase 70 Theme B — The `pm.*` sandbox, and a real escape closed
 
