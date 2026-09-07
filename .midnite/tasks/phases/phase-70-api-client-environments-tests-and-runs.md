@@ -316,29 +316,35 @@ B's results.
 
 ### E — Verification (M)
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean: nothing new in `git-engine`, no renderer `fetch`, no new package. The
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean: nothing new in `git-engine`, no renderer `fetch`, no new package. The
       Phase 66 grep assertion (`packages/app/src/features/api-client/` contains zero `fetch(`) still
       passes with this phase's files in it.
-- [ ] Vitest (A): the base file provably contains no secret value; overlay merge on read; the
+- [x] Vitest (A): the base file provably contains no secret value; overlay merge on read; the
       `.gitignore` written once; two-tier precedence and the disabled-row case.
-- [ ] Vitest (B): every pinned `pm.*` method; all five escape attempts unreachable; the timeout; the
+- [x] Vitest (B): every pinned `pm.*` method; all five escape attempts unreachable; the timeout; the
       throw-inside vs throw-outside split; `pm.environment.set` not touching disk.
-- [ ] Vitest (C): exact file-order sequencing; abort leaves `skipped`; a transport failure does not
+- [x] Vitest (C): exact file-order sequencing; abort leaves `skipped`; a transport failure does not
       stop the walk; a variable set by request 1's script is visible to request 2.
-- [ ] Vitest (D): the codegen quoting cases and the redaction of a secret-valued query parameter.
-- [ ] Playwright: create an environment with one plain and one secret row, save, and assert
+- [x] Vitest (D): the codegen quoting cases and the redaction of a secret-valued query parameter.
+- [x] Playwright: create an environment with one plain and one secret row, save, and assert
       (through a filesystem read in the spec, not the UI) that the committed file holds the plain
       value and not the secret one.
 - [ ] Playwright: switching environments changes a request's resolved-URL preview without
+  - **Cannot pass — the feature does not exist.** Theme E's verification found that no
+    resolved-URL preview was ever built: nothing in `features/api-client/` merges environment or
+    collection variables into a displayed URL, and the only `{{var}}` resolution in the app is
+    `send.ts`'s, in main, at send time. Theme A shipped the switcher and the editor but never wired
+    a preview into `request-builder.tsx`/`url-field.tsx`. Left unticked deliberately; see
+    `outstanding.md`.
       reopening the tab.
-- [ ] Playwright: a test script with one passing and one failing assertion renders both; a script
+- [x] Playwright: a test script with one passing and one failing assertion renders both; a script
       that throws renders as an error row and the app does not hit an error boundary.
-- [ ] Playwright: the consent bar appears for an untrusted collection, *Run once* runs the script,
+- [x] Playwright: the consent bar appears for an untrusted collection, *Run once* runs the script,
       and a reload shows the bar again (proving the marker was not written).
-- [ ] Playwright: running a four-request fixture collection shows the aggregate summary; **Stop**
+- [x] Playwright: running a four-request fixture collection shows the aggregate summary; **Stop**
       mid-run leaves the remainder marked skipped.
-- [ ] Screenshots, light and dark: the environment editor with a masked row, the Scripts tab, the
+- [x] Screenshots, light and dark: the environment editor with a masked row, the Scripts tab, the
       test-results panel with a mixed pass/fail, the runner summary, and the history section.
 - [ ] **Open, for a human:** take a collection with real pre-request and test scripts from an actual
       project and run it — the pinned `pm.*` subset's coverage is an empirical claim, and the only
