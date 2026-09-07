@@ -345,7 +345,7 @@ they did.
       along the way), weather's unset-location empty state and a fetch-failure case
       (`lock-screen-widgets.test.tsx`), and battery's absent state (pre-existing, PR #53). (PR #55)
 
-### H — The verification residue, as work (S)
+### H — The verification residue, as work (S) — ✅ DONE (PR #264, 2026-09-07)
 
 Themes A–G all landed, and everything still open in this phase sat under `## Verification` — which
 [`/midnite-exec`](../../../.claude/skills/midnite-exec/SKILL.md) never reads. That is the same shape

@@ -2,6 +2,39 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 46 Theme H — the verification residue, as work
+
+[PR #264](https://github.com/bilo-io/midnite-studio/pull/264). Moves Phase 46 37/55 → 40/55 (67%
+→ 73%). Resumed from an abandoned worktree — one commit already landed on the branch
+(`styles-motion-guards.ts`, the Theme F guard's checkers extracted into a fixture-testable
+module), plus uncommitted WIP (a modified `lock-screen-widgets.spec.ts` and a scratch,
+untracked `debug.spec.ts` comparing mouse-click vs. keyboard pill behavior). Deleted the scratch
+spec; kept and finished the other two of Refined x1's three machine-executable
+`## Verification` items.
+
+**The keyboard-reachability e2e case caught a real bug, not just coverage** (the phase doc had
+assumed there wasn't one): `LockScreen`'s "any key dismisses" handler is a `window` `keydown`
+listener outside the DOM subtree the pill's own `onClick`-only `stopPropagation()` covers, so
+pressing `Enter` on a focused pill raced the browser's own keydown→click default action against
+that generic dismiss — the lock screen could close before the pill's own destination navigation
+ran. Fixed with a matching `onKeyDown={(e) => e.stopPropagation()}` on the pill
+(`screensaver-stage.tsx`). The same test also needed its fixture corrected: `reviews` is one of
+`app.tsx`'s `FORGE_GATED_VIEWS`, and the default e2e fixture has no GitHub remote at all, so
+`useForgeGateAvailable` is `false` regardless of repo selection and the app's own redirect effect
+bounces `activeView` back to `'graph'` before `ReviewsView` renders anything — the doc's original
+"no repo selected, so the empty state shows" assumption was wrong (a repo is selected by default).
+Added a `remotes`/`forge` fixture matching `forge-issues.spec.ts`'s own shape and asserted
+`reviews-groups` mounts instead.
+
+The third new e2e case asserts the lock screen's own `screensaver-sheen` animation (applied by
+`.screensaver-title`, not a `.screensaver-sheen` class) actually stops under
+`data-motion="reduced"` — Themes E and G had proved the JS half and shot the pixels, but nothing
+asserted the CSS guard on this surface's one unique animation.
+
+Four more `## Verification` lines were already covered by tests that landed with Themes E–G
+(marked `(**unchanged**)` in the doc); the remaining four need a human keyboard/eye pass and stay
+open, out of scope for this PR.
+
 ## 2026-09-07 — Phase 33 Theme C — the deep-link consent gate
 
 [PR #262](https://github.com/bilo-io/midnite-studio/pull/262). Moves Phase 33 22/59 → 26/59 (37% →
