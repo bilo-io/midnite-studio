@@ -18,6 +18,7 @@ import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerConflictHandlers } from './ipc/conflict-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
 import { registerApiClientHandlers } from './ipc/api-client-handlers';
+import { disposeScriptRunner } from './api-client/script-runner-broker';
 import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
@@ -667,6 +668,10 @@ if (!app.requestSingleInstanceLock()) {
     // leak / an orphaned headless Chrome the user cannot see — Theme C's own
     // doc names this exact wiring as its one open item, owned by Theme H.
     stopAllVideoProcesses();
+    // The pm.* script runner's utilityProcess (Phase 70 Theme B) — same
+    // reasoning as the two calls below: nothing in it is worth flushing,
+    // only worth not leaving behind.
+    disposeScriptRunner();
     /*
       Fire-and-forget: `closeAllConnections()` inside makes the close immediate
       rather than waiting out a keep-alive socket, and the demo API holds no
