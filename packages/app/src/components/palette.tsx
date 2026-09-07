@@ -38,7 +38,22 @@ type FlatRow =
   | { kind: 'heading'; group: string }
   | { kind: 'item'; scored: ScoredPaletteItem; flatIndex: number };
 
-function buildFlatRows(scoredItems: ScoredPaletteItem[]): FlatRow[] {
+/**
+ * `flat`, when true, skips section headings entirely and returns the items in
+ * whatever order `scoredItems` already arrives in (score-sorted once a needle
+ * is typed). Grouping is for the *unfiltered* open — Theme A added
+ * `CommandGroup` to the registry specifically so commands could split into
+ * headings there — but once fuzzy scoring is ranking across every source,
+ * re-bucketing the already-ranked list by group would fight that ranking:
+ * a lower-scored item in an earlier-seen group would render above a
+ * higher-scored item from a group first seen later (Phase 23 Theme E,
+ * reopened).
+ */
+function buildFlatRows(scoredItems: ScoredPaletteItem[], flat: boolean): FlatRow[] {
+  if (flat) {
+    return scoredItems.map((scored, flatIndex) => ({ kind: 'item', scored, flatIndex }));
+  }
+
   const rows: FlatRow[] = [];
   const groups = new Map<string, ScoredPaletteItem[]>();
 
@@ -214,7 +229,10 @@ export function Palette() {
     return results;
   }, [sources, needle]);
 
-  const flatRows = useMemo(() => buildFlatRows(scoredResults), [scoredResults]);
+  const flatRows = useMemo(
+    () => buildFlatRows(scoredResults, Boolean(needle)),
+    [scoredResults, needle],
+  );
 
   const rowIndexForSelection = flatRows.findIndex(
     (row) => row.kind === 'item' && row.flatIndex === selectedIndex,

@@ -1,6 +1,7 @@
 import type {
   AgentDefinition,
   CommandDescriptor,
+  CommandGroup,
   CommandId,
   ForgeProject,
   Ref,
@@ -19,7 +20,7 @@ import { startAgent } from '../../features/terminal/start-agent';
 import { agentLabelFor, sessionLabel, useTerminalStore } from '../../features/terminal/terminal-store';
 import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';
 import { useUiStore, VIEW_IDS, SETTINGS_PAGES, type ViewId } from '../../store/ui-store';
-import { chordOf } from '../../store/palette-store';
+import { chordOf, groupCommands } from '../../store/palette-store';
 import { useFilesStore } from '../../features/files/files-store';
 import type { PaletteItem, PaletteSource } from './source';
 import type { IconComponent } from '../../components/icon-button';
@@ -84,6 +85,27 @@ const VIEW_KEYWORDS: Record<ViewId, string> = {
  */
 const HIDDEN_WHEN_DISABLED = new Set<CommandId>(['browser.openDevServer']);
 
+/**
+ * `CommandGroup` reaches here from `shared/src/keybindings.ts` specifically so
+ * the palette can group commands (Theme A) — display labels for the heading
+ * a group of commands renders under when the palette is open unfiltered.
+ * `buildFlatRows` (`palette.tsx`) groups on this string, not on `CommandGroup`
+ * itself, so the mapping lives at the one place that emits palette items for
+ * a command (Phase 23 Theme E, reopened).
+ */
+const COMMAND_GROUP_LABELS: Record<CommandGroup, string> = {
+  repository: 'Repository',
+  view: 'View',
+  sync: 'Sync',
+  terminal: 'Terminal',
+  status: 'Status',
+  graph: 'Graph',
+  operation: 'Operations',
+  palette: 'Palette',
+  files: 'Files',
+  window: 'Window',
+};
+
 export function createCommandSource(
   runtime: CommandRuntime,
   onSelect: () => void,
@@ -91,20 +113,24 @@ export function createCommandSource(
   return {
     key: 'commands',
     items: () => {
-      return COMMANDS.filter(
+      const safeCommands = COMMANDS.filter(
         (cmd) =>
           isPaletteSafe(cmd.id) &&
           !(HIDDEN_WHEN_DISABLED.has(cmd.id) && !runtime[cmd.id]?.enabled),
-      ).map(
-        (cmd: CommandDescriptor): PaletteItem => {
+      );
+
+      const items: PaletteItem[] = [];
+      for (const [group, commands] of groupCommands(safeCommands)) {
+        const displayGroup = COMMAND_GROUP_LABELS[group] ?? 'Commands';
+        for (const cmd of commands) {
           const entry = runtime[cmd.id];
           const chord = chordOf(cmd);
           const icon = COMMAND_ICONS[cmd.id];
 
-          return {
+          items.push({
             id: `command:${cmd.id}`,
             label: cmd.label,
-            group: 'Commands',
+            group: displayGroup,
             icon,
             chord,
             disabled: !entry?.enabled,
@@ -114,9 +140,10 @@ export function createCommandSource(
               onSelect();
               entry.run();
             },
-          };
-        },
-      );
+          });
+        }
+      }
+      return items;
     },
   };
 }
