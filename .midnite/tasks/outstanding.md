@@ -287,3 +287,20 @@ them a lettered theme:
 
 Closed as ✅ DONE in `_INDEX.md` rather than left `🔄 WIP` forever on items no agent can complete —
 matching the precedent set by Phases 22/23/24.
+
+## The cross-repo derived-group e2e case cannot run against the mock bridge (Phase 71 Theme E)
+
+Theme E's verification list asks for an e2e case proving *"a PR opened from the Reviews view of
+repo A and one from repo B land in two different derived groups in the tab strip."* It cannot be
+written against `e2e/mock-bridge.ts` as it stands: the mock hardcodes a single `repo-1`
+(`repos.list` always answers `[repo]`, and every worktree it fabricates carries that same
+`repoId`), and `reviews-view.tsx` scopes its pull list to `useActiveWorktree().repoId` — there is
+no second repo to switch to and no second `forge.pulls` list to open a PR from.
+
+The underlying behaviour is not in doubt: `browser-store.test.ts`'s `effectiveGroupId` describe
+block (`lists one entry per distinct originRepoId with no explicit choice`) proves the derived
+grouping directly, and Theme B's own review confirmed every Reviews/Actions/Repos call site passes
+its `repoId` as `originRepoId`. What is missing is only the assembled-app proof, and building it
+means teaching the mock bridge a `repos: RepoFixture[]` fixture and a repo switcher, which is
+shared e2e infrastructure well past this theme's slice. Left unticked in the phase doc rather than
+faked with a same-repo double standing in for two.

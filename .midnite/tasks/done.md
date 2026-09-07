@@ -2,6 +2,32 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 71 Theme E — Verification, and the e2e case the mock bridge can't run
+
+[PR #254](https://github.com/bilo-io/midnite-studio/pull/254). Moves Phase 71 to
+38/41 (93%). Themes A–D had already landed (PRs #200, #223, #226) with every one of their own
+checklist items ticked; this theme closes the doc's separate Verification list against what they
+actually shipped, restructured to match house convention as a lettered Theme E.
+
+**Nine Vitest suites and two Playwright specs were already satisfied by Themes A–D**, and are
+ticked with the file cited rather than re-tested: `open-in-midnite.test.ts`'s modifier matrix and
+`mailto:`/non-http(s) refusal, `ui-store.test.ts`'s v9→v10 migration, `dev-server.test.ts`'s script
+parsing and probe order, `dev-server-probe.test.ts`'s refused/hung/out-of-range cases,
+`preview-deploy.test.ts`'s fixtures, `browser-store.test.ts`'s per-tab viewport preset,
+`pr-detail.test.tsx`'s Open-preview RTL cases, and `link-routing.spec.ts`'s three e2e cases (the
+stored preference both ways, Shift-click always escaping).
+
+**One e2e item is left unticked on purpose.** The list asks for a case proving a PR opened from
+repo A and one from repo B land in two different derived groups in the tab strip.
+`e2e/mock-bridge.ts` cannot support it — it hardcodes a single `repo-1` (`repos.list` always
+answers one repo, and `reviews-view.tsx` scopes its pull list to the active repo), so there is no
+second repo to open a PR from. The grouping itself is proven at the store layer
+(`browser-store.test.ts`'s `effectiveGroupId` — *"lists one entry per distinct originRepoId"*), and
+Theme B's own review confirmed every call site passes its `repoId`. Recorded in `outstanding.md`
+rather than faked with a same-repo double standing in for two. Two human-only passes stay open by
+design. `packages/*/src` carries no production diff — this PR is docs plus the missing test
+verification, per house convention for a verification theme.
+
 ## 2026-09-07 — Phase 64 Themes D + G — Escape yields to Monaco, and a focus bug
 
 [PR #252](https://github.com/bilo-io/midnite-studio/pull/252). Moves Phase 64 57/72 → 66/72 (79% →
