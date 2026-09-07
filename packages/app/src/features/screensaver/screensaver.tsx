@@ -79,10 +79,11 @@ export function Screensaver({
       {pendingPill ? (
         // Nested inside `LockScreen`'s own children, not a separate portal:
         // `LockScreen`'s root is `fixed inset-0 z-[200]` and this dialog's
-        // own backdrop is `z-[110]` — a sibling portal at the same
+        // own backdrop is `z-dialog` (90, Phase 32 Theme E moved it off a
+        // hand-rolled `z-[110]`) — a sibling portal at the same
         // `document.body` level would sit UNDER that backdrop and swallow
         // every click. Nesting here puts it inside that same stacking
-        // context instead, where `z-[110]` only has to beat its own siblings.
+        // context instead, where `z-dialog` only has to beat its own siblings.
         <PasscodeUnlockDialog
           expected={passcode ?? ''}
           onUnlock={() => {

@@ -4,14 +4,14 @@ import { fixtures } from './fixtures';
 import { installMockBridge } from './mock-bridge';
 
 /**
- * Phase 32 Themes A–D: the browser pane gets an engine and real tabs.
+ * Phase 32 Themes A–D, G: the browser pane gets an engine, real tabs, and the
+ * chrome around them (Back/Forward/Reload/zoom/stop/find, wired to Theme A's
+ * channels through the mocked bridge below).
  *
  * No real page ever loads under Playwright's own Chromium (see
  * `mock-bridge.ts`'s `browser` mock) — these specs exercise the tab model,
  * the chrome shell and the pane's container behaviour, which is everything
- * a mocked bridge can prove. Back/Forward/Reload stay disabled this batch
- * (Theme G owns wiring them); only the address bar and the tab strip are
- * live.
+ * a mocked bridge can prove.
  */
 
 /**

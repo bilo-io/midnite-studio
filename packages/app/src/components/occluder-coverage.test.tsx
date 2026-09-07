@@ -17,6 +17,8 @@ import { MergeDialog } from '../features/reviews/merge-dialog';
 import { HelpOverlay } from '../features/slides/help-overlay';
 import { StashPushDialog } from '../features/status/stash-push-dialog';
 import { SetupDialog } from '../features/agent/setup-dialog';
+import { LockScreen } from '../features/screensaver/lock-screen';
+import { ActivityTooltip } from './commit-activity-timeline/activity-tooltip';
 
 import { DialogHost } from './dialog-host';
 import { ToastHost } from './toast-host';
@@ -161,5 +163,32 @@ describe('occluder coverage across overlays', () => {
         />,
       ),
     );
+  });
+
+  // Phase 32 Theme E's audit found six overlays portalling without
+  // registering at all. Two of them — ActivityTooltip and LockScreen — are
+  // standalone enough to sit in this file's own numbered list; the other
+  // four (project-actions.tsx's SetupDialog portal, tab-strip.tsx's group
+  // chip context menu, graph-row.tsx's ref-overflow flyout, ref-badge.tsx's
+  // sync strip) are colocated with their own component's test instead, since
+  // rendering them here would mean reconstructing a graph row or a tab strip
+  // from scratch for no more coverage than the colocated test already gives.
+
+  it('13. ActivityTooltip registers as an occluder', () => {
+    assertOccluderLifecycle(() =>
+      render(
+        <ActivityTooltip
+          bucket={{ start: Date.now(), count: 3, additions: 10, deletions: 2 }}
+          timeframe="week"
+          windowCommits={12}
+          hasChurn
+          at={{ x: 100, y: 100 }}
+        />,
+      ),
+    );
+  });
+
+  it('14. LockScreen registers as an occluder', () => {
+    assertOccluderLifecycle(() => render(<LockScreen />));
   });
 });

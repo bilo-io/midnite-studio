@@ -37,8 +37,31 @@ import { useToastStore } from '../../store/toast-store';
  * it once it exists.
  */
 export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabReady?: () => void): void {
+  const tabs = useBrowserStore((s) => s.tabs);
   const activeTabId = useBrowserStore((s) => s.activeTabId);
   const previousActive = useRef<string | null>(null);
+  // The create-set implied by the activation effect below (":120" in the
+  // phase doc) — hoisted rather than duplicated, since the close-diff effect
+  // needs to read the same "have we ever called browser.create for this id"
+  // answer (Theme E).
+  const created = useRef<Set<string>>(new Set());
+
+  // Closing a tab must destroy its view (Theme E) — `browser-store`'s
+  // `closeTab`/`closeOthers`/`closeToRight`/`closeTabsInGroup` are pure
+  // reducers with no bridge access by design, so nothing else calls
+  // `browser.close` for a row that disappears. Diffing the store's current
+  // ids against the create-set here, in one effect, covers every one of
+  // those call sites at once rather than needing a bridge call bolted onto
+  // each.
+  useEffect(() => {
+    const liveIds = new Set(tabs.map((tab) => tab.id));
+    for (const id of created.current) {
+      if (!liveIds.has(id)) {
+        created.current.delete(id);
+        bridge()?.browser.close({ tabId: id });
+      }
+    }
+  }, [tabs]);
 
   // Mirrored into a ref so the `create().then()` below can tell, once it
   // actually resolves, whether it is still talking about the current pane
@@ -116,6 +139,7 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
     // `create` is a no-op in main when the tab already has a live view —
     // safe to call on every activation, including a reopen after close or
     // a re-run of this effect once `settled` catches up (below).
+    created.current.add(tab.id);
     void api
       ?.browser.create({ tabId: tab.id, url: tab.url })
       .then(() => {

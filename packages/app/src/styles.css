@@ -75,7 +75,7 @@
     --cal-3: 158 65% 46%;
     --cal-4: 158 72% 34%;
 
-    /* The browser's eight manual-group colours (features/browser/tab-group.tsx).
+    /* The browser's eight manual-group colours (features/browser/tab-group-colors.ts).
      * A named palette, not a ramp — there is no ordering between them, unlike
      * --cal-*. Deliberately clear of the graph lane hues and --cal's teal-green,
      * so a coloured tab group can never be misread as either. */

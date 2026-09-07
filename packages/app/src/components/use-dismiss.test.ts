@@ -162,6 +162,25 @@ describe('useDismiss', () => {
     expect(useUiStore.getState().occluders).toBe(0);
   });
 
+  it('occludes:true raises occluders even for a passive entry, and still loses Escape to a dialog (Theme E)', () => {
+    const passiveOnDismiss = vi.fn();
+    const dialogOnDismiss = vi.fn();
+    const passive = register(passiveOnDismiss, { layer: 'tooltip', blocking: false, occludes: true });
+    expect(useUiStore.getState().occluders).toBe(1);
+
+    const dialog = register(dialogOnDismiss, { layer: 'dialog' });
+    expect(useUiStore.getState().occluders).toBe(2);
+
+    pressEscape();
+    expect(dialogOnDismiss).toHaveBeenCalledTimes(1);
+    expect(passiveOnDismiss).not.toHaveBeenCalled();
+
+    dialog.unmount();
+    expect(useUiStore.getState().occluders).toBe(1);
+    passive.unmount();
+    expect(useUiStore.getState().occluders).toBe(0);
+  });
+
   it('registers exactly one window keydown listener for three overlays', () => {
     const add = vi.spyOn(window, 'addEventListener');
     const remove = vi.spyOn(window, 'removeEventListener');

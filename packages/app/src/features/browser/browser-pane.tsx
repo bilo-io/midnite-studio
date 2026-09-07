@@ -20,10 +20,8 @@ import { FindBar } from './find-bar';
 
 /**
  * The browser pane: real tabs and groups over a `WebContentsView` engine
- * (Themes A–D), with Back/Forward/Reload left disabled — Theme G still owns
- * wiring those and the URL-vs-search resolver. The address bar is a raw-URL
- * minimal version of that: no search fallback, `Enter` navigates the tab
- * verbatim.
+ * (Themes A–D), with Back/Forward/Reload wired to Theme A's channels and the
+ * address bar resolving through `resolveInput` (Theme G).
  *
  * Two shapes, chosen by `browserLayout`, and the difference is structural
  * rather than cosmetic:
@@ -99,8 +97,8 @@ export function BrowserPane({
   }, [activeTab?.url, activeTab?.id, editing]);
 
   // A brand new tab focuses the address bar automatically — the whole
-  // surface of a blank tab is "type something here" (Theme F's new-tab
-  // page owns the fuller version; this is the minimal stand-in).
+  // surface of a blank tab is "type something here", alongside the fuller
+  // new-tab page itself (Theme F: recents, shortcut tiles, a repo row).
   useEffect(() => {
     if (shown && activeTab?.kind === 'newtab') addressRef.current?.focus();
   }, [shown, activeTab?.id, activeTab?.kind]);

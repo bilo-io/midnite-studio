@@ -1,19 +1,47 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import type { BrowserBounds } from '@midnite/studio-shared';
+
 import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
 
 /**
+ * `getBoundingClientRect()` → the `BrowserBounds` payload `setBounds` sends —
+ * a pure function so the rounding and the zero-size guard are each testable
+ * without a DOM (Theme E).
+ *
+ * Rounds rather than truncates: a `199.6px`-wide box is `200`, not `199` —
+ * Electron's `setBounds` takes integers, and floor-rounding down would leave
+ * a sub-pixel sliver of the pane showing past the view's right/bottom edge
+ * on every fractional-DPI display.
+ *
+ * `null` for a zero-size rect (a pane mid-tween can measure `0×0` for a
+ * frame) — Electron parks a `0×0` view at the origin rather than leaving it
+ * wherever it last was, which is the exact bug `4b1a51f fix(browser): stop
+ * the native browser view from showing at stale/zero bounds` fixed once; the
+ * fix here is the same one, at the one other place a bad rect could reach
+ * `setBounds`.
+ */
+export function boundsFromRect(rect: DOMRect): BrowserBounds | null {
+  const width = Math.round(rect.width);
+  const height = Math.round(rect.height);
+  if (width === 0 || height === 0) return null;
+  return { x: Math.round(rect.x), y: Math.round(rect.y), width, height };
+}
+
+/**
  * Keeps the active tab's `WebContentsView` sized to the pane's web area.
  *
- * A pulled-forward slice of Theme E's bounds work — not the whole theme.
- * This hook tracks resize (`ResizeObserver` + a window `resize` fallback for
+ * Tracks resize (`ResizeObserver` + a window `resize` fallback for
  * display-scale changes `ResizeObserver` alone can miss) so the view does
- * not desync from the pane as it grows and shrinks, but it does NOT install
- * Theme E's occluder registry: a popover, the command palette or a tooltip
- * opened while a page is loaded will still paint BENEATH the native view
- * until that theme wires every overlay as an occluder. Known, accepted gap
- * for this batch — see .midnite/tasks/phases/phase-32-browser-engine-and-tabs.md Theme E.
+ * not desync from the pane as it grows and shrinks. The occluder registry
+ * itself (`useUiStore`'s `occluders`, incremented by every blocking
+ * `useDismiss` registration) lives in `use-dismiss.ts`/`use-occluder.ts`,
+ * not here — this hook only reads the counter (`effectiveVisible` below) to
+ * decide whether the native view should currently be showing at all.
+ * `boundsFromRect` above is this hook's own contribution to Theme E: the
+ * arithmetic that turns a measured rect into what `setBounds` actually
+ * sends, extracted so it can be unit-tested without mounting a component.
  */
 export function useBrowserBounds(activeTabId: string | null, visible: boolean) {
   const ref = useRef<HTMLDivElement>(null);
@@ -51,16 +79,10 @@ export function useBrowserBounds(activeTabId: string | null, visible: boolean) {
 
     const el = ref.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
-    bridge()?.browser.setBounds({
-      tabId: activeTabId,
-      bounds: {
-        x: Math.round(rect.x),
-        y: Math.round(rect.y),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height),
-      },
-    });
+    const bounds = boundsFromRect(el.getBoundingClientRect());
+    // A mid-tween 0×0 measurement is skipped, not sent — see `boundsFromRect`.
+    if (!bounds) return;
+    bridge()?.browser.setBounds({ tabId: activeTabId, bounds });
   }, []);
 
   useEffect(() => {

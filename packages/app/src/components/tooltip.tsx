@@ -119,7 +119,9 @@ export function Tooltip({
     the same flag — it must never register as an occluder and blank a live
     browser tab just because a pointer came to rest on a toolbar button.
   */
-  useDismiss(open, hide, { layer: 'tooltip', blocking: false });
+  // `occludes: true` (Phase 32 Theme E): passive for Escape ordering, but
+  // still a real surface painted over a loaded page.
+  useDismiss(open, hide, { layer: 'tooltip', blocking: false, occludes: true });
 
   useEffect(() => {
     if (!open) return;

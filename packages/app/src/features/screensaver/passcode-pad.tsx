@@ -256,14 +256,14 @@ function PasscodeDialog({
   return (
     <>
       <div
-        className="fixed inset-0 z-[110] bg-background/40 backdrop-blur-md"
+        className="fixed inset-0 z-dialog bg-background/40 backdrop-blur-md"
         onClick={(e) => {
           e.stopPropagation();
           onCancel();
         }}
         aria-hidden
       />
-      <div className="pointer-events-none fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <div className="pointer-events-none fixed inset-0 z-dialog flex items-center justify-center p-4">
         <div
           role="dialog"
           aria-modal="true"
