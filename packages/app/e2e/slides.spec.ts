@@ -257,6 +257,9 @@ test('a conversation comment’s Present button opens a deck without changing ma
   const deck = page.getByTestId('slides-deck');
   await issueDetail.getByRole('button', { name: 'Present as slides' }).last().click();
   await expect(deck).toBeVisible();
+  // A fresh deck opens with no step revealed yet (`INITIAL.reveal === 0`),
+  // matching every other deck in this file.
+  await page.keyboard.press('ArrowRight');
   await expect(deck.getByText('Reproduces here too, no heading in this one.')).toBeVisible();
   // The comment has no heading, so it parses to a single "Untitled" slide —
   // never the issue's own cover.
