@@ -477,16 +477,23 @@ list below). Two gaps are genuine, and both are in the search half.
 
 ### J — The visual and human passes (S)
 
-- [ ] `docs/screenshots/phase-24-d/{editor-clean,editor-dirty,editor-guard}.png` were taken against
+- [x] `docs/screenshots/phase-24-d/{editor-clean,editor-dirty,editor-guard}.png` were taken against
       **CodeMirror** and are now misleading reference images. Phase 64 committed
       `docs/screenshots/p64-abcd/code-editor-{light,dark}.png` — which covers the *editor widget* in
       both themes but **not** the dirty buffer or the Save/Discard/Cancel guard, the two states this
       phase actually owns. So: regenerate all three against Monaco via
       [`e2e/files-editor-shots.spec.ts`](../../../packages/app/e2e/files-editor-shots.spec.ts) and
-      keep `phase-24-d/`; do not delete it in favour of Phase 64's pair.
-- [ ] The other three screenshot sets (`phase-24-c/`, `-e/`, `-f/`) are still accurate — the context
+      keep `phase-24-d/`; do not delete it in favour of Phase 64's pair. **Built** — the three shots
+      were already wired against Monaco in `files-editor.spec.ts`'s own `MSTUDIO_SHOTS`-gated calls
+      (not a new `-shots.spec.ts` file — the CodeMirror→Monaco switch happened in place), just never
+      re-run with the flag since Phase 64 landed. `MSTUDIO_SHOTS=1 pnpm exec playwright test
+      e2e/files-editor.spec.ts --workers=1` regenerated all three.
+- [x] The other three screenshot sets (`phase-24-c/`, `-e/`, `-f/`) are still accurate — the context
       menu, inline create, delete confirm, search results and status badges have not changed. Confirm
-      rather than assume, then leave them alone.
+      rather than assume, then leave them alone. **Confirmed** via `files-write.spec.ts` /
+      `files-search.spec.ts`'s own `MSTUDIO_SHOTS` runs — content unchanged; `phase-24-f` had already
+      been refreshed by PR #162's icon-button toolbar change, and `phase-24-c`/`-e` picked up that
+      same toolbar incidentally on this re-run.
 - [ ] **Open, for a human:** a real repository — rename a file that is staged, delete a directory
       with uncommitted work in it, edit a file while `git checkout` moves it underneath, and confirm
       the deleted file is in the macOS Trash and restorable. This is the item the original
