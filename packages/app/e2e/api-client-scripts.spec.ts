@@ -58,8 +58,11 @@ test('a passing and a failing assertion both render', async ({ page }) => {
   await expect(page.getByText('has an id')).toBeVisible();
   await expect(page.getByText('expected undefined to equal 1')).toBeVisible();
 
-  // Never an error boundary — this is a normal, renderable outcome.
-  await expect(page.getByRole('alert')).toBeHidden();
+  // Never an error boundary — this is a normal, renderable outcome. (Monaco
+  // itself always renders two empty `role="alert"` live regions of its own,
+  // `class="monaco-alert"`, unrelated to `ErrorBoundary` — asserting no
+  // *labelled* alert exists is the meaningful check.)
+  await expect(page.getByRole('alert', { name: /stopped rendering/i })).toBeHidden();
 });
 
 test('a script that throws renders as an error row, not an error boundary', async ({ page }) => {
@@ -82,7 +85,7 @@ test('a script that throws renders as an error row, not an error boundary', asyn
   await page.getByRole('button', { name: 'Send' }).click();
 
   await expect(page.getByText('top-level boom')).toBeVisible();
-  await expect(page.getByRole('alert')).toBeHidden();
+  await expect(page.getByRole('alert', { name: /stopped rendering/i })).toBeHidden();
   // The rest of the shell is still there — nothing above the panel was torn
   // down by an uncaught render error.
   await expect(page.getByRole('button', { name: 'Select environment' })).toBeVisible();
