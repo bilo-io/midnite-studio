@@ -4,7 +4,7 @@
 
 ## 2026-09-07 — Phase 70 Theme B — The `pm.*` sandbox, and a real escape closed
 
-[PR #245](https://github.com/bilo-io/midnite-studio/pull/245). Moves Phase 70 16/50 → 28/50 (32% →
+[PR #247](https://github.com/bilo-io/midnite-studio/pull/247). Moves Phase 70 16/50 → 28/50 (32% →
 56%).
 
 **This theme's escape tests found the phase doc's own design to be unsafe, and the doc is corrected

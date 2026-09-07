@@ -159,7 +159,7 @@ B's results.
       environment row does not shadow; both tiers missing leaves the token literal with one warning
       naming it; a value containing `{{b}}` is not re-expanded.
 
-### B — The test editor and the sandboxed `pm.*` runner (L) — ✅ DONE (PR #245, 2026-09-07)
+### B — The test editor and the sandboxed `pm.*` runner (L) — ✅ DONE (PR #247, 2026-09-07)
 
 - [x] Add `packages/desktop/src/main/api-client/script-runner.ts`:
       `export function runScript(source: string, context: ScriptContext, timeoutMs: number): ScriptRun`,
@@ -178,7 +178,7 @@ B's results.
       with `log`/`warn`/`error` appending through `appendCapped` into `logs`) — **and nothing
       else at all**. **No `require`, no `process`, no `Buffer`, no `globalThis` passthrough, no
       `module`.**
-  - **x1 correction, found empirically by Theme B's own escape tests (PR #245): the original
+  - **x1 correction, found empirically by Theme B's own escape tests (PR #247): the original
     list above was unsafe as written.** It named `JSON`, `Math`, `Date`, `String`, `Number`,
     `Boolean`, `Array`, `Object`, `RegExp` and `Error` as sandbox own-properties. Injecting the
     *host's* intrinsics into a `vm` context hands a script a live, unrestricted `Function`
