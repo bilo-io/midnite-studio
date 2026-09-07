@@ -44,6 +44,29 @@ describe('palette providers', () => {
     expect(pullCmd?.disabledReason).toBe('No repository open');
   });
 
+  /**
+   * Phase 23 Theme E, reopened: `CommandGroup` reached the palette and was
+   * then thrown away — every command rendered under a single flat 'Commands'
+   * heading regardless of its registry `group`. Commands now split by that
+   * group into a mapped display label, so a `sync` command and a `terminal`
+   * command land under different headings.
+   */
+  it('groups commands by their CommandGroup, not one flat "Commands" bucket', () => {
+    const onSelect = vi.fn();
+    const runtime = {} as unknown as CommandRuntime;
+    const items = createCommandSource(runtime, onSelect).items();
+
+    const pull = items.find((i) => i.id === 'command:sync.pull');
+    const toggleTerminal = items.find((i) => i.id === 'command:terminal.toggle');
+    expect(pull?.group).toBe('Sync');
+    expect(toggleTerminal?.group).toBe('Terminal');
+    expect(pull?.group).not.toBe(toggleTerminal?.group);
+
+    // Every item still gets *some* display group — the fallback never surfaces
+    // for a real `CommandGroup`.
+    expect(items.every((i) => i.group.length > 0)).toBe(true);
+  });
+
   it('creates views and settings sources', () => {
     const onSelect = vi.fn();
     const source = createViewsSource(onSelect);

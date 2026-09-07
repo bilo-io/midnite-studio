@@ -2,6 +2,53 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 23 Themes C, D, E — the reopened items
+
+[PR #266](https://github.com/bilo-io/midnite-studio/pull/266). Moves Phase 23 42/59 → 45/59 (71%
+→ 76%). Refinement x1 had left each of three themes `◐ PARTIAL` with exactly one item reopened;
+this PR closes all three, and nothing else.
+
+**C — the native menu item.** `View ▸ Command Palette…` was never added to `menu.ts`'s View
+submenu — `grep -n palette menu.ts` found only a doc comment. Added, dispatching `palette.open`
+with **no** Electron accelerator: it is `scope: 'global'` and already reaches the app from inside
+a shell through the renderer's own dispatcher, so an OS-level accelerator would take the keystroke
+away before `YIELD_ROOTS` ever saw it — the same reasoning `itemNoAccelerator` already documents
+for `repos.toggle`/`fab.toggle`/`repo.open`. `itemNoAccelerator` grew an optional label param so
+the row could read "Command Palette…" rather than the bare command label.
+
+**D — the frecency nudge.** Zero hits for `frecency`/`lastAt`/`recentCommands` anywhere in
+`packages/app/src`. New `services/palette/frecency-store.ts`: its own tiny persisted zustand
+slice — deliberately not a field on `ui-store` (a 78-key blob is the wrong home for a per-item
+counter) and not on the unpersisted `palette-store.ts` — capped at 50 keys, evicting the lowest
+`count * recencyDecay(lastAt)` first (exponential, 7-day half-life). `scorePaletteItem` applies it
+as a bounded multiplier (`1` to `1.25`, a saturating curve) on top of `SOURCE_WEIGHTS` — never a
+re-sort — and an id with no run history gets exactly `1`, so it cannot reorder relative to its
+never-run peers. `palette.tsx`'s `runSelectedItem` bumps an item's frecency at the single place
+any palette item actually fires (Enter and click both funnel through it).
+
+**E — command grouping.** Theme A added `CommandGroup` to the registry specifically so the
+palette could group commands, and `providers.ts:88` hard-coded every command's display group to
+the single string `'Commands'` — 57 commands under one flat heading. `createCommandSource` now
+groups safe commands via the existing `groupCommands()` helper (making it live production code
+again, not test-only) and maps each `CommandGroup` to a display label
+(`sync` → 'Sync', `terminal` → 'Terminal', `operation` → 'Operations', …). Grouping stays for the
+**unfiltered** open only: `buildFlatRows` (`palette.tsx`) now takes a `flat` flag and skips
+headings entirely once a needle is typed, returning the already score-sorted list as-is — so
+re-bucketing by group can no longer put a lower-scored item from an earlier-seen group above a
+higher-scored one from a group first seen later.
+
+New tests: `menu.test.ts` (the palette row, no accelerator), `providers.test.ts` (two commands
+from different `CommandGroup`s land under different display groups), and a new `frecency` suite
+in `palette-store.test.ts` (a run bumps the item, the 50-key cap evicts the lowest-weight entry, a
+never-run item's multiplier is exactly `1`, the multiplier saturates at `1.25`, and it decays over
+time) — the phase doc names `palette-store.test.ts` as the test home for the frecency slice even
+though the slice itself lives in its own file. `packages/app/e2e/palette.spec.ts` (14/14) and
+`quick-access-menu.spec.ts` (5/5) both green standalone against the built renderer; a full
+`moon run :test` run's single `mcp-shim/shim.test.ts` failure was confirmed a pre-existing
+local-load flake (passes alone, file untouched by this PR).
+
+Phase 23's remaining scope is `## Verification`'s human passes — out of scope for this PR.
+
 ## 2026-09-07 — Phase 32 Themes E, F, G — the browser's occlusion, new-tab and chrome residue
 
 [PR #265](https://github.com/bilo-io/midnite-studio/pull/265). Moves Phase 32 45/92 → 88/92 (49% →

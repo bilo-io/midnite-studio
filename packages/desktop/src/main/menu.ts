@@ -85,9 +85,17 @@ export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
    * native folder picker mid-keystroke. Same remedy: the chord still works
    * through the renderer's own listener everywhere it is not yielded; only
    * the OS-level accelerator is gone.
+   *
+   * `palette.open` (Phase 23 Theme C) joins them for a related but distinct
+   * reason: it is `scope: 'global'`, so it already reaches the app from
+   * *inside* a shell without any help from this menu. An OS-level accelerator
+   * would take the keystroke away from the renderer's own dispatcher before
+   * `YIELD_ROOTS` ever sees it. The row exists for discoverability and click;
+   * `Mod+k` keeps working everywhere through the listener that already knows
+   * about it.
    */
-  const itemNoAccelerator = (command: CommandId): MenuItemConstructorOptions => ({
-    label: labelOf(command),
+  const itemNoAccelerator = (command: CommandId, label?: string): MenuItemConstructorOptions => ({
+    label: label ?? labelOf(command),
     click: send(command),
   });
 
@@ -125,6 +133,7 @@ export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
         itemNoAccelerator('app.hardReload'),
         item('view.refresh'),
         { type: 'separator' },
+        itemNoAccelerator('palette.open', 'Command Palette…'),
         itemNoAccelerator('repos.toggle'),
         item('terminal.toggle'),
         item('browser.toggle'),

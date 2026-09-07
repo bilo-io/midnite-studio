@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { IconComponent } from '../../components/icon-button';
+import { frecencyMultiplier, useFrecencyStore } from './frecency-store';
 import { fuzzyMatch, fuzzyMatchPath } from './fuzzy-match';
 
 export type PaletteItem = {
@@ -104,9 +105,14 @@ export function scorePaletteItem(
   }
 
   const weight = SOURCE_WEIGHTS[sourceKey] ?? 1.0;
+  // The frecency nudge (Phase 23 Theme D, reopened): a bounded multiplier
+  // applied AFTER SOURCE_WEIGHTS, on top of the already-weighted score —
+  // never a re-sort of its own. An item with no run history gets exactly
+  // `1`, so it is a no-op for the common case.
+  const nudge = frecencyMultiplier(useFrecencyStore.getState().entries, item.id);
   return {
     item,
-    score: bestScore * weight,
+    score: bestScore * weight * nudge,
     labelIndices,
     detailIndices,
   };
