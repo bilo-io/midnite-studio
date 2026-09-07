@@ -6,12 +6,22 @@ type SlidesState = {
   /** The currently open deck's source; `null` is closed. Never persisted — closing forgets the deck, and reopening the same file rebuilds it from source, every time (this is a viewer, not an editor). */
   deck: MarkdownSource | null;
   /**
-   * Whichever markdown surface is currently in view, kept live by the two
-   * description-level surfaces (Files preview, PR/Review description) — see
-   * `markdown-preview.tsx` and `pr-detail.tsx`. A comment thread never claims
-   * this slot (Theme D's resolved decision): a PR can hold dozens of comment
-   * bodies at once, and none of them is unambiguously "the" markdown a
-   * keyboard-invoked command should target.
+   * Whichever markdown surface is currently in view — the slot
+   * `markdown.presentAsSlides` targets when invoked without a click (the
+   * palette, a future chord).
+   *
+   * **The claim rule, for every surface past and future (Phase 29 Theme F):**
+   * a surface claims this slot **iff** it renders exactly one document-level
+   * body at a time. Description-level surfaces do — Files preview
+   * (`markdown-preview.tsx`), a PR/review description (`pr-detail.tsx`), an
+   * issue body (`issue-detail.tsx`), release notes (`version-notes-panel.tsx`).
+   * A conversation/comment list does not, however many bodies it renders,
+   * because none of several visible bodies is unambiguously "the" one a
+   * bodiless command invocation should mean — `comment-thread.tsx`,
+   * `pr-conversation.tsx` and `issue-conversation.tsx` all get a Present
+   * button (every markdown body is presentable by click) but never call
+   * `setActiveMarkdown`. Judge a new surface by this rule, not by resemblance
+   * to an existing one.
    */
   activeMarkdown: MarkdownSource | null;
   present: (source: MarkdownSource) => void;
