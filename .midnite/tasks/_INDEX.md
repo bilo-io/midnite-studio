@@ -17,7 +17,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | ✅ DONE | — | 32/37 | `█████████░` | 86% | — | — |
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | 🔄 WIP | x1 | 44/64 | `███████░░░` | 69% | — | Verification (human/e2e passes) |
-| [66 · API Client](phases/phase-66-api-client.md) | 🔄 WIP | x1 | 60/73 | `████████░░` | 82% | — | H |
+| [66 · API Client](phases/phase-66-api-client.md) | 🔄 WIP | x1 | 71/73 | `██████████` | 97% | — | H (2 human passes only) |
 | [65 · Somewhere for a crash to go](phases/phase-65-somewhere-for-a-crash-to-go.md) | 🔄 WIP | — | 43/49 | `█████████░` | 88% | — | Verification (human passes) |
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 57/72 | `████████░░` | 79% | — | Verification (human passes) |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ✅ DONE | x1 | 32/32 | `██████████` | 100% | — | — |

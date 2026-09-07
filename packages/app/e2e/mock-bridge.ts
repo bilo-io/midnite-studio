@@ -52,6 +52,18 @@ export type MockFixtures = {
    */
   forgeLatencyMs?: number;
   /**
+   * Phase 66 Theme H — API Client collections, in `ApiCollectionSummary`'s own
+   * shape: `{id, fileName, collection}`, where `collection` is the whole
+   * Postman v2.1 document.
+   *
+   * The summary embeds the document rather than a count, so `readCollection`
+   * needs no separate fixture — it answers from this same list, keyed by `id`
+   * (which is the file name, exactly as `collection-io.ts` mints it).
+   */
+  apiCollections?: { id: string; fileName: string; collection: unknown }[];
+  /** Overrides the canned 200 that `sendRequest` answers with. */
+  apiResponse?: unknown;
+  /**
    * Keyed by `${sha}:${path}` for commit diffs, `wt:${path}` for worktree ones,
    * and `stash:${selector}:${part}:${path}` for a stash part (Phase 22 Theme D)
    * — each also answers a `:${context}`-suffixed key first, same as commit
@@ -2627,6 +2639,61 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       },
       protocol: {
         onDeepLink: unsubscribe,
+      },
+      /**
+       * Phase 66 Theme H — the API Client's bridge namespace.
+       *
+       * Every method answers rather than being absent, because `undefined` on
+       * this namespace does not fail a spec cleanly: the renderer awaits
+       * `apiClient.listCollections(…)` during its first render, and a missing
+       * method throws inside an effect where the error boundary swallows it
+       * into a blank pane. An empty-but-present namespace is what lets a spec
+       * assert the *empty state* rather than a crash.
+       *
+       * `apiCollections` seeds the tree; `apiCollectionsById` seeds what
+       * `readCollection` hands back. A spec that only needs navigation can
+       * leave both unset and get the "no collections" copy.
+       */
+      apiClient: {
+        listCollections: async () => ({ ok: true as const, value: (data.apiCollections ?? []).slice() }),
+        readCollection: async (req: { collectionId: string }) => {
+          const found = (data.apiCollections ?? []).find((c) => c.id === req.collectionId);
+          return found
+            ? { ok: true as const, value: found.collection }
+            : {
+                ok: false as const,
+                kind: 'error' as const,
+                message: `No collection ${req.collectionId}`,
+              };
+        },
+        saveCollection: async () => ({ ok: true as const }),
+        importCollection: async () => ({ ok: true as const, value: null }),
+        deleteCollection: async () => ({ ok: true as const }),
+        exportCollection: async () => ({ ok: true as const }),
+        sendRequest: async () => ({
+          ok: true as const,
+          value: data.apiResponse ?? {
+            status: 200,
+            statusText: 'OK',
+            headers: { 'content-type': 'application/json' },
+            body: '{"ok":true}',
+            bodyIsJson: true,
+            durationMs: 12,
+            sizeBytes: 11,
+            truncated: false,
+            warnings: [],
+          },
+        }),
+        cancelRequest: async () => ({ ok: true as const }),
+        pickBinaryFile: async () => ({ ok: true as const, value: null }),
+        listEnvironments: async () => ({ ok: true as const, value: [] }),
+        readEnvironment: async () => ({
+          ok: false as const,
+          kind: 'error' as const,
+          message: 'no environments in this fixture',
+        }),
+        saveEnvironment: async () => ({ ok: true as const, value: { status: 'saved' as const, file: 'x.json' } }),
+        deleteEnvironment: async () => ({ ok: true as const }),
       },
       db: {
         listConnections: async () => (data.dbConnections ?? []).slice(),
