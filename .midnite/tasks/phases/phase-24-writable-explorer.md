@@ -414,7 +414,7 @@ three themes below are what a 2026-09-05 audit against the tree turned up: one r
 Monaco swap left behind, and two verification gaps. All three are deliberately S — nothing here
 needs a day.*
 
-### H — Drop the dead CodeMirror dependencies (S)
+### H — Drop the dead CodeMirror dependencies (S) — ✅ DONE (PR #249, 2026-09-07)
 
 Theme D added seven `@codemirror/*` packages; [Phase 64](phase-64-offline-monaco-and-themes.md)
 Theme C replaced the editor with Monaco and left them installed. **`grep -rn "codemirror"` over
@@ -422,54 +422,54 @@ Theme C replaced the editor with Monaco and left them installed. **`grep -rn "co
 a trap for the next reader, who will reasonably assume the editor is CodeMirror because
 `package.json` says so.
 
-- [ ] Remove all seven entries from
+- [x] Remove all seven entries from
       [`packages/app/package.json`](../../../packages/app/package.json)'s `dependencies`:
       `@codemirror/autocomplete`, `@codemirror/commands`, `@codemirror/language`,
       `@codemirror/language-data`, `@codemirror/search`, `@codemirror/state`, `@codemirror/view`.
       Nothing else in the workspace lists any of them — this is one file.
-- [ ] Re-run the install to update `pnpm-lock.yaml`
+- [x] Re-run the install to update `pnpm-lock.yaml`
       (`export GITHUB_PACKAGES_TOKEN=$(gh auth token)` first, per `CLAUDE.md`), and commit the
       lockfile change with the `package.json` one.
-- [ ] **Prove it before removing, not after:** `grep -rn "codemirror" packages/ --include='*.ts'
+- [x] **Prove it before removing, not after:** `grep -rn "codemirror" packages/ --include='*.ts'
       --include='*.tsx' --include='*.json' -i` must show hits only in `package.json` and
       `pnpm-lock.yaml`. If any source file matches, the removal is wrong and this theme stops.
-- [ ] Correct the places the repo still tells a reader the editor is CodeMirror. This doc's Theme D
+- [x] Correct the places the repo still tells a reader the editor is CodeMirror. This doc's Theme D
       and its decision entry are already corrected by this refine pass;
       [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md) never mentioned it at all (checked);
       what is left is [`.midnite/tasks/outstanding.md:45`](../outstanding.md) ("the
       Monaco/CodeMirror surface"), which should now just say Monaco. Leave `done.md` alone — it is
       an append-only historical log and the entry was true when written.
-- [ ] Record the numbers, per `CLAUDE.md`'s "perf claims come with a number" rule: run
+- [x] Record the numbers, per `CLAUDE.md`'s "perf claims come with a number" rule: run
       `node scripts/perf/bundle-report.mjs` before and after. The expectation is **no change to the
       entry chunk** — nothing imported these, so nothing bundled them — and a smaller
       `node_modules`. If the entry chunk moves at all, something did import them and the audit was
       wrong.
-- [ ] `moon run :typecheck :lint :test` green afterwards, and
+- [x] `moon run :typecheck :lint :test` green afterwards, and
       [`e2e/files-editor.spec.ts`](../../../packages/app/e2e/files-editor.spec.ts) (5 cases) still
       passes — it exercises Monaco through the same `data-testid` Phase 64 preserved.
 
-### I — The verification gaps that are real (S)
+### I — The verification gaps that are real (S) — ✅ DONE (PR #249, 2026-09-07)
 
 Most of the original Verification list is already covered by tests on disk (the counts are in the
 list below). Two gaps are genuine, and both are in the search half.
 
-- [ ] [`grep-parser.test.ts`](../../../packages/git-engine/src/parsers/grep-parser.test.ts) has
+- [x] [`grep-parser.test.ts`](../../../packages/git-engine/src/parsers/grep-parser.test.ts) has
       **two** cases — a fixture round-trip and a CRLF case — against a Verification line that asks
       for five. Add the three that are missing, each as its own `it`:
       **(a)** a match in a path containing a colon (`src/a:b.ts`), proving the parser splits on the
       NUL field separators and never on `:`;
       **(b)** a file with no trailing newline, proving the last record is not dropped;
       **(c)** an empty payload → `{ matches: [] }`, no throw.
-- [ ] The fixture is named `__fixtures__/grep-z-context.txt` and `GrepMatch` carries
+- [x] The fixture is named `__fixtures__/grep-z-context.txt` and `GrepMatch` carries
       `kind: 'match' | 'context'`, but **no case asserts a `context` line is parsed as one**. Add
       it — a context line mis-typed as a match is a silently wrong result list, which is the exact
       failure mode this parser exists to prevent.
-- [ ] The result-at-the-cap case the Verification list asks for belongs in
+- [x] The result-at-the-cap case the Verification list asks for belongs in
       `fs-search-handlers.test.ts`, not the parser: the parser has no cap, the handler slices at
       `FS_SEARCH_MAX_MATCHES` and sets `truncated`. Assert `truncated === true` and
       `matches.length === FS_SEARCH_MAX_MATCHES` for a 2,001-match payload, and `truncated === false`
       at exactly 2,000.
-- [ ] Delete the two fictional test files from this doc's file map — `file-search.test.ts` and
+- [x] Delete the two fictional test files from this doc's file map — `file-search.test.ts` and
       `status-badge.test.ts` were never created, and their real substitutes already exist
       (`fs-search-handlers.test.ts`, and `file-status.test.ts`'s 10 cases plus
       `files-view.spec.ts:238`). *(Done in this refine — the item is here so the theme's reviewer
