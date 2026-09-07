@@ -54,12 +54,12 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | x1 | 45/92 | `█████░░░░░` | 49% | E F G | — |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 22/22 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phases/phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 90/91 | `██████████` | 99% | — | — |
-| [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | 🔄 WIP | x1 | 21/49 | `████░░░░░░` | 43% | — | F, G |
+| [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | 🔄 WIP | x1 | 21/49 | `████░░░░░░` | 43% | F G | — |
 | [28 · Worktrees first, and the section tree that can say so](phases/phase-28-sidebar-section-tree.md) | ✅ DONE | — | 61/61 | `██████████` | 100% | — | — |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
 | [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | x1 | 51/70 | `███████░░░` | 73% | — | Verification (+ C, H reverted items) |
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | 🔄 WIP | x1 | 39/101 | `████░░░░░░` | 39% | — | — |
-| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | x1 | 43/70 | `██████░░░░` | 61% | — | H, I, J |
+| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | x1 | 43/70 | `██████░░░░` | 61% | H I | J |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | 🔄 WIP | x1 | 42/59 | `███████░░░` | 71% | — | Verification (+ C, D, E reopened items) |
 | [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 56/70 | `████████░░` | 80% | — | — |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
