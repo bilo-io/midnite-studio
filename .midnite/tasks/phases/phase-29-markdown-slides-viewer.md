@@ -213,7 +213,7 @@ then, `deck-parser.test.ts` / `use-deck-nav.test.ts` / `use-title-typewriter.tes
 markdown surfaces that arrived **after** this phase and still have no Present button — and Theme G,
 the one honest verification gap.*
 
-### F — The surfaces that arrived later (S)
+### F — The surfaces that arrived later (S) — ✅ DONE (PR #248, 2026-09-07)
 
 Six of the nine `react-markdown` render sites in `packages/app/src` have no Present button, because
 they did not exist on 2026-08-28. The phase's title claims "everywhere markdown already renders";
@@ -226,61 +226,61 @@ six): a surface claims the slot **iff** it renders exactly one *document-level* 
 Description-level → claims. Conversation/comment list → button only, never claims. This is the
 existing `pr-detail.tsx` vs `comment-thread.tsx` split, extended by symmetry rather than re-argued.
 
-- [ ] [`features/issues/issue-detail.tsx`](../../../packages/app/src/features/issues/issue-detail.tsx):
+- [x] [`features/issues/issue-detail.tsx`](../../../packages/app/src/features/issues/issue-detail.tsx):
       a `<PresentButton source={{ content: issue.body, label: \`Issue #${issue.number}\` }} />` in
       the same header row `pr-detail.tsx:286` uses, **and** the `setActiveMarkdown` effect — this is
       a description-level surface, so it claims the slot. Guard the effect the way
       `markdown-preview.tsx` does: skip when the body is empty/`undefined`, clear on unmount.
-- [ ] [`features/reviews/pr-conversation.tsx`](../../../packages/app/src/features/reviews/pr-conversation.tsx):
+- [x] [`features/reviews/pr-conversation.tsx`](../../../packages/app/src/features/reviews/pr-conversation.tsx):
       a `<PresentButton source={{ content: comment.body, label: 'Comment' }} className="ml-auto" />`
       per rendered comment, matching `comment-thread.tsx:273` exactly. **Does not** claim
       `activeMarkdown` — it is a list of bodies.
-- [ ] [`features/issues/issue-conversation.tsx`](../../../packages/app/src/features/issues/issue-conversation.tsx):
+- [x] [`features/issues/issue-conversation.tsx`](../../../packages/app/src/features/issues/issue-conversation.tsx):
       the same per-comment button, same reason, same non-claim.
-- [ ] [`features/version/version-notes-panel.tsx`](../../../packages/app/src/features/version/version-notes-panel.tsx):
+- [x] [`features/version/version-notes-panel.tsx`](../../../packages/app/src/features/version/version-notes-panel.tsx):
       a `<PresentButton source={{ content: notes, label: \`Release ${version}\` }} />` beside the
       panel heading, **and** the claim effect — release notes are a single document body, and they
       are the one surface in the app a human would plausibly actually present.
-- [ ] **`features/commit/commit-message.tsx` gets nothing** — it stays out, for the reason already
+- [x] **`features/commit/commit-message.tsx` gets nothing** — it stays out, for the reason already
       in *Not in this phase*: it renders a commit body with trailer styling and SHA/issue
       linkification, not a document. Re-stated here as an item so an executor doing this theme does
       not "finish the set" by adding a seventh.
-- [ ] All four new call sites take `MARKDOWN_PROSE_CLASSES` from
+- [x] All four new call sites take `MARKDOWN_PROSE_CLASSES` from
       [`features/markdown/prose.ts`](../../../packages/app/src/features/markdown/prose.ts) — they
       already do; this item is a check that the theme did not introduce a copy.
-- [ ] Bundle guard: `e2e/perf/bundle-budget.spec.ts` already tracks `react-markdown` as its own
+- [x] Bundle guard: `e2e/perf/bundle-budget.spec.ts` already tracks `react-markdown` as its own
       chunk and [Phase 36](phase-36-performance-diet.md) Theme C pulled it out of the entry chunk.
       `PresentButton` imports `slides-store` (tiny) and `IconButton`, **not** `deck.tsx` — the
       presenter stays behind `app.tsx`'s `lazy()` boundary. Adding four buttons must not move the
       budget; if the spec's numbers shift, the import graph is wrong, not the budget.
-- [ ] One Playwright case per claiming surface in `e2e/slides.spec.ts` (Issue detail, release
+- [x] One Playwright case per claiming surface in `e2e/slides.spec.ts` (Issue detail, release
       notes): Present opens a deck whose cover title matches the body's h1; and one asserting a
       conversation comment's button opens a deck **without** changing what
       `markdown.presentAsSlides` targets.
 
-### G — Verification: run what is already written (S)
+### G — Verification: run what is already written (S) — ✅ DONE (PR #248, 2026-09-07)
 
 Every artifact the original Verification list asks for **exists**. Nothing here writes a new suite;
 this theme runs them, records the result, and closes the two real gaps.
 
-- [ ] Run `moon run :typecheck :lint :test` and record it green. This is the phase's only
+- [x] Run `moon run :typecheck :lint :test` and record it green. This is the phase's only
       outstanding blanket gate.
-- [ ] Run the two slides specs against the current tree — `packages/app/e2e/slides.spec.ts` (4
+- [x] Run the two slides specs against the current tree — `packages/app/e2e/slides.spec.ts` (4
       cases) and `packages/app/e2e/slides-shots.spec.ts` (6 cases). Neither is in
       `playwright.ci.config.ts`'s `KNOWN_RED` list (which holds exactly one entry,
       `**/e2e/graph-themes.spec.ts`) and neither carries a `@linux-red` tag, so both are already
       **blocking** in CI: a red here is a regression, not a known gap.
-- [ ] Confirm the six committed images in `docs/screenshots/phase-29-slides/` still match what the
+- [x] Confirm the six committed images in `docs/screenshots/phase-29-slides/` still match what the
       app renders — they predate [Phase 64](phase-64-offline-monaco-and-themes.md)'s theme registry,
       which re-themes `slide-code.tsx`'s Shiki pin, so the `mid-presentation-*.png` pair is the one
       most likely to have drifted. If they have, regenerate via `slides-shots.spec.ts` rather than
       by hand.
-- [ ] **The real gap:** `deck-parser.test.ts` has no case for a **fenced code block containing a
+- [x] **The real gap:** `deck-parser.test.ts` has no case for a **fenced code block containing a
       markdown heading** (` ```md ` with a `## …` line in it). The parser walks mdast, so a heading
       inside a `code` node is not a `heading` node and cannot start a slide — but nothing asserts
       that today, and it is the one input that would silently shred a deck built from this repo's
       own phase docs. Add it as a ninth case.
-- [ ] **The second real gap:** nothing asserts that `presentActive()` is a no-op when
+- [x] **The second real gap:** nothing asserts that `presentActive()` is a no-op when
       `activeMarkdown` is `null`. `use-command-handlers.test.ts` covers the *command* being
       disabled, but the store action itself is callable. Add one case to a new
       `features/slides/slides-store.test.ts` — `present`/`presentActive`/`close`/`setActiveMarkdown`
@@ -315,41 +315,41 @@ originally planned — four of the files below are ones the first draft never na
 Assertion-level. Items marked *(written)* have their spec on disk already — Theme G runs them; it
 does not write them again.
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean — trivially, only `packages/app` and one `CommandId` entry in
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean — trivially, only `packages/app` and one `CommandId` entry in
       `packages/shared` are touched; `git-engine` and `desktop` are untouched.
-- [ ] *(written — `deck-parser.test.ts`, 8 cases)* `parseDeck` over: h1-only → one cover slide;
+- [x] *(written — `deck-parser.test.ts`, 8 cases)* `parseDeck` over: h1-only → one cover slide;
       h1 + three h2s → cover plus three; nested h3–h6 each start a slide; heading-less → one slide
       holding everything; a list → one step **per item**; GFM tables and fences as steps in source
       order; content before the first heading dropped; a numbered heading cleaned, but a cover
       heading not.
-- [ ] **Net-new (G):** a fenced block whose *contents* contain `## …` produces **one** `code` step,
+- [x] **Net-new (G):** a fenced block whose *contents* contain `## …` produces **one** `code` step,
       not a new slide — mdast makes this true, and nothing asserts it.
-- [ ] *(written — `use-deck-nav.test.ts`)* `next` on the last step of a slide advances the slide and
+- [x] *(written — `use-deck-nav.test.ts`)* `next` on the last step of a slide advances the slide and
       sets `instant`; `next` on a mid-slide step advances the step and leaves `instant` **untouched**
       (the regression recorded in the decisions below).
-- [ ] *(written — `use-title-typewriter.test.ts`)* `done` is `false` on the first render, before any
+- [x] *(written — `use-title-typewriter.test.ts`)* `done` is `false` on the first render, before any
       effect has run — a keydown landing in that gap must not read a mid-type title as finished.
-- [ ] *(written — `help-overlay.test.tsx`, `occluder-coverage.test.tsx` case 6)* the overlay renders
+- [x] *(written — `help-overlay.test.tsx`, `occluder-coverage.test.tsx` case 6)* the overlay renders
       its shortcut list; `SlidesModal` registers exactly one occluder while open and zero after
       unmount.
-- [ ] *(written — `use-command-handlers.test.ts:304`)* `markdown.presentAsSlides` is
+- [x] *(written — `use-command-handlers.test.ts:304`)* `markdown.presentAsSlides` is
       `{enabled:false, disabledReason:'No markdown in view'}` with an empty slot, and `run()`
       delegates to `presentActive()` rather than re-deriving content.
-- [ ] **Net-new (G):** `presentActive()` with `activeMarkdown === null` leaves `deck` at `null` —
+- [x] **Net-new (G):** `presentActive()` with `activeMarkdown === null` leaves `deck` at `null` —
       the store action's own guard, not just the command's.
-- [ ] *(written — `e2e/slides.spec.ts`, 4 cases)* Present from Files gives a cover slide, a step
+- [x] *(written — `e2e/slides.spec.ts`, 4 cases)* Present from Files gives a cover slide, a step
       reveal and slide navigation; `?` toggles the help overlay without closing the deck; `Escape`
       closes the deck and returns focus to the file preview; Present from a PR description opens the
       same deck.
-- [ ] **Net-new (F):** Present from an Issue detail and from the release-notes panel each open a
+- [x] **Net-new (F):** Present from an Issue detail and from the release-notes panel each open a
       deck whose cover title is the body's h1; a conversation comment's button opens a deck but
       leaves `markdown.presentAsSlides`'s target unchanged.
-- [ ] *(written — `e2e/slides-shots.spec.ts`, 6 cases → `docs/screenshots/phase-29-slides/`)* the
+- [x] *(written — `e2e/slides-shots.spec.ts`, 6 cases → `docs/screenshots/phase-29-slides/`)* the
       Files-preview trigger, a mid-presentation slide with a highlighted code fence, and the help
       overlay, in both themes. Theme G re-checks these against the current tree rather than assuming
       the committed PNGs still match.
-- [ ] Both slides specs stay **out** of `playwright.ci.config.ts`'s `KNOWN_RED` list and carry no
+- [x] Both slides specs stay **out** of `playwright.ci.config.ts`'s `KNOWN_RED` list and carry no
       `@linux-red` tag — they are blocking in CI today and Theme F must not change that.
 - [ ] **Open, for a human:** present one of this repo's own largest phase docs (e.g.
       [`phase-22-stash-and-safety-net.md`](phase-22-stash-and-safety-net.md), the largest in the

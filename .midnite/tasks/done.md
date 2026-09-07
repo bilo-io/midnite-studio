@@ -2,6 +2,34 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 29 Themes F + G — The later surfaces, and the rule that decides the next one
+
+[PR #248](https://github.com/bilo-io/midnite-studio/pull/248). Moves Phase 29 to 47/49 (96%); the
+only item left is the doc's own "Open, for a human" stress test.
+
+**The rule is the deliverable, not the four buttons.** `slides-store.ts`'s `activeMarkdown` field now
+carries it in writing: *a surface claims the slot iff it renders exactly one document-level body at a
+time*, with every current example on both sides — claiming (Files preview, PR description, issue
+body, release notes), not claiming (the three comment/conversation lists). A future render site is
+judged by the rule rather than by resemblance to whichever neighbour it was copied from.
+
+All nine `react-markdown` sites were enumerated by grep rather than assumed. Four gained a Present
+button; `commit-message.tsx` is excluded on the rule's own terms (SHA/issue-linkified,
+trailer-styled prose, not a document) and says so in-file. **The ninth site is `deck.tsx` itself** —
+the presenter — which the phase doc's checklist never mentioned: it renders one `DeckStep` fragment
+at a time rather than a document body, so it fails the rule, and a Present button on the thing
+already presenting has nothing to do. That conclusion is recorded in-file too.
+
+Theme G's two real gaps: a fenced block whose *contents* contain `#` headings yields exactly two
+real slides with the fence intact as one `code` step — the mdast walk cannot be fooled by
+heading-shaped text inside a code node; and `presentActive()` on an empty slot is a no-op rather
+than a throw.
+
+Screenshots were regenerated through `slides-shots.spec.ts` and diffed, not redrawn by hand.
+`trigger-*` and `help-overlay-*` had drifted from unrelated title-bar and rail changes landed by
+later phases — verified as chrome drift, not regression. `mid-presentation-*` came back
+**byte-identical**, contrary to the doc's guess that Shiki would have moved it.
+
 ## 2026-09-07 — Phase 70 Theme B — The `pm.*` sandbox, and a real escape closed
 
 [PR #247](https://github.com/bilo-io/midnite-studio/pull/247). Moves Phase 70 16/50 → 28/50 (32% →
