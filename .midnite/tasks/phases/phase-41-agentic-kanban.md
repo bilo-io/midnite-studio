@@ -524,15 +524,35 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       exact boundary `saveTerminal` parses through, is asserted to keep `taskRef` rather than strip
       it (`terminal.test.ts`, "the kanban surface and taskRef"). The literal quit/relaunch pass
       needs a packaged build — folded into the human items below.
-- [ ] `moon run app:perf`: the board is inside the lazy Projects chunk and adds nothing to the entry
+- [x] `moon run app:perf`: the board is inside the lazy Projects chunk and adds nothing to the entry
+  - Confirmed 2026-09-07 against a **packaged-equivalent** build (`app:build` +
+    `desktop:bundle`, per `CLAUDE.md` — dev-mode numbers are noise). Entry chunk
+    **1456.5 KB** against a 1520 KB budget: **pass**. Grepping the built
+    `assets/index-*.js` finds zero board symbols (`task-card`, `card-terminal`,
+    `card-composer`, `deriveColumns`, `composeCardPrompt`, `findCardSession`) — all
+    52.8 KB of board code sits in the lazy `assets/projects-view-*.js` chunk per
+    Vite's manifest, and all five `bundle-budget.spec.ts` absence assertions pass.
+    Total JS (35507.4 KB vs a 15950 KB budget) **fails**, but that is pre-existing
+    and already disclosed in `scripts/perf/budgets.json`'s own 2026-09-06 note
+    (Monaco worker-chunk growth from Phase 64 Theme G) — nothing to do with the board.
       chunk. **Not run this batch** — `app:perf` needs a packaged build (`app:build desktop:bundle`
       first per `CLAUDE.md`), out of scope for what this batch's time went to. No new static import
       was added to the entry chunk (`@dnd-kit` and the board were already lazy from Theme A), so
       regression risk is low, but the number itself is unmeasured — open below.
-- [ ] No more than 4 xterm instances are mounted at once — **not applicable to this batch**: Theme E
+- ❌ **OUT OF SCOPE — superseded, not merely batch-excluded.** No more than 4 xterm instances are mounted at once — **not applicable to this batch**: Theme E
+  - The mechanism this item describes **no longer exists**: Phase 51 Theme C deleted
+    `card-terminal-mounts.ts`'s per-card `MAX_CARD_TERMINALS` cap outright and replaced
+    it with a process-wide budget — `features/terminal/xterm-budget.ts`'s
+    `MAX_WEBGL_CONTEXTS = 12` — which carries its own `xterm-budget.test.ts`. The
+    guarantee survives; the four-per-card rule it was written against does not, so this
+    can never be ticked as written.
       (the in-card terminal, the thing that would mount xterm instances) is not built yet. Nothing
       in C/D/F mounts an xterm.
-- [ ] Idle CPU with **five** cards running — **not applicable**, same reason: nothing in this batch
+- ❌ **OUT OF SCOPE — retired alongside the cap above.** Idle CPU with **five** cards running — **not applicable**, same reason: nothing in this batch
+  - Two independent reasons, and both stand: the four-per-card cap it was paired with
+    is gone (see above), and `scripts/perf/idle-cpu.mjs` has no board-seeding
+    capability, so five *live agent sessions* on a packaged build is a human-with-real-
+    board measurement regardless. Recorded rather than left dangling indefinitely.
       runs an animation whose cost scales with running-card count except the glow itself, and its
       pulse is already focus-gated (Theme F).
 - [x] The board issues **one** item read, not one per column — unchanged from Theme A/B, which this

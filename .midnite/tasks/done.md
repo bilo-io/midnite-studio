@@ -76,6 +76,39 @@ an unknown-repo or `clone` deep link is silently swallowed instead of prompting 
 its own themed gap rather than folded in here. Theme D (auto-updater) is still mostly unbuilt.
 `clone <url>` has no backing `git clone` implementation anywhere in `git-engine` yet.
 
+## 2026-09-07 — Phase 74 Theme E + Phase 41 Themes H, I — verified, and two items retired
+
+[PR #253](https://github.com/bilo-io/midnite-studio/pull/253). Phase 74 67/70 → 68/70 (96% → 97%);
+Phase 41 49/57 → 50/55 (86% → 91%, the denominator falling because two items were retired rather
+than left dangling). **No code changed** — both themes' remaining work was verification, so this is
+a docs-only PR recording what was actually observed.
+
+**Phase 74** — `category-palette.test.ts` passes 3/3 with the media ecosystem present. The item's
+literal figure was stale: the shipped value is `ECOSYSTEM_HUES.media = [135, 55, 48]`, not the `120`
+it names, because 135 superseded it in the same PR per this doc's own Theme A note. The two remaining
+items need a real Mac against a `desktop:dist` build — the Automation-permission grant/deny flow and
+Finder's own second confirm sheet cannot be exercised otherwise — and stay unticked.
+
+**Phase 41's `app:perf` claim is now a number**, measured against a packaged-equivalent build as
+`CLAUDE.md` requires: entry chunk **1456.5 KB** against a 1520 KB budget, with zero board symbols in
+`assets/index-*.js` and all 52.8 KB of board code in the lazy `projects-view-*` chunk. Total JS fails
+its budget, which is pre-existing and already disclosed in `budgets.json`'s own note (Monaco worker
+growth from Phase 64 Theme G), unrelated to the board.
+
+**Two items retired as `❌ OUT OF SCOPE`, and the reason is better than "not this batch".** Phase 51
+Theme C **deleted** the per-card `MAX_CARD_TERMINALS` cap outright and replaced it with a
+process-wide `MAX_WEBGL_CONTEXTS = 12` in `features/terminal/xterm-budget.ts`, which carries its own
+test. The guarantee survives; the four-per-card rule these two items were written against does not,
+so neither could ever be ticked as written. The idle-CPU item is retired alongside it and for a
+second independent reason: `idle-cpu.mjs` has no board-seeding capability, so five live agent
+sessions is a human measurement regardless.
+
+**Theme H's reattach item stays open, and is genuinely a hardware item, not a test gap.** Every
+constituent link is already covered — `taskRef` round-trip (`shared/src/terminal.test.ts`),
+`findCardSession`/asleep-not-exited (`terminal-surface.test.ts`), cross-board isolation and remount
+survival (`board-view.test.tsx`), and the broker's own legacy-peer reattach
+(`desktop/src/main/broker-client.test.ts`). What remains is quitting a packaged app and relaunching it.
+
 ## 2026-09-07 — Phase 64 Themes D + G — Escape yields to Monaco, and a focus bug
 
 [PR #252](https://github.com/bilo-io/midnite-studio/pull/252). Moves Phase 64 57/72 → 66/72 (79% →

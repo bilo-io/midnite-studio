@@ -893,7 +893,11 @@ which no automated session can perform.
       **child** path (`Cache/Transcode`) returning `null`, which is what proves equality-not-prefix.
 - [x] A **symlinked** `Plex Media Server/Cache` is dropped by `resolveSystemCacheEntries` rather
       than followed — the one case exact-match confinement cannot catch on its own.
-- [ ] Phase 72's `category-palette.test.ts` still passes with `ECOSYSTEM_HUES.media = 120` present,
+- [x] Phase 72's `category-palette.test.ts` still passes with `ECOSYSTEM_HUES.media = 120` present,
+  - Confirmed 2026-09-07: `moon run app:test -- category-palette` → **3/3 passing**. Note the
+    shipped value is `ECOSYSTEM_HUES.media = [135, 55, 48]` (`category-palette.ts:124`), **not the
+    `120` this item names** — 135 superseded it in the same PR, per this doc's own Theme A note, so
+    the item's literal figure was stale. The 12°-separation threshold is unchanged and passing.
       with no change to its 12°-separation threshold.
 - [x] The consent enumeration, rendered from a stubbed catalogue, contains both Plex labels and no
       longer contains `another media tool's cache`.
