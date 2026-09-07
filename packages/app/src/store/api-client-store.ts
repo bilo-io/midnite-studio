@@ -6,6 +6,11 @@ import type {
   ApiHistoryEntry,
   ApiRequestDraft,
   ApiResponse,
+  ApiRunDoneEvent,
+  ApiRunEvent,
+  ApiRunItemResult,
+  ApiRunSummary,
+  ApiRunTarget,
   PostmanEnvironment,
   PostmanItem,
   SaveEnvironmentOutcome,
@@ -92,6 +97,24 @@ export type ScriptTabState =
   | { status: 'needs-consent' }
   | { status: 'declined' }
   | { status: 'ran'; run: ScriptRun }
+  | { status: 'error'; message: string };
+
+/**
+ * One collection's run state (Phase 70 Theme C), keyed by `collectionId` in
+ * `runs` below — mirrors `ScriptTabState`'s own shape one level up: a
+ * `needs-consent`/`declined` pair for the trust gate (checked once for the
+ * whole run, never per request), `running` while events are still arriving,
+ * and a terminal `done` carrying the full `ApiRunSummary`. Never persisted —
+ * a run is in-memory only (the phase doc's own note on why: a run's
+ * responses would multiply the redaction surface by the size of a
+ * collection).
+ */
+export type ApiRunState =
+  | { status: 'idle' }
+  | { status: 'needs-consent' }
+  | { status: 'declined' }
+  | { status: 'running'; runId: string; total: number; items: ApiRunItemResult[] }
+  | { status: 'done'; runId: string; summary: ApiRunSummary; items: ApiRunItemResult[] }
   | { status: 'error'; message: string };
 
 /** `draft.headers`' enabled, non-empty-key rows as the flat map
@@ -211,6 +234,11 @@ export type ApiClientState = {
    *  decision blocking one). Never persisted — see `ScriptTabState`. */
   scriptRuns: Record<string, ScriptTabState>;
 
+  // --- the collection runner (Phase 70 Theme C) -------------------------------
+  /** collectionId -> that collection's current (or last) run. Never
+   *  persisted — see `ApiRunState`. */
+  runs: Record<string, ApiRunState>;
+
   // --- persisted request history (Phase 70 Theme D) --------------------------
   // Metadata only — no headers, no bodies (`main/api-client/history.ts`'s own
   // whole design). Recording happens as a side effect of every `sendRequest`
@@ -301,6 +329,27 @@ export type ApiClientState = {
    * `null` on a cancelled dialog or a missing bridge, same as a cancel.
    */
   pickBinaryFile: () => Promise<string | null>;
+
+  /**
+   * Starts a collection run — the environment picker's current selection
+   * for `repoId` (Theme A's own `activeEnvironmentByRepo`), a fresh `runId`,
+   * and `target` (the whole collection or one folder). Resolves immediately:
+   * `{status:'started'}` moves `runs[collectionId]` to `running` with an
+   * empty item list that `applyRunProgress` fills in as events arrive;
+   * `{status:'needs-consent'}` is the trust gate, checked once for the
+   * whole run rather than per request. `runAnyway: true` is *Run once* on
+   * the runner's own consent bar.
+   */
+  startRun: (repoId: string, collectionId: string, target: ApiRunTarget, runAnyway?: boolean) => Promise<void>;
+  /** Aborts the in-flight request and stops before the next is dequeued —
+   *  a no-op if `collectionId` has no run currently `running`. */
+  stopRun: (collectionId: string) => void;
+  /** One request's just-settled result, off `apiClient.onRunProgress` — a
+   *  no-op for an event whose `runId` names no `running` entry (a run this
+   *  window superseded or already finished). */
+  applyRunProgress: (event: ApiRunEvent) => void;
+  /** The run's terminal summary, off `apiClient.onRunDone`. */
+  applyRunDone: (event: ApiRunDoneEvent) => void;
 };
 
 export const useApiClientStore = create<ApiClientState>()((set, get) => ({
@@ -321,6 +370,7 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
   inFlight: {},
   lastError: {},
   scriptRuns: {},
+  runs: {},
 
   history: [],
   historyRepoId: null,
@@ -764,5 +814,80 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
     if (!api) return null;
     const result = await api.apiClient.pickBinaryFile();
     return result.ok ? result.value : null;
+  },
+
+  startRun: async (repoId, collectionId, target, runAnyway = false) => {
+    const api = bridge();
+    if (!api) return;
+    const environmentId = useUiStore.getState().activeEnvironmentByRepo[repoId] ?? null;
+    // Mirrors `sendRequest`'s own `requestId` shape one line above — no
+    // `crypto.randomUUID()` precedent in this file, and a run has the exact
+    // same "must be unique, never read back apart from correlation" need.
+    const runId = `${collectionId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+
+    const result = await api.apiClient.runCollection({
+      runId,
+      repoId,
+      collectionId,
+      environmentId,
+      target,
+      runAnyway,
+    });
+
+    if (!result.ok) {
+      set((state) => ({ runs: { ...state.runs, [collectionId]: { status: 'error', message: result.message } } }));
+      return;
+    }
+
+    set((state) => ({
+      runs: {
+        ...state.runs,
+        [collectionId]:
+          result.value.status === 'needs-consent'
+            ? { status: 'needs-consent' }
+            : { status: 'running', runId, total: 0, items: [] },
+      },
+    }));
+  },
+
+  stopRun: (collectionId) => {
+    const run = get().runs[collectionId];
+    if (!run || run.status !== 'running') return;
+    const api = bridge();
+    if (!api) return;
+    void api.apiClient.cancelRun({ runId: run.runId });
+  },
+
+  applyRunProgress: (event) => {
+    set((state) => {
+      const entry = Object.entries(state.runs).find(
+        ([, run]) => run.status === 'running' && run.runId === event.runId,
+      );
+      if (!entry) return {}; // superseded or already finished — a late/stray event, ignored
+      const [collectionId, run] = entry;
+      if (run.status !== 'running') return {};
+      const items = [...run.items];
+      items[event.index] = event.item;
+      return {
+        runs: { ...state.runs, [collectionId]: { status: 'running', runId: run.runId, total: event.total, items } },
+      };
+    });
+  },
+
+  applyRunDone: (event) => {
+    set((state) => {
+      const entry = Object.entries(state.runs).find(
+        ([, run]) => run.status === 'running' && run.runId === event.runId,
+      );
+      if (!entry) return {};
+      const [collectionId, run] = entry;
+      if (run.status !== 'running') return {};
+      return {
+        runs: {
+          ...state.runs,
+          [collectionId]: { status: 'done', runId: run.runId, summary: event.summary, items: run.items },
+        },
+      };
+    });
   },
 }));
