@@ -102,9 +102,9 @@
     running `pnpm exec moon run desktop:verify-dist` between `desktop:dist` and the artifact upload,
     so a bundle that cannot pass `codesign --verify` never becomes a downloadable artifact.
 
-### Theme B — `midnite-studio` CLI Binary & System PATH Symlinking (S/M/L: L) — ◐ PARTIAL (2026-08-30)
+### Theme B — `midnite-studio` CLI Binary & System PATH Symlinking (S/M/L: L) — ✅ DONE (2026-09-07)
 
-- [ ] Create the executable wrapper `packages/desktop/resources/bin/midnite-studio` (net-new), a POSIX `sh` script.
+- [x] Create the executable wrapper `packages/desktop/resources/bin/midnite-studio` (net-new), a POSIX `sh` script.
   - **Grammar** (the whole surface): `midnite-studio [path]`, `midnite-studio open <path>`,
     `midnite-studio clone <url>`, `midnite-studio --version`, `midnite-studio --help`.
   - Resolves a relative path with `cd "$1" && pwd`; stock macOS has no `realpath` for files.
@@ -133,7 +133,7 @@
     `CliUninstallResponse`.
   - **Reuse `GitOpResultOf`, do not invent an envelope**: a permission denial is a normal outcome
     the UI renders as `{ok:false, kind:'error'}`, never a thrown error across IPC.
-- [ ] Create `packages/desktop/src/main/ipc/cli-handlers.ts` (net-new) — `export function registerCliHandlers(): void`.
+- [x] Create `packages/desktop/src/main/ipc/cli-handlers.ts` (net-new) — `export function registerCliHandlers(): void`.
   - `handleBare(CHANNELS.cliStatus, …)` and `handleOp(CHANNELS.cliInstall, schemas.CliInstallRequest, …)`
     from [`ipc/handle.ts`](../../../packages/desktop/src/main/ipc/handle.ts).
   - Install symlinks `Contents/Resources/bin/midnite-studio` to the first writable entry of
@@ -152,7 +152,7 @@
   - Matching `cli` group on `MidniteGitBridge` in
     [`shared/src/ipc/bridge.ts`](../../../packages/shared/src/ipc/bridge.ts), using
     `In<typeof S.CliInstallRequest>`.
-- [ ] Generate shell completions in `packages/desktop/resources/completions/` (net-new): `_midnite-studio` (zsh), `midnite-studio.bash`, `midnite-studio.fish`.
+- [x] Generate shell completions in `packages/desktop/resources/completions/` (net-new): `_midnite-studio` (zsh), `midnite-studio.bash`, `midnite-studio.fish`.
   - They complete **exactly** the grammar above and nothing else: the subcommands `open` and
     `clone`, and the flags `--version` and `--help`. `open` completes directories; `clone`
     completes nothing.
@@ -160,7 +160,7 @@
   - Install surfaces the `fpath+=(…)` / `source …` line as copyable text; **this phase never edits
     the user's shell rc** — an installer that rewrites `.zshrc` is a support burden and a
     surprise.
-- [ ] Add `packages/app/src/features/settings/settings-pages/cli-page.tsx` (net-new) — `export function CliPage()`.
+- [x] Add `packages/app/src/features/settings/settings-pages/cli-page.tsx` (net-new) — `export function CliPage()`.
   - **Four registration edits, all required** (two are `Record<SettingsPageId, …>` maps, so a
     miss is a type error): the `SettingsPageId` union and
     `{ id: 'cli', label: 'CLI Integration', group: 'system' }` in `SETTINGS_PAGES`
@@ -173,7 +173,7 @@
     `<div className="flex flex-col gap-4 p-3">` built from `Field` in
     [`controls.tsx`](../../../packages/app/src/features/settings/settings-pages/controls.tsx).
   - Icons must come from `react-icons` — `SETTINGS_PAGE_ICON` is typed `Record<SettingsPageId, IconType>`.
-- [ ] Specify every state the CLI page can be in.
+- [x] Specify every state the CLI page can be in.
   - **No bridge** (`hasBridge() === false` — jsdom and any browser context): render the field with
     the button disabled and the hint `Available in the desktop app.` The house rule is that
     `bridge()` returns `undefined` and components degrade rather than crash.
@@ -453,14 +453,14 @@
       `DeepLink` for `midnite-studio://open?repo=/abs/path` and `…//clone?url=https://…`, and returns
       **`null`** for each of a foreign scheme, an unknown host, a missing param, a relative `repo`, a
       `repo` containing `\0`, and a `clone` url with a `file:` scheme.
-- [ ] `packages/desktop/src/main/cli-path.test.ts` (net-new): `preferredTargets('/Users/x')` yields
+- [x] `packages/desktop/src/main/cli-path.test.ts` (net-new): `preferredTargets('/Users/x')` yields
       `/usr/local/bin` before `~/.local/bin`; `pathExportLine` emits the quoted `export PATH=` form.
 - [ ] `packages/desktop/src/updates/update-state.test.ts` (net-new): `downloadingState` clamps `-5 → 0`,
       `140 → 100` and rounds `41.6 → 42`; `notAvailableState()` is `IDLE_STATE`.
 - [ ] `packages/desktop/src/updates/feed-channel.test.ts` (net-new): `feedChannelFor('stable').channel`
       is **`'latest'`** (not `'stable'`), and `feedChannelFor('beta')` sets both `allowPrerelease` and
       `allowDowngrade`.
-- [ ] `packages/desktop/src/main/ipc/cli-handlers.test.ts` (net-new): reaches the handlers through the
+- [x] `packages/desktop/src/main/ipc/cli-handlers.test.ts` (net-new): reaches the handlers through the
       recorded `ipcMain.handle` calls with `vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))`,
       exactly as `fs-handlers.test.ts` does. Asserts that an `EACCES` on `/usr/local/bin` falls back to
       `~/.local/bin` and returns `{ok:true}`, and that a symlink resolving outside the bundle reports
