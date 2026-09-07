@@ -10,17 +10,24 @@ export function DiffToolbar({
   diff,
   onExpandContext,
   showStats = true,
+  tooNarrowForSplit = false,
 }: {
   diff: FileDiff;
   onExpandContext?: (lines: number) => void;
   showStats?: boolean;
+  /**
+   * The pane hosting this diff has dropped below `DIFF_SPLIT_MIN_WIDTH` —
+   * Theme C's width fallback. `unified` renders either way; this only changes
+   * what the toggle SAYS, never what it does to the stored preference.
+   */
+  tooNarrowForSplit?: boolean;
 }) {
   const showOldGutter = useUiStore((s) => s.diffShowOldGutter);
   const toggleOldGutter = useUiStore((s) => s.toggleDiffOldGutter);
   const diffLayoutPref = useUiStore((s) => s.diffLayout);
   const toggleDiffLayout = useUiStore((s) => s.toggleDiffLayout);
 
-  const effectiveLayout = canSplit(diff) ? diffLayoutPref : 'unified';
+  const effectiveLayout = canSplit(diff) && !tooNarrowForSplit ? diffLayoutPref : 'unified';
   const isSplit = effectiveLayout === 'split';
   const canExpandAll = diff.contextLines < DIFF_FULL_CONTEXT && onExpandContext !== undefined;
 
@@ -44,6 +51,8 @@ export function DiffToolbar({
           label={isSplit ? 'Switch to unified diff' : 'Switch to side-by-side diff'}
           aria-pressed={isSplit}
           size="sm"
+          disabled={tooNarrowForSplit}
+          disabledReason={tooNarrowForSplit ? 'Too narrow for side-by-side' : undefined}
           onClick={toggleDiffLayout}
         />
       ) : null}

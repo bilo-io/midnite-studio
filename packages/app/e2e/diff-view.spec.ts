@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures, PARENT_SHA } from './fixtures';
+import { COMMIT_SHA, fixtures, PARENT_SHA } from './fixtures';
 import { installMockBridge } from './mock-bridge';
 
 /**
@@ -19,6 +19,31 @@ async function openCommit(page: Page): Promise<void> {
   const row = page.getByText('feat(phase-11): package, install and run from /Applications');
   await expect(row).toBeVisible();
   await row.click();
+
+  await expect(page.getByRole('button', { name: /window\.ts/ })).toBeVisible();
+}
+
+/**
+ * Open the commit as a full-width workbench tab (Theme G) rather than the
+ * graph's narrow inspector dock.
+ *
+ * Needed for anything that exercises SPLIT: `LAYOUT_BOUNDS.detailWidth` caps
+ * that dock at 720px and it renders one pixel short of even that by default
+ * (`DIFF_SPLIT_MIN_WIDTH`, Theme C's width fallback), so the toggle is
+ * permanently disabled there — by design, which is the whole reason the
+ * full-width tab exists.
+ */
+async function openCommitInTab(page: Page): Promise<void> {
+  await openCommit(page);
+  await page.getByRole('button', { name: `Open commit in tab (${COMMIT_SHA})` }).click();
+
+  // The nav rail's hover-expand reflow moves a collapsed link out from under a
+  // synthetic click before it lands — hover first and wait for the expanded
+  // label, per `changes-panel.spec.ts`'s own note on this exact hazard.
+  const link = page.getByRole('link', { name: 'Changes' });
+  await link.hover();
+  await expect(link.getByText('Changes', { exact: true })).toBeVisible();
+  await link.click();
 
   await expect(page.getByRole('button', { name: /window\.ts/ })).toBeVisible();
 }
@@ -79,7 +104,7 @@ test('the old line-number column is off by default and toggles on', async ({ pag
 });
 
 test('toggling side-by-side diff switches rendering layout', async ({ page }) => {
-  await openCommit(page);
+  await openCommitInTab(page);
   await page.getByRole('button', { name: /window\.ts/ }).click();
 
   const toggle = page.getByRole('button', { name: 'Switch to side-by-side diff' });

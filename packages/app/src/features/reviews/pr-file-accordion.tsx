@@ -5,18 +5,22 @@ import type {
   StatusCode,
 } from '@midnite/studio-shared';
 import { LuChevronRight } from 'react-icons/lu';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import { Counts } from '../../components/change-tree';
+import { Spinner } from '../../components/skeleton';
+import { useTargetedGitOp } from '../../services/use-status';
 import { positionForLine, threadsForFile } from '../diff/comment-anchors';
 import { DiffToolbar } from '../diff/diff-toolbar';
 import { DiffView } from '../diff/diff-view';
 import { imageDiffSources } from '../diff/image-sources';
+import { useTooNarrowForSplit } from '../diff/use-diff-split-width';
 
 import { StatusMark } from '../status/status-mark';
 import { CommentComposer } from './comment-composer';
 import { CommentThread } from './comment-thread';
 import { OutdatedThreads } from './outdated-threads';
+import { useBaseBlobExists } from './use-base-blob-exists';
 
 /**
  * One file of a pull request's diff.
@@ -80,6 +84,14 @@ export function PrFileAccordion({
   };
 }) {
   const bodyId = useId();
+  /*
+    Theme C's width fallback (Phase 26). The toolbar (header) and the diff
+    body are siblings here, not parent/child — see `use-diff-split-width.ts`'s
+    note on `DiffView`'s `tooNarrowForSplit` prop — so this section is the
+    narrowest ancestor both can share a width reading from.
+  */
+  const sectionRef = useRef<HTMLElement>(null);
+  const tooNarrowForSplit = useTooNarrowForSplit(sectionRef);
 
   /*
     One composer at a time, per file, and its line is the whole state.
@@ -100,8 +112,59 @@ export function PrFileAccordion({
   // Hoisted so the narrowing holds inside the composer's own callback.
   const headSha = review.headSha;
 
+  /*
+    Image sources, computed here rather than inline in the `<DiffView>` prop
+    below — its own reason is the same gate the JSX used to build inline, but
+    Theme H's "Fetch to compare" (Phase 26) needs the RESULT too, to know
+    whether a before-image is even expected before asking if its blob exists.
+  */
+  const images =
+    repoId && headSha && (baseSha || file.oldPath)
+      ? imageDiffSources(file, {
+          kind: 'commit',
+          repoId,
+          sha: headSha,
+          parentSha: baseSha ?? undefined,
+          ...(worktreePath ? { worktreePath } : {}),
+        })
+      : null;
+
+  /*
+    "Fetch to compare" (Phase 26 Theme H).
+
+    A fork PR's base commit is not necessarily in this checkout's object
+    database, and an `<img src="mstudio-file://…">` pointed at a sha git has
+    never seen fails silently — the exact failure mode this exists to explain.
+    Only a file that actually expects a before-image asks the question: an
+    added file's `images.before` is already `null`, and there is nothing to
+    fetch a comparison FOR.
+  */
+  const oldPath = file.oldPath ?? file.path;
+  const needsBaseBlobCheck = Boolean(images?.before && baseSha);
+  const baseBlobExists = useBaseBlobExists({
+    repoId,
+    worktreePath,
+    rev: needsBaseBlobCheck ? (baseSha ?? null) : null,
+    path: needsBaseBlobCheck ? oldPath : null,
+  });
+  const baseBlobMissing = needsBaseBlobCheck && baseBlobExists === false;
+
+  /*
+    The existing `fetch` op and nothing else — no new IPC channel, no
+    fork-specific remote resolution. `resolveWorkdir` in main already falls
+    back to `origin` the same way every other sync control does; a base
+    commit missing from a normal clone (a shallow checkout, or a base branch
+    that moved on since this PR's local remote-tracking ref last updated) is
+    the ordinary case this button exists for, same as a fork.
+  */
+  const fetchBase = useTargetedGitOp<Record<string, never>>(
+    { repoId: repoId ?? null, worktreePath },
+    'fetch',
+    (api, _args, ctx) => api.ops.fetch(ctx),
+  );
+
   return (
-    <section className="border-b border-border/60 last:border-b-0">
+    <section ref={sectionRef} className="border-b border-border/60 last:border-b-0">
       <header className="sticky top-0 z-10 flex items-center gap-2 bg-background/95 px-3 py-1.5 backdrop-blur">
         <button
           type="button"
@@ -124,7 +187,9 @@ export function PrFileAccordion({
           <Counts insertions={file.insertions} deletions={file.deletions} />
         </button>
 
-        {open ? <DiffToolbar diff={file} showStats={false} /> : null}
+        {open ? (
+          <DiffToolbar diff={file} showStats={false} tooNarrowForSplit={tooNarrowForSplit} />
+        ) : null}
       </header>
 
       {open ? (
@@ -140,6 +205,30 @@ export function PrFileAccordion({
             worktreePath={worktreePath}
           />
 
+          {baseBlobMissing ? (
+            <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
+              <span>
+                The base revision isn&rsquo;t in this checkout yet, so its image can&rsquo;t be
+                compared.
+              </span>
+              <button
+                type="button"
+                onClick={() => fetchBase.mutate({})}
+                disabled={fetchBase.isPending}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {fetchBase.isPending ? (
+                  <>
+                    <Spinner className="size-3 border-primary-foreground/30 border-r-primary-foreground border-t-primary-foreground" />
+                    Fetching…
+                  </>
+                ) : (
+                  'Fetch to compare'
+                )}
+              </button>
+            </div>
+          ) : null}
+
           {/*
             No `onExpandContext`. Expanding context is a REFETCH with a wider
             `-U`, and `gh pr diff` has no per-file form to refetch — asking for
@@ -150,20 +239,10 @@ export function PrFileAccordion({
           <DiffView
             diff={file}
             inline
+            tooNarrowForSplit={tooNarrowForSplit}
             threads={byLine}
             leftThreads={leftByLine}
-
-            images={
-              repoId && headSha && (baseSha || file.oldPath)
-                ? imageDiffSources(file, {
-                    kind: 'commit',
-                    repoId,
-                    sha: headSha,
-                    parentSha: baseSha ?? undefined,
-                    ...(worktreePath ? { worktreePath } : {}),
-                  })
-                : null
-            }
+            images={baseBlobMissing ? null : images}
             /*
 
               `onComment` is the gate on the gutter affordance, and it is

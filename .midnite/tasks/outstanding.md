@@ -47,17 +47,12 @@ Recorded here when a phase punts on something; pick these up post-MVP.
 - **Interactive rebase** — via a `GIT_SEQUENCE_EDITOR` helper binary that writes the UI's todo
   list; `GIT_EDITOR` for reword. Impossible with libgit2/isomorphic-git; CLI-only trick.
 - ~~**Proper diff viewer**~~ — ✅ landed in Phase 12 Theme D: parsed hunks over IPC, one shared
-  `<DiffView>`, restrained tinting with intraline word marking, virtualised rows. Two pieces
-  deliberately left out of it:
-  - **Syntax highlighting inside diff lines** — now much cheaper than when this was parked:
-    Phase 16 landed `shiki` (lazy per-extension grammars, both github themes synced to the app
-    theme) and a language map (`app/src/lib/languages.ts`) for its file previews, so the "heavy
-    dependency plus a language-detection story" is already paid for. What remains is wiring
-    `codeToHtml` into `<DiffView>`'s virtualised rows without regressing scroll performance.
-    Word-level intraline marking still covers the common case; revisit when reading unfamiliar
-    code in the panel proves hard.
-  - **Side-by-side diff** — earns its keep only in a full-width diff surface, which does not
-    exist yet; the inspector is a narrow side panel.
+  `<DiffView>`, restrained tinting with intraline word marking, virtualised rows. One piece
+  deliberately left out of it, now also landed:
+  - ~~**Side-by-side diff**~~ — ✅ landed in
+    [Phase 26](phases/phase-26-side-by-side-diffs.md): a `diffLayout: 'unified' | 'split'` toggle
+    over the same `<DiffView>`, not a forked renderer — the "full-width diff surface" this waited
+    on turned out to be Phase 17's workbench tabs, already built for something else.
 - **Stash** — list/apply/pop/drop + a graph affordance.
 - **Force-push** — only ever `--force-with-lease`, behind blast-radius confirm gating. No force
   push exists anywhere in the MVP.
@@ -161,15 +156,6 @@ and disposing it first changes nothing. Reachable only through StrictMode's moun
 mount, so it fires for every pane opened under `moon run desktop:start` and never in a packaged
 build. Harmless beyond the console noise, and worth revisiting on the next xterm bump rather than
 worked around from outside the library.
-
-## Image diffs in a pull request
-
-The image viewer is wired into the Changes pane and the commit inspector, and not into the
-Reviews page. It needs a revision pair, and `ForgePullDetail` carries only `headSha` — there is
-no base sha in the shape, so there is nothing to read the "before" from. Two things would have
-to hold: the forge domain would need the base sha, and both objects would have to be in the
-local checkout, which for a fork's PR means a fetch first. Until then a binary image in a PR
-keeps the sentence, which is at least not misleading.
 
 ## ~60 KB of `lucide-react` ships via `@bilo-io/ui` and `@bilo-io/shell` (Phase 36 Theme C)
 

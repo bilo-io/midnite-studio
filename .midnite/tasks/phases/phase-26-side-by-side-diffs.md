@@ -100,6 +100,7 @@ scope: it is the same phase, described accurately.
 - **The four items that did not ship** are Theme C's `ResizeObserver` width fallback, Theme C's
   `e2e/diff-split.spec.ts`, Theme H's "fetch to compare" affordance, and Theme H's
   [`outstanding.md`](../outstanding.md) cleanup. Counts move from 54/68 to **50/68**.
+  **All four landed in PR #267 (2026-09-08)** — see Themes C and H below.
 
 ### A — The split row model (M) ✅ DONE (PR #1, 2026-08-30)
 
@@ -210,7 +211,7 @@ promise. No user-visible change lands here; unified must look byte-identical aft
       [`e2e/diff-view.spec.ts`](../../../packages/app/e2e/diff-view.spec.ts) passes unmodified, and the
       committed unified screenshots do not change.
 
-### C — Two columns, and the toggle (M) ◐ PARTIAL (PR #1, 2026-08-30; two items reverted at refinement x1)
+### C — Two columns, and the toggle (M) ✅ DONE (PR #1, 2026-08-30; reverted items landed PR #267, 2026-09-08)
 
 - [x] Split rows go through the existing `useVirtualizer` in `DiffView` with the same
       `ROW_HEIGHT`, `measureElement` and overscan as unified; a `split-line` row is **one** virtual
@@ -249,40 +250,36 @@ promise. No user-visible change lands here; unified must look byte-identical aft
       `const isSplit = (canSplit(diff) ? diffLayoutPref : 'unified') === 'split'`
       (`diff-toolbar.tsx:23-24`). In split each column has its own number gutter by construction, so
       the control has nothing left to do.
-- [ ] **Not built — the width fallback does not exist.** `grep -rn 'ResizeObserver\|clientWidth\|offsetWidth\|matchMedia' packages/app/src/features/{diff,changes,reviews,commit}`
-      returns **zero hits**. The only fallback that shipped is content-based
-      (`canSplit(diff)` at `diff-view.tsx:144`), so a 320px-wide Changes pane renders two
-      unreadable columns if the preference says split.
-      - Build it as a `ResizeObserver` on the diff **body** element, not the window: three of the
-        four surfaces sit inside resizable panels, so window width does not describe them.
-      - The threshold is **720px of body width** — two 80-column cells at the diff's own
-        `text-xs`/`font-mono` metrics plus two gutters is what stops fitting below that, and 720 is
-        already the number `LAYOUT_BOUNDS.detailWidth` caps the graph dock at, so the dock is the
-        boundary case by construction rather than by coincidence.
-      - Below it, `effectiveLayout` becomes `'unified'` and the toolbar button renders
-        `aria-pressed={false}` with the tooltip `'Too narrow for side-by-side'`, so the toggle
-        explains itself instead of looking broken. **The stored preference is never rewritten** —
-        widening the panel must restore split with no second click.
+- [x] **Landed (PR #267, 2026-09-08).** `useTooNarrowForSplit`
+      ([`use-diff-split-width.ts`](../../../packages/app/src/features/diff/use-diff-split-width.ts))
+      — a `ResizeObserver` on the diff body element (never `window`), threshold
+      `DIFF_SPLIT_MIN_WIDTH = 720`. Below it, `effectiveLayout` forces `'unified'` and the toolbar
+      button renders `aria-pressed={false}` with an explained-disabled tooltip ("Too narrow for
+      side-by-side"), via `IconButton`'s existing `disabled`/`disabledReason` pattern. The stored
+      preference is never rewritten. Wired into `DiffView`/`DiffToolbar` for pane mode
+      (self-contained: the toolbar and the scroller it measures are both children of the same
+      component) and into `FileAccordion`/`PrFileAccordion`'s own `<section>` for inline mode,
+      where the toolbar and the diff body are siblings rather than parent/child.
+      - **First cut had a real bug**: the effect's `[ref]` dependency array meant it only ever
+        checked `ref.current` once, at the very first commit — and `DiffView`'s `isLoading`/`!diff`
+        early returns mean that first commit almost always finds no element yet. Fixed to re-check
+        every render, with a ref-tracked `ResizeObserver` instance so that does not mean recreating
+        it on every one of `DiffView`'s scroll-driven re-renders.
+      - **Consequence, not a regression**: the graph dock's commit inspector
+        (`LAYOUT_BOUNDS.detailWidth`, default 384px, max 720) is now correctly always too narrow for
+        split — by design, per this phase's own "the inspector stays a tab, not a wider dock"
+        decision. `e2e/diff-view.spec.ts`'s split-toggle test now opens the commit as a full-width
+        workbench tab instead, which is the one place split was ever reachable.
 - [x] The centre divider: a 1px rule between columns, and per-column `min-w-0` so a long line
       scrolls rather than pushing its neighbour off-screen.
 - [x] `describeEmptyDiff` and the truncation footer (`truncated`, `droppedLines`) render the same in
       both layouts — they are file-level, not row-level, and should not be re-implemented.
-- [ ] **Not built — `packages/app/e2e/diff-split.spec.ts` does not exist.** The only split coverage
-      in the whole e2e suite is one test inside
-      [`e2e/diff-view.spec.ts:81`](../../../packages/app/e2e/diff-view.spec.ts),
-      `toggling side-by-side diff switches rendering layout`, which asserts three things — the
-      button flips to `'Switch to unified diff'`, `lines(page, 'add')` has count 4, and
-      `getByTestId('diff-cell-left-empty')` has count 3. It does **not** assert gutter numbers and
-      does **not** assert persistence.
-      - Write `e2e/diff-split.spec.ts` with the three uncovered assertions: on an unbalanced hunk
-        (a 5-for-2 run in the `mock-bridge` fixture) the left gutter reads the `oldNo` sequence and
-        the right the `newNo` sequence; a one-sided row renders `diff-cell-left-empty` /
-        `diff-cell-right-empty` opposite a real cell; and after `page.reload()` the toolbar still
-        reads `'Switch to unified diff'`.
-      - Press the toggle by its exact accessible name (`'Switch to side-by-side diff'`), never by a
-        `/split/i` filter, and use `ControlOrMeta` for any chord — a hard-coded `Meta+…` is a
-        no-op on Linux CI, which is what cost the suite nine silent failures once already
-        ([`outstanding.md`](../outstanding.md)).
+- [x] **Landed (PR #267, 2026-09-08).**
+      [`e2e/diff-split.spec.ts`](../../../packages/app/e2e/diff-split.spec.ts) with the three
+      previously-uncovered assertions: a 5-add/2-del unbalanced hunk with each side reading its own
+      `oldNo`/`newNo` sequence, a one-sided row's empty opposite cell, and `diffLayout` surviving a
+      reload. Opens the commit as a full-width workbench tab (not the graph's narrow dock, which
+      the width fallback above now correctly keeps out of split's reach).
 
 ### D — The accordions learn to virtualize (L) ✅ DONE (PR #1, 2026-08-30)
 
@@ -387,7 +384,7 @@ on the thing you are looking at" reads as a bug.
       the tab lays the file tree out beside the diff rather than above it. Decide once and write it
       down; a tree that is 200px tall and 1400px wide is neither.
 
-### H — Image diffs in a pull request (S) ◐ PARTIAL (2026-08-30; two items reverted at refinement x1)
+### H — Image diffs in a pull request (S) ✅ DONE (2026-08-30; reverted items landed PR #267, 2026-09-08)
 
 The one contract change in the phase, and a documented gap in
 [`outstanding.md`](../outstanding.md): the `ImageDiff` viewer works in Changes and the commit inspector
@@ -405,33 +402,28 @@ but not in Reviews, because `ForgePullDetailSchema` carries `headSha` and no bas
       [`image-sources.ts`](../../../packages/app/src/features/diff/image-sources.ts) reached from
       `PrFileAccordion` with `{baseSha, headSha}`, so `ImageDiff`'s existing two-up / swipe / onion
       modes light up on a PR with no new component.
-- [ ] **Not built — there is no "fetch to compare" affordance.** `grep -n 'fetch\|fork'` over
-      [`image-diff.tsx`](../../../packages/app/src/features/diff/image-diff.tsx) and
-      [`image-sources.ts`](../../../packages/app/src/features/diff/image-sources.ts) returns one
-      hit, the comment *"Nothing here fetches; the browser…"*. What shipped is a bare presence
-      check at
-      [`pr-file-accordion.tsx:157`](../../../packages/app/src/features/reviews/pr-file-accordion.tsx):
-      `repoId && headSha && (baseSha || file.oldPath) ? imageDiffSources(…) : …`.
-      - So a fork PR whose base blob is not in the local object store falls through to the plain
-        binary treatment with **no explanation** — which is the failure mode this item existed to
-        prevent.
-      - Build it as: when `baseSha` is set but `git cat-file -e <baseSha>:<path>` fails, render a
-        single button labelled **`Fetch to compare`** in the file's body. It calls the existing
-        fetch op for the PR's base remote and nothing else. **Nothing fetches before the click** —
-        that is the rule the forge integration has held since Phase 17 and the only reason this is
-        a button rather than an effect.
+      - **Corrected, PR #267 (2026-09-08): this had never actually reached in practice.**
+        `pr-detail.tsx` never passed `repoId`, `worktreePath` or `baseSha` down to `<PrFiles>` at
+        all, even though `PrFiles`/`PrFileAccordion` accepted them from the start — so
+        `imageDiffSources`'s gate (`repoId && headSha && (baseSha || file.oldPath)`) was always
+        false for a real pull request and no PR image ever rendered, fork or not. Fixed alongside
+        the reverted item below, which needed the same wiring to be reachable at all.
+- [x] **Landed (PR #267, 2026-09-08).** `useBaseBlobExists`
+      ([`use-base-blob-exists.ts`](../../../packages/app/src/features/reviews/use-base-blob-exists.ts))
+      backs a new `blobExists` IPC channel (`mstudio:blob:exists`, `git cat-file -e` end to end —
+      git-engine → shared schema/channel/bridge → desktop preload/main). When a before-image is
+      expected and the check fails, `pr-file-accordion.tsx` renders a **`Fetch to compare`** button
+      instead of attempting the image diff. It calls the existing `fetch` op
+      (`useTargetedGitOp`) for the PR's base remote and nothing else — nothing fetches before the
+      click, per the rule the forge integration has held since Phase 17.
 - [x] A binary non-image file in a PR keeps its existing "binary file" treatment; this theme widens
       what is *shown*, not what is *parsed*.
-- [ ] **Not done — [`outstanding.md`](../outstanding.md) still carries all three entries.** The
-      `## Image diffs in a pull request` section is still at `outstanding.md:165`; the stale
-      *"Syntax highlighting inside diff lines"* bullet is still at `outstanding.md:52`; and
-      `outstanding.md:59-60` still reads *"**Side-by-side diff** — earns its keep only in a
-      full-width diff surface, which does not exist yet"*, which this whole phase disproved.
-      - Delete the first two outright. Rewrite the third as a one-line pointer to this phase rather
-        than deleting it, so the four phases that deferred it have somewhere to land.
-      - [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md) has **no** mention of split or
-        side-by-side either, so the Files table's claim on it is also unmet; add the one sentence
-        that says the shared `DiffView` now has two layouts.
+- [x] **Landed (PR #267, 2026-09-08).** Deleted the `## Image diffs in a pull request` section and
+      the stale *"Syntax highlighting inside diff lines"* bullet outright from
+      [`outstanding.md`](../outstanding.md); rewrote *"Side-by-side diff"* as a landed pointer at
+      this phase rather than deleting it.
+      [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md) gets the one sentence that says the
+      shared `DiffView` now has two layouts.
 
 ## Files this phase touches
 
@@ -448,7 +440,7 @@ named it and it does not exist.
 | Renderer — workbench | [`store/workbench-store.ts`](../../../packages/app/src/store/workbench-store.ts) (the `commit` tab kind) · [`features/workbench/workbench.tsx`](../../../packages/app/src/features/workbench/workbench.tsx) (L108–109 mounts `CommitDetailView`) · [`features/commit/commit-detail.tsx`](../../../packages/app/src/features/commit/commit-detail.tsx) (**the same component the narrow dock uses, unmodified** — see Theme G's resolved decision) · [`features/graph/graph-view.tsx`](../../../packages/app/src/features/graph/graph-view.tsx) (unchanged dock; a new verb) · [`features/graph/use-graph-actions.ts`](../../../packages/app/src/features/graph/use-graph-actions.ts) |
 | Store | [`store/ui-store.ts`](../../../packages/app/src/store/ui-store.ts) — `diffLayout`/`setDiffLayout`, `DIFF_PREF_DEFAULTS` (L81), `partialize` (L1754), `LAYOUT_BOUNDS.commitFilesHeight` (L379). **No `migrate` arm and no version bump** · [`store/persisted-keys.ts`](../../../packages/app/src/store/persisted-keys.ts) (L62) |
 | Docs | [`outstanding.md`](../outstanding.md) — **still unedited**: L52, L59-60 and L165 all outstanding · [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md) — **still unedited**, contains no mention of split |
-| Tests | [`split-diff-rows.test.ts`](../../../packages/app/src/features/diff/split-diff-rows.test.ts) (3 tests) · [`diff-rows.test.ts`](../../../packages/app/src/features/diff/diff-rows.test.ts) (4 describes, **no split coverage**) · [`comment-anchors.test.ts`](../../../packages/app/src/features/diff/comment-anchors.test.ts) · [`line-highlight.test.ts`](../../../packages/app/src/features/diff/line-highlight.test.ts) · `features/diff/diff-cell.test.tsx` (**net-new, unbuilt**) · [`e2e/diff-view.spec.ts`](../../../packages/app/e2e/diff-view.spec.ts) (holds the one split test, L81) · [`e2e/diff-scroll-perf.spec.ts`](../../../packages/app/e2e/diff-scroll-perf.spec.ts) · [`e2e/diff-settings-shots.spec.ts`](../../../packages/app/e2e/diff-settings-shots.spec.ts) (where a split shot belongs) · `e2e/diff-split.spec.ts` (**net-new, unbuilt**) · [`e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts) |
+| Tests | [`split-diff-rows.test.ts`](../../../packages/app/src/features/diff/split-diff-rows.test.ts) (3 tests) · [`diff-rows.test.ts`](../../../packages/app/src/features/diff/diff-rows.test.ts) (4 describes, **no split coverage**) · [`comment-anchors.test.ts`](../../../packages/app/src/features/diff/comment-anchors.test.ts) · [`line-highlight.test.ts`](../../../packages/app/src/features/diff/line-highlight.test.ts) · `features/diff/diff-cell.test.tsx` (**net-new, unbuilt**) · [`e2e/diff-view.spec.ts`](../../../packages/app/e2e/diff-view.spec.ts) (holds the one split test, L81) · [`e2e/diff-scroll-perf.spec.ts`](../../../packages/app/e2e/diff-scroll-perf.spec.ts) · [`e2e/diff-settings-shots.spec.ts`](../../../packages/app/e2e/diff-settings-shots.spec.ts) (where a split shot belongs) · [`e2e/diff-split.spec.ts`](../../../packages/app/e2e/diff-split.spec.ts) (**landed PR #267**) · [`e2e/mock-bridge.ts`](../../../packages/app/e2e/mock-bridge.ts) (**landed PR #267**: `status.blobExists`, `pullDetail`'s `baseSha`) |
 
 ## Verification
 
