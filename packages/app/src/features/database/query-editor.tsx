@@ -31,8 +31,10 @@ void getMonaco();
  * Monaco already ships built-in `sql` tokenisation (`monaco-languages`'s
  * basic-languages set — no extra package, unlike CodeMirror's
  * `@codemirror/lang-sql`), and `monaco-languageForFile`'s `sql: 'sql'`
- * mapping already exists. So: Monaco, no new dependency, and P64 Theme G can
- * proceed to remove `@codemirror/*` without waiting on this phase at all.
+ * mapping already exists. So: Monaco, no new dependency, and P64 Theme G was
+ * free to remove `@codemirror/*` without waiting on this phase — it since
+ * has (PR #221, 2026-09-06): the seven `@codemirror/*` entries are gone from
+ * `packages/app/package.json`, and nothing in the workspace imports them.
  *
  * Deliberately its own standalone setup rather than a shared component with
  * `code-editor.tsx` — the file-editor store shape (saved/dirty content,
