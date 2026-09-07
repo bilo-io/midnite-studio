@@ -324,7 +324,16 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] `EDITORIAL_SCRIPT.md` and `BRIEF.md` render in the right pane through the same markdown
       pipeline. **Open: does not yet open in the existing editor for edits** — read-only for now,
       a recorded gap rather than a silent one (see `video-project-detail.tsx`'s own doc comment).
-- [ ] **Open:** the app does not yet check whether the two skills exist in the video root's own
+- [x] **Open:** the app does not yet check whether the two skills exist in the video root's own
+  - Built 2026-09-07. `probeVideoSkills(root, deps)` (`main/video/toolchain.ts`) checks
+    `<videoRoot>/.claude/skills/<name>/SKILL.md` is readable — a skill's directory name is
+    its slash command with the leading `/` stripped, this repo's own convention — and
+    reuses the toolchain probe's injectable `readFile` rather than adding an fs dependency.
+    `VIDEO_SKILLS` moved to `shared/src/video.ts` because both the desktop probe and the
+    app's action buttons need the same two identifiers. The Write/Execute buttons now
+    disable with the probe's reason in their tooltip instead of firing the `/command`
+    regardless — the `disabled + title={reason}` pattern already on this component for
+    `!repoId`, and the same found/reason shape `video-studio-pane.tsx` renders for node/npx.
       `.claude/skills/`, or link to `ekko-videos` as the reference when they do not — the action
       always fires the `/command` regardless. Worth a small follow-up (a presence probe alongside
       `probeVideoToolchain`'s own found/reason shape), not built in this pass.
@@ -352,7 +361,15 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       in their own `use-video.ts`, not folded into the shared `queries.ts` — matching what the
       councils/workflows "precedent" this bullet cites actually did (`use-council.ts`,
       `use-workflow.ts`, both their own files), not the doc's literal wording.
-- [ ] **A `view.video` command exists** in
+- [x] **A `view.video` command exists** in
+  - **Already satisfied — verified, not rebuilt.** `keybindings.ts:289` has
+    `{id:'view.video', label:'Go to Video Studio', group:'view'}` in `COMMANDS`, chord-free
+    and so correctly absent from `DEFAULT_KEYMAP`; `menu.ts:47-48,134` reads its label from
+    `COMMANDS` (the precedent `CLAUDE.md` names, since `DEFAULT_KEYMAP` drops chord-free
+    commands and would render a raw id) and wires `item('view.video')`;
+    `use-command-handlers.ts:306` runs `setActiveView('video')`; `app.tsx:305` is the rail
+    entry, `command-icons.ts:99` the palette icon. `nav-chords.ts` omits `video`
+    deliberately — chord-free per Phase 66 Decision 5. No code change needed or made.
       [`keybindings.ts`](../../../packages/shared/src/keybindings.ts), wired to the generic
       "go to this view" navigation every view gets — `COMMANDS` is the single source of truth, per
       [`CLAUDE.md`](../../../CLAUDE.md). **Open:** no palette entry *per project* or *per action*
