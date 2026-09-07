@@ -5,6 +5,7 @@ import {
   schemas,
   type ApiCollectionSummary,
   type ApiEnvironmentSummary,
+  type ApiHistoryEntry,
   type ApiOpResult,
   type ApiResponse,
   type PostmanCollection,
@@ -27,6 +28,7 @@ import {
   readEnvironment,
   saveEnvironment,
 } from '../api-client/environment-io';
+import { clearHistory, listHistory } from '../api-client/history';
 import { cancelRequest, sendApiRequest } from '../api-client/send';
 import { describeFsError } from '../fs-scope-write';
 import { resolveWorkdir } from '../repo-registry';
@@ -235,6 +237,27 @@ export function registerApiClientHandlers(getWindow: () => BrowserWindow | null)
     schemas.ApiDeleteEnvironmentRequest,
     (req): Promise<ApiOpResult> =>
       withRepoRoot(req.repoId, (root) => deleteEnvironment(root, req.environmentId)),
+    (issue) => apiFailure(issue),
+  );
+
+  // --- request history (Phase 70 Theme D) -------------------------------------
+  // Recording itself has no handler here — it happens inside `sendApiRequest`
+  // (`send.ts`), the one place that already has the resolved URL and the
+  // secret-typed environment values a row's redaction needs. These two are
+  // the renderer's read/clear surface only.
+
+  handle(
+    CHANNELS.apiListHistory,
+    schemas.ApiListHistoryRequest,
+    (req): Promise<ApiOpResult<ApiHistoryEntry[]>> =>
+      withRepoRoot(req.repoId, (root) => listHistory(root)),
+    (issue) => apiFailure(issue),
+  );
+
+  handle(
+    CHANNELS.apiClearHistory,
+    schemas.ApiClearHistoryRequest,
+    (req): Promise<ApiOpResult> => withRepoRoot(req.repoId, (root) => clearHistory(root)),
     (issue) => apiFailure(issue),
   );
 }

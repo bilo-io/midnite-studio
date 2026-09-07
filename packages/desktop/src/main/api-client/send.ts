@@ -18,6 +18,7 @@ import { confineTree } from '../fs-scope-write';
 import { resolveWorkdir } from '../repo-registry';
 import { readCapped } from '../workflow/executors/http';
 import { readEnvironment } from './environment-io';
+import { recordHistoryEntry } from './history';
 import { interpolateTiered } from './interpolate';
 
 /**
@@ -108,6 +109,28 @@ function collectEnvironmentVariables(values: readonly PostmanEnvironmentValue[])
   for (const row of values) {
     if (row.enabled === false) continue;
     if (row.value === undefined) continue;
+    out[row.key] = row.value;
+  }
+  return out;
+}
+
+/**
+ * The subset of an environment's `values[]` this send's history row should
+ * redact — `type: 'secret'` rows only (Phase 70 Theme D). A `default`-typed
+ * value is never rewritten to `{{key}}` in history: it carries no credential,
+ * and a history row that hid it would be strictly less useful for no safety
+ * gained. Disabled and empty-valued rows are excluded for the same reason
+ * {@link collectEnvironmentVariables} excludes them — an empty string is not
+ * a value worth matching against.
+ */
+function collectSecretEnvironmentValues(
+  values: readonly PostmanEnvironmentValue[],
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const row of values) {
+    if (row.enabled === false) continue;
+    if (row.type !== 'secret') continue;
+    if (!row.value) continue;
     out[row.key] = row.value;
   }
   return out;
@@ -233,12 +256,18 @@ export async function sendApiRequest(req: ApiSendRequest, signal: AbortSignal): 
   // as a variable *value* from the renderer (`ApiSendRequestRequest` carries
   // only the id), and it never lives in this function's return value.
   let environmentVariables: Record<string, string> = {};
+  // This send's secret-typed environment values, for Theme D's history
+  // redaction only — kept separate from `environmentVariables` (every
+  // enabled row, `default` and `secret` alike) because history must rewrite
+  // *only* a credential, never a harmless default that happened to match.
+  let secretEnvironmentValues: Record<string, string> = {};
   if (req.environmentId !== null) {
     const repoRoot = await resolveWorkdir(req.repoId);
     if (!repoRoot) throw new Error('That repository is no longer open.');
     const environment = await readEnvironment(repoRoot, req.environmentId);
     if (environment.ok) {
       environmentVariables = collectEnvironmentVariables(environment.value.values);
+      secretEnvironmentValues = collectSecretEnvironmentValues(environment.value.values);
     } else {
       // The environment named by a stale tab (deleted since it was picked)
       // is not a transport failure — the send still runs, against the
@@ -327,6 +356,32 @@ export async function sendApiRequest(req: ApiSendRequest, signal: AbortSignal): 
       headerRecord[key] = value;
     });
 
+    const durationMs = performance.now() - startedAt;
+
+    // Phase 70 Theme D — a redacted history row for every settled response,
+    // 404s included, since a history entry is about "what did we send and
+    // what came back", not "did it succeed". Best-effort and never awaited
+    // into a failure the caller sees: a history-recording problem (a
+    // symlinked `.midnite/api`, disk full) must never turn a successful send
+    // into a failed one. `target.href` is the resolved wire URL — the
+    // templated `draft.url` with every `{{var}}` already substituted — which
+    // is exactly what `secretEnvironmentValues` needs to find and rewrite.
+    void (async () => {
+      const repoRoot = await resolveWorkdir(req.repoId);
+      if (!repoRoot) return;
+      await recordHistoryEntry(repoRoot, {
+        method: draft.method,
+        url: target.href,
+        status: response.status,
+        durationMs,
+        sizeBytes: bytes,
+        collectionId: req.collectionId ?? null,
+        itemPath: req.itemPath ?? null,
+        environmentId: req.environmentId,
+        secretValues: secretEnvironmentValues,
+      });
+    })().catch(() => {});
+
     return {
       status: response.status,
       statusText: response.statusText,
@@ -334,7 +389,7 @@ export async function sendApiRequest(req: ApiSendRequest, signal: AbortSignal): 
       body: text,
       bodyIsJson,
       contentType,
-      durationMs: performance.now() - startedAt,
+      durationMs,
       sizeBytes: bytes,
       truncated,
       warnings,
