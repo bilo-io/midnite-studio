@@ -12,8 +12,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 68/70 | `██████████` | 97% | — | E (2 packaged-Mac human passes) |
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 64/68 | `█████████░` | 94% | — | — |
 | [72 · Every build system's leftovers](phases/phase-72-every-build-systems-leftovers.md) | 🔄 WIP | x2 | 100/102 | `██████████` | 98% | — | — |
-| [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | 🔄 WIP | x1 | 38/41 | `█████████░` | 93% | — | E (1 untestable e2e case + 2 human passes) |
-| [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | 🔄 WIP | x1 | 47/50 | `█████████░` | 94% | — | E (1 unbuilt feature + 2 human passes) |
+| [71 · Links that open in place, and the dev server they point at](phases/phase-71-links-that-open-in-place.md) | 🔄 WIP | x1 | 38/41 | `█████████░` | 93% | E | E (1 untestable e2e case + 2 human passes) |
+| [70 · The API client grows an environment, a test and a run](phases/phase-70-api-client-environments-tests-and-runs.md) | 🔄 WIP | x1 | 47/50 | `█████████░` | 94% | E | E (1 unbuilt feature + 2 human passes) |
 | [69 · A tracker that can count](phases/phase-69-a-tracker-that-can-count.md) | 🔄 WIP | — | 30/31 | `██████████` | 97% | — | — |
 | [68 · Where focus goes when the dialog closes](phases/phase-68-where-focus-goes.md) | ✅ DONE | — | 32/37 | `█████████░` | 86% | — | — |
 | [67 · The sessions you closed](phases/phase-67-the-sessions-you-closed.md) | 🔄 WIP | x1 | 44/64 | `███████░░░` | 69% | — | Verification (human/e2e passes) |
@@ -59,7 +59,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [27 · The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
 | [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | x1 | 51/70 | `███████░░░` | 73% | — | Verification (+ C, H reverted items) |
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | 🔄 WIP | x1 | 41/101 | `████░░░░░░` | 41% | — | — |
-| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | x1 | 53/70 | `████████░░` | 76% | — | J |
+| [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | x1 | 53/70 | `████████░░` | 76% | J | J |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | 🔄 WIP | x1 | 42/59 | `███████░░░` | 71% | — | Verification (+ C, D, E reopened items) |
 | [22 · Stash, the reflog, and writes you can take back](phases/phase-22-stash-and-safety-net.md) | 🔄 WIP | — | 56/70 | `████████░░` | 80% | — | — |
 | [21 · Agent roster + terminal identity](phases/phase-21-agent-roster-and-terminal-identity.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |
