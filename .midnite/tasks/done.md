@@ -2,6 +2,39 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-07 — Phase 70 Theme B — The `pm.*` sandbox, and a real escape closed
+
+[PR #245](https://github.com/bilo-io/midnite-studio/pull/245). Moves Phase 70 16/50 → 28/50 (32% →
+56%).
+
+**This theme's escape tests found the phase doc's own design to be unsafe, and the doc is corrected
+above rather than quietly worked around.** The written allow-list named `JSON`, `Math`, `Date`,
+`String`, `Number`, `Boolean`, `Array`, `Object`, `RegExp` and `Error` as sandbox own-properties.
+Injecting the *host's* intrinsics into a `vm` context hands a script a live, unrestricted `Function`
+by ordinary prototype-chain walking: `Object.constructor('return 1+1')()` **ran and returned 2**
+against a context created with `codeGeneration: {strings: false}` — that flag only restricts code
+compiled against the context's *own* intrinsics, not a `Function` owned by another realm. So "no
+`eval`, no `new Function`" was false in precisely the case the theme requires be proven unreachable.
+Reproduced independently before merge, against the doc's list verbatim.
+
+Two fixes: those ten are no longer sandbox properties at all (every `vm` context already carries its
+own correctly realm-scoped copies, so injecting the host's bought nothing and opened the hole), and a
+`harden()` pass nulls the own-prototype of every object and function reachable under `pm`/`console`
+before `createContext` runs. Four escape paths now refuse by two distinct mechanisms —
+`codeGeneration` for anything compiling against the context's own intrinsics, `harden()` for the
+host-realm objects we hand in.
+
+**Two user decisions overrode the doc.** The sandbox runs in an Electron **`utilityProcess`**, not
+the main process: own memory, no Electron APIs, no main-process privileges, so an escape lands
+somewhere with nothing worth having. The broker races the child's reply against a parent-side timer
+(`timeoutMs + 750ms`), because `vm`'s own `timeout` cannot interrupt an `await`-shaped hang, and
+kills rather than reuses a child that timed out. And **importing a collection does not trust its
+scripts** — the consent bar fires on the first script for any collection however it arrived, because
+the threat model *is* a colleague emailing you one and importing it is exactly what you would do.
+
+`_midniteScriptsTrusted` lives in the gitignored sibling `.local.json`, never the collection: a trust
+decision must not be committable, or trusting it once trusts it for the whole team.
+
 ## 2026-09-07 — Phase 66 Theme H — Verification, less the screenshots and the human passes
 
 [PR #244](https://github.com/bilo-io/midnite-studio/pull/244). Moves Phase 66 60/73 → 70/73 (82% →

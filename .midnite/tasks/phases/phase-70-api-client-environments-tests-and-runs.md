@@ -159,14 +159,14 @@ B's results.
       environment row does not shadow; both tiers missing leaves the token literal with one warning
       naming it; a value containing `{{b}}` is not re-expanded.
 
-### B — The test editor and the sandboxed `pm.*` runner (L)
+### B — The test editor and the sandboxed `pm.*` runner (L) — ✅ DONE (PR #245, 2026-09-07)
 
-- [ ] Add `packages/desktop/src/main/api-client/script-runner.ts`:
+- [x] Add `packages/desktop/src/main/api-client/script-runner.ts`:
       `export function runScript(source: string, context: ScriptContext, timeoutMs: number): ScriptRun`,
       where `ScriptRun = {results: AssertionResult[], logs: string[], mutations: {environment:
       Record<string,string>, collectionVariables: Record<string,string>}, error: string | null}` and
       `AssertionResult = {name: string, passed: boolean, error?: string}`.
-- [ ] The context is built with `vm.createContext(sandbox, {codeGeneration: {strings: false, wasm:
+- [x] The context is built with `vm.createContext(sandbox, {codeGeneration: {strings: false, wasm:
       false}})` and run with `new vm.Script(source).runInContext(ctx, {timeout: timeoutMs,
       breakOnSigint: true})`.
   - `codeGeneration.strings: false` kills `eval`/`new Function` inside the context — the first
@@ -174,29 +174,41 @@ B's results.
   - `timeout` only interrupts synchronous code. An `await`-shaped hang is not caught by it, so the
     sandbox exposes **no** async primitive at all: no `setTimeout`, no `Promise` on the sandbox
     object, no `fetch`. A script that cannot start an async operation cannot hang asynchronously.
-- [ ] The sandbox object is an explicit allow-list and nothing else: `pm`, `console` (a stub with
-      `log`/`warn`/`error` appending through `appendCapped` into `logs`), `JSON`, `Math`, `Date`,
-      `String`, `Number`, `Boolean`, `Array`, `Object`, `RegExp`, `Error`. **No `require`, no
-      `process`, no `Buffer`, no `globalThis` passthrough, no `module`.**
+- [x] The sandbox object is an explicit allow-list and nothing else: `pm` and `console` (a stub
+      with `log`/`warn`/`error` appending through `appendCapped` into `logs`) — **and nothing
+      else at all**. **No `require`, no `process`, no `Buffer`, no `globalThis` passthrough, no
+      `module`.**
+  - **x1 correction, found empirically by Theme B's own escape tests (PR #245): the original
+    list above was unsafe as written.** It named `JSON`, `Math`, `Date`, `String`, `Number`,
+    `Boolean`, `Array`, `Object`, `RegExp` and `Error` as sandbox own-properties. Injecting the
+    *host's* intrinsics into a `vm` context hands a script a live, unrestricted `Function`
+    through ordinary prototype-chain walking — `Object.constructor('return 1+1')()` **ran and
+    returned 2** against a context created with `codeGeneration: {strings: false}`, because that
+    flag only restricts code compiled against the context's *own* intrinsics, not a `Function`
+    owned by another realm. So "no `eval`, no `new Function`" was false in exactly the case this
+    theme requires be proven unreachable. Every `vm` context already carries its own,
+    correctly realm-scoped copies of all ten, so injecting them bought nothing and opened the
+    hole. They are gone, and a `harden()` pass nulls the own-prototype of every object and
+    function reachable under `pm`/`console` before `createContext` runs.
   - A named test asserts each of those five absences individually — one `expect(() =>
     run('process.exit(0)')).…` per line — because "we didn't add it" and "it isn't reachable" are
     different claims and only the second one is worth anything.
   - `vm` is **not** a security boundary and the file's header says so in the first paragraph. The
     boundary here is the allow-list plus Theme B's consent gate, not the module.
-- [ ] `pm.environment.set(k, v)` and `pm.collectionVariables.set(k, v)` write into the `mutations`
+- [x] `pm.environment.set(k, v)` and `pm.collectionVariables.set(k, v)` write into the `mutations`
       record and **do not touch disk**. The handler applies them after the run, through Theme A's
       `saveEnvironment`, which is where the secret split and the confirm live. A sandbox with a
       file descriptor is not a sandbox.
-- [ ] `pm.expect` is a small chai-like subset with a fixed surface: `.to.equal`, `.to.eql` (deep),
+- [x] `pm.expect` is a small chai-like subset with a fixed surface: `.to.equal`, `.to.eql` (deep),
       `.to.be.a(type)`, `.to.be.true/false/null/undefined`, `.to.include`, `.to.have.property(k)`,
       `.to.have.status(n)`, `.to.be.above/below(n)`, and `.not` inverting any of them. Anything else
       throws `TypeError: pm.expect(...).to.X is not supported` — a named failure the user can act
       on, not `undefined is not a function`.
-- [ ] A script that throws outside a `pm.test` sets `ScriptRun.error` and yields zero results; a
+- [x] A script that throws outside a `pm.test` sets `ScriptRun.error` and yields zero results; a
       script that throws *inside* one becomes that test's `{passed: false, error}`. A `vm` timeout
       becomes `error: 'Script timed out after {n} ms.'` — never a rejected IPC invoke, and never a
       crashed handler.
-- [ ] **Consent gate: scripts do not run by default for a collection this machine did not import
+- [x] **Consent gate: scripts do not run by default for a collection this machine did not import
       itself.** A collection carries a `_midniteScriptsTrusted` marker in the sibling
       `.local.json` (gitignored, therefore never travelling with the file); without it, a request
       with a non-empty script shows a one-time bar — **"This collection contains scripts. Run
@@ -206,16 +218,16 @@ B's results.
     they send you is only that this one looks like data.
   - The marker lives in the `.local.json` overlay rather than the collection because a trust
     decision must not be committable — otherwise trusting it once trusts it for the whole team.
-- [ ] Two channels: `apiRunScript: 'mstudio:api-client:run-script'` (a plain `handle`, since a
+- [x] Two channels: `apiRunScript: 'mstudio:api-client:run-script'` (a plain `handle`, since a
       script run is bounded by its own timeout) and `apiSetScriptTrust:
       'mstudio:api-client:set-script-trust'`. Both added to
       [`channels.ts`](../../../packages/shared/src/ipc/channels.ts)'s Phase 66 group with kebab
       verbs, both typed onto the `apiClient` bridge namespace.
-- [ ] `runScript` is invoked automatically from the renderer immediately after `sendRequest`
+- [x] `runScript` is invoked automatically from the renderer immediately after `sendRequest`
       resolves, for a tab whose test script is non-empty **and** whose collection is trusted. Not
       from inside the send handler: the runner (Theme C) needs to call send without scripts and
       scripts without send, and fusing them removes that seam.
-- [ ] Add `features/api-client/test-editor.tsx`: two `MonacoField`s with `language: 'javascript'`,
+- [x] Add `features/api-client/test-editor.tsx`: two `MonacoField`s with `language: 'javascript'`,
       labelled **Pre-request Script** and **Tests**, in a fifth builder tab named **Scripts** with a
       count badge when either is non-empty.
   - Ship an ambient `pm.d.ts` string registered via
@@ -223,10 +235,10 @@ B's results.
     autocompletes and an unsupported `pm.sendRequest` red-squiggles in the editor rather than
     failing at run time. The `.d.ts` is generated from the same list the sandbox allow-lists, in
     one file, so the two cannot drift.
-- [ ] Add `features/api-client/test-results-panel.tsx`: one row per assertion with a pass/fail
+- [x] Add `features/api-client/test-results-panel.tsx`: one row per assertion with a pass/fail
       glyph and the failure message inline, a `logs` disclosure below it, and — when scripts are
       untrusted — the consent bar instead.
-- [ ] `main/api-client/script-runner.test.ts`: every pinned `pm.*` method exercised individually;
+- [x] `main/api-client/script-runner.test.ts`: every pinned `pm.*` method exercised individually;
       each of the five escape attempts (`require`, `process`, `Buffer`, `globalThis.constructor`,
       `eval`) asserted unreachable; `while(true){}` hits the timeout and returns an error rather
       than hanging the suite; a throw inside `pm.test` becomes a failed assertion and a throw
