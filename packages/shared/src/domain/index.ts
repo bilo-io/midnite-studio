@@ -1,5 +1,6 @@
 export * from './api-client';
 export * from './api-codegen';
+export * from './api-script-surface';
 export * from './blame';
 export * from './browser';
 export * from './checks-verdict';

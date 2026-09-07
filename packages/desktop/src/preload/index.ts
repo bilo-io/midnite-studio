@@ -393,6 +393,8 @@ const bridge: Pick<
     deleteEnvironment: (req) => call(CHANNELS.apiDeleteEnvironment, req),
     listHistory: (req) => call(CHANNELS.apiListHistory, req),
     clearHistory: (req) => call(CHANNELS.apiClearHistory, req),
+    runScript: (req) => call(CHANNELS.apiRunScript, req),
+    setScriptTrust: (req) => call(CHANNELS.apiSetScriptTrust, req),
   },
   video: {
     project: {

@@ -57,11 +57,17 @@ const common = {
 };
 
 /*
-  The three bundles share nothing and were awaited one after another purely
+  The bundles share nothing and were awaited one after another purely
   because that is how the file was written. esbuild is happy to run them
   concurrently and does its own work off-thread.
+
+  `script-runner-worker` (Phase 70 Theme B) is the `utilityProcess` entry
+  point `script-runner-broker.ts` forks — its own bundle for the same reason
+  `broker`/`mcp-shim` are: `utilityProcess.fork`/`child_process.spawn` both
+  need a single on-disk module path, not an import reachable only through
+  `main.js`'s own closure.
 */
-const outfiles = ['main', 'preload', 'broker', 'mcp-shim'].map((name) => ({
+const outfiles = ['main', 'preload', 'broker', 'mcp-shim', 'script-runner-worker'].map((name) => ({
   entry: resolve(root, `src/${name === 'main' ? 'main/index.ts' : `${name}/index.ts`}`),
   out: resolve(root, `dist/bundle/${name}.js`),
 }));

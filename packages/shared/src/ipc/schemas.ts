@@ -8,6 +8,7 @@ import {
   ApiOpResultSchema,
   ApiRequestDraftSchema,
   ApiResponseSchema,
+  ScriptRunOutcomeSchema,
   PostmanCollectionSchema,
   PostmanEnvironmentSchema,
   PostmanVariableSchema,
@@ -2425,6 +2426,55 @@ export const ApiListHistoryResponse = ApiOpResultOf(z.array(ApiHistoryEntrySchem
 
 export const ApiClearHistoryRequest = z.object({ repoId: z.string().min(1) });
 export const ApiClearHistoryResponse = ApiOpResultSchema;
+
+// --- api client scripts (Phase 70 Theme B) -----------------------------------
+//
+// `collectionId` is what the trust check (`collection-trust.ts`) reads —
+// **every** collection is checked, however it arrived on this machine
+// (Decision 2: an imported collection is not trusted by that act alone).
+// `environmentId`/`collectionVariables` name the same two `{{var}}` tiers
+// `ApiSendRequestRequest` already carries, for the identical reason: the
+// renderer hands over an id, never a variable *value*, so a secret-typed
+// environment row is loaded fresh in main immediately before the run and
+// never crosses the wire from the renderer's side.
+
+/**
+ * `runAnyway` is what lets *Run once* skip the trust gate for exactly this
+ * one call without writing a marker anywhere — `apiSetScriptTrust` is the
+ * only thing that persists a decision, and *Run once* deliberately never
+ * calls it. Defaulted `false`: every call site but the consent bar's own
+ * "Run once" button omits it entirely.
+ */
+export const ApiRunScriptRequest = z.object({
+  repoId: z.string().min(1),
+  collectionId: z.string().min(1),
+  source: z.string(),
+  environmentId: z.string().nullable(),
+  collectionVariables: z.array(PostmanVariableSchema),
+  request: z.object({ method: z.string(), url: z.string(), headers: z.record(z.string(), z.string()) }),
+  response: ApiResponseSchema.pick({
+    status: true,
+    statusText: true,
+    headers: true,
+    body: true,
+    bodyIsJson: true,
+  }).nullable(),
+  timeoutMs: z.number().int().positive().optional(),
+  runAnyway: z.boolean().optional().default(false),
+});
+export const ApiRunScriptResponse = ApiOpResultOf(ScriptRunOutcomeSchema);
+
+/** `trusted: true` is *Always for this collection*; `false` is *Never* — both
+ *  are an explicit, persisted decision the consent bar stops asking about;
+ *  there is no `null`/unset arm here because unset is simply "no marker
+ *  written yet", which is the read side's (`collection-trust.ts`) concern,
+ *  not a value this write ever sends. */
+export const ApiSetScriptTrustRequest = z.object({
+  repoId: z.string().min(1),
+  collectionId: z.string().min(1),
+  trusted: z.boolean(),
+});
+export const ApiSetScriptTrustResponse = ApiOpResultSchema;
 
 /* --- crash & error reporting (Phase 65) ---------------------------------- */
 
