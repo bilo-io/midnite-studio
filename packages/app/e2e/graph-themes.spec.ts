@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * A history with something to look at.
@@ -195,12 +195,22 @@ async function openGraphSettings(page: Page): Promise<void> {
     .click();
 }
 
-/** Switch style via Settings, then come back to the graph. */
+/**
+ * Switch style via Settings, then come back to the graph.
+ *
+ * **Navigates back through the rail, not through `page.goto('/graph')`.** A
+ * reload used to reset the active view to Graph, so re-requesting the URL was
+ * a cheap way back; `activeView` now survives a reload via `sessionStorage`
+ * (`SESSION_ACTIVE_VIEW_KEY` in `store/ui-store.ts`), so a reload issued from
+ * Settings boots straight back into Settings and the graph never renders.
+ * `openGraph` above can still use `goto` — it runs against a fresh context
+ * whose session storage is empty, which is exactly the first-launch case that
+ * still lands on Graph.
+ */
 async function chooseTheme(page: Page, label: string): Promise<void> {
   await openGraphSettings(page);
   await page.getByRole('region', { name: 'Style' }).getByRole('button', { name: new RegExp(`^${label}`) }).click();
-  // Return to Graph view
-  await page.goto('/graph');
+  await clickRailLink(page, 'Graph');
   const repoButton = page.locator('aside[aria-label="Repositories"]').getByRole('button', { name: 'midnite-studio', exact: true });
   if (await repoButton.isVisible()) {
     await repoButton.click();
