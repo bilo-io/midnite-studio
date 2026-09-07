@@ -89,4 +89,30 @@ describe('parseDeck', () => {
     expect(deck.slides[0]!.title).toBe('1. Title');
     expect(deck.slides[1]!.title).toBe('Second');
   });
+
+  it('a heading inside a fenced code block is not a slide break (Theme G gap)', () => {
+    const md = [
+      '# Title',
+      '',
+      '## Section',
+      '',
+      '```md',
+      '# Not a real cover slide',
+      '## Also not a real slide',
+      '```',
+      '',
+      'After the fence.',
+    ].join('\n');
+    const deck = parseDeck(md);
+    // Exactly the two real headings produce slides — the two lines inside the
+    // fence are text inside a `code` mdast node, not `heading` nodes, so they
+    // cannot start a slide no matter what they look like as source text.
+    expect(deck.slides.map((s) => s.title)).toEqual(['Title', 'Section']);
+    const slide = deck.slides[1]!;
+    expect(slide.steps).toHaveLength(2);
+    expect(slide.steps[0]!.markdown).toBe(
+      '```md\n# Not a real cover slide\n## Also not a real slide\n```',
+    );
+    expect(slide.steps[1]!.markdown).toBe('After the fence.');
+  });
 });

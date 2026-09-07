@@ -38,6 +38,14 @@ export type PopoutRole =
 
 export type MockFixtures = {
   /**
+   * Overrides `update.releaseNotes`'s canned body (Phase 29 Theme F). Absent
+   * falls back to the existing canned copy every spec before this fixture
+   * existed was written against, so nothing already passing changes shape —
+   * this exists only so `slides.spec.ts` can seed a body with a real h1 to
+   * assert a presented deck's cover title against.
+   */
+  releaseNotesOverride?: string;
+  /**
    * Hold every `forge.*` answer this long, in milliseconds.
    *
    * Zero — the default — leaves the bridge exactly as it was: the wrapper is
@@ -2132,7 +2140,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         onState: unsubscribe,
         releaseNotes: async (req: { version: string }) => ({
           version: req.version,
-          notes: '### Added\n\n- A version pill in the rail.',
+          notes: data.releaseNotesOverride ?? '### Added\n\n- A version pill in the rail.',
           error: null,
         }),
       },
@@ -2494,7 +2502,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         onState: unsubscribe,
         releaseNotes: async (req: { version: string }) => ({
           version: req.version,
-          notes: '### Added\n\n- A version pill in the rail.',
+          notes: data.releaseNotesOverride ?? '### Added\n\n- A version pill in the rail.',
           error: null,
         }),
       },

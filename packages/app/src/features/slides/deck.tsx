@@ -22,6 +22,13 @@ const MARKDOWN_COMPONENTS = { a: ExternalLink, code: SlideCode, pre: SlidePre };
  * `window` listener — the modal traps focus (Theme C), so nothing behind it
  * ever sees the event. Escape is not among them: it goes through the shared
  * dismissal stack, like every other overlay's (Phase 62).
+ *
+ * **This is the ninth `react-markdown` render site (Phase 29 Theme F), and it
+ * gets no `<PresentButton>` and never claims `activeMarkdown`.** It renders
+ * one `DeckStep`'s markdown fragment at a time, not one document-level body —
+ * fails the claim rule in `slides-store.ts` on its own terms — and it *is*
+ * the presentation already open, so a button to present the presenter would
+ * have nothing sensible to do.
  */
 export function Deck({ deck, onClose }: { deck: Deck; onClose: () => void }) {
   const stepCounts = deck.slides.map((slide) => slide.steps.length);
