@@ -42,7 +42,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [44 · Video Studio](phases/phase-44-video-studio.md) | 🔄 WIP | — | 59/64 | `█████████░` | 92% | F H | F (skill-presence check), H (per-item palette entries), human pass (real repo + `ps` checks) |
 | [43 · Workflows](phases/phase-43-workflows-mvp.md) | 🔄 WIP | x1 | 75/77 | `██████████` | 97% | — | I (human pass) |
 | [42 · Councils, rearranged](phases/phase-42-councils-layout.md) | 🔄 WIP | x1 | 38/44 | `█████████░` | 86% | — | — |
-| [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 49/57 | `█████████░` | 86% | H | — |
+| [41 · Agentic Kanban](phases/phase-41-agentic-kanban.md) | 🔄 WIP | x1 | 49/57 | `█████████░` | 86% | H I | — |
 | [40 · GitHub Projects](phases/phase-40-github-projects.md) | 🔄 WIP | x1 | 38/53 | `███████░░░` | 72% | — | G (human screenshots + real-board pass) |
 | [39 · One rail, five chords and four loops](phases/phase-39-status-bar-shortcut-rail.md) | 🔄 WIP | — | 61/63 | `██████████` | 97% | — | Verification (human keyboard + eye pass) |
 | [38 · Paying off the e2e suite](phases/phase-38-e2e-suite-repair.md) | ✅ DONE | — | 60/60 | `██████████` | 100% | — | — |
