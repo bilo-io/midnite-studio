@@ -183,6 +183,95 @@ html[data-motion='reduced'] .pill-shimmer {
   animation: none;
 }
 
+/* Live agent count (title bar) — the `{N} agents` readout wears the rainbow
+ * ramp as its TEXT, not a ring, and breathes.
+ *
+ * Three effects, two animations, one element each:
+ *
+ * - `.agent-count-text` paints the digit and the word with a horizontal
+ *   sweep of the same `--rainbow-ramp` every other rainbow surface shares,
+ *   clipped to the glyphs. A thin transparent `-webkit-text-stroke` widens
+ *   what the clip covers, so the gradient runs through the stroke as well as
+ *   the fill and the 12px text reads a shade bolder than its neighbours
+ *   rather than thinner (gradient text with no stroke tends to look eroded at
+ *   this size). `background-size: 300%` with a ramp that closes on itself
+ *   means a 0% → 200% position shift is one seamless lap, so the shimmer
+ *   never snaps back to its start.
+ * - `.agent-count-live` — the button — pulses its own opacity between 0.6 and
+ *   1.0 and, in the same keyframes so the two stay in phase, a two-layer
+ *   box-shadow glow: brightest exactly when the text is most opaque.
+ *
+ * Both are `ease-in-out` and both are keyed off `html[data-motion]` like
+ * every other animation in this file: under reduced motion the gradient stays
+ * (it is colour, not movement), the pulse and the shimmer stop, and the glow
+ * settles at its mid-cycle value. */
+@keyframes agent-count-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes agent-count-breathe {
+  0%,
+  100% {
+    opacity: 0.6;
+    box-shadow:
+      0 0 4px rgba(236, 72, 153, 0.12),
+      0 0 8px rgba(59, 130, 246, 0.08);
+  }
+  50% {
+    opacity: 1;
+    box-shadow:
+      0 0 8px rgba(236, 72, 153, 0.45),
+      0 0 16px rgba(59, 130, 246, 0.3);
+  }
+}
+
+.agent-count-live {
+  animation: agent-count-breathe 2.4s ease-in-out infinite;
+}
+
+.agent-count-text {
+  background-image: linear-gradient(90deg, var(--rainbow-ramp));
+  background-size: 300% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0.35px transparent;
+  animation: agent-count-shimmer 3s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .agent-count-live {
+    animation: none;
+    opacity: 1;
+    box-shadow:
+      0 0 6px rgba(236, 72, 153, 0.3),
+      0 0 12px rgba(59, 130, 246, 0.2);
+  }
+
+  html:not([data-motion='full']) .agent-count-text {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .agent-count-live {
+  animation: none;
+  opacity: 1;
+  box-shadow:
+    0 0 6px rgba(236, 72, 153, 0.3),
+    0 0 12px rgba(59, 130, 246, 0.2);
+}
+
+html[data-motion='reduced'] .agent-count-text {
+  animation: none;
+}
+
 /* Selected Repo Row — gradient shimmer in the repos panel accordion header.
  * A moving highlight over the same `bg-accent/60` the row already wore, so the
  * resting look is unchanged and the sweep is the only new thing to notice.
