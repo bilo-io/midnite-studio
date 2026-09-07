@@ -557,7 +557,7 @@ point; G needs A and E's handler file. H is last.
       it, and re-opening shows the unedited request.
 - [x] Playwright: import → no edit → export produces a file `git diff --exit-code` reports as
       unchanged against the committed fixture.
-- [ ] Screenshots, light and dark: the empty state, the tree with a collection expanded, the request
+- [x] Screenshots, light and dark: the empty state, the tree with a collection expanded, the request
       builder on the Body/JSON tab, the response viewer on a JSON body, and the truncated banner.
 - [ ] **Open, for a human:** send a real request against a real external API end to end — CI
       fixtures cover shape and behaviour, not a live TLS path, a redirect, or a real server's

@@ -5,7 +5,7 @@
 ## 2026-09-07 — Phase 66 Theme H — Verification, less the screenshots and the human passes
 
 [PR #244](https://github.com/bilo-io/midnite-studio/pull/244). Moves Phase 66 60/73 → 70/73 (82% →
-96%). Ten of the theme's thirteen items; **three remain and are named rather than ticked** — the
+96%). Eleven of the theme's thirteen items; **three remain and are named rather than ticked** — the
 light/dark screenshot set, and the two the doc itself marks *"Open, for a human"* (send a real
 request against a real external API; import a collection exported from a *current* Postman install).
 
