@@ -125,16 +125,42 @@ export const VideoToolBinarySchema = z.discriminatedUnion('found', [
 export type VideoToolBinary = z.infer<typeof VideoToolBinarySchema>;
 
 /**
+ * The two fixed Claude skills `ekko-videos` carries — the exact
+ * `/command` invocation each of `video-project-detail.tsx`'s "Write
+ * editorial script"/"Execute editorial script" actions types into a
+ * terminal. Shared (not `app`-local) because Theme F's own presence probe
+ * (`toolchain.ts`'s `probeVideoSkills`) needs the same two identifiers to
+ * derive the `.claude/skills/<name>/` directory each command expects to
+ * find in the video root — a skill's directory name is always its slash
+ * command with the leading `/` stripped, the same convention this repo's
+ * own `.claude/skills/` follows. Deliberately **not** routed through
+ * `DEFAULT_AGENT_SKILLS`/`AgentCommandId` (`ui-store.ts`) — see
+ * `video-project-detail.tsx`'s own comment for why.
+ */
+export const VIDEO_SKILLS = {
+  videoWriteScript: '/video-write-editorial-script',
+  videoExecuteScript: '/video-execute-editorial-script',
+} as const;
+export type VideoSkillId = keyof typeof VIDEO_SKILLS;
+
+/**
  * `node`/`npx`, resolved through the existing login-shell probe (Theme C) —
  * a GUI-launched app does not inherit a login shell's PATH, and this repo
  * already solved that once for `gh`. `remotionVersion` is read from the
  * project's own `package.json`, so it is per-project and absent until one
- * has actually been inspected.
+ * has actually been inspected. `skills` is the Theme F follow-up: whether
+ * each of `VIDEO_SKILLS` actually exists in the video root's own
+ * `.claude/skills/`, in the same found/reason shape as `node`/`npx` so the
+ * UI treats a missing skill exactly like a missing binary.
  */
 export const VideoToolchainSchema = z.object({
   node: VideoToolBinarySchema,
   npx: VideoToolBinarySchema,
   remotionVersion: z.string().optional(),
+  skills: z.object({
+    videoWriteScript: VideoToolBinarySchema,
+    videoExecuteScript: VideoToolBinarySchema,
+  }),
 });
 export type VideoToolchain = z.infer<typeof VideoToolchainSchema>;
 
