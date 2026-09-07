@@ -305,7 +305,7 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
             <>
               {staleWriteBanner}
               <Suspense fallback={<DelayedFallback />}>
-                <CodeEditor key={editorKey} fileName={fileName} />
+                <CodeEditor key={editorKey} fileName={fileName} onEscape={exitEditing} />
               </Suspense>
             </>
           ) : kind === 'markdown' && !showSource ? (

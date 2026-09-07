@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThemeProvider } from '@bilo-io/ui/theme';
@@ -44,10 +44,19 @@ const fakeModel = {
   setValue: setValueMock,
 };
 const layoutMock = vi.fn();
+// `code-editor.tsx` reads widget-visibility through this exact shape
+// (`_contextKeyService.getContextKeyValue`) rather than the public
+// `createContextKey`, per Phase 64 Theme D's Decision 3 — see that file's
+// `isMonacoWidgetOpen`. `contextValues` is mutated per-test to simulate
+// Monaco's find widget / suggest list / parameter hints opening and closing.
+let contextValues: Record<string, unknown> = {};
 const fakeEditor = {
   focus: vi.fn(),
   layout: layoutMock,
   getModel: vi.fn(() => fakeModel),
+  _contextKeyService: {
+    getContextKeyValue: (key: string) => contextValues[key],
+  },
 };
 
 const observeMock = vi.fn();
@@ -60,10 +69,10 @@ class FakeResizeObserver {
 
 const { CodeEditor } = await import('./code-editor');
 
-function renderEditor(fileName = 'a.ts') {
+function renderEditor(onEscape?: () => void, fileName = 'a.ts') {
   return render(
     <ThemeProvider>
-      <CodeEditor fileName={fileName} />
+      <CodeEditor fileName={fileName} onEscape={onEscape} />
     </ThemeProvider>,
   );
 }
@@ -87,10 +96,12 @@ describe('CodeEditor', () => {
     capturedOnMount = undefined;
     capturedOnChange = undefined;
     currentModelValue = 'const x = 1;';
+    contextValues = {};
     setValueMock.mockClear();
     layoutMock.mockClear();
     observeMock.mockClear();
     disconnectMock.mockClear();
+    fakeEditor.focus.mockClear();
     useFileEditorStore.setState({
       target: null,
       savedContent: 'const x = 1;',
@@ -105,6 +116,10 @@ describe('CodeEditor', () => {
   });
 
   afterEach(() => {
+    // `useDismiss` keeps its dismissal stack at module scope: an un-unmounted
+    // `CodeEditor` from a prior test would leave a stale 'inline' entry
+    // registered, which the Escape tests below would otherwise inherit.
+    cleanup();
     vi.unstubAllGlobals();
   });
 
@@ -140,5 +155,75 @@ describe('CodeEditor', () => {
     expect(observeMock).toHaveBeenCalledTimes(1);
     unmount();
     expect(disconnectMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores focus to whatever had it before mount, on unmount', () => {
+    const button = document.createElement('button');
+    document.body.appendChild(button);
+    button.focus();
+    expect(document.activeElement).toBe(button);
+
+    const { unmount } = renderEditor();
+    capturedOnMount?.(fakeEditor, {});
+    unmount();
+
+    expect(document.activeElement).toBe(button);
+    button.remove();
+  });
+
+  describe('Escape (Phase 64 Theme D)', () => {
+    const escapeStudio = () =>
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    it('does not call onEscape while Monaco reports its find widget open', () => {
+      const onEscape = vi.fn();
+      renderEditor(onEscape);
+      capturedOnMount?.(fakeEditor, {});
+      contextValues.findWidgetVisible = true;
+
+      escapeStudio();
+
+      expect(onEscape).not.toHaveBeenCalled();
+    });
+
+    it('does not call onEscape while Monaco reports its suggest list or parameter hints open', () => {
+      const onEscape = vi.fn();
+      renderEditor(onEscape);
+      capturedOnMount?.(fakeEditor, {});
+
+      contextValues.suggestWidgetVisible = true;
+      escapeStudio();
+      expect(onEscape).not.toHaveBeenCalled();
+
+      contextValues.suggestWidgetVisible = false;
+      contextValues.parameterHintsVisible = true;
+      escapeStudio();
+      expect(onEscape).not.toHaveBeenCalled();
+    });
+
+    it('calls onEscape once nothing internal to Monaco is open — the "second Escape" case', () => {
+      const onEscape = vi.fn();
+      renderEditor(onEscape);
+      capturedOnMount?.(fakeEditor, {});
+      contextValues.findWidgetVisible = true;
+
+      escapeStudio(); // first Escape: Monaco's own widget, swallowed
+      expect(onEscape).not.toHaveBeenCalled();
+
+      contextValues.findWidgetVisible = false; // Monaco closed it
+      escapeStudio(); // second Escape: nothing left for Monaco to consume
+
+      expect(onEscape).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onEscape on a bare Escape when no widget was ever open', () => {
+      const onEscape = vi.fn();
+      renderEditor(onEscape);
+      capturedOnMount?.(fakeEditor, {});
+
+      escapeStudio();
+
+      expect(onEscape).toHaveBeenCalledTimes(1);
+    });
   });
 });
