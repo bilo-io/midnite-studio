@@ -130,3 +130,23 @@ test('a stale write on Save offers Reload rather than overwriting or discarding 
   await expect(page.getByRole('button', { name: 'Reload', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Keep editing' })).toBeVisible();
 });
+
+test('leaving edit mode (Done) returns focus to the Edit button, not <body> (Phase 64 Theme D/G)', async ({
+  page,
+}) => {
+  await openFiles(page);
+  await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await expect(page.getByTestId('code-editor')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Done' }).click();
+
+  // `code-editor.tsx` captures `document.activeElement` on mount and refocuses
+  // it on unmount. Asserted end to end (not just at the unit level, where
+  // jsdom's click-focus semantics differ from a real browser's) because the
+  // Edit button is unmounted and remounted, not the same DOM node kept in
+  // place — the ref this restores through has to still find the RIGHT
+  // element after that swap.
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeFocused();
+});
