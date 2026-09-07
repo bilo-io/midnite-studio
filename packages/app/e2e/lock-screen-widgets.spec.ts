@@ -1,7 +1,25 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import { installMockBridge, type MockFixtures } from './mock-bridge';
+
+/**
+ * A GitHub remote on the fixture's one repo, plus a ready `gh` — matching
+ * `forge-issues.spec.ts`'s own `REMOTES` shape. Needed because `reviews` is
+ * one of `app.tsx`'s `FORGE_GATED_VIEWS`: without a GitHub remote,
+ * `useForgeGateAvailable` reports `false` regardless of which repo is
+ * selected, and the app's own redirect effect bounces `activeView` straight
+ * back to `'graph'` before `ReviewsView` ever renders anything — the pill's
+ * navigation would look like a no-op even though it landed.
+ */
+const REMOTES = [
+  {
+    name: 'origin',
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
+  },
+];
 
 async function mockCoinGecko(page: Page): Promise<void> {
   await page.route('https://api.coingecko.com/api/v3/search**', (route: Route) =>
@@ -146,5 +164,83 @@ test.describe('lock screen widgets', () => {
     await expect(weather).toContainText('18°C');
     await expect(weather).toContainText('Clear sky');
     await expect(weather).toContainText('London, United Kingdom');
+  });
+
+  /**
+   * Phase 46 Theme H — the open verification line was "every pill is
+   * reachable and activatable by keyboard, with a visible focus ring". The
+   * markup is already right (a real `<button>` with a `focus-visible` ring
+   * and an `aria-label` naming the count and destination together,
+   * `screensaver-stage.tsx`) — so this test is coverage first.
+   *
+   * Presses `Enter`, not `Space`, and no modifier chord — a modifier would
+   * re-run the Phase 38 `ControlOrMeta` hazard for no gain, and the click
+   * path itself is already covered by `pill-destinations.test.ts`. What is
+   * uncovered is that the button is reachable *at all* while `LockScreen`'s
+   * own `window` keydown listener is armed — and writing this test caught a
+   * real instance of that: the listener's `keydown` bubbles past the pill
+   * regardless of the pill's own `onClick`-only `stopPropagation()`, so
+   * `Enter` raced the browser's keydown→click default action against
+   * `LockScreen`'s generic "any key dismisses" handler. `screensaver-stage.tsx`
+   * now stops that keydown from bubbling too, matching the click case.
+   *
+   * Needs a GitHub remote and a ready `gh` (`REMOTES` above) — `reviews` is
+   * forge-gated, and the default `fixtures` has no remote at all, so without
+   * this the app's own redirect effect would bounce `activeView` back to
+   * `'graph'` before proving anything about the pill.
+   */
+  test('the my PRs pill is keyboard-reachable and navigates on Enter (Phase 46 Theme H)', async ({
+    page,
+  }) => {
+    const data: MockFixtures = { ...fixtures, remotes: REMOTES, forge: { cli: { reason: 'ready' }, pulls: [] } };
+    await mockCoinGecko(page);
+    await installMockBridge(page, data);
+    await page.goto('/');
+
+    await page.getByRole('button', { name: 'Lock screen' }).click();
+    await expect(page.getByTestId('lock-screen-widgets')).toBeVisible();
+
+    const pill = page.getByRole('button', { name: /my PRs/i });
+    await pill.focus();
+    await expect(pill).toBeFocused();
+
+    await page.keyboard.press('Enter');
+
+    await expect(page.getByTestId('lock-screen-widgets')).toHaveCount(0);
+    // Proof `setActiveView` landed on `'reviews'` and stayed there: the
+    // selected repo (the default fixture's `repo-1`) now has a GitHub remote,
+    // so `ReviewsList` — not the "select a repository" empty state — is what
+    // actually renders.
+    await expect(page.getByTestId('reviews-groups')).toBeVisible();
+  });
+
+  /**
+   * Phase 46 Theme H — Themes E and G proved the JS half
+   * (`useResolvedMotion`, `resolveSystemMotion`) and shot the pixels; nothing
+   * asserted the CSS guard on the one animation unique to this surface.
+   * `screensaver-sheen` is applied by `.screensaver-title` (`styles.css`),
+   * not by a `.screensaver-sheen` class — the keyframe name and the class
+   * name differ here.
+   *
+   * Pokes `data-motion` directly, the plain-attribute dialect, exactly as
+   * `e2e/councils.spec.ts` does — deliberately not the `@media`
+   * (OS-emulated) counterpart, which `councils.spec.ts` already covers at
+   * the app level; a second copy on this surface would assert the same
+   * mechanism twice.
+   */
+  test("the screensaver title's sheen animation stops under reduced motion (Phase 46 Theme H)", async ({
+    page,
+  }) => {
+    await mockCoinGecko(page);
+    await installMockBridge(page, fixtures);
+    await page.goto('/');
+
+    await page.getByRole('button', { name: 'Lock screen' }).click();
+    const title = page.locator('.screensaver-title');
+    await expect(title).toBeVisible();
+    await expect(title).not.toHaveCSS('animation-name', 'none');
+
+    await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
+    await expect(title).toHaveCSS('animation-name', 'none');
   });
 });

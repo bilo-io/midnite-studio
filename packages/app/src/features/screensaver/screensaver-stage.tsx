@@ -171,6 +171,22 @@ export function ScreensaverStage({
                 e.stopPropagation();
                 onPillClick?.(key);
               }}
+              onKeyDown={(e) => {
+                // Phase 46 Theme H: `LockScreen`'s "any key dismisses" handler
+                // (`lock-screen.tsx`) is a `window` `keydown` listener, not a
+                // DOM-tree one scoped under this button's own click handler —
+                // it isn't stopped by the `stopPropagation()` above, which
+                // only ever covers the synthesized `click`. Left alone,
+                // pressing `Enter` here raced the browser's own
+                // keydown→click default action against that listener: the
+                // generic dismiss fired on the bubbling `keydown` and closed
+                // the lock screen before the button's `click` (and this
+                // pill's own destination) ever ran, so keyboard activation
+                // silently downgraded to a no-op dismiss. Mouse clicks never
+                // hit this, because a pointer click never dispatches a
+                // `keydown` for `window` to see.
+                e.stopPropagation();
+              }}
               aria-label={`${n} ${label} — ${destination}`}
               className="relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-border/60 bg-card/60 px-3.5 py-1.5 text-xs font-medium text-foreground/80 backdrop-blur transition-colors hover:bg-card/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
