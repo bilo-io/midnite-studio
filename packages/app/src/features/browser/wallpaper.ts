@@ -21,6 +21,12 @@ export const WALLPAPER_THEMES: { id: WallpaperTheme; label: string }[] = [
   { id: 'space', label: 'Space' },
 ];
 
+/**
+ * The pre-Theme-F storage key. No longer read or written by this module —
+ * the theme lives in `browser-store` now — but `browser-store.ts`'s v1→v2
+ * `migrate` arm still needs the literal to carry a legacy value forward, and
+ * this is the one place that used to own it.
+ */
 export const WALLPAPER_STORAGE_KEY = 'midnite-studio.browser.wallpaper-theme';
 
 export const FALLBACK_WALLPAPERS: Record<WallpaperTheme, WallpaperInfo[]> = {
@@ -103,26 +109,6 @@ const DEFAULT_WALLPAPER: WallpaperInfo = {
   authorName: 'Bailey Zindel',
   authorUrl: 'https://unsplash.com/@baileyzindel',
 };
-
-export function getSavedWallpaperTheme(): WallpaperTheme {
-  try {
-    const saved = localStorage.getItem(WALLPAPER_STORAGE_KEY) as WallpaperTheme | null;
-    if (saved && saved in FALLBACK_WALLPAPERS) {
-      return saved;
-    }
-  } catch {
-    // Ignore storage failures
-  }
-  return 'nature';
-}
-
-export function saveWallpaperTheme(theme: WallpaperTheme): void {
-  try {
-    localStorage.setItem(WALLPAPER_STORAGE_KEY, theme);
-  } catch {
-    // Ignore storage failures
-  }
-}
 
 export function getWallpaperForTheme(theme: WallpaperTheme, index = 0): WallpaperInfo {
   const fallbacks = FALLBACK_WALLPAPERS[theme] || FALLBACK_WALLPAPERS.nature;

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useOccluder } from '../../components/use-occluder';
 import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
 import { useAnyLoopRunning } from '../loops/fab-loop-halo';
 import { NeuroCloudBackground } from './neuro-cloud-background';
@@ -68,6 +69,13 @@ export function LockScreen({
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Phase 32 Theme E: `fixed inset-0 z-[200]` — on every other surface this
+  // covers the app completely, and over a loaded browser page it would cover
+  // nothing at all without this. Registered for as long as the component is
+  // mounted, matching the parent's own "should the screen be locked" gate
+  // rather than the `mounted`/portal-timing flag above.
+  useOccluder();
 
   // The same `.gradient-frame` inner glow the FAB's loop console and the
   // landing page wear (`styles.css`'s `.screensaver-panel-gradient`), lit

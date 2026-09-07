@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, type IpcMainEvent } from 'electron';
 
 import { CHANNELS, ok, schemas } from '@midnite/studio-shared';
 
@@ -11,15 +11,33 @@ import {
   findInBrowserTab,
   forwardBrowserTab,
   navigateBrowserTab,
+  ownerWindowForBrowserTab,
   reloadBrowserTab,
   setBrowserBounds,
   setBrowserVisible,
+  setBrowserZoom,
   stopBrowserTab,
   stopFindInBrowserTab,
   toggleBrowserDevTools,
 } from '../browser-service';
 import { probeLoopbackPort } from '../dev-server-probe';
+import { resolveWindow } from '../window-manager';
 import { handle, handleBare, handleFromSender } from './handle';
+
+/**
+ * Drops a bounds/visibility push whose sender is not the tab's current
+ * owning window (Theme E) — with the browser detached into its own popout
+ * (`detached-root.tsx`), both renderers can hold a live `useBrowserBounds`
+ * for the same `tabId`, and a stale push from the window that no longer
+ * hosts it (mid-reparent) is expected, not an error. `null` (tab not
+ * created yet, or its owner can't be resolved) is not treated as a mismatch
+ * — the underlying service functions are themselves no-ops for an untracked
+ * tab.
+ */
+export function isFromOwningWindow(event: IpcMainEvent, tabId: string): boolean {
+  const owner = ownerWindowForBrowserTab(tabId);
+  return owner === null || resolveWindow(event.sender) === owner;
+}
 
 /**
  * Registers the `mstudio:browser:*` channels over `browser-service.ts`.
@@ -75,14 +93,18 @@ export function registerBrowserHandlers(): void {
     if (parsed.success) stopBrowserTab(parsed.data.tabId);
   });
 
-  ipcMain.on(CHANNELS.browserSetBounds, (_event, raw: unknown) => {
+  ipcMain.on(CHANNELS.browserSetBounds, (event, raw: unknown) => {
     const parsed = schemas.BrowserSetBoundsRequest.safeParse(raw);
-    if (parsed.success) setBrowserBounds(parsed.data.tabId, parsed.data.bounds);
+    if (parsed.success && isFromOwningWindow(event, parsed.data.tabId)) {
+      setBrowserBounds(parsed.data.tabId, parsed.data.bounds);
+    }
   });
 
-  ipcMain.on(CHANNELS.browserSetVisible, (_event, raw: unknown) => {
+  ipcMain.on(CHANNELS.browserSetVisible, (event, raw: unknown) => {
     const parsed = schemas.BrowserSetVisibleRequest.safeParse(raw);
-    if (parsed.success) setBrowserVisible(parsed.data.tabId, parsed.data.visible);
+    if (parsed.success && isFromOwningWindow(event, parsed.data.tabId)) {
+      setBrowserVisible(parsed.data.tabId, parsed.data.visible);
+    }
   });
 
   ipcMain.on(CHANNELS.browserActivate, (_event, raw: unknown) => {
@@ -103,6 +125,11 @@ export function registerBrowserHandlers(): void {
   ipcMain.on(CHANNELS.browserFindStop, (_event, raw: unknown) => {
     const parsed = schemas.BrowserFindStopRequest.safeParse(raw);
     if (parsed.success) stopFindInBrowserTab(parsed.data.tabId);
+  });
+
+  ipcMain.on(CHANNELS.browserZoom, (_event, raw: unknown) => {
+    const parsed = schemas.BrowserZoomRequest.safeParse(raw);
+    if (parsed.success) setBrowserZoom(parsed.data.tabId, parsed.data.factor);
   });
 
   handleBare(CHANNELS.browserClearData, async () => {

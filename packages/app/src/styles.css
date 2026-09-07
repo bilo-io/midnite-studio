@@ -39,6 +39,16 @@
     --health-warn: 38 92% 50%;
     --health-fail: var(--destructive);
 
+    /* The browser pane's "Not secure" chip (Phase 32 Theme G) — its own
+     * token rather than `--health-*`, for the same reason the dependency
+     * graph's edges above mint their own: `--health-*` means repo health,
+     * and a future change to what THAT "warn" looks like should not
+     * silently restyle this. Same raw value as `--health-warn` today
+     * because both are simply "the app's one amber" — two names, one
+     * colour, free to diverge later without anything else moving.
+     */
+    --browser-insecure: 38 92% 50%;
+
     /* The dependency graph's own edge/node vocabulary
      * (features/projects/graph/edge-appearance.ts, Phase 75 Theme E) —
      * deliberately its own three tokens rather than `--health-*`: those mean
@@ -75,7 +85,7 @@
     --cal-3: 158 65% 46%;
     --cal-4: 158 72% 34%;
 
-    /* The browser's eight manual-group colours (features/browser/tab-group.tsx).
+    /* The browser's eight manual-group colours (features/browser/tab-group-colors.ts).
      * A named palette, not a ramp — there is no ordering between them, unlike
      * --cal-*. Deliberately clear of the graph lane hues and --cal's teal-green,
      * so a coloured tab group can never be misread as either. */
@@ -93,6 +103,8 @@
     /* Lifted for contrast against a near-black sidebar; the mid-tone amber that
      * reads on white goes muddy on it. */
     --health-warn: 38 95% 58%;
+    /* Lifted the same way and for the same reason as `--health-warn` above. */
+    --browser-insecure: 38 95% 58%;
     /* Lifted the same way, and for the same reason `--health-warn` is above:
      * the light value goes muddy against a near-black canvas. `--dep-done`
      * and `--dep-idle` keep tracking `--success`/`--muted-foreground`, which
@@ -3438,4 +3450,33 @@ html[data-motion='reduced'] .optimizer-text-shimmer {
 
 html[data-motion='reduced'] .optimizer-soft-glow {
   transition: none;
+}
+
+/*
+ * Phase 32 Theme G — the browser pane's loading bar. Grows left-to-right and
+ * loops while a page is in flight; its own 100% keyframe is a fully filled,
+ * fully opaque bar on purpose, because the shell's blanket
+ * `html[data-motion='reduced'] *` reset (`appearance.css`) pins every
+ * animation to that exact frame (`animation-fill-mode: forwards`) rather than
+ * removing it — so under reduced motion this is what "static filled bar"
+ * comes from for free, with no separate override needed here.
+ */
+@keyframes browser-loading-sweep {
+  0% {
+    transform: scaleX(0);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scaleX(0.85);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.browser-loading-bar {
+  transform-origin: left;
+  animation: browser-loading-sweep 1s ease-out infinite;
 }

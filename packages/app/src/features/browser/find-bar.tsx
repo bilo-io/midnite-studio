@@ -5,6 +5,7 @@ import { useBrowserStore } from '../../store/browser-store';
 
 export function FindBar({ onClose }: { onClose: () => void }) {
   const activeTabId = useBrowserStore((s) => s.activeTabId);
+  const findResult = useBrowserStore((s) => s.findResult);
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -60,6 +61,18 @@ export function FindBar({ onClose }: { onClose: () => void }) {
           placeholder="Find in page..."
           className="w-48 rounded border border-border bg-background px-2 py-0.5 text-xs outline-none focus-visible:ring-1 focus-visible:ring-primary"
         />
+        {/*
+          `0 / 0` for a query with no hits, not an empty slot — an empty
+          slot reads as "still searching" (Theme G). Rendered only once a
+          `found` event has actually answered this query; nothing before
+          that, rather than a misleading `0 / 0` for a search still in
+          flight.
+        */}
+        {text.trim() && findResult ? (
+          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+            {findResult.matches === 0 ? 0 : findResult.activeMatchOrdinal} / {findResult.matches}
+          </span>
+        ) : null}
         <button
           type="button"
           onClick={() => handleFind(false)}

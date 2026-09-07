@@ -1758,6 +1758,9 @@ export const WindowStateSchema = z.object({
   focused: z.boolean(),
 });
 
+/** The host window's own zoom (Phase 32 Theme G) — see `windowZoom`'s channel comment. */
+export const WindowZoomRequest = z.object({ action: z.enum(['in', 'out', 'reset']) });
+
 // --- multi-window (Phase 55) -------------------------------------------------
 
 export const WindowDetachRequest = z.object({ role: WindowRoleSchema });
@@ -1836,6 +1839,16 @@ export const BrowserFindRequest = z.object({
 export const BrowserFindStopRequest = z.object({ tabId: z.string().min(1) });
 /** No payload: clears the whole `persist:browser` partition's storage and cache. */
 export const BrowserClearDataResponse = GitOpResultSchema;
+/**
+ * An absolute zoom factor (Theme G), not a delta — the renderer already owns
+ * per-origin persistence, so a delta channel would make main the source of
+ * truth for state only the renderer keeps. `0.25..5` mirrors Chromium's own
+ * `webContents.setZoomFactor` clamp.
+ */
+export const BrowserZoomRequest = z.object({
+  tabId: z.string().min(1),
+  factor: z.number().min(0.25).max(5),
+});
 
 /**
  * One loopback port to probe (Phase 71 Theme C).

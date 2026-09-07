@@ -1,4 +1,4 @@
-import { WebContentsView, session, shell, type BrowserWindow, type Input } from 'electron';
+import { WebContentsView, screen, session, shell, type BrowserWindow, type Input } from 'electron';
 
 import { EVENT_CHANNELS, type BrowserBounds, type BrowserEvent, type CommandId } from '@midnite/studio-shared';
 
@@ -22,6 +22,45 @@ const PARTITION = 'persist:browser';
 type Tracked = { view: WebContentsView; win: BrowserWindow };
 
 const tabs = new Map<string, Tracked>();
+
+/**
+ * The last `BrowserBounds` pushed for each tab, in the renderer's own CSS
+ * pixels — pre-zoom-scale, since {@link setBrowserBounds} re-derives the
+ * scaled value from whatever the window's zoom factor is AT RE-APPLY TIME
+ * (Theme E). Re-applying the last known rect on a full-screen transition or a
+ * display-metrics change avoids a round trip to the renderer during a
+ * transition that is already janky, and main is the only side that can even
+ * observe those two events.
+ */
+const lastBounds = new Map<string, BrowserBounds>();
+
+/** Windows already wired for the full-screen re-push above — a guard, not a cache. */
+const fullScreenReapplyWired = new WeakSet<BrowserWindow>();
+let displayMetricsReapplyWired = false;
+
+function reapplyBoundsForWindow(win: BrowserWindow): void {
+  for (const [tabId, tracked] of tabs) {
+    if (tracked.win !== win) continue;
+    const bounds = lastBounds.get(tabId);
+    if (bounds) setBrowserBounds(tabId, bounds);
+  }
+}
+
+function ensureFullScreenReapply(win: BrowserWindow): void {
+  if (fullScreenReapplyWired.has(win)) return;
+  fullScreenReapplyWired.add(win);
+  win.on('enter-full-screen', () => reapplyBoundsForWindow(win));
+  win.on('leave-full-screen', () => reapplyBoundsForWindow(win));
+}
+
+function ensureDisplayMetricsReapply(): void {
+  if (displayMetricsReapplyWired) return;
+  displayMetricsReapplyWired = true;
+  screen.on('display-metrics-changed', () => {
+    const windows = new Set([...tabs.values()].map((tracked) => tracked.win));
+    for (const win of windows) reapplyBoundsForWindow(win);
+  });
+}
 
 let securityConfigured = false;
 
@@ -99,6 +138,8 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   win.contentView.addChildView(view);
   view.setVisible(false);
   tabs.set(tabId, { view, win });
+  ensureFullScreenReapply(win);
+  ensureDisplayMetricsReapply();
 
   const wc = view.webContents;
 
@@ -151,6 +192,16 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   wc.on('unresponsive', () => {
     defaultLogger.error(`[browser] unresponsive tab=${tabId}`);
     send(win, { kind: 'destroyed', tabId, reason: 'unresponsive' });
+  });
+  // `findInBrowserTab` calls `webContents.findInPage` but never listened for
+  // its result until now — `find-bar.tsx`'s match count (Theme G).
+  wc.on('found-in-page', (_event, result) => {
+    send(win, {
+      kind: 'found',
+      tabId,
+      matches: result.matches,
+      activeMatchOrdinal: result.activeMatchOrdinal,
+    });
   });
 
   /*
@@ -223,6 +274,7 @@ export function closeBrowserTab(tabId: string): void {
   const tracked = tabs.get(tabId);
   if (!tracked) return;
   tabs.delete(tabId);
+  lastBounds.delete(tabId);
   if (!tracked.win.isDestroyed()) tracked.win.contentView.removeChildView(tracked.view);
   if (!tracked.view.webContents.isDestroyed()) {
     // The 13 per-tab handlers registered above (`did-navigate`,
@@ -282,13 +334,50 @@ export function stopFindInBrowserTab(tabId: string): void {
   wc.stopFindInPage('clearSelection');
 }
 
+/**
+ * Bounds arrive in CSS pixels; `WebContentsView.setBounds` wants device
+ * pixels. The two units diverge the moment a user presses the host window's
+ * own `Mod+=` (its `zoomIn`/`zoomOut`/`resetZoom` menu roles, unrelated to a
+ * TAB's own {@link setBrowserZoom}) — scaling here, in main, is the fix:
+ * the renderer measures in CSS pixels and may not import `electron`, so it
+ * has no legal way to read the window's zoom factor, while main already
+ * holds the owning `BrowserWindow` for every tracked tab (Theme E).
+ */
 export function setBrowserBounds(tabId: string, bounds: BrowserBounds): void {
-  tabs.get(tabId)?.view.setBounds(bounds);
+  const tracked = tabs.get(tabId);
+  if (!tracked) return;
+  lastBounds.set(tabId, bounds);
+  const factor = tracked.win.webContents.getZoomFactor();
+  tracked.view.setBounds({
+    x: Math.round(bounds.x * factor),
+    y: Math.round(bounds.y * factor),
+    width: Math.round(bounds.width * factor),
+    height: Math.round(bounds.height * factor),
+  });
 }
 
 /** Closing the pane hides the view rather than destroying it — page state survives a reopen. */
 export function setBrowserVisible(tabId: string, visible: boolean): void {
   tabs.get(tabId)?.view.setVisible(visible);
+}
+
+/**
+ * The window a tracked tab's `WebContentsView` currently lives in, or `null`
+ * for an unknown tab — `browser-handlers.ts`'s sender-scoping guard for
+ * `browserSetBounds`/`browserSetVisible` (Theme E): with the browser
+ * detached into its own popout, a stale push from the window that no longer
+ * hosts a reparented tab is expected during the reparent, not an error.
+ */
+export function ownerWindowForBrowserTab(tabId: string): BrowserWindow | null {
+  return tabs.get(tabId)?.win ?? null;
+}
+
+/**
+ * An absolute zoom factor for one tab (Theme G), never a delta — the
+ * renderer already owns per-origin persistence.
+ */
+export function setBrowserZoom(tabId: string, factor: number): void {
+  tabs.get(tabId)?.view.webContents.setZoomFactor(factor);
 }
 
 /**
@@ -343,5 +432,7 @@ export function destroyAllBrowserTabs(): void {
 /** Test-only: drop every tracked tab without tearing down real Electron state. */
 export function resetBrowserServiceForTests(): void {
   tabs.clear();
+  lastBounds.clear();
   securityConfigured = false;
+  displayMetricsReapplyWired = false;
 }

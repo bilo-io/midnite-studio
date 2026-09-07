@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useOccluder } from '../use-occluder';
 import { bucketLabel, type ActivityBucket, type ActivityTimeframe } from './activity-buckets';
 
 /** Where the pointer was when the bucket under it changed. Viewport coords. */
@@ -37,6 +38,10 @@ export function ActivityTooltip({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [placed, setPlaced] = useState<PointerAt>({ x: at.x, y: at.y });
+
+  // Phase 32 Theme E: this hover card portals to `document.body` for as long
+  // as it is mounted — its parent renders it only while a bucket is hovered.
+  useOccluder();
 
   /*
     Measure-then-place, before paint. The card's size depends on its text (the

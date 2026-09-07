@@ -963,6 +963,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
      * its container.
      */
     const browserVisibleCalls: Array<{ tabId: string; visible: boolean }> = [];
+    /** Every `browser.zoom` call, in order — the e2e zoom spec's assertion surface (Theme G). */
+    const browserZoomCalls: Array<{ tabId: string; factor: number }> = [];
+    /** Every `browser.stop` call, in order — the e2e stop-button spec's assertion surface (Theme G). */
+    const browserStopCalls: Array<{ tabId: string }> = [];
 
     (window as unknown as { midniteStudio: unknown }).midniteStudio = {
       /*
@@ -2178,7 +2182,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         back: noop,
         forward: noop,
         reload: noop,
-        stop: noop,
+        stop: (req: { tabId: string }) => {
+          browserStopCalls.push({ tabId: req.tabId });
+        },
         setBounds: noop,
         setVisible: (req: { tabId: string; visible: boolean }) => {
           browserVisibleCalls.push({ tabId: req.tabId, visible: req.visible });
@@ -2188,6 +2194,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         find: noop,
         findStop: noop,
         clearData: ok,
+        zoom: (req: { tabId: string; factor: number }) => {
+          browserZoomCalls.push({ tabId: req.tabId, factor: req.factor });
+        },
         onEvent: (handler: (e: unknown) => void) => {
           browserEventHandlers.push(handler);
           return () => {
@@ -3833,6 +3842,12 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     ];
     (window as unknown as { __mstudioBrowserVisibleCalls: unknown }).__mstudioBrowserVisibleCalls =
       () => [...browserVisibleCalls];
+    (window as unknown as { __mstudioBrowserZoomCalls: unknown }).__mstudioBrowserZoomCalls = () => [
+      ...browserZoomCalls,
+    ];
+    (window as unknown as { __mstudioBrowserStopCalls: unknown }).__mstudioBrowserStopCalls = () => [
+      ...browserStopCalls,
+    ];
     /*
       A getter, not the array: `loopRuns` is REASSIGNED on every start and
       stop (the ledger is immutable-updated the way main's is), so a spec

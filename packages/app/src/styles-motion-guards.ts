@@ -17,6 +17,16 @@
  */
 export const MOTION_GUARD_ALLOWLIST: Record<string, string> = {
   shake: 'a single ~0.4s shake on an invalid action (e.g. a wrong passcode), never a loop.',
+  // Phase 32 Theme G: no local guard needed because `@bilo-io/shell`'s
+  // `appearance.css` already forces `animation-duration: 0.001ms !important`
+  // + `animation-fill-mode: forwards !important` on every element under
+  // `html[data-motion='reduced']` — this file's own local guards exist for
+  // effects THAT reset does not fully cover (see the `code-preview-hit`
+  // comment above it), and this one's 100% keyframe is deliberately a fully
+  // filled, fully opaque bar, so the pinned final frame IS the required
+  // "static filled bar" outcome with nothing extra to add here.
+  'browser-loading-sweep':
+    'its own 100% keyframe (fully filled, opaque) is already the correct reduced-motion end state, pinned there for free by the shell-wide animation reset.',
 };
 
 function keyframeNames(source: string): string[] {

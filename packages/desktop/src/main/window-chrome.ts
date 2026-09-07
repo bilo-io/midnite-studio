@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
 
-import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
 
 /**
  * Window chrome for the app-drawn title bar.
@@ -99,6 +99,31 @@ export function registerWindowChrome(): void {
     if (!win || win.isDestroyed()) return;
     if (hard === true) win.webContents.reloadIgnoringCache();
     else win.webContents.reload();
+  });
+
+  /**
+   * The host window's own zoom (Phase 32 Theme G) — `Mod+=`/`Mod+-`/`Mod+0`
+   * routed here (not to a role's native accelerator, which `menu.ts` strips
+   * for exactly this reason) while the browser pane is not what owns the
+   * chord. `0.5` per step matches Electron's own role-based zoom increment,
+   * so the behaviour is identical to the accelerator this replaces.
+   */
+  ipcMain.on(CHANNELS.windowZoom, (event, raw: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) return;
+    const parsed = schemas.WindowZoomRequest.safeParse(raw);
+    if (!parsed.success) return;
+    switch (parsed.data.action) {
+      case 'in':
+        win.webContents.setZoomLevel(win.webContents.getZoomLevel() + 0.5);
+        break;
+      case 'out':
+        win.webContents.setZoomLevel(win.webContents.getZoomLevel() - 0.5);
+        break;
+      case 'reset':
+        win.webContents.setZoomLevel(0);
+        break;
+    }
   });
 
   ipcMain.handle(CHANNELS.windowState, (event) => {

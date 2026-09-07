@@ -194,6 +194,45 @@ export const COMMANDS = [
   { id: 'panel.back', label: 'Back', group: 'view', chord: 'Mod+[' },
   { id: 'panel.forward', label: 'Forward', group: 'view', chord: 'Mod+]' },
   { id: 'browser.reopenTab', label: 'Reopen Closed Browser Tab', group: 'view', chord: 'Mod+Shift+t' },
+  /**
+   * `Mod+f` for the browser's own find bar (Theme G) — declared here rather
+   * than left unbound the way this doc originally recorded it, because
+   * `search.open` took `Mod+Shift+f` instead. Must appear in BOTH
+   * `YIELD_ROOTS` entries below: `.monaco-editor`, because `Mod+f` is
+   * Monaco's own find widget, and `.xterm`, because off macOS `Mod` is
+   * `Ctrl` and `Ctrl+F` is readline's forward-char. Adding this binding is
+   * what makes those two yield entries newly necessary — before it, the
+   * dispatcher found no candidate for `Mod+f` at all and did nothing.
+   */
+  { id: 'browser.find', label: 'Find in Page', group: 'view', chord: 'Mod+f' },
+  /**
+   * `Mod+=`/`Mod+-`/`Mod+0` — the browser TAB's own zoom (an absolute
+   * factor, persisted per origin in `browser-store.ts`; never the host
+   * window's). These collide with the host window's `zoomIn`/`zoomOut`/
+   * `resetZoom` menu roles, which fire whenever the window is focused
+   * regardless of context — `menu.ts` strips their native accelerator for
+   * exactly this reason, and `app.zoomIn`/`zoomOut`/`zoomReset` below (same
+   * three chords) are what the keystroke resolves to instead while the
+   * browser pane is not the one that owns it. `use-keybindings.ts`'s
+   * existing `browser.*`-prefix preference (built for `Mod+w`/`Mod+t`) does
+   * the routing for free — no dispatcher change needed for a THIRD
+   * `browser.*` chord family.
+   */
+  { id: 'browser.zoomIn', label: 'Zoom In (Browser)', group: 'view', chord: 'Mod+=' },
+  { id: 'browser.zoomOut', label: 'Zoom Out (Browser)', group: 'view', chord: 'Mod+-' },
+  { id: 'browser.zoomReset', label: 'Reset Zoom (Browser)', group: 'view', chord: 'Mod+0' },
+  /** The host window's own zoom — see `browser.zoomIn`'s comment just above. */
+  { id: 'app.zoomIn', label: 'Zoom In', group: 'view', chord: 'Mod+=' },
+  { id: 'app.zoomOut', label: 'Zoom Out', group: 'view', chord: 'Mod+-' },
+  { id: 'app.zoomReset', label: 'Reset Zoom', group: 'view', chord: 'Mod+0' },
+  /**
+   * DevTools for the active browser tab, and wiping the `persist:browser`
+   * partition — both chord-free (Theme G). `clearData` stays OUT of
+   * `PALETTE_SAFE` (it destroys every logged-in session in the partition);
+   * `devtools` goes in.
+   */
+  { id: 'browser.devtools', label: 'Toggle Browser DevTools', group: 'view' },
+  { id: 'browser.clearData', label: 'Clear Browsing Data', group: 'view' },
   { id: 'browser.selectTab1', label: 'Select Browser Tab 1', group: 'view', chord: 'Mod+1' },
   { id: 'browser.selectTab2', label: 'Select Browser Tab 2', group: 'view', chord: 'Mod+2' },
   { id: 'browser.selectTab3', label: 'Select Browser Tab 3', group: 'view', chord: 'Mod+3' },
@@ -399,6 +438,13 @@ export const YIELD_ROOTS: readonly YieldRoot[] = [
       'panel.forward',
       'fab.toggle',
       'window.detachActive',
+      /**
+       * Phase 32 Theme G: `browser.find` claimed `Mod+f`, and off macOS
+       * `Mod` is `Ctrl` — `Ctrl+F` is readline's forward-char, the shell's
+       * own binding, so a shell with focus must keep it rather than opening
+       * the (closed, invisible) browser find bar behind it.
+       */
+      'browser.find',
     ],
   },
   {
@@ -406,16 +452,18 @@ export const YIELD_ROOTS: readonly YieldRoot[] = [
     /**
      * Phase 64 Theme D — Monaco's own yield set: `Mod+d` (add selection to
      * next match), `Mod+/` (toggle comment), `Mod+[`/`Mod+]` (outdent/
-     * indent) and `Mod+Enter` (insert line below). Only `panel.back`
-     * (`Mod+[`), `panel.forward` (`Mod+]`) and `status.commit` (`Mod+Enter`)
-     * need an entry HERE — `use-keybindings.ts:90`'s capture-phase `window`
-     * listener only ever contests a chord that some `CommandId` is actually
-     * bound to. `Mod+d` and `Mod+/` bind to nothing in `DEFAULT_KEYMAP`
-     * (same reasoning the doc gives for `Mod+f`, which also needs no entry:
-     * `search.open` is `Mod+Shift+f`), so the dispatcher already finds no
-     * candidate for them and does nothing — Monaco gets all five unopposed.
+     * indent) and `Mod+Enter` (insert line below). `Mod+d` and `Mod+/` bind
+     * to nothing in `DEFAULT_KEYMAP`, so the dispatcher already finds no
+     * candidate for them and does nothing — Monaco gets those two
+     * unopposed. `panel.back` (`Mod+[`), `panel.forward` (`Mod+]`) and
+     * `status.commit` (`Mod+Enter`) DO bind to something and so need an
+     * entry here; `browser.find` (`Mod+f`, Phase 32 Theme G) joins them for
+     * the identical reason — `Mod+f` is Monaco's own find widget, and a
+     * bound `browser.find` is exactly what would contest it now that the
+     * doc's earlier claim ("`Mod+f` binds to nothing, so it needs no
+     * entry") stopped being true.
      */
-    commands: ['panel.back', 'panel.forward', 'status.commit'],
+    commands: ['panel.back', 'panel.forward', 'status.commit', 'browser.find'],
   },
 ];
 

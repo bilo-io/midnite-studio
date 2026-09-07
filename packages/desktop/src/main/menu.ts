@@ -136,9 +136,23 @@ export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
         { role: 'togglefullscreen' },
         { role: 'toggleDevTools' },
         { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
+        /*
+          Theme G's `browser.zoomIn`/`zoomOut`/`zoomReset` bind `Mod+=`/
+          `Mod+-`/`Mod+0` — exactly the accelerators these three roles get by
+          default. An empty `accelerator` is what actually strips one: Electron
+          only falls back to the role's own default when the property is
+          absent entirely, so an explicit `''` here (not `undefined`, which is
+          the same as leaving it out) is what makes the OS-level shortcut go
+          away while the menu item — and its click handler, still the real
+          window's own zoom — is untouched. Same remedy `app.reload`/
+          `app.hardReload` used at `:124-125`, and for the identical reason:
+          `use-keybindings.ts:39-49` routes the chord to the `browser.*`
+          reading while `browserOpen` is true and to the host's own zoom
+          otherwise, which an always-live native accelerator would bypass.
+        */
+        { role: 'resetZoom', accelerator: '' },
+        { role: 'zoomIn', accelerator: '' },
+        { role: 'zoomOut', accelerator: '' },
       ],
     },
     {

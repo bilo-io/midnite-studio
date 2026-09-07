@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { bridge } from '../../services/bridge';
-import { useBrowserStore } from '../../store/browser-store';
+import { originOf, useBrowserStore } from '../../store/browser-store';
 import { useToastStore } from '../../store/toast-store';
 
 /**
@@ -37,8 +37,31 @@ import { useToastStore } from '../../store/toast-store';
  * it once it exists.
  */
 export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabReady?: () => void): void {
+  const tabs = useBrowserStore((s) => s.tabs);
   const activeTabId = useBrowserStore((s) => s.activeTabId);
   const previousActive = useRef<string | null>(null);
+  // The create-set implied by the activation effect below (":120" in the
+  // phase doc) — hoisted rather than duplicated, since the close-diff effect
+  // needs to read the same "have we ever called browser.create for this id"
+  // answer (Theme E).
+  const created = useRef<Set<string>>(new Set());
+
+  // Closing a tab must destroy its view (Theme E) — `browser-store`'s
+  // `closeTab`/`closeOthers`/`closeToRight`/`closeTabsInGroup` are pure
+  // reducers with no bridge access by design, so nothing else calls
+  // `browser.close` for a row that disappears. Diffing the store's current
+  // ids against the create-set here, in one effect, covers every one of
+  // those call sites at once rather than needing a bridge call bolted onto
+  // each.
+  useEffect(() => {
+    const liveIds = new Set(tabs.map((tab) => tab.id));
+    for (const id of created.current) {
+      if (!liveIds.has(id)) {
+        created.current.delete(id);
+        bridge()?.browser.close({ tabId: id });
+      }
+    }
+  }, [tabs]);
 
   // Mirrored into a ref so the `create().then()` below can tell, once it
   // actually resolves, whether it is still talking about the current pane
@@ -50,7 +73,7 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
     const off = bridge()?.browser.onEvent((event) => {
       const update = useBrowserStore.getState().updateTabState;
       switch (event.kind) {
-        case 'navigated':
+        case 'navigated': {
           update(event.tabId, {
             url: event.url,
             canGoBack: event.canGoBack,
@@ -58,7 +81,16 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
             // A navigation is the proof a crashed view came back.
             crashed: false,
           });
+          // Restores the origin's own zoom factor (Theme G) — a factor set
+          // on a previous visit must survive navigating away and back,
+          // since `zoomByOrigin` is keyed by origin rather than by tab.
+          const origin = originOf(event.url);
+          if (origin) {
+            const factor = useBrowserStore.getState().zoomByOrigin[origin];
+            if (factor !== undefined) bridge()?.browser.zoom({ tabId: event.tabId, factor });
+          }
           break;
+        }
         case 'title':
           update(event.tabId, { title: event.title });
           break;
@@ -66,12 +98,26 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
           update(event.tabId, { faviconUrl: event.faviconUrl });
           break;
         case 'loading':
-          update(event.tabId, { loading: event.loading });
+          update(event.tabId, {
+            loading: event.loading,
+            // `did-start-loading` is the proof a previous failure's error
+            // page is no longer current (Theme G) — cleared here rather
+            // than only on `navigated`, since a blocked-scheme failure
+            // fires `failed` with no `navigated` ever following it.
+            ...(event.loading ? { navError: null } : {}),
+          });
           break;
         case 'failed':
-          // Theme G renders this as a styled in-DOM error page; this batch
-          // only stops the spinner rather than getting stuck mid-load.
-          update(event.tabId, { loading: false });
+          update(event.tabId, { loading: false, navError: event.error });
+          break;
+        case 'found':
+          // Only the active tab's find bar can be open, so this is never
+          // keyed per tab (Theme G) — see `browser-store.ts`'s own comment.
+          if (useBrowserStore.getState().activeTabId === event.tabId) {
+            useBrowserStore
+              .getState()
+              .setFindResult({ matches: event.matches, activeMatchOrdinal: event.activeMatchOrdinal });
+          }
           break;
         case 'destroyed':
           // Surfaced as tab state, never swallowed — the pane turns this
@@ -116,6 +162,7 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
     // `create` is a no-op in main when the tab already has a live view —
     // safe to call on every activation, including a reopen after close or
     // a re-run of this effect once `settled` catches up (below).
+    created.current.add(tab.id);
     void api
       ?.browser.create({ tabId: tab.id, url: tab.url })
       .then(() => {

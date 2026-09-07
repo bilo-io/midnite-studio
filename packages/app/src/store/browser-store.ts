@@ -1,9 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import type { BrowserNavError, BrowserShortcutTile } from '@midnite/studio-shared';
+
 import { PREVIEW_DEPLOY_HOSTS } from '../features/browser/preview-deploy';
+import { WALLPAPER_STORAGE_KEY, WALLPAPER_THEMES, type WallpaperTheme } from '../features/browser/wallpaper';
 
 import { adoptRenamedPersistKey } from './persist-rename';
+
+export type { BrowserShortcutTile } from '@midnite/studio-shared';
 
 /**
  * The browser's tabs and groups (Phase 32 Theme C/D).
@@ -65,6 +70,13 @@ export type BrowserTab = {
    * showing a blank rectangle; cleared the moment the tab navigates again.
    */
   crashed?: boolean;
+  /**
+   * A blocked or failed navigation (Theme G) — `null`/absent once a
+   * navigation is actually in flight (`did-start-loading`, i.e. a `loading:
+   * true` event) or has succeeded. Rendered as `error-page.tsx`'s styled,
+   * in-DOM surface rather than Chromium's own unstyled one.
+   */
+  navError?: BrowserNavError | null;
 };
 
 export type BrowserTabGroup = {
@@ -77,6 +89,52 @@ export type BrowserTabGroup = {
 type ClosedTab = BrowserTab & { closedAtIndex: number };
 
 const MAX_CLOSED = 20;
+const MAX_RECENTS = 8;
+
+/**
+ * The new-tab page's own six, seeded on first run (Theme F). Used to live as
+ * a private `new-tab-page.tsx` constant carrying real `IconComponent`
+ * references; moved here — and onto `iconKey` — because it is persisted,
+ * editable state now and `packages/shared` cannot hold a component.
+ */
+const DEFAULT_TILES: BrowserShortcutTile[] = [
+  { id: 'google', label: 'Google', url: 'https://google.com', iconKey: 'google', brandColor: '#4285F4', bgColor: 'rgba(66, 133, 244, 0.15)' },
+  { id: 'youtube', label: 'YouTube', url: 'https://youtube.com', iconKey: 'youtube', brandColor: '#FF0000', bgColor: 'rgba(255, 0, 0, 0.15)' },
+  { id: 'figma', label: 'Figma', url: 'https://figma.com', iconKey: 'figma', brandColor: '#F24E1E', bgColor: 'rgba(242, 78, 30, 0.15)' },
+  { id: 'claude', label: 'Claude', url: 'https://claude.ai', iconKey: 'claude', brandColor: '#D97706', bgColor: 'rgba(217, 119, 6, 0.15)' },
+  { id: 'gemini', label: 'Gemini', url: 'https://gemini.google.com', iconKey: 'gemini', brandColor: '#8E75FF', bgColor: 'rgba(142, 117, 255, 0.15)' },
+  { id: 'notebook', label: 'Notebook', url: 'https://notebooklm.google.com', iconKey: 'notebook', brandColor: '#34A853', bgColor: 'rgba(52, 168, 83, 0.15)' },
+];
+
+/** The step one `browser.zoomIn`/`zoomOut` command press moves the factor by (Theme G). */
+export const ZOOM_STEP = 0.1;
+
+/** Clamps to the same `0.25..5` range `BrowserZoomRequest` enforces at the IPC boundary. */
+export function clampZoomFactor(factor: number): number {
+  return Math.round(Math.min(5, Math.max(0.25, factor)) * 100) / 100;
+}
+
+/** `null` for an unparseable URL — callers treat that as "not an origin worth remembering". */
+export function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The last {@link MAX_RECENTS} distinct origins, most-recent-first.
+ *
+ * A pure function over the list rather than a `Set`, because order (recency)
+ * is exactly what a `Set` throws away: re-visiting an existing origin must
+ * promote it to the front, not leave it at its old position.
+ */
+export function pushRecentOrigin(recents: readonly string[], url: string): string[] {
+  const origin = originOf(url);
+  if (origin === null) return [...recents];
+  return [origin, ...recents.filter((existing) => existing !== origin)].slice(0, MAX_RECENTS);
+}
 
 const newId = (): string =>
   typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
@@ -148,6 +206,54 @@ type BrowserState = {
    */
   previewDeployHosts: string[];
 
+  /**
+   * The last {@link MAX_RECENTS} distinct origins a tab has navigated to,
+   * most-recent-first (Theme F). Origins, not URLs — a strip of eight
+   * `github.com/...` paths is not a shortcut list — and pushed from
+   * {@link BrowserState.updateTabState} itself so every navigation path
+   * (a real `navigated` event, or the new-tab page's own optimistic
+   * pre-navigate patch) feeds it through one place.
+   */
+  recents: string[];
+  /**
+   * The new-tab page's editable shortcut row (Theme F), seeded from
+   * {@link DEFAULT_TILES} on first run. Persisted because the whole point is
+   * that a user's edits survive a restart.
+   */
+  tiles: BrowserShortcutTile[];
+  /**
+   * The new-tab page's wallpaper theme (Theme F). Used to live in raw
+   * `localStorage` under `wallpaper.ts`'s `WALLPAPER_STORAGE_KEY`, outside
+   * zustand `persist` entirely — invisible to `broadcast-sync.ts` and to the
+   * settings-diff surface Phase 63 built. `version: 2`'s `migrate` arm below
+   * carries a legacy value forward once.
+   */
+  wallpaperTheme: WallpaperTheme;
+
+  /**
+   * A tab's zoom is an ABSOLUTE factor, persisted PER ORIGIN rather than per
+   * tab (Theme G): re-opening a site returns to the factor it was left at,
+   * where per-tab persistence would lose it the moment the tab that set it
+   * closes. Main is never the source of truth for it — `browser-service.ts`
+   * only ever applies whatever factor this store sends over `browser.zoom`.
+   */
+  zoomByOrigin: Record<string, number>;
+  /**
+   * Whether the find bar is open for the active tab (Theme G). Ephemeral —
+   * not persisted, and not keyed per tab: only the active tab's find bar can
+   * ever be open, so lifting this out of `browser-pane.tsx`'s own
+   * `useState` is what lets `Mod+f` (a command, resolved outside that
+   * component) toggle it.
+   */
+  findOpen: boolean;
+  /**
+   * The active tab's last `found-in-page` result (Theme G) — `null` before
+   * the first search and once the find bar closes. Ephemeral, and not keyed
+   * per tab for the same reason `findOpen` is not: only one find session can
+   * be live at a time.
+   */
+  findResult: { matches: number; activeMatchOrdinal: number } | null;
+
   /** Opens a blank tab when `url` is omitted — including "zero tabs open" (Theme C's own rule). */
   openTab: (url?: string, originRepoId?: string) => string;
   /**
@@ -190,6 +296,23 @@ type BrowserState = {
   setViewportPreset: (tabId: string, preset: BrowserViewportPreset) => void;
   /** Replaces the whole preview-deploy allowlist — the Browser settings page's editor. */
   setPreviewDeployHosts: (hosts: string[]) => void;
+
+  /** Empties `recents` — exposed from the Browser settings page and the strip's own context menu. */
+  clearRecents: () => void;
+  /** Appends a new tile (no `iconKey`, so it renders the generic-globe fallback) and returns its id. */
+  addTile: (tile: Omit<BrowserShortcutTile, 'id'>) => string;
+  removeTile: (id: string) => void;
+  renameTile: (id: string, label: string) => void;
+  /** The full new order, not a from/to pair — same contract `SortableList.onReorder` uses. */
+  reorderTiles: (ids: string[]) => void;
+  setWallpaperTheme: (theme: WallpaperTheme) => void;
+
+  /** Sets (or clears, at `1`) one origin's zoom factor — keyed by origin, never by tab. */
+  setZoomForOrigin: (origin: string, factor: number) => void;
+  toggleFind: () => void;
+  /** Closing clears `findResult` too — a stale match count must not survive to the next search. */
+  closeFind: () => void;
+  setFindResult: (result: { matches: number; activeMatchOrdinal: number } | null) => void;
 };
 
 /**
@@ -206,6 +329,12 @@ export const useBrowserStore = create<BrowserState>()(
       activeTabId: null,
       recentlyClosed: [],
       previewDeployHosts: [...PREVIEW_DEPLOY_HOSTS],
+      recents: [],
+      tiles: [...DEFAULT_TILES],
+      wallpaperTheme: 'nature',
+      zoomByOrigin: {},
+      findOpen: false,
+      findResult: null,
 
       openTab: (url, originRepoId) => {
         const tab: BrowserTab = { ...makeTab(url), ...(originRepoId ? { originRepoId } : {}) };
@@ -325,7 +454,14 @@ export const useBrowserStore = create<BrowserState>()(
         }),
 
       updateTabState: (id, patch) =>
-        set((state) => ({ tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, ...patch } : tab)) })),
+        set((state) => ({
+          tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, ...patch } : tab)),
+          // Every path that gives a tab a real destination — a live
+          // `navigated` push and the new-tab page's own pre-navigate patch
+          // alike — runs through here, so this is the one place recents need
+          // to be recorded rather than duplicated at each call site.
+          recents: patch.url !== undefined ? pushRecentOrigin(state.recents, patch.url) : state.recents,
+        })),
 
       createGroup: (name, color) => {
         const id = newId();
@@ -390,6 +526,45 @@ export const useBrowserStore = create<BrowserState>()(
 
       setPreviewDeployHosts: (hosts) => set({ previewDeployHosts: hosts }),
 
+      clearRecents: () => set({ recents: [] }),
+
+      addTile: (tile) => {
+        const id = newId();
+        set((state) => ({ tiles: [...state.tiles, { ...tile, id }] }));
+        return id;
+      },
+
+      removeTile: (id) => set((state) => ({ tiles: state.tiles.filter((tile) => tile.id !== id) })),
+
+      renameTile: (id, label) =>
+        set((state) => ({
+          tiles: state.tiles.map((tile) => (tile.id === id ? { ...tile, label } : tile)),
+        })),
+
+      reorderTiles: (ids) =>
+        set((state) => {
+          const byId = new Map(state.tiles.map((tile) => [tile.id, tile]));
+          const tiles = ids
+            .map((id) => byId.get(id))
+            .filter((tile): tile is BrowserShortcutTile => tile !== undefined);
+          return tiles.length === state.tiles.length ? { tiles } : state;
+        }),
+
+      setWallpaperTheme: (theme) => set({ wallpaperTheme: theme }),
+
+      setZoomForOrigin: (origin, factor) =>
+        set((state) => ({ zoomByOrigin: { ...state.zoomByOrigin, [origin]: factor } })),
+
+      toggleFind: () =>
+        set((state) => {
+          const findOpen = !state.findOpen;
+          return { findOpen, findResult: findOpen ? state.findResult : null };
+        }),
+
+      closeFind: () => set({ findOpen: false, findResult: null }),
+
+      setFindResult: (result) => set({ findResult: result }),
+
       closeTabsInGroup: (targetGroupId) =>
         set((state) => {
           const manualIds = new Set(state.groups.map((g) => g.id));
@@ -403,11 +578,56 @@ export const useBrowserStore = create<BrowserState>()(
     }),
     {
       name: 'midnite-studio.browser',
-      version: 1,
+      version: 2,
+      /**
+       * v1 → v2: `wallpaperTheme` moves out of raw `localStorage` and into
+       * this store (Theme F). Reads `wallpaper.ts`'s legacy
+       * `WALLPAPER_STORAGE_KEY` once, folds it into state, and deletes it —
+       * a v1 payload with no legacy key (or an unparseable one) migrates to
+       * the `'nature'` default, same as a fresh install.
+       */
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as {
+          activeTabId?: string | null;
+          groups?: BrowserTabGroup[];
+          previewDeployHosts?: string[];
+          tabs?: BrowserTab[];
+          recents?: string[];
+          tiles?: BrowserShortcutTile[];
+          wallpaperTheme?: WallpaperTheme;
+          zoomByOrigin?: Record<string, number>;
+        };
+        let wallpaperTheme = state.wallpaperTheme ?? 'nature';
+        if (version < 2) {
+          try {
+            const legacy = localStorage.getItem(WALLPAPER_STORAGE_KEY);
+            if (legacy && WALLPAPER_THEMES.some((t) => t.id === legacy)) {
+              wallpaperTheme = legacy as WallpaperTheme;
+            }
+            localStorage.removeItem(WALLPAPER_STORAGE_KEY);
+          } catch {
+            // Private mode or a disabled-storage policy — the default stands.
+          }
+        }
+        return {
+          activeTabId: state.activeTabId ?? null,
+          groups: state.groups ?? [],
+          previewDeployHosts: state.previewDeployHosts ?? [...PREVIEW_DEPLOY_HOSTS],
+          tabs: state.tabs ?? [],
+          recents: state.recents ?? [],
+          tiles: state.tiles ?? [...DEFAULT_TILES],
+          wallpaperTheme,
+          zoomByOrigin: state.zoomByOrigin ?? {},
+        };
+      },
       partialize: (state) => ({
         activeTabId: state.activeTabId,
         groups: state.groups,
         previewDeployHosts: state.previewDeployHosts,
+        recents: state.recents,
+        tiles: state.tiles,
+        wallpaperTheme: state.wallpaperTheme,
+        zoomByOrigin: state.zoomByOrigin,
         // Runtime-only fields reset to their idle defaults — a restored tab
         // is an inactive record until the user activates it (see the
         // module doc above).
@@ -417,6 +637,7 @@ export const useBrowserStore = create<BrowserState>()(
           canGoBack: false,
           canGoForward: false,
           crashed: false,
+          navError: null,
         })),
       }),
     },

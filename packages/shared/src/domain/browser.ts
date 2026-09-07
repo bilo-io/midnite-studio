@@ -76,6 +76,42 @@ export const BrowserTabGroupSchema = z.object({
 export type BrowserTabGroup = z.infer<typeof BrowserTabGroupSchema>;
 
 /**
+ * The six seeded tiles' own glyphs, and nothing else — `packages/shared`
+ * carries zod only and may not import `react-icons`, so a tile cannot hold an
+ * icon component the way it did as `new-tab-page.tsx`'s private, unpersisted
+ * type. A key the renderer maps to a component instead, exactly as
+ * `BrowserTabState.faviconUrl` already falls back to a generic globe when a
+ * page has none: `addTile` never assigns one, so a user-added tile always
+ * renders that same fallback rather than gaining a new enum member per
+ * bookmark.
+ */
+export const BROWSER_SHORTCUT_ICON_KEYS = [
+  'google',
+  'youtube',
+  'figma',
+  'claude',
+  'gemini',
+  'notebook',
+] as const;
+export type BrowserShortcutIconKey = (typeof BROWSER_SHORTCUT_ICON_KEYS)[number];
+
+/**
+ * An editable new-tab shortcut (Theme F). Persisted, so — unlike the
+ * `BrowserTabGroupSchema` comment just above — this one really does need a
+ * schema now: it moved out of `new-tab-page.tsx`'s own module scope where it
+ * was never validated at a boundary.
+ */
+export const BrowserShortcutTileSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  url: z.string().min(1),
+  brandColor: z.string(),
+  bgColor: z.string(),
+  iconKey: z.enum(BROWSER_SHORTCUT_ICON_KEYS).optional(),
+});
+export type BrowserShortcutTile = z.infer<typeof BrowserShortcutTileSchema>;
+
+/**
  * Chrome events pushed main → renderer over the single `mstudio:browser:event`
  * channel, discriminated on `kind` — the same nesting trick
  * `GitOpFailureSchema` uses so every arm can share `tabId` without zod's
@@ -120,5 +156,17 @@ export const BrowserEventSchema = z.discriminatedUnion('kind', [
    * cancelling loudly (a notice naming the file) beats dropping silently.
    */
   z.object({ kind: z.literal('download-blocked'), tabId: BrowserTabIdSchema, filename: z.string() }),
+  /**
+   * A `findInPage` match count (Theme G) — a new arm on the existing
+   * discriminated union rather than a new channel, since `bridge.ts`'s
+   * comment on `onEvent` already says that union is exactly what a per-tab,
+   * per-kind chrome push is for.
+   */
+  z.object({
+    kind: z.literal('found'),
+    tabId: BrowserTabIdSchema,
+    matches: z.number().int(),
+    activeMatchOrdinal: z.number().int(),
+  }),
 ]);
 export type BrowserEvent = z.infer<typeof BrowserEventSchema>;

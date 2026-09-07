@@ -26,7 +26,7 @@ export function OnboardingModal() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-dialog flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Welcome to Midnite Studio"

@@ -1,88 +1,62 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { LuExternalLink, LuSearch, LuImage, LuRefreshCw, LuServer } from 'react-icons/lu';
+import {
+  LuExternalLink,
+  LuSearch,
+  LuImage,
+  LuRefreshCw,
+  LuServer,
+  LuGlobe,
+  LuFolderGit2,
+  LuGitPullRequest,
+  LuPlay,
+} from 'react-icons/lu';
 import { SiGoogle, SiYoutube, SiFigma, SiGooglegemini, SiNotebooklm } from 'react-icons/si';
+import {
+  forgeActionsUrl,
+  forgePullsUrl,
+  forgeProjectUrl,
+  pickForgeRemote,
+  type BrowserShortcutIconKey,
+} from '@midnite/studio-shared';
 import { ClaudeIcon } from '../../components/icons';
 import { BrandMark, Wordmark } from '../../components/brand';
-import { useBrowserStore } from '../../store/browser-store';
+import { useBrowserStore, type BrowserShortcutTile } from '../../store/browser-store';
+import { useUiStore } from '../../store/ui-store';
+import { useRemotes, useRepos } from '../../services/queries';
 import { bridge } from '../../services/bridge';
 import type { IconComponent } from '../../components/icon-button';
 import { devServerLabel, devServerUrl } from './dev-server';
 import { useDevServer } from './use-dev-server';
-import {
-  type WallpaperTheme,
-  WALLPAPER_THEMES,
-  getSavedWallpaperTheme,
-  saveWallpaperTheme,
-  getWallpaperForTheme,
-} from './wallpaper';
+import { resolveInput } from './resolve-input';
+import { type WallpaperTheme, WALLPAPER_THEMES, getWallpaperForTheme } from './wallpaper';
 
-export type BrowserShortcutTile = {
-  id: string;
-  label: string;
-  url: string;
-  icon: IconComponent;
-  brandColor: string;
-  bgColor: string;
+/**
+ * The six seeded tiles' glyphs. `BrowserShortcutTile` (moved to
+ * `packages/shared`, Theme F) keeps only an `iconKey` — the shared package
+ * carries zod, not `react-icons` — so this is where a key resolves back to a
+ * real component. A tile with no key (every user-added one via `addTile`)
+ * falls back to the generic globe, exactly as a page with no favicon does in
+ * `tab-strip.tsx`.
+ */
+const SHORTCUT_ICONS: Record<BrowserShortcutIconKey, IconComponent> = {
+  google: SiGoogle,
+  youtube: SiYoutube,
+  figma: SiFigma,
+  claude: ClaudeIcon,
+  gemini: SiGooglegemini,
+  notebook: SiNotebooklm,
 };
 
-const SHORTCUT_ROWS: BrowserShortcutTile[][] = [
-  [
-    {
-      id: 'google',
-      label: 'Google',
-      url: 'https://google.com',
-      icon: SiGoogle,
-      brandColor: '#4285F4',
-      bgColor: 'rgba(66, 133, 244, 0.15)',
-    },
-    {
-      id: 'youtube',
-      label: 'YouTube',
-      url: 'https://youtube.com',
-      icon: SiYoutube,
-      brandColor: '#FF0000',
-      bgColor: 'rgba(255, 0, 0, 0.15)',
-    },
-    {
-      id: 'figma',
-      label: 'Figma',
-      url: 'https://figma.com',
-      icon: SiFigma,
-      brandColor: '#F24E1E',
-      bgColor: 'rgba(242, 78, 30, 0.15)',
-    },
-  ],
-  [
-    {
-      id: 'claude',
-      label: 'Claude',
-      url: 'https://claude.ai',
-      icon: ClaudeIcon,
-      brandColor: '#D97706',
-      bgColor: 'rgba(217, 119, 6, 0.15)',
-    },
-    {
-      id: 'gemini',
-      label: 'Gemini',
-      url: 'https://gemini.google.com',
-      icon: SiGooglegemini,
-      brandColor: '#8E75FF',
-      bgColor: 'rgba(142, 117, 255, 0.15)',
-    },
-    {
-      id: 'notebook',
-      label: 'Notebook',
-      url: 'https://notebooklm.google.com',
-      icon: SiNotebooklm,
-      brandColor: '#34A853',
-      bgColor: 'rgba(52, 168, 83, 0.15)',
-    },
-  ],
-];
+function iconForTile(tile: BrowserShortcutTile): IconComponent {
+  return (tile.iconKey && SHORTCUT_ICONS[tile.iconKey]) || LuGlobe;
+}
 
 export function NewTabPage() {
   const activeTabId = useBrowserStore((s) => s.activeTabId);
-  const recents: string[] = [];
+  const recents = useBrowserStore((s) => s.recents);
+  const tiles = useBrowserStore((s) => s.tiles);
+  const theme = useBrowserStore((s) => s.wallpaperTheme);
+  const setWallpaperTheme = useBrowserStore((s) => s.setWallpaperTheme);
   /*
     Absent, not disabled, when nothing is listening or no repo is active
     (Phase 71 Theme C). A greyed-out "Dev server" tile teaches nothing an
@@ -92,7 +66,6 @@ export function NewTabPage() {
   const devServer = useDevServer();
 
   const [query, setQuery] = useState('');
-  const [theme, setTheme] = useState<WallpaperTheme>(() => getSavedWallpaperTheme());
   const [wallpaperIndex, setWallpaperIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
@@ -103,9 +76,8 @@ export function NewTabPage() {
   }, [wallpaper.imageUrl]);
 
   const handleThemeChange = (newTheme: WallpaperTheme) => {
-    setTheme(newTheme);
+    setWallpaperTheme(newTheme);
     setWallpaperIndex(0);
-    saveWallpaperTheme(newTheme);
   };
 
   const handleCycleWallpaper = () => {
@@ -116,24 +88,43 @@ export function NewTabPage() {
     e.preventDefault();
     if (!query.trim() || !activeTabId) return;
 
-    let targetUrl = query.trim();
-    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-      if (targetUrl.includes('.') && !targetUrl.includes(' ')) {
-        targetUrl = `https://${targetUrl}`;
-      } else {
-        targetUrl = `https://www.google.com/search?q=${encodeURIComponent(targetUrl)}`;
-      }
-    }
-
+    const targetUrl = resolveInput(query);
     useBrowserStore.getState().updateTabState(activeTabId, { kind: 'page', url: targetUrl });
     void bridge()?.browser.create({ tabId: activeTabId, url: targetUrl });
   };
 
-  const handleTileClick = (url: string) => {
+  const handleTileClick = (url: string, originRepoId?: string) => {
     if (!activeTabId) return;
-    useBrowserStore.getState().updateTabState(activeTabId, { kind: 'page', url });
+    useBrowserStore.getState().updateTabState(activeTabId, {
+      kind: 'page',
+      url,
+      ...(originRepoId ? { originRepoId } : {}),
+    });
     void bridge()?.browser.create({ tabId: activeTabId, url });
   };
+
+  /**
+   * The repo-derived second row (Theme F): the active repo's own project
+   * page, its pulls, and its actions — each opening with `originRepoId` set
+   * so Theme D's derived group picks them up. Absent (not disabled) with no
+   * active repo or no forge remote, per Phase 27's rule that an empty
+   * heading teaches nothing an absent one does not.
+   */
+  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const { data: repos = [] } = useRepos();
+  const { data: remotes = [] } = useRemotes(selectedRepoId);
+  const activeRepo = repos.find((r) => r.id === selectedRepoId) ?? null;
+  const forge = pickForgeRemote(remotes)?.forge ?? null;
+  const repoRow =
+    activeRepo && forge
+      ? (() => {
+          const projectUrl = forgeProjectUrl(forge);
+          const pullsUrl = forgePullsUrl(forge);
+          const actionsUrl = forgeActionsUrl(forge);
+          if (!projectUrl || !pullsUrl || !actionsUrl) return null;
+          return { repoId: activeRepo.id, repoName: activeRepo.name, projectUrl, pullsUrl, actionsUrl };
+        })()
+      : null;
 
   return (
     <div
@@ -243,38 +234,71 @@ export function NewTabPage() {
           <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-4 text-center">
             Shortcuts
           </div>
-          <div className="flex flex-col items-center gap-3 w-full">
-            {SHORTCUT_ROWS.map((row, rowIndex) => (
-              <div key={rowIndex} className="flex justify-center gap-4 w-full">
-                {row.map((tile) => {
-                  const IconComponent = tile.icon;
-                  return (
-                    <button
-                      type="button"
-                      key={tile.id}
-                      data-testid={`shortcut-tile-${tile.id}`}
-                      onClick={() => handleTileClick(tile.url)}
-                      className="group relative flex w-24 flex-col items-center justify-center rounded-xl bg-background/20 hover:bg-background/50 p-3 cursor-pointer transition-all hover:scale-105 border border-white/5 shadow-xs"
-                    >
-                      <div
-                        className="flex h-11 w-11 items-center justify-center rounded-xl font-bold text-lg mb-2 transition-transform group-hover:scale-110 shadow-inner"
-                        style={{
-                          backgroundColor: tile.bgColor,
-                          color: tile.brandColor,
-                        }}
-                      >
-                        <IconComponent className="h-5 w-5" style={{ color: tile.brandColor }} />
-                      </div>
-                      <span className="text-xs font-medium truncate max-w-full text-center text-foreground/90 group-hover:text-foreground">
-                        {tile.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+          {/*
+            `flex-wrap`, not a fixed 3-per-row chunk: the pane can be dragged
+            down to 320px wide in side-by-side (`ui-store`'s `browserWidth`
+            min), and a hard-coded row of three (3 * 6rem tiles + 2 * 1rem
+            gaps = 20rem) is wider than that once this panel's own padding is
+            subtracted — a horizontal scrollbar, not a reflow. Letting the
+            browser wrap tiles itself needs no breakpoint at all, since this
+            is the PANE's width, not the viewport's.
+          */}
+          <div className="flex flex-wrap justify-center gap-4 w-full">
+            {tiles.map((tile) => {
+              const IconComponent = iconForTile(tile);
+              return (
+                <button
+                  type="button"
+                  key={tile.id}
+                  data-testid={`shortcut-tile-${tile.id}`}
+                  onClick={() => handleTileClick(tile.url)}
+                  className="group relative flex w-24 flex-col items-center justify-center rounded-xl bg-background/20 hover:bg-background/50 p-3 cursor-pointer transition-all hover:scale-105 border border-white/5 shadow-xs"
+                >
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-xl font-bold text-lg mb-2 transition-transform group-hover:scale-110 shadow-inner"
+                    style={{
+                      backgroundColor: tile.bgColor,
+                      color: tile.brandColor,
+                    }}
+                  >
+                    <IconComponent className="h-5 w-5" style={{ color: tile.brandColor }} />
+                  </div>
+                  <span className="text-xs font-medium truncate max-w-full text-center text-foreground/90 group-hover:text-foreground">
+                    {tile.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
+
+        {/* Repo row — the active repo's project/pulls/actions (Theme F), absent with no forge remote */}
+        {repoRow ? (
+          <div data-testid="repo-row" className="flex flex-wrap justify-center gap-4 w-full mb-8">
+            {(
+              [
+                { label: repoRow.repoName, url: repoRow.projectUrl, icon: LuFolderGit2 },
+                { label: 'Pull requests', url: repoRow.pullsUrl, icon: LuGitPullRequest },
+                { label: 'Actions', url: repoRow.actionsUrl, icon: LuPlay },
+              ] as const
+            ).map((entry) => (
+              <button
+                type="button"
+                key={entry.label}
+                data-testid={`repo-tile-${entry.label.toLowerCase().replace(/\s+/g, '-')}`}
+                onClick={() => handleTileClick(entry.url, repoRow.repoId)}
+                className="group relative flex w-24 flex-col items-center justify-center rounded-xl bg-background/20 hover:bg-background/50 p-3 cursor-pointer transition-all hover:scale-105 border border-white/5 shadow-xs"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl mb-2 bg-foreground/10 text-foreground transition-transform group-hover:scale-110 shadow-inner">
+                  <entry.icon className="h-5 w-5" />
+                </div>
+                <span className="text-xs font-medium truncate max-w-full text-center text-foreground/90 group-hover:text-foreground">
+                  {entry.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {/* Recents */}
         {recents.length > 0 && (

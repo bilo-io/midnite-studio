@@ -109,7 +109,10 @@ export function ToastHost({ children }: { children: ReactNode }) {
       const topmost = toasts[toasts.length - 1];
       if (topmost) dismiss(topmost.id);
     },
-    { layer: 'toast', blocking: false },
+    // `occludes: true` (Phase 32 Theme E): passive for Escape ordering, but
+    // still a real surface painted over a loaded page — a toast over the
+    // browser pane needs to hide the native view the same as any occluder.
+    { layer: 'toast', blocking: false, occludes: true },
   );
 
   const api = useMemo<ToastApi>(() => ({ show, dismiss }), [show, dismiss]);

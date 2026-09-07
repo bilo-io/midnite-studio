@@ -10,11 +10,12 @@ function installBridge(createImpl?: ReturnType<typeof vi.fn>) {
   const create = createImpl ?? vi.fn().mockResolvedValue({ ok: true });
   const activate = vi.fn();
   const setVisible = vi.fn();
+  const close = vi.fn();
   const onEvent = vi.fn(() => () => {});
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
-    browser: { create, activate, setVisible, onEvent } as unknown as MidniteStudioBridge['browser'],
+    browser: { create, activate, setVisible, close, onEvent } as unknown as MidniteStudioBridge['browser'],
   } as Partial<MidniteStudioBridge>;
-  return { create, activate, setVisible, onEvent };
+  return { create, activate, setVisible, close, onEvent };
 }
 
 /** Deferred `create()` — resolved by hand once the test has changed state under it. */
@@ -158,5 +159,44 @@ describe('useBrowserTabsEffects', () => {
 
     await waitFor(() => expect(activate).toHaveBeenCalledWith({ tabId: 'tab-1' }));
     expect(onTabReady).toHaveBeenCalled();
+  });
+
+  it('closing an inactive (but previously-created) tab destroys its view exactly once, and never the survivor\'s (Theme E)', async () => {
+    const { create, close } = installBridge();
+    seedPageTab('tab-1');
+    seedPageTab('tab-2');
+    useBrowserStore.setState({ activeTabId: 'tab-1' });
+
+    const { rerender, unmount } = renderHook(() => useBrowserTabsEffects(true, true));
+    unmounts.push(unmount);
+    await waitFor(() => expect(create).toHaveBeenCalledWith({ tabId: 'tab-1', url: 'https://example.com' }));
+
+    // Switch to 'tab-2' — 'tab-1' is now inactive but its view is still live
+    // in main (hidden, not destroyed) until something actually closes it.
+    useBrowserStore.setState({ activeTabId: 'tab-2' });
+    rerender();
+    await waitFor(() => expect(create).toHaveBeenCalledWith({ tabId: 'tab-2', url: 'https://example.com' }));
+
+    useBrowserStore.getState().closeTab('tab-1');
+
+    await waitFor(() => expect(close).toHaveBeenCalledWith({ tabId: 'tab-1' }));
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalledWith({ tabId: 'tab-2' });
+  });
+
+  it('never calls browser.close for a tab that was never activated (no view was ever created for it)', async () => {
+    const { create, close } = installBridge();
+    seedPageTab('tab-1');
+    seedPageTab('tab-2');
+    useBrowserStore.setState({ activeTabId: 'tab-1' }); // 'tab-2' is never activated
+
+    const { unmount } = renderHook(() => useBrowserTabsEffects(true, true));
+    unmounts.push(unmount);
+    await waitFor(() => expect(create).toHaveBeenCalledWith({ tabId: 'tab-1', url: 'https://example.com' }));
+
+    useBrowserStore.getState().closeTab('tab-2');
+    await Promise.resolve();
+
+    expect(close).not.toHaveBeenCalled();
   });
 });

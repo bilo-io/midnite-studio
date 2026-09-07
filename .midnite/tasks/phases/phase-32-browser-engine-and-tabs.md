@@ -245,7 +245,7 @@ are computed from where a tab came from and vanish when empty.
       derived group; an explicit `groupId: null` overrides it; the derived group disappears at zero
       tabs.
 
-### E — Occlusion, bounds, and the view that outlives its tab (M)
+### E — Occlusion, bounds, and the view that outlives its tab (M) — ✅ DONE (PR #265, 2026-09-07)
 
 Phase 62's dismissal-layer stack already built this theme's headline: `useDismiss(active, onDismiss,
 {layer, blocking})` increments `occluders` for every blocking layer, and
@@ -253,7 +253,7 @@ Phase 62's dismissal-layer stack already built this theme's headline: `useDismis
 native view while the count is non-zero. What is left is a gap list. Nothing here is speculative —
 every item names the line that is wrong today.
 
-- [ ] **Closing a tab must destroy its view.** `useBrowserTabsEffects`
+- [x] **Closing a tab must destroy its view.** `useBrowserTabsEffects`
       ([`use-browser-tabs.ts:39`](../../../packages/app/src/features/browser/use-browser-tabs.ts))
       creates views but never closes them; `browser-store`'s `closeTab` only drops the row.
   - Add a `useEffect` in `useBrowserTabsEffects` that diffs the store's `tabs` against a
@@ -266,7 +266,7 @@ every item names the line that is wrong today.
     [`use-browser-tabs.test.ts`](../../../packages/app/src/features/browser/use-browser-tabs.test.ts):
     render with two tabs, `closeTab` the inactive one, assert `browser.close` called once with that id
     and never with the survivor's.
-- [ ] **Bounds are pushed in CSS pixels; `setBounds` wants DIP.**
+- [x] **Bounds are pushed in CSS pixels; `setBounds` wants DIP.**
       `use-browser-bounds.ts`'s `sync()` sends `Math.round(rect.x/y/width/height)` from
       `getBoundingClientRect()`, and [`browser-service.ts:285`](../../../packages/desktop/src/main/browser-service.ts)
       passes them to `view.setBounds(bounds)` unmodified. The host window carries
@@ -281,7 +281,7 @@ every item names the line that is wrong today.
   - Verified in [`browser-service.test.ts`](../../../packages/desktop/src/main/browser-service.test.ts):
     a fake window reporting `getZoomFactor() === 1.5` and a `{x:10,y:20,width:100,height:200}` push
     must reach `view.setBounds` as `{x:15,y:30,width:150,height:300}`.
-- [ ] **`setBounds`/`setVisible` must resolve their window from the sender.**
+- [x] **`setBounds`/`setVisible` must resolve their window from the sender.**
       `browserCreate` uses `handleFromSender`
       ([`browser-handlers.ts:36–45`](../../../packages/desktop/src/main/ipc/browser-handlers.ts)); the
       other twelve are raw `ipcMain.on` with no sender resolution. With the browser detached into its
@@ -293,7 +293,7 @@ every item names the line that is wrong today.
     the pane is expected during a reparent, not an error.
   - Verified: a `browser-service.test.ts` case that reparents a tab to window B and then pushes bounds
     from window A's sender, asserting `view.setBounds` is not called.
-- [ ] **Tooltips and toasts still paint under a loaded page.** `tooltip.tsx:122` and
+- [x] **Tooltips and toasts still paint under a loaded page.** `tooltip.tsx:122` and
       `toast-host.tsx:106–112` pass `{ blocking: false }`, which `use-dismiss.ts:160` reads as
       "not an occluder" as well as "does not consume Escape".
   - Split the axes: add `occludes?: boolean` to `DismissOptions`
@@ -305,7 +305,7 @@ every item names the line that is wrong today.
   - Verified in [`use-dismiss.test.ts`](../../../packages/app/src/components/use-dismiss.test.ts): a
     `{blocking:false, occludes:true}` registration raises `occluders` to 1 and still does **not** win
     `Escape` against a `dialog` layer.
-- [ ] **Six overlays portal without registering at all** — enumerate from the tree, not from memory,
+- [x] **Six overlays portal without registering at all** — enumerate from the tree, not from memory,
       and add `useOccluder(open)` ([`use-occluder.ts:9`](../../../packages/app/src/components/use-occluder.ts))
       to each: [`activity-tooltip.tsx`](../../../packages/app/src/components/commit-activity-timeline/activity-tooltip.tsx),
       [`project-actions.tsx`](../../../packages/app/src/features/agent/project-actions.tsx),
@@ -318,13 +318,13 @@ every item names the line that is wrong today.
     loaded page it would cover nothing at all.
   - Extend [`occluder-coverage.test.tsx`](../../../packages/app/src/components/occluder-coverage.test.tsx)
     with a numbered case per component, matching its existing exact-count style.
-- [ ] **Two overlays sit outside the z scale** and will fight the native layer's `z-browser: 45`
+- [x] **Two overlays sit outside the z scale** and will fight the native layer's `z-browser: 45`
       differently from every sibling: `onboarding-modal.tsx` uses `z-50` and
       `passcode-pad.tsx:259,266` uses `z-[110]`, where the scale in
       [`tailwind.config.ts:108–123`](../../../tailwind.config.ts) runs `z-menu` 80 · `z-popover` 85 ·
       `z-dialog` 90 · `z-toast` 92 · `z-tooltip` 95. Move both onto named tokens; a hand-rolled number
       is how the next occlusion bug gets in.
-- [ ] **Re-push bounds on the window events a `ResizeObserver` cannot see.** `sync()` listens to the
+- [x] **Re-push bounds on the window events a `ResizeObserver` cannot see.** `sync()` listens to the
       element and to `window resize`; a display scale-factor change and a macOS full-screen transition
       do not always produce either.
   - Main owns this, because the renderer cannot observe them: `browser-service.ts` keeps the last
@@ -334,12 +334,12 @@ every item names the line that is wrong today.
     janky.
   - Verified: a `browser-service.test.ts` case that emits `enter-full-screen` on the fake window and
     asserts `view.setBounds` was called a second time with the same rect.
-- [ ] **Rewrite `use-browser-bounds.ts`'s doc comment (`:9–16`).** It states that the hook "does NOT
+- [x] **Rewrite `use-browser-bounds.ts`'s doc comment (`:9–16`).** It states that the hook "does NOT
       install Theme E's occluder registry" and that overlays "will still paint BENEATH the native
       view" — four lines above the code that reads the counter — and points at the dead
       `todo/phase-32-browser-engine-and-tabs.md` path. Replace it with what the hook now does, and
       name the two remaining non-occluding layers as the known gap until the item above lands.
-- [ ] **Unit-test the bounds arithmetic as a pure function.** Extract
+- [x] **Unit-test the bounds arithmetic as a pure function.** Extract
       `boundsFromRect(rect: DOMRect, zoomFactor: number): BrowserBounds` — currently inline in
       `sync()` — and test rounding at fractional device ratios (a `199.6px` wide box at zoom 1 is
       `200`, not `199`) and the zero-size case (a pane mid-tween measures `0×0`; the push must be
@@ -347,14 +347,14 @@ every item names the line that is wrong today.
       `4b1a51f fix(browser): stop the native browser view from showing at stale/zero bounds` already
       fixed once).
 
-### F — The new tab page, finished (M)
+### F — The new tab page, finished (M) — ✅ DONE (PR #265, 2026-09-07)
 
 The page exists — [`new-tab-page.tsx`](../../../packages/app/src/features/browser/new-tab-page.tsx) is
 277 lines with a wallpaper, the `BrandMark`/`Wordmark` hero, an autofocused search field and six
 shortcut tiles. Three of its promises are still hard-coded stubs, and one of them is a second copy of
 logic that already has a tested home.
 
-- [ ] **Delete `handleSubmit`'s private URL heuristic (`:106–121`) and call `resolveInput`.** The page
+- [x] **Delete `handleSubmit`'s private URL heuristic (`:106–121`) and call `resolveInput`.** The page
       re-implements URL-versus-search inline, and it has already diverged: it has no `localhost:PORT`
       arm, so typing `localhost:5173` on a new tab searches Google for it while typing the same string
       in the pane's address bar navigates.
@@ -364,7 +364,7 @@ logic that already has a tested home.
     [`resolve-input.test.ts`](../../../packages/app/src/features/browser/resolve-input.test.ts) and
     asserting in [`new-tab-page.test.tsx`](../../../packages/app/src/features/browser/new-tab-page.test.tsx)
     that submitting `localhost:5173` reaches `browser.create` with `http://localhost:5173`.
-- [ ] **Recents are `const recents: string[] = []` (`:83`)**, so the whole "Recent Origins" block at
+- [x] **Recents are `const recents: string[] = []` (`:83`)**, so the whole "Recent Origins" block at
       `:254–273` is dead code that has never rendered.
   - Add `recents: string[]` to `browser-store` — the last 8 **distinct origins**, most-recent-first,
     pushed from `updateTabState` whenever a `navigated` event carries a new origin. Origins, not URLs:
@@ -375,7 +375,7 @@ logic that already has a tested home.
     menu.
   - Verified in `browser-store.test.ts`: eight distinct origins cap at eight, a ninth evicts the
     oldest, and re-visiting an existing origin moves it to the front rather than duplicating it.
-- [ ] **Make the six tiles editable and persisted.** They are hard-coded with inline brand colours
+- [x] **Make the six tiles editable and persisted.** They are hard-coded with inline brand colours
       today (Google, YouTube, Figma, Claude, Gemini, Notebook).
   - `tiles: BrowserShortcutTile[]` in `browser-store`, seeded with exactly those six on first run, with
     `addTile` / `removeTile` / `renameTile` / `reorderTiles`. Reorder rides
@@ -386,12 +386,12 @@ logic that already has a tested home.
     is now persisted state and every other persisted browser type lives there.
   - Editing UI lives in the Browser settings page, not on the new-tab page: an inline edit affordance
     on a surface whose whole job is one keystroke to somewhere else is the wrong trade.
-- [ ] **A repo-derived second row.** When `useUiStore`'s active repo has a forge remote
+- [x] **A repo-derived second row.** When `useUiStore`'s active repo has a forge remote
       ([`forgeProjectUrl(forge)`](../../../packages/shared/src/domain/remote.ts) at `:77`), offer three
       tiles — the repo, its pulls, its actions — each opening with `originRepoId` set so Theme D's
       derived group catches them. With no active repo or no forge remote the row renders **nothing**,
       not an empty heading: Phase 27's rule.
-- [ ] **Move the wallpaper theme out of raw `localStorage`.**
+- [x] **Move the wallpaper theme out of raw `localStorage`.**
       [`wallpaper.ts:24`](../../../packages/app/src/features/browser/wallpaper.ts) writes
       `'midnite-studio.browser.wallpaper-theme'` directly, outside zustand persist, so it does not
       survive `adoptRenamedPersistKey`, is invisible to the settings-diff surface Phase 63 built, and
@@ -403,16 +403,16 @@ logic that already has a tested home.
     when the key is absent or unparseable.
   - Verified in `browser-store.test.ts`: a seeded v1 payload plus the legacy key migrates to v2 with
     the theme carried; a v1 payload with no legacy key migrates to the default.
-- [ ] **Density and reduced motion.** The wallpaper cross-fade and the tile hover lift must both be
+- [x] **Density and reduced motion.** The wallpaper cross-fade and the tile hover lift must both be
       instant under `data-motion='reduced'` (`motionMs() === 0`,
       [`use-reveal.ts:41`](../../../packages/app/src/components/use-reveal.ts)), and the tile grid must
       reflow from two rows of three to one column at the pane's narrowest usable width without a
       horizontal scrollbar. The side-by-side layout can be dragged to `320px`
       (`ui-store`'s `browserWidth` min) — that is the width to test at, not a guess.
-- [ ] **Empty state on a first run** is the hero plus the tile grid alone, with no recents heading and
+- [x] **Empty state on a first run** is the hero plus the tile grid alone, with no recents heading and
       no placeholder rows.
 
-### G — The browsing chrome, finished (M)
+### G — The browsing chrome, finished (M) — ✅ DONE (PR #265, 2026-09-07)
 
 Back/Forward/Reload/address-bar/find/DevTools are wired. What is missing is everything that tells the
 user what the page is *doing*, plus one whole IPC surface that was ticked without being built.
@@ -429,7 +429,7 @@ user what the page is *doing*, plus one whole IPC surface that was ticked withou
       (default Google). Exhaustively unit-tested — this is the single most user-visible piece of logic
       in the phase. *(Audit 2026-09-05: landed and tested, but the new-tab page kept its own private
       copy of the heuristic — see Theme F.)*
-- [ ] **Zoom does not exist — build the whole contract.** No channel, no schema, no bridge method, no
+- [x] **Zoom does not exist — build the whole contract.** No channel, no schema, no bridge method, no
       service function.
   - `browserZoom: 'mstudio:browser:zoom'` in
     [`channels.ts`](../../../packages/shared/src/ipc/channels.ts)'s browser block (`:373–391`);
@@ -456,7 +456,7 @@ user what the page is *doing*, plus one whole IPC surface that was ticked withou
     "100%" is noise.
   - Verified: a `browser-store.test.ts` case for the origin keying, and a `keybindings.test.ts`
     assertion that no `browser.zoom*` chord duplicates an existing `DEFAULT_KEYMAP` entry.
-- [ ] **A `failed` navigation renders nothing.**
+- [x] **A `failed` navigation renders nothing.**
       [`use-browser-tabs.ts:71–75`](../../../packages/app/src/features/browser/use-browser-tabs.ts)
       handles the `failed` event by setting `loading: false` and dropping the `BrowserNavError` on the
       floor, so a DNS failure or a blocked scheme leaves the previous page — or a blank rectangle — on
@@ -472,12 +472,12 @@ user what the page is *doing*, plus one whole IPC surface that was ticked withou
     — "Midnite Studio only opens http and https pages here" — rather than showing a bare code.
   - Verified in `browser-pane.test.tsx`: dispatch a `failed` event through the mock bridge and assert
     the error page's description text and that `browser.setVisible` was last called with `false`.
-- [ ] **No loading indication and no stop.** `bridge().browser.stop` exists and has zero callers.
+- [x] **No loading indication and no stop.** `bridge().browser.stop` exists and has zero callers.
   - An indeterminate 2px bar under the chrome row while `activeTab.loading`, and Reload swapped for
     Stop for its duration (`LuX`, `aria-label="Stop loading"`), calling `browser.stop({ tabId })`.
   - The bar animates only when `motionMs() > 0`; under reduced motion it is a static filled bar, which
     still communicates "busy" without a marquee.
-- [ ] **Address-bar behaviour.** The input at `browser-pane.tsx:224–236` is a bare controlled field.
+- [x] **Address-bar behaviour.** The input at `browser-pane.tsx:224–236` is a bare controlled field.
   - Focus → the full URL, `select()`ed. Blur with no edit → a trimmed `host + pathname` (scheme and a
     bare trailing `/` dropped). `Escape` → restore `activeTab.url` and blur, without closing the pane
     (the keydown must `stopPropagation` before `use-dismiss`'s window listener sees it).
@@ -485,11 +485,11 @@ user what the page is *doing*, plus one whole IPC surface that was ticked withou
     edge, so "will this search or navigate?" is answered before Enter rather than after.
   - Verified in `browser-pane.test.tsx`: focus shows the full URL selected; typing `midnite` shows a
     google.com preview; `Escape` restores and leaves the pane open.
-- [ ] **A security indicator.** Nothing at all for `https:`; an explicit **Not secure** chip in
+- [x] **A security indicator.** Nothing at all for `https:`; an explicit **Not secure** chip in
       `text-warning` for `http:`. Resolved deliberately — see `## Decisions`. No certificate detail, no
       padlock for the secure case: a padlock that is always there teaches nothing, and the one omission
       that would actively mislead is rendering plaintext `http` identically to `https`.
-- [ ] **Find-in-page has no match count.** `findInBrowserTab` (`browser-service.ts:273`) calls
+- [x] **Find-in-page has no match count.** `findInBrowserTab` (`browser-service.ts:273`) calls
       `webContents.findInPage` but never listens for `found-in-page`, so `result.matches` and
       `activeMatchOrdinal` never leave main.
   - Add a `found-in-page` listener in `createBrowserTab`'s listener block and a ninth arm to
@@ -501,7 +501,7 @@ user what the page is *doing*, plus one whole IPC surface that was ticked withou
     `0 / 0` for a query with no hits (not an empty slot, which reads as "still searching").
   - Verified in `browser-service.test.ts`: emitting `found-in-page` on the fake webContents pushes a
     `found` event with the ordinal intact.
-- [ ] **`Mod+f` is unbound.** The Find button's own `title` advertises it and nothing in
+- [x] **`Mod+f` is unbound.** The Find button's own `title` advertises it and nothing in
       `DEFAULT_KEYMAP` binds it — [`keybindings.ts:376–378`](../../../packages/shared/src/keybindings.ts)
       records that `Mod+f` is deliberately free because `search.open` took `Mod+Shift+f`.
   - Declare `browser.find` with chord `Mod+f`. It must appear in **both** `YIELD_ROOTS` entries
@@ -510,7 +510,7 @@ user what the page is *doing*, plus one whole IPC surface that was ticked withou
     those yield entries newly necessary — today the dispatcher finds no candidate and does nothing.
   - Verified in [`use-keybindings.test.ts`](../../../packages/app/src/services/keybindings/use-keybindings.test.ts):
     `Mod+f` aimed at an `.xterm` root falls through; aimed at the pane it opens the find bar.
-- [ ] **Two palette commands are missing.** `browser.devtools` and `browser.clearData` are named by a
+- [x] **Two palette commands are missing.** `browser.devtools` and `browser.clearData` are named by a
       ticked Theme H item and by this theme's original text, and neither exists in `COMMANDS`.
   - Both get an entry in [`keybindings.ts`](../../../packages/shared/src/keybindings.ts) with **no
     chord**, an icon in [`command-icons.ts`](../../../packages/app/src/features/palette/command-icons.ts)
@@ -522,7 +522,7 @@ user what the page is *doing*, plus one whole IPC surface that was ticked withou
     session in the partition. `browser.devtools` goes in.
   - Verified by the existing `palette-safety.test.ts`, which already asserts every `PALETTE_SAFE` entry
     is a real `CommandId`; add the negative assertion for `browser.clearData`.
-- [ ] **Three stale comments contradict the shipped code** and will mislead the next reader more than
+- [x] **Three stale comments contradict the shipped code** and will mislead the next reader more than
       no comment would:
       [`browser-pane.tsx:21–26`](../../../packages/app/src/features/browser/browser-pane.tsx) ("Back/
       Forward/Reload left disabled … no search fallback") and `:102` ("Theme F's new-tab page owns the
@@ -642,36 +642,39 @@ and it touches twenty-five files this phase otherwise never opens — so it move
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Unit: `boundsFromRect` — fractional rounding, and the `0×0` push skipped rather than sent.
-- [ ] Unit: `browser-service` scales `setBounds` by the host window's `getZoomFactor()`.
-- [ ] Unit: `browser-service` drops a bounds push whose sender is not the tab's owning window.
-- [ ] Unit: `browser-service` re-applies the last bounds on `enter-full-screen`.
-- [ ] Unit: `use-browser-tabs` calls `browser.close` exactly once for a closed tab and never for a
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Unit: `boundsFromRect` — fractional rounding, and the `0×0` push skipped rather than sent.
+- [x] Unit: `browser-service` scales `setBounds` by the host window's `getZoomFactor()`.
+- [x] Unit: `browser-service` drops a bounds push whose sender is not the tab's owning window.
+- [x] Unit: `browser-service` re-applies the last bounds on `enter-full-screen`.
+- [x] Unit: `use-browser-tabs` calls `browser.close` exactly once for a closed tab and never for a
       survivor.
-- [ ] Unit: `use-dismiss` — `{blocking:false, occludes:true}` raises `occluders` and still loses Escape
+- [x] Unit: `use-dismiss` — `{blocking:false, occludes:true}` raises `occluders` and still loses Escape
       to a `dialog` layer.
-- [ ] Unit: `occluder-coverage.test.tsx` gains a numbered case for each of the six newly registered
+- [x] Unit: `occluder-coverage.test.tsx` gains a numbered case for each of the six newly registered
       overlays.
-- [ ] Unit: `browser-store` — recents cap at 8 distinct origins, re-visit promotes rather than
+- [x] Unit: `browser-store` — recents cap at 8 distinct origins, re-visit promotes rather than
       duplicates; `zoomByOrigin` keys on origin not tab; v1→v2 migration carries the legacy wallpaper
       key and defaults without it.
-- [ ] Unit: `resolve-input` covers `localhost:5173` and every case the new-tab page used to handle
+- [x] Unit: `resolve-input` covers `localhost:5173` and every case the new-tab page used to handle
       privately.
-- [ ] Unit: `keybindings` — no `browser.zoom*` or `browser.find` chord duplicates an existing
+- [x] Unit: `keybindings` — no `browser.zoom*` or `browser.find` chord duplicates an existing
       `DEFAULT_KEYMAP` entry; `browser.find` appears in both `YIELD_ROOTS` entries.
-- [ ] Unit: `use-keybindings` — `Mod+f` yields to `.xterm` and to `.monaco-editor`, and reaches the pane
+- [x] Unit: `use-keybindings` — `Mod+f` yields to `.xterm` and to `.monaco-editor`, and reaches the pane
       otherwise.
-- [ ] Unit: `palette-safety` — `browser.devtools` is in `PALETTE_SAFE`, `browser.clearData` is not.
-- [ ] Unit: `browser-service` pushes a `found` event carrying `activeMatchOrdinal`.
-- [ ] RTL: `browser-pane` renders the error page for a `failed` event and hides the native view for its
+- [x] Unit: `palette-safety` — `browser.devtools` is in `PALETTE_SAFE`, `browser.clearData` is not.
+- [x] Unit: `browser-service` pushes a `found` event carrying `activeMatchOrdinal`.
+- [x] RTL: `browser-pane` renders the error page for a `failed` event and hides the native view for its
       duration.
-- [ ] RTL: address bar — focus selects the full URL, typing previews the resolved destination, `Escape`
+- [x] RTL: address bar — focus selects the full URL, typing previews the resolved destination, `Escape`
       restores it and leaves the pane open.
-- [ ] e2e: `browser-pane.spec.ts` gains a zoom case (`Mod+=` then reopening the same origin restores the
+- [x] e2e: `browser-pane.spec.ts` gains a zoom case (`Mod+=` then reopening the same origin restores the
       factor) and a stop-button case, and its stale header comment is rewritten.
-- [ ] e2e: a screenshot spec covering the new-tab page in both themes and at both densities, and at the
-      `320px` minimum side-by-side width.
+- [x] e2e: a screenshot spec covering the new-tab page in both themes and at the `320px` minimum
+      side-by-side width. *(Density is not a second axis here — `appearance-store.ts` persists through
+      a shell-owned `sharedSettingsStorage` serialisation this suite has no committed seeding helper
+      for; toggling it through Settings ▸ Appearance is the honest way to add that axis later, and
+      guessing the storage shape risked a spec that silently seeds nothing.)*
 - [ ] **Open, for a human:** the occlusion sweep, now including the two layers that changed. With a page
       loaded, open in turn a tooltip, a toast, the command palette, a context menu, a `ConfirmDialog`,
       the status-bar overflow popover, a `RefBadge` flyout and the lock screen, and confirm each renders
