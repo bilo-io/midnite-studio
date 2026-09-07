@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware';
 import type { BrowserShortcutTile } from '@midnite/studio-shared';
 
 import { PREVIEW_DEPLOY_HOSTS } from '../features/browser/preview-deploy';
-import { WALLPAPER_STORAGE_KEY, type WallpaperTheme } from '../features/browser/wallpaper';
+import { WALLPAPER_STORAGE_KEY, WALLPAPER_THEMES, type WallpaperTheme } from '../features/browser/wallpaper';
 
 import { adoptRenamedPersistKey } from './persist-rename';
 
@@ -477,6 +477,32 @@ export const useBrowserStore = create<BrowserState>()(
 
       setPreviewDeployHosts: (hosts) => set({ previewDeployHosts: hosts }),
 
+      clearRecents: () => set({ recents: [] }),
+
+      addTile: (tile) => {
+        const id = newId();
+        set((state) => ({ tiles: [...state.tiles, { ...tile, id }] }));
+        return id;
+      },
+
+      removeTile: (id) => set((state) => ({ tiles: state.tiles.filter((tile) => tile.id !== id) })),
+
+      renameTile: (id, label) =>
+        set((state) => ({
+          tiles: state.tiles.map((tile) => (tile.id === id ? { ...tile, label } : tile)),
+        })),
+
+      reorderTiles: (ids) =>
+        set((state) => {
+          const byId = new Map(state.tiles.map((tile) => [tile.id, tile]));
+          const tiles = ids
+            .map((id) => byId.get(id))
+            .filter((tile): tile is BrowserShortcutTile => tile !== undefined);
+          return tiles.length === state.tiles.length ? { tiles } : state;
+        }),
+
+      setWallpaperTheme: (theme) => set({ wallpaperTheme: theme }),
+
       closeTabsInGroup: (targetGroupId) =>
         set((state) => {
           const manualIds = new Set(state.groups.map((g) => g.id));
@@ -490,11 +516,53 @@ export const useBrowserStore = create<BrowserState>()(
     }),
     {
       name: 'midnite-studio.browser',
-      version: 1,
+      version: 2,
+      /**
+       * v1 → v2: `wallpaperTheme` moves out of raw `localStorage` and into
+       * this store (Theme F). Reads `wallpaper.ts`'s legacy
+       * `WALLPAPER_STORAGE_KEY` once, folds it into state, and deletes it —
+       * a v1 payload with no legacy key (or an unparseable one) migrates to
+       * the `'nature'` default, same as a fresh install.
+       */
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as {
+          activeTabId?: string | null;
+          groups?: BrowserTabGroup[];
+          previewDeployHosts?: string[];
+          tabs?: BrowserTab[];
+          recents?: string[];
+          tiles?: BrowserShortcutTile[];
+          wallpaperTheme?: WallpaperTheme;
+        };
+        let wallpaperTheme = state.wallpaperTheme ?? 'nature';
+        if (version < 2) {
+          try {
+            const legacy = localStorage.getItem(WALLPAPER_STORAGE_KEY);
+            if (legacy && WALLPAPER_THEMES.some((t) => t.id === legacy)) {
+              wallpaperTheme = legacy as WallpaperTheme;
+            }
+            localStorage.removeItem(WALLPAPER_STORAGE_KEY);
+          } catch {
+            // Private mode or a disabled-storage policy — the default stands.
+          }
+        }
+        return {
+          activeTabId: state.activeTabId ?? null,
+          groups: state.groups ?? [],
+          previewDeployHosts: state.previewDeployHosts ?? [...PREVIEW_DEPLOY_HOSTS],
+          tabs: state.tabs ?? [],
+          recents: state.recents ?? [],
+          tiles: state.tiles ?? [...DEFAULT_TILES],
+          wallpaperTheme,
+        };
+      },
       partialize: (state) => ({
         activeTabId: state.activeTabId,
         groups: state.groups,
         previewDeployHosts: state.previewDeployHosts,
+        recents: state.recents,
+        tiles: state.tiles,
+        wallpaperTheme: state.wallpaperTheme,
         // Runtime-only fields reset to their idle defaults — a restored tab
         // is an inactive record until the user activates it (see the
         // module doc above).

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { NewTabPage } from './new-tab-page';
-import { WALLPAPER_STORAGE_KEY } from './wallpaper';
+import { useBrowserStore } from '../../store/browser-store';
 
 /**
  * The page reaches for a `QueryClient` since Theme C — `useDevServer` shares
@@ -23,6 +23,7 @@ describe('NewTabPage', () => {
   beforeEach(() => {
     cleanup();
     localStorage.clear();
+    useBrowserStore.setState({ wallpaperTheme: 'nature', recents: [] });
   });
 
   it('renders search input, shortcuts, and wallpaper controls', () => {
@@ -53,7 +54,7 @@ describe('NewTabPage', () => {
     expect(figmaTile).toBeDefined();
   });
 
-  it('changes wallpaper theme and persists in localStorage', () => {
+  it('changes wallpaper theme and persists it through the browser store', () => {
     renderPage();
 
     const select = screen.getByTestId('wallpaper-theme-select') as HTMLSelectElement;
@@ -61,7 +62,28 @@ describe('NewTabPage', () => {
 
     fireEvent.change(select, { target: { value: 'cyberpunk' } });
     expect(select.value).toBe('cyberpunk');
-    expect(localStorage.getItem(WALLPAPER_STORAGE_KEY)).toBe('cyberpunk');
+    expect(useBrowserStore.getState().wallpaperTheme).toBe('cyberpunk');
+  });
+
+  it('renders live recents and clicking one navigates the active tab', () => {
+    useBrowserStore.setState({
+      activeTabId: 'tab-1',
+      tabs: [{ id: 'tab-1', kind: 'newtab', url: '', title: '', loading: false, canGoBack: false, canGoForward: false }],
+      recents: ['https://example.com', 'https://midnite.dev'],
+    });
+    renderPage();
+
+    expect(screen.getByText('Recent Origins')).toBeDefined();
+    expect(screen.getByText('example.com')).toBeDefined();
+    expect(screen.getByText('midnite.dev')).toBeDefined();
+
+    fireEvent.click(screen.getByText('example.com'));
+    expect(useBrowserStore.getState().tabs[0]?.url).toBe('https://example.com');
+  });
+
+  it('renders no recents heading on a first run', () => {
+    renderPage();
+    expect(screen.queryByText('Recent Origins')).toBeNull();
   });
 
   it('renders unsplash attribution', () => {

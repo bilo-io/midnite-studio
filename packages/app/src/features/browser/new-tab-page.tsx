@@ -1,88 +1,52 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { LuExternalLink, LuSearch, LuImage, LuRefreshCw, LuServer } from 'react-icons/lu';
+import { LuExternalLink, LuSearch, LuImage, LuRefreshCw, LuServer, LuGlobe } from 'react-icons/lu';
 import { SiGoogle, SiYoutube, SiFigma, SiGooglegemini, SiNotebooklm } from 'react-icons/si';
+import type { BrowserShortcutIconKey } from '@midnite/studio-shared';
 import { ClaudeIcon } from '../../components/icons';
 import { BrandMark, Wordmark } from '../../components/brand';
-import { useBrowserStore } from '../../store/browser-store';
+import { useBrowserStore, type BrowserShortcutTile } from '../../store/browser-store';
 import { bridge } from '../../services/bridge';
 import type { IconComponent } from '../../components/icon-button';
 import { devServerLabel, devServerUrl } from './dev-server';
 import { useDevServer } from './use-dev-server';
-import {
-  type WallpaperTheme,
-  WALLPAPER_THEMES,
-  getSavedWallpaperTheme,
-  saveWallpaperTheme,
-  getWallpaperForTheme,
-} from './wallpaper';
+import { type WallpaperTheme, WALLPAPER_THEMES, getWallpaperForTheme } from './wallpaper';
 
-export type BrowserShortcutTile = {
-  id: string;
-  label: string;
-  url: string;
-  icon: IconComponent;
-  brandColor: string;
-  bgColor: string;
+/**
+ * The six seeded tiles' glyphs. `BrowserShortcutTile` (moved to
+ * `packages/shared`, Theme F) keeps only an `iconKey` — the shared package
+ * carries zod, not `react-icons` — so this is where a key resolves back to a
+ * real component. A tile with no key (every user-added one via `addTile`)
+ * falls back to the generic globe, exactly as a page with no favicon does in
+ * `tab-strip.tsx`.
+ */
+const SHORTCUT_ICONS: Record<BrowserShortcutIconKey, IconComponent> = {
+  google: SiGoogle,
+  youtube: SiYoutube,
+  figma: SiFigma,
+  claude: ClaudeIcon,
+  gemini: SiGooglegemini,
+  notebook: SiNotebooklm,
 };
 
-const SHORTCUT_ROWS: BrowserShortcutTile[][] = [
-  [
-    {
-      id: 'google',
-      label: 'Google',
-      url: 'https://google.com',
-      icon: SiGoogle,
-      brandColor: '#4285F4',
-      bgColor: 'rgba(66, 133, 244, 0.15)',
-    },
-    {
-      id: 'youtube',
-      label: 'YouTube',
-      url: 'https://youtube.com',
-      icon: SiYoutube,
-      brandColor: '#FF0000',
-      bgColor: 'rgba(255, 0, 0, 0.15)',
-    },
-    {
-      id: 'figma',
-      label: 'Figma',
-      url: 'https://figma.com',
-      icon: SiFigma,
-      brandColor: '#F24E1E',
-      bgColor: 'rgba(242, 78, 30, 0.15)',
-    },
-  ],
-  [
-    {
-      id: 'claude',
-      label: 'Claude',
-      url: 'https://claude.ai',
-      icon: ClaudeIcon,
-      brandColor: '#D97706',
-      bgColor: 'rgba(217, 119, 6, 0.15)',
-    },
-    {
-      id: 'gemini',
-      label: 'Gemini',
-      url: 'https://gemini.google.com',
-      icon: SiGooglegemini,
-      brandColor: '#8E75FF',
-      bgColor: 'rgba(142, 117, 255, 0.15)',
-    },
-    {
-      id: 'notebook',
-      label: 'Notebook',
-      url: 'https://notebooklm.google.com',
-      icon: SiNotebooklm,
-      brandColor: '#34A853',
-      bgColor: 'rgba(52, 168, 83, 0.15)',
-    },
-  ],
-];
+function iconForTile(tile: BrowserShortcutTile): IconComponent {
+  return (tile.iconKey && SHORTCUT_ICONS[tile.iconKey]) || LuGlobe;
+}
+
+/** Three tiles per row, matching the grid this page has always rendered. */
+function chunkTiles(tiles: BrowserShortcutTile[]): BrowserShortcutTile[][] {
+  const rows: BrowserShortcutTile[][] = [];
+  for (let i = 0; i < tiles.length; i += 3) {
+    rows.push(tiles.slice(i, i + 3));
+  }
+  return rows;
+}
 
 export function NewTabPage() {
   const activeTabId = useBrowserStore((s) => s.activeTabId);
-  const recents: string[] = [];
+  const recents = useBrowserStore((s) => s.recents);
+  const tiles = useBrowserStore((s) => s.tiles);
+  const theme = useBrowserStore((s) => s.wallpaperTheme);
+  const setWallpaperTheme = useBrowserStore((s) => s.setWallpaperTheme);
   /*
     Absent, not disabled, when nothing is listening or no repo is active
     (Phase 71 Theme C). A greyed-out "Dev server" tile teaches nothing an
@@ -92,7 +56,6 @@ export function NewTabPage() {
   const devServer = useDevServer();
 
   const [query, setQuery] = useState('');
-  const [theme, setTheme] = useState<WallpaperTheme>(() => getSavedWallpaperTheme());
   const [wallpaperIndex, setWallpaperIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
@@ -103,9 +66,8 @@ export function NewTabPage() {
   }, [wallpaper.imageUrl]);
 
   const handleThemeChange = (newTheme: WallpaperTheme) => {
-    setTheme(newTheme);
+    setWallpaperTheme(newTheme);
     setWallpaperIndex(0);
-    saveWallpaperTheme(newTheme);
   };
 
   const handleCycleWallpaper = () => {
@@ -244,10 +206,10 @@ export function NewTabPage() {
             Shortcuts
           </div>
           <div className="flex flex-col items-center gap-3 w-full">
-            {SHORTCUT_ROWS.map((row, rowIndex) => (
+            {chunkTiles(tiles).map((row, rowIndex) => (
               <div key={rowIndex} className="flex justify-center gap-4 w-full">
                 {row.map((tile) => {
-                  const IconComponent = tile.icon;
+                  const IconComponent = iconForTile(tile);
                   return (
                     <button
                       type="button"
