@@ -55,6 +55,21 @@ const BLAST_RADIUS_COPY = {
     consequence: 'will be moved to the trash. These sit outside any repo Midnite manages.',
     noEffect: 'Nothing is left to clean.',
   },
+  /**
+   * Phase 70 Theme A — the one confirm before the first secret this app
+   * ever writes for a repo. `consequence` names what actually happens
+   * (written to a gitignored file, not "lost" or "deleted") because this is
+   * the one blast radius in the app that is not itself destructive — the
+   * warning is about where the bytes are about to land, not about anything
+   * being removed. `noEffect` never fires in practice (a `secrets` confirm is
+   * only raised when the count is already known to be > 0) but is required by
+   * `ConfirmDialog`'s own shape.
+   */
+  secrets: {
+    subject: (n: number) => `${n} secret value${n === 1 ? '' : 's'}`,
+    consequence: 'will be written to a local, gitignored overlay file, never committed.',
+    noEffect: 'No secret values to write.',
+  },
 } as const;
 
 export type ConfirmRequest = {

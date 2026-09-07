@@ -70,6 +70,40 @@ export function interpolate(
 }
 
 /**
+ * Merge the two `{{var}}` tiers Phase 70 Theme A adds, environment shadowing
+ * collection, into the single flat map `interpolate` already resolves
+ * against. Postman has a third, global tier; it stays out of scope, and
+ * nothing here makes room for one.
+ *
+ * This is still exactly one pass: `interpolate` itself never re-scans a
+ * value it has already substituted (see the module header), and merging the
+ * two source maps *before* that single scan runs cannot reintroduce
+ * recursion — a resolved environment value containing `{{b}}` is exactly as
+ * literal as a resolved collection value containing one.
+ */
+export function mergeVariableTiers(
+  environment: Readonly<Record<string, string>>,
+  collection: Readonly<Record<string, string>>,
+): Record<string, string> {
+  return { ...collection, ...environment };
+}
+
+/**
+ * `interpolate`, resolved against the two-tier merge above: environment
+ * variable, then collection variable, then left literal with a warning.
+ * A disabled environment row must never reach `environment` here — the
+ * caller (`send.ts`'s own tier-builder) is what filters `enabled: false`
+ * out before this is called, exactly as the collection tier already has no
+ * `enabled` concept to filter.
+ */
+export function interpolateTiered(
+  input: string,
+  tiers: { environment: Readonly<Record<string, string>>; collection: Readonly<Record<string, string>> },
+): InterpolationResult {
+  return interpolate(input, mergeVariableTiers(tiers.environment, tiers.collection));
+}
+
+/**
  * `interpolate` over several strings at once, merging their warnings and
  * de-duplicating by message so one unresolved variable used in the URL *and*
  * three headers reports once, not four times.

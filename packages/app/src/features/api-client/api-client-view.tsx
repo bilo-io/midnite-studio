@@ -3,6 +3,7 @@ import { useResizable } from '../../components/resizable/use-resizable';
 import { useApiClientStore } from '../../store/api-client-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { CollectionTree } from './collection-tree';
+import { EnvironmentSwitcher } from './environment-switcher';
 import { RequestBuilder } from './request-builder';
 import { RequestTabStrip } from './request-tab-strip';
 
@@ -48,10 +49,11 @@ export function ApiClientView() {
         style={{ width: tree.current }}
         className="flex min-h-0 shrink-0 flex-col border-r border-border"
       >
-        <div className="flex shrink-0 items-center gap-2 border-b border-border px-1.5 py-1">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-1.5 py-1">
           <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             API Client
           </h2>
+          <EnvironmentSwitcher repoId={selectedRepoId} />
         </div>
         <CollectionTree repoId={selectedRepoId} />
       </div>

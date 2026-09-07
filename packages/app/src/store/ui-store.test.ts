@@ -497,6 +497,22 @@ describe('phase 14 store additions', () => {
     expect(migrate?.({ browserLayout: 'left' }, 9)).toMatchObject({ browserLayout: 'left' });
     expect(linkTarget({ linkTarget: 'system' }, 10)).toBe('system');
   });
+
+  // Phase 70 Theme A. `activeEnvironmentByRepo` remembers which environment
+  // was selected per repo — a payload from before this phase has none.
+  it('seeds an empty activeEnvironmentByRepo map on the v10 to v11 migration', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const activeEnvironmentByRepo = (persisted: Record<string, unknown>, version: number) =>
+      (migrate?.(persisted, version) as { activeEnvironmentByRepo?: Record<string, string | null> })
+        .activeEnvironmentByRepo;
+
+    expect(activeEnvironmentByRepo({ linkTarget: 'in-app' }, 10)).toEqual({});
+    // Sibling keys survive, and a payload already on v11 is never rewritten.
+    expect(migrate?.({ linkTarget: 'in-app' }, 10)).toMatchObject({ linkTarget: 'in-app' });
+    expect(activeEnvironmentByRepo({ activeEnvironmentByRepo: { 'repo-1': 'prod' } }, 11)).toEqual({
+      'repo-1': 'prod',
+    });
+  });
 });
 
 

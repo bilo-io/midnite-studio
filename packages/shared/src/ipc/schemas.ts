@@ -2,12 +2,15 @@ import { z } from 'zod';
 
 import {
   ApiCollectionSummarySchema,
+  ApiEnvironmentSummarySchema,
   ApiOpResultOf,
   ApiOpResultSchema,
   ApiRequestDraftSchema,
   ApiResponseSchema,
   PostmanCollectionSchema,
+  PostmanEnvironmentSchema,
   PostmanVariableSchema,
+  SaveEnvironmentOutcomeSchema,
   BlameResultSchema,
   BrowserBoundsSchema,
   BrowserEventSchema,
@@ -2330,14 +2333,19 @@ export const ApiExportCollectionResponse = ApiOpResultSchema;
 /**
  * `requestId` mirrors `DbQueryStartRequest` — how `apiCancelRequest` finds the
  * in-flight operation to abort. `collectionVariables` is the collection's own
- * `variable[]`, the only `{{var}}` tier this phase resolves (Phase 70 Theme A
- * adds the environment tier at this same call site).
+ * `variable[]`, the first of the two `{{var}}` tiers this resolves.
+ * `environmentId` (Phase 70 Theme A) names the second, higher-precedence
+ * tier — `null` for "no environment selected", never a variable *value*: main
+ * loads the merged environment from disk itself, which is the whole reason a
+ * secret survives only as far as the outgoing request and never reaches
+ * renderer memory through this channel.
  */
 export const ApiSendRequestRequest = z.object({
   repoId: z.string().min(1),
   requestId: z.string().min(1),
   draft: ApiRequestDraftSchema,
   collectionVariables: z.array(PostmanVariableSchema),
+  environmentId: z.string().nullable().default(null),
   timeoutMs: z.number().int().positive().optional(),
 });
 export const ApiSendRequestResponse = ApiOpResultOf(ApiResponseSchema);
@@ -2352,6 +2360,43 @@ export const ApiPickBinaryFileResponse = ApiOpResultOf(z.string().nullable());
 export const ApiCancelRequestRequest = z.object({ requestId: z.string().min(1) });
 /** A cancel on an unknown id is a no-op `{ok:true}`, not an error. */
 export const ApiCancelRequestResponse = ApiOpResultSchema;
+
+// --- api client environments (Phase 70 Theme A) ------------------------------
+//
+// Mirrors the collection group immediately above it: every op takes a
+// `repoId`, resolved through the repo registry, never a raw path.
+// `environmentId` is the file name — `apiListEnvironments`/`apiSaveEnvironment`
+// (on create) are the only source of one, exactly as `collectionId` works.
+
+export const ApiListEnvironmentsRequest = z.object({ repoId: z.string().min(1) });
+export const ApiListEnvironmentsResponse = ApiOpResultOf(z.array(ApiEnvironmentSummarySchema));
+
+export const ApiReadEnvironmentRequest = z.object({
+  repoId: z.string().min(1),
+  environmentId: z.string().min(1),
+});
+export const ApiReadEnvironmentResponse = ApiOpResultOf(PostmanEnvironmentSchema);
+
+/**
+ * `environmentId: null` creates a new environment file (`saveEnvironment`
+ * slugifies `environment.name`, de-duplicating exactly as `importCollection`
+ * does); non-null overwrites the existing one. `confirmed` defaults `false` —
+ * the renderer only ever sets it `true` on the resend that follows a
+ * `needs-confirm` outcome the user accepted.
+ */
+export const ApiSaveEnvironmentRequest = z.object({
+  repoId: z.string().min(1),
+  environmentId: z.string().min(1).nullable(),
+  environment: PostmanEnvironmentSchema,
+  confirmed: z.boolean().optional().default(false),
+});
+export const ApiSaveEnvironmentResponse = ApiOpResultOf(SaveEnvironmentOutcomeSchema);
+
+export const ApiDeleteEnvironmentRequest = z.object({
+  repoId: z.string().min(1),
+  environmentId: z.string().min(1),
+});
+export const ApiDeleteEnvironmentResponse = ApiOpResultSchema;
 
 /* --- crash & error reporting (Phase 65) ---------------------------------- */
 
