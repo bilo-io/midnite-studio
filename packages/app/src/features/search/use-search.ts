@@ -97,7 +97,10 @@ export function useSearch(repoId: string | null, worktreePath?: string | null) {
             since: commitsOptions.since.trim() || undefined,
             until: commitsOptions.until.trim() || undefined,
             paths: commitsOptions.paths.trim()
-              ? commitsOptions.paths.split(',').map((p) => p.trim()).filter(Boolean)
+              ? commitsOptions.paths
+                  .split(',')
+                  .map((p) => p.trim())
+                  .filter(Boolean)
               : undefined,
             pickaxeString: commitsOptions.pickaxeString.trim() || undefined,
             regexp: commitsOptions.regexp,
@@ -130,7 +133,10 @@ export function useSearch(repoId: string | null, worktreePath?: string | null) {
             pattern,
             rev: contentOptions.rev.trim() || undefined,
             paths: contentOptions.paths.trim()
-              ? contentOptions.paths.split(',').map((p) => p.trim()).filter(Boolean)
+              ? contentOptions.paths
+                  .split(',')
+                  .map((p) => p.trim())
+                  .filter(Boolean)
               : undefined,
             regexp: contentOptions.regexp,
             ignoreCase: contentOptions.ignoreCase,
@@ -163,7 +169,6 @@ export function useSearch(repoId: string | null, worktreePath?: string | null) {
         } else {
           finishSearch(requestId, 0, false, res.message);
         }
-
       }
     }, DEBOUNCE_MS);
 
