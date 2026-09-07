@@ -4,6 +4,13 @@ import type { Commit, GrepHit } from '@midnite/studio-shared';
 
 import { useSearchStore } from './search-store';
 
+/**
+ * A fast typist starts one search per word, not one per letter — chosen so a
+ * subprocess is not spawned on every keystroke. Module-level so the e2e spec
+ * can reason about it rather than hard-coding the number twice.
+ */
+export const DEBOUNCE_MS = 250;
+
 export function useSearch(repoId: string | null, worktreePath?: string | null) {
   const mode = useSearchStore((s) => s.mode);
   const commitsOptions = useSearchStore((s) => s.commitsOptions);
@@ -42,7 +49,7 @@ export function useSearch(repoId: string | null, worktreePath?: string | null) {
     };
   }, [appendCommits, appendContentHits, finishSearch]);
 
-  // Execute search whenever options change, debounced strictly at 250ms
+  // Execute search whenever options change, debounced strictly at DEBOUNCE_MS
   useEffect(() => {
     if (!repoId) {
       resetResults();
@@ -68,6 +75,15 @@ export function useSearch(repoId: string | null, worktreePath?: string | null) {
         if (!hasQuery) {
           resetResults();
           return;
+        }
+
+        // Cancel first, start second: a search left running after its own
+        // requestId falls out of the store is a leaked subprocess, not just
+        // a discarded batch (the store's requestId guard already drops the
+        // latter). This is the one place this hook can leak processes.
+        const previousRequestId = useSearchStore.getState().inFlight?.requestId;
+        if (previousRequestId) {
+          await bridge.search.cancel({ repoId, requestId: previousRequestId });
         }
 
         startSearch(requestId, 'commits');
@@ -98,6 +114,11 @@ export function useSearch(repoId: string | null, worktreePath?: string | null) {
         if (!pattern) {
           resetResults();
           return;
+        }
+
+        const previousRequestId = useSearchStore.getState().inFlight?.requestId;
+        if (previousRequestId) {
+          await bridge.search.cancel({ repoId, requestId: previousRequestId });
         }
 
         startSearch(requestId, 'content');
@@ -144,7 +165,7 @@ export function useSearch(repoId: string | null, worktreePath?: string | null) {
         }
 
       }
-    }, 250);
+    }, DEBOUNCE_MS);
 
     return () => {
       clearTimeout(timer);
