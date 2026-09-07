@@ -52,6 +52,8 @@ function draft(over: Partial<ApiRequestDraft> = {}): ApiRequestDraft {
     bodyMode: 'none',
     bodies: emptyBodies(),
     binaryPath: null,
+    preRequestScript: '',
+    testScript: '',
     ...over,
   };
 }

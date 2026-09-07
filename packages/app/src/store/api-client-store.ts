@@ -9,6 +9,7 @@ import type {
   PostmanEnvironment,
   PostmanItem,
   SaveEnvironmentOutcome,
+  ScriptRun,
 } from '@midnite/studio-shared';
 import { toDraft } from '@midnite/studio-shared';
 
@@ -75,6 +76,37 @@ export function isTabDirty(tab: ApiTab): boolean {
 
 /** In-memory response history per tab, capped at 10, newest first (Theme F). */
 const MAX_RESPONSE_HISTORY = 10;
+
+/**
+ * A tab's Tests-script run state (Phase 70 Theme B) — never persisted, same
+ * as `responses`/`inFlight`: it describes what happened to *this* tab's most
+ * recent send, not something a reload should restore.
+ *
+ * `needs-consent` and `declined` are both terminal until the user acts again
+ * — `test-results-panel.tsx` renders the consent bar for the former and a
+ * one-line "won't run" notice for the latter, never a stale result list from
+ * a run that never actually happened.
+ */
+export type ScriptTabState =
+  | { status: 'idle' }
+  | { status: 'needs-consent' }
+  | { status: 'declined' }
+  | { status: 'ran'; run: ScriptRun }
+  | { status: 'error'; message: string };
+
+/** `draft.headers`' enabled, non-empty-key rows as the flat map
+ *  `ApiRunScriptRequest.request.headers` wants — `pm.request` reflects the
+ *  draft exactly as the renderer holds it (`{{var}}` unresolved), never the
+ *  interpolated wire request `send.ts` actually sent (see `script-runner.ts`'s
+ *  own header for why: the resolved request can carry a secret). */
+function draftHeaderRecord(draft: ApiRequestDraft): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const row of draft.headers) {
+    if (!row.enabled || row.key === '') continue;
+    out[row.key] = row.value;
+  }
+  return out;
+}
 
 /**
  * Which tab takes focus once `id` goes away — the neighbour to the left,
@@ -174,6 +206,11 @@ export type ApiClientState = {
   /** tabId -> the last `{ok:false}` envelope's message, cleared on retry/success. */
   lastError: Record<string, string>;
 
+  // --- pm.* test scripts (Phase 70 Theme B) -----------------------------------
+  /** tabId -> the last run of that tab's Tests script (or the consent
+   *  decision blocking one). Never persisted — see `ScriptTabState`. */
+  scriptRuns: Record<string, ScriptTabState>;
+
   // --- persisted request history (Phase 70 Theme D) --------------------------
   // Metadata only — no headers, no bodies (`main/api-client/history.ts`'s own
   // whole design). Recording happens as a side effect of every `sendRequest`
@@ -232,9 +269,27 @@ export type ApiClientState = {
    */
   renameCollection: (collectionId: string, newName: string) => Promise<void>;
 
-  /** Sends the tab's current draft. Used by both the Send button and Retry. */
+  /** Sends the tab's current draft. Used by both the Send button and Retry.
+   *  Runs the tab's Tests script afterward (Theme B) when it resolved
+   *  successfully and the draft's `testScript` is non-empty — never from
+   *  inside the send itself; Theme C's runner needs to call send without
+   *  scripts and scripts without send. */
   sendRequest: (tabId: string) => Promise<void>;
   cancelRequest: (tabId: string) => void;
+
+  /**
+   * Runs the tab's `testScript` against its most recent response.
+   * `runAnyway: true` is *Run once* on the consent bar — it runs this one
+   * call without persisting a trust decision; every other caller (the
+   * automatic post-send run, a manual re-run) omits it, so an untrusted
+   * collection answers `needs-consent` instead of running.
+   */
+  runTestScript: (tabId: string, runAnyway?: boolean) => Promise<void>;
+  /** Persists a script-trust decision for `tab.collectionId`, then — only
+   *  for `trusted: true` (*Always for this collection*) — re-runs the
+   *  tab's Tests script, now that it will not bounce off `needs-consent`
+   *  again. `trusted: false` (*Never*) only persists the decision. */
+  setScriptTrust: (tabId: string, trusted: boolean) => Promise<void>;
 
   /**
    * Opens the native file picker for the Body tab's `binary` mode and a
@@ -265,6 +320,7 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
   responses: {},
   inFlight: {},
   lastError: {},
+  scriptRuns: {},
 
   history: [],
   historyRepoId: null,
@@ -398,7 +454,9 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
       delete inFlight[id];
       const lastError = { ...state.lastError };
       delete lastError[id];
-      return { tabs, activeTabId, inFlight, lastError };
+      const scriptRuns = { ...state.scriptRuns };
+      delete scriptRuns[id];
+      return { tabs, activeTabId, inFlight, lastError, scriptRuns };
     }),
 
   editDraft: (id, patch) =>
@@ -423,11 +481,13 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
       const stillOpen = tabs.some((tab) => tab.id === state.activeTabId);
       const inFlight = { ...state.inFlight };
       const lastError = { ...state.lastError };
+      const scriptRuns = { ...state.scriptRuns };
       for (const id of closingTabIds) {
         delete inFlight[id];
         delete lastError[id];
+        delete scriptRuns[id];
       }
-      return { tabs, activeTabId: stillOpen ? state.activeTabId : null, inFlight, lastError };
+      return { tabs, activeTabId: stillOpen ? state.activeTabId : null, inFlight, lastError, scriptRuns };
     });
 
     const api = bridge();
@@ -577,6 +637,14 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
       if (result.ok && get().historyRepoId === tab.repoId) {
         void get().loadHistory(tab.repoId);
       }
+      // Theme B: the Tests script runs from here, after send has settled —
+      // never from inside `sendApiRequest` itself (Theme C's runner needs to
+      // call send without scripts and scripts without send). Only for a
+      // settled response and a non-empty script; a failed/aborted send has
+      // no `pm.response` to hand it.
+      if (result.ok && tab.draft.testScript.trim().length > 0) {
+        void get().runTestScript(tabId);
+      }
     } catch (error) {
       set((state) => {
         if (state.inFlight[tabId] !== requestId) return {};
@@ -603,6 +671,92 @@ export const useApiClientStore = create<ApiClientState>()((set, get) => ({
     });
     const api = bridge();
     if (api) void api.apiClient.cancelRequest({ requestId });
+  },
+
+  runTestScript: async (tabId, runAnyway = false) => {
+    const tab = get().tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+    const api = bridge();
+    if (!api) {
+      set((state) => ({
+        scriptRuns: { ...state.scriptRuns, [tabId]: { status: 'error', message: 'No connection to the app.' } },
+      }));
+      return;
+    }
+
+    const lastResponse = get().responses[tabId]?.[0] ?? null;
+    const environmentId = useUiStore.getState().activeEnvironmentByRepo[tab.repoId] ?? null;
+    const collection = get().collections.find((summary) => summary.id === tab.collectionId);
+    const collectionVariables = collection?.collection.variable ?? [];
+
+    try {
+      const result = await api.apiClient.runScript({
+        repoId: tab.repoId,
+        collectionId: tab.collectionId,
+        source: tab.draft.testScript,
+        environmentId,
+        collectionVariables,
+        request: { method: tab.draft.method, url: tab.draft.url, headers: draftHeaderRecord(tab.draft) },
+        response: lastResponse
+          ? {
+              status: lastResponse.status,
+              statusText: lastResponse.statusText,
+              headers: lastResponse.headers,
+              body: lastResponse.body,
+              bodyIsJson: lastResponse.bodyIsJson,
+            }
+          : null,
+        runAnyway,
+      });
+
+      if (!result.ok) {
+        set((state) => ({
+          scriptRuns: { ...state.scriptRuns, [tabId]: { status: 'error', message: result.message } },
+        }));
+        return;
+      }
+
+      const outcome = result.value;
+      set((state) => ({
+        scriptRuns: {
+          ...state.scriptRuns,
+          [tabId]: outcome.status === 'ran' ? { status: 'ran', run: outcome.run } : { status: 'needs-consent' },
+        },
+      }));
+
+      // A save-side environment mutation changed the file on disk (Theme B's
+      // handler applies `pm.environment.set` through `saveEnvironment`) —
+      // refresh the same way `saveEnvironment`'s own store action does.
+      if (outcome.status === 'ran' && Object.keys(outcome.run.mutations.environment).length > 0) {
+        if (get().environmentsRepoId === tab.repoId) void get().loadEnvironments(tab.repoId);
+      }
+    } catch {
+      set((state) => ({
+        scriptRuns: { ...state.scriptRuns, [tabId]: { status: 'error', message: 'Could not run the script.' } },
+      }));
+    }
+  },
+
+  setScriptTrust: async (tabId, trusted) => {
+    const tab = get().tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+    const api = bridge();
+    if (!api) return;
+    const result = await api.apiClient.setScriptTrust({
+      repoId: tab.repoId,
+      collectionId: tab.collectionId,
+      trusted,
+    });
+    if (!result.ok) return;
+    if (trusted) {
+      // *Always for this collection* — the decision is saved; re-run now
+      // that it will not bounce off `needs-consent` again.
+      void get().runTestScript(tabId);
+    } else {
+      // *Never* — nothing runs; the panel shows a one-line notice instead
+      // of leaving the consent bar up for a decision already made.
+      set((state) => ({ scriptRuns: { ...state.scriptRuns, [tabId]: { status: 'declined' } } }));
+    }
   },
 
   pickBinaryFile: async () => {

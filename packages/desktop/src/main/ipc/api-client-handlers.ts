@@ -10,7 +10,11 @@ import {
   type ApiResponse,
   type PostmanCollection,
   type PostmanEnvironment,
+  type PostmanEnvironmentValue,
+  type PostmanVariable,
   type SaveEnvironmentOutcome,
+  type ScriptContext,
+  type ScriptRunOutcome,
 } from '@midnite/studio-shared';
 import { dialog, type BrowserWindow } from 'electron';
 
@@ -22,6 +26,7 @@ import {
   readCollection,
   saveCollection,
 } from '../api-client/collection-io';
+import { readScriptTrust, setScriptTrust } from '../api-client/collection-trust';
 import {
   deleteEnvironment,
   listEnvironments,
@@ -29,10 +34,98 @@ import {
   saveEnvironment,
 } from '../api-client/environment-io';
 import { clearHistory, listHistory } from '../api-client/history';
+import { runScriptInUtilityProcess } from '../api-client/script-runner-broker';
 import { cancelRequest, sendApiRequest } from '../api-client/send';
 import { describeFsError } from '../fs-scope-write';
 import { resolveWorkdir } from '../repo-registry';
 import { handle, handleBare } from './handle';
+
+/** A script's default bound — generous for a handful of `pm.test` blocks and
+ *  short of anything a hung UI would read as the app itself being stuck. */
+const DEFAULT_SCRIPT_TIMEOUT_MS = 5_000;
+
+/** `PostmanVariable[]` → the flat map `ScriptContext.collectionVariables`
+ *  wants — the same reduction `send.ts`'s own (private) `collectVariables`
+ *  makes, kept as its own small copy here rather than exported from that
+ *  module purely for this one caller. */
+function toVariableRecord(variables: readonly PostmanVariable[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const variable of variables) {
+    if (variable.value === undefined) continue;
+    out[variable.key] = typeof variable.value === 'string' ? variable.value : String(variable.value);
+  }
+  return out;
+}
+
+/** `PostmanEnvironmentValue[]` → `ScriptContext.environment` — a disabled
+ *  row is excluded outright, mirroring `send.ts`'s
+ *  `collectEnvironmentVariables` exactly (a script's `pm.environment.get`
+ *  must see the same tier `{{var}}` interpolation resolves against, disabled
+ *  rows included as "not there" rather than "empty string"). */
+function toEnvironmentRecord(values: readonly PostmanEnvironmentValue[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const row of values) {
+    if (row.enabled === false) continue;
+    if (row.value === undefined) continue;
+    out[row.key] = row.value;
+  }
+  return out;
+}
+
+/**
+ * Fold a script's `pm.environment.set` calls into the environment file,
+ * through Theme A's own `saveEnvironment` — the secret split and the
+ * write-queue both stay exactly where Theme A put them; this function only
+ * ever builds the merged `PostmanEnvironment` value that call needs.
+ *
+ * `confirmed: true` unconditionally: this is an automatic side effect of a
+ * script run, with no confirm dialog to show it to, and it is safe for the
+ * same reason a fresh secret row can never appear here — `mutated` is a flat
+ * `Record<string,string>`, which can update an *existing* row's value (a
+ * `type:'secret'` row included, if the script legitimately reads and
+ * rewrites one) but can never introduce a brand-new `type:'secret'` row: a
+ * mutation carries no `type` at all, so an unmatched key always lands as
+ * `type:'default'`. A repository ever reaching a secret-valued row in the
+ * first place already went through the blast-radius confirm once, on the
+ * save that created it — this call cannot be the first time.
+ */
+async function applyEnvironmentMutations(
+  repoRoot: string,
+  environmentId: string,
+  mutated: Readonly<Record<string, string>>,
+): Promise<void> {
+  const current = await readEnvironment(repoRoot, environmentId);
+  if (!current.ok) return; // best-effort — a stale/deleted environment must not fail the script run itself
+  const byKey = new Map(current.value.values.map((row) => [row.key, row] as const));
+  for (const [key, value] of Object.entries(mutated)) {
+    const existing = byKey.get(key);
+    byKey.set(key, existing ? { ...existing, value } : { key, value, type: 'default', enabled: true });
+  }
+  const updated: PostmanEnvironment = { ...current.value, values: Array.from(byKey.values()) };
+  await saveEnvironment(repoRoot, environmentId, updated, true);
+}
+
+/** The collection-variable equivalent of {@link applyEnvironmentMutations} —
+ *  folds `pm.collectionVariables.set` into the collection's own
+ *  `variable[]`, through Theme A's `saveCollection`. Collection variables
+ *  carry no secret split at all (Theme A's own scope), so there is no
+ *  confirm gate to reason about here in the first place. */
+async function applyCollectionVariableMutations(
+  repoRoot: string,
+  collectionId: string,
+  mutated: Readonly<Record<string, string>>,
+): Promise<void> {
+  const current = await readCollection(repoRoot, collectionId);
+  if (!current.ok) return;
+  const variables = Array.isArray(current.value.variable) ? current.value.variable : [];
+  const byKey = new Map(variables.map((variable) => [variable.key, variable] as const));
+  for (const [key, value] of Object.entries(mutated)) {
+    const existing = byKey.get(key);
+    byKey.set(key, existing ? { ...existing, value } : { key, value });
+  }
+  const updated = { ...current.value, variable: Array.from(byKey.values()) };
+  await saveCollection(repoRoot, collectionId, updated);
+}
 
 /**
  * The API Client's IPC surface (Phase 66 Themes E and G).
@@ -258,6 +351,74 @@ export function registerApiClientHandlers(getWindow: () => BrowserWindow | null)
     CHANNELS.apiClearHistory,
     schemas.ApiClearHistoryRequest,
     (req): Promise<ApiOpResult> => withRepoRoot(req.repoId, (root) => clearHistory(root)),
+    (issue) => apiFailure(issue),
+  );
+
+  // --- scripts (Phase 70 Theme B) ----------------------------------------------
+  // Decision 2: **every** collection is trust-checked, however it arrived on
+  // this machine — there is no self-imported/self-authored special case.
+  // `runAnyway` (*Run once*) is the only thing that skips the check for a
+  // single call without persisting anything.
+
+  handle(
+    CHANNELS.apiRunScript,
+    schemas.ApiRunScriptRequest,
+    (req): Promise<ApiOpResult<ScriptRunOutcome>> =>
+      withRepoRoot(req.repoId, async (root) => {
+        if (!req.runAnyway) {
+          const trusted = await readScriptTrust(root, req.collectionId);
+          if (trusted !== true) return apiOk<ScriptRunOutcome>({ status: 'needs-consent' });
+        }
+
+        let environment: Record<string, string> = {};
+        if (req.environmentId !== null) {
+          const loaded = await readEnvironment(root, req.environmentId);
+          if (loaded.ok) environment = toEnvironmentRecord(loaded.value.values);
+        }
+
+        const context: ScriptContext = {
+          environment,
+          collectionVariables: toVariableRecord(req.collectionVariables),
+          request: req.request,
+          response: req.response
+            ? {
+                code: req.response.status,
+                status: req.response.statusText,
+                headers: req.response.headers,
+                body: req.response.body,
+                bodyIsJson: req.response.bodyIsJson,
+              }
+            : null,
+        };
+
+        const run = await runScriptInUtilityProcess(
+          req.source,
+          context,
+          req.timeoutMs ?? DEFAULT_SCRIPT_TIMEOUT_MS,
+        );
+
+        // Mutations never touch disk from inside the sandbox — this is the
+        // one place either map is ever written anywhere.
+        if (req.environmentId !== null && Object.keys(run.mutations.environment).length > 0) {
+          await applyEnvironmentMutations(root, req.environmentId, run.mutations.environment);
+        }
+        if (Object.keys(run.mutations.collectionVariables).length > 0) {
+          await applyCollectionVariableMutations(root, req.collectionId, run.mutations.collectionVariables);
+        }
+
+        return apiOk<ScriptRunOutcome>({ status: 'ran', run });
+      }),
+    (issue) => apiFailure(issue),
+  );
+
+  handle(
+    CHANNELS.apiSetScriptTrust,
+    schemas.ApiSetScriptTrustRequest,
+    (req): Promise<ApiOpResult> =>
+      withRepoRoot(req.repoId, async (root) => {
+        const ok = await setScriptTrust(root, req.collectionId, req.trusted);
+        return ok ? apiOk() : apiFailure('Could not save that decision.');
+      }),
     (issue) => apiFailure(issue),
   );
 }

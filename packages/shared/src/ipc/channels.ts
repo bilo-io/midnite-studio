@@ -760,6 +760,19 @@ export const CHANNELS = {
   apiListHistory: 'mstudio:api-client:list-history',
   apiClearHistory: 'mstudio:api-client:clear-history',
 
+  // --- api client scripts (Phase 70 Theme B) -----------------------------------
+  // The sandboxed `pm.*` runner. `apiRunScript` is a plain `handle` — bounded
+  // by its own timeout, exactly as `apiSendRequest` is bounded by its
+  // transport timeout — even though the sandbox itself runs in a spawned
+  // `utilityProcess`, not main (see `script-runner.ts`'s header for why: no
+  // Electron APIs and no main-process privileges on the far side of a
+  // sandbox escape). `apiSetScriptTrust` is the renderer's only way to
+  // persist a collection's consent decision; the marker itself lives in a
+  // gitignored sibling `.local.json`, never the collection, so trusting a
+  // collection once can never trust it for a teammate who pulls the repo.
+  apiRunScript: 'mstudio:api-client:run-script',
+  apiSetScriptTrust: 'mstudio:api-client:set-script-trust',
+
   // --- MCP server (Phase 57 Themes E, F) --------------------------------------
   // The server itself is a Unix socket (`main/mcp/server.ts`), not `ipcMain` —
   // an MCP caller has no `event.sender` for `handleFromSender` to resolve. These
