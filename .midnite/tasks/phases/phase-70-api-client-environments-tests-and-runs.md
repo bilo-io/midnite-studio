@@ -91,16 +91,16 @@ B's results.
 
 ## Deliverables
 
-### A — Environments, two-tier `{{var}}`, and the secret overlay (M)
+### A — Environments, two-tier `{{var}}`, and the secret overlay (M) — ✅ DONE (PR #235, 2026-09-07)
 
-- [ ] Add `packages/desktop/src/main/api-client/environment-io.ts`:
+- [x] Add `packages/desktop/src/main/api-client/environment-io.ts`:
       `listEnvironments(repoRoot)`, `readEnvironment(repoRoot, id)`,
       `saveEnvironment(repoRoot, env)`, `deleteEnvironment(repoRoot, id)`, each returning Phase 66's
       `ApiOpResultOf(...)` envelope and each going through `confineTree`/`confineParent` before it
       touches a path.
   - Files live at `.midnite/api/environments/<slug>.postman_environment.json` in the **open
     repository**, beside Phase 66's `collections/`.
-- [ ] The secret split, and it is the whole point of the theme. On save, a value whose row has
+- [x] The secret split, and it is the whole point of the theme. On save, a value whose row has
       `type: 'secret'` is written to a sibling
       `.midnite/api/environments/<slug>.local.json` — a flat `Record<string, string>` keyed by the
       variable's `key` — and the committed base file keeps the row with **`value: ''`** and its
@@ -110,26 +110,26 @@ B's results.
     an unresolved variable and no hint.
   - Read merges the overlay over the base, per key. The editor is unaware of the split: it reads a
     merged environment and writes a whole one, and `saveEnvironment` does the partitioning.
-- [ ] `ensureApiGitignore(repoRoot)` writes `.midnite/api/.gitignore` containing `*.local.json`
+- [x] `ensureApiGitignore(repoRoot)` writes `.midnite/api/.gitignore` containing `*.local.json`
       (plus a comment line naming Midnite Studio) on the first environment save, if absent.
   - This is the rule that actually protects a user, and Phase 66 Decision 9 records why: Phase 66's
     root-`.gitignore` entry protects this repository only, and a user's secrets are in *their* repo.
   - It is written with `createFile` (`O_CREAT|O_EXCL`), so an existing `.gitignore` is never
     clobbered; if one exists without the pattern, append through `openForOverwrite` after reading,
     and if the pattern is already there, do nothing.
-- [ ] **A save that would write a secret into a repository with no `.gitignore` protection blocks
+- [x] **A save that would write a secret into a repository with no `.gitignore` protection blocks
       on a confirm**, in the manner of every other destructive op in this app: a dialog naming the
       file path, the number of secret-valued rows, and what will be ignored. Cancel writes nothing.
       Getting this wrong once puts a production bearer token in a public repo's history, which is
       not a thing an undo fixes.
-- [ ] Add `features/api-client/environment-editor.tsx`:
+- [x] Add `features/api-client/environment-editor.tsx`:
       `export function EnvironmentEditor({ repoId, environmentId }: {...})` — a `KeyValueTable`
       (Phase 66 Theme D's) with two extra columns: a `type` toggle (`default` ⇄ `secret`) and the
       `enabled` checkbox it already has.
   - A `secret` row's value renders as `••••••••` with a reveal-on-hold eye button; the value is
     still in renderer memory (it has to be, to be edited), and the mask is a shoulder-surfing
     defence, not a security control. The tooltip says so in one clause.
-- [ ] An environment quick-switcher in the API Client view's own toolbar — a `<select>`-shaped
+- [x] An environment quick-switcher in the API Client view's own toolbar — a `<select>`-shaped
       popover listing every environment plus **"No environment"**, defaulting to none.
   - It lives **in the view, not the global status bar** (Phase 66's Decision 4, now settled): the
     environment concept means nothing outside this view, and a status-bar slot would advertise an
@@ -139,23 +139,23 @@ B's results.
     [`store/persisted-keys.ts`](../../../packages/app/src/store/persisted-keys.ts). It is a
     preference, not session state: coming back to a repo and finding yourself pointed at prod
     because the app forgot is the failure mode.
-- [ ] Extend Phase 66's `interpolate.ts` to two tiers, resolved in this order and no other:
+- [x] Extend Phase 66's `interpolate.ts` to two tiers, resolved in this order and no other:
       **environment variable → collection variable → left literal with a warning.** Postman has a
       third, global tier; it is still out of scope, and the resolver's doc comment says so.
   - One pass, still. A resolved value containing `{{b}}` is not re-expanded — Phase 66 Decision 7's
     reasoning holds and gets stronger once an environment can be edited by anyone with commit
     access to the repo.
-- [ ] `ApiSendRequestRequest` gains `environmentId: string | null`; main loads the merged
+- [x] `ApiSendRequestRequest` gains `environmentId: string | null`; main loads the merged
       environment at send time and never accepts variable *values* from the renderer.
   - This is the reason the secret survives: a secret value is read from disk in main, interpolated,
     put on the wire, and dropped. It is in renderer memory only while the environment editor is
     open on it.
-- [ ] `main/api-client/environment-io.test.ts`: save with two secret rows and assert the base file
+- [x] `main/api-client/environment-io.test.ts`: save with two secret rows and assert the base file
       contains **neither value** (a substring assertion on the raw bytes, not a parsed compare);
       read merges the overlay back; a deleted secret row removes its overlay key; the `.gitignore`
       is created once and not duplicated on a second save; `confineTree` refuses a symlinked
       `environments/` and writes nothing.
-- [ ] `main/api-client/interpolate.test.ts` gains: environment shadows collection; a disabled
+- [x] `main/api-client/interpolate.test.ts` gains: environment shadows collection; a disabled
       environment row does not shadow; both tiers missing leaves the token literal with one warning
       naming it; a value containing `{{b}}` is not re-expanded.
 
