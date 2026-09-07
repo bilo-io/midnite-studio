@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { reviewStatus, StatusPill } from '../forge/forge-status';
+import { PresentButton } from '../slides/present-button';
 import { UserAvatar } from '../../components/user-avatar';
 import { PrConversationSkeleton } from './reviews-skeletons';
 
@@ -66,6 +67,16 @@ export function PrConversation({
             <span className="text-muted-foreground/70 tabular-nums">
               {comment.createdAt.slice(0, 10)}
             </span>
+            {/*
+              Always shown, even for a one-line comment — a one-slide deck is
+              a valid deck, not an error state to special-case around. Does
+              NOT claim `activeMarkdown`: a thread can hold many bodies
+              visible at once, and none of them is unambiguously "the"
+              markdown a keyboard-invoked command should target (the rule in
+              `slides-store.ts`) — only the two description-level surfaces do
+              that.
+            */}
+            <PresentButton source={{ content: comment.body, label: 'Comment' }} className="ml-auto" />
           </div>
 
           {comment.body.length > 0 ? (

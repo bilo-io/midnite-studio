@@ -1,4 +1,5 @@
 import type { ForgeIssue } from '@midnite/studio-shared';
+import { useEffect } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -6,6 +7,8 @@ import { useForgeIssueComments, useForgeIssueDetail } from '../../services/queri
 import { issueStatus, StatusPill } from '../forge/forge-status';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
+import { PresentButton } from '../slides/present-button';
+import { useSlidesStore } from '../slides/slides-store';
 import { IssueActionBar } from './issue-action-bar';
 import { IssueConversation } from './issue-conversation';
 import { IssueDetailSkeleton } from './issues-skeletons';
@@ -32,6 +35,17 @@ export function IssueDetail({ repoId, issue }: { repoId: string; issue: ForgeIss
   // in flight, and resolving early on just comments would flash the skeleton
   // then swap the body in underneath it.
   const loading = detail.isLoading || (comments.isLoading && comments.data === undefined);
+
+  // A single document-level body — claims `activeMarkdown` (Phase 29 Theme F,
+  // the rule stated in `slides-store.ts`), same as `pr-detail.tsx`'s
+  // `PrOverview`. Skipped while the body is empty/not-yet-loaded, cleared on
+  // unmount, matching `MarkdownPreview`'s own guard.
+  const label = `Issue #${issue.number}`;
+  useEffect(() => {
+    if (body === null || body.length === 0) return;
+    useSlidesStore.getState().setActiveMarkdown({ content: body, label });
+    return () => useSlidesStore.getState().setActiveMarkdown(null);
+  }, [body, label]);
 
   return (
     <section aria-label="Issue detail" className="flex min-h-0 flex-1 flex-col">
@@ -90,14 +104,14 @@ export function IssueDetail({ repoId, issue }: { repoId: string; issue: ForgeIss
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
           {body !== null && body.length > 0 ? (
-            <div
-              data-selectable
-              className={`max-w-none px-4 py-3 text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}
-            >
-              {/* No `rehype-raw` — an issue body is text somebody else wrote. */}
-              <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
-                {body}
-              </Markdown>
+            <div className="px-4 py-3">
+              <PresentButton source={{ content: body, label }} className="mb-1" />
+              <div data-selectable className={`max-w-none text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}>
+                {/* No `rehype-raw` — an issue body is text somebody else wrote. */}
+                <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
+                  {body}
+                </Markdown>
+              </div>
             </div>
           ) : (
             <p className="px-4 py-3 text-xs italic text-muted-foreground">No description.</p>

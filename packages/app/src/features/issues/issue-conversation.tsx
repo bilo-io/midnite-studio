@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
+import { PresentButton } from '../slides/present-button';
 import { UserAvatar } from '../../components/user-avatar';
 
 /**
@@ -31,6 +32,12 @@ export function IssueConversation({ comments }: { comments: readonly ForgeCommen
             ) : null}
             <span className="font-medium">{comment.author || 'someone'}</span>
             <span className="text-muted-foreground/70 tabular-nums">{comment.createdAt.slice(0, 10)}</span>
+            {/*
+              Always shown, same reason `PrConversation` states. Does NOT
+              claim `activeMarkdown` — a conversation is a list of bodies, not
+              a single document (the rule in `slides-store.ts`).
+            */}
+            <PresentButton source={{ content: comment.body, label: 'Comment' }} className="ml-auto" />
           </div>
 
           {comment.body.length > 0 ? (
