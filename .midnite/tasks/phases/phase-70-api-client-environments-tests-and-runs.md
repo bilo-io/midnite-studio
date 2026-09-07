@@ -330,14 +330,20 @@ B's results.
 - [x] Playwright: create an environment with one plain and one secret row, save, and assert
       (through a filesystem read in the spec, not the UI) that the committed file holds the plain
       value and not the secret one.
-- [ ] Playwright: switching environments changes a request's resolved-URL preview without
-  - **Cannot pass — the feature does not exist.** Theme E's verification found that no
-    resolved-URL preview was ever built: nothing in `features/api-client/` merges environment or
-    collection variables into a displayed URL, and the only `{{var}}` resolution in the app is
-    `send.ts`'s, in main, at send time. Theme A shipped the switcher and the editor but never wired
-    a preview into `request-builder.tsx`/`url-field.tsx`. Left unticked deliberately; see
-    `outstanding.md`.
-      reopening the tab.
+- [x] Playwright: switching environments changes a request's resolved-URL preview without
+      reopening the tab. **Built.** `computed-fields.ts` gained `resolvedVariables`
+      (environment tier over collection tier, matching `send.ts`'s own
+      `collectVariables`/`collectEnvironmentVariables`) and `resolveUrlPreview` (a duplicate of
+      `interpolate.ts`'s one-pass, lookaround-guarded token substitution — `packages/app` cannot
+      import `packages/desktop`'s main module graph, the same reason `contentTypeForBodyMode`
+      is already duplicated here). `request-builder.tsx` renders a `data-testid="url-preview"`
+      line under the URL bar whenever the resolved text differs from the raw draft, reading the
+      same `environments`/`collection` state the switcher and Params/Headers tabs already do —
+      no new IPC channel, no second round trip, no state beyond what `EnvironmentSwitcher`'s
+      existing `loadEnvironments` effect already fetches. Covered by
+      `computed-fields.test.ts` (Vitest, both functions) and
+      `api-client-environments.spec.ts`'s new case (switching Dev → Prod updates the line in
+      place, the raw `{{baseUrl}}` draft never changes).
 - [x] Playwright: a test script with one passing and one failing assertion renders both; a script
       that throws renders as an error row and the app does not hit an error boundary.
 - [x] Playwright: the consent bar appears for an untrusted collection, *Run once* runs the script,

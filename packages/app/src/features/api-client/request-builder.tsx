@@ -12,6 +12,7 @@ import { useApiClientStore } from '../../store/api-client-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { AuthTab } from './auth-tab';
 import { BodyTab } from './body-tab';
+import { resolvedVariables, resolveUrlPreview } from './computed-fields';
 import { HeadersTab } from './headers-tab';
 import { ParamsTab } from './params-tab';
 import { ResponseViewer } from './response-viewer';
@@ -58,6 +59,8 @@ export function RequestBuilder({ tabId }: { tabId: string }) {
   const cancelRequest = useApiClientStore((s) => s.cancelRequest);
   const inFlight = useApiClientStore((s) => Boolean(s.inFlight[tabId]));
   const collection = useApiClientStore((s) => s.collections.find((c) => c.id === tab?.collectionId));
+  const environments = useApiClientStore((s) => s.environments);
+  const activeEnvironmentId = useUiStore((s) => (tab ? (s.activeEnvironmentByRepo[tab.repoId] ?? null) : null));
 
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
@@ -76,6 +79,21 @@ export function RequestBuilder({ tabId }: { tabId: string }) {
 
   const knownMethod = (METHODS as readonly string[]).includes(draft.method.toUpperCase());
   const variableNames = new Set((collection?.collection.variable ?? []).map((variable) => variable.key));
+
+  /*
+   * The resolved-URL preview (Phase 70 Theme E) — switching environments (or
+   * editing the collection's own `variable[]`) changes this line without
+   * reopening the tab, because it is derived on every render from the same
+   * `environments`/`collection` state the switcher and the Params/Headers
+   * tabs already read. Hidden when there is nothing to resolve, so a URL with
+   * no `{{var}}` token shows no second line at all.
+   */
+  const activeEnvironment = environments.find((summary) => summary.id === activeEnvironmentId);
+  const urlPreview = resolveUrlPreview(
+    draft.url,
+    resolvedVariables(activeEnvironment?.environment.values, collection?.collection.variable),
+  );
+  const showUrlPreview = urlPreview !== draft.url;
 
   /**
    * Phase 70 Theme D's "Copy as curl" / "Copy as fetch" — generated from the
@@ -143,6 +161,16 @@ export function RequestBuilder({ tabId }: { tabId: string }) {
             onClick={(event) => dialogs.openMenu(event, overflowMenu)}
           />
         </div>
+
+        {showUrlPreview ? (
+          <div
+            data-testid="url-preview"
+            className="flex h-5 shrink-0 items-center gap-1.5 truncate border-b border-border px-2 font-mono text-[10px] text-muted-foreground"
+          >
+            <span className="shrink-0 font-sans">Resolves to</span>
+            <span className="truncate">{urlPreview}</span>
+          </div>
+        ) : null}
 
         <div className="flex h-7 shrink-0 items-center gap-3 border-b border-border px-2 text-xs">
           {BUILDER_TABS.map((builderTab) => {

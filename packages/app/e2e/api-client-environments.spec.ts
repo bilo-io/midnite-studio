@@ -138,3 +138,66 @@ test('an environment with no secret rows never needs the confirm, and switching 
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('dialog', { name: 'Write secret values to this repository?' })).toBeHidden();
 });
+
+/**
+ * Phase 70 Theme E's leftover verification item: "switching environments
+ * changes a request's resolved-URL preview without reopening the tab."
+ * `request-builder.tsx` derives the preview on every render from
+ * `environments`/`collection` state (`computed-fields.ts`'s `resolveUrlPreview`),
+ * so switching the active environment through the same tab re-renders it —
+ * no close/reopen, no new IPC call.
+ */
+test("switching environments changes the URL preview without reopening the tab", async ({
+  page,
+}) => {
+  await installMockBridge(page, {
+    ...withCollection,
+    apiEnvironments: [
+      {
+        id: 'dev.postman_environment.json',
+        fileName: 'dev.postman_environment.json',
+        environment: {
+          id: 'env-dev',
+          name: 'Dev',
+          values: [{ key: 'baseUrl', value: 'https://dev.example.com', type: 'default', enabled: true }],
+        },
+      },
+      {
+        id: 'prod.postman_environment.json',
+        fileName: 'prod.postman_environment.json',
+        environment: {
+          id: 'env-prod',
+          name: 'Prod',
+          values: [
+            { key: 'baseUrl', value: 'https://api.prod.example.com', type: 'default', enabled: true },
+          ],
+        },
+      },
+    ],
+  });
+  await page.goto('/');
+  await clickRailLink(page, 'API Client');
+  await page.getByText('Health check', { exact: true }).click();
+
+  const preview = page.getByTestId('url-preview');
+  const urlInput = page.getByLabel('URL', { exact: true });
+  await expect(urlInput).toHaveValue('{{baseUrl}}/health');
+
+  // No environment selected: `{{baseUrl}}` resolves against nothing (the
+  // collection carries no `variable[]` of its own), so there is nothing to
+  // preview and the line stays hidden.
+  await expect(preview).toBeHidden();
+
+  await openEnvironmentSwitcher(page);
+  await page.getByText('Dev', { exact: true }).click();
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText('https://dev.example.com/health');
+  // The raw draft is untouched — the preview is a read-only derived line.
+  await expect(urlInput).toHaveValue('{{baseUrl}}/health');
+
+  // Same tab, same request — switching again just re-renders the preview.
+  await openEnvironmentSwitcher(page);
+  await page.getByText('Prod', { exact: true }).click();
+  await expect(preview).toContainText('https://api.prod.example.com/health');
+  await expect(urlInput).toHaveValue('{{baseUrl}}/health');
+});
