@@ -426,7 +426,14 @@ task.**
       **Not directly exercised by PR #188**: `ci.yml`'s `package` job (the one that actually builds
       the dmg) is gated `if: github.ref == 'refs/heads/main'`, so a PR branch never runs it — this
       will run for real the moment this PR is merged, but that is a fact about `main`, not something
-      this PR itself observed.
+      this PR itself observed. **It ran, and it isn't green — for a reason unrelated to this item.**
+      Every unsigned-path step this item is actually about (the `$GITHUB_ENV` guard, `desktop:dist`
+      completing with no `CSC_*`/`APPLE_*` set, every `verify-dist` gate through Theme C's) passes;
+      the job then dies on `better-sqlite3` failing to load under the packaged Electron binary
+      (`TypeError: Database is not a constructor`) — a Phase 61 Theme C native-module-ABI regression,
+      reproduced locally too (see the identical note on this item in `## Verification` below), not
+      something this theme's env-gating caused or can fix. Left open until that regression is fixed
+      and the `package` job runs clean end to end.
 - [x] **Make the notarization skip visible.** [`notarize.cjs:16-19`](../../../packages/desktop/scripts/notarize.cjs)
       logs `[notarize] skipped (missing Apple credentials in env)` and returns — and nothing
       downstream asserts it ran, so an unnotarized build passes `verify-dist` (`codesign --verify`
@@ -475,16 +482,40 @@ task.**
       `version-check FAILED: packages do not share one MAJOR.MINOR (lockstep broken)`, naming every
       offending package; reverted immediately after. `version-check.test.mjs` pins the same
       MINOR/MAJOR-divergence and missing-package cases at the unit level.
-- [ ] A packaged build contains `Contents/Resources/bin/midnite-studio`, executable, and the CLI
-      integration works from the installed app (A).
-- [ ] `desktop:verify-dist` fails a build whose `latest-mac.yml` is missing, whose `sha512` does not
+- [x] A packaged build contains `Contents/Resources/bin/midnite-studio`, executable, and the CLI
+      integration works from the installed app (A). ✅ Confirmed 2026-09-07 against a real
+      `moon run desktop:rebuild-native desktop:dist` build: the wrapper lands at that exact path,
+      mode `0755`, and `Contents/Resources/bin/midnite-studio --version`/`--help` both run correctly
+      from inside the packaged `.app`.
+- [x] `desktop:verify-dist` fails a build whose `latest-mac.yml` is missing, whose `sha512` does not
       match the zip, or whose `Info.plist` version disagrees with `package.json` (C) — proven by
-      breaking each on purpose once, not by inspection.
+      breaking each on purpose once, not by inspection. ✅ Confirmed 2026-09-07 against the same
+      build, one at a time, each reverted immediately after: renaming `latest-mac.yml` away →
+      `Missing electron-updater feed manifest`; corrupting its `sha512` field → `latest-mac.yml
+      sha512 does not match the emitted zip's actual sha512`; renaming the `.zip.blockmap` away →
+      `Missing update blockmap` (the fourth gate this item's own prose doesn't name but Theme C also
+      added); and — since editing a signed bundle's `Info.plist` in place trips the earlier
+      `codesign --verify --strict` gate first, which is itself correct behaviour, not a way to reach
+      this one — simulating a build-time version skew instead (bump `package.json`, rename the dmg/
+      zip/blockmaps and `latest-mac.yml`'s `version`/`path` to match, leaving the already-signed
+      bundle's `Info.plist` at the old version) → `Info.plist CFBundleShortVersionString "0.1.0" does
+      not match package.json version "9.9.9"`. All four gates fire on the intended condition and no
+      other; `git status` confirms every edit was reverted.
 - [ ] Pushing a `v*` tag produces a `midnite-studio/vX.Y.Z` release in `midnite-apps` carrying the
       dmg **and** the zip, with no `builder-debug.yml` among the assets (D).
 - [ ] `latest-mac.yml` lands in `midnite-studio/feed/` **after** the release assets are attached,
       and never before (E).
 - [ ] The unsigned release path completes green with no `CSC_*` or `APPLE_*` secrets set (D, H).
+      **Not green today, for a reason unrelated to D/H:** the same build above dies one gate later
+      than every check above — `Verifying native modules survived packaging (asarUnpack)` fails with
+      `TypeError: Database is not a constructor` loading `better-sqlite3` under the packaged
+      Electron binary, reproduced both locally and on `main`'s own `package` job (every recent run,
+      e.g. `gh run view 34142855334`). `desktop:rebuild-native` (Phase 61 Theme C) reports success in
+      ~5s, which is itself suspicious for a from-source native rebuild. This is a Phase 61 native-
+      module-ABI regression, not a Phase 53 one — everything Theme D/H's env-gating and Theme C's own
+      gates are responsible for already passed by the time this failure hits — but it means **no
+      packaged build on `main` today actually runs**, which blocks this item and Theme H's identical
+      one below until it is fixed.
 - [ ] `curl -fsSL …/install.sh | sh` on a machine with no checkout installs v0.1.0, and it launches
       with no Gatekeeper prompt and under `env -i` with a bare `PATH`. **A human pass** — it needs a
       second machine, or at least a shell that has never seen this repo (F).
@@ -492,10 +523,21 @@ task.**
 - [ ] A v0.1.1 published afterwards is offered in-app to a running v0.1.0, with the raw error line
       empty — the first end-to-end proof the updater works. **A human pass**, and the only one that
       can close [Phase 33](phase-33-installable-app-and-cli-integration.md)'s inert-feed decision (G).
-- [ ] A user on the beta channel is still on beta after a relaunch — assert the app requests
-      `beta-mac.yml`, not `latest-mac.yml` (G).
-- [ ] `midnite-studio --version` on the **installed** build prints the released version, not a
-      hardcoded `0.1.0` (B). The sixth version site, proven rather than assumed.
+- [x] A user on the beta channel is still on beta after a relaunch — assert the app requests
+      `beta-mac.yml`, not `latest-mac.yml` (G). ✅ Confirmed 2026-09-07 at the unit level (no live
+      feed to relaunch against yet — that end-to-end pass is Theme F/G's remaining item above):
+      [`update-pill.test.tsx`](../../../packages/app/src/features/status-bar/update-pill.test.tsx)
+      asserts that with `updateChannel: 'beta'` already in the persisted store, mount sends
+      `setChannel({channel:'beta'})` to main exactly once; `feed-channel.test.ts` pins
+      `feedChannelFor('beta')` to `{channel:'beta', …}`, which `update-service.ts` appends to the
+      `generic` feed base as `beta-mac.yml`. Both files pass (`moon run desktop:test app:test`
+      targeted at each).
+- [x] `midnite-studio --version` on the **installed** build prints the released version, not a
+      hardcoded `0.1.0` (B). The sixth version site, proven rather than assumed. ✅ Confirmed
+      2026-09-07: patching the packaged bundle's `Info.plist` `CFBundleShortVersionString` to
+      `9.9.9-proof` and re-running `Contents/Resources/bin/midnite-studio --version` printed
+      `midnite-studio 9.9.9-proof`; reverting the plist reverted the printed version. The wrapper
+      reads the bundle live rather than a baked-in string.
 - [x] `moon ci` fails when `resources/bin/midnite-studio`'s version disagrees with `package.json`,
       or the wrapper derives it and there is nothing left to disagree (B). ✅ The wrapper takes the
       second branch: `resources/bin/midnite-studio` reads `CFBundleShortVersionString` from
