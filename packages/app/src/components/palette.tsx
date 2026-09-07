@@ -27,6 +27,7 @@ import {
   createViewsSource,
 } from '../services/palette/providers';
 import { parsePaletteQuery, usePaletteStore, type PaletteMode } from '../store/palette-store';
+import { useFrecencyStore } from '../services/palette/frecency-store';
 import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 
@@ -255,6 +256,10 @@ export function Palette() {
       const row = flatRows.find((r) => r.kind === 'item' && r.flatIndex === flatIndex);
       if (!row || row.kind !== 'item') return;
       if (row.scored.item.disabled) return;
+      // The frecency nudge (Phase 23 Theme D, reopened): every run, from any
+      // source, bumps that item's id — the one place a palette item actually
+      // fires, regardless of whether Enter or a click drove it.
+      useFrecencyStore.getState().bump(row.scored.item.id);
       row.scored.item.run();
     },
     [flatRows],
