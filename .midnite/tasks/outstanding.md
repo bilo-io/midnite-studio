@@ -227,25 +227,6 @@ to `{{var}}` interpolation, and whether its `pm.environment.set` mutations must 
 visible to the very request that follows it in the same tick — a design question
 neither theme's scope covers. Worth its own slice.
 
-## The resolved-URL preview was never built (Phase 70 Themes A, E)
-
-Theme E's verification list asks for a Playwright case proving that *"switching
-environments changes a request's resolved-URL preview without reopening the tab"*.
-There is no such preview. Nothing in `features/api-client/` merges environment or
-collection variables into a displayed URL — the only `{{var}}` resolution anywhere
-in the app is `send.ts`'s, in the main process, at send time, which is deliberate
-(Phase 66's rule that a value never lives in renderer state).
-
-Theme A shipped the environment switcher and the editor but never wired a preview
-into `request-builder.tsx`/`url-field.tsx`, and no theme since noticed because
-nothing verified it. The item is left unticked in the phase doc rather than ticked
-against a test of something else.
-
-Building it needs a decision the existing rule makes non-trivial: a preview means
-resolving `{{var}}` **in the renderer**, which is exactly what Phase 66 forbade so a
-secret value never enters renderer state. Either the preview masks `type:'secret'`
-rows, or it asks main to resolve and return a display string. Worth its own slice.
-
 ## Popover dismisses itself on a mouse click on the environment switcher (Phase 70)
 
 Found while writing Theme E's specs, and documented in
@@ -287,20 +268,3 @@ them a lettered theme:
 
 Closed as ✅ DONE in `_INDEX.md` rather than left `🔄 WIP` forever on items no agent can complete —
 matching the precedent set by Phases 22/23/24.
-
-## The cross-repo derived-group e2e case cannot run against the mock bridge (Phase 71 Theme E)
-
-Theme E's verification list asks for an e2e case proving *"a PR opened from the Reviews view of
-repo A and one from repo B land in two different derived groups in the tab strip."* It cannot be
-written against `e2e/mock-bridge.ts` as it stands: the mock hardcodes a single `repo-1`
-(`repos.list` always answers `[repo]`, and every worktree it fabricates carries that same
-`repoId`), and `reviews-view.tsx` scopes its pull list to `useActiveWorktree().repoId` — there is
-no second repo to switch to and no second `forge.pulls` list to open a PR from.
-
-The underlying behaviour is not in doubt: `browser-store.test.ts`'s `effectiveGroupId` describe
-block (`lists one entry per distinct originRepoId with no explicit choice`) proves the derived
-grouping directly, and Theme B's own review confirmed every Reviews/Actions/Repos call site passes
-its `repoId` as `originRepoId`. What is missing is only the assembled-app proof, and building it
-means teaching the mock bridge a `repos: RepoFixture[]` fixture and a repo switcher, which is
-shared e2e infrastructure well past this theme's slice. Left unticked in the phase doc rather than
-faked with a same-repo double standing in for two.

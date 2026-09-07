@@ -214,6 +214,15 @@ export type MockFixtures = {
    */
   worktrees?: { path: string; branch: string; isMain?: boolean; locked?: boolean }[];
   /**
+   * Additional repositories beyond the fixed `repo-1` — a second (or third)
+   * entry for `repos.list`, each with its own single main worktree. The mock
+   * bridge otherwise hardcodes one repo, which is why "opening a PR from
+   * repo A vs. repo B lands in two different tab groups" had no second repo
+   * to switch to (Phase 71 Theme E). Pair with `forge.pullsByRepo` to give
+   * each its own pull list.
+   */
+  extraRepos?: { id: string; name: string; path: string; headRef?: string }[];
+  /**
    * Status entries per checkout, keyed by worktree path.
    *
    * `statusEntries` remains the answer for any path with no entry here, so
@@ -245,6 +254,14 @@ export type MockFixtures = {
      * does not carry at all. `gh` resolves both server-side against `@me`.
      */
     pullsByScope?: Partial<Record<'all' | 'mine' | 'review-requested', unknown[]>>;
+    /**
+     * Per-repo `gh pr list` answers, keyed by `repoId` — for a multi-repo fixture
+     * (`extraRepos`), so a PR opened from repo A's Reviews view and one opened
+     * from repo B's carry different `originRepoId`s and land in different tab
+     * groups (Phase 71 Theme E). A repoId with no entry falls back to
+     * `pullsByScope`/`pulls`, exactly as an unscoped request does.
+     */
+    pullsByRepo?: Record<string, unknown[]>;
     issues?: unknown[];
     /**
      * The repository has its issue tracker switched off.
@@ -862,6 +879,27 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       worktrees: allWorktrees,
     };
 
+    /** `extraRepos` mapped into the same shape, each with its own single main worktree. */
+    const extraRepoEntries = (data.extraRepos ?? []).map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      path: entry.path,
+      headRef: entry.headRef ?? 'main',
+      worktrees: [
+        {
+          id: `${entry.id}:${entry.path}`,
+          repoId: entry.id,
+          path: entry.path,
+          branch: entry.headRef ?? 'main',
+          headSha: 'c'.repeat(40),
+          locked: false,
+          isMain: true,
+          prunable: false,
+        },
+      ],
+    }));
+    const allRepos = [repo, ...extraRepoEntries];
+
     /*
       No `forge` fixture means a repository with no GitHub remote — which the
       real handler reports as `not-installed` with an explanatory hint, so the
@@ -949,7 +987,7 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
 
       repos: {
         open: async () => ({ ok: true, repo }),
-        list: async () => [repo],
+        list: async () => allRepos,
         close: async () => undefined,
         refs: async () => data.refs ?? [],
         worktrees: async () => allWorktrees,
@@ -1132,9 +1170,13 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       forge: slowed({
         cliStatus: async () => forgeCli(),
         runs: async () => ({ cli: forgeCli(), runs: data.forge?.runs ?? [], error: forgeError() }),
-        pulls: async (req: { scope?: 'all' | 'mine' | 'review-requested' }) => ({
+        pulls: async (req: { repoId?: string; scope?: 'all' | 'mine' | 'review-requested' }) => ({
           cli: forgeCli(),
-          pulls: data.forge?.pullsByScope?.[req.scope ?? 'all'] ?? data.forge?.pulls ?? [],
+          pulls:
+            (req.repoId ? data.forge?.pullsByRepo?.[req.repoId] : undefined) ??
+            data.forge?.pullsByScope?.[req.scope ?? 'all'] ??
+            data.forge?.pulls ??
+            [],
           error: forgeError(),
         }),
         issues: async () => ({

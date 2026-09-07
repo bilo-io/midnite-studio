@@ -1,4 +1,9 @@
-import type { ApiRequestDraft, BodyMode } from '@midnite/studio-shared';
+import type {
+  ApiRequestDraft,
+  BodyMode,
+  PostmanEnvironmentValue,
+  PostmanVariable,
+} from '@midnite/studio-shared';
 
 /**
  * The "Auto-generated" rows the Headers and Params tabs render greyed and
@@ -113,4 +118,72 @@ export function computedParams(draft: ApiRequestDraft): ComputedField[] {
     return [{ key: draft.auth.key, value: draft.auth.value }];
   }
   return [];
+}
+
+/**
+ * The URL field's resolved-preview line (Phase 70 Theme E) — a duplicate of
+ * `desktop/src/main/api-client/interpolate.ts`'s tier-merge and single-pass
+ * substitution, deliberately: `packages/app` cannot import `packages/desktop`'s
+ * main-process module graph, so a renderer-side preview has to restate the
+ * same two rules (environment shadows collection; an unresolved token is left
+ * literally in place, never blanked) rather than share the function.
+ *
+ * By the time an `ApiEnvironmentSummary` reaches the renderer its secret rows
+ * already carry real values (`environment-io.ts`'s overlay merge happens on
+ * read, before the IPC response), so this resolves exactly what `send.ts`
+ * would send — the same visibility the environment editor already gives a
+ * masked row's value once it's in React state, not a new exposure.
+ */
+export type ResolvedVariables = Readonly<Record<string, string>>;
+
+/** A collection's `variable[]` reduced to a plain string map. A variable with
+ *  no `value` at all resolves nothing — it stays unresolved, not `''`. */
+function collectVariables(variables: readonly PostmanVariable[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const variable of variables) {
+    if (variable.value === undefined) continue;
+    out[variable.key] = typeof variable.value === 'string' ? variable.value : String(variable.value);
+  }
+  return out;
+}
+
+/** An environment's `values[]` reduced to a plain string map. `enabled: false`
+ *  excludes a row outright, matching `send.ts`'s own `collectEnvironmentVariables`. */
+function collectEnvironmentVariables(values: readonly PostmanEnvironmentValue[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const row of values) {
+    if (row.enabled === false) continue;
+    if (row.value === undefined) continue;
+    out[row.key] = row.value;
+  }
+  return out;
+}
+
+/** Environment tier merged over the collection tier — an environment row
+ *  shadows a collection variable of the same name, never the reverse. */
+export function resolvedVariables(
+  environmentValues: readonly PostmanEnvironmentValue[] | undefined,
+  collectionVariables: readonly PostmanVariable[] | undefined,
+): ResolvedVariables {
+  return {
+    ...collectVariables(collectionVariables ?? []),
+    ...collectEnvironmentVariables(environmentValues ?? []),
+  };
+}
+
+/** Same lookaround-guarded token as `interpolate.ts`'s `TOKEN` — `{{{{a}}}}` is
+ *  a non-match, not a match on its inner `{{a}}`. */
+const TOKEN = /(?<!\{)\{\{(?!\{)\s*([^{}\s][^{}]*?)\s*\}\}(?!\})/g;
+
+/**
+ * `url` with every resolvable `{{name}}` replaced from `variables`, in one
+ * pass — a resolved value is inserted verbatim and never re-scanned, so a
+ * value containing `{{b}}` keeps that token literally. An unresolved token
+ * is left exactly as written; nothing here ever substitutes an empty string.
+ */
+export function resolveUrlPreview(url: string, variables: ResolvedVariables): string {
+  return url.replace(TOKEN, (whole, rawName: string) => {
+    const name = rawName.trim();
+    return Object.prototype.hasOwnProperty.call(variables, name) ? (variables[name] ?? '') : whole;
+  });
 }
