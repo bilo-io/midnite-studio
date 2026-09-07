@@ -18,6 +18,34 @@ clicking the label to return to the Search view and a trailing Stop button that 
 error state, run for real against the dev server rather than only against the mock bridge, which
 surfaced and fixed two locator-ambiguity bugs in the process.
 
+## 2026-09-07 — Phase 44 Themes F + H — Skill-presence probe for Video Studio's Claude actions
+
+[PR #258](https://github.com/bilo-io/midnite-studio/pull/258). Moves Phase 44 59/64 → 61/64 (92% →
+95%). Resumed from an abandoned worktree — the prior session left five commits mid-typecheck-repair
+and exited; verified them against the phase doc by symbol/filename (not the doc's own line numbers,
+which drift) before building on top.
+
+**Theme F's recorded gap** — the app never checked whether `/video-write-editorial-script` and
+`/video-execute-editorial-script` actually exist in a video root's `.claude/skills/` before firing
+them — is closed by `probeVideoSkills(root, deps)` (`toolchain.ts`), reusing the toolchain probe's
+injectable `readFile` rather than adding a second fs dependency. `VIDEO_SKILLS` moved out of
+`video-project-detail.tsx` into `shared/src/video.ts` so the probe and the buttons share one source
+of the two identifiers instead of two constants drifting apart. The buttons now disable with the
+probe's reason in their tooltip — the same `disabled + title={reason}` shape already used for
+`!repoId` — rather than firing the command regardless.
+
+**Theme H's wire contract** gains the new `skills` field on `VideoToolchainSchema`, populated by
+`video-service.ts` merging the cached machine-wide `node`/`npx` probe with a per-call
+`probeVideoSkills` (a video root changes in Settings far more often than the machine's PATH does,
+so it is deliberately not cached alongside the rest).
+
+**Left open, and said so in the doc rather than silently dropped:** the markdown panes for
+`EDITORIAL_SCRIPT.md`/`BRIEF.md` stay read-only, and there is still no per-project/per-action
+command-palette entry — both need project selection lifted out of `VideoView`'s local `useState`
+into a store first, which is a real prerequisite, not a rider worth bundling here. Phase 44's three
+remaining items are all explicit human-pass verification (a real repo + `ps` checks), out of scope
+for an unattended session.
+
 ## 2026-09-07 — Phase 71 Theme E — Verification, and the e2e case the mock bridge can't run
 
 [PR #254](https://github.com/bilo-io/midnite-studio/pull/254). Moves Phase 71 to

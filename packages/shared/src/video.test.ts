@@ -12,6 +12,7 @@ import {
   VideoToolBinarySchema,
   VideoToolchainSchema,
   VIDEO_RENDER_STATUSES,
+  VIDEO_SKILLS,
 } from './video';
 
 describe('VideoProjectFileSchema', () => {
@@ -141,8 +142,30 @@ describe('VideoToolBinarySchema / VideoToolchainSchema', () => {
     const toolchain = {
       node: { found: true as const, path: '/usr/local/bin/node' },
       npx: { found: true as const, path: '/usr/local/bin/npx' },
+      skills: {
+        videoWriteScript: { found: true as const, path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md' },
+        videoExecuteScript: { found: false as const, reason: 'not found' },
+      },
     };
     expect(VideoToolchainSchema.parse(toolchain)).toEqual(toolchain);
+  });
+
+  it('rejects a toolchain missing the skills field — Theme F expects it on every response', () => {
+    expect(() =>
+      VideoToolchainSchema.parse({
+        node: { found: true, path: '/usr/local/bin/node' },
+        npx: { found: true, path: '/usr/local/bin/npx' },
+      }),
+    ).toThrow();
+  });
+});
+
+describe('VIDEO_SKILLS', () => {
+  it('names the exact two /command invocations the app types into a terminal', () => {
+    expect(VIDEO_SKILLS).toEqual({
+      videoWriteScript: '/video-write-editorial-script',
+      videoExecuteScript: '/video-execute-editorial-script',
+    });
   });
 });
 

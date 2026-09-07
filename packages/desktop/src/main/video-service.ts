@@ -26,7 +26,7 @@ import {
   type VideoFileEntry,
 } from './video/project-discovery';
 import { nullProjectsStore, type ProjectsStore } from './video/projects-store';
-import { probeVideoToolchain } from './video/toolchain';
+import { probeVideoSkills, probeVideoToolchain } from './video/toolchain';
 import { getStudioStatus, startStudio, stopStudio, stopAllStudios } from './video/studio-service';
 import { buildRenderCommand, cancelRender, killAllRenders, listRenders, queueRender } from './video/render-service';
 
@@ -262,7 +262,11 @@ export function videoRenderList(projectId: string): VideoRender[] {
 
 export async function videoToolchain(): Promise<VideoToolchain> {
   const root = await requireRoot();
-  return probeVideoToolchain(root.ok ? appDirFor(root.value) : undefined);
+  const [toolchain, skills] = await Promise.all([
+    probeVideoToolchain(root.ok ? appDirFor(root.value) : undefined),
+    probeVideoSkills(root.ok ? root.value : undefined),
+  ]);
+  return { ...toolchain, skills };
 }
 
 // --- lifecycle -----------------------------------------------------------

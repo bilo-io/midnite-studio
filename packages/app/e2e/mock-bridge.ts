@@ -557,8 +557,9 @@ export type MockFixtures = {
    * registry, mirroring `councils`' own "read once, mutated by `create`/
    * `remove`" shape. `studioStatus`/`toolchain` are keyed by project id so a
    * spec can put one project in `failed` while another stays `stopped`;
-   * omitted keys fall back to `{state: 'stopped'}` / both binaries found,
-   * matching the real handler's own defaults.
+   * omitted keys fall back to `{state: 'stopped'}` / both binaries and both
+   * Theme F skills found, the un-blocked default no spec here needs to seed
+   * around.
    */
   video?: {
     root?: string | null;
@@ -2236,6 +2237,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           toolchain: data.video?.toolchain?.[req.projectId] ?? {
             node: { found: true, path: '/usr/local/bin/node' },
             npx: { found: true, path: '/usr/local/bin/npx' },
+            skills: {
+              videoWriteScript: { found: true, path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md' },
+              videoExecuteScript: { found: true, path: '/videos/.claude/skills/video-execute-editorial-script/SKILL.md' },
+            },
           },
         }),
         files: async (req: { projectId: string; area: string }) => ({
