@@ -211,3 +211,18 @@ That is a stacking decision about the screen-lock surface, and it belongs with t
 work — alongside `passcode-pad`'s raw `z-[110]`, which
 [Phase 62](phases/phase-62-one-escape-one-dismissal.md) parked for the same reason.
 
+## Pre-request scripts are editable but never run (Phase 70 Themes B, C)
+
+Theme B ships a **Pre-request Script** editor beside the Tests editor in the
+builder's Scripts tab, and Theme B's `runScript` can execute either. But nothing
+in the app ever invokes one: Phase 66's send path does not, and Theme C's runner
+deliberately does not — the phase doc's own checklist item reads
+"`sendApiRequest` then `runScript` per request", which is the Tests script by
+position, and the runner matched the existing precedent rather than inventing a
+call site the doc never asked for.
+
+So the UI accepts input that nothing consumes. That is a real gap, not a bug in
+either theme: wiring it means deciding *when* a pre-request script runs relative
+to `{{var}}` interpolation, and whether its `pm.environment.set` mutations must be
+visible to the very request that follows it in the same tick — a design question
+neither theme's scope covers. Worth its own slice.
