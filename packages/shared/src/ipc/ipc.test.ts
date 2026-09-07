@@ -836,6 +836,7 @@ describe('window contract (Phase 55)', () => {
       windowState: ['WindowStateSchema'],
       windowSetBackground: [],
       windowReload: [],
+      windowZoom: ['WindowZoomRequest'],
       windowStateChanged: ['WindowStateSchema'],
       // Multi-window (Phase 55).
       windowDetach: ['WindowDetachRequest'],
@@ -1014,8 +1015,8 @@ describe('keybindings', () => {
     expect(GLOBAL_CHORDS).not.toContain('Mod+Shift+r');
   });
 
-  it('yields exactly the reload pair, the panel-history pair, the loop toggle and detach-active to the shell, and nothing else', () => {
-    // Six wide on purpose: `app` scope does not, on its own, keep a chord out
+  it('yields exactly the reload pair, the panel-history pair, the loop toggle, detach-active and browser find to the shell, and nothing else', () => {
+    // Seven wide on purpose: `app` scope does not, on its own, keep a chord out
     // of the terminal, and everything else is better off firing from there.
     // `panel.back`/`panel.forward` (Phase 42 Theme D) join the reload pair
     // for the same reason `Mod+R` does — `Mod+[` off macOS is `Ctrl+[`,
@@ -1023,9 +1024,12 @@ describe('keybindings', () => {
     // of taking `Mod+l`, which is `Ctrl+L`, i.e. clear-screen — and
     // `window.detachActive` (Phase 55) joins them for the same reason:
     // `Mod+Shift+D` off macOS is `Ctrl+Shift+D`, meaningful inside a shell.
+    // `browser.find` (Phase 32 Theme G) joins them because `Mod+f` off macOS
+    // is `Ctrl+F`, readline's forward-char.
     expect([...TERMINAL_YIELD_COMMANDS].sort()).toEqual([
       'app.hardReload',
       'app.reload',
+      'browser.find',
       'fab.toggle',
       'panel.back',
       'panel.forward',
@@ -1037,7 +1041,12 @@ describe('keybindings', () => {
   it('gives Monaco its OWN yield set (Phase 64 Theme D) — not a superset of the terminal\'s', () => {
     const monacoRoot = YIELD_ROOTS.find((root) => root.selector === '.monaco-editor');
     expect(monacoRoot).toBeDefined();
-    expect([...monacoRoot!.commands].sort()).toEqual(['panel.back', 'panel.forward', 'status.commit']);
+    expect([...monacoRoot!.commands].sort()).toEqual([
+      'browser.find',
+      'panel.back',
+      'panel.forward',
+      'status.commit',
+    ]);
     for (const command of monacoRoot!.commands) expect(isCommandId(command)).toBe(true);
     // `fab.toggle`/`window.detachActive` are the terminal's carve-out, not
     // Monaco's — bolting `.monaco-editor` onto `insideTerminal` would have

@@ -9,8 +9,10 @@ import {
   LuClapperboard,
   LuClock,
   LuCommand,
+  LuCode,
   LuDownload,
   LuFile,
+  LuFileSearch,
   LuFolderOpen,
   LuFolderTree,
   LuGitCommitHorizontal,
@@ -23,6 +25,7 @@ import {
   LuPanelRight,
   LuPlay,
   LuRefreshCw,
+  LuRotateCcw,
   LuRotateCw,
   LuSearch,
   LuSend,
@@ -30,9 +33,12 @@ import {
   LuSparkles,
   LuSquareArrowOutUpRight,
   LuSquareTerminal,
+  LuTrash2,
   LuUpload,
   LuX,
   LuZap,
+  LuZoomIn,
+  LuZoomOut,
 } from 'react-icons/lu';
 
 /**
@@ -70,6 +76,18 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'browser.selectTab7': LuGlobe,
   'browser.selectTab8': LuGlobe,
   'browser.selectTab9': LuGlobe,
+  // Distinct glyphs, not another globe (Theme G) — a group of seventeen
+  // identical globes is unscannable, and these four are exactly the rows
+  // that need to read at a glance.
+  'browser.find': LuFileSearch,
+  'browser.zoomIn': LuZoomIn,
+  'browser.zoomOut': LuZoomOut,
+  'browser.zoomReset': LuRotateCcw,
+  'browser.devtools': LuCode,
+  'browser.clearData': LuTrash2,
+  'app.zoomIn': LuZoomIn,
+  'app.zoomOut': LuZoomOut,
+  'app.zoomReset': LuRotateCcw,
   'repo.open': LuFolderOpen,
   'repo.close': LuX,
   'view.refresh': LuRefreshCw,

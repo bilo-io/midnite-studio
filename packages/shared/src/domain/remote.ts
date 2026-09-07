@@ -98,3 +98,31 @@ export function forgeIssueUrl(forge: Forge, issue: number): string | null {
       return null;
   }
 }
+
+/** The forge's open-PRs (GitHub) / merge-requests (GitLab) list — Phase 32 Theme F's repo row. */
+export function forgePullsUrl(forge: Forge): string | null {
+  const base = forgeProjectUrl(forge);
+  if (base === null) return null;
+  switch (forge.kind) {
+    case 'github':
+      return `${base}/pulls`;
+    case 'gitlab':
+      return `${base}/-/merge_requests`;
+    default:
+      return null;
+  }
+}
+
+/** The forge's own CI run list — Phase 32 Theme F's repo row. */
+export function forgeActionsUrl(forge: Forge): string | null {
+  const base = forgeProjectUrl(forge);
+  if (base === null) return null;
+  switch (forge.kind) {
+    case 'github':
+      return `${base}/actions`;
+    case 'gitlab':
+      return `${base}/-/pipelines`;
+    default:
+      return null;
+  }
+}

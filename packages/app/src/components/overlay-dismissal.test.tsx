@@ -107,8 +107,15 @@ describe('blocking overlays register as occluders', () => {
   });
 });
 
-describe('passive overlays do not occlude', () => {
-  it('a Tooltip never hides the browser view', () => {
+describe('passive overlays occlude, but still lose Escape to a blocking one (Phase 32 Theme E)', () => {
+  // A tooltip or a toast passes `blocking: false` (they must never win Escape
+  // from a dialog — that is Phase 62's own fix, described in this file's own
+  // header comment) but that is a DIFFERENT axis from whether they are an
+  // occluder: both are real surfaces painted over a loaded page, and a page
+  // has no idea it should render underneath one. `occludes: true` at both
+  // call sites is what makes them hide the native `WebContentsView` while
+  // still losing the key to a blocking dialog.
+  it('a Tooltip hides the browser view while open, and still does not win Escape from a dialog', () => {
     render(
       <Tooltip label="Reload">
         <button type="button">Reload</button>
@@ -116,12 +123,21 @@ describe('passive overlays do not occlude', () => {
     );
 
     fireEvent.focus(document.querySelector('button')!);
-    // Visible, and still not an occluder: a tooltip is the one surface that
-    // paints highest and matters least.
-    expect(useUiStore.getState().occluders).toBe(0);
+    expect(useUiStore.getState().occluders).toBe(1);
+
+    const onCancel = vi.fn();
+    const dialog = render(
+      <ConfirmDialog
+        request={{ title: 'Reset hard', confirmLabel: 'Reset', onConfirm: () => {} }}
+        onCancel={onCancel}
+      />,
+    );
+    pressEscape();
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    dialog.unmount();
   });
 
-  it('a toast never hides the browser view', () => {
+  it('a toast hides the browser view while shown, and still does not win Escape from a dialog', () => {
     function Trigger() {
       const toast = useToasts();
       return (
@@ -137,7 +153,18 @@ describe('passive overlays do not occlude', () => {
       </ToastHost>,
     );
     fireEvent.click(document.querySelector('button')!);
-    expect(useUiStore.getState().occluders).toBe(0);
+    expect(useUiStore.getState().occluders).toBe(1);
+
+    const onCancel = vi.fn();
+    const dialog = render(
+      <ConfirmDialog
+        request={{ title: 'Reset hard', confirmLabel: 'Reset', onConfirm: () => {} }}
+        onCancel={onCancel}
+      />,
+    );
+    pressEscape();
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    dialog.unmount();
   });
 });
 

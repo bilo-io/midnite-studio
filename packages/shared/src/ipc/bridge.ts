@@ -544,6 +544,8 @@ export type MidniteStudioBridge = {
     findStop: (req: In<typeof S.BrowserFindStopRequest>) => void;
     /** Wipes the `persist:browser` partition's storage and cache. */
     clearData: () => Promise<z.infer<typeof S.BrowserClearDataResponse>>;
+    /** An absolute factor, not a delta — see {@link S.BrowserZoomRequest}. */
+    zoom: (req: In<typeof S.BrowserZoomRequest>) => void;
     /**
      * Is a dev server listening on this loopback port? A hint for the new-tab
      * page and `browser.openDevServer`; nothing navigates on the answer.
@@ -983,6 +985,8 @@ export type MidniteStudioBridge = {
     ) => Unsubscribe;
     /** `false` for a plain reload, `true` to bypass the HTTP cache. */
     reload: (hard: boolean) => void;
+    /** Zoom the host window's own renderer — see {@link S.WindowZoomRequest}. */
+    zoom: (req: In<typeof S.WindowZoomRequest>) => void;
     /** Detach a panel role into its own window, creating it if needed. */
     detach: (req: In<typeof S.WindowDetachRequest>) => void;
     /** Re-dock a popout's panel and close the popout. */

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   RemoteSchema,
+  forgeActionsUrl,
   forgeIssueUrl,
+  forgePullsUrl,
   forgeProjectUrl,
   pickForgeRemote,
   type Forge,
@@ -99,5 +101,23 @@ describe('forge URLs', () => {
   it('always uses https, whatever the remote was cloned over', () => {
     // The remote may be ssh or git://; the *web* URL is https regardless.
     expect(forgeProjectUrl(forge())).toBe('https://github.com/o/r');
+  });
+});
+
+describe('forgePullsUrl / forgeActionsUrl (Phase 32 Theme F repo row)', () => {
+  it('builds a GitHub PRs and Actions link', () => {
+    expect(forgePullsUrl(forge())).toBe('https://github.com/o/r/pulls');
+    expect(forgeActionsUrl(forge())).toBe('https://github.com/o/r/actions');
+  });
+
+  it('builds a GitLab merge-requests and pipelines link', () => {
+    const gl = forge({ host: 'gitlab.com', kind: 'gitlab' });
+    expect(forgePullsUrl(gl)).toBe('https://gitlab.com/o/r/-/merge_requests');
+    expect(forgeActionsUrl(gl)).toBe('https://gitlab.com/o/r/-/pipelines');
+  });
+
+  it('refuses an unknown forge for both', () => {
+    expect(forgePullsUrl(forge({ kind: 'unknown' }))).toBeNull();
+    expect(forgeActionsUrl(forge({ kind: 'unknown' }))).toBeNull();
   });
 });

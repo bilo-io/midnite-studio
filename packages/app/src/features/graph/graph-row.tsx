@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Tooltip } from '../../components/tooltip';
+import { useOccluder } from '../../components/use-occluder';
 import { UserAvatar } from '../../components/user-avatar';
 import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
@@ -542,6 +543,12 @@ function RefOverflowButton({
   }, []);
 
   const close = useCallback(() => setOpen(false), []);
+
+  // Phase 32 Theme E: this flyout portals to `document.body` at `z-popover`
+  // without going through a shared dismissal primitive (it closes on an
+  // outside pointerdown/scroll/resize, handled below, not Escape) — so
+  // nothing else made it an occluder. Gated the same as the portal itself.
+  useOccluder(Boolean(open && coords));
 
   useEffect(() => {
     if (!open) return;

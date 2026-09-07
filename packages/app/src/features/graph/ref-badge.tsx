@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 
 import { IconButton } from '../../components/icon-button';
 import { Tooltip } from '../../components/tooltip';
+import { useOccluder } from '../../components/use-occluder';
 import type { PaletteStyle } from './graph-themes';
 import { laneInk, laneVars } from './lane-colors';
 import type { SyncAction } from './ref-sync';
@@ -332,6 +333,12 @@ function SyncOverlay({
   onLeave: () => void;
 }) {
   const [placed, setPlaced] = useState<{ x: number; y: number } | null>(null);
+
+  // Phase 32 Theme E: portals to `document.body` for as long as this
+  // component is mounted at all (its parent only renders it while hovered) —
+  // register unconditionally rather than gating on `placed`, which is only
+  // "has its position been measured yet", not "is it open".
+  useOccluder();
 
   useLayoutEffect(() => {
     const node = anchor.current;

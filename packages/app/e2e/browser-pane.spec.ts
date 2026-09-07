@@ -4,14 +4,14 @@ import { fixtures } from './fixtures';
 import { installMockBridge } from './mock-bridge';
 
 /**
- * Phase 32 Themes A–D: the browser pane gets an engine and real tabs.
+ * Phase 32 Themes A–D, G: the browser pane gets an engine, real tabs, and the
+ * chrome around them (Back/Forward/Reload/zoom/stop/find, wired to Theme A's
+ * channels through the mocked bridge below).
  *
  * No real page ever loads under Playwright's own Chromium (see
  * `mock-bridge.ts`'s `browser` mock) — these specs exercise the tab model,
  * the chrome shell and the pane's container behaviour, which is everything
- * a mocked bridge can prove. Back/Forward/Reload stay disabled this batch
- * (Theme G owns wiring them); only the address bar and the tab strip are
- * live.
+ * a mocked bridge can prove.
  */
 
 /**
@@ -103,7 +103,7 @@ test('typing a URL and pressing Enter navigates the blank tab and clears the pla
   await address.press('Enter');
 
   await expect(page.getByTestId('browser-newtab')).toHaveCount(0);
-  await expect(address).toHaveValue('https://example.com');
+  await expect(address).toHaveValue('example.com');
 });
 
 test('Mod+T opens a new tab, and the strip shows both', async ({ page }) => {
@@ -215,11 +215,16 @@ test('Escape closes the pane, and it reopens with the same tabs on reload', asyn
   await address.fill('https://example.com');
   await address.press('Enter');
 
+  // The address field still has DOM focus after Enter — its own Escape
+  // handler (Theme G) restores/blurs on the first press without closing the
+  // pane, exactly so an aborted edit does not also lose the tab; the SECOND
+  // press is what the shared dismissal stack sees and acts on.
+  await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await expect(address).toHaveCount(0);
 
   await openBrowser(page);
-  await expect(address).toHaveValue('https://example.com');
+  await expect(address).toHaveValue('example.com');
   await page.reload();
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
   /*
@@ -228,7 +233,7 @@ test('Escape closes the pane, and it reopens with the same tabs on reload', asyn
     the browser, and a restored session has already answered.
   */
   await expect(page.getByTestId('browser-launcher')).toHaveCount(0);
-  await expect(address).toHaveValue('https://example.com');
+  await expect(address).toHaveValue('example.com');
 });
 
 test('the pane traps Tab, and Escape restores focus to the toggle', async ({ page }) => {
@@ -242,6 +247,10 @@ test('the pane traps Tab, and Escape restores focus to the toggle', async ({ pag
   const address = page.getByRole('textbox', { name: 'Address' });
   await expect(address).toBeVisible();
 
+  // A blank tab autofocuses the address bar (Theme C), so the first Escape
+  // is the address field's own handler (Theme G) restoring/blurring rather
+  // than the pane's — the second is what actually closes it.
+  await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await expect(address).toHaveCount(0);
   await expect(toggle).toBeFocused();
@@ -293,7 +302,7 @@ test('a window.open from a page becomes a new tab beside its opener', async ({ p
   });
 
   await expect(browserTabs(page)).toHaveCount(2);
-  await expect(address).toHaveValue('https://opened.example');
+  await expect(address).toHaveValue('opened.example');
 });
 
 test('a blocked download is reported as a notification naming the file', async ({ page }) => {
@@ -384,7 +393,10 @@ test('the toggle raises the launcher rather than the pane, and remembers the ans
   await expect(page.getByRole('textbox', { name: 'Address' })).toBeVisible();
 
   // Reopening pre-selects what was chosen last time, so the common path is
-  // Mod+B then Enter.
+  // Mod+B then Enter. Two Escapes, not one: the newly-opened tab's address
+  // bar has focus (Theme C), and its own Escape handler (Theme G) eats the
+  // first press restoring/blurring rather than closing the pane.
+  await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await page.locator('[data-testid="browser-toggle"]').click();
   await expect(page.getByTestId('browser-layout-left')).toHaveAttribute('aria-checked', 'true');
@@ -533,4 +545,95 @@ test('Mod+B hides the page even in side-by-side layout', async ({ page }) => {
   // mocked engine lets a spec see it happened.
   const calls = await browserVisibleCalls(page);
   expect(calls.at(-1)).toEqual({ tabId, visible: false });
+});
+
+const browserZoomCalls = (page: Page) =>
+  page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __mstudioBrowserZoomCalls: () => Array<{ tabId: string; factor: number }>;
+        }
+      ).__mstudioBrowserZoomCalls(),
+  );
+
+const browserStopCalls = (page: Page) =>
+  page.evaluate(
+    () =>
+      (window as unknown as { __mstudioBrowserStopCalls: () => Array<{ tabId: string }> })
+        .__mstudioBrowserStopCalls(),
+  );
+
+const activeTabId = (page: Page) =>
+  page
+    .evaluate(() => (window as unknown as { __mstudioBrowserTabs: () => string[] }).__mstudioBrowserTabs())
+    .then((ids) => ids[0]!);
+
+test('Mod+= zooms the active tab, and revisiting the same origin restores the factor', async ({ page }) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  await openBrowser(page);
+
+  const address = page.getByRole('textbox', { name: 'Address' });
+  await address.fill('https://example.com');
+  await address.press('Enter');
+
+  await page.keyboard.press('Meta+=');
+  const afterZoomIn = await browserZoomCalls(page);
+  expect(afterZoomIn).toHaveLength(1);
+  expect(afterZoomIn[0]?.factor).toBeGreaterThan(1);
+  const zoomedFactor = afterZoomIn[0]!.factor;
+
+  // The zoom indicator in the chrome row reflects the persisted factor —
+  // only shown once it is not 1 (Theme G's own rule).
+  await expect(page.getByTitle('Browser zoom')).toHaveText(`${Math.round(zoomedFactor * 100)}%`);
+
+  // Revisiting the origin — `use-browser-tabs.ts`'s `navigated` handler is
+  // what re-applies the origin's stored factor, since a real page reload
+  // cannot be simulated end to end against the mocked engine.
+  const tabId = await activeTabId(page);
+  await page.evaluate(
+    ({ tabId, url }) => {
+      (window as unknown as { __mstudioBrowserEvent: (e: unknown) => void }).__mstudioBrowserEvent({
+        kind: 'navigated',
+        tabId,
+        url,
+        canGoBack: true,
+        canGoForward: false,
+      });
+    },
+    { tabId, url: 'https://example.com/again' },
+  );
+
+  await expect.poll(async () => (await browserZoomCalls(page)).length).toBeGreaterThan(1);
+  expect((await browserZoomCalls(page)).at(-1)).toEqual({ tabId, factor: zoomedFactor });
+});
+
+test('Stop replaces Reload while the active tab is loading, and calls browser.stop', async ({ page }) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  await openBrowser(page);
+
+  const address = page.getByRole('textbox', { name: 'Address' });
+  await address.fill('https://example.com');
+  await address.press('Enter');
+  const tabId = await activeTabId(page);
+
+  await page.evaluate((tabId) => {
+    (window as unknown as { __mstudioBrowserEvent: (e: unknown) => void }).__mstudioBrowserEvent({
+      kind: 'loading',
+      tabId,
+      loading: true,
+    });
+  }, tabId);
+
+  // Scoped to the pane itself: the app's own title bar carries an unrelated
+  // "Reload" (`app.reload`) button, which an unscoped query would also match.
+  const pane = page.getByRole('dialog', { name: 'Browser' });
+  const stopButton = pane.getByRole('button', { name: 'Stop loading' });
+  await expect(stopButton).toBeVisible();
+  await expect(pane.getByRole('button', { name: 'Reload' })).toHaveCount(0);
+
+  await stopButton.click();
+  expect(await browserStopCalls(page)).toEqual([{ tabId }]);
 });

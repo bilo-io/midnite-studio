@@ -5,8 +5,11 @@ import {
   closeBrowserTab,
   createBrowserTab,
   destroyAllBrowserTabs,
+  ownerWindowForBrowserTab,
   reparentBrowserTabs,
   resetBrowserServiceForTests,
+  setBrowserBounds,
+  setBrowserZoom,
 } from './browser-service';
 
 /**
@@ -36,6 +39,10 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     reload = vi.fn();
     stop = vi.fn();
     setWindowOpenHandler = vi.fn();
+    getZoomFactor = vi.fn(() => 1);
+    setZoomFactor = vi.fn();
+    findInPage = vi.fn();
+    stopFindInPage = vi.fn();
     on(event: string, handler: (...args: unknown[]) => void): this {
       const list = this.handlers.get(event) ?? [];
       list.push(handler);
@@ -101,18 +108,35 @@ vi.mock('electron', () => ({
       return created;
     }),
   },
+  screen: { on: vi.fn() },
   shell: { openExternal: vi.fn() },
 }));
 
 /** The hoisted class is a value binding, so its instance type needs naming explicitly. */
 type FakeView = InstanceType<typeof FakeWebContentsView>;
 
+/** A window's own `enter-full-screen`/`leave-full-screen` handlers, fireable from a test (Theme E). */
 function fakeWindow() {
-  return {
+  const handlers = new Map<string, ((...args: unknown[]) => void)[]>();
+  const win = {
     isDestroyed: () => false,
     contentView: { addChildView: vi.fn(), removeChildView: vi.fn() },
-    webContents: { send: vi.fn(), isDestroyed: () => false } as unknown,
-  } as unknown as import('electron').BrowserWindow;
+    webContents: {
+      send: vi.fn(),
+      isDestroyed: () => false,
+      getZoomFactor: vi.fn(() => 1),
+    } as unknown,
+    on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      const list = handlers.get(event) ?? [];
+      list.push(handler);
+      handlers.set(event, list);
+      return win;
+    }),
+    emit: (event: string) => {
+      for (const handler of handlers.get(event) ?? []) handler();
+    },
+  };
+  return win as unknown as import('electron').BrowserWindow & { emit: (event: string) => void };
 }
 
 describe('browser-service lifecycle', () => {
@@ -471,5 +495,73 @@ describe('Mod+w / Mod+t owned by hand (before-input-event)', () => {
 
       expect(event.preventDefault).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('bounds, zoom and sender scoping (Theme E/G)', () => {
+  beforeEach(() => {
+    resetBrowserServiceForTests();
+    fakeSessions.clear();
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  function createAndGetView(win: ReturnType<typeof fakeWindow>, tabId = 'tab-1'): FakeView {
+    createBrowserTab(win, tabId, 'https://example.com');
+    return (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+  }
+
+  it('scales an incoming bounds push by the host window zoom factor', () => {
+    const win = fakeWindow();
+    const view = createAndGetView(win);
+    (win.webContents as unknown as { getZoomFactor: ReturnType<typeof vi.fn> }).getZoomFactor.mockReturnValue(
+      1.5,
+    );
+
+    setBrowserBounds('tab-1', { x: 10, y: 20, width: 100, height: 200 });
+
+    expect(view.bounds).toEqual({ x: 15, y: 30, width: 150, height: 300 });
+  });
+
+  it('re-applies the last bounds on the owning window entering/leaving full screen', () => {
+    const win = fakeWindow();
+    const view = createAndGetView(win);
+    setBrowserBounds('tab-1', { x: 1, y: 2, width: 3, height: 4 });
+    view.setBounds.mockClear();
+
+    win.emit('enter-full-screen');
+    expect(view.setBounds).toHaveBeenCalledWith({ x: 1, y: 2, width: 3, height: 4 });
+
+    view.setBounds.mockClear();
+    win.emit('leave-full-screen');
+    expect(view.setBounds).toHaveBeenCalledWith({ x: 1, y: 2, width: 3, height: 4 });
+  });
+
+  it('ownerWindowForBrowserTab resolves the tab\'s current window, null for an unknown tab', () => {
+    const win = fakeWindow();
+    createAndGetView(win);
+    expect(ownerWindowForBrowserTab('tab-1')).toBe(win);
+    expect(ownerWindowForBrowserTab('never-existed')).toBeNull();
+  });
+
+  it('setBrowserZoom sets the tab view webContents zoom factor', () => {
+    const win = fakeWindow();
+    const view = createAndGetView(win);
+
+    setBrowserZoom('tab-1', 1.25);
+
+    expect(view.webContents.setZoomFactor).toHaveBeenCalledWith(1.25);
+  });
+
+  it('pushes a found event carrying the match ordinal (Theme G find count)', () => {
+    const win = fakeWindow();
+    const view = createAndGetView(win);
+    const onFound = view.webContents.handlers.get('found-in-page')?.[0];
+
+    onFound?.(undefined, { requestId: 1, matches: 4, activeMatchOrdinal: 2, finalUpdate: true });
+
+    expect(win.webContents.send).toHaveBeenCalledWith(
+      expect.any(String),
+      { kind: 'found', tabId: 'tab-1', matches: 4, activeMatchOrdinal: 2 },
+    );
   });
 });

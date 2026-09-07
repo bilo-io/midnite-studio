@@ -4,14 +4,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
 import { useUiStore } from '../../store/ui-store';
-import { useBrowserBounds } from './use-browser-bounds';
+import { boundsFromRect, useBrowserBounds } from './use-browser-bounds';
 
 /**
- * `getBoundingClientRect` is always {0,0,0,0} under jsdom — real coordinates
- * don't matter to these tests, only that `setBounds` is (or isn't) called
- * once the hook's `ref` is attached to an actual rendered element (a bare
- * `renderHook` never mounts anything, so `ref.current` would stay null).
+ * `getBoundingClientRect` is always {0,0,0,0} under jsdom, which (since
+ * `boundsFromRect` now skips a zero-size measurement rather than sending it,
+ * Theme E) would make every test below see `setBounds` never called at all.
+ * Real coordinates don't matter to these tests, only that `setBounds` is (or
+ * isn't) called once the hook's `ref` is attached to an actual rendered
+ * element (a bare `renderHook` never mounts anything, so `ref.current` would
+ * stay null) — so every test in this file gets a non-zero stub instead.
  */
+const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+beforeEach(() => {
+  Element.prototype.getBoundingClientRect = () =>
+    ({ x: 0, y: 0, width: 800, height: 600, top: 0, left: 0, right: 800, bottom: 600, toJSON: () => ({}) }) as DOMRect;
+});
+afterEach(() => {
+  Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+});
+
 function installBridge() {
   const setVisible = vi.fn();
   const setBounds = vi.fn();
@@ -86,5 +98,32 @@ describe('useBrowserBounds', () => {
     // tab's view finally exists, while a context menu is still open.
     act(() => latestSync?.());
     expect(setVisible).toHaveBeenCalledWith({ tabId: 'tab-1', visible: false });
+  });
+});
+
+describe('boundsFromRect', () => {
+  function rect(overrides: Partial<DOMRect>): DOMRect {
+    return { x: 0, y: 0, width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON: () => ({}), ...overrides } as DOMRect;
+  }
+
+  it('rounds fractional coordinates and dimensions', () => {
+    expect(boundsFromRect(rect({ x: 10.4, y: 20.6, width: 199.6, height: 99.5 }))).toEqual({
+      x: 10,
+      y: 21,
+      width: 200,
+      height: 100,
+    });
+  });
+
+  it('skips a zero-width measurement rather than sending it', () => {
+    expect(boundsFromRect(rect({ x: 5, y: 5, width: 0, height: 200 }))).toBeNull();
+  });
+
+  it('skips a zero-height measurement rather than sending it', () => {
+    expect(boundsFromRect(rect({ x: 5, y: 5, width: 200, height: 0 }))).toBeNull();
+  });
+
+  it('skips the fully zero rect a pane mid-tween measures', () => {
+    expect(boundsFromRect(rect({}))).toBeNull();
   });
 });

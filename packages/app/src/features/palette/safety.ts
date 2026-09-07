@@ -31,6 +31,11 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   // Opens a browser tab on a port already listening on loopback. Navigation
   // only, and the same class as `browser.toggle` above.
   'browser.openDevServer',
+  // Opens a detached DevTools window for the active tab — inspection only,
+  // the same recoverability class as `browser.openDevServer` just above.
+  // `browser.clearData` is the one Theme G command that stays OUT: it
+  // destroys every logged-in session in the `persist:browser` partition.
+  'browser.devtools',
   'repo.open',
   'repo.close',
   'view.refresh',

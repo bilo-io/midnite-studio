@@ -11,7 +11,13 @@ import { useSlidesStore } from '../../features/slides/slides-store';
 import { syncAffordances } from '../../features/status/sync-availability';
 import { closeSessionWithConfirm } from '../../features/terminal/close-session';
 import { onMainSurface, useTerminalStore } from '../../features/terminal/terminal-store';
-import { useBrowserStore } from '../../store/browser-store';
+import {
+  clampZoomFactor,
+  originOf,
+  useBrowserStore,
+  ZOOM_STEP,
+  type BrowserTab,
+} from '../../store/browser-store';
 import { useCommitBoxStore } from '../../store/commit-box-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useThemeImportCommandStore } from '../../features/themes/theme-import-command-store';
@@ -85,6 +91,12 @@ export function useCommandHandlers(): CommandRuntime {
           : reposOpen && !reposDetached
             ? ('repos' as const)
             : null;
+  // Theme G's chrome commands (find/zoom/devtools) need the ACTIVE tab's
+  // `kind` to know whether there is anything to find/zoom/inspect —
+  // subscribed reactively, unlike `browserTabCommands`' own tab actions,
+  // which only ever read `getState()` inside `run` since they don't need to
+  // know the tab's kind to decide whether they are enabled.
+  const activeBrowserTab = useBrowserStore((s) => s.tabs.find((t) => t.id === s.activeTabId) ?? null);
   const workbenchActiveTabId = useWorkbenchStore((s) => s.activeTabId);
   const { data: repos } = useRepos();
   const selectedRepo = repos?.find((repo) => repo.id === selectedRepoId) ?? null;
@@ -235,6 +247,38 @@ export function useCommandHandlers(): CommandRuntime {
       run: () => useUiStore.getState().toggleActivityTimeline(),
     },
     ...browserTabCommands(browserOpen),
+    ...browserChromeCommands(browserOpen, activeBrowserTab),
+    /*
+      The host window's own zoom (Theme G) — what `Mod+=`/`Mod+-`/`Mod+0`
+      resolve to while the browser reading does not win (see the identical
+      chords' comment in `keybindings.ts`). Always enabled: it acts on
+      whichever window this renderer is running in, which is always a valid
+      target.
+    */
+    'app.zoomIn': { enabled: true, run: () => bridge()?.window.zoom({ action: 'in' }) },
+    'app.zoomOut': { enabled: true, run: () => bridge()?.window.zoom({ action: 'out' }) },
+    'app.zoomReset': { enabled: true, run: () => bridge()?.window.zoom({ action: 'reset' }) },
+    /*
+      Wipes the whole `persist:browser` partition — the same confirm
+      `browser-page.tsx`'s settings control shows, reachable from the
+      palette too now (Theme G). Enabled unconditionally, like that
+      control: it needs no open pane and no active tab, only a partition
+      to clear. Stays OUT of `PALETTE_SAFE` on purpose (`safety.ts`).
+    */
+    'browser.clearData': {
+      enabled: true,
+      run: () =>
+        dialogs.confirm({
+          title: 'Clear browsing data?',
+          body: 'Removes every cookie, cache entry and stored login for the embedded browser — including any signed-in GitHub or Figma session. Open tabs stay open, but any page that needed a login will show it again on its next load.',
+          confirmLabel: 'Clear browsing data',
+          danger: true,
+          blastRadius: null,
+          onConfirm: () => {
+            void bridge()?.browser.clearData();
+          },
+        }),
+    },
     'search.open': { enabled: true, run: () => useUiStore.getState().setActiveView('search') },
 
     /*
@@ -458,5 +502,57 @@ function browserTabCommands(browserOpen: boolean): Record<
     'browser.selectTab7': selectTab(7),
     'browser.selectTab8': selectTab(8),
     'browser.selectTab9': selectTab(9),
+  };
+}
+
+const NO_PAGE_TAB = 'Open a page in the browser first';
+
+/**
+ * The browser's chrome commands (Theme G) — find, the tab's own zoom, and
+ * DevTools. Unlike `browserTabCommands`' tab actions (always enabled once
+ * the pane is open, since there is always at least one tab), all four of
+ * these need the ACTIVE tab to actually be a loaded page: finding or
+ * zooming a blank new-tab page, or opening DevTools for it, has nothing to
+ * act on.
+ */
+function browserChromeCommands(
+  browserOpen: boolean,
+  activeTab: BrowserTab | null,
+): Record<'browser.find' | 'browser.zoomIn' | 'browser.zoomOut' | 'browser.zoomReset' | 'browser.devtools', CommandEntry> {
+  if (!browserOpen || !activeTab || activeTab.kind !== 'page') {
+    const disabled = {
+      enabled: false,
+      disabledReason: browserOpen ? NO_PAGE_TAB : NO_BROWSER,
+      run: () => {},
+    };
+    return {
+      'browser.find': disabled,
+      'browser.zoomIn': disabled,
+      'browser.zoomOut': disabled,
+      'browser.zoomReset': disabled,
+      'browser.devtools': disabled,
+    };
+  }
+
+  const tabId = activeTab.id;
+  const origin = originOf(activeTab.url);
+  const zoomBy = (delta: number) => {
+    if (!origin) return;
+    const store = useBrowserStore.getState();
+    const current = store.zoomByOrigin[origin] ?? 1;
+    const next = clampZoomFactor(delta === 0 ? 1 : current + delta);
+    store.setZoomForOrigin(origin, next);
+    bridge()?.browser.zoom({ tabId, factor: next });
+  };
+
+  return {
+    'browser.find': { enabled: true, run: () => useBrowserStore.getState().toggleFind() },
+    'browser.zoomIn': { enabled: true, run: () => zoomBy(ZOOM_STEP) },
+    'browser.zoomOut': { enabled: true, run: () => zoomBy(-ZOOM_STEP) },
+    'browser.zoomReset': { enabled: true, run: () => zoomBy(0) },
+    'browser.devtools': {
+      enabled: true,
+      run: () => bridge()?.browser.devtools({ tabId, mode: 'detach' }),
+    },
   };
 }

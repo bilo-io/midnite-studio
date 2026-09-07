@@ -51,7 +51,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [35 · FAB Mission Control](phases/phase-35-fab-mission-control.md) | 🔄 WIP | — | 39/40 | `██████████` | 98% | — | — |
 | [34 · Agent Councils](phases/phase-34-agent-councils.md) | ✅ DONE | — | 34/34 | `██████████` | 100% | — | — |
 | [33 · Application Installation, CLI Tool & Desktop Integration](phases/phase-33-installable-app-and-cli-integration.md) | 🔄 WIP | x1 | 26/59 | `████░░░░░░` | 44% | — | — |
-| [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | x1 | 45/92 | `█████░░░░░` | 49% | E F G | — |
+| [32 · The browser gets an engine, and the tabs to fill it](phases/phase-32-browser-engine-and-tabs.md) | 🔄 WIP | x1 | 88/92 | `██████████` | 96% | — | E, F, G (4 human verification passes) |
 | [31 · Interactive Rebase Builder & Graph Sequence Editor](phases/phase-31-interactive-rebase.md) | ✅ DONE | — | 22/22 | `██████████` | 100% | — | — |
 | [30 · A terminal that survives you](phases/phase-30-terminal-hardening.md) | 🔄 WIP | x2 | 90/91 | `██████████` | 99% | — | — |
 | [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | 🔄 WIP | x1 | 47/49 | `██████████` | 96% | — | human stress-test pass |
@@ -950,9 +950,9 @@ moved whole to [Phase 71](phases/phase-71-links-that-open-in-place.md).*
 - ✅ **B** — Permissions denied, navigation policy, no preload on embedded views, clear browsing data. (2026-08-30)
 - ✅ **C** — Tab store and strip: drag-reorder, context menu, chord collision resolved at dispatch. (2026-08-30)
 - ✅ **D** — Tab groups, manual (named, coloured, collapsible) and repo-derived. (2026-08-30)
-- ◻ **E** — Occlusion residue after Phase 62: the tab-close view leak, CSS-px-vs-DIP bounds, sender-scoped bounds, six unregistered overlays, `occludes` split from `blocking`.
-- ◻ **F** — New-tab page residue: live recents, store-backed editable tiles, a repo row, the wallpaper theme out of raw `localStorage`, one `resolveInput` instead of two.
-- ◻ **G** — Chrome residue: the whole zoom contract, a DOM error page for `failed`, a loading bar and Stop, address-bar focus/blur/Escape, a find match count, `Mod+f`, two palette commands.
+- ✅ **E** — Occlusion residue after Phase 62 closed out: the tab-close view leak, CSS-px-vs-DIP bounds (scaled by the host's own zoom factor), sender-scoped bounds/visibility, six overlays registered as occluders, `occludes` split from `blocking`, the two hand-rolled z-values moved onto `z-dialog`. ([PR #265](https://github.com/bilo-io/midnite-studio/pull/265), 2026-09-07)
+- ✅ **F** — New-tab page residue closed out: `resolveInput` replaces the page's own heuristic, a repo-derived second row (project/pulls/actions, `forgePullsUrl`/`forgeActionsUrl` added to `shared/src/domain/remote.ts`), the tile grid moved off a hard-coded 3-per-row chunk onto `flex-wrap` (a horizontal scrollbar at the 320px side-by-side minimum otherwise). Recents/tiles/wallpaper-out-of-`localStorage` had already landed in the resumed WIP. ([PR #265](https://github.com/bilo-io/midnite-studio/pull/265), 2026-09-07)
+- ✅ **G** — Chrome residue closed out: the whole zoom contract (`browser.zoomIn`/`zoomOut`/`zoomReset` on the tab, absolute factor persisted per origin; a parallel `app.zoomIn`/`zoomOut`/`zoomReset` plus a new `windowZoom` IPC channel for the host window, since the three chords collide with Electron's own zoom menu roles), a DOM `error-page.tsx` for a `failed` navigation, an indeterminate loading bar with a Stop button, full address-bar behaviour (focus-select/blur-trim/Escape-restore/live preview), a "Not secure" chip, the find bar's `n / m` match count, `Mod+f`, and `browser.devtools`/`browser.clearData` in the palette. ([PR #265](https://github.com/bilo-io/midnite-studio/pull/265), 2026-09-07)
 - ◐ **H** — Dev powers: detached DevTools landed; dev-server detection and preset persistence moved to [Phase 71](phases/phase-71-links-that-open-in-place.md). (2026-08-30)
 - ◐ **I** — Forge in place: only the `preview-deploy.ts` matcher landed, with zero callers; the theme moved to [Phase 71](phases/phase-71-links-that-open-in-place.md).
 

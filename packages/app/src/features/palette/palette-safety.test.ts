@@ -40,4 +40,13 @@ describe('palette safety allowlist', () => {
       expect(declaredIds.has(safeId)).toBe(true);
     }
   });
+
+  // Phase 32 Theme G: DevTools is inspection-only, the same recoverability
+  // class as `browser.openDevServer`; clearing browsing data destroys every
+  // logged-in session in the `persist:browser` partition and must stay a
+  // confirm-gated settings/palette-hidden action, never a one-keystroke one.
+  it('allows browser.devtools but not browser.clearData', () => {
+    expect(isPaletteSafe('browser.devtools')).toBe(true);
+    expect(isPaletteSafe('browser.clearData')).toBe(false);
+  });
 });

@@ -31,10 +31,25 @@ export type DismissOptions = {
   /** Where this surface sits in the dismissal order. Defaults to `'dialog'`. */
   layer?: DismissLayer;
   /**
-   * Whether this surface consumes Escape and hides the native browser view
-   * beneath it. Defaults to `true`; only `toast` and `tooltip` pass `false`.
+   * Whether this surface consumes Escape. Defaults to `true`; only `toast`
+   * and `tooltip` pass `false` — see `use-dismiss.ts:5–25`'s ordering
+   * comment for why (a tooltip left open by a pointer resting on the
+   * browser toggle used to swallow the Escape that should have closed the
+   * pane).
    */
   blocking?: boolean;
+  /**
+   * Whether this surface hides the native `WebContentsView` beneath it
+   * (Phase 32 Theme E). Defaults to `blocking` — every existing call site is
+   * unchanged by this option existing — but `blocking` and "is an occluder"
+   * are genuinely two different axes: a tooltip or a toast is deliberately
+   * NOT blocking (it must not win Escape against a dialog), but IS still
+   * something painted over a loaded page, and a page has no idea it should
+   * render underneath one. Making tooltips/toasts blocking again would fix
+   * that paint order and re-break the Escape ordering this file's own
+   * comment describes — this option is the fix that does neither.
+   */
+  occludes?: boolean;
 };
 
 type DismissEntry = {
@@ -112,11 +127,15 @@ function syncListener(): void {
  * different questions: focus trapping is answerable from a single ref, and "am
  * I topmost" is not.
  *
- * **A blocking registration is also an occluder registration.** Every overlay
- * that consumes Escape is an overlay that should hide the native
- * `WebContentsView` painted over the top of it (`use-browser-bounds.ts` keys on
- * `occluders > 0`), so the two duties are one call rather than a second piece of
- * bookkeeping at each site.
+ * **A registration is an occluder registration too, by default.** Most
+ * overlays that consume Escape should also hide the native `WebContentsView`
+ * painted over the top of them (`use-browser-bounds.ts` keys on
+ * `occluders > 0`), so `occludes` defaults to `blocking` and the common case
+ * is one call rather than a second piece of bookkeeping at each site. The two
+ * axes split for `tooltip`/`toast` (Phase 32 Theme E): passive, so they
+ * cannot win Escape from a dialog, but still painted over a loaded page and
+ * so still an occluder — pass `occludes: true` explicitly alongside
+ * `blocking: false` for exactly that pair.
  *
  * **Not for a handler on a focused input.** Escape on a focused rename input,
  * find bar or comment composer belongs to that input: it handles the key on the
@@ -137,6 +156,7 @@ export function useDismiss(
 ): void {
   const layer = options?.layer ?? 'dialog';
   const blocking = options?.blocking ?? true;
+  const occludes = options?.occludes ?? blocking;
 
   // Read through a ref so an inline arrow does not re-register the entry on
   // every render. `useFocusTrap`'s deps work because both of its arguments are
@@ -157,14 +177,14 @@ export function useDismiss(
       dismiss: () => onDismissRef.current(),
     };
     stack.push(entry);
-    if (blocking) useUiStore.getState().incrementOccluders();
+    if (occludes) useUiStore.getState().incrementOccluders();
     syncListener();
 
     return () => {
       const index = stack.indexOf(entry);
       if (index !== -1) stack.splice(index, 1);
-      if (blocking) useUiStore.getState().decrementOccluders();
+      if (occludes) useUiStore.getState().decrementOccluders();
       syncListener();
     };
-  }, [active, blocking, layer]);
+  }, [active, blocking, layer, occludes]);
 }

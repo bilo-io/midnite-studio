@@ -1,13 +1,10 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import {
-  WALLPAPER_STORAGE_KEY,
-  WALLPAPER_THEMES,
-  FALLBACK_WALLPAPERS,
-  getSavedWallpaperTheme,
-  saveWallpaperTheme,
-  getWallpaperForTheme,
-} from './wallpaper';
+import { WALLPAPER_THEMES, FALLBACK_WALLPAPERS, getWallpaperForTheme } from './wallpaper';
 
+// The `getSavedWallpaperTheme`/`saveWallpaperTheme` localStorage helpers this
+// file used to cover moved into `browser-store`'s persisted `wallpaperTheme`
+// field (Theme F) — including the v1→v2 migration that reads this module's
+// legacy `WALLPAPER_STORAGE_KEY` once. See `browser-store.test.ts`.
 describe('wallpaper helpers', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -22,21 +19,6 @@ describe('wallpaper helpers', () => {
       'cyberpunk',
       'space',
     ]);
-  });
-
-  it('defaults to nature if no theme stored', () => {
-    expect(getSavedWallpaperTheme()).toBe('nature');
-  });
-
-  it('saves and loads wallpaper theme from localStorage', () => {
-    saveWallpaperTheme('cyberpunk');
-    expect(localStorage.getItem(WALLPAPER_STORAGE_KEY)).toBe('cyberpunk');
-    expect(getSavedWallpaperTheme()).toBe('cyberpunk');
-  });
-
-  it('recovers gracefully from invalid theme in storage', () => {
-    localStorage.setItem(WALLPAPER_STORAGE_KEY, 'invalid-theme-foo');
-    expect(getSavedWallpaperTheme()).toBe('nature');
   });
 
   it('returns valid photo for theme', () => {
