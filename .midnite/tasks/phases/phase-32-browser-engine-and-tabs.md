@@ -245,7 +245,7 @@ are computed from where a tab came from and vanish when empty.
       derived group; an explicit `groupId: null` overrides it; the derived group disappears at zero
       tabs.
 
-### E — Occlusion, bounds, and the view that outlives its tab (M) — ✅ DONE (PR #TBD, 2026-09-07)
+### E — Occlusion, bounds, and the view that outlives its tab (M) — ✅ DONE (PR #265, 2026-09-07)
 
 Phase 62's dismissal-layer stack already built this theme's headline: `useDismiss(active, onDismiss,
 {layer, blocking})` increments `occluders` for every blocking layer, and
@@ -347,7 +347,7 @@ every item names the line that is wrong today.
       `4b1a51f fix(browser): stop the native browser view from showing at stale/zero bounds` already
       fixed once).
 
-### F — The new tab page, finished (M) — ✅ DONE (PR #TBD, 2026-09-07)
+### F — The new tab page, finished (M) — ✅ DONE (PR #265, 2026-09-07)
 
 The page exists — [`new-tab-page.tsx`](../../../packages/app/src/features/browser/new-tab-page.tsx) is
 277 lines with a wallpaper, the `BrandMark`/`Wordmark` hero, an autofocused search field and six
@@ -412,7 +412,7 @@ logic that already has a tested home.
 - [x] **Empty state on a first run** is the hero plus the tile grid alone, with no recents heading and
       no placeholder rows.
 
-### G — The browsing chrome, finished (M) — ✅ DONE (PR #TBD, 2026-09-07)
+### G — The browsing chrome, finished (M) — ✅ DONE (PR #265, 2026-09-07)
 
 Back/Forward/Reload/address-bar/find/DevTools are wired. What is missing is everything that tells the
 user what the page is *doing*, plus one whole IPC surface that was ticked without being built.

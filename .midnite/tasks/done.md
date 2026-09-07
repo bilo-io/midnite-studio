@@ -4,7 +4,7 @@
 
 ## 2026-09-07 — Phase 32 Themes E, F, G — the browser's occlusion, new-tab and chrome residue
 
-[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD). Moves Phase 32 45/92 → 88/92 (49% →
+[PR #265](https://github.com/bilo-io/midnite-studio/pull/265). Moves Phase 32 45/92 → 88/92 (49% →
 96%); the remaining 4 items are "Open, for a human" manual-verification passes the doc itself
 flags as untestable. Resumes and finishes an abandoned worktree (`feature/p32-next`, one prior WIP
 commit moving browser recents/tiles/wallpaper into `browser-store`) — the 2026-09-05 refinement had
