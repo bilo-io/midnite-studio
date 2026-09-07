@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import css from 'virtual:midnite-styles-raw';
+import { findDuplicateKeyframes, findUnguardedKeyframes } from './styles-motion-guards';
 
 /**
  * Every `@keyframes` in `styles.css` is either referenced by a
@@ -29,105 +30,51 @@ import css from 'virtual:midnite-styles-raw';
  * *alongside* its own, and the same class the guard targets. No allowlist
  * entry needed there; `shake` below is the one animation this file has that
  * genuinely has no guard, on purpose.
+ *
+ * **Phase 46 Theme H:** the checkers themselves used to be module-local here,
+ * closing over nothing but unexported, so the "prove it by adding an
+ * unguarded `@keyframes`, watching it fail, then reverting" verification line
+ * was a manual mutation test nobody would re-run. They now live in
+ * `./styles-motion-guards`, exported over a CSS *string*, so the fixture
+ * cases below exercise the negative case directly instead of asking a human
+ * to mutate `styles.css` by hand.
  */
-
-/**
- * Every entry needs a reason a human wrote down, not just an entry — that is
- * what makes adding one a visible, reviewed decision rather than a silent
- * skip past the test.
- */
-const ALLOWLIST: Record<string, string> = {
-  shake: 'a single ~0.4s shake on an invalid action (e.g. a wrong passcode), never a loop.',
-};
-
-function keyframeNames(source: string): string[] {
-  const names: string[] = [];
-  const re = /@keyframes\s+([\w-]+)\s*\{/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(source))) {
-    if (m[1]) names.push(m[1]);
-  }
-  return names;
-}
-
-function classesIn(selectorOrBlock: string): Set<string> {
-  const classes = new Set<string>();
-  const re = /\.([\w-]+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(selectorOrBlock))) {
-    if (m[1]) classes.add(m[1]);
-  }
-  return classes;
-}
-
-/** The selector text immediately before the `{` that opens the block containing `index`. */
-function enclosingSelector(source: string, index: number): string {
-  const openBrace = source.lastIndexOf('{', index);
-  const closeBraceBefore = source.lastIndexOf('}', openBrace - 1);
-  return source.slice(closeBraceBefore + 1, openBrace).trim();
-}
-
-/** Every `@media (prefers-reduced-motion: reduce) { ... }` block's inner content, brace-matched. */
-function reducedMotionBlocks(source: string): string {
-  const out: string[] = [];
-  const marker = /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{/g;
-  let m: RegExpExecArray | null;
-  while ((m = marker.exec(source))) {
-    let depth = 1;
-    let i = m.index + m[0].length;
-    const start = i;
-    while (i < source.length && depth > 0) {
-      if (source[i] === '{') depth++;
-      else if (source[i] === '}') depth--;
-      i++;
-    }
-    out.push(source.slice(start, i - 1));
-  }
-  return out.join('\n');
-}
 
 describe('styles.css motion guards (Phase 46 Theme F)', () => {
   it('finds keyframes in the stylesheet — a guard on the guard', () => {
     // If the glob or the regex below ever stops matching, every per-name
     // assertion would vacuously pass.
-    expect(keyframeNames(css).length).toBeGreaterThan(10);
+    expect(css.match(/@keyframes\s+[\w-]+\s*\{/g)?.length ?? 0).toBeGreaterThan(10);
   });
 
   it('declares no @keyframes name twice', () => {
     // The bug this phase found by reading: `pill-shimmer` was declared twice,
     // byte-identical, with two different guards — later one wins, so the
     // first was dead code nobody noticed.
-    const seen = new Set<string>();
-    const dupes = new Set<string>();
-    for (const name of keyframeNames(css)) {
-      if (seen.has(name)) dupes.add(name);
-      seen.add(name);
-    }
-    expect([...dupes]).toEqual([]);
+    expect(findDuplicateKeyframes(css)).toEqual([]);
   });
 
   it('every keyframe is guarded by a reduced-motion rule, or explicitly allowlisted', () => {
-    const guardedClasses = classesIn(reducedMotionBlocks(css));
-    const unguarded: string[] = [];
+    expect(findUnguardedKeyframes(css)).toEqual([]);
+  });
+});
 
-    for (const name of new Set(keyframeNames(css))) {
-      if (name in ALLOWLIST) continue;
+describe('styles-motion-guards fixtures (Phase 46 Theme H)', () => {
+  it('findUnguardedKeyframes flags a keyframe with no guard at all', () => {
+    expect(findUnguardedKeyframes('@keyframes ghost{}\n.x{animation: ghost 1s;}')).toEqual([
+      'ghost',
+    ]);
+  });
 
-      const usageRe = new RegExp(`animation(?:-name)?:\\s*(?:[^;]*?\\b)?${name}\\b`, 'g');
-      const uses = [...css.matchAll(usageRe)];
-      if (uses.length === 0) {
-        unguarded.push(`${name} (declared but never used in an animation)`);
-        continue;
-      }
+  it('findUnguardedKeyframes clears a keyframe once its consuming class is guarded', () => {
+    expect(
+      findUnguardedKeyframes(
+        '@keyframes ghost{}\n.x{animation: ghost 1s;}\n@media (prefers-reduced-motion: reduce){ .x{animation:none} }',
+      ),
+    ).toEqual([]);
+  });
 
-      const guarded = uses.some((use) => {
-        const selector = enclosingSelector(css, use.index);
-        const consumerClasses = classesIn(selector);
-        return [...consumerClasses].some((c) => guardedClasses.has(c));
-      });
-      if (!guarded) unguarded.push(name);
-    }
-
-    expect(unguarded).toEqual([]);
+  it('findDuplicateKeyframes flags a name declared twice', () => {
+    expect(findDuplicateKeyframes('@keyframes a{}@keyframes a{}')).toEqual(['a']);
   });
 });
