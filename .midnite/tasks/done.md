@@ -5,7 +5,7 @@
 ## 2026-09-07 — Phase 71 Theme E — Verification, and the e2e case the mock bridge can't run
 
 [PR #254](https://github.com/bilo-io/midnite-studio/pull/254). Moves Phase 71 to
-39/41 (95%). Themes A–D had already landed (PRs #200, #223, #226) with every one of their own
+38/41 (93%). Themes A–D had already landed (PRs #200, #223, #226) with every one of their own
 checklist items ticked; this theme closes the doc's separate Verification list against what they
 actually shipped, restructured to match house convention as a lettered Theme E.
 
