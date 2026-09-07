@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 
-import type { ClosedSession } from '@midnite/studio-shared';
-import { LuFilter, LuHistory, LuRefreshCw, LuTrash2 } from 'react-icons/lu';
+import { Collapse } from '@bilo-io/ui';
+import type { AgentDefinition, ClosedSession } from '@midnite/studio-shared';
+import { LuBot, LuChevronRight, LuFilter, LuHistory, LuRefreshCw, LuTerminal, LuTrash2 } from 'react-icons/lu';
 
 import { resolveAgentIcon } from '../../components/icons';
 import { EmptyState } from '../../components/empty-state';
@@ -27,6 +28,9 @@ const REASON_OPTIONS: MultiSelectOption[] = [
   { value: 'exited', label: 'Exited' },
   { value: 'superseded', label: 'Superseded' },
 ];
+
+/** Value used to represent non-agent terminal sessions in the provider filter. */
+const TERMINAL_PROVIDER_VALUE = '__terminal__';
 
 /** A closed session's own label — never `title`, which is the repo name (fact 4). */
 function closedSessionLabel(record: ClosedSession, agentLabel: string | undefined): string {
@@ -77,14 +81,87 @@ export function SessionsView() {
   const { agents } = useAgents();
 
   const [reasons, setReasons] = useState<ClosedSession['reason'][]>([]);
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
+  const [collapsedRepos, setCollapsedRepos] = useState<ReadonlySet<string>>(() => new Set());
+
+  const toggleRepoCollapse = (repoId: string) => {
+    setCollapsedRepos((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(repoId)) next.add(repoId);
+      return next;
+    });
+  };
 
   const stored = useSessionsStore((s) => s.selectedClosedSessionId);
   const selectClosedSession = useSessionsStore((s) => s.selectClosedSession);
 
-  const all = history.data ?? [];
-  // Empty means everyone — the same facet convention every other one in this
-  // app obeys (`run-history-list.tsx`).
-  const rows = reasons.length === 0 ? all : all.filter((row) => reasons.includes(row.reason));
+  const all = useMemo(() => history.data ?? [], [history.data]);
+
+  // Derive distinct provider options present in closed session history
+  const providerOptions = useMemo<MultiSelectOption[]>(() => {
+    const counts = new Map<string, number>();
+    for (const record of all) {
+      const key = record.kind === 'agent' ? (record.agentId ?? 'agent') : TERMINAL_PROVIDER_VALUE;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    const options: MultiSelectOption[] = [];
+    // Sort agent providers alphabetically by label
+    const agentIds = [...counts.keys()].filter((k) => k !== TERMINAL_PROVIDER_VALUE);
+    agentIds.sort((a, b) => {
+      const labelA = agents.find((ag) => ag.id === a)?.label ?? a;
+      const labelB = agents.find((ag) => ag.id === b)?.label ?? b;
+      return labelA.localeCompare(labelB);
+    });
+
+    for (const agentId of agentIds) {
+      const agentDef = agents.find((a) => a.id === agentId);
+      const label = agentDef?.label ?? agentId;
+      const Icon = resolveAgentIcon({ id: agentId, icon: agentDef?.icon });
+      options.push({
+        value: agentId,
+        label,
+        icon: (
+          <Icon
+            aria-hidden
+            className="h-3.5 w-3.5 shrink-0"
+            style={agentDef?.accent ? { color: agentDef.accent } : undefined}
+          />
+        ),
+        meta: <span className="tabular-nums text-[10px] text-muted-foreground">{counts.get(agentId)}</span>,
+      });
+    }
+
+    if (counts.has(TERMINAL_PROVIDER_VALUE)) {
+      options.push({
+        value: TERMINAL_PROVIDER_VALUE,
+        label: 'Terminal',
+        icon: <LuTerminal aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />,
+        meta: (
+          <span className="tabular-nums text-[10px] text-muted-foreground">
+            {counts.get(TERMINAL_PROVIDER_VALUE)}
+          </span>
+        ),
+      });
+    }
+
+    return options;
+  }, [all, agents]);
+
+  // Filter rows by reasons and providers
+  const rows = useMemo(() => {
+    let filtered = all;
+    if (reasons.length > 0) {
+      filtered = filtered.filter((row) => reasons.includes(row.reason));
+    }
+    if (selectedProviders.length > 0) {
+      filtered = filtered.filter((row) => {
+        const providerKey = row.kind === 'agent' ? (row.agentId ?? 'agent') : TERMINAL_PROVIDER_VALUE;
+        return selectedProviders.includes(providerKey);
+      });
+    }
+    return filtered;
+  }, [all, reasons, selectedProviders]);
 
   const selectedId = useMemo(() => pickInitialClosedSession(rows, stored), [rows, stored]);
   const selected = rows.find((row) => row.id === selectedId) ?? null;
@@ -137,6 +214,17 @@ export function SessionsView() {
           </span>
           <div className="ml-auto flex items-center gap-1">
             <MultiSelectMenu
+              options={providerOptions}
+              selected={selectedProviders}
+              onChange={setSelectedProviders}
+              icon={<LuBot aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+              allLabel="All providers"
+              searchPlaceholder="Filter providers…"
+              emptyLabel="No provider matches."
+              label="Filter sessions by provider"
+              summarise={(n) => `${n} providers`}
+            />
+            <MultiSelectMenu
               options={REASON_OPTIONS}
               selected={reasons}
               onChange={(next) => setReasons(next as ClosedSession['reason'][])}
@@ -172,23 +260,48 @@ export function SessionsView() {
           />
         ) : (
           <div role="list" aria-label="Closed sessions" className="min-h-0 flex-1 overflow-auto">
-            {groups.map((group) => (
-              <div key={group.repoId}>
-                <div className="sticky top-0 z-10 bg-background/95 px-2 py-1 text-[11px] font-medium text-muted-foreground backdrop-blur">
-                  {group.title}
+            {groups.map((group) => {
+              const open = !collapsedRepos.has(group.repoId);
+              const bodyId = `sessions-repo-group-${group.repoId}`;
+              return (
+                <div key={group.repoId} className="border-b border-border/40 last:border-b-0">
+                  <div className="sticky top-0 z-10 flex h-7 items-center bg-background/95 px-2 text-[11px] font-medium text-muted-foreground backdrop-blur">
+                    <button
+                      type="button"
+                      onClick={() => toggleRepoCollapse(group.repoId)}
+                      aria-expanded={open}
+                      aria-controls={bodyId}
+                      aria-label={open ? `Collapse ${group.title}` : `Expand ${group.title}`}
+                      className="flex min-w-0 flex-1 items-center gap-1.5 rounded text-left transition-colors hover:text-foreground"
+                    >
+                      <LuChevronRight
+                        aria-hidden
+                        className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
+                          open ? 'rotate-90' : ''
+                        }`}
+                      />
+                      <span className="truncate font-semibold uppercase tracking-wide">
+                        {group.title}
+                      </span>
+                      <span className="tabular-nums text-muted-foreground/70">{group.sessions.length}</span>
+                    </button>
+                  </div>
+                  <Collapse open={open} id={bodyId} aria-label={group.title}>
+                    {group.sessions.map((record) => (
+                      <SessionRow
+                        key={record.id}
+                        record={record}
+                        agent={agents.find((a) => a.id === record.agentId)}
+                        agentLabel={agentLabelFor(record.agentId, agents)}
+                        selected={record.id === selectedId}
+                        onSelect={() => selectClosedSession(record.id)}
+                        onPurge={() => purgeOne(record)}
+                      />
+                    ))}
+                  </Collapse>
                 </div>
-                {group.sessions.map((record) => (
-                  <SessionRow
-                    key={record.id}
-                    record={record}
-                    agentLabel={agentLabelFor(record.agentId, agents)}
-                    selected={record.id === selectedId}
-                    onSelect={() => selectClosedSession(record.id)}
-                    onPurge={() => purgeOne(record)}
-                  />
-                ))}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -206,12 +319,14 @@ export function SessionsView() {
 
 function SessionRow({
   record,
+  agent,
   agentLabel,
   selected,
   onSelect,
   onPurge,
 }: {
   record: ClosedSession;
+  agent: AgentDefinition | undefined;
   agentLabel: string | undefined;
   selected: boolean;
   onSelect: () => void;
@@ -219,7 +334,10 @@ function SessionRow({
 }) {
   const label = closedSessionLabel(record, agentLabel);
   const duration = record.closedAt - record.createdAt;
-  const AgentIcon = record.kind === 'agent' && record.agentId ? resolveAgentIcon({ id: record.agentId }) : null;
+  const AgentIcon =
+    record.kind === 'agent'
+      ? resolveAgentIcon({ id: record.agentId ?? 'agent', icon: agent?.icon })
+      : null;
 
   return (
     <div
@@ -234,7 +352,13 @@ function SessionRow({
       >
         <StateDot state={dotStateFor(record)} />
         <span className="min-w-0 flex-1 truncate">{label}</span>
-        {AgentIcon ? <AgentIcon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
+        {AgentIcon ? (
+          <AgentIcon
+            aria-hidden
+            className="h-3.5 w-3.5 shrink-0"
+            style={agent?.accent ? { color: agent.accent } : undefined}
+          />
+        ) : null}
         <span className="shrink-0 text-[11px] text-muted-foreground">
           {formatDuration(duration)} · {relativeAge(record.closedAt, Date.now())}
         </span>
