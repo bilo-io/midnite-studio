@@ -43,6 +43,11 @@ extraResources:
   # pointed at a path that does not exist in every packaged build until now.
   - from: resources/bin
     to: bin
+  # zsh/bash/fish completions for the CLI grammar (Phase 33 Theme B). Settings
+  # ▸ CLI Integration surfaces the `fpath+=`/`source` line as copyable text —
+  # this phase never edits the user's shell rc itself.
+  - from: resources/completions
+    to: completions
 
 asar: true
 asarUnpack:
