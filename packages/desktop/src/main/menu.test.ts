@@ -79,6 +79,19 @@ describe('the View menu', () => {
     expect(row(view, 'Quick Access')).toBeDefined();
     expect(row(view, 'Quick Access')?.accelerator).toBeUndefined();
   });
+
+  /**
+   * Phase 23 Theme C, reopened: the palette had no native menu item at all.
+   * `palette.open` is `scope: 'global'`, so — like Toggle Repositories and
+   * Quick Access above — it must NOT get an OS-level accelerator: that would
+   * bypass the renderer's own dispatcher instead of reaching it.
+   */
+  it('offers Command Palette… with no native accelerator', () => {
+    const view = submenuOf('View');
+    const paletteRow = row(view, 'Command Palette…');
+    expect(paletteRow).toBeDefined();
+    expect(paletteRow?.accelerator).toBeUndefined();
+  });
 });
 
 describe('the File menu', () => {
