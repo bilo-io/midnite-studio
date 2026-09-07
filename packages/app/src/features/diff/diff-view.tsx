@@ -27,6 +27,7 @@ import {
 
 import { ImageDiff } from './image-diff';
 import type { ImageDiffSources } from './image-sources';
+import { useTooNarrowForSplit } from './use-diff-split-width';
 
 
 
@@ -71,6 +72,7 @@ export function DiffView({
   renderThread,
   composer = null,
   images = null,
+  tooNarrowForSplit,
 }: {
 
   diff: FileDiff | undefined;
@@ -132,6 +134,17 @@ export function DiffView({
    * unconditionally and this branch simply never fires for text.
    */
   images?: ImageDiffSources | null;
+
+  /**
+   * `inline` mode only — Theme C's width fallback measured by the caller.
+   *
+   * Pane mode measures itself: the toolbar and the scroller it forces unified
+   * both live inside this component. `inline` mode's toolbar is mounted by the
+   * accordion header instead (`file-accordion.tsx`/`pr-file-accordion.tsx`),
+   * a sibling of this component rather than a child of it, so only THEIR
+   * shared ancestor can measure a width both can see.
+   */
+  tooNarrowForSplit?: boolean;
 }) {
   const showOldGutter = useUiStore((s) => s.diffShowOldGutter);
   const diffLayoutPref = useUiStore((s) => s.diffLayout);
@@ -141,7 +154,16 @@ export function DiffView({
   const { resolved } = useTheme();
   const dark = resolved === 'dark';
 
-  const effectiveLayout = diff && canSplit(diff) ? diffLayoutPref : 'unified';
+  /*
+    Theme C's width fallback. Pane mode measures its own scroller — the
+    toolbar and the body it forces unified both live inside this component —
+    so `tooNarrowForSplit` is ignored there; `inline` mode has no scroller of
+    its own to measure (see the prop's doc) and takes the caller's reading.
+  */
+  const paneTooNarrow = useTooNarrowForSplit(scrollRef);
+  const tooNarrow = inline ? (tooNarrowForSplit ?? false) : paneTooNarrow;
+
+  const effectiveLayout = diff && canSplit(diff) && !tooNarrow ? diffLayoutPref : 'unified';
   const isSplit = effectiveLayout === 'split';
 
   const unifiedRows = withCommentRows(
@@ -201,7 +223,7 @@ export function DiffView({
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="diff-view">
       <div className="flex shrink-0 items-center justify-between border-b border-border px-2 py-1">
-        <DiffToolbar diff={diff} onExpandContext={onExpandContext} />
+        <DiffToolbar diff={diff} onExpandContext={onExpandContext} tooNarrowForSplit={paneTooNarrow} />
       </div>
 
 

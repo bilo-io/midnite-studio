@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { TempRepo } from '../testing/temp-repo';
-import { readBlob } from './blob';
+import { blobExists, readBlob } from './blob';
 
 /**
  * Real git, real bytes. The point of these is the thing a fixture cannot prove:
@@ -77,5 +77,36 @@ describe('readBlob', () => {
   it('refuses a flag-shaped object rather than handing it to git', async () => {
     const read = await readBlob(repo.path, '-upload-pack', 'shot.png', { maxBytes: 1024 });
     expect(read).toEqual({ ok: false, reason: 'missing' });
+  });
+});
+
+describe('blobExists', () => {
+  let repo: TempRepo;
+
+  beforeAll(async () => {
+    repo = await TempRepo.create();
+    await repo.commitFile('readme.md', 'first\n', 'chore: init');
+  });
+
+  afterAll(async () => {
+    await repo.cleanup();
+  });
+
+  it('is true for a path present at that revision', async () => {
+    await expect(blobExists(repo.path, 'HEAD', 'readme.md')).resolves.toBe(true);
+  });
+
+  it('is false for a path absent at that revision', async () => {
+    await expect(blobExists(repo.path, 'HEAD', 'nope.md')).resolves.toBe(false);
+  });
+
+  it('is false for a revision the object database has never seen', async () => {
+    await expect(
+      blobExists(repo.path, '0000000000000000000000000000000000000000', 'readme.md'),
+    ).resolves.toBe(false);
+  });
+
+  it('refuses a flag-shaped object rather than handing it to git', async () => {
+    await expect(blobExists(repo.path, '-upload-pack', 'readme.md')).resolves.toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { spawnGit } from '../exec/git-exec';
+import { execGit, spawnGit } from '../exec/git-exec';
 
 /**
  * Read one blob's raw bytes out of the object database.
@@ -19,6 +19,18 @@ export type BlobRead =
   /** Bigger than `maxBytes`; the child is killed rather than read to the end. */
   | { ok: false; reason: 'too-large' };
 
+/**
+ * `<rev>:<path>` object syntax, shared by every `cat-file` call in this file.
+ *
+ * A rev that already ends in `:` is the index form — appending a second colon
+ * would address nothing. `null` means flag-shaped input that must never reach
+ * git: `cat-file` takes its object as a bare argument with no `--` terminator.
+ */
+function blobSpec(rev: string, relPath: string): string | null {
+  const spec = rev.endsWith(':') ? `${rev}${relPath}` : `${rev}:${relPath}`;
+  return spec.startsWith('-') ? null : spec;
+}
+
 export async function readBlob(
   repoPath: string,
   /** A git revision. `':'` means the index — `git cat-file blob :path` is stage 0. */
@@ -26,12 +38,8 @@ export async function readBlob(
   relPath: string,
   opts: { maxBytes: number },
 ): Promise<BlobRead> {
-  // `<rev>:<path>` is git's own object syntax, and a rev that already ends in
-  // `:` is the index form — appending a second colon would address nothing.
-  const spec = rev.endsWith(':') ? `${rev}${relPath}` : `${rev}:${relPath}`;
-  // `cat-file` takes its object as a bare argument with no `--` terminator, so
-  // anything flag-shaped is refused here rather than handed to git.
-  if (spec.startsWith('-')) return { ok: false, reason: 'missing' };
+  const spec = blobSpec(rev, relPath);
+  if (spec === null) return { ok: false, reason: 'missing' };
 
   const child = spawnGit(repoPath, ['cat-file', 'blob', spec]);
 
@@ -63,4 +71,22 @@ export async function readBlob(
       settle({ ok: true, bytes: Buffer.concat(chunks) });
     });
   });
+}
+
+/**
+ * Whether the object database already holds this blob — `git cat-file -e`,
+ * which checks presence without reading a single byte.
+ *
+ * Exists for the pull-request image diff (Phase 26 Theme H): a fork PR's base
+ * commit is not necessarily fetched into the local object store, and the
+ * renderer has to know *before* pointing an `<img>` at `mstudio-file://`
+ * whether that request would resolve, so it can offer "Fetch to compare"
+ * instead of a silently broken pane.
+ */
+export async function blobExists(repoPath: string, rev: string, relPath: string): Promise<boolean> {
+  const spec = blobSpec(rev, relPath);
+  if (spec === null) return false;
+
+  const result = await execGit(repoPath, ['cat-file', '-e', spec]);
+  return result.exitCode === 0;
 }

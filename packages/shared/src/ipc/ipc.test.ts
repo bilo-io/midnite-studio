@@ -216,6 +216,17 @@ describe('request schemas', () => {
     expect(() => schemas.CommitFileDiffRequest.parse({ repoId: 'r', path: 'a.ts' })).toThrow();
   });
 
+  it('requires a full/partial hex sha for a blob-existence check, never a refname', () => {
+    // The renderer's only caller passes `baseSha`, always a real sha — see
+    // Phase 26 Theme H's "Fetch to compare" affordance.
+    expect(() =>
+      schemas.BlobExistsRequest.parse({ repoId: 'r', rev: 'main', path: 'a.png' }),
+    ).toThrow();
+    expect(
+      schemas.BlobExistsRequest.parse({ repoId: 'r', rev: 'deadbee', path: 'a.png' }).rev,
+    ).toBe('deadbee');
+  });
+
   it('defaults fetch to pruning origin', () => {
     expect(schemas.FetchRequest.parse({ repoId: 'r' })).toMatchObject({
       remote: 'origin',

@@ -66,6 +66,11 @@ export const CHANNELS = {
   commitFileDiff: 'mstudio:commit:file-diff',
   /** A conflicted path's parsed regions, for the Studio (Phase 47 Theme D). */
   conflictRegions: 'mstudio:conflict:regions',
+  /**
+   * Whether a blob is already in the local object database (`git cat-file -e`)
+   * — the gate on a pull request's "Fetch to compare" button (Phase 26 Theme H).
+   */
+  blobExists: 'mstudio:blob:exists',
 
   // --- remotes -------------------------------------------------------------
   remotesList: 'mstudio:remotes:list',

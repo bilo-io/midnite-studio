@@ -2,6 +2,47 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-08 — Phase 26 Themes C, H — the reverted items
+
+[PR #267](https://github.com/bilo-io/midnite-studio/pull/267). Moves Phase 26 51/70 → 55/70 (73%
+→ 79%). Themes C and H were both `◐ PARTIAL` at refinement x1, each with two items reverted to
+`- [ ]` because they never actually shipped. This PR builds exactly those four, and both themes
+now read `✅ DONE`.
+
+**Theme C**: `useTooNarrowForSplit` (`use-diff-split-width.ts`) — a `ResizeObserver` on the diff
+body element, threshold `DIFF_SPLIT_MIN_WIDTH = 720` (matching `LAYOUT_BOUNDS.detailWidth`'s cap,
+per the doc's own recommendation). Below it, `effectiveLayout` forces `'unified'` and the toggle
+renders an explained-disabled tooltip ("Too narrow for side-by-side") without ever rewriting the
+stored `diffLayout` preference. Wired into `DiffView`/`DiffToolbar` for pane mode and into the two
+accordions' own `<section>` for inline mode, where the toolbar and diff body are siblings. Plus
+`e2e/diff-split.spec.ts`, covering the three assertions the one existing split test never made:
+gutter numbers on a 5-add/2-del unbalanced hunk, a one-sided row's empty opposite cell, and
+`diffLayout` surviving a reload.
+
+**Theme H**: a new `blobExists` IPC channel (`git cat-file -e`, git-engine → shared → desktop, with
+an integration test against a real `TempRepo`) backs a "Fetch to compare" button in
+`pr-file-accordion.tsx` — when a before-image is expected but the base blob isn't local, the button
+renders instead of a silent binary fallback, and calls the existing `fetch` op for the PR's base
+remote with nothing firing before the click. `outstanding.md`'s stale entries are gone: the "Image
+diffs in a pull request" section and the "Syntax highlighting inside diff lines" bullet deleted
+outright, "Side-by-side diff" rewritten as a landed pointer at this phase.
+
+**Two real bugs found and fixed along the way, both the reason neither reverted item had ever been
+exercisable:**
+- The width fallback's first cut depended on `[ref]` — a stable `useRef` object — so its
+  `ResizeObserver` effect only ever checked `ref.current` once, at the very first commit, when
+  `DiffView`'s own `isLoading`/`!diff` early returns almost always mean no element exists yet. Fixed
+  to re-check every render (with a ref-tracked observer instance so that doesn't mean recreating it
+  on every virtualizer-driven re-render). This also means the graph dock's commit inspector is now
+  correctly always too narrow for split by default (384px, capped at 720) — intentional, per this
+  phase's "the inspector stays a tab, not a wider dock" decision — so the existing split-toggle e2e
+  test now opens the commit as a full-width workbench tab instead.
+- `pr-detail.tsx` never passed `repoId`, `worktreePath` or `baseSha` down to `<PrFiles>` at all,
+  even though `PrFiles`/`PrFileAccordion` have accepted them since this theme's earlier,
+  already-shipped item — so no PR image ever rendered, fork or not. `mock-bridge.ts`'s `pullDetail`
+  handler separately never picked up `baseSha` either, so no fixture could have caught it. Both
+  fixed; new `e2e/pr-fetch-to-compare.spec.ts` covers the present-blob and missing-blob cases.
+
 ## 2026-09-07 — Phase 23 Themes C, D, E — the reopened items
 
 [PR #266](https://github.com/bilo-io/midnite-studio/pull/266). Moves Phase 23 42/59 → 45/59 (71%

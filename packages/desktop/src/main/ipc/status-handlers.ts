@@ -1,4 +1,5 @@
 import {
+  blobExists,
   commit,
   discardPaths,
   fetch,
@@ -91,6 +92,17 @@ export function registerStatusHandlers(): void {
       });
     },
     () => emptyDiff('', DIFF_DEFAULT_CONTEXT),
+  );
+
+  handle(
+    CHANNELS.blobExists,
+    schemas.BlobExistsRequest,
+    async (req) => {
+      const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
+      if (!cwd) return { exists: false };
+      return { exists: await blobExists(cwd, req.rev, req.path) };
+    },
+    () => ({ exists: false }),
   );
 
   const inWorkdir = <T extends { repoId: string; worktreePath?: string }>(

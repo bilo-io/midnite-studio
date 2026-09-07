@@ -57,7 +57,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [29 · Markdown slides, everywhere markdown already renders](phases/phase-29-markdown-slides-viewer.md) | 🔄 WIP | x1 | 47/49 | `██████████` | 96% | — | human stress-test pass |
 | [28 · Worktrees first, and the section tree that can say so](phases/phase-28-sidebar-section-tree.md) | ✅ DONE | — | 61/61 | `██████████` | 100% | — | — |
 | [27 · The footer becomes a status bar, and the browser it makes room for](phases/phase-27-status-bar-and-browser-panel.md) | ✅ DONE | x1 | 90/90 | `██████████` | 100% | — | — |
-| [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | x1 | 51/70 | `███████░░░` | 73% | C, H reverted items | Verification |
+| [26 · Side by side, and the room to show it](phases/phase-26-side-by-side-diffs.md) | 🔄 WIP | x1 | 55/70 | `████████░░` | 79% | — | Verification |
 | [25 · Search everywhere, and the blame that explains it](phases/phase-25-search-everywhere.md) | 🔄 WIP | x1 | 41/101 | `████░░░░░░` | 41% | — | — |
 | [24 · The explorer learns to write, and to search](phases/phase-24-writable-explorer.md) | 🔄 WIP | x1 | 55/70 | `████████░░` | 79% | — | J (2 human passes) |
 | [23 · A command palette, and the registry that can feed it](phases/phase-23-command-palette.md) | 🔄 WIP | x1 | 45/59 | `████████░░` | 76% | — | Verification |
@@ -1227,11 +1227,13 @@ newly possible. Only H touches a contract.*
   disagree. Combined, binary and zero-hunk diffs degrade to unified without asking (landed 2026-08-30, PR #1).
 - ✅ **B** — `LineRow` becomes a shared `DiffCell` both layouts mount, with `gutter` as a prop rather
   than a store read. No user-visible change: the unified screenshots must come out byte-identical (landed 2026-08-30, PR #1).
-- ◐ **C** — two columns through the existing virtualizer, one locked horizontal scroller (not two
+- ✅ **C** — two columns through the existing virtualizer, one locked horizontal scroller (not two
   synchronised ones), and `diffLayout: 'unified' | 'split'` persisted in `ui-store` beside
-  `diffShowOldGutter` (landed 2026-08-30, PR #1). **Two items reverted at refinement x1**: the
-  `ResizeObserver` width fallback was never built (a 320px Changes pane still renders two
-  unreadable columns), and `e2e/diff-split.spec.ts` does not exist.
+  `diffShowOldGutter` (landed 2026-08-30, PR #1). **The two items reverted at refinement x1 landed
+  in [PR #267](https://github.com/bilo-io/midnite-studio/pull/267) (2026-09-08)**: `useTooNarrowForSplit`
+  (a `ResizeObserver` on the diff body, 720px threshold) forces `'unified'` below it without ever
+  rewriting the stored preference, and `e2e/diff-split.spec.ts` covers the gutter-sequence,
+  one-sided-row and persistence assertions the one existing split test never made.
 - ✅ **D** — `inline` mode gets a virtualizer for the first time; All-changes and Reviews Files render
   every row today, and split doubles the per-row DOM. Brings `EXPAND_ALL_LIMIT` back up for review (landed 2026-08-30, PR #1).
 - ✅ **E** — a `DiffToolbar` the accordion surfaces can mount, with actions a surface cannot perform
@@ -1240,12 +1242,16 @@ newly possible. Only H touches a contract.*
   made commentable, and threads still rendered as full-width rows with a LEFT/RIGHT badge (landed 2026-08-30).
 - ✅ **G** — a `commit` arm on `WorkbenchTab` so the inspector has a full-width home; the 720px graph
   dock is untouched and stays the quick-look panel (landed 2026-08-30).
-- ◐ **H** — `baseSha` on `ForgePullDetailSchema` from `gh pr view`'s `baseRefOid` (mapped in
+- ✅ **H** — `baseSha` on `ForgePullDetailSchema` from `gh pr view`'s `baseRefOid` (mapped in
   `gh-parse.ts:257`, not `gh-cli.ts`), which is the only thing standing between the existing
-  `ImageDiff` viewer and a pull request (landed 2026-08-30). **Two items reverted at refinement
-  x1**: there is no "fetch to compare" affordance, so a fork PR whose base blob is not local
-  degrades to the plain binary treatment with no explanation; and `outstanding.md` never lost its
-  three stale entries. **Refined x1 (2026-09-05)** re-audited the whole phase against the tree: six
+  `ImageDiff` viewer and a pull request (landed 2026-08-30). **The two items reverted at
+  refinement x1 landed in [PR #267](https://github.com/bilo-io/midnite-studio/pull/267)
+  (2026-09-08)**: a new `blobExists` IPC channel (`git cat-file -e`) backs a "Fetch to compare"
+  button in `pr-file-accordion.tsx` for a fork PR whose base blob is not local, calling the
+  existing `fetch` op and nothing else before the click; `outstanding.md` lost its three stale
+  entries. That PR also found and fixed a real bug this same item's earlier half had shipped
+  with: `pr-detail.tsx` never passed `repoId`/`baseSha` down to `<PrFiles>`, so no PR image had
+  ever actually rendered. **Refined x1 (2026-09-05)** re-audited the whole phase against the tree: six
   themes are genuinely complete, C and H are partial, and the symbols the doc named (`SplitRow`,
   `pairRun`, `SplitBody`) exist nowhere — the split model is `split-diff-rows.ts` over a
   zod `SplitDiffRow` in `shared`, and its run pairing is **similarity-based** (`levenshteinDistance`),

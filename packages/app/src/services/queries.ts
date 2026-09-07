@@ -142,6 +142,17 @@ export const keys = {
   conflictRegions: (repoId: string, worktreePath: string | undefined, path: string) =>
     [...keys.status(repoId, worktreePath), 'conflict-regions', path] as const,
   /**
+   * Whether a blob is already in the local object database, at one revision
+   * and path — the gate on a pull request's "Fetch to compare" affordance
+   * (Phase 26 Theme H). NOT under `status`: a working-tree edit says nothing
+   * about whether some OTHER commit's blob is present, so the watcher's
+   * blanket `status` invalidation would only cause needless re-checks. The
+   * one thing that changes the answer is a successful `fetch`, which the
+   * caller invalidates this key for explicitly.
+   */
+  blobExists: (repoId: string, worktreePath: string | undefined, rev: string, path: string) =>
+    ['repos', repoId, 'blob-exists', worktreePath ?? '-', rev, path] as const,
+  /**
    * A repo's GitHub listings.
    *
    * Under the repo prefix so closing one drops them, but deliberately NOT

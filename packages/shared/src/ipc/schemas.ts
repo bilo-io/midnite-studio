@@ -442,6 +442,22 @@ export const CommitFileDiffRequest = RepoId.extend({
 export const FileDiffResponse = FileDiffSchema;
 
 /**
+ * Whether a blob is already in the local object database — `git cat-file -e`.
+ *
+ * Its own channel because the question has to be answered *before* the
+ * renderer decides what to render: an `<img>` pointed at `mstudio-file://` for
+ * a sha the checkout has never fetched fails silently, and the pull-request
+ * image diff (Phase 26 Theme H) needs to tell that apart from "no such file at
+ * this revision" so it can offer a "Fetch to compare" button instead.
+ */
+export const BlobExistsRequest = RepoId.extend({
+  rev: HexRev,
+  path: z.string().min(1),
+  worktreePath: z.string().optional(),
+});
+export const BlobExistsResponse = z.object({ exists: z.boolean() });
+
+/**
  * A conflicted path's regions, structured for the Studio (Phase 47 Theme D).
  *
  * Not part of `FileDiffRequest`/`fileDiff` — that channel hands the renderer

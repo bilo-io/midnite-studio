@@ -1,6 +1,6 @@
 import type { ChangeCounts, StatusEntry } from '@midnite/studio-shared';
 import { LuChevronRight } from 'react-icons/lu';
-import { useId } from 'react';
+import { useId, useRef } from 'react';
 
 import { Counts } from '../../components/change-tree';
 import { DiffToolbar } from '../diff/diff-toolbar';
@@ -8,6 +8,7 @@ import { DiffView } from '../diff/diff-view';
 
 import { imageDiffSources } from '../diff/image-sources';
 import { useFileDiff } from '../diff/use-file-diff';
+import { useTooNarrowForSplit } from '../diff/use-diff-split-width';
 import { primaryCode, StatusMark } from '../status/status-mark';
 
 /**
@@ -48,9 +49,17 @@ export function FileAccordion({
   onToggle: () => void;
 }) {
   const bodyId = useId();
+  /*
+    Theme C's width fallback. The toolbar (header) and the diff body are
+    siblings here, not parent/child — `<DiffView inline>`'s own scroller ref
+    can't see the header, so this section is the narrowest ancestor both can
+    share a width reading from.
+  */
+  const sectionRef = useRef<HTMLElement>(null);
+  const tooNarrowForSplit = useTooNarrowForSplit(sectionRef);
 
   return (
-    <section className="border-b border-border/60 last:border-b-0">
+    <section ref={sectionRef} className="border-b border-border/60 last:border-b-0">
       <header className="sticky top-0 z-10 flex items-center gap-2 bg-background/95 px-3 py-1.5 backdrop-blur">
         <button
           type="button"
@@ -80,13 +89,23 @@ export function FileAccordion({
         </button>
 
         {open ? (
-          <FileAccordionToolbar repoId={repoId} worktreePath={worktreePath} entry={entry} />
+          <FileAccordionToolbar
+            repoId={repoId}
+            worktreePath={worktreePath}
+            entry={entry}
+            tooNarrowForSplit={tooNarrowForSplit}
+          />
         ) : null}
       </header>
 
       {open ? (
         <div id={bodyId}>
-          <FileAccordionBody repoId={repoId} worktreePath={worktreePath} entry={entry} />
+          <FileAccordionBody
+            repoId={repoId}
+            worktreePath={worktreePath}
+            entry={entry}
+            tooNarrowForSplit={tooNarrowForSplit}
+          />
         </div>
       ) : null}
     </section>
@@ -97,10 +116,12 @@ function FileAccordionToolbar({
   repoId,
   worktreePath,
   entry,
+  tooNarrowForSplit,
 }: {
   repoId: string;
   worktreePath?: string;
   entry: StatusEntry;
+  tooNarrowForSplit: boolean;
 }) {
   const { diff, expandContext } = useFileDiff({
     repoId,
@@ -111,7 +132,14 @@ function FileAccordionToolbar({
   });
 
   if (!diff) return null;
-  return <DiffToolbar diff={diff} onExpandContext={expandContext} showStats={false} />;
+  return (
+    <DiffToolbar
+      diff={diff}
+      onExpandContext={expandContext}
+      showStats={false}
+      tooNarrowForSplit={tooNarrowForSplit}
+    />
+  );
 }
 
 /**
@@ -126,10 +154,12 @@ function FileAccordionBody({
   repoId,
   worktreePath,
   entry,
+  tooNarrowForSplit,
 }: {
   repoId: string;
   worktreePath?: string;
   entry: StatusEntry;
+  tooNarrowForSplit: boolean;
 }) {
   /*
     `staged: false` — the working-tree side.
@@ -160,6 +190,7 @@ function FileAccordionBody({
         isLoading={isLoading}
         onExpandContext={expandContext}
         inline
+        tooNarrowForSplit={tooNarrowForSplit}
         images={imageDiffSources(diff, {
           kind: 'worktree',
           repoId,

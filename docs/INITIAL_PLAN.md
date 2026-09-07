@@ -109,7 +109,7 @@ Repo skeleton: all root config files above, four packages with `package.json`/`t
 
 ### Phase 6 — Status / stage / commit / sync panel
 
-`git-engine/src/commands/{stage,commit,discard,fetch,pull,push}.ts` (writes through the queue; discard uses explicit paths only; **no force-push anywhere in MVP**); handlers + `app/src/features/status/` — staged/unstaged lists, commit box, **ahead/behind chips + VSCode-style Sync (fetch/pull/push) buttons** relying on the user's credential helpers (`GIT_TERMINAL_PROMPT=0` so auth failures error loudly instead of hanging); unified-diff text stub for file diffs (proper diff viewer → outstanding.md).
+`git-engine/src/commands/{stage,commit,discard,fetch,pull,push}.ts` (writes through the queue; discard uses explicit paths only; **no force-push anywhere in MVP**); handlers + `app/src/features/status/` — staged/unstaged lists, commit box, **ahead/behind chips + VSCode-style Sync (fetch/pull/push) buttons** relying on the user's credential helpers (`GIT_TERMINAL_PROMPT=0` so auth failures error loudly instead of hanging); unified-diff text stub for file diffs (proper diff viewer → outstanding.md; landed in Phase 12 Theme D, and the shared `<DiffView>` gained a second, side-by-side layout in Phase 26).
 **Verify:** integration tests (stage→status→commit→clean; conflict entries parse; push to a local bare remote fixture); manual smoke. Screenshot.
 
 ### Phase 7 — Graph interactions: context menus, checkout, branch/tag, reset
