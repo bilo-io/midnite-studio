@@ -423,6 +423,13 @@ export const CHANNELS = {
   browserFindStop: 'mstudio:browser:find-stop',
   browserClearData: 'mstudio:browser:clear-data',
   /**
+   * An absolute zoom factor for one tab (Theme G) — never a delta. The
+   * renderer already owns per-origin persistence (`browser-store.ts`'s
+   * `zoomByOrigin`), and a delta channel would make main the source of truth
+   * for state only the renderer keeps.
+   */
+  browserZoom: 'mstudio:browser:zoom',
+  /**
    * Is anything listening on `127.0.0.1:<port>`? (Phase 71 Theme C.)
    *
    * A renderer cannot open a TCP socket, so dev-server detection needs main

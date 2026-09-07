@@ -336,6 +336,7 @@ const bridge: Pick<
     find: (req) => ipcRenderer.send(CHANNELS.browserFind, req),
     findStop: (req) => ipcRenderer.send(CHANNELS.browserFindStop, req),
     clearData: () => call(CHANNELS.browserClearData),
+    zoom: (req) => ipcRenderer.send(CHANNELS.browserZoom, req),
     devServerProbe: (req) => call(CHANNELS.browserDevServerProbe, req),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
   },

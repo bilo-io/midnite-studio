@@ -1836,6 +1836,16 @@ export const BrowserFindRequest = z.object({
 export const BrowserFindStopRequest = z.object({ tabId: z.string().min(1) });
 /** No payload: clears the whole `persist:browser` partition's storage and cache. */
 export const BrowserClearDataResponse = GitOpResultSchema;
+/**
+ * An absolute zoom factor (Theme G), not a delta — the renderer already owns
+ * per-origin persistence, so a delta channel would make main the source of
+ * truth for state only the renderer keeps. `0.25..5` mirrors Chromium's own
+ * `webContents.setZoomFactor` clamp.
+ */
+export const BrowserZoomRequest = z.object({
+  tabId: z.string().min(1),
+  factor: z.number().min(0.25).max(5),
+});
 
 /**
  * One loopback port to probe (Phase 71 Theme C).

@@ -544,6 +544,8 @@ export type MidniteStudioBridge = {
     findStop: (req: In<typeof S.BrowserFindStopRequest>) => void;
     /** Wipes the `persist:browser` partition's storage and cache. */
     clearData: () => Promise<z.infer<typeof S.BrowserClearDataResponse>>;
+    /** An absolute factor, not a delta — see {@link S.BrowserZoomRequest}. */
+    zoom: (req: In<typeof S.BrowserZoomRequest>) => void;
     /**
      * Is a dev server listening on this loopback port? A hint for the new-tab
      * page and `browser.openDevServer`; nothing navigates on the answer.

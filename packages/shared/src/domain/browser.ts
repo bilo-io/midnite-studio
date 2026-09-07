@@ -156,5 +156,17 @@ export const BrowserEventSchema = z.discriminatedUnion('kind', [
    * cancelling loudly (a notice naming the file) beats dropping silently.
    */
   z.object({ kind: z.literal('download-blocked'), tabId: BrowserTabIdSchema, filename: z.string() }),
+  /**
+   * A `findInPage` match count (Theme G) — a new arm on the existing
+   * discriminated union rather than a new channel, since `bridge.ts`'s
+   * comment on `onEvent` already says that union is exactly what a per-tab,
+   * per-kind chrome push is for.
+   */
+  z.object({
+    kind: z.literal('found'),
+    tabId: BrowserTabIdSchema,
+    matches: z.number().int(),
+    activeMatchOrdinal: z.number().int(),
+  }),
 ]);
 export type BrowserEvent = z.infer<typeof BrowserEventSchema>;
