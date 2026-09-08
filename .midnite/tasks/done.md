@@ -9992,3 +9992,46 @@ Asserted by sampling: `terminal.spec.ts` clicks inside the page and reads a rect
 `requestAnimationFrame`, so "it went through the middle" is something the test sees rather than
 infers. A `boundingBox()` per frame from the test process spends most of a 200ms animation in
 transit and reports exactly what a panel that CUT would.
+
+## 2026-09-09 — Every section's heading and lede type themselves in on scroll (ad hoc)
+
+Extended the site's one typing treatment (`components/typewriter.tsx`) with `TypeIn`: a heading or
+paragraph that types itself in **once**, the first time it scrolls into view — a different job from
+`Typewriter`'s own headline, which rotates through a phrase list forever from the moment it mounts.
+Reuses `useInView` (the same one-shot observer `Reveal` already uses) rather than a second observer.
+
+No layout shift for a paragraph that wraps across a variable number of lines: the full string is
+rendered twice, stacked in the same grid cell (`gridArea: '1 / 1'`) rather than positioned
+absolutely (`Typewriter`'s own trick, which only works for the hero's single-line headline) — one
+copy `invisible` and always full length so it sizes the cell, the other `aria-hidden` and animated.
+A third `sr-only` copy carries the full text from the first render, so a screen reader has the whole
+heading or paragraph immediately rather than a word at a time — the same rule `Typewriter` already
+follows. `prefers-reduced-motion: reduce` renders the plain string, instantly, no caret. A
+`visibilitychange` listener pauses the timer while the tab is hidden, mirroring `AgentMarquee`'s own
+`document.hidden` handling rather than `page-visibility.ts`'s CSS-animation attribute (this clock is
+a `setTimeout` chain, not a paused keyframe).
+
+Per-character delay scales by string length (`typeInCharMs`) so every heading lands around
+`TYPE_IN_HEADING_MS` (600ms) and every paragraph around `TYPE_IN_LEDE_MS` (1400ms) regardless of
+word count, clamped to 6–55ms/character — only the site's one ~350-character paragraph (the hero's)
+misses the roughly-a-second-or-two target, landing around 2.1s at the floor.
+
+`Heading` and `Lede` (`components/text.tsx`) gained an opt-in `typeIn` prop that routes their
+(plain-text) children through `TypeIn` instead of rendering them whole — default `false`, so every
+existing caller keeps rendering exactly as before; a caller whose children are not plain text (an
+inline `<code>`, as `download-page.tsx`'s one `<Lede>` has) falls back to rendering `children`
+unchanged rather than risking `"[object Object]"`. `Lede`'s `typeInLeadMs` defaults to
+`TYPE_IN_HEADING_MS`, so a lede typing under a heading that is also typing starts right as the
+heading finishes rather than racing it.
+
+Wired `typeIn` into Features, FAQ, Services (the section header and each service row), Testimonials,
+Early access and Trusted — every section built on the shared `Heading`/`Lede` pattern. Hero and
+Footer have no `Lede` to opt in, so their one real paragraph each uses `TypeIn` directly; Hero's own
+`<h1>` already types forever via the existing rotating `Typewriter` (the `PHRASES` headline), which
+already satisfies "the heading types itself in," so it was left alone rather than duplicated.
+
+Every section's existing test suite passed unchanged: `getByRole('heading', { name })` and similar
+accessible-name queries resolve from `TypeIn`'s `sr-only` node, which holds the full string from the
+first render regardless of animation progress. Added `TypeIn`'s own suite to `typewriter.test.tsx`
+(cadence, lead-in, reduced motion, tab-hidden pause) and a new `text.test.tsx` for `Heading`/`Lede`'s
+`typeIn` opt-in and its plain-text-only fallback.

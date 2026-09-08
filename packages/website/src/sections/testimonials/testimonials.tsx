@@ -39,8 +39,10 @@ export const Testimonials = ({ testimonials = TESTIMONIALS }: TestimonialsProps)
     <Reveal>
       <div className="flex flex-col gap-4">
         <Eyebrow>Notes from the build</Eyebrow>
-        <Heading level={2}>What people say</Heading>
-        <Lede>
+        <Heading level={2} typeIn>
+          What people say
+        </Heading>
+        <Lede typeIn>
           Midnite Studio is early, and this is the section that says so. Nothing below is
           written by us on someone else&rsquo;s behalf — when there is a quote, it is
           verbatim, with the original message attached where there is one.

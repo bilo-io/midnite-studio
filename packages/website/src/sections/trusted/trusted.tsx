@@ -22,8 +22,10 @@ export const Trusted = () => (
     <Reveal>
       <div className="flex flex-col items-center gap-4 text-center">
         <Eyebrow>Bring your own agent</Eyebrow>
-        <Heading level={2}>Use your favourite agents</Heading>
-        <Lede className="text-center">
+        <Heading level={2} typeIn>
+          Use your favourite agents
+        </Heading>
+        <Lede className="text-center" typeIn>
           {SITE_AGENTS.length} coding agents ship in the roster, each one launched in a real
           login shell in a docked terminal — so its own auth, its own config and its own
           resume flag all work exactly as they do outside the app. Adding one more is an edit
