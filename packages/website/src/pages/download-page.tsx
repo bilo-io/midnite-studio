@@ -131,7 +131,15 @@ export const DownloadPage = () => (
                 <span className="font-mono text-xs text-fg-subtle">sh</span>
                 <CopyButton value={INSTALL_COMMAND} label="the install command" />
               </div>
-              <pre className="overflow-x-auto bg-bg-sunken px-4 py-4 text-left">
+              {/*
+                Wraps rather than scrolls. The command is one long line, and a
+                horizontally-scrolling code block inside a card with
+                `overflow-hidden` reads as *clipped* — the visitor sees a
+                sentence cut off at the card's edge with nothing to say it can
+                be dragged. Wrapping shows all of it, and the copy button beside
+                it is what guarantees the pasted text is exact either way.
+              */}
+              <pre className="whitespace-pre-wrap break-all bg-bg-sunken px-4 py-4 text-left">
                 <code
                   data-testid="install-command"
                   className="font-mono text-xs leading-relaxed text-fg sm:text-sm"
