@@ -91,6 +91,17 @@ export const PREFERENCE_KEYS = [
   'editorMinimap',
   'editorTabSize',
   'editorWordWrap',
+
+  // Phase 79 Theme A's five. The companion's Settings page is Theme H, a
+  // later slice of the same phase, so these are recorded as orphans here
+  // rather than pretending a control exists — see `KNOWN_ORPHANS` below and
+  // `outstanding.md`. Building Theme H means *deleting* these five from that
+  // list, not widening it.
+  'companionEnabled',
+  'companionHandsFree',
+  'companionHonorific',
+  'companionVoice',
+  'companionMusicOffer',
 ] as const;
 
 export const SESSION_STATE_KEYS = [
@@ -135,12 +146,13 @@ export const SESSION_STATE_KEYS = [
  * add to is a broken invariant, so building one of these means *deleting*
  * its entry here, not widening the list for a new one.
  *
- * The first five are this phase's own find (Decision 6 — five exceeds the
- * three-key threshold for fixing in place instead of recording). The last
+ * The first five are Phase 63's own find (Decision 6 — five exceeds the
+ * three-key threshold for fixing in place instead of recording). The next
  * five are Phase 64's `editor*` preferences, orphaned by a sibling PR (#164)
- * that merged onto `main` mid-flight — not this phase's scope to build, but
- * the allow-list still has to name them or the invariant would fail on code
- * this phase never touched.
+ * that merged onto `main` mid-flight. The last five are Phase 79 Theme A's
+ * `companion*` preferences, whose Settings page is that phase's own Theme H —
+ * a deliberately later slice, so the switches exist before the surface that
+ * flips them does.
  */
 export const KNOWN_ORPHANS = [
   'browserLayout',
@@ -153,6 +165,11 @@ export const KNOWN_ORPHANS = [
   'editorMinimap',
   'editorTabSize',
   'editorWordWrap',
+  'companionEnabled',
+  'companionHandsFree',
+  'companionHonorific',
+  'companionVoice',
+  'companionMusicOffer',
 ] as const satisfies readonly (typeof PREFERENCE_KEYS)[number][];
 
 type PartitionedKey = (typeof PREFERENCE_KEYS)[number] | (typeof SESSION_STATE_KEYS)[number];
