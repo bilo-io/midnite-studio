@@ -79,6 +79,84 @@
   --ws-accent-soft-hsl: 265 60% 20%;
   --ws-accent-soft: hsl(var(--ws-accent-soft-hsl));
 
+  /*
+    ── The rainbow ───────────────────────────────────────────────────────────
+
+    The app's own six stops, verbatim: `packages/app/src/styles.css` declares
+    `--rainbow-0..5` as `#f43f5e #f59e0b #10b981 #3b82f6 #8b5cf6 #ec4899` and
+    uses them as a seven-stop conic on the FAB ring and as a horizontal ramp on
+    the live-agent readout's text. The site and the app are one brand, so these
+    are the *same colours* — Tailwind's rose/amber/emerald/blue/violet/pink 500,
+    converted to this file's channel-triplet form rather than re-picked by eye.
+    The website may not import from `packages/app`, so the values are copied;
+    if the app's ramp ever changes, this block changes with it.
+
+    `--ws-rainbow-ramp` closes the loop by repeating stop 0 at the end, exactly
+    as the app's does — that is what makes a rotating conic seamless.
+
+    ── Rainbow or violet? The rule ───────────────────────────────────────────
+
+    **The rainbow is for brand emphasis. Violet stays the functional accent.**
+
+    Rainbow, and nowhere else: the primary button, the nav tab for the section
+    in view, the `Eyebrow` category label, the footer wordmark, the hero's logo
+    halo, and the early-access input while it has focus. Six surfaces, each one
+    the page saying "this is us" rather than "this does something".
+
+    Violet — `--ws-accent`, solid — keeps everything a gradient would make
+    harder to read or harder to trust: body links and inline code, focus rings
+    (`:focus-visible` must be one unambiguous colour, and it has to survive on
+    top of a rainbow surface), form validation, the filter chips in Features and
+    Early access, the typewriter caret (0.08em wide — a gradient in it is one
+    colour anyway, and the caret's job is to read as a terminal cursor), and the
+    decorative strokes in the Services illustrations. `GlowCard`'s `lane-*`
+    glows are a different system again and are untouched.
+
+    ── Contrast ──────────────────────────────────────────────────────────────
+
+    Gradient text is only as legible as its darkest stop, so every stop is
+    checked against the theme's own background, not against an average:
+
+    - Dark: all six clear 4.5:1 on `--ws-bg`, violet the tightest at 4.6:1.
+    - Light: the app's stops do *not* — emerald #10b981 is 2.3:1 on white — so
+      the light theme re-derives the ramp at lower lightness and saturation.
+      Worst case there is amber at 5.4:1. The hues are the same six; only the
+      lightness moves, which is the same thing `--ws-accent` already does.
+
+    `--ws-rainbow-ink` is the label colour that sits *on* a rainbow fill: near
+    black on the dark theme's bright stops (4.7:1 at violet, the worst stop),
+    white on the light theme's dark ones (5.6:1 at pink).
+  */
+  --ws-rainbow-0-hsl: 350 89% 60%; /* rose   — #f43f5e */
+  --ws-rainbow-0: hsl(var(--ws-rainbow-0-hsl));
+  --ws-rainbow-1-hsl: 38 92% 50%; /* amber   — #f59e0b */
+  --ws-rainbow-1: hsl(var(--ws-rainbow-1-hsl));
+  --ws-rainbow-2-hsl: 160 84% 39%; /* emerald — #10b981 */
+  --ws-rainbow-2: hsl(var(--ws-rainbow-2-hsl));
+  --ws-rainbow-3-hsl: 217 91% 60%; /* blue    — #3b82f6 */
+  --ws-rainbow-3: hsl(var(--ws-rainbow-3-hsl));
+  --ws-rainbow-4-hsl: 258 90% 66%; /* violet  — #8b5cf6 */
+  --ws-rainbow-4: hsl(var(--ws-rainbow-4-hsl));
+  --ws-rainbow-5-hsl: 330 81% 60%; /* pink    — #ec4899 */
+  --ws-rainbow-5: hsl(var(--ws-rainbow-5-hsl));
+
+  --ws-rainbow-ramp:
+    var(--ws-rainbow-0), var(--ws-rainbow-1), var(--ws-rainbow-2), var(--ws-rainbow-3),
+    var(--ws-rainbow-4), var(--ws-rainbow-5), var(--ws-rainbow-0);
+
+  /* The ink that sits on a rainbow fill. Near-black here, white in light. */
+  --ws-rainbow-ink: hsl(var(--ws-bg-sunken-hsl));
+
+  /*
+    The neon glow's saturation and lightness. Its *hue* comes from `--ws-angle`
+    in `site.css`, so these two are the whole of the theme's say in it — full
+    neon against a near-black page, and dialled back below, because the same
+    82%/62% that reads as a lit edge on the dark theme reads as a highlighter
+    ring on a white one.
+  */
+  --ws-neon-sat: 82%;
+  --ws-neon-lum: 62%;
+
   --ws-lane-1-hsl: 205 82% 62%;
   --ws-lane-1: hsl(var(--ws-lane-1-hsl));
   --ws-lane-2-hsl: 144 62% 52%;
@@ -151,6 +229,29 @@
   --ws-accent-hsl: 265 62% 48%;
   --ws-accent-fg-hsl: 0 0% 100%;
   --ws-accent-soft-hsl: 265 70% 94%;
+
+  /*
+    The same six hues, dimmed until they are legible on white.
+
+    Not a saturation knob applied uniformly: each stop was measured against
+    `--ws-bg` and dropped only as far as it had to be, which is why amber and
+    emerald move a long way (they are the two the app's ramp puts nearest to
+    white) and blue and rose barely move at all. Every stop clears 4.5:1;
+    amber is the floor at 5.4:1, so gradient text needs no backplate.
+  */
+  --ws-rainbow-0-hsl: 350 70% 45%; /* rose    — 5.7:1 */
+  --ws-rainbow-1-hsl: 38 90% 30%; /* amber    — 5.4:1 */
+  --ws-rainbow-2-hsl: 160 78% 24%; /* emerald — 6.2:1 */
+  --ws-rainbow-3-hsl: 217 80% 45%; /* blue    — 5.9:1 */
+  --ws-rainbow-4-hsl: 258 62% 48%; /* violet  — 7.7:1 */
+  --ws-rainbow-5-hsl: 330 68% 45%; /* pink    — 5.5:1 */
+
+  /* White, because the light ramp's stops are the dark ones now. */
+  --ws-rainbow-ink: hsl(0 0% 100%);
+
+  /* Calmer: a coloured shadow rather than a lit edge. */
+  --ws-neon-sat: 62%;
+  --ws-neon-lum: 52%;
 
   --ws-lane-1-hsl: 205 82% 44%;
   --ws-lane-2-hsl: 144 62% 34%;

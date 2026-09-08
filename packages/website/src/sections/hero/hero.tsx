@@ -54,7 +54,11 @@ export const Hero = () => (
 
     <Container className="relative pb-20 pt-28 sm:pb-28 sm:pt-36">
       <div className="flex flex-col items-start gap-6">
-        <Logo size={44} markOnly className="drop-shadow-[0_0_24px_var(--ws-accent-soft)]" />
+        {/* The halo is a box-shadow on a round box rather than a
+            `drop-shadow` filter: the mark is a silhouette that `.ws-logo-mark`
+            already inverts with a filter, and stacking a second one on it
+            re-rasterises the image on every frame of the pulse. */}
+        <Logo size={44} markOnly className="ws-neon rounded-full" />
 
         <Eyebrow>Desktop · macOS on Apple silicon</Eyebrow>
 

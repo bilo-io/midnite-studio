@@ -2,7 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from './app';
+import { trackPageVisibility } from './page-visibility';
 import './styles/site.css';
+
+// Before the first paint, so the pulse never runs a frame in a hidden tab.
+trackPageVisibility();
 
 const container = document.getElementById('root');
 if (!container) {
