@@ -1,7 +1,9 @@
 import type { ComponentType } from 'react';
 
+import { Features } from './features/features';
 import { Hero } from './hero/hero';
 import { placeholderSection } from './placeholder';
+import { Services } from './services/services';
 
 export type SectionEntry = {
   /**
@@ -38,24 +40,14 @@ export type SectionEntry = {
  */
 export const SECTIONS: readonly SectionEntry[] = [
   { id: 'hero', label: 'Midnite Studio', Component: Hero },
-  {
-    id: 'features',
-    label: 'Features',
-    Component: placeholderSection('features', 'What it does'),
-    nav: true,
-  },
+  { id: 'features', label: 'Features', Component: Features, nav: true },
   {
     id: 'trusted',
     label: 'Built on',
     Component: placeholderSection('trusted', 'Built on'),
     nav: true,
   },
-  {
-    id: 'services',
-    label: 'Services',
-    Component: placeholderSection('services', 'Services'),
-    nav: true,
-  },
+  { id: 'services', label: 'Services', Component: Services, nav: true },
   {
     id: 'testimonials',
     label: 'Notes',
