@@ -1,0 +1,86 @@
+# The early-access issue form — TO BE COMMITTED IN `bilo-io/midnite-apps`.
+#
+# This file is a DRAFT held in this repo. It does nothing here: GitHub only
+# reads issue forms from `.github/ISSUE_TEMPLATE/` in the repo the issue is
+# filed against, and early-access requests are filed against the *public*
+# releases repo (this one is private, so nothing a visitor touches can live in
+# it). Copy it to:
+#
+#     bilo-io/midnite-apps → .github/ISSUE_TEMPLATE/early-access.yml
+#
+# Then flip `ISSUE_TEMPLATE` in
+# `packages/website/src/sections/early-access/issue-url.ts` from `null` to
+# `'early-access.yml'`. Until that YAML exists, naming it in the URL gets the
+# visitor GitHub's template *chooser* with every prefilled field silently
+# dropped — strictly worse than the plain `?title=&body=` URL the site sends
+# today, which is why the site does not name it yet.
+#
+# The field `id`s below are the query-parameter names the site would send, so
+# they must match `composeIssueUrl`'s template branch exactly: `email`,
+# `use-case`, `agents`. Renaming one here without renaming it there produces an
+# issue with that answer missing and no error anywhere.
+#
+# Note also that `bilo-io/midnite-apps` serves several apps. Its existing
+# `bug.yml` and `feature.yml` ask which app the report is about; this form does
+# not, because it is reached only from the Midnite Studio site and hard-codes
+# the app in its title prefix.
+
+name: Early access request
+description: Ask for an early-access build of Midnite Studio.
+title: 'Early access: '
+labels: ['early-access']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for asking. This issue is **public** — including the address you
+        put in it. If you would rather not publish an address, say so in the
+        third box and leave the first one as a throwaway; the request still
+        counts.
+
+  - type: input
+    id: email
+    attributes:
+      label: Email
+      description: Where the build link should go.
+      placeholder: you@example.com
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: What would you point it at?
+      description: >
+        A repo, a workflow, a thing you do by hand today. The more specific the
+        more it shapes what ships next.
+      placeholder: A monorepo with four agents running at once, mostly reviewing each other's PRs.
+    validations:
+      required: false
+
+  - type: textarea
+    id: agents
+    attributes:
+      label: Agents you use
+      description: >
+        Comma-separated. The site's form fills this from its own chips — Claude,
+        Antigravity, Codex, Cursor, Copilot, OpenClaude, OpenCode, Kilo Code,
+        Aider, Cline — but write anything, including one that is not on that
+        list.
+      placeholder: Claude, Codex
+    validations:
+      required: false
+
+  # Deliberately a free-text field rather than a `checkboxes` block. An issue
+  # form's checkbox options are a list maintained *in this file*, in a different
+  # repo from the app's own agent roster — so the day an eleventh agent ships,
+  # the form would quietly be the only place that has not heard about it. A text
+  # field the site prefills cannot go stale that way, and someone filing the
+  # issue by hand can name a tool we have never shipped support for, which is
+  # itself the useful signal.
+
+  - type: markdown
+    attributes:
+      value: |
+        Anything else — what you would need before you would use it daily, what
+        would stop you — is welcome as a comment under this issue.

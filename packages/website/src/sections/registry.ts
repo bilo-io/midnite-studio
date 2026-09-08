@@ -1,6 +1,9 @@
 import type { ComponentType } from 'react';
 
+import { EarlyAccess } from './early-access/early-access';
+import { Faq } from './faq/faq-section';
 import { Features } from './features/features';
+import { Footer } from './footer/footer';
 import { Hero } from './hero/hero';
 import { placeholderSection } from './placeholder';
 import { Services } from './services/services';
@@ -54,14 +57,9 @@ export const SECTIONS: readonly SectionEntry[] = [
     Component: placeholderSection('testimonials', 'Notes from the build'),
     nav: true,
   },
-  { id: 'faq', label: 'FAQ', Component: placeholderSection('faq', 'FAQ'), nav: true },
-  {
-    id: 'early-access',
-    label: 'Early access',
-    Component: placeholderSection('early-access', 'Early access'),
-    nav: true,
-  },
-  { id: 'footer', label: 'Footer', Component: placeholderSection('footer', 'Footer') },
+  { id: 'faq', label: 'FAQ', Component: Faq, nav: true },
+  { id: 'early-access', label: 'Early access', Component: EarlyAccess, nav: true },
+  { id: 'footer', label: 'Footer', Component: Footer },
 ];
 
 /** The nav's anchor list — the registry, filtered, in page order. */
