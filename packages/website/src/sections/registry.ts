@@ -67,3 +67,12 @@ export const SECTIONS: readonly SectionEntry[] = [
 
 /** The nav's anchor list — the registry, filtered, in page order. */
 export const NAV_SECTIONS = SECTIONS.filter((section) => section.nav);
+
+/**
+ * Just the nav entries' ids, in page order — what the scroll-spy observes.
+ *
+ * Derived here rather than mapped at the call site so the nav and the observer
+ * cannot drift: the set of sections that get a nav item and the set the
+ * highlight can land on are the same set by construction.
+ */
+export const NAV_SECTION_IDS: readonly string[] = NAV_SECTIONS.map((section) => section.id);
