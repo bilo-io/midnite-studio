@@ -578,6 +578,13 @@ export function parseIndexWipRows(markdown: string): IndexWipRow[] {
  * The number lives here rather than in the renderer because
  * {@link chunkForSpeech} is the pure half of that workaround and is what the
  * tests assert against.
+ *
+ * **Not a duplicate of {@link splitForSpeech}, and they compose.** That one is
+ * Theme E's *content* cap: about sixty seconds of speech, after which the tail
+ * is dropped for "and more in the thread", applied by the flow before anything
+ * is spoken. This one is Theme F's *mechanical* cap, applied inside the speaker
+ * to each utterance the flow already handed it. One decides how much to say;
+ * the other decides how to get it past Chromium.
  */
 export const COMPANION_TTS_CHUNK_CHARS = 200;
 
@@ -1413,6 +1420,12 @@ function collapseBlankLines(text: string): string {
  * a minute, near the top of what the default macOS voices manage — giving 900.
  */
 export const COMPANION_UTTERANCE_CHAR_CAP = 900;
+/*
+  Distinct from Theme F's {@link COMPANION_TTS_CHUNK_CHARS} (200), which is a
+  workaround for Chromium silencing a long utterance. This is a decision about
+  how much is worth listening to; that is a decision about how to deliver it.
+  The flow applies this one, the speaker applies that one, in that order.
+*/
 /** What replaces the tail this cap drops. */
 export const COMPANION_TRUNCATION_TAIL = 'and more in the thread.';
 

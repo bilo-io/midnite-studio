@@ -3,8 +3,10 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-08 — Phase 79 Themes D, E — the concierge flow, the intent grammar, the hand-off and the read-back
 
-[PR #271](https://github.com/bilo-io/midnite-studio/pull/271). Moves Phase 79 27/67 → 42/67 (40% →
-63%), landing after Themes C and H. The phase's spine: the scripted opening, the words a request is recognised by, the route from
+[PR #271](https://github.com/bilo-io/midnite-studio/pull/271). Moves Phase 79 42/67 → 57/67 (63% →
+85%) and **closes the phase's eight themes** — it landed last of the three parallel wave-2 PRs,
+after C+H ([#270](https://github.com/bilo-io/midnite-studio/pull/270)) and F+G
+([#272](https://github.com/bilo-io/midnite-studio/pull/272)). The phase's spine: the scripted opening, the words a request is recognised by, the route from
 that request to a real agent session, and the route from that session's scrollback back to a spoken
 sentence. Landed beside two sibling PRs (C+H's panel, F+G's voice) and deliberately ahead of both —
 every seam either of them needs is a port with a working default.
@@ -230,7 +232,7 @@ auto-submit** in Theme F's transcript item belongs to Theme D/E's `autoSend` pat
 the transcript unsent, which is the phase's stated default, and `companionHandsFree` is read
 nowhere in it.
 =======
-**Theme C landed first, so the panel is wired in this PR rather than left open.**
+**Both siblings landed first, so this PR wires into them rather than leaving the seams open.**
 `register-flow-ports.ts` registers `submit · greet · interrupt · repeat` into Theme C's
 `companion-ports.ts` registry at **module scope**, not in an effect: the panel's own "greet once
 per open" guard fires from its first mount, which can precede any effect of ours, and a lost first
@@ -240,6 +242,31 @@ existed, and wrapping would put every typed message in the thread twice, exactly
 docblock warned. `useCompanionHandoffWatch()` is mounted from `app.tsx` beside
 `useCompanionEnabledSync()`, for the reason `useSessionExits` sits there: a hand-off runs
 unattended, so its answer has to arrive with the panel closed.
+
+**Two seams to Themes F and G are connected but not switched on, and that is deliberate rather
+than unfinished.** `voiceInReady()` still returns a hard `false` — it is the third condition on
+`autoSend: true`, so until someone verifies a real speech provider end to end, nothing the
+companion starts can run without a human Return; flipping it is a decision, not a rebase.
+`setCompanionSpeaker(…)` is likewise uncalled, so every turn is posted `spoken: false` and the
+thread reads exactly as it will with a voice; F's `speaker.ts` registers itself in one line.
+`HandoffDeps.onMusic` is the seam G's audio hangs off, and the `music` intent already calls it.
+All three are recorded in [`outstanding.md`](../outstanding.md).
+
+**A real defect the e2e caught, worth recording because the shape recurs.** Every entry point in
+`runtime.ts` is called as `void f()`, so a rejection is an unhandled promise rejection with nothing
+to catch it — and the consequence is not a logged error but a **wedged state machine**: `greet`
+moves it to `greeting`, and a throw two awaits later leaves it there with the header reading
+"Saying hello…" and nothing able to move it but the master switch. The e2e mock bridge had no
+`companion` namespace, which made `api.companion.snapshot(...)` a TypeError on the greeting's first
+await. Fixed on both sides: a `guarded()` wrapper around all six flows that posts the failure as a
+turn and sends `settle` (not `interrupt` — nothing was interrupted, the flow could not finish), and
+`mock-bridge.ts` grew the three companion channels, because a harness that cannot answer a channel
+the real preload has is testing the guard rather than the feature.
+
+Three assertions in Theme C's own spec moved as a result, and none of them was wrong before: they
+described the behaviour of `companion-ports.ts`'s no-op defaults — a panel that opens quiet, with
+the header at "Ready", "Nothing said yet" in the thread and no Repeat row in the popover. With
+`greet` registered the panel greets on open, which is the feature.
 >>>>>>> 0aef1e3a (feat(app): wire Themes D/E into Theme C's port registry, now that C has landed)
 
 ## 2026-09-08 — Phase 79 Themes C, H — the companion panel, the FAB's four looks and its Settings page

@@ -2,6 +2,19 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **Connect Phase 79's companion voice to its flow.** Themes D/E ([PR #271](https://github.com/bilo-io/midnite-studio/pull/271))
+  and F/G ([PR #272](https://github.com/bilo-io/midnite-studio/pull/272)) landed in parallel, so
+  three seams between them are connected in shape but not switched on. `voiceInReady()` in
+  [`features/companion/runtime.ts`](../../packages/app/src/features/companion/runtime.ts) returns a
+  hard `false` — it is the third condition on `autoSend: true`, so until a real speech provider is
+  verified end to end, nothing the companion starts can run without a human Return; flipping it is
+  a decision that wants a real-machine pass, not a code change. `setCompanionSpeaker(…)` is
+  likewise uncalled, so every companion turn is posted `spoken: false` and the thread reads exactly
+  as it will with a voice — `speaker.ts` registers itself in one line. And `HandoffDeps.onMusic`
+  is the seam Theme G's audio hangs off; the `music` intent already calls it, so wiring it is one
+  assignment. None of the three is a bug: each is a default the flow was built to run with, which
+  is what let the three PRs land in any order.
+
 - **Tick the phase docs that landed without being ticked.** Three docs assert far less progress than
   the tree does, and the doc — not `_INDEX.md` — is the accurate record in each case (Phase 69 reconciled
   the index to match each doc's actual box state). Phase 25 has 39 of 101 boxes ticked while `search.ts`,

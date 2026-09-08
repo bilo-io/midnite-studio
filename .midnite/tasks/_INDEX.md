@@ -9,9 +9,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 <<<<<<< HEAD
-| [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | 🔄 WIP | — | 42/67 | `██████░░░░` | 63% | D E | — |
+| [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | ✅ DONE | — | 57/67 | `█████████░` | 85% | — | — |
 =======
-| [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | 🔄 WIP | — | 42/67 | `██████░░░░` | 63% | F G | — |
 >>>>>>> 915b8338 (docs(todo): Phase 79 Themes D, E — tick the checklist, stamp the headings, update the index)
 | [78 · Whose hands were on the keyboard](phases/phase-78-whose-hands-were-on-the-keyboard.md) | ◻ TODO | — | 0/32 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [77 · Thirteen megabytes of editor, and the lanes that never move](phases/phase-77-thirteen-megabytes-of-editor.md) | ◻ TODO | — | 0/27 | `░░░░░░░░░░` | 0% | — | A B C D |
@@ -192,15 +191,11 @@ signal, and voiced by the OS. No new inference path, no MCP client, no audio ass
 - ✅ **B** — Grounding: `companion:snapshot` and `companion:digest` channels composed from `dispatchMcpCall` + the pty registry + the tracker files; a pure `summariseDigest`. ([PR #269](https://github.com/bilo-io/midnite-studio/pull/269))
 - ✅ **C** — The panel: a sibling right-docked resizable column left of Loops, a `PanelStack` thread, a docked textarea with mic + send, a `C` leaf in the quick-access menu, chord-free `companion.toggle`. ([PR #270](https://github.com/bilo-io/midnite-studio/pull/270))
 <<<<<<< HEAD
-- ◻ **D** — The concierge flow: greeting → static overview → "switch repo?" (only with >1) → digest → open prompt; deterministic, interruptible, replayed if cut short.
-- ◻ **E** — Hand-off + read-back: `parseIntent` grammar over `AgentCommandId`s, `useSkillHandoff`, a headless `companion:ask` fallback via `runProcess`, loading ends on `pty:activity`, `stripAnsi` + spoken summary with the full text in the thread.
+- ✅ **D** — The concierge flow: greeting → static overview → "switch repo?" (only with >1) → digest → open prompt; deterministic, interruptible, replayed if cut short — the mark moves in a second, marked read *after* the digest is spoken. ([PR #271](https://github.com/bilo-io/midnite-studio/pull/271))
+- ✅ **E** — Hand-off + read-back: `parseIntent` grammar over a `COMPANION_COMMAND_IDS` subset (no loops, no release ops), `skillHandoff`, a headless `companion:ask` via `runProcess` + the new `agentHeadlessArgs`, loading ends on a `waiting`/`idle` *after* a `thinking`, `cleanPtyText` + spoken summary with the full text in the thread. ([PR #271](https://github.com/bilo-io/midnite-studio/pull/271))
 - ✅ **F** — Voice: `speechSynthesis` queue with word-boundary events; `MediaRecorder` push-to-talk; STT provider seam in main with the key in `safeStorage`; audio-only `media` permission for the app origin only. ([PR #272](https://github.com/bilo-io/midnite-studio/pull/272))
 - ✅ **G** — Loading personality: fillers after 6 s, WebAudio whistle melodies and an elevator loop, a music offer at 20 s; everything stops on any user action; `AudioContext` suspended when idle. ([PR #272](https://github.com/bilo-io/midnite-studio/pull/272))
 =======
-- ✅ **D** — The concierge flow: greeting → static overview → "switch repo?" (only with >1) → digest → open prompt; deterministic, interruptible, replayed if cut short — the mark moves in a second, marked read *after* the digest is spoken. ([PR #271](https://github.com/bilo-io/midnite-studio/pull/271))
-- ✅ **E** — Hand-off + read-back: `parseIntent` grammar over a `COMPANION_COMMAND_IDS` subset (no loops, no release ops), `skillHandoff`, a headless `companion:ask` via `runProcess` + the new `agentHeadlessArgs`, loading ends on a `waiting`/`idle` *after* a `thinking`, `cleanPtyText` + spoken summary with the full text in the thread. ([PR #271](https://github.com/bilo-io/midnite-studio/pull/271))
-- ◻ **F** — Voice: `speechSynthesis` queue with word-boundary events; `MediaRecorder` push-to-talk; STT provider seam in main with the key in `safeStorage`; audio-only `media` permission for the app origin only.
-- ◻ **G** — Loading personality: fillers after 6 s, WebAudio whistle melodies and an elevator loop, a music offer at 20 s; everything stops on any user action; `AudioContext` suspended when idle.
 >>>>>>> 915b8338 (docs(todo): Phase 79 Themes D, E — tick the checklist, stamp the headings, update the index)
 - ✅ **H** — FAB choreography (`data-companion-state`: listening / thinking / handoff / speaking, reduced-motion statics), the assistant popover as a mini transcript, Settings ▸ Companion, one Playwright spec. ([PR #270](https://github.com/bilo-io/midnite-studio/pull/270))
 
