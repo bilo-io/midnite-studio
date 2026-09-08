@@ -24,6 +24,8 @@ on:
       # change to either can break its build without touching the package.
       - 'eslint.config.mjs'
       - '.moon/**'
+      # The install.sh drift guard the build job runs.
+      - 'scripts/website-sync-install.mjs'
   workflow_dispatch:
 
 concurrency:
@@ -66,6 +68,20 @@ jobs:
 
       - name: Typecheck, lint, test
         run: pnpm exec moon run website:typecheck website:lint website:test
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The site serves its own copy of the installer, so the download page can
+      # tell visitors to pipe *this host* into `sh` rather than a third-party
+      # URL. A committed copy of someone else's file drifts, and the way it
+      # drifts here is silent — an installer that keeps working while installing
+      # the wrong thing — so the copy is checked against upstream on every
+      # build. This job runs post-merge on `main`, which is the right shape for
+      # it: upstream can change with nothing merged here at all, so there is no
+      # pull request for a gate to block and this is a loud alarm instead.
+      # Re-sync with `node scripts/website-sync-install.mjs --write`.
+      - name: Check install.sh against upstream
+        run: pnpm exec moon run website:sync-install
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

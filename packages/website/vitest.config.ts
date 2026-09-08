@@ -12,9 +12,14 @@ export default defineConfig({
   // whatever the shell happens to export. The template branch is exercised by
   // passing `composeIssueUrl` its optional second argument instead, so both
   // branches are covered deterministically in every environment.
+  //
+  // `__SITE_ORIGIN__` is pinned empty for the same reason, which leaves
+  // `SITE_ORIGIN` on its default: a test asserting the install command should
+  // assert what the site ships, not whatever is in the runner's environment.
   define: {
     __BUILD_YEAR__: new Date().getFullYear(),
     __ISSUE_TEMPLATE__: null,
+    __SITE_ORIGIN__: JSON.stringify(''),
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],

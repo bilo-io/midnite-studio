@@ -26,3 +26,12 @@ declare const __BUILD_YEAR__: number;
  * see the comment there.
  */
 declare const __ISSUE_TEMPLATE__: string | null;
+
+/**
+ * The `WEBSITE_ORIGIN` **override**, inlined the same way — and the empty string
+ * when it is unset, which is the usual case.
+ *
+ * Read it through `src/site-origin.ts`'s `SITE_ORIGIN`, never directly: that is
+ * where the default lives and where the trailing slash is stripped.
+ */
+declare const __SITE_ORIGIN__: string;

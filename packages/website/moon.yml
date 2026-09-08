@@ -36,6 +36,11 @@ tasks:
       - 'package.json'
       - '$WEBSITE_BASE'
       - '$WEBSITE_ISSUE_TEMPLATE'
+      # `WEBSITE_ORIGIN` is an input for the same reason as the two above: it is
+      # inlined into the bundle (the download page's install command names the
+      # site's own origin absolutely), so a build following one with a different
+      # value must not be a cache hit.
+      - '$WEBSITE_ORIGIN'
     outputs:
       - 'dist'
 
@@ -51,6 +56,19 @@ tasks:
     preset: 'server'
     deps:
       - 'website:build'
+
+  # sync-install: assert `public/install.sh` is still byte-identical to the
+  # upstream installer in bilo-io/midnite-apps. `--check` diffs and fails;
+  # `--write` re-syncs (`moon run website:sync-install -- --write`).
+  #
+  # Uncacheable and network-bound, which is exactly why it is a moon task and
+  # not a vitest: the repo-wide `:test` gate must stay runnable offline. CI runs
+  # it in the Website workflow's build job, post-merge on `main`.
+  sync-install:
+    command: 'node scripts/website-sync-install.mjs --check'
+    options:
+      cache: false
+      runFromWorkspaceRoot: true
 
   # The inherited `test` task runs bare `vitest run`, which would not find
   # `vitest.config.ts` in its hash and so would stay a cache hit across a config
