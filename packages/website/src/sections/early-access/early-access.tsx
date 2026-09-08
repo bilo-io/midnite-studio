@@ -88,8 +88,10 @@ export const EarlyAccess = () => {
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16">
         <div className="flex flex-col gap-4">
           <Eyebrow>Early access</Eyebrow>
-          <Heading level={2}>Ask for a build.</Heading>
-          <Lede>
+          <Heading level={2} typeIn>
+            Ask for a build.
+          </Heading>
+          <Lede typeIn>
             Midnite Studio is usable and unfinished. Tell us what you would point it at and which
             agents you already run, and you go on the list — and get asked first when the thing
             you asked about ships.
