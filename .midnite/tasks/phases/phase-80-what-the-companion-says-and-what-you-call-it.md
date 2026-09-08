@@ -309,13 +309,13 @@ runtime is desktop-only per the bundle-budget guardrail above.
   addition passing eslint's `no-restricted-imports` boundary check (no `packages/app` import of it).
 - [ ] Perf: `moon run app:build desktop:bundle` then `scripts/perf/bundle-report.mjs` — confirm zero
   renderer bundle growth from Theme C (the dependency is desktop-only).
-- **Open, for a human:** listen to a real digest with 4+ dependency-update commits and confirm the
-  spoken summary matches the user's own example shape ("there have been 4 dependency updates, 3
-  fixes, including updating {x} in {y}") — no assertion can judge whether a sentence *sounds*
+- [ ] **Open, for a human:** listen to a real digest with 4+ dependency-update commits and confirm
+  the spoken summary matches the user's own example shape ("there have been 4 dependency updates,
+  3 fixes, including updating {x} in {y}") — no assertion can judge whether a sentence *sounds*
   natural.
-- **Open, for a human:** A/B the new local voice against `speechSynthesis` on a packaged macOS
+- [ ] **Open, for a human:** A/B the new local voice against `speechSynthesis` on a packaged macOS
   arm64 build and confirm it is audibly more natural — the whole premise of Theme C.
-- **Open, for a human:** confirm the local voice's first-utterance latency (model load + first
+- [ ] **Open, for a human:** confirm the local voice's first-utterance latency (model load + first
   synth) is not a regression against `speechSynthesis`'s effectively-instant start, per Theme C's
   perf measurement.
 
