@@ -157,12 +157,30 @@ export const Footer = () => (
         The wordmark. `select-none` and `aria-hidden`: it is a texture, and a
         reader who selects the whole page should not get "MIDNITE STUDIO" in
         70pt letters pasted into whatever they were writing.
+
+        The gradient is an inline `linear-gradient` over `color-mix`, not
+        Tailwind's `from-fg/25 via-accent/40`. **Tailwind 3's opacity modifier
+        does not work on this site's colours**: they are configured as raw
+        `var(--ws-*)` strings rather than with an `<alpha-value>` placeholder,
+        so `from-fg/25` compiles to *nothing at all* — no gradient stop, and
+        with `text-transparent` on top, an invisible wordmark. (Wave 1 has the
+        same latent problem in `site-nav`'s `bg-bg/80` and `Button`'s ghost
+        `bg-bg-elevated/60`; both are outside this section's blast radius and
+        want fixing at the token level, not here.)
       */}
       <Reveal className="mt-16">
         <p
           aria-hidden="true"
           data-testid="footer-wordmark"
-          className="select-none bg-gradient-to-r from-fg/25 via-accent/40 to-fg/10 bg-clip-text text-[clamp(2.5rem,11vw,9rem)] font-semibold leading-[0.9] tracking-tight text-transparent"
+          className="select-none bg-clip-text text-[clamp(2.5rem,11vw,9rem)] font-semibold leading-[0.9] tracking-tight text-transparent"
+          style={{
+            backgroundImage:
+              'linear-gradient(100deg,' +
+              ' color-mix(in srgb, var(--ws-fg) 26%, transparent) 0%,' +
+              ' color-mix(in srgb, var(--ws-accent) 52%, transparent) 45%,' +
+              ' color-mix(in srgb, var(--ws-fg) 8%, transparent) 100%)',
+            WebkitBackgroundClip: 'text',
+          }}
         >
           Midnite Studio
         </p>

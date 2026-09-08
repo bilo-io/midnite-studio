@@ -49,7 +49,7 @@ export const FooterHorizon = () => {
   const reduced = useReducedMotion();
 
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 overflow-hidden">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-32 overflow-hidden opacity-70">
       {/*
         A scoped keyframe. The site has no shared home for one-off decoration
         keyframes and `styles/site.css` is a file three wave-2 agents share, so
@@ -59,7 +59,7 @@ export const FooterHorizon = () => {
       <style>{`
         @keyframes ws-horizon-drift {
           from { stroke-dashoffset: 0; }
-          to { stroke-dashoffset: -240; }
+          to { stroke-dashoffset: -340; }
         }
         .ws-horizon-lane { animation: ws-horizon-drift 14s linear infinite; }
       `}</style>
@@ -96,8 +96,8 @@ export const FooterHorizon = () => {
               fill="none"
               stroke={LANES[index % LANES.length]}
               strokeWidth={1.25}
-              strokeOpacity={0.34}
-              strokeDasharray="120 120"
+              strokeOpacity={0.22}
+              strokeDasharray="300 40"
               className={reduced ? undefined : 'ws-horizon-lane'}
               style={reduced ? undefined : { animationDelay: `${index * -3.5}s` }}
             />
@@ -116,7 +116,7 @@ export const FooterHorizon = () => {
                 cy={y}
                 r={2.4}
                 fill={LANES[lane % LANES.length]}
-                fillOpacity={0.55}
+                fillOpacity={0.4}
               />
             );
           })}

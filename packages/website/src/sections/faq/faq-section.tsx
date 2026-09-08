@@ -90,7 +90,10 @@ const AnswerBody = ({ entry, lane }: { entry: FaqEntry; lane: number }) => (
  * (`gridArea: '1 / 1'`). The grid therefore sizes itself to the tallest answer
  * once, so switching questions never moves anything — and both the outgoing and
  * incoming panel are on screen during the transition, which is what makes it a
- * cross-fade rather than a flicker. The unselected ones carry
+ * cross-fade rather than a flicker. Each panel carries the card styling and
+ * `align-self: start`, rather than the grid carrying it: the reserved height is
+ * still the tallest answer's, but the *visible* card hugs the answer in it, so
+ * a short answer does not sit in a box with 300px of nothing under it. The unselected ones carry
  * `visibility: hidden`, not `display: none`: visibility removes them from the
  * accessibility tree and the tab order (so their links are not reachable) while
  * still being transitionable, which `display` is not.
@@ -227,7 +230,7 @@ export const Faq = () => {
           questions, and what lets two panels overlap for the length of a fade.
         */}
         <Reveal>
-          <div className="grid rounded-lg bg-bg-elevated p-6 shadow-glow-soft sm:p-8">
+          <div className="grid">
             {FAQ.map((entry, index) => {
               const isSelected = entry.slug === selected;
               return (
@@ -241,8 +244,15 @@ export const Faq = () => {
                   /* Focusable so a keyboard reader can Tab from the question
                      list straight into the prose it just selected. */
                   tabIndex={isSelected ? 0 : -1}
+                  className="rounded-lg bg-bg-elevated p-6 shadow-glow-soft sm:p-8"
                   style={{
                     gridArea: '1 / 1',
+                    /* `start`, so the card is the height of *its own* answer.
+                       The grid still reserves the tallest one — nothing on the
+                       page moves when the reader switches — but the slack shows
+                       as page background rather than as an empty card with 300px
+                       of nothing under the last paragraph. */
+                    alignSelf: 'start',
                     opacity: isSelected ? 1 : 0,
                     visibility: isSelected ? 'visible' : 'hidden',
                     transition:
