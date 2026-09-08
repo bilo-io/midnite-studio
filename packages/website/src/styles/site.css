@@ -88,6 +88,13 @@
       --ws-agent-cycle  one period — how long a logo owns the centre. Also the
                         length of the per-logo animation, and the same number
                         the hook is given as `periodMs`.
+      --ws-agent-scale  the size the selected logo holds at.
+      --ws-agent-peak   the size the bounce overshoots to before settling on
+                        that hold. It is also what the band's height is derived
+                        from, which is why it arrives from the module rather
+                        than being written into the keyframe: a keyframe cannot
+                        be read from JS, so a literal here would be a second
+                        copy of a number the height depends on.
 
     `.ws-marquee-track` is absolutely positioned at `left: 50%` and pulled back
     by the lead, which puts **the second copy's slot 0 exactly on the band's
@@ -275,21 +282,21 @@
   easing — `transform` can only have one timing function, and this needs the
   opposite of what the turn needs.
 
-  The shape, and why each number is where it is:
+  The shape, and why each stop is where it is:
 
-    0  → 28%   grow past the hold to 215%, on a back-out curve whose overshoot
-               is in the *easing* as well as the value, so the approach is
-               already springy before it arrives
-    28 → 35%   settle back to 200%, which is the hold the glow keyframes and the
-               band's height are both sized against
+    0  → 28%   grow past the hold to `--ws-agent-peak`, on a back-out curve
+               whose overshoot is in the *easing* as well as the value, so the
+               approach is already springy before it arrives
+    28 → 35%   settle back to `--ws-agent-scale`, the hold the glow keyframes
+               and the band's height are both sized against
     35 → 65%   held — the window straddling the geometric centre
-    65 → 72%   the mirror: it kicks back up to 215% as it starts to leave
+    65 → 72%   the mirror: it kicks back up to the peak as it starts to leave
     72 → 100%  shrink to rest on a back-*in* curve (a negative first control
                point), which dips slightly under 1 before settling — the
                anticipation that reads as the logo being let go
 
-  The peak (215%) is the number `agent-marquee.tsx` sizes the band from. If it
-  changes here, `PEAK_SCALE` changes there, or the glow gets clipped again.
+  Neither size is a literal: both arrive from `agent-marquee.tsx`, which derives
+  the band's height from the peak. See the property list above.
 */
 @keyframes ws-agent-bounce {
   0% {
@@ -297,19 +304,19 @@
     animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   28% {
-    scale: 2.15;
+    scale: var(--ws-agent-peak);
     animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
   }
   35% {
-    scale: 2;
+    scale: var(--ws-agent-scale);
     animation-timing-function: linear;
   }
   65% {
-    scale: 2;
+    scale: var(--ws-agent-scale);
     animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   72% {
-    scale: 2.15;
+    scale: var(--ws-agent-peak);
     animation-timing-function: cubic-bezier(0.36, 0, 0.66, -0.56);
   }
   100% {

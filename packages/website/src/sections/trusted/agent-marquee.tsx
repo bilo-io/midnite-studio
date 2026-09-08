@@ -82,17 +82,22 @@ const BAND_MAX_PX = 1152;
 */
 const MARK_PX = 56;
 const HALO_INSET_PX = 12;
-/**
- * The overshoot in `@keyframes ws-agent-bounce` — the *peak*, not the 2x it
- * settles to.
- *
- * Exported only so `agent-marquee.test.tsx` can ground it against the
- * stylesheet: this number lives in two files by necessity (a keyframe cannot be
- * read from JS, and a band height cannot be computed in CSS), and a silent
- * disagreement between them is exactly the clipped glow this fixes.
- */
-export const PEAK_SCALE = 2.15;
 const SLACK_PX = 24;
+
+/**
+ * The size the selected logo holds at, and the overshoot it gets there through.
+ *
+ * **Both are handed to CSS as custom properties** rather than written into
+ * `@keyframes ws-agent-bounce`, for the same reason the four geometry
+ * properties are: the band's height is derived from the peak, and a keyframe
+ * cannot be read from JS. Duplicating the number in the stylesheet would mean a
+ * change in one file silently clipping the glow in the other — which is the
+ * exact bug the height below exists to fix. So the keyframe interpolates
+ * `var(--ws-agent-peak)` and `var(--ws-agent-scale)`, and these are the only
+ * places either number is written down.
+ */
+export const HOLD_SCALE = 2;
+export const PEAK_SCALE = 2.15;
 
 /** The band's height: the glow at its widest, plus room for the falloff. */
 export const BAND_PX = Math.ceil((MARK_PX + HALO_INSET_PX * 2) * PEAK_SCALE) + SLACK_PX * 2;
@@ -277,6 +282,8 @@ export const AgentMarquee = ({ agents = SITE_AGENTS, className = '' }: AgentMarq
               '--ws-agent-pass': `${CYCLE_MS * count}ms`,
               '--ws-agent-lead': `${SLOT_PX * count * LEAD_COPIES + SLOT_PX / 2}px`,
               '--ws-agent-cycle': `${CYCLE_MS}ms`,
+              '--ws-agent-scale': HOLD_SCALE,
+              '--ws-agent-peak': PEAK_SCALE,
             } as CSSProperties
           }
         >
