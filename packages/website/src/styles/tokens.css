@@ -165,6 +165,12 @@
   --ws-lane-3: hsl(var(--ws-lane-3-hsl));
   --ws-lane-4-hsl: 50 82% 58%;
   --ws-lane-4: hsl(var(--ws-lane-4-hsl));
+  /* The fifth lane, added when the Features graph grew to five branches. Its
+     hue is the app's own lane 5 (`features/graph/lane-colors.ts`), lightened
+     the way the four above are: the site draws the product's palette, so a
+     lane that exists here has to be the one the product would have drawn. */
+  --ws-lane-5-hsl: 322 82% 66%;
+  --ws-lane-5: hsl(var(--ws-lane-5-hsl));
 
   --ws-radius-sm: 6px;
   --ws-radius-md: 10px;
@@ -257,6 +263,7 @@
   --ws-lane-2-hsl: 144 62% 34%;
   --ws-lane-3-hsl: 265 62% 52%;
   --ws-lane-4-hsl: 50 82% 34%;
+  --ws-lane-5-hsl: 322 72% 44%;
 
   --ws-glow-accent: 0 0 0 1px hsl(265 50% 78%), 0 18px 50px -24px hsl(265 62% 48% / 0.35);
   --ws-glow-soft: 0 0 0 1px hsl(240 14% 88%), 0 12px 34px -20px hsl(240 20% 30% / 0.22);

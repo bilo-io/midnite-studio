@@ -733,3 +733,99 @@ html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
     background-color: var(--ws-agent-color);
   }
 }
+
+@layer utilities {
+  /*
+    ── The Features commit graph (sections/features/showcase.tsx) ─────────────
+
+    Three animations, all on elements the component renders only when motion is
+    allowed, and all reading their timing from custom properties it sets on the
+    `<svg>` — `--ws-graph-loop` (one pass: every commit arrives once),
+    `--ws-graph-step` (one arrival), `--ws-graph-shift` (one copy of the list)
+    and `--ws-graph-pitch` (one row). The component derives all four from the
+    commit list, so the drawing and the motion cannot disagree about how many
+    rows there are.
+  */
+  .ws-graph-scroll {
+    animation: ws-graph-scroll var(--ws-graph-loop) linear infinite;
+    /* One layer for the one thing that moves continuously — the same bargain
+       the marquee's track makes, and for the same reason. */
+    will-change: transform;
+  }
+
+  .ws-graph-head {
+    animation: ws-graph-head var(--ws-graph-step) linear infinite;
+  }
+
+  /*
+    The write head's stroke, drawn rather than revealed. `pathLength="1"` on the
+    path is what makes one dash length serve any geometry: the browser scales
+    the dash array to the normalised length, so the offset is a fraction and not
+    a number that has to be re-measured whenever the path changes.
+  */
+  .ws-graph-write {
+    stroke-dasharray: 1;
+    animation: ws-graph-write var(--ws-graph-step) var(--ws-ease) infinite;
+  }
+}
+
+/*
+  One pass: down by exactly one copy of the list.
+
+  "Exactly one copy" is the whole loop. The list is drawn three times stacked
+  upwards, so after this translate copy `c` is sitting where copy `c−1` began
+  and the last frame is the first frame — there is no reset, and therefore
+  nothing to hide. Linear, because a commit graph does not accelerate.
+*/
+@keyframes ws-graph-scroll {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(var(--ws-graph-shift));
+  }
+}
+
+/*
+  The checked-out row, travelling with its commit and then handing over.
+
+  It fades in on the row that has just arrived, drifts down exactly one pitch
+  with it as the graph slides, and fades out — at which point the transform
+  snaps back to zero *while it is invisible*, which is why the jump is never
+  seen. One hop per arrival, which is what committing does to HEAD.
+*/
+@keyframes ws-graph-head {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  10% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(var(--ws-graph-pitch));
+  }
+}
+
+/*
+  The trunk extending, once per arrival: the line draws itself from the top of
+  the window down to the newest row, then holds while the graph carries it away.
+*/
+@keyframes ws-graph-write {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0.35;
+  }
+  55% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
