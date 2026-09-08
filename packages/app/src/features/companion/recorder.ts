@@ -6,6 +6,8 @@ import {
   type SttProviderId,
 } from '@midnite/studio-shared';
 
+import { bridge } from '../../services/bridge';
+
 /**
  * Voice-in: capture here, recognition in main (Phase 79 Theme F).
  *
@@ -101,11 +103,17 @@ export const defaultRecorderDeps = (): RecorderDeps => ({
       ? MediaRecorder.isTypeSupported(mime)
       : false,
   transcribe: async (req) => {
-    const bridge = typeof window === 'undefined' ? undefined : window.midniteStudio?.companion;
-    if (!bridge?.transcribe) {
+    /*
+      `bridge()?.companion?.transcribe` and not a bare property chain: the
+      unit tests' and the e2e fixture's bridges are cast rather than
+      constructed, so a call site has to survive a bridge that predates this
+      key — the same reason `lib/perf.ts` writes `perf?.` there.
+    */
+    const companion = bridge()?.companion;
+    if (!companion?.transcribe) {
       return failure('Transcription is not available in this window.');
     }
-    return bridge.transcribe(req);
+    return companion.transcribe(req);
   },
 });
 
