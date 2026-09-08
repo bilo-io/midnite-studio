@@ -234,24 +234,24 @@ the full evaluation; only the recommendation is planned as build work here.
   [`scripts/perf/`](../../../scripts/perf/) conventions (`CLAUDE.md`'s "Perf claims come with a
   number" rule) — the packaged-app-equivalent build, not dev mode.
 
-### D — The companion answers to more than one name (S)
+### D — The companion answers to more than one name (S) — ✅ DONE (PR #295, 2026-09-09)
 
 Finding 5: greenfield, not a migration — recorded as such rather than invented.
 
-- [ ] Add `companionNames: string[]` to `ui-store.ts`'s persisted `UiState` slice, beside the other
+- [x] Add `companionNames: string[]` to `ui-store.ts`'s persisted `UiState` slice, beside the other
   `companion*` fields (`ui-store.ts:1263-1333` for the type block, `:2246-2253` for the persisted
   partialize list), defaulting to `['Companion']` — the one name that already exists today as the
   hardcoded label (`ui-store.ts:243`), so a fresh install's behavior does not change.
-- [ ] Bump `version: 14` → `15` (`ui-store.ts:2164`) and add a `version < 15` arm to the `migrate`
+- [x] Bump `version: 14` → `15` (`ui-store.ts:2164`) and add a `version < 15` arm to the `migrate`
   function (`ui-store.ts:2297` onward, following the exact shape of the `version < 2` /
   `version < 3` arms already there) that sets `companionNames = ['Companion']` for every existing
   installation — there is no old scalar to read forward (Finding 5), so migration here means "give
   every pre-15 user the same default a fresh install gets," not a value transplant.
-- [ ] A schema in `packages/shared` — `CompanionNamesSchema = z.array(z.string().trim().min(1)).min(1)`
+- [x] A schema in `packages/shared` — `CompanionNamesSchema = z.array(z.string().trim().min(1)).min(1)`
   — validated wherever the array is written (the settings page's own add/remove handlers, not a new
   IPC boundary since this stays a renderer-only zustand-persisted setting like `companionHonorific`
   already is).
-- [ ] A pure matcher in `packages/shared/src/companion.ts`, beside `parseIntent`
+- [x] A pure matcher in `packages/shared/src/companion.ts`, beside `parseIntent`
   (`companion.ts:1453`) since it's the same "read text the user typed or said" concern:
   `matchesCompanionName(text: string, names: readonly string[]): boolean` — case-insensitive,
   trimmed, matches any of the names as a whole-word/whole-utterance test (not a substring — "Moses"
@@ -261,7 +261,7 @@ Finding 5: greenfield, not a migration — recorded as such rather than invented
   - *Acceptance:* unit tests in `companion.test.ts` beside `describe('parseIntent...')` blocks
     (`companion.test.ts:570` onward) covering case-insensitivity, trimming, multiple aliases, and
     the non-substring guarantee.
-- [ ] Settings ▸ Companion, Personality section (`companion-page.tsx:286-317`, beside
+- [x] Settings ▸ Companion, Personality section (`companion-page.tsx:286-317`, beside
   `companionHonorific`'s field): a bespoke pill-list control, since
   [`@bilo-io/ui`](../../../node_modules/@bilo-io/ui) ships no tag/token/chip input (its full export
   list — `Accordion`, `Button`, `Card`, `Collapse`, `ContextRing`, `Input`, `Select`,

@@ -28,6 +28,34 @@ vitest sweep renders every template × connective combination and asserts no dou
 dangling connective, plus a direct `plural()` sweep at counts 0/1/2/5+ — a vitest, not an eslint
 rule, since this repo's `eslint.config.mjs` has no precedent for asserting string content and the
 phase doc rules a lint rule out explicitly.
+## 2026-09-09 — Phase 80 Theme D — the companion answers to more than one name
+
+[PR #295](https://github.com/bilo-io/midnite-studio/pull/295). The companion had exactly one
+name — the hardcoded label `'Companion'` (`ui-store.ts:243`) — with no setting to change it
+(Finding 5: greenfield scope, not a migration; nothing named `wakeWord`/`companionName`/`callSign`
+existed anywhere in the tree). This theme adds `companionNames: string[]` to the persisted UI
+store, defaulting to `['Companion']` so a fresh install's behavior is unchanged, with the persist
+version bumped `14` → `15` and a migration arm seeding the same default for every pre-v15 install
+(there is no old scalar to carry forward, so migrating means "give existing installs the same
+default a fresh install gets," not a value transplant).
+
+`CompanionNamesSchema = z.array(z.string().trim().min(1)).min(1)` (`packages/shared/src/companion.ts`)
+validates the array at every write, and a new pure `matchesCompanionName(text, names)` matcher —
+case-insensitive, trimmed, whole-word rather than substring ("Moses" does not match a companion
+named "Mo") — reads text the user typed or an STT transcript already produced. Both are additive
+exports beside `parseIntent`, landing cleanly alongside `feature/comp-a`'s concurrent
+`sanitizeForSpeech` work in the same file.
+
+Settings ▸ Companion ▸ Personality gets a pill editor built from existing primitives rather than a
+new dependency (`@bilo-io/ui` ships no tag/token input) — `TextField`'s styling constant restated
+for a raw `<input>` that needs `onKeyDown` (Enter commits a name as a pill and clears the field,
+validated through the schema and rejecting an empty/case-insensitive-duplicate name with an inline
+message; Backspace in an empty field deletes the most-recently-added pill), and `IconButton` +
+`LuX` (`react-icons/lu`) for each pill's remove control, each labelled `Remove "${name}"` for a
+screen reader. Deleting the last remaining pill is blocked rather than silently backfilling a
+default — an explained-disable via `IconButton`'s own `disabledReason`, per the phase doc's
+Decision 6. No new IPC channel: `companionNames` stays a renderer-only zustand-persisted setting,
+exactly like `companionHonorific` already is (Decision 9).
 
 ## 2026-09-09 — Phase 80 Theme A — a spoken-form transform that never says a SHA
 
