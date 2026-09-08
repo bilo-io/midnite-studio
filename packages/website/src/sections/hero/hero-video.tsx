@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
 import { assetHref } from '../../routes';
+import { useResolvedTheme } from '../../theme';
 
 export type HeroVideoProps = { className?: string };
 
@@ -23,26 +24,26 @@ const POSTER_LIGHT = 'img/app-showcase/multi-screen-horizontal-light.png';
  * control strip in some engines, and cannot be told to `object-fit` reliably
  * across them. An image is an image.
  *
- * The two screenshots are the dark and light showcase renders; `<picture>`
- * picks by `prefers-color-scheme` so the still matches the theme around it.
+ * The two screenshots are the dark and light showcase renders. Picking
+ * between them reads `useResolvedTheme()` rather than a `<picture media>`
+ * source, because the nav's theme toggle can override the OS — a bare
+ * `prefers-color-scheme` source has no way to hear that override, only
+ * `useResolvedTheme()`'s `system` branch does.
  * `autoplay muted loop playsinline` is the only combination browsers will
  * start without a gesture, and `muted` is not negotiable for that reason.
  */
 export const HeroVideo = ({ className = '' }: HeroVideoProps) => {
   const [failed, setFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const theme = useResolvedTheme();
 
   const frame = `overflow-hidden rounded-lg bg-bg-sunken shadow-glow-soft ${className}`;
 
   if (failed) {
     return (
       <picture className={frame} data-testid="hero-poster">
-        <source
-          srcSet={assetHref(POSTER_LIGHT)}
-          media="(prefers-color-scheme: light)"
-        />
         <img
-          src={assetHref(POSTER)}
+          src={assetHref(theme === 'light' ? POSTER_LIGHT : POSTER)}
           alt="Midnite Studio: the commit graph, the worktree sidebar and the integrated terminal in one window."
           className="block h-full w-full object-cover"
           loading="lazy"
