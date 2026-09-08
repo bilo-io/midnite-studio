@@ -1,6 +1,39 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Website — a theme switcher in the nav: system, light, dark, no flash
+
+[PR #285](https://github.com/bilo-io/midnite-studio/pull/285). **Ad hoc, not phase-tracked.** The
+site was dark-first with no in-page override — `tokens.css`'s light palette only existed behind a
+bare `prefers-color-scheme: light` media query, which nothing running in the page could beat. A
+cycling icon button in the nav (`components/theme-toggle.tsx`, beside Download) now cycles
+`system → light → dark → system`, persisted under `localStorage['midnite-studio.website.theme']`
+(`system` clears the key rather than writing itself). `src/theme.ts` exposes `useTheme()` /
+`useResolvedTheme()` off `useSyncExternalStore`, backed by a `matchMedia` listener so a `system`
+visitor's live OS toggle is picked up without a reload.
+
+The light palette had to stop living **only** inside that media query, since an explicit override
+has no query to hook into: `tokens.css` now declares it once, under
+`:root[data-theme="light"], :root.ws-auto-light { … }` — an explicit choice sets `data-theme` on
+`<html>`, and `system` instead toggles `.ws-auto-light` from `matchMedia`, since a bare
+`prefers-color-scheme` query can't be told "unless overridden." `.ws-logo-mark`'s invert-under-dark
+rule in `site.css` follows the same pair. Two places still picked their asset from a
+`<picture media="prefers-color-scheme">` source, which is exactly the thing an override can't
+reach — `hero-video.tsx`'s poster fallback and `showcase.tsx`'s screenshot both moved to
+`useResolvedTheme()` instead. A ≤300-byte inline script at the top of `<head>` in both HTML
+entries applies the stored/system theme before first paint; Vite passes a plain non-module
+`<script>` through untouched, confirmed byte-for-byte in `dist/`.
+
+`colour-tokens.test.tsx` gained the single-sourcing regression guard, with one wrinkle: Vite's CSS
+pipeline returns an empty module for any `.css` import under Vitest's SSR transform, `?raw`
+included (confirmed empirically — `.ts`/`.tsx` raw imports work fine in the same suite), so the
+test can't read `tokens.css`'s text directly. It instead reproduces the real two-selector rule in
+an injected `<style>` tag and lets jsdom's own cascade resolve `data-theme="light"` and
+`.ws-auto-light` to the identical value — the mechanism the toggle actually depends on, checked a
+second way with real Playwright screenshots of the nav (`system` under each OS preference, and an
+explicit choice overriding the *opposite* one) run manually against the built `dist/`, since the
+website has no committed Playwright suite yet to attach one to. 92.13 KB gz JS.
+
 ## 2026-09-08 — Website — install.sh served from the site, and a brand face that cannot follow
 
 [PR #282](https://github.com/bilo-io/midnite-studio/pull/282). **Ad hoc, not phase-tracked.** Two
