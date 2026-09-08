@@ -1,6 +1,7 @@
 import { Button } from './button';
 import { Container } from './container';
 import { Logo } from './logo';
+import { ThemeToggle } from './theme-toggle';
 import { anchorHref, hrefFor } from '../routes';
 import { NAV_SECTIONS } from '../sections/registry';
 
@@ -58,9 +59,12 @@ export const SiteNav = ({ offLanding = false }: SiteNavProps) => (
         </ul>
       </nav>
 
-      <Button href={hrefFor('download')} size="md">
-        Download
-      </Button>
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
+        <Button href={hrefFor('download')} size="md">
+          Download
+        </Button>
+      </div>
     </Container>
   </header>
 );

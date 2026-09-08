@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <!-- No-flash: apply a stored/system theme before first paint. Mirrors src/theme.ts's applyTheme(). -->
+    <script>(function(){try{var t=localStorage.getItem('midnite-studio.website.theme'),d=document.documentElement;t==='light'||t==='dark'?d.setAttribute('data-theme',t):matchMedia('(prefers-color-scheme: light)').matches&&d.classList.add('ws-auto-light')}catch(e){}})();</script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="../favicon.png" />
