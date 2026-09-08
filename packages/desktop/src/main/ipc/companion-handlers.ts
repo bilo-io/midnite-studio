@@ -1,5 +1,5 @@
 import { CHANNELS, emptyCompanionSnapshot, ok, schemas } from '@midnite/studio-shared';
-import type { CompanionDigest, CompanionSnapshot, GitOpResult } from '@midnite/studio-shared';
+import type { CompanionDigest, CompanionSnapshot } from '@midnite/studio-shared';
 import type { z } from 'zod';
 
 import { buildCompanionDigest } from '../companion/digest';

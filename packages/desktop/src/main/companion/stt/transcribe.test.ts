@@ -19,6 +19,17 @@ import { SttError } from './types';
 
 const audio = new Uint8Array([1, 2, 3, 4]);
 
+/**
+ * The error arm's message, narrowed.
+ *
+ * `result.ok === false` alone still leaves the `conflict` arm in the union —
+ * which `GitOpResult` carries for every channel even where, as here, no
+ * caller can produce one. Narrowing on `kind` is what makes the field
+ * readable.
+ */
+const errorMessage = (result: { ok: boolean; kind?: string; message?: string }): string =>
+  result.ok === false && result.kind === 'error' ? (result.message ?? '') : '';
+
 /** A credentials-shaped fake. */
 function fakeCredentials(
   keys: Partial<Record<'openai-whisper' | 'deepgram', string>> = { 'openai-whisper': 'sk-test' },
@@ -72,7 +83,7 @@ describe('transcribeUtterance', () => {
       withProvider(createFakeSttProvider()),
     );
     expect(result).toMatchObject({ ok: false, kind: 'error' });
-    expect(result.ok === false && result.message).toContain('Hold the mic button');
+    expect(errorMessage(result)).toContain('Hold the mic button');
   });
 
   /*
@@ -87,7 +98,7 @@ describe('transcribeUtterance', () => {
       withProvider(provider),
     );
     expect(result).toMatchObject({ ok: false, kind: 'error' });
-    expect(result.ok === false && result.message).toContain('too large');
+    expect(errorMessage(result)).toContain('too large');
     expect(provider.calls).toEqual([]);
   });
 
@@ -96,7 +107,7 @@ describe('transcribeUtterance', () => {
       { audio, mime: 'audio/webm' },
       withProvider(createFakeSttProvider(), { credentials: fakeCredentials({}) }),
     );
-    expect(result.ok === false && result.message).toContain('No OpenAI Whisper key is stored');
+    expect(errorMessage(result)).toContain('No OpenAI Whisper key is stored');
   });
 
   it('says so differently when the machine cannot store one at all', async () => {
@@ -104,7 +115,7 @@ describe('transcribeUtterance', () => {
       { audio, mime: 'audio/webm' },
       withProvider(createFakeSttProvider(), { credentials: fakeCredentials({}, false) }),
     );
-    expect(result.ok === false && result.message).toContain('cannot store a key securely');
+    expect(errorMessage(result)).toContain('cannot store a key securely');
   });
 
   it('answers a provider with no implementation by name rather than a type error', async () => {
@@ -112,7 +123,7 @@ describe('transcribeUtterance', () => {
       { audio, mime: 'audio/webm', providerId: 'deepgram' },
       { credentials: fakeCredentials({ deepgram: 'dg-key' }), factories: {} },
     );
-    expect(result.ok === false && result.message).toContain('not implemented yet');
+    expect(errorMessage(result)).toContain('not implemented yet');
   });
 
   it('turns a provider failure into the error arm with its recovery step attached', async () => {
@@ -124,7 +135,7 @@ describe('transcribeUtterance', () => {
         }),
       ),
     );
-    expect(result.ok === false && result.message).toBe(
+    expect(errorMessage(result)).toBe(
       'The transcription service rejected the key. Check it.',
     );
   });
@@ -134,7 +145,7 @@ describe('transcribeUtterance', () => {
       { audio, mime: 'audio/webm' },
       withProvider(createFakeSttProvider({ failWith: new Error('boom') })),
     );
-    expect(result.ok === false && result.message).toBe('boom');
+    expect(errorMessage(result)).toBe('boom');
   });
 
   it('gives up at the timeout and says so as a timeout, not a network failure', async () => {
@@ -147,7 +158,7 @@ describe('transcribeUtterance', () => {
       await vi.advanceTimersByTimeAsync(15_001);
       const result = await pending;
       expect(result).toMatchObject({ ok: false, kind: 'error' });
-      expect(result.ok === false && result.message).toContain('longer than 15 seconds');
+      expect(errorMessage(result)).toContain('longer than 15 seconds');
     } finally {
       vi.useRealTimers();
     }
