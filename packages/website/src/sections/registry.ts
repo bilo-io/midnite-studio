@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 
+import { EarlyAccess } from './early-access/early-access';
 import { Faq } from './faq/faq-section';
 import { Features } from './features/features';
 import { Hero } from './hero/hero';
@@ -56,12 +57,7 @@ export const SECTIONS: readonly SectionEntry[] = [
     nav: true,
   },
   { id: 'faq', label: 'FAQ', Component: Faq, nav: true },
-  {
-    id: 'early-access',
-    label: 'Early access',
-    Component: placeholderSection('early-access', 'Early access'),
-    nav: true,
-  },
+  { id: 'early-access', label: 'Early access', Component: EarlyAccess, nav: true },
   { id: 'footer', label: 'Footer', Component: placeholderSection('footer', 'Footer') },
 ];
 

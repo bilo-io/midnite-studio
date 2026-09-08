@@ -148,7 +148,7 @@ export const Faq = () => {
     }
   }, []);
 
-  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, index: number) => {
+  const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
     const next = nextFaqIndex(event.key, index, FAQ.length);
     if (next === null) return;
     event.preventDefault();
