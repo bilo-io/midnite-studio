@@ -1,6 +1,35 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-09 — Website — a blue-violet-pink rainbow, a drifting text gradient, and a rebalanced marquee wordmark/caret
+
+[PR #291](https://github.com/bilo-io/midnite-studio/pull/291). **Ad hoc, not phase-tracked.**
+
+`--ws-rainbow-ramp` (`tokens.css`) was the app's own six stops, copied verbatim across the
+`packages/app` boundary. Recut it to Tailwind's blue/indigo/violet/purple/fuchsia/pink 500, in
+increasing hue order (217°→330°) — no green, yellow, orange or red, and coherent with
+`--ws-accent`'s violet, which sits inside the new range. A deliberate website-only divergence: the
+app's FAB ring and live-agent readout keep their full six. The loop-closing repeat of stop 0 is
+unchanged, so the conic fill stays seamless; every stop in both themes still clears 4.5:1
+(`colour-tokens.test.tsx`, updated).
+
+`.ws-rainbow-text` (`site.css`) went from a static gradient to a slow, continuous drift:
+`background-size: 200% 100%` plus a new `ws-rainbow-drift` keyframe animating `background-position`
+by exactly one image-width, seamless because the ramp already closes its own loop. Falls back to a
+single uncropped pass under `prefers-reduced-motion` and joins the rest of the rainbow in the
+existing tab-hidden pause list. Kept as its own keyframe rather than reusing `--ws-angle`/
+`ws-rainbow-turn` (the conic fill's rotation machinery) — rotating a linear gradient's angle
+reverses its orientation mid-sweep, the wrong motion for text.
+
+The agent marquee's per-agent name (`agent-marquee.tsx`) was `1.25rem` beside a `TypewriterCaret`
+stretched to nearly 3x the glyph height by its shared `self-stretch`, which matches the hero's
+content-sized container but not the marquee's *fixed* `CAPTION_PX` row (taller on purpose, for the
+glow). Fixed without touching the shared `typewriter.tsx` at all — a sibling PR was concurrently
+editing it: `.ws-agent-caption` now carries the font-size the name span used to declare itself
+(`1.75rem`), so the caret inherits it too, and `.ws-agent-caption .ws-caret` gets an explicit
+`height: 1em`, which makes `self-stretch` a no-op per the Flexbox spec. `CAPTION_LINE_PX` moved
+30→36 to match.
+
 ## 2026-09-08 — Website — agent names under the marquee, a living git graph, and every illustration animating
 
 [PR #290](https://github.com/bilo-io/midnite-studio/pull/290). **Ad hoc, not phase-tracked.**

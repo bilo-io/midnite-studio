@@ -262,7 +262,9 @@
     transparent fill, so the ramp shows through the glyphs. Every stop clears
     4.5:1 against the theme's background (measured in `tokens.css`), which is
     what makes this safe on 12px uppercase type; the light theme's ramp is a
-    dimmed re-derivation for exactly that reason.
+    dimmed re-derivation for exactly that reason. It also drifts — see
+    `ws-rainbow-drift` below — a slow, continuous slide of the ramp under the
+    glyphs rather than a static fill.
 
     `.ws-rainbow-fill` — a rainbow *surface*, for the primary button. The conic
     centre is placed below the element (`at 50% 140%`) on purpose: a conic
@@ -276,11 +278,46 @@
     can scale in from the left without moving the text, and a pseudo-element is
     not something a class in the markup can be put on.
   */
+  /*
+    The drift, on `.ws-rainbow-text` only — the button and the nav underline
+    already rotate through `--ws-angle` via `.ws-neon`/`ws-rainbow-turn` and
+    do not need a second mechanism.
+
+    `background-size: 200% 100%` gives the gradient room to slide: at rest
+    (`background-position: 0 0`) it is cropped to the left half of a
+    double-width image, and `ws-rainbow-drift` below carries the position the
+    rest of the way to `200% 0`, exactly one full image-width. Because the
+    ramp closes its own loop (`--ws-rainbow-ramp` repeats stop 0 at the end,
+    `tokens.css`), that full-image-width tile is seamless against the next
+    one under the default `background-repeat: repeat` — the loop restarts on
+    an identical frame, so nothing jumps.
+
+    Reusing `background-position` rather than re-declaring `background-image`
+    every frame is the point: the browser only has to reposition an existing
+    paint, not recompute a six-stop gradient on every tick.
+
+    Paused with every other infinite rainbow loop in the tab-hidden rule near
+    the end of this file, and reset to a single uncropped pass under
+    `prefers-reduced-motion` just below — both because a moving gradient is
+    exactly the kind of motion that policy exists to remove, and because
+    `tokens.css`'s blanket `animation-duration: 0.01ms` alone would still
+    leave the crop in place.
+  */
   .ws-rainbow-text {
     background-image: linear-gradient(100deg, var(--ws-rainbow-ramp));
+    background-size: 200% 100%;
+    background-position: 0 0;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    animation: ws-rainbow-drift 18s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ws-rainbow-text {
+      background-size: auto;
+      background-position: 0 0;
+    }
   }
 
   .ws-rainbow-fill {
@@ -611,6 +648,17 @@
 }
 
 /*
+  The gradient text's drift: one image-width of `background-position`, which
+  `.ws-rainbow-text`'s `background-size: 200% 100%` makes exactly one loop of
+  the ramp — see that rule for why the loop is seamless.
+*/
+@keyframes ws-rainbow-drift {
+  to {
+    background-position: 200% 0;
+  }
+}
+
+/*
   The breath. Radius 12px → 24px, opacity 0.35 → 0.6, symmetric about the
   resting value declared on `.ws-neon` — so an element that stops animating
   (reduced motion, a hidden tab) is already sitting where the cycle's midpoint
@@ -648,7 +696,8 @@ html[data-page-hidden='true'] .ws-neon,
 html[data-page-hidden='true'] .ws-nav-tab[data-active='true']::after,
 html[data-page-hidden='true'] .ws-marquee-track,
 html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'],
-html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
+html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] *,
+html[data-page-hidden='true'] .ws-rainbow-text {
   animation-play-state: paused;
 }
 
@@ -699,9 +748,21 @@ html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
     row's height is reserved in `agent-marquee.tsx`, because it is derived from
     the line box and the blur below and a stylesheet cannot be read from JS.
   */
+  /*
+    The font size lives on the row, not on the name span, so the caret below
+    inherits it too — its `w-[0.08em]` (`tokens.css`) and `1em` height then
+    scale with the actual wordmark rather than the page's ambient text size.
+    1.75rem reads as a peer of the section's own copy (`Lede` is 1rem/1.125rem)
+    rather than a caption under the band; `CAPTION_LINE_PX` in
+    `agent-marquee.tsx` carries the matching line-height into the row's
+    reserved height and must move with it.
+  */
+  .ws-agent-caption {
+    font-size: 1.75rem;
+  }
+
   .ws-agent-caption-name {
-    font-size: 1.25rem;
-    line-height: 30px;
+    line-height: 36px;
     font-weight: 600;
     letter-spacing: -0.01em;
     /* `pre`, so the box does not collapse to zero width on the empty beat
@@ -725,12 +786,26 @@ html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
   }
 
   /*
-    The caret is the hero's component, so it arrives with `bg-accent` on it.
-    Two classes outrank one utility class, which is how it takes the agent's
-    colour without an `!important` and without a second caret existing.
+    The caret is the hero's component, so it arrives with `bg-accent` and
+    `self-stretch` on it. Two classes outrank one utility class, which is how
+    this takes the agent's colour without an `!important` and without a
+    second caret existing.
+
+    **`height: 1em` is the second override, and it is load-bearing.** The
+    hero's `self-stretch` is correct there because its container's height is
+    the text's own line box — but the marquee's row is a *fixed* `CAPTION_PX`
+    (`agent-marquee.tsx`), taller than the line by twice the glow's blur
+    radius on purpose, so it can hold the name's glow without clipping it.
+    Stretched to that fixed row, the caret came out nearly three times the
+    height of the glyphs beside it. An explicit height makes `align-self:
+    stretch` a no-op per the Flexbox spec (stretch only applies when the
+    item's cross size is `auto`), and `1em` ties it to `.ws-agent-caption`'s
+    own font-size above — the same one the name inherits — rather than to a
+    second pixel constant that could drift out of step with it.
   */
   .ws-agent-caption .ws-caret {
     background-color: var(--ws-agent-color);
+    height: 1em;
   }
 }
 
