@@ -1,6 +1,23 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Website — opacity tokens that resolve, the early-access issue form, deploy-neutral copy
+
+[PR #281](https://github.com/bilo-io/midnite-studio/pull/281). **Ad hoc, not phase-tracked.** Every
+`/NN` opacity modifier on a site colour compiled to *nothing* — the Tailwind colours were finished
+`var(--ws-*)` strings with no `<alpha-value>` slot, so Tailwind dropped the utility rather than emit
+it wrong; ten classes were silent no-ops, the sticky nav's `bg-bg/80` among them (fully transparent
+over the hero). `tokens.css` now declares each colour as an HSL channel triplet (`--ws-bg-hsl`) and
+derives the finished `--ws-*` from it; `tailwind.config.ts` wraps the triplet as
+`hsl(var(--ws-*-hsl) / <alpha-value>)`. `src/styles/colour-tokens.test.tsx` compiles the real config
+against every `/NN` class found by scanning `src/` (floor of six) and fails on the old config. The
+early-access issue-template name is a build variable (`WEBSITE_ISSUE_TEMPLATE`, default unset =
+plain prefilled URL) because whether GitHub can find the template is a fact about
+`bilo-io/midnite-apps`, where [PR #4](https://github.com/bilo-io/midnite-apps/pull/4) adds
+`.github/ISSUE_TEMPLATE/early-access.yml` and waits for the human. Six places that named GitHub
+Pages as the only host now say "a static host". Built by an agent stopped by an accidental Ctrl+C
+after its last commit; rebased, gated and merged by the orchestrator. 91.31 KB gz JS.
+
 ## 2026-09-08 — Website — a Vercel config that installs only the site's workspace
 
 [PR #280](https://github.com/bilo-io/midnite-studio/pull/280). **Ad hoc, not phase-tracked.** The
