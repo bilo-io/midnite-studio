@@ -1,6 +1,88 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Website wave 2 — the FAQ, the early-access form and the footer
+
+[PR #278](https://github.com/bilo-io/midnite-studio/pull/278). **Ad hoc, not phase-tracked** —
+nothing in `_INDEX.md` moved. Three more of wave 1's seven placeholders are now real, leaving
+`trusted` and `testimonials` to the third sibling branch; this PR changed only its own three rows
+of `src/sections/registry.ts`. Site JS after the rebase onto #277: **265.56 KB raw / 82.29 KB
+gzipped** against the `Website` workflow's 256000-byte gzipped budget — 32% used, ~170 KB of
+headroom, and ~7.8 KB gz for these three sections on their own.
+
+**The FAQ is a tablist, not an accordion, and the reason is the reader's place on the page.** Eight
+disclosure rows means eight chances to push everything below them down, and comparing two answers
+means both have to be open, which an accordion cannot promise. A sticky list of eight question chips
+on the left with one answer panel on the right keeps every question visible while the answer changes
+beside it — and the questions are the part a visitor actually scans, because they are looking for
+theirs rather than reading all eight.
+
+**The cross-fade is every panel rendered into the same CSS grid cell** (`gridArea: '1 / 1'`), which
+buys two things one property cannot otherwise give: the grid sizes itself to the tallest answer
+once, so switching questions moves *nothing* on the page, and both the outgoing and the incoming
+panel are on screen for the length of the transition, which is what makes it a cross-fade and not a
+flicker. The unselected panels carry `visibility: hidden` rather than opacity alone — visibility
+takes them out of the tab order *and* the accessibility tree, so their links are not Tab-reachable,
+and unlike `display: none` it is still transitionable. Each panel carries the card styling with
+`align-self: start`, so the reserved height stays the tallest answer's while the *visible* card
+hugs the answer in it.
+
+Automatic activation on the arrow keys (selection and focus move together): with one panel and no
+expensive content behind it, making the reader press Enter after every arrow key is ceremony.
+Answers live in `faq/faq.ts` as data, and the slugs are published URL fragments — `#faq-<slug>`
+selects on load and on `hashchange`, a click rewrites the fragment with `replaceState` so the
+address bar stays copyable without eight history entries piling up behind Back, and a test asserts
+they are unique, URL-safe, non-empty, and never link to this private repo.
+
+**The early-access form has no backend and wants none.** A waitlist box normally means a
+third-party endpoint, a public API key in the client and an address list living somewhere nobody
+can audit. This one composes a prefilled issue in the public releases repo, shows it verbatim, and
+opens `issues/new?…` in a new tab so the visitor posts it themselves under their own account. The
+preview renders from the same `composeIssueBody` the URL carries, so what is on screen cannot drift
+from what is posted; "Open it on GitHub" is a real `<a target="_blank">` activated by a real click,
+which is the only reliable way past a popup blocker. The URL is built with `URLSearchParams`
+because an `&` in the free-text answer would truncate a hand-built query string at that character
+and post half a sentence.
+
+The shape of the form is the other half of it: one glowing field at rest, growing into the two
+optional ones on focus or first keystroke, and never collapsing again — pulling a form closed
+because focus moved is hostile once someone has started filling it. Chips go into the issue in
+roster order rather than click order, so the same answers always read the same way.
+
+**`bilo-io/midnite-apps` has no `early-access.yml` issue form, and the site deliberately does not
+name one.** It ships `bug.yml`, `feature.yml` and `config.yml`; GitHub answers an unknown
+`template=` with its template *chooser* and drops every prefilled field with no error at all —
+strictly worse than the plain `?title=&body=&labels=` URL, and invisible until someone actually
+uses the form. So `ISSUE_TEMPLATE` is `null`, the YAML a human should commit over there is drafted
+at `docs/website/early-access-issue-form.yml`, and `docs/WEBSITE.md` § Early access carries the
+two-step switch-over.
+
+**The footer's horizon is the hero's motif done the cheap way.** Same four lane hues, same
+crossings, but an SVG with one CSS `stroke-dashoffset` animation instead of a canvas with a
+`requestAnimationFrame` loop: nothing in the footer tracks the pointer, so there is no reason to
+pay per-frame arithmetic, no context to lose, and nothing to stop on `visibilitychange` — the
+browser suspends an off-screen CSS animation itself. `useReducedMotion` withholds the animation
+class, so reduced motion gets the *drawn* frame rather than whatever phase a 0.01ms-clamped
+animation happens to land on. The version badge reuses the download page's `useLatestVersion`
+unchanged, so the two cannot disagree about the current version on one page load, and the copyright
+year is `__BUILD_YEAR__` — a `define` in both the vite and the vitest config, because the year is a
+fact about the published artefact rather than about when someone looks at the page.
+
+**A latent wave-1 bug this turned up, left unfixed on purpose.** Tailwind's opacity modifier
+compiles to *nothing* on this site's colours: they are configured as raw `var(--ws-*)` strings with
+no `<alpha-value>` placeholder, so `from-fg/25` emits no CSS — which is how the footer wordmark
+came out invisible on the first build (fixed here with an inline `linear-gradient` over
+`color-mix`). The same latent problem sits in `site-nav`'s `bg-bg/80` — the sticky bar is fully
+transparent, not 80% — and in `Button`'s ghost `bg-bg-elevated/60`. The real fix is at the token
+level (bare HSL channels plus `hsl(var(--ws-bg) / <alpha-value>)`), which is a shared-file change
+three concurrent wave-2 agents should not race on.
+
+56 new tests (104 in the package): FAQ data, keyboard nav and deep links; email validation, the
+composed URL and the preview; footer links, reduced motion and the build year. Screenshots of all
+three sections in both themes were taken with Playwright against the built `dist` — they are what
+caught the invisible wordmark, an answer card with 300px of nothing under it, and a horizon louder
+than the copyright line behind it.
+
 ## 2026-09-08 — Website wave 2 — the Features and Services sections
 
 [PR #277](https://github.com/bilo-io/midnite-studio/pull/277). **Ad hoc, not phase-tracked** —
