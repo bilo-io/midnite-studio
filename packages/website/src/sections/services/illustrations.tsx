@@ -69,7 +69,7 @@ export const KanbanArt = () => {
     <svg
       viewBox="0 0 320 200"
       {...svgProps}
-      aria-label="Three board columns. A card in the middle column is outlined in green with a live dot, and an arrow shows a card being dragged into it."
+      aria-label="Three board columns. A card in the middle column is outlined in green with a live dot and a terminal inside it, an arrow shows a card being dragged into it, and underneath the same items are drawn as a chain of blocked-by dependencies."
     >
       <rect x={0.5} y={0.5} width={319} height={199} rx={12} {...FRAME} />
 
@@ -108,9 +108,25 @@ export const KanbanArt = () => {
       />
       <path d="M118 70 l -6 -3 l 0 6 z" fill="var(--ws-accent)" />
 
-      <rect x={16} y={160} width={288} height={24} rx={6} fill="var(--ws-bg-elevated)" />
-      <rect x={26} y={170} width={120} height={4} rx={2} fill="var(--ws-border-strong)" />
-      <circle cx={286} cy={172} r={4} fill="var(--ws-lane-4)" />
+      {/* Underneath: the same items as a blocked-by graph, left to right. */}
+      <rect x={16} y={152} width={288} height={32} rx={6} fill="var(--ws-bg-elevated)" />
+      <path
+        d="M46 168 H 92 M118 168 H 164 M190 168 H 236"
+        stroke="var(--ws-lane-4)"
+        strokeWidth={1.5}
+      />
+      {[36, 105, 177, 250].map((cx) => (
+        <circle
+          key={cx}
+          cx={cx}
+          cy={168}
+          r={6}
+          fill="var(--ws-bg-sunken)"
+          stroke="var(--ws-lane-4)"
+          strokeWidth={1.5}
+        />
+      ))}
+      <circle cx={284} cy={168} r={6} fill="var(--ws-lane-2)" />
     </svg>
   );
 };
