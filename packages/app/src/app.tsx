@@ -30,6 +30,14 @@ import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
 import { CompanionPanelSlot } from './features/companion/companion-panel';
+/*
+  Side-effect import: Phase 79 Themes F and G register their four members of
+  `companion-ports` (interrupt, the two mic gestures, mic availability) at
+  module scope, and apply the persisted companion volume. Imported here because
+  this is the only module guaranteed to run before the panel first renders —
+  there is nothing to call.
+*/
+import './features/companion/voice-ports';
 import { useCompanionEnabledSync } from './features/companion/use-companion-enabled';
 import { fabCompanionState } from './features/companion/companion-look';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from './features/loops/fab-loop-halo';

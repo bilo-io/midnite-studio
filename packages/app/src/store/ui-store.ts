@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import {
+  DEFAULT_COMPANION_VOLUME,
   METRICS_IDLE_INTERVAL_MS,
+  type CompanionMicMode,
   type Ecosystem,
   type LoopModel,
   type LoopSchedule,
@@ -1286,6 +1288,32 @@ export type UiState = {
   setCompanionVoice: (voice: string | null) => void;
   /** Whether the companion may offer elevator music on a long wait (Theme G). Default on — it only ever *offers*. */
   companionMusicOffer: boolean;
+
+  /**
+   * "Companion volume", 0–1, scaling everything Theme G synthesises — the
+   * whistle and the elevator loop — through the one master `GainNode` in
+   * `features/companion/audio/context.ts`.
+   *
+   * 0.7 rather than 1: the whistle and the loop are *background*, and a
+   * default that competes with the speaking voice is a default nobody keeps.
+   * Speech itself is not scaled by this — `speechSynthesis` volume is the OS
+   * voice's own, and a slider that quietly moved both would make "turn the
+   * music down" mean "stop being able to hear it".
+   */
+  companionVolume: number;
+  setCompanionVolume: (volume: number) => void;
+
+  /**
+   * How the mic button behaves (Theme F): hold it to talk, or tap to start
+   * and tap to stop.
+   *
+   * Push-to-talk is the default because it cannot leave a microphone open —
+   * releasing is the same gesture as stopping, so there is no state to
+   * forget. Toggle exists for a long dictation and for anyone who cannot hold
+   * a button, which is an accessibility case rather than a preference.
+   */
+  companionMicMode: CompanionMicMode;
+  setCompanionMicMode: (mode: CompanionMicMode) => void;
   setCompanionMusicOffer: (offer: boolean) => void;
   /**
    * Phase 59 Theme A — same shape as `allowForceWithLease`: default off, so
@@ -1526,6 +1554,8 @@ export type PersistedUi = Pick<
   | 'companionHonorific'
   | 'companionVoice'
   | 'companionMusicOffer'
+  | 'companionVolume'
+  | 'companionMicMode'
   | 'optimizerEnabled'
   | 'allowSystemCacheClean'
   | 'systemCacheConsentGiven'
@@ -1670,6 +1700,13 @@ export const useUiStore = create<UiState>()(
       setCompanionVoice: (companionVoice) => set({ companionVoice }),
       companionMusicOffer: true,
       setCompanionMusicOffer: (companionMusicOffer) => set({ companionMusicOffer }),
+      companionVolume: DEFAULT_COMPANION_VOLUME,
+      setCompanionVolume: (companionVolume) =>
+        // Clamped here as well as in `audio/context.ts`: the store is what
+        // persists, and a bad value written once would survive every relaunch.
+        set({ companionVolume: Math.min(1, Math.max(0, companionVolume)) }),
+      companionMicMode: 'push',
+      setCompanionMicMode: (companionMicMode) => set({ companionMicMode }),
       // Default off, same reasoning: a fresh install cannot scan or delete
       // anything, or list/kill a system process, until someone deliberately
       // turns the optimizer on.
@@ -2100,7 +2137,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 12,
+      version: 13,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2187,6 +2224,8 @@ export const useUiStore = create<UiState>()(
         companionHonorific: state.companionHonorific,
         companionVoice: state.companionVoice,
         companionMusicOffer: state.companionMusicOffer,
+        companionVolume: state.companionVolume,
+        companionMicMode: state.companionMicMode,
         optimizerEnabled: state.optimizerEnabled,
         allowSystemCacheClean: state.allowSystemCacheClean,
         systemCacheConsentGiven: state.systemCacheConsentGiven,
@@ -2217,6 +2256,8 @@ export const useUiStore = create<UiState>()(
        * v10 → v11: seed `activeEnvironmentByRepo` (Phase 70 Theme A) — a
        * persisted blob from before this phase has no environment selection to
        * remember.
+       * v12 → v13: seed `companionVolume` and `companionMicMode` (Phase 79
+       * Themes F and G) — a blob from before the voice half has neither.
        * v11 → v12: seed the five `companion*` preferences (Phase 79 Theme A).
        * Written explicitly rather than left absent for the reason v9 → v10
        * gives: `PersistedUi` is what rehydrate merges over the initial state,
@@ -2251,6 +2292,8 @@ export const useUiStore = create<UiState>()(
           companionHonorific?: string;
           companionVoice?: string | null;
           companionMusicOffer?: boolean;
+          companionVolume?: number;
+          companionMicMode?: CompanionMicMode;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -2295,6 +2338,10 @@ export const useUiStore = create<UiState>()(
         }
         if (version < 11) {
           state.activeEnvironmentByRepo = {};
+        }
+        if (version < 13) {
+          state.companionVolume = DEFAULT_COMPANION_VOLUME;
+          state.companionMicMode = 'push';
         }
         if (version < 12) {
           state.companionEnabled = false;

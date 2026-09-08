@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import { LuMic, LuMicOff, LuSendHorizontal } from 'react-icons/lu';
 
 import { Tooltip } from '../../components/tooltip';
-import { companionPorts } from './companion-ports';
+import { companionPorts, setCompanionPorts } from './companion-ports';
 
 /** How tall the textarea may grow before it starts scrolling instead. */
 const MAX_TEXTAREA_HEIGHT = 160;
@@ -90,6 +90,26 @@ export function CompanionInputBar({
     // Any other keystroke is the user taking the floor.
     onInterrupt();
   };
+
+  /*
+    A transcript arrives from main (Theme F), and the phase requires it to land
+    here **unsent** — the user reads it and presses Return. The textarea's
+    value is this component's own `useState`, so the port is registered from
+    here rather than by the voice module: it is the only writer there can be.
+    Appended rather than replacing, so a transcript never eats something
+    already typed.
+  */
+  useEffect(() => {
+    setCompanionPorts({
+      transcriptSink: (text) => {
+        const trimmed = text.trim();
+        if (trimmed.length === 0) return;
+        setValue((current) => (current.length === 0 ? trimmed : `${current} ${trimmed}`));
+        textareaRef.current?.focus();
+      },
+    });
+    return () => setCompanionPorts({ transcriptSink: () => {} });
+  }, []);
 
   /*
     Push-to-talk, not click-to-record: the mic is held down for as long as you

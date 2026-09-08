@@ -792,6 +792,29 @@ export const COMPANION_LEVEL_DECAY_MS = 180;
  */
 export const COMPANION_LEVEL_VAR = '--companion-level';
 
+/**
+ * "Companion volume" — how loudly Theme G's synthesis plays, 0–1.
+ *
+ * 0.7 rather than 1 because the whistle and the elevator loop are
+ * *background*: a default that competes with the speaking voice is a default
+ * nobody keeps. Speech is not scaled by it — `speechSynthesis` volume is the
+ * OS voice's own, and a slider that quietly moved both would make "turn the
+ * music down" mean "stop being able to hear it".
+ */
+export const DEFAULT_COMPANION_VOLUME = 0.7;
+
+/**
+ * How the mic button behaves (Theme F).
+ *
+ * `push` is the default because it cannot leave a microphone open — releasing
+ * is the same gesture as stopping, so there is no state to forget. `toggle`
+ * exists for a long dictation and for anyone who cannot hold a button down,
+ * which is an accessibility case rather than a preference.
+ */
+export const COMPANION_MIC_MODES = ['push', 'toggle'] as const;
+export const CompanionMicModeSchema = z.enum(COMPANION_MIC_MODES);
+export type CompanionMicMode = (typeof COMPANION_MIC_MODES)[number];
+
 /** Pick the next filler gap. `rng` injected so the scheduler's tests are exact. */
 export function nextFillerDelayMs(rng: () => number = Math.random): number {
   const { min, max } = COMPANION_FILLER_SPACING_MS;
