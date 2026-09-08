@@ -54,6 +54,16 @@
   --ws-glow-soft: 0 0 0 1px hsl(240 12% 20% / 0.9), 0 12px 40px -18px hsl(240 30% 4% / 0.9);
   --ws-glow-lane: 0 0 0 1px hsl(205 60% 40% / 0.4), 0 14px 44px -20px hsl(205 82% 55% / 0.35);
 
+  /*
+    The same shape in the other three lane hues. `--ws-glow-lane` IS lane 1 and
+    keeps its name; these carry the set to four, because the Features section
+    gives each of its three pillars its own lane colour and a palette that
+    stops after blue would have made that a hardcoded shadow instead.
+  */
+  --ws-glow-lane-2: 0 0 0 1px hsl(144 45% 32% / 0.45), 0 14px 44px -20px hsl(144 62% 45% / 0.35);
+  --ws-glow-lane-3: 0 0 0 1px hsl(265 55% 40% / 0.45), 0 14px 44px -20px hsl(265 70% 55% / 0.35);
+  --ws-glow-lane-4: 0 0 0 1px hsl(50 55% 34% / 0.5), 0 14px 44px -20px hsl(50 82% 50% / 0.32);
+
   --ws-dur-fast: 120ms;
   --ws-dur-base: 200ms;
   --ws-dur-slow: 420ms;
@@ -88,6 +98,9 @@
     --ws-glow-accent: 0 0 0 1px hsl(265 50% 78%), 0 18px 50px -24px hsl(265 62% 48% / 0.35);
     --ws-glow-soft: 0 0 0 1px hsl(240 14% 88%), 0 12px 34px -20px hsl(240 20% 30% / 0.22);
     --ws-glow-lane: 0 0 0 1px hsl(205 50% 76%), 0 14px 40px -24px hsl(205 82% 44% / 0.3);
+    --ws-glow-lane-2: 0 0 0 1px hsl(144 40% 72%), 0 14px 40px -24px hsl(144 62% 34% / 0.28);
+    --ws-glow-lane-3: 0 0 0 1px hsl(265 45% 80%), 0 14px 40px -24px hsl(265 62% 52% / 0.3);
+    --ws-glow-lane-4: 0 0 0 1px hsl(50 45% 66%), 0 14px 40px -24px hsl(50 82% 34% / 0.28);
   }
 }
 

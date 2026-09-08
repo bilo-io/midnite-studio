@@ -47,6 +47,11 @@ const config: Config = {
         glow: 'var(--ws-glow-accent)',
         'glow-soft': 'var(--ws-glow-soft)',
         'glow-lane': 'var(--ws-glow-lane)',
+        // Lanes 2-4 of the same set. `glow-lane` is lane 1, kept under its
+        // original name so nothing that already uses it has to change.
+        'glow-lane-2': 'var(--ws-glow-lane-2)',
+        'glow-lane-3': 'var(--ws-glow-lane-3)',
+        'glow-lane-4': 'var(--ws-glow-lane-4)',
       },
       transitionDuration: {
         fast: 'var(--ws-dur-fast)',
