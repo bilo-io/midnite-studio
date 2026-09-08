@@ -76,20 +76,51 @@ describe('the Features section', () => {
     }
   });
 
-  it('serves the showcase screenshot lazily, in both themes', () => {
-    // The strip is below the fold and the file is large, so an eager fetch here
-    // would cost the fold nothing but bandwidth. The theme comes from
-    // useResolvedTheme() (see showcase.tsx), not a <picture media> source, so
-    // an explicit override is honoured and not just the OS preference.
-    const { container } = render(<Features />);
-    const img = container.querySelector('img');
-    expect(img?.getAttribute('loading')).toBe('lazy');
-    expect(img?.getAttribute('src')).toContain('multi-screen-vertical-dark.png');
+  it('gives every pillar exactly three bullets', () => {
+    // A cap, not a coincidence — see the docblock in `pillars.ts`. A card with
+    // four claims beside two with three reads as the important one, which is
+    // why the Agentic pillar's fourth (Loops) came off.
+    for (const pillar of PILLARS) {
+      expect(pillar.bullets, pillar.id).toHaveLength(3);
+    }
+  });
 
-    setTheme('light');
-    const light = render(<Features />);
-    expect(light.container.querySelector('img')?.getAttribute('src')).toContain(
-      'multi-screen-vertical-light.png',
-    );
+  it('no longer claims Loops among the pillars', () => {
+    render(<Features />);
+    expect(screen.queryByText('Loops')).toBeNull();
+  });
+
+  it('draws the commit graph rather than serving a screenshot of one', () => {
+    // The crop of `multi-screen-vertical-*.png` is gone: the strip is now an
+    // inline SVG built from the lane tokens, so it costs no image request and
+    // needs no `<picture>` to follow the theme.
+    const { container } = render(<Features />);
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('picture')).toBeNull();
+
+    const graph = screen.getByTestId('showcase-graph');
+    expect(graph.tagName.toLowerCase()).toBe('svg');
+    expect(graph.getAttribute('role')).toBe('img');
+    expect(graph.getAttribute('aria-label')).toContain('commit graph');
+  });
+
+  it('colours the drawing from the lane tokens, with no hex anywhere', () => {
+    // Both themes come from the tokens the theme switcher flips (`data-theme`
+    // / `.ws-auto-light`, see `theme.ts`), so a literal colour here would be
+    // the one part of the picture that ignores an explicit choice — the exact
+    // bug the `<picture media>` source it replaced had.
+    const graph = render(<Features />).container.querySelector(
+      '[data-testid="showcase-graph"]',
+    ) as SVGSVGElement;
+
+    const painted = Array.from(graph.querySelectorAll('[fill], [stroke]')).flatMap((node) => [
+      node.getAttribute('fill') ?? '',
+      node.getAttribute('stroke') ?? '',
+    ]);
+    expect(painted.some((value) => value === 'var(--ws-lane-1)')).toBe(true);
+    expect(painted.some((value) => value === 'var(--ws-lane-4)')).toBe(true);
+    for (const value of painted) {
+      expect(value, value).not.toMatch(/#[0-9a-f]{3}/i);
+    }
   });
 });

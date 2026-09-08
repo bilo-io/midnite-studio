@@ -7,7 +7,6 @@ import {
   LuHistory,
   LuLayoutDashboard,
   LuPanelsTopLeft,
-  LuRepeat,
   LuScanEye,
   LuTerminal,
   LuWaypoints,
@@ -47,10 +46,18 @@ export type Pillar = {
  * **Every sentence below describes something that is built**, sourced from
  * `README.md` and the phase records in `.midnite/tasks/` — the graph and its
  * interactions (phases 5, 7, 8), the forge half (17, 20, 48, 54), the terminal
- * and its broker (9, 15, 30), session history (67), the loop panel (35, 39),
- * the Kanban board (41, 50, 75) and the embedded browser (27, 32, 71). There
- * are no numbers on this page for a reason: a benchmark nobody can reproduce is
- * worth less than a sentence that turns out to be true when the app opens.
+ * and its broker (9, 15, 30), session history (67), the Kanban board (41, 50,
+ * 75) and the embedded browser (27, 32, 71). There are no numbers on this page
+ * for a reason: a benchmark nobody can reproduce is worth less than a sentence
+ * that turns out to be true when the app opens.
+ *
+ * **Three bullets a pillar, and that is a cap rather than a coincidence.** The
+ * Agentic pillar had a fourth — Loops, the mission-control panel — and it is
+ * gone: not because the feature is, but because a card with four claims beside
+ * two cards with three reads as the important one, and Loops is the least
+ * legible of the four to somebody who has never opened the app. The invariant
+ * is asserted in `features.test.tsx`, so a fifth claim has to be an argument
+ * rather than an append.
  */
 export const PILLARS: readonly Pillar[] = [
   {
@@ -102,12 +109,6 @@ export const PILLARS: readonly Pillar[] = [
         title: 'Task integration',
         body:
           'A named session per piece of work, beside the agent roster that started it. Closing one is recorded rather than erased, so the transcript is still there when you come looking for it.',
-      },
-      {
-        Icon: LuRepeat,
-        title: 'Loops',
-        body:
-          'Four long-lived loops — Innovate, Automate, Watchdog, Medic — each on its own tab of the mission-control panel, with a status-bar launcher that glows while its loop is running.',
       },
       {
         Icon: LuLayoutDashboard,
