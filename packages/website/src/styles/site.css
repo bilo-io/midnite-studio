@@ -748,9 +748,21 @@ html[data-page-hidden='true'] .ws-rainbow-text {
     row's height is reserved in `agent-marquee.tsx`, because it is derived from
     the line box and the blur below and a stylesheet cannot be read from JS.
   */
+  /*
+    The font size lives on the row, not on the name span, so the caret below
+    inherits it too — its `w-[0.08em]` (`tokens.css`) and `1em` height then
+    scale with the actual wordmark rather than the page's ambient text size.
+    1.75rem reads as a peer of the section's own copy (`Lede` is 1rem/1.125rem)
+    rather than a caption under the band; `CAPTION_LINE_PX` in
+    `agent-marquee.tsx` carries the matching line-height into the row's
+    reserved height and must move with it.
+  */
+  .ws-agent-caption {
+    font-size: 1.75rem;
+  }
+
   .ws-agent-caption-name {
-    font-size: 1.25rem;
-    line-height: 30px;
+    line-height: 36px;
     font-weight: 600;
     letter-spacing: -0.01em;
     /* `pre`, so the box does not collapse to zero width on the empty beat
@@ -774,12 +786,26 @@ html[data-page-hidden='true'] .ws-rainbow-text {
   }
 
   /*
-    The caret is the hero's component, so it arrives with `bg-accent` on it.
-    Two classes outrank one utility class, which is how it takes the agent's
-    colour without an `!important` and without a second caret existing.
+    The caret is the hero's component, so it arrives with `bg-accent` and
+    `self-stretch` on it. Two classes outrank one utility class, which is how
+    this takes the agent's colour without an `!important` and without a
+    second caret existing.
+
+    **`height: 1em` is the second override, and it is load-bearing.** The
+    hero's `self-stretch` is correct there because its container's height is
+    the text's own line box — but the marquee's row is a *fixed* `CAPTION_PX`
+    (`agent-marquee.tsx`), taller than the line by twice the glow's blur
+    radius on purpose, so it can hold the name's glow without clipping it.
+    Stretched to that fixed row, the caret came out nearly three times the
+    height of the glyphs beside it. An explicit height makes `align-self:
+    stretch` a no-op per the Flexbox spec (stretch only applies when the
+    item's cross size is `auto`), and `1em` ties it to `.ws-agent-caption`'s
+    own font-size above — the same one the name inherits — rather than to a
+    second pixel constant that could drift out of step with it.
   */
   .ws-agent-caption .ws-caret {
     background-color: var(--ws-agent-color);
+    height: 1em;
   }
 }
 
