@@ -347,18 +347,32 @@ describe('the rainbow tokens', () => {
     expect(tokens.has('--ws-rainbow-ink')).toBe(true);
   });
 
-  it('is the app’s own six stops, not an approximation', () => {
-    // `packages/app/src/styles.css` — copied, because the website may not import
-    // across that boundary. Tailwind rose/amber/emerald/blue/violet/pink 500.
+  it('is a blue → violet → pink subspectrum, not the app’s own six stops', () => {
+    // Tailwind blue/indigo/violet/purple/fuchsia/pink 500, in increasing hue
+    // order (217°→330°) — a website-only re-cut, not a copy of the app's
+    // `--rainbow-0..5` (which keeps its full six). Indigo is lifted 1pt of
+    // lightness off Tailwind's own value to clear the 4.5:1 floor below.
     const tokens = tokensFor('dark');
     expect(STOPS.map((stop) => tripletFor(tokens, `--ws-rainbow-${stop}-hsl`))).toEqual([
-      '350 89% 60%',
-      '38 92% 50%',
-      '160 84% 39%',
       '217 91% 60%',
+      '239 84% 68%',
       '258 90% 66%',
+      '271 91% 65%',
+      '292 84% 61%',
       '330 81% 60%',
     ]);
+  });
+
+  it('stays inside the blue-to-pink range — no green, yellow, orange or red', () => {
+    const tokens = tokensFor('dark');
+    const hues = STOPS.map((stop) => {
+      const triplet = tripletFor(tokens, `--ws-rainbow-${stop}-hsl`);
+      return Number(/^(-?[\d.]+)/.exec(triplet)?.[1]);
+    });
+    for (const hue of hues) {
+      expect(hue, `hue ${hue} is outside 217°–330°`).toBeGreaterThanOrEqual(217);
+      expect(hue, `hue ${hue} is outside 217°–330°`).toBeLessThanOrEqual(330);
+    }
   });
 
   it.each(['dark', 'light'] as const)(
