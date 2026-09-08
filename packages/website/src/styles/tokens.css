@@ -1,0 +1,118 @@
+/*
+  The site's whole palette, in one place.
+
+  Dark-first: `:root` IS the dark theme, and the light variant is a single
+  `prefers-color-scheme: light` block that redefines the same names. Nothing
+  downstream — no Tailwind utility, no component — knows which one is active,
+  which is the point: a section written against `bg-bg text-fg` is correct in
+  both without a `dark:` prefix anywhere. There is no in-page theme switch, so
+  there is no class strategy either; the OS decides.
+
+  Hues are the product's own. The accent is the violet at index 2 of the commit
+  graph's lane palette (`packages/app/src/features/graph/lane-colors.ts`), and
+  `--ws-lane-*` are the first four entries of that same array, so the hero's
+  background grid is drawn in the colours the graph actually uses rather than in
+  a marketing approximation of them.
+*/
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, darkest to lightest. `sunken` is for code blocks and wells. */
+  --ws-bg: hsl(240 18% 6%);
+  --ws-bg-elevated: hsl(240 15% 10%);
+  --ws-bg-sunken: hsl(240 22% 4%);
+
+  /* Text. `subtle` is for captions and metadata, not for body copy. */
+  --ws-fg: hsl(240 12% 96%);
+  --ws-fg-muted: hsl(240 8% 72%);
+  --ws-fg-subtle: hsl(240 7% 52%);
+
+  --ws-border: hsl(240 12% 18%);
+  --ws-border-strong: hsl(240 12% 28%);
+
+  --ws-accent: hsl(265 78% 68%);
+  --ws-accent-fg: hsl(265 40% 8%);
+  --ws-accent-soft: hsl(265 60% 20%);
+
+  --ws-lane-1: hsl(205 82% 62%);
+  --ws-lane-2: hsl(144 62% 52%);
+  --ws-lane-3: hsl(265 70% 68%);
+  --ws-lane-4: hsl(50 82% 58%);
+
+  --ws-radius-sm: 6px;
+  --ws-radius-md: 10px;
+  --ws-radius-lg: 18px;
+  --ws-radius-full: 9999px;
+
+  /*
+    Glows are box-shadows, not filters: a `filter: drop-shadow` on a card forces
+    the whole subtree onto its own layer and re-rasterises it on every hover,
+    while a box-shadow is one paint on the element itself.
+  */
+  --ws-glow-accent: 0 0 0 1px hsl(265 60% 40% / 0.5), 0 18px 60px -20px hsl(265 78% 55% / 0.45);
+  --ws-glow-soft: 0 0 0 1px hsl(240 12% 20% / 0.9), 0 12px 40px -18px hsl(240 30% 4% / 0.9);
+  --ws-glow-lane: 0 0 0 1px hsl(205 60% 40% / 0.4), 0 14px 44px -20px hsl(205 82% 55% / 0.35);
+
+  --ws-dur-fast: 120ms;
+  --ws-dur-base: 200ms;
+  --ws-dur-slow: 420ms;
+  --ws-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --ws-bg: hsl(240 20% 99%);
+    --ws-bg-elevated: hsl(240 24% 96%);
+    --ws-bg-sunken: hsl(240 22% 93%);
+
+    --ws-fg: hsl(240 24% 12%);
+    --ws-fg-muted: hsl(240 10% 36%);
+    --ws-fg-subtle: hsl(240 8% 50%);
+
+    --ws-border: hsl(240 14% 87%);
+    --ws-border-strong: hsl(240 14% 76%);
+
+    /* Darkened, not reused: the dark theme's violet fails contrast on white. */
+    --ws-accent: hsl(265 62% 48%);
+    --ws-accent-fg: hsl(0 0% 100%);
+    --ws-accent-soft: hsl(265 70% 94%);
+
+    --ws-lane-1: hsl(205 82% 44%);
+    --ws-lane-2: hsl(144 62% 34%);
+    --ws-lane-3: hsl(265 62% 52%);
+    --ws-lane-4: hsl(50 82% 34%);
+
+    --ws-glow-accent: 0 0 0 1px hsl(265 50% 78%), 0 18px 50px -24px hsl(265 62% 48% / 0.35);
+    --ws-glow-soft: 0 0 0 1px hsl(240 14% 88%), 0 12px 34px -20px hsl(240 20% 30% / 0.22);
+    --ws-glow-lane: 0 0 0 1px hsl(205 50% 76%), 0 14px 40px -24px hsl(205 82% 44% / 0.3);
+  }
+}
+
+/*
+  The motion policy, half of it.
+
+  Zeroing the duration tokens disarms every CSS transition and animation on the
+  site in one stroke, including any a wave-2 section adds later without thinking
+  about it. It cannot disarm a `requestAnimationFrame` loop, though — so the
+  other half is `useReducedMotion()`, which every JS animation gates on. Both
+  halves are needed: this one is the floor, the hook is the ceiling.
+*/
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ws-dur-fast: 0ms;
+    --ws-dur-base: 0ms;
+    --ws-dur-slow: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
