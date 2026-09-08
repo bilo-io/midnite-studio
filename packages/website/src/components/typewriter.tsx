@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { useInView } from '../hooks/use-in-view';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
 
 /*
@@ -26,6 +27,13 @@ import { useReducedMotion } from '../hooks/use-reduced-motion';
   The cadence constants are exported for the same reason: the caption's typing
   has to be the hero's typing, and the way to guarantee that is for there to be
   one copy of each number.
+
+  A fourth export, `TypeIn`, is a different treatment for a different job: a
+  heading or a paragraph that types itself in **once**, the first time it
+  scrolls into view, rather than a headline that rotates forever from the
+  moment it mounts. `Heading` and `Lede` (`text.tsx`) render one wherever a
+  section opts in with `typeIn`; `hero.tsx` and `footer.tsx` use it directly for
+  the one paragraph each that is not already wrapped in `Lede`.
 */
 
 /** ms per character while typing. */
@@ -272,6 +280,153 @@ export const Typewriter = ({ phrases, className = '' }: TypewriterProps) => {
         <TypewriterCaret />
       </span>
       <span className="sr-only">{phrases.join(' ')}</span>
+    </span>
+  );
+};
+
+/** Target ms for a heading to finish typing — short copy, so this stays snappy. */
+export const TYPE_IN_HEADING_MS = 600;
+/** Target ms for a paragraph to finish typing. */
+export const TYPE_IN_LEDE_MS = 1400;
+/**
+ * The per-character delay a target implies is never faster or slower than
+ * this. The floor is what keeps the site's one very long paragraph (the
+ * hero's, ~350 characters) from crawling: at the target above it would want
+ * under 4ms/character, and this holds it to `6`, landing the whole thing
+ * around 2.1s rather than the ~1.4s everything shorter gets. The ceiling is
+ * what stops a three-word heading like "What people say" from being typed at
+ * a leisurely 40ms/character; nothing on the site is short enough to hit it,
+ * it exists so the function is total rather than as a case anyone plans
+ * around — the same posture `typedLength`'s own short-window branch takes.
+ */
+export const TYPE_IN_MIN_CHAR_MS = 6;
+export const TYPE_IN_MAX_CHAR_MS = 55;
+
+/**
+ * The per-character delay for typing `length` characters in roughly `targetMs`.
+ *
+ * A flat per-character delay would make every block of copy on the site take
+ * as long as its length happens to be — bearable for "What people say", not for
+ * a 250-character lede at the hero's own 62ms/character. Scaling the delay by
+ * length instead keeps every heading landing around `TYPE_IN_HEADING_MS` and
+ * every paragraph around `TYPE_IN_LEDE_MS`, whatever their word count, clamped
+ * so neither ramp leaves the range that still reads as typing rather than as a
+ * flicker or a crawl.
+ */
+export const typeInCharMs = (length: number, targetMs: number): number => {
+  if (length <= 0) return TYPE_IN_MAX_CHAR_MS;
+  return Math.min(TYPE_IN_MAX_CHAR_MS, Math.max(TYPE_IN_MIN_CHAR_MS, targetMs / length));
+};
+
+export type TypeInProps = {
+  /** The full string. Plain text only — this types characters, not markup. */
+  text: string;
+  /** How long the whole string should take, before the per-character clamp. */
+  targetMs?: number;
+  /**
+   * ms to hold, once in view, before the first character — lets a sibling
+   * heading finish typing before the paragraph under it starts. Defaults to
+   * `TYPE_IN_HEADING_MS`, which is the right number whenever this `TypeIn` is
+   * the lede under a heading that is typing at the default rate; pass `0` for
+   * one that has no heading to wait for.
+   */
+  leadMs?: number;
+  className?: string;
+};
+
+/**
+ * A heading or a paragraph that types itself in **once**, the first time it
+ * scrolls into view.
+ *
+ * This is a different treatment from `Typewriter` above, not a reuse of it:
+ * `Typewriter` owns a headline that rotates through a phrase list forever from
+ * the moment it mounts, which is right for a hero that is on screen from the
+ * first frame. Most of the site is not — a visitor scrolling down should see
+ * every section's title and lede type themselves in as they arrive, once, and
+ * a heading that finished typing before anyone scrolled to it would be
+ * indistinguishable from static text, which is the whole effect lost for
+ * nothing.
+ *
+ * **Trigger: `useInView`, the same one-shot observer `Reveal` uses**, not a
+ * second observer of its own. `inView` starts `true` when
+ * `IntersectionObserver` is missing, so this degrades to "type on mount" rather
+ * than "never type" in that environment — the same failure direction `Reveal`
+ * takes.
+ *
+ * **No layout shift.** The full string is rendered twice, stacked in the same
+ * grid cell (`gridArea: '1 / 1'`) rather than positioned absolutely: a
+ * paragraph wraps across a variable number of lines, and only a shared grid
+ * cell — sized by whichever child needs the most lines — reserves the right
+ * height regardless of how many lines the *typed* copy happens to occupy at
+ * any instant. The first copy is `invisible` (so it still lays out and sizes
+ * the cell) and holds the full text from the first frame; the second is the
+ * animated one, `aria-hidden`, showing `text.slice(0, length)` plus a caret
+ * while it is still typing.
+ *
+ * **Accessibility is the static string, not the animation** — exactly
+ * `Typewriter`'s own rule. A `sr-only` third copy carries the full text from
+ * the first render, so a screen reader has the whole heading or paragraph
+ * immediately rather than a word at a time; both other copies are
+ * `aria-hidden` so neither is ever what gets announced.
+ *
+ * **`prefers-reduced-motion: reduce` renders the plain string, full length, no
+ * caret, no timer** — the reduced branch below, same shape as `Typewriter`'s.
+ *
+ * **Pauses while the tab is hidden.** A `visibilitychange` listener, not a read
+ * of `page-visibility.ts`'s `data-page-hidden` attribute: that attribute drives
+ * CSS `animation-play-state` for the site's *infinite* CSS animations, and
+ * `AgentMarquee`'s own JS timeline already listens to `document.hidden`
+ * directly for the identical reason a backgrounded tab should not spend
+ * anything — this follows that precedent rather than the CSS one, since the
+ * clock here is a `setTimeout` chain, not a paused-and-resumed keyframe.
+ */
+export const TypeIn = ({ text, targetMs = TYPE_IN_LEDE_MS, leadMs, className = '' }: TypeInProps) => {
+  const reduced = useReducedMotion();
+  const { ref, inView } = useInView<HTMLSpanElement>();
+  const [length, setLength] = useState(0);
+  const [hidden, setHidden] = useState(() => typeof document !== 'undefined' && document.hidden);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisibility = () => setHidden(document.hidden);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  const charMs = typeInCharMs(text.length, targetMs);
+  const lead = leadMs ?? TYPE_IN_HEADING_MS;
+
+  useEffect(() => {
+    if (reduced || hidden || !inView || length >= text.length) return;
+    const delay = length === 0 ? lead + charMs : charMs;
+    const timer = window.setTimeout(
+      () => setLength((current) => Math.min(text.length, current + 1)),
+      delay,
+    );
+    return () => window.clearTimeout(timer);
+  }, [reduced, hidden, inView, length, text, charMs, lead]);
+
+  if (reduced) {
+    return (
+      <span ref={ref} className={className}>
+        {text}
+      </span>
+    );
+  }
+
+  const done = length >= text.length;
+
+  return (
+    <span ref={ref} className={`grid w-full ${className}`}>
+      {/* Reserves the cell at the full string's own line count — see the docblock. */}
+      <span aria-hidden="true" className="invisible" style={{ gridArea: '1 / 1' }}>
+        {text}
+      </span>
+      <span aria-hidden="true" style={{ gridArea: '1 / 1' }}>
+        <span data-testid="type-in-text">{text.slice(0, length)}</span>
+        {done ? null : <TypewriterCaret />}
+      </span>
+      <span className="sr-only">{text}</span>
     </span>
   );
 };
