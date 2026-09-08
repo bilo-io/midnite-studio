@@ -1200,6 +1200,32 @@ export type MidniteStudioBridge = {
   companion: {
     snapshot: (req: In<typeof S.CompanionSnapshotRequest>) => Promise<CompanionSnapshot>;
     digest: (req: In<typeof S.CompanionDigestRequest>) => Promise<CompanionDigest>;
+
+    /*
+      Theme F's four. Speech *out* is absent from this bridge on purpose —
+      `speechSynthesis` is a renderer API and the OS voices are already there,
+      so a channel for it would be a round-trip that bought nothing. Speech
+      *in* is all four of these, because the recogniser is a paid cloud
+      endpoint whose key must never reach the renderer.
+    */
+    /**
+     * One utterance's bytes in, its transcript out.
+     *
+     * `GitOpResult` rather than a bare string: a 401, a 429, a timeout and a
+     * provider with no key configured are all *normal* outcomes the input bar
+     * renders inline with a recovery step, exactly as a merge conflict is.
+     */
+    transcribe: (
+      req: In<typeof S.CompanionTranscribeRequest>,
+    ) => Promise<GitOpResult<{ text: string }>>;
+    /** Which providers hold a key, and whether `safeStorage` works on this machine. */
+    sttStatus: () => Promise<z.infer<typeof S.CompanionSttStatusResponse>>;
+    /** Store or clear a provider's key. An empty string clears. Nothing comes back but the outcome. */
+    sttSet: (req: In<typeof S.CompanionSttSetRequest>) => Promise<GitOpResult>;
+    /** Prove the provider reachable with one second of silence; reports the round-trip. */
+    sttTest: (
+      req: In<typeof S.CompanionSttTestRequest>,
+    ) => Promise<GitOpResult<{ ms: number; text: string }>>;
   };
 };
 
