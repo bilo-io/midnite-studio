@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | ◻ TODO | — | 0/31 | `░░░░░░░░░░` | 0% | — | A B C D |
+| [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 0/31 | `░░░░░░░░░░` | 0% | C | A B D |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | ✅ DONE | — | 57/67 | `█████████░` | 85% | — | — |
 | [78 · Whose hands were on the keyboard](phases/phase-78-whose-hands-were-on-the-keyboard.md) | ◻ TODO | — | 0/32 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [77 · Thirteen megabytes of editor, and the lanes that never move](phases/phase-77-thirteen-megabytes-of-editor.md) | ◻ TODO | — | 0/27 | `░░░░░░░░░░` | 0% | — | A B C D |
@@ -188,7 +188,7 @@ editable array of names as dismissable pills.*
 
 - ◻ **A** — A spoken-form transform that never says a SHA
 - ◻ **B** — Aggregated, randomised digest phrasing
-- ◻ **C** — Replace `speechSynthesis` with a local, free, low-RAM voice
+- 🔄 **C** — Replace `speechSynthesis` with a local, free, low-RAM voice
 - ◻ **D** — The companion answers to more than one name
 
 ### [Phase 79 — The companion that answers back](phases/phase-79-the-companion-that-answers-back.md)
