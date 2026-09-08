@@ -71,18 +71,31 @@ const BAND_MAX_PX = 1152;
 
     mark               `h-14 w-14`                          56px
     halo               `-inset-3` on the mark, both sides   +2 x 12px  = 80px
-    peak scale         `@keyframes ws-agent-bounce`'s overshoot   x 2.15
+    peak scale         `@keyframes ws-agent-bounce`'s peak        x 2.15
     ⇒ halo at peak                                           172px
 
-  The glyph's own `drop-shadow(0 0 16px)` reaches 56 x 2.15 + 2 x 16 = 152px, so
-  the halo is the binding constraint. `SLACK_PX` is on top of it: the halo is a
-  radial gradient that fades to transparent at 68% of its box, so the last of it
-  is faint rather than absent, and a band that ends exactly at 172px still shows
-  a straight edge where the falloff meets it.
+  …and then one term that is in no box model at all. The mark turns on `rotateY`
+  under `perspective(700px)`, so mid-turn its near half is *closer to the
+  viewer* and its projection is taller than its layout box. Measured on a live
+  page the mark's own rect peaks at 2.31x its resting 56px against a declared
+  peak of 2.15 — a magnification of ~1.15, the same order as the arithmetic
+  bound `700 / (700 - 172/2)` = 1.14 the height below uses. Either way, a height
+  derived from the layout box alone is ~24px short in exactly the frames the
+  logo is biggest, which is why the earlier `h-44` looked fine in a still and
+  clipped in motion.
+
+  The glyph's own `drop-shadow(0 0 16px)` reaches 56 x 2.15 + 2 x 16 = 152px
+  before magnification, so the halo is the binding constraint either way.
+  `SLACK_PX` is on top of all of it: the halo is a radial gradient that fades to
+  transparent at 68% of its box, so its last few percent are faint rather than
+  absent, and a band that ends exactly where the maths does still shows a
+  straight edge where the falloff meets it.
 */
 const MARK_PX = 56;
 const HALO_INSET_PX = 12;
 const SLACK_PX = 24;
+/** `perspective()` in `@keyframes ws-agent-spin`, in px. */
+const PERSPECTIVE_PX = 700;
 
 /**
  * The size the selected logo holds at, and the overshoot it gets there through.
@@ -99,8 +112,13 @@ const SLACK_PX = 24;
 export const HOLD_SCALE = 2;
 export const PEAK_SCALE = 2.15;
 
-/** The band's height: the glow at its widest, plus room for the falloff. */
-export const BAND_PX = Math.ceil((MARK_PX + HALO_INSET_PX * 2) * PEAK_SCALE) + SLACK_PX * 2;
+/** The halo's own box at the bounce's peak, before the turn magnifies it. */
+const HALO_PEAK_PX = (MARK_PX + HALO_INSET_PX * 2) * PEAK_SCALE;
+
+/** The band's height: the glow at its widest, magnified, plus the falloff. */
+export const BAND_PX =
+  Math.ceil((HALO_PEAK_PX * PERSPECTIVE_PX) / (PERSPECTIVE_PX - HALO_PEAK_PX / 2)) +
+  SLACK_PX * 2;
 
 type AgentLogoProps = {
   agent: SiteAgent;

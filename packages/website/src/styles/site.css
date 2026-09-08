@@ -284,16 +284,24 @@
 
   The shape, and why each stop is where it is:
 
-    0  → 28%   grow past the hold to `--ws-agent-peak`, on a back-out curve
-               whose overshoot is in the *easing* as well as the value, so the
-               approach is already springy before it arrives
+    0  → 28%   grow past the hold, all the way to `--ws-agent-peak`
     28 → 35%   settle back to `--ws-agent-scale`, the hold the glow keyframes
                and the band's height are both sized against
     35 → 65%   held — the window straddling the geometric centre
     65 → 72%   the mirror: it kicks back up to the peak as it starts to leave
-    72 → 100%  shrink to rest on a back-*in* curve (a negative first control
+    72 → 100%  shrink to rest on a back-*in* curve (a negative last control
                point), which dips slightly under 1 before settling — the
                anticipation that reads as the logo being let go
+
+  **The overshoot is in the values, not in the easing, and that is the point.**
+  A back-out curve like `cubic-bezier(0.34, 1.56, 0.64, 1)` on the growth ramp
+  looks much the same but exceeds the keyframe's own value by ~14% on the way
+  through, so a peak declared as 2.15 would actually paint at ~2.31. The band's
+  height in `agent-marquee.tsx` is derived from `--ws-agent-peak`, and an easing
+  that quietly overshoots it puts the glow back outside the box — which is the
+  bug all of this fixes. So the ramps use monotone ease-out curves and the
+  *values* do the bouncing; the one non-monotone easing left is the release,
+  which undershoots downward and therefore cannot grow anything.
 
   Neither size is a literal: both arrive from `agent-marquee.tsx`, which derives
   the band's height from the peak. See the property list above.
@@ -301,7 +309,7 @@
 @keyframes ws-agent-bounce {
   0% {
     scale: 1;
-    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
   28% {
     scale: var(--ws-agent-peak);
@@ -313,7 +321,7 @@
   }
   65% {
     scale: var(--ws-agent-scale);
-    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
   }
   72% {
     scale: var(--ws-agent-peak);

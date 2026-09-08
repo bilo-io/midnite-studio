@@ -240,7 +240,11 @@ export const Showcase = ({ reduced: reducedProp }: ShowcaseProps = {}) => {
             />
           </g>
 
-          {/* A tag badge on the merge, outlined in the branch's own hue. */}
+          {/*
+            A tag badge on the merge, outlined rather than filled and in the
+            merge's *own* lane — a badge is pinned to a commit, so taking the
+            colour of the branch that merged into it would say the wrong thing.
+          */}
           <g>
             <rect
               x={98}
@@ -249,10 +253,10 @@ export const Showcase = ({ reduced: reducedProp }: ShowcaseProps = {}) => {
               height={12}
               rx={3}
               fill="none"
-              stroke={LANES[1]}
+              stroke={LANES[0]}
               strokeWidth={1.5}
             />
-            <rect x={103} y={rowY(MERGE) - 2} width={18} height={4} rx={2} fill={LANES[1]} />
+            <rect x={103} y={rowY(MERGE) - 2} width={18} height={4} rx={2} fill={LANES[0]} />
           </g>
         </svg>
       </GlowCard>
