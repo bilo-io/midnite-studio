@@ -20,6 +20,15 @@ import { defineConfig } from 'vite';
  *   than assuming a leading `/` (see `src/routes.ts`). `docs/WEBSITE.md` lists
  *   the deploy targets and what each one sets it to.
  *
+ * - **`WEBSITE_ORIGIN` is its sibling.** `base` covers every URL the *browser*
+ *   resolves; it cannot help text a visitor copies out of the page and pastes
+ *   into a terminal, which is what the download page's
+ *   `curl -fsSL <origin>/install.sh | sh` is. So the site's own public root is
+ *   also spelled out absolutely, defaulting to the live Vercel deployment. It
+ *   is the root and not the bare host: a target whose `base` is not `/` must
+ *   set this to origin + prefix, or the pasted command 404s. See
+ *   `src/site-origin.ts`.
+ *
  * - **Two HTML entries, not one.** The site is served as a static tree with no
  *   rewrite rules — true of GitHub Pages, and true of any other static host —
  *   so a single-page app's `/download` deep link would 404.
@@ -42,18 +51,30 @@ const base = process.env['WEBSITE_BASE'] ?? '/';
  */
 const issueTemplate = process.env['WEBSITE_ISSUE_TEMPLATE'] || null;
 
+/**
+ * The site's own public root URL — the *override* only.
+ *
+ * `src/site-origin.ts` owns the default, so it is not repeated in the two
+ * `define` blocks that have to inline this: a default written twice is one that
+ * will eventually disagree with itself.
+ */
+const siteOrigin = process.env['WEBSITE_ORIGIN'] ?? '';
+
 export default defineConfig({
   plugins: [react()],
   base,
   /*
     Build-time constants. `__BUILD_YEAR__` is the footer's copyright year — see
     `src/globals.d.ts` for why it is inlined here rather than read from the
-    clock at runtime. `vitest.config.ts` declares the same one, because a test
-    rendering the footer needs the literal too.
+    clock at runtime; `__SITE_ORIGIN__` is the `WEBSITE_ORIGIN` override, read
+    through `src/site-origin.ts`. `vitest.config.ts` declares all three, because
+    a test rendering the footer, the early-access link or the install command
+    needs the literals too.
   */
   define: {
     __BUILD_YEAR__: new Date().getFullYear(),
     __ISSUE_TEMPLATE__: JSON.stringify(issueTemplate),
+    __SITE_ORIGIN__: JSON.stringify(siteOrigin),
   },
   resolve: {
     alias: {

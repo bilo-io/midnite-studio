@@ -3,9 +3,27 @@ import { LuApple, LuArrowLeft, LuExternalLink } from 'react-icons/lu';
 import { Button, Container, Eyebrow, GlowCard, Heading, Lede } from '../components';
 import { SiteNav } from '../components/site-nav';
 import { hrefFor } from '../routes';
+import { SITE_ORIGIN } from '../site-origin';
 
 import { CopyButton } from './copy-button';
 import { useLatestVersion } from './use-latest-version';
+
+/**
+ * The site's own copy of the installer, and the URL the command curls.
+ *
+ * Served from here rather than from `raw.githubusercontent.com` for two
+ * reasons. It is shorter, which matters for the one line on the site anybody is
+ * expected to retype or read aloud. And it is *ours*: the command a visitor
+ * pastes into a shell now names the same host they are already looking at,
+ * instead of asking them to trust a third-party URL on this page's word.
+ *
+ * The file is a byte-for-byte copy of the upstream script (`public/install.sh`),
+ * kept honest by `scripts/website-sync-install.mjs --check` in the Website
+ * workflow rather than by anyone remembering. The script's *own* URLs are not
+ * rewritten — it still resolves the version from `midnite-studio/version.json`
+ * on the raw host, which is where the builds actually are.
+ */
+const INSTALLER_URL = `${SITE_ORIGIN}/install.sh`;
 
 /**
  * The install command, verbatim, and the single source of it on this page.
@@ -13,13 +31,10 @@ import { useLatestVersion } from './use-latest-version';
  * It is also what the copy button puts on the clipboard, so the two can never
  * drift. Documented in `docs/RELEASING.md`.
  */
-const INSTALL_COMMAND =
-  'curl -fsSL https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/install.sh | sh';
+const INSTALL_COMMAND = `curl -fsSL ${INSTALLER_URL} | sh`;
 
 /** Where the builds live. This repo is private; nothing here may link to it. */
 const RELEASES_URL = 'https://github.com/bilo-io/midnite-apps/releases';
-const INSTALLER_URL =
-  'https://github.com/bilo-io/midnite-apps/blob/main/midnite-studio/install.sh';
 
 /**
  * What the script does, in the order it does it.
@@ -87,10 +102,11 @@ const VersionBadge = () => {
 /**
  * The download page.
  *
- * One command, what it does, and where the builds come from. It links to the
- * public `bilo-io/midnite-apps` repo for the release list and the installer
- * source; **it must never link to `bilo-io/midnite-studio`**, which is private
- * and would give every visitor a 404 that looks like a broken site.
+ * One command, what it does, and where the builds come from. The installer is
+ * served from this site (`public/install.sh`); the release list links to the
+ * public `bilo-io/midnite-apps` repo. **Nothing here may link to
+ * `bilo-io/midnite-studio`**, which is private and would give every visitor a
+ * 404 that looks like a broken site.
  *
  * The version badge is decoration, not a gate: the command is correct whether
  * or not the feed answers, so the page renders fully while the fetch is in
@@ -152,16 +168,18 @@ export const DownloadPage = () => (
             <p className="max-w-prose text-sm text-fg-subtle">
               Prefer to read it first? The installer is{' '}
               <a
+                data-testid="installer-link"
                 href={INSTALLER_URL}
                 className="text-accent underline decoration-dotted underline-offset-4"
                 target="_blank"
                 rel="noreferrer"
               >
                 a single POSIX shell script
-              </a>
-              . Set <code className="font-mono">MIDNITE_STUDIO_VERSION=0.3.1</code> to pin a
-              version, or <code className="font-mono">MIDNITE_STUDIO_NO_OPEN=1</code> to skip
-              launching the app afterwards.
+              </a>{' '}
+              — the very file the command above fetches, served from this site. Set{' '}
+              <code className="font-mono">MIDNITE_STUDIO_VERSION=0.3.1</code> to pin a version,
+              or <code className="font-mono">MIDNITE_STUDIO_NO_OPEN=1</code> to skip launching
+              the app afterwards.
             </p>
           </div>
         </Container>
@@ -200,6 +218,11 @@ export const DownloadPage = () => (
                 Release tags are namespaced per app —{' '}
                 <span className="font-mono text-xs">midnite-studio/v0.3.1</span>, never a bare
                 version — because it ships more than one.
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-fg-muted">
+                The installer above is served from this site, and is a verbatim copy of{' '}
+                <span className="font-mono text-xs">midnite-studio/install.sh</span> in that
+                repository — checked against it on every deploy, so the two cannot drift.
               </p>
               <div className="mt-4 flex flex-col gap-2">
                 <Button

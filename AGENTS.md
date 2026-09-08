@@ -207,6 +207,27 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   `midnite-studio/version.json`; electron-updater reads `midnite-studio/feed/latest-mac.yml`.
   Both are written per release — see
   [`/midnite-release-complete`](.claude/skills/midnite-release-complete/SKILL.md) §4.
+- **The website serves its own verbatim copy of `install.sh`, and a guard keeps it honest.**
+  The download page tells visitors to curl `${SITE_ORIGIN}/install.sh`, not the raw GitHub URL:
+  the command a visitor pipes into a shell should name the host they are already looking at.
+  So `packages/website/public/install.sh` is a byte-for-byte copy of the upstream file — the
+  script's *own* URLs are untouched, it still resolves `midnite-studio/version.json` on the raw
+  host — and [`scripts/website-sync-install.mjs`](scripts/website-sync-install.mjs) diffs the two
+  (`moon run website:sync-install`, `-- --write` to re-sync). The check runs **post-merge** in
+  `website.yml`, not as a PR gate: upstream can change with nothing merged here, so there is no
+  pull request for a gate to block. It is deliberately not a vitest — a networked test fails on a
+  plane and turns an upstream outage into a red repo-wide gate. `SITE_ORIGIN`
+  (`packages/website/src/site-origin.ts`, from `WEBSITE_ORIGIN`) is `WEBSITE_BASE`'s sibling: it
+  exists for text a visitor *pastes into a terminal*, which `import.meta.env.BASE_URL` cannot
+  serve, and it is the site **root** — on the Pages target that includes the path prefix.
+- **The app's brand face is licensed for personal use only, so the public site cannot use it.**
+  `--font-brand` is Quick Kiss, whose own name table reads `Quick Kiss Personal Use` / "All
+  rights reserved" (Billy Argel; commercial and webfont licences are sold separately). The
+  private app is arguably within that; **`packages/website` is public marketing and is not**, and
+  serving the TTF from a public origin hands out the file besides. The site's wordmark is
+  therefore plain text and the two surfaces deliberately differ — do not "fix" that by copying
+  the TTF across. [`docs/WEBSITE.md`](docs/WEBSITE.md) records the evidence and the two ways out
+  (buy the licence, or re-cut the brand on an OFL face and change *both* surfaces).
 - **Commits here are authored as `bilo-io` — `Bilo Lwabona <bilo.lwabona@gmail.com>`.** The
   global `~/.gitconfig` carries the *work* identity, which is correct for every other
   checkout on this machine and wrong for this one. Nothing about a clone announces that

@@ -13,7 +13,14 @@
 /* The "Quick Kiss" brand face, the same file the midnite apps ship. Vite
  * fingerprints and emits it from this url(), so there is no public/ copy to keep
  * in step. Exposed as `--font-brand` so `font-brand` (tailwind.config.ts) reaches
- * it — the same three-part wiring midnite/packages/docs uses. */
+ * it — the same three-part wiring midnite/packages/docs uses.
+ *
+ * It stays in THIS package. The font is licensed for personal use only (its name
+ * table reads "Quick Kiss Personal Use", Billy Argel, all rights reserved), which
+ * the private app is arguably within and the *public* marketing site in
+ * packages/website is not — so the site's wordmark is plain text and the two
+ * surfaces deliberately differ. See docs/WEBSITE.md before copying this file
+ * anywhere public. */
 @font-face {
   font-family: 'Quick Kiss';
   src: url('./fonts/quick-kiss.ttf') format('truetype');
