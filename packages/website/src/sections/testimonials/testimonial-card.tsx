@@ -46,7 +46,7 @@ export const TestimonialCard = ({ testimonial }: TestimonialCardProps) => {
       {screenshot ? (
         <figure
           className="overflow-hidden rounded-md border border-line bg-bg-sunken shadow-glow-soft"
-          style={{ transform: 'rotate(-1.5deg)' }}
+          style={{ transform: 'rotate(-2.25deg)' }}
         >
           <figcaption className="flex items-center gap-2 border-b border-line px-3 py-2 text-xs text-fg-subtle">
             {mark ? <mark.Icon aria-hidden="true" className="h-3.5 w-3.5" /> : null}
