@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 
+import { Faq } from './faq/faq-section';
 import { Features } from './features/features';
 import { Hero } from './hero/hero';
 import { placeholderSection } from './placeholder';
@@ -54,7 +55,7 @@ export const SECTIONS: readonly SectionEntry[] = [
     Component: placeholderSection('testimonials', 'Notes from the build'),
     nav: true,
   },
-  { id: 'faq', label: 'FAQ', Component: placeholderSection('faq', 'FAQ'), nav: true },
+  { id: 'faq', label: 'FAQ', Component: Faq, nav: true },
   {
     id: 'early-access',
     label: 'Early access',
