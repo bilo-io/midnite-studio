@@ -1,0 +1,190 @@
+name: Website
+
+# Build the public marketing site and publish it to the PUBLIC
+# bilo-io/midnite-apps repo's `gh-pages` branch, under `midnite-studio/`.
+#
+# Why there and not here: this repo is private, so nothing it serves is
+# anonymously reachable — the same reason installers, release notes and the
+# issue tracker all live in midnite-apps (see docs/RELEASING.md). One
+# `gh-pages` branch in that repo can carry a page per app, each in its own
+# directory, which is why the site is built with a `/midnite-apps/<app>/`
+# base rather than at the branch root.
+#
+# The publish needs a token this workflow cannot create — see docs/WEBSITE.md
+# for the one-time setup. Until the secret exists, the `publish` job is
+# skipped and only the build runs, which is still the useful half: a broken
+# site fails the build on `main` rather than being discovered by a visitor.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/website/**'
+      - '.github/workflows/website.yml'
+      # The site inherits eslint and the moon task graph from the root, so a
+      # change to either can break its build without touching the package.
+      - 'eslint.config.mjs'
+      - '.moon/**'
+  workflow_dispatch:
+
+concurrency:
+  group: website-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    name: Build
+    # ubuntu, unlike ci.yml's macos-14: the site is a plain Vite build with no
+    # dugite, no node-pty and no Electron, so nothing here needs a Mac — and a
+    # Linux runner is both faster and a tenth of the minutes.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # moon compares against the merge base to decide what is affected.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      # @bilo-io/ui and @bilo-io/shell come from GitHub Packages, which requires
+      # an Authorization header even for public packages. The site itself does
+      # not use them, but a workspace install resolves every package.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Typecheck, lint, test
+        run: pnpm exec moon run website:typecheck website:lint website:test
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        run: pnpm exec moon run website:build
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The deployed path prefix. `bilo-io.github.io/midnite-apps/` is the
+          # Pages root for that repo, and the site sits in a per-app directory
+          # under it. Every URL the site builds runs through
+          # `import.meta.env.BASE_URL`, so this one variable is the whole
+          # difference between a local build and a deployable one.
+          WEBSITE_BASE: /midnite-apps/midnite-studio/
+
+      - name: Report bundle size
+        run: |
+          set -eu
+          cd packages/website/dist
+          total_raw=0
+          total_gz=0
+          for f in $(find assets -name '*.js'); do
+            raw=$(wc -c < "$f")
+            gz=$(gzip -9 -c "$f" | wc -c)
+            printf '%-44s %8s raw  %8s gzipped\n' "$f" "$raw" "$gz"
+            total_raw=$((total_raw + raw))
+            total_gz=$((total_gz + gz))
+          done
+          printf '\nTOTAL JS: %s bytes raw, %s bytes gzipped\n' "$total_raw" "$total_gz"
+          # The budget the site is designed to: a marketing page that costs
+          # more than this to read has stopped being a marketing page.
+          budget=256000
+          if [ "$total_gz" -gt "$budget" ]; then
+            echo "::error::site JS is ${total_gz} bytes gzipped, over the ${budget} byte budget"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: website-dist
+          path: packages/website/dist
+          retention-days: 7
+
+  publish:
+    name: Publish to midnite-apps
+    needs: build
+    runs-on: ubuntu-latest
+    # A secret cannot be referenced in a job-level `if`, so it is lifted into
+    # an env var first — GitHub's own documented indirection for exactly this.
+    # Without the guard, every push to main on a fork or before the token is
+    # created fails a red X on a repo where nothing is actually wrong.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
+    env:
+      HAS_TOKEN: ${{ secrets.MIDNITE_APPS_DEPLOY_TOKEN != '' && 'yes' || 'no' }}
+    steps:
+      - name: Check the deploy token exists
+        id: guard
+        run: |
+          if [ "$HAS_TOKEN" != "yes" ]; then
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "::notice::MIDNITE_APPS_DEPLOY_TOKEN is not set — skipping the publish. See docs/WEBSITE.md."
+          else
+            echo "publish=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.guard.outputs.publish == 'yes'
+        with:
+          name: website-dist
+          path: dist
+
+      - name: Publish to the gh-pages branch
+        if: steps.guard.outputs.publish == 'yes'
+        env:
+          DEPLOY_TOKEN: ${{ secrets.MIDNITE_APPS_DEPLOY_TOKEN }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+
+          repo="bilo-io/midnite-apps"
+          branch="gh-pages"
+          # The per-app directory. The build's WEBSITE_BASE must agree with
+          # this or every asset URL 404s on a page that otherwise renders.
+          app_dir="midnite-studio"
+
+          git config --global user.name "Bilo Lwabona"
+          git config --global user.email bilo.lwabona@gmail.com
+
+          # `--depth 1` on an orphan branch that may not exist yet: clone the
+          # repo, then either check the branch out or create it empty.
+          git clone --depth 1 "https://x-access-token:${DEPLOY_TOKEN}@github.com/${repo}.git" pages
+          cd pages
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            git fetch --depth 1 origin "$branch"
+            git checkout -B "$branch" "origin/$branch"
+          else
+            # An ORPHAN branch, so the site's history is not the releases
+            # repo's history — Pages would otherwise serve every README and
+            # installer script in it alongside the page.
+            git checkout --orphan "$branch"
+            git rm -rq --cached . 2>/dev/null || true
+            find . -mindepth 1 -maxdepth 1 -not -name '.git' -exec rm -rf {} +
+          fi
+
+          # Replace this app's directory wholesale, leaving any sibling app's
+          # alone: a stale asset left behind by a partial copy is exactly the
+          # kind of thing that only shows up as a cache-hit mystery later.
+          rm -rf "$app_dir"
+          mkdir -p "$app_dir"
+          cp -R "$GITHUB_WORKSPACE/dist/." "$app_dir/"
+
+          # Jekyll is on by default for a Pages branch and drops every path
+          # beginning with an underscore — which is where a Vite build puts
+          # nothing today, but it also runs a build step nobody here wants.
+          touch .nojekyll
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "::notice::the built site is identical to what is published — nothing to do."
+            exit 0
+          fi
+          git commit -m "site(midnite-studio): publish from midnite-studio@${SOURCE_SHA}"
+          git push origin "$branch"

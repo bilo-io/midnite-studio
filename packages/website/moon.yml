@@ -3,24 +3,53 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 language: 'typescript'
 
 tasks:
-  # No `src/` yet — assets only, per the commit that added this package
-  # ("start adding website assets"). The inherited `typecheck` runs `tsc
-  # --noEmit` unconditionally, which fails with TS18003 ("no inputs found")
-  # against an empty `include`. Override to a no-op until real source exists;
-  # remove this override the day `src/` does.
-  typecheck:
-    command: 'true'
-    inputs: []
+  # Vite owns the build, not `tsc -b`. `mergeArgs: replace` is required: moon's
+  # default is to APPEND a local task's args to the inherited ones, which would
+  # run `pnpm exec tsc -b exec vite build`.
+  #
+  # `WEBSITE_BASE` is an input rather than plain environment: the deployed site
+  # is built with a path prefix (`/midnite-apps/midnite-studio/`) and a local
+  # one is not, so without the variable in the hash a Pages build following a
+  # local build would be a cache HIT and ship with the wrong `base` — every
+  # asset URL silently 404ing on a page that otherwise looks fine.
+  build:
+    command: 'pnpm exec vite build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'index.html'
+      - 'download/index.html'
+      - 'public/**/*'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '$WEBSITE_BASE'
+    outputs:
+      - 'dist'
 
-  # Same reason: vitest exits 1 when it finds zero test files, and there is
-  # nothing to test yet. Remove alongside the `typecheck` override above.
+  # The dev server. Port 5174, so it can run beside the renderer's 5173.
+  dev:
+    command: 'pnpm exec vite'
+    preset: 'server'
+
+  # Serves `dist` over HTTP — the only way to check the built site behaves like
+  # the deployed one (relative asset paths, the `/download/` directory index).
+  preview:
+    command: 'pnpm exec vite preview'
+    preset: 'server'
+    deps:
+      - 'website:build'
+
+  # The inherited `test` task runs bare `vitest run`, which would not find
+  # `vitest.config.ts` in its hash and so would stay a cache hit across a config
+  # change. Everything else about it is inherited.
   test:
-    command: 'true'
-    inputs: []
-
-  # Same reason again: `eslint .` errors on an unmatched pattern when nothing
-  # under this package matches the root config's `files` globs yet. Remove
-  # alongside the two overrides above once `src/` exists.
-  lint:
-    command: 'true'
-    inputs: []
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
