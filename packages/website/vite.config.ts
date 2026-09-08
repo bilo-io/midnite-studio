@@ -29,6 +29,15 @@ const base = process.env['WEBSITE_BASE'] ?? '/';
 export default defineConfig({
   plugins: [react()],
   base,
+  /*
+    Build-time constants. `__BUILD_YEAR__` is the footer's copyright year — see
+    `src/globals.d.ts` for why it is inlined here rather than read from the
+    clock at runtime. `vitest.config.ts` declares the same one, because a test
+    rendering the footer needs the literal too.
+  */
+  define: {
+    __BUILD_YEAR__: new Date().getFullYear(),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
