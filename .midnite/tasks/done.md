@@ -1,6 +1,81 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Website wave 1 — the marketing site's shell, hero, download page and Pages deploy
+
+[PR #276](https://github.com/bilo-io/midnite-studio/pull/276). **Ad hoc, not phase-tracked** —
+nothing in `_INDEX.md` moved. `packages/website` went from an asset drop to a deployable site:
+Vite 6 + React 19 + Tailwind 3.4, `react-icons` only, 218.9 KB of JS (69.2 KB gzipped) across both
+pages.
+
+**It is a real package now, and four deliberate lies had to be retracted for that.**
+`.moon/workspace.yml` excluded it from the project globs, and its `moon.yml` stubbed `typecheck`,
+`lint` and `test` to `true` — every one of them correct for a directory with no `package.json`,
+no tsconfig and no source, and every one of them wrong the moment there was. All four are gone, so
+the site runs through `moon run :typecheck :lint :test` like everything else, and
+`eslint.config.mjs` gained a boundary group for it: `react`, `react-dom`, `react-icons` and its own
+files, with `shared` (zod-only, browser-safe) as the single workspace exception. The site is not
+"app, but public" — it shares no runtime, no bridge and no build, and an import across that line
+is what would make it impossible to move out of this repo later.
+
+**The registry is the contract three wave-2 agents build on, and it is a flat array for exactly
+that reason.** `src/sections/registry.ts` is an ordered `{ id, label, Component, nav? }` list;
+`app.tsx` maps it into `<main>` and the nav reads its `nav: true` entries, so a section is added by
+appending to the registry and never by editing the page. Two agents editing different rows of a
+flat array produce a conflict a human can read, which nesting or a per-section config object would
+not. All seven unbuilt sections ship as dashed placeholders naming their own id, so the page's
+running order and the nav's anchor list are real from this commit — arguing about a section's
+position is much cheaper while the box still says `features`.
+
+**Dark-first means `:root` IS the dark theme.** `src/styles/tokens.css` declares every colour,
+radius, glow and duration, and the light variant is one `prefers-color-scheme: light` block
+redefining the same names — so a section written against `bg-bg text-fg` is correct in both with no
+`dark:` prefix anywhere, and there is no in-page switch to key a class off. The accent and the four
+decorative lane colours are lifted from the graph's own `lane-colors.ts` rather than approximated.
+
+**Reduced motion takes both halves, and neither is sufficient.** The media query zeroes the duration
+tokens, which disarms every CSS transition on the site including ones wave 2 has not written yet;
+it cannot cancel a `requestAnimationFrame` loop or a `setTimeout`, so `useReducedMotion()` — which
+*subscribes*, because the OS toggle is live — gates the hero's canvas and its typewriter and renders
+a still frame instead.
+
+**The hero's canvas has a CPU budget as its design constraint,** because it runs for as long as the
+tab is open: 40 nodes and ~90 edges in the graph's own hues, capped at 30fps by timestamp so a
+120Hz display does not do four times the work for a drift nobody can see, stopped dead on
+`document.hidden` and stopped again by an IntersectionObserver once the hero scrolls away. The
+pointer handler only records coordinates; all the arithmetic happens in the frame, so a fast mouse
+cannot force extra work.
+
+**Two failure paths are the committed state rather than edge cases.** `public/video/` is empty by
+design — a screen recording does not belong in a git history — so the hero listens for the
+`<video>`'s `error` and swaps in the same screenshot at the same size, picked light or dark by
+`prefers-color-scheme`; and `version.json`'s `version` is `null` today, which the download page
+renders as "No public release yet" rather than dressing up as a number. Offline says "latest",
+because the install command is correct either way.
+
+**GitHub Pages shaped three decisions.** `base` comes from `WEBSITE_BASE` (defaulting to `/`) and
+sits in the build task's moon `inputs` — without that, a Pages build following a local build is a
+cache hit that ships the wrong prefix, which renders a page that looks completely fine and 404s
+every asset on it. `download/index.html` is a directory index rather than a sibling
+`download.html`, so `/download` and `/download/` both resolve without relying on Pages' extension
+stripping; `src/routes.ts` replaces a router with a comparison and three base-aware href builders.
+And the deploy targets an **orphan** `gh-pages` branch of the public `bilo-io/midnite-apps`, in a
+`midnite-studio/` directory: Pages is not enabled on that repo at all
+(`gh api repos/bilo-io/midnite-apps/pages` → 404), so there was no configured folder to match, and
+`docs/` on `main` would serve the site out of the same tree and history as its installers.
+
+**The publish job is guarded off, not omitted.** A secret cannot be referenced in a job-level `if`,
+so `MIDNITE_APPS_DEPLOY_TOKEN` is lifted into an env var first — GitHub's own indirection for this
+— and `publish` logs a notice and skips until a human creates the token. The `build` half runs on
+every push to `main` touching the site and re-measures the gzipped JS against a 250 KB budget, so a
+broken or bloated site fails a build rather than being found by a visitor. `docs/WEBSITE.md` names
+the three steps nothing in a session can do.
+
+Nothing was deployed. 24 tests in 7 files, all covering the failure paths above rather than the
+happy one; the registry test pins the *shape* (hero first, footer last, unique ids, hero and footer
+out of the nav) because a test asserting the current list would fail on every wave-2 landing and
+teach everyone to delete it.
+
 ## 2026-09-08 — Phase 79 follow-up — a Clear conversation control in the companion header
 
 [PR #275](https://github.com/bilo-io/midnite-studio/pull/275). **Ad hoc, not phase-tracked** — Phase
