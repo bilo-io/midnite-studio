@@ -9,14 +9,16 @@ import { defineConfig } from 'vite';
  * Two things about this build are not the Vite defaults, and both come from
  * where it is served:
  *
- * - **`base` is an environment variable.** The site is published to the
- *   `gh-pages` branch of the *public* `bilo-io/midnite-apps` repo (this repo is
- *   private, so nothing a visitor touches can be served from it), which means
- *   the deployed URL carries a path prefix — `/midnite-apps/midnite-studio/` —
- *   while `vite dev` and `vite preview` serve from `/`. Hard-coding either one
- *   breaks the other, so `WEBSITE_BASE` decides and defaults to the local case.
- *   Everything that builds a URL reads `import.meta.env.BASE_URL` rather than
- *   assuming a leading `/` (see `src/routes.ts`).
+ * - **`base` is an environment variable.** This is a static tree published to
+ *   a *public* host (this repo is private, so nothing a visitor touches can be
+ *   served from it), and which host decides whether the deployed URL carries a
+ *   path prefix: served from a per-app directory it is
+ *   `/midnite-apps/midnite-studio/`, served from a domain root it is `/`, and
+ *   `vite dev` and `vite preview` are always `/`. Hard-coding any one of those
+ *   breaks the others, so `WEBSITE_BASE` decides and defaults to the local
+ *   case. Everything that builds a URL reads `import.meta.env.BASE_URL` rather
+ *   than assuming a leading `/` (see `src/routes.ts`). `docs/WEBSITE.md` lists
+ *   the deploy targets and what each one sets it to.
  *
  * - **Two HTML entries, not one.** The site is served as a static tree with no
  *   rewrite rules — true of GitHub Pages, and true of any other static host —
