@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { SiteNav } from './components/site-nav';
+import { useHashLanding } from './hooks/use-hash-landing';
 import { DownloadPage } from './pages/download-page';
 import { routeFor, type Route } from './routes';
 import { SECTIONS } from './sections/registry';
@@ -12,16 +13,24 @@ import { SECTIONS } from './sections/registry';
  * section is added by appending to `sections/registry.ts`, never by editing
  * this component.
  */
-const Landing = () => (
-  <>
-    <SiteNav />
-    <main>
-      {SECTIONS.map(({ id, Component }) => (
-        <Component key={id} />
-      ))}
-    </main>
-  </>
-);
+const Landing = () => {
+  // The sections only exist once this has rendered, which is why the browser's
+  // own fragment scroll misses them — see `useHashLanding`. It runs here rather
+  // than in `SiteNav` so it fires after the whole page is committed, and so a
+  // deep link works whether or not the nav happens to be on screen.
+  useHashLanding();
+
+  return (
+    <>
+      <SiteNav />
+      <main>
+        {SECTIONS.map(({ id, Component }) => (
+          <Component key={id} />
+        ))}
+      </main>
+    </>
+  );
+};
 
 /**
  * The site's two pages.
