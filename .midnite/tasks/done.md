@@ -1,6 +1,60 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Website — the Midnite wordmark, re-cut on Kaushan Script (OFL)
+
+[PR #288](https://github.com/bilo-io/midnite-studio/pull/288). **Ad hoc, not phase-tracked.** #282
+declined to ship the app's brand face on the public site and was right to: Quick Kiss's own name
+table reads `Quick Kiss Personal Use` / "All rights reserved", the app is arguably personal use and
+public marketing is not, and serving the TTF hands out the file besides. The owner's call was the
+second of the two ways out that section listed — **re-cut the wordmark on an open face, for the site
+only.** The app keeps Quick Kiss, `quick-kiss.ttf` still never enters `packages/website`, and the two
+surfaces are now deliberately near-identical rather than deliberately different.
+
+**The pick was rendered, not read.** Twenty SIL OFL / Apache-2.0 script faces off `google/fonts`,
+set against the actual `quick-kiss.ttf` at the three sizes the site uses — nav 20px, hero 64px,
+footer ~140px — and ranked on stroke character, slant, connectedness and x-height. **Kaushan Script**
+wins on all four at once (same brush weight, same ~15° slant, same tapered stroke ends, same lift
+under "nite"; a touch wider and slightly lower in contrast, and that is the whole difference).
+**Norican** is the runner-up — right slant and right contrast, but a lighter, evenly-modulated hand
+that reads calligraphic where Quick Kiss reads marker; then Yellowtail (retro signage: looped
+ascenders and an epsilon "e" no size hides) and Damion (too light, too upright, loses the speed).
+The sheet is committed at `docs/screenshots/website-wordmark/candidates.png` so a future re-pick
+starts from rendered type rather than from this paragraph.
+
+Self-hosted at **34.4 KB**: the 210 KB upstream TTF subset to Google's own `latin` range with every
+layout feature a script needs for its joins, then woff2 — rendered against the full TTF before
+committing, identical. Upstream's `OFL.txt` sits beside it verbatim, which clause 2 requires, with a
+README naming the source and the exact `pyftsubset` line. `@font-face` + `font-display: swap` on a
+relative `url()`, so **Vite fingerprints and emits it**: no `public/` copy, no Google Fonts `<link>`,
+no third-party request for the site's own type. Preloaded from both HTML entries by source path —
+verified to rewrite to the *one* emitted asset with `base` applied, Pages prefix included.
+
+`Wordmark` owns the split across all three surfaces, mirroring the app's `brand.tsx`: `Midnite` in
+the brand face at `1.35em`/`tracking-wide`, `Studio` in the UI face one muted step back — both in a
+script face reads as one made-up word. `tone` picks the fill; the footer passes `inherit` because its
+`<p>` already carries a ramp faded *into* the page at 22–34% and its own `background-clip: text`.
+
+**The glow can only be `filter: drop-shadow()`, and that is worth knowing before the next one.**
+`.ws-rainbow-text` clips a gradient to the glyphs, which needs `color: transparent` — and
+`text-shadow` paints from the text's colour, so on transparent text it emits nothing at all.
+`drop-shadow` reads the rendered alpha, which after the clip is exactly the glyph shapes; `.ws-neon`'s
+`box-shadow` would have drawn the glow around the span's rectangle. It does not pulse and the
+four-pulsing-element budget is untouched: this mark sits in the sticky nav for the whole visit, a few
+pixels from a nav underline that already breathes.
+
+The first test run caught the one real bug: the halves were separated by a margin alone, so
+`textContent` came out `MidniteStudio` — invisible in the nav, where an `aria-label` overrides it,
+but the hero renders the mark inside the page's one `<h1>`, whose accessible name would have become
+"MidniteStudio is …". The space is now a text node and the `em` margin is only the optical nudge on
+top of it, `em` because the mark spans 15px → 140px and the face's final `e` exits on a long flat
+stroke that grows with the type.
+
+gz JS unchanged at 91.1 KB against the 250 KB budget. `docs/WEBSITE.md` § "The brand face" is
+rewritten from *why the site does not use it* to what it now does, and the bullet in
+`CLAUDE.md`/`AGENTS.md`/`GEMINI.md` flips identically in all three — keeping the never-copy-the-TTF
+rule, which the substitution makes unnecessary rather than relaxes.
+
 ## 2026-09-08 — Website — scroll-spy nav, and the rainbow as the accent with a restrained neon pulse
 
 [PR #283](https://github.com/bilo-io/midnite-studio/pull/283). **Ad hoc, not phase-tracked.**
