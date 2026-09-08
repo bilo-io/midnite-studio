@@ -195,7 +195,8 @@ export type SettingsPageId =
   | 'updates'
   | 'health'
   | 'optimizer'
-  | 'mcp';
+  | 'mcp'
+  | 'companion';
 
 /**
  * The categories the settings pages sort into, in UX priority order — the
@@ -237,6 +238,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'trashSafety', label: 'Trash Safety', group: 'tools' },
   { id: 'apiClient', label: 'API Client', group: 'tools' },
   { id: 'mcp', label: 'MCP Server', group: 'tools' },
+  { id: 'companion', label: 'Companion', group: 'tools' },
   { id: 'browser', label: 'Browser', group: 'tools' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
   { id: 'updates', label: 'App Updates', group: 'system' },
@@ -281,6 +283,13 @@ export type LayoutSizes = {
   searchResultsWidth: number;
   /** The FAB panel width, on the right side of the content area. */
   fabPanelWidth: number;
+  /**
+   * The companion panel width, immediately LEFT of the FAB panel (Phase 79
+   * Theme C). Its own persisted width and its own splitter — the two panels
+   * are siblings that can both be open, not two tabs of one column, so a
+   * shared width would make dragging one resize the other.
+   */
+  companionPanelWidth: number;
   /**
    * The browser pane's width in the side-by-side layouts.
    *
@@ -367,6 +376,10 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   sessionsListWidth: 360,
   searchResultsWidth: 420,
   fabPanelWidth: 320,
+  // Wider than the Loops panel's 320: this column holds wrapped prose the user
+  // reads rather than a terminal they scan, and a chat bubble under ~340px
+  // starts breaking sentences every four or five words.
+  companionPanelWidth: 360,
   // The "never dragged" sentinel — half the window, resolved against the real
   // one in `app.tsx`. See `LayoutSizes.browserWidth`.
   browserWidth: 0,
@@ -423,6 +436,14 @@ export const LAYOUT_BOUNDS = {
     `min` plus a fallback for a render with no window to measure.
   */
   fabPanelWidth: { min: 240, max: 640 },
+  /*
+    A real ceiling, unlike its two neighbours: the companion is a chat thread,
+    and past ~720px a line of speech is too long to track back to the start of
+    the next one. Nothing here wants the whole window, so there is no share to
+    compute — which is also why `app.tsx` passes this `max` through unchanged
+    rather than deriving one from the viewport.
+  */
+  companionPanelWidth: { min: 280, max: 720 },
   /*
     Max is NOT this number — see `BROWSER_MAX_SHARE`, the same arrangement the
     FAB panel has and for the same reason: a browser wants as much of the
@@ -627,7 +648,19 @@ export type UiState = {
   /** Whether the FAB panel is open. */
   fabPanelOpen: boolean;
   /**
-   * Whether each of the four detachable panels (Phase 55) is currently
+   * Whether the companion panel is open (Phase 79 Theme C).
+   *
+   * **Deliberately not persisted**, unlike `fabPanelOpen` beside it: opening
+   * the companion is what makes it greet you (Theme D), and a greeting on
+   * every launch is a nuisance nobody asked for. The *width* persists; the
+   * open flag does not.
+   */
+  companionPanelOpen: boolean;
+  setCompanionPanelOpen: (open: boolean) => void;
+  toggleCompanionPanel: () => void;
+  /**
+   * Whether each of the five detachable panels (Phase 55, plus Phase 79's
+   * companion) is currently
    * showing in its own popout window rather than docked in the main one.
    * Main-window-local — a popout's own `ui-store` instance never reads these.
    *
@@ -645,6 +678,19 @@ export type UiState = {
   terminalDetached: boolean;
   reposDetached: boolean;
   fabDetached: boolean;
+  /**
+   * The companion panel's own popout (Phase 79 Theme C) — the fifth panel role.
+   *
+   * **The one of the five that is NOT persisted**, and for a reason that
+   * follows from `companionPanelOpen` above rather than from a different
+   * opinion about staleness. The quartet is persisted because each flag gates
+   * whether its docked slot renders at all, so a wrong value there is a
+   * missing panel on the frame after boot. The companion's docked slot is
+   * gated by `companionPanelOpen`, which starts `false` every launch — there
+   * is nothing for a persisted `true` here to gate, and `use-window-sync.ts`
+   * corrects it from main's registry on the first round trip regardless.
+   */
+  companionDetached: boolean;
   browserDetached: boolean;
   setDetached: (role: PanelWindowRole, detached: boolean) => void;
   /**
@@ -1668,14 +1714,20 @@ export const useUiStore = create<UiState>()(
       notesOpen: false,
       quickAccessOpen: false,
       fabPanelOpen: false,
+      companionPanelOpen: false,
+      setCompanionPanelOpen: (companionPanelOpen) => set({ companionPanelOpen }),
+      toggleCompanionPanel: () =>
+        set((state) => ({ companionPanelOpen: !state.companionPanelOpen })),
       terminalDetached: false,
       reposDetached: false,
       fabDetached: false,
+      companionDetached: false,
       browserDetached: false,
       setDetached: (role, detached) => {
         if (role === 'terminal') set({ terminalDetached: detached });
         else if (role === 'repos') set({ reposDetached: detached });
         else if (role === 'fab') set({ fabDetached: detached });
+        else if (role === 'companion') set({ companionDetached: detached });
         else set({ browserDetached: detached });
       },
       detachedPages: [],

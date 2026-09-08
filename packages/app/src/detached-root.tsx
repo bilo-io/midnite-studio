@@ -14,6 +14,7 @@ import { PaletteHost } from './components/palette-host';
 import { ToastHost } from './components/toast-host';
 import { BrowserPane } from './features/browser/browser-pane';
 import { FabPanel } from './components/fab-panel';
+import { CompanionPanel } from './features/companion/companion-panel';
 import { ReposPanel } from './features/repos/repos-panel';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useBroadcastSync } from './services/broadcast-sync';
@@ -64,6 +65,7 @@ const ROLE_TITLE: Record<Exclude<WindowRole, 'main'>, string> = {
   terminal: 'Terminal',
   repos: 'Git Repos',
   fab: 'Midnite Loops',
+  companion: 'Midnite Companion',
   browser: 'Browser',
   ...PAGE_ROLE_TITLE,
 };
@@ -92,6 +94,8 @@ function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
   if (role === 'repos') return <ReposPanel />;
 
   if (role === 'fab') return <FabPanel isOpen width={width} fitSignal={fitSignal} />;
+
+  if (role === 'companion') return <CompanionPanel width={width} />;
 
   if (role === 'browser') {
     return (
