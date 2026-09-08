@@ -106,7 +106,8 @@ export const useActiveSection = (
 
     const pick = (): string | null => {
       const hits = elements.filter((element) => intersecting.get(element) === true);
-      if (hits.length === 1) return hits[0].id;
+      const [first] = hits;
+      if (first !== undefined && hits.length === 1) return first.id;
 
       // Several, or none: the last one whose top edge has passed the midline.
       const midline = window.innerHeight / 2;
@@ -119,7 +120,7 @@ export const useActiveSection = (
 
       // Everything in the band still starts below the midline (a short first
       // section at the very top of the page): take the topmost hit, if any.
-      return hits.length > 0 ? hits[0].id : null;
+      return first?.id ?? null;
     };
 
     const observer = new IntersectionObserver(

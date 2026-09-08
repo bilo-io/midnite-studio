@@ -158,15 +158,13 @@ export const Footer = () => (
         reader who selects the whole page should not get "MIDNITE STUDIO" in
         70pt letters pasted into whatever they were writing.
 
-        The gradient is an inline `linear-gradient` over `color-mix`, not
-        Tailwind's `from-fg/25 via-accent/40`. **Tailwind 3's opacity modifier
-        does not work on this site's colours**: they are configured as raw
-        `var(--ws-*)` strings rather than with an `<alpha-value>` placeholder,
-        so `from-fg/25` compiles to *nothing at all* — no gradient stop, and
-        with `text-transparent` on top, an invisible wordmark. (Wave 1 has the
-        same latent problem in `site-nav`'s `bg-bg/80` and `Button`'s ghost
-        `bg-bg-elevated/60`; both are outside this section's blast radius and
-        want fixing at the token level, not here.)
+        **The gradient is the brand rainbow, faded into the page.** It is the
+        same six stops the primary button and the nav's active tab wear, and the
+        same ones the app paints its FAB ring with — but at 22-34% against a
+        transparent backdrop, because this is a texture at the bottom of a page
+        and not a control. `color-mix` rather than a Tailwind `via-` stop: the
+        ramp is a custom property holding seven comma-separated colours, which
+        is not a thing a Tailwind gradient utility can take.
       */}
       <Reveal className="mt-16">
         <p
@@ -176,9 +174,12 @@ export const Footer = () => (
           style={{
             backgroundImage:
               'linear-gradient(100deg,' +
-              ' color-mix(in srgb, var(--ws-fg) 26%, transparent) 0%,' +
-              ' color-mix(in srgb, var(--ws-accent) 52%, transparent) 45%,' +
-              ' color-mix(in srgb, var(--ws-fg) 8%, transparent) 100%)',
+              ' color-mix(in srgb, var(--ws-rainbow-0) 30%, transparent) 0%,' +
+              ' color-mix(in srgb, var(--ws-rainbow-1) 26%, transparent) 20%,' +
+              ' color-mix(in srgb, var(--ws-rainbow-2) 24%, transparent) 40%,' +
+              ' color-mix(in srgb, var(--ws-rainbow-3) 30%, transparent) 60%,' +
+              ' color-mix(in srgb, var(--ws-rainbow-4) 34%, transparent) 78%,' +
+              ' color-mix(in srgb, var(--ws-rainbow-5) 22%, transparent) 100%)',
             WebkitBackgroundClip: 'text',
           }}
         >

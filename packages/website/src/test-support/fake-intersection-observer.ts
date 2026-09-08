@@ -52,7 +52,13 @@ export class FakeIntersectionObserver {
     const entries = changes.map((change) => {
       const target = document.getElementById(change.id);
       if (target === null) throw new Error(`no element #${change.id} to intersect`);
-      return { target, isIntersecting: change.isIntersecting } as IntersectionObserverEntry;
+      /*
+        Two of the entry's twelve fields, because two are all the hook reads.
+        Through `unknown`, since a partial entry does not structurally overlap
+        the real interface — filling in `intersectionRect` and friends would be
+        ten lines of numbers no assertion depends on.
+      */
+      return { target, isIntersecting: change.isIntersecting } as unknown as IntersectionObserverEntry;
     });
     act(() => {
       this.callback(entries, this as unknown as IntersectionObserver);

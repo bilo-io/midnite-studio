@@ -117,11 +117,17 @@ describe('the colour tokens', () => {
 
     // Guards the sweep against passing vacuously: if the scanner stops finding
     // classes (a glob that no longer matches, a renamed colour) this fails
-    // rather than quietly asserting nothing. Ten uses across six distinct
-    // classes today — the nav's two, the ghost button's and the FAQ panel's
-    // shared `bg-bg-elevated/60`, the footer's three, the empty
-    // testimonial card's one.
-    expect(classes.length).toBeGreaterThanOrEqual(6);
+    // rather than quietly asserting nothing. Four distinct classes today — the
+    // nav's two, the ghost button's and the FAQ panel's shared
+    // `bg-bg-elevated/60`, and the empty testimonial card's
+    // `bg-bg-elevated/40`.
+    //
+    // It was six until the footer's wordmark comment stopped naming
+    // `from-fg/25 via-accent/40` as the thing it was avoiding. The scanner
+    // reads raw source, comments included, so those two were counted as uses
+    // and never were — which is the same trap this floor exists to catch, one
+    // level up. If it rises again, check that the new classes are in markup.
+    expect(classes.length).toBeGreaterThanOrEqual(4);
 
     const css = await compile(classes.map((c) => c.cls));
     for (const { cls, modifier } of classes) {
@@ -184,5 +190,305 @@ describe('the colour tokens', () => {
     expect(css).toContain('hsl(var(--ws-bg-hsl) / 0.8)');
     expect(css).toContain('.border-line\\/70');
     expect(css).toContain('hsl(var(--ws-border-hsl) / 0.7)');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  The rainbow                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The stylesheets themselves, as text, parsed with postcss.
+ *
+ * `site.css` cannot be compiled here the way the utilities above are — it opens
+ * with `@import './tokens.css'`, which needs postcss-import, and running the
+ * whole Tailwind pipeline would only put the same declarations back in a
+ * different order. What these assertions are about is the *authored* CSS: that
+ * the tokens exist, that the pulse is declared once and gated in the two places
+ * it has to be, and that its amplitude is the restrained one. So the files are
+ * parsed rather than compiled, and walked as a tree rather than matched with a
+ * regex, which is what makes "inside a reduced-motion query" a thing a test can
+ * actually tell apart from "next to one".
+ */
+const STYLESHEETS: Record<string, string> = Object.fromEntries(
+  Object.entries(
+    import.meta.glob<string>('./*.css', {
+      eager: true,
+      query: '?raw',
+      import: 'default',
+    }),
+  ).map(([path, css]) => [path.replace('./', ''), css]),
+);
+
+const sheet = (name: string): string => {
+  const css = STYLESHEETS[name];
+  if (css === undefined) throw new Error(`no ${name} — the glob stopped matching`);
+  return css;
+};
+
+/** Every at-rule wrapping a node, innermost last, as `name params` strings. */
+const enclosing = (node: postcss.Node): string[] => {
+  const chain: string[] = [];
+  for (let at = node.parent; at !== undefined; at = at.parent) {
+    if (at.type === 'atrule') chain.unshift(`${(at as postcss.AtRule).name} ${(at as postcss.AtRule).params}`);
+  }
+  return chain;
+};
+
+/**
+ * The custom properties in effect for one theme.
+ *
+ * The light theme is the dark one with the light rule laid over it — which is
+ * how the cascade reads it, and the reason that rule only has to redeclare the
+ * triplets it changes.
+ *
+ * The light rule is a **selector**, `:root[data-theme='light'], :root.ws-auto-light`,
+ * not a `prefers-color-scheme` media query: #285's theme switcher resolves the
+ * system preference in JS and stamps a class, so the light values live in one
+ * place rather than two. Matched by name rather than by "is it inside a media
+ * query", which is what that switcher changed underneath this.
+ */
+const LIGHT_SELECTOR = ":root[data-theme='light']";
+
+const tokensFor = (theme: 'dark' | 'light'): Map<string, string> => {
+  const declarations = new Map<string, string>();
+  let sawLight = false;
+
+  postcss.parse(sheet('tokens.css')).walkRules((rule) => {
+    if (enclosing(rule).some((query) => query.includes('prefers-reduced-motion'))) return;
+
+    const isBase = rule.selectors.includes(':root');
+    const isLight = rule.selectors.includes(LIGHT_SELECTOR);
+    if (isLight) sawLight = true;
+    if (!isBase && !isLight) return;
+    if (isLight && theme !== 'light') return;
+
+    rule.walkDecls(/^--ws-/, (decl) => {
+      declarations.set(decl.prop, decl.value.trim());
+    });
+  });
+
+  // Without this the light assertions would silently re-test the dark values
+  // if the selector were ever renamed again.
+  if (!sawLight) throw new Error(`no ${LIGHT_SELECTOR} rule in tokens.css`);
+  return declarations;
+};
+
+/** `350 89% 60%` → sRGB in 0..1. */
+const hslToRgb = (triplet: string): [number, number, number] => {
+  const match = /^(-?[\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/.exec(triplet);
+  if (match === null) throw new Error(`not an HSL triplet: ${triplet}`);
+  const [hue, saturation, lightness] = [
+    Number(match[1]),
+    Number(match[2]) / 100,
+    Number(match[3]) / 100,
+  ];
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const sector = (((hue % 360) + 360) % 360) / 60;
+  const second = chroma * (1 - Math.abs((sector % 2) - 1));
+  const base: [number, number, number] = [
+    [chroma, second, 0],
+    [second, chroma, 0],
+    [0, chroma, second],
+    [0, second, chroma],
+    [second, 0, chroma],
+    [chroma, 0, second],
+  ][Math.floor(sector) % 6] as [number, number, number];
+  const lift = lightness - chroma / 2;
+  return [base[0] + lift, base[1] + lift, base[2] + lift];
+};
+
+/**
+ * Resolve a token to an HSL triplet.
+ *
+ * Two forms appear: a bare triplet (`--ws-bg-hsl`) and a colour derived from
+ * one (`--ws-rainbow-ink: hsl(var(--ws-bg-sunken-hsl))`, or a literal
+ * `hsl(0 0% 100%)`). Both have to be followed, because the ink is declared each
+ * way in one theme apiece.
+ */
+const tripletFor = (tokens: Map<string, string>, prop: string): string => {
+  const value = tokens.get(prop);
+  if (value === undefined) throw new Error(`${prop} is not declared`);
+  const viaVar = /^hsl\(\s*var\((--ws-[a-z0-9-]+)\)\s*\)$/.exec(value);
+  if (viaVar !== null) return tripletFor(tokens, viaVar[1]!);
+  const literal = /^hsl\(([^)]+)\)$/.exec(value);
+  return (literal !== null ? literal[1]! : value).trim();
+};
+
+/** WCAG 2.1 relative luminance. */
+const luminance = (triplet: string): number => {
+  const linear = hslToRgb(triplet).map((channel) =>
+    channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+  );
+  return 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!;
+};
+
+const contrast = (a: string, b: string): number => {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light! + 0.05) / (dark! + 0.05);
+};
+
+const STOPS = [0, 1, 2, 3, 4, 5] as const;
+
+describe('the rainbow tokens', () => {
+  it.each(['dark', 'light'] as const)('declares all six stops, the ramp and the ink (%s)', (theme) => {
+    const tokens = tokensFor(theme);
+    for (const stop of STOPS) {
+      expect(tokens.has(`--ws-rainbow-${stop}-hsl`), `--ws-rainbow-${stop}-hsl`).toBe(true);
+      // The derived half is declared once, at bare `:root`, and re-resolves
+      // under the light theme from the overridden triplet — so it must be
+      // present in both maps and must point at the triplet, not repeat it.
+      expect(tokens.get(`--ws-rainbow-${stop}`)).toBe(`hsl(var(--ws-rainbow-${stop}-hsl))`);
+      expect(() => hslToRgb(tripletFor(tokens, `--ws-rainbow-${stop}-hsl`))).not.toThrow();
+    }
+    expect(tokens.get('--ws-rainbow-ramp')).toContain('var(--ws-rainbow-0)');
+    // Seven stops, closing on the first: what makes a rotating conic seamless.
+    expect(tokens.get('--ws-rainbow-ramp')?.match(/var\(--ws-rainbow-\d\)/g)).toHaveLength(7);
+    expect(tokens.has('--ws-rainbow-ink')).toBe(true);
+  });
+
+  it('is the app’s own six stops, not an approximation', () => {
+    // `packages/app/src/styles.css` — copied, because the website may not import
+    // across that boundary. Tailwind rose/amber/emerald/blue/violet/pink 500.
+    const tokens = tokensFor('dark');
+    expect(STOPS.map((stop) => tripletFor(tokens, `--ws-rainbow-${stop}-hsl`))).toEqual([
+      '350 89% 60%',
+      '38 92% 50%',
+      '160 84% 39%',
+      '217 91% 60%',
+      '258 90% 66%',
+      '330 81% 60%',
+    ]);
+  });
+
+  it.each(['dark', 'light'] as const)(
+    'keeps every stop legible as gradient text (%s)',
+    (theme) => {
+      const tokens = tokensFor(theme);
+      const background = tripletFor(tokens, '--ws-bg-hsl');
+      for (const stop of STOPS) {
+        const ratio = contrast(tripletFor(tokens, `--ws-rainbow-${stop}-hsl`), background);
+        expect(ratio, `--ws-rainbow-${stop} on --ws-bg is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
+
+  it.each(['dark', 'light'] as const)('keeps the ink legible on every stop (%s)', (theme) => {
+    const tokens = tokensFor(theme);
+    const ink = tripletFor(tokens, '--ws-rainbow-ink');
+    for (const stop of STOPS) {
+      const ratio = contrast(ink, tripletFor(tokens, `--ws-rainbow-${stop}-hsl`));
+      expect(ratio, `ink on --ws-rainbow-${stop} is ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});
+
+describe('the neon pulse', () => {
+  const site = () => postcss.parse(sheet('site.css'));
+
+  /** Every rule whose selector mentions `.ws-neon`, with its at-rule chain. */
+  const neonRules = () => {
+    const found: { selector: string; at: string[]; decls: Map<string, string> }[] = [];
+    site().walkRules((rule) => {
+      if (!rule.selector.includes('.ws-neon')) return;
+      const decls = new Map<string, string>();
+      rule.walkDecls((decl) => {
+        decls.set(decl.prop, decl.value.trim());
+      });
+      found.push({ selector: rule.selector, at: enclosing(rule), decls });
+    });
+    return found;
+  };
+
+  it('declares the utility, with a resting glow and the pulse', () => {
+    const base = neonRules().find((rule) => rule.at.some((query) => query.startsWith('layer utilities')));
+    expect(base, '.ws-neon is not declared in @layer utilities').not.toBeUndefined();
+    expect(base?.decls.get('animation')).toContain('ws-neon-pulse');
+    // The resting shadow is the mid-cycle value — what a visitor sees when the
+    // animation is disarmed. Without it, reduced motion means no glow at all.
+    expect(base?.decls.get('box-shadow')).toContain('var(--ws-neon-color)');
+    expect(base?.decls.get('--ws-neon-color')).toContain('var(--ws-angle)');
+    expect(base?.decls.get('will-change')).toBe('box-shadow');
+  });
+
+  it('is applied to at most four surfaces, so the page never reads as a casino', () => {
+    // The button, the active nav tab's underline, the hero's logo halo and the
+    // early-access field while focused. Adding a fifth is a design decision,
+    // not a refactor, so it has to come past this number.
+    const users = Object.entries(SOURCES).filter(([, source]) => /\bws-neon\b/.test(source));
+    expect(users.map(([path]) => path).sort()).toEqual([
+      '../components/button.tsx',
+      '../sections/early-access/early-access.tsx',
+      '../sections/hero/hero.tsx',
+    ]);
+    // The fourth is the nav tab, which takes the glow on a pseudo-element and so
+    // names no class in the markup at all.
+    expect(sheet('site.css')).toContain(".ws-nav-tab[data-active='true']::after");
+  });
+
+  it('breathes gently: 12px to 24px, 0.35 to 0.6, over 3.2 seconds', () => {
+    const base = neonRules().find((rule) => rule.at.some((query) => query.startsWith('layer utilities')));
+    expect(base?.decls.get('animation')).toContain('3.2s');
+
+    let pulse: postcss.AtRule | undefined;
+    site().walkAtRules('keyframes', (at) => {
+      if (at.params === 'ws-neon-pulse') pulse = at;
+    });
+    expect(pulse, '@keyframes ws-neon-pulse is missing').toBeDefined();
+
+    const shadows: string[] = [];
+    pulse?.walkDecls('box-shadow', (decl) => {
+      shadows.push(decl.value);
+    });
+    expect(shadows).toHaveLength(2);
+    const [rest, peak] = shadows;
+    expect(rest).toContain('12px');
+    expect(rest).toContain('35%');
+    expect(peak).toContain('24px');
+    expect(peak).toContain('60%');
+    // Never off, never opaque: every mix stays inside a narrow band, and the
+    // amplitude is the whole difference between "premium" and "flashing".
+    const mixes = shadows
+      .flatMap((shadow) => [...shadow.matchAll(/(\d+)%/g)])
+      .map((match) => Number(match[1]));
+    expect(mixes.length).toBeGreaterThanOrEqual(4);
+    for (const mix of mixes) {
+      expect(mix, `a ${mix}% glow is outside the calm band`).toBeGreaterThanOrEqual(25);
+      expect(mix, `a ${mix}% glow is outside the calm band`).toBeLessThanOrEqual(70);
+    }
+  });
+
+  it('drops the compositor hint under prefers-reduced-motion', () => {
+    const reduced = neonRules().filter((rule) =>
+      rule.at.some((query) => query.includes('prefers-reduced-motion: reduce')),
+    );
+    expect(reduced, '.ws-neon is not mentioned under a reduced-motion query').not.toHaveLength(0);
+    expect(reduced.some((rule) => rule.decls.get('will-change') === 'auto')).toBe(true);
+
+    // The animation itself is disarmed by tokens.css, for the whole site at
+    // once — so the guard belongs there, not on this utility.
+    const tokens = postcss.parse(sheet('tokens.css'));
+    let disarmed = false;
+    tokens.walkAtRules('media', (at) => {
+      if (!at.params.includes('prefers-reduced-motion: reduce')) return;
+      at.walkDecls('animation-duration', () => {
+        disarmed = true;
+      });
+    });
+    expect(disarmed, 'tokens.css no longer zeroes animation-duration').toBe(true);
+  });
+
+  it('pauses everything infinite while the tab is hidden', () => {
+    const paused = new Set<string>();
+    site().walkRules((rule) => {
+      if (!rule.selector.includes("html[data-page-hidden='true']")) return;
+      rule.walkDecls('animation-play-state', (decl) => {
+        if (decl.value.trim() === 'paused') {
+          for (const selector of rule.selectors) paused.add(selector);
+        }
+      });
+    });
+    expect([...paused].some((selector) => selector.includes('.ws-neon'))).toBe(true);
+    expect([...paused].some((selector) => selector.includes('.ws-marquee-track'))).toBe(true);
   });
 });

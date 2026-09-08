@@ -4,6 +4,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  The one animated angle, registered so it can be interpolated.
+
+  A custom property is a *token stream* by default: `0deg` and `360deg` are two
+  unrelated strings, and a keyframe between them snaps at the halfway point
+  instead of sweeping. `@property` with `syntax: '<angle>'` is what makes the
+  browser treat it as a number with a unit and animate it smoothly — which is
+  the whole trick behind a rotating conic gradient, since `conic-gradient()`
+  itself is not animatable.
+
+  `inherits: false`, so an element that wants a moving rainbow opts in by
+  animating its own copy (`.ws-neon` does) and every other element keeps the
+  0deg initial value — a still gradient, which is exactly right for the ones
+  that are decoration rather than the page's one call to action.
+*/
+@property --ws-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -170,6 +191,116 @@
   }
 
   /*
+    ── The rainbow, and its pulse ─────────────────────────────────────────────
+
+    Three utilities and one rule, and between them they are every rainbow
+    surface on the site. The stops themselves live in `tokens.css`, which also
+    carries the rule for *where* the rainbow is allowed and where violet stays.
+
+    `.ws-rainbow-text` — gradient text. `background-clip: text` with a
+    transparent fill, so the ramp shows through the glyphs. Every stop clears
+    4.5:1 against the theme's background (measured in `tokens.css`), which is
+    what makes this safe on 12px uppercase type; the light theme's ramp is a
+    dimmed re-derivation for exactly that reason.
+
+    `.ws-rainbow-fill` — a rainbow *surface*, for the primary button. The conic
+    centre is placed below the element (`at 50% 140%`) on purpose: a conic
+    gradient centred inside a 40px-tall pill shows its vertex, and a visible
+    pinwheel in a call-to-action reads as a loading spinner. From below, only a
+    fan of the spectrum crosses the button and the sweep is smooth. It rotates
+    only when the element also carries `.ws-neon`.
+
+    The fourth surface, the nav tab's 2px ramp, is `.ws-nav-tab::after` further
+    down rather than a utility of its own: it is drawn on a pseudo-element so it
+    can scale in from the left without moving the text, and a pseudo-element is
+    not something a class in the markup can be put on.
+  */
+  .ws-rainbow-text {
+    background-image: linear-gradient(100deg, var(--ws-rainbow-ramp));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .ws-rainbow-fill {
+    color: var(--ws-rainbow-ink);
+    background-image: conic-gradient(from var(--ws-angle) at 50% 140%, var(--ws-rainbow-ramp));
+  }
+
+  /*
+    ── The neon pulse ─────────────────────────────────────────────────────────
+
+    A glow that breathes: radius 12px → 24px, opacity 0.35 → 0.6, over 3.2s
+    ease-in-out. Deliberately shallow — the brief is "modern and calm", and the
+    difference between premium and a casino sign is entirely amplitude. Nothing
+    here crosses zero, so it never reads as flashing.
+
+    **The resting box-shadow is the mid-cycle value, and that is load-bearing.**
+    `tokens.css` disarms every animation on the site under
+    `prefers-reduced-motion` (`animation-duration: 0.01ms`), so what a
+    reduced-motion visitor sees is whatever the element looks like with the
+    animation *not applied* — which here is a static glow at half amplitude,
+    rather than a keyframe's endpoint chosen by accident.
+
+    **The glow's hue is derived from `--ws-angle`, not animated separately.**
+    One animation drives both the conic sweep and the glow colour, so on the
+    primary button they cannot drift out of phase, and on an element that does
+    not rotate its angle the glow settles at 258° — the ramp's violet, the same
+    hue the rest of the site's accent already is.
+
+    **`will-change: box-shadow` is on these and nowhere else.** It is a request
+    for a compositor layer, and the way to make a page slower with it is to hint
+    a lot of elements. At most four things pulse at once (the primary button, the
+    active nav tab's underline, the hero's logo halo, and the early-access field
+    while it has focus), and it is dropped entirely under reduced motion, where
+    there is nothing to promote.
+  */
+  .ws-neon,
+  .ws-nav-tab[data-active='true']::after {
+    --ws-neon-color: hsl(calc(var(--ws-angle) + 258deg) 82% 62%);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--ws-neon-color) 42%, transparent),
+      0 0 18px -2px color-mix(in srgb, var(--ws-neon-color) 48%, transparent);
+    animation:
+      ws-neon-pulse 3.2s var(--ws-ease) infinite,
+      ws-rainbow-turn 18s linear infinite;
+    will-change: box-shadow;
+  }
+
+  /*
+    ── The nav tab ────────────────────────────────────────────────────────────
+
+    The scroll-spy's visible half (`useActiveSection` owns the other). The
+    underline is always in the DOM and always the full width of the label,
+    scaled to zero from the left — so the active state is one `transform`, which
+    the compositor animates without touching layout, and switching tabs reads as
+    the line sliding open rather than as a line appearing.
+
+    `[data-active]` and not `:target` or a `.active` class: the component sets
+    the same attribute it sets `aria-current` from, so the visible state and the
+    announced state cannot disagree.
+  */
+  .ws-nav-tab {
+    position: relative;
+  }
+
+  .ws-nav-tab::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 -0.5rem 0;
+    height: 2px;
+    border-radius: 2px;
+    background-image: linear-gradient(90deg, var(--ws-rainbow-ramp));
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform var(--ws-dur-base) var(--ws-ease);
+  }
+
+  .ws-nav-tab[data-active='true']::after {
+    transform: none;
+  }
+
+  /*
     The marquee fades out at both ends instead of being cut off by the
     container's edge, so a logo does not appear from behind a hard line.
   */
@@ -303,5 +434,75 @@
   84%,
   100% {
     opacity: 0;
+  }
+}
+
+/*
+  One lap of the rainbow: the registered angle, all the way round.
+
+  18s, which is slow enough that a visitor reading a paragraph does not see it
+  move and a visitor watching the button does. It drives the conic on
+  `.ws-rainbow-fill` and, through `--ws-neon-color`, the hue of every neon glow —
+  one animation for both, so they cannot come apart.
+*/
+@keyframes ws-rainbow-turn {
+  to {
+    --ws-angle: 360deg;
+  }
+}
+
+/*
+  The breath. Radius 12px → 24px, opacity 0.35 → 0.6, symmetric about the
+  resting value declared on `.ws-neon` — so an element that stops animating
+  (reduced motion, a hidden tab) is already sitting where the cycle's midpoint
+  would have put it, and nothing snaps.
+
+  `box-shadow` rather than `filter: drop-shadow` for the reason the rest of this
+  file gives: a filter re-rasterises the element's whole subtree every frame,
+  and the button has text in it.
+*/
+@keyframes ws-neon-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--ws-neon-color) 30%, transparent),
+      0 0 12px -2px color-mix(in srgb, var(--ws-neon-color) 35%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--ws-neon-color) 55%, transparent),
+      0 0 24px -2px color-mix(in srgb, var(--ws-neon-color) 60%, transparent);
+  }
+}
+
+/*
+  A tab nobody is looking at costs nothing.
+
+  `page-visibility.ts` mirrors `document.hidden` onto the root element and this
+  pauses every infinite animation the rainbow owns — the pulse, the angle, and
+  the agent marquee's track and its selected mark, which were already paused by
+  their own `data-paused` attribute only while the pointer was over them.
+  `animation-play-state` resumes mid-cycle, so returning to the tab does not
+  restart anything.
+*/
+html[data-page-hidden='true'] .ws-neon,
+html[data-page-hidden='true'] .ws-nav-tab[data-active='true']::after,
+html[data-page-hidden='true'] .ws-marquee-track,
+html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'],
+html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
+  animation-play-state: paused;
+}
+
+/*
+  Under reduced motion the glow is static, so the compositor hint is a promise
+  of change that will never come — and a layer held for nothing is the usual way
+  `will-change` makes a page slower rather than faster. The glow itself stays:
+  it is colour, not movement, and the site's policy has always been to keep the
+  former and drop the latter.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .ws-neon,
+  .ws-nav-tab[data-active='true']::after {
+    will-change: auto;
   }
 }
