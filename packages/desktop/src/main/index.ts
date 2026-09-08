@@ -24,6 +24,8 @@ import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { createCompanionStore } from './companion/companion-store';
 import { configureCompanion } from './companion/digest';
+import { configureStt } from './companion/stt';
+import { createSttCredentials } from './companion/stt/credentials';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
 import { createSessionHistoryStore } from './session-history-store';
@@ -515,6 +517,13 @@ if (!app.requestSingleInstanceLock()) {
       `companion:digest` can arrive on the renderer's first paint.
     */
     configureCompanion(createCompanionStore(userData));
+    /*
+      The recogniser's key (Theme F), in its own `safeStorage` vault beside the
+      database one. Wired here rather than lazily because `configured()` is
+      what the Settings page reads on mount, and a lazily-created vault would
+      answer "nothing configured" on the first read of every launch.
+    */
+    configureStt(createSttCredentials(userData));
 
     /*
       Three independent boot chains, run at once (Theme B). They were sequential

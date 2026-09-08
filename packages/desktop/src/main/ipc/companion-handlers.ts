@@ -1,9 +1,11 @@
-import { CHANNELS, emptyCompanionSnapshot, schemas } from '@midnite/studio-shared';
-import type { CompanionDigest, CompanionSnapshot } from '@midnite/studio-shared';
+import { CHANNELS, emptyCompanionSnapshot, ok, schemas } from '@midnite/studio-shared';
+import type { CompanionDigest, CompanionSnapshot, GitOpResult } from '@midnite/studio-shared';
+import type { z } from 'zod';
 
 import { buildCompanionDigest } from '../companion/digest';
 import { buildCompanionSnapshot } from '../companion/snapshot';
-import { handle } from './handle';
+import { sttDeps, testSttCredential, transcribeUtterance } from '../companion/stt';
+import { handle, handleBare, handleOp } from './handle';
 
 /**
  * The companion's two grounding channels (Phase 79 Theme B).
@@ -34,5 +36,40 @@ export function registerCompanionHandlers(): void {
     // into "nothing has landed", which is the truthful answer to a request
     // this process could not read.
     () => ({ landed: [], inProgress: [], since: Date.now() }),
+  );
+
+  /*
+    Theme F's three. `handleOp` for the two that can fail in ways a user acts
+    on — `transcribeUtterance` and `testSttCredential` never throw, so an
+    invalid payload arriving as `failure(...)` is the same shape as a 401 and
+    the input bar has one branch, not two.
+  */
+  handleOp(CHANNELS.companionTranscribe, schemas.CompanionTranscribeRequest, (req) =>
+    transcribeUtterance(req),
+  );
+
+  handleOp(CHANNELS.companionSttTest, schemas.CompanionSttTestRequest, (req) =>
+    testSttCredential(req.providerId),
+  );
+
+  /*
+    The key crosses the boundary here and only here, in this direction. There
+    is no channel that reads one back: `companionSttStatus` answers with a
+    boolean per provider, which is the only thing any UI needs to know.
+  */
+  handleOp(CHANNELS.companionSttSet, schemas.CompanionSttSetRequest, async (req) => {
+    await sttDeps().credentials.set(req.providerId, req.key);
+    return ok();
+  });
+
+  handleBare<z.infer<typeof schemas.CompanionSttStatusResponse>>(
+    CHANNELS.companionSttStatus,
+    async () => {
+      const { credentials } = sttDeps();
+      return {
+        configured: await credentials.configured(),
+        encryptionAvailable: credentials.isAvailable(),
+      };
+    },
   );
 }
