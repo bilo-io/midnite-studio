@@ -71,6 +71,7 @@ beforeEach(() => {
   useUiStore.setState({
     companionEnabled: true,
     companionHonorific: '',
+    companionNames: ['Companion'],
     companionVolume: 0.7,
     companionMicMode: 'push',
   });
@@ -297,5 +298,75 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
     render(<CompanionPage />);
     // The section still renders; nothing throws and the Test stays disabled.
     expect((await screen.findByTestId('companion-stt-test')).hasAttribute('disabled')).toBe(true);
+  });
+});
+
+describe('Settings ▸ Companion ▸ Personality — name pills (Theme D)', () => {
+  it('starts with the fresh-install default name as a single pill', async () => {
+    installBridge();
+    render(<CompanionPage />);
+    const pills = await screen.findByTestId('companion-names-pills');
+    expect(pills.textContent).toContain('Companion');
+  });
+
+  it('commits a typed name as a pill on Enter and clears the field', async () => {
+    installBridge();
+    render(<CompanionPage />);
+
+    const input = await screen.findByTestId('companion-names-input');
+    fireEvent.change(input, { target: { value: 'Jarvis' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(useUiStore.getState().companionNames).toEqual(['Companion', 'Jarvis']);
+    expect((input as HTMLInputElement).value).toBe('');
+  });
+
+  it('rejects a duplicate name (case-insensitively) with an inline message, not a silent no-op', async () => {
+    installBridge();
+    render(<CompanionPage />);
+
+    const input = await screen.findByTestId('companion-names-input');
+    fireEvent.change(input, { target: { value: 'companion' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(useUiStore.getState().companionNames).toEqual(['Companion']);
+    expect(await screen.findByText(/already one of its names/)).toBeTruthy();
+  });
+
+  it('deletes the most-recently-added pill on Backspace in an empty field', async () => {
+    installBridge();
+    useUiStore.setState({ companionNames: ['Companion', 'Jarvis'] });
+    render(<CompanionPage />);
+
+    const input = await screen.findByTestId('companion-names-input');
+    fireEvent.keyDown(input, { key: 'Backspace' });
+
+    expect(useUiStore.getState().companionNames).toEqual(['Companion']);
+  });
+
+  it('gives each pill\'s remove control a name-specific accessible label', async () => {
+    installBridge();
+    useUiStore.setState({ companionNames: ['Companion', 'Jarvis'] });
+    render(<CompanionPage />);
+
+    expect(await screen.findByRole('button', { name: /Remove "Companion"/ })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /Remove "Jarvis"/ })).toBeTruthy();
+  });
+
+  it('blocks deleting the last remaining pill rather than silently backfilling a default', async () => {
+    installBridge();
+    useUiStore.setState({ companionNames: ['Companion'] });
+    render(<CompanionPage />);
+
+    const remove = await screen.findByRole('button', { name: /Remove "Companion"/ });
+    expect(remove.getAttribute('aria-disabled')).toBe('true');
+
+    fireEvent.click(remove);
+    expect(useUiStore.getState().companionNames).toEqual(['Companion']);
+
+    // Backspace-to-delete-last is blocked the same way.
+    const input = await screen.findByTestId('companion-names-input');
+    fireEvent.keyDown(input, { key: 'Backspace' });
+    expect(useUiStore.getState().companionNames).toEqual(['Companion']);
   });
 });

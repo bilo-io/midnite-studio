@@ -1,5 +1,6 @@
 import {
   COMPANION_PHRASES,
+  CompanionNamesSchema,
   STT_PROVIDER_IDS,
   STT_PROVIDER_LABELS,
   interpolatePhrase,
@@ -8,11 +9,12 @@ import {
 } from '@midnite/studio-shared';
 import { Accordion } from '@bilo-io/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { LuBot, LuMic, LuSmile, LuVolume2 } from 'react-icons/lu';
+import { LuBot, LuMic, LuSmile, LuVolume2, LuX } from 'react-icons/lu';
 
 import { setCompanionVolume as applyCompanionVolume } from '../../companion/audio/context';
 import { companionTtsSpeaker } from '../../companion/speaker';
 import { refreshMicAvailability } from '../../companion/voice-ports';
+import { IconButton } from '../../../components/icon-button';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { Choice, Field, TextField } from './controls';
@@ -53,6 +55,8 @@ export function CompanionPage() {
   const setCompanionHandsFree = useUiStore((s) => s.setCompanionHandsFree);
   const companionHonorific = useUiStore((s) => s.companionHonorific);
   const setCompanionHonorific = useUiStore((s) => s.setCompanionHonorific);
+  const companionNames = useUiStore((s) => s.companionNames);
+  const setCompanionNames = useUiStore((s) => s.setCompanionNames);
   const companionVoice = useUiStore((s) => s.companionVoice);
   const setCompanionVoice = useUiStore((s) => s.setCompanionVoice);
   const companionSpeakAloud = useUiStore((s) => s.companionSpeakAloud);
@@ -285,6 +289,8 @@ export function CompanionPage() {
 
       <Accordion title="Personality" icon={<LuSmile className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
+          <CompanionNamesField names={companionNames} onChange={setCompanionNames} />
+
           <Field
             label="What it calls you"
             hint="Dropped into greetings and sign-offs. Empty by default, and empty reads correctly — the phrase collapses the punctuation that was only there to set the name off, so it says “Okay, here we are” rather than “Okay , here we are”."
@@ -316,6 +322,110 @@ export function CompanionPage() {
         </div>
       </Accordion>
     </div>
+  );
+}
+
+/** Matches `TextField`'s own styling constant (`field.tsx:87`) — not exported, so restated here rather than editing that file for one more caller. */
+const NAME_INPUT_CLASSNAME =
+  'w-full rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring disabled:opacity-50';
+
+/**
+ * The pill list of names the companion answers to (Phase 80 Theme D).
+ *
+ * A raw `<input>` sharing `TextField`'s styling constant rather than
+ * `TextField` itself — Enter-to-commit and Backspace-to-delete-last need
+ * `onKeyDown`, which `TextField` doesn't take, and threading a new prop
+ * through a shared primitive for this one caller would be worse than the
+ * five extra lines here (phase doc, Decision 7).
+ *
+ * No tag/token input exists in `@bilo-io/ui` (confirmed against its
+ * `dist/index.d.ts`), so this is composed from primitives that already
+ * exist: the input's own styling, and `IconButton` for each pill's remove
+ * control — `LuX` from `react-icons/lu`, never `lucide-react`.
+ */
+function CompanionNamesField({
+  names,
+  onChange,
+}: {
+  names: string[];
+  onChange: (names: string[]) => void;
+}) {
+  const [draft, setDraft] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const commitDraft = useCallback(() => {
+    const candidate = draft.trim();
+    if (candidate === '') return;
+    if (names.some((name) => name.toLowerCase() === candidate.toLowerCase())) {
+      setError(`"${candidate}" is already one of its names.`);
+      return;
+    }
+    const result = CompanionNamesSchema.safeParse([...names, candidate]);
+    if (!result.success) {
+      setError('That name is not valid.');
+      return;
+    }
+    onChange(result.data);
+    setDraft('');
+    setError(null);
+  }, [draft, names, onChange]);
+
+  const removeName = useCallback(
+    (name: string) => {
+      if (names.length <= 1) return; // Decision 6: block, never silently backfill a default.
+      onChange(names.filter((existing) => existing !== name));
+      setError(null);
+    },
+    [names, onChange],
+  );
+
+  return (
+    <Field
+      label="What you call it"
+      hint="Every name below wakes the companion — typed or spoken. At least one name is always required, so the last one can't be removed."
+    >
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="companion-names-pills">
+          {names.map((name) => (
+            <span
+              key={name}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 py-0.5 pl-2.5 pr-1 text-xs text-foreground"
+            >
+              {name}
+              <IconButton
+                icon={LuX}
+                label={`Remove "${name}"`}
+                size="sm"
+                onClick={() => removeName(name)}
+                disabled={names.length <= 1}
+                disabledReason={names.length <= 1 ? 'The companion needs at least one name' : undefined}
+              />
+            </span>
+          ))}
+        </div>
+        <input
+          type="text"
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            if (error) setError(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              commitDraft();
+            } else if (event.key === 'Backspace' && draft === '' && names.length > 1) {
+              removeName(names[names.length - 1] as string);
+            }
+          }}
+          aria-label="Add a name"
+          placeholder="Type a name and press Enter…"
+          className={NAME_INPUT_CLASSNAME}
+          data-testid="companion-names-input"
+        />
+        {error ? <p className="text-[11px] text-destructive">{error}</p> : null}
+      </div>
+    </Field>
   );
 }
 

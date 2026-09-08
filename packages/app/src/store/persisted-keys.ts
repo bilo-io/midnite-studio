@@ -100,6 +100,7 @@ export const PREFERENCE_KEYS = [
   'companionEnabled', // companion-page.tsx
   'companionHandsFree', // companion-page.tsx
   'companionHonorific', // companion-page.tsx
+  'companionNames', // companion-page.tsx (Personality ▸ the name pills, Phase 80 Theme D)
   'companionVoice', // companion-page.tsx
   'companionSpeakAloud', // companion-page.tsx (Voice ▸ Speak replies aloud)
   'companionMusicOffer', // companion-page.tsx
