@@ -91,18 +91,22 @@ export const TestimonialEmpty = () => (
     </ul>
 
     <div className="rounded-lg border border-line bg-bg-sunken p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-fg-subtle">
-        One entry in {TESTIMONIALS_PATH}
+      {/* Not `uppercase`: half of this line is a file path, and a path shouted
+          in capitals is a path nobody can retype. */}
+      <p className="text-xs font-semibold text-fg-subtle">
+        One entry in{' '}
+        <code className="font-mono text-fg-muted">{TESTIMONIALS_PATH}</code>
       </p>
       <pre className="mt-3 overflow-x-auto font-mono text-xs leading-relaxed text-fg-muted">
         <code>{SCHEMA}</code>
       </pre>
       <p className="mt-3 text-xs text-fg-subtle">
-        Image paths are relative to{' '}
-        <code className="font-mono text-fg-muted">{TESTIMONIALS_IMG_DIR}</code>&rsquo;s
-        parent — write <code className="font-mono text-fg-muted">img/testimonials/ana.png</code>
-        , never a leading slash: the deployed site is served under a path prefix. See that
-        folder&rsquo;s README.
+        Images live in{' '}
+        <code className="font-mono text-fg-muted">{TESTIMONIALS_IMG_DIR}</code> and are
+        referenced without the <code className="font-mono text-fg-muted">public/</code> —{' '}
+        <code className="font-mono text-fg-muted">img/testimonials/ana.png</code>, never with
+        a leading slash: the deployed site is served under a path prefix. That folder&rsquo;s
+        README covers consent and cropping for a screenshot.
       </p>
     </div>
   </div>
