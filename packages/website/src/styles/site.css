@@ -1,5 +1,31 @@
 @import './tokens.css';
 
+/*
+  The brand face: Kaushan Script, the site's open-licence re-cut of the app's
+  Quick Kiss.
+
+  The app's own face cannot ship here — it is licensed for personal use only —
+  so the site sets the same wordmark in the closest OFL face instead, picked
+  from twenty rendered candidates. The two surfaces are near-identical by
+  design, not identical. See `src/fonts/kaushan-script/README.md` for the
+  subsetting command and `docs/WEBSITE.md` for the decision.
+
+  **Never add a `@font-face` here for `quick-kiss.ttf`**, and never copy that
+  file into this package: it would put a personal-use font on a public origin.
+
+  Vite fingerprints and emits the woff2 from this relative `url()`, so there is
+  no `public/` copy to keep in step and no Google Fonts `<link>` — the site
+  makes no third-party request for its own type. `swap`, so the wordmark is
+  readable in the fallback for the one frame before the 34 KB file lands.
+*/
+@font-face {
+  font-family: 'Kaushan Script';
+  src: url('../fonts/kaushan-script/KaushanScript-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -26,6 +52,20 @@
 }
 
 @layer base {
+  :root {
+    /*
+      The brand face, as a token. `tailwind.config.ts` maps `font-brand` onto
+      this rather than naming the family itself, so the `@font-face` above and
+      the utility that reaches it stay in one file — the same three-part wiring
+      the app uses (`packages/app/src/styles.css`). Keep the three in step.
+
+      `cursive` is the fallback, not `sans-serif`: the wordmark is a script, and
+      a generic-script fallback keeps the swap from flashing a completely
+      different kind of letter.
+    */
+    --font-brand: 'Kaushan Script', cursive;
+  }
+
   html {
     scroll-behavior: smooth;
     /* The sticky nav is 64px tall; without this an anchor jump lands the
@@ -246,6 +286,41 @@
   .ws-rainbow-fill {
     color: var(--ws-rainbow-ink);
     background-image: conic-gradient(from var(--ws-angle) at 50% 140%, var(--ws-rainbow-ramp));
+  }
+
+  /*
+    ── The wordmark's glow ────────────────────────────────────────────────────
+
+    A glow that follows the letterforms of the brand face, for the one word
+    that *is* the brand. Worn together with `.ws-rainbow-text` — see
+    `components/wordmark.tsx`, which is the only place either is applied to
+    "Midnite".
+
+    **`filter: drop-shadow()`, not `text-shadow`, and that is forced.**
+    `.ws-rainbow-text` fills the glyphs by clipping a gradient to them, which
+    means `color: transparent` — and `text-shadow` is painted from the text's
+    *colour*, so on transparent text it emits nothing at all. `drop-shadow`
+    reads the element's rendered alpha instead, which after the clip is exactly
+    the glyph shapes, gradient fill and all. Two layered shadows: a tight 2px
+    one that reads as ink bleeding off the stroke, and a soft 10px one that is
+    the light in the air around it. A `box-shadow` — what `.ws-neon` uses —
+    would draw the glow around the span's *rectangle*, which is the one thing a
+    script wordmark must not have behind it.
+
+    **It does not pulse, and that is a decision rather than an omission.** The
+    four pulsing elements documented under `.ws-neon` are unchanged: this one is
+    in the sticky nav, on screen for the whole visit, and a permanent breath in
+    permanent chrome is the amplitude problem that comment warns about — it also
+    sits a few pixels from the active nav tab's underline, which *does* breathe.
+    So the hue settles at the resting 258°, the ramp's violet, matching every
+    other non-rotating glow on the site; `tokens.css` re-derives
+    `--ws-neon-sat`/`--ws-neon-lum` for the light theme, so this dims with them.
+    Nothing animates, so there is no `will-change` here either.
+  */
+  .ws-brand-glow {
+    --ws-neon-color: hsl(calc(var(--ws-angle) + 258deg) var(--ws-neon-sat) var(--ws-neon-lum));
+    filter: drop-shadow(0 0 2px color-mix(in srgb, var(--ws-neon-color) 55%, transparent))
+      drop-shadow(0 0 10px color-mix(in srgb, var(--ws-neon-color) 40%, transparent));
   }
 
   /*

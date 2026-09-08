@@ -220,14 +220,21 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   (`packages/website/src/site-origin.ts`, from `WEBSITE_ORIGIN`) is `WEBSITE_BASE`'s sibling: it
   exists for text a visitor *pastes into a terminal*, which `import.meta.env.BASE_URL` cannot
   serve, and it is the site **root** — on the Pages target that includes the path prefix.
-- **The app's brand face is licensed for personal use only, so the public site cannot use it.**
-  `--font-brand` is Quick Kiss, whose own name table reads `Quick Kiss Personal Use` / "All
+- **The two surfaces wear two near-identical brand faces, and that is deliberate.** The app's
+  `--font-brand` is **Quick Kiss**, whose own name table reads `Quick Kiss Personal Use` / "All
   rights reserved" (Billy Argel; commercial and webfont licences are sold separately). The
   private app is arguably within that; **`packages/website` is public marketing and is not**, and
-  serving the TTF from a public origin hands out the file besides. The site's wordmark is
-  therefore plain text and the two surfaces deliberately differ — do not "fix" that by copying
-  the TTF across. [`docs/WEBSITE.md`](docs/WEBSITE.md) records the evidence and the two ways out
-  (buy the licence, or re-cut the brand on an OFL face and change *both* surfaces).
+  serving the TTF from a public origin hands out the file besides. So the site sets the same
+  wordmark in **Kaushan Script (SIL OFL)** — self-hosted from
+  `packages/website/src/fonts/kaushan-script/` with upstream's `OFL.txt` verbatim beside it, a
+  34 KB Latin woff2 subset, no Google Fonts `<link>` and no third-party request. It was picked by
+  rendering twenty OFL/Apache script faces against Quick Kiss at the sizes the site actually uses
+  (Norican was the runner-up); the sheet is committed at
+  [`docs/screenshots/website-wordmark/candidates.png`](docs/screenshots/website-wordmark/candidates.png).
+  **`quick-kiss.ttf` still must never be copied into `packages/website`** — the substitution is
+  what makes that unnecessary, not what relaxes it. The wordmark's split lives in one place,
+  `packages/website/src/components/wordmark.tsx`, mirroring the app's own `brand.tsx`.
+  [`docs/WEBSITE.md`](docs/WEBSITE.md) carries the licence evidence and the wiring.
 - **Commits here are authored as `bilo-io` — `Bilo Lwabona <bilo.lwabona@gmail.com>`.** The
   global `~/.gitconfig` carries the *work* identity, which is correct for every other
   checkout on this machine and wrong for this one. Nothing about a clone announces that
