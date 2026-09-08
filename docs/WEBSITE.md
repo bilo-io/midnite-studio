@@ -38,7 +38,44 @@ renders a page that looks completely fine and 404s every asset on it.
 environment: without that, a Pages build following a local build would be a moon
 cache hit and would ship with the wrong prefix.
 
-## What the human has to do once
+## Deploying on Vercel
+
+The site also deploys as a plain Vercel project, and this is the path that is
+live today. Point the project at this repo with **Root Directory
+`packages/website`**; [`packages/website/vercel.json`](../packages/website/vercel.json)
+carries the rest, so the dashboard needs no build overrides.
+
+**The one thing that bites: install only the site's workspace.** From
+`packages/website`, a bare `pnpm install` installs the *whole* workspace, and the
+app's `@bilo-io/ui` / `@bilo-io/shell` come from GitHub Packages, which 401s
+without a token — the first Vercel build died exactly there
+(`ERR_PNPM_FETCH_401 … No authorization header was set`). The site imports none
+of those packages, so `vercel.json`'s `installCommand` is
+
+```sh
+cd ../.. && pnpm install --filter @midnite/website --frozen-lockfile
+```
+
+which installs the site's project alone (344 packages, verified against a
+deliberately invalid `GITHUB_PACKAGES_TOKEN`). No registry credential is needed
+on Vercel, and none should be added — a build that suddenly needs one means the
+site has grown an import it must not have (see the boundary in `CLAUDE.md`).
+
+Other details the file settles:
+
+- **`base` is `/`.** `WEBSITE_BASE` stays unset on Vercel; the `/midnite-apps/…`
+  prefix is only for the Pages target below.
+- **`/download` needs no rewrite.** The page is emitted as
+  `dist/download/index.html`, a directory index, so Vercel serves it as-is.
+- **`ignoreCommand`** skips a build when the commit touched neither
+  `packages/website/**`, the lockfile nor the root eslint config. If the diff
+  cannot be computed (no `HEAD^` in a shallow clone) it exits non-zero and the
+  build simply runs.
+- **pnpm version** comes from the root `pnpm-lock.yaml` (v9), which Vercel
+  detects; the root `package.json`'s `packageManager` field is not read because
+  the root directory is the site.
+
+## GitHub Pages — what the human has to do once
 
 The publish job in
 [`.github/workflows/website.yml`](../.github/workflows/website.yml) is
