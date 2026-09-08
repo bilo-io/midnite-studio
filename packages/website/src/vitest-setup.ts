@@ -1,3 +1,17 @@
+import { cleanup } from '@testing-library/react';
+import { afterEach } from 'vitest';
+
+/**
+ * Unmount between tests.
+ *
+ * `@testing-library/react` registers this itself — but only when a global
+ * `afterEach` exists, and this suite runs with vitest's `globals` off. Without
+ * it every `render` accumulates in the same document and the second test in a
+ * file fails with "found multiple elements", which reads like a component bug
+ * and is not one.
+ */
+afterEach(cleanup);
+
 /**
  * jsdom has no `matchMedia`, and `useReducedMotion` asks for it on first
  * render. Stub it as "no preference expressed", which is the branch every
