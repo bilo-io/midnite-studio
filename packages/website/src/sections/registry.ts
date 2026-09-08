@@ -5,7 +5,6 @@ import { Faq } from './faq/faq-section';
 import { Features } from './features/features';
 import { Footer } from './footer/footer';
 import { Hero } from './hero/hero';
-import { placeholderSection } from './placeholder';
 import { Services } from './services/services';
 import { Testimonials } from './testimonials/testimonials';
 import { Trusted } from './trusted/trusted';
@@ -34,10 +33,16 @@ export type SectionEntry = {
  * array guarantees is that two of them editing different rows produce a
  * conflict a human can read.
  *
- * **To fill in a section:** replace its `Component` with the real one and
- * delete its `placeholderSection(...)` call. Leave the `id`, the `label` and
- * the position alone — the id is a published URL fragment, and the order is a
- * decision the page has already made.
+ * **Every row is a real section as of wave 2** — this file no longer imports
+ * `placeholderSection`, which is what put the last of the three wave-2 branches
+ * in the position of removing an import the other two still needed.
+ * `sections/placeholder.tsx` stays where it is: it is the stand-in for the next
+ * section somebody adds, and its own test still covers it.
+ *
+ * **To add one:** append a row with its `id`, `label` and `Component`, in the
+ * position the page should show it. To fill an existing one in, replace its
+ * `Component` and leave the `id`, the `label` and the position alone — the id is
+ * a published URL fragment, and the order is a decision the page has made.
  *
  * `hero` is deliberately not in the nav: it is where the logo already links to,
  * and a "Hero" item in a navigation bar means nothing to a visitor. `footer` is
