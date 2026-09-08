@@ -48,8 +48,14 @@ tasks:
   # The inherited `test` task runs bare `vitest run`, which would not find
   # `vitest.config.ts` in its hash and so would stay a cache hit across a config
   # change. Everything else about it is inherited.
+  #
+  # `tailwind.config.ts` is in the hash for the same reason and it is not
+  # cosmetic: `src/styles/colour-tokens.test.tsx` compiles that config to prove
+  # every `/NN` opacity modifier resolves, so a regression there would land on a
+  # cached PASS.
   test:
     inputs:
       - 'src/**/*'
       - 'vitest.config.ts'
+      - 'tailwind.config.ts'
       - 'package.json'
