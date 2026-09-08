@@ -1,6 +1,6 @@
 import { LuArrowDownToLine, LuTerminal } from 'react-icons/lu';
 
-import { Button, Container, Eyebrow, Logo, Section } from '../../components';
+import { Button, Container, Eyebrow, Logo, Section, Wordmark } from '../../components';
 import { anchorHref, hrefFor } from '../../routes';
 
 import { HeroBackdrop } from './hero-backdrop';
@@ -62,8 +62,21 @@ export const Hero = () => (
 
         <Eyebrow>Desktop · macOS on Apple silicon</Eyebrow>
 
+        {/*
+          The headline names the product and then says what it is, so the
+          product half is the wordmark proper — brand face, rainbow fill, glow —
+          and only the trailing "is" is headline sans. `text-fg-muted` on that
+          one word rather than on the line: it is a hinge into the typewriter
+          below it, and the mark it hangs off should not be dimmed with it.
+
+          The whole line stays one `<h1>`, so the page still has exactly one
+          level-1 heading and it still reads "Midnite Studio is …".
+        */}
         <h1 className="text-4xl font-semibold tracking-tight text-fg sm:text-6xl">
-          <span className="block text-fg-muted">Midnite Studio is</span>
+          <span className="block">
+            <Wordmark />
+            <span className="ml-2 text-fg-muted">is</span>
+          </span>
           <Typewriter phrases={PHRASES} className="text-accent" />
         </h1>
 

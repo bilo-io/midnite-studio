@@ -1,6 +1,6 @@
 import { LuBug, LuGithub, LuTag } from 'react-icons/lu';
 
-import { Container, Logo, Reveal, Section } from '../../components';
+import { Container, Logo, Reveal, Section, Wordmark } from '../../components';
 import { useLatestVersion } from '../../pages/use-latest-version';
 import { anchorHref, hrefFor } from '../../routes';
 import { AGENT_ROSTER } from '../early-access/roster';
@@ -165,6 +165,14 @@ export const Footer = () => (
         and not a control. `color-mix` rather than a Tailwind `via-` stop: the
         ramp is a custom property holding seven comma-separated colours, which
         is not a thing a Tailwind gradient utility can take.
+
+        **The mark is `<Wordmark tone="inherit">`, so the split is the same one
+        the nav and the hero use and lives in one file.** `inherit` rather than
+        the default `rainbow`: this `<p>` already owns a ramp and its own
+        `background-clip: text`, and the whole design of it is that the ramp is
+        faded *into* the page. Letting the component re-fan the full-strength
+        ramp inside it — with a glow — would turn the texture back into a mark
+        and put a second gradient box inside the first.
       */}
       <Reveal className="mt-16">
         <p
@@ -183,7 +191,7 @@ export const Footer = () => (
             WebkitBackgroundClip: 'text',
           }}
         >
-          Midnite Studio
+          <Wordmark tone="inherit" />
         </p>
       </Reveal>
 

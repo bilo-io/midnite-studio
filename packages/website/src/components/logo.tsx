@@ -1,5 +1,7 @@
 import { assetHref } from '../routes';
 
+import { Wordmark } from './wordmark';
+
 export type LogoProps = {
   /** Pixel size of the mark. The wordmark scales with it. */
   size?: number;
@@ -20,6 +22,11 @@ export type LogoProps = {
  * (`styles/site.css`) inverts it under the dark theme and leaves it alone under
  * the light one. That is exactly right for a one-colour shape and saves
  * maintaining two files that must never drift apart.
+ *
+ * The wordmark beside it is `<Wordmark>`, which owns the brand-face/UI-face
+ * split and the rainbow-and-glow treatment. It is not spelled out here: the
+ * hero and the footer render the same mark, and the nav's `aria-label` is what
+ * announces "Midnite Studio" to a screen reader either way.
  */
 export const Logo = ({ size = 28, markOnly = false, className = '' }: LogoProps) => (
   <span className={`inline-flex items-center gap-2.5 ${className}`}>
@@ -31,10 +38,6 @@ export const Logo = ({ size = 28, markOnly = false, className = '' }: LogoProps)
       className="ws-logo-mark select-none"
       draggable={false}
     />
-    {markOnly ? null : (
-      <span className="text-[0.95rem] font-semibold tracking-tight text-fg">
-        Midnite Studio
-      </span>
-    )}
+    {markOnly ? null : <Wordmark className="text-[0.95rem] tracking-tight text-fg" />}
   </span>
 );
