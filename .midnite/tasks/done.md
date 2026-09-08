@@ -1,6 +1,69 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Phase 79 follow-up — the companion speaks, in one formatted turn, with timestamps
+
+[PR #273](https://github.com/bilo-io/midnite-studio/pull/273). **Ad hoc, not phase-tracked** — three
+pieces of feedback from the first real use of Phase 79's companion (PRs #269–#272), landed together.
+Phase 79 itself stays 57/67 and closed; nothing in `_INDEX.md` moved.
+
+**The companion was mute, and it was a bug.** Theme E built `setCompanionSpeaker` and Theme F built
+`companionTtsSpeaker`, in parallel PRs, and nothing ever called the one with the other — so the
+shipped app ran its whole flow against `silentSpeaker` and posted every turn `spoken: false`.
+`outstanding.md` had recorded it as one of three harmless defaults, which is exactly what two seams
+that fit perfectly and were never joined look like in a doc. `useCompanionSpeakerWiring()`
+(`register-flow-ports.ts`), mounted from `app.tsx` beside the hand-off watch, is the join: it hands
+the flow the real speaker whenever `companionEnabled && companionSpeakAloud` and returns it to
+silence — cancelling anything in flight — the moment either flips. A hook rather than a one-time
+call, because the switch has to take effect on the next sentence rather than the next launch, and
+because it must stay live while the panel is closed (a read-back speaks whether or not anyone is
+looking at the thread).
+
+**`companionSpeakAloud` is the only `companion*` preference that defaults on.** Enabling the
+companion is already the decision to be spoken to — the switch's own hint says "lets the app speak"
+— so a default-off toggle would have re-created the very bug it fixes. It is the escape hatch *from*
+`companionEnabled`, not a fourth gate on top of it. Settings ▸ Companion ▸ Voice, above the voice
+picker, gating the "Say hello" preview; store version 13 → 14, and in `PREFERENCE_KEYS` rather than
+`KNOWN_ORPHANS`, since the settings control landed with it.
+
+**One turn, not twelve.** `orient` posted a turn per fact and per digest sentence, so a greeting
+arrived as six to twelve one-sentence bubbles; it is now three at most — the spoken greeting, one
+markdown overview, the open prompt. `composeOverviewMarkdown` (`shared/src/companion.ts`) is built
+**on** `describeSnapshot` rather than beside it: its first line becomes the bold heading and the rest
+become bullets, so there is still exactly one place that decides what a snapshot is worth saying,
+and the rendered turn cannot drift from the spoken one. `markdownToSpeech` is the spoken projection
+of that same string and `sayMarkdown` posts one while speaking the other, so the companion never
+reads an asterisk or a URL aloud. The subtlety is ordering: `escapeMarkdownInline` protects
+interpolated data (titles here really do contain `[M · 4-6h]`), and the speech pass undoes those
+escapes *between* the link pass and the emphasis pass — the one order that neither re-parses an
+escaped bracket as a link nor leaves a stray backslash.
+
+**No new renderer dependency**, which the bundle budget would not have taken. The bubble reuses
+`react-markdown` + `remark-gfm` (already deps) with the two primitives every other markdown surface
+in the app shares: `MARKDOWN_PROSE_CLASSES` and `ExternalLink` — the latter load-bearing, because it
+keeps a real `href` on the anchor while routing activation through Phase 71's `openLinkFromEvent`,
+so a forge link lands in the embedded browser instead of replacing the whole `file://` SPA. No
+`rehype-raw`, as everywhere else. A **user** bubble is deliberately never parsed: what someone typed
+is what they meant. `CompanionDigestItem` gained an optional `url`, filled from the `ForgePull.url`
+`digest.ts` already held; `ref` stays URL-free as its docblock insists.
+
+**Timestamps** are a right-hand gutter on every row — agent, companion and user — a real `<time>`
+with `data-turn-at` for the specs and the full locale instant in `title`. A `Today`/`Yesterday`/
+weekday/date rule is drawn wherever consecutive turns cross **local midnight**, not where they are
+more than 24 h apart, which gets both edge cases wrong; it renders inside the virtual row it belongs
+above, because the thread measures each rendered element and an interleaved separator row would
+desynchronise turn and item indices. `turn-time.ts` takes `now` and `locale` as arguments so its
+tests can pin both.
+
+**The e2e `speechSynthesis` stub was hiding a wedge.** It swallowed utterances, which was harmless
+while `setCompanionSpeaker` was uncalled and fatal the moment it was not: `speaker.ts` chains its
+chunks off `utterance.onend`, so a `speak` that does nothing left the concierge awaiting a sentence
+that never ended and the greeting stopped after its first line. The stub now fires `end`. Left open:
+a *real* synthesiser that never fires `onend` or `onerror` would wedge the flow the same way. Escape,
+the mic and the FAB all cancel and interrupt, so there is a user-facing way out; a watchdog inside
+`createSpeaker` would need a new timer seam in `SpeakerDeps` and is worth adding only if it is seen
+on a real machine.
+
 ## 2026-09-08 — Phase 79 Themes D, E — the concierge flow, the intent grammar, the hand-off and the read-back
 
 [PR #271](https://github.com/bilo-io/midnite-studio/pull/271). Moves Phase 79 42/67 → 57/67 (63% →
