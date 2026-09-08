@@ -1,6 +1,21 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Phase 79 follow-up — a Clear conversation control in the companion header
+
+[PR #275](https://github.com/bilo-io/midnite-studio/pull/275). **Ad hoc, not phase-tracked** — Phase
+79 stays 57/67 and closed. `clearTranscript` had existed in `companion-store.ts` since Theme A with
+no caller; this gives it one: a `LuTrash2` `IconButton` leftmost in `companion-header.tsx`, gated by
+the app's shared `dialogs.confirm` in its `danger` shape with the turn count in the title (singular
+at 1), following `sessions-view.tsx`'s "Clear history?" precedent. Confirming calls
+`companionPorts().interrupt()` **before** `clearTranscript()`, so audio stops *and* the concierge
+script aborts rather than narrating turns that no longer exist, and the header settles on "Ready".
+Disabled-with-reason, not hidden, when the thread is empty; shown in the popout, unlike detach and
+close. Clearing does not re-greet (the greet guard is a ref). `IconButton` gained a `data-testid`
+prop. Seven RTL cases, one e2e; both companion test suites now render through one shared
+`renderPanel` that supplies the `DialogHost`. CI's first run failed on a runner toolchain download
+(`plugin::loader::failed_download`), not a test; rerun green.
+
 ## 2026-09-08 — Phase 79 follow-up — the companion speaks, in one formatted turn, with timestamps
 
 [PR #273](https://github.com/bilo-io/midnite-studio/pull/273). **Ad hoc, not phase-tracked** — three
