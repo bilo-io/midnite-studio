@@ -181,44 +181,77 @@ digest does not move the "last greeted" mark unless asked (`mark: true`) — the
 and Theme D re-reads it after a switch offer, and a read that narrowed its own window would come
 back empty the second time.
 
-### C — The panel (M)
+### C — The panel (M) — ✅ DONE (PR #PRNUM, 2026-09-08)
 
 A second right-docked column, left of the Loops panel, with the thread and the input bar.
 
-- [ ] Add `companionPanelOpen` / `setCompanionPanelOpen` / `toggleCompanionPanel` to `ui-store.ts`
+- [x] Add `companionPanelOpen` / `setCompanionPanelOpen` / `toggleCompanionPanel` to `ui-store.ts`
       beside `fabPanelOpen` (`:628`), and `companionPanelWidth: 360` with
       `LAYOUT_BOUNDS.companionPanelWidth = { min: 280, max: 720 }` beside `fabPanelWidth` (`:369`,
       `:425`). Persist the width; do not persist the open flag (the companion greets on open, and a
       greeting on every launch is a nuisance).
-- [ ] Mount [`packages/app/src/features/companion/companion-panel.tsx`](../../../packages/app/src/features/companion/companion-panel.tsx)
+- [x] Mount [`packages/app/src/features/companion/companion-panel.tsx`](../../../packages/app/src/features/companion/companion-panel.tsx)
       in [`app.tsx`](../../../packages/app/src/app.tsx) as a fifth `useResizable` instance next to
       `fabPanel` (`:682`), ordered so that with both open the DOM reads
       `main · companion · loops`. Its resize handle sits on its left edge; the Loops panel's handle
       is unchanged.
-- [ ] The panel body is a `PanelStack` from
+- [x] The panel body is a `PanelStack` from
       [`components/panel-stack/`](../../../packages/app/src/components/panel-stack/) with one
       root panel (the thread), so `panel.back`/`panel.forward` work if a later theme pushes a
       detail panel. Header: companion glyph, state label ("Listening…"), detach button wired to
       the Phase 55 detach machinery with `surface: 'companion'`.
-- [ ] Thread: virtualised list of `CompanionTurn`s, newest at the bottom, auto-scroll that stops
+- [x] Thread: virtualised list of `CompanionTurn`s, newest at the bottom, auto-scroll that stops
       when the user scrolls up, a "Jump to latest" chip. Agent turns render the ANSI-stripped text
       in a collapsed `<details>` with the spoken summary as the summary line (Theme E).
-- [ ] Docked input bar: a growing textarea (Return sends, Shift+Return newlines), a **microphone**
+- [x] Docked input bar: a growing textarea (Return sends, Shift+Return newlines), a **microphone**
       icon button (`LuMic` / `LuMicOff` from `react-icons/lu`) and a **send** button
       (`LuSendHorizontal`). Mic is `disabled` with a `disabledReason` tooltip until Theme F's
       provider is configured ("Add a speech key in Settings ▸ Companion"). Send is disabled on
       empty input and while `state === 'thinking'`.
-- [ ] Add the `C` leaf to `ROWS` in
+- [x] Add the `C` leaf to `ROWS` in
       [`quick-access-menu.tsx:21`](../../../packages/app/src/features/quick-access/quick-access-menu.tsx):
       label "Companion", mnemonic `C`, `disabled` with `disabledReason: 'Enable in Settings ▸ Companion'`
       while `companionEnabled` is false. Order: `L` · `C` · `N` · separator · `I` · `G`.
-- [ ] Add `companion.toggle` to `COMMANDS` in
+- [x] Add `companion.toggle` to `COMMANDS` in
       [`shared/src/keybindings.ts`](../../../packages/shared/src/keybindings.ts), group `view`,
       **no chord** (the `Mod+l` menu plus `C` is two keys; a third chord on this letter is not
       worth a terminal carve-out). Palette label comes from `COMMANDS`, per the rule in `CLAUDE.md`.
-- [ ] The panel joins the Phase 62 overlay stack only for its transient popovers (voice picker);
+- [x] The panel joins the Phase 62 overlay stack only for its transient popovers (voice picker);
       the panel itself is a layout column, not an overlay, and Escape inside the textarea clears it
       rather than closing the panel.
+
+**Landed** — see [`done.md`](../done.md) (2026-09-08). **Four things worth recording, three of them
+deviations disclosed rather than silently taken.**
+
+**The seam the two sibling themes arrive through is a registry, not a prop.**
+`features/companion/companion-ports.ts` holds `submit · greet · interrupt · repeat ·
+micPressStart · micPressEnd · micAvailable` with no-op defaults, merged into by
+`setCompanionPorts`. This slice landed *before* Themes D/E and F/G, so a panel that imported their
+entry points would not have compiled until they merged — which is the one thing the three-way
+split existed to avoid. The default `submit` posts the user's turn itself, so the input bar is
+usable and e2e-testable with nothing registered.
+
+**The machine leaves `off` at the app root, not on the panel's mount.**
+`features/companion/use-companion-enabled.ts` sends `enable`/`disable` from `companionEnabled`, and
+is mounted from `app.tsx` and `detached-root.tsx`. Theme A's docblock deferred this wiring to "the
+panel", and the panel is the wrong place: the FAB, the mini FAB and the quick-access popover all
+read the machine's state while the panel is *closed*, so all three would have rendered "Off" for a
+companion that was switched on and simply not opened.
+
+**`companionDetached` is the one panel-detach flag of the five that is not persisted.** The other
+four are persisted-and-seeded-false because each gates whether its docked slot renders on the frame
+after boot; the companion's slot is gated by `companionPanelOpen`, which is deliberately not
+persisted either (opening it is what makes it greet). Detach itself is fully wired — `'companion'`
+is a fifth `PanelWindowRole` in `shared/src/domain/window.ts`, with its `DEFAULT_POPOUT_SIZE`,
+`ROLE_TITLE`, `DetachedContent` branch, `use-window-sync` arm and `broadcast-sync` slice.
+
+**A real collision the e2e caught: the FAB lands on the send button.** The FAB is
+`absolute bottom-4 right-4` inside the whole content row, so it floats over whichever right-docked
+column is last — Loops when Loops is open (which is why `app.tsx` hides the FAB for it), and the
+companion when it is not. Hiding the FAB was rejected: watching it run listening → thinking →
+handoff → speaking is Theme H's entire point, and it would then be visible only while the panel was
+shut. The input bar reserves the 56px corner instead (`reserveFabSpace`, passed as
+`!fabPanelDocked`).
 
 ### D — The concierge flow (M)
 
@@ -359,14 +392,14 @@ What happens between "on it" and "here we are".
 - [ ] Tests: scheduler timings under fake timers (threshold, spacing, the no-overlap rules), and
       the melody encoder against a golden set of frequencies.
 
-### H — FAB choreography, the popover, and Settings (M)
+### H — FAB choreography, the popover, and Settings (M) — ✅ DONE (PR #PRNUM, 2026-09-08)
 
 The companion's face, and where its switches live.
 
-- [ ] A `data-companion-state` attribute on the FAB button (`app.tsx:1445`) and on the FAB panel's
+- [x] A `data-companion-state` attribute on the FAB button (`app.tsx:1445`) and on the FAB panel's
       `gradient-frame` host, mirroring `data-loop-state`, driven from `companion-store`. Values:
       `idle` (no rule — today's look wins), `listening`, `thinking`, `speaking`, `handoff`.
-- [ ] `styles.css` rules beside the `[data-loop-state]` block (`:1814`): **listening** — a slow
+- [x] `styles.css` rules beside the `[data-loop-state]` block (`:1814`): **listening** — a slow
       2.4 s breathing scale on the conic-gradient border with the hue shifted cool (teal/blue) and
       a soft inset glow; **thinking** — the conic border rotates (`@property --angle`, 3 s
       linear infinite) with the box-shadow pulsing 0 → 24 px; **handoff** — the thinking rotation
@@ -374,28 +407,72 @@ The companion's face, and where its switches live.
       the body gradient brightens and the box-shadow radius is set from a CSS variable
       `--companion-level` (0–1) that `speaker.ts` bumps on each word boundary and decays over
       180 ms, so the glow pulses with the words.
-- [ ] Companion state **wins over** loop state on the FAB when both are non-idle (the companion is
+- [x] Companion state **wins over** loop state on the FAB when both are non-idle (the companion is
       the thing you are talking to), except `waiting` from a loop still shows its amber ring
       underneath as an inset — an agent asking you something must never be hidden by a whistle.
-- [ ] Reduced motion (Phase 46's policy): no rotation, no breathing, no pulse — each state becomes
+- [x] Reduced motion (Phase 46's policy): no rotation, no breathing, no pulse — each state becomes
       a static hue and a fixed glow radius. Covered by the existing motion-policy test harness.
-- [ ] The status-bar **assistant popover**
+- [x] The status-bar **assistant popover**
       ([`assistant-menu.tsx`](../../../packages/app/src/features/status-bar/assistant-menu.tsx))
       replaces its placeholder body with: the current state label with the same glyph the FAB
       uses, the last companion turn (two lines, ellipsised), a "Repeat" row, and an "Open
       companion" row that calls `setCompanionPanelOpen(true)`. While `companionEnabled` is false it
       shows one row: "Enable the companion in Settings".
-- [ ] **Settings ▸ Companion** page: add `'companion'` to `SettingsPageId` (`ui-store.ts:176`), a
+- [x] **Settings ▸ Companion** page: add `'companion'` to `SettingsPageId` (`ui-store.ts:176`), a
       `SETTINGS_PAGES` row (`group: 'tools'`, beside `mcp` at `:239`), a `PAGE_CONTENT` entry and a
       `SETTINGS_PAGE_ICON` in `nav-icons.ts`. Sections: **Enable companion** (master switch) ·
       **Voice** (voice picker, preview, volume) · **Microphone** (provider, masked key, Test,
       push-to-talk / toggle) · **Hands-free run** (default off, with the same explanatory copy
       pattern as Git Safety's force-push switch) · **Personality** (honorific, music offer). The
       page appears in the palette for free via `providers.ts:166`.
-- [ ] e2e: a Playwright spec that enables the companion via settings, opens it from the quick-access
+- [x] e2e: a Playwright spec that enables the companion via settings, opens it from the quick-access
       menu with `C`, asserts the greeting turn renders, types "start an adhoc task", and asserts a
       new terminal session appears with the skill string typed and not executed. Speech and audio
       are stubbed at the `window` level in the fixture.
+
+**Landed** — see [`done.md`](../done.md) (2026-09-08). **Three deviations, all disclosed.**
+
+**The "assistant popover" this theme was written against no longer exists.** Its body was the
+string *"Midnite Assistant Menu (Blank for now)"*, and [Phase 58](phase-58-notes-and-the-menu.md)
+Theme E had already replaced it: `assistant-menu.tsx` is now purely the *trigger* for
+`QuickAccessMenu`, which `app.tsx` mounts. So the specified content — state label with the FAB's
+own glyph, the last turn ellipsised to two lines, a Repeat row, an "open companion" row — landed in
+[`quick-access-menu.tsx`](../../../packages/app/src/features/quick-access/quick-access-menu.tsx) as
+a strip above the menu rows, with the `C` leaf doubling as the open row rather than a second one
+beside it, and collapsing to the single "Enable the companion in Settings" row while the switch is
+off. `assistant-menu.tsx` gains only `data-companion-state` + `.companion-face` on the mini FAB, so
+the two FABs cannot show different states across the FLIP transform that swaps them.
+
+**Two of Settings ▸ Companion's five sections are thinner than the doc describes, and the page says
+so.** The voice *preview* button and the volume slider need Theme F's `speaker.ts` and Theme G's
+master gain; the microphone provider/masked-key/Test row needs Theme F's provider seam and its
+`safeStorage` credential file. Neither exists yet, and a greyed-out provider dropdown with nothing
+behind it invites a click that cannot do anything — so the Microphone section is a paragraph naming
+what the mic button is waiting for, in the same words its own tooltip uses. The voice **picker**
+does ship: it needs nothing but `window.speechSynthesis`, and `companionVoice` was one of the five
+orphaned preferences this page exists to un-orphan. All five `companion*` entries are deleted from
+`persisted-keys.ts`'s `KNOWN_ORPHANS`, its test, and `outstanding.md`.
+
+**The e2e spec asserts what this slice owns, not the greeting or the hand-off.** Six tests in
+[`e2e/companion-panel.spec.ts`](../../../packages/app/e2e/companion-panel.spec.ts): the switch
+gates the leaf, Settings enables it, `C` opens the panel, the DOM reads `main · companion · loops`,
+typing posts a turn and Escape clears without closing, and the mic is disabled with the reason that
+names where to fix it. The doc's "asserts the greeting turn renders" and "a new terminal session
+appears with the skill string typed and not executed" belong to Themes D and E — the ports they
+arrive through are no-ops here, so asserting them today would be asserting a stub. **The two
+assertions stay open and are named in D's and E's own checklists.**
+
+**Why the four looks key on `.companion-face[data-companion-state]` rather than the bare
+attribute.** Two reasons, both load-bearing. `.loop-run-glow.on-primary` (the running FAB) and
+`.gradient-frame[data-loops-running='false']` (the resting panel) are both 0,2,0 specificity; a
+bare attribute selector is 0,1,0 and would lose to them, inverting this theme's own "companion
+state wins over loop state" rule. And `styles-motion-guards.ts` finds a keyframe's reduced-motion
+guard by looking for a CLASS shared between the consuming selector and a
+`@media (prefers-reduced-motion: reduce)` block — an attribute-only selector carries none, so all
+three new animations would have been reported unguarded. `--companion-waiting-inset` is the amber
+layer every state composes into its `box-shadow`, which is how a loop asking a question stays
+visible under a companion look (Decision 12). `--companion-level` is registered
+`inherits: true` so Theme F's speaker sets it once on `document.documentElement`.
 
 ## Files this phase touches
 
