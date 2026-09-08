@@ -1,7 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { setTheme } from '../../theme';
 
 import { HeroVideo } from './hero-video';
+
+afterEach(() => {
+  setTheme('system');
+});
 
 describe('HeroVideo', () => {
   it('renders the video with both sources and the dark poster', () => {
@@ -26,9 +32,15 @@ describe('HeroVideo', () => {
     expect(poster.querySelector('img')?.getAttribute('src')).toBe(
       '/img/app-showcase/multi-screen-horizontal-dark.png',
     );
-    // And the light variant is offered to a light-theme visitor.
-    expect(poster.querySelector('source')?.getAttribute('media')).toBe(
-      '(prefers-color-scheme: light)',
+  });
+
+  it('falls back to the light poster when the theme resolves to light', () => {
+    setTheme('light');
+    render(<HeroVideo />);
+    fireEvent.error(screen.getByTestId('hero-video'));
+    const poster = screen.getByTestId('hero-poster');
+    expect(poster.querySelector('img')?.getAttribute('src')).toBe(
+      '/img/app-showcase/multi-screen-horizontal-light.png',
     );
   });
 });

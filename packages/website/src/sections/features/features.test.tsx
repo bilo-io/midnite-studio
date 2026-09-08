@@ -1,10 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { SECTIONS } from '../registry';
+import { setTheme } from '../../theme';
 
 import { Features } from './features';
 import { PILLARS } from './pillars';
+
+afterEach(() => {
+  setTheme('system');
+});
 
 describe('the Features section', () => {
   it('is the registry entry for `features`', () => {
@@ -73,16 +78,17 @@ describe('the Features section', () => {
 
   it('serves the showcase screenshot lazily, in both themes', () => {
     // The strip is below the fold and the file is large, so an eager fetch here
-    // would cost the fold nothing but bandwidth. The light source is a media
-    // query rather than a class, because the site has no theme switch.
+    // would cost the fold nothing but bandwidth. The theme comes from
+    // useResolvedTheme() (see showcase.tsx), not a <picture media> source, so
+    // an explicit override is honoured and not just the OS preference.
     const { container } = render(<Features />);
     const img = container.querySelector('img');
     expect(img?.getAttribute('loading')).toBe('lazy');
     expect(img?.getAttribute('src')).toContain('multi-screen-vertical-dark.png');
 
-    const source = container.querySelector('picture source');
-    expect(source?.getAttribute('media')).toBe('(prefers-color-scheme: light)');
-    expect(source?.getAttribute('srcSet') ?? source?.getAttribute('srcset')).toContain(
+    setTheme('light');
+    const light = render(<Features />);
+    expect(light.container.querySelector('img')?.getAttribute('src')).toContain(
       'multi-screen-vertical-light.png',
     );
   });
