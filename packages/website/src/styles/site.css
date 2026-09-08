@@ -257,7 +257,7 @@
   */
   .ws-neon,
   .ws-nav-tab[data-active='true']::after {
-    --ws-neon-color: hsl(calc(var(--ws-angle) + 258deg) 82% 62%);
+    --ws-neon-color: hsl(calc(var(--ws-angle) + 258deg) var(--ws-neon-sat) var(--ws-neon-lum));
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--ws-neon-color) 42%, transparent),
       0 0 18px -2px color-mix(in srgb, var(--ws-neon-color) 48%, transparent);

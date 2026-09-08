@@ -147,6 +147,16 @@
   /* The ink that sits on a rainbow fill. Near-black here, white in light. */
   --ws-rainbow-ink: hsl(var(--ws-bg-sunken-hsl));
 
+  /*
+    The neon glow's saturation and lightness. Its *hue* comes from `--ws-angle`
+    in `site.css`, so these two are the whole of the theme's say in it — full
+    neon against a near-black page, and dialled back below, because the same
+    82%/62% that reads as a lit edge on the dark theme reads as a highlighter
+    ring on a white one.
+  */
+  --ws-neon-sat: 82%;
+  --ws-neon-lum: 62%;
+
   --ws-lane-1-hsl: 205 82% 62%;
   --ws-lane-1: hsl(var(--ws-lane-1-hsl));
   --ws-lane-2-hsl: 144 62% 52%;
@@ -238,6 +248,10 @@
 
   /* White, because the light ramp's stops are the dark ones now. */
   --ws-rainbow-ink: hsl(0 0% 100%);
+
+  /* Calmer: a coloured shadow rather than a lit edge. */
+  --ws-neon-sat: 62%;
+  --ws-neon-lum: 52%;
 
   --ws-lane-1-hsl: 205 82% 44%;
   --ws-lane-2-hsl: 144 62% 34%;

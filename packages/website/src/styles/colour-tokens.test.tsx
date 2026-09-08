@@ -408,6 +408,15 @@ describe('the neon pulse', () => {
     // animation is disarmed. Without it, reduced motion means no glow at all.
     expect(base?.decls.get('box-shadow')).toContain('var(--ws-neon-color)');
     expect(base?.decls.get('--ws-neon-color')).toContain('var(--ws-angle)');
+    // The hue is the angle's; the saturation and lightness are the theme's, so
+    // the light theme can dial the same glow down to a coloured shadow.
+    expect(base?.decls.get('--ws-neon-color')).toContain('var(--ws-neon-sat)');
+    expect(base?.decls.get('--ws-neon-color')).toContain('var(--ws-neon-lum)');
+    for (const theme of ['dark', 'light'] as const) {
+      const tokens = tokensFor(theme);
+      expect(tokens.get('--ws-neon-sat'), `--ws-neon-sat (${theme})`).toMatch(/^\d+%$/);
+      expect(tokens.get('--ws-neon-lum'), `--ws-neon-lum (${theme})`).toMatch(/^\d+%$/);
+    }
     expect(base?.decls.get('will-change')).toBe('box-shadow');
   });
 
