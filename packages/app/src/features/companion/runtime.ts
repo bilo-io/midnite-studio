@@ -250,6 +250,40 @@ async function refreshRoster(): Promise<void> {
 // --- the entry points siblings call ---------------------------------------
 
 /**
+ * Run one flow, and land the machine somewhere sane whatever it throws.
+ *
+ * **Every entry point below is called as `void f()`** — the panel's `onSubmit`,
+ * the ports registry, an effect — so a rejection is an unhandled promise
+ * rejection with nothing to catch it. The consequence is not a logged error, it
+ * is a **wedged state machine**: `greet` moves the machine to `greeting`, and a
+ * throw two awaits later leaves it there forever, with the header reading
+ * "Saying hello…" and nothing able to move it but the master switch.
+ *
+ * That is not hypothetical. A bridge without the `companion` namespace — an
+ * older preload, or the e2e harness before its mock grew one — makes
+ * `api.companion.snapshot` a TypeError on the first await of the greeting, and
+ * that is exactly how it failed.
+ *
+ * `settle` rather than `interrupt`: nothing was interrupted, the flow simply
+ * could not finish. And the sentence is posted rather than swallowed, because a
+ * companion that stops mid-greeting and says nothing is indistinguishable from
+ * one that has crashed — which, at that point, it has.
+ */
+async function guarded(run: () => Promise<unknown>): Promise<void> {
+  try {
+    await run();
+  } catch (error) {
+    useCompanionStore.getState().addTurn({
+      role: 'companion',
+      text: `Something went wrong on my end: ${error instanceof Error ? error.message : String(error)}`,
+      spoken: false,
+    });
+    speaker.cancel();
+    useCompanionStore.getState().send('settle');
+  }
+}
+
+/**
  * Greet, orient and offer — Theme C's panel calls this on open.
  *
  * Guarded on `companionEnabled` because the panel can be opened from a
@@ -264,7 +298,7 @@ export async function greetCompanion(): Promise<void> {
   const repo = await currentRepo();
   const deps = conciergeDeps(signal, repo);
   lastSnapshot = null;
-  await greet(withSnapshotCapture(deps));
+  await guarded(() => greet(withSnapshotCapture(deps)));
 }
 
 /**
@@ -275,7 +309,7 @@ export async function reorientCompanion(): Promise<void> {
   if (!useUiStore.getState().companionEnabled) return;
   const signal = begin();
   const repo = await currentRepo();
-  await orient(withSnapshotCapture(conciergeDeps(signal, repo)));
+  await guarded(() => orient(withSnapshotCapture(conciergeDeps(signal, repo))));
 }
 
 /**
@@ -294,19 +328,21 @@ export async function submitCompanionInput(text: string): Promise<void> {
   const deps = withSnapshotCapture(handoffDeps(signal, repo)) as HandoffDeps;
   const before = useCompanionStore.getState().activeHandoff?.sessionId ?? null;
 
-  await submitInput(text, deps);
+  await guarded(async () => {
+    await submitInput(text, deps);
 
-  // A `switchRepo` that landed changes what the companion is looking at, so
-  // it re-orients — the same thing that happens when the sidebar selection
-  // changes, which is the whole point of `reorientCompanion` existing.
-  const after = await currentRepo();
-  if (after.id !== repo.id && !signal.aborted) {
-    await orient(withSnapshotCapture(conciergeDeps(signal, after)));
-    return;
-  }
+    // A `switchRepo` that landed changes what the companion is looking at, so
+    // it re-orients — the same thing that happens when the sidebar selection
+    // changes, which is the whole point of `reorientCompanion` existing.
+    const after = await currentRepo();
+    if (after.id !== repo.id && !signal.aborted) {
+      await orient(withSnapshotCapture(conciergeDeps(signal, after)));
+      return;
+    }
 
-  const handoff = useCompanionStore.getState().activeHandoff;
-  if (handoff && handoff.sessionId !== before) armNudge(handoff.sessionId, handoff.command);
+    const handoff = useCompanionStore.getState().activeHandoff;
+    if (handoff && handoff.sessionId !== before) armNudge(handoff.sessionId, handoff.command);
+  });
 }
 
 /**
@@ -321,7 +357,7 @@ export async function repeatCompanionLast(): Promise<void> {
   if (!useUiStore.getState().companionEnabled) return;
   const signal = begin();
   const repo = await currentRepo();
-  await repeatLast(handoffDeps(signal, repo));
+  await guarded(() => repeatLast(handoffDeps(signal, repo)));
 }
 
 /**
@@ -394,10 +430,12 @@ export function watchCompanionHandoff(): () => void {
     clearNudge();
     const signal = begin();
     void currentRepo().then((repo) =>
-      readBack(
-        withSnapshotCapture(handoffDeps(signal, repo)) as HandoffDeps,
-        id,
-        exited ? { exitCode: exitCode as number } : {},
+      guarded(() =>
+        readBack(
+          withSnapshotCapture(handoffDeps(signal, repo)) as HandoffDeps,
+          id,
+          exited ? { exitCode: exitCode as number } : {},
+        ),
       ),
     );
   });
@@ -419,7 +457,7 @@ function armNudge(sessionId: string, command: string): void {
     if (useTerminalStore.getState().activity[sessionId] === 'thinking') return;
     const signal = begin();
     void currentRepo().then((repo) =>
-      say(conciergeDeps(signal, repo), startNudgeSentence(command)),
+      guarded(() => say(conciergeDeps(signal, repo), startNudgeSentence(command))),
     );
   }, HANDOFF_START_GRACE_MS);
 }
