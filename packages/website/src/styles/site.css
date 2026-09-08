@@ -829,3 +829,503 @@ html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
     opacity: 1;
   }
 }
+
+@layer utilities {
+  /*
+    ── The neon glow, for an SVG shape ────────────────────────────────────────
+
+    `.ws-neon` cannot be reused directly here: it is a `box-shadow`, and a
+    `box-shadow` does not apply to an SVG shape — it is a CSS box decoration and
+    an SVG `<rect>` has no CSS box. Everything else about it *is* reused: the
+    same `--ws-angle` drives the hue, the same `--ws-neon-sat`/`--ws-neon-lum`
+    give the theme its say, the same 3.2s breath and the same 18s lap. Only the
+    painting changes, from a shadow to a `drop-shadow` filter — which traces the
+    shape's own outline, and is the right answer for a rounded stroke anyway.
+  */
+  .ws-svg-neon {
+    --ws-neon-color: hsl(calc(var(--ws-angle) + 258deg) var(--ws-neon-sat) var(--ws-neon-lum));
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ws-neon-color) 55%, transparent));
+    animation:
+      ws-svg-neon-pulse 3.2s var(--ws-ease) infinite,
+      ws-rainbow-turn 18s linear infinite;
+  }
+
+  /*
+    ── Automate Kanban ────────────────────────────────────────────────────────
+
+    One card, four cues, one clock: every animation below runs for
+    `--ws-kanban-loop` with no delay, so the border that is showing and the
+    column the card is in are read off the same timeline and cannot disagree.
+    The three borders are stacked in the markup and cross-fade; the card's own
+    keyframe carries both the travel and the fade that ends the pass, which is
+    what makes "the next card starts" the loop itself rather than a fifth
+    animation.
+  */
+  .ws-kanban-card {
+    animation: ws-kanban-travel var(--ws-kanban-loop) var(--ws-ease) infinite;
+  }
+
+  .ws-kanban-todo {
+    animation: ws-kanban-todo var(--ws-kanban-loop) linear infinite;
+  }
+
+  .ws-kanban-doing {
+    animation: ws-kanban-doing var(--ws-kanban-loop) linear infinite;
+  }
+
+  .ws-kanban-term {
+    animation: ws-kanban-doing var(--ws-kanban-loop) linear infinite;
+  }
+
+  .ws-kanban-done {
+    animation: ws-kanban-done var(--ws-kanban-loop) linear infinite;
+  }
+
+  /*
+    The tick lands rather than fades: it scales up from nothing about its own
+    centre, which needs `transform-box: fill-box` — without it an SVG element's
+    transform origin is the *viewport's* origin and the badge flies in from the
+    top-left corner of the card.
+  */
+  .ws-kanban-check {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ws-kanban-check var(--ws-kanban-loop) var(--ws-ease) infinite;
+  }
+
+  /*
+    The `.ws-svg-neon` glow and the doing border are on the same element, so
+    the two animation lists have to be merged by hand — a second `animation`
+    declaration would replace the first rather than add to it.
+  */
+  .ws-kanban-doing.ws-svg-neon {
+    animation:
+      ws-kanban-doing var(--ws-kanban-loop) linear infinite,
+      ws-svg-neon-pulse 3.2s var(--ws-ease) infinite,
+      ws-rainbow-turn 18s linear infinite;
+  }
+
+  /*
+    ── Track CI and manage reviews ────────────────────────────────────────────
+
+    Every element's window is written into its own keyframe rather than derived
+    from a shared one with a delay, because the sequence is a *story* — the
+    third check fails and is cleared by a commit — and a story's beats are not
+    evenly spaced. All of them share `--ws-checks-loop`, so the beats stay in
+    the order they are written whatever the period becomes.
+  */
+  .ws-ci-run-1 {
+    animation: ws-ci-run-1 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-pass-1 {
+    animation: ws-ci-pass-1 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-run-2 {
+    animation: ws-ci-run-2 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-pass-2 {
+    animation: ws-ci-pass-2 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-run-3 {
+    animation: ws-ci-run-3 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-fail-3 {
+    animation: ws-ci-fail-3 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-pass-3 {
+    animation: ws-ci-pass-3 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-changes {
+    animation: ws-ci-changes var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-approved {
+    animation: ws-ci-approved var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-commit {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ws-ci-commit var(--ws-checks-loop) var(--ws-ease) infinite;
+  }
+
+  /*
+    A running check breathes. Two animations on one element: the window that
+    says *whether* it is showing, and the throb that says it is working. They
+    are independent on purpose — the throb has its own period and would look
+    wrong stretched to the length of the whole sequence.
+  */
+  .ws-ci-run-1.ws-ci-throb {
+    animation:
+      ws-ci-run-1 var(--ws-checks-loop) linear infinite,
+      ws-ci-throb 1.8s var(--ws-ease) infinite;
+  }
+  .ws-ci-run-2.ws-ci-throb {
+    animation:
+      ws-ci-run-2 var(--ws-checks-loop) linear infinite,
+      ws-ci-throb 1.8s var(--ws-ease) infinite;
+  }
+  .ws-ci-run-3.ws-ci-throb {
+    animation:
+      ws-ci-run-3 var(--ws-checks-loop) linear infinite,
+      ws-ci-throb 1.8s var(--ws-ease) infinite;
+  }
+
+  /*
+    ── Truly integrated dev env ───────────────────────────────────────────────
+
+    Four cues about a second and a half apart, then a hold, then one coordinated
+    reset — every keyframe below fades out over the same last 6%, so the pass
+    restarts as one event rather than as four things blinking in turn.
+  */
+  .ws-win-draw {
+    stroke-dasharray: 1;
+    animation: ws-win-draw var(--ws-window-loop) var(--ws-ease) infinite;
+  }
+
+  .ws-win-type {
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation: ws-win-type var(--ws-window-loop) linear infinite;
+  }
+
+  .ws-win-tab {
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation: ws-win-tab var(--ws-window-loop) var(--ws-ease) infinite;
+  }
+
+  .ws-win-ok {
+    animation: ws-win-ok var(--ws-window-loop) linear infinite;
+  }
+}
+
+/* The `.ws-neon` breath, painted as a filter — see `.ws-svg-neon`. */
+@keyframes ws-svg-neon-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ws-neon-color) 40%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ws-neon-color) 70%, transparent));
+  }
+}
+
+/*
+  The card's pass across the board: Todo, In progress, Done, gone.
+
+  The transform is stated at every stop and the opacity only at the ends, so the
+  card holds still in a column and moves between them — an easing across the
+  whole width would read as drifting rather than as being dragged.
+*/
+@keyframes ws-kanban-travel {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  5% {
+    opacity: 1;
+  }
+  18% {
+    transform: translateX(0);
+  }
+  26% {
+    transform: translateX(104px);
+  }
+  52% {
+    transform: translateX(104px);
+  }
+  60% {
+    transform: translateX(208px);
+  }
+  94% {
+    opacity: 1;
+    transform: translateX(208px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(208px);
+  }
+}
+
+@keyframes ws-kanban-todo {
+  0%,
+  20% {
+    opacity: 1;
+  }
+  26%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-kanban-doing {
+  0%,
+  22% {
+    opacity: 0;
+  }
+  28%,
+  54% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-kanban-done {
+  0%,
+  54% {
+    opacity: 0;
+  }
+  60%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes ws-kanban-check {
+  0%,
+  58% {
+    opacity: 0;
+    scale: 0.3;
+  }
+  66%,
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes ws-ci-run-1 {
+  0%,
+  6% {
+    opacity: 0;
+  }
+  9%,
+  17% {
+    opacity: 1;
+  }
+  20%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-pass-1 {
+  0%,
+  18% {
+    opacity: 0;
+  }
+  21%,
+  97% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-run-2 {
+  0%,
+  20% {
+    opacity: 0;
+  }
+  23%,
+  31% {
+    opacity: 1;
+  }
+  34%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-pass-2 {
+  0%,
+  32% {
+    opacity: 0;
+  }
+  35%,
+  97% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-run-3 {
+  0%,
+  34% {
+    opacity: 0;
+  }
+  37%,
+  45% {
+    opacity: 1;
+  }
+  48%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* The failure, and how long it stands: long enough to read, not long enough to
+   be the picture. The commit that clears it lands underneath it at 66%. */
+@keyframes ws-ci-fail-3 {
+  0%,
+  46% {
+    opacity: 0;
+  }
+  49%,
+  66% {
+    opacity: 1;
+  }
+  71%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-pass-3 {
+  0%,
+  68% {
+    opacity: 0;
+  }
+  73%,
+  97% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-commit {
+  0%,
+  60% {
+    opacity: 0;
+    scale: 0.3;
+  }
+  66%,
+  97% {
+    opacity: 1;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.3;
+  }
+}
+
+@keyframes ws-ci-changes {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  75%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-approved {
+  0%,
+  70% {
+    opacity: 0;
+  }
+  75%,
+  97% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-throb {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes ws-win-draw {
+  0% {
+    stroke-dashoffset: 1;
+  }
+  16%,
+  94% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes ws-win-type {
+  0%,
+  18% {
+    transform: scaleX(0);
+  }
+  32%,
+  94% {
+    transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes ws-win-tab {
+  0%,
+  34% {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+  46%,
+  94% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+}
+
+@keyframes ws-win-ok {
+  0%,
+  50% {
+    opacity: 0;
+  }
+  60%,
+  94% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/*
+  Every loop this block added, paused in a tab nobody is looking at.
+
+  This is the reason all of it is CSS rather than SMIL: `page-visibility.ts`
+  mirrors `document.hidden` onto the root element, and `animation-play-state`
+  is the only thing that can act on that — it also resumes mid-cycle, so coming
+  back to the tab does not restart a card halfway across a board.
+*/
+html[data-page-hidden='true'] .ws-graph-scroll,
+html[data-page-hidden='true'] .ws-graph-head,
+html[data-page-hidden='true'] .ws-graph-write,
+html[data-page-hidden='true'] .ws-svg-neon,
+html[data-page-hidden='true'] .ws-kanban-card,
+html[data-page-hidden='true'] .ws-kanban-card *,
+html[data-page-hidden='true'] .ws-ci-throb,
+html[data-page-hidden='true'] [class*='ws-ci-'],
+html[data-page-hidden='true'] [class*='ws-win-'] {
+  animation-play-state: paused;
+}
