@@ -214,8 +214,10 @@ function DaySeparator({ label }: { label: string }) {
  * carrying the raw epoch value the e2e spec asserts on — a spec that read the
  * rendered `14:32` would be asserting the CI runner's timezone.
  *
- * `tabular-nums` so the column does not jitter between `1:05` and `11:55`, and
- * `title` rather than a tooltip component: the full instant is a browser
+ * `tabular-nums` so the column does not jitter between `1:05` and `11:55`,
+ * `whitespace-nowrap` and a `w-14` gutter because a 12-hour locale renders
+ * `10:45 AM` and the narrower column wrapped it onto two lines, and `title`
+ * rather than a tooltip component: the full instant is a browser
  * affordance here, not a control, and a hover card on every bubble in a
  * two-hundred-turn transcript is two hundred listeners for something nobody
  * hovers twice.
@@ -228,7 +230,7 @@ function TurnTime({ at }: { at: number }) {
       dateTime={new Date(at).toISOString()}
       title={formatTurnTitle(at)}
       data-turn-at={at}
-      className="w-11 shrink-0 self-end pb-1.5 text-right text-[10px] tabular-nums leading-relaxed text-muted-foreground/70"
+      className="w-14 shrink-0 self-end whitespace-nowrap pb-1.5 text-right text-[10px] tabular-nums leading-relaxed text-muted-foreground/70"
     >
       {short}
     </time>

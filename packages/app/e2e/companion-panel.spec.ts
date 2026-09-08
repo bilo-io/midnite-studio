@@ -311,6 +311,11 @@ test('the greeting arrives as one formatted turn, not a stack of fragments', asy
     'midnite-studio',
   );
   await expect(thread.locator('[data-turn-role="companion"] code').first()).toBeVisible();
+  // And the digest's PR titles are links, through `ExternalLink` — a real
+  // href, activated into the embedded browser rather than replacing the SPA.
+  await expect(
+    thread.locator('[data-turn-role="companion"] a[href*="/pull/265"]'),
+  ).toHaveCount(1);
 });
 
 test('every turn carries a timestamp, and the day it belongs to is ruled off', async ({ page }) => {
