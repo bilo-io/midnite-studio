@@ -1,10 +1,11 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 import { CompanionPanel, CompanionPanelSlot } from './companion-panel';
 import { companionPorts, resetCompanionPorts, setCompanionPorts } from './companion-ports';
+import { renderPanel } from './render-panel';
 
 /**
  * The thread is virtualised, and jsdom gives every element a zero-sized box
@@ -64,22 +65,23 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
+
 describe('CompanionPanelSlot', () => {
   it('renders nothing while the companion is switched off', () => {
     useUiStore.setState({ companionEnabled: false });
-    render(<CompanionPanelSlot />);
+    renderPanel(<CompanionPanelSlot />);
     expect(screen.queryByTestId('companion-panel')).toBeNull();
   });
 
   it('renders the panel once enabled', () => {
-    render(<CompanionPanelSlot />);
+    renderPanel(<CompanionPanelSlot />);
     expect(screen.queryByTestId('companion-panel')).not.toBeNull();
   });
 });
 
 describe('CompanionPanel', () => {
   it('mirrors the companion state onto the panel, and sets nothing while idle', () => {
-    const { rerender } = render(<CompanionPanel />);
+    const { rerender } = renderPanel(<CompanionPanel />);
     expect(screen.getByTestId('companion-panel').getAttribute('data-companion-state')).toBeNull();
 
     useCompanionStore.setState({ state: 'listening' });
@@ -91,7 +93,7 @@ describe('CompanionPanel', () => {
 
   it('shows the state label from the shared look table', () => {
     useCompanionStore.setState({ state: 'handoff' });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
     expect(screen.getByTestId('companion-state-label').textContent).toBe('Agent working…');
   });
 
@@ -99,7 +101,7 @@ describe('CompanionPanel', () => {
     const greet = vi.fn();
     setCompanionPorts({ greet });
 
-    const { rerender } = render(<CompanionPanel />);
+    const { rerender } = renderPanel(<CompanionPanel />);
     // A state change is what a naive `useEffect([state])` would re-fire on —
     // and greeting *causes* state changes, so it would never stop.
     useCompanionStore.setState({ state: 'greeting' });
@@ -111,7 +113,7 @@ describe('CompanionPanel', () => {
   });
 
   it('renders the empty-thread copy with no turns, and the turns once there are any', () => {
-    const { rerender } = render(<CompanionPanel />);
+    const { rerender } = renderPanel(<CompanionPanel />);
     expect(screen.getByTestId('companion-thread').textContent).toContain('Nothing said yet');
 
     useCompanionStore.setState({
@@ -138,7 +140,7 @@ describe('CompanionPanel', () => {
         },
       ],
     });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     // The summary line is the first non-blank line; the body is present but
     // inside the `<details>`, which is what keeps the thread a conversation.
@@ -171,7 +173,7 @@ describe('CompanionPanel', () => {
         },
       ],
     });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     const thread = screen.getByTestId('companion-thread');
     expect(thread.querySelector('strong')?.textContent).toBe('midnite-studio');
@@ -203,7 +205,7 @@ describe('CompanionPanel', () => {
         },
       ],
     });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     const thread = screen.getByTestId('companion-thread');
     // The raw epoch, not the rendered string — a spec that read "18:05" would
@@ -224,11 +226,127 @@ describe('CompanionPanel', () => {
   });
 });
 
+/**
+ * The Clear-conversation control in the header.
+ *
+ * The transcript is the record of what was asked and there is no undo
+ * anywhere in the companion, so every case below is about the *gate* as much
+ * as the clearing: that the button cannot be pressed with nothing to lose,
+ * that a press alone changes nothing, and that only the confirm's own button
+ * empties the store.
+ */
+describe('the Clear conversation header control', () => {
+  /*
+    Scoped to the dialog, because "Clear conversation" is deliberately the
+    accessible name of BOTH the header button and the confirm's primary — the
+    control and the commitment say the same thing, and an unscoped
+    `getByRole` finds two.
+  */
+  const confirmButton = () =>
+    within(screen.getByRole('dialog')).getByRole('button', { name: 'Clear conversation' });
+
+  const twoTurns = [
+    { id: 'a', role: 'companion' as const, text: 'Good to see you.', at: 1, spoken: true },
+    { id: 'b', role: 'user' as const, text: 'start an adhoc task', at: 2, spoken: false },
+  ];
+
+  it('is present but explained-disabled while the transcript is empty', () => {
+    renderPanel(<CompanionPanel />);
+
+    const button = screen.getByTestId('companion-clear');
+    // `aria-disabled`, not the native attribute: `IconButton` keeps an
+    // explained disable hoverable so the tooltip can say why it is dead.
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(button.getAttribute('aria-label')).toBe('Clear conversation');
+
+    fireEvent.click(button);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('goes live once there is a turn, and names the count in the confirm', () => {
+    useCompanionStore.setState({ transcript: twoTurns });
+    renderPanel(<CompanionPanel />);
+
+    const button = screen.getByTestId('companion-clear');
+    expect(button.getAttribute('aria-disabled')).toBeNull();
+
+    fireEvent.click(button);
+    // The blast radius, in the title and again in the warning box — a
+    // conversation has no commits to list, so the number is the whole of it.
+    expect(screen.getByRole('dialog', { name: 'Clear 2 turns?' })).toBeTruthy();
+    expect(screen.getByText(/2 turns are deleted/)).toBeTruthy();
+  });
+
+  it('singularises the count, because "Clear 1 turns?" is how a stub reads', () => {
+    useCompanionStore.setState({ transcript: [twoTurns[0]!] });
+    renderPanel(<CompanionPanel />);
+
+    fireEvent.click(screen.getByTestId('companion-clear'));
+    expect(screen.getByRole('dialog', { name: 'Clear 1 turn?' })).toBeTruthy();
+  });
+
+  it('the confirm gates it: Cancel leaves the transcript alone', () => {
+    useCompanionStore.setState({ transcript: twoTurns });
+    renderPanel(<CompanionPanel />);
+
+    fireEvent.click(screen.getByTestId('companion-clear'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(useCompanionStore.getState().transcript).toHaveLength(2);
+    expect(screen.getByText('Good to see you.')).toBeTruthy();
+  });
+
+  it('confirming empties the store and the thread lands on its empty state', () => {
+    useCompanionStore.setState({ transcript: twoTurns });
+    renderPanel(<CompanionPanel />);
+
+    fireEvent.click(screen.getByTestId('companion-clear'));
+    fireEvent.click(confirmButton());
+
+    expect(useCompanionStore.getState().transcript).toEqual([]);
+    expect(screen.getByTestId('companion-thread').textContent).toContain('Nothing said yet');
+    // And back to disabled, with nothing left to clear.
+    expect(screen.getByTestId('companion-clear').getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('cancels speech in flight, so nothing keeps talking about turns that are gone', () => {
+    const interrupt = vi.fn();
+    setCompanionPorts({ interrupt });
+    useCompanionStore.setState({ transcript: twoTurns, state: 'speaking' });
+    renderPanel(<CompanionPanel />);
+
+    fireEvent.click(screen.getByTestId('companion-clear'));
+    expect(interrupt).not.toHaveBeenCalled();
+
+    fireEvent.click(confirmButton());
+    expect(interrupt).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not re-greet: the greeting is once per mount, and clearing is not a mount', () => {
+    const greet = vi.fn();
+    setCompanionPorts({ greet });
+    useCompanionStore.setState({ transcript: twoTurns });
+    renderPanel(<CompanionPanel />);
+    expect(greet).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByTestId('companion-clear'));
+    fireEvent.click(confirmButton());
+
+    // `greeted` is a ref, so an emptied transcript re-renders the panel
+    // without re-running the effect — which is the whole reason it is a ref
+    // and not a dependency. A greeting fired here would refill the thread the
+    // user just emptied, one render after they emptied it.
+    expect(greet).toHaveBeenCalledTimes(1);
+    expect(useCompanionStore.getState().transcript).toEqual([]);
+  });
+});
+
 describe('CompanionInputBar', () => {
   it('sends on Return, newlines on Shift+Return', () => {
     const submit = vi.fn();
     setCompanionPorts({ submit });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     const input = screen.getByTestId('companion-input');
     fireEvent.change(input, { target: { value: 'start a swarm' } });
@@ -241,7 +359,7 @@ describe('CompanionInputBar', () => {
   });
 
   it('the default submit posts the user turn itself, so the bar works before Theme E', () => {
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     const input = screen.getByTestId('companion-input');
     fireEvent.change(input, { target: { value: '  hello  ' } });
@@ -255,7 +373,7 @@ describe('CompanionInputBar', () => {
   it('Escape clears the field and interrupts, without closing the panel', () => {
     const interrupt = vi.fn();
     setCompanionPorts({ interrupt });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     const input = screen.getByTestId('companion-input');
     fireEvent.change(input, { target: { value: 'never mind' } });
@@ -270,7 +388,7 @@ describe('CompanionInputBar', () => {
     const submit = vi.fn();
     setCompanionPorts({ submit });
     useCompanionStore.setState({ state: 'thinking' });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     const input = screen.getByTestId('companion-input');
     fireEvent.change(input, { target: { value: 'and another' } });
@@ -283,7 +401,7 @@ describe('CompanionInputBar', () => {
   it('keeps the mic disabled until a provider reports itself available', () => {
     const micPressStart = vi.fn();
     setCompanionPorts({ micPressStart });
-    const { rerender } = render(<CompanionPanel />);
+    const { rerender } = renderPanel(<CompanionPanel />);
 
     const mic = screen.getByTestId('companion-mic');
     expect(mic.getAttribute('aria-disabled')).toBe('true');
