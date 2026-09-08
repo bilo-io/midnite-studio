@@ -867,8 +867,11 @@ describe('window contract (Phase 55)', () => {
     }
   });
 
-  it('WindowRoleSchema accepts exactly the four popout roles plus main', () => {
+  it('WindowRoleSchema accepts exactly the declared popout roles plus main', () => {
     expect(schemas.WindowDetachRequest.safeParse({ role: 'terminal' }).success).toBe(true);
+    // The fifth panel role (Phase 79 Theme C) — the companion detaches like
+    // the Loops panel it docks beside, not like a page.
+    expect(schemas.WindowDetachRequest.safeParse({ role: 'companion' }).success).toBe(true);
     expect(schemas.WindowDetachRequest.safeParse({ role: 'main' }).success).toBe(true);
     expect(schemas.WindowDetachRequest.safeParse({ role: 'bogus' }).success).toBe(false);
   });

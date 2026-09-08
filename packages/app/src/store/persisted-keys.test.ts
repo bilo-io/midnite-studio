@@ -85,13 +85,10 @@ describe('persisted-keys partition', () => {
         'editorMinimap',
         'editorTabSize',
         'editorWordWrap',
-        // Phase 79 Theme A's five, whose Settings page is that phase's own
-        // Theme H — a later slice, so the switches land before the surface.
-        'companionEnabled',
-        'companionHandsFree',
-        'companionHonorific',
-        'companionVoice',
-        'companionMusicOffer',
+        // Phase 79 Theme A's five `companion*` preferences sat here for
+        // exactly one phase slice and are gone: Theme H built
+        // `companion-page.tsx`, which is what leaving this list is supposed to
+        // look like.
       ].sort(),
     );
   });

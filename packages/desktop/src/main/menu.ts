@@ -138,6 +138,11 @@ export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
         item('terminal.toggle'),
         item('browser.toggle'),
         itemNoAccelerator('fab.toggle'),
+        // Chord-free (Phase 79 Theme C), so `itemNoAccelerator` is not a choice
+        // here the way it is for the rows above — there is no accelerator to
+        // strip. Its label comes from `COMMANDS`, which is the only place a
+        // chord-free command's label exists.
+        itemNoAccelerator('companion.toggle'),
         item('activity.toggle'),
         item('workflow.run'),
         item('view.video'),

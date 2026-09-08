@@ -10,9 +10,11 @@ import { loopIcon } from '../features/loops/loop-icons';
 import { LoopTab } from '../features/loops/loop-tab';
 import { useAllLoopStatuses, type LoopStatus } from '../features/loops/loop-status';
 import { useLoopRuns } from '../features/loops/use-loop-runs';
+import { fabCompanionState } from '../features/companion/companion-look';
 import { useTerminalStore } from '../features/terminal/terminal-store';
 import { useWindowFocusGate } from '../lib/use-window-focus-gate';
 import { bridge } from '../services/bridge';
+import { useCompanionStore } from '../store/companion-store';
 import { useUiStore, type FabTab } from '../store/ui-store';
 
 interface FabPanelProps {
@@ -59,6 +61,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
   const activeFabTab = useUiStore((s) => s.activeFabTab);
   const onTabClick = useUiStore((s) => s.onFabTabClick);
   const statuses = useAllLoopStatuses(LOOP_IDS);
+  const companionState = useCompanionStore((s) => s.state);
   const runs = useLoopRuns();
 
   usePruneSupersededSessions(activeFabTab);
@@ -74,10 +77,17 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
   return (
     <div className="h-full w-full flex flex-col" style={{ width }}>
       <div
-        className="gradient-frame fab-panel-gradient relative h-full w-full border border-border bg-popover flex flex-col"
+        className="companion-face gradient-frame fab-panel-gradient relative h-full w-full border border-border bg-popover flex flex-col"
         data-fab-tab={activeFabTab}
         data-loop-state={loopState}
         data-loops-running={anyRunning ? 'true' : 'false'}
+        /*
+          Phase 79 Theme H. The companion's four looks ride the SAME
+          `.gradient-frame` host the loop cadence rules key off, so this panel
+          picks up the companion's state alongside its own — one attribute,
+          one set of rules in `styles.css`, whichever host sets it.
+        */
+        data-companion-state={fabCompanionState(companionState)}
       >
         {/*
           Tab Bar — the detach control rides in the SAME row as the loop tabs

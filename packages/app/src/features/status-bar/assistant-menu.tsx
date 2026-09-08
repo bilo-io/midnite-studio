@@ -1,9 +1,11 @@
 import { useRef } from 'react';
 
 import { BrandMark } from '../../components/brand';
+import { fabCompanionState } from '../companion/companion-look';
 import { MidniteIcon } from '../../components/icons/midnite-icon';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from '../loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from '../loops/fab-morph';
+import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 
 /**
@@ -38,6 +40,7 @@ export function AssistantMenu() {
   const toggleFabPanel = useUiStore((s) => s.toggleFabPanel);
   const activeFabTab = useUiStore((s) => s.activeFabTab);
   const loopsRunning = useAnyLoopRunning();
+  const companionState = useCompanionStore((s) => s.state);
   const miniFabRef = useRef<HTMLButtonElement | null>(null);
   const miniFabMorphRef = useFabMorphRef(miniFabRef);
 
@@ -61,9 +64,14 @@ export function AssistantMenu() {
           data-testid="assistant-menu"
           data-loops-running={loopsRunning.running ? 'true' : undefined}
           data-fab-tab={activeFabTab}
+          /* Phase 79 Theme H — the mini FAB wears the same four looks as the
+             large one, from the one table (`companion-look.ts`). The two swap
+             places with a FLIP transform, so a state visible on one and absent
+             on the other would read as the button losing its glow mid-flight. */
+          data-companion-state={fabCompanionState(companionState)}
           // `relative`, same reason as the large FAB: the halo sits at
           // `-z-10` behind this button and needs it to not be a static box.
-          className={`relative flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)}`}
+          className={`companion-face companion-face--primary relative flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)}`}
         >
           <BrandMark className="h-full w-full" />
         </button>

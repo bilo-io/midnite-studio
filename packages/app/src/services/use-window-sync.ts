@@ -10,7 +10,7 @@ import { bridge } from './bridge';
 import { useBrowserStore } from '../store/browser-store';
 import { useUiStore } from '../store/ui-store';
 
-const ROLES: readonly PanelWindowRole[] = ['terminal', 'repos', 'fab', 'browser'];
+const ROLES: readonly PanelWindowRole[] = ['terminal', 'repos', 'fab', 'companion', 'browser'];
 
 /**
  * Reconciles `ui-store`'s four `*Detached` flags — and the `detachedPages`
@@ -55,7 +55,9 @@ export function useWindowSync(): void {
               ? store.reposDetached
               : role === 'fab'
                 ? store.fabDetached
-                : store.browserDetached;
+                : role === 'companion'
+                  ? store.companionDetached
+                  : store.browserDetached;
         if (current === detached) continue;
         store.setDetached(role, detached);
         // Re-docking the browser: the popout's own `browser-store` was the

@@ -5,7 +5,7 @@ import { z } from 'zod';
  * that **move** when detached: the docked slot collapses and the popout
  * becomes the only copy of that panel.
  */
-export const PANEL_WINDOW_ROLES = ['terminal', 'repos', 'fab', 'browser'] as const;
+export const PANEL_WINDOW_ROLES = ['terminal', 'repos', 'fab', 'companion', 'browser'] as const;
 
 /**
  * The *pages* a secondary `BrowserWindow` can host, named by the `ViewId`

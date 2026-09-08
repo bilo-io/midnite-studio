@@ -24,6 +24,10 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   // Opens the Notes modal — a UI toggle, not a data change, same
   // recoverability class as `fab.toggle`/`browser.toggle` beside it.
   'notes.toggle',
+  // Opens the companion panel — the same class again. It greets on open
+  // (Theme D), which speaks and writes a transcript turn, and neither is a
+  // write this app cannot take back: closing the panel ends the sentence.
+  'companion.toggle',
   // Flips one persisted preference and opens nothing — the same
   // recoverability class as `theme.select` below, and one click in
   // Settings ▸ Browser undoes it.
