@@ -124,26 +124,60 @@ Nothing is sent from the page, no key sits in the client, and there is no
 address list anywhere but that repo's issue list.
 
 It works today with the plain `?title=&body=&labels=early-access` form of that
-URL. It would read better as a GitHub **issue form**, and that is the one thing
-a session cannot do — the YAML has to be committed in the *other* repo:
+URL. It reads better as a GitHub **issue form**, and that YAML has to be
+committed in the *other* repo — which is
+[`bilo-io/midnite-apps#4`](https://github.com/bilo-io/midnite-apps/pull/4),
+open and waiting for a human, because that repo is public and a session does not
+merge to it.
 
-1. Copy [`docs/website/early-access-issue-form.yml`](website/early-access-issue-form.yml)
-   to `bilo-io/midnite-apps` as `.github/ISSUE_TEMPLATE/early-access.yml`.
-   That repo already has `bug.yml`, `feature.yml` and `config.yml`; this is a
-   fourth beside them.
-2. In [`packages/website/src/sections/early-access/issue-url.ts`](../packages/website/src/sections/early-access/issue-url.ts),
-   change `ISSUE_TEMPLATE` from `null` to `'early-access.yml'`. That is the
-   whole code change: `composeIssueUrl` already branches on it, sending
-   `field-id=value` pairs (`email`, `use-case`, `agents`) instead of `body`,
-   because that is how GitHub prefills an issue form.
+#### The flip, once that PR merges
 
-**Do not name the template before the YAML exists.** GitHub answers a
-`template=` it cannot find with the template *chooser*, and every prefilled
-field is dropped on the floor without an error — a worse outcome than the plain
-URL, and one that looks fine right up until someone actually uses the form. The
-field ids in the YAML and the parameter names in `composeIssueUrl` are the same
-list written twice; renaming one without the other loses that answer silently,
-which is why both files say so.
+**One environment variable, no code change:**
+
+```sh
+WEBSITE_ISSUE_TEMPLATE=early-access.yml moon run website:build
+```
+
+Set it in the publish job's `env:` alongside `WEBSITE_BASE`, and it is done. It
+is inlined as `__ISSUE_TEMPLATE__` by `vite.config.ts` and read once, by
+`ISSUE_TEMPLATE` in
+[`src/sections/early-access/issue-url.ts`](../packages/website/src/sections/early-access/issue-url.ts);
+`composeIssueUrl` branches on it, sending `field-id=value` pairs (`email`,
+`use-case`, `agents`) instead of `body`, because that is how GitHub prefills an
+issue form. Unset — the default, and every build today — means the plain URL.
+
+**Why a variable and not a one-line edit.** Whether the form works is a fact
+about a *different repo*, and this one cannot see it. As a source literal,
+"is the YAML merged yet?" became a question answered by a commit here, which is
+a state that can be wrong in either direction and stays wrong until someone
+notices. As a build variable, it is answered by the deploy that actually knows,
+and every other build — a local `website:dev`, a PR preview, a branch someone
+checked out — gets the safe end for free.
+
+**The safe end is the plain URL, and it is not a small preference.** GitHub
+answers a `template=` it cannot find with the template *chooser*, and every
+prefilled field is dropped on the floor without an error — a worse outcome than
+the plain URL, and one that looks fine right up until someone actually uses the
+form.
+
+`docs/website/early-access-issue-form.yml` is a **byte-for-byte mirror** of what
+that PR carries, kept here because the field ids are half of a contract whose
+other half is `composeIssueUrl` — the same list written twice, and renaming one
+side loses that answer silently. Edit both or neither. Note the mirror's `app`
+dropdown: it has one option, preselected, and asks nothing. It is there because
+`midnite-apps`' `issue-app-label.yml` finds the app by scanning the issue body
+for an `### App` heading, so a form without one puts every early-access request
+in the `needs-triage` pile instead of on the Studio board view — and declaring
+`app: midnite-studio` under `labels:` would not help, since that workflow owns
+those labels and strips any it did not choose.
+
+The `early-access` label does not exist in `midnite-apps` yet, and a form's
+`labels:` entry naming one that does not exist is ignored without an error:
+
+```sh
+gh label create early-access --repo bilo-io/midnite-apps \
+  --description "Early-access build requests from the Midnite Studio site" --color 0E8A16
+```
 
 ### A custom domain, later
 

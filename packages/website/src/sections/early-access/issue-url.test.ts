@@ -6,6 +6,7 @@ import {
   composeIssueUrl,
   ISSUE_LABEL,
   ISSUE_REPO,
+  ISSUE_TEMPLATE,
   isValidEmail,
 } from './issue-url';
 import { AGENT_ROSTER, rosterLabel } from './roster';
@@ -107,6 +108,72 @@ describe('composeIssueUrl', () => {
   it('encodes the whole query — no raw spaces or newlines in the URL', () => {
     const url = composeIssueUrl({ ...request, useCase: 'two words\nand a line' });
     expect(url).not.toMatch(/[ \n]/);
+  });
+
+  /**
+   * Both halves of the `template` branch, because only one of them is reachable
+   * from a given build.
+   *
+   * `ISSUE_TEMPLATE` comes from `WEBSITE_ISSUE_TEMPLATE` via `define`, so it is
+   * inlined and cannot be stubbed; `vitest.config.ts` pins it to `null` so the
+   * suite does not depend on an exported variable. The form branch is therefore
+   * reached by passing the second argument — which is why it is a parameter.
+   */
+  describe('the issue-form branch', () => {
+    it('defaults to whatever the build inlined', () => {
+      // Unset in every ordinary build and in the test config, so the site sends
+      // the plain URL until `bilo-io/midnite-apps` carries the YAML.
+      expect(ISSUE_TEMPLATE).toBeNull();
+      expect(new URL(composeIssueUrl(request)).searchParams.get('template')).toBeNull();
+    });
+
+    it('sends one parameter per field id, and no body', () => {
+      const params = new URL(composeIssueUrl(request, 'early-access.yml')).searchParams;
+      expect(params.get('template')).toBe('early-access.yml');
+      expect(params.get('email')).toBe('someone@example.com');
+      expect(params.get('use-case')).toBe('Wrangling four agents at once');
+      expect(params.get('agents')).toBe('Claude, Codex');
+
+      // `body` and a `template` are mutually exclusive on GitHub's side: with a
+      // form, the body is assembled from the fields and a `body` parameter is
+      // ignored. Sending both would be a second, silently-diverging copy of the
+      // text the preview shows.
+      expect(params.get('body')).toBeNull();
+    });
+
+    it('keeps the title and label on both branches', () => {
+      for (const template of [null, 'early-access.yml']) {
+        const params = new URL(composeIssueUrl(request, template)).searchParams;
+        expect(params.get('title'), `template=${template}`).toBe(
+          'Early access: someone@example.com',
+        );
+        expect(params.get('labels'), `template=${template}`).toBe(ISSUE_LABEL);
+      }
+    });
+
+    /**
+     * The field ids are half a contract whose other half is a YAML file in
+     * another repo (`docs/website/early-access-issue-form.yml` mirrors it).
+     * GitHub drops a prefill parameter it does not recognise without an error,
+     * so a rename on one side loses that answer silently — this pins the names.
+     */
+    it('uses exactly the field ids the YAML declares', () => {
+      const params = new URL(composeIssueUrl(request, 'early-access.yml')).searchParams;
+      expect([...params.keys()].sort()).toEqual([
+        'agents',
+        'email',
+        'labels',
+        'template',
+        'title',
+        'use-case',
+      ]);
+    });
+
+    it('never names this private repo, form or not', () => {
+      for (const template of [null, 'early-access.yml']) {
+        expect(composeIssueUrl(request, template)).not.toContain('bilo-io/midnite-studio');
+      }
+    });
   });
 });
 

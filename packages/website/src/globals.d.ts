@@ -10,3 +10,19 @@
  * than one deploy.
  */
 declare const __BUILD_YEAR__: number;
+
+/**
+ * The GitHub issue form the early-access section prefills, or `null` for the
+ * plain `?title=&body=` URL. Inlined by both configs' `define`.
+ *
+ * A build-time constant because the answer is a fact about a *different* repo:
+ * the form only exists once `.github/ISSUE_TEMPLATE/early-access.yml` is
+ * committed in `bilo-io/midnite-apps`, and this repo cannot see whether it is.
+ * So the deploy that knows sets `WEBSITE_ISSUE_TEMPLATE=early-access.yml` and
+ * every other build gets `null` — which is the safe end, because naming a
+ * `template=` GitHub cannot find drops every prefilled field without an error.
+ *
+ * `vitest.config.ts` pins it to `null` rather than mirroring the environment;
+ * see the comment there.
+ */
+declare const __ISSUE_TEMPLATE__: string | null;
