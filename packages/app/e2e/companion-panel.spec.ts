@@ -375,3 +375,59 @@ test('Settings ▸ Companion ▸ Voice carries the speak-aloud switch, on by def
   // preview with it, because there is nothing left to preview.
   await expect(page.getByTestId('companion-say-hello')).toBeDisabled();
 });
+
+/**
+ * The Clear-conversation control in the header.
+ *
+ * The one case in this file where the greeting is a *fixture* rather than the
+ * thing asserted: the panel opens with three companion turns in it, which is
+ * exactly the state a clear control needs to have something to clear. So the
+ * spec walks the whole gate — the button dead before there is anything, live
+ * once the greeting lands, a Cancel that changes nothing, and only the
+ * confirm's own button emptying the thread onto its empty state.
+ */
+test('the header clears the conversation, behind a confirm that names the count', async ({
+  page,
+}) => {
+  await seedCompanionEnabled(page);
+  await open(page);
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  // The greeting has to have *finished* before the count in the confirm means
+  // anything — "Ready" is how this file already says so.
+  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
+  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+
+  const clear = page.getByTestId('companion-clear');
+  await expect(clear).toBeVisible();
+  await expect(clear).not.toHaveAttribute('aria-disabled', 'true');
+
+  await clear.click();
+  /*
+    The blast radius. A conversation has no commits to list, so the count is
+    the whole of it — asserted as a pattern rather than a literal because the
+    greeting's turn count is `concierge.ts`'s business, not this spec's.
+  */
+  const confirm = page.getByRole('dialog');
+  await expect(confirm).toBeVisible();
+  await expect(confirm).toContainText(/Clear \d+ turns?\?/);
+  await expect(confirm).toContainText('This cannot be undone.');
+
+  // Cancel changes nothing — the gate is half the point of the control.
+  await confirm.getByRole('button', { name: 'Cancel' }).click();
+  await expect(confirm).toHaveCount(0);
+  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+
+  await clear.click();
+  // Scoped to the dialog: "Clear conversation" is the accessible name of the
+  // header button as well, on purpose.
+  await page.getByRole('dialog').getByRole('button', { name: 'Clear conversation' }).click();
+
+  await expect(page.getByTestId('companion-thread')).toContainText('Nothing said yet');
+  // Dead again, with nothing left to lose — and no second greeting refilling
+  // the thread the user just emptied (`greeted` is a per-mount ref).
+  await expect(clear).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
+  await expect(page.getByTestId('companion-thread')).toContainText('Nothing said yet');
+});
