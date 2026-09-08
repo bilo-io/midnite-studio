@@ -1,8 +1,9 @@
 import { LuApple, LuArrowLeft, LuExternalLink } from 'react-icons/lu';
 
-import { Button, Container, Eyebrow, GlowCard, Heading, Lede } from '../components';
+import { Button, Container, GlowCard, Heading, Lede } from '../components';
 import { SiteNav } from '../components/site-nav';
 import { hrefFor } from '../routes';
+import { Footer } from '../sections/footer/footer';
 import { SITE_ORIGIN } from '../site-origin';
 
 import { CopyButton } from './copy-button';
@@ -111,6 +112,11 @@ const VersionBadge = () => {
  * The version badge is decoration, not a gate: the command is correct whether
  * or not the feed answers, so the page renders fully while the fetch is in
  * flight and stays useful when it fails.
+ *
+ * **The layout is nav / main / footer**, the same three parts the landing page
+ * has — `app.tsx` chooses between the two whole pages and neither of them
+ * wraps the other, so the footer has to be part of *this* component rather
+ * than something the router adds around it.
  */
 export const DownloadPage = () => (
   <>
@@ -127,8 +133,14 @@ export const DownloadPage = () => (
         />
         <Container className="pb-16 pt-20 sm:pt-28">
           <div className="flex flex-col items-start gap-5">
-            <Eyebrow>Download</Eyebrow>
-            <Heading level={1}>One command.</Heading>
+            {/*
+              No eyebrow above this. The page's own <title> says "Download",
+              the nav item that got here says "Download", and the button on the
+              landing page said "Download" — a fourth "Download" stacked
+              directly on top of the H1 that also says it is label noise, and it
+              pushed the actual heading down the fold on a phone.
+            */}
+            <Heading level={1}>Download Midnite</Heading>
             <Lede>
               Midnite Studio installs to <code className="font-mono text-fg">/Applications</code>{' '}
               from the public releases repository. Paste this into a terminal.
@@ -252,5 +264,18 @@ export const DownloadPage = () => (
         </div>
       </Container>
     </main>
+
+    {/*
+      The same `Footer` the landing page's registry row renders — imported, not
+      copied, so the two pages cannot drift on a link, the agent roster or the
+      version badge. It sits outside `<main>` here, which is where a footer
+      belongs; on the landing page the registry puts it inside, because that
+      page is the registry rendered in order and nothing else.
+
+      Its anchors are built with `anchorHref`, so from this URL they are
+      cross-page navigations to `/#features` rather than dead in-page jumps —
+      that is the property `download-page.test.tsx` pins.
+    */}
+    <Footer />
   </>
 );

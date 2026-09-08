@@ -54,6 +54,72 @@ const LEAD_COPIES = 1;
  */
 const BAND_MAX_PX = 1152;
 
+/*
+  ── How tall the band has to be ────────────────────────────────────────────────
+
+  The band clips (`overflow-hidden`), and it has to: three copies of the roster
+  span 4560px inside a box at most 1152px wide, so the horizontal clip is what
+  makes the marquee a marquee. Clipping *vertically* is nothing but a bug —
+  the selected logo grows past 2x with a halo and a drop-shadow around it, and a
+  band sized for the resting logo cuts the top and bottom off the glow.
+
+  `overflow-x: hidden` with `overflow-y: visible` is not the fix: CSS resolves a
+  `visible` on one axis to `auto` when the other is `hidden`, so that trades a
+  clipped glow for a scrollbar. The fix is arithmetic — make the box taller than
+  the tallest thing the cycle paints — and every term below is read off the CSS
+  rather than guessed:
+
+    mark               `h-14 w-14`                          56px
+    halo               `-inset-3` on the mark, both sides   +2 x 12px  = 80px
+    peak scale         `@keyframes ws-agent-bounce`'s peak        x 2.15
+    ⇒ halo at peak                                           172px
+
+  …and then one term that is in no box model at all. The mark turns on `rotateY`
+  under `perspective(700px)`, so mid-turn its near half is *closer to the
+  viewer* and its projection is taller than its layout box. Measured on a live
+  page the mark's own rect peaks at 2.31x its resting 56px against a declared
+  peak of 2.15 — a magnification of ~1.15, the same order as the arithmetic
+  bound `700 / (700 - 172/2)` = 1.14 the height below uses. Either way, a height
+  derived from the layout box alone is ~24px short in exactly the frames the
+  logo is biggest, which is why the earlier `h-44` looked fine in a still and
+  clipped in motion.
+
+  The glyph's own `drop-shadow(0 0 16px)` reaches 56 x 2.15 + 2 x 16 = 152px
+  before magnification, so the halo is the binding constraint either way.
+  `SLACK_PX` is on top of all of it: the halo is a radial gradient that fades to
+  transparent at 68% of its box, so its last few percent are faint rather than
+  absent, and a band that ends exactly where the maths does still shows a
+  straight edge where the falloff meets it.
+*/
+const MARK_PX = 56;
+const HALO_INSET_PX = 12;
+const SLACK_PX = 24;
+/** `perspective()` in `@keyframes ws-agent-spin`, in px. */
+const PERSPECTIVE_PX = 700;
+
+/**
+ * The size the selected logo holds at, and the overshoot it gets there through.
+ *
+ * **Both are handed to CSS as custom properties** rather than written into
+ * `@keyframes ws-agent-bounce`, for the same reason the four geometry
+ * properties are: the band's height is derived from the peak, and a keyframe
+ * cannot be read from JS. Duplicating the number in the stylesheet would mean a
+ * change in one file silently clipping the glow in the other — which is the
+ * exact bug the height below exists to fix. So the keyframe interpolates
+ * `var(--ws-agent-peak)` and `var(--ws-agent-scale)`, and these are the only
+ * places either number is written down.
+ */
+export const HOLD_SCALE = 2;
+export const PEAK_SCALE = 2.15;
+
+/** The halo's own box at the bounce's peak, before the turn magnifies it. */
+const HALO_PEAK_PX = (MARK_PX + HALO_INSET_PX * 2) * PEAK_SCALE;
+
+/** The band's height: the glow at its widest, magnified, plus the falloff. */
+export const BAND_PX =
+  Math.ceil((HALO_PEAK_PX * PERSPECTIVE_PX) / (PERSPECTIVE_PX - HALO_PEAK_PX / 2)) +
+  SLACK_PX * 2;
+
 type AgentLogoProps = {
   agent: SiteAgent;
   /** `true` while this slot is the one running the centre cycle. */
@@ -217,8 +283,8 @@ export const AgentMarquee = ({ agents = SITE_AGENTS, className = '' }: AgentMarq
     <div className={className}>
       <div
         data-testid="agent-marquee"
-        className="ws-marquee-fade relative mx-auto h-44 overflow-hidden"
-        style={{ maxWidth: `${BAND_MAX_PX}px` }}
+        className="ws-marquee-fade relative mx-auto overflow-hidden"
+        style={{ maxWidth: `${BAND_MAX_PX}px`, height: `${BAND_PX}px` }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onFocus={() => setHovered(true)}
@@ -234,6 +300,8 @@ export const AgentMarquee = ({ agents = SITE_AGENTS, className = '' }: AgentMarq
               '--ws-agent-pass': `${CYCLE_MS * count}ms`,
               '--ws-agent-lead': `${SLOT_PX * count * LEAD_COPIES + SLOT_PX / 2}px`,
               '--ws-agent-cycle': `${CYCLE_MS}ms`,
+              '--ws-agent-scale': HOLD_SCALE,
+              '--ws-agent-peak': PEAK_SCALE,
             } as CSSProperties
           }
         >

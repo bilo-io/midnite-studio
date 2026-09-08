@@ -24,7 +24,7 @@ import { Showcase } from './showcase';
  * panel with no tab is worse than a pressed button that is honest about being
  * one.
  *
- * Three stacked cards of four bullets each is the wall this is avoiding: on a
+ * Three stacked cards of three bullets each is the wall this is avoiding: on a
  * phone the section is one card tall and the other two are one tap away.
  */
 export const Features = () => {
