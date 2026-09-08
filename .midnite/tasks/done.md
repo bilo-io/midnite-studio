@@ -42,6 +42,60 @@ floor in `colour-tokens.test.tsx` drops six → four, because two of #281's six 
 `from-fg/25 via-accent/40` *named in a footer comment* the section no longer carries — the scanner
 reads raw source, so they were counted as uses and never were. **92.07 KB gz JS** (+0.5 on main,
 budget 250), 7.12 KB gz CSS.
+## 2026-09-08 — Website — Features without Loops and with a drawn graph, an uncut marquee, a Download footer
+
+[PR #284](https://github.com/bilo-io/midnite-studio/pull/284). **Ad hoc, not phase-tracked.** Four
+fixes the user asked for.
+
+**Features drops Loops.** The Agentic pillar listed four claims against the other two pillars'
+three, which reads as "this is the important one", and Loops is the least legible of the four to
+somebody who has never opened the app. Three bullets a pillar is now an invariant
+`features.test.tsx` asserts, so a fifth claim has to be an argument rather than an append.
+
+**The showcase strip is drawn, not screenshotted.** `showcase.tsx` was a percentage crop of the
+one real app screenshot — ~0.5 MB of portrait PNG to show four coloured lines, most of its pixels
+window chrome and whichever branch happened to be checked out that day. It is now an inline SVG in
+the Services rows' style: a nine-commit DAG declared as data (`{lane, parents}`) so the picture
+cannot contradict itself, one node per row because that is what a commit graph is, four
+`--ws-lane-*` hues, one filled merge, two branches still open, a highlighted checked-out row with a
+branch badge, and a SMIL pulse gated on `useReducedMotion`. Zero hex. #285's theme switcher landed
+underneath it and had just rewritten the `<picture media>` source as a `useResolvedTheme()` branch —
+which is a second argument for the drawing: an `<img>` needs the resolved theme *in JS* to pick a
+file, while tokens follow `data-theme` on their own. The PNGs stay in `public/`; the hero's poster
+is the same asset.
+
+**The agents marquee stops clipping its own glow, and lands with a bounce.** The band was `h-44`
+(176px) with `overflow-hidden` on both axes, so the selected logo's halo was cut top and bottom at
+its peak. `overflow-x: hidden` with `overflow-y: visible` is not the fix — CSS resolves the visible
+axis to `auto` and you get a scrollbar — so the height is derived from the CSS instead: the 56px
+mark, plus `-inset-3` both sides (80px), times the peak scale (2.15 → 172px), times the
+**perspective magnification** (~1.14 → 197px), plus slack for the radial gradient's falloff = 245px.
+That fourth term is the one no box model contains and is why the old height looked fine in a still
+and clipped in motion: the mark turns on `rotateY` under `perspective(700px)`, so mid-turn its near
+half is closer to the viewer and its projection is taller than its layout box — measured at 2.31x
+its resting 56px against a declared peak of 2.15.
+
+The bounce needed the scale split out of the transform keyframe: `transform` carries one timing
+function, and an overshooting *rotation* reads as a wobble. So `ws-agent-cycle` became
+`ws-agent-spin` (the turn, on the site's own ease) plus `ws-agent-bounce` (the individual `scale`
+property), composing as scale x transform. **The overshoot is in the values, not in the easing** —
+a back-out curve exceeds its own keyframe value by ~14%, which would put the glow back outside a
+band sized from that value — so the ramps are monotone ease-out and the values do the bouncing, with
+a back-*in* release that dips under 1. Both sizes arrive as `--ws-agent-scale` / `--ws-agent-peak`
+from the module, so the peak the keyframe reaches and the peak the height is derived from are one
+value rather than two copies. The deterministic timeline (`useMarqueeCycle`, no per-frame layout
+reads) and the reduced-motion grid are untouched.
+
+**The Download page gets its title back and a footer.** H1 is "Download Midnite" (was "One
+command." under a small "Download" eyebrow — a fourth "Download" stacked on the `<title>`, the nav
+item and the landing page's button, which also pushed the real heading down the fold on a phone);
+`download/index.html`'s `<title>` follows. The page had no footer at all, so `/download` was the one
+URL with no way back into the site's sections and no link to releases or the tracker. It now renders
+the same `Footer` the landing page's registry row does — imported, not copied, so the two cannot
+drift on a link, the agent roster or the version badge — outside `<main>` here, where a footer
+belongs. New `download-page.test.tsx` assertions pin the heading, the absent eyebrow, footer
+identity with the registry entry, and the anchors resolving as `/#features` rather than dead in-page
+jumps. 92.71 KB gz JS.
 
 ## 2026-09-08 — Website — a theme switcher in the nav: system, light, dark, no flash
 
