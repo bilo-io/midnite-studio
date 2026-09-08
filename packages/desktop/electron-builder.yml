@@ -64,6 +64,14 @@ asarUnpack:
   # the binary itself, but not better-sqlite3's own JS resolution path (it locates
   # its `.node` file relative to its own package directory).
   - '**/node_modules/better-sqlite3/**'
+  # Phase 80 Theme C's local voice engine. Same reasoning as node-pty, plus one
+  # more: the platform package ships its own `.dylib`s (`libonnxruntime`,
+  # `libsherpa-onnx-c-api`, `libsherpa-onnx-cxx-api`) beside the `.node` addon,
+  # loaded by relative path at runtime — the blanket `**/*.node` glob covers
+  # the addon but not those siblings. Apple Silicon only, matching this app's
+  # `mac.target` below; a second platform package needs its own line here.
+  - '**/node_modules/sherpa-onnx-node/**'
+  - '**/node_modules/sherpa-onnx-darwin-arm64/**'
 
 # The native modules (node-pty, and Phase 61 Theme C's better-sqlite3) are
 # rebuilt deliberately by `moon run desktop:rebuild-native`. electron-builder's

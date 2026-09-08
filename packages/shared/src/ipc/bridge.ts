@@ -1237,6 +1237,15 @@ export type MidniteStudioBridge = {
     sttTest: (
       req: In<typeof S.CompanionSttTestRequest>,
     ) => Promise<GitOpResult<{ ms: number; text: string }>>;
+    /**
+     * Synthesize one chunk of text through the local voice engine (Phase 80
+     * Theme C) — `speaker.ts`'s primary path, falling back to `speechSynthesis`
+     * on `{ok:false}` (missing native module, unsupported platform, or a
+     * synthesis failure).
+     */
+    ttsSynthesize: (
+      req: In<typeof S.CompanionTtsSynthesizeRequest>,
+    ) => Promise<GitOpResult<{ audio: Uint8Array; mime: string }>>;
   };
 };
 

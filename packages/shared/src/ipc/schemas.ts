@@ -2736,6 +2736,26 @@ export const CompanionTranscribeRequest = z.object({
 export const CompanionTranscribeResponse = GitOpResultOf(z.object({ text: z.string() }));
 
 /**
+ * One chunk of text to speak, already produced by `chunkForSpeech` — the
+ * local voice engine synthesizes one utterance at a time, matching
+ * `speechSynthesis`'s own per-utterance granularity (Phase 80 Theme C).
+ */
+export const CompanionTtsSynthesizeRequest = z.object({ text: z.string().min(1) });
+
+/**
+ * A WAV clip, or the reason there isn't one.
+ *
+ * `mime` travels with the bytes for the same reason `CompanionTranscribeRequest`
+ * sends one: a consumer should be told what it's holding rather than assuming.
+ * The failure arm covers everything from "the native module isn't available on
+ * this platform" to "the model failed to load" to "synthesis threw" — all of
+ * which `speaker.ts` treats identically, by falling back to `speechSynthesis`.
+ */
+export const CompanionTtsSynthesizeResponse = GitOpResultOf(
+  z.object({ audio: z.instanceof(Uint8Array), mime: z.string() }),
+);
+
+/**
  * Store or clear one provider's key.
  *
  * An empty `key` clears it, rather than a separate delete channel — the
