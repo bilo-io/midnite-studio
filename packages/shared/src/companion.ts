@@ -561,3 +561,379 @@ export function parseIndexWipRows(markdown: string): IndexWipRow[] {
   }
   return rows;
 }
+
+// --- F · text-to-speech chunking -------------------------------------------
+
+/**
+ * The longest utterance `speaker.ts` hands `speechSynthesis` in one go.
+ *
+ * Not a style preference — a workaround for a Chromium bug the phase doc names
+ * explicitly: a single long utterance goes silent after roughly fifteen
+ * seconds, `onend` never fires, and the queue behind it stalls forever. Two
+ * hundred characters is comfortably under that at every speaking rate the
+ * voice picker can produce, and it also gives the word-boundary pulse
+ * (`--companion-level`) a natural reset between chunks.
+ *
+ * The number lives here rather than in the renderer because
+ * {@link chunkForSpeech} is the pure half of that workaround and is what the
+ * tests assert against.
+ */
+export const COMPANION_TTS_CHUNK_CHARS = 200;
+
+/**
+ * Split one sentence-ending run off the front, terminator included.
+ *
+ * Deliberately naive about abbreviations ("e.g.", "Mr."): over-splitting costs
+ * one extra `speak()` call and an inaudible seam, while under-splitting costs
+ * the fifteen-second silence this whole function exists to avoid. The phrase
+ * banks and the digest summariser are the only writers, and neither emits an
+ * abbreviation today.
+ */
+function splitSentences(text: string): string[] {
+  return text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [text];
+}
+
+/**
+ * Break a fragment that is still over the limit, clauses first, then words.
+ *
+ * Three tiers because each one degrades the listen less than the next: a
+ * clause boundary is a place a human pauses anyway; a word boundary is
+ * audible but harmless; and slicing mid-word is only ever reached by a single
+ * token longer than the whole limit (a pasted URL, a 200-character path),
+ * where any answer is bad and a dropped chunk would be worse.
+ */
+function hardSplit(fragment: string, limit: number): string[] {
+  const text = fragment.trim();
+  if (text.length === 0) return [];
+  if (text.length <= limit) return [text];
+
+  const clauses = text.match(/[^,;:]+[,;:]+|[^,;:]+$/g) ?? [text];
+  const out: string[] = [];
+  let current = '';
+
+  const push = (piece: string): void => {
+    if (current.length === 0) current = piece;
+    else if (current.length + 1 + piece.length <= limit) current = `${current} ${piece}`;
+    else {
+      out.push(current);
+      current = piece;
+    }
+  };
+
+  for (const rawClause of clauses) {
+    const clause = rawClause.trim();
+    if (clause.length === 0) continue;
+    if (clause.length <= limit) {
+      push(clause);
+      continue;
+    }
+    for (const word of clause.split(' ')) {
+      if (word.length <= limit) {
+        push(word);
+        continue;
+      }
+      // One token longer than the limit. Flush whatever is buffered and slice
+      // it, so the utterance is merely ugly rather than missing.
+      if (current.length > 0) {
+        out.push(current);
+        current = '';
+      }
+      for (let index = 0; index < word.length; index += limit) {
+        out.push(word.slice(index, index + limit));
+      }
+    }
+  }
+
+  if (current.length > 0) out.push(current);
+  return out;
+}
+
+/**
+ * Break text into utterances small enough for `speechSynthesis` to finish.
+ *
+ * Whitespace is normalised first: the thread's text arrives with newlines from
+ * `summariseDigest`'s line array and from a read-back, and a newline inside an
+ * utterance is a pause of unpredictable length in some voices.
+ *
+ * Chunks are *packed*, not one-per-sentence — two short sentences that fit
+ * together are spoken together, because a seam between utterances is audible
+ * and there is no reason to add one the limit does not demand.
+ */
+export function chunkForSpeech(text: string, limit = COMPANION_TTS_CHUNK_CHARS): string[] {
+  const normalised = text.replace(/\s+/g, ' ').trim();
+  if (normalised.length === 0) return [];
+  const cap = Math.max(1, Math.floor(limit));
+  if (normalised.length <= cap) return [normalised];
+
+  const chunks: string[] = [];
+  let current = '';
+  for (const sentence of splitSentences(normalised)) {
+    for (const piece of hardSplit(sentence, cap)) {
+      if (current.length === 0) current = piece;
+      else if (current.length + 1 + piece.length <= cap) current = `${current} ${piece}`;
+      else {
+        chunks.push(current);
+        current = piece;
+      }
+    }
+  }
+  if (current.length > 0) chunks.push(current);
+  return chunks;
+}
+
+// --- F · the speech-to-text provider seam ----------------------------------
+
+/**
+ * Which cloud recogniser transcribes an utterance.
+ *
+ * Two ids, one implementation (Decision 8). **OpenAI Whisper ships first**
+ * because `/v1/audio/transcriptions` accepts the `audio/webm;codecs=opus`
+ * blob `MediaRecorder` already produces, as one multipart request per
+ * utterance, with no streaming protocol to implement — the recorder is
+ * push-to-talk, so there is nothing for a streaming API to buy.
+ *
+ * `deepgram` is in the union with no implementation behind it *on purpose*:
+ * the seam is only worth having if a second id exists to prove the interface
+ * is not shaped around one vendor's request. `main/companion/stt/index.ts`
+ * answers a request for it with a plain "not configured" error rather than a
+ * type error, which is what makes adding it later a file rather than a
+ * refactor.
+ *
+ * Chromium's own `SpeechRecognition` is not an option here at all — in
+ * Electron it routes to a Google endpoint with an API key Electron does not
+ * ship and fails with a network error. Local recognition (whisper.cpp) is the
+ * phase's named sequel, not a third id.
+ */
+export const STT_PROVIDER_IDS = ['openai-whisper', 'deepgram'] as const;
+export const SttProviderIdSchema = z.enum(STT_PROVIDER_IDS);
+export type SttProviderId = (typeof STT_PROVIDER_IDS)[number];
+
+/** The one with an implementation behind it. */
+export const DEFAULT_STT_PROVIDER_ID: SttProviderId = 'openai-whisper';
+
+/** Human labels for the Settings provider picker, so the copy lives with the ids. */
+export const STT_PROVIDER_LABELS: Record<SttProviderId, string> = {
+  'openai-whisper': 'OpenAI Whisper',
+  deepgram: 'Deepgram (not yet implemented)',
+};
+
+/**
+ * How long a transcription gets before it is abandoned.
+ *
+ * Fifteen seconds, from the phase doc. It is generous for a push-to-talk
+ * utterance of a few seconds and short enough that a hung provider does not
+ * leave the companion in `listening` while the user waits — the abort is what
+ * returns the machine to `idle` with a spoken error.
+ */
+export const COMPANION_STT_TIMEOUT_MS = 15_000;
+
+/** What `MediaRecorder` is asked for, and what the provider is told it got. */
+export const COMPANION_RECORDER_MIME = 'audio/webm;codecs=opus';
+
+/**
+ * `MediaRecorder` timeslice. 250 ms from the phase doc — small enough that a
+ * released button loses nothing, large enough not to churn `dataavailable`.
+ */
+export const COMPANION_RECORDER_TIMESLICE_MS = 250;
+
+/**
+ * Cap on one utterance's bytes before main refuses it.
+ *
+ * Opus at the recorder's default bitrate is roughly 4–8 KB/s, so 8 MB is
+ * minutes of speech — far past anything push-to-talk produces. It exists
+ * because the payload crosses IPC and is then uploaded: an unbounded
+ * `Uint8Array` from a renderer bug would be a main-process allocation and a
+ * paid API request, and both should fail fast and locally.
+ */
+export const COMPANION_STT_MAX_BYTES = 8 * 1024 * 1024;
+
+// --- G · the loading personality's timings ---------------------------------
+
+/**
+ * How long a wait has to last before the companion says anything about it.
+ *
+ * Six seconds, from the phase doc. Below that a filler is noise over work that
+ * was about to finish; above it silence starts reading as "did it hear me".
+ */
+export const COMPANION_FILLER_THRESHOLD_MS = 6_000;
+
+/**
+ * The gap between fillers, randomised inside this window.
+ *
+ * Randomised rather than fixed because a metronomic voice is the thing that
+ * makes a companion feel like a progress bar. Twenty-five to forty seconds is
+ * the phase doc's range.
+ */
+export const COMPANION_FILLER_SPACING_MS = { min: 25_000, max: 40_000 } as const;
+
+/** When the music offer is made, once per hand-off. */
+export const COMPANION_MUSIC_OFFER_MS = 20_000;
+
+/**
+ * How long the `AudioContext` stays running with nothing to play.
+ *
+ * Suspended, never closed: a closed context cannot be reused and the next
+ * whistle would pay for a new audio thread and a new graph. Sixty seconds from
+ * the phase doc, and the reason the idle-CPU claim in the PR body is
+ * measurable at all.
+ */
+export const COMPANION_AUDIO_IDLE_SUSPEND_MS = 60_000;
+
+/** How long the speaking pulse takes to fall back to zero after a word boundary. */
+export const COMPANION_LEVEL_DECAY_MS = 180;
+
+/**
+ * The CSS custom property the speaking pulse writes.
+ *
+ * Named here rather than in the renderer because it is a **contract between
+ * two themes** — Theme F's speaker writes it, Theme H's `[data-companion-state="speaking"]`
+ * rule reads it as a box-shadow radius. A literal in each file would drift the
+ * first time either side was renamed.
+ */
+export const COMPANION_LEVEL_VAR = '--companion-level';
+
+/** Pick the next filler gap. `rng` injected so the scheduler's tests are exact. */
+export function nextFillerDelayMs(rng: () => number = Math.random): number {
+  const { min, max } = COMPANION_FILLER_SPACING_MS;
+  const roll = Math.min(1, Math.max(0, rng()));
+  return Math.round(min + roll * (max - min));
+}
+
+// --- G · the whistle melodies ----------------------------------------------
+
+/**
+ * One note: a MIDI number and a length in beats.
+ *
+ * MIDI rather than hertz because the melodies were written by ear on a
+ * keyboard and a transposition is then an addition; beats rather than seconds
+ * because the tempo is a property of the melody, not of every note in it.
+ * A `midi` of `-1` is a rest — encoded in the same array so a melody stays one
+ * literal rather than a note list plus a rhythm list that can disagree.
+ */
+export type MelodyNote = readonly [midi: number, beats: number];
+
+export type CompanionMelody = {
+  readonly name: string;
+  readonly bpm: number;
+  readonly notes: readonly MelodyNote[];
+};
+
+/** A rest, in the `midi` slot. */
+export const MELODY_REST = -1;
+
+/**
+ * Five original whistling melodies, eight to twelve notes each.
+ *
+ * Original by construction — written for this file, in a range a whistle
+ * actually sits in (MIDI 72–88, C5 to E6) and short enough to finish inside
+ * one filler gap. The phase's guardrail is "no audio assets": these are the
+ * assets, as numbers, and `whistle.ts` renders them with two oscillators.
+ *
+ * They are deliberately unremarkable. A memorable tune played every
+ * twenty-five seconds becomes an irritant faster than a forgettable one.
+ */
+export const COMPANION_WHISTLE_MELODIES: readonly CompanionMelody[] = [
+  {
+    name: 'ascent',
+    bpm: 96,
+    notes: [
+      [72, 1],
+      [74, 1],
+      [76, 1],
+      [79, 1.5],
+      [MELODY_REST, 0.5],
+      [76, 1],
+      [79, 1],
+      [81, 2],
+    ],
+  },
+  {
+    name: 'stroll',
+    bpm: 84,
+    notes: [
+      [76, 0.75],
+      [76, 0.25],
+      [79, 1],
+      [77, 1],
+      [76, 1],
+      [74, 0.75],
+      [74, 0.25],
+      [72, 1],
+      [74, 1],
+      [76, 2],
+    ],
+  },
+  {
+    name: 'shrug',
+    bpm: 108,
+    notes: [
+      [81, 0.5],
+      [79, 0.5],
+      [76, 1],
+      [MELODY_REST, 0.5],
+      [77, 0.5],
+      [76, 0.5],
+      [74, 1],
+      [MELODY_REST, 0.5],
+      [72, 1.5],
+    ],
+  },
+  {
+    name: 'question',
+    bpm: 92,
+    notes: [
+      [74, 1],
+      [76, 0.5],
+      [77, 0.5],
+      [79, 1],
+      [81, 1],
+      [79, 0.5],
+      [77, 0.5],
+      [79, 1],
+      [83, 1.5],
+      [MELODY_REST, 0.5],
+      [81, 1],
+      [79, 2],
+    ],
+  },
+  {
+    name: 'settle',
+    bpm: 76,
+    notes: [
+      [84, 1],
+      [81, 1],
+      [79, 1.5],
+      [MELODY_REST, 0.5],
+      [77, 1],
+      [76, 1],
+      [74, 1.5],
+      [MELODY_REST, 0.5],
+      [72, 2],
+    ],
+  },
+];
+
+/**
+ * MIDI note number → hertz, equal temperament, A4 = 440 Hz = MIDI 69.
+ *
+ * A rest ({@link MELODY_REST}, or any negative number) is 0 Hz, which
+ * `whistle.ts` reads as "schedule the gain envelope, skip the frequency" —
+ * cheaper than a branch in every caller and it keeps the golden-frequency test
+ * total over the encoding.
+ */
+export function midiToFrequency(midi: number): number {
+  if (!Number.isFinite(midi) || midi < 0) return 0;
+  return 440 * 2 ** ((midi - 69) / 12);
+}
+
+/** Every note's pitch in order — what the melody test asserts against a golden set. */
+export function melodyFrequencies(melody: CompanionMelody): number[] {
+  return melody.notes.map(([midi]) => midiToFrequency(midi));
+}
+
+/** How long the melody takes at its own tempo, in seconds — rests included. */
+export function melodyDurationSeconds(melody: CompanionMelody): number {
+  const beats = melody.notes.reduce((total, [, note]) => total + Math.max(0, note), 0);
+  const bpm = melody.bpm > 0 ? melody.bpm : 90;
+  return (beats * 60) / bpm;
+}
