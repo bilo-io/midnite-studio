@@ -396,20 +396,20 @@ describe('loadCompanionVoices', () => {
   */
   it('waits for voiceschanged when the first read is empty', async () => {
     let voices: SpeechSynthesisVoice[] = [];
-    let fire: (() => void) | null = null;
+    const listeners: (() => void)[] = [];
     const synth = {
       getVoices: () => voices,
       speak: vi.fn(),
       cancel: vi.fn(),
       addEventListener: vi.fn((_event: string, handler: () => void) => {
-        fire = handler;
+        listeners.push(handler);
       }),
       removeEventListener: vi.fn(),
     };
 
     const pending = loadCompanionVoices(synth as unknown as SpeechSynthesis);
     voices = [voice(), voice({ voiceURI: 'two' })];
-    fire?.();
+    for (const fire of listeners) fire();
     await expect(pending).resolves.toHaveLength(2);
   });
 
