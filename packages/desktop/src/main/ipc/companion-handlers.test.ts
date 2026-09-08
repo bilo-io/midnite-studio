@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 describe('registerCompanionHandlers', () => {
-  it("registers exactly the companion channels — Theme B's two, Theme E's one and Theme F's four", () => {
+  it("registers exactly the companion channels — Theme B's two, Theme E's one, Theme F's four and Phase 80 Theme C's one", () => {
     registerCompanionHandlers();
     expect(handle.mock.calls.map(([channel]) => channel)).toEqual([
       CHANNELS.companionSnapshot,
@@ -30,6 +30,7 @@ describe('registerCompanionHandlers', () => {
       CHANNELS.companionSttTest,
       CHANNELS.companionSttSet,
       CHANNELS.companionSttStatus,
+      CHANNELS.companionTtsSynthesize,
     ]);
   });
 

@@ -30,11 +30,14 @@ type OfflineTtsInstance = InstanceType<SherpaOnnxModule['OfflineTts']>;
  *    missing prebuilt binary. `require('sherpa-onnx-node')` throws
  *    synchronously the moment the platform binary is missing (`addon.js`'s own
  *    fallback message) — a *static* top-level import of it would crash main at
- *    boot on such a platform, so `loadSherpaOnnx()` below `require()`s it
- *    lazily inside a `try`/`catch`, exactly as `inproc-pty.ts`'s
- *    `loadNodePty()` already does for `node-pty`. A failure here is **sticky**
- *    for the process's lifetime — retrying a missing binary on every
- *    utterance is pointless work.
+ *    boot on such a platform, so `loadSherpaOnnx()` below calls it lazily
+ *    inside a `try`/`catch`, exactly as `inproc-pty.ts`'s `loadNodePty()`
+ *    already does for `node-pty` (generalised here to take the loader as a
+ *    dependency, since a native module's `require()` is one of the few things
+ *    in this codebase a test genuinely cannot swap by mocking the import — it
+ *    reaches past the test runner's module graph to Node's real loader). A
+ *    failure here is **sticky** for the process's lifetime — retrying a
+ *    missing binary on every utterance is pointless work.
  * 2. **The voice model hasn't been provisioned yet.** Downloaded once, lazily,
  *    on first use, into `app.getPath('userData')/companion-voice/` — never
  *    into the app bundle or the repo (the phase's own guardrail). Unlike a
@@ -79,7 +82,8 @@ type OfflineTtsInstance = InstanceType<SherpaOnnxModule['OfflineTts']>;
  * ships to end users — see the PR body's Decisions section.
  */
 
-const VOICE_ID = 'en_US-joe-medium';
+/** Exported for the test's own assertions about on-disk layout — not part of the public contract. */
+export const VOICE_ID = 'en_US-joe-medium';
 
 /** github.com/k2-fsa/sherpa-onnx's `tts-models` release — see the module doc. */
 const VOICE_TARBALL_URL = `https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-${VOICE_ID}.tar.bz2`;
@@ -93,10 +97,23 @@ export type CompanionTtsDeps = {
   /** `app.getPath('userData')`, injected so this module carries no `electron` import. */
   directory: string;
   fetchImpl: typeof fetch;
+  /**
+   * `require('sherpa-onnx-node')` — injected, not called inline, for the same
+   * reason everything else here is: a native module's `require()` reaches
+   * straight past a test runner's module graph to Node's real loader, so
+   * `tts.test.ts` swaps this for a fake rather than trying to mock the
+   * package itself.
+   */
+  loadModule: () => SherpaOnnxModule;
 };
 
+function requireSherpaOnnx(): SherpaOnnxModule {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('sherpa-onnx-node') as SherpaOnnxModule;
+}
+
 function defaultDeps(directory: string): CompanionTtsDeps {
-  return { directory, fetchImpl: fetch };
+  return { directory, fetchImpl: fetch, loadModule: requireSherpaOnnx };
 }
 
 let configured: CompanionTtsDeps | null = null;
@@ -108,18 +125,22 @@ let loadFailure: string | null = null;
 let provisioning: Promise<GitOpResult<VoicePaths>> | null = null;
 
 /**
- * `require('sherpa-onnx-node')`, lazily and fail-soft — the module is loaded
- * on first synthesis request, never at import time, so an unsupported
- * platform or a missing prebuilt binary degrades this feature to "use
- * `speechSynthesis`" instead of crashing main at boot. Line-for-line the same
- * shape as `inproc-pty.ts`'s `loadNodePty()`.
+ * `deps.loadModule()`, lazily and fail-soft — called on first synthesis
+ * request, never at import time, so an unsupported platform or a missing
+ * prebuilt binary degrades this feature to "use `speechSynthesis`" instead of
+ * crashing main at boot. The same shape as `inproc-pty.ts`'s `loadNodePty()`,
+ * generalised to take its loader as a parameter instead of hard-coding
+ * `require()` inline.
  */
-function loadSherpaOnnx(): SherpaOnnxModule | null {
-  if (sherpaOnnx) return sherpaOnnx;
+function loadSherpaOnnx(deps: CompanionTtsDeps): SherpaOnnxModule | null {
+  // Checked first, ahead of the cached module: a constructor/generate throw
+  // in `synthesizeSpeech` sets `loadFailure` without clearing `sherpaOnnx`
+  // (the load itself did succeed), and that failure must still short-circuit
+  // every later call rather than retrying a bad model each time.
   if (loadFailure !== null) return null;
+  if (sherpaOnnx) return sherpaOnnx;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    sherpaOnnx = require('sherpa-onnx-node') as SherpaOnnxModule;
+    sherpaOnnx = deps.loadModule();
     return sherpaOnnx;
   } catch (error) {
     loadFailure = error instanceof Error ? error.message : 'sherpa-onnx-node failed to load';
@@ -143,7 +164,10 @@ export function resetCompanionTtsForTest(overrides: Partial<CompanionTtsDeps> = 
   loadFailure = null;
   provisioning = null;
   configured = overrides.directory !== undefined ? defaultDeps(overrides.directory) : null;
-  if (configured && overrides.fetchImpl !== undefined) configured.fetchImpl = overrides.fetchImpl;
+  if (configured) {
+    if (overrides.fetchImpl !== undefined) configured.fetchImpl = overrides.fetchImpl;
+    if (overrides.loadModule !== undefined) configured.loadModule = overrides.loadModule;
+  }
 }
 
 type VoicePaths = { modelPath: string; tokensPath: string; dataDir: string };
@@ -351,7 +375,7 @@ export async function synthesizeSpeech(
   if (deps === null) {
     return failure('The local voice is not set up yet.');
   }
-  const module = loadSherpaOnnx();
+  const module = loadSherpaOnnx(deps);
   if (module === null) {
     return failure('The local voice engine is unavailable on this machine.');
   }
