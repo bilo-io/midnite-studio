@@ -1,0 +1,87 @@
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* The sticky nav is 64px tall; without this an anchor jump lands the
+       section's heading underneath it. */
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    background-color: var(--ws-bg);
+    color: var(--ws-fg);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ws-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--ws-accent-soft);
+    color: var(--ws-fg);
+  }
+}
+
+@layer utilities {
+  /*
+    The reveal-on-scroll pair, driven by `useInView`. Declared as utilities
+    rather than as a Tailwind `animation` because the "before" state has to be
+    the resting style — an element that has not entered the viewport yet must
+    already be transparent, and a keyframe with a backwards fill would still
+    paint it once at full opacity on the first frame.
+
+    Under reduced motion the transition duration is zeroed by tokens.css, so
+    `.ws-reveal-in` applies instantly and nothing appears to move.
+  */
+  .ws-reveal {
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity var(--ws-dur-slow) var(--ws-ease),
+      transform var(--ws-dur-slow) var(--ws-ease);
+  }
+
+  .ws-reveal-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* The typewriter caret. A hard on/off, like a terminal cursor: a caret that
+     fades reads as a loading spinner. */
+  .ws-caret {
+    animation: ws-caret-blink 1060ms steps(1, end) infinite;
+  }
+
+  /* The logo mark is a solid black silhouette on transparency (it is the app's
+     own `resources/icon.png`), so it is invisible on the dark theme's near-black
+     background. Inverting it is exactly right for a one-colour silhouette and
+     needs no second asset; the light theme takes it as drawn. */
+  .ws-logo-mark {
+    filter: invert(1);
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  .ws-logo-mark {
+    filter: none;
+  }
+}
+
+@keyframes ws-caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}

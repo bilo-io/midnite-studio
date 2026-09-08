@@ -143,6 +143,53 @@ export default tseslint.config(
     ]),
   },
 
+  // --- Boundary: website (the public marketing site) --------------------------
+  // The site is built and deployed entirely on its own — a static tree pushed to
+  // GitHub Pages in a DIFFERENT repository — so it has no business importing
+  // anything from this one. It is not "app, but public": it shares no runtime,
+  // no IPC bridge and no build. An import of a workspace package here would
+  // compile, and then either drag Electron-shaped code into a browser bundle or
+  // couple a marketing page to the app's internals, which is the coupling that
+  // makes a site impossible to move out of the monorepo later.
+  //
+  // Scoped to `src/` for the same reason the app's block is: vite/vitest/tailwind
+  // config runs in Node at build time and legitimately reads node builtins.
+  //
+  // `@midnite/studio-shared` is the one deliberate exception — it is zod-only and
+  // browser-safe, and the site may want a constant from it (`BUILTIN_AGENTS`, the
+  // version helpers) rather than retyping one. Everything else is denied.
+  {
+    files: ['packages/website/src/**/*.{ts,tsx}'],
+    rules: deny([
+      {
+        group: ['electron', 'electron/*'],
+        message: 'The marketing site is a static web page. It has no Electron, and never will.',
+      },
+      {
+        group: [
+          '@midnite/studio-app',
+          '@midnite/studio-app/*',
+          '@midnite/studio-git-engine',
+          '@midnite/studio-git-engine/*',
+          '@midnite/studio-db-engine',
+          '@midnite/studio-db-engine/*',
+          '@midnite/studio-desktop',
+          '@midnite/studio-desktop/*',
+        ],
+        message:
+          'The website shares no runtime with the app. Copy the constant, or move it into @midnite/studio-shared (zod-only, browser-safe) if both genuinely need it.',
+      },
+      {
+        group: ['node:*', 'fs', 'path', 'child_process'],
+        message: 'No node builtins in a static site bundle.',
+      },
+      {
+        group: ['lucide-react', 'lucide-react/*'],
+        message: 'react-icons is the only icon family here too — import from react-icons/lu.',
+      },
+    ]),
+  },
+
   // --- Boundary: broker ------------------------------------------------------
   // The broker is a Node process running under ELECTRON_RUN_AS_NODE and never
   // imports Electron modules.

@@ -6,12 +6,6 @@ projects:
   # without moon inheriting the per-package build/test/typecheck/lint tasks there.
   globs:
     - 'packages/*'
-    # `packages/website/` is an asset drop — a `public/img/` tree and nothing
-    # else. Globbed in, it becomes a project that inherits the per-package
-    # build/typecheck/lint/test tasks, and every one of them fails on a
-    # directory with no package.json, no tsconfig and no source. Excluded until
-    # it grows into a real package; delete this line when it does.
-    - '!packages/website'
   sources:
     root: '.'
 
