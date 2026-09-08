@@ -1,29 +1,37 @@
-# The early-access issue form — TO BE COMMITTED IN `bilo-io/midnite-apps`.
+# The early-access issue form — A MIRROR OF THE COPY IN `bilo-io/midnite-apps`.
 #
-# This file is a DRAFT held in this repo. It does nothing here: GitHub only
-# reads issue forms from `.github/ISSUE_TEMPLATE/` in the repo the issue is
-# filed against, and early-access requests are filed against the *public*
-# releases repo (this one is private, so nothing a visitor touches can live in
-# it). Copy it to:
+# This file does nothing here. GitHub only reads issue forms from
+# `.github/ISSUE_TEMPLATE/` in the repo the issue is filed against, and
+# early-access requests are filed against the *public* releases repo (this one
+# is private, so nothing a visitor touches can live in it). The real copy is
+# `bilo-io/midnite-apps` → `.github/ISSUE_TEMPLATE/early-access.yml`, opened as
+# https://github.com/bilo-io/midnite-apps/pull/4.
 #
-#     bilo-io/midnite-apps → .github/ISSUE_TEMPLATE/early-access.yml
+# It is kept here anyway, byte-for-byte, because the field ids below are half of
+# a contract whose other half is in this repo — see the note further down — and
+# a contract with one end in a repo most sessions never clone is a contract that
+# drifts. Edit this file and that one together, or neither.
 #
-# Then flip `ISSUE_TEMPLATE` in
-# `packages/website/src/sections/early-access/issue-url.ts` from `null` to
-# `'early-access.yml'`. Until that YAML exists, naming it in the URL gets the
-# visitor GitHub's template *chooser* with every prefilled field silently
-# dropped — strictly worse than the plain `?title=&body=` URL the site sends
-# today, which is why the site does not name it yet.
+# Once that PR merges, `WEBSITE_ISSUE_TEMPLATE=early-access.yml` in the website
+# build is the whole flip; `docs/WEBSITE.md` § Early access has the detail.
+# Until then the site sends the plain `?title=&body=` URL on purpose: naming a
+# `template=` that does not exist gets the visitor GitHub's template *chooser*
+# with every prefilled field silently dropped.
 #
-# The field `id`s below are the query-parameter names the site would send, so
-# they must match `composeIssueUrl`'s template branch exactly: `email`,
-# `use-case`, `agents`. Renaming one here without renaming it there produces an
-# issue with that answer missing and no error anywhere.
+# ---
 #
-# Note also that `bilo-io/midnite-apps` serves several apps. Its existing
-# `bug.yml` and `feature.yml` ask which app the report is about; this form does
-# not, because it is reached only from the Midnite Studio site and hard-codes
-# the app in its title prefix.
+# Reached almost entirely from the Midnite Studio marketing site, whose
+# early-access section has no backend by design: it composes this form's fields
+# into an `issues/new?template=early-access.yml&…` URL, shows the visitor the
+# exact text, and opens it in a new tab so they file it themselves under their
+# own account. Nothing is sent from the page and no key sits in it.
+#
+# **The field `id`s below are the query-parameter names that site sends.** They
+# are `email`, `use-case` and `agents`, and they are the same list written twice
+# — once here and once in `composeIssueUrl` in the site's source. Renaming one
+# here without renaming it there produces an issue with that answer missing and
+# no error anywhere, because GitHub drops a prefill parameter it does not
+# recognise silently.
 
 name: Early access request
 description: Ask for an early-access build of Midnite Studio.
@@ -37,6 +45,29 @@ body:
         put in it. If you would rather not publish an address, say so in the
         third box and leave the first one as a throwaway; the request still
         counts.
+
+  # One option, preselected, and it is not here to ask the reporter anything —
+  # every request through this form is about Midnite Studio, and the site that
+  # sends them says so in the title prefix already.
+  #
+  # It is here because `.github/workflows/issue-app-label.yml` reads the app out
+  # of the issue *body*, by finding an `### App` heading and taking the line
+  # under it. An issue with no such heading gets `needs-triage` — and the
+  # workflow owns that label, so declaring `app: midnite-studio` under `labels:`
+  # above would not survive: the run strips any managed label that is not the
+  # one it decided on. A dropdown is the only thing that puts the answer where
+  # the workflow looks, so this field is what keeps early-access requests on the
+  # Studio board view instead of in the triage pile.
+  - type: dropdown
+    id: app
+    attributes:
+      label: App
+      description: Early access is for Midnite Studio.
+      options:
+        - midnite-studio
+      default: 0
+    validations:
+      required: true
 
   - type: input
     id: email

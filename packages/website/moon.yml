@@ -7,11 +7,17 @@ tasks:
   # default is to APPEND a local task's args to the inherited ones, which would
   # run `pnpm exec tsc -b exec vite build`.
   #
-  # `WEBSITE_BASE` is an input rather than plain environment: the deployed site
-  # is built with a path prefix (`/midnite-apps/midnite-studio/`) and a local
-  # one is not, so without the variable in the hash a Pages build following a
-  # local build would be a cache HIT and ship with the wrong `base` — every
-  # asset URL silently 404ing on a page that otherwise looks fine.
+  # `WEBSITE_BASE` is an input rather than plain environment: a deployed site
+  # may be built with a path prefix (`/midnite-apps/midnite-studio/`) and a
+  # local one is not, so without the variable in the hash a prefixed build
+  # following a local build would be a cache HIT and ship with the wrong `base`
+  # — every asset URL silently 404ing on a page that otherwise looks fine.
+  #
+  # `WEBSITE_ISSUE_TEMPLATE` is in the hash for exactly the same reason: it
+  # decides whether the early-access section prefills a GitHub issue form or the
+  # plain `?title=&body=` URL, and a cache hit across a change to it would ship
+  # a section pointing at a template that is not there yet (or, once it is,
+  # still not using it).
   build:
     command: 'pnpm exec vite build'
     options:
@@ -29,6 +35,7 @@ tasks:
       - 'tsconfig.json'
       - 'package.json'
       - '$WEBSITE_BASE'
+      - '$WEBSITE_ISSUE_TEMPLATE'
     outputs:
       - 'dist'
 

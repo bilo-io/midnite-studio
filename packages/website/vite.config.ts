@@ -18,13 +18,27 @@ import { defineConfig } from 'vite';
  *   Everything that builds a URL reads `import.meta.env.BASE_URL` rather than
  *   assuming a leading `/` (see `src/routes.ts`).
  *
- * - **Two HTML entries, not one.** GitHub Pages serves a static tree with no
- *   rewrite rules, so a single-page app's `/download` deep link would 404.
- *   `download/index.html` is a real file in the source tree — a *directory*
+ * - **Two HTML entries, not one.** The site is served as a static tree with no
+ *   rewrite rules — true of GitHub Pages, and true of any other static host —
+ *   so a single-page app's `/download` deep link would 404.
+ *   `download/index.html` is a real file in the source tree, a *directory*
  *   index rather than a sibling `download.html`, so both `/download` and
- *   `/download/` resolve without relying on Pages' extension-stripping.
+ *   `/download/` resolve without relying on a host's extension-stripping.
  */
 const base = process.env['WEBSITE_BASE'] ?? '/';
+
+/**
+ * The GitHub issue form the early-access section prefills, or `null`.
+ *
+ * A build-time constant rather than a source literal because it is a fact about
+ * the *other* repo, not about this code: the form only works once
+ * `.github/ISSUE_TEMPLATE/early-access.yml` exists in `bilo-io/midnite-apps`,
+ * and naming a `template=` that does not exist gets the visitor GitHub's
+ * template chooser with every prefilled field silently dropped — strictly worse
+ * than the plain `?title=&body=` URL. Unset, which is the default and the state
+ * today, means the plain URL. See `docs/WEBSITE.md` § Early access.
+ */
+const issueTemplate = process.env['WEBSITE_ISSUE_TEMPLATE'] || null;
 
 export default defineConfig({
   plugins: [react()],
@@ -37,6 +51,7 @@ export default defineConfig({
   */
   define: {
     __BUILD_YEAR__: new Date().getFullYear(),
+    __ISSUE_TEMPLATE__: JSON.stringify(issueTemplate),
   },
   resolve: {
     alias: {
