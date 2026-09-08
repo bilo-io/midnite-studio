@@ -130,6 +130,45 @@ describe('the colour tokens', () => {
     }
   });
 
+  it('resolves the same light colours from data-theme="light" and from .ws-auto-light', () => {
+    // tokens.css declares the light triplets once, under a single rule whose
+    // selector list is `:root[data-theme="light"], :root.ws-auto-light` (see
+    // its file-level comment) \u2014 an explicit choice reaches the first
+    // selector, a resolved `system` preference the second, and neither is a
+    // copy of the other. `vite`'s CSS pipeline returns an empty module for a
+    // `.css` import under Vitest's SSR transform (true even with `?raw`), so
+    // this cannot read tokens.css's text directly; instead it reproduces the
+    // exact selector list (values copied from tokens.css) in a real
+    // stylesheet and lets jsdom's own cascade resolve both selectors \u2014 which
+    // is the mechanism the theme toggle actually depends on working.
+    const style = document.createElement('style');
+    style.textContent = `
+      :root[data-theme='light'], :root.ws-auto-light {
+        --ws-bg-hsl: 240 20% 99%;
+        --ws-accent-hsl: 265 62% 48%;
+      }
+    `;
+    document.head.appendChild(style);
+    const root = document.documentElement;
+
+    try {
+      root.setAttribute('data-theme', 'light');
+      const viaAttribute = getComputedStyle(root).getPropertyValue('--ws-bg-hsl').trim();
+      root.removeAttribute('data-theme');
+
+      root.classList.add('ws-auto-light');
+      const viaSystemClass = getComputedStyle(root).getPropertyValue('--ws-bg-hsl').trim();
+
+      expect(viaAttribute).toBe('240 20% 99%');
+      expect(viaSystemClass).toBe('240 20% 99%');
+      expect(viaAttribute).toBe(viaSystemClass);
+    } finally {
+      root.removeAttribute('data-theme');
+      root.classList.remove('ws-auto-light');
+      style.remove();
+    }
+  });
+
   it('resolves the sticky nav\u2019s own translucency', async () => {
     const { container } = render(<SiteNav />);
     const header = container.querySelector('header');

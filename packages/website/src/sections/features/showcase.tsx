@@ -1,4 +1,5 @@
 import { assetHref } from '../../routes';
+import { useResolvedTheme } from '../../theme';
 
 /*
   The crop, and why it is arithmetic rather than `object-position`.
@@ -26,11 +27,12 @@ import { assetHref } from '../../routes';
     left              -(368/1080) x 151.7%  = -51.7%
     top               -(105/1920) x 269.7%  = -14.7%
 
-  **Theme comes from `<picture>`, not from a class.** The site has no in-page
-  theme switch — it follows `prefers-color-scheme` through the tokens — so the
-  light source is selected by the same media query the tokens use, and only the
-  matching file is ever fetched. `loading="lazy"` keeps that fetch off the
-  critical path: this strip is well below the fold and the file is ~0.5 MB.
+  **Theme comes from `useResolvedTheme()`, not a `<picture media>` source.**
+  The nav's theme toggle (`components/theme-toggle.tsx`) can override the OS
+  preference, and a `prefers-color-scheme` media query on a `<source>` has no
+  way to hear that override — only the hook's `system` branch consults the OS
+  at all. `loading="lazy"` keeps the fetch off the critical path: this strip is
+  well below the fold and the file is ~0.5 MB.
 */
 
 const CROP = {
@@ -41,27 +43,29 @@ const CROP = {
   maxWidth: 'none',
 } as const;
 
-export const Showcase = () => (
-  <figure className="mt-12 sm:mt-16">
-    <div className="relative aspect-[3/2] w-full overflow-hidden rounded-lg shadow-glow-soft">
-      <picture>
-        <source
-          media="(prefers-color-scheme: light)"
-          srcSet={assetHref('img/app-showcase/multi-screen-vertical-light.png')}
-        />
+export const Showcase = () => {
+  const theme = useResolvedTheme();
+  const src =
+    theme === 'light'
+      ? 'img/app-showcase/multi-screen-vertical-light.png'
+      : 'img/app-showcase/multi-screen-vertical-dark.png';
+
+  return (
+    <figure className="mt-12 sm:mt-16">
+      <div className="relative aspect-[3/2] w-full overflow-hidden rounded-lg shadow-glow-soft">
         <img
-          src={assetHref('img/app-showcase/multi-screen-vertical-dark.png')}
+          src={assetHref(src)}
           alt="Midnite Studio's commit graph: four columns of coloured branch lanes, branch and tag badges pinned to the commits they point at, and the commit subjects, dates and SHAs beside them."
           loading="lazy"
           decoding="async"
           className="absolute"
           style={CROP}
         />
-      </picture>
-    </div>
-    <figcaption className="mt-3 text-sm text-fg-subtle">
-      The commit graph, on this repository. Everything on this page is a screenshot of the
-      app or a description of something already built.
-    </figcaption>
-  </figure>
-);
+      </div>
+      <figcaption className="mt-3 text-sm text-fg-subtle">
+        The commit graph, on this repository. Everything on this page is a screenshot of the
+        app or a description of something already built.
+      </figcaption>
+    </figure>
+  );
+};

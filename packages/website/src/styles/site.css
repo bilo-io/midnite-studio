@@ -63,7 +63,7 @@
   /* The logo mark is a solid black silhouette on transparency (it is the app's
      own `resources/icon.png`), so it is invisible on the dark theme's near-black
      background. Inverting it is exactly right for a one-colour silhouette and
-     needs no second asset; the light theme takes it as drawn. */
+     needs no second asset; the light theme (below) takes it as drawn. */
   .ws-logo-mark {
     filter: invert(1);
   }
@@ -184,10 +184,11 @@
   }
 }
 
-@media (prefers-color-scheme: light) {
-  .ws-logo-mark {
-    filter: none;
-  }
+/* Same theme rule tokens.css uses for the colour triplets — see its
+   file-level comment. */
+:root[data-theme='light'] .ws-logo-mark,
+:root.ws-auto-light .ws-logo-mark {
+  filter: none;
 }
 
 @keyframes ws-caret-blink {
