@@ -10,7 +10,13 @@ export type EyebrowProps = { children: ReactNode; className?: string };
  */
 export const Eyebrow = ({ children, className = '' }: EyebrowProps) => (
   <p
-    className={`text-xs font-semibold uppercase tracking-[0.18em] text-accent ${className}`}
+    /*
+      `w-fit`, because `background-clip: text` clips the ramp to the glyphs but
+      paints it across the *box* — and a full-width `<p>` would show a short
+      label only the first inch of the gradient. Shrinking the box to the text
+      is what runs the whole spectrum through the label.
+    */
+    className={`ws-rainbow-text w-fit text-xs font-semibold uppercase tracking-[0.18em] ${className}`}
   >
     {children}
   </p>

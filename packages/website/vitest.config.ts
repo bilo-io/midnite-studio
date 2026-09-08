@@ -25,5 +25,16 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     environment: 'jsdom',
     setupFiles: ['./src/vitest-setup.ts'],
+    /*
+      Let CSS requests through Vite instead of stubbing them.
+      `colour-tokens.test.tsx` reads `styles/*.css` as text
+      (`import.meta.glob(..., { query: '?raw' })`) so it can parse the authored
+      stylesheet with postcss and assert on the tokens and the neon pulse.
+      Vitest's default is `css: false`, which short-circuits **any** request
+      whose path ends in `.css` — the `?raw` query included — and hands back an
+      empty module, so those assertions would all pass against "". Nothing else
+      in the suite imports a stylesheet, so this costs one file read.
+    */
+    css: true,
   },
 });

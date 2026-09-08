@@ -176,10 +176,17 @@ export const EarlyAccess = () => {
               <div
                 className={[
                   'mt-2 flex items-center gap-2 rounded-full bg-bg-sunken px-2 py-2 transition duration-base',
+                  /*
+                    Focused, the field wears the neon pulse; at rest, the soft
+                    glow. The error ring stays a flat single colour on purpose —
+                    validation has to read as a state, and a breathing rainbow
+                    around a field the visitor has just got wrong reads as
+                    decoration.
+                  */
                   error
                     ? 'shadow-[0_0_0_1px_var(--ws-lane-4)]'
                     : expanded
-                      ? 'shadow-glow'
+                      ? 'ws-neon'
                       : 'shadow-glow-soft',
                 ].join(' ')}
               >

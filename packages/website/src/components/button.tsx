@@ -28,8 +28,24 @@ const SIZES: Record<ButtonSize, string> = {
 };
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary:
-    'bg-accent text-accent-fg shadow-glow hover:brightness-110 active:brightness-95',
+  /*
+    A rainbow *fill*, not a rainbow border with a dark middle — the other option
+    the brief offered, and the wrong one here.
+
+    This button's job is to be found on top of the hero's video, which is dark,
+    moving, and full of the app's own violets and blues. A 1px border around a
+    dark fill has almost no figure against that: the border is one pixel of
+    colour competing with a whole moving frame behind it, and the label loses
+    contrast the moment a light passage of video slides under it. A filled slab
+    is unambiguous at any point in the video, gives the label a background that
+    does not move, and is the one place on the page allowed to shout.
+
+    `--ws-rainbow-ink` is the label colour, near-black on the dark theme and
+    white on the light one, and it clears 4.5:1 against every stop in both — see
+    `tokens.css`. `.ws-neon` adds the breath and, through it, the slow rotation
+    of the fill.
+  */
+  primary: 'ws-rainbow-fill ws-neon hover:brightness-110 active:brightness-95',
   ghost:
     'border border-line-strong bg-bg-elevated/60 text-fg hover:border-accent hover:text-accent',
 };

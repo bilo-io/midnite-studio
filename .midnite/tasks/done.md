@@ -1,6 +1,48 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Website — scroll-spy nav, and the rainbow as the accent with a restrained neon pulse
+
+[PR #283](https://github.com/bilo-io/midnite-studio/pull/283). **Ad hoc, not phase-tracked.**
+`useActiveSection` marks the nav item for the section in view — one `IntersectionObserver` with the
+band biased to the upper middle of the viewport (`-40% 0px -55% 0px`), no scroll listener and no
+per-frame layout reads; geometry is read only inside the callback, for the fallback that picks the
+last section whose top has passed the midline (needed because a 5%-tall band holds zero sections
+while a boundary crosses it and two when a section is shorter than the band). The active link
+carries `aria-current="location"` and a rainbow underline; `/download` is handed no ids, so nothing
+is marked where the links point at another page's fragments.
+
+The app's six rainbow stops (`packages/app/src/styles.css`'s `--rainbow-0..5`, copied — the site may
+not import across that boundary) arrive as `--ws-rainbow-0..5` + `--ws-rainbow-ramp` in #281's
+triplet form, and **the rainbow becomes the brand accent on six surfaces**: the primary button (a
+gradient *fill*, not a bordered dark one — one pixel of border has no figure against a dark moving
+hero video), the active nav tab, `Eyebrow`, the footer wordmark, the hero logo halo, and the
+early-access field while focused. **Violet stays the functional accent** — body links, focus rings,
+form validation, filter chips, the typewriter caret, the Services illustrations — and the rule is
+written into `tokens.css` so the next section has something to follow. `.ws-neon` breathes 12→24px
+at 0.35→0.6 over 3.2s; one registered `@property --ws-angle` drives both the button's conic rotation
+and every glow's hue, so they cannot drift apart, and the theme sets only saturation/lightness. At
+most **four** pulsing elements on screen at once (verified against the built page's computed styles
+at five scroll positions), they are the only `will-change` on the page, the resting shadow *is* the
+mid-cycle value so the reduced-motion floor leaves a static half-amplitude glow, and
+`page-visibility.ts` pauses everything under `html[data-page-hidden='true']`.
+
+Also fixes a real bug found while checking the deep-link case: **`/#faq` never scrolled anywhere.**
+Fragment scrolling happens during HTML parse and `index.html` ships an empty `#root`, so the id does
+not exist yet and the browser does not retry — which meant every nav link on `/download` landed on
+the hero. `useHashLanding` does it once after commit, instantly, and leaves a restored scroll
+position alone.
+
+The guard computes WCAG contrast from the triplets themselves (every stop against its own theme's
+background — dark: violet 4.6:1; light: amber 5.4:1 after the ramp is re-derived darker, since
+emerald `#10b981` is 2.3:1 on white — and the ink against every stop) and parses the authored CSS
+with postcss to assert the pulse's amplitude and its two gates. That needed `css: true` in
+`vitest.config.ts`: vitest stubs any request ending in `.css`, `?raw` included. The `/NN`-class
+floor in `colour-tokens.test.tsx` drops six → four, because two of #281's six were
+`from-fg/25 via-accent/40` *named in a footer comment* the section no longer carries — the scanner
+reads raw source, so they were counted as uses and never were. **92.07 KB gz JS** (+0.5 on main,
+budget 250), 7.12 KB gz CSS.
+
 ## 2026-09-08 — Website — a theme switcher in the nav: system, light, dark, no flash
 
 [PR #285](https://github.com/bilo-io/midnite-studio/pull/285). **Ad hoc, not phase-tracked.** The
