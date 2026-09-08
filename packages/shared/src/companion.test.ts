@@ -27,6 +27,7 @@ import {
   parseIntent,
   pickPhrase,
   resolveDefaultBranch,
+  sanitizeForSpeech,
   splitForSpeech,
   summariseDigest,
   transition,
@@ -1057,5 +1058,86 @@ describe('markdownToSpeech', () => {
     expect(spoken).toContain('midnite-studio — on main.');
     // The escaped `**` in the title is gone rather than spoken.
     expect(spoken).toContain('a fix (#1).');
+  });
+});
+
+describe('sanitizeForSpeech', () => {
+  it('redacts a commit SHA to a fixed placeholder, short or long', () => {
+    expect(sanitizeForSpeech('Fix the thing (a1b2c3d).')).toBe('Fix the thing (a commit).');
+    expect(sanitizeForSpeech('Reverted 9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e entirely.')).toBe(
+      'Reverted a commit entirely.',
+    );
+  });
+
+  it('does not double-announce a SHA the sentence already named', () => {
+    expect(sanitizeForSpeech('Reverted commit a1b2c3d entirely.')).toBe(
+      'Reverted commit entirely.',
+    );
+  });
+
+  it('leaves an ordinary word alone even when every letter happens to be hex-shaped', () => {
+    // "effaced" is all a-f letters but has no digit, so it reads as a word, not a SHA.
+    expect(sanitizeForSpeech('The old logo was effaced.')).toBe('The old logo was effaced.');
+  });
+
+  it('collapses a file path to its basename, or to a fixed placeholder when unhelpful', () => {
+    expect(sanitizeForSpeech('See packages/shared/src/companion.ts for the change.')).toBe(
+      'See companion.ts for the change.',
+    );
+    expect(sanitizeForSpeech('See packages/app/src/index.ts for the change.')).toBe(
+      'See a file for the change.',
+    );
+  });
+
+  it('redacts a bare URL to a fixed placeholder, never the url itself', () => {
+    expect(sanitizeForSpeech('Details at https://example.test/pull/1.')).toBe(
+      'Details at a link.',
+    );
+  });
+
+  it('redacts a semver token to a fixed placeholder, inline', () => {
+    expect(sanitizeForSpeech('Bump the dependency to v1.4.0 today.')).toBe(
+      'Bump the dependency to a new version today.',
+    );
+  });
+
+  it('drops a semver token entirely when it is the whole clause', () => {
+    expect(sanitizeForSpeech('v0.3.1.')).toBe('');
+  });
+
+  it('leaves a common branch name alone but redacts a punctuation-heavy one', () => {
+    expect(sanitizeForSpeech('Merged onto main.')).toBe('Merged onto main.');
+    expect(sanitizeForSpeech('Merged onto master.')).toBe('Merged onto master.');
+    expect(sanitizeForSpeech('Opened from feature/companion-plan.')).toBe(
+      'Opened from a branch.',
+    );
+    expect(sanitizeForSpeech('Cut from release/v0.3.1.')).toBe('Cut from a branch.');
+  });
+
+  it('proves the SHA never reaches the final string, on a real digest row', () => {
+    const spoken = sanitizeForSpeech(markdownToSpeech('- Fix the thing (`a1b2c3d`)'));
+    expect(spoken).toBe('Fix the thing (a commit).');
+    expect(spoken).not.toContain('a1b2c3d');
+  });
+
+  it('is idempotent — sanitizing twice equals sanitizing once', () => {
+    const cases = [
+      'Fix the thing (a1b2c3d).',
+      'Reverted commit a1b2c3d entirely.',
+      'See packages/shared/src/companion.ts for the change.',
+      'See packages/app/src/index.ts for the change.',
+      'Details at https://example.test/pull/1.',
+      'Bump the dependency to v1.4.0 today.',
+      'v0.3.1.',
+      'Opened from feature/companion-plan.',
+      'Cut from release/v0.3.1.',
+      'Merged onto main.',
+      'The old logo was effaced.',
+      '',
+    ];
+    for (const input of cases) {
+      const once = sanitizeForSpeech(input);
+      expect(sanitizeForSpeech(once)).toBe(once);
+    }
   });
 });

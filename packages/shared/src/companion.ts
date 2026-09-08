@@ -1251,6 +1251,106 @@ export function markdownToSpeech(markdown: string): string {
     .join('\n');
 }
 
+/** Basenames a redacted path shouldn't bother naming — too generic to mean anything spoken aloud. */
+const SANITIZE_GENERIC_BASENAMES = new Set([
+  'index',
+  'main',
+  'app',
+  'style',
+  'styles',
+  'types',
+  'type',
+  'utils',
+  'constants',
+  'config',
+]);
+
+/** Lazy, so a sentence's own trailing period/comma is never swallowed into the match. */
+const SANITIZE_URL_RE = /\bhttps?:\/\/\S+?(?=[.,!?;:]*(?:\s|$))/g;
+/** One or more path separators, so `main`/`master` alone (no separator) never reach this pass. */
+const SANITIZE_SLASHED_TOKEN_RE = /\b[\w.-]+(?:[/\\][\w.-]+)+\b/g;
+/** A real extension, not a semver's trailing `.1` — the extension must start with a letter. */
+const SANITIZE_EXTENSION_RE = /\.[A-Za-z][A-Za-z0-9]{0,7}$/;
+const SANITIZE_PACKAGE_PATH_RE = /(?:^|[/\\])packages[/\\]/;
+const SANITIZE_SEMVER_RE = /\bv?\d+\.\d+\.\d+(?:[-+][\w.]+)?\b/g;
+const SANITIZE_STRIP_PUNCTUATION_RE = /[\s.!?:;]/g;
+const SANITIZE_BLANK_LINE_RE = /^[\s.!?:;]*$/;
+/** A hex run with at least one letter *and* one digit — real SHAs mix both; a bare word or count doesn't. */
+const SANITIZE_SHA_RE = /\b(?=[0-9a-fA-F]*[a-fA-F])(?=[0-9a-fA-F]*[0-9])[0-9a-fA-F]{7,40}\b/g;
+/** The sentence already named it ("commit a1b2c3d") — drop the SHA rather than say "commit a commit". */
+const SANITIZE_REDUNDANT_REF_RE = /\b(?:commit|sha|hash|ref|revision)s?\s*$/i;
+
+/**
+ * The spoken-form redaction pass — Phase 80 Theme A.
+ *
+ * `markdownToSpeech` strips markup, not the machine-facing tokens the markup
+ * was wrapping — a commit SHA, a file path, a raw URL, a version string, a
+ * punctuation-heavy branch ref all survive it verbatim
+ * (`companion.test.ts`'s own fixtures prove it: `` `Tuesday` `` becomes
+ * `Tuesday`, not something safer to read aloud). This pass sits strictly
+ * *after* `markdownToSpeech` and strictly *before* {@link splitForSpeech} —
+ * it matches plain text, not markdown, because the backtick/link syntax that
+ * would have marked these tokens as "not a word" is already gone by then.
+ *
+ * On-screen markdown is never touched: this only ever runs on the derived
+ * speech string (see `sayMarkdown` in `concierge.ts`), never on the turn
+ * that gets posted to the thread.
+ *
+ * Every substitution is a category noun — "a commit", "a file", "a link", "a
+ * branch", "a new version" — never an abbreviation (Decision 2 in the phase
+ * doc): a shortened SHA or a truncated path is still an unpronounceable
+ * string a synthesiser spells out letter by letter, and only a category noun
+ * reads as a sentence.
+ *
+ * Pure and idempotent: every placeholder word is itself un-redactable (no
+ * digits, no separator, no hex-shaped run), so calling this on its own output
+ * is always a no-op.
+ */
+export function sanitizeForSpeech(text: string): string {
+  let result = text.replace(SANITIZE_URL_RE, 'a link');
+
+  result = result.replace(SANITIZE_SLASHED_TOKEN_RE, (token) => {
+    const hasExtension = SANITIZE_EXTENSION_RE.test(token);
+    const isPackagePath = SANITIZE_PACKAGE_PATH_RE.test(token);
+    if (!hasExtension && !isPackagePath) return 'a branch';
+    const basename = token.split(/[/\\]/).pop() ?? token;
+    const stem = basename.replace(/\.[^.]+$/, '').toLowerCase();
+    return SANITIZE_GENERIC_BASENAMES.has(stem) ? 'a file' : basename;
+  });
+
+  result = result
+    .split('\n')
+    .map((line) => {
+      const withoutVersions = line.replace(SANITIZE_SEMVER_RE, (match, offset: number) => {
+        const before = line.slice(0, offset).replace(SANITIZE_STRIP_PUNCTUATION_RE, '');
+        const after = line
+          .slice(offset + match.length)
+          .replace(SANITIZE_STRIP_PUNCTUATION_RE, '');
+        return before === '' && after === '' ? '' : 'a new version';
+      });
+      return withoutVersions.trim();
+    })
+    .filter((line) => line !== '' && !SANITIZE_BLANK_LINE_RE.test(line))
+    .join('\n');
+
+  result = result.replace(SANITIZE_SHA_RE, (match, offset: number, str: string) => {
+    const before = str.slice(0, offset);
+    return SANITIZE_REDUNDANT_REF_RE.test(before) ? '' : 'a commit';
+  });
+
+  return result
+    .split('\n')
+    .map((line) =>
+      line
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/\s+([.!?:;,])/g, '$1')
+        .trim(),
+    )
+    .filter((line) => line !== '')
+    .join('\n')
+    .trim();
+}
+
 // --- E · the intent grammar -------------------------------------------------
 
 /**
