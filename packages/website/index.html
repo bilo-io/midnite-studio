@@ -7,6 +7,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="./favicon.png" />
     <link rel="apple-touch-icon" href="./favicon.png" />
+    <!--
+      The brand face, preloaded. It is above the fold on both pages (the nav
+      wordmark), and it is discovered only once the CSS has parsed and matched a
+      `font-brand` element — a chain of three round trips for a 34 KB file, on
+      the one word the page opens with. `crossorigin` is not optional even
+      same-origin: a font request is CORS-mode, and a preload whose mode differs
+      from the real request is a second download rather than a warm cache.
+
+      The `href` is the source path, which Vite rewrites to the fingerprinted
+      emitted asset (and prefixes with `base`) — the same file `site.css`'s
+      `@font-face` resolves to, not a second copy.
+    -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/src/fonts/kaushan-script/KaushanScript-latin.woff2"
+    />
     <title>Midnite Studio — one window for the whole loop around a repository</title>
     <meta
       name="description"

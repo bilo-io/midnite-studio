@@ -94,12 +94,20 @@ fetches — a page that offers one script to read and pipes a different one into
 `sh` is the failure that pairing exists to prevent, and `download-page.test.tsx`
 asserts the two match.
 
-## The brand face — why the site does not use it
+## The brand face — Kaushan Script, a re-cut of the app's
 
-The desktop app sets "Midnite" in **Quick Kiss** (`packages/app/src/fonts/`,
-exposed as `--font-brand`; see `packages/app/src/components/brand.tsx`), and the
-obvious move is to mirror that on the site so both surfaces read as one brand.
-**It cannot ship.** The bundled file's own name table says so:
+The site sets "Midnite" in **Kaushan Script** (OFL), self-hosted from
+[`packages/website/src/fonts/kaushan-script/`](../packages/website/src/fonts/kaushan-script/).
+The desktop app sets the same word in **Quick Kiss** and keeps it. **The two
+faces are deliberately near-identical, not identical**, and that is the whole
+design: the app's own face cannot legally be served from a public origin, so the
+public surface wears the closest open re-cut of it instead.
+
+### Why the app's face cannot ship here
+
+Quick Kiss (`packages/app/src/fonts/quick-kiss.ttf`, exposed there as
+`--font-brand`; see `packages/app/src/components/brand.tsx`) is licensed for
+personal use only. The bundled file's own name table says so:
 
 | Name ID | Value |
 |---|---|
@@ -115,20 +123,86 @@ a product**, which is not, and a webfont is a separate licence tier for this
 foundry besides. Serving the TTF from a public origin would also hand anyone the
 file itself.
 
-So the site's wordmark is plain text (`src/components/logo.tsx`, the hero, the
-footer), and the two surfaces deliberately differ. Two ways out, both a decision
-for a human rather than a refactor:
+**So `quick-kiss.ttf` must never be copied into `packages/website`** — not into
+`src/fonts/`, not into `public/`, not as a `@font-face` reaching across the
+package boundary. Nothing about the substitution below relaxes that.
 
-1. **Buy the commercial + webfont licence** from billyargel.com, then the mirror
-   is the mechanical change it looks like: copy the TTF into
-   `src/fonts/`, an `@font-face` with `font-display: swap` in
-   `styles/site.css`, `--font-brand`, `fontFamily.brand` in
-   `tailwind.config.ts`, and a `Wordmark` component splitting `Midnite`
-   (brand face) from `Studio` (UI face) exactly as `brand.tsx` does.
-2. **Re-cut the brand on a libre face** — an SIL OFL script face — and change
-   *both* surfaces. Substituting a different face on the site alone is the one
-   option that is strictly worse than doing nothing: it makes the two read as
-   two brands rather than one.
+### How Kaushan Script was chosen
+
+Not by reading foundry descriptions. Twenty SIL OFL / Apache-2.0 script faces
+were fetched from the [`google/fonts`](https://github.com/google/fonts) repo and
+rendered against Quick Kiss at the three sizes the site actually uses — the
+nav's 20px, the hero's 64px and the footer's ~140px — then ranked on stroke
+character, slant, connectedness and x-height. The sheet is committed as the
+evidence:
+
+**[`docs/screenshots/website-wordmark/candidates.png`](screenshots/website-wordmark/candidates.png)**
+
+Kaushan Script wins on every axis at once: the same brush weight, the same ~15°
+slant, the same tapered stroke ends, the same lift under "nite". It is a touch
+wider and slightly lower in thick/thin contrast, and that is the whole of the
+difference. **Norican** was the runner-up — the right slant and the right
+contrast, but a lighter, more evenly-modulated hand that reads calligraphic
+where Quick Kiss reads marker. **Yellowtail** third (correct contrast, but a
+retro signage script whose looped ascenders and epsilon "e" no size hides) and
+**Damion** fourth (close construction, too light and too upright).
+
+The shortlist and the whole field are both on the sheet, so a future re-pick
+starts from rendered type rather than from this paragraph.
+
+### How it is wired
+
+Four files, and the same three-part wiring the app uses:
+
+1. **The file.** `src/fonts/kaushan-script/KaushanScript-latin.woff2` — the
+   upstream TTF subset to Latin and compressed, **210 KB → 34 KB**. Upstream's
+   `OFL.txt` sits beside it verbatim, which is what clause 2 of the licence
+   requires, and the directory's own
+   [`README.md`](../packages/website/src/fonts/kaushan-script/README.md) records
+   the source URL and the exact `pyftsubset` command.
+2. **`@font-face`** in [`src/styles/site.css`](../packages/website/src/styles/site.css),
+   with `font-display: swap` and a relative `url()` — so **Vite fingerprints and
+   emits it**, there is no `public/` copy to keep in step, and there is no Google
+   Fonts `<link>`: the site makes no third-party request for its own type. The
+   same file declares `--font-brand`, and `tailwind.config.ts` maps
+   `fontFamily.brand` onto that var rather than naming the family itself. Keep
+   the three in step.
+3. **Preloaded** from both `index.html` and `download/index.html` by source
+   path, which Vite rewrites to the one fingerprinted asset with `base` applied.
+   The mark is above the fold on both pages and is otherwise discovered only
+   after the CSS has parsed and matched an element — three round trips for the
+   first word on the page. `crossorigin` is mandatory even same-origin: a font
+   request is CORS-mode, and a preload whose mode differs is a second download.
+4. **[`src/components/wordmark.tsx`](../packages/website/src/components/wordmark.tsx)**
+   owns the treatment, and is the only place `font-brand` is used. `Midnite` is
+   the brand and takes the brand face at `1.35em` with `tracking-wide`; `Studio`
+   says which of midnite's apps this is and stays in the UI face one muted step
+   back — setting both in a script face would read as one made-up word. That
+   mirrors the app's `Wordmark` exactly.
+
+Three surfaces render it — the nav's `Logo`, the hero's `<h1>`, and the footer's
+big wordmark — which is why the split lives in a component rather than being
+re-typed three times. `tone` picks the fill: the default `rainbow` clips the
+brand ramp to the glyphs and adds `.ws-brand-glow`, a glow that follows the
+letterforms; the footer passes `inherit`, because its own `<p>` already carries
+a deliberately faded ramp and its own `background-clip: text`.
+
+**`.ws-brand-glow` is `filter: drop-shadow()`, and it has to be.**
+`.ws-rainbow-text` fills the glyphs by clipping a gradient to them, which means
+`color: transparent` — and `text-shadow` paints from the text's colour, so on
+transparent text it emits nothing at all. `drop-shadow` reads the element's
+rendered alpha instead, which after the clip is exactly the glyph shapes.
+A `box-shadow` (what `.ws-neon` uses) would draw the glow around the span's
+*rectangle*, which is the one thing a script wordmark must not have behind it.
+It does not pulse: the four pulsing elements documented in `site.css` are
+unchanged, because this mark sits in the sticky nav for the whole visit, a few
+pixels from a nav underline that already breathes.
+
+Two things stay true regardless. **`<title>` tags are plain text** — a face
+cannot reach them, and they are what a search result and a browser tab show.
+And **the nav's `aria-label` still reads "Midnite Studio"**: the visible mark is
+now two differently-faced spans, and the space between them is a real text node
+rather than only a margin, so `textContent` still says the product's name.
 
 ## Deploying on Vercel
 

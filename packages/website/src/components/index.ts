@@ -20,6 +20,8 @@ export { Section } from './section';
 export type { SectionProps } from './section';
 export { Eyebrow, Heading, Lede } from './text';
 export type { EyebrowProps, HeadingProps, LedeProps } from './text';
+export { Wordmark } from './wordmark';
+export type { WordmarkProps, WordmarkTone } from './wordmark';
 export { useInView } from '../hooks/use-in-view';
 export type { UseInView, UseInViewOptions } from '../hooks/use-in-view';
 export { useReducedMotion } from '../hooks/use-reduced-motion';
