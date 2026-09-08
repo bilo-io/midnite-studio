@@ -319,9 +319,9 @@ runtime is desktop-only per the bundle-budget guardrail above.
   last-pill-blocked, and per-pill accessible-name assertions from Theme D.
 - [ ] RTL: Settings ▸ Companion still renders and the "Say hello" preview still plays with Theme A's
   transform in the pipeline (non-regression).
-- [ ] `moon run :typecheck :lint :test` green, including the desktop-package `sherpa-onnx-node`
+- [x] `moon run :typecheck :lint :test` green, including the desktop-package `sherpa-onnx-node`
   addition passing eslint's `no-restricted-imports` boundary check (no `packages/app` import of it).
-- [ ] Perf: `moon run app:build desktop:bundle` then `scripts/perf/bundle-report.mjs` — confirm zero
+- [x] Perf: `moon run app:build desktop:bundle` then `scripts/perf/bundle-report.mjs` — confirm zero
   renderer bundle growth from Theme C (the dependency is desktop-only).
 - [ ] **Open, for a human:** listen to a real digest with 4+ dependency-update commits and confirm
   the spoken summary matches the user's own example shape ("there have been 4 dependency updates,
