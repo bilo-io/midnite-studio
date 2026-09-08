@@ -22,8 +22,10 @@ export const Services = () => (
     <Reveal>
       <header className="flex flex-col gap-4">
         <Eyebrow>What it is for</Eyebrow>
-        <Heading level={2}>Close the loop without leaving the window</Heading>
-        <Lede>
+        <Heading level={2} typeIn>
+          Close the loop without leaving the window
+        </Heading>
+        <Lede typeIn>
           Three things the app is built to do end to end — automate a board, keep a review
           moving, and hold the whole development loop in one frame.
         </Lede>

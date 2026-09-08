@@ -6,6 +6,7 @@ import {
   Eyebrow,
   Logo,
   Section,
+  TypeIn,
   Typewriter,
   Wordmark,
 } from '../../components';
@@ -87,12 +88,19 @@ export const Hero = () => (
           <Typewriter phrases={PHRASES} className="text-accent" />
         </h1>
 
+        {/*
+          The one paragraph on the page that isn't a `Lede` — the headline
+          above it already types forever through `PHRASES`, so this is typed
+          in once instead, on its own `TypeIn` rather than through
+          `Heading`/`Lede`'s `typeIn` (there is no `Lede` here to opt in).
+          `leadMs={0}`: the headline's rotation never "finishes" the way a
+          `Heading`'s one-shot type does, so there is no sibling to wait for.
+        */}
         <p className="max-w-prose text-base leading-relaxed text-fg-muted sm:text-lg">
-          A desktop workspace for the whole loop around a repository: an interactive commit
-          graph, worktrees nested under the repositories they belong to, your real login
-          shell, and the forge — pull requests, checks, reviews — in the same window. The
-          UI follows the repository live, so a commit made in the terminal shows up in the
-          graph without a refresh.
+          <TypeIn
+            leadMs={0}
+            text="A desktop workspace for the whole loop around a repository: an interactive commit graph, worktrees nested under the repositories they belong to, your real login shell, and the forge — pull requests, checks, reviews — in the same window. The UI follows the repository live, so a commit made in the terminal shows up in the graph without a refresh."
+          />
         </p>
 
         <div className="flex flex-wrap items-center gap-3">

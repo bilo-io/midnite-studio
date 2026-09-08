@@ -25,12 +25,23 @@ export {
   GAP_MS,
   HOLD_MS,
   nextTypedChangeAt,
+  TYPE_IN_HEADING_MS,
+  TYPE_IN_LEDE_MS,
+  TYPE_IN_MAX_CHAR_MS,
+  TYPE_IN_MIN_CHAR_MS,
   TYPE_MS,
+  typeInCharMs,
+  TypeIn,
   Typewriter,
   TypewriterCaret,
   typedLength,
 } from './typewriter';
-export type { TypedPassOptions, TypewriterCaretProps, TypewriterProps } from './typewriter';
+export type {
+  TypedPassOptions,
+  TypeInProps,
+  TypewriterCaretProps,
+  TypewriterProps,
+} from './typewriter';
 export { Wordmark } from './wordmark';
 export type { WordmarkProps, WordmarkTone } from './wordmark';
 export { useInView } from '../hooks/use-in-view';
