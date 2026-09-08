@@ -54,7 +54,6 @@ import {
   ForgeProjectsResultSchema,
   ForgeProjectWriteResultSchema,
   GrepHitSchema,
-
   ForgeReviewEventSchema,
   ForgeRunDetailResultSchema,
   ForgeRunLogResultSchema,
@@ -130,11 +129,7 @@ import {
   VideoStudioStatusSchema,
   VideoToolchainSchema,
 } from '../video';
-import {
-  WORKFLOW_MAX_NODE_TIMEOUT_MS,
-  WorkflowRunSchema,
-  WorkflowSchema,
-} from '../workflow';
+import { WORKFLOW_MAX_NODE_TIMEOUT_MS, WorkflowRunSchema, WorkflowSchema } from '../workflow';
 
 /**
  * Payload/response schemas for every channel. Each `ipcMain.handle` parses its
@@ -222,9 +217,7 @@ export const LogDoneEvent = z.object({
 
 // --- search stream & blame -------------------------------------------------
 
-const SafeArgvString = z
-  .string()
-  .refine((v) => !v.startsWith('-'), 'must not begin with "-"');
+const SafeArgvString = z.string().refine((v) => !v.startsWith('-'), 'must not begin with "-"');
 
 const SafePathspecString = SafeArgvString.refine(
   (p) => !p.startsWith('/') && !p.includes('..'),
@@ -290,7 +283,6 @@ export type BlameReadRequest = z.infer<typeof BlameReadRequest>;
 export const BlameReadResponse = GitOpResultOf(BlameResultSchema);
 export type BlameReadResponse = z.infer<typeof BlameReadResponse>;
 
-
 export const SearchBatchEvent = z.discriminatedUnion('mode', [
   z.object({
     requestId: z.string(),
@@ -313,7 +305,6 @@ export const SearchDoneEvent = z.object({
   error: z.string().optional(),
 });
 export type SearchDoneEvent = z.infer<typeof SearchDoneEvent>;
-
 
 // --- status / detail -------------------------------------------------------
 
@@ -691,7 +682,11 @@ export const ForgeReviewReplyResponse = ForgeWriteResultSchema;
  * text, so it is bounded by charset rather than by shape.
  */
 export const ForgeResolveThreadRequest = RepoId.extend({
-  threadId: z.string().min(1).max(256).regex(/^[A-Za-z0-9_=-]+$/, 'a node id is url-safe base64'),
+  threadId: z
+    .string()
+    .min(1)
+    .max(256)
+    .regex(/^[A-Za-z0-9_=-]+$/, 'a node id is url-safe base64'),
   resolved: z.boolean(),
 });
 export const ForgeResolveThreadResponse = ForgeWriteResultSchema;
@@ -1199,33 +1194,35 @@ export const ReflogListResponse = z.array(ReflogEntrySchema);
 
 // --- pty -------------------------------------------------------------------
 
-export const PtyCreateRequest = z.object({
-  /**
-   * The session this pty belongs to.
-   *
-   * Supplied by the renderer rather than minted here, because the session record
-   * exists before the process does — a restored session is a row with no pty
-   * until the user revives it, and reviving must append to that row's own
-   * scrollback log rather than start a new one.
-   */
-  sessionId: z.string().min(1),
-  kind: TerminalSessionKindSchema,
-  /** Paired with `kind`, exactly as on the session record it belongs to. */
-  agentId: z.string().min(1).optional(),
-  repoId: z.string().min(1),
-  /** Working directory — the selected worktree. */
-  cwd: z.string().min(1),
-  cols: z.number().int().positive(),
-  rows: z.number().int().positive(),
-  /**
-   * Typed into the shell once it is up, for agent sessions (`'claude\r'`).
-   *
-   * Deliberately *not* `pty.spawn(command)`: a login shell resolves nvm- and
-   * asdf-managed binaries the way the user's real terminal does, and leaves them
-   * at a prompt when the agent exits instead of at a dead pane.
-   */
-  initialInput: z.string().optional(),
-}).superRefine(agentIdMatchesKind);
+export const PtyCreateRequest = z
+  .object({
+    /**
+     * The session this pty belongs to.
+     *
+     * Supplied by the renderer rather than minted here, because the session record
+     * exists before the process does — a restored session is a row with no pty
+     * until the user revives it, and reviving must append to that row's own
+     * scrollback log rather than start a new one.
+     */
+    sessionId: z.string().min(1),
+    kind: TerminalSessionKindSchema,
+    /** Paired with `kind`, exactly as on the session record it belongs to. */
+    agentId: z.string().min(1).optional(),
+    repoId: z.string().min(1),
+    /** Working directory — the selected worktree. */
+    cwd: z.string().min(1),
+    cols: z.number().int().positive(),
+    rows: z.number().int().positive(),
+    /**
+     * Typed into the shell once it is up, for agent sessions (`'claude\r'`).
+     *
+     * Deliberately *not* `pty.spawn(command)`: a login shell resolves nvm- and
+     * asdf-managed binaries the way the user's real terminal does, and leaves them
+     * at a prompt when the agent exits instead of at a dead pane.
+     */
+    initialInput: z.string().optional(),
+  })
+  .superRefine(agentIdMatchesKind);
 export const PtyCreateResponse = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), ptyId: z.string() }),
   /** node-pty is loaded lazily and fails soft — the UI shows "terminal unavailable". */
@@ -1648,11 +1645,7 @@ export const FsListFilesResponse = z.discriminatedUnion('ok', [
 // --- system metrics (Phase 18) ---------------------------------------------
 
 export const MetricsStartRequest = z.object({
-  intervalMs: z
-    .number()
-    .int()
-    .min(METRICS_MIN_INTERVAL_MS)
-    .max(METRICS_MAX_INTERVAL_MS),
+  intervalMs: z.number().int().min(METRICS_MIN_INTERVAL_MS).max(METRICS_MAX_INTERVAL_MS),
   /**
    * Read disk capacity on this tick regardless of the usual coarse schedule.
    * The flyout's gauge is the one surface that shows a figure precise enough
@@ -1808,7 +1801,17 @@ export const WindowRelayMessage = z.object({
     authority on what each payload carries and on why view *furniture* is not
     in this list.
   */
-  kind: z.enum(['ui', 'appearance', 'browser', 'theme', 'watch', 'actions', 'files', 'workbench', 'sessions']),
+  kind: z.enum([
+    'ui',
+    'appearance',
+    'browser',
+    'theme',
+    'watch',
+    'actions',
+    'files',
+    'workbench',
+    'sessions',
+  ]),
   payload: z.record(z.string(), z.unknown()),
 });
 
@@ -2076,7 +2079,6 @@ export const DeepLinkEventSchema = z.object({
   known: z.boolean(),
 });
 
-
 // --- workflows (Phase 43) --------------------------------------------------
 
 /**
@@ -2156,7 +2158,10 @@ export const VideoProjectGetRequest = z.object({ id: z.string().min(1) });
 export const VideoProjectGetResponse = z.object({ project: VideoProjectSchema.nullable() });
 
 /** Copies `<root>/projects/_template/` — the mechanism `ekko-videos` already documents. */
-export const VideoProjectCreateRequest = z.object({ id: z.string().min(1), title: z.string().min(1) });
+export const VideoProjectCreateRequest = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+});
 export const VideoProjectCreateResponse = GitOpResultOf(VideoProjectSchema);
 
 export const VideoProjectRemoveRequest = z.object({ id: z.string().min(1) });
@@ -2482,7 +2487,11 @@ export const ApiRunScriptRequest = z.object({
   source: z.string(),
   environmentId: z.string().nullable(),
   collectionVariables: z.array(PostmanVariableSchema),
-  request: z.object({ method: z.string(), url: z.string(), headers: z.record(z.string(), z.string()) }),
+  request: z.object({
+    method: z.string(),
+    url: z.string(),
+    headers: z.record(z.string(), z.string()),
+  }),
   response: ApiResponseSchema.pick({
     status: true,
     statusText: true,
@@ -2542,11 +2551,7 @@ export const ApiCancelRunResponse = ApiOpResultSchema;
  * window's `error` event, and its `unhandledrejection` event. A `source` that
  * meant "somewhere" would make the field decoration rather than triage.
  */
-export const ErrorReportSourceSchema = z.enum([
-  'boundary',
-  'window-error',
-  'unhandled-rejection',
-]);
+export const ErrorReportSourceSchema = z.enum(['boundary', 'window-error', 'unhandled-rejection']);
 export type ErrorReportSource = z.infer<typeof ErrorReportSourceSchema>;
 
 /**
@@ -2619,3 +2624,43 @@ export const McpCallEntrySchema = z.object({
   ms: z.number(),
 });
 export const McpCallsResponse = z.object({ calls: z.array(McpCallEntrySchema) });
+
+// --- the companion's grounding (Phase 79 Theme B) ---------------------------
+//
+// The response shapes themselves live in `../companion.ts` beside the state
+// machine and the phrase banks — `summariseDigest` reads a `CompanionDigest`,
+// so the schema and the function that speaks it belong in one module. Only
+// the two request shapes are here, where every other channel's are.
+
+/**
+ * `repoPath` rather than a `RepoId` extension, and nullable.
+ *
+ * Nullable because "no repo open" is a real state the companion still greets
+ * in — the snapshot comes back with `repo: null` and a `repos` count, which is
+ * exactly what the "shall I open one?" branch of the script needs.
+ *
+ * A path rather than an id for the reason `McpRepoTarget` gives (`../mcp.ts`):
+ * the handler resolves it through the same registry check every MCP tool
+ * makes, and it may name a linked worktree whose branch differs from the
+ * repo's own `headRef`.
+ */
+export const CompanionSnapshotRequest = z.object({
+  repoPath: z.string().min(1).nullable(),
+});
+
+/**
+ * The digest always needs a repository — there is nothing to summarise
+ * without one — so unlike the snapshot this path is required.
+ *
+ * `since` is optional and, when absent, main reads the per-repo "last
+ * greeted" mark from `companion.json` under `userData` (Decision 11), falling
+ * back to seven days for a repo it has never greeted. A caller may pass one to
+ * ask for a specific window; `mark` says whether answering also *moves* that
+ * mark forward, so a script that re-reads the same digest twice does not
+ * silently narrow its own window to nothing.
+ */
+export const CompanionDigestRequest = z.object({
+  repoPath: z.string().min(1),
+  since: z.number().nonnegative().optional(),
+  mark: z.boolean().optional(),
+});

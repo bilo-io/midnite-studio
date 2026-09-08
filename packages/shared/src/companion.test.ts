@@ -351,7 +351,7 @@ describe('summariseDigest', () => {
 describe('resolveDefaultBranch', () => {
   const ref = (name: string, kind: Ref['kind']): Ref => ({
     name,
-    fullName: kind === 'remote' ? `refs/remotes/${name}` : `refs/heads/${name}`,
+    fullName: kind === 'remoteBranch' ? `refs/remotes/${name}` : `refs/heads/${name}`,
     kind,
     sha: 'a'.repeat(40),
     upstream: null,
@@ -360,30 +360,33 @@ describe('resolveDefaultBranch', () => {
   });
 
   it('prefers a remote main over a local one', () => {
-    expect(resolveDefaultBranch([ref('feature/x', 'local'), ref('origin/main', 'remote')])).toBe(
-      'main',
-    );
+    expect(
+      resolveDefaultBranch([ref('feature/x', 'localBranch'), ref('origin/main', 'remoteBranch')]),
+    ).toBe('main');
   });
 
   it('walks the preference order', () => {
     expect(
-      resolveDefaultBranch([ref('origin/trunk', 'remote'), ref('origin/master', 'remote')]),
+      resolveDefaultBranch([
+        ref('origin/trunk', 'remoteBranch'),
+        ref('origin/master', 'remoteBranch'),
+      ]),
     ).toBe('master');
   });
 
   it('falls back to a local branch when there is no remote', () => {
-    expect(resolveDefaultBranch([ref('develop', 'local'), ref('feature/y', 'local')])).toBe(
-      'develop',
-    );
+    expect(
+      resolveDefaultBranch([ref('develop', 'localBranch'), ref('feature/y', 'localBranch')]),
+    ).toBe('develop');
   });
 
   it('answers null when nothing recognisable exists', () => {
-    expect(resolveDefaultBranch([ref('feature/y', 'local')])).toBeNull();
+    expect(resolveDefaultBranch([ref('feature/y', 'localBranch')])).toBeNull();
     expect(resolveDefaultBranch([])).toBeNull();
   });
 
   it('does not mistake `origin/mainline` for `main`', () => {
-    expect(resolveDefaultBranch([ref('origin/mainline', 'remote')])).toBeNull();
+    expect(resolveDefaultBranch([ref('origin/mainline', 'remoteBranch')])).toBeNull();
   });
 });
 

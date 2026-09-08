@@ -484,8 +484,8 @@ function capitalise(text: string): string {
 export const DEFAULT_BRANCH_PREFERENCE = ['main', 'master', 'trunk', 'develop'] as const;
 
 export function resolveDefaultBranch(refs: readonly Ref[]): string | null {
-  const remotes = refs.filter((ref) => ref.kind === 'remote');
-  const locals = refs.filter((ref) => ref.kind === 'local');
+  const remotes = refs.filter((ref) => ref.kind === 'remoteBranch');
+  const locals = refs.filter((ref) => ref.kind === 'localBranch');
 
   for (const name of DEFAULT_BRANCH_PREFERENCE) {
     if (remotes.some((ref) => ref.name.endsWith(`/${name}`))) return name;
