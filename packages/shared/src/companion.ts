@@ -345,9 +345,19 @@ export function emptyCompanionSnapshot(repos = 0): CompanionSnapshot {
  * One thing that happened, or is happening.
  *
  * `ref` is whatever identifies it to a human who wants to go and look — a
- * short sha, a `#123`, a phase number — never a URL: the thread linkifies from
- * `kind` + `ref`, and a URL here would bake `github.com` into a shape that
- * also describes a local commit and a tracker row.
+ * short sha, a `#123`, a phase number. It is never a URL, and it stays that
+ * way: `kind` + `ref` is what a local commit, a pull request and a tracker row
+ * can all be identified by, and baking `github.com` into that shape would make
+ * two of the three lie.
+ *
+ * **`url` is the separate, optional answer to "and where is its page?"** Added
+ * in the Phase 79 follow-up, when the consolidated overview turn
+ * ({@link composeOverviewMarkdown}) started rendering titles as hyperlinks.
+ * Only the forge knows a canonical page for an item — `main/companion/digest.ts`
+ * fills it from the `ForgePull.url` it already had in hand — so a commit and a
+ * tracker row simply have none and render as plain text. Optional rather than
+ * `nullable()` because "the forge was unreachable" and "this kind has no page"
+ * are the same thing to the reader: no link.
  */
 export const CompanionDigestItemSchema = z.object({
   kind: z.enum(['commit', 'pr', 'phase']),
@@ -355,6 +365,8 @@ export const CompanionDigestItemSchema = z.object({
   ref: z.string(),
   /** Epoch milliseconds. */
   at: z.number(),
+  /** The item's canonical page, when one exists. See the docblock above. */
+  url: z.string().optional(),
 });
 export type CompanionDigestItem = z.infer<typeof CompanionDigestItemSchema>;
 
@@ -1061,6 +1073,184 @@ function describeDirty(dirty: CompanionSnapshot['dirty']): string {
   return `${capitalise(plural(total, 'change'))}: ${parts.join(', ')}.`;
 }
 
+// --- follow-up · one formatted turn instead of a dozen ----------------------
+
+/**
+ * Neutralise the characters a markdown parser would act on.
+ *
+ * Applied to every *interpolated* fragment — a repo name, a branch, a commit
+ * subject, a PR title — and to none of the scaffolding this module writes
+ * itself. Titles in this repo really do contain `[M · 4-6h]`, `**`, backticks
+ * and underscores, and a title is data: it must arrive in the bubble looking
+ * the way it looks in `git log`, not half-italicised because somebody used a
+ * snake_case identifier in a commit subject.
+ *
+ * Escaping rather than stripping, because the renderer is a real markdown
+ * parser (`react-markdown`) and a backslash escape is exactly what it is
+ * specified to turn back into the literal character. {@link markdownToSpeech}
+ * undoes them for the spoken rendition.
+ */
+export function escapeMarkdownInline(text: string): string {
+  return text.replace(/([\\`*_[\]<>])/g, '\\$1');
+}
+
+/** `` `ref` `` unless the title already says it — `branchesAhead` names the branch twice otherwise. */
+function refSuffix(item: CompanionDigestItem): string {
+  const ref = item.ref.trim();
+  if (ref === '' || item.title.includes(ref)) return '';
+  return ` (\`${escapeMarkdownInline(ref)}\`)`;
+}
+
+/** One digest item as a list row: hyperlinked when the forge gave us a page, plain when it did not. */
+function digestItemMarkdown(item: CompanionDigestItem): string {
+  const title = escapeMarkdownInline(item.title.trim());
+  const label = item.url === undefined || item.url === '' ? title : `[${title}](${item.url})`;
+  return `- ${label}${refSuffix(item)}`;
+}
+
+/**
+ * A section's rows, capped the way the spoken summary is.
+ *
+ * {@link COMPANION_DIGEST_NAME_CAP} exists because past five titles a *spoken*
+ * list becomes a wait — and the cap is kept here even though this rendition is
+ * read rather than heard, because this is the text the speech is derived from.
+ * A bubble naming five and a voice naming five is one message; a bubble naming
+ * forty and a voice naming five is two.
+ */
+function digestSection(items: readonly CompanionDigestItem[]): string[] {
+  const named = items.slice(0, COMPANION_DIGEST_NAME_CAP).map(digestItemMarkdown);
+  const rest = items.length - named.length;
+  if (rest > 0) named.push(`- and ${rest} more`);
+  return named;
+}
+
+export type OverviewMarkdownOptions = {
+  /** The digest to fold in, or `null`/absent when there is no repo to have one. */
+  digest?: CompanionDigest | null;
+  /** Whether to append the "shall I switch?" offer. The caller decides, from `snapshot.repos > 1`. */
+  offerSwitch?: boolean;
+  now?: number;
+};
+
+/**
+ * The whole orientation — repo, branch, state and digest — as **one** markdown turn.
+ *
+ * The Phase 79 follow-up's first fix. Theme D said one sentence per fact and
+ * spoke each one as its own turn, which is right for speech and wrong for a
+ * chat log: a greeting arrived as six to twelve separate bubbles, each a
+ * fragment, and the thread read like a stack trace. So the facts are unchanged
+ * and the *packaging* is: a bold repo name with the branch in inline code, the
+ * remaining facts as bullets, and the digest as a **Landed** / **In progress**
+ * pair with forge links on the items that have pages.
+ *
+ * **Built on {@link describeSnapshot} rather than beside it.** Its lines are
+ * taken as-is — the first as the heading, the rest as bullets — so there is
+ * exactly one place in this codebase that decides what a snapshot is worth
+ * saying about, and the markdown cannot drift from the speech. Which matters
+ * doubly because the speech now comes *from* this markdown, through
+ * {@link markdownToSpeech}.
+ */
+export function composeOverviewMarkdown(
+  snapshot: CompanionSnapshot,
+  options: OverviewMarkdownOptions = {},
+): string {
+  const { digest = null, offerSwitch = false, now = Date.now() } = options;
+  const facts = describeSnapshot(snapshot);
+  const blocks: string[] = [];
+
+  if (snapshot.repo === null) {
+    // No repo, no heading to bold and no branch to quote — the one sentence
+    // `describeSnapshot` produces is the whole overview.
+    blocks.push(facts.map(escapeMarkdownInline).join(' '));
+  } else {
+    const name = escapeMarkdownInline(snapshot.repo.name);
+    blocks.push(
+      snapshot.branch === null
+        ? `**${name}** — on a detached head`
+        : `**${name}** — on \`${escapeMarkdownInline(snapshot.branch)}\``,
+    );
+    // `describeSnapshot`'s first line is the branch sentence, which the
+    // heading above has just said better. Everything after it is a fact.
+    const bullets = facts.slice(1).map((line) => `- ${escapeMarkdownInline(line)}`);
+    if (bullets.length > 0) blocks.push(bullets.join('\n'));
+  }
+
+  if (digest !== null) {
+    const when = sinceLabel(digest.since, now);
+    blocks.push(
+      digest.landed.length === 0
+        ? `**Landed** — nothing ${when}.`
+        : [`**Landed** ${when}`, ...digestSection(digest.landed)].join('\n'),
+    );
+    blocks.push(
+      digest.inProgress.length === 0
+        ? '**In progress** — nothing open right now.'
+        : ['**In progress**', ...digestSection(digest.inProgress)].join('\n'),
+    );
+    if (digest.landed.length === 0 && digest.inProgress.length === 0) {
+      blocks.push('A clean slate, then.');
+    }
+  }
+
+  if (offerSwitch) blocks.push('Want to switch to another one?');
+
+  return blocks.join('\n\n');
+}
+
+/**
+ * The same turn, rendered for a voice rather than a screen.
+ *
+ * The follow-up's constraint was that consolidating the bubbles must not make
+ * the companion *read markup out loud* — "asterisk asterisk midnite hyphen
+ * studio asterisk asterisk" is not an improvement on twelve bubbles. So the
+ * markdown is the single source and this is its spoken projection: emphasis
+ * markers, backticks, list bullets and heading hashes go; a link becomes its
+ * own text; a backslash escape becomes the character it was protecting.
+ *
+ * A terminator is added to any line that has none, which is what makes the
+ * heading and the two section labels land as sentences instead of running into
+ * the bullet that follows them — {@link chunkForSpeech} splits on `.!?`, and a
+ * paragraph with no punctuation at all is one 200-character utterance with no
+ * breath in it.
+ *
+ * Pure, in `shared`, and unit-tested for the reason every other function in
+ * this file is: it is text a human hears.
+ */
+export function markdownToSpeech(markdown: string): string {
+  return markdown
+    .split('\n')
+    .map((raw) =>
+      raw
+        // A link is its text. Done before anything else, so a `[` inside the
+        // label cannot be mistaken for the start of another one.
+        .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+        // A bare autolink still has to say something.
+        .replace(/<((?:https?|mailto):[^>]+)>/g, '$1')
+        // List markers and heading hashes are layout, not words.
+        .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '')
+        .replace(/^\s*#{1,6}\s+/, '')
+        .replace(/^\s*>\s?/, '')
+        /*
+          Un-escape *before* stripping emphasis, and after the two link passes
+          above. The order is the whole subtlety of this function. Un-escaping
+          first would turn an escaped `\[title\]` back into a link pattern
+          the pass above has already gone by; un-escaping last would leave
+          `\*\*` half-eaten by the emphasis pass and the voice saying
+          "backslash". So: links, then escapes, then markup.
+        */
+        .replace(/\\([\\`*_[\]<>])/g, '$1')
+        // Emphasis and code spans. A literal asterisk the author escaped is
+        // now indistinguishable from an emphasis marker — and dropping it is
+        // the right answer either way, because no voice should say "asterisk".
+        .replace(/\*\*|__/g, '')
+        .replace(/`+/g, '')
+        .trim(),
+    )
+    .filter((line) => line !== '')
+    .map((line) => (/[.!?:;]$/.test(line) ? line : `${line}.`))
+    .join('\n');
+}
+
 // --- E · the intent grammar -------------------------------------------------
 
 /**
@@ -1323,10 +1513,7 @@ export function parseIntent(text: string): CompanionIntent {
  * dropped because they read as noise once the verb is gone; anything else is
  * passed through verbatim, since it is about to be typed into a prompt.
  */
-function commandExtras(
-  remainder: string,
-  override: boolean,
-): { body?: string; override?: true } {
+function commandExtras(remainder: string, override: boolean): { body?: string; override?: true } {
   let body = remainder.replace(/^\s*(?:to|for|about|on|that|which|and)\b\s*/i, '').trim();
   for (const token of COMPANION_ANYWAY_TOKENS) {
     const span = phraseSpan(body, token);
