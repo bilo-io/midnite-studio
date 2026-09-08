@@ -1286,6 +1286,24 @@ export type UiState = {
    */
   companionVoice: string | null;
   setCompanionVoice: (voice: string | null) => void;
+  /**
+   * Whether the companion actually reads its turns out loud.
+   *
+   * **The only `companion*` preference that defaults ON**, and the one that
+   * fixes what Phase 79 shipped: `setCompanionSpeaker` was never called in
+   * production, so `runtime.ts` ran the whole flow against `silentSpeaker` and
+   * every turn landed `spoken: false`. A user who had turned the companion on
+   * — read the switch's own hint, which says "lets the app speak" and "it
+   * greets you out loud" — heard nothing.
+   *
+   * So this is not a fourth gate on top of `companionEnabled`; it is the
+   * *escape hatch from* it. Enabling the companion is the decision to be
+   * spoken to. This switch exists for the person who wants the thread and the
+   * routing without the voice — a shared office, a call — and defaulting it
+   * off would have re-created the bug it exists to fix.
+   */
+  companionSpeakAloud: boolean;
+  setCompanionSpeakAloud: (speakAloud: boolean) => void;
   /** Whether the companion may offer elevator music on a long wait (Theme G). Default on — it only ever *offers*. */
   companionMusicOffer: boolean;
 
@@ -1553,6 +1571,7 @@ export type PersistedUi = Pick<
   | 'companionHandsFree'
   | 'companionHonorific'
   | 'companionVoice'
+  | 'companionSpeakAloud'
   | 'companionMusicOffer'
   | 'companionVolume'
   | 'companionMicMode'
@@ -1698,6 +1717,11 @@ export const useUiStore = create<UiState>()(
       setCompanionHonorific: (companionHonorific) => set({ companionHonorific }),
       companionVoice: null,
       setCompanionVoice: (companionVoice) => set({ companionVoice }),
+      // ON by default — see the field's docblock. Every other `companion*`
+      // switch defaults off; this one is inside `companionEnabled`, not
+      // beside it.
+      companionSpeakAloud: true,
+      setCompanionSpeakAloud: (companionSpeakAloud) => set({ companionSpeakAloud }),
       companionMusicOffer: true,
       setCompanionMusicOffer: (companionMusicOffer) => set({ companionMusicOffer }),
       companionVolume: DEFAULT_COMPANION_VOLUME,
@@ -2137,7 +2161,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 13,
+      version: 14,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2223,6 +2247,7 @@ export const useUiStore = create<UiState>()(
         companionHandsFree: state.companionHandsFree,
         companionHonorific: state.companionHonorific,
         companionVoice: state.companionVoice,
+        companionSpeakAloud: state.companionSpeakAloud,
         companionMusicOffer: state.companionMusicOffer,
         companionVolume: state.companionVolume,
         companionMicMode: state.companionMicMode,
@@ -2258,6 +2283,11 @@ export const useUiStore = create<UiState>()(
        * remember.
        * v12 → v13: seed `companionVolume` and `companionMicMode` (Phase 79
        * Themes F and G) — a blob from before the voice half has neither.
+       * v13 → v14: seed `companionSpeakAloud` `true` (the Phase 79 follow-up).
+       * `true` rather than absent for the reason v9 → v10 gives, and `true`
+       * rather than `false` because a blob from before this key was written by
+       * someone who had already agreed to be spoken to — see the field's own
+       * docblock.
        * v11 → v12: seed the five `companion*` preferences (Phase 79 Theme A).
        * Written explicitly rather than left absent for the reason v9 → v10
        * gives: `PersistedUi` is what rehydrate merges over the initial state,
@@ -2291,6 +2321,7 @@ export const useUiStore = create<UiState>()(
           companionHandsFree?: boolean;
           companionHonorific?: string;
           companionVoice?: string | null;
+          companionSpeakAloud?: boolean;
           companionMusicOffer?: boolean;
           companionVolume?: number;
           companionMicMode?: CompanionMicMode;
@@ -2338,6 +2369,9 @@ export const useUiStore = create<UiState>()(
         }
         if (version < 11) {
           state.activeEnvironmentByRepo = {};
+        }
+        if (version < 14) {
+          state.companionSpeakAloud = true;
         }
         if (version < 13) {
           state.companionVolume = DEFAULT_COMPANION_VOLUME;

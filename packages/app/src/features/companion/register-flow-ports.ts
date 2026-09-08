@@ -5,9 +5,12 @@ import {
   cancelCompanionSpeech,
   greetCompanion,
   repeatCompanionLast,
+  setCompanionSpeaker,
   submitCompanionInput,
   watchCompanionHandoff,
 } from './runtime';
+import { companionTtsSpeaker } from './speaker';
+import { useUiStore } from '../../store/ui-store';
 
 /**
  * Plugging Themes D and E into Theme C's panel — the registration half.
@@ -48,4 +51,47 @@ setCompanionPorts({
  */
 export function useCompanionHandoffWatch(): void {
   useEffect(() => watchCompanionHandoff(), []);
+}
+
+/**
+ * The other half of the registration: giving the flow a voice.
+ *
+ * **Phase 79's actual bug.** Theme E built `setCompanionSpeaker` and Theme F
+ * built `companionTtsSpeaker`, in parallel PRs, and nothing ever called the
+ * one with the other — so the shipped app ran its whole flow against
+ * `silentSpeaker`, posted every turn `spoken: false`, and said nothing out
+ * loud. Two seams that fit perfectly and were never joined, which is the
+ * failure mode parallel themes have.
+ *
+ * A hook rather than the module-scope call above it, and the difference is
+ * load-bearing: this is not a one-time registration but a *live* answer to two
+ * preferences. Flipping Settings ▸ Companion ▸ "Speak replies aloud" has to
+ * take effect on the next sentence, not the next launch, and a store
+ * subscription at module scope would have no way to unsubscribe and no
+ * lifecycle to hang a `cancel()` off. Mounted from `app.tsx` beside
+ * {@link useCompanionHandoffWatch}, for the same reason: it must be live while
+ * the panel is closed, because a hand-off's read-back speaks whether or not
+ * anyone is looking at the thread.
+ *
+ * `companionTtsSpeaker.cancel()` on the way down, not just the unregistration:
+ * turning the switch off mid-sentence has to stop the sentence. Unregistering
+ * alone would leave the utterance `speechSynthesis` has already accepted
+ * talking into a room whose owner just asked for quiet.
+ */
+export function useCompanionSpeakerWiring(): void {
+  const enabled = useUiStore((state) => state.companionEnabled);
+  const speakAloud = useUiStore((state) => state.companionSpeakAloud);
+
+  useEffect(() => {
+    if (!enabled || !speakAloud) {
+      companionTtsSpeaker.cancel();
+      setCompanionSpeaker(null);
+      return undefined;
+    }
+    setCompanionSpeaker(companionTtsSpeaker);
+    return () => {
+      companionTtsSpeaker.cancel();
+      setCompanionSpeaker(null);
+    };
+  }, [enabled, speakAloud]);
 }

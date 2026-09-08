@@ -1,12 +1,17 @@
+import { act, render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { companionPorts } from './companion-ports';
+import { silentSpeaker } from './ports';
+import { companionSpeaker, setCompanionSpeaker } from './runtime';
+import { companionTtsSpeaker } from './speaker';
 // Imported for its side effect: this module registers Themes D+E into Theme
 // C's port registry at module scope. A dynamic `import()` inside a test would
 // be wrong here — module scope runs once, so a `resetCompanionPorts()` in a
 // `beforeEach` would put the no-op defaults back and every later case would be
 // testing Theme C's fallbacks rather than this wiring.
 import './register-flow-ports';
+import { useCompanionSpeakerWiring } from './register-flow-ports';
 import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 
@@ -67,5 +72,66 @@ describe('register-flow-ports', () => {
         useCompanionStore.getState().transcript.filter((turn) => turn.text === 'start a swarm'),
       ).toHaveLength(1);
     });
+  });
+});
+
+/**
+ * The speaker wiring — the Phase 79 follow-up's first fix.
+ *
+ * Phase 79 shipped with `setCompanionSpeaker` uncalled: Theme E built the port
+ * and Theme F built the speaker, in parallel PRs, and nothing joined them, so
+ * the app was mute and every turn was `spoken: false`. This is the test that
+ * would have caught it — the assertion is on `companionSpeaker()`'s *identity*,
+ * because that is the only thing that was wrong.
+ *
+ * Rendered through the real hook rather than calling the effect body, so the
+ * unmount cleanup and the re-run on a preference change are covered too.
+ */
+describe('useCompanionSpeakerWiring', () => {
+  beforeEach(() => {
+    setCompanionSpeaker(null);
+    useUiStore.setState({ companionEnabled: false, companionSpeakAloud: true });
+  });
+
+  function Harness() {
+    useCompanionSpeakerWiring();
+    return null;
+  }
+
+  it('registers the real TTS speaker once the companion is enabled', () => {
+    useUiStore.setState({ companionEnabled: true, companionSpeakAloud: true });
+    render(<Harness />);
+    expect(companionSpeaker()).toBe(companionTtsSpeaker);
+  });
+
+  it('stays silent while the companion is off, whatever the speak switch says', () => {
+    useUiStore.setState({ companionEnabled: false, companionSpeakAloud: true });
+    render(<Harness />);
+    expect(companionSpeaker()).toBe(silentSpeaker);
+  });
+
+  it('goes back to silence the moment the switch is turned off, mid-sentence', () => {
+    useUiStore.setState({ companionEnabled: true, companionSpeakAloud: true });
+    render(<Harness />);
+    expect(companionSpeaker()).toBe(companionTtsSpeaker);
+
+    const cancel = vi.spyOn(companionTtsSpeaker, 'cancel');
+    act(() => {
+      useUiStore.setState({ companionSpeakAloud: false });
+    });
+
+    expect(companionSpeaker()).toBe(silentSpeaker);
+    // Unregistering alone would leave the utterance speechSynthesis has
+    // already accepted talking after the user asked for quiet.
+    expect(cancel).toHaveBeenCalled();
+    cancel.mockRestore();
+  });
+
+  it('unregisters on unmount', () => {
+    useUiStore.setState({ companionEnabled: true, companionSpeakAloud: true });
+    const view = render(<Harness />);
+    expect(companionSpeaker()).toBe(companionTtsSpeaker);
+    view.unmount();
+    expect(companionSpeaker()).toBe(silentSpeaker);
   });
 });
