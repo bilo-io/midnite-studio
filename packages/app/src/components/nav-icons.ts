@@ -3,6 +3,7 @@ import { GoBeaker, GoGitPullRequest, GoGlobe, GoIssueOpened, GoPlay } from 'reac
 import { IoIosGitNetwork } from 'react-icons/io';
 import {
   LuActivity,
+  LuAudioLines,
   LuBot,
   LuClapperboard,
   LuDatabase,
@@ -114,6 +115,14 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   trashSafety: LuTrash2,
   apiClient: LuSend,
   mcp: LuServer,
+  /*
+    `LuAudioLines`, not the `LuBot` the companion itself wears — the Agent page
+    above already owns that glyph, and a settings sidebar with two identical
+    marks in the same group is a sidebar you have to read twice. The waveform
+    is also the more honest label for what this page actually configures: a
+    voice, a microphone, and whether the app may talk.
+  */
+  companion: LuAudioLines,
   monitor: LuActivity,
   optimizer: LuGauge,
   browser: GoGlobe,

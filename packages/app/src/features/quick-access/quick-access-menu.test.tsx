@@ -1,7 +1,9 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
+import { resetCompanionPorts, setCompanionPorts } from '../companion/companion-ports';
 import { QuickAccessMenu } from './quick-access-menu';
 
 beforeEach(() => {
@@ -9,21 +11,32 @@ beforeEach(() => {
     quickAccessOpen: false,
     notesOpen: false,
     fabPanelOpen: false,
+    companionPanelOpen: false,
+    // The default. Named explicitly because half of this file's assertions are
+    // about what the `C` leaf and the companion strip look like on either side
+    // of this switch, and a leaked `true` from another suite would flip them.
+    companionEnabled: false,
   });
+  useCompanionStore.setState({ state: 'off', transcript: [] });
+  resetCompanionPorts();
 });
 
 afterEach(cleanup);
 
 describe('QuickAccessMenu', () => {
-  it('renders the four rows, in order, behind one separator', () => {
+  it('renders the five rows, in order, behind one separator', () => {
     render(<QuickAccessMenu onClose={() => {}} />);
 
+    // `L · C · N · —— · I · G` (Phase 79 Theme C) — the companion sits between
+    // Loops and Notes. Five, not four: `Repeat` is absent with no companion
+    // turn to repeat, which is the state a fresh store is in.
     const rows = screen.getAllByRole('menuitem');
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
     expect(rows[0]?.textContent).toContain('Loops');
-    expect(rows[1]?.textContent).toContain('Notes');
-    expect(rows[2]?.textContent).toContain('Report Issue');
-    expect(rows[3]?.textContent).toContain('Guided tour');
+    expect(rows[1]?.textContent).toContain('Companion');
+    expect(rows[2]?.textContent).toContain('Notes');
+    expect(rows[3]?.textContent).toContain('Report Issue');
+    expect(rows[4]?.textContent).toContain('Guided tour');
 
     expect(screen.getByTestId('quick-access-menu').querySelectorAll('hr')).toHaveLength(1);
   });
@@ -57,6 +70,9 @@ describe('QuickAccessMenu', () => {
 
     // Mounts with focus on the first row.
     expect(document.activeElement).toBe(screen.getByTestId('quick-access-row-l'));
+
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByTestId('quick-access-row-c'));
 
     fireEvent.keyDown(menu, { key: 'ArrowDown' });
     expect(document.activeElement).toBe(screen.getByTestId('quick-access-row-n'));
@@ -97,6 +113,77 @@ describe('QuickAccessMenu', () => {
     fireEvent.click(screen.getByTestId('quick-access-row-l'));
 
     expect(useUiStore.getState().fabPanelOpen).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  /* --- Phase 79 Themes C + H ------------------------------------------- */
+
+  it('the C leaf is disabled with its reason while the companion is switched off', () => {
+    const onClose = vi.fn();
+    render(<QuickAccessMenu onClose={onClose} />);
+
+    const row = screen.getByTestId('quick-access-row-c');
+    expect(row.getAttribute('aria-disabled')).toBe('true');
+
+    fireEvent.keyDown(screen.getByTestId('quick-access-menu'), { key: 'c' });
+
+    expect(useUiStore.getState().companionPanelOpen).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByText('Enable in Settings ▸ Companion')).not.toBeNull();
+  });
+
+  it('the C leaf opens the companion panel once the companion is enabled', () => {
+    useUiStore.setState({ companionEnabled: true });
+    const onClose = vi.fn();
+    render(<QuickAccessMenu onClose={onClose} />);
+
+    fireEvent.keyDown(screen.getByTestId('quick-access-menu'), { key: 'c' });
+
+    expect(useUiStore.getState().companionPanelOpen).toBe(true);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('the popover shows the enable row while the companion is off', () => {
+    render(<QuickAccessMenu onClose={() => {}} />);
+    expect(screen.getByTestId('companion-strip').textContent).toContain(
+      'Enable the companion in Settings',
+    );
+  });
+
+  it('the popover shows the state label and the last companion turn once enabled', () => {
+    useUiStore.setState({ companionEnabled: true });
+    useCompanionStore.setState({
+      state: 'speaking',
+      transcript: [
+        { id: 'a', role: 'user', text: 'start an adhoc task', at: 1, spoken: false },
+        { id: 'b', role: 'companion', text: 'Here we are — one session, typed and waiting.', at: 2, spoken: true },
+      ],
+    });
+
+    render(<QuickAccessMenu onClose={() => {}} />);
+
+    const strip = screen.getByTestId('companion-strip');
+    expect(strip.textContent).toContain('Speaking…');
+    expect(strip.textContent).toContain('one session, typed and waiting');
+  });
+
+  it('offers Repeat only when there is a companion turn, and routes it through the port', () => {
+    useUiStore.setState({ companionEnabled: true });
+    render(<QuickAccessMenu onClose={() => {}} />);
+    expect(screen.queryByTestId('quick-access-row-r')).toBeNull();
+    cleanup();
+
+    const repeat = vi.fn();
+    setCompanionPorts({ repeat });
+    useCompanionStore.setState({
+      transcript: [{ id: 'b', role: 'companion', text: 'Here we are.', at: 2, spoken: true }],
+    });
+
+    const onClose = vi.fn();
+    render(<QuickAccessMenu onClose={onClose} />);
+    fireEvent.click(screen.getByTestId('quick-access-row-r'));
+
+    expect(repeat).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

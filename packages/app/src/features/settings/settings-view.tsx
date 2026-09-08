@@ -13,6 +13,7 @@ import { ApiClientPage } from './settings-pages/api-client-page';
 import { AppearancePage } from './settings-pages/appearance-page';
 import { BrowserPage } from './settings-pages/browser-page';
 import { CliPage } from './settings-pages/cli-page';
+import { CompanionPage } from './settings-pages/companion-page';
 import { DiffPage } from './settings-pages/diff-page';
 import { GitSafetyPage } from './settings-pages/git-safety-page';
 import { GraphPage } from './settings-pages/graph-page';
@@ -56,6 +57,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   trashSafety: () => <TrashSafetyPage />,
   apiClient: () => <ApiClientPage />,
   mcp: () => <McpSettingsPage />,
+  companion: () => <CompanionPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,
   cli: () => <CliPage />,
