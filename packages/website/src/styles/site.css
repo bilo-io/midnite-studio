@@ -665,3 +665,71 @@ html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
     will-change: auto;
   }
 }
+
+/*
+  ══════════════════════════════════════════════════════════════════════════════
+  Motion added by the "informative illustrations" pass
+  ══════════════════════════════════════════════════════════════════════════════
+
+  Everything below belongs to one change and is kept in its own block so it can
+  be read — and moved — as a unit. Four surfaces: the agent marquee's name
+  caption, the Features commit graph, and the three Services illustrations.
+
+  **All of it is CSS keyframes rather than SMIL, and that is a considered
+  reversal.** The illustrations' existing motion is SMIL (`<animate>`), which
+  was right when the only requirement was "gate it on reduced motion": the
+  element is simply not rendered. It is *not* enough for the second
+  requirement — a loop must stop when the tab is hidden — because
+  `page-visibility.ts` mirrors `document.hidden` onto the root element for
+  **CSS** to key off, and no CSS selector can pause a SMIL timeline.
+  `animation-play-state` can pause a keyframe animation mid-cycle, so every new
+  loop here is a keyframe animation and every one of them is listed in the
+  `html[data-page-hidden='true']` rule at the end of this block.
+
+  The pre-existing SMIL pulses stay where they are — they are one small
+  `<animate>` each, and rewriting them was not this change's job.
+*/
+
+@layer utilities {
+  /*
+    ── The marquee's name caption ─────────────────────────────────────────────
+
+    Type and glow only; the typing itself is `useMarqueeCycle`, which drives it
+    from the same clock that decides which logo is centred (see the hook). The
+    row's height is reserved in `agent-marquee.tsx`, because it is derived from
+    the line box and the blur below and a stylesheet cannot be read from JS.
+  */
+  .ws-agent-caption-name {
+    font-size: 1.125rem;
+    line-height: 28px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    /* `pre`, so the box does not collapse to zero width on the empty beat
+       between two names and take the caret with it. */
+    white-space: pre;
+    text-shadow: 0 0 12px color-mix(in srgb, var(--ws-agent-color) 55%, transparent);
+  }
+
+  /*
+    The two-colour brands. `background-clip: text` needs a transparent fill, and
+    a `text-shadow` behind a transparent glyph paints *through* it and reads as
+    a smudge — so the glow moves to a `drop-shadow`, which traces the painted
+    result rather than the glyph's own colour.
+  */
+  .ws-agent-caption-ramp {
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: none;
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--ws-agent-color) 45%, transparent));
+  }
+
+  /*
+    The caret is the hero's component, so it arrives with `bg-accent` on it.
+    Two classes outrank one utility class, which is how it takes the agent's
+    colour without an `!important` and without a second caret existing.
+  */
+  .ws-agent-caption .ws-caret {
+    background-color: var(--ws-agent-color);
+  }
+}

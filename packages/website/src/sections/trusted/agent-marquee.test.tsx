@@ -1,7 +1,16 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AgentMarquee, BAND_PX, HOLD_SCALE, PEAK_SCALE } from './agent-marquee';
+import {
+  AgentMarquee,
+  BAND_PX,
+  CAPTION_GAP_PX,
+  CAPTION_PX,
+  CYCLE_MS,
+  HALO_REACH_PX,
+  HOLD_SCALE,
+  PEAK_SCALE,
+} from './agent-marquee';
 import { SITE_AGENTS } from './agents';
 
 const setReducedMotion = (reduced: boolean) => {
@@ -21,12 +30,19 @@ const setReducedMotion = (reduced: boolean) => {
   );
 };
 
-/** Every rendering of a given agent's slot, across all three roster copies. */
+/**
+ * Every rendering of a given agent's *mark*, across all three roster copies.
+ *
+ * Scoped to `.ws-agent-mark` rather than to `[data-agent]` alone: the name
+ * caption carries the same attribute, and counting it as a fourth copy is a
+ * fine way to make this file fail for a reason that has nothing to do with the
+ * marquee.
+ */
 const slotsFor = (id: string) =>
-  Array.from(document.querySelectorAll(`[data-agent="${id}"]`));
+  Array.from(document.querySelectorAll(`.ws-agent-mark[data-agent="${id}"]`));
 
 const selectedIds = () =>
-  Array.from(document.querySelectorAll('[data-selected="true"]')).map((node) =>
+  Array.from(document.querySelectorAll('.ws-agent-mark[data-selected="true"]')).map((node) =>
     node.getAttribute('data-agent'),
   );
 
@@ -67,7 +83,7 @@ describe('AgentMarquee', () => {
       expect(new Set(selectedIds())).toEqual(new Set([first]));
       expect(selectedIds()).toHaveLength(3);
 
-      act(() => void vi.advanceTimersByTime(1000));
+      act(() => void vi.advanceTimersByTime(CYCLE_MS / 2 + 1));
       expect(new Set(selectedIds())).toEqual(new Set([second]));
     });
 
@@ -84,7 +100,7 @@ describe('AgentMarquee', () => {
       // Frozen, not merely un-ticked: a whole pass of wall clock while hovered
       // must leave the same logo lit, or the cycle desyncs from the scroll.
       const lit = selectedIds();
-      act(() => void vi.advanceTimersByTime(1900 * SITE_AGENTS.length));
+      act(() => void vi.advanceTimersByTime(CYCLE_MS * SITE_AGENTS.length));
       expect(selectedIds()).toEqual(lit);
 
       fireEvent.mouseLeave(band);
@@ -116,8 +132,8 @@ describe('AgentMarquee', () => {
       // section is built to avoid.
       expect(track.style.getPropertyValue('--ws-agent-slot')).toBe('152px');
       expect(track.style.getPropertyValue('--ws-agent-shift')).toBe(`${152 * count}px`);
-      expect(track.style.getPropertyValue('--ws-agent-pass')).toBe(`${1900 * count}ms`);
-      expect(track.style.getPropertyValue('--ws-agent-cycle')).toBe('1900ms');
+      expect(track.style.getPropertyValue('--ws-agent-pass')).toBe(`${CYCLE_MS * count}ms`);
+      expect(track.style.getPropertyValue('--ws-agent-cycle')).toBe(`${CYCLE_MS}ms`);
       expect(track.style.getPropertyValue('--ws-agent-lead')).toBe(
         `${152 * count + 76}px`,
       );
@@ -131,6 +147,80 @@ describe('AgentMarquee', () => {
       expect(track.style.getPropertyValue('--ws-agent-scale')).toBe(String(HOLD_SCALE));
       expect(track.style.getPropertyValue('--ws-agent-peak')).toBe(String(PEAK_SCALE));
       expect(PEAK_SCALE).toBeGreaterThan(HOLD_SCALE);
+    });
+
+    it('runs the whole band at least 1.4x slower than the 1900ms it shipped at', () => {
+      /*
+        The scroll and the per-logo cycle are two readings of `CYCLE_MS`, so
+        this one assertion covers both: the track travels `SLOT_PX` per cycle,
+        and the selected logo's spin-hold-spin is exactly one cycle long.
+      */
+      expect(CYCLE_MS / 1900).toBeGreaterThanOrEqual(1.4);
+    });
+
+    it('captions the selected logo, and follows it to the next one', () => {
+      render(<AgentMarquee />);
+      const caption = () => screen.getByTestId('agent-caption');
+
+      expect(caption().getAttribute('data-agent')).toBe(SITE_AGENTS[0]?.id);
+
+      act(() => void vi.advanceTimersByTime(CYCLE_MS / 2 + 1));
+      expect(caption().getAttribute('data-agent')).toBe(SITE_AGENTS[1]?.id);
+      // Never a name from one logo under the glow of another.
+      expect(caption().getAttribute('data-agent')).toBe(
+        document.querySelector('[data-selected="true"]')?.getAttribute('data-agent'),
+      );
+    });
+
+    it('types the name out rather than printing it', () => {
+      render(<AgentMarquee />);
+      const name = () => screen.getByTestId('agent-caption-name').textContent;
+      const label = SITE_AGENTS[0]!.label;
+
+      expect(name()).toBe('');
+      act(() => void vi.advanceTimersByTime(70));
+      expect(name()).toBe(label.slice(0, 1));
+
+      act(() => void vi.advanceTimersByTime(62 * label.length));
+      expect(name()).toBe(label);
+    });
+
+    it('takes each name`s colour from the roster, gradient where a brand has two', () => {
+      render(<AgentMarquee />);
+      const name = () => screen.getByTestId('agent-caption-name') as HTMLElement;
+
+      for (const [index, agent] of SITE_AGENTS.entries()) {
+        if (index > 0) act(() => void vi.advanceTimersByTime(CYCLE_MS));
+        expect(screen.getByTestId('agent-caption').getAttribute('data-agent')).toBe(agent.id);
+
+        if (agent.colorEnd) {
+          expect(name().dataset.gradient, agent.id).toBe('true');
+          expect(name().style.backgroundImage, agent.id).toContain(agent.color);
+          expect(name().style.backgroundImage, agent.id).toContain(agent.colorEnd);
+        } else {
+          expect(name().dataset.gradient, agent.id).toBe('false');
+          expect(name().style.color, agent.id).not.toBe('');
+        }
+      }
+    });
+
+    it('reserves the caption`s height, so no character lands as a layout jump', () => {
+      render(<AgentMarquee />);
+      const caption = screen.getByTestId('agent-caption');
+      expect(caption.style.height).toBe(`${CAPTION_PX}px`);
+      expect(caption.style.marginTop).toBe(`${CAPTION_GAP_PX}px`);
+    });
+
+    it('keeps the caption clear of the halo at the bounce`s peak', () => {
+      /*
+        The halo is painted `HALO_REACH_PX / 2` either side of the band's centre
+        line, so it stops short of the band's own edge by the slack the height
+        was given. The caption starts below that edge, so the two cannot meet —
+        and neither is clipped, since the `overflow-hidden` ends with the band.
+      */
+      const slackBelowBand = BAND_PX / 2 - HALO_REACH_PX / 2;
+      expect(slackBelowBand).toBeGreaterThan(0);
+      expect(CAPTION_GAP_PX).toBeGreaterThan(0);
     });
 
     it('makes the band tall enough for the glow at its peak scale', () => {
@@ -168,6 +258,15 @@ describe('AgentMarquee', () => {
       expect(screen.getByTestId('agent-grid').children).toHaveLength(
         SITE_AGENTS.length,
       );
+    });
+
+    it('shows every name as a plain label instead of a typed caption', () => {
+      render(<AgentMarquee />);
+      expect(screen.queryByTestId('agent-caption')).toBeNull();
+      for (const agent of SITE_AGENTS) {
+        const label = screen.getByText(agent.label);
+        expect(label.className).toContain('text-fg-subtle');
+      }
     });
 
     it('runs no timeline at all', () => {
