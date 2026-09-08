@@ -531,15 +531,24 @@ export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): C
       }
       index += 1;
 
-      const result = await deps.synthesize(chunk);
-      if (active !== item) return; // cancelled while the request was in flight
-
-      if (!result.ok) {
-        finish(item, false);
-        return;
-      }
-
+      /*
+        Everything from here down is wrapped in one `try` — including
+        `deps.synthesize` itself. A bridge with no `ttsSynthesize` at all (an
+        e2e harness, an older preload) throws a `TypeError` calling it, not a
+        rejected `GitOpResult`, and that throw must fail soft exactly like a
+        `{ok:false}` answer does: unwrapped, it becomes an unhandled rejection
+        on this fire-and-forget chain, `finish` never runs, and the caller's
+        `speakLocal` promise — and everything awaiting it, the whole concierge
+        flow included — hangs forever instead of falling back.
+      */
       try {
+        const result = await deps.synthesize(chunk);
+        if (active !== item) return; // cancelled while the request was in flight
+        if (!result.ok) {
+          finish(item, false);
+          return;
+        }
+
         // `.slice()` first: the `Uint8Array` crossing the IPC boundary may not
         // tightly wrap its own `ArrayBuffer`, and `decodeAudioData` wants one
         // sized to exactly the bytes it should read.

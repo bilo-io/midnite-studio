@@ -552,6 +552,30 @@ describe('createLocalSpeaker', () => {
     expect(h.audio.sources).toHaveLength(0);
   });
 
+  /*
+    The regression an e2e run caught: a bridge whose `companion` object has no
+    `ttsSynthesize` at all (an older preload, a test harness) makes
+    `bridge()?.companion.ttsSynthesize(...)` throw a `TypeError`, not resolve
+    to `{ok:false}` — a genuinely different failure shape from every other
+    test here, and the one that isn't already wrapped in a `try` unless the
+    fix holds. Unfixed, this resolves `speakLocal` never: the promise hangs,
+    and so does everything awaiting it (the whole concierge greeting flow, in
+    the real bug this reproduces).
+  */
+  it('resolves false, not hangs, when synthesize itself throws rather than answering', async () => {
+    const h = localHarness();
+    const deps = {
+      ...h.deps,
+      synthesize: async () => {
+        throw new TypeError('companion.ttsSynthesize is not a function');
+      },
+    };
+    const speaker = createLocalSpeaker(deps);
+
+    await expect(speaker.speakLocal('hi')).resolves.toBe(false);
+    expect(h.audio.sources).toHaveLength(0);
+  });
+
   it('resolves false when there is no audio context at all', async () => {
     const h = localHarness();
     const speaker = createLocalSpeaker({ ...h.deps, getAudio: () => null });

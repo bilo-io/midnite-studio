@@ -3325,6 +3325,18 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           kind: 'error' as const,
           message: 'No agent CLI with a headless mode is installed.',
         }),
+        // Phase 80 Theme C — no native voice engine in this harness either, so
+        // `speaker.ts`'s `createCompanionSpeaker` falls back to the stubbed
+        // `speechSynthesis` above on every utterance, same as a real machine
+        // without the local engine. Present at all is what matters (same
+        // reasoning as `snapshot`/`digest`/`ask` above): a mock missing this
+        // namespace makes `createLocalSpeaker` throw calling it rather than
+        // fall back, and the greeting hangs at "Saying hello…" forever.
+        ttsSynthesize: async () => ({
+          ok: false as const,
+          kind: 'error' as const,
+          message: 'No local voice engine in this harness.',
+        }),
       },
       mcp: {
         get: async () => ({
