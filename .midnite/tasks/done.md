@@ -3,8 +3,9 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-09 — Phase 80 Theme C — a local, free voice, with an automatic fallback to `speechSynthesis`
 
-[PR #297](https://github.com/bilo-io/midnite-studio/pull/297). Moves Phase 80 9/31 → 16/31 (29% →
-52%). `speechSynthesis` sounded robotic and had never been evaluated against an alternative —
+[PR #297](https://github.com/bilo-io/midnite-studio/pull/297). Moves Phase 80 15/31 → 24/31 (48% →
+77%) — the last of the phase's four themes; A, B and D had already landed. `speechSynthesis`
+sounded robotic and had never been evaluated against an alternative —
 Finding 4 of the phase doc's own research. This lands the doc's recommendation:
 `sherpa-onnx-node` running a Piper VITS voice (`en_US-joe-medium`, CC0), entirely in
 `packages/desktop`'s main process, behind one new IPC channel.
@@ -58,10 +59,19 @@ Node's real loader, confirmed by watching a "mocked" test actually drive the rea
 against fixture file paths. `CompanionTtsDeps.loadModule` makes the loader an injected dependency
 instead, the same DI convention every other seam in this file already uses.
 
+**A second real bug, caught by CI rather than review**: `createLocalSpeaker`'s per-chunk loop
+awaited `deps.synthesize(chunk)` outside any `try`/`catch`. A bridge with no `ttsSynthesize` at
+all — exactly what the e2e mock bridge was, before this PR added it — throws a `TypeError`
+calling it rather than answering `{ok:false}`, and that throw was an unhandled rejection on a
+fire-and-forget chain: `finish()` never ran, `speakLocal()`'s promise never settled, and the whole
+concierge greeting hung at "Saying hello…" forever (`companion-panel.spec.ts`, 5 specs, one CI
+shard). Fixed by wrapping the whole per-chunk body — synth call included — in one `try`, and by
+adding `ttsSynthesize` to `e2e/mock-bridge.ts`'s companion object (the same reasoning that file's
+own comment already gives for `snapshot`/`digest`/`ask`: a mock missing a channel entirely tests
+the fallback path, not the feature).
+
 **Left open**: the phase doc's own two human-judgment verification items (A/B against
-`speechSynthesis` on a packaged build; whether the voice genuinely sounds more natural) — neither
-is attempted here, per the doc's own framing that no assertion can judge either. Themes A, B and D
-of this phase are unaffected, in flight on sibling branches.
+`speechSynthesis` on a packaged build; whether the voice genuinely sounds more natural).
 
 ## 2026-09-09 — Phase 80 Theme B — aggregated, randomised digest phrasing
 
