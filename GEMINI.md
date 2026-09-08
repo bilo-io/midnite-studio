@@ -85,6 +85,13 @@ shared ◀ desktop
   `window.midniteStudio`; may not import git-engine, desktop, electron, or node builtins.
 - **`packages/desktop`** — Electron main + preload. The only package allowed to import
   `electron` and `node-pty`.
+- **`packages/website`** — the public marketing site, and **off the graph entirely**: a static
+  Vite + React build that imports `react`, `react-dom`, `react-icons` and its own files, and
+  nothing else in the workspace bar `shared` (zod-only, browser-safe) if it genuinely needs a
+  constant. It is not "app, but public" — it shares no runtime, no bridge and no build with the
+  app, and an import across that line is what would make it impossible to move out of this repo
+  later. See [`docs/WEBSITE.md`](docs/WEBSITE.md); it is served from the *public*
+  `bilo-io/midnite-apps` repo's `gh-pages` branch, so **nothing on it may link to this one**.
 
 `eslint.config.mjs` encodes these as per-package `no-restricted-imports` groups with
 explanatory messages. If a boundary rule fires, the fix is an IPC channel, not an exception.
