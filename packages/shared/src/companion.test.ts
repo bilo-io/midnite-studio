@@ -763,7 +763,9 @@ describe('extractLastAgentTurn', () => {
 
   it('leaves no escape byte behind', () => {
     const turn = extractLastAgentTurn(CLAUDE_FRAME, markers);
+    // eslint-disable-next-line no-control-regex -- asserting the escape byte is GONE is the point of the test.
     expect(turn).not.toMatch(/\x1b/);
+    // eslint-disable-next-line no-control-regex -- asserting the escape byte is GONE is the point of the test.
     expect(turn).not.toMatch(/\x1b\[\?25l|\x1b\[1;36m|\x1b\[2K/);
   });
 

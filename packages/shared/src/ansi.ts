@@ -73,6 +73,7 @@ const ANSI_PATTERN = new RegExp(
  * payload behind as text.
  */
 const CONTROL_PATTERN = new RegExp(
+  // eslint-disable-next-line no-control-regex -- stripping raw pty control bytes is the whole point, exactly as ANSI_PATTERN above.
   '[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F]',
   'g',
 );
