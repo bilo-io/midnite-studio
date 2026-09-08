@@ -173,3 +173,47 @@ test('the FAB in each companion look', async ({ page }) => {
   await page.waitForTimeout(400);
   await page.screenshot({ path: shotPath(OUT, 'fab-thinking-reduced-motion.png'), clip });
 });
+
+/** Phase 80 Theme D — the companion-names pill editor, three states. */
+const P80D_OUT = '../../docs/screenshots/p80-d';
+
+async function openCompanionSettingsPersonality(page: Page): Promise<void> {
+  await open(page);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page
+    .getByRole('navigation', { name: 'Settings pages' })
+    .getByRole('button', { name: 'Companion', exact: true })
+    .click();
+  await expect(page.getByTestId('companion-enable')).toBeVisible();
+  await page.getByRole('button', { name: 'Personality', exact: true }).first().click();
+  await expect(page.getByTestId('companion-names-pills')).toBeVisible();
+  await setTheme(page, 'dark', { settleMs: 200 });
+}
+
+test('Settings ▸ Companion ▸ Personality — name pills, fresh install', async ({ page }) => {
+  await openCompanionSettingsPersonality(page);
+  // Fresh install: one pill (the pre-existing hardcoded default), empty entry field.
+  await page.screenshot({ path: shotPath(P80D_OUT, 'names-empty.png') });
+});
+
+test('Settings ▸ Companion ▸ Personality — several pills', async ({ page }) => {
+  await openCompanionSettingsPersonality(page);
+  const input = page.getByTestId('companion-names-input');
+  for (const name of ['Jarvis', 'Kit']) {
+    await input.fill(name);
+    await input.press('Enter');
+  }
+  await expect(page.getByTestId('companion-names-pills')).toContainText('Jarvis');
+  await page.screenshot({ path: shotPath(P80D_OUT, 'names-several.png') });
+});
+
+test('Settings ▸ Companion ▸ Personality — last pill cannot be removed', async ({ page }) => {
+  await openCompanionSettingsPersonality(page);
+  // Down to the one default pill — its remove control is explained-disabled.
+  const remove = page.getByRole('button', { name: 'Remove "Companion"' });
+  await remove.hover();
+  // `Tooltip`'s own open delay (400ms) — long enough that a sweeping pointer
+  // doesn't pop one, so the shot has to wait for it deliberately.
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: shotPath(P80D_OUT, 'names-last-pill.png') });
+});

@@ -1279,6 +1279,18 @@ export type UiState = {
   companionHonorific: string;
   setCompanionHonorific: (honorific: string) => void;
   /**
+   * The names the companion answers to — a pill per name in Settings.
+   * Greenfield (Phase 80 Theme D): there is no prior scalar to carry
+   * forward, so a fresh install and a migrated pre-v15 install both land on
+   * `['Companion']`, the label that was hardcoded before this setting
+   * existed. Always non-empty — the settings page blocks deleting the last
+   * pill rather than this array ever going empty, so every reader of
+   * `companionNames` (including `matchesCompanionName`) can assume at least
+   * one entry.
+   */
+  companionNames: string[];
+  setCompanionNames: (names: string[]) => void;
+  /**
    * A `speechSynthesis` voice URI, or null for the platform default. A URI
    * rather than a name because names collide across locales, and null rather
    * than a seeded default because the available voices are a property of the
@@ -1570,6 +1582,7 @@ export type PersistedUi = Pick<
   | 'companionEnabled'
   | 'companionHandsFree'
   | 'companionHonorific'
+  | 'companionNames'
   | 'companionVoice'
   | 'companionSpeakAloud'
   | 'companionMusicOffer'
@@ -1715,6 +1728,10 @@ export const useUiStore = create<UiState>()(
       setCompanionHandsFree: (companionHandsFree) => set({ companionHandsFree }),
       companionHonorific: '',
       setCompanionHonorific: (companionHonorific) => set({ companionHonorific }),
+      // The one name that already existed as a hardcoded label — a fresh
+      // install's behavior doesn't change (Phase 80 Theme D, Finding 5).
+      companionNames: ['Companion'],
+      setCompanionNames: (companionNames) => set({ companionNames }),
       companionVoice: null,
       setCompanionVoice: (companionVoice) => set({ companionVoice }),
       // ON by default — see the field's docblock. Every other `companion*`
@@ -2161,7 +2178,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 14,
+      version: 15,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2246,6 +2263,7 @@ export const useUiStore = create<UiState>()(
         companionEnabled: state.companionEnabled,
         companionHandsFree: state.companionHandsFree,
         companionHonorific: state.companionHonorific,
+        companionNames: state.companionNames,
         companionVoice: state.companionVoice,
         companionSpeakAloud: state.companionSpeakAloud,
         companionMusicOffer: state.companionMusicOffer,
@@ -2288,6 +2306,10 @@ export const useUiStore = create<UiState>()(
        * rather than `false` because a blob from before this key was written by
        * someone who had already agreed to be spoken to — see the field's own
        * docblock.
+       * v14 → v15: seed `companionNames = ['Companion']` (Phase 80 Theme D).
+       * There is no old scalar to carry forward — the companion's name was
+       * never a setting before this version, only a hardcoded label — so
+       * every pre-v15 install gets the same default a fresh install does.
        * v11 → v12: seed the five `companion*` preferences (Phase 79 Theme A).
        * Written explicitly rather than left absent for the reason v9 → v10
        * gives: `PersistedUi` is what rehydrate merges over the initial state,
@@ -2320,6 +2342,7 @@ export const useUiStore = create<UiState>()(
           companionEnabled?: boolean;
           companionHandsFree?: boolean;
           companionHonorific?: string;
+          companionNames?: string[];
           companionVoice?: string | null;
           companionSpeakAloud?: boolean;
           companionMusicOffer?: boolean;
@@ -2369,6 +2392,9 @@ export const useUiStore = create<UiState>()(
         }
         if (version < 11) {
           state.activeEnvironmentByRepo = {};
+        }
+        if (version < 15) {
+          state.companionNames = ['Companion'];
         }
         if (version < 14) {
           state.companionSpeakAloud = true;

@@ -12,6 +12,7 @@ import {
   COMPANION_STOP_TOKENS,
   COMPANION_TRUNCATION_TAIL,
   CompanionIntentSchema,
+  CompanionNamesSchema,
   CompanionSnapshotSchema,
   composeOverviewMarkdown,
   describeSnapshot,
@@ -20,6 +21,7 @@ import {
   extractLastAgentTurn,
   interpolatePhrase,
   markdownToSpeech,
+  matchesCompanionName,
   noRepeatWindow,
   parseAskReply,
   parseDoneEntries,
@@ -912,6 +914,55 @@ describe('CompanionIntentSchema', () => {
     expect(
       CompanionIntentSchema.safeParse({ kind: 'command', id: 'releaseComplete' }).success,
     ).toBe(false);
+  });
+});
+
+describe('matchesCompanionName', () => {
+  it('matches case-insensitively', () => {
+    expect(matchesCompanionName('hey Companion, what happened', ['Companion'])).toBe(true);
+    expect(matchesCompanionName('hey COMPANION', ['companion'])).toBe(true);
+  });
+
+  it('matches a trimmed name against untrimmed text', () => {
+    expect(matchesCompanionName('  companion  ', ['Companion'])).toBe(true);
+  });
+
+  it('matches any of several aliases', () => {
+    const names = ['Companion', 'Jarvis', 'Kit'];
+    expect(matchesCompanionName('Jarvis, run the tests', names)).toBe(true);
+    expect(matchesCompanionName('kit are you there', names)).toBe(true);
+    expect(matchesCompanionName('nothing relevant here', names)).toBe(false);
+  });
+
+  it('never matches as a substring — "Moses" is not "Mo"', () => {
+    expect(matchesCompanionName('Moses parted the sea', ['Mo'])).toBe(false);
+    expect(matchesCompanionName('Mo, run the tests', ['Mo'])).toBe(true);
+  });
+
+  it('returns false for empty text or an empty names list', () => {
+    expect(matchesCompanionName('', ['Companion'])).toBe(false);
+    expect(matchesCompanionName('companion', [])).toBe(false);
+  });
+});
+
+describe('CompanionNamesSchema', () => {
+  it('accepts a non-empty array of non-blank names', () => {
+    expect(CompanionNamesSchema.safeParse(['Companion']).success).toBe(true);
+    expect(CompanionNamesSchema.safeParse(['Companion', 'Jarvis']).success).toBe(true);
+  });
+
+  it('trims each name', () => {
+    const result = CompanionNamesSchema.safeParse(['  Companion  ']);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toEqual(['Companion']);
+  });
+
+  it('rejects an empty array', () => {
+    expect(CompanionNamesSchema.safeParse([]).success).toBe(false);
+  });
+
+  it('rejects a blank name', () => {
+    expect(CompanionNamesSchema.safeParse(['   ']).success).toBe(false);
   });
 });
 

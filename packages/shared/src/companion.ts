@@ -1800,6 +1800,41 @@ function commandExtras(remainder: string, override: boolean): { body?: string; o
   return { ...(body === '' ? {} : { body }), ...(override ? { override: true } : {}) };
 }
 
+/**
+ * The names a user may address the companion by. At least one — deleting the
+ * last one is blocked at the settings-page call site, not enforced by
+ * emptying the array, so this schema's `.min(1)` is the shape invariant that
+ * makes "zero names" unrepresentable in the first place.
+ */
+export const CompanionNamesSchema = z.array(z.string().trim().min(1)).min(1);
+
+/** Escape a literal string for use inside a `RegExp`. */
+function escapeNameForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Does the companion's name — any of its names — appear as a whole word or
+ * whole utterance in `text`?
+ *
+ * A whole-word test, never a substring one: "Moses" must not match a
+ * companion named "Mo". Case-insensitive and trimmed, since a user typing or
+ * an STT transcript capitalizing "companion" mid-sentence is not a different
+ * name. Validation of the `names` array itself — no empty strings, no
+ * case-insensitive duplicates — is the settings page's job on write; this
+ * matcher only reads what it's given.
+ */
+export function matchesCompanionName(text: string, names: readonly string[]): boolean {
+  const trimmed = text.trim();
+  if (trimmed === '') return false;
+  return names.some((name) => {
+    const needle = name.trim();
+    if (needle === '') return false;
+    const pattern = new RegExp(`\\b${escapeNameForRegExp(needle)}\\b`, 'i');
+    return pattern.test(trimmed);
+  });
+}
+
 // --- E · reading a pty back -------------------------------------------------
 
 /** How much of a read-back the thread keeps. A scrollback is hundreds of kilobytes; a turn is not. */
