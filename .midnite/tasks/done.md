@@ -1,6 +1,76 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Website — agent names under the marquee, a living git graph, and every illustration animating
+
+[PR #290](https://github.com/bilo-io/midnite-studio/pull/290). **Ad hoc, not phase-tracked.**
+
+**The centred agent's name types out under the band, off the marquee's own clock.**
+`useMarqueeCycle` returns `{ selected, typed }` rather than a bare index, and `typed` is a pure
+function (`typedLength`, in the now-shared `components/typewriter.tsx`) of the *same* anchored
+elapsed the selection is. A `<Typewriter>` under the band would have been a second timeline with
+its own drift and its own idea of when a phrase ends, and its failure mode is the ugly one — the
+caption still spelling the previous agent while a new logo holds the centre; here that cannot be
+introduced. Ticks come from `nextTypedChangeAt`, so the hold between typing and deleting is one
+timer rather than a sampling loop. The name is in the agent's *brand* colour — a two-stop gradient
+through `background-clip: text` where the brand publishes two (only Antigravity; `colorEnd` is
+optional precisely so no brand gets an invented second hue), the solid colour with a matching glow
+otherwise — and the caret is the hero's `<TypewriterCaret>` itself, tinted by a two-class rule that
+outranks its own `bg-accent` without an `!important`.
+
+The caption's row reserves 54px whether it holds a name or nothing, and it is a **sibling** of the
+clipping band rather than a child, which is what puts it outside everything `overflow-hidden` can
+reach. Re-measured live with it in place, sweeping the whole cycle rather than freezing one frame:
+the mark peaks at **129.4px = 2.311x** its resting 56px — the same figure #284 measured — inside a
+245px band, leaving 57.8px of clearance either side, with 12px between the band's edge and the
+caption. The band did not need to grow.
+
+**And the whole band runs 1.5x slower**: `CYCLE_MS` 1900ms → 2850ms, track speed 80px/s → 53px/s.
+The scroll and the per-logo spin-hold-spin are two readings of that one number, so both slow
+together and the selected logo still lands dead centre — the correspondence (`slot k centred at
+k x CYCLE_MS`) is untouched. The caption stretches the right way: typing keeps its per-character
+cadence and the *hold* absorbs the extra 950ms.
+
+**The Features graph went from nine commits in four lanes to twenty in five, and started moving.**
+A trunk, a short branch that merges back, a long-running branch open across nine rows before it
+rejoins, two still open with their own badges, a tagged release, the checked-out tip, two merges.
+Still declared as `{lane, parents}` data, and a lane is a *chain* of indices — a lane that did not
+chain would draw as a broken line rather than as a plausible lie. The loop is seamless by
+construction, using the marquee's trick: the list is stacked three times and slides down by exactly
+one copy, so the last frame of the pass is the first frame of the next and there is no reset to
+hide. The oldest commit gets a one-pitch trunk stub, which is what joins the seam; three copies
+rather than two because the window is one copy tall. Above a static gradient fade at each edge,
+three things move — the trunk drawing itself once per arrival with `stroke-dashoffset`, the existing
+gentle pulse, and the checked-out row's highlight drifting one pitch *with its commit* before
+handing over. One arrival per 1.8s and twenty commits pins the pass at 36s; the brief's ~12s would
+have been a commit every 600ms, which is legible and the opposite of calm.
+
+**All three Services illustrations now show their mechanism happening.** A Kanban card crosses the
+board — plain in Todo, the site's rainbow border and neon glow in In progress (the app's "an agent
+has this", from the same `--ws-rainbow-*` ramp the primary button uses) with its terminal inside it,
+emerald with a tick in Done, and the loop ending is the next card starting. Three CI checks tick
+pending → running → passed in order, the third failing first and cleared by a new commit landing on
+the PR row while the review badge flips to approved — states stacked, so each can only ever fade in
+over the one below. The window's panes light in turn: lanes draw, the shell types, the browser gains
+a tab, the API request comes back green, then all four hold and reset together.
+
+**Every new loop is a CSS keyframe rather than SMIL, and that is the load-bearing decision.** The
+policy is that a loop stops when the tab is hidden, and `page-visibility.ts` does that by mirroring
+`document.hidden` onto the root element for **CSS** to key off — no selector can pause a SMIL
+timeline, so a loop written in `<animate>` keeps running in a tab nobody is looking at. Every class
+added here is listed in the `html[data-page-hidden='true']` rule. `.ws-svg-neon` is `.ws-neon`'s
+mechanism painted as a `drop-shadow` filter for the same kind of reason: a `box-shadow` is a CSS box
+decoration and an SVG `<rect>` has no CSS box. Reduced motion takes a different branch in every
+case — the still *final* frame, not a slower loop.
+
+One bug the screenshots caught and the tests would not have: two CSS animations on one element do
+not compose when they touch the same property, the later one wins outright, and the running check's
+throb was written on `opacity` — silently deleting its window animation and leaving the dot on
+screen for the whole twelve seconds. It owns `scale` now.
+
+Entry JS 93.43 → 96.03 KB gz (budget 250), CSS 7.24 → 8.46 KB gz. Stills of every loop at two points,
+dark and light, in `docs/screenshots/website-motion/`.
+
 ## 2026-09-08 — Website — the Midnite wordmark, re-cut on Kaushan Script (OFL)
 
 [PR #288](https://github.com/bilo-io/midnite-studio/pull/288). **Ad hoc, not phase-tracked.** #282

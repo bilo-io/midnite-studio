@@ -665,3 +665,684 @@ html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
     will-change: auto;
   }
 }
+
+/*
+  ══════════════════════════════════════════════════════════════════════════════
+  Motion added by the "informative illustrations" pass
+  ══════════════════════════════════════════════════════════════════════════════
+
+  Everything below belongs to one change and is kept in its own block so it can
+  be read — and moved — as a unit. Four surfaces: the agent marquee's name
+  caption, the Features commit graph, and the three Services illustrations.
+
+  **All of it is CSS keyframes rather than SMIL, and that is a considered
+  reversal.** The illustrations' existing motion is SMIL (`<animate>`), which
+  was right when the only requirement was "gate it on reduced motion": the
+  element is simply not rendered. It is *not* enough for the second
+  requirement — a loop must stop when the tab is hidden — because
+  `page-visibility.ts` mirrors `document.hidden` onto the root element for
+  **CSS** to key off, and no CSS selector can pause a SMIL timeline.
+  `animation-play-state` can pause a keyframe animation mid-cycle, so every new
+  loop here is a keyframe animation and every one of them is listed in the
+  `html[data-page-hidden='true']` rule at the end of this block.
+
+  The pre-existing SMIL pulses stay where they are — they are one small
+  `<animate>` each, and rewriting them was not this change's job.
+*/
+
+@layer utilities {
+  /*
+    ── The marquee's name caption ─────────────────────────────────────────────
+
+    Type and glow only; the typing itself is `useMarqueeCycle`, which drives it
+    from the same clock that decides which logo is centred (see the hook). The
+    row's height is reserved in `agent-marquee.tsx`, because it is derived from
+    the line box and the blur below and a stylesheet cannot be read from JS.
+  */
+  .ws-agent-caption-name {
+    font-size: 1.25rem;
+    line-height: 30px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    /* `pre`, so the box does not collapse to zero width on the empty beat
+       between two names and take the caret with it. */
+    white-space: pre;
+    text-shadow: 0 0 12px color-mix(in srgb, var(--ws-agent-color) 55%, transparent);
+  }
+
+  /*
+    The two-colour brands. `background-clip: text` needs a transparent fill, and
+    a `text-shadow` behind a transparent glyph paints *through* it and reads as
+    a smudge — so the glow moves to a `drop-shadow`, which traces the painted
+    result rather than the glyph's own colour.
+  */
+  .ws-agent-caption-ramp {
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: none;
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--ws-agent-color) 45%, transparent));
+  }
+
+  /*
+    The caret is the hero's component, so it arrives with `bg-accent` on it.
+    Two classes outrank one utility class, which is how it takes the agent's
+    colour without an `!important` and without a second caret existing.
+  */
+  .ws-agent-caption .ws-caret {
+    background-color: var(--ws-agent-color);
+  }
+}
+
+@layer utilities {
+  /*
+    ── The Features commit graph (sections/features/showcase.tsx) ─────────────
+
+    Three animations, all on elements the component renders only when motion is
+    allowed, and all reading their timing from custom properties it sets on the
+    `<svg>` — `--ws-graph-loop` (one pass: every commit arrives once),
+    `--ws-graph-step` (one arrival), `--ws-graph-shift` (one copy of the list)
+    and `--ws-graph-pitch` (one row). The component derives all four from the
+    commit list, so the drawing and the motion cannot disagree about how many
+    rows there are.
+  */
+  .ws-graph-scroll {
+    animation: ws-graph-scroll var(--ws-graph-loop) linear infinite;
+    /* One layer for the one thing that moves continuously — the same bargain
+       the marquee's track makes, and for the same reason. */
+    will-change: transform;
+  }
+
+  .ws-graph-head {
+    animation: ws-graph-head var(--ws-graph-step) linear infinite;
+  }
+
+  /*
+    The write head's stroke, drawn rather than revealed. `pathLength="1"` on the
+    path is what makes one dash length serve any geometry: the browser scales
+    the dash array to the normalised length, so the offset is a fraction and not
+    a number that has to be re-measured whenever the path changes.
+  */
+  .ws-graph-write {
+    stroke-dasharray: 1;
+    animation: ws-graph-write var(--ws-graph-step) var(--ws-ease) infinite;
+  }
+}
+
+/*
+  One pass: down by exactly one copy of the list.
+
+  "Exactly one copy" is the whole loop. The list is drawn three times stacked
+  upwards, so after this translate copy `c` is sitting where copy `c−1` began
+  and the last frame is the first frame — there is no reset, and therefore
+  nothing to hide. Linear, because a commit graph does not accelerate.
+*/
+@keyframes ws-graph-scroll {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(var(--ws-graph-shift));
+  }
+}
+
+/*
+  The checked-out row, travelling with its commit and then handing over.
+
+  It fades in on the row that has just arrived, drifts down exactly one pitch
+  with it as the graph slides, and fades out — at which point the transform
+  snaps back to zero *while it is invisible*, which is why the jump is never
+  seen. One hop per arrival, which is what committing does to HEAD.
+*/
+@keyframes ws-graph-head {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  10% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(var(--ws-graph-pitch));
+  }
+}
+
+/*
+  The trunk extending, once per arrival: the line draws itself from the top of
+  the window down to the newest row, then holds while the graph carries it away.
+*/
+@keyframes ws-graph-write {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0.35;
+  }
+  55% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  /*
+    ── The neon glow, for an SVG shape ────────────────────────────────────────
+
+    `.ws-neon` cannot be reused directly here: it is a `box-shadow`, and a
+    `box-shadow` does not apply to an SVG shape — it is a CSS box decoration and
+    an SVG `<rect>` has no CSS box. Everything else about it *is* reused: the
+    same `--ws-angle` drives the hue, the same `--ws-neon-sat`/`--ws-neon-lum`
+    give the theme its say, the same 3.2s breath and the same 18s lap. Only the
+    painting changes, from a shadow to a `drop-shadow` filter — which traces the
+    shape's own outline, and is the right answer for a rounded stroke anyway.
+  */
+  .ws-svg-neon {
+    --ws-neon-color: hsl(calc(var(--ws-angle) + 258deg) var(--ws-neon-sat) var(--ws-neon-lum));
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ws-neon-color) 55%, transparent));
+    animation:
+      ws-svg-neon-pulse 3.2s var(--ws-ease) infinite,
+      ws-rainbow-turn 18s linear infinite;
+  }
+
+  /*
+    ── Automate Kanban ────────────────────────────────────────────────────────
+
+    One card, four cues, one clock: every animation below runs for
+    `--ws-kanban-loop` with no delay, so the border that is showing and the
+    column the card is in are read off the same timeline and cannot disagree.
+    The three borders are stacked in the markup and cross-fade; the card's own
+    keyframe carries both the travel and the fade that ends the pass, which is
+    what makes "the next card starts" the loop itself rather than a fifth
+    animation.
+  */
+  .ws-kanban-card {
+    animation: ws-kanban-travel var(--ws-kanban-loop) var(--ws-ease) infinite;
+  }
+
+  .ws-kanban-todo {
+    animation: ws-kanban-todo var(--ws-kanban-loop) linear infinite;
+  }
+
+  .ws-kanban-doing {
+    animation: ws-kanban-doing var(--ws-kanban-loop) linear infinite;
+  }
+
+  .ws-kanban-term {
+    animation: ws-kanban-doing var(--ws-kanban-loop) linear infinite;
+  }
+
+  .ws-kanban-done {
+    animation: ws-kanban-done var(--ws-kanban-loop) linear infinite;
+  }
+
+  /*
+    The tick lands rather than fades: it scales up from nothing about its own
+    centre, which needs `transform-box: fill-box` — without it an SVG element's
+    transform origin is the *viewport's* origin and the badge flies in from the
+    top-left corner of the card.
+  */
+  .ws-kanban-check {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ws-kanban-check var(--ws-kanban-loop) var(--ws-ease) infinite;
+  }
+
+  /*
+    The `.ws-svg-neon` glow and the doing border are on the same element, so
+    the two animation lists have to be merged by hand — a second `animation`
+    declaration would replace the first rather than add to it.
+  */
+  .ws-kanban-doing.ws-svg-neon {
+    animation:
+      ws-kanban-doing var(--ws-kanban-loop) linear infinite,
+      ws-svg-neon-pulse 3.2s var(--ws-ease) infinite,
+      ws-rainbow-turn 18s linear infinite;
+  }
+
+  /*
+    ── Track CI and manage reviews ────────────────────────────────────────────
+
+    Every element's window is written into its own keyframe rather than derived
+    from a shared one with a delay, because the sequence is a *story* — the
+    third check fails and is cleared by a commit — and a story's beats are not
+    evenly spaced. All of them share `--ws-checks-loop`, so the beats stay in
+    the order they are written whatever the period becomes.
+  */
+  .ws-ci-run-1 {
+    animation: ws-ci-run-1 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-pass-1 {
+    animation: ws-ci-pass-1 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-run-2 {
+    animation: ws-ci-run-2 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-pass-2 {
+    animation: ws-ci-pass-2 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-run-3 {
+    animation: ws-ci-run-3 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-fail-3 {
+    animation: ws-ci-fail-3 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-pass-3 {
+    animation: ws-ci-pass-3 var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-changes {
+    animation: ws-ci-changes var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-approved {
+    animation: ws-ci-approved var(--ws-checks-loop) linear infinite;
+  }
+  .ws-ci-commit {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ws-ci-commit var(--ws-checks-loop) var(--ws-ease) infinite;
+  }
+
+  /*
+    A running check breathes. Two animations on one element: the window that
+    says *whether* it is showing, and the throb that says it is working. They
+    are independent on purpose — the throb has its own period and would look
+    wrong stretched to the length of the whole sequence.
+
+    **They must animate different properties, and that is not a style
+    preference.** Two animations on one element that both touch `opacity` do not
+    compose: the later one in the list wins outright, so a throb written on
+    opacity silently deletes the window's opacity and the running dot is on
+    screen for the whole twelve seconds. So the window owns `opacity` and the
+    throb owns `scale` — about its own centre, which needs `transform-box`.
+  */
+  .ws-ci-throb {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .ws-ci-run-1.ws-ci-throb {
+    animation:
+      ws-ci-run-1 var(--ws-checks-loop) linear infinite,
+      ws-ci-throb 1.8s var(--ws-ease) infinite;
+  }
+  .ws-ci-run-2.ws-ci-throb {
+    animation:
+      ws-ci-run-2 var(--ws-checks-loop) linear infinite,
+      ws-ci-throb 1.8s var(--ws-ease) infinite;
+  }
+  .ws-ci-run-3.ws-ci-throb {
+    animation:
+      ws-ci-run-3 var(--ws-checks-loop) linear infinite,
+      ws-ci-throb 1.8s var(--ws-ease) infinite;
+  }
+
+  /*
+    ── Truly integrated dev env ───────────────────────────────────────────────
+
+    Four cues about a second and a half apart, then a hold, then one coordinated
+    reset — every keyframe below fades out over the same last 6%, so the pass
+    restarts as one event rather than as four things blinking in turn.
+  */
+  /*
+    `both`, because the three lanes are staggered with a positive delay: without
+    a backwards fill the undrawn state does not apply until the delay elapses,
+    so the page loads with the lanes fully drawn and then snaps them away.
+  */
+  .ws-win-draw {
+    stroke-dasharray: 1;
+    animation: ws-win-draw var(--ws-window-loop) var(--ws-ease) infinite both;
+  }
+
+  .ws-win-type {
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation: ws-win-type var(--ws-window-loop) linear infinite;
+  }
+
+  .ws-win-tab {
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation: ws-win-tab var(--ws-window-loop) var(--ws-ease) infinite;
+  }
+
+  .ws-win-ok {
+    animation: ws-win-ok var(--ws-window-loop) linear infinite;
+  }
+}
+
+/* The `.ws-neon` breath, painted as a filter — see `.ws-svg-neon`. */
+@keyframes ws-svg-neon-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ws-neon-color) 40%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ws-neon-color) 70%, transparent));
+  }
+}
+
+/*
+  The card's pass across the board: Todo, In progress, Done, gone.
+
+  The transform is stated at every stop and the opacity only at the ends, so the
+  card holds still in a column and moves between them — an easing across the
+  whole width would read as drifting rather than as being dragged.
+*/
+@keyframes ws-kanban-travel {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  5% {
+    opacity: 1;
+  }
+  18% {
+    transform: translateX(0);
+  }
+  26% {
+    transform: translateX(104px);
+  }
+  52% {
+    transform: translateX(104px);
+  }
+  60% {
+    transform: translateX(208px);
+  }
+  94% {
+    opacity: 1;
+    transform: translateX(208px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(208px);
+  }
+}
+
+@keyframes ws-kanban-todo {
+  0%,
+  20% {
+    opacity: 1;
+  }
+  26%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-kanban-doing {
+  0%,
+  22% {
+    opacity: 0;
+  }
+  28%,
+  54% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-kanban-done {
+  0%,
+  54% {
+    opacity: 0;
+  }
+  60%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes ws-kanban-check {
+  0%,
+  58% {
+    opacity: 0;
+    scale: 0.3;
+  }
+  66%,
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes ws-ci-run-1 {
+  0%,
+  6% {
+    opacity: 0;
+  }
+  9%,
+  17% {
+    opacity: 1;
+  }
+  20%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-pass-1 {
+  0%,
+  18% {
+    opacity: 0;
+  }
+  21%,
+  97% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-run-2 {
+  0%,
+  20% {
+    opacity: 0;
+  }
+  23%,
+  31% {
+    opacity: 1;
+  }
+  34%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-pass-2 {
+  0%,
+  32% {
+    opacity: 0;
+  }
+  35%,
+  97% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-run-3 {
+  0%,
+  34% {
+    opacity: 0;
+  }
+  37%,
+  45% {
+    opacity: 1;
+  }
+  48%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* The failure, and how long it stands: long enough to read, not long enough to
+   be the picture. The commit that clears it lands underneath it at 66%. */
+@keyframes ws-ci-fail-3 {
+  0%,
+  46% {
+    opacity: 0;
+  }
+  49%,
+  66% {
+    opacity: 1;
+  }
+  71%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-pass-3 {
+  0%,
+  68% {
+    opacity: 0;
+  }
+  73%,
+  97% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-commit {
+  0%,
+  60% {
+    opacity: 0;
+    scale: 0.3;
+  }
+  66%,
+  97% {
+    opacity: 1;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.3;
+  }
+}
+
+@keyframes ws-ci-changes {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  75%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-approved {
+  0%,
+  70% {
+    opacity: 0;
+  }
+  75%,
+  97% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ws-ci-throb {
+  0%,
+  100% {
+    scale: 0.84;
+  }
+  50% {
+    scale: 1.08;
+  }
+}
+
+@keyframes ws-win-draw {
+  0% {
+    stroke-dashoffset: 1;
+  }
+  16%,
+  94% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes ws-win-type {
+  0%,
+  18% {
+    transform: scaleX(0);
+  }
+  32%,
+  94% {
+    transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes ws-win-tab {
+  0%,
+  34% {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+  46%,
+  94% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+}
+
+@keyframes ws-win-ok {
+  0%,
+  50% {
+    opacity: 0;
+  }
+  60%,
+  94% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/*
+  Every loop this block added, paused in a tab nobody is looking at.
+
+  This is the reason all of it is CSS rather than SMIL: `page-visibility.ts`
+  mirrors `document.hidden` onto the root element, and `animation-play-state`
+  is the only thing that can act on that — it also resumes mid-cycle, so coming
+  back to the tab does not restart a card halfway across a board.
+*/
+html[data-page-hidden='true'] .ws-graph-scroll,
+html[data-page-hidden='true'] .ws-graph-head,
+html[data-page-hidden='true'] .ws-graph-write,
+html[data-page-hidden='true'] .ws-svg-neon,
+html[data-page-hidden='true'] .ws-kanban-card,
+html[data-page-hidden='true'] .ws-kanban-card *,
+html[data-page-hidden='true'] .ws-ci-throb,
+html[data-page-hidden='true'] [class*='ws-ci-'],
+html[data-page-hidden='true'] [class*='ws-win-'] {
+  animation-play-state: paused;
+}

@@ -62,6 +62,7 @@ const config: Config = {
         'lane-2': channel('lane-2'),
         'lane-3': channel('lane-3'),
         'lane-4': channel('lane-4'),
+        'lane-5': channel('lane-5'),
       },
       borderRadius: {
         sm: 'var(--ws-radius-sm)',
