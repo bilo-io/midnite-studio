@@ -162,8 +162,10 @@ export const Faq = () => {
     <Section id="faq" label="FAQ">
       <div className="flex flex-col gap-4">
         <Eyebrow>Questions</Eyebrow>
-        <Heading level={2}>The honest answers</Heading>
-        <Lede>
+        <Heading level={2} typeIn>
+          The honest answers
+        </Heading>
+        <Lede typeIn>
           Including the ones with no good news in them — what it does not run on, what is not
           open source, and what has not been decided yet.
         </Lede>

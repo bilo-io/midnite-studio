@@ -35,10 +35,10 @@ export const ServiceRow = ({ row, index }: ServiceRowProps) => {
     >
       <div className={`flex flex-col gap-4 ${flip ? 'lg:order-2' : ''}`}>
         <Eyebrow>{eyebrow}</Eyebrow>
-        <Heading level={3} id={headingId} className="text-2xl sm:text-3xl">
+        <Heading level={3} id={headingId} className="text-2xl sm:text-3xl" typeIn>
           {title}
         </Heading>
-        <Lede>{body}</Lede>
+        <Lede typeIn>{body}</Lede>
 
         <div className="mt-2">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-fg-subtle">
