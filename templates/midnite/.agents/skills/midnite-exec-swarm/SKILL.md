@@ -84,9 +84,14 @@ Schedule the recurring check at the Stage 3 interval using your CLI's own schedu
 self-pace by checking back after the requested interval if it has none.
 
 Each tick, post **one table and nothing else above it** — this is `GEMINI.md`'s own "Sitrep"
-format: one row per subagent, columns `Agent | % | Doing | Notes`. Percentage is an estimate from
+format: one row per subagent, columns `Agent | % | ETA | Doing | Notes`. Percentage is an estimate from
 observable state (worktree present? uncommitted diff? PR open? CI pending/green? merged?), never
-fabricated from a subagent's own self-report of "done" without checking — see Stage 7.
+fabricated from a subagent's own self-report of "done" without checking — see Stage 7. **ETA is the
+remaining wall-clock time to that row's merge**, derived the same way: elapsed time against the %
+so far, the CI durations actually observed this session, and the stages still ahead (push → CI →
+rebase → merge → teardown). `?` until there is a basis, `done` once merged. Under the table, one
+line gives the ETA for the whole batch — parallel rows do not add, a later wave does. Bake the ETA
+column into the cron/loop prompt so every tick carries it.
 
 ## 7 · Babysitting a stuck subagent
 
