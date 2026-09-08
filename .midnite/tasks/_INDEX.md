@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | 🔄 WIP | — | 12/67 | `██░░░░░░░░` | 18% | C F G H | D E |
+| [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | 🔄 WIP | — | 12/67 | `██░░░░░░░░` | 18% | C D E F G H | — |
 | [78 · Whose hands were on the keyboard](phases/phase-78-whose-hands-were-on-the-keyboard.md) | ◻ TODO | — | 0/32 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [77 · Thirteen megabytes of editor, and the lanes that never move](phases/phase-77-thirteen-megabytes-of-editor.md) | ◻ TODO | — | 0/27 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [76 · The renderer in a sandbox, and the headers it never sent](phases/phase-76-the-renderer-in-a-sandbox.md) | ◻ TODO | — | 0/35 | `░░░░░░░░░░` | 0% | — | A B C D E |
