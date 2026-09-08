@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AgentMarquee } from './agent-marquee';
+import { AgentMarquee, BAND_PX, HOLD_SCALE, PEAK_SCALE } from './agent-marquee';
 import { SITE_AGENTS } from './agents';
 
 const setReducedMotion = (reduced: boolean) => {
@@ -105,7 +105,7 @@ describe('AgentMarquee', () => {
       hidden.mockRestore();
     });
 
-    it('gives the track the four custom properties the arithmetic depends on', () => {
+    it('gives the track every custom property the arithmetic depends on', () => {
       render(<AgentMarquee />);
       const track = screen.getByTestId('agent-marquee').firstElementChild as HTMLElement;
       const count = SITE_AGENTS.length;
@@ -121,7 +121,34 @@ describe('AgentMarquee', () => {
       expect(track.style.getPropertyValue('--ws-agent-lead')).toBe(
         `${152 * count + 76}px`,
       );
+
+      /*
+        The bounce's two sizes come from here too, rather than being written
+        into `@keyframes ws-agent-bounce`. That is what makes the band's height
+        below provably tall enough: the peak the keyframe reaches and the peak
+        the height is derived from are the same value, not two copies of it.
+      */
+      expect(track.style.getPropertyValue('--ws-agent-scale')).toBe(String(HOLD_SCALE));
+      expect(track.style.getPropertyValue('--ws-agent-peak')).toBe(String(PEAK_SCALE));
+      expect(PEAK_SCALE).toBeGreaterThan(HOLD_SCALE);
     });
+
+    it('makes the band tall enough for the glow at its peak scale', () => {
+      /*
+        The band clips, and must — the horizontal clip is what makes a marquee.
+        Clipping vertically just cuts the top and bottom off the selected logo's
+        halo, which is what this height exists to prevent: the halo is the mark
+        (56px) plus its `-inset-3` (2 x 12px) at the bounce's peak.
+      */
+      render(<AgentMarquee />);
+      const band = screen.getByTestId('agent-marquee');
+
+      expect(band.style.height).toBe(`${BAND_PX}px`);
+      expect(BAND_PX).toBeGreaterThanOrEqual((56 + 24) * PEAK_SCALE);
+      // The old `h-44` (176px) is what was cutting it off.
+      expect(band.className).not.toContain('h-44');
+    });
+
   });
 
   describe('under reduced motion', () => {
