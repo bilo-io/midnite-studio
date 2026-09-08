@@ -29,6 +29,8 @@ import { navChord } from './components/nav-chords';
 import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
+import { CompanionPanelSlot } from './features/companion/companion-panel';
+import { fabCompanionState } from './features/companion/companion-look';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from './features/loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from './features/loops/fab-morph';
 import { useLoopAttention } from './features/loops/use-loop-attention';
@@ -73,6 +75,7 @@ import { useWindowSync } from './services/use-window-sync';
 import { useTestsStream } from './features/tests/use-tests-stream';
 import { usePaletteSync } from './features/themes/use-palette-sync';
 import { useAppearanceStore, useAppearanceSync } from './store/appearance-store';
+import { useCompanionStore } from './store/companion-store';
 import { useFileEditorStore } from './store/file-editor-store';
 import {
   BROWSER_MAX_SHARE,
@@ -462,12 +465,16 @@ function Shell() {
   const browserOpen = useUiStore((s) => s.browserOpen);
   const browserLayout = useUiStore((s) => s.browserLayout);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
+  const companionPanelOpen = useUiStore((s) => s.companionPanelOpen);
+  const companionEnabled = useUiStore((s) => s.companionEnabled);
+  const companionState = useCompanionStore((s) => s.state);
   // Theme E: the FAB opens the quick-access menu (Loops is behind its own
   // `L` row now, not this button directly) — see the click handler below.
   const quickAccessOpen = useUiStore((s) => s.quickAccessOpen);
   const terminalDetached = useUiStore((s) => s.terminalDetached);
   const reposDetached = useUiStore((s) => s.reposDetached);
   const fabDetached = useUiStore((s) => s.fabDetached);
+  const companionDetached = useUiStore((s) => s.companionDetached);
   const browserDetached = useUiStore((s) => s.browserDetached);
   /*
     A panel detaching into its own window collapses its docked slot exactly
@@ -480,6 +487,12 @@ function Shell() {
   const terminalDocked = terminalOpen && !terminalDetached;
   const browserDocked = browserOpen && !browserDetached;
   const fabPanelDocked = fabPanelOpen && !fabDetached;
+  /*
+    The companion needs the master switch as well as the open flag: it is a
+    default-off feature, and a column that could be dragged open with the
+    switch off would be a panel the user never agreed to.
+  */
+  const companionDocked = companionPanelOpen && companionEnabled && !companionDetached;
   // The single source of truth for the four flags above is main's own
   // window registry (Phase 55) — see the hook's own doc for why.
   useWindowSync();
@@ -495,6 +508,7 @@ function Shell() {
   const setTerminalOpen = useUiStore((s) => s.setTerminalOpen);
   const setTerminalMaximized = useUiStore((s) => s.setTerminalMaximized);
   const setFabPanelOpen = useUiStore((s) => s.setFabPanelOpen);
+  const setCompanionPanelOpen = useUiStore((s) => s.setCompanionPanelOpen);
   const setBrowserOpen = useUiStore((s) => s.setBrowserOpen);
   const setBrowserLayout = useUiStore((s) => s.setBrowserLayout);
   // Phase 37 Theme D: the collapsed FAB wears the same tab arc as the open
@@ -690,6 +704,25 @@ function Shell() {
     onCollapse: () => setFabPanelOpen(false),
   });
 
+  /**
+   * The companion's splitter — the fifth `useResizable` instance, and the only
+   * right-docked one whose `max` is `LAYOUT_BOUNDS` verbatim.
+   *
+   * `edge: 'end'` like the FAB panel beside it: the handle is on the column's
+   * LEFT edge, so dragging left has to grow it. No viewport-share ceiling,
+   * because a chat thread has a natural reading width and does not want the
+   * window (see `LAYOUT_BOUNDS.companionPanelWidth`).
+   */
+  const companionPanel = useResizable({
+    size: layout.companionPanelWidth,
+    onSize: (value) => setLayout('companionPanelWidth', value),
+    initial: DEFAULT_LAYOUT.companionPanelWidth,
+    axis: 'x',
+    edge: 'end',
+    ...LAYOUT_BOUNDS.companionPanelWidth,
+    onCollapse: () => setCompanionPanelOpen(false),
+  });
+
   /*
     First-interactive, as far as the renderer can tell: a layout effect here runs
     after the view inside `stackRef` has committed, so the mark lands once the
@@ -801,6 +834,12 @@ function Shell() {
     size: fabPanel.snap === 'collapse' ? 0 : fabPanel.current,
     axis: 'x',
     dragging: fabPanel.dragging,
+  });
+  const companionTween = useRevealSize<HTMLDivElement>({
+    open: companionDocked,
+    size: companionPanel.snap === 'collapse' ? 0 : companionPanel.current,
+    axis: 'x',
+    dragging: companionPanel.dragging,
   });
 
   /*
@@ -1375,6 +1414,34 @@ function Shell() {
             browserDetached ? null : <BrowserPane shown={browserReveal.shown} />
           ) : null}
 
+          {/*
+            Companion panel (Phase 79 Theme C) — docked on the right, and
+            declared BEFORE the FAB panel block below so that with both open
+            the DOM (and so the flex row) reads `main · companion · loops`.
+            Its handle sits on its own left edge; the Loops panel's handle is
+            untouched.
+          */}
+          {companionTween.mounted ? (
+            <>
+              <ResizeHandle
+                resizable={companionPanel}
+                axis="x"
+                label="Resize companion panel"
+              />
+              <div
+                ref={companionTween.ref}
+                data-companion-panel-frame
+                className="shrink-0 overflow-hidden h-full"
+                style={companionTween.style}
+              >
+                {/* Guards the tail of the collapse tween — see `browserColumn`'s. */}
+                {companionDetached ? null : (
+                  <CompanionPanelSlot width={companionPanel.current} />
+                )}
+              </div>
+            </>
+          ) : null}
+
           {/* FAB Panel (docked on right) */}
           {fabPanelTween.mounted ? (
             <>
@@ -1435,6 +1502,16 @@ function Shell() {
                 data-loops-running={loopsRunning.running ? 'true' : undefined}
                 data-fab-tab={activeFabTab}
                 /*
+                  Theme H. A sibling attribute to `data-loop-state`, not a
+                  second animation system — the rules live beside that block in
+                  `styles.css` and win over it when both are set, because the
+                  companion is the thing you are talking to. `undefined` for
+                  `off`/`idle` (see `fabCompanionState`) leaves today's look
+                  completely untouched, which is the only honest way to say
+                  "no rule".
+                */
+                data-companion-state={fabCompanionState(companionState)}
+                /*
                   `relative` is load-bearing: the halo sits at `-z-10` behind this
                   button, and a static box would paint UNDER a negative-z
                   positioned sibling rather than over it — the halo's opaque disc
@@ -1442,7 +1519,7 @@ function Shell() {
                   `position: relative` too, but only while a loop runs, which is
                   too load-bearing a coincidence to lean on.
                 */
-                className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)} ${fabDetached ? 'opacity-50' : ''}`}
+                className={`companion-face companion-face--primary relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)} ${fabDetached ? 'opacity-50' : ''}`}
               >
                 <BrandMark className="h-full w-full" />
               </button>

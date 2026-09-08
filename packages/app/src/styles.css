@@ -1872,6 +1872,231 @@ html[data-motion='reduced'] .gradient-frame {
     linear-gradient(to left, #000 0, rgba(0, 0, 0, 0.42) 12.6px, transparent 30px);
 }
 
+/* ---------------------------------------------------------------------------
+ * The companion's four looks — Phase 79 Theme H.
+ *
+ * A SIBLING attribute to `[data-loop-state]` above, deliberately not a second
+ * animation system: same host elements, same `@property`-driven-angle
+ * technique, same reduced-motion policy. `companion-store.ts`'s state machine
+ * drives it through `fabCompanionState()` (`features/companion/companion-look.ts`),
+ * which returns `undefined` for `off` and `idle` so the attribute is ABSENT
+ * rather than set to a value with an empty rule — "today's look wins" has to
+ * mean nothing at all is applied, or a future refactor of these rules can
+ * silently change the resting FAB.
+ *
+ * Every rule is keyed on `.companion-face[data-companion-state='…']` rather
+ * than the bare attribute, for two reasons that both matter:
+ *
+ * - **Specificity.** `.loop-run-glow.on-primary` (the running FAB) and
+ *   `.gradient-frame[data-loops-running='false']` (the resting panel) are both
+ *   0,2,0. A bare attribute selector is 0,1,0 and would lose to them, which is
+ *   the exact opposite of the phase's "companion state wins over loop state"
+ *   rule. With the class the two are equal and source order decides — and
+ *   this block is below both.
+ * - **The reduced-motion guard.** `styles-motion-guards.ts` looks for a CLASS
+ *   in the selector that consumes a `@keyframes` and requires that same class
+ *   inside a `@media (prefers-reduced-motion: reduce)` block. An
+ *   attribute-only selector carries no class for it to find, so the guard
+ *   would report every keyframe here as unguarded. The class is what makes the
+ *   policy checkable rather than merely intended.
+ *
+ * `.companion-face--primary` is the FAB's variant of the same idea
+ * `.loop-run-glow.on-primary` needs: the two-layer background trick paints an
+ * opaque inner fill to carve the border out of, and on the brand button that
+ * fill has to be `--primary` or a rotating border would blank the mark.
+ */
+@property --companion-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/*
+ * The glow radius, as a registered length so it can be *animated* in
+ * `@keyframes` and still be composed into a multi-layer `box-shadow` beside
+ * the loop's amber inset. Animating the whole `box-shadow` shorthand instead
+ * would mean repeating that inset in every keyframe of every state, and one
+ * omission there is an agent's "I need you" ring silently disappearing for the
+ * duration of a whistle.
+ */
+@property --companion-glow {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 8px;
+}
+
+/*
+ * How loud the companion is being, 0–1, for the `speaking` pulse.
+ *
+ * `inherits: true` and set on `document.documentElement` by Theme F's
+ * `speaker.ts` on each `onBoundary` (decaying back to 0 over ~180ms), so ONE
+ * assignment reaches the FAB, the mini FAB and the panel host without the
+ * speaker knowing any of them exist. Registered rather than left as a plain
+ * custom property because `calc()` on an unregistered property is an invalid
+ * value at computed-value time — the whole box-shadow would drop.
+ */
+@property --companion-level {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+.companion-face {
+  /* The fill the two-layer border trick carves its ring out of. */
+  --companion-fill: hsl(var(--popover, var(--card)));
+  /*
+   * The loop's own "waiting on you" ring, as an extra box-shadow layer every
+   * companion state composes in. Transparent by default; amber while a loop
+   * is waiting, so an agent asking the user a question is never hidden behind
+   * a companion look (Decision 12).
+   */
+  --companion-waiting-inset: inset 0 0 0 0 transparent;
+  /* Teal → sky → indigo → back, so the conic wraps without a seam. Cool on
+   * purpose: the loops own the warm rainbow, and the companion has to be
+   * distinguishable from them at a glance on the same button. */
+  --companion-ramp: #2dd4bf, #38bdf8, #818cf8, #38bdf8, #2dd4bf;
+}
+
+.companion-face--primary {
+  --companion-fill: hsl(var(--primary));
+}
+
+/*
+ * A loop that is waiting outranks nothing about the companion's look except
+ * this one inset — see `--companion-waiting-inset` above. Two selectors
+ * because the two hosts say "waiting" differently: the FAB through
+ * `.loop-run-glow.is-waiting`, the panel through `[data-loop-state]`.
+ */
+.companion-face.is-waiting,
+.companion-face[data-loop-state='waiting'] {
+  --companion-waiting-inset: inset 0 0 0 2px rgba(245, 158, 11, 0.9);
+}
+
+/* Listening: a slow breath, hue shifted cool, with a soft inset glow. */
+@keyframes companion-breathe {
+  0%,
+  100% {
+    --companion-glow: 6px;
+  }
+  50% {
+    --companion-glow: 18px;
+  }
+}
+
+.companion-face[data-companion-state='listening'] {
+  animation: companion-breathe 2.4s ease-in-out infinite;
+  box-shadow:
+    0 0 var(--companion-glow) rgba(45, 212, 191, 0.6),
+    inset 0 0 8px rgba(56, 189, 248, 0.35),
+    var(--companion-waiting-inset);
+}
+
+/* Thinking: the conic border rotates and the glow pulses 0 → 24px. */
+@keyframes companion-spin {
+  to {
+    --companion-angle: 360deg;
+  }
+}
+
+@keyframes companion-think-pulse {
+  0%,
+  100% {
+    --companion-glow: 0px;
+  }
+  50% {
+    --companion-glow: 24px;
+  }
+}
+
+.companion-face[data-companion-state='thinking'],
+.companion-face[data-companion-state='handoff'] {
+  border: 1px solid transparent;
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow:
+    0 0 var(--companion-glow) rgba(56, 189, 248, 0.5),
+    var(--companion-waiting-inset);
+  /* The loop border's arc mask has nothing to narrow here — the companion
+   * wears a full ring, exactly as `waiting` does for the same reason. */
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.companion-face[data-companion-state='thinking'] {
+  background-image:
+    linear-gradient(var(--companion-fill), var(--companion-fill)),
+    conic-gradient(from var(--companion-angle), var(--companion-ramp));
+  animation:
+    companion-spin 3s linear infinite,
+    companion-think-pulse 1.6s ease-in-out infinite;
+}
+
+/*
+ * Handoff: the same rotation at half speed, in the loops' own rainbow rather
+ * than the companion's cool ramp — so it reads as "an agent has this", which
+ * is precisely what the state means (`shared/src/companion.ts`).
+ */
+.companion-face[data-companion-state='handoff'] {
+  background-image:
+    linear-gradient(var(--companion-fill), var(--companion-fill)),
+    conic-gradient(from var(--companion-angle), var(--rainbow-ramp));
+  animation:
+    companion-spin 6s linear infinite,
+    companion-think-pulse 3.2s ease-in-out infinite;
+}
+
+/*
+ * Speaking: the glow pulses with the WORDS rather than on a timer — no
+ * keyframes at all, just `--companion-level` read straight out of the
+ * box-shadow radius and the brightness. That is why the level is a registered,
+ * inheriting property: one write on the root element by `speaker.ts` and this
+ * recomputes, with no animation to keep in sync with speech that can pause,
+ * resume or be cancelled mid-sentence.
+ */
+.companion-face[data-companion-state='speaking'] {
+  filter: brightness(calc(1 + 0.25 * var(--companion-level)));
+  box-shadow:
+    0 0 calc(8px + 20px * var(--companion-level)) rgba(129, 140, 248, calc(0.35 + 0.45 * var(--companion-level))),
+    var(--companion-waiting-inset);
+}
+
+/*
+ * Reduced motion (Phase 46's policy): each state becomes a static hue and a
+ * fixed glow radius — no rotation, no breathing, no word-level pulse. The
+ * `speaking` case has no animation to switch off, so what it drops instead is
+ * its dependence on `--companion-level`: a glow that tracked speech would
+ * still be motion, just motion driven from JavaScript.
+ *
+ * Both selectors, the same pair every other block in this file carries: the
+ * media query for a user who set it at the OS with the app on `system`, and
+ * `html[data-motion='reduced']` for one who chose it in Appearance.
+ */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .companion-face[data-companion-state] {
+    animation: none;
+    filter: none;
+    --companion-glow: 10px;
+  }
+
+  html:not([data-motion='full']) .companion-face[data-companion-state='speaking'] {
+    box-shadow:
+      0 0 14px rgba(129, 140, 248, 0.55),
+      var(--companion-waiting-inset);
+  }
+}
+
+html[data-motion='reduced'] .companion-face[data-companion-state] {
+  animation: none;
+  filter: none;
+  --companion-glow: 10px;
+}
+
+html[data-motion='reduced'] .companion-face[data-companion-state='speaking'] {
+  box-shadow:
+    0 0 14px rgba(129, 140, 248, 0.55),
+    var(--companion-waiting-inset);
+}
+
 /*
  * Both the panel's rotation and the glow's pulse are permanently-running
  * animations on a panel that can sit mounted, blurred, for hours — precisely
