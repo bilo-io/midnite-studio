@@ -77,6 +77,37 @@ be done from a session:
    would put the built site in the same tree as the installers and would be
    served from the same commit history as them.
 
+### Early access — the one-time issue form
+
+The landing page's early-access section has **no backend and no third-party form
+service**. Submitting it composes a prefilled issue in
+`bilo-io/midnite-apps`, shows the visitor the exact text, and opens
+`issues/new?…` in a new tab so they post it themselves under their own account.
+Nothing is sent from the page, no key sits in the client, and there is no
+address list anywhere but that repo's issue list.
+
+It works today with the plain `?title=&body=&labels=early-access` form of that
+URL. It would read better as a GitHub **issue form**, and that is the one thing
+a session cannot do — the YAML has to be committed in the *other* repo:
+
+1. Copy [`docs/website/early-access-issue-form.yml`](website/early-access-issue-form.yml)
+   to `bilo-io/midnite-apps` as `.github/ISSUE_TEMPLATE/early-access.yml`.
+   That repo already has `bug.yml`, `feature.yml` and `config.yml`; this is a
+   fourth beside them.
+2. In [`packages/website/src/sections/early-access/issue-url.ts`](../packages/website/src/sections/early-access/issue-url.ts),
+   change `ISSUE_TEMPLATE` from `null` to `'early-access.yml'`. That is the
+   whole code change: `composeIssueUrl` already branches on it, sending
+   `field-id=value` pairs (`email`, `use-case`, `agents`) instead of `body`,
+   because that is how GitHub prefills an issue form.
+
+**Do not name the template before the YAML exists.** GitHub answers a
+`template=` it cannot find with the template *chooser*, and every prefilled
+field is dropped on the floor without an error — a worse outcome than the plain
+URL, and one that looks fine right up until someone actually uses the form. The
+field ids in the YAML and the parameter names in `composeIssueUrl` are the same
+list written twice; renaming one without the other loses that answer silently,
+which is why both files say so.
+
 ### A custom domain, later
 
 Add a `CNAME` file to the published tree and point the DNS record at
@@ -94,6 +125,9 @@ directory too deep.
 | `src/styles/tokens.css` | Every colour, radius, glow and duration. Dark-first: `:root` *is* the dark theme and light is one `prefers-color-scheme` block redefining the same names, so no component carries a `dark:` prefix. |
 | `src/sections/hero/` | The hero: the pointer-reactive canvas backdrop, the typewriter headline, and the video slot. |
 | `src/pages/download-page.tsx` | `/download` — the install command, the version feed, what the script does. |
+| `src/sections/faq/` | The FAQ. `faq.ts` holds the answers as data — the slugs are published URL fragments (`#faq-<slug>`), so they have a test rather than only a convention; `faq-section.tsx` is the tablist and the cross-fading panel. |
+| `src/sections/early-access/` | The sign-up. `issue-url.ts` composes the GitHub issue (and owns `ISSUE_TEMPLATE`, see above); `roster.ts` is the ten agent names as site copy, hard-coded rather than imported from `shared` so a marketing bundle does not pull zod in for ten strings. |
+| `src/sections/footer/` | The footer, its lane-graph horizon, and the reused version badge. |
 | `public/video/` | Empty, deliberately. [Its README](../packages/website/public/video/README.md) says what to drop in; the hero renders the poster when nothing is there. |
 
 Two rules that are not obvious from the code:
@@ -104,6 +138,12 @@ Two rules that are not obvious from the code:
   site including ones nobody thought about. That cannot cancel a
   `requestAnimationFrame` loop or a `setTimeout`, so anything JS-driven asks
   `useReducedMotion()` and renders a still frame instead.
+- **The footer's copyright year is a build-time literal, not a clock read.**
+  `__BUILD_YEAR__` is substituted by `define` in **both** `vite.config.ts` and
+  `vitest.config.ts` (declared in `src/globals.d.ts`) — the year is a fact about
+  the published artefact, so two visitors loading the same bundle see the same
+  page. Adding a second such constant means editing both configs; a test that
+  renders the footer needs the substitution too.
 - **Nothing here may link to `bilo-io/midnite-studio`.** It is private; a link
   to it is a 404 for every visitor, which reads as a broken site rather than as
   a permissions problem. Downloads, release notes and issues are all in
