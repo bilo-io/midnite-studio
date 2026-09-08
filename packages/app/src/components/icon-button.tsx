@@ -97,6 +97,16 @@ export type IconButtonProps = {
   'aria-pressed'?: boolean;
   'aria-expanded'?: boolean;
   /**
+   * Forwarded onto the `<button>` alongside the `aria-*` pair below.
+   *
+   * Every call site before Phase 79's Clear-conversation control was reachable
+   * from its `label` alone — `getByRole('button', {name})` — so this was never
+   * needed. A header whose controls are all icon-only and whose labels are
+   * sentences is the case that wants a stable hook instead, and the rest spread
+   * already put it on the DOM node; only the type was refusing it.
+   */
+  'data-testid'?: string;
+  /**
    * Forwarded straight to the underlying `<button>` — React 19 needs no
    * `forwardRef` wrapper for this. `Tooltip` clones its child to install its
    * own measuring ref and already merges it with whatever ref the child
