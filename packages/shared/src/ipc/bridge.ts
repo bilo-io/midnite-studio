@@ -1200,6 +1200,17 @@ export type MidniteStudioBridge = {
   companion: {
     snapshot: (req: In<typeof S.CompanionSnapshotRequest>) => Promise<CompanionSnapshot>;
     digest: (req: In<typeof S.CompanionDigestRequest>) => Promise<CompanionDigest>;
+    /**
+     * One headless question to the installed agent CLI (Phase 79 Theme E) —
+     * the companion's only route to a model, and it is the same CLI a pty
+     * session runs, in print mode.
+     *
+     * The one call here that answers with an envelope rather than a value,
+     * because "no CLI is installed" is a normal outcome with a spoken line of
+     * its own: the companion falls back to typing the text verbatim into a
+     * fresh agent session, which is the whole reason it does not need a key.
+     */
+    ask: (req: In<typeof S.CompanionAskRequest>) => Promise<z.infer<typeof S.CompanionAskResponse>>;
 
     /*
       Theme F's four. Speech *out* is absent from this bridge on purpose —

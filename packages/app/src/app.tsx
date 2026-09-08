@@ -38,6 +38,7 @@ import { CompanionPanelSlot } from './features/companion/companion-panel';
   there is nothing to call.
 */
 import './features/companion/voice-ports';
+import { useCompanionHandoffWatch } from './features/companion/register-flow-ports';
 import { useCompanionEnabledSync } from './features/companion/use-companion-enabled';
 import { fabCompanionState } from './features/companion/companion-look';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from './features/loops/fab-loop-halo';
@@ -511,6 +512,10 @@ function Shell() {
     popover all read that state while the panel is closed.
   */
   useCompanionEnabledSync();
+  // The hand-off watch, mounted here for the reason `useSessionExits` is:
+  // a hand-off runs unattended, so its answer has to arrive with the
+  // companion panel closed (Phase 79 Theme E).
+  useCompanionHandoffWatch();
   // Cross-window sync (Theme E) — mounted here too, not just in
   // `DetachedRoot`, so a change made in the main window reaches every popout.
   useBroadcastSync();

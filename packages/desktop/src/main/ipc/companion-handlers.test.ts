@@ -20,16 +20,28 @@ afterEach(() => {
 });
 
 describe('registerCompanionHandlers', () => {
-  it('registers exactly the companion channels — Theme B\'s two and Theme F\'s four', () => {
+  it("registers exactly the companion channels — Theme B's two, Theme E's one and Theme F's four", () => {
     registerCompanionHandlers();
     expect(handle.mock.calls.map(([channel]) => channel)).toEqual([
       CHANNELS.companionSnapshot,
       CHANNELS.companionDigest,
+      CHANNELS.companionAsk,
       CHANNELS.companionTranscribe,
       CHANNELS.companionSttTest,
       CHANNELS.companionSttSet,
       CHANNELS.companionSttStatus,
     ]);
+  });
+
+  it('answers an unreadable ask payload with the error envelope, not a rejection', async () => {
+    registerCompanionHandlers();
+    // `companionAsk` is the one companion channel whose fallback is an
+    // envelope rather than an empty value — see the module's own doc for why
+    // its failures are things the companion *says*.
+    await expect(invoke(CHANNELS.companionAsk, { kind: 'route' })).resolves.toMatchObject({
+      ok: false,
+      kind: 'error',
+    });
   });
 
   it('answers an unreadable snapshot payload with the empty snapshot, not a rejection', async () => {

@@ -573,6 +573,7 @@ const bridge: Pick<
   companion: {
     snapshot: (req) => call(CHANNELS.companionSnapshot, req),
     digest: (req) => call(CHANNELS.companionDigest, req),
+    ask: (req) => call(CHANNELS.companionAsk, req),
     /*
       The audio is passed straight through — `call` forwards the object to
       `ipcRenderer.invoke`, which structured-clones it, so a `Uint8Array`

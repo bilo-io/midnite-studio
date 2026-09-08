@@ -8,18 +8,29 @@ import {
   COMPANION_PHRASE_KINDS,
   COMPANION_STATES,
   CompanionDigestSchema,
+  COMPANION_REPEAT_TOKENS,
+  COMPANION_STOP_TOKENS,
+  COMPANION_TRUNCATION_TAIL,
+  CompanionIntentSchema,
   CompanionSnapshotSchema,
+  describeSnapshot,
   emptyCompanionSnapshot,
+  extractLastAgentTurn,
   interpolatePhrase,
   noRepeatWindow,
+  parseAskReply,
   parseDoneEntries,
   parseIndexWipRows,
+  parseIntent,
   pickPhrase,
   resolveDefaultBranch,
+  splitForSpeech,
   summariseDigest,
   transition,
   type CompanionDigest,
+  type CompanionCommandId,
   type CompanionDigestItem,
+  type CompanionSnapshot,
   type CompanionState,
 } from './companion';
 
@@ -465,5 +476,401 @@ describe('parseIndexWipRows', () => {
   it('skips the header, the separator and anything malformed', () => {
     expect(parseIndexWipRows(fixture)).toHaveLength(2);
     expect(parseIndexWipRows('')).toEqual([]);
+  });
+});
+
+// --- D · describeSnapshot ---------------------------------------------------
+
+function snapshotFixture(over: Partial<CompanionSnapshot> = {}): CompanionSnapshot {
+  return {
+    ...emptyCompanionSnapshot(1),
+    repo: {
+      id: 'r1',
+      path: '/Users/x/midnite-studio',
+      name: 'midnite-studio',
+      headRef: 'main',
+      worktrees: [],
+    },
+    branch: 'main',
+    openPulls: 0,
+    failingChecks: 0,
+    ...over,
+  };
+}
+
+describe('describeSnapshot', () => {
+  it('names the repo and the branch first', () => {
+    expect(describeSnapshot(snapshotFixture())[0]).toBe('You are in midnite-studio, on main.');
+  });
+
+  it('says nothing about a zero — a clean repo is two sentences, not six', () => {
+    const lines = describeSnapshot(snapshotFixture());
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toBe('Everything is clean and nothing is running.');
+  });
+
+  it('reports ahead and behind together when both are non-zero', () => {
+    expect(describeSnapshot(snapshotFixture({ ahead: 3, behind: 1 }))).toContain(
+      'That branch is 3 commits ahead and 1 commit behind.',
+    );
+  });
+
+  it('reports only the side that is non-zero', () => {
+    expect(describeSnapshot(snapshotFixture({ ahead: 1 }))).toContain(
+      'It is 1 commit ahead of the remote.',
+    );
+    expect(describeSnapshot(snapshotFixture({ behind: 2 }))).toContain(
+      'It is 2 commits behind the remote.',
+    );
+  });
+
+  it('breaks the dirty count down by part, dropping the empty parts', () => {
+    expect(
+      describeSnapshot(snapshotFixture({ dirty: { staged: 2, unstaged: 0, untracked: 5 } })),
+    ).toContain('7 changes: 2 staged, 5 untracked.');
+  });
+
+  it('names how many sessions are thinking and waiting', () => {
+    expect(
+      describeSnapshot(snapshotFixture({ sessions: { live: 3, thinking: 1, waiting: 2 } })),
+    ).toContain('3 sessions running — 1 thinking, 2 waiting on you.');
+  });
+
+  it('admits an unreachable forge in one sentence rather than dropping the fields', () => {
+    expect(describeSnapshot(snapshotFixture({ openPulls: null, failingChecks: null }))).toContain(
+      'I could not reach GitHub, so I have nothing on pull requests or checks.',
+    );
+  });
+
+  it('reports open pulls and failing checks when there are any', () => {
+    expect(describeSnapshot(snapshotFixture({ openPulls: 4, failingChecks: 1 }))).toContain(
+      '4 open pull requests and 1 check failing.',
+    );
+  });
+
+  it('answers the no-repo case with the count it can offer', () => {
+    expect(describeSnapshot(emptyCompanionSnapshot(3))).toEqual([
+      'No repository is open — you have 3 ones to choose from.',
+    ]);
+    expect(describeSnapshot(emptyCompanionSnapshot(0))).toEqual(['No repository is open yet.']);
+  });
+
+  it('says "detached head" rather than a branch name when there is none', () => {
+    expect(describeSnapshot(snapshotFixture({ branch: null }))[0]).toBe(
+      'You are in midnite-studio, on a detached head.',
+    );
+  });
+});
+
+// --- E · parseIntent -------------------------------------------------------
+
+describe('parseIntent — one row per verb', () => {
+  const rows: ReadonlyArray<[string, CompanionCommandId]> = [
+    ['start an ad hoc task', 'execAdhoc'],
+    ['run an adhoc task', 'execAdhoc'],
+    ['kick off an ad-hoc task', 'execAdhoc'],
+    ['do a one off', 'execAdhoc'],
+    ['start a swarm', 'execSwarm'],
+    ['launch the exec swarm', 'execSwarm'],
+    ['run the next task', 'execBacklog'],
+    ['do the backlog', 'execBacklog'],
+    ['start the next phase', 'execBacklog'],
+    ["let's brainstorm", 'brainstorm'],
+    ['please brain storm something', 'brainstorm'],
+    ['refine phase 79', 'refine'],
+    ['address an issue', 'addressIssue'],
+    ['fix an issue', 'addressIssue'],
+    ['triage the issues', 'addressIssue'],
+    ['review the pr', 'prReview'],
+    ['pr review please', 'prReview'],
+    ['code review this', 'prReview'],
+    ['pr feedback', 'prFeedback'],
+    ['address feedback', 'prFeedback'],
+    ['git report', 'gitReport'],
+    ['what did i do this week', 'gitReport'],
+    ['git cleanup', 'gitCleanup'],
+    ['clean up branches', 'gitCleanup'],
+  ];
+
+  it.each(rows)('reads %j as %s', (text, id) => {
+    const intent = parseIntent(text);
+    expect(intent.kind).toBe('command');
+    expect(intent.kind === 'command' && intent.id).toBe(id);
+  });
+
+  it('carries the remainder as the body, dropping the leading connective', () => {
+    expect(parseIntent('start an ad hoc task to fix the flaky spec')).toEqual({
+      kind: 'command',
+      id: 'execAdhoc',
+      body: 'fix the flaky spec',
+    });
+  });
+
+  it('omits an empty body rather than sending an empty string', () => {
+    expect(parseIntent('start an ad hoc task')).toEqual({ kind: 'command', id: 'execAdhoc' });
+  });
+
+  it('flags "anyway" as an override and keeps it out of the body', () => {
+    expect(parseIntent('start a swarm anyway')).toEqual({
+      kind: 'command',
+      id: 'execSwarm',
+      override: true,
+    });
+    expect(parseIntent('run an ad hoc task on the parser anyway')).toEqual({
+      kind: 'command',
+      id: 'execAdhoc',
+      body: 'the parser',
+      override: true,
+    });
+  });
+
+  it('prefers the more specific command when two tables could match', () => {
+    // "next ad hoc task" contains `next task`'s words but not the phrase, and
+    // `execAdhoc` is tried first regardless.
+    expect(parseIntent('run the next ad hoc task').kind === 'command').toBe(true);
+    const intent = parseIntent('run the next ad hoc task');
+    expect(intent.kind === 'command' && intent.id).toBe('execAdhoc');
+  });
+});
+
+describe('parseIntent — the negatives', () => {
+  it.each([
+    'a swarm of bees settled on the porch',
+    'the backlog is a diary, not a plan',
+    'i refined my technique over the years',
+    'this codebase is a swarm',
+    'what does refine mean',
+  ])('leaves %j as freeform', (text) => {
+    expect(parseIntent(text)).toEqual({ kind: 'freeform', text });
+  });
+
+  it('requires an imperative, or the imperative position, before a bare one-word verb', () => {
+    expect(parseIntent('a swarm of bees').kind).toBe('freeform');
+    expect(parseIntent('start a swarm').kind).toBe('command');
+    // First word — imperative mood by position, no verb needed.
+    expect(parseIntent('swarm').kind).toBe('command');
+    expect(parseIntent('refine phase 79')).toEqual({
+      kind: 'command',
+      id: 'refine',
+      body: 'phase 79',
+    });
+  });
+
+  it('lets a multi-word phrase stand on its own', () => {
+    expect(parseIntent('pr feedback').kind).toBe('command');
+  });
+});
+
+describe('parseIntent — the control words', () => {
+  it.each(COMPANION_STOP_TOKENS)('reads %j as stop', (token) => {
+    expect(parseIntent(token)).toEqual({ kind: 'stop' });
+  });
+
+  it.each(COMPANION_REPEAT_TOKENS)('reads %j as repeat', (token) => {
+    expect(parseIntent(token)).toEqual({ kind: 'repeat' });
+  });
+
+  it('reads a bare "anyway" as the override on its own', () => {
+    expect(parseIntent('anyway')).toEqual({ kind: 'anyway' });
+    expect(parseIntent('go ahead')).toEqual({ kind: 'anyway' });
+  });
+
+  it('only honours a control word as the whole utterance', () => {
+    // "stop the swarm" is a command about a swarm, not a request for silence.
+    expect(parseIntent('stop the swarm').kind).not.toBe('stop');
+  });
+
+  it.each(['no', 'no thanks', 'stay here', 'this one', 'never mind'])(
+    'reads %j as a dismissal',
+    (token) => {
+      expect(parseIntent(token)).toEqual({ kind: 'dismiss' });
+    },
+  );
+
+  it('reads music on and off, and prefers music over dismissal', () => {
+    expect(parseIntent('put some music on')).toEqual({ kind: 'music', on: true });
+    expect(parseIntent('yes please, music')).toEqual({ kind: 'music', on: true });
+    expect(parseIntent('no music')).toEqual({ kind: 'music', on: false });
+    expect(parseIntent('stop the music')).toEqual({ kind: 'music', on: false });
+  });
+
+  it('tolerates trailing punctuation and any casing', () => {
+    expect(parseIntent('  STOP! ')).toEqual({ kind: 'stop' });
+    expect(parseIntent('Start A Swarm.').kind).toBe('command');
+  });
+
+  it('reads an empty line as freeform rather than throwing', () => {
+    expect(parseIntent('   ')).toEqual({ kind: 'freeform', text: '' });
+  });
+});
+
+describe('parseIntent — switching repositories', () => {
+  it('reads a named switch', () => {
+    expect(parseIntent('switch to bilo-mono')).toEqual({
+      kind: 'switchRepo',
+      name: 'bilo-mono',
+    });
+    expect(parseIntent('go over to the ekko repo')).toEqual({
+      kind: 'switchRepo',
+      name: 'ekko',
+    });
+  });
+
+  it('reads an unnamed switch as a request for the list', () => {
+    expect(parseIntent('switch')).toEqual({ kind: 'switchRepo' });
+    expect(parseIntent('another repo')).toEqual({ kind: 'switchRepo' });
+  });
+});
+
+describe('CompanionIntentSchema', () => {
+  it('round-trips every arm parseIntent can produce', () => {
+    for (const text of ['start a swarm', 'switch to x', 'no', 'music on', 'repeat', 'stop', 'anyway', 'hello there']) {
+      expect(CompanionIntentSchema.safeParse(parseIntent(text)).success).toBe(true);
+    }
+  });
+
+  it('refuses a command id that is not in the allowed set', () => {
+    expect(
+      CompanionIntentSchema.safeParse({ kind: 'command', id: 'releaseComplete' }).success,
+    ).toBe(false);
+  });
+});
+
+// --- E · extractLastAgentTurn ---------------------------------------------
+
+/**
+ * A captured Claude Code frame, escape by escape — the alternate-screen
+ * switch, an OSC window title terminated by BEL, a hidden cursor, colour,
+ * cursor moves, an erase-to-end-of-line, a spinner redrawn in place with
+ * carriage returns, and the mode footer that `frameEnd` matches.
+ */
+const CLAUDE_FRAME = [
+  '\x1b[?1049h\x1b[?25l',
+  '\x1b]0;claude — midnite-studio\x07',
+  '\x1b[1;36m> \x1b[0mrun the tests',
+  '\x1b[2K\x1b[1A',
+  '✳ Thinking… \x1b[90m(3s)\x1b[0m\r✶ Thinking… \x1b[90m(4s)\x1b[0m',
+  '\x1b(B\x1b[m',
+  'All 412 tests passed.',
+  '\x1b[?25h? for shortcuts',
+].join('\n');
+
+describe('extractLastAgentTurn', () => {
+  const markers = {
+    awaitingInput: '\\u276F\\s{1,3}\\d{1,2}[.)]\\s|enter to confirm',
+    frameEnd: 'shift\\+tab to cycle|auto mode on|\\? for shortcuts',
+  };
+
+  it('leaves no escape byte behind', () => {
+    const turn = extractLastAgentTurn(CLAUDE_FRAME, markers);
+    // eslint-disable-next-line no-control-regex -- asserting the escape byte is GONE is the point of the test.
+    expect(turn).not.toMatch(/\x1b/);
+    // eslint-disable-next-line no-control-regex -- asserting the escape byte is GONE is the point of the test.
+    expect(turn).not.toMatch(/\x1b\[\?25l|\x1b\[1;36m|\x1b\[2K/);
+  });
+
+  it('drops the OSC window title, terminator and all', () => {
+    const turn = extractLastAgentTurn(CLAUDE_FRAME, markers);
+    expect(turn).not.toContain('claude — midnite-studio');
+    expect(turn).not.toContain('0;claude');
+  });
+
+  it('keeps only the last draft of a line redrawn with carriage returns', () => {
+    const turn = extractLastAgentTurn(CLAUDE_FRAME, markers);
+    expect(turn).toContain('(4s)');
+    expect(turn).not.toContain('(3s)');
+  });
+
+  it('keeps the answer', () => {
+    expect(extractLastAgentTurn(CLAUDE_FRAME, markers)).toContain('All 412 tests passed.');
+  });
+
+  it('cuts the footer the frameEnd marker names', () => {
+    expect(extractLastAgentTurn(CLAUDE_FRAME, markers)).not.toContain('? for shortcuts');
+  });
+
+  it('takes what lies between the last two boundaries when there are several', () => {
+    const two = `first turn\n? for shortcuts\nsecond turn\n? for shortcuts\n`;
+    expect(extractLastAgentTurn(two, markers)).toBe('second turn');
+  });
+
+  it('falls back to the whole cleaned text for an agent with no markers', () => {
+    expect(extractLastAgentTurn('\x1b[32mplain\x1b[0m answer')).toBe('plain answer');
+  });
+
+  it('survives a roster regex that does not compile', () => {
+    expect(extractLastAgentTurn('answer', { frameEnd: '([' })).toBe('answer');
+  });
+
+  it('caps the tail rather than returning a whole scrollback', () => {
+    expect(extractLastAgentTurn('x'.repeat(9000), undefined, 100)).toHaveLength(100);
+  });
+
+  it('collapses runs of blank lines a TUI leaves behind', () => {
+    expect(extractLastAgentTurn('a\n\n\n\n\nb')).toBe('a\n\nb');
+  });
+});
+
+// --- E · splitForSpeech ---------------------------------------------------
+
+describe('splitForSpeech', () => {
+  it('returns one utterance when it already fits', () => {
+    expect(splitForSpeech('Short enough.')).toEqual(['Short enough.']);
+  });
+
+  it('returns nothing for empty text', () => {
+    expect(splitForSpeech('   ')).toEqual([]);
+  });
+
+  it('cuts on a sentence boundary and appends the notice', () => {
+    const text = 'One sentence. Two sentence. Three sentence.';
+    expect(splitForSpeech(text, 25)).toEqual([
+      'One sentence.',
+      COMPANION_TRUNCATION_TAIL,
+    ]);
+  });
+
+  it('hard-cuts a single over-long sentence at a word boundary', () => {
+    const [spoken] = splitForSpeech('alpha bravo charlie delta echo foxtrot', 20);
+    expect(spoken).toBe('alpha bravo charlie');
+  });
+});
+
+// --- E · parseAskReply ----------------------------------------------------
+
+describe('parseAskReply', () => {
+  it('reads a bare JSON object', () => {
+    expect(parseAskReply('{"say":"On it."}')).toEqual({ say: 'On it.' });
+  });
+
+  it('reads JSON out of a fenced block with prose around it', () => {
+    const stdout = 'Here you go:\n```json\n{"say":"Running it.","intent":{"kind":"command","id":"execSwarm"}}\n```\nHope that helps.';
+    expect(parseAskReply(stdout)).toEqual({
+      say: 'Running it.',
+      intent: { kind: 'command', id: 'execSwarm' },
+    });
+  });
+
+  it('stops at the matching brace, not the last one in the buffer', () => {
+    expect(parseAskReply('{"say":"ok"} and then a stray } appeared')).toEqual({ say: 'ok' });
+  });
+
+  it('is not fooled by a brace inside a string', () => {
+    expect(parseAskReply('{"say":"a } brace"}')).toEqual({ say: 'a } brace' });
+  });
+
+  it('returns null for garbage', () => {
+    expect(parseAskReply('I am afraid I cannot do that.')).toBeNull();
+    expect(parseAskReply('{not json at all')).toBeNull();
+    expect(parseAskReply('')).toBeNull();
+  });
+
+  it('returns null when the object parses but is the wrong shape', () => {
+    expect(parseAskReply('{"answer":"wrong key"}')).toBeNull();
+    expect(parseAskReply('{"say":""}')).toBeNull();
+  });
+
+  it('rejects an intent the schema does not recognise, object and all', () => {
+    expect(parseAskReply('{"say":"ok","intent":{"kind":"rm -rf"}}')).toBeNull();
   });
 });

@@ -3259,6 +3259,59 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           return () => dbQueryDoneHandlers.splice(dbQueryDoneHandlers.indexOf(handler), 1);
         },
       },
+      /*
+        The companion's three channels (Phase 79 Themes B, E).
+
+        Present at all, which is the point: `features/companion/runtime.ts`
+        reads `api.companion.snapshot(...)` on the first await of the greeting,
+        so a mock without this namespace made that a TypeError — the greeting
+        posted its first line and the machine stayed in `greeting` forever with
+        the header reading "Saying hello…". The flow now guards itself against
+        exactly that, but a harness that cannot answer a channel the real
+        preload has is testing the guard rather than the feature.
+
+        The digest is deliberately non-empty: `summariseDigest` says "nothing
+        has landed" for an empty one, which is a true sentence about a fixture
+        repo but tests none of the phrasing.
+      */
+      companion: {
+        snapshot: async (req: { repoPath: string | null }) => ({
+          repo:
+            req.repoPath === null
+              ? null
+              : {
+                  id: 'repo-1',
+                  path: '/tmp/midnite-studio',
+                  name: 'midnite-studio',
+                  headRef: 'main',
+                  worktrees: [],
+                },
+          repos: 1,
+          branch: req.repoPath === null ? null : 'main',
+          ahead: 2,
+          behind: 0,
+          dirty: { staged: 1, unstaged: 3, untracked: 0 },
+          sessions: { live: 0, thinking: 0, waiting: 0 },
+          openPulls: 1,
+          failingChecks: 0,
+        }),
+        digest: async () => ({
+          landed: [
+            { kind: 'pr' as const, title: 'the browser occlusion fix', ref: '#265', at: Date.now() - 86_400_000 },
+          ],
+          inProgress: [
+            { kind: 'pr' as const, title: 'the companion panel', ref: '#270', at: Date.now() - 3_600_000 },
+          ],
+          since: Date.now() - 7 * 86_400_000,
+        }),
+        // No agent CLI in the harness, and the envelope is how that is said —
+        // the companion falls back to typing the text verbatim into a session.
+        ask: async () => ({
+          ok: false as const,
+          kind: 'error' as const,
+          message: 'No agent CLI with a headless mode is installed.',
+        }),
+      },
       mcp: {
         get: async () => ({
           enabled: mcpEnabled,

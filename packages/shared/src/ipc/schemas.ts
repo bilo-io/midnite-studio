@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
 import {
+  CompanionAskReplySchema,
+  CompanionSnapshotSchema,
+  SttProviderIdSchema,
+} from '../companion';
+
+import {
   ApiCollectionSummarySchema,
   ApiEnvironmentSummarySchema,
   ApiHistoryEntrySchema,
@@ -120,7 +126,6 @@ import {
   CouncilRunSchema,
   CouncilSchema,
 } from '../council';
-import { SttProviderIdSchema } from '../companion';
 import { LoopModelSchema, LoopRunRecordSchema } from '../loops';
 import {
   VideoProjectSchema,
@@ -2666,6 +2671,43 @@ export const CompanionDigestRequest = z.object({
   mark: z.boolean().optional(),
 });
 
+/**
+ * One headless question for the installed agent CLI (Phase 79 Theme E).
+ *
+ * `kind` chooses the system prompt main builds, not a different channel: both
+ * jobs spawn the same CLI the same way and differ only in what they ask it
+ * for, so a second channel would be two registrations of one handler.
+ * `'route'` asks for an intent, `'summarise'` asks for two to four sentences
+ * of speech.
+ *
+ * `snapshot` is the grounding, passed *in* rather than re-composed in the
+ * handler: the renderer already has the snapshot it greeted with, and asking
+ * main to rebuild one would put five subprocesses on the path of a sentence
+ * the user just typed. `null` is the honest value when the companion has none.
+ *
+ * `agentId` names the roster entry to run. It comes from the renderer because
+ * `primaryAgent` is a *renderer* preference (`ui-store.ts`), which main has no
+ * copy of; an absent or unrunnable id falls back to the first roster entry
+ * with a known print mode, and to a `{ok:false}` envelope when there is none.
+ */
+export const CompanionAskRequest = z.object({
+  kind: z.enum(['route', 'summarise']),
+  text: z.string().min(1),
+  /** Where to run the CLI. `null` runs it in the home directory — no repo is open. */
+  repoPath: z.string().min(1).nullable(),
+  agentId: z.string().min(1).optional(),
+  snapshot: CompanionSnapshotSchema.nullable().optional(),
+});
+
+/**
+ * The reply, in the envelope.
+ *
+ * `{ok:false, kind:'error'}` is what "no agent CLI is installed", "it timed
+ * out" and "it printed something that was not the shape it was asked for" all
+ * come back as — every one of which the script has a spoken line for, and none
+ * of which is an exception. See `main/companion/ask.ts`.
+ */
+export const CompanionAskResponse = GitOpResultOf(CompanionAskReplySchema);
 // --- the companion's voice (Phase 79 Theme F) -------------------------------
 
 /**
