@@ -239,7 +239,16 @@ export function pickPhrase(
  */
 export function interpolatePhrase(template: string, honorific: string): string {
   const name = honorific.trim();
-  if (name.length > 0) return template.replace(/\{name\}/g, name);
+  // `{name}` stands for "the honorific, set off from whatever precedes it" —
+  // so the templates write `Okay{name},` with no space of their own, and the
+  // space is inserted here only when there is a name to set off. Writing the
+  // space into the template instead would make the *empty* case (the default)
+  // the one that needs cleaning up, and it is the common path.
+  if (name.length > 0) {
+    return template.replace(/(\S?)\{name\}/g, (_match, before: string) =>
+      before.length > 0 ? `${before} ${name}` : name,
+    );
+  }
 
   return template
     .replace(/^\s*\{name\}\s*[,:]?\s*/, '')
