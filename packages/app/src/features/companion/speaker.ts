@@ -4,7 +4,7 @@ import {
   chunkForSpeech,
 } from '@midnite/studio-shared';
 
-import { bridge } from '../../services/bridge';
+import { bridge, hasBridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
 import { getCompanionAudio } from './audio/context';
 
@@ -401,6 +401,8 @@ export type LocalSpeakerDeps = {
   ) => Promise<{ ok: true; audio: Uint8Array; mime: string } | { ok: false }>;
   /** The companion's shared `AudioContext`/master gain, or `null` where there is no Web Audio at all. */
   getAudio: () => { ctx: AudioContext; master: GainNode } | null;
+  /** Whether there is a preload bridge to call at all — `available`'s coarse, synchronous half; see the module doc. */
+  hasBridge: () => boolean;
   setLevel: (level: number) => void;
   schedule: (callback: (now: number) => void) => number;
   cancelScheduled: (handle: number) => void;
@@ -415,6 +417,7 @@ export const defaultLocalSpeakerDeps = (): LocalSpeakerDeps => ({
       : { ok: false };
   },
   getAudio: getCompanionAudio,
+  hasBridge,
   setLevel: setCompanionLevel,
   schedule: (callback) =>
     typeof requestAnimationFrame === 'function'
@@ -589,7 +592,13 @@ export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): C
   };
 
   return {
-    available: true,
+    // Coarse and synchronous, matching `SpeakerDeps`'s own `available`: it
+    // answers "is there anyone to ask at all", not "will the model actually
+    // load" — that answer only exists after a real round trip, which is what
+    // `createCompanionSpeaker`'s sticky fallback is for.
+    get available() {
+      return deps.hasBridge();
+    },
     speakLocal,
     speak: (text, opts) => speakLocal(text, opts).then(() => undefined),
     cancel: () => {

@@ -2,10 +2,13 @@ import { COMPANION_LEVEL_VAR } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  createCompanionSpeaker,
+  createLocalSpeaker,
   createSpeaker,
   loadCompanionVoices,
   pickVoice,
   setCompanionLevel,
+  type LocalSpeakerDeps,
   type SpeakerDeps,
 } from './speaker';
 
@@ -451,5 +454,282 @@ describe('setCompanionLevel', () => {
     expect(document.documentElement.style.getPropertyValue(COMPANION_LEVEL_VAR)).toBe('1.00');
     setCompanionLevel(-2);
     expect(document.documentElement.style.getPropertyValue(COMPANION_LEVEL_VAR)).toBe('0.00');
+  });
+});
+
+// --- the local voice engine (Phase 80 Theme C) ------------------------------
+
+/** Let every pending microtask (the `synthesize`/`decodeAudioData` awaits) settle. */
+async function flushAsync(): Promise<void> {
+  for (let i = 0; i < 5; i += 1) await Promise.resolve();
+}
+
+type FakeSource = {
+  buffer: unknown;
+  connect: ReturnType<typeof vi.fn>;
+  start: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+  onended: (() => void) | null;
+};
+
+function fakeAudio() {
+  const sources: FakeSource[] = [];
+  const decodeAudioData = vi.fn(async () => ({ duration: 1 }) as unknown as AudioBuffer);
+  const master = { connect: vi.fn() };
+  const ctx = {
+    decodeAudioData,
+    createBufferSource: vi.fn((): FakeSource => {
+      const source: FakeSource = {
+        buffer: null,
+        connect: vi.fn(),
+        start: vi.fn(),
+        stop: vi.fn(),
+        onended: null,
+      };
+      sources.push(source);
+      return source;
+    }),
+  };
+  return { ctx, master, sources, decodeAudioData };
+}
+
+/** Deps over a fake `AudioContext`, mirroring `harness()` above but for the local engine's port. */
+function localHarness() {
+  const audio = fakeAudio();
+  const levels: number[] = [];
+  const frames: ((now: number) => void)[] = [];
+  let clock = 0;
+
+  const deps: LocalSpeakerDeps = {
+    synthesize: vi.fn(async () => ({ ok: true, audio: new Uint8Array([1, 2, 3]), mime: 'audio/wav' })),
+    getAudio: () =>
+      ({ ctx: audio.ctx as unknown as AudioContext, master: audio.master as unknown as GainNode }),
+    hasBridge: () => true,
+    setLevel: (level) => levels.push(level),
+    schedule: (callback) => {
+      frames.push(callback);
+      return frames.length;
+    },
+    cancelScheduled: () => {},
+    now: () => clock,
+  };
+
+  return {
+    deps,
+    audio,
+    levels,
+    tick: (ms: number) => {
+      clock += ms;
+      const pending = frames.splice(0, frames.length);
+      for (const frame of pending) frame(clock);
+    },
+  };
+}
+
+describe('createLocalSpeaker', () => {
+  it('synthesizes each chunk, plays it through the shared audio, and resolves true when it ends', async () => {
+    const h = localHarness();
+    const speaker = createLocalSpeaker(h.deps);
+
+    const pending = speaker.speakLocal('Here we are.');
+    await flushAsync();
+
+    expect(h.deps.synthesize).toHaveBeenCalledWith('Here we are.');
+    expect(h.audio.sources).toHaveLength(1);
+    expect(h.audio.sources[0]?.connect).toHaveBeenCalledWith(h.audio.master);
+    expect(h.audio.sources[0]?.start).toHaveBeenCalled();
+
+    h.audio.sources[0]?.onended?.();
+    await expect(pending).resolves.toBe(true);
+  });
+
+  it('resolves false without touching audio when the channel reports failure', async () => {
+    const h = localHarness();
+    const deps = { ...h.deps, synthesize: async () => ({ ok: false as const }) };
+    const speaker = createLocalSpeaker(deps);
+
+    await expect(speaker.speakLocal('hi')).resolves.toBe(false);
+    expect(h.audio.sources).toHaveLength(0);
+  });
+
+  it('resolves false when there is no audio context at all', async () => {
+    const h = localHarness();
+    const speaker = createLocalSpeaker({ ...h.deps, getAudio: () => null });
+    await expect(speaker.speakLocal('hi')).resolves.toBe(false);
+  });
+
+  it('resolves false when decoding the returned clip throws', async () => {
+    const h = localHarness();
+    h.audio.decodeAudioData.mockRejectedValueOnce(new Error('bad wav'));
+    const speaker = createLocalSpeaker(h.deps);
+    await expect(speaker.speakLocal('hi')).resolves.toBe(false);
+  });
+
+  it('reports availability from whether there is a bridge at all', () => {
+    const h = localHarness();
+    expect(createLocalSpeaker({ ...h.deps, hasBridge: () => true }).available).toBe(true);
+    expect(createLocalSpeaker({ ...h.deps, hasBridge: () => false }).available).toBe(false);
+  });
+
+  it('speaks two queued utterances one after another, not interleaved', async () => {
+    const h = localHarness();
+    const speaker = createLocalSpeaker(h.deps);
+
+    const first = speaker.speakLocal('One.');
+    const second = speaker.speakLocal('Two.');
+    await flushAsync();
+    expect(h.audio.sources).toHaveLength(1);
+
+    h.audio.sources[0]?.onended?.();
+    await flushAsync();
+    expect(h.audio.sources).toHaveLength(2);
+
+    h.audio.sources[1]?.onended?.();
+    await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+  });
+
+  it('pulses the level once per chunk and decays it, same shape as the system speaker', async () => {
+    const h = localHarness();
+    const speaker = createLocalSpeaker(h.deps);
+    const pending = speaker.speakLocal('Here we are.');
+    await flushAsync();
+
+    expect(h.levels.at(-1)).toBe(1);
+    h.tick(90);
+    expect(h.levels.at(-1)).toBeCloseTo(0.5, 5);
+    h.tick(90);
+    expect(h.levels.at(-1)).toBe(0);
+
+    h.audio.sources[0]?.onended?.();
+    await pending;
+  });
+
+  it('reports whether it is busy', async () => {
+    const h = localHarness();
+    const speaker = createLocalSpeaker(h.deps);
+    expect(speaker.isSpeaking()).toBe(false);
+    const pending = speaker.speakLocal('One.');
+    expect(speaker.isSpeaking()).toBe(true);
+    await flushAsync();
+    h.audio.sources[0]?.onended?.();
+    await pending;
+    expect(speaker.isSpeaking()).toBe(false);
+  });
+
+  describe('cancel', () => {
+    it('stops the active source and settles every waiter true — cancelling is not a fallback trigger', async () => {
+      const h = localHarness();
+      const speaker = createLocalSpeaker(h.deps);
+      const first = speaker.speakLocal('One.');
+      const second = speaker.speakLocal('Two.');
+      await flushAsync();
+
+      speaker.cancel();
+
+      expect(h.audio.sources[0]?.stop).toHaveBeenCalledTimes(1);
+      await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+      expect(speaker.isSpeaking()).toBe(false);
+      expect(h.levels.at(-1)).toBe(0);
+    });
+  });
+
+  describe('an abort signal', () => {
+    it('stops the utterance in flight and settles it true, without disturbing the one queued behind it', async () => {
+      const h = localHarness();
+      const speaker = createLocalSpeaker(h.deps);
+      const controller = new AbortController();
+
+      const first = speaker.speakLocal('One.', { signal: controller.signal });
+      const second = speaker.speakLocal('Two.');
+      await flushAsync();
+
+      controller.abort();
+      await expect(first).resolves.toBe(true);
+      expect(h.audio.sources[0]?.stop).toHaveBeenCalledTimes(1);
+
+      await flushAsync();
+      expect(h.audio.sources).toHaveLength(2);
+      h.audio.sources[1]?.onended?.();
+      await expect(second).resolves.toBe(true);
+    });
+
+    it('drops a queued utterance without touching the one being spoken', async () => {
+      const h = localHarness();
+      const speaker = createLocalSpeaker(h.deps);
+      const controller = new AbortController();
+
+      const first = speaker.speakLocal('One.');
+      const second = speaker.speakLocal('Two.', { signal: controller.signal });
+      await flushAsync();
+      controller.abort();
+      await expect(second).resolves.toBe(true);
+
+      h.audio.sources[0]?.onended?.();
+      await expect(first).resolves.toBe(true);
+      expect(h.audio.sources).toHaveLength(1);
+    });
+  });
+});
+
+describe('createCompanionSpeaker', () => {
+  it('speaks through the local engine when it succeeds, never touching the system synth', async () => {
+    const local = localHarness();
+    const system = harness();
+    const speaker = createCompanionSpeaker({ local: local.deps, system: system.deps });
+
+    const pending = speaker.speak('Here we are.');
+    await flushAsync();
+    local.audio.sources[0]?.onended?.();
+    await pending;
+
+    expect(system.spoken).toEqual([]);
+  });
+
+  it('falls back to the system engine the first time the local engine fails, and stays there', async () => {
+    const local = localHarness();
+    const failingSynthesize = vi.fn(async () => ({ ok: false as const }));
+    const system = harness();
+    const speaker = createCompanionSpeaker({
+      local: { ...local.deps, synthesize: failingSynthesize },
+      system: system.deps,
+    });
+
+    const first = speaker.speak('One.');
+    await flushAsync();
+    expect(system.spoken.map((u) => u.text)).toEqual(['One.']);
+    system.end();
+    await first;
+    expect(failingSynthesize).toHaveBeenCalledTimes(1);
+
+    // A second, later utterance never asks the local engine again — the
+    // fallback is sticky for the object's lifetime.
+    const second = speaker.speak('Two.');
+    await flushAsync();
+    expect(system.spoken.map((u) => u.text)).toEqual(['One.', 'Two.']);
+    system.end();
+    await second;
+    expect(failingSynthesize).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels both engines at once', () => {
+    const local = localHarness();
+    const system = harness();
+    const speaker = createCompanionSpeaker({ local: local.deps, system: system.deps });
+    expect(() => speaker.cancel()).not.toThrow();
+    expect(system.synth.cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports busy while either engine is speaking', async () => {
+    const local = localHarness();
+    const system = harness();
+    const speaker = createCompanionSpeaker({ local: local.deps, system: system.deps });
+
+    expect(speaker.isSpeaking()).toBe(false);
+    const pending = speaker.speak('Here we are.');
+    expect(speaker.isSpeaking()).toBe(true);
+    await flushAsync();
+    local.audio.sources[0]?.onended?.();
+    await pending;
+    expect(speaker.isSpeaking()).toBe(false);
   });
 });
