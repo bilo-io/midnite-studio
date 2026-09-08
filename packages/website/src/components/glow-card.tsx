@@ -1,6 +1,14 @@
 import type { ReactNode } from 'react';
 
-export type GlowVariant = 'accent' | 'soft' | 'lane';
+export type GlowVariant =
+  | 'accent'
+  | 'soft'
+  /** Lane 1, under its original name. Identical to `lane-1`. */
+  | 'lane'
+  | 'lane-1'
+  | 'lane-2'
+  | 'lane-3'
+  | 'lane-4';
 
 export type GlowCardProps = {
   children: ReactNode;
@@ -20,6 +28,10 @@ const GLOWS: Record<GlowVariant, string> = {
   accent: 'shadow-glow',
   soft: 'shadow-glow-soft',
   lane: 'shadow-glow-lane',
+  'lane-1': 'shadow-glow-lane',
+  'lane-2': 'shadow-glow-lane-2',
+  'lane-3': 'shadow-glow-lane-3',
+  'lane-4': 'shadow-glow-lane-4',
 };
 
 /**
@@ -30,6 +42,11 @@ const GLOWS: Record<GlowVariant, string> = {
  * disagree about colour. That is also why the variants are token references
  * (`--ws-glow-*`) and not utility compositions: the light theme needs a
  * genuinely different shadow, not the dark one at a lower opacity.
+ *
+ * The four `lane-N` variants are the commit graph's lane hues, for a group of
+ * sibling cards that need telling apart at a glance — the Features pillars.
+ * `lane` and `lane-1` are the same shadow: `lane` predates the set and keeps
+ * working, because a variant name in a shipped component is a contract.
  *
  * `interactive` is opt-in on purpose. A card that lifts under the cursor is
  * promising a click; a card that lifts and does nothing is a bug the visitor
