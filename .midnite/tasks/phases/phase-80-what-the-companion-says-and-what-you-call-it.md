@@ -92,14 +92,14 @@ fully independent of A/B/C and can land in any order.
 
 ## Deliverables
 
-### A — A spoken-form transform that never says a SHA (S)
+### A — A spoken-form transform that never says a SHA (S) — ✅ DONE (PR #294, 2026-09-09)
 
 The gap Finding 1 names: `markdownToSpeech` strips markdown syntax but not the machine-facing
 tokens inside it. This theme adds one more pure pass, sitting between `markdownToSpeech`'s output
 and `splitForSpeech`'s input, so the on-screen markdown is byte-for-byte unchanged and only the
 spoken projection is redacted.
 
-- [ ] Add `sanitizeForSpeech(text: string): string` to `packages/shared/src/companion.ts`, placed
+- [x] Add `sanitizeForSpeech(text: string): string` to `packages/shared/src/companion.ts`, placed
   immediately after `markdownToSpeech` (`companion.ts:1219-1252`) since it operates on that
   function's output, not the raw markdown (markdown's own backtick/link syntax has already been
   removed by then, so this pass matches plain text, not markdown).
@@ -121,16 +121,22 @@ spoken projection is redacted.
     "a branch" for anything punctuation-heavy (`feature/companion-plan`, `release/v0.3.1`).
   - *Acceptance:* running `sanitizeForSpeech` twice is idempotent (`sanitizeForSpeech(sanitizeForSpeech(x)) === sanitizeForSpeech(x)`)
     — it must never partially re-redact its own placeholder words.
-- [ ] Call it from `sayMarkdown` (`concierge.ts:123-125`): `say(deps, markdown, 'companion',
+- [x] Call it from `sayMarkdown` (`concierge.ts:123-125`): `say(deps, markdown, 'companion',
   sanitizeForSpeech(markdownToSpeech(markdown)))`, the one call site every companion utterance
   already funnels through — no other caller of `markdownToSpeech` exists to update.
-- [ ] Unit tests in `packages/shared/src/companion.test.ts` (new `describe('sanitizeForSpeech')`
+- [x] Unit tests in `packages/shared/src/companion.test.ts` (new `describe('sanitizeForSpeech')`
   block beside the existing `describe('markdownToSpeech')` at `companion.test.ts:1005`): one case
   per acceptance bullet above, plus a full-digest-row fixture (`- Fix the thing (\`a1b2c3d\`)` →
   markdownToSpeech → sanitizeForSpeech) proving the SHA never reaches the final string.
-- [ ] A settings-page regression test in `companion-voice-page.test.tsx` asserting the "Say hello"
+- [x] A settings-page regression test in `companion-voice-page.test.tsx` asserting the "Say hello"
   preview (`companion-page.tsx:92-95`) is unaffected — that phrase bank never contains a SHA/path/URL,
   so this is a non-regression check, not new coverage of the transform itself.
+
+**Landed** — see [`done.md`](../done.md) (2026-09-09) for the narrative. The SHA-redundancy and
+hex-precision heuristics this theme needed beyond the doc's own wording (a bare `title.includes`
+check has no structured title to read here, and "7-40 character hex run" alone over-matches plain
+words/counts) are recorded as unattended decisions in [PR #294](https://github.com/bilo-io/midnite-studio/pull/294)'s
+description rather than invented silently.
 
 ### B — Aggregated, randomised digest phrasing (M)
 

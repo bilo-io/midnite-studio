@@ -1,6 +1,43 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-09 — Phase 80 Theme A — a spoken-form transform that never says a SHA
+
+[PR #294](https://github.com/bilo-io/midnite-studio/pull/294). The companion narrates its digest
+and turns aloud through `markdownToSpeech`, which strips markdown syntax but not the
+machine-facing tokens the syntax was wrapping — a commit SHA, a file path, a bare URL, a version
+string, a punctuation-heavy branch ref all survived it verbatim and got read letter-by-letter by
+`speechSynthesis`. `sanitizeForSpeech` (`packages/shared/src/companion.ts`) is the pure pass this
+theme adds between `markdownToSpeech`'s output and `splitForSpeech`'s input — the on-screen
+markdown is byte-for-byte unchanged, only the derived speech string is redacted.
+
+Every substitution is a category noun rather than an abbreviation, per the phase doc's own
+Decision 2 (a truncated SHA is still unpronounceable): a 7-40 character hex run with at least one
+letter **and** one digit (excluding both plain words that happen to use only `a`-`f` letters and
+plain digit-only counts) becomes "a commit", dropped instead when the sentence already named it
+("commit a1b2c3d" → "commit"); a `/`- or `\`-delimited path with a recognisable extension or a
+`packages/…` prefix collapses to its basename, or to "a file" for a small set of generic
+basenames (`index`, `main`, `app`, `style(s)`, `type(s)`, `utils`, `constants`, `config`); a bare
+URL becomes "a link" (a markdown link's own text was already substituted in by `markdownToSpeech`
+by the time this pass runs); a semver token becomes "a new version" inline or is dropped entirely
+when it's the whole clause; a punctuation-heavy branch/ref (`feature/companion-plan`,
+`release/v0.3.1`) becomes "a branch", while a bare common word (`main`, `master`) is left alone.
+`sayMarkdown` (`concierge.ts`) now calls `sanitizeForSpeech(markdownToSpeech(markdown))` — the one
+call site every companion utterance already funnels through.
+
+Two of the doc's acceptance bullets left a genuine implementation gap it named unattended
+decisions to fill (recorded in the PR body): the SHA "don't double-announce" rule has no
+structured title to check `title.includes(ref)` against once the text is flattened, so a SHA is
+dropped instead when the immediately preceding word is `commit`/`sha`/`hash`/`ref`/`revision`; and
+"a 7-40 character hex run" alone over-matches (English words using only `a`-`f`, plain digit
+counts), so the match additionally requires both a letter and a digit. Unit tests cover every
+acceptance bullet plus the idempotence property the doc calls out by name
+(`sanitizeForSpeech(sanitizeForSpeech(x)) === sanitizeForSpeech(x)`), and a non-regression test in
+`companion-voice-page.test.tsx` confirms the "Say hello" preview's phrase bank has nothing for the
+new pass to redact. Left in a shape Themes B and D (queued behind this one, also touching
+`companion.ts`) can extend: a standalone exported function with its own test block, not folded
+into an existing one.
+
 ## 2026-09-09 — Website — a blue-violet-pink rainbow, a drifting text gradient, and a rebalanced marquee wordmark/caret
 
 [PR #291](https://github.com/bilo-io/midnite-studio/pull/291). **Ad hoc, not phase-tracked.**

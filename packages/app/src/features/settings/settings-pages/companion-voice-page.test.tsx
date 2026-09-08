@@ -1,4 +1,5 @@
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
+import { sanitizeForSpeech } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -107,6 +108,22 @@ describe('Settings ▸ Companion ▸ Voice (Theme F)', () => {
     useUiStore.setState({ companionEnabled: false });
     render(<CompanionPage />);
     expect((await screen.findByTestId('companion-say-hello')).hasAttribute('disabled')).toBe(true);
+  });
+
+  /*
+   * Phase 80 Theme A — sanitizeForSpeech sits in the concierge's own
+   * `sayMarkdown` path, not in this preview's direct `speaker.speak` call, so
+   * this isn't new coverage of the transform. It's a non-regression check:
+   * the greeting phrase bank never contains a SHA, a path or a URL, so
+   * running it through sanitizeForSpeech must be a no-op.
+   */
+  it('leaves the Say hello preview untouched by sanitizeForSpeech (no machine-facing tokens to redact)', async () => {
+    installBridge();
+    render(<CompanionPage />);
+
+    fireEvent.click(await screen.findByTestId('companion-say-hello'));
+    const spoken = String(speak.mock.calls[0]?.[0] ?? '');
+    expect(sanitizeForSpeech(spoken)).toBe(spoken);
   });
 
   /*
