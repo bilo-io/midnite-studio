@@ -26,6 +26,7 @@ import {
   parseIndexWipRows,
   parseIntent,
   pickPhrase,
+  plural,
   resolveDefaultBranch,
   sanitizeForSpeech,
   splitForSpeech,
@@ -353,13 +354,187 @@ describe('summariseDigest', () => {
     const inProgress = Array.from({ length: 6 }, (_, i) => item('pr', `pr ${i}`));
     const lines = summariseDigest(digest({ inProgress }), now);
     expect(lines[1]).toContain('6 pull requests');
-    expect(lines[1]).toContain('still in flight');
+    // Not the literal old "still in flight" — Theme B varies this line across
+    // 4 templates, only one of which starts with "Still"; "in flight" is the
+    // one substring every template shares.
+    expect(lines[1]).toContain('in flight');
   });
 
   it('parses back through its own schema', () => {
     expect(() =>
       CompanionDigestSchema.parse(digest({ landed: [item('phase', '79')] })),
     ).not.toThrow();
+  });
+
+  describe('Theme B — category buckets, rng and grammar', () => {
+    const commit = (subject: string): CompanionDigestItem => item('commit', subject);
+
+    it('reproduces the brief\'s own example: 4 dependency updates, 3 fixes', () => {
+      const landed = [
+        ...Array.from({ length: 4 }, (_, i) => commit(`chore(deps): bump pkg-${i} to 2.0.0`)),
+        ...Array.from({ length: 3 }, (_, i) => commit(`fix(auth): correct thing ${i}`)),
+      ];
+      // 7 items is past COMPANION_DIGEST_NAME_CAP (5), which is exactly the
+      // regime the brief's example lives in: counts plus one or two
+      // representative specifics, not all seven titles.
+      const lines = summariseDigest(digest({ landed }), now, () => 0);
+      expect(lines[0]).toContain('4 dependency updates');
+      expect(lines[0]).toContain('3 fixes');
+      expect(lines[0]).toContain('updating bump pkg-0 to 2.0.0');
+    });
+
+    it('omits the scope clause for a dependency update (its scope named the bucket already)', () => {
+      const landed = Array.from({ length: 6 }, (_, i) => commit(`chore(deps): bump pkg-${i}`));
+      const lines = summariseDigest(digest({ landed }), now, () => 0);
+      expect(lines[0]).toContain('updating bump pkg-0');
+      expect(lines[0]).not.toContain(' in deps');
+    });
+
+    it('names the scope for a non-dependency category', () => {
+      const landed = Array.from({ length: 6 }, (_, i) => commit(`fix(auth): correct thing ${i}`));
+      const lines = summariseDigest(digest({ landed }), now, () => 0);
+      expect(lines[0]).toContain('updating correct thing 0 in auth');
+    });
+
+    it('falls back to countByKind when nothing categorises (unchanged behaviour)', () => {
+      const landed = Array.from({ length: 6 }, (_, i) => commit(`untyped subject ${i}`));
+      const lines = summariseDigest(digest({ landed }), now, () => 0);
+      expect(lines[0]).toContain('6 commits');
+      expect(lines[0]).not.toContain('untyped subject 0');
+    });
+
+    it('two different seeded rng sequences produce different, both-grammatical sentences', () => {
+      const landed = [
+        ...Array.from({ length: 4 }, (_, i) => commit(`chore(deps): bump pkg-${i}`)),
+        ...Array.from({ length: 3 }, (_, i) => commit(`fix(auth): correct thing ${i}`)),
+      ];
+      const seq = (values: number[]): (() => number) => {
+        const queue = [...values];
+        return () => queue.shift() ?? 0;
+      };
+      const a = summariseDigest(digest({ landed }), now, seq([0, 0]));
+      const b = summariseDigest(digest({ landed }), now, seq([0.99, 0.99]));
+      expect(a[0]).not.toBe(b[0]);
+      for (const line of [a[0] as string, b[0] as string]) {
+        expect(line).not.toContain('  ');
+        expect(line.trim()).toBe(line);
+        expect(line).toContain('4 dependency updates');
+        expect(line).toContain('3 fixes');
+      }
+    });
+
+    it('is byte-exact for a fixed rng sequence (deterministic-test requirement)', () => {
+      const landed = Array.from({ length: 6 }, (_, i) => commit(`fix(app): correct thing ${i}`));
+      // 30 days out resolves to "in the last 4 weeks" — a day-count label,
+      // unlike the weekday form, so this stays byte-exact under any timezone.
+      const since = now - 30 * 24 * 3600_000;
+      const lines = summariseDigest(digest({ landed, since }), now, () => 0);
+      expect(lines[0]).toBe(
+        'In the last 4 weeks, 6 fixes landed — including updating correct thing 0 in app.',
+      );
+    });
+  });
+});
+
+describe('plural', () => {
+  it('never doubles a naive "s" into the "1 fixes" failure mode', () => {
+    expect(plural(1, 'fix')).toBe('1 fix');
+    expect(plural(1, 'commit')).toBe('1 commit');
+  });
+
+  it('spells the irregular plurals this module actually uses', () => {
+    expect(plural(0, 'fix')).toBe('0 fixes');
+    expect(plural(2, 'fix')).toBe('2 fixes');
+    expect(plural(5, 'fix')).toBe('5 fixes');
+    expect(plural(3, 'tracker entry')).toBe('3 tracker entries');
+  });
+
+  it('keeps the regular "s" plural for everything else', () => {
+    expect(plural(0, 'commit')).toBe('0 commits');
+    expect(plural(2, 'commit')).toBe('2 commits');
+    expect(plural(5, 'dependency update')).toBe('5 dependency updates');
+  });
+});
+
+describe('summariseDigest template grammar (Theme B)', () => {
+  // Every template rendered at every connective, at counts 0, 1, 2 and 5+ —
+  // a vitest sweep rather than eyeballed fixtures, per the phase brief (this
+  // repo's eslint has no precedent for asserting string content).
+  const EXPECTED_PLURALS: Record<string, string> = {
+    'dependency update': 'dependency updates',
+    fix: 'fixes',
+    feature: 'features',
+    commit: 'commits',
+    'pull request': 'pull requests',
+    'tracker entry': 'tracker entries',
+  };
+  const COUNTS = [0, 1, 2, 5];
+  const CONNECTIVES = ['including', 'among them', 'notably'];
+
+  // Re-derive the module's private template banks by rendering summariseDigest
+  // itself across every rng index rather than reaching for private state —
+  // `pickIndex`'s clamp means index i comes from rng() just under i/length.
+  function renderAllTemplates(kind: 'landed' | 'inProgress', now: number): string[] {
+    const digestFor = (over: Partial<CompanionDigest>): CompanionDigest => ({
+      landed: [],
+      inProgress: [],
+      since: now - 3 * 24 * 60 * 60 * 1000,
+      ...over,
+    });
+    const item = (title: string): CompanionDigestItem => ({
+      kind: 'commit',
+      title,
+      ref: 'x',
+      at: now - 1000,
+    });
+    const items = [item('fix(app): a'), item('fix(app): b'), item('fix(app): c')];
+    const templateCount = 4;
+    const lines: string[] = [];
+    for (let t = 0; t < templateCount; t += 1) {
+      for (let c = 0; c < CONNECTIVES.length; c += 1) {
+        const rng = ((): (() => number) => {
+          const queue = [
+            (t + 0.1) / templateCount,
+            (c + 0.1) / CONNECTIVES.length,
+            (t + 0.1) / templateCount,
+            (c + 0.1) / CONNECTIVES.length,
+          ];
+          return () => queue.shift() ?? 0;
+        })();
+        const digestValue =
+          kind === 'landed' ? digestFor({ landed: items }) : digestFor({ inProgress: items });
+        const lines_ = summariseDigest(digestValue, now, rng);
+        lines.push(kind === 'landed' ? (lines_[0] as string) : (lines_[1] as string));
+      }
+    }
+    return lines;
+  }
+
+  it('every landed/in-progress template renders with no double space and no dangling connective', () => {
+    const now = Date.parse('2026-09-08T12:00:00Z');
+    for (const line of [...renderAllTemplates('landed', now), ...renderAllTemplates('inProgress', now)]) {
+      expect(line).not.toContain('  ');
+      expect(line.trim()).toBe(line);
+      // A connective word never appears with nothing after it (no trailing
+      // "including." / "notably."), and never doubled ("including including").
+      for (const connective of CONNECTIVES) {
+        expect(line).not.toMatch(new RegExp(`${connective}\\.$`));
+        expect(line).not.toContain(`${connective} ${connective}`);
+      }
+    }
+  });
+
+  it('pluralises every category/kind word correctly at counts 0, 1, 2 and 5+', () => {
+    for (const [word, expectedPlural] of Object.entries(EXPECTED_PLURALS)) {
+      for (const count of COUNTS) {
+        const rendered = plural(count, word);
+        // The classic failure this test exists to catch: "1 fixes" (an "s"
+        // stuck on the singular) at count === 1, and "N fixs" (a naive "s" on
+        // an irregular plural) at every other count.
+        const expected = count === 1 ? `1 ${word}` : `${count} ${expectedPlural}`;
+        expect(rendered).toBe(expected);
+      }
+    }
   });
 });
 
