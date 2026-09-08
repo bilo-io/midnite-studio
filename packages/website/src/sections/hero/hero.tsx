@@ -1,11 +1,18 @@
 import { LuArrowDownToLine, LuTerminal } from 'react-icons/lu';
 
-import { Button, Container, Eyebrow, Logo, Section, Wordmark } from '../../components';
+import {
+  Button,
+  Container,
+  Eyebrow,
+  Logo,
+  Section,
+  Typewriter,
+  Wordmark,
+} from '../../components';
 import { anchorHref, hrefFor } from '../../routes';
 
 import { HeroBackdrop } from './hero-backdrop';
 import { HeroVideo } from './hero-video';
-import { Typewriter } from './typewriter';
 
 /**
  * The phrases the headline types through.

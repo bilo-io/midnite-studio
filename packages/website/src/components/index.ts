@@ -20,6 +20,16 @@ export { Section } from './section';
 export type { SectionProps } from './section';
 export { Eyebrow, Heading, Lede } from './text';
 export type { EyebrowProps, HeadingProps, LedeProps } from './text';
+export {
+  DELETE_MS,
+  GAP_MS,
+  HOLD_MS,
+  TYPE_MS,
+  Typewriter,
+  TypewriterCaret,
+  typedLength,
+} from './typewriter';
+export type { TypedPassOptions, TypewriterCaretProps, TypewriterProps } from './typewriter';
 export { Wordmark } from './wordmark';
 export type { WordmarkProps, WordmarkTone } from './wordmark';
 export { useInView } from '../hooks/use-in-view';

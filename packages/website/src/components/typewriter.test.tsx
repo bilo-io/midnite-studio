@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { Typewriter } from './typewriter';
+import { DELETE_MS, TYPE_MS, Typewriter, typedLength } from './typewriter';
 
 const PHRASES = ['One window.', 'Your git client.'] as const;
 
@@ -24,6 +24,45 @@ const setReducedMotion = (reduced: boolean) => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
+});
+
+describe('typedLength', () => {
+  const WINDOW = 2850;
+  const text = 'Antigravity';
+
+  it('types at the site cadence from the start of the pass', () => {
+    expect(typedLength(text, 0, { windowMs: WINDOW })).toBe(0);
+    expect(typedLength(text, TYPE_MS, { windowMs: WINDOW })).toBe(1);
+    expect(typedLength(text, TYPE_MS * 4, { windowMs: WINDOW })).toBe(4);
+  });
+
+  it('holds the whole name through the middle of the pass', () => {
+    // The hold is the term that stretches when the window grows — the typing
+    // keeps the hero's cadence, so a slower marquee reads the name for longer
+    // rather than typing it more slowly.
+    expect(typedLength(text, WINDOW / 2, { windowMs: WINDOW })).toBe(text.length);
+  });
+
+  it('finishes deleting exactly as the window closes', () => {
+    expect(typedLength(text, WINDOW - text.length * DELETE_MS, { windowMs: WINDOW })).toBe(
+      text.length,
+    );
+    expect(typedLength(text, WINDOW - 1, { windowMs: WINDOW })).toBeLessThan(text.length);
+    expect(typedLength(text, WINDOW, { windowMs: WINDOW })).toBe(0);
+  });
+
+  it('scales both ramps down rather than overrunning a short window', () => {
+    // Total, not partial: a window too small for the full cadence must still
+    // reach the whole name and still be empty at the end.
+    const tiny = 300;
+    expect(typedLength(text, tiny * 0.7, { windowMs: tiny })).toBe(text.length);
+    expect(typedLength(text, tiny, { windowMs: tiny })).toBe(0);
+  });
+
+  it('is zero for an empty string or a zero window', () => {
+    expect(typedLength('', 100, { windowMs: WINDOW })).toBe(0);
+    expect(typedLength(text, 100, { windowMs: 0 })).toBe(0);
+  });
 });
 
 describe('Typewriter', () => {
