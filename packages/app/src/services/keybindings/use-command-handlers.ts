@@ -73,6 +73,7 @@ export function useCommandHandlers(): CommandRuntime {
   const terminalDetached = useUiStore((s) => s.terminalDetached);
   const reposDetached = useUiStore((s) => s.reposDetached);
   const fabDetached = useUiStore((s) => s.fabDetached);
+  const companionEnabled = useUiStore((s) => s.companionEnabled);
   const browserDetached = useUiStore((s) => s.browserDetached);
   // The four *Detached flags and the panel-open flags below are main's own
   // — a popout's own ui-store instance never reflects them (see ui-store.ts).
@@ -173,6 +174,19 @@ export function useCommandHandlers(): CommandRuntime {
     // (Theme E), which is what its `L` row opens the Loops panel via.
     'fab.toggle': { enabled: true, run: () => useUiStore.getState().toggleQuickAccess() },
     'notes.toggle': { enabled: true, run: () => useUiStore.getState().toggleNotes() },
+    /*
+      Phase 79 Theme C. Disabled — with a reason, so the palette row explains
+      itself — while the companion is switched off: the panel would render
+      nothing (`CompanionPanelSlot` gates on the same flag), and a command that
+      opens an empty column is worse than one that says why it will not.
+    */
+    'companion.toggle': companionEnabled
+      ? { enabled: true, run: () => useUiStore.getState().toggleCompanionPanel() }
+      : {
+          enabled: false,
+          disabledReason: 'Enable the companion in Settings \u25b8 Companion',
+          run: () => {},
+        },
     /*
       Flips `linkTarget` between the embedded browser and the system one
       (Phase 71 Theme A). Enabled unconditionally: it needs no repo, no open

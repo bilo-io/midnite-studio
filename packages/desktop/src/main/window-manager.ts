@@ -34,6 +34,10 @@ const DEFAULT_POPOUT_SIZE: Record<Exclude<WindowRole, 'main'>, { width: number; 
   terminal: { width: 1100, height: 640 },
   repos: { width: 420, height: 900 },
   fab: { width: 520, height: 820 },
+  // The companion is a chat thread with a docked input bar — narrower than
+  // Loops' console, and taller than it is wide for the same reason a chat
+  // window always is.
+  companion: { width: 460, height: 780 },
   browser: { width: 1280, height: 860 },
   graph: { width: 1280, height: 860 },
   actions: { width: 1180, height: 800 },

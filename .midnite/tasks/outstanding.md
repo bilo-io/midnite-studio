@@ -44,16 +44,6 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   Wants a home in `terminal-page.tsx`'s shape — an "Editor" settings page, or an accordion on
   whichever page ends up owning the Monaco surface.
 
-- **Five more persisted preferences with no settings page — `companion*`.** Landed by
-  [Phase 79](phases/phase-79-the-companion-that-answers-back.md) Theme A:
-  `companionEnabled`, `companionHandsFree`, `companionHonorific`, `companionVoice`,
-  `companionMusicOffer` in `ui-store.ts`. Unlike the two entries above these are orphaned **on
-  purpose and only briefly**: that phase's own **Theme H** builds
-  `settings-pages/companion-page.tsx`, the page they belong on, and Theme A ships first because the
-  state machine, the store and the switches are what every other theme in the phase imports. They
-  sit in `persisted-keys.ts`'s `KNOWN_ORPHANS` allow-list until Theme H lands, at which point its
-  PR deletes all five entries rather than widening the list.
-
 - **Interactive rebase** — via a `GIT_SEQUENCE_EDITOR` helper binary that writes the UI's todo
   list; `GIT_EDITOR` for reword. Impossible with libgit2/isomorphic-git; CLI-only trick.
 - ~~**Proper diff viewer**~~ — ✅ landed in Phase 12 Theme D: parsed hunks over IPC, one shared

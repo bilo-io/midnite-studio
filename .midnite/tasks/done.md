@@ -2,6 +2,76 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-08 — Phase 79 Themes C, H — the companion panel, the FAB's four looks and its Settings page
+
+[PR #270](https://github.com/bilo-io/midnite-studio/pull/270). Moves Phase 79 12/67 → 27/67
+(18% → 40%). The companion becomes something you can see and type into: a second right-docked
+resizable column left of the Loops panel, a `C` leaf in the quick-access menu, four looks on the
+FAB, and the Settings page the five preferences Theme A parked in `KNOWN_ORPHANS` were waiting for.
+
+**Theme C.** `features/companion/` gains the panel, its header, its thread and its docked input bar
+plus `companion-ports.ts`, and `app.tsx` gains a fifth `useResizable` — declared *before* the FAB
+panel block so the flex row reads `main · companion · loops` with both open, with its handle on its
+own left edge and the Loops panel's untouched. Its `max` is `LAYOUT_BOUNDS.companionPanelWidth`
+verbatim, the only right-docked panel whose ceiling is not a share of the viewport: a chat thread
+has a reading width and does not want the window. The width persists (inside the existing `layout`
+key); the open flag deliberately does not, because opening the panel is what makes it greet and a
+greeting on every launch is a nuisance. The thread virtualises with **dynamic measurement** rather
+than `results-grid.tsx`'s fixed row height — a turn is wrapped prose in a resizable column, so a
+fixed estimate misplaces every offset the instant the splitter moves — and auto-scroll pins to the
+bottom only while already there, with a "Jump to latest" chip otherwise. Agent turns collapse
+behind their first line in a `<details>`, so a chunk of scrollback does not become the thing you
+scroll past to find the next sentence. `companion.toggle` is declared **chord-free**: the letter it
+wants is `C`, and `Mod+c` is copy everywhere while `Mod+Shift+c` is Chromium's element picker —
+neither is available, and `Mod+l` then `C` is already the two-keystroke path, so the command exists
+for the palette and the menu bar. Detach is fully wired as a fifth `PanelWindowRole`.
+
+**The seam, and why it is a registry.** `companion-ports.ts` holds `submit · greet · interrupt ·
+repeat · micPressStart · micPressEnd · micAvailable` with no-op defaults, merged into by
+`setCompanionPorts`. This slice landed before Themes D/E and F/G, so a panel that imported their
+entry points could not have compiled until they merged — the one thing the three-way split existed
+to avoid. The default `submit` posts the user's turn itself, so the input bar works and is
+e2e-testable with nothing registered. `use-companion-enabled.ts` sends `enable`/`disable` from
+`companionEnabled` **at the app root**, not on the panel's mount: the FAB, the mini FAB and the
+quick-access popover all read the machine while the panel is closed, and all three would otherwise
+have read "Off" for a companion that was switched on and simply not opened.
+
+**Theme H.** Four `[data-companion-state]` looks in `styles.css` — listening breathes a cool teal
+glow, thinking rotates a conic border with the glow pulsing 0 → 24px, handoff is the same rotation
+at half speed in the loops' own rainbow (it reads as *an agent has this*), and speaking takes its
+box-shadow radius and brightness straight from `--companion-level`, a registered inheriting
+property Theme F's speaker will set once on `document.documentElement`. Every rule keys on
+`.companion-face[data-companion-state]` rather than the bare attribute, for two load-bearing
+reasons: `.loop-run-glow.on-primary` and `.gradient-frame[data-loops-running='false']` are both
+0,2,0 specificity and a bare attribute would lose to them (inverting the theme's own "companion
+wins over loop state" rule), and `styles-motion-guards.ts` finds a keyframe's reduced-motion guard
+by looking for a class shared with a `@media (prefers-reduced-motion: reduce)` block, which an
+attribute-only selector cannot supply. `--companion-waiting-inset` is the amber layer every state
+composes into its shadow, so a loop asking you a question is never hidden behind a whistle
+(Decision 12). Settings ▸ Companion ships Enable · Voice · Microphone · Hands-free run ·
+Personality, with the last one's copy pattern lifted from Git Safety's force-push switch, and
+deletes all five `companion*` entries from `KNOWN_ORPHANS`, its test and `outstanding.md`.
+
+**Three deviations, disclosed rather than taken quietly.** The *assistant popover* this theme was
+written against no longer exists — Phase 58 Theme E had already replaced its placeholder string,
+leaving `assistant-menu.tsx` as purely the trigger — so the specified body landed in
+`quick-access-menu.tsx` as a strip above the rows, with the `C` leaf doubling as the "open
+companion" row and a `R` Repeat row appearing only once the companion has said something. Two of
+the Settings page's five sections are thinner than the doc describes and say so on the page: the
+voice preview, the volume slider and the whole provider/masked-key/Test row need Theme F's speaker
+and credential seam, and a greyed-out dropdown with nothing behind it invites a click that cannot
+do anything. And the e2e spec asserts what this slice owns — the switch gates the leaf, `C` opens
+the panel, the DOM order is right, typing posts a turn, Escape clears without closing, the mic
+names where to fix itself — but **not** the greeting or the hand-off, whose ports are no-ops here;
+those two assertions stay open in Themes D and E.
+
+**One real collision found by the e2e, not by reading.** The FAB is `absolute bottom-4 right-4`
+inside the whole content row, so it floats over whichever right-docked column is last — and with
+Loops shut that is the companion, directly on top of its send and mic buttons. Hiding the FAB (the
+Loops panel's own answer) was rejected: watching it run listening → thinking → handoff → speaking
+is this theme's entire point, and hiding it would leave that visible only while the panel was
+closed. The input bar reserves the 56px corner instead.
+
 ## 2026-09-08 — Phase 79 Themes A, B — the companion's state, its words and its grounding
 
 [PR #269](https://github.com/bilo-io/midnite-studio/pull/269). Moves Phase 79 0/67 → 12/67 (0% →

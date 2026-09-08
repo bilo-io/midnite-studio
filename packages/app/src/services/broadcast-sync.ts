@@ -258,6 +258,7 @@ type UiSlice = Pick<
   | 'terminalDetached'
   | 'reposDetached'
   | 'fabDetached'
+  | 'companionDetached'
   | 'browserDetached'
 >;
 
@@ -268,6 +269,7 @@ function pickUi(state: UiState): UiSlice {
     terminalDetached: state.terminalDetached,
     reposDetached: state.reposDetached,
     fabDetached: state.fabDetached,
+    companionDetached: state.companionDetached,
     browserDetached: state.browserDetached,
   };
 }

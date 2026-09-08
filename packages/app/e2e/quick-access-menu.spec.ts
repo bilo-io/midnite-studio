@@ -23,27 +23,32 @@ const rowNames = (page: Page) =>
     .getByRole('menuitem')
     .evaluateAll((nodes) => nodes.map((node) => node.textContent?.trim().split('\n')[0] ?? ''));
 
-const FOUR_ROWS = ['Loops', 'Notes', 'Report Issue', 'Guided tour'];
+/*
+  Five since Phase 79 Theme C put `Companion` between Loops and Notes. Not
+  six: the companion's own `Repeat` row is absent until it has said something,
+  and nothing here makes it speak — see `companion-panel.spec.ts`.
+*/
+const FIVE_ROWS = ['Loops', 'Companion', 'Notes', 'Report Issue', 'Guided tour'];
 
-test('the FAB opens the menu with the four rows, in order', async ({ page }) => {
+test('the FAB opens the menu with the five rows, in order', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
 
   await expect(menu(page)).toBeVisible();
-  await expect(menu(page).getByRole('menuitem')).toHaveCount(4);
+  await expect(menu(page).getByRole('menuitem')).toHaveCount(5);
   const names = await rowNames(page);
-  for (const [index, name] of FOUR_ROWS.entries()) {
+  for (const [index, name] of FIVE_ROWS.entries()) {
     expect(names[index]).toContain(name);
   }
 });
 
-test('the assistant menu opens the same component with the same four rows', async ({ page }) => {
+test('the assistant menu opens the same component with the same five rows', async ({ page }) => {
   await open(page);
   await page.getByTestId('assistant-menu').click();
 
   await expect(menu(page)).toBeVisible();
   const names = await rowNames(page);
-  for (const [index, name] of FOUR_ROWS.entries()) {
+  for (const [index, name] of FIVE_ROWS.entries()) {
     expect(names[index]).toContain(name);
   }
 });
@@ -78,7 +83,7 @@ test('Meta+L opens the menu, then I changes nothing and leaves the menu open', a
   await expect(menu(page)).toBeVisible();
 
   await page.keyboard.press('i');
-  // Still up, still showing the same four rows — a disabled row's mnemonic
+  // Still up, still showing the same five rows — a disabled row's mnemonic
   // is a no-op with a hint, never a dead end that quietly closes the menu.
   await expect(menu(page)).toBeVisible();
   await expect(menu(page).getByText('Coming soon')).toBeVisible();

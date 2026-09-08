@@ -14,6 +14,8 @@ import { PaletteHost } from './components/palette-host';
 import { ToastHost } from './components/toast-host';
 import { BrowserPane } from './features/browser/browser-pane';
 import { FabPanel } from './components/fab-panel';
+import { CompanionPanel } from './features/companion/companion-panel';
+import { useCompanionEnabledSync } from './features/companion/use-companion-enabled';
 import { ReposPanel } from './features/repos/repos-panel';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useBroadcastSync } from './services/broadcast-sync';
@@ -64,6 +66,7 @@ const ROLE_TITLE: Record<Exclude<WindowRole, 'main'>, string> = {
   terminal: 'Terminal',
   repos: 'Git Repos',
   fab: 'Midnite Loops',
+  companion: 'Midnite Companion',
   browser: 'Browser',
   ...PAGE_ROLE_TITLE,
 };
@@ -92,6 +95,8 @@ function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
   if (role === 'repos') return <ReposPanel />;
 
   if (role === 'fab') return <FabPanel isOpen width={width} fitSignal={fitSignal} />;
+
+  if (role === 'companion') return <CompanionPanel width={width} />;
 
   if (role === 'browser') {
     return (
@@ -148,6 +153,14 @@ function DetachedShell({ role }: { role: Exclude<WindowRole, 'main'> }) {
   // `localStorage` hydration notwithstanding (E.3).
   useAppearanceSync();
   useBroadcastSync();
+  /*
+    Same reason as `useAppearanceSync` above: this window has its own
+    `companion-store` instance, whose machine starts `off` and would stay there
+    — so a detached companion would render "Off" in its own header while the
+    main window's said otherwise. `companionEnabled` reaches here through
+    `ui-store`'s persisted state and `useBroadcastSync`.
+  */
+  useCompanionEnabledSync();
   return (
     <DetachedWindowFrame role={role} title={ROLE_TITLE[role]}>
       <DetachedContent role={role} />

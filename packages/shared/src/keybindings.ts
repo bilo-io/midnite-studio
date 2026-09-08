@@ -140,6 +140,26 @@ export const COMMANDS = [
    */
   { id: 'notes.toggle', label: 'Notes', group: 'view' },
   /**
+   * The companion panel (Phase 79 Theme C). Chord-free, for the same reason
+   * `notes.toggle` above is and then one more.
+   *
+   * The same reason: the companion is one of the quick-access menu's own rows
+   * (`C`), so `Mod+l` then `C` already reaches it in two keystrokes and a
+   * global chord would be a second door on the same room.
+   *
+   * The one more: the letter this command would want is `C`, and `Mod+c` is
+   * copy on every platform. `Mod+Shift+c` is DevTools' element picker in every
+   * Chromium, this app's renderer included. Neither is available, and taking a
+   * third letter that does not name the feature teaches nothing — so the menu
+   * mnemonic is the whole keyboard path, and this row exists for the palette
+   * and the menu bar.
+   *
+   * Palette and menu labels for a chord-free command come from `COMMANDS`, not
+   * `DEFAULT_KEYMAP` (which drops every entry with no chord) — read from the
+   * keymap this renders as the raw id.
+   */
+  { id: 'companion.toggle', label: 'Companion', group: 'view' },
+  /**
    * Flip where a link opens between the embedded browser and the system one
    * (Phase 71 Theme A). Deliberately chord-free: the modifiers are the
    * per-click escape hatch (`Shift` for the system browser, `Mod` for the
