@@ -4,6 +4,7 @@ import {
   interpolatePhrase,
   markdownToSpeech,
   pickPhrase,
+  sanitizeForSpeech,
   splitForSpeech,
   type CompanionDigest,
   type CompanionPhraseKind,
@@ -119,9 +120,13 @@ export async function say(
  * so the two can never say different things. A single `say(deps, markdown)`
  * would have the companion reading asterisks and URLs out loud, which is a
  * worse regression than the twelve bubbles this replaced.
+ *
+ * {@link sanitizeForSpeech} runs on top of that projection (Phase 80 Theme
+ * A) — it never touches the markdown itself, only the derived speech string,
+ * so the thread still shows the SHA/path/URL and only the voice redacts it.
  */
 export async function sayMarkdown(deps: ConciergeDeps, markdown: string): Promise<CompanionTurn> {
-  return say(deps, markdown, 'companion', markdownToSpeech(markdown));
+  return say(deps, markdown, 'companion', sanitizeForSpeech(markdownToSpeech(markdown)));
 }
 
 /** Pick a phrase, resolve the honorific, and remember the pick so the next one differs. */
