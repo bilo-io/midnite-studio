@@ -9,7 +9,6 @@ import { registerUpdater } from './update-service';
 import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
 import { readSystemHealth } from './system-health';
 
-
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
 import { destroyAllBrowserTabs } from './browser-service';
@@ -22,6 +21,9 @@ import { disposeScriptRunner } from './api-client/script-runner-broker';
 import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
+import { createCompanionStore } from './companion/companion-store';
+import { configureCompanion } from './companion/digest';
+import { registerCompanionHandlers } from './ipc/companion-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
 import { createSessionHistoryStore } from './session-history-store';
 import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
@@ -363,6 +365,7 @@ if (!app.requestSingleInstanceLock()) {
     registerDemoApiHandlers();
     registerApiClientHandlers(getMainWindow);
     registerMcpHandlers();
+    registerCompanionHandlers();
     registerUpdater(getMainWindow);
     registerReleaseNotesHandlers();
     ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
@@ -482,6 +485,13 @@ if (!app.requestSingleInstanceLock()) {
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
     configureDb(createConnectionsStore(userData), createCredentialVault(userData));
+    /*
+      The companion's per-repo "last greeted" mark (Phase 79 Theme B, Decision
+      11) — a `companion.json` beside `mcp.json`, wired here beside every other
+      `userData` store. Synchronous module-state assignment, like the rest: a
+      `companion:digest` can arrive on the renderer's first paint.
+    */
+    configureCompanion(createCompanionStore(userData));
 
     /*
       Three independent boot chains, run at once (Theme B). They were sequential
@@ -577,7 +587,9 @@ if (!app.requestSingleInstanceLock()) {
       if (outcome.status === 'rejected') {
         defaultLogger(
           `[boot] ${chainNames[index]} failed: ${
-            outcome.reason instanceof Error ? outcome.reason.stack ?? outcome.reason.message : String(outcome.reason)
+            outcome.reason instanceof Error
+              ? (outcome.reason.stack ?? outcome.reason.message)
+              : String(outcome.reason)
           }`,
         );
       }
@@ -608,9 +620,7 @@ if (!app.requestSingleInstanceLock()) {
 
     // Watch what was restored. After this the handlers reconcile on every
     // open/close, so there is exactly one place that starts a watcher at boot.
-    await reconcileWatchers(
-      (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })),
-    );
+    await reconcileWatchers((await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })));
 
     // macOS: clicking the dock icon with no windows open reopens one.
     app.on('activate', () => {

@@ -21,6 +21,7 @@ import type {
   WindowRole,
   Worktree,
 } from '../domain';
+import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { PerfMark } from '../perf';
 import type * as S from './schemas';
@@ -129,22 +130,17 @@ export type MidniteStudioBridge = {
   };
 
   search: {
-    start: (
-      req: In<typeof S.SearchStartRequest>,
-    ) => Promise<z.infer<typeof S.SearchStartResponse>>;
+    start: (req: In<typeof S.SearchStartRequest>) => Promise<z.infer<typeof S.SearchStartResponse>>;
     cancel: (req: In<typeof S.SearchCancelRequest>) => Promise<void>;
     onBatch: (handler: (e: z.infer<typeof S.SearchBatchEvent>) => void) => Unsubscribe;
     onDone: (handler: (e: z.infer<typeof S.SearchDoneEvent>) => void) => Unsubscribe;
   };
 
   blame: {
-    read: (
-      req: In<typeof S.BlameReadRequest>,
-    ) => Promise<z.infer<typeof S.BlameReadResponse>>;
+    read: (req: In<typeof S.BlameReadRequest>) => Promise<z.infer<typeof S.BlameReadResponse>>;
   };
 
   status: {
-
     get: (req: In<typeof S.StatusGetRequest>) => Promise<StatusResult>;
     /**
      * Per-path `+n −n` for the same checkout `get` describes.
@@ -190,7 +186,9 @@ export type MidniteStudioBridge = {
     continue: (req: In<typeof S.RebaseContinueRequest>) => Promise<GitOpResult>;
     abort: (req: In<typeof S.RebaseAbortRequest>) => Promise<GitOpResult>;
     skip: (req: In<typeof S.RebaseSkipRequest>) => Promise<GitOpResult>;
-    status: (req: In<typeof S.RebaseStatusRequest>) => Promise<z.infer<typeof S.RebaseStatusResponse>>;
+    status: (
+      req: In<typeof S.RebaseStatusRequest>,
+    ) => Promise<z.infer<typeof S.RebaseStatusResponse>>;
   };
 
   /**
@@ -218,7 +216,9 @@ export type MidniteStudioBridge = {
     cliStatus: () => Promise<z.infer<typeof S.ForgeCliStatusResponse>>;
     runs: (req: In<typeof S.ForgeRunsRequest>) => Promise<z.infer<typeof S.ForgeRunsResponse>>;
     pulls: (req: In<typeof S.ForgePullsRequest>) => Promise<z.infer<typeof S.ForgePullsResponse>>;
-    issues: (req: In<typeof S.ForgeIssuesRequest>) => Promise<z.infer<typeof S.ForgeIssuesResponse>>;
+    issues: (
+      req: In<typeof S.ForgeIssuesRequest>,
+    ) => Promise<z.infer<typeof S.ForgeIssuesResponse>>;
     /** One issue's metadata — body plus every listing field. */
     issueDetail: (
       req: In<typeof S.ForgeIssueDetailRequest>,
@@ -232,7 +232,9 @@ export type MidniteStudioBridge = {
       req: In<typeof S.ForgeRunDetailRequest>,
     ) => Promise<z.infer<typeof S.ForgeRunDetailResponse>>;
     /** A capped log, unless `full` is asked for. Never a silently short one. */
-    runLog: (req: In<typeof S.ForgeRunLogRequest>) => Promise<z.infer<typeof S.ForgeRunLogResponse>>;
+    runLog: (
+      req: In<typeof S.ForgeRunLogRequest>,
+    ) => Promise<z.infer<typeof S.ForgeRunLogResponse>>;
     /** Workflow definitions, for their file paths. Lazy — see the channel doc. */
     workflows: (
       req: In<typeof S.ForgeWorkflowsRequest>,
@@ -483,9 +485,7 @@ export type MidniteStudioBridge = {
      * nothing — see {@link S.PtyAgentChangedEvent} for why that is a different
      * thing from never having been told.
      */
-    onAgentChanged: (
-      handler: (e: z.infer<typeof S.PtyAgentChangedEvent>) => void,
-    ) => Unsubscribe;
+    onAgentChanged: (handler: (e: z.infer<typeof S.PtyAgentChangedEvent>) => void) => Unsubscribe;
     /** The shell's foreground process changed — see the channel's own doc. */
     onCommandChanged: (
       handler: (e: z.infer<typeof S.PtyCommandChangedEvent>) => void,
@@ -536,7 +536,9 @@ export type MidniteStudioBridge = {
    * subsystem — see {@link S.BrowserEventPayload}.
    */
   browser: {
-    create: (req: In<typeof S.BrowserCreateRequest>) => Promise<z.infer<typeof S.BrowserCreateResponse>>;
+    create: (
+      req: In<typeof S.BrowserCreateRequest>,
+    ) => Promise<z.infer<typeof S.BrowserCreateResponse>>;
     close: (req: In<typeof S.BrowserCloseRequest>) => void;
     navigate: (req: In<typeof S.BrowserNavigateRequest>) => void;
     back: (req: In<typeof S.BrowserBackRequest>) => void;
@@ -595,7 +597,9 @@ export type MidniteStudioBridge = {
       start: (
         req: In<typeof S.CouncilRunStartRequest>,
       ) => Promise<z.infer<typeof S.CouncilRunStartResponse>>;
-      get: (req: In<typeof S.CouncilRunGetRequest>) => Promise<z.infer<typeof S.CouncilRunGetResponse>>;
+      get: (
+        req: In<typeof S.CouncilRunGetRequest>,
+      ) => Promise<z.infer<typeof S.CouncilRunGetResponse>>;
       list: (
         req: In<typeof S.CouncilRunListRequest>,
       ) => Promise<z.infer<typeof S.CouncilRunListResponse>>;
@@ -625,9 +629,7 @@ export type MidniteStudioBridge = {
    * request types — and every one resolves to a `GitOpResult`, never rejects.
    */
   fs: {
-    listDir: (
-      req: In<typeof S.FsListDirRequest>,
-    ) => Promise<z.infer<typeof S.FsListDirResponse>>;
+    listDir: (req: In<typeof S.FsListDirRequest>) => Promise<z.infer<typeof S.FsListDirResponse>>;
     readFile: (
       req: In<typeof S.FsReadFileRequest>,
     ) => Promise<z.infer<typeof S.FsReadFileResponse>>;
@@ -711,7 +713,9 @@ export type MidniteStudioBridge = {
   workflow: {
     list: () => Promise<z.infer<typeof S.WorkflowListResponse>>;
     /** Upsert. A create is a save of an id the store has not seen before. */
-    save: (req: In<typeof S.WorkflowSaveRequest>) => Promise<z.infer<typeof S.WorkflowSaveResponse>>;
+    save: (
+      req: In<typeof S.WorkflowSaveRequest>,
+    ) => Promise<z.infer<typeof S.WorkflowSaveResponse>>;
     /** Refused while one of this workflow's runs is still in flight. */
     delete: (req: In<typeof S.WorkflowDeleteRequest>) => Promise<GitOpResult>;
     run: (req: In<typeof S.WorkflowRunRequest>) => Promise<z.infer<typeof S.WorkflowRunResponse>>;
@@ -755,7 +759,9 @@ export type MidniteStudioBridge = {
   video: {
     project: {
       list: () => Promise<z.infer<typeof S.VideoProjectListResponse>>;
-      get: (req: In<typeof S.VideoProjectGetRequest>) => Promise<z.infer<typeof S.VideoProjectGetResponse>>;
+      get: (
+        req: In<typeof S.VideoProjectGetRequest>,
+      ) => Promise<z.infer<typeof S.VideoProjectGetResponse>>;
       create: (
         req: In<typeof S.VideoProjectCreateRequest>,
       ) => Promise<z.infer<typeof S.VideoProjectCreateResponse>>;
@@ -775,7 +781,9 @@ export type MidniteStudioBridge = {
         req: In<typeof S.VideoRenderStartRequest>,
       ) => Promise<z.infer<typeof S.VideoRenderStartResponse>>;
       cancel: (req: In<typeof S.VideoRenderCancelRequest>) => Promise<GitOpResult>;
-      list: (req: In<typeof S.VideoRenderListRequest>) => Promise<z.infer<typeof S.VideoRenderListResponse>>;
+      list: (
+        req: In<typeof S.VideoRenderListRequest>,
+      ) => Promise<z.infer<typeof S.VideoRenderListResponse>>;
     };
     toolchain: (
       req: In<typeof S.VideoToolchainRequest>,
@@ -799,10 +807,16 @@ export type MidniteStudioBridge = {
     /** The Settings page's own read/write of the one setting Video Studio has. */
     root: {
       get: () => Promise<z.infer<typeof S.VideoRootGetResponse>>;
-      set: (req: In<typeof S.VideoRootSetRequest>) => Promise<z.infer<typeof S.VideoRootSetResponse>>;
+      set: (
+        req: In<typeof S.VideoRootSetRequest>,
+      ) => Promise<z.infer<typeof S.VideoRootSetResponse>>;
     };
-    onStudioChanged: (handler: (event: z.infer<typeof S.VideoStudioChangedPayload>) => void) => Unsubscribe;
-    onRenderProgress: (handler: (event: z.infer<typeof S.VideoRenderProgressPayload>) => void) => Unsubscribe;
+    onStudioChanged: (
+      handler: (event: z.infer<typeof S.VideoStudioChangedPayload>) => void,
+    ) => Unsubscribe;
+    onRenderProgress: (
+      handler: (event: z.infer<typeof S.VideoRenderProgressPayload>) => void,
+    ) => Unsubscribe;
   };
 
   /**
@@ -812,7 +826,9 @@ export type MidniteStudioBridge = {
    * exact paths the renderer is holding an approved plan for.
    */
   scaffold: {
-    plan: (req: In<typeof S.ScaffoldPlanRequest>) => Promise<z.infer<typeof S.ScaffoldPlanResponse>>;
+    plan: (
+      req: In<typeof S.ScaffoldPlanRequest>,
+    ) => Promise<z.infer<typeof S.ScaffoldPlanResponse>>;
     apply: (
       req: In<typeof S.ScaffoldApplyRequest>,
     ) => Promise<z.infer<typeof S.ScaffoldApplyResponse>>;
@@ -887,7 +903,9 @@ export type MidniteStudioBridge = {
      * build, so a cross-origin fetch would need the CSP widened for one string
      * of markdown. Main already owns every other outbound request this app makes.
      */
-    releaseNotes: (req: In<typeof S.ReleaseNotesRequest>) => Promise<z.infer<typeof S.ReleaseNotesResponse>>;
+    releaseNotes: (
+      req: In<typeof S.ReleaseNotesRequest>,
+    ) => Promise<z.infer<typeof S.ReleaseNotesResponse>>;
   };
 
   /**
@@ -937,16 +955,22 @@ export type MidniteStudioBridge = {
    */
   optimizer: {
     /** Walks every registered repo/worktree plus one optional extra root. */
-    scan: (req: In<typeof S.OptimizerScanRequest>) => Promise<z.infer<typeof S.OptimizerScanResponse>>;
+    scan: (
+      req: In<typeof S.OptimizerScanRequest>,
+    ) => Promise<z.infer<typeof S.OptimizerScanResponse>>;
     /** `{done, total}` — driven by the walk itself, not a timer. */
     onScanProgress: (
       handler: (event: z.infer<typeof S.OptimizerScanProgressEventSchema>) => void,
     ) => Unsubscribe;
     /** Re-validates each path before moving it to the trash. */
-    clean: (req: In<typeof S.OptimizerCleanRequest>) => Promise<z.infer<typeof S.OptimizerCleanResponse>>;
+    clean: (
+      req: In<typeof S.OptimizerCleanRequest>,
+    ) => Promise<z.infer<typeof S.OptimizerCleanResponse>>;
     processes: () => Promise<z.infer<typeof S.OptimizerProcessesResponse>>;
     /** `expectArgv` guards against a recycled PID between render and confirm. */
-    kill: (req: In<typeof S.OptimizerKillRequest>) => Promise<z.infer<typeof S.OptimizerKillResponse>>;
+    kill: (
+      req: In<typeof S.OptimizerKillRequest>,
+    ) => Promise<z.infer<typeof S.OptimizerKillResponse>>;
     gpu: () => Promise<z.infer<typeof S.OptimizerGpuResponse>>;
     /** Read-only: walks ~/.Trash plus every mounted volume's own Trash. Never a delete target. */
     trashSummary: () => Promise<z.infer<typeof S.OptimizerTrashSummaryResponse>>;
@@ -987,9 +1011,7 @@ export type MidniteStudioBridge = {
     toggleMaximize: () => void;
     close: () => void;
     getState: () => Promise<z.infer<typeof S.WindowStateSchema>>;
-    onStateChange: (
-      handler: (state: z.infer<typeof S.WindowStateSchema>) => void,
-    ) => Unsubscribe;
+    onStateChange: (handler: (state: z.infer<typeof S.WindowStateSchema>) => void) => Unsubscribe;
     /** `false` for a plain reload, `true` to bypass the HTTP cache. */
     reload: (hard: boolean) => void;
     /** Zoom the host window's own renderer — see {@link S.WindowZoomRequest}. */
@@ -1003,15 +1025,11 @@ export type MidniteStudioBridge = {
     /** Every currently-open window, main included. */
     list: () => Promise<WindowDescriptor[]>;
     /** The open-window list changed. */
-    onWindowsChanged: (
-      handler: (e: z.infer<typeof S.WindowsChangedEvent>) => void,
-    ) => Unsubscribe;
+    onWindowsChanged: (handler: (e: z.infer<typeof S.WindowsChangedEvent>) => void) => Unsubscribe;
     /** Fire-and-forget: ask main to rebroadcast a sync message to every other window. */
     relay: (message: z.infer<typeof S.WindowRelayMessage>) => void;
     /** A `relay` message from another window, rebroadcast by main. */
-    onRelayed: (
-      handler: (message: z.infer<typeof S.WindowRelayMessage>) => void,
-    ) => Unsubscribe;
+    onRelayed: (handler: (message: z.infer<typeof S.WindowRelayMessage>) => void) => Unsubscribe;
   };
 
   /**
@@ -1168,6 +1186,20 @@ export type MidniteStudioBridge = {
     set: (req: In<typeof S.McpSetRequest>) => Promise<z.infer<typeof S.McpSetResponse>>;
     /** Pulled on an interval while the Settings page is open, never pushed. */
     calls: () => Promise<z.infer<typeof S.McpCallsResponse>>;
+  };
+
+  /**
+   * What the companion knows before it says anything (Phase 79 Theme B).
+   *
+   * Both calls are read-only and always resolve — a forge that cannot be
+   * reached comes back with `openPulls: null`, not a rejection, because a
+   * greeting that stalls on a network timeout is worse than one that admits a
+   * field is missing. Neither needs the MCP *server* enabled: main composes
+   * the same tools in-process.
+   */
+  companion: {
+    snapshot: (req: In<typeof S.CompanionSnapshotRequest>) => Promise<CompanionSnapshot>;
+    digest: (req: In<typeof S.CompanionDigestRequest>) => Promise<CompanionDigest>;
   };
 };
 

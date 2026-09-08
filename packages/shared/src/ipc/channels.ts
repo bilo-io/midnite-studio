@@ -820,6 +820,17 @@ export const CHANNELS = {
   mcpSet: 'mstudio:mcp:set',
   /** The last 50 tool calls from the in-memory audit ring. Pulled, never pushed. */
   mcpCalls: 'mstudio:mcp:calls',
+
+  // --- the companion's grounding (Phase 79 Theme B) ---------------------------
+  // Two invoke channels, both read-only, both *composed* in main out of the
+  // Phase 57 MCP tools rather than parsing git themselves — the companion lives
+  // in the same process, so `dispatchMcpCall` is a function call, not a socket
+  // round-trip, and the MCP server does not have to be enabled for either of
+  // these to answer (see `main/companion/`).
+  /** Where the repo stands right now — branch, ahead/behind, dirty counts, live sessions, open PRs, failing checks. */
+  companionSnapshot: 'mstudio:companion:snapshot',
+  /** What landed since the companion last greeted this repo, and what is still in flight. */
+  companionDigest: 'mstudio:companion:digest',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */

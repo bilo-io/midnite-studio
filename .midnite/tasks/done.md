@@ -2,6 +2,86 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-08 — Phase 79 Themes A, B — the companion's state, its words and its grounding
+
+[PR #269](https://github.com/bilo-io/midnite-studio/pull/269). Moves Phase 79 0/67 → 12/67 (0% →
+18%). The foundation the phase's other six themes import, landed with no UI: a state machine, the
+words it will say, the store that holds a thread, and the two channels that tell it where the repo
+stands.
+
+**Theme A.** `packages/shared/src/companion.ts` — a 7-state / 11-event **total** `transition`
+table, where every state × every event yields a state and an illegal pairing yields the state it
+was already in (asserted by enumerating the full product), so the store needs no try/catch and a
+stray event from a late timer or a torn-down pty is a no-op rather than a crash. `handoff` is the
+state while a pty *the companion started* is still thinking/waiting, returning to `idle` on `exit`
+or an idle activity event; `disable` wins from anywhere; `handoff` refuses `submit` (Decision 10).
+Six phrase banks (`greetings`, `signoffs`, `fillers`, `quotes`, `musicOffers`, `prompts`), all
+quotes unattributed and original per the phase's own guardrail. `interpolatePhrase` resolves
+`{name}` **and collapses the punctuation that only existed to set it off** — the templates write
+`Okay{name},` with no space of their own, and the space is inserted only when there is a name, so
+the *empty* case (the default) is the one that needs no cleaning up; a test walks every template in
+every bank through it and asserts no double space, no orphan comma, no leading/trailing space.
+`pickPhrase(bank, recent, rng?)` with a `min(3, bank.length - 1)` no-repeat window, sized so a
+candidate always survives, deterministic under an injected RNG. `app/src/store/companion-store.ts`
+holds the machine (starting `off`, agreeing with the default-off setting, advanced only through
+`send`), a 200-turn persisted transcript, per-bank phrase memory and `activeHandoff`; it persists
+the transcript and nothing else — a persisted `handoff` would wait forever on a pty that died with
+the window. Five preferences in `ui-store.ts` (`companionEnabled`, `companionHandsFree`,
+`companionHonorific`, `companionVoice`, `companionMusicOffer`), in `PersistedUi`, in `partialize`,
+and seeded by a new persist `version 11 → 12` migration.
+
+**Theme B.** `companionSnapshot` and `companionDigest`, both invoke, both **composed** in
+`main/companion/` out of `dispatchMcpCall` — the same zod-validated, registry-checked answers an
+external agent gets, with no socket round-trip and without the MCP *server* being enabled (it is
+off by default and this path never touches it). A second git parser for the companion would have
+been a second place for `-z` handling to be got wrong. The snapshot's forge fields are **nullable
+by contract, not by convenience**: `openPulls: null` means "I could not reach GitHub", which the
+script says out loud and carries on, and both forge calls race a 3 s cap **in parallel** — one
+after the other would make the worst case two timeouts deep, six seconds before a greeting.
+`cli.reason !== 'ready'` and a non-null `error` both collapse to `null` rather than 0, because "no
+open pull requests" is a claim this code does not know. The digest's landed half is a first-parent
+walk from the default-branch tip since the mark, plus merged PRs, plus `done.md` entries; its
+in-progress half is open PRs, local branches with unpushed work, and `_INDEX.md` `🔄 WIP` rows.
+Both tracker files are read through `confineToRoot` (the fs jail) since they sit inside the repo,
+and a `.midnite` that symlinks out of the checkout is refused — covered by a test that builds
+exactly that. The per-repo "last greeted" mark is `companion.json` under `userData` beside
+`mcp.json` (**Decision 11**), keyed by repo *id*, `mcp-store.ts` as the crib line for line, and
+**monotonic**: two windows greeting the same repo, or a caller passing a narrower explicit `since`,
+can never walk it backwards and re-narrate history the user already heard. Reading a digest does
+**not** move the mark unless asked (`mark: true`) — the panel re-renders it and Theme D re-reads it
+after a switch offer, and a read that narrowed its own window would come back empty the second
+time. `summariseDigest` is pure, in `shared`, and fixture-tested: 2–5 spoken sentences, titles
+named up to five and collapsed to counts past it, with the window phrased as *earlier today* /
+*yesterday* / *since Friday* / *in the last N weeks*.
+
+**One new export in `pty-service.ts`,** `livePtyActivityCounts()`, counted from its own
+`activityTracking` map and `activePtyPids()` rather than from `listTerminals()` — the other route
+to the same three numbers, which also reads scrollback off disk for every session. A greeting must
+not pay for that.
+
+**Two deviations from the doc's literal wording, disclosed rather than silently taken.** The
+snapshot does **not** call `branch.list`: `status.get` already returns
+`branch.head`/`ahead`/`behind` from one subprocess, and `repo.resolve` returns the branch at the
+requested path (which may be a linked worktree whose branch differs from `repo.headRef`), so a
+fifth call on the path that runs before the first spoken word would buy nothing. The digest does
+call it, where its per-ref data is needed. And "non-default branches ahead of the default branch"
+is approximated as **local non-default branches with unpushed work**: the literal reading is
+`rev-list --count <default>..<branch>` per branch, which is N subprocesses and no MCP tool, outside
+this theme's own compose-don't-parse guardrail; a branch fully pushed and still unmerged appears as
+its open PR instead, which is the other half of `inProgress`.
+
+**The five `companion*` preferences are deliberately orphaned, briefly.** Phase 63's partition
+demands every persisted preference be reachable from Settings or listed in `KNOWN_ORPHANS` with a
+matching `outstanding.md` entry; the page they belong on is this phase's own **Theme H**, and
+Theme A ships first because the switches are what every other theme reads. Both records are in
+place, and Theme H's PR deletes all five entries rather than widening the list.
+
+Gate green: 6071 tests passed, 4 skipped. New coverage — 54 in `shared/src/companion.test.ts`, 12
+in `app/src/store/companion-store.test.ts`, 14 in `snapshot.test.ts` (a failing forge, an
+unauthenticated `gh`, a listing error behind a ready CLI, and a *hanging* call capped under fake
+timers), 16 in `digest.test.ts` (a real fixture repo on disk plus the symlink refusal), 12 in
+`companion-store.test.ts`, 4 in `companion-handlers.test.ts`.
+
 ## 2026-09-08 — Phase 26 Themes C, H — the reverted items
 
 [PR #267](https://github.com/bilo-io/midnite-studio/pull/267). Moves Phase 26 51/70 → 55/70 (73%
