@@ -75,7 +75,7 @@ export const Hero = () => (
         <h1 className="text-4xl font-semibold tracking-tight text-fg sm:text-6xl">
           <span className="block">
             <Wordmark />
-            <span className="ml-2 text-fg-muted">is</span>
+            <span className="ml-[0.2em] text-fg-muted">is</span>
           </span>
           <Typewriter phrases={PHRASES} className="text-accent" />
         </h1>

@@ -72,7 +72,23 @@ export const Wordmark = ({
     >
       Midnite
     </span>
-    <span className={`ml-1.5 font-medium ${tone === 'rainbow' ? 'text-fg-muted' : ''}`}>
+    {/*
+      **A real space, not only a margin — the mark's `textContent` has to say
+      "Midnite Studio".** The app separates the two halves with `ml-1.5` alone,
+      which is invisible to everything that reads the DOM: the string comes out
+      `MidniteStudio`, and here that would land in the hero's `<h1>` and become
+      the page's accessible name. So the space is a text node and the margin is
+      only the optical nudge on top of it.
+
+      That nudge is in `em`, not the app's fixed 6px. The app renders this mark
+      at one size; the site renders it at three, from 15px in the nav to ~140px
+      in the footer, and the brand face's final `e` exits on a long flat stroke
+      that grows with the type — a fixed gap that is generous at 15px is a
+      collision at 140px.
+    */}{' '}
+    <span
+      className={`ml-[0.08em] font-medium ${tone === 'rainbow' ? 'text-fg-muted' : ''}`}
+    >
       Studio
     </span>
   </span>
