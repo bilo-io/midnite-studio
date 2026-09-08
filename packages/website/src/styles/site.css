@@ -700,8 +700,8 @@ html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
     the line box and the blur below and a stylesheet cannot be read from JS.
   */
   .ws-agent-caption-name {
-    font-size: 1.125rem;
-    line-height: 28px;
+    font-size: 1.25rem;
+    line-height: 30px;
     font-weight: 600;
     letter-spacing: -0.01em;
     /* `pre`, so the box does not collapse to zero width on the empty beat
@@ -952,7 +952,19 @@ html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
     says *whether* it is showing, and the throb that says it is working. They
     are independent on purpose — the throb has its own period and would look
     wrong stretched to the length of the whole sequence.
+
+    **They must animate different properties, and that is not a style
+    preference.** Two animations on one element that both touch `opacity` do not
+    compose: the later one in the list wins outright, so a throb written on
+    opacity silently deletes the window's opacity and the running dot is on
+    screen for the whole twelve seconds. So the window owns `opacity` and the
+    throb owns `scale` — about its own centre, which needs `transform-box`.
   */
+  .ws-ci-throb {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
   .ws-ci-run-1.ws-ci-throb {
     animation:
       ws-ci-run-1 var(--ws-checks-loop) linear infinite,
@@ -976,9 +988,14 @@ html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
     reset — every keyframe below fades out over the same last 6%, so the pass
     restarts as one event rather than as four things blinking in turn.
   */
+  /*
+    `both`, because the three lanes are staggered with a positive delay: without
+    a backwards fill the undrawn state does not apply until the delay elapses,
+    so the page loads with the lanes fully drawn and then snaps them away.
+  */
   .ws-win-draw {
     stroke-dasharray: 1;
-    animation: ws-win-draw var(--ws-window-loop) var(--ws-ease) infinite;
+    animation: ws-win-draw var(--ws-window-loop) var(--ws-ease) infinite both;
   }
 
   .ws-win-type {
@@ -1245,10 +1262,10 @@ html[data-page-hidden='true'] .ws-agent-mark[data-selected='true'] * {
 @keyframes ws-ci-throb {
   0%,
   100% {
-    opacity: 1;
+    scale: 0.84;
   }
   50% {
-    opacity: 0.4;
+    scale: 1.08;
   }
 }
 

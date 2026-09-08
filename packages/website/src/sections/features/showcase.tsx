@@ -87,8 +87,14 @@ const laneX = (lane: Lane) => LANE_0_X + lane * LANE_PITCH;
 
 /** The clip window: the card's inside, less its border. */
 const WINDOW = { x: 5, y: 5, width: 310, height: 190 } as const;
-/** How deep the top and bottom fades are — one pitch and a little. */
-const FADE_PX = 11;
+/**
+ * How deep the top and bottom fades are: not quite two rows.
+ *
+ * Deep enough that a row *dissolves* rather than crossing a line — one pitch
+ * was measured and is not: at the moment a node clears the fade it is still at
+ * most of its opacity, and the arrival reads as a pop.
+ */
+const FADE_PX = 17;
 
 /** How long one commit takes to arrive, and therefore how long a pass takes. */
 const STEP_MS = 1800;
@@ -239,40 +245,46 @@ const Meta = ({ row, subject }: { row: number; subject: number }) => {
 };
 
 /**
- * A ref badge pinned to a commit.
+ * A ref badge pinned to a commit — a chip, the way the app draws one.
  *
- * The checked-out branch is filled in the site's accent; another branch is
- * filled in its own lane's colour, because a badge belongs to the commit it is
- * pinned to and taking the trunk's colour would say the wrong thing; a tag is
- * outlined rather than filled, which is how the app distinguishes the two.
+ * A tinted fill, a border and a label in the *same* hue, which is what makes a
+ * dozen of them sit in one picture without any of them shouting: a solidly
+ * filled pill at this size reads as a button, and twenty rows of buttons is not
+ * a commit graph. The exception is the checked-out branch, which is filled in
+ * the site's accent because it is the one ref the drawing is pointing at.
+ *
+ * A branch takes its *own* lane's colour rather than the trunk's — a badge
+ * belongs to the commit it is pinned to — and a tag is drawn with no fill at
+ * all, which is how the app distinguishes the two.
  */
 const Badge = ({ row }: { row: number }) => {
   const commit = COMMITS[row];
   if (!commit?.badge) return null;
   const { badge, lane } = commit;
   const y = rowY(row);
-  const tint = badge === 'head' ? 'var(--ws-accent)' : LANES[lane];
+  const head = badge === 'head';
+  const tint = head ? 'var(--ws-accent)' : LANES[lane];
 
   return (
     <g data-testid={`showcase-badge-${badge}`}>
       <rect
         x={82}
-        y={y - 4}
-        width={34}
-        height={8}
-        rx={3}
+        y={y - 3.5}
+        width={30}
+        height={7}
+        rx={2.5}
         fill={badge === 'tag' ? 'none' : tint}
-        stroke={badge === 'tag' ? tint : 'none'}
-        strokeWidth={badge === 'tag' ? 1.2 : 0}
+        fillOpacity={head ? 1 : 0.22}
+        stroke={tint}
+        strokeWidth={head ? 0 : 1}
       />
       <rect
-        x={87}
+        x={86}
         y={y - 1}
-        width={24}
+        width={22}
         height={2}
         rx={1}
-        fill={badge === 'head' ? 'var(--ws-accent-fg)' : tint}
-        opacity={badge === 'head' ? 1 : badge === 'tag' ? 1 : 0.45}
+        fill={head ? 'var(--ws-accent-fg)' : tint}
       />
     </g>
   );
@@ -485,6 +497,7 @@ export const Showcase = ({ reduced: reducedProp }: ShowcaseProps = {}) => {
                   height={8}
                   rx={3}
                   fill="var(--ws-accent-soft)"
+                  fillOpacity={0.75}
                   data-testid="showcase-head"
                 />
               </>
