@@ -1,7 +1,10 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AgentMarquee } from './agent-marquee';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { AgentMarquee, BAND_PX, PEAK_SCALE } from './agent-marquee';
 import { SITE_AGENTS } from './agents';
 
 const setReducedMotion = (reduced: boolean) => {
@@ -121,6 +124,50 @@ describe('AgentMarquee', () => {
       expect(track.style.getPropertyValue('--ws-agent-lead')).toBe(
         `${152 * count + 76}px`,
       );
+    });
+
+    it('makes the band tall enough for the glow at its peak scale', () => {
+      /*
+        The band clips, and must — the horizontal clip is what makes a marquee.
+        Clipping vertically just cuts the top and bottom off the selected logo's
+        halo, which is what this height exists to prevent: the halo is the mark
+        (56px) plus its `-inset-3` (2 x 12px) at the bounce's peak.
+      */
+      render(<AgentMarquee />);
+      const band = screen.getByTestId('agent-marquee');
+
+      expect(band.style.height).toBe(`${BAND_PX}px`);
+      expect(BAND_PX).toBeGreaterThanOrEqual((56 + 24) * PEAK_SCALE);
+      // The old `h-44` (176px) is what was cutting it off.
+      expect(band.className).not.toContain('h-44');
+    });
+
+    it('keeps the bounce keyframes and the band height agreeing on the peak', () => {
+      /*
+        `PEAK_SCALE` is a duplicate of a number in `site.css` — a keyframe
+        cannot be read from JS and a band height cannot be computed in CSS — so
+        the copy is grounded here rather than trusted. A bounce that grows past
+        the band is the bug this whole change is about.
+      */
+      /* Resolved off the vitest root rather than `import.meta.url`, which the
+         jsdom environment hands over as a non-`file:` URL. */
+      const css = readFileSync(join(process.cwd(), 'src/styles/site.css'), 'utf8');
+      const bounce = css.match(/@keyframes ws-agent-bounce \{([\s\S]*?)\n\}/)?.[1] ?? '';
+      expect(bounce, 'ws-agent-bounce is missing from site.css').not.toBe('');
+
+      const scales = Array.from(bounce.matchAll(/scale:\s*([\d.]+)/g)).map((m) =>
+        Number(m[1]),
+      );
+      expect(Math.max(...scales)).toBe(PEAK_SCALE);
+
+      // The turn and the scale are separate animations so they can carry
+      // different easings — an overshooting rotation reads as a wobble.
+      expect(bounce).not.toContain('rotateY');
+      expect(css).toContain('@keyframes ws-agent-spin');
+      expect(css.match(/@keyframes ws-agent-spin \{([\s\S]*?)\n\}/)?.[1]).not.toContain(
+        'scale(',
+      );
+      expect(bounce).toContain('cubic-bezier(0.34, 1.56, 0.64, 1)');
     });
   });
 

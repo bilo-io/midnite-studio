@@ -118,13 +118,25 @@
 
   /*
     The selected logo's cycle: two full 3D turns, one on the way up and one on
-    the way down, with the hold in the middle.
+    the way down, with the hold in the middle — and a scale that overshoots
+    rather than easing flat into its hold.
 
-    It starts and ends at `rotateY(0) scale(1)` — flush with the idle state — so
-    the logo is never seen popping into or out of an animated pose. The first
-    turn grows it to 2×, arriving face-on and upright at the 35% mark; it holds
-    there through 65%, which is the window straddling the geometric centre; then
-    the second turn shrinks it back into the flow.
+    It starts and ends flush with the idle state (no turn, no scale), so the
+    logo is never seen popping into or out of an animated pose. The first turn
+    grows it, arriving face-on and upright at the 35% mark; it holds there
+    through 65%, which is the window straddling the geometric centre; then the
+    second turn shrinks it back into the flow.
+
+    **Two animations, not one, because they want different easings.** The turn
+    should arrive smoothly — an overshooting rotation reads as a wobble, not a
+    bounce. The scale should overshoot: growing to 215% and settling back to
+    200% is what makes the logo feel like it *lands* at the centre rather than
+    inflating to a stop. A single `transform` keyframe cannot express that, so
+    the turn stays in `transform` (it needs `perspective()`, which only exists
+    there) and the scale moves to the **individual `scale` property**. The two
+    compose as `scale × transform` — the element is rotated in 3D first and the
+    result scaled — which is exactly the intended reading, and each half gets
+    its own timing function.
 
     **No `will-change` here, deliberately.** The obvious thing was to hint the
     selected logo the way the track is hinted, and the hint is redundant: an
@@ -138,7 +150,9 @@
   */
   .ws-agent-mark[data-selected='true'] {
     z-index: 10;
-    animation: ws-agent-cycle var(--ws-agent-cycle) var(--ws-ease) 1 both;
+    animation:
+      ws-agent-spin var(--ws-agent-cycle) var(--ws-ease) 1 both,
+      ws-agent-bounce var(--ws-agent-cycle) linear 1 both;
   }
 
   .ws-agent-mark[data-selected='true'] .ws-agent-glyph {
@@ -220,31 +234,86 @@
 }
 
 /*
-  The selected logo, growing into the centre and back out.
+  The selected logo's turn: two full revolutions, one in and one out.
 
   `perspective()` is inside the transform rather than on the parent on purpose:
   as a parent property it would apply to every slot in the track and force the
   whole thing into a 3D rendering context, when only one element at a time is
   actually turning.
+
+  There is **no `scale()` in here** — see `ws-agent-bounce`. The two are
+  separate animations so the turn can arrive on the site's own ease while the
+  scale overshoots, and an overshooting *rotation* reads as a wobble.
 */
-@keyframes ws-agent-cycle {
+@keyframes ws-agent-spin {
   0% {
-    transform: perspective(700px) rotateY(0deg) scale(1);
+    transform: perspective(700px) rotateY(0deg);
   }
   18% {
-    transform: perspective(700px) rotateY(180deg) scale(1.55);
+    transform: perspective(700px) rotateY(180deg);
   }
   35% {
-    transform: perspective(700px) rotateY(360deg) scale(2);
+    transform: perspective(700px) rotateY(360deg);
   }
   65% {
-    transform: perspective(700px) rotateY(360deg) scale(2);
+    transform: perspective(700px) rotateY(360deg);
   }
   82% {
-    transform: perspective(700px) rotateY(540deg) scale(1.55);
+    transform: perspective(700px) rotateY(540deg);
   }
   100% {
-    transform: perspective(700px) rotateY(720deg) scale(1);
+    transform: perspective(700px) rotateY(720deg);
+  }
+}
+
+/*
+  The bounce: the logo overshoots the size it holds at, both on the way up and
+  on the way down.
+
+  Stated as keyframes on the individual `scale` property rather than as one
+  `transform`, so it composes with `ws-agent-spin` above and carries its own
+  easing — `transform` can only have one timing function, and this needs the
+  opposite of what the turn needs.
+
+  The shape, and why each number is where it is:
+
+    0  → 28%   grow past the hold to 215%, on a back-out curve whose overshoot
+               is in the *easing* as well as the value, so the approach is
+               already springy before it arrives
+    28 → 35%   settle back to 200%, which is the hold the glow keyframes and the
+               band's height are both sized against
+    35 → 65%   held — the window straddling the geometric centre
+    65 → 72%   the mirror: it kicks back up to 215% as it starts to leave
+    72 → 100%  shrink to rest on a back-*in* curve (a negative first control
+               point), which dips slightly under 1 before settling — the
+               anticipation that reads as the logo being let go
+
+  The peak (215%) is the number `agent-marquee.tsx` sizes the band from. If it
+  changes here, `PEAK_SCALE` changes there, or the glow gets clipped again.
+*/
+@keyframes ws-agent-bounce {
+  0% {
+    scale: 1;
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  28% {
+    scale: 2.15;
+    animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  35% {
+    scale: 2;
+    animation-timing-function: linear;
+  }
+  65% {
+    scale: 2;
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  72% {
+    scale: 2.15;
+    animation-timing-function: cubic-bezier(0.36, 0, 0.66, -0.56);
+  }
+  100% {
+    scale: 1;
   }
 }
 
