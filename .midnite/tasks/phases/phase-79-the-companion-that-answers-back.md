@@ -321,75 +321,75 @@ From "start a swarm" to hearing what the swarm did.
 - [ ] A hand-off whose session ends with a non-zero exit posts the exit code, speaks "that session
       ended with an error — the details are in the thread", and returns to `idle`.
 
-### F — Voice (L)
+### F — Voice (L) — ✅ DONE (PR #272, 2026-09-08)
 
 Voice-out is free. Voice-in gets a provider seam and a permission carve-out.
 
-- [ ] **TTS** in [`features/companion/speaker.ts`](../../../packages/app/src/features/companion/speaker.ts):
+- [x] **TTS** in [`features/companion/speaker.ts`](../../../packages/app/src/features/companion/speaker.ts):
       a queue over `window.speechSynthesis` with `speak(text, { onBoundary, onEnd })`, `cancel()`,
       `voices()`. Uses the `companionVoice` URI when set, else the default voice for the app
       locale. Word-boundary events feed Theme H's speaking pulse. Guard for the well-known
       Chromium bug where long utterances go silent after ~15 s: chunk on sentence boundaries under
       ~200 characters.
-- [ ] Voice picker in Settings ▸ Companion listing `speechSynthesis.getVoices()` (async — voices
+- [x] Voice picker in Settings ▸ Companion listing `speechSynthesis.getVoices()` (async — voices
       load after `voiceschanged`), with a "Say hello" preview button. Filter to the app locale by
       default, with a "Show all" toggle.
-- [ ] **Permission carve-out** in
+- [x] **Permission carve-out** in
       [`main/browser-security.ts`](../../../packages/desktop/src/main/browser-security.ts): the
       app's own renderer session grants `media` **only** when the request's `mediaTypes` is exactly
       `['audio']` **and** the requesting origin is the app's own (`file://` bundle or the dev
       server origin). Every browser-pane `WebContentsView` session keeps refusing everything. Add
       a test for both branches; the existing "refuses every permission" test stays and now asserts
       the browser session specifically.
-- [ ] **Capture** in `features/companion/recorder.ts`: `getUserMedia({ audio: true })` on first
+- [x] **Capture** in `features/companion/recorder.ts`: `getUserMedia({ audio: true })` on first
       mic press, `MediaRecorder` in `audio/webm;codecs=opus`, chunks every 250 ms. Push-to-talk
       by default (hold the mic button or the spacebar while the textarea is empty); a
       "tap to toggle" option in Settings. Release → stop → hand the blob to main.
-- [ ] **Provider seam** in `shared/src/companion.ts`:
+- [x] **Provider seam** in `shared/src/companion.ts`:
       `SttProviderId = 'openai-whisper' | 'deepgram'`, and in
       [`main/companion/stt/`](../../../packages/desktop/src/main/companion/stt/) an interface
       `SttProvider = { transcribe(audio: Uint8Array, mime: string, signal: AbortSignal): Promise<string> }`
       with one implementation shipped (see Decision 8) and a `fake.ts` for tests. Channel
       `mstudio:companion:transcribe` (invoke, `Uint8Array` structured-cloned like `pty:data`) with a
       15 s timeout, returning `GitOpResult<{ text: string }>`.
-- [ ] **Key storage**: `main/companion/stt/credentials.ts` mirrors
+- [x] **Key storage**: `main/companion/stt/credentials.ts` mirrors
       [`db/credential-vault.ts`](../../../packages/desktop/src/main/db/credential-vault.ts) —
       `safeStorage.encryptString`, on disk under `userData`, never in `localStorage`, never crossing
       to the renderer in plaintext. Settings ▸ Companion has a masked field with "Test" that runs a
       one-second silent clip through the provider and reports the round-trip time.
-- [ ] Transcript text lands in the textarea, **not** sent: the user reads it and presses Return
+- [x] Transcript text lands in the textarea, **not** sent: the user reads it and presses Return
       (or, with hands-free on, it is submitted after a 1.5 s pause during which pressing any key
       cancels). Mic errors (denied, no device, provider 401/429) are spoken once and shown inline
       with the recovery step.
-- [ ] `listening` state is entered on capture start and left on transcript arrival or cancel;
+- [x] `listening` state is entered on capture start and left on transcript arrival or cancel;
       Theme H keys the FAB off it.
 
-### G — The loading personality (M)
+### G — The loading personality (M) — ✅ DONE (PR #272, 2026-09-08)
 
 What happens between "on it" and "here we are".
 
-- [ ] `features/companion/filler.ts`: while `state === 'handoff'` or `'thinking'`, after a **6 s**
+- [x] `features/companion/filler.ts`: while `state === 'handoff'` or `'thinking'`, after a **6 s**
       quiet threshold, speak one item from `fillers` or `quotes` (alternating), then wait
       **25–40 s** (randomised) before the next. Never start a filler while the agent is `waiting`
       (it is asking the user something), and never speak over a read-back.
-- [ ] **Whistle synth** in `features/companion/audio/whistle.ts`: a single `OscillatorNode`
+- [x] **Whistle synth** in `features/companion/audio/whistle.ts`: a single `OscillatorNode`
       (sine, gentle vibrato via a second LFO oscillator on `detune`) through a `GainNode`
       envelope, playing one of five short melodies encoded as `[midi, beats][]` in
       `shared/src/companion.ts`. Melodies are original, eight to twelve notes. Volume follows the
       system output; a "Companion volume" slider in Settings scales the master gain.
-- [ ] **Elevator loop** in `features/companion/audio/elevator.ts`: a 16-bar loop of two
+- [x] **Elevator loop** in `features/companion/audio/elevator.ts`: a 16-bar loop of two
       triangle-wave chords plus a soft filtered-noise brush on beats 2 and 4, looped via
       `AudioBufferSourceNode` rendered once with an `OfflineAudioContext`. Fades in over 2 s,
       fades out over 1 s on any state change away from loading.
-- [ ] After **20 s** of loading with `companionMusicOffer` on, speak one item from `musicOffers`
+- [x] After **20 s** of loading with `companionMusicOffer` on, speak one item from `musicOffers`
       ("Shall I put on some elevator music?"). "yes" / "sure" / "go on" (grammar `kind: 'music'`)
       starts the loop; "no" dismisses for this hand-off. Never offered twice in one hand-off.
-- [ ] The `AudioContext` is created lazily on the first sound and suspended (not closed) when idle
+- [x] The `AudioContext` is created lazily on the first sound and suspended (not closed) when idle
       for 60 s, so a silent companion costs no audio thread — measured with
       `scripts/perf/idle-cpu.mjs` before and after, numbers in the PR.
-- [ ] Every filler, whistle and loop stops instantly on: read-back start, mic press, textarea
+- [x] Every filler, whistle and loop stops instantly on: read-back start, mic press, textarea
       keypress, panel close, window blur if the Phase 36 visibility gates say the window is hidden.
-- [ ] Tests: scheduler timings under fake timers (threshold, spacing, the no-overlap rules), and
+- [x] Tests: scheduler timings under fake timers (threshold, spacing, the no-overlap rules), and
       the melody encoder against a golden set of frequencies.
 
 ### H — FAB choreography, the popover, and Settings (M) — ✅ DONE (PR #270, 2026-09-08)

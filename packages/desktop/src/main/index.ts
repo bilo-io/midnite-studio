@@ -2,7 +2,7 @@ import { unlinkSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 
 import { EVENT_CHANNELS, CHANNELS, perfEnabled } from '@midnite/studio-shared';
-import { BrowserWindow, app, ipcMain } from 'electron';
+import { BrowserWindow, app, ipcMain, session } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
@@ -11,6 +11,7 @@ import { readSystemHealth } from './system-health';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
+import { allowAppAudioOnly } from './browser-security';
 import { destroyAllBrowserTabs } from './browser-service';
 import { registerBrowserHandlers } from './ipc/browser-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
@@ -23,6 +24,8 @@ import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { createCompanionStore } from './companion/companion-store';
 import { configureCompanion } from './companion/digest';
+import { configureStt } from './companion/stt';
+import { createSttCredentials } from './companion/stt/credentials';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
 import { createSessionHistoryStore } from './session-history-store';
@@ -303,6 +306,28 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(async () => {
     bootMark('when-ready');
+    /*
+      The app renderer's permission policy, before any window exists to ask
+      (Phase 79 Theme F).
+
+      Electron *approves* most permission requests in a session with no handler
+      installed, so until this line the app's own UI could have had the camera
+      and the screen for the asking — only the browser pane was actually
+      policed. `allowAppAudioOnly` replaces that default with exactly one hole:
+      `media`, audio only, from our own origin. The browser pane is a different
+      session (`persist:browser`) and keeps `denyAllPermissions`.
+
+      The dev-server origin is passed only when the renderer is actually loaded
+      from it, so a packaged build's dev branch is unreachable rather than
+      merely unused — `loadRenderer` in `window.ts` makes the same choice from
+      the same two conditions.
+    */
+    allowAppAudioOnly(
+      session.defaultSession,
+      !app.isPackaged && process.env['MSTUDIO_USE_BUILT_RENDERER'] !== '1'
+        ? (process.env['MSTUDIO_RENDERER_URL'] ?? 'http://localhost:5173')
+        : null,
+    );
     registerWindowChrome();
     registerRepoHandlers(getMainWindow);
     registerSearchHandlers();
@@ -492,6 +517,13 @@ if (!app.requestSingleInstanceLock()) {
       `companion:digest` can arrive on the renderer's first paint.
     */
     configureCompanion(createCompanionStore(userData));
+    /*
+      The recogniser's key (Theme F), in its own `safeStorage` vault beside the
+      database one. Wired here rather than lazily because `configured()` is
+      what the Settings page reads on mount, and a lazily-created vault would
+      answer "nothing configured" on the first read of every launch.
+    */
+    configureStt(createSttCredentials(userData));
 
     /*
       Three independent boot chains, run at once (Theme B). They were sequential

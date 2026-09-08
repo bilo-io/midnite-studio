@@ -120,6 +120,7 @@ import {
   CouncilRunSchema,
   CouncilSchema,
 } from '../council';
+import { SttProviderIdSchema } from '../companion';
 import { LoopModelSchema, LoopRunRecordSchema } from '../loops';
 import {
   VideoProjectSchema,
@@ -2664,3 +2665,64 @@ export const CompanionDigestRequest = z.object({
   since: z.number().nonnegative().optional(),
   mark: z.boolean().optional(),
 });
+
+// --- the companion's voice (Phase 79 Theme F) -------------------------------
+
+/**
+ * One recorded utterance, on its way to a cloud recogniser.
+ *
+ * `z.instanceof(Uint8Array)` for the reason `PtySnapshotResponse` and
+ * `SessionsTranscriptResponse` give: the bytes are structured-cloned across
+ * the boundary, and base64 would cost a third more wire and two copies of a
+ * payload that is already megabytes at its cap.
+ *
+ * `mime` travels with the bytes rather than being assumed, because the
+ * provider is told what it is being sent and `MediaRecorder` does not always
+ * honour the type it was asked for — Chromium may hand back plain
+ * `audio/webm` where `audio/webm;codecs=opus` was requested, and a provider
+ * told the wrong container answers 400.
+ *
+ * `providerId` is optional: absent means "whichever provider the user
+ * configured", which is what the mic button sends. Settings sends it
+ * explicitly so a Test can target the provider being edited.
+ */
+export const CompanionTranscribeRequest = z.object({
+  audio: z.instanceof(Uint8Array),
+  mime: z.string().min(1),
+  providerId: SttProviderIdSchema.optional(),
+});
+export const CompanionTranscribeResponse = GitOpResultOf(z.object({ text: z.string() }));
+
+/**
+ * Store or clear one provider's key.
+ *
+ * An empty `key` clears it, rather than a separate delete channel — the
+ * Settings field is a text input, and emptying it *is* the gesture that means
+ * "forget this". The key crosses the boundary exactly once, in this
+ * direction, and never comes back: `companionSttStatus` answers with a
+ * boolean.
+ */
+export const CompanionSttSetRequest = z.object({
+  providerId: SttProviderIdSchema,
+  key: z.string(),
+});
+
+/** Which providers hold a key here, and whether the OS keychain is usable at all. */
+export const CompanionSttStatusResponse = z.object({
+  configured: z.array(SttProviderIdSchema),
+  /** `safeStorage.isEncryptionAvailable()`. False means a key cannot be persisted at all. */
+  encryptionAvailable: z.boolean(),
+});
+
+/** Which provider to prove reachable. */
+export const CompanionSttTestRequest = z.object({ providerId: SttProviderIdSchema });
+
+/**
+ * The round-trip time, and whatever the provider made of one second of
+ * silence — usually the empty string, which is a *pass*: the request was
+ * authenticated and answered. The point of the Test button is the 401/429/DNS
+ * failure it rules out, not the transcript.
+ */
+export const CompanionSttTestResponse = GitOpResultOf(
+  z.object({ ms: z.number(), text: z.string() }),
+);

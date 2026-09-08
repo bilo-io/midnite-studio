@@ -831,6 +831,32 @@ export const CHANNELS = {
   companionSnapshot: 'mstudio:companion:snapshot',
   /** What landed since the companion last greeted this repo, and what is still in flight. */
   companionDigest: 'mstudio:companion:digest',
+
+  // --- the companion's voice (Phase 79 Theme F) -------------------------------
+  // Speech *out* needs no channel at all — `speechSynthesis` is a renderer API
+  // and the OS voices are already there. Speech *in* needs all four, because
+  // the recogniser is a paid cloud endpoint and its key must never reach the
+  // renderer: the blob crosses here, the request is made in main with a key
+  // `safeStorage` decrypted on the way past, and only the text comes back.
+  /**
+   * One utterance in, its transcript out.
+   *
+   * The audio is a `Uint8Array`, structured-cloned exactly as `pty:data` and
+   * `sessions:transcript` are — base64 would cost a third more wire and two
+   * copies for a payload that is already megabytes at the cap.
+   */
+  companionTranscribe: 'mstudio:companion:transcribe',
+  /**
+   * Which providers have a key stored, and whether `safeStorage` works here.
+   *
+   * A read, so the Settings page can render "configured" on mount without
+   * spending a network round-trip (or a cent) on {@link companionSttTest}.
+   */
+  companionSttStatus: 'mstudio:companion:stt-status',
+  /** Store or clear a provider's key. An empty string clears it. */
+  companionSttSet: 'mstudio:companion:stt-credential-set',
+  /** Run a one-second silent clip through the provider and report the round-trip. */
+  companionSttTest: 'mstudio:companion:stt-credential-test',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */

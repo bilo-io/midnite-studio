@@ -20,11 +20,15 @@ afterEach(() => {
 });
 
 describe('registerCompanionHandlers', () => {
-  it('registers exactly the two companion channels', () => {
+  it('registers exactly the companion channels — Theme B\'s two and Theme F\'s four', () => {
     registerCompanionHandlers();
     expect(handle.mock.calls.map(([channel]) => channel)).toEqual([
       CHANNELS.companionSnapshot,
       CHANNELS.companionDigest,
+      CHANNELS.companionTranscribe,
+      CHANNELS.companionSttTest,
+      CHANNELS.companionSttSet,
+      CHANNELS.companionSttStatus,
     ]);
   });
 
@@ -60,5 +64,55 @@ describe('registerCompanionHandlers', () => {
       repo: null,
       branch: null,
     });
+  });
+
+  /*
+    Theme F's four. No STT vault is configured in this test process, so
+    `sttDeps()` is the `nullSttCredentials` fallback — which is exactly the
+    state worth asserting: every voice channel has to answer a value, and the
+    value has to name the fix. A channel that rejected here would reach the
+    renderer as an opaque "Error invoking remote method" with the real cause
+    gone, and this one's cause is a sentence the companion speaks aloud.
+  */
+  it('answers a transcribe with no key configured through the error arm', async () => {
+    registerCompanionHandlers();
+    const result = (await invoke(CHANNELS.companionTranscribe, {
+      audio: new Uint8Array([1, 2, 3]),
+      mime: 'audio/webm;codecs=opus',
+    })) as { ok: boolean; message?: string };
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('Settings, Companion, Microphone');
+  });
+
+  it('answers an unreadable transcribe payload through the same arm', async () => {
+    registerCompanionHandlers();
+    // `audio` must be a `Uint8Array`; a plain array fails the schema and
+    // `handleOp` answers `failure(...)` rather than rejecting.
+    await expect(
+      invoke(CHANNELS.companionTranscribe, { audio: [1, 2, 3], mime: 'audio/webm' }),
+    ).resolves.toMatchObject({ ok: false, kind: 'error' });
+  });
+
+  it('answers the status read with nothing configured rather than throwing', async () => {
+    registerCompanionHandlers();
+    await expect(invoke(CHANNELS.companionSttStatus)).resolves.toEqual({
+      configured: [],
+      encryptionAvailable: false,
+    });
+  });
+
+  it('accepts a key write against the null vault without complaint', async () => {
+    registerCompanionHandlers();
+    await expect(
+      invoke(CHANNELS.companionSttSet, { providerId: 'openai-whisper', key: 'sk-test' }),
+    ).resolves.toEqual({ ok: true });
+  });
+
+  it('rejects an unknown provider id at the boundary, as a value', async () => {
+    registerCompanionHandlers();
+    await expect(
+      invoke(CHANNELS.companionSttTest, { providerId: 'whisper.cpp' }),
+    ).resolves.toMatchObject({ ok: false, kind: 'error' });
   });
 });

@@ -573,6 +573,17 @@ const bridge: Pick<
   companion: {
     snapshot: (req) => call(CHANNELS.companionSnapshot, req),
     digest: (req) => call(CHANNELS.companionDigest, req),
+    /*
+      The audio is passed straight through — `call` forwards the object to
+      `ipcRenderer.invoke`, which structured-clones it, so a `Uint8Array`
+      arrives in main as a `Uint8Array` rather than as a plain object. Same
+      path `pty:data` and `sessions:transcript` already take in the other
+      direction; nothing here copies or re-encodes it.
+    */
+    transcribe: (req) => call(CHANNELS.companionTranscribe, req),
+    sttStatus: () => call(CHANNELS.companionSttStatus),
+    sttSet: (req) => call(CHANNELS.companionSttSet, req),
+    sttTest: (req) => call(CHANNELS.companionSttTest, req),
   },
   windowChrome,
   windowRole,
