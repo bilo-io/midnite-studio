@@ -87,6 +87,19 @@ export function CompanionInputBar({
       send();
       return;
     }
+    /*
+      Space is push-to-talk **only while the textarea is empty** (Theme F) —
+      the moment there is a draft it is a space, and a shortcut that ate one
+      mid-sentence would be unusable. `event.repeat` is ignored because a held
+      key autorepeats and only the first press starts anything.
+    */
+    if (event.key === ' ' && value.length === 0 && micAvailable && !micHeld && !event.repeat) {
+      event.preventDefault();
+      onInterrupt();
+      setMicHeld(true);
+      companionPorts().micPressStart();
+      return;
+    }
     // Any other keystroke is the user taking the floor.
     onInterrupt();
   };
@@ -124,11 +137,24 @@ export function CompanionInputBar({
       setMicHeld(false);
       companionPorts().micPressEnd();
     };
+    /*
+      Space release too, and on the window for the same reason a pointer
+      release is: a keyup that arrives after focus has moved still has to stop
+      the recorder, or a click away mid-utterance leaves it recording forever.
+    */
+    const keyRelease = (event: KeyboardEvent) => {
+      if (event.key === ' ') release();
+    };
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
+    window.addEventListener('keyup', keyRelease);
+    // A window that loses focus mid-press never sees the release at all.
+    window.addEventListener('blur', release);
     return () => {
       window.removeEventListener('pointerup', release);
       window.removeEventListener('pointercancel', release);
+      window.removeEventListener('keyup', keyRelease);
+      window.removeEventListener('blur', release);
     };
   }, [micHeld]);
 

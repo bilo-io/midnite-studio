@@ -85,9 +85,7 @@ function micAvailable(): boolean {
  * wanted — stopping would send it to be transcribed.
  */
 function interrupt(): void {
-  companionTtsSpeaker.cancel();
-  stopCompanionPersonality();
-  if (isRecording()) cancelRecording();
+  stopAll();
 }
 
 /**
@@ -209,10 +207,62 @@ export function registerVoicePorts(): void {
   setCompanionVolume(useUiStore.getState().companionVolume);
 }
 
-registerVoicePorts();
+/**
+ * The two triggers no gesture can report: the panel closing, and the window
+ * going away.
+ *
+ * The phase requires everything to stop on six things. Four of them are
+ * gestures the panel already routes through `interrupt` — a mic press, a
+ * keypress, Escape, a read-back starting. These two are *state* changes, and
+ * they are watched here rather than in a component because the component in
+ * question is the one that unmounts: a cleanup effect inside the panel cannot
+ * be relied on to run before the audio it is meant to stop.
+ *
+ * `visibilitychange` rather than `blur` for the window, matching Phase 36's
+ * visibility gates: a window merely behind another is still a window someone
+ * is listening to, while a hidden one is not.
+ */
+export function watchCompanionSilence(): () => void {
+  const unsubscribe = useUiStore.subscribe((state, previous) => {
+    if (previous.companionPanelOpen && !state.companionPanelOpen) stopAll();
+    // Turning the feature off has to silence it mid-sentence.
+    if (previous.companionEnabled && !state.companionEnabled) stopAll();
+  });
 
-/** Reset the availability cache. Tests only. */
+  const onVisibility = (): void => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') stopAll();
+  };
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onVisibility);
+  }
+
+  return () => {
+    unsubscribe();
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisibility);
+    }
+  };
+}
+
+function stopAll(): void {
+  companionTtsSpeaker.cancel();
+  stopCompanionPersonality();
+  if (isRecording()) cancelRecording();
+}
+
+registerVoicePorts();
+/**
+ * Kept so a test can dispose it. There is exactly one of these for the life of
+ * the renderer — the store subscription and the `visibilitychange` listener
+ * both outlive every panel — and a test that left it running would see its own
+ * `useUiStore.setState` fire the real one.
+ */
+let moduleWatcher: (() => void) | null = watchCompanionSilence();
+
+/** Reset the availability cache and drop the module-level watcher. Tests only. */
 export function __resetVoicePortsForTest(): void {
   micReady = false;
   micProbe = null;
+  moduleWatcher?.();
+  moduleWatcher = null;
 }

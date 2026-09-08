@@ -7,6 +7,7 @@ import {
   __resetVoicePortsForTest,
   refreshMicAvailability,
   registerVoicePorts,
+  watchCompanionSilence,
 } from './voice-ports';
 
 /**
@@ -268,5 +269,84 @@ describe('tap-to-toggle', () => {
     companionPorts().micPressEnd();
     await settle();
     expect(recorder.stopRecording).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('watchCompanionSilence', () => {
+  /*
+    The two triggers no gesture can report. They are watched from here rather
+    than from a cleanup effect inside the panel because the panel is the thing
+    that unmounts — its cleanup cannot be relied on to run before the audio it
+    is meant to stop.
+  */
+  it('silences everything when the panel closes', () => {
+    useUiStore.setState({ companionPanelOpen: true, companionEnabled: true });
+    const stop = watchCompanionSilence();
+    try {
+      useUiStore.setState({ companionPanelOpen: false });
+      expect(speaker.cancel).toHaveBeenCalledTimes(1);
+      expect(stopCompanionPersonality).toHaveBeenCalledTimes(1);
+    } finally {
+      stop();
+    }
+  });
+
+  it('silences everything when the feature is switched off mid-sentence', () => {
+    useUiStore.setState({ companionPanelOpen: true, companionEnabled: true });
+    const stop = watchCompanionSilence();
+    try {
+      useUiStore.setState({ companionEnabled: false });
+      expect(speaker.cancel).toHaveBeenCalledTimes(1);
+    } finally {
+      stop();
+    }
+  });
+
+  it('says nothing on the panel merely opening', () => {
+    useUiStore.setState({ companionPanelOpen: false });
+    const stop = watchCompanionSilence();
+    try {
+      useUiStore.setState({ companionPanelOpen: true });
+      expect(speaker.cancel).not.toHaveBeenCalled();
+    } finally {
+      stop();
+    }
+  });
+
+  it('silences a hidden window, and cancels a recording with it', () => {
+    const stop = watchCompanionSilence();
+    recorder.isRecording.mockReturnValue(true);
+    try {
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        configurable: true,
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+      expect(speaker.cancel).toHaveBeenCalledTimes(1);
+      expect(recorder.cancelRecording).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'visible',
+        configurable: true,
+      });
+      stop();
+    }
+  });
+
+  it('leaves a merely-backgrounded visible window alone', () => {
+    const stop = watchCompanionSilence();
+    try {
+      document.dispatchEvent(new Event('visibilitychange'));
+      expect(speaker.cancel).not.toHaveBeenCalled();
+    } finally {
+      stop();
+    }
+  });
+
+  it('stops watching once unsubscribed', () => {
+    useUiStore.setState({ companionPanelOpen: true });
+    watchCompanionSilence()();
+    useUiStore.setState({ companionPanelOpen: false });
+    expect(speaker.cancel).not.toHaveBeenCalled();
   });
 });
