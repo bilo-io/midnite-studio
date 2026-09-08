@@ -549,7 +549,9 @@ describe('the rainbow text drift', () => {
     // The one declaration in the keyframe, so the browser repositions an
     // existing paint rather than recomputing the six-stop gradient.
     const props = new Set<string>();
-    drift?.walkDecls((decl) => props.add(decl.prop));
+    drift?.walkDecls((decl) => {
+      props.add(decl.prop);
+    });
     expect([...props]).toEqual(['background-position']);
   });
 
