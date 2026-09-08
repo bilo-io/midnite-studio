@@ -147,9 +147,22 @@ export function CompanionPage() {
             </label>
           </Field>
 
+          {/*
+            Phase 80 Theme C: the companion now tries a bundled local voice
+            (downloaded once, on first use) before falling back to the system
+            voices below — automatically, with no switch here, because the
+            fallback is per-utterance and never leaves the companion mute.
+            The picker below still governs the *fallback* voice only.
+          */}
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            The companion speaks with a bundled offline voice when it can, falling back
+            automatically to one of the system voices below if the local voice is unavailable on
+            this machine.
+          </p>
+
           <Field
-            label="Speaking voice"
-            hint="One of the voices your operating system already ships — no download, no network. Leave it on the system default and the app uses whichever voice your OS prefers for its own language."
+            label="Speaking voice (fallback)"
+            hint="One of the voices your operating system already ships — no download, no network. Used automatically if the local voice can't load, and used for the Say hello preview below. Leave it on the system default and the app uses whichever voice your OS prefers for its own language."
           >
             <select
               value={companionVoice ?? ''}
