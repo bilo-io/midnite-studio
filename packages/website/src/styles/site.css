@@ -126,15 +126,19 @@
     there through 65%, which is the window straddling the geometric centre; then
     the second turn shrinks it back into the flow.
 
-    `will-change` rides on the data attribute rather than the class, so exactly
-    one logo at a time asks for a layer. Applying it to all thirty slots up
-    front would be thirty layers for one moving thing, which is the usual way
-    `will-change` makes a page slower rather than faster.
+    **No `will-change` here, deliberately.** The obvious thing was to hint the
+    selected logo the way the track is hinted, and the hint is redundant: an
+    element with a *running* transform animation is promoted by the compositor
+    already, and this animation is only attached while the attribute matches —
+    so `will-change` would ask for the layer over exactly the window the
+    animation is asking for it anyway. The track's hint earns its place because
+    the track animates continuously and the hint is set once for the life of
+    the page; a per-logo hint would be thirty of them, toggling, for one moving
+    thing. That is the usual way `will-change` makes a page slower.
   */
   .ws-agent-mark[data-selected='true'] {
     z-index: 10;
     animation: ws-agent-cycle var(--ws-agent-cycle) var(--ws-ease) 1 both;
-    will-change: transform;
   }
 
   .ws-agent-mark[data-selected='true'] .ws-agent-glyph {
@@ -277,10 +281,14 @@
 }
 
 /*
-  The soft halo behind the mark — the second half of the brief's "box-shadow
-  along its stroke edges plus a soft halo". A separate, empty element so the
-  cheap part (a static box-shadow at animated opacity) stays cheap and does not
+  The soft halo behind the mark — the second half of the brief's "glow along
+  its stroke edges plus a soft halo". A separate, empty element so the cheap
+  part (a static radial gradient at animated opacity) stays cheap and does not
   ride along inside the drop-shadow's rasterisation.
+
+  It peaks at 0.55 rather than 1: the halo is meant to read as light coming off
+  the mark, and at full strength it reads as a coloured disc the mark is sitting
+  on instead.
 */
 @keyframes ws-agent-halo {
   0%,

@@ -72,8 +72,8 @@ type AgentLogoProps = {
  * - the **glyph** carries the `drop-shadow` glow, so the filter applies to the
  *   SVG's own paths and traces the artwork rather than a bounding box.
  *
- * The halo is a fourth, empty element behind them: a static `box-shadow` at an
- * animated opacity, which is the cheap half of the glow and stays out of the
+ * The halo is a fourth, empty element behind them: a static radial gradient at
+ * an animated opacity, which is the cheap half of the glow and stays out of the
  * drop-shadow's rasterisation.
  */
 const AgentLogo = ({ agent, selected }: AgentLogoProps) => {
@@ -91,8 +91,18 @@ const AgentLogo = ({ agent, selected }: AgentLogoProps) => {
         style={{ '--ws-agent-color': agent.color } as CSSProperties}
       >
         <span
-          className="ws-agent-halo pointer-events-none absolute inset-2 rounded-full opacity-0"
-          style={{ boxShadow: `0 0 28px 8px ${agent.color}` }}
+          className="ws-agent-halo pointer-events-none absolute -inset-3 rounded-full opacity-0"
+          /*
+            A radial gradient, not the `box-shadow` this started as. A shadow is
+            painted strictly *outside* the border box, so on a round element it
+            comes out as a ring with an unpainted hole in the middle — which is
+            not what "a soft halo" looks like once the mark grows to 2x and the
+            hole is bigger than the mark. Background paint fills the whole box
+            and falls off smoothly, and it skips the shadow blur entirely.
+          */
+          style={{
+            background: `radial-gradient(circle at center, ${agent.color} 0%, transparent 68%)`,
+          }}
         />
         <span
           className="ws-agent-glyph relative flex h-full w-full items-center justify-center"
@@ -125,11 +135,12 @@ export type AgentMarqueeProps = {
  * **How the two animations stay in step.** They are not synchronised by
  * messaging — they are two readings of the same fixed geometry. The track moves
  * left by exactly `count` slots over `count × CYCLE_MS`, linearly and forever,
- * and slot 0 starts dead centre; so slot `k` is centred at `k × CYCLE_MS`, and
+ * and the second copy's slot 0 starts dead centre; so slot `k` is centred at
+ * `k × CYCLE_MS`, and
  * `useMarqueeCycle` returns that index from the clock alone. Nothing measures an
  * element, and there is no `requestAnimationFrame` loop at all — the cost is one
  * `setTimeout` per logo. See the hook's docblock for the drift argument and
- * `site.css` for the four custom properties the arithmetic depends on.
+ * `site.css` for the custom properties the arithmetic depends on.
  *
  * **Pausing.** Hover and `document.hidden` both feed one `paused` flag, which
  * stops the CSS animations (`animation-play-state`, via `data-paused`) and
