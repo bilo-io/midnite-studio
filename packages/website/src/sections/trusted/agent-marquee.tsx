@@ -170,7 +170,7 @@ export const BAND_PX = HALO_REACH_PX + SLACK_PX * 2;
   the caption row's box stays put through the whole cycle.
 */
 /** The caption's line box: font size and line height are set in `site.css`. */
-const CAPTION_LINE_PX = 30;
+const CAPTION_LINE_PX = 36;
 /** The blur radius of the caption's glow, both sides. */
 const CAPTION_GLOW_PX = 12;
 /** Clear air between the band's edge and the caption's box. */

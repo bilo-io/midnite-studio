@@ -347,18 +347,32 @@ describe('the rainbow tokens', () => {
     expect(tokens.has('--ws-rainbow-ink')).toBe(true);
   });
 
-  it('is the app’s own six stops, not an approximation', () => {
-    // `packages/app/src/styles.css` — copied, because the website may not import
-    // across that boundary. Tailwind rose/amber/emerald/blue/violet/pink 500.
+  it('is a blue → violet → pink subspectrum, not the app’s own six stops', () => {
+    // Tailwind blue/indigo/violet/purple/fuchsia/pink 500, in increasing hue
+    // order (217°→330°) — a website-only re-cut, not a copy of the app's
+    // `--rainbow-0..5` (which keeps its full six). Indigo is lifted 1pt of
+    // lightness off Tailwind's own value to clear the 4.5:1 floor below.
     const tokens = tokensFor('dark');
     expect(STOPS.map((stop) => tripletFor(tokens, `--ws-rainbow-${stop}-hsl`))).toEqual([
-      '350 89% 60%',
-      '38 92% 50%',
-      '160 84% 39%',
       '217 91% 60%',
+      '239 84% 68%',
       '258 90% 66%',
+      '271 91% 65%',
+      '292 84% 61%',
       '330 81% 60%',
     ]);
+  });
+
+  it('stays inside the blue-to-pink range — no green, yellow, orange or red', () => {
+    const tokens = tokensFor('dark');
+    const hues = STOPS.map((stop) => {
+      const triplet = tripletFor(tokens, `--ws-rainbow-${stop}-hsl`);
+      return Number(/^(-?[\d.]+)/.exec(triplet)?.[1]);
+    });
+    for (const hue of hues) {
+      expect(hue, `hue ${hue} is outside 217°–330°`).toBeGreaterThanOrEqual(217);
+      expect(hue, `hue ${hue} is outside 217°–330°`).toBeLessThanOrEqual(330);
+    }
   });
 
   it.each(['dark', 'light'] as const)(
@@ -499,5 +513,71 @@ describe('the neon pulse', () => {
     });
     expect([...paused].some((selector) => selector.includes('.ws-neon'))).toBe(true);
     expect([...paused].some((selector) => selector.includes('.ws-marquee-track'))).toBe(true);
+  });
+});
+
+describe('the rainbow text drift', () => {
+  const site = () => postcss.parse(sheet('site.css'));
+
+  /** Every rule whose selector mentions `.ws-rainbow-text`, with its at-rule chain. */
+  const rainbowTextRules = () => {
+    const found: { selector: string; at: string[]; decls: Map<string, string> }[] = [];
+    site().walkRules((rule) => {
+      if (!rule.selector.includes('.ws-rainbow-text')) return;
+      const decls = new Map<string, string>();
+      rule.walkDecls((decl) => {
+        decls.set(decl.prop, decl.value.trim());
+      });
+      found.push({ selector: rule.selector, at: enclosing(rule), decls });
+    });
+    return found;
+  };
+
+  it('drifts the ramp via background-position, not a re-declared gradient', () => {
+    const base = rainbowTextRules().find((rule) =>
+      rule.at.some((query) => query.startsWith('layer utilities')),
+    );
+    expect(base, '.ws-rainbow-text is not declared in @layer utilities').not.toBeUndefined();
+    expect(base?.decls.get('animation')).toContain('ws-rainbow-drift');
+    expect(base?.decls.get('background-size')).toBe('200% 100%');
+
+    let drift: postcss.AtRule | undefined;
+    site().walkAtRules('keyframes', (at) => {
+      if (at.params === 'ws-rainbow-drift') drift = at;
+    });
+    expect(drift, '@keyframes ws-rainbow-drift is missing').toBeDefined();
+    // The one declaration in the keyframe, so the browser repositions an
+    // existing paint rather than recomputing the six-stop gradient.
+    const props = new Set<string>();
+    drift?.walkDecls((decl) => {
+      props.add(decl.prop);
+    });
+    expect([...props]).toEqual(['background-position']);
+  });
+
+  it('falls back to a single, uncropped pass under prefers-reduced-motion', () => {
+    const reduced = rainbowTextRules().filter((rule) =>
+      rule.at.some((query) => query.includes('prefers-reduced-motion: reduce')),
+    );
+    expect(reduced, '.ws-rainbow-text is not mentioned under a reduced-motion query').not.toHaveLength(
+      0,
+    );
+    // Resets the crop `background-size: 200% 100%` puts in place, so a
+    // reduced-motion visitor sees the full ramp across the text, not half of
+    // it frozen mid-drift.
+    expect(reduced.some((rule) => rule.decls.get('background-size') === 'auto')).toBe(true);
+  });
+
+  it('pauses while the tab is hidden, alongside the rest of the rainbow', () => {
+    const paused = new Set<string>();
+    site().walkRules((rule) => {
+      if (!rule.selector.includes("html[data-page-hidden='true']")) return;
+      rule.walkDecls('animation-play-state', (decl) => {
+        if (decl.value.trim() === 'paused') {
+          for (const selector of rule.selectors) paused.add(selector);
+        }
+      });
+    });
+    expect([...paused].some((selector) => selector.includes('.ws-rainbow-text'))).toBe(true);
   });
 });
