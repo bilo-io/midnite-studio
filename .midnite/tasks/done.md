@@ -4,7 +4,7 @@
 
 ## 2026-09-08 — Phase 79 Themes C, H — the companion panel, the FAB's four looks and its Settings page
 
-[PR #PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM). Moves Phase 79 12/67 → 27/67
+[PR #270](https://github.com/bilo-io/midnite-studio/pull/270). Moves Phase 79 12/67 → 27/67
 (18% → 40%). The companion becomes something you can see and type into: a second right-docked
 resizable column left of the Loops panel, a `C` leaf in the quick-access menu, four looks on the
 FAB, and the Settings page the five preferences Theme A parked in `KNOWN_ORPHANS` were waiting for.

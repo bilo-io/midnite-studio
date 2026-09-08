@@ -181,7 +181,7 @@ digest does not move the "last greeted" mark unless asked (`mark: true`) — the
 and Theme D re-reads it after a switch offer, and a read that narrowed its own window would come
 back empty the second time.
 
-### C — The panel (M) — ✅ DONE (PR #PRNUM, 2026-09-08)
+### C — The panel (M) — ✅ DONE (PR #270, 2026-09-08)
 
 A second right-docked column, left of the Loops panel, with the thread and the input bar.
 
@@ -392,7 +392,7 @@ What happens between "on it" and "here we are".
 - [ ] Tests: scheduler timings under fake timers (threshold, spacing, the no-overlap rules), and
       the melody encoder against a golden set of frequencies.
 
-### H — FAB choreography, the popover, and Settings (M) — ✅ DONE (PR #PRNUM, 2026-09-08)
+### H — FAB choreography, the popover, and Settings (M) — ✅ DONE (PR #270, 2026-09-08)
 
 The companion's face, and where its switches live.
 
