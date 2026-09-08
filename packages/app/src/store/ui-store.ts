@@ -1205,6 +1205,43 @@ export type UiState = {
   launchAndRunEnabled: boolean;
   setLaunchAndRunEnabled: (enabled: boolean) => void;
   /**
+   * The companion (Phase 79) — three switches, not one, and all three default
+   * off. `companionEnabled` reveals the panel and the `C` leaf at all;
+   * `companionHandsFree` is the only thing that ever passes `autoSend: true`
+   * to a hand-off (and only after the companion has spoken the command aloud);
+   * the microphone is Theme F's own third gate, which needs a provider key
+   * before it can be turned on at all.
+   */
+  companionEnabled: boolean;
+  setCompanionEnabled: (enabled: boolean) => void;
+  /**
+   * Hands-free run. Separate from `companionEnabled` on purpose: hearing the
+   * companion is one decision, letting it press Return in a terminal is
+   * another, and this app's default everywhere else is typed-not-sent
+   * (`use-skill-handoff.ts` passes `autoSend: false`).
+   */
+  companionHandsFree: boolean;
+  setCompanionHandsFree: (handsFree: boolean) => void;
+  /**
+   * What the companion calls you — "sir", "Ada", anything. Empty by default,
+   * and every phrase bank entry reads correctly both ways: `interpolatePhrase`
+   * (`shared/src/companion.ts`) collapses `{name}` *and* the punctuation that
+   * only existed to set it off.
+   */
+  companionHonorific: string;
+  setCompanionHonorific: (honorific: string) => void;
+  /**
+   * A `speechSynthesis` voice URI, or null for the platform default. A URI
+   * rather than a name because names collide across locales, and null rather
+   * than a seeded default because the available voices are a property of the
+   * machine, not of this build.
+   */
+  companionVoice: string | null;
+  setCompanionVoice: (voice: string | null) => void;
+  /** Whether the companion may offer elevator music on a long wait (Theme G). Default on — it only ever *offers*. */
+  companionMusicOffer: boolean;
+  setCompanionMusicOffer: (offer: boolean) => void;
+  /**
    * Phase 59 Theme A — same shape as `allowForceWithLease`: default off, so
    * a fresh install cannot scan/clean/kill anything until someone
    * deliberately turns the Workspace Optimizer on.
@@ -1438,6 +1475,11 @@ export type PersistedUi = Pick<
   | 'passcodeOnlyWhenLocked'
   | 'allowForceWithLease'
   | 'launchAndRunEnabled'
+  | 'companionEnabled'
+  | 'companionHandsFree'
+  | 'companionHonorific'
+  | 'companionVoice'
+  | 'companionMusicOffer'
   | 'optimizerEnabled'
   | 'allowSystemCacheClean'
   | 'systemCacheConsentGiven'
@@ -1567,6 +1609,21 @@ export const useUiStore = create<UiState>()(
       // it on.
       launchAndRunEnabled: false,
       setLaunchAndRunEnabled: (launchAndRunEnabled) => set({ launchAndRunEnabled }),
+      // Default off, same reasoning once more: a fresh install neither speaks
+      // nor listens, and cannot press Return in a terminal, until someone
+      // deliberately turns each of those on. `companionMusicOffer` is the one
+      // that defaults ON, because it only ever produces an offer the user can
+      // decline.
+      companionEnabled: false,
+      setCompanionEnabled: (companionEnabled) => set({ companionEnabled }),
+      companionHandsFree: false,
+      setCompanionHandsFree: (companionHandsFree) => set({ companionHandsFree }),
+      companionHonorific: '',
+      setCompanionHonorific: (companionHonorific) => set({ companionHonorific }),
+      companionVoice: null,
+      setCompanionVoice: (companionVoice) => set({ companionVoice }),
+      companionMusicOffer: true,
+      setCompanionMusicOffer: (companionMusicOffer) => set({ companionMusicOffer }),
       // Default off, same reasoning: a fresh install cannot scan or delete
       // anything, or list/kill a system process, until someone deliberately
       // turns the optimizer on.
@@ -1991,7 +2048,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 11,
+      version: 12,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2073,6 +2130,11 @@ export const useUiStore = create<UiState>()(
         passcodeOnlyWhenLocked: state.passcodeOnlyWhenLocked,
         allowForceWithLease: state.allowForceWithLease,
         launchAndRunEnabled: state.launchAndRunEnabled,
+        companionEnabled: state.companionEnabled,
+        companionHandsFree: state.companionHandsFree,
+        companionHonorific: state.companionHonorific,
+        companionVoice: state.companionVoice,
+        companionMusicOffer: state.companionMusicOffer,
         optimizerEnabled: state.optimizerEnabled,
         allowSystemCacheClean: state.allowSystemCacheClean,
         systemCacheConsentGiven: state.systemCacheConsentGiven,
@@ -2103,6 +2165,11 @@ export const useUiStore = create<UiState>()(
        * v10 → v11: seed `activeEnvironmentByRepo` (Phase 70 Theme A) — a
        * persisted blob from before this phase has no environment selection to
        * remember.
+       * v11 → v12: seed the five `companion*` preferences (Phase 79 Theme A).
+       * Written explicitly rather than left absent for the reason v9 → v10
+       * gives: `PersistedUi` is what rehydrate merges over the initial state,
+       * so a migration that produces the shape its type claims is the only
+       * version of this that cannot drift.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -2127,6 +2194,11 @@ export const useUiStore = create<UiState>()(
           editorWordWrap?: boolean;
           linkTarget?: LinkTarget;
           activeEnvironmentByRepo?: Record<string, string | null>;
+          companionEnabled?: boolean;
+          companionHandsFree?: boolean;
+          companionHonorific?: string;
+          companionVoice?: string | null;
+          companionMusicOffer?: boolean;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -2171,6 +2243,13 @@ export const useUiStore = create<UiState>()(
         }
         if (version < 11) {
           state.activeEnvironmentByRepo = {};
+        }
+        if (version < 12) {
+          state.companionEnabled = false;
+          state.companionHandsFree = false;
+          state.companionHonorific = '';
+          state.companionVoice = null;
+          state.companionMusicOffer = true;
         }
         return state as PersistedUi;
       },

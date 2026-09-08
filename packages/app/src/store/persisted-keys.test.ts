@@ -85,6 +85,13 @@ describe('persisted-keys partition', () => {
         'editorMinimap',
         'editorTabSize',
         'editorWordWrap',
+        // Phase 79 Theme A's five, whose Settings page is that phase's own
+        // Theme H — a later slice, so the switches land before the surface.
+        'companionEnabled',
+        'companionHandsFree',
+        'companionHonorific',
+        'companionVoice',
+        'companionMusicOffer',
       ].sort(),
     );
   });

@@ -9,6 +9,7 @@ export const SHARED_CONTRACT_VERSION = '0.1.0' as const;
 
 export * from './agent-invocation';
 export * from './ansi';
+export * from './companion';
 export * from './council';
 export * from './domain';
 export * from './fs';

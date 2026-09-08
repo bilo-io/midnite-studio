@@ -10,11 +10,7 @@ import {
   type ActivityState,
 } from './activity-detect';
 import type { AgentWatcher } from './agent-watcher';
-import {
-  createBrokerClient,
-  type BrokerClient,
-  type BrokerStatus,
-} from './broker-client';
+import { createBrokerClient, type BrokerClient, type BrokerStatus } from './broker-client';
 import {
   inprocActivePtyPids,
   inprocCreatePty,
@@ -281,6 +277,31 @@ export function disposeActivity(ptyId: string): void {
  */
 export function activityFor(ptyId: string): SessionActivity | null {
   return activityTracking.get(ptyId)?.clock.current() ?? null;
+}
+
+/**
+ * How many ptys are live, and how many of those the detector currently reads
+ * as thinking or waiting — Phase 79 Theme B's `sessions` field.
+ *
+ * Counted here rather than composed in the companion handler because
+ * `activityTracking` is this module's own state, and `listTerminals()` — the
+ * other way to reach the same numbers — also reads scrollback off disk for
+ * every session. A greeting must not pay for that.
+ *
+ * `live` comes from `activePtyPids()`, which answers for both the broker and
+ * the in-process transports; `thinking`/`waiting` can only ever be a subset,
+ * since a pty gets an `activityTracking` entry only once the roster has a
+ * compiled detector for whatever agent is running in it.
+ */
+export function livePtyActivityCounts(): { live: number; thinking: number; waiting: number } {
+  let thinking = 0;
+  let waiting = 0;
+  for (const ptyId of activityTracking.keys()) {
+    const activity = activityFor(ptyId);
+    if (activity === 'thinking') thinking += 1;
+    else if (activity === 'waiting') waiting += 1;
+  }
+  return { live: activePtyPids().length, thinking, waiting };
 }
 
 /**

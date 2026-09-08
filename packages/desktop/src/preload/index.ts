@@ -110,7 +110,6 @@ const bridge: Pick<
   | 'rebase'
   | 'status'
   | 'remotes'
-
   | 'forge'
   | 'forgeProject'
   | 'shell'
@@ -148,6 +147,7 @@ const bridge: Pick<
   | 'protocol'
   | 'db'
   | 'mcp'
+  | 'companion'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -193,7 +193,6 @@ const bridge: Pick<
     status: (req) => call(CHANNELS.rebaseStatus, req),
   },
   status: {
-
     get: (req) => call(CHANNELS.statusGet, req),
     counts: (req) => call(CHANNELS.statusCounts, req),
     commitDetail: (req) => call(CHANNELS.commitDetail, req),
@@ -570,6 +569,10 @@ const bridge: Pick<
     get: () => call(CHANNELS.mcpGet),
     set: (req) => call(CHANNELS.mcpSet, req),
     calls: () => call(CHANNELS.mcpCalls),
+  },
+  companion: {
+    snapshot: (req) => call(CHANNELS.companionSnapshot, req),
+    digest: (req) => call(CHANNELS.companionDigest, req),
   },
   windowChrome,
   windowRole,
