@@ -224,13 +224,19 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 or asks for a status update, a progress check, or "where are we" — answer with **one markdown table
 and nothing else above it**, one row per agent or workstream:
 
-| Agent | % | Doing | Notes |
-|-------|---|-------|-------|
-| refine-73 | 45% | Stage 3 audit — grounding `confineTree` against the tree | posted the final `confineAllowlist` signature to the board |
+| Agent | % | ETA | Doing | Notes |
+|-------|---|-----|-------|-------|
+| refine-73 | 45% | ~40m | Stage 3 audit — grounding `confineTree` against the tree | posted the final `confineAllowlist` signature to the board |
 
 - **One row per agent**, identified by the thing it owns (phase number, PR, task) — never by an
   internal agent id.
 - **A completion percentage in its own column**, always. An unknown percentage is `?`, never a blank.
+- **A remaining-time estimate (ETA) in its own column**, always — wall-clock time until that row
+  merges or completes, derived from *observed* pace (elapsed time against the % so far, how long
+  today's CI runs have actually taken, how many stages remain), never from an agent's own claim.
+  `?` when there is no basis yet, `done` once merged. When more than one row is live, add one line
+  under the table with the ETA for the whole batch, since the user's real question is "when is all
+  of it done", and rows finishing in parallel do not add.
 - **A notes column**, always — what changed since the last sitrep, what it is blocked on, what it
   handed another agent. An empty note is `—`.
 - **Succinct.** The table is the report. Add at most one or two lines under it, and only for
