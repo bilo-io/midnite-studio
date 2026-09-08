@@ -186,9 +186,15 @@ export const AgentMarquee = ({ agents = SITE_AGENTS, className = '' }: AgentMarq
         >
           {agents.map((agent) => (
             <li key={agent.id}>
+              {/*
+                No `tabIndex`: the glow is decoration, and making ten
+                non-interactive logos focusable would add ten tab stops that
+                lead nowhere — worse for a keyboard user than no glow at all.
+                The `:focus-visible` half of the rule in `site.css` stays, so it
+                works the day one of these becomes a link.
+              */}
               <span
-                className="ws-agent-static group flex flex-col items-center gap-2"
-                tabIndex={0}
+                className="ws-agent-static flex flex-col items-center gap-2"
                 style={{ '--ws-agent-color': agent.color } as CSSProperties}
               >
                 <span

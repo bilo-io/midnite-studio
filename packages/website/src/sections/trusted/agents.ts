@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { SiCline, SiCursor, SiGithubcopilot, SiOpencode } from 'react-icons/si';
 
 import {
@@ -23,7 +23,7 @@ export type AgentIcon = (props: {
   className?: string;
   strokeWidth?: number;
   style?: CSSProperties;
-}) => React.ReactNode;
+}) => ReactNode;
 
 export type SiteAgent = {
   /** Matches the roster id in `packages/shared/src/terminal.ts`. */
