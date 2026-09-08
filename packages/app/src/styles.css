@@ -15,12 +15,14 @@
  * in step. Exposed as `--font-brand` so `font-brand` (tailwind.config.ts) reaches
  * it — the same three-part wiring midnite/packages/docs uses.
  *
- * It stays in THIS package. The font is licensed for personal use only (its name
- * table reads "Quick Kiss Personal Use", Billy Argel, all rights reserved), which
- * the private app is arguably within and the *public* marketing site in
- * packages/website is not — so the site's wordmark is plain text and the two
- * surfaces deliberately differ. See docs/WEBSITE.md before copying this file
- * anywhere public. */
+ * It stays in THIS package, and copying it into packages/website is never the
+ * fix for anything. The font is licensed for personal use only (its name table
+ * reads "Quick Kiss Personal Use", Billy Argel, all rights reserved), which the
+ * private app is arguably within and the *public* marketing site is not. The site
+ * therefore sets the same wordmark in Kaushan Script (SIL OFL), the closest open
+ * re-cut of this face, picked from twenty rendered candidates — so the two
+ * surfaces are deliberately near-identical rather than identical. See
+ * docs/WEBSITE.md § "The brand face". */
 @font-face {
   font-family: 'Quick Kiss';
   src: url('./fonts/quick-kiss.ttf') format('truetype');
