@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { cleanPtyText } from './ansi';
 import { RepoDescriptorSchema, type Ref } from './domain';
+import { parseConventionalCommit } from './version';
 
 /**
  * The companion (Phase 79) — its state machine, the words it says, and the
@@ -223,8 +224,7 @@ export function pickPhrase(
   // since changed (a build with different words, a rehydrated store). Falling
   // back to the whole bank beats returning nothing.
   const pool = candidates.length > 0 ? candidates : bank;
-  const index = Math.min(pool.length - 1, Math.max(0, Math.floor(rng() * pool.length)));
-  return pool[index] as string;
+  return pool[pickIndex(rng, pool.length)] as string;
 }
 
 /**
@@ -404,7 +404,31 @@ function sinceLabel(since: number, now: number): string {
   return `in the last ${Math.floor(days / 7)} weeks`;
 }
 
-const plural = (count: number, word: string): string => `${count} ${word}${count === 1 ? '' : 's'}`;
+/**
+ * `count` + the right plural of `word`, exported because Theme B's grammar
+ * check (`describe('plural')` below) asserts it directly rather than only
+ * through a rendered sentence.
+ *
+ * A naive "always append s" is the "1 fixes" failure mode's other half: it
+ * gets count === 1 right but misspells the plural of anything ending in a
+ * sibilant (`fix` → `fixs`) or a consonant-`y` (`entry` → `entrys`), both of
+ * which Theme B's own category words (`fix`) and `countByKind`'s existing
+ * words (`tracker entry`) hit. Two irregular-plural rules cover every word
+ * this module passes through it today.
+ */
+export const plural = (count: number, word: string): string => {
+  if (count === 1) return `1 ${word}`;
+  if (/[^aeiou]y$/i.test(word)) return `${count} ${word.slice(0, -1)}ies`;
+  if (/(?:[sxz]|[cs]h)$/i.test(word)) return `${count} ${word}es`;
+  return `${count} ${word}s`;
+};
+
+/** Oxford-free "a, b and c" — spoken, not printed, so no serial comma before "and". */
+function oxfordJoin(parts: readonly string[]): string {
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0] as string;
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1] as string}`;
+}
 
 /**
  * Join titles the way a sentence does — "a, b and c" — with an Oxford-free
@@ -412,26 +436,156 @@ const plural = (count: number, word: string): string => `${count} ${word}${count
  */
 function joinTitles(items: readonly CompanionDigestItem[]): string {
   const titles = items.map((item) => item.title.trim()).filter((title) => title.length > 0);
-  if (titles.length === 0) return '';
-  if (titles.length === 1) return titles[0] as string;
-  return `${titles.slice(0, -1).join(', ')} and ${titles[titles.length - 1] as string}`;
+  return oxfordJoin(titles);
 }
 
-/** "three commits, two PRs and one phase" — counted by kind, in a fixed order. */
-function countByKind(items: readonly CompanionDigestItem[]): string {
+/** "1 commit, 2 pull requests" — counted by source kind, in a fixed order, unjoined. */
+function kindParts(items: readonly CompanionDigestItem[]): string[] {
   const order: CompanionDigestItem['kind'][] = ['commit', 'pr', 'phase'];
   const words: Record<CompanionDigestItem['kind'], string> = {
     commit: 'commit',
     pr: 'pull request',
     phase: 'tracker entry',
   };
-  const parts = order
+  return order
     .map((kind) => ({ kind, count: items.filter((item) => item.kind === kind).length }))
     .filter((entry) => entry.count > 0)
     .map((entry) => plural(entry.count, words[entry.kind]));
-  if (parts.length === 0) return '';
-  if (parts.length === 1) return parts[0] as string;
-  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1] as string}`;
+}
+
+/** "three commits, two PRs and one phase" — counted by kind, in a fixed order. */
+function countByKind(items: readonly CompanionDigestItem[]): string {
+  return oxfordJoin(kindParts(items));
+}
+
+// --- B.1 · Theme B's category layer, sitting above countByKind -------------
+//
+// Decision 3 (phase-80): this layer is *additive* — `countByKind`'s
+// commit/pr/phase source-kind grouping is unchanged and still drives the
+// "in progress" section — so the "landed" section can say "4 dependency
+// updates, 3 fixes" instead of "7 commits" without touching anything that
+// isn't a landed, conventional-commit-shaped title.
+
+/** One of the buckets Theme B singles out; everything else falls back to `kindParts`. */
+type DigestCategoryLabel = 'dependency update' | 'fix' | 'feature';
+
+/** Reading order: dependency bumps first (the noisiest), then fixes, then features. */
+const DIGEST_CATEGORIES: readonly DigestCategoryLabel[] = ['dependency update', 'fix', 'feature'];
+
+/**
+ * Bucket a landed item by conventional-commit type, reusing
+ * {@link parseConventionalCommit} rather than a second commit-message parser
+ * (Finding 2 / Decision 3). `null` for anything that doesn't parse as a
+ * conventional-commit subject, or parses as a type this phase doesn't single
+ * out — those fall back to `countByKind`'s source-kind grouping instead of
+ * silently disappearing.
+ */
+function digestCategoryFor(item: CompanionDigestItem): DigestCategoryLabel | null {
+  const parsed = parseConventionalCommit(item.title);
+  if (parsed === null) return null;
+  if (parsed.type === 'chore' && parsed.scope === 'deps') return 'dependency update';
+  if (parsed.type === 'fix') return 'fix';
+  if (parsed.type === 'feat') return 'feature';
+  return null;
+}
+
+function groupByCategory(
+  items: readonly CompanionDigestItem[],
+): Array<{ category: DigestCategoryLabel; items: CompanionDigestItem[] }> {
+  return DIGEST_CATEGORIES.map((category) => ({
+    category,
+    items: items.filter((item) => digestCategoryFor(item) === category),
+  })).filter((group) => group.items.length > 0);
+}
+
+/**
+ * "4 dependency updates, 3 fixes and 2 commits" — category words for whatever
+ * categorises, `kindParts` for whatever doesn't, one Oxford-free join.
+ * Identical to `countByKind(items)` when nothing categorises, which is what
+ * keeps every pre-Theme-B digest fixture unchanged.
+ */
+function countByCategory(items: readonly CompanionDigestItem[]): string {
+  const groups = groupByCategory(items);
+  if (groups.length === 0) return countByKind(items);
+  const categorised = new Set(groups.flatMap((group) => group.items));
+  const leftover = items.filter((item) => !categorised.has(item));
+  return oxfordJoin([
+    ...groups.map((group) => plural(group.items.length, group.category)),
+    ...kindParts(leftover),
+  ]);
+}
+
+/**
+ * "updating `x`" or "updating `x` in `y`" — one bucket's representative
+ * specific. `y` is the commit's own `scope`, except for the `dependency
+ * update` bucket, whose scope (`deps`) is already spent naming the bucket
+ * (Decision, phase-80 Theme B acceptance).
+ */
+function representDigestItem(item: CompanionDigestItem, category: DigestCategoryLabel): string {
+  const parsed = parseConventionalCommit(item.title);
+  const detail = (parsed?.description || item.title).trim();
+  const scope = parsed?.scope ?? null;
+  if (category !== 'dependency update' && scope) return `updating ${detail} in ${scope}`;
+  return `updating ${detail}`;
+}
+
+/**
+ * Up to two representative specifics, one per leading category bucket —
+ * "name one or two representative specifics, drop the rest" is this phase's
+ * own brief. Empty when nothing categorised, which is what keeps an
+ * uncategorised over-cap digest from naming anything (unchanged behaviour).
+ */
+function representativeDetail(items: readonly CompanionDigestItem[]): string {
+  const picks = groupByCategory(items)
+    .slice(0, 2)
+    .map((group) => representDigestItem(group.items[0] as CompanionDigestItem, group.category));
+  return oxfordJoin(picks);
+}
+
+// --- B.2 · template variety ---------------------------------------------
+
+/** `pickPhrase`-style connectives a representative clause can be introduced with. */
+const DIGEST_CONNECTIVES = ['including', 'among them', 'notably'] as const;
+
+function withConnective(connective: string, detail: string): string {
+  return connective === 'including' ? `including ${detail}` : `${connective}, ${detail}`;
+}
+
+type DigestSentenceParts = { when: string; count: string; detail: string };
+
+/**
+ * 4 interchangeable shapes for the "landed" line. Every one leads with `when`
+ * verbatim — `summariseDigest`'s own weekday-phrasing test relies on the
+ * first word being "Since" regardless of which template the rng picks — and
+ * every one drops its connective clause outright rather than leaving one
+ * dangling when `detail` is empty (the over-cap, nothing-categorised case).
+ */
+const LANDED_TEMPLATES: ReadonlyArray<(p: DigestSentenceParts, connective: string) => string> = [
+  ({ when, count, detail }, connective) =>
+    `${when}, ${count} landed${detail ? ` — ${withConnective(connective, detail)}` : ''}.`,
+  ({ when, count, detail }, connective) =>
+    `${when}, there have been ${count}${detail ? `, ${withConnective(connective, detail)}` : ''}.`,
+  ({ when, count, detail }, connective) =>
+    `${when}, ${count} came in${detail ? `, ${withConnective(connective, detail)}` : ''}.`,
+  ({ when, count, detail }, connective) =>
+    `${when}, that is ${count}${detail ? ` — ${withConnective(connective, detail)}` : ''}.`,
+];
+
+/** Same shape for the "in progress" line. No category layer here (Decision 3) — still varied. */
+const IN_PROGRESS_TEMPLATES: ReadonlyArray<(p: DigestSentenceParts, connective: string) => string> = [
+  ({ count, detail }, connective) =>
+    `Still in flight: ${count}${detail ? `, ${withConnective(connective, detail)}` : ''}.`,
+  ({ count, detail }, connective) =>
+    `${count} still in flight${detail ? ` — ${withConnective(connective, detail)}` : ''}.`,
+  ({ count, detail }, connective) =>
+    `There are ${count} in flight right now${detail ? `, ${withConnective(connective, detail)}` : ''}.`,
+  ({ count, detail }, connective) =>
+    `${count} remain in flight${detail ? `, ${withConnective(connective, detail)}` : ''}.`,
+];
+
+/** `Math.floor(rng() * n)`, clamped — shared by `pickPhrase` and Theme B's own template/connective picks. */
+function pickIndex(rng: () => number, length: number): number {
+  return Math.min(length - 1, Math.max(0, Math.floor(rng() * length)));
 }
 
 /**
@@ -445,28 +599,51 @@ function countByKind(items: readonly CompanionDigestItem[]): string {
  * Shape: one sentence for what landed, one for what is still open, and a
  * closing sentence only when there is genuinely nothing to report. Titles are
  * named up to {@link COMPANION_DIGEST_NAME_CAP} and collapse to counts past
- * it, because past five a spoken list is a wait rather than a summary.
+ * it, because past five a spoken list is a wait rather than a summary — and,
+ * past that cap, the landed line still names one or two representative
+ * specifics from whatever categorised (Theme B), rather than naming nothing.
+ *
+ * `rng` is injected (defaulting to `Math.random`), following the exact
+ * pattern `pickPhrase` and `ConciergeDeps.rng` already use, so which of the
+ * 4-6 interchangeable templates and connectives gets picked is deterministic
+ * under test.
  */
-export function summariseDigest(digest: CompanionDigest, now = Date.now()): string[] {
+export function summariseDigest(
+  digest: CompanionDigest,
+  now = Date.now(),
+  rng: () => number = Math.random,
+): string[] {
   const when = sinceLabel(digest.since, now);
   const lines: string[] = [];
 
   if (digest.landed.length === 0) {
     lines.push(`Nothing has landed ${when}.`);
-  } else if (digest.landed.length <= COMPANION_DIGEST_NAME_CAP) {
-    lines.push(
-      `${capitalise(when)}, ${countByKind(digest.landed)} landed — ${joinTitles(digest.landed)}.`,
-    );
   } else {
-    lines.push(`${capitalise(when)}, ${countByKind(digest.landed)} landed.`);
+    const count = countByCategory(digest.landed);
+    const detail =
+      digest.landed.length <= COMPANION_DIGEST_NAME_CAP
+        ? joinTitles(digest.landed)
+        : representativeDetail(digest.landed);
+    const template = LANDED_TEMPLATES[pickIndex(rng, LANDED_TEMPLATES.length)] as (
+      p: DigestSentenceParts,
+      connective: string,
+    ) => string;
+    const connective = DIGEST_CONNECTIVES[pickIndex(rng, DIGEST_CONNECTIVES.length)] as string;
+    lines.push(template({ when: capitalise(when), count, detail }, connective));
   }
 
   if (digest.inProgress.length === 0) {
     lines.push('Nothing is open right now.');
-  } else if (digest.inProgress.length <= COMPANION_DIGEST_NAME_CAP) {
-    lines.push(`Still in flight: ${joinTitles(digest.inProgress)}.`);
   } else {
-    lines.push(`${capitalise(countByKind(digest.inProgress))} are still in flight.`);
+    const count = countByKind(digest.inProgress);
+    const detail =
+      digest.inProgress.length <= COMPANION_DIGEST_NAME_CAP ? joinTitles(digest.inProgress) : '';
+    const template = IN_PROGRESS_TEMPLATES[pickIndex(rng, IN_PROGRESS_TEMPLATES.length)] as (
+      p: DigestSentenceParts,
+      connective: string,
+    ) => string;
+    const connective = DIGEST_CONNECTIVES[pickIndex(rng, DIGEST_CONNECTIVES.length)] as string;
+    lines.push(template({ when: capitalise(when), count, detail }, connective));
   }
 
   if (digest.landed.length === 0 && digest.inProgress.length === 0) {

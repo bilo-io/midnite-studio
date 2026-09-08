@@ -1,6 +1,34 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-09 — Phase 80 Theme B — aggregated, randomised digest phrasing
+
+[PR #296](https://github.com/bilo-io/midnite-studio/pull/296). `summariseDigest`'s "landed" line
+named every item's raw title with one fixed template every time. This theme extends it rather than
+replacing it: a category layer (`dependency update` / `fix` / `feature`, from
+`parseConventionalCommit` in `version.ts`, read-only reuse) sits *above* `countByKind`'s
+commit/PR/phase source-kind buckets — additive per the phase doc's Decision 3, so a digest of 4
+`chore(deps): …` and 3 `fix: …` commits reads "4 dependency updates, 3 fixes" instead of "7
+commits", and anything that doesn't parse as a conventional commit falls back to `countByKind`
+byte-for-byte (every pre-Theme-B digest fixture is unchanged).
+
+Past `COMPANION_DIGEST_NAME_CAP`, where titles used to vanish entirely, up to two representative
+specifics are now named instead ("updating `x` in `y`" — `y` is the commit's own `scope`, omitted
+for the `dependency update` bucket since its scope, `deps`, already named the bucket). Wording
+comes from 4 interchangeable templates per section (landed/in progress) with `pickPhrase`-style
+connectives ("including", "among them", "notably"), chosen by an injected `rng: () => number =
+Math.random` — the fourth instance of this file's own injectable-RNG convention (`pickPhrase`,
+`nextFillerDelayMs`, `ConciergeDeps.rng`), not a new one; `pickPhrase`'s own index-clamp math is
+now the shared `pickIndex` helper both use.
+
+`plural()`'s naive `+s` pluraliser is fixed and exported: it silently produced `fixs` and `tracker
+entrys` for any word ending in a sibilant or consonant-`y`, exactly the "1 fixes"-shaped bug class
+the brief calls out (the count > 1 half of it — count === 1 already worked). A new template-grammar
+vitest sweep renders every template × connective combination and asserts no double space and no
+dangling connective, plus a direct `plural()` sweep at counts 0/1/2/5+ — a vitest, not an eslint
+rule, since this repo's `eslint.config.mjs` has no precedent for asserting string content and the
+phase doc rules a lint rule out explicitly.
+
 ## 2026-09-09 — Phase 80 Theme A — a spoken-form transform that never says a SHA
 
 [PR #294](https://github.com/bilo-io/midnite-studio/pull/294). The companion narrates its digest

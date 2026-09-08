@@ -138,12 +138,12 @@ check has no structured title to read here, and "7-40 character hex run" alone o
 words/counts) are recorded as unattended decisions in [PR #294](https://github.com/bilo-io/midnite-studio/pull/294)'s
 description rather than invented silently.
 
-### B — Aggregated, randomised digest phrasing (M)
+### B — Aggregated, randomised digest phrasing (M) — ✅ DONE (PR #296, 2026-09-09)
 
 Finding 2/3: extend `summariseDigest` rather than replace it, adding category buckets and template
 variety on top of the count-and-name shape it already has.
 
-- [ ] Add a category layer *above* `countByKind`'s source-kind buckets, reusing
+- [x] Add a category layer *above* `countByKind`'s source-kind buckets, reusing
   [`parseConventionalCommit`](../../../packages/shared/src/version.ts) (`version.ts:174-189`) and
   `KNOWN_COMMIT_TYPES` (`version.ts:145-156`) rather than writing a second commit-message parser —
   `CompanionDigestItem.title` for `kind: 'commit'` items is `cursor.subject`
@@ -157,25 +157,33 @@ variety on top of the count-and-name shape it already has.
     `fix: …` commits summarises as "4 dependency updates, 3 fixes" with one representative title
     from each bucket ("including updating `{x}` in `{y}`" — `{y}` from the commit's own `scope`
     when the type isn't `deps`, since `deps`'s scope is already spent naming the bucket).
-- [ ] Add an injectable `rng: () => number = Math.random` parameter to `summariseDigest`, following
+- [x] Add an injectable `rng: () => number = Math.random` parameter to `summariseDigest`, following
   the exact pattern at `pickPhrase` (`companion.ts:214`) and `ConciergeDeps.rng`
   (`concierge.ts:77`) — not a new pattern, the fourth instance of the same one.
-- [ ] A small set (4-6) of interchangeable sentence templates per section ("landed" / "in progress"),
+- [x] A small set (4-6) of interchangeable sentence templates per section ("landed" / "in progress"),
   each a pure string-template function taking the same aggregated data `summariseDigest` already
   computes (`countByKind`'s parts, `joinTitles`'s representative names, `sinceLabel`'s `when`), and
   `pickPhrase`-style connectives ("including", "among them", "notably") chosen by the injected
   `rng`, never a fixed string concatenation.
-- [ ] A template-grammar check (a vitest, not a lint rule — this repo's `eslint.config.mjs` has no
+- [x] A template-grammar check (a vitest, not a lint rule — this repo's `eslint.config.mjs` has no
   precedent for asserting *string content*, only import shape) that renders every template at
   count 0, 1, 2 and 5+ and asserts the output has no double space, no dangling connective, and
   correct pluralisation via the existing `plural(count, word)` helper (`companion.ts:409`) — this
   is the "1 fixes" failure mode named in the brief, caught mechanically rather than by eyeballing
   fixtures.
-- [ ] `companion.test.ts`'s existing `describe('summariseDigest')` block (`companion.test.ts:265`)
+- [x] `companion.test.ts`'s existing `describe('summariseDigest')` block (`companion.test.ts:265`)
   gains: category-bucket assertions, an `rng` injection test proving two calls with different
   seeded sequences produce different (but both grammatical) sentences, and one call with a rng
   stubbed to a fixed sequence for byte-exact snapshot-style assertions (the deterministic-test
   requirement from the brief).
+
+**Landed** — see [`done.md`](../done.md) (2026-09-09) for the narrative. [PR #296](https://github.com/bilo-io/midnite-studio/pull/296)'s
+description records the unattended calls beyond the doc's own wording: the representative clause
+uses "updating `x`"/"updating `x` in `y`" literally rather than a per-category verb, the
+representative-specifics clause only fires past `COMPANION_DIGEST_NAME_CAP` (below it, every title
+is still named via the unchanged `joinTitles`), `plural()`'s pluraliser itself was fixed rather than
+adding a bespoke map for the two new category words, and one pre-existing test's exact wording
+(`'still in flight'`) was loosened to the substring every new template shares (`'in flight'`).
 
 ### C — Replace `speechSynthesis` with a local, free, low-RAM voice (L)
 
@@ -304,7 +312,7 @@ runtime is desktop-only per the bundle-budget guardrail above.
 ## Verification
 
 - [ ] Unit: `sanitizeForSpeech` — every acceptance bullet in Theme A, plus the idempotence property.
-- [ ] Unit: `summariseDigest`'s category buckets, `rng` injection, and the template-grammar sweep
+- [x] Unit: `summariseDigest`'s category buckets, `rng` injection, and the template-grammar sweep
   (counts 0/1/2/5+) from Theme B.
 - [ ] Unit: `matchesCompanionName` — case-insensitivity, trimming, multi-alias, non-substring.
 - [ ] RTL: `companion-voice-page.test.tsx` — the pill editor's Enter-to-commit, Backspace-to-delete,
