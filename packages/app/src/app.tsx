@@ -1,4 +1,13 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   AppFrame,
@@ -38,7 +47,10 @@ import { CompanionPanelSlot } from './features/companion/companion-panel';
   there is nothing to call.
 */
 import './features/companion/voice-ports';
-import { useCompanionHandoffWatch } from './features/companion/register-flow-ports';
+import {
+  useCompanionHandoffWatch,
+  useCompanionSpeakerWiring,
+} from './features/companion/register-flow-ports';
 import { useCompanionEnabledSync } from './features/companion/use-companion-enabled';
 import { fabCompanionState } from './features/companion/companion-look';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from './features/loops/fab-loop-halo';
@@ -115,10 +127,11 @@ import {
 const loadSlidesModal = () => import('./features/slides/slides-modal');
 const SlidesModal = lazy(() => loadSlidesModal().then((m) => ({ default: m.SlidesModal })));
 const loadOnboardingModal = () => import('./features/onboarding/onboarding-modal');
-const OnboardingModal = lazy(() => loadOnboardingModal().then((m) => ({ default: m.OnboardingModal })));
+const OnboardingModal = lazy(() =>
+  loadOnboardingModal().then((m) => ({ default: m.OnboardingModal })),
+);
 const loadFirstRunModal = () => import('./features/onboarding/first-run-modal');
 const FirstRunModal = lazy(() => loadFirstRunModal().then((m) => ({ default: m.FirstRunModal })));
-
 
 /**
  * A QueryClient tuned for a desktop app talking to its own main process.
@@ -406,7 +419,11 @@ function useAutoFetch() {
       if (!api) return;
       lastFetchAt.current = Date.now();
       Promise.all(repos.map((repo) => api.ops.fetch({ repoId: repo.id, worktreePath: repo.path })))
-        .then(() => Promise.all(repos.map((repo) => client.invalidateQueries({ queryKey: keys.repo(repo.id) }))))
+        .then(() =>
+          Promise.all(
+            repos.map((repo) => client.invalidateQueries({ queryKey: keys.repo(repo.id) })),
+          ),
+        )
         .catch(() => {});
     };
 
@@ -516,6 +533,7 @@ function Shell() {
   // a hand-off runs unattended, so its answer has to arrive with the
   // companion panel closed (Phase 79 Theme E).
   useCompanionHandoffWatch();
+  useCompanionSpeakerWiring();
   // Cross-window sync (Theme E) — mounted here too, not just in
   // `DetachedRoot`, so a change made in the main window reaches every popout.
   useBroadcastSync();
@@ -1202,9 +1220,7 @@ function Shell() {
               <SyncActions />
             </div>
             {centerActions ? (
-              <div className="flex min-w-0 flex-1 items-center justify-center">
-                {centerActions}
-              </div>
+              <div className="flex min-w-0 flex-1 items-center justify-center">{centerActions}</div>
             ) : null}
             <div className="flex items-center gap-2">{chrome}</div>
           </div>
@@ -1321,18 +1337,15 @@ function Shell() {
                 rather than a poisoned slot.
               */}
               <ErrorBoundary resetKey={activeView} label={viewLabel}>
-              <Suspense
-                fallback={
-                  <div className={viewBoxClassName}>
-                    <DelayedFallback />
-                  </div>
-                }
-              >
-              <div
-                key={activeView}
-                className={viewBoxClassName}
-              >
-                {/*
+                <Suspense
+                  fallback={
+                    <div className={viewBoxClassName}>
+                      <DelayedFallback />
+                    </div>
+                  }
+                >
+                  <div key={activeView} className={viewBoxClassName}>
+                    {/*
                   One lookup, not a chain — Phase 60 Theme A.
 
                   The ORDERING that used to be load-bearing here (five views
@@ -1345,10 +1358,9 @@ function Shell() {
                   window — the fallthrough that quietly caught `sessions` for
                   four phases no longer exists to catch anything.
                 */}
-                {viewIsGlobal || selectedRepoId ? <Component /> : <EmptyWorkspace />}
-
-              </div>
-              </Suspense>
+                    {viewIsGlobal || selectedRepoId ? <Component /> : <EmptyWorkspace />}
+                  </div>
+                </Suspense>
               </ErrorBoundary>
 
               {/*
@@ -1431,7 +1443,9 @@ function Shell() {
           */}
           {!browserSideBySide && browserReveal.mounted ? (
             // Guards the tail of the collapse tween — see `browserColumn`'s.
-            browserDetached ? null : <BrowserPane shown={browserReveal.shown} />
+            browserDetached ? null : (
+              <BrowserPane shown={browserReveal.shown} />
+            )
           ) : null}
 
           {/*
@@ -1443,11 +1457,7 @@ function Shell() {
           */}
           {companionTween.mounted ? (
             <>
-              <ResizeHandle
-                resizable={companionPanel}
-                axis="x"
-                label="Resize companion panel"
-              />
+              <ResizeHandle resizable={companionPanel} axis="x" label="Resize companion panel" />
               <div
                 ref={companionTween.ref}
                 data-companion-panel-frame
@@ -1526,7 +1536,9 @@ function Shell() {
                   captureFabMorphOrigin(fabButtonRef.current);
                   useUiStore.getState().toggleQuickAccess();
                 }}
-                aria-label={fabDetached ? 'Focus the detached Loops window' : 'Open quick access panel'}
+                aria-label={
+                  fabDetached ? 'Focus the detached Loops window' : 'Open quick access panel'
+                }
                 title={fabDetached ? 'Midnite Loops (detached)' : 'Quick Access'}
                 data-testid="fab-button"
                 data-loops-running={loopsRunning.running ? 'true' : undefined}

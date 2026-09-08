@@ -13,10 +13,13 @@ import {
   COMPANION_TRUNCATION_TAIL,
   CompanionIntentSchema,
   CompanionSnapshotSchema,
+  composeOverviewMarkdown,
   describeSnapshot,
   emptyCompanionSnapshot,
+  escapeMarkdownInline,
   extractLastAgentTurn,
   interpolatePhrase,
+  markdownToSpeech,
   noRepeatWindow,
   parseAskReply,
   parseDoneEntries,
@@ -872,5 +875,187 @@ describe('parseAskReply', () => {
 
   it('rejects an intent the schema does not recognise, object and all', () => {
     expect(parseAskReply('{"say":"ok","intent":{"kind":"rm -rf"}}')).toBeNull();
+  });
+});
+
+// --- follow-up · one formatted turn -----------------------------------------
+
+describe('escapeMarkdownInline', () => {
+  it('neutralises every character a parser would act on, and nothing else', () => {
+    expect(escapeMarkdownInline('Phase 79 [M · 4-6h]')).toBe('Phase 79 \\[M · 4-6h\\]');
+    expect(escapeMarkdownInline('fix **bold** and snake_case and `code`')).toBe(
+      'fix \\*\\*bold\\*\\* and snake\\_case and \\`code\\`',
+    );
+    expect(escapeMarkdownInline('a plain subject, with punctuation.')).toBe(
+      'a plain subject, with punctuation.',
+    );
+  });
+});
+
+describe('composeOverviewMarkdown', () => {
+  it('bolds the repo, quotes the branch, and bullets every remaining fact', () => {
+    const markdown = composeOverviewMarkdown(
+      snapshotFixture({
+        ahead: 2,
+        behind: 1,
+        dirty: { staged: 1, unstaged: 2, untracked: 0 },
+        sessions: { live: 1, thinking: 1, waiting: 0 },
+        openPulls: 3,
+        failingChecks: 1,
+      }),
+    );
+
+    expect(markdown.split('\n\n')[0]).toBe('**midnite-studio** — on `main`');
+    // Every fact after the branch sentence is a bullet, and there is no
+    // second copy of the branch line.
+    expect(markdown).toContain('- That branch is 2 commits ahead and 1 commit behind.');
+    expect(markdown).toContain('- 3 changes: 1 staged, 2 unstaged.');
+    expect(markdown).toContain('- 1 session running — 1 thinking.');
+    expect(markdown).toContain('- 3 open pull requests and 1 check failing.');
+    expect(markdown).not.toContain('You are in midnite-studio');
+  });
+
+  it('says a detached head in the heading rather than quoting a branch that is not there', () => {
+    expect(composeOverviewMarkdown(snapshotFixture({ branch: null }))).toContain(
+      '**midnite-studio** — on a detached head',
+    );
+  });
+
+  it('renders the no-repo case as one sentence with no heading', () => {
+    const markdown = composeOverviewMarkdown(emptyCompanionSnapshot(3));
+    expect(markdown).toBe('No repository is open — you have 3 ones to choose from.');
+    expect(markdown).not.toContain('**');
+  });
+
+  it('hyperlinks the items that carry a url and leaves the rest plain', () => {
+    const digest: CompanionDigest = {
+      since: Date.parse('2026-09-01T09:00:00Z'),
+      landed: [
+        {
+          kind: 'pr',
+          title: 'Phase 79 Themes A, B [M · 4-6h]',
+          ref: '#269',
+          at: Date.parse('2026-09-02T09:00:00Z'),
+          url: 'https://github.com/bilo-io/midnite-studio/pull/269',
+        },
+        { kind: 'commit', title: 'tidy the broker', ref: 'a1b2c3d4', at: 0 },
+      ],
+      inProgress: [{ kind: 'phase', title: 'the next phase', ref: '80', at: 0 }],
+    };
+
+    const markdown = composeOverviewMarkdown(snapshotFixture(), {
+      digest,
+      now: Date.parse('2026-09-08T09:00:00Z'),
+    });
+
+    expect(markdown).toContain(
+      '- [Phase 79 Themes A, B \\[M · 4-6h\\]](https://github.com/bilo-io/midnite-studio/pull/269) (`#269`)',
+    );
+    expect(markdown).toContain('- tidy the broker (`a1b2c3d4`)');
+    expect(markdown).toContain('**In progress**');
+    expect(markdown).toContain('- the next phase (`80`)');
+  });
+
+  it('drops the ref when the title already names it', () => {
+    const digest: CompanionDigest = {
+      since: 0,
+      landed: [],
+      inProgress: [
+        { kind: 'commit', title: 'feature/x (3 unpushed)', ref: 'feature/x', at: 0 },
+      ],
+    };
+    const markdown = composeOverviewMarkdown(snapshotFixture(), { digest });
+    expect(markdown).toContain('- feature/x (3 unpushed)');
+    expect(markdown).not.toContain('(`feature/x`)');
+  });
+
+  it('caps the named items at the spoken cap and counts the remainder', () => {
+    const many = Array.from({ length: 9 }, (_, index) => ({
+      kind: 'commit' as const,
+      title: `commit ${index}`,
+      ref: `sha${index}`,
+      at: index,
+    }));
+    const markdown = composeOverviewMarkdown(snapshotFixture(), {
+      digest: { since: 0, landed: many, inProgress: [] },
+    });
+    expect(markdown).toContain('- commit 4 (`sha4`)');
+    expect(markdown).not.toContain('- commit 5 (`sha5`)');
+    expect(markdown).toContain('- and 4 more');
+  });
+
+  it('says the empty sections rather than omitting them, and closes on a clean slate', () => {
+    const markdown = composeOverviewMarkdown(snapshotFixture(), {
+      digest: { since: Date.parse('2026-09-07T09:00:00Z'), landed: [], inProgress: [] },
+      now: Date.parse('2026-09-08T09:00:00Z'),
+    });
+    expect(markdown).toContain('**Landed** — nothing yesterday.');
+    expect(markdown).toContain('**In progress** — nothing open right now.');
+    expect(markdown).toContain('A clean slate, then.');
+  });
+
+  it('appends the switch offer only when asked', () => {
+    expect(composeOverviewMarkdown(snapshotFixture(), { offerSwitch: true })).toContain(
+      'Want to switch to another one?',
+    );
+    expect(composeOverviewMarkdown(snapshotFixture())).not.toContain('Want to switch');
+  });
+});
+
+describe('markdownToSpeech', () => {
+  it('says a link by its text and never says the url', () => {
+    expect(markdownToSpeech('- [Phase 79](https://example.test/pull/1) (`#269`)')).toBe(
+      'Phase 79 (#269).',
+    );
+  });
+
+  it('drops emphasis, backticks, bullets, hashes and quotes', () => {
+    expect(markdownToSpeech('## **Landed** since `Tuesday`')).toBe('Landed since Tuesday.');
+    expect(markdownToSpeech('> quoted')).toBe('quoted.');
+    expect(markdownToSpeech('1. first\n2) second')).toBe('first.\nsecond.');
+  });
+
+  it('unescapes what escapeMarkdownInline protected', () => {
+    expect(markdownToSpeech(escapeMarkdownInline('Phase 79 [M · 4-6h]'))).toBe(
+      'Phase 79 [M · 4-6h].',
+    );
+  });
+
+  it('adds a terminator only where a line has none, so chunkForSpeech can breathe', () => {
+    expect(markdownToSpeech('**midnite-studio** — on `main`')).toBe('midnite-studio — on main.');
+    expect(markdownToSpeech('- 3 changes: 1 staged.')).toBe('3 changes: 1 staged.');
+    expect(markdownToSpeech('Want to switch to another one?')).toBe(
+      'Want to switch to another one?',
+    );
+  });
+
+  it('drops blank lines rather than turning them into pauses of their own', () => {
+    expect(markdownToSpeech('**a**\n\n- b\n\n\n- c')).toBe('a.\nb.\nc.');
+  });
+
+  it('speaks a whole composed overview as plain sentences with no markup left', () => {
+    const spoken = markdownToSpeech(
+      composeOverviewMarkdown(snapshotFixture({ ahead: 1 }), {
+        digest: {
+          since: Date.parse('2026-09-07T09:00:00Z'),
+          landed: [
+            {
+              kind: 'pr',
+              title: 'a **fix**',
+              ref: '#1',
+              at: 0,
+              url: 'https://example.test/pull/1',
+            },
+          ],
+          inProgress: [],
+        },
+        offerSwitch: true,
+        now: Date.parse('2026-09-08T09:00:00Z'),
+      }),
+    );
+    expect(spoken).not.toMatch(/[*`[\]]|https?:/);
+    expect(spoken).toContain('midnite-studio — on main.');
+    // The escaped `**` in the title is gone rather than spoken.
+    expect(spoken).toContain('a fix (#1).');
   });
 });
