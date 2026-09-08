@@ -66,3 +66,48 @@ export function agentInvocationArgs(agentId: string): string[] {
 export function shellQuote(text: string): string {
   return `'${text.replace(/\s+/g, ' ').trim().replace(/'/g, String.raw`'\''`)}'`;
 }
+
+/**
+ * The flags that make an agent CLI answer once and **exit** — print mode.
+ *
+ * Distinct from {@link agentInvocationArgs}, and the distinction is the whole
+ * reason this exists. That function answers "how do I hand this CLI a prompt
+ * to start an interactive session with", which is what a pty wants: Claude and
+ * OpenClaude take the prompt as a bare positional and then sit at their own
+ * REPL, so they need no flags at all and get `[]`. A *headless* caller needs
+ * the opposite — a process that writes an answer to stdout and closes — and
+ * for Claude that is `-p`. `council-runner.ts` works around the gap by typing
+ * the command into a login shell with `; exit $?` appended, which it has to do
+ * because it uses a pty; Phase 79's companion uses `runProcess` and can simply
+ * ask for print mode.
+ *
+ * `null` rather than `[]` for an agent with no known print mode, because the
+ * two answers are different facts and only one of them may be spawned: `[]`
+ * would mean "run it with no flags", which for an unknown interactive CLI is a
+ * process that waits for stdin it will never get (`runProcess` gives it
+ * `'ignore'`, so it gets EOF and, if it is well-behaved, exits — and if it is
+ * not, sits there until the deadline). A caller that gets `null` skips that
+ * agent and looks for another, or tells the user there is nothing installed.
+ */
+export function agentHeadlessArgs(agentId: string): string[] | null {
+  switch (agentId) {
+    // Claude Code's print mode. OpenClaude is a fork of its CLI surface and
+    // takes the same flag.
+    case 'claude':
+    case 'openclaude':
+      return ['-p'];
+    // Antigravity and OpenCode's non-interactive flags happen to be the same
+    // ones that make them one-shot, so these agree with `agentInvocationArgs`.
+    case 'agy':
+      return ['-p'];
+    case 'opencode':
+      return ['--prompt'];
+    case 'codex':
+      return ['exec'];
+    default:
+      // `cursor`, `copilot` and anything a user added through `agents.json`.
+      // Guessing `-p` at an unknown CLI is how you get a process holding a
+      // slot until the timeout fires.
+      return null;
+  }
+}

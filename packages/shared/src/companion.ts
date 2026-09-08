@@ -1455,11 +1455,22 @@ export function splitForSpeech(text: string, cap = COMPANION_UTTERANCE_CHAR_CAP)
  * rejection. `intent` is optional and re-validated through
  * {@link CompanionIntentSchema} — this arrives as JSON printed by a CLI, which
  * is exactly the input that must not be trusted to be the shape it was asked
- * for.
+ * for. `raw` carries what the CLI printed when it could not be parsed at all,
+ * because losing that is what makes a miss undebuggable.
  */
 export const CompanionAskReplySchema = z.object({
   say: z.string().min(1),
   intent: CompanionIntentSchema.optional(),
+  /**
+   * What the CLI actually printed, when what it printed was not the shape it
+   * was asked for.
+   *
+   * Present *only* on that path, and never spoken — it is posted in the thread
+   * as an `agent` turn so a miss is visible instead of silent. A reply that
+   * parsed cleanly omits it: repeating the same content twice, once as speech
+   * and once as raw text, is noise.
+   */
+  raw: z.string().optional(),
 });
 export type CompanionAskReply = z.infer<typeof CompanionAskReplySchema>;
 
