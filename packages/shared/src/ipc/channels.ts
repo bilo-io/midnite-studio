@@ -831,6 +831,22 @@ export const CHANNELS = {
   companionSnapshot: 'mstudio:companion:snapshot',
   /** What landed since the companion last greeted this repo, and what is still in flight. */
   companionDigest: 'mstudio:companion:digest',
+  /**
+   * One headless question to the installed agent CLI (Phase 79 Theme E).
+   *
+   * The companion's ONE route to a model, and it is the same CLI the app
+   * already launches in a pty — `runProcess` in print mode (Decision 9), never
+   * an SDK and never an API key. Two jobs ride the one channel: routing a
+   * sentence the keyword grammar did not recognise, and summarising an agent's
+   * answer for speech. Both are constrained to `CompanionAskReplySchema`'s
+   * JSON and re-validated on arrival, because a CLI's stdout is exactly the
+   * input that must not be trusted to be the shape it was asked for.
+   *
+   * Answers with a `GitOpResult` envelope rather than a bare value: "no CLI is
+   * installed" is a normal outcome the script has a line for, not an
+   * exception.
+   */
+  companionAsk: 'mstudio:companion:ask',
 
   // --- the companion's voice (Phase 79 Theme F) -------------------------------
   // Speech *out* needs no channel at all — `speechSynthesis` is a renderer API

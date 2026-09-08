@@ -14,17 +14,15 @@ import { installMockBridge } from './mock-bridge';
  * (Theme F owns `speaker.ts`), so the stubs are here for the specs that will
  * inherit this file rather than for anything asserted below.
  *
- * **What this spec deliberately does not assert, and why.** The phase's own
- * Theme H bullet asks for "the greeting turn renders" and "a new terminal
- * session appears with the skill string typed and not executed". Both belong
- * to themes that are not in this PR: the greeting is Theme D's `greet()`, and
- * the hand-off is Theme E's `parseIntent` → `useSkillHandoff`. Theme C ships
- * the seam they arrive through (`companion-ports.ts`), whose defaults are
- * no-ops — so a spec asserting a greeting today would be asserting a stub.
- * What is asserted instead is everything the panel itself owns: the switch
- * gates it, `C` opens it, the input bar posts a turn, the thread renders it,
- * and the state attribute the FAB choreography keys off is on the elements it
- * is supposed to be on.
+ * **Themes D and E have since landed, and three assertions here moved because
+ * of it.** This spec was written against `companion-ports.ts`'s no-op
+ * defaults, so it asserted a panel that opens quiet: the header stuck at
+ * "Ready" and the thread showing its empty state. With Theme D registered, the
+ * panel greets on open — that is the feature — so those three now assert the
+ * greeting instead of its absence. The rest of the file is unchanged: the
+ * switch gates the panel, `C` opens it, the input bar posts a turn, the thread
+ * renders it, and the state attribute the FAB choreography keys off is on the
+ * elements it is supposed to be on.
  */
 
 /** Enough of the Web Speech and WebAudio surfaces for the app to boot without them. */
@@ -150,6 +148,15 @@ test('Settings ▸ Companion enables it, and then C opens the panel', async ({ p
   await page.keyboard.press('c');
   await expect(menu(page)).toHaveCount(0);
   await expect(panel(page)).toBeVisible();
+
+  /*
+    The panel greets on open (Theme D), so the header passes through
+    "Saying hello…" before it comes back to rest. Asserting the *destination*
+    rather than the instant: `toHaveText` retries, so this is the honest
+    reading of "the greeting runs and finishes", and it would fail both for a
+    greeting that never started and for one that wedged half way.
+  */
+  await expect(page.getByTestId('companion-thread')).toContainText('You are in midnite-studio');
   await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
 });
 
@@ -191,16 +198,19 @@ test('typing a message posts it into the thread, and Escape clears without closi
   await page.keyboard.press('c');
   await expect(panel(page)).toBeVisible();
 
-  // The empty state first — a thread with nothing in it says so rather than
-  // showing a blank column.
-  await expect(page.getByTestId('companion-thread')).toContainText('Nothing said yet');
+  // Not the empty state any more: Theme D greets on open, so what a freshly
+  // opened panel shows is the overview built from the snapshot.
+  await expect(page.getByTestId('companion-thread')).toContainText('You are in midnite-studio');
+  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
 
   const input = page.getByTestId('companion-input');
   await input.fill('start an adhoc task');
   // Shift+Enter is a newline, not a send — the multi-line case an agent prompt
   // actually needs.
   await input.press('Shift+Enter');
-  await expect(page.getByTestId('companion-thread')).toContainText('Nothing said yet');
+  // Still nothing sent — the turn count is what says so now that the thread is
+  // never empty.
+  await expect(page.getByTestId('companion-thread')).not.toContainText('start an adhoc task');
 
   await input.press('Enter');
   await expect(page.getByTestId('companion-thread')).toContainText('start an adhoc task');
@@ -240,7 +250,11 @@ test('the popover mirrors the last companion turn once there is one', async ({ p
   await expect(menu(page)).toBeVisible();
   // The state label, from the same table the panel header and the FAB read.
   await expect(menu(page).getByTestId('companion-strip')).toContainText('Ready');
-  // No Repeat row: the only turn so far is the USER's, and there is nothing
-  // the companion said to say again.
-  await expect(menu(page).getByTestId('quick-access-row-r')).toHaveCount(0);
+  /*
+    The Repeat row is now *there*, and its presence is the assertion: the
+    companion has greeted (Theme D), so there is a last companion turn to say
+    again. This asserted `toHaveCount(0)` while `greet` was a no-op and the
+    only turn in the thread was the user's.
+  */
+  await expect(menu(page).getByTestId('quick-access-row-r')).toHaveCount(1);
 });

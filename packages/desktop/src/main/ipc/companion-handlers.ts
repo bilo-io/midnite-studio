@@ -1,14 +1,21 @@
-import { CHANNELS, emptyCompanionSnapshot, ok, schemas } from '@midnite/studio-shared';
-import type { CompanionDigest, CompanionSnapshot } from '@midnite/studio-shared';
+import { CHANNELS, emptyCompanionSnapshot, failure, ok, schemas } from '@midnite/studio-shared';
+import type {
+  CompanionAskReply,
+  CompanionDigest,
+  CompanionSnapshot,
+  GitOpResult,
+} from '@midnite/studio-shared';
 import type { z } from 'zod';
 
+import { askCompanion } from '../companion/ask';
 import { buildCompanionDigest } from '../companion/digest';
 import { buildCompanionSnapshot } from '../companion/snapshot';
 import { sttDeps, testSttCredential, transcribeUtterance } from '../companion/stt';
 import { handle, handleBare, handleOp } from './handle';
 
 /**
- * The companion's two grounding channels (Phase 79 Theme B).
+ * The companion's grounding channels (Phase 79 Theme B) and its one headless
+ * question (Theme E).
  *
  * Both are read-only, both compose the Phase 57 MCP tools in-process, and
  * both **always resolve** — `handle` answers a validation failure with a value
@@ -16,6 +23,12 @@ import { handle, handleBare, handleOp } from './handle';
  * "nothing to say" shape rather than an error the renderer has to branch on.
  * An empty snapshot is a state the script already handles (no repo open); a
  * companion that threw would be a greeting that never arrives.
+ *
+ * `companionAsk` is the odd one out and answers a `GitOpResult` envelope
+ * rather than a fallback value, because its failures are things the companion
+ * *says* — "nothing is installed", "that took too long" — rather than states
+ * it renders. `handleOp` is not used for it only because the payload's invalid
+ * arm wants the same envelope with a channel-specific message.
  *
  * `mcp-handlers.ts` is the crib for the file's shape — forward to the module
  * that does the work, register nothing else here.
@@ -36,6 +49,20 @@ export function registerCompanionHandlers(): void {
     // into "nothing has landed", which is the truthful answer to a request
     // this process could not read.
     () => ({ landed: [], inProgress: [], since: Date.now() }),
+  );
+
+  handle<typeof schemas.CompanionAskRequest, GitOpResult<CompanionAskReply>>(
+    CHANNELS.companionAsk,
+    schemas.CompanionAskRequest,
+    (req) =>
+      askCompanion({
+        kind: req.kind,
+        text: req.text,
+        repoPath: req.repoPath,
+        agentId: req.agentId,
+        snapshot: req.snapshot,
+      }),
+    (issue) => failure(issue),
   );
 
   /*
