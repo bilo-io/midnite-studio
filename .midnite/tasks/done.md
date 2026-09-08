@@ -2,6 +2,136 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-09-08 — Phase 79 Themes F, G — voice, the STT seam and the loading personality
+
+[PR #272](https://github.com/bilo-io/midnite-studio/pull/272). Moves Phase 79 27/67 → 42/67
+(40% → 63%). The companion learns to talk, to listen, and to fill a wait with something better
+than a spinner.
+
+**Voice-out was free; voice-in needed a provider.** `speechSynthesis` works in Electron and uses
+the macOS voices, so `features/companion/speaker.ts` is a queue, a workaround and a pulse — no
+channel, no key. The queue exists because `speak` is fire-and-forget over a *global* queue nothing
+else in the app shares, so two overlapping callers interleave unpredictably: the companion has one
+mouth. The workaround is `chunkForSpeech` in `shared` — a Chromium utterance over ~15 s goes silent
+*and* never fires `onend`, which stalls everything behind it forever; chunks are packed rather than
+one-per-sentence, because a seam between utterances is audible and none is added the 200-character
+limit does not demand, degrading sentence → clause → word → slice. The pulse is
+`--companion-level`, bumped to 1 on each word boundary and decayed over 180 ms one rAF at a time,
+**stopping the moment it lands on 0** — a permanently-running rAF loop for a glow that is usually
+zero is exactly the idle cost Phase 36's gates exist to remove, and Theme H's `[data-companion-state="speaking"]`
+rule was already reading the property. `onerror` counts as an end, not a failure: the commonest one
+is `interrupted`, which `cancel()` raises on the utterance it just killed. Both `cancel()` and an
+abort **resolve** every waiter rather than rejecting, because Theme E's port types `speak` as
+`Promise<void>` and a rejection would be unhandled at every call site that did not think to catch.
+
+**Chromium's own recogniser is dead in Electron** — it routes to a Google endpoint with an API key
+Electron does not ship — so speech-in is a cloud provider behind a seam, and every line of it is in
+main. Decision 8 resolved as recommended: **OpenAI Whisper** ships, chosen for exactly one property
+— `/v1/audio/transcriptions` takes the `audio/webm;codecs=opus` blob `MediaRecorder` already
+produces, one multipart request per utterance, no streaming protocol and no encoder in main. A
+plain `fetch`, no SDK: nothing in this phase adds a dependency for a function call. `deepgram`
+stays in the union with no implementation *on purpose* — the second id is what keeps the interface
+from being shaped around one vendor's request, and `stt/index.ts` answers a request for it with
+"not implemented yet" naming it, so adding it later is a file rather than a refactor. Two
+non-obvious details cost real debugging elsewhere and are pinned by tests here: the multipart
+**filename** is how OpenAI decides the container, so good webm bytes sent as `blob` are rejected as
+an unsupported format; and the *actual* recorder mime travels with the bytes rather than the
+requested one, because Chromium may hand back plain `audio/webm` where `audio/webm;codecs=opus` was
+asked for and a provider told the wrong container answers 400.
+
+**The key is `db/credential-vault.ts` line for line**, minus the fingerprint (a key's only target
+is the provider, which is the map key) and plus `configured()` — Settings needs "is a key stored",
+which is answerable without decrypting anything. It degrades to session memory on a machine with no
+working keychain rather than refusing the key, and a test asserts the plaintext never reaches disk:
+that is the exact pattern the connection vault's own docstring names `finance-store.ts` for. There
+is **no channel that returns a stored key**, so the Settings field renders empty on every visit and
+"a key is stored" is a line of text beside it — a key that can be read back out is a key a renderer
+bug can leak.
+
+**The permission carve-out was more necessary than it looked.** Electron *approves* most permission
+requests in a session with no handler installed, so until now the app's own renderer could have had
+the camera, the screen and the clipboard for the asking — only the browser pane was actually
+policed. `session.defaultSession` now gets its own handler pair with exactly one hole: `media`,
+`mediaTypes` exactly `['audio']`, from the app's own origin (the packaged bundle's opaque `file://`,
+or the dev-server origin when the renderer is actually loaded from it). `['audio','video']` is
+refused **outright rather than downgraded**, because Electron's callback is a single boolean over
+the whole request and approving it would hand over the camera too; a bare `media` with no
+`mediaTypes` is refused for the same reason. Both handlers, since the check handler is what a
+synchronous `navigator.permissions.query()` reads. The browser pane is untouched, and its existing
+test now asserts that **by session**: a `persist:browser` page asking for audio from `file://` is
+still refused, which is the case a future refactor is most likely to break.
+
+**The loading personality.** A wait that says nothing reads as one that has failed; a wait that
+says something every five seconds reads as one that is nagging. Six seconds of silence, then one
+turn, then 25–40 s — randomised, because a metronomic voice is what makes a companion feel like a
+progress bar. Three rules outrank the timings, and all three are about not talking over something
+that matters: **never while the agent is `waiting`** (a `waiting` pty is one asking the user a
+question, and a fun fact on top of that is the worst thing this feature could do — re-checked
+before every turn, not only at start), never over a read-back, and stops instantly on any user
+action. A blocked turn retries in two seconds rather than re-rolling the whole gap, because an
+agent is `waiting` for as long as a human takes to answer and a one-second overlap should not buy a
+minute of silence. The rotation is `filler → quote → whistle`, which keeps the doc's fillers/quotes
+alternation intact between the *spoken* turns while giving the melodies somewhere to happen — the
+doc specifies both and never says where a melody is triggered.
+
+**No audio assets, per the guardrail** — the melodies are `[midi, beats][]` in `shared` and the
+brush is `Math.random()` through a lowpass. The whistle is two oscillators because one is a test
+tone: what makes it read as whistling is the pitch wobble a human cannot help, so a ~5 Hz
+oscillator drives `detune` (cents, so the wobble reads the same high and low). Every note is booked
+on the audio clock in one pass and the nodes stop themselves — no timer, nothing to tick. The
+elevator loop is rendered **once** into a buffer with an `OfflineAudioContext` and looped by one
+`AudioBufferSourceNode`: a live graph re-scheduling four voices a bar for as long as an agent runs
+is precisely the idle cost this theme has to answer for, and a re-scheduled bar also drifts by
+whatever the timer's jitter was. The `AudioContext` is created lazily on the first sound and
+**suspended** after 60 s idle rather than closed — suspending parks the audio thread, while closing
+is irreversible per context and the next whistle would pay for a fresh graph. `stopCompanionAudio()`
+disconnects and rebuilds the one master gain rather than tracking live nodes: an oscillator with a
+scheduled envelope cannot be un-scheduled, and cutting the single node everything routes through is
+instant by construction and cannot miss a source, including one a bug forgot to register.
+
+**Wiring into Theme C, without editing Theme C's design.** `voice-ports.ts` claims the voice half
+of `companion-ports` — `interrupt`, the two mic gestures and `micAvailable` — in one call, imported
+for its side effect from `app.tsx`. Hold-or-tap is implemented *in the port layer*: Theme C's
+component emits a press and a release, and what those mean is a preference, so `toggle` mode
+ignores the release and stops on the next press. `interrupt` **cancels** the recording rather than
+stopping it — an interrupt means the utterance is not wanted, and stopping would send it to be
+transcribed. Four of the six "stops instantly" triggers are gestures the panel already routes
+through `interrupt`; the other two are state changes (the panel closing, the window going hidden)
+and are watched from `voice-ports.ts` rather than a cleanup effect inside the panel, because the
+panel is the thing that unmounts and its cleanup cannot be relied on to run before the audio it is
+meant to stop.
+
+**A transcript lands in the textarea unsent**, which needed one new port. The textarea's value is
+`useState` inside `CompanionInputBar`, so `transcriptSink` is registered **by the input bar** — the
+exception to that registry's usual direction, and the honest one: it is the only writer there can
+be. Never through `submit`, because recognition is wrong often enough that a command sent unread is
+a command nobody authorised. Space is a second push-to-talk gesture, scoped to an empty textarea
+(the moment there is a draft, Space is a space), ignoring autorepeat, with the release watched on
+the *window* — a keyup after focus has moved still has to stop the recorder, and a window that
+loses focus mid-press never sees the keyup at all.
+
+**Settings ▸ Companion** gains what Theme H deliberately left to this slice and said so: the "Say
+hello" preview, the locale filter with a "Show all" escape (macOS ships dozens of voices in
+languages the app does not speak, but a bilingual user's preferred voice is a choice the locale
+cannot predict), the Companion volume slider, and the whole Microphone section — provider, masked
+key, Test, hold-or-tap. An **empty transcript from Test is a pass**: the point is the 401/429/DNS
+failure it ruled out, not what a second of silence says, and the clip is 16-bit PCM silence built
+in code rather than a shipped asset. Two new preferences, added *with* the controls that read them
+so neither was ever an orphan: `companionVolume` (0.7, because the whistle and the loop are
+background and a default that competes with the voice is one nobody keeps — speech is not scaled by
+it) and `companionMicMode` (`push`, because releasing is the same gesture as stopping and there is
+no state to forget). Persist version 12 → 13.
+
+**Left open**, both disclosed rather than silently dropped. The **idle-CPU measurement** Theme G's
+own item asks for (`scripts/perf/idle-cpu.mjs` against a packaged-equivalent build, before and
+after, with the `MSTUDIO_PERF=1` suspend log line) is a human pass: the claim it would prove is
+structural and asserted by unit test — the context is created lazily, suspended at 60 s and never
+closed, the rAF decay stops at 0, the loop is one buffer source — but the number itself needs a
+`moon run app:build desktop:bundle` and a five-minute window. And the **hands-free 1.5 s
+auto-submit** in Theme F's transcript item belongs to Theme D/E's `autoSend` path: this slice ships
+the transcript unsent, which is the phase's stated default, and `companionHandsFree` is read
+nowhere in it.
+
 ## 2026-09-08 — Phase 79 Themes C, H — the companion panel, the FAB's four looks and its Settings page
 
 [PR #270](https://github.com/bilo-io/midnite-studio/pull/270). Moves Phase 79 12/67 → 27/67

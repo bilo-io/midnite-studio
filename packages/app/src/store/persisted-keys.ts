@@ -102,6 +102,10 @@ export const PREFERENCE_KEYS = [
   'companionHonorific', // companion-page.tsx
   'companionVoice', // companion-page.tsx
   'companionMusicOffer', // companion-page.tsx
+  // Themes F and G's own two, added with the controls that read them rather
+  // than ahead of them — so neither was ever an orphan.
+  'companionVolume', // companion-page.tsx (Voice ▸ Companion volume)
+  'companionMicMode', // companion-page.tsx (Microphone ▸ hold or tap)
 ] as const;
 
 export const SESSION_STATE_KEYS = [

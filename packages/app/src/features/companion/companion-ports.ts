@@ -65,6 +65,22 @@ export type CompanionPorts = {
    * forever.
    */
   micAvailable: () => boolean;
+  /**
+   * Where a finished transcript lands (Theme F).
+   *
+   * **Registered by the input bar, not by a later theme** — the exception to
+   * this registry's usual direction, and for a concrete reason: the phase
+   * requires transcript text to arrive in the textarea *unsent*, so the user
+   * reads it and presses Return. The textarea's value is `useState` inside
+   * `CompanionInputBar`, which is the only place that can write it, while the
+   * thing holding the transcript is `voice-ports.ts` in the main process's
+   * reply path. One of them has to reach the other, and a registry that
+   * already exists beats a second mechanism.
+   *
+   * The default is a no-op, so a transcript arriving with no panel mounted is
+   * dropped rather than queued for a textarea that may never exist.
+   */
+  transcriptSink: (text: string) => void;
 };
 
 /**
@@ -87,6 +103,7 @@ const DEFAULT_PORTS: CompanionPorts = {
   micPressStart: () => {},
   micPressEnd: () => {},
   micAvailable: () => false,
+  transcriptSink: () => {},
 };
 
 let ports: CompanionPorts = { ...DEFAULT_PORTS };
