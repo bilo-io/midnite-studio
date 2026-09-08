@@ -101,64 +101,34 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Companion state and the phrase banks (S)
+### A — Companion state and the phrase banks (S) — ✅ DONE (PR #269, 2026-09-08)
 
-One state machine, one store, and the words it says, as data.
+All six items landed; moved to [`done.md`](../done.md) (2026-09-08). `shared/src/companion.ts`
+carries the 7-state / 11-event total `transition` table, six phrase banks, `pickPhrase` with its
+`min(3, bank.length - 1)` window and `interpolatePhrase`'s honorific collapse;
+`app/src/store/companion-store.ts` carries the machine, the 200-turn persisted transcript, the
+per-bank phrase memory and `activeHandoff`; the five `companion*` preferences are in `ui-store.ts`
+(persist `version 12`), partitioned in `persisted-keys.ts` and recorded in
+[`outstanding.md`](../outstanding.md) as orphans until **Theme H** builds their page.
 
-- [ ] Add [`packages/shared/src/companion.ts`](../../../packages/shared/src/companion.ts) with
-      `export type CompanionState = 'off' | 'idle' | 'greeting' | 'listening' | 'thinking' | 'speaking' | 'handoff'`
-      and a pure `transition(state, event): CompanionState` table. `handoff` is the state while a
-      pty the companion started is still `thinking`/`waiting`; it returns to `idle` on `exit` or
-      an `idle` activity event. Every illegal transition returns the current state rather than
-      throwing — the store never needs a try/catch.
-- [ ] Phrase banks in the same module, typed as `readonly string[]` per kind: `greetings`,
-      `signoffs` ("okay, as per your request", "here we are", …), `fillers` (fun facts),
-      `quotes` (unattributed), `musicOffers`. Each entry may contain `{name}`, resolved from the
-      honorific setting; an empty honorific collapses the surrounding punctuation cleanly
-      (`"okay {name}, here we are"` → `"okay, here we are"`), covered by a test.
-- [ ] `export function pickPhrase(bank, recent: string[]): string` — random, but never one of the
-      last `min(3, bank.length - 1)` picks. Deterministic under an injected RNG for tests.
-- [ ] Add [`packages/app/src/store/companion-store.ts`](../../../packages/app/src/store/companion-store.ts):
-      `state`, `transcript: CompanionTurn[]` (`{ id, role: 'companion' | 'user' | 'agent', text, at, spoken: boolean }`),
-      `recentPhrases`, `activeHandoff: { sessionId, command } | null`. `persist` only `transcript`
-      (last 200 turns) under `midnite-studio.companion`, `version: 1`, no `migrate`, with the
-      identical-argument `adoptRenamedPersistKey` call the other stores make at module scope.
-- [ ] Settings live in `ui-store.ts`, not the companion store, beside the other preferences:
-      `companionEnabled: false`, `companionHandsFree: false`, `companionHonorific: ''`,
-      `companionVoice: string | null` (a `speechSynthesis` voice URI), `companionMusicOffer: true`.
-      Add them to `partialize` and to the Phase 63 orphan-preference guard test.
-- [ ] `companion.test.ts`: transition table is total (every state × every event yields a state),
-      `pickPhrase` never repeats within the window, honorific interpolation handles empty.
+### B — Grounding: the snapshot and the digest (M) — ✅ DONE (PR #269, 2026-09-08)
 
-### B — Grounding: the snapshot and the digest (M)
+All six items landed; moved to [`done.md`](../done.md) (2026-09-08). `companionSnapshot` and
+`companionDigest` are invoke channels composed in `main/companion/` out of `dispatchMcpCall` — no
+MCP client, no second git parser — with the forge best-effort behind a parallel 3 s cap and every
+forge field nullable. The per-repo "last greeted" mark is `companion.json` under `userData`
+(**Decision 11**, monotonic, capped at 200 repos); the tracker files are read through
+`confineToRoot`. `summariseDigest` is pure, in `shared`, fixture-tested.
 
-What the companion knows before it says anything.
-
-- [ ] Add `CHANNELS.companionSnapshot = 'mstudio:companion:snapshot'` (invoke) in
-      [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts) and a
-      `CompanionSnapshotSchema` in `shared/src/companion.ts`: `{ repo: RepoDescriptor | null, repos: number, branch, ahead, behind, dirty: { staged, unstaged, untracked }, sessions: { live, thinking, waiting }, openPulls, failingChecks }`.
-      Every field is something an existing MCP tool or the terminal registry already returns;
-      the handler composes, it does not parse git itself.
-- [ ] Main handler in [`packages/desktop/src/main/companion/snapshot.ts`](../../../packages/desktop/src/main/companion/snapshot.ts)
-      builds it by calling `dispatchMcpCall('repo.list')`, `'status.get'`, `'branch.list'`,
-      `'forge.pulls'`, `'forge.checks'` for the active repo, plus the pty registry's live-session
-      activity. Forge calls are best-effort with a 3 s cap — a snapshot with `openPulls: null` is
-      valid and the script says "I couldn't reach GitHub" rather than stalling the greeting.
-- [ ] Add `CHANNELS.companionDigest = 'mstudio:companion:digest'` and `CompanionDigestSchema`:
-      `{ landed: DigestItem[], inProgress: DigestItem[], since: number }` where
-      `DigestItem = { kind: 'commit' | 'pr' | 'phase', title, ref, at }`.
-- [ ] Digest handler in `main/companion/digest.ts`: **landed** = `graph.log` on the default branch
-      since the last time the companion greeted this repo (persisted per repo in the snapshot
-      store; first run uses 7 days), merged PRs from `forge.pulls`, and `.midnite/tasks/done.md`
-      entries newer than that mark when the file exists. **In progress** = open PRs, non-default
-      branches ahead of the default branch, and `_INDEX.md` rows marked WIP. All NUL-delimited git
-      through the existing engine; the tracker files are read with the fs jail
-      (`fs-scope.ts`) since they sit inside the repo.
-- [ ] A pure `summariseDigest(digest): string[]` in `shared/src/companion.ts` that turns the digest
-      into 2–5 spoken sentences ("Since Friday, three PRs landed — the browser occlusion fix, …;
-      two are still open") with counts collapsed past five items. Unit-tested on fixtures.
-- [ ] Preload exposure on `window.midniteStudio.companion.{snapshot, digest}` and the bridge type
-      in `shared`.
+**Two deviations from the wording above, disclosed rather than silently taken.** The snapshot does
+**not** call `branch.list` — `status.get` already returns `branch.head`/`ahead`/`behind` from one
+subprocess and `repo.resolve` returns the branch at the requested path (which may be a linked
+worktree), so a fifth call on the pre-greeting path would buy nothing; the digest does call it,
+where its per-ref data is needed. And "non-default branches ahead of the default branch" is
+approximated as **local non-default branches with unpushed work**: the literal reading is
+`rev-list --count <default>..<branch>` per branch, which is N subprocesses and no MCP tool, outside
+this theme's own compose-don't-parse guardrail. A branch fully pushed and still unmerged appears as
+its open PR instead.
 
 ### C — The panel (M)
 
