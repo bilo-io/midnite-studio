@@ -1,6 +1,73 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Website wave 2 — the Features and Services sections
+
+[PR #277](https://github.com/bilo-io/midnite-studio/pull/277). **Ad hoc, not phase-tracked** —
+nothing in `_INDEX.md` moved. Two of wave 1's seven placeholders are now real sections; the other
+five belong to the two sibling wave-2 branches, and this PR changed only its own two rows of
+`src/sections/registry.ts`. Site JS: **241.23 KB raw / 75.44 KB gzipped**, against the `Website`
+workflow's 256000-byte gzipped budget — ~6.2 KB gz for both sections, ~174 KB of headroom left.
+
+**Features renders one copy of its content in two layouts.** The three pillars — Git, Agentic,
+Browser — live in `features/pillars.ts` as data, not JSX, and that is the whole reason the same
+list can be three columns on a wide screen and one switchable panel on a narrow one without the
+copy existing twice. The narrow-screen switch is `hidden lg:block` on the cards that are not
+selected; `active` decides nothing at all above `lg`. A tab strip with its own markup beside a grid
+with its own would have put every pillar in the DOM twice — two places for a bullet edit to land,
+and double the headings a screen reader walks.
+
+**It is a segment control, not a tab list, and that is a correctness call.** Buttons with
+`aria-pressed`, each naming the card it reveals through `aria-controls`. Real `role="tab"` semantics
+would be a lie at exactly the breakpoint where the control is `display:none` and all three panels
+are on screen at once: a tab panel with no tab is worse than a pressed button that is honest about
+being one.
+
+**`object-position` cannot express the showcase crop, so the crop is arithmetic.** The site's one
+screenshot pair is portrait (1080 x 1920) and the strip is landscape, so under `object-fit: cover`
+the image is scaled until its *width* matches the box — which leaves nothing to slide horizontally,
+and the only axis `object-position` can then choose on is the vertical one. Every vertical band
+included the desktop gap between the detached graph panel and the sidebar. `features/showcase.tsx`
+sizes and offsets the image in percentages of its frame instead, with the arithmetic written out in
+the file: the same crop stated exactly, still responsive, and it lands on the graph. Theme comes
+from a `<picture>` `media="(prefers-color-scheme: light)"` source rather than a class, because the
+site has no in-page switch, and only the matching file is ever fetched — lazily, because the strip
+is below the fold and the file is ~0.5 MB. **No new asset went into `public/`.**
+
+**Services draws its illustrations from the tokens rather than showing screenshots.** Each of the
+three rows is about a mechanism — a board card that runs an agent, a check still spinning, five
+surfaces in one frame — and a screenshot of a mechanism is mostly chrome: title bars, real branch
+names, whatever tab happened to be open. `services/illustrations.tsx` contains no hex at all; every
+colour is a `--ws-*` token, so both themes come free and there is no second file to keep in step
+with the UI. Its two moving parts are SMIL `<animate>` elements gated on `useReducedMotion()` —
+the CSS half of the motion policy zeroes the duration tokens, which does not reach SMIL, so the JS
+half has to.
+
+**Row alternation is `lg:order-*`, never two markup branches.** The DOM order is always
+copy-then-drawing so the one-column layout reads in the right order on a phone; only at `lg` does an
+odd row swap the two. The test asserts the order classes rather than the rendered appearance,
+because a version that flips the *markup* instead looks identical on a desktop and puts a
+decorative SVG above the heading on a phone.
+
+**Shared surface: three additive files, posted on the swarm board before they were written.**
+`GlowCard` could only glow in the accent, a neutral or lane 1, so a second lane hue would have had
+to be a hardcoded shadow on a card — exactly what the token indirection exists to prevent. Added:
+`--ws-glow-lane-{2,3,4}` in both themes, the matching `shadow-glow-lane-*` Tailwind names, and
+`GlowVariant` widened to `lane-1..lane-4`. **`lane` still resolves to lane 1 under its original
+name**, so no existing call site changed.
+
+**Copy is grounded and carries no numbers.** Every claim traces to `README.md` or a landed phase —
+the graph and its interactions (5, 7, 8), the forge half (17, 20, 48, 54), the terminal and its
+broker (9, 15, 30), session history (67), the loop panel (35, 39), the Kanban board (41, 50, 75),
+the embedded browser (27, 32, 71), the API client (66) and the database explorer (61). No invented
+metrics and no third-party logos, on a page whose whole job is to be believed.
+
+**Left open:** only the Git pillar shows a screenshot, because the one dark/light pair on the site
+has no browser and no agent panel in it — a crop of the optimizer under a "Browser" heading would
+have been a picture of the wrong thing. A dark/light pair per pillar, cropped small enough to ship,
+is the follow-up. The `Website` workflow's gzip budget check runs on pushes to `main` rather than
+on a PR, so the number above is the local `moon run website:build`.
+
 ## 2026-09-08 — Website wave 1 — the marketing site's shell, hero, download page and Pages deploy
 
 [PR #276](https://github.com/bilo-io/midnite-studio/pull/276). **Ad hoc, not phase-tracked** —
