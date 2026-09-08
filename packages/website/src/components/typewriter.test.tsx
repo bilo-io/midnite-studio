@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DELETE_MS, TYPE_MS, Typewriter, typedLength } from './typewriter';
+import { DELETE_MS, GAP_MS, TYPE_MS, Typewriter, typedLength } from './typewriter';
 
 const PHRASES = ['One window.', 'Your git client.'] as const;
 
@@ -43,20 +43,25 @@ describe('typedLength', () => {
     expect(typedLength(text, WINDOW / 2, { windowMs: WINDOW })).toBe(text.length);
   });
 
-  it('finishes deleting exactly as the window closes', () => {
-    expect(typedLength(text, WINDOW - text.length * DELETE_MS, { windowMs: WINDOW })).toBe(
+  it('deletes into an empty beat, so a handover lands on a blank line', () => {
+    const emptyAt = WINDOW - GAP_MS;
+    expect(typedLength(text, emptyAt - text.length * DELETE_MS, { windowMs: WINDOW })).toBe(
       text.length,
     );
-    expect(typedLength(text, WINDOW - 1, { windowMs: WINDOW })).toBeLessThan(text.length);
-    expect(typedLength(text, WINDOW, { windowMs: WINDOW })).toBe(0);
+    expect(typedLength(text, emptyAt - 1, { windowMs: WINDOW })).toBeLessThan(text.length);
+
+    // Empty for the whole gap, not merely at the last instant — a caption that
+    // reached zero exactly on the boundary would never be seen empty at all.
+    expect(typedLength(text, emptyAt, { windowMs: WINDOW })).toBe(0);
+    expect(typedLength(text, WINDOW - 1, { windowMs: WINDOW })).toBe(0);
   });
 
   it('scales both ramps down rather than overrunning a short window', () => {
     // Total, not partial: a window too small for the full cadence must still
     // reach the whole name and still be empty at the end.
     const tiny = 300;
-    expect(typedLength(text, tiny * 0.7, { windowMs: tiny })).toBe(text.length);
-    expect(typedLength(text, tiny, { windowMs: tiny })).toBe(0);
+    expect(typedLength(text, tiny * 0.6, { windowMs: tiny })).toBe(text.length);
+    expect(typedLength(text, tiny * 0.95, { windowMs: tiny })).toBe(0);
   });
 
   it('is zero for an empty string or a zero window', () => {

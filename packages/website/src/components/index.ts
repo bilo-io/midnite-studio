@@ -24,6 +24,7 @@ export {
   DELETE_MS,
   GAP_MS,
   HOLD_MS,
+  nextTypedChangeAt,
   TYPE_MS,
   Typewriter,
   TypewriterCaret,

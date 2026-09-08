@@ -38,12 +38,18 @@ export const HOLD_MS = 1500;
 export const GAP_MS = 320;
 
 export type TypedPassOptions = {
-  /** How long the whole pass lasts. Deleting is timed to finish exactly here. */
+  /** How long the whole pass lasts, gap included. */
   windowMs: number;
   /** ms per character typed. Defaults to the site's `TYPE_MS`. */
   typeMs?: number;
   /** ms per character deleted. Defaults to the site's `DELETE_MS`. */
   deleteMs?: number;
+  /**
+   * ms of empty line at the end of the pass, before whatever comes next.
+   * Defaults to the site's `GAP_MS` — the beat the hero already leaves between
+   * two phrases.
+   */
+  gapMs?: number;
 };
 
 /**
@@ -51,42 +57,108 @@ export type TypedPassOptions = {
  *
  * The pass is "type it, hold it, cut it", laid out inside a fixed window:
  *
- *   0 … n·typeMs                    typing, one character per `typeMs`
- *   n·typeMs … windowMs − n·deleteMs  held, whatever is left over
- *   … windowMs                      deleting, one character per `deleteMs`
+ *   0 … n·typeMs        typing, one character per `typeMs`
+ *   … windowMs − gap − n·deleteMs   held, whatever is left over
+ *   … windowMs − gap    deleting, one character per `deleteMs`
+ *   … windowMs          empty — the beat before whatever comes next
  *
  * **The hold is the term that stretches, and that is deliberate.** The window
  * is the marquee's own period, so when that period changes the typing keeps the
  * site's cadence and the *hold* absorbs the difference — the caption never
  * races to fit, and never finishes early and sits there blank.
  *
- * A window too short for both ramps (a very long name, a very fast cycle) is
- * handled by giving typing the first 60% and deleting the last 25%, scaled
- * down to fit. Nothing on the roster comes near it; the branch exists so the
- * function is total rather than as a case anyone should plan around.
+ * **It ends empty, and that beat is load-bearing.** The last `gapMs` of the
+ * window shows nothing at all, so a caption tied to a cycle hands over on a
+ * blank line rather than swapping one name for another mid-word. It is the same
+ * `GAP_MS` the hero pauses for between two phrases.
+ *
+ * A window too short for the ramps (a very long name, a very fast cycle) is
+ * handled by giving typing 55% of it, deleting 25% and the gap 10%. Nothing on
+ * the roster comes near it; the branch exists so the function is total rather
+ * than as a case anyone should plan around.
  */
 export const typedLength = (
   text: string,
   elapsed: number,
-  { windowMs, typeMs = TYPE_MS, deleteMs = DELETE_MS }: TypedPassOptions,
+  options: TypedPassOptions,
 ): number => {
-  const n = text.length;
-  if (n === 0 || windowMs <= 0) return 0;
+  const pass = passShape(text, options);
+  if (!pass) return 0;
 
-  let typeStep = typeMs;
-  let deleteStep = deleteMs;
-  if (n * typeMs + n * deleteMs > windowMs) {
-    typeStep = (windowMs * 0.6) / n;
-    deleteStep = (windowMs * 0.25) / n;
-  }
-
-  const typedFor = n * typeStep;
-  const deleteAt = windowMs - n * deleteStep;
+  const { n, typeStep, typedFor, deleteAt, deleteStep } = pass;
   const t = Math.max(elapsed, 0);
 
   if (t < typedFor) return Math.min(n, Math.floor(t / typeStep));
   if (t < deleteAt) return n;
   return Math.max(0, n - Math.ceil((t - deleteAt) / deleteStep));
+};
+
+/**
+ * The next `elapsed` at which `typedLength` would answer differently, or `null`
+ * once the pass has emptied.
+ *
+ * This is what lets a caller that owns a clock schedule *exactly* the ticks the
+ * caption needs — one per character while a ramp is running, and a single one
+ * across the whole hold — rather than sampling on a grid and re-rendering
+ * through a second of held text for nothing.
+ */
+export const nextTypedChangeAt = (
+  text: string,
+  elapsed: number,
+  options: TypedPassOptions,
+): number | null => {
+  const pass = passShape(text, options);
+  if (!pass) return null;
+
+  const { typeStep, typedFor, deleteAt, deleteStep, emptyAt } = pass;
+  const t = Math.max(elapsed, 0);
+
+  if (t < typedFor) return (Math.floor(t / typeStep) + 1) * typeStep;
+  if (t < deleteAt) return deleteAt;
+  if (t < emptyAt) return deleteAt + (Math.floor((t - deleteAt) / deleteStep) + 1) * deleteStep;
+  return null;
+};
+
+/**
+ * The pass's four boundaries, or `null` when there is nothing to type.
+ *
+ * Both public functions above are readings of this, so the ramp lengths and the
+ * short-window fallback are stated once. Otherwise "when does the caption
+ * change" and "what does it show" could disagree, and the visible symptom would
+ * be a caption that stops one character early.
+ */
+const passShape = (
+  text: string,
+  { windowMs, typeMs = TYPE_MS, deleteMs = DELETE_MS, gapMs = GAP_MS }: TypedPassOptions,
+): {
+  n: number;
+  typeStep: number;
+  typedFor: number;
+  deleteAt: number;
+  deleteStep: number;
+  emptyAt: number;
+} | null => {
+  const n = text.length;
+  if (n === 0 || windowMs <= 0) return null;
+
+  let typeStep = typeMs;
+  let deleteStep = deleteMs;
+  let gap = gapMs;
+  if (n * typeMs + n * deleteMs + gapMs > windowMs) {
+    typeStep = (windowMs * 0.55) / n;
+    deleteStep = (windowMs * 0.25) / n;
+    gap = windowMs * 0.1;
+  }
+
+  const emptyAt = windowMs - gap;
+  return {
+    n,
+    typeStep,
+    typedFor: n * typeStep,
+    deleteAt: emptyAt - n * deleteStep,
+    deleteStep,
+    emptyAt,
+  };
 };
 
 export type TypewriterCaretProps = {
