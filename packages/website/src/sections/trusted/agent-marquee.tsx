@@ -1,6 +1,6 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
-import { useReducedMotion } from '../../components';
+import { TypewriterCaret, useReducedMotion } from '../../components';
 
 import { SITE_AGENTS, type SiteAgent } from './agents';
 import { useMarqueeCycle } from './use-marquee-cycle';
@@ -15,8 +15,23 @@ import { useMarqueeCycle } from './use-marquee-cycle';
  */
 const SLOT_PX = 152;
 
-/** How long each logo owns the centre. Also the length of its own animation. */
-const CYCLE_MS = 1900;
+/**
+ * How long each logo owns the centre. Also the length of its own animation.
+ *
+ * **1.5x what it was** (it was 1900ms), which slows the horizontal scroll and
+ * the per-logo spin-hold-spin by exactly the same factor — they are two
+ * readings of this one number, so neither can be slowed without the other. The
+ * track's speed is `SLOT_PX / CYCLE_MS`: 80px/s before, 53px/s now.
+ *
+ * The selected logo still lands dead centre, because *nothing* about the
+ * correspondence changed: the CSS pass is `CYCLE_MS x count` for a travel of
+ * `SLOT_PX x count`, so slot k is still centred at `k x CYCLE_MS`, which is
+ * still what `useMarqueeCycle` answers from the clock. The one thing that had
+ * to be checked is the name caption, and it stretches the right way — the
+ * typing keeps the hero's per-character cadence and the *hold* absorbs the
+ * extra 950ms, so the name is read for longer rather than typed more slowly.
+ */
+export const CYCLE_MS = 2850;
 
 /**
  * How many times the roster is repeated in the track: one to fill the left half
@@ -115,10 +130,53 @@ export const PEAK_SCALE = 2.15;
 /** The halo's own box at the bounce's peak, before the turn magnifies it. */
 const HALO_PEAK_PX = (MARK_PX + HALO_INSET_PX * 2) * PEAK_SCALE;
 
+/**
+ * The halo's painted height at the peak, turn included — the thing the band has
+ * to be taller than. Exported so a test can state the clearance below the band
+ * rather than trusting the number twice.
+ */
+export const HALO_REACH_PX = Math.ceil(
+  (HALO_PEAK_PX * PERSPECTIVE_PX) / (PERSPECTIVE_PX - HALO_PEAK_PX / 2),
+);
+
 /** The band's height: the glow at its widest, magnified, plus the falloff. */
-export const BAND_PX =
-  Math.ceil((HALO_PEAK_PX * PERSPECTIVE_PX) / (PERSPECTIVE_PX - HALO_PEAK_PX / 2)) +
-  SLACK_PX * 2;
+export const BAND_PX = HALO_REACH_PX + SLACK_PX * 2;
+
+/*
+  ── And how tall the caption's own row has to be ───────────────────────────────
+
+  The name types out *below* the band, which is the only reason it is safe at
+  all: it is a sibling of the clipping box, not a child, so the arithmetic above
+  has nothing to say about it. Two things still had to be sized rather than
+  guessed.
+
+  **The row reserves its height.** The caption's text arrives one character at a
+  time and its glow is a filter, so a row that sized itself to its content would
+  grow the moment the first character lands and take the whole page below the
+  band with it — a layout jump ten times a pass. `CAPTION_PX` is the line box
+  plus the glow's blur on both sides, and the row is that tall whether it holds
+  a name or nothing.
+
+  **It sits outside the halo's reach.** The halo is painted `HALO_REACH_PX / 2`
+  either side of the band's centre line, so it stops `SLACK_PX` short of the
+  band's own edge — see the derivation above. `CAPTION_GAP_PX` is measured from
+  that edge, so the caption's glow and the logo's glow cannot overlap, and
+  neither is clipped by anything: the band's `overflow-hidden` ends where the
+  band does. (`overflow-y: visible` was the other idea, and CSS resolves it to
+  `auto` when the other axis is hidden — a scrollbar instead of a fix.)
+
+  Re-measured on a live page with the caption in place: the mark's own rect
+  peaks at 2.31x its resting 56px — 129px, against a band of `BAND_PX` — and
+  the caption row's box stays put through the whole cycle.
+*/
+/** The caption's line box: font size and line height are set in `site.css`. */
+const CAPTION_LINE_PX = 30;
+/** The blur radius of the caption's glow, both sides. */
+const CAPTION_GLOW_PX = 12;
+/** Clear air between the band's edge and the caption's box. */
+export const CAPTION_GAP_PX = 12;
+/** The caption row's reserved height — constant, name or no name. */
+export const CAPTION_PX = CAPTION_LINE_PX + CAPTION_GLOW_PX * 2;
 
 type AgentLogoProps = {
   agent: SiteAgent;
@@ -189,6 +247,55 @@ const AgentLogo = ({ agent, selected }: AgentLogoProps) => {
   );
 };
 
+/**
+ * The selected agent's name, typing out underneath the band.
+ *
+ * **In the brand's own colour, which is the whole point.** The logo lights up
+ * as itself; a caption in the site's accent would undo that. A brand with two
+ * published colours (only Antigravity, see `agents.ts`) gets a two-stop
+ * gradient through `background-clip: text` — and its glow has to move from
+ * `text-shadow` to a `drop-shadow` filter, because a shadow behind a glyph
+ * whose own fill is `transparent` paints through it and reads as a smudge.
+ *
+ * **The caret is the hero's caret**, `<TypewriterCaret>` itself rather than a
+ * copy of its markup, tinted to the agent by a two-class rule in `site.css`
+ * that outranks its own `bg-accent` without an `!important`.
+ *
+ * `aria-hidden`, like the logos: the roster is already given once as plain text
+ * below, and a screen reader has no use for a name being spelled out.
+ */
+const AgentCaption = ({ agent, typed }: { agent: SiteAgent; typed: number }) => {
+  const gradient = agent.colorEnd
+    ? `linear-gradient(96deg, ${agent.color}, ${agent.colorEnd})`
+    : undefined;
+
+  return (
+    <p
+      aria-hidden="true"
+      data-testid="agent-caption"
+      data-agent={agent.id}
+      className="ws-agent-caption flex items-center justify-center"
+      style={
+        {
+          height: `${CAPTION_PX}px`,
+          marginTop: `${CAPTION_GAP_PX}px`,
+          '--ws-agent-color': agent.color,
+        } as CSSProperties
+      }
+    >
+      <span
+        data-testid="agent-caption-name"
+        data-gradient={gradient ? 'true' : 'false'}
+        className={`ws-agent-caption-name${gradient ? ' ws-agent-caption-ramp' : ''}`}
+        style={gradient ? { backgroundImage: gradient } : { color: agent.color }}
+      >
+        {agent.label.slice(0, typed)}
+      </span>
+      <TypewriterCaret />
+    </p>
+  );
+};
+
 export type AgentMarqueeProps = {
   /** Overridable for tests; defaults to the whole roster. */
   agents?: readonly SiteAgent[];
@@ -219,10 +326,19 @@ export type AgentMarqueeProps = {
  * focus only. A marquee has no still frame that says what a marquee says, so
  * there is nothing to degrade to; the grid says the same thing without moving.
  *
- * The logos are `aria-hidden` in both branches and the names are given once as
- * plain text below the band. A screen reader wants "Claude, Antigravity,
- * Codex…", not thirty unlabelled images, and it certainly does not want to be
- * told which one is currently large.
+ * **The name caption** types the selected agent's label under the band, in that
+ * agent's own brand colour, and cuts as the next logo takes over. It is driven
+ * by `useMarqueeCycle` rather than by a `<Typewriter>` of its own — one clock,
+ * so the caption cannot be spelling one agent while another holds the centre;
+ * see the hook. Its row reserves a fixed height, and it is a *sibling* of the
+ * clipping band rather than a child, so nothing about it is at risk from the
+ * `overflow-hidden` the marquee needs.
+ *
+ * The logos are `aria-hidden` in both branches, the caption with them, and the
+ * names are given once as plain text below the band. A screen reader wants
+ * "Claude, Antigravity, Codex…", not thirty unlabelled images, and it certainly
+ * does not want to be told which one is currently large or to have a name
+ * spelled out to it one character at a time.
  */
 export const AgentMarquee = ({ agents = SITE_AGENTS, className = '' }: AgentMarqueeProps) => {
   const reduced = useReducedMotion();
@@ -239,9 +355,20 @@ export const AgentMarquee = ({ agents = SITE_AGENTS, className = '' }: AgentMarq
 
   const paused = hovered || hidden;
   const count = agents.length;
-  const selected = useMarqueeCycle({ count, periodMs: CYCLE_MS, paused: paused || reduced });
+  /*
+    Memoised so the hook's ref-write is handed a stable array — the roster is a
+    module constant in practice, and this keeps that true when it is not.
+  */
+  const captions = useMemo(() => agents.map((agent) => agent.label), [agents]);
+  const { selected, typed } = useMarqueeCycle({
+    count,
+    periodMs: CYCLE_MS,
+    paused: paused || reduced,
+    captions,
+  });
 
   const names = agents.map((agent) => agent.label).join(', ');
+  const current = agents[selected];
 
   if (reduced) {
     return (
@@ -328,6 +455,8 @@ export const AgentMarquee = ({ agents = SITE_AGENTS, className = '' }: AgentMarq
           )}
         </div>
       </div>
+
+      {current ? <AgentCaption agent={current} typed={typed} /> : null}
 
       <p className="sr-only">{names}</p>
     </div>

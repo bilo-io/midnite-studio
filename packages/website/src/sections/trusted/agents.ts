@@ -38,6 +38,14 @@ export type SiteAgent = {
    * lights up as itself.
    */
   color: string;
+  /**
+   * A second brand colour, for a mark that genuinely has two.
+   *
+   * The name caption under the band takes a two-stop gradient when this is set
+   * and the solid `color` when it is not — so a brand whose mark is one hue is
+   * never given an invented second one. Only Antigravity's is, below.
+   */
+  colorEnd?: string;
   Icon: AgentIcon;
   /**
    * `true` when the mark carries its own colours and cannot be tinted, so the
@@ -73,6 +81,14 @@ export const SITE_AGENTS: readonly SiteAgent[] = [
     id: 'agy',
     label: 'Antigravity',
     color: '#4285F4',
+    /*
+      Google's own mark is four-colour, and its blue and red are both published
+      brand colours — so the caption gets the two-stop gradient rather than
+      picking one of four and calling it the brand. Every other entry here is a
+      one-colour silhouette and stays solid; inventing a second stop for those
+      would be making a brand up.
+    */
+    colorEnd: '#EA4335',
     Icon: AntigravityIcon,
     multicolour: true,
   },
