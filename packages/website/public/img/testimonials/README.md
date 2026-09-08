@@ -40,10 +40,10 @@ you add an entry and it does not appear, that is why.
 ### Paths
 
 Write them **relative, with no leading slash** — `img/testimonials/ana.png`, not
-`/img/testimonials/ana.png`. The deployed site is served under a path prefix
-(`/midnite-apps/midnite-studio/`) and the section resolves these through
-`assetHref`, so a leading slash works perfectly in `vite dev` and 404s in
-production.
+`/img/testimonials/ana.png`. The deployed site may be served under a path prefix
+(`/midnite-apps/midnite-studio/`, depending on the target — see
+`docs/WEBSITE.md`) and the section resolves these through `assetHref`, so a
+leading slash works perfectly in `vite dev` and 404s in production.
 
 ## Adding a Slack screenshot
 

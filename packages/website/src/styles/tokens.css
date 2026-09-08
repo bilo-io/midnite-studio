@@ -13,32 +13,72 @@
   `--ws-lane-*` are the first four entries of that same array, so the hero's
   background grid is drawn in the colours the graph actually uses rather than in
   a marketing approximation of them.
+
+  ## Every colour is declared twice, and it has to be
+
+  Each colour exists as a bare `--ws-*-hsl` **channel triplet** (`240 18% 6%` —
+  no `hsl()` around it) and as a ready-to-use `--ws-*` colour derived from it.
+  Both are load-bearing and neither is redundant:
+
+  - `--ws-*-hsl` is what `tailwind.config.ts` maps its colour names onto, as
+    `hsl(var(--ws-bg-hsl) / <alpha-value>)`. Tailwind substitutes that
+    placeholder with the opacity modifier on a utility, so `bg-bg/80` becomes a
+    real 80%-opaque background. **A colour token Tailwind cannot slice is a
+    token whose `/NN` modifiers compile to nothing at all** — not to a wrong
+    opacity, but to no rule, which is why the sticky nav was fully transparent
+    over the hero rather than 80% of it. Tailwind can only insert the alpha
+    inside the colour function, so it must own the function and be handed the
+    channels; `--ws-bg: hsl(...)` gives it a finished colour with nowhere to put
+    one.
+  - `--ws-*` is for hand-written CSS — `services/illustrations.tsx`, the hero
+    canvas, anything reaching for `var(--ws-accent)` — where a bare triplet is
+    not a colour and cannot be used.
+
+  The triplet is the single source of truth: the derived token is always
+  `hsl(var(--ws-<name>-hsl))`, so a hue is edited in exactly one place. **A new
+  colour needs both halves**, plus its entry in `tailwind.config.ts`; add only
+  the derived token and the utility silently loses its opacity modifiers.
 */
 
 :root {
   color-scheme: dark;
 
   /* Surfaces, darkest to lightest. `sunken` is for code blocks and wells. */
-  --ws-bg: hsl(240 18% 6%);
-  --ws-bg-elevated: hsl(240 15% 10%);
-  --ws-bg-sunken: hsl(240 22% 4%);
+  --ws-bg-hsl: 240 18% 6%;
+  --ws-bg: hsl(var(--ws-bg-hsl));
+  --ws-bg-elevated-hsl: 240 15% 10%;
+  --ws-bg-elevated: hsl(var(--ws-bg-elevated-hsl));
+  --ws-bg-sunken-hsl: 240 22% 4%;
+  --ws-bg-sunken: hsl(var(--ws-bg-sunken-hsl));
 
   /* Text. `subtle` is for captions and metadata, not for body copy. */
-  --ws-fg: hsl(240 12% 96%);
-  --ws-fg-muted: hsl(240 8% 72%);
-  --ws-fg-subtle: hsl(240 7% 52%);
+  --ws-fg-hsl: 240 12% 96%;
+  --ws-fg: hsl(var(--ws-fg-hsl));
+  --ws-fg-muted-hsl: 240 8% 72%;
+  --ws-fg-muted: hsl(var(--ws-fg-muted-hsl));
+  --ws-fg-subtle-hsl: 240 7% 52%;
+  --ws-fg-subtle: hsl(var(--ws-fg-subtle-hsl));
 
-  --ws-border: hsl(240 12% 18%);
-  --ws-border-strong: hsl(240 12% 28%);
+  --ws-border-hsl: 240 12% 18%;
+  --ws-border: hsl(var(--ws-border-hsl));
+  --ws-border-strong-hsl: 240 12% 28%;
+  --ws-border-strong: hsl(var(--ws-border-strong-hsl));
 
-  --ws-accent: hsl(265 78% 68%);
-  --ws-accent-fg: hsl(265 40% 8%);
-  --ws-accent-soft: hsl(265 60% 20%);
+  --ws-accent-hsl: 265 78% 68%;
+  --ws-accent: hsl(var(--ws-accent-hsl));
+  --ws-accent-fg-hsl: 265 40% 8%;
+  --ws-accent-fg: hsl(var(--ws-accent-fg-hsl));
+  --ws-accent-soft-hsl: 265 60% 20%;
+  --ws-accent-soft: hsl(var(--ws-accent-soft-hsl));
 
-  --ws-lane-1: hsl(205 82% 62%);
-  --ws-lane-2: hsl(144 62% 52%);
-  --ws-lane-3: hsl(265 70% 68%);
-  --ws-lane-4: hsl(50 82% 58%);
+  --ws-lane-1-hsl: 205 82% 62%;
+  --ws-lane-1: hsl(var(--ws-lane-1-hsl));
+  --ws-lane-2-hsl: 144 62% 52%;
+  --ws-lane-2: hsl(var(--ws-lane-2-hsl));
+  --ws-lane-3-hsl: 265 70% 68%;
+  --ws-lane-3: hsl(var(--ws-lane-3-hsl));
+  --ws-lane-4-hsl: 50 82% 58%;
+  --ws-lane-4: hsl(var(--ws-lane-4-hsl));
 
   --ws-radius-sm: 6px;
   --ws-radius-md: 10px;
@@ -70,30 +110,39 @@
   --ws-ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/*
+  The light theme flips the **triplets only**.
+
+  `--ws-bg: hsl(var(--ws-bg-hsl))` is declared once, at bare `:root`, and needs
+  no light counterpart: a custom property's `var()` is substituted against the
+  winning value on the same element, so overriding `--ws-bg-hsl` here re-derives
+  `--ws-bg` for free. Which also means a colour added to this block cannot
+  forget its derived half — there is nothing to forget.
+*/
 @media (prefers-color-scheme: light) {
   :root {
     color-scheme: light;
 
-    --ws-bg: hsl(240 20% 99%);
-    --ws-bg-elevated: hsl(240 24% 96%);
-    --ws-bg-sunken: hsl(240 22% 93%);
+    --ws-bg-hsl: 240 20% 99%;
+    --ws-bg-elevated-hsl: 240 24% 96%;
+    --ws-bg-sunken-hsl: 240 22% 93%;
 
-    --ws-fg: hsl(240 24% 12%);
-    --ws-fg-muted: hsl(240 10% 36%);
-    --ws-fg-subtle: hsl(240 8% 50%);
+    --ws-fg-hsl: 240 24% 12%;
+    --ws-fg-muted-hsl: 240 10% 36%;
+    --ws-fg-subtle-hsl: 240 8% 50%;
 
-    --ws-border: hsl(240 14% 87%);
-    --ws-border-strong: hsl(240 14% 76%);
+    --ws-border-hsl: 240 14% 87%;
+    --ws-border-strong-hsl: 240 14% 76%;
 
     /* Darkened, not reused: the dark theme's violet fails contrast on white. */
-    --ws-accent: hsl(265 62% 48%);
-    --ws-accent-fg: hsl(0 0% 100%);
-    --ws-accent-soft: hsl(265 70% 94%);
+    --ws-accent-hsl: 265 62% 48%;
+    --ws-accent-fg-hsl: 0 0% 100%;
+    --ws-accent-soft-hsl: 265 70% 94%;
 
-    --ws-lane-1: hsl(205 82% 44%);
-    --ws-lane-2: hsl(144 62% 34%);
-    --ws-lane-3: hsl(265 62% 52%);
-    --ws-lane-4: hsl(50 82% 34%);
+    --ws-lane-1-hsl: 205 82% 44%;
+    --ws-lane-2-hsl: 144 62% 34%;
+    --ws-lane-3-hsl: 265 62% 52%;
+    --ws-lane-4-hsl: 50 82% 34%;
 
     --ws-glow-accent: 0 0 0 1px hsl(265 50% 78%), 0 18px 50px -24px hsl(265 62% 48% / 0.35);
     --ws-glow-soft: 0 0 0 1px hsl(240 14% 88%), 0 12px 34px -20px hsl(240 20% 30% / 0.22);

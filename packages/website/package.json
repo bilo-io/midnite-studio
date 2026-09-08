@@ -2,7 +2,7 @@
   "name": "@midnite/website",
   "version": "0.1.0",
   "private": true,
-  "description": "The public marketing site: a Vite + React static build published to GitHub Pages.",
+  "description": "The public marketing site: a static Vite + React build. See docs/WEBSITE.md for deploy targets.",
   "type": "module",
   "scripts": {
     "dev": "vite",

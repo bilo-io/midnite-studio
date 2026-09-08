@@ -21,8 +21,8 @@ describe('routeFor', () => {
   });
 
   it('falls back to the landing page for anything unknown', () => {
-    // Pages cannot give us a real 404, and a page that renders the product
-    // beats one that renders an error.
+    // A static tree cannot give us a real 404, and a page that renders the
+    // product beats one that renders an error.
     expect(routeFor('/nope')).toBe('landing');
     expect(routeFor('/download/extra')).toBe('landing');
   });

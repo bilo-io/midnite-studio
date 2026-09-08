@@ -144,8 +144,9 @@ export default tseslint.config(
   },
 
   // --- Boundary: website (the public marketing site) --------------------------
-  // The site is built and deployed entirely on its own — a static tree pushed to
-  // GitHub Pages in a DIFFERENT repository — so it has no business importing
+  // The site is built and deployed entirely on its own — a static tree published
+  // to a public host, from a DIFFERENT repository than this private one (see
+  // `docs/WEBSITE.md` for the targets) — so it has no business importing
   // anything from this one. It is not "app, but public": it shares no runtime,
   // no IPC bridge and no build. An import of a workspace package here would
   // compile, and then either drag Electron-shaped code into a browser bundle or
