@@ -7,6 +7,7 @@ import { Footer } from './footer/footer';
 import { Hero } from './hero/hero';
 import { placeholderSection } from './placeholder';
 import { Services } from './services/services';
+import { Testimonials } from './testimonials/testimonials';
 import { Trusted } from './trusted/trusted';
 
 export type SectionEntry = {
@@ -53,12 +54,7 @@ export const SECTIONS: readonly SectionEntry[] = [
   */
   { id: 'trusted', label: 'Agents', Component: Trusted, nav: true },
   { id: 'services', label: 'Services', Component: Services, nav: true },
-  {
-    id: 'testimonials',
-    label: 'Notes',
-    Component: placeholderSection('testimonials', 'Notes from the build'),
-    nav: true,
-  },
+  { id: 'testimonials', label: 'Notes', Component: Testimonials, nav: true },
   { id: 'faq', label: 'FAQ', Component: Faq, nav: true },
   { id: 'early-access', label: 'Early access', Component: EarlyAccess, nav: true },
   { id: 'footer', label: 'Footer', Component: Footer },
