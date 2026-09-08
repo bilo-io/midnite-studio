@@ -1,6 +1,43 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Website — install.sh served from the site, and a brand face that cannot follow
+
+[PR #282](https://github.com/bilo-io/midnite-studio/pull/282). **Ad hoc, not phase-tracked.** Two
+halves were asked for; one shipped and one is blocked on a licence, reported rather than forced.
+
+The download page's one command now curls the site's own `/install.sh` instead of
+`raw.githubusercontent.com` — shorter (it stops wrapping in the code block) and, more to the point,
+the command a visitor pipes into a shell names the host they are already looking at rather than
+asking them to trust a third-party URL on this page's word. `public/install.sh` is the upstream
+script byte-for-byte, its *own* URLs untouched, because it still has to resolve
+`midnite-studio/version.json` on the raw host where the builds actually are. `SITE_ORIGIN`
+(`src/site-origin.ts`, from `WEBSITE_ORIGIN`, default the live Vercel origin) is `WEBSITE_BASE`'s
+sibling and exists for the one thing `import.meta.env.BASE_URL` cannot do — text a visitor pastes
+into a *terminal*, which has no page to be relative to. It is the site **root**, not the bare host,
+so a target with a path prefix has to include it. The default lives in `site-origin.ts` rather than
+in the two `define` blocks that inline the constant: a default written twice eventually disagrees
+with itself. A committed copy of someone else's file drifts, so
+`scripts/website-sync-install.mjs` diffs it against upstream (`--check` / `--write`, wired as
+`website:sync-install`) and runs **post-merge** in `website.yml` — upstream can change with nothing
+merged here, so there is no PR for a gate to block and a red build on `main` is the honest shape.
+Deliberately not a vitest: a networked test fails on a plane and turns an upstream outage into a red
+repo-wide gate. The FAQ's two "read install.sh" links stay on GitHub, where the file has a history
+and a blame view; the download page's own link is the site copy, because it must be the *identical*
+URL the command fetches, which `download-page.test.tsx` asserts.
+
+**The wordmark half did not ship, and should not.** Mirroring the app's cursive `--font-brand` onto
+the site meant serving `quick-kiss.ttf` from a public origin. Its own name table settles it: family
+`Quick Kiss Personal Use`, `Copyright (c) 2018 by Billy Argel. All rights reserved.`, and upstream
+is explicit that commercial and webfont licences are sold separately. The private app is arguably
+within personal use; public marketing for a product is not. So the site's wordmark stays plain text,
+the two surfaces deliberately differ, and the finding is written into `docs/WEBSITE.md`, a comment on
+the `@font-face` in `packages/app/src/styles.css` (the tempting move is to copy the file without
+reading its name table) and one bullet in all three agent files. Two ways out, both a human's call:
+buy the commercial + webfont licence, or re-cut the brand on an OFL face and change *both* surfaces
+— substituting a different face on the site alone was rejected as strictly worse than doing nothing,
+since it makes one brand read as two. 91.45 KB gz JS.
+
 ## 2026-09-08 — Website — opacity tokens that resolve, the early-access issue form, deploy-neutral copy
 
 [PR #281](https://github.com/bilo-io/midnite-studio/pull/281). **Ad hoc, not phase-tracked.** Every
