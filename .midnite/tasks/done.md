@@ -1,6 +1,19 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Website — a Vercel config that installs only the site's workspace
+
+[PR #280](https://github.com/bilo-io/midnite-studio/pull/280). **Ad hoc, not phase-tracked.** The
+first Vercel deployment of `packages/website` died in `pnpm install` with `ERR_PNPM_FETCH_401` on
+`@bilo-io/shell`: Vercel's root directory is the site, but a bare `pnpm install` there installs the
+*whole* workspace, and the app's `@bilo-io/*` packages come from GitHub Packages, which 401s without
+a token the site has no business holding. `packages/website/vercel.json` now installs with
+`pnpm install --filter @midnite/website --frozen-lockfile` from the repo root (344 packages, verified
+against a deliberately invalid token), builds with `pnpm run build`, serves `dist/`, and skips builds
+that touch neither the site, the lockfile nor the root eslint config. `/download` is a directory
+index, so no rewrite. `docs/WEBSITE.md` gains a "Deploying on Vercel" section and the Pages section
+is retitled so the two targets read as alternatives; the guarded Pages workflow is untouched.
+
 ## 2026-09-08 — Website wave 2 — the agent-logo banner, and testimonials that ship empty
 
 [PR #279](https://github.com/bilo-io/midnite-studio/pull/279). **Ad hoc, not phase-tracked** —
