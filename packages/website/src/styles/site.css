@@ -67,6 +67,117 @@
   .ws-logo-mark {
     filter: invert(1);
   }
+
+  /*
+    ── The agent marquee (sections/trusted/) ──────────────────────────────────
+
+    Four custom properties are the whole contract between this file and
+    `useMarqueeCycle`, and every one of them has to be a *fixed* value or the
+    hook's arithmetic stops being true. `agent-marquee.tsx` sets all four
+    inline, because three of them are derived from the roster's length:
+
+      --ws-agent-slot   one logo's slot width. Fixed, so slot k's centre is at
+                        a known multiple of it and nothing has to be measured.
+      --ws-agent-shift  how far the track travels in one pass: slot × count.
+      --ws-agent-pass   how long that pass takes: cycle × count.
+      --ws-agent-lead   how far the track is pulled back so the *second* copy
+                        of the roster starts centred: count × slot + slot/2.
+                        The first copy is what fills the left half of the band,
+                        which would otherwise be empty on the first frame and
+                        again after every loop.
+      --ws-agent-cycle  one period — how long a logo owns the centre. Also the
+                        length of the per-logo animation, and the same number
+                        the hook is given as `periodMs`.
+
+    `.ws-marquee-track` is absolutely positioned at `left: 50%` and pulled back
+    by the lead, which puts **the second copy's slot 0 exactly on the band's
+    centre at translateX(0)**. That single line is what lets the hook answer
+    "which logo is centred" as `floor(t / period) mod count` — see its docblock.
+  */
+  .ws-marquee-track {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    margin-left: calc(var(--ws-agent-lead) * -1);
+    display: flex;
+    width: max-content;
+    align-items: center;
+    animation: ws-marquee var(--ws-agent-pass) linear infinite;
+    /*
+      One compositor layer for the whole track, hinted once and never
+      toggled — the thing that actually moves is this element, and promoting it
+      is what keeps the marquee off the main thread entirely.
+    */
+    will-change: transform;
+  }
+
+  .ws-marquee-track[data-paused='true'] {
+    animation-play-state: paused;
+  }
+
+  /*
+    The selected logo's cycle: two full 3D turns, one on the way up and one on
+    the way down, with the hold in the middle.
+
+    It starts and ends at `rotateY(0) scale(1)` — flush with the idle state — so
+    the logo is never seen popping into or out of an animated pose. The first
+    turn grows it to 2×, arriving face-on and upright at the 35% mark; it holds
+    there through 65%, which is the window straddling the geometric centre; then
+    the second turn shrinks it back into the flow.
+
+    `will-change` rides on the data attribute rather than the class, so exactly
+    one logo at a time asks for a layer. Applying it to all thirty slots up
+    front would be thirty layers for one moving thing, which is the usual way
+    `will-change` makes a page slower rather than faster.
+  */
+  .ws-agent-mark[data-selected='true'] {
+    z-index: 10;
+    animation: ws-agent-cycle var(--ws-agent-cycle) var(--ws-ease) 1 both;
+    will-change: transform;
+  }
+
+  .ws-agent-mark[data-selected='true'] .ws-agent-glyph {
+    animation: ws-agent-glow var(--ws-agent-cycle) linear 1 both;
+  }
+
+  .ws-agent-mark[data-selected='true'] .ws-agent-halo {
+    animation: ws-agent-halo var(--ws-agent-cycle) linear 1 both;
+  }
+
+  .ws-marquee-track[data-paused='true'] .ws-agent-mark[data-selected='true'],
+  .ws-marquee-track[data-paused='true'] .ws-agent-mark[data-selected='true'] * {
+    animation-play-state: paused;
+  }
+
+  /*
+    The reduced-motion grid's hover glow, and the only place the glow appears at
+    all for a visitor who asked for less motion. A transition rather than a
+    keyframe, because it is driven by the pointer and has no timeline.
+  */
+  .ws-agent-static .ws-agent-glyph {
+    transition: filter var(--ws-dur-base) var(--ws-ease);
+  }
+
+  .ws-agent-static:hover .ws-agent-glyph,
+  .ws-agent-static:focus-visible .ws-agent-glyph {
+    filter: drop-shadow(0 0 4px var(--ws-agent-color))
+      drop-shadow(0 0 12px var(--ws-agent-color));
+  }
+
+  /*
+    The marquee fades out at both ends instead of being cut off by the
+    container's edge, so a logo does not appear from behind a hard line.
+  */
+  .ws-marquee-fade {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 12%,
+      black 88%,
+      transparent 100%
+    );
+  }
 }
 
 @media (prefers-color-scheme: light) {
@@ -81,6 +192,106 @@
     opacity: 1;
   }
   50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/*
+  One pass of the marquee: exactly `count` slots to the left, linearly.
+
+  "Exactly count slots" is not a cosmetic choice — the roster is rendered three
+  times in a row, so travelling one whole copy's width lands the second copy
+  precisely where the first began and the loop is seamless. It is also the
+  premise `useMarqueeCycle` computes against.
+*/
+@keyframes ws-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(calc(var(--ws-agent-shift) * -1), 0, 0);
+  }
+}
+
+/*
+  The selected logo, growing into the centre and back out.
+
+  `perspective()` is inside the transform rather than on the parent on purpose:
+  as a parent property it would apply to every slot in the track and force the
+  whole thing into a 3D rendering context, when only one element at a time is
+  actually turning.
+*/
+@keyframes ws-agent-cycle {
+  0% {
+    transform: perspective(700px) rotateY(0deg) scale(1);
+  }
+  18% {
+    transform: perspective(700px) rotateY(180deg) scale(1.55);
+  }
+  35% {
+    transform: perspective(700px) rotateY(360deg) scale(2);
+  }
+  65% {
+    transform: perspective(700px) rotateY(360deg) scale(2);
+  }
+  82% {
+    transform: perspective(700px) rotateY(540deg) scale(1.55);
+  }
+  100% {
+    transform: perspective(700px) rotateY(720deg) scale(1);
+  }
+}
+
+/*
+  The glow that follows the artwork's own edges.
+
+  `drop-shadow` and not `box-shadow`: a box-shadow would trace the slot's
+  rectangle, and the brief is a glow along the mark's strokes. Two stops — a
+  tight one for the edge and a wide one for the bloom — in the agent's own brand
+  colour, which arrives as `--ws-agent-color` from the roster.
+
+  It is only *interpolated* over the two short ramps; through the hold it is a
+  constant filter, which the compositor caches. That matters, because a
+  drop-shadow re-rasterises the subtree on every frame it changes, and exactly
+  one logo on the page is ever doing it.
+
+  The zero-radius transparent shadow at the ends, rather than `filter: none`,
+  gives the interpolation a matching function list to work from — engines differ
+  on how they read `none` as a start value, and a mismatched list snaps.
+*/
+@keyframes ws-agent-glow {
+  0%,
+  16% {
+    filter: drop-shadow(0 0 0 rgb(0 0 0 / 0)) drop-shadow(0 0 0 rgb(0 0 0 / 0));
+  }
+  35%,
+  65% {
+    filter: drop-shadow(0 0 5px var(--ws-agent-color))
+      drop-shadow(0 0 16px var(--ws-agent-color));
+  }
+  84%,
+  100% {
+    filter: drop-shadow(0 0 0 rgb(0 0 0 / 0)) drop-shadow(0 0 0 rgb(0 0 0 / 0));
+  }
+}
+
+/*
+  The soft halo behind the mark — the second half of the brief's "box-shadow
+  along its stroke edges plus a soft halo". A separate, empty element so the
+  cheap part (a static box-shadow at animated opacity) stays cheap and does not
+  ride along inside the drop-shadow's rasterisation.
+*/
+@keyframes ws-agent-halo {
+  0%,
+  16% {
+    opacity: 0;
+  }
+  35%,
+  65% {
+    opacity: 0.55;
+  }
+  84%,
   100% {
     opacity: 0;
   }

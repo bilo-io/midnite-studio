@@ -7,6 +7,7 @@ import { Footer } from './footer/footer';
 import { Hero } from './hero/hero';
 import { placeholderSection } from './placeholder';
 import { Services } from './services/services';
+import { Trusted } from './trusted/trusted';
 
 export type SectionEntry = {
   /**
@@ -44,12 +45,13 @@ export type SectionEntry = {
 export const SECTIONS: readonly SectionEntry[] = [
   { id: 'hero', label: 'Midnite Studio', Component: Hero },
   { id: 'features', label: 'Features', Component: Features, nav: true },
-  {
-    id: 'trusted',
-    label: 'Built on',
-    Component: placeholderSection('trusted', 'Built on'),
-    nav: true,
-  },
+  /*
+    The label is "Agents", not wave 1's "Built on": the band is the app's agent
+    roster under the heading "Use your favourite agents", and "Built on" reads
+    as a tech-stack credit — a different section nobody is building. The `id`
+    stays `trusted`, because it is a published URL fragment.
+  */
+  { id: 'trusted', label: 'Agents', Component: Trusted, nav: true },
   { id: 'services', label: 'Services', Component: Services, nav: true },
   {
     id: 'testimonials',
