@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { cleanPtyText } from './ansi';
 import { RepoDescriptorSchema, type Ref } from './domain';
 
 /**
@@ -959,4 +960,578 @@ export function melodyDurationSeconds(melody: CompanionMelody): number {
   const beats = melody.notes.reduce((total, [, note]) => total + Math.max(0, note), 0);
   const bpm = melody.bpm > 0 ? melody.bpm : 90;
   return (beats * 60) / bpm;
+}
+
+// --- D · the static overview ------------------------------------------------
+
+/**
+ * Turn a snapshot into the sentences the companion says after the greeting.
+ *
+ * **One sentence per fact, and a zero is not a fact.** "You have no
+ * uncommitted changes, no open pull requests and no failing checks" is three
+ * sentences of nothing; a greeting that recites them every time is the reason
+ * people turn a companion off. So every clause below is guarded on there being
+ * something to report, and the whole thing collapses to one line on a clean
+ * repo — which is itself worth saying exactly once.
+ *
+ * Pure, and in `shared` rather than in the flow, for the same reason
+ * {@link summariseDigest} is: this is text a human hears, so it is the thing
+ * most worth having fixture tests over.
+ *
+ * `null` fields are the forge's "I could not reach GitHub" (see
+ * {@link CompanionSnapshotSchema}) and earn a sentence of their own, once,
+ * rather than being silently dropped — the phase's own wording.
+ */
+export function describeSnapshot(snapshot: CompanionSnapshot): string[] {
+  const lines: string[] = [];
+
+  if (snapshot.repo === null) {
+    lines.push(
+      snapshot.repos > 0
+        ? `No repository is open — you have ${plural(snapshot.repos, 'one')} to choose from.`
+        : 'No repository is open yet.',
+    );
+    return lines;
+  }
+
+  const name = snapshot.repo.name;
+  lines.push(
+    snapshot.branch === null
+      ? `You are in ${name}, on a detached head.`
+      : `You are in ${name}, on ${snapshot.branch}.`,
+  );
+
+  if (snapshot.ahead > 0 && snapshot.behind > 0) {
+    lines.push(
+      `That branch is ${plural(snapshot.ahead, 'commit')} ahead and ${plural(snapshot.behind, 'commit')} behind.`,
+    );
+  } else if (snapshot.ahead > 0) {
+    lines.push(`It is ${plural(snapshot.ahead, 'commit')} ahead of the remote.`);
+  } else if (snapshot.behind > 0) {
+    lines.push(`It is ${plural(snapshot.behind, 'commit')} behind the remote.`);
+  }
+
+  const dirty = describeDirty(snapshot.dirty);
+  if (dirty !== '') lines.push(dirty);
+
+  if (snapshot.sessions.live > 0) {
+    const detail = [
+      snapshot.sessions.thinking > 0 ? `${snapshot.sessions.thinking} thinking` : '',
+      snapshot.sessions.waiting > 0 ? `${snapshot.sessions.waiting} waiting on you` : '',
+    ].filter((part) => part !== '');
+    lines.push(
+      detail.length > 0
+        ? `${capitalise(plural(snapshot.sessions.live, 'session'))} running — ${detail.join(', ')}.`
+        : `${capitalise(plural(snapshot.sessions.live, 'session'))} running.`,
+    );
+  }
+
+  if (snapshot.openPulls === null || snapshot.failingChecks === null) {
+    lines.push('I could not reach GitHub, so I have nothing on pull requests or checks.');
+  } else {
+    const forge = [
+      snapshot.openPulls > 0 ? plural(snapshot.openPulls, 'open pull request') : '',
+      snapshot.failingChecks > 0 ? `${plural(snapshot.failingChecks, 'check')} failing` : '',
+    ].filter((part) => part !== '');
+    if (forge.length > 0) lines.push(`${capitalise(forge.join(' and '))}.`);
+  }
+
+  // Only when literally nothing above had anything to add — the branch line is
+  // always there, so "just the branch line" is the clean-repo case.
+  if (lines.length === 1) lines.push('Everything is clean and nothing is running.');
+
+  return lines;
+}
+
+function describeDirty(dirty: CompanionSnapshot['dirty']): string {
+  const parts = [
+    dirty.staged > 0 ? `${dirty.staged} staged` : '',
+    dirty.unstaged > 0 ? `${dirty.unstaged} unstaged` : '',
+    dirty.untracked > 0 ? `${dirty.untracked} untracked` : '',
+  ].filter((part) => part !== '');
+  if (parts.length === 0) return '';
+  const total = dirty.staged + dirty.unstaged + dirty.untracked;
+  return `${capitalise(plural(total, 'change'))}: ${parts.join(', ')}.`;
+}
+
+// --- E · the intent grammar -------------------------------------------------
+
+/**
+ * The `AgentCommandId`s the companion is allowed to start.
+ *
+ * **A subset, deliberately — ten of the roster's twenty-one.** Left out: every
+ * `loop*` id (a `/loop` runs unattended on a timer, which is not a thing to
+ * start from a misheard sentence) and both release ops (`releasePrep` writes a
+ * branch, `releaseComplete` is irreversible by design). The phase's own
+ * guardrail is that every write goes through an agent session the user can
+ * see; this list is where that stops being a sentence and starts being a type.
+ *
+ * **Declared here rather than imported.** The canonical `AgentCommandId` union
+ * lives in `packages/app/src/store/ui-store.ts`, and `shared` may not import
+ * `app` — the dependency runs the other way. `features/companion/handoff.ts`
+ * carries a compile-time assignment proving this list is a subset of the real
+ * union, and a test asserting every id keys `DEFAULT_AGENT_SKILLS`, so the two
+ * cannot drift silently in either direction.
+ */
+export const COMPANION_COMMAND_IDS = [
+  'execAdhoc',
+  'execBacklog',
+  'execSwarm',
+  'brainstorm',
+  'refine',
+  'addressIssue',
+  'prReview',
+  'prFeedback',
+  'gitReport',
+  'gitCleanup',
+] as const;
+export type CompanionCommandId = (typeof COMPANION_COMMAND_IDS)[number];
+
+/**
+ * What a person actually says, per command.
+ *
+ * **Ordered longest-phrase-first within each entry, and matched in table
+ * order.** Both matter: "ad hoc task" has to win over "task", and `execAdhoc`
+ * has to be tried before `execBacklog` or "next ad hoc task" would route to the
+ * backlog.
+ */
+export const COMPANION_VERBS: Readonly<Record<CompanionCommandId, readonly string[]>> = {
+  execAdhoc: ['ad hoc task', 'adhoc task', 'ad-hoc task', 'ad hoc', 'adhoc', 'ad-hoc', 'one off'],
+  execSwarm: ['exec swarm', 'swarm'],
+  execBacklog: ['next task', 'backlog', 'next phase', 'next theme'],
+  brainstorm: ['brainstorm', 'brain storm', 'new phase'],
+  refine: ['refine'],
+  addressIssue: [
+    'address an issue',
+    'address issue',
+    'fix an issue',
+    'triage the issues',
+    'issue board',
+  ],
+  prReview: ['review a pr', 'review the pr', 'pr review', 'review my pr', 'code review'],
+  prFeedback: ['pr feedback', 'address feedback', 'review comments', 'pr comments'],
+  gitReport: ['git report', 'activity report', 'what have i done', 'what did i do'],
+  gitCleanup: ['git cleanup', 'clean up branches', 'tidy the branches', 'prune worktrees'],
+};
+
+/** "anyway" and its neighbours — Decision 10's override token. */
+export const COMPANION_ANYWAY_TOKENS = ['anyway', 'any way', 'do it anyway', 'go ahead'] as const;
+/** Cancels the current utterance (Theme E's skippable speech). */
+export const COMPANION_STOP_TOKENS = ['stop', 'be quiet', 'quiet', 'shut up', 'enough'] as const;
+/** Declines an offer — the switch-repo offer is the only one today. */
+export const COMPANION_DISMISS_TOKENS = [
+  'no',
+  'no thanks',
+  'nope',
+  'stay',
+  'stay here',
+  'this one',
+  'never mind',
+  'nevermind',
+  'cancel',
+] as const;
+/** Asks for the last line again. */
+export const COMPANION_REPEAT_TOKENS = [
+  'repeat',
+  'say that again',
+  'again',
+  'what was that',
+  'come again',
+] as const;
+
+/**
+ * What the companion decided a line of input means.
+ *
+ * A zod schema and not just a type, because it crosses a boundary twice: the
+ * headless router (`mstudio:companion:ask`) is asked to answer *in this shape*,
+ * and a CLI's JSON is exactly the sort of input that has to be re-validated
+ * before anything acts on it. `{kind:'freeform'}` is the honest fallback — it
+ * is what the grammar returns when it recognised nothing, and it is where the
+ * headless router gets its turn.
+ */
+export const CompanionIntentSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('command'),
+    id: z.enum(COMPANION_COMMAND_IDS),
+    /** The remainder of the line after the verb — becomes the skill's argument. */
+    body: z.string().optional(),
+    /** "…anyway" — Decision 10's override of the one-live-hand-off rule. */
+    override: z.boolean().optional(),
+  }),
+  z.object({
+    kind: z.literal('switchRepo'),
+    /** Matched case-insensitively against repo names; absent means "offer me the list". */
+    name: z.string().optional(),
+  }),
+  z.object({ kind: z.literal('dismiss') }),
+  z.object({ kind: z.literal('music'), on: z.boolean() }),
+  z.object({ kind: z.literal('repeat') }),
+  z.object({ kind: z.literal('stop') }),
+  /** A bare "anyway" — re-run whatever the one-live-hand-off rule just declined. */
+  z.object({ kind: z.literal('anyway') }),
+  z.object({ kind: z.literal('freeform'), text: z.string() }),
+]);
+export type CompanionIntent = z.infer<typeof CompanionIntentSchema>;
+
+/** Escape a spoken phrase into a regex source, treating any run of spaces as flexible. */
+function phraseSource(phrase: string): string {
+  return phrase.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`).replace(/\s+/g, String.raw`\s+`);
+}
+
+/** Whole-word, case-insensitive, punctuation-tolerant containment. */
+function hasPhrase(haystack: string, phrase: string): boolean {
+  return new RegExp(
+    String.raw`(^|[^\p{L}\p{N}])${phraseSource(phrase)}($|[^\p{L}\p{N}])`,
+    'iu',
+  ).test(haystack);
+}
+
+/** Where `phrase` starts and ends in `haystack`, or `null`. */
+function phraseSpan(haystack: string, phrase: string): { start: number; end: number } | null {
+  const match = new RegExp(
+    String.raw`(^|[^\p{L}\p{N}])(${phraseSource(phrase)})($|[^\p{L}\p{N}])`,
+    'iu',
+  ).exec(haystack);
+  if (!match) return null;
+  const lead = (match[1] ?? '').length;
+  const start = match.index + lead;
+  return { start, end: start + (match[2] ?? '').length };
+}
+
+/**
+ * Words that turn a noun into an instruction.
+ *
+ * The negative half of the grammar. "a swarm of bees" and "the backlog is a
+ * diary" are sentences about swarms and backlogs; "start a swarm" is a
+ * command. Rather than trying to blocklist the ways a noun can be used
+ * innocently — an endless list — a short single-word verb like `swarm` is only
+ * honoured when one of these appears before it, **or** when it is the first
+ * word of the utterance, which is the imperative position: "refine phase 79"
+ * is an instruction for exactly the reason "a swarm of bees" is not.
+ * Multi-word phrases (`ad hoc task`, `pr review`) are specific enough to stand
+ * alone and skip the check entirely.
+ */
+export const COMPANION_IMPERATIVES = [
+  'start',
+  'run',
+  'launch',
+  'kick off',
+  'kickoff',
+  'begin',
+  'do',
+  'open',
+  'fire off',
+  'spin up',
+  'go',
+  'please',
+  'can you',
+  'could you',
+  'i want',
+  'i need',
+  "let's",
+  'lets',
+] as const;
+
+/** Phrases short or common enough that they need an imperative to count as a command. */
+function needsImperative(phrase: string): boolean {
+  return !phrase.includes(' ') && phrase.length <= 10;
+}
+
+/**
+ * Read a line of typed or spoken input.
+ *
+ * Pure, table-driven, and **deliberately shallow**: it recognises the verbs it
+ * knows and hands everything else to `{kind:'freeform'}`, which is where the
+ * headless router (Theme E) takes over. The alternative — a grammar that tried
+ * to be clever — would be a second inference path built out of regexes, which
+ * is the one thing this phase's guardrails rule out.
+ *
+ * Order of resolution, and why: the control words (`stop`, `anyway`, `repeat`,
+ * a bare "no") are checked first *as whole utterances*, because those are the
+ * ones a person says on their own and a command line containing them (`refine
+ * anyway`) is handled by the `override` flag instead. Music next, because "no
+ * music" would otherwise read as a dismissal. Commands next, in table order.
+ * Repo switching last, since "switch to X" is the only shape it takes.
+ */
+export function parseIntent(text: string): CompanionIntent {
+  const raw = text.trim();
+  const bare = raw.replace(/[.!?,;:]+$/g, '').trim();
+  const lower = bare.toLowerCase();
+
+  if (bare === '') return { kind: 'freeform', text: raw };
+
+  // Whole-utterance control words: an exact match rather than `hasPhrase`,
+  // because these only count when they are the entire line — "stop the swarm"
+  // is not a request for silence.
+  if (COMPANION_STOP_TOKENS.some((token) => token === lower)) return { kind: 'stop' };
+  if (COMPANION_REPEAT_TOKENS.some((token) => token === lower)) return { kind: 'repeat' };
+  if (COMPANION_ANYWAY_TOKENS.some((token) => token === lower)) return { kind: 'anyway' };
+
+  if (/\b(music|some tunes|elevator music)\b/i.test(lower)) {
+    const off = /\b(no|off|stop|without|enough|mute)\b/i.test(lower);
+    return { kind: 'music', on: !off };
+  }
+
+  if (COMPANION_DISMISS_TOKENS.some((token) => token === lower)) return { kind: 'dismiss' };
+
+  const override = COMPANION_ANYWAY_TOKENS.some((token) => hasPhrase(lower, token));
+
+  for (const id of COMPANION_COMMAND_IDS) {
+    for (const phrase of COMPANION_VERBS[id]) {
+      const span = phraseSpan(bare, phrase);
+      if (span === null) continue;
+      if (needsImperative(phrase) && span.start > 0) {
+        // Imperative position (the very first word) counts as an imperative:
+        // "refine phase 79" is an instruction and "a swarm of bees" is not,
+        // and the difference is entirely where the word sits.
+        const before = lower.slice(0, span.start);
+        if (!COMPANION_IMPERATIVES.some((verb) => hasPhrase(before, verb))) continue;
+      }
+      return { kind: 'command', id, ...commandExtras(bare.slice(span.end), override) };
+    }
+  }
+
+  const switchTo =
+    /\b(?:switch|change|move|go|hop)\s+(?:over\s+)?to\s+(?:the\s+)?(.+)$/i.exec(bare) ??
+    /\b(?:open|switch)\s+(?:the\s+)?(.+?)\s+repo(?:sitory)?\b/i.exec(bare);
+  if (switchTo) {
+    const name = (switchTo[1] ?? '')
+      .replace(/\b(repo|repository|one|project)\b/gi, '')
+      .replace(/[.!?,;:]+$/g, '')
+      .trim();
+    return name === '' ? { kind: 'switchRepo' } : { kind: 'switchRepo', name };
+  }
+  if (/^(?:switch|switch repos?|another repo|different repo|other repo)$/i.test(lower)) {
+    return { kind: 'switchRepo' };
+  }
+
+  return { kind: 'freeform', text: raw };
+}
+
+/**
+ * The optional half of a `command` intent: the argument and the override flag.
+ *
+ * Everything after the verb is the argument — "start an adhoc task to fix the
+ * flaky spec" hands the skill "fix the flaky spec". Leading connectives are
+ * dropped because they read as noise once the verb is gone; anything else is
+ * passed through verbatim, since it is about to be typed into a prompt.
+ */
+function commandExtras(
+  remainder: string,
+  override: boolean,
+): { body?: string; override?: true } {
+  let body = remainder.replace(/^\s*(?:to|for|about|on|that|which|and)\b\s*/i, '').trim();
+  for (const token of COMPANION_ANYWAY_TOKENS) {
+    const span = phraseSpan(body, token);
+    if (span) body = `${body.slice(0, span.start)}${body.slice(span.end)}`.trim();
+  }
+  body = body.replace(/^[,;:\s]+|[,;:\s]+$/g, '');
+  return { ...(body === '' ? {} : { body }), ...(override ? { override: true } : {}) };
+}
+
+// --- E · reading a pty back -------------------------------------------------
+
+/** How much of a read-back the thread keeps. A scrollback is hundreds of kilobytes; a turn is not. */
+export const COMPANION_READBACK_TAIL_CHARS = 4000;
+
+/**
+ * The agent's last answer, cut out of a whole scrollback.
+ *
+ * The scrollback is every repaint of a TUI since the session opened — most of
+ * it the same frame drawn again. What the companion wants is the last *turn*:
+ * the text the agent produced after the previous prompt and before the current
+ * one.
+ *
+ * The prompt is found with the roster's own markers rather than a guess of our
+ * own — `awaitingInput` is the option-sheet caret and `frameEnd` the mode
+ * footer (see `AgentDefinitionSchema.activity`), and both are already
+ * user-overridable through `agents.json`. With two or more boundaries the turn
+ * is what lies between the last two; with one, everything before it; with none
+ * — an agent with no marker set, which is most of the roster — the tail of the
+ * cleaned text, because a wrong cut is worse than an uncut one.
+ *
+ * `markers` are regex *sources*, exactly as they sit in the roster, and are
+ * compiled here rather than passed in compiled so this stays a pure function
+ * over data that crossed IPC.
+ */
+export function extractLastAgentTurn(
+  scrollback: string,
+  markers?: { awaitingInput?: string; frameEnd?: string },
+  tailChars = COMPANION_READBACK_TAIL_CHARS,
+): string {
+  const clean = cleanPtyText(scrollback);
+  const boundaries: { start: number; end: number }[] = [];
+
+  for (const source of [markers?.awaitingInput, markers?.frameEnd]) {
+    if (source === undefined || source === '') continue;
+    let pattern: RegExp;
+    try {
+      pattern = new RegExp(source, 'gi');
+    } catch {
+      // A user-authored `agents.json` regex that does not compile costs a
+      // clean cut, not the read-back.
+      continue;
+    }
+    for (const match of clean.matchAll(pattern)) {
+      if (typeof match.index === 'number') {
+        boundaries.push({ start: match.index, end: match.index + match[0].length });
+      }
+    }
+  }
+
+  boundaries.sort((a, b) => a.start - b.start);
+
+  let slice: string;
+  if (boundaries.length >= 2) {
+    // From the END of the previous prompt to the START of the current one, so
+    // neither marker's own text is read out as if the agent had said it.
+    const previous = boundaries[boundaries.length - 2] as { start: number; end: number };
+    const current = boundaries[boundaries.length - 1] as { start: number; end: number };
+    slice = clean.slice(previous.end, current.start);
+  } else if (boundaries.length === 1) {
+    slice = clean.slice(0, (boundaries[0] as { start: number }).start);
+  } else {
+    slice = clean;
+  }
+
+  return collapseBlankLines(slice).slice(-tailChars).trim();
+}
+
+/** Three blank lines in a row is a TUI artefact, never content. */
+function collapseBlankLines(text: string): string {
+  return text.replace(/\n{3,}/g, '\n\n');
+}
+
+// --- E · speech shaping -----------------------------------------------------
+
+/**
+ * How many characters one utterance may carry.
+ *
+ * The phase caps a single utterance at 60 seconds. `speechSynthesis` has no
+ * duration API before it starts speaking, so the cap is applied in characters
+ * at a conservative reading rate — 15 characters a second is roughly 180 words
+ * a minute, near the top of what the default macOS voices manage — giving 900.
+ */
+export const COMPANION_UTTERANCE_CHAR_CAP = 900;
+/** What replaces the tail this cap drops. */
+export const COMPANION_TRUNCATION_TAIL = 'and more in the thread.';
+
+/**
+ * Split text into utterances that fit the cap, on sentence boundaries.
+ *
+ * Returns at most two entries: what fits, and — when something had to go — the
+ * truncation notice as its own utterance. Splitting on sentences rather than
+ * characters keeps the cut off the middle of a word; a single sentence longer
+ * than the whole cap is hard-cut at its last word boundary, because the
+ * alternative is speaking nothing at all.
+ */
+export function splitForSpeech(text: string, cap = COMPANION_UTTERANCE_CHAR_CAP): string[] {
+  const trimmed = text.trim();
+  if (trimmed === '') return [];
+  if (trimmed.length <= cap) return [trimmed];
+
+  const sentences = trimmed.match(/[^.!?\n]+[.!?]*\s*|\n+/g) ?? [trimmed];
+  let kept = '';
+  for (const sentence of sentences) {
+    if (kept.length + sentence.length > cap) break;
+    kept += sentence;
+  }
+  if (kept.trim() === '') {
+    const hard = trimmed.slice(0, cap);
+    const lastSpace = hard.lastIndexOf(' ');
+    kept = lastSpace > cap / 2 ? hard.slice(0, lastSpace) : hard;
+  }
+
+  return [kept.trim(), COMPANION_TRUNCATION_TAIL];
+}
+
+// --- E · the headless router's reply ---------------------------------------
+
+/**
+ * What `mstudio:companion:ask` is asked to answer with.
+ *
+ * `say` is the only required field: a router that recognised nothing still owes
+ * the user a sentence, and "I didn't follow that" is a better answer than a
+ * rejection. `intent` is optional and re-validated through
+ * {@link CompanionIntentSchema} — this arrives as JSON printed by a CLI, which
+ * is exactly the input that must not be trusted to be the shape it was asked
+ * for.
+ */
+export const CompanionAskReplySchema = z.object({
+  say: z.string().min(1),
+  intent: CompanionIntentSchema.optional(),
+});
+export type CompanionAskReply = z.infer<typeof CompanionAskReplySchema>;
+
+/** What the companion says when the router answered something unparseable. */
+export const COMPANION_ASK_FALLBACK = "I didn't follow that.";
+
+/**
+ * Pull the reply object out of whatever a CLI actually printed.
+ *
+ * A print-mode CLI is asked for JSON and answers with JSON *plus* whatever
+ * else it felt like saying — a fenced code block, a "Here you go:", a trailing
+ * newline. So the first balanced `{…}` is located and parsed rather than the
+ * whole of stdout, and a failure returns `null` for the caller to turn into
+ * {@link COMPANION_ASK_FALLBACK}. Pure, so the parsing is unit-testable
+ * without spawning anything.
+ */
+export function parseAskReply(stdout: string): CompanionAskReply | null {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(stdout);
+  const candidates = [fenced?.[1], stdout].filter(
+    (value): value is string => typeof value === 'string',
+  );
+
+  for (const candidate of candidates) {
+    const found = firstBalancedObject(candidate);
+    if (found === null) continue;
+    let value: unknown;
+    try {
+      value = JSON.parse(found);
+    } catch {
+      continue;
+    }
+    const parsed = CompanionAskReplySchema.safeParse(value);
+    if (parsed.success) return parsed.data;
+  }
+
+  return null;
+}
+
+/**
+ * The first balanced `{…}` in a string, string literals and escapes respected.
+ *
+ * Walking to the matching brace rather than to the last `}` in the buffer:
+ * trailing prose containing a brace would otherwise break an object that
+ * parsed perfectly well.
+ */
+function firstBalancedObject(text: string): string | null {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i] as string;
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (inString && ch === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === '{') depth += 1;
+    if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
 }
