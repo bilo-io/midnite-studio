@@ -36,7 +36,26 @@ const ROOT_ENTRY: CompanionPanelEntry = { kind: 'thread' };
  * and a component that read `layout.companionPanelWidth` directly would size a
  * detached companion to a docked column's saved pixels.
  */
-export function CompanionPanel({ width }: { width?: number }) {
+export function CompanionPanel({
+  width,
+  reserveFabSpace = false,
+}: {
+  width?: number;
+  /**
+   * Whether this column is the rightmost thing on screen, and so has the FAB
+   * floating over its bottom-right corner.
+   *
+   * The FAB is `absolute bottom-4 right-4` inside the whole content row, not
+   * inside any one column, so it lands on top of whichever right-docked panel
+   * is last. The Loops panel answers that by *hiding* the FAB while it is
+   * open (`app.tsx`), and the companion deliberately does not: watching the
+   * FAB run listening → thinking → handoff → speaking is Theme H's entire
+   * point, and it would be visible only while the panel was shut. So the
+   * input bar gives the button its 56px of corner back instead — which is
+   * cheaper than a second FAB position and keeps both controls clickable.
+   */
+  reserveFabSpace?: boolean;
+}) {
   const state = useCompanionStore((s) => s.state);
   const transcript = useCompanionStore((s) => s.transcript);
   const history = usePanelHistory<CompanionPanelEntry>(ROOT_ENTRY, {
@@ -92,6 +111,7 @@ export function CompanionPanel({ width }: { width?: number }) {
       />
       <CompanionInputBar
         disabled={state === 'thinking'}
+        reserveFabSpace={reserveFabSpace}
         onInterrupt={() => companionPorts().interrupt()}
       />
     </div>
@@ -107,8 +127,14 @@ export function CompanionPanel({ width }: { width?: number }) {
  * the frame animates, the contents are simply absent, exactly how
  * `fabDetached` is handled beside it.
  */
-export function CompanionPanelSlot({ width }: { width?: number }) {
+export function CompanionPanelSlot({
+  width,
+  reserveFabSpace,
+}: {
+  width?: number;
+  reserveFabSpace?: boolean;
+}) {
   const enabled = useUiStore((s) => s.companionEnabled);
   if (!enabled) return null;
-  return <CompanionPanel width={width} />;
+  return <CompanionPanel width={width} reserveFabSpace={reserveFabSpace} />;
 }

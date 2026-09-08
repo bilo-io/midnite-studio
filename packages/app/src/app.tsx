@@ -30,6 +30,7 @@ import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
 import { CompanionPanelSlot } from './features/companion/companion-panel';
+import { useCompanionEnabledSync } from './features/companion/use-companion-enabled';
 import { fabCompanionState } from './features/companion/companion-look';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from './features/loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from './features/loops/fab-morph';
@@ -496,6 +497,12 @@ function Shell() {
   // The single source of truth for the four flags above is main's own
   // window registry (Phase 55) — see the hook's own doc for why.
   useWindowSync();
+  /*
+    Keeps the companion's state machine in step with its master switch. At the
+    root rather than in the panel: the FAB, the mini FAB and the quick-access
+    popover all read that state while the panel is closed.
+  */
+  useCompanionEnabledSync();
   // Cross-window sync (Theme E) — mounted here too, not just in
   // `DetachedRoot`, so a change made in the main window reaches every popout.
   useBroadcastSync();
@@ -1436,7 +1443,17 @@ function Shell() {
               >
                 {/* Guards the tail of the collapse tween — see `browserColumn`'s. */}
                 {companionDetached ? null : (
-                  <CompanionPanelSlot width={companionPanel.current} />
+                  <CompanionPanelSlot
+                    width={companionPanel.current}
+                    /*
+                      The FAB floats over the bottom-right of this whole row,
+                      so it lands on the LAST right-docked column. With Loops
+                      open that is Loops (and `app.tsx` hides the FAB for it);
+                      with Loops shut it is this panel, whose input bar then
+                      has to leave the corner clear. See the prop's own doc.
+                    */
+                    reserveFabSpace={!fabPanelDocked}
+                  />
                 )}
               </div>
             </>

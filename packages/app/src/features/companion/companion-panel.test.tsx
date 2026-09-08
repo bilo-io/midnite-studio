@@ -1,0 +1,248 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { useCompanionStore } from '../../store/companion-store';
+import { useUiStore } from '../../store/ui-store';
+import { CompanionPanel, CompanionPanelSlot } from './companion-panel';
+import { companionPorts, resetCompanionPorts, setCompanionPorts } from './companion-ports';
+
+/**
+ * The thread is virtualised, and jsdom gives every element a zero-sized box
+ * and no `ResizeObserver` — so without these two stubs the virtualizer
+ * correctly concludes there is no viewport and renders none of the turns,
+ * which looks exactly like the panel being broken.
+ *
+ * Local to this file rather than added to `vitest-setup.ts`: a global
+ * `ResizeObserver` and a global non-zero `clientHeight` would silently change
+ * what every other component test in this package measures.
+ */
+beforeAll(() => {
+  if (!('ResizeObserver' in globalThis)) {
+    class StubResizeObserver {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    Object.defineProperty(globalThis, 'ResizeObserver', {
+      configurable: true,
+      value: StubResizeObserver,
+    });
+  }
+  /*
+    `offsetHeight`/`offsetWidth` as well as the `client*` pair, because
+    `@tanstack/react-virtual`'s `observeElementRect` seeds its first viewport
+    measurement from the OFFSET box and only then hands over to the
+    `ResizeObserver` — which the stub above never fires. With only
+    `clientHeight` stubbed the virtualizer computes the right total size and
+    then renders zero rows, which is a convincing-looking wrong answer.
+  */
+  for (const prop of ['clientHeight', 'offsetHeight'] as const) {
+    Object.defineProperty(HTMLElement.prototype, prop, { configurable: true, get: () => 600 });
+  }
+  for (const prop of ['clientWidth', 'offsetWidth'] as const) {
+    Object.defineProperty(HTMLElement.prototype, prop, { configurable: true, get: () => 360 });
+  }
+  HTMLElement.prototype.getBoundingClientRect = () =>
+    ({
+      width: 360,
+      height: 600,
+      top: 0,
+      left: 0,
+      right: 360,
+      bottom: 600,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    }) as DOMRect;
+});
+
+beforeEach(() => {
+  useUiStore.setState({ companionEnabled: true, companionPanelOpen: true });
+  useCompanionStore.setState({ state: 'idle', transcript: [], activeHandoff: null });
+  resetCompanionPorts();
+});
+
+afterEach(cleanup);
+
+describe('CompanionPanelSlot', () => {
+  it('renders nothing while the companion is switched off', () => {
+    useUiStore.setState({ companionEnabled: false });
+    render(<CompanionPanelSlot />);
+    expect(screen.queryByTestId('companion-panel')).toBeNull();
+  });
+
+  it('renders the panel once enabled', () => {
+    render(<CompanionPanelSlot />);
+    expect(screen.queryByTestId('companion-panel')).not.toBeNull();
+  });
+});
+
+describe('CompanionPanel', () => {
+  it('mirrors the companion state onto the panel, and sets nothing while idle', () => {
+    const { rerender } = render(<CompanionPanel />);
+    expect(screen.getByTestId('companion-panel').getAttribute('data-companion-state')).toBeNull();
+
+    useCompanionStore.setState({ state: 'listening' });
+    rerender(<CompanionPanel />);
+    expect(screen.getByTestId('companion-panel').getAttribute('data-companion-state')).toBe(
+      'listening',
+    );
+  });
+
+  it('shows the state label from the shared look table', () => {
+    useCompanionStore.setState({ state: 'handoff' });
+    render(<CompanionPanel />);
+    expect(screen.getByTestId('companion-state-label').textContent).toBe('Agent working…');
+  });
+
+  it('calls the greet port exactly once per mount', () => {
+    const greet = vi.fn();
+    setCompanionPorts({ greet });
+
+    const { rerender } = render(<CompanionPanel />);
+    // A state change is what a naive `useEffect([state])` would re-fire on —
+    // and greeting *causes* state changes, so it would never stop.
+    useCompanionStore.setState({ state: 'greeting' });
+    rerender(<CompanionPanel />);
+    useCompanionStore.setState({ state: 'speaking' });
+    rerender(<CompanionPanel />);
+
+    expect(greet).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the empty-thread copy with no turns, and the turns once there are any', () => {
+    const { rerender } = render(<CompanionPanel />);
+    expect(screen.getByTestId('companion-thread').textContent).toContain('Nothing said yet');
+
+    useCompanionStore.setState({
+      transcript: [
+        { id: 'a', role: 'companion', text: 'Good to see you.', at: 1, spoken: true },
+        { id: 'b', role: 'user', text: 'start an adhoc task', at: 2, spoken: false },
+      ],
+    });
+    rerender(<CompanionPanel />);
+
+    expect(screen.getByText('Good to see you.')).toBeTruthy();
+    expect(screen.getByText('start an adhoc task')).toBeTruthy();
+  });
+
+  it('collapses an agent turn behind its first line', () => {
+    useCompanionStore.setState({
+      transcript: [
+        {
+          id: 'a',
+          role: 'agent',
+          text: 'Done — 3 files changed\nand a great deal more scrollback',
+          at: 1,
+          spoken: false,
+        },
+      ],
+    });
+    render(<CompanionPanel />);
+
+    // The summary line is the first non-blank line; the body is present but
+    // inside the `<details>`, which is what keeps the thread a conversation.
+    expect(screen.getByText('Done — 3 files changed')).toBeTruthy();
+    expect(screen.getByRole('group')).toBeTruthy();
+  });
+});
+
+describe('CompanionInputBar', () => {
+  it('sends on Return, newlines on Shift+Return', () => {
+    const submit = vi.fn();
+    setCompanionPorts({ submit });
+    render(<CompanionPanel />);
+
+    const input = screen.getByTestId('companion-input');
+    fireEvent.change(input, { target: { value: 'start a swarm' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    expect(submit).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(submit).toHaveBeenCalledWith('start a swarm');
+    expect((input as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('the default submit posts the user turn itself, so the bar works before Theme E', () => {
+    render(<CompanionPanel />);
+
+    const input = screen.getByTestId('companion-input');
+    fireEvent.change(input, { target: { value: '  hello  ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    const transcript = useCompanionStore.getState().transcript;
+    expect(transcript).toHaveLength(1);
+    expect(transcript[0]).toMatchObject({ role: 'user', text: 'hello' });
+  });
+
+  it('Escape clears the field and interrupts, without closing the panel', () => {
+    const interrupt = vi.fn();
+    setCompanionPorts({ interrupt });
+    render(<CompanionPanel />);
+
+    const input = screen.getByTestId('companion-input');
+    fireEvent.change(input, { target: { value: 'never mind' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    expect((input as HTMLTextAreaElement).value).toBe('');
+    expect(interrupt).toHaveBeenCalled();
+    expect(useUiStore.getState().companionPanelOpen).toBe(true);
+  });
+
+  it('refuses to send while the companion is thinking', () => {
+    const submit = vi.fn();
+    setCompanionPorts({ submit });
+    useCompanionStore.setState({ state: 'thinking' });
+    render(<CompanionPanel />);
+
+    const input = screen.getByTestId('companion-input');
+    fireEvent.change(input, { target: { value: 'and another' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(submit).not.toHaveBeenCalled();
+    expect(screen.getByTestId('companion-send').getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('keeps the mic disabled until a provider reports itself available', () => {
+    const micPressStart = vi.fn();
+    setCompanionPorts({ micPressStart });
+    const { rerender } = render(<CompanionPanel />);
+
+    const mic = screen.getByTestId('companion-mic');
+    expect(mic.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.pointerDown(mic);
+    expect(micPressStart).not.toHaveBeenCalled();
+
+    setCompanionPorts({ micAvailable: () => true });
+    rerender(<CompanionPanel />);
+    fireEvent.pointerDown(screen.getByTestId('companion-mic'));
+    expect(micPressStart).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('companion ports', () => {
+  it('merges rather than replaces, so three modules can each register their own half', () => {
+    const greet = vi.fn();
+    const repeat = vi.fn();
+    setCompanionPorts({ greet });
+    setCompanionPorts({ repeat });
+
+    companionPorts().greet();
+    companionPorts().repeat();
+
+    expect(greet).toHaveBeenCalledTimes(1);
+    expect(repeat).toHaveBeenCalledTimes(1);
+  });
+
+  it('every member is callable before anything registers', () => {
+    const ports = companionPorts();
+    expect(() => {
+      ports.greet();
+      ports.interrupt();
+      ports.repeat();
+      ports.micPressStart();
+      ports.micPressEnd();
+    }).not.toThrow();
+    expect(ports.micAvailable()).toBe(false);
+  });
+});

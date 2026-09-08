@@ -33,10 +33,13 @@ const MAX_TEXTAREA_HEIGHT = 160;
  */
 export function CompanionInputBar({
   disabled,
+  reserveFabSpace = false,
   onInterrupt,
 }: {
   /** True while `state === 'thinking'` — send is refused, typing is not. */
   disabled: boolean;
+  /** Leaves the FAB's bottom-right corner clear — see `CompanionPanel`'s own prop. */
+  reserveFabSpace?: boolean;
   /** Called on the first keypress and on a mic press, to cut off a spoken line. */
   onInterrupt: () => void;
 }) {
@@ -112,7 +115,11 @@ export function CompanionInputBar({
   const canSend = value.trim().length > 0 && !disabled;
 
   return (
-    <div className="shrink-0 border-t border-border bg-card/40 p-2">
+    <div
+      className={`shrink-0 border-t border-border bg-card/40 p-2 ${
+        reserveFabSpace ? 'pr-14' : ''
+      }`}
+    >
       <div className="flex items-end gap-1.5">
         <textarea
           ref={textareaRef}
