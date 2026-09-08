@@ -1,12 +1,11 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import type { ReactElement, ReactNode } from 'react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DialogHost } from '../../components/dialog-host';
 import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 import { CompanionPanel, CompanionPanelSlot } from './companion-panel';
 import { companionPorts, resetCompanionPorts, setCompanionPorts } from './companion-ports';
+import { renderPanel } from './render-panel';
 
 /**
  * The thread is virtualised, and jsdom gives every element a zero-sized box
@@ -66,18 +65,6 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-/**
- * Every render goes through a `DialogHost`, because the header's Clear
- * control raises a confirm through `useDialogs()` — which throws outside one.
- *
- * That is not a test-only concession: both hosts that mount this panel in
- * production (`app.tsx` and `detached-root.tsx`) already wrap their whole tree
- * in `DialogHost`, so the wrapper here is the real environment rather than a
- * prop stubbed for convenience. Passed as `render`'s `wrapper` so the
- * `rerender` the state-machine cases rely on keeps it.
- */
-const withDialogs = ({ children }: { children: ReactNode }) => <DialogHost>{children}</DialogHost>;
-const renderPanel = (ui: ReactElement) => render(ui, { wrapper: withDialogs });
 
 describe('CompanionPanelSlot', () => {
   it('renders nothing while the companion is switched off', () => {

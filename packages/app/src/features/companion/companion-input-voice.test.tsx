@@ -1,10 +1,11 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 import { CompanionPanel } from './companion-panel';
 import { companionPorts, resetCompanionPorts, setCompanionPorts } from './companion-ports';
+import { renderPanel } from './render-panel';
 
 /**
  * Phase 79 Theme F's two additions to Theme C's input bar: the spacebar as a
@@ -48,7 +49,7 @@ describe('the spacebar as push-to-talk (Theme F)', () => {
   it('starts the mic on Space while the textarea is empty', () => {
     const micPressStart = vi.fn();
     setCompanionPorts({ micPressStart, micAvailable: () => true });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     const input = screen.getByTestId('companion-input');
     fireEvent.keyDown(input, { key: ' ' });
@@ -63,7 +64,7 @@ describe('the spacebar as push-to-talk (Theme F)', () => {
   it('is a plain space once anything is typed', () => {
     const micPressStart = vi.fn();
     setCompanionPorts({ micPressStart, micAvailable: () => true });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     const input = screen.getByTestId('companion-input');
     fireEvent.change(input, { target: { value: 'start an' } });
@@ -74,7 +75,7 @@ describe('the spacebar as push-to-talk (Theme F)', () => {
   it('does nothing when no provider is configured', () => {
     const micPressStart = vi.fn();
     setCompanionPorts({ micPressStart, micAvailable: () => false });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     fireEvent.keyDown(screen.getByTestId('companion-input'), { key: ' ' });
     expect(micPressStart).not.toHaveBeenCalled();
@@ -83,7 +84,7 @@ describe('the spacebar as push-to-talk (Theme F)', () => {
   it('ignores autorepeat — only the first press starts anything', () => {
     const micPressStart = vi.fn();
     setCompanionPorts({ micPressStart, micAvailable: () => true });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     const input = screen.getByTestId('companion-input');
     fireEvent.keyDown(input, { key: ' ' });
@@ -94,7 +95,7 @@ describe('the spacebar as push-to-talk (Theme F)', () => {
   it('stops on the Space release', () => {
     const micPressEnd = vi.fn();
     setCompanionPorts({ micPressEnd, micAvailable: () => true });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     fireEvent.keyDown(screen.getByTestId('companion-input'), { key: ' ' });
     fireEvent.keyUp(window, { key: ' ' });
@@ -109,7 +110,7 @@ describe('the spacebar as push-to-talk (Theme F)', () => {
   it('stops when the window loses focus mid-press', () => {
     const micPressEnd = vi.fn();
     setCompanionPorts({ micPressEnd, micAvailable: () => true });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     fireEvent.keyDown(screen.getByTestId('companion-input'), { key: ' ' });
     fireEvent.blur(window);
@@ -119,7 +120,7 @@ describe('the spacebar as push-to-talk (Theme F)', () => {
   it('does not release on some other key', () => {
     const micPressEnd = vi.fn();
     setCompanionPorts({ micPressEnd, micAvailable: () => true });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     fireEvent.keyDown(screen.getByTestId('companion-input'), { key: ' ' });
     fireEvent.keyUp(window, { key: 'a' });
@@ -129,7 +130,7 @@ describe('the spacebar as push-to-talk (Theme F)', () => {
   it('interrupts a spoken line, like every other keystroke does', () => {
     const interrupt = vi.fn();
     setCompanionPorts({ interrupt, micAvailable: () => true });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     fireEvent.keyDown(screen.getByTestId('companion-input'), { key: ' ' });
     expect(interrupt).toHaveBeenCalled();
@@ -138,7 +139,7 @@ describe('the spacebar as push-to-talk (Theme F)', () => {
 
 describe('transcriptSink (Theme F)', () => {
   it('is registered by the input bar, which is the only writer of the textarea', () => {
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
     // `act`, because the sink is a plain function call from outside React —
     // which is exactly how it arrives in production, off an IPC reply.
     act(() => companionPorts().transcriptSink('start an adhoc task'));
@@ -150,7 +151,7 @@ describe('transcriptSink (Theme F)', () => {
   it('lands the text unsent — the user still has to press Return', () => {
     const submit = vi.fn();
     setCompanionPorts({ submit });
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
 
     act(() => companionPorts().transcriptSink('start an adhoc task'));
     expect(submit).not.toHaveBeenCalled();
@@ -160,7 +161,7 @@ describe('transcriptSink (Theme F)', () => {
   });
 
   it('appends rather than eating a draft already typed', () => {
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
     const input = screen.getByTestId('companion-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: 'start' } });
     act(() => companionPorts().transcriptSink('an adhoc task'));
@@ -168,7 +169,7 @@ describe('transcriptSink (Theme F)', () => {
   });
 
   it('ignores an empty transcript', () => {
-    render(<CompanionPanel />);
+    renderPanel(<CompanionPanel />);
     act(() => companionPorts().transcriptSink('   '));
     expect((screen.getByTestId('companion-input') as HTMLTextAreaElement).value).toBe('');
   });
@@ -178,7 +179,7 @@ describe('transcriptSink (Theme F)', () => {
     dropped rather than queued for a textarea that may never exist again.
   */
   it('goes back to a no-op once the panel unmounts', () => {
-    const { unmount } = render(<CompanionPanel />);
+    const { unmount } = renderPanel(<CompanionPanel />);
     unmount();
     expect(() => companionPorts().transcriptSink('anything')).not.toThrow();
   });
