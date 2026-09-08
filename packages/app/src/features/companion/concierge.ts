@@ -1,10 +1,10 @@
 import {
   COMPANION_PHRASES,
-  describeSnapshot,
+  composeOverviewMarkdown,
   interpolatePhrase,
+  markdownToSpeech,
   pickPhrase,
   splitForSpeech,
-  summariseDigest,
   type CompanionDigest,
   type CompanionPhraseKind,
   type CompanionSnapshot,
@@ -39,11 +39,7 @@ export type ConciergeStore = {
   transcript: readonly CompanionTurn[];
   recentPhrases: Partial<Record<CompanionPhraseKind, string[]>>;
   send: (event: CompanionEvent) => CompanionState;
-  addTurn: (turn: {
-    role: CompanionTurn['role'];
-    text: string;
-    spoken: boolean;
-  }) => CompanionTurn;
+  addTurn: (turn: { role: CompanionTurn['role']; text: string; spoken: boolean }) => CompanionTurn;
   markSpoken: (id: string) => void;
   notePhrase: (kind: CompanionPhraseKind, phrase: string) => void;
 };
@@ -67,11 +63,7 @@ export type ConciergeDeps = {
   store: ConciergeStore;
   speaker: Speaker;
   snapshot: (repoPath: string | null) => Promise<CompanionSnapshot>;
-  digest: (req: {
-    repoPath: string;
-    since?: number;
-    mark?: boolean;
-  }) => Promise<CompanionDigest>;
+  digest: (req: { repoPath: string; since?: number; mark?: boolean }) => Promise<CompanionDigest>;
   settings: () => ConciergeSettings;
   /** The repository the flow is about. `null` path means none is open. */
   repo: () => { path: string | null; name: string | null } | null;
@@ -105,17 +97,31 @@ export async function say(
   deps: ConciergeDeps,
   text: string,
   role: CompanionTurn['role'] = 'companion',
+  speech: string = text,
 ): Promise<CompanionTurn> {
   const turn = deps.store.addTurn({ role, text, spoken: false });
   if (deps.signal.aborted || deps.speaker.available !== true) return turn;
 
-  for (const utterance of splitForSpeech(text)) {
+  for (const utterance of splitForSpeech(speech)) {
     if (deps.signal.aborted) return turn;
     await deps.speaker.speak(utterance, { signal: deps.signal });
   }
 
   if (!deps.signal.aborted) deps.store.markSpoken(turn.id);
   return turn;
+}
+
+/**
+ * Post markdown, speak prose.
+ *
+ * The follow-up's second fix in one line: the thread gets a formatted turn and
+ * the voice gets {@link markdownToSpeech}'s projection of the very same text,
+ * so the two can never say different things. A single `say(deps, markdown)`
+ * would have the companion reading asterisks and URLs out loud, which is a
+ * worse regression than the twelve bubbles this replaced.
+ */
+export async function sayMarkdown(deps: ConciergeDeps, markdown: string): Promise<CompanionTurn> {
+  return say(deps, markdown, 'companion', markdownToSpeech(markdown));
 }
 
 /** Pick a phrase, resolve the honorific, and remember the pick so the next one differs. */
@@ -147,55 +153,52 @@ export async function greet(deps: ConciergeDeps): Promise<void> {
  * already open when the active repository changes has to re-orient, and
  * greeting someone again because they clicked a different row in the sidebar
  * would be absurd.
+ *
+ * **One turn, not eight.** Theme D posted a turn per fact — a sentence each
+ * for the branch, the ahead/behind, the dirty counts, the sessions, the forge,
+ * then two more for the digest — which is the right shape for speech and the
+ * wrong shape for a thread: the user got a stack of fragments and asked for
+ * "one well formatted response". `composeOverviewMarkdown` is that response,
+ * and `sayMarkdown` speaks its prose rendition, so nothing was lost from the
+ * spoken script.
+ *
+ * The cost is that the digest is now awaited *before* anything is posted,
+ * where it used to arrive after the snapshot lines were already on screen.
+ * Acceptable because `greet` has already posted the greeting, so the panel is
+ * never blank while this waits — and a consolidated turn cannot be posted in
+ * pieces by definition.
  */
 export async function orient(deps: ConciergeDeps): Promise<void> {
   const repo = deps.repo();
   const snapshot = await deps.snapshot(repo?.path ?? null);
   if (deps.signal.aborted) return finish(deps);
 
-  // One sentence per fact. `describeSnapshot` has already dropped the zeroes.
-  for (const line of describeSnapshot(snapshot)) {
-    if (deps.signal.aborted) return finish(deps);
-    await say(deps, line);
-  }
+  const repoPath = repo?.path ?? null;
+  const digest = repoPath === null ? null : await deps.digest({ repoPath });
+  if (deps.signal.aborted) return finish(deps);
 
-  if (snapshot.repos > 1 && !deps.signal.aborted) {
-    await say(deps, 'Want to switch to another one?');
-  }
+  await sayMarkdown(
+    deps,
+    composeOverviewMarkdown(snapshot, {
+      digest,
+      offerSwitch: snapshot.repos > 1,
+      now: deps.now?.(),
+    }),
+  );
 
-  if (repo?.path) await narrateDigest(deps, repo.path);
+  /*
+    Move the "last greeted" mark only now, in a second call — Theme B made a
+    digest read move the mark only under `mark: true` precisely so this order
+    was possible. A greeting cut off before the turn was spoken has to be
+    replayed next launch, and a single marking read would have consumed the
+    window before the user heard a word of it. The answer is discarded: it is
+    the same window that was just read.
+  */
+  if (digest !== null && repoPath !== null && !deps.signal.aborted) {
+    await deps.digest({ repoPath, since: digest.since, mark: true });
+  }
 
   return finish(deps);
-}
-
-/**
- * Read the digest, speak it, and only then move the "last greeted" mark.
- *
- * **The mark moves in a second call, deliberately.** Theme B made a digest read
- * move the mark only under `mark: true`, so this reads *without* it, speaks,
- * and re-requests the identical window with the mark. The order is the point:
- * a greeting cut off halfway through the digest has to be replayed next time,
- * and a single marking read would have consumed the window before the user
- * heard a word of it.
- *
- * The cost is one extra composed read on a path that has already finished
- * speaking, which is the cheapest place in this flow to spend it. A dedicated
- * "move the mark" channel would be cheaper still and is worth having if
- * anything else ever needs one.
- */
-async function narrateDigest(deps: ConciergeDeps, repoPath: string): Promise<void> {
-  const digest = await deps.digest({ repoPath });
-  if (deps.signal.aborted) return;
-
-  for (const line of summariseDigest(digest, deps.now?.())) {
-    if (deps.signal.aborted) return;
-    await say(deps, line);
-  }
-
-  if (deps.signal.aborted) return;
-  // Same window, this time marked. The answer is discarded — it is identical
-  // to the one just spoken.
-  await deps.digest({ repoPath, since: digest.since, mark: true });
 }
 
 /**

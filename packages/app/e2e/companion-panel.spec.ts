@@ -32,7 +32,22 @@ async function stubSpeechAndAudio(page: Page): Promise<void> {
     Object.defineProperty(window, 'speechSynthesis', {
       configurable: true,
       value: {
-        speak: noop,
+        /*
+          **Fires `end`, and it has to.** `speaker.ts` chains its chunks off
+          `utterance.onend` and resolves the concierge's `await` from the last
+          one, so a `speak` that merely does nothing leaves the flow awaiting a
+          sentence that never finishes — the greeting posts its first line and
+          the script stops there, for good.
+
+          That is not hypothetical: it is exactly how this spec failed the
+          moment the follow-up actually registered a speaker. Until then
+          `setCompanionSpeaker` was uncalled, the flow ran against
+          `silentSpeaker`, and a stub that swallowed utterances was never
+          reached.
+        */
+        speak: (utterance: { onend?: (event: Event) => void } | undefined) => {
+          setTimeout(() => utterance?.onend?.(new Event('end')), 0);
+        },
         cancel: noop,
         pause: noop,
         resume: noop,
@@ -86,7 +101,7 @@ async function seedCompanionEnabled(page: Page): Promise<void> {
   await page.addInitScript(() => {
     try {
       const stored = localStorage.getItem('midnite-studio.ui');
-      const persisted = stored ? JSON.parse(stored) : { version: 12 };
+      const persisted = stored ? JSON.parse(stored) : { version: 14 };
       persisted.state = { ...persisted.state, companionEnabled: true };
       localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
     } catch {
@@ -156,7 +171,7 @@ test('Settings ▸ Companion enables it, and then C opens the panel', async ({ p
     reading of "the greeting runs and finishes", and it would fail both for a
     greeting that never started and for one that wedged half way.
   */
-  await expect(page.getByTestId('companion-thread')).toContainText('You are in midnite-studio');
+  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
   await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
 });
 
@@ -200,7 +215,7 @@ test('typing a message posts it into the thread, and Escape clears without closi
 
   // Not the empty state any more: Theme D greets on open, so what a freshly
   // opened panel shows is the overview built from the snapshot.
-  await expect(page.getByTestId('companion-thread')).toContainText('You are in midnite-studio');
+  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
   await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
 
   const input = page.getByTestId('companion-input');
@@ -257,4 +272,106 @@ test('the popover mirrors the last companion turn once there is one', async ({ p
     only turn in the thread was the user's.
   */
   await expect(menu(page).getByTestId('quick-access-row-r')).toHaveCount(1);
+});
+
+/**
+ * The Phase 79 follow-up — the three things the user asked for, from the
+ * outside.
+ *
+ * Only the parts that are observable in a browser: the consolidated turn's
+ * *formatting* (a `<strong>` and a `<code>` inside one bubble, not twelve
+ * bubbles of plain text), the per-turn timestamp element, and the day rule.
+ * The speaking half is asserted in `register-flow-ports.test.tsx` — headless
+ * Chromium's `speechSynthesis` is a stub here by construction (see the top of
+ * this file), so a spec claiming to hear something would be asserting the
+ * stub.
+ */
+test('the greeting arrives as one formatted turn, not a stack of fragments', async ({ page }) => {
+  await seedCompanionEnabled(page);
+  await open(page);
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
+
+  const thread = page.getByTestId('companion-thread');
+  const companionTurns = thread.locator('[data-turn-role="companion"]');
+  /*
+    Three at most — greeting, overview, prompt — and this is the whole of the
+    second fix. Before it, the same greeting produced six to twelve rows, each
+    one sentence long.
+  */
+  const count = await companionTurns.count();
+  expect(count).toBeGreaterThan(0);
+  expect(count).toBeLessThanOrEqual(3);
+
+  // The overview turn is markdown: the repo name is bold and the branch is
+  // inline code, inside one bubble.
+  await expect(thread.locator('[data-turn-role="companion"] strong').first()).toHaveText(
+    'midnite-studio',
+  );
+  await expect(thread.locator('[data-turn-role="companion"] code').first()).toBeVisible();
+  // And the digest's PR titles are links, through `ExternalLink` — a real
+  // href, activated into the embedded browser rather than replacing the SPA.
+  await expect(
+    thread.locator('[data-turn-role="companion"] a[href*="/pull/265"]'),
+  ).toHaveCount(1);
+});
+
+test('every turn carries a timestamp, and the day it belongs to is ruled off', async ({ page }) => {
+  await seedCompanionEnabled(page);
+  await open(page);
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
+
+  const thread = page.getByTestId('companion-thread');
+  const stamps = thread.locator('[data-turn-at]');
+  await expect(stamps.first()).toBeVisible();
+
+  // The attribute carries the raw epoch, so the assertion does not depend on
+  // the runner's timezone; the visible text is the locale's own short time.
+  const at = await stamps.first().getAttribute('data-turn-at');
+  expect(Number(at)).toBeGreaterThan(0);
+  await expect(stamps.first()).toHaveText(/\d{1,2}[:.]\d{2}/);
+  // The full instant on hover is where the date and the seconds live.
+  await expect(stamps.first()).toHaveAttribute('title', /\d{4}/);
+
+  // One rule above the first turn — a persisted transcript routinely opens on
+  // a different day, so the top of the thread always says which day it is.
+  await expect(thread.locator('[data-turn-day]').first()).toHaveText('Today');
+
+  // A turn the user sends now gets its own stamp in the same gutter.
+  const before = await stamps.count();
+  await page.getByTestId('companion-input').fill('hello');
+  await page.getByTestId('companion-input').press('Enter');
+  await expect(thread.locator('[data-turn-role="user"] [data-turn-at]')).toHaveCount(1);
+  expect(await stamps.count()).toBeGreaterThan(before);
+});
+
+test('Settings ▸ Companion ▸ Voice carries the speak-aloud switch, on by default', async ({
+  page,
+}) => {
+  await seedCompanionEnabled(page);
+  await open(page);
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page
+    .getByRole('navigation', { name: 'Settings pages' })
+    .getByRole('button', { name: 'Companion', exact: true })
+    .click();
+
+  const speak = page.getByTestId('companion-speak-aloud');
+  // The one `companion*` switch that starts on: enabling the companion is
+  // already the decision to be spoken to, and Phase 79 shipped mute because
+  // nothing joined `setCompanionSpeaker` to `companionTtsSpeaker`.
+  await expect(speak).toBeChecked();
+  await expect(speak).toBeEnabled();
+
+  await speak.uncheck();
+  await expect(speak).not.toBeChecked();
+  // Turning speech off must not disable the thread — and it takes the voice
+  // preview with it, because there is nothing left to preview.
+  await expect(page.getByTestId('companion-say-hello')).toBeDisabled();
 });

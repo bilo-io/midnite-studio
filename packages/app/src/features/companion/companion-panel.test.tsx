@@ -145,6 +145,83 @@ describe('CompanionPanel', () => {
     expect(screen.getByText('Done — 3 files changed')).toBeTruthy();
     expect(screen.getByRole('group')).toBeTruthy();
   });
+
+  /*
+    The Phase 79 follow-up's rendering half — the two things the user asked for
+    that live in the thread rather than in the flow.
+  */
+  it('renders a companion turn as markdown and a user turn as the literal text typed', () => {
+    useCompanionStore.setState({
+      transcript: [
+        {
+          id: 'a',
+          role: 'companion',
+          text: '**midnite-studio** — on `main`\n\n- [a fix](https://example.test/pull/1)',
+          at: Date.parse('2026-09-08T14:32:00'),
+          spoken: true,
+        },
+        {
+          id: 'b',
+          // What someone typed is what they meant: a user bubble is never
+          // parsed, so the asterisks survive verbatim.
+          role: 'user',
+          text: 'run **exec** on snake_case',
+          at: Date.parse('2026-09-08T14:33:00'),
+          spoken: false,
+        },
+      ],
+    });
+    render(<CompanionPanel />);
+
+    const thread = screen.getByTestId('companion-thread');
+    expect(thread.querySelector('strong')?.textContent).toBe('midnite-studio');
+    expect(thread.querySelector('code')?.textContent).toBe('main');
+    expect(thread.querySelector('li')).toBeTruthy();
+    // Through `ExternalLink`, so a real href is on the anchor and activation
+    // routes to the embedded browser rather than replacing the whole SPA.
+    expect(thread.querySelector('a')?.getAttribute('href')).toBe('https://example.test/pull/1');
+
+    expect(screen.getByText('run **exec** on snake_case')).toBeTruthy();
+  });
+
+  it('stamps every turn with its own time and starts the day with a separator', () => {
+    useCompanionStore.setState({
+      transcript: [
+        {
+          id: 'a',
+          role: 'companion',
+          text: 'Yesterday.',
+          at: Date.parse('2026-09-07T18:05:00'),
+          spoken: true,
+        },
+        {
+          id: 'b',
+          role: 'user',
+          text: 'today',
+          at: Date.parse('2026-09-08T09:12:00'),
+          spoken: false,
+        },
+      ],
+    });
+    render(<CompanionPanel />);
+
+    const thread = screen.getByTestId('companion-thread');
+    // The raw epoch, not the rendered string — a spec that read "18:05" would
+    // be asserting the runner's timezone.
+    const stamps = [...thread.querySelectorAll('[data-turn-at]')].map((node) =>
+      node.getAttribute('data-turn-at'),
+    );
+    expect(stamps).toEqual([
+      String(Date.parse('2026-09-07T18:05:00')),
+      String(Date.parse('2026-09-08T09:12:00')),
+    ]);
+    // The full instant on hover, which is where the date and the seconds live.
+    expect(thread.querySelector('[data-turn-at]')?.getAttribute('title')).toBeTruthy();
+
+    // One separator per calendar day the transcript spans, including the
+    // first — a persisted transcript routinely opens on another day.
+    expect([...thread.querySelectorAll('[data-turn-day]')]).toHaveLength(2);
+  });
 });
 
 describe('CompanionInputBar', () => {

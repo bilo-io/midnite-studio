@@ -215,6 +215,10 @@ function mergedPullItems(result: ForgePullsResult | null, since: number): Compan
       kind: 'pr' as const,
       title: pull.title,
       ref: `#${pull.number}`,
+      // The one item kind that has a canonical page, and the URL is already in
+      // hand — `CompanionDigestItemSchema.url` exists so the thread's overview
+      // turn can hyperlink the title rather than reconstructing a forge host.
+      url: pull.url,
       at: Date.parse(pull.mergedAt as string),
     }))
     .filter((item) => Number.isFinite(item.at) && item.at >= since);
@@ -228,6 +232,7 @@ function openPullItems(result: ForgePullsResult | null): CompanionDigestItem[] {
       kind: 'pr' as const,
       title: pull.title,
       ref: `#${pull.number}`,
+      url: pull.url,
       /*
         An open PR has no merge date and this schema carries no `createdAt`, so
         `at` is the moment the digest was taken. That is honest for a field

@@ -3297,10 +3297,24 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         }),
         digest: async () => ({
           landed: [
-            { kind: 'pr' as const, title: 'the browser occlusion fix', ref: '#265', at: Date.now() - 86_400_000 },
+            {
+              kind: 'pr' as const,
+              title: 'the browser occlusion fix',
+              ref: '#265',
+              // A `url`, because the overview turn hyperlinks the titles that
+              // have one and a fixture with none tests only the plain branch.
+              url: 'https://github.com/bilo-io/midnite-studio/pull/265',
+              at: Date.now() - 86_400_000,
+            },
           ],
           inProgress: [
-            { kind: 'pr' as const, title: 'the companion panel', ref: '#270', at: Date.now() - 3_600_000 },
+            {
+              kind: 'pr' as const,
+              title: 'the companion panel',
+              ref: '#270',
+              url: 'https://github.com/bilo-io/midnite-studio/pull/270',
+              at: Date.now() - 3_600_000,
+            },
           ],
           since: Date.now() - 7 * 86_400_000,
         }),

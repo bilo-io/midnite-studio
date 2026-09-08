@@ -55,6 +55,8 @@ export function CompanionPage() {
   const setCompanionHonorific = useUiStore((s) => s.setCompanionHonorific);
   const companionVoice = useUiStore((s) => s.companionVoice);
   const setCompanionVoice = useUiStore((s) => s.setCompanionVoice);
+  const companionSpeakAloud = useUiStore((s) => s.companionSpeakAloud);
+  const setCompanionSpeakAloud = useUiStore((s) => s.setCompanionSpeakAloud);
   const companionMusicOffer = useUiStore((s) => s.companionMusicOffer);
   const setCompanionMusicOffer = useUiStore((s) => s.setCompanionMusicOffer);
 
@@ -114,8 +116,33 @@ export function CompanionPage() {
         </div>
       </Accordion>
 
-      <Accordion title="Voice" icon={<LuVolume2 className="h-4 w-4" />}>
+      <Accordion title="Voice" icon={<LuVolume2 className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
+          {/*
+            Above the voice picker, because it is the switch that decides
+            whether the picker matters at all — and the only `companion*`
+            switch that starts on. Phase 79 landed with `setCompanionSpeaker`
+            uncalled, so the companion was mute with no control to say so; this
+            is that control, and its default is what makes an enabled companion
+            audible.
+          */}
+          <Field
+            label="Speak replies aloud"
+            hint="On by default: enabling the companion is the decision to be spoken to. Turn it off to keep the thread, the greeting and the routing while the app stays silent — a shared office, or a call. Nothing else changes; every turn is still written into the thread."
+          >
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={companionSpeakAloud}
+                onChange={(event) => setCompanionSpeakAloud(event.target.checked)}
+                disabled={!companionEnabled}
+                className="h-3.5 w-3.5 accent-[hsl(var(--primary))] disabled:opacity-50"
+                data-testid="companion-speak-aloud"
+              />
+              Speak replies aloud
+            </label>
+          </Field>
+
           <Field
             label="Speaking voice"
             hint="One of the voices your operating system already ships — no download, no network. Leave it on the system default and the app uses whichever voice your OS prefers for its own language."
@@ -146,7 +173,7 @@ export function CompanionPage() {
               <button
                 type="button"
                 onClick={sayHello}
-                disabled={!companionEnabled || voices.length === 0}
+                disabled={!companionEnabled || !companionSpeakAloud || voices.length === 0}
                 className="h-6 rounded-md border border-border px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
                 data-testid="companion-say-hello"
               >
