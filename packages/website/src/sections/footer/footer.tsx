@@ -1,6 +1,6 @@
 import { LuBug, LuGithub, LuTag } from 'react-icons/lu';
 
-import { Container, Logo, Reveal, Section, Wordmark } from '../../components';
+import { Container, Logo, Reveal, Section, TypeIn, Wordmark } from '../../components';
 import { useLatestVersion } from '../../pages/use-latest-version';
 import { anchorHref, hrefFor } from '../../routes';
 import { AGENT_ROSTER } from '../early-access/roster';
@@ -123,8 +123,12 @@ export const Footer = () => (
         <div className="flex flex-col items-start gap-4">
           <Logo />
           <p className="max-w-xs text-sm leading-relaxed text-fg-muted">
-            A git client, an agent workbench and a docked browser in one window. macOS on Apple
-            silicon.
+            {/* No heading beside it to wait for — the footer has none, only
+                the decorative wordmark below. */}
+            <TypeIn
+              leadMs={0}
+              text="A git client, an agent workbench and a docked browser in one window. macOS on Apple silicon."
+            />
           </p>
           <FooterVersion />
         </div>
