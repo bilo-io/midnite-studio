@@ -99,6 +99,7 @@ could have called a hook has re-rendered a dozen times by the time the digest la
 `voiceInReady()` returns a hard `false` until Theme F lands, on purpose: it is the third condition
 on `autoSend: true`, so nothing this companion starts can run without a human Return.
 
+<<<<<<< HEAD
 ## 2026-09-08 — Phase 79 Themes F, G — voice, the STT seam and the loading personality
 
 [PR #272](https://github.com/bilo-io/midnite-studio/pull/272). Moves Phase 79 27/67 → 42/67
@@ -228,6 +229,18 @@ closed, the rAF decay stops at 0, the loop is one buffer source — but the numb
 auto-submit** in Theme F's transcript item belongs to Theme D/E's `autoSend` path: this slice ships
 the transcript unsent, which is the phase's stated default, and `companionHandsFree` is read
 nowhere in it.
+=======
+**Theme C landed first, so the panel is wired in this PR rather than left open.**
+`register-flow-ports.ts` registers `submit · greet · interrupt · repeat` into Theme C's
+`companion-ports.ts` registry at **module scope**, not in an effect: the panel's own "greet once
+per open" guard fires from its first mount, which can precede any effect of ours, and a lost first
+greeting is the worst shape that bug can take. `submit` **replaces** Theme C's default rather than
+wrapping it — that default posts the user's turn itself so the input bar worked before this theme
+existed, and wrapping would put every typed message in the thread twice, exactly as Theme C's own
+docblock warned. `useCompanionHandoffWatch()` is mounted from `app.tsx` beside
+`useCompanionEnabledSync()`, for the reason `useSessionExits` sits there: a hand-off runs
+unattended, so its answer has to arrive with the panel closed.
+>>>>>>> 0aef1e3a (feat(app): wire Themes D/E into Theme C's port registry, now that C has landed)
 
 ## 2026-09-08 — Phase 79 Themes C, H — the companion panel, the FAB's four looks and its Settings page
 

@@ -375,6 +375,7 @@ channel so the companion can notice a keystroke it already knows it did not send
 for one sentence. The absence of any `thinking` rung within the grace period is the same fact,
 observed on a channel that exists.
 
+<<<<<<< HEAD
 **Theme C's panel is wired here, since C landed first.** `register-flow-ports.ts` registers
 `submit · greet · interrupt · repeat` into C's `companion-ports.ts` registry at module scope — not
 in an effect, because the panel's own greet-once guard fires from its first mount, which can precede
@@ -382,6 +383,19 @@ one, and a lost first greeting is the worst shape that bug can take. `submit` *r
 rather than wrapping it, or every typed message would appear in the thread twice. `app.tsx` mounts
 `useCompanionHandoffWatch()` beside `useCompanionEnabledSync()`, for the reason `useSessionExits`
 sits there: a hand-off runs unattended, so its answer has to arrive with the panel closed.
+=======
+**Theme C's panel is wired**, since it landed first: `register-flow-ports.ts` registers
+`submit · greet · interrupt · repeat` into its `companion-ports.ts` registry at module scope (not
+in an effect — the panel's greet-once guard fires from its first mount, which can precede one), and
+`app.tsx` mounts `useCompanionHandoffWatch()` beside `useCompanionEnabledSync()`. `submit`
+*replaces* Theme C's default rather than wrapping it, or every typed message would appear twice.
+
+**Open, pending Themes F and G:** `speaker.ts` calls `setCompanionSpeaker(…)` and flips
+`voiceInReady()` (one hard `false` in `runtime.ts` today — deliberately, since it is the third
+condition on `autoSend: true`, so nothing this companion starts can run without a human Return
+until a provider exists). Theme G's audio hangs off `HandoffDeps.onMusic`, which the `music`
+intent already calls.
+>>>>>>> 0aef1e3a (feat(app): wire Themes D/E into Theme C's port registry, now that C has landed)
 
 **Themes F and G landed in parallel (PR #272), so two seams are left connected but unused.**
 `voiceInReady()` in `runtime.ts` still returns a hard `false` — it is the third condition on

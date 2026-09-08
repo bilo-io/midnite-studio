@@ -158,8 +158,14 @@ async function act(
   }
 }
 
-/** Re-speak the last thing the companion said. */
-async function repeatLast(deps: HandoffDeps): Promise<void> {
+/**
+ * Re-speak the last thing the companion said.
+ *
+ * Exported because it has two entry points: the `repeat` intent, and Theme C's
+ * assistant-popover "Repeat" row, which reaches it through the ports registry
+ * without a `repeat` ever being typed.
+ */
+export async function repeatLast(deps: HandoffDeps): Promise<void> {
   const last = [...deps.store.transcript]
     .reverse()
     .find((turn) => turn.role === 'companion' && turn.text.trim() !== '');

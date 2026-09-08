@@ -10,6 +10,7 @@ import { greet, orient, say, type ConciergeDeps } from './concierge';
 import {
   createHandoffTracker,
   readBack,
+  repeatLast,
   startNudgeSentence,
   submitInput,
   HANDOFF_START_GRACE_MS,
@@ -306,6 +307,21 @@ export async function submitCompanionInput(text: string): Promise<void> {
 
   const handoff = useCompanionStore.getState().activeHandoff;
   if (handoff && handoff.sessionId !== before) armNudge(handoff.sessionId, handoff.command);
+}
+
+/**
+ * Re-speak the companion's last line — Theme C's assistant-popover "Repeat"
+ * row, and the `repeat` intent's own path.
+ *
+ * Not routed through `submitCompanionInput('repeat')`: that would post the
+ * word "repeat" into the thread as a user turn, and pressing a Repeat button
+ * is not something the user said.
+ */
+export async function repeatCompanionLast(): Promise<void> {
+  if (!useUiStore.getState().companionEnabled) return;
+  const signal = begin();
+  const repo = await currentRepo();
+  await repeatLast(handoffDeps(signal, repo));
 }
 
 /**
