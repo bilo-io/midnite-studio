@@ -1,6 +1,103 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Phase 79 Themes D, E — the concierge flow, the intent grammar, the hand-off and the read-back
+
+[PR #271](https://github.com/bilo-io/midnite-studio/pull/271). Moves Phase 79 27/67 → 42/67 (40% →
+63%), landing after Themes C and H. The phase's spine: the scripted opening, the words a request is recognised by, the route from
+that request to a real agent session, and the route from that session's scrollback back to a spoken
+sentence. Landed beside two sibling PRs (C+H's panel, F+G's voice) and deliberately ahead of both —
+every seam either of them needs is a port with a working default.
+
+**Theme D — the concierge flow.** `features/companion/concierge.ts`: greeting → static overview →
+switch offer (only with more than one repo open) → digest → open prompt. No model call anywhere;
+every sentence is a phrase-bank entry or a pure `shared` function over Theme B's two payloads, which
+is the whole reason the companion can be trusted to speak before anything has been fetched. The new
+`describeSnapshot` is the overview, and its rule is that **a zero is not a fact**: "no uncommitted
+changes, no open pull requests, no failing checks" is three sentences of nothing, so every clause is
+guarded and a clean repo collapses to two lines. Interruptible at every `await` through one
+`AbortSignal`, and an interrupted script still posts the open prompt — unspoken, because the user is
+already talking and talking over them is what they just asked to stop.
+
+**The "last greeted" mark moves in a second, marked read of the identical window, after the digest
+has been spoken.** Theme B's `mark: true` option exists precisely so this ordering was available: a
+single marking read would have consumed the window before the user heard a word of it, and the
+phase's own rule is that an interrupted greeting is replayed next time. The cost is one extra
+composed read on a path that has already finished speaking, which is the cheapest place in the flow
+to spend it.
+
+**Theme E — the grammar.** `parseIntent` in `shared`, table-driven over a new
+`COMPANION_COMMAND_IDS` — **ten of the roster's twenty-one**, excluding every `loop*` id (a `/loop`
+runs unattended on a timer, which is not a thing to start from a misheard sentence) and both release
+ops. The union is restated in `shared` rather than imported because `shared` may not import `app`;
+`handoff.ts` carries a compile-time subset proof plus a test that every id keys
+`DEFAULT_AGENT_SKILLS`, so the two cannot drift in either direction. The **negative** half is the
+interesting half: a short single-word verb ("swarm", "refine", "backlog") counts only when an
+imperative precedes it or it sits in the imperative position, so "refine phase 79" is an instruction
+and "a swarm of bees settled on the porch" is not — the difference is where the word sits, not a
+blocklist of innocent usages.
+
+**Theme E — the hand-off.** Decision 10 as recommended, and it needed **no new `CompanionEvent`**:
+one live hand-off at a time, declined out loud rather than queued (a queue is invisible — a second
+command silently waiting is indistinguishable from a companion that ignored it), and the `anyway`
+override reaches the machine as `exit` then `submit`, exactly as Theme A's own transition-table
+docblock predicted. `skillHandoff` was extracted out of `useSkillHandoff` so a plain function can
+hand off from a store callback; `SkillHandoffOptions` gained `autoSend` (default `false`, so no
+existing call site changed) and `surface`.
+
+**Theme E — the headless call.** Decision 9 as recommended, checked rather than assumed:
+`runProcess` from `process-runner.ts` directly over a new `mstudio:companion:ask` channel, not the
+council runner — a council run carries a per-run lock, member roles, a persisted record and a settle
+barrier, none of which one question needs. `council-runner.ts` was the wrong crib for a second
+reason: it spawns *through* a login shell with `; exit $?` appended because a pty's exit is its only
+completion signal, and there is no pty here. So `agent-invocation.ts` gained `agentHeadlessArgs`,
+deliberately distinct from `agentInvocationArgs`: that one answers "how do I open an interactive
+session with this prompt" (for Claude, no flags at all), this one answers "how do I get one answer
+and an exit" (`-p`). It returns **`null`, not `[]`**, for an agent with no known print mode, because
+guessing `-p` at an unknown CLI is how a process holds a companion turn until the 30 s deadline.
+
+Two arms of that channel are worth naming. **Unparseable output is a success**, carrying the
+fallback line plus the CLI's raw stdout in a new optional `raw` field — a failure envelope would
+throw away the only evidence of what went wrong. And **an invented `intent` sinks the whole reply**:
+zod's enum over `COMPANION_COMMAND_IDS` rejects `releaseComplete`, and accepting the `say` without
+its intent would be a spoken confirmation of something that never ran.
+
+**Theme E — the read-back.** `stripAnsi` turned out to **already exist** (`shared/src/ansi.ts`, two
+council callers), so this extended it rather than adding a second one — additive alternatives for
+8-bit C1 CSI/OSC, all three OSC terminators, DCS/SOS/PM/APC, charset selection and the single
+shifts, each one because a real captured Claude Code frame contains it. The first two callers only
+had to make output *readable*; the companion has to make it **speakable**, and a leftover `?1049h`
+read aloud by a synthesiser is not cosmetic. New `cleanPtyText` composes escapes → control bytes →
+carriage-return redraws → per-line padding, in the one order that works (strip the C1 bytes first
+and an 8-bit CSI's parameters survive as digits). `extractLastAgentTurn` then cuts between the
+**end** of the second-to-last roster marker match and the **start** of the last, so neither prompt's
+own text is read out as if the agent had said it.
+
+**Two deviations from the phase doc's wording, disclosed rather than silently taken.** The hand-off
+watch subscribes to the **terminal store**, not `mstudio:pty:activity`/`:exit` directly: those name
+a `ptyId`, a hand-off names a `sessionId`, and the invert between them already lives in
+`terminal-store.ts`, maintained by the two always-mounted subscriptions that exist *because*
+per-view listeners missed events while the terminal panel was collapsed — a third subscription would
+mean re-implementing that invert and re-learning the same bug. And the 20 s "did you press Return?"
+nudge runs from the hand-off being created rather than from a `mstudio:pty:input` echo: **there is
+no such echo.** `pty:input` is a one-way renderer→main send with no event channel behind it, and the
+absence of any `thinking` rung within the grace period is the same fact on a channel that exists.
+
+**The loading-end condition is a sequence, not a state.** `createHandoffTracker` ends the loading
+state on the first `waiting` or `idle` **after at least one `thinking`**. Without the "after", a
+session that has not started yet is `idle` — indistinguishable from one that has finished — and the
+companion reads back the empty scrollback of an agent it launched a second ago.
+
+**What the siblings wire into.** Speech is a `Speaker` port (`features/companion/ports.ts`) whose
+default, `silentSpeaker`, posts every turn with `spoken: false`, so the flow runs end to end today
+and the thread reads exactly as it will once there is a voice; a turn is marked spoken only when the
+speaker declares itself available *and* the utterance was not aborted. User input is the plain
+`submitCompanionInput(text)`, beside `greetCompanion`, `reorientCompanion`,
+`cancelCompanionSpeech` and `watchCompanionHandoff()` — all plain functions over `getState()` and
+`bridge()`, because a companion turn outlives the render that started it and any component that
+could have called a hook has re-rendered a dozen times by the time the digest lands.
+`voiceInReady()` returns a hard `false` until Theme F lands, on purpose: it is the third condition
+on `autoSend: true`, so nothing this companion starts can run without a human Return.
 
 ## 2026-09-08 — Phase 79 Themes F, G — voice, the STT seam and the loading personality
 
@@ -201,6 +298,7 @@ Loops shut that is the companion, directly on top of its send and mic buttons. H
 Loops panel's own answer) was rejected: watching it run listening → thinking → handoff → speaking
 is this theme's entire point, and hiding it would leave that visible only while the panel was
 closed. The input bar reserves the 56px corner instead.
+
 
 ## 2026-09-08 — Phase 79 Themes A, B — the companion's state, its words and its grounding
 

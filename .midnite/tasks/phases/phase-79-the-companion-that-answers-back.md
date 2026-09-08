@@ -253,46 +253,68 @@ handoff → speaking is Theme H's entire point, and it would then be visible onl
 shut. The input bar reserves the 56px corner instead (`reserveFabSpace`, passed as
 `!fabPanelDocked`).
 
-### D — The concierge flow (M)
+### D — The concierge flow (M) — ✅ DONE (PR #271, 2026-09-08)
 
 The scripted opening. No model call anywhere in this theme.
 
-- [ ] On `setCompanionPanelOpen(true)` from `idle`, run `greet()`: pick a greeting, speak and post
+- [x] On `setCompanionPanelOpen(true)` from `idle`, run `greet()`: pick a greeting, speak and post
       it, request the snapshot, then post and speak a **static overview** built from it: repo name,
       branch, ahead/behind, dirty counts, live sessions. One sentence per fact, skipped when zero.
-- [ ] If `snapshot.repos > 1`, append the offer: "Want to switch to another one?" and render a
+- [x] If `snapshot.repos > 1`, append the offer: "Want to switch to another one?" and render a
       compact repo chooser under the turn. Choosing calls the existing `setActiveRepo`; the flow
       restarts from the overview for the new repo. Saying or typing "no" / "stay" / "this one"
       dismisses it (Theme E's grammar owns the words).
-- [ ] Then request the digest and speak `summariseDigest(...)`. Persist the per-repo "last greeted"
+- [x] Then request the digest and speak `summariseDigest(...)`. Persist the per-repo "last greeted"
       mark only after the digest has been spoken, so an interrupted greeting is replayed next time.
-- [ ] End with an open prompt from the `prompts` bank ("What shall we do?"). Transition to `idle`
+- [x] End with an open prompt from the `prompts` bank ("What shall we do?"). Transition to `idle`
       (or `listening` if the hands-free switch is on and a provider is configured).
-- [ ] A companion that is already open when the active repo changes re-runs the overview and
+- [x] A companion that is already open when the active repo changes re-runs the overview and
       digest for the new repo, without the greeting.
-- [ ] Every scripted turn is **interruptible**: a click on the mic, a keypress in the textarea, or
+- [x] Every scripted turn is **interruptible**: a click on the mic, a keypress in the textarea, or
       Escape cancels the current utterance (`speechSynthesis.cancel()`), marks the turn
       `spoken: false`, and skips to the open prompt.
-- [ ] `concierge.test.ts` drives the flow against a fake snapshot/digest and a fake speaker, and
+- [x] `concierge.test.ts` drives the flow against a fake snapshot/digest and a fake speaker, and
       asserts the turn order, the skip-when-zero rule and the interrupt path.
 
-### E — Hand-off and read-back (L)
+**Landed** — see [`done.md`](../done.md) (2026-09-08). The flow is `features/companion/concierge.ts`,
+written against a `ConciergeDeps` port set rather than reaching for stores and the bridge, so the
+whole script is testable without jsdom, a rendered panel or a `speechSynthesis` stub — and so it
+runs *before* Theme C's panel and Theme F's voice exist. Speech goes through a `Speaker` port
+(`ports.ts`) whose default, `silentSpeaker`, posts every turn with `spoken: false`; a turn is marked
+spoken only when the speaker declares itself available **and** the utterance was not aborted, so an
+interrupted greeting leaves a transcript recording which lines the user actually heard.
+
+**One deviation, and it is an ordering rather than a substitution.** The "last greeted" mark moves
+in a **second, marked read of the identical window**, after the digest has been spoken — Theme B's
+`mark: true` option exists precisely so this was available. A single marking read would have
+consumed the window before the user heard a word of it, and the phase's own rule is that an
+interrupted greeting is replayed next time. The cost is one extra composed read on a path that has
+already finished speaking; a dedicated "move the mark" channel would be cheaper and is worth having
+if anything else ever needs one.
+
+**Not built here, because it is a component:** the *visual* repo chooser under the switch-offer turn
+belongs to Theme C's panel. What Theme D ships is the offer turn, the matching rule
+(`matchRepoByName`, exported for the chooser to call), and the whole `switchRepo` intent path —
+saying or typing "switch to bilo-mono" selects the repo and re-orients today, with no chooser
+needed.
+
+### E — Hand-off and read-back (L) — ✅ DONE (PR #271, 2026-09-08)
 
 From "start a swarm" to hearing what the swarm did.
 
-- [ ] **Intent grammar**, pure, in `shared/src/companion.ts`:
+- [x] **Intent grammar**, pure, in `shared/src/companion.ts`:
       `export function parseIntent(text: string): CompanionIntent` where
       `CompanionIntent = { kind: 'command', id: AgentCommandId, body?: string } | { kind: 'switchRepo', name?: string } | { kind: 'dismiss' } | { kind: 'music', on: boolean } | { kind: 'repeat' } | { kind: 'freeform', text }`.
       Verbs come from a table keyed by `AgentCommandId` ("adhoc", "ad hoc task", "swarm",
       "backlog", "next task", "brainstorm", "refine", "review", …). Word-boundary matching,
       case-insensitive, the trailing remainder becomes `body`. Table-driven tests, one row per
       verb, plus negatives ("swarm of bees" is freeform).
-- [ ] `kind: 'command'` → `useSkillHandoff()({ skillId: id, repo, body, title })`. The returned
+- [x] `kind: 'command'` → `useSkillHandoff()({ skillId: id, repo, body, title })`. The returned
       `TerminalSession.id` is stored as `activeHandoff`, the companion speaks the command it typed
       ("I've typed `/midnite-exec-adhoc` in a new session — press Return when you're ready", or
       with hands-free on, "running `/midnite-exec-swarm` now") and transitions to `handoff`.
       `autoSend` is `companionHandsFree && providerConfigured` and never otherwise.
-- [ ] `kind: 'freeform'` → a **headless summariser/router call** through a new
+- [x] `kind: 'freeform'` → a **headless summariser/router call** through a new
       `mstudio:companion:ask` channel handled in `main/companion/ask.ts` with `runProcess` on the
       primary agent's CLI in print mode (`claude -p`, or the `agentInvocationArgs` equivalent for
       the roster entry), system prompt = the snapshot as JSON plus the list of `AgentCommandId`s,
@@ -301,25 +323,78 @@ From "start a swarm" to hearing what the swarm did.
       reply that fails to parse is spoken as "I didn't follow that" and posted raw in the thread.
       If no CLI is installed the channel returns `{ ok: false, kind: 'error' }` and the companion
       falls back to typing the text verbatim into a fresh agent pty.
-- [ ] **Watching the hand-off.** Subscribe to `mstudio:pty:activity` and `mstudio:pty:exit` for
+- [x] **Watching the hand-off.** Subscribe to `mstudio:pty:activity` and `mstudio:pty:exit` for
       `activeHandoff.sessionId`. `thinking` keeps the loading state alive; the first `waiting` or
       `idle` after at least one `thinking` ends it. A session that never reports `thinking` within
       20 s of `autoSend` (or of the user's Return, detected via `mstudio:pty:input` echo) speaks
       "it hasn't started yet — did you press Return?" once.
-- [ ] **Read-back.** On loading end, fetch the session's last turn: `mstudio:pty:snapshot` for the
+- [x] **Read-back.** On loading end, fetch the session's last turn: `mstudio:pty:snapshot` for the
       scrollback, cut at the last prompt marker from the roster's `awaitingInput` regex, strip ANSI
       with a small pure `stripAnsi` in `shared` (tested against xterm control sequences, OSC titles
       and cursor moves). Post it as an `agent` turn. Then call `companion:ask` with a fixed
       "summarise for speech in 2–4 sentences" prompt and speak: sign-off phrase, then the summary.
       If the summariser is unavailable, speak the first 240 characters of the cleaned text
       instead, then "the rest is in the thread".
-- [ ] Speech is **skippable**: a second click on the speaking FAB, Escape in the panel, or a
+- [x] Speech is **skippable**: a second click on the speaking FAB, Escape in the panel, or a
       spoken/typed "stop" cancels and marks the turn `spoken: false`. Cap any single utterance at
       60 s by splitting on sentence boundaries and dropping the tail with "…and more in the thread".
-- [ ] `kind: 'repeat'` re-speaks the last companion turn; `kind: 'switchRepo'` reuses Theme D's
+- [x] `kind: 'repeat'` re-speaks the last companion turn; `kind: 'switchRepo'` reuses Theme D's
       chooser, matching `name` against repo names case-insensitively.
-- [ ] A hand-off whose session ends with a non-zero exit posts the exit code, speaks "that session
+- [x] A hand-off whose session ends with a non-zero exit posts the exit code, speaks "that session
       ended with an error — the details are in the thread", and returns to `idle`.
+
+**Landed** — see [`done.md`](../done.md) (2026-09-08). Decision 9 resolved to its own
+recommendation, checked rather than assumed: `runProcess` from `process-runner.ts` directly, with
+`agentInvocationArgs`' new sibling `agentHeadlessArgs` (print mode — `-p` for Claude, `exec` for
+Codex, `null` for an agent with no known one, because guessing `-p` at an unknown CLI is how a
+process holds a companion turn until the deadline). `council-runner.ts` was the wrong crib: it
+spawns through a login shell with `; exit $?` appended *because* it uses a pty, and there is no pty
+here.
+
+Decision 10 resolved to its recommendation too, and needed **no new `CompanionEvent`**: the
+`anyway` override reaches the machine as `exit` then `submit`, exactly as Theme A's own
+transition-table docblock predicted, so `handoff` keeps refusing `submit` and the table gained no
+row. A declined command is remembered for five minutes.
+
+`stripAnsi` turned out to **already exist** (`shared/src/ansi.ts`, two council callers), so this
+extended it rather than adding a second one — additive alternatives for 8-bit C1 CSI/OSC, all three
+OSC terminators, DCS/SOS/PM/APC, charset selection and the single shifts — and added `cleanPtyText`,
+which composes escapes → control bytes → carriage-return redraws → per-line padding in the one
+order that works. Both council paths get a strictly cleaner string and needed no change.
+
+**Two deviations from the wording above, disclosed rather than silently taken.** The hand-off watch
+subscribes to the **terminal store**, not `mstudio:pty:activity`/`:exit` directly: those channels
+name a `ptyId`, a hand-off names a `sessionId`, and the invert between them already lives in
+`terminal-store.ts`, maintained by the two always-mounted subscriptions (`use-agent-activity.ts`,
+`use-session-exits.ts`) that exist *because* per-view listeners missed events while the terminal
+panel was collapsed. A third subscription to the same channels would mean re-implementing that
+invert and re-learning the same bug. And the 20 s "did you press Return?" nudge runs from the
+hand-off being created rather than from a `mstudio:pty:input` echo — **there is no such echo**:
+`pty:input` is a one-way renderer→main send with no event channel behind it, and adding a push
+channel so the companion can notice a keystroke it already knows it did not send is a lot of wire
+for one sentence. The absence of any `thinking` rung within the grace period is the same fact,
+observed on a channel that exists.
+
+**Theme C's panel is wired here, since C landed first.** `register-flow-ports.ts` registers
+`submit · greet · interrupt · repeat` into C's `companion-ports.ts` registry at module scope — not
+in an effect, because the panel's own greet-once guard fires from its first mount, which can precede
+one, and a lost first greeting is the worst shape that bug can take. `submit` *replaces* C's default
+rather than wrapping it, or every typed message would appear in the thread twice. `app.tsx` mounts
+`useCompanionHandoffWatch()` beside `useCompanionEnabledSync()`, for the reason `useSessionExits`
+sits there: a hand-off runs unattended, so its answer has to arrive with the panel closed.
+
+**Themes F and G landed in parallel (PR #272), so two seams are left connected but unused.**
+`voiceInReady()` in `runtime.ts` still returns a hard `false` — it is the third condition on
+`autoSend: true`, and flipping it belongs to whoever verifies a real provider end to end, not to a
+rebase. `setCompanionSpeaker(…)` is likewise uncalled, so every turn is still posted
+`spoken: false`; F's `speaker.ts` registers itself in one line when someone connects them.
+`HandoffDeps.onMusic` is the seam G's audio hangs off, and the `music` intent already calls it.
+Both are named in [`outstanding.md`](../outstanding.md) rather than left as folklore.
+
+**`splitForSpeech` (Theme E) and `chunkForSpeech` (Theme F) are not duplicates**, and the
+cross-reference in both docblocks says so: E caps *content* at ~60 seconds and appends "…and more in
+the thread"; F splits each resulting utterance at 200 characters to dodge the Chromium bug that
+silences a long one. They compose — E first, then F inside the speaker.
 
 ### F — Voice (L) — ✅ DONE (PR #272, 2026-09-08)
 
