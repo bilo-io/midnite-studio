@@ -1,6 +1,78 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-08 — Website wave 2 — the agent-logo banner, and testimonials that ship empty
+
+[PR #279](https://github.com/bilo-io/midnite-studio/pull/279). **Ad hoc, not phase-tracked** —
+nothing in `_INDEX.md` moved. Two of wave 1's placeholder sections become real: `trusted` (nav
+label "Built on" → **"Agents"**; the `id` is a published fragment and stays) and `testimonials`.
+Total site JS is now 243.4 KB raw / **77.7 KB gzipped**, 8.5 KB up on wave 1 and well inside the
+workflow's 250 KB gz budget.
+
+**"Use your favourite agents" is an infinite marquee of the app's own roster, and nothing in it is
+measured.** Each logo in turn spins in 3D up to 2×, holds face-on at the centre glowing in its own
+brand colour, then spins back down. The obvious way to light "the logo at the centre" is a
+`requestAnimationFrame` loop calling `getBoundingClientRect()` on every slot — which is a
+synchronous reflow every frame, against an element the compositor is already animating on its own
+thread. So the geometry was arranged until the answer became arithmetic instead: every slot is a
+**fixed** `--ws-agent-slot` wide, the track sits at `left: 50%` pulled back by `--ws-agent-lead` so
+the second roster copy's slot 0 is dead centre at `translateX(0)`, and the CSS animation travels
+exactly `count` slots over `count × period`, linearly, forever. Slot `k` is therefore centred at
+`k × period`, and `useMarqueeCycle` returns `floor(t / period) mod count` from the clock alone.
+There is no rAF loop at all; the cost is one `setTimeout` per logo, about 0.6 timers a second.
+
+Selection **leads** the geometric centre by half a period, because a logo has to already be spinning
+up as it *approaches*: the per-logo animation is one period long with its hold in the middle. Ticks
+are scheduled from a fixed anchor rather than chained off the previous one, so a late timer corrects
+itself instead of accumulating, and pausing folds the running span into an accumulator so the
+timeline freezes rather than merely stopping. Both halves read the same wall clock, so the only
+error is up to a frame of skew per pause/resume — which does not compound.
+
+**The band is capped at the container's 1152px, and that cap is load-bearing.** One roster copy
+spans 10 × 152 = 1520px, so of the three copies of a given logo the nearest wrong one is always more
+than 1400px off centre and comfortably clipped. That invariant is what lets all three copies of the
+selected logo run the cycle at once, instead of tracking which copy the wrap has made live.
+
+Two glow layers, as specified: `filter: drop-shadow` on the SVG so the light traces the artwork's
+strokes rather than a bounding box, plus a soft halo behind it. The halo is a radial gradient and
+not the `box-shadow` it started as — a shadow paints strictly outside the border box, so on a round
+element it is a ring with an unpainted hole, and at 2× the hole is bigger than the mark. The
+drop-shadow is only interpolated over two short ramps; through the hold it is a constant filter the
+compositor caches, and exactly one logo on the page is ever running one. `will-change` is on the
+track only, set once for the life of the page: a *running* transform animation is promoted already,
+so a per-logo hint would ask for the layer over precisely the window the animation asks for it
+anyway — thirty of them toggling for one moving thing is the usual way `will-change` makes a page
+slower. Hover and `document.hidden` stop the CSS animations and the JS timeline together; reduced
+motion takes a different branch entirely — a static grid of all ten logos with their names, glowing
+on hover or keyboard focus only, because a marquee has no still frame that says what a marquee says.
+
+`sections/trusted/agents.ts` copies three fields per agent — `id`, `label`, and the brand colour
+verbatim from each agent's `accent` in `packages/shared/src/terminal.ts`. A copy rather than an
+import of `BUILTIN_AGENTS`, which also carries `command`, `args`, `resume`, `install` and a set of
+pty activity regexes: none of that belongs in a marketing bundle, and a marquee row should not break
+when someone retunes a spinner pattern. Four marks come from `react-icons/si`; the six that set
+ships no glyph for are copied out of `packages/app/src/components/icons/` with their provenance and
+licence notes intact — copies, because the website's eslint boundary denies `@midnite/studio-app`
+outright and is right to. **No invented brands**: every logo belongs to an agent the app can launch,
+and the copy says so rather than implying an endorsement.
+
+**`testimonials.json` ships as `[]`, and that is the deliverable rather than a TODO.** A plausible
+placeholder quote is indistinguishable from a real testimonial to a visitor and indistinguishable
+from finished work to whoever ships the site, which is exactly how invented copy reaches production.
+So the empty state is conspicuous instead: three dashed "Add a testimonial" cards naming the file to
+edit, the schema field by field, and where the images go, backed by a
+`public/img/testimonials/README.md` that covers consent, cropping and redaction for a Slack
+screenshot and carries a "what must never appear here" list. With entries the section becomes a card
+carousel — quote, name, role, and an optional screenshot in a tilted window frame wearing the
+source's glyph, which is what makes an image read as evidence rather than as a design element. The
+strip is a real `overflow-x` scroll container with snap points, so swipe, shift-wheel, keyboard and
+find-in-page all work without being implemented, and nothing auto-advances.
+
+`parseTestimonials` reads the JSON rather than importing it typed, because TypeScript widens a JSON
+string literal and the first `"source": "slack"` anyone added would fail `typecheck` on a perfectly
+correct file — a hand-edited file that breaks the build is a file nobody edits. It skips malformed
+entries instead of throwing, so a typo costs one card and not the build, and it invents nothing: no
+default name, no "Anonymous", no sample quote. A build guard test asserts the shipped file is empty.
 ## 2026-09-08 — Website wave 2 — the FAQ, the early-access form and the footer
 
 [PR #278](https://github.com/bilo-io/midnite-studio/pull/278). **Ad hoc, not phase-tracked** —
