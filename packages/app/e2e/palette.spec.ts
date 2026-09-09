@@ -235,7 +235,7 @@ test('Phase 64 Theme F: "Select Theme Palette" navigates to Settings ▸ Appeara
 
   await expect(palette(page)).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
-  await expect(page.getByRole('radiogroup', { name: 'Palette' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Light palettes' })).toBeVisible();
 });
 
 test('Phase 64 Theme F: "Import VS Code Theme" navigates to Settings ▸ Appearance and opens the Palette accordion', async ({
