@@ -57,7 +57,7 @@ describe('AssistantMenu', () => {
    */
   it('renders nothing while neither panel is docked', () => {
     const { container } = render(<AssistantMenu />);
-    expect(container).toBeEmptyDOMElement();
+    expect(container.firstChild).toBeNull();
     expect(screen.queryByTestId('assistant-menu')).toBeNull();
   });
 
@@ -127,13 +127,13 @@ describe('AssistantMenu', () => {
         companionDetached: true,
       });
       const { container } = render(<AssistantMenu />);
-      expect(container).toBeEmptyDOMElement();
+      expect(container.firstChild).toBeNull();
     });
 
     it('is suppressed while the companion is disabled', () => {
       useUiStore.setState({ companionPanelOpen: true, companionEnabled: false });
       const { container } = render(<AssistantMenu />);
-      expect(container).toBeEmptyDOMElement();
+      expect(container.firstChild).toBeNull();
     });
 
     it('acts on whichever panel was opened most recently when both are open', () => {

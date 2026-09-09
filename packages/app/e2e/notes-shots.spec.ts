@@ -4,10 +4,12 @@ import { createShotTaker, fixtures, installMockBridge, setTheme } from './shots-
 
 /**
  * The screenshots for Phase 58 — the quick-access menu from both entry
- * points, and the Notes modal — light and dark. The Notes shots were later
- * re-taken, and one added, for the ad hoc pass that gave the composer a
- * gradient border and a resize grip, un-clamped the rows and put a drag handle
- * on them.
+ * points (the FAB button and the `Mod+l` chord — a status-bar button used to
+ * be the second entry point; it was a redundant control and was removed),
+ * and the Notes modal — light and dark. The Notes shots were later re-taken,
+ * and one added, for the ad hoc pass that gave the composer a gradient
+ * border and a resize grip, un-clamped the rows and put a drag handle on
+ * them.
  *
  * Run with `MSTUDIO_SHOTS=1`; skipped otherwise, so the normal suite stays
  * fast and does not rewrite committed images on every run.
@@ -36,13 +38,13 @@ for (const mode of ['light', 'dark'] as const) {
     await shoot(page, `quick-access-fab-${mode}`);
   });
 
-  test(`the quick-access menu from the assistant menu (${mode})`, async ({ page }) => {
+  test(`the quick-access menu from the Mod+L chord (${mode})`, async ({ page }) => {
     if (mode === 'dark') await setTheme(page, 'dark');
 
-    await page.getByTestId('assistant-menu').click();
+    await page.keyboard.press('Meta+l');
     await expect(page.getByTestId('quick-access-menu')).toBeVisible();
     await page.waitForTimeout(200);
-    await shoot(page, `quick-access-assistant-menu-${mode}`);
+    await shoot(page, `quick-access-chord-${mode}`);
   });
 
   test(`the Notes modal, with notes (${mode})`, async ({ page }) => {
