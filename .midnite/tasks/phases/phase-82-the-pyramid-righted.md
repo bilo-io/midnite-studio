@@ -260,18 +260,40 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] Confirm `moon run app:visual` is green twice in a row on the same tree (proves
       determinism) and that one deliberate CSS change makes it fail with a readable diff.
 
-### E — Split the gate (M)
+### E — Split the gate (M) ✅ DONE (PR #321, 2026-09-10)
 
-- [ ] Measure per-package test time first — `shared:test`, `git-engine:test`, `desktop:test`,
+- [x] Measure per-package test time first — `shared:test`, `git-engine:test`, `desktop:test`,
       `app:test`, `db-engine:test`, `website:test` — and record the real numbers in this doc
-      before splitting anything.
-- [ ] Split [`ci.yml`](../../../.github/workflows/ci.yml)'s `gate` job (currently `macos-14`,
+      before splitting anything. **Measured** locally, isolated, `MOON_CACHE=off --force` (the
+      machine had concurrent sessions, so treat as order-of-magnitude): shared ~15s ·
+      db-engine ~20s · desktop ~37s · website ~45s · git-engine ~75s (incl. its `shared:build`
+      dep) · **app ~4m**. `app` alone is about two-thirds of the old gate's 264s test step.
+- [x] Split [`ci.yml`](../../../.github/workflows/ci.yml)'s `gate` job (currently `macos-14`,
       6m02s/264s at 10× billing) into `gate-node` (**ubuntu-24.04**: shared, app, website,
       db-engine) and `gate-native` (**macos-14**: git-engine, desktop — the only two packages
       that need dugite's bundled git and node-pty). Both block merge.
-- [ ] Confirm the ~400 unit tests this phase adds land on the 1× `gate-node` runner, not the 10×
-      `gate-native` one.
-- [ ] Record both jobs' wall clock from a real CI run in this doc.
+- [x] Confirm the ~400 unit tests this phase adds land on the 1× `gate-node` runner, not the 10×
+      `gate-native` one. `app` is in `NODE_PROJECTS`, and
+      [`scripts/gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs) — a new
+      `Package split guard` step in `gate-node`, covered by its own test under `root:test` —
+      fails the build if any `packages/*` directory is claimed by neither lane, by both, or if
+      a list entry names a directory that no longer exists.
+- [x] Record both jobs' wall clock from a real CI run in this doc. **PR #321's own run**
+      ([34413452055](https://github.com/bilo-io/midnite-studio/actions/runs/34413452055)),
+      both green: `gate-node` **341s** (261s test step) on ubuntu at 1×; `gate-native`
+      **193s** on macos-14 at 10×. They run in parallel, so the critical path is 341s ≈ 5m41s
+      against the single gate's 6m02s.
+
+      **This theme did not do what the phase predicted, and the number is why Theme H exists.**
+      The target table above originally said 6m02s → ~3m30s. The real result is 6m02s → 5m41s:
+      `gate-node`'s 261s test step is within three seconds of the undivided gate's 264s, because
+      ubuntu's slower cores gave back almost exactly what removing `git-engine` and `desktop`
+      saved. What the split *does* buy is billing — ~60 billed-minute-equivalents down to ~38,
+      about 37% — and every future test in the four node-portable packages compounding at 1×
+      rather than 10×. That is worth having on its own, but it is not a wall-clock win, and
+      Theme C is about to add ~400 tests to `app`, which is ~180s of that 261s. Recorded here
+      rather than only in the PR, on the Phase 56 Theme C/D precedent for measured
+      non-adoptions.
 
 ### F — Write the convention down, and ratchet it (S)
 
