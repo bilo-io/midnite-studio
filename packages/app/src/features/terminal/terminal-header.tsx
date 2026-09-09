@@ -1,11 +1,10 @@
 import { createPortal } from 'react-dom';
 
-import type { AgentDefinition, RepoDescriptor } from '@midnite/studio-shared';
+import type { AgentDefinition, AgentStatus, RepoDescriptor } from '@midnite/studio-shared';
 import {
   LuChevronDown,
   LuChevronUp,
   LuList,
-  LuPlus,
   LuSquareArrowOutUpRight,
   LuTerminal,
   LuTriangleAlert,
@@ -23,6 +22,7 @@ import { Tooltip } from '../../components/tooltip';
 import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
 import { splitHeaderPath } from './header-path';
+import { NewSessionPicker } from './new-session-picker';
 import { resolveRepoForPath } from './resolve-repo-for-path';
 import { useTerminalStore, type ConnectionState } from './terminal-store';
 
@@ -42,7 +42,12 @@ export type TerminalHeaderProps = {
   listable: boolean;
   showList: boolean;
   maximized: boolean;
-  onNewMenu: (event: React.MouseEvent<HTMLElement>) => void;
+  /** The `+` picker's own roster — see `NewSessionPicker`. */
+  agents: AgentDefinition[];
+  agentStatus: AgentStatus[];
+  hasWorktree: boolean;
+  onNewTerminal: () => void;
+  onNewAgent: (agent: AgentDefinition) => void;
 };
 
 /**
@@ -63,7 +68,11 @@ export function TerminalHeader({
   listable,
   showList,
   maximized,
-  onNewMenu,
+  agents,
+  agentStatus,
+  hasWorktree,
+  onNewTerminal,
+  onNewAgent,
 }: TerminalHeaderProps) {
   const broker = useTerminalStore((s) => s.broker);
   // This exact header renders inside the Terminal popout too (`DetachedRoot`
@@ -86,12 +95,12 @@ export function TerminalHeader({
         {...(listable ? {} : { disabled: true, disabledReason: 'Only one session is open' })}
         onClick={() => useUiStore.getState().toggleTerminalList()}
       />
-      <IconButton
-        icon={LuPlus}
-        label="New terminal or agent"
-        size="sm"
-        aria-expanded={false}
-        onClick={onNewMenu}
+      <NewSessionPicker
+        agents={agents}
+        status={agentStatus}
+        hasWorktree={hasWorktree}
+        onNewTerminal={onNewTerminal}
+        onNewAgent={onNewAgent}
       />
       <IconButton
         icon={maximized ? LuChevronDown : LuChevronUp}
