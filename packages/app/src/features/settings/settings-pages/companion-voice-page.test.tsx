@@ -237,7 +237,7 @@ describe('Settings ▸ Companion ▸ Voice status (Phase 80 Theme C follow-up)',
 
     await waitFor(() =>
       expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(
-        /downloading the local offline voice.*77 mb/i,
+        /downloading the local offline voice.*88 mb/i,
       ),
     );
   });
