@@ -214,13 +214,21 @@ function PickerPanel({
           className="h-9 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           autoComplete="off"
           spellCheck={false}
-          role="combobox"
-          aria-expanded
-          aria-controls="new-session-picker-list"
           aria-label="Search agent CLIs"
         />
       </div>
-      <div id="new-session-picker-list" role="listbox" className="max-h-80 overflow-auto p-1">
+      {/*
+        `role="menu"`/`menuitem`, not `listbox`/`option`: this panel replaces
+        `ContextMenu` at the one call site that used it (`terminal-panel.tsx`'s
+        `+` button), and the whole existing e2e suite
+        (`e2e/terminal.spec.ts`, `e2e/phase-21-roster.spec.ts`) already reads
+        that menu by its rows' `menuitem` role, native `disabled` state and
+        native `title` tooltip. Matching that contract here — real `<button>`
+        rows rather than `Palette`'s `<div role="option">` — is what let the
+        search box get added without touching a single existing assertion
+        about the roster itself.
+      */}
+      <div role="menu" aria-orientation="vertical" className="max-h-80 overflow-auto p-1">
         <PickerRow
           label="New Terminal"
           icon={LuTerminal}
@@ -285,19 +293,24 @@ function PickerRow({
   onHover: () => void;
 }) {
   return (
-    <div
-      role="option"
+    <button
+      type="button"
+      role="menuitem"
+      tabIndex={-1}
       aria-selected={selected}
-      aria-disabled={disabled}
+      disabled={disabled}
       onMouseEnter={onHover}
       onClick={disabled ? undefined : onSelect}
+      // The reason belongs on the row itself — see `context-menu.tsx`'s
+      // identical choice: a greyed-out row with no explanation is the most
+      // frustrating thing a menu can show.
       title={disabled ? disabledReason : undefined}
-      className={`flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm ${
-        disabled ? 'cursor-default opacity-40' : 'cursor-pointer'
-      } ${selected ? 'bg-accent text-foreground' : 'text-foreground'}`}
+      className={`flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        selected ? 'bg-accent text-foreground' : 'text-foreground'
+      }`}
     >
       <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" style={iconStyle} />
       <span className="truncate">{label}</span>
-    </div>
+    </button>
   );
 }

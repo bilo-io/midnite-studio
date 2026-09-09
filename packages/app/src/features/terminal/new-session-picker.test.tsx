@@ -50,9 +50,9 @@ describe('NewSessionPicker', () => {
 
     expect(screen.getByText('Proprietary')).toBeDefined();
     expect(screen.getByText('Open Source')).toBeDefined();
-    expect(screen.getByRole('option', { name: 'Claude' })).toBeDefined();
-    expect(screen.getByRole('option', { name: 'Goose' })).toBeDefined();
-    expect(screen.getByRole('option', { name: 'OpenCode' })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: 'Claude' })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: 'Goose' })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: 'OpenCode' })).toBeDefined();
   });
 
   it('lands focus in the search box the instant the menu opens', () => {
@@ -69,9 +69,9 @@ describe('NewSessionPicker', () => {
 
     fireEvent.change(search(), { target: { value: 'goose' } });
 
-    expect(screen.getByRole('option', { name: 'Goose' })).toBeDefined();
-    expect(screen.queryByRole('option', { name: 'Claude' })).toBeNull();
-    expect(screen.queryByRole('option', { name: 'OpenCode' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Goose' })).toBeDefined();
+    expect(screen.queryByRole('menuitem', { name: 'Claude' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'OpenCode' })).toBeNull();
   });
 
   /** Typing an abbreviation finds it by fuzzy subsequence, not just prefix. */
@@ -81,8 +81,8 @@ describe('NewSessionPicker', () => {
 
     fireEvent.change(search(), { target: { value: 'gs' } });
 
-    expect(screen.getByRole('option', { name: 'Goose' })).toBeDefined();
-    expect(screen.queryByRole('option', { name: 'Claude' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Goose' })).toBeDefined();
+    expect(screen.queryByRole('menuitem', { name: 'Claude' })).toBeNull();
   });
 
   /** Typing the binary name, not just the label, finds a row too. */
@@ -92,8 +92,8 @@ describe('NewSessionPicker', () => {
 
     fireEvent.change(search(), { target: { value: 'opencode' } });
 
-    expect(screen.getByRole('option', { name: 'OpenCode' })).toBeDefined();
-    expect(screen.queryByRole('option', { name: 'Goose' })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'OpenCode' })).toBeDefined();
+    expect(screen.queryByRole('menuitem', { name: 'Goose' })).toBeNull();
   });
 
   it('hides a section whose matches are empty rather than rendering an empty header', () => {
@@ -115,7 +115,7 @@ describe('NewSessionPicker', () => {
     expect(screen.getByText(/No CLI matches/)).toBeDefined();
     // New Terminal is not part of the agent-CLI catalog the search filters —
     // it stays offered as an escape hatch even when nothing else matches.
-    expect(screen.getByRole('option', { name: 'New Terminal' })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: 'New Terminal' })).toBeDefined();
   });
 
   it('moves the highlight through filtered rows with the arrow keys and picks with Enter', () => {
@@ -125,7 +125,7 @@ describe('NewSessionPicker', () => {
     // Highlight starts on New Terminal; one ArrowDown moves to the first agent
     // row, Claude, in section order.
     fireEvent.keyDown(search(), { key: 'ArrowDown' });
-    expect(screen.getByRole('option', { name: 'Claude' }).getAttribute('aria-selected')).toBe(
+    expect(screen.getByRole('menuitem', { name: 'Claude' }).getAttribute('aria-selected')).toBe(
       'true',
     );
 
@@ -139,7 +139,7 @@ describe('NewSessionPicker', () => {
 
     for (let i = 0; i < 4; i += 1) fireEvent.keyDown(search(), { key: 'ArrowDown' });
 
-    expect(screen.getByRole('option', { name: 'New Terminal' }).getAttribute('aria-selected')).toBe(
+    expect(screen.getByRole('menuitem', { name: 'New Terminal' }).getAttribute('aria-selected')).toBe(
       'true',
     );
   });
@@ -168,21 +168,23 @@ describe('NewSessionPicker', () => {
     const { onNewAgent } = setup();
     openMenu();
 
-    fireEvent.click(screen.getByRole('option', { name: 'Goose' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Goose' }));
 
     expect(onNewAgent).toHaveBeenCalledWith(agents[2]);
     expect(screen.queryByLabelText('Search agent CLIs')).toBeNull();
   });
 
+  // No jest-dom matchers registered in this project's vitest setup — plain
+  // DOM property/attribute reads, same as every other component test here.
   it('disables New Terminal and every row, with the worktree reason, when there is no worktree', () => {
     setup({ hasWorktree: false });
     openMenu();
 
-    expect(
-      screen.getByRole('option', { name: 'New Terminal' }).getAttribute('aria-disabled'),
-    ).toBe('true');
-    expect(screen.getByRole('option', { name: 'Claude' }).getAttribute('aria-disabled')).toBe(
-      'true',
+    expect((screen.getByRole('menuitem', { name: 'New Terminal' }) as HTMLButtonElement).disabled).toBe(
+      true,
     );
+    const claude = screen.getByRole('menuitem', { name: 'Claude' }) as HTMLButtonElement;
+    expect(claude.disabled).toBe(true);
+    expect(claude.getAttribute('title')).toBe('No worktree selected');
   });
 });
