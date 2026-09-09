@@ -2242,8 +2242,8 @@ html[data-motion='reduced'] .companion-face[data-companion-state='speaking'] {
    * percentage: this panel is ~360px wide and the better part of 800px tall,
    * and a percentage band would be twice as thick top and bottom as it is
    * down the sides. Same reasoning as `--fab-glow-edge` above. */
-  --companion-band: 40px;
-  --companion-band-opacity: 0.62;
+  --companion-band: 36px;
+  --companion-band-opacity: 0.5;
   /* The travelling segment, as a gradient's worth of colour stops in one
    * custom property (the trick `--companion-ramp` above already uses) —
    * because the ring and the bloom have to be the SAME arc, and the only way

@@ -326,3 +326,66 @@ test('the mic button — ready with no key, disabled with its reason, enabled on
   await expect(page.getByRole('tooltip')).toContainText('Listening');
   await page.screenshot({ path: shotPath(MIC_OUT, 'mic-listening.png') });
 });
+
+/**
+ * Ad Hoc "companion glow, states" — the docked panel in each look.
+ *
+ * Clipped to the panel itself rather than the window: the whole subject is a
+ * glow that reaches thirty-odd pixels in from that panel's own edge, and at
+ * 1280px wide it is a sliver of a full-window frame. Motion is ON for all but
+ * the last pair, for the reason the FAB shot above gives — two of these looks
+ * ARE animations, and a reduced-motion frame would photograph the fallback
+ * instead of the thing being changed.
+ */
+const GLOW_OUT = '../../docs/screenshots/adhoc-companion-glow';
+
+test('the companion panel in each of its looks', async ({ page }) => {
+  await open(page, { reducedMotion: false });
+  await setTheme(page, 'dark', { settleMs: 200 });
+  await openCompanion(page);
+
+  const panel = page.getByTestId('companion-panel');
+  const shoot = async (name: string): Promise<void> => {
+    await page.waitForTimeout(350);
+    const clip = (await panel.boundingBox()) ?? undefined;
+    await page.screenshot({ path: shotPath(GLOW_OUT, name), clip });
+  };
+
+  /*
+    The attribute is set directly and `--companion-level` written on the root,
+    exactly as the FAB shot above does and for the same reasons: three of
+    these states are only reachable through machinery other themes own, and
+    the root is precisely where `speaker.ts` writes the level.
+  */
+  const look = (state: string | null, level = 0): Promise<void> =>
+    page.evaluate(
+      ({ next, lvl }) => {
+        const el = document.querySelector('[data-testid="companion-panel"]')!;
+        if (next) el.setAttribute('data-companion-state', next);
+        else el.removeAttribute('data-companion-state');
+        document.documentElement.style.setProperty('--companion-level', String(lvl));
+      },
+      { next: state, lvl: level },
+    );
+
+  await look(null);
+  await shoot('panel-idle.png');
+  await look('thinking');
+  await shoot('panel-thinking.png');
+  await look('listening');
+  await shoot('panel-listening.png');
+  await look('handoff');
+  await shoot('panel-handoff.png');
+  // Speaking twice: the floor the local voice engine leaves it at for seconds
+  // at a time, and a loud syllable. The pair IS the level-reactivity claim.
+  await look('speaking', 0);
+  await shoot('panel-speaking-quiet.png');
+  await look('speaking', 0.85);
+  await shoot('panel-speaking-loud.png');
+
+  // And what a user who asked for stillness gets: the orbit stopped and
+  // pinned down the panel's left edge rather than frozen wherever it landed.
+  await setReducedMotion(page);
+  await look(null);
+  await shoot('panel-idle-reduced-motion.png');
+});
