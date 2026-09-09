@@ -43,11 +43,61 @@ export type TtsBrokerDeps = {
   spawn: () => TtsWorkerHandle;
 };
 
-function workerScriptPath(): string {
-  // `script-runner-broker.ts`'s own defensive rewrite: `utilityProcess.fork`
-  // can read a script from inside the asar, unlike `child_process` — but
-  // this mirrors that file exactly rather than assume it never needs to.
-  return join(__dirname, 'companion-tts-worker.js').replace('app.asar', 'app.asar.unpacked');
+/**
+ * Ad Hoc "the local voice engine crashed" — the packaging bug this file's
+ * own diagnosis is built around, and the reason this function takes
+ * `dirname` as a parameter (`tts-broker.test.ts`'s own coverage) rather
+ * than reading `__dirname` inline: `dirname` never has an `app.asar`
+ * segment in dev, which is exactly why the original bug survived every
+ * dev-mode check.
+ *
+ * **Deliberately does NOT rewrite `app.asar` to `app.asar.unpacked`,
+ * unlike `broker-client.ts`'s `getBrokerScript()` and `mcp/index.ts`'s
+ * `mcpShimScriptPath()`.** Those two spawn their target with
+ * `child_process.spawn`/`ELECTRON_RUN_AS_NODE` (`broker.js`) or hand the
+ * path to an entirely external process (`mcp-shim.js`) — genuinely plain
+ * Node in both cases, with zero awareness of `.asar` archives, so their
+ * target has to be a real file on disk. `utilityProcess.fork()` is
+ * different: it runs inside Electron's own Node integration, the same
+ * asar-transparent `fs`/`Module` resolution `main.js` itself gets, so it
+ * reads a script from *inside* `app.asar` exactly the way `main.js` reads
+ * its own inlined code.
+ *
+ * An earlier version of this function rewrote the path anyway — mirroring
+ * `script-runner-broker.ts`'s own identical rewrite "just in case" — which
+ * turned out to be actively harmful, not merely unnecessary:
+ * `companion-tts-worker.js`'s own `require('kokoro-js')` /
+ * `require('@huggingface/transformers')` (kept OUT of the inlined bundle
+ * on purpose — `bundle.mjs`'s own doc) resolve by walking up from this
+ * script's OWN directory to find `node_modules`. With the rewrite, that
+ * walk starts from a REAL on-disk `app.asar.unpacked` directory, whose
+ * `node_modules` mirror contains only the native sub-dependencies
+ * `electron-builder.yml`'s `asarUnpack` actually lists (`onnxruntime-node`,
+ * `sharp`, `@img/*` — a `.node` addon genuinely cannot load from inside an
+ * asar) — never `kokoro-js` itself, so the require throws `Cannot find
+ * module 'kokoro-js'`. Without the rewrite, the walk starts from the
+ * VIRTUAL path inside `app.asar`, reaches `app.asar/node_modules/kokoro-js`
+ * (plain JS, stays packed, no problem), and Electron's own asar patch
+ * transparently redirects the *native* sub-requires to their already-
+ * unpacked mirrors when `@huggingface/transformers`'s `onnx.js` reaches for
+ * `onnxruntime-node` — exactly the way `main.js` already resolved this
+ * whole tree successfully before this feature moved off the main process.
+ *
+ * Confirmed against a real `moon run desktop:dist` build both ways: WITH
+ * the rewrite, `companion-tts-worker.js` forked but `require('kokoro-js')`
+ * threw `Cannot find module 'kokoro-js'`; WITHOUT it, the same build
+ * reached `voice: 'ready'` and synthesized real audio — see this PR's body
+ * for the full CDP transcript.
+ *
+ * `script-runner-broker.ts`'s own `workerScriptPath()` still does the
+ * unnecessary rewrite (though script-runner.ts happens not to
+ * `require()` anything that rewrite would break, so it is currently
+ * "merely" the same fork-target-does-not-exist bug this PR's other half
+ * fixes, not a second-order require failure on top of it) — flagged, not
+ * fixed here, as a different feature area's own packaging bug.
+ */
+export function workerScriptPath(dirname: string = __dirname): string {
+  return join(dirname, 'companion-tts-worker.js');
 }
 
 function defaultSpawn(): TtsWorkerHandle {
@@ -214,9 +264,90 @@ export function disposeCompanionTtsBroker(): void {
   current?.kill();
 }
 
+/** Deduped the same way `ensureModel` dedupes concurrent provisioning attempts — see `reloadCompanionTtsBroker`'s own doc. */
+let reloadInFlight: Promise<CompanionTtsStatusValue> | null = null;
+
+/**
+ * Settings' "Reload local engine" control (Ad Hoc: recover from a crashed
+ * worker without restarting the app) — tears down whatever worker is
+ * currently running (a crashed one, a wedged one, or a healthy one the user
+ * just wants a fresh process for after changing the voice) and forks a new
+ * one, then answers with that fresh worker's own `companionTtsStatus`
+ * value.
+ *
+ * **Why this recovers from `native-module-missing` when a plain status
+ * retry cannot.** `tts.ts`'s `loadFailure` is sticky *for the lifetime of
+ * the process that set it* (its own module doc) — the worker process, since
+ * this engine swap moved to a `utilityProcess`. `getCompanionTtsStatusAsync`
+ * alone can only ask the *same* worker again, which short-circuits on that
+ * sticky flag regardless of `retry`. Killing the worker and forking a new
+ * one gets a fresh process with fresh module state, which is the only way a
+ * crashed-worker or a since-fixed-native-module failure actually clears —
+ * exactly the packaging bug `workerScriptPath`'s own doc explains.
+ *
+ * **Waits for the old worker to actually exit before forking its
+ * replacement**, rather than firing `kill()` and the next fork in the same
+ * tick. Confirmed against a real packaged build: forking a second
+ * `mstudio-companion-tts` `utilityProcess` while the first is still tearing
+ * down its ONNX session (mid-`kill()`) reliably crashed the NEW one outright
+ * — a genuine "the local voice engine crashed" on ITS OWN first status
+ * check, even though the very next request (which respawned yet again,
+ * this time with no overlapping predecessor) succeeded instantly. Waiting
+ * on `'exit'` costs at most a few milliseconds — `kill()` sends a signal,
+ * it does not block — and removes an entire class of self-inflicted
+ * "reload made it worse" reports.
+ *
+ * **Deduped**, the same shape `ensureModel` uses for a provisioning
+ * download: two callers racing (a double-click before the button disables,
+ * a second window) share one teardown-and-respawn rather than each killing
+ * a worker the other just started. `disposeCompanionTtsBroker`'s own
+ * teardown is inlined here rather than reused — that function also clears
+ * `configuredDirectory`, which a reload must NOT do: the fresh worker still
+ * needs `ensureChild()`'s "configure on first message" behaviour to point
+ * it at the same `userData` directory.
+ */
+export function reloadCompanionTtsBroker(): Promise<CompanionTtsStatusValue> {
+  if (reloadInFlight) return reloadInFlight;
+
+  const run = (async (): Promise<CompanionTtsStatusValue> => {
+    cancelQueuedSynthesis();
+    if (synthInFlight) {
+      synthInFlight.resolve(failure('cancelled'));
+      synthInFlight = null;
+    }
+    for (const job of statusPending.values()) job.resolve(crashedStatus());
+    statusPending.clear();
+    const current = child;
+    child = null;
+    if (current) {
+      // A SECOND `'exit'` listener alongside `ensureChild()`'s own
+      // `handleExit` — `TtsWorkerHandle.on` is a real `EventEmitter`-style
+      // API in production (Electron's `UtilityProcess`), so both fire
+      // independently; this one exists purely to gate the fork below on
+      // the old process having actually gone away.
+      await new Promise<void>((resolve) => {
+        current.on('exit', () => resolve());
+        current.kill();
+      });
+    }
+
+    // `ensureChild()` (inside `getCompanionTtsStatusAsync`) forks the fresh
+    // worker and posts `'configure'` before anything else can reach it;
+    // `retry: true` gives a since-fixed download a fresh attempt too, not
+    // just a crashed native module.
+    return getCompanionTtsStatusAsync(true);
+  })();
+
+  reloadInFlight = run;
+  return run.finally(() => {
+    reloadInFlight = null;
+  });
+}
+
 /** Reset module state. Tests only — mirrors `resetCompanionTtsForTest`. */
 export function resetCompanionTtsBrokerForTest(overrides: Partial<TtsBrokerDeps> = {}): void {
   disposeCompanionTtsBroker();
   configuredDirectory = null;
   deps = { spawn: overrides.spawn ?? defaultSpawn };
+  reloadInFlight = null;
 }

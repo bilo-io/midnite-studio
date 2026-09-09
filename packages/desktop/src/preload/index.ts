@@ -595,6 +595,7 @@ const bridge: Pick<
     // One-way — nothing comes back, matching `windowSetBackground`'s own
     // fire-and-forget `ipcRenderer.send` above rather than `call`'s `invoke`.
     ttsCancel: () => ipcRenderer.send(CHANNELS.companionTtsCancel),
+    ttsReload: (req) => call(CHANNELS.companionTtsReload, req),
   },
   windowChrome,
   windowRole,
