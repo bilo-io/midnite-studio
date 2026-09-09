@@ -64,14 +64,21 @@ asarUnpack:
   # the binary itself, but not better-sqlite3's own JS resolution path (it locates
   # its `.node` file relative to its own package directory).
   - '**/node_modules/better-sqlite3/**'
-  # Phase 80 Theme C's local voice engine. Same reasoning as node-pty, plus one
-  # more: the platform package ships its own `.dylib`s (`libonnxruntime`,
-  # `libsherpa-onnx-c-api`, `libsherpa-onnx-cxx-api`) beside the `.node` addon,
-  # loaded by relative path at runtime — the blanket `**/*.node` glob covers
-  # the addon but not those siblings. Apple Silicon only, matching this app's
-  # `mac.target` below; a second platform package needs its own line here.
-  - '**/node_modules/sherpa-onnx-node/**'
-  - '**/node_modules/sherpa-onnx-darwin-arm64/**'
+  # The local voice engine (originally Phase 80 Theme C on sherpa-onnx-node;
+  # now kokoro-js/onnxruntime-node — same reasoning carries over unchanged).
+  # `onnxruntime-node` ships its own `libonnxruntime.<version>.dylib` beside
+  # the `.node` addon, loaded by relative path at runtime — the blanket
+  # `**/*.node` glob covers the addon but not that sibling.
+  - '**/node_modules/onnxruntime-node/**'
+  # `@huggingface/transformers` (kokoro-js's own dependency) eagerly resolves
+  # `sharp` for its image-pipeline code, even though this app only ever drives
+  # its text-to-speech path — so `sharp`'s own native addon has to be
+  # resolvable too, or requiring `kokoro-js` at all fails on a packaged build.
+  # Same `.dylib`-sibling shape as onnxruntime-node: `@img/sharp-*-darwin-arm64`
+  # bundles the `.node` addon, `@img/sharp-libvips-darwin-arm64` the
+  # `libvips-cpp.*.dylib` it loads by relative path.
+  - '**/node_modules/sharp/**'
+  - '**/node_modules/@img/**'
 
 # The native modules (node-pty, and Phase 61 Theme C's better-sqlite3) are
 # rebuilt deliberately by `moon run desktop:rebuild-native`. electron-builder's
