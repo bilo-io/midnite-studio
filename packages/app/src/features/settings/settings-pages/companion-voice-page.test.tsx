@@ -17,6 +17,9 @@ import { CompanionPage } from './companion-page';
  */
 
 const speak = vi.fn();
+const retryLocalVoice = vi.fn();
+/** Mutable so a test can start the renderer already fallen back to `'system'`. */
+let mockActiveEngine: 'local' | 'system' = 'local';
 vi.mock('../../companion/speaker', () => ({
   companionTtsSpeaker: {
     speak: (...args: unknown[]) => {
@@ -26,6 +29,13 @@ vi.mock('../../companion/speaker', () => ({
     cancel: vi.fn(),
     available: true,
     isSpeaking: () => false,
+    get activeEngine() {
+      return mockActiveEngine;
+    },
+    retryLocalVoice: () => {
+      retryLocalVoice();
+      mockActiveEngine = 'local';
+    },
   },
 }));
 
@@ -81,6 +91,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  mockActiveEngine = 'local';
   delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
   delete (window as unknown as { speechSynthesis?: unknown }).speechSynthesis;
 });
@@ -167,6 +178,161 @@ describe('Settings ▸ Companion ▸ Voice (Theme F)', () => {
     // assertion is the proof either exists.
     await screen.findByText(/bundled offline voice.*falling back automatically/i);
     expect(screen.getByText('Speaking voice (fallback)')).not.toBeNull();
+  });
+});
+
+/**
+ * Phase 80 Theme C follow-up — Findings 1 and 2 from the user complaint this
+ * addressed: the local voice engaged invisibly (no status, no download
+ * indicator, no diagnosis) and "Say hello" could be unreachable on a machine
+ * that also happened to report zero system voices, even with the local
+ * engine ready.
+ */
+/** No jest-dom matchers registered in this project's vitest setup — plain `.textContent`. */
+const textOf = (el: HTMLElement): string => el.textContent ?? '';
+
+describe('Settings ▸ Companion ▸ Voice status (Phase 80 Theme C follow-up)', () => {
+  it('shows a checking message before the status check resolves', async () => {
+    installBridge(); // no ttsStatus at all — the same shape an older preload has
+    render(<CompanionPage />);
+    expect(textOf(await screen.findByTestId('companion-voice-status'))).toMatch(
+      /checking the local offline voice/i,
+    );
+  });
+
+  it('checks status exactly once on mount', async () => {
+    const ttsStatus = vi
+      .fn()
+      .mockResolvedValue({ ok: true, value: { engine: 'local', voice: 'ready', reason: null, message: null } });
+    installBridge({ ttsStatus });
+    render(<CompanionPage />);
+    await screen.findByTestId('companion-voice-status');
+    expect(ttsStatus).toHaveBeenCalledTimes(1);
+    expect(ttsStatus).toHaveBeenCalledWith({ retry: false });
+  });
+
+  it('reports speaking with the local voice when it is ready and active', async () => {
+    installBridge({
+      ttsStatus: vi
+        .fn()
+        .mockResolvedValue({ ok: true, value: { engine: 'local', voice: 'ready', reason: null, message: null } }),
+    });
+    render(<CompanionPage />);
+
+    await waitFor(() =>
+      expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(
+        /speaking with the local offline voice/i,
+      ),
+    );
+    expect(screen.queryByTestId('companion-voice-retry')).toBeNull();
+  });
+
+  it('shows the one-time download in progress', async () => {
+    installBridge({
+      ttsStatus: vi
+        .fn()
+        .mockResolvedValue({ ok: true, value: { engine: 'system', voice: 'downloading', reason: null, message: null } }),
+    });
+    render(<CompanionPage />);
+
+    await waitFor(() =>
+      expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(
+        /downloading the local offline voice.*77 mb/i,
+      ),
+    );
+  });
+
+  it('explains a missing native module, with no retry (nothing to retry)', async () => {
+    installBridge({
+      ttsStatus: vi.fn().mockResolvedValue({
+        ok: true,
+        value: {
+          engine: 'system',
+          voice: 'failed',
+          reason: 'native-module-missing',
+          message: 'no prebuilt binary for this platform',
+        },
+      }),
+    });
+    render(<CompanionPage />);
+
+    await waitFor(() =>
+      expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(
+        /isn't available on this machine/i,
+      ),
+    );
+    expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(
+      /no prebuilt binary for this platform/,
+    );
+    expect(screen.queryByTestId('companion-voice-retry')).toBeNull();
+  });
+
+  it('offers Retry for a failed download, and Retry re-checks status and resets the renderer fallback', async () => {
+    const ttsStatus = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        value: { engine: 'system', voice: 'failed', reason: 'download-failed', message: 'offline' },
+      })
+      .mockResolvedValue({ ok: true, value: { engine: 'local', voice: 'ready', reason: null, message: null } });
+    mockActiveEngine = 'system'; // this session already fell back once
+    installBridge({ ttsStatus });
+    render(<CompanionPage />);
+
+    await waitFor(() =>
+      expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(
+        /could not download the local voice/i,
+      ),
+    );
+    expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(/offline/);
+    expect(textOf(screen.getByTestId('companion-say-hello-engine'))).toMatch(
+      /say hello uses the system voice/i,
+    );
+
+    fireEvent.click(screen.getByTestId('companion-voice-retry'));
+
+    expect(retryLocalVoice).toHaveBeenCalledTimes(1);
+    // Resetting the sticky fallback is synchronous and reflected immediately,
+    // ahead of the status re-check resolving.
+    expect(textOf(screen.getByTestId('companion-say-hello-engine'))).toMatch(
+      /say hello uses the local offline voice/i,
+    );
+    await waitFor(() => expect(ttsStatus).toHaveBeenLastCalledWith({ retry: true }));
+    await waitFor(() =>
+      expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(
+        /speaking with the local offline voice/i,
+      ),
+    );
+  });
+
+  it('offers Retry when main is ready but this session already switched to the system voice', async () => {
+    mockActiveEngine = 'system';
+    installBridge({
+      ttsStatus: vi
+        .fn()
+        .mockResolvedValue({ ok: true, value: { engine: 'local', voice: 'ready', reason: null, message: null } }),
+    });
+    render(<CompanionPage />);
+
+    await waitFor(() =>
+      expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(
+        /already switched to the system voice/i,
+      ),
+    );
+    expect(screen.getByTestId('companion-voice-retry')).not.toBeNull();
+  });
+
+  it('does not disable Say hello for zero system voices once the local voice is ready (Finding 2)', async () => {
+    installVoices([]); // a machine reporting no speechSynthesis voices at all
+    installBridge({
+      ttsStatus: vi
+        .fn()
+        .mockResolvedValue({ ok: true, value: { engine: 'local', voice: 'ready', reason: null, message: null } }),
+    });
+    render(<CompanionPage />);
+
+    await screen.findByTestId('companion-voice-status');
+    expect((await screen.findByTestId('companion-say-hello')).hasAttribute('disabled')).toBe(false);
   });
 });
 
