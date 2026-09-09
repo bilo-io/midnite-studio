@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { VOICE_ID, resetCompanionTtsForTest, synthesizeSpeech } from './tts';
+import { VOICE_ID, getCompanionTtsStatus, resetCompanionTtsForTest, synthesizeSpeech } from './tts';
 
 /**
  * Phase 80 Theme C — everything `tts.ts` does that is not the native module
@@ -249,5 +249,121 @@ describe('synthesizeSpeech', () => {
     // behaviour rather than assuming recovery.
     const second = await synthesizeSpeech('hello again');
     expect(second.ok).toBe(false);
+  });
+});
+
+describe('getCompanionTtsStatus', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'mstudio-tts-status-test-'));
+    FakeOfflineTts.instances = [];
+    FakeOfflineTts.constructCount = 0;
+    FakeOfflineTts.shouldThrow = false;
+    FakeOfflineTts.generateShouldThrow = false;
+  });
+
+  afterEach(() => {
+    resetCompanionTtsForTest();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('reports idle with no directory configured, rather than throwing', async () => {
+    resetCompanionTtsForTest();
+    expect(await getCompanionTtsStatus(false, null)).toEqual({
+      engine: 'system',
+      voice: 'idle',
+      reason: null,
+      message: null,
+    });
+  });
+
+  it('reports the native module as sticky-failed, and does not attempt a download', async () => {
+    resetCompanionTtsForTest({
+      directory: dir,
+      loadModule: () => {
+        throw new Error('no prebuilt binary for this platform');
+      },
+    });
+
+    const status = await getCompanionTtsStatus(false);
+    expect(status.engine).toBe('system');
+    expect(status.voice).toBe('failed');
+    expect(status.reason).toBe('native-module-missing');
+    expect(status.message).toContain('no prebuilt binary');
+  });
+
+  it('kicks off provisioning and reports downloading on the first check', async () => {
+    const fetchImpl = fakeFetch(tarResponse(validTarball()));
+    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+
+    const status = await getCompanionTtsStatus(false);
+    expect(status).toEqual({ engine: 'system', voice: 'downloading', reason: null, message: null });
+
+    // The download this call started is the one and only fetch — a second
+    // status check must not start a redundant one.
+    await getCompanionTtsStatus(false);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports ready, with the local engine, once the voice lands on disk', async () => {
+    const fetchImpl = fakeFetch(tarResponse(validTarball()));
+    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+
+    await synthesizeSpeech('warm the cache');
+    const status = await getCompanionTtsStatus(false);
+    expect(status).toEqual({ engine: 'local', voice: 'ready', reason: null, message: null });
+  });
+
+  it('reports a download failure without retrying until asked to', async () => {
+    const fetchImpl = fakeFetch(tarResponse(Buffer.alloc(0), false, 404));
+    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+
+    await getCompanionTtsStatus(false); // starts the (failing) download
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+
+    const failed = await getCompanionTtsStatus(false);
+    expect(failed.voice).toBe('failed');
+    expect(failed.reason).toBe('download-failed');
+    expect(failed.message).toContain('download');
+    // No retry requested: still one fetch.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a failed download when asked, and reports ready once it succeeds', async () => {
+    let attempt = 0;
+    const fetchImpl = fakeFetch(() => {
+      attempt += 1;
+      return attempt === 1 ? tarResponse(Buffer.alloc(0), false, 500) : tarResponse(validTarball());
+    });
+    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+
+    await getCompanionTtsStatus(false);
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+
+    const retried = await getCompanionTtsStatus(true);
+    expect(retried.voice).toBe('downloading');
+
+    // The retried download (extract, rename) finishes asynchronously after
+    // the fetch itself resolves — poll status rather than assuming one tick
+    // is enough for the whole pipeline.
+    await vi.waitFor(async () => {
+      const status = await getCompanionTtsStatus(false);
+      expect(status).toEqual({ engine: 'local', voice: 'ready', reason: null, message: null });
+    });
+  });
+
+  it('reports a synthesis failure with its own distinct reason', async () => {
+    const fetchImpl = fakeFetch(tarResponse(validTarball()));
+    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+
+    FakeOfflineTts.generateShouldThrow = true;
+    await synthesizeSpeech('this will throw');
+
+    const status = await getCompanionTtsStatus(false);
+    expect(status.engine).toBe('system');
+    expect(status.voice).toBe('failed');
+    expect(status.reason).toBe('synthesis-error');
+    expect(status.message).toContain('generate failure');
   });
 });
