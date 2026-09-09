@@ -1,7 +1,7 @@
 import { DEFAULT_LOOPS } from '@midnite/studio-shared';
 import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
-import { LuSquareArrowOutUpRight } from 'react-icons/lu';
+import { LuSquareArrowOutUpRight, LuX } from 'react-icons/lu';
 
 import { BrandMark } from './brand';
 import { IconButton } from './icon-button';
@@ -60,6 +60,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
   const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
   const activeFabTab = useUiStore((s) => s.activeFabTab);
   const onTabClick = useUiStore((s) => s.onFabTabClick);
+  const setFabPanelOpen = useUiStore((s) => s.setFabPanelOpen);
   const statuses = useAllLoopStatuses(LOOP_IDS);
   const companionState = useCompanionStore((s) => s.state);
   const runs = useLoopRuns();
@@ -120,6 +121,32 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
               />
             )}
           </div>
+          {/*
+            Close, beside the detach slot rather than folded into its
+            hover-morph — `companion-header.tsx`'s close button is a plain,
+            always-visible control, not a hover reveal, and this matches that
+            placement idiom rather than Detach's own.
+
+            Hidden in a popout, exactly like Detach, and for a sibling reason
+            rather than the same one: `DetachedContent` (`detached-root.tsx`)
+            passes this panel a hardcoded `isOpen`, not the store's
+            `fabPanelOpen` — so `setFabPanelOpen(false)` here would flip a
+            flag nothing downstream in THIS window reads, an inert click
+            rather than a close. (`companion-header.tsx`'s own close button is
+            hidden in its popout for the identical reason — its neighbouring
+            comment there is about the Clear button being the one exception,
+            not about Close being one.)
+          */}
+          {!isPopout && (
+            <div className="flex w-8 shrink-0 items-center justify-center">
+              <IconButton
+                icon={LuX}
+                label="Close the Loops Panel"
+                size="sm"
+                onClick={() => setFabPanelOpen(false)}
+              />
+            </div>
+          )}
           {DEFAULT_LOOPS.map((loop, index) => {
             const Icon = loopIcon(loop.icon);
             const status = statuses[index];
