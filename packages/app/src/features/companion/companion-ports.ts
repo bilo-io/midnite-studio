@@ -66,6 +66,26 @@ export type CompanionPorts = {
    */
   micAvailable: () => boolean;
   /**
+   * Why `micAvailable()` answers `false` right now, as a sentence a tooltip
+   * can show verbatim — "no key stored" and "a key is stored for a provider
+   * that isn't implemented yet" are different problems with different fixes,
+   * and a user told to do a thing they already did cannot act on it. Read
+   * only while `micAvailable()` is `false`; its answer while available is
+   * unspecified.
+   */
+  micUnavailableReason: () => string;
+  /**
+   * Subscribe to `micAvailable()`'s answer changing, and get an unsubscribe
+   * back.
+   *
+   * `micAvailable()` alone is enough for a value read fresh on every render,
+   * but the panel is a persistent dock that very often stays mounted while
+   * Settings ▸ Companion is where the change actually happens — saving a key
+   * does not touch a prop or a store field the input bar renders from, so
+   * nothing would otherwise tell React to look again. This is that signal.
+   */
+  onMicAvailabilityChange: (listener: () => void) => () => void;
+  /**
    * Where a finished transcript lands (Theme F).
    *
    * **Registered by the input bar, not by a later theme** — the exception to
@@ -103,6 +123,8 @@ const DEFAULT_PORTS: CompanionPorts = {
   micPressStart: () => {},
   micPressEnd: () => {},
   micAvailable: () => false,
+  micUnavailableReason: () => 'Hold to talk — add a speech key in Settings ▸ Companion',
+  onMicAvailabilityChange: () => () => {},
   transcriptSink: () => {},
 };
 
