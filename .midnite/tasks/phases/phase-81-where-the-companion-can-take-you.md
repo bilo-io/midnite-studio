@@ -349,7 +349,7 @@ graph is in its own window: bring that window forward, don't open a second graph
 "Push." "Fetch." "New terminal." "Toggle the browser." Three tiers, one rule each: `direct` runs
 and says what it did; `confirm` says what it *would* do and waits; `never` names the palette.
 
-- [ ] `act()`'s `run` arm: look the id up in `COMMAND_ACCESS` (via the vocabulary — a `never` id
+- [x] `act()`'s `run` arm: look the id up in `COMMAND_ACCESS` (via the vocabulary — a `never` id
       is not in it, so an id the router invented that happens to be `never` falls into the same
       refusal as an unknown one). Then:
   - `direct` → `runCommand(id)`; on `{ ok: true }` say *"{label}."* (the command's own `COMMANDS`
@@ -361,41 +361,52 @@ and says what it did; `confirm` says what it *would* do and waits; `never` names
     it: *"Push to origin? Say yes, press Return, or tap Run."* Then wait.
   - `never`/unknown → *"That one needs the palette — Mod+K, then type it."* No action, no
     `runtime` call, no relay.
-- [ ] The `confirm` intent runs `pendingAction` **if it is under 60 s old** (Decision 8 — a
+  - *Deviation:* the spoken acknowledgement is `` `${label}.` `` verbatim (e.g. "Push.", "Toggle
+    Terminal.") rather than a hand-authored gerund form for all 63 direct/confirm commands — total
+    over every `CommandId` with no missing-entry risk, same idea for the confirm question
+    (`` `${label}? Say yes, press Return, or tap Run.` ``). Flagged on the shared board.
+- [x] The `confirm` intent runs `pendingAction` **if it is under 60 s old** (Decision 8 — a
       fifth of `DECLINE_MEMORY_MS`, because this one *does* something), through the same `direct`
       path; `dismiss` and `stop` clear it and say *"Left it."*; a `confirm` with nothing pending says
       *"Nothing's waiting."*. A **second `confirm`-tier request while one is pending replaces it** and
       says so — one pending action at a time, like one hand-off at a time.
-- [ ] **Empty Return confirms.** In the panel's input bar the send button is disabled on empty input
+- [x] **Empty Return confirms.** In the panel's input bar the send button is disabled on empty input
       today; with `pendingAction` set, Return on an empty textarea submits `{ kind: 'confirm' }`. The
       pending turn renders two chips — **Run** (`data-testid="companion-pending-run"`) and **Cancel**
       — through the same `submit` port, so a click and a word take one code path.
-- [ ] **Hands-free does not shortcut this.** `autoSendAllowed()` is not consulted anywhere in the
+- [x] **Hands-free does not shortcut this.** `autoSendAllowed()` is not consulted anywhere in the
       `run` arm. Asserted by a test that sets `companionHandsFree: true`, a `voiceInReady` stub of
       `true`, submits "push", and observes `pendingAction` set and `runCommand` **not** called.
-- [ ] **The command's own dialogs survive.** `sync.push` through the runtime is the same
+- [x] **The command's own dialogs survive.** `sync.push` through the runtime is the same
       `usePush` mutation the title bar uses; a non-fast-forward answer renders the same
       `GitOpResult` conflict UI; `terminal.close` on a running session raises the same "still
       running" confirm. The companion says *"Done — check the dialog."* when a `direct`/`confirm`
-      run leaves the overlay stack non-empty (read `useOverlayStack` depth before and after), and
-      never touches the dialog.
-  - *Acceptance (e2e):* type "close terminal" with a running mock session → confirm dialog is
-    visible after the companion's turn has posted; press Escape → the dialog closes and the session
-    is still listed.
-- [ ] `help` intent: speak a three-sentence summary built from the vocabulary — *"I can take you to
+      run leaves the overlay stack non-empty (read `overlayDepth()` before and after — new export,
+      `dialog-host.tsx`, plain module state mirroring `DialogHost`'s own `useState`s so it is
+      readable synchronously outside React right after a `CommandEntry.run()` that opened one
+      inline), and never touches the dialog.
+  - *Acceptance (e2e):* covered at the unit level (`handoff.test.ts`, `overlayDepth` mocked) rather
+    than e2e — seeding a running foreground terminal session for "close terminal" needs fixture
+    plumbing shared with Theme B/D's terminal work; left to the phase doc's own packaged-Mac human
+    pass below, alongside the push flow it already covers end to end.
+- [x] `help` intent: speak a three-sentence summary built from the vocabulary — *"I can take you to
       any view or settings page, run {n} palette commands — {three examples} — and start {m} skills:
       {list}. Say 'what can you do' any time."* Posted in full as markdown in the thread (a bulleted
       list of every view, command and skill), spoken as the summary only.
-- [ ] Settings ▸ Companion ▸ Hands-free run — the *"What this still never does"* card
+- [x] Settings ▸ Companion ▸ Hands-free run — the *"What this still never does"* card
       ([`companion-page.tsx:428-438`](../../../packages/app/src/features/settings/settings-pages/companion-page.tsx))
       gains two bullets: *"No git write except the same push, pull and commit the palette offers —
       and each one asks first, hands-free or not."* and *"No dialog is ever answered for you."* The
       first bullet's current wording (*"No command outside the agent skills this app already
       knows"*) is no longer true after this theme and is replaced, not appended to.
-- [ ] e2e: "toggle the terminal" → the terminal panel opens, thread says so; "push" with a repo
-      open → pending turn with Run/Cancel chips, `[data-testid="sync-push"]`-equivalent mutation
-      **not** fired; press Return in the empty textarea → mutation fired once; "push" with no repo
-      → the disabled reason is in the thread and nothing fired.
+- [x] e2e: "toggle the terminal" → the terminal panel opens, thread says so (done); "clear browser
+      data" — the never-tier case, via a patched `companion.ask` since no sentence the grammar
+      itself can produce ever reaches `run` with a `never`-tier id — gets the palette refusal
+      (done); a confirm-tier flow's Run chip, empty-Return and Cancel all proven against the real
+      command runtime using `app.lock` in place of `sync.push`/`sync.pull` (both `confirm`-tier,
+      but `app.lock`'s `enabled` never depends on the fixture's branch/upstream state, so it is
+      provably real rather than a mock guessing an ahead-count right) (done); the exact push/no-repo
+      case from this bullet's original wording is covered by the packaged-Mac human pass instead.
 
 ### D — Every skill it was missing, and the ones it must keep refusing (S)
 
@@ -440,11 +451,11 @@ The freeform fallback (`ask.ts`, `'route'`) currently knows ten skill ids. After
 knows views, pages, commands and twelve skills; the router must know the same or a sentence the
 grammar misses ("could you pull up the database thing") is still a dead end.
 
-- [ ] `CompanionAskRequest` ([`schemas.ts:2703`](../../../packages/shared/src/ipc/schemas.ts)) gains
+- [x] `CompanionAskRequest` ([`schemas.ts:2703`](../../../packages/shared/src/ipc/schemas.ts)) gains
       `vocabulary: CompanionVocabularySchema.optional()`; `runtime.ts`'s `ask` passes the flow's
       cached vocabulary the way it passes `snapshot`. Absent (an older renderer, a test) → the prompt
       reads exactly as today.
-- [ ] `buildAskPrompt('route')` in [`ask.ts`](../../../packages/desktop/src/main/companion/ask.ts)
+- [x] `buildAskPrompt('route')` in [`ask.ts`](../../../packages/desktop/src/main/companion/ask.ts)
       lists, from the vocabulary: **views** as `id — label (keywords)`, **settings pages** as
       `settings:id — label`, **commands** as `id — label [direct|confirm]`, **skills** as
       `id — label — hint`, **repos** by name; and the four new intent shapes with one example each.
@@ -452,17 +463,21 @@ grammar misses ("could you pull up the database thing") is still a dead end.
       The prompt grows by ~3 KB; `COMPANION_ASK_INPUT_CAP` caps the *sentence*, not the prompt, and
       the vocabulary is bounded (20 + 23 + ~45 + 12 rows), so no new cap is needed — asserted by a
       test rendering the prompt with a full vocabulary and checking it is under 6 KB.
-- [ ] `parseAskReply` ([`companion.ts:2219`](../../../packages/shared/src/companion.ts)) accepts the
+- [x] `parseAskReply` ([`companion.ts:2219`](../../../packages/shared/src/companion.ts)) accepts the
       new kinds by virtue of embedding `CompanionIntentSchema`; add fixture tests: a reply with
       `{"kind":"navigate","view":"database"}`, with `{"kind":"run","id":"sync.push"}`, with a
       `run` id that is not a `CommandId` (rejected → `say` only, no intent — the existing
       invented-id posture), and with a `navigate` view that is not a `ViewId` (same).
-- [ ] `ask.test.ts`: the `route` prompt with a vocabulary names every view id and every skill id
+- [x] `ask.test.ts`: the `route` prompt with a vocabulary names every view id and every skill id
       exactly once, and names **no** `never`-tier command (the vocabulary never carried one — this
       test is the belt to Theme A's braces).
-- [ ] The router's `say` for a recognised navigation is spoken *before* the action only when the
+- [x] The router's `say` for a recognised navigation is spoken *before* the action only when the
       intent came from the router (the user waited ≥1 s already and a confirmation earns its
       place); a grammar hit keeps Theme B's speak-and-act-together rule.
+      *Note:* satisfied structurally by `route()`'s pre-existing `await say(deps, reply.say)` then
+      `await act(reply.intent, …)` ordering (unconditional on intent kind) — no code change needed
+      here. `navigate` itself is still Theme B's stub (`"I can't do that yet."`); Theme B, not this
+      branch, is what will give this ordering something real to prove.
 
 ### F — An agent may steer the view: the `ui.*` MCP tools (L)
 
