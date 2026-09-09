@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 
-import { useTheme } from '@bilo-io/ui/theme';
 import Editor, { type OnChange, type OnMount } from '@monaco-editor/react';
 import type { editor as MonacoEditorNS } from 'monaco-editor';
 
@@ -10,8 +9,7 @@ import { getMonaco } from '../../../lib/monaco/monaco-loader';
 import { monacoLanguageForFile } from '../../../lib/monaco/monaco-languages';
 import { useFileEditorStore } from '../../../store/file-editor-store';
 import { useUiStore } from '../../../store/ui-store';
-import { usePaletteStore } from '../../themes/palette-store';
-import { resolveEditorPalette } from '../../themes/resolve-palette';
+import { useStudioMonacoTheme } from '../../themes/use-studio-monaco-theme';
 
 /**
  * Whether Monaco is currently showing its find widget, suggest list or
@@ -82,11 +80,6 @@ export function CodeEditor({
     typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null),
   );
 
-  const { resolved } = useTheme();
-  const activePaletteId = usePaletteStore((s) => s.activePaletteId);
-  const editorPaletteOverride = usePaletteStore((s) => s.editorPaletteOverride);
-  const userPalettes = usePaletteStore((s) => s.userPalettes);
-
   const fontFamily = useUiStore((s) => s.editorFontFamily) || DEFAULT_EDITOR_FONT_FAMILY;
   const fontSize = useUiStore((s) => s.editorFontSize);
   const minimap = useUiStore((s) => s.editorMinimap);
@@ -95,30 +88,15 @@ export function CodeEditor({
 
   const language = monacoLanguageForFile(fileName);
 
-  // The active studio palette's `monaco.editor.defineTheme` payload (Phase 64
-  // Theme B). Monaco's theme is a process-wide singleton, not per-instance —
-  // `setTheme` re-themes every mounted editor immediately, which is exactly
-  // what a palette switch needs.
-  useEffect(() => {
-    let cancelled = false;
-    void getMonaco().then((monaco) => {
-      if (cancelled) return;
-      const palette = resolveEditorPalette(resolved);
-      const themeId = `studio-${palette.id}`;
-      monaco.editor.defineTheme(themeId, {
-        base: palette.editor.base,
-        inherit: true,
-        rules: palette.editor.rules,
-        colors: palette.editor.colors,
-      });
-      monaco.editor.setTheme(themeId);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [resolved, activePaletteId, editorPaletteOverride, userPalettes]);
+  // Defines and applies the active studio palette's Monaco theme. See
+  // `use-studio-monaco-theme.ts`: `<Editor>` below must NOT carry a `theme`
+  // prop, AND `applyStudioTheme` must be called from `onMount` (below) — that
+  // call, not just dropping the prop, is what wins the race against
+  // `@monaco-editor/react`'s own unconditional creation-time `setTheme` call.
+  const applyStudioTheme = useStudioMonacoTheme();
 
-  const handleMount: OnMount = (editor) => {
+  const handleMount: OnMount = (editor, monaco) => {
+    applyStudioTheme(monaco);
     editorRef.current = editor;
     editor.focus();
 
@@ -217,7 +195,6 @@ export function CodeEditor({
         // a fresh model rather than reusing a stale one across files.
         defaultValue={useFileEditorStore.getState().content}
         language={language}
-        theme={resolved === 'dark' ? 'vs-dark' : 'vs'}
         onMount={handleMount}
         onChange={handleChange}
         loading={null}

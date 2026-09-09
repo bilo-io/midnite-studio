@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 
-import { useTheme } from '@bilo-io/ui/theme';
 import Editor, { type OnChange, type OnMount } from '@monaco-editor/react';
 
 import { DEFAULT_EDITOR_FONT_FAMILY } from '../../lib/monaco/editor-prefs';
 import { getMonaco } from '../../lib/monaco/monaco-loader';
 import { useUiStore } from '../../store/ui-store';
+import { useStudioMonacoTheme } from '../themes/use-studio-monaco-theme';
 
 // Eagerly configures `@monaco-editor/react`'s loader onto the locally bundled
 // `monaco` instance the moment this module evaluates — same reasoning as
@@ -59,12 +59,18 @@ export function QueryEditor({
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const layoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { resolved } = useTheme();
   const fontFamily = useUiStore((s) => s.editorFontFamily) || DEFAULT_EDITOR_FONT_FAMILY;
   const fontSize = useUiStore((s) => s.editorFontSize);
   const tabSize = useUiStore((s) => s.editorTabSize);
 
+  // This mount site previously had no studio-theme effect at all — it just
+  // hardcoded the `theme` prop below, so the query editor never picked up a
+  // palette (a second, separate defect from the six mount sites' shared
+  // override bug).
+  const applyStudioTheme = useStudioMonacoTheme();
+
   const handleMount: OnMount = (editor, monaco) => {
+    applyStudioTheme(monaco);
     editor.focus();
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onRunChord());
@@ -98,7 +104,6 @@ export function QueryEditor({
         width="100%"
         defaultValue={sql}
         language="sql"
-        theme={resolved === 'dark' ? 'vs-dark' : 'vs'}
         onMount={handleMount}
         onChange={handleChange}
         loading={null}
