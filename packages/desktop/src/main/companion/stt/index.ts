@@ -2,6 +2,7 @@ import {
   COMPANION_STT_MAX_BYTES,
   COMPANION_STT_TIMEOUT_MS,
   DEFAULT_STT_PROVIDER_ID,
+  STT_PROVIDERS_WITHOUT_KEY,
   STT_PROVIDER_LABELS,
   failure,
   ok,
@@ -11,7 +12,18 @@ import {
 
 import { createOpenAiWhisperProvider } from './openai-whisper';
 import { nullSttCredentials, type SttCredentials } from './credentials';
+import {
+  configureLocalStt,
+  createLocalWhisperProvider,
+  getLocalWhisperStatus,
+  localSttDeps,
+  resetLocalSttForTest,
+  type LocalSttStatusValue,
+} from './sherpa-local';
 import { sttErrorText, type SttProviderFactory } from './types';
+
+export { configureLocalStt, getLocalWhisperStatus, localSttDeps, resetLocalSttForTest };
+export type { LocalSttStatusValue };
 
 /**
  * The transcribe path (Phase 79 Theme F).
@@ -36,8 +48,13 @@ import { sttErrorText, type SttProviderFactory } from './types';
  * interface from being shaped around one vendor's request (Decision 8), and a
  * request for it gets a "not implemented" error naming it rather than a type
  * error at a call site. Adding it is this table plus one file.
+ *
+ * `whisper-local`'s factory ignores the key it is handed — see
+ * `STT_PROVIDERS_WITHOUT_KEY` below, which is what keeps `transcribeUtterance`
+ * from refusing it for lacking one.
  */
 export const STT_PROVIDER_FACTORIES: Partial<Record<SttProviderId, SttProviderFactory>> = {
+  'whisper-local': (key) => createLocalWhisperProvider(key),
   'openai-whisper': (key) => createOpenAiWhisperProvider(key),
 };
 
@@ -117,8 +134,15 @@ export async function transcribeUtterance(
     );
   }
 
-  const key = await deps.credentials.get(providerId);
-  if (key === null || key.length === 0) {
+  /*
+    `whisper-local` needs no credential at all (the whole point of shipping
+    it) — its factory never reads the argument it's given, so the lookup
+    below would otherwise refuse it for lacking a key nothing asked it to
+    store. Every other provider still requires one, unchanged.
+  */
+  const needsKey = !STT_PROVIDERS_WITHOUT_KEY.includes(providerId);
+  const key = needsKey ? await deps.credentials.get(providerId) : '';
+  if (needsKey && (key === null || key.length === 0)) {
     return failure(
       deps.credentials.isAvailable()
         ? `No ${STT_PROVIDER_LABELS[providerId]} key is stored. Add one in Settings, Companion, Microphone.`
@@ -129,7 +153,7 @@ export async function transcribeUtterance(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), deps.timeoutMs ?? COMPANION_STT_TIMEOUT_MS);
   try {
-    const text = await factory(key).transcribe(input.audio, input.mime, controller.signal);
+    const text = await factory(key ?? '').transcribe(input.audio, input.mime, controller.signal);
     return ok({ text: text.trim() });
   } catch (error) {
     /*

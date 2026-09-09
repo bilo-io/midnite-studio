@@ -276,16 +276,49 @@ test('typing a message posts it into the thread, and Escape clears without closi
   await expect(panel(page)).toBeVisible();
 });
 
-test('the mic is disabled with the reason that names where to fix it', async ({ page }) => {
+test('the mic is enabled out of the box, with no key configured at all', async ({ page }) => {
+  // Ad Hoc: the microphone must work with no API key. `mock-bridge.ts`'s
+  // default `sttStatus` now answers `whisper-local` implemented and ready
+  // with nothing configured — the fresh-install state this is for.
   await seedCompanionEnabled(page);
   await open(page);
   await page.keyboard.press('Meta+l');
   await page.keyboard.press('c');
 
   const mic = page.getByTestId('companion-mic');
+  await expect(mic).not.toHaveAttribute('aria-disabled', 'true');
+  await mic.hover();
+  await expect(page.getByRole('tooltip')).toContainText('Hold to talk');
+});
+
+test('the mic is disabled with the reason that names where to fix it', async ({ page }) => {
+  // The one way the key-free default can still fail: its own native module
+  // didn't load, with no other provider configured to fall back to.
+  await seedCompanionEnabled(page);
+  await open(page);
+  await page.evaluate(() => {
+    const bridge = window.midniteStudio;
+    if (bridge?.companion) {
+      bridge.companion.sttStatus = () =>
+        Promise.resolve({
+          configured: [],
+          encryptionAvailable: true,
+          implemented: ['whisper-local'],
+          localModel: {
+            state: 'failed' as const,
+            reason: 'native-module-missing' as const,
+            message: 'no prebuilt binary for this platform',
+          },
+        });
+    }
+  });
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+
+  const mic = page.getByTestId('companion-mic');
   await expect(mic).toHaveAttribute('aria-disabled', 'true');
   await mic.hover();
-  await expect(page.getByText('add a speech key in Settings ▸ Companion')).toBeVisible();
+  await expect(page.getByText(/offline speech engine isn.t available/)).toBeVisible();
 });
 
 test('the popover mirrors the last companion turn once there is one', async ({ page }) => {

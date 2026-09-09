@@ -1229,8 +1229,14 @@ export type MidniteStudioBridge = {
     transcribe: (
       req: In<typeof S.CompanionTranscribeRequest>,
     ) => Promise<GitOpResult<{ text: string }>>;
-    /** Which providers hold a key, and whether `safeStorage` works on this machine. */
-    sttStatus: () => Promise<z.infer<typeof S.CompanionSttStatusResponse>>;
+    /**
+     * Which providers hold a key, whether `safeStorage` works on this
+     * machine, and the local model's own download health. `retry: true`
+     * forces a fresh provisioning attempt after a prior download failure.
+     */
+    sttStatus: (
+      req: In<typeof S.CompanionSttStatusRequest>,
+    ) => Promise<z.infer<typeof S.CompanionSttStatusResponse>>;
     /** Store or clear a provider's key. An empty string clears. Nothing comes back but the outcome. */
     sttSet: (req: In<typeof S.CompanionSttSetRequest>) => Promise<GitOpResult>;
     /** Prove the provider reachable with one second of silence; reports the round-trip. */

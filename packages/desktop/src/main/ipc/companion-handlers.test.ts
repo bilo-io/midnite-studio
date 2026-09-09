@@ -93,10 +93,29 @@ describe('registerCompanionHandlers', () => {
     const result = (await invoke(CHANNELS.companionTranscribe, {
       audio: new Uint8Array([1, 2, 3]),
       mime: 'audio/webm;codecs=opus',
+      // Explicit: an unrequested transcribe now resolves to the key-free
+      // default (`whisper-local`), which is its own test below — this one is
+      // specifically the cloud provider's missing-key path.
+      providerId: 'openai-whisper',
     })) as { ok: boolean; message?: string };
 
     expect(result.ok).toBe(false);
     expect(result.message).toContain('Settings, Companion, Microphone');
+  });
+
+  it('answers an unrequested transcribe with the key-free default, honestly reporting it unset here', async () => {
+    // `configureLocalStt` is never called in this test process (unlike
+    // `main/index.ts`'s real boot, which wires it beside `configureStt`), so
+    // this asserts the channel still answers a value rather than throwing —
+    // the same contract `sttDeps()`'s null-credentials fallback proves above.
+    registerCompanionHandlers();
+    const result = (await invoke(CHANNELS.companionTranscribe, {
+      audio: new Uint8Array([1, 2, 3]),
+      mime: 'audio/wav',
+    })) as { ok: boolean; message?: string };
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('not set up yet');
   });
 
   it('answers an unreadable transcribe payload through the same arm', async () => {
@@ -110,12 +129,16 @@ describe('registerCompanionHandlers', () => {
 
   it('answers the status read with nothing configured rather than throwing', async () => {
     registerCompanionHandlers();
-    await expect(invoke(CHANNELS.companionSttStatus)).resolves.toEqual({
+    await expect(invoke(CHANNELS.companionSttStatus, {})).resolves.toEqual({
       configured: [],
       encryptionAvailable: false,
-      // openai-whisper is the only provider with a real factory behind it —
-      // deepgram stays in `SttProviderId` (Decision 8) without one.
-      implemented: ['openai-whisper'],
+      // whisper-local and openai-whisper both have a real factory behind
+      // them — deepgram stays in `SttProviderId` (Decision 8) without one.
+      implemented: ['whisper-local', 'openai-whisper'],
+      // Nothing called `configureLocalStt` in this test, so the local
+      // engine's own deps are unset — reported honestly as idle rather than
+      // a throw.
+      localModel: { state: 'idle', reason: null, message: null },
     });
   });
 

@@ -24,7 +24,7 @@ import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { createCompanionStore } from './companion/companion-store';
 import { configureCompanion } from './companion/digest';
-import { configureStt } from './companion/stt';
+import { configureLocalStt, configureStt } from './companion/stt';
 import { configureCompanionTts } from './companion/tts';
 import { createSttCredentials } from './companion/stt/credentials';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
@@ -525,6 +525,13 @@ if (!app.requestSingleInstanceLock()) {
       answer "nothing configured" on the first read of every launch.
     */
     configureStt(createSttCredentials(userData));
+    /*
+      The local, key-free recogniser (Ad Hoc: the microphone must work with
+      no API key). Wired here beside `configureStt` for the same reason: it
+      shares `userData`, and nothing native loads until the first
+      transcription request — `sherpa-local.ts`'s own lazy `require()`.
+    */
+    configureLocalStt(userData);
     /*
       The local voice engine (Phase 80 Theme C). Wired here beside every other
       `userData` store, but nothing native loads until the first synthesis

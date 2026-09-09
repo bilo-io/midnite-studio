@@ -9,7 +9,7 @@
  * `@midnite/studio-git-engine` (both plain TypeScript) removes the problem at the
  * source and shrinks the asar to two files.
  *
- * Seven things stay external:
+ * Eight things stay external:
  *   electron              provided by the runtime; bundling it is meaningless
  *   node-pty               a native module — a .node binary cannot be inlined
  *   dugite                 locates its bundled git relative to its own __dirname, so it has
@@ -29,6 +29,10 @@
  *                          `onnxruntime-node`, `sharp`) is resolved by Node from the packaged
  *                          `node_modules` without esbuild ever seeing those requires, exactly
  *                          as `dugite`'s own nested dependencies are today
+ *   sherpa-onnx-node       the local *speech-in* engine (Ad Hoc: the microphone must work with
+ *                          no API key) — a native module too, and it also `require()`s a
+ *                          per-platform sibling package (`sherpa-onnx-darwin-arm64`) by name at
+ *                          runtime, which esbuild cannot resolve statically either
  */
 import { build } from 'esbuild';
 import { rmSync } from 'node:fs';
@@ -66,7 +70,15 @@ const common = {
   */
   minify: true,
   keepNames: true,
-  external: ['electron', 'node-pty', 'dugite', 'better-sqlite3', 'kokoro-js', '@huggingface/transformers'],
+  external: [
+    'electron',
+    'node-pty',
+    'dugite',
+    'better-sqlite3',
+    'kokoro-js',
+    '@huggingface/transformers',
+    'sherpa-onnx-node',
+  ],
   logLevel: 'info',
 };
 
