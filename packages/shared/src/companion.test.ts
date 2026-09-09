@@ -4,6 +4,9 @@ import type { Ref } from './domain';
 import {
   COMPANION_DEFAULT_DIGEST_WINDOW_MS,
   COMPANION_EVENTS,
+  COMPANION_LOCAL_VOICES,
+  COMPANION_LOCAL_VOICE_DEFAULT,
+  COMPANION_LOCAL_VOICE_IDS,
   COMPANION_PHRASES,
   COMPANION_PHRASE_KINDS,
   COMPANION_STATES,
@@ -11,6 +14,7 @@ import {
   COMPANION_REPEAT_TOKENS,
   COMPANION_STOP_TOKENS,
   COMPANION_TRUNCATION_TAIL,
+  CompanionHonorificsSchema,
   CompanionIntentSchema,
   CompanionNamesSchema,
   CompanionSnapshotSchema,
@@ -20,6 +24,7 @@ import {
   escapeMarkdownInline,
   extractLastAgentTurn,
   interpolatePhrase,
+  isCompanionLocalVoiceId,
   markdownToSpeech,
   matchesCompanionName,
   noRepeatWindow,
@@ -27,6 +32,7 @@ import {
   parseDoneEntries,
   parseIndexWipRows,
   parseIntent,
+  pickHonorific,
   pickPhrase,
   plural,
   resolveDefaultBranch,
@@ -237,6 +243,27 @@ describe('pickPhrase', () => {
 
   it('clamps a degenerate rng that returns 1', () => {
     expect(pickPhrase(['a', 'b'], [], () => 1)).toBe('b');
+  });
+});
+
+describe('pickHonorific (Ad Hoc: "What it calls you" as a list)', () => {
+  it('resolves an empty list to the empty string, same as no honorific ever did', () => {
+    expect(pickHonorific([])).toBe('');
+  });
+
+  it('is the only choice when there is exactly one', () => {
+    expect(pickHonorific(['sir'], () => 0)).toBe('sir');
+    expect(pickHonorific(['sir'], () => 0.99)).toBe('sir');
+  });
+
+  it('is deterministic under an injected rng', () => {
+    const honorifics = ['sir', 'Ada', 'boss'];
+    expect(pickHonorific(honorifics, () => 0)).toBe('sir');
+    expect(pickHonorific(honorifics, () => 0.99)).toBe('boss');
+  });
+
+  it('clamps a degenerate rng that returns 1', () => {
+    expect(pickHonorific(['sir', 'Ada'], () => 1)).toBe('Ada');
   });
 });
 
@@ -963,6 +990,62 @@ describe('CompanionNamesSchema', () => {
 
   it('rejects a blank name', () => {
     expect(CompanionNamesSchema.safeParse(['   ']).success).toBe(false);
+  });
+});
+
+describe('CompanionHonorificsSchema (Ad Hoc: "What it calls you" as a list)', () => {
+  it('accepts an empty array — the existing default, now representable as zero honorifics', () => {
+    expect(CompanionHonorificsSchema.safeParse([]).success).toBe(true);
+  });
+
+  it('accepts a non-empty array of non-blank honorifics', () => {
+    expect(CompanionHonorificsSchema.safeParse(['sir']).success).toBe(true);
+    expect(CompanionHonorificsSchema.safeParse(['sir', 'Ada']).success).toBe(true);
+  });
+
+  it('trims each honorific', () => {
+    const result = CompanionHonorificsSchema.safeParse(['  sir  ']);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toEqual(['sir']);
+  });
+
+  it('rejects a blank honorific', () => {
+    expect(CompanionHonorificsSchema.safeParse(['   ']).success).toBe(false);
+  });
+});
+
+describe('the local voice catalog', () => {
+  it('lists af_heart as the default, and the default is a real catalog entry', () => {
+    expect(COMPANION_LOCAL_VOICE_DEFAULT).toBe('af_heart');
+    expect(COMPANION_LOCAL_VOICE_IDS).toContain(COMPANION_LOCAL_VOICE_DEFAULT);
+  });
+
+  it('gives every id in the catalog a matching info entry, and no more', () => {
+    expect(COMPANION_LOCAL_VOICES.map((voice) => voice.id).sort()).toEqual(
+      [...COMPANION_LOCAL_VOICE_IDS].sort(),
+    );
+  });
+
+  it('has unique ids', () => {
+    const ids = COMPANION_LOCAL_VOICES.map((voice) => voice.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('is all English — Kokoro-82M ships no other language', () => {
+    for (const voice of COMPANION_LOCAL_VOICES) {
+      expect(['en-us', 'en-gb']).toContain(voice.language);
+    }
+  });
+});
+
+describe('isCompanionLocalVoiceId', () => {
+  it('accepts every id the catalog lists', () => {
+    for (const id of COMPANION_LOCAL_VOICE_IDS) expect(isCompanionLocalVoiceId(id)).toBe(true);
+  });
+
+  it('rejects null and an unrecognised string alike', () => {
+    expect(isCompanionLocalVoiceId(null)).toBe(false);
+    expect(isCompanionLocalVoiceId('not-a-real-voice')).toBe(false);
   });
 });
 
