@@ -50,9 +50,12 @@ vi.mock('../../companion/voice-ports', () => ({
 }));
 
 function installBridge(overrides: Partial<NonNullable<MidniteStudioBridge['companion']>> = {}) {
-  const sttStatus = vi
-    .fn()
-    .mockResolvedValue({ configured: [] as string[], encryptionAvailable: true, implemented: ['openai-whisper'] });
+  const sttStatus = vi.fn().mockResolvedValue({
+    configured: [] as string[],
+    encryptionAvailable: true,
+    implemented: ['whisper-local', 'openai-whisper'],
+    localModel: { state: 'ready', reason: null, message: null },
+  });
   const sttSet = vi.fn().mockResolvedValue({ ok: true });
   const sttTest = vi.fn().mockResolvedValue({ ok: true, value: { ms: 412, text: '' } });
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
@@ -357,21 +360,42 @@ describe('Settings ▸ Companion ▸ Companion volume (Theme G)', () => {
 });
 
 describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
-  it('reads whether a key is stored on mount', async () => {
+  /** Every key/save/test test below is about the opt-in cloud provider, not the key-free default. */
+  async function selectOpenAiWhisper(): Promise<void> {
+    fireEvent.change(await screen.findByTestId('companion-stt-provider'), {
+      target: { value: 'openai-whisper' },
+    });
+  }
+
+  it('defaults to the key-free local engine, with no key field to fill in', async () => {
+    installBridge();
+    render(<CompanionPage />);
+    expect((await screen.findByTestId('companion-stt-provider') as HTMLSelectElement).value).toBe(
+      'whisper-local',
+    );
+    expect(screen.queryByTestId('companion-stt-key')).toBeNull();
+    expect(await screen.findByTestId('companion-stt-local-status')).toBeTruthy();
+    // No key needed at all — Test is reachable without ever storing one.
+    expect((await screen.findByTestId('companion-stt-test')).hasAttribute('disabled')).toBe(false);
+  });
+
+  it('reads whether a key is stored on mount, once switched to the cloud provider', async () => {
     const b = installBridge();
     render(<CompanionPage />);
     await waitFor(() => expect(b.sttStatus).toHaveBeenCalledTimes(1));
+    await selectOpenAiWhisper();
     expect((await screen.findByTestId('companion-stt-stored')).textContent).toContain(
       'No key stored',
     );
   });
 
-  it('lists every provider id, the reserved one included', async () => {
+  it('lists every provider id, the reserved one included, local engine first', async () => {
     installBridge();
     render(<CompanionPage />);
     const select = (await screen.findByTestId('companion-stt-provider')) as HTMLSelectElement;
     expect([...select.querySelectorAll('option')].map((option) => option.textContent)).toEqual([
-      'OpenAI Whisper',
+      'Whisper (offline, built-in — no key needed)',
+      'OpenAI Whisper (cloud, needs an API key)',
       'Deepgram (not yet implemented)',
     ]);
   });
@@ -379,6 +403,7 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
   it('sends the key one way and clears the field, never reading it back', async () => {
     const b = installBridge();
     render(<CompanionPage />);
+    await selectOpenAiWhisper();
 
     const field = (await screen.findByTestId('companion-stt-key')) as HTMLInputElement;
     // A password input, so a screenshot or a shoulder cannot read it either.
@@ -398,6 +423,7 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
   it('invalidates the panel\'s cached mic availability after a save', async () => {
     installBridge();
     render(<CompanionPage />);
+    await selectOpenAiWhisper();
     fireEvent.change(await screen.findByTestId('companion-stt-key'), {
       target: { value: 'sk-secret' },
     });
@@ -408,6 +434,7 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
   it('reports an empty save as a clear, which is the same gesture', async () => {
     const b = installBridge();
     render(<CompanionPage />);
+    await selectOpenAiWhisper();
     fireEvent.click(await screen.findByTestId('companion-stt-save'));
 
     await waitFor(() =>
@@ -416,9 +443,10 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
     expect((await screen.findByTestId('companion-stt-status')).textContent).toContain('cleared');
   });
 
-  it('will not Test before a key is stored', async () => {
+  it('will not Test the cloud provider before a key is stored', async () => {
     installBridge();
     render(<CompanionPage />);
+    await selectOpenAiWhisper();
     expect((await screen.findByTestId('companion-stt-test')).hasAttribute('disabled')).toBe(true);
   });
 
@@ -428,12 +456,18 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
   */
   it('reports the round-trip time on a successful test', async () => {
     installBridge({
-      sttStatus: vi
-        .fn()
-        .mockResolvedValue({ configured: ['openai-whisper'], encryptionAvailable: true, implemented: ['openai-whisper'] }),
+      sttStatus: vi.fn().mockResolvedValue({
+        configured: ['openai-whisper'],
+        encryptionAvailable: true,
+        implemented: ['openai-whisper'],
+        localModel: { state: 'idle', reason: null, message: null },
+      }),
     } as Partial<NonNullable<MidniteStudioBridge['companion']>>);
     render(<CompanionPage />);
 
+    fireEvent.change(await screen.findByTestId('companion-stt-provider'), {
+      target: { value: 'openai-whisper' },
+    });
     const test = await screen.findByTestId('companion-stt-test');
     await waitFor(() => expect(test.hasAttribute('disabled')).toBe(false));
     fireEvent.click(test);
@@ -442,9 +476,12 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
 
   it('surfaces a failed test as the provider\'s own sentence', async () => {
     installBridge({
-      sttStatus: vi
-        .fn()
-        .mockResolvedValue({ configured: ['openai-whisper'], encryptionAvailable: true, implemented: ['openai-whisper'] }),
+      sttStatus: vi.fn().mockResolvedValue({
+        configured: ['openai-whisper'],
+        encryptionAvailable: true,
+        implemented: ['openai-whisper'],
+        localModel: { state: 'idle', reason: null, message: null },
+      }),
       sttTest: vi.fn().mockResolvedValue({
         ok: false,
         kind: 'error',
@@ -453,6 +490,9 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
     } as Partial<NonNullable<MidniteStudioBridge['companion']>>);
     render(<CompanionPage />);
 
+    fireEvent.change(await screen.findByTestId('companion-stt-provider'), {
+      target: { value: 'openai-whisper' },
+    });
     const test = await screen.findByTestId('companion-stt-test');
     await waitFor(() => expect(test.hasAttribute('disabled')).toBe(false));
     fireEvent.click(test);
@@ -461,9 +501,17 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
 
   it('warns when the machine has no working keychain', async () => {
     installBridge({
-      sttStatus: vi.fn().mockResolvedValue({ configured: [], encryptionAvailable: false, implemented: ['openai-whisper'] }),
+      sttStatus: vi.fn().mockResolvedValue({
+        configured: [],
+        encryptionAvailable: false,
+        implemented: ['openai-whisper'],
+        localModel: { state: 'idle', reason: null, message: null },
+      }),
     } as Partial<NonNullable<MidniteStudioBridge['companion']>>);
     render(<CompanionPage />);
+    fireEvent.change(await screen.findByTestId('companion-stt-provider'), {
+      target: { value: 'openai-whisper' },
+    });
     expect(await screen.findByText(/no working keychain/)).toBeTruthy();
   });
 
@@ -474,10 +522,76 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
     expect(useUiStore.getState().companionMicMode).toBe('toggle');
   });
 
-  it('degrades to no controls at all with no bridge', async () => {
+  it('degrades without crashing with no bridge — the key-free default has nothing to gate Test on', async () => {
     render(<CompanionPage />);
-    // The section still renders; nothing throws and the Test stays disabled.
+    // The section still renders, `sttStatus` never resolves, and — unlike
+    // the cloud provider — the key-free default's Test isn't gated on a
+    // stored key, so this proves only that pressing it with no bridge at
+    // all is a no-op rather than a throw.
+    const test = await screen.findByTestId('companion-stt-test');
+    expect(() => fireEvent.click(test)).not.toThrow();
+  });
+
+  it('will not Test the cloud provider at all with no bridge', async () => {
+    render(<CompanionPage />);
+    await selectOpenAiWhisper();
     expect((await screen.findByTestId('companion-stt-test')).hasAttribute('disabled')).toBe(true);
+  });
+
+  // Requirement: a one-time model download must be surfaced, not silent.
+  it('shows the one-time local model download in progress', async () => {
+    installBridge({
+      sttStatus: vi.fn().mockResolvedValue({
+        configured: [],
+        encryptionAvailable: true,
+        implemented: ['whisper-local'],
+        localModel: { state: 'downloading', reason: null, message: null },
+      }),
+    } as Partial<NonNullable<MidniteStudioBridge['companion']>>);
+    render(<CompanionPage />);
+    expect((await screen.findByTestId('companion-stt-local-status')).textContent).toContain(
+      'Downloading',
+    );
+  });
+
+  it('reports the local engine ready once the model has landed', async () => {
+    installBridge();
+    render(<CompanionPage />);
+    expect((await screen.findByTestId('companion-stt-local-status')).textContent).toContain('Ready');
+  });
+
+  it('surfaces a failed local model download with a retry control', async () => {
+    const sttStatus = vi.fn().mockResolvedValue({
+      configured: [],
+      encryptionAvailable: true,
+      implemented: ['whisper-local'],
+      localModel: { state: 'failed', reason: 'download-failed', message: 'HTTP 404' },
+    });
+    installBridge({ sttStatus } as Partial<NonNullable<MidniteStudioBridge['companion']>>);
+    render(<CompanionPage />);
+
+    await waitFor(async () => {
+      const localStatus = await screen.findByTestId('companion-stt-local-status');
+      expect(localStatus.textContent).toContain('Could not download');
+      expect(localStatus.textContent).toContain('HTTP 404');
+    });
+
+    fireEvent.click(await screen.findByTestId('companion-stt-local-retry'));
+    await waitFor(() => expect(sttStatus).toHaveBeenLastCalledWith({ retry: true }));
+  });
+
+  it('does not offer a retry for a missing native module — that failure is sticky', async () => {
+    installBridge({
+      sttStatus: vi.fn().mockResolvedValue({
+        configured: [],
+        encryptionAvailable: true,
+        implemented: ['whisper-local'],
+        localModel: { state: 'failed', reason: 'native-module-missing', message: null },
+      }),
+    } as Partial<NonNullable<MidniteStudioBridge['companion']>>);
+    render(<CompanionPage />);
+    expect(await screen.findByTestId('companion-stt-local-status')).toBeTruthy();
+    expect(screen.queryByTestId('companion-stt-local-retry')).toBeNull();
   });
 });
 
