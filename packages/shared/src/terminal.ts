@@ -371,6 +371,47 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     icon: 'SiCline',
     install: 'npm i -g cline',
   },
+  {
+    /*
+      "Grok Build", xAI's own coding agent — x.ai/build, verified against
+      docs.x.ai/build/overview and docs.x.ai/build/cli/reference. `grok` with
+      no arguments opens an interactive session in the cwd; `-c`/`--continue`
+      resumes the most recent one for that directory, the same shape Claude
+      and Cursor already use `resume` for here. No `icon`: react-icons' `si`
+      set ships no xAI/Grok mark (checked against its full export list), and
+      CLAUDE.md's icon rule is to omit rather than invent a name.
+    */
+    id: 'grok',
+    label: 'Grok',
+    command: 'grok',
+    args: [],
+    resume: ['--continue'],
+    accent: '#000000',
+    install: 'curl -fsSL https://x.ai/cli/install.sh | bash',
+  },
+  {
+    /*
+      Block's open-source agent. `github.com/block/goose` now redirects to
+      `github.com/aaif-goose/goose`: Block donated the project to the Linux
+      Foundation's Agentic AI Foundation in December 2025, and goose-docs.ai
+      is the successor docs site — verified by fetching the referenced
+      goose-docs.ai/docs/getting-started/installation/ page directly, and
+      cross-checked against the block/goose repo redirect. Unlike every other
+      row here, bare `goose` does NOT start a session (confirmed against
+      goose-docs.ai/docs/guides/goose-cli-commands/: it prints `--help`) —
+      `goose session` does, so the subcommand lives in `args`; `--resume`
+      replaces `args` to continue the most recent session for the cwd. No
+      `icon`: no Goose/Block mark in react-icons' `si` set.
+    */
+    id: 'goose',
+    label: 'Goose',
+    command: 'goose',
+    args: ['session'],
+    resume: ['session', '--resume'],
+    accent: '#2E7D32',
+    install:
+      'curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | bash',
+  },
 ] as const;
 
 /**

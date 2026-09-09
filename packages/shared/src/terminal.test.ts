@@ -32,6 +32,8 @@ describe('BUILTIN_AGENTS', () => {
       'kilo',
       'aider',
       'cline',
+      'grok',
+      'goose',
     ]);
   });
 
@@ -77,10 +79,20 @@ describe('BUILTIN_AGENTS', () => {
     expect(new Set(keys).size).toBe(BUILTIN_AGENTS.length);
   });
 
-  it('starts each agent with a bare command and no args', () => {
+  /**
+   * `goose` is the one documented exception: bare `goose` prints its own
+   * `--help` rather than starting a session (goose-docs.ai's own CLI
+   * commands guide) — `goose session` does — so its `args` carries that
+   * subcommand rather than being empty like every other row's.
+   */
+  it('starts each agent with a bare command and no args, except goose', () => {
     for (const agent of BUILTIN_AGENTS) {
       expect(agent.command).not.toMatch(/\s/);
-      expect(agent.args).toEqual([]);
+      if (agent.id === 'goose') {
+        expect(agent.args).toEqual(['session']);
+      } else {
+        expect(agent.args).toEqual([]);
+      }
     }
   });
 });
@@ -117,6 +129,8 @@ describe('AgentDefinitionSchema', () => {
     const cursor = BUILTIN_AGENTS.find((a) => a.id === 'cursor');
     const copilot = BUILTIN_AGENTS.find((a) => a.id === 'copilot');
     const cline = BUILTIN_AGENTS.find((a) => a.id === 'cline');
+    const grok = BUILTIN_AGENTS.find((a) => a.id === 'grok');
+    const goose = BUILTIN_AGENTS.find((a) => a.id === 'goose');
 
     expect(claude?.resume).toEqual(['--continue']);
     expect(codex?.resume).toEqual(['resume', '--last']);
@@ -128,6 +142,8 @@ describe('AgentDefinitionSchema', () => {
     expect(cursor?.resume).toEqual(['--continue']);
     expect(copilot?.resume).toEqual(['--continue']);
     expect(cline?.resume).toEqual(['--continue']);
+    expect(grok?.resume).toEqual(['--continue']);
+    expect(goose?.resume).toEqual(['session', '--resume']);
   });
 
   it.each([
