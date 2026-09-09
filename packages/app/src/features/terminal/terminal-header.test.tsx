@@ -26,7 +26,11 @@ const baseProps = {
   listable: false,
   showList: false,
   maximized: false,
-  onNewMenu: vi.fn(),
+  agents: [],
+  agentStatus: [],
+  hasWorktree: true,
+  onNewTerminal: vi.fn(),
+  onNewAgent: vi.fn(),
 };
 
 describe('TerminalHeader', () => {
