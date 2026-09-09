@@ -2,7 +2,14 @@ import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { failure, ok, type GitOpResult } from '@midnite/studio-shared';
+import {
+  COMPANION_LOCAL_VOICE_DEFAULT,
+  failure,
+  isCompanionLocalVoiceId,
+  ok,
+  type CompanionLocalVoiceId,
+  type GitOpResult,
+} from '@midnite/studio-shared';
 
 // `kokoro-js` (and the `@huggingface/transformers` it re-exports through
 // `loadModule` below) is loaded lazily, not imported here — see
@@ -72,15 +79,16 @@ type KokoroTtsInstance = InstanceType<KokoroModule['KokoroTTS']>;
  * fall back to `speechSynthesis` for that utterance. The companion is never
  * left mute because a native module didn't load.
  *
- * **The voice: `af_heart`.** Kokoro-82M ships dozens (`af_*`, `am_*`, `bf_*`,
- * `bm_*`, …); `af_heart` is the one the model card and `kokoro-js`'s own
- * README example both single out as its top overall grade (`A`) — the most
- * broadly well-trained American English voice in the set, and the least
- * surprising default for a companion most users will hear in en-US. No voice
- * picker in this PR: `companionVoice`, the *existing* Settings dropdown, still
- * governs the `speechSynthesis` fallback exactly as it always did (Kokoro
- * speaks first and does not read that value) — a Kokoro voice picker is a
- * clean, separable follow-up, not a requirement of this swap.
+ * **The default voice: `af_heart`.** Kokoro-82M ships dozens (`af_*`, `am_*`,
+ * `bf_*`, `bm_*`, …, mirrored as data in `shared/src/companion.ts`'s
+ * `COMPANION_LOCAL_VOICES`); `af_heart` is the one the model card and
+ * `kokoro-js`'s own README example both single out as its top overall grade
+ * (`A`) — the most broadly well-trained American English voice in the set,
+ * and the least surprising default for a companion most users will hear in
+ * en-US. Ad Hoc: a Settings picker now lets a user choose any of the others —
+ * `synthesizeSpeech`'s `voiceId` parameter — separately from `companionVoice`,
+ * the *existing* Settings dropdown for the `speechSynthesis` fallback, which
+ * still governs that engine exactly as it always did.
  *
  * **Quantisation: `q8`.** `kokoro-js` offers `fp32`/`fp16`/`q8`/`q4`/`q4f16`.
  * `fp32` is 326 MB on disk for a barely-perceptible quality gain on an 82M
@@ -125,8 +133,12 @@ type KokoroTtsInstance = InstanceType<KokoroModule['KokoroTTS']>;
  * body's Decisions section, and `.midnite/tasks/done.md`'s updated note.
  */
 
-/** Exported for the test's own assertions, and for `getCompanionTtsStatus` — not part of the public contract. */
-export const VOICE_ID = 'af_heart';
+/**
+ * The default voice — `COMPANION_LOCAL_VOICE_DEFAULT`, restated as its own
+ * export for the test's own assertions and for `getCompanionTtsStatus`, not
+ * part of the public contract.
+ */
+export const VOICE_ID = COMPANION_LOCAL_VOICE_DEFAULT;
 
 /** `kokoro-js`'s own default ONNX export of Kokoro-82M v1.0 on the Hugging Face Hub. */
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
@@ -402,9 +414,16 @@ function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array {
  * doc above answers `{ok:false}` with a sentence `speaker.ts` never has to
  * show (it falls back silently to `speechSynthesis`), because a native-module
  * or a network failure is not something a user typing to the companion caused.
+ *
+ * `voiceId` is validated against `COMPANION_LOCAL_VOICE_IDS` here rather than
+ * trusted from the request — `isCompanionLocalVoiceId` narrows it, and
+ * anything absent or unrecognised (a stored selection predating a catalog
+ * change, say) falls back to `COMPANION_LOCAL_VOICE_DEFAULT` silently, never
+ * a rejected request over a cosmetic mismatch.
  */
 export async function synthesizeSpeech(
   text: string,
+  voiceId?: string,
   deps: CompanionTtsDeps | null = configured,
 ): Promise<GitOpResult<{ audio: Uint8Array; mime: string }>> {
   if (deps === null) {
@@ -418,8 +437,13 @@ export async function synthesizeSpeech(
   const provisioned = await ensureModel(deps, module);
   if (!provisioned.ok) return provisioned;
 
+  const requestedVoice = voiceId ?? null;
+  const voice: CompanionLocalVoiceId = isCompanionLocalVoiceId(requestedVoice)
+    ? requestedVoice
+    : COMPANION_LOCAL_VOICE_DEFAULT;
+
   try {
-    const audio = await provisioned.value.generate(text, { voice: VOICE_ID });
+    const audio = await provisioned.value.generate(text, { voice });
     return ok({ audio: encodeWav(audio.audio, audio.sampling_rate), mime: 'audio/wav' });
   } catch (error) {
     // A throw from `.generate()` (a corrupt cache, an incompatible ONNX
