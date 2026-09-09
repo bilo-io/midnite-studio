@@ -2106,38 +2106,212 @@ html[data-motion='reduced'] .companion-face[data-companion-state='speaking'] {
     var(--companion-waiting-inset);
 }
 
+/* ---------------------------------------------------------------------------
+ * The docked Companion panel's own three reads — Ad Hoc "companion glow,
+ * states".
+ *
+ * This block REPLACES the two earlier panel-scoped blocks ("the panel's own
+ * fifth look" and "companion glow, verified"). Their conclusions are folded
+ * in below, including the one that turned out to be only half right — the
+ * stale half cost a round, so it is corrected here rather than left standing.
+ *
+ * **What the earlier fix got right.** "companion glow, verified" diagnosed
+ * the panel's blank look as a clipping problem: `app.tsx` docks this panel
+ * inside `data-companion-panel-frame`, an `overflow: hidden` box whose width
+ * (`useRevealSize`'s tween) is set to exactly the panel's own width, so an
+ * OUTWARD `box-shadow` (`0 0 Npx …`) has nowhere to bleed before the frame
+ * swallows it. That is true, and swapping the four non-idle states to `inset`
+ * really did fix it. Measured rather than assumed this time: driving the live
+ * panel through every state and reading `getComputedStyle` back shows each
+ * panel-scoped `inset` rule winning the cascade, `--companion-glow`
+ * interpolating (11.9px → 17.7px → 22.1px → 23.9px) under
+ * `companion-think-pulse`, `--companion-level` reaching the host from
+ * `speaker.ts`'s one write on the root, and NO ancestor clipping, filtering
+ * or compositing any of it away. Every claim about a second cause — Tailwind's
+ * `bg-popover` painting over the shadow, the two-layer background trick
+ * covering it, a lost cascade tie — was checked and is false.
+ *
+ * **What it missed.** Containment was only half the problem. Those panel
+ * rules were copied verbatim from the FAB rules they override, with the bare
+ * `0 0` swapped for `inset 0 0` and nothing else touched — and an amplitude
+ * calibrated to bloom OUTWARD around a 32px button is nowhere near enough
+ * painted INWARD along a 360×800px panel edge. Sampled one pixel inside the
+ * panel's left edge, dark theme, against a (16,16,19) ground:
+ *
+ *   idle      inset 0 0 4px  / 0.32   →  (21,38,49), back to ground by x=6
+ *   thinking  inset 0 0 24px / 0.50   →  (27,65,85), still lit at x=10
+ *   speaking  inset 0 0 8px  / 0.35   →  the ground, whenever the level is 0
+ *
+ * Which is the bug report word for word — "I don't see anything except when
+ * the state is thinking". Only the state whose glow pulses out to 24px ever
+ * cleared the noise floor.
+ *
+ * `speaking` had a second, independent reason to read as dead, and it is not
+ * a CSS one. Its radius is `calc(8px + 20px * var(--companion-level))`, and
+ * `speaker.ts` sets that level to 1 on a boundary and decays it to 0 over
+ * 180ms. Under `speechSynthesis` a boundary is a WORD; under the local engine
+ * (`createLocalSpeaker`, the default in a packaged build since #308) there are
+ * no word boundaries at all — `onBoundary` fires once per ~200-character
+ * chunk, so for whole seconds at a stretch the level is genuinely 0 and the
+ * state painted its 8px/0.35 floor, which is to say nothing. A level-reactive
+ * glow therefore needs a FLOOR that reads on its own, with the level adding
+ * on top of it rather than being the only thing that lights it.
+ *
+ * ── The system ────────────────────────────────────────────────────────────
+ *
+ * One angle, `--companion-orbit`, animated ONCE on the host, read by two
+ * layers: the host's own conic border ring (the crisp arc) and a masked
+ * `::after` band (the soft glow travelling with it). That is what makes the
+ * two "matched up" in the sense the brief asks for — not two animations that
+ * agree because they started on the same frame and tick at the same rate,
+ * which is exactly the failure mode `.gradient-frame::before` above documents
+ * (pause one and they end up tens of degrees apart). There is one timeline
+ * here; the arc and its bloom are the same object drawn twice.
+ *
+ * `inherits: true`, unlike `--companion-angle`. A pseudo-element does not
+ * inherit a registered property declared `inherits: false` from its
+ * originating element — the `--fab-arc-from`/`--fab-arc-to` comment above
+ * records that being learned the hard way, where the pseudo's conic silently
+ * resolved against the initial `0deg`/`360deg` and its `intersect` became a
+ * no-op. The cost of `inherits: true` is that each frame invalidates the
+ * panel subtree's computed styles; that is bounded (the thread is
+ * virtualised) and paid only while the panel is focused, see the focus gate
+ * at the end of this block.
+ *
+ * Three reads, deliberately different in KIND and not just in intensity, so
+ * they are told apart at a glance rather than by comparison:
+ *
+ *   idle      a travelling arc + its bloom, 15s — one fifth of thinking's 3s,
+ *             which is what "20% of the thinking speed" means literally
+ *   thinking  the same travelling pair at 3s, brighter and wider, plus the
+ *             uniform `companion-think-pulse` inset underneath it
+ *   speaking  no segment at all: a strong, full-round glow whose width,
+ *             opacity and inset radius all ride `--companion-level`
+ *
+ * `listening` and `handoff` are not in that brief but exist, and both stay
+ * coherent with the system rather than being left on the old amplitudes:
+ * `listening` is a full-round teal that breathes (`companion-breathe`, which
+ * already drives `--companion-glow`), `handoff` is `thinking`'s construction
+ * at half speed in the loops' rainbow — the same relationship those two have
+ * on the FAB.
+ * ------------------------------------------------------------------------- */
+
 /*
- * The dedicated Companion panel's own fifth look — Ad Hoc "companion glow",
- * a follow-up to Theme H above rather than a new system. That block gives
- * `listening`/`thinking`/`handoff`/`speaking` to every host wearing
- * `.companion-face`; `companion-panel.tsx` (the docked conversation column,
- * as opposed to the Loops panel's own `.companion-face.gradient-frame`) wears
- * the class too. This shipped once believing the panel picked up all four for
- * free the moment it did — it does not, and the "Ad Hoc "companion glow,
- * verified"" block after the idle rule below is the correction: every one of
- * those four still needed a panel-scoped override, for a reason that had
- * nothing to do with a missing class.
+ * The one animated angle. See the block comment above for why this inherits
+ * and `--companion-angle` does not.
+ */
+@property --companion-orbit {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 0deg;
+}
+
+@keyframes companion-orbit {
+  to {
+    --companion-orbit: 360deg;
+  }
+}
+
+.companion-face--panel {
+  /*
+   * The containing block and the stacking context the `::after` band needs.
+   *
+   * `isolation` rather than a `filter` or a `transform`: the band sits at
+   * `z-index: -1`, and inside a stacking context a negative-z child paints
+   * AFTER the host's own background and BEFORE its in-flow children — above
+   * the popover fill, under the transcript's text. Without a stacking
+   * context on this host that -1 would be resolved against whatever ancestor
+   * establishes one and the band would disappear behind the panel entirely.
+   * `.gradient-border::after`'s comment further up this file records the same
+   * lesson from the other direction.
+   *
+   * `position: relative` is safe here: `PanelStack`'s own root is already
+   * `relative overflow-hidden`, so nothing inside this panel is positioned
+   * against an ancestor further out.
+   */
+  position: relative;
+  isolation: isolate;
+
+  /*
+   * Every per-state dial, defaulted to the IDLE values — so the idle rule
+   * below only has to say what it is, and each state rule overrides the two
+   * or three numbers that differ rather than restating a gradient.
+   */
+  --companion-orbit-duration: 15s;
+  /* How far the bloom reaches inward from the edge. A LENGTH, not a
+   * percentage: this panel is ~360px wide and the better part of 800px tall,
+   * and a percentage band would be twice as thick top and bottom as it is
+   * down the sides. Same reasoning as `--fab-glow-edge` above. */
+  --companion-band: 40px;
+  --companion-band-opacity: 0.62;
+  /* The travelling segment, as a gradient's worth of colour stops in one
+   * custom property (the trick `--companion-ramp` above already uses) —
+   * because the ring and the bloom have to be the SAME arc, and the only way
+   * to guarantee that is for there to be one copy of it. ~110deg lit, fading
+   * at both ends so nothing shows a hard leading or trailing edge. The
+   * transparent stops carry the neighbouring hue at zero alpha rather than a
+   * bare `transparent`, which would interpolate through transparent black. */
+  --companion-arc-ramp:
+    rgba(45, 212, 191, 0) 0deg,
+    #2dd4bf 24deg,
+    #38bdf8 54deg,
+    #818cf8 84deg,
+    rgba(129, 140, 248, 0) 116deg,
+    rgba(45, 212, 191, 0) 360deg;
+}
+
+/*
+ * The travelling bloom.
  *
- * What none of the three existing hosts had is a look for the state that is
- * neither: idle (and `off`, though the panel unmounts before that ever
- * paints — see `CompanionPanelSlot`). `fabCompanionState` returns
- * `undefined` there on purpose, so `data-companion-state` is simply absent
- * and "today's look wins" — correct for a 32px button and for a Loops panel
- * that has its own loop-state ring to keep, wrong for a panel with the width
- * to spend on "the companion is here" even with nothing to report. So this
- * is scoped to `.companion-face--panel` (set only by `companion-panel.tsx`)
- * rather than to the bare `.companion-face:not([data-companion-state])` the
- * FAB and the Loops panel would also match — their resting looks stay
- * exactly as Theme H left them.
+ * NOT a blurred layer: `filter` is applied before `mask` in the render
+ * pipeline, so a blur followed by a hard band mask leaves a visible hard rim
+ * at both of the band's edges (the `.gradient-border::after` comment above
+ * hit exactly that). The softness is in the MASK instead — four linear ramps,
+ * each opaque at its own edge and transparent `--companion-band` inward,
+ * unioned by the default `mask-composite: add` into a distance-to-nearest-
+ * edge field. The angular softness is already in `--companion-arc-ramp`, so
+ * between the two there is no hard edge anywhere and no blur pass to pay for.
  *
- * The ring is `thinking`'s own two-layer border trick, unchanged, so the
- * conic gradient is never re-typed a third time; only the pace and the glow
- * are turned down — an 8s rotation against `thinking`'s 3s, and a small fixed
- * `box-shadow` in place of the 0→24px pulse. "Still orbiting, glow
- * significantly muted but still visible" is the brief; this is that brief,
- * read literally. Border width goes to 1.5px here (Theme H's FAB/Loops hosts
- * stay 1px) — the panel has the width to spend and a hairline ring is the
- * thing this ad hoc fix exists because nobody could see.
+ * The `0.42` midpoint on each ramp is the same one `.gradient-frame::before`
+ * uses: a straight two-stop ramp reads as a bright line with an abrupt end,
+ * and this bends it into something closer to a real falloff.
+ */
+.companion-face--panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: conic-gradient(from var(--companion-orbit), var(--companion-arc-ramp));
+  opacity: var(--companion-band-opacity);
+  mask-image:
+    linear-gradient(to bottom, #000 0, rgba(0, 0, 0, 0.42) calc(var(--companion-band) * 0.42), transparent var(--companion-band)),
+    linear-gradient(to top, #000 0, rgba(0, 0, 0, 0.42) calc(var(--companion-band) * 0.42), transparent var(--companion-band)),
+    linear-gradient(to right, #000 0, rgba(0, 0, 0, 0.42) calc(var(--companion-band) * 0.42), transparent var(--companion-band)),
+    linear-gradient(to left, #000 0, rgba(0, 0, 0, 0.42) calc(var(--companion-band) * 0.42), transparent var(--companion-band));
+  -webkit-mask-image:
+    linear-gradient(to bottom, #000 0, rgba(0, 0, 0, 0.42) calc(var(--companion-band) * 0.42), transparent var(--companion-band)),
+    linear-gradient(to top, #000 0, rgba(0, 0, 0, 0.42) calc(var(--companion-band) * 0.42), transparent var(--companion-band)),
+    linear-gradient(to right, #000 0, rgba(0, 0, 0, 0.42) calc(var(--companion-band) * 0.42), transparent var(--companion-band)),
+    linear-gradient(to left, #000 0, rgba(0, 0, 0, 0.42) calc(var(--companion-band) * 0.42), transparent var(--companion-band));
+}
+
+/*
+ * IDLE — `fabCompanionState` returns `undefined` for both `off` and `idle`,
+ * so the attribute is ABSENT and this is what "the companion is here, with
+ * nothing to report" looks like. Scoped to `.companion-face--panel` and not
+ * to a bare `.companion-face:not([data-companion-state])`, so the 32px FAB
+ * and the Loops panel keep the resting looks Theme H deliberately left alone.
+ *
+ * The ring is `thinking`'s own two-layer border trick with the ARC ramp in
+ * place of the full one — where the conic is transparent the panel's own
+ * background-color shows through the border box, so what is visible is a
+ * ~110deg segment orbiting the panel rather than a uniform hairline, which is
+ * what the previous version painted and what nobody could see.
+ *
+ * 15s, because `thinking` is 3s and the brief says one fifth of it. If
+ * thinking's duration ever moves, this one moves with it.
  */
 .companion-face--panel:not([data-companion-state]) {
   border: 1.5px solid transparent;
@@ -2145,124 +2319,205 @@ html[data-motion='reduced'] .companion-face[data-companion-state='speaking'] {
   background-clip: padding-box, border-box;
   background-image:
     linear-gradient(var(--companion-fill), var(--companion-fill)),
-    conic-gradient(from var(--companion-angle), var(--companion-ramp));
-  /* `inset` — see the block below this one for why every panel-scoped glow
-   * has to paint inward rather than out. */
-  box-shadow: inset 0 0 4px rgba(56, 189, 248, 0.32);
+    conic-gradient(from var(--companion-orbit), var(--companion-arc-ramp));
+  /* No uniform inset here on purpose: idle's glow IS the travelling segment,
+   * and a second, static wash underneath it is the thing that would stop the
+   * two reading as one object. */
+  box-shadow: var(--companion-waiting-inset);
   mask-image: none;
   -webkit-mask-image: none;
-  animation: companion-spin 8s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html:not([data-motion='full']) .companion-face--panel:not([data-companion-state]) {
-    animation: none;
-  }
-}
-
-html[data-motion='reduced'] .companion-face--panel:not([data-companion-state]) {
-  animation: none;
+  animation: companion-orbit var(--companion-orbit-duration) linear infinite;
 }
 
 /*
- * Paused the instant the OS takes focus elsewhere — the same rule Phase 36
- * Theme E already applies to every other permanently-running panel glow
- * (`.gradient-frame`, `.agent-run-glow`, `.dep-edge-animated`, further down
- * this file). `companion-panel.tsx` calls the same `useWindowFocusGate` those
- * do, so it becomes a third counted host rather than a fourth, independent
- * listener pair.
+ * THINKING — the same pair, five times faster, brighter and wider, with the
+ * uniform `companion-think-pulse` inset underneath it so the panel breathes
+ * as well as orbits. The `animation` has to be restated rather than inherited
+ * from the shared Theme H rule: that rule names `companion-spin`, which
+ * drives `--companion-angle`, and this panel's two layers both read
+ * `--companion-orbit`.
  */
-html[data-window-focused='false'] .companion-face--panel:not([data-companion-state]) {
-  animation-play-state: paused;
-}
-
-/*
- * Ad Hoc "companion glow, verified" — why the idle ring above was the ONLY
- * thing of Theme H's that ever painted on this panel, and why `listening`,
- * `thinking`, `handoff` and `speaking` need their own rules here at all
- * rather than inheriting the FAB's unchanged (as the block starting at
- * "The dedicated Companion panel's own fifth look" above claims they do).
- *
- * `app.tsx` docks this panel inside `data-companion-panel-frame`, an
- * `overflow: hidden` box whose `width` (`useRevealSize`'s tween) is set to
- * the exact same pixel figure passed to `<CompanionPanel width>` — required
- * so the open/close and drag-resize tween never shows content spilling past
- * its own edge mid-animation. That leaves zero room outside the panel's own
- * border box for anything to bleed into before the frame clips it, and every
- * one of Theme H's four non-idle states draws its glow as an OUTWARD
- * `box-shadow` (`0 0 Npx …`, no `inset`) — geometry that is, by definition,
- * outside the border box. The frame swallows all of it. What survives is
- * only the ~1px conic ring `thinking`/`handoff` paint via the border/
- * background-clip trick (contained *within* the border box, so immune to
- * this), which is why the panel used to look "plain" rather than obviously
- * broken — and why `speaking`, which has no ring at all, painted nothing
- * whatsoever. That is the exact state the bug report's own screenshot
- * caught: `data-companion-state="speaking"` (`fabCompanionState` maps
- * `greeting` to it) behind the header reading "Saying hello…".
- *
- * The FAB and mini-FAB never hit this — their `.companion-face` host is a
- * bare `absolute` button with no `overflow: hidden` ancestor sized to match
- * it — so the fix has to be scoped to the panel rather than flipped for
- * every host. The Loops panel never hits it either, despite sitting in the
- * identically-shaped `data-fab-panel-frame`: `.gradient-frame::before`
- * (above) already draws its glow as an absolutely-positioned, `inset: 0`,
- * blurred pseudo-element — contained within the host's own box by
- * construction. These three rules give the companion panel that same
- * containment, in the coordinate system Theme H already computes
- * (`--companion-glow`, `--companion-level`, `--companion-waiting-inset`)
- * rather than a second glow system: every value below is copied verbatim
- * from the FAB rule it overrides, with only the bare `0 0` swapped for
- * `inset 0 0`. Higher specificity than the shared rule (`.companion-face--
- * panel[data-companion-state=…]` vs. `.companion-face[data-companion-state=
- * …]`, an equal class+attribute count) would leave this to source order
- * alone, so these are placed after it regardless.
- */
-.companion-face--panel[data-companion-state='listening'] {
-  box-shadow:
-    inset 0 0 var(--companion-glow) rgba(45, 212, 191, 0.6),
-    inset 0 0 8px rgba(56, 189, 248, 0.35),
-    var(--companion-waiting-inset);
-}
-
 .companion-face--panel[data-companion-state='thinking'],
 .companion-face--panel[data-companion-state='handoff'] {
   border-width: 1.5px;
+  --companion-band: 46px;
+  --companion-band-opacity: 0.85;
   box-shadow:
     inset 0 0 var(--companion-glow) rgba(56, 189, 248, 0.5),
     var(--companion-waiting-inset);
 }
 
-.companion-face--panel[data-companion-state='speaking'] {
-  box-shadow:
-    inset 0 0 calc(8px + 20px * var(--companion-level))
-      rgba(129, 140, 248, calc(0.35 + 0.45 * var(--companion-level))),
-    var(--companion-waiting-inset);
+.companion-face--panel[data-companion-state='thinking'] {
+  --companion-orbit-duration: 3s;
+  background-image:
+    linear-gradient(var(--companion-fill), var(--companion-fill)),
+    conic-gradient(from var(--companion-orbit), var(--companion-arc-ramp));
+  animation:
+    companion-orbit var(--companion-orbit-duration) linear infinite,
+    companion-think-pulse 1.6s ease-in-out infinite;
 }
 
 /*
- * The reduced-motion pair only needs `speaking`: `listening`/`thinking`/
- * `handoff` above read `var(--companion-glow)` straight out of the box-shadow,
- * so they already pick up the `10px` the base reduced-motion block (above)
- * assigns that property — nothing panel-specific to override. `speaking`'s
- * reduced-motion rule is instead a hardcoded, non-`--companion-level` value,
- * so it needs the same `inset` swap the full-motion rule above got, at the
- * same specificity the rule it replaces uses (`html:not([data-motion=
- * 'full']) .companion-face[data-companion-state='speaking']`), or the base
- * rule's outward shadow would win here and the panel would go dark again the
- * moment reduced motion is on.
+ * HANDOFF — thinking's construction at half speed in the loops' own rainbow,
+ * the same relationship the two states have on the FAB. The arc ramp is
+ * re-stated rather than reusing `--rainbow-ramp` because that one is a full
+ * ring of stops with no transparent ends, and a full ring is precisely what
+ * this block exists to stop painting.
+ */
+.companion-face--panel[data-companion-state='handoff'] {
+  --companion-orbit-duration: 6s;
+  --companion-arc-ramp:
+    rgba(244, 114, 182, 0) 0deg,
+    #f472b6 24deg,
+    #fbbf24 54deg,
+    #34d399 84deg,
+    rgba(52, 211, 153, 0) 116deg,
+    rgba(244, 114, 182, 0) 360deg;
+  background-image:
+    linear-gradient(var(--companion-fill), var(--companion-fill)),
+    conic-gradient(from var(--companion-orbit), var(--companion-arc-ramp));
+  animation:
+    companion-orbit var(--companion-orbit-duration) linear infinite,
+    companion-think-pulse 3.2s ease-in-out infinite;
+}
+
+/*
+ * LISTENING — a full-round teal that breathes rather than a segment that
+ * travels, so "I am taking this in" is a different KIND of movement from "I
+ * am working on it". `companion-breathe` (shared, above) already drives
+ * `--companion-glow` 6px → 18px; the amplitude here is raised off the FAB's
+ * because, as the block comment explains, an inward glow along a 360px edge
+ * needs several times the radius an outward one needs around a 32px button.
+ *
+ * The band cannot read `--companion-glow` — that property is registered
+ * `inherits: false`, so the pseudo would see its initial 8px forever — so the
+ * breathing lives entirely in the host's inset and the band is a steady wash.
+ */
+.companion-face--panel[data-companion-state='listening'] {
+  --companion-band: 32px;
+  --companion-band-opacity: 0.3;
+  box-shadow:
+    inset 0 0 calc(8px + 1.4 * var(--companion-glow)) rgba(45, 212, 191, 0.5),
+    inset 0 0 14px rgba(56, 189, 248, 0.3),
+    var(--companion-waiting-inset);
+}
+
+.companion-face--panel[data-companion-state='listening']::after {
+  background-image: none;
+  background-color: rgba(45, 212, 191, 0.85);
+}
+
+/*
+ * SPEAKING — the one state with no arc and no keyframes at all. Everything
+ * rides `--companion-level`, which `speaker.ts` writes once on the root
+ * element on each boundary and decays to 0 over 180ms: louder really is
+ * brighter and wider, and a sentence that is paused, resumed or cancelled
+ * mid-word cannot desynchronise from an animation that does not exist. That
+ * is the same reason Theme H gives for the FAB rule, and it still holds.
+ *
+ * What changes is the FLOOR. `calc(8px + 20px * level)` meant the state was
+ * invisible whenever the level sat at 0 — which under the local voice engine
+ * is most of the time, since it has no word boundaries to pulse on (see the
+ * block comment). So the resting value is a glow that reads on its own, and
+ * the level widens and brightens it from there rather than being the only
+ * thing that lights it. All three of width, opacity and inset radius move
+ * together, so a loud syllable is unmistakable against a quiet one.
+ */
+.companion-face--panel[data-companion-state='speaking'] {
+  --companion-band: calc(22px + 22px * var(--companion-level));
+  --companion-band-opacity: calc(0.3 + 0.32 * var(--companion-level));
+  filter: brightness(calc(1 + 0.18 * var(--companion-level)));
+  box-shadow:
+    inset 0 0 calc(18px + 28px * var(--companion-level))
+      rgba(129, 140, 248, calc(0.38 + 0.3 * var(--companion-level))),
+    var(--companion-waiting-inset);
+  animation: none;
+}
+
+.companion-face--panel[data-companion-state='speaking']::after {
+  background-image: none;
+  background-color: rgba(129, 140, 248, 0.95);
+}
+
+/*
+ * Reduced motion (Phase 46's policy), in both of this file's usual forms —
+ * the media query for a user who set it at the OS with the app on `system`,
+ * and `html[data-motion='reduced']` for one who chose it in Appearance.
+ *
+ * Two things happen, not one. The orbit stops — and stopping it alone would
+ * freeze the arc wherever the clock happened to leave it, which reads as
+ * damage rather than as stillness. So `--companion-orbit` is PINNED at the
+ * same time. 200deg puts the lit sector (24-116deg past the `from` angle)
+ * down the panel's LEFT edge, the one facing the rest of the app rather than
+ * the window frame, so a user who asked for no motion still gets a deliberate
+ * rim light on the side they are looking at.
+ *
+ * Pinning rather than swapping in the full `--companion-ramp`: an even ring
+ * all the way round lights four edges at once and lands two to three times
+ * brighter than the moving segment it replaces, which would make the calm
+ * setting the loud one — and would collapse `idle` and `thinking` into the
+ * same picture, since the only thing left between them is intensity.
+ *
+ * `speaking` additionally drops its dependence on `--companion-level`,
+ * because a glow tracking speech is still motion, just motion driven from
+ * JavaScript.
  */
 @media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .companion-face--panel,
+  html:not([data-motion='full']) .companion-face--panel:not([data-companion-state]),
+  html:not([data-motion='full']) .companion-face--panel[data-companion-state] {
+    animation: none;
+    --companion-orbit: 200deg;
+  }
+
   html:not([data-motion='full']) .companion-face--panel[data-companion-state='speaking'] {
+    filter: none;
+    --companion-band: 30px;
+    --companion-band-opacity: 0.4;
     box-shadow:
-      inset 0 0 14px rgba(129, 140, 248, 0.55),
+      inset 0 0 26px rgba(129, 140, 248, 0.5),
       var(--companion-waiting-inset);
   }
 }
 
+html[data-motion='reduced'] .companion-face--panel,
+html[data-motion='reduced'] .companion-face--panel:not([data-companion-state]),
+html[data-motion='reduced'] .companion-face--panel[data-companion-state] {
+  animation: none;
+  --companion-orbit: 200deg;
+}
+
 html[data-motion='reduced'] .companion-face--panel[data-companion-state='speaking'] {
+  filter: none;
+  --companion-band: 30px;
+  --companion-band-opacity: 0.4;
   box-shadow:
-    inset 0 0 14px rgba(129, 140, 248, 0.55),
+    inset 0 0 26px rgba(129, 140, 248, 0.5),
     var(--companion-waiting-inset);
+}
+
+/*
+ * Paused the instant the OS takes focus elsewhere — the same rule Phase 36
+ * Theme E applies to every other permanently-running panel glow
+ * (`.gradient-frame`, `.agent-run-glow`, `.dep-edge-animated` further down
+ * this file), and `companion-panel.tsx` already calls the same
+ * `useWindowFocusGate` those do, so this is a third counted host rather than
+ * a fourth listener pair.
+ *
+ * The host, unconditionally, rather than only the idle rule as before: the
+ * orbit now runs in `idle`, `thinking` and `handoff`, and every one of them
+ * is a permanently-running animation on a panel that can sit mounted and
+ * blurred for hours. `animation-play-state: paused` freezes the current frame
+ * with no recomputation — unlike `display: none`, which would also hide the
+ * glow, or re-triggering on return, which would jump.
+ *
+ * It matters more here than it did: `--companion-orbit` inherits, so an
+ * unpaused frame is a style recalc over the panel's whole subtree rather than
+ * one element's background.
+ */
+html[data-window-focused='false'] .companion-face--panel,
+html[data-window-focused='false'] .companion-face--panel[data-companion-state] {
+  animation-play-state: paused;
 }
 
 /*
