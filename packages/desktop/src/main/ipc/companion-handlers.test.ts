@@ -112,6 +112,9 @@ describe('registerCompanionHandlers', () => {
     await expect(invoke(CHANNELS.companionSttStatus)).resolves.toEqual({
       configured: [],
       encryptionAvailable: false,
+      // openai-whisper is the only provider with a real factory behind it —
+      // deepgram stays in `SttProviderId` (Decision 8) without one.
+      implemented: ['openai-whisper'],
     });
   });
 

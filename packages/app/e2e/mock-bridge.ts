@@ -3337,6 +3337,28 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           kind: 'error' as const,
           message: 'No local voice engine in this harness.',
         }),
+        /*
+          Theme F's speech-in half, backed by `sttConfigured` above so the
+          real Settings ▸ Companion save flow (`sttSet` then `sttStatus`)
+          behaves like the real vault instead of a fixed answer. Starts
+          empty — no provider configured, matching a fresh install — so
+          `micAvailable()` resolves to the honest "no-key" reason.
+        */
+        sttStatus: async () => ({
+          configured: [...sttConfigured],
+          encryptionAvailable: true,
+          implemented: ['openai-whisper'],
+        }),
+        sttSet: async (req: { providerId: string; key: string }) => {
+          if (req.key.trim().length === 0) {
+            sttConfigured.delete(req.providerId);
+          } else {
+            sttConfigured.add(req.providerId);
+          }
+          return { ok: true as const };
+        },
+        sttTest: async () => ({ ok: true as const, value: { ms: 120, text: '' } }),
+        transcribe: async () => ({ ok: true as const, value: { text: '' } }),
       },
       mcp: {
         get: async () => ({
@@ -3553,6 +3575,13 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     // always-on default broke two unrelated specs.
     // eslint-disable-next-line no-var
     var mcpEnabled = data.mcp?.enabled ?? false;
+
+    // Which STT providers a key has been "saved" for in this page's lifetime
+    // (Theme F) — mutated by `sttSet`, read by `sttStatus`, so a spec can
+    // drive the real Settings ▸ Companion save flow and see the mic button
+    // react, exactly as `refreshMicAvailability` does against a real vault.
+    // eslint-disable-next-line no-var
+    var sttConfigured = new Set<string>();
 
     // Published on `window` so a test can read the ops back, and clear the
     // array between gestures.

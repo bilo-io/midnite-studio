@@ -2769,11 +2769,23 @@ export const CompanionSttSetRequest = z.object({
   key: z.string(),
 });
 
-/** Which providers hold a key here, and whether the OS keychain is usable at all. */
+/**
+ * Which providers hold a key here, whether the OS keychain is usable at all,
+ * and which providers main can actually transcribe with.
+ *
+ * `implemented` exists so a renderer never has to hardcode "which provider ids
+ * are real" — that list lives exactly once, next to `STT_PROVIDER_FACTORIES`
+ * in main. Without it, saving a key for a provider `STT_PROVIDER_LABELS`
+ * itself marks "(not yet implemented)" — Deepgram, today — reads back as
+ * `configured` and the mic button lights up for a provider that will fail
+ * every time it is actually pressed.
+ */
 export const CompanionSttStatusResponse = z.object({
   configured: z.array(SttProviderIdSchema),
   /** `safeStorage.isEncryptionAvailable()`. False means a key cannot be persisted at all. */
   encryptionAvailable: z.boolean(),
+  /** Providers with a real factory behind them — a subset of `SttProviderId`. */
+  implemented: z.array(SttProviderIdSchema),
 });
 
 /** Which provider to prove reachable. */

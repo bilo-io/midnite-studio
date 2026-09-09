@@ -217,3 +217,56 @@ test('Settings ▸ Companion ▸ Personality — last pill cannot be removed', a
   await page.waitForTimeout(600);
   await page.screenshot({ path: shotPath(P80D_OUT, 'names-last-pill.png') });
 });
+
+/**
+ * The mic bug fix — before this, the button read a stale cached answer once
+ * per render and had one fixed tooltip regardless of the actual reason. These
+ * three frames are the button's whole vocabulary now: off with the honest
+ * reason, ready, and mid-press.
+ */
+const MIC_OUT = '../../docs/screenshots/companion-mic-fix';
+
+test('the mic button — disabled with its reason, enabled, and listening', async ({ page }) => {
+  await open(page);
+  await openCompanion(page);
+  await setTheme(page, 'dark', { settleMs: 200 });
+
+  const mic = page.getByTestId('companion-mic');
+
+  // No key configured (the default mock bridge) — the honest, specific
+  // "no-key" reason, not a generic "voice unavailable".
+  await expect(mic).toHaveAttribute('aria-disabled', 'true');
+  await mic.hover();
+  await expect(page.getByRole('tooltip')).toContainText(
+    'add a speech key in Settings ▸ Companion',
+  );
+  await page.screenshot({ path: shotPath(MIC_OUT, 'mic-disabled.png') });
+  await mic.dispatchEvent('pointerleave' as never);
+
+  // A key saved through the real Settings ▸ Companion ▸ Microphone flow,
+  // with the panel never closed and never remounted — the exact shape of the
+  // bug this fix regresses. `onMicAvailabilityChange` is what makes the
+  // button notice without either of those.
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page
+    .getByRole('navigation', { name: 'Settings pages' })
+    .getByRole('button', { name: 'Companion', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Microphone', exact: true }).click();
+  await page.getByTestId('companion-stt-key').fill('sk-test-key');
+  await page.getByTestId('companion-stt-save').click();
+  await expect(page.getByTestId('companion-stt-stored')).toContainText('A key is stored');
+
+  // Back to the panel — still the same mount, no reload.
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(mic).not.toHaveAttribute('aria-disabled', 'true');
+  await mic.hover();
+  await expect(page.getByRole('tooltip')).toContainText('Hold to talk');
+  await page.screenshot({ path: shotPath(MIC_OUT, 'mic-enabled.png') });
+
+  // Held down — push-to-talk's own "Listening" label.
+  await mic.dispatchEvent('pointerdown', { pointerId: 1 } as never);
+  await mic.hover();
+  await expect(page.getByRole('tooltip')).toContainText('Listening');
+  await page.screenshot({ path: shotPath(MIC_OUT, 'mic-listening.png') });
+});

@@ -4,13 +4,19 @@ import type {
   CompanionDigest,
   CompanionSnapshot,
   GitOpResult,
+  SttProviderId,
 } from '@midnite/studio-shared';
 import type { z } from 'zod';
 
 import { askCompanion } from '../companion/ask';
 import { buildCompanionDigest } from '../companion/digest';
 import { buildCompanionSnapshot } from '../companion/snapshot';
-import { sttDeps, testSttCredential, transcribeUtterance } from '../companion/stt';
+import {
+  STT_PROVIDER_FACTORIES,
+  sttDeps,
+  testSttCredential,
+  transcribeUtterance,
+} from '../companion/stt';
 import { synthesizeSpeech } from '../companion/tts';
 import { handle, handleBare, handleOp } from './handle';
 
@@ -97,6 +103,10 @@ export function registerCompanionHandlers(): void {
       return {
         configured: await credentials.configured(),
         encryptionAvailable: credentials.isAvailable(),
+        // `STT_PROVIDER_FACTORIES` is the one place "actually implemented"
+        // is decided — reported here so the renderer's mic button can tell
+        // "no key" apart from "a key for a provider that doesn't exist yet".
+        implemented: Object.keys(STT_PROVIDER_FACTORIES) as SttProviderId[],
       };
     },
   );

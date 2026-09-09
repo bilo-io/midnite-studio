@@ -75,12 +75,16 @@ afterEach(() => {
   delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
 });
 
-const installBridge = (configured: string[], fail = false): void => {
+const installBridge = (
+  configured: string[],
+  options: { fail?: boolean; implemented?: string[]; encryptionAvailable?: boolean } = {},
+): void => {
+  const { fail = false, implemented = ['openai-whisper'], encryptionAvailable = true } = options;
   (window as unknown as { midniteStudio: unknown }).midniteStudio = {
     companion: {
       sttStatus: fail
         ? vi.fn(() => Promise.reject(new Error('gone')))
-        : vi.fn(() => Promise.resolve({ configured, encryptionAvailable: true })),
+        : vi.fn(() => Promise.resolve({ configured, encryptionAvailable, implemented })),
     },
   };
 };
@@ -95,6 +99,8 @@ describe('the registered ports', () => {
     expect(typeof ports.micPressStart).toBe('function');
     expect(typeof ports.micPressEnd).toBe('function');
     expect(typeof ports.micAvailable).toBe('function');
+    expect(typeof ports.micUnavailableReason).toBe('function');
+    expect(typeof ports.onMicAvailabilityChange).toBe('function');
   });
 
   it('applies the persisted companion volume when it registers', () => {
@@ -136,12 +142,87 @@ describe('micAvailable', () => {
   });
 
   it('reads a bridge that rejects as "not configured"', async () => {
-    installBridge([], true);
+    installBridge([], { fail: true });
     await expect(refreshMicAvailability()).resolves.toBe(false);
   });
 
   it('reads no bridge at all as "not configured"', async () => {
     await expect(refreshMicAvailability()).resolves.toBe(false);
+  });
+
+  // The reactivity bug this file guards against: `micAvailable()` used to be
+  // a plain cached boolean nobody was told to re-read. `onMicAvailabilityChange`
+  // is the fix, so it gets exercised directly here rather than only through a
+  // component's re-render.
+  it('notifies a subscriber the moment availability changes, not on a timer or a poll', async () => {
+    installBridge(['openai-whisper']);
+    const listener = vi.fn();
+    const unsubscribe = companionPorts().onMicAvailabilityChange(listener);
+
+    await refreshMicAvailability();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it('does not notify twice for the same answer', async () => {
+    installBridge([]);
+    await refreshMicAvailability();
+    const listener = vi.fn();
+    companionPorts().onMicAvailabilityChange(listener);
+
+    await refreshMicAvailability();
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('stops notifying once unsubscribed', async () => {
+    installBridge(['openai-whisper']);
+    const listener = vi.fn();
+    const unsubscribe = companionPorts().onMicAvailabilityChange(listener);
+    unsubscribe();
+
+    await refreshMicAvailability();
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  // A key stored for a provider `sttStatus` reports as `configured` but not
+  // `implemented` (Deepgram, today) must not light the mic up — it would
+  // work exactly once, until the user presses it and every transcription
+  // fails with "not implemented yet".
+  it('stays unavailable when the only configured provider has no factory behind it', async () => {
+    installBridge(['deepgram'], { implemented: ['openai-whisper'] });
+    await expect(refreshMicAvailability()).resolves.toBe(false);
+    expect(companionPorts().micAvailable()).toBe(false);
+    expect(companionPorts().micUnavailableReason()).toContain('implemented yet');
+  });
+
+  it('is available when at least one configured provider is implemented', async () => {
+    installBridge(['deepgram', 'openai-whisper'], { implemented: ['openai-whisper'] });
+    await expect(refreshMicAvailability()).resolves.toBe(true);
+  });
+
+  it('names the missing keychain when nothing is configured and encryption is unavailable', async () => {
+    installBridge([], { encryptionAvailable: false });
+    await refreshMicAvailability();
+    expect(companionPorts().micUnavailableReason()).toContain('keychain');
+  });
+
+  it('gives the plain "add a key" reason with no other explanation needed', async () => {
+    installBridge([], { encryptionAvailable: true });
+    await refreshMicAvailability();
+    expect(companionPorts().micUnavailableReason()).toBe(
+      'Hold to talk — add a speech key in Settings ▸ Companion',
+    );
+  });
+
+  it('reports "checking" before the first probe resolves', () => {
+    installBridge(['openai-whisper']);
+    // No `await` — the probe is in flight, and the reason has to say so
+    // rather than accusing the user of never having configured anything.
+    void refreshMicAvailability();
+    expect(companionPorts().micUnavailableReason()).toContain('checking');
   });
 });
 

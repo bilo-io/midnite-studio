@@ -108,8 +108,14 @@ mac:
   notarize: false
   # The Automation consent prompt's own copy (Phase 74 Theme C) — shown once,
   # the first time the app sends Finder an Apple event to empty the Trash.
+  # NSMicrophoneUsageDescription (Phase 79 Theme F) is the companion mic's own:
+  # without a usage description in Info.plist, macOS refuses `getUserMedia`'s
+  # audio request outright — no system prompt, no `NotAllowedError` a caller
+  # can branch on, just a capture that never starts. Shown once, the first
+  # time push-to-talk is pressed.
   extendInfo:
     NSAppleEventsUsageDescription: Midnite Studio asks Finder to empty the Trash when you choose Empty Trash in the Workspace Optimizer.
+    NSMicrophoneUsageDescription: Midnite Studio uses the microphone to transcribe what you say to the companion while you hold its mic button.
 
 afterSign: scripts/notarize.cjs
 

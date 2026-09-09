@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { LuMic, LuMicOff, LuSendHorizontal } from 'react-icons/lu';
 
 import { GRADIENT_FIELD_CLASSES } from '../../components/gradient-field';
@@ -19,9 +25,17 @@ const MAX_TEXTAREA_HEIGHT = 160;
  *   {@link MAX_TEXTAREA_HEIGHT} and scrolls past that, so a long paste cannot
  *   eat the thread.
  * - **The mic.** Disabled until Theme F's provider is configured, with the
- *   reason on hover rather than a silent grey button — `micAvailable()` is read
- *   through the port registry precisely so this file needs no knowledge of
- *   which provider or where its key lives.
+ *   reason on hover rather than a silent grey button — `micAvailable()` and
+ *   `micUnavailableReason()` are read through the port registry precisely so
+ *   this file needs no knowledge of which provider or where its key lives.
+ *   Read through `useSyncExternalStore`, not a plain call during render: this
+ *   panel is a persistent dock that commonly stays mounted while Settings ▸
+ *   Companion is where a key actually gets saved, and nothing about that save
+ *   touches a prop or a store field this component renders from. A plain
+ *   `companionPorts().micAvailable()` read once per render would show the
+ *   stale answer until some *unrelated* re-render happened to occur — which
+ *   for a panel that is just sitting open can be indefinitely. Subscribing is
+ *   what makes the enable transition visible the moment it happens.
  * - **Send.** Disabled on an empty input, and while `thinking`: the companion
  *   is mid-turn, and Decision 10 makes a second command a scripted refusal
  *   rather than a queued one.
@@ -47,7 +61,21 @@ export function CompanionInputBar({
   const [value, setValue] = useState('');
   const [micHeld, setMicHeld] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const micAvailable = companionPorts().micAvailable();
+  const micAvailable = useSyncExternalStore(
+    (listener) => companionPorts().onMicAvailabilityChange(listener),
+    () => companionPorts().micAvailable(),
+  );
+  /*
+    A second, independent subscription rather than folding this into
+    `micAvailable` above: the *reason* can change (`checking` → `no-key`, say)
+    without the boolean ever flipping, and each `useSyncExternalStore` call
+    re-renders on its own snapshot alone. One combined snapshot string would
+    work too, but two plain reads say what each is for.
+  */
+  const micUnavailableReason = useSyncExternalStore(
+    (listener) => companionPorts().onMicAvailabilityChange(listener),
+    () => companionPorts().micUnavailableReason(),
+  );
 
   /*
     Autogrow. Reset to `auto` before reading `scrollHeight` — without it the
@@ -215,7 +243,7 @@ export function CompanionInputBar({
                 ? micHeld
                   ? 'Listening — release to send'
                   : 'Hold to talk'
-                : 'Hold to talk — add a speech key in Settings ▸ Companion'
+                : micUnavailableReason
             }
           >
             <button
