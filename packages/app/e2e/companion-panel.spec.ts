@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The companion panel (Phase 79 Themes C + H).
@@ -769,4 +769,39 @@ test('a detached page is focused rather than reopened, and the docked view does 
     () => (window as unknown as { __mstudioFocusRoleCalls: Array<{ role: string }> }).__mstudioFocusRoleCalls,
   );
   expect(focusCalls).toEqual(expect.arrayContaining([{ role: 'graph' }]));
+});
+
+test('a navigate that would leave a dirty file defers to the unsaved-file guard, and touches nothing', async ({
+  page,
+}) => {
+  await seedCompanionEnabled(page);
+  await stubSpeechAndAudio(page);
+  await installMockBridge(page, {
+    ...fixtures,
+    fsDirs: { 'repo:': [{ name: 'a.ts', kind: 'file', size: 20, isIgnored: false }] },
+    fsFiles: {
+      'repo:a.ts': { kind: 'text', content: 'const answer = 42;\n', size: 20, version: { mtimeMs: 1, size: 20 } },
+    },
+  } as MockFixtures);
+  await page.goto('/');
+  await clickRailLink(page, 'Explorer');
+  await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await page.locator('.monaco-editor .view-lines').click();
+  await page.keyboard.type('x');
+  await expect(page.getByTitle('Unsaved changes')).toBeVisible();
+
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+
+  await submit(page, 'take me to the graph');
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Save changes to "a.ts"?');
+  await expect(page.getByTestId('companion-thread')).toContainText('unsaved file');
+  // Still up after the turn posted — the companion touched nothing further.
+  await expect(dialog).toBeVisible();
+  await expect(page.getByTitle('Unsaved changes')).toBeVisible();
 });
