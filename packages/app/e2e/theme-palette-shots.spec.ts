@@ -28,7 +28,7 @@ async function openAppearanceSettings(page: Page): Promise<void> {
     .getByRole('navigation', { name: 'Settings pages' })
     .getByRole('button', { name: 'Appearance', exact: true })
     .click();
-  await page.getByRole('radiogroup', { name: 'Palette' }).waitFor();
+  await page.getByRole('radiogroup', { name: 'Light palettes' }).waitFor();
   await page.waitForTimeout(SETTLE_MS);
 }
 
@@ -51,7 +51,7 @@ test.describe('Phase 64 Theme E + F — Palette accordion screenshots', () => {
       .getByRole('navigation', { name: 'Settings pages' })
       .getByRole('button', { name: 'Appearance', exact: true })
       .click();
-    await page.getByRole('radiogroup', { name: 'Palette' }).waitFor();
+    await page.getByRole('radiogroup', { name: 'Light palettes' }).waitFor();
     await page.waitForTimeout(SETTLE_MS);
     await page.screenshot({ path: shotPath(OUT, 'appearance-palette-dark.png') });
   });
