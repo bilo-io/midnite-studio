@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { ViewId } from './view';
+
 /**
  * The auxiliary *panels* a secondary `BrowserWindow` can host — the surfaces
  * that **move** when detached: the docked slot collapses and the popout
@@ -38,7 +40,7 @@ export const PAGE_WINDOW_ROLES = [
   'history',
   'optimizer',
   'sessions',
-] as const;
+] as const satisfies readonly ViewId[];
 
 /*
   Five `ViewId`s are deliberately absent, and the omissions are the interesting
