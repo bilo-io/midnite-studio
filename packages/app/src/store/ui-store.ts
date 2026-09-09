@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 import {
   DEFAULT_COMPANION_VOLUME,
   METRICS_IDLE_INTERVAL_MS,
+  VIEW_IDS,
   type CompanionMicMode,
   type CompanionVoiceEngine,
   type CompanionVoiceSelection,
@@ -13,6 +14,8 @@ import {
   type MetricId,
   type PageWindowRole,
   type PanelWindowRole,
+  type SettingsPageId,
+  type ViewId,
 } from '@midnite/studio-shared';
 
 import type { ActivityTimeframe } from '../components/commit-activity-timeline/activity-buckets';
@@ -109,98 +112,17 @@ export type GraphSelection =
   | null;
 
 /**
- * The main content views the rail switches between.
- *
- * Seven since Phase 19, and the rail is now the app's table of contents rather
- * than three ways to look at one checkout. `dashboard` is deliberately first:
- * it renders through `NavConfig.pinned`, ABOVE the workspace section and
- * without a header of its own, so its position in this union is the only place
- * that ordering is written down.
+ * `ViewId`/`VIEW_IDS` and `SettingsPageId`/`SETTINGS_PAGE_IDS` moved to
+ * `@midnite/studio-shared` (Phase 81 Theme A, Decision 3) so a closed
+ * `z.enum` can be built over them — the companion's grammar, and Theme F's
+ * `ui.navigate` MCP tool. Re-exported here so no existing
+ * `import type { ViewId } from '../store/ui-store'` (or `VIEW_IDS`/
+ * `SettingsPageId`) call site has to move. Labels and keywords are UI copy
+ * and stay in `app` — `VIEW_LABELS`/`VIEW_KEYWORDS` in
+ * `services/palette/providers.ts`, and `SETTINGS_PAGES` below.
  */
-export type ViewId =
-  /**
-   * The landing page, and the only view whose path is `/` rather than
-   * `/<id>` — it is the app's front door, not an entry in the rail. Nothing
-   * in `app.tsx`'s nav item lists names it, so it never renders a rail row;
-   * it is reached from the brand mark, the title bar wordmark and the
-   * palette. First in the union for the same reason `dashboard` is second:
-   * position here is the only place this ordering is written down.
-   */
-  | 'landing'
-  | 'dashboard'
-  | 'files'
-  | 'search'
-  | 'tests'
-  | 'database'
-  | 'graph'
-  | 'changes'
-  | 'actions'
-  | 'reviews'
-  | 'issues'
-  | 'projects'
-  | 'history'
-  | 'councils'
-  | 'workflows'
-  | 'video'
-  | 'sessions'
-  | 'optimizer'
-  | 'apiClient'
-  | 'settings';
-
-/** Every view, in rail order — the domain of the per-view maps below. */
-export const VIEW_IDS: readonly ViewId[] = [
-  'landing',
-  'dashboard',
-  'files',
-  'search',
-  'tests',
-  'database',
-  'projects',
-  'graph',
-  'changes',
-  'actions',
-  'reviews',
-  'issues',
-  'history',
-  'councils',
-  'workflows',
-  'video',
-  'sessions',
-  'optimizer',
-  'apiClient',
-  'settings',
-];
-
-
-/**
- * The pages the Settings view splits into (Phase 16). An inner sidebar, not
- * nav-rail sub-items: the rail stays view navigation, and settings pages are
- * one view's internal structure.
- */
-export type SettingsPageId =
-  | 'appearance'
-  | 'graph'
-  | 'diff'
-  | 'sidebar'
-  | 'search'
-  | 'screenLock'
-  | 'terminal'
-  | 'agent'
-  | 'reviews'
-  | 'projects'
-  | 'workflows'
-  | 'video'
-  | 'gitSafety'
-  | 'trashSafety'
-  | 'apiClient'
-  | 'monitor'
-  | 'browser'
-  | 'cli'
-  | 'updates'
-  | 'health'
-  | 'optimizer'
-  | 'mcp'
-  | 'companion';
+export type { ViewId, SettingsPageId } from '@midnite/studio-shared';
+export { VIEW_IDS, SETTINGS_PAGE_IDS } from '@midnite/studio-shared';
 
 /**
  * The categories the settings pages sort into, in UX priority order — the

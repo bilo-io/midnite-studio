@@ -182,7 +182,7 @@ here edits those functions, so the two phases do not collide.
 Where the companion's words come from and how a plain function runs a command. Nothing in this
 theme is reachable from the thread yet; B, C and D wire it.
 
-- [ ] Move `ViewId` and `VIEW_IDS` from [`ui-store.ts:120-172`](../../../packages/app/src/store/ui-store.ts)
+- [x] Move `ViewId` and `VIEW_IDS` from [`ui-store.ts:120-172`](../../../packages/app/src/store/ui-store.ts)
       to a new [`packages/shared/src/domain/view.ts`](../../../packages/shared/src/domain/view.ts)
       (`export const VIEW_IDS = [...] as const; export type ViewId = (typeof VIEW_IDS)[number]`),
       taking the ordering docblock with them; do the same for `SettingsPageId` (`:180-203`) as
@@ -194,11 +194,11 @@ theme is reachable from the thread yet; B, C and D wire it.
     type. `VIEW_COMPONENT: Record<ViewId, ViewEntry>` ([`view-registry.tsx:110`](../../../packages/app/src/components/view-registry.tsx))
     and `SETTINGS_PAGES` still typecheck total with no edit.
   - *Acceptance:* `moon run :typecheck` green with zero import-path churn outside the two files.
-- [ ] Export `VIEW_LABELS` and `VIEW_KEYWORDS` from
+- [x] Export `VIEW_LABELS` and `VIEW_KEYWORDS` from
       [`services/palette/providers.ts:27,50`](../../../packages/app/src/services/palette/providers.ts)
       (today module-private `const`s). No content change — the palette's words are the companion's
       words, and a second table would be the drift this phase exists to avoid.
-- [ ] Add `CompanionVocabularySchema` to [`shared/src/companion.ts`](../../../packages/shared/src/companion.ts):
+- [x] Add `CompanionVocabularySchema` to [`shared/src/companion.ts`](../../../packages/shared/src/companion.ts):
       ```ts
       { views: { id: ViewId, label: string, keywords: string }[],
         settingsPages: { id: SettingsPageId, label: string }[],
@@ -208,7 +208,7 @@ theme is reachable from the thread yet; B, C and D wire it.
       ```
       and a `CompanionAccess = 'direct' | 'confirm' | 'never'` type beside it. `commands` carries
       **only** `direct` and `confirm` rows — a `never` command is not a word the companion knows.
-- [ ] Add `COMMAND_ACCESS: Record<CommandId, CompanionAccess>` to
+- [x] Add `COMMAND_ACCESS: Record<CommandId, CompanionAccess>` to
       [`features/palette/safety.ts`](../../../packages/app/src/features/palette/safety.ts) beside
       `PALETTE_SAFE`, **total by type** (`Record`, not `Partial` — a new `CommandId` fails
       `:typecheck` until someone decides how the companion may use it, the same guarantee
@@ -224,7 +224,7 @@ theme is reachable from the thread yet; B, C and D wire it.
     `PALETTE_SAFE` must be `never`. The companion is provably no wider than the palette.
   - *Acceptance:* `browser.clearData`, `companion.toggle`, `op.abort`, `op.continue` are `never`,
     asserted by name.
-- [ ] Add [`features/companion/command-runtime.ts`](../../../packages/app/src/features/companion/command-runtime.ts):
+- [x] Add [`features/companion/command-runtime.ts`](../../../packages/app/src/features/companion/command-runtime.ts):
       a module registry in `companion-ports.ts`'s shape — `setCommandRuntime(runtime: CommandRuntime | null)`
       and `runCommand(id: CommandId): { ok: true } | { ok: false; reason: 'unknown' | 'disabled' | 'no-runtime'; message: string }`.
       `app.tsx:611` becomes `const runtime = useCommandHandlers(); useKeybindings(runtime);
@@ -233,13 +233,13 @@ theme is reachable from the thread yet; B, C and D wire it.
   - *Acceptance:* `runCommand` on a disabled entry returns `{ ok: false, reason: 'disabled', message: entry.disabledReason ?? … }`
     and calls nothing — `disabledReason` is the sentence the companion will speak, verbatim
     ("Open a repository first").
-- [ ] Add [`features/companion/vocabulary.ts`](../../../packages/app/src/features/companion/vocabulary.ts):
+- [x] Add [`features/companion/vocabulary.ts`](../../../packages/app/src/features/companion/vocabulary.ts):
       `buildVocabulary(repos: readonly RepoDescriptor[]): CompanionVocabulary` from `VIEW_IDS` ×
       `VIEW_LABELS`/`VIEW_KEYWORDS`, `SETTINGS_PAGES`, `COMMANDS` × `COMMAND_ACCESS` (dropping
       `never`), `AGENT_COMMANDS` filtered to `COMPANION_COMMAND_IDS`, and repo names. Pure; memoised
       on the repo list identity. `runtime.ts` calls it once per flow beside `refreshRoster()` and
       hands it to the grammar (B/C/D) and to `ask` (E).
-- [ ] Extend `parseIntent` in `shared/src/companion.ts` to `parseIntent(text, vocabulary?)`: with no
+- [x] Extend `parseIntent` in `shared/src/companion.ts` to `parseIntent(text, vocabulary?)`: with no
       vocabulary it behaves exactly as today (every existing test passes unchanged); with one, the
       new kinds below are recognised. Existing skill verbs keep precedence.
   - `{ kind: 'navigate', view: ViewId, page?: SettingsPageId, issue?: number, url?: string }` —
@@ -263,7 +263,7 @@ theme is reachable from the thread yet; B, C and D wire it.
   - *Acceptance:* table-driven tests, one row per verb × target class, plus negatives ("open the
     pod bay doors" is `freeform`; "push" alone with no vocabulary is `freeform`, unchanged;
     "graph" alone with no verb is `freeform` — a bare noun is not an instruction).
-- [ ] Extend `CompanionIntentSchema` with the four kinds and `CompanionAskReplySchema` follows for
+- [x] Extend `CompanionIntentSchema` with the four kinds and `CompanionAskReplySchema` follows for
       free (it embeds the intent schema). `handoff.ts`'s `act()` gains the four arms as **stubs
       that say "I can't do that yet"** in this theme, replaced in B, C and D — so the schema, the
       grammar and the switch land total together and `act()`'s exhaustiveness check stays a
@@ -585,7 +585,7 @@ Finding 6 describes.
 - [ ] `moon run :typecheck :lint :test` green. `no-restricted-imports` clean: `shared/src/domain/view.ts`
       imports nothing; `features/companion/*` imports nothing from `desktop`/`electron`; `main/mcp/`
       imports nothing from `app`.
-- [ ] **A** — `safety.test.ts`: `COMMAND_ACCESS` is total (the type does it; the test asserts
+- [x] **A** — `safety.test.ts`: `COMMAND_ACCESS` is total (the type does it; the test asserts
       `Object.keys(COMMAND_ACCESS).length === COMMAND_IDS.length`), every `direct`/`confirm` id is in
       `PALETTE_SAFE ∪ ID_DISPATCH_OK`, and the four named `never`s. `companion.test.ts`: every new
       verb × target row, the repo-before-view rule, the no-vocabulary regression (every pre-existing
