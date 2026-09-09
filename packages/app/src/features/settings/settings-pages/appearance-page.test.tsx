@@ -35,6 +35,9 @@ describe('AppearancePage — Palette accordion', () => {
         removeEventListener: vi.fn(),
       })),
     );
+    // No `midnite.theme` key in localStorage — `ThemeProvider` starts every
+    // test from `system`, the state the always-pin tests below start from.
+    localStorage.clear();
     usePaletteStore.setState({
       activePaletteId: 'github-dark',
       terminalPaletteOverride: null,
@@ -48,23 +51,66 @@ describe('AppearancePage — Palette accordion', () => {
     vi.unstubAllGlobals();
   });
 
+  it('splits the picker into a Light group and a Dark group, 6 built-ins each', () => {
+    renderPage();
+    const light = screen.getByRole('radiogroup', { name: 'Light palettes' });
+    const dark = screen.getByRole('radiogroup', { name: 'Dark palettes' });
+    expect(light.querySelectorAll('[role="radio"]')).toHaveLength(6);
+    expect(dark.querySelectorAll('[role="radio"]')).toHaveLength(6);
+    expect(within(light).getByRole('radio', { name: 'GitHub Light' })).toBeTruthy();
+    expect(within(dark).getByRole('radio', { name: 'GitHub Dark' })).toBeTruthy();
+    // Wrong-group presence would throw in `within`, but assert absence too.
+    expect(within(light).queryByRole('radio', { name: 'GitHub Dark' })).toBeNull();
+    expect(within(dark).queryByRole('radio', { name: 'GitHub Light' })).toBeNull();
+  });
+
   it('renders a card for every built-in preset, with the active one checked', () => {
     renderPage();
-    const group = screen.getByRole('radiogroup', { name: 'Palette' });
-    expect(group.querySelectorAll('[role="radio"]')).toHaveLength(6);
+    const dark = screen.getByRole('radiogroup', { name: 'Dark palettes' });
     expect(
-      within(group).getByRole('radio', { name: 'GitHub Dark' }).getAttribute('aria-checked'),
+      within(dark).getByRole('radio', { name: 'GitHub Dark' }).getAttribute('aria-checked'),
     ).toBe('true');
     expect(
-      within(group).getByRole('radio', { name: 'Monokai' }).getAttribute('aria-checked'),
+      within(dark).getByRole('radio', { name: 'Monokai' }).getAttribute('aria-checked'),
     ).toBe('false');
   });
 
   it('clicking a preset card sets it active', () => {
     renderPage();
-    const group = screen.getByRole('radiogroup', { name: 'Palette' });
-    fireEvent.click(within(group).getByRole('radio', { name: 'Monokai' }));
+    const dark = screen.getByRole('radiogroup', { name: 'Dark palettes' });
+    fireEvent.click(within(dark).getByRole('radio', { name: 'Monokai' }));
     expect(usePaletteStore.getState().activePaletteId).toBe('monokai');
+  });
+
+  it('selecting a light palette pins Appearance to Light from a system starting state', () => {
+    renderPage();
+    const appearance = screen.getByRole('radiogroup', { name: 'Appearance' });
+    expect(within(appearance).getByRole('radio', { name: 'System' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+
+    const light = screen.getByRole('radiogroup', { name: 'Light palettes' });
+    fireEvent.click(within(light).getByRole('radio', { name: 'Solarized Light' }));
+
+    expect(usePaletteStore.getState().activePaletteId).toBe('solarized-light');
+    expect(
+      within(appearance).getByRole('radio', { name: 'Light' }).getAttribute('aria-checked'),
+    ).toBe('true');
+    expect(
+      within(appearance).getByRole('radio', { name: 'System' }).getAttribute('aria-checked'),
+    ).toBe('false');
+  });
+
+  it('selecting a dark palette pins Appearance to Dark from a system starting state', () => {
+    renderPage();
+    const appearance = screen.getByRole('radiogroup', { name: 'Appearance' });
+    const dark = screen.getByRole('radiogroup', { name: 'Dark palettes' });
+    fireEvent.click(within(dark).getByRole('radio', { name: 'Monokai' }));
+
+    expect(usePaletteStore.getState().activePaletteId).toBe('monokai');
+    expect(
+      within(appearance).getByRole('radio', { name: 'Dark' }).getAttribute('aria-checked'),
+    ).toBe('true');
   });
 
   it('the terminal override defaults to "Match app" and can be set independently', () => {
@@ -113,8 +159,9 @@ describe('AppearancePage — Palette accordion', () => {
     expect(usePaletteStore.getState().activePaletteId).toBe(
       usePaletteStore.getState().userPalettes[0]?.id,
     );
-    const paletteGroup = screen.getByRole('radiogroup', { name: 'Palette' });
-    expect(within(paletteGroup).getByRole('radio', { name: 'My Imported Theme' })).toBeTruthy();
+    // `type: 'dark'` in the fixture → sorts into the Dark group.
+    const darkGroup = screen.getByRole('radiogroup', { name: 'Dark palettes' });
+    expect(within(darkGroup).getByRole('radio', { name: 'My Imported Theme' })).toBeTruthy();
   });
 
   it('imports a real third-party theme (SynthWave \'84) and persists it across a reload', async () => {
