@@ -1,10 +1,13 @@
 import {
+  COMPANION_LOCAL_VOICES,
   COMPANION_PHRASES,
+  CompanionHonorificsSchema,
   CompanionNamesSchema,
   STT_PROVIDERS_WITHOUT_KEY,
   STT_PROVIDER_IDS,
   STT_PROVIDER_LABELS,
   interpolatePhrase,
+  pickHonorific,
   pickPhrase,
   type SttProviderId,
 } from '@midnite/studio-shared';
@@ -15,6 +18,7 @@ import {
   LuCircleCheck,
   LuDownload,
   LuMic,
+  LuPlay,
   LuRefreshCw,
   LuSmile,
   LuTriangleAlert,
@@ -28,7 +32,7 @@ import { refreshMicAvailability } from '../../companion/voice-ports';
 import { IconButton } from '../../../components/icon-button';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
-import { Choice, Field, TextField } from './controls';
+import { Choice, Field } from './controls';
 
 /**
  * Settings ▸ Companion (Phase 79 Theme H) — the page the five `companion*`
@@ -64,11 +68,11 @@ export function CompanionPage() {
   const setCompanionEnabled = useUiStore((s) => s.setCompanionEnabled);
   const companionHandsFree = useUiStore((s) => s.companionHandsFree);
   const setCompanionHandsFree = useUiStore((s) => s.setCompanionHandsFree);
-  const companionHonorific = useUiStore((s) => s.companionHonorific);
-  const setCompanionHonorific = useUiStore((s) => s.setCompanionHonorific);
+  const companionHonorifics = useUiStore((s) => s.companionHonorifics);
+  const setCompanionHonorifics = useUiStore((s) => s.setCompanionHonorifics);
   const companionNames = useUiStore((s) => s.companionNames);
   const setCompanionNames = useUiStore((s) => s.setCompanionNames);
-  const companionVoice = useUiStore((s) => s.companionVoice);
+  const companionVoices = useUiStore((s) => s.companionVoices);
   const setCompanionVoice = useUiStore((s) => s.setCompanionVoice);
   const companionSpeakAloud = useUiStore((s) => s.companionSpeakAloud);
   const setCompanionSpeakAloud = useUiStore((s) => s.setCompanionSpeakAloud);
@@ -119,10 +123,10 @@ export function CompanionPage() {
   const sayHello = useCallback(() => {
     const greeting = pickPhrase(COMPANION_PHRASES.greetings);
     void (async () => {
-      await companionTtsSpeaker.speak(interpolatePhrase(greeting, companionHonorific));
+      await companionTtsSpeaker.speak(interpolatePhrase(greeting, pickHonorific(companionHonorifics)));
       setRendererEngine(companionTtsSpeaker.activeEngine);
     })();
-  }, [companionHonorific]);
+  }, [companionHonorifics]);
 
   const retryLocalVoice = useCallback(() => {
     // Order matters: reset the renderer's own sticky fallback first so the
@@ -133,13 +137,32 @@ export function CompanionPage() {
     void retryTtsStatus();
   }, [retryTtsStatus]);
 
+  /**
+   * Preview one engine specifically — Ad Hoc: each engine now has its own
+   * voice picker, so the button beside each one has to reach *that* engine
+   * even when this session already fell back to the other (`sayHello` above
+   * follows the local-first fallback order instead, which is the right
+   * behaviour for the *overall* preview but the wrong one for "does this
+   * particular local voice sound right").
+   */
+  const previewEngine = useCallback(
+    (engine: 'local' | 'system') => {
+      const greeting = pickPhrase(COMPANION_PHRASES.greetings);
+      void companionTtsSpeaker.speakWithEngine(
+        engine,
+        interpolatePhrase(greeting, pickHonorific(companionHonorifics)),
+      );
+    },
+    [companionHonorifics],
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <Accordion title="Companion" icon={<LuBot className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Field
             label="Enable companion"
-            hint="Adds a chat panel beside the Loops panel, a Companion row to the quick-access menu, and lets the app speak. Off by default: it greets you out loud when the panel opens, and an app that talks unprompted has to be asked for."
+            hint="Adds a chat panel and a quick-access row, and lets the app speak. Off by default — an app that talks unprompted has to be asked for."
           >
             <label className="flex items-center gap-2 text-xs">
               <input
@@ -167,7 +190,7 @@ export function CompanionPage() {
           */}
           <Field
             label="Speak replies aloud"
-            hint="On by default: enabling the companion is the decision to be spoken to. Turn it off to keep the thread, the greeting and the routing while the app stays silent — a shared office, or a call. Nothing else changes; every turn is still written into the thread."
+            hint="On by default. Turn off to keep the thread and routing silent — a shared office, a call."
           >
             <label className="flex items-center gap-2 text-xs">
               <input
@@ -197,14 +220,46 @@ export function CompanionPage() {
 
           <CompanionVoiceStatus status={ttsStatus} rendererEngine={rendererEngine} onRetry={retryLocalVoice} />
 
+          <Field label="Local voice" hint="Which of Kokoro's bundled voices to use once it's ready.">
+            <select
+              value={companionVoices.local ?? ''}
+              onChange={(event) =>
+                setCompanionVoice('local', event.target.value === '' ? null : event.target.value)
+              }
+              aria-label="Local voice"
+              data-testid="companion-voice-local"
+              className="w-full rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">Default — Heart</option>
+              {COMPANION_LOCAL_VOICES.map((voice) => (
+                <option key={voice.id} value={voice.id}>
+                  {voice.name} — {voice.language === 'en-us' ? 'American' : 'British'}, {voice.gender}
+                </option>
+              ))}
+            </select>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => previewEngine('local')}
+                disabled={!companionEnabled || ttsStatus?.voice !== 'ready'}
+                title="Speak a line through the local voice specifically"
+                className="inline-flex items-center gap-1 h-6 rounded-md border border-border px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
+                data-testid="companion-voice-preview-local"
+              >
+                <LuPlay className="h-3 w-3" />
+                Preview
+              </button>
+            </div>
+          </Field>
+
           <Field
             label="Speaking voice (fallback)"
-            hint="One of the voices your operating system already ships — no download, no network. Used automatically if the local voice can't load. Say hello below tries the local voice first and falls back to this one."
+            hint="One of your operating system's voices — used automatically if the local voice can't load."
           >
             <select
-              value={companionVoice ?? ''}
+              value={companionVoices.system ?? ''}
               onChange={(event) =>
-                setCompanionVoice(event.target.value === '' ? null : event.target.value)
+                setCompanionVoice('system', event.target.value === '' ? null : event.target.value)
               }
               aria-label="Speaking voice"
               data-testid="companion-voice"
@@ -219,8 +274,7 @@ export function CompanionPage() {
             </select>
             {voices.length === 0 ? (
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                No voices reported yet. The list arrives asynchronously on some systems — reopen
-                this page if it stays empty.
+                No voices reported yet — reopen this page if the list stays empty.
               </p>
             ) : null}
             <div className="flex flex-wrap items-center gap-2">
@@ -245,6 +299,17 @@ export function CompanionPage() {
               >
                 Say hello
               </button>
+              <button
+                type="button"
+                onClick={() => previewEngine('system')}
+                disabled={!companionEnabled || voices.length === 0}
+                title="Speak a line through the system voice specifically"
+                className="inline-flex items-center gap-1 h-6 rounded-md border border-border px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
+                data-testid="companion-voice-preview-system"
+              >
+                <LuPlay className="h-3 w-3" />
+                Preview
+              </button>
               {localeVoices.length > 0 && localeVoices.length < voices.length ? (
                 <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <input
@@ -267,7 +332,7 @@ export function CompanionPage() {
 
           <Field
             label="Companion volume"
-            hint="How loudly the companion's own sounds play — the whistling and the elevator music it offers on a long wait. It does not change the speaking voice, which uses your system volume."
+            hint="Volume for the companion's whistle and elevator music — not the speaking voice, which uses system volume."
           >
             <div className="flex items-center gap-2">
               <input
@@ -292,19 +357,16 @@ export function CompanionPage() {
       <Accordion title="Microphone" icon={<LuMic className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Chromium&apos;s own recogniser does not work in Electron — it routes to a Google
-            service this app ships no key for. The microphone works out of the box instead, with a
-            built-in offline speech engine that needs no key and no account — it downloads a small
-            model once, the first time it&apos;s used. OpenAI Whisper below is an optional
-            alternative for anyone who already has a key and prefers the cloud model; its key is
-            held in the OS keychain, never sent anywhere but that provider.
+            Chromium&apos;s recogniser doesn&apos;t work in Electron, so the mic uses a built-in
+            offline engine instead — no key, no account, just a small one-time download. OpenAI
+            Whisper below is an optional cloud alternative for anyone who already has a key.
           </p>
 
           <SttCredentialFields disabled={!companionEnabled} />
 
           <Choice<'push' | 'toggle'>
             label="Microphone button"
-            hint="Hold to talk is the default because it cannot leave the microphone open — letting go is the same gesture as stopping. Tap to toggle suits a long dictation, or a hand that cannot hold a button."
+            hint="Hold to talk can't leave the mic open by accident. Tap to toggle suits a long dictation."
             value={companionMicMode}
             onChange={setCompanionMicMode}
             options={[
@@ -319,7 +381,7 @@ export function CompanionPage() {
         <div className="flex flex-col gap-4 p-3">
           <Field
             label="Let the companion press Return"
-            hint="Without this, a command the companion prepares is typed into a new agent session and left there for you to send. With it, the companion sends it itself — after saying out loud which command it is about to run."
+            hint="Off: a prepared command is typed but left for you to send. On: the companion sends it itself, after saying which command out loud."
           >
             <label className="flex items-center gap-2 text-xs">
               <input
@@ -338,18 +400,11 @@ export function CompanionPage() {
             <p className="font-medium text-foreground">What this still never does</p>
             <ul className="list-disc space-y-1 pl-4">
               <li>
-                No command outside the agent skills this app already knows — there is no
-                &ldquo;commit this&rdquo; and no &ldquo;push&rdquo;. Every write still happens
-                inside an agent session you can watch.
+                No command outside the agent skills this app already knows — every write still
+                happens inside an agent session you can watch.
               </li>
-              <li>
-                No silent send: the companion speaks the command before it runs it, so the thing
-                about to happen is said out loud first.
-              </li>
-              <li>
-                Nothing at all while the microphone is unconfigured — a hands-free run needs both
-                switches, and this one alone changes nothing.
-              </li>
+              <li>No silent send: the companion speaks the command before it runs it.</li>
+              <li>Nothing while the microphone is unconfigured — a hands-free run needs both switches.</li>
             </ul>
           </div>
         </div>
@@ -357,23 +412,42 @@ export function CompanionPage() {
 
       <Accordion title="Personality" icon={<LuSmile className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
-          <CompanionNamesField names={companionNames} onChange={setCompanionNames} />
+          <PillListField
+            label="What you call it"
+            hint="Wakes the companion, typed or spoken. At least one name is always required."
+            values={companionNames}
+            onChange={setCompanionNames}
+            validate={validateCompanionNames}
+            minCount={1}
+            minCountReason="The companion needs at least one name"
+            duplicateMessage={(candidate) => `"${candidate}" is already one of its names.`}
+            invalidMessage="That name is not valid."
+            placeholder="Type a name and press Enter…"
+            addAriaLabel="Add a name"
+            removeAriaLabel={(name) => `Remove "${name}"`}
+            pillsTestId="companion-names-pills"
+            inputTestId="companion-names-input"
+          />
 
-          <Field
+          <PillListField
             label="What it calls you"
-            hint="Dropped into greetings and sign-offs. Empty by default, and empty reads correctly — the phrase collapses the punctuation that was only there to set the name off, so it says “Okay, here we are” rather than “Okay , here we are”."
-          >
-            <TextField
-              value={companionHonorific}
-              onChange={setCompanionHonorific}
-              label="What it calls you"
-              placeholder="sir, Ada, boss…"
-            />
-          </Field>
+            hint="Dropped into greetings and sign-offs. Empty by default — punctuation collapses cleanly with none set."
+            values={companionHonorifics}
+            onChange={setCompanionHonorifics}
+            validate={validateCompanionHonorifics}
+            minCount={0}
+            duplicateMessage={(candidate) => `"${candidate}" is already one of what it calls you.`}
+            invalidMessage="That value is not valid."
+            placeholder="sir, Ada, boss…"
+            addAriaLabel="Add what it calls you"
+            removeAriaLabel={(name) => `Remove "${name}"`}
+            pillsTestId="companion-honorifics-pills"
+            inputTestId="companion-honorifics-input"
+          />
 
           <Field
             label="Offer music on a long wait"
-            hint="After twenty seconds of waiting on an agent the companion asks whether you would like something to listen to. It only ever offers — nothing plays unless you say yes."
+            hint="After 20s waiting on an agent, offers something to listen to. Never plays without a yes."
           >
             <label className="flex items-center gap-2 text-xs">
               <input
@@ -561,29 +635,64 @@ function CompanionVoiceStatus({
 }
 
 /** Matches `TextField`'s own styling constant (`field.tsx:87`) — not exported, so restated here rather than editing that file for one more caller. */
-const NAME_INPUT_CLASSNAME =
+const PILL_INPUT_CLASSNAME =
   'w-full rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring disabled:opacity-50';
 
 /**
- * The pill list of names the companion answers to (Phase 80 Theme D).
+ * A closable-pill list of freeform values, shared by "What you call it"
+ * (`companionNames`, Phase 80 Theme D) and "What it calls you"
+ * (`companionHonorifics`, Ad Hoc — extracted from that first field's own
+ * implementation once a second caller needed the identical pattern).
  *
  * A raw `<input>` sharing `TextField`'s styling constant rather than
  * `TextField` itself — Enter-to-commit and Backspace-to-delete-last need
  * `onKeyDown`, which `TextField` doesn't take, and threading a new prop
- * through a shared primitive for this one caller would be worse than the
- * five extra lines here (phase doc, Decision 7).
+ * through a shared primitive for these two callers would be worse than the
+ * few extra lines here (phase doc, Decision 7).
  *
  * No tag/token input exists in `@bilo-io/ui` (confirmed against its
  * `dist/index.d.ts`), so this is composed from primitives that already
  * exist: the input's own styling, and `IconButton` for each pill's remove
  * control — `LuX` from `react-icons/lu`, never `lucide-react`.
+ *
+ * `minCount` is the one behavioural difference between the two callers:
+ * `companionNames` blocks removing its last entry (a companion needs at
+ * least one name to answer to); `companionHonorifics` has no such floor —
+ * zero is its own default, so removing every pill is a normal outcome, not
+ * one to guard against.
  */
-function CompanionNamesField({
-  names,
+function PillListField({
+  label,
+  hint,
+  values,
   onChange,
+  validate,
+  minCount,
+  minCountReason,
+  duplicateMessage,
+  invalidMessage,
+  placeholder,
+  addAriaLabel,
+  removeAriaLabel,
+  pillsTestId,
+  inputTestId,
 }: {
-  names: string[];
-  onChange: (names: string[]) => void;
+  label: string;
+  hint: string;
+  values: string[];
+  onChange: (values: string[]) => void;
+  /** `CompanionNamesSchema.safeParse`/`CompanionHonorificsSchema.safeParse`, wrapped to hide zod's result shape from this generic component. */
+  validate: (candidates: string[]) => string[] | null;
+  minCount: number;
+  /** Shown as the last pill's disabled-remove reason. Required once `minCount > 0`. */
+  minCountReason?: string;
+  duplicateMessage: (candidate: string) => string;
+  invalidMessage: string;
+  placeholder: string;
+  addAriaLabel: string;
+  removeAriaLabel: (value: string) => string;
+  pillsTestId: string;
+  inputTestId: string;
 }) {
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -591,49 +700,46 @@ function CompanionNamesField({
   const commitDraft = useCallback(() => {
     const candidate = draft.trim();
     if (candidate === '') return;
-    if (names.some((name) => name.toLowerCase() === candidate.toLowerCase())) {
-      setError(`"${candidate}" is already one of its names.`);
+    if (values.some((value) => value.toLowerCase() === candidate.toLowerCase())) {
+      setError(duplicateMessage(candidate));
       return;
     }
-    const result = CompanionNamesSchema.safeParse([...names, candidate]);
-    if (!result.success) {
-      setError('That name is not valid.');
+    const next = validate([...values, candidate]);
+    if (next === null) {
+      setError(invalidMessage);
       return;
     }
-    onChange(result.data);
+    onChange(next);
     setDraft('');
     setError(null);
-  }, [draft, names, onChange]);
+  }, [draft, values, onChange, validate, duplicateMessage, invalidMessage]);
 
-  const removeName = useCallback(
-    (name: string) => {
-      if (names.length <= 1) return; // Decision 6: block, never silently backfill a default.
-      onChange(names.filter((existing) => existing !== name));
+  const removeValue = useCallback(
+    (value: string) => {
+      if (values.length <= minCount) return; // Decision 6: block, never silently backfill a default.
+      onChange(values.filter((existing) => existing !== value));
       setError(null);
     },
-    [names, onChange],
+    [values, onChange, minCount],
   );
 
   return (
-    <Field
-      label="What you call it"
-      hint="Every name below wakes the companion — typed or spoken. At least one name is always required, so the last one can't be removed."
-    >
+    <Field label={label} hint={hint}>
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-1.5" data-testid="companion-names-pills">
-          {names.map((name) => (
+        <div className="flex flex-wrap items-center gap-1.5" data-testid={pillsTestId}>
+          {values.map((value) => (
             <span
-              key={name}
+              key={value}
               className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 py-0.5 pl-2.5 pr-1 text-xs text-foreground"
             >
-              {name}
+              {value}
               <IconButton
                 icon={LuX}
-                label={`Remove "${name}"`}
+                label={removeAriaLabel(value)}
                 size="sm"
-                onClick={() => removeName(name)}
-                disabled={names.length <= 1}
-                disabledReason={names.length <= 1 ? 'The companion needs at least one name' : undefined}
+                onClick={() => removeValue(value)}
+                disabled={values.length <= minCount}
+                disabledReason={values.length <= minCount ? minCountReason : undefined}
               />
             </span>
           ))}
@@ -649,19 +755,29 @@ function CompanionNamesField({
             if (event.key === 'Enter') {
               event.preventDefault();
               commitDraft();
-            } else if (event.key === 'Backspace' && draft === '' && names.length > 1) {
-              removeName(names[names.length - 1] as string);
+            } else if (event.key === 'Backspace' && draft === '' && values.length > minCount) {
+              removeValue(values[values.length - 1] as string);
             }
           }}
-          aria-label="Add a name"
-          placeholder="Type a name and press Enter…"
-          className={NAME_INPUT_CLASSNAME}
-          data-testid="companion-names-input"
+          aria-label={addAriaLabel}
+          placeholder={placeholder}
+          className={PILL_INPUT_CLASSNAME}
+          data-testid={inputTestId}
         />
         {error ? <p className="text-[11px] text-destructive">{error}</p> : null}
       </div>
     </Field>
   );
+}
+
+function validateCompanionNames(candidates: string[]): string[] | null {
+  const result = CompanionNamesSchema.safeParse(candidates);
+  return result.success ? result.data : null;
+}
+
+function validateCompanionHonorifics(candidates: string[]): string[] | null {
+  const result = CompanionHonorificsSchema.safeParse(candidates);
+  return result.success ? result.data : null;
 }
 
 /**
@@ -855,7 +971,7 @@ function SttCredentialFields({ disabled }: { disabled: boolean }) {
     <>
       <Field
         label="Provider"
-        hint="Which engine transcribes what you say. The offline engine runs entirely on this machine and needs no key; OpenAI Whisper is the opt-in cloud alternative for anyone who already has a key — the audio leaves this machine only while you are holding the microphone button, and only for that provider."
+        hint="Which engine transcribes you. Offline needs no key; OpenAI Whisper is an opt-in cloud alternative — audio leaves this machine only while the mic button is held."
       >
         <select
           value={provider}
@@ -876,7 +992,7 @@ function SttCredentialFields({ disabled }: { disabled: boolean }) {
       {keyless ? (
         <Field
           label="Offline speech model"
-          hint="Downloaded once into this app's own data folder, never into the repo. Runs on this machine — nothing about what you say leaves it."
+          hint="Downloaded once into this app's own data folder. Runs on this machine — nothing you say leaves it."
         >
           <div className="flex flex-col gap-2">
             <LocalSttStatus status={localModel} onRetry={retryLocalModel} />
@@ -909,7 +1025,7 @@ function SttCredentialFields({ disabled }: { disabled: boolean }) {
       ) : (
         <Field
           label="API key"
-          hint="Held in the OS keychain through Electron's safeStorage, never in the app's own storage and never sent to the renderer. Leave it empty and press Save to forget a stored key."
+          hint="Held in the OS keychain, never in the app's own storage. Leave it empty and press Save to forget a stored key."
         >
           <div className="flex flex-col gap-2">
             <input

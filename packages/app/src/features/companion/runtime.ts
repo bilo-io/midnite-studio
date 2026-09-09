@@ -114,7 +114,7 @@ function conciergeDeps(signal: AbortSignal, repo: RepoSnapshot): ConciergeDeps {
     settings: () => {
       const ui = useUiStore.getState();
       return {
-        honorific: ui.companionHonorific,
+        honorifics: ui.companionHonorifics,
         handsFree: ui.companionHandsFree,
         voiceInReady: voiceInReady(),
       };

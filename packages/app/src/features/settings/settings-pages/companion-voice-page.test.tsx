@@ -17,6 +17,7 @@ import { CompanionPage } from './companion-page';
  */
 
 const speak = vi.fn();
+const speakWithEngine = vi.fn();
 const retryLocalVoice = vi.fn();
 /** Mutable so a test can start the renderer already fallen back to `'system'`. */
 let mockActiveEngine: 'local' | 'system' = 'local';
@@ -25,6 +26,10 @@ vi.mock('../../companion/speaker', () => ({
     speak: (...args: unknown[]) => {
       speak(...args);
       return Promise.resolve();
+    },
+    speakWithEngine: (...args: unknown[]) => {
+      speakWithEngine(...args);
+      return Promise.resolve(true);
     },
     cancel: vi.fn(),
     available: true,
@@ -83,7 +88,7 @@ function installVoices(langs: string[]) {
 beforeEach(() => {
   useUiStore.setState({
     companionEnabled: true,
-    companionHonorific: '',
+    companionHonorifics: [],
     companionNames: ['Companion'],
     companionVolume: 0.7,
     companionMicMode: 'push',
@@ -111,7 +116,7 @@ describe('Settings ▸ Companion ▸ Voice (Theme F)', () => {
 
   it('resolves the honorific into the preview', async () => {
     installBridge();
-    useUiStore.setState({ companionHonorific: 'Ada' });
+    useUiStore.setState({ companionHonorifics: ['Ada'] });
     render(<CompanionPage />);
 
     fireEvent.click(await screen.findByTestId('companion-say-hello'));

@@ -99,9 +99,9 @@ export const PREFERENCE_KEYS = [
   // has to mean.
   'companionEnabled', // companion-page.tsx
   'companionHandsFree', // companion-page.tsx
-  'companionHonorific', // companion-page.tsx
+  'companionHonorifics', // companion-page.tsx (Personality ▸ "What it calls you" pills, Ad Hoc)
   'companionNames', // companion-page.tsx (Personality ▸ the name pills, Phase 80 Theme D)
-  'companionVoice', // companion-page.tsx
+  'companionVoices', // companion-page.tsx (Voice ▸ Local voice / Speaking voice, Ad Hoc)
   'companionSpeakAloud', // companion-page.tsx (Voice ▸ Speak replies aloud)
   'companionMusicOffer', // companion-page.tsx
   // Themes F and G's own two, added with the controls that read them rather

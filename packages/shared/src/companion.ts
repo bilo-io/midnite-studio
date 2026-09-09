@@ -981,6 +981,24 @@ export function isCompanionLocalVoiceId(value: string | null): value is Companio
   return value !== null && (COMPANION_LOCAL_VOICE_IDS as readonly string[]).includes(value);
 }
 
+/**
+ * Which voice engine a per-engine selection applies to — `speaker.ts`'s own
+ * `'local' | 'system'` split (`CompanionTtsSpeaker['activeEngine']`,
+ * `tts.ts`'s `CompanionTtsStatusValue['engine']`), named here once so
+ * `companionVoices` (`ui-store.ts`) has one canonical shape to persist.
+ */
+export const COMPANION_VOICE_ENGINES = ['system', 'local'] as const;
+export type CompanionVoiceEngine = (typeof COMPANION_VOICE_ENGINES)[number];
+
+/**
+ * A voice choice per engine, replacing the single `companionVoice` string
+ * (Ad Hoc: every voice mode gets its own memory, so switching engines never
+ * silently drops back to a default). `null` for either engine means "let
+ * that engine pick its own default" — the platform default `speechSynthesis`
+ * voice, or `COMPANION_LOCAL_VOICE_DEFAULT` for the local engine.
+ */
+export type CompanionVoiceSelection = Record<CompanionVoiceEngine, string | null>;
+
 // --- F · the speech-to-text provider seam ----------------------------------
 
 /**

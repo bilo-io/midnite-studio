@@ -71,7 +71,7 @@ describe('greet', () => {
     await greet(
       fakeConciergeDeps({
         store: armed,
-        settings: () => ({ honorific: '', handsFree: true, voiceInReady: true }),
+        settings: () => ({ honorifics: [], handsFree: true, voiceInReady: true }),
       }),
     );
     expect(armed.state).toBe('listening');
@@ -82,7 +82,7 @@ describe('greet', () => {
     await greet(
       fakeConciergeDeps({
         store: unarmed,
-        settings: () => ({ honorific: '', handsFree: true, voiceInReady: false }),
+        settings: () => ({ honorifics: [], handsFree: true, voiceInReady: false }),
       }),
     );
     expect(unarmed.state).toBe('idle');
@@ -101,7 +101,7 @@ describe('greet', () => {
     await greet(
       fakeConciergeDeps({
         store: named,
-        settings: () => ({ honorific: 'sir', handsFree: false, voiceInReady: false }),
+        settings: () => ({ honorifics: ['sir'], handsFree: false, voiceInReady: false }),
       }),
     );
     expect(named.transcript[0]?.text).toBe('Good to see you sir.');

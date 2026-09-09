@@ -5,6 +5,8 @@ import {
   DEFAULT_COMPANION_VOLUME,
   METRICS_IDLE_INTERVAL_MS,
   type CompanionMicMode,
+  type CompanionVoiceEngine,
+  type CompanionVoiceSelection,
   type Ecosystem,
   type LoopModel,
   type LoopSchedule,
@@ -1271,13 +1273,16 @@ export type UiState = {
   companionHandsFree: boolean;
   setCompanionHandsFree: (handsFree: boolean) => void;
   /**
-   * What the companion calls you — "sir", "Ada", anything. Empty by default,
-   * and every phrase bank entry reads correctly both ways: `interpolatePhrase`
-   * (`shared/src/companion.ts`) collapses `{name}` *and* the punctuation that
-   * only existed to set it off.
+   * What the companion calls you — "sir", "Ada", anything. A pill list, the
+   * same closable-pill design `companionNames` uses for "What you call it"
+   * (Ad Hoc: it used to be one string). Empty by default; every phrase bank
+   * entry reads correctly with none picked, since `pickHonorific` resolving
+   * an empty list to `''` is exactly the empty-honorific case
+   * `interpolatePhrase` (`shared/src/companion.ts`) already collapses
+   * cleanly.
    */
-  companionHonorific: string;
-  setCompanionHonorific: (honorific: string) => void;
+  companionHonorifics: string[];
+  setCompanionHonorifics: (honorifics: string[]) => void;
   /**
    * The names the companion answers to — a pill per name in Settings.
    * Greenfield (Phase 80 Theme D): there is no prior scalar to carry
@@ -1291,13 +1296,17 @@ export type UiState = {
   companionNames: string[];
   setCompanionNames: (names: string[]) => void;
   /**
-   * A `speechSynthesis` voice URI, or null for the platform default. A URI
-   * rather than a name because names collide across locales, and null rather
-   * than a seeded default because the available voices are a property of the
-   * machine, not of this build.
+   * The chosen voice, per engine (Ad Hoc: every voice mode gets its own
+   * memory, so switching engines never silently drops back to a default).
+   * `system` is a `speechSynthesis` voice URI, or null for the platform
+   * default — a URI rather than a name because names collide across locales.
+   * `local` is a `CompanionLocalVoiceId` (`af_heart`, …), or null for
+   * `COMPANION_LOCAL_VOICE_DEFAULT`. Migrated forward from the single
+   * `companionVoice` string at v15 → v16 (`system` inherits its value;
+   * `local` starts unset).
    */
-  companionVoice: string | null;
-  setCompanionVoice: (voice: string | null) => void;
+  companionVoices: CompanionVoiceSelection;
+  setCompanionVoice: (engine: CompanionVoiceEngine, voiceId: string | null) => void;
   /**
    * Whether the companion actually reads its turns out loud.
    *
@@ -1581,9 +1590,9 @@ export type PersistedUi = Pick<
   | 'launchAndRunEnabled'
   | 'companionEnabled'
   | 'companionHandsFree'
-  | 'companionHonorific'
+  | 'companionHonorifics'
   | 'companionNames'
-  | 'companionVoice'
+  | 'companionVoices'
   | 'companionSpeakAloud'
   | 'companionMusicOffer'
   | 'companionVolume'
@@ -1726,14 +1735,15 @@ export const useUiStore = create<UiState>()(
       setCompanionEnabled: (companionEnabled) => set({ companionEnabled }),
       companionHandsFree: false,
       setCompanionHandsFree: (companionHandsFree) => set({ companionHandsFree }),
-      companionHonorific: '',
-      setCompanionHonorific: (companionHonorific) => set({ companionHonorific }),
+      companionHonorifics: [],
+      setCompanionHonorifics: (companionHonorifics) => set({ companionHonorifics }),
       // The one name that already existed as a hardcoded label — a fresh
       // install's behavior doesn't change (Phase 80 Theme D, Finding 5).
       companionNames: ['Companion'],
       setCompanionNames: (companionNames) => set({ companionNames }),
-      companionVoice: null,
-      setCompanionVoice: (companionVoice) => set({ companionVoice }),
+      companionVoices: { system: null, local: null },
+      setCompanionVoice: (engine, voiceId) =>
+        set((state) => ({ companionVoices: { ...state.companionVoices, [engine]: voiceId } })),
       // ON by default — see the field's docblock. Every other `companion*`
       // switch defaults off; this one is inside `companionEnabled`, not
       // beside it.
@@ -2178,7 +2188,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 15,
+      version: 16,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2262,9 +2272,9 @@ export const useUiStore = create<UiState>()(
         launchAndRunEnabled: state.launchAndRunEnabled,
         companionEnabled: state.companionEnabled,
         companionHandsFree: state.companionHandsFree,
-        companionHonorific: state.companionHonorific,
+        companionHonorifics: state.companionHonorifics,
         companionNames: state.companionNames,
-        companionVoice: state.companionVoice,
+        companionVoices: state.companionVoices,
         companionSpeakAloud: state.companionSpeakAloud,
         companionMusicOffer: state.companionMusicOffer,
         companionVolume: state.companionVolume,
@@ -2315,6 +2325,12 @@ export const useUiStore = create<UiState>()(
        * gives: `PersistedUi` is what rehydrate merges over the initial state,
        * so a migration that produces the shape its type claims is the only
        * version of this that cannot drift.
+       * v15 → v16 (Ad Hoc): `companionHonorific` (a string) becomes
+       * `companionHonorifics` (a list) — the old value survives as its sole
+       * element, or an empty list when it was already `''`. `companionVoice`
+       * becomes `companionVoices.system`; `companionVoices.local` starts
+       * unset (`null`), same as a fresh install, since there was no local
+       * voice selection before this version to carry forward.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -2341,9 +2357,13 @@ export const useUiStore = create<UiState>()(
           activeEnvironmentByRepo?: Record<string, string | null>;
           companionEnabled?: boolean;
           companionHandsFree?: boolean;
+          /** Pre-v16 shape, read only to migrate forward into `companionHonorifics`. */
           companionHonorific?: string;
+          companionHonorifics?: string[];
           companionNames?: string[];
+          /** Pre-v16 shape, read only to migrate forward into `companionVoices.system`. */
           companionVoice?: string | null;
+          companionVoices?: CompanionVoiceSelection;
           companionSpeakAloud?: boolean;
           companionMusicOffer?: boolean;
           companionVolume?: number;
@@ -2409,6 +2429,15 @@ export const useUiStore = create<UiState>()(
           state.companionHonorific = '';
           state.companionVoice = null;
           state.companionMusicOffer = true;
+        }
+        // Runs last, textually after every branch above that can populate
+        // (or seed) the pre-v16 `companionHonorific`/`companionVoice`
+        // scalars, so a blob from any earlier version has one to read here
+        // rather than `undefined`.
+        if (version < 16) {
+          const honorific = state.companionHonorific ?? '';
+          state.companionHonorifics = honorific.trim() === '' ? [] : [honorific];
+          state.companionVoices = { system: state.companionVoice ?? null, local: null };
         }
         return state as PersistedUi;
       },
