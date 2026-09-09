@@ -1,10 +1,31 @@
-import { CHANNELS } from '@midnite/studio-shared';
+import { CHANNELS, ok } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // `vi.hoisted` because vitest lifts `vi.mock` above the imports — the same
-// `ipcMain.handle` capture `mcp-handlers.test.ts` makes.
-const { handle } = vi.hoisted(() => ({ handle: vi.fn() }));
-vi.mock('electron', () => ({ ipcMain: { handle } }));
+// `ipcMain.handle` capture `mcp-handlers.test.ts` makes. `on` joins it here
+// (Ad Hoc "TTS synthesis blocks the UI"): `companionTtsCancel` registers
+// through `handleSend`/`ipcMain.on`, the first one-way channel this file has
+// had to capture.
+const { handle, on } = vi.hoisted(() => ({ handle: vi.fn(), on: vi.fn() }));
+vi.mock('electron', () => ({ ipcMain: { handle, on } }));
+
+// The engine itself — real `tts.ts` internals, `.generate()` and all — is
+// `tts.test.ts`'s job; the broker's own request/queue/cancel plumbing is
+// `tts-broker.test.ts`'s. This file's job is wiring: which channel calls
+// which function, and with what fallback on a bad payload — so the three
+// broker entry points are stubbed rather than exercising a real
+// `utilityProcess.fork` (which this test's `electron` mock does not provide
+// at all).
+const { synthesizeSpeechAsync, getCompanionTtsStatusAsync, cancelQueuedSynthesis } = vi.hoisted(() => ({
+  synthesizeSpeechAsync: vi.fn(),
+  getCompanionTtsStatusAsync: vi.fn(),
+  cancelQueuedSynthesis: vi.fn(),
+}));
+vi.mock('../companion/tts-broker', () => ({
+  synthesizeSpeechAsync,
+  getCompanionTtsStatusAsync,
+  cancelQueuedSynthesis,
+}));
 
 import { registerCompanionHandlers } from './companion-handlers';
 
@@ -15,8 +36,19 @@ function invoke(channel: string, raw?: unknown): unknown {
   return listener({}, raw);
 }
 
+/** The `ipcMain.on` listener main registered for `channel`, invoked the way `ipcRenderer.send` would. */
+function send(channel: string, raw?: unknown): void {
+  const [, listener] = on.mock.calls.find(([ch]) => ch === channel) ?? [];
+  if (typeof listener !== 'function') throw new Error(`no listener registered for ${channel}`);
+  listener({}, raw);
+}
+
 afterEach(() => {
   handle.mockClear();
+  on.mockClear();
+  synthesizeSpeechAsync.mockReset();
+  getCompanionTtsStatusAsync.mockReset();
+  cancelQueuedSynthesis.mockReset();
 });
 
 describe('registerCompanionHandlers', () => {
@@ -154,5 +186,65 @@ describe('registerCompanionHandlers', () => {
     await expect(
       invoke(CHANNELS.companionSttTest, { providerId: 'whisper.cpp' }),
     ).resolves.toMatchObject({ ok: false, kind: 'error' });
+  });
+
+  /*
+    Ad Hoc "TTS synthesis blocks the UI" — the local voice engine now runs
+    off a `utilityProcess`, proxied through `tts-broker.ts`. These three
+    assert the swap actually routes through it (not `tts.ts` directly) and
+    that the new one-way cancel channel is wired the same way every other
+    `handleSend` channel in this app is.
+  */
+  it('routes a synthesize request through the broker, not the engine module directly', async () => {
+    synthesizeSpeechAsync.mockResolvedValue(ok({ audio: new Uint8Array([1]), mime: 'audio/wav' }));
+    registerCompanionHandlers();
+
+    await expect(invoke(CHANNELS.companionTtsSynthesize, { text: 'hi' })).resolves.toEqual(
+      ok({ audio: new Uint8Array([1]), mime: 'audio/wav' }),
+    );
+    expect(synthesizeSpeechAsync).toHaveBeenCalledWith('hi', undefined);
+  });
+
+  it('answers an unreadable synthesize payload through the error arm without reaching the broker', async () => {
+    registerCompanionHandlers();
+    // `text` requires at least one character.
+    await expect(invoke(CHANNELS.companionTtsSynthesize, { text: '' })).resolves.toMatchObject({
+      ok: false,
+      kind: 'error',
+    });
+    expect(synthesizeSpeechAsync).not.toHaveBeenCalled();
+  });
+
+  it('routes a status request through the broker and wraps it in ok(...)', async () => {
+    getCompanionTtsStatusAsync.mockResolvedValue({
+      engine: 'local',
+      voice: 'ready',
+      reason: null,
+      message: null,
+    });
+    registerCompanionHandlers();
+
+    await expect(invoke(CHANNELS.companionTtsStatus, {})).resolves.toEqual(
+      ok({ engine: 'local', voice: 'ready', reason: null, message: null }),
+    );
+    expect(getCompanionTtsStatusAsync).toHaveBeenCalledWith(false);
+  });
+
+  it('registers the cancel channel through ipcMain.on (handleSend), and calls the broker when sent', () => {
+    registerCompanionHandlers();
+    expect(on.mock.calls.map(([channel]) => channel)).toEqual([CHANNELS.companionTtsCancel]);
+
+    send(CHANNELS.companionTtsCancel, {});
+    expect(cancelQueuedSynthesis).toHaveBeenCalledTimes(1);
+  });
+
+  it('a malformed cancel payload is silently ignored rather than thrown', () => {
+    registerCompanionHandlers();
+    // `CompanionTtsCancelRequest` is `z.object({})` — stripped, not
+    // strict, so an unexpected extra field still parses; a non-object does
+    // not. `handleSend`'s `onInvalid` here is a no-op (nothing to log for a
+    // bare signal) — this only proves it does not throw across the boundary.
+    expect(() => send(CHANNELS.companionTtsCancel, 'not an object')).not.toThrow();
+    expect(cancelQueuedSynthesis).not.toHaveBeenCalled();
   });
 });
