@@ -1,13 +1,11 @@
 import { useEffect, useRef } from 'react';
 
-import { useTheme } from '@bilo-io/ui/theme';
 import Editor, { type OnChange, type OnMount } from '@monaco-editor/react';
 import type { editor as MonacoEditorNS } from 'monaco-editor';
 
 import { DEFAULT_EDITOR_FONT_FAMILY } from '../../lib/monaco/editor-prefs';
 import { getMonaco } from '../../lib/monaco/monaco-loader';
-import { usePaletteStore } from '../themes/palette-store';
-import { resolveEditorPalette } from '../themes/resolve-palette';
+import { useStudioMonacoTheme } from '../themes/use-studio-monaco-theme';
 
 // Same eager loader-configuration call `code-editor.tsx` makes at module
 // scope — before `<Editor>` ever mounts and reaches for its own
@@ -23,10 +21,13 @@ void getMonaco();
  * request body or a response pane, which are controlled by `value`/`onChange`
  * and told their language explicitly.
  *
- * Repeats `code-editor.tsx`'s theme effect and resize handling verbatim
- * rather than factoring them out: the two components' owning stores differ
- * (this one has none), and a shared hook over "the store" would have to be
- * parameterized into meaninglessness to serve both.
+ * Repeats `code-editor.tsx`'s resize handling verbatim rather than factoring
+ * it out: the two components' owning stores differ (this one has none), and
+ * a shared hook over "the store" would have to be parameterized into
+ * meaninglessness to serve both. The theme effect is the exception — it
+ * needed no store parameter to begin with, so it is the shared
+ * `useStudioMonacoTheme()` hook (`features/themes/use-studio-monaco-theme.ts`)
+ * instead of a fourth copy.
  */
 export function MonacoField({
   value,
@@ -54,34 +55,10 @@ export function MonacoField({
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const layoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { resolved } = useTheme();
-  const activePaletteId = usePaletteStore((s) => s.activePaletteId);
-  const editorPaletteOverride = usePaletteStore((s) => s.editorPaletteOverride);
-  const userPalettes = usePaletteStore((s) => s.userPalettes);
+  const applyStudioTheme = useStudioMonacoTheme();
 
-  // Theme effect, verbatim against `code-editor.tsx` — Monaco's theme is a
-  // process-wide singleton, so a palette switch has to re-theme every
-  // mounted editor immediately, this one included.
-  useEffect(() => {
-    let cancelled = false;
-    void getMonaco().then((monaco) => {
-      if (cancelled) return;
-      const palette = resolveEditorPalette(resolved);
-      const themeId = `studio-${palette.id}`;
-      monaco.editor.defineTheme(themeId, {
-        base: palette.editor.base,
-        inherit: true,
-        rules: palette.editor.rules,
-        colors: palette.editor.colors,
-      });
-      monaco.editor.setTheme(themeId);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [resolved, activePaletteId, editorPaletteOverride, userPalettes]);
-
-  const handleMount: OnMount = (editor) => {
+  const handleMount: OnMount = (editor, monaco) => {
+    applyStudioTheme(monaco);
     editorRef.current = editor;
 
     // `automaticLayout: false` below means this field must lay itself out on
@@ -129,7 +106,6 @@ export function MonacoField({
         width="100%"
         defaultValue={value}
         language={language}
-        theme={resolved === 'dark' ? 'vs-dark' : 'vs'}
         onMount={handleMount}
         onChange={handleChange}
         loading={null}
