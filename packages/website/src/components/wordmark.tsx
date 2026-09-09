@@ -64,9 +64,18 @@ export const Wordmark = ({
       inline box that wraps across lines gets one gradient per fragment. It also
       gives `drop-shadow` a box to filter — a filter on a plain inline element is
       applied per line-box, which is the same problem again.
+
+      **`pr-[0.08em]` is not spacing, it is headroom for the clip itself.**
+      Kaushan Script's glyphs are wider than their advance: measuring "Midnite"
+      on a canvas at the brand face puts its ink about 0.05em past the box
+      `inline-block` sizes to (the final `e`'s tail is the culprit). A gradient
+      clipped to *text* still only paints inside the *element's* box, so
+      without this the tail's overshoot fell outside it and read as the name
+      being cut off. `0.08em` clears that with room to spare, in the one unit
+      that scales with every size this mark is set at.
     */}
     <span
-      className={`inline-block text-[1.35em] tracking-wide ${
+      className={`inline-block text-[1.35em] tracking-wide pr-[0.08em] ${
         tone === 'rainbow' ? 'ws-rainbow-text ws-brand-glow' : ''
       } font-brand`}
     >
