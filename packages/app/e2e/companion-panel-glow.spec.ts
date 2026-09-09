@@ -64,6 +64,24 @@ async function open(page: Page): Promise<void> {
   await page.keyboard.press('Meta+l');
   await page.keyboard.press('c');
   await expect(page.getByTestId('companion-panel')).toBeVisible();
+  /*
+    Let the greeting finish before touching anything.
+
+    The panel greets on mount, which walks the state machine through
+    `greeting`/`speaking` and back to `idle` — and every one of those steps is
+    React writing the `data-companion-state` prop. A manual `setAttribute`
+    lands on the DOM, not on the prop, so a render that arrives afterwards
+    silently reverts it and the next screenshot photographs the wrong state.
+    That is not theoretical: it is what made this file's `speaking` floor
+    measure exactly `idle`'s number on one run in two.
+
+    Waiting for the attribute to be ABSENT is waiting for the machine to reach
+    `idle`, after which nothing moves it until this spec does.
+  */
+  await expect(page.getByTestId('companion-panel')).not.toHaveAttribute(
+    'data-companion-state',
+    /.*/,
+  );
 }
 
 /**
@@ -90,6 +108,37 @@ async function setState(page: Page, state: string | null, level = 0): Promise<vo
   await page.waitForTimeout(350);
 }
 
+/**
+ * Stop the clock at a chosen phase before measuring.
+ *
+ * Not a nicety — without it this file is genuinely flaky, and CI proved it
+ * (three attempts, `idle` scoring 1.07 against 1.25 locally). The panel is
+ * 360×650, so a ~92deg sector of a conic gradient covers far more of the
+ * PERIMETER pointing along a long side than it does pointing at a short one:
+ * the same glow, unchanged, measures nearly twice as bright depending on
+ * where the 15s orbit happens to have got to when the shutter opens.
+ *
+ * So each state is photographed at a defined phase instead. `200deg` puts the
+ * lit sector down the panel's left edge (the same angle the reduced-motion
+ * rule pins to), and `--companion-glow` is held at the top of
+ * `companion-think-pulse`'s 0→24px travel so `thinking` is measured at its
+ * peak rather than wherever the second animation landed. Inline styles, so
+ * they beat the stylesheet's own `animation` shorthand.
+ *
+ * The orbit's motion is not lost coverage: it is what the two specs after
+ * this one assert, on the computed styles where it can be read exactly rather
+ * than inferred from a brightness.
+ */
+async function freezeAtPhase(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="companion-panel"]') as HTMLElement;
+    el.style.animation = 'none';
+    el.style.setProperty('--companion-orbit', '200deg');
+    el.style.setProperty('--companion-glow', '24px');
+  });
+  await page.waitForTimeout(120);
+}
+
 /** Mean luminance of the one-pixel ring `depth` inside the raster's edge. */
 function ringMean(raster: Raster, depth: number): number {
   let sum = 0;
@@ -112,6 +161,32 @@ function ringMean(raster: Raster, depth: number): number {
 }
 
 /**
+ * Mean luminance of an empty patch of the panel's middle — the reference the
+ * edge is measured against.
+ *
+ * Deliberately NOT another deep ring. A ring at 120px still runs along the top
+ * of the transcript, where the greeting bubble sits, and the greeting text is
+ * not the same length every run ("Back at it." / "Evening. The studio is
+ * yours."). That alone moved the denominator between 21.3 and 24.2 here, which
+ * is enough to swing the ratio by a sixth — and it is the likeliest half of
+ * why CI scored `idle` at 1.07 where this machine scored 1.22. This patch sits
+ * below the last turn and above the input bar, so it is panel fill in every
+ * state and every run.
+ */
+function groundMean(raster: Raster): number {
+  let sum = 0;
+  let n = 0;
+  for (let y = Math.round(raster.height * 0.55); y < Math.round(raster.height * 0.85); y += 3) {
+    for (let x = 120; x < raster.width - 120; x += 3) {
+      const [r, g, b] = pixelAt(raster, x, y);
+      sum += r + g + b;
+      n += 1;
+    }
+  }
+  return sum / n / 3;
+}
+
+/**
  * How much brighter the panel's edge REGION is than its own interior, in this
  * frame.
  *
@@ -123,17 +198,18 @@ function ringMean(raster: Raster, depth: number): number {
  * across depth measures the glow's REACH, which is the thing a human sees;
  * starting at 4px keeps the panel's own hairline borders out of the number.
  *
- * `120px` is comfortably past the widest band any state paints (46px), so the
- * denominator is unlit panel and transcript in every state — which is what
- * makes this a ratio the theme and the conversation cannot move.
+ * The denominator is `groundMean`'s empty patch — 120px in from either side
+ * and well past the widest band any state paints, so it is unlit panel fill in
+ * every state, which is what makes this a ratio the theme cannot move.
  */
 async function edgeLift(page: Page): Promise<number> {
+  await freezeAtPhase(page);
   const panel = page.getByTestId('companion-panel');
   const box = (await panel.boundingBox())!;
   const raster = decodePng(await page.screenshot({ clip: box }));
   const depths = [4, 10, 18, 28];
   const lit = depths.reduce((sum, d) => sum + ringMean(raster, d), 0) / depths.length;
-  return lit / ringMean(raster, 120);
+  return lit / groundMean(raster);
 }
 
 test('idle, thinking and speaking each light the panel edge, and each differently', async ({
@@ -149,14 +225,13 @@ test('idle, thinking and speaking each light the panel edge, and each differentl
   const speaking = await edgeLift(page);
 
   // Idle is the muted one, but it is not nothing. The version that shipped
-  // broken measures 0.94 here — its 4px ring does not even reach as far as
-  // the panel's own interior average, which is the bug report in one number.
-  expect(idle, `idle edge lift ${idle}`).toBeGreaterThan(1.1);
+  // broken measures about 1.0 here — its 4px ring reaches no further than the
+  // panel's own fill, which is the bug report in one number.
+  expect(idle, `idle edge lift ${idle}`).toBeGreaterThan(1.3);
   // …and each state is a clear step up from the one below it, so the three
-  // are told apart at a glance rather than by comparison. (Broken: 1.13 and
-  // 1.57 — thinking barely clearing idle, speaking barely clearing thinking.)
-  expect(thinking, `thinking ${thinking} vs idle ${idle}`).toBeGreaterThan(idle * 1.15);
-  expect(speaking, `speaking ${speaking} vs thinking ${thinking}`).toBeGreaterThan(thinking * 1.5);
+  // are told apart at a glance rather than by comparison.
+  expect(thinking, `thinking ${thinking} vs idle ${idle}`).toBeGreaterThan(idle * 1.35);
+  expect(speaking, `speaking ${speaking} vs thinking ${thinking}`).toBeGreaterThan(thinking * 1.4);
 });
 
 test('the speaking glow tracks the level speaker.ts writes', async ({ page }) => {
@@ -172,7 +247,7 @@ test('the speaking glow tracks the level speaker.ts writes', async ({ page }) =>
   // The floor first. The local voice engine emits no word boundaries, so the
   // level genuinely sits at 0 for seconds at a time — a state that only lights
   // up on a pulse is a state nobody sees speak.
-  expect(quiet, `speaking at level 0 lifted the edge by ${quiet}`).toBeGreaterThan(1.3);
+  expect(quiet, `speaking at level 0 lifted the edge by ${quiet}`).toBeGreaterThan(1.6);
   expect(middling).toBeGreaterThan(quiet);
   expect(loud).toBeGreaterThan(middling);
 });
