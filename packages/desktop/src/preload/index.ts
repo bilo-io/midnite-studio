@@ -582,7 +582,7 @@ const bridge: Pick<
       direction; nothing here copies or re-encodes it.
     */
     transcribe: (req) => call(CHANNELS.companionTranscribe, req),
-    sttStatus: () => call(CHANNELS.companionSttStatus),
+    sttStatus: (req) => call(CHANNELS.companionSttStatus, req),
     sttSet: (req) => call(CHANNELS.companionSttSet, req),
     sttTest: (req) => call(CHANNELS.companionSttTest, req),
     /*

@@ -10338,3 +10338,71 @@ wrote, not the GPL-3.0 engine compiled into the WASM blob it ships and requires 
 same shape of problem as a statically-linked `.dylib`, over a different embedding mechanism. Still
 needs the same human legal read before public distribution that #297 flagged; recorded here rather
 than left silently stale.
+
+## 2026-09-09 — Ad hoc — the microphone works with no API key: whisper-local, a key-free default STT provider
+
+The repo owner's complaint: the companion's mic was gated on configuring OpenAI Whisper with a
+paid key, so a fresh install got a permanently crossed-out mic. Added `whisper-local` — an offline
+`SttProviderId` running `sherpa-onnx-node`'s `OfflineRecognizer` over a quantized
+`whisper-tiny.en` (int8 encoder+decoder, ~103 MB total, sherpa-onnx's own `asr-models` release) —
+and made it `DEFAULT_STT_PROVIDER_ID`, displacing `openai-whisper`, which stays as the opt-in cloud
+alternative. It is still Whisper — the objection was to the key, not the model architecture.
+
+**Engine choice, and the dependency collision this caused.** `sherpa-onnx-node` was picked because
+`companion/tts.ts` already depended on it for the local voice, reusing a proven native-module ABI
+rather than adding transformers.js/whisper.cpp untested. `feature/kokoro-tts` (#301) landed
+concurrently and dropped `sherpa-onnx-node`/`sherpa-onnx-darwin-arm64`/`unbzip2-stream` entirely,
+replacing local TTS with `kokoro-js` — its own done.md entry above states it "cross-checked against
+the concurrent `feature/companion-stt` branch first, which went with local Whisper for its ASR,
+not sherpa," which was a miscommunication: this branch's `whisper-local` **is** sherpa-onnx's ASR,
+not transformers.js. `packages/desktop/package.json`, `electron-builder.yml`'s `asarUnpack`, and
+`scripts/bundle.mjs`'s esbuild `external` list all restore the three sherpa entries independently
+of the TTS engine's own kokoro-js/`@huggingface/transformers` entries — verified they now coexist
+(`main.js`'s bundle keeps `require("sherpa-onnx-node")`, `require("kokoro-js")` and
+`require("@huggingface/transformers")` all as external, unbundled requires). `kokoro-js` staying in
+the tree for TTS does not remove sherpa's own GPL-3.0 `espeak-ng` exposure the Phase 80 Theme C
+entry flagged for ASR's use here either — both engines carry it independently now, over different
+embeddings, per the entry above's own finding that moving TTS off sherpa did not remove the GPL-3.0
+dependency, only relocated it.
+
+**Own ambient `.d.ts`** (`stt/sherpa-onnx-asr.d.ts`), declaring only `OfflineRecognizer`/
+`OfflineStream`/config types — kept separate from `sherpa-onnx-node.d.ts` (`OfflineTts`, TTS-owned)
+so either side's ambient module augmentation survives the other file's deletion. `sherpa-onnx-node`
+1.13.7's native addon exports `readWaveFromBinary`, but the package's public JS API doesn't
+re-export it (only `readWave`, from a file path, and `writeWave`) — discovered only once the real
+module replaced the test's fake, so `parseWav` reads the fixed WAV shape the app's own
+`toWavBlob`/`encodeWav` always produce (44-byte header, 16-bit PCM mono) instead, the same
+no-external-parser call `silentWavClip` already made for the sibling format.
+
+**Audio format**: the local recognizer needs raw PCM, not the `audio/webm;codecs=opus` container
+`MediaRecorder` produces, and decoding opus in *main* would drag a dependency in for the reason
+`stt/types.ts`'s own doc gives for not doing that to Whisper's webm. `voice-ports.ts`'s
+`finishRecording` now runs the recorded blob through a new `toWavBlob` (`audio/wav.ts`, renderer)
+that decodes via the browser's own `AudioContext.decodeAudioData` before either provider sees it —
+one wire format for both providers (`openai-whisper` already accepted `audio/wav`), failing open to
+the original blob on any decode failure so nothing regresses.
+
+**Availability**: `transcribeUtterance`'s key lookup is now conditional on a new
+`STT_PROVIDERS_WITHOUT_KEY` (shared), so `whisper-local` is never refused for lacking a credential
+nothing asked it to store; `voice-ports.ts`'s `refreshMicAvailability` treats any implemented,
+key-free provider as usable independent of `sttStatus().configured`, with a new
+`local-model-unavailable` status/tooltip for the one way it can still fail (native module missing,
+nothing else configured). Migration: `resolveProviderId`'s existing "the single configured provider
+wins" rule already keeps an existing OpenAI-key user on their key with zero new code — the new
+default only ever applies when nothing is configured at all.
+
+**Settings**: the provider picker lists `whisper-local` first (now `STT_PROVIDER_IDS[0]`, so it's
+the default selection with no extra state); selecting it swaps the API-key `Field` for an "Offline
+speech model" status card (idle/downloading/ready/failed, Retry on a download failure only — a
+missing native module is sticky) instead, so the one-time ~103 MB download is a visible state
+rather than a mic press that silently hangs.
+
+**Measured** (this machine, real model, real recorded audio — not simulated): model load ~284 ms,
+first decode of a 3.48 s utterance ~290 ms (RTF ~0.08), warm decode ~274 ms, RSS ~407 MB after
+first decode, cold end-to-end including the ~103 MB download ~41–63 s depending on network. Chromium's
+`SpeechRecognition` confirmed unusable in Electron (routes to a keyless Google endpoint) rather than
+assumed. Proven against a real `sherpa-onnx-node` require, a real downloaded model and a real
+recorded utterance ("Open the pull request and check the CI status before merging.") transcribed
+correctly, both before and after the rebase onto #301.
+
+[PR #302](https://github.com/bilo-io/midnite-studio/pull/302).

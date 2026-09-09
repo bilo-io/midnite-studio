@@ -219,40 +219,96 @@ test('Settings ▸ Companion ▸ Personality — last pill cannot be removed', a
 });
 
 /**
- * The mic bug fix — before this, the button read a stale cached answer once
- * per render and had one fixed tooltip regardless of the actual reason. These
- * three frames are the button's whole vocabulary now: off with the honest
- * reason, ready, and mid-press.
+ * The mic bug fix, and then Ad Hoc's own follow-on: before the fix, the
+ * button read a stale cached answer once per render and had one fixed
+ * tooltip regardless of the actual reason. Before Ad Hoc, it also stayed
+ * crossed out on a fresh install until a paid key was entered. These four
+ * frames are the button's whole vocabulary now: ready out of the box with no
+ * key at all, off with the one real reason that can still happen (the local
+ * engine's own native module missing), ready again once switched to the
+ * cloud provider, and mid-press.
  */
 const MIC_OUT = '../../docs/screenshots/companion-mic-fix';
 
-test('the mic button — disabled with its reason, enabled, and listening', async ({ page }) => {
+test('the mic button — ready with no key, disabled with its reason, enabled on the cloud provider, and listening', async ({
+  page,
+}) => {
   await open(page);
   await openCompanion(page);
   await setTheme(page, 'dark', { settleMs: 200 });
 
   const mic = page.getByTestId('companion-mic');
 
-  // No key configured (the default mock bridge) — the honest, specific
-  // "no-key" reason, not a generic "voice unavailable".
-  await expect(mic).toHaveAttribute('aria-disabled', 'true');
+  // Ad Hoc: the microphone must work with no API key. The default mock
+  // bridge now answers `whisper-local` implemented and ready, with nothing
+  // configured — the fresh-install state this whole change is for.
+  await expect(mic).not.toHaveAttribute('aria-disabled', 'true');
   await mic.hover();
-  await expect(page.getByRole('tooltip')).toContainText(
-    'add a speech key in Settings ▸ Companion',
-  );
-  await page.screenshot({ path: shotPath(MIC_OUT, 'mic-disabled.png') });
+  await expect(page.getByRole('tooltip')).toContainText('Hold to talk');
+  await page.screenshot({ path: shotPath(MIC_OUT, 'mic-ready-no-key.png') });
   await mic.dispatchEvent('pointerleave' as never);
 
-  // A key saved through the real Settings ▸ Companion ▸ Microphone flow,
-  // with the panel never closed and never remounted — the exact shape of the
-  // bug this fix regresses. `onMicAvailabilityChange` is what makes the
-  // button notice without either of those.
+  // The one way the key-free default can still fail: its own native module
+  // didn't load, with no other provider configured to fall back to.
+  await page.evaluate(() => {
+    const bridge = window.midniteStudio;
+    if (bridge?.companion) {
+      bridge.companion.sttStatus = () =>
+        Promise.resolve({
+          configured: [],
+          encryptionAvailable: true,
+          implemented: ['whisper-local'],
+          localModel: {
+            state: 'failed' as const,
+            reason: 'native-module-missing' as const,
+            message: 'no prebuilt binary for this platform',
+          },
+        });
+    }
+  });
   await page.getByRole('button', { name: 'Settings' }).click();
   await page
     .getByRole('navigation', { name: 'Settings pages' })
     .getByRole('button', { name: 'Companion', exact: true })
     .click();
   await page.getByRole('button', { name: 'Microphone', exact: true }).click();
+  // Switching provider and pressing Save (an empty key just clears — the
+  // save flow's own gesture) is what calls `refreshMicAvailability()`; there
+  // is no bridge method a spec can hit directly for that cache invalidation.
+  await page.getByTestId('companion-stt-provider').selectOption('openai-whisper');
+  await page.getByTestId('companion-stt-save').click();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(mic).toHaveAttribute('aria-disabled', 'true');
+  await mic.hover();
+  await expect(page.getByRole('tooltip')).toContainText('offline speech engine');
+  await page.screenshot({ path: shotPath(MIC_OUT, 'mic-disabled-local-unavailable.png') });
+  await mic.dispatchEvent('pointerleave' as never);
+
+  // Switching to the opt-in cloud provider and saving a key through the real
+  // Settings ▸ Companion ▸ Microphone flow, with the panel never closed and
+  // never remounted — `onMicAvailabilityChange` is what makes the button
+  // notice without either of those.
+  await page.evaluate(() => {
+    const bridge = window.midniteStudio;
+    if (bridge?.companion) {
+      bridge.companion.sttStatus = () =>
+        Promise.resolve({
+          configured: ['openai-whisper'],
+          encryptionAvailable: true,
+          implemented: ['whisper-local', 'openai-whisper'],
+          localModel: { state: 'ready' as const, reason: null, message: null },
+        });
+    }
+  });
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page
+    .getByRole('navigation', { name: 'Settings pages' })
+    .getByRole('button', { name: 'Companion', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Microphone', exact: true }).click();
+  await page
+    .getByTestId('companion-stt-provider')
+    .selectOption('openai-whisper');
   await page.getByTestId('companion-stt-key').fill('sk-test-key');
   await page.getByTestId('companion-stt-save').click();
   await expect(page.getByTestId('companion-stt-stored')).toContainText('A key is stored');
@@ -262,7 +318,7 @@ test('the mic button — disabled with its reason, enabled, and listening', asyn
   await expect(mic).not.toHaveAttribute('aria-disabled', 'true');
   await mic.hover();
   await expect(page.getByRole('tooltip')).toContainText('Hold to talk');
-  await page.screenshot({ path: shotPath(MIC_OUT, 'mic-enabled.png') });
+  await page.screenshot({ path: shotPath(MIC_OUT, 'mic-enabled-cloud-provider.png') });
 
   // Held down — push-to-talk's own "Listening" label.
   await mic.dispatchEvent('pointerdown', { pointerId: 1 } as never);

@@ -79,6 +79,15 @@ asarUnpack:
   # `libvips-cpp.*.dylib` it loads by relative path.
   - '**/node_modules/sharp/**'
   - '**/node_modules/@img/**'
+  # The local *speech-in* engine (Ad Hoc: the microphone must work with no API
+  # key) — sherpa-onnx-node, kept independently of the TTS engine above. Same
+  # reasoning as node-pty, plus one more: the platform package ships its own
+  # `.dylib`s (`libonnxruntime`, `libsherpa-onnx-c-api`, `libsherpa-onnx-cxx-api`)
+  # beside the `.node` addon, loaded by relative path at runtime — the blanket
+  # `**/*.node` glob covers the addon but not those siblings. Apple Silicon
+  # only, matching this app's `mac.target` below.
+  - '**/node_modules/sherpa-onnx-node/**'
+  - '**/node_modules/sherpa-onnx-darwin-arm64/**'
 
 # The native modules (node-pty, and Phase 61 Theme C's better-sqlite3) are
 # rebuilt deliberately by `moon run desktop:rebuild-native`. electron-builder's

@@ -75,16 +75,28 @@ afterEach(() => {
   delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
 });
 
+type LocalModelStatus = { state: 'idle' | 'downloading' | 'ready' | 'failed'; reason: string | null; message: string | null };
+
 const installBridge = (
   configured: string[],
-  options: { fail?: boolean; implemented?: string[]; encryptionAvailable?: boolean } = {},
+  options: {
+    fail?: boolean;
+    implemented?: string[];
+    encryptionAvailable?: boolean;
+    localModel?: LocalModelStatus;
+  } = {},
 ): void => {
-  const { fail = false, implemented = ['openai-whisper'], encryptionAvailable = true } = options;
+  const {
+    fail = false,
+    implemented = ['openai-whisper'],
+    encryptionAvailable = true,
+    localModel = { state: 'idle', reason: null, message: null },
+  } = options;
   (window as unknown as { midniteStudio: unknown }).midniteStudio = {
     companion: {
       sttStatus: fail
         ? vi.fn(() => Promise.reject(new Error('gone')))
-        : vi.fn(() => Promise.resolve({ configured, encryptionAvailable, implemented })),
+        : vi.fn(() => Promise.resolve({ configured, encryptionAvailable, implemented, localModel })),
     },
   };
 };
@@ -215,6 +227,49 @@ describe('micAvailable', () => {
     expect(companionPorts().micUnavailableReason()).toBe(
       'Hold to talk — add a speech key in Settings ▸ Companion',
     );
+  });
+
+  // Ad Hoc: the microphone must work with no API key. This is the
+  // regression it asks for — the mic has to be usable with **zero**
+  // credentials stored, as long as the key-free local engine is implemented.
+  it('is available with zero credentials stored, once the key-free local engine is implemented', async () => {
+    installBridge([], { implemented: ['whisper-local'] });
+    await expect(refreshMicAvailability()).resolves.toBe(true);
+    expect(companionPorts().micAvailable()).toBe(true);
+    expect(companionPorts().micUnavailableReason()).toBe('Hold to talk');
+  });
+
+  it('still prefers a configured cloud provider alongside the key-free default — both count as usable', async () => {
+    installBridge(['openai-whisper'], { implemented: ['whisper-local', 'openai-whisper'] });
+    await expect(refreshMicAvailability()).resolves.toBe(true);
+  });
+
+  it('mentions the one-time download while the local model is still provisioning', async () => {
+    installBridge([], {
+      implemented: ['whisper-local'],
+      localModel: { state: 'downloading', reason: null, message: null },
+    });
+    await refreshMicAvailability();
+    expect(companionPorts().micAvailable()).toBe(true);
+    expect(companionPorts().micUnavailableReason()).toContain('downloading');
+  });
+
+  it('reports the local engine itself as the reason when its native module fails and nothing else is configured', async () => {
+    installBridge([], {
+      implemented: ['whisper-local'],
+      localModel: { state: 'failed', reason: 'native-module-missing', message: 'no prebuilt binary' },
+    });
+    await expect(refreshMicAvailability()).resolves.toBe(false);
+    expect(companionPorts().micAvailable()).toBe(false);
+    expect(companionPorts().micUnavailableReason()).toContain('OpenAI Whisper');
+  });
+
+  it('falls back to a configured cloud provider when the local engine itself has failed', async () => {
+    installBridge(['openai-whisper'], {
+      implemented: ['whisper-local', 'openai-whisper'],
+      localModel: { state: 'failed', reason: 'native-module-missing', message: 'no prebuilt binary' },
+    });
+    await expect(refreshMicAvailability()).resolves.toBe(true);
   });
 
   it('reports "checking" before the first probe resolves', () => {

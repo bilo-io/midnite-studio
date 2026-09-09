@@ -881,13 +881,23 @@ export function chunkForSpeech(text: string, limit = COMPANION_TTS_CHUNK_CHARS):
 // --- F · the speech-to-text provider seam ----------------------------------
 
 /**
- * Which cloud recogniser transcribes an utterance.
+ * Which recogniser transcribes an utterance.
  *
- * Two ids, one implementation (Decision 8). **OpenAI Whisper ships first**
- * because `/v1/audio/transcriptions` accepts the `audio/webm;codecs=opus`
- * blob `MediaRecorder` already produces, as one multipart request per
- * utterance, with no streaming protocol to implement — the recorder is
- * push-to-talk, so there is nothing for a streaming API to buy.
+ * **`whisper-local` is the default and needs no key at all** (Ad Hoc: "the
+ * microphone must work with no API key"). It runs `sherpa-onnx-node`'s
+ * offline `OfflineRecognizer` against a quantized `whisper-tiny.en`, entirely
+ * on this machine — the same native module and the same "lazy require,
+ * download once into `userData`, degrade rather than crash" shape
+ * `companion/tts.ts` already proved out for speech *out*
+ * (`main/companion/stt/sherpa-local.ts`). It is still Whisper — the model
+ * architecture the OpenAI provider also wraps — so the two ids differ only in
+ * *where* the model runs, not in what kind of model it is.
+ *
+ * `openai-whisper` ships second, as the opt-in cloud alternative for whoever
+ * wants OpenAI's larger hosted model and already has a key: `/v1/audio/transcriptions`
+ * accepts the `audio/webm;codecs=opus` blob `MediaRecorder` produces, as one
+ * multipart request per utterance, with no streaming protocol to implement —
+ * the recorder is push-to-talk, so there is nothing for a streaming API to buy.
  *
  * `deepgram` is in the union with no implementation behind it *on purpose*:
  * the seam is only worth having if a second id exists to prove the interface
@@ -898,19 +908,29 @@ export function chunkForSpeech(text: string, limit = COMPANION_TTS_CHUNK_CHARS):
  *
  * Chromium's own `SpeechRecognition` is not an option here at all — in
  * Electron it routes to a Google endpoint with an API key Electron does not
- * ship and fails with a network error. Local recognition (whisper.cpp) is the
- * phase's named sequel, not a third id.
+ * ship and fails with a network error (verified against a packaged build
+ * rather than assumed).
  */
-export const STT_PROVIDER_IDS = ['openai-whisper', 'deepgram'] as const;
+export const STT_PROVIDER_IDS = ['whisper-local', 'openai-whisper', 'deepgram'] as const;
 export const SttProviderIdSchema = z.enum(STT_PROVIDER_IDS);
 export type SttProviderId = (typeof STT_PROVIDER_IDS)[number];
 
-/** The one with an implementation behind it. */
-export const DEFAULT_STT_PROVIDER_ID: SttProviderId = 'openai-whisper';
+/** The key-free local engine — the mic has to work before anyone visits Settings. */
+export const DEFAULT_STT_PROVIDER_ID: SttProviderId = 'whisper-local';
+
+/**
+ * Providers `transcribeUtterance` will construct with **no stored credential
+ * at all**. Every id absent from this list needs a key in `safeStorage`
+ * before its factory is even called — `whisper-local`'s factory ignores the
+ * key argument it is handed, so `stt/index.ts` must not refuse it for lacking
+ * one the way it rightly refuses every cloud provider.
+ */
+export const STT_PROVIDERS_WITHOUT_KEY: readonly SttProviderId[] = ['whisper-local'];
 
 /** Human labels for the Settings provider picker, so the copy lives with the ids. */
 export const STT_PROVIDER_LABELS: Record<SttProviderId, string> = {
-  'openai-whisper': 'OpenAI Whisper',
+  'whisper-local': 'Whisper (offline, built-in — no key needed)',
+  'openai-whisper': 'OpenAI Whisper (cloud, needs an API key)',
   deepgram: 'Deepgram (not yet implemented)',
 };
 

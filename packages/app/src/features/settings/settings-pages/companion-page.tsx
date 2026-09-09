@@ -1,6 +1,7 @@
 import {
   COMPANION_PHRASES,
   CompanionNamesSchema,
+  STT_PROVIDERS_WITHOUT_KEY,
   STT_PROVIDER_IDS,
   STT_PROVIDER_LABELS,
   interpolatePhrase,
@@ -292,10 +293,11 @@ export function CompanionPage() {
         <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Chromium&apos;s own recogniser does not work in Electron — it routes to a Google
-            service this app ships no key for — so speaking to the companion needs a provider,
-            with its key held in the OS keychain. Until one is set up the microphone button in the
-            companion panel stays disabled and everything else works as normal: the companion
-            still greets, grounds, routes and reads back. Typing is the input.
+            service this app ships no key for. The microphone works out of the box instead, with a
+            built-in offline speech engine that needs no key and no account — it downloads a small
+            model once, the first time it&apos;s used. OpenAI Whisper below is an optional
+            alternative for anyone who already has a key and prefers the cloud model; its key is
+            held in the OS keychain, never sent anywhere but that provider.
           </p>
 
           <SttCredentialFields disabled={!companionEnabled} />
@@ -663,6 +665,91 @@ function CompanionNamesField({
 }
 
 /**
+ * Structurally what `mstudio:companion:stt-status` answers with, minus
+ * `configured`/`encryptionAvailable`/`implemented` (`SttCredentialFields`
+ * already tracks those on their own) — see `sherpa-local.ts`'s
+ * `LocalSttStatusValue` for the source of truth. Declared here rather than
+ * imported for the same package-boundary reason `CompanionTtsStatusValue`
+ * above is: `app` may not import `desktop`.
+ */
+type LocalSttStatusValue = {
+  state: 'idle' | 'downloading' | 'ready' | 'failed';
+  reason: 'native-module-missing' | 'download-failed' | 'recognition-error' | null;
+  message: string | null;
+};
+
+/** `reason` → the sentence explaining it — `TTS_FAILURE_SENTENCES`'s own shape, for the STT side. */
+const STT_FAILURE_SENTENCES: Record<NonNullable<LocalSttStatusValue['reason']>, string> = {
+  'native-module-missing': "The offline speech engine isn't available on this machine",
+  'download-failed': 'Could not download the offline speech model',
+  'recognition-error': 'The offline speech engine failed to transcribe',
+};
+
+/**
+ * The one-time download's own visible state (Ad Hoc: the microphone must
+ * work with no API key — "any one-time model download must be surfaced, not
+ * silent"). Shaped after `CompanionVoiceStatus` above, which does the same
+ * job for the local voice engine; `RetryButton` is shared with it as-is.
+ */
+function LocalSttStatus({
+  status,
+  onRetry,
+}: {
+  status: LocalSttStatusValue | null;
+  onRetry: () => void;
+}) {
+  if (status === null || status.state === 'idle') {
+    return (
+      <p className="text-[11px] leading-relaxed text-muted-foreground" data-testid="companion-stt-local-status">
+        Checking the offline speech model…
+      </p>
+    );
+  }
+
+  if (status.state === 'downloading') {
+    return (
+      <p
+        className="flex items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground"
+        data-testid="companion-stt-local-status"
+      >
+        <LuDownload className="h-3 w-3 shrink-0" />
+        Downloading the offline speech model (about 100 MB, one time only)…
+      </p>
+    );
+  }
+
+  if (status.state === 'ready') {
+    return (
+      <p
+        className="flex items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground"
+        data-testid="companion-stt-local-status"
+      >
+        <LuCircleCheck className="h-3 w-3 shrink-0 text-emerald-500" />
+        Ready — the microphone transcribes entirely on this machine.
+      </p>
+    );
+  }
+
+  // status.state === 'failed'
+  const sentence = STT_FAILURE_SENTENCES[status.reason ?? 'native-module-missing'];
+  return (
+    <div className="flex flex-col items-start gap-1.5" data-testid="companion-stt-local-status">
+      <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+        <LuTriangleAlert className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+        <span>
+          {sentence}
+          {status.message ? ` (${status.message})` : ''}. Add an OpenAI Whisper key above instead.
+        </span>
+      </p>
+      {/* Only a download failure is retryable — a missing native module is sticky for the process's lifetime. */}
+      {status.reason === 'download-failed' ? (
+        <RetryButton onClick={onRetry} label="Retry download" testId="companion-stt-local-retry" />
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * Provider, key, Test — the three controls the STT seam needs (Theme F).
  *
  * A component of its own rather than three more hooks on the page, because it
@@ -676,24 +763,44 @@ function CompanionNamesField({
  * renderer bug can leak.
  */
 function SttCredentialFields({ disabled }: { disabled: boolean }) {
+  // `STT_PROVIDER_IDS[0]` is `whisper-local` — the key-free default is also
+  // the picker's own default selection, with no extra state needed to make
+  // it "the obvious one" (requirement: Settings makes the local provider the
+  // obvious default).
   const [provider, setProvider] = useState<SttProviderId>(STT_PROVIDER_IDS[0]);
   const [key, setKey] = useState('');
   const [configured, setConfigured] = useState<SttProviderId[]>([]);
   const [encryptionAvailable, setEncryptionAvailable] = useState(true);
+  const [localModel, setLocalModel] = useState<LocalSttStatusValue | null>(null);
   const [status, setStatus] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (retry = false) => {
     const companion = bridge()?.companion;
     if (!companion?.sttStatus) return;
-    const next = await companion.sttStatus();
+    const next = await companion.sttStatus({ retry });
     setConfigured(next.configured);
     setEncryptionAvailable(next.encryptionAvailable);
+    setLocalModel(next.localModel);
   }, []);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  /*
+    Polls while the one-time local model download is in flight — the same
+    shape `useCompanionTtsStatus` uses for the local voice, so the two
+    "downloading a bundled model" states in this file read identically.
+    Requirement: a one-time model download must be surfaced, not silent.
+  */
+  useEffect(() => {
+    if (localModel?.state !== 'downloading') return undefined;
+    const timer = setInterval(() => void refresh(), 1_500);
+    return () => clearInterval(timer);
+  }, [localModel?.state, refresh]);
+
+  const retryLocalModel = useCallback(() => void refresh(true), [refresh]);
 
   const save = async () => {
     const companion = bridge()?.companion;
@@ -738,12 +845,17 @@ function SttCredentialFields({ disabled }: { disabled: boolean }) {
   };
 
   const stored = configured.includes(provider);
+  // The whole point of shipping it: this provider is usable with **zero**
+  // credentials, so neither the key field nor the "save a key first" gate on
+  // Test applies to it.
+  const keyless = STT_PROVIDERS_WITHOUT_KEY.includes(provider);
+  const canTest = keyless || stored;
 
   return (
     <>
       <Field
         label="Provider"
-        hint="Which service transcribes what you say. OpenAI Whisper takes the recording as-is, one request per utterance; the audio leaves this machine only while you are holding the microphone button."
+        hint="Which engine transcribes what you say. The offline engine runs entirely on this machine and needs no key; OpenAI Whisper is the opt-in cloud alternative for anyone who already has a key — the audio leaves this machine only while you are holding the microphone button, and only for that provider."
       >
         <select
           value={provider}
@@ -761,64 +873,99 @@ function SttCredentialFields({ disabled }: { disabled: boolean }) {
         </select>
       </Field>
 
-      <Field
-        label="API key"
-        hint="Held in the OS keychain through Electron's safeStorage, never in the app's own storage and never sent to the renderer. Leave it empty and press Save to forget a stored key."
-      >
-        <div className="flex flex-col gap-2">
-          <input
-            type="password"
-            value={key}
-            onChange={(event) => setKey(event.target.value)}
-            disabled={disabled || busy}
-            placeholder={stored ? 'A key is stored — type to replace it' : 'sk-…'}
-            aria-label="API key"
-            data-testid="companion-stt-key"
-            className="w-full rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void save()}
-              disabled={disabled || busy}
-              className="h-6 rounded-md border border-border px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
-              data-testid="companion-stt-save"
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={() => void test()}
-              disabled={disabled || busy || !stored}
-              title={stored ? 'Send one second of silence and report the round-trip' : 'Save a key first'}
-              className="h-6 rounded-md border border-border px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
-              data-testid="companion-stt-test"
-            >
-              Test
-            </button>
-            <span className="text-[11px] text-muted-foreground" data-testid="companion-stt-stored">
-              {stored ? 'A key is stored for this provider.' : 'No key stored.'}
-            </span>
+      {keyless ? (
+        <Field
+          label="Offline speech model"
+          hint="Downloaded once into this app's own data folder, never into the repo. Runs on this machine — nothing about what you say leaves it."
+        >
+          <div className="flex flex-col gap-2">
+            <LocalSttStatus status={localModel} onRetry={retryLocalModel} />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void test()}
+                disabled={disabled || busy}
+                title="Send one second of silence and report the round-trip"
+                className="h-6 rounded-md border border-border px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
+                data-testid="companion-stt-test"
+              >
+                Test
+              </button>
+              <span className="text-[11px] text-muted-foreground">No API key needed.</span>
+            </div>
+            {status === null ? null : (
+              <p
+                className={`text-[11px] leading-relaxed ${
+                  status.kind === 'ok' ? 'text-muted-foreground' : 'text-destructive'
+                }`}
+                role={status.kind === 'error' ? 'alert' : undefined}
+                data-testid="companion-stt-status"
+              >
+                {status.text}
+              </p>
+            )}
           </div>
-          {status === null ? null : (
-            <p
-              className={`text-[11px] leading-relaxed ${
-                status.kind === 'ok' ? 'text-muted-foreground' : 'text-destructive'
-              }`}
-              role={status.kind === 'error' ? 'alert' : undefined}
-              data-testid="companion-stt-status"
-            >
-              {status.text}
-            </p>
-          )}
-          {encryptionAvailable ? null : (
-            <p className="text-[11px] leading-relaxed text-destructive">
-              This machine has no working keychain, so a key can only be held for this session and
-              has to be entered again after a relaunch.
-            </p>
-          )}
-        </div>
-      </Field>
+        </Field>
+      ) : (
+        <Field
+          label="API key"
+          hint="Held in the OS keychain through Electron's safeStorage, never in the app's own storage and never sent to the renderer. Leave it empty and press Save to forget a stored key."
+        >
+          <div className="flex flex-col gap-2">
+            <input
+              type="password"
+              value={key}
+              onChange={(event) => setKey(event.target.value)}
+              disabled={disabled || busy}
+              placeholder={stored ? 'A key is stored — type to replace it' : 'sk-…'}
+              aria-label="API key"
+              data-testid="companion-stt-key"
+              className="w-full rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void save()}
+                disabled={disabled || busy}
+                className="h-6 rounded-md border border-border px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
+                data-testid="companion-stt-save"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => void test()}
+                disabled={disabled || busy || !canTest}
+                title={canTest ? 'Send one second of silence and report the round-trip' : 'Save a key first'}
+                className="h-6 rounded-md border border-border px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
+                data-testid="companion-stt-test"
+              >
+                Test
+              </button>
+              <span className="text-[11px] text-muted-foreground" data-testid="companion-stt-stored">
+                {stored ? 'A key is stored for this provider.' : 'No key stored.'}
+              </span>
+            </div>
+            {status === null ? null : (
+              <p
+                className={`text-[11px] leading-relaxed ${
+                  status.kind === 'ok' ? 'text-muted-foreground' : 'text-destructive'
+                }`}
+                role={status.kind === 'error' ? 'alert' : undefined}
+                data-testid="companion-stt-status"
+              >
+                {status.text}
+              </p>
+            )}
+            {encryptionAvailable ? null : (
+              <p className="text-[11px] leading-relaxed text-destructive">
+                This machine has no working keychain, so a key can only be held for this session and
+                has to be entered again after a relaunch.
+              </p>
+            )}
+          </div>
+        </Field>
+      )}
     </>
   );
 }

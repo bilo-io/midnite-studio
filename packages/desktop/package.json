@@ -20,6 +20,9 @@
     "electron-updater": "^6.3.9",
     "kokoro-js": "^1.2.1",
     "node-pty": "^1.0.0",
+    "sherpa-onnx-darwin-arm64": "^1.13.7",
+    "sherpa-onnx-node": "^1.13.7",
+    "unbzip2-stream": "^1.4.3",
     "zod": "^3.23.8",
     "zod-to-json-schema": "^3.25.1"
   },
@@ -31,6 +34,7 @@
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "@types/node": "^22.10.2",
+    "@types/unbzip2-stream": "^1.4.3",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
     "esbuild": "^0.25.0",
