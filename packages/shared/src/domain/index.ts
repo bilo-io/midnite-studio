@@ -30,6 +30,7 @@ export * from './status';
 export * from './system-optimizer';
 export * from './tests';
 export * from './trash';
+export * from './view';
 export * from './watch';
 export * from './battery';
 export * from './session-history';

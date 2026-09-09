@@ -24,7 +24,7 @@ import { useFilesStore } from '../../features/files/files-store';
 import type { PaletteItem, PaletteSource } from './source';
 import type { IconComponent } from '../../components/icon-button';
 
-const VIEW_LABELS: Record<ViewId, string> = {
+export const VIEW_LABELS: Record<ViewId, string> = {
   landing: 'Home',
   dashboard: 'Dashboard',
   files: 'Explorer',
@@ -47,7 +47,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   settings: 'Settings',
 };
 
-const VIEW_KEYWORDS: Record<ViewId, string> = {
+export const VIEW_KEYWORDS: Record<ViewId, string> = {
   landing: 'home landing start welcome shortcuts keys cheatsheet',
   // `home` is the landing page's word now, so the dashboard drops it.
   dashboard: 'overview summary metrics',

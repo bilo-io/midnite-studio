@@ -47,6 +47,7 @@ import {
   type CompanionDigestItem,
   type CompanionSnapshot,
   type CompanionState,
+  type CompanionVocabulary,
 } from './companion';
 
 describe('transition', () => {
@@ -932,10 +933,159 @@ describe('parseIntent — switching repositories', () => {
   });
 });
 
+// Phase 81 Theme A: navigate/run/confirm/help, recognised only with a
+// vocabulary — every test above this point passes no vocabulary at all, and
+// is the "unchanged" regression suite this block is not allowed to affect.
+const testVocabulary: CompanionVocabulary = {
+  views: [
+    { id: 'graph', label: 'Commit Graph', keywords: 'git history commits branches log' },
+    {
+      id: 'database',
+      label: 'Database',
+      keywords: 'database sql connection postgres mysql mariadb mssql query schema table',
+    },
+    { id: 'issues', label: 'Issues', keywords: 'issues bugs tracker labels milestones' },
+    {
+      id: 'apiClient',
+      label: 'API Client',
+      keywords: 'api client http request postman collection rest graphql send response',
+    },
+  ],
+  settingsPages: [
+    { id: 'companion', label: 'Companion' },
+    { id: 'gitSafety', label: 'Git Safety' },
+  ],
+  commands: [
+    { id: 'sync.push', label: 'Push', group: 'sync', access: 'confirm' },
+    { id: 'sync.pull', label: 'Pull', group: 'sync', access: 'confirm' },
+    { id: 'sync.fetch', label: 'Fetch', group: 'sync', access: 'direct' },
+    { id: 'status.commit', label: 'Commit', group: 'status', access: 'confirm' },
+    { id: 'view.refresh', label: 'Refresh', group: 'view', access: 'direct' },
+    { id: 'terminal.new', label: 'New Terminal', group: 'terminal', access: 'direct' },
+    { id: 'terminal.toggle', label: 'Toggle Terminal', group: 'terminal', access: 'direct' },
+    { id: 'app.lock', label: 'Lock Screen', group: 'view', access: 'confirm' },
+  ],
+  skills: [
+    { id: 'execAdhoc', label: 'Adhoc Task', hint: 'Build a one-off task described up front.' },
+  ],
+  // `graph` here is deliberate: it is also a view id, so "switch to graph"
+  // exercises the repo-wins-over-view rule.
+  repos: ['bilo-mono', 'graph'],
+};
+
+describe('parseIntent — navigate (Theme A, with a vocabulary)', () => {
+  it.each([
+    ['take me to the graph', { kind: 'navigate', view: 'graph' }],
+    ['open the database', { kind: 'navigate', view: 'database' }],
+    ['bring up the api client', { kind: 'navigate', view: 'apiClient' }],
+    ['jump to issues', { kind: 'navigate', view: 'issues' }],
+    ['show me issue 212', { kind: 'navigate', view: 'issues', issue: 212 }],
+    ['show me issue #212', { kind: 'navigate', view: 'issues', issue: 212 }],
+    ['open settings, companion', { kind: 'navigate', view: 'settings', page: 'companion' }],
+    ['bring up the settings', { kind: 'navigate', view: 'settings' }],
+    [
+      'open https://example.com/foo',
+      { kind: 'navigate', url: 'https://example.com/foo' },
+    ],
+  ] as const)('reads %j', (text, expected) => {
+    expect(parseIntent(text, testVocabulary)).toEqual(expected);
+  });
+
+  it('resolves "switch to X" repo-first, then view, then legacy switchRepo', () => {
+    // A real repo name wins outright.
+    expect(parseIntent('switch to bilo-mono', testVocabulary)).toEqual({
+      kind: 'switchRepo',
+      name: 'bilo-mono',
+    });
+    // A repo AND a view share the name — the repo (the more specific noun) wins.
+    expect(parseIntent('switch to graph', testVocabulary)).toEqual({
+      kind: 'switchRepo',
+      name: 'graph',
+    });
+    // No repo named "database" — falls through to the view table.
+    expect(parseIntent('switch to the database', testVocabulary)).toEqual({
+      kind: 'navigate',
+      view: 'database',
+    });
+    // Neither a repo nor a view — the legacy fallback still applies.
+    expect(parseIntent('switch to nowhere in particular', testVocabulary)).toEqual({
+      kind: 'switchRepo',
+      name: 'nowhere in particular',
+    });
+  });
+
+  it('leaves a verb with no recognisable target for the next stage, not a phantom navigate', () => {
+    expect(parseIntent('open the pod bay doors', testVocabulary)).toEqual({
+      kind: 'freeform',
+      text: 'open the pod bay doors',
+    });
+  });
+
+  it('does not treat a bare noun with no verb as an instruction', () => {
+    expect(parseIntent('graph', testVocabulary).kind).toBe('freeform');
+  });
+
+  it('has no effect when no vocabulary is passed — parseIntent behaves exactly as before', () => {
+    expect(parseIntent('take me to the graph')).toEqual({
+      kind: 'freeform',
+      text: 'take me to the graph',
+    });
+  });
+});
+
+describe('parseIntent — run (Theme A, with a vocabulary)', () => {
+  it.each([
+    ['push', { kind: 'run', id: 'sync.push' }],
+    ['pull', { kind: 'run', id: 'sync.pull' }],
+    ['fetch', { kind: 'run', id: 'sync.fetch' }],
+    ['commit', { kind: 'run', id: 'status.commit' }],
+    ['refresh', { kind: 'run', id: 'view.refresh' }],
+    ['new terminal', { kind: 'run', id: 'terminal.new' }],
+    ['toggle the terminal', { kind: 'run', id: 'terminal.toggle' }],
+    ['lock the screen', { kind: 'run', id: 'app.lock' }],
+  ] as const)('reads %j', (text, expected) => {
+    expect(parseIntent(text, testVocabulary)).toEqual(expected);
+  });
+
+  it('has no effect when no vocabulary is passed — "push" alone stays freeform', () => {
+    expect(parseIntent('push')).toEqual({ kind: 'freeform', text: 'push' });
+  });
+});
+
+describe('parseIntent — confirm and help (Theme A, with a vocabulary)', () => {
+  it.each(['yes', 'yeah', 'do it', 'confirm', 'run it'])('reads %j as confirm', (text) => {
+    expect(parseIntent(text, testVocabulary)).toEqual({ kind: 'confirm' });
+  });
+
+  // "go ahead" is also a COMPANION_ANYWAY_TOKENS whole-utterance match, checked
+  // unconditionally before the vocabulary-gated stage — existing control words
+  // keep precedence, so it stays `anyway` even with a vocabulary present.
+  it('leaves "go ahead" as anyway, shadowed by the existing control word', () => {
+    expect(parseIntent('go ahead', testVocabulary)).toEqual({ kind: 'anyway' });
+  });
+
+  it.each(['what can you do', 'help', 'what do you know'])('reads %j as help', (text) => {
+    expect(parseIntent(text, testVocabulary)).toEqual({ kind: 'help' });
+  });
+});
+
 describe('CompanionIntentSchema', () => {
   it('round-trips every arm parseIntent can produce', () => {
-    for (const text of ['start a swarm', 'switch to x', 'no', 'music on', 'repeat', 'stop', 'anyway', 'hello there']) {
-      expect(CompanionIntentSchema.safeParse(parseIntent(text)).success).toBe(true);
+    for (const text of [
+      'start a swarm',
+      'switch to x',
+      'no',
+      'music on',
+      'repeat',
+      'stop',
+      'anyway',
+      'hello there',
+      'take me to the graph',
+      'push',
+      'yes',
+      'help',
+    ]) {
+      expect(CompanionIntentSchema.safeParse(parseIntent(text, testVocabulary)).success).toBe(true);
     }
   });
 

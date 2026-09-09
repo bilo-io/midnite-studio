@@ -7,6 +7,7 @@ import {
   type CompanionSnapshot,
   type CompanionState,
   type CompanionTurn,
+  type CompanionVocabulary,
   type RepoDescriptor,
 } from '@midnite/studio-shared';
 
@@ -112,6 +113,16 @@ export const digestFixture = (over: Partial<CompanionDigest> = {}): CompanionDig
   ...over,
 });
 
+/** Empty by default — a test that exercises `navigate`/`run` fills in what it needs. */
+export const vocabularyFixture = (over: Partial<CompanionVocabulary> = {}): CompanionVocabulary => ({
+  views: [],
+  settingsPages: [],
+  commands: [],
+  skills: [],
+  repos: [],
+  ...over,
+});
+
 /**
  * Deps wired to fakes, with an un-aborted signal.
  *
@@ -149,6 +160,7 @@ export function fakeHandoffDeps(over: Partial<HandoffDeps> = {}): HandoffDeps {
     autoSendAllowed: () => false,
     activeHandoff: () => null,
     setActiveHandoff: () => {},
+    vocabulary: () => vocabularyFixture(),
     ...over,
   };
 }

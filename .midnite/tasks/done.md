@@ -1,6 +1,35 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-09 — Phase 81 Theme A — One vocabulary, one engine
+
+[PR #319](https://github.com/bilo-io/midnite-studio/pull/319). The companion's action vocabulary
+was closed at ten skills with no navigation and no way to run a palette command — a spoken "take
+me to the graph" got an apology, never an action. This theme lands the shared foundation Themes
+B–F build on, with no user-visible behavior change of its own.
+
+`ViewId`/`VIEW_IDS` and `SettingsPageId`/`SETTINGS_PAGE_IDS` moved from `ui-store.ts` into
+`packages/shared/src/domain/view.ts` as `const` tuples (Decision 3), re-exported from
+`ui-store.ts` so no import path moved; `PAGE_WINDOW_ROLES satisfies readonly ViewId[]`.
+`VIEW_LABELS`/`VIEW_KEYWORDS` are now exported from `services/palette/providers.ts`. `shared`
+gained `CompanionAccess` and `CompanionVocabularySchema`/`CompanionVocabulary` (views, settings
+pages, direct/confirm-tier commands, skills and repos — mirroring the palette's own tables,
+never a second copy). `features/palette/safety.ts` gained a total `COMMAND_ACCESS: Record<CommandId,
+CompanionAccess>` beside `PALETTE_SAFE`, plus a small `ID_DISPATCH_OK` carve-out for ids the
+palette excludes only for chord-sharing reasons (Decision 4/5) — `view.graph`/`view.files`/
+`view.issues`/`view.video`/`view.apiClient` are `never` here, a deliberate narrowing of Decision
+5's prose since the companion reaches every view through the `navigate` intent instead.
+
+`features/companion/command-runtime.ts` is the module-level registry (`setCommandRuntime`/
+`runCommand`) that lets a plain function outside any render actually execute a `CommandId` —
+`app.tsx` registers only the main window's runtime, never a popout's. `features/companion/
+vocabulary.ts`'s `buildVocabulary`/`vocabularyFor` assembles the vocabulary from the same tables
+the palette renders. `parseIntent(text, vocabulary?)` recognises four new intent kinds —
+`navigate`, `run`, `confirm`, `help` — only when a vocabulary is passed, so every pre-existing
+call is unaffected; `CompanionIntentSchema` and `handoff.ts`'s `act()` grew the same four arms,
+landed as stubs ("I can't do that yet") so the schema, the grammar and the exhaustive switch
+arrived together for Themes B–D to replace one at a time.
+
 ## 2026-09-09 — Ad hoc — the local voice, visible, auditionable and diagnosable in Settings
 
 [PR #300](https://github.com/bilo-io/midnite-studio/pull/300). A user installed the Phase 80
