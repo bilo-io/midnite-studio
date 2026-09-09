@@ -3337,6 +3337,13 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
           kind: 'error' as const,
           message: 'No local voice engine in this harness.',
         }),
+        // The cancel half of the same channel pair (Ad Hoc "TTS synthesis
+        // blocks the UI"). Present for the reason the comment above gives, and
+        // this one is load-bearing for *every* spec rather than only the voice
+        // ones: `register-flow-ports.ts` calls the speaker's `cancel()` from a
+        // mount effect, so a mock missing this method throws in React's passive
+        // mount phase and the app never renders at all.
+        ttsCancel: () => {},
         /*
           Theme F's speech-in half, backed by `sttConfigured` above so the
           real Settings ▸ Companion save flow (`sttSet` then `sttStatus`)

@@ -444,7 +444,15 @@ export const defaultLocalSpeakerDeps = (): LocalSpeakerDeps => ({
   getAudio: getCompanionAudio,
   hasBridge,
   cancelQueuedSynthesis: () => {
-    bridge()?.companion.ttsCancel();
+    /*
+      Optional on the *method*, not just the namespace. `register-flow-ports.ts`
+      calls `cancel()` from a mount effect on every boot, so a bridge that
+      predates this channel — a preload from an older build, or a harness whose
+      mock has not grown the method yet — would throw inside React's passive
+      mount phase and take the whole renderer down with it, not just the voice.
+      A dropped cancel is silence; a white screen is the app.
+    */
+    bridge()?.companion.ttsCancel?.();
   },
   setLevel: setCompanionLevel,
   schedule: (callback) =>
