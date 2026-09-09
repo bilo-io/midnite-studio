@@ -4,19 +4,33 @@ import {
   chunkForSpeech,
 } from '@midnite/studio-shared';
 
+import { bridge, hasBridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
+import { getCompanionAudio } from './audio/context';
 
 /**
- * Text-to-speech (Phase 79 Theme F).
+ * Text-to-speech (Phase 79 Theme F; the local engine below is Phase 80 Theme C).
  *
- * Voice-*out* is the free half of this phase. `speechSynthesis` works in
- * Electron and uses the macOS voices, so there is no channel, no key and no
- * provider here — everything below is a queue, a workaround and a pulse.
- * (Voice-*in* is the opposite story and lives in `recorder.ts` plus
- * `main/companion/stt/`, because Chromium's recogniser routes to a Google
- * endpoint Electron has no key for.)
+ * Voice-*out* was the free half of Phase 79. `speechSynthesis` works in
+ * Electron and uses the OS voices, so no channel, no key and no provider was
+ * needed for it — a queue, a chunking workaround and a pulse, all below in
+ * `createSpeaker`. (Voice-*in* is the opposite story and lives in
+ * `recorder.ts` plus `main/companion/stt/`, because Chromium's recogniser
+ * routes to a Google endpoint Electron has no key for.)
  *
- * Three things earn their complexity:
+ * Theme C adds a second, *preferred* engine for the same port:
+ * `createLocalSpeaker` calls the new `mstudio:companion:tts-synthesize`
+ * channel (text in, one WAV clip out) and plays the result through the
+ * companion's own `AudioContext`/master gain instead of
+ * `SpeechSynthesisUtterance` — so `companionVolume` affects it identically,
+ * with no separate volume control. `createCompanionSpeaker` is the module
+ * singleton's actual factory: it tries the local engine first and falls back
+ * to `speechSynthesis` — sticky for the renderer's lifetime — the instant the
+ * local engine reports anything other than success, so a missing native
+ * module or an unprovisioned voice on the main side never leaves the
+ * companion mute.
+ *
+ * Three things earn `createSpeaker`'s complexity:
  *
  * **The queue.** `speechSynthesis.speak` is fire-and-forget with a global
  * queue nothing else in this app shares, and utterances from two overlapping
@@ -377,12 +391,292 @@ export function createSpeaker(overrides: Partial<SpeakerDeps> = {}): CompanionSp
   };
 }
 
+// --- the local voice engine (Phase 80 Theme C) ------------------------------
+
+/** Everything `createLocalSpeaker` touches outside itself, injected for the same reason `SpeakerDeps` is. */
+export type LocalSpeakerDeps = {
+  /** `bridge()?.companion.ttsSynthesize` — absent under jsdom/no-preload, where the local engine is simply unavailable. */
+  synthesize: (
+    text: string,
+  ) => Promise<{ ok: true; audio: Uint8Array; mime: string } | { ok: false }>;
+  /** The companion's shared `AudioContext`/master gain, or `null` where there is no Web Audio at all. */
+  getAudio: () => { ctx: AudioContext; master: GainNode } | null;
+  /** Whether there is a preload bridge to call at all — `available`'s coarse, synchronous half; see the module doc. */
+  hasBridge: () => boolean;
+  setLevel: (level: number) => void;
+  schedule: (callback: (now: number) => void) => number;
+  cancelScheduled: (handle: number) => void;
+  now: () => number;
+};
+
+export const defaultLocalSpeakerDeps = (): LocalSpeakerDeps => ({
+  synthesize: async (text) => {
+    const result = await bridge()?.companion.ttsSynthesize({ text });
+    return result?.ok === true
+      ? { ok: true, audio: result.value.audio, mime: result.value.mime }
+      : { ok: false };
+  },
+  getAudio: getCompanionAudio,
+  hasBridge,
+  setLevel: setCompanionLevel,
+  schedule: (callback) =>
+    typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame(callback)
+      : (setTimeout(() => callback(Date.now()), 16) as unknown as number),
+  cancelScheduled: (handle) => {
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(handle);
+    else clearTimeout(handle as unknown as ReturnType<typeof setTimeout>);
+  },
+  now: () => (typeof performance === 'undefined' ? Date.now() : performance.now()),
+});
+
+type LocalQueueItem = {
+  chunks: string[];
+  opts: CompanionSpeakOptions;
+  /** Unlike the system speaker's `resolve()`, this also reports whether the
+   *  local engine actually spoke it — `createCompanionSpeaker` below falls
+   *  back to `speechSynthesis` on `false`. */
+  settle: (spoken: boolean) => void;
+};
+
+/**
+ * The local engine's own `CompanionSpeaker`, playable standalone (tests, and
+ * anyone who wants the local voice specifically) but normally reached only
+ * through `createCompanionSpeaker`'s fallback wrapper below.
+ *
+ * No word-boundary events: sherpa-onnx-node returns one clip per chunk with no
+ * per-word timing, so `onBoundary` fires once per chunk (at its start) rather
+ * than once per word — coarser than `speechSynthesis`'s, and nothing today
+ * reads more than that (see `speaker.ts`'s own module doc).
+ */
+export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): CompanionSpeaker & {
+  isSpeaking: () => boolean;
+  /** The real primitive: resolves `false` when the engine never produced audio for this utterance. */
+  speakLocal: (text: string, opts?: CompanionSpeakOptions) => Promise<boolean>;
+} {
+  const deps: LocalSpeakerDeps = { ...defaultLocalSpeakerDeps(), ...overrides };
+  const queue: LocalQueueItem[] = [];
+  let active: LocalQueueItem | null = null;
+  let currentSource: AudioBufferSourceNode | null = null;
+  let decayHandle: number | null = null;
+  let levelSetAt = 0;
+
+  const stopDecay = (): void => {
+    if (decayHandle !== null) deps.cancelScheduled(decayHandle);
+    decayHandle = null;
+  };
+
+  /** Same shape as `createSpeaker`'s own `decay`/`pulse` — see that one for why it stops scheduling once it lands. */
+  const decay = (): void => {
+    stopDecay();
+    decayHandle = deps.schedule(() => {
+      decayHandle = null;
+      const elapsed = deps.now() - levelSetAt;
+      const next = Math.max(0, 1 - elapsed / COMPANION_LEVEL_DECAY_MS);
+      deps.setLevel(next);
+      if (next > 0) decay();
+    });
+  };
+
+  const pulse = (): void => {
+    levelSetAt = deps.now();
+    deps.setLevel(1);
+    decay();
+  };
+
+  const clearLevel = (): void => {
+    stopDecay();
+    deps.setLevel(0);
+  };
+
+  const finish = (item: LocalQueueItem, spoken: boolean): void => {
+    if (active === item) active = null;
+    if (currentSource !== null) {
+      try {
+        currentSource.stop();
+      } catch {
+        // Already stopped/ended. Nothing to do.
+      }
+      currentSource = null;
+    }
+    item.settle(spoken);
+    clearLevel();
+    void drain();
+  };
+
+  const drain = (): void => {
+    if (active !== null) return;
+    const item = queue.shift();
+    if (item === undefined) return;
+    active = item;
+
+    const audio = deps.getAudio();
+    if (audio === null) {
+      finish(item, false);
+      return;
+    }
+
+    let index = 0;
+    const playNext = async (): Promise<void> => {
+      if (active !== item) return;
+      if (item.opts.signal?.aborted === true) {
+        // A cancelled utterance is a normal outcome, not a fallback trigger.
+        finish(item, true);
+        return;
+      }
+      const chunk = item.chunks[index];
+      if (chunk === undefined) {
+        finish(item, true);
+        return;
+      }
+      index += 1;
+
+      /*
+        Everything from here down is wrapped in one `try` — including
+        `deps.synthesize` itself. A bridge with no `ttsSynthesize` at all (an
+        e2e harness, an older preload) throws a `TypeError` calling it, not a
+        rejected `GitOpResult`, and that throw must fail soft exactly like a
+        `{ok:false}` answer does: unwrapped, it becomes an unhandled rejection
+        on this fire-and-forget chain, `finish` never runs, and the caller's
+        `speakLocal` promise — and everything awaiting it, the whole concierge
+        flow included — hangs forever instead of falling back.
+      */
+      try {
+        const result = await deps.synthesize(chunk);
+        if (active !== item) return; // cancelled while the request was in flight
+        if (!result.ok) {
+          finish(item, false);
+          return;
+        }
+
+        // `.slice()` first: the `Uint8Array` crossing the IPC boundary may not
+        // tightly wrap its own `ArrayBuffer`, and `decodeAudioData` wants one
+        // sized to exactly the bytes it should read.
+        const decoded = await audio.ctx.decodeAudioData(result.audio.slice().buffer);
+        if (active !== item) return;
+
+        const source = audio.ctx.createBufferSource();
+        source.buffer = decoded;
+        source.connect(audio.master);
+        currentSource = source;
+        item.opts.onBoundary?.(0);
+        pulse();
+        source.onended = () => {
+          if (currentSource === source) currentSource = null;
+          void playNext();
+        };
+        source.start();
+      } catch {
+        finish(item, false);
+      }
+    };
+
+    void playNext();
+  };
+
+  const speakLocal = (text: string, opts: CompanionSpeakOptions = {}): Promise<boolean> => {
+    const chunks = chunkForSpeech(text);
+    if (chunks.length === 0) return Promise.resolve(true);
+
+    return new Promise<boolean>((resolve) => {
+      const item: LocalQueueItem = { chunks, opts, settle: resolve };
+      queue.push(item);
+      opts.signal?.addEventListener(
+        'abort',
+        () => {
+          if (active === item) {
+            finish(item, true);
+            return;
+          }
+          const queued = queue.indexOf(item);
+          if (queued !== -1) {
+            queue.splice(queued, 1);
+            item.settle(true);
+          }
+        },
+        { once: true },
+      );
+      drain();
+    });
+  };
+
+  return {
+    // Coarse and synchronous, matching `SpeakerDeps`'s own `available`: it
+    // answers "is there anyone to ask at all", not "will the model actually
+    // load" — that answer only exists after a real round trip, which is what
+    // `createCompanionSpeaker`'s sticky fallback is for.
+    get available() {
+      return deps.hasBridge();
+    },
+    speakLocal,
+    speak: (text, opts) => speakLocal(text, opts).then(() => undefined),
+    cancel: () => {
+      const pending = [...queue];
+      queue.length = 0;
+      const current = active;
+      active = null;
+      if (currentSource !== null) {
+        try {
+          currentSource.stop();
+        } catch {
+          // Already stopped/ended.
+        }
+        currentSource = null;
+      }
+      clearLevel();
+      for (const item of pending) item.settle(true);
+      current?.settle(true);
+    },
+    isSpeaking: () => active !== null || queue.length > 0,
+  };
+}
+
+/**
+ * The speaker the rest of the app actually uses: local engine first, falling
+ * back to `speechSynthesis` the instant the local engine reports anything
+ * other than success — sticky for as long as this object lives, since a
+ * native module that failed to load on this machine does not become
+ * available mid-session. One utterance is never split across engines
+ * mid-sentence: a failure partway through an utterance finishes that
+ * utterance's remaining text on the system engine, and every utterance after
+ * it goes straight to the system engine too.
+ */
+export function createCompanionSpeaker(
+  overrides: { local?: Partial<LocalSpeakerDeps>; system?: Partial<SpeakerDeps> } = {},
+): CompanionSpeaker & { isSpeaking: () => boolean } {
+  const local = createLocalSpeaker(overrides.local);
+  const system = createSpeaker(overrides.system);
+  let useLocal = true;
+
+  return {
+    get available() {
+      return local.available || system.available;
+    },
+    speak: async (text, opts = {}) => {
+      if (useLocal) {
+        const spoken = await local.speakLocal(text, opts);
+        if (spoken) return;
+        useLocal = false;
+        if (opts.signal?.aborted === true) return;
+      }
+      return system.speak(text, opts);
+    },
+    cancel: () => {
+      local.cancel();
+      system.cancel();
+    },
+    isSpeaking: () => local.isSpeaking() || system.isSpeaking(),
+  };
+}
+
 /**
  * The app's speaker.
  *
  * A module singleton for the reason the queue exists: there is one set of
  * speakers on the machine, and two instances would interleave through
- * `speechSynthesis`'s global queue. Theme E's `setCompanionSpeaker` is handed
- * this object once; everything else calls it through that port.
+ * `speechSynthesis`'s global queue (and, now, through the companion's one
+ * `AudioContext`). Theme E's `setCompanionSpeaker` is handed this object
+ * once; everything else calls it through that port.
  */
-export const companionTtsSpeaker: CompanionSpeaker & { isSpeaking: () => boolean } = createSpeaker();
+export const companionTtsSpeaker: CompanionSpeaker & { isSpeaking: () => boolean } =
+  createCompanionSpeaker();

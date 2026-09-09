@@ -11,6 +11,7 @@ import { askCompanion } from '../companion/ask';
 import { buildCompanionDigest } from '../companion/digest';
 import { buildCompanionSnapshot } from '../companion/snapshot';
 import { sttDeps, testSttCredential, transcribeUtterance } from '../companion/stt';
+import { synthesizeSpeech } from '../companion/tts';
 import { handle, handleBare, handleOp } from './handle';
 
 /**
@@ -98,5 +99,17 @@ export function registerCompanionHandlers(): void {
         encryptionAvailable: credentials.isAvailable(),
       };
     },
+  );
+
+  /*
+    The local voice engine (Phase 80 Theme C). `handleOp` fits exactly:
+    `synthesizeSpeech` already answers `GitOpResult` and never throws, so an
+    invalid payload arriving as `failure(...)` is the same shape the renderer
+    already branches on for every other failure mode (missing native module,
+    unprovisioned model, a bad synthesis) — `speaker.ts` falls back to
+    `speechSynthesis` for all of them alike.
+  */
+  handleOp(CHANNELS.companionTtsSynthesize, schemas.CompanionTtsSynthesizeRequest, (req) =>
+    synthesizeSpeech(req.text),
   );
 }

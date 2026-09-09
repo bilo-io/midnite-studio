@@ -1,6 +1,78 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-09 — Phase 80 Theme C — a local, free voice, with an automatic fallback to `speechSynthesis`
+
+[PR #297](https://github.com/bilo-io/midnite-studio/pull/297). Moves Phase 80 15/31 → 24/31 (48% →
+77%) — the last of the phase's four themes; A, B and D had already landed. `speechSynthesis`
+sounded robotic and had never been evaluated against an alternative —
+Finding 4 of the phase doc's own research. This lands the doc's recommendation:
+`sherpa-onnx-node` running a Piper VITS voice (`en_US-joe-medium`, CC0), entirely in
+`packages/desktop`'s main process, behind one new IPC channel.
+
+**The native module is loaded exactly like `node-pty` is — lazily, fail-soft, and never at import
+time.** `packages/desktop/src/main/companion/tts.ts` mirrors `inproc-pty.ts`'s `loadNodePty()`
+line for line: `require('sherpa-onnx-node')` throws synchronously the moment the platform binary
+is missing, so a static top-level import would crash main at boot on an unsupported platform.
+Three distinct failure modes all answer `{ok:false}` instead: the native module won't load
+(sticky for the process — retrying a missing binary on every utterance is pointless), the voice
+model's one-time download/extraction fails (**not** sticky — a network blip is transient, and the
+next utterance tries again), or synthesis itself throws (sticky, same reasoning as the native
+module). `speaker.ts`'s `createCompanionSpeaker` treats all three identically on the renderer
+side: fall back to `speechSynthesis`, sticky for the object's lifetime, the instant the local
+engine reports anything other than success — the companion is never left mute because a native
+module didn't load.
+
+**The voice model downloads once, into `userData`, from sherpa-onnx's own pre-converted release**
+— not Piper's raw `.onnx`/`.onnx.json` pair, which is not enough on its own: sherpa-onnx's VITS
+loader also needs a matching `tokens.txt` and `espeak-ng-data`, cut from the exact same conversion
+or the phoneme ids can silently disagree. `unbzip2-stream` (pure JS, MIT) plus a hand-rolled
+~30-line tar reader unpack it — deliberately not `tar-stream`, to avoid its dependency tree for
+reading one known-good archive shape once per install. `en_US-joe-medium`, not the more commonly
+demoed `lessac`: same size and architecture, but CC0-licensed training data, the cleanest terms of
+any voice in `rhasspy/piper-voices`.
+
+**A licensing question this build surfaced but did not resolve**: sherpa-onnx's compiled binary
+statically links a fork of `espeak-ng` (GPL-3.0) for the same phonemization job that made Piper's
+own engine GPL — the phase doc's framing of sherpa-onnx as sidestepping that "entirely" appears to
+cover Piper's *code* but not this. Recorded in the PR body for a human legal read; not something a
+different Piper voice or a code change fixes.
+
+**Measured, not reasoned**, against the actual built `tts.js` (zero `electron` imports, so a bare
+Node process is the real shipped code path): ~198 MB RSS for the loaded model over a ~64 MB bare-Node
+baseline, close to the phase doc's "reasoned... comfortably under 200 MB." 1266 ms to first audio
+cold (model load + synth), 558 ms warm. A one-time ~550 MB transient peak during the first-ever
+download/decompress/extract, never repeated. Renderer bundle grew 3.6 KB total (orchestration code
+in `speaker.ts` and a settings-page copy change) — 0 KB from the dependency itself, confirmed by
+building `packages/app` before and after.
+
+**A real bug caught in review, not shipped**: `createLocalSpeaker.available` was originally
+hard-coded `true`. `concierge.ts` gates whether to attempt speaking at all on `speaker.available`,
+so a hard-coded `true` would have reported "available" with no bridge present at all (tests, a
+plain browser) — silently marking a turn `spoken: true` after producing no sound. Now derived from
+an injected `hasBridge()`, the same way the system speaker's own `available` reads a real
+`speechSynthesis` reference.
+
+**Testing a native module's `require()` needed one small generalisation.** `vi.mock` does not
+intercept it — a native addon's `require()` reaches past a test runner's module graph straight to
+Node's real loader, confirmed by watching a "mocked" test actually drive the real ONNX runtime
+against fixture file paths. `CompanionTtsDeps.loadModule` makes the loader an injected dependency
+instead, the same DI convention every other seam in this file already uses.
+
+**A second real bug, caught by CI rather than review**: `createLocalSpeaker`'s per-chunk loop
+awaited `deps.synthesize(chunk)` outside any `try`/`catch`. A bridge with no `ttsSynthesize` at
+all — exactly what the e2e mock bridge was, before this PR added it — throws a `TypeError`
+calling it rather than answering `{ok:false}`, and that throw was an unhandled rejection on a
+fire-and-forget chain: `finish()` never ran, `speakLocal()`'s promise never settled, and the whole
+concierge greeting hung at "Saying hello…" forever (`companion-panel.spec.ts`, 5 specs, one CI
+shard). Fixed by wrapping the whole per-chunk body — synth call included — in one `try`, and by
+adding `ttsSynthesize` to `e2e/mock-bridge.ts`'s companion object (the same reasoning that file's
+own comment already gives for `snapshot`/`digest`/`ask`: a mock missing a channel entirely tests
+the fallback path, not the feature).
+
+**Left open**: the phase doc's own two human-judgment verification items (A/B against
+`speechSynthesis` on a packaged build; whether the voice genuinely sounds more natural).
+
 ## 2026-09-09 — Phase 80 Theme B — aggregated, randomised digest phrasing
 
 [PR #296](https://github.com/bilo-io/midnite-studio/pull/296). `summariseDigest`'s "landed" line

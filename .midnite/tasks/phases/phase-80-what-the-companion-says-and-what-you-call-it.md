@@ -185,14 +185,14 @@ is still named via the unchanged `joinTitles`), `plural()`'s pluraliser itself w
 adding a bespoke map for the two new category words, and one pre-existing test's exact wording
 (`'still in flight'`) was loosened to the substring every new template shares (`'in flight'`).
 
-### C — Replace `speechSynthesis` with a local, free, low-RAM voice (L)
+### C — Replace `speechSynthesis` with a local, free, low-RAM voice (L) — ✅ DONE (PR #297, 2026-09-09)
 
 Finding 4/5: `speechSynthesis` sounds robotic and was never evaluated against an alternative. This
 theme lands **`sherpa-onnx-node`** running a Piper VITS voice, entirely in `packages/desktop`, with
 one new IPC channel carrying synthesized audio to the renderer. See the TTS comparison below for
 the full evaluation; only the recommendation is planned as build work here.
 
-- [ ] Add `sherpa-onnx-node` (Apache-2.0) as a `packages/desktop`-only dependency, alongside its
+- [x] Add `sherpa-onnx-node` (Apache-2.0) as a `packages/desktop`-only dependency, alongside its
   platform optional dependency (`sherpa-onnx-darwin-arm64` for this repo's primary target). No
   registry-auth concern — it's a public npm package, not `@bilo-io/*` scoped
   (`docs/INITIAL_PLAN.md:22`'s GitHub Packages token requirement doesn't apply). Follow the
@@ -201,23 +201,23 @@ the full evaluation; only the recommendation is planned as build work here.
   [`scripts/fix-node-pty.cjs`](../../../scripts/fix-node-pty.cjs) if the prebuilt binary needs one
   (verify during implementation; sherpa-onnx-node's darwin-arm64 binary may already ship
   correctly-permissioned).
-- [ ] Ship one voice model (a Piper `en_US-*-medium` voice, ~30-75 MB) bundled or downloaded on
+- [x] Ship one voice model (a Piper `en_US-*-medium` voice, ~30-75 MB) bundled or downloaded on
   first use into `app.getPath('userData')` — never into the app bundle or repo, matching the
   `kokoro-js`/`transformers.js` cache-location caution the TTS research surfaced. Verify the
   specific voice's own model card licence before shipping it (Piper's engine licence changed
   upstream — see Decisions #4) — not every voice in `rhasspy/piper-voices` carries the same terms
   as the repo's top-level MIT.
-- [ ] A new invoke channel, `companionTtsSynthesize: 'mstudio:companion:tts-synthesize'`, added to
+- [x] A new invoke channel, `companionTtsSynthesize: 'mstudio:companion:tts-synthesize'`, added to
   `packages/shared/src/ipc/channels.ts` beside the existing companion voice block
   (`channels.ts:851-875`) — text in, a `Uint8Array` of PCM/WAV audio out, following the exact
   wire-shape precedent `companionTranscribe` already sets (`channels.ts:864`: *"The audio is a
   `Uint8Array`, structured-cloned exactly as `pty:data`... base64 would cost a third more wire"*).
   Update the doc comment at `channels.ts:851-856` — "speech out needs no channel at all" stops
   being true the moment the engine isn't a renderer API.
-- [ ] A `packages/desktop/src/main/companion/tts.ts` owner: holds the loaded sherpa-onnx-node
+- [x] A `packages/desktop/src/main/companion/tts.ts` owner: holds the loaded sherpa-onnx-node
   session (loaded once, lazily, on first synthesis request — mirroring `AudioContext`'s own
   lazy-creation precedent at `audio/context.ts:9-14`), and answers the new channel.
-- [ ] On the renderer side, `speaker.ts`'s `SpeakerDeps` (`speaker.ts:68-81`) gains a second
+- [x] On the renderer side, `speaker.ts`'s `SpeakerDeps` (`speaker.ts:68-81`) gains a second
   implementation of the same shape `defaultSpeakerDeps` (`speaker.ts:102-123`) provides today: play
   the returned `Uint8Array` through the companion's existing `AudioContext`/`master` gain node
   (`audio/context.ts:29-31`, "every source connects here, never to `ctx.destination` directly") via
@@ -226,11 +226,11 @@ the full evaluation; only the recommendation is planned as build work here.
   instead of duplicating it.
   - *Acceptance:* `companionVolume` (`ui-store.ts:1321`) audibly affects the new engine's output
     exactly as it does `speechSynthesis` today, with no separate volume control.
-- [ ] A Settings ▸ Companion ▸ Voice fallback: if the local engine fails to load (missing binary,
+- [x] A Settings ▸ Companion ▸ Voice fallback: if the local engine fails to load (missing binary,
   unsupported platform), fail soft to `speechSynthesis` — the same "lazy fail-soft require degrades
   to unavailable, not a crash" posture `docs/INITIAL_PLAN.md:147` already prescribes for `node-pty`.
   Never leave the companion mute because a native module didn't load.
-- [ ] Perf: measure resident RAM with the model loaded, using this repo's own
+- [x] Perf: measure resident RAM with the model loaded, using this repo's own
   [`scripts/perf/`](../../../scripts/perf/) conventions (`CLAUDE.md`'s "Perf claims come with a
   number" rule) — the packaged-app-equivalent build, not dev mode.
 
@@ -319,9 +319,9 @@ runtime is desktop-only per the bundle-budget guardrail above.
   last-pill-blocked, and per-pill accessible-name assertions from Theme D.
 - [ ] RTL: Settings ▸ Companion still renders and the "Say hello" preview still plays with Theme A's
   transform in the pipeline (non-regression).
-- [ ] `moon run :typecheck :lint :test` green, including the desktop-package `sherpa-onnx-node`
+- [x] `moon run :typecheck :lint :test` green, including the desktop-package `sherpa-onnx-node`
   addition passing eslint's `no-restricted-imports` boundary check (no `packages/app` import of it).
-- [ ] Perf: `moon run app:build desktop:bundle` then `scripts/perf/bundle-report.mjs` — confirm zero
+- [x] Perf: `moon run app:build desktop:bundle` then `scripts/perf/bundle-report.mjs` — confirm zero
   renderer bundle growth from Theme C (the dependency is desktop-only).
 - [ ] **Open, for a human:** listen to a real digest with 4+ dependency-update commits and confirm
   the spoken summary matches the user's own example shape ("there have been 4 dependency updates,

@@ -25,6 +25,7 @@ import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers'
 import { createCompanionStore } from './companion/companion-store';
 import { configureCompanion } from './companion/digest';
 import { configureStt } from './companion/stt';
+import { configureCompanionTts } from './companion/tts';
 import { createSttCredentials } from './companion/stt/credentials';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
@@ -524,6 +525,13 @@ if (!app.requestSingleInstanceLock()) {
       answer "nothing configured" on the first read of every launch.
     */
     configureStt(createSttCredentials(userData));
+    /*
+      The local voice engine (Phase 80 Theme C). Wired here beside every other
+      `userData` store, but nothing native loads until the first synthesis
+      request — `tts.ts`'s own lazy `require()`, mirroring `inproc-pty.ts`'s
+      `loadNodePty()`.
+    */
+    configureCompanionTts(userData);
 
     /*
       Three independent boot chains, run at once (Theme B). They were sequential

@@ -154,6 +154,20 @@ describe('Settings ▸ Companion ▸ Voice (Theme F)', () => {
     // Nothing to escape from, so no toggle is offered.
     expect(screen.queryByTestId('companion-show-all-voices')).toBeNull();
   });
+
+  // Phase 80 Theme C — a non-regression check, not new coverage of the local
+  // engine itself (which is unit-tested against `speaker.ts` directly): the
+  // page still explains the local-voice-first, system-voice-fallback
+  // behaviour, and the picker's own label now says so is the fallback.
+  it('explains the local-voice-first fallback beside the (now fallback) voice picker', async () => {
+    installBridge();
+    render(<CompanionPage />);
+
+    // `findByText`/`getByText` throw when nothing matches — reaching the
+    // assertion is the proof either exists.
+    await screen.findByText(/bundled offline voice.*falling back automatically/i);
+    expect(screen.getByText('Speaking voice (fallback)')).not.toBeNull();
+  });
 });
 
 describe('Settings ▸ Companion ▸ Companion volume (Theme G)', () => {

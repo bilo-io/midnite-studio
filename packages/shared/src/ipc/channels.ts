@@ -848,12 +848,32 @@ export const CHANNELS = {
    */
   companionAsk: 'mstudio:companion:ask',
 
-  // --- the companion's voice (Phase 79 Theme F) -------------------------------
-  // Speech *out* needs no channel at all — `speechSynthesis` is a renderer API
-  // and the OS voices are already there. Speech *in* needs all four, because
-  // the recogniser is a paid cloud endpoint and its key must never reach the
-  // renderer: the blob crosses here, the request is made in main with a key
-  // `safeStorage` decrypted on the way past, and only the text comes back.
+  // --- the companion's voice (Phase 79 Theme F; local engine Phase 80 Theme C) -
+  // Speech *in* needs all four below, because the recogniser is a paid cloud
+  // endpoint and its key must never reach the renderer: the blob crosses here,
+  // the request is made in main with a key `safeStorage` decrypted on the way
+  // past, and only the text comes back. Speech *out* used to need no channel
+  // at all — `speechSynthesis` is a renderer API and the OS voices are already
+  // there — but that stopped being true the moment a second engine
+  // (`sherpa-onnx-node`, a native module) became the preferred voice: it can
+  // only run in main, so `companionTtsSynthesize` carries text in and
+  // synthesized audio out. `speechSynthesis` itself is still called directly
+  // from the renderer as the fail-soft fallback when the channel below errors.
+  /**
+   * Text in, one WAV clip out — the local voice engine (Phase 80 Theme C).
+   *
+   * `sherpa-onnx-node` (a native module, same category as `node-pty`) loads a
+   * Piper voice lazily on first call and never in the renderer, per
+   * `packages/app`'s JS-budget guardrail. Answers `GitOpResult` rather than a
+   * bare value, following `companionTranscribe`'s precedent exactly: "the
+   * model failed to load" and "synthesis failed" are normal outcomes the
+   * renderer falls back to `speechSynthesis` for, not exceptions.
+   *
+   * The audio comes back as a `Uint8Array` WAV, structured-cloned exactly as
+   * `companionTranscribe`'s input and `pty:data` already are — no channel
+   * here re-encodes to base64.
+   */
+  companionTtsSynthesize: 'mstudio:companion:tts-synthesize',
   /**
    * One utterance in, its transcript out.
    *
