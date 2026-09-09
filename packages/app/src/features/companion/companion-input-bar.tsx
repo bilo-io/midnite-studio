@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { LuMic, LuMicOff, LuSendHorizontal } from 'react-icons/lu';
 
+import { GRADIENT_FIELD_CLASSES } from '../../components/gradient-field';
 import { Tooltip } from '../../components/tooltip';
 import { companionPorts, setCompanionPorts } from './companion-ports';
 
@@ -167,17 +168,36 @@ export function CompanionInputBar({
       }`}
     >
       <div className="flex items-end gap-1.5">
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={onKeyDown}
-          rows={1}
-          aria-label="Message the companion"
-          placeholder="Ask for a task, or say hello…"
-          data-testid="companion-input"
-          className="min-h-[28px] w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:ring-1 focus:ring-ring"
-        />
+        {/*
+          The same `.gradient-border` treatment as the repos panel's own
+          filter box (`repos-panel.tsx`) — a borderless field with the conic
+          ring living on this wrapper, lighting up on `:focus-within` rather
+          than the field's own `:focus`. `min-w-0` because this sits beside a
+          `shrink-0` button cluster in a flex row and a bare `w-full` on a
+          flex item does not stop it fighting that sibling for space the way
+          it does in a block-level parent.
+
+          Dimmed rather than disabled while `disabled` (the companion is
+          `thinking`): the prop's own contract is "send is refused, typing is
+          not" — a native `disabled` textarea would block the very typing
+          that is still allowed, so the opacity is the only cue, matching the
+          send button's own dimmed-not-dead treatment below.
+        */}
+        <div
+          className={`min-w-0 flex-1 gradient-border rounded-md ${disabled ? 'opacity-60' : ''}`}
+        >
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            onKeyDown={onKeyDown}
+            rows={1}
+            aria-label="Message the companion"
+            placeholder="Ask for a task, or say hello…"
+            data-testid="companion-input"
+            className={`${GRADIENT_FIELD_CLASSES} block min-h-[28px] resize-none px-2 py-1.5 text-xs leading-relaxed`}
+          />
+        </div>
         <div className="flex shrink-0 items-center gap-0.5 pb-0.5">
           {/*
             Plain buttons wrapped in `Tooltip` rather than `IconButton`, and
