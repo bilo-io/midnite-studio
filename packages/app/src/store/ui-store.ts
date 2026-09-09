@@ -2585,3 +2585,29 @@ export const pathForView = (view: ViewId): string => (view === 'landing' ? '/' :
  */
 export const viewForPath = (path: string): ViewId =>
   VIEW_IDS.find((view) => pathForView(view) === path) ?? 'graph';
+
+/**
+ * Whether the Loops panel is showing DOCKED in this window — open, and not
+ * detached into its own. A detached panel lives in a separate window and is
+ * not on screen here, so it does not count as "open" for a caller that means
+ * "is this panel occupying its slot in the current window right now".
+ *
+ * Hoisted here once a third call site (`fab.toggle`'s handler,
+ * `use-command-handlers.ts`) needed the exact same two-flag check `app.tsx`
+ * and `assistant-menu.tsx` already computed inline and identically — a third
+ * copy is what made the duplication worth naming once. Takes a slice rather
+ * than the full `UiState` so a caller that only subscribes to these two
+ * fields (rather than the whole store) can still call it.
+ */
+export const isFabPanelDocked = (state: Pick<UiState, 'fabPanelOpen' | 'fabDetached'>): boolean =>
+  state.fabPanelOpen && !state.fabDetached;
+
+/**
+ * The Companion's own version of `isFabPanelDocked`, with its master switch
+ * folded in: a disabled companion is not on screen either, whatever
+ * `companionPanelOpen` says (`app.tsx`'s `companionDocked` comment explains
+ * why).
+ */
+export const isCompanionPanelDocked = (
+  state: Pick<UiState, 'companionPanelOpen' | 'companionEnabled' | 'companionDetached'>,
+): boolean => state.companionPanelOpen && state.companionEnabled && !state.companionDetached;

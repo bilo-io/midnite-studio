@@ -1328,3 +1328,62 @@ test.describe('FAB loop tab styling & indicators', () => {
   });
 });
 
+/**
+ * The tab bar's re-layout (ad hoc task): a shorter row matching
+ * `tab-strip.tsx`'s icon-beside-label shape, with Close moved to the far
+ * right of the row.
+ */
+test.describe('FAB panel — tab bar layout (ad hoc)', () => {
+  test('each tab lays its icon beside its label, not above it', async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Guard');
+
+    const tab = page.getByRole('button', { name: 'Guard', exact: true });
+    await expect(tab).toHaveClass(/flex-row/);
+    await expect(tab).not.toHaveClass(/flex-col/);
+
+    // The icon sits to the LEFT of the label, on the same row — not above it.
+    const iconBox = (await tab.locator('svg').first().boundingBox())!;
+    const labelBox = (await tab.getByText('Guard', { exact: true }).boundingBox())!;
+    expect(iconBox.x).toBeLessThan(labelBox.x);
+    // Same row: their vertical centres line up, rather than the label sitting
+    // a full icon-height below the icon the way the stacked layout did.
+    const iconMidY = iconBox.y + iconBox.height / 2;
+    const labelMidY = labelBox.y + labelBox.height / 2;
+    expect(Math.abs(iconMidY - labelMidY)).toBeLessThan(4);
+  });
+
+  test('the tab bar row is short — the point of the re-layout', async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Guard');
+
+    // The old icon-over-label stack ran ~56-64px tall (py-2 padding plus a
+    // 16px icon, a 12px label and the gap between them); the new row fits
+    // comfortably under 36px.
+    const bar = (await page.getByTestId('fab-panel-tabbar').boundingBox())!;
+    expect(bar.height).toBeLessThan(36);
+  });
+
+  test('Close sits at the far right of the row, after every tab — not beside Detach', async ({
+    page,
+  }) => {
+    await open(page);
+    await openFab(page, 'Guard');
+
+    const close = page.getByLabel('Close the Loops Panel');
+    const overhaul = page.getByRole('button', { name: 'Overhaul', exact: true });
+    const detach = page.getByLabel('Detach Loops Panel into its own window');
+
+    const [closeBox, overhaulBox, detachBox] = await Promise.all([
+      close.boundingBox(),
+      overhaul.boundingBox(),
+      detach.boundingBox(),
+    ]);
+
+    // Right of the last tab (Overhaul) and right of Detach — Close used to
+    // sit immediately after Detach, at the LEFT of the row.
+    expect(closeBox!.x).toBeGreaterThan(overhaulBox!.x);
+    expect(closeBox!.x).toBeGreaterThan(detachBox!.x);
+  });
+});
+

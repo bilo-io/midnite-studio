@@ -103,6 +103,8 @@ import {
   BROWSER_MAX_SHARE,
   DEFAULT_LAYOUT,
   FAB_PANEL_MAX_SHARE,
+  isCompanionPanelDocked,
+  isFabPanelDocked,
   LAYOUT_BOUNDS,
   pathForView,
   TERMINAL_VIEW_RESERVE,
@@ -513,13 +515,18 @@ function Shell() {
   const reposDocked = reposOpen && !reposDetached;
   const terminalDocked = terminalOpen && !terminalDetached;
   const browserDocked = browserOpen && !browserDetached;
-  const fabPanelDocked = fabPanelOpen && !fabDetached;
   /*
-    The companion needs the master switch as well as the open flag: it is a
+    `isFabPanelDocked`/`isCompanionPanelDocked` (`ui-store.ts`) — the companion
+    additionally needs the master switch as well as the open flag: it is a
     default-off feature, and a column that could be dragged open with the
     switch off would be a panel the user never agreed to.
   */
-  const companionDocked = companionPanelOpen && companionEnabled && !companionDetached;
+  const fabPanelDocked = isFabPanelDocked({ fabPanelOpen, fabDetached });
+  const companionDocked = isCompanionPanelDocked({
+    companionPanelOpen,
+    companionEnabled,
+    companionDetached,
+  });
   // The single source of truth for the four flags above is main's own
   // window registry (Phase 55) — see the hook's own doc for why.
   useWindowSync();
