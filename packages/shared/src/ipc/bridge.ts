@@ -1246,6 +1246,14 @@ export type MidniteStudioBridge = {
     ttsSynthesize: (
       req: In<typeof S.CompanionTtsSynthesizeRequest>,
     ) => Promise<GitOpResult<{ audio: Uint8Array; mime: string }>>;
+    /**
+     * Which engine is speaking right now, and why it fell back if it has
+     * (Phase 80 Theme C follow-up). `retry: true` forces a fresh provisioning
+     * attempt after a prior download failure.
+     */
+    ttsStatus: (
+      req: In<typeof S.CompanionTtsStatusRequest>,
+    ) => Promise<z.infer<typeof S.CompanionTtsStatusResponse>>;
   };
 };
 

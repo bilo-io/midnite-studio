@@ -875,6 +875,21 @@ export const CHANNELS = {
    */
   companionTtsSynthesize: 'mstudio:companion:tts-synthesize',
   /**
+   * Which engine is actually speaking right now, and why it fell back if it
+   * has (Phase 80 Theme C follow-up — the local voice engaged invisibly, with
+   * no status, no download indicator and no diagnosis when it silently used
+   * `speechSynthesis` instead).
+   *
+   * Read-only and side-effecting only in the specific sense that the first
+   * call (or one with `retry: true`) kicks off `ensureVoice()` in
+   * `tts.ts` if the voice isn't on disk yet — so opening Settings ▸ Companion
+   * ▸ Voice is what starts the one-time ~77 MB download, not the first
+   * utterance. `synthesizeSpeech`'s three failure modes (native module
+   * missing, download failed, synthesis threw) are surfaced verbatim rather
+   * than collapsed into one generic "unavailable".
+   */
+  companionTtsStatus: 'mstudio:companion:tts-status',
+  /**
    * One utterance in, its transcript out.
    *
    * The audio is a `Uint8Array`, structured-cloned exactly as `pty:data` and

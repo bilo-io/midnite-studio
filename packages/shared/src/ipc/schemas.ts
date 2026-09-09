@@ -2756,6 +2756,32 @@ export const CompanionTtsSynthesizeResponse = GitOpResultOf(
 );
 
 /**
+ * `retry: true` forces a fresh provisioning attempt even after a prior
+ * download failure — Settings' Retry control, over the transient failure
+ * mode `tts.ts` already retries on every synthesis call but which a status
+ * check alone must not hammer on every render.
+ */
+export const CompanionTtsStatusRequest = z.object({ retry: z.boolean().optional() });
+
+/**
+ * Always `{ok:true}` — this is a query, not an operation with a failure of
+ * its own, so the state lives in the value rather than in `ok`
+ * (`companionSttStatus`'s own precedent). `engine` is this *process's* own
+ * view of which tier it can currently offer; the renderer's `useLocal`
+ * stickiness in `speaker.ts` is a separate, session-local decision layered on
+ * top. `reason` and `message` are populated only once `voice` is `'failed'`,
+ * mirroring `synthesizeSpeech`'s three failure modes one for one.
+ */
+export const CompanionTtsStatusResponse = GitOpResultOf(
+  z.object({
+    engine: z.enum(['local', 'system']),
+    voice: z.enum(['idle', 'downloading', 'ready', 'failed']),
+    reason: z.enum(['native-module-missing', 'download-failed', 'synthesis-error']).nullable(),
+    message: z.string().nullable(),
+  }),
+);
+
+/**
  * Store or clear one provider's key.
  *
  * An empty `key` clears it, rather than a separate delete channel — the

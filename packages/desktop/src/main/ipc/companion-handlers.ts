@@ -17,7 +17,7 @@ import {
   testSttCredential,
   transcribeUtterance,
 } from '../companion/stt';
-import { synthesizeSpeech } from '../companion/tts';
+import { getCompanionTtsStatus, synthesizeSpeech } from '../companion/tts';
 import { handle, handleBare, handleOp } from './handle';
 
 /**
@@ -121,5 +121,16 @@ export function registerCompanionHandlers(): void {
   */
   handleOp(CHANNELS.companionTtsSynthesize, schemas.CompanionTtsSynthesizeRequest, (req) =>
     synthesizeSpeech(req.text),
+  );
+
+  /*
+    The status sibling (Phase 80 Theme C follow-up): `handleOp` fits here too
+    even though `getCompanionTtsStatus` cannot itself fail — it is always
+    `ok(...)`, with the state living in the value per the schema's own doc —
+    because it keeps this channel's answer shaped exactly like every other
+    one here, so the renderer has one envelope to unwrap, not two.
+  */
+  handleOp(CHANNELS.companionTtsStatus, schemas.CompanionTtsStatusRequest, async (req) =>
+    ok(await getCompanionTtsStatus(req.retry ?? false)),
   );
 }

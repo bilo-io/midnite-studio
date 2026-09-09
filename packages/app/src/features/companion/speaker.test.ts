@@ -756,4 +756,65 @@ describe('createCompanionSpeaker', () => {
     await pending;
     expect(speaker.isSpeaking()).toBe(false);
   });
+
+  describe('activeEngine', () => {
+    it('starts local, and flips to system the moment the local engine fails', async () => {
+      const local = localHarness();
+      const failingSynthesize = vi.fn(async () => ({ ok: false as const }));
+      const system = harness();
+      const speaker = createCompanionSpeaker({
+        local: { ...local.deps, synthesize: failingSynthesize },
+        system: system.deps,
+      });
+
+      expect(speaker.activeEngine).toBe('local');
+      const pending = speaker.speak('One.');
+      await flushAsync();
+      system.end();
+      await pending;
+      expect(speaker.activeEngine).toBe('system');
+    });
+  });
+
+  describe('retryLocalVoice', () => {
+    it('undoes the sticky fallback so the next utterance tries the local engine again', async () => {
+      const local = localHarness();
+      let shouldFail = true;
+      const synthesize = vi.fn(async (text: string) =>
+        shouldFail ? { ok: false as const } : local.deps.synthesize(text),
+      );
+      const system = harness();
+      const speaker = createCompanionSpeaker({
+        local: { ...local.deps, synthesize },
+        system: system.deps,
+      });
+
+      const first = speaker.speak('One.');
+      await flushAsync();
+      system.end();
+      await first;
+      expect(speaker.activeEngine).toBe('system');
+
+      // Retrying without the underlying failure clearing keeps it on system —
+      // the retry hands the local engine another chance, it doesn't force it.
+      shouldFail = false;
+      speaker.retryLocalVoice();
+      expect(speaker.activeEngine).toBe('local');
+
+      const second = speaker.speak('Two.');
+      await flushAsync();
+      local.audio.sources[0]?.onended?.();
+      await second;
+      expect(speaker.activeEngine).toBe('local');
+      expect(system.spoken.map((u) => u.text)).toEqual(['One.']);
+    });
+
+    it('does nothing harmful when called while the local engine is already active', () => {
+      const local = localHarness();
+      const system = harness();
+      const speaker = createCompanionSpeaker({ local: local.deps, system: system.deps });
+      expect(() => speaker.retryLocalVoice()).not.toThrow();
+      expect(speaker.activeEngine).toBe('local');
+    });
+  });
 });

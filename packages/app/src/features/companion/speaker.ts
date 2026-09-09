@@ -631,6 +631,28 @@ export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): C
   };
 }
 
+/** What `createCompanionSpeaker` adds on top of the plain `CompanionSpeaker` port. */
+export type CompanionTtsSpeaker = CompanionSpeaker & {
+  isSpeaking: () => boolean;
+  /**
+   * Which engine spoke the most recent utterance — or would speak the next
+   * one, before any has run this session. Settings ▸ Companion ▸ Voice reads
+   * this to show "speaking with the local voice" versus "using the system
+   * voice" without guessing, since the combined `tts-status` IPC check alone
+   * cannot see this renderer's own sticky fallback (a separate, session-local
+   * decision from main's own engine health).
+   */
+  readonly activeEngine: 'local' | 'system';
+  /**
+   * Undo the sticky system fallback so the next utterance tries the local
+   * engine again — Settings' Retry control, over a session that fell back
+   * once early (a transient download failure, since retried and succeeded on
+   * main) and would otherwise stay pinned to the system voice for the rest
+   * of its life. Never speaks anything itself.
+   */
+  retryLocalVoice: () => void;
+};
+
 /**
  * The speaker the rest of the app actually uses: local engine first, falling
  * back to `speechSynthesis` the instant the local engine reports anything
@@ -643,7 +665,7 @@ export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): C
  */
 export function createCompanionSpeaker(
   overrides: { local?: Partial<LocalSpeakerDeps>; system?: Partial<SpeakerDeps> } = {},
-): CompanionSpeaker & { isSpeaking: () => boolean } {
+): CompanionTtsSpeaker {
   const local = createLocalSpeaker(overrides.local);
   const system = createSpeaker(overrides.system);
   let useLocal = true;
@@ -651,6 +673,9 @@ export function createCompanionSpeaker(
   return {
     get available() {
       return local.available || system.available;
+    },
+    get activeEngine() {
+      return useLocal ? 'local' : 'system';
     },
     speak: async (text, opts = {}) => {
       if (useLocal) {
@@ -666,6 +691,9 @@ export function createCompanionSpeaker(
       system.cancel();
     },
     isSpeaking: () => local.isSpeaking() || system.isSpeaking(),
+    retryLocalVoice: () => {
+      useLocal = true;
+    },
   };
 }
 
@@ -678,5 +706,4 @@ export function createCompanionSpeaker(
  * `AudioContext`). Theme E's `setCompanionSpeaker` is handed this object
  * once; everything else calls it through that port.
  */
-export const companionTtsSpeaker: CompanionSpeaker & { isSpeaking: () => boolean } =
-  createCompanionSpeaker();
+export const companionTtsSpeaker: CompanionTtsSpeaker = createCompanionSpeaker();
