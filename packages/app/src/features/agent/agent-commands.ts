@@ -181,6 +181,13 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     hint: 'Address review feedback on your own pull requests.',
   },
   {
+    id: 'triage',
+    label: 'Triage',
+    icon: LuRadar,
+    category: 'reviews',
+    hint: 'Read-only table of the open PRs and issues — checks, reviews, mergeability, age.',
+  },
+  {
     id: 'releasePrep',
     label: 'Release Prep',
     icon: LuRocket,

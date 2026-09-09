@@ -74,10 +74,13 @@ describe('the companion command list', () => {
     }
   });
 
-  it('excludes every loop and both release ops', () => {
+  // Phase 81 Theme D: releasePrep joined the roster (it "stops before
+  // anything irreversible" — Decision 10); releaseComplete stays out because
+  // it tags and pushes.
+  it('excludes every loop and releaseComplete', () => {
     for (const id of COMPANION_COMMAND_IDS) {
       expect(id.startsWith('loop')).toBe(false);
-      expect(id.startsWith('release')).toBe(false);
+      expect(id).not.toBe('releaseComplete');
     }
   });
 });
@@ -122,6 +125,21 @@ describe('submitInput — a recognised command', () => {
     const startSkill = vi.fn().mockReturnValue({ id: 's' });
     await submitInput('start a swarm', fakeHandoffDeps({ startSkill }));
     expect(startSkill.mock.calls[0]?.[0]).toMatchObject({ autoSend: false });
+  });
+
+  // Phase 81 Theme D, Decision-adjacent: releasePrep's Return is always the
+  // user's, even with hands-free on and a voice-input provider ready.
+  it('never auto-sends releasePrep, even when the gate says yes, and says so', async () => {
+    const store = fakeStore();
+    const startSkill = vi.fn().mockReturnValue({ id: 'session-rp' });
+    await submitInput(
+      'release prep',
+      fakeHandoffDeps({ store, startSkill, autoSendAllowed: () => true }),
+    );
+    expect(startSkill).toHaveBeenCalledWith({ skillId: 'releasePrep', autoSend: false });
+    expect(store.lines()[1]).toBe(
+      'companion: I have typed release prep — this one I always leave for you to send.',
+    );
   });
 
   it('owns up when the session could not be started, and does not claim a hand-off', async () => {

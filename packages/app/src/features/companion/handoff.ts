@@ -1,5 +1,6 @@
 import {
   COMPANION_COMMAND_IDS,
+  COMPANION_NEVER_AUTOSEND,
   COMPANION_READBACK_TAIL_CHARS,
   extractLastAgentTurn,
   parseIntent,
@@ -261,7 +262,12 @@ async function startCommand(
 
   if (deps.store.send('submit') !== 'thinking') return;
 
-  const autoSend = deps.autoSendAllowed();
+  // Decision-adjacent (Phase 81 Theme D): `releasePrep`'s Return is never the
+  // companion's to press, even when hands-free and a voice-input provider
+  // would otherwise allow it — the one skill in the roster that writes a
+  // release branch.
+  const wouldAutoSend = deps.autoSendAllowed();
+  const autoSend = wouldAutoSend && !COMPANION_NEVER_AUTOSEND.includes(intent.id);
   const session = deps.startSkill({
     skillId: intent.id,
     ...(intent.body === undefined ? {} : { body: intent.body }),
@@ -291,7 +297,9 @@ async function startCommand(
     deps,
     autoSend
       ? `Running ${command} now.`
-      : `I have typed ${command} in a new session — press Return when you are ready.`,
+      : wouldAutoSend
+        ? `I have typed ${command} — this one I always leave for you to send.`
+        : `I have typed ${command} in a new session — press Return when you are ready.`,
   );
 
   deps.store.send('handoff');
@@ -675,4 +683,6 @@ export const COMMAND_SPOKEN_NAMES: Record<CompanionCommandId, string> = {
   prFeedback: 'a PR feedback pass',
   gitReport: 'a git report',
   gitCleanup: 'a git cleanup',
+  triage: 'a triage',
+  releasePrep: 'release prep',
 };
