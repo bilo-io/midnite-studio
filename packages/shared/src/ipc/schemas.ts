@@ -2775,6 +2775,14 @@ export const CompanionTtsStatusRequest = z.object({ retry: z.boolean().optional(
 export const CompanionTtsCancelRequest = z.object({});
 
 /**
+ * No payload — `companionTtsReload` (Ad Hoc: recover a crashed worker from
+ * Settings) needs nothing but the channel itself, `CompanionTtsCancelRequest`'s
+ * own precedent. The response reuses `CompanionTtsStatusResponse` below
+ * rather than a payload of its own.
+ */
+export const CompanionTtsReloadRequest = z.object({});
+
+/**
  * Always `{ok:true}` — this is a query, not an operation with a failure of
  * its own, so the state lives in the value rather than in `ok`
  * (`companionSttStatus`'s own precedent). `engine` is this *process's* own

@@ -18,7 +18,12 @@ import {
   testSttCredential,
   transcribeUtterance,
 } from '../companion/stt';
-import { cancelQueuedSynthesis, getCompanionTtsStatusAsync, synthesizeSpeechAsync } from '../companion/tts-broker';
+import {
+  cancelQueuedSynthesis,
+  getCompanionTtsStatusAsync,
+  reloadCompanionTtsBroker,
+  synthesizeSpeechAsync,
+} from '../companion/tts-broker';
 import { handle, handleOp, handleSend } from './handle';
 
 /**
@@ -160,5 +165,16 @@ export function registerCompanionHandlers(): void {
     schemas.CompanionTtsCancelRequest,
     () => cancelQueuedSynthesis(),
     () => {},
+  );
+
+  /*
+    Settings' "Reload local engine" control (Ad Hoc: recover from a crashed
+    worker without restarting the app). `handleOp` fits the same way
+    `companionTtsStatus` does — `reloadCompanionTtsBroker` cannot itself
+    fail; the state a reload landed in lives in the value it resolves with
+    (the identical `CompanionTtsStatusResponse` shape), not in `ok`.
+  */
+  handleOp(CHANNELS.companionTtsReload, schemas.CompanionTtsReloadRequest, async () =>
+    ok(await reloadCompanionTtsBroker()),
   );
 }

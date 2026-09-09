@@ -1266,6 +1266,19 @@ export type MidniteStudioBridge = {
      * and local-queue clear. One-way: nothing comes back.
      */
     ttsCancel: () => void;
+    /**
+     * Settings' "Reload local engine" control (Ad Hoc: recover from a
+     * crashed worker without restarting the app) — tears down the current
+     * `tts-broker.ts` worker (if any) and forks a fresh one, answering with
+     * that worker's own `ttsStatus` shape rather than a status vocabulary of
+     * its own. Call sites still reach it with `?.()` — `ttsCancel`'s own
+     * precedent — so a bridge from an older preload build (version skew, a
+     * test harness that hasn't grown the method yet) degrades to "the
+     * button does nothing" rather than throwing.
+     */
+    ttsReload: (
+      req: In<typeof S.CompanionTtsReloadRequest>,
+    ) => Promise<z.infer<typeof S.CompanionTtsStatusResponse>>;
   };
 };
 

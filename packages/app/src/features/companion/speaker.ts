@@ -741,6 +741,20 @@ export type CompanionTtsSpeaker = CompanionSpeaker & {
    */
   retryLocalVoice: () => void;
   /**
+   * `retryLocalVoice`'s own reset, for Settings' "Reload local engine"
+   * control (Ad Hoc: recover from a crashed worker without restarting the
+   * app) — undoes this session's sticky system fallback so the very next
+   * utterance tries the local engine again, optimistically and unconditionally,
+   * the same way `retryLocalVoice` already does: if main's own reload
+   * (`bridge()?.companion.ttsReload`, called separately by the Settings page
+   * so its status line refreshes from the real result) didn't actually fix
+   * anything, the next `speak()` call's own failure handling flips this back
+   * to `'system'` exactly as it always has. Never speaks anything itself,
+   * and never calls the bridge — the page component owns the round trip so
+   * it can show progress and the real outcome, not an optimistic one.
+   */
+  reloadLocalVoice: () => void;
+  /**
    * Speak through one specific engine, bypassing `speak`'s local-first
    * fallback order — Ad Hoc: each engine now has its own voice picker in
    * Settings, and previewing the one just picked has to reach *that* engine
@@ -802,6 +816,9 @@ export function createCompanionSpeaker(
     },
     isSpeaking: () => local.isSpeaking() || system.isSpeaking(),
     retryLocalVoice: () => {
+      useLocal = true;
+    },
+    reloadLocalVoice: () => {
       useLocal = true;
     },
   };

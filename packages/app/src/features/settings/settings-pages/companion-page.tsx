@@ -12,7 +12,7 @@ import {
   type SttProviderId,
 } from '@midnite/studio-shared';
 import { Accordion } from '@bilo-io/ui';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   LuBot,
   LuCircleCheck,
@@ -108,7 +108,12 @@ export function CompanionPage() {
     applyCompanionVolume(companionVolume);
   }, [companionVolume]);
 
-  const { status: ttsStatus, retry: retryTtsStatus } = useCompanionTtsStatus();
+  const {
+    status: ttsStatus,
+    retry: retryTtsStatus,
+    reload: reloadTtsStatus,
+    reloading: ttsReloading,
+  } = useCompanionTtsStatus();
   /*
     Which engine actually spoke the most recent preview — or would speak the
     next one, before any has run this session. `companionTtsSpeaker` is a
@@ -136,6 +141,20 @@ export function CompanionPage() {
     setRendererEngine(companionTtsSpeaker.activeEngine);
     void retryTtsStatus();
   }, [retryTtsStatus]);
+
+  /**
+   * Ad Hoc "the local voice engine crashed" — the reload button's handler.
+   * Same ordering as `retryLocalVoice` above and for the same reason: reset
+   * the renderer's own sticky fallback first (optimistic, exactly as retry
+   * already is — a `speak()` that fails again flips it right back), THEN
+   * kick off the real round trip to main, whose awaited result is what
+   * `ttsStatus` actually refreshes from.
+   */
+  const reloadLocalEngine = useCallback(() => {
+    companionTtsSpeaker.reloadLocalVoice();
+    setRendererEngine(companionTtsSpeaker.activeEngine);
+    reloadTtsStatus();
+  }, [reloadTtsStatus]);
 
   /**
    * Preview one engine specifically — Ad Hoc: each engine now has its own
@@ -218,7 +237,13 @@ export function CompanionPage() {
             this machine.
           </p>
 
-          <CompanionVoiceStatus status={ttsStatus} rendererEngine={rendererEngine} onRetry={retryLocalVoice} />
+          <CompanionVoiceStatus
+            status={ttsStatus}
+            rendererEngine={rendererEngine}
+            onRetry={retryLocalVoice}
+            onReload={reloadLocalEngine}
+            reloading={ttsReloading}
+          />
 
           <Field label="Local voice" hint="Which of Kokoro's bundled voices to use once it's ready.">
             <select
@@ -497,8 +522,27 @@ type CompanionTtsStatusValue = {
 function useCompanionTtsStatus(): {
   status: CompanionTtsStatusValue | null;
   retry: () => void;
+  /**
+   * Settings' "Reload local engine" control (Ad Hoc: recover from a
+   * crashed worker without restarting the app) — calls `ttsReload`, which
+   * tears down and re-forks `tts-broker.ts`'s worker in main, and refreshes
+   * `status` from its real, awaited result rather than assuming success.
+   * A no-op while a reload is already in flight (`reloading`), and again if
+   * the bridge has no `ttsReload` at all (an older preload, a test harness)
+   * — the button is disabled in both cases, this is the defensive backstop.
+   */
+  reload: () => void;
+  /** Whether a reload is in flight — drives the button's disabled/spinner state. */
+  reloading: boolean;
 } {
   const [status, setStatus] = useState<CompanionTtsStatusValue | null>(null);
+  const [reloading, setReloading] = useState(false);
+  // A ref alongside the state: `reload()` below must see the CURRENT
+  // in-flight status synchronously (state updates are batched, so a second
+  // click in the same tick would still read the pre-click `false`), the
+  // same reason `tts-broker.ts`'s own `reloadInFlight` guard lives outside
+  // any state a caller could race.
+  const reloadingRef = useRef(false);
 
   const check = useCallback(async (retry = false) => {
     const companion = bridge()?.companion;
@@ -517,7 +561,27 @@ function useCompanionTtsStatus(): {
     return () => clearInterval(timer);
   }, [status?.voice, check]);
 
-  return { status, retry: useCallback(() => void check(true), [check]) };
+  const reload = useCallback(() => {
+    if (reloadingRef.current) return;
+    const companion = bridge()?.companion;
+    if (!companion?.ttsReload) return;
+    reloadingRef.current = true;
+    setReloading(true);
+    void companion
+      .ttsReload({})
+      .then((result) => {
+        // Refresh from the REAL result, whatever it is — a reload that
+        // left the engine `'failed'` still updates the status line to say
+        // so, rather than the button optimistically claiming success.
+        if (result.ok) setStatus(result.value);
+      })
+      .finally(() => {
+        reloadingRef.current = false;
+        setReloading(false);
+      });
+  }, []);
+
+  return { status, retry: useCallback(() => void check(true), [check]), reload, reloading };
 }
 
 /** Shared styling for the two moments this section offers a way to try again. */
@@ -531,6 +595,33 @@ function RetryButton({ onClick, label, testId }: { onClick: () => void; label: s
     >
       <LuRefreshCw className="h-3 w-3" />
       {label}
+    </button>
+  );
+}
+
+/**
+ * Ad Hoc "the local voice engine crashed" — Settings' "Reload local
+ * engine" control, distinct from `RetryButton` above: Retry only asks the
+ * *existing* worker again (useless against a crashed one or a genuinely
+ * missing native module — see `TTS_FAILURE_SENTENCES`'s own gating), while
+ * this tears the worker down and forks a fresh process, the only thing that
+ * actually clears a sticky failure. Offered beside the status line in every
+ * state that has one (not the initial "checking" render, before there is
+ * anything to reload) — including `'ready'`, since a user may want a fresh
+ * worker after changing the voice, not only when something is broken.
+ */
+function ReloadLocalEngineButton({ onClick, reloading }: { onClick: () => void; reloading: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={reloading}
+      title="Tear down and restart the local voice engine's worker process"
+      className="inline-flex w-fit items-center gap-1 h-6 rounded-md border border-border px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
+      data-testid="companion-voice-reload"
+    >
+      <LuRefreshCw className={`h-3 w-3 ${reloading ? 'animate-spin' : ''}`} />
+      {reloading ? 'Reloading…' : 'Reload local engine'}
     </button>
   );
 }
@@ -554,15 +645,25 @@ const TTS_FAILURE_SENTENCES: Record<NonNullable<CompanionTtsStatusValue['reason'
  * the system voice for an earlier utterance, which is exactly the case
  * `onRetry` (`companionTtsSpeaker.retryLocalVoice()` plus a fresh status
  * check) exists to recover from without a restart.
+ *
+ * `onReload`/`reloading` are Ad Hoc "the local voice engine crashed"'s own
+ * addition — see `ReloadLocalEngineButton`'s doc for why it is offered
+ * everywhere `onRetry` is not: it recovers from exactly the case Retry
+ * cannot (a missing-native-module reason, which now also covers a crashed
+ * worker) and is useful even on the plain `'ready'` path.
  */
 function CompanionVoiceStatus({
   status,
   rendererEngine,
   onRetry,
+  onReload,
+  reloading,
 }: {
   status: CompanionTtsStatusValue | null;
   rendererEngine: 'local' | 'system';
   onRetry: () => void;
+  onReload: () => void;
+  reloading: boolean;
 }) {
   if (status === null || status.voice === 'idle') {
     return (
@@ -574,26 +675,26 @@ function CompanionVoiceStatus({
 
   if (status.voice === 'downloading') {
     return (
-      <p
-        className="flex items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground"
-        data-testid="companion-voice-status"
-      >
-        <LuDownload className="h-3 w-3 shrink-0" />
-        Downloading the local offline voice (about 88 MB, one time only)…
-      </p>
+      <div className="flex flex-col items-start gap-1.5" data-testid="companion-voice-status">
+        <p className="flex items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+          <LuDownload className="h-3 w-3 shrink-0" />
+          Downloading the local offline voice (about 88 MB, one time only)…
+        </p>
+        <ReloadLocalEngineButton onClick={onReload} reloading={reloading} />
+      </div>
     );
   }
 
   if (status.voice === 'ready') {
     if (rendererEngine === 'local') {
       return (
-        <p
-          className="flex items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground"
-          data-testid="companion-voice-status"
-        >
-          <LuCircleCheck className="h-3 w-3 shrink-0 text-emerald-500" />
-          Speaking with the local offline voice — no network, no system voice.
-        </p>
+        <div className="flex flex-col items-start gap-1.5" data-testid="companion-voice-status">
+          <p className="flex items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+            <LuCircleCheck className="h-3 w-3 shrink-0 text-emerald-500" />
+            Speaking with the local offline voice — no network, no system voice.
+          </p>
+          <ReloadLocalEngineButton onClick={onReload} reloading={reloading} />
+        </div>
       );
     }
     return (
@@ -601,11 +702,14 @@ function CompanionVoiceStatus({
         <p className="text-[11px] leading-relaxed text-muted-foreground">
           The local voice is ready, but this session already switched to the system voice below.
         </p>
-        <RetryButton
-          onClick={onRetry}
-          label="Use the local voice again"
-          testId="companion-voice-retry"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <RetryButton
+            onClick={onRetry}
+            label="Use the local voice again"
+            testId="companion-voice-retry"
+          />
+          <ReloadLocalEngineButton onClick={onReload} reloading={reloading} />
+        </div>
       </div>
     );
   }
@@ -621,15 +725,21 @@ function CompanionVoiceStatus({
           {status.message ? ` (${status.message})` : ''}. Using a system voice instead.
         </span>
       </p>
-      {/*
-        Only the download failure is retryable — a missing native module and
-        a synthesis-throw are sticky for the main process's lifetime (the
-        module doc's own claim); offering Retry there would promise a fix
-        this button cannot deliver.
-      */}
-      {status.reason === 'download-failed' ? (
-        <RetryButton onClick={onRetry} label="Retry download" testId="companion-voice-retry" />
-      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        {/*
+          Only the download failure is retryable through the EXISTING
+          worker — a missing native module and a synthesis-throw are sticky
+          for that worker process's lifetime (the module doc's own claim);
+          offering Retry there would promise a fix it cannot deliver. Reload
+          is different: it replaces the worker outright, so it is offered
+          for every failure reason, `native-module-missing` (which now also
+          covers a crashed worker — see tts-broker.ts's own doc) included.
+        */}
+        {status.reason === 'download-failed' ? (
+          <RetryButton onClick={onRetry} label="Retry download" testId="companion-voice-retry" />
+        ) : null}
+        <ReloadLocalEngineButton onClick={onReload} reloading={reloading} />
+      </div>
     </div>
   );
 }

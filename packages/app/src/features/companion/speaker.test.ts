@@ -917,4 +917,52 @@ describe('createCompanionSpeaker', () => {
       expect(speaker.activeEngine).toBe('local');
     });
   });
+
+  /*
+    Ad Hoc "the local voice engine crashed" — Settings' "Reload local
+    engine" control. `reloadLocalVoice` is `retryLocalVoice`'s own reset
+    (undo the sticky system fallback), reused rather than duplicated: the
+    Settings page calls the bridge's `ttsReload` separately for the real
+    round trip and status refresh, this method only ever resets the
+    renderer's own local-first flag.
+  */
+  describe('reloadLocalVoice', () => {
+    it('undoes the sticky fallback so the next utterance tries the local engine again', async () => {
+      const local = localHarness();
+      let shouldFail = true;
+      const synthesize = vi.fn(async (text: string) =>
+        shouldFail ? { ok: false as const } : local.deps.synthesize(text),
+      );
+      const system = harness();
+      const speaker = createCompanionSpeaker({
+        local: { ...local.deps, synthesize },
+        system: system.deps,
+      });
+
+      const first = speaker.speak('One.');
+      await flushAsync();
+      system.end();
+      await first;
+      expect(speaker.activeEngine).toBe('system');
+
+      shouldFail = false;
+      speaker.reloadLocalVoice();
+      expect(speaker.activeEngine).toBe('local');
+
+      const second = speaker.speak('Two.');
+      await flushAsync();
+      local.audio.sources[0]?.onended?.();
+      await second;
+      expect(speaker.activeEngine).toBe('local');
+      expect(system.spoken.map((u) => u.text)).toEqual(['One.']);
+    });
+
+    it('does nothing harmful when called while the local engine is already active', () => {
+      const local = localHarness();
+      const system = harness();
+      const speaker = createCompanionSpeaker({ local: local.deps, system: system.deps });
+      expect(() => speaker.reloadLocalVoice()).not.toThrow();
+      expect(speaker.activeEngine).toBe('local');
+    });
+  });
 });
