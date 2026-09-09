@@ -1,6 +1,6 @@
 import type { CompanionTurn } from '@midnite/studio-shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import { LuArrowDown } from 'react-icons/lu';
 import remarkGfm from 'remark-gfm';
@@ -114,20 +114,6 @@ export function CompanionThread({ turns }: { turns: readonly CompanionTurn[] }) 
     if (!pinned || turns.length === 0) return;
     virtualizer.scrollToIndex(turns.length - 1, { align: 'end' });
   }, [turns.length, pinned, virtualizer]);
-
-  /*
-    A width change re-wraps every turn, so every measured height is stale.
-    `measure()` drops the cache and re-measures what is on screen — cheaper
-    than remounting the list, and the only thing that keeps the scroll offset
-    sane through a drag of the panel's splitter.
-  */
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(() => virtualizer.measure());
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [virtualizer]);
 
   if (turns.length === 0) {
     return (
