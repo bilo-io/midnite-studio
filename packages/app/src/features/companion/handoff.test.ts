@@ -158,6 +158,38 @@ describe('submitInput — a recognised command', () => {
   });
 });
 
+// Phase 81 Theme B: the `navigate` arm — a thin call to `deps.navigate` plus
+// `say`, the same shape every other arm takes. `navigate.ts`'s own tests
+// cover `resolveNavigation`/`navigateCompanion` in depth; this only checks
+// that `act()` wires the two together correctly.
+describe('submitInput — a navigate intent', () => {
+  const graphVocabulary = vocabularyFixture({
+    views: [{ id: 'graph', label: 'Commit Graph', keywords: 'git history commits branches log' }],
+  });
+
+  it('calls deps.navigate and speaks whatever it says', async () => {
+    const store = fakeStore();
+    const navigate = vi.fn().mockResolvedValue({ say: "Here's the Commit Graph." });
+    await submitInput(
+      'take me to the graph',
+      fakeHandoffDeps({ store, navigate, vocabulary: () => graphVocabulary }),
+    );
+
+    expect(navigate).toHaveBeenCalledWith({ kind: 'navigate', view: 'graph' });
+    expect(store.lines()[1]).toBe("companion: Here's the Commit Graph.");
+  });
+
+  it('speaks a refusal exactly as deps.navigate returned it, without touching anything else', async () => {
+    const store = fakeStore();
+    const navigate = vi.fn().mockResolvedValue({ say: 'The screen is locked — unlock it first.' });
+    await submitInput(
+      'take me to the graph',
+      fakeHandoffDeps({ store, navigate, vocabulary: () => graphVocabulary }),
+    );
+    expect(store.lines()[1]).toBe('companion: The screen is locked — unlock it first.');
+  });
+});
+
 describe('submitInput — Decision 10, one live hand-off at a time', () => {
   const live = { sessionId: 'session-1', command: 'a swarm' };
 
