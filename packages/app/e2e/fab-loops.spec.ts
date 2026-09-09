@@ -131,6 +131,22 @@ test.describe('FAB loop console', () => {
     expect(await loopRuns(page)).toEqual([]);
   });
 
+  test('the X-close button closes the panel, restoring the large FAB', async ({ page }) => {
+    await open(page);
+    await openFab(page, 'Concepts');
+
+    await expect(page.locator('[data-fab-panel-frame]')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open quick access panel' })).toHaveCount(0);
+
+    await page.getByLabel('Close the Loops Panel').click();
+    await page.waitForTimeout(SETTLE_WAIT_MS);
+
+    await expect(page.locator('[data-fab-panel-frame]')).toHaveCount(0);
+    // The large FAB reclaims the corner exactly as it does for the statusbar
+    // mini-FAB's own close click — same flag, same one-FAB-on-screen invariant.
+    await expect(page.getByRole('button', { name: 'Open quick access panel' })).toBeVisible();
+  });
+
   test('a loop tab draws each setting as the control its answer wants', async ({ page }) => {
     await open(page);
     await openFab(page, 'Patrol');

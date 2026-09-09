@@ -663,6 +663,22 @@ export type UiState = {
   setCompanionPanelOpen: (open: boolean) => void;
   toggleCompanionPanel: () => void;
   /**
+   * Which of the two — Loops or the Companion — was opened most recently.
+   *
+   * `fabPanelOpen` and `companionPanelOpen` are independent flags and both
+   * can be `true` at once (Decision 4, `companion-panel.tsx`'s own doc), but
+   * the statusbar's mini-FAB slot (`AssistantMenu`) is a single button: with
+   * both panels showing, a click has to close ONE of them, so something has
+   * to say which. Recency is the one answer that needs no new UI to explain
+   * itself — whichever panel the user just opened is the one still on their
+   * mind. `null` until either has ever been opened this session.
+   *
+   * NOT persisted: `companionPanelOpen` itself resets to `false` on every
+   * launch (see its own comment above), so at most one of the two panels can
+   * be open at boot and there is nothing yet to disambiguate.
+   */
+  lastOpenedPanel: 'fab' | 'companion' | null;
+  /**
    * Whether each of the five detachable panels (Phase 55, plus Phase 79's
    * companion) is currently
    * showing in its own popout window rather than docked in the main one.
@@ -1830,9 +1846,16 @@ export const useUiStore = create<UiState>()(
       quickAccessOpen: false,
       fabPanelOpen: false,
       companionPanelOpen: false,
-      setCompanionPanelOpen: (companionPanelOpen) => set({ companionPanelOpen }),
+      setCompanionPanelOpen: (companionPanelOpen) =>
+        set(companionPanelOpen ? { companionPanelOpen, lastOpenedPanel: 'companion' } : { companionPanelOpen }),
       toggleCompanionPanel: () =>
-        set((state) => ({ companionPanelOpen: !state.companionPanelOpen })),
+        set((state) => {
+          const companionPanelOpen = !state.companionPanelOpen;
+          return companionPanelOpen
+            ? { companionPanelOpen, lastOpenedPanel: 'companion' }
+            : { companionPanelOpen };
+        }),
+      lastOpenedPanel: null,
       terminalDetached: false,
       reposDetached: false,
       fabDetached: false,
@@ -2053,8 +2076,13 @@ export const useUiStore = create<UiState>()(
       toggleNotes: () => set((state) => ({ notesOpen: !state.notesOpen })),
       setQuickAccessOpen: (quickAccessOpen) => set({ quickAccessOpen }),
       toggleQuickAccess: () => set((state) => ({ quickAccessOpen: !state.quickAccessOpen })),
-      toggleFabPanel: () => set((state) => ({ fabPanelOpen: !state.fabPanelOpen })),
-      setFabPanelOpen: (fabPanelOpen) => set({ fabPanelOpen }),
+      toggleFabPanel: () =>
+        set((state) => {
+          const fabPanelOpen = !state.fabPanelOpen;
+          return fabPanelOpen ? { fabPanelOpen, lastOpenedPanel: 'fab' } : { fabPanelOpen };
+        }),
+      setFabPanelOpen: (fabPanelOpen) =>
+        set(fabPanelOpen ? { fabPanelOpen, lastOpenedPanel: 'fab' } : { fabPanelOpen }),
       toggleActivityTimeline: () =>
         set((state) => ({ activityTimelineOpen: !state.activityTimelineOpen })),
       setActivityTimelineStyle: (activityTimelineStyle) => set({ activityTimelineStyle }),
@@ -2076,7 +2104,8 @@ export const useUiStore = create<UiState>()(
           return { activeFabTab: tab };
         });
       },
-      openFabTab: (tab) => set({ fabPanelOpen: true, activeFabTab: tab }),
+      openFabTab: (tab) =>
+        set({ fabPanelOpen: true, activeFabTab: tab, lastOpenedPanel: 'fab' }),
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
         set((state) => ({ graphColumns: { ...state.graphColumns, [key]: value } })),

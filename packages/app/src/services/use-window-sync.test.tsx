@@ -68,3 +68,37 @@ describe('useWindowSync — page roles', () => {
     expect(useUiStore.getState().detachedPages).toEqual(['files']);
   });
 });
+
+describe('useWindowSync — the Companion round trip (Phase 79)', () => {
+  beforeEach(() => {
+    mocks.windows = [];
+    mocks.handler = null;
+    useUiStore.setState({ companionDetached: false, companionPanelOpen: true, companionEnabled: true });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * Detach and re-dock, exactly as `companion-header.tsx`'s detach button and
+   * `DetachedWindowFrame`'s dock control drive it through the real IPC round
+   * trip — main's `windowsChanged` push is this hook's only source of truth
+   * for `companionDetached`, mirroring the other four panel roles beside it.
+   */
+  it('sets companionDetached on detach, and clears it again on dock — leaving companionPanelOpen untouched', () => {
+    renderHook(() => useWindowSync());
+
+    mocks.handler?.({ windows: [descriptor('main', 1), descriptor('companion', 2)] });
+    expect(useUiStore.getState().companionDetached).toBe(true);
+    // Detaching collapses the docked slot but never closes the panel's own
+    // intent — `app.tsx`'s comment on `companionDocked` and `AssistantMenu`'s
+    // both depend on this staying true so re-docking expands it straight
+    // back.
+    expect(useUiStore.getState().companionPanelOpen).toBe(true);
+
+    mocks.handler?.({ windows: [descriptor('main', 1)] });
+    expect(useUiStore.getState().companionDetached).toBe(false);
+    expect(useUiStore.getState().companionPanelOpen).toBe(true);
+  });
+});
