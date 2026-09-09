@@ -202,6 +202,15 @@ describe('resolveProviderId', () => {
     expect(await resolveProviderId(undefined, fakeCredentials({ deepgram: 'dg' }))).toBe('deepgram');
   });
 
+  // Migration behaviour (Ad Hoc: the microphone must work with no API key):
+  // an existing user who already stored an OpenAI key keeps using it — the
+  // new default only ever applies to a user with nothing configured at all.
+  it('keeps an existing OpenAI Whisper user on their stored key, not silently switched to the new default', async () => {
+    expect(
+      await resolveProviderId(undefined, fakeCredentials({ 'openai-whisper': 'sk-existing' })),
+    ).toBe('openai-whisper');
+  });
+
   it('falls back to the default — the key-free local engine — when none or several are configured', async () => {
     expect(await resolveProviderId(undefined, fakeCredentials({}))).toBe('whisper-local');
     expect(
