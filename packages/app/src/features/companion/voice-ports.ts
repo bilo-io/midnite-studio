@@ -1,9 +1,10 @@
-import { failure, type GitOpResult } from '@midnite/studio-shared';
+import { STT_PROVIDERS_WITHOUT_KEY, failure, type GitOpResult } from '@midnite/studio-shared';
 
 import { bridge } from '../../services/bridge';
 import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 import { setCompanionVolume } from './audio/context';
+import { toWavBlob } from './audio/wav';
 import { companionPorts, setCompanionPorts } from './companion-ports';
 import { stopCompanionPersonality } from './filler';
 import {
@@ -42,6 +43,13 @@ import { companionTtsSpeaker } from './speaker';
  * honestly as configured, but there is no factory behind it in main — so
  * `micReady` must require an *implemented* configured provider, not merely a
  * configured one, or the button lies about being usable.
+ *
+ * `local-model-unavailable` is new (Ad Hoc: the microphone must work with no
+ * API key): `whisper-local` needs no credential at all, so every state above
+ * that is keyed off `configured`/`encryptionAvailable` would otherwise call
+ * it unusable forever. This is the one case where the key-free default
+ * itself can't run — its native module failed to load — and no other
+ * provider is configured to fall back to.
  */
 type MicAvailabilityStatus =
   | 'checking'
@@ -49,6 +57,7 @@ type MicAvailabilityStatus =
   | 'no-key'
   | 'no-key-no-keychain'
   | 'not-implemented'
+  | 'local-model-unavailable'
   | 'available';
 
 /**
@@ -68,6 +77,14 @@ type MicAvailabilityStatus =
 let micStatus: MicAvailabilityStatus = 'checking';
 let micProbe: Promise<boolean> | null = null;
 const micListeners = new Set<() => void>();
+/**
+ * The local model's own download state, mirrored from the last `sttStatus()`
+ * answer purely so `micUnavailableReason` can mention "downloading…" while
+ * `micStatus` itself is still `'available'` — a one-time ~103 MB download has
+ * to be a visible reason, not a mic that quietly takes longer than usual the
+ * first time it's pressed.
+ */
+let localModelState: 'idle' | 'downloading' | 'ready' | 'failed' | null = null;
 
 function setMicStatus(next: MicAvailabilityStatus): void {
   if (next === micStatus) return;
@@ -91,11 +108,30 @@ export function refreshMicAvailability(): Promise<boolean> {
     return Promise.resolve(false);
   }
   micProbe ??= companion
-    .sttStatus()
+    .sttStatus({})
     .then((status) => {
-      const usable = status.configured.some((provider) => status.implemented.includes(provider));
+      localModelState = status.localModel.state;
+      /*
+        `whisper-local` needs no stored credential at all — the whole point
+        of shipping it — so it counts as usable the moment it's implemented,
+        unless its own native engine failed to load on this machine (checked
+        below, not folded into this line: a *downloading* or still-*idle*
+        local model is still usable, since `transcribeUtterance` provisions
+        it lazily on first press).
+      */
+      const keylessImplemented = status.implemented.filter((provider) =>
+        STT_PROVIDERS_WITHOUT_KEY.includes(provider),
+      );
+      const keylessUsable = keylessImplemented.length > 0 && status.localModel.state !== 'failed';
+      const keyedUsable = status.configured.some((provider) => status.implemented.includes(provider));
+      const usable = keylessUsable || keyedUsable;
+
       if (usable) {
         setMicStatus('available');
+      } else if (keylessImplemented.length > 0) {
+        // The key-free default itself is broken (native module missing) and
+        // nothing else is configured to fall back to.
+        setMicStatus('local-model-unavailable');
       } else if (status.configured.length > 0) {
         // A key is stored, but for nothing main can transcribe with — the
         // Deepgram-shaped case, and the one the plain boolean used to hide.
@@ -130,13 +166,19 @@ function micAvailable(): boolean {
 function micUnavailableReason(): string {
   switch (micStatus) {
     case 'available':
-      // Unspecified per the port's own contract; kept honest rather than
-      // returning `''` and inviting a caller to render it by mistake.
-      return 'Hold to talk';
+      // Still worth a real sentence rather than the bare default: a one-time
+      // model download must be visible, not a mic that just takes longer
+      // than usual the first time it's pressed (requirement: "any one-time
+      // model download must be surfaced, not silent").
+      return localModelState === 'downloading'
+        ? 'Hold to talk — downloading the built-in offline speech model the first time (about 100 MB, one time only)…'
+        : 'Hold to talk';
     case 'checking':
-      return 'Hold to talk — checking your speech key…';
+      return 'Hold to talk — checking the speech engine…';
     case 'no-bridge':
       return 'Hold to talk — voice input isn’t available in this build';
+    case 'local-model-unavailable':
+      return 'Hold to talk — the built-in offline speech engine isn’t available on this machine. Add an OpenAI Whisper key in Settings ▸ Companion instead';
     case 'not-implemented':
       return 'Hold to talk — the saved provider isn’t implemented yet. Choose OpenAI Whisper in Settings ▸ Companion';
     case 'no-key-no-keychain':
@@ -229,7 +271,16 @@ async function finishRecording(): Promise<void> {
   const store = useCompanionStore.getState();
   let result: GitOpResult<{ text: string }>;
   try {
-    result = await transcribe(await stopRecording());
+    /*
+      `toWavBlob` first: the local recogniser needs raw PCM, not the recorded
+      `audio/webm;codecs=opus` container, and decoding it here (through
+      Chromium's own `AudioContext`) is what lets `openai-whisper` and
+      `whisper-local` share one wire format instead of the recorder needing
+      to know which provider will end up handling the bytes. It falls back to
+      the original blob untouched on any failure, so this is never a new way
+      for a recording to be lost.
+    */
+    result = await transcribe(await toWavBlob(await stopRecording()));
   } catch (error) {
     result = failure(error instanceof Error ? error.message : recorderErrorMessage('failed'));
   }
@@ -336,6 +387,7 @@ let moduleWatcher: (() => void) | null = watchCompanionSilence();
 export function __resetVoicePortsForTest(): void {
   micStatus = 'checking';
   micProbe = null;
+  localModelState = null;
   micListeners.clear();
   moduleWatcher?.();
   moduleWatcher = null;
