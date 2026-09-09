@@ -1,4 +1,4 @@
-import { COMPANION_STT_MAX_BYTES } from '@midnite/studio-shared';
+import { COMPANION_STT_MAX_BYTES, type SttProviderId } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createFakeSttProvider } from './fake';
@@ -32,18 +32,16 @@ const errorMessage = (result: { ok: boolean; kind?: string; message?: string }):
 
 /** A credentials-shaped fake. */
 function fakeCredentials(
-  keys: Partial<Record<'openai-whisper' | 'deepgram', string>> = { 'openai-whisper': 'sk-test' },
+  keys: Partial<Record<SttProviderId, string>> = { 'openai-whisper': 'sk-test' },
   available = true,
 ) {
   return {
     isAvailable: () => available,
-    get: async (provider: 'openai-whisper' | 'deepgram') => keys[provider] ?? null,
+    get: async (provider: SttProviderId) => keys[provider] ?? null,
     set: async () => {},
     clear: async () => {},
     configured: async () =>
-      (Object.keys(keys) as ('openai-whisper' | 'deepgram')[]).filter(
-        (id) => keys[id] !== undefined,
-      ),
+      (Object.keys(keys) as SttProviderId[]).filter((id) => keys[id] !== undefined),
   };
 }
 
@@ -104,18 +102,34 @@ describe('transcribeUtterance', () => {
 
   it('names the missing key and where to add it', async () => {
     const result = await transcribeUtterance(
-      { audio, mime: 'audio/webm' },
+      { audio, mime: 'audio/webm', providerId: 'openai-whisper' },
       withProvider(createFakeSttProvider(), { credentials: fakeCredentials({}) }),
     );
-    expect(errorMessage(result)).toContain('No OpenAI Whisper key is stored');
+    expect(errorMessage(result)).toContain('No OpenAI Whisper');
+    expect(errorMessage(result)).toContain('key is stored');
   });
 
   it('says so differently when the machine cannot store one at all', async () => {
     const result = await transcribeUtterance(
-      { audio, mime: 'audio/webm' },
+      { audio, mime: 'audio/webm', providerId: 'openai-whisper' },
       withProvider(createFakeSttProvider(), { credentials: fakeCredentials({}, false) }),
     );
     expect(errorMessage(result)).toContain('cannot store a key securely');
+  });
+
+  it('never looks up a key for the key-free local provider, even with none stored', async () => {
+    const provider = createFakeSttProvider({ id: 'whisper-local', text: 'hello there' });
+    const result = await transcribeUtterance(
+      { audio, mime: 'audio/wav', providerId: 'whisper-local' },
+      {
+        credentials: fakeCredentials({}),
+        factories: { 'whisper-local': () => provider },
+      },
+    );
+    expect(result).toEqual({ ok: true, value: { text: 'hello there' } });
+    // The factory is still handed *something* callable — an empty string,
+    // never null/undefined — even though nothing was ever stored for it.
+    expect(provider.calls).toEqual([{ audio, mime: 'audio/wav' }]);
   });
 
   it('answers a provider with no implementation by name rather than a type error', async () => {
@@ -188,14 +202,14 @@ describe('resolveProviderId', () => {
     expect(await resolveProviderId(undefined, fakeCredentials({ deepgram: 'dg' }))).toBe('deepgram');
   });
 
-  it('falls back to the default when none or several are configured', async () => {
-    expect(await resolveProviderId(undefined, fakeCredentials({}))).toBe('openai-whisper');
+  it('falls back to the default — the key-free local engine — when none or several are configured', async () => {
+    expect(await resolveProviderId(undefined, fakeCredentials({}))).toBe('whisper-local');
     expect(
       await resolveProviderId(
         undefined,
         fakeCredentials({ 'openai-whisper': 'sk', deepgram: 'dg' }),
       ),
-    ).toBe('openai-whisper');
+    ).toBe('whisper-local');
   });
 });
 
