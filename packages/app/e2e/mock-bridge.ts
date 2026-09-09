@@ -2687,7 +2687,9 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         // shape every existing spec already assumes.
         detach: noop,
         dock: noop,
-        focusRole: noop,
+        focusRole: (req: { role: string }) => {
+          focusRoleCalls.push(req);
+        },
         list: async () => [
           { id: 1, role: 'main' as const, repoId: null },
           ...(data.openPopoutRoles ?? []).map((role, index) => ({
@@ -3717,6 +3719,10 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
     var metricsCalls: Array<{ intervalMs: number; freshDisk?: boolean; stopped?: boolean }> = [];
     // eslint-disable-next-line no-var
     var metricsEmitted = false;
+    /** Phase 81 Theme B: every `window.focusRole` call, so a spec can assert
+     *  a detached page/panel was brought forward rather than re-opened. */
+    // eslint-disable-next-line no-var
+    var focusRoleCalls: Array<{ role: string }> = [];
 
     // --- tests ---------------------------------------------------------------
     // eslint-disable-next-line no-var
@@ -4031,6 +4037,8 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
       revealedPaths;
     (window as unknown as { __mstudioClipboard: unknown }).__mstudioClipboard = clipboardWrites;
     (window as unknown as { __mstudioMetrics: unknown }).__mstudioMetrics = metricsCalls;
+    (window as unknown as { __mstudioFocusRoleCalls: unknown }).__mstudioFocusRoleCalls =
+      focusRoleCalls;
     (window as unknown as { __mstudioDiagRuns: unknown }).__mstudioDiagRuns = () => diagRuns;
     /*
       A hook for the scripted cadence change.
