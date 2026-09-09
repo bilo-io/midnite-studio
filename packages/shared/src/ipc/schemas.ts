@@ -2771,6 +2771,9 @@ export const CompanionTtsSynthesizeResponse = GitOpResultOf(
  */
 export const CompanionTtsStatusRequest = z.object({ retry: z.boolean().optional() });
 
+/** No payload — `companionTtsCancel` is a bare signal, `ForgeCliStatusRequest`'s own precedent for "nothing to send but the channel itself". */
+export const CompanionTtsCancelRequest = z.object({});
+
 /**
  * Always `{ok:true}` — this is a query, not an operation with a failure of
  * its own, so the state lives in the value rather than in `ok`

@@ -25,7 +25,7 @@ import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers'
 import { createCompanionStore } from './companion/companion-store';
 import { configureCompanion } from './companion/digest';
 import { configureLocalStt, configureStt } from './companion/stt';
-import { configureCompanionTts } from './companion/tts';
+import { configureCompanionTtsBroker, disposeCompanionTtsBroker } from './companion/tts-broker';
 import { createSttCredentials } from './companion/stt/credentials';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
@@ -533,12 +533,15 @@ if (!app.requestSingleInstanceLock()) {
     */
     configureLocalStt(userData);
     /*
-      The local voice engine (Phase 80 Theme C). Wired here beside every other
-      `userData` store, but nothing native loads until the first synthesis
-      request — `tts.ts`'s own lazy `require()`, mirroring `inproc-pty.ts`'s
-      `loadNodePty()`.
+      The local voice engine (Phase 80 Theme C; off the main thread onto its
+      own `utilityProcess` as of Ad Hoc "TTS synthesis blocks the UI"). Wired
+      here beside every other `userData` store, but nothing spawns and
+      nothing native loads until the first synthesis or status request —
+      `tts-broker.ts` forks lazily, and the worker's own `tts.ts` copy loads
+      Kokoro lazily inside that process exactly as it always loaded it here,
+      mirroring `inproc-pty.ts`'s `loadNodePty()`.
     */
-    configureCompanionTts(userData);
+    configureCompanionTtsBroker(userData);
 
     /*
       Three independent boot chains, run at once (Theme B). They were sequential
@@ -729,6 +732,9 @@ if (!app.requestSingleInstanceLock()) {
     // reasoning as the two calls below: nothing in it is worth flushing,
     // only worth not leaving behind.
     disposeScriptRunner();
+    // The local voice engine's own utilityProcess (Ad Hoc "TTS synthesis
+    // blocks the UI") — the identical reasoning, one call below it.
+    disposeCompanionTtsBroker();
     /*
       Fire-and-forget: `closeAllConnections()` inside makes the close immediate
       rather than waiting out a keep-alive socket, and the demo API holds no

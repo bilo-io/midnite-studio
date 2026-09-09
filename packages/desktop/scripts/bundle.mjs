@@ -91,9 +91,17 @@ const common = {
   point `script-runner-broker.ts` forks — its own bundle for the same reason
   `broker`/`mcp-shim` are: `utilityProcess.fork`/`child_process.spawn` both
   need a single on-disk module path, not an import reachable only through
-  `main.js`'s own closure.
+  `main.js`'s own closure. `companion-tts-worker` (Ad Hoc "TTS synthesis
+  blocks the UI") is `tts-broker.ts`'s own fork target, the identical shape.
 */
-const outfiles = ['main', 'preload', 'broker', 'mcp-shim', 'script-runner-worker'].map((name) => ({
+const outfiles = [
+  'main',
+  'preload',
+  'broker',
+  'mcp-shim',
+  'script-runner-worker',
+  'companion-tts-worker',
+].map((name) => ({
   entry: resolve(root, `src/${name === 'main' ? 'main/index.ts' : `${name}/index.ts`}`),
   out: resolve(root, `dist/bundle/${name}.js`),
 }));

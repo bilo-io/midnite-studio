@@ -505,6 +505,7 @@ function localHarness() {
     getAudio: () =>
       ({ ctx: audio.ctx as unknown as AudioContext, master: audio.master as unknown as GainNode }),
     hasBridge: () => true,
+    cancelQueuedSynthesis: vi.fn(),
     setLevel: (level) => levels.push(level),
     schedule: (callback) => {
       frames.push(callback);
@@ -640,6 +641,94 @@ describe('createLocalSpeaker', () => {
     expect(speaker.isSpeaking()).toBe(false);
   });
 
+  /*
+    Pipelining (Ad Hoc "TTS synthesis blocks the UI"): the next chunk
+    synthesizes while the current one plays, so a multi-sentence reply does
+    not stall between sentences waiting on a round trip that could have
+    started a chunk earlier.
+  */
+  describe('pipelining', () => {
+    it('starts synthesizing the next chunk as soon as the current one starts playing, before it ends', async () => {
+      const h = localHarness();
+      const speaker = createLocalSpeaker(h.deps);
+      // Two sentences that together exceed `COMPANION_TTS_CHUNK_CHARS`
+      // (200), packed by `chunkForSpeech` into two chunks rather than one.
+      const first = `${'A'.repeat(150)}.`;
+      const second = `${'B'.repeat(150)}.`;
+
+      const pending = speaker.speakLocal(`${first} ${second}`);
+      await flushAsync();
+
+      // The first chunk is already playing, and the second chunk's
+      // synthesis has ALREADY started — not only once the first one's
+      // `onended` fires below. This is the whole point: without pipelining,
+      // `synthesize` would show exactly one call at this point instead.
+      expect(h.audio.sources).toHaveLength(1);
+      expect(h.deps.synthesize).toHaveBeenCalledTimes(2);
+      expect(h.deps.synthesize).toHaveBeenNthCalledWith(1, first);
+      expect(h.deps.synthesize).toHaveBeenNthCalledWith(2, second);
+
+      h.audio.sources[0]?.onended?.();
+      await flushAsync();
+      // The second chunk plays without a further `synthesize` call — the
+      // prefetch's result was reused, not requested twice.
+      expect(h.audio.sources).toHaveLength(2);
+      expect(h.deps.synthesize).toHaveBeenCalledTimes(2);
+
+      h.audio.sources[1]?.onended?.();
+      await expect(pending).resolves.toBe(true);
+    });
+
+    it('never asks for a chunk past the end of the utterance', async () => {
+      const h = localHarness();
+      const speaker = createLocalSpeaker(h.deps);
+
+      const pending = speaker.speakLocal('One short sentence.');
+      await flushAsync();
+
+      // Single-chunk utterance: the prefetch for "the chunk after this one"
+      // resolves to nothing rather than calling `synthesize` with `undefined`.
+      expect(h.deps.synthesize).toHaveBeenCalledTimes(1);
+
+      h.audio.sources[0]?.onended?.();
+      await expect(pending).resolves.toBe(true);
+      expect(h.deps.synthesize).toHaveBeenCalledTimes(1);
+    });
+
+    it('discards a prefetch result for an utterance that was cancelled before it resolved', async () => {
+      const h = localHarness();
+      // Slow enough to still be in flight when `cancel()` runs.
+      let resolveSecond: () => void = () => {};
+      const first = `${'A'.repeat(150)}.`;
+      const second = `${'B'.repeat(150)}.`;
+      const deps: LocalSpeakerDeps = {
+        ...h.deps,
+        synthesize: vi.fn(async (text: string) => {
+          if (text === second) {
+            await new Promise<void>((resolve) => {
+              resolveSecond = resolve;
+            });
+          }
+          return { ok: true as const, audio: new Uint8Array([1]), mime: 'audio/wav' };
+        }),
+      };
+      const speaker = createLocalSpeaker(deps);
+
+      const pending = speaker.speakLocal(`${first} ${second}`);
+      await flushAsync();
+      expect(h.audio.sources).toHaveLength(1);
+
+      speaker.cancel();
+      // The prefetch for the second chunk is still out there — letting it
+      // resolve must not play audio for an utterance that is already done.
+      resolveSecond();
+      await flushAsync();
+
+      await expect(pending).resolves.toBe(true);
+      expect(h.audio.sources).toHaveLength(1);
+    });
+  });
+
   describe('cancel', () => {
     it('stops the active source and settles every waiter true — cancelling is not a fallback trigger', async () => {
       const h = localHarness();
@@ -654,6 +743,13 @@ describe('createLocalSpeaker', () => {
       await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
       expect(speaker.isSpeaking()).toBe(false);
       expect(h.levels.at(-1)).toBe(0);
+    });
+
+    it('drops whatever the broker has queued but not yet dispatched', async () => {
+      const h = localHarness();
+      const speaker = createLocalSpeaker(h.deps);
+      speaker.cancel();
+      expect(h.deps.cancelQueuedSynthesis).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -670,6 +766,9 @@ describe('createLocalSpeaker', () => {
       controller.abort();
       await expect(first).resolves.toBe(true);
       expect(h.audio.sources[0]?.stop).toHaveBeenCalledTimes(1);
+      // A new utterance superseding this one is `interrupt`, the same as an
+      // explicit `cancel()` — whatever the broker had queued for it goes too.
+      expect(h.deps.cancelQueuedSynthesis).toHaveBeenCalledTimes(1);
 
       await flushAsync();
       expect(h.audio.sources).toHaveLength(2);
@@ -687,6 +786,7 @@ describe('createLocalSpeaker', () => {
       await flushAsync();
       controller.abort();
       await expect(second).resolves.toBe(true);
+      expect(h.deps.cancelQueuedSynthesis).toHaveBeenCalledTimes(1);
 
       h.audio.sources[0]?.onended?.();
       await expect(first).resolves.toBe(true);
