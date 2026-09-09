@@ -10200,3 +10200,39 @@ accessible-name queries resolve from `TypeIn`'s `sr-only` node, which holds the 
 first render regardless of animation progress. Added `TypeIn`'s own suite to `typewriter.test.tsx`
 (cadence, lead-in, reduced motion, tab-hidden pause) and a new `text.test.tsx` for `Heading`/`Lede`'s
 `typeIn` opt-in and its plain-text-only fallback.
+
+## 2026-09-09 — Companion thread messages no longer overlap, and the composer matches the repos panel's field (ad hoc)
+
+Two user-reported defects in the docked companion panel, from a screenshot showing later short
+greeting bubbles drawn on top of an earlier tall overview message, text from both legible through
+each other.
+
+**Root cause of the overlap**: `companion-thread.tsx` ran its own `ResizeObserver` on the
+virtualized thread's scroll container and called `virtualizer.measure()` on every resize.
+`@tanstack/react-virtual`'s `measure()` clears its *entire* measured-size cache rather than forcing
+a fresh measurement of on-screen rows — real remeasurement only happens per row, through the
+library's own `ResizeObserver` wired via `ref={virtualizer.measureElement}`, and only when that
+row's own rendered box actually changes size. A short one-line turn that wraps identically at both
+widths never fires that observer, so once the cache was cleared it stayed positioned at the raw
+56px `estimateSize` fallback instead of the offset after the tall turn above it — exactly the pixel
+overlap in the report, reproduced narrowing the panel from 1400px to 900px with a mixed-height
+transcript. Fix: delete the redundant container-level observer; the virtualizer already remeasures
+a row whenever a width change actually rewraps it. Added an e2e regression
+(`companion-panel.spec.ts`, "thread rows never overlap…") asserting real bounding boxes at a
+narrow width — confirmed it fails on the old code with the same symptom and passes on the fix.
+Checked the screenshot's several near-identical greetings too: `CompanionPanel` truly unmounts on
+close (`companionTween.mounted` in `app.tsx`), so each reopen firing a fresh `greet()` (a random
+pick from the same phrase bank) is the designed "welcome back" behaviour across a session's several
+opens, not a duplicate-append bug — no fix needed there.
+
+**Composer restyle**: `companion-input-bar.tsx`'s textarea now wears the same `.gradient-border`
+treatment as the repos panel's filter box (`repos-panel.tsx`) — a borderless field with the conic
+focus ring living on the wrapper, lit on `:focus-within` — replacing its own `border-input` +
+`focus:ring-ring`. The shared visual contract (no border, `bg-background`, `rounded-md`, placeholder
+colour) moved to a new `GRADIENT_FIELD_CLASSES` constant (`components/gradient-field.ts`) so a
+fourth caller doesn't hand-copy the same string `status-panel.tsx`'s commit box and
+`notes-modal.tsx`/`note-row.tsx`'s composer already each re-typed. Disabled (`thinking`) state is a
+dimmed wrapper opacity rather than a native `disabled` textarea — the prop's contract is "send is
+refused, typing is not," so blocking the field outright would have regressed that. The mic button
+subtree and its `micAvailable` logic (owned by a sibling `feature/companion-mic` branch) were left
+untouched, as was Enter-to-send and the space-to-talk shortcut.

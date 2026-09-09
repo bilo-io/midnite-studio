@@ -110,6 +110,43 @@ async function seedCompanionEnabled(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Seed a transcript with one tall bullet-list turn followed by several short
+ * one-line turns — the exact shape that exposed the virtualizer overlap bug:
+ * a resize cleared the measured-size cache, and every short turn (whose own
+ * box does not change size on rewrap) rendered at its old, now-wrong
+ * `translateY` offset instead of the one after the tall turn.
+ */
+async function seedMixedHeightTranscript(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const now = Date.now();
+    const turns = [
+      {
+        id: 'tall-0',
+        role: 'companion',
+        text:
+          '**midnite-studio** — on `main`\n\n' +
+          '- session A\n- session B\n- PR #1 landed\n- PR #2 landed\n' +
+          '- a longer bullet describing what changed in enough detail that this bubble wraps to several lines',
+        at: now - 1000 * 60 * 5,
+        spoken: true,
+      },
+      { id: 'short-1', role: 'companion', text: 'What would you like to do?', at: now - 1000 * 60 * 4, spoken: true },
+      { id: 'short-2', role: 'companion', text: 'Welcome back.', at: now - 1000 * 60 * 3, spoken: true },
+      { id: 'short-3', role: 'companion', text: 'Back at it.', at: now - 1000 * 60 * 2, spoken: true },
+      { id: 'short-4', role: 'companion', text: 'Where shall we start?', at: now - 1000 * 60 * 1, spoken: true },
+    ];
+    try {
+      localStorage.setItem(
+        'midnite-studio.companion',
+        JSON.stringify({ state: { transcript: turns }, version: 1 }),
+      );
+    } catch {
+      /* Unparseable profile — the app discards it too. */
+    }
+  });
+}
+
 async function open(page: Page): Promise<void> {
   await stubSpeechAndAudio(page);
   await installMockBridge(page, fixtures);
@@ -430,4 +467,72 @@ test('the header clears the conversation, behind a confirm that names the count'
   await expect(clear).toHaveAttribute('aria-disabled', 'true');
   await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
   await expect(page.getByTestId('companion-thread')).toContainText('Nothing said yet');
+});
+
+/**
+ * The overlap bug a user reported by screenshot: a tall bullet-list turn
+ * followed by several short one-line turns, drawn on top of one another at
+ * some panel widths.
+ *
+ * Root cause: `companion-thread.tsx` had its own `ResizeObserver` on the
+ * scroll container calling `virtualizer.measure()` on every resize.
+ * `@tanstack/react-virtual`'s `measure()` clears its *entire* measured-size
+ * cache rather than forcing a fresh measurement — real remeasurement only
+ * happens per item, via the library's own `ResizeObserver` on each rendered
+ * row, and only when that row's own box actually changes size. A short turn
+ * that wraps identically at both widths never fires that observer, so once
+ * the cache was cleared it stayed positioned at the raw `estimateSize`
+ * fallback (56px) instead of the offset after the tall turn above it —
+ * which is exactly the pixel overlap in the report. The fix removes the
+ * extra observer entirely: the virtualizer's built-in per-row `ResizeObserver`
+ * (wired through `ref={virtualizer.measureElement}`) already re-measures a
+ * row whenever a width change actually rewraps it, with no need for anything
+ * at the container level.
+ *
+ * Asserted as real bounding boxes, not a snapshot, and at the narrow width
+ * that reproduced it — a snapshot would not have caught this (the DOM and
+ * classes are unchanged; only the computed `transform` offset is wrong).
+ */
+test('thread rows never overlap, including after a resize at a narrow width', async ({ page }) => {
+  await seedCompanionEnabled(page);
+  await seedMixedHeightTranscript(page);
+  await open(page);
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(page.getByTestId('companion-panel')).toBeVisible();
+
+  // Wide first, so the resize below is a real width change and not the
+  // panel's initial layout.
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+
+  // Narrow enough to rewrap the tall bullet-list turn — the width the user
+  // hit the bug at.
+  await page.setViewportSize({ width: 900, height: 900 });
+
+  const thread = page.getByTestId('companion-thread');
+  const rows = thread.locator('[data-turn-role]');
+  await expect(rows.first()).toBeVisible();
+
+  // The bounding box of every rendered row's *content*, in document order —
+  // the virtualizer's own outer wrapper is legitimately `position: absolute`
+  // by design (that is how any virtualized list places its rows), so the
+  // honest assertion is that the boxes themselves never intersect, whatever
+  // positions the virtualizer computed for them.
+  const boxes = await rows.evaluateAll((elements) =>
+    elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom };
+    }),
+  );
+  expect(boxes.length).toBeGreaterThanOrEqual(5);
+
+  for (let i = 0; i < boxes.length; i += 1) {
+    for (let j = i + 1; j < boxes.length; j += 1) {
+      const a = boxes[i]!;
+      const b = boxes[j]!;
+      const overlaps = a.top < b.bottom - 1 && b.top < a.bottom - 1;
+      expect(overlaps, `rows ${i} and ${j} overlap: ${JSON.stringify({ a, b })}`).toBe(false);
+    }
+  }
 });
