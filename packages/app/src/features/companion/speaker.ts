@@ -404,6 +404,17 @@ export type LocalSpeakerDeps = {
   getAudio: () => { ctx: AudioContext; master: GainNode } | null;
   /** Whether there is a preload bridge to call at all — `available`'s coarse, synchronous half; see the module doc. */
   hasBridge: () => boolean;
+  /**
+   * `bridge()?.companion.ttsCancel()` — Ad Hoc "TTS synthesis blocks the UI".
+   * Tells `tts-broker.ts` to drop whatever it has queued but not yet posted
+   * to the worker. Fired from both `cancel()` (Escape, a click) and the
+   * per-item abort listener in `speakLocal` (a new utterance superseding
+   * this one via `runtime.ts`'s shared `AbortController`) — the same two
+   * paths `shared/companion.ts` documents as `interrupt`, never `settle`.
+   * A no-op under jsdom/no-preload, same posture as every other bridge call
+   * here.
+   */
+  cancelQueuedSynthesis: () => void;
   setLevel: (level: number) => void;
   schedule: (callback: (now: number) => void) => number;
   cancelScheduled: (handle: number) => void;
@@ -432,6 +443,9 @@ export const defaultLocalSpeakerDeps = (): LocalSpeakerDeps => ({
   },
   getAudio: getCompanionAudio,
   hasBridge,
+  cancelQueuedSynthesis: () => {
+    bridge()?.companion.ttsCancel();
+  },
   setLevel: setCompanionLevel,
   schedule: (callback) =>
     typeof requestAnimationFrame === 'function'
@@ -531,6 +545,59 @@ export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): C
       return;
     }
 
+    /*
+      Pipelining (Ad Hoc "TTS synthesis blocks the UI"): one synthesize+decode
+      promise per chunk index, memoized here so a chunk is ever requested
+      once regardless of whether `prepare` is called for it early (the
+      prefetch below) or on schedule (`playNext`'s own call). Without this,
+      two calls to `prepare` for the same index — the prefetch fired while
+      the previous chunk plays, and `playNext`'s own call once playback
+      catches up to it — would fire the IPC round trip twice and race two
+      `AudioBufferSourceNode`s over the same audio.
+
+      `null` covers every "nothing to play" outcome (no chunk at that index,
+      cancelled, synth failed, decode failed) as one shape — `playNext` below
+      cannot tell those apart and does not need to: any of them ends the
+      utterance the identical way `finish(item, false)` always has.
+    */
+    const prepared = new Map<number, Promise<AudioBuffer | null>>();
+
+    const prepare = (index: number): Promise<AudioBuffer | null> => {
+      const chunk = item.chunks[index];
+      if (chunk === undefined) return Promise.resolve(null);
+      const existing = prepared.get(index);
+      if (existing) return existing;
+
+      /*
+        Everything from here down is wrapped in one `try` — including
+        `deps.synthesize` itself. A bridge with no `ttsSynthesize` at all (an
+        e2e harness, an older preload) throws a `TypeError` calling it, not a
+        rejected `GitOpResult`, and that throw must fail soft exactly like a
+        `{ok:false}` answer does: unwrapped, it becomes an unhandled rejection
+        nothing here awaits directly (a prefetch is fire-and-forget from
+        `playNext`'s point of view), which would otherwise surface as an
+        unhandled promise rejection in the renderer instead of falling back.
+      */
+      const promise = (async (): Promise<AudioBuffer | null> => {
+        if (active !== item || item.opts.signal?.aborted === true) return null;
+        try {
+          const result = await deps.synthesize(chunk);
+          if (active !== item) return null; // cancelled while the request was in flight
+          if (!result.ok) return null;
+
+          // `.slice()` first: the `Uint8Array` crossing the IPC boundary may
+          // not tightly wrap its own `ArrayBuffer`, and `decodeAudioData`
+          // wants one sized to exactly the bytes it should read.
+          const decoded = await audio.ctx.decodeAudioData(result.audio.slice().buffer);
+          return active === item ? decoded : null;
+        } catch {
+          return null;
+        }
+      })();
+      prepared.set(index, promise);
+      return promise;
+    };
+
     let index = 0;
     const playNext = async (): Promise<void> => {
       if (active !== item) return;
@@ -539,51 +606,43 @@ export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): C
         finish(item, true);
         return;
       }
-      const chunk = item.chunks[index];
-      if (chunk === undefined) {
+      if (item.chunks[index] === undefined) {
         finish(item, true);
         return;
       }
+
+      const chunkIndex = index;
       index += 1;
 
-      /*
-        Everything from here down is wrapped in one `try` — including
-        `deps.synthesize` itself. A bridge with no `ttsSynthesize` at all (an
-        e2e harness, an older preload) throws a `TypeError` calling it, not a
-        rejected `GitOpResult`, and that throw must fail soft exactly like a
-        `{ok:false}` answer does: unwrapped, it becomes an unhandled rejection
-        on this fire-and-forget chain, `finish` never runs, and the caller's
-        `speakLocal` promise — and everything awaiting it, the whole concierge
-        flow included — hangs forever instead of falling back.
-      */
-      try {
-        const result = await deps.synthesize(chunk);
-        if (active !== item) return; // cancelled while the request was in flight
-        if (!result.ok) {
-          finish(item, false);
-          return;
-        }
-
-        // `.slice()` first: the `Uint8Array` crossing the IPC boundary may not
-        // tightly wrap its own `ArrayBuffer`, and `decodeAudioData` wants one
-        // sized to exactly the bytes it should read.
-        const decoded = await audio.ctx.decodeAudioData(result.audio.slice().buffer);
-        if (active !== item) return;
-
-        const source = audio.ctx.createBufferSource();
-        source.buffer = decoded;
-        source.connect(audio.master);
-        currentSource = source;
-        item.opts.onBoundary?.(0);
-        pulse();
-        source.onended = () => {
-          if (currentSource === source) currentSource = null;
-          void playNext();
-        };
-        source.start();
-      } catch {
+      const buffer = await prepare(chunkIndex);
+      if (active !== item) return;
+      if (buffer === null) {
         finish(item, false);
+        return;
       }
+
+      const source = audio.ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audio.master);
+      currentSource = source;
+      item.opts.onBoundary?.(0);
+      pulse();
+      /*
+        The pipeline: synthesize the NEXT chunk now, while this one plays,
+        instead of waiting for `onended` to even ask for it. `prepare`
+        memoizes, so by the time playback finishes and `playNext` runs again
+        for `chunkIndex + 1`, the round trip has already been paid for in
+        whole or in part — a multi-sentence reply no longer stalls between
+        sentences waiting on synthesis that could have started a chunk ago.
+        Fire-and-forget: a rejected/failed prefetch resolves to `null` inside
+        `prepare` itself, so there is nothing here to catch.
+      */
+      void prepare(chunkIndex + 1);
+      source.onended = () => {
+        if (currentSource === source) currentSource = null;
+        void playNext();
+      };
+      source.start();
     };
 
     void playNext();
@@ -599,6 +658,10 @@ export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): C
       opts.signal?.addEventListener(
         'abort',
         () => {
+          // A new utterance superseding this one via `runtime.ts`'s shared
+          // `AbortController` — `interrupt`, not `settle` — so whatever this
+          // item has queued in the broker but not yet dispatched goes too.
+          deps.cancelQueuedSynthesis();
           if (active === item) {
             finish(item, true);
             return;
@@ -626,6 +689,9 @@ export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): C
     speakLocal,
     speak: (text, opts) => speakLocal(text, opts).then(() => undefined),
     cancel: () => {
+      // Escape, a click — drop whatever the broker has queued but not yet
+      // dispatched before touching anything local.
+      deps.cancelQueuedSynthesis();
       const pending = [...queue];
       queue.length = 0;
       const current = active;
