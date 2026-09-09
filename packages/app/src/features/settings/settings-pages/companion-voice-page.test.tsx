@@ -42,7 +42,7 @@ vi.mock('../../companion/voice-ports', () => ({
 function installBridge(overrides: Partial<NonNullable<MidniteStudioBridge['companion']>> = {}) {
   const sttStatus = vi
     .fn()
-    .mockResolvedValue({ configured: [] as string[], encryptionAvailable: true });
+    .mockResolvedValue({ configured: [] as string[], encryptionAvailable: true, implemented: ['openai-whisper'] });
   const sttSet = vi.fn().mockResolvedValue({ ok: true });
   const sttTest = vi.fn().mockResolvedValue({ ok: true, value: { ms: 412, text: '' } });
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
@@ -264,7 +264,7 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
     installBridge({
       sttStatus: vi
         .fn()
-        .mockResolvedValue({ configured: ['openai-whisper'], encryptionAvailable: true }),
+        .mockResolvedValue({ configured: ['openai-whisper'], encryptionAvailable: true, implemented: ['openai-whisper'] }),
     } as Partial<NonNullable<MidniteStudioBridge['companion']>>);
     render(<CompanionPage />);
 
@@ -278,7 +278,7 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
     installBridge({
       sttStatus: vi
         .fn()
-        .mockResolvedValue({ configured: ['openai-whisper'], encryptionAvailable: true }),
+        .mockResolvedValue({ configured: ['openai-whisper'], encryptionAvailable: true, implemented: ['openai-whisper'] }),
       sttTest: vi.fn().mockResolvedValue({
         ok: false,
         kind: 'error',
@@ -295,7 +295,7 @@ describe('Settings ▸ Companion ▸ Microphone (Theme F)', () => {
 
   it('warns when the machine has no working keychain', async () => {
     installBridge({
-      sttStatus: vi.fn().mockResolvedValue({ configured: [], encryptionAvailable: false }),
+      sttStatus: vi.fn().mockResolvedValue({ configured: [], encryptionAvailable: false, implemented: ['openai-whisper'] }),
     } as Partial<NonNullable<MidniteStudioBridge['companion']>>);
     render(<CompanionPage />);
     expect(await screen.findByText(/no working keychain/)).toBeTruthy();

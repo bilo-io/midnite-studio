@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useCompanionStore } from '../../store/companion-store';
@@ -412,6 +412,68 @@ describe('CompanionInputBar', () => {
     rerender(<CompanionPanel />);
     fireEvent.pointerDown(screen.getByTestId('companion-mic'));
     expect(micPressStart).toHaveBeenCalledTimes(1);
+  });
+
+  /*
+    The bug this regresses: the companion panel is a persistent right-hand
+    dock, so it commonly stays mounted while the user is in Settings ▸
+    Companion saving a speech key — nothing about that save touches a prop or
+    a store field this panel renders from. The case above proves the port is
+    wired; this one proves the *component* notices without anyone calling
+    `rerender()` — no remount, no unrelated re-render standing in for it, only
+    the same `onMicAvailabilityChange` notification `refreshMicAvailability`
+    fires for real once a Settings save resolves.
+  */
+  it('becomes usable the moment availability changes, with no remount and no unrelated re-render', async () => {
+    // A real `Set`, mirroring `voice-ports.ts`'s own `micListeners` — the
+    // input bar subscribes twice (once for `micAvailable`, once for
+    // `micUnavailableReason`), and a fake that only remembered the last
+    // subscriber would silently drop the first.
+    const listeners = new Set<() => void>();
+    let available = false;
+    let reason = 'Hold to talk — add a speech key in Settings ▸ Companion';
+    setCompanionPorts({
+      micAvailable: () => available,
+      micUnavailableReason: () => reason,
+      onMicAvailabilityChange: (listener) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    });
+    renderPanel(<CompanionPanel />);
+
+    const mic = screen.getByTestId('companion-mic');
+    expect(mic.getAttribute('aria-disabled')).toBe('true');
+    expect(mic.getAttribute('aria-label')).toBe('Hold to talk');
+
+    // What a Settings save actually does: flip the cached answer and notify
+    // every subscriber — no prop change, no store write, no `rerender()`.
+    act(() => {
+      available = true;
+      reason = 'Hold to talk';
+      for (const listener of listeners) listener();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('companion-mic').getAttribute('aria-disabled')).toBeNull();
+    });
+  });
+
+  it('shows the actual reason the mic is off, not a fixed "add a key" message', () => {
+    setCompanionPorts({
+      micAvailable: () => false,
+      micUnavailableReason: () =>
+        'Hold to talk — the saved provider isn’t implemented yet. Choose OpenAI Whisper in Settings ▸ Companion',
+    });
+    renderPanel(<CompanionPanel />);
+
+    // `Tooltip` opens on focus with no delay (only a pointer hover is
+    // debounced), so a focus event is the reliable way to read its label in
+    // jsdom without a real timer wait.
+    fireEvent.focus(screen.getByTestId('companion-mic'));
+    expect(screen.getByRole('tooltip').textContent).toContain('isn’t implemented yet');
   });
 });
 
