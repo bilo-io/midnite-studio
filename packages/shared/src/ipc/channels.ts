@@ -907,6 +907,20 @@ export const CHANNELS = {
    */
   companionTtsCancel: 'mstudio:companion:tts-cancel',
   /**
+   * Settings' "Reload local engine" control (Ad Hoc: recover from a crashed
+   * worker without restarting the app) — tears down the `tts-broker.ts`
+   * worker if one is running (a crashed one, a wedged one, or a healthy one
+   * the user just wants a fresh process for after changing the voice),
+   * forks a new one, and answers with that fresh worker's own
+   * `companionTtsStatus` value, never a separate vocabulary: a caller that
+   * already renders `CompanionTtsStatusResponse` has one shape to branch on
+   * for "did the reload actually leave the engine ready", not two. Always
+   * `{ok:true}`, exactly like `companionTtsStatus` — a reload that leaves
+   * the engine `'failed'` is a normal outcome the UI renders, not an IPC
+   * failure.
+   */
+  companionTtsReload: 'mstudio:companion:tts-reload',
+  /**
    * One utterance in, its transcript out.
    *
    * The audio is a `Uint8Array`, structured-cloned exactly as `pty:data` and
