@@ -10,10 +10,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gate:
-    # macOS because the integration tests shell out to dugite's bundled git and
-    # the repo targets macOS arm64 first. The gate itself is platform-agnostic.
-    runs-on: macos-14
+  # Phase 82 Theme E — `gate` split by platform.
+  #
+  # Before this split, one `gate` job ran `moon run :typecheck :lint :test` —
+  # every project's typecheck/lint/test, unconditionally — on macos-14, because
+  # git-engine's integration tests shell out to dugite's bundled git and desktop
+  # needs a real Electron/node-pty environment. That macOS requirement is real
+  # for those two packages, but `moon run :typecheck :lint :test` does not know
+  # that: it ran shared/app/website/db-engine's suites on the 10x-billed macOS
+  # runner too, for no reason other than sharing a job with git-engine/desktop.
+  #
+  # Measured locally before splitting (CI run 34394558428, plus a fresh
+  # per-package `moon run <pkg>:typecheck <pkg>:lint <pkg>:test --force` with
+  # MOON_CACHE=off on an otherwise-busy dev machine, so treat these as orders of
+  # magnitude rather than tight numbers — this PR's own CI run is the real
+  # measurement):
+  #
+  #   | Package    | typecheck+lint+test |
+  #   |------------|----------------------|
+  #   | shared     | ~15s                 |
+  #   | db-engine  | ~20s                 |
+  #   | desktop    | ~37s                 |
+  #   | website    | ~45s                 |
+  #   | git-engine | ~75s (incl. shared:build dependency) |
+  #   | app        | ~4m                  |
+  #
+  # `app` alone accounts for roughly two-thirds of the old `gate` job's 264s
+  # test step — it is by far the largest suite (3,733 vitest tests) and the
+  # ~400 unit tests Phase 82's later themes migrate out of Playwright land here
+  # too. Splitting means that growth compounds on a 1x runner, not a 10x one.
+  # `git-engine` and `desktop` together are a fraction of that, and they are
+  # exactly the two packages with a genuine macOS dependency (dugite's bundled
+  # git; node-pty + Electron's native module ABI) — everything else
+  # (shared/app/website/db-engine, all zod/React/Vite/node, no `electron`
+  # import anywhere in them per the package-boundary rules in CLAUDE.md) is
+  # platform-agnostic and has no business paying macOS's 10x billing rate on a
+  # private repo.
+  gate-node:
+    # ubuntu-24.04, 1x billing: shared, app, website, db-engine. None of these
+    # import `electron` or shell out to a real git binary in their test suites
+    # (git-engine is the one exception, and it is on gate-native below).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,8 +83,65 @@ jobs:
       - name: Version check
         run: pnpm exec moon run root:version-check
 
-      - name: Typecheck, lint, test
-        run: pnpm exec moon run :typecheck :lint :test
+      # Guards this very split (Phase 82 Theme E): `moon run :typecheck :lint
+      # :test` used to walk every project automatically, so a new
+      # packages/<x> directory was covered for free. Two explicit target
+      # lists below do not grow themselves — a new package lands in neither
+      # job unless someone adds it — so this reads packages/* off disk and
+      # fails loudly if scripts/gate-projects-check.mjs's NODE_PROJECTS/
+      # NATIVE_PROJECTS stop covering it exactly once.
+      - name: Package split guard
+        run: pnpm exec moon run root:gate-projects-check
+
+      # Explicit project-scoped targets, not `:typecheck :lint :test` — that
+      # form runs EVERY project, which is exactly what this split undoes.
+      # `root:test` runs the repo-wide scripts/*.test.mjs suite (tracker-check,
+      # version-check, gate-projects-check, the changelog mirror): plain node
+      # scripts, no platform dependency, so it belongs here rather than on
+      # gate-native.
+      - name: Typecheck, lint, test (node-portable packages)
+        run: >-
+          pnpm exec moon run
+          shared:typecheck shared:lint shared:test
+          app:typecheck app:lint app:test
+          website:typecheck website:lint website:test
+          db-engine:typecheck db-engine:lint db-engine:test
+          root:test
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  gate-native:
+    # macos-14, 10x billing — reserved for the two packages that genuinely need
+    # it: git-engine's integration tests shell out to dugite's bundled git, and
+    # desktop links node-pty against Electron's native module ABI. Both are
+    # meaningfully faster and cheaper to keep here than to fight for portability
+    # they do not have.
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # moon compares against the merge base to decide what is affected.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Typecheck, lint, test (git-engine, desktop)
+        run: >-
+          pnpm exec moon run
+          git-engine:typecheck git-engine:lint git-engine:test
+          desktop:typecheck desktop:lint desktop:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # The integration tests create commits; git refuses without an identity.
@@ -306,7 +400,7 @@ jobs:
     # every PR. It is here to catch electron-builder breakage early — the pnpm
     # symlink and native-module traps only show up in a real package.
     if: github.ref == 'refs/heads/main'
-    needs: gate
+    needs: [gate-node, gate-native]
     runs-on: macos-14
     # A job-level `permissions:` block REPLACES the workflow default rather than
     # adding to it, so `packages: read` alone leaves `contents` at none — and

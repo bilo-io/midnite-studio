@@ -53,3 +53,17 @@ tasks:
       - 'packages/*/package.json'
     options:
       cache: false
+
+  # gate-projects-check: assert every packages/* directory is claimed by
+  # exactly one of the two split gate jobs in .github/workflows/ci.yml
+  # (Phase 82 Theme E) — a project that lands in neither `gate-node` nor
+  # `gate-native`'s explicit target list would otherwise silently stop being
+  # typechecked/linted/tested in CI. Depends on `packages/*` existing, same
+  # shape as version-check above.
+  gate-projects-check:
+    command: 'node scripts/gate-projects-check.mjs'
+    inputs:
+      - 'scripts/gate-projects-check.mjs'
+      - 'packages/*/package.json'
+    options:
+      cache: false
