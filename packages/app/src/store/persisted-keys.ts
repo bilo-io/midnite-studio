@@ -101,6 +101,8 @@ export const PREFERENCE_KEYS = [
   'companionHandsFree', // companion-page.tsx
   'companionHonorifics', // companion-page.tsx (Personality ▸ "What it calls you" pills, Ad Hoc)
   'companionNames', // companion-page.tsx (Personality ▸ the name pills, Phase 80 Theme D)
+  'companionPersonality', // companion-page.tsx (Personality ▸ "About the companion", Ad Hoc)
+  'companionAboutUser', // companion-page.tsx (Personality ▸ "About me", Ad Hoc)
   'companionVoices', // companion-page.tsx (Voice ▸ Local voice / Speaking voice, Ad Hoc)
   'companionSpeakAloud', // companion-page.tsx (Voice ▸ Speak replies aloud)
   'companionMusicOffer', // companion-page.tsx
