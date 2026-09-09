@@ -18,8 +18,8 @@ import {
   testSttCredential,
   transcribeUtterance,
 } from '../companion/stt';
-import { getCompanionTtsStatus, synthesizeSpeech } from '../companion/tts';
-import { handle, handleOp } from './handle';
+import { cancelQueuedSynthesis, getCompanionTtsStatusAsync, synthesizeSpeechAsync } from '../companion/tts-broker';
+import { handle, handleOp, handleSend } from './handle';
 
 /**
  * The companion's grounding channels (Phase 79 Theme B) and its one headless
@@ -122,25 +122,43 @@ export function registerCompanionHandlers(): void {
   );
 
   /*
-    The local voice engine (Phase 80 Theme C). `handleOp` fits exactly:
-    `synthesizeSpeech` already answers `GitOpResult` and never throws, so an
-    invalid payload arriving as `failure(...)` is the same shape the renderer
-    already branches on for every other failure mode (missing native module,
-    unprovisioned model, a bad synthesis) — `speaker.ts` falls back to
-    `speechSynthesis` for all of them alike.
+    The local voice engine (Phase 80 Theme C; moved off the main thread onto
+    its own `utilityProcess` — Ad Hoc "TTS synthesis blocks the UI"). `handleOp`
+    fits exactly: `synthesizeSpeechAsync` (`tts-broker.ts`) already answers
+    `GitOpResult` and never throws, so an invalid payload arriving as
+    `failure(...)` is the same shape the renderer already branches on for
+    every other failure mode (missing native module, unprovisioned model, a
+    bad synthesis, or now a crashed/cancelled worker request) — `speaker.ts`
+    falls back to `speechSynthesis` for all of them alike.
   */
   handleOp(CHANNELS.companionTtsSynthesize, schemas.CompanionTtsSynthesizeRequest, (req) =>
-    synthesizeSpeech(req.text, req.voice),
+    synthesizeSpeechAsync(req.text, req.voice),
   );
 
   /*
     The status sibling (Phase 80 Theme C follow-up): `handleOp` fits here too
-    even though `getCompanionTtsStatus` cannot itself fail — it is always
-    `ok(...)`, with the state living in the value per the schema's own doc —
-    because it keeps this channel's answer shaped exactly like every other
-    one here, so the renderer has one envelope to unwrap, not two.
+    even though `getCompanionTtsStatusAsync` cannot itself fail — it is
+    always `ok(...)`, with the state living in the value per the schema's own
+    doc — because it keeps this channel's answer shaped exactly like every
+    other one here, so the renderer has one envelope to unwrap, not two.
   */
   handleOp(CHANNELS.companionTtsStatus, schemas.CompanionTtsStatusRequest, async (req) =>
-    ok(await getCompanionTtsStatus(req.retry ?? false)),
+    ok(await getCompanionTtsStatusAsync(req.retry ?? false)),
+  );
+
+  /*
+    Ad Hoc: an interrupt (Escape, a click, a new utterance) has something
+    worth cancelling in main now that synthesis runs in its own process —
+    `cancelQueuedSynthesis` drops whatever `tts-broker.ts` has queued but not
+    yet dispatched to the worker. One-way (`handleSend`, not `handleOp`):
+    there is nothing to answer, and a malformed payload on a bare-signal
+    channel is not evidence of anything worth logging the way
+    `report-handlers.ts`'s own `handleSend` use is — `onInvalid` is a no-op.
+  */
+  handleSend(
+    CHANNELS.companionTtsCancel,
+    schemas.CompanionTtsCancelRequest,
+    () => cancelQueuedSynthesis(),
+    () => {},
   );
 }

@@ -1260,6 +1260,12 @@ export type MidniteStudioBridge = {
     ttsStatus: (
       req: In<typeof S.CompanionTtsStatusRequest>,
     ) => Promise<z.infer<typeof S.CompanionTtsStatusResponse>>;
+    /**
+     * Drop whatever the local voice engine has queued but not yet started —
+     * `createLocalSpeaker.cancel()`'s companion to its own `AudioBufferSourceNode.stop()`
+     * and local-queue clear. One-way: nothing comes back.
+     */
+    ttsCancel: () => void;
   };
 };
 

@@ -592,6 +592,9 @@ const bridge: Pick<
     */
     ttsSynthesize: (req) => call(CHANNELS.companionTtsSynthesize, req),
     ttsStatus: (req) => call(CHANNELS.companionTtsStatus, req),
+    // One-way — nothing comes back, matching `windowSetBackground`'s own
+    // fire-and-forget `ipcRenderer.send` above rather than `call`'s `invoke`.
+    ttsCancel: () => ipcRenderer.send(CHANNELS.companionTtsCancel),
   },
   windowChrome,
   windowRole,

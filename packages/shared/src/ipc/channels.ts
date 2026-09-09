@@ -892,6 +892,21 @@ export const CHANNELS = {
    */
   companionTtsStatus: 'mstudio:companion:tts-status',
   /**
+   * Drop whatever the local voice engine has queued but not yet started
+   * synthesizing — Ad Hoc: the engine swap to a `utilityProcess` worker
+   * (`tts-broker.ts`) means an interrupt (Escape, a click, a new utterance)
+   * now has something worth cancelling in main rather than just aborting the
+   * renderer's own queue. One-way (`ipcRenderer.send`/`handleSend`), not
+   * `handleOp`: there is nothing to answer — `speaker.ts`'s
+   * `createLocalSpeaker.cancel()` fires this alongside its existing
+   * `AudioBufferSourceNode.stop()` and local-queue clear, and moves on. A job
+   * already dispatched to the worker (mid-`generate()`) cannot be aborted —
+   * ONNX inference exposes no cooperative cancellation — so this drops only
+   * what has not started; the renderer's own `active !== item` guard already
+   * discards a stale reply for one that had.
+   */
+  companionTtsCancel: 'mstudio:companion:tts-cancel',
+  /**
    * One utterance in, its transcript out.
    *
    * The audio is a `Uint8Array`, structured-cloned exactly as `pty:data` and
