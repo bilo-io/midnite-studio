@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { useUiStore } from '../../store/ui-store';
 import { NotificationBell } from './notification-bell';
 import { AssistantMenu } from './assistant-menu';
 import { StatusSeparator } from './status-separator';
@@ -12,10 +13,15 @@ describe('Right zone status bar components', () => {
     expect(bellButton).toBeDefined();
   });
 
-  it('renders AssistantMenu popover header when open', async () => {
+  // AssistantMenu itself renders nothing while no panel is docked
+  // (`assistant-menu.test.tsx` covers that in depth) — this only needs to
+  // confirm the mini FAB is what actually shows up once the Loops panel is.
+  it('renders AssistantMenu as the mini FAB once the Loops panel is docked', async () => {
+    useUiStore.setState({ fabPanelOpen: true, fabDetached: false });
     render(<AssistantMenu />);
     const assistantButton = screen.getByTestId('assistant-menu');
     expect(assistantButton).toBeDefined();
+    useUiStore.setState({ fabPanelOpen: false });
   });
 
   // Was `RightDelimiterSegment`, a delimiter registered as a *segment* in the

@@ -134,22 +134,23 @@ function step(
 }
 
 /**
- * The menu behind the FAB and the assistant-menu trigger — one component,
- * rendered from both places, never forked (Phase 58 Theme E).
+ * The menu behind the FAB (Phase 58 Theme E) — opened by the large FAB
+ * button (`app.tsx`) or the `Mod+l` chord (`fab.toggle`).
  *
- * Self-contained: it portals itself, positions itself near the corner both
- * entry points already sit in, registers as an occluder and owns Escape for
- * as long as it is open (`useDismiss`, Phase 62), and traps focus — a caller
- * only ever needs to mount it and hand it an `onClose`.
+ * Self-contained: it portals itself, positions itself near the corner the
+ * FAB sits in, registers as an occluder and owns Escape for as long as it is
+ * open (`useDismiss`, Phase 62), and traps focus — a caller only ever needs
+ * to mount it and hand it an `onClose`.
  *
- * Both callers gate their render on the SAME shared `quickAccessOpen` flag
- * (also what `use-keybindings.ts` gates the global dispatcher on) rather than
- * each keeping its own local `open` state — this component does not touch
- * that flag itself. A local flag per caller looks tidier in isolation, but it
- * mounts a second instance the moment either trigger fires: whichever caller
- * flips the shared flag makes BOTH conditionals — the FAB's and the
- * assistant-menu's — true at once if each is reading its own copy instead of
- * the one flag. `onClose` is always `() => setQuickAccessOpen(false)`.
+ * `app.tsx` mounts the single instance, once, gated on the shared
+ * `quickAccessOpen` flag (also what `use-keybindings.ts` gates the global
+ * dispatcher on) — this component does not touch that flag itself; `onClose`
+ * is always `() => setQuickAccessOpen(false)`. The statusbar's
+ * `assistant-menu.tsx` used to carry a second trigger reading the same flag
+ * — removed as a redundant control once its own `onClick` was found to call
+ * the identical action the FAB's already did (see that file's doc comment)
+ * — so this is a single render site with a single trigger now, not the "one
+ * component, two entry points" shape it used to be.
  *
  * Disabled rows (`Report Issue`, `Guided tour`) stay reachable by arrow key
  * and by their own mnemonic — unlike `ContextMenu`, which skips a disabled
@@ -162,11 +163,10 @@ function step(
  * asks to fill in, and that took reading the tree rather than the phase doc.**
  * Theme H was written against a placeholder body reading "Midnite Assistant
  * Menu (Blank for now)" — which Phase 58 Theme E had already replaced by the
- * time it executed. `assistant-menu.tsx` is now purely the trigger; this
- * component is the body it opens. So the companion strip Theme H specifies —
- * state label with the FAB's own glyph, the last turn ellipsised, a Repeat row
- * and an "open companion" row — lands here, on the surface that actually
- * exists, with the `C` leaf doubling as that open row rather than a second one
+ * time it executed. So the companion strip Theme H specifies — state label
+ * with the FAB's own glyph, the last turn ellipsised, a Repeat row and an
+ * "open companion" row — lands here, on the surface that actually exists,
+ * with the `C` leaf doubling as that open row rather than a second one
  * beside it.
  */
 export function QuickAccessMenu({ onClose }: { onClose: () => void }) {
