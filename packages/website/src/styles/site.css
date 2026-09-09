@@ -802,10 +802,24 @@ html[data-page-hidden='true'] .ws-rainbow-text {
     item's cross size is `auto`), and `1em` ties it to `.ws-agent-caption`'s
     own font-size above — the same one the name inherits — rather than to a
     second pixel constant that could drift out of step with it.
+
+    **`align-self: auto` is the third, and it is what actually lines the
+    caret up with the name rather than merely shrinking it.** A no-op
+    `stretch` still falls back to `flex-start` per spec — the caret pinned to
+    the *row's* top edge while the name, a plain flex item with no `align-
+    self` of its own, followed the container's `items-baseline`
+    (`agent-marquee.tsx`) and sat on its own text baseline instead. The two
+    references disagreed by however far the row's glow padding pushed the
+    top edge above the baseline, which read as a caret floating above and to
+    the right of the name rather than sitting after it. `auto` drops the
+    component's own `self-stretch` for this one context and lets the caret
+    inherit `items-baseline` like the name does, so both derive their
+    position from the same text line rather than from two different boxes.
   */
   .ws-agent-caption .ws-caret {
     background-color: var(--ws-agent-color);
     height: 1em;
+    align-self: auto;
   }
 }
 
