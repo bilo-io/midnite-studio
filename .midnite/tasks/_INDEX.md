@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 9/53 | `██░░░░░░░░` | 17% | — | B C D E F |
+| [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 9/53 | `██░░░░░░░░` | 17% | B D | C E F |
 | [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 24/31 | `████████░░` | 77% | — | — |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | ✅ DONE | — | 57/67 | `█████████░` | 85% | — | — |
 | [78 · Whose hands were on the keyboard](phases/phase-78-whose-hands-were-on-the-keyboard.md) | ◻ TODO | — | 0/32 | `░░░░░░░░░░` | 0% | — | A B C D E F |
@@ -190,9 +190,9 @@ taught the same words — and, opt-in and direct-tier only, three `ui.*` MCP too
 companion handed off to can show its work. No new git operation, no dialog ever answered.*
 
 - ✅ **A** — One vocabulary, one engine ([PR #319](https://github.com/bilo-io/midnite-studio/pull/319)): `ViewId`/`SettingsPageId` to `shared`, `CompanionVocabulary`, a total `COMMAND_ACCESS` tier map beside `PALETTE_SAFE`, a module-level `runCommand`, `parseIntent(text, vocab?)`
-- ◻ **B** — Going there, and the window that is already out: `resolveNavigation`, `focusRole` for detached roles, the popout→main relay, issue/settings-page/URL targets, `window.detachCompanion`
+- 🔄 **B** — Going there, and the window that is already out: `resolveNavigation`, `focusRole` for detached roles, the popout→main relay, issue/settings-page/URL targets, `window.detachCompanion`
 - ◻ **C** — Doing things there, by tier: `direct` runs and says, `confirm` waits for yes/empty Return/Run chip (hands-free does not bypass), `never` names the palette; dialogs survive untouched
-- ◻ **D** — Every skill it was missing: `triage` gets an `AgentCommandId`, `releasePrep` joins with `COMPANION_NEVER_AUTOSEND`; `releaseComplete`, `loop*`, `setup` stay out by type
+- 🔄 **D** — Every skill it was missing: `triage` gets an `AgentCommandId`, `releasePrep` joins with `COMPANION_NEVER_AUTOSEND`; `releaseComplete`, `loop*`, `setup` stay out by type
 - ◻ **E** — The router learns the rest of the vocabulary: `CompanionAskRequest.vocabulary`, the `route` prompt lists views/pages/commands/skills, `parseAskReply` fixtures for the new kinds
 - ◻ **F** — An agent may steer the view: `ui.state`/`ui.navigate`/`ui.command` MCP tools, `readOnly: boolean`, a second Settings ▸ MCP switch (default off), the tree's first main→renderer request/reply (5 s timeout), refused while locked
 
