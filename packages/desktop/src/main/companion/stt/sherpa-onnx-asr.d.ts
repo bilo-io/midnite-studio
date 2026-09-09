@@ -61,6 +61,11 @@ declare module 'sherpa-onnx-node' {
     getResult(stream: OfflineStream): OfflineRecognizerResult;
   }
 
-  /** Parses an in-memory WAV file — no disk round trip needed. */
-  export function readWaveFromBinary(data: Uint8Array): Waveform;
+  /*
+    No `readWaveFromBinary` here: the native addon exports one (confirmed
+    against the installed 1.13.7 binary), but this package's public JS API
+    doesn't re-export it — only `readWave` (file path) and `writeWave` do.
+    `sherpa-local.ts`'s own `parseWav` reads the fixed WAV shape this app
+    always produces instead of reaching into `addon.js` internals for it.
+  */
 }

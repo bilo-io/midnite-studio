@@ -64,7 +64,6 @@ class FakeOfflineRecognizer {
 
 const fakeSherpaOnnxModule = {
   OfflineRecognizer: FakeOfflineRecognizer,
-  readWaveFromBinary: () => ({ samples: new Float32Array([0, 0.1, -0.1]), sampleRate: 16_000 }),
 } as unknown as typeof import('sherpa-onnx-node');
 
 /** Identity "decompressor" — every test feeds already-plain tar bytes. */
@@ -150,12 +149,37 @@ function tarResponse(tarball: Buffer, ok = true, status = 200): Response {
   } as unknown as Response;
 }
 
-/** A byte array that passes `looksLikeWav` — a RIFF/WAVE signature is all `readWaveFromBinary` is faked to need. */
-function fakeWavAudio(): Uint8Array {
-  const bytes = new Uint8Array(16);
-  bytes.set([0x52, 0x49, 0x46, 0x46], 0); // RIFF
-  bytes.set([0x57, 0x41, 0x56, 0x45], 8); // WAVE
-  return bytes;
+/**
+ * A real, minimal 16-bit PCM mono WAV — `parseWav` is exercised for real in
+ * these tests (nothing mocks it away), so this has to be a byte-accurate
+ * header, not just a RIFF/WAVE signature. Mirrors `voice-ports.ts`'s
+ * `encodeWav`/`stt/index.ts`'s `silentWavClip`.
+ */
+function fakeWavAudio(samples: number[] = [0, 0.5, -0.5], sampleRate = 16_000): Uint8Array {
+  const dataBytes = samples.length * 2;
+  const buffer = new ArrayBuffer(44 + dataBytes);
+  const view = new DataView(buffer);
+  const ascii = (offset: number, text: string): void => {
+    for (let index = 0; index < text.length; index += 1) view.setUint8(offset + index, text.charCodeAt(index));
+  };
+  ascii(0, 'RIFF');
+  view.setUint32(4, 36 + dataBytes, true);
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  ascii(36, 'data');
+  view.setUint32(40, dataBytes, true);
+  for (let index = 0; index < samples.length; index += 1) {
+    const clamped = Math.max(-1, Math.min(1, samples[index] ?? 0));
+    view.setInt16(44 + index * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+  }
+  return new Uint8Array(buffer);
 }
 
 describe('createLocalWhisperProvider', () => {

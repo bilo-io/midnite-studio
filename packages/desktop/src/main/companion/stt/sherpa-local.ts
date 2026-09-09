@@ -276,6 +276,34 @@ async function ensureModel(deps: CompanionLocalSttDeps): Promise<GitOpResult<Mod
   return provisioning;
 }
 
+/**
+ * Read the fixed-shape WAV `voice-ports.ts`'s `toWavBlob` always produces —
+ * 16-bit PCM mono, a plain 44-byte header, no extra chunks — not a general
+ * WAV parser.
+ *
+ * `sherpa-onnx-node`'s native addon *does* export a `readWaveFromBinary`
+ * (confirmed against the installed 1.13.7 binary), but the package's public
+ * JS API only re-exports `readWave` (from a file path) and `writeWave` —
+ * reaching past that into `addon.js`'s internals for one function is exactly
+ * the kind of native-internals coupling `tts.ts`'s own module doc argues
+ * against for the sibling engine. Parsing the 44 bytes this app's own
+ * encoder always writes is the same call `silentWavClip`/`encodeWav` already
+ * made for the other WAV shapes in this codebase: no audio assets, no
+ * dependency, because the format is fully known and small.
+ */
+function parseWav(bytes: Uint8Array): { samples: Float32Array; sampleRate: number } {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const sampleRate = view.getUint32(24, true);
+  const dataSize = view.getUint32(40, true);
+  const sampleCount = Math.max(0, Math.floor(dataSize / 2));
+  const samples = new Float32Array(sampleCount);
+  for (let index = 0; index < sampleCount; index += 1) {
+    const int16 = view.getInt16(44 + index * 2, true);
+    samples[index] = int16 < 0 ? int16 / 0x8000 : int16 / 0x7fff;
+  }
+  return { samples, sampleRate };
+}
+
 function buildRecognizer(
   module: SherpaOnnxAsrModule,
   paths: ModelPaths,
@@ -382,7 +410,7 @@ export function createLocalWhisperProvider(
 
       try {
         const recognizer = await raceAbort(signal, recognizerPromise);
-        const wave = module.readWaveFromBinary(audio);
+        const wave = parseWav(audio);
         const stream = recognizer.createStream();
         stream.acceptWaveform(wave);
         const result = await raceAbort(signal, recognizer.decodeAsync(stream));
