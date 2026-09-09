@@ -1821,6 +1821,21 @@ export const WindowRelayMessage = z.object({
     'files',
     'workbench',
     'sessions',
+    /*
+      Phase 81 Theme B: a companion running in a popout has no docked view of
+      its own to change, so it relays the intent to the main window over this
+      same transport rather than acting on its own store (the "second copy
+      nobody can see" bug Finding 4 warns about). `payload` carries
+      `{ action: CompanionIntent, replyTo: string }` outbound and
+      `{ result: { ok: boolean; say: string }, replyTo: string }` on the way
+      back — a request/reply pair layered on a fire-and-forget transport,
+      correlated by `replyTo` rather than a new IPC channel. See
+      `features/companion/navigate.ts`, which owns both the encoding and the
+      pending-reply map (`use-window-sync.ts`'s module doc names
+      `broadcast-sync.ts` as the authority for every other kind; this one is
+      the exception, kept beside the navigation logic that both ends share).
+    */
+    'companion',
   ]),
   payload: z.record(z.string(), z.unknown()),
 });

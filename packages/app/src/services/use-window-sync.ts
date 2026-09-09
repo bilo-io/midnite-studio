@@ -2,11 +2,13 @@ import { useEffect } from 'react';
 
 import {
   PAGE_WINDOW_ROLES,
+  type CompanionIntent,
   type PanelWindowRole,
   type WindowDescriptor,
 } from '@midnite/studio-shared';
 
 import { bridge } from './bridge';
+import { handleCompanionRelayAction } from '../features/companion/navigate';
 import { useBrowserStore } from '../store/browser-store';
 import { useUiStore } from '../store/ui-store';
 
@@ -81,9 +83,28 @@ export function useWindowSync(): void {
     api.window.list().then((windows) => {
       if (!liveUpdateSeen) apply(windows);
     });
-    return api.window.onWindowsChanged((e) => {
+    const unsubscribeWindows = api.window.onWindowsChanged((e) => {
       liveUpdateSeen = true;
       apply(e.windows);
     });
+
+    // Phase 81 Theme B: the popout↔main companion relay. Main-window-only,
+    // same as the rest of this hook — a popout's own `useWindowSync()` never
+    // mounts (`Shell()` is main-only), so there is no risk of one window
+    // answering a request it sent itself. `broadcast-sync.ts` owns every
+    // other relay kind; this one is the exception (see the schema's own
+    // comment) because it shares `navigate.ts`'s pending-reply map with the
+    // popout side of the same request/reply pair.
+    const unsubscribeCompanionRelay = api.window.onRelayed((message) => {
+      if (message.kind !== 'companion') return;
+      const payload = message.payload as { action?: CompanionIntent; replyTo?: string };
+      if (payload.action === undefined || payload.replyTo === undefined) return;
+      handleCompanionRelayAction(payload.action, payload.replyTo);
+    });
+
+    return () => {
+      unsubscribeWindows();
+      unsubscribeCompanionRelay();
+    };
   }, []);
 }
