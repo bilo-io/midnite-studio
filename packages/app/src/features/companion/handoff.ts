@@ -87,6 +87,16 @@ export type HandoffDeps = ConciergeDeps & {
    * hand, and never a second copy of the palette's own tables (Finding 2).
    */
   vocabulary: () => CompanionVocabulary;
+  /**
+   * Carry out a `navigate` intent and say what happened — `navigate.ts`'s
+   * `navigateCompanion`, assembled here so `handoff.ts` never imports a store
+   * directly (Theme B). Returns rather than speaks: `act()`'s `navigate` arm
+   * is what calls {@link say}, the same as every other arm, so a fake in a
+   * test can assert on the returned sentence without a speaker double.
+   */
+  navigate: (
+    intent: Extract<CompanionIntent, { kind: 'navigate' }>,
+  ) => Promise<{ say: string }>;
 };
 
 /**
@@ -185,11 +195,15 @@ async function act(
     case 'command':
       return startCommand(intent, deps);
 
-    // Stub — Theme B replaces this with the real navigation/window/relay
-    // logic. Left as-is here: Theme C owns `run`/`confirm`/`help` only.
-    case 'navigate':
-      await say(deps, "I can't do that yet.");
+    // Theme B: `deps.navigate` has already decided and executed everything —
+    // this speaks whatever it reports back, exactly the shape every other arm
+    // takes. The `run`/`confirm`/`help` arms below are Theme C's, and are no
+    // longer stubs, so nothing falls through to "I can't do that yet." here.
+    case 'navigate': {
+      const outcome = await deps.navigate(intent);
+      await say(deps, outcome.say);
       return;
+    }
 
     case 'run':
       return runById(intent.id, deps);
