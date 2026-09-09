@@ -48,20 +48,17 @@ const trigger = () => screen.getByTestId('assistant-menu');
 
 describe('AssistantMenu', () => {
   /*
-   * The menu's own rows/mnemonics are `quick-access-menu.test.tsx`'s job, and
-   * which single spot actually mounts `QuickAccessMenu` is `app.tsx`'s — this
-   * trigger only has to flip the shared flag that decides whether it does.
+   * Neither panel docked is the common case, and this segment used to wear a
+   * quick-access trigger button for it — removed as a redundant second
+   * control for the same action the large FAB's own `onClick` already
+   * performs (see the component's doc comment). It renders nothing at all
+   * now, so the status-bar segment collapses cleanly rather than showing a
+   * stray second FAB.
    */
-  it('toggles quickAccessOpen while the FAB panel is closed', () => {
-    render(<AssistantMenu />);
-    expect(trigger().getAttribute('aria-label')).toBe('Midnite Assistant');
-    expect(useUiStore.getState().quickAccessOpen).toBe(false);
-
-    fireEvent.click(trigger());
-    expect(useUiStore.getState().quickAccessOpen).toBe(true);
-
-    fireEvent.click(trigger());
-    expect(useUiStore.getState().quickAccessOpen).toBe(false);
+  it('renders nothing while neither panel is docked', () => {
+    const { container } = render(<AssistantMenu />);
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByTestId('assistant-menu')).toBeNull();
   });
 
   /**
@@ -129,14 +126,14 @@ describe('AssistantMenu', () => {
         companionEnabled: true,
         companionDetached: true,
       });
-      render(<AssistantMenu />);
-      expect(trigger().getAttribute('aria-label')).toBe('Midnite Assistant');
+      const { container } = render(<AssistantMenu />);
+      expect(container.firstChild).toBeNull();
     });
 
     it('is suppressed while the companion is disabled', () => {
       useUiStore.setState({ companionPanelOpen: true, companionEnabled: false });
-      render(<AssistantMenu />);
-      expect(trigger().getAttribute('aria-label')).toBe('Midnite Assistant');
+      const { container } = render(<AssistantMenu />);
+      expect(container.firstChild).toBeNull();
     });
 
     it('acts on whichever panel was opened most recently when both are open', () => {

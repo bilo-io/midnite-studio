@@ -1588,9 +1588,11 @@ function Shell() {
         <NotesModal />
         {/*
           The FAB's own entry point (Theme E) — self-contained, so it only
-          needs mounting here. The assistant-menu segment's own instance
-          (`assistant-menu.tsx`) is a second, independent mount of the same
-          component, not a fork of it.
+          needs mounting here. The statusbar's `assistant-menu.tsx` used to
+          carry a second trigger for this same flag; that trigger was a
+          redundant control (see its own doc comment) and was removed, so the
+          FAB button above and the `Mod+l` chord are now the only ways to
+          flip `quickAccessOpen`.
         */}
         {quickAccessOpen ? (
           <QuickAccessMenu onClose={() => useUiStore.getState().setQuickAccessOpen(false)} />

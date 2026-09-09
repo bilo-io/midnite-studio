@@ -86,15 +86,14 @@ describe('QuickAccessMenu', () => {
 
   /*
     `quickAccessOpen` gates `use-keybindings.ts`'s global dispatcher AND is
-    the flag both entry points render off — this component deliberately does
+    the flag the FAB button renders off — this component deliberately does
     not also set it itself. It used to (mount → true, unmount → false), which
     reads correct in isolation but is what mounted a second, unwanted instance
-    the moment either caller's own conditional saw the flag flip: with the
-    FAB reading the same `quickAccessOpen` the assistant-menu's mount had just
-    set true, both rendered at once. One shared gate that only a caller's own
-    open/close toggles is what keeps exactly one instance mounted — see
-    `quick-access-menu.spec.ts`'s "the assistant menu opens the same
-    component" e2e spec, which is what caught the double-mount.
+    back when a second trigger (the statusbar's `assistant-menu.tsx`, since
+    removed — see its own doc comment) read the same flag: with the FAB
+    reading the same `quickAccessOpen` the other trigger's mount had just set
+    true, both rendered at once. One shared gate that only the caller's own
+    open/close toggles is what keeps exactly one instance mounted.
   */
   it('does not touch quickAccessOpen itself — that stays the caller-owned render gate', () => {
     useUiStore.setState({ quickAccessOpen: true });

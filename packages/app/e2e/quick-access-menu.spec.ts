@@ -4,7 +4,12 @@ import { fixtures } from './fixtures';
 import { installMockBridge } from './mock-bridge';
 
 /**
- * The quick-access menu (Phase 58 Theme E) — one component, two entry points.
+ * The quick-access menu (Phase 58 Theme E) — one component, opened by the
+ * large FAB button or the `Meta+l` chord. It used to also open from a second
+ * status-bar trigger (`assistant-menu.tsx`'s own button); that trigger was a
+ * redundant control for the identical action the FAB's `onClick` already
+ * performed and was removed, so the FAB and the chord are the only entry
+ * points left.
  *
  * `Meta+l`, literal rather than Playwright's OS-adaptive `ControlOrMeta`
  * alias: `palette.spec.ts` explains why (a real Ctrl on CI's Linux runner
@@ -42,9 +47,9 @@ test('the FAB opens the menu with the five rows, in order', async ({ page }) => 
   }
 });
 
-test('the assistant menu opens the same component with the same five rows', async ({ page }) => {
+test('the Meta+L chord opens the same component with the same five rows', async ({ page }) => {
   await open(page);
-  await page.getByTestId('assistant-menu').click();
+  await page.keyboard.press('Meta+l');
 
   await expect(menu(page)).toBeVisible();
   const names = await rowNames(page);
