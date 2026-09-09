@@ -8,10 +8,10 @@ describe('BUILTIN_PALETTES', () => {
     expect(BUILTIN_PALETTES.some((p) => p.id === DEFAULT_PALETTE_ID)).toBe(true);
   });
 
-  it('has six distinct ids', () => {
+  it('has twelve distinct ids', () => {
     const ids = BUILTIN_PALETTES.map((p) => p.id);
-    expect(ids).toHaveLength(6);
-    expect(new Set(ids).size).toBe(6);
+    expect(ids).toHaveLength(12);
+    expect(new Set(ids).size).toBe(12);
   });
 
   for (const palette of BUILTIN_PALETTES) {

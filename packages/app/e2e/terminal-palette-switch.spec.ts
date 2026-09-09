@@ -46,7 +46,7 @@ async function openAppearanceSettings(page: Page): Promise<void> {
     .getByRole('navigation', { name: 'Settings pages' })
     .getByRole('button', { name: 'Appearance', exact: true })
     .click();
-  await page.getByRole('radiogroup', { name: 'Palette' }).waitFor();
+  await page.getByRole('radiogroup', { name: 'Dark palettes' }).waitFor();
 }
 
 test('eight mounted terminals survive a palette switch without any being recreated', async ({
@@ -80,7 +80,7 @@ test('eight mounted terminals survive a palette switch without any being recreat
   // the terminal.
   await openAppearanceSettings(page);
   await page
-    .getByRole('radiogroup', { name: 'Palette' })
+    .getByRole('radiogroup', { name: 'Dark palettes' })
     .getByRole('radio', { name: 'Monokai' })
     .click();
 

@@ -31,6 +31,7 @@ export const monokai = {
     background: '#272822',
     foreground: '#f8f8f2',
     cursor: '#f8f8f0',
+    cursorAccent: '#272822',
     selectionBackground: '#49483e',
     black: '#272822',
     red: '#f92672',
