@@ -1,135 +1,72 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { VOICE_ID, getCompanionTtsStatus, resetCompanionTtsForTest, synthesizeSpeech } from './tts';
+import {
+  VOICE_ID,
+  getCompanionTtsStatus,
+  resetCompanionTtsForTest,
+  synthesizeSpeech,
+  type CompanionTtsDeps,
+} from './tts';
 
 /**
- * Phase 80 Theme C — everything `tts.ts` does that is not the native module
- * itself, against fakes for `sherpa-onnx-node`, `unbzip2-stream` and `fetch`.
- * No real network call, no real bzip2 decompression, no real ONNX runtime.
+ * Kokoro-82M engine (the sherpa-onnx-node replacement) — everything `tts.ts`
+ * does that is not the native module itself, against a fake for `kokoro-js`'s
+ * `KokoroTTS`. No real network call, no real ONNX runtime, no real model
+ * download: `KokoroTTS.from_pretrained`/`generate` own all of that in the real
+ * package, so the fake below stands in for both at once rather than for a
+ * hand-rolled tarball fetch — unlike the old sherpa build, this module no
+ * longer does its own provisioning I/O for the test to exercise directly.
  */
 
-type FakeGeneratedAudio = { samples: Float32Array; sampleRate: number };
+type FakeGeneratedAudio = { audio: Float32Array; sampling_rate: number };
 
-class FakeOfflineTts {
-  static instances: FakeOfflineTts[] = [];
-  static constructCount = 0;
-  static shouldThrow = false;
+class FakeKokoroTTS {
+  static instances: FakeKokoroTTS[] = [];
+  static fromPretrainedCallCount = 0;
+  /** Rejects the *next* `from_pretrained` call only — a transient blip, not sticky. */
+  static rejectNextLoad = false;
   static generateShouldThrow = false;
-  readonly numSpeakers = 1;
-  readonly sampleRate = 22_050;
 
-  constructor(public readonly config: unknown) {
-    FakeOfflineTts.constructCount += 1;
-    if (FakeOfflineTts.shouldThrow) throw new Error('fake construct failure');
-    FakeOfflineTts.instances.push(this);
-  }
-
-  generate(_request: { text: string; sid: number; speed: number }): FakeGeneratedAudio {
-    if (FakeOfflineTts.generateShouldThrow) throw new Error('fake generate failure');
-    return { samples: new Float32Array([0.5, -0.5, 0.25, -1, 1]), sampleRate: this.sampleRate };
-  }
-}
-
-const fakeSherpaOnnxModule = { OfflineTts: FakeOfflineTts } as unknown as typeof import('sherpa-onnx-node');
-
-/**
- * An identity "decompressor": every test feeds already-plain tar bytes as the
- * fetch response body, so this stands in for `unbzip2-stream` without a real
- * bzip2 encoder anywhere in the test.
- */
-vi.mock('unbzip2-stream', () => ({
-  default: () => {
-    const listeners = new Map<string, Array<(...args: never[]) => void>>();
-    return {
-      on(event: string, cb: (...args: never[]) => void) {
-        const arr = listeners.get(event) ?? [];
-        arr.push(cb);
-        listeners.set(event, arr);
-        return this;
-      },
-      end(buf: Buffer) {
-        queueMicrotask(() => {
-          for (const cb of listeners.get('data') ?? []) (cb as (chunk: Buffer) => void)(buf);
-          for (const cb of listeners.get('end') ?? []) (cb as () => void)();
-        });
-      },
-    };
-  },
-}));
-
-// --- a minimal, hand-rolled tar builder (mirrors tts.ts's own reader) ------
-
-function tarHeader(name: string, size: number, typeflag: string): Buffer {
-  const header = Buffer.alloc(512);
-  header.write(name, 0, 100, 'utf8');
-  header.write(`${size.toString(8).padStart(11, '0')}\0`, 124, 12, 'utf8');
-  header.write(typeflag, 156, 1, 'utf8');
-  return header;
-}
-
-type TarEntry = { name: string; data?: Buffer; dir?: boolean };
-
-function buildTar(entries: TarEntry[]): Buffer {
-  const parts: Buffer[] = [];
-  for (const entry of entries) {
-    if (entry.dir === true) {
-      parts.push(tarHeader(entry.name, 0, '5'));
-      continue;
+  static async from_pretrained(_modelId: string, _opts: unknown): Promise<FakeKokoroTTS> {
+    FakeKokoroTTS.fromPretrainedCallCount += 1;
+    if (FakeKokoroTTS.rejectNextLoad) {
+      FakeKokoroTTS.rejectNextLoad = false;
+      throw new Error('fake network failure');
     }
-    const data = entry.data ?? Buffer.alloc(0);
-    parts.push(tarHeader(entry.name, data.length, '0'));
-    const padded = Buffer.alloc(Math.ceil(data.length / 512) * 512);
-    data.copy(padded);
-    parts.push(padded);
+    const instance = new FakeKokoroTTS();
+    FakeKokoroTTS.instances.push(instance);
+    return instance;
   }
-  parts.push(Buffer.alloc(1024)); // two zero blocks: end-of-archive marker
-  return Buffer.concat(parts);
+
+  generate(_text: string, _opts: unknown): Promise<FakeGeneratedAudio> {
+    if (FakeKokoroTTS.generateShouldThrow) return Promise.reject(new Error('fake generate failure'));
+    return Promise.resolve({ audio: new Float32Array([0.5, -0.5, 0.25, -1, 1]), sampling_rate: 22_050 });
+  }
 }
 
-function validTarball(): Buffer {
-  const root = `vits-piper-${VOICE_ID}`;
-  return buildTar([
-    { name: `${root}/`, dir: true },
-    { name: `${root}/${VOICE_ID}.onnx`, data: Buffer.from('fake onnx weights') },
-    { name: `${root}/tokens.txt`, data: Buffer.from('_ 0\n^ 1\n') },
-    { name: `${root}/espeak-ng-data/`, dir: true },
-    { name: `${root}/espeak-ng-data/en_dict`, data: Buffer.from('fake dict') },
-    // Present in the real release, and must NOT be copied into voiceDir().
-    { name: `${root}/MODEL_CARD`, data: Buffer.from('license info') },
-    { name: `${root}/${VOICE_ID}.onnx.json`, data: Buffer.from('{}') },
-  ]);
-}
+const fakeKokoroModule = { KokoroTTS: FakeKokoroTTS } as unknown as typeof import('kokoro-js');
 
-function fakeFetch(response: Response | (() => Response)): typeof fetch {
-  return vi.fn(async () => (typeof response === 'function' ? response() : response)) as unknown as typeof fetch;
-}
+/** `env.cacheDir` is the only field `tts.ts` touches on this module. */
+const fakeTransformersEnv = { cacheDir: '' } as unknown as typeof import('@huggingface/transformers').env;
 
-function tarResponse(tarball: Buffer, ok = true, status = 200): Response {
-  return {
-    ok,
-    status,
-    body: new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new Uint8Array(tarball));
-        controller.close();
-      },
-    }),
-  } as unknown as Response;
-}
+const fakeLoadModule: CompanionTtsDeps['loadModule'] = () => ({
+  KokoroTTS: fakeKokoroModule.KokoroTTS,
+  env: fakeTransformersEnv,
+});
 
 describe('synthesizeSpeech', () => {
   let dir: string;
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'mstudio-tts-test-'));
-    FakeOfflineTts.instances = [];
-    FakeOfflineTts.constructCount = 0;
-    FakeOfflineTts.shouldThrow = false;
-    FakeOfflineTts.generateShouldThrow = false;
+    FakeKokoroTTS.instances = [];
+    FakeKokoroTTS.fromPretrainedCallCount = 0;
+    FakeKokoroTTS.rejectNextLoad = false;
+    FakeKokoroTTS.generateShouldThrow = false;
   });
 
   afterEach(() => {
@@ -143,9 +80,8 @@ describe('synthesizeSpeech', () => {
     expect(result).toMatchObject({ ok: false });
   });
 
-  it('downloads, extracts and synthesizes on a cold first call', async () => {
-    const fetchImpl = fakeFetch(tarResponse(validTarball()));
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+  it('loads the model and synthesizes on a cold first call', async () => {
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
 
     const result = await synthesizeSpeech('hello there');
 
@@ -156,45 +92,32 @@ describe('synthesizeSpeech', () => {
       expect(String.fromCharCode(...bytes.slice(0, 4))).toBe('RIFF');
       expect(String.fromCharCode(...bytes.slice(8, 4 + 8))).toBe('WAVE');
     }
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(FakeOfflineTts.constructCount).toBe(1);
-
-    // Only the three files `OfflineTts` actually reads land on disk.
-    const voiceDir = join(dir, 'companion-voice', VOICE_ID);
-    expect(existsSync(join(voiceDir, `${VOICE_ID}.onnx`))).toBe(true);
-    expect(existsSync(join(voiceDir, 'tokens.txt'))).toBe(true);
-    expect(existsSync(join(voiceDir, 'espeak-ng-data', 'en_dict'))).toBe(true);
-    expect(existsSync(join(voiceDir, 'MODEL_CARD'))).toBe(false);
-    expect(existsSync(join(voiceDir, `${VOICE_ID}.onnx.json`))).toBe(false);
+    expect(FakeKokoroTTS.fromPretrainedCallCount).toBe(1);
   });
 
-  it('does not re-download once the voice is already provisioned', async () => {
-    const fetchImpl = fakeFetch(tarResponse(validTarball()));
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+  it('does not reload the model once it is already in memory', async () => {
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
 
     await synthesizeSpeech('first');
     const second = await synthesizeSpeech('second');
 
     expect(second.ok).toBe(true);
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    // The `OfflineTts` session is also reused, not reconstructed per call.
-    expect(FakeOfflineTts.constructCount).toBe(1);
+    expect(FakeKokoroTTS.fromPretrainedCallCount).toBe(1);
   });
 
-  it('dedupes two concurrent cold calls into one download', async () => {
-    const fetchImpl = fakeFetch(tarResponse(validTarball()));
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+  it('dedupes two concurrent cold calls into one model load', async () => {
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
 
     const [a, b] = await Promise.all([synthesizeSpeech('a'), synthesizeSpeech('b')]);
 
     expect(a.ok).toBe(true);
     expect(b.ok).toBe(true);
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(FakeKokoroTTS.fromPretrainedCallCount).toBe(1);
   });
 
-  it('answers failure, not a throw, when the download fails', async () => {
-    const fetchImpl = fakeFetch(tarResponse(Buffer.alloc(0), false, 404));
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+  it('answers failure, not a throw, when the model fails to load', async () => {
+    FakeKokoroTTS.rejectNextLoad = true;
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
 
     const result = await synthesizeSpeech('hello');
 
@@ -204,43 +127,22 @@ describe('synthesizeSpeech', () => {
     }
   });
 
-  it('retries provisioning after a transient download failure (not sticky)', async () => {
-    let attempt = 0;
-    const fetchImpl = fakeFetch(() => {
-      attempt += 1;
-      return attempt === 1 ? tarResponse(Buffer.alloc(0), false, 500) : tarResponse(validTarball());
-    });
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+  it('retries provisioning after a transient load failure (not sticky)', async () => {
+    FakeKokoroTTS.rejectNextLoad = true;
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
 
     const first = await synthesizeSpeech('hello');
     expect(first.ok).toBe(false);
 
     const second = await synthesizeSpeech('hello again');
     expect(second.ok).toBe(true);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
-  });
-
-  it('is sticky once the native module itself fails to construct', async () => {
-    FakeOfflineTts.shouldThrow = true;
-    const fetchImpl = fakeFetch(tarResponse(validTarball()));
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
-
-    const first = await synthesizeSpeech('hello');
-    expect(first.ok).toBe(false);
-    expect(FakeOfflineTts.constructCount).toBe(1);
-
-    // A second attempt does not retry construction — the failure is sticky
-    // for the process's lifetime (the module doc's own claim).
-    const second = await synthesizeSpeech('hello again');
-    expect(second.ok).toBe(false);
-    expect(FakeOfflineTts.constructCount).toBe(1);
+    expect(FakeKokoroTTS.fromPretrainedCallCount).toBe(2);
   });
 
   it('reports a per-call failure when generation throws, without poisoning the next call', async () => {
-    const fetchImpl = fakeFetch(tarResponse(validTarball()));
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
 
-    FakeOfflineTts.generateShouldThrow = true;
+    FakeKokoroTTS.generateShouldThrow = true;
     const first = await synthesizeSpeech('hello');
     expect(first.ok).toBe(false);
 
@@ -257,10 +159,10 @@ describe('getCompanionTtsStatus', () => {
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'mstudio-tts-status-test-'));
-    FakeOfflineTts.instances = [];
-    FakeOfflineTts.constructCount = 0;
-    FakeOfflineTts.shouldThrow = false;
-    FakeOfflineTts.generateShouldThrow = false;
+    FakeKokoroTTS.instances = [];
+    FakeKokoroTTS.fromPretrainedCallCount = 0;
+    FakeKokoroTTS.rejectNextLoad = false;
+    FakeKokoroTTS.generateShouldThrow = false;
   });
 
   afterEach(() => {
@@ -278,11 +180,11 @@ describe('getCompanionTtsStatus', () => {
     });
   });
 
-  it('reports the native module as sticky-failed, and does not attempt a download', async () => {
+  it('reports the native module as sticky-failed, and does not attempt a load', async () => {
     resetCompanionTtsForTest({
       directory: dir,
       loadModule: () => {
-        throw new Error('no prebuilt binary for this platform');
+        throw new Error('no prebuilt onnxruntime-node binary for this platform');
       },
     });
 
@@ -290,63 +192,55 @@ describe('getCompanionTtsStatus', () => {
     expect(status.engine).toBe('system');
     expect(status.voice).toBe('failed');
     expect(status.reason).toBe('native-module-missing');
-    expect(status.message).toContain('no prebuilt binary');
+    expect(status.message).toContain('no prebuilt onnxruntime-node binary');
   });
 
   it('kicks off provisioning and reports downloading on the first check', async () => {
-    const fetchImpl = fakeFetch(tarResponse(validTarball()));
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
 
     const status = await getCompanionTtsStatus(false);
     expect(status).toEqual({ engine: 'system', voice: 'downloading', reason: null, message: null });
 
-    // The download this call started is the one and only fetch — a second
-    // status check must not start a redundant one.
+    // The load this call started is the one and only `from_pretrained` call —
+    // a second status check must not start a redundant one.
+    await vi.waitFor(() => expect(FakeKokoroTTS.fromPretrainedCallCount).toBe(1));
     await getCompanionTtsStatus(false);
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(FakeKokoroTTS.fromPretrainedCallCount).toBe(1);
   });
 
-  it('reports ready, with the local engine, once the voice lands on disk', async () => {
-    const fetchImpl = fakeFetch(tarResponse(validTarball()));
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+  it('reports ready, with the local engine, once the model is loaded', async () => {
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
 
     await synthesizeSpeech('warm the cache');
     const status = await getCompanionTtsStatus(false);
     expect(status).toEqual({ engine: 'local', voice: 'ready', reason: null, message: null });
   });
 
-  it('reports a download failure without retrying until asked to', async () => {
-    const fetchImpl = fakeFetch(tarResponse(Buffer.alloc(0), false, 404));
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+  it('reports a load failure without retrying until asked to', async () => {
+    FakeKokoroTTS.rejectNextLoad = true;
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
 
-    await getCompanionTtsStatus(false); // starts the (failing) download
-    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    await getCompanionTtsStatus(false); // starts the (failing) load
+    await vi.waitFor(() => expect(FakeKokoroTTS.fromPretrainedCallCount).toBe(1));
 
     const failed = await getCompanionTtsStatus(false);
     expect(failed.voice).toBe('failed');
     expect(failed.reason).toBe('download-failed');
     expect(failed.message).toContain('download');
-    // No retry requested: still one fetch.
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    // No retry requested: still one attempt.
+    expect(FakeKokoroTTS.fromPretrainedCallCount).toBe(1);
   });
 
-  it('retries a failed download when asked, and reports ready once it succeeds', async () => {
-    let attempt = 0;
-    const fetchImpl = fakeFetch(() => {
-      attempt += 1;
-      return attempt === 1 ? tarResponse(Buffer.alloc(0), false, 500) : tarResponse(validTarball());
-    });
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+  it('retries a failed load when asked, and reports ready once it succeeds', async () => {
+    FakeKokoroTTS.rejectNextLoad = true;
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
 
     await getCompanionTtsStatus(false);
-    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(FakeKokoroTTS.fromPretrainedCallCount).toBe(1));
 
     const retried = await getCompanionTtsStatus(true);
     expect(retried.voice).toBe('downloading');
 
-    // The retried download (extract, rename) finishes asynchronously after
-    // the fetch itself resolves — poll status rather than assuming one tick
-    // is enough for the whole pipeline.
     await vi.waitFor(async () => {
       const status = await getCompanionTtsStatus(false);
       expect(status).toEqual({ engine: 'local', voice: 'ready', reason: null, message: null });
@@ -354,10 +248,9 @@ describe('getCompanionTtsStatus', () => {
   });
 
   it('reports a synthesis failure with its own distinct reason', async () => {
-    const fetchImpl = fakeFetch(tarResponse(validTarball()));
-    resetCompanionTtsForTest({ directory: dir, fetchImpl, loadModule: () => fakeSherpaOnnxModule });
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
 
-    FakeOfflineTts.generateShouldThrow = true;
+    FakeKokoroTTS.generateShouldThrow = true;
     await synthesizeSpeech('this will throw');
 
     const status = await getCompanionTtsStatus(false);
@@ -365,5 +258,11 @@ describe('getCompanionTtsStatus', () => {
     expect(status.voice).toBe('failed');
     expect(status.reason).toBe('synthesis-error');
     expect(status.message).toContain('generate failure');
+  });
+});
+
+describe('VOICE_ID', () => {
+  it('is the top-graded American English voice, af_heart', () => {
+    expect(VOICE_ID).toBe('af_heart');
   });
 });

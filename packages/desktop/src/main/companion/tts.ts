@@ -1,137 +1,186 @@
 import { existsSync } from 'node:fs';
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Readable } from 'node:stream';
 
 import { failure, ok, type GitOpResult } from '@midnite/studio-shared';
-import bz2 from 'unbzip2-stream';
 
-// `sherpa-onnx-node` is loaded lazily, not imported here — see
-// `loadSherpaOnnx()` below and `inproc-pty.ts`'s identical `loadNodePty()`,
-// the precedent this mirrors line for line.
-type SherpaOnnxModule = typeof import('sherpa-onnx-node');
-type OfflineTtsInstance = InstanceType<SherpaOnnxModule['OfflineTts']>;
+// `kokoro-js` (and the `@huggingface/transformers` it re-exports through
+// `loadModule` below) is loaded lazily, not imported here — see
+// `loadKokoro()` and `inproc-pty.ts`'s identical `loadNodePty()`, the
+// precedent this mirrors line for line. Both packages ship their own
+// TypeScript types, so — unlike `sherpa-onnx-node` — this module needs no
+// hand-rolled ambient declaration.
+type KokoroModule = typeof import('kokoro-js');
+type TransformersModule = typeof import('@huggingface/transformers');
+type KokoroTtsInstance = InstanceType<KokoroModule['KokoroTTS']>;
 
 /**
- * The local voice engine (Phase 80 Theme C).
- *
- * `speechSynthesis` sounds robotic and was never evaluated against an
- * alternative (Finding 4). This is that alternative: `sherpa-onnx-node`
- * running a Piper VITS voice, entirely in main — the phase doc's TTS
- * comparison table is the record of why this engine and not `kokoro-js`,
- * `@lobehub/tts` or Piper's own now-GPL binary directly.
+ * The local voice engine (originally Phase 80 Theme C on `sherpa-onnx-node`;
+ * this module is its Kokoro-82M replacement — an explicit engine swap, not a
+ * re-architecture, ordered because sherpa's own phonemizer turned out to embed
+ * a GPL-3.0 component, see the licensing note at the bottom of this doc).
  *
  * **Follows the `node-pty` precedent exactly** (`docs/INITIAL_PLAN.md:27,147`):
- * a native module, main-process-only, one Electron ABI, and "a lazy fail-soft
- * require degrades to unavailable, not a crash." Three ways this can fail, and
- * all three answer `{ok:false}` rather than throw across the IPC boundary:
+ * a native module (`onnxruntime-node`, reached through `kokoro-js` and
+ * `@huggingface/transformers`), main-process-only, one Electron ABI, and "a
+ * lazy fail-soft require degrades to unavailable, not a crash." Three ways
+ * this can fail, and all three answer `{ok:false}` rather than throw across
+ * the IPC boundary:
  *
  * 1. **The native module itself won't load** — an unsupported platform, or a
- *    missing prebuilt binary. `require('sherpa-onnx-node')` throws
- *    synchronously the moment the platform binary is missing (`addon.js`'s own
- *    fallback message) — a *static* top-level import of it would crash main at
- *    boot on such a platform, so `loadSherpaOnnx()` below calls it lazily
- *    inside a `try`/`catch`, exactly as `inproc-pty.ts`'s `loadNodePty()`
- *    already does for `node-pty` (generalised here to take the loader as a
- *    dependency, since a native module's `require()` is one of the few things
- *    in this codebase a test genuinely cannot swap by mocking the import — it
- *    reaches past the test runner's module graph to Node's real loader). A
- *    failure here is **sticky** for the process's lifetime — retrying a
- *    missing binary on every utterance is pointless work.
- * 2. **The voice model hasn't been provisioned yet.** Downloaded once, lazily,
- *    on first use, into `app.getPath('userData')/companion-voice/` — never
- *    into the app bundle or the repo (the phase's own guardrail). Unlike a
- *    missing native module, a provisioning failure (offline, a flaky mirror)
- *    is treated as **transient**: the next utterance tries again rather than
- *    being permanently silenced by one bad network blip.
+ *    missing prebuilt `onnxruntime-node` binary. `@huggingface/transformers`'s
+ *    `backends/onnx.js` does a **static top-level** `import * as ONNX_NODE
+ *    from 'onnxruntime-node'`, so `require('kokoro-js')` throws synchronously
+ *    the instant that native addon is missing — a *static* top-level import of
+ *    `kokoro-js` here would crash main at boot on such a platform, exactly the
+ *    hazard `loadKokoro()` below exists to avoid, inside a `try`/`catch`,
+ *    exactly as `inproc-pty.ts`'s `loadNodePty()` already does for `node-pty`
+ *    (generalised here to take the loader as a dependency, since a native
+ *    module's `require()` is one of the few things in this codebase a test
+ *    genuinely cannot swap by mocking the import — it reaches past the test
+ *    runner's module graph to Node's real loader). A failure here is
+ *    **sticky** for the process's lifetime — retrying a missing binary on
+ *    every utterance is pointless work.
+ * 2. **The model hasn't been provisioned yet.** `KokoroTTS.from_pretrained()`
+ *    downloads the ONNX weights from the Hugging Face Hub once, lazily, on
+ *    first use, into `app.getPath('userData')/companion-voice/kokoro/` — never
+ *    into the app bundle, `transformers.js`'s own default `<package>/.cache/`
+ *    (unwritable once packaged into an asar, and the exact failure mode that
+ *    already burned this feature once — see point 2's `sherpa-onnx-node`
+ *    precedent), or the user's home dotfiles. `configureCompanionTts` points
+ *    `@huggingface/transformers`'s `env.cacheDir` there before any load is
+ *    attempted. Unlike a missing native module, a provisioning failure
+ *    (offline, a flaky mirror, a stalled connection) is treated as
+ *    **transient**: the next utterance tries again rather than being
+ *    permanently silenced by one bad network blip. `kokoro-js` does its own
+ *    file-level HTTP fetch and on-disk caching (`FileCache` in
+ *    `@huggingface/transformers`) — the tarball/bz2/hand-rolled-tar-reader
+ *    machinery the sherpa build needed is gone; only a timeout guard remains,
+ *    since `transformers.js` has no built-in one and a stalled first "Say
+ *    hello" should give up rather than hang forever.
  * 3. **Synthesis itself throws** for a given piece of text — reported as a
- *    per-call failure, the model stays loaded for the next attempt.
+ *    per-call failure. Sticky, exactly as a load failure is (module doc's
+ *    precedent, kept identical here): a `.generate()` throw on this model
+ *    tends to mean a corrupt cache or an incompatible ONNX Runtime build,
+ *    neither of which a fresh attempt on the very next utterance fixes.
  *
  * `speaker.ts` on the renderer side treats every `{ok:false}` here identically:
  * fall back to `speechSynthesis` for that utterance. The companion is never
  * left mute because a native module didn't load.
  *
- * **The voice: `en_US-joe-medium`, not the more commonly-demoed `lessac`.**
- * Both are ~61 MB Piper `medium`-quality voices with identical architecture,
- * but `joe`'s own model card licenses its training data CC0 ("public
- * domain") — the cleanest terms of any voice in `rhasspy/piper-voices`, where
- * `lessac`'s card merely links an external Blizzard-2013 licence page that
- * this build did not chase down. The phase's own guardrail is "verify the
- * specific voice's own model card licence before shipping it," and `joe`'s
- * needed no further verification.
+ * **The voice: `af_heart`.** Kokoro-82M ships dozens (`af_*`, `am_*`, `bf_*`,
+ * `bm_*`, …); `af_heart` is the one the model card and `kokoro-js`'s own
+ * README example both single out as its top overall grade (`A`) — the most
+ * broadly well-trained American English voice in the set, and the least
+ * surprising default for a companion most users will hear in en-US. No voice
+ * picker in this PR: `companionVoice`, the *existing* Settings dropdown, still
+ * governs the `speechSynthesis` fallback exactly as it always did (Kokoro
+ * speaks first and does not read that value) — a Kokoro voice picker is a
+ * clean, separable follow-up, not a requirement of this swap.
  *
- * **Provisioning source: sherpa-onnx's own pre-converted release tarball**,
- * not Piper's raw `.onnx`/`.onnx.json` pair. The pair alone is not enough —
- * sherpa-onnx's VITS loader also needs `tokens.txt` (the phoneme→id table) and
- * `espeak-ng-data` (the phoneme-rule tables the espeak-ng fork compiled into
- * the native binary reads at synthesis time), and both must be cut from the
- * *exact* same conversion as the model or the phoneme ids can silently
- * disagree. `github.com/k2-fsa/sherpa-onnx`'s own `tts-models` release ships
- * all three together, pre-matched, per voice.
+ * **Quantisation: `q8`.** `kokoro-js` offers `fp32`/`fp16`/`q8`/`q4`/`q4f16`.
+ * `fp32` is 326 MB on disk for a barely-perceptible quality gain on an 82M
+ * parameter model; `q4` trades noticeably more quality for not much less size
+ * (305 MB — the *weights* barely shrink at 4-bit for a model this small,
+ * because Kokoro's biggest tensors are already narrow). `q8` is the
+ * deliberate middle: ~88 MB on disk (`model_quantized.onnx`, measured off this
+ * build's own download) for quality indistinguishable from `fp32` in casual
+ * listening, and it's what `kokoro-js`'s own README leads with for a
+ * non-browser target. Measured on this machine (Apple Silicon, CPU
+ * inference): ~505 MB resident once the model is loaded and warm (the
+ * `onnxruntime-node` session plus the decompressed q8 weights and its working
+ * buffers) — a real increase over Piper's tens of MB, and the trade the repo
+ * owner explicitly accepted overruling Phase 80 Theme C's original choice.
+ * Warm model load off an already-cached disk: ~0.4 s; a cold model load
+ * (first run, downloading ~88 MB) took ~15 s on this connection; first
+ * utterance after that: ~3 s for a ~5 s clip (a sub-1x realtime factor on
+ * CPU); a second, warm utterance: ~1.2 s. All measured by this PR's own
+ * throwaway script against the real package — see the PR body for the run.
  *
- * **A licensing note this build surfaced, for a human to weigh in the PR**:
- * that release tarball's `espeak-ng-data` is generated by, and the native
- * `.dylib` this app depends on statically links, a fork of `espeak-ng`
- * (`csukuangfj/espeak-ng`, see `cmake/espeak-ng-for-piper.cmake` in the
- * sherpa-onnx source) — and `espeak-ng` is **GPL-3.0**, not Apache-2.0. The
- * phase doc's comparison table frames sherpa-onnx as sidestepping Piper's own
- * GPL-3.0 fork "entirely," which is true of Piper's *code* but does not
- * appear to cover this: sherpa-onnx's compiled binary embeds a GPL-3.0
- * component for the same phonemization job Piper needed one for. This was not
- * caught by the phase doc's research and needs a human legal read before this
- * ships to end users — see the PR body's Decisions section.
+ * **A licensing question this swap was partly ordered to resolve — and it
+ * does not resolve it.** `sherpa-onnx-node`'s compiled binary statically links
+ * a GPL-3.0 `espeak-ng` fork for phonemization (this module's own prior
+ * doc, and `.midnite/tasks/done.md`). `kokoro-js` phonemizes English through
+ * its `phonemizer` dependency, whose own package description is "Simple text
+ * to phones converter using eSpeak NG" — and inspecting its bundled
+ * `dist/phonemizer.cjs` confirms it literally *is* espeak-ng, Emscripten-
+ * compiled to WebAssembly (its own internal strings still read
+ * `espeak-ng-data`, `espeak-ng-ipa-tmp-`, and it carries the same Emscripten
+ * module-loader boilerplate `sherpa-onnx-node`'s C++ build does). `kokoro-js`
+ * calls `phonemizer.phonemize()` unconditionally with no alternative backend
+ * (`dist/kokoro.cjs`: `require("phonemizer")`, called from every `generate()`
+ * and `stream()` path) — there is no way to use Kokoro's English voices
+ * without it. `phonemizer`'s own `LICENSE` file is Apache-2.0, but that covers
+ * the JS wrapper its author wrote, not the GPL-3.0 espeak-ng engine compiled
+ * into the WASM blob it ships and requires at runtime — the same shape of
+ * problem as a statically-linked `.dylib`, over a different embedding
+ * mechanism (an npm dependency carrying a compiled WASM binary rather than a
+ * binary linked into our own native addon). **The GPL-3.0 espeak-ng
+ * dependency is not gone; it moved.** This still needs the same human legal
+ * read before public distribution that Phase 80 Theme C flagged — see the PR
+ * body's Decisions section, and `.midnite/tasks/done.md`'s updated note.
  */
 
-/** Exported for the test's own assertions about on-disk layout — not part of the public contract. */
-export const VOICE_ID = 'en_US-joe-medium';
+/** Exported for the test's own assertions, and for `getCompanionTtsStatus` — not part of the public contract. */
+export const VOICE_ID = 'af_heart';
 
-/** github.com/k2-fsa/sherpa-onnx's `tts-models` release — see the module doc. */
-const VOICE_TARBALL_URL = `https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-${VOICE_ID}.tar.bz2`;
-/** The tarball's own top-level directory, stripped on extraction. */
-const TARBALL_ROOT = `vits-piper-${VOICE_ID}`;
+/** `kokoro-js`'s own default ONNX export of Kokoro-82M v1.0 on the Hugging Face Hub. */
+const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 
-/** Give up on a stalled download rather than hanging the first "Say hello" forever. */
-const DOWNLOAD_TIMEOUT_MS = 120_000;
+/** See the module doc's quantisation note. */
+const DTYPE = 'q8';
+
+/** The on-disk file `dtype: 'q8'` resolves to — used only by `modelReady()`'s cheap existence check. */
+const QUANTIZED_MODEL_FILE = 'model_quantized.onnx';
+
+/** Give up on a stalled download rather than hanging the first "Say hello" forever. `transformers.js` has no built-in fetch timeout of its own. */
+const MODEL_LOAD_TIMEOUT_MS = 120_000;
 
 export type CompanionTtsDeps = {
   /** `app.getPath('userData')`, injected so this module carries no `electron` import. */
   directory: string;
-  fetchImpl: typeof fetch;
   /**
-   * `require('sherpa-onnx-node')` — injected, not called inline, for the same
+   * `require('kokoro-js')` plus the `@huggingface/transformers` `env` it
+   * shares an installed copy with — injected, not called inline, for the same
    * reason everything else here is: a native module's `require()` reaches
    * straight past a test runner's module graph to Node's real loader, so
    * `tts.test.ts` swaps this for a fake rather than trying to mock the
-   * package itself.
+   * package itself. Bundled into one loader (rather than two separate
+   * `loadModule`s) because both requires must fail together: an unsupported
+   * platform breaks `onnxruntime-node`, which `kokoro-js` pulls in via a
+   * static top-level import of `@huggingface/transformers` — see the module
+   * doc's point 1.
    */
-  loadModule: () => SherpaOnnxModule;
+  loadModule: () => { KokoroTTS: KokoroModule['KokoroTTS']; env: TransformersModule['env'] };
 };
 
-function requireSherpaOnnx(): SherpaOnnxModule {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return require('sherpa-onnx-node') as SherpaOnnxModule;
+function requireKokoro(): { KokoroTTS: KokoroModule['KokoroTTS']; env: TransformersModule['env'] } {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { KokoroTTS } = require('kokoro-js') as KokoroModule;
+  const { env } = require('@huggingface/transformers') as TransformersModule;
+  /* eslint-enable @typescript-eslint/no-require-imports */
+  return { KokoroTTS, env };
 }
 
 function defaultDeps(directory: string): CompanionTtsDeps {
-  return { directory, fetchImpl: fetch, loadModule: requireSherpaOnnx };
+  return { directory, loadModule: requireKokoro };
 }
 
 let configured: CompanionTtsDeps | null = null;
-let sherpaOnnx: SherpaOnnxModule | null = null;
-let ttsInstance: OfflineTtsInstance | null = null;
+let kokoro: { KokoroTTS: KokoroModule['KokoroTTS']; env: TransformersModule['env'] } | null = null;
+let ttsInstance: KokoroTtsInstance | null = null;
 /** Sticky once set: a missing native module does not become available mid-run. */
 let loadFailure: string | null = null;
 /**
  * Which of the two sticky-failure call sites set `loadFailure` — `require()`
- * itself throwing (`loadSherpaOnnx`) versus the constructor/`.generate()`
- * throwing later (`synthesizeSpeech`'s own catch). Both are sticky for the
- * same reason (the module doc above), but `getCompanionTtsStatus` reports
- * them as the distinct reasons `tts-status`'s schema promises rather than
- * collapsing both into "native module missing".
+ * itself throwing (`loadKokoro`) versus `.generate()` throwing later
+ * (`synthesizeSpeech`'s own catch). Both are sticky for the same reason (the
+ * module doc above), but `getCompanionTtsStatus` reports them as the distinct
+ * reasons `tts-status`'s schema promises rather than collapsing both into
+ * "native module missing".
  */
 let loadFailureKind: 'native-module-missing' | 'synthesis-error' | null = null;
-/** Dedupes a provisioning download racing two utterances that both start cold. */
-let provisioning: Promise<GitOpResult<VoicePaths>> | null = null;
+/** Dedupes a provisioning load racing two utterances that both start cold. */
+let modelLoading: Promise<GitOpResult<KokoroTtsInstance>> | null = null;
 /**
  * The last provisioning failure, cleared the moment a fresh attempt starts —
  * unlike `loadFailure` this is NOT sticky: a network blip is retried on the
@@ -144,23 +193,29 @@ let provisioningError: string | null = null;
 /**
  * `deps.loadModule()`, lazily and fail-soft — called on first synthesis
  * request, never at import time, so an unsupported platform or a missing
- * prebuilt binary degrades this feature to "use `speechSynthesis`" instead of
- * crashing main at boot. The same shape as `inproc-pty.ts`'s `loadNodePty()`,
- * generalised to take its loader as a parameter instead of hard-coding
- * `require()` inline.
+ * prebuilt `onnxruntime-node` binary degrades this feature to "use
+ * `speechSynthesis`" instead of crashing main at boot. The same shape as
+ * `inproc-pty.ts`'s `loadNodePty()`, generalised to take its loader as a
+ * parameter instead of hard-coding `require()` inline.
  */
-function loadSherpaOnnx(deps: CompanionTtsDeps): SherpaOnnxModule | null {
-  // Checked first, ahead of the cached module: a constructor/generate throw
-  // in `synthesizeSpeech` sets `loadFailure` without clearing `sherpaOnnx`
-  // (the load itself did succeed), and that failure must still short-circuit
-  // every later call rather than retrying a bad model each time.
+function loadKokoro(
+  deps: CompanionTtsDeps,
+): { KokoroTTS: KokoroModule['KokoroTTS']; env: TransformersModule['env'] } | null {
+  // Checked first, ahead of the cached module: a `.generate()` throw in
+  // `synthesizeSpeech` sets `loadFailure` without clearing `kokoro` (the load
+  // itself did succeed), and that failure must still short-circuit every
+  // later call rather than retrying a bad model each time.
   if (loadFailure !== null) return null;
-  if (sherpaOnnx) return sherpaOnnx;
+  if (kokoro) return kokoro;
   try {
-    sherpaOnnx = deps.loadModule();
-    return sherpaOnnx;
+    kokoro = deps.loadModule();
+    // Point `transformers.js` at userData before anything can trigger a
+    // download — see the module doc's point 2. Idempotent and cheap enough
+    // to set on every successful (cached) load rather than only once.
+    kokoro.env.cacheDir = modelCacheDir(deps.directory);
+    return kokoro;
   } catch (error) {
-    loadFailure = error instanceof Error ? error.message : 'sherpa-onnx-node failed to load';
+    loadFailure = error instanceof Error ? error.message : 'kokoro-js failed to load';
     loadFailureKind = 'native-module-missing';
     return null;
   }
@@ -177,187 +232,115 @@ export function companionTtsDeps(): CompanionTtsDeps | null {
 
 /** Reset module state. Tests only. */
 export function resetCompanionTtsForTest(overrides: Partial<CompanionTtsDeps> = {}): void {
-  sherpaOnnx = null;
+  kokoro = null;
   ttsInstance = null;
   loadFailure = null;
   loadFailureKind = null;
-  provisioning = null;
+  modelLoading = null;
   provisioningError = null;
   configured = overrides.directory !== undefined ? defaultDeps(overrides.directory) : null;
-  if (configured) {
-    if (overrides.fetchImpl !== undefined) configured.fetchImpl = overrides.fetchImpl;
-    if (overrides.loadModule !== undefined) configured.loadModule = overrides.loadModule;
+  if (configured && overrides.loadModule !== undefined) {
+    configured.loadModule = overrides.loadModule;
   }
-}
-
-type VoicePaths = { modelPath: string; tokensPath: string; dataDir: string };
-
-function voiceDir(directory: string): string {
-  return join(directory, 'companion-voice', VOICE_ID);
-}
-
-function voicePaths(directory: string): VoicePaths {
-  const dir = voiceDir(directory);
-  return {
-    modelPath: join(dir, `${VOICE_ID}.onnx`),
-    tokensPath: join(dir, 'tokens.txt'),
-    dataDir: join(dir, 'espeak-ng-data'),
-  };
-}
-
-function voiceReady(paths: VoicePaths): boolean {
-  return (
-    existsSync(paths.modelPath) && existsSync(paths.tokensPath) && existsSync(paths.dataDir)
-  );
 }
 
 /**
- * A minimal reader for the one shape of tar entry the sherpa-onnx release
- * tarball actually contains: USTAR headers, regular files and directories,
- * every name under 100 bytes (the longest in this archive is 69). `tar-stream`
- * pulls a real dependency tree (`streamx`, `bare-fs`, `b4a`) for reading one
- * known-good archive once per install; this is the format itself, in full.
- *
- * `strip` removes the tarball's own root directory (`TARBALL_ROOT`) so the
- * files land directly under this module's `voiceDir()` layout; entries outside
- * `keep` (the model, `tokens.txt`, `espeak-ng-data/`) are skipped — this
- * archive also carries `MODEL_CARD` and the raw Piper `.onnx.json`, neither of
- * which `OfflineTts` reads.
+ * Under `app.getPath('userData')`, never `transformers.js`'s own default
+ * `<package>/.cache/` (unwritable once packaged into an asar) nor the user's
+ * home dotfiles — the module doc's point 2, and the exact failure mode that
+ * already burned this feature once.
  */
-async function extractTar(
-  buffer: Buffer,
-  destDir: string,
-  strip: string,
-  keep: (relativeName: string) => boolean,
-): Promise<void> {
-  let offset = 0;
-  while (offset + 512 <= buffer.length) {
-    const header = buffer.subarray(offset, offset + 512);
-    if (header.every((byte) => byte === 0)) break; // end-of-archive marker
-    const rawName = header.toString('utf8', 0, 100).replace(/\0.*$/s, '');
-    const sizeField = header.toString('utf8', 124, 136).replace(/\0.*$/s, '').trim();
-    const size = sizeField.length > 0 ? parseInt(sizeField, 8) : 0;
-    const typeflag = String.fromCharCode(header[156] ?? 0);
-    offset += 512;
-
-    const prefix = `${strip}/`;
-    const relative = rawName.startsWith(prefix) ? rawName.slice(prefix.length) : null;
-
-    if (relative !== null && relative.length > 0 && keep(relative)) {
-      const dest = join(destDir, relative);
-      if (typeflag === '5') {
-        await mkdir(dest, { recursive: true });
-      } else if (typeflag === '0' || typeflag === '\0') {
-        await mkdir(join(dest, '..'), { recursive: true });
-        await writeFile(dest, buffer.subarray(offset, offset + size));
-      }
-    }
-
-    offset += Math.ceil(size / 512) * 512;
-  }
+function modelCacheDir(directory: string): string {
+  return join(directory, 'companion-voice', 'kokoro');
 }
 
-/** Buffer a `ReadableStream<Uint8Array>` (a fetch body) into one `Buffer`. */
-async function collectStream(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of Readable.fromWeb(stream as never)) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
-  }
-  return Buffer.concat(chunks);
+/**
+ * A cheap on-disk existence check, mirroring the old `voiceReady()` — cheap
+ * enough for `getCompanionTtsStatus` to poll without spinning up a full ONNX
+ * session just to answer a Settings page. `transformers.js`'s `FileCache`
+ * joins `env.cacheDir` with `${model_id}/${filename}` verbatim (no revision
+ * segment) — empirically confirmed against this build's own cache directory
+ * — so the path below is deterministic for the fixed `MODEL_ID`/`DTYPE` this
+ * module always requests.
+ */
+function modelReady(directory: string): boolean {
+  const dir = modelCacheDir(directory);
+  return (
+    existsSync(join(dir, MODEL_ID, 'onnx', QUANTIZED_MODEL_FILE)) &&
+    existsSync(join(dir, MODEL_ID, 'tokenizer.json')) &&
+    existsSync(join(dir, MODEL_ID, 'config.json'))
+  );
 }
 
-/** Pipe a buffer through `unbzip2-stream` and collect the decompressed result. */
-function bunzip2(compressed: Buffer): Promise<Buffer> {
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    const decompressor = bz2();
-    decompressor.on('data', (chunk: Buffer) => chunks.push(chunk));
-    decompressor.on('end', () => resolve(Buffer.concat(chunks)));
-    decompressor.on('error', reject);
-    decompressor.end(compressed);
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
   });
 }
 
 /**
- * Download and extract the voice, into a temp directory first and `rename()`d
- * into place last — so a download killed mid-write (the app quit, the network
- * dropped) never leaves `voiceReady()` reading a half-written model as
- * present. Deduped through the module-level `provisioning` promise: two
- * utterances arriving before the first finishes share one download.
+ * Load (downloading on first use) and cache the Kokoro model in memory.
+ * Deduped through the module-level `modelLoading` promise: two utterances
+ * arriving before the first finishes share one load. Unlike the old
+ * hand-rolled tarball extraction, `kokoro-js`/`transformers.js` own the whole
+ * download-and-cache pipeline; this only adds the give-up timeout they lack.
  */
-async function ensureVoice(deps: CompanionTtsDeps): Promise<GitOpResult<VoicePaths>> {
-  const paths = voicePaths(deps.directory);
-  if (voiceReady(paths)) {
+async function ensureModel(
+  deps: CompanionTtsDeps,
+  module: { KokoroTTS: KokoroModule['KokoroTTS']; env: TransformersModule['env'] },
+): Promise<GitOpResult<KokoroTtsInstance>> {
+  if (ttsInstance !== null) {
     provisioningError = null;
-    return ok(paths);
+    return ok(ttsInstance);
   }
 
-  if (provisioning === null) {
+  if (modelLoading === null) {
     // Cleared at the start of every fresh attempt, not just on success — a
     // `getCompanionTtsStatus` poll mid-download must not still be reporting
     // the *previous* attempt's failure message.
     provisioningError = null;
-    provisioning = (async (): Promise<GitOpResult<VoicePaths>> => {
-      const dir = voiceDir(deps.directory);
-      const tempDir = `${dir}.download-${Date.now()}`;
+    modelLoading = (async (): Promise<GitOpResult<KokoroTtsInstance>> => {
       try {
-        const response = await deps.fetchImpl(VOICE_TARBALL_URL, {
-          signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
-        });
-        if (!response.ok || response.body === null) {
-          provisioningError = `Could not download the local voice (HTTP ${response.status}). The companion will keep using the system voice.`;
-          return failure(provisioningError);
-        }
-        const compressed = await collectStream(response.body);
-        const archive = await bunzip2(compressed);
-
-        await mkdir(tempDir, { recursive: true });
-        await extractTar(
-          archive,
-          tempDir,
-          TARBALL_ROOT,
-          (name) =>
-            name === `${VOICE_ID}.onnx` || name === 'tokens.txt' || name.startsWith('espeak-ng-data/'),
+        const instance = await withTimeout(
+          module.KokoroTTS.from_pretrained(MODEL_ID, { dtype: DTYPE, device: 'cpu' }),
+          MODEL_LOAD_TIMEOUT_MS,
+          'Timed out downloading the local voice.',
         );
-
-        await rm(dir, { recursive: true, force: true });
-        await rename(tempDir, dir);
-        if (voiceReady(paths)) {
-          provisioningError = null;
-          return ok(paths);
-        }
-        provisioningError =
-          'The downloaded voice was incomplete. The companion will keep using the system voice.';
-        return failure(provisioningError);
+        ttsInstance = instance;
+        provisioningError = null;
+        return ok(instance);
       } catch (error) {
-        await rm(tempDir, { recursive: true, force: true }).catch(() => {});
-        provisioningError = `Could not set up the local voice (${error instanceof Error ? error.message : String(error)}). The companion will keep using the system voice.`;
+        provisioningError = `Could not download the local voice (${error instanceof Error ? error.message : String(error)}). The companion will keep using the system voice.`;
         return failure(provisioningError);
       } finally {
         // Each attempt gets a fresh try — a network blip is not sticky like a
         // missing native module is.
-        provisioning = null;
+        modelLoading = null;
       }
     })();
   }
-  return provisioning;
-}
-
-function loadTts(module: SherpaOnnxModule, paths: VoicePaths): OfflineTtsInstance {
-  return new module.OfflineTts({
-    model: {
-      vits: { model: paths.modelPath, tokens: paths.tokensPath, dataDir: paths.dataDir },
-      numThreads: 1,
-      provider: 'cpu',
-    },
-    maxNumSentences: 1,
-  });
+  return modelLoading;
 }
 
 /**
  * 16-bit PCM mono WAV, matching `stt/index.ts`'s `silentWavClip` — the same
  * "no audio assets, no encoder dependency" shape, over generated rather than
- * silent samples. `decodeAudioData` on the renderer side reads a WAV natively.
+ * silent samples. `decodeAudioData` on the renderer side reads a WAV
+ * natively. Kokoro's own `RawAudio.toWav()` (in `@huggingface/transformers`)
+ * writes 32-bit float PCM instead — this hand-rolled encoder is kept, not
+ * swapped for that one, because it halves the bytes crossing the IPC boundary
+ * on every utterance for output `decodeAudioData` reads identically either
+ * way.
  */
 function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array {
   const dataBytes = samples.length * 2;
@@ -402,26 +385,22 @@ export async function synthesizeSpeech(
   if (deps === null) {
     return failure('The local voice is not set up yet.');
   }
-  const module = loadSherpaOnnx(deps);
+  const module = loadKokoro(deps);
   if (module === null) {
     return failure('The local voice engine is unavailable on this machine.');
   }
 
-  const provisioned = await ensureVoice(deps);
+  const provisioned = await ensureModel(deps, module);
   if (!provisioned.ok) return provisioned;
 
   try {
-    if (ttsInstance === null) {
-      ttsInstance = loadTts(module, provisioned.value);
-    }
-    const { samples, sampleRate } = ttsInstance.generate({ text, sid: 0, speed: 1.0 });
-    return ok({ audio: encodeWav(samples, sampleRate), mime: 'audio/wav' });
+    const audio = await provisioned.value.generate(text, { voice: VOICE_ID });
+    return ok({ audio: encodeWav(audio.audio, audio.sampling_rate), mime: 'audio/wav' });
   } catch (error) {
-    // A throw from `new OfflineTts(...)` or `.generate()` (a corrupt model on
-    // disk, an incompatible native binary) is the "missing binary" case in
-    // spirit even when it surfaces later than `require()` — sticky for the
-    // same reason.
-    loadFailure = error instanceof Error ? error.message : 'sherpa-onnx-node failed';
+    // A throw from `.generate()` (a corrupt cache, an incompatible ONNX
+    // Runtime build) is the "missing binary" case in spirit even when it
+    // surfaces later than `require()` — sticky for the same reason.
+    loadFailure = error instanceof Error ? error.message : 'kokoro-js failed to generate speech';
     loadFailureKind = 'synthesis-error';
     ttsInstance = null;
     return failure(
@@ -443,9 +422,9 @@ export type CompanionTtsStatusValue = {
  * never throws, never synthesizes anything, and by default never re-attempts
  * a provisioning download that already failed (`retry` forces one).
  *
- * The first call made with the voice not yet on disk — or any call with
- * `retry: true` — kicks off `ensureVoice()` and reports `'downloading'`
- * immediately rather than awaiting the up-to-`DOWNLOAD_TIMEOUT_MS` round
+ * The first call made with the model not yet on disk — or any call with
+ * `retry: true` — kicks off `ensureModel()` and reports `'downloading'`
+ * immediately rather than awaiting the up-to-`MODEL_LOAD_TIMEOUT_MS` round
  * trip inline; the caller polls again for `'ready'`/`'failed'`. This is what
  * makes opening the Voice section the moment the one-time download starts,
  * instead of the first "Say hello".
@@ -458,7 +437,7 @@ export async function getCompanionTtsStatus(
     return { engine: 'system', voice: 'idle', reason: null, message: null };
   }
 
-  const module = loadSherpaOnnx(deps);
+  const module = loadKokoro(deps);
   if (module === null) {
     return {
       engine: 'system',
@@ -468,12 +447,11 @@ export async function getCompanionTtsStatus(
     };
   }
 
-  const paths = voicePaths(deps.directory);
-  if (voiceReady(paths)) {
+  if (ttsInstance !== null || modelReady(deps.directory)) {
     return { engine: 'local', voice: 'ready', reason: null, message: null };
   }
 
-  if (provisioning !== null) {
+  if (modelLoading !== null) {
     return { engine: 'system', voice: 'downloading', reason: null, message: null };
   }
 
@@ -482,8 +460,8 @@ export async function getCompanionTtsStatus(
   }
 
   // No attempt yet, or an explicit retry after a prior (transient) failure.
-  // Fire-and-forget: `ensureVoice` dedupes concurrent callers on its own via
-  // `provisioning`, exactly as two overlapping `synthesizeSpeech` calls do.
-  void ensureVoice(deps);
+  // Fire-and-forget: `ensureModel` dedupes concurrent callers on its own via
+  // `modelLoading`, exactly as two overlapping `synthesizeSpeech` calls do.
+  void ensureModel(deps, module);
   return { engine: 'system', voice: 'downloading', reason: null, message: null };
 }
