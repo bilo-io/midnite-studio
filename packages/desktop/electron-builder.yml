@@ -53,22 +53,24 @@ asar: true
 asarUnpack:
   # Native modules cannot be loaded from inside an asar.
   - '**/*.node'
-  # The broker script runs under ELECTRON_RUN_AS_NODE outside the asar.
+  # The broker script runs under ELECTRON_RUN_AS_NODE outside the asar —
+  # genuinely plain Node with no asar awareness, unlike a `utilityProcess`
+  # (see the next entry's own note).
   - 'dist/bundle/broker.js'
-  # Ad Hoc "the local voice engine crashed": `tts-broker.ts`'s
-  # `workerScriptPath()` forks this via `utilityProcess.fork`, and — the same
-  # reason `broker.js` is unpacked above — rewrites its own `app.asar` path
-  # segment to `app.asar.unpacked` unconditionally. #307 added
-  # `companion-tts-worker` to `bundle.mjs`'s `outfiles` so the bundle gets
-  # produced, but never added the matching entry here, so the rewritten path
-  # pointed at a file that was never actually unpacked — `utilityProcess.fork`
-  # failed on every packaged build, and the broker's own `handleExit` reported
-  # it as "the local voice engine crashed" (confirmed against a real
-  # `moon run desktop:dist` build; dev mode can't reproduce it because
-  # `__dirname` there has no `app.asar` segment to rewrite in the first
-  # place). See `scripts/asar-unpack-coverage.test.mjs` for the regression
-  # test this PR added.
-  - 'dist/bundle/companion-tts-worker.js'
+  # Deliberately ABSENT — see `tts-broker.ts`'s `workerScriptPath()` doc.
+  # `companion-tts-worker.js` is a `utilityProcess.fork` target, which runs
+  # inside Electron's own Node integration and reads a script from *inside*
+  # `app.asar` the same way `main.js` itself does — unlike `broker.js` above.
+  # An earlier version of this PR (Ad Hoc "the local voice engine crashed")
+  # unpacked this file to fix a fork failure, which fixed the fork but broke
+  # `require('kokoro-js')` a step later: with `companion-tts-worker.js`
+  # genuinely outside the asar, that require's own `node_modules` walk-up
+  # never reaches `app.asar/node_modules/kokoro-js`, which was never
+  # unpacked (only its native sub-dependencies below are, correctly). The
+  # real fix was removing `workerScriptPath()`'s rewrite instead — confirmed
+  # against a real `moon run desktop:dist` build both ways; see that
+  # function's own doc and this PR's body for the full transcript. Do not
+  # re-add this entry "defensively" without reading that doc first.
   - '**/node_modules/node-pty/**'
   # dugite's bundled git — 42MB of real executables that must exist on disk.
   # dugite resolves them relative to its own __dirname and already rewrites an
