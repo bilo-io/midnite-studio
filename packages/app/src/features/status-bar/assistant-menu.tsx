@@ -5,7 +5,7 @@ import { fabCompanionState } from '../companion/companion-look';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from '../loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from '../loops/fab-morph';
 import { useCompanionStore } from '../../store/companion-store';
-import { useUiStore } from '../../store/ui-store';
+import { isCompanionPanelDocked, isFabPanelDocked, useUiStore } from '../../store/ui-store';
 
 /**
  * The statusbar's rightmost segment.
@@ -58,8 +58,12 @@ export function AssistantMenu() {
     `companionDocked`: a disabled companion is not on screen either, whatever
     `companionPanelOpen` says.
   */
-  const fabPanelDocked = fabPanelOpen && !fabDetached;
-  const companionDocked = companionPanelOpen && companionEnabled && !companionDetached;
+  const fabPanelDocked = isFabPanelDocked({ fabPanelOpen, fabDetached });
+  const companionDocked = isCompanionPanelDocked({
+    companionPanelOpen,
+    companionEnabled,
+    companionDetached,
+  });
 
   // Recency breaks the tie when both are docked; either alone needs no
   // tiebreaker at all.
