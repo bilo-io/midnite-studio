@@ -569,3 +569,134 @@ test('thread rows never overlap, including after a resize at a narrow width', as
     }
   }
 });
+
+/**
+ * Doing things there, by tier — Phase 81 Theme C.
+ *
+ * `app.lock` stands in for the confirm-tier flows here rather than
+ * `sync.push`: it is `confirm`-tier too (Decision 5) but, unlike push/pull,
+ * its `enabled` never depends on the fixture's branch/upstream state — so a
+ * click on Run or an empty Return is provably real, not a mock guessing an
+ * ahead-count right. `terminal.close`'s own "the command's own dialogs
+ * survive" case needs a running foreground session to seed, which is left to
+ * the phase doc's own packaged-Mac human pass alongside the push flow.
+ */
+test('direct: "toggle the terminal" opens it and says so', async ({ page }) => {
+  await seedCompanionEnabled(page);
+  await open(page);
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
+
+  await page.getByTestId('companion-input').fill('toggle the terminal');
+  await page.getByTestId('companion-input').press('Enter');
+
+  await expect(page.getByTestId('terminal-toggle')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('companion-thread')).toContainText('Toggle Terminal.');
+});
+
+/**
+ * `vocabulary.commands` never carries a `never`-tier row at all (Theme A
+ * drops them before building it), so there is no sentence the grammar itself
+ * can turn into `{kind:'run', id:'browser.clearData'}` — the only real path
+ * to the refusal is the headless router inventing one, which this patches
+ * the mock's `companion.ask` to do, the same way the mic-disabled test above
+ * patches `sttStatus`.
+ */
+test('never: the router inventing a never-tier id gets the palette refusal, not an action', async ({
+  page,
+}) => {
+  await seedCompanionEnabled(page);
+  await open(page);
+  await page.evaluate(() => {
+    const bridge = window.midniteStudio;
+    if (bridge?.companion) {
+      bridge.companion.ask = () =>
+        Promise.resolve({
+          ok: true,
+          value: { say: 'Sure.', intent: { kind: 'run', id: 'browser.clearData' } },
+        });
+    }
+  });
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
+
+  await page.getByTestId('companion-input').fill('could you tidy up the browser session');
+  await page.getByTestId('companion-input').press('Enter');
+
+  await expect(page.getByTestId('companion-thread')).toContainText(
+    'That one needs the palette — Mod+K, then type it.',
+  );
+});
+
+test('confirm: a pending action renders Run/Cancel chips, and Cancel changes nothing', async ({
+  page,
+}) => {
+  await seedCompanionEnabled(page);
+  await open(page);
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
+
+  await page.getByTestId('companion-input').fill('lock the screen');
+  await page.getByTestId('companion-input').press('Enter');
+
+  await expect(page.getByTestId('companion-thread')).toContainText(
+    'Lock Screen? Say yes, press Return, or tap Run.',
+  );
+  const run = page.getByTestId('companion-pending-run');
+  const cancel = page.getByTestId('companion-pending-cancel');
+  await expect(run).toBeVisible();
+  await expect(cancel).toBeVisible();
+
+  await cancel.click();
+  await expect(run).toHaveCount(0);
+  await expect(page.getByTestId('companion-thread')).toContainText('Left it.');
+  // Cancel really changed nothing — the lock screen never appeared.
+  await expect(page.getByTestId('lock-screen-widgets')).toHaveCount(0);
+});
+
+test('confirm: the Run chip runs the pending action', async ({ page }) => {
+  await seedCompanionEnabled(page);
+  await open(page);
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
+
+  await page.getByTestId('companion-input').fill('lock the screen');
+  await page.getByTestId('companion-input').press('Enter');
+  await page.getByTestId('companion-pending-run').click();
+
+  await expect(page.getByTestId('lock-screen-widgets')).toBeVisible();
+  await expect(page.getByTestId('companion-pending-run')).toHaveCount(0);
+});
+
+test('confirm: an empty Return runs the identical pending action', async ({ page }) => {
+  await seedCompanionEnabled(page);
+  await open(page);
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
+
+  const input = page.getByTestId('companion-input');
+  await input.fill('lock the screen');
+  await input.press('Enter');
+  await expect(page.getByTestId('companion-pending-run')).toBeVisible();
+
+  // The textarea is already empty — Return confirms rather than sending a
+  // blank message. Asserted on the thread rather than `lock-screen-widgets`:
+  // the lock screen's own "any key dismisses it, no passcode configured"
+  // behaviour reacts to this identical keystroke once it mounts, so the
+  // widget is gone again by the time this resolves — the chip disappearing
+  // and the success line are what prove the *companion* ran it once.
+  await input.press('Enter');
+
+  await expect(page.getByTestId('companion-pending-run')).toHaveCount(0);
+  await expect(page.getByTestId('companion-thread')).toContainText('Lock Screen.');
+});
