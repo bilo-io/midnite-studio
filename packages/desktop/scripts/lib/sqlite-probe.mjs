@@ -23,3 +23,23 @@ export const SQLITE_PROBE_SOURCE = [
   'db.close();',
   "console.log('better-sqlite3 loaded and queried successfully under Electron\\'s ABI');",
 ].join('\n');
+
+// Which `better-sqlite3` the probe should require: the one addressed **through
+// `app.asar`**, not the copy sitting in `app.asar.unpacked`.
+//
+// Both paths reach the same files, but only one reproduces what the shipped app
+// does. `asarUnpack` extracts `better-sqlite3` so its `.node` addon is loadable
+// (asar cannot load a native addon from inside itself), while its plain-JS
+// dependency `bindings` stays in the archive. Require the unpacked directory
+// directly and node resolves `bindings` from `app.asar.unpacked/node_modules`,
+// which does not contain it — `Cannot find module 'bindings'`. Require it
+// through `app.asar` and Electron's asar shim resolves `bindings` inside the
+// archive and transparently redirects the `.node` out to the unpacked copy,
+// which is exactly the resolution the main process performs at runtime.
+//
+// So probing the unpacked path would fail on a correctly packaged app, and
+// unpacking `bindings` to satisfy it would change packaging to suit the test
+// rather than test the packaging.
+export function sqliteProbeModulePath(appPath) {
+  return `${appPath}/Contents/Resources/app.asar/node_modules/better-sqlite3`;
+}

@@ -3,7 +3,7 @@ import { join, basename } from 'node:path';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { extractYamlScalar } from './lib/yaml-scalar.mjs';
-import { SQLITE_PROBE_SOURCE } from './lib/sqlite-probe.mjs';
+import { SQLITE_PROBE_SOURCE, sqliteProbeModulePath } from './lib/sqlite-probe.mjs';
 
 const desktopDir = process.cwd();
 const releaseDir = join(desktopDir, 'release');
@@ -249,7 +249,7 @@ const probePath = join(releaseDir, '.better-sqlite3-probe.cjs');
 writeFileSync(probePath, SQLITE_PROBE_SOURCE);
 const electronBinary = join(appPath, 'Contents', 'MacOS', 'Midnite Studio');
 try {
-  execSync(`"${electronBinary}" "${probePath}" "${join(unpackedNodeModules, 'better-sqlite3')}"`, {
+  execSync(`"${electronBinary}" "${probePath}" "${sqliteProbeModulePath(appPath)}"`, {
     stdio: 'inherit',
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
   });

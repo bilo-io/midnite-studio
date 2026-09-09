@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { SQLITE_PROBE_SOURCE } from './sqlite-probe.mjs';
+import { SQLITE_PROBE_SOURCE, sqliteProbeModulePath } from './sqlite-probe.mjs';
 
 // A stand-in for better-sqlite3 that satisfies exactly the surface the probe
 // touches. The point is not to test SQLite — it is to run the probe under bare
@@ -53,5 +53,23 @@ describe('SQLITE_PROBE_SOURCE', () => {
     // "Database is not a constructor" instead of a missing module.
     expect(SQLITE_PROBE_SOURCE).not.toContain('process.argv[1]');
     expect(SQLITE_PROBE_SOURCE).toContain('process.argv[2]');
+  });
+});
+
+describe('sqliteProbeModulePath', () => {
+  const appPath = '/tmp/release/mac-arm64/Midnite Studio.app';
+
+  it('addresses better-sqlite3 through app.asar, as the main process does', () => {
+    expect(sqliteProbeModulePath(appPath)).toBe(
+      `${appPath}/Contents/Resources/app.asar/node_modules/better-sqlite3`,
+    );
+  });
+
+  it('never addresses the unpacked copy directly', () => {
+    // The unpacked directory holds the `.node` addon but not better-sqlite3's
+    // plain-JS dependency `bindings`, which stays inside the archive. Probing
+    // it fails with `Cannot find module 'bindings'` on an app that is packaged
+    // perfectly well — a false failure this check must not produce.
+    expect(sqliteProbeModulePath(appPath)).not.toContain('app.asar.unpacked');
   });
 });
