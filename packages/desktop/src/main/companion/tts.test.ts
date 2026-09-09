@@ -30,6 +30,8 @@ class FakeKokoroTTS {
   /** Rejects the *next* `from_pretrained` call only — a transient blip, not sticky. */
   static rejectNextLoad = false;
   static generateShouldThrow = false;
+  /** The `voice` each `generate()` call was actually asked for, oldest first. */
+  static requestedVoices: string[] = [];
 
   static async from_pretrained(_modelId: string, _opts: unknown): Promise<FakeKokoroTTS> {
     FakeKokoroTTS.fromPretrainedCallCount += 1;
@@ -42,7 +44,8 @@ class FakeKokoroTTS {
     return instance;
   }
 
-  generate(_text: string, _opts: unknown): Promise<FakeGeneratedAudio> {
+  generate(_text: string, opts: { voice: string }): Promise<FakeGeneratedAudio> {
+    FakeKokoroTTS.requestedVoices.push(opts.voice);
     if (FakeKokoroTTS.generateShouldThrow) return Promise.reject(new Error('fake generate failure'));
     return Promise.resolve({ audio: new Float32Array([0.5, -0.5, 0.25, -1, 1]), sampling_rate: 22_050 });
   }
@@ -67,6 +70,7 @@ describe('synthesizeSpeech', () => {
     FakeKokoroTTS.fromPretrainedCallCount = 0;
     FakeKokoroTTS.rejectNextLoad = false;
     FakeKokoroTTS.generateShouldThrow = false;
+    FakeKokoroTTS.requestedVoices = [];
   });
 
   afterEach(() => {
@@ -163,6 +167,7 @@ describe('getCompanionTtsStatus', () => {
     FakeKokoroTTS.fromPretrainedCallCount = 0;
     FakeKokoroTTS.rejectNextLoad = false;
     FakeKokoroTTS.generateShouldThrow = false;
+    FakeKokoroTTS.requestedVoices = [];
   });
 
   afterEach(() => {
@@ -264,5 +269,42 @@ describe('getCompanionTtsStatus', () => {
 describe('VOICE_ID', () => {
   it('is the top-graded American English voice, af_heart', () => {
     expect(VOICE_ID).toBe('af_heart');
+  });
+});
+
+describe('synthesizeSpeech voice selection (Ad Hoc: per-engine voices)', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'mstudio-tts-voice-test-'));
+    FakeKokoroTTS.instances = [];
+    FakeKokoroTTS.fromPretrainedCallCount = 0;
+    FakeKokoroTTS.rejectNextLoad = false;
+    FakeKokoroTTS.generateShouldThrow = false;
+    FakeKokoroTTS.requestedVoices = [];
+  });
+
+  afterEach(() => {
+    resetCompanionTtsForTest();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('defaults to af_heart when no voice is requested', async () => {
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
+    await synthesizeSpeech('hello');
+    expect(FakeKokoroTTS.requestedVoices).toEqual(['af_heart']);
+  });
+
+  it('passes a known requested voice straight through to the engine', async () => {
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
+    await synthesizeSpeech('hello', 'bm_fable');
+    expect(FakeKokoroTTS.requestedVoices).toEqual(['bm_fable']);
+  });
+
+  it('falls back to af_heart for an unrecognised voice id, rather than failing the request', async () => {
+    resetCompanionTtsForTest({ directory: dir, loadModule: fakeLoadModule });
+    const result = await synthesizeSpeech('hello', 'not-a-real-voice');
+    expect(result.ok).toBe(true);
+    expect(FakeKokoroTTS.requestedVoices).toEqual(['af_heart']);
   });
 });

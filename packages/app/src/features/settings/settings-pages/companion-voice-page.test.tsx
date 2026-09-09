@@ -17,6 +17,7 @@ import { CompanionPage } from './companion-page';
  */
 
 const speak = vi.fn();
+const speakWithEngine = vi.fn();
 const retryLocalVoice = vi.fn();
 /** Mutable so a test can start the renderer already fallen back to `'system'`. */
 let mockActiveEngine: 'local' | 'system' = 'local';
@@ -25,6 +26,10 @@ vi.mock('../../companion/speaker', () => ({
     speak: (...args: unknown[]) => {
       speak(...args);
       return Promise.resolve();
+    },
+    speakWithEngine: (...args: unknown[]) => {
+      speakWithEngine(...args);
+      return Promise.resolve(true);
     },
     cancel: vi.fn(),
     available: true,
@@ -83,7 +88,7 @@ function installVoices(langs: string[]) {
 beforeEach(() => {
   useUiStore.setState({
     companionEnabled: true,
-    companionHonorific: '',
+    companionHonorifics: [],
     companionNames: ['Companion'],
     companionVolume: 0.7,
     companionMicMode: 'push',
@@ -111,7 +116,7 @@ describe('Settings ▸ Companion ▸ Voice (Theme F)', () => {
 
   it('resolves the honorific into the preview', async () => {
     installBridge();
-    useUiStore.setState({ companionHonorific: 'Ada' });
+    useUiStore.setState({ companionHonorifics: ['Ada'] });
     render(<CompanionPage />);
 
     fireEvent.click(await screen.findByTestId('companion-say-hello'));
@@ -181,6 +186,81 @@ describe('Settings ▸ Companion ▸ Voice (Theme F)', () => {
     // assertion is the proof either exists.
     await screen.findByText(/bundled offline voice.*falling back automatically/i);
     expect(screen.getByText('Speaking voice (fallback)')).not.toBeNull();
+  });
+});
+
+describe('Settings ▸ Companion ▸ Voice — per-engine voice pickers (Ad Hoc)', () => {
+  it('lists every catalog voice, plus a Default option, in the local voice picker', async () => {
+    installBridge();
+    render(<CompanionPage />);
+
+    const select = (await screen.findByTestId('companion-voice-local')) as HTMLSelectElement;
+    // 28 catalog voices plus "Default — Heart".
+    expect(select.querySelectorAll('option')).toHaveLength(29);
+    expect(select.querySelectorAll('option')[0]?.textContent).toBe('Default — Heart');
+  });
+
+  it('persists a chosen local voice independently of the system voice', async () => {
+    installBridge();
+    render(<CompanionPage />);
+
+    fireEvent.change(await screen.findByTestId('companion-voice-local'), {
+      target: { value: 'bm_fable' },
+    });
+    expect(useUiStore.getState().companionVoices).toEqual({ system: null, local: 'bm_fable' });
+
+    fireEvent.change(await screen.findByTestId('companion-voice'), {
+      target: { value: 'urn:voice:0' },
+    });
+    expect(useUiStore.getState().companionVoices).toEqual({ system: 'urn:voice:0', local: 'bm_fable' });
+  });
+
+  it('previews the local engine specifically, bypassing the local-first fallback order', async () => {
+    installBridge({
+      ttsStatus: vi
+        .fn()
+        .mockResolvedValue({ ok: true, value: { engine: 'local', voice: 'ready', reason: null, message: null } }),
+    });
+    mockActiveEngine = 'system'; // this session already fell back — Preview must still reach local
+    render(<CompanionPage />);
+
+    fireEvent.click(await screen.findByTestId('companion-voice-preview-local'));
+    await waitFor(() => expect(speakWithEngine).toHaveBeenCalledTimes(1));
+    expect(speakWithEngine.mock.calls[0]?.[0]).toBe('local');
+  });
+
+  it('disables the local Preview until the local engine reports ready', async () => {
+    installBridge(); // no ttsStatus — status never resolves past "checking"
+    render(<CompanionPage />);
+    expect(
+      (await screen.findByTestId('companion-voice-preview-local')).hasAttribute('disabled'),
+    ).toBe(true);
+  });
+
+  it('previews the system engine specifically', async () => {
+    installBridge();
+    render(<CompanionPage />);
+
+    fireEvent.click(await screen.findByTestId('companion-voice-preview-system'));
+    await waitFor(() => expect(speakWithEngine).toHaveBeenCalledTimes(1));
+    expect(speakWithEngine.mock.calls[0]?.[0]).toBe('system');
+  });
+
+  it('disables both previews with the companion switched off', async () => {
+    installBridge({
+      ttsStatus: vi
+        .fn()
+        .mockResolvedValue({ ok: true, value: { engine: 'local', voice: 'ready', reason: null, message: null } }),
+    });
+    useUiStore.setState({ companionEnabled: false });
+    render(<CompanionPage />);
+
+    expect(
+      (await screen.findByTestId('companion-voice-preview-local')).hasAttribute('disabled'),
+    ).toBe(true);
+    expect(
+      (await screen.findByTestId('companion-voice-preview-system')).hasAttribute('disabled'),
+    ).toBe(true);
   });
 });
 
@@ -662,5 +742,63 @@ describe('Settings ▸ Companion ▸ Personality — name pills (Theme D)', () =
     const input = await screen.findByTestId('companion-names-input');
     fireEvent.keyDown(input, { key: 'Backspace' });
     expect(useUiStore.getState().companionNames).toEqual(['Companion']);
+  });
+});
+
+describe('Settings ▸ Companion ▸ Personality — "What it calls you" pills (Ad Hoc)', () => {
+  it('starts with no pills — empty is the existing default', async () => {
+    installBridge();
+    render(<CompanionPage />);
+    const pills = await screen.findByTestId('companion-honorifics-pills');
+    expect(pills.textContent).toBe('');
+  });
+
+  it('commits a typed honorific as a pill on Enter and clears the field', async () => {
+    installBridge();
+    render(<CompanionPage />);
+
+    const input = await screen.findByTestId('companion-honorifics-input');
+    fireEvent.change(input, { target: { value: 'Ada' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(useUiStore.getState().companionHonorifics).toEqual(['Ada']);
+    expect((input as HTMLInputElement).value).toBe('');
+  });
+
+  it('rejects a duplicate honorific (case-insensitively) with an inline message', async () => {
+    installBridge();
+    useUiStore.setState({ companionHonorifics: ['sir'] });
+    render(<CompanionPage />);
+
+    const input = await screen.findByTestId('companion-honorifics-input');
+    fireEvent.change(input, { target: { value: 'Sir' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(useUiStore.getState().companionHonorifics).toEqual(['sir']);
+    expect(await screen.findByText(/already one of what it calls you/)).toBeTruthy();
+  });
+
+  it('allows more than one honorific, unlike "What you call it"', async () => {
+    installBridge();
+    useUiStore.setState({ companionHonorifics: ['sir'] });
+    render(<CompanionPage />);
+
+    const input = await screen.findByTestId('companion-honorifics-input');
+    fireEvent.change(input, { target: { value: 'boss' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(useUiStore.getState().companionHonorifics).toEqual(['sir', 'boss']);
+  });
+
+  it('deletes down to zero pills — no floor, unlike the name pills', async () => {
+    installBridge();
+    useUiStore.setState({ companionHonorifics: ['sir'] });
+    render(<CompanionPage />);
+
+    const remove = await screen.findByRole('button', { name: /Remove "sir"/ });
+    expect(remove.getAttribute('aria-disabled')).not.toBe('true');
+    fireEvent.click(remove);
+
+    expect(useUiStore.getState().companionHonorifics).toEqual([]);
   });
 });

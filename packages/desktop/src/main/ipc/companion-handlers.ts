@@ -130,7 +130,7 @@ export function registerCompanionHandlers(): void {
     `speechSynthesis` for all of them alike.
   */
   handleOp(CHANNELS.companionTtsSynthesize, schemas.CompanionTtsSynthesizeRequest, (req) =>
-    synthesizeSpeech(req.text),
+    synthesizeSpeech(req.text, req.voice),
   );
 
   /*

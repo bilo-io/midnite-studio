@@ -4,6 +4,7 @@ import {
   COMPANION_PHRASES,
   interpolatePhrase,
   nextFillerDelayMs,
+  pickHonorific,
   pickPhrase,
   type CompanionPhraseKind,
   type CompanionState,
@@ -79,8 +80,8 @@ export type FillerDeps = {
   playWhistle: () => void;
   /** `companionMusicOffer`, read at offer time so flipping it mid-wait works. */
   musicOfferEnabled: () => boolean;
-  /** Resolves `{name}` in the offer phrase. */
-  honorific: () => string;
+  /** Resolves `{name}` in the offer phrase — `pickHonorific` picks one at speak time. */
+  honorifics: () => string[];
   /** Pick from a bank, honouring the store's no-repeat window and recording the pick. */
   pick: (kind: CompanionPhraseKind) => string;
   setTimer: (callback: () => void, ms: number) => number;
@@ -97,7 +98,7 @@ export const defaultFillerDeps = (): Omit<FillerDeps, 'getState'> => ({
     whistle();
   },
   musicOfferEnabled: () => useUiStore.getState().companionMusicOffer,
-  honorific: () => useUiStore.getState().companionHonorific,
+  honorifics: () => useUiStore.getState().companionHonorifics,
   pick: (kind) => {
     const store = useCompanionStore.getState();
     const phrase = pickPhrase(COMPANION_PHRASES[kind], store.recentPhrases[kind] ?? []);
@@ -187,7 +188,9 @@ export function createFillerScheduler(deps: FillerDeps): FillerScheduler {
       const bank = nextSpokenBank;
       nextSpokenBank = bank === 'fillers' ? 'quotes' : 'fillers';
       const phrase = deps.pick(bank);
-      if (phrase.length > 0) deps.speak(interpolatePhrase(phrase, deps.honorific()));
+      if (phrase.length > 0) {
+        deps.speak(interpolatePhrase(phrase, pickHonorific(deps.honorifics(), deps.rng)));
+      }
     }
     turn += 1;
   };
@@ -209,7 +212,9 @@ export function createFillerScheduler(deps: FillerDeps): FillerScheduler {
       }
       musicOffered = true;
       const phrase = deps.pick('musicOffers');
-      if (phrase.length > 0) deps.speak(interpolatePhrase(phrase, deps.honorific()));
+      if (phrase.length > 0) {
+        deps.speak(interpolatePhrase(phrase, pickHonorific(deps.honorifics(), deps.rng)));
+      }
     }, ms);
   };
 

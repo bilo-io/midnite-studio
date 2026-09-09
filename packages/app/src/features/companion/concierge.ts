@@ -3,6 +3,7 @@ import {
   composeOverviewMarkdown,
   interpolatePhrase,
   markdownToSpeech,
+  pickHonorific,
   pickPhrase,
   sanitizeForSpeech,
   splitForSpeech,
@@ -46,8 +47,12 @@ export type ConciergeStore = {
 };
 
 export type ConciergeSettings = {
-  /** `companionHonorific` — empty by default, which every phrase template reads correctly without. */
-  honorific: string;
+  /**
+   * `companionHonorifics` — empty by default, which every phrase template
+   * reads correctly without (`pickHonorific` resolves an empty list to `''`,
+   * same as the empty string it replaced).
+   */
+  honorifics: string[];
   /** `companionHandsFree` — the switch that lets the flow end in `listening` rather than `idle`. */
   handsFree: boolean;
   /**
@@ -134,7 +139,7 @@ export function phrase(deps: ConciergeDeps, kind: CompanionPhraseKind): string {
   const bank = COMPANION_PHRASES[kind];
   const picked = pickPhrase(bank, deps.store.recentPhrases[kind] ?? [], deps.rng);
   deps.store.notePhrase(kind, picked);
-  return interpolatePhrase(picked, deps.settings().honorific);
+  return interpolatePhrase(picked, pickHonorific(deps.settings().honorifics, deps.rng));
 }
 
 /**

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import {
   CompanionAskReplySchema,
+  CompanionLocalVoiceIdSchema,
   CompanionSnapshotSchema,
   SttProviderIdSchema,
 } from '../companion';
@@ -2739,8 +2740,15 @@ export const CompanionTranscribeResponse = GitOpResultOf(z.object({ text: z.stri
  * One chunk of text to speak, already produced by `chunkForSpeech` — the
  * local voice engine synthesizes one utterance at a time, matching
  * `speechSynthesis`'s own per-utterance granularity (Phase 80 Theme C).
+ *
+ * `voice` is optional and defaults to `COMPANION_LOCAL_VOICE_DEFAULT`
+ * (`af_heart`) in `tts.ts` when absent or unrecognised — Ad Hoc: a per-engine
+ * voice selection joined `companionVoice`'s existing `speechSynthesis` picker.
  */
-export const CompanionTtsSynthesizeRequest = z.object({ text: z.string().min(1) });
+export const CompanionTtsSynthesizeRequest = z.object({
+  text: z.string().min(1),
+  voice: CompanionLocalVoiceIdSchema.optional(),
+});
 
 /**
  * A WAV clip, or the reason there isn't one.

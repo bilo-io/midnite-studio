@@ -1018,3 +1018,63 @@ describe('v8 -> v9 migration (Phase 64 Theme C)', () => {
     expect(useUiStore.getState().selectedRepoId).toBe('repo-legacy-2');
   });
 });
+
+describe('v15 -> v16 migration (Ad Hoc: per-engine voices, multi-value honorifics)', () => {
+  it('carries the old companionHonorific string forward as a one-element list', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({ companionHonorific: 'sir' }, 15) as {
+      companionHonorifics: string[];
+    };
+    expect(migrated.companionHonorifics).toEqual(['sir']);
+  });
+
+  it('migrates an empty companionHonorific to an empty list, not a one-element list of nothing', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({ companionHonorific: '' }, 15) as { companionHonorifics: string[] };
+    expect(migrated.companionHonorifics).toEqual([]);
+  });
+
+  it('seeds an empty list when there was no companionHonorific at all (a blob older than that key)', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({}, 11) as { companionHonorifics: string[] };
+    expect(migrated.companionHonorifics).toEqual([]);
+  });
+
+  it('carries the old companionVoice string into companionVoices.system, leaving local unset', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({ companionVoice: 'urn:voice:3' }, 15) as {
+      companionVoices: { system: string | null; local: string | null };
+    };
+    expect(migrated.companionVoices).toEqual({ system: 'urn:voice:3', local: null });
+  });
+
+  it('carries a null companionVoice (system default) forward as null, not dropped', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({ companionVoice: null }, 15) as {
+      companionVoices: { system: string | null; local: string | null };
+    };
+    expect(migrated.companionVoices).toEqual({ system: null, local: null });
+  });
+
+  it('leaves an already-v16 payload alone', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const payload = {
+      companionHonorifics: ['Ada'],
+      companionVoices: { system: 'urn:voice:1', local: 'af_bella' },
+    };
+    expect(migrate?.(payload, 16)).toBe(payload);
+  });
+
+  it('a persisted v15 blob round-trips through the real store with both fields migrated', () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({
+        state: { companionHonorific: 'boss', companionVoice: 'urn:voice:9' },
+        version: 15,
+      }),
+    );
+    void useUiStore.persist.rehydrate();
+    expect(useUiStore.getState().companionHonorifics).toEqual(['boss']);
+    expect(useUiStore.getState().companionVoices).toEqual({ system: 'urn:voice:9', local: null });
+  });
+});

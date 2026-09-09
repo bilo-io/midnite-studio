@@ -127,7 +127,7 @@ export function fakeConciergeDeps(over: Partial<ConciergeDeps> = {}): ConciergeD
     speaker: silentSpeaker,
     snapshot: async () => snapshotFixture(),
     digest: async () => digestFixture(),
-    settings: () => ({ honorific: '', handsFree: false, voiceInReady: false }),
+    settings: () => ({ honorifics: [], handsFree: false, voiceInReady: false }),
     repo: () => ({ path: '/repos/studio', name: 'midnite-studio' }),
     signal: new AbortController().signal,
     rng: () => 0,
