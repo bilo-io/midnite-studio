@@ -3391,6 +3391,22 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
             message: 'No local voice engine in this harness.',
           },
         }),
+        // Ad Hoc "the local voice engine crashed" — Settings' "Reload local
+        // engine" control. Same reasoning as `ttsStatus` above: no native
+        // module in this harness, so a reload cannot leave it any more
+        // ready than it started — answers with the same `'failed'` shape
+        // rather than pretending the reload fixed anything. A spec wanting
+        // to photograph a *successful* reload monkeypatches this the same
+        // way `companion-shots.spec.ts` patches `ttsStatus`.
+        ttsReload: async () => ({
+          ok: true as const,
+          value: {
+            engine: 'system' as const,
+            voice: 'failed' as const,
+            reason: 'native-module-missing' as const,
+            message: 'No local voice engine in this harness.',
+          },
+        }),
       },
       mcp: {
         get: async () => ({

@@ -19,6 +19,7 @@ import { CompanionPage } from './companion-page';
 const speak = vi.fn();
 const speakWithEngine = vi.fn();
 const retryLocalVoice = vi.fn();
+const reloadLocalVoice = vi.fn();
 /** Mutable so a test can start the renderer already fallen back to `'system'`. */
 let mockActiveEngine: 'local' | 'system' = 'local';
 vi.mock('../../companion/speaker', () => ({
@@ -39,6 +40,14 @@ vi.mock('../../companion/speaker', () => ({
     },
     retryLocalVoice: () => {
       retryLocalVoice();
+      mockActiveEngine = 'local';
+    },
+    // Ad Hoc "the local voice engine crashed" — mirrors `retryLocalVoice`
+    // above exactly: an optimistic reset of the renderer's sticky
+    // fallback, same shape `createCompanionSpeaker`'s real implementation
+    // uses.
+    reloadLocalVoice: () => {
+      reloadLocalVoice();
       mockActiveEngine = 'local';
     },
   },
@@ -416,6 +425,161 @@ describe('Settings ▸ Companion ▸ Voice status (Phase 80 Theme C follow-up)',
 
     await screen.findByTestId('companion-voice-status');
     expect((await screen.findByTestId('companion-say-hello')).hasAttribute('disabled')).toBe(false);
+  });
+});
+
+/**
+ * Ad Hoc "the local voice engine crashed" — Settings' "Reload local
+ * engine" control, added because a missing native module (now also
+ * covering a crashed worker) offered NO recovery at all before this: the
+ * `it` two blocks up ("explains a missing native module, with no retry")
+ * still holds for the old Retry button, but Reload is exactly the new path
+ * out of that state.
+ */
+describe('Settings ▸ Companion ▸ Voice — Reload local engine (Ad Hoc)', () => {
+  it('offers Reload for a missing/crashed native module, where the old Retry never did', async () => {
+    installBridge({
+      ttsStatus: vi.fn().mockResolvedValue({
+        ok: true,
+        value: {
+          engine: 'system',
+          voice: 'failed',
+          reason: 'native-module-missing',
+          message: 'The local voice engine crashed. The companion will keep using the system voice.',
+        },
+      }),
+    });
+    render(<CompanionPage />);
+
+    await screen.findByTestId('companion-voice-status');
+    expect(screen.queryByTestId('companion-voice-retry')).toBeNull();
+    expect(screen.getByTestId('companion-voice-reload')).not.toBeNull();
+  });
+
+  it('is offered even when the local voice is ready and active — not only on failure', async () => {
+    installBridge({
+      ttsStatus: vi
+        .fn()
+        .mockResolvedValue({ ok: true, value: { engine: 'local', voice: 'ready', reason: null, message: null } }),
+    });
+    render(<CompanionPage />);
+
+    await waitFor(() =>
+      expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(/speaking with the local offline voice/i),
+    );
+    expect(screen.getByTestId('companion-voice-reload')).not.toBeNull();
+  });
+
+  it('reloads, resets the renderer fallback immediately, and refreshes the status line from the real result', async () => {
+    const ttsStatus = vi.fn().mockResolvedValue({
+      ok: true,
+      value: { engine: 'system', voice: 'failed', reason: 'native-module-missing', message: 'crashed' },
+    });
+    let resolveReload!: (value: {
+      ok: true;
+      value: { engine: 'local' | 'system'; voice: string; reason: string | null; message: string | null };
+    }) => void;
+    const ttsReload = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveReload = resolve as typeof resolveReload;
+        }),
+    );
+    mockActiveEngine = 'system';
+    installBridge({ ttsStatus, ttsReload } as Partial<NonNullable<MidniteStudioBridge['companion']>>);
+    render(<CompanionPage />);
+
+    await waitFor(() =>
+      expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(/isn't available on this machine/i),
+    );
+    expect(textOf(screen.getByTestId('companion-say-hello-engine'))).toMatch(/say hello uses the system voice/i);
+
+    const reload = screen.getByTestId('companion-voice-reload');
+    fireEvent.click(reload);
+
+    // Optimistic and synchronous, exactly like Retry's own reset — ahead of
+    // the reload's real result coming back.
+    expect(reloadLocalVoice).toHaveBeenCalledTimes(1);
+    expect(textOf(screen.getByTestId('companion-say-hello-engine'))).toMatch(
+      /say hello uses the local offline voice/i,
+    );
+    // Disabled/spinning while the round trip is in flight.
+    await waitFor(() => expect(reload.hasAttribute('disabled')).toBe(true));
+    expect(reload.textContent).toMatch(/reloading/i);
+
+    // The status line must NOT claim success before the real result lands —
+    // still the pre-reload failure sentence while the promise is pending.
+    expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(/isn't available on this machine/i);
+
+    resolveReload({
+      ok: true,
+      value: { engine: 'system', voice: 'failed', reason: 'native-module-missing', message: 'still broken' },
+    });
+
+    // Refreshed from the REAL (still-failed) result, not an optimistic success.
+    await waitFor(() =>
+      expect(textOf(screen.getByTestId('companion-voice-status'))).toMatch(/still broken/),
+    );
+    await waitFor(() => expect(reload.hasAttribute('disabled')).toBe(false));
+  });
+
+  it('a second click while a reload is in flight is a no-op, not a second request', async () => {
+    let resolveReload!: (value: unknown) => void;
+    const ttsReload = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveReload = resolve;
+        }),
+    );
+    installBridge({
+      ttsStatus: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { engine: 'system', voice: 'failed', reason: 'native-module-missing', message: null },
+      }),
+      ttsReload,
+    } as Partial<NonNullable<MidniteStudioBridge['companion']>>);
+    render(<CompanionPage />);
+
+    const reload = await screen.findByTestId('companion-voice-reload');
+    fireEvent.click(reload);
+    fireEvent.click(reload);
+    fireEvent.click(reload);
+
+    await waitFor(() => expect(reload.hasAttribute('disabled')).toBe(true));
+    expect(ttsReload).toHaveBeenCalledTimes(1);
+
+    resolveReload({
+      ok: true,
+      value: { engine: 'local', voice: 'ready', reason: null, message: null },
+    });
+    // Re-queried live rather than reusing `reload`: a `'ready'`/`'local'`
+    // result switches `CompanionVoiceStatus` to a different branch, which
+    // remounts the button under the same testid — the earlier DOM node
+    // reference is now detached and would never report the update.
+    await waitFor(() =>
+      expect(screen.getByTestId('companion-voice-reload').hasAttribute('disabled')).toBe(false),
+    );
+    expect(ttsReload).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking it with no bridge method at all (an older preload) is a harmless no-op', async () => {
+    // `installBridge` never sets `ttsReload` unless a test passes it —
+    // matching an older preload build that predates this channel.
+    installBridge({
+      ttsStatus: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { engine: 'system', voice: 'failed', reason: 'native-module-missing', message: null },
+      }),
+    });
+    render(<CompanionPage />);
+
+    const reload = await screen.findByTestId('companion-voice-reload');
+    // The renderer-side reset still fires (it never touches the bridge),
+    // but nothing throws for the missing method, and the button never gets
+    // stuck disabled.
+    expect(() => fireEvent.click(reload)).not.toThrow();
+    expect(reloadLocalVoice).toHaveBeenCalledTimes(1);
+    expect(reload.hasAttribute('disabled')).toBe(false);
   });
 });
 
