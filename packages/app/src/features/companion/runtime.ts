@@ -2,6 +2,7 @@ import {
   emptyCompanionSnapshot,
   type AgentDefinition,
   type CompanionSnapshot,
+  type CompanionVocabulary,
   type RepoDescriptor,
   type SessionActivity,
 } from '@midnite/studio-shared';
@@ -17,6 +18,7 @@ import {
   type HandoffDeps,
 } from './handoff';
 import { silentSpeaker, type Speaker } from './ports';
+import { vocabularyFor } from './vocabulary';
 import { skillHandoff } from '../agent/use-skill-handoff';
 import { startAgent } from '../terminal/start-agent';
 import { useTerminalStore } from '../terminal/terminal-store';
@@ -206,6 +208,7 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
     autoSendAllowed: () => useUiStore.getState().companionHandsFree && voiceInReady(),
     activeHandoff: () => useCompanionStore.getState().activeHandoff,
     setActiveHandoff: (handoff) => useCompanionStore.getState().setActiveHandoff(handoff),
+    vocabulary: () => vocabularyCache ?? vocabularyFor([]),
   };
 }
 
@@ -238,6 +241,14 @@ type RepoSnapshot = { path: string | null; name: string | null; id: string | nul
  */
 let rosterCache: readonly AgentDefinition[] = [];
 let lastSnapshot: CompanionSnapshot | null = null;
+/**
+ * Views, settings pages, commands and skills the grammar and (Theme E) the
+ * router's prompt may name — refreshed alongside {@link refreshRoster},
+ * never on every keystroke. `null` only before the first flow has run;
+ * `HandoffDeps.vocabulary` falls back to an empty-repos vocabulary rather
+ * than throwing when read before then.
+ */
+let vocabularyCache: CompanionVocabulary | null = null;
 
 async function currentRepo(): Promise<RepoSnapshot> {
   const api = bridge();
@@ -253,6 +264,12 @@ async function currentRepo(): Promise<RepoSnapshot> {
 async function refreshRoster(): Promise<void> {
   const answer = await bridge()?.agent.list();
   if (answer) rosterCache = answer.agents;
+}
+
+/** Refresh the vocabulary cache from the open repos' names. */
+async function refreshVocabulary(): Promise<void> {
+  const repos = (await bridge()?.repos.list()) ?? [];
+  vocabularyCache = vocabularyFor(repos);
 }
 
 // --- the entry points siblings call ---------------------------------------
@@ -303,6 +320,7 @@ export async function greetCompanion(): Promise<void> {
   if (!useUiStore.getState().companionEnabled) return;
   const signal = begin();
   await refreshRoster();
+  await refreshVocabulary();
   const repo = await currentRepo();
   const deps = conciergeDeps(signal, repo);
   lastSnapshot = null;
@@ -332,6 +350,7 @@ export async function submitCompanionInput(text: string): Promise<void> {
   if (!useUiStore.getState().companionEnabled) return;
   const signal = begin();
   if (rosterCache.length === 0) await refreshRoster();
+  if (!vocabularyCache) await refreshVocabulary();
   const repo = await currentRepo();
   const deps = withSnapshotCapture(handoffDeps(signal, repo)) as HandoffDeps;
   const before = useCompanionStore.getState().activeHandoff?.sessionId ?? null;
@@ -483,4 +502,5 @@ export function resetCompanionRuntimeForTests(): void {
   speaker = silentSpeaker;
   rosterCache = [];
   lastSnapshot = null;
+  vocabularyCache = null;
 }

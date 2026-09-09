@@ -6,6 +6,7 @@ import {
   type CompanionAskReply,
   type CompanionCommandId,
   type CompanionIntent,
+  type CompanionVocabulary,
   type GitOpResult,
   type RepoDescriptor,
   type SessionActivity,
@@ -70,6 +71,14 @@ export type HandoffDeps = ConciergeDeps & {
   autoSendAllowed: () => boolean;
   activeHandoff: () => { sessionId: string; command: string } | null;
   setActiveHandoff: (handoff: { sessionId: string; command: string } | null) => void;
+  /**
+   * Views, settings pages, commands (by tier), skills and repos — what the
+   * grammar (`parseIntent`'s `navigate`/`run`) and Theme E's `ask` prompt are
+   * both allowed to name. `runtime.ts` builds this once per flow, beside
+   * `refreshRoster()`, from `vocabulary.ts`'s `buildVocabulary` — never by
+   * hand, and never a second copy of the palette's own tables (Finding 2).
+   */
+  vocabulary: () => CompanionVocabulary;
 };
 
 /**
@@ -102,7 +111,7 @@ export async function submitInput(text: string, deps: HandoffDeps): Promise<void
   if (trimmed === '') return;
 
   deps.store.addTurn({ role: 'user', text: trimmed, spoken: false });
-  await act(parseIntent(trimmed), deps, trimmed);
+  await act(parseIntent(trimmed, deps.vocabulary()), deps, trimmed);
 }
 
 /**
@@ -152,6 +161,17 @@ async function act(
 
     case 'command':
       return startCommand(intent, deps);
+
+    // Stubs — Theme A lands the schema, the grammar and this exhaustiveness
+    // check together so nothing is added to `CompanionIntentSchema` without
+    // `act()` handling it; Themes B (navigate), C (run/confirm) and the
+    // `help` bullet of C replace each one with the real behaviour.
+    case 'navigate':
+    case 'run':
+    case 'confirm':
+    case 'help':
+      await say(deps, "I can't do that yet.");
+      return;
 
     case 'freeform':
       return route(intent.text || original, deps, depth);

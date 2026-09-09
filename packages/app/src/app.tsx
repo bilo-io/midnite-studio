@@ -39,6 +39,7 @@ import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
 import { CompanionPanelSlot } from './features/companion/companion-panel';
+import { setCommandRuntime } from './features/companion/command-runtime';
 /*
   Side-effect import: Phase 79 Themes F and G register their four members of
   `companion-ports` (interrupt, the two mic gestures, mic availability) at
@@ -615,7 +616,18 @@ function Shell() {
 
   // Every shortcut, every native menu item and (Theme C+) the palette dispatch
   // through this one runtime, keyed by CommandId — see use-command-handlers.ts.
-  useKeybindings(useCommandHandlers());
+  const commandRuntime = useCommandHandlers();
+  useKeybindings(commandRuntime);
+  // The companion's `runtime.ts` calls `runCommand` from plain functions
+  // that outlive any one render (Phase 81 Theme A, Finding 3) — only the
+  // main window registers, so a popout's own (largely disabled) runtime
+  // never becomes reachable from a companion running in it (the scope
+  // guardrail: every action executes in the main window).
+  useEffect(() => {
+    if ((bridge()?.windowRole ?? 'main') !== 'main') return;
+    setCommandRuntime(commandRuntime);
+    return () => setCommandRuntime(null);
+  }, [commandRuntime]);
 
   /**
    * The terminal's height while maximized, measured rather than `flex-1`.
