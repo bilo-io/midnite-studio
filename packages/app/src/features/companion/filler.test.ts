@@ -38,7 +38,7 @@ function harness(over: Partial<FillerDeps> & { initial?: FillerHostState } = {})
     isSpeaking: () => speaking,
     playWhistle: () => whistles.push(Date.now()),
     musicOfferEnabled: () => musicEnabled,
-    honorific: () => '',
+    honorifics: () => [],
     /*
       A sentinel per bank rather than the real phrase. The assertions below are
       about *which bank a turn came from*, and the real phrases carry `{name}`
@@ -366,7 +366,7 @@ describe('createFillerScheduler', () => {
   it('resolves the honorific into what it speaks', () => {
     vi.useFakeTimers();
     try {
-      const h = harness({ honorific: () => 'Ada', pick: () => 'Long one{name}. Music?' });
+      const h = harness({ honorifics: () => ['Ada'], pick: () => 'Long one{name}. Music?' });
       createFillerScheduler(h.deps).start();
       vi.advanceTimersByTime(COMPANION_FILLER_THRESHOLD_MS);
       expect(h.spoken[0]).toBe('Long one Ada. Music?');

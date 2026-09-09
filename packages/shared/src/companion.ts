@@ -878,6 +878,127 @@ export function chunkForSpeech(text: string, limit = COMPANION_TTS_CHUNK_CHARS):
   return chunks;
 }
 
+// --- Ad Hoc · the local voice engine's voice catalog ------------------------
+
+/**
+ * Every voice Kokoro-82M ships, mirrored here as data.
+ *
+ * `kokoro-js` (`desktop/src/main/companion/tts.ts`) exports the model's
+ * `VOICES` map only off an *instantiated* `KokoroTTS`, reached through
+ * `from_pretrained()` — which downloads the model. A Settings picker cannot
+ * be made to trigger an ~88 MB download just to list its own options, so the
+ * catalog is copied here instead, verbatim from `kokoro-js@1.2.1`'s bundled
+ * `dist/kokoro.cjs` (id → `{name, language, gender, grade}`), and used by
+ * both processes: main validates a requested id against it before passing
+ * the id to `generate()`, and the renderer renders it with no round trip.
+ * All English (`en-us`/`en-gb`) — Kokoro-82M ships no other language — so,
+ * unlike the `speechSynthesis` picker below, there is no locale filter to
+ * offer.
+ *
+ * `grade` is Kokoro's own `overallGrade` (`af_heart`'s own module doc in
+ * `tts.ts` explains why that voice is the default): a training-quality
+ * letter grade, not a subjective rating this repo assigns.
+ */
+export const COMPANION_LOCAL_VOICE_IDS = [
+  'af_heart',
+  'af_alloy',
+  'af_aoede',
+  'af_bella',
+  'af_jessica',
+  'af_kore',
+  'af_nicole',
+  'af_nova',
+  'af_river',
+  'af_sarah',
+  'af_sky',
+  'am_adam',
+  'am_echo',
+  'am_eric',
+  'am_fenrir',
+  'am_liam',
+  'am_michael',
+  'am_onyx',
+  'am_puck',
+  'am_santa',
+  'bf_emma',
+  'bf_isabella',
+  'bm_george',
+  'bm_lewis',
+  'bf_alice',
+  'bf_lily',
+  'bm_daniel',
+  'bm_fable',
+] as const;
+export type CompanionLocalVoiceId = (typeof COMPANION_LOCAL_VOICE_IDS)[number];
+
+/** Validated at the IPC boundary (`schemas.ts`'s `CompanionTtsSynthesizeRequest`). */
+export const CompanionLocalVoiceIdSchema = z.enum(COMPANION_LOCAL_VOICE_IDS);
+
+export type CompanionLocalVoiceInfo = {
+  id: CompanionLocalVoiceId;
+  name: string;
+  language: 'en-us' | 'en-gb';
+  gender: 'Female' | 'Male';
+  grade: string;
+};
+
+export const COMPANION_LOCAL_VOICES: readonly CompanionLocalVoiceInfo[] = [
+  { id: 'af_heart', name: 'Heart', language: 'en-us', gender: 'Female', grade: 'A' },
+  { id: 'af_alloy', name: 'Alloy', language: 'en-us', gender: 'Female', grade: 'C' },
+  { id: 'af_aoede', name: 'Aoede', language: 'en-us', gender: 'Female', grade: 'C+' },
+  { id: 'af_bella', name: 'Bella', language: 'en-us', gender: 'Female', grade: 'A-' },
+  { id: 'af_jessica', name: 'Jessica', language: 'en-us', gender: 'Female', grade: 'D' },
+  { id: 'af_kore', name: 'Kore', language: 'en-us', gender: 'Female', grade: 'C+' },
+  { id: 'af_nicole', name: 'Nicole', language: 'en-us', gender: 'Female', grade: 'B-' },
+  { id: 'af_nova', name: 'Nova', language: 'en-us', gender: 'Female', grade: 'C' },
+  { id: 'af_river', name: 'River', language: 'en-us', gender: 'Female', grade: 'D' },
+  { id: 'af_sarah', name: 'Sarah', language: 'en-us', gender: 'Female', grade: 'C+' },
+  { id: 'af_sky', name: 'Sky', language: 'en-us', gender: 'Female', grade: 'C-' },
+  { id: 'am_adam', name: 'Adam', language: 'en-us', gender: 'Male', grade: 'F+' },
+  { id: 'am_echo', name: 'Echo', language: 'en-us', gender: 'Male', grade: 'D' },
+  { id: 'am_eric', name: 'Eric', language: 'en-us', gender: 'Male', grade: 'D' },
+  { id: 'am_fenrir', name: 'Fenrir', language: 'en-us', gender: 'Male', grade: 'C+' },
+  { id: 'am_liam', name: 'Liam', language: 'en-us', gender: 'Male', grade: 'D' },
+  { id: 'am_michael', name: 'Michael', language: 'en-us', gender: 'Male', grade: 'C+' },
+  { id: 'am_onyx', name: 'Onyx', language: 'en-us', gender: 'Male', grade: 'D' },
+  { id: 'am_puck', name: 'Puck', language: 'en-us', gender: 'Male', grade: 'C+' },
+  { id: 'am_santa', name: 'Santa', language: 'en-us', gender: 'Male', grade: 'D-' },
+  { id: 'bf_emma', name: 'Emma', language: 'en-gb', gender: 'Female', grade: 'B-' },
+  { id: 'bf_isabella', name: 'Isabella', language: 'en-gb', gender: 'Female', grade: 'C' },
+  { id: 'bm_george', name: 'George', language: 'en-gb', gender: 'Male', grade: 'C' },
+  { id: 'bm_lewis', name: 'Lewis', language: 'en-gb', gender: 'Male', grade: 'D+' },
+  { id: 'bf_alice', name: 'Alice', language: 'en-gb', gender: 'Female', grade: 'D' },
+  { id: 'bf_lily', name: 'Lily', language: 'en-gb', gender: 'Female', grade: 'D' },
+  { id: 'bm_daniel', name: 'Daniel', language: 'en-gb', gender: 'Male', grade: 'D' },
+  { id: 'bm_fable', name: 'Fable', language: 'en-gb', gender: 'Male', grade: 'C' },
+];
+
+/** `af_heart` — see its own module doc in `tts.ts` for why it is the default. */
+export const COMPANION_LOCAL_VOICE_DEFAULT: CompanionLocalVoiceId = 'af_heart';
+
+/** A requested id, narrowed to a known one — `deps.getLocalVoice()`'s stored value can predate a catalog change. */
+export function isCompanionLocalVoiceId(value: string | null): value is CompanionLocalVoiceId {
+  return value !== null && (COMPANION_LOCAL_VOICE_IDS as readonly string[]).includes(value);
+}
+
+/**
+ * Which voice engine a per-engine selection applies to — `speaker.ts`'s own
+ * `'local' | 'system'` split (`CompanionTtsSpeaker['activeEngine']`,
+ * `tts.ts`'s `CompanionTtsStatusValue['engine']`), named here once so
+ * `companionVoices` (`ui-store.ts`) has one canonical shape to persist.
+ */
+export const COMPANION_VOICE_ENGINES = ['system', 'local'] as const;
+export type CompanionVoiceEngine = (typeof COMPANION_VOICE_ENGINES)[number];
+
+/**
+ * A voice choice per engine, replacing the single `companionVoice` string
+ * (Ad Hoc: every voice mode gets its own memory, so switching engines never
+ * silently drops back to a default). `null` for either engine means "let
+ * that engine pick its own default" — the platform default `speechSynthesis`
+ * voice, or `COMPANION_LOCAL_VOICE_DEFAULT` for the local engine.
+ */
+export type CompanionVoiceSelection = Record<CompanionVoiceEngine, string | null>;
+
 // --- F · the speech-to-text provider seam ----------------------------------
 
 /**
@@ -1853,6 +1974,36 @@ export function matchesCompanionName(text: string, names: readonly string[]): bo
     const pattern = new RegExp(`\\b${escapeNameForRegExp(needle)}\\b`, 'i');
     return pattern.test(trimmed);
   });
+}
+
+/**
+ * What the companion calls the user — Ad Hoc: "What it calls you" gained the
+ * same closable-pill design `companionNames` already has ("What you call
+ * it"), one step lighter. **No `.min(1)`** here, unlike
+ * `CompanionNamesSchema`: an empty honorific was always the default (nobody
+ * to pick collapses to `interpolatePhrase`'s already-correct empty-honorific
+ * path), so "zero honorifics" has to stay representable rather than forcing
+ * a placeholder nobody chose.
+ */
+export const CompanionHonorificsSchema = z.array(z.string().trim().min(1));
+
+/**
+ * Resolve the honorific list to the one name a phrase actually uses.
+ *
+ * Every phrase bank template still takes a single `{name}` — turning that
+ * into "pick one, at random, every time" is the whole adaptation multiple
+ * honorifics needs, since there is nothing to prefer between "sir" and
+ * "boss" beyond variety. Empty resolves to `''`, exactly the empty-honorific
+ * default `interpolatePhrase` already collapses cleanly. `rng` is injected
+ * for the reason `pickPhrase`'s is: a deterministic test, not a stubbed
+ * global.
+ */
+export function pickHonorific(
+  honorifics: readonly string[],
+  rng: () => number = Math.random,
+): string {
+  if (honorifics.length === 0) return '';
+  return honorifics[pickIndex(rng, honorifics.length)] as string;
 }
 
 // --- E · reading a pty back -------------------------------------------------

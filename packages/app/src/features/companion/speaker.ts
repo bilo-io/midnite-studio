@@ -2,6 +2,7 @@ import {
   COMPANION_LEVEL_DECAY_MS,
   COMPANION_LEVEL_VAR,
   chunkForSpeech,
+  isCompanionLocalVoiceId,
 } from '@midnite/studio-shared';
 
 import { bridge, hasBridge } from '../../services/bridge';
@@ -83,7 +84,7 @@ export type SpeakerDeps = {
   synth: SpeechSynthesis | null;
   /** Constructor rather than a factory function — `new SpeechSynthesisUtterance(text)`. */
   utterance: (text: string) => SpeechSynthesisUtterance;
-  /** The persisted `companionVoice` URI, or null for "the default for the locale". */
+  /** The persisted `companionVoices.system` URI, or null for "the default for the locale". */
   getVoiceUri: () => string | null;
   getLocale: () => string;
   /** Writes `--companion-level`. Injected because jsdom has a `document` but no FAB. */
@@ -118,10 +119,10 @@ export const defaultSpeakerDeps = (): SpeakerDeps => ({
   utterance: (text) => new SpeechSynthesisUtterance(text),
   /*
     Read at speak time, not captured: the voice picker in Settings changes
-    `companionVoice` while the companion is idle, and the next sentence should
-    use it without anything re-registering.
+    `companionVoices.system` while the companion is idle, and the next
+    sentence should use it without anything re-registering.
   */
-  getVoiceUri: () => useUiStore.getState().companionVoice,
+  getVoiceUri: () => useUiStore.getState().companionVoices.system,
   getLocale: () =>
     typeof navigator === 'undefined' ? 'en-US' : (navigator.language ?? 'en-US'),
   setLevel: setCompanionLevel,
@@ -411,7 +412,20 @@ export type LocalSpeakerDeps = {
 
 export const defaultLocalSpeakerDeps = (): LocalSpeakerDeps => ({
   synthesize: async (text) => {
-    const result = await bridge()?.companion.ttsSynthesize({ text });
+    /*
+      Read at speak time, the same reason `SpeakerDeps.getVoiceUri` is, and
+      narrowed with `isCompanionLocalVoiceId` before it ever reaches the wire
+      — `CompanionTtsSynthesizeRequest.voice` is a strict `z.enum`, so an id
+      from a stored selection that predates a catalog change would otherwise
+      fail *schema validation* and answer `{ok:false}`, which
+      `createCompanionSpeaker`'s sticky fallback would read as "the local
+      engine is down" for the rest of the session. Omitting an unrecognised
+      id instead lets `tts.ts` apply its own default silently, exactly as an
+      absent selection already does.
+    */
+    const stored = useUiStore.getState().companionVoices.local;
+    const voice = isCompanionLocalVoiceId(stored) ? stored : undefined;
+    const result = await bridge()?.companion.ttsSynthesize({ text, voice });
     return result?.ok === true
       ? { ok: true, audio: result.value.audio, mime: result.value.mime }
       : { ok: false };
@@ -652,6 +666,25 @@ export type CompanionTtsSpeaker = CompanionSpeaker & {
    * of its life. Never speaks anything itself.
    */
   retryLocalVoice: () => void;
+  /**
+   * Speak through one specific engine, bypassing `speak`'s local-first
+   * fallback order — Ad Hoc: each engine now has its own voice picker in
+   * Settings, and previewing the one just picked has to reach *that* engine
+   * even when this session already fell back to the other one, or hasn't
+   * spoken at all yet. Enqueues onto that engine's own queue (`local`'s or
+   * `system`'s), never a third standalone speaker — a separate
+   * `createSpeaker()` would share Chromium's one real `speechSynthesis`
+   * queue with this module's own wrapper and reintroduce the interleaving
+   * `createSpeaker`'s own module doc built the queue to prevent. Resolves
+   * `false` when the local engine specifically failed to speak (nothing to
+   * fall back to here — a caller previewing the local voice wants to know it
+   * didn't work, not a system voice it didn't ask for).
+   */
+  speakWithEngine: (
+    engine: 'local' | 'system',
+    text: string,
+    opts?: CompanionSpeakOptions,
+  ) => Promise<boolean>;
 };
 
 /**
@@ -687,6 +720,8 @@ export function createCompanionSpeaker(
       }
       return system.speak(text, opts);
     },
+    speakWithEngine: (engine, text, opts = {}) =>
+      engine === 'local' ? local.speakLocal(text, opts) : system.speak(text, opts).then(() => true),
     cancel: () => {
       local.cancel();
       system.cancel();
