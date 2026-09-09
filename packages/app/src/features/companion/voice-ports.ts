@@ -32,36 +32,87 @@ import { companionTtsSpeaker } from './speaker';
  */
 
 /**
- * Whether a key is stored, cached.
+ * Why the mic is (or isn't) usable, richer than the boolean the port exposes.
+ *
+ * `checking` is the state before the first probe resolves — distinct from
+ * `no-key` so the tooltip can say "checking…" instead of accusing a user of
+ * never having visited Settings. `not-implemented` is Deepgram today: a key
+ * can be saved for it (Settings does not stop you, and `STT_PROVIDER_LABELS`
+ * says so in the option text alone), `sttStatus().configured` reports it
+ * honestly as configured, but there is no factory behind it in main — so
+ * `micReady` must require an *implemented* configured provider, not merely a
+ * configured one, or the button lies about being usable.
+ */
+type MicAvailabilityStatus =
+  | 'checking'
+  | 'no-bridge'
+  | 'no-key'
+  | 'no-key-no-keychain'
+  | 'not-implemented'
+  | 'available';
+
+/**
+ * Cached, and observable.
  *
  * `micAvailable()` is read during render and has to be synchronous, but the
- * answer lives in main behind `safeStorage`. So: a cached boolean, refreshed
- * lazily on the first read and after anything that could change it. The first
- * paint of a freshly-configured panel can therefore show the mic disabled for
- * one frame — which is the right trade, because the alternative is either an
- * IPC call on every render or one at boot for a feature that is off by
- * default.
+ * answer lives in main behind `safeStorage`. So: a cached status, refreshed
+ * lazily on the first read and explicitly after anything that could change it
+ * (a Settings save). The cache is *why* this needs to be observable too — a
+ * component that reads it once during its own render (the input bar) is never
+ * told to look again when Settings changes it out from under a panel that
+ * stayed mounted the whole time, which is precisely the bug this once caused:
+ * the mic stayed disabled, with the stale "add a key" tooltip, until some
+ * unrelated re-render happened to occur. `micListeners` is what closes that
+ * gap — `setMicStatus` notifies them synchronously on every change.
  */
-let micReady = false;
+let micStatus: MicAvailabilityStatus = 'checking';
 let micProbe: Promise<boolean> | null = null;
+const micListeners = new Set<() => void>();
 
-/** Re-ask main whether a provider key is stored. Called after a Settings save. */
+function setMicStatus(next: MicAvailabilityStatus): void {
+  if (next === micStatus) return;
+  micStatus = next;
+  for (const listener of micListeners) listener();
+}
+
+/** `CompanionPorts['onMicAvailabilityChange']`. */
+function onMicAvailabilityChange(listener: () => void): () => void {
+  micListeners.add(listener);
+  return () => {
+    micListeners.delete(listener);
+  };
+}
+
+/** Re-ask main whether an implemented provider has a key stored. Called after a Settings save. */
 export function refreshMicAvailability(): Promise<boolean> {
   const companion = bridge()?.companion;
   if (!companion?.sttStatus) {
-    micReady = false;
+    setMicStatus('no-bridge');
     return Promise.resolve(false);
   }
   micProbe ??= companion
     .sttStatus()
     .then((status) => {
-      micReady = status.configured.length > 0;
-      return micReady;
+      const usable = status.configured.some((provider) => status.implemented.includes(provider));
+      if (usable) {
+        setMicStatus('available');
+      } else if (status.configured.length > 0) {
+        // A key is stored, but for nothing main can transcribe with — the
+        // Deepgram-shaped case, and the one the plain boolean used to hide.
+        setMicStatus('not-implemented');
+      } else if (!status.encryptionAvailable) {
+        // No key *and* no working keychain — the same "add a key" fix, but
+        // it will not survive a relaunch, which the tooltip should say.
+        setMicStatus('no-key-no-keychain');
+      } else {
+        setMicStatus('no-key');
+      }
+      return usable;
     })
     .catch(() => {
       // A bridge that answered nothing is "not configured" — the mic button
       // stays disabled with its reason, which is the honest state.
-      micReady = false;
+      setMicStatus('no-key');
       return false;
     })
     .finally(() => {
@@ -71,8 +122,28 @@ export function refreshMicAvailability(): Promise<boolean> {
 }
 
 function micAvailable(): boolean {
-  if (!micReady && micProbe === null) void refreshMicAvailability();
-  return micReady;
+  if (micStatus === 'checking' && micProbe === null) void refreshMicAvailability();
+  return micStatus === 'available';
+}
+
+/** `CompanionPorts['micUnavailableReason']`. */
+function micUnavailableReason(): string {
+  switch (micStatus) {
+    case 'available':
+      // Unspecified per the port's own contract; kept honest rather than
+      // returning `''` and inviting a caller to render it by mistake.
+      return 'Hold to talk';
+    case 'checking':
+      return 'Hold to talk — checking your speech key…';
+    case 'no-bridge':
+      return 'Hold to talk — voice input isn’t available in this build';
+    case 'not-implemented':
+      return 'Hold to talk — the saved provider isn’t implemented yet. Choose OpenAI Whisper in Settings ▸ Companion';
+    case 'no-key-no-keychain':
+      return 'Hold to talk — add a speech key in Settings ▸ Companion (this machine has no working keychain, so it won’t be remembered after a relaunch)';
+    case 'no-key':
+      return 'Hold to talk — add a speech key in Settings ▸ Companion';
+  }
 }
 
 /**
@@ -197,6 +268,8 @@ export function registerVoicePorts(): void {
   setCompanionPorts({
     interrupt,
     micAvailable,
+    micUnavailableReason,
+    onMicAvailabilityChange,
     micPressStart: () => {
       void micPressStart();
     },
@@ -261,8 +334,9 @@ let moduleWatcher: (() => void) | null = watchCompanionSilence();
 
 /** Reset the availability cache and drop the module-level watcher. Tests only. */
 export function __resetVoicePortsForTest(): void {
-  micReady = false;
+  micStatus = 'checking';
   micProbe = null;
+  micListeners.clear();
   moduleWatcher?.();
   moduleWatcher = null;
 }
