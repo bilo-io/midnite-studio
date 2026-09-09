@@ -1,7 +1,15 @@
 import { z } from 'zod';
 
 import { cleanPtyText } from './ansi';
-import { RepoDescriptorSchema, type Ref } from './domain';
+import {
+  SETTINGS_PAGE_IDS,
+  VIEW_IDS,
+  RepoDescriptorSchema,
+  type Ref,
+  type SettingsPageId,
+  type ViewId,
+} from './domain';
+import { isCommandId, type CommandGroup } from './keybindings';
 import { parseConventionalCommit } from './version';
 
 /**
@@ -1672,6 +1680,26 @@ export function sanitizeForSpeech(text: string): string {
 // --- E · the intent grammar -------------------------------------------------
 
 /**
+ * How much a spoken/typed word may do that a click can do (Phase 81 Theme A,
+ * Decision 4/5).
+ *
+ * - `direct` — runs immediately and says what it did. Reversible by the next
+ *   keystroke, and changes no data.
+ * - `confirm` — says what it *would* do and waits for a yes. Changes data or
+ *   state the user would want to have meant.
+ * - `never` — destructive, or self-referential. Not a word the companion
+ *   knows: `CompanionVocabulary.commands` carries only `direct`/`confirm`
+ *   rows, so a `never` command never appears in it.
+ *
+ * Declared here, not in `features/palette/safety.ts`, because
+ * `CompanionVocabulary` (just below) needs it and `shared` may not import
+ * `app`; `COMMAND_ACCESS: Record<CommandId, CompanionAccess>` — the actual
+ * per-command table — lives in `safety.ts` beside `PALETTE_SAFE` (Decision 4),
+ * imported from here.
+ */
+export type CompanionAccess = 'direct' | 'confirm' | 'never';
+
+/**
  * The `AgentCommandId`s the companion is allowed to start.
  *
  * **A subset, deliberately — ten of the roster's twenty-one.** Left out: every
@@ -1755,6 +1783,252 @@ export const COMPANION_REPEAT_TOKENS = [
 ] as const;
 
 /**
+ * Everything the companion (and, read-only, an MCP client) is allowed to
+ * name — mirroring the palette's own split (Finding 2, Decision 2): views and
+ * settings pages by id, commands by `CommandId`, plus the skills it may
+ * start and the repos it may switch to.
+ *
+ * Built once per flow by `features/companion/vocabulary.ts`'s
+ * `buildVocabulary` (pure, memoised on the repo list identity) from
+ * `VIEW_IDS` × `app`'s `VIEW_LABELS`/`VIEW_KEYWORDS`, `SETTINGS_PAGES`,
+ * `COMMANDS` × `COMMAND_ACCESS` (dropping `never`), `AGENT_COMMANDS` filtered
+ * to `COMPANION_COMMAND_IDS`, and the open repos' names — never constructed
+ * by hand. `parseIntent` reads it to recognise `navigate`/`run`; Theme E's
+ * `ask` passes it to the headless router's prompt.
+ */
+export const CompanionVocabularySchema = z.object({
+  views: z.array(
+    z.object({
+      id: z.enum(VIEW_IDS),
+      label: z.string(),
+      keywords: z.string(),
+    }),
+  ),
+  settingsPages: z.array(
+    z.object({
+      id: z.enum(SETTINGS_PAGE_IDS),
+      label: z.string(),
+    }),
+  ),
+  /**
+   * `id` is a plain `string`, not `z.enum(COMMAND_IDS)`: `COMMAND_IDS` is a
+   * mapped array (`COMMANDS.map((c) => c.id)`), not a `const` tuple, so
+   * `z.enum` cannot take it (the same reason the `run` intent below uses
+   * `z.string().refine(isCommandId)`). Only `direct`/`confirm` rows appear —
+   * a `never` command is not a word the companion knows.
+   */
+  commands: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      group: z.string(),
+      access: z.enum(['direct', 'confirm']),
+    }),
+  ),
+  skills: z.array(
+    z.object({
+      id: z.enum(COMPANION_COMMAND_IDS),
+      label: z.string(),
+      hint: z.string(),
+    }),
+  ),
+  repos: z.array(z.string()),
+});
+export type CompanionVocabulary = z.infer<typeof CompanionVocabularySchema>;
+
+/**
+ * Verbs for the `navigate` intent, longest/most-specific first within reason
+ * — `hasPhrase`/`phraseSpan` are whole-word matches, so overlap between
+ * entries ("show" is a substring of "show me") only matters for which one
+ * strips more of the remainder, not for correctness. `switch to` is also
+ * here (it is a navigation verb), but resolved specially in `parseIntent`:
+ * repo name wins over a view name (Decision-adjacent, see the "switch to"
+ * handling below).
+ */
+const NAVIGATE_VERBS = [
+  'take me to',
+  'bring up',
+  'jump to',
+  'switch to',
+  'show me',
+  'show',
+  'go to',
+  'open',
+] as const;
+
+/** "yes", spoken or typed, to a pending `confirm`-tier command (Theme C). */
+export const COMPANION_CONFIRM_TOKENS = [
+  'yes',
+  'yeah',
+  'go ahead',
+  'do it',
+  'confirm',
+  'run it',
+] as const;
+
+/** Asks what the companion can do (Theme C's spoken/posted summary). */
+export const COMPANION_HELP_TOKENS = [
+  'what can you do',
+  'help',
+  'what do you know',
+] as const;
+
+/** Words dropped when reducing a `COMMANDS` label to its significant words. */
+const LABEL_STOPWORDS = new Set(['the', 'a', 'an', 'to', 'in', 'on', 'of']);
+
+/**
+ * A command's label, reduced to the words that actually distinguish it —
+ * parenthetical asides ("(Browser)") and slashes dropped, stopwords dropped.
+ * `run`-intent matching tests that every one of these appears in the
+ * utterance (in any order, not necessarily contiguous), so "toggle the
+ * terminal" matches `terminal.toggle`'s "Toggle Terminal" despite the "the"
+ * neither label carries.
+ */
+function labelWords(label: string): readonly string[] {
+  return label
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\//g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((word) => word !== '' && !LABEL_STOPWORDS.has(word));
+}
+
+/**
+ * The longest (most words) matching view or settings-page label/keyword
+ * phrase in `remainder` — "longest wins" so a more specific phrase beats a
+ * shorter one it contains ("commit graph" beats "graph" if both were ever to
+ * collide). Returns `null` when nothing in the vocabulary matches.
+ */
+function longestViewMatch(
+  remainder: string,
+  views: CompanionVocabulary['views'],
+): { id: ViewId } | null {
+  let best: { id: ViewId; words: number } | null = null;
+  for (const view of views) {
+    // The whole label and each keyword word are candidates outright; the
+    // view id itself is also a candidate — the id doubles as the one-word
+    // spoken form for views whose label is longer than the word people
+    // actually say ("graph" for the "Commit Graph" view, `id: 'graph'`).
+    const candidates = [view.label, view.id, ...view.keywords.split(/\s+/)];
+    for (const candidate of candidates) {
+      if (candidate.trim() === '') continue;
+      if (!hasPhrase(remainder, candidate)) continue;
+      const words = candidate.trim().split(/\s+/).length;
+      if (!best || words > best.words) best = { id: view.id, words };
+    }
+  }
+  return best ? { id: best.id } : null;
+}
+
+/**
+ * A settings page whose label — or one significant word of it — appears in
+ * `remainder`, or `null`. The whole label wins over a single word of it
+ * ("Git Safety" beats "Safety" if both matched), which is what the word-count
+ * comparison below gives for free.
+ */
+function matchingSettingsPage(
+  remainder: string,
+  pages: CompanionVocabulary['settingsPages'],
+): SettingsPageId | null {
+  let best: { id: SettingsPageId; words: number } | null = null;
+  for (const page of pages) {
+    const candidates = [page.label, ...page.label.split(/\s+/)];
+    for (const candidate of candidates) {
+      if (!hasPhrase(remainder, candidate)) continue;
+      const words = candidate.trim().split(/\s+/).length;
+      if (!best || words > best.words) best = { id: page.id, words };
+    }
+  }
+  return best ? best.id : null;
+}
+
+/** A repo whose name matches `name` case-insensitively — exact first, then whole-word containment. */
+function matchingRepoName(name: string, repos: readonly string[]): string | null {
+  const lower = name.trim().toLowerCase();
+  if (lower === '') return null;
+  const exact = repos.find((repo) => repo.toLowerCase() === lower);
+  if (exact) return exact;
+  const contained = repos.find((repo) => hasPhrase(name, repo));
+  return contained ?? null;
+}
+
+/**
+ * The `navigate` intent, tried per {@link NAVIGATE_VERBS} entry in order. Each
+ * verb strips itself (plus a leading "me"/"the"/connective) off the front of
+ * `bare` and hands the remainder to the target rules: a URL wins outright: an
+ * `issue #N`/`number N` pattern sends to Issues with that issue; "settings"
+ * plus a page word sends to that Settings page; otherwise the longest
+ * matching view label/keyword wins. `switch to` alone also checks
+ * `vocabulary.repos` first — a repo name wins over a view name, so "switch to
+ * bilo-mono" and "switch to the graph" both work, and a repo actually called
+ * `graph` wins the more specific noun.
+ *
+ * Returns `null` when a verb is found but no target resolves (so the caller
+ * can keep trying — the shape "open the pod bay doors" needs to end in
+ * `freeform`, not a phantom navigate) or when no verb matches at all.
+ */
+function tryNavigate(
+  bare: string,
+  vocabulary: CompanionVocabulary,
+): Extract<CompanionIntent, { kind: 'navigate' }> | Extract<CompanionIntent, { kind: 'switchRepo' }> | null {
+  for (const verb of NAVIGATE_VERBS) {
+    const span = phraseSpan(bare, verb);
+    if (span === null) continue;
+    const remainder = bare
+      .slice(span.end)
+      .replace(/^\s*(?:me|over|the|to)\b\s*/i, '')
+      .trim();
+    if (remainder === '') continue;
+
+    if (verb === 'switch to') {
+      const repo = matchingRepoName(remainder, vocabulary.repos);
+      if (repo) return { kind: 'switchRepo', name: repo };
+    }
+
+    const url = /\bhttps?:\/\/\S+/i.exec(remainder)?.[0]?.replace(/[.,!?;:]+$/g, '');
+    if (url) return { kind: 'navigate', url };
+
+    const issueMatch =
+      /\bissue\s*#?\s*(\d+)\b/i.exec(remainder) ?? /\bnumber\s+(\d+)\b/i.exec(remainder);
+    if (issueMatch?.[1]) return { kind: 'navigate', view: 'issues', issue: Number(issueMatch[1]) };
+
+    if (hasPhrase(remainder, 'settings')) {
+      const page = matchingSettingsPage(remainder, vocabulary.settingsPages);
+      return page ? { kind: 'navigate', view: 'settings', page } : { kind: 'navigate', view: 'settings' };
+    }
+
+    const view = longestViewMatch(remainder, vocabulary.views);
+    if (view) return { kind: 'navigate', view: view.id };
+
+    // A verb matched but nothing recognisable followed it — try the next
+    // verb candidate rather than giving up on the whole utterance.
+  }
+  return null;
+}
+
+/**
+ * The `run` intent: which `vocabulary.commands` row, if any, `bare` names.
+ * Matches on the command's own label — reduced to its significant words via
+ * {@link labelWords} — rather than a hand-authored verb table, since there is
+ * one row per `CommandId` and authoring a synonym list for all seventy would
+ * be the drift `COMMANDS` already exists to avoid. The candidate with the
+ * most matched words wins ties (so "Toggle Terminal Half / Full Height" beats
+ * "Toggle Terminal" when both match); a tie in word count keeps the first
+ * (vocabulary/`COMMANDS`) order.
+ */
+function tryRun(bare: string, commands: CompanionVocabulary['commands']): string | null {
+  let best: { id: string; words: number } | null = null;
+  for (const command of commands) {
+    const words = labelWords(command.label);
+    if (words.length === 0) continue;
+    if (!words.every((word) => hasPhrase(bare, word))) continue;
+    if (!best || words.length > best.words) best = { id: command.id, words: words.length };
+  }
+  return best ? best.id : null;
+}
+
+/**
  * What the companion decided a line of input means.
  *
  * A zod schema and not just a type, because it crosses a boundary twice: the
@@ -1784,6 +2058,35 @@ export const CompanionIntentSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('stop') }),
   /** A bare "anyway" — re-run whatever the one-live-hand-off rule just declined. */
   z.object({ kind: z.literal('anyway') }),
+  /**
+   * "Take me to the graph." "Open settings, the companion page." "Show me
+   * issue 212." `view` is optional rather than required, despite the phase
+   * doc's own shorthand type writing it bare: the `url` case ("a URL is the
+   * one target that is not a view") has no view at all, so the schema has to
+   * allow that shape too. Theme B's `resolveNavigation` is what requires
+   * "view or url, one of the two" at the type level.
+   */
+  z.object({
+    kind: z.literal('navigate'),
+    view: z.enum(VIEW_IDS).optional(),
+    page: z.enum(SETTINGS_PAGE_IDS).optional(),
+    issue: z.number().int().positive().optional(),
+    url: z.string().optional(),
+  }),
+  /**
+   * "Push." "Fetch." "New terminal." `id` is `z.string().refine(isCommandId)`
+   * rather than `z.enum(COMMAND_IDS)`: `COMMAND_IDS` is a mapped array
+   * (`COMMANDS.map((c) => c.id)`), not a `const` tuple, so `z.enum` cannot
+   * take it (`keybindings.ts:499`'s own comment).
+   */
+  z.object({
+    kind: z.literal('run'),
+    id: z.string().refine(isCommandId, { message: 'not a known CommandId' }),
+  }),
+  /** "Yes." "Go ahead." Runs whatever `confirm`-tier command is pending (Theme C). */
+  z.object({ kind: z.literal('confirm') }),
+  /** "What can you do?" A spoken/posted summary built from the vocabulary (Theme C). */
+  z.object({ kind: z.literal('help') }),
   z.object({ kind: z.literal('freeform'), text: z.string() }),
 ]);
 export type CompanionIntent = z.infer<typeof CompanionIntentSchema>;
@@ -1865,10 +2168,19 @@ function needsImperative(phrase: string): boolean {
  * a bare "no") are checked first *as whole utterances*, because those are the
  * ones a person says on their own and a command line containing them (`refine
  * anyway`) is handled by the `override` flag instead. Music next, because "no
- * music" would otherwise read as a dismissal. Commands next, in table order.
- * Repo switching last, since "switch to X" is the only shape it takes.
+ * music" would otherwise read as a dismissal. Commands next, in table order —
+ * **existing skill verbs keep precedence** over everything Phase 81 adds.
+ * `confirm`/`help`/`navigate`/`run` come next, and only when `vocabulary` is
+ * supplied — with none, this function behaves exactly as it did before this
+ * phase, so every pre-existing test is unaffected. Repo switching last, since
+ * "switch to X" (when the grammar above did not already resolve it against a
+ * repo or a view) is the fallback shape it always was.
+ *
+ * `vocabulary` is optional so a caller with no repos open yet (or a bare unit
+ * test) gets the unchanged grammar rather than an empty one that recognises
+ * nothing new.
  */
-export function parseIntent(text: string): CompanionIntent {
+export function parseIntent(text: string, vocabulary?: CompanionVocabulary): CompanionIntent {
   const raw = text.trim();
   const bare = raw.replace(/[.!?,;:]+$/g, '').trim();
   const lower = bare.toLowerCase();
@@ -1904,6 +2216,27 @@ export function parseIntent(text: string): CompanionIntent {
       }
       return { kind: 'command', id, ...commandExtras(bare.slice(span.end), override) };
     }
+  }
+
+  if (vocabulary) {
+    // `go ahead` is also a `COMPANION_ANYWAY_TOKENS` whole-utterance match
+    // (checked above, unconditionally) — it never reaches here. Existing
+    // control words keep precedence, so this row is unreachable by design;
+    // the remaining confirm tokens ("yes", "yeah", "do it", "confirm",
+    // "run it") are not affected.
+    if (COMPANION_CONFIRM_TOKENS.some((token) => token === lower)) return { kind: 'confirm' };
+    if (COMPANION_HELP_TOKENS.some((token) => token === lower)) return { kind: 'help' };
+
+    const navigated = tryNavigate(bare, vocabulary);
+    if (navigated) return navigated;
+
+    const runId = tryRun(bare, vocabulary.commands);
+    // `tryRun` returns a plain `string` (`vocabulary.commands[].id` is not
+    // typed as `CommandId` at the schema level — see `CompanionVocabularySchema`'s
+    // own comment); `isCommandId` is a type predicate, so this both re-checks
+    // the invariant `buildVocabulary` is supposed to hold and narrows the type
+    // the `run` intent needs.
+    if (runId !== null && isCommandId(runId)) return { kind: 'run', id: runId };
   }
 
   const switchTo =
