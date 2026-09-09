@@ -3340,14 +3340,22 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         /*
           Theme F's speech-in half, backed by `sttConfigured` above so the
           real Settings ▸ Companion save flow (`sttSet` then `sttStatus`)
-          behaves like the real vault instead of a fixed answer. Starts
-          empty — no provider configured, matching a fresh install — so
-          `micAvailable()` resolves to the honest "no-key" reason.
+          behaves like the real vault instead of a fixed answer. `configured`
+          starts empty — no *cloud* provider configured, matching a fresh
+          install — but `whisper-local` needs none: it's `implemented` with
+          its model already `'ready'`, so `micAvailable()` resolves `true` out
+          of the box (Ad Hoc: the microphone must work with no API key) rather
+          than the pre-Ad-Hoc "no-key" reason this harness used to hand back.
+          A spec wanting the *disabled* mic photographs the one real way that
+          still happens now — the local engine's own native module missing,
+          with nothing else configured — by monkeypatching this method after
+          `goto`, the same way the TTS status shots do for `ttsStatus`.
         */
         sttStatus: async () => ({
           configured: [...sttConfigured],
           encryptionAvailable: true,
-          implemented: ['openai-whisper'],
+          implemented: ['whisper-local', 'openai-whisper'],
+          localModel: { state: 'ready' as const, reason: null, message: null },
         }),
         sttSet: async (req: { providerId: string; key: string }) => {
           if (req.key.trim().length === 0) {
