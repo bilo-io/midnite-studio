@@ -9,12 +9,16 @@
  * `@midnite/studio-git-engine` (both plain TypeScript) removes the problem at the
  * source and shrinks the asar to two files.
  *
- * Four things stay external:
- *   electron        provided by the runtime; bundling it is meaningless
- *   node-pty        a native module — a .node binary cannot be inlined
- *   dugite          locates its bundled git relative to its own __dirname, so it has
- *                   to remain a real directory on disk (see electron-builder.yml)
- *   better-sqlite3  a native module too (Phase 61 Theme C) — same reason as node-pty
+ * Five things stay external:
+ *   electron         provided by the runtime; bundling it is meaningless
+ *   node-pty         a native module — a .node binary cannot be inlined
+ *   dugite           locates its bundled git relative to its own __dirname, so it has
+ *                    to remain a real directory on disk (see electron-builder.yml)
+ *   better-sqlite3   a native module too (Phase 61 Theme C) — same reason as node-pty
+ *   sherpa-onnx-node a native module too (Phase 80 Theme C, the local voice engine) —
+ *                    it also `require()`s a per-platform sibling package
+ *                    (`sherpa-onnx-darwin-arm64`) by name at runtime, which esbuild
+ *                    cannot resolve statically either
  */
 import { build } from 'esbuild';
 import { rmSync } from 'node:fs';
@@ -52,7 +56,7 @@ const common = {
   */
   minify: true,
   keepNames: true,
-  external: ['electron', 'node-pty', 'dugite', 'better-sqlite3'],
+  external: ['electron', 'node-pty', 'dugite', 'better-sqlite3', 'sherpa-onnx-node'],
   logLevel: 'info',
 };
 

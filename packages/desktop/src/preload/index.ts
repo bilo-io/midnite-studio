@@ -585,6 +585,12 @@ const bridge: Pick<
     sttStatus: () => call(CHANNELS.companionSttStatus),
     sttSet: (req) => call(CHANNELS.companionSttSet, req),
     sttTest: (req) => call(CHANNELS.companionSttTest, req),
+    /*
+      Same pass-through as `transcribe` above, in the other direction: the
+      returned `Uint8Array` (a WAV clip) structured-clones straight through
+      `ipcRenderer.invoke` with no re-encoding.
+    */
+    ttsSynthesize: (req) => call(CHANNELS.companionTtsSynthesize, req),
   },
   windowChrome,
   windowRole,
