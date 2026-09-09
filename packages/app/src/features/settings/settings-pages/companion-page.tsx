@@ -429,9 +429,10 @@ export function CompanionPage() {
             <p className="font-medium text-foreground">What this still never does</p>
             <ul className="list-disc space-y-1 pl-4">
               <li>
-                No command outside the agent skills this app already knows — every write still
-                happens inside an agent session you can watch.
+                No git write except the same push, pull and commit the palette offers — and each
+                one asks first, hands-free or not.
               </li>
+              <li>No dialog is ever answered for you.</li>
               <li>No silent send: the companion speaks the command before it runs it.</li>
               <li>Nothing while the microphone is unconfigured — a hands-free run needs both switches.</li>
             </ul>

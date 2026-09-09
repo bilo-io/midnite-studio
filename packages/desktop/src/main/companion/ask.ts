@@ -11,6 +11,7 @@ import {
   type AgentDefinition,
   type CompanionAskReply,
   type CompanionSnapshot,
+  type CompanionVocabulary,
   type GitOpResult,
 } from '@midnite/studio-shared';
 
@@ -80,6 +81,13 @@ export type CompanionAskInput = {
    */
   personality?: string | undefined;
   aboutUser?: string | undefined;
+  /**
+   * Views, settings pages, commands (by tier) and skills the `'route'` prompt
+   * may name — Phase 81 Theme E. Absent for `'summarise'` (which never reads
+   * it) and for an older renderer or a test that skips it, in which case the
+   * prompt reads exactly as it did before this field existed.
+   */
+  vocabulary?: CompanionVocabulary | undefined;
 };
 
 export type CompanionAskDeps = {
@@ -147,6 +155,7 @@ export function buildAskPrompt(input: CompanionAskInput): string {
     COMPANION_COMMAND_IDS.join(', '),
     'as {"kind":"command","id":"<one of the above>","body":"<the rest of the request>"}.',
     'If it asks to change repository, use {"kind":"switchRepo","name":"<name>"}.',
+    ...(input.vocabulary ? routeVocabularyLines(input.vocabulary) : []),
     'If none of that fits, OMIT `intent` entirely — never guess an id that is not listed.',
     '',
     grounding,
@@ -156,6 +165,43 @@ export function buildAskPrompt(input: CompanionAskInput): string {
     '---',
     capHead(input.text, COMPANION_ASK_INPUT_CAP),
   ].join('\n');
+}
+
+/**
+ * The rest of the vocabulary the `'route'` prompt did not know before Phase 81
+ * — views, settings pages, commands (by tier) and skills, plus the intent
+ * shapes that name them. Gated on `input.vocabulary` being present rather than
+ * always emitted with empty lists: an absent vocabulary means the prompt has
+ * to read exactly as it did before this field existed (an older renderer, a
+ * test that skips it), and an empty-but-present one is not the same thing.
+ */
+function routeVocabularyLines(vocabulary: CompanionVocabulary): string[] {
+  return [
+    'It may also ask to go somewhere, run a palette command, confirm a pending',
+    'one, or ask what you can do — using only ids from these lists:',
+    '',
+    'Views, as `id — label (keywords)`:',
+    ...vocabulary.views.map((view) => `${view.id} — ${view.label} (${view.keywords})`),
+    '',
+    'Settings pages, as `settings:id — label`:',
+    ...vocabulary.settingsPages.map((page) => `settings:${page.id} — ${page.label}`),
+    '',
+    'Commands, as `id — label [tier]`:',
+    ...vocabulary.commands.map((cmd) => `${cmd.id} — ${cmd.label} [${cmd.access}]`),
+    '',
+    'Skills, as `id — label — hint`:',
+    ...vocabulary.skills.map((skill) => `${skill.id} — ${skill.label} — ${skill.hint}`),
+    ...(vocabulary.repos.length > 0
+      ? ['', `Open repositories: ${vocabulary.repos.join(', ')}.`]
+      : []),
+    '',
+    'Use {"kind":"navigate","view":"<a view id above>","page":"<a settings id above>",',
+    '"issue":<number>,"url":"<url>"} to go somewhere — include only the fields that apply,',
+    'and never both a view and a url.',
+    'Use {"kind":"run","id":"<a command id above>"} to run a palette command.',
+    'Use {"kind":"confirm"} for a bare confirmation of something already asked.',
+    'Use {"kind":"help"} if it asks what you can do.',
+  ];
 }
 
 /**

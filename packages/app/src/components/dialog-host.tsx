@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import { ConfirmDialog, type ConfirmRequest } from './confirm-dialog';
 import { ContextMenu, type MenuItem, type MenuPosition } from './context-menu';
@@ -46,6 +54,25 @@ export function useDialogs(): DialogApi {
   return api;
 }
 
+/*
+  Plain module state, mirrored beside the three `useState`s below rather than
+  read from them — Phase 81 Theme C's "the command's own dialogs survive
+  untouched" check (`handoff.ts`'s `runAndReport`) runs from *outside* React,
+  synchronously right after a `CommandEntry.run()` that may have opened one of
+  these (`closeSessionWithConfirm` calls `dialogs.confirm(...)` inline, with no
+  await in between). A React state read cannot serve that: it only reflects
+  what has been committed, and the whole point here is to see a call that
+  happened earlier in the same tick, before the next render.
+*/
+let menuOpen = false;
+let confirmOpen = false;
+let promptOpen = false;
+
+/** How many of the host's overlays are open right now — 0 to 3. */
+export function overlayDepth(): number {
+  return (menuOpen ? 1 : 0) + (confirmOpen ? 1 : 0) + (promptOpen ? 1 : 0);
+}
+
 export function DialogHost({ children }: { children: ReactNode }) {
   const [menu, setMenu] = useState<MenuState>(null);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
@@ -56,7 +83,35 @@ export function DialogHost({ children }: { children: ReactNode }) {
   // new confirm without also resetting when an async blast-radius count lands.
   const [confirmSeq, setConfirmSeq] = useState(0);
 
+  // The three mirrors are module state (see `overlayDepth` above), so a host
+  // that unmounts without closing everything — a test's `unmount()`, a route
+  // change in a harness that swaps the whole tree — must not leak an open flag
+  // into whatever mounts a `<DialogHost>` next.
+  useEffect(() => {
+    return () => {
+      menuOpen = false;
+      confirmOpen = false;
+      promptOpen = false;
+    };
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    menuOpen = false;
+    setMenu(null);
+  }, []);
+  const closeConfirm = useCallback(() => {
+    confirmOpen = false;
+    setConfirmRequest(null);
+  }, []);
+  const closePrompt = useCallback(() => {
+    promptOpen = false;
+    setPromptRequest(null);
+  }, []);
+
   const close = useCallback(() => {
+    menuOpen = false;
+    confirmOpen = false;
+    promptOpen = false;
     setMenu(null);
     setConfirmRequest(null);
     setPromptRequest(null);
@@ -65,16 +120,21 @@ export function DialogHost({ children }: { children: ReactNode }) {
   const api = useMemo<DialogApi>(
     () => ({
       openMenu: (event, items) => {
+        menuOpen = true;
         setMenu({ position: { x: event.clientX, y: event.clientY }, items });
       },
       confirm: (request) => {
         // Opening a confirm closes the menu that raised it — leaving both up
         // reads as two competing focus targets.
+        menuOpen = false;
+        confirmOpen = true;
         setMenu(null);
         setConfirmRequest(request);
         setConfirmSeq((n) => n + 1);
       },
       notify: ({ title, body, okLabel }) => {
+        menuOpen = false;
+        confirmOpen = true;
         setMenu(null);
         setConfirmSeq((n) => n + 1);
         setConfirmRequest({
@@ -86,7 +146,7 @@ export function DialogHost({ children }: { children: ReactNode }) {
           // and would put a "Checking what this affects…" line under a notice
           // that affects nothing.
           blastRadius: null,
-          onConfirm: () => setConfirmRequest(null),
+          onConfirm: () => closeConfirm(),
         });
       },
       setBlastRadius: (blastRadius, warnings) =>
@@ -94,19 +154,21 @@ export function DialogHost({ children }: { children: ReactNode }) {
           current ? { ...current, blastRadius, ...(warnings ? { warnings } : {}) } : current,
         ),
       prompt: (request) => {
+        menuOpen = false;
+        promptOpen = true;
         setMenu(null);
         setPromptRequest(request);
       },
       close,
     }),
-    [close],
+    [close, closeConfirm],
   );
 
   return (
     <DialogContext.Provider value={api}>
       {children}
       {menu ? (
-        <ContextMenu position={menu.position} items={menu.items} onClose={() => setMenu(null)} />
+        <ContextMenu position={menu.position} items={menu.items} onClose={closeMenu} />
       ) : null}
       {confirmRequest ? (
         <ConfirmDialog
@@ -115,10 +177,10 @@ export function DialogHost({ children }: { children: ReactNode }) {
             ...confirmRequest,
             onConfirm: () => {
               confirmRequest.onConfirm();
-              setConfirmRequest(null);
+              closeConfirm();
             },
           }}
-          onCancel={() => setConfirmRequest(null)}
+          onCancel={closeConfirm}
         />
       ) : null}
       {promptRequest ? (
@@ -127,10 +189,10 @@ export function DialogHost({ children }: { children: ReactNode }) {
             ...promptRequest,
             onConfirm: (value) => {
               promptRequest.onConfirm(value);
-              setPromptRequest(null);
+              closePrompt();
             },
           }}
-          onCancel={() => setPromptRequest(null)}
+          onCancel={closePrompt}
         />
       ) : null}
     </DialogContext.Provider>

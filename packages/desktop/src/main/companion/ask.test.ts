@@ -3,6 +3,7 @@ import {
   COMPANION_ASK_FALLBACK,
   emptyCompanionSnapshot,
   type AgentDefinition,
+  type CompanionVocabulary,
 } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -215,6 +216,122 @@ describe('buildAskPrompt', () => {
         expect(prompt).toContain("The companion's personality: Chatty and upbeat.");
         expect(prompt).toContain('About the user: Works late, hates long answers.');
       }
+    });
+  });
+
+  /**
+   * Phase 81 Theme E — the `route` prompt learns views, settings pages,
+   * commands (by tier) and skills from the vocabulary the renderer sends.
+   */
+  describe('the vocabulary', () => {
+    const vocabulary: CompanionVocabulary = {
+      views: [
+        { id: 'graph', label: 'Commit Graph', keywords: 'graph history commits' },
+        { id: 'database', label: 'Database Explorer', keywords: 'database db sql' },
+      ],
+      settingsPages: [
+        { id: 'companion', label: 'Companion' },
+        { id: 'mcp', label: 'MCP' },
+      ],
+      commands: [
+        { id: 'sync.push', label: 'Push', group: 'sync', access: 'confirm' },
+        { id: 'sync.fetch', label: 'Fetch', group: 'sync', access: 'direct' },
+      ],
+      skills: [
+        { id: 'execAdhoc', label: 'Ad Hoc Task', hint: 'A one-off task.' },
+        { id: 'gitReport', label: 'Git Report', hint: 'Activity report over a day/week/month.' },
+      ],
+      repos: ['midnite-studio', 'bilo-mono'],
+    };
+
+    it('reads exactly as it did before this field existed when the vocabulary is absent', () => {
+      const withNone = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null });
+      const withUndefined = buildAskPrompt({
+        kind: 'route',
+        text: 'x',
+        repoPath: null,
+        vocabulary: undefined,
+      });
+      expect(withUndefined).toBe(withNone);
+      expect(withNone).not.toContain('Views, as');
+    });
+
+    it('never touches the summarise prompt', () => {
+      const withNone = buildAskPrompt({ kind: 'summarise', text: 'x', repoPath: null });
+      const withVocab = buildAskPrompt({
+        kind: 'summarise',
+        text: 'x',
+        repoPath: null,
+        vocabulary,
+      });
+      expect(withVocab).toBe(withNone);
+    });
+
+    it('names every view id and every skill id exactly once', () => {
+      const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary });
+      for (const view of vocabulary.views) {
+        const needle = `${view.id} — ${view.label}`;
+        expect(prompt.split(needle).length - 1).toBe(1);
+      }
+      for (const skill of vocabulary.skills) {
+        const needle = `${skill.id} — ${skill.label}`;
+        expect(prompt.split(needle).length - 1).toBe(1);
+      }
+    });
+
+    it('names settings pages and commands with their tier, and the open repos', () => {
+      const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary });
+      expect(prompt).toContain('settings:companion — Companion');
+      expect(prompt).toContain('settings:mcp — MCP');
+      expect(prompt).toContain('sync.push — Push [confirm]');
+      expect(prompt).toContain('sync.fetch — Fetch [direct]');
+      expect(prompt).toContain('Open repositories: midnite-studio, bilo-mono.');
+    });
+
+    it('carries one example each of navigate/run/confirm/help, and the unchanged refusal line', () => {
+      const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary });
+      expect(prompt).toContain('{"kind":"navigate"');
+      expect(prompt).toContain('{"kind":"run","id":"<a command id above>"}');
+      expect(prompt).toContain('{"kind":"confirm"}');
+      expect(prompt).toContain('{"kind":"help"}');
+      // Verbatim — Theme A's own instruction, which now covers all five
+      // lists by context rather than by being reworded.
+      expect(prompt).toContain('never guess an id that is not listed');
+    });
+
+    it('never lists a never-tier command, because the vocabulary never carries one', () => {
+      const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary });
+      expect(prompt).not.toContain('companion.toggle');
+      expect(prompt).not.toContain('browser.clearData');
+      expect(prompt).not.toContain('view.graph');
+    });
+
+    it('stays under 6 KB even with a full vocabulary', () => {
+      const full: CompanionVocabulary = {
+        views: Array.from({ length: 20 }, (_, i) => ({
+          id: `view-${i}` as CompanionVocabulary['views'][number]['id'],
+          label: `View ${i}`,
+          keywords: `keyword-${i} alt-${i}`,
+        })),
+        settingsPages: Array.from({ length: 23 }, (_, i) => ({
+          id: `page-${i}` as CompanionVocabulary['settingsPages'][number]['id'],
+          label: `Page ${i}`,
+        })),
+        commands: Array.from({ length: 45 }, (_, i) => ({
+          id: `cmd.${i}`,
+          label: `Command ${i}`,
+          group: 'view',
+          access: i % 2 === 0 ? ('direct' as const) : ('confirm' as const),
+        })),
+        skills: Array.from({ length: 12 }, (_, i) => ({
+          id: `skill-${i}` as CompanionVocabulary['skills'][number]['id'],
+          label: `Skill ${i}`,
+          hint: `Does thing ${i}.`,
+        })),
+        repos: ['midnite-studio'],
+      };
+      const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary: full });
+      expect(prompt.length).toBeLessThan(6000);
     });
   });
 });
