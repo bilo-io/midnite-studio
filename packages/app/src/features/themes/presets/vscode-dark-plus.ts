@@ -31,6 +31,7 @@ export const vscodeDarkPlus = {
     background: '#1e1e1e',
     foreground: '#cccccc',
     cursor: '#cccccc',
+    cursorAccent: '#1e1e1e',
     selectionBackground: '#264f78',
     black: '#000000',
     red: '#cd3131',

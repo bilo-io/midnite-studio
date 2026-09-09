@@ -31,6 +31,7 @@ export const atomOneDark = {
     background: '#282c34',
     foreground: '#abb2bf',
     cursor: '#abb2bf',
+    cursorAccent: '#282c34',
     selectionBackground: '#3e4451',
     black: '#3f4451',
     red: '#e05561',

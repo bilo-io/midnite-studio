@@ -261,6 +261,26 @@ function PaletteAccordion() {
     [userPalettes],
   );
 
+  // Grouped by each palette's own `appearance` (not a fixed built-in/imported
+  // split) so an imported user palette sorts into the right group too.
+  const lightPalettes = useMemo(
+    () => allPalettes.filter((p) => p.appearance === 'light'),
+    [allPalettes],
+  );
+  const darkPalettes = useMemo(
+    () => allPalettes.filter((p) => p.appearance === 'dark'),
+    [allPalettes],
+  );
+
+  // Picking a palette pins the app's light/dark preference to that palette's
+  // own appearance — overriding `system`/`time` is deliberate (Decision:
+  // there is no such thing as a "system-following" palette once one is
+  // explicitly chosen).
+  const selectPalette = (palette: StudioPalette) => {
+    setActivePalette(palette.id);
+    setPreference(palette.appearance);
+  };
+
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -285,7 +305,7 @@ function PaletteAccordion() {
       const result = importVsCodeTheme(text);
       if (result.ok) {
         addUserPalette(result.palette);
-        setActivePalette(result.palette.id);
+        selectPalette(result.palette);
       } else {
         setImportError(result.reason);
       }
@@ -320,21 +340,43 @@ function PaletteAccordion() {
 
         <Field
           label="Palette"
-          hint="Retints app chrome, the terminal, the file editor and read-only code previews together."
+          hint="Retints app chrome, the terminal, the file editor and read-only code previews together. Picking one also switches Appearance below to match."
         >
-          <div
-            role="radiogroup"
-            aria-label="Palette"
-            className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-          >
-            {allPalettes.map((palette) => (
-              <PaletteCard
-                key={palette.id}
-                palette={palette}
-                selected={palette.id === activePaletteId}
-                onSelect={() => setActivePalette(palette.id)}
-              />
-            ))}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <p className="text-[11px] font-medium text-muted-foreground">Light</p>
+              <div
+                role="radiogroup"
+                aria-label="Light palettes"
+                className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+              >
+                {lightPalettes.map((palette) => (
+                  <PaletteCard
+                    key={palette.id}
+                    palette={palette}
+                    selected={palette.id === activePaletteId}
+                    onSelect={() => selectPalette(palette)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <p className="text-[11px] font-medium text-muted-foreground">Dark</p>
+              <div
+                role="radiogroup"
+                aria-label="Dark palettes"
+                className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+              >
+                {darkPalettes.map((palette) => (
+                  <PaletteCard
+                    key={palette.id}
+                    palette={palette}
+                    selected={palette.id === activePaletteId}
+                    onSelect={() => selectPalette(palette)}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </Field>
 
