@@ -9,6 +9,7 @@ import { LuMic, LuMicOff, LuSendHorizontal } from 'react-icons/lu';
 
 import { GRADIENT_FIELD_CLASSES } from '../../components/gradient-field';
 import { Tooltip } from '../../components/tooltip';
+import { useCompanionStore } from '../../store/companion-store';
 import { companionPorts, setCompanionPorts } from './companion-ports';
 
 /** How tall the textarea may grow before it starts scrolling instead. */
@@ -96,6 +97,22 @@ export function CompanionInputBar({
     companionPorts().submit(text);
   };
 
+  /**
+   * Empty Return confirms (Phase 81 Theme C) — but only while a `confirm`-tier
+   * command is actually waiting, and only from the keyboard: the Send button
+   * stays governed by `canSend` below (disabled, with the "type something
+   * first" reason on hover), so a click there still does nothing on an empty
+   * field. `useCompanionStore.getState()` rather than a subscription: this
+   * only matters at the instant Return is pressed, and a component that
+   * re-rendered on every `pendingAction` tick for a check made once per
+   * keypress would be trading a read for nothing.
+   */
+  const confirmPending = (): boolean => {
+    if (disabled || !useCompanionStore.getState().pendingAction) return false;
+    companionPorts().submit('confirm');
+    return true;
+  };
+
   const onKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Escape') {
       /*
@@ -113,6 +130,10 @@ export function CompanionInputBar({
     }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
+      if (value.trim().length === 0) {
+        confirmPending();
+        return;
+      }
       send();
       return;
     }
