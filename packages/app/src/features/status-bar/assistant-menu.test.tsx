@@ -27,7 +27,16 @@ beforeEach(() => {
   // `quickAccessOpen` is a real, shared store field now that this component
   // renders `QuickAccessMenu` off it rather than its own local `open` state
   // — reset explicitly, or a prior test's click leaks into this one.
-  useUiStore.setState({ fabPanelOpen: false, activeFabTab: 'innovate', quickAccessOpen: false });
+  useUiStore.setState({
+    fabPanelOpen: false,
+    activeFabTab: 'innovate',
+    quickAccessOpen: false,
+    companionPanelOpen: false,
+    companionEnabled: false,
+    companionDetached: false,
+    fabDetached: false,
+    lastOpenedPanel: null,
+  });
 });
 
 afterEach(() => {
@@ -94,5 +103,76 @@ describe('AssistantMenu', () => {
     render(<AssistantMenu />);
     expect(trigger().className).not.toContain('loop-run-glow');
     expect(screen.queryByTestId('fab-loop-halo')).toBeNull();
+  });
+
+  /**
+   * Phase 79's Companion drives the identical morph the Loops panel already
+   * did — the rest of this describe block is Loops-only coverage; this one
+   * is the Companion's.
+   */
+  describe('the Companion panel', () => {
+    it('wears the FAB look and closes the panel when clicked', () => {
+      useUiStore.setState({ companionPanelOpen: true, companionEnabled: true });
+      render(<AssistantMenu />);
+      const button = trigger();
+      expect(button.getAttribute('aria-label')).toBe('Close the Companion');
+
+      fireEvent.click(button);
+      expect(useUiStore.getState().companionPanelOpen).toBe(false);
+      // Never the Loops flag — this click is the Companion's own close.
+      expect(useUiStore.getState().fabPanelOpen).toBe(false);
+    });
+
+    it('is suppressed while detached — a detached panel is not showing here', () => {
+      useUiStore.setState({
+        companionPanelOpen: true,
+        companionEnabled: true,
+        companionDetached: true,
+      });
+      render(<AssistantMenu />);
+      expect(trigger().getAttribute('aria-label')).toBe('Midnite Assistant');
+    });
+
+    it('is suppressed while the companion is disabled', () => {
+      useUiStore.setState({ companionPanelOpen: true, companionEnabled: false });
+      render(<AssistantMenu />);
+      expect(trigger().getAttribute('aria-label')).toBe('Midnite Assistant');
+    });
+
+    it('acts on whichever panel was opened most recently when both are open', () => {
+      useUiStore.setState({
+        fabPanelOpen: true,
+        companionPanelOpen: true,
+        companionEnabled: true,
+        lastOpenedPanel: 'companion',
+      });
+      render(<AssistantMenu />);
+      expect(trigger().getAttribute('aria-label')).toBe('Close the Companion');
+      fireEvent.click(trigger());
+      expect(useUiStore.getState().companionPanelOpen).toBe(false);
+      // The Loops panel is untouched by a click that closed the Companion.
+      expect(useUiStore.getState().fabPanelOpen).toBe(true);
+    });
+
+    it('falls back to Loops when both are open and neither was recorded as most recent', () => {
+      useUiStore.setState({
+        fabPanelOpen: true,
+        companionPanelOpen: true,
+        companionEnabled: true,
+        lastOpenedPanel: null,
+      });
+      render(<AssistantMenu />);
+      expect(trigger().getAttribute('aria-label')).toBe('Close quick access panel');
+    });
+
+    it('acts on Loops when only Loops is open, regardless of lastOpenedPanel', () => {
+      useUiStore.setState({
+        fabPanelOpen: true,
+        companionPanelOpen: false,
+        lastOpenedPanel: 'companion',
+      });
+      render(<AssistantMenu />);
+      expect(trigger().getAttribute('aria-label')).toBe('Close quick access panel');
+    });
   });
 });
