@@ -10435,3 +10435,24 @@ recorded utterance ("Open the pull request and check the CI status before mergin
 correctly, both before and after the rebase onto #301.
 
 [PR #302](https://github.com/bilo-io/midnite-studio/pull/302).
+
+### Phase 82 Theme E — Split the gate by platform (PR #321, 2026-09-10)
+
+`ci.yml`'s single `gate` job (macos-14, 10× billing) became `gate-node` (ubuntu-24.04:
+shared, app, website, db-engine) and `gate-native` (macos-14: git-engine, desktop — the two
+that need dugite's bundled git and node-pty). `scripts/gate-projects-check.mjs` + its own test
+guard the split: a `packages/*` directory claimed by neither lane, by both, or a list entry
+naming a directory that no longer exists all fail the build.
+
+**The measured result contradicted the phase's own prediction, and that is the useful part.**
+The doc said 6m02s → ~3m30s. Real: 6m02s → 5m41s. `gate-node` ran 341s with a **261s test
+step against the undivided gate's 264s** — ubuntu's slower cores handed back almost exactly
+what removing two packages saved. `gate-native` came in at 193s. The split's actual win is
+billing: ~60 billed-minute-equivalents down to ~38 (≈37%), and future growth in the four
+node-portable packages compounding at 1× rather than 10×.
+
+That left `app:test` — ~180s of `gate-node`'s 261s — as the gate's real floor, which Theme C
+is about to make worse by adding ~400 tests to it. **Theme H was added to this phase in
+response**, to shard the unit suite the way Phase 56 sharded Playwright (`vitest --shard`
+exists on the pinned 3.2.7). Recorded per the Phase 56 Theme C/D precedent for measured
+non-adoptions.
