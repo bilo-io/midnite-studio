@@ -128,7 +128,8 @@ files — so the A share below is if anything understated; `diagnostics`, `files
 | Playwright functional | 667 | **~245** (B + C only) |
 | Visual baselines | 0 | ~100, < 3 MB |
 | e2e wall clock | 8m31s | **~3m30s** |
-| `gate` wall clock | 6m02s @ 10× | **~3m30s**, mostly @ 1× |
+| `gate` wall clock | 6m02s @ 10× | **~3m30s** (needs Theme H), mostly @ 1× |
+| `gate` billed-minute-equiv | ~60 | **~38** (measured, Theme E) |
 | Total CI wall | **8m31s** | **~4m** |
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
@@ -303,6 +304,39 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       person does not have to re-derive them.
 - [ ] Confirm total CI wall clock against the ~4 min target, from a real run on `main`, against
       the 8m31s baseline recorded above.
+
+### H — Shard the unit suite too (S)
+
+Theme E's own CI run disproved this phase's original assumption that splitting the gate by
+platform would halve its wall clock. It did not. `gate-node` came back at **341s with a 261s
+test step** — against the single `gate`'s 264s — because ubuntu's slower cores cancelled out
+the smaller workload almost exactly. The split's real win is billing (~60 → ~38
+billed-minute-equivalents) and headroom at 1×, not time. See Theme E's measurements.
+
+That leaves `app:test` as the floor: roughly 180s of `gate-node`'s 261s, on a 2-core runner,
+for 3,701 tests that take 66s on a 12-core laptop. **Theme C makes it worse, not better** — it
+adds ~400 tests to exactly that suite. Without this theme, the pyramid work moves cost from the
+e2e lane into the gate lane and the ~4 min total stays out of reach.
+
+`vitest --shard <index>/<count>` exists (confirmed on vitest 3.2.7, the pinned version), so the
+fix is the same one Phase 56 applied to Playwright.
+
+- [ ] Measure `app:test` in isolation on an `ubuntu-24.04` runner to confirm it is the dominant
+      term in `gate-node`'s 261s step, rather than inferring it from the local per-package
+      numbers Theme E recorded under contention.
+- [ ] Shard `app:test` in [`ci.yml`](../../../.github/workflows/ci.yml) with
+      `vitest --shard=${{ matrix.shard }}/N`, choosing N from that measurement rather than
+      copying e2e's 8 — the fixed ~60s setup per shard is the same tax here, and this suite is
+      far cheaper per test.
+- [ ] Keep the other node-portable packages (`shared`, `db-engine`, `website` — ~80s combined)
+      unsharded in a single job; sharding them would be all setup and no work.
+- [ ] Re-run [`scripts/gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs)
+      (Theme E's drift guard) against the new job shape so a package still cannot belong to
+      neither lane.
+- [ ] Re-measure after Theme C has landed its ~400 new unit tests, and record the number here —
+      this theme's whole justification is that the suite is about to grow.
+- [ ] Confirm `moon run :typecheck :lint :test` locally is untouched by the change; sharding is
+      a CI concern, and the local command must stay the one `CLAUDE.md` advertises.
 
 ## Files this phase touches
 

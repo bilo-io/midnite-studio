@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | ◻ TODO | — | 0/59 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
+| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | ◻ TODO | — | 0/65 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 9/53 | `██░░░░░░░░` | 17% | B C D E | F |
 | [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 24/31 | `████████░░` | 77% | — | — |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | ✅ DONE | — | 57/67 | `█████████░` | 85% | — | — |
@@ -199,6 +199,7 @@ Target: ~4 min total CI wall clock, down from 8m31s.*
 - ◻ **E** — Split the gate: measure per-package first, then `gate-node` (ubuntu, 1×) and `gate-native` (macOS, 10×, git-engine + desktop only)
 - ◻ **F** — Write the convention down, and ratchet it: `docs/TESTING.md`, the three-file CLAUDE/AGENTS/GEMINI sync, `scripts/e2e-budget.mjs`, `e2e/**` added to `tsconfig.json`
 - ◻ **G** — Re-measure and re-tune the shards: pick shard count from data once the suite shrinks, record the numbers
+- ◻ **H** — shard `app:test` in CI; Theme E measured the platform split at 261s of 264s, so the unit suite is the gate's real floor
 
 ### [Phase 81 — Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md)
 
