@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   cancelQueuedSynthesis,
@@ -41,9 +41,12 @@ class FakeWorker implements TtsWorkerHandle {
     this.sent.push(message);
   }
 
-  on(event: 'message' | 'exit', listener: (arg: never) => void): void {
-    if (event === 'message') this.messageListener = listener;
-    else this.exitListener = listener;
+  on(
+    event: 'message' | 'exit',
+    listener: ((message: unknown) => void) | ((code: number) => void),
+  ): void {
+    if (event === 'message') this.messageListener = listener as (message: unknown) => void;
+    else this.exitListener = listener as (code: number) => void;
   }
 
   kill(): void {
