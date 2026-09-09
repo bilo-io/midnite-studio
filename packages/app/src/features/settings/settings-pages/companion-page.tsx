@@ -32,7 +32,7 @@ import { refreshMicAvailability } from '../../companion/voice-ports';
 import { IconButton } from '../../../components/icon-button';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
-import { Choice, Field } from './controls';
+import { Choice, Field, TextArea } from './controls';
 
 /**
  * Settings ▸ Companion (Phase 79 Theme H) — the page the five `companion*`
@@ -72,6 +72,10 @@ export function CompanionPage() {
   const setCompanionHonorifics = useUiStore((s) => s.setCompanionHonorifics);
   const companionNames = useUiStore((s) => s.companionNames);
   const setCompanionNames = useUiStore((s) => s.setCompanionNames);
+  const companionPersonality = useUiStore((s) => s.companionPersonality);
+  const setCompanionPersonality = useUiStore((s) => s.setCompanionPersonality);
+  const companionAboutUser = useUiStore((s) => s.companionAboutUser);
+  const setCompanionAboutUser = useUiStore((s) => s.setCompanionAboutUser);
   const companionVoices = useUiStore((s) => s.companionVoices);
   const setCompanionVoice = useUiStore((s) => s.setCompanionVoice);
   const companionSpeakAloud = useUiStore((s) => s.companionSpeakAloud);
@@ -469,6 +473,36 @@ export function CompanionPage() {
             pillsTestId="companion-honorifics-pills"
             inputTestId="companion-honorifics-input"
           />
+
+          <Field
+            label="Personality"
+            hint="Free-form notes on how the companion should behave — its tone, its quirks. Optional; left blank, its prompts read exactly as they do today."
+          >
+            <TextArea
+              label="Personality"
+              value={companionPersonality}
+              onChange={setCompanionPersonality}
+              disabled={!companionEnabled}
+              placeholder="Dry, terse, never uses an exclamation point…"
+              rows={4}
+              gradient
+            />
+          </Field>
+
+          <Field
+            label="About me"
+            hint="Free-form notes about you, so the companion has context on who it's talking to. Optional; left blank, its prompts read exactly as they do today."
+          >
+            <TextArea
+              label="About me"
+              value={companionAboutUser}
+              onChange={setCompanionAboutUser}
+              disabled={!companionEnabled}
+              placeholder="What you're working on, how you like things explained…"
+              rows={4}
+              gradient
+            />
+          </Field>
 
           <Field
             label="Offer music on a long wait"

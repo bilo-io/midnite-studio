@@ -145,6 +145,78 @@ describe('buildAskPrompt', () => {
     expect(prompt).toContain('THE-CONCLUSION');
     expect(prompt.length).toBeLessThan(10_000);
   });
+
+  /**
+   * Settings ▸ Companion ▸ Personality's two free-text fields (Ad Hoc). The
+   * empty case is the default and the one most likely to regress — a
+   * dangling "About the user:" header with nothing under it — so it gets its
+   * own assertion on both `kind`s, not just an absence check on one.
+   */
+  describe('the personality/about-me fields', () => {
+    it('adds neither line when both are unset — the prompt reads exactly as it did before', () => {
+      const withNeither = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null });
+      const withUndefined = buildAskPrompt({
+        kind: 'route',
+        text: 'x',
+        repoPath: null,
+        personality: undefined,
+        aboutUser: undefined,
+      });
+      expect(withUndefined).toBe(withNeither);
+      expect(withNeither).not.toContain('personality');
+      expect(withNeither).not.toContain('About the user');
+    });
+
+    it('adds neither line when both are empty strings — same as unset, not a blank header', () => {
+      const prompt = buildAskPrompt({
+        kind: 'summarise',
+        text: 'x',
+        repoPath: null,
+        personality: '',
+        aboutUser: '   ',
+      });
+      expect(prompt).not.toContain("companion's personality");
+      expect(prompt).not.toContain('About the user:');
+    });
+
+    it('adds only the personality line when only personality is set', () => {
+      const prompt = buildAskPrompt({
+        kind: 'route',
+        text: 'x',
+        repoPath: null,
+        personality: 'Dry, terse, never uses an exclamation point.',
+      });
+      expect(prompt).toContain(
+        "The companion's personality: Dry, terse, never uses an exclamation point.",
+      );
+      expect(prompt).not.toContain('About the user:');
+    });
+
+    it('adds only the about-user line when only aboutUser is set', () => {
+      const prompt = buildAskPrompt({
+        kind: 'summarise',
+        text: 'x',
+        repoPath: null,
+        aboutUser: 'A backend engineer who prefers terse answers.',
+      });
+      expect(prompt).toContain('About the user: A backend engineer who prefers terse answers.');
+      expect(prompt).not.toContain("companion's personality");
+    });
+
+    it('adds both lines, trimmed, when both are set — on both kinds', () => {
+      for (const kind of ['route', 'summarise'] as const) {
+        const prompt = buildAskPrompt({
+          kind,
+          text: 'x',
+          repoPath: null,
+          personality: '  Chatty and upbeat.  ',
+          aboutUser: '  Works late, hates long answers.  ',
+        });
+        expect(prompt).toContain("The companion's personality: Chatty and upbeat.");
+        expect(prompt).toContain('About the user: Works late, hates long answers.');
+      }
+    });
+  });
 });
 
 describe('askCompanion', () => {

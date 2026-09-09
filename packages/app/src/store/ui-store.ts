@@ -1296,6 +1296,27 @@ export type UiState = {
   companionNames: string[];
   setCompanionNames: (names: string[]) => void;
   /**
+   * Free text describing how the companion should behave — its tone, its
+   * quirks (Ad Hoc: Settings ▸ Companion ▸ Personality's "About the
+   * companion" field, alongside the `companionNames`/`companionHonorifics`
+   * pill pairs it complements rather than replaces). `''` by default, and
+   * empty means "not set" — `ask.ts`'s system prompts must read exactly as
+   * they do today when this is empty, never a dangling header. Validated and
+   * trimmed on save against `CompanionPersonalitySchema`
+   * (`shared/src/companion.ts`).
+   */
+  companionPersonality: string;
+  setCompanionPersonality: (personality: string) => void;
+  /**
+   * Free text the user writes about themselves, so the companion's `ask.ts`
+   * prompts have context on who they're talking to (Ad Hoc: Settings ▸
+   * Companion ▸ Personality's "About me" field). Same defaults and
+   * validation posture as {@link companionPersonality} —
+   * `CompanionAboutUserSchema`.
+   */
+  companionAboutUser: string;
+  setCompanionAboutUser: (aboutUser: string) => void;
+  /**
    * The chosen voice, per engine (Ad Hoc: every voice mode gets its own
    * memory, so switching engines never silently drops back to a default).
    * `system` is a `speechSynthesis` voice URI, or null for the platform
@@ -1592,6 +1613,8 @@ export type PersistedUi = Pick<
   | 'companionHandsFree'
   | 'companionHonorifics'
   | 'companionNames'
+  | 'companionPersonality'
+  | 'companionAboutUser'
   | 'companionVoices'
   | 'companionSpeakAloud'
   | 'companionMusicOffer'
@@ -1741,6 +1764,10 @@ export const useUiStore = create<UiState>()(
       // install's behavior doesn't change (Phase 80 Theme D, Finding 5).
       companionNames: ['Companion'],
       setCompanionNames: (companionNames) => set({ companionNames }),
+      companionPersonality: '',
+      setCompanionPersonality: (companionPersonality) => set({ companionPersonality }),
+      companionAboutUser: '',
+      setCompanionAboutUser: (companionAboutUser) => set({ companionAboutUser }),
       companionVoices: { system: null, local: null },
       setCompanionVoice: (engine, voiceId) =>
         set((state) => ({ companionVoices: { ...state.companionVoices, [engine]: voiceId } })),
@@ -2188,7 +2215,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 16,
+      version: 17,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2274,6 +2301,8 @@ export const useUiStore = create<UiState>()(
         companionHandsFree: state.companionHandsFree,
         companionHonorifics: state.companionHonorifics,
         companionNames: state.companionNames,
+        companionPersonality: state.companionPersonality,
+        companionAboutUser: state.companionAboutUser,
         companionVoices: state.companionVoices,
         companionSpeakAloud: state.companionSpeakAloud,
         companionMusicOffer: state.companionMusicOffer,
@@ -2331,6 +2360,10 @@ export const useUiStore = create<UiState>()(
        * becomes `companionVoices.system`; `companionVoices.local` starts
        * unset (`null`), same as a fresh install, since there was no local
        * voice selection before this version to carry forward.
+       * v16 → v17 (Ad Hoc): seed `companionPersonality` and
+       * `companionAboutUser` `''` — a plain seed, not a migration off some
+       * prior shape: neither field existed in any earlier version, so a
+       * fresh install and a pre-v17 blob land on the identical default.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -2361,6 +2394,8 @@ export const useUiStore = create<UiState>()(
           companionHonorific?: string;
           companionHonorifics?: string[];
           companionNames?: string[];
+          companionPersonality?: string;
+          companionAboutUser?: string;
           /** Pre-v16 shape, read only to migrate forward into `companionVoices.system`. */
           companionVoice?: string | null;
           companionVoices?: CompanionVoiceSelection;
@@ -2438,6 +2473,10 @@ export const useUiStore = create<UiState>()(
           const honorific = state.companionHonorific ?? '';
           state.companionHonorifics = honorific.trim() === '' ? [] : [honorific];
           state.companionVoices = { system: state.companionVoice ?? null, local: null };
+        }
+        if (version < 17) {
+          state.companionPersonality = '';
+          state.companionAboutUser = '';
         }
         return state as PersistedUi;
       },
