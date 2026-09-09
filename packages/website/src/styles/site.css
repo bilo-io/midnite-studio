@@ -802,10 +802,24 @@ html[data-page-hidden='true'] .ws-rainbow-text {
     item's cross size is `auto`), and `1em` ties it to `.ws-agent-caption`'s
     own font-size above — the same one the name inherits — rather than to a
     second pixel constant that could drift out of step with it.
+
+    **`align-self: auto` is the third, and it is what actually lines the
+    caret up with the name rather than merely shrinking it.** A no-op
+    `stretch` still falls back to `flex-start` per spec — the caret pinned to
+    the *row's* top edge while the name, a plain flex item with no `align-
+    self` of its own, followed the container's `items-baseline`
+    (`agent-marquee.tsx`) and sat on its own text baseline instead. The two
+    references disagreed by however far the row's glow padding pushed the
+    top edge above the baseline, which read as a caret floating above and to
+    the right of the name rather than sitting after it. `auto` drops the
+    component's own `self-stretch` for this one context and lets the caret
+    inherit `items-baseline` like the name does, so both derive their
+    position from the same text line rather than from two different boxes.
   */
   .ws-agent-caption .ws-caret {
     background-color: var(--ws-agent-color);
     height: 1em;
+    align-self: auto;
   }
 }
 
@@ -841,6 +855,19 @@ html[data-page-hidden='true'] .ws-rainbow-text {
   .ws-graph-write {
     stroke-dasharray: 1;
     animation: ws-graph-write var(--ws-graph-step) var(--ws-ease) infinite;
+  }
+
+  /*
+    The write head/pulse/highlight's colour, stepping through every commit's
+    own lane in lockstep with `.ws-graph-head`/`.ws-graph-write` above. The
+    `@keyframes` rule itself is generated from `COMMITS` and injected by the
+    component (`ARRIVAL_TINT_KEYFRAMES` in `showcase.tsx`) — it is data, not
+    something this file can know in advance — so this utility only supplies
+    the timing: one full pass of the loop, jumping straight to each commit's
+    colour the instant its slice starts rather than blending toward it.
+  */
+  .ws-graph-arrival-tint {
+    animation: ws-graph-arrival-tint var(--ws-graph-loop) steps(1, jump-start) infinite;
   }
 }
 
@@ -1413,6 +1440,7 @@ html[data-page-hidden='true'] .ws-rainbow-text {
 html[data-page-hidden='true'] .ws-graph-scroll,
 html[data-page-hidden='true'] .ws-graph-head,
 html[data-page-hidden='true'] .ws-graph-write,
+html[data-page-hidden='true'] .ws-graph-arrival-tint,
 html[data-page-hidden='true'] .ws-svg-neon,
 html[data-page-hidden='true'] .ws-kanban-card,
 html[data-page-hidden='true'] .ws-kanban-card *,
