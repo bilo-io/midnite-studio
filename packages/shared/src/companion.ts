@@ -1702,12 +1702,24 @@ export type CompanionAccess = 'direct' | 'confirm' | 'never';
 /**
  * The `AgentCommandId`s the companion is allowed to start.
  *
- * **A subset, deliberately — ten of the roster's twenty-one.** Left out: every
- * `loop*` id (a `/loop` runs unattended on a timer, which is not a thing to
- * start from a misheard sentence) and both release ops (`releasePrep` writes a
- * branch, `releaseComplete` is irreversible by design). The phase's own
- * guardrail is that every write goes through an agent session the user can
- * see; this list is where that stops being a sentence and starts being a type.
+ * **A subset, deliberately — twelve of the roster's twenty-two.** Left out:
+ * every `loop*` id (a `/loop` runs unattended on a timer, which is not a thing
+ * to start from a misheard sentence) and `releaseComplete` (it tags and
+ * pushes — irreversible by design). `releasePrep` **joins** this list —
+ * Phase 79's original exclusion reason ("writes a branch") applies equally to
+ * `execAdhoc`, which was always in; the property that actually separates
+ * `releaseComplete` is irreversibility, not branch-writing, and `releasePrep`
+ * itself stops "before anything irreversible" by its own SKILL.md. It carries
+ * one extra guardrail `COMPANION_NEVER_AUTOSEND` gives it below: hands-free
+ * never sends its Return. `triage` also joins — it is read-only (Phase 81
+ * Finding 7) and was previously the one `midnite-` skill with no id at all.
+ * `midnite-setup` stays out, and for a different reason than either of those:
+ * it bootstraps a *different* repository through ~10 interactive questions
+ * and has no skill string to type — Phase 49 gave it a dialog, not an
+ * `AgentCommandId`, so there is nothing here for the companion to name.
+ * The phase's own guardrail is that every write goes through an agent session
+ * the user can see; this list is where that stops being a sentence and starts
+ * being a type.
  *
  * **Declared here rather than imported.** The canonical `AgentCommandId` union
  * lives in `packages/app/src/store/ui-store.ts`, and `shared` may not import
@@ -1727,8 +1739,24 @@ export const COMPANION_COMMAND_IDS = [
   'prFeedback',
   'gitReport',
   'gitCleanup',
+  'triage',
+  'releasePrep',
 ] as const;
 export type CompanionCommandId = (typeof COMPANION_COMMAND_IDS)[number];
+
+/**
+ * `CompanionCommandId`s whose typed-not-sent Return is never the companion's
+ * to press, even when hands-free and a voice-input provider would otherwise
+ * allow it (Phase 81 Theme D).
+ *
+ * `releasePrep` is the one skill in {@link COMPANION_COMMAND_IDS} that writes
+ * a release branch — every other member is either read-only or an ordinary
+ * task the user already reviews via the agent's own scrollback. `startCommand`
+ * (`features/companion/handoff.ts`) checks this before honouring
+ * `autoSendAllowed()`, and says so when it suppressed a send the user's
+ * settings would otherwise have allowed.
+ */
+export const COMPANION_NEVER_AUTOSEND: readonly CompanionCommandId[] = ['releasePrep'];
 
 /**
  * What a person actually says, per command.
@@ -1755,6 +1783,8 @@ export const COMPANION_VERBS: Readonly<Record<CompanionCommandId, readonly strin
   prFeedback: ['pr feedback', 'address feedback', 'review comments', 'pr comments'],
   gitReport: ['git report', 'activity report', 'what have i done', 'what did i do'],
   gitCleanup: ['git cleanup', 'clean up branches', 'tidy the branches', 'prune worktrees'],
+  triage: ['triage the board', "what's open", 'triage'],
+  releasePrep: ['release prep', 'prepare a release', 'prep a release', 'cut a release'],
 };
 
 /** "anyway" and its neighbours — Decision 10's override token. */
