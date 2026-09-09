@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
 import {
+  CompanionAboutUserSchema,
   CompanionAskReplySchema,
   CompanionLocalVoiceIdSchema,
+  CompanionPersonalitySchema,
   CompanionSnapshotSchema,
   SttProviderIdSchema,
 } from '../companion';
@@ -2690,6 +2692,13 @@ export const CompanionDigestRequest = z.object({
  * `primaryAgent` is a *renderer* preference (`ui-store.ts`), which main has no
  * copy of; an absent or unrunnable id falls back to the first roster entry
  * with a known print mode, and to a `{ok:false}` envelope when there is none.
+ *
+ * `personality`/`aboutUser` are Settings ▸ Companion ▸ Personality's two
+ * free-text fields (Ad Hoc), the same reason `agentId` travels here rather
+ * than being read in main: both are *renderer* preferences (`ui-store.ts`).
+ * Optional and, via their schemas, already trimmed and capped at the IPC
+ * boundary — `buildAskPrompt` (`main/companion/ask.ts`) still treats an empty
+ * or absent value as "not set" rather than assuming a validated caller.
  */
 export const CompanionAskRequest = z.object({
   kind: z.enum(['route', 'summarise']),
@@ -2698,6 +2707,8 @@ export const CompanionAskRequest = z.object({
   repoPath: z.string().min(1).nullable(),
   agentId: z.string().min(1).optional(),
   snapshot: CompanionSnapshotSchema.nullable().optional(),
+  personality: CompanionPersonalitySchema.optional(),
+  aboutUser: CompanionAboutUserSchema.optional(),
 });
 
 /**

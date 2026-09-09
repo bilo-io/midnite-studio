@@ -74,6 +74,8 @@ export function registerCompanionHandlers(): void {
         repoPath: req.repoPath,
         agentId: req.agentId,
         snapshot: req.snapshot,
+        personality: req.personality,
+        aboutUser: req.aboutUser,
       }),
     (issue) => failure(issue),
   );

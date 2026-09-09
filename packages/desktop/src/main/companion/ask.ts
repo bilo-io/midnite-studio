@@ -72,6 +72,14 @@ export type CompanionAskInput = {
   repoPath: string | null;
   agentId?: string | undefined;
   snapshot?: CompanionSnapshot | null | undefined;
+  /**
+   * Settings ▸ Companion ▸ Personality's two free-text fields (Ad Hoc),
+   * layered onto {@link buildAskPrompt}'s system prompt as optional sections.
+   * Both undefined/empty by default — see that function's own doc for why
+   * an unset value must not leave a dangling header behind.
+   */
+  personality?: string | undefined;
+  aboutUser?: string | undefined;
 };
 
 export type CompanionAskDeps = {
@@ -104,6 +112,14 @@ export function buildAskPrompt(input: CompanionAskInput): string {
       ? 'No repository is open.'
       : `Repository state as JSON:\n${JSON.stringify(input.snapshot)}`;
 
+  // `personaBlock`: `[]` when neither field is set, so both prompts below
+  // read EXACTLY as they did before this pair of fields existed — the
+  // default state, and the one most likely to regress into a dangling
+  // "About the user:" header with nothing under it. Non-empty, it slots in
+  // as its own blank-line-delimited paragraph, same shape `grounding` already
+  // gets.
+  const personaBlock = personaLines(input);
+
   if (input.kind === 'summarise') {
     return [
       'You are summarising a coding agent\'s last answer so it can be read aloud.',
@@ -112,6 +128,7 @@ export function buildAskPrompt(input: CompanionAskInput): string {
       'it is going through a speech synthesiser. Say what the agent did and whether it worked.',
       '',
       grounding,
+      ...(personaBlock.length > 0 ? ['', ...personaBlock] : []),
       '',
       "The agent's answer follows.",
       '---',
@@ -133,11 +150,28 @@ export function buildAskPrompt(input: CompanionAskInput): string {
     'If none of that fits, OMIT `intent` entirely — never guess an id that is not listed.',
     '',
     grounding,
+    ...(personaBlock.length > 0 ? ['', ...personaBlock] : []),
     '',
     'The sentence follows.',
     '---',
     capHead(input.text, COMPANION_ASK_INPUT_CAP),
   ].join('\n');
+}
+
+/**
+ * `input.personality`/`input.aboutUser` → the lines to splice into the
+ * prompt, or `[]` when both are unset. Trimmed again here rather than
+ * trusted pre-trimmed: `CompanionAskInput` is also built directly in tests
+ * and by any future caller that skips the IPC boundary where
+ * `CompanionPersonalitySchema`/`CompanionAboutUserSchema` already trim.
+ */
+function personaLines(input: CompanionAskInput): string[] {
+  const lines: string[] = [];
+  const personality = input.personality?.trim();
+  if (personality) lines.push(`The companion's personality: ${personality}`);
+  const aboutUser = input.aboutUser?.trim();
+  if (aboutUser) lines.push(`About the user: ${aboutUser}`);
+  return lines;
 }
 
 /** Keep the tail — an agent's conclusion is at the end of its answer, not the start. */
