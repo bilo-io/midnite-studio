@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
  * Phase 12 Theme C + F: the ref chip as a control, and the row polish around it.

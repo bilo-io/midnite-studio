@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
+import { fixtures } from '../test-support/fixtures';
+import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
  * The preview pane becomes an editor (Phase 24 Theme D): Monaco (Phase 64

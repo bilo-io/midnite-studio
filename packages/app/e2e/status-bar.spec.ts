@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import { fixtures } from '../test-support/fixtures';
+import { installMockBridge } from '../test-support/mock-bridge';
 
 /**
  * Narrows the window from `from` down toward `to` in `step`-px strides,

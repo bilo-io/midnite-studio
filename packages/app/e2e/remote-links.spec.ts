@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { fixtures } from '../test-support/fixtures';
+import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
  * The forge link on a remote group, driven through the real sidebar.

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
+import { fixtures } from '../test-support/fixtures';
+import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
  * The Workspace Optimizer (Phase 59 Themes A, B, C, E — Theme D's Memory tab

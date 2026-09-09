@@ -1,7 +1,7 @@
 import { type Locator, type Page, type Route } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
+import { fixtures } from '../test-support/fixtures';
+import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
  * Shared fixture constants and helpers for the screenshot (shots) e2e suite.

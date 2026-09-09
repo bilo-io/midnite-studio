@@ -1,7 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import { fixtures } from '../test-support/fixtures';
+import { installMockBridge } from '../test-support/mock-bridge';
 
 /**
  * The finance footer segment and its watchlist panel — the app's only surface

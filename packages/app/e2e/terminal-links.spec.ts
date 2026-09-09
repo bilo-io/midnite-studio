@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { fixtures } from '../test-support/fixtures';
+import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
  * Cmd+click on a URL in terminal output, driven through the real xterm.
