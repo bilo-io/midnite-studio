@@ -87,6 +87,19 @@ export function Choice<T extends string>({
 const TEXT_INPUT_CLASSNAME =
   'w-full rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring disabled:opacity-50';
 
+/**
+ * `TextArea`'s `gradient` variant — the `.gradient-border`/`.gradient-border--glow`
+ * halo (`styles.css`) instead of the plain `focus:ring-1 focus:ring-ring`
+ * above, matching `notes-modal.tsx`'s composer. `border-0`/`outline-none`
+ * replace `TEXT_INPUT_CLASSNAME`'s `border border-input` and focus ring: the
+ * wrapper draws the border on `:focus-within`, so the control must not draw
+ * its own or the two would double up. `block` is load-bearing the same way it
+ * is there — a `<textarea>` is inline-block by default, so without it the
+ * wrapper sizes to the line box and leaves a descender gap under the control.
+ */
+const GRADIENT_TEXT_AREA_CLASSNAME =
+  'block w-full rounded-md border-0 bg-background px-1.5 py-1 text-xs outline-none disabled:opacity-50';
+
 export function TextField({
   value,
   onChange,
@@ -127,6 +140,7 @@ export function TextArea({
   rows = 3,
   className,
   onFocus,
+  gradient,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -136,8 +150,17 @@ export function TextArea({
   rows?: number;
   className?: string;
   onFocus?: (event: React.FocusEvent<HTMLTextAreaElement>) => void;
+  /**
+   * Opt-in gradient-border-on-focus halo (Ad Hoc: Settings ▸ Companion ▸
+   * Personality's two free-text fields), matching every other "this is where
+   * your keystrokes are going" control in the app. Off by default, so every
+   * existing `TextArea` consumer — `controls.tsx`'s settings pages, the
+   * workflow node inspector's `node-forms.tsx` — keeps its plain focus ring
+   * unchanged.
+   */
+  gradient?: boolean;
 }) {
-  return (
+  const textarea = (
     <textarea
       value={value}
       onChange={(event) => onChange(event.target.value)}
@@ -146,7 +169,14 @@ export function TextArea({
       placeholder={placeholder}
       disabled={disabled}
       rows={rows}
-      className={`resize-none ${TEXT_INPUT_CLASSNAME} ${className ?? ''}`}
+      className={`resize-none ${gradient ? GRADIENT_TEXT_AREA_CLASSNAME : TEXT_INPUT_CLASSNAME} ${className ?? ''}`}
     />
   );
+
+  if (!gradient) return textarea;
+
+  // `.gradient-border--glow`'s box-shadow halo fires on `:focus-within`, so
+  // wrapping is the whole mechanism — no state, no extra props on the
+  // textarea itself.
+  return <div className="gradient-border gradient-border--glow rounded-md">{textarea}</div>;
 }

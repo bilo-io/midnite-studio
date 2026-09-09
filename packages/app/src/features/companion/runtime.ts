@@ -171,6 +171,14 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         repoPath: repo.path,
         agentId: ui.primaryAgent,
         snapshot: lastSnapshot,
+        // Settings ▸ Companion ▸ Personality's two free-text fields (Ad
+        // Hoc) — read fresh from the store on every ask, same as
+        // `agentId` above, since main has no copy of a renderer
+        // preference. `CompanionAskRequest`'s own schema trims and caps
+        // both; an untouched `''` default is what keeps `buildAskPrompt`
+        // reading exactly as it did before these fields existed.
+        personality: ui.companionPersonality,
+        aboutUser: ui.companionAboutUser,
       });
       return result ?? { ok: false, kind: 'error', message: 'The companion is not connected.' };
     },

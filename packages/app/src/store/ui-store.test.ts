@@ -1078,3 +1078,30 @@ describe('v15 -> v16 migration (Ad Hoc: per-engine voices, multi-value honorific
     expect(useUiStore.getState().companionVoices).toEqual({ system: 'urn:voice:9', local: null });
   });
 });
+
+describe('v16 -> v17 migration (Ad Hoc: companion personality free-text fields)', () => {
+  it('seeds companionPersonality and companionAboutUser as empty strings — a plain seed, no prior shape to carry forward', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({}, 16) as {
+      companionPersonality: string;
+      companionAboutUser: string;
+    };
+    expect(migrated.companionPersonality).toBe('');
+    expect(migrated.companionAboutUser).toBe('');
+  });
+
+  it('a persisted v16 blob round-trips through the real store with both fields seeded empty', () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({
+        state: { companionHonorifics: ['boss'] },
+        version: 16,
+      }),
+    );
+    void useUiStore.persist.rehydrate();
+    expect(useUiStore.getState().companionPersonality).toBe('');
+    expect(useUiStore.getState().companionAboutUser).toBe('');
+    // Untouched by this migration.
+    expect(useUiStore.getState().companionHonorifics).toEqual(['boss']);
+  });
+});
