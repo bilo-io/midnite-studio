@@ -6,9 +6,13 @@ import { failure, ok, type GitOpResult } from '@midnite/studio-shared';
 // `kokoro-js` (and the `@huggingface/transformers` it re-exports through
 // `loadModule` below) is loaded lazily, not imported here — see
 // `loadKokoro()` and `inproc-pty.ts`'s identical `loadNodePty()`, the
-// precedent this mirrors line for line. Both packages ship their own
-// TypeScript types, so — unlike `sherpa-onnx-node` — this module needs no
-// hand-rolled ambient declaration.
+// precedent this mirrors line for line. `@huggingface/transformers` ships
+// resolvable top-level types; `kokoro-js` ships types too, but only behind a
+// `package.json` `exports` map this repo's classic `moduleResolution: "node"`
+// can't see — see `kokoro-js.d.ts`, this module's narrow, hand-rolled
+// declaration for the surface actually called (the same call
+// `sherpa-onnx-node.d.ts` made, for the opposite reason: that package shipped
+// no types at all).
 type KokoroModule = typeof import('kokoro-js');
 type TransformersModule = typeof import('@huggingface/transformers');
 type KokoroTtsInstance = InstanceType<KokoroModule['KokoroTTS']>;
