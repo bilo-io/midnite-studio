@@ -274,7 +274,7 @@ const AgentCaption = ({ agent, typed }: { agent: SiteAgent; typed: number }) => 
       aria-hidden="true"
       data-testid="agent-caption"
       data-agent={agent.id}
-      className="ws-agent-caption flex items-center justify-center"
+      className="ws-agent-caption flex items-baseline justify-center"
       style={
         {
           height: `${CAPTION_PX}px`,

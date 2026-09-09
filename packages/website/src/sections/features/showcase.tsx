@@ -78,7 +78,20 @@ type Lane = 0 | 1 | 2 | 3 | 4;
 
 /** Row pitch and lane pitch, in the 320x200 user space. */
 const PITCH = 9;
-const ROW_0_Y = 14;
+/**
+ * The first row's distance from the window's top edge.
+ *
+ * Deliberately more than one `PITCH`: the write head and pulse sit at
+ * `rowY(0)`, and the top fade (`FADE_PX`) covers `[WINDOW.y, WINDOW.y +
+ * FADE_PX]`. At the old `ROW_0_Y` (14) that point sat just past the fade's
+ * midpoint — still more covered than not — so the pulse's own bloom (its
+ * radius grows to 8, well past a plain node's) landed a fraction of a unit
+ * short of the hard clip at `WINDOW.y`, and read as clipped rather than
+ * faded. Pushing it to 20 clears that edge with room to spare and puts the
+ * arriving row past 80% of the fade's dissolve, so it is legible exactly
+ * where the write head and pulse are pointing.
+ */
+const ROW_0_Y = 20;
 const LANE_0_X = 22;
 const LANE_PITCH = 13;
 
@@ -165,6 +178,40 @@ const MERGES = COMMITS.reduce<number[]>(
   (found, commit, row) => (commit.parents.length > 1 ? [...found, row] : found),
   [],
 );
+
+/**
+ * The colour the write head, pulse and row highlight take while it is
+ * `row`'s turn at the top of the window — the same rule `Badge` already
+ * applies per ref: accent for the checked-out tip, otherwise the commit's
+ * own lane, so the sweep reads as the branch each arriving commit belongs to.
+ */
+const arrivalTint = (row: number): string => {
+  const commit = COMMITS[row];
+  return row === TIP || !commit ? 'var(--ws-accent)' : LANES[commit.lane];
+};
+
+/**
+ * One `@keyframes` rule, generated from `COMMITS` rather than hand-written,
+ * that steps the write head/pulse/highlight's `fill`/`stroke` through every
+ * commit's own tint in lockstep with their existing position-and-opacity
+ * loop (`ws-graph-head` in `site.css`).
+ *
+ * The two loops share a period — `--ws-graph-loop`, `COMMITS.length x
+ * STEP_MS` — and the same phase: row `r`'s slice starts at
+ * `r / COMMITS.length` of the loop, exactly when the position animation
+ * begins that row's own arrival cycle, so `steps(1, jump-start)` (declared
+ * on the `.ws-graph-arrival-tint` utility in `site.css`) snaps the colour
+ * the instant the row it belongs to starts fading in. This is still CSS
+ * driving the motion, not SMIL or JS: the component only computes the
+ * keyframe text once, up front, the same way it already derives
+ * `--ws-graph-loop` and friends from this same commit list.
+ */
+const ARRIVAL_TINT_KEYFRAMES = `@keyframes ws-graph-arrival-tint {\n${COMMITS.map(
+  (_, row) => {
+    const tint = arrivalTint(row);
+    return `  ${(row / COMMITS.length) * 100}% { fill: ${tint}; stroke: ${tint}; }`;
+  },
+).join('\n')}\n  100% { fill: ${arrivalTint(0)}; stroke: ${arrivalTint(0)}; }\n}`;
 
 /**
  * How many times the list is stacked, upwards, in the sliding group.
@@ -393,15 +440,18 @@ export const Showcase = ({ reduced: reducedProp }: ShowcaseProps = {}) => {
             </linearGradient>
           </defs>
 
-          <rect
-            x={0.5}
-            y={0.5}
-            width={319}
-            height={199}
-            rx={12}
-            fill="var(--ws-bg-sunken)"
-            stroke="var(--ws-border)"
-          />
+          {/*
+            The card's background only — no `stroke` here. `GlowCard`'s own
+            `shadow-glow-lane` ring (a `0 0 0 1px` shadow stop, see
+            `components/glow-card.tsx`) is the card's one visible frame; a
+            second stroked rect drawn inside it read as a doubled border. The
+            fill stays: the fade gradients below are stops of this same
+            `--ws-bg-sunken` token, and need a coat of it under them to
+            dissolve into.
+          */}
+          <rect x={0} y={0} width={320} height={200} rx={12} fill="var(--ws-bg-sunken)" />
+
+          {reduced ? null : <style>{ARRIVAL_TINT_KEYFRAMES}</style>}
 
           <g clipPath={`url(#${clipId})`}>
             {reduced ? (
@@ -453,7 +503,11 @@ export const Showcase = ({ reduced: reducedProp }: ShowcaseProps = {}) => {
                   - the **write head** is on the trunk, at the top of the
                     window, because the trunk lane is occupied in every frame
                     (the root stub joins it across the seam). Its stroke draws
-                    itself once per arrival with `stroke-dashoffset`;
+                    itself once per arrival with `stroke-dashoffset`, and it
+                    stays the trunk's own colour — it is anchored to lane 0's
+                    x position in every frame, not to whichever commit is
+                    arriving, so tinting it per-arrival would contradict the
+                    trunk's own edges and nodes below it;
                   - the **pulse** breathes out of the same point — the existing
                     gentle one, kept, and the only SMIL left in this file;
                   - the **row highlight** starts on the row that has just
@@ -461,6 +515,14 @@ export const Showcase = ({ reduced: reducedProp }: ShowcaseProps = {}) => {
                     then fades out and picks up the next. That is the
                     checked-out row travelling with its commit, which is what a
                     commit does to HEAD.
+
+                  The pulse and the row highlight both re-tint on every
+                  arrival — `arrivalTint`/`ARRIVAL_TINT_KEYFRAMES` above step
+                  their `fill`/`stroke` through each commit's own lane (accent
+                  for the one that is genuinely `TIP`) in lockstep with this
+                  same per-arrival cadence, via `.ws-graph-arrival-tint` in
+                  `site.css` — a second CSS-keyframes loop sharing the first
+                  one's period, not a SMIL or JS-driven recolour.
                 */}
                 <path
                   className="ws-graph-write"
@@ -473,11 +535,12 @@ export const Showcase = ({ reduced: reducedProp }: ShowcaseProps = {}) => {
                   data-testid="showcase-write"
                 />
                 <circle
+                  className="ws-graph-arrival-tint"
                   cx={laneX(0)}
                   cy={rowY(0)}
                   r={3}
                   fill="none"
-                  stroke={LANES[0]}
+                  stroke={arrivalTint(0)}
                   strokeWidth={1.2}
                   data-testid="showcase-pulse"
                 >
@@ -490,13 +553,13 @@ export const Showcase = ({ reduced: reducedProp }: ShowcaseProps = {}) => {
                   />
                 </circle>
                 <rect
-                  className="ws-graph-head"
+                  className="ws-graph-head ws-graph-arrival-tint"
                   x={10}
                   y={rowY(TIP) - 4}
                   width={300}
                   height={8}
                   rx={3}
-                  fill="var(--ws-accent-soft)"
+                  fill={arrivalTint(0)}
                   fillOpacity={0.75}
                   data-testid="showcase-head"
                 />
