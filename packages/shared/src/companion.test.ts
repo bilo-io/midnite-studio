@@ -1368,6 +1368,47 @@ describe('parseAskReply', () => {
   it('rejects an intent the schema does not recognise, object and all', () => {
     expect(parseAskReply('{"say":"ok","intent":{"kind":"rm -rf"}}')).toBeNull();
   });
+
+  // Phase 81 Theme E — the router now answers with the same four kinds the
+  // grammar recognises (Theme A). `parseAskReply` itself needed no code
+  // change: it already embeds `CompanionIntentSchema` whole, so these are
+  // regression fixtures for the new union members, not new behaviour.
+  describe('the four kinds Phase 81 added', () => {
+    it('reads a navigate intent', () => {
+      expect(
+        parseAskReply('{"say":"On it.","intent":{"kind":"navigate","view":"database"}}'),
+      ).toEqual({ say: 'On it.', intent: { kind: 'navigate', view: 'database' } });
+    });
+
+    it('reads a run intent for a real CommandId', () => {
+      expect(
+        parseAskReply('{"say":"Pushing.","intent":{"kind":"run","id":"sync.push"}}'),
+      ).toEqual({ say: 'Pushing.', intent: { kind: 'run', id: 'sync.push' } });
+    });
+
+    it('reads a bare confirm and a bare help', () => {
+      expect(parseAskReply('{"say":"ok","intent":{"kind":"confirm"}}')).toEqual({
+        say: 'ok',
+        intent: { kind: 'confirm' },
+      });
+      expect(parseAskReply('{"say":"ok","intent":{"kind":"help"}}')).toEqual({
+        say: 'ok',
+        intent: { kind: 'help' },
+      });
+    });
+
+    it('rejects a run id that is not a real CommandId, object and all — the existing invented-id posture', () => {
+      expect(
+        parseAskReply('{"say":"ok","intent":{"kind":"run","id":"not.a.real.command"}}'),
+      ).toBeNull();
+    });
+
+    it('rejects a navigate view that is not a real ViewId, object and all — same posture', () => {
+      expect(
+        parseAskReply('{"say":"ok","intent":{"kind":"navigate","view":"not-a-view"}}'),
+      ).toBeNull();
+    });
+  });
 });
 
 // --- follow-up · one formatted turn -----------------------------------------

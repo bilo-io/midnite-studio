@@ -59,6 +59,7 @@ export function CompanionPanel({
 }) {
   const state = useCompanionStore((s) => s.state);
   const transcript = useCompanionStore((s) => s.transcript);
+  const pendingAction = useCompanionStore((s) => s.pendingAction);
   const history = usePanelHistory<CompanionPanelEntry>(ROOT_ENTRY, {
     isSame: (a, b) => a.kind === b.kind,
   });
@@ -128,11 +129,45 @@ export function CompanionPanel({
         className="min-h-0 flex-1"
         render={() => <CompanionThread turns={transcript} />}
       />
+      {pendingAction ? <CompanionPendingActionBar label={pendingAction.label} /> : null}
       <CompanionInputBar
         disabled={state === 'thinking'}
         reserveFabSpace={reserveFabSpace}
         onInterrupt={() => companionPorts().interrupt()}
       />
+    </div>
+  );
+}
+
+/**
+ * The pending-action bar (Phase 81 Theme C) — the same "yes" the panel already
+ * accepts spoken, typed, or on an empty Return, offered as a click too, all
+ * three through {@link companionPorts}'s `submit` so there is exactly one
+ * implementation of "confirm" and one of "dismiss".
+ */
+function CompanionPendingActionBar({ label }: { label: string }) {
+  return (
+    <div
+      className="flex shrink-0 items-center gap-2 border-t border-border bg-card/40 px-2.5 py-1.5 text-xs"
+      data-testid="companion-pending-action"
+    >
+      <span className="min-w-0 flex-1 truncate text-muted-foreground">{label}?</span>
+      <button
+        type="button"
+        data-testid="companion-pending-cancel"
+        onClick={() => companionPorts().submit('cancel')}
+        className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        data-testid="companion-pending-run"
+        onClick={() => companionPorts().submit('confirm')}
+        className="rounded-md bg-primary/15 px-2 py-1 font-medium text-primary hover:bg-primary/25"
+      >
+        Run
+      </button>
     </div>
   );
 }

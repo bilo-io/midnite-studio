@@ -181,6 +181,12 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         // reading exactly as it did before these fields existed.
         personality: ui.companionPersonality,
         aboutUser: ui.companionAboutUser,
+        // Phase 81 Theme E — the router's `'route'` prompt learns the same
+        // views/pages/commands/skills/repos the grammar already knows. The
+        // flow's own cache, same as `snapshot` above: fetching it fresh per
+        // `ask` would be an IPC round trip (`repos.list`) this request does
+        // not otherwise need.
+        vocabulary: vocabularyCache ?? undefined,
       });
       return result ?? { ok: false, kind: 'error', message: 'The companion is not connected.' };
     },
@@ -208,6 +214,8 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
     autoSendAllowed: () => useUiStore.getState().companionHandsFree && voiceInReady(),
     activeHandoff: () => useCompanionStore.getState().activeHandoff,
     setActiveHandoff: (handoff) => useCompanionStore.getState().setActiveHandoff(handoff),
+    pendingAction: () => useCompanionStore.getState().pendingAction,
+    setPendingAction: (action) => useCompanionStore.getState().setPendingAction(action),
     vocabulary: () => vocabularyCache ?? vocabularyFor([]),
   };
 }

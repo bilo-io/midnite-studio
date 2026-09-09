@@ -3,6 +3,7 @@ import {
   COMPANION_READBACK_TAIL_CHARS,
   extractLastAgentTurn,
   parseIntent,
+  type CommandId,
   type CompanionAskReply,
   type CompanionCommandId,
   type CompanionIntent,
@@ -12,6 +13,9 @@ import {
   type SessionActivity,
 } from '@midnite/studio-shared';
 
+import { overlayDepth } from '../../components/dialog-host';
+import type { PendingAction } from '../../store/companion-store';
+import { runCommand } from './command-runtime';
 import { phrase, say, matchRepoByName, type ConciergeDeps } from './concierge';
 import type { AgentCommandId } from '../../store/ui-store';
 
@@ -71,6 +75,9 @@ export type HandoffDeps = ConciergeDeps & {
   autoSendAllowed: () => boolean;
   activeHandoff: () => { sessionId: string; command: string } | null;
   setActiveHandoff: (handoff: { sessionId: string; command: string } | null) => void;
+  /** The one `confirm`-tier command waiting on a yes, or `null` (Phase 81 Theme C). */
+  pendingAction: () => PendingAction | null;
+  setPendingAction: (action: PendingAction | null) => void;
   /**
    * Views, settings pages, commands (by tier), skills and repos — what the
    * grammar (`parseIntent`'s `navigate`/`run`) and Theme E's `ask` prompt are
@@ -131,6 +138,16 @@ async function act(
 ): Promise<void> {
   switch (intent.kind) {
     case 'stop':
+      // A pending confirm is left, not merely interrupted — "stop" while the
+      // companion is asking "push? say yes…" has to mean "no", not "keep
+      // asking after the next sentence".
+      if (deps.pendingAction()) {
+        deps.setPendingAction(null);
+        deps.speaker.cancel();
+        deps.store.send('interrupt');
+        await say(deps, 'Left it.');
+        return;
+      }
       deps.speaker.cancel();
       deps.store.send('interrupt');
       return;
@@ -139,6 +156,11 @@ async function act(
       return repeatLast(deps);
 
     case 'dismiss':
+      if (deps.pendingAction()) {
+        deps.setPendingAction(null);
+        await say(deps, 'Left it.');
+        return;
+      }
       declined = null;
       await say(deps, 'Right, staying put.');
       return;
@@ -162,16 +184,20 @@ async function act(
     case 'command':
       return startCommand(intent, deps);
 
-    // Stubs — Theme A lands the schema, the grammar and this exhaustiveness
-    // check together so nothing is added to `CompanionIntentSchema` without
-    // `act()` handling it; Themes B (navigate), C (run/confirm) and the
-    // `help` bullet of C replace each one with the real behaviour.
+    // Stub — Theme B replaces this with the real navigation/window/relay
+    // logic. Left as-is here: Theme C owns `run`/`confirm`/`help` only.
     case 'navigate':
-    case 'run':
-    case 'confirm':
-    case 'help':
       await say(deps, "I can't do that yet.");
       return;
+
+    case 'run':
+      return runById(intent.id, deps);
+
+    case 'confirm':
+      return resolvePending(deps);
+
+    case 'help':
+      return speakHelp(deps);
 
     case 'freeform':
       return route(intent.text || original, deps, depth);
@@ -309,6 +335,136 @@ async function switchRepo(name: string | undefined, deps: HandoffDeps): Promise<
   await say(deps, `Switching to ${matched.name}.`);
   // The caller re-orients: `runtime.ts` re-runs the overview against the new
   // repo, which is the same path the sidebar's own selection takes.
+}
+
+// --- doing things there, by tier (Phase 81 Theme C) ------------------------
+
+/** One row of `CompanionVocabulary.commands` — `direct`/`confirm` only, `never` never appears. */
+type VocabCommand = CompanionVocabulary['commands'][number];
+
+/** How long a `confirm`-tier command stays pending. A fifth of {@link DECLINE_MEMORY_MS} — this one *runs* something (Decision 8). */
+export const PENDING_ACTION_MEMORY_MS = 60 * 1000;
+
+/** What the companion says instead of running a `never`-tier command, or one the router invented that is not a real `CommandId` at all. */
+const PALETTE_REFUSAL = 'That one needs the palette — Mod+K, then type it.';
+
+/**
+ * "Push." "Fetch." "New terminal." Look the id up in the vocabulary rather
+ * than importing `COMMAND_ACCESS` directly: `vocabulary.commands` already
+ * carries only `direct`/`confirm` rows (Theme A dropped every `never` before
+ * building it), so an id that is not there — because it is `never`-tier, or
+ * because the router invented one that does not exist — takes the identical
+ * refusal either way, exactly as the phase doc calls for.
+ */
+async function runById(id: string, deps: HandoffDeps): Promise<void> {
+  const cmd = deps.vocabulary().commands.find((row) => row.id === id);
+  if (!cmd) {
+    await say(deps, PALETTE_REFUSAL);
+    return;
+  }
+  if (cmd.access === 'confirm') return askToConfirm(cmd, deps);
+  return runAndReport(cmd, deps);
+}
+
+/** Set (or replace) the one pending `confirm`-tier command, and ask for a yes. */
+async function askToConfirm(cmd: VocabCommand, deps: HandoffDeps): Promise<void> {
+  const previous = deps.pendingAction();
+  deps.setPendingAction({ id: cmd.id as CommandId, label: cmd.label, at: Date.now() });
+  await say(
+    deps,
+    previous
+      ? `Never mind ${previous.label} — ${cmd.label}? Say yes, press Return, or tap Run.`
+      : `${cmd.label}? Say yes, press Return, or tap Run.`,
+  );
+}
+
+/**
+ * "Yes." An empty Return. A tap on the Run chip — all three reach this
+ * through the identical `{kind:'confirm'}` intent (Decision 6, one `submit`
+ * path).
+ */
+async function resolvePending(deps: HandoffDeps): Promise<void> {
+  const pending = deps.pendingAction();
+  if (!pending || Date.now() - pending.at > PENDING_ACTION_MEMORY_MS) {
+    if (pending) deps.setPendingAction(null);
+    await say(deps, "Nothing's waiting.");
+    return;
+  }
+  deps.setPendingAction(null);
+  // The vocabulary's own row if it is still there (labels/tiers can only
+  // change on the next release, so this is almost always a hit); the pending
+  // action's own id/label cover the same-turn edge case where it is not.
+  const cmd = deps.vocabulary().commands.find((row) => row.id === pending.id) ?? {
+    id: pending.id,
+    label: pending.label,
+  };
+  return runAndReport(cmd, deps);
+}
+
+/**
+ * Run a `direct`-tier command (or a just-confirmed one) and say what
+ * happened — never bypassing the command's own dialogs.
+ *
+ * `overlayDepth()` before and after is how a command that raised its own
+ * confirm (a non-fast-forward push's `GitOpResult` conflict, `terminal.close`
+ * on a running session) is told apart from one that simply ran: the
+ * companion never answers *for* that dialog, it just says to look at it.
+ */
+async function runAndReport(
+  cmd: { id: string; label: string },
+  deps: HandoffDeps,
+): Promise<void> {
+  const before = overlayDepth();
+  const result = runCommand(cmd.id as CommandId);
+
+  if (result.ok) {
+    if (overlayDepth() > before) {
+      await say(deps, 'Done — check the dialog.');
+    } else {
+      await say(deps, `${cmd.label}.`);
+    }
+    return;
+  }
+
+  if (result.reason === 'disabled') {
+    await say(deps, `${cmd.label} is unavailable — ${result.message}`);
+    return;
+  }
+
+  // `no-runtime` (this window has not registered one — a popout, or a turn
+  // that landed before `app.tsx` mounted) and `unknown` (should not happen:
+  // the id came from the vocabulary/`COMMAND_ACCESS`) both relay the
+  // registry's own sentence, which is already written to be spoken.
+  await say(deps, result.message);
+}
+
+/** "What can you do?" — a spoken summary, and the full list posted as markdown. */
+async function speakHelp(deps: HandoffDeps): Promise<void> {
+  const vocabulary = deps.vocabulary();
+  const commandCount = vocabulary.commands.length;
+  const examples = vocabulary.commands.slice(0, 3).map((cmd) => cmd.label.toLowerCase());
+  const skillNames = vocabulary.skills.map((skill) => skill.label);
+
+  const summary =
+    `I can take you to any view or settings page, run ${commandCount} palette command` +
+    `${commandCount === 1 ? '' : 's'}` +
+    (examples.length > 0 ? ` — ${examples.join(', ')}` : '') +
+    ` — and start ${skillNames.length} skill${skillNames.length === 1 ? '' : 's'}` +
+    (skillNames.length > 0 ? `: ${skillNames.join(', ')}` : '') +
+    `. Say "what can you do" any time.`;
+
+  const markdown = [
+    '**Views**',
+    ...vocabulary.views.map((view) => `- ${view.label}`),
+    '',
+    '**Commands**',
+    ...vocabulary.commands.map((cmd) => `- ${cmd.label}`),
+    '',
+    '**Skills**',
+    ...vocabulary.skills.map((skill) => `- ${skill.label} — ${skill.hint}`),
+  ].join('\n');
+
+  await say(deps, markdown, 'companion', summary);
 }
 
 /**

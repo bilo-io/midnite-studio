@@ -1,6 +1,7 @@
 import {
   COMPANION_TRANSCRIPT_CAP,
   transition,
+  type CommandId,
   type CompanionEvent,
   type CompanionPhraseKind,
   type CompanionState,
@@ -35,6 +36,19 @@ export type CompanionHandoff = {
   command: string;
 };
 
+/**
+ * A `confirm`-tier command waiting on a yes (Phase 81 Theme C).
+ *
+ * `id`/`label` are the vocabulary row's own — `label` is what gets spoken and
+ * shown, `id` is what actually runs once confirmed. `at` is what the 60-second
+ * expiry (`PENDING_ACTION_MEMORY_MS` in `handoff.ts`) is measured against.
+ */
+export type PendingAction = {
+  id: CommandId;
+  label: string;
+  at: number;
+};
+
 export type CompanionStoreState = {
   state: CompanionState;
   /** Newest LAST, exactly as a chat thread renders. Capped at {@link COMPANION_TRANSCRIPT_CAP}. */
@@ -49,6 +63,15 @@ export type CompanionStoreState = {
    */
   recentPhrases: Partial<Record<CompanionPhraseKind, string[]>>;
   activeHandoff: CompanionHandoff | null;
+  /**
+   * A `confirm`-tier command waiting on a yes, or `null`.
+   *
+   * Not persisted (see `partialize` below) for the same reason `activeHandoff`
+   * is not: a pending push surviving a reload and running the moment the app
+   * comes back up would be the one outcome the whole tier system exists to
+   * prevent.
+   */
+  pendingAction: PendingAction | null;
 
   /** Advance the machine. Returns the state it settled in, which may be the one it was already in. */
   send: (event: CompanionEvent) => CompanionState;
@@ -62,6 +85,8 @@ export type CompanionStoreState = {
   notePhrase: (kind: CompanionPhraseKind, phrase: string) => void;
   /** Start tracking a hand-off. Does not itself advance the machine — Theme E sends `handoff` too. */
   setActiveHandoff: (handoff: CompanionHandoff | null) => void;
+  /** Set, replace or clear the one pending `confirm`-tier command (Phase 81 Theme C). */
+  setPendingAction: (action: PendingAction | null) => void;
   clearTranscript: () => void;
 };
 
@@ -100,6 +125,7 @@ export const useCompanionStore = create<CompanionStoreState>()(
       transcript: [],
       recentPhrases: {},
       activeHandoff: null,
+      pendingAction: null,
 
       send: (event) => {
         const next = transition(get().state, event);
@@ -142,6 +168,8 @@ export const useCompanionStore = create<CompanionStoreState>()(
         })),
 
       setActiveHandoff: (activeHandoff) => set({ activeHandoff }),
+
+      setPendingAction: (pendingAction) => set({ pendingAction }),
 
       clearTranscript: () => set({ transcript: [] }),
     }),

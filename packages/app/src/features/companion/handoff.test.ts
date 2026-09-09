@@ -1,8 +1,12 @@
 import { COMPANION_COMMAND_IDS } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { overlayDepth } from '../../components/dialog-host';
+import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';
+import { setCommandRuntime } from './command-runtime';
 import {
   COMMAND_SPOKEN_NAMES,
+  PENDING_ACTION_MEMORY_MS,
   createHandoffTracker,
   readBack,
   resetHandoffState,
@@ -10,8 +14,15 @@ import {
   submitInput,
   READBACK_VERBATIM_CHARS,
 } from './handoff';
-import { fakeHandoffDeps, fakeSpeaker, fakeStore, repoFixture } from './test-doubles';
+import type { PendingAction } from '../../store/companion-store';
+import { fakeHandoffDeps, fakeSpeaker, fakeStore, repoFixture, vocabularyFixture } from './test-doubles';
 import { DEFAULT_AGENT_SKILLS } from '../../store/ui-store';
+
+// `overlayDepth` is real module state (`dialog-host.tsx`) that only changes
+// when a dialog actually opens — nothing in these fakes opens one, so it is
+// mocked here rather than exercised, precisely for the one test that needs it
+// to answer non-zero.
+vi.mock('../../components/dialog-host', () => ({ overlayDepth: vi.fn(() => 0) }));
 
 /**
  * The hand-off and the read-back, against fakes — Phase 79 Theme E.
@@ -22,6 +33,26 @@ import { DEFAULT_AGENT_SKILLS } from '../../store/ui-store';
  * classic way a suite passes in one order and fails in another.
  */
 afterEach(() => resetHandoffState());
+afterEach(() => setCommandRuntime(null));
+
+/** A `CommandRuntime` built from just the entries a test cares about. */
+function runtimeWith(entries: Partial<CommandRuntime>): CommandRuntime {
+  return entries as CommandRuntime;
+}
+
+/** A stateful `pendingAction`/`setPendingAction` pair, for the tests that need one that remembers. */
+function fakePendingActionSlot(): {
+  pendingAction: () => PendingAction | null;
+  setPendingAction: (action: PendingAction | null) => void;
+} {
+  let current: PendingAction | null = null;
+  return {
+    pendingAction: () => current,
+    setPendingAction: (action) => {
+      current = action;
+    },
+  };
+}
 
 describe('the companion command list', () => {
   it('names only ids that have a skill string behind them', () => {
@@ -477,5 +508,267 @@ describe('readBack', () => {
     expect(store.lines().at(-1)).toBe(
       'companion: That one finished, but it left nothing I could read back.',
     );
+  });
+});
+
+/**
+ * Doing things there, by tier — Phase 81 Theme C.
+ *
+ * `runCommand` is a real module-level registry (`command-runtime.ts`), not a
+ * `deps` field, so these register a fake `CommandRuntime` through
+ * `setCommandRuntime` exactly as `command-runtime.test.ts` does, rather than
+ * mocking `handoff.ts`'s own import of it.
+ */
+describe('submitInput — Theme C, doing things there', () => {
+  const vocabulary = vocabularyFixture({
+    commands: [
+      { id: 'terminal.toggle', label: 'Toggle Terminal', group: 'terminal', access: 'direct' },
+      { id: 'sync.push', label: 'Push', group: 'sync', access: 'confirm' },
+      { id: 'sync.pull', label: 'Pull', group: 'sync', access: 'confirm' },
+    ],
+  });
+
+  describe('direct', () => {
+    it('runs the command once and says its label', async () => {
+      const store = fakeStore();
+      const run = vi.fn();
+      setCommandRuntime(runtimeWith({ 'terminal.toggle': { run, enabled: true } }));
+      await submitInput('toggle the terminal', fakeHandoffDeps({ store, vocabulary: () => vocabulary }));
+      expect(run).toHaveBeenCalledTimes(1);
+      expect(store.lines().at(-1)).toBe('companion: Toggle Terminal.');
+    });
+
+    it('says the disabled reason verbatim, and never calls run', async () => {
+      const store = fakeStore();
+      const run = vi.fn();
+      setCommandRuntime(
+        runtimeWith({
+          'terminal.toggle': { run, enabled: false, disabledReason: 'No terminal selected' },
+        }),
+      );
+      await submitInput('toggle the terminal', fakeHandoffDeps({ store, vocabulary: () => vocabulary }));
+      expect(run).not.toHaveBeenCalled();
+      expect(store.lines().at(-1)).toBe(
+        'companion: Toggle Terminal is unavailable — No terminal selected',
+      );
+    });
+
+    it("relays the registry's own message when there is no runtime to run it in", async () => {
+      const store = fakeStore();
+      // Nothing registered — the popout case, or a turn that landed before
+      // `app.tsx` mounted.
+      await submitInput('toggle the terminal', fakeHandoffDeps({ store, vocabulary: () => vocabulary }));
+      expect(store.lines().at(-1)).toBe('companion: There is no window to run that in yet.');
+    });
+
+    it("says to check the dialog when the command left one open, and never answers for it", async () => {
+      const store = fakeStore();
+      vi.mocked(overlayDepth).mockReturnValueOnce(0).mockReturnValueOnce(1);
+      const run = vi.fn();
+      setCommandRuntime(runtimeWith({ 'terminal.toggle': { run, enabled: true } }));
+      await submitInput('toggle the terminal', fakeHandoffDeps({ store, vocabulary: () => vocabulary }));
+      expect(store.lines().at(-1)).toBe('companion: Done — check the dialog.');
+    });
+  });
+
+  describe('never / unknown', () => {
+    it('names the palette instead of acting — a command outside the vocabulary', async () => {
+      const store = fakeStore();
+      const run = vi.fn();
+      setCommandRuntime(runtimeWith({ 'browser.clearData': { run, enabled: true } }));
+      await submitInput(
+        'mumble',
+        fakeHandoffDeps({
+          store,
+          vocabulary: () => vocabulary,
+          ask: async () => ({
+            ok: true,
+            value: { say: 'Sure.', intent: { kind: 'run', id: 'browser.clearData' } },
+          }),
+        }),
+      );
+      expect(run).not.toHaveBeenCalled();
+      expect(store.lines().at(-1)).toBe('companion: That one needs the palette — Mod+K, then type it.');
+    });
+
+    it('gives the identical refusal to a real CommandId that is simply not in this vocabulary', async () => {
+      // `CompanionIntentSchema`'s `run.id` narrows to a real `CommandId` at
+      // the type level (`parseAskReply`'s zod validation is what rejects an
+      // actually-invented string at the IPC boundary, well before this code
+      // runs) — so the case this test stands in for is any id `runById`
+      // cannot find in `vocabulary.commands`, never-tier or merely absent,
+      // which the function treats identically either way.
+      const store = fakeStore();
+      await submitInput(
+        'mumble',
+        fakeHandoffDeps({
+          store,
+          vocabulary: () => vocabulary,
+          ask: async () => ({
+            ok: true,
+            value: { say: 'Sure.', intent: { kind: 'run', id: 'app.lock' } },
+          }),
+        }),
+      );
+      expect(store.lines().at(-1)).toBe('companion: That one needs the palette — Mod+K, then type it.');
+    });
+  });
+
+  describe('confirm', () => {
+    it('sets pendingAction and asks, without running', async () => {
+      const store = fakeStore();
+      const run = vi.fn();
+      const slot = fakePendingActionSlot();
+      setCommandRuntime(runtimeWith({ 'sync.push': { run, enabled: true } }));
+      await submitInput('push', fakeHandoffDeps({ store, vocabulary: () => vocabulary, ...slot }));
+      expect(run).not.toHaveBeenCalled();
+      expect(slot.pendingAction()).toMatchObject({ id: 'sync.push', label: 'Push' });
+      expect(store.lines().at(-1)).toBe('companion: Push? Say yes, press Return, or tap Run.');
+    });
+
+    it('does not consult hands-free at all — a confirm-tier command always waits', async () => {
+      const store = fakeStore();
+      const run = vi.fn();
+      const slot = fakePendingActionSlot();
+      const autoSendAllowed = vi.fn(() => true);
+      setCommandRuntime(runtimeWith({ 'sync.push': { run, enabled: true } }));
+      await submitInput(
+        'push',
+        fakeHandoffDeps({ store, vocabulary: () => vocabulary, autoSendAllowed, ...slot }),
+      );
+      expect(run).not.toHaveBeenCalled();
+      expect(slot.pendingAction()).not.toBeNull();
+      // The proof this is a hard property, not an oversight: `autoSendAllowed`
+      // was never even read.
+      expect(autoSendAllowed).not.toHaveBeenCalled();
+    });
+
+    it('a second confirm-tier request replaces the first one, and says so', async () => {
+      const store = fakeStore();
+      const slot = fakePendingActionSlot();
+      const deps = fakeHandoffDeps({ store, vocabulary: () => vocabulary, ...slot });
+      await submitInput('push', deps);
+      await submitInput('pull', deps);
+      expect(slot.pendingAction()).toMatchObject({ id: 'sync.pull', label: 'Pull' });
+      expect(store.lines().at(-1)).toBe(
+        'companion: Never mind Push — Pull? Say yes, press Return, or tap Run.',
+      );
+    });
+
+    it('a spoken "yes" within 60 seconds runs it once and clears it', async () => {
+      vi.useFakeTimers();
+      try {
+        const store = fakeStore();
+        const run = vi.fn();
+        const slot = fakePendingActionSlot();
+        setCommandRuntime(runtimeWith({ 'sync.push': { run, enabled: true } }));
+        const deps = fakeHandoffDeps({ store, vocabulary: () => vocabulary, ...slot });
+        await submitInput('push', deps);
+        vi.setSystemTime(Date.now() + (PENDING_ACTION_MEMORY_MS - 1000));
+        await submitInput('yes', deps);
+        expect(run).toHaveBeenCalledTimes(1);
+        expect(slot.pendingAction()).toBeNull();
+        expect(store.lines().at(-1)).toBe('companion: Push.');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('an empty Return reaches the identical path as a spoken "confirm"', async () => {
+      // The input bar submits the literal word "confirm" for an empty
+      // Return — asserted here as the grammar's own behaviour, since the
+      // component itself is exercised in the e2e spec.
+      const store = fakeStore();
+      const run = vi.fn();
+      const slot = fakePendingActionSlot();
+      setCommandRuntime(runtimeWith({ 'sync.push': { run, enabled: true } }));
+      const deps = fakeHandoffDeps({ store, vocabulary: () => vocabulary, ...slot });
+      await submitInput('push', deps);
+      await submitInput('confirm', deps);
+      expect(run).toHaveBeenCalledTimes(1);
+    });
+
+    it('a Run chip reaches the identical path too — same word, different source', async () => {
+      const store = fakeStore();
+      const run = vi.fn();
+      const slot = fakePendingActionSlot();
+      setCommandRuntime(runtimeWith({ 'sync.push': { run, enabled: true } }));
+      const deps = fakeHandoffDeps({ store, vocabulary: () => vocabulary, ...slot });
+      await submitInput('push', deps);
+      // The Run chip's own handler calls `companionPorts().submit('confirm')`
+      // — the same string, through the same `submitInput`.
+      await submitInput('confirm', deps);
+      expect(run).toHaveBeenCalledTimes(1);
+    });
+
+    it('expires past 60 seconds and says nothing is waiting', async () => {
+      vi.useFakeTimers();
+      try {
+        const store = fakeStore();
+        const run = vi.fn();
+        const slot = fakePendingActionSlot();
+        setCommandRuntime(runtimeWith({ 'sync.push': { run, enabled: true } }));
+        const deps = fakeHandoffDeps({ store, vocabulary: () => vocabulary, ...slot });
+        await submitInput('push', deps);
+        vi.setSystemTime(Date.now() + PENDING_ACTION_MEMORY_MS + 1000);
+        await submitInput('yes', deps);
+        expect(run).not.toHaveBeenCalled();
+        expect(slot.pendingAction()).toBeNull();
+        expect(store.lines().at(-1)).toBe("companion: Nothing's waiting.");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('a bare confirm with nothing pending says so', async () => {
+      const store = fakeStore();
+      await submitInput('yes', fakeHandoffDeps({ store }));
+      expect(store.lines().at(-1)).toBe("companion: Nothing's waiting.");
+    });
+
+    it('"dismiss" clears a pending action and says so, instead of the repo-offer decline', async () => {
+      const store = fakeStore();
+      const slot = fakePendingActionSlot();
+      const deps = fakeHandoffDeps({ store, vocabulary: () => vocabulary, ...slot });
+      await submitInput('push', deps);
+      await submitInput('never mind', deps);
+      expect(slot.pendingAction()).toBeNull();
+      expect(store.lines().at(-1)).toBe('companion: Left it.');
+    });
+
+    it('"stop" clears a pending action too, and says so', async () => {
+      const store = fakeStore('speaking');
+      const speaker = fakeSpeaker();
+      const slot = fakePendingActionSlot();
+      const deps = fakeHandoffDeps({ store, speaker, vocabulary: () => vocabulary, ...slot });
+      await submitInput('push', deps);
+      await submitInput('stop', deps);
+      expect(slot.pendingAction()).toBeNull();
+      expect(speaker.cancelled).toBe(1);
+      expect(store.lines().at(-1)).toBe('companion: Left it.');
+    });
+  });
+
+  describe('help', () => {
+    it('speaks a summary and posts the full list as markdown', async () => {
+      const store = fakeStore();
+      const fullVocabulary = vocabularyFixture({
+        views: [{ id: 'graph', label: 'Commit Graph', keywords: 'graph history' }],
+        commands: [
+          { id: 'sync.push', label: 'Push', group: 'sync', access: 'confirm' },
+          { id: 'sync.fetch', label: 'Fetch', group: 'sync', access: 'direct' },
+        ],
+        skills: [{ id: 'execAdhoc', label: 'Ad Hoc Task', hint: 'A one-off task.' }],
+      });
+      await submitInput('what can you do', fakeHandoffDeps({ store, vocabulary: () => fullVocabulary }));
+
+      const posted = store.transcript.at(-1);
+      expect(posted?.text).toContain('**Views**');
+      expect(posted?.text).toContain('- Commit Graph');
+      expect(posted?.text).toContain('**Commands**');
+      expect(posted?.text).toContain('- Push');
+      expect(posted?.text).toContain('**Skills**');
+      expect(posted?.text).toContain('- Ad Hoc Task — A one-off task.');
+    });
   });
 });

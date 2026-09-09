@@ -160,6 +160,8 @@ export function fakeHandoffDeps(over: Partial<HandoffDeps> = {}): HandoffDeps {
     autoSendAllowed: () => false,
     activeHandoff: () => null,
     setActiveHandoff: () => {},
+    pendingAction: () => null,
+    setPendingAction: () => {},
     vocabulary: () => vocabularyFixture(),
     ...over,
   };
