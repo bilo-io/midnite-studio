@@ -106,4 +106,48 @@ describe('<Showcase>', () => {
     const pulse = screen.getByTestId('showcase-pulse');
     expect(pulse.querySelectorAll('animate')).toHaveLength(2);
   });
+
+  // GlowCard's own shadow-glow ring is the card's one visible frame; a second
+  // stroked rect drawn inside it would double it up.
+  it('paints the card background with no second stroked border', () => {
+    const graph = stillGraph();
+    const backdrop = graph.querySelector('rect[fill="var(--ws-bg-sunken)"]');
+    expect(backdrop).toBeTruthy();
+    expect(backdrop?.getAttribute('stroke')).toBeNull();
+  });
+
+  it('re-tints the pulse and the row highlight per commit, with motion', () => {
+    render(<Showcase reduced={false} />);
+
+    // Both elements carry the same colour-cycling utility, and start on the
+    // tip's own tint (row 0 is `TIP`, so accent).
+    const pulse = screen.getByTestId('showcase-pulse');
+    const head = screen.getByTestId('showcase-head');
+    expect(pulse.classList).toContain('ws-graph-arrival-tint');
+    expect(head.classList).toContain('ws-graph-arrival-tint');
+    expect(pulse.getAttribute('stroke')).toBe('var(--ws-accent)');
+    expect(head.getAttribute('fill')).toBe('var(--ws-accent)');
+
+    // The generated keyframes step through every lane the graph uses, not a
+    // single fixed accent — this is the per-commit sweep the class name
+    // promises, not just a coat of paint on one element.
+    const style = document.querySelector('style');
+    expect(style).toBeTruthy();
+    const css = style?.textContent ?? '';
+    expect(css).toContain('@keyframes ws-graph-arrival-tint');
+    for (const lane of [1, 2, 3, 4, 5]) {
+      expect(css, `lane ${lane}`).toContain(`var(--ws-lane-${lane})`);
+    }
+    expect(css).toContain('var(--ws-accent)');
+  });
+
+  it('keeps the checked-out row on the fixed accent under reduced motion', () => {
+    // The still frame has no loop to sweep through — it shows the one row
+    // that is genuinely checked out, which stays accent-treated like its
+    // badge (`Badge`'s own `head ? accent : lane` rule).
+    render(<Showcase reduced />);
+    expect(document.querySelector('style')).toBeNull();
+    const head = screen.getByTestId('showcase-head');
+    expect(head.getAttribute('fill')).toBe('var(--ws-accent-soft)');
+  });
 });

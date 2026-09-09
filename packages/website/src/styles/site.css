@@ -842,6 +842,19 @@ html[data-page-hidden='true'] .ws-rainbow-text {
     stroke-dasharray: 1;
     animation: ws-graph-write var(--ws-graph-step) var(--ws-ease) infinite;
   }
+
+  /*
+    The write head/pulse/highlight's colour, stepping through every commit's
+    own lane in lockstep with `.ws-graph-head`/`.ws-graph-write` above. The
+    `@keyframes` rule itself is generated from `COMMITS` and injected by the
+    component (`ARRIVAL_TINT_KEYFRAMES` in `showcase.tsx`) — it is data, not
+    something this file can know in advance — so this utility only supplies
+    the timing: one full pass of the loop, jumping straight to each commit's
+    colour the instant its slice starts rather than blending toward it.
+  */
+  .ws-graph-arrival-tint {
+    animation: ws-graph-arrival-tint var(--ws-graph-loop) steps(1, jump-start) infinite;
+  }
 }
 
 /*
@@ -1413,6 +1426,7 @@ html[data-page-hidden='true'] .ws-rainbow-text {
 html[data-page-hidden='true'] .ws-graph-scroll,
 html[data-page-hidden='true'] .ws-graph-head,
 html[data-page-hidden='true'] .ws-graph-write,
+html[data-page-hidden='true'] .ws-graph-arrival-tint,
 html[data-page-hidden='true'] .ws-svg-neon,
 html[data-page-hidden='true'] .ws-kanban-card,
 html[data-page-hidden='true'] .ws-kanban-card *,
