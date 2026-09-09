@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { failure, ok, type GitOpResult } from '@midnite/studio-shared';
@@ -225,9 +226,29 @@ function loadKokoro(
   }
 }
 
+/**
+ * The old Piper voice's own subdirectory under `companion-voice/` (Phase 80
+ * Theme C's `sherpa-onnx-node` build, before this engine swap) — up to ~77 MB,
+ * orphaned the moment `sherpa-onnx-node` stopped being required at all. Swept
+ * up rather than left to rot forever: a user who already downloaded it should
+ * not silently keep 77 MB of dead bytes on every future boot. Best-effort and
+ * silent — this is disk hygiene, not a user-facing operation, so a permission
+ * error or an already-absent directory is not worth a log line, still less a
+ * failure surfaced anywhere.
+ */
+const STALE_PIPER_VOICE_DIR = 'en_US-joe-medium';
+
+function cleanUpStalePiperVoice(directory: string): void {
+  void rm(join(directory, 'companion-voice', STALE_PIPER_VOICE_DIR), {
+    recursive: true,
+    force: true,
+  }).catch(() => {});
+}
+
 /** Injected at boot with `app.getPath('userData')`, beside every other store's wiring. */
 export function configureCompanionTts(directory: string): void {
   configured = defaultDeps(directory);
+  cleanUpStalePiperVoice(directory);
 }
 
 export function companionTtsDeps(): CompanionTtsDeps | null {
