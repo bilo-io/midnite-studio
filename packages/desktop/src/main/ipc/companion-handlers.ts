@@ -13,12 +13,13 @@ import { buildCompanionDigest } from '../companion/digest';
 import { buildCompanionSnapshot } from '../companion/snapshot';
 import {
   STT_PROVIDER_FACTORIES,
+  getLocalWhisperStatus,
   sttDeps,
   testSttCredential,
   transcribeUtterance,
 } from '../companion/stt';
 import { getCompanionTtsStatus, synthesizeSpeech } from '../companion/tts';
-import { handle, handleBare, handleOp } from './handle';
+import { handle, handleOp } from './handle';
 
 /**
  * The companion's grounding channels (Phase 79 Theme B) and its one headless
@@ -96,9 +97,10 @@ export function registerCompanionHandlers(): void {
     return ok();
   });
 
-  handleBare<z.infer<typeof schemas.CompanionSttStatusResponse>>(
+  handle<typeof schemas.CompanionSttStatusRequest, z.infer<typeof schemas.CompanionSttStatusResponse>>(
     CHANNELS.companionSttStatus,
-    async () => {
+    schemas.CompanionSttStatusRequest,
+    async (req) => {
       const { credentials } = sttDeps();
       return {
         configured: await credentials.configured(),
@@ -107,8 +109,16 @@ export function registerCompanionHandlers(): void {
         // is decided — reported here so the renderer's mic button can tell
         // "no key" apart from "a key for a provider that doesn't exist yet".
         implemented: Object.keys(STT_PROVIDER_FACTORIES) as SttProviderId[],
+        localModel: await getLocalWhisperStatus(req.retry ?? false),
       };
     },
+    // Never actually invalid — every caller sends at least `{}` — but `handle` needs an arm.
+    () => ({
+      configured: [],
+      encryptionAvailable: false,
+      implemented: [],
+      localModel: { state: 'idle', reason: null, message: null },
+    }),
   );
 
   /*

@@ -2796,6 +2796,13 @@ export const CompanionSttSetRequest = z.object({
 });
 
 /**
+ * `retry: true` forces a fresh provisioning attempt for the local model after
+ * a prior download failure — `CompanionTtsStatusRequest`'s own precedent, one
+ * request field for the one control ("Retry download") that needs it.
+ */
+export const CompanionSttStatusRequest = z.object({ retry: z.boolean().optional() });
+
+/**
  * Which providers hold a key here, whether the OS keychain is usable at all,
  * and which providers main can actually transcribe with.
  *
@@ -2805,6 +2812,11 @@ export const CompanionSttSetRequest = z.object({
  * itself marks "(not yet implemented)" — Deepgram, today — reads back as
  * `configured` and the mic button lights up for a provider that will fail
  * every time it is actually pressed.
+ *
+ * `localModel` is `whisper-local`'s own health, the same shape
+ * `CompanionTtsStatusResponse` reports for the local voice engine — a
+ * one-time model download has to be a visible state, not a mic press that
+ * silently hangs for however long a ~100 MB fetch takes.
  */
 export const CompanionSttStatusResponse = z.object({
   configured: z.array(SttProviderIdSchema),
@@ -2812,6 +2824,11 @@ export const CompanionSttStatusResponse = z.object({
   encryptionAvailable: z.boolean(),
   /** Providers with a real factory behind them — a subset of `SttProviderId`. */
   implemented: z.array(SttProviderIdSchema),
+  localModel: z.object({
+    state: z.enum(['idle', 'downloading', 'ready', 'failed']),
+    reason: z.enum(['native-module-missing', 'download-failed', 'recognition-error']).nullable(),
+    message: z.string().nullable(),
+  }),
 });
 
 /** Which provider to prove reachable. */
