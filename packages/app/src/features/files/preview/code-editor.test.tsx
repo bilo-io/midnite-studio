@@ -67,6 +67,14 @@ class FakeResizeObserver {
   unobserve = vi.fn();
 }
 
+// `handleMount` calls `applyStudioTheme(monaco)` (`useStudioMonacoTheme`'s
+// return value) synchronously — see that file's docblock for why this call,
+// not just dropping the `theme` prop, is what wins the race against
+// `@monaco-editor/react`'s own creation-time `setTheme`. A bare `{}` second
+// arg (pre-existing in every `capturedOnMount?.(fakeEditor, ...)` call below)
+// no longer suffices once that call site exists.
+const fakeMonaco = { editor: { defineTheme: vi.fn(), setTheme: vi.fn() } };
+
 const { CodeEditor } = await import('./code-editor');
 
 function renderEditor(onEscape?: () => void, fileName = 'a.ts') {
@@ -125,7 +133,7 @@ describe('CodeEditor', () => {
 
   it('fires edit() on the store when the editor reports a change', () => {
     renderEditor();
-    capturedOnMount?.(fakeEditor, {});
+    capturedOnMount?.(fakeEditor, fakeMonaco);
     currentModelValue = 'const x = 2;'; // Monaco's own model already has it
     capturedOnChange?.('const x = 2;');
     expect(useFileEditorStore.getState().content).toBe('const x = 2;');
@@ -136,14 +144,14 @@ describe('CodeEditor', () => {
 
   it('pushes a store change into the model via setValue when they diverge', () => {
     renderEditor();
-    capturedOnMount?.(fakeEditor, {});
+    capturedOnMount?.(fakeEditor, fakeMonaco);
     useFileEditorStore.setState({ content: 'reloaded from disk' });
     expect(setValueMock).toHaveBeenCalledWith('reloaded from disk');
   });
 
   it('skips the model push when the model already matches the new content', () => {
     renderEditor();
-    capturedOnMount?.(fakeEditor, {});
+    capturedOnMount?.(fakeEditor, fakeMonaco);
     currentModelValue = 'already-there';
     useFileEditorStore.setState({ content: 'already-there' });
     expect(setValueMock).not.toHaveBeenCalled();
@@ -151,7 +159,7 @@ describe('CodeEditor', () => {
 
   it('disconnects the ResizeObserver on unmount', () => {
     const { unmount } = renderEditor();
-    capturedOnMount?.(fakeEditor, {});
+    capturedOnMount?.(fakeEditor, fakeMonaco);
     expect(observeMock).toHaveBeenCalledTimes(1);
     unmount();
     expect(disconnectMock).toHaveBeenCalledTimes(1);
@@ -164,7 +172,7 @@ describe('CodeEditor', () => {
     expect(document.activeElement).toBe(button);
 
     const { unmount } = renderEditor();
-    capturedOnMount?.(fakeEditor, {});
+    capturedOnMount?.(fakeEditor, fakeMonaco);
     unmount();
 
     expect(document.activeElement).toBe(button);
@@ -178,7 +186,7 @@ describe('CodeEditor', () => {
     it('does not call onEscape while Monaco reports its find widget open', () => {
       const onEscape = vi.fn();
       renderEditor(onEscape);
-      capturedOnMount?.(fakeEditor, {});
+      capturedOnMount?.(fakeEditor, fakeMonaco);
       contextValues.findWidgetVisible = true;
 
       escapeStudio();
@@ -189,7 +197,7 @@ describe('CodeEditor', () => {
     it('does not call onEscape while Monaco reports its suggest list or parameter hints open', () => {
       const onEscape = vi.fn();
       renderEditor(onEscape);
-      capturedOnMount?.(fakeEditor, {});
+      capturedOnMount?.(fakeEditor, fakeMonaco);
 
       contextValues.suggestWidgetVisible = true;
       escapeStudio();
@@ -204,7 +212,7 @@ describe('CodeEditor', () => {
     it('calls onEscape once nothing internal to Monaco is open — the "second Escape" case', () => {
       const onEscape = vi.fn();
       renderEditor(onEscape);
-      capturedOnMount?.(fakeEditor, {});
+      capturedOnMount?.(fakeEditor, fakeMonaco);
       contextValues.findWidgetVisible = true;
 
       escapeStudio(); // first Escape: Monaco's own widget, swallowed
@@ -219,7 +227,7 @@ describe('CodeEditor', () => {
     it('calls onEscape on a bare Escape when no widget was ever open', () => {
       const onEscape = vi.fn();
       renderEditor(onEscape);
-      capturedOnMount?.(fakeEditor, {});
+      capturedOnMount?.(fakeEditor, fakeMonaco);
 
       escapeStudio();
 

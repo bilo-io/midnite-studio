@@ -16,9 +16,10 @@ vi.mock('../../lib/monaco/monaco-loader', () => ({
 }));
 
 let capturedSetPreference: ((next: 'light' | 'dark' | 'system' | 'time') => void) | undefined;
+let capturedApplyToMount: ((monaco: { editor: { defineTheme: unknown; setTheme: unknown } }) => void) | undefined;
 
 function Harness() {
-  useStudioMonacoTheme();
+  capturedApplyToMount = useStudioMonacoTheme();
   capturedSetPreference = useTheme().setPreference;
   return null;
 }
@@ -119,5 +120,25 @@ describe('useStudioMonacoTheme', () => {
     // seeing it here proves the hook actually re-read the new resolved mode
     // rather than only re-running on the same value.
     await waitFor(() => expect(setThemeMock).toHaveBeenCalledWith('studio-github-light'));
+  });
+
+  it('applyToMount (the onMount call site) applies the theme synchronously, with no getMonaco() wait', async () => {
+    renderWithResolvedMode('dark');
+    // Let the effect's own async apply settle first, then clear the mocks so
+    // this test only sees the manual call below.
+    await waitFor(() => expect(setThemeMock).toHaveBeenCalledWith('studio-github-dark'));
+    defineThemeMock.mockClear();
+    setThemeMock.mockClear();
+
+    const fakeMonaco = { editor: { defineTheme: defineThemeMock, setTheme: setThemeMock } };
+    act(() => {
+      capturedApplyToMount?.(fakeMonaco);
+    });
+
+    // No `await`/`waitFor` above — this is the guarantee `onMount` relies on:
+    // calling the returned function applies the theme in the same tick, with
+    // no dependency on `getMonaco()` resolving, since `onMount` only ever
+    // fires once the editor (and its `monaco` argument) already exist.
+    expect(setThemeMock).toHaveBeenCalledWith('studio-github-dark');
   });
 });
