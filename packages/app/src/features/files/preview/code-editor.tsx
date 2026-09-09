@@ -88,12 +88,15 @@ export function CodeEditor({
 
   const language = monacoLanguageForFile(fileName);
 
-  // Defines and applies the active studio palette's Monaco theme — see
-  // `use-studio-monaco-theme.ts` for why `<Editor>` below must NOT also carry
-  // a `theme` prop.
-  useStudioMonacoTheme();
+  // Defines and applies the active studio palette's Monaco theme. See
+  // `use-studio-monaco-theme.ts`: `<Editor>` below must NOT carry a `theme`
+  // prop, AND `applyStudioTheme` must be called from `onMount` (below) — that
+  // call, not just dropping the prop, is what wins the race against
+  // `@monaco-editor/react`'s own unconditional creation-time `setTheme` call.
+  const applyStudioTheme = useStudioMonacoTheme();
 
-  const handleMount: OnMount = (editor) => {
+  const handleMount: OnMount = (editor, monaco) => {
+    applyStudioTheme(monaco);
     editorRef.current = editor;
     editor.focus();
 

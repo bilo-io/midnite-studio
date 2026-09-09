@@ -67,9 +67,10 @@ export function QueryEditor({
   // hardcoded the `theme` prop below, so the query editor never picked up a
   // palette (a second, separate defect from the six mount sites' shared
   // override bug).
-  useStudioMonacoTheme();
+  const applyStudioTheme = useStudioMonacoTheme();
 
   const handleMount: OnMount = (editor, monaco) => {
+    applyStudioTheme(monaco);
     editor.focus();
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onRunChord());

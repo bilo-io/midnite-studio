@@ -55,9 +55,10 @@ export function MonacoField({
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const layoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useStudioMonacoTheme();
+  const applyStudioTheme = useStudioMonacoTheme();
 
-  const handleMount: OnMount = (editor) => {
+  const handleMount: OnMount = (editor, monaco) => {
+    applyStudioTheme(monaco);
     editorRef.current = editor;
 
     // `automaticLayout: false` below means this field must lay itself out on
