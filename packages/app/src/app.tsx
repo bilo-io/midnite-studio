@@ -1508,18 +1508,21 @@ function Shell() {
 
           {/*
             FAB Button — glows while any loop is live, ringed and haloed in
-            the active tab's arc. Hidden while the panel is open AND docked:
-            the statusbar's rightmost segment (`AssistantMenu`) wears the same
-            look in miniature for as long as the panel stays open here, and
-            the two swap places with a FLIP transform (`fab-morph.ts`) rather
-            than one simply appearing where the other vanished. Detaching
-            collapses the docked slot but leaves `fabPanelOpen` itself
-            untouched (so re-docking can expand it straight back), which is
-            why this button also has to reappear on `fabDetached` alone —
-            without it, an open-when-detached panel would hide both the
-            docked slot and this, its only way back.
+            the active tab's arc. Hidden while EITHER panel is open AND
+            docked: the statusbar's rightmost segment (`AssistantMenu`) wears
+            the same look in miniature for as long as one of them stays open
+            here, and the two swap places with a FLIP transform
+            (`fab-morph.ts`) rather than one simply appearing where the other
+            vanished. Detaching collapses a docked slot but leaves that
+            panel's own open flag untouched (so re-docking can expand it
+            straight back), which is why this button also has to reappear on
+            `fabDetached`/`companionDetached` alone — without that, an
+            open-when-detached panel would hide both the docked slot and
+            this, its only way back. `companionDocked` already folds in
+            `companionEnabled` (above), so a disabled companion never
+            suppresses this button.
           */}
-          {!fabPanelOpen || fabDetached ? (
+          {!fabPanelDocked && !companionDocked ? (
             <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
               <FabLoopHalo tab={activeFabTab} />
               <button
