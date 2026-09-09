@@ -16,7 +16,7 @@ vi.mock('../../lib/monaco/monaco-loader', () => ({
 }));
 
 let capturedSetPreference: ((next: 'light' | 'dark' | 'system' | 'time') => void) | undefined;
-let capturedApplyToMount: ((monaco: { editor: { defineTheme: unknown; setTheme: unknown } }) => void) | undefined;
+let capturedApplyToMount: ReturnType<typeof useStudioMonacoTheme> | undefined;
 
 function Harness() {
   capturedApplyToMount = useStudioMonacoTheme();
@@ -130,7 +130,9 @@ describe('useStudioMonacoTheme', () => {
     defineThemeMock.mockClear();
     setThemeMock.mockClear();
 
-    const fakeMonaco = { editor: { defineTheme: defineThemeMock, setTheme: setThemeMock } };
+    const fakeMonaco = {
+      editor: { defineTheme: defineThemeMock, setTheme: setThemeMock },
+    } as unknown as Parameters<NonNullable<typeof capturedApplyToMount>>[0];
     act(() => {
       capturedApplyToMount?.(fakeMonaco);
     });
