@@ -3359,6 +3359,23 @@ export async function installMockBridge(page: Page, fixtures: MockFixtures): Pro
         },
         sttTest: async () => ({ ok: true as const, value: { ms: 120, text: '' } }),
         transcribe: async () => ({ ok: true as const, value: { text: '' } }),
+        // The status sibling (Phase 80 Theme C follow-up): a harness has no
+        // native module at all, which is exactly the `'native-module-missing'`
+        // arm — matching `ttsSynthesize` above rather than inventing a fourth
+        // state this bridge never actually reaches. A spec that wants to
+        // photograph the other states (`downloading`, `ready`, a download
+        // failure) monkeypatches this method with `page.evaluate` after
+        // `goto`, the same way `companion-shots.spec.ts` patches
+        // `window.speechSynthesis`.
+        ttsStatus: async () => ({
+          ok: true as const,
+          value: {
+            engine: 'system' as const,
+            voice: 'failed' as const,
+            reason: 'native-module-missing' as const,
+            message: 'No local voice engine in this harness.',
+          },
+        }),
       },
       mcp: {
         get: async () => ({

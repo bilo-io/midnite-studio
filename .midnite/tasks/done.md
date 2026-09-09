@@ -1,6 +1,50 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-09 — Ad hoc — the local voice, visible, auditionable and diagnosable in Settings
+
+[PR #300](https://github.com/bilo-io/midnite-studio/pull/300). A user installed the Phase 80
+Theme C build, heard the same robotic system voice as before, and could find no setting for the
+new local voice at all. Root cause was three compounding surfacing gaps, not the engine itself —
+a standalone probe against the real `sherpa-onnx-node` package and a real downloaded
+`en_US-joe-medium` voice produced genuine, non-silent audio on this machine in 473ms, and
+`app:build`/`desktop:bundle` (the packaged-equivalent build) compiled clean with the new channel,
+so the native engine was never the problem.
+
+**A new `mstudio:companion:tts-status` IPC channel** (`GitOpResult` envelope, mirroring
+`tts-synthesize`'s shape exactly) reports which engine main can currently offer and, when it has
+fallen back, which of `tts.ts`'s three failure modes caused it — a `loadFailureKind` alongside the
+existing sticky `loadFailure`, and a new non-sticky `provisioningError` for the transient download
+case. A status check with the voice not yet provisioned kicks off `ensureVoice()` as a side effect,
+so opening Settings ▸ Companion ▸ Voice is what starts the one-time ~77 MB download rather than
+the first "Say hello" (a coarse pending/downloading/ready/failed state, not a byte-accurate
+progress bar — the PR's own Decisions record why). `retry: true` forces a fresh attempt after a
+download failure without hammering the network on every render.
+
+**`companionTtsSpeaker` gained `activeEngine` and `retryLocalVoice()`.** Its `useLocal` fallback
+flag was write-only from the outside: once a renderer session fell back to `speechSynthesis` it
+stayed there for the object's lifetime, even after main's own transient download failure had since
+resolved — so a user who happened to trigger the very first utterance during a network blip was
+stuck on the system voice for the rest of the session with no way back short of a restart.
+`retryLocalVoice()` resets the sticky flag; `activeEngine` is what lets Settings show which tier
+actually spoke.
+
+**Settings ▸ Companion ▸ Voice now shows live status, not prose only**: a status line with an
+icon (checking / downloading / speaking with the local voice / a specific failure reason), and a
+Retry control offered only for the one recoverable case (a failed download, or a renderer that
+fell back before main finished a delayed download) — never for a missing native module or a
+synthesis throw, both sticky for the main process's lifetime. Also fixed a real bug this
+surfaced: "Say hello" was disabled whenever `speechSynthesis.getVoices()` reported zero voices,
+even though the local engine needs none — the one control that could prove the local voice worked
+was unreachable on exactly the machines that most needed it. A line under the picker now states
+up front which engine "Say hello" will use.
+
+Screenshots of all three states (`docs/screenshots/p80-c-voice-ui/`) via a new
+`companion-voice-status-shots.spec.ts`, which also added `companion.ttsStatus` to the e2e mock
+bridge (previously entirely absent). New coverage: 15 desktop tests for
+`getCompanionTtsStatus`/the channel, app tests for `activeEngine`/`retryLocalVoice`, and 12 tests
+for the new Settings status block and the Say hello gating fix.
+
 ## 2026-09-09 — Ad hoc — the companion mic staying crossed out after a speech key is saved
 
 [PR #299](https://github.com/bilo-io/midnite-studio/pull/299). Not phase-tracked (`/midnite-exec-adhoc`)

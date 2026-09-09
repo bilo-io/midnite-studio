@@ -121,8 +121,25 @@ let sherpaOnnx: SherpaOnnxModule | null = null;
 let ttsInstance: OfflineTtsInstance | null = null;
 /** Sticky once set: a missing native module does not become available mid-run. */
 let loadFailure: string | null = null;
+/**
+ * Which of the two sticky-failure call sites set `loadFailure` — `require()`
+ * itself throwing (`loadSherpaOnnx`) versus the constructor/`.generate()`
+ * throwing later (`synthesizeSpeech`'s own catch). Both are sticky for the
+ * same reason (the module doc above), but `getCompanionTtsStatus` reports
+ * them as the distinct reasons `tts-status`'s schema promises rather than
+ * collapsing both into "native module missing".
+ */
+let loadFailureKind: 'native-module-missing' | 'synthesis-error' | null = null;
 /** Dedupes a provisioning download racing two utterances that both start cold. */
 let provisioning: Promise<GitOpResult<VoicePaths>> | null = null;
+/**
+ * The last provisioning failure, cleared the moment a fresh attempt starts —
+ * unlike `loadFailure` this is NOT sticky: a network blip is retried on the
+ * next call automatically (the module doc's point 2), and `getCompanionTtsStatus`
+ * uses this to explain a `'failed'` `voice` state without re-triggering a
+ * download on every poll.
+ */
+let provisioningError: string | null = null;
 
 /**
  * `deps.loadModule()`, lazily and fail-soft — called on first synthesis
@@ -144,6 +161,7 @@ function loadSherpaOnnx(deps: CompanionTtsDeps): SherpaOnnxModule | null {
     return sherpaOnnx;
   } catch (error) {
     loadFailure = error instanceof Error ? error.message : 'sherpa-onnx-node failed to load';
+    loadFailureKind = 'native-module-missing';
     return null;
   }
 }
@@ -162,7 +180,9 @@ export function resetCompanionTtsForTest(overrides: Partial<CompanionTtsDeps> = 
   sherpaOnnx = null;
   ttsInstance = null;
   loadFailure = null;
+  loadFailureKind = null;
   provisioning = null;
+  provisioningError = null;
   configured = overrides.directory !== undefined ? defaultDeps(overrides.directory) : null;
   if (configured) {
     if (overrides.fetchImpl !== undefined) configured.fetchImpl = overrides.fetchImpl;
@@ -267,9 +287,16 @@ function bunzip2(compressed: Buffer): Promise<Buffer> {
  */
 async function ensureVoice(deps: CompanionTtsDeps): Promise<GitOpResult<VoicePaths>> {
   const paths = voicePaths(deps.directory);
-  if (voiceReady(paths)) return ok(paths);
+  if (voiceReady(paths)) {
+    provisioningError = null;
+    return ok(paths);
+  }
 
   if (provisioning === null) {
+    // Cleared at the start of every fresh attempt, not just on success — a
+    // `getCompanionTtsStatus` poll mid-download must not still be reporting
+    // the *previous* attempt's failure message.
+    provisioningError = null;
     provisioning = (async (): Promise<GitOpResult<VoicePaths>> => {
       const dir = voiceDir(deps.directory);
       const tempDir = `${dir}.download-${Date.now()}`;
@@ -278,9 +305,8 @@ async function ensureVoice(deps: CompanionTtsDeps): Promise<GitOpResult<VoicePat
           signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
         });
         if (!response.ok || response.body === null) {
-          return failure(
-            `Could not download the local voice (HTTP ${response.status}). The companion will keep using the system voice.`,
-          );
+          provisioningError = `Could not download the local voice (HTTP ${response.status}). The companion will keep using the system voice.`;
+          return failure(provisioningError);
         }
         const compressed = await collectStream(response.body);
         const archive = await bunzip2(compressed);
@@ -296,16 +322,17 @@ async function ensureVoice(deps: CompanionTtsDeps): Promise<GitOpResult<VoicePat
 
         await rm(dir, { recursive: true, force: true });
         await rename(tempDir, dir);
-        return voiceReady(paths)
-          ? ok(paths)
-          : failure(
-              'The downloaded voice was incomplete. The companion will keep using the system voice.',
-            );
+        if (voiceReady(paths)) {
+          provisioningError = null;
+          return ok(paths);
+        }
+        provisioningError =
+          'The downloaded voice was incomplete. The companion will keep using the system voice.';
+        return failure(provisioningError);
       } catch (error) {
         await rm(tempDir, { recursive: true, force: true }).catch(() => {});
-        return failure(
-          `Could not set up the local voice (${error instanceof Error ? error.message : String(error)}). The companion will keep using the system voice.`,
-        );
+        provisioningError = `Could not set up the local voice (${error instanceof Error ? error.message : String(error)}). The companion will keep using the system voice.`;
+        return failure(provisioningError);
       } finally {
         // Each attempt gets a fresh try — a network blip is not sticky like a
         // missing native module is.
@@ -395,9 +422,68 @@ export async function synthesizeSpeech(
     // spirit even when it surfaces later than `require()` — sticky for the
     // same reason.
     loadFailure = error instanceof Error ? error.message : 'sherpa-onnx-node failed';
+    loadFailureKind = 'synthesis-error';
     ttsInstance = null;
     return failure(
       `The local voice failed to start (${error instanceof Error ? error.message : String(error)}). The companion will keep using the system voice.`,
     );
   }
+}
+
+export type CompanionTtsStatusValue = {
+  /** This process's own view of which tier it can currently offer. */
+  engine: 'local' | 'system';
+  voice: 'idle' | 'downloading' | 'ready' | 'failed';
+  reason: 'native-module-missing' | 'download-failed' | 'synthesis-error' | null;
+  message: string | null;
+};
+
+/**
+ * A snapshot of the local engine's health for Settings ▸ Companion ▸ Voice —
+ * never throws, never synthesizes anything, and by default never re-attempts
+ * a provisioning download that already failed (`retry` forces one).
+ *
+ * The first call made with the voice not yet on disk — or any call with
+ * `retry: true` — kicks off `ensureVoice()` and reports `'downloading'`
+ * immediately rather than awaiting the up-to-`DOWNLOAD_TIMEOUT_MS` round
+ * trip inline; the caller polls again for `'ready'`/`'failed'`. This is what
+ * makes opening the Voice section the moment the one-time download starts,
+ * instead of the first "Say hello".
+ */
+export async function getCompanionTtsStatus(
+  retry: boolean,
+  deps: CompanionTtsDeps | null = configured,
+): Promise<CompanionTtsStatusValue> {
+  if (deps === null) {
+    return { engine: 'system', voice: 'idle', reason: null, message: null };
+  }
+
+  const module = loadSherpaOnnx(deps);
+  if (module === null) {
+    return {
+      engine: 'system',
+      voice: 'failed',
+      reason: loadFailureKind ?? 'native-module-missing',
+      message: loadFailure,
+    };
+  }
+
+  const paths = voicePaths(deps.directory);
+  if (voiceReady(paths)) {
+    return { engine: 'local', voice: 'ready', reason: null, message: null };
+  }
+
+  if (provisioning !== null) {
+    return { engine: 'system', voice: 'downloading', reason: null, message: null };
+  }
+
+  if (provisioningError !== null && !retry) {
+    return { engine: 'system', voice: 'failed', reason: 'download-failed', message: provisioningError };
+  }
+
+  // No attempt yet, or an explicit retry after a prior (transient) failure.
+  // Fire-and-forget: `ensureVoice` dedupes concurrent callers on its own via
+  // `provisioning`, exactly as two overlapping `synthesizeSpeech` calls do.
+  void ensureVoice(deps);
+  return { engine: 'system', voice: 'downloading', reason: null, message: null };
 }

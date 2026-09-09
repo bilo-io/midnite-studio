@@ -9,7 +9,17 @@ import {
 } from '@midnite/studio-shared';
 import { Accordion } from '@bilo-io/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { LuBot, LuMic, LuSmile, LuVolume2, LuX } from 'react-icons/lu';
+import {
+  LuBot,
+  LuCircleCheck,
+  LuDownload,
+  LuMic,
+  LuRefreshCw,
+  LuSmile,
+  LuTriangleAlert,
+  LuVolume2,
+  LuX,
+} from 'react-icons/lu';
 
 import { setCompanionVolume as applyCompanionVolume } from '../../companion/audio/context';
 import { companionTtsSpeaker } from '../../companion/speaker';
@@ -93,10 +103,34 @@ export function CompanionPage() {
     applyCompanionVolume(companionVolume);
   }, [companionVolume]);
 
+  const { status: ttsStatus, retry: retryTtsStatus } = useCompanionTtsStatus();
+  /*
+    Which engine actually spoke the most recent preview — or would speak the
+    next one, before any has run this session. `companionTtsSpeaker` is a
+    module singleton whose `activeEngine` getter isn't itself observable, so
+    this mirrors it into state at the two moments it can change: right after
+    a "Say hello" attempt, and right after Retry resets the sticky fallback.
+  */
+  const [rendererEngine, setRendererEngine] = useState<'local' | 'system'>(
+    () => companionTtsSpeaker.activeEngine,
+  );
+
   const sayHello = useCallback(() => {
     const greeting = pickPhrase(COMPANION_PHRASES.greetings);
-    void companionTtsSpeaker.speak(interpolatePhrase(greeting, companionHonorific));
+    void (async () => {
+      await companionTtsSpeaker.speak(interpolatePhrase(greeting, companionHonorific));
+      setRendererEngine(companionTtsSpeaker.activeEngine);
+    })();
   }, [companionHonorific]);
+
+  const retryLocalVoice = useCallback(() => {
+    // Order matters: reset the renderer's own sticky fallback first so the
+    // very next "Say hello" tries the local engine again, then ask main for
+    // a fresh provisioning attempt if the download is what failed.
+    companionTtsSpeaker.retryLocalVoice();
+    setRendererEngine(companionTtsSpeaker.activeEngine);
+    void retryTtsStatus();
+  }, [retryTtsStatus]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -160,9 +194,11 @@ export function CompanionPage() {
             this machine.
           </p>
 
+          <CompanionVoiceStatus status={ttsStatus} rendererEngine={rendererEngine} onRetry={retryLocalVoice} />
+
           <Field
             label="Speaking voice (fallback)"
-            hint="One of the voices your operating system already ships — no download, no network. Used automatically if the local voice can't load, and used for the Say hello preview below. Leave it on the system default and the app uses whichever voice your OS prefers for its own language."
+            hint="One of the voices your operating system already ships — no download, no network. Used automatically if the local voice can't load. Say hello below tries the local voice first and falls back to this one."
           >
             <select
               value={companionVoice ?? ''}
@@ -190,7 +226,19 @@ export function CompanionPage() {
               <button
                 type="button"
                 onClick={sayHello}
-                disabled={!companionEnabled || !companionSpeakAloud || voices.length === 0}
+                /*
+                  Only "no voices reported yet" AND the local engine isn't
+                  ready should block this — the local engine needs neither a
+                  system voice list nor a working `speechSynthesis` at all.
+                  Gating on `voices.length === 0` alone (Finding 2) disabled
+                  the one control that could prove the local voice worked on a
+                  machine that also happens to report zero system voices.
+                */
+                disabled={
+                  !companionEnabled ||
+                  !companionSpeakAloud ||
+                  (voices.length === 0 && ttsStatus?.voice !== 'ready')
+                }
                 className="h-6 rounded-md border border-border px-2 text-xs transition-colors hover:bg-accent disabled:opacity-50"
                 data-testid="companion-say-hello"
               >
@@ -209,6 +257,11 @@ export function CompanionPage() {
                 </label>
               ) : null}
             </div>
+            <p className="text-[11px] text-muted-foreground" data-testid="companion-say-hello-engine">
+              {rendererEngine === 'local'
+                ? 'Say hello uses the local offline voice.'
+                : 'Say hello uses the system voice above.'}
+            </p>
           </Field>
 
           <Field
@@ -334,6 +387,172 @@ export function CompanionPage() {
           </Field>
         </div>
       </Accordion>
+    </div>
+  );
+}
+
+/**
+ * Structurally the value `mstudio:companion:tts-status` answers with
+ * (`schemas.CompanionTtsStatusResponse`'s success arm, unwrapped).
+ *
+ * Declared here rather than imported for the reason `speaker.ts`'s own
+ * `CompanionSpeakOptions` doc gives: `app` may not import `desktop` (package
+ * boundaries), and the shared schema's inferred type is a zod internal, not
+ * something worth threading through `@midnite/studio-shared`'s public surface
+ * for one caller. The shape is a straight mirror — see `tts.ts`'s
+ * `CompanionTtsStatusValue` for the source of truth.
+ */
+type CompanionTtsStatusValue = {
+  engine: 'local' | 'system';
+  voice: 'idle' | 'downloading' | 'ready' | 'failed';
+  reason: 'native-module-missing' | 'download-failed' | 'synthesis-error' | null;
+  message: string | null;
+};
+
+/**
+ * Polls `companion.ttsStatus` (Phase 80 Theme C follow-up) — once on mount,
+ * which is what starts the one-time ~77 MB download if the voice isn't
+ * provisioned yet (see `getCompanionTtsStatus`'s own doc), then every 1.5 s
+ * while it answers `'downloading'`, stopping once it lands on `'ready'` or
+ * `'failed'`. `retry` re-checks with `retry: true`, forcing a fresh
+ * provisioning attempt after a prior download failure.
+ */
+function useCompanionTtsStatus(): {
+  status: CompanionTtsStatusValue | null;
+  retry: () => void;
+} {
+  const [status, setStatus] = useState<CompanionTtsStatusValue | null>(null);
+
+  const check = useCallback(async (retry = false) => {
+    const companion = bridge()?.companion;
+    if (!companion?.ttsStatus) return;
+    const result = await companion.ttsStatus({ retry });
+    if (result.ok) setStatus(result.value);
+  }, []);
+
+  useEffect(() => {
+    void check();
+  }, [check]);
+
+  useEffect(() => {
+    if (status?.voice !== 'downloading') return undefined;
+    const timer = setInterval(() => void check(), 1_500);
+    return () => clearInterval(timer);
+  }, [status?.voice, check]);
+
+  return { status, retry: useCallback(() => void check(true), [check]) };
+}
+
+/** Shared styling for the two moments this section offers a way to try again. */
+function RetryButton({ onClick, label, testId }: { onClick: () => void; label: string; testId: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex w-fit items-center gap-1 h-6 rounded-md border border-border px-2 text-xs transition-colors hover:bg-accent"
+      data-testid={testId}
+    >
+      <LuRefreshCw className="h-3 w-3" />
+      {label}
+    </button>
+  );
+}
+
+/** `reason` → the sentence explaining it, one per `tts.ts` failure mode (module doc). */
+const TTS_FAILURE_SENTENCES: Record<NonNullable<CompanionTtsStatusValue['reason']>, string> = {
+  'native-module-missing': "The local voice engine isn't available on this machine",
+  'download-failed': 'Could not download the local voice',
+  'synthesis-error': 'The local voice failed to start',
+};
+
+/**
+ * The live diagnosis Finding 1 asked for: which engine is speaking right
+ * now, and — when it fell back — why, distinguishing all three of
+ * `synthesizeSpeech`'s failure modes rather than one generic "unavailable".
+ *
+ * `status` is main's own view of the local engine's health; `rendererEngine`
+ * is this renderer's separate, session-local fallback decision
+ * (`companionTtsSpeaker.activeEngine`) — the two can disagree, e.g. main
+ * finished a delayed download after this session had already fallen back to
+ * the system voice for an earlier utterance, which is exactly the case
+ * `onRetry` (`companionTtsSpeaker.retryLocalVoice()` plus a fresh status
+ * check) exists to recover from without a restart.
+ */
+function CompanionVoiceStatus({
+  status,
+  rendererEngine,
+  onRetry,
+}: {
+  status: CompanionTtsStatusValue | null;
+  rendererEngine: 'local' | 'system';
+  onRetry: () => void;
+}) {
+  if (status === null || status.voice === 'idle') {
+    return (
+      <p className="text-[11px] leading-relaxed text-muted-foreground" data-testid="companion-voice-status">
+        Checking the local offline voice…
+      </p>
+    );
+  }
+
+  if (status.voice === 'downloading') {
+    return (
+      <p
+        className="flex items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground"
+        data-testid="companion-voice-status"
+      >
+        <LuDownload className="h-3 w-3 shrink-0" />
+        Downloading the local offline voice (about 77 MB, one time only)…
+      </p>
+    );
+  }
+
+  if (status.voice === 'ready') {
+    if (rendererEngine === 'local') {
+      return (
+        <p
+          className="flex items-center gap-1.5 text-[11px] leading-relaxed text-muted-foreground"
+          data-testid="companion-voice-status"
+        >
+          <LuCircleCheck className="h-3 w-3 shrink-0 text-emerald-500" />
+          Speaking with the local offline voice — no network, no system voice.
+        </p>
+      );
+    }
+    return (
+      <div className="flex flex-col items-start gap-1.5" data-testid="companion-voice-status">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          The local voice is ready, but this session already switched to the system voice below.
+        </p>
+        <RetryButton
+          onClick={onRetry}
+          label="Use the local voice again"
+          testId="companion-voice-retry"
+        />
+      </div>
+    );
+  }
+
+  // status.voice === 'failed'
+  const sentence = TTS_FAILURE_SENTENCES[status.reason ?? 'native-module-missing'];
+  return (
+    <div className="flex flex-col items-start gap-1.5" data-testid="companion-voice-status">
+      <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+        <LuTriangleAlert className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+        <span>
+          {sentence}
+          {status.message ? ` (${status.message})` : ''}. Using a system voice instead.
+        </span>
+      </p>
+      {/*
+        Only the download failure is retryable — a missing native module and
+        a synthesis-throw are sticky for the main process's lifetime (the
+        module doc's own claim); offering Retry there would promise a fix
+        this button cannot deliver.
+      */}
+      {status.reason === 'download-failed' ? (
+        <RetryButton onClick={onRetry} label="Retry download" testId="companion-voice-retry" />
+      ) : null}
     </div>
   );
 }

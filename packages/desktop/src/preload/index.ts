@@ -591,6 +591,7 @@ const bridge: Pick<
       `ipcRenderer.invoke` with no re-encoding.
     */
     ttsSynthesize: (req) => call(CHANNELS.companionTtsSynthesize, req),
+    ttsStatus: (req) => call(CHANNELS.companionTtsStatus, req),
   },
   windowChrome,
   windowRole,
