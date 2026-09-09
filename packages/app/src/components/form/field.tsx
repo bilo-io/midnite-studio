@@ -140,6 +140,7 @@ export function TextArea({
   rows = 3,
   className,
   onFocus,
+  gradient,
 }: {
   value: string;
   onChange: (value: string) => void;
