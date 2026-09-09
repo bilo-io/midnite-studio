@@ -6,6 +6,7 @@ import {
   CompanionLocalVoiceIdSchema,
   CompanionPersonalitySchema,
   CompanionSnapshotSchema,
+  CompanionVocabularySchema,
   SttProviderIdSchema,
 } from '../companion';
 
@@ -2709,6 +2710,13 @@ export const CompanionAskRequest = z.object({
   snapshot: CompanionSnapshotSchema.nullable().optional(),
   personality: CompanionPersonalitySchema.optional(),
   aboutUser: CompanionAboutUserSchema.optional(),
+  /**
+   * Views, settings pages, commands (by tier) and skills — Phase 81 Theme E.
+   * Optional so an older renderer, or a test that skips it, gets the `route`
+   * prompt exactly as it read before this field existed: `buildAskPrompt`
+   * treats an absent vocabulary as "say nothing about it", not as an empty one.
+   */
+  vocabulary: CompanionVocabularySchema.optional(),
 });
 
 /**
