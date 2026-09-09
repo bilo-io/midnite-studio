@@ -303,6 +303,85 @@ describe('useCommandHandlers — fab.toggle', () => {
     result.current['fab.toggle'].run();
     expect(useUiStore.getState().quickAccessOpen).toBe(false);
   });
+
+  // Ad hoc (this task): the panel-docked branch — the chord takes you back
+  // out the same way it took you in, rather than reopening the menu on top
+  // of an already-open panel.
+  it('closes the Loops panel instead, when it is already open and docked', () => {
+    useUiStore.setState({ fabPanelOpen: true, fabDetached: false });
+    const { result } = withProviders(new QueryClient());
+
+    result.current['fab.toggle'].run();
+
+    expect(useUiStore.getState().fabPanelOpen).toBe(false);
+    // The menu is not what closed it, and never opened either.
+    expect(useUiStore.getState().quickAccessOpen).toBe(false);
+  });
+
+  it('opens the quick-access menu, unchanged, when the Loops panel is open but detached', () => {
+    useUiStore.setState({ fabPanelOpen: true, fabDetached: true });
+    const { result } = withProviders(new QueryClient());
+
+    result.current['fab.toggle'].run();
+
+    // A detached panel lives in its own window and is not showing here, so
+    // this chord still opens the menu for it — and leaves the detached
+    // panel's own open flag untouched.
+    expect(useUiStore.getState().quickAccessOpen).toBe(true);
+    expect(useUiStore.getState().fabPanelOpen).toBe(true);
+  });
+});
+
+describe('useCommandHandlers — companion.toggle', () => {
+  // The same close-when-docked treatment as `fab.toggle` above.
+  it('closes the Companion panel when it is already open and docked', () => {
+    useUiStore.setState({
+      companionEnabled: true,
+      companionPanelOpen: true,
+      companionDetached: false,
+    });
+    const { result } = withProviders(new QueryClient());
+
+    result.current['companion.toggle'].run();
+
+    expect(useUiStore.getState().companionPanelOpen).toBe(false);
+  });
+
+  it('opens the Companion panel when it is closed', () => {
+    useUiStore.setState({
+      companionEnabled: true,
+      companionPanelOpen: false,
+      companionDetached: false,
+    });
+    const { result } = withProviders(new QueryClient());
+
+    result.current['companion.toggle'].run();
+
+    expect(useUiStore.getState().companionPanelOpen).toBe(true);
+  });
+
+  it('is unaffected by the docked check while detached — unchanged behaviour', () => {
+    useUiStore.setState({
+      companionEnabled: true,
+      companionPanelOpen: true,
+      companionDetached: true,
+    });
+    const { result } = withProviders(new QueryClient());
+
+    result.current['companion.toggle'].run();
+
+    // Not docked (it's detached), so this falls to the existing
+    // `toggleCompanionPanel()` fallback — same result a plain toggle from
+    // "open" always produced here, before this task.
+    expect(useUiStore.getState().companionPanelOpen).toBe(false);
+  });
+
+  it('stays disabled while the companion is switched off, regardless of panel state', () => {
+    useUiStore.setState({ companionEnabled: false, companionPanelOpen: false });
+    const { result } = withProviders(new QueryClient());
+
+    expect(result.current['companion.toggle'].enabled).toBe(false);
+  });
 });
 
 describe('useCommandHandlers — notes.toggle', () => {

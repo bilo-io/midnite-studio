@@ -102,8 +102,13 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
           `clientHeight === 0` open-guard (`terminal-view.tsx`) started
           rejecting it — the pane never rendered `.xterm-screen` at all. This
           row was already there, so folding the button into it costs nothing.
+
+          The tabs themselves match `tab-strip.tsx` (the workbench's own tab
+          row): icon left, label beside it, `flex-row` rather than the taller
+          icon-over-label stack this used to be — one shorter control that
+          reads the same way in both places.
         */}
-        <div className="group flex border-b border-border shrink-0">
+        <div data-testid="fab-panel-tabbar" className="group flex border-b border-border shrink-0">
           <div className="relative flex w-8 shrink-0 items-center justify-center">
             <span
               aria-hidden
@@ -121,32 +126,6 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
               />
             )}
           </div>
-          {/*
-            Close, beside the detach slot rather than folded into its
-            hover-morph — `companion-header.tsx`'s close button is a plain,
-            always-visible control, not a hover reveal, and this matches that
-            placement idiom rather than Detach's own.
-
-            Hidden in a popout, exactly like Detach, and for a sibling reason
-            rather than the same one: `DetachedContent` (`detached-root.tsx`)
-            passes this panel a hardcoded `isOpen`, not the store's
-            `fabPanelOpen` — so `setFabPanelOpen(false)` here would flip a
-            flag nothing downstream in THIS window reads, an inert click
-            rather than a close. (`companion-header.tsx`'s own close button is
-            hidden in its popout for the identical reason — its neighbouring
-            comment there is about the Clear button being the one exception,
-            not about Close being one.)
-          */}
-          {!isPopout && (
-            <div className="flex w-8 shrink-0 items-center justify-center">
-              <IconButton
-                icon={LuX}
-                label="Close the Loops Panel"
-                size="sm"
-                onClick={() => setFabPanelOpen(false)}
-              />
-            </div>
-          )}
           {DEFAULT_LOOPS.map((loop, index) => {
             const Icon = loopIcon(loop.icon);
             const status = statuses[index];
@@ -157,7 +136,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                 data-fab-tab={loop.id}
                 data-selected={isSelected ? 'true' : 'false'}
                 onClick={() => onTabClick(loop.id as FabTab)}
-                className={`tab-loop-button relative flex-1 flex flex-col items-center justify-center gap-1 overflow-hidden py-2 ${
+                className={`tab-loop-button relative flex-1 flex min-w-0 flex-row items-center justify-start gap-1 overflow-hidden px-1.5 py-1.5 ${
                   isSelected ? 'is-selected' : ''
                 }`}
                 title={loop.label}
@@ -191,9 +170,9 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                     }
                   />
                 ) : null}
-                <Icon className={`relative h-4 w-4 ${loop.color}`} />
+                <Icon className={`relative h-3.5 w-3.5 shrink-0 ${loop.color}`} />
                 <span
-                  className={`relative text-xs ${isSelected ? 'font-semibold' : 'font-medium'} ${loop.color}`}
+                  className={`relative min-w-0 truncate text-xs ${isSelected ? 'font-semibold' : 'font-medium'} ${loop.color}`}
                 >
                   {loop.label}
                 </span>
@@ -221,6 +200,32 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
               </button>
             );
           })}
+          {/*
+            Close, at the far end of the row rather than beside the detach
+            slot — `companion-header.tsx`'s own close button is the last
+            control in its row, and this follows that placement idiom rather
+            than Detach's.
+
+            Hidden in a popout, exactly like Detach, and for a sibling reason
+            rather than the same one: `DetachedContent` (`detached-root.tsx`)
+            passes this panel a hardcoded `isOpen`, not the store's
+            `fabPanelOpen` — so `setFabPanelOpen(false)` here would flip a
+            flag nothing downstream in THIS window reads, an inert click
+            rather than a close. (`companion-header.tsx`'s own close button is
+            hidden in its popout for the identical reason — its neighbouring
+            comment there is about the Clear button being the one exception,
+            not about Close being one.)
+          */}
+          {!isPopout && (
+            <div className="flex w-8 shrink-0 items-center justify-center">
+              <IconButton
+                icon={LuX}
+                label="Close the Loops Panel"
+                size="sm"
+                onClick={() => setFabPanelOpen(false)}
+              />
+            </div>
+          )}
         </div>
 
         {/*

@@ -22,7 +22,7 @@ import { useCommitBoxStore } from '../../store/commit-box-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useThemeImportCommandStore } from '../../features/themes/theme-import-command-store';
 import { usePaletteStore } from '../../store/palette-store';
-import { useUiStore, type ViewId } from '../../store/ui-store';
+import { isCompanionPanelDocked, isFabPanelDocked, useUiStore, type ViewId } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { useWorkflowRunCommandStore } from '../../store/workflow-run-command-store';
 import { bridge } from '../bridge';
@@ -74,7 +74,19 @@ export function useCommandHandlers(): CommandRuntime {
   const reposDetached = useUiStore((s) => s.reposDetached);
   const fabDetached = useUiStore((s) => s.fabDetached);
   const companionEnabled = useUiStore((s) => s.companionEnabled);
+  const companionPanelOpen = useUiStore((s) => s.companionPanelOpen);
+  const companionDetached = useUiStore((s) => s.companionDetached);
   const browserDetached = useUiStore((s) => s.browserDetached);
+  // `isFabPanelDocked`/`isCompanionPanelDocked` (`ui-store.ts`) — the same
+  // "open, and not off in its own detached window" check `app.tsx` and
+  // `assistant-menu.tsx` already needed, hoisted once `fab.toggle`/
+  // `companion.toggle` below made it a third call site.
+  const fabPanelDocked = isFabPanelDocked({ fabPanelOpen, fabDetached });
+  const companionDocked = isCompanionPanelDocked({
+    companionPanelOpen,
+    companionEnabled,
+    companionDetached,
+  });
   // The four *Detached flags and the panel-open flags below are main's own
   // — a popout's own ui-store instance never reflects them (see ui-store.ts).
   const isMainWindow = (bridge()?.windowRole ?? 'main') === 'main';
@@ -172,16 +184,38 @@ export function useCommandHandlers(): CommandRuntime {
     // Re-pointed (Phase 58 Theme F): `fab.toggle` used to open the Loops panel
     // directly; it now opens the quick-access menu the panel sits behind
     // (Theme E), which is what its `L` row opens the Loops panel via.
-    'fab.toggle': { enabled: true, run: () => useUiStore.getState().toggleQuickAccess() },
+    //
+    // Ad hoc (this task): EXCEPT when the Loops panel is already open and
+    // docked in this window — the chord then closes it instead of reopening
+    // the menu on top of it, so `Mod+l` takes you in and back out with the
+    // same keystroke. `fabPanelDocked` excludes a detached panel on purpose:
+    // it lives in its own window and is not showing here, so this chord
+    // opening the menu for it is still the right (and only) behaviour.
+    'fab.toggle': {
+      enabled: true,
+      run: () =>
+        fabPanelDocked
+          ? useUiStore.getState().setFabPanelOpen(false)
+          : useUiStore.getState().toggleQuickAccess(),
+    },
     'notes.toggle': { enabled: true, run: () => useUiStore.getState().toggleNotes() },
     /*
       Phase 79 Theme C. Disabled — with a reason, so the palette row explains
       itself — while the companion is switched off: the panel would render
       nothing (`CompanionPanelSlot` gates on the same flag), and a command that
       opens an empty column is worse than one that says why it will not.
+
+      Ad hoc (this task): the same close-when-docked treatment as `fab.toggle`
+      above, for the identical reason.
     */
     'companion.toggle': companionEnabled
-      ? { enabled: true, run: () => useUiStore.getState().toggleCompanionPanel() }
+      ? {
+          enabled: true,
+          run: () =>
+            companionDocked
+              ? useUiStore.getState().setCompanionPanelOpen(false)
+              : useUiStore.getState().toggleCompanionPanel(),
+        }
       : {
           enabled: false,
           disabledReason: 'Enable the companion in Settings \u25b8 Companion',
