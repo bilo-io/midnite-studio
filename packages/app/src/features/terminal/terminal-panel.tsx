@@ -1,13 +1,11 @@
 import { type AgentDefinition } from '@midnite/studio-shared';
 import { useEffect } from 'react';
 
-import { useDialogs } from '../../components/dialog-host';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { useRevealSize } from '../../components/use-reveal';
 import { useRepos } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
-import { buildNewSessionMenu } from './new-session-menu';
 import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
 import { inMainPanel, resolveSessionAgentId, useTerminalStore } from './terminal-store';
@@ -24,7 +22,6 @@ import { useAgents } from './use-agents';
  * see or stop it. The session list is that UI.
  */
 export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPanelProps) {
-  const dialogs = useDialogs();
   // The panel and the session list show main-surface sessions plus Kanban
   // ones (`inMainPanel`) — a FAB loop's session (Phase 35) renders inside the
   // FAB panel and nowhere else, so it stays out.
@@ -96,25 +93,6 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
     });
   };
 
-  /**
-   * The `+` menu, anchored under the button.
-   *
-   * `useDialogs().openMenu` takes a point, so the button's own rect supplies
-   * one — there is no generic dropdown in the app, and the context menu is
-   * already the thing that knows how to stay on screen and close on Escape.
-   */
-  const showNewMenu = (event: React.MouseEvent<HTMLElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const items = buildNewSessionMenu({
-      agents,
-      status,
-      hasWorktree: Boolean(cwd),
-      onNewTerminal: () => openNew(),
-      onNewAgent: (agent) => openNew(agent),
-    });
-    dialogs.openMenu({ clientX: rect.left, clientY: rect.bottom }, items);
-  };
-
   const active = sessions.find((s) => s.id === activeId) ?? null;
   /*
     The header's dot reports the ACTIVE session, so an idle default is the
@@ -175,7 +153,11 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
         listable={listable}
         showList={showList}
         maximized={maximized}
-        onNewMenu={showNewMenu}
+        agents={agents}
+        agentStatus={status}
+        hasWorktree={Boolean(cwd)}
+        onNewTerminal={() => openNew()}
+        onNewAgent={(agent) => openNew(agent)}
       />
 
       <div className={`flex min-h-0 flex-1 ${side === 'left' ? 'flex-row' : 'flex-row-reverse'}`}>

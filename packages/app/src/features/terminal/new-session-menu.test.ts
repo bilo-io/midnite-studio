@@ -1,6 +1,5 @@
 import { BUILTIN_AGENTS, type AgentStatus } from '@midnite/studio-shared';
-import { LuTerminal } from 'react-icons/lu';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
   AntigravityIcon,
@@ -9,12 +8,12 @@ import {
   OpenClaudeIcon,
   OpenCodeIcon,
 } from '../../components/icons';
-import { buildNewSessionMenu } from './new-session-menu';
+import { buildAgentSections, NO_WORKTREE, PROPRIETARY_IDS, type AgentSection } from './new-session-menu';
 
 /**
- * Four cases, and each one greys the menu out for a different reason:
+ * Four cases, and each one greys the roster out for a different reason:
  * everything installed, one agent missing (OpenClaude is the live example —
- * the other four are on the PATH of the machine this was written on), nothing
+ * the others are on the PATH of the machine this was written on), nothing
  * installed, and no worktree selected, where every row is dead for a reason
  * that has nothing to do with what is installed.
  */
@@ -27,105 +26,95 @@ const allInstalled: AgentStatus[] = agents.map((a) => ({
   resolvedPath: `/usr/local/bin/${a.command}`,
 }));
 
-const build = (over: Partial<Parameters<typeof buildNewSessionMenu>[0]> = {}) =>
-  buildNewSessionMenu({
+const build = (over: Partial<Parameters<typeof buildAgentSections>[0]> = {}) =>
+  buildAgentSections({
     agents,
     status: allInstalled,
     hasWorktree: true,
-    onNewTerminal: vi.fn(),
-    onNewAgent: vi.fn(),
     ...over,
   });
 
-/** Every non-separator row, which is what every assertion below is about. */
-const rows = (items: ReturnType<typeof build>) =>
-  items.filter(
-    (item): item is Extract<typeof item, { label: string }> => item.type !== 'separator',
-  );
+const section = (sections: AgentSection[], id: AgentSection['id']) =>
+  sections.find((s) => s.id === id);
 
-const row = (items: ReturnType<typeof build>, label: string) =>
-  rows(items).find((r) => r.label === label);
+const row = (sections: AgentSection[], label: string) =>
+  sections.flatMap((s) => s.rows).find((r) => r.agent.label === label);
 
-describe('buildNewSessionMenu — everything installed', () => {
-  it('is structured: New Terminal, a separator, proprietary agents, a delimiter separator, then other agents', () => {
-    const items = build();
+describe('buildAgentSections — everything installed', () => {
+  it('splits the roster into a Proprietary section and an Open Source one, in that order', () => {
+    const sections = build();
 
-    expect(items[0]).toMatchObject({ label: 'New Terminal' });
-    expect(items[1]).toEqual({ type: 'separator' });
-    expect(items[7]).toEqual({ type: 'separator' });
-    expect(rows(items).map((r) => r.label)).toEqual([
-      'New Terminal',
-      'Claude',
-      'Antigravity',
-      'Codex',
-      'Cursor',
-      'Copilot',
-      'OpenClaude',
-      'OpenCode',
-      'Kilo Code',
-      'Aider',
-      'Cline',
-    ]);
+    expect(sections.map((s) => s.id)).toEqual(['proprietary', 'open-source']);
+    expect(sections.map((s) => s.label)).toEqual(['Proprietary', 'Open Source']);
+  });
+
+  it('puts every PROPRIETARY_IDS member in the proprietary section and nothing else', () => {
+    const sections = build();
+
+    expect(section(sections, 'proprietary')?.rows.map((r) => r.agent.id)).toEqual(
+      agents.filter((a) => PROPRIETARY_IDS.has(a.id)).map((a) => a.id),
+    );
+    expect(section(sections, 'open-source')?.rows.map((r) => r.agent.id)).toEqual(
+      agents.filter((a) => !PROPRIETARY_IDS.has(a.id)).map((a) => a.id),
+    );
   });
 
   /**
-   * The `New Agent — ` prefix existed to disambiguate one entry from a heading.
-   * With five named agents the label IS the disambiguation, and the prefix
-   * would just be five copies of the same two words.
+   * The two new entries: Grok is xAI's own CLI, proprietary like Claude,
+   * Codex, Cursor and Copilot; Goose is Block's open-source agent and lands
+   * in Open Source purely by NOT being in `PROPRIETARY_IDS` — that absence is
+   * what makes a roster entry "open source" in this menu.
    */
-  it('drops the "New Agent —" prefix', () => {
-    for (const r of rows(build())) expect(r.label).not.toContain('New Agent');
+  it('lands Grok in Proprietary and Goose in Open Source', () => {
+    const sections = build();
+
+    expect(section(sections, 'proprietary')?.rows.map((r) => r.agent.id)).toContain('grok');
+    expect(section(sections, 'open-source')?.rows.map((r) => r.agent.id)).toContain('goose');
+    expect(section(sections, 'proprietary')?.rows.map((r) => r.agent.id)).not.toContain('goose');
+    expect(section(sections, 'open-source')?.rows.map((r) => r.agent.id)).not.toContain('grok');
   });
 
-  it('gives every row an icon, so the gutter is never ragged', () => {
-    for (const r of rows(build())) expect(r.icon).toBeDefined();
-    expect(row(build(), 'New Terminal')?.icon).toBe(LuTerminal);
+  it('gives every row an icon', () => {
+    const sections = build();
+    for (const s of sections) for (const r of s.rows) expect(r.icon).toBeDefined();
   });
 
   it('resolves each agent to its own mark rather than to Claude multiple times', () => {
-    const items = build();
+    const sections = build();
 
-    expect(row(items, 'Claude')?.icon).toBe(ClaudeIcon);
-    expect(row(items, 'Antigravity')?.icon).toBe(AntigravityIcon);
-    expect(row(items, 'Codex')?.icon).toBe(CodexIcon);
-    expect(row(items, 'OpenClaude')?.icon).toBe(OpenClaudeIcon);
-    expect(row(items, 'OpenCode')?.icon).toBe(OpenCodeIcon);
+    expect(row(sections, 'Claude')?.icon).toBe(ClaudeIcon);
+    expect(row(sections, 'Antigravity')?.icon).toBe(AntigravityIcon);
+    expect(row(sections, 'Codex')?.icon).toBe(CodexIcon);
+    expect(row(sections, 'OpenClaude')?.icon).toBe(OpenClaudeIcon);
+    expect(row(sections, 'OpenCode')?.icon).toBe(OpenCodeIcon);
   });
 
   it('paints a live row in the agent brand accent', () => {
-    expect(row(build(), 'Claude')?.iconStyle).toEqual({ color: '#D97757' });
-    expect(row(build(), 'Codex')?.iconStyle).toEqual({ color: '#10A37F' });
-    expect(row(build(), 'OpenCode')?.iconStyle).toEqual({ color: '#03B000' });
+    const sections = build();
+
+    expect(row(sections, 'Claude')?.iconStyle).toEqual({ color: '#D97757' });
+    expect(row(sections, 'Codex')?.iconStyle).toEqual({ color: '#10A37F' });
+    expect(row(sections, 'OpenCode')?.iconStyle).toEqual({ color: '#03B000' });
+    expect(row(sections, 'Grok')?.iconStyle).toEqual({ color: '#000000' });
+    expect(row(sections, 'Goose')?.iconStyle).toEqual({ color: '#2E7D32' });
   });
 
   it('leaves every row enabled', () => {
-    for (const r of rows(build())) expect(r.disabled).toBeUndefined();
-  });
-
-  it('starts a plain terminal from New Terminal and the agent from its own row', () => {
-    const onNewTerminal = vi.fn();
-    const onNewAgent = vi.fn();
-    const items = build({ onNewTerminal, onNewAgent });
-
-    row(items, 'New Terminal')?.onSelect?.();
-    row(items, 'Codex')?.onSelect?.();
-
-    expect(onNewTerminal).toHaveBeenCalledOnce();
-    expect(onNewAgent).toHaveBeenCalledWith(agents.find((a) => a.id === 'codex'));
+    const sections = build();
+    for (const s of sections) for (const r of s.rows) expect(r.disabled).toBe(false);
   });
 });
 
-describe('buildNewSessionMenu — one agent uninstalled', () => {
+describe('buildAgentSections — one agent uninstalled', () => {
   const status = allInstalled.map((s) =>
     s.id === 'openclaude' ? { ...s, installed: false, resolvedPath: null } : s,
   );
 
   it('disables only the missing one', () => {
-    const items = build({ status });
+    const sections = build({ status });
 
-    expect(row(items, 'OpenClaude')?.disabled).toBe(true);
-    expect(row(items, 'Codex')?.disabled).toBeUndefined();
-    expect(row(items, 'New Terminal')?.disabled).toBeUndefined();
+    expect(row(sections, 'OpenClaude')?.disabled).toBe(true);
+    expect(row(sections, 'Codex')?.disabled).toBe(false);
   });
 
   /**
@@ -154,42 +143,46 @@ describe('buildNewSessionMenu — one agent uninstalled', () => {
       args: [],
       accent: '#14B8A6',
     };
-    const items = build({
+    const sections = build({
       agents: [custom],
       status: [{ id: 'custom-agent', installed: false, resolvedPath: null }],
     });
 
-    expect(row(items, 'Custom Agent')?.disabledReason).toContain('custom-agent');
+    expect(row(sections, 'Custom Agent')?.disabledReason).toContain('custom-agent');
   });
 });
 
-describe('buildNewSessionMenu — nothing installed', () => {
+describe('buildAgentSections — nothing installed', () => {
   const status: AgentStatus[] = agents.map((a) => ({
     id: a.id,
     installed: false,
     resolvedPath: null,
   }));
 
-  it('disables every agent but leaves New Terminal alone', () => {
-    const items = build({ status });
+  it('disables every agent', () => {
+    const sections = build({ status });
 
-    expect(row(items, 'New Terminal')?.disabled).toBeUndefined();
-    for (const a of agents) expect(row(items, a.label)?.disabled).toBe(true);
+    for (const a of agents) expect(row(sections, a.label)?.disabled).toBe(true);
   });
 
   it('gives each of them its own hint rather than one shared message', () => {
-    const items = build({ status });
-    const reasons = agents.map((a) => row(items, a.label)?.disabledReason);
+    const sections = build({ status });
+    const reasons = agents.map((a) => row(sections, a.label)?.disabledReason);
 
     expect(new Set(reasons).size).toBe(agents.length);
   });
 });
 
-describe('buildNewSessionMenu — no worktree selected', () => {
-  it('disables everything, including New Terminal', () => {
-    const items = build({ hasWorktree: false });
+describe('buildAgentSections — no worktree selected', () => {
+  it('disables every row and says why', () => {
+    const sections = build({ hasWorktree: false });
 
-    for (const r of rows(items)) expect(r.disabled).toBe(true);
+    for (const s of sections) {
+      for (const r of s.rows) {
+        expect(r.disabled).toBe(true);
+        expect(r.disabledReason).toBe(NO_WORKTREE);
+      }
+    }
   });
 
   /**
@@ -201,13 +194,13 @@ describe('buildNewSessionMenu — no worktree selected', () => {
     const status = allInstalled.map((s) =>
       s.id === 'openclaude' ? { ...s, installed: false, resolvedPath: null } : s,
     );
-    const items = build({ hasWorktree: false, status });
+    const sections = build({ hasWorktree: false, status });
 
-    for (const r of rows(items)) expect(r.disabledReason).toBe('No worktree selected');
+    expect(row(sections, 'OpenClaude')?.disabledReason).toBe(NO_WORKTREE);
   });
 });
 
-describe('buildNewSessionMenu — an unprobed roster', () => {
+describe('buildAgentSections — an unprobed roster', () => {
   /**
    * The failure posture, and the one that matters most: a probe that could not
    * answer omits the agent, and absent means "assume it works". A slow rc file
@@ -215,30 +208,38 @@ describe('buildNewSessionMenu — an unprobed roster', () => {
    * installed on.
    */
   it('leaves an agent with no status enabled', () => {
-    const items = build({ status: [] });
+    const sections = build({ status: [] });
 
-    for (const r of rows(items)) {
-      expect(r.disabled).toBeUndefined();
-      expect(r.disabledReason).toBeUndefined();
+    for (const s of sections) {
+      for (const r of s.rows) {
+        expect(r.disabled).toBe(false);
+        expect(r.disabledReason).toBeUndefined();
+      }
     }
   });
 
   it('disables only the agents the probe actually answered for', () => {
-    const items = build({
+    const sections = build({
       status: [{ id: 'openclaude', installed: false, resolvedPath: null }],
     });
 
-    expect(row(items, 'OpenClaude')?.disabled).toBe(true);
-    expect(row(items, 'Claude')?.disabled).toBeUndefined();
-    expect(row(items, 'Antigravity')?.disabled).toBeUndefined();
+    expect(row(sections, 'OpenClaude')?.disabled).toBe(true);
+    expect(row(sections, 'Claude')?.disabled).toBe(false);
+    expect(row(sections, 'Antigravity')?.disabled).toBe(false);
   });
 });
 
-describe('buildNewSessionMenu — an empty roster', () => {
-  it('is New Terminal alone, with no trailing separator', () => {
-    const items = build({ agents: [], status: [] });
+describe('buildAgentSections — an empty roster', () => {
+  it('returns no sections at all', () => {
+    expect(build({ agents: [], status: [] })).toEqual([]);
+  });
+});
 
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ label: 'New Terminal' });
+describe('buildAgentSections — a roster with only one side represented', () => {
+  it('omits the other section entirely rather than returning it empty', () => {
+    const onlyOpenSource = agents.filter((a) => !PROPRIETARY_IDS.has(a.id));
+    const sections = build({ agents: onlyOpenSource, status: [] });
+
+    expect(sections.map((s) => s.id)).toEqual(['open-source']);
   });
 });
