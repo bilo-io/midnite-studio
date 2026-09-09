@@ -91,6 +91,35 @@ describe('CompanionPanel', () => {
     );
   });
 
+  /*
+    Ad Hoc "companion glow": the panel picks up Theme H's four animated looks
+    for free the moment it wears `.companion-face` (same class, same
+    `[data-companion-state]` rules the FAB and the Loops panel already use —
+    asserted above), and gets a fifth of its own — a muted, still-orbiting
+    idle ring — from `.companion-face--panel`, which only this host carries.
+    `styles.css`'s `.companion-face--panel:not([data-companion-state])` rule
+    is what the CSS-free jsdom environment cannot exercise directly; this is
+    the wiring that rule depends on, so it is what breaks first if either
+    class is ever renamed or dropped.
+  */
+  it('always wears .companion-face and the panel-only .companion-face--panel modifier', () => {
+    const { rerender } = renderPanel(<CompanionPanel />);
+    const classesFor = (): DOMTokenList => screen.getByTestId('companion-panel').classList;
+
+    expect(classesFor().contains('companion-face')).toBe(true);
+    expect(classesFor().contains('companion-face--panel')).toBe(true);
+
+    // Every state, not just idle — the modifier is what scopes the new idle
+    // ring to this one host, so it has to survive every transition, not only
+    // disappear the moment there is something more interesting to show.
+    for (const state of ['listening', 'thinking', 'speaking', 'handoff'] as const) {
+      useCompanionStore.setState({ state });
+      rerender(<CompanionPanel />);
+      expect(classesFor().contains('companion-face')).toBe(true);
+      expect(classesFor().contains('companion-face--panel')).toBe(true);
+    }
+  });
+
   it('shows the state label from the shared look table', () => {
     useCompanionStore.setState({ state: 'handoff' });
     renderPanel(<CompanionPanel />);
