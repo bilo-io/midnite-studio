@@ -1,18 +1,26 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { CompanionIntent } from '@midnite/studio-shared';
+
 import { useWindowSync } from './use-window-sync';
 import { useUiStore } from '../store/ui-store';
 
 type Descriptor = { id: number; role: string; repoId: string | null };
+type RelayMessage = { kind: string; payload: Record<string, unknown> };
 
 const mocks = vi.hoisted(() => ({
   windows: [] as Descriptor[],
   handler: null as ((e: { windows: Descriptor[] }) => void) | null,
+  windowRole: 'main' as string,
+  relayed: [] as RelayMessage[],
+  relayHandler: null as ((message: RelayMessage) => void) | null,
+  focusRole: vi.fn(),
 }));
 
 vi.mock('./bridge', () => ({
   bridge: () => ({
+    windowRole: mocks.windowRole,
     window: {
       list: () => Promise.resolve(mocks.windows),
       onWindowsChanged: (handler: (e: { windows: Descriptor[] }) => void) => {
@@ -21,6 +29,16 @@ vi.mock('./bridge', () => ({
           mocks.handler = null;
         };
       },
+      onRelayed: (handler: (message: RelayMessage) => void) => {
+        mocks.relayHandler = handler;
+        return () => {
+          mocks.relayHandler = null;
+        };
+      },
+      relay: (message: RelayMessage) => {
+        mocks.relayed.push(message);
+      },
+      focusRole: mocks.focusRole,
     },
   }),
 }));
@@ -100,5 +118,63 @@ describe('useWindowSync — the Companion round trip (Phase 79)', () => {
     mocks.handler?.({ windows: [descriptor('main', 1)] });
     expect(useUiStore.getState().companionDetached).toBe(false);
     expect(useUiStore.getState().companionPanelOpen).toBe(true);
+  });
+});
+
+describe('useWindowSync — the companion relay (Phase 81 Theme B)', () => {
+  beforeEach(() => {
+    mocks.windows = [];
+    mocks.handler = null;
+    mocks.relayed = [];
+    mocks.relayHandler = null;
+    mocks.windowRole = 'main';
+    mocks.focusRole.mockClear();
+    useUiStore.setState({
+      activeView: 'dashboard',
+      detachedPages: [],
+      screensaverLocked: false,
+      selectedRepoId: 'r1',
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('executes a relayed navigate action against this store and relays the result back', async () => {
+    renderHook(() => useWindowSync());
+    const action: CompanionIntent = { kind: 'navigate', view: 'graph' };
+    mocks.relayHandler?.({ kind: 'companion', payload: { action, replyTo: 'req-1' } });
+
+    await vi.waitFor(() => {
+      expect(mocks.relayed.some((message) => message.kind === 'companion')).toBe(true);
+    });
+
+    // Executed for real, against THIS (main) window's own store.
+    expect(useUiStore.getState().activeView).toBe('graph');
+    const reply = mocks.relayed.find((message) => message.kind === 'companion');
+    expect(reply?.payload).toMatchObject({ replyTo: 'req-1', result: { ok: true } });
+  });
+
+  it('ignores an action when this window is not main — belt to the mount-site rule', async () => {
+    mocks.windowRole = 'graph';
+    renderHook(() => useWindowSync());
+    const action: CompanionIntent = { kind: 'navigate', view: 'graph' };
+    mocks.relayHandler?.({ kind: 'companion', payload: { action, replyTo: 'req-2' } });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(useUiStore.getState().activeView).toBe('dashboard');
+    expect(mocks.relayed).toHaveLength(0);
+  });
+
+  it('ignores a reply-shaped message (no action) — that half is the popout side of the pair', async () => {
+    renderHook(() => useWindowSync());
+    mocks.relayHandler?.({
+      kind: 'companion',
+      payload: { result: { ok: true, say: 'Here.' }, replyTo: 'req-3' },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mocks.relayed).toHaveLength(0);
+    expect(useUiStore.getState().activeView).toBe('dashboard');
   });
 });

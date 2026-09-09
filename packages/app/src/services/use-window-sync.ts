@@ -99,6 +99,13 @@ export function useWindowSync(): void {
       if (message.kind !== 'companion') return;
       const payload = message.payload as { action?: CompanionIntent; replyTo?: string };
       if (payload.action === undefined || payload.replyTo === undefined) return;
+      // Belt to this hook's own "main-window-only" brace: `useWindowSync` is
+      // only ever mounted from `Shell()`, but a defensive check here is what
+      // makes that a provable fact rather than a call-site convention — a
+      // popout that somehow received an `action` (rather than the `result`
+      // it is waiting on) ignores it outright instead of trying to execute
+      // and relay again.
+      if (api.windowRole !== 'main') return;
       handleCompanionRelayAction(payload.action, payload.replyTo);
     });
 

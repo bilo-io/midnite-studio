@@ -277,6 +277,18 @@ describe('useBroadcastSync (Theme E)', () => {
 
     expect(invalidateSpy).toHaveBeenCalled();
   });
+
+  // Phase 81 Theme B: `'companion'` is a real `WindowRelayMessage.kind`, but
+  // `use-window-sync.ts`/`navigate.ts` own it, not this module — asserted
+  // here as "does nothing", the same as any kind this file has no case for.
+  it('ignores a companion relay message — that kind belongs to use-window-sync.ts', () => {
+    const { emit } = installBridge();
+    mount();
+
+    expect(() =>
+      emit({ id: 'c-1', origin: 'other-window', kind: 'companion', payload: { replyTo: 'r', result: { ok: true, say: 'x' } } }),
+    ).not.toThrow();
+  });
 });
 
 /**
