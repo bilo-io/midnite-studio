@@ -55,6 +55,20 @@ asarUnpack:
   - '**/*.node'
   # The broker script runs under ELECTRON_RUN_AS_NODE outside the asar.
   - 'dist/bundle/broker.js'
+  # Ad Hoc "the local voice engine crashed": `tts-broker.ts`'s
+  # `workerScriptPath()` forks this via `utilityProcess.fork`, and — the same
+  # reason `broker.js` is unpacked above — rewrites its own `app.asar` path
+  # segment to `app.asar.unpacked` unconditionally. #307 added
+  # `companion-tts-worker` to `bundle.mjs`'s `outfiles` so the bundle gets
+  # produced, but never added the matching entry here, so the rewritten path
+  # pointed at a file that was never actually unpacked — `utilityProcess.fork`
+  # failed on every packaged build, and the broker's own `handleExit` reported
+  # it as "the local voice engine crashed" (confirmed against a real
+  # `moon run desktop:dist` build; dev mode can't reproduce it because
+  # `__dirname` there has no `app.asar` segment to rewrite in the first
+  # place). See `scripts/asar-unpack-coverage.test.mjs` for the regression
+  # test this PR added.
+  - 'dist/bundle/companion-tts-worker.js'
   - '**/node_modules/node-pty/**'
   # dugite's bundled git — 42MB of real executables that must exist on disk.
   # dugite resolves them relative to its own __dirname and already rewrites an
