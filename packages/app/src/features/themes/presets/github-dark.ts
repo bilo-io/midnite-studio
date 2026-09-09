@@ -37,6 +37,7 @@ export const githubDark = {
     background: '#09090b',
     foreground: '#e4e4e7',
     cursor: '#e4e4e7',
+    cursorAccent: '#09090b',
     selectionBackground: '#3f3f46',
     black: '#484f58',
     red: '#ff7b72',

@@ -37,6 +37,7 @@ export const githubLight = {
     background: '#ffffff',
     foreground: '#18181b',
     cursor: '#18181b',
+    cursorAccent: '#ffffff',
     selectionBackground: '#d4d4d8',
     black: '#24292f',
     red: '#cf222e',

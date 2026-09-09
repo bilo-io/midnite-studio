@@ -31,6 +31,7 @@ export const jetbrainsDarcula = {
     background: '#2b2b2b',
     foreground: '#a9b7c6',
     cursor: '#a9b7c6',
+    cursorAccent: '#2b2b2b',
     selectionBackground: '#214283',
     black: '#000000',
     red: '#fa5355',
