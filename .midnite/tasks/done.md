@@ -1,6 +1,30 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-09 — Ad hoc — the companion mic staying crossed out after a speech key is saved
+
+[PR #299](https://github.com/bilo-io/midnite-studio/pull/299). Not phase-tracked (`/midnite-exec-adhoc`)
+— a user-reported bug: "I cannot enable the mic in settings properly … it remains crossed out."
+
+**Root cause: a stale, non-reactive render-time read, not a persistence bug.**
+`CompanionInputBar` called `companionPorts().micAvailable()` — a plain function returning a
+module-level cached boolean (`voice-ports.ts`) — once during its own render. The companion panel is
+a persistent right-hand dock that commonly stays mounted while Settings ▸ Companion is where a key
+actually gets saved; `refreshMicAvailability()` correctly refreshed the cache on save, but nothing
+about that save touched a prop or a store field the input bar renders from, so nothing ever told
+React to look again. The button (and its "add a speech key" tooltip) could stay stuck on the stale
+answer indefinitely.
+
+Fixed by making mic availability observable: `voice-ports.ts` now tracks a richer status
+(`checking` / `no-bridge` / `no-key` / `no-key-no-keychain` / `not-implemented` / `available`) and
+notifies subscribers on every change; `CompanionInputBar` reads it via `useSyncExternalStore` instead
+of a bare call during render. Two related bugs turned up in the same investigation and got fixed
+alongside it: saving a key for "Deepgram (not yet implemented)" used to light the mic up for a
+provider guaranteed to fail at transcribe time (`CompanionSttStatusResponse` now also reports which
+providers are `implemented`, sourced from `STT_PROVIDER_FACTORIES`); and `electron-builder.yml` had
+no `NSMicrophoneUsageDescription`, which silently breaks `getUserMedia` on a packaged macOS build
+with no catchable error.
+
 ## 2026-09-09 — Phase 80 Theme C — a local, free voice, with an automatic fallback to `speechSynthesis`
 
 [PR #297](https://github.com/bilo-io/midnite-studio/pull/297). Moves Phase 80 15/31 → 24/31 (48% →
