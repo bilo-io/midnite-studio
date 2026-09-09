@@ -23,6 +23,7 @@ import {
   LuRocket,
   LuRotateCw,
   LuScanEye,
+  LuScanSearch,
   LuScissors,
   LuShieldCheck,
   LuZap,
@@ -183,7 +184,11 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
   {
     id: 'triage',
     label: 'Triage',
-    icon: LuRadar,
+    // The phase doc names `LuRadar` (already imported here), but
+    // `loopPatrol` already carries it — every entry needs a distinct glyph
+    // (`agent-commands.test.ts`), so this uses `LuScanSearch` instead: the
+    // same "scanning the board" read, one glyph over.
+    icon: LuScanSearch,
     category: 'reviews',
     hint: 'Read-only table of the open PRs and issues — checks, reviews, mergeability, age.',
   },
