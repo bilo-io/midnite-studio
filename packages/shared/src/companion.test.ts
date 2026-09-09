@@ -14,9 +14,11 @@ import {
   COMPANION_REPEAT_TOKENS,
   COMPANION_STOP_TOKENS,
   COMPANION_TRUNCATION_TAIL,
+  CompanionAboutUserSchema,
   CompanionHonorificsSchema,
   CompanionIntentSchema,
   CompanionNamesSchema,
+  CompanionPersonalitySchema,
   CompanionSnapshotSchema,
   composeOverviewMarkdown,
   describeSnapshot,
@@ -1011,6 +1013,36 @@ describe('CompanionHonorificsSchema (Ad Hoc: "What it calls you" as a list)', ()
 
   it('rejects a blank honorific', () => {
     expect(CompanionHonorificsSchema.safeParse(['   ']).success).toBe(false);
+  });
+});
+
+describe.each([
+  ['CompanionPersonalitySchema', CompanionPersonalitySchema],
+  ['CompanionAboutUserSchema', CompanionAboutUserSchema],
+] as const)('%s (Ad Hoc: the two free-text companion fields)', (_name, schema) => {
+  it('accepts an empty string — the default, meaning "not set"', () => {
+    expect(schema.safeParse('').success).toBe(true);
+  });
+
+  it('accepts ordinary prose', () => {
+    const result = schema.safeParse('Dry, terse, never uses an exclamation point.');
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toBe('Dry, terse, never uses an exclamation point.');
+  });
+
+  it('trims leading/trailing whitespace, including whitespace-only down to empty', () => {
+    const trimmed = schema.safeParse('  a quirk  ');
+    expect(trimmed.success).toBe(true);
+    if (trimmed.success) expect(trimmed.data).toBe('a quirk');
+
+    const blank = schema.safeParse('   ');
+    expect(blank.success).toBe(true);
+    if (blank.success) expect(blank.data).toBe('');
+  });
+
+  it('accepts exactly 4000 characters and rejects one more', () => {
+    expect(schema.safeParse('a'.repeat(4000)).success).toBe(true);
+    expect(schema.safeParse('a'.repeat(4001)).success).toBe(false);
   });
 });
 

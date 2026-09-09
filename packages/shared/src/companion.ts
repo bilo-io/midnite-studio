@@ -1988,6 +1988,37 @@ export function matchesCompanionName(text: string, names: readonly string[]): bo
 export const CompanionHonorificsSchema = z.array(z.string().trim().min(1));
 
 /**
+ * A cap shared by the two free-text companion fields below — a few thousand
+ * characters is ample for a paragraph or two of prose describing a
+ * personality or a person, and it keeps either field from becoming a way to
+ * blow out `ask.ts`'s system prompt (and the model's context behind it) with
+ * a pasted document.
+ */
+const COMPANION_FREE_TEXT_MAX_CHARS = 4000;
+
+/**
+ * Free text describing how the companion should behave — its tone, its
+ * quirks — layered onto `ask.ts`'s system prompts alongside "What you call
+ * it"/"What it calls you" (Settings ▸ Companion ▸ Personality). Optional and
+ * `''` by default, same as `CompanionHonorificsSchema`: an unset value must
+ * not add a line to the prompt (`buildAskPrompt`'s empty case), not be
+ * rendered as an empty header.
+ *
+ * `.trim()` so a field of only whitespace collapses to the same "not set"
+ * the empty string already means, rather than surviving as a blank line in
+ * the prompt.
+ */
+export const CompanionPersonalitySchema = z.string().trim().max(COMPANION_FREE_TEXT_MAX_CHARS);
+
+/**
+ * Free text the user writes about themselves, so `ask.ts`'s prompts have
+ * context on who they're talking to. Same shape, same cap, same empty-means-
+ * unset default as {@link CompanionPersonalitySchema} — the two fields differ
+ * in whose voice they describe, not in how they're validated.
+ */
+export const CompanionAboutUserSchema = z.string().trim().max(COMPANION_FREE_TEXT_MAX_CHARS);
+
+/**
  * Resolve the honorific list to the one name a phrase actually uses.
  *
  * Every phrase bank template still takes a single `{name}` — turning that
