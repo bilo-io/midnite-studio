@@ -2107,6 +2107,69 @@ html[data-motion='reduced'] .companion-face[data-companion-state='speaking'] {
 }
 
 /*
+ * The dedicated Companion panel's own fifth look — Ad Hoc "companion glow",
+ * a follow-up to Theme H above rather than a new system. That block already
+ * gives `listening`/`thinking`/`handoff`/`speaking` to every host wearing
+ * `.companion-face`; `companion-panel.tsx` (the docked conversation column,
+ * as opposed to the Loops panel's own `.companion-face.gradient-frame`) now
+ * wears the class too, so it picked up all four for free the moment it did —
+ * nothing above this comment changed to make that true.
+ *
+ * What none of the three existing hosts had is a look for the state that is
+ * neither: idle (and `off`, though the panel unmounts before that ever
+ * paints — see `CompanionPanelSlot`). `fabCompanionState` returns
+ * `undefined` there on purpose, so `data-companion-state` is simply absent
+ * and "today's look wins" — correct for a 32px button and for a Loops panel
+ * that has its own loop-state ring to keep, wrong for a panel with the width
+ * to spend on "the companion is here" even with nothing to report. So this
+ * is scoped to `.companion-face--panel` (set only by `companion-panel.tsx`)
+ * rather than to the bare `.companion-face:not([data-companion-state])` the
+ * FAB and the Loops panel would also match — their resting looks stay
+ * exactly as Theme H left them.
+ *
+ * The ring is `thinking`'s own two-layer border trick, unchanged, so the
+ * conic gradient is never re-typed a third time; only the pace and the glow
+ * are turned down — an 8s rotation against `thinking`'s 3s, and a small fixed
+ * `box-shadow` in place of the 0→24px pulse. "Still orbiting, glow
+ * significantly muted but still visible" is the brief; this is that brief,
+ * read literally.
+ */
+.companion-face--panel:not([data-companion-state]) {
+  border: 1px solid transparent;
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  background-image:
+    linear-gradient(var(--companion-fill), var(--companion-fill)),
+    conic-gradient(from var(--companion-angle), var(--companion-ramp));
+  box-shadow: 0 0 4px rgba(56, 189, 248, 0.22);
+  mask-image: none;
+  -webkit-mask-image: none;
+  animation: companion-spin 8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .companion-face--panel:not([data-companion-state]) {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .companion-face--panel:not([data-companion-state]) {
+  animation: none;
+}
+
+/*
+ * Paused the instant the OS takes focus elsewhere — the same rule Phase 36
+ * Theme E already applies to every other permanently-running panel glow
+ * (`.gradient-frame`, `.agent-run-glow`, `.dep-edge-animated`, further down
+ * this file). `companion-panel.tsx` calls the same `useWindowFocusGate` those
+ * do, so it becomes a third counted host rather than a fourth, independent
+ * listener pair.
+ */
+html[data-window-focused='false'] .companion-face--panel:not([data-companion-state]) {
+  animation-play-state: paused;
+}
+
+/*
  * Both the panel's rotation and the glow's pulse are permanently-running
  * animations on a panel that can sit mounted, blurred, for hours — precisely
  * the shape Phase 36 Theme E was written to eliminate. Rather than wait for

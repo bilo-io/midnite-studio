@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { PanelStack } from '../../components/panel-stack/panel-stack';
 import { usePanelHistory } from '../../components/panel-stack/use-panel-history';
+import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
 import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 import { CompanionHeader } from './companion-header';
@@ -63,6 +64,18 @@ export function CompanionPanel({
   });
 
   /*
+    Ad Hoc "companion glow": the panel is permanently mounted while docked
+    (Phase 36 Theme E's "gate every permanently-running animation on window
+    focus" rule), so it becomes the third host counted by
+    `useWindowFocusGate` — alongside the FAB panel and the landing page —
+    the moment `styles.css`'s new `.companion-face--panel` idle ring needs
+    pausing behind another app. `true` rather than `isOpen`: this component
+    only exists while `CompanionPanelSlot`/`app.tsx`'s tween have it
+    mounted, so "mounted" already means "gated surface is showing".
+  */
+  useWindowFocusGate(true);
+
+  /*
     Theme D's `greet()`, fired once per open rather than on every render or
     every state change.
 
@@ -84,14 +97,20 @@ export function CompanionPanel({
 
   return (
     <div
-      className="flex h-full w-full min-h-0 flex-col border-l border-border bg-popover"
+      className="companion-face companion-face--panel flex h-full w-full min-h-0 flex-col border-l border-border bg-popover"
       style={width === undefined ? undefined : { width }}
       /*
-        The same attribute the FAB wears (Theme H), on the panel too — the
-        `[data-companion-state]` rules in `styles.css` are written against the
-        attribute rather than a selector, so one set of rules serves both
-        hosts. `undefined` for `off`/`idle` leaves the panel exactly as it
-        looks today, which is what "no rule" has to mean in practice.
+        The same attribute the FAB and the Loops panel wear (Theme H), on
+        this panel too — the `[data-companion-state]` rules in `styles.css`
+        are written against the attribute rather than a selector, so one set
+        of rules serves every host that carries `.companion-face`.
+        `undefined` for `off`/`idle` leaves the attribute absent exactly as it
+        does there, which is what "no rule" has to mean in practice — but
+        unlike those two, this host also wears `.companion-face--panel`
+        (Ad Hoc "companion glow"), so the *absence* of the attribute is not
+        "no rule" here: it is what the new muted, still-orbiting idle ring
+        keys off, precisely because a docked conversation column has the
+        width to spend on "the companion is here" that a 32px button does not.
       */
       data-companion-state={fabCompanionState(state)}
       data-testid="companion-panel"
