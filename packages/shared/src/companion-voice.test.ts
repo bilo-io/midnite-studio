@@ -7,6 +7,7 @@ import {
   DEFAULT_STT_PROVIDER_ID,
   MELODY_REST,
   STT_PROVIDER_IDS,
+  STT_PROVIDERS_WITHOUT_KEY,
   SttProviderIdSchema,
   chunkForSpeech,
   melodyDurationSeconds,
@@ -75,9 +76,13 @@ describe('chunkForSpeech', () => {
 });
 
 describe('the STT provider seam', () => {
-  it('reserves deepgram in the union with openai-whisper shipping first', () => {
-    expect(STT_PROVIDER_IDS).toEqual(['openai-whisper', 'deepgram']);
-    expect(DEFAULT_STT_PROVIDER_ID).toBe('openai-whisper');
+  it('defaults to the key-free local engine, with deepgram reserved and openai-whisper opt-in', () => {
+    expect(STT_PROVIDER_IDS).toEqual(['whisper-local', 'openai-whisper', 'deepgram']);
+    expect(DEFAULT_STT_PROVIDER_ID).toBe('whisper-local');
+  });
+
+  it('marks only the local engine as usable with no stored credential', () => {
+    expect(STT_PROVIDERS_WITHOUT_KEY).toEqual(['whisper-local']);
   });
 
   it('rejects an unknown provider id at the boundary', () => {
