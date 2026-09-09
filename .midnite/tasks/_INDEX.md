@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | ◻ TODO | — | 0/53 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 24/31 | `████████░░` | 77% | — | — |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | ✅ DONE | — | 57/67 | `█████████░` | 85% | — | — |
 | [78 · Whose hands were on the keyboard](phases/phase-78-whose-hands-were-on-the-keyboard.md) | ◻ TODO | — | 0/32 | `░░░░░░░░░░` | 0% | — | A B C D E F |
@@ -177,6 +178,23 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 81 — Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md)
+
+*The companion can start ten skills and nothing else; "take me to the graph" falls through to a
+router told to omit any intent it does not know. Plans the rest of the app for it: navigation to
+every view and settings page by the palette's own vocabulary, focusing a window that is already
+detached instead of opening a second copy, the palette's commands by tier (`direct` runs,
+`confirm` asks, `never` names the palette), the two `midnite-` skills it was missing, the router
+taught the same words — and, opt-in and direct-tier only, three `ui.*` MCP tools so an agent the
+companion handed off to can show its work. No new git operation, no dialog ever answered.*
+
+- ◻ **A** — One vocabulary, one engine: `ViewId`/`SettingsPageId` to `shared`, `CompanionVocabulary`, a total `COMMAND_ACCESS` tier map beside `PALETTE_SAFE`, a module-level `runCommand`, `parseIntent(text, vocab?)`
+- ◻ **B** — Going there, and the window that is already out: `resolveNavigation`, `focusRole` for detached roles, the popout→main relay, issue/settings-page/URL targets, `window.detachCompanion`
+- ◻ **C** — Doing things there, by tier: `direct` runs and says, `confirm` waits for yes/empty Return/Run chip (hands-free does not bypass), `never` names the palette; dialogs survive untouched
+- ◻ **D** — Every skill it was missing: `triage` gets an `AgentCommandId`, `releasePrep` joins with `COMPANION_NEVER_AUTOSEND`; `releaseComplete`, `loop*`, `setup` stay out by type
+- ◻ **E** — The router learns the rest of the vocabulary: `CompanionAskRequest.vocabulary`, the `route` prompt lists views/pages/commands/skills, `parseAskReply` fixtures for the new kinds
+- ◻ **F** — An agent may steer the view: `ui.state`/`ui.navigate`/`ui.command` MCP tools, `readOnly: boolean`, a second Settings ▸ MCP switch (default off), the tree's first main→renderer request/reply (5 s timeout), refused while locked
 
 ### [Phase 80 — What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md)
 
