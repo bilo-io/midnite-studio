@@ -444,10 +444,11 @@ type LocalQueueItem = {
  * anyone who wants the local voice specifically) but normally reached only
  * through `createCompanionSpeaker`'s fallback wrapper below.
  *
- * No word-boundary events: sherpa-onnx-node returns one clip per chunk with no
- * per-word timing, so `onBoundary` fires once per chunk (at its start) rather
- * than once per word — coarser than `speechSynthesis`'s, and nothing today
- * reads more than that (see `speaker.ts`'s own module doc).
+ * No word-boundary events: the local engine (`kokoro-js`, née `sherpa-onnx-node`)
+ * returns one clip per chunk with no per-word timing, so `onBoundary` fires
+ * once per chunk (at its start) rather than once per word — coarser than
+ * `speechSynthesis`'s, and nothing today reads more than that (see
+ * `speaker.ts`'s own module doc).
  */
 export function createLocalSpeaker(overrides: Partial<LocalSpeakerDeps> = {}): CompanionSpeaker & {
   isSpeaking: () => boolean;

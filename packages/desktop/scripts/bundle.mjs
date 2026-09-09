@@ -9,16 +9,26 @@
  * `@midnite/studio-git-engine` (both plain TypeScript) removes the problem at the
  * source and shrinks the asar to two files.
  *
- * Five things stay external:
- *   electron         provided by the runtime; bundling it is meaningless
- *   node-pty         a native module — a .node binary cannot be inlined
- *   dugite           locates its bundled git relative to its own __dirname, so it has
- *                    to remain a real directory on disk (see electron-builder.yml)
- *   better-sqlite3   a native module too (Phase 61 Theme C) — same reason as node-pty
- *   sherpa-onnx-node a native module too (Phase 80 Theme C, the local voice engine) —
- *                    it also `require()`s a per-platform sibling package
- *                    (`sherpa-onnx-darwin-arm64`) by name at runtime, which esbuild
- *                    cannot resolve statically either
+ * Seven things stay external:
+ *   electron              provided by the runtime; bundling it is meaningless
+ *   node-pty               a native module — a .node binary cannot be inlined
+ *   dugite                 locates its bundled git relative to its own __dirname, so it has
+ *                          to remain a real directory on disk (see electron-builder.yml)
+ *   better-sqlite3         a native module too (Phase 61 Theme C) — same reason as node-pty
+ *   kokoro-js              the local voice engine (this app's own top-level `require`) — not
+ *                          itself native, but it and its dependency tree (below) are several
+ *                          MB of JS plus a multi-MB WASM blob (`phonemizer`'s embedded
+ *                          espeak-ng); inlining that into the single always-parsed main
+ *                          bundle would cost every boot, not just the ones that speak, and
+ *                          this app's own lazy `require('kokoro-js')` (`tts.ts`) already
+ *                          defers it to first use only when it stays a real directory Node
+ *                          resolves normally, same as `dugite`
+ *   @huggingface/transformers  kokoro-js's own TTS runtime — this app's second top-level
+ *                          `require` into that tree (for `env.cacheDir`), so it needs its own
+ *                          external entry too; everything *underneath* it (`phonemizer`,
+ *                          `onnxruntime-node`, `sharp`) is resolved by Node from the packaged
+ *                          `node_modules` without esbuild ever seeing those requires, exactly
+ *                          as `dugite`'s own nested dependencies are today
  */
 import { build } from 'esbuild';
 import { rmSync } from 'node:fs';
@@ -56,7 +66,7 @@ const common = {
   */
   minify: true,
   keepNames: true,
-  external: ['electron', 'node-pty', 'dugite', 'better-sqlite3', 'sherpa-onnx-node'],
+  external: ['electron', 'node-pty', 'dugite', 'better-sqlite3', 'kokoro-js', '@huggingface/transformers'],
   logLevel: 'info',
 };
 

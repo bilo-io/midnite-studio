@@ -855,15 +855,17 @@ export const CHANNELS = {
   // past, and only the text comes back. Speech *out* used to need no channel
   // at all — `speechSynthesis` is a renderer API and the OS voices are already
   // there — but that stopped being true the moment a second engine
-  // (`sherpa-onnx-node`, a native module) became the preferred voice: it can
-  // only run in main, so `companionTtsSynthesize` carries text in and
-  // synthesized audio out. `speechSynthesis` itself is still called directly
-  // from the renderer as the fail-soft fallback when the channel below errors.
+  // (`kokoro-js`, née `sherpa-onnx-node`, a native module) became the
+  // preferred voice: it can only run in main, so `companionTtsSynthesize`
+  // carries text in and synthesized audio out. `speechSynthesis` itself is
+  // still called directly from the renderer as the fail-soft fallback when
+  // the channel below errors.
   /**
-   * Text in, one WAV clip out — the local voice engine (Phase 80 Theme C).
+   * Text in, one WAV clip out — the local voice engine (originally Phase 80
+   * Theme C on `sherpa-onnx-node`; now `kokoro-js`/Kokoro-82M).
    *
-   * `sherpa-onnx-node` (a native module, same category as `node-pty`) loads a
-   * Piper voice lazily on first call and never in the renderer, per
+   * The engine (a native module underneath, same category as `node-pty`)
+   * loads a voice lazily on first call and never in the renderer, per
    * `packages/app`'s JS-budget guardrail. Answers `GitOpResult` rather than a
    * bare value, following `companionTranscribe`'s precedent exactly: "the
    * model failed to load" and "synthesis failed" are normal outcomes the

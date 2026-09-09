@@ -10304,3 +10304,37 @@ dimmed wrapper opacity rather than a native `disabled` textarea — the prop's c
 refused, typing is not," so blocking the field outright would have regressed that. The mic button
 subtree and its `micAvailable` logic (owned by a sibling `feature/companion-mic` branch) were left
 untouched, as was Enter-to-send and the space-to-talk shortcut.
+
+## 2026-09-09 — Ad hoc — the companion's local voice moves from sherpa-onnx-node to kokoro-js
+
+[PR #301](https://github.com/bilo-io/midnite-studio/pull/301). The repo owner overruled Phase 80
+Theme C's engine choice: `sherpa-onnx-node` (Piper VITS, `en_US-joe-medium`) is replaced by
+`kokoro-js` (Kokoro-82M, voice `af_heart`, `q8` quantisation) — an engine substitution behind the
+same IPC contract, WAV-out shape, three-failure-mode taxonomy and `speechSynthesis` fallback;
+`speaker.ts` needed no code changes at all. Measured against the real package: ~88 MB on disk (not
+Piper's ~77 MB), ~505 MB resident once loaded and warm (a real increase Piper's own tens-of-MB
+footprint the repo owner explicitly accepted), ~3 s to first audio cold, ~1.2 s warm, peak
+amplitude 0.44-0.66 (never silent) — verified both standalone and through the real `tts.ts`
+production code path. `env.cacheDir` now points `@huggingface/transformers` at
+`userData/companion-voice/kokoro/` before any load, the same guardrail Phase 80 Theme C's own
+model download needed (transformers.js's own default cache lives inside `node_modules`, unwritable
+once packaged into an asar). `sherpa-onnx-node`/`sherpa-onnx-darwin-arm64`/`unbzip2-stream` are
+fully removed from `packages/desktop/package.json` — cross-checked against the concurrent
+`feature/companion-stt` branch first, which went with local Whisper for its ASR, not sherpa, so
+nothing else in the repo depends on it. The orphaned `en_US-joe-medium` voice (~77 MB under
+`userData/companion-voice/`) is swept up best-effort on boot rather than left to rot.
+
+**Updating this file's own Phase 80 Theme C entry above, rather than editing it**: that entry
+recorded sherpa-onnx's statically-linked GPL-3.0 `espeak-ng` fork as "a licensing question this
+build surfaced but did not resolve." Moving to Kokoro was partly ordered to test whether that
+question goes away. **It does not — the GPL-3.0 dependency moved, it did not disappear.**
+`kokoro-js` phonemizes English through its `phonemizer` npm dependency (own description: "Simple
+text to phones converter using eSpeak NG"), and its bundled `dist/phonemizer.cjs` is, on
+inspection, literally espeak-ng Emscripten-compiled to WebAssembly (internal strings
+`espeak-ng-data`, `espeak-ng-ipa-tmp-`, the same Emscripten module-loader boilerplate sherpa's C++
+build carries). `kokoro-js` calls it unconditionally from every `generate()`/`stream()` path, with
+no alternative backend. `phonemizer`'s own `LICENSE` (Apache-2.0) covers the JS wrapper its author
+wrote, not the GPL-3.0 engine compiled into the WASM blob it ships and requires at runtime — the
+same shape of problem as a statically-linked `.dylib`, over a different embedding mechanism. Still
+needs the same human legal read before public distribution that #297 flagged; recorded here rather
+than left silently stale.

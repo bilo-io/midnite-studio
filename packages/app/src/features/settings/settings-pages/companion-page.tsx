@@ -411,8 +411,9 @@ type CompanionTtsStatusValue = {
 
 /**
  * Polls `companion.ttsStatus` (Phase 80 Theme C follow-up) — once on mount,
- * which is what starts the one-time ~77 MB download if the voice isn't
- * provisioned yet (see `getCompanionTtsStatus`'s own doc), then every 1.5 s
+ * which is what starts the one-time ~88 MB download (Kokoro-82M, `q8`) if the
+ * model isn't provisioned yet (see `getCompanionTtsStatus`'s own doc), then
+ * every 1.5 s
  * while it answers `'downloading'`, stopping once it lands on `'ready'` or
  * `'failed'`. `retry` re-checks with `retry: true`, forcing a fresh
  * provisioning attempt after a prior download failure.
@@ -502,7 +503,7 @@ function CompanionVoiceStatus({
         data-testid="companion-voice-status"
       >
         <LuDownload className="h-3 w-3 shrink-0" />
-        Downloading the local offline voice (about 77 MB, one time only)…
+        Downloading the local offline voice (about 88 MB, one time only)…
       </p>
     );
   }
