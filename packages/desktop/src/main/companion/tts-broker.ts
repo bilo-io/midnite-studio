@@ -214,9 +214,69 @@ export function disposeCompanionTtsBroker(): void {
   current?.kill();
 }
 
+/** Deduped the same way `ensureModel` dedupes concurrent provisioning attempts — see `reloadCompanionTtsBroker`'s own doc. */
+let reloadInFlight: Promise<CompanionTtsStatusValue> | null = null;
+
+/**
+ * Settings' "Reload local engine" control (Ad Hoc: recover from a crashed
+ * worker without restarting the app) — tears down whatever worker is
+ * currently running (a crashed one, a wedged one, or a healthy one the user
+ * just wants a fresh process for after changing the voice) and forks a new
+ * one, then answers with that fresh worker's own `companionTtsStatus`
+ * value.
+ *
+ * **Why this recovers from `native-module-missing` when a plain status
+ * retry cannot.** `tts.ts`'s `loadFailure` is sticky *for the lifetime of
+ * the process that set it* (its own module doc) — the worker process, since
+ * this engine swap moved to a `utilityProcess`. `getCompanionTtsStatusAsync`
+ * alone can only ask the *same* worker again, which short-circuits on that
+ * sticky flag regardless of `retry`. Killing the worker and forking a new
+ * one gets a fresh process with fresh module state, which is the only way a
+ * crashed-worker or a since-fixed-native-module failure actually clears —
+ * exactly the packaging bug this ad hoc task's other half fixed
+ * (`electron-builder.yml`'s `asarUnpack`).
+ *
+ * **Deduped**, the same shape `ensureModel` uses for a provisioning
+ * download: two callers racing (a double-click before the button disables,
+ * a second window) share one teardown-and-respawn rather than each killing
+ * a worker the other just started. `disposeCompanionTtsBroker`'s own
+ * teardown is inlined here rather than reused — that function also clears
+ * `configuredDirectory`, which a reload must NOT do: the fresh worker still
+ * needs `ensureChild()`'s "configure on first message" behaviour to point
+ * it at the same `userData` directory.
+ */
+export function reloadCompanionTtsBroker(): Promise<CompanionTtsStatusValue> {
+  if (reloadInFlight) return reloadInFlight;
+
+  const run = (async (): Promise<CompanionTtsStatusValue> => {
+    cancelQueuedSynthesis();
+    if (synthInFlight) {
+      synthInFlight.resolve(failure('cancelled'));
+      synthInFlight = null;
+    }
+    for (const job of statusPending.values()) job.resolve(crashedStatus());
+    statusPending.clear();
+    const current = child;
+    child = null;
+    current?.kill();
+
+    // `ensureChild()` (inside `getCompanionTtsStatusAsync`) forks the fresh
+    // worker and posts `'configure'` before anything else can reach it;
+    // `retry: true` gives a since-fixed download a fresh attempt too, not
+    // just a crashed native module.
+    return getCompanionTtsStatusAsync(true);
+  })();
+
+  reloadInFlight = run;
+  return run.finally(() => {
+    reloadInFlight = null;
+  });
+}
+
 /** Reset module state. Tests only — mirrors `resetCompanionTtsForTest`. */
 export function resetCompanionTtsBrokerForTest(overrides: Partial<TtsBrokerDeps> = {}): void {
   disposeCompanionTtsBroker();
   configuredDirectory = null;
   deps = { spawn: overrides.spawn ?? defaultSpawn };
+  reloadInFlight = null;
 }

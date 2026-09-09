@@ -5,6 +5,7 @@ import {
   configureCompanionTtsBroker,
   disposeCompanionTtsBroker,
   getCompanionTtsStatusAsync,
+  reloadCompanionTtsBroker,
   resetCompanionTtsBrokerForTest,
   synthesizeSpeechAsync,
   type TtsWorkerHandle,
@@ -271,5 +272,142 @@ describe('disposeCompanionTtsBroker', () => {
     configureCompanionTtsBroker('/tmp', { spawn: fakeSpawn });
     expect(() => disposeCompanionTtsBroker()).not.toThrow();
     expect(FakeWorker.instances).toHaveLength(0);
+  });
+});
+
+/**
+ * Ad Hoc "the local voice engine crashed" — Settings' "Reload local engine"
+ * control. Unlike `getCompanionTtsStatusAsync`'s own `retry`, which only ever
+ * asks the *same* worker again, this kills whatever worker exists and forks
+ * a fresh one — the only way to actually clear `tts.ts`'s sticky
+ * `loadFailure` (its own module doc: sticky for the process's lifetime), not
+ * just retry a transient download.
+ */
+describe('reloadCompanionTtsBroker', () => {
+  it('kills the current worker and reconfigures a fresh one at the same directory', () => {
+    configureCompanionTtsBroker('/tmp/reload', { spawn: fakeSpawn });
+    void synthesizeSpeechAsync('warm up');
+    const original = currentWorker();
+    expect(original.killed).toBe(false);
+
+    void reloadCompanionTtsBroker();
+
+    expect(original.killed).toBe(true);
+    expect(FakeWorker.instances).toHaveLength(2);
+    const fresh = currentWorker();
+    expect(fresh).not.toBe(original);
+    expect(fresh.sent[0]).toEqual({ type: 'configure', directory: '/tmp/reload' });
+  });
+
+  it('asks the fresh worker for status with retry: true and resolves with its answer', async () => {
+    configureCompanionTtsBroker('/tmp', { spawn: fakeSpawn });
+    void synthesizeSpeechAsync('warm up');
+    currentWorker(); // the worker being replaced
+
+    const pending = reloadCompanionTtsBroker();
+    const fresh = currentWorker();
+    const statusSent = fresh.sent[1] as { type: 'status'; id: string; retry: boolean };
+    expect(statusSent.type).toBe('status');
+    expect(statusSent.retry).toBe(true);
+
+    fresh.reply({
+      type: 'status-reply',
+      id: statusSent.id,
+      value: { engine: 'local', voice: 'ready', reason: null, message: null },
+    });
+
+    await expect(pending).resolves.toEqual({ engine: 'local', voice: 'ready', reason: null, message: null });
+  });
+
+  it('resolves whatever was outstanding on the old worker as cancelled, exactly like dispose', async () => {
+    configureCompanionTtsBroker('/tmp', { spawn: fakeSpawn });
+    const inFlight = synthesizeSpeechAsync('one');
+    const queued = synthesizeSpeechAsync('two');
+
+    const pending = reloadCompanionTtsBroker();
+    const fresh = currentWorker();
+    const statusSent = fresh.sent[1] as { type: 'status'; id: string };
+    fresh.reply({
+      type: 'status-reply',
+      id: statusSent.id,
+      value: { engine: 'system', voice: 'idle', reason: null, message: null },
+    });
+    await pending;
+
+    await expect(inFlight).resolves.toEqual({ ok: false, kind: 'error', message: 'cancelled' });
+    await expect(queued).resolves.toEqual({ ok: false, kind: 'error', message: 'cancelled' });
+  });
+
+  it('spawns and configures a worker even when none was running yet', async () => {
+    configureCompanionTtsBroker('/tmp/fresh', { spawn: fakeSpawn });
+
+    const pending = reloadCompanionTtsBroker();
+    expect(FakeWorker.instances).toHaveLength(1);
+    const worker = currentWorker();
+    expect(worker.sent[0]).toEqual({ type: 'configure', directory: '/tmp/fresh' });
+
+    const statusSent = worker.sent[1] as { type: 'status'; id: string };
+    worker.reply({
+      type: 'status-reply',
+      id: statusSent.id,
+      value: { engine: 'system', voice: 'downloading', reason: null, message: null },
+    });
+    await expect(pending).resolves.toMatchObject({ voice: 'downloading' });
+  });
+
+  it('dedupes two overlapping calls into one teardown-and-respawn, not two', async () => {
+    configureCompanionTtsBroker('/tmp', { spawn: fakeSpawn });
+    void synthesizeSpeechAsync('warm up');
+    const original = currentWorker();
+
+    // Two clicks before the button had a chance to disable itself.
+    const first = reloadCompanionTtsBroker();
+    const second = reloadCompanionTtsBroker();
+
+    // Only the original worker died and only one replacement was spawned —
+    // a second overlapping call must not kill the fresh worker the first
+    // call just started.
+    expect(original.killed).toBe(true);
+    expect(FakeWorker.instances).toHaveLength(2);
+
+    const fresh = currentWorker();
+    const statusSent = fresh.sent[1] as { type: 'status'; id: string };
+    fresh.reply({
+      type: 'status-reply',
+      id: statusSent.id,
+      value: { engine: 'local', voice: 'ready', reason: null, message: null },
+    });
+
+    const expected = { engine: 'local', voice: 'ready', reason: null, message: null };
+    await expect(first).resolves.toEqual(expected);
+    await expect(second).resolves.toEqual(expected);
+  });
+
+  it('a reload after the previous one finished starts a new one rather than staying deduped forever', async () => {
+    configureCompanionTtsBroker('/tmp', { spawn: fakeSpawn });
+
+    const first = reloadCompanionTtsBroker();
+    const firstWorker = currentWorker();
+    const firstStatus = firstWorker.sent[1] as { type: 'status'; id: string };
+    firstWorker.reply({
+      type: 'status-reply',
+      id: firstStatus.id,
+      value: { engine: 'local', voice: 'ready', reason: null, message: null },
+    });
+    await first;
+
+    const second = reloadCompanionTtsBroker();
+    expect(FakeWorker.instances).toHaveLength(2);
+    const secondWorker = currentWorker();
+    expect(secondWorker).not.toBe(firstWorker);
+    expect(firstWorker.killed).toBe(true);
+
+    const secondStatus = secondWorker.sent[1] as { type: 'status'; id: string };
+    secondWorker.reply({
+      type: 'status-reply',
+      id: secondStatus.id,
+      value: { engine: 'system', voice: 'failed', reason: 'native-module-missing', message: 'still broken' },
+    });
+    await expect(second).resolves.toMatchObject({ voice: 'failed', reason: 'native-module-missing' });
   });
 });

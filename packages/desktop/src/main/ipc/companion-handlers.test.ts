@@ -16,15 +16,18 @@ vi.mock('electron', () => ({ ipcMain: { handle, on } }));
 // broker entry points are stubbed rather than exercising a real
 // `utilityProcess.fork` (which this test's `electron` mock does not provide
 // at all).
-const { synthesizeSpeechAsync, getCompanionTtsStatusAsync, cancelQueuedSynthesis } = vi.hoisted(() => ({
-  synthesizeSpeechAsync: vi.fn(),
-  getCompanionTtsStatusAsync: vi.fn(),
-  cancelQueuedSynthesis: vi.fn(),
-}));
+const { synthesizeSpeechAsync, getCompanionTtsStatusAsync, cancelQueuedSynthesis, reloadCompanionTtsBroker } =
+  vi.hoisted(() => ({
+    synthesizeSpeechAsync: vi.fn(),
+    getCompanionTtsStatusAsync: vi.fn(),
+    cancelQueuedSynthesis: vi.fn(),
+    reloadCompanionTtsBroker: vi.fn(),
+  }));
 vi.mock('../companion/tts-broker', () => ({
   synthesizeSpeechAsync,
   getCompanionTtsStatusAsync,
   cancelQueuedSynthesis,
+  reloadCompanionTtsBroker,
 }));
 
 import { registerCompanionHandlers } from './companion-handlers';
@@ -49,10 +52,11 @@ afterEach(() => {
   synthesizeSpeechAsync.mockReset();
   getCompanionTtsStatusAsync.mockReset();
   cancelQueuedSynthesis.mockReset();
+  reloadCompanionTtsBroker.mockReset();
 });
 
 describe('registerCompanionHandlers', () => {
-  it("registers exactly the companion channels — Theme B's two, Theme E's one, Theme F's four and Phase 80 Theme C's two", () => {
+  it("registers exactly the companion channels — Theme B's two, Theme E's one, Theme F's four, Phase 80 Theme C's two, and Ad Hoc's reload", () => {
     registerCompanionHandlers();
     expect(handle.mock.calls.map(([channel]) => channel)).toEqual([
       CHANNELS.companionSnapshot,
@@ -64,6 +68,7 @@ describe('registerCompanionHandlers', () => {
       CHANNELS.companionSttStatus,
       CHANNELS.companionTtsSynthesize,
       CHANNELS.companionTtsStatus,
+      CHANNELS.companionTtsReload,
     ]);
   });
 
@@ -228,6 +233,50 @@ describe('registerCompanionHandlers', () => {
       ok({ engine: 'local', voice: 'ready', reason: null, message: null }),
     );
     expect(getCompanionTtsStatusAsync).toHaveBeenCalledWith(false);
+  });
+
+  /*
+    Settings' "Reload local engine" control (Ad Hoc: recover from a crashed
+    worker without restarting the app) — `handleOp` wraps whatever
+    `reloadCompanionTtsBroker` resolves with in `ok(...)`, the same posture
+    `companionTtsStatus` takes: the reload's own outcome (ready, still
+    failed) lives in the value, never in the envelope.
+  */
+  it('routes a reload request through the broker and wraps it in ok(...), even a failed one', async () => {
+    reloadCompanionTtsBroker.mockResolvedValue({
+      engine: 'system',
+      voice: 'failed',
+      reason: 'native-module-missing',
+      message: 'still broken after reload',
+    });
+    registerCompanionHandlers();
+
+    await expect(invoke(CHANNELS.companionTtsReload, {})).resolves.toEqual(
+      ok({
+        engine: 'system',
+        voice: 'failed',
+        reason: 'native-module-missing',
+        message: 'still broken after reload',
+      }),
+    );
+    expect(reloadCompanionTtsBroker).toHaveBeenCalledTimes(1);
+  });
+
+  it('a malformed reload payload still reaches the broker — CompanionTtsReloadRequest is a bare, unvalidated signal', async () => {
+    reloadCompanionTtsBroker.mockResolvedValue({
+      engine: 'local',
+      voice: 'ready',
+      reason: null,
+      message: null,
+    });
+    registerCompanionHandlers();
+
+    // `z.object({})` is stripped, not strict — an unexpected extra field
+    // still parses, matching `companionTtsCancel`'s own request shape.
+    await expect(invoke(CHANNELS.companionTtsReload, { extra: 'field' })).resolves.toMatchObject({
+      ok: true,
+    });
+    expect(reloadCompanionTtsBroker).toHaveBeenCalledTimes(1);
   });
 
   it('registers the cancel channel through ipcMain.on (handleSend), and calls the broker when sent', () => {
