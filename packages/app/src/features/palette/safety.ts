@@ -73,6 +73,8 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   'window.detachRepos',
   'window.detachFab',
   'window.detachBrowser',
+  // Same recoverability class as its four siblings above (Phase 81 Theme B).
+  'window.detachCompanion',
 ] as const;
 
 export function isPaletteSafe(id: CommandId): boolean {
@@ -225,6 +227,7 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'window.detachRepos': 'direct',
   'window.detachFab': 'direct',
   'window.detachBrowser': 'direct',
+  'window.detachCompanion': 'direct',
 };
 
 /**
