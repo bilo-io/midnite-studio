@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | ◻ TODO | — | 0/65 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 9/53 | `██░░░░░░░░` | 17% | B C D E | F |
 | [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 24/31 | `████████░░` | 77% | — | — |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | ✅ DONE | — | 57/67 | `█████████░` | 85% | — | — |
@@ -178,6 +179,27 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 82 — The pyramid, righted](phases/phase-82-the-pyramid-righted.md)
+
+*CI is gated by its slowest job — the Playwright suite at 8m31s wall, ~46 runner-minutes —
+and Phase 56 already spent every infrastructure lever on it. What's left is the suite's shape:
+667 browser tests carry work 3,701 jsdom tests do 190× cheaper, a third of the shard budget is
+self-skipping screenshot specs, and there is no visual-regression layer at all. Plans gating the
+no-op specs, a `test-support/` unit layer built around an extracted `buildMockBridge`, five
+migration waves moving ~380 tests to vitest, a locator-cropped `toHaveScreenshot` pixel-diff
+layer capped at ~100 baselines, splitting the 10×-billed `gate` job by native-module need, a
+written testing convention with a ratchet script, and a shard re-tune once the suite is smaller.
+Target: ~4 min total CI wall clock, down from 8m31s.*
+
+- ◻ **A** — Stop paying for no-ops: gate the 11 ungated `*-shots` files, extend `testIgnore` to drop unskippable screenshot specs, re-measure per-shard times
+- ◻ **B** — A unit layer worth writing in: `test-support/`, `buildMockBridge` extracted from the `addInitScript` closure, `renderView`, promoted global stubs, `@testing-library/user-event`
+- ◻ **C** — Migration waves: five PRs moving ~380 category-A tests to vitest, one e2e smoke kept per view, the B/C-category set staying in Playwright named explicitly
+- ◻ **D** — A pixel-diff layer: `playwright.visual.config.ts`, determinism fixes for fonts/motion/RNG, locator-cropped `toHaveScreenshot({ maxDiffPixelRatio: 0.002 })`, a ~100-baseline/3 MB cap, Linux-only `snapshotPathTemplate`
+- ◻ **E** — Split the gate: measure per-package first, then `gate-node` (ubuntu, 1×) and `gate-native` (macOS, 10×, git-engine + desktop only)
+- ◻ **F** — Write the convention down, and ratchet it: `docs/TESTING.md`, the three-file CLAUDE/AGENTS/GEMINI sync, `scripts/e2e-budget.mjs`, `e2e/**` added to `tsconfig.json`
+- ◻ **G** — Re-measure and re-tune the shards: pick shard count from data once the suite shrinks, record the numbers
+- ◻ **H** — shard `app:test` in CI; Theme E measured the platform split at 261s of 264s, so the unit suite is the gate's real floor
 
 ### [Phase 81 — Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md)
 
