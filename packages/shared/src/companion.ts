@@ -9,7 +9,7 @@ import {
   type SettingsPageId,
   type ViewId,
 } from './domain';
-import { isCommandId, type CommandGroup } from './keybindings';
+import { isCommandId } from './keybindings';
 import { parseConventionalCommit } from './version';
 
 /**

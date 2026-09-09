@@ -4,7 +4,6 @@ import { persist } from 'zustand/middleware';
 import {
   DEFAULT_COMPANION_VOLUME,
   METRICS_IDLE_INTERVAL_MS,
-  SETTINGS_PAGE_IDS,
   VIEW_IDS,
   type CompanionMicMode,
   type CompanionVoiceEngine,
