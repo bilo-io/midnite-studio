@@ -6,11 +6,13 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
 /**
  * The Tests view and its sidebar section, assembled.
  *
- * Discovery, classification and the trust/run wiring are covered under bare
- * vitest (`git-engine/src/tests`, `desktop/src/main/testing`) — what only the
- * assembled app can show is that a discovered suite reaches the sidebar
- * grouped by kind, the Tests view's own package tree, and that trusting and
- * running one actually renders what the live stream sends back.
+ * Phase 82 Theme C wave 5 moved this file's 3 tests to
+ * `src/features/tests/tests-view.bridge.test.tsx`, mounting `ReposPanel`
+ * (the sidebar grouping) and `TestsView` (the package tree, the selected
+ * suite's command, and trusting/running a suite rendering the streamed
+ * result) directly. The one test kept here is a smoke test that the sidebar
+ * Tests section is reachable and groups suites through the real,
+ * assembled app.
  */
 
 const MAIN = '/tmp/midnite-studio';
@@ -62,69 +64,12 @@ const base: MockFixtures = {
   },
 };
 
-async function open(page: import('@playwright/test').Page, data: MockFixtures = base): Promise<void> {
-  await installMockBridge(page, data);
+test('the sidebar Tests section groups discovered suites by kind', async ({ page }) => {
+  await installMockBridge(page, base);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-}
-
-test('the sidebar Tests section groups discovered suites by kind', async ({ page }) => {
-  await open(page);
 
   await page.getByRole('button', { name: /^Tests\b/ }).click();
   await expect(page.getByText('unit · 1')).toBeVisible();
   await expect(page.getByText('e2e · 1')).toBeVisible();
-});
-
-const suites = (page: import('@playwright/test').Page) => page.getByRole('region', { name: 'Suites' });
-const detail = (page: import('@playwright/test').Page) => page.getByRole('region', { name: 'Suite detail' });
-
-test('the Tests view lists suites by package and shows the selected one\'s command', async ({
-  page,
-}) => {
-  await open(page);
-
-  await clickRailLink(page, 'Tests');
-  await expect(suites(page).getByText('@midnite/studio-app')).toBeVisible();
-  await expect(suites(page).getByRole('button', { name: /^test/ })).toBeVisible();
-  await expect(suites(page).getByRole('button', { name: /^e2e/ })).toBeVisible();
-
-  await suites(page).getByRole('button', { name: /^test/ }).click();
-  await expect(detail(page).getByText('pnpm run test')).toBeVisible();
-  await expect(
-    detail(page).getByText('Not trusted. Running it approves this exact command.'),
-  ).toBeVisible();
-});
-
-test('trusting and running a suite renders the streamed result', async ({ page }) => {
-  await open(page, {
-    ...base,
-    tests: {
-      ...base.tests,
-      runResult: {
-        ok: true,
-        structured: true,
-        exitCode: 0,
-        passed: 4,
-        failed: 1,
-        skipped: 0,
-        failures: [{ name: 'renders', file: 'a.test.ts', message: 'boom' }],
-        output: 'output',
-        truncated: false,
-        ranAt: 1,
-        durationMs: 5,
-      },
-    },
-  });
-
-  await clickRailLink(page, 'Tests');
-  await suites(page).getByRole('button', { name: /^test/ }).click();
-  await detail(page).getByRole('button', { name: 'Trust and run suite' }).click();
-
-  await expect(detail(page).getByText('4 passed')).toBeVisible();
-  await expect(detail(page).getByText('1 failed')).toBeVisible();
-  await expect(detail(page).getByText('renders')).toBeVisible();
-  await expect(detail(page).getByText('boom')).toBeVisible();
-  // Trust persisted past the run — the button no longer offers to trust again.
-  await expect(detail(page).getByRole('button', { name: 'Run suite' })).toBeVisible();
 });
