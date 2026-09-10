@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | 🔄 WIP | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
 | [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 46/75 | `██████░░░░` | 61% | — | C D F G |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | ✅ DONE | — | 50/53 | `█████████░` | 94% | — | — |
@@ -99,6 +100,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 **Headlines:**
 
+- **[Phase 84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md)** (0% · 0/68) — **Planned, not started.** The "why do I have to reload the other window" phase, and the grounding found the bug is one missing mount: main already runs one `RepoWatcher` per repo and `broadcastToAllWindows(watchEvent)` to every window, but `useWatchInvalidation` is mounted only in `app.tsx:616` — `detached-root.tsx` never subscribes, so a detached Graph receives the event and drops it, and `relayWatchEvent` has had zero callers since Phase 55 I (its test still passes). The rest of liveness is timers in the wrong place: auto-fetch is a renderer hook in the main window; forge data has no push and no poll (`FORGE_STALE_MS = 60_000` + navigation); `WindowDescriptor.repoId` is hardcoded `null`. **A** mounts the listener in `DetachedShell` and deletes the dead relay; **B** moves auto-fetch into a main `fetch-scheduler.ts` behind an any-window-visible + idle gate with an explicit `refs` broadcast (own-write suppression would swallow the fs event); **C** an interest-based `forge-poller.ts` — refcounted `{repoId, kind}` subscriptions, hash-diffed, `forgeChanged` ping, rate-limit back-off; **D** makes `repoId` real so broadcasts can be scoped. On memory: every open terminal session keeps a live xterm, hidden browser tabs keep their renderer process, views unmount hard and re-stream on return, and a popout boots the whole app — **E** disposes hidden sessions past visible + 3 recent after 2 min and rehydrates from main's scrollback, **F** discards hidden tabs Chrome-style after 10 min with a sleeping glyph and Keep awake, **G** keeps the last-left heavy view alive under a TTL and row ceiling with deferred re-stream, **H** puts popouts on a diet, **I** adds a liveness dot to every window's status bar, **J** measures all of it before and after. **K** lands a shared `useCascadeReveal` so graph, repos, explorer, Actions, Issues cascade top-to-bottom on mount/reveal/repo-switch — never on a data refresh, which the graph does today on every save — and terminal, companion and Loops fade on every reveal, with an app-owned reduced-motion rule and a guard that can finally see Tailwind's keyframes. Explicitly deferred: a main-side repo state snapshot (N windows → one subprocess set), the natural Phase 85. 68 items, eleven themes, no new dependency.
+
 - **[Phase 79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md)** (63% · 42/67, [PR #269](https://github.com/bilo-io/midnite-studio/pull/269), [PR #270](https://github.com/bilo-io/midnite-studio/pull/270), [PR #272](https://github.com/bilo-io/midnite-studio/pull/272)) — **Themes A, B, C, F, G and H landed (2026-09-08); D and E open.** A chat thread in its own resizable panel left of the Loops panel, with a mic and a send button, that greets you, reads out where the repo stands, hands your request to a real agent session and reads the answer back. Deliberately *not* a new inference path: the concierge script is deterministic, grounding comes from the Phase 57 MCP tools called in-process (no client), and the thinking is the installed agent CLI — in a visible pty via the existing skill hand-off, or headlessly via `runProcess` for intent fallback and the spoken summary. **A** state machine + phrase banks in `shared`; **B** snapshot + landed/in-progress digest channels; **C** the sibling panel, thread, input bar and a `C` leaf in the quick-access menu; **D** the scripted greeting → overview → switch offer → digest flow; **E** intent grammar, hand-off, pty-activity-driven loading exit, ANSI-stripped read-back; **F** TTS via `speechSynthesis` (free) and STT behind a provider seam with the key in `safeStorage` and an audio-only permission carve-out (Chromium's recogniser is dead in Electron); **G** fillers, a WebAudio whistle and elevator loop, all interruptible; **H** four `data-companion-state` looks on the FAB, the blank assistant popover becomes a mini transcript, Settings ▸ Companion. Default off; typed-not-sent unless hands-free is opted into.
 
 - **[Phase 78 · Whose hands were on the keyboard](phases/phase-78-whose-hands-were-on-the-keyboard.md)** (0% · 0/32) — **Planned, not started.** The novelty audit's one phase: agent provenance as a first-class fact in the graph. The log format reads no trailers (`LOG_FORMAT` stops at `%s`) although every agent this app runs already writes `Co-Authored-By:`; the roster knows five agents and none of their signatures; closed sessions carry `agentId`/`repoId`/`createdAt`/`closedAt`, exactly the join a commit needs. **A** reads `Co-Authored-By`/`Midnite-Session` trailers into `CommitSchema` (NUL-delimited, `%x1f` inside the field); **B** a pure `classifyProvenance` in `shared` with an ordered confidence (`session-trailer` › `co-author` › `author` › `session-window`) that renders *probably* out loud; **C** the mark on the graph row, an All/Humans/Agents filter that dims rather than hides, a Provenance line in commit detail; **D** the sessions ↔ commits crosswalk — "N commits" per closed session, a link from a commit to the transcript that made it; **E** the opt-in write side (`MSTUDIO_SESSION_ID` in agent ptys, a never-clobbering `prepare-commit-msg` hook behind a default-off switch); **F** an agent-share tile on the dashboard. Read-side first and works on history that predates the app; line-level blame attribution is the named sequel.
@@ -180,6 +183,43 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 84 — Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md)
+
+*Two promises and one look. Main already runs one `RepoWatcher` per repo and broadcasts every
+event to every window — but `useWatchInvalidation` is mounted only in `app.tsx`, so a detached
+Graph receives the event and drops it, and `relayWatchEvent` has had zero callers since Phase 55 I.
+Auto-fetch is a renderer timer in the main window; forge data has no push and no poll. Hidden
+terminal sessions keep every xterm mounted, hidden browser tabs keep their renderer process, and a
+popout boots the whole app. This phase mounts the listener where the events already arrive, moves
+the timers into main behind an any-window-visible gate, adds an interest-based forge poller with a
+`forgeChanged` ping, gives hidden terminals/tabs/views a bounded lifetime with rehydration from
+state main already holds, puts a liveness dot in every window, measures all of it, and lands a
+shared cascade-on-reveal primitive that never replays on a data refresh.*
+
+- ◻ **A** — The broadcast lands (`useWatchInvalidation` in `DetachedShell`, `relayWatchEvent`
+  deleted, `view.refresh` in a popout)
+- ◻ **B** — Auto-fetch moves to main (`fetch-scheduler.ts`, any-window-visible + idle gate, explicit
+  `refs` broadcast after a fetch, `settingsSync` mirror, `useAutoFetch` deleted)
+- ◻ **C** — Forge poller, interest-based (`forgeSubscribe`/`forgeChanged`, refcounted per
+  `{repoId, kind}`, hash-diffed, rate-limit back-off)
+- ◻ **D** — A window knows its repo (`WindowDescriptor.repoId` real, `broadcastToWindowsOnRepo`,
+  per-window diagnostics row)
+- ◻ **E** — Terminal unload + rehydrate (visible + 3 recent stay mounted, dispose after 2 min, replay
+  from main's scrollback with no gap)
+- ◻ **F** — Browser tab discard (Chrome-style after 10 min hidden, sleeping glyph, Keep awake,
+  audible/active/Phase 83 apps excluded)
+- ◻ **G** — Bounded keep-alive for heavy views (`keepAlive` on `view-registry`, TTL + row ceiling,
+  deferred re-stream while hidden)
+- ◻ **H** — Popout diet (skip idle preloads and main-only bootstrap, bounded `QueryClient`, `popoutRss`
+  budget)
+- ◻ **I** — Liveness dot (per-window `liveness-store`, `syncStatus` push, status-bar zone in every
+  window)
+- ◻ **J** — Numbers, not adjectives (baseline first, before/after per theme, `budgets.json` lines,
+  zero subprocesses when blurred)
+- ◻ **K** — Cascading reveal, everywhere (`useCascadeReveal`, mount/reveal/repo-switch only, file
+  tree + terminal + companion + Loops + popout first paint, app-owned reduced-motion rule, guard
+  scans Tailwind keyframes)
 
 ### [Phase 83 — Third-party apps rail](phases/phase-83-third-party-apps-rail.md)
 
