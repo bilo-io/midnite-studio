@@ -10492,3 +10492,35 @@ implemented.** In `handoff.ts`, Theme C's `act()` had `case 'navigate'` falling 
 "I can't do that yet." with real `run`/`confirm`/`help` below it; Theme B had the real
 `navigate` and stubs for those three. Taking either side wholesale would have compiled, passed
 most tests, and silently reverted one theme's whole feature.
+
+### Phase 82 Theme A — Gate the ungated shots specs (PR #325, 2026-09-10)
+
+All 11 ungated `*-shots` files now gate behind `MSTUDIO_SHOTS`, and
+`playwright.config.ts`'s `testIgnore` drops `**/*-shots.spec.ts` from the default run entirely.
+
+**Two of the eleven turned out to carry real assertions** and were handled differently rather
+than skipped — assertions unconditional, only the `.screenshot()` calls gated, and each renamed
+off the `*-shots` suffix so the new ignore rule cannot swallow a functional spec:
+`reviews-loading-shots` → `reviews-loading.spec.ts` (asserts `sr-only` skeleton text nothing else
+covers) and `busy-spinner-shots` → `busy-spinner.spec.ts` (asserts a busy re-run draws the
+sweeping ring with zero `svg` elements). Blanket-skipping either would have deleted real coverage
+silently.
+
+Measured, on PR #325's own CI run (34449458949):
+
+| | Before | After |
+|---|---|---|
+| Declared tests, default run | 995 / 137 files | **695 / 92 files** |
+| Declared tests, `MSTUDIO_SHOTS=1` | — | **995 / 137** (workflow intact) |
+| Per-shard declared spread | 41–122 actual work | **86–87** |
+| Worst shard, test step | 441s | **332s** |
+| Worst shard, job wall | 8m26s | **6m40s** |
+| Total workflow wall | 8m31s | **~6m44s** |
+
+**Left open deliberately — the theme is ◐, not ✅.** Gating the eleven did not finish the job:
+**13 unconditional `page.screenshot()` calls survive in 7 *functional* specs** (`graph-themes`,
+`graph-recency`, `phase-21-roster`, `files-view`, `files-search`, `ref-drag`, `settings-pages`),
+so a full local run still dirties 19 PNGs. Phase 56 Theme F swept four *other* functional specs
+and stopped; these are the remainder. Recorded as an open Theme A item rather than folded into a
+"done" claim, because during this phase's own merges the churn had to be reverted five separate
+times — it is a live cost, not a cosmetic one.

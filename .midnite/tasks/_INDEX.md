@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 15/65 | `██░░░░░░░░` | 23% | — | A C D F G H |
+| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 22/66 | `███░░░░░░░` | 33% | — | A C D F G H |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 35/53 | `███████░░░` | 66% | — | F |
 | [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 24/31 | `████████░░` | 77% | — | — |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | ✅ DONE | — | 57/67 | `█████████░` | 85% | — | — |
@@ -192,7 +192,7 @@ layer capped at ~100 baselines, splitting the 10×-billed `gate` job by native-m
 written testing convention with a ratchet script, and a shard re-tune once the suite is smaller.
 Target: ~4 min total CI wall clock, down from 8m31s.*
 
-- ◻ **A** — Stop paying for no-ops: gate the 11 ungated `*-shots` files, extend `testIgnore` to drop unskippable screenshot specs, re-measure per-shard times
+- ◐ **A** — Stop paying for no-ops ([PR #325](https://github.com/bilo-io/midnite-studio/pull/325)): 976→695 declared, shards even at 86-87, worst shard 441s→332s — but 13 unconditional screenshots survive in 7 functional specs, so one item is left open: gate the 11 ungated `*-shots` files, extend `testIgnore` to drop unskippable screenshot specs, re-measure per-shard times
 - ✅ **B** — A unit layer worth writing in: `test-support/`, `buildMockBridge` extracted from the `addInitScript` closure, `renderView`, promoted global stubs, `@testing-library/user-event`
 - ◻ **C** — Migration waves: five PRs moving ~380 category-A tests to vitest, one e2e smoke kept per view, the B/C-category set staying in Playwright named explicitly
 - ◻ **D** — A pixel-diff layer: `playwright.visual.config.ts`, determinism fixes for fonts/motion/RNG, locator-cropped `toHaveScreenshot({ maxDiffPixelRatio: 0.002 })`, a ~100-baseline/3 MB cap, Linux-only `snapshotPathTemplate`
