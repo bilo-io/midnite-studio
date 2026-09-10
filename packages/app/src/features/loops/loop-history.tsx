@@ -11,6 +11,11 @@ import { LuChevronDown, LuChevronRight } from 'react-icons/lu';
  * run. Expanding a row shows the exact composed prompt: the record of which
  * toggles that run actually carried, which is the whole reason the ledger
  * stores the composed line rather than the modifier ids alone.
+ *
+ * The expanded list renders in full — no cap, no scrollbar of its own. It
+ * shares the single outer scrollbar `loop-tab.tsx` wraps around this
+ * component and `LoopComposer` together, rather than carrying a second,
+ * nested one of its own.
  */
 export function LoopHistory({ runs }: { runs: LoopRunRecord[] }) {
   const [open, setOpen] = useState(false);
@@ -33,7 +38,7 @@ export function LoopHistory({ runs }: { runs: LoopRunRecord[] }) {
         History ({ordered.length})
       </button>
       {open ? (
-        <div className="max-h-32 overflow-y-auto px-2 pb-2">
+        <div className="px-2 pb-2">
           {ordered.length === 0 ? (
             <p className="py-1 text-[11px] text-muted-foreground">No runs yet.</p>
           ) : (
