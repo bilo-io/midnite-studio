@@ -6,16 +6,16 @@ import { installMockBridge, type MockFixtures } from '../test-support/mock-bridg
 /**
  * Stashes drawn above the graph (Phase 22 Theme C).
  *
- * The pseudo-rows themselves are a rendering concern the phase's screenshot
- * spec already covers; what this asserts is the one thing a picture can't —
- * that clicking one actually opens the stash it names, that the sidebar's
- * own stash list opens the same panel, and that a repo with more than the
- * visible cap collapses into an overflow row rather than pushing the real
- * commit history down the pane.
+ * Phase 82 Theme C wave 5 moved this file's 3 tests to
+ * `src/features/graph/stash-rows.bridge.test.tsx`, mounting `GraphView`
+ * (plus `ReposPanel` for the sidebar-parity test) directly — that clicking a
+ * stash row opens its inspector, that the sidebar's own stash list opens the
+ * same inspector, and that a repo with more than the visible cap collapses
+ * into an overflow row. The one test kept here is a smoke test that the
+ * graph reaches the same inspector through the real, assembled app.
  */
 const SHA_A = 'a'.repeat(40);
 const SHA_B = 'b'.repeat(40);
-const SHA_C = 'c'.repeat(40);
 
 const stash = (selector: string, message: string, sha: string) => ({
   selector,
@@ -40,44 +40,5 @@ test.describe('Stashes above the graph', () => {
 
     await page.getByRole('button', { name: /Stash: WIP on main/ }).click();
     await expect(page.getByText('This stash changed no files.')).toBeVisible();
-  });
-
-  test('the sidebar list opens the same inspector as the graph row', async ({ page }) => {
-    const data: MockFixtures = {
-      ...fixtures,
-      stashes: [stash('stash@{0}', 'WIP on main: refactor the sidebar tree', SHA_B)],
-      stashDetails: {
-        'stash@{0}': { tracked: [], index: [], untracked: [] },
-      },
-    };
-    await installMockBridge(page, data);
-    await page.goto('/');
-
-    await page.getByRole('heading', { name: 'Stashes' }).waitFor();
-    // The sidebar row's own accessible name is the plain message — the graph
-    // pseudo-row's is `Stash: <message>` (its `aria-label`), so this can only
-    // match the sidebar's row.
-    await page
-      .getByRole('button', { name: 'WIP on main: refactor the sidebar tree', exact: true })
-      .click();
-    await expect(page.getByText('This stash changed no files.')).toBeVisible();
-  });
-
-  test('collapses past two entries into an overflow row', async ({ page }) => {
-    const data: MockFixtures = {
-      ...fixtures,
-      stashes: [
-        stash('stash@{0}', 'WIP on main: first', SHA_A),
-        stash('stash@{1}', 'WIP on main: second', SHA_B),
-        stash('stash@{2}', 'WIP on main: third', SHA_C),
-      ],
-    };
-    await installMockBridge(page, data);
-    await page.goto('/');
-
-    await expect(page.getByRole('button', { name: /Stash: WIP on main: first/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Stash: WIP on main: second/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Stash: WIP on main: third/ })).toHaveCount(0);
-    await expect(page.getByText('+1 more stash — see the sidebar')).toBeVisible();
   });
 });
