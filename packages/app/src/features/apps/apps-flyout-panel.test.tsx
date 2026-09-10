@@ -66,4 +66,46 @@ describe('AppsFlyoutPanel', () => {
     // shown in the new popout instead.
     expect(activate).not.toHaveBeenCalled();
   });
+
+  it('dismisses on a pointerdown outside the panel', () => {
+    const { activate } = installBridge();
+    useUiStore.setState({ appsFlyoutAppId: 'spotify' });
+    render(
+      <div>
+        <div data-testid="elsewhere">Elsewhere</div>
+        <AppsFlyoutPanel />
+      </div>,
+    );
+
+    fireEvent.pointerDown(screen.getByTestId('elsewhere'));
+
+    expect(useUiStore.getState().appsFlyoutAppId).toBeNull();
+    expect(activate).toHaveBeenCalledWith({ id: null });
+  });
+
+  it('does not dismiss on a pointerdown inside the panel itself', () => {
+    installBridge();
+    useUiStore.setState({ appsFlyoutAppId: 'spotify' });
+    render(<AppsFlyoutPanel />);
+
+    fireEvent.pointerDown(screen.getByTestId('apps-flyout'));
+
+    expect(useUiStore.getState().appsFlyoutAppId).toBe('spotify');
+  });
+
+  it('does not dismiss on a pointerdown aimed at a rail icon — that click switches or toggles it instead', () => {
+    const { activate } = installBridge();
+    useUiStore.setState({ appsFlyoutAppId: 'spotify' });
+    render(
+      <div>
+        <button data-testid="apps-rail-youtube">Open YouTube</button>
+        <AppsFlyoutPanel />
+      </div>,
+    );
+
+    fireEvent.pointerDown(screen.getByTestId('apps-rail-youtube'));
+
+    expect(useUiStore.getState().appsFlyoutAppId).toBe('spotify');
+    expect(activate).not.toHaveBeenCalled();
+  });
 });

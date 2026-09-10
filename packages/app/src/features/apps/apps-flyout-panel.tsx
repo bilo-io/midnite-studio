@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { APP_DEFINITIONS, APP_ROLE } from '@midnite/studio-shared';
 import { GoX } from 'react-icons/go';
@@ -34,10 +34,10 @@ export function AppsFlyoutPanel() {
   const open = appId !== null;
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const close = () => {
+  const close = useCallback(() => {
     useUiStore.getState().closeAppsFlyout();
     bridge()?.apps.activate({ id: null });
-  };
+  }, []);
 
   useFocusTrap(containerRef, open);
   // Passive, not blocking: a menu or dialog raised over the flyout should
@@ -45,6 +45,27 @@ export function AppsFlyoutPanel() {
   // blocking registration here would also occlude the flyout's native
   // `WebContentsView` for as long as it is open, i.e. always.
   useDismiss(open, close, { layer: 'inline', blocking: false });
+
+  // `useDismiss` only ever answers Escape (see its own doc) — click-away is
+  // this component's own job, the same `pointerdown` pattern `Popover` uses.
+  // Rail icon clicks are excluded rather than raced against: a click on a
+  // DIFFERENT enabled app's icon should switch the flyout (`apps-rail-row.tsx`'s
+  // own `onClick`), not close it out from under that click's own effect, and a
+  // click on the CURRENTLY active app's icon already toggles it closed there.
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (containerRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest('[data-testid^="apps-rail-"]')) return;
+      close();
+    };
+
+    window.addEventListener('pointerdown', onPointerDown, true);
+    return () => window.removeEventListener('pointerdown', onPointerDown, true);
+  }, [open, close]);
 
   if (!open) return null;
 
