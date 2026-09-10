@@ -14,6 +14,9 @@ import {
  * The committed screenshots for Phase 29 (Themes A-D): the Files-preview
  * trigger, a mid-presentation slide with a highlighted code fence, and the
  * help overlay — each in both themes, following `actions-shots.spec.ts`.
+ *
+ * Gated behind `MSTUDIO_SHOTS` like every other shots suite (Phase 82 Theme A)
+ * — committed images, not assertions a normal `app:e2e` run must keep passing.
  */
 
 const OUT = '../../docs/screenshots/phase-29-slides';
@@ -47,6 +50,9 @@ async function openFile(page: Page): Promise<void> {
   await page.getByRole('treeitem', { name: /README\.md/ }).click();
   await expect(page.getByText('A short deck to present.')).toBeVisible();
 }
+
+// Ungated, this rewrote six committed PNGs on every `app:e2e` run.
+test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
 
 test('light: the Present trigger in the Files preview header', async ({ page }) => {
   await openFile(page);

@@ -16,6 +16,9 @@ import {
  * A spec rather than a one-off script, following `actions-shots.spec.ts`, so
  * the images can be regenerated when the view changes instead of going quietly
  * stale — and so the fixture that produces them is reviewable.
+ *
+ * Gated behind `MSTUDIO_SHOTS` like every other shots suite (Phase 82 Theme A)
+ * — committed images, not assertions a normal `app:e2e` run must keep passing.
  */
 
 /* Playwright runs with `packages/app` as its cwd, so the repo-root docs tree is
@@ -253,6 +256,9 @@ async function openPull(page: Page): Promise<void> {
   await expect(page.getByRole('region', { name: 'Pull request #128' })).toBeVisible();
   await page.waitForTimeout(900);
 }
+
+// Ungated, this rewrote four committed PNGs on every `app:e2e` run.
+test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
 
 test('files light', async ({ page }) => {
   await openPull(page);
