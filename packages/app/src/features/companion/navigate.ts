@@ -152,13 +152,16 @@ export async function navigateCompanion(
       fab: ui.fabDetached,
       companion: ui.companionDetached,
       browser: ui.browserDetached,
-      // The three apps-rail roles (Phase 83 Theme A) have no detach affordance
-      // yet — that is Theme D's own `*Detached` state. Hardcoded `false` until
-      // then, rather than adding unused `ui-store` flags ahead of the feature
-      // that would set them.
-      'apps-spotify': false,
-      'apps-google-calendar': false,
-      'apps-youtube': false,
+      // The three apps-rail roles (Theme D) track detached-ness as an array
+      // (`detachedApps`) rather than a boolean field each, mirroring
+      // `detachedPages` — see its own doc. Nothing in `resolveNavigation`
+      // actually reads these three today (apps are panels, not `ViewId`s, so
+      // `isPageRoleView` never matches one), but wiring the real values here
+      // rather than a permanent `false` is what keeps this object honest if
+      // that ever changes.
+      'apps-spotify': ui.detachedApps.includes('spotify'),
+      'apps-google-calendar': ui.detachedApps.includes('google-calendar'),
+      'apps-youtube': ui.detachedApps.includes('youtube'),
     },
     locked: ui.screensaverLocked,
     repoId: ui.selectedRepoId,

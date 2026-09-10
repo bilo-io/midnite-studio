@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 
 import { ShellProviders } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
-import type { WindowRole } from '@midnite/studio-shared';
+import type { AppId, WindowRole } from '@midnite/studio-shared';
 
 import { DelayedFallback } from './components/delayed-fallback';
 import { DetachedWindowFrame } from './components/detached-window-frame';
@@ -12,6 +12,7 @@ import { DialogHost } from './components/dialog-host';
 import { ErrorBoundary } from './components/error-boundary';
 import { PaletteHost } from './components/palette-host';
 import { ToastHost } from './components/toast-host';
+import { AppPane } from './features/apps/app-pane';
 import { BrowserPane } from './features/browser/browser-pane';
 import { FabPanel } from './components/fab-panel';
 import { CompanionPanel } from './features/companion/companion-panel';
@@ -68,9 +69,8 @@ const ROLE_TITLE: Record<Exclude<WindowRole, 'main'>, string> = {
   fab: 'Midnite Loops',
   companion: 'Midnite Companion',
   browser: 'Browser',
-  // Phase 83 Theme A — titles for the three apps-rail roles. Theme D wires
-  // these roles' actual detach/re-dock and `DetachedContent` rendering; until
-  // then a popout can never actually open with one of these roles.
+  // Titles for the three apps-rail roles (Phase 83 Theme A); `DetachedContent`
+  // below wires their actual rendering (Theme D).
   'apps-spotify': 'Spotify',
   'apps-google-calendar': 'Google Calendar',
   'apps-youtube': 'YouTube',
@@ -113,10 +113,14 @@ function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
   }
 
   if (role === 'apps-spotify' || role === 'apps-google-calendar' || role === 'apps-youtube') {
-    // Phase 83 Theme D renders the app's `WebContentsView` content here, the
-    // same way `browser` does above. No detach entry point exists for these
-    // roles yet (Theme D), so this branch is unreachable until then.
-    return null;
+    // Phase 83 Theme D: the same host-div-and-native-view split `browser`
+    // uses above, via the shared `AppPane` (also used by the flyout, Theme
+    // C) — `window-handlers.ts`'s `windowDetach` already reparented the
+    // `WebContentsView` itself into this popout before this even mounts, so
+    // there is nothing to construct here beyond the measured host div.
+    const appId: AppId =
+      role === 'apps-spotify' ? 'spotify' : role === 'apps-google-calendar' ? 'google-calendar' : 'youtube';
+    return <AppPane appId={appId} />;
   }
 
   /*
