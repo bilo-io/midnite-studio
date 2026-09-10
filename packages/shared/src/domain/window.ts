@@ -6,8 +6,25 @@ import type { ViewId } from './view';
  * The auxiliary *panels* a secondary `BrowserWindow` can host — the surfaces
  * that **move** when detached: the docked slot collapses and the popout
  * becomes the only copy of that panel.
+ *
+ * The three `apps-*` roles (Phase 83) are one literal per third-party app
+ * rather than a single shared `apps` role — see `domain/apps.ts`'s
+ * `AppIdSchema`. That is what lets Spotify and Calendar each become their own
+ * independent floating window at the same time (Theme D): `windowForRole`
+ * already enforces at most one window per role, so one role per app makes
+ * "one popout per app, any subset open at once" fall out for free instead of
+ * needing new multi-instance-per-role plumbing.
  */
-export const PANEL_WINDOW_ROLES = ['terminal', 'repos', 'fab', 'companion', 'browser'] as const;
+export const PANEL_WINDOW_ROLES = [
+  'terminal',
+  'repos',
+  'fab',
+  'companion',
+  'browser',
+  'apps-spotify',
+  'apps-google-calendar',
+  'apps-youtube',
+] as const;
 
 /**
  * The *pages* a secondary `BrowserWindow` can host, named by the `ViewId`

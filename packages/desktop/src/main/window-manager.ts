@@ -39,6 +39,11 @@ const DEFAULT_POPOUT_SIZE: Record<Exclude<WindowRole, 'main'>, { width: number; 
   // window always is.
   companion: { width: 460, height: 780 },
   browser: { width: 1280, height: 860 },
+  // Third-party apps (Phase 83) — sized like the browser popout above, since
+  // each renders a full third-party page rather than a narrow tool panel.
+  'apps-spotify': { width: 1180, height: 800 },
+  'apps-google-calendar': { width: 1180, height: 800 },
+  'apps-youtube': { width: 1280, height: 860 },
   graph: { width: 1280, height: 860 },
   actions: { width: 1180, height: 800 },
   changes: { width: 1280, height: 860 },

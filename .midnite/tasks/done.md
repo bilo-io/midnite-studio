@@ -11019,3 +11019,48 @@ load average was **63** on this 16 GB machine — a parallel session running ~6 
 an Antigravity agent at 127% CPU. Re-run once quiet, it was clean. The repo's "false failures on
 a busy machine" hazard is real and the magnitude is worth knowing: broad, multi-spec failure that
 looks exactly like a broken fix.
+
+## 2026-09-11 — Phase 83 Themes A, B — App registry, and the main-process apps service
+
+[PR #346](https://github.com/bilo-io/midnite-studio/pull/346). The foundation for the
+third-party apps rail (Spotify, Google Calendar, YouTube) — the shared contract and the
+main-process service two later themes (rail/flyout UI, independent detach, Settings switches)
+build on. Landed together since B has nothing to reuse without A's types, and both are small.
+
+**Theme A** — `shared/src/domain/apps.ts` (new): `AppIdSchema` (`spotify` | `google-calendar`
+| `youtube`), `AppDefinitionSchema`, and the three static `APP_DEFINITIONS`. `domain/window.ts`
+gained three literal `PANEL_WINDOW_ROLES` — one per app (`apps-spotify`,
+`apps-google-calendar`, `apps-youtube`) rather than a shared `apps` role, so Theme D's
+simultaneous multi-app detach falls out of the existing one-window-per-role rule for free.
+`ui-store.ts` gained `enabledApps: AppId[]` (default `[]` — an allowlist, since enabling an app
+starts its own login flow and should never happen silently on upgrade), a `setAppEnabled`
+action, and a v17→v18 migration; it sits in `persisted-keys.ts`'s `KNOWN_ORPHANS` until Theme E
+builds its settings page (see `outstanding.md`). `ipc/schemas.ts`/`ipc/bridge.ts` gained an
+`apps` namespace (`enable`/`disable`/`setBounds`), reusing `window.detach`/`dock`/`focusRole`
+as-is against the three new roles rather than inventing app-specific verbs.
+
+**Theme B** — `apps-service.ts` (new, modeled on `browser-service.ts`): one `WebContentsView`
+per *enabled* app, each in its own `persist:app-<id>` partition — never shared with
+`persist:browser` or between apps. Reuses `browser-security.ts`'s posture verbatim: deny-all
+permissions, `http(s)`-only navigation, popups routed straight to `shell.openExternal` (no tab
+model to reopen into), no preload. `apps-handlers.ts` wires `mstudio:apps:enable/disable/
+set-bounds`; disabling tears down the view only — the on-disk partition survives, so re-enabling
+restores the same session. `use-apps-bounds.ts` mirrors `use-browser-bounds.ts`'s
+`ResizeObserver` pattern for Theme C's flyout to call later.
+
+Adding the three `PanelWindowRole` literals cascaded into four exhaustive `Record`s that had to
+be filled in to keep the monorepo typechecking: `window-manager.ts`'s `DEFAULT_POPOUT_SIZE`,
+`detached-root.tsx`'s `ROLE_TITLE` (plus a placeholder `null` content branch — Theme D wires
+real rendering), and the two `panelDetached: Record<PanelWindowRole, boolean>` literals in
+`navigate.ts`/`ui-requests.ts` (hardcoded `false` — no detach affordance exists for these roles
+until Theme D).
+
+**Left for the Theme C/D/E follow-up:** `enableApp` shows its view immediately on enable (per
+the phase doc's own B.3 wording), with no active-app switch yet — until Theme C adds one
+(an `activateApp`-style function scoped to `apps-service.ts`'s own map, mirroring
+`activateBrowserTab`), two simultaneously-enabled apps will both be attached and visible at
+once. Theme C's flyout should default every app hidden except the one currently selected.
+`apps-service.test.ts` (14 tests) covers enable/disable lifecycle, partition isolation, a
+disable→enable round trip preserving session data, navigation policy and bounds scaling. The
+icon allow-list test extension and the `MSTUDIO_SHOTS` screenshot spec are deferred to that
+follow-up, since both depend on rail UI this PR does not build.

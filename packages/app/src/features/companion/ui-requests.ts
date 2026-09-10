@@ -75,7 +75,16 @@ export async function resolveUiAction(action: CompanionUiAction): Promise<Compan
 
 // --- ui.state ----------------------------------------------------------------
 
-const PANEL_ROLES: readonly PanelWindowRole[] = ['terminal', 'repos', 'fab', 'companion', 'browser'];
+const PANEL_ROLES: readonly PanelWindowRole[] = [
+  'terminal',
+  'repos',
+  'fab',
+  'companion',
+  'browser',
+  'apps-spotify',
+  'apps-google-calendar',
+  'apps-youtube',
+];
 
 async function buildStateReply(): Promise<Extract<CompanionUiReplyResult, { ok: true }>['value']> {
   const ui = useUiStore.getState();
@@ -85,6 +94,11 @@ async function buildStateReply(): Promise<Extract<CompanionUiReplyResult, { ok: 
     fab: ui.fabDetached,
     companion: ui.companionDetached,
     browser: ui.browserDetached,
+    // See `navigate.ts`'s identical note: no detach affordance for the
+    // apps-rail roles until Phase 83 Theme D.
+    'apps-spotify': false,
+    'apps-google-calendar': false,
+    'apps-youtube': false,
   };
   const detached: WindowRole[] = [
     ...ui.detachedPages,
@@ -127,6 +141,11 @@ function resolveNavigateAction(
       fab: ui.fabDetached,
       companion: ui.companionDetached,
       browser: ui.browserDetached,
+      // See `navigate.ts`'s identical note: no detach affordance for the
+      // apps-rail roles until Phase 83 Theme D.
+      'apps-spotify': false,
+      'apps-google-calendar': false,
+      'apps-youtube': false,
     },
     locked: ui.screensaverLocked,
     repoId: ui.selectedRepoId,

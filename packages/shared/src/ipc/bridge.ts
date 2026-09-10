@@ -565,6 +565,23 @@ export type MidniteStudioBridge = {
     onEvent: (handler: (e: z.infer<typeof S.BrowserEventPayload>) => void) => Unsubscribe;
   };
 
+  /**
+   * The third-party apps rail (Phase 83 Themes A/B) — one `WebContentsView`
+   * per enabled app, each in its own `persist:app-<id>` partition, owned by
+   * main's `apps-service.ts`. Detach/re-dock reuse `window.detach`/
+   * `window.dock`/`window.focusRole` above against the three literal
+   * `apps-*` `PanelWindowRole`s (Theme D) rather than inventing app-specific
+   * verbs — this namespace only ever turns a view on/off and resizes it.
+   */
+  apps: {
+    /** Constructs the view if needed, and shows it. */
+    enable: (req: In<typeof S.AppsEnableRequest>) => Promise<z.infer<typeof S.AppsEnableResponse>>;
+    /** Tears down the view only — the partition's on-disk session data survives. */
+    disable: (req: In<typeof S.AppsDisableRequest>) => void;
+    /** Fires every resize frame, same as `browser.setBounds` — no round trip. */
+    setBounds: (req: In<typeof S.AppsSetBoundsRequest>) => void;
+  };
+
   /** Built-in agents merged with the user's `agents.json`, plus the Claude CLI. */
   agent: {
     list: () => Promise<z.infer<typeof S.AgentListResponse>>;
