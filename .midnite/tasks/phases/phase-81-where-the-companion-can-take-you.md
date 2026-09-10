@@ -607,7 +607,7 @@ Finding 6 describes.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green. `no-restricted-imports` clean: `shared/src/domain/view.ts`
+- [x] `moon run :typecheck :lint :test` green. `no-restricted-imports` clean: `shared/src/domain/view.ts`
       imports nothing; `features/companion/*` imports nothing from `desktop`/`electron`; `main/mcp/`
       imports nothing from `app`.
 - [x] **A** — `safety.test.ts`: `COMMAND_ACCESS` is total (the type does it; the test asserts
