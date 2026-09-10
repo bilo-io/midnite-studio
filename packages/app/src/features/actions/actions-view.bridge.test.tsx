@@ -5,7 +5,6 @@ import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { useActionsStore } from '../../store/actions-store';
 import { useBrowserStore } from '../../store/browser-store';
-import { useUiStore } from '../../store/ui-store';
 import { ActionsView } from './actions-view';
 
 /**
@@ -208,9 +207,9 @@ describe('ActionsView, assembled through the real bridge', () => {
 
     // #130 is newer and green; #129 is why anyone opened this view.
     expect(within(detail()).getByRole('heading', { level: 3 }).textContent).toContain('CI');
-    expect(within(detail()).getAllByRole('img', { name: 'Failed', exact: true })[0]).toBeTruthy();
+    expect(within(detail()).getAllByRole('img', { name: 'Failed' })[0]).toBeTruthy();
     expect(
-      within(jobs()).getByRole('button', { name: 'test (ubuntu-latest)', exact: true }),
+      within(jobs()).getByRole('button', { name: 'test (ubuntu-latest)' }),
     ).toBeTruthy();
     expect(
       within(runList()).getByRole('button', { name: /#129/ }).getAttribute('aria-current'),
@@ -252,7 +251,7 @@ describe('ActionsView, assembled through the real bridge', () => {
     expect(within(log()).queryByText('cloning')).toBeNull();
 
     // Switching jobs switches the log — one fetch served both.
-    fireEvent.click(within(jobs()).getByRole('button', { name: 'typecheck', exact: true }));
+    fireEvent.click(within(jobs()).getByRole('button', { name: 'typecheck' }));
     await waitFor(() => expect(within(log()).getByText('tsc --noEmit')).toBeTruthy());
     expect(within(log()).queryByText('FAIL src/a.test.ts')).toBeNull();
   });
@@ -310,7 +309,7 @@ describe('ActionsView, assembled through the real bridge', () => {
     });
 
     expect(
-      within(detail()).getAllByRole('img', { name: 'Running', exact: true })[0],
+      within(detail()).getAllByRole('img', { name: 'Running' })[0],
     ).toBeTruthy();
     expect(within(detail()).getByText(/has not finished, so GitHub has no log/)).toBeTruthy();
   });
@@ -336,12 +335,12 @@ describe('ActionsView, assembled through the real bridge', () => {
     fireEvent.click(within(log()).getByRole('button', { name: /Run actions\/checkout@v4/ }));
     expect(within(log()).queryByText('cloning')).toBeNull();
 
-    fireEvent.click(within(jobs()).getByRole('button', { name: 'typecheck', exact: true }));
+    fireEvent.click(within(jobs()).getByRole('button', { name: 'typecheck' }));
     await waitFor(() => expect(within(log()).getByText('tsc --noEmit')).toBeTruthy());
 
     // Back again: `collapsed` holds ordinals, so carrying it across jobs folds
     // unrelated groups.
-    fireEvent.click(within(jobs()).getByRole('button', { name: 'test (ubuntu-latest)', exact: true }));
+    fireEvent.click(within(jobs()).getByRole('button', { name: 'test (ubuntu-latest)' }));
     await waitFor(() => expect(within(log()).getByText('cloning')).toBeTruthy());
   });
 
