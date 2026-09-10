@@ -120,7 +120,18 @@ export function TerminalSessionList({
       */
       data-session-list
       tabIndex={0}
-      className={`shrink-0 overflow-y-auto ${border} border-border py-1 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring`}
+      /*
+        pb-1 only, not py-1: `TerminalHeader` sits directly above this and
+        already carries its own `py-1` plus a `border-b` — a matching `pt-1`
+        here stacked on top of that, opening a visible gap between the
+        header's rule and the first row that no other edge of the list gets.
+        `repos-panel.tsx`'s sidebar list is the same shape (a bordered list
+        under its own header row) and settles it the same way, with `pb-2`
+        and no top pad — this keeps that convention rather than inventing a
+        new one. The bottom keeps its own 4px so the last row does not sit
+        flush against the pane's raw edge.
+      */
+      className={`shrink-0 overflow-y-auto ${border} border-border pb-1 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring`}
       style={{ width }}
       onContextMenu={showDockMenu}
       onKeyDown={onKeyDown}

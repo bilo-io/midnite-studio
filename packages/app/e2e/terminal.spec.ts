@@ -1489,3 +1489,62 @@ test.describe('phase 21 screenshots', () => {
     await expect(alert).not.toBeVisible();
   });
 });
+
+/**
+ * Ad hoc: the session list used to open with `py-1`, stacking a 4px top pad
+ * on top of `TerminalHeader`'s own `py-1` + `border-b` and leaving a visible
+ * gap between the header's rule and the first row that no other edge of the
+ * list had. Fixed to `pb-1` only (`terminal-session-list.tsx`).
+ *
+ * The bug no longer exists in source, so "before" is reproduced by measuring
+ * the list's own (correct) bottom padding and applying that same value as an
+ * inline top pad — an exact stand-in for the old `py-1`, without touching
+ * source or a second build.
+ */
+test.describe('adhoc: terminal sidebar gap', () => {
+  test('the session list sits flush under the header, not gapped', async ({ page }) => {
+    await open(page, { terminalSessions: RESTORED });
+    await toggleTerminal(page);
+    await expect(rows(page)).toHaveCount(3);
+
+    const list = page.locator('[data-session-list]');
+    const target = panel(page);
+
+    if (process.env.MSTUDIO_SHOTS) {
+      // "Before": inject the old top padding back, matching the real pb-1's
+      // own computed value so the simulated gap is pixel-accurate.
+      await list.evaluate((el) => {
+        const bottom = getComputedStyle(el).paddingBottom;
+        (el as HTMLElement).style.paddingTop = bottom;
+      });
+      await target.screenshot({ path: '../../docs/screenshots/adhoc-terminal-sidebar-gap-before.png' });
+
+      // "After": the real, fixed render — no inline override.
+      await list.evaluate((el) => {
+        (el as HTMLElement).style.paddingTop = '';
+      });
+      await target.screenshot({ path: '../../docs/screenshots/adhoc-terminal-sidebar-gap-after.png' });
+
+      // Dark theme too — a gap under a hairline border reads differently
+      // depending on how much the border itself stands out from the fill.
+      await page.getByRole('button', { name: 'Toggle theme' }).click();
+      await page.getByRole('menuitemradio', { name: 'Dark', exact: true }).click();
+      await expect(page.locator('html')).toHaveClass(/dark/);
+
+      await list.evaluate((el) => {
+        const bottom = getComputedStyle(el).paddingBottom;
+        (el as HTMLElement).style.paddingTop = bottom;
+      });
+      await target.screenshot({
+        path: '../../docs/screenshots/adhoc-terminal-sidebar-gap-before-dark.png',
+      });
+
+      await list.evaluate((el) => {
+        (el as HTMLElement).style.paddingTop = '';
+      });
+      await target.screenshot({
+        path: '../../docs/screenshots/adhoc-terminal-sidebar-gap-after-dark.png',
+      });
+    }
+  });
+});
