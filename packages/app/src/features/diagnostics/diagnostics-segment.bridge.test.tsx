@@ -176,4 +176,227 @@ describe('DiagnosticsSegment, assembled through the real bridge', () => {
     expect(panel.textContent).toContain('Unsafe assignment of an `any` value.');
     expect(panel.textContent).toContain('@typescript-eslint/no-unsafe-assignment');
   });
+
+  // --- migrated from e2e/diagnostics.spec.ts (Phase 82 Theme C, wave 1) -----
+
+  it('the trust prompt shows the literal command and the resolved directory', async () => {
+    // This is the app's first execution of code from a folder the user
+    // merely opened. The only honest way to ask is to show exactly what
+    // runs, where, and why the command was even proposed (the detector's
+    // own evidence — `DEFAULT_CANDIDATES` in the mock bridge).
+    renderView(<DiagnosticsSegment />, {
+      fixtures: diag({ trust: 'untrusted' }),
+      uiState: UI_STATE,
+    });
+
+    await screen.findByTestId('diagnostics-enable');
+    // `askToEnable` reads `useDiagCandidates`'s data at click time (to cite
+    // its evidence in the dialog body) rather than reactively, so the click
+    // has to be retried until that query has actually settled — unlike the
+    // button itself, which renders whether or not the candidates have
+    // arrived. Re-clicking is harmless: each click just replaces `confirm`
+    // with an equivalent object once the data is the same.
+    await waitFor(() => {
+      fireEvent.click(screen.getByTestId('diagnostics-enable'));
+      expect(screen.getByRole('dialog').textContent).toContain('eslint.config.mjs');
+    });
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('node_modules/.bin/eslint . --format json');
+    expect(dialog.textContent).toContain('/tmp/midnite-studio');
+    expect(dialog.textContent).toContain('runs a program from the repository itself');
+  });
+
+  it('cancelling the prompt leaves diagnostics off', async () => {
+    renderView(<DiagnosticsSegment />, {
+      fixtures: diag({ trust: 'untrusted' }),
+      uiState: UI_STATE,
+    });
+
+    fireEvent.click(await screen.findByTestId('diagnostics-enable'));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    // The shared dismissal stack (`use-dismiss.ts`) listens on `window`.
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByTestId('diagnostics-enable')).toBeTruthy();
+    // Nothing was executed on a prompt the user declined.
+    expect((window as unknown as { __mstudioDiagRuns: () => number }).__mstudioDiagRuns()).toBe(0);
+  });
+
+  it('"command changed" is a different state from "never enabled"', async () => {
+    // The command you approved is not the command that would run now.
+    // Rendering that the same as "you never enabled this" would quietly
+    // re-use consent the user gave for something else.
+    renderView(<DiagnosticsSegment />, {
+      fixtures: diag({ trust: 'command-changed' }),
+      uiState: UI_STATE,
+    });
+
+    const control = await screen.findByTestId('diagnostics-enable');
+    expect(control.textContent).toContain('Diagnostics command changed');
+
+    fireEvent.click(control);
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toContain('not the command you approved');
+    expect(screen.getByRole('button', { name: 'Run the new command' })).toBeTruthy();
+  });
+
+  it('a capped list says what it withheld', async () => {
+    // Phase 17's EXPAND_ALL_LIMIT rule: a cap is fine, a cap you cannot see
+    // is a list that lies about its own length.
+    const rows = [
+      {
+        file: 'packages/app/src/features/graph/graph-row.tsx',
+        line: 88,
+        column: 12,
+        severity: 'error' as const,
+        ruleId: '@typescript-eslint/no-unsafe-assignment',
+        message: 'Unsafe assignment of an `any` value.',
+      },
+      {
+        file: 'packages/desktop/src/main/window.ts',
+        line: 41,
+        column: 3,
+        severity: 'warning' as const,
+        ruleId: 'no-console',
+        message: 'Unexpected console statement.',
+      },
+    ];
+    renderView(<DiagnosticsSegment />, {
+      fixtures: diag({
+        trust: 'trusted',
+        run: {
+          ok: true,
+          errorCount: 900,
+          warningCount: 100,
+          rows,
+          withheld: 998,
+          ranAt: 1_700_000_000_000,
+          durationMs: 12,
+        },
+      }),
+      uiState: UI_STATE,
+    });
+
+    fireEvent.click(await screen.findByTestId('diagnostics-segment'));
+
+    const panel = await screen.findByTestId('diagnostics-segment-panel');
+    expect(panel.textContent).toContain('Showing 2 of 1,000');
+    expect(panel.textContent).toContain('998 not listed');
+    // The COUNTS are still complete, even though the rows are not.
+    expect(screen.getByTestId('diag-errors').textContent).toBe('900');
+  });
+
+  it('a failure explains itself instead of showing a zero', async () => {
+    renderView(<DiagnosticsSegment />, {
+      fixtures: diag({ trust: 'trusted', run: { ok: false, reason: 'timed-out' } }),
+      uiState: UI_STATE,
+    });
+
+    fireEvent.click(await screen.findByTestId('diagnostics-segment'));
+    const panel = await screen.findByTestId('diagnostics-segment-panel');
+    expect(panel.textContent).toContain('did not finish in time');
+  });
+
+  it('the flyout says diagnostics do not re-run on file changes', async () => {
+    renderView(<DiagnosticsSegment />, {
+      fixtures: diag({
+        trust: 'trusted',
+        run: {
+          ok: true,
+          errorCount: 1,
+          warningCount: 0,
+          rows: [],
+          withheld: 0,
+          ranAt: Date.now(),
+          durationMs: 12,
+        },
+      }),
+      uiState: UI_STATE,
+    });
+
+    fireEvent.click(await screen.findByTestId('diagnostics-segment'));
+    const panel = await screen.findByTestId('diagnostics-segment-panel');
+    expect(panel.textContent).toContain('Does not re-run on file changes');
+  });
+
+  it('the linter runs once for a trusted repo, not once per render', async () => {
+    renderView(<DiagnosticsSegment />, {
+      fixtures: diag({
+        trust: 'trusted',
+        run: {
+          ok: true,
+          errorCount: 1,
+          warningCount: 0,
+          rows: [],
+          withheld: 0,
+          ranAt: 1_700_000_000_000,
+          durationMs: 12,
+        },
+      }),
+      uiState: UI_STATE,
+    });
+    await screen.findByTestId('diag-errors');
+
+    // Open and close the flyout a few times: re-rendering is not re-measuring.
+    for (let i = 0; i < 3; i += 1) {
+      fireEvent.click(screen.getByTestId('diagnostics-segment'));
+      fireEvent.keyDown(window, { key: 'Escape' });
+    }
+    expect((window as unknown as { __mstudioDiagRuns: () => number }).__mstudioDiagRuns()).toBe(1);
+  });
+
+  it('Re-run measures again, on demand', async () => {
+    renderView(<DiagnosticsSegment />, {
+      fixtures: diag({
+        trust: 'trusted',
+        run: {
+          ok: true,
+          errorCount: 1,
+          warningCount: 0,
+          rows: [],
+          withheld: 0,
+          ranAt: 1_700_000_000_000,
+          durationMs: 12,
+        },
+      }),
+      uiState: UI_STATE,
+    });
+
+    fireEvent.click(await screen.findByTestId('diagnostics-segment'));
+    fireEvent.click(screen.getByRole('button', { name: 'Re-run' }));
+
+    await waitFor(() =>
+      expect(
+        (window as unknown as { __mstudioDiagRuns: () => number }).__mstudioDiagRuns(),
+      ).toBe(2),
+    );
+  });
+
+  it('Disable revokes trust and takes the counts away with it', async () => {
+    // Leaving the last numbers on screen would keep showing the output of a
+    // command the user just withdrew permission for.
+    renderView(<DiagnosticsSegment />, {
+      fixtures: diag({
+        trust: 'trusted',
+        run: {
+          ok: true,
+          errorCount: 4,
+          warningCount: 0,
+          rows: [],
+          withheld: 0,
+          ranAt: 1_700_000_000_000,
+          durationMs: 12,
+        },
+      }),
+      uiState: UI_STATE,
+    });
+
+    fireEvent.click(await screen.findByTestId('diagnostics-segment'));
+    fireEvent.click(screen.getByRole('button', { name: 'Disable' }));
+
+    await waitFor(() => expect(screen.queryByTestId('diag-errors')).toBeNull());
+    expect(await screen.findByTestId('diagnostics-enable')).toBeTruthy();
+  });
 });
