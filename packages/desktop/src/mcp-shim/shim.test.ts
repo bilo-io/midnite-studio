@@ -100,7 +100,12 @@ function runShim(
     // enough to stall the rest of its output indefinitely.
     child.stderr.resume();
 
-    const timer = setTimeout(finish, opts.timeoutMs ?? 8000);
+    // A ceiling for a shim that never answers at all, deliberately far above
+    // any plausible spawn + esbuild-bundle-load + handshake cost. It is not a
+    // latency budget: at 8s a loaded machine running the full suite tripped it,
+    // and the failure then read as "expected undefined to be truthy" — a shim
+    // that never replied — rather than as a busy machine.
+    const timer = setTimeout(finish, opts.timeoutMs ?? 30_000);
 
     child.on('error', reject);
 
@@ -132,10 +137,9 @@ describe('mcp stdio shim', () => {
     }
   }, 10_000);
 
-  it('answers tools/call with the not-running error when no socket exists, within 2s', async () => {
+  it('answers tools/call with the not-running error when no socket exists', async () => {
     const home = await mkdtemp(join(tmpdir(), 'mstudio-mcp-shim-home-'));
     try {
-      const started = Date.now();
       const { parsed } = await runShim(
         [
           { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '0' } } },
@@ -145,8 +149,17 @@ describe('mcp stdio shim', () => {
         { homeDir: home },
       );
 
+      // No wall-clock assertion here. This spec drives the shim as a real child
+      // process, so any elapsed-time bound it measures is dominated by spawn and
+      // bundle load, not by the behaviour under test — and with `HOME` a fresh
+      // temp dir there is no `<userData>/mcp/` at all, so `callMcpTool` takes its
+      // synchronous "no socket path resolves" return and never arms
+      // `CALL_TIMEOUT_MS`. The old `< 3000ms` bound therefore asserted startup
+      // latency, which a loaded machine blows while the behaviour is perfectly
+      // correct. That the shim answers at all is already enforced by `runShim`'s
+      // hang guard, and the timing of each not-running path is covered where it
+      // can be measured honestly, in `client.test.ts`.
       const callResponse = parsed.find((m) => m.id === 2);
-      expect(Date.now() - started).toBeLessThan(3000);
       expect(callResponse).toBeTruthy();
       const result = callResponse?.result as { isError?: boolean; content?: Array<{ text?: string }> } | undefined;
       expect(result?.isError).toBe(true);
