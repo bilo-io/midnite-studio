@@ -145,12 +145,23 @@ export const BrowserEventSchema = z.discriminatedUnion('kind', [
     reason: z.enum(['crashed', 'unresponsive']),
   }),
   /**
-   * `target="_blank"` / `window.open` from an embedded page. Theme B refuses
+   * `target="_blank"` / `window.open` from an embedded page — also how a
+   * plain in-page link click arrives here once Mod+click or a middle click
+   * gives it a `background-tab`/`foreground-tab` disposition. Theme B refuses
    * to let the engine spawn its own `BrowserWindow`, so the request comes
    * back to the renderer as "open this as a new tab" — `tabId` is the
-   * OPENER, so the new tab can inherit its group.
+   * OPENER, so the new tab can inherit its group. `foreground` carries
+   * Electron's disposition through: `false` only for `background-tab`
+   * (middle-click, Mod+click with no Shift) — every other disposition
+   * (`foreground-tab`, `new-window`, `default`) activates the new tab like an
+   * ordinary `openTab()` would.
    */
-  z.object({ kind: z.literal('open-tab'), tabId: BrowserTabIdSchema, url: z.string() }),
+  z.object({
+    kind: z.literal('open-tab'),
+    tabId: BrowserTabIdSchema,
+    url: z.string(),
+    foreground: z.boolean(),
+  }),
   /**
    * A download was cancelled. Downloads are out of scope this phase, and
    * cancelling loudly (a notice naming the file) beats dropping silently.

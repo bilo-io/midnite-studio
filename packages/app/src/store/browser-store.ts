@@ -258,11 +258,15 @@ type BrowserState = {
   openTab: (url?: string, originRepoId?: string) => string;
   /**
    * A `window.open`/`target="_blank"` from an existing tab (Theme B hands
-   * these back rather than letting the engine spawn a window). The new tab
-   * lands beside its opener and inherits its group, the way every browser
-   * treats a link opened from a grouped tab.
+   * these back rather than letting the engine spawn a window) — also how a
+   * plain in-page link click with Mod+click or a middle click arrives here.
+   * The new tab lands beside its opener and inherits its group, the way
+   * every browser treats a link opened from a grouped tab. `foreground`
+   * (default `true`) mirrors Electron's disposition: a background tab
+   * (middle-click, Mod+click) must not steal focus from whatever tab the
+   * user is already on, so it is inserted without becoming `activeTabId`.
    */
-  openTabFrom: (openerId: string, url: string) => string;
+  openTabFrom: (openerId: string, url: string, foreground?: boolean) => string;
   /**
    * Opens a blank tab only if the strip is empty (Theme C's "toggle with
    * zero tabs creates one"). Checked INSIDE `set` rather than by the caller:
@@ -349,7 +353,7 @@ export const useBrowserStore = create<BrowserState>()(
           return { tabs: [tab], activeTabId: tab.id };
         }),
 
-      openTabFrom: (openerId, url) => {
+      openTabFrom: (openerId, url, foreground = true) => {
         const state = get();
         const index = state.tabs.findIndex((tab) => tab.id === openerId);
         const opener = state.tabs[index];
@@ -361,7 +365,9 @@ export const useBrowserStore = create<BrowserState>()(
         set((s) => {
           const tabs = [...s.tabs];
           tabs.splice(index === -1 ? tabs.length : index + 1, 0, tab);
-          return { tabs, activeTabId: tab.id };
+          // A background tab (Mod+click / middle-click) is inserted but must
+          // not steal focus — `activeTabId` only changes in the foreground case.
+          return foreground ? { tabs, activeTabId: tab.id } : { tabs };
         });
         return tab.id;
       },

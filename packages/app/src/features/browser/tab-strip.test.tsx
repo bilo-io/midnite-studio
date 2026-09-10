@@ -109,4 +109,36 @@ describe('BrowserTabStrip', () => {
     expect(screen.queryByLabelText('Detach Browser into its own window')).toBeNull();
     expect(screen.getByText('First tab')).toBeDefined();
   });
+
+  it('the tablist scrolls horizontally with its scrollbar chrome hidden', () => {
+    renderStrip();
+
+    const tablist = screen.getByRole('tablist', { name: 'Browser tabs' });
+    // Real geometry (does the ellipsis actually engage, is the scrollbar chrome
+    // actually invisible) needs a real layout engine, which jsdom has none of —
+    // this only asserts the classes that produce that behaviour are present.
+    expect(tablist.className).toContain('hide-scrollbar');
+    expect(tablist.className).toContain('overflow-x-auto');
+  });
+
+  it('a tab shrinks (flex-1, a min-width floor, a max-width ceiling) rather than growing unbounded', () => {
+    renderStrip();
+
+    const tab = screen.getByRole('tab', { name: 'First tab' });
+    // The floor and ceiling this asserts are documented in tab-strip.tsx's own
+    // comment above this className — the floor is sized to fit the active
+    // tab's favicon + close button, the ceiling keeps a lone tab from
+    // stretching across the whole bar. `min-w-0` on the label span is what
+    // lets `truncate`'s ellipsis engage once flex-1 actually shrinks the tab —
+    // jsdom computes no widths, so this cannot assert the ellipsis fires, only
+    // that the classes which make it possible are applied.
+    const tabRow = tab.closest('[class*="min-w-\\[3\\.5rem\\]"]');
+    expect(tabRow).not.toBeNull();
+    expect(tabRow?.className).toContain('flex-1');
+    expect(tabRow?.className).toContain('max-w-[12rem]');
+    expect(tab.className).toContain('min-w-0');
+    const label = tab.querySelector('span');
+    expect(label?.className).toContain('min-w-0');
+    expect(label?.className).toContain('truncate');
+  });
 });

@@ -332,11 +332,49 @@ describe('navigation policy (Theme B)', () => {
       details: unknown,
     ) => { action: string };
 
-    expect(handler({ url: 'https://opened.example' })).toEqual({ action: 'deny' });
-    expect(win.webContents.send).toHaveBeenCalledWith(
-      expect.any(String),
-      { kind: 'open-tab', tabId: 'tab-1', url: 'https://opened.example' },
-    );
+    expect(handler({ url: 'https://opened.example', disposition: 'foreground-tab' })).toEqual({
+      action: 'deny',
+    });
+    expect(win.webContents.send).toHaveBeenCalledWith(expect.any(String), {
+      kind: 'open-tab',
+      tabId: 'tab-1',
+      url: 'https://opened.example',
+      foreground: true,
+    });
+  });
+
+  it('a background-tab disposition (middle-click / Mod+click) opens without activating', () => {
+    const { win, view } = createAndGetView();
+    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+      details: unknown,
+    ) => { action: string };
+
+    expect(handler({ url: 'https://opened.example', disposition: 'background-tab' })).toEqual({
+      action: 'deny',
+    });
+    expect(win.webContents.send).toHaveBeenCalledWith(expect.any(String), {
+      kind: 'open-tab',
+      tabId: 'tab-1',
+      url: 'https://opened.example',
+      foreground: false,
+    });
+  });
+
+  it('a new-window disposition still opens as a tab and activates, same as foreground-tab', () => {
+    const { win, view } = createAndGetView();
+    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+      details: unknown,
+    ) => { action: string };
+
+    expect(handler({ url: 'https://opened.example', disposition: 'new-window' })).toEqual({
+      action: 'deny',
+    });
+    expect(win.webContents.send).toHaveBeenCalledWith(expect.any(String), {
+      kind: 'open-tab',
+      tabId: 'tab-1',
+      url: 'https://opened.example',
+      foreground: true,
+    });
   });
 
   it('denies a window-open to a blocked scheme WITHOUT offering to reopen it as a tab', () => {
