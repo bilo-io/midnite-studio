@@ -394,6 +394,30 @@ html[data-motion='reduced'] .battery-flash-fast {
   animation: shake 0.4s ease-in-out;
 }
 
+/*
+ * Hides a scrollbar's own chrome without touching its scrollability — the
+ * browser tab strip (`features/browser/tab-strip.tsx`) wants `overflow-x:
+ * auto` so a strip too wide for the window still scrolls (wheel, trackpad,
+ * keyboard), but not a scrollbar track running the full width of the tab
+ * bar. `overflow: hidden` is NOT the fix: that disables scrolling outright,
+ * which is exactly what would break once tabs hit their `min-width` floor
+ * (see `tab-strip.tsx`'s own comment on that floor) and the strip has
+ * nowhere left to shrink.
+ *
+ * Both rules matter: `::-webkit-scrollbar` is the one that actually does
+ * anything in Electron/Chromium (its scrollbar is never the OS's own),
+ * `scrollbar-width` is the standards-track property for the day something
+ * here renders under a non-Chromium engine.
+ */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ---------------------------------------------------------------------------
  * react-grid-layout, retinted.
  *

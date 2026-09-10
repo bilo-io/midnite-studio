@@ -170,7 +170,11 @@ export function BrowserTabStrip() {
         modifiers={[restrictToHorizontalAxis, restrictToParentElement]}
         onDragEnd={onDragEnd}
       >
-        <div role="tablist" aria-label="Browser tabs" className="flex items-stretch gap-0.5">
+        <div
+          role="tablist"
+          aria-label="Browser tabs"
+          className="hide-scrollbar flex items-stretch gap-0.5 overflow-x-auto"
+        >
           {tabList}
         </div>
       </DndContext>,
@@ -188,7 +192,7 @@ export function BrowserTabStrip() {
       <div
         role="tablist"
         aria-label="Browser tabs"
-        className="flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-card/40"
+        className="hide-scrollbar flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-card/40"
       >
         {!isPopout && (
           <IconButton
@@ -425,7 +429,27 @@ function BrowserTabButton({ tab, active }: { tab: BrowserTab; active: boolean })
         event.stopPropagation();
         setMenu({ x: event.clientX, y: event.clientY });
       }}
-      className={`group flex shrink-0 items-center gap-1.5 border-r border-border px-2.5 py-1.5 text-xs transition-colors ${
+      /*
+       * `flex-1` (grow AND shrink, `flex-basis: 0`) is what lets every open
+       * tab share the strip's width evenly and give it back once there is
+       * not enough to go around, instead of the strip growing wider than the
+       * window (the old `shrink-0` here). `min-w-0` overrides flexbox's
+       * `min-width: auto` default, which otherwise refuses to shrink a flex
+       * item below its content's natural width — without it the label
+       * button's own `truncate`/ellipsis below would never actually engage.
+       *
+       * `min-w-[3.5rem]` (56px) is the floor: shrinking stops there and the
+       * strip scrolls instead (`.hide-scrollbar` on the tablist above). It is
+       * sized for the ACTIVE tab, not the common case — a background tab at
+       * rest shows only its favicon (the close button's `opacity-0
+       * group-hover:opacity-100` below already hides it until hovered), but
+       * the active tab always shows its close button regardless of hover, so
+       * the floor has to fit favicon + gap + close + padding together, or an
+       * active tab pinned to a crowded strip would clip its own close
+       * button. `max-w-[12rem]` keeps one lone open tab from stretching
+       * across the whole bar.
+       */
+      className={`group flex flex-1 min-w-[3.5rem] max-w-[12rem] items-center gap-1.5 border-r border-border px-2.5 py-1.5 text-xs transition-colors ${
         active
           ? 'bg-background text-foreground shadow-[inset_0_-2px_0_0_hsl(var(--primary))]'
           : 'text-muted-foreground hover:bg-accent/30 hover:text-foreground'
@@ -443,10 +467,10 @@ function BrowserTabButton({ tab, active }: { tab: BrowserTab; active: boolean })
               close();
             }
           }}
-          className="flex min-w-0 max-w-[14rem] items-center gap-1.5"
+          className="flex min-w-0 flex-1 items-center gap-1.5"
         >
           <TabFavicon tab={tab} />
-          <span className="truncate">{label}</span>
+          <span className="min-w-0 flex-1 truncate">{label}</span>
         </button>
       </Tooltip>
 
