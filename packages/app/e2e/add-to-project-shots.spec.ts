@@ -15,6 +15,9 @@ import {
  * Reviews page. Follows `review-writes-shots.spec.ts`'s pattern: a spec, not
  * a one-off script, so the image can be regenerated when the surface
  * changes.
+ *
+ * Gated behind `MSTUDIO_SHOTS` like every other shots suite (Phase 82 Theme A)
+ * — committed images, not assertions a normal `app:e2e` run must keep passing.
  */
 
 const OUT = '../../docs/screenshots/phase-50-add-to-project';
@@ -99,6 +102,9 @@ const data: MockFixtures = {
     items: {},
   },
 };
+
+// Ungated, this wrote a PNG into `docs/screenshots/` on every `app:e2e` run.
+test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
 
 test('add to project menu', async ({ page }) => {
   await seedForgeWritesConsent(page);
