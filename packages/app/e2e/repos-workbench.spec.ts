@@ -13,6 +13,19 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * them can show is that a count rendered against the RIGHT checkout, or that
  * filtering the tree left the dirty worktree visible and took the clean one
  * away.
+ *
+ * Phase 82 Theme C, wave 4: 10 of this file's 18 tests moved to
+ * `src/features/repos/repos-panel.bridge.test.tsx`, mounting the real
+ * `ReposPanel`. **The 8 that stay** are genuine Playwright territory: one
+ * real-CSS assertion (the Git mark's computed brand-orange colour), three
+ * geometry (`boundingBox()` comparisons for the tab bar's stats-before-close
+ * ordering, the section headings' shared row height, and a folded repo's
+ * trailing-edge alignment), one more geometry-and-cross-component (the commit
+ * box's equal inset, which also needs the Changes workbench mounted), and
+ * three genuine cross-component flows — "View all changes" opens a tab
+ * hosted by `Workbench` (a sibling component `ReposPanel` does not render),
+ * so its accordion counts, totals and close behaviour test `Workbench` +
+ * `AllChangesView`, not this file's subject.
  */
 
 const MAIN = '/tmp/midnite-studio';
@@ -134,10 +147,6 @@ async function open(page: Page, data: MockFixtures = base): Promise<void> {
 /** See `clickRailLink` in `mock-bridge.ts` for why a plain `.click()` races the rail's own hover-expand. */
 const goToChanges = (page: Page) => clickRailLink(page, 'Changes');
 
-/** Browser tabs opened in-app (Phase 71 Theme B's default routing for the "Open on GitHub" button). */
-const browserTabs = (page: Page) =>
-  page.getByRole('tablist', { name: 'Browser tabs' }).getByRole('tab');
-
 /**
  * The panel's own heading matches the status-bar button that summons it, word
  * for word and glyph for glyph — bare "Repos" beside an Octicons repo mark
@@ -152,103 +161,6 @@ test('the panel heading is "Git Repos", in the Git mark and its brand orange', a
   const heading = page.getByRole('heading', { name: 'Git Repos' });
   await expect(heading).toBeVisible();
   await expect(heading.locator('svg').first()).toHaveCSS('color', 'rgb(240, 80, 50)');
-});
-
-test('a change count lands on the checkout that owns it, not the repo', async ({ page }) => {
-  await open(page);
-
-  // Exactly one pill: the feature worktree's. The clean main checkout shows
-  // nothing rather than a zero, and the count must not be broadcast to every
-  // row from the primary checkout's status.
-  const pills = page.getByTestId('change-count');
-  await expect(pills).toHaveCount(2); // the worktree row and its branch row
-  await expect(pills.first()).toHaveText('3');
-
-  // The branch row for a checkout that IS clean stays bare. Matched by the
-  // pill's own accessible name rather than a `div:has-text` ancestor search —
-  // every TreeSection row nests inside a shared wrapper, so a text-content
-  // filter for "main" matches that wrapper (which also contains feature/x's
-  // pill) rather than main's own row.
-  await expect(page.getByLabel(/^main: \d+ changed/)).toHaveCount(0);
-});
-
-test('the Changes view hides the checkouts with nothing in them', async ({ page }) => {
-  await open(page);
-
-  await expect(page.getByRole('heading', { name: 'Local' })).toBeVisible();
-
-  await goToChanges(page);
-
-  // Ref sections go entirely: they answer a question the Changes view is not
-  // asking, and leaving them would mean the filter dropped repositories while
-  // keeping two hundred tags.
-  await expect(page.getByRole('heading', { name: 'Local' })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-
-  // The dirty checkout survives; the clean one does not.
-  await expect(page.getByRole('button', { name: /Actions for worktree feature\/x/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Actions for worktree main' })).toHaveCount(0);
-});
-
-test('the filter is visible while on, and reversible', async ({ page }) => {
-  await open(page);
-  await goToChanges(page);
-
-  const toggle = page.getByRole('button', { name: 'Showing only changed checkouts' });
-  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-
-  await toggle.click();
-
-  // Putting it back restores the whole tree — a mode that eats rows with no way
-  // out is indistinguishable from data loss.
-  await expect(page.getByRole('heading', { name: 'Local' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Actions for worktree main' })).toBeVisible();
-});
-
-test('a worktree offers its actions on right-click and on hover', async ({ page }) => {
-  await open(page);
-
-  const row = page.getByRole('button', { name: 'Actions for worktree feature/x' });
-  await row.click();
-  await expect(page.getByRole('menuitem', { name: 'View all changes' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: /Remove worktree feature\/x/ })).toBeVisible();
-
-  await page.keyboard.press('Escape');
-
-  // The same menu from the same row, reached the other way. A context menu on
-  // its own is an affordance nobody finds; a hover button on its own is not
-  // discoverable by right-clickers.
-  await page.getByText('feature/x').first().click({ button: 'right' });
-  await expect(page.getByRole('menuitem', { name: 'View all changes' })).toBeVisible();
-});
-
-test('removing a worktree asks first, in danger colours, naming what is at stake', async ({
-  page,
-}) => {
-  await open(page);
-
-  await page.getByRole('button', { name: 'Actions for worktree feature/x' }).click();
-  await page.getByRole('menuitem', { name: /Remove worktree feature\/x/ }).click();
-
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  // The number is the whole point of the dialog: "are you sure" asks the user
-  // to re-derive what the app already knows.
-  await expect(dialog).toContainText('3 uncommitted changes in this checkout would be lost.');
-  await expect(dialog.getByRole('button', { name: 'Remove worktree' })).toBeVisible();
-
-  // Cancel is what a stray Return hits.
-  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
-});
-
-test('the main worktree cannot be removed', async ({ page }) => {
-  await open(page);
-
-  await page.getByRole('button', { name: 'Actions for worktree main' }).click();
-  // Disabled with a reason, not absent: the action exists for other worktrees,
-  // so silence here would read as a missing feature rather than a rule.
-  const item = page.getByRole('menuitem', { name: /Remove worktree/ });
-  await expect(item).toBeDisabled();
 });
 
 test('View all changes opens a tab of per-file accordions', async ({ page }) => {
@@ -337,133 +249,6 @@ test('the working-tree tab cannot be closed', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Close feature/x' }).click();
   await expect(page.getByRole('tab', { name: 'feature/x' })).toHaveCount(0);
-});
-
-test('Actions and Reviews list what gh reports, and open on GitHub', async ({ page }) => {
-  await open(page, {
-    ...base,
-    forge: {
-      cli: { reason: 'ready' },
-      runs: [
-        {
-          id: '1',
-          name: 'CI',
-          status: 'completed',
-          conclusion: 'failure',
-          headBranch: 'feature/x',
-          headSha: 'a'.repeat(40),
-          createdAt: '2026-08-26T10:00:00Z',
-          url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1',
-        },
-      ],
-      pulls: [
-        {
-          number: 42,
-          title: 'Line the table up',
-          state: 'open',
-          isDraft: false,
-          reviewDecision: 'APPROVED',
-          checks: 'failing',
-          headBranch: 'feature/x',
-          author: 'bilo',
-          url: 'https://github.com/bilo-io/midnite-studio/pull/42',
-        },
-      ],
-    },
-  });
-
-  // Both sections start CLOSED and issue no query until opened: each one is a
-  // `gh` subprocess and an API request against the user's rate limit.
-  await page.getByRole('button', { name: 'Actions', exact: true }).click();
-  /*
-    `getByRole('img', …)`, not `getByText`: a settled status renders as a bare
-    coloured glyph now, so its word survives only as the mark's accessible
-    name. Asserting on the name rather than on visible text is also the stronger
-    check — it fails if the pill loses the label a screen reader needs.
-
-    `exact`, because the branch-health dots in the same tree are also `img`s and
-    their names spell out "1 of 1 check failed" — a substring match picks up
-    three of them alongside the one pill this is about.
-  */
-  await expect(page.getByRole('img', { name: 'Failed', exact: true })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Reviews', exact: true }).click();
-  // The section is a heading over three lazy scopes now — the rows live under
-  // one of them, and nothing is fetched until that one is opened.
-  await page.getByRole('button', { name: 'All Pull Requests', exact: true }).click();
-  await expect(page.getByText('Line the table up')).toBeVisible();
-  // Draft/approval and the checks rollup are separate readings, both shown.
-  await expect(page.getByRole('img', { name: 'Approved', exact: true })).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Checks failing', exact: true })).toBeVisible();
-
-  // The row's body opens the Reviews VIEW (Phase 20 Theme A) — not a
-  // workbench tab, which is Phase 17's behaviour this replaces — and lands
-  // straight on the PR's own detail (Theme C's `PrDetail`), which the
-  // sidebar's selection carried across.
-  await page.getByText('Line the table up').click();
-  await expect(page.getByRole('region', { name: 'Pull request #42' })).toBeVisible();
-
-  // "Open on GitHub" lives on the detail header now that Theme C gives PRs
-  // an in-app detail — the row itself selects rather than opening out.
-  // Phase 71 Theme B: the button routes through `openInMidnite`, which opens a
-  // browser tab under the default in-app preference rather than reaching
-  // `shell.openExternal` directly.
-  await page.getByRole('button', { name: 'Open #42 on GitHub' }).click();
-  await expect(browserTabs(page)).toHaveCount(1);
-  await expect(browserTabs(page)).toHaveAccessibleName(/github\.com/);
-});
-
-test('a signed-out gh says what to run rather than failing silently', async ({ page }) => {
-  await open(page, {
-    ...base,
-    forge: {
-      cli: { reason: 'not-authenticated', hint: 'Run `gh auth login` in a terminal.' },
-    },
-  });
-
-  await page.getByRole('button', { name: 'Actions', exact: true }).click();
-  // The one empty state the user can actually fix — so it must not look like
-  // "this repository has no CI". Scoped to the Actions section's own body
-  // (its `Collapse` carries `aria-label="Actions"`, unique in the tree):
-  // every forge-gated section reports the same `gh` unavailability
-  // independently, and Reviews' "All Pull Requests" group renders the
-  // identical hint at the same time (it is open by default), which an
-  // unscoped `getByText` matches too and turns into a strict-mode violation.
-  await expect(
-    page.locator('[aria-label="Actions"]').getByText('Run `gh auth login` in a terminal.'),
-  ).toBeVisible();
-});
-
-test('a repo with no GitHub remote grows no forge sections at all', async ({ page }) => {
-  await open(page, { ...base, remotes: [] });
-
-  // Absent, not empty: `gh` speaks GitHub only, so there is nothing here that
-  // could ever load. A permanently empty section is not a section. Forge
-  // itself — and Tests nested under it, Phase 28 Theme F — disappears too:
-  // the whole subtree is gated on the same GitHub remote at once, rather than
-  // each child deciding on its own.
-  await expect(page.getByRole('heading', { name: 'Forge' })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Actions' })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Reviews' })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Issues' })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Tests' })).toHaveCount(0);
-});
-
-test('a GitHub remote nests Actions/Reviews/Issues/Tests under one Forge heading, counted', async ({
-  page,
-}) => {
-  await open(page);
-
-  const forge = page.getByRole('heading', { name: 'Forge', exact: true });
-  await expect(forge).toBeVisible();
-  // All four children are visible in the unfiltered tree — a count of
-  // *sections*, not of items each child has not fetched yet (they are all
-  // closed by default).
-  await expect(forge.locator('xpath=ancestor::header[1]')).toHaveText('Forge4');
-
-  for (const title of ['Actions', 'Reviews', 'Issues', 'Tests']) {
-    await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
-  }
 });
 
 test('the section headings share one height, whether or not they carry an action', async ({
