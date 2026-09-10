@@ -1279,6 +1279,19 @@ export type MidniteStudioBridge = {
     ttsReload: (
       req: In<typeof S.CompanionTtsReloadRequest>,
     ) => Promise<z.infer<typeof S.CompanionTtsStatusResponse>>;
+
+    /**
+     * Phase 81 Theme F's one new pair — the tree's first main→renderer
+     * request/reply. The main window subscribes with `onUiRequest`, runs the
+     * action through the same `resolveNavigation`/`runCommand` path Themes
+     * B/C use (`features/companion/ui-requests.ts`), and answers with
+     * `uiReply`. A popout never receives a request — `ui-bridge.ts` always
+     * targets `getMainWindow()` — so `onUiRequest` is only ever subscribed
+     * from the main window's own `app.tsx`.
+     */
+    onUiRequest: (handler: (req: z.infer<typeof S.CompanionUiRequestSchema>) => void) => Unsubscribe;
+    /** One-way: main is already holding a pending promise keyed by `id`, so nothing needs to come back from `send`. */
+    uiReply: (reply: z.infer<typeof S.CompanionUiReplySchema>) => void;
   };
 };
 

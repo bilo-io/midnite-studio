@@ -21,42 +21,77 @@ afterEach(async () => {
 
 describe('createMcpStore', () => {
   it('loads disabled on a fresh directory', async () => {
-    expect(await createMcpStore(await tempDir()).load()).toEqual({ version: 1, enabled: false });
+    expect(await createMcpStore(await tempDir()).load()).toEqual({
+      version: 2,
+      enabled: false,
+      allowUi: false,
+    });
   });
 
-  it('round-trips the enabled flag', async () => {
+  it('round-trips the enabled flag and allowUi together', async () => {
     const store = createMcpStore(await tempDir());
-    await store.save({ version: 1, enabled: true });
-    expect(await store.load()).toEqual({ version: 1, enabled: true });
+    await store.save({ version: 2, enabled: true, allowUi: true });
+    expect(await store.load()).toEqual({ version: 2, enabled: true, allowUi: true });
   });
 
   it('loads disabled from a corrupt file rather than failing boot', async () => {
     const dir = await tempDir();
     await writeFile(join(dir, 'mcp.json'), '{ not json', 'utf8');
-    expect(await createMcpStore(dir).load()).toEqual({ version: 1, enabled: false });
+    expect(await createMcpStore(dir).load()).toEqual({ version: 2, enabled: false, allowUi: false });
   });
 
   it('swallows a write to an unwritable directory', async () => {
     const store = createMcpStore('/proc/definitely-not-writable');
-    await expect(store.save({ version: 1, enabled: true })).resolves.toBeUndefined();
+    await expect(store.save({ version: 2, enabled: true, allowUi: false })).resolves.toBeUndefined();
   });
 
   it('writes a versioned document', async () => {
     const dir = await tempDir();
-    await createMcpStore(dir).save({ version: 1, enabled: true });
+    await createMcpStore(dir).save({ version: 2, enabled: true, allowUi: false });
     const raw: unknown = JSON.parse(await readFile(join(dir, 'mcp.json'), 'utf8'));
-    expect(raw).toEqual({ version: 1, enabled: true });
+    expect(raw).toEqual({ version: 2, enabled: true, allowUi: false });
+  });
+
+  /** Phase 81 Theme F's own acceptance condition. */
+  it('reading a version-1 file on disk migrates it to version 2 with allowUi false', async () => {
+    const dir = await tempDir();
+    await writeFile(join(dir, 'mcp.json'), JSON.stringify({ version: 1, enabled: true }), 'utf8');
+    expect(await createMcpStore(dir).load()).toEqual({ version: 2, enabled: true, allowUi: false });
   });
 });
 
 describe('parseStoredSettings', () => {
   it('defaults to disabled for anything malformed', () => {
-    expect(parseStoredSettings(null)).toEqual({ version: 1, enabled: false });
-    expect(parseStoredSettings([])).toEqual({ version: 1, enabled: false });
-    expect(parseStoredSettings({ enabled: 'yes' })).toEqual({ version: 1, enabled: false });
+    expect(parseStoredSettings(null)).toEqual({ version: 2, enabled: false, allowUi: false });
+    expect(parseStoredSettings([])).toEqual({ version: 2, enabled: false, allowUi: false });
+    expect(parseStoredSettings({ enabled: 'yes' })).toEqual({
+      version: 2,
+      enabled: false,
+      allowUi: false,
+    });
   });
 
   it('reads a real enabled flag', () => {
-    expect(parseStoredSettings({ version: 1, enabled: true })).toEqual({ version: 1, enabled: true });
+    expect(parseStoredSettings({ version: 2, enabled: true, allowUi: false })).toEqual({
+      version: 2,
+      enabled: true,
+      allowUi: false,
+    });
+  });
+
+  it('reads a real allowUi flag', () => {
+    expect(parseStoredSettings({ version: 2, enabled: true, allowUi: true })).toEqual({
+      version: 2,
+      enabled: true,
+      allowUi: true,
+    });
+  });
+
+  it('migrates a version-1 object (no allowUi key at all) to allowUi: false', () => {
+    expect(parseStoredSettings({ version: 1, enabled: true })).toEqual({
+      version: 2,
+      enabled: true,
+      allowUi: false,
+    });
   });
 });

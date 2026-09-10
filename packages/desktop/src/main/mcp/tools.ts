@@ -16,6 +16,8 @@ import {
   checksVerdict,
   DIFF_LINE_CAP,
   pickForgeRemote,
+  UI_TOOLS_OFF_MESSAGE,
+  type CompanionUiReplyResult,
   type Forge,
   type ForgeRunsResult,
   type GraphRow,
@@ -24,9 +26,11 @@ import {
   type RepoDescriptor,
 } from '@midnite/studio-shared';
 
+import { requestUiAction } from '../companion/ui-bridge';
 import { listPulls, listRuns } from '../forge/gh-cli';
 import { listRepos } from '../repo-registry';
 import { McpToolError } from './errors';
+import { getMcpAllowUi } from './ui-gate';
 
 /**
  * The eight read-only MCP tools (Phase 57 Theme D), one function per tool id.
@@ -221,4 +225,73 @@ export async function forgeChecks(input: McpToolInput<'forge.checks'>): Promise<
   const verdict = checksVerdict(runsResult.runs, headSha) ?? null;
 
   return { ...runsResult, verdict };
+}
+
+// --- ui.* (Phase 81 Theme F) -------------------------------------------------
+//
+// Three tools with no repository to resolve — they steer the window itself,
+// through `ui-bridge.ts`'s round trip to the main window's own
+// `useCompanionUiRequests()` (`features/companion/ui-requests.ts`), which is
+// what actually owns `resolveNavigation`/`COMMAND_ACCESS`/`runCommand`. Every
+// failure this trio can produce — no window, a timeout, an off switch, a
+// renderer-side refusal (locked, `confirm`/`never` tier) — answers `refused`:
+// from an agent's own point of view every one of those means the same thing,
+// "you don't get to do that right now," and `McpToolError`'s three kinds have
+// no closer fit for any of them.
+
+/**
+ * A round trip whose renderer side answered `ok:false` for any reason (no
+ * window, a timeout, or a declined action) becomes a uniform `refused` — the
+ * `'conflict'` arm of `GitOpResult` is structurally possible but never
+ * actually produced by `ui-bridge.ts` or `ui-requests.ts`, so it is folded
+ * into the same message-less refusal rather than given a branch nothing
+ * reaches.
+ */
+function refuseIfFailed(result: CompanionUiReplyResult): void {
+  if (result.ok) return;
+  throw new McpToolError('refused', result.kind === 'error' ? result.message : 'refused');
+}
+
+export async function uiState(): Promise<McpToolOutput<'ui.state'>> {
+  // Deliberately NOT gated on `getMcpAllowUi()` — the switch controls whether
+  // `ui.navigate`/`ui.command` may act, not whether an agent may read what is
+  // on screen. `uiToolsEnabled` below is how it learns the switch's state
+  // without the call itself being refused for it.
+  const result = await requestUiAction({ kind: 'state' });
+  refuseIfFailed(result);
+  if (!result.ok || result.value.did !== 'state') {
+    throw new McpToolError('error', 'unexpected reply shape for ui.state');
+  }
+
+  const { activeView, settingsPage, detached, repoPath, locked } = result.value;
+  return { activeView, settingsPage, detached, repoPath, locked, uiToolsEnabled: getMcpAllowUi() };
+}
+
+export async function uiNavigate(input: McpToolInput<'ui.navigate'>): Promise<McpToolOutput<'ui.navigate'>> {
+  if (!getMcpAllowUi()) throw new McpToolError('refused', UI_TOOLS_OFF_MESSAGE);
+
+  const result = await requestUiAction({
+    kind: 'navigate',
+    view: input.view,
+    ...(input.page === undefined ? {} : { page: input.page }),
+    ...(input.issue === undefined ? {} : { issue: input.issue }),
+  });
+  refuseIfFailed(result);
+  if (!result.ok || result.value.did === 'state' || result.value.did === 'ran') {
+    throw new McpToolError('error', 'unexpected reply shape for ui.navigate');
+  }
+
+  return { did: result.value.did, view: result.value.view };
+}
+
+export async function uiCommand(input: McpToolInput<'ui.command'>): Promise<McpToolOutput<'ui.command'>> {
+  if (!getMcpAllowUi()) throw new McpToolError('refused', UI_TOOLS_OFF_MESSAGE);
+
+  const result = await requestUiAction({ kind: 'command', id: input.id });
+  refuseIfFailed(result);
+  if (!result.ok || result.value.did !== 'ran') {
+    throw new McpToolError('error', 'unexpected reply shape for ui.command');
+  }
+
+  return { did: 'ran', label: result.value.label };
 }

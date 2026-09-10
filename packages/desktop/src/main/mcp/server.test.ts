@@ -4,10 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { MCP_MAX_REQUEST_BYTES, type McpRequest, type McpResponse } from '@midnite/studio-shared';
+import type { BrowserWindow } from 'electron';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createFrameDecoder, encodeJsonFrame } from '../../broker/protocol';
 import { resetRegistry } from '../repo-registry';
+import { configureUiBridge, resetUiBridgeForTests, resolveUiReply } from '../companion/ui-bridge';
+import { getMcpCallLog, resetMcpCallLog } from './audit';
 import { MCP_MAX_CONNECTIONS, startMcpServer, type McpServerHandle } from './server';
 
 let dirs: string[] = [];
@@ -23,6 +26,8 @@ afterEach(async () => {
   await Promise.all(handles.map((h) => h.close()));
   handles = [];
   resetRegistry();
+  resetUiBridgeForTests();
+  resetMcpCallLog();
   for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
   dirs = [];
 });
@@ -83,6 +88,62 @@ describe('startMcpServer', () => {
     const socket = await connect(handle.socketPath);
     const response = await call(socket, { id: '1', tool: 'repo.list', input: {} });
     expect(response).toEqual({ id: '1', ok: true, value: [] });
+    socket.destroy();
+  });
+
+  /**
+   * Phase 81 Theme F — the audit ring's own rule for `ui.*` calls
+   * (`server.ts`'s `auditRepoPath`, unedited by this theme): every existing
+   * tool's input is `McpRepoTarget` or extends it, and `ui.state`'s is
+   * `z.object({})`, so the same "read whatever `input.repoPath` is, else
+   * `''`" logic already yields the empty string for it with no code change.
+   * A fake main window answers the round trip so the call itself succeeds,
+   * proving both halves at once: the real socket → dispatch → `ui-bridge.ts`
+   * → (fake) renderer → reply path, and the audit entry it leaves behind.
+   */
+  it('answers a ui.state call over the socket, and audits it with repoPath: \'\'', async () => {
+    const handle = await boot();
+    const socket = await connect(handle.socketPath);
+
+    const sent: Array<{ id: string }> = [];
+    const fakeWindow = {
+      isDestroyed: () => false,
+      webContents: {
+        send: (_channel: string, payload: { id: string }) => {
+          sent.push(payload);
+          resolveUiReply(payload.id, {
+            ok: true,
+            value: {
+              did: 'state',
+              activeView: 'graph',
+              settingsPage: null,
+              detached: [],
+              repoPath: null,
+              locked: false,
+            },
+          });
+        },
+      },
+    };
+    configureUiBridge(() => fakeWindow as unknown as BrowserWindow);
+
+    const response = await call(socket, { id: '1', tool: 'ui.state', input: {} });
+    expect(response).toEqual({
+      id: '1',
+      ok: true,
+      value: {
+        activeView: 'graph',
+        settingsPage: null,
+        detached: [],
+        repoPath: null,
+        locked: false,
+        uiToolsEnabled: false,
+      },
+    });
+    expect(sent).toHaveLength(1);
+
+    const entry = getMcpCallLog().find((call) => call.tool === 'ui.state');
+    expect(entry).toMatchObject({ tool: 'ui.state', repoPath: '', ok: true });
     socket.destroy();
   });
 

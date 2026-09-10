@@ -752,7 +752,7 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
-  mcp?: { enabled?: boolean };
+  mcp?: { enabled?: boolean; allowUi?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
    * canned run result. This field existed in `mock-bridge.ts`'s own reads
@@ -3464,6 +3464,16 @@ export function buildMockBridge(data: MockFixtures) {
           message: 'No local voice engine in this harness.',
         },
       }),
+      // Phase 81 Theme F's one new pair. No spec here drives a real
+      // main→renderer request (that round trip is main-only — this harness
+      // has no main process behind it at all), so `onUiRequest` follows
+      // `menu.onCommand`/`window.onWindowsChanged`'s own precedent: register
+      // nothing, subscribe to nothing, never fire. Present at all is what
+      // matters — `app.tsx`'s `useCompanionUiRequests()` calls this
+      // unconditionally on mount, and a bridge missing the method entirely
+      // would throw there rather than merely doing nothing.
+      onUiRequest: unsubscribe,
+      uiReply: noop,
     },
     mcp: {
       get: async () => ({
@@ -3474,9 +3484,11 @@ export function buildMockBridge(data: MockFixtures) {
           : null,
         shimPath:
           '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
+        allowUi: mcpAllowUi,
       }),
-      set: async (req: { enabled: boolean }) => {
-        mcpEnabled = req.enabled;
+      set: async (req: { enabled?: boolean; allowUi?: boolean }) => {
+        if (req.enabled !== undefined) mcpEnabled = req.enabled;
+        if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
         return {
           enabled: mcpEnabled,
           running: mcpEnabled,
@@ -3485,6 +3497,7 @@ export function buildMockBridge(data: MockFixtures) {
             : null,
           shimPath:
             '/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/mcp-shim.js',
+          allowUi: mcpAllowUi,
         };
       },
       calls: async () => ({
@@ -3682,6 +3695,11 @@ export function buildMockBridge(data: MockFixtures) {
   // always-on default broke two unrelated specs.
   // eslint-disable-next-line no-var
   var mcpEnabled = data.mcp?.enabled ?? false;
+  // Phase 81 Theme F's second switch — off by default like the master one,
+  // and independent of it (a spec that wants both on passes both fixture
+  // fields).
+  // eslint-disable-next-line no-var
+  var mcpAllowUi = data.mcp?.allowUi ?? false;
 
   // Which STT providers a key has been "saved" for in this page's lifetime
   // (Theme F) — mutated by `sttSet`, read by `sttStatus`, so a spec can

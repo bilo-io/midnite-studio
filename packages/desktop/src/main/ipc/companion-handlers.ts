@@ -11,6 +11,7 @@ import type { z } from 'zod';
 import { askCompanion } from '../companion/ask';
 import { buildCompanionDigest } from '../companion/digest';
 import { buildCompanionSnapshot } from '../companion/snapshot';
+import { resolveUiReply } from '../companion/ui-bridge';
 import {
   STT_PROVIDER_FACTORIES,
   getLocalWhisperStatus,
@@ -82,7 +83,23 @@ export function registerCompanionHandlers(): void {
   );
 
   /*
-    Theme F's three. `handleOp` for the two that can fail in ways a user acts
+    Phase 81 Theme F's one new pair — the renderer's one-way reply to
+    `EVENT_CHANNELS.companionUiRequest`. `handleSend`, not `handle`: there is
+    nothing to answer back over IPC — `resolveUiReply` settles the promise
+    `ui-bridge.ts` is already holding for this `id`, and a reply for an id
+    nobody is waiting on (already timed out, or a stray message) is silently
+    dropped rather than logged as a bug — a race between a 5s timeout and a
+    slow renderer is an ordinary outcome, not one.
+  */
+  handleSend(
+    CHANNELS.companionUiReply,
+    schemas.CompanionUiReplySchema,
+    (req) => resolveUiReply(req.id, req.result),
+    () => {},
+  );
+
+  /*
+    Theme F's three (Phase 79). `handleOp` for the two that can fail in ways a user acts
     on — `transcribeUtterance` and `testSttCredential` never throw, so an
     invalid payload arriving as `failure(...)` is the same shape as a 401 and
     the input bar has one branch, not two.

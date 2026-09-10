@@ -4,8 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // `vi.hoisted` because vitest lifts `vi.mock` above the imports — the same
 // `ipcMain.handle` capture `mcp-handlers.test.ts` makes. `on` joins it here
 // (Ad Hoc "TTS synthesis blocks the UI"): `companionTtsCancel` registers
-// through `handleSend`/`ipcMain.on`, the first one-way channel this file has
-// had to capture.
+// through `handleSend`/`ipcMain.on`, the first one-way channel this file
+// had to capture; Theme F's `companionUiReply` is the second.
 const { handle, on } = vi.hoisted(() => ({ handle: vi.fn(), on: vi.fn() }));
 vi.mock('electron', () => ({ ipcMain: { handle, on } }));
 
@@ -281,7 +281,15 @@ describe('registerCompanionHandlers', () => {
 
   it('registers the cancel channel through ipcMain.on (handleSend), and calls the broker when sent', () => {
     registerCompanionHandlers();
-    expect(on.mock.calls.map(([channel]) => channel)).toEqual([CHANNELS.companionTtsCancel]);
+    // Two one-way channels now, in registration order: Phase 81 Theme F's
+    // `companionUiReply` (the renderer's half of the first main->renderer
+    // request/reply) registers before `companionTtsCancel`. Asserted as the
+    // exact list on purpose — a third `handleSend` landing here unnoticed is
+    // what this is meant to catch.
+    expect(on.mock.calls.map(([channel]) => channel)).toEqual([
+      CHANNELS.companionUiReply,
+      CHANNELS.companionTtsCancel,
+    ]);
 
     send(CHANNELS.companionTtsCancel, {});
     expect(cancelQueuedSynthesis).toHaveBeenCalledTimes(1);

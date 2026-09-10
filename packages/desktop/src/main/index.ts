@@ -27,6 +27,7 @@ import { configureCompanion } from './companion/digest';
 import { configureLocalStt, configureStt } from './companion/stt';
 import { configureCompanionTtsBroker, disposeCompanionTtsBroker } from './companion/tts-broker';
 import { createSttCredentials } from './companion/stt/credentials';
+import { configureUiBridge } from './companion/ui-bridge';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
 import { createSessionHistoryStore } from './session-history-store';
@@ -349,6 +350,10 @@ if (!app.requestSingleInstanceLock()) {
     registerPtyHandlers(getMainWindow);
     registerBrowserHandlers();
     registerWindowHandlers(getMainWindow, defaultLogger);
+    // Phase 81 Theme F: `ui-bridge.ts` targets `getMainWindow()` explicitly,
+    // never the focused window — registered here, once, the same way every
+    // other main-window consumer below gets the same thunk.
+    configureUiBridge(getMainWindow);
     /*
       What is running inside each terminal, from the pty's own process tree.
 
