@@ -24,6 +24,12 @@ import {
  * text each skeleton carries, because that — not the bars — is the part a
  * reader who cannot see the pane depends on, and it is the part most easily
  * lost in a refactor that keeps the shapes.
+ *
+ * Unlike the rest of the shots suite, this file is not named `*-shots` and is
+ * not gated wholesale (Phase 82 Theme A): every assertion above runs
+ * unconditionally in every `app:e2e` run, because they are the only coverage
+ * the loading skeletons get. Only the `shoot()` calls — the photographs
+ * themselves — are gated behind `MSTUDIO_SHOTS`.
  */
 
 const OUT = '../../docs/screenshots/phase-20-reviews-loading';
@@ -169,7 +175,9 @@ test('the pull request list, mid-fetch', async ({ page }) => {
   // about there not being one — the listing has not come back to say either way.
   await expect(page.getByText('Loading the pull request…')).toBeAttached();
 
-  await shoot(page, 'list-loading');
+  if (process.env.MSTUDIO_SHOTS) {
+    await shoot(page, 'list-loading');
+  }
 });
 
 test('a pull request opening, with nothing cached', async ({ page }) => {
@@ -189,7 +197,9 @@ test('a pull request opening, with nothing cached', async ({ page }) => {
   await expect(page.getByRole('region', { name: `Pull request #${pull.number}` })).toBeVisible();
   await expect(page.getByText('Loading the description…')).toBeAttached();
 
-  await shoot(page, 'detail-loading');
+  if (process.env.MSTUDIO_SHOTS) {
+    await shoot(page, 'detail-loading');
+  }
 });
 
 test('switching pull requests, with the listing already cached', async ({ page }) => {
@@ -204,7 +214,9 @@ test('switching pull requests, with the listing already cached', async ({ page }
   await expect(page.getByRole('region', { name: `Pull request #${second.number}` })).toBeVisible();
   await expect(page.getByText('Loading the description…')).toBeAttached();
 
-  await shoot(page, 'overview-loading');
+  if (process.env.MSTUDIO_SHOTS) {
+    await shoot(page, 'overview-loading');
+  }
 });
 
 test('the Files tab, mid-fetch', async ({ page }) => {
@@ -219,7 +231,9 @@ test('the Files tab, mid-fetch', async ({ page }) => {
   await expect(files).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText('Loading the diff…')).toBeAttached();
 
-  await shoot(page, 'files-loading');
+  if (process.env.MSTUDIO_SHOTS) {
+    await shoot(page, 'files-loading');
+  }
 });
 
 test('the Files tab in dark, mid-fetch', async ({ page }) => {
@@ -239,7 +253,9 @@ test('the Files tab in dark, mid-fetch', async ({ page }) => {
   await expect(files).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText('Loading the diff…')).toBeAttached();
 
-  await shoot(page, 'files-loading-dark');
+  if (process.env.MSTUDIO_SHOTS) {
+    await shoot(page, 'files-loading-dark');
+  }
 });
 
 test('the Conversation tab, mid-fetch', async ({ page }) => {
@@ -252,7 +268,9 @@ test('the Conversation tab, mid-fetch', async ({ page }) => {
   await expect(conversation).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText('Loading the conversation…')).toBeAttached();
 
-  await shoot(page, 'conversation-loading');
+  if (process.env.MSTUDIO_SHOTS) {
+    await shoot(page, 'conversation-loading');
+  }
 });
 
 test('the Checks tab, mid-fetch', async ({ page }) => {
@@ -268,5 +286,7 @@ test('the Checks tab, mid-fetch', async ({ page }) => {
   await page.getByRole('tab', { name: /^Checks/ }).click();
   await expect(page.getByText('Loading the checks…')).toBeAttached();
 
-  await shoot(page, 'checks-loading');
+  if (process.env.MSTUDIO_SHOTS) {
+    await shoot(page, 'checks-loading');
+  }
 });

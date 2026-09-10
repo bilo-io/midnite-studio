@@ -57,7 +57,7 @@ export type MockFixtures = {
    * calls are subprocesses and the mock answers in the same tick, so the
    * skeletons the Reviews view draws between those two moments never render at
    * all under test — they cannot be screenshotted, and a regression that
-   * deleted them would pass every spec. See `reviews-loading-shots.spec.ts`.
+   * deleted them would pass every spec. See `reviews-loading.spec.ts`.
    */
   forgeLatencyMs?: number;
   /**
