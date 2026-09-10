@@ -1,8 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Collapse } from '@bilo-io/ui';
 import type { AgentDefinition, ClosedSession } from '@midnite/studio-shared';
-import { LuBot, LuChevronRight, LuFilter, LuHistory, LuRefreshCw, LuTerminal, LuTrash2 } from 'react-icons/lu';
+import {
+  LuBot,
+  LuChevronRight,
+  LuFilter,
+  LuHistory,
+  LuRefreshCw,
+  LuSearch,
+  LuTerminal,
+  LuTrash2,
+  LuX,
+} from 'react-icons/lu';
 
 import { resolveAgentIcon } from '../../components/icons';
 import { EmptyState } from '../../components/empty-state';
@@ -83,6 +93,16 @@ export function SessionsView() {
   const [reasons, setReasons] = useState<ClosedSession['reason'][]>([]);
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
   const [collapsedRepos, setCollapsedRepos] = useState<ReadonlySet<string>>(() => new Set());
+  const [query, setQuery] = useState('');
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  };
 
   const toggleRepoCollapse = (repoId: string) => {
     setCollapsedRepos((prev) => {
@@ -148,7 +168,7 @@ export function SessionsView() {
     return options;
   }, [all, agents]);
 
-  // Filter rows by reasons and providers
+  // Filter rows by reasons, providers, and the search query
   const rows = useMemo(() => {
     let filtered = all;
     if (reasons.length > 0) {
@@ -160,8 +180,44 @@ export function SessionsView() {
         return selectedProviders.includes(providerKey);
       });
     }
+    const needle = query.trim().toLowerCase();
+    if (needle.length > 0) {
+      filtered = filtered.filter((row) => {
+        const label = closedSessionLabel(row, agentLabelFor(row.agentId, agents)).toLowerCase();
+        return label.includes(needle) || row.title.toLowerCase().includes(needle);
+      });
+    }
     return filtered;
-  }, [all, reasons, selectedProviders]);
+  }, [all, reasons, selectedProviders, query, agents]);
+
+  // A row purged elsewhere, or evicted on refetch, should drop out of the
+  // bulk selection rather than linger as a phantom count.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const next = new Set([...prev].filter((id) => all.some((row) => row.id === id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [all]);
+
+  const allVisibleSelected = rows.length > 0 && rows.every((row) => selectedIds.has(row.id));
+  const someVisibleSelected = rows.some((row) => selectedIds.has(row.id));
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected;
+    }
+  }, [someVisibleSelected, allVisibleSelected]);
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      if (allVisibleSelected) {
+        const next = new Set(prev);
+        for (const row of rows) next.delete(row.id);
+        return next;
+      }
+      return new Set([...prev, ...rows.map((row) => row.id)]);
+    });
+  };
 
   const selectedId = useMemo(() => pickInitialClosedSession(rows, stored), [rows, stored]);
   const selected = rows.find((row) => row.id === selectedId) ?? null;
@@ -178,7 +234,33 @@ export function SessionsView() {
       onConfirm: () => {
         void bridge()
           ?.sessions.purge({ sessionId: record.id })
-          .then(refresh);
+          .then(() => {
+            setSelectedIds((prev) => {
+              if (!prev.has(record.id)) return prev;
+              const next = new Set(prev);
+              next.delete(record.id);
+              return next;
+            });
+            return refresh();
+          });
+      },
+    });
+  };
+
+  const purgeMany = (ids: readonly string[]) => {
+    if (ids.length === 0) return;
+    dialogs.confirm({
+      title: `Purge ${ids.length} session${ids.length === 1 ? '' : 's'}?`,
+      confirmLabel: 'Purge',
+      danger: true,
+      blastRadius: null,
+      warnings: ['The transcripts are deleted from disk. This cannot be undone.'],
+      onConfirm: () => {
+        const client = bridge();
+        void Promise.all(ids.map((id) => client?.sessions.purge({ sessionId: id }))).then(() => {
+          setSelectedIds(new Set());
+          return refresh();
+        });
       },
     });
   };
@@ -193,7 +275,10 @@ export function SessionsView() {
       onConfirm: () => {
         void bridge()
           ?.sessions.purge({ sessionId: null })
-          .then(refresh);
+          .then(() => {
+            setSelectedIds(new Set());
+            return refresh();
+          });
       },
     });
   };
@@ -246,6 +331,69 @@ export function SessionsView() {
           </div>
         </div>
 
+        {all.length > 0 ? (
+          <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              checked={allVisibleSelected}
+              onChange={toggleSelectAllVisible}
+              disabled={rows.length === 0}
+              aria-label={allVisibleSelected ? 'Deselect all matching sessions' : 'Select all matching sessions'}
+              title={allVisibleSelected ? 'Deselect all matching sessions' : 'Select all matching sessions'}
+              className="h-3 w-3 shrink-0 accent-primary"
+            />
+            <div className="relative min-w-0 flex-1 gradient-border rounded-md">
+              <LuSearch
+                aria-hidden
+                className="pointer-events-none absolute left-2 top-1/2 z-10 h-3 w-3 -translate-y-1/2 text-muted-foreground"
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search sessions…"
+                aria-label="Search sessions by title or repo"
+                className="block h-7 w-full rounded-md border-0 bg-background pl-7 pr-7 text-xs outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="Clear the session search"
+                  title="Clear the session search"
+                  className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <LuX aria-hidden className="h-3 w-3" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {selectedIds.size > 0 ? (
+          <div className="flex shrink-0 items-center gap-2 border-b border-border bg-accent/40 px-2 py-1">
+            <span className="text-[11px] font-medium text-muted-foreground">
+              {selectedIds.size} selected
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => purgeMany([...selectedIds])}
+              className="ml-auto flex h-6 shrink-0 items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/20"
+            >
+              <LuTrash2 aria-hidden className="h-3 w-3" />
+              Delete {selectedIds.size}
+            </button>
+          </div>
+        ) : null}
+
         {history.isError ? (
           <Notice tone="destructive">
             {history.error instanceof Error ? history.error.message : String(history.error)}
@@ -296,6 +444,8 @@ export function SessionsView() {
                         selected={record.id === selectedId}
                         onSelect={() => selectClosedSession(record.id)}
                         onPurge={() => purgeOne(record)}
+                        checked={selectedIds.has(record.id)}
+                        onToggleChecked={() => toggleSelected(record.id)}
                       />
                     ))}
                   </Collapse>
@@ -324,6 +474,8 @@ function SessionRow({
   selected,
   onSelect,
   onPurge,
+  checked,
+  onToggleChecked,
 }: {
   record: ClosedSession;
   agent: AgentDefinition | undefined;
@@ -331,6 +483,8 @@ function SessionRow({
   selected: boolean;
   onSelect: () => void;
   onPurge: () => void;
+  checked: boolean;
+  onToggleChecked: () => void;
 }) {
   const label = closedSessionLabel(record, agentLabel);
   const duration = record.closedAt - record.createdAt;
@@ -345,6 +499,13 @@ function SessionRow({
         selected ? 'border-primary bg-accent' : 'border-transparent hover:bg-accent/60'
       }`}
     >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggleChecked}
+        aria-label={checked ? `Deselect ${label}` : `Select ${label}`}
+        className="h-3 w-3 shrink-0 accent-primary"
+      />
       <button
         type="button"
         onClick={onSelect}
