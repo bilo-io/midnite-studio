@@ -10769,3 +10769,37 @@ to the graph" aloud, which no agent can stand in for.
 
 `node scripts/tracker-check.mjs` → `Success: All phase docs and index rows agree.` after every tick
 in this entry.
+
+### Phase 82 Theme C wave 2 — Three more specs down to jsdom (PR #333, 2026-09-10)
+
+`commit-inspector` 19→4 · `changes-panel` 17→3 · `diff-view` 12→3. E2e declared 654→**617**;
+`app:test` 3,818→**3,873**. `changes-panel`'s tree-grouping and totals-formatting assertions went
+**into** the existing `change-tree.test.tsx` rather than a third copy, as the theme requires.
+
+Stragglers stayed in Playwright, as in wave 1: the resize splitter and a screenshot in
+`commit-inspector`; the toolbar-icons-when-totals-are-wide and commit-textarea-grow cases in
+`changes-panel`; three in `diff-view` including `syntax highlighting colours a line`, which is
+Theme D's territory.
+
+**The valuable finding is a jsdom trap that looks exactly like flake and is not.** Two of the new
+bridge tests failed under a real `moon run :typecheck :lint :test` while passing when `app:test`
+ran alone. The cause: `commit-detail.tsx` `React.lazy`-loads `CommitMessage` to keep
+`react-markdown` and `remark-gfm` out of the entry chunk, so under vitest the dynamic import pays
+a multi-second ESM transform for both libraries on first resolve — the tests were awaiting a
+**compiler, not a render**, and only lost the race when every package's suite ran in parallel.
+
+The first attempt raised the poll ceiling to 3s; that only moves the race, and a wall-clock bound
+in a unit test is the same shape as the false reds in this phase's own flake register and the
+vacuous 2s bound #310 deleted. The fix is `beforeAll(async () => { await import('./commit-message') })`
+— it resolves the chunk into vitest's module cache so `React.lazy` settles from cache. No
+assertion is weakened: real `react-markdown` still renders, which is exactly what *"renders as
+markdown rather than preformatted text"* asserts. The gate went from red to exit 0 on the same
+parallel run.
+
+**Recorded as a wave-3 prerequisite**, because waves 3-5 will hit it again — `palette`,
+`companion-thread` and several diff/editor surfaces all sit behind lazy boundaries. Had
+"passes in isolation" been accepted as proof of flake, this would have shipped and gone red
+intermittently on CI forever; the isolation pass and a real timing defect are indistinguishable
+from the outside, and only running it under the conditions that broke it tells them apart.
+
+`diff-view`'s virtualised rows were never implicated — #328's firing `ResizeObserver` handled them.
