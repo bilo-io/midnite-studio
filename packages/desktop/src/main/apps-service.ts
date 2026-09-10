@@ -118,6 +118,48 @@ export function disableApp(id: AppId): void {
 }
 
 /**
+ * Which enabled app is on top in the flyout (Theme C) — mirrors
+ * `activateBrowserTab`'s "only one view is ever attached-and-visible PER
+ * WINDOW" rule, scoped to this module's own map rather than `browser-service`'s.
+ * A no-op for an app that was never enabled: the flyout always calls
+ * `apps.enable` before `apps.activate`, but a stale click racing a disable
+ * should not resurrect a view disable just tore down.
+ */
+export function activateApp(id: AppId): void {
+  const activating = apps.get(id);
+  if (!activating) return;
+  for (const [otherId, tracked] of apps) {
+    if (tracked.win === activating.win) tracked.view.setVisible(otherId === id);
+  }
+}
+
+/**
+ * Move one app's `WebContentsView` to `next` (Phase 83 Theme D) — detaching or
+ * re-docking it. Mirrors `reparentBrowserTabs`: the view keeps its
+ * `webContents`, so its partition, navigation history and in-page state all
+ * survive by construction — no `loadURL`, no `setWindowOpenHandler`
+ * re-registration. Unlike the browser (which moves every tab together), each
+ * app has its own literal role and moves independently — Spotify detaching
+ * must never touch Calendar's window.
+ *
+ * Visibility is set explicitly rather than left to whatever it was before the
+ * move: a popout hosts exactly one app, so it is always shown there; docking
+ * back to a window that may already have a different app active in its
+ * flyout leaves it hidden, and the next `apps.activate` (a rail click, or
+ * `use-window-sync.ts`'s reconciliation) is what decides which one shows.
+ */
+export function reparentAppView(id: AppId, next: BrowserWindow, opts?: { visible?: boolean }): void {
+  const tracked = apps.get(id);
+  if (!tracked) return;
+  if (tracked.win !== next) {
+    if (!tracked.win.isDestroyed()) tracked.win.contentView.removeChildView(tracked.view);
+    if (!next.isDestroyed()) next.contentView.addChildView(tracked.view);
+    apps.set(id, { view: tracked.view, win: next });
+  }
+  tracked.view.setVisible(opts?.visible ?? true);
+}
+
+/**
  * Bounds arrive in CSS pixels; `WebContentsView.setBounds` wants device
  * pixels — the same zoom-factor scaling `setBrowserBounds` does, for the
  * identical reason: the renderer measures in CSS pixels and may not import

@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  activateApp,
   destroyAllApps,
   disableApp,
   enableApp,
+  reparentAppView,
   resetAppsServiceForTests,
   setAppBounds,
 } from './apps-service';
@@ -280,5 +282,102 @@ describe('apps-service bounds', () => {
 
   it('setting bounds for an app that was never enabled is a no-op', () => {
     expect(() => setAppBounds('spotify', { x: 0, y: 0, width: 10, height: 10 })).not.toThrow();
+  });
+});
+
+describe('apps-service activation (Theme C)', () => {
+  beforeEach(() => {
+    resetAppsServiceForTests();
+    fakeSessions.clear();
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it('activating an app hides every other enabled app in the SAME window', () => {
+    const win = fakeWindow();
+    enableApp(win, 'spotify');
+    enableApp(win, 'youtube');
+    const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
+    const spotifyView = calls[0]?.[0] as FakeView;
+    const youtubeView = calls[1]?.[0] as FakeView;
+
+    activateApp('youtube');
+
+    expect(spotifyView.visible).toBe(false);
+    expect(youtubeView.visible).toBe(true);
+  });
+
+  it('never touches a same-id app enabled in a DIFFERENT window', () => {
+    const mainWin = fakeWindow();
+    const popoutWin = fakeWindow();
+    enableApp(mainWin, 'spotify');
+    enableApp(popoutWin, 'youtube');
+    const spotifyView = (mainWin.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+    const youtubeView = (popoutWin.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+
+    activateApp('spotify');
+
+    expect(spotifyView.visible).toBe(true);
+    // youtube lives in a different window entirely — activating spotify must
+    // not reach across windows and hide it.
+    expect(youtubeView.visible).toBe(true);
+  });
+
+  it('activating an app that was never enabled is a no-op', () => {
+    expect(() => activateApp('spotify')).not.toThrow();
+  });
+});
+
+describe('apps-service reparenting (Theme D)', () => {
+  beforeEach(() => {
+    resetAppsServiceForTests();
+    fakeSessions.clear();
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it('moves the view to the next window and shows it there by default', () => {
+    const main = fakeWindow();
+    const popout = fakeWindow();
+    enableApp(main, 'spotify');
+    const view = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+    view.setVisible(false);
+
+    reparentAppView('spotify', popout);
+
+    expect(main.contentView.removeChildView).toHaveBeenCalledWith(view);
+    expect(popout.contentView.addChildView).toHaveBeenCalledWith(view);
+    expect(view.visible).toBe(true);
+  });
+
+  it('honours an explicit visible:false — re-docking must not steal the flyout', () => {
+    const main = fakeWindow();
+    const popout = fakeWindow();
+    enableApp(popout, 'spotify');
+    const view = (popout.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+
+    reparentAppView('spotify', main, { visible: false });
+
+    expect(main.contentView.addChildView).toHaveBeenCalledWith(view);
+    expect(view.visible).toBe(false);
+  });
+
+  it('a same-window reparent is a no-op move but still applies the requested visibility', () => {
+    const win = fakeWindow();
+    enableApp(win, 'spotify');
+    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+
+    reparentAppView('spotify', win, { visible: false });
+
+    expect(win.contentView.removeChildView).not.toHaveBeenCalled();
+    expect(view.visible).toBe(false);
+  });
+
+  it('reparenting an app that was never enabled is a no-op', () => {
+    const win = fakeWindow();
+    expect(() => reparentAppView('spotify', win)).not.toThrow();
   });
 });

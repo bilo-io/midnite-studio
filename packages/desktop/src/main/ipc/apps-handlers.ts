@@ -3,7 +3,7 @@ import type { BrowserWindow } from 'electron';
 
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
-import { disableApp, enableApp, setAppBounds } from '../apps-service';
+import { activateApp, disableApp, enableApp, setAppBounds } from '../apps-service';
 import { handle } from './handle';
 
 /**
@@ -37,5 +37,10 @@ export function registerAppsHandlers(getMainWindow: () => BrowserWindow | null):
   ipcMain.on(CHANNELS.appsSetBounds, (_event, raw: unknown) => {
     const parsed = schemas.AppsSetBoundsRequest.safeParse(raw);
     if (parsed.success) setAppBounds(parsed.data.id, parsed.data.bounds);
+  });
+
+  ipcMain.on(CHANNELS.appsActivate, (_event, raw: unknown) => {
+    const parsed = schemas.AppsActivateRequest.safeParse(raw);
+    if (parsed.success) activateApp(parsed.data.id);
   });
 }
