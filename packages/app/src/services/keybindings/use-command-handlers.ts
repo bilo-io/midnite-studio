@@ -186,6 +186,13 @@ export function useCommandHandlers(): CommandRuntime {
         const store = useUiStore.getState();
         if (store.browserSwitcherOpen) {
           store.cycleBrowserSwitcher(1);
+        } else if (store.browserOpen) {
+          // Mirrors the pre-switcher `toggleBrowser()`: an already-open pane
+          // closes immediately on a bare Mod+B, the same instant hide these
+          // two things always gave. The HUD is for *opening into* a layout —
+          // it never reaches for an already-open pane's own layout, which the
+          // toolbar's picker (`browser-layout-pick-*`) already owns.
+          store.toggleBrowser();
         } else {
           store.openBrowserSwitcher();
         }
