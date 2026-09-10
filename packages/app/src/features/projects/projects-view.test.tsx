@@ -6,11 +6,27 @@ import { DialogHost } from '../../components/dialog-host';
 import { ProjectsView } from './projects-view';
 
 /**
- * jsdom has no `ResizeObserver`, and reports a fixed `clientWidth`/
- * `clientHeight` of 0 — both needed once Graph mode mounts
- * `ProjectGraphView`, whose graph-space culling would otherwise treat every
- * node as outside a zero-size viewport. See `project-graph-view.test.tsx`
- * for the same two stubs, for the same reason.
+ * jsdom reports a fixed `clientWidth`/`clientHeight` of 0 — needed once
+ * Graph mode mounts `ProjectGraphView`, whose graph-space culling would
+ * otherwise treat every node as outside a zero-size viewport. See
+ * `project-graph-view.test.tsx` for the same stub, for the same reason.
+ *
+ * The local `ResizeObserver` override below is now a **deliberate
+ * downgrade**, not a redundant restatement of a missing global — since
+ * Phase 82 Theme C, `vitest-setup.ts` installs a *firing* default
+ * (`FiringResizeObserver`) precisely so `@tanstack/react-virtual` measures
+ * something. This file still stubs its own non-firing one on top, because
+ * this suite was written against, and still asserts, the *other* documented
+ * finding below (Table mode's virtualized rows are read only through the
+ * toolbar, never row content) — swapping in a firing observer here without
+ * auditing every assertion in the file is Wave 2's job (`packages/app`
+ * Phase 82 Theme C's migration list names `projects-view` explicitly), not
+ * a side effect of this comment update. Confirmed empirically: dropping this
+ * override and letting the global firing default apply does make Table
+ * mode's row content render (`screen.findByText` on a seeded item title
+ * resolves) — the finding two dozen lines below is now false in general, it
+ * just still holds *for this file* until Wave 2 removes this override and
+ * verifies the rest of the suite against it.
  */
 beforeAll(() => {
   class StubResizeObserver {
@@ -822,10 +838,15 @@ describe('Phase 75 Theme H — filters and the graph’s own facets', () => {
     cleanup();
     projectsMode = { 'repo-1': 'table' };
     renderWithClient();
-    // Table mode's virtualized rows aren't reliably renderable under jsdom
-    // (`useVirtualizer` needs real layout), so readiness is the toolbar
-    // itself, not row content — matching the "Phase 52" describe block's own
-    // convention above.
+    // Table mode's virtualized rows don't render *in this file* — not
+    // because jsdom cannot do it in general (Phase 82 Theme C's
+    // `FiringResizeObserver` proves it can: `search-view.bridge.test.tsx`
+    // asserts real virtualized row content), but because this file's own
+    // `beforeAll` above deliberately overrides the global firing default
+    // with a non-firing one, for reasons unrelated to this assertion. So
+    // readiness here is still the toolbar itself, not row content — matching
+    // the "Phase 52" describe block's own convention above — until Wave 2
+    // migrates this file and removes that override.
     await screen.findByPlaceholderText('Search title, number or body…');
 
     expect(screen.queryByLabelText('Show')).toBeNull();

@@ -198,9 +198,13 @@ test('the rail pin locks and unlocks, and only the lock shifts the page', async 
  * The Agent page's own functional assertions (version card, Update/Uninstall
  * buttons, browsing `~/.claude`) moved to `settings-view.bridge.test.tsx`
  * under jsdom. What is left here is the one thing that migration cannot
- * carry: this spec's own screenshot capture, unconditional and untouched —
- * Theme D's territory, not Theme C's, per the same reasoning
- * `diagnostics.spec.ts`'s "phase 18 screenshots" block was left alone.
+ * carry: this spec's own screenshot capture — Theme D's territory to build a
+ * real pixel-diff layer around, not Theme C's, per the same reasoning
+ * `diagnostics.spec.ts`'s "phase 18 screenshots" block was left in Playwright
+ * (i.e. not migrated to jsdom). The capture itself is gated behind
+ * `MSTUDIO_SHOTS` (Phase 82 Theme A's follow-up item) — same as that
+ * `diagnostics.spec.ts` block's own two calls — so a routine run keeps its
+ * assertions but takes no picture.
  */
 test('the Agent page screenshot', async ({ page }) => {
   await openSettings(page);
@@ -214,5 +218,7 @@ test('the Agent page screenshot', async ({ page }) => {
   await expect(page.getByRole('treeitem', { name: /brainstorm/ })).toBeVisible();
 
   await page.waitForTimeout(400);
-  await page.screenshot({ path: '../../docs/screenshots/phase-16/settings-agent.png' });
+  if (process.env.MSTUDIO_SHOTS) {
+    await page.screenshot({ path: '../../docs/screenshots/phase-16/settings-agent.png' });
+  }
 });

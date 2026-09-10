@@ -10,8 +10,9 @@ import { useSearchStore } from './search-store';
 import { SearchView } from './search-view';
 
 /**
- * Migrated from `e2e/search-view.spec.ts` (Phase 82 Theme C, wave 1) — four
- * of its five tests, assertion parity preserved.
+ * Migrated from `e2e/search-view.spec.ts` (Phase 82 Theme C, wave 1 + the
+ * harness-gap follow-up) — now all five of its tests, assertion parity
+ * preserved. `e2e/search-view.spec.ts` itself is deleted.
  *
  * **The race test (`a second query cancels the first…`) uses vitest's fake
  * timers rather than the fixture's real `delayMs` `setTimeout`** — the phase
@@ -22,26 +23,38 @@ import { SearchView } from './search-view';
  * spec's two `page.waitForTimeout(400)` calls approximated, deterministically
  * and without the real 800ms+800ms wall-clock cost.
  *
- * **"Each mode returns and renders its own results" stays in Playwright.**
- * `SearchView`'s results list is `@tanstack/react-virtual`, and this
- * codebase already has a documented finding about it —
- * `projects-view.test.tsx`'s own comment: "Table mode's virtualized rows
- * aren't reliably renderable under jsdom (`useVirtualizer` needs real
- * layout)". That test's own workaround was to assert the toolbar rather than
- * row content; this spec's whole point IS row content (a commit subject, a
- * grep hit's path and text, a filtered file name), so there is no honest
- * jsdom equivalent to assert against. Confirmed empirically here too: with
+ * **"Each mode returns and renders its own results" — the last of the five,
+ * and the one that stayed in Playwright until now.** `SearchView`'s results
+ * list is `@tanstack/react-virtual`, and wave 1 left this one behind on a
+ * documented, *empirically confirmed* finding: with
  * `HTMLElement.prototype.clientWidth`/`clientHeight` stubbed the same way
- * that test does, the store correctly receives and auto-selects the first
- * result (`CommitDetail` renders "not found" for the mocked sha, proving
- * `selectedItem` really was set), but the virtualized row itself never
- * paints — `getVirtualItems()` stays empty regardless, because the
+ * `projects-view.test.tsx` does, the store correctly received and
+ * auto-selected the first result, but the virtualized row itself never
+ * painted — `getVirtualItems()` stayed empty regardless, because the
  * measurement `@tanstack/react-virtual` actually keys off is a
- * `ResizeObserver` callback that this repo's stub (necessarily) never fires.
- * The other four tests below only ever read the status line above the list
- * ("N matches", an error string, the search-progress readout) or fields
- * outside it, none of which touch the virtualizer.
+ * `ResizeObserver` callback, and this repo's stub at the time never fired
+ * one at all.
+ *
+ * That gap is what `vitest-setup.ts`'s `FiringResizeObserver` (Phase 82
+ * Theme C's harness prerequisite) closes: it now invokes its callback with a
+ * real `borderBoxSize`, which is the *only* thing `@tanstack/virtual-core`'s
+ * `observeElementRect` needs — it prefers `entry.borderBoxSize` over
+ * re-reading `offsetWidth`/`offsetHeight` (permanently `0` under jsdom), so
+ * no separate `clientWidth`/`getBoundingClientRect` shim was needed once the
+ * callback itself fired with real numbers. See `vitest-setup.ts`'s own
+ * comment for the full mechanism.
  */
+
+const COMMIT_HIT = {
+  sha: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+  parents: [],
+  subject: 'fix(search): cancel the previous request',
+  authorName: 'Alice',
+  authorEmail: 'alice@example.com',
+  authorDate: 1_700_000_000,
+  committerDate: 1_700_000_000,
+  refs: [],
+};
 
 const CONTENT_HIT = { path: 'src/index.ts', line: 10, kind: 'match', text: 'export const foo = 1;' };
 
@@ -197,5 +210,46 @@ describe('SearchView, assembled through the real bridge', () => {
     expect(
       (window as unknown as { __mstudioSearchCancels: string[] }).__mstudioSearchCancels.length,
     ).toBeGreaterThan(0);
+  });
+
+  // --- migrated from e2e/search-view.spec.ts (Phase 82 Theme C, harness follow-up) -----
+
+  it('each mode returns and renders its own results', async () => {
+    const fx: MockFixtures = {
+      ...fixtures,
+      search: { commits: [COMMIT_HIT], contentHits: [CONTENT_HIT] },
+      fsListFilesResult: { ok: true, files: ['src/index.ts', 'README.md'], truncated: false },
+      // The first content hit auto-selects into the preview pane, so it
+      // needs a real fixture — without one the pane renders "no fixture for
+      // …", which itself contains the path substring and makes every path
+      // assertion below ambiguous.
+      fsFiles: {
+        'repo:src/index.ts': { kind: 'text', content: 'export const foo = 1;\n', size: 23 },
+      },
+    };
+    renderView(<SearchView />, { fixtures: fx, uiState: UI_STATE });
+
+    // Commits — the default tab.
+    fireEvent.change(screen.getByRole('textbox', { name: 'Commit message grep' }), {
+      target: { value: 'cancel' },
+    });
+    expect(await screen.findByText(COMMIT_HIT.subject)).toBeTruthy();
+
+    // Content. The first hit auto-selects into the preview pane too, so both
+    // the path and its text render twice (list row + preview) — `getAllBy`
+    // is enough here; this test only needs to know each mode renders at all.
+    fireEvent.click(screen.getByRole('button', { name: 'content' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Pattern to grep' }), {
+      target: { value: 'foo' },
+    });
+    expect((await screen.findAllByText(CONTENT_HIT.path)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(CONTENT_HIT.text).length).toBeGreaterThan(0);
+
+    // Files — no bridge search call at all, just `fs.listFiles` filtered client-side.
+    fireEvent.click(screen.getByRole('button', { name: 'files' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Filter files' }), {
+      target: { value: 'index' },
+    });
+    expect((await screen.findAllByText('src/index.ts')).length).toBeGreaterThan(0);
   });
 });

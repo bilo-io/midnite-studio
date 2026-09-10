@@ -61,7 +61,9 @@ test('typing a query replaces the tree with grouped results; clicking one opens 
   await expect(page.getByText('src/palette.tsx')).toBeVisible();
   await expect(page.getByText('function foo() {')).toBeVisible();
   await page.waitForTimeout(200);
-  await page.screenshot({ path: '../../docs/screenshots/phase-24-e/search-results.png' });
+  if (process.env.MSTUDIO_SHOTS) {
+    await page.screenshot({ path: '../../docs/screenshots/phase-24-e/search-results.png' });
+  }
 
   await page.getByText('function foo() {').click();
 
@@ -73,7 +75,9 @@ test('typing a query replaces the tree with grouped results; clicking one opens 
   await expect(hitLine).toBeVisible();
   await expect(hitLine).toContainText('function foo()');
   await page.waitForTimeout(200);
-  await page.screenshot({ path: '../../docs/screenshots/phase-24-e/search-open-at-line.png' });
+  if (process.env.MSTUDIO_SHOTS) {
+    await page.screenshot({ path: '../../docs/screenshots/phase-24-e/search-open-at-line.png' });
+  }
 
   // Clearing the query brings the tree back.
   await page.getByRole('button', { name: 'Clear search' }).click();

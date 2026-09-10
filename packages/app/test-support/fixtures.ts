@@ -303,3 +303,69 @@ export const fixtures: MockFixtures = {
   ],
   statusEntries: [],
 };
+
+/**
+ * `fixtures` stays a plain, shared constant rather than becoming a getter or
+ * a thunk — deliberately, even though the factory below exists for exactly
+ * the isolation problem a shared constant creates. Two reasons.
+ *
+ * First, ~90 Playwright specs import `fixtures` and pass it straight into
+ * `installMockBridge(page, fixtures)` (or spread it: `{ ...fixtures, … }`).
+ * Playwright already gives every one of those tests its own isolated copy
+ * for free: `page.addInitScript(buildMockBridge, fixtures)` serialises the
+ * argument across the Chromium IPC boundary (a structured clone, the same
+ * mechanism `postMessage` uses), so each page gets its own deep copy no
+ * matter how many tests read from the same module-level object. Turning
+ * `fixtures` into a getter or a call would touch every one of those 90
+ * files for a problem they do not have — exactly the rewrite Job 1 is
+ * required not to cause.
+ *
+ * Second, jsdom has no such boundary: `installMockBridgeJsdom` hands
+ * `buildMockBridge` the object it is given *directly* (see that function's
+ * own comment), so a jsdom test that mutates nested state through a write
+ * (`file-tree.bridge.test.tsx`'s create/rename/delete tests, for instance)
+ * mutates whatever object reference it was handed — the shared constant
+ * itself, if that is what was passed. That is the actual bug this factory
+ * fixes, and it only needs fixing at the point a jsdom test asks for a
+ * fixture object it intends to let a write touch. A test that only *reads*
+ * fixture data (the overwhelming majority) has nothing to isolate and can
+ * keep passing `fixtures` — or `{ ...fixtures, someKey: … }`, which already
+ * isolates every OTHER top-level key by never aliasing `fixtures` itself —
+ * exactly as it does today.
+ *
+ * So: `fixtures` remains the constant every existing call site already
+ * expects, and `makeFixtures` is the new, additive way to ask for a fresh,
+ * deeply-independent copy when a test's own writes need one.
+ */
+
+/**
+ * Returns a fresh, deeply independent `MockFixtures` tree — `fixtures` with
+ * `overrides` layered over its top level — safe for a jsdom test whose
+ * writes mutate nested state in place (`fsDirs`/`fsFiles`, `diagnostics`,
+ * `terminalSessions`, …; see `buildMockBridge`'s own write handlers).
+ *
+ * Cloned with the native `structuredClone`, not `JSON.parse(JSON.stringify(…))`:
+ * checked first, because that substitution is only safe when the tree holds
+ * no functions, `Date`s or `Uint8Array`s, none of which round-trip through
+ * JSON. `MockFixtures` (`mock-bridge.ts`) holds none of the three — every
+ * field is typed as a string, number, boolean, plain array/record, or
+ * `unknown` standing in for more of the same; the type's own comments
+ * describe binary payloads (`scrollback`, `sessionTranscripts`) as "written
+ * as a plain string here and encoded to the `Uint8Array` the contract
+ * requires on the way in" — i.e. encoding happens inside `buildMockBridge`,
+ * never in the fixture data itself. `structuredClone` is the right choice
+ * once that is confirmed: it is native (no dependency), it is a true deep
+ * clone (unlike a shallow `{ ...fixtures }` spread, which still aliases
+ * every nested object), and — unlike JSON's round-trip — it does not drop
+ * keys whose value is `undefined`, which several optional `MockFixtures`
+ * fields legitimately are.
+ *
+ * `overrides` is layered on with a single top-level spread, matching how
+ * every existing call site already composes a fixture
+ * (`{ ...fixtures, diagnostics: {...} }`) — a caller that wants to change
+ * one nested field of an otherwise-cloned tree passes that field's full
+ * replacement value, not a deep-merge patch.
+ */
+export function makeFixtures(overrides: Partial<MockFixtures> = {}): MockFixtures {
+  return { ...structuredClone(fixtures), ...overrides };
+}
