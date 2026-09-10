@@ -583,6 +583,8 @@ export type MidniteStudioBridge = {
     /**
      * Which enabled app is on top in the flyout (Theme C) — only one view is
      * ever attached-and-visible per window, mirroring `browser.activate`.
+     * `id: null` hides every app in the (main) window: the flyout closing
+     * with no other app taking its place.
      */
     activate: (req: In<typeof S.AppsActivateRequest>) => void;
   };

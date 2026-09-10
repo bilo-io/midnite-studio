@@ -118,18 +118,21 @@ export function disableApp(id: AppId): void {
 }
 
 /**
- * Which enabled app is on top in the flyout (Theme C) — mirrors
+ * Which enabled app is on top in `win`'s flyout (Theme C) — mirrors
  * `activateBrowserTab`'s "only one view is ever attached-and-visible PER
  * WINDOW" rule, scoped to this module's own map rather than `browser-service`'s.
- * A no-op for an app that was never enabled: the flyout always calls
- * `apps.enable` before `apps.activate`, but a stale click racing a disable
- * should not resurrect a view disable just tore down.
+ *
+ * `id: null` means "nothing is active" — hides every app tracked against
+ * `win` rather than resolving a target from `apps.get(id)` the way a plain
+ * `AppId` would. That is also why this takes `win` explicitly rather than
+ * deriving it from the activating app the way the old single-`AppId` form
+ * did: `apps-handlers.ts` always resolves `win` to `getMainWindow()` (the
+ * flyout is a main-window-only surface), and a `null` id has no app of its
+ * own to read a window out of.
  */
-export function activateApp(id: AppId): void {
-  const activating = apps.get(id);
-  if (!activating) return;
+export function activateApp(win: BrowserWindow, id: AppId | null): void {
   for (const [otherId, tracked] of apps) {
-    if (tracked.win === activating.win) tracked.view.setVisible(otherId === id);
+    if (tracked.win === win) tracked.view.setVisible(id !== null && otherId === id);
   }
 }
 

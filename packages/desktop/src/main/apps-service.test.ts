@@ -300,7 +300,7 @@ describe('apps-service activation (Theme C)', () => {
     const spotifyView = calls[0]?.[0] as FakeView;
     const youtubeView = calls[1]?.[0] as FakeView;
 
-    activateApp('youtube');
+    activateApp(win, 'youtube');
 
     expect(spotifyView.visible).toBe(false);
     expect(youtubeView.visible).toBe(true);
@@ -316,7 +316,7 @@ describe('apps-service activation (Theme C)', () => {
     const youtubeView = (popoutWin.contentView.addChildView as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as FakeView;
 
-    activateApp('spotify');
+    activateApp(mainWin, 'spotify');
 
     expect(spotifyView.visible).toBe(true);
     // youtube lives in a different window entirely — activating spotify must
@@ -324,8 +324,35 @@ describe('apps-service activation (Theme C)', () => {
     expect(youtubeView.visible).toBe(true);
   });
 
-  it('activating an app that was never enabled is a no-op', () => {
-    expect(() => activateApp('spotify')).not.toThrow();
+  it('a null id hides every app tracked against that window', () => {
+    const win = fakeWindow();
+    enableApp(win, 'spotify');
+    enableApp(win, 'youtube');
+    const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
+    const spotifyView = calls[0]?.[0] as FakeView;
+    const youtubeView = calls[1]?.[0] as FakeView;
+
+    activateApp(win, null);
+
+    expect(spotifyView.visible).toBe(false);
+    expect(youtubeView.visible).toBe(false);
+  });
+
+  it('a null id never touches a different window', () => {
+    const mainWin = fakeWindow();
+    const popoutWin = fakeWindow();
+    enableApp(popoutWin, 'youtube');
+    const youtubeView = (popoutWin.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[0] as FakeView;
+
+    activateApp(mainWin, null);
+
+    expect(youtubeView.visible).toBe(true);
+  });
+
+  it('activating on a window with no tracked apps is a no-op', () => {
+    const win = fakeWindow();
+    expect(() => activateApp(win, 'spotify')).not.toThrow();
   });
 });
 

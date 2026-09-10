@@ -9,12 +9,15 @@ import { handle } from './handle';
 /**
  * Registers the `mstudio:apps:*` channels over `apps-service.ts`.
  *
- * `enable` targets `getMainWindow()` explicitly rather than the sender —
- * unlike the browser's `create` (Phase 55's sender-resolution), these apps
- * have no per-window detach entry point yet (Theme D), so there is exactly
- * one place an app view can live today. `disable`/`setBounds` are one-way,
- * matching `browser.close`/`browser.setBounds`: a bounds push fires every
- * resize frame, and a round trip would only add latency.
+ * `enable` and `activate` both target `getMainWindow()` explicitly rather
+ * than the sender — unlike the browser's `create` (Phase 55's
+ * sender-resolution), an app is only ever enabled or activated from the
+ * flyout, which is a main-window-only surface (Theme C). `window.detach`
+ * (Theme D) is the one thing that moves an already-enabled app's view
+ * somewhere else, and it goes through `window-handlers.ts`'s own
+ * `reparentAppView` call, not through this file. `disable`/`setBounds` are
+ * one-way, matching `browser.close`/`browser.setBounds`: a bounds push fires
+ * every resize frame, and a round trip would only add latency.
  */
 export function registerAppsHandlers(getMainWindow: () => BrowserWindow | null): void {
   handle(
@@ -41,6 +44,8 @@ export function registerAppsHandlers(getMainWindow: () => BrowserWindow | null):
 
   ipcMain.on(CHANNELS.appsActivate, (_event, raw: unknown) => {
     const parsed = schemas.AppsActivateRequest.safeParse(raw);
-    if (parsed.success) activateApp(parsed.data.id);
+    if (!parsed.success) return;
+    const win = getMainWindow();
+    if (win) activateApp(win, parsed.data.id);
   });
 }
