@@ -838,6 +838,8 @@ export type UiState = {
   repoGroupMembership: Record<string, string>;
   /** Group ids that are collapsed (same closed-set inversion as repo folds). */
   collapsedRepoGroups: string[];
+  /** Repos marked as favourites, pinned to the top Favourites group in the sidebar. */
+  favouriteRepoIds: string[];
   /** Which of the graph styles is drawn. A preference, so it persists. */
   graphTheme: GraphThemeId;
   /**
@@ -977,6 +979,7 @@ export type UiState = {
   assignRepoToGroup: (repoId: string, groupId: string) => void;
   removeRepoFromGroup: (repoId: string) => void;
   toggleRepoGroup: (groupId: string) => void;
+  toggleFavouriteRepo: (repoId: string) => void;
   setGraphTheme: (theme: GraphThemeId) => void;
   setGraphDensity: (density: GraphDensity) => void;
   setGraphRefFilter: (refs: string[]) => void;
@@ -1526,6 +1529,7 @@ export type PersistedUi = Pick<
   | 'repoGroups'
   | 'repoGroupMembership'
   | 'collapsedRepoGroups'
+  | 'favouriteRepoIds'
   | 'updatesAutoCheck'
   | 'updateChannel'
   | 'onboardedAt'
@@ -1886,6 +1890,7 @@ export const useUiStore = create<UiState>()(
       repoGroups: [],
       repoGroupMembership: {},
       collapsedRepoGroups: [],
+      favouriteRepoIds: [],
       graphTheme: DEFAULT_GRAPH_THEME,
       graphDensity: DEFAULT_GRAPH_DENSITY,
       graphRefFilter: [],
@@ -2113,6 +2118,12 @@ export const useUiStore = create<UiState>()(
             ? state.collapsedRepoGroups.filter((id) => id !== groupId)
             : [...state.collapsedRepoGroups, groupId],
         })),
+      toggleFavouriteRepo: (repoId) =>
+        set((state) => ({
+          favouriteRepoIds: state.favouriteRepoIds.includes(repoId)
+            ? state.favouriteRepoIds.filter((id) => id !== repoId)
+            : [...state.favouriteRepoIds, repoId],
+        })),
       setGraphTheme: (graphTheme) => set({ graphTheme }),
       setGraphDensity: (graphDensity) => set({ graphDensity }),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),
@@ -2223,6 +2234,7 @@ export const useUiStore = create<UiState>()(
         repoGroups: state.repoGroups,
         repoGroupMembership: state.repoGroupMembership,
         collapsedRepoGroups: state.collapsedRepoGroups,
+        favouriteRepoIds: state.favouriteRepoIds,
         updatesAutoCheck: state.updatesAutoCheck,
         updateChannel: state.updateChannel,
         onboardedAt: state.onboardedAt,

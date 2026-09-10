@@ -384,6 +384,7 @@ test.describe('Setup and Update', () => {
       )
       .toEqual([
       'Add to group',
+      'Add to Favourites',
       'Set up this repo',
       'Update Midnite Studio',
       'Install',
@@ -391,7 +392,7 @@ test.describe('Setup and Update', () => {
       'Test',
       'Launch',
     ]);
-    // Two rules: one under "Add to group" as before, and the new one that
+    // Two rules: one under the group/favourite section as before, and the new one that
     // keeps the pair from reading as two more lifecycle verbs.
     await expect(menu.locator('hr')).toHaveCount(2);
   });
