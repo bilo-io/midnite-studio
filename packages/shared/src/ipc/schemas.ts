@@ -1930,6 +1930,8 @@ export const AppsSetBoundsRequest = z.object({
   id: AppIdSchema,
   bounds: BrowserBoundsSchema,
 });
+/** Which enabled app the flyout shows on top (Theme C) — mirrors `BrowserActivateRequest`. */
+export const AppsActivateRequest = z.object({ id: AppIdSchema });
 
 // --- watch -----------------------------------------------------------------
 

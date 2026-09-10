@@ -456,6 +456,11 @@ export const CHANNELS = {
   appsDisable: 'mstudio:apps:disable',
   /** Fires every resize frame, same as `browserSetBounds` — no round trip. */
   appsSetBounds: 'mstudio:apps:set-bounds',
+  /**
+   * Which enabled app is on top in the flyout — only one view is ever
+   * attached-and-visible per window, mirroring `browserActivate` (Theme C).
+   */
+  appsActivate: 'mstudio:apps:activate',
 
   // --- filesystem (Phase 16 reads, Phase 24 writes) -------------------------
   // Reads are scope: repo | claude-home, exactly as before. The four write
