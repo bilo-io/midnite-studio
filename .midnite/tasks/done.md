@@ -10673,3 +10673,30 @@ switch") were not written — the Settings ▸ MCP page itself does carry the ex
 the two doc updates do not exist on `main`. Recorded as the one open item rather than folded into
 a "done" claim; Phase 81 is 43/53 (81%), not 44/53 — the tracker reconciliation ticked the eight
 items that verify and left this one unticked precisely so the doc does not overclaim it.
+
+### Phase 81 — closed (2026-09-10)
+
+All six themes shipped: A (#319), B + D (#324), C + E (#323), F (#329). Final count **44/53**.
+
+The nine items left unticked are verification only — the overall `moon run :typecheck :lint :test`
+pass, the five per-theme "these tests exist and pass" bullets, the `bundle-report.mjs`
+measurement, the Playwright screenshot set, and the packaged-Mac human pass ("say *take me to the
+graph*, the view changes on the first try"). None is unshipped work, so the phase is `✅ DONE`
+rather than left `🔄 WIP` forever on items no agent can complete — the precedent Phase 79 (57/67,
+DONE) and `outstanding.md`'s own closing note establish.
+
+**Theme F's last item could not be executed as written, and that is worth recording.** It asked
+for a paragraph in `docs/INITIAL_PLAN.md`'s MCP section and an amendment to `outstanding.md`'s
+deferred-writes note. **Neither existed.** `INITIAL_PLAN.md` is the frozen MVP-era design doc — no
+MCP section, no mention of the companion at all, because MCP arrived in Phase 57 and the companion
+in Phases 79-81, both long after it was written; adding a Phase 81 paragraph would misrepresent it
+as a living document. And `outstanding.md` had no such note to amend. So the intent was delivered
+instead of the letter: `outstanding.md` gains a fresh section ("MCP repository writes are still
+deferred; UI steering is not") recording that Phase 57 Decision 5 stands, that Theme F shipped the
+consent model only at the smaller UI-steering scale, and that the open question is now narrower —
+whether switch-plus-tier is sufficient consent for a write where "one keystroke undoes it" stops
+being true. The Settings ▸ MCP copy half of the item *did* ship, in `mcp-page.tsx`'s hint text.
+
+This is the second stale-premise item found in this phase (the first being drifted `file:line`
+citations across Themes A-E). Both argue the same thing: audit a phase doc's claims against the
+tree before executing it, not after.

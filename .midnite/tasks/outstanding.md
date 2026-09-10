@@ -160,6 +160,34 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   `PATH`). Phase 21's `AgentDefinition` deliberately has no `mode` field for it to reuse — that
   field should be designed by the slice that actually needs it.
 
+## MCP repository writes are still deferred; UI steering is not (Phase 57 Decision 5, Phase 81 Theme F)
+
+[Phase 57](phases/phase-57-mcp-server.md) Decision 5 deferred `stage`/`commit`/`branch.create` as
+MCP tools pending "a consent model", on the grounds that *"an agent committed something while I
+wasn't looking is a trust failure that would poison the feature"*. **That deferral still stands.**
+
+[Phase 81](phases/phase-81-where-the-companion-can-take-you.md) Theme F did not lift it. It shipped
+the consent model at a deliberately smaller scale — three `ui.*` tools that steer the window
+(`ui.state`, `ui.navigate`, `ui.command`) behind a default-off `Settings ▸ MCP ▸ Let agents steer
+the UI` switch, with the command-tier check running in the renderer that owns `COMMAND_ACCESS`,
+`confirm`- and `never`-tier commands refused outright, nothing acting while the screen is locked,
+and a toast on every steer so it is never silent. Steering the view is a categorically smaller
+hazard than committing: nothing leaves the window, every step is visible, and one keystroke undoes
+it. `McpToolEntry.readOnly` widened from the literal `true` to `boolean` to carry the distinction.
+
+So the open question is narrower than it was, not answered: **whether the same switch-plus-tier
+shape is sufficient consent for a write that touches the repository**, where "one keystroke undoes
+it" stops being true.
+
+> **Note on Theme F's own last checklist item, which cannot be executed as written.** It asks that
+> *"`docs/INITIAL_PLAN.md`'s MCP section … gain one paragraph"* and that *"`outstanding.md`'s note
+> that MCP writes are deferred is amended"*. Neither exists. `INITIAL_PLAN.md` is the frozen
+> MVP-era design doc — it has no MCP section and does not mention the companion at all, because
+> MCP arrived in Phase 57 and the companion in Phases 79-81, both long after it was written; adding
+> a Phase 81 paragraph to it would misrepresent it as a living document. And `outstanding.md` never
+> carried a deferred-writes note to amend. This section is that note, written fresh. The Settings ▸
+> MCP page copy half of the item *was* delivered, in `mcp-page.tsx`'s hint text.
+
 ## xterm throws on unmount under the dev server
 
 `Viewport.syncScrollArea` reads `dimensions` off a renderer the terminal has already disposed,

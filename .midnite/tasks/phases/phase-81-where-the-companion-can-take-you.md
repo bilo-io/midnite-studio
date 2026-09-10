@@ -547,10 +547,20 @@ Finding 6 describes.
       resolves the frame; a reply that never comes times out at 5 s (fake timers). `tools.test.ts`
       — `ui.state` composes from a fake renderer answer. `ui-requests.test.tsx` — `confirm`-tier id
       → `refused`; locked → `refused`; direct → `runCommand` called once and a toast posted.
-- [ ] `docs/INITIAL_PLAN.md`'s MCP section and the Settings ▸ MCP page copy gain one paragraph each
+- [x] `docs/INITIAL_PLAN.md`'s MCP section and the Settings ▸ MCP page copy gain one paragraph each
       on the `ui.*` family and its switch; `.midnite/tasks/outstanding.md`'s note that MCP writes are
       deferred is amended to say *"repository writes are deferred; UI steering landed in Phase 81
-      behind its own switch"*.
+      behind its own switch"*. **Two of the three premises here were false, so the intent was
+      delivered rather than the letter.** The Settings ▸ MCP copy shipped with Theme F
+      (`mcp-page.tsx`'s hint text). But `docs/INITIAL_PLAN.md` has **no MCP section and no mention
+      of the companion at all** — it is the frozen MVP-era design doc, written before Phase 57
+      brought MCP and Phases 79-81 brought the companion, and bolting a Phase 81 paragraph onto it
+      would misrepresent it as a living document. And `outstanding.md` had **no deferred-writes
+      note to amend**. So `outstanding.md` gains that section written fresh ("MCP repository writes
+      are still deferred; UI steering is not"), recording that Phase 57 Decision 5 stands, that
+      Theme F shipped the consent model only at the smaller UI-steering scale, and that the open
+      question is now the narrower one — whether switch-plus-tier is sufficient consent for a write
+      where "one keystroke undoes it" stops being true.
 
 ## Files this phase touches
 
