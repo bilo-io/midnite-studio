@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { COMMIT_SHA, fixtures, PARENT_SHA } from '../../../test-support/fixtures';
 import { renderView } from '../../../test-support/render';
@@ -64,6 +64,28 @@ const open = () => {
 const diff = () => screen.getByTestId('diff-view');
 const lines = (kind: 'add' | 'del' | 'ctx') =>
   diff().querySelectorAll(`[data-line-kind="${kind}"]`);
+
+/*
+  Warm `CommitMessage`'s lazy chunk once, before any test's clock starts.
+
+  `commit-detail.tsx` `React.lazy`-loads it to keep `react-markdown` and
+  `remark-gfm` out of the entry chunk. Under vitest that dynamic import pays a
+  multi-second ESM transform for both libraries on first resolve — and Phase 82
+  Theme C wave 2 hit exactly that boundary: `findByTestId` with a 3s ceiling
+  passed when `app:test` ran alone and failed under a real
+  `moon run :typecheck :lint :test`, where every package's suite runs in
+  parallel. Raising the ceiling was the first attempt; it only moves the race.
+
+  Importing the module here resolves it into vitest's module cache, so
+  `React.lazy` settles from cache rather than from a transform. The tests still
+  `await` the element — that is correct, the render is genuinely async — they
+  just no longer await a compiler. No assertion is weakened: the real
+  `react-markdown` still renders, which is what "renders as markdown rather
+  than preformatted text" is about.
+*/
+beforeAll(async () => {
+  await import('../commit/commit-message');
+});
 
 beforeEach(() => {
   useUiStore.setState({ graphSelection: null, commitFileView: 'tree', diffShowOldGutter: false });
