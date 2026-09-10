@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { CompanionUiAction } from '@midnite/studio-shared';
+import type { CommandId, CompanionUiAction } from '@midnite/studio-shared';
 
 /**
  * Phase 81 Theme F — `resolveUiAction`, the renderer's answer to an agent's
@@ -38,7 +38,7 @@ const navigate = (over: Partial<Extract<CompanionUiAction, { kind: 'navigate' }>
   ...over,
 });
 
-const command = (id: string): CompanionUiAction => ({ kind: 'command', id });
+const command = (id: CommandId): CompanionUiAction => ({ kind: 'command', id });
 
 beforeEach(() => {
   mocks.focusRole.mockClear();

@@ -3464,6 +3464,16 @@ export function buildMockBridge(data: MockFixtures) {
           message: 'No local voice engine in this harness.',
         },
       }),
+      // Phase 81 Theme F's one new pair. No spec here drives a real
+      // main→renderer request (that round trip is main-only — this harness
+      // has no main process behind it at all), so `onUiRequest` follows
+      // `menu.onCommand`/`window.onWindowsChanged`'s own precedent: register
+      // nothing, subscribe to nothing, never fire. Present at all is what
+      // matters — `app.tsx`'s `useCompanionUiRequests()` calls this
+      // unconditionally on mount, and a bridge missing the method entirely
+      // would throw there rather than merely doing nothing.
+      onUiRequest: unsubscribe,
+      uiReply: noop,
     },
     mcp: {
       get: async () => ({
