@@ -158,44 +158,44 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       the 441s straggler should land near 300s once the no-op third of its budget is gone.
 - [ ] `git status` after a local `pnpm e2e` run touches nothing under `docs/screenshots/`.
 
-### B — A unit layer worth writing in (M) — *the enabler; nothing after this is expensive*
+### B — A unit layer worth writing in (M) — *the enabler; nothing after this is expensive* ✅ DONE (PR #322, 2026-09-10)
 
-- [ ] Create `packages/app/test-support/`, added to
+- [x] Create `packages/app/test-support/`, added to
       [`tsconfig.json`](../../../packages/app/tsconfig.json)'s `include` so it is typechecked
       for the first time.
-- [ ] Move `mock-bridge.ts` and `fixtures.ts` from `e2e/` into `test-support/`. Extract the
+- [x] Move `mock-bridge.ts` and `fixtures.ts` from `e2e/` into `test-support/`. Extract the
       `addInitScript` closure (Finding 5, `mock-bridge.ts:822`) into an exported top-level
       `buildMockBridge(fixtures: MockFixtures)`. `installMockBridge` becomes
       `page.addInitScript(buildMockBridge, fixtures)`; a jsdom test gets
       `window.midniteStudio = buildMockBridge(fixtures)` directly.
-- [ ] Turn the closure's two init-script side effects — pinning `navigator.platform =
+- [x] Turn the closure's two init-script side effects — pinning `navigator.platform =
       'MacIntel'` and seeding the onboarding localStorage key — into two ordinary statements a
       jsdom `beforeEach` can call directly, rather than leaving them trapped inside the
       serialised function body.
-- [ ] Add `test-support/render.tsx`: `renderView(ui, { fixtures, uiState, queryClient })`
+- [x] Add `test-support/render.tsx`: `renderView(ui, { fixtures, uiState, queryClient })`
       wrapping `QueryClientProvider` + `DialogHost` + `ThemeProvider`, to replace the 62
       hand-rolled `QueryClientProvider` wrappers as later waves touch those files.
-- [ ] Promote the duplicated per-file stubs into `src/vitest-setup.ts`: `ResizeObserver`,
+- [x] Promote the duplicated per-file stubs into `src/vitest-setup.ts`: `ResizeObserver`,
       `matchMedia`, `IntersectionObserver`, `HTMLCanvasElement.prototype.getContext` — deleting
       the 15 + 11 + 2 + 4 local copies as Theme C's waves touch each file, not all at once in
       this theme.
-- [ ] Add `test-support/module-mocks.ts`: shared `vi.mock` factories for `@monaco-editor/react`
+- [x] Add `test-support/module-mocks.ts`: shared `vi.mock` factories for `@monaco-editor/react`
       and `@xterm/*`, generalising the stubs already hand-written in `code-editor.test.tsx` and
       `transcript-view.test.tsx`.
-- [ ] Add `@testing-library/user-event` as a dependency — needed for behaviour parity with
+- [x] Add `@testing-library/user-event` as a dependency — needed for behaviour parity with
       Playwright's keyboard/pointer interaction; `fireEvent` alone cannot carry the palette or
       menu specs' migration.
-- [ ] Do **not** add `@testing-library/jest-dom` — the house style is plain `.textContent`
+- [x] Do **not** add `@testing-library/jest-dom` — the house style is plain `.textContent`
       assertions (Finding 6) and the migration should not fork it.
-- [ ] Leave existing per-feature `__fixtures__` directories as they are; passing suites are not
+- [x] Leave existing per-feature `__fixtures__` directories as they are; passing suites are not
       rewritten onto the new shared fixture just because it now exists.
-- [ ] **Risk gate for this theme**: `addInitScript` serialises by `toString()`, so if the TS
+- [x] **Risk gate for this theme**: `addInitScript` serialises by `toString()`, so if the TS
       build transform ever hoists a helper `buildMockBridge` closes over to module scope, the
       page injection breaks silently. It compiles clean under today's transform, so the risk is
       low, but this PR must run the **full** e2e suite green against the extracted
       `buildMockBridge` before it lands — not a single shard, the whole suite — because this is
       the one theme every later migration wave depends on.
-- [ ] Confirm the fake is typechecked for the first time: `moon run app:typecheck` covers
+- [x] Confirm the fake is typechecked for the first time: `moon run app:typecheck` covers
       `test-support/**` and reports zero pre-existing type errors suppressed by its previous
       exclusion from `include`.
 

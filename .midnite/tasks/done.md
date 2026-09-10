@@ -10456,3 +10456,39 @@ is about to make worse by adding ~400 tests to it. **Theme H was added to this p
 response**, to shard the unit suite the way Phase 56 sharded Playwright (`vitest --shard`
 exists on the pinned 3.2.7). Recorded per the Phase 56 Theme C/D precedent for measured
 non-adoptions.
+
+### Phase 82 Theme B — A unit layer worth writing in (PR #322, 2026-09-10)
+
+`packages/app/test-support/` now holds `mock-bridge.ts`, `fixtures.ts`, `render.tsx` and
+`module-mocks.ts`, and is in `tsconfig.json`'s `include` — so the 4,000-line bridge fake is
+typechecked for the first time. The `addInitScript` closure is an exported top-level
+`buildMockBridge(fixtures)` that still closes over nothing, so Playwright keeps
+`page.addInitScript(buildMockBridge, fixtures)` while a jsdom test gets
+`window.midniteStudio = buildMockBridge(fixtures)`; its two side effects are exported as
+`pinPlatform` and `seedOnboardedProfile`. Global `ResizeObserver`/`matchMedia`/
+`IntersectionObserver`/`getContext` stubs moved into `vitest-setup.ts`, overridable.
+`@testing-library/user-event` added; `jest-dom` deliberately not.
+
+The risk gate passed: all 8 e2e shards green on clean CI runners against the extracted
+builder, proving the `toString()` serialisation survived the extraction.
+
+**Merge-order note worth keeping.** This PR rewrites the bridge import in 93 e2e spec files, so
+it was deliberately merged *last*, after #323 and #324. Its rebase then surfaced
+`e2e/mock-bridge.ts` as modified-by-main / deleted-by-this-branch: Phase 81 Theme B had just
+added `focusRoleCalls` tracking to the file this PR moves. Accepting the delete — what a
+`--theirs` resolution does — would have silently dropped that tracking and turned Phase 81's
+new detached-window e2e test red on `main` for no visible reason. The three hunks were ported
+into `test-support/mock-bridge.ts` by hand.
+
+### Phase 81 Themes B + D — Navigation, detached-window focus, two more skills (PR #324, 2026-09-10)
+
+Themes B and D landed but shipped with their checkboxes unticked, because #323 (Themes C, E)
+was rewriting the same markdown block and ticking both at once guaranteed a conflict. Audited
+against the merged tree afterwards and ticked: all 7 Theme B items and all 6 Theme D items
+verify.
+
+The rebase over #323 is the part worth recording: **each theme had stubbed the arm the other
+implemented.** In `handoff.ts`, Theme C's `act()` had `case 'navigate'` falling through to
+"I can't do that yet." with real `run`/`confirm`/`help` below it; Theme B had the real
+`navigate` and stubs for those three. Taking either side wholesale would have compiled, passed
+most tests, and silently reverted one theme's whole feature.

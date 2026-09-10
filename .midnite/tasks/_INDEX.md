@@ -8,8 +8,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 4/65 | `█░░░░░░░░░` | 6% | — | A B C D F G H |
-| [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 22/53 | `████░░░░░░` | 42% | B C D E | F |
+| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 15/65 | `██░░░░░░░░` | 23% | — | A C D F G H |
+| [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 35/53 | `███████░░░` | 66% | — | F |
 | [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 24/31 | `████████░░` | 77% | — | — |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | ✅ DONE | — | 57/67 | `█████████░` | 85% | — | — |
 | [78 · Whose hands were on the keyboard](phases/phase-78-whose-hands-were-on-the-keyboard.md) | ◻ TODO | — | 0/32 | `░░░░░░░░░░` | 0% | — | A B C D E F |
@@ -193,7 +193,7 @@ written testing convention with a ratchet script, and a shard re-tune once the s
 Target: ~4 min total CI wall clock, down from 8m31s.*
 
 - ◻ **A** — Stop paying for no-ops: gate the 11 ungated `*-shots` files, extend `testIgnore` to drop unskippable screenshot specs, re-measure per-shard times
-- ◻ **B** — A unit layer worth writing in: `test-support/`, `buildMockBridge` extracted from the `addInitScript` closure, `renderView`, promoted global stubs, `@testing-library/user-event`
+- ✅ **B** — A unit layer worth writing in: `test-support/`, `buildMockBridge` extracted from the `addInitScript` closure, `renderView`, promoted global stubs, `@testing-library/user-event`
 - ◻ **C** — Migration waves: five PRs moving ~380 category-A tests to vitest, one e2e smoke kept per view, the B/C-category set staying in Playwright named explicitly
 - ◻ **D** — A pixel-diff layer: `playwright.visual.config.ts`, determinism fixes for fonts/motion/RNG, locator-cropped `toHaveScreenshot({ maxDiffPixelRatio: 0.002 })`, a ~100-baseline/3 MB cap, Linux-only `snapshotPathTemplate`
 - ✅ **E** — Split the gate: measure per-package first, then `gate-node` (ubuntu, 1×) and `gate-native` (macOS, 10×, git-engine + desktop only) ([PR #321](https://github.com/bilo-io/midnite-studio/pull/321)): measured 6m02s→5m41s — the win is billing (~60→~38 min-equiv), not wall clock; `gate-node`'s 261s test step vs the old 264s is what Theme H exists for

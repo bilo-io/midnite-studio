@@ -274,7 +274,7 @@ theme is reachable from the thread yet; B, C and D wire it.
 "Take me to the graph." "Open settings, the companion page." "Show me issue 212." And when the
 graph is in its own window: bring that window forward, don't open a second graph.
 
-- [ ] `act()`'s `navigate` arm in [`handoff.ts`](../../../packages/app/src/features/companion/handoff.ts)
+- [x] `act()`'s `navigate` arm in [`handoff.ts`](../../../packages/app/src/features/companion/handoff.ts)
       calls a new `deps.navigate(intent)` and speaks the outcome. `HandoffDeps.navigate` is
       assembled in `runtime.ts` from a pure `resolveNavigation(intent, state)` in
       [`features/companion/navigate.ts`](../../../packages/app/src/features/companion/navigate.ts):
@@ -291,7 +291,7 @@ graph is in its own window: bring that window forward, don't open a second graph
     → `focus-window` with that panel role; `windowRole !== 'main'` → `relay`; `locked` → `refused`
     (the Phase 46 lock screen is `screensaverLocked`, `ui-store.ts:1454`); otherwise `view`.
     Pure-function tests, one per branch.
-- [ ] Executing a `view` plan: `setActiveView(view)`; then `setSettingsPage(page)` when present
+- [x] Executing a `view` plan: `setActiveView(view)`; then `setSettingsPage(page)` when present
       (`providers.ts:171-173` is the exact two-call sequence); then
       `useIssuesStore.getState().selectIssue(repoId, issue)` ([`issues-store.ts:18`](../../../packages/app/src/store/issues-store.ts))
       when `issue` is present and a repo is selected. A `focus-window` plan calls
@@ -306,18 +306,18 @@ graph is in its own window: bring that window forward, don't open a second graph
     companion says *"There's an unsaved file — the dialog is asking what to do with it."* and
     touches nothing (the guardrail above; the e2e seeds a dirty buffer and asserts the dialog is
     still up after the turn posts).
-- [ ] Add `window.detachCompanion` to `COMMANDS` ([`keybindings.ts:374-378`](../../../packages/shared/src/keybindings.ts)),
+- [x] Add `window.detachCompanion` to `COMMANDS` ([`keybindings.ts:374-378`](../../../packages/shared/src/keybindings.ts)),
       group `window`, chord-free, beside the four existing `window.detach*` rows, wired in
       `use-command-handlers.ts` exactly as `window.detachFab` is. The research pass found it is the
       one panel role with no detach command — the companion's own header button is its only path —
       and a total `COMMAND_ACCESS` table is the moment to close that gap (it is `direct`, like its
       siblings). `PALETTE_SAFE` gains it beside `window.detachBrowser` with the same comment.
-- [ ] Spoken outcomes, through `say`: view → *"Here's the {label}."*; page → *"Settings — {page
+- [x] Spoken outcomes, through `say`: view → *"Here's the {label}."*; page → *"Settings — {page
       label}."*; focus → *"The {title} is in its own window — bringing it forward."*; refused-locked
       → *"The screen is locked — unlock it first."*; unknown issue repo → *"Open a repository and I'll
       find issue {n}."* Speech and action happen together — the view changes on the first word, not
       after the sentence, because a navigation that waits for TTS feels broken.
-- [ ] **The popout case.** Add `'companion'` to `WindowRelayMessage.kind`
+- [x] **The popout case.** Add `'companion'` to `WindowRelayMessage.kind`
       ([`schemas.ts:1813`](../../../packages/shared/src/ipc/schemas.ts)) with a payload of
       `{ action: CompanionIntent, replyTo: string } | { result: { ok: boolean; say: string }, replyTo: string }`.
       A `relay` plan sends the intent over `bridge().window.relay(…)` ([`broadcast-sync.ts`](../../../packages/app/src/services/broadcast-sync.ts)
@@ -329,13 +329,13 @@ graph is in its own window: bring that window forward, don't open a second graph
     intent calls `setActiveView` on *this* store and relays a `result`; a `result` message with a
     matching `replyTo` resolves the popout's pending promise. A popout with `windowRole !== 'main'`
     receiving an `action` ignores it (only main executes).
-- [ ] **A URL is the one target that is not a view.** `{ kind: 'navigate', url }` → if
+- [x] **A URL is the one target that is not a view.** `{ kind: 'navigate', url }` → if
       `browserDetached`, `focusRole({ role: 'browser' })` then `useBrowserStore.getState().openTab(url)`
       ([`browser-store.ts:258`](../../../packages/app/src/store/browser-store.ts) — the store is
       synced across windows by the `browser` relay kind already); else `setBrowserOpen(true)` then
       `openTab(url)`. Say *"Opening {host}."* — the host, never the URL, per Phase 80 Theme A's
       spoken-form rule.
-- [ ] e2e in [`e2e/companion-panel.spec.ts`](../../../packages/app/e2e/companion-panel.spec.ts):
+- [x] e2e in [`e2e/companion-panel.spec.ts`](../../../packages/app/e2e/companion-panel.spec.ts):
       type "take me to the graph" → the Graph view is the active one (the same assertion the
       existing view-navigation specs make) and the thread's last companion turn contains "Commit
       Graph"; type "open settings, companion" → the settings view with the companion page
@@ -413,7 +413,7 @@ and says what it did; `confirm` says what it *would* do and waits; `never` names
 Capability 4, mostly already built (Finding 7). This theme closes the two gaps and writes down
 the two exclusions as types.
 
-- [ ] Add `'triage'` to `AgentCommandId` ([`ui-store.ts:1469`](../../../packages/app/src/store/ui-store.ts)),
+- [x] Add `'triage'` to `AgentCommandId` ([`ui-store.ts:1469`](../../../packages/app/src/store/ui-store.ts)),
       `DEFAULT_AGENT_SKILLS.triage = '/midnite-triage'` (`:1512`), and an `AGENT_COMMANDS` entry in
       [`agent-commands.ts`](../../../packages/app/src/features/agent/agent-commands.ts) — category
       `reviews`, label "Triage", icon `LuRadar` (already imported there), hint *"Read-only table of
@@ -421,28 +421,28 @@ the two exclusions as types.
       reads `agentSkills[id] ?? DEFAULT_AGENT_SKILLS[id]`, so a persisted `agentSkills` without the
       key resolves to the default. The Agent settings page renders the new field for free
       (`AGENT_COMMANDS` is its form). The midnite menu gains the row under Reviews for free too.
-- [ ] Add `'triage'` and `'releasePrep'` to `COMPANION_COMMAND_IDS`
+- [x] Add `'triage'` and `'releasePrep'` to `COMPANION_COMMAND_IDS`
       ([`companion.ts:1691`](../../../packages/shared/src/companion.ts)); update the docblock's
       *"ten of the roster's twenty-one"* to *"twelve of twenty-two"* and its reasoning: `loop*` and
       `releaseComplete` stay out (unattended timer; tags and pushes). `handoff.ts`'s compile-time
       subset proof and the `DEFAULT_AGENT_SKILLS` key test cover both automatically.
-- [ ] Add `COMPANION_NEVER_AUTOSEND: readonly CompanionCommandId[] = ['releasePrep']` beside it.
+- [x] Add `COMPANION_NEVER_AUTOSEND: readonly CompanionCommandId[] = ['releasePrep']` beside it.
       `startCommand()` in `handoff.ts` computes `autoSend = deps.autoSendAllowed() && !COMPANION_NEVER_AUTOSEND.includes(intent.id)`
       and, when the flag suppressed a send the user's settings would have allowed, says *"I've typed
       {command} — this one I always leave for you to send."* A release branch is the one skill whose
       typed-not-sent Return should never be the companion's.
-- [ ] Grammar verbs in `COMPANION_VERBS` ([`companion.ts:1713-1729`](../../../packages/shared/src/companion.ts)):
+- [x] Grammar verbs in `COMPANION_VERBS` ([`companion.ts:1713-1729`](../../../packages/shared/src/companion.ts)):
       `triage · triage the board · what's open` → `triage`; `release prep · prepare a release · prep a
       release · cut a release` → `releasePrep`. Spoken names in `COMMAND_SPOKEN_NAMES`
       ([`handoff.ts:491-502`](../../../packages/app/src/features/companion/handoff.ts)) for both,
       so the confirmation sentence says "triage" and "release prep", not the id. Negatives: "release
       the hounds" is `freeform`; `companion.test.ts:944`'s existing assertion that `releaseComplete`
       is rejected stays green.
-- [ ] `midnite-setup` is **not** added and the reason is recorded in the `COMPANION_COMMAND_IDS`
+- [x] `midnite-setup` is **not** added and the reason is recorded in the `COMPANION_COMMAND_IDS`
       docblock: it bootstraps a *different* repository through ~10 interactive questions and hands
       over no skill string — Phase 49 gave it a dialog, not an `AgentCommandId`, and the companion
       has nothing to type.
-- [ ] Settings ▸ Companion gains no new switch for this theme. The Agent page's new Triage field is
+- [x] Settings ▸ Companion gains no new switch for this theme. The Agent page's new Triage field is
       the only UI.
 
 ### E — The router learns the rest of the vocabulary (S)
