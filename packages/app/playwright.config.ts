@@ -59,16 +59,18 @@ export default defineConfig({
     every one of them; this exclusion only stops the *declared-but-skipped*
     tests from being scheduled into a shard at all when that flag is unset.
 
-    Phase 82 Theme D adds `**/visual/**` unconditionally (not gated on
-    `MSTUDIO_SHOTS`): `e2e/visual/` is a THIRD suite with its own config
-    (`playwright.visual.config.ts`, `moon run app:visual`) and its own
-    `toHaveScreenshot` baselines, not a shots-style ad-hoc capture. Without
-    this exclusion the functional suite would also pick up every visual spec
-    under this config — which has no `snapshotPathTemplate`, no
-    `maxDiffPixelRatio`, and none of the baselines committed under
-    `e2e/visual/__screenshots__/` — and either fail outright (no matching
-    snapshot) or, worse, silently write a second, wrongly-configured set of
-    screenshots nobody asked for.
+    Phase 82 Theme D adds a third glob, unconditionally (not gated on
+    `MSTUDIO_SHOTS`, spelled out only in the value below for the same
+    close-the-comment reason as the `-shots.spec.ts` one above — this one
+    matches every path under the `e2e/visual` directory): that directory is a
+    THIRD suite with its own config (`playwright.visual.config.ts`, `moon run
+    app:visual`) and its own `toHaveScreenshot` baselines, not a shots-style
+    ad-hoc capture. Without this exclusion the functional suite would also
+    pick up every visual spec under this config — which has no
+    `snapshotPathTemplate`, no `maxDiffPixelRatio`, and none of the baselines
+    committed under that directory's own screenshots folder — and either fail
+    outright (no matching snapshot) or, worse, silently write a second,
+    wrongly-configured set of screenshots nobody asked for.
   */
   testIgnore: process.env.MSTUDIO_SHOTS
     ? ['**/perf/**', '**/visual/**']
