@@ -10803,3 +10803,33 @@ intermittently on CI forever; the isolation pass and a real timing defect are in
 from the outside, and only running it under the conditions that broke it tells them apart.
 
 `diff-view`'s virtualised rows were never implicated — #328's firing `ResizeObserver` handled them.
+
+### Phase 82 Theme C wave 3 — Actions, optimizer, review writes (PR #334, 2026-09-10)
+
+`actions-view` 15→2 · `optimizer` 14→2 · `review-writes` 13→1. E2e declared 619→**582**;
+`app:test` 3,884→**3,922**. The browser suite is now **582 against the 976 this phase started
+from — down 40%** — with the logic it carried running in a tier roughly 200x faster per test.
+
+Stragglers left in Playwright for real reasons, as in waves 1-2: `actions-view`'s two
+sidebar-row→view-switch flows (a genuine cross-component concern, not a unit of `ActionsView`)
+and `optimizer`'s two feature-gate tests (rail-link visibility and `app.tsx`'s redirect, both
+needing the outer routing shell). `review-writes` kept one browser smoke test — a full write
+round trip through a real Chromium render — while all 13 of its original assertions are *also*
+proven in jsdom.
+
+**The wave's most useful output is a negative finding, delivered with a reason.** Wave 2's
+`React.lazy` trap did **not** apply here, and the agent established why rather than simply not
+hitting it: that trap was `CommitMessage`'s own *internal* `lazy()` boundary, and none of these
+three views has one — the outer view registry lazy-loads the *view*, which mounting the component
+directly bypasses, and `PrDetail`'s `react-markdown` is a plain static import. That is what tells
+waves 4-5 where to look: an internal lazy boundary, not merely a heavy dependency.
+
+**A new porting hazard, recorded as a wave-4/5 note.** Testing Library's `getByRole`/`getByText`
+default to a whole-string match where Playwright's default is substring, so an assertion ported
+verbatim fails with "unable to find an element" — which reads as a render or timing fault and is
+actually a matcher mismatch. Several of wave 3's ported assertions needed a regex or an
+exact-string tweak. Check the matcher before debugging the render.
+
+One self-correction worth noting: the wave initially deleted `review-writes.spec.ts` outright,
+then restored it to a single smoke test on the theme's own "keep exactly one e2e smoke test per
+view" rule, and fixed the bridge test's docstring to match.

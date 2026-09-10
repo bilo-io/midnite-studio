@@ -251,7 +251,13 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       again**: `palette`, `companion-thread` and several diff/editor surfaces sit behind lazy
       boundaries. Write the pattern into `test-support/` guidance so it is applied rather than
       rediscovered per wave.
-- [ ] Wave 3: `actions-view` (13) · `optimizer` (13) · `review-writes` (12) — ~38 tests.
+- [x] Wave 3 (PR #334): `actions-view` 15→2 · `optimizer` 14→2 · `review-writes` 13→1. e2e declared 619→**582**, `app:test` 3,884→**3,922**. The lazy-chunk warm-up was checked and **not needed**, with a reason: wave 2's trap was `CommitMessage`'s own internal `lazy()` boundary, and none of these three views has one — the outer view registry lazy-loads the *view*, which mounting the component directly bypasses, and `PrDetail`'s `react-markdown` is a plain static import.
+- [ ] **A porting hazard wave 3 found, to expect in every remaining wave.** Testing Library's
+      `getByRole`/`getByText` default to a **whole-string** match; Playwright's default is
+      **substring**. So an assertion ported verbatim from an e2e spec fails with "unable to find
+      an element" — which reads as a render or timing problem and is actually a matcher
+      mismatch. Several of wave 3's ported assertions needed a regex or an exact-string tweak.
+      Check the matcher before debugging the render.
 - [ ] Wave 4: `palette` (13) · `repos-workbench` (13) · `companion-panel` (11) · `nav-shell` (8)
       — ~45 tests.
 - [ ] Wave 5: the tail of ~100 smaller specs that sampled 100% category A — ~200 tests.
