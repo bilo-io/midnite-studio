@@ -7,11 +7,12 @@ import { installMockBridge, type MockFixtures } from '../test-support/mock-bridg
  * Theme H's reverted item (Phase 26 refinement x1): "Fetch to compare" —
  * a fork PR's base blob is not necessarily in the local object store, and
  * before this the image diff would silently degrade to the plain binary
- * treatment with no explanation. This also exercises the prerequisite fix
- * this item needed: `pr-detail.tsx` never passed `repoId`/`baseSha` down to
- * `<PrFiles>` at all, so `imageDiffSources` could never fire for a PR file —
- * the whole PR image-diff path (Theme H's earlier, already-shipped half) was
- * unreachable until that was corrected alongside this button.
+ * treatment with no explanation.
+ *
+ * Phase 82 Theme C wave 5 moved both assertions here to
+ * `src/features/reviews/pr-fetch-to-compare.bridge.test.tsx`, mounting
+ * `PrDetail` directly. One smoke test stays here, proving the Reviews rail
+ * and PR row actually reach the Files tab through a real page load.
  */
 
 const MAIN = '/tmp/midnite-studio';
@@ -110,27 +111,4 @@ test('a present base blob renders the image diff, not the button', async ({ page
 
   await expect(page.getByTestId('image-diff')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Fetch to compare' })).toHaveCount(0);
-});
-
-test('a missing base blob offers Fetch to compare instead of a silent binary fallback', async ({
-  page,
-}) => {
-  await openPullFiles(page, false);
-
-  const button = page.getByRole('button', { name: 'Fetch to compare' });
-  await expect(button).toBeVisible();
-  // Nothing fetches before the click — Phase 17's rule, restated by this
-  // theme's own reverted item.
-  const before = await page.evaluate(
-    () => (window as unknown as { __mstudioOps: unknown[] }).__mstudioOps.length,
-  );
-  expect(before).toBe(0);
-
-  await button.click();
-
-  const ops = await page.evaluate(
-    () => (window as unknown as { __mstudioOps: { op: string; args: unknown }[] }).__mstudioOps,
-  );
-  expect(ops).toHaveLength(1);
-  expect(ops[0]?.op).toBe('fetch');
 });
