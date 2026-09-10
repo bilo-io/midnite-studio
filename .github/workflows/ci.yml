@@ -157,6 +157,12 @@ jobs:
   # is a reasonable approximation for a jsdom suite with no one dominant file
   # the way Playwright's `fab-loops.spec.ts` is (see the `e2e` job's own
   # comment).
+  #
+  # Confirmed by this PR's own follow-up run (34455067085): three of the four
+  # shards started immediately and measured 121s/135s/125s — within a few
+  # seconds of the 128s the model above predicts for N=4. The fourth queued
+  # ~108s late (see the `e2e` job's concurrency note) but still finished in
+  # 119s of its own runtime once it started, consistent with the other three.
   gate-node-app-test:
     runs-on: ubuntu-24.04
     strategy:
@@ -394,28 +400,42 @@ jobs:
   # is generous headroom for retries while still failing fast on a real hang.
   #
   # Phase 82 Theme G — re-measured at the suite's current (post Theme A/C) size
-  # before touching this number. Declared tests dropped 976 → 655 (Theme A),
-  # but run 34453964938 (this PR, still 8 shards at the time) shows the
-  # worst-case shard's content essentially UNCHANGED — 330s against the old
-  # baseline's 332s — because Theme A's cut was almost entirely self-skipping
-  # `*-shots` specs that cost ~0s, not real work: total real content across all
-  # 8 shards only dropped 2,308s → 2,158s (6.5%). Per-shard content: 330 / 298 /
-  # 278 / 276 / 265 / 247 / 243 / 221 (=2,158s), average 270s; per-shard fixed
-  # overhead (checkout + setup + install, no source change from Theme A/C)
-  # measured at ~70–90s across shards.
+  # before touching this number, and the numbers say **do not change it yet.**
+  # Declared tests dropped 976 → 655 (Theme A), but run 34453964938 (this PR,
+  # 8 shards) shows the worst-case shard's content essentially UNCHANGED —
+  # 330s against the old baseline's 332s — because Theme A's cut was almost
+  # entirely self-skipping `*-shots` specs that cost ~0s, not real work: total
+  # real content across all 8 shards only dropped 2,308s → 2,158s (6.5%).
+  # Per-shard content: 330 / 298 / 278 / 276 / 265 / 247 / 243 / 221 (=2,158s),
+  # average 270s; per-shard fixed overhead (checkout + setup + install)
+  # measured at ~70–90s.
   #
   # The worst shard is worst for a specific, identifiable reason:
   # `fab-loops.spec.ts` alone contributes 45 of that shard's 82 tests (55%) —
   # by far the largest single file in the suite (next is `terminal.spec.ts` at
   # 39; playwright's `--shard` assigns whole files, never splits one across
-  # shards). Fewer shards would only concentrate more filler around that same
-  # file and raise the floor further — the opposite of what Theme G is for —
-  # so this theme did not test a reduction. It tested whether MORE shards let
-  # the bin-packer give `fab-loops.spec.ts` less company: `shard: [1..12]`
-  # below, measured in this same PR's own follow-up run. See the numbers this
-  # produced, recorded in the paragraph that replaces this one once they
-  # landed — a measured non-adoption is exactly as valid a result as adoption
-  # (Phase 56 Theme C's `workers: 2` precedent).
+  # shards).
+  #
+  # **Tried 12 shards (run 34455067085) and measured a non-adoption.** Content
+  # did drop: 190 / 183 / 184 / 236 / 145 / 236 / 185 / 170 / 137 / 202 / 165 /
+  # 198 (=2,231s, work conserved), worst-case 330s → 236s. But the trade is
+  # poor at this suite size: that 12-shard run's worst e2e job (316s) against
+  # the baseline's 397s is 81s of wall clock bought for four extra jobs — the
+  # workflow's aggregate runner time rose from ~55 to ~68.8 minutes, roughly
+  # 13:1 seconds-of-runner-time per second-of-wall-clock saved. 12 e2e shards
+  # alongside Theme H's 4 `gate-node-app-test` shards also put ~19 ubuntu jobs
+  # in flight at once — 4 of the 12 e2e shards and 1 of the 4 app-test shards
+  # were visibly queued 60-100s late in that run, eating into the win.
+  #
+  # More decisively: this theme is specified to run *after* Theme C's
+  # migration waves land, not at 655 declared tests — its own checklist reads
+  # "with ~245 e2e tests remaining after Theme C, re-measure ... rather than
+  # inheriting the existing 8-shard split." Waves 2-5 will remove ~300 more
+  # tests, shrinking every shard for free; re-measuring now, mid-migration,
+  # tells us nothing about the right count once the suite reaches its
+  # post-Theme-C size. So: **8 shards, unchanged**, on the Phase 56 Theme C
+  # `workers: 2` precedent that a measured non-adoption is a valid result of
+  # this kind of theme. Re-run this measurement once Theme C's waves land.
   e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -424,7 +444,7 @@ jobs:
       # three quarters of a broken suite behind whichever shard happened to fail.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v4
 
@@ -482,8 +502,8 @@ jobs:
       # everything except a named `KNOWN_RED` list of files still being repaired;
       # Theme H emptied that list and retired the ratchet, so CI now blocks on
       # the same suite a human runs locally.
-      - name: E2E (shard ${{ matrix.shard }}/12)
-        run: pnpm exec moon run app:e2e -- --shard=${{ matrix.shard }}/12
+      - name: E2E (shard ${{ matrix.shard }}/8)
+        run: pnpm exec moon run app:e2e -- --shard=${{ matrix.shard }}/8
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
