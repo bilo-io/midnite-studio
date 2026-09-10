@@ -135,7 +135,7 @@ describe('TitleBarNav Breadcrumbs', () => {
       render(withProviders(<TitleBarNav />, client));
       fireEvent.click(screen.getByText('repo-0'));
 
-      expect(screen.queryByPlaceholderText('Filter repos…')).toBeNull();
+      expect(screen.queryByPlaceholderText('Find a repo…')).toBeNull();
       expect(screen.getByRole('menuitem', { name: 'repo-1' })).toBeDefined();
       expect(screen.queryByRole('menuitem', { name: 'repo-0' })).toBeNull();
     });
@@ -153,7 +153,7 @@ describe('TitleBarNav Breadcrumbs', () => {
       render(withProviders(<TitleBarNav />, client));
       fireEvent.click(screen.getByText('repo-0'));
 
-      const box = screen.getByPlaceholderText('Filter repos…');
+      const box = screen.getByPlaceholderText('Find a repo…');
       expect(document.activeElement).toBe(box);
 
       fireEvent.change(box, { target: { value: 'repo-3' } });

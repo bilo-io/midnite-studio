@@ -193,7 +193,12 @@ function useBreadcrumbs(): Crumb[] {
                     onSelect: () => useUiStore.getState().selectRepo(other.id),
                   }),
                 ),
-                { filterable: true, searchPlaceholder: 'Filter repos…' },
+                // `repos-panel.tsx`'s sidebar has its own "Filter repos…"
+                // search box, filtering the tree already on screen — a
+                // different job from this one, which finds a repo to switch
+                // *to*, so it gets its own wording rather than reusing that
+                // placeholder verbatim.
+                { filterable: true, searchPlaceholder: 'Find a repo…' },
               )
           : undefined,
     });
