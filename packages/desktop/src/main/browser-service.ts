@@ -252,11 +252,21 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
 
   // `target="_blank"`/`window.open` never spawn an unmanaged BrowserWindow.
   // Denied at the engine, then handed back to the renderer as "open this as
-  // a new tab" — which is what a browser user expects a middle-click to do,
-  // and keeps every view this app owns inside the tab model.
-  wc.setWindowOpenHandler(({ url: requestedUrl }) => {
+  // a new tab" — which is what a browser user expects a middle-click or
+  // Mod+click to do, and keeps every view this app owns inside the tab
+  // model. `disposition` is how Electron tells a background-tab request
+  // (middle-click, Mod+click with no Shift) apart from every other kind —
+  // only that one must not steal focus from the tab the user is already on;
+  // `foreground-tab` (Mod+Shift+click), `new-window` and `default` all read
+  // as "show me the new tab" and activate it like `openTab()` would.
+  wc.setWindowOpenHandler(({ url: requestedUrl, disposition }) => {
     if (checkNavigationUrl(requestedUrl).allowed) {
-      send(win, { kind: 'open-tab', tabId, url: requestedUrl });
+      send(win, {
+        kind: 'open-tab',
+        tabId,
+        url: requestedUrl,
+        foreground: disposition !== 'background-tab',
+      });
     }
     return { action: 'deny' };
   });

@@ -125,7 +125,7 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
           update(event.tabId, { loading: false, crashed: true });
           break;
         case 'open-tab':
-          useBrowserStore.getState().openTabFrom(event.tabId, event.url);
+          useBrowserStore.getState().openTabFrom(event.tabId, event.url, event.foreground);
           break;
         case 'download-blocked':
           useToastStore.getState().addToast({
