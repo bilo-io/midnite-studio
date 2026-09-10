@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { MetricSample } from '@midnite/studio-shared';
+
 import { useMetricsStore } from '../../store/metrics-store';
 import { BatterySegment } from './battery-segment';
 
@@ -24,7 +26,7 @@ import { BatterySegment } from './battery-segment';
  * No `React.lazy` boundary anywhere in this path.
  */
 
-const sample = (battery: Record<string, unknown>) => ({
+const sample = (battery: NonNullable<MetricSample['battery']>) => ({
   at: Date.now(),
   battery,
 });

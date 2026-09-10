@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import type { TestSuite } from '@midnite/studio-shared';
+
 import { fixtures } from '../../../test-support/fixtures';
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
@@ -43,7 +45,7 @@ function Harness() {
 
 const MAIN = '/tmp/midnite-studio';
 
-const unitSuite = {
+const unitSuite: TestSuite = {
   id: 'packages/app::test',
   package: 'packages/app',
   packageName: '@midnite/studio-app',
@@ -55,7 +57,7 @@ const unitSuite = {
   run: { command: 'pnpm', args: ['run', 'test'], cwd: `${MAIN}/packages/app` },
 };
 
-const e2eSuite = {
+const e2eSuite: TestSuite = {
   ...unitSuite,
   id: 'packages/app::e2e',
   name: 'e2e',
