@@ -486,11 +486,11 @@ that session can read the app through eight MCP tools and cannot show the user a
 tools, one new IPC pair, one new switch, and every guardrail above applied at the smaller scale
 Finding 6 describes.
 
-- [ ] `McpToolEntry.readOnly: true` → `readOnly: boolean` in
+- [x] `McpToolEntry.readOnly: true` → `readOnly: boolean` in
       [`shared/src/mcp.ts:67`](../../../packages/shared/src/mcp.ts); the eight existing entries keep
       `true`. Update the docblock: *"`false` marks a tool that changes what the app shows. No tool
       changes a repository — that is still Phase 57 Decision 5's deferred follow-up."*
-- [ ] Three entries in `MCP_TOOLS`, each description ≤ 220 chars, one sentence, verb-first, naming
+- [x] Three entries in `MCP_TOOLS`, each description ≤ 220 chars, one sentence, verb-first, naming
       what it replaces (the `mcp.test.ts` rule):
   - `ui.state` (`readOnly: true`): input `{}`; output `{ activeView: ViewId, settingsPage: SettingsPageId | null, detached: WindowRole[], repoPath: string | null, locked: boolean, uiToolsEnabled: boolean }`.
     *"Reads which view Midnite Studio is showing, which panels are detached and whether the screen is
@@ -503,7 +503,7 @@ Finding 6 describes.
     user — ask them to run it from the palette"*; a `never` id answers `refused` the same way. The
     tier check runs in the **renderer** (it owns `COMMAND_ACCESS`), so main cannot be talked into
     a different table.
-- [ ] **The consent switch.** `McpSettings` ([`mcp-store.ts:22`](../../../packages/desktop/src/main/mcp-store.ts))
+- [x] **The consent switch.** `McpSettings` ([`mcp-store.ts:22`](../../../packages/desktop/src/main/mcp-store.ts))
       becomes `{ version: 2; enabled: boolean; allowUi: boolean }` with `parseStoredSettings`
       migrating `version: 1` → `allowUi: false`. `mcpGet` returns it; `mcpSet` accepts it;
       Settings ▸ MCP gains a second switch under the master one — *"Let agents steer the UI"* —
@@ -515,7 +515,7 @@ Finding 6 describes.
   - *Acceptance:* `ui.navigate`/`ui.command` with `allowUi: false` → `{ ok: false, kind: 'refused', message: 'UI tools are off — Settings ▸ MCP ▸ Let agents steer the UI' }`
     before any IPC is sent. `ui.state` answers regardless (it is a read, and `uiToolsEnabled` in
     its output is how an agent learns why the next call will be refused).
-- [ ] **The IPC pair** — the tree's first main→renderer request/reply, kept minimal:
+- [x] **The IPC pair** — the tree's first main→renderer request/reply, kept minimal:
       `EVENT_CHANNELS.companionUiRequest = 'mstudio:companion:ui-request'` (main → main window,
       `{ id: string, action: CompanionUiAction }`) and `CHANNELS.companionUiReply = 'mstudio:companion:ui-reply'`
       (renderer → main, one-way `ipcRenderer.send`, `{ id, result: GitOpResult<{ did: string }> }`).
@@ -527,22 +527,22 @@ Finding 6 describes.
       `companion.onUiRequest(handler)` and `companion.uiReply(…)`; `bridge.ts` types both; the
       reply's `ipcMain.on` registers in [`main/ipc/companion-handlers.ts`](../../../packages/desktop/src/main/ipc/companion-handlers.ts)
       beside the `ask` handler (`:68`); the `ipc.test.ts` channel↔schema table gains both rows.
-- [ ] Renderer side: [`features/companion/ui-requests.ts`](../../../packages/app/src/features/companion/ui-requests.ts)
+- [x] Renderer side: [`features/companion/ui-requests.ts`](../../../packages/app/src/features/companion/ui-requests.ts)
       `useCompanionUiRequests()`, mounted from `app.tsx` **only when `windowRole === 'main'`**. On a
       request it runs the same `resolveNavigation`/`runCommand` path Themes B/C use with
       `caller: 'mcp'` — which forbids `confirm` (answers `refused`), forbids `never`, and refuses
       while `screensaverLocked` — then replies. It posts a **toast** always (*"Agent: opened Commit
       Graph"*, `toast-store.ts`) and a companion turn when `companionEnabled` (*"An agent opened the
       Commit Graph."*), so a steer is never silent and is in the thread's record when there is one.
-- [ ] The audit ring ([`main/mcp/audit.ts`](../../../packages/desktop/src/main/mcp/audit.ts)) records
+- [x] The audit ring ([`main/mcp/audit.ts`](../../../packages/desktop/src/main/mcp/audit.ts)) records
       `ui.*` calls with `repoPath: ''` — `auditRepoPath` already returns `''` for an input without
       one, and the ring deliberately keeps only that field. Settings ▸ MCP's "last 50 calls" list
       shows them by tool id, which is enough to answer "what did that agent just do to my window".
-- [ ] The stdio shim needs **no change**: `tools/list` reads `MCP_TOOLS`
+- [x] The stdio shim needs **no change**: `tools/list` reads `MCP_TOOLS`
       ([`mcp-shim/index.ts:44`](../../../packages/desktop/src/mcp-shim/index.ts)), so the three
       tools appear with their JSON-schema enums automatically. A test in `mcp-shim` asserts the
       list has eleven entries and that `ui.navigate`'s `view` is a JSON-schema `enum` of `VIEW_IDS`.
-- [ ] Tests: `server.test.ts` — a `ui.navigate` frame with the switch off is `refused` and no
+- [x] Tests: `server.test.ts` — a `ui.navigate` frame with the switch off is `refused` and no
       `webContents.send` happens; with the switch on, the request reaches a fake window and a reply
       resolves the frame; a reply that never comes times out at 5 s (fake timers). `tools.test.ts`
       — `ui.state` composes from a fake renderer answer. `ui-requests.test.tsx` — `confirm`-tier id

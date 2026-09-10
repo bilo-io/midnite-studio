@@ -10608,3 +10608,68 @@ functional specs (`graph-themes`, `graph-recency`, `phase-21-roster`, `files-vie
 assertion left unconditional. Verified: all 7 specs run (54 passed) and `git status
 docs/screenshots/` is **empty**. That churn had required five manual reverts during this
 phase's own merges.
+
+### Phase 81 Theme F — An agent may steer the view: the `ui.*` MCP tools (PR #329, 2026-09-10)
+
+The companion hands work to an agent session, and until now that session could read the app
+through eight MCP tools and show the user nothing. Three new tools close that half: `ui.state`
+(read-only — active view, settings page, detached windows, selected repo path, lock state, and
+whether the other two tools will actually run), `ui.navigate` (open a view or settings page, or
+focus it if already detached, over closed `z.enum`s of `VIEW_IDS`/`SETTINGS_PAGE_IDS` so
+`tools/list` hands a model the exact legal values), and `ui.command` (run one direct-tier
+palette command by id). What they explicitly cannot do: no git operation — repository writes are
+still Phase 57 Decision 5's deferred follow-up — no skill start, no dialog answered, and nothing
+while the screen is locked. `ui.command` refuses a `confirm`- or `never`-tier id with "needs the
+user — ask them to run it from the palette", the identical sentence `handoff.ts`'s own `run` arm
+already speaks for a person.
+
+**The tier check runs in the renderer**, which owns `COMMAND_ACCESS` — main never gets its own
+copy of that table, so it cannot be talked into a different answer than the palette itself would
+give. This is also why `packages/desktop/src/main/mcp-store.ts`'s `McpSettings` moved to
+`{ version: 2; enabled; allowUi }` rather than folding a tier decision into main: `allowUi` is a
+separate, narrower consent — off by default like `enabled` itself, and never implied by it — that
+only gates whether `ui.navigate`/`ui.command` are allowed to run at all; what they may run is
+still the renderer's call. `parseStoredSettings` migrates a `version: 1` file (no `allowUi` key)
+to `allowUi: false` the same way it treats a corrupt one, so an upgrade never silently grants the
+wider permission. The write tools refuse **before any IPC is sent** while the switch is off;
+`ui.state` still answers regardless, because its `uiToolsEnabled` field is how an agent learns
+*why* the next call will refuse, rather than guessing.
+
+**This is the tree's first main→renderer request/reply.** Every other push in that direction is
+`menu.ts`'s one-way `webContents.send` — a native menu item dispatched like a keybinding, with
+no reply needed because the click and its effect are the same gesture. An MCP tool call needs an
+answer (did the view change, did the command run, did the renderer decline), so
+`main/companion/ui-bridge.ts` holds a pending map keyed by request id and a 5 s timeout. It
+targets `getMainWindow()` explicitly, **never** `BrowserWindow.getFocusedWindow()` — `menu.ts` can
+reach for the focused window because a menu item is by definition on it, but an agent's request
+did not come from any window the user was looking at, and answering the wrong one would let an
+agent steer a popout nobody asked it to touch. `packages/app/src/features/companion/ui-requests.ts`
+is the renderer's half (`useCompanionUiRequests()`); `app.tsx` mounts it unconditionally, and the
+`windowRole === 'main'` guard lives inside the hook itself rather than at the call site, since
+`ui-bridge.ts` only ever targets the main window anyway.
+
+**A steer is never silent.** Every successful `ui.navigate`/`ui.command` posts a toast
+(`toast-store.ts`) unconditionally, and — only when `companionEnabled` — a line in the
+companion's own transcript, so "what did that agent just do to my window" has an answer whether
+or not anyone has the companion panel open.
+
+**`companion-handlers.test.ts`'s exact channel-list assertion caught the new registration.** The
+test asserts the literal list of channels registered through `handleSend`/`ipcMain.on` on
+purpose — a third one landing there unnoticed is exactly what that form exists to catch — and it
+had to be updated for `companionUiReply`, the second such channel; the file's header comment,
+which claimed `companionTtsCancel` was the only one-way channel, was corrected alongside it
+rather than left wrong next to the fix.
+
+**Also worth recording: three `shim.test.ts` failures during the local gate turned out to be
+load**, not a regression — 4/4 of that spec's tests in 2.5s alone on a busy machine. That would
+normally be dismissible on its own, except PR #310 had just removed the spec's vacuous
+wall-clock bound, so a failure there is no longer automatically noise; it had to be checked
+rather than waved through. The theme's own new test — `tools/list` now reports eleven tools, with
+`ui.navigate`'s view as a JSON-schema `enum` of `VIEW_IDS` — genuinely passes.
+
+**Left open:** the `docs/INITIAL_PLAN.md` MCP-section paragraph and the `outstanding.md`
+amendment ("repository writes are deferred; UI steering landed in Phase 81 behind its own
+switch") were not written — the Settings ▸ MCP page itself does carry the explanatory copy, but
+the two doc updates do not exist on `main`. Recorded as the one open item rather than folded into
+a "done" claim; Phase 81 is 43/53 (81%), not 44/53 — the tracker reconciliation ticked the eight
+items that verify and left this one unticked precisely so the doc does not overclaim it.
