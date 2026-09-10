@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react';
 import { LuSquareArrowOutUpRight, LuX } from 'react-icons/lu';
 
 import { BrandMark } from './brand';
+import { SwitchRow } from './form/toggle-rows';
 import { IconButton } from './icon-button';
 import { loopGlowColor } from '../features/loops/loop-glow';
 import { loopIcon } from '../features/loops/loop-icons';
@@ -61,6 +62,8 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
   const activeFabTab = useUiStore((s) => s.activeFabTab);
   const onTabClick = useUiStore((s) => s.onFabTabClick);
   const setFabPanelOpen = useUiStore((s) => s.setFabPanelOpen);
+  const loopEnabled = useUiStore((s) => s.loopEnabled);
+  const setLoopEnabled = useUiStore((s) => s.setLoopEnabled);
   const statuses = useAllLoopStatuses(LOOP_IDS);
   const companionState = useCompanionStore((s) => s.state);
   const runs = useLoopRuns();
@@ -130,6 +133,12 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
             const Icon = loopIcon(loop.icon);
             const status = statuses[index];
             const isSelected = activeFabTab === loop.id;
+            /*
+              The "Loop" switch (directly under the tab bar) is per-loop and
+              persists across tab switches — so a tab you toggled on stays
+              recoloured even while another tab is the one showing.
+            */
+            const isLoopOn = loopEnabled[loop.id] ?? false;
             return (
               <button
                 key={loop.id}
@@ -139,11 +148,14 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                 className={`tab-loop-button relative flex-1 flex min-w-0 flex-row items-center justify-start gap-1 overflow-hidden px-1.5 py-1.5 ${
                   isSelected ? 'is-selected' : ''
                 }`}
+                style={isLoopOn ? { backgroundColor: 'rgb(var(--fab-spec-3))' } : undefined}
                 title={loop.label}
               >
                 {/*
                   When a loop is running on this tab: rotating inner gradient arc
-                  with glow, constrained to this mode's sub-spectrum.
+                  with glow, constrained to this mode's sub-spectrum. Left alone
+                  by the "Loop" switch below — that recolours the idle icon,
+                  label and shimmer, not this glow.
                 */}
                 {status?.running ? (
                   <span
@@ -155,7 +167,9 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                 ) : null}
                 {/*
                   Tabs without a loop running carry the gentle shimmer sweep,
-                  half as frequent and moving half as fast.
+                  half as frequent and moving half as fast. White instead of
+                  the loop's own colour once its "Loop" switch is on — the
+                  same contrast call as the icon and label below.
                 */}
                 {!status?.running ? (
                   <span
@@ -164,23 +178,23 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                     className="tab-loop-shimmer pointer-events-none absolute inset-0"
                     style={
                       {
-                        background: `linear-gradient(100deg, transparent 38%, ${loopGlowColor(loop.id)} 50%, transparent 62%)`,
+                        background: `linear-gradient(100deg, transparent 43%, ${isLoopOn ? '#ffffff' : loopGlowColor(loop.id)} 50%, transparent 57%)`,
                         '--tab-i': index,
                       } as CSSProperties
                     }
                   />
                 ) : null}
-                <Icon className={`relative h-3.5 w-3.5 shrink-0 ${loop.color}`} />
+                <Icon className={`relative h-3.5 w-3.5 shrink-0 ${isLoopOn ? 'text-white' : loop.color}`} />
                 <span
-                  className={`relative min-w-0 truncate text-xs ${isSelected ? 'font-semibold' : 'font-medium'} ${loop.color}`}
+                  className={`relative min-w-0 truncate text-xs ${isSelected ? 'font-semibold' : 'font-medium'} ${isLoopOn ? 'text-white' : loop.color}`}
                 >
                   {loop.label}
                 </span>
-                {/* The active tab's title carries its own underline sliver, in the loop's colour. */}
+                {/* The active tab's title carries its own underline sliver, in the loop's colour — white on top of the same solid colour once "Loop" is on. */}
                 {isSelected ? (
                   <span
                     aria-hidden
-                    className={`absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-current ${loop.color}`}
+                    className={`absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-current ${isLoopOn ? 'text-white' : loop.color}`}
                   />
                 ) : null}
                 {/*
@@ -226,6 +240,33 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
               />
             </div>
           )}
+        </div>
+
+        {/*
+          The active tab's own "Loop" switch — off by default. Flipping it
+          paints this row AND the active tab above with the loop's own
+          sub-spectrum centre (`--fab-spec-3`), and turns that tab's icon,
+          label and idle shimmer white so they still read against the now
+          solid-coloured background. The state is per loop id (`loopEnabled`),
+          not per row instance, so switching tabs shows whichever loop you
+          land on already at its own remembered setting.
+        */}
+        <div
+          data-testid="fab-panel-loop-row"
+          className="flex shrink-0 items-center border-b border-border px-2 py-1.5"
+          style={
+            (loopEnabled[activeFabTab] ?? false)
+              ? { backgroundColor: 'rgb(var(--fab-spec-3))' }
+              : undefined
+          }
+        >
+          <SwitchRow
+            id={`loop-enabled-${activeFabTab}`}
+            label="Loop"
+            on={loopEnabled[activeFabTab] ?? false}
+            onToggle={(_id, on) => setLoopEnabled(activeFabTab, on)}
+            className={(loopEnabled[activeFabTab] ?? false) ? '!text-white' : ''}
+          />
         </div>
 
         {/*

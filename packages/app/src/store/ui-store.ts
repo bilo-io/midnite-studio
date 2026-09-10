@@ -767,6 +767,14 @@ export type UiState = {
   /** Per-loop free-text extras — ephemeral, on the same reasoning as above. */
   loopExtras: Record<string, string>;
   setLoopExtras: (loopId: string, text: string) => void;
+  /**
+   * The FAB tab bar's "Loop" switch, per loop — off by default. Persisted
+   * alongside the model/schedule/agent choices above: it is a standing
+   * decision about that tab (its whole point is to still be on the next time
+   * you look), not a per-run flag.
+   */
+  loopEnabled: Record<string, boolean>;
+  setLoopEnabled: (loopId: string, on: boolean) => void;
   updatesAutoCheck: boolean;
   updateChannel: 'stable' | 'beta';
   onboardedAt: string | null;
@@ -1515,6 +1523,7 @@ export type PersistedUi = Pick<
   | 'loopAgents'
   | 'loopModels'
   | 'loopSchedules'
+  | 'loopEnabled'
   | 'hiddenMetrics'
   | 'autoFetchIntervalMs'
   | 'metricsIdleIntervalMs'
@@ -1866,6 +1875,9 @@ export const useUiStore = create<UiState>()(
       loopExtras: {},
       setLoopExtras: (loopId, text) =>
         set((state) => ({ loopExtras: { ...state.loopExtras, [loopId]: text } })),
+      loopEnabled: {},
+      setLoopEnabled: (loopId, on) =>
+        set((state) => ({ loopEnabled: { ...state.loopEnabled, [loopId]: on } })),
       updatesAutoCheck: true,
       updateChannel: 'stable',
       onboardedAt: null,
@@ -2220,6 +2232,7 @@ export const useUiStore = create<UiState>()(
         loopAgents: state.loopAgents,
         loopModels: state.loopModels,
         loopSchedules: state.loopSchedules,
+        loopEnabled: state.loopEnabled,
         hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
@@ -2478,6 +2491,7 @@ export const useUiStore = create<UiState>()(
           loopAgents: { ...current.loopAgents, ...saved.loopAgents },
           loopModels: { ...current.loopModels, ...saved.loopModels },
           loopSchedules: { ...current.loopSchedules, ...saved.loopSchedules },
+          loopEnabled: { ...current.loopEnabled, ...saved.loopEnabled },
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
           activeEnvironmentByRepo: {
             ...current.activeEnvironmentByRepo,

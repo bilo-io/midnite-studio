@@ -198,23 +198,15 @@ export function LoopComposer({
       ) : (
         <div className="flex flex-col">
           {/*
-            Capped and scrollable rather than allowed to grow: the panel is
-            320px wide by default and the terminal below it is the point of the
-            tab, so a loop that declares more settings than the others must not
-            push its own output off the bottom. The accordions are what make
-            the cap comfortable rather than merely enforced — a tall loop is
-            now two clicks from fitting, instead of a scrollbar you live with.
-
-            **12rem, where this was 18rem.** The cap is what buys the four
-            fixed rows under it — Model, Schedule, the extras field and Start —
-            their place on screen, and the schedule's three-row grid plus a
-            seven-chip day picker made the old figure too generous: the
-            composer grew past the panel's own frame, which clips
-            (`overflow-hidden`), and Start went under the fold and stopped
-            taking clicks. Patrol, the tallest loop, still shows its whole
-            Tasks section inside the new cap.
+            Every accordion below renders its full content — no cap, no
+            scrollbar of its own. The cap that keeps a tall loop's settings
+            from pushing Start (and the terminal below this whole component)
+            off screen now lives one level up, on the wrapper in
+            `loop-tab.tsx` that holds this composer AND `LoopHistory`
+            together: one scrollbar for that combined region instead of one
+            here and a second inside history's own expanded list.
           */}
-          <div className="flex max-h-48 flex-col overflow-y-auto">
+          <div className="flex flex-col">
             {LOOP_GROUPS.map((group) => (
               <SettingsGroup
                 key={group.id}

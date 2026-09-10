@@ -143,40 +143,54 @@ export function LoopTab({
 
   return (
     <div className="flex h-full w-full flex-col">
-      <LoopComposer
-        loop={loop}
-        running={status.running}
-        waiting={status.waiting}
-        thinking={status.thinking}
-        checked={checked}
-        choiceIds={choiceIds}
-        agents={agents.agents}
-        agentId={agentId}
-        model={model}
-        schedule={schedule}
-        extras={extras}
-        disabled={!repo || (loop.requiresModifier && !hasTask)}
-        disabledReason={
-          repo
-            ? // Patrol's base is a bare `/loop`: with no task box checked there
-              // is no skill on the line at all, so Start would launch an agent
-              // and tell it nothing. The autonomy radio does not count — a
-              // standing rule is not a task. Held here rather than in
-              // `composeLoopPrompt`, which is pure and has no business refusing
-              // to compose.
-              'Pick a task — Review PRs, Answer feedback, Security review or Triage only.'
-            : 'Select a repository first.'
-        }
-        onToggle={(modifierId, on) => setCheck(loop.id, modifierId, on)}
-        onChoice={(choiceId, optionId) => setChoice(loop.id, choiceId, optionId)}
-        onAgent={(next) => setAgent(loop.id, next)}
-        onModel={(next: LoopModel) => setModel(loop.id, next)}
-        onSchedule={(next) => setSchedule(loop.id, next)}
-        onExtras={(text) => setExtras(loop.id, text)}
-        onStart={start}
-        onStop={stop}
-      />
-      <LoopHistory runs={runs} />
+      {/*
+        The composer and its history share ONE scrollbar rather than each
+        capping and scrolling its own accordion content — every section below
+        renders in full, so this wrapper is the only place a tall loop's
+        settings ever get clipped. `max-h-80` is what used to be spent as two
+        separate caps (the composer's own registry-group scroll at 12rem, plus
+        history's expanded-list scroll at 8rem): the same total chrome budget,
+        now covering everything above the terminal instead of a fraction of
+        it. `shrink-0` so it takes only what it needs up to that cap, leaving
+        the terminal below — `flex-1 min-h-0` — the rest, which is still the
+        point of the tab.
+      */}
+      <div className="flex max-h-80 shrink-0 flex-col overflow-y-auto">
+        <LoopComposer
+          loop={loop}
+          running={status.running}
+          waiting={status.waiting}
+          thinking={status.thinking}
+          checked={checked}
+          choiceIds={choiceIds}
+          agents={agents.agents}
+          agentId={agentId}
+          model={model}
+          schedule={schedule}
+          extras={extras}
+          disabled={!repo || (loop.requiresModifier && !hasTask)}
+          disabledReason={
+            repo
+              ? // Patrol's base is a bare `/loop`: with no task box checked there
+                // is no skill on the line at all, so Start would launch an agent
+                // and tell it nothing. The autonomy radio does not count — a
+                // standing rule is not a task. Held here rather than in
+                // `composeLoopPrompt`, which is pure and has no business refusing
+                // to compose.
+                'Pick a task — Review PRs, Answer feedback, Security review or Triage only.'
+              : 'Select a repository first.'
+          }
+          onToggle={(modifierId, on) => setCheck(loop.id, modifierId, on)}
+          onChoice={(choiceId, optionId) => setChoice(loop.id, choiceId, optionId)}
+          onAgent={(next) => setAgent(loop.id, next)}
+          onModel={(next: LoopModel) => setModel(loop.id, next)}
+          onSchedule={(next) => setSchedule(loop.id, next)}
+          onExtras={(text) => setExtras(loop.id, text)}
+          onStart={start}
+          onStop={stop}
+        />
+        <LoopHistory runs={runs} />
+      </div>
       <div className="min-h-0 flex-1">
         {session ? (
           /*

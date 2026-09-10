@@ -54,6 +54,12 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   allow-list, which (along with the entry below) is what keeps `persisted-keys.test.ts` green;
   building one means deleting its entry from the list, not widening it.
 
+  A fifth joined this block ad hoc: `loopEnabled` (the FAB tab bar's own "Loop" switch, per loop —
+  off by default, recolours that tab and its shimmer white while on). It has a real control already,
+  just not one under `features/settings/` — the FAB panel is not a settings page — so it sits in
+  `KNOWN_ORPHANS` on the same reasoning as its four siblings and would move into the same Loops
+  accordion, as a per-loop switch mirroring the tab bar's, whenever that accordion is built.
+
 - **Five more persisted preferences with no settings page — `editor*`.** Landed by
   [Phase 64](phases/phase-64-offline-monaco-and-themes.md) (`#164`, merged onto `main` while Phase
   63 was in flight): `editorFontFamily`, `editorFontSize`, `editorMinimap`, `editorTabSize`,
