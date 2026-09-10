@@ -80,6 +80,38 @@ describe('registerMcpHandlers', () => {
     expect(getMcpServerHandle()).not.toBeNull();
   });
 
+  it('mcpSet turns on allowUi without touching enabled or the socket', async () => {
+    await registerMcpServer({
+      userDataDir: tempDir(),
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+    });
+    registerMcpHandlers();
+
+    const response = (await invoke(CHANNELS.mcpSet, { allowUi: true })) as {
+      enabled: boolean;
+      allowUi: boolean;
+      running: boolean;
+    };
+    expect(response.allowUi).toBe(true);
+    expect(response.enabled).toBe(false);
+    expect(response.running).toBe(false);
+    expect(getMcpServerHandle()).toBeNull();
+  });
+
+  it('mcpGet reports allowUi alongside enabled', async () => {
+    await registerMcpServer({
+      userDataDir: tempDir(),
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+    });
+    registerMcpHandlers();
+
+    expect(await invoke(CHANNELS.mcpGet)).toMatchObject({ enabled: false, allowUi: false });
+  });
+
   it('mcpCalls answers the audit ring, newest first', async () => {
     await registerMcpServer({
       userDataDir: tempDir(),
