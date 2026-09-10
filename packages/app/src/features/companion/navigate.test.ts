@@ -45,7 +45,16 @@ const navigate = (
 const baseState: NavigationState = {
   windowRole: 'main',
   detachedPages: [],
-  panelDetached: { terminal: false, repos: false, fab: false, companion: false, browser: false },
+  panelDetached: {
+    terminal: false,
+    repos: false,
+    fab: false,
+    companion: false,
+    browser: false,
+    'apps-spotify': false,
+    'apps-google-calendar': false,
+    'apps-youtube': false,
+  },
   locked: false,
   repoId: 'r1',
 };
