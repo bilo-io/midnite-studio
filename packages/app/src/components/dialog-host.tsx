@@ -20,10 +20,22 @@ import { PromptDialog, type PromptRequest } from './prompt-dialog';
  * a menu rendered inside a virtualized row would be unmounted the moment the
  * row scrolls out of view — taking the open menu with it.
  */
-type MenuState = { position: MenuPosition; items: MenuItem[] } | null;
+/** The subset of `ContextMenu`'s own props an `openMenu` caller may opt into. */
+type MenuOptions = {
+  /** See `ContextMenu` — default-off text filter above the list. */
+  filterable?: boolean;
+  searchPlaceholder?: string;
+  filterThreshold?: number;
+};
+
+type MenuState = ({ position: MenuPosition; items: MenuItem[] } & MenuOptions) | null;
 
 type DialogApi = {
-  openMenu: (event: { clientX: number; clientY: number }, items: MenuItem[]) => void;
+  openMenu: (
+    event: { clientX: number; clientY: number },
+    items: MenuItem[],
+    options?: MenuOptions,
+  ) => void;
   confirm: (request: ConfirmRequest) => void;
   /**
    * A modal with one button and nothing to decide — a notice.
@@ -119,9 +131,9 @@ export function DialogHost({ children }: { children: ReactNode }) {
 
   const api = useMemo<DialogApi>(
     () => ({
-      openMenu: (event, items) => {
+      openMenu: (event, items, options) => {
         menuOpen = true;
-        setMenu({ position: { x: event.clientX, y: event.clientY }, items });
+        setMenu({ position: { x: event.clientX, y: event.clientY }, items, ...options });
       },
       confirm: (request) => {
         // Opening a confirm closes the menu that raised it — leaving both up
@@ -168,7 +180,14 @@ export function DialogHost({ children }: { children: ReactNode }) {
     <DialogContext.Provider value={api}>
       {children}
       {menu ? (
-        <ContextMenu position={menu.position} items={menu.items} onClose={closeMenu} />
+        <ContextMenu
+          position={menu.position}
+          items={menu.items}
+          onClose={closeMenu}
+          filterable={menu.filterable}
+          searchPlaceholder={menu.searchPlaceholder}
+          filterThreshold={menu.filterThreshold}
+        />
       ) : null}
       {confirmRequest ? (
         <ConfirmDialog
