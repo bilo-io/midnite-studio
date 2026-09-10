@@ -31,8 +31,32 @@ export default defineConfig({
     the budget specs — including one that launches Electron three times — and the
     default gate would inherit exactly the timing thresholds that suite exists to
     keep out of it.
+
+    Phase 82 Theme A adds the second half of this list: `**/*-shots.spec.ts`,
+    dropped unless `MSTUDIO_SHOTS` is set. Every one of those 47 files already
+    self-skips its own tests behind that same flag (`test.skip(!process.env
+    .MSTUDIO_SHOTS, …)`), so on paper this changes nothing a normal run
+    actually executes — but Playwright shards by *declared* test count before
+    any test body runs, so those self-skipping tests were still being counted
+    into the split. Measured on a real CI run: 309 of 976 declared tests were
+    shots specs, and the shard that happened to collect the most of them ran
+    122 tests in 441s wall while the lightest ran ~41 in 160s — the worst
+    shard sets the wall clock for all eight, so a third of the budget going to
+    no-ops was the single biggest lever left once Phase 56 exhausted the
+    infrastructure axis (retries, worker count, shard count). Excluding them
+    here rather than only relying on the inner `test.skip` fixes the count
+    Playwright balances shards by, not just the work each shard does.
+
+    This is a `testIgnore`, not a change to any spec's own gate: every
+    `*-shots.spec.ts` file still carries (or, for the two files that also
+    assert real behaviour — `busy-spinner.spec.ts`, `reviews-loading.spec.ts`
+    — never carried, because they were deliberately renamed off this suffix
+    and gate only their `.screenshot()` calls inline) its own `MSTUDIO_SHOTS`
+    check, so `MSTUDIO_SHOTS=1 pnpm exec playwright test --list` still shows
+    every one of them; this exclusion only stops the *declared-but-skipped*
+    tests from being scheduled into a shard at all when that flag is unset.
   */
-  testIgnore: '**/perf/**',
+  testIgnore: process.env.MSTUDIO_SHOTS ? '**/perf/**' : ['**/perf/**', '**/*-shots.spec.ts'],
   /*
     Playwright's default runs test *files* in parallel across workers but the
     `test()` declarations within one file sequentially. Phase 56 Theme B turns
