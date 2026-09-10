@@ -8,6 +8,7 @@ import {
   LuHammer,
   LuPackage,
   LuRocket,
+  LuStar,
 } from 'react-icons/lu';
 
 import type { MenuItem } from '../../components/context-menu';
@@ -158,6 +159,15 @@ export function RepoLifecycleMenu({
     ],
   };
 
+  const isFavourite = useUiStore((s) => s.favouriteRepoIds.includes(repoId));
+  const toggleFavouriteRepo = useUiStore((s) => s.toggleFavouriteRepo);
+
+  const favouriteItem: MenuItem = {
+    label: isFavourite ? 'Remove from Favourites' : 'Add to Favourites',
+    icon: LuStar,
+    onSelect: () => toggleFavouriteRepo(repoId),
+  };
+
   /*
     The same four glyphs the standing-button variant uses. A menu of four bare
     verbs made the icons the ellipsis had replaced unrecoverable — carrying them
@@ -166,6 +176,7 @@ export function RepoLifecycleMenu({
   */
   const items: MenuItem[] = [
     addToGroup,
+    favouriteItem,
     { type: 'separator' },
     /*
       Undescribed rows, though the midnite menu these two came from printed a

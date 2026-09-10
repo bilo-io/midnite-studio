@@ -33,6 +33,7 @@ import {
   LuPlus,
   LuSearch,
   LuSquareArrowOutUpRight,
+  LuStar,
   LuTag,
   LuX,
 } from 'react-icons/lu';
@@ -86,7 +87,12 @@ import {
   type ViewSections,
 } from './view-sections';
 import { RepoLifecycleMenu } from './repo-lifecycle-actions';
-import { NewGroupButton, RepoGroupItem, SortableGroupList } from './repo-groups';
+import {
+  NewGroupButton,
+  RepoFavouritesSection,
+  RepoGroupItem,
+  SortableGroupList,
+} from './repo-groups';
 import { primaryTarget, useRepoActions } from './use-repo-actions';
 
 /**
@@ -171,6 +177,7 @@ function useRepoFolds() {
 function useGroupedRepos(repos: readonly RepoDescriptor[], query: string) {
   const repoGroups = useUiStore((s) => s.repoGroups);
   const repoGroupMembership = useUiStore((s) => s.repoGroupMembership);
+  const favouriteRepoIds = useUiStore((s) => s.favouriteRepoIds);
 
   const matched = useMemo(
     () => repos.filter((repo) => matchesRepoQuery(repo, query)),
@@ -178,14 +185,16 @@ function useGroupedRepos(repos: readonly RepoDescriptor[], query: string) {
   );
 
   const grouped = useMemo(() => {
+    const favouriteIdSet = new Set(favouriteRepoIds);
+    const favourites = matched.filter((repo) => favouriteIdSet.has(repo.id));
     const memberSet = new Set(Object.keys(repoGroupMembership));
     const ungrouped = matched.filter((repo) => !memberSet.has(repo.id));
     const groups = repoGroups.map((group) => ({
       group,
       repos: matched.filter((repo) => repoGroupMembership[repo.id] === group.id),
     }));
-    return { ungrouped, groups };
-  }, [matched, repoGroups, repoGroupMembership]);
+    return { favourites, ungrouped, groups };
+  }, [matched, repoGroups, repoGroupMembership, favouriteRepoIds]);
 
   return { matched, ...grouped };
 }
@@ -226,7 +235,7 @@ export function ReposPanel() {
   const [query, setQuery] = useState('');
   const sections = useViewSections();
   const folds = useRepoFolds();
-  const { matched, ungrouped, groups } = useGroupedRepos(repos, query);
+  const { matched, favourites, ungrouped, groups } = useGroupedRepos(repos, query);
   const client = useQueryClient();
 
   const [fetchingGroupIds, setFetchingGroupIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -492,6 +501,41 @@ export function ReposPanel() {
         ) : (
           <>
             {/*
+              Favourites section — only appears when there is at least one favourite repo.
+              Rendered at the top as a collapsible group accordion with star icon.
+            */}
+            {favourites.length > 0 ? (
+              <RepoFavouritesSection
+                repos={favourites}
+                allCollapsed={favourites.every((repo) => folds.collapsed(repo.id))}
+                onToggleCollapseAll={() => {
+                  const allCol = favourites.every((repo) => folds.collapsed(repo.id));
+                  folds.setAll(
+                    favourites.map((repo) => repo.id),
+                    !allCol,
+                  );
+                }}
+                onFetchAll={() => fetchGroupRepos('favourites', favourites)}
+                isFetching={fetchingGroupIds.has('favourites')}
+              >
+                <SortableList ids={repos.map((repo) => repo.id)} onReorder={reorderRepos}>
+                  {favourites.map((repo, index) => (
+                    <RepoItem
+                      key={`fav-${repo.id}`}
+                      repo={repo}
+                      first={index === 0}
+                      index={index}
+                      sections={sections}
+                      expanded={!folds.collapsed(repo.id)}
+                      onToggleExpanded={() => folds.toggle(repo.id)}
+                      onError={(message) => setError(message || null)}
+                    />
+                  ))}
+                </SortableList>
+              </RepoFavouritesSection>
+            ) : null}
+
+            {/*
               Ungrouped repos — same SortableList behaviour as before.
 
               `ids` is the FULL registry even while the filter is narrowing what
@@ -594,6 +638,8 @@ function RepoItem({
   const repoGroupMembership = useUiStore((s) => s.repoGroupMembership);
   const assignRepoToGroup = useUiStore((s) => s.assignRepoToGroup);
   const removeRepoFromGroup = useUiStore((s) => s.removeRepoFromGroup);
+  const isFavourite = useUiStore((s) => s.favouriteRepoIds.includes(repo.id));
+  const toggleFavouriteRepo = useUiStore((s) => s.toggleFavouriteRepo);
   const currentGroupId = repoGroupMembership[repo.id];
 
   /**
@@ -675,9 +721,16 @@ function RepoItem({
           ]
         : []),
     ];
+    const favouriteItem: MenuItem = {
+      label: isFavourite ? 'Remove from Favourites' : 'Add to Favourites',
+      icon: LuStar,
+      onSelect: () => toggleFavouriteRepo(repo.id),
+    };
     dialogs.openMenu(at, [
       ...gitItems,
-      ...(groupItems.length > 0 ? [{ type: 'separator' as const }, ...groupItems] : []),
+      ...(groupItems.length > 0
+        ? [{ type: 'separator' as const }, ...groupItems, favouriteItem]
+        : [{ type: 'separator' as const }, favouriteItem]),
     ]);
   };
 

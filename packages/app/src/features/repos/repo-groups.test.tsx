@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
 import { useUiStore } from '../../store/ui-store';
-import { RepoGroupHeader } from './repo-groups';
+import { RepoFavouritesSection, RepoGroupHeader } from './repo-groups';
 
 afterEach(() => {
   cleanup();
@@ -15,6 +15,7 @@ beforeEach(() => {
     repoGroups: [],
     repoGroupMembership: {},
     collapsedRepoGroups: [],
+    favouriteRepoIds: [],
   });
 });
 
@@ -74,6 +75,16 @@ describe('repo groups — store', () => {
     expect(useUiStore.getState().repoGroups[0]?.color).toBe('red');
     useUiStore.getState().setRepoGroupColor(id, undefined);
     expect(useUiStore.getState().repoGroups[0]?.color).toBeUndefined();
+  });
+
+  it('toggles repo favourite status', () => {
+    expect(useUiStore.getState().favouriteRepoIds).toEqual([]);
+    useUiStore.getState().toggleFavouriteRepo('repo-1');
+    expect(useUiStore.getState().favouriteRepoIds).toEqual(['repo-1']);
+    useUiStore.getState().toggleFavouriteRepo('repo-2');
+    expect(useUiStore.getState().favouriteRepoIds).toEqual(['repo-1', 'repo-2']);
+    useUiStore.getState().toggleFavouriteRepo('repo-1');
+    expect(useUiStore.getState().favouriteRepoIds).toEqual(['repo-2']);
   });
 });
 
@@ -176,3 +187,79 @@ describe('repo groups — RepoGroupHeader component', () => {
     expect(pill.style.color).toBe('rgb(255, 255, 255)');
   });
 });
+
+describe('repo groups — RepoFavouritesSection component', () => {
+  const repo1 = {
+    id: 'repo-1',
+    name: 'repo-1',
+    path: '/path/to/repo-1',
+    headRef: 'refs/heads/main',
+    worktrees: [],
+  };
+
+  it('renders favourites section with star icon and repo count', () => {
+    render(
+      <DialogHost>
+        <RepoFavouritesSection repos={[repo1]} allCollapsed={false}>
+          <div data-testid="child-repo">Repo 1 content</div>
+        </RepoFavouritesSection>
+      </DialogHost>,
+    );
+
+    const section = screen.getByTestId('repo-favourites-section');
+    expect(section).toBeTruthy();
+    expect(screen.getByText('Favourites')).toBeTruthy();
+    expect(screen.getByText('1')).toBeTruthy();
+    expect(screen.getByTestId('child-repo')).toBeTruthy();
+  });
+
+  it('toggles collapse for favourites when header is clicked', () => {
+    render(
+      <DialogHost>
+        <RepoFavouritesSection repos={[repo1]} allCollapsed={false}>
+          <div>Content</div>
+        </RepoFavouritesSection>
+      </DialogHost>,
+    );
+
+    const toggleBtn = screen.getByRole('button', { name: /Favourites/i });
+    expect(useUiStore.getState().collapsedRepoGroups).not.toContain('favourites');
+
+    fireEvent.click(toggleBtn);
+    expect(useUiStore.getState().collapsedRepoGroups).toContain('favourites');
+
+    fireEvent.click(toggleBtn);
+    expect(useUiStore.getState().collapsedRepoGroups).not.toContain('favourites');
+  });
+
+  it('triggers onToggleCollapseAll and onFetchAll when actions clicked', () => {
+    const onToggleCollapseAll = vi.fn();
+    const onFetchAll = vi.fn();
+
+    render(
+      <DialogHost>
+        <RepoFavouritesSection
+          repos={[repo1]}
+          allCollapsed={false}
+          onToggleCollapseAll={onToggleCollapseAll}
+          onFetchAll={onFetchAll}
+        >
+          <div>Content</div>
+        </RepoFavouritesSection>
+      </DialogHost>,
+    );
+
+    const collapseAllBtn = screen.getByRole('button', {
+      name: 'Collapse all repositories in Favourites',
+    });
+    fireEvent.click(collapseAllBtn);
+    expect(onToggleCollapseAll).toHaveBeenCalledTimes(1);
+
+    const fetchAllBtn = screen.getByRole('button', {
+      name: 'Fetch all repositories in Favourites',
+    });
+    fireEvent.click(fetchAllBtn);
+    expect(onFetchAll).toHaveBeenCalledTimes(1);
+  });
+});
+

@@ -125,6 +125,7 @@ export const SESSION_STATE_KEYS = [
   'fabDetached', // runtime popout state, corrected from main's window registry
   'fabPanelOpen', // whether a panel is currently showing
   'fabSessions', // derived tab → live-session pairing, meaningless without terminals.json
+  'favouriteRepoIds', // user-marked favourites, edited in the repos panel, not a setting
   'graphColumns', // drag-resized pixel widths, clamped at runtime by useGraphColumns — a measurement, not a visibility choice
   'layout', // drag-resized pane pixel sizes — a measurement, not a visibility choice
   'onboardedAt', // one-way first-run lifecycle latch
