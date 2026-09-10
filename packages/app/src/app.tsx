@@ -314,8 +314,8 @@ const PINNED_ITEM: NavItem = {
 const WORKSPACE_NAV_ITEMS: NavItem[] = [
   { view: 'files', label: 'Explorer', icon: VIEW_ICON.files },
   { view: 'search', label: 'Search', icon: VIEW_ICON.search },
-  { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
   { view: 'optimizer', label: 'Optimizer', icon: VIEW_ICON.optimizer },
+  { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
   { view: 'database', label: 'Database', icon: VIEW_ICON.database },
   { view: 'apiClient', label: 'API Client', icon: VIEW_ICON.apiClient },
 ];
