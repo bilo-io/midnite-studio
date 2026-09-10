@@ -20,6 +20,7 @@ import {
   LuEllipsisVertical,
   LuPalette,
   LuPencil,
+  LuStar,
   LuTrash2,
 } from 'react-icons/lu';
 
@@ -392,6 +393,101 @@ export function RepoGroupItem({
   );
 }
 
+// ── Favourites section ────────────────────────────────────────────────────────
+
+export function RepoFavouritesSection({
+  repos,
+  onToggleCollapseAll,
+  allCollapsed,
+  onFetchAll,
+  isFetching,
+  children,
+}: {
+  repos: RepoDescriptor[];
+  onToggleCollapseAll?: () => void;
+  allCollapsed?: boolean;
+  onFetchAll?: () => void;
+  isFetching?: boolean;
+  children: ReactNode;
+}) {
+  const collapsed = useUiStore((s) => s.collapsedRepoGroups.includes('favourites'));
+  const toggleRepoGroup = useUiStore((s) => s.toggleRepoGroup);
+  const open = !collapsed;
+
+  return (
+    <section data-testid="repo-favourites-section">
+      <div className="group flex h-7 items-center gap-1 border-t border-border/60 bg-background px-1 pr-2">
+        {/* Collapse toggle */}
+        <button
+          type="button"
+          onClick={() => toggleRepoGroup('favourites')}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded pl-1 text-left transition-colors hover:text-foreground"
+        >
+          <LuChevronRight
+            aria-hidden
+            className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
+              open ? 'rotate-90' : ''
+            }`}
+          />
+          <LuStar
+            aria-hidden
+            className="h-3.5 w-3.5 shrink-0 text-amber-500 fill-amber-500/20"
+          />
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Favourites
+          </span>
+          <span className="text-[11px] tabular-nums text-muted-foreground/70">{repos.length}</span>
+        </button>
+
+        {/* Collapse / Expand All toggle */}
+        {onToggleCollapseAll ? (
+          <IconButton
+            icon={allCollapsed ? LuChevronsUpDown : LuChevronsDownUp}
+            label={
+              allCollapsed
+                ? 'Expand all repositories in Favourites'
+                : 'Collapse all repositories in Favourites'
+            }
+            size="sm"
+            disabled={repos.length === 0}
+            disabledReason="No repositories in Favourites"
+            className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleCollapseAll();
+            }}
+          />
+        ) : null}
+
+        {/* Fetch All button */}
+        {onFetchAll ? (
+          <IconButton
+            icon={LuCloudDownload}
+            label="Fetch all repositories in Favourites"
+            size="sm"
+            busy={isFetching}
+            disabled={repos.length === 0}
+            disabledReason="No repositories in Favourites"
+            className={
+              isFetching
+                ? 'opacity-100'
+                : 'opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100'
+            }
+            onClick={(event) => {
+              event.stopPropagation();
+              onFetchAll();
+            }}
+          />
+        ) : null}
+      </div>
+      <Collapse open={open} id="group-body-favourites" aria-label="Favourites">
+        {children}
+      </Collapse>
+    </section>
+  );
+}
+
 // ── "New group" button ────────────────────────────────────────────────────────
 
 export function NewGroupButton() {
@@ -414,3 +510,4 @@ export function NewGroupButton() {
     />
   );
 }
+
