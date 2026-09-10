@@ -275,37 +275,46 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] After each wave, confirm `app:test` count rises by roughly the number of e2e tests removed
       and e2e wall clock falls measurably on that PR's own CI run.
 
-### D — A pixel-diff layer (M)
+### D — A pixel-diff layer (M) ◐ MOSTLY DONE (PR #335, 2026-09-10)
 
-- [ ] Add `playwright.visual.config.ts` and a `moon run app:visual` task
+- [x] Add `playwright.visual.config.ts` and a `moon run app:visual` task
       ([`moon.yml`](../../../packages/app/moon.yml)), `testDir: e2e/visual`.
-- [ ] Determinism first, extending [`shots-helper.ts`](../../../packages/app/e2e/shots-helper.ts):
+- [x] Determinism first, extending [`shots-helper.ts`](../../../packages/app/e2e/shots-helper.ts):
       `await document.fonts.ready` before any capture (closes the `font-display: swap` race at
       `styles.css:29`); `emulateMedia({ reducedMotion: 'reduce' })` *alongside* the existing
       `data-motion` attribute set by `setReducedMotion`; freeze `Date` to the existing
       `REPRODUCIBLE_ISO_DATE`; seed `screensaver-stage.tsx:88`'s RNG. `stubGravatars` and
       `mockWeatherApi` are already in place and need no change.
-- [ ] Use `toHaveScreenshot({ maxDiffPixelRatio: 0.002 })` on `locator` crops, **never** full
+- [x] Use `toHaveScreenshot({ maxDiffPixelRatio: 0.002 })` on `locator` crops, **never** full
       pages — a component crop is ~10–20 KB against a full page's ~100 KB, and the repo cannot
       absorb another uncontrolled corpus on top of the existing 66 MB.
-- [ ] Seed the baseline corpus from what already exists: the ~40 category-D assertions plus the
+- [x] Seed the baseline corpus from what already exists: the ~40 category-D assertions plus the
       48 images the 11 newly-gated files produce today.
-- [ ] Cap the corpus at **~100 baselines / 3 MB**, enforced by a check added to the same script
+- [x] Cap the corpus at **~100 baselines / 3 MB**, enforced by a check added to the same script
       Theme F introduces for the e2e budget.
-- [ ] Store baselines under `e2e/visual/__screenshots__/`, with `snapshotPathTemplate` carrying
+- [x] Store baselines under `e2e/visual/__screenshots__/`, with `snapshotPathTemplate` carrying
       `{platform}` so only `linux` baselines ever exist in the tree.
-- [ ] CI asserts against the baselines on the existing ubuntu runner; document the dev
+- [x] CI asserts against the baselines on the existing ubuntu runner; document the dev
       regeneration path through the official image so local (non-Linux) machines never write a
       baseline CI will reject:
       `docker run --rm -v "$PWD:/w" -w /w mcr.microsoft.com/playwright:v1.62.1-noble npx playwright test --config packages/app/playwright.visual.config.ts -u`.
-- [ ] Upload the diff artifact `if: failure()`, matching the pattern the e2e job already uses
+- [x] Upload the diff artifact `if: failure()`, matching the pattern the e2e job already uses
       for traces.
-- [ ] Retire the byte-reproducibility item in
+- [x] Retire the byte-reproducibility item in
       [`outstanding.md`](../outstanding.md) — this layer compares decoded pixels rather than
       file bytes, which is exactly the fix that entry names.
-- [ ] Confirm `moon run app:visual` is green twice in a row on the same tree (proves
+- [x] Confirm `moon run app:visual` is green twice in a row on the same tree (proves
       determinism) and that one deliberate CSS change makes it fail with a readable diff.
 
+
+- [ ] **The corpus is a first slice, not the target set.** PR #335 committed **10 baselines /
+      184 KB** against the ~100 / 3 MB cap, seeded from the five components it could verify with
+      high confidence (screensaver word, palette swatches, battery tiers, status bar, kanban
+      glow), reusing proven `*-shots.spec.ts` fixtures. The phase names ~40 category-D
+      assertions — colour, glow, opacity, theme-token and spacing checks still written as slow
+      computed-style DOM assertions in the e2e suite. The remaining ~30 are the point of the
+      theme: each one converted is an e2e test deleted. `scripts/visual-budget.mjs` enforces the
+      cap, so the corpus cannot grow silently.
 ### E — Split the gate (M) ✅ DONE (PR #321, 2026-09-10)
 
 - [x] Measure per-package test time first — `shared:test`, `git-engine:test`, `desktop:test`,
@@ -368,7 +377,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       under load; PR #310 already fixes it), `desktop/src/broker/server.test.ts` (pty staleness
       timing), `e2e/titlebar-agents.spec.ts` (CSS `animation-name` timing — already the reason
       `playwright.config.ts` keeps `retries: 2`), and `e2e/notes.spec.ts`'s browser-occluder
-      contract (**four times** — #324, #327, #331 and #333, always the same
+      contract (**six times — #324, #327, #331, #333 and #335 twice — and it is **not** flake. Diagnosed 2026-09-10: the test alone passes in 6.6s and the whole file passes 8/8 under `--workers=1`, but the file under parallel workers fails, and it reproduces identically on clean `main`. Its `expect.poll` on the WebContentsView visibility sync simply loses the race whenever the environment is slow or contended — locally under parallel workers, on CI under the 2-core runner. A real, fixable defect, not noise, and the single largest tax on this repo's CI trust) — #324, #327, #331 and #333, always the same
       `__mstudioBrowserVisibleCalls` poll, and now the most persistent flake in the suite; it has
       earned a real fix rather than another re-run). Two of
       those PRs touched **zero** files in the failing package. This phase makes CI faster; flake

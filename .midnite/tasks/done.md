@@ -10833,3 +10833,65 @@ exact-string tweak. Check the matcher before debugging the render.
 One self-correction worth noting: the wave initially deleted `review-writes.spec.ts` outright,
 then restored it to a single smoke test on the theme's own "keep exactly one e2e smoke test per
 view" rule, and fixed the bridge test's docstring to match.
+
+### Phase 82 Theme D — A pixel-diff layer (PR #335, 2026-09-10)
+
+The pyramid's third tier exists. `playwright.visual.config.ts` + an `app:visual` moon task,
+`toHaveScreenshot({ maxDiffPixelRatio: 0.002 })` on component-scoped `locator` crops, baselines
+under `e2e/visual/__screenshots__/` keyed Linux-only via `snapshotPathTemplate`, a blocking
+`visual` CI job on the existing ubuntu runner, and `scripts/visual-budget.mjs` enforcing the
+~100 / 3 MB cap. **10 baselines, 184 KB** — a first slice; the remaining ~30 category-D
+conversions are left as an open item.
+
+Determinism helpers added to `shots-helper.ts`: `waitForFonts` (`document.fonts.ready` — closes
+the `font-display: swap` race on Quick Kiss), `setReducedMotion` extended to call
+`page.emulateMedia({reducedMotion:'reduce'})` *alongside* the existing `data-motion` attribute,
+`freezeClock`, and `seedRandom` (seeded xorshift32 over `Math.random`, for the screensaver's word
+picker). A fifth hazard was found and deliberately **not** engineered around: the screensaver's
+blinking-cursor `animate-[blink…]` span is gated by neither `data-motion` nor the media query,
+but `toHaveScreenshot`'s own default `animations: 'disabled'` already neutralises it.
+
+**Proven, not asserted.** Determinism verified across **five** runs against the real committed
+Linux baselines in `mcr.microsoft.com/playwright:v1.62.1-noble` (three, a machine restart, then
+two more): 10/10 every time. And the layer was shown able to *fail*: a temporary
+`.screensaver-title` colour override — applied to a throwaway scratch copy, never the real
+worktree — produced `5527 pixels, ratio 0.17` against the `0.002` threshold with a legible
+`*-diff.png`, then reverted green.
+
+**The docker regeneration recipe in the phase doc was wrong, and running it is how we know.**
+Three separate failures, all now documented in `playwright.visual.config.ts`'s header and
+verified three ways: the `playwright` bin is not hoisted to the workspace root under pnpm, so
+`npx playwright …` does not resolve; `pnpm install` needs `--ignore-scripts` because the image
+has no `build-essential`; and going through `moon run app:visual` breaks against an
+already-installed host `node_modules`, because pnpm cannot re-resolve `@moonrepo/cli`'s
+platform-specific native binary under `--frozen-lockfile` (same class of failure on rollup's).
+A regeneration path that only worked in theory would have made this tier unmaintainable the
+first time someone changed a colour.
+
+The new CI job also surfaced a real container problem on its first run — `detected dubious
+ownership` — fixed with a `safe.directory` step.
+
+Retires `outstanding.md`'s standing item: *"Screenshot PNGs are not byte-reproducible … Fixing it
+properly means … comparing decoded pixels rather than file bytes."* That is `toHaveScreenshot`'s
+contract exactly.
+
+### `notes.spec.ts`'s browser-occluder contract is a real defect, not flake (diagnosed 2026-09-10)
+
+Treated all session as "the known flake" after failing on **#324, #327, #331, #333 and #335
+(twice)** — every one a PR touching nothing near Notes, including one that changed only
+`ci.yml`. Diagnosed properly while landing #335:
+
+| Run | Result |
+|---|---|
+| that test alone | passes, 6.6s |
+| whole `notes.spec.ts`, `--workers=1` | **8/8 pass**, 19.6s |
+| whole file, default parallel workers | **1 failed** |
+| same three, on clean `main` | identical |
+
+So it is not intra-file state pollution (sequential passes) and not caused by any branch
+(reproduces on `main`). Its `expect.poll` on the WebContentsView visibility sync loses the race
+whenever the environment is slow or contended — locally under parallel workers, on CI under the
+2-core runner. Reproducible on demand, therefore fixable, and it is the single largest tax on
+this repo's CI trust: six diagnoses and six re-runs in one day, and the standing reason
+`retries: 2` cannot come down. Recorded against Theme F's flake register with the diagnosis
+rather than the folklore.
