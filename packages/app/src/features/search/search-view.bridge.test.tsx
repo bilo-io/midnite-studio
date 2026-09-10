@@ -93,7 +93,7 @@ describe('SearchView, assembled through the real bridge', () => {
     const fx: MockFixtures = { ...fixtures, search: { contentHits: [CONTENT_HIT], truncated: true } };
     renderView(<SearchView />, { fixtures: fx, uiState: UI_STATE });
 
-    fireEvent.click(screen.getByRole('button', { name: 'content', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'content' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Pattern to grep' }), {
       target: { value: 'foo' },
     });
@@ -104,7 +104,7 @@ describe('SearchView, assembled through the real bridge', () => {
     const fx: MockFixtures = { ...fixtures, search: { contentHits: [], error: 'fatal: bad pattern' } };
     renderView(<SearchView />, { fixtures: fx, uiState: UI_STATE });
 
-    fireEvent.click(screen.getByRole('button', { name: 'content', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'content' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Pattern to grep' }), {
       target: { value: '(unterminated' },
     });
@@ -125,7 +125,7 @@ describe('SearchView, assembled through the real bridge', () => {
       { fixtures: fx, uiState: UI_STATE },
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'content', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'content' }));
     const pattern = screen.getByRole('textbox', { name: 'Pattern to grep' });
 
     fireEvent.change(pattern, { target: { value: 'aaa' } });
@@ -170,7 +170,7 @@ describe('SearchView, assembled through the real bridge', () => {
     }
     renderView(<Harness />, { fixtures: fx, uiState: { ...UI_STATE, activeView: 'search' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'content', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'content' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Pattern to grep' }), {
       target: { value: 'foo' },
     });
@@ -187,7 +187,7 @@ describe('SearchView, assembled through the real bridge', () => {
     // Clicking the label half reopens the Search view without touching the
     // in-flight search.
     fireEvent.click(screen.getByRole('button', { name: /go to Search/ }));
-    expect(await screen.findByRole('button', { name: 'content', exact: true })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'content' })).toBeTruthy();
     expect(screen.getByTestId('status-segment-search-progress')).toBeTruthy();
 
     // The trailing Stop button cancels without navigating.

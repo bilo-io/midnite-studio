@@ -140,7 +140,11 @@ describe('StatusBar, assembled through the real bridge', () => {
     const fx: MockFixtures = {
       ...fixtures,
       diagnostics: {
-        trust: { state: 'untrusted', command: { parser: 'eslint', ecosystem: 'javascript', command: 'eslint', args: ['.'] } },
+        trust: {
+          state: 'untrusted',
+          command: { parser: 'eslint', ecosystem: 'javascript', command: 'eslint', args: ['.'] },
+          trustedAt: null,
+        },
         candidates: [
           {
             parser: 'eslint',
