@@ -112,7 +112,8 @@ function isPageRoleView(view: ViewId): view is PageWindowRole {
   return PAGE_ROLE_SET.has(view);
 }
 
-const SETTINGS_PAGE_LABEL: Record<SettingsPageId, string> = Object.fromEntries(
+/** Exported for `ui-requests.ts` (Phase 81 Theme F) — the MCP-steered path announces the same label a spoken navigation does, rather than a second lookup. */
+export const SETTINGS_PAGE_LABEL: Record<SettingsPageId, string> = Object.fromEntries(
   SETTINGS_PAGES.map((page) => [page.id, page.label]),
 ) as Record<SettingsPageId, string>;
 
