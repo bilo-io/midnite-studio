@@ -10895,3 +10895,70 @@ whenever the environment is slow or contended — locally under parallel workers
 this repo's CI trust: six diagnoses and six re-runs in one day, and the standing reason
 `retries: 2` cannot come down. Recorded against Theme F's flake register with the diagnosis
 rather than the folklore.
+
+## 2026-09-10 — Phase 82 Theme C: waves 4 and 5, and the shape of a derived scope
+
+Waves 4 ([#337](https://github.com/bilo-io/midnite-studio/pull/337)) and 5
+([#338](https://github.com/bilo-io/midnite-studio/pull/338)) close out Theme C's five-wave
+migration. Measured, not estimated:
+
+| | e2e declared | `app:test` |
+|---|---|---|
+| Theme C start | 976 | ~3,700 |
+| after wave 3 | 582 | 3,922 |
+| after wave 4 | 546 | 3,952 |
+| after wave 5 | **465** | **4,065** |
+
+Wave 4 took the four named specs — `palette` 14→3, `repos-workbench` 18→8, `companion-panel`
+20→11, `nav-shell` 9→4. Wave 5 took the tail: 36 specs, 155→38, 117 tests migrated.
+
+**Both waves' scopes were mis-estimated in the doc, in opposite directions, for the same
+underlying reason — nobody had read the files.** Wave 4's estimates (13/13/11/8) were all
+*low*: Phase 81 Theme C added 9 command-routing tests to `companion-panel.spec.ts` after they
+were written. Wave 5's "~200 tests" was *high*: the real tail is ~155 once eleven specs that
+read as logic by name are excluded by inspection — `status-bar` is entirely
+`boundingBox()`/density-breakpoint work, `graph-recency` and `graph-selection` resolve
+`--lane-h/s/l` custom properties at computed-style time (jsdom loads no stylesheet, so neither
+can be honestly proven outside a browser), and eight more carry real
+`boundingBox`/viewport/CSS/drag/hover assertions. One rule out of both: **derive a wave's scope
+by reading each candidate file, never from a name or a doc-written count.**
+
+Wave 5 also declined four files rather than rush them — `fab-loops` (45 tests, only ~17
+genuinely glow/arc) plus `browser-pane`, `workflows` and `titlebar-agents`, each a *partial*
+keep where a named subset stays and the remainder is unnamed. Splitting those needs per-*test*
+judgment where waves 1-5 made per-*file* judgments, and a wrong split is worse than no split.
+Logged as a wave 6 rather than a loose end.
+
+### Three jsdom traps now, not one
+
+Wave 4 found the third: a component that only mounts **on the interaction under test**.
+`Palette`'s row list is `@tanstack/react-virtual`, but it only mounts — and so only calls
+`ResizeObserver.observe()` — the instant `Meta+k` opens it, and `vitest-setup.ts`'s
+`FiringResizeObserver` fires from a `queueMicrotask`. So a synchronous `getByRole` straight
+after opening races that microtask and finds nothing, reading exactly like "the component did
+not render". Same false-negative shape as wave 2's lazy-chunk trap, one tick long instead of
+seconds; fix is `await findByRole`/`waitFor`. Wave 5 audited every virtualised surface it
+touched against this and needed no fix — but checked file-by-file rather than assuming.
+
+Two harness gaps besides. `MonacoField` calls the real `getMonaco()` at **module scope**, so any
+test importing `ApiClientView` pulls it in for real and the unhandled rejection gets
+misattributed to whatever *other* file vitest is running when the import settles. And
+Playwright's `{ exact: true }` ported onto `getByRole` is a **typecheck** error, not a runtime
+one (`ByRoleOptions` has no `exact` — that is `getByText`'s), so `vitest run` alone passes it and
+only a real `moon run app:typecheck` catches it. It hit 7 files in wave 5.
+
+### A clean rebase is not a correct one
+
+Both waves independently created `features/repos/repos-panel.bridge.test.tsx`, so rebasing wave
+4 onto wave 5 hit an add/add conflict across six hunks. Their fixtures disagree in a
+**load-bearing** way: wave 5's `localRef` seeds `sha: 'b'.repeat(40)` precisely so
+`journal-undo` can assert a branch is recreated at *its own* sha rather than `HEAD`, while wave
+4's seeds `'a'.repeat(40)`. Folding them into one file would have meant picking one and quietly
+weakening whichever suite lost — so they are split by concern: wave 5 keeps the canonical name,
+wave 4's suites moved to `repos-panel-workbench.bridge.test.tsx`, mirroring
+`companion-panel-workbench.bridge.test.tsx`.
+
+The quieter half is worth remembering: the rebase appended `nav-shell`'s describe block into
+wave 5's file **without conflicting**, but it reads wave 4's `base` fixture, so it collected as
+`ReferenceError: base is not defined`. Git was satisfied and the code was wrong. Only running
+the tests caught it.
