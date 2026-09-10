@@ -13,6 +13,12 @@ import { installMockBridge, type MockFixtures } from '../test-support/mock-bridg
  * (D/W/M/Y, the style icons, the gridline switch), that hovering a bucket raises
  * the tooltip and leaving the chart takes it away, and that a repository with
  * no timeline rows says "No commits" rather than drawing an empty chart.
+ *
+ * Phase 82 Theme C wave 5 moved 7 of this file's original 9 tests to
+ * `src/features/activity/commit-activity-panel.bridge.test.tsx`, mounting
+ * `CommitActivityPanel` directly with `activityTimelineOpen` already set. The
+ * 2 left here are both about *reaching* the panel rather than anything inside
+ * it: the status-bar toggle raising it, and the global chord doing the same.
  */
 
 const DAY_S = 86_400;
@@ -86,162 +92,4 @@ test('the chord toggles it too', async ({ page }) => {
   await expect(page.getByTestId('commit-activity-panel')).toBeVisible();
   await pressChord();
   await expect(page.getByTestId('commit-activity-panel')).toHaveCount(0);
-});
-
-test('the D/W/M/Y picker moves the window the chart announces', async ({ page }) => {
-  await open(page);
-  await page.getByTestId('activity-toggle').click();
-  const chart = page.getByTestId('commit-activity-chart');
-
-  // Week is the default: all three commits are inside it.
-  await expect(chart).toHaveAttribute('aria-label', 'Commit activity, last 7 days: 3 commits');
-
-  await page.getByRole('radio', { name: 'Last 30 days' }).click();
-  await expect(chart).toHaveAttribute('aria-label', 'Commit activity, last 30 days: 3 commits');
-
-  await page.getByRole('radio', { name: 'Last 24 hours' }).click();
-  await expect(chart).toHaveAttribute('aria-label', 'Commit activity, last 24 hours: 1 commit');
-
-  // Y widens to twelve calendar months — and asks main for the `1y` window,
-  // which is a different query key, so this also covers the refetch.
-  await page.getByRole('radio', { name: 'Last 12 months' }).click();
-  await expect(chart).toHaveAttribute('aria-label', 'Commit activity, last 12 months: 3 commits');
-});
-
-test('the year view buckets by month, twelve of them', async ({ page }) => {
-  await open(page);
-  await page.getByTestId('activity-toggle').click();
-  await page.getByRole('radio', { name: 'Last 12 months' }).click();
-  await page.getByRole('radio', { name: 'Heatmap' }).click();
-
-  // One cell per bucket in the heatmap, empty months included.
-  const chart = page.getByTestId('commit-activity-chart');
-  await expect(chart.locator('rect:not([data-testid="activity-hit"])')).toHaveCount(12);
-
-  // And the tooltip names the month rather than a day or an hour range.
-  const hits = chart.locator('[data-testid="activity-hit"]');
-  await hits.nth((await hits.count()) - 1).hover();
-  const tooltip = page.getByTestId('activity-tooltip');
-  // Formatted *in the page*, not in node: the component formats through
-  // `undefined`, so the expected string is the browser's locale's, not the
-  // runner's — and it has to hold whatever month the suite runs in.
-  const thisMonth = await page.evaluate(() =>
-    new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
-  );
-  await expect(tooltip).toContainText(thisMonth);
-  await expect(tooltip).toContainText('% of the last 12 months');
-});
-
-test('the style icons swap the drawing, and the choice reaches Settings', async ({ page }) => {
-  await open(page);
-  await page.getByTestId('activity-toggle').click();
-  const chart = page.getByTestId('commit-activity-chart');
-
-  await expect(chart).toHaveAttribute('data-variant', 'bars');
-  await page.getByRole('radio', { name: 'Heatmap' }).click();
-  await expect(chart).toHaveAttribute('data-variant', 'heatmap');
-  await page.getByRole('radio', { name: 'Area' }).click();
-  await expect(chart).toHaveAttribute('data-variant', 'area');
-  // Two bands off one baseline is the default; Settings' own Churn areas
-  // choice is what switches them to stacked.
-  await expect(page.getByTestId('activity-area-overlaid')).toBeVisible();
-
-  // Same store field the Settings page edits — the panel's icons are the
-  // second door onto it, so the first door has to agree.
-  await expect(page.getByRole('radio', { name: 'Area' })).toHaveAttribute('aria-checked', 'true');
-});
-
-test('the gridlines toggle draws the timeframe cadence it names', async ({ page }) => {
-  await open(page);
-  await page.getByTestId('activity-toggle').click();
-  const toggle = page.getByTestId('activity-gridlines-toggle');
-
-  // Off by default, and the label says what turning it on will draw.
-  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-  await expect(toggle).toHaveAttribute('aria-label', 'Show gridlines (every day)');
-  await expect(page.getByTestId('activity-gridlines')).toHaveCount(0);
-
-  await toggle.click();
-  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-  const rules = page.getByTestId('activity-gridlines').locator('line');
-  // A week rules every day boundary but the first, plus the churn baseline.
-  await expect(rules).toHaveCount(7);
-
-  // The cadence follows the window: 30 days rules every week instead. Asserted
-  // as "fewer than the week's", not as a number — a 30-day window holds four
-  // Mondays on most days and five when today is one, so a fixed count would
-  // fail one day in seven against the real clock.
-  await page.getByRole('radio', { name: 'Last 30 days' }).click();
-  await expect(toggle).toHaveAttribute('aria-label', 'Hide gridlines (every week)');
-  // The label already re-rendered with the new timeframe, so the count is settled.
-  const monthRules = await rules.count();
-  expect(monthRules).toBeLessThan(7);
-  expect(monthRules).toBeGreaterThanOrEqual(5);
-
-  // A year rules its quarters: three or four in twelve months depending on
-  // whether one lands on the axis edge, plus the churn baseline.
-  await page.getByRole('radio', { name: 'Last 12 months' }).click();
-  await expect(toggle).toHaveAttribute('aria-label', 'Hide gridlines (every quarter)');
-  const yearRules = await rules.count();
-  expect(yearRules).toBeGreaterThanOrEqual(4);
-  expect(yearRules).toBeLessThanOrEqual(5);
-});
-
-test('the header controls are one tab stop each, arrow-navigable', async ({ page }) => {
-  await open(page);
-  await page.getByTestId('activity-toggle').click();
-
-  // An ARIA radio group is a single tab stop: only the checked radio is
-  // reachable by Tab, and the arrows both move and select.
-  await page.getByRole('radio', { name: 'Last 7 days' }).focus();
-  await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('radio', { name: 'Last 30 days' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('radio', { name: 'Last 12 months' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  // And it wraps — a ring of four makes stopping at the end a dead key.
-  await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('radio', { name: 'Last 24 hours' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-
-  await page.getByRole('radio', { name: 'Bars' }).focus();
-  await page.keyboard.press('ArrowDown');
-  await expect(page.getByTestId('commit-activity-chart')).toHaveAttribute(
-    'data-variant',
-    'heatmap',
-  );
-});
-
-test('hovering a bucket names it, its commits and its churn', async ({ page }) => {
-  await open(page);
-  await page.getByTestId('activity-toggle').click();
-
-  // The last hit rect is the newest bucket — the one holding the +12/-3 commit
-  // from an hour ago. Vertical panel, so "last" is the bottom one.
-  await page.getByTestId('activity-hit').last().hover();
-
-  const tip = page.getByTestId('activity-tooltip');
-  await expect(tip).toBeVisible();
-  await expect(tip).toContainText('1 commit');
-  await expect(tip).toContainText('+12');
-  await expect(tip).toContainText('−3');
-  await expect(tip).toContainText('of the last 7 days');
-
-  // Leaving the chart takes it away rather than parking it over the content.
-  await page.getByTestId('status-bar').hover();
-  await expect(tip).toHaveCount(0);
-});
-
-test('a repository with no rows says so instead of drawing an empty chart', async ({ page }) => {
-  await open(page, { ...fixtures });
-  await page.getByTestId('activity-toggle').click();
-  await expect(page.getByTestId('commit-activity-panel')).toContainText('No commits');
-  await expect(page.getByTestId('commit-activity-chart')).toHaveCount(0);
 });

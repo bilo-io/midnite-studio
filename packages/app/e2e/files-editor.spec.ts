@@ -8,6 +8,17 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * Theme C — replacing CodeMirror 6) behind an explicit Edit toggle, Cmd+S
  * through the command registry, and an unsaved-changes guard on navigating
  * away from a dirty buffer.
+ *
+ * Phase 82 Theme C wave 5 moved the dirty-indicator/Save round trip, the
+ * guard's Save/Discard/Cancel choices, the stale-write Reload offer and the
+ * Done focus-restore to
+ * `src/features/files/preview/file-preview.bridge.test.tsx`, mounting
+ * `FilesView` + `FileEditorGuard` directly with `@monaco-editor/react`'s
+ * `<Editor>` mocked. **The 2 tests left here need real Monaco**: the first
+ * asserts on actual network requests against Vite's dev-server module graph
+ * (no Monaco chunk should ever be requested before Edit is clicked), and the
+ * second asserts on `.monaco-editor .margin`/`.view-lines`, real Monaco DOM a
+ * mock does not produce.
  */
 
 const editorFixtures: MockFixtures = {
@@ -87,98 +98,3 @@ test('Edit swaps the read-only preview for a Monaco editor with a gutter', async
   }
 });
 
-test('typing shows a dirty indicator, and Save clears it', async ({ page }) => {
-  await openFiles(page);
-  await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
-  await page.getByRole('button', { name: 'Edit' }).click();
-
-  await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.type('// edited\n');
-  await expect(page.getByTitle('Unsaved changes')).toBeVisible();
-  if (process.env.MSTUDIO_SHOTS) {
-    await page.screenshot({ path: '../../docs/screenshots/phase-24-d/editor-dirty.png' });
-  }
-
-  await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByTitle('Unsaved changes')).toHaveCount(0);
-});
-
-test('leaving a dirty file for another shows the Save/Discard/Cancel guard', async ({ page }) => {
-  await openFiles(page);
-  await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
-  await page.getByRole('button', { name: 'Edit' }).click();
-  await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.type('x');
-
-  await page.getByRole('treeitem', { name: /^b\.ts$/ }).click();
-
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toContainText('Save changes to "a.ts"?');
-  await expect(dialog.getByRole('button', { name: 'Save' })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Discard' })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeVisible();
-  if (process.env.MSTUDIO_SHOTS) {
-    await page.screenshot({ path: '../../docs/screenshots/phase-24-d/editor-guard.png' });
-  }
-
-  // Discard proceeds with the blocked navigation.
-  await dialog.getByRole('button', { name: 'Discard' }).click();
-  await expect(page.getByRole('treeitem', { name: /^b\.ts$/ })).toHaveAttribute('aria-selected', 'true');
-});
-
-test('Cancel on the guard keeps the original file selected and the edit intact', async ({ page }) => {
-  await openFiles(page);
-  await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
-  await page.getByRole('button', { name: 'Edit' }).click();
-  await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.type('x');
-
-  await page.getByRole('treeitem', { name: /^b\.ts$/ }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
-
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('treeitem', { name: /^a\.ts$/ })).toHaveAttribute('aria-selected', 'true');
-  // Cancel keeps the edit — it neither saved nor discarded it.
-  await expect(page.getByTitle('Unsaved changes')).toBeVisible();
-});
-
-test('a stale write on Save offers Reload rather than overwriting or discarding silently', async ({
-  page,
-}) => {
-  await openFiles(page);
-  await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
-  await page.getByRole('button', { name: 'Edit' }).click();
-
-  // Simulate an external change landing on disk after the read.
-  await page.evaluate(() => {
-    (window as unknown as { __mstudioStaleFile: (relPath: string) => void }).__mstudioStaleFile('a.ts');
-  });
-
-  await page.locator('.monaco-editor .view-lines').click();
-  await page.keyboard.type('x');
-  await page.getByRole('button', { name: 'Save' }).click();
-
-  await expect(page.getByText(/changed on disk/i)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Reload', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Keep editing' })).toBeVisible();
-});
-
-test('leaving edit mode (Done) returns focus to the Edit button, not <body> (Phase 64 Theme D/G)', async ({
-  page,
-}) => {
-  await openFiles(page);
-  await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
-  await page.getByRole('button', { name: 'Edit' }).click();
-  await expect(page.getByTestId('code-editor')).toBeVisible();
-
-  await page.getByRole('button', { name: 'Done' }).click();
-
-  // `code-editor.tsx` captures `document.activeElement` on mount and refocuses
-  // it on unmount. Asserted end to end (not just at the unit level, where
-  // jsdom's click-focus semantics differ from a real browser's) because the
-  // Edit button is unmounted and remounted, not the same DOM node kept in
-  // place — the ref this restores through has to still find the RIGHT
-  // element after that swap.
-  await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Edit' })).toBeFocused();
-});

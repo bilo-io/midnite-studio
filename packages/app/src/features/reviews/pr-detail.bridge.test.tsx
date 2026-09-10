@@ -3,10 +3,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { fixtures } from '../../../test-support/fixtures';
 import type { MockFixtures } from '../../../test-support/mock-bridge';
-import { renderView } from '../../../test-support/render';
+import { createTestQueryClient, renderView } from '../../../test-support/render';
+import { keys } from '../../services/queries';
+import { useReviewsStore } from '../../store/reviews-store';
 import { useUiStore } from '../../store/ui-store';
 import { ReviewsPage } from '../settings/settings-pages/reviews-page';
 import { PrDetail } from './pr-detail';
+import { ReviewsList } from './reviews-list';
 
 /**
  * Migrated from `e2e/review-writes.spec.ts` (Phase 82 Theme C, wave 3) — the
@@ -403,5 +406,243 @@ describe('PrDetail — the review write path, assembled through the real bridge'
     fireEvent.click(screen.getByRole('tab', { name: /Checks/ }));
     expect(await screen.findByRole('button', { name: 'Re-run all jobs' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Re-run failed jobs' })).toBeNull();
+  });
+});
+
+/**
+ * Migrated from `e2e/reviews-loading.spec.ts` (Phase 82 Theme C, wave 5) — the
+ * Reviews view's loading states: the mock bridge answers in the same tick it
+ * is asked, so without an artificial hold none of these skeletons ever
+ * render. `forgeLatencyMs` (`mock-bridge.ts`) wraps every forge call in a
+ * real `setTimeout`, so a synchronous assertion made right after the render
+ * or the click that triggers the fetch — before any `await` yields the event
+ * loop — sees the pending state deterministically, with no need to actually
+ * wait out the delay (`forgeLatencyMs` is set high on purpose, so a stray
+ * `await` elsewhere in the harness can never accidentally let one resolve
+ * mid-test). All 7 of the original assertions are ported; the "Files tab in
+ * dark" test is the one straggler — see its note below.
+ *
+ * **The header-already-rendered tests pre-seed the query cache rather than
+ * mounting `checks-verdict.tsx`.** The e2e original's own comment explains
+ * why a PR's header (and its Checks pill) can render immediately while the
+ * Overview/Files/Conversation/Checks body is still loading: `PrDetail`'s own
+ * `useForgePulls(repoId, true)` call (defaults: `state: 'open'`, `scope:
+ * 'all'`) shares its query key with the status bar's `checks-verdict`
+ * widget, which is always mounted and queries that exact key on load, well
+ * before any PR is ever opened. This harness does not mount that widget, so
+ * the equivalent cache entry is seeded directly via `queryClient.setQueryData
+ * (keys.forgePulls(...))` before rendering — the jsdom-side stand-in for
+ * "a sibling widget already asked this question."
+ */
+const LOADING_REMOTES = [
+  {
+    name: 'origin',
+    fetchUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    pushUrl: 'git@github.com:bilo-io/midnite-studio.git',
+    forge: { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' },
+  },
+];
+
+/* Real, but generous — nothing here ever awaits past it. */
+const LOADING_LATENCY = 5000;
+
+const LOADING_PULL = {
+  number: 128,
+  title: 'Spinners and loading skeletons for the Reviews view',
+  state: 'open',
+  isDraft: false,
+  reviewDecision: 'REVIEW_REQUIRED',
+  checks: 'passing',
+  headBranch: 'feature/reviews-loading',
+  author: 'bilo',
+  url: 'https://github.com/bilo-io/midnite-studio/pull/128',
+};
+
+const SECOND_LOADING_PULL = {
+  ...LOADING_PULL,
+  number: 131,
+  title: 'Skeletons for the Checks tab',
+  headBranch: 'feature/checks-loading',
+  checks: 'pending',
+};
+
+const loadingData: MockFixtures = {
+  ...fixtures,
+  forgeLatencyMs: LOADING_LATENCY,
+  remotes: LOADING_REMOTES,
+  statusEntries: [],
+  statusByWorktree: { '/tmp/midnite-studio': [] },
+  forge: {
+    cli: { reason: 'ready' },
+    pulls: [LOADING_PULL, SECOND_LOADING_PULL],
+    runs: [],
+    pullDetail: {
+      '128': {
+        body: 'The Reviews view now draws the shape of what it is fetching.',
+        headSha: 'c'.repeat(40),
+        baseBranch: 'main',
+        additions: 412,
+        deletions: 38,
+        changedFiles: 9,
+        mergeable: 'MERGEABLE',
+      },
+      '131': {
+        body: 'The Checks tab gets the job tree and log pane in outline.',
+        headSha: 'c'.repeat(40),
+        baseBranch: 'main',
+        additions: 96,
+        deletions: 12,
+        changedFiles: 3,
+        mergeable: 'MERGEABLE',
+      },
+    },
+  },
+};
+
+/**
+ * Pre-seeds the `checks-verdict`-equivalent cache entry (`PrDetail`'s own
+ * header/listing query) for one or both pulls, and — only when `ReviewsList`
+ * is the thing being mounted — the list pane's own scoped "All Pull
+ * Requests" query too, so its rows render without this file also having to
+ * prove that group's own fetch (covered by "the pull request list,
+ * mid-fetch" above).
+ */
+function seedListingCache(
+  pulls: (typeof LOADING_PULL)[],
+  options: { forList?: boolean } = {},
+) {
+  const client = createTestQueryClient();
+  const page = { pulls, cli: { reason: 'ready' } };
+  client.setQueryData(keys.forgePulls('repo-1', 20, 'open', 'all'), page);
+  if (options.forList) {
+    client.setQueryData(keys.forgePulls('repo-1', 20, 'all', 'all'), page);
+  }
+  return client;
+}
+
+/** Opens the "All Pull Requests" group in `ReviewsList`. */
+async function openAllPullsGroup(): Promise<void> {
+  await fireEvent.click(
+    within(screen.getByTestId('reviews-groups')).getByRole('button', {
+      name: 'All Pull Requests',
+    }),
+  );
+}
+
+function loadingRow(title: string) {
+  const list = within(screen.getByTestId('reviews-groups')).getByRole('list', {
+    name: 'All Pull Requests',
+  });
+  return within(list).getByRole('button', { name: new RegExp(title) });
+}
+
+describe('ReviewsList/PrDetail loading states, assembled through the real bridge', () => {
+  beforeEach(() => {
+    useReviewsStore.setState({ selectedPull: {}, openGroups: {} });
+  });
+
+  afterEach(cleanup);
+
+  it('the pull request list, mid-fetch', async () => {
+    renderView(<ReviewsList repoId="repo-1" />, { fixtures: loadingData });
+    await openAllPullsGroup();
+
+    // Nothing pre-seeded here: both the list pane's own scoped fetch and the
+    // (nothing-selected) detail column's own skeleton are genuinely pending.
+    expect(screen.getByText('Loading pull requests…')).toBeTruthy();
+    expect(screen.getByText('Loading the pull request…')).toBeTruthy();
+  });
+
+  it('a pull request opening, with nothing cached', async () => {
+    const queryClient = seedListingCache([LOADING_PULL, SECOND_LOADING_PULL], { forList: true });
+    renderView(<ReviewsList repoId="repo-1" />, { fixtures: loadingData, queryClient });
+    await openAllPullsGroup();
+
+    fireEvent.click(loadingRow(LOADING_PULL.title));
+    expect(
+      await screen.findByRole('region', { name: `Pull request #${LOADING_PULL.number}` }),
+    ).toBeTruthy();
+    // The header renders immediately from the seeded listing cache; only the
+    // detail proper (additions/deletions, mergeable state, description) is
+    // still out, which is the Overview skeleton's job, not the whole pane's.
+    expect(screen.getByText('Loading the description…')).toBeTruthy();
+  });
+
+  it('switching pull requests, with the listing already cached', async () => {
+    const queryClient = seedListingCache([LOADING_PULL, SECOND_LOADING_PULL], { forList: true });
+    renderView(<ReviewsList repoId="repo-1" />, { fixtures: loadingData, queryClient });
+    await openAllPullsGroup();
+
+    fireEvent.click(loadingRow(LOADING_PULL.title));
+    await screen.findByRole('region', { name: `Pull request #${LOADING_PULL.number}` });
+
+    // Now the listing is cached, so #131's header renders immediately from it
+    // and only the detail is outstanding.
+    fireEvent.click(loadingRow(SECOND_LOADING_PULL.title));
+    expect(
+      await screen.findByRole('region', { name: `Pull request #${SECOND_LOADING_PULL.number}` }),
+    ).toBeTruthy();
+    expect(screen.getByText('Loading the description…')).toBeTruthy();
+  });
+
+  it('the Files tab, mid-fetch', async () => {
+    const queryClient = seedListingCache([LOADING_PULL]);
+    renderView(<PrDetail repoId="repo-1" number={LOADING_PULL.number} />, {
+      fixtures: loadingData,
+      queryClient,
+    });
+    await screen.findByRole('region', { name: `Pull request #${LOADING_PULL.number}` });
+
+    const files = screen.getByRole('tab', { name: 'Files' });
+    fireEvent.click(files);
+    // The strip and the panel read the same state, and the shot is only worth
+    // keeping if it shows them agreeing.
+    expect(files.getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByText('Loading the diff…')).toBeTruthy();
+  });
+
+  /**
+   * **Straggler — stays in `e2e/reviews-loading.spec.ts`.** "The Files tab in
+   * dark, mid-fetch" asserts nothing functional beyond the light-theme Files
+   * test above: `setTheme` only flips `document.documentElement`'s `dark`
+   * class and the OS colour-scheme emulation, and the assertion it adds over
+   * the light-mode test is purely visual ("the bars are `bg-muted`, so they
+   * follow the theme") — the e2e original itself only *photographs* that
+   * distinction (`shoot`, gated on `MSTUDIO_SHOTS`); the non-visual
+   * assertions it makes unconditionally (`aria-selected`, the loading text)
+   * are identical to the light-theme test and prove nothing new under jsdom,
+   * which has no computed style/paint to tell `bg-muted` apart from anything
+   * else.
+   */
+
+  it('the Conversation tab, mid-fetch', async () => {
+    const queryClient = seedListingCache([LOADING_PULL]);
+    renderView(<PrDetail repoId="repo-1" number={LOADING_PULL.number} />, {
+      fixtures: loadingData,
+      queryClient,
+    });
+    await screen.findByRole('region', { name: `Pull request #${LOADING_PULL.number}` });
+
+    const conversation = screen.getByRole('tab', { name: 'Conversation' });
+    fireEvent.click(conversation);
+    expect(conversation.getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByText('Loading the conversation…')).toBeTruthy();
+  });
+
+  it('the Checks tab, mid-fetch', async () => {
+    const queryClient = seedListingCache([LOADING_PULL]);
+    renderView(<PrDetail repoId="repo-1" number={LOADING_PULL.number} />, {
+      fixtures: loadingData,
+      queryClient,
+    });
+    await screen.findByRole('region', { name: `Pull request #${LOADING_PULL.number}` });
+
+    // Not `exact`: the tab carries the checks pill from the already-cached
+    // header pull (`checks: 'passing'`), so its accessible name is "Checks
+    // Checks passing" — anchoring the front of it is enough to tell it from
+    // every other tab, matching Playwright's own substring default here
+    // rather than Testing Library's whole-string one.
+    fireEvent.click(screen.getByRole('tab', { name: /^Checks/ }));
+    expect(screen.getByText('Loading the checks…')).toBeTruthy();
   });
 });

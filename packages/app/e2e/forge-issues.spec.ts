@@ -6,10 +6,12 @@ import { installMockBridge, type MockFixtures } from '../test-support/mock-bridg
 /**
  * The Issues section, and the job peek under a run row.
  *
- * The parsers are covered under bare vitest against captured `gh` output —
- * what none of those can show is that "issues are turned off" reaches the
- * sidebar as a calm sentence rather than as the red card an error would draw,
- * or that expanding a run row costs a fetch only once someone expands it.
+ * The parsers are covered under bare vitest against captured `gh` output.
+ * Phase 82 Theme C wave 5 moved every other test here to
+ * `src/features/repos/forge-sections.bridge.test.tsx`, mounting
+ * `IssuesSection`/`ActionsSection` directly: the disabled/failed empties, the
+ * lazy job fetch, and the no-steps job. One smoke test stays here, proving
+ * the sidebar actually reaches these sections through a real page load.
  */
 
 const MAIN = '/tmp/midnite-studio';
@@ -35,21 +37,6 @@ const issue = (over: Record<string, unknown> = {}) => ({
   url: 'https://github.com/bilo-io/midnite-studio/issues/42',
   ...over,
 });
-
-const run = {
-  id: '1',
-  name: 'CI',
-  status: 'completed',
-  conclusion: 'failure',
-  headBranch: 'main',
-  headSha: 'a'.repeat(40),
-  createdAt: '2026-08-26T10:00:00Z',
-  url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1',
-  event: 'push',
-  workflowId: '900',
-  workflowName: 'CI',
-  number: 128,
-};
 
 const base: MockFixtures = {
   ...fixtures,
@@ -93,147 +80,4 @@ test('Issues lists what gh reports, and each row links out', async ({ page }) =>
   // `shell.openExternal` directly.
   await expect(browserTabs(page)).toHaveCount(1);
   await expect(browserTabs(page)).toHaveAccessibleName(/github\.com/);
-});
-
-test('a repo with issues turned off says so, and does not look broken', async ({ page }) => {
-  await open(page, {
-    ...base,
-    forge: { cli: { reason: 'ready' }, issues: [], issuesDisabled: true },
-  });
-
-  await page.getByRole('button', { name: 'Issues', exact: true }).click();
-
-  await expect(page.getByText('Issues are turned off for this repository.')).toBeVisible();
-  // The distinction the `disabled` field exists for: a repository behaving as
-  // its owner configured it must not read as a repository that has no issues,
-  // nor as one whose issue listing failed.
-  await expect(page.getByText('No open issues.')).toHaveCount(0);
-});
-
-test('a failed listing is a different empty from an empty listing', async ({ page }) => {
-  await open(page, {
-    ...base,
-    forge: { cli: { reason: 'ready' }, issues: [], error: 'HTTP 502: Bad gateway' },
-  });
-
-  await page.getByRole('button', { name: 'Issues', exact: true }).click();
-  /*
-    Scoped to the Issues landmark, not a bare `getByText`: the status bar's
-    checks verdict (`checks-verdict.tsx`) queries `pulls` unconditionally for
-    its own badge, on the same query key as the sidebar's "All Pull Requests"
-    group, so the same fixture error legitimately renders there too. That is
-    correct — one real `gh` failure reported everywhere it is relevant — and
-    exactly why this assertion must name the landmark it means.
-  */
-  await expect(
-    page.getByLabel('Issues', { exact: true }).getByText('HTTP 502: Bad gateway'),
-  ).toBeVisible();
-});
-
-test('expanding a run row shows its jobs, and only then fetches them', async ({ page }) => {
-  await open(page, {
-    ...base,
-    forge: {
-      cli: { reason: 'ready' },
-      runs: [run],
-      runDetail: {
-        '1': {
-          jobs: [
-            {
-              id: '10',
-              name: 'typecheck',
-              status: 'completed',
-              conclusion: 'success',
-              startedAt: '2026-08-26T10:00:10Z',
-              completedAt: '2026-08-26T10:01:00Z',
-              url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1/job/10',
-              steps: [
-                {
-                  number: 1,
-                  name: 'Set up job',
-                  status: 'completed',
-                  conclusion: 'success',
-                  startedAt: null,
-                  completedAt: null,
-                },
-              ],
-            },
-            {
-              id: '11',
-              name: 'test',
-              status: 'completed',
-              conclusion: 'failure',
-              startedAt: '2026-08-26T10:00:10Z',
-              completedAt: '2026-08-26T10:04:00Z',
-              url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1/job/11',
-              steps: [],
-            },
-          ],
-        },
-      },
-    },
-  });
-
-  await page.getByRole('button', { name: 'Actions', exact: true }).click();
-  /*
-    `getByRole('img', …)`, not `getByText`: a settled status renders as a bare
-    coloured glyph now, so its word survives only as the mark's accessible
-    name. Asserting on the name rather than on visible text is also the stronger
-    check — it fails if the pill loses the label a screen reader needs.
-  */
-  await expect(page.getByRole('img', { name: 'Failed', exact: true })).toBeVisible();
-  // Nothing has expanded yet, so nothing has been asked of `gh run view`.
-  // `exact: true` because the sidebar's own "Tests" section toggle otherwise
-  // substring-matches this job's name.
-  await expect(page.getByRole('button', { name: 'test', exact: true })).toHaveCount(0);
-
-  await page.getByRole('button', { name: 'Jobs in CI #128' }).click();
-
-  // The question the red dot leaves open: which job failed.
-  await expect(page.getByRole('button', { name: 'typecheck' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'test', exact: true })).toBeVisible();
-  await expect(page.getByText('1 steps')).toBeVisible();
-
-  // Two verbs, two controls — the chevron peeks, the row body opens a tab. So
-  // expanding must not have navigated anywhere.
-  await expect(page.getByRole('tab', { name: /CI/ })).toHaveCount(0);
-
-  await page.getByRole('button', { name: 'Jobs in CI #128' }).click();
-  await expect(page.getByRole('button', { name: 'typecheck' })).toHaveCount(0);
-});
-
-test('a job with no steps renders as a job, not as an error', async ({ page }) => {
-  await open(page, {
-    ...base,
-    forge: {
-      cli: { reason: 'ready' },
-      runs: [run],
-      runDetail: {
-        '1': {
-          jobs: [
-            {
-              id: '12',
-              name: 'deploy',
-              status: 'completed',
-              conclusion: 'skipped',
-              startedAt: null,
-              completedAt: null,
-              url: '',
-              steps: [],
-            },
-          ],
-        },
-      },
-    },
-  });
-
-  await page.getByRole('button', { name: 'Actions', exact: true }).click();
-  await page.getByRole('button', { name: 'Jobs in CI #128' }).click();
-
-  // `steps: []` is what GitHub sends for a job an `if:` declined to run.
-  await expect(page.getByRole('button', { name: 'deploy' })).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Skipped', exact: true })).toBeVisible();
-  // No url means nothing to open — the row says so by being disabled rather
-  // than by opening a link that goes nowhere.
-  await expect(page.getByRole('button', { name: 'deploy' })).toBeDisabled();
 });

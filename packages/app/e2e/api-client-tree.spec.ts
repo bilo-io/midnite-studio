@@ -7,11 +7,12 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * Phase 66 Theme H — with a collection on disk, the tree renders its folders
  * and its requests, and clicking a request opens a tab.
  *
- * The fixture is a real Postman v2.1 document, nested one folder deep, because
- * the tree recurses through `renderItems(items, depth)` and a flat fixture
- * would exercise none of that. `itemPath` — the folder-name path, not an index
- * (Theme C) — is what a tab is keyed by, so a nested request is the case that
- * proves addressing works.
+ * Phase 82 Theme C wave 5 moved this file's assertions to
+ * `src/features/api-client/api-client-view.bridge.test.tsx`, mounting
+ * `ApiClientView` directly with the same fixture. **One smoke test stays
+ * here** — the simplest "the view renders and shows X" case, reached through
+ * the real rail navigation rather than a direct mount, so the suite still
+ * proves the view is reachable end to end in a real browser at least once.
  */
 const collection = {
   info: { name: 'Gateway', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
@@ -53,27 +54,4 @@ test('the tree renders a collection, its folder and its requests', async ({ page
 
   // A top-level request sits beside the folder, not inside it.
   await expect(page.getByText('Health check')).toBeVisible();
-});
-
-test('clicking a request opens a tab for it', async ({ page }) => {
-  await installMockBridge(page, withCollection);
-  await page.goto('/');
-  await clickRailLink(page, 'API Client');
-
-  // Before anything is opened the right pane shows its empty copy.
-  await expect(page.getByText('Open a request from the tree to build and send it.')).toBeVisible();
-
-  // A collection renders expanded, so its top-level request is directly
-  // clickable. Deliberately the top-level one rather than a nested one: this
-  // asserts that a request row *opens a tab*, and threading it through two
-  // disclosure toggles first would make a failure ambiguous between "the row
-  // does not open a tab" and "the folder did not expand".
-  await expect(page.getByText('Health check', { exact: true })).toBeVisible();
-  await page.getByText('Health check', { exact: true }).click();
-
-  // The empty copy is gone, which is the load-bearing assertion: the tab
-  // opened and the builder mounted in its place.
-  await expect(
-    page.getByText('Open a request from the tree to build and send it.'),
-  ).toBeHidden();
 });

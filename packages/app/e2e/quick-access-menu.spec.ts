@@ -14,6 +14,17 @@ import { installMockBridge } from '../test-support/mock-bridge';
  * `Meta+l`, literal rather than Playwright's OS-adaptive `ControlOrMeta`
  * alias: `palette.spec.ts` explains why (a real Ctrl on CI's Linux runner
  * under the `Mod`-is-always-Cmd pin this suite runs under).
+ *
+ * Phase 82 Theme C wave 5 moved 2 of this file's original 5 tests to
+ * `src/features/quick-access/quick-access-menu.bridge.test.tsx`, mounting
+ * `QuickAccessMenu` directly — `N` activating Notes and closing the menu
+ * behind it, and `I` (a disabled row) leaving the menu open with a hint. The
+ * 3 left here are all about *reaching* the component rather than its own
+ * behaviour once open: the FAB opening it, the `Meta+l` chord opening it (the
+ * real global keybinding dispatcher, not this menu's own `onKeyDown`), and
+ * `L` opening the Loops panel (`FabPanel`, a large surface this file has no
+ * reason to drag into a unit test — the dispatch mechanism itself is already
+ * proven by the `I` test in the jsdom file).
  */
 
 async function open(page: Page): Promise<void> {
@@ -58,18 +69,6 @@ test('the Meta+L chord opens the same component with the same five rows', async 
   }
 });
 
-test('Meta+L opens the menu, then N opens Notes', async ({ page }) => {
-  await open(page);
-  await page.keyboard.press('Meta+l');
-  await expect(menu(page)).toBeVisible();
-
-  await page.keyboard.press('n');
-  await expect(page.getByTestId('notes-modal')).toBeVisible();
-  // The menu closed behind it — activating a live row is a "do this and get
-  // out of the way" gesture, not a "do this and let me pick another" one.
-  await expect(menu(page)).toHaveCount(0);
-});
-
 test('Meta+L opens the menu, then L opens the Loops panel', async ({ page }) => {
   await open(page);
   await page.keyboard.press('Meta+l');
@@ -78,20 +77,4 @@ test('Meta+L opens the menu, then L opens the Loops panel', async ({ page }) => 
   await page.keyboard.press('l');
   await expect(page.getByRole('button', { name: 'Guard', exact: true })).toBeVisible();
   await expect(menu(page)).toHaveCount(0);
-});
-
-test('Meta+L opens the menu, then I changes nothing and leaves the menu open', async ({
-  page,
-}) => {
-  await open(page);
-  await page.keyboard.press('Meta+l');
-  await expect(menu(page)).toBeVisible();
-
-  await page.keyboard.press('i');
-  // Still up, still showing the same five rows — a disabled row's mnemonic
-  // is a no-op with a hint, never a dead end that quietly closes the menu.
-  await expect(menu(page)).toBeVisible();
-  await expect(menu(page).getByText('Coming soon')).toBeVisible();
-  await expect(page.getByTestId('notes-modal')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Guard', exact: true })).toHaveCount(0);
 });
