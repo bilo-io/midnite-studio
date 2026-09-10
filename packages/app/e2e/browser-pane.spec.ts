@@ -40,6 +40,20 @@ async function openBrowser(page: Page, layout?: 'full' | 'left' | 'right'): Prom
     await page.keyboard.press('Enter');
   }
   await expect(launcher).toHaveCount(0);
+
+  // The pointer is still resting wherever the click above left it —
+  // `browser-toggle` in the no-`layout` branch — with nothing left in these
+  // specs to move it away. When the launcher's full-screen modal backdrop
+  // unmounts, Chrome re-runs hit-testing under that still-stationary cursor
+  // and synthesizes a fresh `mouseenter` on whatever is newly exposed there,
+  // arming `Tooltip`'s 400ms open-delay timer (`tooltip.tsx`'s
+  // `OPEN_DELAY_MS`) for a hover the pointer never actually re-entered. Left
+  // alone, that phantom tooltip opens on its own clock and registers as an
+  // occluder (`layer: 'tooltip'` occludes by design, Phase 32 Theme E) that
+  // nothing decrements — masking whatever `setVisible` call a spec is
+  // waiting on next. Diagnosed against `notes.spec.ts`'s "opening Notes
+  // hides the WebContentsView…", which shares this exact helper shape.
+  await page.mouse.move(700, 400);
 }
 
 test.beforeEach(async ({ page }) => {
