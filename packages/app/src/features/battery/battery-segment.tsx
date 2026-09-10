@@ -20,7 +20,7 @@ import {
  * - Subtle box-shadow/glow effect when in red (<30%)
  * - Click popover panel listing all connected battery devices with appropriate icons
  */
-export function BatterySegment() {
+export function BatterySegment({ side = 'bottom' }: { side?: 'top' | 'bottom' } = {}) {
   const [open, setOpen] = useState(false);
   const latest = useMetricsStore((state) => state.latest);
   const idleIntervalMs = useUiStore((state) => state.metricsIdleIntervalMs);
@@ -45,7 +45,7 @@ export function BatterySegment() {
     <Popover
       open={open}
       onOpenChange={setOpen}
-      side="top"
+      side={side}
       align="end"
       label={`Battery ${rounded}%`}
       testId="battery-segment"

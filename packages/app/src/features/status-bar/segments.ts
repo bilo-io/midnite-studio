@@ -1,6 +1,5 @@
 import type { ComponentType } from 'react';
 
-import { BatterySegment } from '../battery/battery-segment';
 import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
 import { FinanceSegment } from '../finance/finance-segment';
 import { MonitorCluster } from '../monitor/monitor-cluster';
@@ -144,11 +143,8 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
     El: ChecksVerdictSegment,
   },
   // `machine`: vitals, hard against the window edge where they do not move as
-  // things are added. Battery reads as the last member of this group rather
-  // than the first of the notification controls, and its `%` already carries
-  // `.status-label`, so compact density drops the number and keeps the icon.
+  // things are added.
   { id: 'monitor', zone: 'right', group: 'machine', priority: 42, label: 'System monitor', El: MonitorCluster },
-  { id: 'battery', zone: 'right', group: 'machine', priority: 43, label: 'Battery', El: BatterySegment },
   // `alerts`: the notification controls. `mcp-indicator` sits first among
   // them — it returns `null` while the server is off (the default), same
   // "nothing to report" idiom `DiagnosticsSegment` uses on the left.
