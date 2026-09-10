@@ -230,6 +230,14 @@ describe('useBrowserStore reducers', () => {
     expect(useBrowserStore.getState().tabs.map((t) => t.id)).toEqual(['x', id]);
   });
 
+  it('openTabFrom with foreground=false (Mod+click / middle-click) inserts the tab without activating it', () => {
+    useBrowserStore.setState({ tabs: [tab('x'), tab('y')], groups: [], activeTabId: 'x' });
+    const id = useBrowserStore.getState().openTabFrom('x', 'https://opened.example', false);
+    const state = useBrowserStore.getState();
+    expect(state.tabs.map((t) => t.id)).toEqual(['x', id, 'y']);
+    expect(state.activeTabId).toBe('x');
+  });
+
   it('ungroupKeepTabs deletes the group but keeps its tabs, reverting them to no explicit choice', () => {
     useBrowserStore.setState({
       tabs: [tab('a', { groupId: 'g1' })],
