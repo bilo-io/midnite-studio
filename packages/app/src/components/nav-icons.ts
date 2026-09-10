@@ -29,11 +29,11 @@ import {
   LuStethoscope,
   LuTerminal,
   LuTrash2,
-  LuUsers,
   LuWorkflow,
 } from 'react-icons/lu';
 
 import type { SettingsPageId, ViewId } from '../store/ui-store';
+import { CirclePileIcon } from './icons/circle-pile-icon';
 
 /**
  * One glyph per view, shared by the nav rail (`app.tsx`) and the title bar's
@@ -78,7 +78,9 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
    * and one icon per view is the whole point of this map.
    */
   history: LuScrollText,
-  councils: LuUsers,
+  // Lucide's `circle-pile`, not in the installed react-icons `lu` set — see
+  // `icons/circle-pile-icon.tsx` for why it's a local mark instead.
+  councils: CirclePileIcon,
   workflows: LuWorkflow,
   video: LuClapperboard,
   sessions: LuHistory,
