@@ -628,7 +628,7 @@ Finding 6 describes.
       verbs plus the negative.
 - [x] **E** — `ask.test.ts`: prompt names every view and skill once, no `never` command, under 6 KB;
       `parseAskReply` fixtures for the four new kinds and the two invented-id rejections.
-- [ ] **F** — `mcp.test.ts` description rule holds for eleven tools; `server.test.ts` off/on/timeout;
+- [x] **F** — `mcp.test.ts` description rule holds for eleven tools; `server.test.ts` off/on/timeout;
       `ui-requests.test.tsx` the three refusals and the toast; shim list test; `mcp-store.test.ts`
       migrates `version: 1` → `{ version: 2, allowUi: false }`.
 - [ ] Bundle: `scripts/perf/bundle-report.mjs` after `moon run app:build desktop:bundle` — the
