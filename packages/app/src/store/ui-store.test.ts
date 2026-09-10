@@ -480,6 +480,55 @@ describe('persistence', () => {
     expect(useUiStore.getState()).toMatchObject({ browserOpen: true, browserLayout: 'right' });
   });
 
+  it('cycles through layouts and commits from the browser switcher', () => {
+    useUiStore.setState({ browserOpen: false, browserLayout: 'full', browserSwitcherOpen: false });
+
+    // Opening switcher advances from current 'full' to 'left'
+    useUiStore.getState().openBrowserSwitcher();
+    expect(useUiStore.getState().browserSwitcherOpen).toBe(true);
+    expect(useUiStore.getState().browserSwitcherSelected).toBe('left');
+
+    // Cycling steps forward to 'right', then wraps to 'full'
+    useUiStore.getState().cycleBrowserSwitcher(1);
+    expect(useUiStore.getState().browserSwitcherSelected).toBe('right');
+    useUiStore.getState().cycleBrowserSwitcher(1);
+    expect(useUiStore.getState().browserSwitcherSelected).toBe('full');
+
+    // Committing sets the layout and opens the browser
+    useUiStore.getState().commitBrowserSwitcher();
+    expect(useUiStore.getState()).toMatchObject({
+      browserOpen: true,
+      browserLayout: 'full',
+      browserSwitcherOpen: false,
+    });
+  });
+
+  it('closing the browser switcher dismisses without changing layout or open state', () => {
+    useUiStore.setState({ browserOpen: false, browserLayout: 'left', browserSwitcherOpen: false });
+
+    useUiStore.getState().openBrowserSwitcher();
+    useUiStore.getState().cycleBrowserSwitcher(1);
+    useUiStore.getState().closeBrowserSwitcher();
+
+    expect(useUiStore.getState()).toMatchObject({
+      browserOpen: false,
+      browserLayout: 'left',
+      browserSwitcherOpen: false,
+    });
+  });
+
+  it('does not persist the browser switcher — ephemeral HUD', () => {
+    useUiStore.getState().openBrowserSwitcher();
+
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+
+    expect(useUiStore.getState().browserSwitcherOpen).toBe(true);
+    expect(saved.state).not.toHaveProperty('browserSwitcherOpen');
+    expect(saved.state).not.toHaveProperty('browserSwitcherSelected');
+  });
+
   it('defaults browserOpen to false for a payload written before the key existed', () => {
     // No version bump for this key: `merge` already spreads a persisted
     // payload over the defaults, so an older blob with no `browserOpen` key

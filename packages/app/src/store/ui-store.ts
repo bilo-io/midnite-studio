@@ -42,6 +42,7 @@ import { touchProjectView } from '../features/projects/project-view-lru';
 import type { SortState } from '../features/projects/sort';
 import { useFileEditorStore } from './file-editor-store';
 
+import { cycleBrowserLayout } from '../features/browser/browser-layouts';
 import { adoptRenamedPersistKey } from './persist-rename';
 
 /**
@@ -563,6 +564,10 @@ export type UiState = {
    * nobody asked for.
    */
   browserLauncherOpen: boolean;
+  /** Whether the Mod+B browser switcher HUD overlay is up. Unpersisted. */
+  browserSwitcherOpen: boolean;
+  /** Currently selected layout in the Mod+B browser switcher overlay. */
+  browserSwitcherSelected: BrowserLayout;
   /** Whether the Notes modal is open. Unpersisted. */
   notesOpen: boolean;
   setNotesOpen: (open: boolean) => void;
@@ -935,6 +940,14 @@ export type UiState = {
   /** The `link.toggleTarget` palette command — flips the preference, nothing else. */
   toggleLinkTarget: () => void;
   closeBrowserLauncher: () => void;
+  /** Open the Mod+B browser view switcher overlay. */
+  openBrowserSwitcher: (initial?: BrowserLayout) => void;
+  /** Cycle the selected layout in the browser view switcher overlay. */
+  cycleBrowserSwitcher: (step?: number) => void;
+  /** Commit the selected layout from the switcher and open the browser. */
+  commitBrowserSwitcher: () => void;
+  /** Close the browser view switcher overlay without switching. */
+  closeBrowserSwitcher: () => void;
   toggleFabPanel: () => void;
   setFabPanelOpen: (open: boolean) => void;
   toggleActivityTimeline: () => void;
@@ -1779,6 +1792,8 @@ export const useUiStore = create<UiState>()(
       browserLayout: 'full',
       linkTarget: 'in-app',
       browserLauncherOpen: false,
+      browserSwitcherOpen: false,
+      browserSwitcherSelected: 'full',
       notesOpen: false,
       quickAccessOpen: false,
       fabPanelOpen: false,
@@ -2013,6 +2028,30 @@ export const useUiStore = create<UiState>()(
       toggleLinkTarget: () =>
         set((state) => ({ linkTarget: state.linkTarget === 'in-app' ? 'system' : 'in-app' })),
       closeBrowserLauncher: () => set({ browserLauncherOpen: false }),
+      openBrowserSwitcher: (initial) =>
+        set((state) => {
+          const start = initial ?? state.browserLayout;
+          const next = cycleBrowserLayout(start, 1);
+          return {
+            browserSwitcherOpen: true,
+            browserSwitcherSelected: next,
+          };
+        }),
+      cycleBrowserSwitcher: (step = 1) =>
+        set((state) => ({
+          browserSwitcherSelected: cycleBrowserLayout(state.browserSwitcherSelected, step),
+        })),
+      commitBrowserSwitcher: () =>
+        set((state) => {
+          if (!state.browserSwitcherOpen) return {};
+          return {
+            browserOpen: true,
+            browserLayout: state.browserSwitcherSelected,
+            browserSwitcherOpen: false,
+            browserLauncherOpen: false,
+          };
+        }),
+      closeBrowserSwitcher: () => set({ browserSwitcherOpen: false }),
       setNotesOpen: (notesOpen) => set({ notesOpen }),
       toggleNotes: () => set((state) => ({ notesOpen: !state.notesOpen })),
       setQuickAccessOpen: (quickAccessOpen) => set({ quickAccessOpen }),

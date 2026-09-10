@@ -745,6 +745,62 @@ html[data-motion='reduced'] .gradient-border--glow {
   transition: none;
 }
 
+/* ---------------------------------------------------------------------------
+ * Browser search bar rotation synchronization.
+ *
+ * Both the fixed address bar in `BrowserPane` and the centered search bar in
+ * `NewTabPage` share the `.gradient-border`, `.gradient-border--glow`, and
+ * `.browser-search-sync` classes. Each one, on its own, would restart its
+ * conic ring from 0deg the moment it gains focus (upstream's own
+ * `.gradient-border:focus-within` animation) — so tabbing from one straight
+ * into the other visibly snaps back to the start instead of continuing.
+ *
+ * A single clock on `:root` fixes that: `--browser-gradient-angle` spins
+ * continuously and inherits everywhere, and `.browser-search-sync` reads it
+ * into `--gradient-angle`, so whichever of the two is focused always shows
+ * the same angle the other left off at.
+ *
+ * The clock itself must not run while neither is focused, or this is an
+ * idle-CPU cost paid forever for a ring nobody is looking at (`scripts/perf/
+ * idle-cpu.mjs` is what would catch it). `animation-play-state` rather than
+ * toggling `animation` on/off is what keeps the fix from reintroducing the
+ * same jump: pausing freezes the current angle in place, so the next focus
+ * resumes exactly where the ring stopped instead of restarting at 0deg.
+ * ------------------------------------------------------------------------- */
+@property --browser-gradient-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: true;
+}
+
+@keyframes browser-gradient-spin {
+  to {
+    --browser-gradient-angle: 360deg;
+  }
+}
+
+:root {
+  animation: browser-gradient-spin 4s linear infinite paused;
+}
+
+:root:has(.browser-search-sync:focus-within) {
+  animation-play-state: running;
+}
+
+.browser-search-sync {
+  --gradient-angle: var(--browser-gradient-angle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) :root {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] :root {
+  animation: none;
+}
+
 /* Screensaver / Lockscreen Title Sheen & Tint Glow */
 .screensaver-title {
   background-image: linear-gradient(

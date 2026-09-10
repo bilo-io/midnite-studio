@@ -180,7 +180,17 @@ export function useCommandHandlers(): CommandRuntime {
         }
       : { enabled: false, disabledReason: 'No terminal selected', run: () => {} },
     'repos.toggle': { enabled: true, run: () => useUiStore.getState().toggleRepos() },
-    'browser.toggle': { enabled: true, run: () => useUiStore.getState().toggleBrowser() },
+    'browser.toggle': {
+      enabled: true,
+      run: () => {
+        const store = useUiStore.getState();
+        if (store.browserSwitcherOpen) {
+          store.cycleBrowserSwitcher(1);
+        } else {
+          store.openBrowserSwitcher();
+        }
+      },
+    },
     // Re-pointed (Phase 58 Theme F): `fab.toggle` used to open the Loops panel
     // directly; it now opens the quick-access menu the panel sits behind
     // (Theme E), which is what its `L` row opens the Loops panel via.
