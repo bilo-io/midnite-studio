@@ -249,6 +249,82 @@ describe('SessionsView', () => {
     expect(screen.queryByText(/terminal-run/)).toBeNull();
   });
 
+  it('filters sessions by search query across label and repo name', () => {
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({ id: 'a', repoId: 'r1', title: 'midnite-studio', name: 'fix-flake', createdAt: 1000, closedAt: 2000 }),
+        closedSession({ id: 'b', repoId: 'r2', title: 'ekko-api', name: 'add-endpoint', createdAt: 1000, closedAt: 3000 }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderView();
+
+    expect(screen.getByText(/fix-flake/)).toBeTruthy();
+    expect(screen.getByText(/add-endpoint/)).toBeTruthy();
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search sessions by title or repo' }), {
+      target: { value: 'ekko' },
+    });
+
+    expect(screen.queryByText(/fix-flake/)).toBeNull();
+    expect(screen.getByText(/add-endpoint/)).toBeTruthy();
+  });
+
+  it('selects matching sessions via checkboxes and bulk-deletes them after confirming once', async () => {
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({ id: 'a', repoId: 'r1', title: 'repo-one', name: 'first', createdAt: 1000, closedAt: 2000 }),
+        closedSession({ id: 'b', repoId: 'r1', title: 'repo-one', name: 'second', createdAt: 1000, closedAt: 3000 }),
+        closedSession({ id: 'c', repoId: 'r1', title: 'repo-one', name: 'third', createdAt: 1000, closedAt: 4000 }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select first' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select second' }));
+
+    expect(screen.getByText('2 selected')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete 2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Purge' }));
+
+    await waitFor(() => expect(purge).toHaveBeenCalledTimes(2));
+    expect(purge).toHaveBeenCalledWith({ sessionId: 'a' });
+    expect(purge).toHaveBeenCalledWith({ sessionId: 'b' });
+    expect(refresh).toHaveBeenCalled();
+    expect(screen.queryByText(/selected/)).toBeNull();
+  });
+
+  it('selects every matching row via the header checkbox, respecting the active search', () => {
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({ id: 'a', repoId: 'r1', title: 'repo-one', name: 'alpha', createdAt: 1000, closedAt: 2000 }),
+        closedSession({ id: 'b', repoId: 'r1', title: 'repo-one', name: 'beta', createdAt: 1000, closedAt: 3000 }),
+        closedSession({ id: 'c', repoId: 'r1', title: 'repo-one', name: 'gamma', createdAt: 1000, closedAt: 4000 }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderView();
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search sessions by title or repo' }), {
+      target: { value: 'a' }, // matches alpha, beta, gamma (all contain 'a')
+    });
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search sessions by title or repo' }), {
+      target: { value: 'al' }, // narrows to alpha only
+    });
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all matching sessions' }));
+
+    expect(screen.getByText('1 selected')).toBeTruthy();
+  });
+
   it('toggles repo group collapse when clicking group accordion header', () => {
     historyResult.mockReturnValue({
       data: [
