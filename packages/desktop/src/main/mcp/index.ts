@@ -30,6 +30,8 @@ export type McpStatus = {
   running: boolean;
   socketPath: string | null;
   shimPath: string | null;
+  /** Phase 81 Theme F's second switch — whether `ui.navigate`/`ui.command` may actually act. */
+  allowUi: boolean;
 };
 
 export type SetMcpEnabledResult = { ok: true; status: McpStatus } | { ok: false; message: string };
@@ -45,6 +47,8 @@ let boundLog: Logger = defaultLogger;
 let handle: McpServerHandle | null = null;
 /** Mirrors `mcp-store.ts`'s persisted flag, kept in memory so `getMcpStatus` needs no disk read. */
 let enabled = false;
+/** Mirrors the store's `allowUi` the same way — read synchronously by `main/mcp/tools.ts`'s `ui.*` handlers on every call, never from disk. */
+let allowUi = false;
 
 /**
  * Start the MCP server if — and only if — the user has turned it on.
@@ -61,6 +65,7 @@ export async function registerMcpServer(opts: RegisterMcpServerOptions): Promise
   const store = createMcpStore(opts.userDataDir);
   const settings = await store.load();
   enabled = settings.enabled;
+  allowUi = settings.allowUi;
   if (!enabled) return null;
 
   const result = await startMcpServer({ ...opts, log: boundLog });
@@ -84,7 +89,13 @@ export function getMcpStatus(): McpStatus {
     running: handle !== null,
     socketPath: handle?.socketPath ?? null,
     shimPath: mcpShimScriptPath(),
+    allowUi,
   };
+}
+
+/** Read synchronously by `main/mcp/tools.ts`'s `ui.navigate`/`ui.command` handlers on every call — the gate that must run before any IPC is sent (Theme F's own acceptance condition). */
+export function getMcpAllowUi(): boolean {
+  return allowUi;
 }
 
 /**
@@ -100,7 +111,7 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
     return { ok: false, message: 'The MCP server has not finished starting up yet.' };
   }
 
-  const settings: McpSettings = { version: 1, enabled: next };
+  const settings: McpSettings = { version: 2, enabled: next, allowUi };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   enabled = next;
 
@@ -122,10 +133,29 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
   return { ok: true, status: getMcpStatus() };
 }
 
+/**
+ * Theme F's second Settings switch. Unlike `setMcpEnabled`, this never
+ * starts or stops the socket — `allowUi` only gates whether `ui.navigate`/
+ * `ui.command` will act once a call reaches them, so flipping it is a
+ * persisted-flag write and nothing else.
+ */
+export async function setMcpAllowUi(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = { version: 2, enabled, allowUi: next };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  allowUi = next;
+
+  return { ok: true, status: getMcpStatus() };
+}
+
 /** Test-only: module state otherwise survives across a suite's test cases. */
 export function resetMcpServerStateForTests(): void {
   bootOpts = null;
   boundLog = defaultLogger;
   handle = null;
   enabled = false;
+  allowUi = false;
 }
