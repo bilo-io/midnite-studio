@@ -631,7 +631,7 @@ Finding 6 describes.
 - [x] **F** — `mcp.test.ts` description rule holds for eleven tools; `server.test.ts` off/on/timeout;
       `ui-requests.test.tsx` the three refusals and the toast; shim list test; `mcp-store.test.ts`
       migrates `version: 1` → `{ version: 2, allowUi: false }`.
-- [ ] Bundle: `scripts/perf/bundle-report.mjs` after `moon run app:build desktop:bundle` — the
+- [x] Bundle: `scripts/perf/bundle-report.mjs` after `moon run app:build desktop:bundle` — the
       renderer entry chunk within noise (the companion is a lazy chunk; `view.ts` in `shared` is a
       few hundred bytes).
 - [ ] Screenshots (Playwright, both themes): the pending-action turn with its Run/Cancel chips; the
