@@ -622,11 +622,11 @@ Finding 6 describes.
       confirm sets `pendingAction`, `confirm` within 60 s runs once, at 61 s says "Nothing's
       waiting" (fake timers); hands-free on does not bypass; second confirm-tier request replaces.
       e2e: terminal toggle, the push pending→Return flow, the surviving confirm dialog.
-- [ ] **D** — the compile-time subset proof and the `DEFAULT_AGENT_SKILLS` key test pass with
+- [x] **D** — the compile-time subset proof and the `DEFAULT_AGENT_SKILLS` key test pass with
       twelve ids; `handoff.test.ts`: `releasePrep` with hands-free on and voice ready still has
       `autoSend: false` and says the "always leave for you" line; grammar rows for the four new
       verbs plus the negative.
-- [ ] **E** — `ask.test.ts`: prompt names every view and skill once, no `never` command, under 6 KB;
+- [x] **E** — `ask.test.ts`: prompt names every view and skill once, no `never` command, under 6 KB;
       `parseAskReply` fixtures for the four new kinds and the two invented-id rejections.
 - [ ] **F** — `mcp.test.ts` description rule holds for eleven tools; `server.test.ts` off/on/timeout;
       `ui-requests.test.tsx` the three refusals and the toast; shim list test; `mcp-store.test.ts`
