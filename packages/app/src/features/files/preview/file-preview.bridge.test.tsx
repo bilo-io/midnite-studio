@@ -171,7 +171,7 @@ describe('the file editor, assembled through the real bridge', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText(/changed on disk/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Reload', exact: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reload' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Keep editing' })).toBeTruthy();
   });
 

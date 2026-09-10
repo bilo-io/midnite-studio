@@ -73,7 +73,7 @@ async function runUsersQuery(): Promise<void> {
   await screen.findByRole('tab', { name: 'Query 1' });
 
   fireEvent.change(await screen.findByLabelText('SQL'), { target: { value: 'SELECT * FROM users' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Run', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'Run' }));
   await screen.findByText('ada@example.com');
 }
 
@@ -114,7 +114,7 @@ describe('DatabaseView, edit-cell round trip through the real bridge', () => {
 
     // Re-query: the mocked engine's UPDATE mutated its in-memory table, so a
     // fresh SELECT reads back the edit rather than the original value.
-    fireEvent.click(screen.getByRole('button', { name: 'Run', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
     await screen.findByText('ada2@example.com');
     expect(screen.queryByText('ada@example.com')).toBeNull();
   });
@@ -150,7 +150,7 @@ describe('DatabaseView, edit-cell round trip through the real bridge', () => {
 
     // And nothing was written: a re-query reads back the concurrent write,
     // not this tab's own edit.
-    fireEvent.click(screen.getByRole('button', { name: 'Run', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
     await screen.findByText('concurrent@example.com');
     expect(screen.queryByText('ada2@example.com')).toBeNull();
   });

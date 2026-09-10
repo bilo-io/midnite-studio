@@ -42,7 +42,7 @@ describe('repo favourites', () => {
     expect(screen.queryByTestId('repo-favourites-section')).toBeNull();
 
     // Wait for the repo list to load before opening its lifecycle menu.
-    await screen.findByRole('button', { name: REPO, exact: true });
+    await screen.findByRole('button', { name: REPO });
 
     // Open repo lifecycle actions menu (the ellipsis button).
     fireEvent.click(
@@ -58,7 +58,7 @@ describe('repo favourites', () => {
     expect(within(favSection).getByText('Favourites')).toBeTruthy();
 
     // The favourite repo item is rendered inside the favourites section.
-    expect(within(favSection).getByRole('button', { name: REPO, exact: true })).toBeTruthy();
+    expect(within(favSection).getByRole('button', { name: REPO })).toBeTruthy();
 
     // Open the ellipsis menu on the favourite repo inside the favourites section.
     fireEvent.click(
@@ -83,7 +83,7 @@ describe('repo favourites', () => {
       { fixtures },
     );
 
-    const repoBtn = await screen.findByRole('button', { name: REPO, exact: true });
+    const repoBtn = await screen.findByRole('button', { name: REPO });
     fireEvent.contextMenu(repoBtn);
 
     const addFavItem = await screen.findByRole('menuitem', { name: 'Add to Favourites' });
@@ -92,7 +92,7 @@ describe('repo favourites', () => {
     const favSection = await screen.findByTestId('repo-favourites-section');
 
     // Right click the repo inside the favourites section.
-    const favRepoBtn = within(favSection).getByRole('button', { name: REPO, exact: true });
+    const favRepoBtn = within(favSection).getByRole('button', { name: REPO });
     fireEvent.contextMenu(favRepoBtn);
     const removeFavItem = await screen.findByRole('menuitem', { name: 'Remove from Favourites' });
     fireEvent.click(removeFavItem);

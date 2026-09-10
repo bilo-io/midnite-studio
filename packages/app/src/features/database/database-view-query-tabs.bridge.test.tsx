@@ -91,7 +91,7 @@ describe('DatabaseView, independent query tabs through the real bridge', () => {
     fireEvent.change(await screen.findByLabelText('SQL'), {
       target: { value: 'SELECT * FROM users' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Run', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
     await screen.findByText('ada@example.com');
 
     // Tab 2: orders, opened fresh via the strip's own "+"
@@ -103,7 +103,7 @@ describe('DatabaseView, independent query tabs through the real bridge', () => {
     fireEvent.change(await screen.findByLabelText('SQL'), {
       target: { value: 'SELECT * FROM orders' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Run', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
     await screen.findByText('42.5');
     expect(screen.queryByText('ada@example.com')).toBeNull();
 

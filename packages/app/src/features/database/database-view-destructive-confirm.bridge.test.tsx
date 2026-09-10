@@ -97,7 +97,7 @@ describe('DatabaseView, the destructive-statement confirm gate through the real 
     fireEvent.change(await screen.findByLabelText('SQL'), {
       target: { value: 'DELETE FROM users' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Run', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Run this statement?' });
     expect(within(dialog).getByText(/DELETE FROM users/)).toBeTruthy();
@@ -127,7 +127,7 @@ describe('DatabaseView, the destructive-statement confirm gate through the real 
     fireEvent.change(await screen.findByLabelText('SQL'), {
       target: { value: 'SELECT * FROM users' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Run', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
 
     expect(screen.queryByRole('dialog', { name: 'Run this statement?' })).toBeNull();
     await screen.findByText('ada@example.com');

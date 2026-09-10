@@ -92,7 +92,7 @@ describe('IssuesSection, assembled through the real bridge', () => {
 
     // Closed by default and issuing no query until opened, exactly like Actions
     // and Reviews: each one is a `gh` subprocess against a rate-limited API.
-    fireEvent.click(screen.getByRole('button', { name: 'Issues', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Issues' }));
 
     expect(await screen.findByText('Graph rows jump on resize')).toBeTruthy();
     // The subtitle is the row's whole context: number, author and labels.
@@ -111,7 +111,7 @@ describe('IssuesSection, assembled through the real bridge', () => {
   it('a repo with issues turned off says so, and does not look broken', async () => {
     openIssues({ cli: { reason: 'ready' }, issues: [], issuesDisabled: true });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Issues', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Issues' }));
 
     expect(await screen.findByText('Issues are turned off for this repository.')).toBeTruthy();
     // The distinction the `disabled` field exists for: a repository behaving as
@@ -123,7 +123,7 @@ describe('IssuesSection, assembled through the real bridge', () => {
   it('a failed listing is a different empty from an empty listing', async () => {
     openIssues({ cli: { reason: 'ready' }, issues: [], error: 'HTTP 502: Bad gateway' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Issues', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Issues' }));
 
     expect(await within(screen.getByLabelText('Issues')).findByText('HTTP 502: Bad gateway')).toBeTruthy();
   });
@@ -171,22 +171,22 @@ describe('ActionsSection, assembled through the real bridge', () => {
       },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Actions', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
 
     /*
       `getByRole('img', …)`, not `getByText`: a settled status renders as a
       bare coloured glyph now, so its word survives only as the mark's
       accessible name.
     */
-    expect(await screen.findByRole('img', { name: 'Failed', exact: true })).toBeTruthy();
+    expect(await screen.findByRole('img', { name: 'Failed' })).toBeTruthy();
     // Nothing has expanded yet, so nothing has been asked of `gh run view`.
-    expect(screen.queryByRole('button', { name: 'test', exact: true })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'test' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Jobs in CI #128' }));
 
     // The question the red dot leaves open: which job failed.
     expect(await screen.findByRole('button', { name: 'typecheck' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'test', exact: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'test' })).toBeTruthy();
     expect(screen.getByText('1 steps')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Jobs in CI #128' }));
@@ -215,13 +215,13 @@ describe('ActionsSection, assembled through the real bridge', () => {
       },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Actions', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Jobs in CI #128' }));
 
     // `steps: []` is what GitHub sends for a job an `if:` declined to run.
     const deployButton = await screen.findByRole('button', { name: 'deploy' });
     expect(deployButton).toBeTruthy();
-    expect(screen.getByRole('img', { name: 'Skipped', exact: true })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Skipped' })).toBeTruthy();
     // No url means nothing to open — the row says so by being disabled rather
     // than by opening a link that goes nowhere.
     expect((deployButton as HTMLButtonElement).disabled).toBe(true);

@@ -173,7 +173,7 @@ const base: MockFixtures = {
 };
 
 /** A widget's tile — every one is a landmark named after its title. */
-const tile = (name: string) => screen.getByRole('region', { name, exact: true });
+const tile = (name: string) => screen.getByRole('region', { name });
 
 const boardMenu = async (): Promise<void> => {
   fireEvent.click(screen.getByRole('button', { name: 'Widgets and layout' }));
@@ -182,7 +182,7 @@ const boardMenu = async (): Promise<void> => {
 
 const open = async (data: MockFixtures = base) => {
   renderView(<DashboardView />, { fixtures: data, uiState: { selectedRepoId: 'repo-1' } });
-  await screen.findByRole('heading', { name: 'Dashboard', exact: true });
+  await screen.findByRole('heading', { name: 'Dashboard' });
 };
 
 beforeEach(() => {
@@ -206,7 +206,7 @@ describe('DashboardView, assembled through the real bridge', () => {
       'Latest workflow runs',
       'Repo health',
     ]) {
-      expect(await screen.findByRole('region', { name, exact: true })).toBeTruthy();
+      expect(await screen.findByRole('region', { name })).toBeTruthy();
     }
 
     // Each tile carries a real heading, so the board is navigable by heading
