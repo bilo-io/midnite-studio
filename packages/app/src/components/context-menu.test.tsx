@@ -191,3 +191,106 @@ describe('ContextMenu keyboard navigation', () => {
     expect(document.activeElement).toBe(row);
   });
 });
+
+/**
+ * Ad hoc: the breadcrumb's repo switcher (`title-bar-nav.tsx`) is the first
+ * `filterable` menu. Default off, and gated on `filterThreshold` besides — a
+ * search box over a handful of rows is one more thing to read before the eye
+ * finds the one it wanted, so it only renders once the list is actually long
+ * enough to need it (default threshold: 6 selectable rows).
+ */
+describe('ContextMenu filterable', () => {
+  afterEach(cleanup);
+
+  const many: MenuItem[] = [
+    { label: 'alpha', onSelect: () => {} },
+    { label: 'bravo', onSelect: () => {} },
+    { label: 'charlie', onSelect: () => {} },
+    { label: 'delta', onSelect: () => {} },
+    { label: 'echo', onSelect: () => {} },
+    { label: 'foxtrot', onSelect: () => {} },
+    { label: 'golf', onSelect: () => {}, keywords: '/repos/special-path' },
+  ];
+
+  const item = (name: string) => screen.getByRole('menuitem', { name });
+
+  it('is off by default, even with a long list', () => {
+    render(<ContextMenu position={{ x: 0, y: 0 }} items={many} onClose={() => {}} />);
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('stays hidden at or under the threshold', () => {
+    render(
+      <ContextMenu position={{ x: 0, y: 0 }} items={many.slice(0, 6)} onClose={() => {}} filterable />,
+    );
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('shows above the threshold, autofocused', () => {
+    render(<ContextMenu position={{ x: 0, y: 0 }} items={many} onClose={() => {}} filterable />);
+    const box = screen.getByRole('textbox');
+    expect(document.activeElement).toBe(box);
+  });
+
+  it('filters case-insensitively on the label as you type', () => {
+    render(<ContextMenu position={{ x: 0, y: 0 }} items={many} onClose={() => {}} filterable />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'BRAVO' } });
+    expect(item('bravo')).toBeDefined();
+    expect(screen.queryByRole('menuitem', { name: 'alpha' })).toBeNull();
+  });
+
+  it('also matches keywords, for text that never appears in the label', () => {
+    render(<ContextMenu position={{ x: 0, y: 0 }} items={many} onClose={() => {}} filterable />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'special-path' } });
+    expect(item('golf')).toBeDefined();
+    expect(screen.queryByRole('menuitem', { name: 'alpha' })).toBeNull();
+  });
+
+  it('shows an honest empty state instead of a blank box', () => {
+    render(<ContextMenu position={{ x: 0, y: 0 }} items={many} onClose={() => {}} filterable />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'zzz' } });
+    expect(screen.getByText('No matches for "zzz".')).toBeDefined();
+  });
+
+  it('navigates the filtered set with arrow keys and selects with Return, without ever moving focus off the box', () => {
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+    const items: MenuItem[] = [
+      { label: 'alpha', onSelect: () => {} },
+      { label: 'alpaca', onSelect },
+      { label: 'bravo', onSelect: () => {} },
+      { label: 'charlie', onSelect: () => {} },
+      { label: 'delta', onSelect: () => {} },
+      { label: 'echo', onSelect: () => {} },
+      { label: 'foxtrot', onSelect: () => {} },
+    ];
+    render(<ContextMenu position={{ x: 0, y: 0 }} items={items} onClose={onClose} filterable />);
+
+    const box = screen.getByRole('textbox');
+    // Narrows to "alpha" and "alpaca" — typing itself must reach the box
+    // rather than being swallowed by the menu's own key handling.
+    fireEvent.change(box, { target: { value: 'al' } });
+    expect((box as HTMLInputElement).value).toBe('al');
+
+    fireEvent.keyDown(box, { key: 'ArrowDown' }); // alpha (first match) -> alpaca
+    expect(document.activeElement).toBe(box);
+
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('Escape clears a non-empty query before it closes the menu', () => {
+    const onClose = vi.fn();
+    render(<ContextMenu position={{ x: 0, y: 0 }} items={many} onClose={onClose} filterable />);
+    const box = screen.getByRole('textbox');
+    fireEvent.change(box, { target: { value: 'bravo' } });
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect((box as HTMLInputElement).value).toBe('');
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

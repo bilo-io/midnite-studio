@@ -166,6 +166,11 @@ function useBreadcrumbs(): Crumb[] {
   const repo = repos?.find((r) => r.id === selectedRepoId);
 
   if (repo) {
+    // Excludes the current repo deliberately: this menu is a switcher, and the
+    // repo already named by the crumb that opens it has nowhere to switch
+    // *to* — a row for it would only be a no-op with a checkmark nobody asked
+    // for. `others.length` (not `repos.length`) is therefore also what the
+    // filter box's own item-count threshold sees.
     const others = (repos ?? []).filter((r) => r.id !== selectedRepoId);
     crumbs.push({
       key: 'repo',
@@ -180,9 +185,20 @@ function useBreadcrumbs(): Crumb[] {
                   (other): MenuItem => ({
                     label: other.name,
                     icon: LuFolderGit2,
+                    // Matched by the filter box in addition to the label, so
+                    // two repos checked out under the same folder name (a
+                    // fork and its upstream, say) are still distinguishable
+                    // by path without printing one on every row.
+                    keywords: other.path,
                     onSelect: () => useUiStore.getState().selectRepo(other.id),
                   }),
                 ),
+                // `repos-panel.tsx`'s sidebar has its own "Filter repos…"
+                // search box, filtering the tree already on screen — a
+                // different job from this one, which finds a repo to switch
+                // *to*, so it gets its own wording rather than reusing that
+                // placeholder verbatim.
+                { filterable: true, searchPlaceholder: 'Find a repo…' },
               )
           : undefined,
     });
