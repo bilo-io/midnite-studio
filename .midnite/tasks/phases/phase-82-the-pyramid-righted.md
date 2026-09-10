@@ -252,15 +252,67 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       boundaries. Write the pattern into `test-support/` guidance so it is applied rather than
       rediscovered per wave.
 - [x] Wave 3 (PR #334): `actions-view` 15→2 · `optimizer` 14→2 · `review-writes` 13→1. e2e declared 619→**582**, `app:test` 3,884→**3,922**. The lazy-chunk warm-up was checked and **not needed**, with a reason: wave 2's trap was `CommitMessage`'s own internal `lazy()` boundary, and none of these three views has one — the outer view registry lazy-loads the *view*, which mounting the component directly bypasses, and `PrDetail`'s `react-markdown` is a plain static import.
+- [ ] **A third jsdom trap, found by wave 4 — a component that only mounts on an interaction.**
+      `Palette`'s row list is `@tanstack/react-virtual` like `search-view`'s, but unlike an
+      already-mounted component it only mounts — and so only calls `ResizeObserver.observe()` —
+      the instant `Meta+k` opens it. `vitest-setup.ts`'s `FiringResizeObserver` fires its callback
+      from a `queueMicrotask`, **not synchronously**, so a synchronous `getByRole('option', …)`
+      immediately after opening races that microtask and finds nothing. It reads as "the component
+      did not render" and is a one-tick timing race — the same false-negative shape as wave 2's
+      lazy-chunk trap, microseconds instead of seconds. **Fix: `await findByRole`/`waitFor` for
+      any assertion reading content that the interaction under test is what mounted.** Wave 5
+      audited every virtualised surface it touched against this and needed no fix, but checked
+      file-by-file rather than assuming.
+- [ ] **A second wave-4 finding: disjoint `<mark>` elements break accname.** Fuzzy-match
+      highlighting wraps each matched character separately, so "tt" matching "Toggle Terminal"
+      splits the row's accessible name across four sibling nodes in a way
+      `dom-accessibility-api`'s accname computation does not reassemble — though plain
+      `textContent` does. When a highlight assertion cannot find a row by name, filter
+      `findAllByRole`'s array by `textContent` rather than weakening the query.
+- [ ] **Two harness gaps wave 5 found.** (a) `@monaco-editor/react`'s `MonacoField`
+      (`features/api-client/monaco-field.tsx`) calls the real `getMonaco()` at **module scope**,
+      unconditionally — not gated behind the tab that mounts it. Any test importing
+      `ApiClientView`, even for an unrelated tab, pulls that in for real unless `./monaco-field`
+      is stubbed, and the resulting unhandled rejection surfaces as noise attributed to whatever
+      *other* file vitest happens to be running when the dynamic import settles. Worth a line in
+      `test-support/module-mocks.ts`'s doc comment. (b) Playwright's `{ name, exact: true }`
+      ported verbatim onto `getByRole` is a **typecheck** error, not a runtime one —
+      `ByRoleOptions` has no `exact` field, that is `getByText`'s — so `vitest run` alone passes
+      and only a real `moon run app:typecheck` catches it. It hit 7 files in wave 5.
 - [ ] **A porting hazard wave 3 found, to expect in every remaining wave.** Testing Library's
       `getByRole`/`getByText` default to a **whole-string** match; Playwright's default is
       **substring**. So an assertion ported verbatim from an e2e spec fails with "unable to find
       an element" — which reads as a render or timing problem and is actually a matcher
       mismatch. Several of wave 3's ported assertions needed a regex or an exact-string tweak.
       Check the matcher before debugging the render.
-- [ ] Wave 4: `palette` (13) · `repos-workbench` (13) · `companion-panel` (11) · `nav-shell` (8)
-      — ~45 tests.
-- [ ] Wave 5: the tail of ~100 smaller specs that sampled 100% category A — ~200 tests.
+- [x] Wave 4 ([PR #337](https://github.com/bilo-io/midnite-studio/pull/337)): `palette` 14→3 ·
+      `repos-workbench` 18→8 · `companion-panel` 20→11 · `nav-shell` 9→4. e2e declared
+      582→**546**, `app:test` 3,922→**3,952**. **The doc's estimates (13/13/11/8) were all low**:
+      Phase 81 Theme C added 9 command-routing tests to `companion-panel.spec.ts` after they were
+      written, and `repos-workbench`/`nav-shell` had grown past their original scope too. Counts
+      above are measured off the branch's own diff.
+- [x] Wave 5 ([PR #338](https://github.com/bilo-io/midnite-studio/pull/338)): the tail —
+      **36 specs, 155→38, 117 tests migrated**. e2e declared 582→**465**, `app:test`
+      3,922→**4,065**. **The doc's "~100 smaller specs / ~200 tests" estimate was wrong in the
+      opposite direction from wave 4's**, and for the opposite reason: the tail is only ~155
+      tests once the geometry stragglers are *excluded by inspection* rather than guessed at.
+      Eleven specs read as logic by name and are not — `status-bar` is entirely
+      `boundingBox()`/density-breakpoint/computed-colour work; `graph-recency` and
+      `graph-selection` resolve `--lane-h/s/l` custom properties at computed-style time, which
+      jsdom (loading no stylesheet) can never honestly do; `nav-chord-tooltips` needs the rail's
+      real hover-expand reflow; `midnite-menu`, `footer-monitor`, `ref-sync`, `reviews`,
+      `files-view`, `lock-screen-widgets`, `landing` and `rail-version` each carry real
+      `boundingBox`/viewport/CSS/drag/hover assertions. Together with wave 4's overshoot, the
+      lesson is one rule: **derive a wave's scope by reading each candidate file, never from a
+      name or a doc-written count.**
+- [ ] **Wave 6 — the partial-keep files wave 5 deliberately did not attempt.** `fab-loops.spec.ts`
+      (45 tests, of which the phase doc says only ~17 are genuinely glow/arc), plus
+      `browser-pane.spec.ts`, `workflows.spec.ts`'s non-canvas half and `titlebar-agents.spec.ts`'s
+      non-width-shedding half. Each is a **partial** keep in the list below — a named subset stays
+      and the remainder is unnamed — so splitting them needs per-*test* judgment where waves 1-5
+      made per-*file* judgments. Wave 5 left them untouched on the grounds that a wrong split is
+      worse than no split, which is the right call and is why this is its own wave rather than a
+      loose end. No bridge test file exists for any of them yet.
 - [ ] Per wave, diff the assertion list in the PR body: the migrated unit tests must assert what
       the deleted e2e tests asserted, not a weaker stand-in.
 - [ ] Any geometry straggler found mid-wave (a spec that turns out to lean on real layout or
