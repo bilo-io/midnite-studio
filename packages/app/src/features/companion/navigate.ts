@@ -152,6 +152,13 @@ export async function navigateCompanion(
       fab: ui.fabDetached,
       companion: ui.companionDetached,
       browser: ui.browserDetached,
+      // The three apps-rail roles (Phase 83 Theme A) have no detach affordance
+      // yet — that is Theme D's own `*Detached` state. Hardcoded `false` until
+      // then, rather than adding unused `ui-store` flags ahead of the feature
+      // that would set them.
+      'apps-spotify': false,
+      'apps-google-calendar': false,
+      'apps-youtube': false,
     },
     locked: ui.screensaverLocked,
     repoId: ui.selectedRepoId,

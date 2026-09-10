@@ -70,6 +70,15 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   Wants a home in `terminal-page.tsx`'s shape — an "Editor" settings page, or an accordion on
   whichever page ends up owning the Monaco surface.
 
+- **One persisted preference with no settings page yet — `enabledApps`.** Landed by
+  [Phase 83](phases/phase-83-third-party-apps-rail.md) Theme A/B (the shared registry and the
+  main-process apps service), in the same PR that deliberately scoped out Themes C, D and E. Theme
+  E is that settings page — a dedicated "Apps" page listing the three third-party apps
+  (Spotify/Google Calendar/YouTube) with an enable/disable switch each, per the phase doc's own
+  "Open" decision. Sits in `persisted-keys.ts`'s `KNOWN_ORPHANS` allow-list for exactly the reason
+  the five `editor*` keys above do; building Theme E means deleting this entry, not widening the
+  list.
+
 - **Interactive rebase** — via a `GIT_SEQUENCE_EDITOR` helper binary that writes the UI's todo
   list; `GIT_EDITOR` for reword. Impossible with libgit2/isomorphic-git; CLI-only trick.
 - ~~**Proper diff viewer**~~ — ✅ landed in Phase 12 Theme D: parsed hunks over IPC, one shared

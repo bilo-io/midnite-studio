@@ -444,6 +444,19 @@ export const CHANNELS = {
    */
   browserDevServerProbe: 'mstudio:browser:dev-server-probe',
 
+  // --- third-party apps rail (Phase 83 Themes A/B) ---------------------------
+  // One `WebContentsView` per ENABLED app, owned by `apps-service.ts` — the
+  // same one-service-owns-the-map shape as `browser-service.ts`, but each app
+  // gets its own `persist:app-<id>` partition instead of sharing one. No
+  // per-app chrome events: these apps have no tab strip and no navigation
+  // affordance for the renderer to reflect.
+  /** Constructs (if needed) and shows the app's view. */
+  appsEnable: 'mstudio:apps:enable',
+  /** Tears down the view only — the partition's on-disk session data survives. */
+  appsDisable: 'mstudio:apps:disable',
+  /** Fires every resize frame, same as `browserSetBounds` — no round trip. */
+  appsSetBounds: 'mstudio:apps:set-bounds',
+
   // --- filesystem (Phase 16 reads, Phase 24 writes) -------------------------
   // Reads are scope: repo | claude-home, exactly as before. The four write
   // channels below are repo scope ONLY — `FsWriteScopeSchema` has no

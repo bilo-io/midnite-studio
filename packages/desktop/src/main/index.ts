@@ -12,7 +12,9 @@ import { readSystemHealth } from './system-health';
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
 import { allowAppAudioOnly } from './browser-security';
+import { destroyAllApps } from './apps-service';
 import { destroyAllBrowserTabs } from './browser-service';
+import { registerAppsHandlers } from './ipc/apps-handlers';
 import { registerBrowserHandlers } from './ipc/browser-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerConflictHandlers } from './ipc/conflict-handlers';
@@ -349,6 +351,7 @@ if (!app.requestSingleInstanceLock()) {
     registerTestsHandlers(getMainWindow);
     registerPtyHandlers(getMainWindow);
     registerBrowserHandlers();
+    registerAppsHandlers(getMainWindow);
     registerWindowHandlers(getMainWindow, defaultLogger);
     // Phase 81 Theme F: `ui-bridge.ts` targets `getMainWindow()` explicitly,
     // never the focused window — registered here, once, the same way every
@@ -729,6 +732,7 @@ if (!app.requestSingleInstanceLock()) {
 
     stopAllWatchers();
     destroyAllBrowserTabs();
+    destroyAllApps();
     // A `remotion studio` or an in-flight render surviving the app is a port
     // leak / an orphaned headless Chrome the user cannot see — Theme C's own
     // doc names this exact wiring as its one open item, owned by Theme H.
@@ -769,6 +773,7 @@ if (!app.requestSingleInstanceLock()) {
     detachAll();
     stopAllWatchers();
     destroyAllBrowserTabs();
+    destroyAllApps();
     // macOS apps conventionally stay alive with no windows; everywhere else,
     // closing the last window quits.
     if (process.platform !== 'darwin') app.quit();

@@ -120,6 +120,7 @@ const bridge: Pick<
   | 'terminal'
   | 'sessions'
   | 'browser'
+  | 'apps'
   | 'agent'
   | 'council'
   | 'loopRuns'
@@ -339,6 +340,12 @@ const bridge: Pick<
     zoom: (req) => ipcRenderer.send(CHANNELS.browserZoom, req),
     devServerProbe: (req) => call(CHANNELS.browserDevServerProbe, req),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
+  },
+  apps: {
+    enable: (req) => call(CHANNELS.appsEnable, req),
+    disable: (req) => ipcRenderer.send(CHANNELS.appsDisable, req),
+    // Fires per resize frame — same reasoning as browser.setBounds above.
+    setBounds: (req) => ipcRenderer.send(CHANNELS.appsSetBounds, req),
   },
   agent: {
     list: () => call(CHANNELS.agentList),

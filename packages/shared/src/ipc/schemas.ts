@@ -25,6 +25,7 @@ import {
   PostmanEnvironmentSchema,
   PostmanVariableSchema,
   SaveEnvironmentOutcomeSchema,
+  AppIdSchema,
   BlameResultSchema,
   BrowserBoundsSchema,
   BrowserEventSchema,
@@ -1915,6 +1916,20 @@ export const BrowserEventPayload = BrowserEventSchema;
 
 export type BrowserEventPayloadType = z.infer<typeof BrowserEventPayload>;
 export type BrowserNavErrorType = z.infer<typeof BrowserNavErrorSchema>;
+
+// --- third-party apps rail (Phase 83 Themes A/B) ----------------------------
+
+export const AppsEnableRequest = z.object({ id: AppIdSchema });
+export const AppsEnableResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true) }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+export const AppsDisableRequest = z.object({ id: AppIdSchema });
+/** Reuses `BrowserBoundsSchema` — the same CSS-pixel rect shape, scaled the same way in main. */
+export const AppsSetBoundsRequest = z.object({
+  id: AppIdSchema,
+  bounds: BrowserBoundsSchema,
+});
 
 // --- watch -----------------------------------------------------------------
 

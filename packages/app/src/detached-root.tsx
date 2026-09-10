@@ -68,6 +68,12 @@ const ROLE_TITLE: Record<Exclude<WindowRole, 'main'>, string> = {
   fab: 'Midnite Loops',
   companion: 'Midnite Companion',
   browser: 'Browser',
+  // Phase 83 Theme A — titles for the three apps-rail roles. Theme D wires
+  // these roles' actual detach/re-dock and `DetachedContent` rendering; until
+  // then a popout can never actually open with one of these roles.
+  'apps-spotify': 'Spotify',
+  'apps-google-calendar': 'Google Calendar',
+  'apps-youtube': 'YouTube',
   ...PAGE_ROLE_TITLE,
 };
 
@@ -104,6 +110,13 @@ function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
         <BrowserPane shown />
       </div>
     );
+  }
+
+  if (role === 'apps-spotify' || role === 'apps-google-calendar' || role === 'apps-youtube') {
+    // Phase 83 Theme D renders the app's `WebContentsView` content here, the
+    // same way `browser` does above. No detach entry point exists for these
+    // roles yet (Theme D), so this branch is unreachable until then.
+    return null;
   }
 
   /*
