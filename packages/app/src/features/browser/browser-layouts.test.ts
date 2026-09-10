@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { BROWSER_LAYOUT_OPTIONS, browserLayoutIndex, stepBrowserLayout } from './browser-layouts';
+import {
+  BROWSER_LAYOUT_OPTIONS,
+  browserLayoutIndex,
+  cycleBrowserLayout,
+  stepBrowserLayout,
+} from './browser-layouts';
 
 describe('browser layout options', () => {
   it('lists full screen first — the default, and the simplest to explain', () => {
@@ -26,6 +31,16 @@ describe('browser layout options', () => {
     expect(stepBrowserLayout('full', -1)).toBe('full');
     // A jump longer than the row still lands inside it.
     expect(stepBrowserLayout('full', 9)).toBe('right');
+  });
+
+  it('cycles through the options, wrapping around in both directions', () => {
+    expect(cycleBrowserLayout('full', 1)).toBe('left');
+    expect(cycleBrowserLayout('left', 1)).toBe('right');
+    expect(cycleBrowserLayout('right', 1)).toBe('full');
+
+    expect(cycleBrowserLayout('full', -1)).toBe('right');
+    expect(cycleBrowserLayout('right', -1)).toBe('left');
+    expect(cycleBrowserLayout('left', -1)).toBe('full');
   });
 
   it('indexes a known layout, and falls back to the first for anything else', () => {

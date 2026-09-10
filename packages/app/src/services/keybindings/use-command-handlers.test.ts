@@ -332,6 +332,52 @@ describe('useCommandHandlers — fab.toggle', () => {
   });
 });
 
+describe('useCommandHandlers — browser.toggle', () => {
+  beforeEach(() => {
+    useUiStore.setState({
+      browserOpen: false,
+      browserLayout: 'full',
+      browserSwitcherOpen: false,
+      browserSwitcherSelected: 'full',
+    });
+  });
+
+  it('closes an already-open browser immediately, same as the pre-switcher toggle', () => {
+    useUiStore.setState({ browserOpen: true, browserLayout: 'right' });
+    const { result } = withProviders(new QueryClient());
+
+    result.current['browser.toggle'].run();
+
+    expect(useUiStore.getState()).toMatchObject({
+      browserOpen: false,
+      browserSwitcherOpen: false,
+    });
+  });
+
+  it('opens the switcher HUD, not the browser directly, when the browser is closed', () => {
+    const { result } = withProviders(new QueryClient());
+
+    result.current['browser.toggle'].run();
+
+    expect(useUiStore.getState()).toMatchObject({
+      browserOpen: false,
+      browserSwitcherOpen: true,
+    });
+  });
+
+  it('cycles the switcher selection instead of reopening it, while it is already up', () => {
+    useUiStore.setState({ browserSwitcherOpen: true, browserSwitcherSelected: 'full' });
+    const { result } = withProviders(new QueryClient());
+
+    result.current['browser.toggle'].run();
+
+    expect(useUiStore.getState()).toMatchObject({
+      browserSwitcherOpen: true,
+      browserSwitcherSelected: 'left',
+    });
+  });
+});
+
 describe('useCommandHandlers — companion.toggle', () => {
   // The same close-when-docked treatment as `fab.toggle` above.
   it('closes the Companion panel when it is already open and docked', () => {

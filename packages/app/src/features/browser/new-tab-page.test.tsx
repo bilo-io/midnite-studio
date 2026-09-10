@@ -54,6 +54,17 @@ describe('NewTabPage', () => {
     expect(screen.getByText('Notebook')).toBeDefined();
   });
 
+  it('renders search input wrapped in synchronized gradient border and glow', () => {
+    renderPage();
+
+    const input = screen.getByPlaceholderText(/search the web or enter url/i);
+    const wrapper = input.closest('.browser-search-sync');
+    expect(wrapper).not.toBeNull();
+    expect(wrapper?.classList.contains('gradient-border')).toBe(true);
+    expect(wrapper?.classList.contains('gradient-border--glow')).toBe(true);
+    expect(wrapper?.classList.contains('browser-search-sync')).toBe(true);
+  });
+
   it('renders accurate brand colors for shortcut tiles', () => {
     renderPage();
 

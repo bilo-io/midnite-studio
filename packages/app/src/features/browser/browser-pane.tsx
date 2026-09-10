@@ -120,7 +120,12 @@ export function BrowserPane({
   // surface of a blank tab is "type something here", alongside the fuller
   // new-tab page itself (Theme F: recents, shortcut tiles, a repo row).
   useEffect(() => {
-    if (shown && activeTab?.kind === 'newtab') addressRef.current?.focus();
+    if (shown && activeTab?.kind === 'newtab') {
+      const raf = requestAnimationFrame(() => {
+        addressRef.current?.focus();
+      });
+      return () => cancelAnimationFrame(raf);
+    }
   }, [shown, activeTab?.id, activeTab?.kind]);
 
   /*
@@ -277,44 +282,46 @@ export function BrowserPane({
           />
         )}
         <form onSubmit={onSubmit} className="relative min-w-0 flex-1">
-          {notSecure ? (
-            <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 rounded bg-[hsl(var(--browser-insecure)/0.15)] px-1 py-0.5 text-[10px] font-medium leading-none text-[hsl(var(--browser-insecure))]">
-              Not secure
-            </span>
-          ) : null}
-          <input
-            ref={addressRef}
-            type="text"
-            value={draft}
-            onFocus={() => {
-              setEditing(true);
-              setDraft(activeTab?.url ?? '');
-            }}
-            onBlur={() => setEditing(false)}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') return;
-              // Belongs to this field, not to the pane: stop it here before
-              // `use-dismiss`'s window listener sees it and closes the
-              // pane out from under an aborted edit.
-              event.stopPropagation();
-              setEditing(false);
-              addressRef.current?.blur();
-            }}
-            placeholder="Search or enter address"
-            aria-label="Address"
-            className={`w-full rounded border border-border bg-card py-1 pr-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring ${
-              notSecure ? 'pl-[4.75rem]' : 'pl-2'
-            }`}
-          />
-          {editing && draft.trim().length > 0 ? (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute right-2 top-1/2 max-w-[45%] -translate-y-1/2 truncate text-[10px] text-muted-foreground/70"
-            >
-              {resolveInput(draft)}
-            </span>
-          ) : null}
+          <div className="gradient-border gradient-border--glow browser-search-sync relative flex items-center rounded border border-border bg-card">
+            {notSecure ? (
+              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 rounded bg-[hsl(var(--browser-insecure)/0.15)] px-1 py-0.5 text-[10px] font-medium leading-none text-[hsl(var(--browser-insecure))] z-10">
+                Not secure
+              </span>
+            ) : null}
+            <input
+              ref={addressRef}
+              type="text"
+              value={draft}
+              onFocus={() => {
+                setEditing(true);
+                setDraft(activeTab?.url ?? '');
+              }}
+              onBlur={() => setEditing(false)}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape') return;
+                // Belongs to this field, not to the pane: stop it here before
+                // `use-dismiss`'s window listener sees it and closes the
+                // pane out from under an aborted edit.
+                event.stopPropagation();
+                setEditing(false);
+                addressRef.current?.blur();
+              }}
+              placeholder="Search or enter address"
+              aria-label="Address"
+              className={`w-full rounded border-0 bg-transparent py-1 pr-2 text-xs outline-none ${
+                notSecure ? 'pl-[4.75rem]' : 'pl-2'
+              }`}
+            />
+            {editing && draft.trim().length > 0 ? (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute right-2 top-1/2 max-w-[45%] -translate-y-1/2 truncate text-[10px] text-muted-foreground/70"
+              >
+                {resolveInput(draft)}
+              </span>
+            ) : null}
+          </div>
         </form>
         {zoomFactor !== 1 ? (
           <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground" title="Browser zoom">

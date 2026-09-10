@@ -37,10 +37,14 @@ export function useKeybindings(runtime: CommandRuntime): void {
       // so the effect need not re-run on every browser/terminal state change.
       const candidates = DEFAULT_KEYMAP.filter((b) => b.chord === chord);
       const browserOpen = useUiStore.getState().browserOpen;
-      const browserBinding = candidates.find((b) => b.command.startsWith('browser.'));
+      const browserBinding = candidates.find(
+        (b) => b.command.startsWith('browser.') && b.command !== 'browser.toggle',
+      );
       const terminalBinding = candidates.find((b) => b.command.startsWith('terminal.'));
       const restBinding = candidates.find(
-        (b) => !b.command.startsWith('browser.') && !b.command.startsWith('terminal.'),
+        (b) =>
+          (!b.command.startsWith('browser.') || b.command === 'browser.toggle') &&
+          !b.command.startsWith('terminal.'),
       );
       const terminalWins = terminalBinding !== undefined && runtime[terminalBinding.command].enabled;
       const binding = browserOpen
@@ -78,6 +82,13 @@ export function useKeybindings(runtime: CommandRuntime): void {
       // Escape-adjacent commands, a future addition) so the menu keeps
       // uncontested ownership of the keyboard for as long as it is up.
       if (useUiStore.getState().quickAccessOpen) return;
+
+      // While the browser view switcher overlay is open, only its own chord
+      // (`browser.toggle`) resolves here to cycle layouts while holding Mod;
+      // every other bound chord falls through untouched.
+      if (useUiStore.getState().browserSwitcherOpen && binding.command !== 'browser.toggle') {
+        return;
+      }
 
       const entry = runtime[binding.command];
       // Disabled is treated as unbound: the keystroke falls through to
