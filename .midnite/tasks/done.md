@@ -10557,3 +10557,54 @@ Playwright, and it will block every virtualised surface in waves 2-5.
 **CI note.** #326's only red was `titlebar-agents.spec.ts` — this repo's one documented flaky
 spec, and the reason `retries` is 2 rather than 1 (see `playwright.config.ts`). #326 touches
 five specs, none of them that one; green 13/13 on re-run.
+
+### Phase 82 Theme H — Shard the unit suite (PR #327, 2026-09-10)
+
+`app:test` moved out of `gate-node` into its own 4-way `vitest --shard` matrix job.
+
+The premise was measured on a real `ubuntu-24.04` runner rather than inferred — a throwaway
+step split committed just for the reading, then removed: **`app:test` alone 173s**, against
+**71s** for `shared`/`website`/`db-engine` plus `app:typecheck`/`app:lint`/`root:test` combined.
+So `app:test` was ~68% of that job's test content, exactly as Theme E predicted when it recorded
+its own disproof.
+
+Result, stable across two runs: **gate lane 345s → 162s** (`gate-node` 162s, the four
+`gate-node-app-test` shards 122-155s in parallel, `gate-native` 155s). And it is future-proof
+in the way that matters — Theme C's remaining waves add several hundred more unit tests, which
+now spread across four shards instead of piling onto one job.
+
+**Theme G was tried in the same PR and reverted — a measured non-adoption.** Bumping e2e from
+8 to 12 shards took the worst shard 397s → 316s and the total workflow 6m50s → 6m14s, but cost
+four extra jobs (~+1060s aggregate runner time) for 81s of wall clock, about 13:1 — and total
+wall came in at 374s against a 316s worst job, so ~58s is queue/spin-up that more jobs make
+worse. More importantly the theme is **specified to run after Theme C** ("with ~245 e2e tests
+remaining"), and the suite is still at 654; measuring the right shard count mid-migration
+answers the wrong question. Reverted to 8, numbers recorded in `ci.yml`, theme left open.
+Same shape as Phase 56 Theme C's `workers: 2` non-adoption.
+
+### Phase 82 Themes A (completion) + C prerequisites (PR #328, 2026-09-10)
+
+Three jobs, closing Theme A and unblocking Theme C's remaining waves.
+
+**`makeFixtures()`** replaces the shared `fixtures` constant for jsdom use. Playwright re-creates
+a mutated fixture per test for free via its per-`page` isolation; jsdom has none, so a write
+leaked into the next test in the file. `fixtures` stays exported, so this was not a 90-spec
+rewrite.
+
+**A `ResizeObserver` that actually fires.** The global stub never invoked its callback, so
+`@tanstack/react-virtual` measured nothing and rendered zero rows — which is what forced
+`search-view`'s results test to stay in Playwright and would have blocked every virtualised
+surface in waves 2-5 (`results-grid`, `projects-view`, `board-view`, `graph-view`, `diff-view`,
+`log-pane`, `companion-thread`, `palette`). `FiringResizeObserver` fires on `observe()` with a
+settable content rect and stays overridable; the ~15 local stubs are untouched. **Proven, not
+asserted**: `search-view`'s "each mode returns and renders its own results" migrated down and
+now runs in jsdom (e2e declared 655 → 654). `projects-view.test.tsx`'s standing
+anti-virtualisation finding was *revised, not deleted* — its rows are read through a path this
+fix does not cover, and the comment now says so specifically.
+
+**Theme A's leftover closed.** The 13 unconditional `page.screenshot()` calls surviving in 7
+functional specs (`graph-themes`, `graph-recency`, `phase-21-roster`, `files-view`,
+`files-search`, `ref-drag`, `settings-pages`) are gated inline behind `MSTUDIO_SHOTS`, every
+assertion left unconditional. Verified: all 7 specs run (54 passed) and `git status
+docs/screenshots/` is **empty**. That churn had required five manual reverts during this
+phase's own merges.
