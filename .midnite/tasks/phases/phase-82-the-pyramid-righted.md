@@ -339,6 +339,22 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] Confirm `scripts/e2e-budget.mjs` fails on a deliberately added throwaway spec, then remove
       the throwaway spec.
 
+- [ ] **A flake register, and a guard against the class that causes it.** Measured across this
+      phase's own merges on 2026-09-09/10: **four distinct specs failed CI on PRs that could not
+      have caused them**, each costing a diagnosis plus a re-run before the PR could be trusted.
+      `desktop/src/mcp-shim/shim.test.ts` (twice — a 2s wall-clock bound, observed at 3746ms
+      under load; PR #310 already fixes it), `desktop/src/broker/server.test.ts` (pty staleness
+      timing), `e2e/titlebar-agents.spec.ts` (CSS `animation-name` timing — already the reason
+      `playwright.config.ts` keeps `retries: 2`), and `e2e/notes.spec.ts`'s browser-occluder
+      contract (twice, on #324 and #327, the same `__mstudioBrowserVisibleCalls` poll). Two of
+      those PRs touched **zero** files in the failing package. This phase makes CI faster; flake
+      makes it less *trustworthy*, and trust is what a blocking gate actually sells — a gate that
+      is red on nobody's fault is a gate that gets switched off, which `ci.yml`'s own comment
+      already argues. So: name the known-flaky specs in one place with the evidence, and add a
+      lint rule or `scripts/` check that fails a **wall-clock-bound assertion in a unit test**
+      (`expect(elapsed).toBeLessThan(…)` and friends), which is the shape behind three of the
+      four. Cheaper than re-diagnosing each one per PR.
+
 ### G — Re-measure and re-tune the shards (S)
 
 - [ ] With ~245 e2e tests remaining after Theme C, re-measure per-shard wall clock rather than
