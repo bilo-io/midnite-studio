@@ -938,10 +938,21 @@ html[data-motion='reduced'] .tab-loop-active-arc::after {
 }
 
 /* FAB Loop Tab Shimmer — only tabs without a running loop carry this gentle sweep,
- * half as frequent and moving half as fast (4.8s period, 0.6s stagger). */
+ * half as frequent and moving half as fast (4.8s period).
+ *
+ * The 0.8s stagger is `period / 6` — one stagger per tab, tiling the whole
+ * 4.8s cycle exactly once rather than the six tabs bunching into its first
+ * 3s and leaving the last 1.8s empty (0.6s's own remainder). That bunching is
+ * what read as "two shimmers at once, then a gap" — six evenly-spaced
+ * handoffs around the full loop is what makes it read as one continuous
+ * sweep instead. Each tab's own gradient in `fab-panel.tsx` is narrower here
+ * too (`38%/50%/62%` → `43%/50%/57%`) — a tighter band spends less of the
+ * cycle visible, so a handoff is over sooner and reads as a crossfade rather
+ * than two bands sitting on screen together. Same keyframes, same per-tab
+ * element, same easing — this only retimes it. */
 .tab-loop-shimmer {
   animation: pill-shimmer 4.8s ease-in-out infinite;
-  animation-delay: calc(var(--tab-i, 0) * 0.6s);
+  animation-delay: calc(var(--tab-i, 0) * 0.8s);
   opacity: 0.35;
 }
 

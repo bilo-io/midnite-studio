@@ -80,6 +80,7 @@ export const PREFERENCE_KEYS = [
   'loopChoices',
   'loopModels',
   'loopSchedules',
+  'loopEnabled', // fab-panel.tsx's own "Loop" switch — same block, same reason (Ad Hoc)
 
   // Landed by Phase 64 (merged onto `main` while this phase was in flight —
   // #164) with no settings page of their own; that phase's Theme F only
@@ -171,6 +172,7 @@ export const KNOWN_ORPHANS = [
   'loopChoices',
   'loopModels',
   'loopSchedules',
+  'loopEnabled',
   'editorFontFamily',
   'editorFontSize',
   'editorMinimap',

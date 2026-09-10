@@ -166,6 +166,8 @@ describe('tab container button styling & theme colors', () => {
 
   it('configures .tab-loop-shimmer at half frequency (4.8s) and half speed', () => {
     expect(stylesCss).toMatch(/\.tab-loop-shimmer[^{]*\{[^}]*animation:\s*pill-shimmer 4\.8s ease-in-out infinite/);
-    expect(stylesCss).toMatch(/animation-delay:\s*calc\(var\(--tab-i, 0\) \* 0\.6s\)/);
+    // 0.8s — period / 6 (one loop tab), so the six staggers tile the whole
+    // cycle evenly instead of bunching into its first three seconds.
+    expect(stylesCss).toMatch(/animation-delay:\s*calc\(var\(--tab-i, 0\) \* 0\.8s\)/);
   });
 });

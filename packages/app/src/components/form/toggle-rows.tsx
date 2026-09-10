@@ -32,17 +32,20 @@ export function SwitchRow({
   title,
   on,
   onToggle,
+  className,
 }: {
   id: string;
   label: string;
   title?: string;
   on: boolean;
   onToggle: (id: string, on: boolean) => void;
+  /** Extra classes on the row itself — a caller painting its own background (the FAB tab bar's "Loop" row) needs to override the default text colour too. */
+  className?: string;
 }) {
   return (
     <label
       title={title}
-      className="relative flex cursor-pointer items-center justify-between gap-2 text-[11px] text-muted-foreground hover:text-foreground"
+      className={`relative flex cursor-pointer items-center justify-between gap-2 text-[11px] text-muted-foreground hover:text-foreground ${className ?? ''}`}
     >
       <span className="min-w-0 truncate">{label}</span>
       <input
