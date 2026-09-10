@@ -3,6 +3,7 @@ import { join, basename } from 'node:path';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { extractYamlScalar } from './lib/yaml-scalar.mjs';
+import { SQLITE_PROBE_SOURCE, sqliteProbeModulePath } from './lib/sqlite-probe.mjs';
 
 const desktopDir = process.cwd();
 const releaseDir = join(desktopDir, 'release');
@@ -244,18 +245,11 @@ if (!betterSqlite3Binary) {
   process.exit(1);
 }
 
-const probeScript = [
-  'const Database = require(process.argv[1]);',
-  'const db = new Database(":memory:");',
-  "db.prepare('SELECT 1 AS one').get();",
-  'db.close();',
-  "console.log('better-sqlite3 loaded and queried successfully under Electron\\'s ABI');",
-].join('\n');
 const probePath = join(releaseDir, '.better-sqlite3-probe.cjs');
-writeFileSync(probePath, probeScript);
+writeFileSync(probePath, SQLITE_PROBE_SOURCE);
 const electronBinary = join(appPath, 'Contents', 'MacOS', 'Midnite Studio');
 try {
-  execSync(`"${electronBinary}" "${probePath}" "${join(unpackedNodeModules, 'better-sqlite3')}"`, {
+  execSync(`"${electronBinary}" "${probePath}" "${sqliteProbeModulePath(appPath)}"`, {
     stdio: 'inherit',
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
   });
