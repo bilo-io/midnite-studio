@@ -24,6 +24,12 @@ import {
  * than the pixels: the glyph is *gone* while busy, not spinning. That is the
  * behaviour, and it is the part a pixel diff of an animation frame cannot
  * pin down.
+ *
+ * Unlike the rest of the shots suite, this file is not named `*-shots` and is
+ * not gated wholesale (Phase 82 Theme A): the DOM assertions above are the
+ * only coverage `.animate-spin` replacing the glyph gets anywhere in the
+ * suite, and they run unconditionally in every `app:e2e` run. Only the two
+ * `page.screenshot()` calls are gated behind `MSTUDIO_SHOTS`.
  */
 
 /* Playwright runs with `packages/app` as its cwd. */
@@ -135,23 +141,27 @@ test('a re-run in flight, and the running checks beside it', async ({ page }) =>
   await expect(rerun.locator('.animate-spin')).toBeVisible();
   await expect(rerun.locator('svg')).toHaveCount(0);
 
-  /* The pointer is left on the button it just clicked; park it off the row so
-     no hover tint rides into the shot. */
-  await page.mouse.move(700, 900);
-  await page.screenshot({ path: shotPath(OUT, 'checks-rerun-busy.png'), animations: 'disabled' });
+  // Ungated, this rewrote two committed PNGs on every `app:e2e` run even
+  // though the DOM assertions above are the point of this test.
+  if (process.env.MSTUDIO_SHOTS) {
+    /* The pointer is left on the button it just clicked; park it off the row
+       so no hover tint rides into the shot. */
+    await page.mouse.move(700, 900);
+    await page.screenshot({ path: shotPath(OUT, 'checks-rerun-busy.png'), animations: 'disabled' });
 
-  /*
-    And the same frame again, cropped to the strip. The marks these shots exist
-    for are 12–14px in a 1280px window; a full-window PNG shows they are in the
-    right places but not what they look like.
-  */
-  const strip = page.getByRole('region', { name: 'Pull request #300' });
-  const box = await strip.boundingBox();
-  if (box !== null) {
-    await page.screenshot({
-      path: shotPath(OUT, 'checks-rerun-busy-detail.png'),
-      animations: 'disabled',
-      clip: { x: box.x, y: box.y + 150, width: box.width, height: 110 },
-    });
+    /*
+      And the same frame again, cropped to the strip. The marks these shots
+      exist for are 12–14px in a 1280px window; a full-window PNG shows they
+      are in the right places but not what they look like.
+    */
+    const strip = page.getByRole('region', { name: 'Pull request #300' });
+    const box = await strip.boundingBox();
+    if (box !== null) {
+      await page.screenshot({
+        path: shotPath(OUT, 'checks-rerun-busy-detail.png'),
+        animations: 'disabled',
+        clip: { x: box.x, y: box.y + 150, width: box.width, height: 110 },
+      });
+    }
   }
 });
