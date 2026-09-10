@@ -10524,3 +10524,36 @@ so a full local run still dirties 19 PNGs. Phase 56 Theme F swept four *other* f
 and stopped; these are the remainder. Recorded as an open Theme A item rather than folded into a
 "done" claim, because during this phase's own merges the churn had to be reverted five separate
 times — it is a live cost, not a cosmetic one.
+
+### Phase 82 Theme C wave 1 — Five specs down to jsdom (PR #326, 2026-09-10)
+
+`diagnostics` 18→2 · `files-write` 12→1 · `shortcut-rail` 12→6 · `settings-pages` 8→5 ·
+`search-view` 5→1. E2e declared tests 695→**655**; `app:test` 3,781→**3,818**. Gate exit 0.
+`search-view`'s race test uses vitest fake timers rather than the fixture's real `delayMs`, as
+the theme required.
+
+**The stragglers are the honest part.** Three of the five specs did not empty out, and were not
+forced to:
+
+- `shortcut-rail`'s three name-reveal and two density tests resolve through real CSS
+  (`[data-density]` rules) or real measured `scrollWidth`/`clientWidth` — `status-toggle.tsx`'s
+  own comment already documents that.
+- `search-view`'s "each mode returns and renders its own results" is entirely virtualised rows
+  (`@tanstack/react-virtual`), which this repo already has a standing finding against testing
+  under jsdom (see `projects-view.test.tsx`).
+- A handful of cross-component/reload/hover-CSS-var checks need the outer app shell or real
+  browser reload semantics.
+
+The taxonomy behind Theme C was a 34-spec sample, not a proof; a wave that emptied all five
+would have meant forcing jsdom tests that pass while the UI is broken.
+
+**Two harness gaps this wave exposed, recorded as a Theme C prerequisite for wave 2.**
+(a) `fixtures` is a shared constant, and jsdom has no per-`page` isolation to re-create it — a
+fixture mutated by a write leaks to the next test in the file; it wants a `makeFixtures()`
+factory. (b) The global `ResizeObserver` stub never *fires*, so `@tanstack/react-virtual`
+measures nothing and renders no rows — that is what kept `search-view`'s results test in
+Playwright, and it will block every virtualised surface in waves 2-5.
+
+**CI note.** #326's only red was `titlebar-agents.spec.ts` — this repo's one documented flaky
+spec, and the reason `retries` is 2 rather than 1 (see `playwright.config.ts`). #326 touches
+five specs, none of them that one; green 13/13 on re-run.

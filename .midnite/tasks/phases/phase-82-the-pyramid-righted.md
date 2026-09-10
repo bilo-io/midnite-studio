@@ -212,12 +212,25 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### C — Migration waves (L) — *~380 tests, five PRs*
 
-- [ ] Wave 1 (no geometry at all): `diagnostics` (18) · `files-write` (12) · `shortcut-rail`
+- [x] Wave 1 (no geometry at all): `diagnostics` (18) · `files-write` (12) · `shortcut-rail`
       (12) · `settings-pages` (8) · `search-view` (5) — ~55 tests. Mount the view with
       `renderView` + the same `MockFixtures` data, and delete the e2e test as its unit
       equivalent lands — keep exactly one e2e smoke test per view.
-- [ ] `search-view`'s race test wants fake timers rather than the fixture's real `delayMs` when
+- [x] `search-view`'s race test wants fake timers rather than the fixture's real `delayMs` when
       it moves to vitest.
+- [ ] **Two harness gaps wave 1 exposed, to close before wave 2.** Both widen what a wave can
+      take, so they are cheaper now than repeated per-spec workarounds later.
+      (a) `test-support/fixtures.ts` exports `fixtures` as a shared **constant**. Playwright
+      hands every test a fresh `page`, so a fixture object mutated by a write is re-created for
+      free; a jsdom test has no such isolation and the mutation leaks to the next test in the
+      file. Wave 1 worked around it per-spec — it wants a `makeFixtures()` factory instead.
+      (b) `src/vitest-setup.ts`'s global `ResizeObserver` stub never **fires**, so
+      `@tanstack/react-virtual` measures nothing and renders no rows. That is why
+      `search-view`'s "each mode renders its own results" stayed in Playwright, and it will
+      block every virtualised surface in waves 2-5 (`results-grid`, `projects-view`,
+      `board-view`, `graph-view`, `diff-view`, `log-pane`, `companion-thread`, `palette`).
+      A stub that invokes its callback once on observe, with a settable content rect, unblocks
+      them.
 - [ ] Wave 2: `commit-inspector` (17) · `changes-panel` (14) · `diff-view` (11) — ~42 tests.
       `changes-panel`'s tree-grouping assertions already have partial unit coverage in
       `build-change-tree.test.ts` and should merge into that file rather than duplicate a
