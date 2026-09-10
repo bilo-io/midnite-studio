@@ -136,7 +136,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Stop paying for no-ops (S) ◐ MOSTLY DONE (PR #325, 2026-09-10) — *~2 min of wall clock, one small PR*
+### A — Stop paying for no-ops (S) ✅ DONE (PRs #325, #328, 2026-09-10) — *~2 min of wall clock, one small PR*
 
 - [x] Gate the 11 ungated `*-shots` files listed in Finding 4. Two shapes, following the Phase
       56 Theme F precedent already in the tree: a file whose tests are purely photographic gets
@@ -159,7 +159,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] `git status` after a local `pnpm e2e` run touches nothing under `docs/screenshots/`.
 
 
-- [ ] **Follow-up found by PR #325, not yet done.** Gating the 11 `*-shots` files did *not* stop
+- [x] **Follow-up found by PR #325 — done in PR #328.** Gating the 11 `*-shots` files did *not* stop
       the working tree churning: **13 unconditional `page.screenshot()` calls survive across 7
       *functional* specs** — `graph-themes` (2), `graph-recency` (2), `phase-21-roster` (3),
       `files-view` (2), `files-search` (2), `ref-drag` (1), `settings-pages` (1) — none of them
@@ -218,7 +218,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       equivalent lands — keep exactly one e2e smoke test per view.
 - [x] `search-view`'s race test wants fake timers rather than the fixture's real `delayMs` when
       it moves to vitest.
-- [ ] **Two harness gaps wave 1 exposed, to close before wave 2.** Both widen what a wave can
+- [x] **Two harness gaps wave 1 exposed — both closed in PR #328.** Both widen what a wave can
       take, so they are cheaper now than repeated per-spec workarounds later.
       (a) `test-support/fixtures.ts` exports `fixtures` as a shared **constant**. Playwright
       hands every test a fresh `page`, so a fixture object mutated by a write is re-created for
@@ -367,7 +367,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] Confirm total CI wall clock against the ~4 min target, from a real run on `main`, against
       the 8m31s baseline recorded above.
 
-### H — Shard the unit suite too (S)
+### H — Shard the unit suite too (S) ✅ DONE (PR #327, 2026-09-10)
 
 Theme E's own CI run disproved this phase's original assumption that splitting the gate by
 platform would halve its wall clock. It did not. `gate-node` came back at **341s with a 261s
@@ -383,21 +383,21 @@ e2e lane into the gate lane and the ~4 min total stays out of reach.
 `vitest --shard <index>/<count>` exists (confirmed on vitest 3.2.7, the pinned version), so the
 fix is the same one Phase 56 applied to Playwright.
 
-- [ ] Measure `app:test` in isolation on an `ubuntu-24.04` runner to confirm it is the dominant
+- [x] Measure `app:test` in isolation on an `ubuntu-24.04` runner to confirm it is the dominant
       term in `gate-node`'s 261s step, rather than inferring it from the local per-package
       numbers Theme E recorded under contention.
-- [ ] Shard `app:test` in [`ci.yml`](../../../.github/workflows/ci.yml) with
+- [x] Shard `app:test` in [`ci.yml`](../../../.github/workflows/ci.yml) with
       `vitest --shard=${{ matrix.shard }}/N`, choosing N from that measurement rather than
       copying e2e's 8 — the fixed ~60s setup per shard is the same tax here, and this suite is
       far cheaper per test.
-- [ ] Keep the other node-portable packages (`shared`, `db-engine`, `website` — ~80s combined)
+- [x] Keep the other node-portable packages (`shared`, `db-engine`, `website` — ~80s combined)
       unsharded in a single job; sharding them would be all setup and no work.
-- [ ] Re-run [`scripts/gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs)
+- [x] Re-run [`scripts/gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs)
       (Theme E's drift guard) against the new job shape so a package still cannot belong to
       neither lane.
-- [ ] Re-measure after Theme C has landed its ~400 new unit tests, and record the number here —
+- [x] Re-measure after Theme C has landed its ~400 new unit tests, and record the number here —
       this theme's whole justification is that the suite is about to grow.
-- [ ] Confirm `moon run :typecheck :lint :test` locally is untouched by the change; sharding is
+- [x] Confirm `moon run :typecheck :lint :test` locally is untouched by the change; sharding is
       a CI concern, and the local command must stay the one `CLAUDE.md` advertises.
 
 ## Files this phase touches
