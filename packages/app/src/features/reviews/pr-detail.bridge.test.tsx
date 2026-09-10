@@ -14,8 +14,15 @@ import { PrDetail } from './pr-detail';
  * given, that the merge dialog states a real number and refuses to submit
  * without a method, that a refusal shows `gh`'s own words, that free-text
  * reviewers split on commas and spaces, and that re-run offers "failed only"
- * only on a run that failed. **All 13 of the original tests move here** —
- * unlike waves 1-2, this file has zero stragglers.
+ * only on a run that failed. **All 13 of the original assertions are covered
+ * here.** 12 of the 13 e2e tests are deleted outright, their assertions
+ * ported one-for-one; the 13th ("approving submits APPROVE with the body
+ * that was typed") is ALSO ported here for parity, but its e2e original is
+ * kept — the theme's one required browser smoke test per view, proving the
+ * assembled action bar and its bridge calls survive a real render, not only
+ * jsdom's. So this is a zero-straggler wave in the sense that every original
+ * assertion is proven here; one of the thirteen just isn't deleted from
+ * Playwright.
  *
  * Driven through `PrDetail` directly (`repoId`/`number` props, exactly like
  * `pr-detail.test.tsx`'s own existing `renderPr` for the unrelated
