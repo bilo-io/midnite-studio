@@ -695,7 +695,9 @@ test.describe('graph themes', () => {
     }
 
     await page.waitForTimeout(300);
-    await page.screenshot({ path: '../../docs/screenshots/phase-14/settings.png' });
+    if (process.env.MSTUDIO_SHOTS) {
+      await page.screenshot({ path: '../../docs/screenshots/phase-14/settings.png' });
+    }
 
     /*
       Motion and Density are the APPEARANCE page, not this one — Phase 16 split
@@ -718,9 +720,11 @@ test.describe('graph themes', () => {
       await chooseTheme(page, label);
       // Let the fade settle, or the shot catches the graph mid-entrance.
       await page.waitForTimeout(300);
-      await page.screenshot({
-        path: `../../docs/screenshots/phase-14/${label.toLowerCase().replace(/ /g, '-')}.png`,
-      });
+      if (process.env.MSTUDIO_SHOTS) {
+        await page.screenshot({
+          path: `../../docs/screenshots/phase-14/${label.toLowerCase().replace(/ /g, '-')}.png`,
+        });
+      }
     }
   });
 });

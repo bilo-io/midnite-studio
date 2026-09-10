@@ -171,7 +171,9 @@ test.describe('commit recency decay', () => {
     await page.waitForTimeout(400);
     // `animations: 'disabled'` rewinds every animation to its first frame,
     // which for these is the resting end of each pulse — the trough.
-    await page.screenshot({ path: `${OUT}/tiers-trough.png`, animations: 'disabled' });
+    if (process.env.MSTUDIO_SHOTS) {
+      await page.screenshot({ path: `${OUT}/tiers-trough.png`, animations: 'disabled' });
+    }
 
     /*
       And the peak, which is the half of the pulse worth looking at. Parked
@@ -188,6 +190,8 @@ test.describe('commit recency decay', () => {
         .commit-row-shimmer::after { animation-play-state: paused !important; }
       `,
     });
-    await page.screenshot({ path: `${OUT}/tiers-peak.png` });
+    if (process.env.MSTUDIO_SHOTS) {
+      await page.screenshot({ path: `${OUT}/tiers-peak.png` });
+    }
   });
 });

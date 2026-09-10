@@ -51,11 +51,15 @@ test.describe('phase 21 screenshots', () => {
     await expect(page.locator('[data-session-row]')).toHaveCount(5);
 
     // Every mark resolved from the roster, none of them Claude's by default.
-    await page.screenshot({ path: '../../docs/screenshots/phase-21-session-list.png' });
+    if (process.env.MSTUDIO_SHOTS) {
+      await page.screenshot({ path: '../../docs/screenshots/phase-21-session-list.png' });
+    }
 
     await page.getByRole('button', { name: 'New terminal or agent' }).click();
     await expect(page.getByRole('menuitem', { name: 'OpenClaude', exact: true })).toBeDisabled();
-    await page.screenshot({ path: '../../docs/screenshots/phase-21-new-menu.png' });
+    if (process.env.MSTUDIO_SHOTS) {
+      await page.screenshot({ path: '../../docs/screenshots/phase-21-new-menu.png' });
+    }
 
     /*
       Both themes, because a mark that holds its silhouette on white can lose
@@ -67,6 +71,8 @@ test.describe('phase 21 screenshots', () => {
     await page.getByRole('button', { name: 'Toggle theme' }).click();
     await page.getByRole('menuitemradio', { name: 'Dark', exact: true }).click();
     await expect(page.locator('html')).toHaveClass(/dark/);
-    await page.screenshot({ path: '../../docs/screenshots/phase-21-session-list-dark.png' });
+    if (process.env.MSTUDIO_SHOTS) {
+      await page.screenshot({ path: '../../docs/screenshots/phase-21-session-list-dark.png' });
+    }
   });
 });
