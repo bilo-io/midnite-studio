@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
 import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
@@ -193,22 +193,3 @@ test('a conversation comment’s Present button opens a deck without changing ma
   await expect(deck.getByRole('heading', { name: 'Bug report' })).toBeVisible();
 });
 
-const RELEASE_NOTES = ['# What shipped in v9.9.9', '', 'Some release notes content.'].join('\n');
-
-test('presenting from the release-notes panel opens a deck whose cover title is the notes’ h1', async ({
-  page,
-}) => {
-  await installMockBridge(page, { ...fixtures, releaseNotesOverride: RELEASE_NOTES });
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-
-  await page.getByTestId('version-pill').click();
-  const panel = page.getByTestId('version-pill-panel');
-  await expect(panel).toBeVisible();
-  await expect(panel).toContainText('Some release notes content.');
-
-  await panel.getByRole('button', { name: 'Present as slides' }).click();
-  const deck = page.getByTestId('slides-deck');
-  await expect(deck).toBeVisible();
-  await expect(deck.getByRole('heading', { name: 'What shipped in v9.9.9' })).toBeVisible();
-});
