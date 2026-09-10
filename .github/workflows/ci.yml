@@ -100,12 +100,11 @@ jobs:
       # scripts, no platform dependency, so it belongs here rather than on
       # gate-native.
       #
-      # PHASE 82 THEME H — MEASUREMENT COMMIT. Split into two steps purely so
-      # this run's own step timings tell us whether `app:test` really is the
-      # dominant term on a real ubuntu-24.04 runner (Theme E's numbers were
-      # local, under contention, and explicitly flagged as order-of-magnitude
-      # only). This is a throwaway step split for one CI run — the follow-up
-      # commit replaces it with the actual sharded job once the numbers are in.
+      # `app:test` is NOT here — see `gate-node-app-test` below (Phase 82 Theme
+      # H). `app:typecheck`/`app:lint` stay unsharded: they are fast (part of
+      # the 71s this step measured at, together with shared/website/db-engine's
+      # full typecheck+lint+test and root:test), and only the vitest run itself
+      # is the expensive part worth sharding.
       - name: Typecheck, lint, test (node-portable packages, app:test excluded)
         run: >-
           pnpm exec moon run
@@ -117,8 +116,74 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 'MEASURE: app:test in isolation'
-        run: pnpm exec moon run app:test
+  # Phase 82 Theme H — `app:test` sharded out of `gate-node` into its own
+  # matrix job, the same fix Phase 56 applied to Playwright
+  # (`vitest --shard=<index>/<count>`, confirmed working on the pinned vitest
+  # 3.2.7).
+  #
+  # Theme E's own run (PR #321) found that splitting the gate by platform did
+  # NOT halve `gate-node`'s wall clock — ubuntu's slower cores cancelled out
+  # the smaller workload, leaving a 261s test step against the undivided
+  # gate's 264s. This job is why: measured directly on THIS PR's own
+  # ubuntu-24.04 runner (run 34453964938, `MEASURE: app:test in isolation`
+  # step, a throwaway split committed for exactly this reading and since
+  # removed) — `app:test` alone took **173s**, against **71s** for every
+  # other node-portable package's typecheck+lint+test *combined* plus
+  # `root:test`. `app:test` was ~68% of `gate-node`'s content, confirming
+  # Theme E's own prediction rather than inferring it from local numbers.
+  #
+  # Shard count, from that same run's numbers rather than copying e2e's 8:
+  # this job's fixed per-shard overhead (checkout + pnpm/node setup + install,
+  # no Playwright browser download) measured **~85s** in `gate-node`'s own run
+  # (341s job total − 256s of test-content steps). Modelling wall clock as
+  # `85 + 173/N`:
+  #
+  #   | N | 85 + 173/N |
+  #   |---|------------|
+  #   | 1 | 258s (today) |
+  #   | 2 | 172s |
+  #   | 3 | 143s |
+  #   | 4 | **128s** |
+  #   | 6 | 114s |
+  #   | 8 | 107s |
+  #
+  # Marginal returns fall off hard past 4: 3→4 saves ~15s, 4→6 saves ~14s over
+  # two more jobs (~7s each), 6→8 saves ~7s over two more still. N=4 takes the
+  # steepest part of the curve without adding jobs for single-digit-second
+  # returns — this suite is vitest/jsdom, not Playwright, so its per-test cost
+  # is cheap enough that the fixed setup tax dominates much sooner. Local
+  # sharding (`vitest --shard=1/4`, 3,818 tests) split close to evenly (997
+  # tests / 21s of 3,818 tests / 73s, ≈26% of both), so the model's even split
+  # is a reasonable approximation for a jsdom suite with no one dominant file
+  # the way Playwright's `fab-loops.spec.ts` is (see the `e2e` job's own
+  # comment).
+  gate-node-app-test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 'app:test (shard ${{ matrix.shard }}/4)'
+        run: pnpm exec moon run app:test -- --shard=${{ matrix.shard }}/4
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -327,6 +392,30 @@ jobs:
   # failure on one worker. The chords are fixed now; with eight shards each
   # running roughly an eighth of the suite in well under 3 minutes, 10 minutes
   # is generous headroom for retries while still failing fast on a real hang.
+  #
+  # Phase 82 Theme G — re-measured at the suite's current (post Theme A/C) size
+  # before touching this number. Declared tests dropped 976 → 655 (Theme A),
+  # but run 34453964938 (this PR, still 8 shards at the time) shows the
+  # worst-case shard's content essentially UNCHANGED — 330s against the old
+  # baseline's 332s — because Theme A's cut was almost entirely self-skipping
+  # `*-shots` specs that cost ~0s, not real work: total real content across all
+  # 8 shards only dropped 2,308s → 2,158s (6.5%). Per-shard content: 330 / 298 /
+  # 278 / 276 / 265 / 247 / 243 / 221 (=2,158s), average 270s; per-shard fixed
+  # overhead (checkout + setup + install, no source change from Theme A/C)
+  # measured at ~70–90s across shards.
+  #
+  # The worst shard is worst for a specific, identifiable reason:
+  # `fab-loops.spec.ts` alone contributes 45 of that shard's 82 tests (55%) —
+  # by far the largest single file in the suite (next is `terminal.spec.ts` at
+  # 39; playwright's `--shard` assigns whole files, never splits one across
+  # shards). Fewer shards would only concentrate more filler around that same
+  # file and raise the floor further — the opposite of what Theme G is for —
+  # so this theme did not test a reduction. It tested whether MORE shards let
+  # the bin-packer give `fab-loops.spec.ts` less company: `shard: [1..12]`
+  # below, measured in this same PR's own follow-up run. See the numbers this
+  # produced, recorded in the paragraph that replaces this one once they
+  # landed — a measured non-adoption is exactly as valid a result as adoption
+  # (Phase 56 Theme C's `workers: 2` precedent).
   e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -335,7 +424,7 @@ jobs:
       # three quarters of a broken suite behind whichever shard happened to fail.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
       - uses: actions/checkout@v4
 
@@ -393,8 +482,8 @@ jobs:
       # everything except a named `KNOWN_RED` list of files still being repaired;
       # Theme H emptied that list and retired the ratchet, so CI now blocks on
       # the same suite a human runs locally.
-      - name: E2E (shard ${{ matrix.shard }}/8)
-        run: pnpm exec moon run app:e2e -- --shard=${{ matrix.shard }}/8
+      - name: E2E (shard ${{ matrix.shard }}/12)
+        run: pnpm exec moon run app:e2e -- --shard=${{ matrix.shard }}/12
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -412,7 +501,7 @@ jobs:
     # every PR. It is here to catch electron-builder breakage early — the pnpm
     # symlink and native-module traps only show up in a real package.
     if: github.ref == 'refs/heads/main'
-    needs: [gate-node, gate-native]
+    needs: [gate-node, gate-node-app-test, gate-native]
     runs-on: macos-14
     # A job-level `permissions:` block REPLACES the workflow default rather than
     # adding to it, so `packages: read` alone leaves `contents` at none — and
