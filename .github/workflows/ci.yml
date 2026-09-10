@@ -548,6 +548,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A `container:` job checks the repo out as the RUNNER's user, but the
+      # steps below execute as the container image's own user — a different
+      # UID, which git's ownership check (CVE-2022-24765's fix) refuses to
+      # trust by default: "detected dubious ownership in repository at
+      # '/__w/…'". `app:visual` depends on `shared:build`, and moon shells out
+      # to git to decide what is affected/cacheable, so without this the very
+      # first `moon run` call in this job fails before touching Playwright at
+      # all — reproduced on this PR's own first CI run. Every OTHER job in
+      # this file runs directly on the runner (no `container:`), which is
+      # exactly why none of them needed this — this job is the first to need
+      # container-level font parity (see the job's own header comment).
+      - name: Mark the checkout as a safe git directory (container job, different UID than the checkout owner)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       # No pnpm/action-setup or actions/setup-node here: the container image
       # ships its own Node (newer than the repo's pinned 22.12.0, harmless for
       # this job's narrow needs), and corepack is how pnpm is actually reached
