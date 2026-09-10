@@ -32,8 +32,11 @@ export default defineConfig({
     default gate would inherit exactly the timing thresholds that suite exists to
     keep out of it.
 
-    Phase 82 Theme A adds the second half of this list: `**/*-shots.spec.ts`,
-    dropped unless `MSTUDIO_SHOTS` is set. Every one of those 47 files already
+    Phase 82 Theme A adds the second half of this list: every file whose name
+    ends `-shots.spec.ts`, dropped unless `MSTUDIO_SHOTS` is set (the literal
+    glob is in the value below — spelling it out here would close this very
+    comment, since it contains the two characters that end one). Every one of
+    those 47 files already
     self-skips its own tests behind that same flag (`test.skip(!process.env
     .MSTUDIO_SHOTS, …)`), so on paper this changes nothing a normal run
     actually executes — but Playwright shards by *declared* test count before
