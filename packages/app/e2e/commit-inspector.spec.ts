@@ -7,8 +7,8 @@ import {
   LINKED_SHA,
   ORPHAN_ABBREV,
   PARENT_SHA,
-} from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+} from '../test-support/fixtures';
+import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
  * The commit inspector — Phase 12 Themes A and B.

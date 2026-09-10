@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import { fixtures } from '../test-support/fixtures';
+import { installMockBridge } from '../test-support/mock-bridge';
 
 /**
  * Notes (Phase 58 Themes A–D) end to end, and the two contracts the phase

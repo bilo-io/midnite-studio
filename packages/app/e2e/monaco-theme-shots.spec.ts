@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 import { fixtures, REPRODUCIBLE_REMOTE, setReducedMotion, setTheme, shotPath } from './shots-helper';
 
 /**

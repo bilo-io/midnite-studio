@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { COMMIT_SHA, fixtures } from './fixtures';
+import { COMMIT_SHA, fixtures } from '../test-support/fixtures';
 
 /**
  * The virtualized scroll path, after Theme E made its rows measured.
@@ -59,7 +59,7 @@ const bigDiff = {
 };
 
 async function openBigDiff(page: Page): Promise<void> {
-  const { installMockBridge } = await import('./mock-bridge');
+  const { installMockBridge } = await import('../test-support/mock-bridge');
   await installMockBridge(page, {
     ...fixtures,
     diffs: { ...fixtures.diffs, [`${COMMIT_SHA}:pnpm-lock.yaml`]: bigDiff },

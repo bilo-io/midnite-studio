@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Browser-driven tests for the renderer.
  *
  * These run against the Vite dev server with a *mocked* `window.midniteStudio`
- * (see e2e/mock-bridge.ts) rather than against Electron. The renderer's only
+ * (see test-support/mock-bridge.ts) rather than against Electron. The renderer's only
  * route to the main process is that bridge, so replacing it is enough to drive
  * every UI path deterministically — and it keeps the suite runnable in CI
  * without a display server or a packaged app.

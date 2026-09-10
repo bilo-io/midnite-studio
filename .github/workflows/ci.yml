@@ -284,7 +284,7 @@ jobs:
   #
   # ubuntu, not macOS: the suite drives the renderer in headless chromium against
   # the Vite dev server with a mocked `window.midniteStudio` (see
-  # e2e/mock-bridge.ts). No Electron, no dugite, no packaged app — nothing in it
+  # test-support/mock-bridge.ts). No Electron, no dugite, no packaged app — nothing in it
   # is macOS-specific, and macOS minutes bill at 10x on a private repo.
   #
   # Sharded eight ways (Phase 56 Theme A — up from four). Unsharded, this job

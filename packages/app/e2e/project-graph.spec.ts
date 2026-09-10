@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
-import { fixtures } from './fixtures';
+import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
+import { fixtures } from '../test-support/fixtures';
 
 /**
  * The dependency graph (Phase 75 Theme D) — nodes and edges render, the
