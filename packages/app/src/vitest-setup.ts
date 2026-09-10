@@ -1,3 +1,5 @@
+import { afterEach } from 'vitest';
+
 /**
  * jsdom environment gap-filling for every component test in this package.
  *
@@ -52,20 +54,148 @@ if (typeof document !== 'undefined' && typeof document.queryCommandSupported !==
 // --- ResizeObserver ----------------------------------------------------------
 
 /**
- * Every local stub across the 15 files above does the same three no-ops —
- * `observe`/`unobserve`/`disconnect`, none of them ever needing to actually
- * fire a callback (nothing under test asserts on a resize *happening*, only
- * on the component not crashing for want of the API existing at all).
+ * Phase 82 Theme C's harness prerequisite (b): the original version of this
+ * stub, quoted below, never invoked its callback at all:
+ *
+ * ```ts
+ * class StubResizeObserver implements ResizeObserver {
+ *   observe(): void {}
+ *   unobserve(): void {}
+ *   disconnect(): void {}
+ * }
+ * ```
+ *
+ * That was fine for every test that merely *mounts* something touching
+ * `ResizeObserver` — which is all 15 local stubs it replaced ever needed —
+ * but it is fatal to `@tanstack/react-virtual`: `virtual-core`'s
+ * `observeElementRect` reads the *first* size synchronously off
+ * `element.offsetWidth`/`offsetHeight` (permanently `0` under jsdom, which
+ * does no layout at all), then relies on the `ResizeObserver` callback's
+ * `entry.borderBoxSize` to ever learn a real size after that. A callback
+ * that never fires means `scrollRect` never leaves `{width: 0, height: 0}`,
+ * so `getVirtualItems()` computes an empty visible range forever — not a
+ * crash, just silently zero rows. That is exactly what kept
+ * `search-view.spec.ts`'s "each mode returns and renders its own results" in
+ * Playwright (confirmed empirically there before this fix: with
+ * `clientWidth`/`clientHeight` stubbed the same way `projects-view.test.tsx`
+ * does, the store still received results, but `getVirtualItems()` stayed
+ * empty), and it is documented as the same open finding in
+ * `projects-view.test.tsx`.
+ *
+ * The fix needed nothing beyond a firing callback — no separate
+ * `offsetWidth`/`getBoundingClientRect` shim. `virtual-core`'s callback
+ * handler prefers `entry.borderBoxSize[0]` over re-reading `offsetWidth`/
+ * `offsetHeight` (see its own `observeElementRect`), so a synthetic entry
+ * carrying a real `borderBoxSize` is sufficient on its own to hand the
+ * virtualizer a non-zero container size, regardless of what `offsetWidth`/
+ * `offsetHeight` (or `getBoundingClientRect`) still report.
+ *
+ * Fires **once per `observe()` call, asynchronously** — via `queueMicrotask`,
+ * never synchronously inside `observe()` itself. Two reasons: a real
+ * `ResizeObserver` never notifies synchronously either (the spec batches
+ * notifications into a microtask after layout), and firing synchronously
+ * here would run a React state update outside of any `act()` boundary at the
+ * exact moment `useEffect`/`useLayoutEffect` calls `observe()`. Deferred to a
+ * microtask, the update lands where `@testing-library/react`'s async
+ * queries (`findBy*`, `waitFor`) already expect asynchronous work to
+ * resolve, with no extra plumbing needed at the call site.
+ *
+ * The content rect is **settable**, module-level state rather than a
+ * per-instance option, because nothing about `ResizeObserver`'s constructor
+ * signature gives a caller anywhere to pass one in — every observed element
+ * reports the same rect until a test calls `setResizeObserverContentRect`,
+ * and that override is reset after every test (see the `afterEach` below) so
+ * one test's override can never leak into the next test in the same file.
+ * The default (`1024×800`) is deliberately generous against every row height
+ * this suite's virtualized surfaces use (32–56px) — comfortably more rows
+ * than any single test asserts against, so a test does not need to reason
+ * about the exact viewport size to get the row it wants rendered.
+ *
+ * Still overridable exactly like the other three defaults in this file: the
+ * `typeof globalThis.ResizeObserver === 'undefined'` guard only decides
+ * whether this file installs the default, never whether a later local
+ * `vi.stubGlobal('ResizeObserver', …)` (or a test's own class, assigned
+ * directly) can replace it — none of the ~15 existing local stubs needed to
+ * change for this.
  */
-class StubResizeObserver implements ResizeObserver {
-  observe(): void {}
-  unobserve(): void {}
-  disconnect(): void {}
+type ResizeObserverContentRect = { width: number; height: number };
+
+const DEFAULT_RESIZE_OBSERVER_RECT: ResizeObserverContentRect = { width: 1024, height: 800 };
+
+let resizeObserverRect: ResizeObserverContentRect = DEFAULT_RESIZE_OBSERVER_RECT;
+
+/**
+ * Overrides the content rect every element the global `ResizeObserver` stub
+ * observes reports from its *next* `observe()` call onward — a test
+ * asserting a genuinely empty/zero-size viewport, or an exact overscan
+ * boundary, needs a size it controls rather than the generous default.
+ * Automatically reset after the test that calls it (see the `afterEach`
+ * below), so it never needs an explicit `afterEach` of its own.
+ */
+export function setResizeObserverContentRect(rect: ResizeObserverContentRect): void {
+  resizeObserverRect = rect;
+}
+
+class FiringResizeObserver implements ResizeObserver {
+  private readonly callback: ResizeObserverCallback;
+  private readonly targets = new Set<Element>();
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+
+  observe(target: Element): void {
+    this.targets.add(target);
+    queueMicrotask(() => {
+      // The target may have been unobserved (or the whole observer
+      // disconnected) between `observe()` being called and this microtask
+      // running — most commonly because the component that called
+      // `observe()` already unmounted (React 18 Strict Mode double-invokes
+      // effects, mounting/unmounting a throwaway instance first).
+      if (!this.targets.has(target)) return;
+
+      const { width, height } = resizeObserverRect;
+      const size: ResizeObserverSize = { inlineSize: width, blockSize: height };
+      const rect: DOMRectReadOnly = {
+        x: 0,
+        y: 0,
+        top: 0,
+        left: 0,
+        right: width,
+        bottom: height,
+        width,
+        height,
+        toJSON() {
+          return { x: 0, y: 0, top: 0, left: 0, right: width, bottom: height, width, height };
+        },
+      };
+      const entry: ResizeObserverEntry = {
+        target,
+        contentRect: rect,
+        borderBoxSize: [size],
+        contentBoxSize: [size],
+        devicePixelContentBoxSize: [size],
+      };
+      this.callback([entry], this);
+    });
+  }
+
+  unobserve(target: Element): void {
+    this.targets.delete(target);
+  }
+
+  disconnect(): void {
+    this.targets.clear();
+  }
 }
 
 if (typeof globalThis.ResizeObserver === 'undefined') {
-  globalThis.ResizeObserver = StubResizeObserver;
+  globalThis.ResizeObserver = FiringResizeObserver;
 }
+
+afterEach(() => {
+  resizeObserverRect = DEFAULT_RESIZE_OBSERVER_RECT;
+});
 
 // --- matchMedia ----------------------------------------------------------
 
