@@ -163,6 +163,7 @@ export function fakeHandoffDeps(over: Partial<HandoffDeps> = {}): HandoffDeps {
     pendingAction: () => null,
     setPendingAction: () => {},
     vocabulary: () => vocabularyFixture(),
+    navigate: async () => ({ say: 'Here.' }),
     ...over,
   };
 }

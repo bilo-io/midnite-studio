@@ -74,10 +74,13 @@ describe('the companion command list', () => {
     }
   });
 
-  it('excludes every loop and both release ops', () => {
+  // Phase 81 Theme D: releasePrep joined the roster (it "stops before
+  // anything irreversible" — Decision 10); releaseComplete stays out because
+  // it tags and pushes.
+  it('excludes every loop and releaseComplete', () => {
     for (const id of COMPANION_COMMAND_IDS) {
       expect(id.startsWith('loop')).toBe(false);
-      expect(id.startsWith('release')).toBe(false);
+      expect(id).not.toBe('releaseComplete');
     }
   });
 });
@@ -124,6 +127,21 @@ describe('submitInput — a recognised command', () => {
     expect(startSkill.mock.calls[0]?.[0]).toMatchObject({ autoSend: false });
   });
 
+  // Phase 81 Theme D, Decision-adjacent: releasePrep's Return is always the
+  // user's, even with hands-free on and a voice-input provider ready.
+  it('never auto-sends releasePrep, even when the gate says yes, and says so', async () => {
+    const store = fakeStore();
+    const startSkill = vi.fn().mockReturnValue({ id: 'session-rp' });
+    await submitInput(
+      'release prep',
+      fakeHandoffDeps({ store, startSkill, autoSendAllowed: () => true }),
+    );
+    expect(startSkill).toHaveBeenCalledWith({ skillId: 'releasePrep', autoSend: false });
+    expect(store.lines()[1]).toBe(
+      'companion: I have typed release prep — this one I always leave for you to send.',
+    );
+  });
+
   it('owns up when the session could not be started, and does not claim a hand-off', async () => {
     const store = fakeStore();
     const setActiveHandoff = vi.fn();
@@ -137,6 +155,38 @@ describe('submitInput — a recognised command', () => {
     );
     expect(setActiveHandoff).not.toHaveBeenCalled();
     expect(store.state).toBe('idle');
+  });
+});
+
+// Phase 81 Theme B: the `navigate` arm — a thin call to `deps.navigate` plus
+// `say`, the same shape every other arm takes. `navigate.ts`'s own tests
+// cover `resolveNavigation`/`navigateCompanion` in depth; this only checks
+// that `act()` wires the two together correctly.
+describe('submitInput — a navigate intent', () => {
+  const graphVocabulary = vocabularyFixture({
+    views: [{ id: 'graph', label: 'Commit Graph', keywords: 'git history commits branches log' }],
+  });
+
+  it('calls deps.navigate and speaks whatever it says', async () => {
+    const store = fakeStore();
+    const navigate = vi.fn().mockResolvedValue({ say: "Here's the Commit Graph." });
+    await submitInput(
+      'take me to the graph',
+      fakeHandoffDeps({ store, navigate, vocabulary: () => graphVocabulary }),
+    );
+
+    expect(navigate).toHaveBeenCalledWith({ kind: 'navigate', view: 'graph' });
+    expect(store.lines()[1]).toBe("companion: Here's the Commit Graph.");
+  });
+
+  it('speaks a refusal exactly as deps.navigate returned it, without touching anything else', async () => {
+    const store = fakeStore();
+    const navigate = vi.fn().mockResolvedValue({ say: 'The screen is locked — unlock it first.' });
+    await submitInput(
+      'take me to the graph',
+      fakeHandoffDeps({ store, navigate, vocabulary: () => graphVocabulary }),
+    );
+    expect(store.lines()[1]).toBe('companion: The screen is locked — unlock it first.');
   });
 });
 

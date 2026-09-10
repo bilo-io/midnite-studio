@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { Ref } from './domain';
 import {
+  COMPANION_COMMAND_IDS,
   COMPANION_DEFAULT_DIGEST_WINDOW_MS,
   COMPANION_EVENTS,
   COMPANION_LOCAL_VOICES,
   COMPANION_LOCAL_VOICE_DEFAULT,
   COMPANION_LOCAL_VOICE_IDS,
+  COMPANION_NEVER_AUTOSEND,
   COMPANION_PHRASES,
   COMPANION_PHRASE_KINDS,
   COMPANION_STATES,
@@ -801,6 +803,14 @@ describe('parseIntent — one row per verb', () => {
     ['what did i do this week', 'gitReport'],
     ['git cleanup', 'gitCleanup'],
     ['clean up branches', 'gitCleanup'],
+    // Phase 81 Theme D.
+    ['triage the board', 'triage'],
+    ["what's open", 'triage'],
+    ['triage', 'triage'],
+    ['release prep', 'releasePrep'],
+    ['prepare a release', 'releasePrep'],
+    ['prep a release', 'releasePrep'],
+    ['cut a release', 'releasePrep'],
   ];
 
   it.each(rows)('reads %j as %s', (text, id) => {
@@ -851,6 +861,9 @@ describe('parseIntent — the negatives', () => {
     'i refined my technique over the years',
     'this codebase is a swarm',
     'what does refine mean',
+    // Phase 81 Theme D: `releasePrep`'s verbs don't fire on a phrase that
+    // merely contains "release".
+    'release the hounds',
   ])('leaves %j as freeform', (text) => {
     expect(parseIntent(text)).toEqual({ kind: 'freeform', text });
   });
@@ -1093,6 +1106,23 @@ describe('CompanionIntentSchema', () => {
     expect(
       CompanionIntentSchema.safeParse({ kind: 'command', id: 'releaseComplete' }).success,
     ).toBe(false);
+  });
+});
+
+// Phase 81 Theme D: twelve of twenty-two — every loop and `releaseComplete`
+// stay out; `triage` and `releasePrep` join.
+describe('COMPANION_COMMAND_IDS (Phase 81 Theme D)', () => {
+  it('excludes every loop and releaseComplete, keeps releasePrep and triage', () => {
+    for (const id of COMPANION_COMMAND_IDS) {
+      expect(id.startsWith('loop')).toBe(false);
+      expect(id).not.toBe('releaseComplete');
+    }
+    expect(COMPANION_COMMAND_IDS).toContain('releasePrep');
+    expect(COMPANION_COMMAND_IDS).toContain('triage');
+  });
+
+  it('COMPANION_NEVER_AUTOSEND names only releasePrep', () => {
+    expect(COMPANION_NEVER_AUTOSEND).toEqual(['releasePrep']);
   });
 });
 
