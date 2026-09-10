@@ -136,27 +136,38 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — Stop paying for no-ops (S) — *~2 min of wall clock, one small PR*
+### A — Stop paying for no-ops (S) ◐ MOSTLY DONE (PR #325, 2026-09-10) — *~2 min of wall clock, one small PR*
 
-- [ ] Gate the 11 ungated `*-shots` files listed in Finding 4. Two shapes, following the Phase
+- [x] Gate the 11 ungated `*-shots` files listed in Finding 4. Two shapes, following the Phase
       56 Theme F precedent already in the tree: a file whose tests are purely photographic gets
       `test.skip(!process.env.MSTUDIO_SHOTS, …)` — `actions-shots`, `add-to-project-shots`,
       `api-client-shots`, `api-client-verification-shots`, `battery-shots`,
       `busy-spinner-shots`, `review-threads-shots`, `review-writes-shots`, `reviews-shots`,
       `slides-shots`.
-- [ ] `reviews-loading-shots.spec.ts` keeps every assertion (it really does assert `sr-only`
+- [x] `reviews-loading-shots.spec.ts` keeps every assertion (it really does assert `sr-only`
       skeleton text) and gates only the `.screenshot()` call inline, the same shape Theme F used
       for `files-write.spec.ts`; rename it off the `*-shots` suffix so the blunt ignore rule
       below does not skip its real assertions.
-- [ ] In [`playwright.config.ts`](../../../packages/app/playwright.config.ts), extend
+- [x] In [`playwright.config.ts`](../../../packages/app/playwright.config.ts), extend
       `testIgnore` to drop `**/*-shots.spec.ts` unless `MSTUDIO_SHOTS` is set, alongside the
       existing `**/perf/**` exclusion.
-- [ ] Confirm the renamed `reviews-loading-shots` file is not swept by the new `*-shots`
+- [x] Confirm the renamed `reviews-loading-shots` file is not swept by the new `*-shots`
       `testIgnore` pattern — it must keep running in every CI shard.
-- [ ] Re-measure `pnpm exec playwright test --list` and confirm ~667 declared tests, not 976.
-- [ ] Run a full CI cycle on this PR's own branch and record the per-shard times in this doc;
+- [x] Re-measure `pnpm exec playwright test --list` and confirm ~667 declared tests, not 976.
+- [x] Run a full CI cycle on this PR's own branch and record the per-shard times in this doc;
       the 441s straggler should land near 300s once the no-op third of its budget is gone.
-- [ ] `git status` after a local `pnpm e2e` run touches nothing under `docs/screenshots/`.
+- [x] `git status` after a local `pnpm e2e` run touches nothing under `docs/screenshots/`.
+
+
+- [ ] **Follow-up found by PR #325, not yet done.** Gating the 11 `*-shots` files did *not* stop
+      the working tree churning: **13 unconditional `page.screenshot()` calls survive across 7
+      *functional* specs** — `graph-themes` (2), `graph-recency` (2), `phase-21-roster` (3),
+      `files-view` (2), `files-search` (2), `ref-drag` (1), `settings-pages` (1) — none of them
+      behind `MSTUDIO_SHOTS`. A full local suite run still dirties 19 PNGs. These are outside
+      Finding 4's eleven and outside what Phase 56 Theme F swept (it fixed four *other*
+      functional specs and stopped there), so the same inline-gate treatment Theme F established
+      applies. Cheap, and it is what actually finishes the "a normal run leaves
+      `docs/screenshots/` untouched" promise.
 
 ### B — A unit layer worth writing in (M) — *the enabler; nothing after this is expensive* ✅ DONE (PR #322, 2026-09-10)
 
