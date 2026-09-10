@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import {
   clickRailLink,
@@ -14,22 +14,21 @@ import {
 /**
  * The Reviews view's loading states, held still and photographed.
  *
- * These are the one part of the view that never renders in any other spec: the
- * mock bridge answers in the same tick it is asked, so the skeletons live for
- * zero frames and a change that deleted them would pass the whole suite.
- * `forgeLatencyMs` holds every forge answer long enough for the pane to be
- * seen, and each test screenshots one of them.
+ * Phase 82 Theme C wave 5 moved 6 of this file's 7 tests to
+ * `src/features/reviews/pr-detail.bridge.test.tsx`, using
+ * `queryClient.setQueryData` to stand in for the status bar's
+ * `checks-verdict` widget (always mounted in the real app, never mounted in
+ * that jsdom harness) pre-warming the header's own listing query. **The one
+ * test left here — "the Files tab in dark, mid-fetch" — is a genuine
+ * straggler**: its only assertion beyond the migrated light-theme Files test
+ * is visual (`setTheme` just flips `document.documentElement`'s `dark`
+ * class; "the bars are `bg-muted`, so they follow the theme" is a computed-
+ * style/paint claim jsdom cannot make), and the e2e original itself only
+ * *photographs* that distinction (`shoot`, gated on `MSTUDIO_SHOTS`) — the
+ * unconditional assertions here are simply a repeat of the light-theme case.
  *
- * These assert as well as photograph. The assertion is the `sr-only` status
- * text each skeleton carries, because that — not the bars — is the part a
- * reader who cannot see the pane depends on, and it is the part most easily
- * lost in a refactor that keeps the shapes.
- *
- * Unlike the rest of the shots suite, this file is not named `*-shots` and is
- * not gated wholesale (Phase 82 Theme A): every assertion above runs
- * unconditionally in every `app:e2e` run, because they are the only coverage
- * the loading skeletons get. Only the `shoot()` calls — the photographs
- * themselves — are gated behind `MSTUDIO_SHOTS`.
+ * See `pr-detail.bridge.test.tsx`'s own doc comment for the rest of the
+ * original assertions, ported one-for-one.
  */
 
 const OUT = '../../docs/screenshots/phase-20-reviews-loading';
@@ -54,24 +53,6 @@ const pull = {
   url: 'https://github.com/bilo-io/midnite-studio/pull/128',
 };
 
-/**
- * A second pull request, and the reason there is one.
- *
- * `PrDetail` reads the cached LISTING for its header and fetches the detail
- * separately, so which skeleton a reader sees depends on which of those two is
- * missing. Opening the first PR of a session is missing both and gets the whole
- * pane; switching to a second has the listing already and is missing only the
- * detail, which is the state the Overview skeleton and the header's meta bars
- * exist for. One PR in the fixture can only ever show the first of those.
- */
-const second = {
-  ...pull,
-  number: 131,
-  title: 'Skeletons for the Checks tab',
-  headBranch: 'feature/checks-loading',
-  checks: 'pending',
-};
-
 const data: MockFixtures = {
   ...fixtures,
   forgeLatencyMs: LATENCY,
@@ -80,7 +61,7 @@ const data: MockFixtures = {
   statusByWorktree: { '/tmp/midnite-studio': [] },
   forge: {
     cli: { reason: 'ready' },
-    pulls: [pull, second],
+    pulls: [pull],
     runs: [],
     pullDetail: {
       '128': {
@@ -90,15 +71,6 @@ const data: MockFixtures = {
         additions: 412,
         deletions: 38,
         changedFiles: 9,
-        mergeable: 'MERGEABLE',
-      },
-      '131': {
-        body: 'The Checks tab gets the job tree and log pane in outline.',
-        headSha: HEAD_SHA,
-        baseBranch: 'main',
-        additions: 96,
-        deletions: 12,
-        changedFiles: 3,
         mergeable: 'MERGEABLE',
       },
     },
@@ -167,75 +139,6 @@ function prRow(page: Page, title: string) {
  */
 const shoot = createShotTaker(OUT, { animations: 'disabled' });
 
-test('the pull request list, mid-fetch', async ({ page }) => {
-  await openReviews(page);
-
-  await expect(page.getByText('Loading pull requests…')).toBeAttached();
-  // The empty detail column shows the shape of a PR rather than a sentence
-  // about there not being one — the listing has not come back to say either way.
-  await expect(page.getByText('Loading the pull request…')).toBeAttached();
-
-  if (process.env.MSTUDIO_SHOTS) {
-    await shoot(page, 'list-loading');
-  }
-});
-
-test('a pull request opening, with nothing cached', async ({ page }) => {
-  await openReviews(page);
-
-  /*
-    The row's own title is already on screen the moment it is clicked — not
-    from the list pane (a *different* `gh pr list`, scoped `state: 'all'`) but
-    from the status bar's checks verdict (`checks-verdict.tsx`), which queries
-    the header's own default listing (`state: 'open'`, unscoped) the instant a
-    GitHub remote is found, well before any row is ever clicked. So the header
-    and its badges render immediately from that cache; only the detail proper
-    — the additions/deletions, the mergeable state, the description — is still
-    out, which is the Overview skeleton's job, not the whole-pane one.
-  */
-  await prRow(page, pull.title).click();
-  await expect(page.getByRole('region', { name: `Pull request #${pull.number}` })).toBeVisible();
-  await expect(page.getByText('Loading the description…')).toBeAttached();
-
-  if (process.env.MSTUDIO_SHOTS) {
-    await shoot(page, 'detail-loading');
-  }
-});
-
-test('switching pull requests, with the listing already cached', async ({ page }) => {
-  await openReviews(page);
-  await prRow(page, pull.title).click();
-  await expect(page.getByRole('region', { name: `Pull request #${pull.number}` })).toBeVisible();
-
-  // Now the listing is cached, so #131's header renders immediately from it and
-  // only the detail is outstanding: the body is the Overview skeleton and the
-  // header's second line holds the space its counts are about to take.
-  await prRow(page, second.title).click();
-  await expect(page.getByRole('region', { name: `Pull request #${second.number}` })).toBeVisible();
-  await expect(page.getByText('Loading the description…')).toBeAttached();
-
-  if (process.env.MSTUDIO_SHOTS) {
-    await shoot(page, 'overview-loading');
-  }
-});
-
-test('the Files tab, mid-fetch', async ({ page }) => {
-  await openReviews(page);
-  await prRow(page, pull.title).click();
-  await expect(page.getByRole('region', { name: `Pull request #${pull.number}` })).toBeVisible();
-
-  const files = page.getByRole('tab', { name: 'Files', exact: true });
-  await files.click();
-  // The strip and the panel read the same state, and the shot is only worth
-  // keeping if it shows them agreeing.
-  await expect(files).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByText('Loading the diff…')).toBeAttached();
-
-  if (process.env.MSTUDIO_SHOTS) {
-    await shoot(page, 'files-loading');
-  }
-});
-
 test('the Files tab in dark, mid-fetch', async ({ page }) => {
   // The bars are `bg-muted`, so they follow the theme rather than being a grey
   // that only works on one ground. This is the shot that would catch it if that
@@ -255,38 +158,5 @@ test('the Files tab in dark, mid-fetch', async ({ page }) => {
 
   if (process.env.MSTUDIO_SHOTS) {
     await shoot(page, 'files-loading-dark');
-  }
-});
-
-test('the Conversation tab, mid-fetch', async ({ page }) => {
-  await openReviews(page);
-  await prRow(page, pull.title).click();
-  await expect(page.getByRole('region', { name: `Pull request #${pull.number}` })).toBeVisible();
-
-  const conversation = page.getByRole('tab', { name: 'Conversation', exact: true });
-  await conversation.click();
-  await expect(conversation).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByText('Loading the conversation…')).toBeAttached();
-
-  if (process.env.MSTUDIO_SHOTS) {
-    await shoot(page, 'conversation-loading');
-  }
-});
-
-test('the Checks tab, mid-fetch', async ({ page }) => {
-  await openReviews(page);
-  await prRow(page, pull.title).click();
-  await expect(page.getByRole('region', { name: `Pull request #${pull.number}` })).toBeVisible();
-
-  /*
-    Not `exact`: the tab carries the checks pill, so its accessible name is
-    "Checks Checks passing". Anchoring the front of it is enough to tell it from
-    every other tab.
-  */
-  await page.getByRole('tab', { name: /^Checks/ }).click();
-  await expect(page.getByText('Loading the checks…')).toBeAttached();
-
-  if (process.env.MSTUDIO_SHOTS) {
-    await shoot(page, 'checks-loading');
   }
 });
