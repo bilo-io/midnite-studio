@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
  * The Phase 12 Theme C + F screenshots.

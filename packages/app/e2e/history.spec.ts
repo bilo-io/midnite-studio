@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { fixtures } from '../test-support/fixtures';
+import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 const SHA_A = 'a'.repeat(40);
 const SHA_B = 'b'.repeat(40);

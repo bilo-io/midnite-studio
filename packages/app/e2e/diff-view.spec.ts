@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { COMMIT_SHA, fixtures, PARENT_SHA } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import { COMMIT_SHA, fixtures, PARENT_SHA } from '../test-support/fixtures';
+import { installMockBridge } from '../test-support/mock-bridge';
 
 /**
  * The diff renderer, driven through the real app against a mocked bridge.

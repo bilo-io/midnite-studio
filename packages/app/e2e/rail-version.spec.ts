@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import { fixtures } from '../test-support/fixtures';
+import { installMockBridge } from '../test-support/mock-bridge';
 
 /**
  * The rail's bottom strip, and the one thing about it only the assembled app

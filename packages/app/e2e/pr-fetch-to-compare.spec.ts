@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { fixtures } from './fixtures';
-import { installMockBridge, type MockFixtures } from './mock-bridge';
+import { fixtures } from '../test-support/fixtures';
+import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
  * Theme H's reverted item (Phase 26 refinement x1): "Fetch to compare" —

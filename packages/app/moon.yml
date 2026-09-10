@@ -56,6 +56,10 @@ tasks:
       - 'shared:build'
     inputs:
       - 'src/**/*'
+      # Theme B: `test-support/**/*` joined `tsconfig.json`'s `include`, so it
+      # has to join this task's inputs too, or a test-support-only edit is a
+      # false cache hit against a typecheck that never actually saw it.
+      - 'test-support/**/*'
       - 'tsconfig.json'
       - 'package.json'
       - '/packages/shared/src/**/*'
@@ -67,6 +71,9 @@ tasks:
   test:
     inputs:
       - 'src/**/*'
+      # Theme B: `render.tsx`/`module-mocks.ts` etc. live here and every unit
+      # test that uses them re-runs when they change.
+      - 'test-support/**/*'
       - 'vitest.config.ts'
       - 'package.json'
       - '/packages/shared/src/**/*'
@@ -98,6 +105,9 @@ tasks:
     inputs:
       - 'src/**/*'
       - 'e2e/**/*'
+      # Theme B: `mock-bridge.ts`/`fixtures.ts` moved out of `e2e/` — see the
+      # same note on `e2e` below.
+      - 'test-support/**/*'
       - 'playwright.perf.config.ts'
       - 'vite.config.ts'
       - '/scripts/perf/**/*'
@@ -124,6 +134,11 @@ tasks:
     inputs:
       - 'src/**/*'
       - 'e2e/**/*'
+      # Theme B: `mock-bridge.ts`/`fixtures.ts` moved to `test-support/` (every
+      # spec imports the fake bridge from there now), so it belongs in this
+      # task's hash exactly like `e2e/**/*` above — otherwise a bridge-only
+      # edit is a false cache hit against a suite that never re-ran against it.
+      - 'test-support/**/*'
       - 'playwright.config.ts'
       - 'vite.config.ts'
       - '/packages/shared/src/**/*'
