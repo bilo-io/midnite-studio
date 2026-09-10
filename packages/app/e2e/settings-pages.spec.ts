@@ -7,6 +7,18 @@ import { installMockBridge, type MockFixtures } from '../test-support/mock-bridg
  * Settings as pages (Phase 16): the bottom-pinned rail entry, the inner page
  * sidebar, and the Agent page — version card from the mocked probe plus the
  * ~/.claude tree through the claude-home scope.
+ *
+ * **Four of this spec's original eight tests moved to
+ * `settings-view.bridge.test.tsx` under jsdom** (Phase 82 Theme C, wave 1):
+ * page navigation, the collapsible category headers' `inert` marking, the
+ * Sidebar page's view-filter rows, and the Agent page. The four remaining
+ * here are genuine stragglers: "settings is one bottom entry" needs the
+ * app's outer rail (a different component); "a folded category stays folded
+ * across a reload" needs an actual page reload to prove `zustand/persist`
+ * rehydration, which a jsdom test cannot honestly fake without resetting and
+ * re-importing the store module fresh; the nav lock/pin pair both read
+ * `getComputedStyle(...).getPropertyValue('--nav-offset')` and real pointer
+ * hover — neither reproducible under jsdom.
  */
 
 const settingsFixtures: MockFixtures = {
@@ -54,60 +66,6 @@ test('settings is one bottom entry, not a workspace nav item', async ({ page }) 
   await expect(page.getByRole('link', { name: 'Explorer' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Settings' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible();
-});
-
-test('all four pages are reachable through the inner sidebar', async ({ page }) => {
-  await openSettings(page);
-
-  const nav = page.getByRole('navigation', { name: 'Settings pages' });
-  await expect(nav.getByRole('button', { name: 'Appearance' })).toBeVisible();
-
-  await nav.getByRole('button', { name: 'Graph' }).click();
-  await expect(page.getByRole('heading', { name: 'Graph' })).toBeVisible();
-
-  await nav.getByRole('button', { name: 'Terminal' }).click();
-  await expect(page.getByText('Agent roster')).toBeVisible();
-
-  await nav.getByRole('button', { name: 'Appearance' }).click();
-  await expect(page.getByText('Interface font')).toBeVisible();
-});
-
-test('the pages are grouped under collapsible category headers', async ({ page }) => {
-  await openSettings(page);
-  const nav = page.getByRole('navigation', { name: 'Settings pages' });
-
-  // Three categories, each a disclosure trigger over its own page list.
-  const tools = nav.getByRole('button', { name: 'Tools' });
-  await expect(nav.getByRole('button', { name: 'General' })).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  );
-  await expect(tools).toHaveAttribute('aria-expanded', 'true');
-  await expect(nav.getByRole('button', { name: 'System Info' })).toBeVisible();
-
-  /*
-    Folded is asserted through `inert` on the clipped region rather than through
-    the buttons' visibility, and that is not a workaround — it is the stronger
-    claim. `<Collapse>` folds by animating a grid track to `0fr` over an
-    `overflow-hidden` child, so the buttons inside keep boxes of their own and
-    Playwright still calls them visible; what actually takes them out of the tab
-    order and the accessibility tree is the `inert` attribute. Assert that, and a
-    regression to painted-but-focusable fails here.
-  */
-  const toolsBody = page.locator('#settings-group-tools > div');
-  await expect(toolsBody).not.toHaveAttribute('inert');
-
-  await tools.click();
-  await expect(tools).toHaveAttribute('aria-expanded', 'false');
-  await expect(toolsBody).toHaveAttribute('inert', '');
-
-  // Folding one category leaves the others alone.
-  await expect(page.locator('#settings-group-general > div')).not.toHaveAttribute('inert');
-  await expect(nav.getByRole('button', { name: 'Appearance' })).toBeVisible();
-
-  await tools.click();
-  await expect(tools).toHaveAttribute('aria-expanded', 'true');
-  await expect(toolsBody).not.toHaveAttribute('inert');
 });
 
 test('a folded category stays folded across a reload', async ({ page }) => {
@@ -175,50 +133,6 @@ test('the side-navigation lock lives on the Sidebar page, and locked closed mean
   await expect(page.getByRole('button', { name: 'Unlock navigation' })).toHaveCount(0);
 });
 
-test('the Sidebar page reads every view\'s narrowing, edits it live, and resets it', async ({
-  page,
-}) => {
-  await openSettings(page);
-  await page
-    .getByRole('navigation', { name: 'Settings pages' })
-    .getByRole('button', { name: 'Sidebar' })
-    .click();
-  await expect(page.getByRole('heading', { name: 'Sidebar' })).toBeVisible();
-
-  // The defaults, readable per row: Changes arrives narrowed, Graph whole.
-  const changes = page.getByRole('radiogroup', { name: 'Changes' });
-  await expect(changes.getByRole('radio', { name: 'Narrowed' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await expect(
-    page.getByRole('radiogroup', { name: 'Graph' }).getByRole('radio', { name: 'Everything' }),
-  ).toHaveAttribute('aria-checked', 'true');
-
-  // Nothing overridden yet, so there is nothing for reset to do.
-  const resetButton = page.getByRole('button', { name: 'Reset to view defaults' });
-  await expect(resetButton).toBeDisabled();
-
-  /*
-    The Settings row is the live one — Settings IS the active view — so
-    flipping it must narrow the panel sitting beside this very page. That is
-    the whole claim of the page: same store field as the panel's funnel
-    button, seen from the other side.
-  */
-  await expect(page.getByRole('heading', { name: 'Local' })).toBeVisible();
-  await page
-    .getByRole('radiogroup', { name: 'Settings' })
-    .getByRole('radio', { name: 'Narrowed' })
-    .click();
-  await expect(page.getByRole('heading', { name: 'Local' })).toHaveCount(0);
-
-  // Reset puts the row — and the panel — back.
-  await expect(resetButton).toBeEnabled();
-  await resetButton.click();
-  await expect(resetButton).toBeDisabled();
-  await expect(page.getByRole('heading', { name: 'Local' })).toBeVisible();
-});
-
 /**
  * The other direction of the same field — and the part that makes the lock a
  * lock rather than a preference.
@@ -280,22 +194,22 @@ test('the rail pin locks and unlocks, and only the lock shifts the page', async 
   expect(await navOffset()).toBe('3.5rem');
 });
 
-test('the Agent page shows the version card and browses ~/.claude', async ({ page }) => {
+/**
+ * The Agent page's own functional assertions (version card, Update/Uninstall
+ * buttons, browsing `~/.claude`) moved to `settings-view.bridge.test.tsx`
+ * under jsdom. What is left here is the one thing that migration cannot
+ * carry: this spec's own screenshot capture, unconditional and untouched —
+ * Theme D's territory, not Theme C's, per the same reasoning
+ * `diagnostics.spec.ts`'s "phase 18 screenshots" block was left alone.
+ */
+test('the Agent page screenshot', async ({ page }) => {
   await openSettings(page);
 
   await page
     .getByRole('navigation', { name: 'Settings pages' })
     .getByRole('button', { name: 'Agent' })
     .click();
-
-  // Version card, from the mocked login-shell probe.
-  await expect(page.getByText('v2.1.34')).toBeVisible();
-  await expect(page.getByText('via npm')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Update Claude' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Uninstall…' })).toBeVisible();
-
-  // The ~/.claude tree is lazy like the repo one.
-  await expect(page.getByRole('treeitem', { name: /settings\.json/ })).toBeVisible();
+  await expect(page.getByRole('treeitem', { name: /brainstorm/ })).toHaveCount(0);
   await page.getByRole('treeitem', { name: /^skills$/ }).click();
   await expect(page.getByRole('treeitem', { name: /brainstorm/ })).toBeVisible();
 
