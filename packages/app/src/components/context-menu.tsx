@@ -2,6 +2,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -59,6 +60,14 @@ type MenuEntryBase = {
   /** Reason the item is unavailable, shown on hover. */
   disabledReason?: string;
   danger?: boolean;
+  /**
+   * Extra text a `filterable` menu's search box matches, in addition to
+   * `label` — never rendered. Mirrors `MultiSelectOption.keywords`: the repo
+   * crumb's switcher puts each repo's absolute path here, so two repos that
+   * share a folder name (checked out under different parents) are still
+   * distinguishable from the box without printing a path on every row.
+   */
+  keywords?: string;
 };
 
 /**
@@ -144,17 +153,75 @@ export function ContextMenu({
   position,
   items,
   onClose,
+  filterable = false,
+  searchPlaceholder = 'Filter…',
+  filterThreshold = 6,
 }: {
   position: MenuPosition;
   items: MenuItem[];
   onClose: () => void;
+  /**
+   * Opt-in text filter above the list, autofocused — default off. `openMenu`
+   * has 25+ call sites and every one but the breadcrumb's repo switcher opens
+   * a short, already-curated list; adding a search box there would be noise,
+   * not a feature, so it stays behind this flag rather than becoming the
+   * menu's default behaviour.
+   */
+  filterable?: boolean;
+  /** Placeholder for the filter input, shown only while it renders. */
+  searchPlaceholder?: string;
+  /**
+   * Selectable-item count above which the filter box actually renders, for a
+   * `filterable` menu. A search box over a handful of rows is one more thing
+   * to read before the eye finds the row it wanted; it only earns its place
+   * once the list is long enough that typing two or three letters beats
+   * scanning. Six is that point for a rail of open repos — the common case
+   * (2-4 open repos) never sees the box at all.
+   */
+  filterThreshold?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [placed, setPlaced] = useState(position);
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
+  const [query, setQuery] = useState('');
+
+  /**
+   * Whether the filter box actually renders this time — `filterable` opts the
+   * menu in, `filterThreshold` decides whether *this* list is long enough to
+   * need it.
+   */
+  const showFilter = filterable && items.filter(isSelectable).length > filterThreshold;
+
+  /**
+   * The rows keyboard nav and rendering actually walk. Equal to `items` by
+   * reference whenever the box isn't showing or the query is empty, which is
+   * what keeps every non-filterable call site's behaviour — and every prior
+   * test against `items` — untouched.
+   */
+  const topItems = useMemo(() => {
+    if (!showFilter) return items;
+    const needle = query.trim().toLowerCase();
+    if (!needle) return items;
+    return items.filter((item) => {
+      if (item.type === 'separator') return false;
+      const haystack = `${item.label} ${item.keywords ?? ''}`.toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [items, query, showFilter]);
 
   /** Which top-level row holds the roving `tabIndex={0}`. */
-  const [activeIndex, setActiveIndex] = useState<number | null>(() => firstSelectable(items));
+  const [activeIndex, setActiveIndex] = useState<number | null>(() => firstSelectable(topItems));
+
+  // Re-highlight the first match whenever the filtered set changes shape —
+  // typing a character that drops the currently-highlighted row should not
+  // leave the highlight pointing at thin air. A no-op for every non-filtering
+  // menu, since `topItems` is then always the same reference as `items`.
+  useEffect(() => {
+    if (!showFilter) return;
+    setActiveIndex(firstSelectable(topItems));
+  }, [topItems, showFilter]);
+
   /**
    * Which row of the open submenu holds focus, or `null` for "focus is still at
    * the top level" — which is what a *hover*-opened submenu leaves it as. This
@@ -162,7 +229,7 @@ export function ContextMenu({
    */
   const [submenuIndex, setSubmenuIndex] = useState<number | null>(null);
 
-  const submenuItems = submenuAt(items, openSubmenu);
+  const submenuItems = submenuAt(topItems, openSubmenu);
   /** Focus is inside the submenu, rather than merely near an open one. */
   const inSubmenu = submenuItems !== null && submenuIndex !== null;
 
@@ -189,7 +256,7 @@ export function ContextMenu({
    * One icon anywhere in the menu indents every row, so labels still line up
    * under each other where a separator-divided group happens to be iconless.
    */
-  const iconed = items.some((item) => item.type !== 'separator' && item.icon !== undefined);
+  const iconed = topItems.some((item) => item.type !== 'separator' && item.icon !== undefined);
 
   /**
    * Keep the menu inside the window.
@@ -223,6 +290,12 @@ export function ContextMenu({
     whole renderer window regardless of `z-index` (see `use-browser-bounds.ts`),
     and hiding it while a DOM overlay is up is the only way that overlay can
     appear above it.
+
+    A filterable menu adds a third step ahead of the other two: Escape clears
+    a non-empty query before it closes anything, the two-stage behaviour every
+    filter box on this platform already trains a user to expect. It costs
+    nothing for a non-filtering menu — `query` never leaves `''`, so the branch
+    never taken falls straight through to the existing rule.
   */
   useDismiss(
     true,
@@ -232,6 +305,7 @@ export function ContextMenu({
       // === null`, so the same state change that unmounts the submenu makes the
       // row current again (Phase 68 Theme C).
       if (openSubmenu !== null) closeSubmenu();
+      else if (showFilter && query !== '') setQuery('');
       else onClose();
     },
     { layer: 'menu' },
@@ -260,14 +334,20 @@ export function ContextMenu({
     Escape is deliberately absent: `useDismiss` owns it on `window` (Phase 62),
     and the two-step "submenu first, then the menu" rule lives in that callback.
     Enter and Space are absent for the same class of reason — focus is on a real
-    `<button>`, so the platform already activates it.
+    `<button>`, so the platform already activates it. That stops being true the
+    moment a filter box is showing: focus lives in the `<input>` so typing keeps
+    reaching it, which means the *row* never has real DOM focus to activate on
+    Enter — hence the one case below keyed off the event actually originating on
+    the input, which is exactly the set of menus where a button never has focus
+    at all.
   */
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const list = inSubmenu && submenuItems ? submenuItems : items;
+    const list = inSubmenu && submenuItems ? submenuItems : topItems;
     const current = inSubmenu ? submenuIndex : activeIndex;
     const setCurrent: Dispatch<SetStateAction<number | null>> = inSubmenu
       ? setSubmenuIndex
       : setActiveIndex;
+    const fromInput = event.target instanceof HTMLInputElement;
 
     /** Moving the top-level selection abandons a submenu the pointer opened. */
     const move = (next: number | null) => {
@@ -285,16 +365,39 @@ export function ContextMenu({
         move(step(list, current, -1));
         break;
       case 'Home':
+        // Home/End on the filter input are text-editing keys (caret to start
+        // of the query) and never reach a real one otherwise — a row is never
+        // itself focused while the box is up.
+        if (fromInput) break;
         event.preventDefault();
         move(firstSelectable(list));
         break;
       case 'End':
+        if (fromInput) break;
         event.preventDefault();
         move(lastSelectable(list));
         break;
+      case 'Enter': {
+        // Every other row activates on Enter natively, because it holds real
+        // focus and is a `<button>`. The filter input is the one row-adjacent
+        // element that is never that button, so it is the one place Enter
+        // needs to be read off the keyboard state instead.
+        if (!fromInput) break;
+        event.preventDefault();
+        const row = list[current ?? -1];
+        if (!row || row.type === 'separator' || row.disabled) break;
+        if (row.submenu) {
+          setOpenSubmenu(current);
+          setSubmenuIndex(firstSelectable(row.submenu));
+        } else {
+          row.onSelect?.();
+          onClose();
+        }
+        break;
+      }
       case 'ArrowRight': {
         if (inSubmenu) break;
-        const nested = submenuAt(items, activeIndex);
+        const nested = submenuAt(topItems, activeIndex);
         if (!nested) break;
         event.preventDefault();
         setOpenSubmenu(activeIndex);
@@ -329,7 +432,27 @@ export function ContextMenu({
       className="fixed z-menu min-w-[10rem] max-w-[24rem] gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg outline-none"
       style={{ left: placed.x, top: placed.y }}
     >
-      {items.map((item, index) =>
+      {showFilter ? (
+        <div className="border-b border-border px-1.5 pb-1.5">
+          <input
+            ref={inputRef}
+            // Commit-phase, so it wins focus before any row's own
+            // focus-on-mount effect runs (see `MenuItemButton`) — the same
+            // guarantee `useFocusTrap`'s own tests rely on for an `autoFocus`
+            // child, which is why the trap never fights this for the input.
+            autoFocus
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
+            className="h-6 w-full rounded border border-input bg-background px-1.5 text-xs outline-none focus-visible:border-primary"
+          />
+        </div>
+      ) : null}
+      {showFilter && topItems.filter(isSelectable).length === 0 ? (
+        <p className="px-3 py-1.5 text-xs text-muted-foreground">No matches for "{query}".</p>
+      ) : null}
+      {topItems.map((item, index) =>
         item.type === 'separator' ? (
           <hr key={`sep-${index}`} className="my-1 border-border" />
         ) : (
@@ -341,7 +464,12 @@ export function ContextMenu({
             // The row is current only while focus is at the top level; once
             // ArrowRight has moved it into the submenu, the submenu's own row
             // is, and two `tabIndex={0}`s would defeat the point of roving one.
-            focused={activeIndex === index && submenuIndex === null}
+            // While the filter box is showing, real focus stays on the
+            // `<input>` instead (see `MenuItemButton`), so this row is never
+            // the one `.focus()` is called on — `highlighted` carries the
+            // same "this is the current row" fact to its styling instead.
+            focused={!showFilter && activeIndex === index && submenuIndex === null}
+            highlighted={showFilter && activeIndex === index && submenuIndex === null}
             submenuIndex={openSubmenu === index ? submenuIndex : null}
             onOpenSubmenu={() => {
               // Hover opens the surface but does not move the keyboard into it
@@ -364,6 +492,7 @@ function MenuRow({
   iconed,
   open,
   focused,
+  highlighted = false,
   submenuIndex,
   onOpenSubmenu,
   onClose,
@@ -374,6 +503,12 @@ function MenuRow({
   open: boolean;
   /** Holds the roving `tabIndex={0}`, and takes focus when it becomes true. */
   focused: boolean;
+  /**
+   * The filterable-menu equivalent of `focused`: this is the current row, but
+   * real DOM focus stays on the search input rather than moving here — so the
+   * highlight is drawn from a style, never from `.focus()`.
+   */
+  highlighted?: boolean;
   /** Which of this row's submenu rows holds focus; `null` for none of them. */
   submenuIndex: number | null;
   onOpenSubmenu: () => void;
@@ -397,6 +532,7 @@ function MenuRow({
         // `onSelect` to call here.
         onSelect={item.submenu ? undefined : () => item.onSelect?.()}
         focused={focused}
+        highlighted={highlighted}
         expanded={item.submenu ? open : undefined}
         onClose={onClose}
       />
@@ -515,6 +651,7 @@ function MenuItemButton({
   iconed,
   onSelect,
   focused,
+  highlighted = false,
   expanded,
   onClose,
 }: {
@@ -524,6 +661,8 @@ function MenuItemButton({
   onSelect: (() => void) | undefined;
   /** Holds the roving `tabIndex={0}`, and takes focus when it becomes true. */
   focused: boolean;
+  /** See `MenuRow` — the filterable-menu stand-in for `focused`'s styling. */
+  highlighted?: boolean;
   /** `aria-expanded`, for a submenu parent only; `undefined` on a leaf. */
   expanded?: boolean;
   onClose: () => void;
@@ -577,7 +716,9 @@ function MenuItemButton({
       }}
       className={`flex w-full gap-2 px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
         described ? 'items-start py-1.5' : 'items-center py-1'
-      } ${item.danger ? 'text-destructive hover:bg-destructive/10' : 'hover:bg-accent'}`}
+      } ${item.danger ? 'text-destructive hover:bg-destructive/10' : 'hover:bg-accent'} ${
+        highlighted ? 'bg-accent text-foreground' : ''
+      }`}
     >
       {iconed ? (
         Icon ? (
