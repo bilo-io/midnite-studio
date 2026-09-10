@@ -231,10 +231,26 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `board-view`, `graph-view`, `diff-view`, `log-pane`, `companion-thread`, `palette`).
       A stub that invokes its callback once on observe, with a settable content rect, unblocks
       them.
-- [ ] Wave 2: `commit-inspector` (17) · `changes-panel` (14) · `diff-view` (11) — ~42 tests.
+- [x] Wave 2 (PR #333): `commit-inspector` 19→4 · `changes-panel` 17→3 · `diff-view` 12→3. e2e declared 654→**617**, `app:test` 3,818→**3,873**. `changes-panel`'s tree-grouping and totals assertions merged **into** the existing `change-tree.test.tsx` rather than a third copy, as this theme requires.
       `changes-panel`'s tree-grouping assertions already have partial unit coverage in
       `build-change-tree.test.ts` and should merge into that file rather than duplicate a
       second suite.
+- [ ] **A systematic jsdom trap wave 2 hit, to apply from wave 3 on.** A component behind a
+      `React.lazy` boundary whose chunk pulls in a heavy ESM dependency makes a migrated test
+      `await` a **compiler, not a render**. Wave 2's `commit-detail.bridge.test.tsx` and
+      `diff-view.bridge.test.tsx` both awaited `commit-message` — `React.lazy`-loaded to keep
+      `react-markdown` and `remark-gfm` out of the entry chunk — and both **passed when
+      `app:test` ran alone and failed under a real `moon run :typecheck :lint :test`**, where
+      every package's suite runs in parallel and the first-resolve ESM transform exceeds the
+      poll ceiling. That reads exactly like load flake and is not. Raising the ceiling only
+      moves the race, and a wall-clock bound in a unit test is the same shape as the false reds
+      in this theme's own flake register and the vacuous 2s bound #310 deleted. The fix is
+      `beforeAll(async () => { await import('<the lazy module>'); })` — it resolves the chunk
+      into vitest's module cache so `React.lazy` settles from cache, weakens no assertion, and
+      leaves the test still awaiting the (genuinely async) render. **Waves 3-5 will hit this
+      again**: `palette`, `companion-thread` and several diff/editor surfaces sit behind lazy
+      boundaries. Write the pattern into `test-support/` guidance so it is applied rather than
+      rediscovered per wave.
 - [ ] Wave 3: `actions-view` (13) · `optimizer` (13) · `review-writes` (12) — ~38 tests.
 - [ ] Wave 4: `palette` (13) · `repos-workbench` (13) · `companion-panel` (11) · `nav-shell` (8)
       — ~45 tests.
@@ -346,7 +362,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       under load; PR #310 already fixes it), `desktop/src/broker/server.test.ts` (pty staleness
       timing), `e2e/titlebar-agents.spec.ts` (CSS `animation-name` timing — already the reason
       `playwright.config.ts` keeps `retries: 2`), and `e2e/notes.spec.ts`'s browser-occluder
-      contract (twice, on #324 and #327, the same `__mstudioBrowserVisibleCalls` poll). Two of
+      contract (**four times** — #324, #327, #331 and #333, always the same
+      `__mstudioBrowserVisibleCalls` poll, and now the most persistent flake in the suite; it has
+      earned a real fix rather than another re-run). Two of
       those PRs touched **zero** files in the failing package. This phase makes CI faster; flake
       makes it less *trustworthy*, and trust is what a blocking gate actually sells — a gate that
       is red on nobody's fault is a gate that gets switched off, which `ci.yml`'s own comment
