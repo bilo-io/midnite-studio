@@ -6,12 +6,25 @@ import { installMockBridge, type MockFixtures } from '../test-support/mock-bridg
 /**
  * The Changes panel's file lists.
  *
- * The tree, the roll-ups and the flat ordering are the commit inspector's
- * `ChangeTree`, and its own unit tests already pin the trie down. What only the
- * assembled panel can show is that the *right* numbers reach it: a partially
- * staged file has a different pair on each side, and a panel that read one
- * numstat for both would look entirely plausible while being wrong on exactly
- * the file that matters.
+ * **14 of this spec's original 17 tests moved to `status-panel.bridge.test.tsx`
+ * under jsdom** (Phase 82 Theme C, wave 2): the panel-wide and per-row
+ * totals, the staging/stash/discard actions, the "view all" accordion, the
+ * commit button's visibility rule, and the two sections folding
+ * independently. The tree-grouping and totals-formatting assertions this
+ * spec also carried moved into `build-change-tree.test.ts` and
+ * `change-tree.test.tsx` instead — the phase doc's own instruction, since
+ * both files already had partial coverage of the same trie. See those
+ * files' own header comments for the removed-test → replacement-test
+ * mapping.
+ *
+ * **3 remain here.** "The tree ⇄ list choice survives a reload" needs real
+ * `zustand/persist` rehydration — the same reasoning
+ * `commit-detail.bridge.test.tsx`'s header comment gives for its own reload
+ * stragglers — and its non-reload half is already redundant with
+ * `change-tree.test.tsx`'s new collapse test. "The toolbar icon buttons stay
+ * visible … when the totals text is very wide" and "the commit textarea
+ * grows and shrinks back" both read a real `getBoundingClientRect`/
+ * `toBeInViewport`, permanently zero under jsdom's own layout engine.
  */
 const entry = (
   path: string,
@@ -25,13 +38,6 @@ const entry = (
   similarity: null,
 });
 
-/**
- * One file staged and re-edited, two more in one folder, and one at the root.
- *
- * `src/a.ts` is the load-bearing row: it is in BOTH lists, with 5 lines staged
- * and 40 unstaged, so every total below can only be right by reading the two
- * sides separately.
- */
 /** A trivial one-hunk diff, keyed by path so each test file gets its own. */
 const diffFor = (path: string) => ({
   path,
@@ -111,70 +117,6 @@ const open = async (page: Page, data: MockFixtures = base): Promise<void> => {
   await expect(page.getByRole('heading', { name: 'Changes' })).toBeVisible();
 };
 
-/** The panel-wide roll-up is the first totals element — it sits above both sections. */
-const panelTotals = (page: Page) => page.getByTestId('change-totals').first();
-
-const row = (page: Page, path: string) => page.getByRole('button', { name: path, exact: true });
-
-test('the panel totals the whole checkout, counting a two-sided file once', async ({ page }) => {
-  await open(page);
-
-  // Three paths, not four rows: `src/a.ts` is listed twice because staging acts
-  // on one side at a time, but it is one changed file.
-  await expect(panelTotals(page)).toContainText('3 files');
-  // Lines DO add up across the sides — a staged hunk and an unstaged hunk in
-  // the same file are different lines. 5+40+2+7 = 54, 1+4 = 5.
-  await expect(panelTotals(page)).toContainText('+54');
-  await expect(panelTotals(page)).toContainText('−5');
-});
-
-test('a row shows the counts for the side it is listed on', async ({ page }) => {
-  await open(page);
-
-  // The same path, twice, with different numbers. Reading one numstat for both
-  // sides would put 40 on the staged row and nobody would notice.
-  const rows = row(page, 'src/a.ts');
-  await expect(rows).toHaveCount(2);
-  await expect(rows.first()).toContainText('+5');
-  await expect(rows.nth(1)).toContainText('+40');
-});
-
-test('list view orders by change size and shows full paths', async ({ page }) => {
-  await open(page);
-  await page.getByRole('button', { name: 'List the changed files by how much changed' }).click();
-
-  // 44 > 7 > 2 — nothing like the path order, which is the whole point of the
-  // second view.
-  //
-  // `[aria-pressed]` picks the SELECT button of each row. A plain
-  // `getByRole('button')` also matches the stage/discard controls sitting in the
-  // same `li`, which interleaves them into the order being asserted.
-  const rows = page.getByTestId('changes-unstaged').locator('button[aria-pressed]');
-  await expect(rows.nth(0)).toHaveAttribute('aria-label', 'src/a.ts');
-  await expect(rows.nth(1)).toHaveAttribute('aria-label', 'README.md');
-  await expect(rows.nth(2)).toHaveAttribute('aria-label', 'src/nested/b.ts');
-});
-
-test('tree view groups by folder, and a collapsed folder keeps its totals', async ({ page }) => {
-  await open(page);
-  await page.getByRole('button', { name: 'Group the changed files by folder' }).click();
-
-  const src = page
-    .getByTestId('changes-unstaged')
-    .getByRole('button', { name: 'src', exact: true });
-
-  // 40+2 insertions, 4 deletions, rolled up from the two files inside.
-  await expect(src).toContainText('+42');
-  await expect(row(page, 'src/nested/b.ts')).toBeVisible();
-
-  await src.click();
-
-  // The files go; the number does not. Collapsing to compare folders is
-  // pointless if collapsing hides what you were comparing.
-  await expect(row(page, 'src/nested/b.ts')).toHaveCount(0);
-  await expect(src).toContainText('+42');
-});
-
 test('the tree ⇄ list choice survives a reload', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: 'Group the changed files by folder' }).click();
@@ -188,87 +130,6 @@ test('the tree ⇄ list choice survives a reload', async ({ page }) => {
   await expect(
     page.getByTestId('changes-unstaged').getByRole('button', { name: 'src', exact: true }),
   ).toBeVisible();
-});
-
-test('the staging buttons still act on the row they sit on', async ({ page }) => {
-  await open(page);
-
-  // The rows moved into a shared component with the actions in a slot; the one
-  // thing that must not have changed is which path a button stages.
-  await page.getByRole('button', { name: 'Stage src/nested/b.ts' }).click();
-
-  const ops = await page.evaluate(
-    () =>
-      (window as unknown as { __mstudioOps: { op: string; args: { paths: string[] } }[] })
-        .__mstudioOps,
-  );
-  expect(ops).toHaveLength(1);
-  expect(ops[0]?.op).toBe('stage');
-  expect(ops[0]?.args.paths).toEqual(['src/nested/b.ts']);
-});
-
-test('View all changes shows every file, collapsed, with the panel totals at the top', async ({
-  page,
-}) => {
-  await open(page);
-
-  await page.getByRole('button', { name: 'View all changes', exact: true }).click();
-
-  // Same roll-up the panel already carries above the lists, now heading the
-  // right pane too — no second, possibly-disagreeing total.
-  await expect(page.getByTestId('change-totals')).toHaveCount(2);
-  await expect(page.getByTestId('change-totals').nth(1)).toContainText('3 files');
-  await expect(page.getByTestId('change-totals').nth(1)).toContainText('+54');
-  await expect(page.getByTestId('change-totals').nth(1)).toContainText('−5');
-
-  // Collapsed by default — this is a summary, not an eagerly-fetched wall of
-  // diffs.
-  await expect(page.getByTestId('diff-view')).toHaveCount(0);
-  const accordionRow = (pattern: string | RegExp) =>
-    page.locator('button[aria-expanded]').filter({ hasText: pattern });
-  await expect(accordionRow('README.md')).toBeVisible();
-
-  // The staged-then-edited file is one row here, unlike the two it gets on the
-  // left — there is nothing to stage in this view.
-  await expect(accordionRow(/a\.ts/)).toHaveCount(1);
-
-  await page.getByRole('button', { name: 'Expand all files' }).click();
-  await expect(page.getByTestId('diff-view')).toHaveCount(3);
-});
-
-test('picking a file switches the pane back to its single diff, and back again', async ({
-  page,
-}) => {
-  await open(page);
-
-  await row(page, 'README.md').click();
-  await expect(page.getByTestId('diff-view')).toHaveCount(1);
-
-  await page.getByRole('button', { name: 'View all changes', exact: true }).click();
-  await expect(page.getByTestId('diff-view')).toHaveCount(0);
-  await expect(
-    page.locator('button[aria-expanded]').filter({ hasText: 'README.md' }),
-  ).toBeVisible();
-
-  await row(page, 'src/nested/b.ts').click();
-  await expect(page.getByTestId('diff-view')).toHaveCount(1);
-  await expect(page.getByText('Select a file to see its diff.')).toHaveCount(0);
-});
-
-/**
- * The commit box: an empty message costs no vertical space (no button, one
- * line of textarea), and both come back once there is something to commit.
- */
-test('the commit button only appears once a message is typed', async ({ page }) => {
-  await open(page);
-  const commitButton = page.getByRole('button', { name: /^Commit/ });
-  await expect(commitButton).toHaveCount(0);
-
-  await page.getByPlaceholder('Commit message').fill('fix: something');
-  await expect(commitButton).toBeVisible();
-
-  await page.getByPlaceholder('Commit message').fill('');
-  await expect(commitButton).toHaveCount(0);
 });
 
 test('the toolbar icon buttons stay visible and clickable when the totals text is very wide', async ({
@@ -316,172 +177,4 @@ test('the commit textarea grows with content and shrinks back after committing',
   await expect(page.getByRole('button', { name: /^Commit/ })).toHaveCount(0);
   const shrunkHeight = await textarea.evaluate((el) => el.getBoundingClientRect().height);
   expect(shrunkHeight).toBeLessThan(grownHeight);
-});
-
-/**
- * Stash from the Changes view — Phase 22 Theme E.
- *
- * `stashOps` reads `stash.push` calls specifically off `__mstudioOps`, not the
- * generic `ops.*` array `the staging buttons` test above reads — the mock
- * bridge gives stash its own namespace (`mock-bridge.ts`) since `stash.list`
- * needs a real answer, not `ops`'s proxy's blanket `{ok:true}`.
- */
-const stashOps = (page: Page) =>
-  page.evaluate(
-    () =>
-      (
-        window as unknown as {
-          __mstudioOps: { op: string; args: { message?: string; keepIndex?: boolean; includeUntracked?: boolean; paths?: string[] } }[];
-        }
-      ).__mstudioOps.filter((c) => c.op === 'stash.push'),
-  );
-
-test.describe('stash from the Changes view', () => {
-  test('Stash changes is disabled with a reason when there is nothing to stash', async ({ page }) => {
-    // Not `open()`: with zero entries the "Changes" TreeSection's own heading
-    // (`status-panel.tsx`, the unstaged list's `title="Changes"`) hides too —
-    // `hideWhenEmpty` defaults true — so `open()`'s own assertion on it would
-    // fail here for a reason that has nothing to do with this test.
-    await installMockBridge(page, { ...base, statusEntries: [] });
-    await page.goto('/');
-    await clickChangesNav(page);
-
-    const button = page.getByRole('button', { name: 'Stash changes' });
-    await expect(button).toBeDisabled();
-  });
-
-  test('the heading action stashes the whole worktree, with the checked options', async ({
-    page,
-  }) => {
-    await open(page);
-
-    await page.getByRole('button', { name: 'Stash changes' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Stash changes' });
-    await expect(dialog).toContainText('the whole worktree');
-
-    await dialog.getByLabel('Message (optional)').fill('wip');
-    await dialog.getByLabel('Keep staged changes staged').check();
-    await dialog.getByLabel('Include untracked files').check();
-    await dialog.getByRole('button', { name: 'Create stash' }).click();
-
-    await expect(dialog).toHaveCount(0);
-    const calls = await stashOps(page);
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.args).toEqual({
-      repoId: 'repo-1',
-      worktreePath: '/tmp/midnite-studio',
-      message: 'wip',
-      keepIndex: true,
-      includeUntracked: true,
-    });
-  });
-
-  test('a row\'s Stash file action scopes the stash to that one path, git\'s own defaults unchecked', async ({
-    page,
-  }) => {
-    await open(page);
-
-    await page.getByRole('button', { name: 'Stash file src/nested/b.ts' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Stash changes' });
-    await expect(dialog).toContainText('src/nested/b.ts');
-
-    await dialog.getByRole('button', { name: 'Create stash' }).click();
-
-    const calls = await stashOps(page);
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.args).toEqual({
-      repoId: 'repo-1',
-      worktreePath: '/tmp/midnite-studio',
-      message: undefined,
-      keepIndex: false,
-      includeUntracked: false,
-      paths: ['src/nested/b.ts'],
-    });
-  });
-
-  test('Cancel closes the dialog without calling stash.push', async ({ page }) => {
-    await open(page);
-
-    await page.getByRole('button', { name: 'Stash changes' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Stash changes' });
-    await dialog.getByRole('button', { name: 'Cancel' }).click();
-
-    await expect(dialog).toHaveCount(0);
-    expect(await stashOps(page)).toHaveLength(0);
-  });
-});
-
-/** A section's fold toggle — accessible name is the title plus its item count. */
-const section = (page: Page, name: string) =>
-  page.getByRole('button', { name: new RegExp(`^${name}( \\d+)?$`) });
-
-const opsOf = (page: Page, op: string) =>
-  page.evaluate(
-    (wantOp) =>
-      (window as unknown as { __mstudioOps: { op: string; args: { paths: string[] } }[] })
-        .__mstudioOps.filter((c) => c.op === wantOp),
-    op,
-  );
-
-/**
- * `Collapse` (`@bilo-io/ui`) clips a closed section to zero height with a
- * `grid-rows-[0fr]` track rather than `display:none` — the row itself keeps
- * its normal layout box, so Playwright's `toBeVisible()` (which only checks
- * `display`/`visibility`/an empty bounding box, not an ancestor's clip) would
- * still call it visible. `inert` on the wrapping div is the part that is
- * actually load-bearing while closed — it is what pulls every row out of the
- * tab order and off the accessibility tree — so that is what this checks.
- */
-const isInert = (locator: ReturnType<Page['locator']>) =>
-  locator.evaluate((el) => el.closest('[inert]') !== null);
-
-test.describe('Staged and Changes sections as accordions', () => {
-  test('each section collapses and expands independently of the other', async ({ page }) => {
-    await open(page);
-
-    await expect(section(page, 'Staged')).toHaveAttribute('aria-expanded', 'true');
-    await expect(section(page, 'Changes')).toHaveAttribute('aria-expanded', 'true');
-    expect(await isInert(row(page, 'src/a.ts').first())).toBe(false);
-
-    await section(page, 'Staged').click();
-    await expect(section(page, 'Staged')).toHaveAttribute('aria-expanded', 'false');
-    expect(await isInert(row(page, 'src/a.ts').first())).toBe(true);
-
-    // The other section is untouched — collapsing one is not "collapse all".
-    await expect(section(page, 'Changes')).toHaveAttribute('aria-expanded', 'true');
-    expect(await isInert(row(page, 'README.md'))).toBe(false);
-
-    await section(page, 'Staged').click();
-    await expect(section(page, 'Staged')).toHaveAttribute('aria-expanded', 'true');
-    expect(await isInert(row(page, 'src/a.ts').first())).toBe(false);
-  });
-});
-
-test.describe('unstaging a whole folder', () => {
-  const folderStaged: MockFixtures = {
-    ...fixtures,
-    statusEntries: [
-      entry('src/a.ts', { staged: 'modified' }),
-      entry('src/b.ts', { staged: 'modified' }),
-      entry('README.md', { unstaged: 'modified' }),
-    ],
-    statusCounts: {
-      'staged:src/a.ts': { insertions: 1, deletions: 0 },
-      'staged:src/b.ts': { insertions: 2, deletions: 0 },
-      'unstaged:README.md': { insertions: 1, deletions: 0 },
-    },
-  };
-
-  test('the folder action unstages every file inside it, not just the ones showing', async ({
-    page,
-  }) => {
-    await open(page, folderStaged);
-    await page.getByRole('button', { name: 'Group the changed files by folder' }).click();
-
-    await page.getByRole('button', { name: 'Unstage folder src' }).click();
-
-    const calls = await opsOf(page, 'unstage');
-    expect(calls).toHaveLength(1);
-    expect([...calls[0]!.args.paths].sort()).toEqual(['src/a.ts', 'src/b.ts']);
-  });
 });
