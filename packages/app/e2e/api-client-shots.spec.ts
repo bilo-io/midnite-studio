@@ -27,6 +27,9 @@ import {
  * `truncated: true` directly. That is the honest way round — the *behaviour*
  * is covered by `send.test.ts`, which asserts the server saw the socket close
  * early; this is only the banner it produces.
+ *
+ * Gated behind `MSTUDIO_SHOTS` like every other shots suite (Phase 82 Theme A)
+ * — committed images, not assertions a normal `app:e2e` run must keep passing.
  */
 const OUT = '../../docs/screenshots/p66-api-client';
 
@@ -91,6 +94,9 @@ async function openRequest(page: Page): Promise<void> {
 }
 
 test.describe('Phase 66 — API Client screenshots', () => {
+  // Ungated, this rewrote ten committed PNGs on every `app:e2e` run.
+  test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
+
   test('the empty state, light', async ({ page }) => {
     await openApiClient(page, { ...fixtures });
     await page.getByText('Open a request from the tree to build and send it.').waitFor();

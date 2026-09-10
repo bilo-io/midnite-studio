@@ -18,6 +18,9 @@ import {
  * A spec rather than a one-off script, following `reviews-shots.spec.ts`, so the
  * images can be regenerated when the panel changes instead of going quietly
  * stale — and so the fixture that produced them is reviewable beside them.
+ *
+ * Gated behind `MSTUDIO_SHOTS` like every other shots suite (Phase 82 Theme A)
+ * — committed images, not assertions a normal `app:e2e` run must keep passing.
  */
 
 /* Playwright runs with `packages/app` as its cwd. */
@@ -256,6 +259,9 @@ async function openThreads(page: Page): Promise<void> {
   // so the committed image shows the diff as a reader actually sees it.
   await page.waitForTimeout(900);
 }
+
+// Ungated, this rewrote four committed PNGs on every `app:e2e` run.
+test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
 
 test('threads light', async ({ page }) => {
   await openThreads(page);
