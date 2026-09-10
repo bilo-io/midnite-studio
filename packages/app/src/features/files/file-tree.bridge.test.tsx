@@ -1,8 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { fixtures } from '../../../test-support/fixtures';
-import type { MockFixtures } from '../../../test-support/mock-bridge';
+import { makeFixtures } from '../../../test-support/fixtures';
 import { renderView } from '../../../test-support/render';
 import type { FsScopeInput } from '../../services/queries';
 import { FileTree } from './file-tree';
@@ -26,18 +25,21 @@ const REPO_SCOPE: FsScopeInput = { scope: 'repo', repoId: 'repo-1' };
 const CLAUDE_SCOPE: FsScopeInput = { scope: 'claude-home' };
 
 /**
- * A fresh object every call, on purpose: `buildMockBridge` closes over
- * whatever it is given and its create/rename/delete handlers mutate
- * `fsDirs`/`fsFiles` in place (Phase 20's "a mocked write must mutate seeded
- * state" rule). Playwright gets that isolation for free — each test opens a
- * fresh page, and `installMockBridge`'s `addInitScript` structurally clones
- * its argument into it — but under jsdom `installMockBridgeJsdom` uses the
- * object it is handed directly, so a single shared constant would carry one
- * test's rename/delete into the next.
+ * A fresh, deeply cloned tree every call, via `makeFixtures` (Phase 82 Theme
+ * C's harness prerequisite) — `buildMockBridge` closes over whatever it is
+ * given and its create/rename/delete handlers mutate `fsDirs`/`fsFiles` in
+ * place (Phase 20's "a mocked write must mutate seeded state" rule).
+ * Playwright gets that isolation for free — each test opens a fresh page,
+ * and `installMockBridge`'s `addInitScript` structurally clones its argument
+ * into it — but under jsdom `installMockBridgeJsdom` uses the object it is
+ * handed directly, so the shared `fixtures` constant would carry one test's
+ * rename/delete into the next. This file is `makeFixtures`'s original proof:
+ * before it existed, this same isolation need was met by a hand-rolled
+ * per-file function returning a fresh `{ ...fixtures, fsDirs: {…}, fsFiles:
+ * {…} }` literal every call — exactly the one-off `makeFixtures` replaces.
  */
-function writeFixtures(): MockFixtures {
-  return {
-    ...fixtures,
+function writeFixtures() {
+  return makeFixtures({
     fsDirs: {
       'repo:': [
         { name: 'src', kind: 'dir', size: 0, isIgnored: false },
@@ -49,7 +51,7 @@ function writeFixtures(): MockFixtures {
       'repo:README.md': { kind: 'text', content: '# Midnite\n', size: 120 },
       'repo:src/main.ts': { kind: 'text', content: 'const answer = 42;\n', size: 64 },
     },
-  };
+  });
 }
 
 function TestExplorer({ scope, writable }: { scope: FsScopeInput; writable?: boolean }) {
@@ -243,10 +245,9 @@ describe('FileTree, assembled through the real bridge', () => {
 
   it("the Agent settings page's claude-home tree offers no context menu at all", async () => {
     renderView(<TestExplorer scope={CLAUDE_SCOPE} writable={false} />, {
-      fixtures: {
-        ...fixtures,
+      fixtures: makeFixtures({
         fsDirs: { 'claude:': [{ name: 'CLAUDE.md', kind: 'file', size: 10, isIgnored: false }] },
-      },
+      }),
     });
 
     const row = await screen.findByRole('treeitem', { name: 'CLAUDE.md' });

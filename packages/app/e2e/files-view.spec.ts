@@ -106,7 +106,9 @@ test('selecting a code file shows the read-only highlighted preview', async ({ p
   await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
   await expect(page.getByText('const answer = 42;')).toBeVisible();
   await page.waitForTimeout(400);
-  await page.screenshot({ path: '../../docs/screenshots/phase-16/files-code.png' });
+  if (process.env.MSTUDIO_SHOTS) {
+    await page.screenshot({ path: '../../docs/screenshots/phase-16/files-code.png' });
+  }
 });
 
 test('files view automatically renders README.md on root browse', async ({ page }) => {
@@ -264,5 +266,7 @@ test('status badges mark changed rows, including a rollup on the collapsed direc
   await expect(readme.getByText('M', { exact: true })).toHaveCount(0);
 
   await page.waitForTimeout(200);
-  await page.screenshot({ path: '../../docs/screenshots/phase-24-f/status-badges.png' });
+  if (process.env.MSTUDIO_SHOTS) {
+    await page.screenshot({ path: '../../docs/screenshots/phase-24-f/status-badges.png' });
+  }
 });

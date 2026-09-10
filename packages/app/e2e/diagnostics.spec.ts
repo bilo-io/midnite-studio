@@ -119,7 +119,9 @@ test.describe('phase 18 screenshots', () => {
     // `toBeVisible()` ignores opacity — Phase 12 learned this the hard way, on
     // a shot of a sync strip that was still mid-fade and therefore not there.
     await page.waitForTimeout(400);
-    await page.screenshot({ path: `${SHOTS}/diagnostics-trust-prompt.png` });
+    if (process.env.MSTUDIO_SHOTS) {
+      await page.screenshot({ path: `${SHOTS}/diagnostics-trust-prompt.png` });
+    }
 
     await page.keyboard.press('Escape');
     await open(
@@ -144,6 +146,8 @@ test.describe('phase 18 screenshots', () => {
     await page.getByTestId('diagnostics-segment').click();
     await expect(page.getByTestId('diagnostics-segment-panel')).toBeVisible();
     await page.waitForTimeout(400);
-    await page.screenshot({ path: `${SHOTS}/diagnostics-flyout.png` });
+    if (process.env.MSTUDIO_SHOTS) {
+      await page.screenshot({ path: `${SHOTS}/diagnostics-flyout.png` });
+    }
   });
 });

@@ -277,6 +277,8 @@ test.describe('ref chip drag gestures, after the move to the BRANCH / TAG column
 
     await dragOnto(page, chip(page, 'refs/heads/feature/drag-me'), chip(page, 'refs/heads/main'));
     await expect(page.getByRole('menu')).toBeVisible();
-    await page.screenshot({ path: '../../docs/screenshots/phase-14/drop-menu.png' });
+    if (process.env.MSTUDIO_SHOTS) {
+      await page.screenshot({ path: '../../docs/screenshots/phase-14/drop-menu.png' });
+    }
   });
 });
