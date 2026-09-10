@@ -1082,7 +1082,7 @@ function Shell() {
         // space, so without it the Settings row would sit on the hairline.
         <div className="flex w-full flex-col gap-1 pb-3">
           <RailLockButton expanded={expanded} />
-          <AppsRailRow expanded={expanded} />
+          <AppsRailRow />
           <button
             type="button"
             onClick={() => useUiStore.getState().setActiveView('settings')}

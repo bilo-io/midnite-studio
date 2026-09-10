@@ -24,8 +24,19 @@ import { useUiStore } from '../../store/ui-store';
  *    app if a different one was already open; clicking the ALREADY-active
  *    app's icon again closes the flyout, the toggle the phase doc's own
  *    "toggle row" wording describes.
+ *
+ * Always a vertical stack, collapsed OR expanded — unlike a `NavItem` row,
+ * which only ever shows or hides a text label beside a fixed icon. A row
+ * layout while expanded was tried first and reverted: the footer sits
+ * bottom-anchored, so shrinking this block's height when the rail expands
+ * (three stacked icons → one row) shifts every OTHER footer control (the
+ * lock button, Settings, the version pill) down by the difference — moving
+ * them out from under a pointer that was already hovering one, which is
+ * exactly the trap `nav-chord-tooltips.spec.ts`'s "gives the footer's lock
+ * button its chord too" case caught. A constant height regardless of
+ * `expanded` is what keeps the rest of the footer still.
  */
-export function AppsRailRow({ expanded }: { expanded: boolean }) {
+export function AppsRailRow() {
   const enabledApps = useUiStore((s) => s.enabledApps);
   const detachedApps = useUiStore((s) => s.detachedApps);
   const flyoutAppId = useUiStore((s) => s.appsFlyoutAppId);
@@ -58,11 +69,7 @@ export function AppsRailRow({ expanded }: { expanded: boolean }) {
   };
 
   return (
-    <div
-      role="group"
-      aria-label="Apps"
-      className={`flex items-center justify-center gap-1 ${expanded ? 'flex-row' : 'flex-col'}`}
-    >
+    <div role="group" aria-label="Apps" className="flex flex-col items-center justify-center gap-1">
       {APP_IDS.map((id) => {
         const definition = APP_DEFINITIONS[id];
         const enabled = enabledApps.includes(id);

@@ -35,7 +35,7 @@ describe('AppsRailRow', () => {
   });
 
   it('renders one icon per app, all three, even when none are enabled', () => {
-    render(<AppsRailRow expanded />);
+    render(<AppsRailRow />);
     expect(screen.getByTestId('apps-rail-spotify')).toBeDefined();
     expect(screen.getByTestId('apps-rail-google-calendar')).toBeDefined();
     expect(screen.getByTestId('apps-rail-youtube')).toBeDefined();
@@ -43,7 +43,7 @@ describe('AppsRailRow', () => {
 
   it('a disabled app is inert and does nothing on click', () => {
     installBridge();
-    render(<AppsRailRow expanded />);
+    render(<AppsRailRow />);
     const button = screen.getByTestId('apps-rail-spotify');
     expect(button.getAttribute('aria-disabled')).toBe('true');
 
@@ -54,7 +54,7 @@ describe('AppsRailRow', () => {
   it('clicking an enabled, docked app opens the flyout and enables + activates it', async () => {
     const { enable, activate } = installBridge();
     useUiStore.setState({ enabledApps: ['spotify'] });
-    render(<AppsRailRow expanded />);
+    render(<AppsRailRow />);
 
     fireEvent.click(screen.getByTestId('apps-rail-spotify'));
 
@@ -66,7 +66,7 @@ describe('AppsRailRow', () => {
   it('clicking the already-active app again closes the flyout and deactivates', () => {
     const { activate } = installBridge();
     useUiStore.setState({ enabledApps: ['spotify'], appsFlyoutAppId: 'spotify' });
-    render(<AppsRailRow expanded />);
+    render(<AppsRailRow />);
 
     fireEvent.click(screen.getByTestId('apps-rail-spotify'));
 
@@ -77,7 +77,7 @@ describe('AppsRailRow', () => {
   it('clicking a DETACHED app focuses its window instead of touching the flyout', () => {
     const { focusRole, enable } = installBridge();
     useUiStore.setState({ enabledApps: ['youtube'], detachedApps: ['youtube'] });
-    render(<AppsRailRow expanded />);
+    render(<AppsRailRow />);
 
     fireEvent.click(screen.getByTestId('apps-rail-youtube'));
 
@@ -88,7 +88,7 @@ describe('AppsRailRow', () => {
 
   it('closes its own flyout if the active app is disabled out from under it', () => {
     useUiStore.setState({ enabledApps: ['spotify'], appsFlyoutAppId: 'spotify' });
-    render(<AppsRailRow expanded />);
+    render(<AppsRailRow />);
 
     act(() => {
       useUiStore.setState({ enabledApps: [] });
