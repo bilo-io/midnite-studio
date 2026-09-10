@@ -99,14 +99,26 @@ jobs:
       # version-check, gate-projects-check, the changelog mirror): plain node
       # scripts, no platform dependency, so it belongs here rather than on
       # gate-native.
-      - name: Typecheck, lint, test (node-portable packages)
+      #
+      # PHASE 82 THEME H — MEASUREMENT COMMIT. Split into two steps purely so
+      # this run's own step timings tell us whether `app:test` really is the
+      # dominant term on a real ubuntu-24.04 runner (Theme E's numbers were
+      # local, under contention, and explicitly flagged as order-of-magnitude
+      # only). This is a throwaway step split for one CI run — the follow-up
+      # commit replaces it with the actual sharded job once the numbers are in.
+      - name: Typecheck, lint, test (node-portable packages, app:test excluded)
         run: >-
           pnpm exec moon run
           shared:typecheck shared:lint shared:test
-          app:typecheck app:lint app:test
+          app:typecheck app:lint
           website:typecheck website:lint website:test
           db-engine:typecheck db-engine:lint db-engine:test
           root:test
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 'MEASURE: app:test in isolation'
+        run: pnpm exec moon run app:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
