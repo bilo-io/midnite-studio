@@ -236,6 +236,24 @@ test.describe('the browser occluder contract', () => {
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('browser-launcher')).toHaveCount(0);
 
+    // The pointer has been resting on `browser-toggle` since the click that
+    // raised the launcher, and every step of this test from here on out is
+    // keyboard-only. When the launcher's full-screen modal backdrop unmounts,
+    // Chrome re-runs hit-testing under the still-stationary cursor and
+    // synthesizes a fresh `mouseenter` on whatever is newly exposed there —
+    // `browser-toggle` itself — which arms `Tooltip`'s normal 400ms open-delay
+    // timer (`tooltip.tsx`'s `OPEN_DELAY_MS`). Nothing subsequently moves the
+    // mouse to clear it (`openNotes` is `Meta+l`/`n`, never a click), so that
+    // phantom tooltip opens on its own clock and registers as an occluder
+    // (`layer: 'tooltip'` occludes by design, Phase 32 Theme E) that nothing
+    // ever decrements — permanently masking the real `setVisible(true)` this
+    // pane owes once the tab becomes a `page`, below. This is what made the
+    // whole test race-y under load: the slower the machine, the more likely
+    // that 400ms timer fires before the assertions below observe the correct
+    // transition. Parking the pointer somewhere inert is what a real user's
+    // mouse does on its own and this scripted one otherwise never does.
+    await page.mouse.move(700, 400);
+
     // A blank new-tab page is pure DOM, never a native `WebContentsView` —
     // `nativeVisible` in `browser-pane.tsx` requires `kind === 'page'`, so
     // there is nothing to occlude until a real page is navigated to.
@@ -261,12 +279,29 @@ test.describe('the browser occluder contract', () => {
     // `visible: true` rather than assuming it already landed.
     await expect.poll(async () => (await visibleCalls(page)).some((c) => c.visible)).toBe(true);
 
+    // Marked rather than read off `.at(-1)`: `visibleCalls` is an
+    // append-only log of every sync, not just the one this assertion cares
+    // about, and a later call (a resize-driven re-sync, `ResizeObserver`'s
+    // own initial-observe notification, a second activation pass) can land
+    // after the one under test and move the tail off it — `browser-pane.spec
+    // .ts`'s own `side by side does not mark the page visible…` spec already
+    // uses this same "mark, then look only from there" shape for the same
+    // reason. Marking the length before the action and asserting against
+    // everything from that index on tolerates any such extra or reordered
+    // call while still asserting the real thing: SOME sync after Notes
+    // opened turned this tab's view off.
+    const markOpen = (await visibleCalls(page)).length;
     await openNotes(page);
-    await expect.poll(async () => (await visibleCalls(page)).at(-1)?.visible).toBe(false);
+    await expect
+      .poll(async () => (await visibleCalls(page)).slice(markOpen).some((c) => !c.visible))
+      .toBe(true);
 
+    const markClose = (await visibleCalls(page)).length;
     await page.getByTestId('notes-modal').getByRole('button', { name: 'Close notes' }).click();
     await expect(notesModal(page)).toHaveCount(0);
-    await expect.poll(async () => (await visibleCalls(page)).at(-1)?.visible).toBe(true);
+    await expect
+      .poll(async () => (await visibleCalls(page)).slice(markClose).some((c) => c.visible))
+      .toBe(true);
   });
 });
 
