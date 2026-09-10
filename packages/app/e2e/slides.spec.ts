@@ -12,103 +12,20 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * release notes) and the one case a comment-list button needs: that clicking
  * it never reassigns `activeMarkdown` away from whichever description-level
  * surface actually claims the slot.
+ *
+ * Phase 82 Theme C wave 5 moved 4 of this file's original 7 tests to
+ * `src/features/slides/slides-modal.bridge.test.tsx`, mounting `PresentButton`
+ * + `SlidesModal` directly (Files preview stood in for by a small harness) —
+ * the deck itself (cover, step reveal, navigation, the help overlay, Escape)
+ * and presenting from the release-notes panel. **The 3 left here all stay
+ * for the same reason**: each is about a *specific* surface (a PR description,
+ * an issue body, a conversation comment) correctly deriving its own
+ * `MarkdownSource` and, for description-level bodies, claiming
+ * `activeMarkdown` — not about anything inside the deck itself, and Reviews/
+ * Issues are other Phase 82 Theme C wave 5 batches' territory in this same
+ * worktree, so re-deriving their chrome in the jsdom file would duplicate
+ * work rather than add coverage.
  */
-
-const README = [
-  '# Midnite Slides',
-  '',
-  'A short deck to present.',
-  '',
-  '## First point',
-  '',
-  '- alpha',
-  '- beta',
-  '',
-  '## Second point',
-  '',
-  'Some closing text.',
-].join('\n');
-
-const slidesFixtures: MockFixtures = {
-  ...fixtures,
-  fsDirs: {
-    'repo:': [{ name: 'README.md', kind: 'file', size: README.length, isIgnored: false }],
-  },
-  fsFiles: {
-    'repo:README.md': { kind: 'text', content: README, size: README.length },
-  },
-};
-
-async function openReadmeDeck(page: Page) {
-  await installMockBridge(page, slidesFixtures);
-  await page.goto('/');
-  await clickRailLink(page, 'Explorer');
-  await page.getByRole('treeitem', { name: /README\.md/ }).click();
-  await expect(page.getByText('A short deck to present.')).toBeVisible();
-  await page.getByRole('button', { name: 'Present as slides' }).click();
-  const deck = page.getByTestId('slides-deck');
-  await expect(deck).toBeVisible();
-  return deck;
-}
-
-test('presenting from Files: cover slide, step reveal, and slide navigation', async ({ page }) => {
-  const deck = await openReadmeDeck(page);
-
-  // Cover slide (the h1), title fully typed before we assert it. Scoped to
-  // the deck: the file preview underneath still renders the same "# Midnite
-  // Slides" heading, covered by the overlay but present in the DOM.
-  await expect(deck.getByRole('heading', { name: 'Midnite Slides' })).toBeVisible();
-  await expect(deck.getByText('1 / 3')).toBeVisible();
-
-  // Advance into the cover's one step, then to the next slide.
-  await page.keyboard.press('ArrowRight');
-  await expect(deck.getByText('A short deck to present.')).toBeVisible();
-  await page.keyboard.press('ArrowRight');
-  await expect(deck.getByRole('heading', { name: 'First point' })).toBeVisible();
-  await expect(deck.getByText('2 / 3')).toBeVisible();
-
-  // Steps reveal one at a time.
-  await expect(deck.getByText('alpha')).toHaveCount(0);
-  await page.keyboard.press('ArrowRight');
-  await expect(deck.getByText('alpha')).toBeVisible();
-  await expect(deck.getByText('beta')).toHaveCount(0);
-  await page.keyboard.press('ArrowRight');
-  await expect(deck.getByText('beta')).toBeVisible();
-
-  // Backward navigation un-reveals before moving to the previous slide.
-  await page.keyboard.press('ArrowLeft');
-  await expect(deck.getByText('beta')).toHaveCount(0);
-  await expect(deck.getByText('alpha')).toBeVisible();
-
-  // Home/End jump straight to the first/last slide.
-  await page.keyboard.press('End');
-  await expect(deck.getByRole('heading', { name: 'Second point' })).toBeVisible();
-  await expect(deck.getByText('Some closing text.')).toBeVisible();
-  await page.keyboard.press('Home');
-  await expect(deck.getByRole('heading', { name: 'Midnite Slides' })).toBeVisible();
-
-  // The slide-position rail jumps directly to a slide.
-  await deck.getByRole('button', { name: 'Slide 3 of 3' }).click();
-  await expect(deck.getByRole('heading', { name: 'Second point' })).toBeVisible();
-});
-
-test('the help overlay toggles with ? and Escape, without closing the deck', async ({ page }) => {
-  await openReadmeDeck(page);
-
-  await page.keyboard.press('?');
-  await expect(page.getByRole('dialog', { name: 'Presentation shortcuts' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: 'Presentation shortcuts' })).toHaveCount(0);
-  await expect(page.getByTestId('slides-deck')).toBeVisible();
-});
-
-test('Escape closes the deck and returns to the file preview', async ({ page }) => {
-  await openReadmeDeck(page);
-
-  await page.keyboard.press('Escape');
-  await expect(page.getByTestId('slides-deck')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Present as slides' })).toBeVisible();
-});
 
 const PR_BODY = ['# Reviews page', '', '## Why', '', 'Reading a PR should not need a browser.'].join(
   '\n',
