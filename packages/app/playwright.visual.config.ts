@@ -34,8 +34,35 @@ import { defineConfig, devices } from '@playwright/test';
  * runs the SAME image as its container rather than trusting the bare runner's own font
  * packages to match byte-for-byte):
  *
- *   docker run --rm -v "$PWD:/w" -w /w mcr.microsoft.com/playwright:v1.62.1-noble \
- *     npx playwright test --config packages/app/playwright.visual.config.ts -u
+ *   docker run --rm -v "$PWD:/w" -w /w mcr.microsoft.com/playwright:v1.62.1-noble bash -c "
+ *     corepack enable && corepack prepare pnpm@9.15.0 --activate &&
+ *     pnpm install --frozen-lockfile --ignore-scripts &&
+ *     cd packages/app && pnpm exec playwright test --config playwright.visual.config.ts -u"
+ *
+ * Three things about that command are NOT the obvious one-liner a docker recipe would otherwise
+ * be, and all three are load-bearing — verified against a real checkout (twice: a fresh one and
+ * a re-run) before this comment was written:
+ *
+ *  1. Bare `npx playwright` fails outright (`playwright: not found`) from the workspace root —
+ *     `@playwright/test` is a devDependency of THIS package, and pnpm's non-flat, per-package
+ *     `node_modules` layout never hoists its `playwright` bin up to where `npx` looks. `cd
+ *     packages/app` first, then `pnpm exec`, which resolves it from the right `node_modules/.bin`.
+ *  2. `--ignore-scripts` on the install is required, not optional, inside this specific image:
+ *     it ships no `make`/build-essential, so `better-sqlite3`'s and `node-pty`'s native builds
+ *     (desktop's and git-engine's dependencies, never this package's) fail the install outright
+ *     without it.
+ *  3. Deliberately NOT `pnpm exec moon run app:visual` (which would also build `shared` first,
+ *     one command instead of two) — `vite.config.ts` already aliases `@midnite/studio-shared`
+ *     straight to `../shared/src/index.ts`, so nothing here needs `shared` built at all, and
+ *     going through moon pulls in `@moonrepo/cli`'s own platform-specific optional native binary
+ *     (`@moonrepo/core-<platform>-<arch>-*`). Fine on a genuinely fresh checkout, but a dev's
+ *     REAL checkout usually already has a host (macOS/Windows) `node_modules` on disk before
+ *     this command ever runs, and pnpm does not reliably re-resolve an ALREADY-INSTALLED
+ *     optional native package for a second platform under `--frozen-lockfile` against that same
+ *     directory — moon's own binary hit exactly this (`Cannot find module
+ *     '@moonrepo/core-linux-arm64-gnu/package.json'`) when this command was tried against a real,
+ *     previously-`pnpm install`-ed worktree rather than a fresh one. `@playwright/test` itself
+ *     has no such native binary, so bypassing moon sidesteps the whole class of failure.
  *
  * ## Why component-scoped crops, never full pages
  *
