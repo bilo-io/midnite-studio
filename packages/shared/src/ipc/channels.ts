@@ -847,6 +847,14 @@ export const CHANNELS = {
    * exception.
    */
   companionAsk: 'mstudio:companion:ask',
+  /**
+   * The renderer's one-way reply to `EVENT_CHANNELS.companionUiRequest`
+   * (Phase 81 Theme F) — `{ id, result: GitOpResult<CompanionUiResultValue> }`,
+   * resolving `ui-bridge.ts`'s pending promise for that `id`. `ipcRenderer.send`,
+   * not `invoke`: the answer main is waiting on is the promise itself, not a
+   * second return value.
+   */
+  companionUiReply: 'mstudio:companion:ui-reply',
 
   // --- the companion's voice (Phase 79 Theme F; local engine Phase 80 Theme C) -
   // Speech *in* needs all four below, because the recogniser is a paid cloud
@@ -987,6 +995,16 @@ export const EVENT_CHANNELS = {
   windowStateChanged: 'mstudio:window:state-changed',
   /** A native-menu item fired — carries a CommandId, dispatched like a keybinding. */
   menuCommand: 'mstudio:menu:command',
+  /**
+   * The tree's first main→renderer request (Phase 81 Theme F) —
+   * `{ id, action: CompanionUiAction }`, sent only to `getMainWindow()`
+   * (`main/companion/ui-bridge.ts`) and answered one-way over
+   * `CHANNELS.companionUiReply`. Every other channel in this section is a
+   * push with no reply; this is the one exception, and it exists because an
+   * agent asking `ui.navigate`/`ui.command` to do something needs to learn
+   * whether it actually happened.
+   */
+  companionUiRequest: 'mstudio:companion:ui-request',
   /** stdout/stderr chunks from an in-flight Claude CLI update. */
   agentClaudeUpdateData: 'mstudio:agent:claude-update-data',
   /**

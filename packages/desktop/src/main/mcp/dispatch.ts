@@ -1,7 +1,19 @@
 import { isMcpToolId, MCP_TOOLS, type McpToolId } from '@midnite/studio-shared';
 import { z } from 'zod';
 
-import { branchList, diffFile, forgeChecks, forgePulls, graphLog, repoList, repoResolve, statusGet } from './tools';
+import {
+  branchList,
+  diffFile,
+  forgeChecks,
+  forgePulls,
+  graphLog,
+  repoList,
+  repoResolve,
+  statusGet,
+  uiCommand,
+  uiNavigate,
+  uiState,
+} from './tools';
 import { McpToolError } from './errors';
 
 /**
@@ -20,6 +32,9 @@ export const MCP_HANDLERS: {
   'branch.list': branchList,
   'forge.pulls': forgePulls,
   'forge.checks': forgeChecks,
+  'ui.state': uiState,
+  'ui.navigate': uiNavigate,
+  'ui.command': uiCommand,
 };
 
 export type McpDispatchResult =

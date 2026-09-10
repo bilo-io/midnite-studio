@@ -40,6 +40,7 @@ import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
 import { CompanionPanelSlot } from './features/companion/companion-panel';
 import { setCommandRuntime } from './features/companion/command-runtime';
+import { useCompanionUiRequests } from './features/companion/ui-requests';
 /*
   Side-effect import: Phase 79 Themes F and G register their four members of
   `companion-ports` (interrupt, the two mic gestures, mic availability) at
@@ -628,6 +629,11 @@ function Shell() {
     setCommandRuntime(commandRuntime);
     return () => setCommandRuntime(null);
   }, [commandRuntime]);
+  // Phase 81 Theme F — an agent's ui.navigate/ui.command requests, answered
+  // through the identical runtime the line above just registered. The
+  // windowRole guard lives inside the hook itself, not here, since main is
+  // the only window `ui-bridge.ts` (main-side) ever targets.
+  useCompanionUiRequests();
 
   /**
    * The terminal's height while maximized, measured rather than `flex-1`.

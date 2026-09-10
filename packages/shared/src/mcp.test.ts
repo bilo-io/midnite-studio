@@ -14,9 +14,16 @@ describe('MCP_TOOLS', () => {
     expect(MCP_TOOL_IDS).toEqual(Object.keys(MCP_TOOLS));
   });
 
-  it('every entry is read-only', () => {
+  /**
+   * Phase 81 Theme F's two write tools are the only `readOnly: false`
+   * entries — everything else, including the two other `ui.*` reads, stays
+   * `true`.
+   */
+  const writeTools = new Set<McpToolId>(['ui.navigate', 'ui.command']);
+
+  it('every entry has the readOnly flag its own kind calls for', () => {
     for (const id of MCP_TOOL_IDS) {
-      expect(MCP_TOOLS[id].readOnly).toBe(true);
+      expect(MCP_TOOLS[id].readOnly, id).toBe(!writeTools.has(id));
     }
   });
 
@@ -89,6 +96,16 @@ describe('MCP_TOOLS', () => {
       error: null,
       verdict: null,
     },
+    'ui.state': {
+      activeView: 'graph',
+      settingsPage: null,
+      detached: [],
+      repoPath: null,
+      locked: false,
+      uiToolsEnabled: false,
+    },
+    'ui.navigate': { did: 'navigated', view: 'graph' },
+    'ui.command': { did: 'ran', label: 'Fetch' },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -103,6 +120,12 @@ describe('MCP_TOOLS', () => {
     const perTool: Partial<Record<McpToolId, unknown>> = {
       'repo.list': {},
       'diff.file': { ...base, path: 'a.ts' },
+      // Not repo-scoped at all (Phase 81 Theme F) — `base`'s `repoPath` would
+      // otherwise be silently stripped by `ui.state`'s `z.object({})` and
+      // fail `ui.navigate`/`ui.command`'s own required fields outright.
+      'ui.state': {},
+      'ui.navigate': { view: 'graph' },
+      'ui.command': { id: 'sync.fetch' },
     };
     for (const id of MCP_TOOL_IDS) {
       const input = perTool[id] ?? base;

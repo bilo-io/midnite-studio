@@ -5,7 +5,15 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createMcpStore } from '../mcp-store';
-import { getMcpServerHandle, getMcpStatus, registerMcpServer, resetMcpServerStateForTests, setMcpEnabled } from './index';
+import {
+  getMcpAllowUi,
+  getMcpServerHandle,
+  getMcpStatus,
+  registerMcpServer,
+  resetMcpServerStateForTests,
+  setMcpAllowUi,
+  setMcpEnabled,
+} from './index';
 
 let dirs: string[] = [];
 
@@ -37,7 +45,7 @@ describe('registerMcpServer', () => {
 
   it('binds a socket when the store says enabled', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 1, enabled: true });
+    await createMcpStore(userDataDir).save({ version: 2, enabled: true, allowUi: false });
 
     const handle = await registerMcpServer({
       userDataDir,
@@ -47,6 +55,20 @@ describe('registerMcpServer', () => {
     });
     expect(handle).not.toBeNull();
     expect(getMcpStatus()).toMatchObject({ enabled: true, running: true, socketPath: handle?.socketPath });
+  });
+
+  it('loads allowUi from the store too, alongside enabled', async () => {
+    const userDataDir = tempDir();
+    await createMcpStore(userDataDir).save({ version: 2, enabled: false, allowUi: true });
+
+    await registerMcpServer({
+      userDataDir,
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+    });
+    expect(getMcpAllowUi()).toBe(true);
+    expect(getMcpStatus().allowUi).toBe(true);
   });
 });
 
@@ -67,12 +89,16 @@ describe('setMcpEnabled', () => {
     expect(getMcpServerHandle()).not.toBeNull();
 
     // Persisted, not just in memory.
-    expect(await createMcpStore(userDataDir).load()).toEqual({ version: 1, enabled: true });
+    expect(await createMcpStore(userDataDir).load()).toEqual({
+      version: 2,
+      enabled: true,
+      allowUi: false,
+    });
   });
 
   it('stops the server live when turned off, and persists the flag', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 1, enabled: true });
+    await createMcpStore(userDataDir).save({ version: 2, enabled: true, allowUi: false });
     await registerMcpServer({
       userDataDir,
       appVersion: '0.0.0-test',
@@ -85,11 +111,81 @@ describe('setMcpEnabled', () => {
     expect(result.ok).toBe(true);
     expect(result.ok && result.status.running).toBe(false);
     expect(getMcpServerHandle()).toBeNull();
-    expect(await createMcpStore(userDataDir).load()).toEqual({ version: 1, enabled: false });
+    expect(await createMcpStore(userDataDir).load()).toEqual({
+      version: 2,
+      enabled: false,
+      allowUi: false,
+    });
+  });
+
+  it('preserves allowUi when only the enabled flag changes', async () => {
+    const userDataDir = tempDir();
+    await createMcpStore(userDataDir).save({ version: 2, enabled: false, allowUi: true });
+    await registerMcpServer({
+      userDataDir,
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+    });
+
+    await setMcpEnabled(true);
+    expect(await createMcpStore(userDataDir).load()).toEqual({
+      version: 2,
+      enabled: true,
+      allowUi: true,
+    });
   });
 
   it('answers ok:false without touching bootOpts before registerMcpServer has run', async () => {
     const result = await setMcpEnabled(true);
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe('setMcpAllowUi', () => {
+  it('persists the flag and never touches the socket', async () => {
+    const userDataDir = tempDir();
+    const handle = await registerMcpServer({
+      userDataDir,
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+    });
+    expect(handle).toBeNull(); // enabled is still off
+
+    const result = await setMcpAllowUi(true);
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.status.allowUi).toBe(true);
+    expect(getMcpAllowUi()).toBe(true);
+    expect(getMcpServerHandle()).toBeNull(); // allowUi never starts the server
+
+    expect(await createMcpStore(userDataDir).load()).toEqual({
+      version: 2,
+      enabled: false,
+      allowUi: true,
+    });
+  });
+
+  it('preserves enabled when only allowUi changes', async () => {
+    const userDataDir = tempDir();
+    await createMcpStore(userDataDir).save({ version: 2, enabled: true, allowUi: false });
+    await registerMcpServer({
+      userDataDir,
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+    });
+
+    await setMcpAllowUi(true);
+    expect(await createMcpStore(userDataDir).load()).toEqual({
+      version: 2,
+      enabled: true,
+      allowUi: true,
+    });
+  });
+
+  it('answers ok:false before registerMcpServer has run', async () => {
+    const result = await setMcpAllowUi(true);
     expect(result.ok).toBe(false);
   });
 });

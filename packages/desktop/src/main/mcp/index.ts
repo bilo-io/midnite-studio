@@ -3,6 +3,9 @@ import { join } from 'node:path';
 import { createMcpStore, type McpSettings } from '../mcp-store';
 import { defaultLogger, type Logger } from '../log';
 import { startMcpServer, type McpServerHandle } from './server';
+import { getMcpAllowUi, resetMcpAllowUiStateForTests, setMcpAllowUiState } from './ui-gate';
+
+export { getMcpAllowUi } from './ui-gate';
 
 /**
  * Where this build's stdio shim lives on disk (Theme F). Same resolution
@@ -30,6 +33,8 @@ export type McpStatus = {
   running: boolean;
   socketPath: string | null;
   shimPath: string | null;
+  /** Phase 81 Theme F's second switch — whether `ui.navigate`/`ui.command` may actually act. */
+  allowUi: boolean;
 };
 
 export type SetMcpEnabledResult = { ok: true; status: McpStatus } | { ok: false; message: string };
@@ -45,6 +50,14 @@ let boundLog: Logger = defaultLogger;
 let handle: McpServerHandle | null = null;
 /** Mirrors `mcp-store.ts`'s persisted flag, kept in memory so `getMcpStatus` needs no disk read. */
 let enabled = false;
+/*
+  `allowUi` itself lives in `./ui-gate` (`setMcpAllowUiState`/`getMcpAllowUi`),
+  not as a local module variable here — `tools.ts` needs to read it and sits
+  below this file in the package's own call graph (`index.ts` → `server.ts` →
+  `dispatch.ts` → `tools.ts`), so a `tools.ts` import of this module would be
+  a cycle. This file still owns *writing* it (`setMcpAllowUi`, below), which
+  is what persists it through `mcp-store.ts`.
+*/
 
 /**
  * Start the MCP server if — and only if — the user has turned it on.
@@ -61,6 +74,7 @@ export async function registerMcpServer(opts: RegisterMcpServerOptions): Promise
   const store = createMcpStore(opts.userDataDir);
   const settings = await store.load();
   enabled = settings.enabled;
+  setMcpAllowUiState(settings.allowUi);
   if (!enabled) return null;
 
   const result = await startMcpServer({ ...opts, log: boundLog });
@@ -84,6 +98,7 @@ export function getMcpStatus(): McpStatus {
     running: handle !== null,
     socketPath: handle?.socketPath ?? null,
     shimPath: mcpShimScriptPath(),
+    allowUi: getMcpAllowUi(),
   };
 }
 
@@ -100,7 +115,7 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
     return { ok: false, message: 'The MCP server has not finished starting up yet.' };
   }
 
-  const settings: McpSettings = { version: 1, enabled: next };
+  const settings: McpSettings = { version: 2, enabled: next, allowUi: getMcpAllowUi() };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   enabled = next;
 
@@ -122,10 +137,29 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
   return { ok: true, status: getMcpStatus() };
 }
 
+/**
+ * Theme F's second Settings switch. Unlike `setMcpEnabled`, this never
+ * starts or stops the socket — `allowUi` only gates whether `ui.navigate`/
+ * `ui.command` will act once a call reaches them, so flipping it is a
+ * persisted-flag write and nothing else.
+ */
+export async function setMcpAllowUi(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = { version: 2, enabled, allowUi: next };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowUiState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
 /** Test-only: module state otherwise survives across a suite's test cases. */
 export function resetMcpServerStateForTests(): void {
   bootOpts = null;
   boundLog = defaultLogger;
   handle = null;
   enabled = false;
+  resetMcpAllowUiStateForTests();
 }

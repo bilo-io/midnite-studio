@@ -8,8 +8,12 @@ import {
   GraphRowSchema,
   RefSchema,
   RepoDescriptorSchema,
+  SETTINGS_PAGE_IDS,
   StatusResultSchema,
+  VIEW_IDS,
+  WindowRoleSchema,
 } from './domain';
+import { isCommandId } from './keybindings';
 
 /**
  * Midnite Studio speaks MCP (Phase 57).
@@ -54,7 +58,10 @@ type McpToolEntry = {
     | 'diff.file'
     | 'branch.list'
     | 'forge.pulls'
-    | 'forge.checks';
+    | 'forge.checks'
+    | 'ui.state'
+    | 'ui.navigate'
+    | 'ui.command';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -64,8 +71,13 @@ type McpToolEntry = {
   description: string;
   input: z.ZodTypeAny;
   output: z.ZodTypeAny;
-  /** Always `true` in this phase — write tools are a deferred follow-up (Decision 5). */
-  readOnly: true;
+  /**
+   * `false` marks a tool that changes what the app shows. No tool changes a
+   * repository — that is still Phase 57 Decision 5's deferred follow-up.
+   * The eight repo-reading tools above are all `true`; Phase 81 Theme F's
+   * `ui.navigate`/`ui.command` are the first two to say `false`.
+   */
+  readOnly: boolean;
 };
 
 export const MCP_TOOLS = {
@@ -162,7 +174,66 @@ export const MCP_TOOLS = {
     }),
     readOnly: true,
   },
+  /*
+   * Phase 81 Theme F — the other half of "deepen the connection". These
+   * three are the only tools an agent session gets for steering the window
+   * itself, gated by their own `Settings ▸ MCP ▸ Let agents steer the UI`
+   * switch (`allowUi` on `McpSettings`) — always listed by `tools/list` so
+   * an agent can plan around them, refused with a named reason while the
+   * switch is off (Decision 11).
+   */
+  'ui.state': {
+    id: 'ui.state',
+    title: 'Read the window state',
+    description:
+      'Reads which view Midnite Studio is showing, which panels are detached and whether the screen is locked — use before `ui.navigate` instead of guessing what the user can see.',
+    input: z.object({}),
+    output: z.object({
+      activeView: z.enum(VIEW_IDS),
+      settingsPage: z.enum(SETTINGS_PAGE_IDS).nullable(),
+      detached: z.array(WindowRoleSchema),
+      /** The selected repository's worktree root, or `null` when none is open. */
+      repoPath: z.string().nullable(),
+      locked: z.boolean(),
+      /** Whether `ui.navigate`/`ui.command` will actually run — the reason to check this before calling either. */
+      uiToolsEnabled: z.boolean(),
+    }),
+    readOnly: true,
+  },
+  'ui.navigate': {
+    id: 'ui.navigate',
+    title: 'Open a view or settings page',
+    description:
+      'Opens a view or settings page, or focuses its window if already detached — call `ui.state` first to see what the user can already see.',
+    input: z.object({
+      view: z.enum(VIEW_IDS),
+      page: z.enum(SETTINGS_PAGE_IDS).optional(),
+      issue: z.number().int().positive().optional(),
+    }),
+    output: z.object({ did: z.enum(['navigated', 'focused-window']), view: z.enum(VIEW_IDS) }),
+    readOnly: false,
+  },
+  'ui.command': {
+    id: 'ui.command',
+    title: 'Run a direct-tier palette command',
+    description:
+      'Runs one direct-tier palette command by id — refusing a `confirm`- or `never`-tier id, which needs the user or the palette itself.',
+    input: z.object({
+      /** `z.enum` cannot take `COMMAND_IDS` — it is a mapped array, not a tuple (`keybindings.ts`). */
+      id: z.string().refine(isCommandId, 'not a known command id'),
+    }),
+    output: z.object({ did: z.literal('ran'), label: z.string() }),
+    readOnly: false,
+  },
 } satisfies Record<string, McpToolEntry>;
+
+/**
+ * The exact refusal `ui.navigate`/`ui.command` answer with while
+ * `McpSettings.allowUi` is off — named so main (`ui-requests.ts`'s tool
+ * handlers) and the Settings ▸ MCP page's own card quote the identical
+ * sentence rather than two copies that can drift.
+ */
+export const UI_TOOLS_OFF_MESSAGE = 'UI tools are off — Settings ▸ MCP ▸ Let agents steer the UI';
 
 /** Derived, never hand-maintained — exactly `COMMAND_IDS` from `COMMANDS` in `keybindings.ts`. */
 export type McpToolId = keyof typeof MCP_TOOLS;

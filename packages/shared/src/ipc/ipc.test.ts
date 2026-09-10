@@ -877,6 +877,73 @@ describe('window contract (Phase 55)', () => {
   });
 });
 
+describe('ui.* MCP tools contract (Phase 81 Theme F)', () => {
+  it('covers the companion UI request/reply channel pair with a schema', () => {
+    const expected: Record<string, string[]> = {
+      companionUiRequest: ['CompanionUiRequestSchema'],
+      companionUiReply: ['CompanionUiReplySchema'],
+    };
+    const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter(
+      (key) => key.startsWith('companionUi'),
+    );
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+    for (const names of Object.values(expected)) {
+      for (const name of names) expect(schemas).toHaveProperty(name);
+    }
+  });
+
+  it('CompanionUiActionSchema accepts the three action kinds and refuses an unknown command id', () => {
+    expect(schemas.CompanionUiActionSchema.safeParse({ kind: 'state' }).success).toBe(true);
+    expect(schemas.CompanionUiActionSchema.safeParse({ kind: 'navigate', view: 'graph' }).success).toBe(
+      true,
+    );
+    expect(
+      schemas.CompanionUiActionSchema.safeParse({
+        kind: 'navigate',
+        view: 'graph',
+        page: 'appearance',
+        issue: 4,
+      }).success,
+    ).toBe(true);
+    expect(schemas.CompanionUiActionSchema.safeParse({ kind: 'navigate', view: 'bogus' }).success).toBe(
+      false,
+    );
+    expect(
+      schemas.CompanionUiActionSchema.safeParse({ kind: 'command', id: 'sync.fetch' }).success,
+    ).toBe(true);
+    expect(
+      schemas.CompanionUiActionSchema.safeParse({ kind: 'command', id: 'not.a.real.id' }).success,
+    ).toBe(false);
+  });
+
+  it('CompanionUiReplySchema round-trips a success value per action kind', () => {
+    const value = { did: 'navigated' as const, view: 'graph' as const };
+    expect(
+      schemas.CompanionUiReplySchema.safeParse({ id: 'r1', result: { ok: true, value } }).success,
+    ).toBe(true);
+    expect(
+      schemas.CompanionUiReplySchema.safeParse({
+        id: 'r2',
+        result: { ok: false, kind: 'error', message: 'the window did not answer' },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('McpGetResponse/McpSetRequest carry the allowUi switch introduced beside enabled', () => {
+    expect(
+      schemas.McpGetResponse.safeParse({
+        enabled: false,
+        running: false,
+        socketPath: null,
+        shimPath: null,
+        allowUi: false,
+      }).success,
+    ).toBe(true);
+    expect(schemas.McpSetRequest.safeParse({ allowUi: true }).success).toBe(true);
+    expect(schemas.McpSetRequest.safeParse({}).success).toBe(true);
+  });
+});
+
 describe('stats schemas', () => {
   it('defaults to the 90-day window and to churn off', () => {
     // Churn off by default is the load-bearing half: `--numstat` makes git diff
