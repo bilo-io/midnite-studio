@@ -81,6 +81,21 @@ const open = (fx: MockFixtures = withRemote) => {
 };
 
 const message = () => screen.getByTestId('commit-message');
+/**
+ * `CommitMessage` is `React.lazy`-loaded (`commit-detail.tsx`'s own comment
+ * explains why — keeping `react-markdown`/`remark-gfm` out of the entry
+ * chunk), so `commit-message` only appears once that dynamic import
+ * resolves. `findByTestId`'s default 1000ms poll is normally well inside
+ * that, but this file and `diff-view.bridge.test.tsx` both hit this exact
+ * boundary failing under a real `moon run :typecheck :lint :test` gate run
+ * (Phase 82 Theme C wave 2's own verification, five failures, all here) —
+ * a wall-clock race against CPU contention, not a logic defect: every
+ * failure resolved once machine load dropped, and none were about the
+ * (also-lazy, also-async) virtualised diff rows. A 3s ceiling, matching the
+ * precedent in `screen-lock-page.test.tsx`, gives the import the margin a
+ * busy CI runner needs without masking a real failure to mount.
+ */
+const waitForMessage = () => screen.findByTestId('commit-message', {}, { timeout: 3000 });
 const files = () => screen.getByTestId('commit-files');
 const identities = () => screen.queryByTestId('commit-identities');
 /** A directory row, matched exactly so a nested file's path cannot satisfy it. */
@@ -99,13 +114,13 @@ describe('CommitDetail, assembled through the real bridge', () => {
   it('the message renders as markdown rather than preformatted text', async () => {
     open();
 
-    const code = await waitFor(() => message().querySelector('pre code'));
+    const code = await waitFor(() => message().querySelector('pre code'), { timeout: 3000 });
     expect(code?.textContent).toContain('const sha = 7c521fe;');
   });
 
   it('a sha inside a code fence is not turned into a control', async () => {
     open();
-    await screen.findByTestId('commit-message');
+    await waitForMessage();
 
     // `7c521fe` appears ONLY inside the fence in this fixture, so any button
     // bearing it would have come from linkifying code.
@@ -114,7 +129,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
 
   it('an all-letter hex word in prose stays prose', async () => {
     open();
-    await screen.findByTestId('commit-message');
+    await waitForMessage();
 
     expect(message().textContent).toContain('The deadbeef path is unaffected.');
     expect(within(message()).queryByRole('button', { name: 'deadbeef' })).toBeNull();
@@ -149,7 +164,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
     // The phase doc's degrade-not-error requirement: inventing a link that
     // 404s is worse than rendering the text the author wrote.
     open({ ...fixtures, remotes: [] });
-    await screen.findByTestId('commit-message');
+    await waitForMessage();
 
     expect(message().textContent).toContain('#123');
     expect(within(message()).queryByRole('link', { name: '#123' })).toBeNull();
@@ -198,7 +213,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
    */
   it('hiding the metadata keeps the sha, copy button and file pane, and hides the message', async () => {
     open();
-    await screen.findByTestId('commit-message');
+    await waitForMessage();
 
     // Open by default: the message and the identities are what the inspector
     // is for.
@@ -278,7 +293,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
 
   it('the tree groups files by folder and collapses single-child chains', async () => {
     open();
-    await screen.findByTestId('commit-message');
+    await waitForMessage();
 
     // `packages/desktop/src/main` is four nested directories holding one
     // file, and it must read as one row rather than four indents of nothing.
@@ -288,7 +303,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
 
   it('collapsing a directory hides its files but keeps its totals', async () => {
     open();
-    await screen.findByTestId('commit-message');
+    await waitForMessage();
 
     const main = dir('packages/desktop/src/main');
     const windowTs = () =>
@@ -309,7 +324,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
 
   it('list view orders by change size, biggest first', async () => {
     open();
-    await screen.findByTestId('commit-message');
+    await waitForMessage();
 
     fireEvent.click(screen.getByRole('button', { name: 'List the files by how much changed' }));
 

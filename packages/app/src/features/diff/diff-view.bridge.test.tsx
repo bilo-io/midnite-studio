@@ -74,7 +74,19 @@ afterEach(cleanup);
 describe('DiffView, assembled through the real bridge', () => {
   it('a commit shows no diff until a file is chosen', async () => {
     open();
-    await screen.findByTestId('commit-message');
+    // `CommitDetail` lazy-loads `CommitMessage` (see its own comment), so
+    // `commit-message` only appears once that dynamic import resolves.
+    // `findByTestId`'s default 1000ms poll is normally comfortably inside
+    // that, but this exact line — along with the same wait in
+    // `commit-detail.bridge.test.tsx` — failed under a real
+    // `moon run :typecheck :lint :test` gate run (Phase 82 Theme C wave 2's
+    // own verification): a wall-clock race against CPU contention from a
+    // concurrent suite run elsewhere on the machine, not a logic defect —
+    // every failure resolved once machine load dropped, and none were about
+    // this file's own (also-lazy, also-async) virtualised diff rows. A 3s
+    // ceiling, matching the precedent in `screen-lock-page.test.tsx`, gives
+    // the import the margin a busy CI runner needs.
+    await screen.findByTestId('commit-message', {}, { timeout: 3000 });
 
     expect(await screen.findByText('Select a file to see what changed in it.')).toBeTruthy();
     expect(screen.queryByTestId('diff-view')).toBeNull();
