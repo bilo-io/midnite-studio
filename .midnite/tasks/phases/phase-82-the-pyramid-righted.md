@@ -433,6 +433,36 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `__mstudioBrowserVisibleCalls` poll, and now the most persistent flake in the suite; it has
       earned a real fix rather than another re-run).
 
+      **FIXED, and the folklore was wrong** ([PR #341](https://github.com/bilo-io/midnite-studio/pull/341),
+      2026-09-10). The diagnosis above — "its `expect.poll` on the WebContentsView visibility
+      sync simply loses the race whenever the environment is slow or contended" — described the
+      symptom correctly and the cause not at all. **The cause is a phantom tooltip.** The pointer
+      has rested on `browser-toggle` since the click that raised the launcher, and every step
+      after that is keyboard-only. When the launcher's full-screen modal backdrop unmounts,
+      Chrome re-runs hit-testing under the still-stationary cursor and synthesizes a fresh
+      `mouseenter` on what is newly exposed there — `browser-toggle` itself — arming `Tooltip`'s
+      400 ms `OPEN_DELAY_MS` for a hover the pointer never re-entered. Nothing subsequently moves
+      the mouse to clear it (`openNotes` is `Meta+l`/`n`, never a click), so that tooltip opens on
+      its own clock and registers as an occluder (`layer: 'tooltip'` occludes by design, Phase 32
+      Theme E) which **nothing ever decrements**, permanently masking the real `setVisible(true)`
+      the pane owes once the tab becomes a `page`.
+
+      That is why it was load-dependent, and it is why **no timeout increase could ever have
+      fixed it** — a slower machine just loses by more. Fix: park the pointer somewhere inert once
+      the launcher closes, which is what a real user's mouse does on its own and a scripted one
+      never does. The same latent trap sat in `browser-pane.spec.ts`'s shared `openBrowser`
+      helper and was fixed there too, before it bit a second spec. Verified 8/8 under default
+      parallel workers five consecutive times, 29/29 with `browser-pane` twice, 8/8 serial.
+
+      **Two things to carry forward.** First: *a synthesized `mouseenter` after a modal unmounts
+      is a general hazard in this suite*, not a Notes quirk — any spec that clicks something,
+      lets an overlay close over the cursor, and then goes keyboard-only can arm a tooltip that
+      occludes. Second, and more uncomfortable: this entry sat here for a day carrying a confident
+      wrong cause, and every re-run was rational given it. A register entry is only worth what its
+      diagnosis is worth, so **an entry whose cause has not been proven by a fix should say so.**
+      This one now unblocks the `retries: 2` question, which had no remaining justification beyond
+      this spec.
+
       **Two more, found landing #309 on 2026-09-10 — the count is six specs, not four.**
       `packages/app/src/services/avatars.test.ts` (a cache-state race, `pending` observed where
       `ready` was asserted) failed `gate-node-app-test` shard 4 and passed on a `gh run rerun
