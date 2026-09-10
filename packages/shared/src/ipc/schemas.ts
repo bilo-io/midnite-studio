@@ -92,6 +92,7 @@ import {
   ScaffoldApplyResultSchema,
   ScaffoldPlanSchema,
   SchemaTreeSchema,
+  SETTINGS_PAGE_IDS,
   StashDetailSchema,
   StashDropResultSchema,
   StashEntrySchema,
@@ -103,11 +104,13 @@ import {
   TestRunResultSchema,
   TestTrustStatusSchema,
   TrashSummarySchema,
+  VIEW_IDS,
   WatchEventSchema,
   WindowDescriptorSchema,
   WindowRoleSchema,
   WorktreeSchema,
 } from '../domain';
+import { isCommandId } from '../keybindings';
 import {
   ClaudeInfoSchema,
   FsEntrySchema,
@@ -2628,16 +2631,25 @@ export const ReportBundleResponse = z.object({ text: z.string() });
  * crashed-then-restarted bind can disagree with the flag about. `shimPath` is
  * the on-disk `mcp-shim.js` this build actually ships — resolved the same way
  * the packaged app resolves it, so the Settings page's printed
- * `claude mcp add` line is never a guess.
+ * `claude mcp add` line is never a guess. `allowUi` (Phase 81 Theme F) is the
+ * second, narrower switch under this one — whether `ui.navigate`/`ui.command`
+ * may actually act, never widening what `enabled` alone already exposed.
  */
 export const McpGetResponse = z.object({
   enabled: z.boolean(),
   running: z.boolean(),
   socketPath: z.string().nullable(),
   shimPath: z.string().nullable(),
+  allowUi: z.boolean(),
 });
-export const McpSetRequest = z.object({ enabled: z.boolean() });
-/** `error` is set when turning the switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flag is still persisted either way. */
+/**
+ * Both fields optional so the master switch and the UI-steering switch stay
+ * two independent controls over one channel rather than needing two: a
+ * request touches only the field it means to change, and the handler
+ * (`mcp-handlers.ts`) reads the current value of whichever field is absent.
+ */
+export const McpSetRequest = z.object({ enabled: z.boolean().optional(), allowUi: z.boolean().optional() });
+/** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });
 
 /** One row of the last-50 audit ring (`main/mcp/audit.ts`). `tool` stays a plain string here — see `McpCallEntry` in `../mcp.ts` for the `McpToolId`-typed shape main actually keeps. */
@@ -2743,6 +2755,86 @@ export const CompanionAskRequest = z.object({
  * of which is an exception. See `main/companion/ask.ts`.
  */
 export const CompanionAskResponse = GitOpResultOf(CompanionAskReplySchema);
+
+// --- steering the window: the ui.* MCP tools (Phase 81 Theme F) ------------
+
+/**
+ * One action an agent may ask the main window to take, shared between the
+ * MCP `ui.state`/`ui.navigate`/`ui.command` tools' own inputs and the
+ * main→renderer request that actually carries an action out
+ * ({@link CompanionUiRequestSchema} below).
+ *
+ * `command`'s `id` is checked against `isCommandId` here — the same total
+ * `CommandId` union `ui.command`'s own input schema uses (`mcp.ts`) — so an
+ * id that is not even a real `CommandId` is refused before it ever reaches
+ * `ui-bridge.ts`'s pending map. Whether a *real* id's tier
+ * (`direct`/`confirm`/`never`) allows it is a renderer-only decision
+ * (`COMMAND_ACCESS`, `features/palette/safety.ts`) — never checked here or
+ * in main, so main can never be talked into a different table (Finding 6 /
+ * the phase's own guardrail).
+ */
+export const CompanionUiActionSchema = z.discriminatedUnion('kind', [
+  /** `ui.state`'s request — no fields, since the answer is read entirely from the renderer's own stores. */
+  z.object({ kind: z.literal('state') }),
+  z.object({
+    kind: z.literal('navigate'),
+    view: z.enum(VIEW_IDS),
+    page: z.enum(SETTINGS_PAGE_IDS).optional(),
+    issue: z.number().int().positive().optional(),
+  }),
+  z.object({
+    kind: z.literal('command'),
+    id: z.string().refine(isCommandId, 'not a known command id'),
+  }),
+]);
+export type CompanionUiAction = z.infer<typeof CompanionUiActionSchema>;
+
+/**
+ * The success value a reply carries — shaped per action, discriminated on
+ * `did` rather than folded into one loose `{ did: string }`: `ui.state`'s
+ * answer is the whole window-state snapshot (`mcp.ts`'s `ui.state` output),
+ * not a verb, and giving it its own arm keeps every reply fully typed end to
+ * end rather than trusting an `unknown` cast at the tool boundary.
+ */
+export const CompanionUiResultValueSchema = z.union([
+  z.object({
+    did: z.literal('state'),
+    activeView: z.enum(VIEW_IDS),
+    settingsPage: z.enum(SETTINGS_PAGE_IDS).nullable(),
+    detached: z.array(WindowRoleSchema),
+    repoPath: z.string().nullable(),
+    locked: z.boolean(),
+  }),
+  z.object({ did: z.enum(['navigated', 'focused-window']), view: z.enum(VIEW_IDS) }),
+  z.object({ did: z.literal('ran'), label: z.string() }),
+]);
+export type CompanionUiResultValue = z.infer<typeof CompanionUiResultValueSchema>;
+
+/**
+ * The tree's first main→renderer request/reply (Phase 81 Theme F, Decision
+ * 12) — everything else crossing this direction is `menu.ts`'s one-way
+ * `webContents.send(EVENT_CHANNELS.menuCommand, …)`, with no reply at all.
+ * Sent only to `getMainWindow()` (`main/companion/ui-bridge.ts`), never the
+ * focused window — a menu item is by definition on the focused window; an
+ * agent's request is not (Finding 6 / the IPC-pair bullet).
+ */
+export const CompanionUiRequestSchema = z.object({
+  id: z.string().min(1),
+  action: CompanionUiActionSchema,
+});
+export type CompanionUiRequest = z.infer<typeof CompanionUiRequestSchema>;
+
+/**
+ * The renderer's one-way reply (`ipcRenderer.send`, not `invoke`): main is
+ * already holding a pending promise keyed by `id` (`ui-bridge.ts`), so a
+ * second return value from `invoke` would carry nothing `send` cannot.
+ */
+export const CompanionUiReplySchema = z.object({
+  id: z.string().min(1),
+  result: GitOpResultOf(CompanionUiResultValueSchema),
+});
+export type CompanionUiReply = z.infer<typeof CompanionUiReplySchema>;
+
 // --- the companion's voice (Phase 79 Theme F) -------------------------------
 
 /**
