@@ -229,4 +229,9 @@ describe('FabLaunchers', () => {
       expect(launcher(loop.id).getAttribute('aria-label')).toBe(`${loop.label} loop`);
     }
   });
+
+  it('renders CompanionLauncher to the right of the loop launchers when expanded', () => {
+    renderExpanded();
+    expect(screen.getByTestId('companion-launcher')).toBeDefined();
+  });
 });

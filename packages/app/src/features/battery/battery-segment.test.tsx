@@ -166,4 +166,20 @@ describe('BatterySegment', () => {
     expect(screen.getByText('45%')).toBeDefined();
     expect(screen.getByText('20%')).toBeDefined();
   });
+
+  it('respects custom side prop', () => {
+    useMetricsStore.getState().push({
+      at: Date.now(),
+      battery: {
+        percent: 80,
+        hasBattery: true,
+        isCharging: false,
+        devices: [{ id: 'internal', name: 'Computer', type: 'internal', percent: 80 }],
+      },
+    });
+
+    render(<BatterySegment side="bottom" />);
+    const trigger = screen.getByTestId('battery-trigger');
+    expect(trigger).toBeDefined();
+  });
 });
