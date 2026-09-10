@@ -35,6 +35,7 @@ export const VIEW_IDS = [
   'dashboard',
   'files',
   'search',
+  'optimizer',
   'tests',
   'database',
   'projects',
@@ -48,7 +49,6 @@ export const VIEW_IDS = [
   'workflows',
   'video',
   'sessions',
-  'optimizer',
   'apiClient',
   'settings',
 ] as const;
