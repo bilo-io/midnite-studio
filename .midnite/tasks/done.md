@@ -10962,3 +10962,60 @@ The quieter half is worth remembering: the rebase appended `nav-shell`'s describ
 wave 5's file **without conflicting**, but it reads wave 4's `base` fixture, so it collected as
 `ReferenceError: base is not defined`. Git was satisfied and the code was wrong. Only running
 the tests caught it.
+
+## 2026-09-10 — The notes occluder flake was a phantom tooltip, and the register was wrong
+
+[PR #341](https://github.com/bilo-io/midnite-studio/pull/341). `e2e/notes.spec.ts`'s "opening
+Notes hides the WebContentsView, closing it restores it" had failed CI on #324, #327, #331,
+#333, #335 (twice) and #337 (twice) — eight times, always the same test, always on PRs touching
+nothing near Notes. It blocked #337 outright, which was green on all 17 other checks.
+
+**The cause was not the one recorded yesterday.** The register said its `expect.poll` on the
+visibility sync "loses the race whenever the environment is slow or contended". True as a
+symptom, wrong as a cause. What actually happens:
+
+The pointer has rested on `browser-toggle` since the click that raised the launcher, and every
+step after that is keyboard-only. When the launcher's full-screen modal backdrop unmounts, Chrome
+re-runs hit-testing under the still-stationary cursor and synthesizes a fresh `mouseenter` on
+what is newly exposed there — `browser-toggle` itself — arming `Tooltip`'s 400 ms
+`OPEN_DELAY_MS` for a hover the pointer never re-entered. Nothing moves the mouse to clear it
+(`openNotes` is `Meta+l`/`n`, never a click), so that tooltip opens on its own clock and
+registers as an occluder — `layer: 'tooltip'` occludes by design, Phase 32 Theme E — that
+**nothing ever decrements**, permanently masking the `setVisible(true)` the pane owes once the
+tab becomes a `page`.
+
+So the load-dependence was real but downstream, and **no timeout increase could ever have fixed
+it**: a slower machine just loses by more. The fix is to park the pointer somewhere inert once
+the launcher closes — what a real user's mouse does on its own and a scripted one never does.
+The identical latent trap sat in `browser-pane.spec.ts`'s shared `openBrowser` helper and was
+fixed there too, before it bit a second spec.
+
+The `.at(-1)` assertions were hardened as well, independently: `visibleCalls` is an append-only
+log of every sync, so reading the tail made the assertion order-dependent on a coalesced stream
+it does not control. It now marks the log length before each action and asserts some call from
+that index on has the expected value — strictly stronger, since it still requires a real
+transition and merely stops requiring that transition to be last.
+
+Verified 8/8 under default parallel workers five consecutive times, 29/29 with `browser-pane`
+twice, 8/8 serial. No timeout raised, no wall-clock bound, nothing skipped.
+
+### Two things worth keeping
+
+**A synthesized `mouseenter` after a modal unmounts is a suite-wide hazard, not a Notes quirk.**
+Any spec that clicks something, lets an overlay close over the stationary cursor, and then goes
+keyboard-only can arm a tooltip that occludes. That is a class, and `browser-pane.spec.ts`
+already had it latent.
+
+**A flake register is only worth what its diagnoses are worth.** This entry carried a confident
+wrong cause for a day, and every re-run against it was rational given what it said. Theme F's
+register should mark an entry whose cause has not been *proven by a fix* as unproven, rather than
+letting a plausible story harden into fact. This fix also removes the last remaining
+justification for `playwright.config.ts`'s `retries: 2`.
+
+### An aside on local verification
+
+A first verification round showed 10/29 then 5/29 failures and was discarded rather than chased:
+load average was **63** on this 16 GB machine — a parallel session running ~6 vitest workers plus
+an Antigravity agent at 127% CPU. Re-run once quiet, it was clean. The repo's "false failures on
+a busy machine" hazard is real and the magnitude is worth knowing: broad, multi-spec failure that
+looks exactly like a broken fix.
