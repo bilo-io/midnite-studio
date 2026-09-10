@@ -113,6 +113,39 @@ tasks:
       - '/scripts/perf/**/*'
       - '/packages/shared/src/**/*'
 
+  # The pixel-diff layer — Phase 82 Theme D. Component-scoped `toHaveScreenshot`
+  # crops against `e2e/visual/`, comparing decoded pixels rather than file bytes
+  # (see `docs/outstanding.md`'s retired byte-reproducibility item). Kept OUT of
+  # `:test` for the same chromium-download reason `e2e` is, and out of `e2e`
+  # itself because a font-rendering or anti-aliasing hiccup is a different KIND
+  # of failure from a broken click handler — mixing them means one flaky class
+  # blocks the other's gate. `mergeArgs: replace` is mandatory here for the
+  # identical reason it is on `perf`/`e2e` above: moon's default APPENDS a local
+  # task's args to whatever it inherits, which would run `tsc -b exec
+  # playwright …` instead of the bare `playwright test` this needs.
+  #
+  # `app:build` is NOT a dep — unlike `perf`, no spec here reads `dist`; every
+  # visual spec drives the Vite dev server through the same mocked bridge `e2e`
+  # uses, just against `playwright.visual.config.ts`'s own webServer block.
+  visual:
+    command: 'pnpm exec playwright test --config playwright.visual.config.ts'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+    inputs:
+      - 'src/**/*'
+      - 'e2e/visual/**/*'
+      # Theme D extends this file with the capture-time determinism helpers
+      # every visual spec calls, so it belongs in the hash exactly like
+      # `test-support/**/*` below.
+      - 'e2e/shots-helper.ts'
+      - 'test-support/**/*'
+      - 'playwright.visual.config.ts'
+      - 'vite.config.ts'
+      - '/packages/shared/src/**/*'
+
   # Browser-driven renderer tests against a mocked window.midniteStudio. Kept OUT
   # of the `:test` gate deliberately — it needs a chromium download, which is a
   # poor thing to make `moon run :test` depend on. Run it explicitly, or in CI
