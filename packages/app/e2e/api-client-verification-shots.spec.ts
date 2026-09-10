@@ -23,6 +23,9 @@ import {
  * `api-client-environments.spec.ts`'s own header for the real bug a mouse
  * click on that specific trigger runs into (`Popover`'s scroll-dismiss
  * listener closing the panel it just opened).
+ *
+ * Gated behind `MSTUDIO_SHOTS` like every other shots suite (Phase 82 Theme A)
+ * — committed images, not assertions a normal `app:e2e` run must keep passing.
  */
 const OUT = '../../docs/screenshots/p70-e';
 
@@ -190,6 +193,9 @@ async function openScriptedRequest(page: Page): Promise<void> {
 }
 
 test.describe('Phase 70 Theme E — API Client screenshots', () => {
+  // Ungated, this rewrote ten committed PNGs on every `app:e2e` run.
+  test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
+
   test('the environment editor with a masked row, light', async ({ page }) => {
     await openApiClient(page, { ...fixtures });
     await openEnvironmentSwitcher(page);

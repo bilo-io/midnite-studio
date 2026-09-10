@@ -8,7 +8,21 @@ import {
   shotPath,
 } from './shots-helper';
 
+/**
+ * Ad hoc screenshots of the battery widget's status-bar segment and popover,
+ * across its tiers.
+ *
+ * Unlike every other `*-shots` file, `OUT` points at `/tmp`, not
+ * `docs/screenshots/` — nothing here was ever committed, so this file never
+ * dirtied the working tree. Gated behind `MSTUDIO_SHOTS` anyway (Phase 82
+ * Theme A): the shard-count cost of an ungated `*-shots` file is the same
+ * either way, and its one behavioural assertion (`data-tier`) is already
+ * covered by `battery-segment.test.tsx`.
+ */
 const OUT = '/tmp/battery-shots';
+
+// Ungated, this ran on every `app:e2e` run even though its output is throwaway.
+test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
 
 const data: MockFixtures = {
   ...fixtures,

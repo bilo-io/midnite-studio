@@ -69,7 +69,7 @@ interface Shot {
 
 /**
  * Style, orientation and the two drawing options are all Settings preferences,
- * so each shot seeds them the way `busy-spinner-shots.spec.ts` seeds the write
+ * so each shot seeds them the way `busy-spinner.spec.ts` seeds the write
  * consent — through the persisted store, before the app boots — rather than
  * clicking through the settings view in every screenshot.
  */

@@ -22,6 +22,9 @@ import {
  * one: writes enabled, a fourteen-commit branch, a reviewer already awaiting,
  * and a failed run. A shot of the default state would be a row of greyed
  * buttons, which is a real thing to see but not the thing being reviewed.
+ *
+ * Gated behind `MSTUDIO_SHOTS` like every other shots suite (Phase 82 Theme A)
+ * — committed images, not assertions a normal `app:e2e` run must keep passing.
  */
 
 /* Playwright runs with `packages/app` as its cwd, so the repo-root docs tree is
@@ -258,6 +261,9 @@ async function openPull(page: Page): Promise<void> {
   await expect(page.getByRole('region', { name: 'Pull request #214' })).toBeVisible();
   await page.waitForTimeout(800);
 }
+
+// Ungated, this rewrote five committed PNGs on every `app:e2e` run.
+test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
 
 test('action bar light', async ({ page }) => {
   await openPull(page);
