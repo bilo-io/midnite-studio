@@ -3,6 +3,16 @@ import { expect, test, type Page } from '@playwright/test';
 import { fixtures } from '../test-support/fixtures';
 import { installMockBridge } from '../test-support/mock-bridge';
 
+/**
+ * Phase 82 Theme C wave 5 moved both of this file's tests to
+ * `src/features/repos/repo-favourites.bridge.test.tsx`, mounting `ReposPanel`
+ * directly. The ellipsis-menu round trip stays here too, unweakened, as this
+ * file's one representative smoke test; the right-click context-menu variant
+ * (identical behaviour, a different trigger) was dropped rather than kept as
+ * a redundant duplicate — both are still exercised, in full, in the new
+ * jsdom file.
+ */
+
 const panel = (page: Page) => page.getByRole('complementary', { name: 'Repositories' });
 const REPO = 'midnite-studio';
 
@@ -55,32 +65,6 @@ test.describe('repo favourites', () => {
     await removeFavItem.click();
 
     // Favourites section disappears when there are no favourites left
-    await expect(favSection).not.toBeVisible();
-  });
-
-  test('context menu on repo also offers Add to Favourites / Remove from Favourites', async ({
-    page,
-  }) => {
-    await installMockBridge(page, fixtures);
-    await page.goto('/');
-
-    const repoBtn = panel(page).getByRole('button', { name: REPO, exact: true });
-    await repoBtn.click({ button: 'right' });
-
-    const addFavItem = page.getByRole('menuitem', { name: 'Add to Favourites' });
-    await expect(addFavItem).toBeVisible();
-    await addFavItem.click();
-
-    const favSection = panel(page).getByTestId('repo-favourites-section');
-    await expect(favSection).toBeVisible();
-
-    // Right click the repo inside the favourites section
-    const favRepoBtn = favSection.getByRole('button', { name: REPO, exact: true });
-    await favRepoBtn.click({ button: 'right' });
-    const removeFavItem = page.getByRole('menuitem', { name: 'Remove from Favourites' });
-    await expect(removeFavItem).toBeVisible();
-    await removeFavItem.click();
-
     await expect(favSection).not.toBeVisible();
   });
 });

@@ -6,12 +6,13 @@ import { installMockBridge, type MockFixtures } from '../test-support/mock-bridg
 /**
  * Inline review threads on a pull request's diff (Phase 20 Theme E).
  *
- * The grouping, the anchor mapping and `gh-write.ts`'s command construction are
- * covered under bare vitest, where they belong. What only the assembled app can
- * show is the part the theme exists for: that a thread renders *between the diff
- * rows it is about*, that the gutter on a line opens a composer for that line,
- * and that a posted comment actually comes back — which is the invalidation, and
- * a `ok: true` that changed nothing would otherwise pass.
+ * Migrated to `src/features/reviews/review-threads.bridge.test.tsx` (Phase 82
+ * Theme C, wave 5) — all 10 of the original tests are ported there, one-for-
+ * one. The one test kept here, "an existing thread renders on the line it
+ * was written against", is ALSO ported to jsdom for parity, matching the
+ * precedent `pr-detail.bridge.test.tsx` set for `review-writes.spec.ts`: the
+ * theme's one required browser smoke test per view, proving the assembled
+ * diff + thread panel survives a real render, not only jsdom's.
  */
 
 const MAIN = '/tmp/midnite-studio';
@@ -148,11 +149,6 @@ async function openFiles(page: Page, data: MockFixtures): Promise<void> {
   await expect(page.getByText('const b = 2;')).toBeVisible();
 }
 
-const writes = (page: Page) =>
-  page.evaluate(
-    () => (window as unknown as { __mstudioWrites?: unknown[] }).__mstudioWrites ?? [],
-  );
-
 test('an existing thread renders on the line it was written against', async ({ page }) => {
   await openFiles(page, withThreads([thread()]));
 
@@ -165,165 +161,4 @@ test('an existing thread renders on the line it was written against', async ({ p
   // own summary row, and an unscoped match resolves to both.
   await expect(panel.getByRole('list', { name: 'Thread comments' }).getByText('ana')).toBeVisible();
   await expect(panel.getByText('This reads better as a guard clause.')).toBeVisible();
-});
-
-test('a resolved thread arrives collapsed, and says so', async ({ page }) => {
-  await openFiles(page, withThreads([thread({ resolved: true })]));
-
-  const panel = page.getByTestId('comment-thread');
-  /*
-    `getByRole('img', …)`, not `getByText`: a settled status renders as a bare
-    coloured glyph now, so its word survives only as the mark's accessible
-    name. Asserting on the name rather than on visible text is also the stronger
-    check — it fails if the pill loses the label a screen reader needs.
-  */
-  await expect(panel.getByRole('img', { name: 'Resolved', exact: true })).toBeVisible();
-  // Collapsed, not hidden: the summary counts it and one click opens it.
-  await expect(panel.getByText('This reads better as a guard clause.')).toHaveCount(0);
-  await panel.getByRole('button', { name: /ana/ }).click();
-  await expect(panel.getByText('This reads better as a guard clause.')).toBeVisible();
-});
-
-test('the gutter opens a composer on the line that was clicked, and posts it', async ({ page }) => {
-  await openFiles(page, withThreads([]));
-
-  // Line 2 is the added line — right-side, so commentable.
-  await page.getByRole('button', { name: 'Comment on line 2' }).click();
-  const composer = page.getByTestId('comment-composer');
-  await expect(composer).toBeVisible();
-
-  await composer.getByRole('textbox').fill('Why not a guard clause?');
-  await composer.getByRole('button', { name: 'Add comment' }).click();
-
-  // The write, with the anchor it was actually sent with — invisible in the
-  // rendered result, and the whole thing that could be silently wrong.
-  await expect
-    .poll(() => writes(page))
-    .toMatchObject([
-      {
-        channel: 'reviewComment',
-        request: {
-          number: 42,
-          path: 'src/app.tsx',
-          line: 2,
-          side: 'RIGHT',
-          commitId: HEAD_SHA,
-          // Line 1 (ctx), line 2 (add) → position 2. The fallback anchor rides
-          // along even though the line-based one is what main tries first.
-          position: 2,
-          body: 'Why not a guard clause?',
-        },
-      },
-    ]);
-
-  // And it comes back: the mutation invalidated the thread key and the refetch
-  // is different. A stubbed write that answered `ok` would fail here.
-  await expect(page.getByTestId('comment-thread')).toBeVisible();
-  await expect(page.getByText('Why not a guard clause?')).toBeVisible();
-});
-
-test('a deleted line offers no comment affordance', async ({ page }) => {
-  await openFiles(page, withThreads([]));
-
-  // v1 anchors only to the right side; line 3 is the `-` row.
-  await expect(page.getByRole('button', { name: 'Comment on line 3' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Comment on line 1' })).toBeVisible();
-});
-
-test('replying posts to the last comment in the thread and appears in it', async ({ page }) => {
-  await openFiles(page, withThreads([thread()]));
-
-  const panel = page.getByTestId('comment-thread');
-  await panel.getByRole('button', { name: 'Reply' }).click();
-  await panel.getByRole('textbox').fill('Agreed.');
-  await panel.getByRole('button', { name: 'Reply' }).click();
-
-  await expect
-    .poll(() => writes(page))
-    .toMatchObject([
-      { channel: 'reviewReply', request: { number: 42, commentId: '1234', body: 'Agreed.' } },
-    ]);
-  await expect(page.getByText('Agreed.')).toBeVisible();
-});
-
-test('resolving flips the thread, and the panel reads back resolved', async ({ page }) => {
-  await openFiles(page, withThreads([thread()]));
-
-  const panel = page.getByTestId('comment-thread');
-  await panel.getByRole('button', { name: 'Resolve' }).click();
-
-  await expect
-    .poll(() => writes(page))
-    .toMatchObject([
-      { channel: 'resolveThread', request: { threadId: 'PRRT_one', resolved: true } },
-    ]);
-  await expect(panel.getByRole('img', { name: 'Resolved', exact: true })).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'Reopen' })).toBeVisible();
-});
-
-test("a refused write says what gh said, and keeps the reader's text", async ({ page }) => {
-  await openFiles(
-    page,
-    withThreads([], { writeError: 'You must have write access to this repository' }),
-  );
-
-  await page.getByRole('button', { name: 'Comment on line 2' }).click();
-  const composer = page.getByTestId('comment-composer');
-  await composer.getByRole('textbox').fill('A comment nobody can post');
-  await composer.getByRole('button', { name: 'Add comment' }).click();
-
-  // `gh`'s own sentence, beside the line it was refused on — not a toast that
-  // has already faded by the time the reader looks up.
-  await expect(page.getByText('You must have write access to this repository')).toBeVisible();
-});
-
-test('an outdated thread is grouped above the diff, never pinned to a live line', async ({
-  page,
-}) => {
-  await openFiles(
-    page,
-    withThreads([thread({ id: 'PRRT_old', outdated: true, line: null, originalLine: 40 })]),
-  );
-
-  // Not on line 2 — and not on any line. That is the point of the group: a
-  // thread whose anchor was rewritten away must not be attributed to whichever
-  // row carries that number now.
-  await expect(page.getByTestId('comment-thread')).toHaveCount(0);
-
-  const group = page.getByTestId('outdated-threads');
-  await expect(group).toBeVisible();
-  await expect(group.getByText('1 comment thread no longer in this diff')).toBeVisible();
-
-  await group.getByRole('button', { name: /no longer in this diff/ }).click();
-  await expect(group.getByText('Was on line 40 — no longer in the diff')).toBeVisible();
-  await expect(group.getByText('This reads better as a guard clause.')).toBeVisible();
-});
-
-test('a file-level thread reports itself as being on the file, not a line', async ({ page }) => {
-  await openFiles(
-    page,
-    withThreads([thread({ id: 'PRRT_file', fileLevel: true, line: null, originalLine: null })]),
-  );
-
-  const group = page.getByTestId('outdated-threads');
-  await group.getByRole('button', { name: /no longer in this diff/ }).click();
-  await expect(group.getByText('On the file, not a line')).toBeVisible();
-});
-
-test('the Changes page diff grows no comment gutter', async ({ page }) => {
-  // `DiffView` is shared by three surfaces and only one of them has review
-  // threads. The gate is `threads`/`onComment` being absent, and this is the
-  // assertion that the gate holds — a working-tree diff must never offer to
-  // post a pull-request comment.
-  await installMockBridge(page, {
-    ...fixtures,
-    remotes: REMOTES,
-  });
-  await page.goto('/');
-
-  await page.getByText('feat(phase-11): package, install and run from /Applications').click();
-  await page.getByRole('button', { name: /window\.ts/ }).click();
-  await expect(page.getByTestId('diff-view')).toBeVisible();
-
-  await expect(page.getByRole('button', { name: /^Comment on line/ })).toHaveCount(0);
 });
