@@ -123,6 +123,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'window.detachRepos': LuPanelLeft,
   'window.detachFab': LuPanelRight,
   'window.detachBrowser': LuGlobe,
+  'window.detachCompanion': LuBot,
   'markdown.presentAsSlides': LuSparkles,
   'theme.select': LuPalette,
   'theme.import': LuUpload,

@@ -370,7 +370,19 @@ export function useBroadcastSync(): void {
 
     const onChannelMessage = (event: MessageEvent<SyncMessage>): void => onMessage(event.data);
     channel?.addEventListener('message', onChannelMessage);
-    const unsubscribeRelay = bridge()?.window.onRelayed(onMessage);
+    // Phase 81 Theme B added a `'companion'` relay kind this module does not
+    // own (`use-window-sync.ts`/`navigate.ts` do — see `WindowRelayMessage`'s
+    // own comment) — filtered out here rather than widening `SyncKind`, so
+    // `applyIncoming`'s switch stays total over exactly the kinds this file
+    // is authoritative for.
+    const unsubscribeRelay = bridge()?.window.onRelayed((message) => {
+      if (message.kind === 'companion') return;
+      // `WindowRelayMessage`'s zod-inferred type is one object shape with
+      // `kind` as a union property, not a discriminated union of shapes — so
+      // the guard above narrows `message.kind` but not `message` as a whole.
+      // The exclusion still holds; this cast is what TS cannot derive alone.
+      onMessage(message as SyncMessage);
+    });
 
     let lastUi = pickUi(useUiStore.getState());
     const unsubUi = useUiStore.subscribe((state) => {

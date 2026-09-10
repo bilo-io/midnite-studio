@@ -1397,6 +1397,7 @@ export type AgentCommandId =
   | 'execSwarm'
   | 'prReview'
   | 'prFeedback'
+  | 'triage'
   | 'releasePrep'
   | 'releaseComplete'
   | 'gitReport'
@@ -1440,6 +1441,7 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   execSwarm: '/midnite-exec-swarm',
   prReview: '/pr-review',
   prFeedback: '/pr-feedback',
+  triage: '/midnite-triage',
   releasePrep: '/midnite-release-prep',
   releaseComplete: '/midnite-release-complete',
   gitReport: '/midnite-git-report',

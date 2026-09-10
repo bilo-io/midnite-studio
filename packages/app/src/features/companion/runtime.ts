@@ -17,6 +17,7 @@ import {
   HANDOFF_START_GRACE_MS,
   type HandoffDeps,
 } from './handoff';
+import { navigateCompanion } from './navigate';
 import { silentSpeaker, type Speaker } from './ports';
 import { vocabularyFor } from './vocabulary';
 import { skillHandoff } from '../agent/use-skill-handoff';
@@ -217,6 +218,7 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
     pendingAction: () => useCompanionStore.getState().pendingAction,
     setPendingAction: (action) => useCompanionStore.getState().setPendingAction(action),
     vocabulary: () => vocabularyCache ?? vocabularyFor([]),
+    navigate: (intent) => navigateCompanion(intent),
   };
 }
 

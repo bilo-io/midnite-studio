@@ -376,6 +376,13 @@ export const COMMANDS = [
   { id: 'window.detachRepos', label: 'Detach Git Repos', group: 'window' },
   { id: 'window.detachFab', label: 'Detach Loops Panel', group: 'window' },
   { id: 'window.detachBrowser', label: 'Detach Browser', group: 'window' },
+  /**
+   * Phase 81 Theme B: the one panel role with no detach command of its own —
+   * every other panel gets a chord-free palette row here, and only the
+   * companion's own header button could reach this before. Chord-free, same
+   * as its four siblings.
+   */
+  { id: 'window.detachCompanion', label: 'Detach Companion', group: 'window' },
 ] as const satisfies readonly CommandDescriptorInput[];
 
 export type CommandDescriptor = (typeof COMMANDS)[number];

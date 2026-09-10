@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from './fixtures';
-import { installMockBridge } from './mock-bridge';
+import { clickRailLink, installMockBridge, type MockFixtures } from './mock-bridge';
 
 /**
  * The companion panel (Phase 79 Themes C + H).
@@ -699,4 +699,109 @@ test('confirm: an empty Return runs the identical pending action', async ({ page
 
   await expect(page.getByTestId('companion-pending-run')).toHaveCount(0);
   await expect(page.getByTestId('companion-thread')).toContainText('Lock Screen.');
+});
+
+// --- Phase 81 Theme B: "take me to the graph" ------------------------------
+
+async function submit(page: Page, text: string): Promise<void> {
+  const input = page.getByTestId('companion-input');
+  await input.fill(text);
+  await input.press('Enter');
+}
+
+test('"take me to the graph" navigates there and names it in the thread', async ({ page }) => {
+  await seedCompanionEnabled(page);
+  await open(page);
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+
+  // Off Graph first (the app's own default), so the assertion below proves a
+  // real transition rather than "stayed where it already was".
+  await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toHaveCount(0);
+
+  await submit(page, 'take me to the graph');
+
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+  await expect(page.getByTestId('companion-thread')).toContainText('Commit Graph');
+});
+
+test('"open settings, the companion page" lands on the Companion settings page', async ({ page }) => {
+  await seedCompanionEnabled(page);
+  await open(page);
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+
+  await submit(page, 'open settings, the companion page');
+
+  await expect(page.getByTestId('companion-enable')).toBeVisible();
+  await expect(page.getByTestId('companion-thread')).toContainText('Settings');
+});
+
+test('a detached page is focused rather than reopened, and the docked view does not change', async ({
+  page,
+}) => {
+  await seedCompanionEnabled(page);
+  // `useWindowSync` reconciles `detachedPages` off `window.list()` — seeding
+  // `openPopoutRoles` here is what makes the Graph page report as already
+  // detached, the same fixture `detached-pages-shots.spec.ts` uses.
+  await stubSpeechAndAudio(page);
+  await installMockBridge(page, { ...fixtures, openPopoutRoles: ['graph'] } as MockFixtures);
+  await page.goto('/');
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+
+  await submit(page, 'show me the graph');
+
+  await expect(page.getByTestId('companion-thread')).toContainText('own window');
+  // Still docked and rendering — a focus, never a second copy.
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+
+  const focusCalls = await page.evaluate(
+    () => (window as unknown as { __mstudioFocusRoleCalls: Array<{ role: string }> }).__mstudioFocusRoleCalls,
+  );
+  expect(focusCalls).toEqual(expect.arrayContaining([{ role: 'graph' }]));
+});
+
+test('a navigate that would leave a dirty file defers to the unsaved-file guard, and touches nothing', async ({
+  page,
+}) => {
+  await seedCompanionEnabled(page);
+  await stubSpeechAndAudio(page);
+  await installMockBridge(page, {
+    ...fixtures,
+    fsDirs: { 'repo:': [{ name: 'a.ts', kind: 'file', size: 20, isIgnored: false }] },
+    fsFiles: {
+      'repo:a.ts': { kind: 'text', content: 'const answer = 42;\n', size: 20, version: { mtimeMs: 1, size: 20 } },
+    },
+  } as MockFixtures);
+  await page.goto('/');
+  await clickRailLink(page, 'Explorer');
+  await page.getByRole('treeitem', { name: /^a\.ts$/ }).click();
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await page.locator('.monaco-editor .view-lines').click();
+  await page.keyboard.type('x');
+  await expect(page.getByTitle('Unsaved changes')).toBeVisible();
+
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+
+  await submit(page, 'take me to the graph');
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Save changes to "a.ts"?');
+  await expect(page.getByTestId('companion-thread')).toContainText('unsaved file');
+  // Still up after the turn posted — the companion touched nothing further.
+  await expect(dialog).toBeVisible();
+  await expect(page.getByTitle('Unsaved changes')).toBeVisible();
 });

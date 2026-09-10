@@ -285,6 +285,11 @@ export function useCommandHandlers(): CommandRuntime {
       : browserDetached
         ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
         : { enabled: true, run: () => bridge()?.window.detach({ role: 'browser' }) },
+    'window.detachCompanion': !isMainWindow
+      ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
+      : companionDetached
+        ? { enabled: false, disabledReason: 'Already open in a detached window', run: () => {} }
+        : { enabled: true, run: () => bridge()?.window.detach({ role: 'companion' }) },
     'window.detachActive': !isMainWindow
       ? { enabled: false, disabledReason: 'Only available in the main window', run: () => {} }
       : activeDetachRole

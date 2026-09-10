@@ -1,5 +1,6 @@
 import {
   COMPANION_COMMAND_IDS,
+  COMPANION_NEVER_AUTOSEND,
   COMPANION_READBACK_TAIL_CHARS,
   extractLastAgentTurn,
   parseIntent,
@@ -86,6 +87,16 @@ export type HandoffDeps = ConciergeDeps & {
    * hand, and never a second copy of the palette's own tables (Finding 2).
    */
   vocabulary: () => CompanionVocabulary;
+  /**
+   * Carry out a `navigate` intent and say what happened — `navigate.ts`'s
+   * `navigateCompanion`, assembled here so `handoff.ts` never imports a store
+   * directly (Theme B). Returns rather than speaks: `act()`'s `navigate` arm
+   * is what calls {@link say}, the same as every other arm, so a fake in a
+   * test can assert on the returned sentence without a speaker double.
+   */
+  navigate: (
+    intent: Extract<CompanionIntent, { kind: 'navigate' }>,
+  ) => Promise<{ say: string }>;
 };
 
 /**
@@ -184,11 +195,15 @@ async function act(
     case 'command':
       return startCommand(intent, deps);
 
-    // Stub — Theme B replaces this with the real navigation/window/relay
-    // logic. Left as-is here: Theme C owns `run`/`confirm`/`help` only.
-    case 'navigate':
-      await say(deps, "I can't do that yet.");
+    // Theme B: `deps.navigate` has already decided and executed everything —
+    // this speaks whatever it reports back, exactly the shape every other arm
+    // takes. The `run`/`confirm`/`help` arms below are Theme C's, and are no
+    // longer stubs, so nothing falls through to "I can't do that yet." here.
+    case 'navigate': {
+      const outcome = await deps.navigate(intent);
+      await say(deps, outcome.say);
       return;
+    }
 
     case 'run':
       return runById(intent.id, deps);
@@ -261,7 +276,12 @@ async function startCommand(
 
   if (deps.store.send('submit') !== 'thinking') return;
 
-  const autoSend = deps.autoSendAllowed();
+  // Decision-adjacent (Phase 81 Theme D): `releasePrep`'s Return is never the
+  // companion's to press, even when hands-free and a voice-input provider
+  // would otherwise allow it — the one skill in the roster that writes a
+  // release branch.
+  const wouldAutoSend = deps.autoSendAllowed();
+  const autoSend = wouldAutoSend && !COMPANION_NEVER_AUTOSEND.includes(intent.id);
   const session = deps.startSkill({
     skillId: intent.id,
     ...(intent.body === undefined ? {} : { body: intent.body }),
@@ -291,7 +311,9 @@ async function startCommand(
     deps,
     autoSend
       ? `Running ${command} now.`
-      : `I have typed ${command} in a new session — press Return when you are ready.`,
+      : wouldAutoSend
+        ? `I have typed ${command} — this one I always leave for you to send.`
+        : `I have typed ${command} in a new session — press Return when you are ready.`,
   );
 
   deps.store.send('handoff');
@@ -675,4 +697,6 @@ export const COMMAND_SPOKEN_NAMES: Record<CompanionCommandId, string> = {
   prFeedback: 'a PR feedback pass',
   gitReport: 'a git report',
   gitCleanup: 'a git cleanup',
+  triage: 'a triage',
+  releasePrep: 'release prep',
 };
