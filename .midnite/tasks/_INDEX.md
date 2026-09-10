@@ -8,7 +8,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 47/76 | `██████░░░░` | 62% | — | C D F G |
+| [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | ◻ TODO | — | 0/25 | `░░░░░░░░░░` | 0% | — | A B C D E |
+| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 46/75 | `██████░░░░` | 61% | — | C D F G |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | ✅ DONE | — | 50/53 | `█████████░` | 94% | — | — |
 | [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 24/31 | `████████░░` | 77% | — | — |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | ✅ DONE | — | 57/67 | `█████████░` | 85% | — | — |
@@ -179,6 +180,24 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 83 — Third-party apps rail](phases/phase-83-third-party-apps-rail.md)
+
+*A bottom-of-rail toggle row for Spotify, Google Calendar and YouTube, each an isolated
+`WebContentsView` in its own `persist:app-<id>` partition, shown one at a time in a
+dismiss-on-click-away flyout left of the repos sidebar, and each independently detachable into its
+own floating window (more than one at once). Reuses Phase 32's embedded-view security posture and
+Phase 55's window-role detach/re-dock machinery; the new part is per-app session isolation and a
+literal window role per app so simultaneous multi-app detach falls out for free.*
+
+- ◻ **A** — Shared app registry & domain types (`AppId`/`AppDefinition` in `shared`, 3 new
+  `PANEL_WINDOW_ROLES` literals, persisted `enabledApps`)
+- ◻ **B** — Main-process apps service (`apps-service.ts`, per-app `persist:app-<id>` partitions,
+  reused browser security posture)
+- ◻ **C** — Rail + flyout UI (footer-slot toggle row, `react-icons/si` brand marks, the flyout panel)
+- ◻ **D** — Independent detach per app (per-app popout via `window-manager.ts`, simultaneous
+  multi-app detach)
+- ◻ **E** — Settings on/off switches
 
 ### [Phase 82 — The pyramid, righted](phases/phase-82-the-pyramid-righted.md)
 
