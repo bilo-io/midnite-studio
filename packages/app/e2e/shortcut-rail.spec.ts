@@ -41,6 +41,17 @@ async function narrowUntilDensity(
  * Deliberately not a screenshot suite — the density × state matrix belongs to
  * Theme G, which is not in this PR. These are the behavioural assertions that
  * would break silently under a refactor.
+ *
+ * **Six of this spec's original twelve tests moved to
+ * `status-bar.bridge.test.tsx` under jsdom** (Phase 82 Theme C, wave 1) — the
+ * separator-pruning and zone/render-order tests, none of which needed real
+ * CSS or real layout. The six tests remaining here are a genuine geometry/CSS
+ * straggler: the three name-reveal tests turn on a `[data-density]`-scoped
+ * rule in `styles.css` that jsdom never applies (see `status-toggle.tsx`'s own
+ * comment), the two density tests need real measured `scrollWidth`/
+ * `clientWidth` narrowing jsdom cannot produce, and "the palette and
+ * Go-to-File live only on the rail" asserts an ABSENCE in the title bar — a
+ * different component, so the check is inherently cross-component.
  */
 const left = (page: Page) => page.getByTestId('status-bar-left');
 
@@ -145,114 +156,6 @@ test('the palette and Go-to-File live only on the rail', async ({ page }) => {
 });
 
 /**
- * The lit state is real, not decorative — it follows `palette-store`'s `isOpen`
- * and `mode`.
- *
- * Closing is asserted with Escape rather than a second click: the open palette
- * is a modal and its overlay covers the rail, so a click on the toggle behind
- * it cannot land — which is correct app behaviour, not a bug in the toggle. The
- * un-press path itself is covered directly in `palette-toggle.test.tsx`.
- */
-test('the palette toggle lights while the palette is open', async ({ page }) => {
-  await open(page);
-  const palette = page.getByTestId('palette-toggle');
-  await expect(palette).toHaveAttribute('aria-pressed', 'false');
-  await palette.click();
-  await expect(palette).toHaveAttribute('aria-pressed', 'true');
-  await page.keyboard.press('Escape');
-  await expect(palette).toHaveAttribute('aria-pressed', 'false');
-});
-
-/**
- * Separators are derived from group boundaries and then pruned against the DOM.
- * The left zone declares two — `shortcuts` | `health` and `health` | `live` —
- * and with no diagnostics to report the `health` group between them renders
- * nothing, so BOTH must be pruned.
- *
- * It used to be one rather than none: `live` still held the loop-launcher
- * strip, which never returns `null`, so the `shortcuts` | `live` boundary had
- * something on both sides of it. Since that strip and the agent count moved to
- * the title bar, `live` is `ReattachedNote` alone — a dismissible one-shot
- * notice — and the ordinary resting state of the zone is `shortcuts` and
- * nothing after it. Same mechanism, one group further along.
- */
-test('an empty health group prunes both of the zone’s separators', async ({ page }) => {
-  /*
-    A repo with no linter is the only state in which the health group renders
-    *nothing*: every other arm still offers an "Enable diagnostics" prompt,
-    which is a rendered segment and correctly keeps both of its separators. That
-    distinction is exactly why the pruning reads the DOM rather than the
-    registry — `STATUS_SEGMENTS` cannot tell these two cases apart.
-  */
-  await installMockBridge(page, {
-    ...fixtures,
-    diagnostics: {
-      trust: { state: 'no-command', command: null, trustedAt: null },
-      candidates: [],
-    },
-  });
-  await page.goto('/');
-  await expect(page.getByTestId('status-bar')).toBeVisible();
-  await expect(page.getByTestId('diagnostics-segment')).toHaveCount(0);
-  await expect(page.getByTestId('diagnostics-enable')).toHaveCount(0);
-
-  const separators = left(page).locator('[data-status-sep]');
-  await expect(separators).toHaveCount(2);
-  await expect(left(page).locator('[data-status-sep]:not([hidden])')).toHaveCount(0);
-});
-
-/**
- * The other half of the pair: with diagnostics reporting, the
- * `shortcuts` | `health` rule has content on both sides and survives, while the
- * `health` | `live` one behind it is still stranded and still pruned. One
- * fixture change, one separator's worth of difference — which is the whole
- * assertion.
- */
-test('a populated health group earns exactly one separator', async ({ page }) => {
-  await installMockBridge(page, {
-    ...fixtures,
-    diagnostics: { trust: { state: 'trusted', command: null, trustedAt: Date.now() } },
-  });
-  await page.goto('/');
-  await expect(page.getByTestId('diagnostics-segment')).toBeVisible();
-  await expect(left(page).locator('[data-status-sep]:not([hidden])')).toHaveCount(1);
-});
-
-/** Diagnostics is a fact about the checkout, and Theme D moved it accordingly. */
-test('diagnostics sits in the left zone, not the right', async ({ page }) => {
-  await installMockBridge(page, {
-    ...fixtures,
-    diagnostics: { trust: { state: 'trusted', command: null, trustedAt: Date.now() } },
-  });
-  await page.goto('/');
-  await expect(left(page).locator('[data-testid="diagnostics-segment"]')).toHaveCount(1);
-  await expect(
-    page.getByTestId('status-bar-right').locator('[data-testid="diagnostics-segment"]'),
-  ).toHaveCount(0);
-});
-
-/** Render order and collapse order agree — the priority inversion Theme B fixed. */
-test('the rail renders repos, terminal, explorer, browser, activity, palette, files in that order', async ({
-  page,
-}) => {
-  await open(page);
-  const ids = await left(page).evaluate((el) =>
-    Array.from(el.children)
-      .map((child) => child.getAttribute('data-testid'))
-      .filter((id): id is string => id !== null),
-  );
-  expect(ids.slice(0, 7)).toEqual([
-    'repos-toggle',
-    'terminal-toggle',
-    'explorer-toggle',
-    'browser-toggle',
-    'activity-toggle',
-    'palette-toggle',
-    'files-toggle',
-  ]);
-});
-
-/**
  * Density beats state: at `compact` no toggle shows a name, active or not.
  *
  * The rule lives in one place (`.status-label` under `[data-density]`) and this
@@ -302,34 +205,5 @@ test('the overflow popover shows every rail toggle’s name', async ({ page }) =
   for (const name of ['Git Repos', 'Terminal', 'Browser', 'Palette', 'Go to File']) {
     await expect(panel.getByText(name, { exact: true })).toBeVisible();
   }
-});
-
-/**
- * The `MutationObserver` path — the sole reason the observer exists, and
- * previously untested because both separator specs set their fixture before
- * `page.goto`.
- *
- * Granting diagnostics trust makes the `health` group render for the first time
- * *after* mount. Nothing re-renders `StatusBar`, so only the observer can notice
- * that the separator it pruned now has something on both sides of it.
- */
-test('a segment appearing after mount restores its pruned separator', async ({ page }) => {
-  await installMockBridge(page, {
-    ...fixtures,
-    diagnostics: {
-      trust: { state: 'untrusted', command: { id: 'eslint', bin: 'eslint', args: ['.'] } },
-      candidates: [{ id: 'eslint', label: 'ESLint' }],
-    },
-  } as never);
-  await page.goto('/');
-  await expect(page.getByTestId('status-bar')).toBeVisible();
-
-  // Untrusted still renders a prompt, so the group is populated and its leading
-  // rule comes back. Its trailing one stays pruned: `live` is empty in this
-  // fixture, as it is in every ordinary session now that the agent cluster has
-  // moved to the title bar.
-  const enable = page.getByTestId('diagnostics-enable');
-  await expect(enable).toBeVisible();
-  await expect(left(page).locator('[data-status-sep]:not([hidden])')).toHaveCount(1);
 });
 
