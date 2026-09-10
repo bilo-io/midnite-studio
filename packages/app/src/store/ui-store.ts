@@ -168,6 +168,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'mcp', label: 'MCP Server', group: 'tools' },
   { id: 'companion', label: 'Companion', group: 'tools' },
   { id: 'browser', label: 'Browser', group: 'tools' },
+  { id: 'apps', label: 'Apps', group: 'tools' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
   { id: 'updates', label: 'App Updates', group: 'system' },
   { id: 'health', label: 'System Health', group: 'system' },
@@ -1402,6 +1403,31 @@ export type UiState = {
    */
   enabledApps: AppId[];
   setAppEnabled: (id: AppId, enabled: boolean) => void;
+  /**
+   * Which of the three apps rail roles currently have a popout of their own
+   * (Phase 83 Theme D) — the `detachedPages` shape, not the four-panel
+   * `*Detached` boolean quartet: a plain array of independent instances that
+   * all behave identically, rather than one flag per named field. NOT
+   * persisted, for the same reason `detachedPages` isn't: nothing renders a
+   * permanently-mounted docked slot for an app the way the terminal/repos/fab/
+   * companion quartet does (the flyout is ephemeral and already unpersisted),
+   * so a stale `true` here could only mis-decide "open the flyout" vs. "focus
+   * the popout" for a window that no longer exists — `use-window-sync.ts`
+   * corrects it from main's own registry on the first round trip regardless.
+   */
+  detachedApps: readonly AppId[];
+  setAppDetached: (id: AppId, detached: boolean) => void;
+  /**
+   * Which enabled app the rail's flyout is currently showing, or `null` when
+   * it is closed — the flyout has no tab strip (Theme C), so the rail icons
+   * ARE the switcher and this is the one piece of state that says which of
+   * them is on top. NOT persisted: a dismiss-on-click-away panel with no
+   * resizable layout slot of its own starts fresh every launch, the same as
+   * `companionPanelOpen`.
+   */
+  appsFlyoutAppId: AppId | null;
+  openAppsFlyout: (id: AppId) => void;
+  closeAppsFlyout: () => void;
   passcode: string | null;
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
@@ -1785,6 +1811,8 @@ export const useUiStore = create<UiState>()(
       disabledEcosystems: [],
       // Enabled set, not a disabled one — see the interface docblock.
       enabledApps: [],
+      detachedApps: [],
+      appsFlyoutAppId: null,
       passcode: null,
       setPasscode: (passcode) => set({ passcode }),
       passcodeOnlyWhenLocked: false,
@@ -2227,6 +2255,18 @@ export const useUiStore = create<UiState>()(
               : [...state.enabledApps, id]
             : state.enabledApps.filter((entry) => entry !== id),
         })),
+      // Mirrors `setPageDetached` — add/remove from the array rather than a
+      // per-role boolean field, since all three roles behave identically.
+      setAppDetached: (id, detached) =>
+        set((state) => ({
+          detachedApps: detached
+            ? state.detachedApps.includes(id)
+              ? state.detachedApps
+              : [...state.detachedApps, id]
+            : state.detachedApps.filter((entry) => entry !== id),
+        })),
+      openAppsFlyout: (id) => set({ appsFlyoutAppId: id }),
+      closeAppsFlyout: () => set({ appsFlyoutAppId: null }),
       setAutoFetchIntervalMs: (autoFetchIntervalMs) => set({ autoFetchIntervalMs }),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
       setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),

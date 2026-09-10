@@ -1,6 +1,7 @@
 import * as Go from 'react-icons/go';
 import * as Lu from 'react-icons/lu';
 import * as Pi from 'react-icons/pi';
+import * as Si from 'react-icons/si';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -62,6 +63,9 @@ const SETS = [
   ['go', 'Go', Go, 3],
   // Phosphor: `metric-icons.ts`'s footer glyphs and the Optimizer's broom.
   ['pi', 'Pi', Pi, 1],
+  // Simple Icons: `AGENT_ICONS`' brand marks (Cline, Cursor, GitHub Copilot,
+  // Gemini, ...) plus the apps rail's three (Phase 83 Theme C).
+  ['si', 'Si', Si, 8],
 ] as const;
 
 describe.each(SETS)('react-icons/%s imports', (set, prefix, module, floor) => {

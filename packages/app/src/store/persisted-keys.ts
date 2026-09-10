@@ -93,10 +93,7 @@ export const PREFERENCE_KEYS = [
   'editorTabSize',
   'editorWordWrap',
 
-  // Phase 83 Theme A adds the key; Theme E (out of scope for the Theme A/B
-  // PR that landed it) builds the settings page with its on/off switches.
-  // See `KNOWN_ORPHANS` below and `outstanding.md`.
-  'enabledApps',
+  'enabledApps', // apps-page.tsx
 
   // Phase 79 Theme H's page. Registered orphans between Theme A (which added
   // the five preferences) and Theme H (which built the page) — and no longer
@@ -170,10 +167,8 @@ export const SESSION_STATE_KEYS = [
  * one phase slice, and Theme H's `companion-page.tsx` removed them — the
  * intended lifecycle for an entry in this list, and the one worth naming: an
  * orphan is parked here with a named page and leaves when that page ships.
- *
- * `enabledApps` (Phase 83 Theme A) is the same shape one more time: Theme B
- * (main-process apps service) landed in the same PR with no settings page of
- * its own, since Theme E (the on/off switches) is later in the same phase.
+ * `enabledApps` (Phase 83 Theme A/B, resolved by Theme E's `apps-page.tsx`)
+ * is the identical shape a third time.
  */
 export const KNOWN_ORPHANS = [
   'browserLayout',
@@ -187,7 +182,6 @@ export const KNOWN_ORPHANS = [
   'editorMinimap',
   'editorTabSize',
   'editorWordWrap',
-  'enabledApps',
 ] as const satisfies readonly (typeof PREFERENCE_KEYS)[number][];
 
 type PartitionedKey = (typeof PREFERENCE_KEYS)[number] | (typeof SESSION_STATE_KEYS)[number];

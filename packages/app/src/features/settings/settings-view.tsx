@@ -11,6 +11,7 @@ import {
 import { AgentPage } from './settings-pages/agent-page';
 import { ApiClientPage } from './settings-pages/api-client-page';
 import { AppearancePage } from './settings-pages/appearance-page';
+import { AppsPage } from './settings-pages/apps-page';
 import { BrowserPage } from './settings-pages/browser-page';
 import { CliPage } from './settings-pages/cli-page';
 import { CompanionPage } from './settings-pages/companion-page';
@@ -60,6 +61,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   companion: () => <CompanionPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,
+  apps: () => <AppsPage />,
   cli: () => <CliPage />,
   updates: () => <UpdatesPage />,
   health: () => <HealthPage />,
