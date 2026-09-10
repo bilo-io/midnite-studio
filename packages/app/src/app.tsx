@@ -29,6 +29,9 @@ import { BrowserSwitcherOverlay } from './features/browser/browser-switcher-over
 import { NotesModal } from './features/notes/notes-modal';
 import { QuickAccessMenu } from './features/quick-access/quick-access-menu';
 import { BrowserPane } from './features/browser/browser-pane';
+import { AppsFlyoutPanel } from './features/apps/apps-flyout-panel';
+import { AppsRailRow } from './features/apps/apps-rail-row';
+import { useAppsSync } from './features/apps/use-apps-sync';
 import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
 import { ErrorBoundary } from './components/error-boundary';
@@ -534,6 +537,9 @@ function Shell() {
   // The single source of truth for the four flags above is main's own
   // window registry (Phase 55) — see the hook's own doc for why.
   useWindowSync();
+  // Reconciles `enabledApps` against main's apps-service on mount and on
+  // every change (Phase 83 Theme C) — see the hook's own doc.
+  useAppsSync();
   /*
     Keeps the companion's state machine in step with its master switch. At the
     root rather than in the panel: the FAB, the mini FAB and the quick-access
@@ -1076,6 +1082,7 @@ function Shell() {
         // space, so without it the Settings row would sit on the hairline.
         <div className="flex w-full flex-col gap-1 pb-3">
           <RailLockButton expanded={expanded} />
+          <AppsRailRow expanded={expanded} />
           <button
             type="button"
             onClick={() => useUiStore.getState().setActiveView('settings')}
@@ -1475,6 +1482,15 @@ function Shell() {
               <BrowserPane shown={browserReveal.shown} />
             )
           ) : null}
+
+          {/*
+            The apps rail's flyout (Phase 83 Theme C) — an absolutely
+            positioned overlay in this same row, at the rail's own left edge
+            rather than anchored to one rail icon's rect (see the component's
+            own doc for why `Popover` doesn't fit). Always rendered: it draws
+            nothing while `appsFlyoutAppId` is `null`.
+          */}
+          <AppsFlyoutPanel />
 
           {/*
             Companion panel (Phase 79 Theme C) — docked on the right, and
