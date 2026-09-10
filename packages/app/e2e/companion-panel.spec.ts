@@ -23,6 +23,29 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * switch gates the panel, `C` opens it, the input bar posts a turn, the thread
  * renders it, and the state attribute the FAB choreography keys off is on the
  * elements it is supposed to be on.
+ *
+ * Phase 82 Theme C, wave 4: this file had grown to 20 tests since the wave
+ * was scoped at ~11 — Phase 81 Theme C added 9 command-routing tests
+ * ("direct"/"confirm"/"never") after that estimate. Those 9 are untouched:
+ * they exercise the concierge's real command runtime end to end (a real
+ * `terminal-toggle` status-bar button flipping, a real navigate to Graph, a
+ * real detached-window focus — Electron-only, impossible in jsdom), which
+ * `handoff.test.ts`'s "submitInput — Theme C, doing things there" describes
+ * covers only at the pure-logic layer. Of the *original* 11, 9 moved to
+ * `src/features/companion/companion-panel-workbench.bridge.test.tsx`. **2
+ * stay**: "the docked panel sits between the view and the Loops panel" needs
+ * `app.tsx`'s own resize-tween machinery (the frames the DOM-order assertion
+ * reads), and "thread rows never overlap…" is real-layout geometry
+ * (`getBoundingClientRect()` after a real resize) — both out of jsdom's
+ * reach. The other 9 were already covered, more granularly, by
+ * `companion-panel.test.tsx` (typing/Escape, both mic states, markdown
+ * rendering, per-turn timestamps, the header's clear-confirm gate) mounting
+ * `CompanionPanel` against synthetic `companion-ports.ts` fakes — porting
+ * them again would have been the weaker stand-in the phase doc warns
+ * against — except the greeting's *real* formatted-turn content (a real PR
+ * link from the real digest), which the new bridge test ported forward
+ * rather than dropped, and the Settings ▸ Companion "Speak replies aloud"
+ * switch and the gating flow itself, both genuinely new coverage there.
  */
 
 /** Enough of the Web Speech and WebAudio surfaces for the app to boot without them. */
@@ -154,63 +177,7 @@ async function open(page: Page): Promise<void> {
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 }
 
-const menu = (page: Page) => page.getByTestId('quick-access-menu');
 const panel = (page: Page) => page.getByTestId('companion-panel');
-
-test('companion disabled: the C leaf is disabled with its reason and the popover offers the enable row', async ({
-  page,
-}) => {
-  await open(page);
-  await page.keyboard.press('Meta+l');
-  await expect(menu(page)).toBeVisible();
-
-  await expect(menu(page).getByTestId('companion-strip')).toContainText(
-    'Enable the companion in Settings',
-  );
-  const leaf = menu(page).getByTestId('quick-access-row-c');
-  await expect(leaf).toHaveAttribute('aria-disabled', 'true');
-
-  await page.keyboard.press('c');
-  // The hint shows, the menu stays up, and no panel appears — a disabled row
-  // is a no-op with an explanation, never a dead end that closes the menu.
-  await expect(menu(page)).toBeVisible();
-  await expect(menu(page).getByText('Enable in Settings ▸ Companion')).toBeVisible();
-  await expect(panel(page)).toHaveCount(0);
-});
-
-test('Settings ▸ Companion enables it, and then C opens the panel', async ({ page }) => {
-  await open(page);
-
-  // The bottom-of-rail Settings entry is a plain button, not a router link.
-  await page.getByRole('button', { name: 'Settings' }).click();
-  await page
-    .getByRole('navigation', { name: 'Settings pages' })
-    .getByRole('button', { name: 'Companion', exact: true })
-    .click();
-  await page.getByTestId('companion-enable').check();
-  await expect(page.getByTestId('companion-enable')).toBeChecked();
-
-  await page.keyboard.press('Meta+l');
-  await expect(menu(page)).toBeVisible();
-  await expect(menu(page).getByTestId('quick-access-row-c')).not.toHaveAttribute(
-    'aria-disabled',
-    'true',
-  );
-
-  await page.keyboard.press('c');
-  await expect(menu(page)).toHaveCount(0);
-  await expect(panel(page)).toBeVisible();
-
-  /*
-    The panel greets on open (Theme D), so the header passes through
-    "Saying hello…" before it comes back to rest. Asserting the *destination*
-    rather than the instant: `toHaveText` retries, so this is the honest
-    reading of "the greeting runs and finishes", and it would fail both for a
-    greeting that never started and for one that wedged half way.
-  */
-  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
-  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
-});
 
 test('the docked panel sits between the view and the Loops panel', async ({ page }) => {
   await seedCompanionEnabled(page);
@@ -239,267 +206,6 @@ test('the docked panel sits between the view and the Loops panel', async ({ page
       : 'loops-first';
   });
   expect(order).toBe('companion-first');
-});
-
-test('typing a message posts it into the thread, and Escape clears without closing', async ({
-  page,
-}) => {
-  await seedCompanionEnabled(page);
-  await open(page);
-  await page.keyboard.press('Meta+l');
-  await page.keyboard.press('c');
-  await expect(panel(page)).toBeVisible();
-
-  // Not the empty state any more: Theme D greets on open, so what a freshly
-  // opened panel shows is the overview built from the snapshot.
-  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
-  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
-
-  const input = page.getByTestId('companion-input');
-  await input.fill('start an adhoc task');
-  // Shift+Enter is a newline, not a send — the multi-line case an agent prompt
-  // actually needs.
-  await input.press('Shift+Enter');
-  // Still nothing sent — the turn count is what says so now that the thread is
-  // never empty.
-  await expect(page.getByTestId('companion-thread')).not.toContainText('start an adhoc task');
-
-  await input.press('Enter');
-  await expect(page.getByTestId('companion-thread')).toContainText('start an adhoc task');
-  await expect(input).toHaveValue('');
-
-  await input.fill('never mind');
-  await input.press('Escape');
-  await expect(input).toHaveValue('');
-  // Escape inside the textarea clears the field. It does NOT close the panel:
-  // this is a layout column, not an overlay on Phase 62's stack.
-  await expect(panel(page)).toBeVisible();
-});
-
-test('the mic is enabled out of the box, with no key configured at all', async ({ page }) => {
-  // Ad Hoc: the microphone must work with no API key. `mock-bridge.ts`'s
-  // default `sttStatus` now answers `whisper-local` implemented and ready
-  // with nothing configured — the fresh-install state this is for.
-  await seedCompanionEnabled(page);
-  await open(page);
-  await page.keyboard.press('Meta+l');
-  await page.keyboard.press('c');
-
-  const mic = page.getByTestId('companion-mic');
-  await expect(mic).not.toHaveAttribute('aria-disabled', 'true');
-  await mic.hover();
-  await expect(page.getByRole('tooltip')).toContainText('Hold to talk');
-});
-
-test('the mic is disabled with the reason that names where to fix it', async ({ page }) => {
-  // The one way the key-free default can still fail: its own native module
-  // didn't load, with no other provider configured to fall back to.
-  await seedCompanionEnabled(page);
-  await open(page);
-  await page.evaluate(() => {
-    const bridge = window.midniteStudio;
-    if (bridge?.companion) {
-      bridge.companion.sttStatus = () =>
-        Promise.resolve({
-          configured: [],
-          encryptionAvailable: true,
-          implemented: ['whisper-local'],
-          localModel: {
-            state: 'failed' as const,
-            reason: 'native-module-missing' as const,
-            message: 'no prebuilt binary for this platform',
-          },
-        });
-    }
-  });
-  await page.keyboard.press('Meta+l');
-  await page.keyboard.press('c');
-
-  const mic = page.getByTestId('companion-mic');
-  await expect(mic).toHaveAttribute('aria-disabled', 'true');
-  await mic.hover();
-  await expect(page.getByText(/offline speech engine isn.t available/)).toBeVisible();
-});
-
-test('the popover mirrors the last companion turn once there is one', async ({ page }) => {
-  await seedCompanionEnabled(page);
-  await open(page);
-  await page.keyboard.press('Meta+l');
-  await page.keyboard.press('c');
-  await expect(panel(page)).toBeVisible();
-
-  await page.getByTestId('companion-input').fill('hello');
-  await page.getByTestId('companion-input').press('Enter');
-
-  await page.keyboard.press('Meta+l');
-  await expect(menu(page)).toBeVisible();
-  // The state label, from the same table the panel header and the FAB read.
-  await expect(menu(page).getByTestId('companion-strip')).toContainText('Ready');
-  /*
-    The Repeat row is now *there*, and its presence is the assertion: the
-    companion has greeted (Theme D), so there is a last companion turn to say
-    again. This asserted `toHaveCount(0)` while `greet` was a no-op and the
-    only turn in the thread was the user's.
-  */
-  await expect(menu(page).getByTestId('quick-access-row-r')).toHaveCount(1);
-});
-
-/**
- * The Phase 79 follow-up — the three things the user asked for, from the
- * outside.
- *
- * Only the parts that are observable in a browser: the consolidated turn's
- * *formatting* (a `<strong>` and a `<code>` inside one bubble, not twelve
- * bubbles of plain text), the per-turn timestamp element, and the day rule.
- * The speaking half is asserted in `register-flow-ports.test.tsx` — headless
- * Chromium's `speechSynthesis` is a stub here by construction (see the top of
- * this file), so a spec claiming to hear something would be asserting the
- * stub.
- */
-test('the greeting arrives as one formatted turn, not a stack of fragments', async ({ page }) => {
-  await seedCompanionEnabled(page);
-  await open(page);
-  await page.keyboard.press('Meta+l');
-  await page.keyboard.press('c');
-  await expect(panel(page)).toBeVisible();
-  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
-
-  const thread = page.getByTestId('companion-thread');
-  const companionTurns = thread.locator('[data-turn-role="companion"]');
-  /*
-    Three at most — greeting, overview, prompt — and this is the whole of the
-    second fix. Before it, the same greeting produced six to twelve rows, each
-    one sentence long.
-  */
-  const count = await companionTurns.count();
-  expect(count).toBeGreaterThan(0);
-  expect(count).toBeLessThanOrEqual(3);
-
-  // The overview turn is markdown: the repo name is bold and the branch is
-  // inline code, inside one bubble.
-  await expect(thread.locator('[data-turn-role="companion"] strong').first()).toHaveText(
-    'midnite-studio',
-  );
-  await expect(thread.locator('[data-turn-role="companion"] code').first()).toBeVisible();
-  // And the digest's PR titles are links, through `ExternalLink` — a real
-  // href, activated into the embedded browser rather than replacing the SPA.
-  await expect(
-    thread.locator('[data-turn-role="companion"] a[href*="/pull/265"]'),
-  ).toHaveCount(1);
-});
-
-test('every turn carries a timestamp, and the day it belongs to is ruled off', async ({ page }) => {
-  await seedCompanionEnabled(page);
-  await open(page);
-  await page.keyboard.press('Meta+l');
-  await page.keyboard.press('c');
-  await expect(panel(page)).toBeVisible();
-  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
-
-  const thread = page.getByTestId('companion-thread');
-  const stamps = thread.locator('[data-turn-at]');
-  await expect(stamps.first()).toBeVisible();
-
-  // The attribute carries the raw epoch, so the assertion does not depend on
-  // the runner's timezone; the visible text is the locale's own short time.
-  const at = await stamps.first().getAttribute('data-turn-at');
-  expect(Number(at)).toBeGreaterThan(0);
-  await expect(stamps.first()).toHaveText(/\d{1,2}[:.]\d{2}/);
-  // The full instant on hover is where the date and the seconds live.
-  await expect(stamps.first()).toHaveAttribute('title', /\d{4}/);
-
-  // One rule above the first turn — a persisted transcript routinely opens on
-  // a different day, so the top of the thread always says which day it is.
-  await expect(thread.locator('[data-turn-day]').first()).toHaveText('Today');
-
-  // A turn the user sends now gets its own stamp in the same gutter.
-  const before = await stamps.count();
-  await page.getByTestId('companion-input').fill('hello');
-  await page.getByTestId('companion-input').press('Enter');
-  await expect(thread.locator('[data-turn-role="user"] [data-turn-at]')).toHaveCount(1);
-  expect(await stamps.count()).toBeGreaterThan(before);
-});
-
-test('Settings ▸ Companion ▸ Voice carries the speak-aloud switch, on by default', async ({
-  page,
-}) => {
-  await seedCompanionEnabled(page);
-  await open(page);
-
-  await page.getByRole('button', { name: 'Settings' }).click();
-  await page
-    .getByRole('navigation', { name: 'Settings pages' })
-    .getByRole('button', { name: 'Companion', exact: true })
-    .click();
-
-  const speak = page.getByTestId('companion-speak-aloud');
-  // The one `companion*` switch that starts on: enabling the companion is
-  // already the decision to be spoken to, and Phase 79 shipped mute because
-  // nothing joined `setCompanionSpeaker` to `companionTtsSpeaker`.
-  await expect(speak).toBeChecked();
-  await expect(speak).toBeEnabled();
-
-  await speak.uncheck();
-  await expect(speak).not.toBeChecked();
-  // Turning speech off must not disable the thread — and it takes the voice
-  // preview with it, because there is nothing left to preview.
-  await expect(page.getByTestId('companion-say-hello')).toBeDisabled();
-});
-
-/**
- * The Clear-conversation control in the header.
- *
- * The one case in this file where the greeting is a *fixture* rather than the
- * thing asserted: the panel opens with three companion turns in it, which is
- * exactly the state a clear control needs to have something to clear. So the
- * spec walks the whole gate — the button dead before there is anything, live
- * once the greeting lands, a Cancel that changes nothing, and only the
- * confirm's own button emptying the thread onto its empty state.
- */
-test('the header clears the conversation, behind a confirm that names the count', async ({
-  page,
-}) => {
-  await seedCompanionEnabled(page);
-  await open(page);
-  await page.keyboard.press('Meta+l');
-  await page.keyboard.press('c');
-  await expect(panel(page)).toBeVisible();
-  // The greeting has to have *finished* before the count in the confirm means
-  // anything — "Ready" is how this file already says so.
-  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
-  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
-
-  const clear = page.getByTestId('companion-clear');
-  await expect(clear).toBeVisible();
-  await expect(clear).not.toHaveAttribute('aria-disabled', 'true');
-
-  await clear.click();
-  /*
-    The blast radius. A conversation has no commits to list, so the count is
-    the whole of it — asserted as a pattern rather than a literal because the
-    greeting's turn count is `concierge.ts`'s business, not this spec's.
-  */
-  const confirm = page.getByRole('dialog');
-  await expect(confirm).toBeVisible();
-  await expect(confirm).toContainText(/Clear \d+ turns?\?/);
-  await expect(confirm).toContainText('This cannot be undone.');
-
-  // Cancel changes nothing — the gate is half the point of the control.
-  await confirm.getByRole('button', { name: 'Cancel' }).click();
-  await expect(confirm).toHaveCount(0);
-  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
-
-  await clear.click();
-  // Scoped to the dialog: "Clear conversation" is the accessible name of the
-  // header button as well, on purpose.
-  await page.getByRole('dialog').getByRole('button', { name: 'Clear conversation' }).click();
-
-  await expect(page.getByTestId('companion-thread')).toContainText('Nothing said yet');
-  // Dead again, with nothing left to lose — and no second greeting refilling
-  // the thread the user just emptied (`greeted` is a per-mount ref).
-  await expect(clear).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
-  await expect(page.getByTestId('companion-thread')).toContainText('Nothing said yet');
 });
 
 /**

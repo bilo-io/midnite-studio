@@ -12,6 +12,25 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * is absent for a repository `gh` could never answer for, that entering a view
  * takes the right sections away and leaves Worktrees, and that switching views
  * does not quietly drop the checkout you were looking at.
+ *
+ * Phase 82 Theme C, wave 4: 5 of this file's 9 tests moved to
+ * `repos-panel.bridge.test.tsx` (`useUiStore.getState().setActiveView(...)`
+ * standing in for a rail click, the same substitution the rest of that file
+ * already uses). **4 stay**, all genuinely rail-shaped: "the rail carries all
+ * sixteen views", "each view is reachable", "Actions/Reviews are absent for a
+ * repository gh could never answer for" and "standing in Actions when it
+ * disappears lands you on the graph" all need the actual nav rail —
+ * `AppFrame` from `@bilo-io/shell`, fed the `nav` array `app.tsx` builds —
+ * which is a different, much larger surface than `ReposPanel`. "The Changes
+ * filter still behaves as Phase 17 shipped it" was dropped outright rather
+ * than ported: `repos-panel.bridge.test.tsx` already asserts the identical
+ * claim twice over ("the Changes view hides checkouts with nothing in them",
+ * "the filter is visible while on, and reversible"). "Show all sections is
+ * the escape hatch, and it persists" is trimmed to just its reload half below
+ * — the escape-hatch behaviour itself moved, but a jsdom "reload" cannot
+ * honestly exercise `useUiStore`'s persisted rehydration (a module singleton,
+ * hydrated once at import time), the same reason
+ * `settings-view.bridge.test.tsx` left an identical claim in Playwright.
  */
 
 const MAIN = '/tmp/midnite-studio';
@@ -98,10 +117,6 @@ const clickRail = clickRailLink;
 const panel = (page: Page) => page.getByRole('complementary', { name: 'Repositories' });
 const heading = (page: Page, name: string) =>
   panel(page).getByRole('heading', { name, exact: true });
-
-/** A section's fold toggle. Its accessible name is the title, plus a count. */
-const section = (page: Page, name: string) =>
-  panel(page).getByRole('button', { name: new RegExp(`^${name}( \\d+)?$`) });
 
 test('the rail carries all sixteen views, Dashboard ungrouped above the rest', async ({ page }) => {
   await open(page);
@@ -193,116 +208,22 @@ test('Actions and Reviews are absent for a repository gh could never answer for'
   await expect(rail(page, 'Dashboard')).toBeVisible();
 });
 
-test('the Actions view narrows the sidebar to Actions and Worktrees', async ({ page }) => {
-  await open(page);
-  await clickRail(page, 'Actions');
-
-  // Its own section, and the checkout context every view needs.
-  await expect(heading(page, 'Actions')).toBeVisible();
-  await expect(heading(page, 'Worktrees')).toBeVisible();
-
-  // The ref sections answer a question this view is not asking.
-  await expect(heading(page, 'Local')).toHaveCount(0);
-  await expect(heading(page, 'Remotes')).toHaveCount(0);
-  await expect(heading(page, 'Tags')).toHaveCount(0);
-  await expect(heading(page, 'Reviews')).toHaveCount(0);
-
-  // Unlike Changes, it keeps the CLEAN checkout: having runs has nothing to do
-  // with having uncommitted work.
-  await expect(page.getByRole('button', { name: 'Actions for worktree main' })).toBeVisible();
-});
-
-test('the view section is collapsed on arrival; Worktrees is open', async ({ page }) => {
-  // Opening Actions costs a subprocess plus a rate-limited API call, which is
-  // why Phase 17 closed it — entering the view must not spend that unasked.
-  await open(page);
-  await clickRail(page, 'Actions');
-
-  await expect(section(page, 'Actions')).toHaveAttribute('aria-expanded', 'false');
-  await expect(section(page, 'Worktrees')).toHaveAttribute('aria-expanded', 'true');
-});
-
-test('Show all sections is the escape hatch, and it persists', async ({ page }) => {
+test('the shape the user arranged the sidebar into survives a reload', async ({ page }) => {
+  // The escape-hatch behaviour itself (revealing every section, and staying
+  // per-view rather than also unfiltering Changes) moved to
+  // `repos-panel.bridge.test.tsx`. What only a real reload can prove is that
+  // the override persists — `useUiStore`'s own `persist` middleware
+  // rehydrating from `localStorage` on a fresh page load.
   await open(page);
   await clickRail(page, 'Actions');
   await expect(heading(page, 'Local')).toHaveCount(0);
 
-  // Wanting a branch mid-triage must not be a reason to leave the view.
-  const toggle = page.getByRole('button', { name: 'Show all sections' });
-  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-  await toggle.click();
-
+  await page.getByRole('button', { name: 'Show all sections' }).click();
   await expect(heading(page, 'Local')).toBeVisible();
-  await expect(heading(page, 'Tags')).toBeVisible();
-  await expect(heading(page, 'Reviews')).toBeVisible();
 
-  // Per-view, so it did not also unfilter Changes.
-  await clickRail(page, 'Changes');
-  await expect(heading(page, 'Local')).toHaveCount(0);
-
-  // And it is the shape the user arranged the sidebar into, so it survives.
-  await clickRail(page, 'Actions');
-  await expect(heading(page, 'Local')).toBeVisible();
   await page.reload();
   await expect(heading(page, 'Worktrees')).toBeVisible();
   await expect(heading(page, 'Local')).toBeVisible();
-});
-
-test('the Changes filter still behaves as Phase 17 shipped it', async ({ page }) => {
-  // Folding it into the view table must not change what it does or what it is
-  // called — this is the accessible name users have been reading since.
-  await open(page);
-  await clickRail(page, 'Changes');
-
-  const toggle = page.getByRole('button', { name: 'Showing only changed checkouts' });
-  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-
-  await expect(page.getByRole('button', { name: /Actions for worktree feature\/x/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Actions for worktree main' })).toHaveCount(0);
-
-  await toggle.click();
-  await expect(heading(page, 'Local')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Actions for worktree main' })).toBeVisible();
-});
-
-test('a view with no narrowing of its own can still be filtered by hand', async ({ page }) => {
-  // Phase 17 shipped this and the fold-in must not remove it: the button works
-  // in Graph too, and turning it on there means the same thing it always did.
-  await open(page);
-
-  await expect(heading(page, 'Local')).toBeVisible();
-  await page.getByRole('button', { name: 'Show every ref and checkout' }).click();
-
-  await expect(heading(page, 'Local')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Actions for worktree main' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Actions for worktree feature\/x/ })).toBeVisible();
-});
-
-test('switching views keeps the checkout you were looking at', async ({ page }) => {
-  // The rail changes what you are looking AT, never what you are looking at it
-  // FOR. Losing the selection would make every view a fresh start.
-  await open(page);
-
-  const row = page.getByRole('button', { name: /^feature\/x/ }).last();
-  await row.click();
-
-  for (const label of ['Explorer', 'Actions', 'Tests', 'Dashboard', 'Graph']) {
-    await clickRail(page, label);
-    await expect(page.getByRole('button', { name: /Actions for worktree feature\/x/ })).toBeVisible();
-  }
-
-  // Still the selected one, not merely still listed.
-  const selected = await page.evaluate(() => {
-    const raw = localStorage.getItem('midnite-studio.ui');
-    return raw ? (JSON.parse(raw) as { state?: Record<string, unknown> }).state : undefined;
-  });
-  // The empty-workspace feature (commit e36b6ac) made the selection persist
-  // ACROSS RESTARTS on purpose, so the app can reopen to the same repo and
-  // worktree rather than falling through to the dashboard — so the DOM check
-  // above (still marked active while switching views) is what this spec is
-  // really about, and the persisted value should simply still be the row we
-  // clicked, not merely present-or-absent.
-  expect(selected).toHaveProperty('selectedWorktreePath', FEATURE);
 });
 
 test('standing in Actions when it disappears lands you on the graph', async ({ page }) => {
