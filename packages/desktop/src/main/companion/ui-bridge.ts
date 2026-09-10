@@ -6,8 +6,7 @@ import {
   EVENT_CHANNELS,
   failure,
   type CompanionUiAction,
-  type CompanionUiResultValue,
-  type GitOpResult,
+  type CompanionUiReplyResult,
 } from '@midnite/studio-shared';
 
 /**
@@ -33,7 +32,7 @@ import {
 const REQUEST_TIMEOUT_MS = 5_000;
 
 type PendingEntry = {
-  resolve: (result: GitOpResult<CompanionUiResultValue>) => void;
+  resolve: (result: CompanionUiReplyResult) => void;
   timer: ReturnType<typeof setTimeout>;
 };
 
@@ -58,7 +57,7 @@ export function configureUiBridge(getMainWindow: () => BrowserWindow | null): vo
  * the renderer's own message folded into whichever `did` shape it answered
  * with — `ui-requests.ts` is what decides that, not this module.
  */
-export function requestUiAction(action: CompanionUiAction): Promise<GitOpResult<CompanionUiResultValue>> {
+export function requestUiAction(action: CompanionUiAction): Promise<CompanionUiReplyResult> {
   const win = mainWindowGetter?.() ?? null;
   if (!win || win.isDestroyed()) {
     return Promise.resolve(failure('Midnite Studio has no open window right now.'));
@@ -76,7 +75,7 @@ export function requestUiAction(action: CompanionUiAction): Promise<GitOpResult<
 }
 
 /** The renderer's half of the round trip — `companion-handlers.ts`'s `companionUiReply` listener calls this with whatever it received. */
-export function resolveUiReply(id: string, result: GitOpResult<CompanionUiResultValue>): void {
+export function resolveUiReply(id: string, result: CompanionUiReplyResult): void {
   const entry = pending.get(id);
   if (!entry) return; // Already timed out, or a reply for a request this process never sent.
   clearTimeout(entry.timer);

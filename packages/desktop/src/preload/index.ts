@@ -596,6 +596,13 @@ const bridge: Pick<
     // fire-and-forget `ipcRenderer.send` above rather than `call`'s `invoke`.
     ttsCancel: () => ipcRenderer.send(CHANNELS.companionTtsCancel),
     ttsReload: (req) => call(CHANNELS.companionTtsReload, req),
+    // Phase 81 Theme F's one new pair — the tree's first main→renderer
+    // request/reply. `onUiRequest` is subscribed only from the main window's
+    // `app.tsx` (a popout never receives one — `ui-bridge.ts` always targets
+    // `getMainWindow()`); `uiReply` answers it one-way, since main is already
+    // holding the pending promise `ui-bridge.ts` keyed by the request's `id`.
+    onUiRequest: (handler) => subscribe(EVENT_CHANNELS.companionUiRequest, handler),
+    uiReply: (reply) => ipcRenderer.send(CHANNELS.companionUiReply, reply),
   },
   windowChrome,
   windowRole,

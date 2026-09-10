@@ -3,6 +3,9 @@ import { join } from 'node:path';
 import { createMcpStore, type McpSettings } from '../mcp-store';
 import { defaultLogger, type Logger } from '../log';
 import { startMcpServer, type McpServerHandle } from './server';
+import { getMcpAllowUi, resetMcpAllowUiStateForTests, setMcpAllowUiState } from './ui-gate';
+
+export { getMcpAllowUi } from './ui-gate';
 
 /**
  * Where this build's stdio shim lives on disk (Theme F). Same resolution
@@ -47,8 +50,14 @@ let boundLog: Logger = defaultLogger;
 let handle: McpServerHandle | null = null;
 /** Mirrors `mcp-store.ts`'s persisted flag, kept in memory so `getMcpStatus` needs no disk read. */
 let enabled = false;
-/** Mirrors the store's `allowUi` the same way — read synchronously by `main/mcp/tools.ts`'s `ui.*` handlers on every call, never from disk. */
-let allowUi = false;
+/*
+  `allowUi` itself lives in `./ui-gate` (`setMcpAllowUiState`/`getMcpAllowUi`),
+  not as a local module variable here — `tools.ts` needs to read it and sits
+  below this file in the package's own call graph (`index.ts` → `server.ts` →
+  `dispatch.ts` → `tools.ts`), so a `tools.ts` import of this module would be
+  a cycle. This file still owns *writing* it (`setMcpAllowUi`, below), which
+  is what persists it through `mcp-store.ts`.
+*/
 
 /**
  * Start the MCP server if — and only if — the user has turned it on.
@@ -65,7 +74,7 @@ export async function registerMcpServer(opts: RegisterMcpServerOptions): Promise
   const store = createMcpStore(opts.userDataDir);
   const settings = await store.load();
   enabled = settings.enabled;
-  allowUi = settings.allowUi;
+  setMcpAllowUiState(settings.allowUi);
   if (!enabled) return null;
 
   const result = await startMcpServer({ ...opts, log: boundLog });
@@ -89,13 +98,8 @@ export function getMcpStatus(): McpStatus {
     running: handle !== null,
     socketPath: handle?.socketPath ?? null,
     shimPath: mcpShimScriptPath(),
-    allowUi,
+    allowUi: getMcpAllowUi(),
   };
-}
-
-/** Read synchronously by `main/mcp/tools.ts`'s `ui.navigate`/`ui.command` handlers on every call — the gate that must run before any IPC is sent (Theme F's own acceptance condition). */
-export function getMcpAllowUi(): boolean {
-  return allowUi;
 }
 
 /**
@@ -111,7 +115,7 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
     return { ok: false, message: 'The MCP server has not finished starting up yet.' };
   }
 
-  const settings: McpSettings = { version: 2, enabled: next, allowUi };
+  const settings: McpSettings = { version: 2, enabled: next, allowUi: getMcpAllowUi() };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   enabled = next;
 
@@ -146,7 +150,7 @@ export async function setMcpAllowUi(next: boolean): Promise<SetMcpEnabledResult>
 
   const settings: McpSettings = { version: 2, enabled, allowUi: next };
   await createMcpStore(bootOpts.userDataDir).save(settings);
-  allowUi = next;
+  setMcpAllowUiState(next);
 
   return { ok: true, status: getMcpStatus() };
 }
@@ -157,5 +161,5 @@ export function resetMcpServerStateForTests(): void {
   boundLog = defaultLogger;
   handle = null;
   enabled = false;
-  allowUi = false;
+  resetMcpAllowUiStateForTests();
 }

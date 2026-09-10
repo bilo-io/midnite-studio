@@ -2834,6 +2834,18 @@ export const CompanionUiReplySchema = z.object({
   result: GitOpResultOf(CompanionUiResultValueSchema),
 });
 export type CompanionUiReply = z.infer<typeof CompanionUiReplySchema>;
+/**
+ * `CompanionUiReply['result']` on its own — named because `GitOpResult<T>`'s
+ * conditional-type definition *distributes* over a union `T`
+ * (`CompanionUiResultValue` is one), which yields a differently-shaped type
+ * than this schema's own `z.infer` (one `{ ok: true; value: A | B | C }`
+ * rather than three separate `{ ok: true; value: A }` members) — structurally
+ * overlapping but not mutually assignable. `ui-bridge.ts` and `tools.ts` both
+ * use this alias rather than `GitOpResult<CompanionUiResultValue>` so every
+ * hand and every `req.result` off `CompanionUiReplySchema.safeParse` agree on
+ * the same one.
+ */
+export type CompanionUiReplyResult = CompanionUiReply['result'];
 
 // --- the companion's voice (Phase 79 Theme F) -------------------------------
 
