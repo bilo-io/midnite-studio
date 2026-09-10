@@ -516,6 +516,80 @@ jobs:
           path: packages/app/test-results
           if-no-files-found: ignore
 
+  # The pixel-diff layer — Phase 82 Theme D. Component-scoped `toHaveScreenshot`
+  # crops (`packages/app/e2e/visual/`), blocking like `e2e` above, not an
+  # advisory job: a baseline is only worth having if a regression against it
+  # actually fails the PR.
+  #
+  # Runs INSIDE the official Playwright image as a job `container`, not merely
+  # on the same `ubuntu-24.04` base it is built from. That distinction is the
+  # whole point: `playwright.visual.config.ts`'s `snapshotPathTemplate` keys
+  # baselines on `process.platform` ('linux' either way), but a pixel diff
+  # cares about font/fontconfig/freetype versions too, which a bare runner's
+  # own apt packages are not guaranteed to match build-for-build. The
+  # container pins those exactly, and it is the SAME image the dev
+  # regeneration command (`playwright.visual.config.ts`'s own header comment)
+  # runs — so a baseline a developer generates locally through that command
+  # and what this job asserts against are, byte for byte, the same rendering
+  # environment.
+  #
+  # `--ignore-scripts` on the install: this image is deliberately minimal (no
+  # `make`/build-essential), so `better-sqlite3`/`node-pty`'s native builds
+  # fail here the way they would not on `gate-native`'s macOS runner or the
+  # bare `e2e` job's ubuntu-24.04. Harmless for this job specifically — it
+  # only ever runs `shared:build` (plain `tsc`, no native code) and
+  # `app:visual` (Vite + Playwright, same as `e2e`), neither of which touches
+  # desktop's or git-engine's native dependencies at all.
+  visual:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # No pnpm/action-setup or actions/setup-node here: the container image
+      # ships its own Node (newer than the repo's pinned 22.12.0, harmless for
+      # this job's narrow needs), and corepack is how pnpm is actually reached
+      # inside it — the same recipe the dev regeneration command's docker
+      # invocation uses, verified to produce an identical install.
+      - name: Enable corepack, activate the pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
+
+      - name: Install (--ignore-scripts — see the job comment above)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Fails fast, and separately from the pixel comparison below, if the
+      # committed baseline corpus has grown past its cap — a budget breach
+      # and a real visual regression are different failures with different
+      # fixes, so they get different steps rather than one conflated result.
+      - name: Visual baseline budget (~100 baselines / 3 MB)
+        run: node scripts/visual-budget.mjs
+
+      # `app:visual` depends on `shared:build` (see packages/app/moon.yml), so
+      # moon builds shared first automatically — no separate step needed, the
+      # same shape `app:e2e` uses above.
+      - name: Visual regression (toHaveScreenshot against committed Linux baselines)
+        run: pnpm exec moon run app:visual
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Same pattern as the `e2e` job's own upload: only something to attach
+      # when a spec actually failed, and that is exactly when the diff PNGs
+      # `toHaveScreenshot` writes next to the actual/expected pair are worth
+      # having — a reviewer can look at `*-diff.png` without re-running
+      # anything.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-diff-report
+          path: packages/app/test-results
+          if-no-files-found: ignore
+
   package:
     # Packaging is macOS-arm64 only and slow, so it runs on main rather than on
     # every PR. It is here to catch electron-builder breakage early — the pnpm
