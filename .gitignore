@@ -38,6 +38,17 @@ tmp/
 test-results/
 playwright-report/
 
+# Phase 82 Theme D: the pixel-diff layer's baselines are Linux-only by design
+# (playwright.visual.config.ts's snapshotPathTemplate carries {platform}, and
+# CI regenerates/asserts only through the official Linux Playwright image —
+# see that config's own header comment). A baseline captured by running
+# `moon run app:visual` directly on a macOS or Windows dev machine writes a
+# `-darwin.png`/`-win32.png` file that CI can never produce or compare
+# against, so it must never reach a commit; only `-linux.png` files are
+# tracked under packages/app/e2e/visual/__screenshots__/.
+packages/app/e2e/visual/__screenshots__/**/*-darwin.png
+packages/app/e2e/visual/__screenshots__/**/*-win32.png
+
 # Graphify knowledge graph artefacts
 graphify-out/
 
