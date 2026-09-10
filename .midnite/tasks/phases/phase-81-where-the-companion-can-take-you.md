@@ -615,7 +615,7 @@ Finding 6 describes.
       `PALETTE_SAFE ∪ ID_DISPATCH_OK`, and the four named `never`s. `companion.test.ts`: every new
       verb × target row, the repo-before-view rule, the no-vocabulary regression (every pre-existing
       `parseIntent` test unchanged). `command-runtime.test.ts`: disabled → reason, no call.
-- [ ] **B** — `navigate.test.ts`: one case per `NavigationPlan` branch. `use-window-sync.test.tsx`:
+- [x] **B** — `navigate.test.ts`: one case per `NavigationPlan` branch. `use-window-sync.test.tsx`:
       the `companion` relay round-trip and the popout-ignores-actions rule. e2e: the three flows
       above, including the `focusRole` spy with the view unchanged.
 - [ ] **C** — `handoff.test.ts`: direct runs once and says the label; disabled says the reason;
