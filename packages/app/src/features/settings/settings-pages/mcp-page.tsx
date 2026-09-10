@@ -26,7 +26,13 @@ export function McpSettingsPage() {
   const status = useQuery({
     queryKey: MCP_STATUS_KEY,
     queryFn: async () =>
-      (await bridge()?.mcp.get()) ?? { enabled: false, running: false, socketPath: null, shimPath: null },
+      (await bridge()?.mcp.get()) ?? {
+        enabled: false,
+        running: false,
+        socketPath: null,
+        shimPath: null,
+        allowUi: false,
+      },
   });
 
   const setEnabled = useMutation({
@@ -35,6 +41,16 @@ export function McpSettingsPage() {
     // persisted either way (Theme E's "persist before acting" rule), so the
     // checkbox has to reflect the real `enabled`/`running` split rather than
     // staying wherever the click left it.
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
+  /**
+   * Phase 81 Theme F's second switch — a narrower control under the master
+   * one, never a widening of it. `mcpSet` takes `allowUi` on its own
+   * (independent of `enabled`), so flipping this never touches the socket.
+   */
+  const setAllowUi = useMutation({
+    mutationFn: async (nextAllowUi: boolean) => bridge()?.mcp.set({ allowUi: nextAllowUi }),
     onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
   });
 
@@ -50,6 +66,7 @@ export function McpSettingsPage() {
 
   const enabled = status.data?.enabled ?? false;
   const running = status.data?.running ?? false;
+  const allowUi = status.data?.allowUi ?? false;
   const shimCommand = status.data?.shimPath ? `claude mcp add midnite-studio -- node ${status.data.shimPath}` : null;
 
   return (
@@ -113,6 +130,45 @@ export function McpSettingsPage() {
               </p>
             </div>
           )}
+        </div>
+      </Accordion>
+
+      <Accordion title="Let agents steer the UI" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <Field
+            label="Let agents steer the UI"
+            hint="A second, narrower switch under the one above — off by default, and disabled until the master switch is on. It gates two tools: ui.navigate and ui.command, which open a view or run a palette command the same way the companion does."
+          >
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={allowUi}
+                onChange={(event) => setAllowUi.mutate(event.target.checked)}
+                disabled={!enabled}
+                className="h-3.5 w-3.5 accent-[hsl(var(--primary))] disabled:opacity-50"
+                data-testid="mcp-allow-ui"
+              />
+              Let agents steer the UI
+            </label>
+          </Field>
+
+          {setAllowUi.data?.error && (
+            <div className="text-xs text-destructive">{setAllowUi.data.error}</div>
+          )}
+
+          <div className="space-y-1.5 rounded-md border border-border/60 bg-card/50 p-3 text-[11px] text-muted-foreground">
+            <p className="font-medium text-foreground">What this lets an agent do</p>
+            <ul className="list-disc space-y-1 pl-4">
+              <li>Open a view or settings page, or focus it if it is already detached into its own window.</li>
+              <li>Run the same palette commands the companion runs — without asking.</li>
+            </ul>
+            <p className="pt-1 font-medium text-foreground">What it never does</p>
+            <ul className="list-disc space-y-1 pl-4">
+              <li>Push, pull, commit, or start a skill.</li>
+              <li>Answer a dialog.</li>
+              <li>Act while the screen is locked.</li>
+            </ul>
+          </div>
         </div>
       </Accordion>
 

@@ -60,7 +60,8 @@ async function handleUiRequest(req: CompanionUiRequest): Promise<void> {
   bridge()?.companion.uiReply({ id: req.id, result });
 }
 
-async function resolveUiAction(action: CompanionUiAction): Promise<CompanionUiReplyResult> {
+/** Exported for `ui-requests.test.ts` — resolves one action without the request/reply envelope around it, since a test asserts on the outcome, not the wire shape. */
+export async function resolveUiAction(action: CompanionUiAction): Promise<CompanionUiReplyResult> {
   if (action.kind === 'state') return ok(await buildStateReply());
 
   // Both write actions share the lock check — a misheard sentence and an
@@ -169,7 +170,6 @@ function resolveNavigateAction(
     }
 
     case 'view': {
-      const before = ui.activeView;
       useUiStore.getState().setActiveView(plan.view);
 
       // Same guardrail Theme B's spoken path takes: an unsaved editor buffer
@@ -185,9 +185,13 @@ function resolveNavigateAction(
         useIssuesStore.getState().selectIssue(state.repoId, plan.issue);
       }
 
+      // Announced unconditionally — unlike the companion's own spoken
+      // "you're already on the {view}" (Theme B), a steer is never silent
+      // even when the view did not change: the tool call still happened,
+      // and the agent (and the toast) both need to know it landed rather
+      // than being refused.
       const label = plan.page !== undefined ? SETTINGS_PAGE_LABEL[plan.page] : VIEW_LABELS[plan.view];
-      const changed = before !== plan.view || plan.page !== undefined;
-      if (changed) announce(`Agent: opened ${label}.`, `An agent opened ${label}.`);
+      announce(`Agent: opened ${label}.`, `An agent opened the ${label}.`);
       return ok({ did: 'navigated', view: action.view });
     }
   }
