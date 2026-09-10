@@ -120,7 +120,7 @@ export function TerminalSessionList({
       */
       data-session-list
       tabIndex={0}
-      className={`shrink-0 overflow-y-auto ${border} border-border py-1 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring`}
+      className={`shrink-0 overflow-y-auto ${border} border-border pb-1 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring`}
       style={{ width }}
       onContextMenu={showDockMenu}
       onKeyDown={onKeyDown}
