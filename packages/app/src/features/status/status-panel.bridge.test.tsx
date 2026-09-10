@@ -116,7 +116,7 @@ const open = (fx: MockFixtures = base) =>
 
 /** The panel-wide roll-up is the first totals element — it sits above both sections. */
 const panelTotals = () => screen.getAllByTestId('change-totals')[0]!;
-const row = (path: string) => screen.getAllByRole('button', { name: path, exact: true });
+const row = (path: string) => screen.getAllByRole('button', { name: path });
 
 const opsOf = (op: string) =>
   (window as unknown as { __mstudioOps: { op: string; args: Record<string, unknown> }[] })
@@ -170,7 +170,7 @@ describe('StatusPanel, assembled through the real bridge', () => {
     open();
     await screen.findByRole('heading', { name: 'Changes' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'View all changes', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'View all changes' }));
 
     // Same roll-up the panel already carries above the lists, now heading the
     // right pane too — no second, possibly-disagreeing total.
@@ -208,7 +208,7 @@ describe('StatusPanel, assembled through the real bridge', () => {
     fireEvent.click(row('README.md')[0]!);
     await waitFor(() => expect(screen.getAllByTestId('diff-view')).toHaveLength(1));
 
-    fireEvent.click(screen.getByRole('button', { name: 'View all changes', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'View all changes' }));
     expect(screen.queryByTestId('diff-view')).toBeNull();
     expect(
       [...document.querySelectorAll('button[aria-expanded]')].some((el) =>

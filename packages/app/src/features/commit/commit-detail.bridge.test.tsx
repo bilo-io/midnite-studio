@@ -84,7 +84,7 @@ const message = () => screen.getByTestId('commit-message');
 const files = () => screen.getByTestId('commit-files');
 const identities = () => screen.queryByTestId('commit-identities');
 /** A directory row, matched exactly so a nested file's path cannot satisfy it. */
-const dir = (path: string) => within(files()).getByRole('button', { name: path, exact: true });
+const dir = (path: string) => within(files()).getByRole('button', { name: path });
 
 beforeEach(() => {
   useUiStore.setState({ graphSelection: null, commitFileView: 'tree', commitMetaOpen: true });
@@ -294,7 +294,6 @@ describe('CommitDetail, assembled through the real bridge', () => {
     const windowTs = () =>
       within(files()).queryByRole('button', {
         name: 'packages/desktop/src/main/window.ts',
-        exact: true,
       });
 
     expect(main.textContent).toContain('+4');

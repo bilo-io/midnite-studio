@@ -58,9 +58,9 @@ describe('ChangeTree', () => {
     );
 
     const tree = screen.getByTestId('tree');
-    const src = within(tree).getByRole('button', { name: 'src', exact: true });
+    const src = within(tree).getByRole('button', { name: 'src' });
     expect(src.textContent).toContain('+15');
-    expect(within(tree).getByRole('button', { name: 'src/a.ts', exact: true })).toBeTruthy();
+    expect(within(tree).getByRole('button', { name: 'src/a.ts' })).toBeTruthy();
 
     // Collapsing is the caller's job (`onToggleDir` only reports the click);
     // re-rendering with the path in `collapsed` is what a real click would
@@ -75,10 +75,10 @@ describe('ChangeTree', () => {
       />,
     );
 
-    expect(within(tree).queryByRole('button', { name: 'src/a.ts', exact: true })).toBeNull();
+    expect(within(tree).queryByRole('button', { name: 'src/a.ts' })).toBeNull();
     // Still says how much is inside — collapsing must not hide the number
     // you collapsed in order to compare.
-    expect(within(tree).getByRole('button', { name: 'src', exact: true }).textContent).toContain(
+    expect(within(tree).getByRole('button', { name: 'src' }).textContent).toContain(
       '+15',
     );
   });
@@ -96,7 +96,7 @@ describe('ChangeTree', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'src', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'src' }));
     expect(clicks).toEqual(['src']);
   });
 
