@@ -264,3 +264,130 @@ describe('branch delete/rename undo, assembled through the real bridge', () => {
     );
   });
 });
+
+/**
+ * Migrated from `e2e/nav-shell.spec.ts` (Phase 82 Theme C, wave 4) — the
+ * half of that file that is genuinely `ReposPanel`'s own business:
+ * `useViewSections`' per-view narrowing, its escape hatch, and that the
+ * selected checkout survives a view switch.
+ *
+ * **The other half stays in Playwright.** "The rail carries all sixteen
+ * views", "each view is reachable", "Actions/Reviews are absent for a
+ * repository gh could never answer for" and "standing in Actions when it
+ * disappears lands you on the graph" all need the actual nav rail —
+ * `AppFrame` from `@bilo-io/shell`, fed the `nav` array `app.tsx` builds —
+ * which is a different (and much larger) surface than this component.
+ * `clickRail`/rail navigation is replaced throughout by
+ * `useUiStore.getState().setActiveView(...)` directly, same substitution as
+ * the `activeView`-driven tests above.
+ *
+ * "The Changes filter still behaves as Phase 17 shipped it" is dropped
+ * outright, not ported: it re-asserts exactly what "the Changes view hides
+ * checkouts with nothing in them" and "the filter is visible while on, and
+ * reversible" (above) already cover — aria-pressed, the dirty checkout
+ * surviving, the clean one not, and the toggle reversing it.
+ *
+ * "Show all sections is the escape hatch, and it persists" is split: the
+ * escape-hatch behaviour below is new coverage (a different label —
+ * `filterFor`'s `dirtyOnly: false` case, "Show all sections" rather than
+ * "Showing only changed checkouts" — and a different, non-dirty-only
+ * mechanism), but its reload-persistence half stays in
+ * `e2e/nav-shell.spec.ts`, trimmed to just that: `useUiStore` is a module
+ * singleton hydrated once at import time, so a jsdom "reload" would need to
+ * reset and re-import the module fresh, the same reason
+ * `settings-view.bridge.test.tsx` left an identical reload claim behind.
+ */
+describe("ReposPanel's view-scoped section filtering (nav-shell)", () => {
+  const withTag: MockFixtures = {
+    ...base,
+    refs: [
+      ...base.refs!,
+      {
+        name: 'v0.1.0',
+        fullName: 'refs/tags/v0.1.0',
+        kind: 'tag',
+        sha: 'a'.repeat(40),
+        upstream: null,
+        isHead: false,
+        worktreePath: null,
+      },
+    ],
+  };
+
+  it('the Actions view narrows the sidebar to Actions and Worktrees', async () => {
+    open();
+    useUiStore.getState().setActiveView('actions');
+
+    expect(await screen.findByRole('heading', { name: 'Actions' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Worktrees' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Local' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Remotes' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Tags' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Reviews' })).toBeNull();
+
+    // Unlike Changes, Actions keeps the CLEAN checkout too — having runs has
+    // nothing to do with having uncommitted work.
+    expect(screen.getByRole('button', { name: 'Actions for worktree main' })).toBeTruthy();
+  });
+
+  it('the view section is collapsed on arrival; Worktrees is open', async () => {
+    open();
+    useUiStore.getState().setActiveView('actions');
+
+    const actionsToggle = await screen.findByRole('button', { name: /^Actions( \d+)?$/ });
+    expect(actionsToggle.getAttribute('aria-expanded')).toBe('false');
+    const worktreesToggle = screen.getByRole('button', { name: /^Worktrees( \d+)?$/ });
+    expect(worktreesToggle.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('"Show all sections" is the narrowed view\'s escape hatch, and it is per-view', async () => {
+    open(withTag);
+    useUiStore.getState().setActiveView('actions');
+    expect(await screen.findByRole('heading', { name: 'Actions' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Local' })).toBeNull();
+
+    const toggle = screen.getByRole('button', { name: 'Show all sections' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(toggle);
+
+    expect(screen.getByRole('heading', { name: 'Local' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Tags' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Reviews' })).toBeTruthy();
+
+    // Per-view: it did not also unfilter Changes.
+    useUiStore.getState().setActiveView('changes');
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Local' })).toBeNull());
+  });
+
+  it('a view with no narrowing of its own can still be filtered by hand', async () => {
+    open();
+    // Graph has no `filterFor` entry at all — the `dirtyOnly: false` +
+    // `filtered: false` case, labelled differently from both the Changes
+    // and the Actions toggles.
+    useUiStore.getState().setActiveView('graph');
+
+    expect(await screen.findByRole('heading', { name: 'Local' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Show every ref and checkout' }));
+
+    expect(screen.queryByRole('heading', { name: 'Local' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Actions for worktree main' })).toBeNull();
+    expect(
+      screen.getByRole('button', { name: /Actions for worktree feature\/x/ }),
+    ).toBeTruthy();
+  });
+
+  it('switching views keeps the checkout you were looking at', async () => {
+    open();
+    await screen.findByRole('heading', { name: 'Worktrees' });
+    useUiStore.getState().selectWorktree(FEATURE);
+    expect(useUiStore.getState().selectedWorktreePath).toBe(FEATURE);
+
+    // The rail changes what you are looking AT, never what you are looking
+    // at it FOR — switching through several views must not drop the
+    // selection.
+    for (const view of ['files', 'actions', 'tests', 'dashboard', 'graph'] as const) {
+      useUiStore.getState().setActiveView(view);
+      expect(useUiStore.getState().selectedWorktreePath).toBe(FEATURE);
+    }
+  });
+});
