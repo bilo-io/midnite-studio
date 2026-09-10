@@ -67,3 +67,15 @@ tasks:
       - 'packages/*/package.json'
     options:
       cache: false
+
+  # visual-budget: cap the pixel-diff layer's committed baseline corpus at the
+  # ~100 PNG / ~3 MB limit Phase 82 Theme D settled on, so it cannot silently
+  # regrow into the same problem docs/screenshots/ already is. `cache: false`
+  # and no declared `inputs` — like tracker-check above, this reads
+  # `packages/app/e2e/visual/__screenshots__/` directly rather than through
+  # moon's hash, since what it is checking IS the state of that directory on
+  # disk, not a build output derived from it.
+  visual-budget:
+    command: 'node scripts/visual-budget.mjs'
+    options:
+      cache: false

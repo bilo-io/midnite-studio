@@ -58,8 +58,23 @@ export default defineConfig({
     check, so `MSTUDIO_SHOTS=1 pnpm exec playwright test --list` still shows
     every one of them; this exclusion only stops the *declared-but-skipped*
     tests from being scheduled into a shard at all when that flag is unset.
+
+    Phase 82 Theme D adds a third glob, unconditionally (not gated on
+    `MSTUDIO_SHOTS`, spelled out only in the value below for the same
+    close-the-comment reason as the `-shots.spec.ts` one above — this one
+    matches every path under the `e2e/visual` directory): that directory is a
+    THIRD suite with its own config (`playwright.visual.config.ts`, `moon run
+    app:visual`) and its own `toHaveScreenshot` baselines, not a shots-style
+    ad-hoc capture. Without this exclusion the functional suite would also
+    pick up every visual spec under this config — which has no
+    `snapshotPathTemplate`, no `maxDiffPixelRatio`, and none of the baselines
+    committed under that directory's own screenshots folder — and either fail
+    outright (no matching snapshot) or, worse, silently write a second,
+    wrongly-configured set of screenshots nobody asked for.
   */
-  testIgnore: process.env.MSTUDIO_SHOTS ? '**/perf/**' : ['**/perf/**', '**/*-shots.spec.ts'],
+  testIgnore: process.env.MSTUDIO_SHOTS
+    ? ['**/perf/**', '**/visual/**']
+    : ['**/perf/**', '**/*-shots.spec.ts', '**/visual/**'],
   /*
     Playwright's default runs test *files* in parallel across workers but the
     `test()` declarations within one file sequentially. Phase 56 Theme B turns
