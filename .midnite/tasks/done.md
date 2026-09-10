@@ -10700,3 +10700,72 @@ being true. The Settings ▸ MCP copy half of the item *did* ship, in `mcp-page.
 This is the second stale-premise item found in this phase (the first being drifted `file:line`
 citations across Themes A-E). Both argue the same thing: audit a phase doc's claims against the
 tree before executing it, not after.
+
+### Phase 81 — verification pass, six of nine (2026-09-10)
+
+Ran the nine items left unticked at closing rather than taking the "44/53, DONE" claim on faith.
+Six pass and are now ticked; three are left open with reasons, not silently dropped. **44/53 → 50/53
+(94%).**
+
+**Ticked, with evidence.** The gate (`moon run :typecheck :lint :test`, exit 0) and
+`no-restricted-imports` for the three named paths (`shared/src/domain/view.ts` has no imports at
+all; `features/companion/*` imports nothing from `desktop`/`electron`; `main/mcp/` imports nothing
+from `app`). Two full gate runs flaked first on unrelated temp-dir races
+(`history.test.ts`, `session-history-store.test.ts`, `runner.test.ts`, `companion-store.test.ts`,
+`fs-handlers.test.ts`) under a sibling agent's concurrent `moon :typecheck :lint :test` — all
+re-ran green alone; a third full run, once that agent's suite finished, was clean start to finish.
+**Theme B** — `navigate.test.ts`'s `resolveNavigation` suite is one case per `NavigationPlan`
+branch verbatim; `use-window-sync.test.tsx` has the relay round-trip and both
+popout-ignores-actions cases; all four `companion-panel.spec.ts` Theme B e2e tests pass (they
+first timed out at the default 30s under the same sibling load — 90s/`--workers=1` alone, 37.5s).
+**Theme D** — `COMPANION_COMMAND_IDS` has exactly the claimed twelve ids; `handoff.ts`'s
+compile-time subset proof typechecks under the gate; `handoff.test.ts`'s "names only ids that have
+a skill string" test is the `DEFAULT_AGENT_SKILLS` key check; `releasePrep`'s
+never-auto-send-even-with-the-gate-open test asserts the exact line; `companion.test.ts` has 7 new
+grammar rows (3 triage, 4 releasePrep) plus the "release the hounds" negative. **Theme E** —
+`ask.test.ts`'s route-prompt suite: every view/skill id exactly once, tiers shown, no never-tier id
+leaks in, under 6000 chars at a 20+23+45+12-row vocabulary; `parseAskReply`'s "the four kinds Phase
+81 added" fixtures cover navigate/run/confirm/help plus both invented-id rejections verbatim.
+**Theme F** — `mcp.test.ts` confirms exactly eleven `MCP_TOOLS` and its description rule holds for
+all of them; `mcp-store.test.ts` has the version-1→2 migration verbatim; `shim.test.ts`'s
+tools/list test independently reconfirms eleven tools with `ui.navigate`'s view as a `VIEW_IDS`
+enum; `ui-requests.test.ts` (not `.tsx` — a citation slip) covers the three `ui.command` refusals
+and the toast. **Bundle** — built a throwaway worktree at `8e94db25` (the commit immediately
+before Theme A's PR #319) to get an apples-to-apples baseline rather than trusting
+`scripts/perf/budgets.json`'s stale Phase-64 numbers: entry chunk 1685.8 KB → 1704.2 KB (+1.1%),
+total JS 35628.9 KB → 35649 KB (+0.06%), same 446 chunks. Genuinely noise, as claimed — the
+absolute budget breach `--assert` reports (1704.2 > 1520, 35649 > 15950) is real but is ~18 phases
+of unrelated drift since the budget was last set, not this phase's contribution.
+
+**Left unticked, on purpose.**
+
+**Theme C** — `handoff.test.ts` fully delivers everything the item claims (direct/disabled/confirm/
+pendingAction/60s-runs-once/61s-"Nothing's waiting"/hands-free-does-not-bypass/second-request-
+replaces, all with fake timers where named) — 60 tests, all green, nothing weaker than claimed.
+But the item also names three e2e flows — "terminal toggle, the push pending→Return flow, the
+surviving confirm dialog" — and only the first is what it says. `companion-panel.spec.ts`'s own
+comment explains the second: `app.lock` stands in for `sync.push` in the pending→Return tests
+because push's `enabled` depends on fixture branch/ahead state a mock can only guess at, while
+lock's does not — a reasonable substitution, and it does exercise the identical code path. The
+third, "the surviving confirm dialog," was never written at all: that same comment defers
+"terminal.close's own 'the command's own dialogs survive' case" to the packaged-Mac human pass,
+because it needs a running foreground session to seed. So one of three named e2e proofs is a
+documented stand-in and one is simply absent from automation — left unticked rather than ticking a
+theme whose checklist text promises more than the suite delivers.
+
+**Screenshots** — none of the four named shots (the pending-action turn's Run/Cancel chips, the
+`help` turn's list, Settings ▸ MCP's new switch/card, Settings ▸ Companion's rewritten hands-free
+card) have a Playwright test anywhere in the tree. `companion-shots.spec.ts` was last touched at
+`8e94db25` — the commit immediately *before* Phase 81 began — and `mcp-shots.spec.ts` was last
+touched in Phase 57 Theme F, for the page this phase's Theme F extended, not the extension itself.
+Neither Theme C's nor Theme F's own Deliverables checklist ever listed a screenshot task, so this
+was never built, not merely missed in a rerun. Left unticked rather than authoring new spec files
+mid-verification — Phase 82 (Themes A-C, live in sibling worktrees `p82-c2`/`p82-ci`/`p82-harness`
+this same day) is actively gating, migrating and re-shaping this exact `*-shots.spec.ts` family, so
+new files here now would be adding to a moving target this pass does not own.
+
+**Human pass** — left unticked as instructed; it needs a person on a packaged build saying "take me
+to the graph" aloud, which no agent can stand in for.
+
+`node scripts/tracker-check.mjs` → `Success: All phase docs and index rows agree.` after every tick
+in this entry.
