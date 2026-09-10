@@ -10,6 +10,7 @@ import { ConfirmDialog } from './confirm-dialog';
 import { PromptDialog } from './prompt-dialog';
 import { Palette } from './palette';
 import { BrowserLauncher } from '../features/browser/browser-launcher';
+import { BrowserSwitcherOverlay } from '../features/browser/browser-switcher-overlay';
 import { SlidesModal } from '../features/slides/slides-modal';
 import { CouncilCreateDialog } from '../features/councils/council-create-dialog';
 import { FirstRunModal } from '../features/onboarding/first-run-modal';
@@ -86,6 +87,12 @@ describe('occluder coverage across overlays', () => {
     useUiStore.setState({ browserLauncherOpen: true });
     assertOccluderLifecycle(() => render(<BrowserLauncher />));
     useUiStore.setState({ browserLauncherOpen: false });
+  });
+
+  it('3b. BrowserSwitcherOverlay registers as an occluder', () => {
+    useUiStore.setState({ browserSwitcherOpen: true });
+    assertOccluderLifecycle(() => render(<BrowserSwitcherOverlay />));
+    useUiStore.setState({ browserSwitcherOpen: false });
   });
 
   it('4. ConfirmDialog registers as an occluder', () => {

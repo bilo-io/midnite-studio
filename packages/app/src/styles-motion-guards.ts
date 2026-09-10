@@ -39,6 +39,13 @@ function keyframeNames(source: string): string[] {
   return names;
 }
 
+/**
+ * Classes in a selector or block, plus a synthetic `:root` token when the
+ * selector carries that pseudo-class — the one guard target in this file
+ * with no class of its own (the browser search-bar clock's shared timeline
+ * animates `:root` directly, precisely so no individual element owns a
+ * separate animation instance to fall out of phase with the others).
+ */
 function classesIn(selectorOrBlock: string): Set<string> {
   const classes = new Set<string>();
   const re = /\.([\w-]+)/g;
@@ -46,6 +53,7 @@ function classesIn(selectorOrBlock: string): Set<string> {
   while ((m = re.exec(selectorOrBlock))) {
     if (m[1]) classes.add(m[1]);
   }
+  if (/(?:^|[\s,>+~]):root\b/.test(selectorOrBlock)) classes.add(':root');
   return classes;
 }
 

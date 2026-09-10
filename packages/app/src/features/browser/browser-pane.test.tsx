@@ -219,4 +219,27 @@ describe('address bar behaviour (Theme G)', () => {
     expect(pane()).toBeDefined();
     expect(useUiStore.getState().browserOpen).toBe(true);
   });
+
+  it('renders fixed address bar wrapped in synchronized gradient border and glow', () => {
+    seedActivePageTab();
+    renderPane();
+
+    const wrapper = addressInput().closest('.browser-search-sync');
+    expect(wrapper).not.toBeNull();
+    expect(wrapper?.classList.contains('gradient-border')).toBe(true);
+    expect(wrapper?.classList.contains('gradient-border--glow')).toBe(true);
+    expect(wrapper?.classList.contains('browser-search-sync')).toBe(true);
+  });
+
+  it('auto-focuses the fixed address bar on a new tab', async () => {
+    useBrowserStore.setState({
+      activeTabId: 'new-1',
+      tabs: [{ id: 'new-1', kind: 'newtab', url: '', title: 'New tab', loading: false, canGoBack: false, canGoForward: false }],
+    });
+    renderPane();
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(addressInput());
+    });
+  });
 });

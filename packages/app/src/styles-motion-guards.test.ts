@@ -77,4 +77,18 @@ describe('styles-motion-guards fixtures (Phase 46 Theme H)', () => {
   it('findDuplicateKeyframes flags a name declared twice', () => {
     expect(findDuplicateKeyframes('@keyframes a{}@keyframes a{}')).toEqual(['a']);
   });
+
+  it('findUnguardedKeyframes recognizes a bare `:root` guard, with no class involved', () => {
+    expect(
+      findUnguardedKeyframes(
+        '@keyframes ghost{}\n:root{animation: ghost 1s;}\n@media (prefers-reduced-motion: reduce){ :root{animation:none} }',
+      ),
+    ).toEqual([]);
+  });
+
+  it('findUnguardedKeyframes still flags `:root` with no matching guard block', () => {
+    expect(findUnguardedKeyframes('@keyframes ghost{}\n:root{animation: ghost 1s;}')).toEqual([
+      'ghost',
+    ]);
+  });
 });

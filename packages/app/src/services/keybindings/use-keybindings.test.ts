@@ -329,3 +329,19 @@ describe('browser.zoomIn/zoomOut/zoomReset vs the host app.* pair (Phase 32 Them
     expect(run['browser.zoomReset']).not.toHaveBeenCalled();
   });
 });
+
+describe('browserSwitcherOpen keyboard gating', () => {
+  it('allows browser.toggle through while blocking other bound chords', () => {
+    useUiStore.setState({ browserSwitcherOpen: true });
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    // Mod+b passes through
+    dispatch({ key: 'b', metaKey: true });
+    expect(run['browser.toggle']).toHaveBeenCalledTimes(1);
+
+    // Other chords like Mod+k (palette.open) or Mod+p are blocked
+    dispatch({ key: 'k', metaKey: true });
+    expect(run['palette.open']).not.toHaveBeenCalled();
+  });
+});

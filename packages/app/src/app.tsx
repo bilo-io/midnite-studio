@@ -25,6 +25,7 @@ import { LuChevronLeft, LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandHomeButton, BrandMark } from './components/brand';
 import { BrowserLauncher } from './features/browser/browser-launcher';
+import { BrowserSwitcherOverlay } from './features/browser/browser-switcher-overlay';
 import { NotesModal } from './features/notes/notes-modal';
 import { QuickAccessMenu } from './features/quick-access/quick-access-menu';
 import { BrowserPane } from './features/browser/browser-pane';
@@ -1612,6 +1613,7 @@ function Shell() {
           after the keystroke would swallow the `Enter` that follows it.
         */}
         <BrowserLauncher />
+        <BrowserSwitcherOverlay />
         <NotesModal />
         {/*
           The FAB's own entry point (Theme E) — self-contained, so it only

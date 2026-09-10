@@ -194,12 +194,11 @@ export function NewTabPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="w-full max-w-lg mb-8">
-          <div className="group relative flex items-center rounded-full p-[1px] bg-border/80 hover:bg-gradient-to-r hover:from-primary/50 hover:via-purple-500/50 hover:to-accent/50 focus-within:bg-gradient-to-r focus-within:from-primary focus-within:via-purple-500 focus-within:to-accent transition-all shadow-lg backdrop-blur-md">
-            <div className="relative flex w-full items-center rounded-full bg-card/85 backdrop-blur-md border border-border/30">
-              <LuSearch className="absolute left-3.5 h-4 w-4 text-muted-foreground" />
+          <div className="gradient-border gradient-border--glow browser-search-sync relative flex items-center rounded-full shadow-lg backdrop-blur-md">
+            <div className="relative flex w-full items-center rounded-full bg-card/85 backdrop-blur-md">
+              <LuSearch className="absolute left-3.5 h-4 w-4 text-muted-foreground pointer-events-none" />
               <input
                 type="text"
-                autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search the web or enter URL"

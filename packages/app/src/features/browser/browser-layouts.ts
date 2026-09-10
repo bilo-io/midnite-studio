@@ -59,3 +59,16 @@ export function stepBrowserLayout(layout: BrowserLayout, steps: number): Browser
   );
   return BROWSER_LAYOUT_OPTIONS[next]!.layout;
 }
+
+/**
+ * Cycles through the layout options wrapping around.
+ *
+ * Used by the Mod+B switcher overlay: each press of B advances to the next
+ * layout, wrapping from last back to first.
+ */
+export function cycleBrowserLayout(current: BrowserLayout, step = 1): BrowserLayout {
+  const currentIndex = browserLayoutIndex(current);
+  const count = BROWSER_LAYOUT_OPTIONS.length;
+  const nextIndex = (currentIndex + step) % count;
+  return BROWSER_LAYOUT_OPTIONS[nextIndex < 0 ? nextIndex + count : nextIndex]!.layout;
+}
