@@ -5,6 +5,7 @@ import {
   DEFAULT_COMPANION_VOLUME,
   METRICS_IDLE_INTERVAL_MS,
   VIEW_IDS,
+  type AppId,
   type CompanionMicMode,
   type CompanionVoiceEngine,
   type CompanionVoiceSelection,
@@ -1391,6 +1392,16 @@ export type UiState = {
    */
   disabledEcosystems: Ecosystem[];
   toggleEcosystem: (id: Ecosystem) => void;
+  /**
+   * Which of the three third-party apps rail apps (Phase 83) are switched on
+   * — an allowlist, unlike `disabledEcosystems`'s denylist, because a fresh
+   * install (or an upgrade that predates this key entirely) should show NONE
+   * of them rather than all three: each app spins up its own embedded
+   * `WebContentsView` and login flow the moment it is enabled, which is not
+   * something to opt a user into silently. Default `[]`.
+   */
+  enabledApps: AppId[];
+  setAppEnabled: (id: AppId, enabled: boolean) => void;
   passcode: string | null;
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
@@ -1592,6 +1603,7 @@ export type PersistedUi = Pick<
   | 'allowTrashEmpty'
   | 'trashEmptyConsentGiven'
   | 'disabledEcosystems'
+  | 'enabledApps'
   | 'terminalDetached'
   | 'reposDetached'
   | 'fabDetached'
@@ -1771,6 +1783,8 @@ export const useUiStore = create<UiState>()(
       setTrashEmptyConsentGiven: (trashEmptyConsentGiven) => set({ trashEmptyConsentGiven }),
       // Disabled set, not the enabled one — see the interface docblock.
       disabledEcosystems: [],
+      // Enabled set, not a disabled one — see the interface docblock.
+      enabledApps: [],
       passcode: null,
       setPasscode: (passcode) => set({ passcode }),
       passcodeOnlyWhenLocked: false,
@@ -2200,6 +2214,19 @@ export const useUiStore = create<UiState>()(
             ? state.disabledEcosystems.filter((entry) => entry !== id)
             : [...state.disabledEcosystems, id],
         })),
+      // Explicit enabled/disabled, not a toggle: Theme B's `apps.enable`/
+      // `apps.disable` IPC calls are two distinct verbs (enable constructs and
+      // shows a view; disable tears it down), so the caller — Theme E's
+      // settings switch, or Theme C's rail icon — already knows which one it
+      // means and should not have to read current state first to pick it.
+      setAppEnabled: (id, enabled) =>
+        set((state) => ({
+          enabledApps: enabled
+            ? state.enabledApps.includes(id)
+              ? state.enabledApps
+              : [...state.enabledApps, id]
+            : state.enabledApps.filter((entry) => entry !== id),
+        })),
       setAutoFetchIntervalMs: (autoFetchIntervalMs) => set({ autoFetchIntervalMs }),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
       setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),
@@ -2230,7 +2257,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 17,
+      version: 18,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2331,6 +2358,7 @@ export const useUiStore = create<UiState>()(
         allowTrashEmpty: state.allowTrashEmpty,
         trashEmptyConsentGiven: state.trashEmptyConsentGiven,
         disabledEcosystems: state.disabledEcosystems,
+        enabledApps: state.enabledApps,
         terminalDetached: state.terminalDetached,
         reposDetached: state.reposDetached,
         fabDetached: state.fabDetached,
@@ -2381,9 +2409,14 @@ export const useUiStore = create<UiState>()(
        * `companionAboutUser` `''` — a plain seed, not a migration off some
        * prior shape: neither field existed in any earlier version, so a
        * fresh install and a pre-v17 blob land on the identical default.
+       * v17 → v18: seed `enabledApps = []` (Phase 83 Theme A). No prior
+       * shape to carry forward — the apps rail did not exist before this
+       * version — and `[]` is also the fresh-install default, per the
+       * interface docblock's "opt in, not opt out" reasoning.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
+          enabledApps?: AppId[];
           graphColumns?: Record<string, number>;
           collapsedRepoSections?: Record<string, string[]>;
           repoGroups?: unknown[];
@@ -2494,6 +2527,9 @@ export const useUiStore = create<UiState>()(
         if (version < 17) {
           state.companionPersonality = '';
           state.companionAboutUser = '';
+        }
+        if (version < 18) {
+          state.enabledApps = [];
         }
         return state as PersistedUi;
       },

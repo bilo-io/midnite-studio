@@ -90,6 +90,9 @@ describe('persisted-keys partition', () => {
         // exactly one phase slice and are gone: Theme H built
         // `companion-page.tsx`, which is what leaving this list is supposed to
         // look like.
+        // Phase 83 Theme A's `enabledApps` — Theme E (out of scope for the
+        // Theme A/B PR) builds its settings page.
+        'enabledApps',
       ].sort(),
     );
   });

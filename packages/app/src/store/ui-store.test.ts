@@ -1154,3 +1154,43 @@ describe('v16 -> v17 migration (Ad Hoc: companion personality free-text fields)'
     expect(useUiStore.getState().companionHonorifics).toEqual(['boss']);
   });
 });
+
+describe('v17 -> v18 migration (Phase 83 Theme A: enabledApps)', () => {
+  it('seeds enabledApps as an empty array — no prior shape to carry forward', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({}, 17) as { enabledApps: string[] };
+    expect(migrated.enabledApps).toEqual([]);
+  });
+
+  it('a persisted v17 blob round-trips through the real store with enabledApps seeded empty', () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({
+        state: { companionPersonality: 'droll' },
+        version: 17,
+      }),
+    );
+    void useUiStore.persist.rehydrate();
+    expect(useUiStore.getState().enabledApps).toEqual([]);
+    // Untouched by this migration.
+    expect(useUiStore.getState().companionPersonality).toBe('droll');
+  });
+});
+
+describe('setAppEnabled (Phase 83 Theme A)', () => {
+  it('adds an app id once, is a no-op if already enabled, and removes it on disable', () => {
+    useUiStore.setState({ enabledApps: [] });
+
+    useUiStore.getState().setAppEnabled('spotify', true);
+    expect(useUiStore.getState().enabledApps).toEqual(['spotify']);
+
+    useUiStore.getState().setAppEnabled('spotify', true);
+    expect(useUiStore.getState().enabledApps).toEqual(['spotify']);
+
+    useUiStore.getState().setAppEnabled('youtube', true);
+    expect(useUiStore.getState().enabledApps).toEqual(['spotify', 'youtube']);
+
+    useUiStore.getState().setAppEnabled('spotify', false);
+    expect(useUiStore.getState().enabledApps).toEqual(['youtube']);
+  });
+});
