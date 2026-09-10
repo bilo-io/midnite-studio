@@ -379,7 +379,23 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `playwright.config.ts` keeps `retries: 2`), and `e2e/notes.spec.ts`'s browser-occluder
       contract (**six times — #324, #327, #331, #333 and #335 twice — and it is **not** flake. Diagnosed 2026-09-10: the test alone passes in 6.6s and the whole file passes 8/8 under `--workers=1`, but the file under parallel workers fails, and it reproduces identically on clean `main`. Its `expect.poll` on the WebContentsView visibility sync simply loses the race whenever the environment is slow or contended — locally under parallel workers, on CI under the 2-core runner. A real, fixable defect, not noise, and the single largest tax on this repo's CI trust) — #324, #327, #331 and #333, always the same
       `__mstudioBrowserVisibleCalls` poll, and now the most persistent flake in the suite; it has
-      earned a real fix rather than another re-run). Two of
+      earned a real fix rather than another re-run).
+
+      **Two more, found landing #309 on 2026-09-10 — the count is six specs, not four.**
+      `packages/app/src/services/avatars.test.ts` (a cache-state race, `pending` observed where
+      `ready` was asserted) failed `gate-node-app-test` shard 4 and passed on a `gh run rerun
+      --job`; `run-detail.test.tsx` threw an unhandled post-teardown `window is not defined`
+      under a full parallel `moon run :typecheck :lint :test` and passed on a solo `app:test`
+      (3922/3922). #309's diff touches only `packages/desktop/scripts/lib/`, so neither can be
+      its fault. Both are the *same shape* as the register's existing entries — state or
+      lifecycle that only races when the suite is contended — and neither is a wall-clock bound,
+      so the check this theme proposes would **not** have caught either. Worth noting before
+      writing it: the guard against `expect(elapsed).toBeLessThan(…)` covers three of the
+      original four and none of these two. The post-teardown class in particular wants a
+      different guard — an `afterEach` that fails a test leaking a timer or subscription past its
+      own teardown.
+
+      Two of
       those PRs touched **zero** files in the failing package. This phase makes CI faster; flake
       makes it less *trustworthy*, and trust is what a blocking gate actually sells — a gate that
       is red on nobody's fault is a gate that gets switched off, which `ci.yml`'s own comment
