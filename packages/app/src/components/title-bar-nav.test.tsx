@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { keys } from '../services/queries';
@@ -117,6 +117,48 @@ describe('TitleBarNav Breadcrumbs', () => {
         useUiStore.setState({ activeView: 'changes' });
       });
       expect(screen.getByText('Changes').dataset.revealed).toBe('true');
+    });
+  });
+
+  /**
+   * Ad hoc: the repo crumb is the first `filterable` opt-in to `ContextMenu`'s
+   * search box — see `context-menu.test.tsx` for the box's own behaviour.
+   */
+  describe('the repo switcher', () => {
+    it('excludes the current repo and skips the filter box under the threshold', () => {
+      client.setQueryData(keys.repos, [
+        { id: 'repo-0', name: 'repo-0', path: '/p/repo-0', worktrees: [] },
+        { id: 'repo-1', name: 'repo-1', path: '/p/repo-1', worktrees: [] },
+      ]);
+      useUiStore.setState({ selectedRepoId: 'repo-0' });
+
+      render(withProviders(<TitleBarNav />, client));
+      fireEvent.click(screen.getByText('repo-0'));
+
+      expect(screen.queryByPlaceholderText('Find a repo…')).toBeNull();
+      expect(screen.getByRole('menuitem', { name: 'repo-1' })).toBeDefined();
+      expect(screen.queryByRole('menuitem', { name: 'repo-0' })).toBeNull();
+    });
+
+    it('opens a filterable, autofocused switcher above the threshold, matching name or path', () => {
+      const repos = Array.from({ length: 8 }, (_, i) => ({
+        id: `repo-${i}`,
+        name: `repo-${i}`,
+        path: `/path/to/repo-${i}`,
+        worktrees: [],
+      }));
+      client.setQueryData(keys.repos, repos);
+      useUiStore.setState({ selectedRepoId: 'repo-0' });
+
+      render(withProviders(<TitleBarNav />, client));
+      fireEvent.click(screen.getByText('repo-0'));
+
+      const box = screen.getByPlaceholderText('Find a repo…');
+      expect(document.activeElement).toBe(box);
+
+      fireEvent.change(box, { target: { value: 'repo-3' } });
+      expect(screen.getByRole('menuitem', { name: 'repo-3' })).toBeDefined();
+      expect(screen.queryByRole('menuitem', { name: 'repo-4' })).toBeNull();
     });
   });
 });
