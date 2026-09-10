@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { fixtures } from '../test-support/fixtures';
 import { installMockBridge } from '../test-support/mock-bridge';
 
-test.describe('Battery Status Bar Widget', () => {
+test.describe('Battery Title Bar Widget', () => {
   test('renders green tier when battery is above 70%', async ({ page }) => {
     await installMockBridge(page, {
       ...fixtures,
@@ -78,7 +78,7 @@ test.describe('Battery Status Bar Widget', () => {
     await expect(page.getByTestId('battery-segment')).toContainText('20%');
   });
 
-  test('clicking battery in status bar opens popover listing all connected devices', async ({ page }) => {
+  test('clicking battery in title bar opens popover listing all connected devices', async ({ page }) => {
     await installMockBridge(page, {
       ...fixtures,
       metricsSamples: [

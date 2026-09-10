@@ -66,6 +66,7 @@ import { useReveal, useRevealSize } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarAgents } from './components/title-bar-agents';
 import { TitleBarNav } from './components/title-bar-nav';
+import { TitleBarBattery } from './features/battery/battery-titlebar';
 import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
 import { ScreensaverHost } from './features/screensaver/screensaver-host';
 import { CommitActivityPanel } from './features/activity/commit-activity-panel';
@@ -1137,6 +1138,7 @@ function Shell() {
       */}
       <TitleBarAgents />
       <TitleBarStatus />
+      <TitleBarBattery />
       {/*
         The theme toggle is an app preference, not a status readout, so it
         gets a hairline rather than sitting flush against the status pill.
