@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { MCP_TOOL_IDS } from '@midnite/studio-shared';
+import { MCP_TOOL_IDS, VIEW_IDS } from '@midnite/studio-shared';
 import { build } from 'esbuild';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -132,6 +132,43 @@ describe('mcp stdio shim', () => {
       expect(listResponse).toBeTruthy();
       const tools = (listResponse?.result as { tools?: Array<{ name: string }> } | undefined)?.tools ?? [];
       expect(tools.map((t) => t.name).sort()).toEqual([...MCP_TOOL_IDS].sort());
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
+  }, 10_000);
+
+  /**
+   * Phase 81 Theme F's own acceptance condition — the doc's claim that the
+   * shim needs "no change" rests on `tools/list` reading straight off
+   * `MCP_TOOLS` (`index.ts`'s `ListToolsRequestSchema` handler, unedited by
+   * this theme): a tool added to the registry, closed `z.enum`s included,
+   * appears here automatically. The list-equality test above already proves
+   * this generically; this one pins the count and one tool's JSON schema so
+   * a future registry change that silently drops `ui.*` fails here by name.
+   */
+  it('lists eleven tools, with ui.navigate’s view as a JSON-schema enum of VIEW_IDS', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'mstudio-mcp-shim-home-'));
+    try {
+      const { parsed } = await runShim(
+        [
+          { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '0' } } },
+          { jsonrpc: '2.0', method: 'notifications/initialized' },
+          { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
+        ],
+        { homeDir: home },
+      );
+
+      const listResponse = parsed.find((m) => m.id === 2);
+      const tools =
+        (listResponse?.result as
+          | { tools?: Array<{ name: string; inputSchema?: { properties?: Record<string, unknown> } }> }
+          | undefined
+        )?.tools ?? [];
+      expect(tools).toHaveLength(11);
+
+      const uiNavigate = tools.find((t) => t.name === 'ui.navigate');
+      const viewProperty = uiNavigate?.inputSchema?.properties?.['view'] as { enum?: string[] } | undefined;
+      expect(viewProperty?.enum?.slice().sort()).toEqual([...VIEW_IDS].sort());
     } finally {
       await rm(home, { recursive: true, force: true });
     }
