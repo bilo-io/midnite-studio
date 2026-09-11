@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { TestPackage, TestRunResult } from '@midnite/studio-shared';
+import type { SyncStatusEvent, TestPackage, TestRunResult } from '@midnite/studio-shared';
 
 /**
  * A stand-in for the preload bridge, installed before any app code runs.
@@ -1050,6 +1050,10 @@ export function buildMockBridge(data: MockFixtures) {
   const appsEnableCalls: string[] = [];
   const appsDisableCalls: string[] = [];
   const appsActivateCalls: (string | null)[] = [];
+
+  /** Every `settings.sync` push, in order (Phase 84 Theme B.4) — `use-settings-sync.ts` fires one on mount and on every change. */
+  const settingsSyncCalls: Array<{ autoFetchEnabled: boolean; autoFetchIntervalMs: number }> = [];
+  const syncStatusHandlers: ((e: unknown) => void)[] = [];
 
   const bridge = {
     /*
@@ -2781,6 +2785,17 @@ export function buildMockBridge(data: MockFixtures) {
     },
     watch: { onEvent: unsubscribe },
     menu: { onCommand: unsubscribe },
+    settings: {
+      sync: (req: { autoFetchEnabled: boolean; autoFetchIntervalMs: number }) => {
+        settingsSyncCalls.push(req);
+      },
+    },
+    sync: {
+      onStatus: (handler: (e: SyncStatusEvent) => void) => {
+        syncStatusHandlers.push(handler as (e: unknown) => void);
+        return () => syncStatusHandlers.splice(syncStatusHandlers.indexOf(handler as (e: unknown) => void), 1);
+      },
+    },
     window: {
       minimize: noop,
       toggleMaximize: noop,
@@ -4163,6 +4178,14 @@ export function buildMockBridge(data: MockFixtures) {
   (window as unknown as { __mstudioAppsActivateCalls: unknown }).__mstudioAppsActivateCalls = () => [
     ...appsActivateCalls,
   ];
+  (window as unknown as { __mstudioSettingsSyncCalls: unknown }).__mstudioSettingsSyncCalls = () => [
+    ...settingsSyncCalls,
+  ];
+  (window as unknown as { __mstudioEmitSyncStatus: unknown }).__mstudioEmitSyncStatus = (
+    event: SyncStatusEvent,
+  ) => {
+    for (const handler of [...syncStatusHandlers]) handler(event);
+  };
   /*
       A getter, not the array: `loopRuns` is REASSIGNED on every start and
       stop (the ledger is immutable-updated the way main's is), so a spec
