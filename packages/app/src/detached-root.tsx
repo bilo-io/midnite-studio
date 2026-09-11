@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 import { ShellProviders } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
@@ -30,6 +30,24 @@ import { primaryTarget } from './features/repos/use-repo-actions';
 import { useAppearanceSync } from './store/appearance-store';
 import { useUiStore } from './store/ui-store';
 
+// Its own chunk (Phase 84 Theme H): the companion's voice/audio bootstrap
+// (real recorder/WAV-encoding machinery) is only relevant to the ONE popout
+// role that can ever show a mic button — see the component's own doc.
+const loadCompanionBootstrap = () => import('./features/companion/companion-bootstrap');
+const CompanionBootstrap = lazy(() =>
+  loadCompanionBootstrap().then((m) => ({ default: m.CompanionBootstrap })),
+);
+
+/**
+ * How long an unused query stays in a popout's cache after its last observer
+ * unmounts (Phase 84 Theme H.3) — an explicit, documented number rather than
+ * TanStack Query's own default, so a page popout left open across a long day
+ * cannot quietly accumulate every PR/run/issue detail it was ever pointed at.
+ * Well short of a day and well past any real in-session revisit; `staleTime`
+ * below already means nothing here refetches on its own regardless of this.
+ */
+const POPOUT_QUERY_GC_TIME_MS = 10 * 60 * 1000;
+
 /**
  * A QueryClient per popout — a second renderer process has no access to the
  * main window's cache, so this window fetches its own (staleTime infinite,
@@ -39,10 +57,20 @@ import { useUiStore } from './store/ui-store';
  * `DetachedShell` below) invalidates this client directly off main's
  * `broadcastToAllWindows(watchEvent)` — no relay involved, since main already
  * sends the event to this window along with every other one.
+ *
+ * `DetachedContent` below renders exactly one role's panel, so only that
+ * role's own queries are ever created here in the first place (Theme H.3) —
+ * `gcTime` bounds how long an unused one survives once something (closing a
+ * tab, navigating within a page role) stops observing it.
  */
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { refetchOnWindowFocus: false, retry: false, staleTime: Number.POSITIVE_INFINITY },
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: false,
+      staleTime: Number.POSITIVE_INFINITY,
+      gcTime: POPOUT_QUERY_GC_TIME_MS,
+    },
   },
 });
 
@@ -201,6 +229,17 @@ function DetachedShell({ role }: { role: Exclude<WindowRole, 'main'> }) {
   useLivenessTracking(useUiStore((s) => s.selectedRepoId));
   return (
     <DetachedWindowFrame role={role} title={ROLE_TITLE[role]}>
+      {/*
+        Only the companion popout ever needs its voice/audio bootstrap
+        (Phase 84 Theme H) — rendered here, a sibling of the content rather
+        than inside it, since it has no UI of its own (`CompanionBootstrap`
+        returns `null`) and outlives nothing about which content is showing.
+      */}
+      {role === 'companion' ? (
+        <Suspense fallback={null}>
+          <CompanionBootstrap />
+        </Suspense>
+      ) : null}
       <DetachedContent role={role} />
     </DetachedWindowFrame>
   );

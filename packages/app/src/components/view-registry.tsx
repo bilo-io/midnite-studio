@@ -90,7 +90,26 @@ export type ViewEntry = {
   Component: ComponentType;
   /** Reachable with no repository selected. Absent means "needs a repo". */
   global?: true;
+  /**
+   * Opts this view into the bounded keep-alive (Phase 84 Theme G): leaving it
+   * for another view does not unmount it outright. `app.tsx` keeps the
+   * single last-left keep-alive view mounted `hidden` beside whichever view
+   * is active, for up to `ttlMs`, so a return within that window shows the
+   * same streamed rows and scroll position rather than paying to rebuild
+   * them. `maxRows` is an early-eviction ceiling for a view whose own store
+   * holds an unbounded buffer (the graph's streamed commits) — absent for a
+   * view with nothing comparable to bound.
+   *
+   * Absent entirely means what it always meant: leaving unmounts immediately,
+   * the same as before this theme existed.
+   */
+  keepAlive?: { ttlMs: number; maxRows?: number };
 };
+
+/** Theme G defaults — both a `Settings` surface could tune later; neither is yet. */
+export const VIEW_KEEP_ALIVE_TTL_MS = 5 * 60 * 1000;
+/** The graph's own row-buffer ceiling: past this, the hidden copy is dropped immediately (G.3). */
+export const GRAPH_KEEP_ALIVE_MAX_ROWS = 20_000;
 
 /**
  * Every `ViewId`, in `VIEW_IDS` order, with the component that renders it.
@@ -119,8 +138,15 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // checkout, so the view stays reachable with no repository selected.
   database: { Component: DatabaseView, global: true },
   projects: { Component: ProjectsView },
-  graph: { Component: GraphView },
-  changes: { Component: Workbench },
+  // Both keep-alive-eligible (Phase 84 Theme G): the two views a watcher-
+  // driven repo re-visits most, and the two whose own state (a streamed row
+  // buffer and scroll position; open tabs and a diff scroll position) is
+  // expensive enough to rebuild that a bounded hidden mount pays for itself.
+  graph: {
+    Component: GraphView,
+    keepAlive: { ttlMs: VIEW_KEEP_ALIVE_TTL_MS, maxRows: GRAPH_KEEP_ALIVE_MAX_ROWS },
+  },
+  changes: { Component: Workbench, keepAlive: { ttlMs: VIEW_KEEP_ALIVE_TTL_MS } },
   actions: { Component: ActionsView },
   reviews: { Component: ReviewsView },
   issues: { Component: IssuesView },

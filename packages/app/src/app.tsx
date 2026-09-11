@@ -38,6 +38,7 @@ import { ErrorBoundary } from './components/error-boundary';
 import { ToastHost } from './components/toast-host';
 import { VIEW_ICON } from './components/nav-icons';
 import { VIEW_COMPONENT } from './components/view-registry';
+import { useKeptAliveView } from './components/view-keep-alive';
 import { navChord } from './components/nav-chords';
 import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
@@ -934,7 +935,7 @@ function Shell() {
     in the JSX so `Component` is a capitalised binding React will treat as a
     component rather than as an intrinsic element.
   */
-  const { Component, global: viewIsGlobal } = VIEW_COMPONENT[activeView];
+  const { Component, global: viewIsGlobal, keepAlive: activeKeepAlive } = VIEW_COMPONENT[activeView];
 
   /*
     What the error boundary calls the thing that just broke — "Graph stopped
@@ -944,6 +945,28 @@ function Shell() {
     default covers it.
   */
   const viewLabel = ALL_NAV_ITEMS.find((item) => item.view === activeView)?.label;
+
+  /*
+    Phase 84 Theme G: the single view left behind most recently that opted
+    into `keepAlive` (Graph, Changes — `view-registry.tsx`), still within its
+    TTL/row budget. `null` far more often than not — only switching AWAY from
+    a keep-alive view, or that view's own TTL/ceiling, ever changes it.
+  */
+  const keptView = useKeptAliveView(activeView);
+
+  /*
+    At most two entries: the active view (if IT opts into keep-alive) and
+    whichever other keep-alive view was left most recently. Both get their own
+    STABLE slot below, keyed on the ViewId rather than on `activeView` — that
+    is what lets switching between two keep-alive views (Graph <-> Changes)
+    reuse the same mounted instance instead of tearing it down, the same way
+    `terminal-panel.tsx` keys each session's xterm on the session id rather
+    than on which one is active. A view with no keep-alive config never
+    appears here; it stays on the ordinary swap-by-key path below unchanged.
+  */
+  const keepAliveViewIds: ViewId[] = [];
+  if (activeKeepAlive) keepAliveViewIds.push(activeView);
+  if (keptView !== null && keptView.viewId !== activeView) keepAliveViewIds.push(keptView.viewId);
 
   /*
     The view box's classes, hoisted so the Suspense fallback outside the keyed div
@@ -1379,16 +1402,22 @@ function Shell() {
                 a user leave a broken view and come back to a fresh attempt
                 rather than a poisoned slot.
               */}
-              <ErrorBoundary resetKey={activeView} label={viewLabel}>
-                <Suspense
-                  fallback={
-                    <div className={viewBoxClassName}>
-                      <DelayedFallback />
-                    </div>
-                  }
-                >
-                  <div key={activeView} className={viewBoxClassName}>
-                    {/*
+              {/*
+                Skipped for a keep-alive view (Theme G): that view gets its
+                own stable slot below instead, which is what lets it survive
+                being switched away from. Every other view is unchanged.
+              */}
+              {activeKeepAlive ? null : (
+                <ErrorBoundary resetKey={activeView} label={viewLabel}>
+                  <Suspense
+                    fallback={
+                      <div className={viewBoxClassName}>
+                        <DelayedFallback />
+                      </div>
+                    }
+                  >
+                    <div key={activeView} className={viewBoxClassName}>
+                      {/*
                   One lookup, not a chain — Phase 60 Theme A.
 
                   The ORDERING that used to be load-bearing here (five views
@@ -1401,10 +1430,63 @@ function Shell() {
                   window — the fallthrough that quietly caught `sessions` for
                   four phases no longer exists to catch anything.
                 */}
-                    {viewIsGlobal || selectedRepoId ? <Component /> : <EmptyWorkspace />}
-                  </div>
-                </Suspense>
-              </ErrorBoundary>
+                      {viewIsGlobal || selectedRepoId ? <Component /> : <EmptyWorkspace />}
+                    </div>
+                  </Suspense>
+                </ErrorBoundary>
+              )}
+
+              {/*
+                Theme G's keep-alive slots — at most two, per `keepAliveViewIds`
+                above. Each gets its OWN `ErrorBoundary`/`Suspense` (an
+                exception to "one boundary for all views", immediately above):
+                a hidden slot's Suspense fallback is always `null` rather than
+                `DelayedFallback`, since a keep-alive view only ever reaches
+                this block after having already loaded once as the active
+                view — there is nothing left to suspend on.
+
+                `resetKey={viewId}` is intentionally STABLE across the
+                active/hidden toggle rather than tied to `activeView`: an error
+                caught here does not auto-clear just because the view was
+                switched away from and back (there is no remount to do that
+                anymore, which is the whole point) — Try again is the
+                recovery path, same as the terminal's own hidden sessions.
+
+                Hidden with `hidden` (`display: none`), never unmounted: that
+                is what preserves the graph's row buffer/scroll position and
+                the changes workbench's open tabs across a switch away, for as
+                long as `useKeptAliveView` keeps this slot listed.
+              */}
+              {keepAliveViewIds.map((viewId) => {
+                const isActive = viewId === activeView;
+                const {
+                  Component: SlotComponent,
+                  global: slotGlobal,
+                } = VIEW_COMPONENT[viewId];
+                const slotLabel = ALL_NAV_ITEMS.find((item) => item.view === viewId)?.label;
+                return (
+                  <ErrorBoundary key={viewId} resetKey={viewId} label={slotLabel}>
+                    <Suspense
+                      fallback={
+                        isActive ? (
+                          <div className={viewBoxClassName}>
+                            <DelayedFallback />
+                          </div>
+                        ) : null
+                      }
+                    >
+                      <div
+                        className={isActive ? viewBoxClassName : 'hidden'}
+                        aria-hidden={!isActive}
+                        data-view-slot={viewId}
+                        data-kept-alive={isActive ? undefined : ''}
+                      >
+                        {slotGlobal || selectedRepoId ? <SlotComponent /> : <EmptyWorkspace />}
+                      </div>
+                    </Suspense>
+                  </ErrorBoundary>
+                );
+              })}
 
               {/*
                 Mounted while open — and for the length of the slide shut — and
