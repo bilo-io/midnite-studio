@@ -2,6 +2,13 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **Phase 84 Themes E.6/F.5: the memory numbers.** Both need a packaged-equivalent build
+  (`moon run app:build desktop:bundle`) and a real run of `scripts/perf/memory-report.mjs`
+  (`--action=terminal` for E's 10-sessions/1-visible number, `--action=browser-tabs` for F's
+  8-tabs/1-active number) — the PR that landed the dispose/discard mechanisms itself did not have
+  time to produce them. The mechanisms are unit- and e2e-tested (`session-mount-policy.test.ts`,
+  `replay-gate.test.ts`, `browser-service.test.ts`); only the recorded-in-`done.md` number is owed.
+
 - **Phase 84 Theme F: per-app discard opt-in, and navigation-history restore.**
   Both were named in the theme's own doc as "if easy, else defer here." Third-party apps
   (`apps-service.ts`, Phase 83) are excluded from the idle-discard sweep by construction — the
