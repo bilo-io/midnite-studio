@@ -1,3 +1,4 @@
+import type { TerminalSession } from '@midnite/studio-shared';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,9 +10,20 @@ import {
   useMountedSessionIds,
   useSessionViewHistory,
 } from './session-mount-policy';
+import { useTerminalStore } from './terminal-store';
+
+function stubSession(id: string): TerminalSession {
+  return { id, kind: 'shell', cwd: '/repo', repoId: 'r1', createdAt: 1 } as TerminalSession;
+}
+
+/** Seeds `terminal-store` so the forget-effect's global known-ids check (below) sees these ids as open. */
+function seedKnownSessions(ids: readonly string[]): void {
+  useTerminalStore.setState({ sessions: ids.map(stubSession) });
+}
 
 afterEach(() => {
   resetSessionViewHistoryForTests();
+  useTerminalStore.setState({ sessions: [], activeId: null, states: {}, pendingInput: {} });
   vi.useRealTimers();
 });
 
@@ -100,6 +112,7 @@ describe('mountedSessionIds', () => {
 describe('useMountedSessionIds', () => {
   it('mounts only the visible session plus keepRecent history, from 10 open sessions', () => {
     const ids = Array.from({ length: 10 }, (_, i) => `s${i}`);
+    seedKnownSessions(ids);
     let visible = ids[0]!;
     const { result, rerender } = renderHook(
       ({ visibleId }: { visibleId: string }) => useMountedSessionIds(ids, visibleId, { keepRecent: 3 }),
@@ -119,6 +132,7 @@ describe('useMountedSessionIds', () => {
 
   it('records when a session goes hidden, immediately and independent of the clock tick', () => {
     const ids = ['a', 'b'];
+    seedKnownSessions(ids);
     const { result, rerender } = renderHook(
       ({ visibleId }: { visibleId: string }) =>
         useMountedSessionIds(ids, visibleId, { keepRecent: 3, disposeAfterMs: 1000 }),
@@ -131,5 +145,52 @@ describe('useMountedSessionIds', () => {
 
     expect(result.current).toEqual(new Set(['a', 'b']));
     expect(useSessionViewHistory.getState().hiddenSince['a']).toBeDefined();
+  });
+
+  it("scopes the recency walk to the caller's own ids — an unrelated, more-recent session elsewhere in the shared history never fills this host's slot", () => {
+    // A different host (the panel) made 'z' the most-recently-active session
+    // process-wide; a card whose own domain is only {'a'} must never let that
+    // displace or stand in for its own single slot.
+    seedKnownSessions(['z', 'a']);
+    const panel = renderHook(
+      ({ visibleId }: { visibleId: string | null }) => useMountedSessionIds(['z'], visibleId, { keepRecent: 3 }),
+      { initialProps: { visibleId: 'z' as string | null } },
+    );
+    act(() => panel.rerender({ visibleId: null })); // 'z' goes hidden, most-recent process-wide
+
+    const card = renderHook(
+      ({ visibleId }: { visibleId: string | null }) =>
+        useMountedSessionIds(['a'], visibleId, { keepRecent: 1, disposeAfterMs: 1000 }),
+      { initialProps: { visibleId: 'a' as string | null } },
+    );
+    act(() => card.rerender({ visibleId: null })); // 'a' goes hidden too
+
+    // Only 'a' is ever in the card's own reported set — never 'z'.
+    expect(card.result.current.has('z')).toBe(false);
+    expect(card.result.current.has('a')).toBe(true);
+  });
+
+  it("one host's own known-ids list cannot forget another host's still-open session from the shared history", () => {
+    // Both 'panelSession' (the docked panel's) and 'cardSession' (a Kanban
+    // card's) are genuinely open, but a caller only ever passes ITS OWN ids —
+    // the forget-effect must check against terminal-store's full session
+    // list, not the narrow list this particular render passed in.
+    seedKnownSessions(['panelSession', 'cardSession']);
+    useSessionViewHistory.setState({ recentOrder: ['cardSession'], hiddenSince: {} });
+
+    // The panel calls the hook knowing only about its own session — never
+    // 'cardSession' — which must not make it forget the card's bookkeeping.
+    renderHook(() => useMountedSessionIds(['panelSession'], 'panelSession'));
+
+    expect(useSessionViewHistory.getState().recentOrder).toContain('cardSession');
+  });
+
+  it('forgets a session once terminal-store no longer knows about it anywhere', () => {
+    seedKnownSessions([]); // closed everywhere
+    useSessionViewHistory.setState({ recentOrder: ['gone'], hiddenSince: { gone: 0 } });
+
+    renderHook(() => useMountedSessionIds(['gone'], null));
+
+    expect(useSessionViewHistory.getState().recentOrder).not.toContain('gone');
   });
 });

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { create } from 'zustand';
 
 import { useNow } from '../../lib/use-now';
+import { useTerminalStore } from './terminal-store';
 
 /**
  * Which hidden terminal sessions stay mounted, and for how long (Phase 84
@@ -82,10 +83,22 @@ export function mountedSessionIds(input: SessionMountPolicyInput): Set<string> {
 //
 // One store per renderer process, exactly like `xterm-budget.ts` — the docked
 // panel and a detached Terminal window are two separate renderer processes
-// (each with its own module instance), and within one process the panel is
-// the only mount site tracking session view history, so a single store here
-// needs no per-surface scoping the way `xterm-budget.ts`'s WebGL ledger does
-// across panel/card/FAB.
+// (each with its own module instance). Within one process, though, the panel
+// is no longer the only caller (Phase 84 Theme E.5): a Kanban card terminal
+// consults this same policy, and its session id lives in the SAME shared
+// `recentOrder`/`hiddenSince` maps the panel's sessions do — there is only one
+// history per process, not one per host, because a session switching from a
+// card to the panel (`revealSession`) must carry its recency forward rather
+// than starting a second, disconnected history under a different key.
+//
+// That sharing is exactly why `useMountedSessionIds` below scopes its own
+// `recentOrder` walk to the CALLER's own `sessionIds` before handing it to
+// `mountedSessionIds` — a card passing its one id must never have a totally
+// unrelated panel session (more recently active, process-wide) fill its own
+// single recency slot — while the separate "forget a closed session"
+// bookkeeping is scoped to every session `terminal-store` still knows about,
+// process-wide, so one host's own narrow id list can never garbage-collect a
+// bookmark another host is still relying on.
 
 type ViewHistoryState = {
   /** Most-recently-active first; deduplicated. */
@@ -123,13 +136,24 @@ export const useSessionViewHistory = create<ViewHistoryState>()((set) => ({
 
 /**
  * The set of session ids `terminal-panel.tsx` (and any other host consulting
- * the same policy — Theme E.5) should render a live xterm for right now.
+ * the same policy — Theme E.5, e.g. `card-terminal.tsx`) should render a live
+ * xterm for right now.
  *
- * `sessionIds` is every session the caller currently has open — used only to
- * forget bookkeeping for ones that closed, not to gate the calculation
- * itself. Re-evaluates once a second via `useNow()` (a shared, visibility-
- * gated timer — see its own doc) so the `disposeAfterMs` cutoff is caught
- * even when nothing else changes in between.
+ * `sessionIds` is every session the CALLER's own host knows about — a Kanban
+ * card passes its one session id, the panel passes its whole `inMainPanel`
+ * list. Two jobs, not one: it scopes the shared `recentOrder` down to this
+ * host's own ids before the recency/idle calculation runs (so a card's single
+ * slot is never displaced by some unrelated, more-recently-active panel
+ * session sharing the same process-wide history — see the module doc above),
+ * and it seeds the id set the forget-effect checks a session against — but
+ * that check is widened to every session `terminal-store` still knows about
+ * app-wide, not just this caller's own list, so a card forgetting its one
+ * session's bookkeeping the moment IT closes can never also erase a still-open
+ * panel session's history it never knew about in the first place.
+ *
+ * Re-evaluates once a second via `useNow()` (a shared, visibility-gated timer
+ * — see its own doc) so the `disposeAfterMs` cutoff is caught even when
+ * nothing else changes in between.
  */
 export function useMountedSessionIds(
   sessionIds: readonly string[],
@@ -155,14 +179,23 @@ export function useMountedSessionIds(
   }, [visibleId, markHidden]);
 
   useEffect(() => {
-    const known = new Set(sessionIds);
+    // Every session ANY host still has open, process-wide — not just this
+    // caller's own `sessionIds` — so this effect only ever forgets a session
+    // that has genuinely closed everywhere, never one a different host (the
+    // panel, another card) is still tracking.
+    const known = new Set(useTerminalStore.getState().sessions.map((s) => s.id));
     for (const id of recentOrder) if (!known.has(id)) forget(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on every session-list change, deliberately unmemoised (see module doc)
-  }, [sessionIds, forget]);
+  }, [sessionIds, recentOrder, forget]);
+
+  // This caller's own slice of the shared history: an id neither visible now
+  // nor known to THIS host's `sessionIds` has nothing to do with its budget.
+  const knownHere = new Set(sessionIds);
+  const scopedRecentOrder = recentOrder.filter((id) => knownHere.has(id));
 
   return mountedSessionIds({
     visibleId,
-    recentOrder,
+    recentOrder: scopedRecentOrder,
     hiddenSince,
     now,
     ...options,
