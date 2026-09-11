@@ -118,7 +118,8 @@ export function isTabDiscardEligible(input: {
  * occur on this partition today; the day that changes, this is where a
  * `wc.session` download-in-progress check belongs.
  */
-function runBrowserDiscardSweep(): void {
+/** Exported for `browser-service.test.ts` — deterministic, no fake timers needed. */
+export function runBrowserDiscardSweep(): void {
   const now = Date.now();
   for (const [tabId, tracked] of tabs) {
     const { win, view } = tracked;
