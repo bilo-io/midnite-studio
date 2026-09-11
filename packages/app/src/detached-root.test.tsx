@@ -6,6 +6,7 @@ import type { CommandId, MidniteStudioBridge, WatchEvent } from '@midnite/studio
 
 import { useGraphStore } from './features/graph/graph-store';
 import { keys } from './services/queries';
+import { useLivenessStore } from './store/liveness-store';
 import { useUiStore } from './store/ui-store';
 import { DetachedRoot } from './detached-root';
 
@@ -30,19 +31,27 @@ class StubResizeObserver {
 }
 vi.stubGlobal('ResizeObserver', StubResizeObserver);
 
-let watchHandler: ((event: WatchEvent) => void) | null = null;
+// `watch.onEvent` has more than one subscriber in a mounted `DetachedShell`
+// (Theme A's `useWatchInvalidation` AND Theme I's `useLivenessTracking`), so
+// the fake fans a fired event out to every registered handler — same pattern
+// `browser-pane.test.tsx` uses for `browser.onEvent`.
+let watchHandlers: ((event: WatchEvent) => void)[] = [];
 let menuCommandHandler: ((command: CommandId) => void) | null = null;
 
+function fireWatchEvent(event: WatchEvent): void {
+  for (const handler of [...watchHandlers]) handler(event);
+}
+
 function installBridge(): void {
-  watchHandler = null;
+  watchHandlers = [];
   menuCommandHandler = null;
   const bridge: Partial<MidniteStudioBridge> = {
     repos: { list: vi.fn().mockResolvedValue([]) } as unknown as MidniteStudioBridge['repos'],
     watch: {
       onEvent: vi.fn((handler: (event: WatchEvent) => void) => {
-        watchHandler = handler;
+        watchHandlers.push(handler);
         return () => {
-          watchHandler = null;
+          watchHandlers = watchHandlers.filter((h) => h !== handler);
         };
       }),
     } as unknown as MidniteStudioBridge['watch'],
@@ -68,6 +77,7 @@ beforeEach(() => {
   installBridge();
   useUiStore.setState({ selectedRepoId: 'repo-1', selectedWorktreePath: null });
   useGraphStore.setState({ restreamNonce: 0, repoId: null, requestId: null });
+  useLivenessStore.setState({ lastWatchAt: null, watcherError: null });
 });
 
 afterEach(() => {
@@ -82,12 +92,12 @@ describe('DetachedRoot — Theme A: the broadcast lands in a popout', () => {
     render(<DetachedRoot role="files" />);
 
     await screen.findByTestId('files-stub');
-    await waitFor(() => expect(watchHandler).not.toBeNull());
+    await waitFor(() => expect(watchHandlers.length).toBeGreaterThan(0));
 
     invalidateSpy.mockClear();
     const restreamNonceBefore = useGraphStore.getState().restreamNonce;
 
-    watchHandler?.({ repoId: 'repo-1', kind: 'refs', at: Date.now() });
+    fireWatchEvent({ repoId: 'repo-1', kind: 'refs', at: Date.now() });
 
     const invalidatedKeys = invalidateSpy.mock.calls.map(
       (call) => (call[0] as { queryKey?: unknown[] })?.queryKey,
@@ -98,17 +108,19 @@ describe('DetachedRoot — Theme A: the broadcast lands in a popout', () => {
     );
     // `refs` restreams the graph — but only for the repo actually on screen.
     expect(useGraphStore.getState().restreamNonce).toBe(restreamNonceBefore + 1);
+    // Theme I's liveness dot is fed off the SAME broadcast in this window.
+    expect(useLivenessStore.getState().lastWatchAt).not.toBeNull();
   });
 
   it('does not restream the graph for another window/repo', async () => {
     render(<DetachedRoot role="files" />);
 
     await screen.findByTestId('files-stub');
-    await waitFor(() => expect(watchHandler).not.toBeNull());
+    await waitFor(() => expect(watchHandlers.length).toBeGreaterThan(0));
 
     const restreamNonceBefore = useGraphStore.getState().restreamNonce;
 
-    watchHandler?.({ repoId: 'some-other-repo', kind: 'refs', at: Date.now() });
+    fireWatchEvent({ repoId: 'some-other-repo', kind: 'refs', at: Date.now() });
 
     expect(useGraphStore.getState().restreamNonce).toBe(restreamNonceBefore);
   });

@@ -22,6 +22,7 @@ import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
+import { useLivenessTracking } from './services/use-liveness-tracking';
 import { useRepos } from './services/queries';
 import { useReportWindowRepo } from './services/use-report-window-repo';
 import { useWatchInvalidation } from './services/watch-invalidation';
@@ -195,6 +196,9 @@ function DetachedShell({ role }: { role: Exclude<WindowRole, 'main'> }) {
     is actually showing, exactly like the main window.
   */
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
+  // Feeds this popout's own liveness dot (Phase 84 Theme I) — same hook
+  // `app.tsx` mounts for the main window.
+  useLivenessTracking(useUiStore((s) => s.selectedRepoId));
   return (
     <DetachedWindowFrame role={role} title={ROLE_TITLE[role]}>
       <DetachedContent role={role} />

@@ -98,6 +98,7 @@ import { bridge } from './services/bridge';
 import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
+import { useLivenessTracking } from './services/use-liveness-tracking';
 import { keys, useRemotes, useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useReportWindowRepo } from './services/use-report-window-repo';
@@ -624,6 +625,9 @@ function Shell() {
     }
   }, [activeView, forgeAvailable, optimizerEnabled]);
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
+  // Feeds the status bar's liveness dot (Phase 84 Theme I) off the same
+  // broadcast — see the hook's own doc.
+  useLivenessTracking(useUiStore((s) => s.selectedRepoId));
   useTestsStream();
   useAutoFetch();
 
