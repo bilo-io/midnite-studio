@@ -5,7 +5,6 @@ import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared
 
 import { Tooltip } from '../../../components/tooltip';
 import { revealSession } from '../../terminal/reveal-session';
-import { CardActivityLine } from './card-activity-line';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from './card-chrome';
 import { CardTerminal } from './card-terminal';
 import { deriveCardGlowState } from './glow-state';
@@ -141,20 +140,18 @@ export function TaskCard({
         terminal nor the activity line (`EndedStrip` inside the card's own
         detail pane already covers "ended", per Theme F/H).
 
-        `stopPropagation` guards only the terminal, not the activity line: the
-        line is a plain status pill with nothing of its own to click, so a
-        click on it is still "open the card" — only the terminal underneath
-        (a real xterm, and its pop-out button) needs to keep a click from also
-        opening the detail pane behind it.
+        `CardTerminal` owns its own click-guard now (Phase 84 Theme E.5):
+        `stopPropagation` only ever wraps the real xterm and its pop-out
+        button, never the activity-line fallback it shows while off-screen or
+        past its own mount policy's grace period — a plain status pill has
+        nothing of its own to click, so a click on it is still "open the
+        card". `visible` alone no longer decides whether `CardTerminal` even
+        renders: it consults `session-mount-policy.ts` to keep a recently-
+        hidden session's xterm alive a little past that, exactly like the
+        docked panel's own sessions.
       */}
       {sessionId !== undefined && status.running ? (
-        visible ? (
-          <div onClick={(event) => event.stopPropagation()}>
-            <CardTerminal sessionId={sessionId} visible={visible} />
-          </div>
-        ) : (
-          <CardActivityLine activity={status.activity} />
-        )
+        <CardTerminal sessionId={sessionId} visible={visible} activity={status.activity} />
       ) : null}
     </div>
   );
