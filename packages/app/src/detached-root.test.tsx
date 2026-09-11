@@ -55,6 +55,12 @@ function installBridge(): void {
         };
       }),
     } as unknown as MidniteStudioBridge['watch'],
+    // Theme B/C's `use-liveness-tracking.ts` also subscribes here; nothing in
+    // this file fires one, but the hook must find a callable stub rather
+    // than throwing on `bridge().sync.onStatus`.
+    sync: {
+      onStatus: vi.fn(() => () => {}),
+    } as unknown as MidniteStudioBridge['sync'],
     menu: {
       onCommand: vi.fn((handler: (command: CommandId) => void) => {
         menuCommandHandler = handler;
