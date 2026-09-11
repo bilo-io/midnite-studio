@@ -1,6 +1,39 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-11 — Phase 84 Theme J — Numbers, not adjectives
+
+[PR #352](https://github.com/bilo-io/midnite-studio/pull/352). Themes A-I and B/C's memory/perf
+claims, measured with a real number rather than left as an adjective — retroactively, since all of
+them had already landed by the time this theme could run. Two new `memory-report.mjs` modes,
+`--hidden-sessions=<N>` and `--hidden-tabs=<N>`, each a before/open/after-close RSS snapshot in the
+shape `runPopoutRss` already used for a single popout: open N real pty sessions or N real browser
+tabs over IPC, leave them running unrendered/unfocused, and read the main+broker (sessions) or
+renderer (tabs) delta. `idle-cpu.mjs` gains a genuinely new mechanism — `pollSubprocessSpawns`
+samples the process tree every 2s throughout the idle window rather than only at its start and end,
+so a `git`/`gh` child that starts and exits between two snapshots is still caught — feeding a new
+`--assert`-able `idleSubprocessSpawns` budget (set to 0).
+
+Measured against `543869af` (the commit immediately before Phase 84's first PR) and current `main`,
+same throwaway-profile harness both sides: idle RSS, the per-session and per-tab held-cost floors,
+and the popout RSS delta all read flat before → after — expected, since E/F/G/H's actual savings
+only show up once a session/tab/view is left hidden past its own threshold (2 min, 10 min, a TTL),
+which none of these snapshots reach. The one number that *does* move is B/C's: a 90s blurred window
+spawned 3 `gh` processes before Phase 84, 2 right after Theme G/H (still before B/C), and 0 on
+current `main` — real, previously-ungated forge polling, gone once Theme C's interest-based poller
+landed. New budgets: `hiddenTerminalSessionRss` (10271 KB/session) and `hiddenBrowserTabRss` (91800
+KB/tab), both cross-checked at ≤0.3% variance between the two checkouts.
+
+Closes the E.6 and F.5 numbers owed by the Theme E/F PR, narrowed rather than fully resolved: what's
+measured here is the main/broker/renderer floor for an open-but-unrendered session or tab, not the
+renderer-mount saving E's dispose and F's discard themselves produce (neither is exercised by an
+IPC-driven session/tab that is never mounted in the UI or never left hidden long enough) — the
+narrower renderer-UI-driven number is recorded as a fresh `outstanding.md` item. Also surfaced,
+not fixed: the shared `retainedPerCycleKb: 500` budget is breached by the `terminal`/`browser-tabs`
+retention actions' `main`/`broker`/`other` groups on both `543869af` and `main` at near-identical
+magnitude — a pre-existing calibration gap or long-standing leak that predates this phase, recorded
+in `outstanding.md` for its own investigation rather than touched here.
+
 ## 2026-09-11 — Phase 84 Theme K — Cascading reveal, everywhere
 
 [PR #353](https://github.com/bilo-io/midnite-studio/pull/353). A shared `useCascadeReveal`
