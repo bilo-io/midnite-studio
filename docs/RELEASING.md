@@ -112,6 +112,37 @@ throw. A failure there surfaces two steps later, at `verify-dist`'s `codesign --
 where the signature actually went missing. Read the `afterpack` log, not just `verify-dist`'s, when
 that gate fails.
 
+## Ephemeral test releases (installer verification)
+
+When verifying `install.sh` on other machines before an official release, an **ephemeral test release**
+can be published without bumping versions or modifying `CHANGELOG.md`:
+
+1. **Tag matches the working tree:** Electron-builder templates artifact names from `package.json`'s
+   current version (`0.0.1`), so the git tag must be `v0.0.1` (matching the current version). Every
+   package was dropped from `0.1.0` to `0.0.1` for exactly this reason: an ephemeral tag must never
+   collide with `v0.1.0`, the real first release Phase 53 settled on.
+2. **Publish via `/midnite-release-complete ephemeral`:** Tags HEAD and pushes to trigger
+   `.github/workflows/release.yml`, publishing assets to `bilo-io/midnite-apps`. No PR is opened or merged to `main`.
+3. **Verify installer on target machines:**
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/install.sh | sh
+   ```
+4. **Teardown when testing is complete:**
+   ```sh
+   # Delete the Release and tag from midnite-apps
+   gh release delete midnite-studio/v0.0.1 --repo bilo-io/midnite-apps --yes --cleanup-tag
+
+   # Reset version.json in midnite-apps
+   gh api repos/bilo-io/midnite-apps/contents/midnite-studio/version.json \
+     -X PUT -f message="chore: reset version.json after ephemeral test release" \
+     -f content="$(echo -n '{"app":"midnite-studio","channel":"stable","version":null,"releasedAt":null,"notesUrl":null}' | base64)" \
+     -f sha="$(gh api repos/bilo-io/midnite-apps/contents/midnite-studio/version.json --jq .sha)"
+
+   # Delete tag in midnite-studio (local & remote)
+   git tag -d v0.0.1
+   git push origin :refs/tags/v0.0.1
+   ```
+
 ## Still open
 
 The receiving repo's `midnite-studio/README.md` does not yet say plainly that builds are ad-hoc
