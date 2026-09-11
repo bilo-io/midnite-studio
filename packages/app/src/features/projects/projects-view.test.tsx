@@ -61,6 +61,8 @@ const setField = vi.fn();
 vi.mock('../../services/bridge', () => ({
   bridge: () => ({
     forgeProject: { list, fields, items, setField },
+    // Phase 84 Theme C: `useForgeSubscription('projects')` mounts unconditionally now.
+    forge: { subscribe: vi.fn(), unsubscribe: vi.fn(), onChanged: vi.fn(() => () => {}) },
     terminal: { list: vi.fn(async () => ({ sessions: [] })), save: vi.fn() },
     agent: {
       list: vi.fn(async () => ({

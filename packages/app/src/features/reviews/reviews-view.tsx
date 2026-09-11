@@ -1,4 +1,5 @@
 import { useActiveWorktree } from '../../services/use-status';
+import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { ReviewsList } from './reviews-list';
 
 /**
@@ -24,6 +25,9 @@ import { ReviewsList } from './reviews-list';
  */
 export function ReviewsView() {
   const { repoId } = useActiveWorktree();
+  // Phase 84 Theme C: main's forge poller pings every open PR listing;
+  // before the early return since a hook cannot follow a conditional one.
+  useForgeSubscription(repoId, 'pulls');
 
   if (repoId === null) {
     return (

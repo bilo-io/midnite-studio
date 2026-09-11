@@ -6,6 +6,7 @@ import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { useForgeIssues, useRefreshForge } from '../../services/queries';
 import { useActiveWorktree } from '../../services/use-status';
+import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { useIssuesStore } from '../../store/issues-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { IssueDetail } from './issue-detail';
@@ -41,6 +42,8 @@ export function IssuesView() {
 
   const issues = useForgeIssues(repoId, repoId !== null, 50, 'all');
   const refresh = useRefreshForge(repoId);
+  // Phase 84 Theme C: main's forge poller pings this view's own listing.
+  useForgeSubscription(repoId, 'issues');
 
   const stored = useIssuesStore((s) => (repoId === null ? null : (s.selectedIssue[repoId] ?? null)));
   const selectIssue = useIssuesStore((s) => s.selectIssue);

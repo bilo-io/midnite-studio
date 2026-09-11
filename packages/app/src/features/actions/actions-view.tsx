@@ -8,6 +8,7 @@ import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { useForgeRunDetail, useForgeRuns, useRefreshForge } from '../../services/queries';
+import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { useActionsStore } from '../../store/actions-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useActiveWorktree } from '../../services/use-status';
@@ -42,6 +43,9 @@ export function ActionsView() {
 
   const runs = useForgeRuns(repoId, repoId !== null);
   const refresh = useRefreshForge(repoId);
+  // Phase 84 Theme C: main's forge poller pings this view's own listing —
+  // `useForgeRuns`'s 60s `staleTime` stops being the only thing that refreshes it.
+  useForgeSubscription(repoId, 'runs');
 
   const stored = useActionsStore((s) => (repoId === null ? null : (s.selectedRun[repoId] ?? null)));
 
