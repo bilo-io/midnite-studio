@@ -59,4 +59,30 @@ describe('VIEW_COMPONENT', () => {
       expect(entry.global === undefined || entry.global === true, view).toBe(true);
     }
   });
+
+  /**
+   * The cascade set, written out — Phase 84 Theme K.5. Graph, Actions,
+   * Reviews and Issues each wire `useCascadeReveal` (Theme K.1/K.2) inside
+   * their own row renderers; Files does the same per directory listing
+   * (Theme K.3); Dashboard cascades its tiles (staggered, not literally
+   * top-to-bottom — `react-grid-layout` positions by grid coordinate, not
+   * document flow). Changes, Projects and Sessions are Theme K.5's own named
+   * targets that this pass did NOT wire (a nested `StatusPanel`, a
+   * virtualized table, and two-level grouped rows respectively) — see
+   * `outstanding.md`. Widening or narrowing this set is a deliberate test
+   * change, the same reason the `global` set above is spelled out.
+   */
+  it('marks exactly the views with a wired cascade', () => {
+    const cascading = VIEW_IDS.filter((view) => VIEW_COMPONENT[view].cascade === true);
+    expect(new Set(cascading)).toEqual(
+      new Set<ViewId>(['graph', 'actions', 'reviews', 'issues', 'files', 'dashboard']),
+    );
+  });
+
+  it('never spells a non-cascading entry as `cascade: false`', () => {
+    for (const view of VIEW_IDS) {
+      const entry = VIEW_COMPONENT[view];
+      expect(entry.cascade === undefined || entry.cascade === true, view).toBe(true);
+    }
+  });
 });

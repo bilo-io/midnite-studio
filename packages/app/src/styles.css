@@ -204,6 +204,33 @@ html[data-motion='reduced'] .pill-shimmer {
   animation: none;
 }
 
+/*
+ * Theme K.6: the cascade's own reduced-motion guard, app-owned rather than
+ * borrowed from `@bilo-io/shell`'s universal `html[data-motion='reduced'] *`
+ * reset. `.animate-fade-in`/`.animate-fade-in-up` are Tailwind utilities —
+ * `tailwind.config.ts`'s `keyframes`/`animation` entries, not anything
+ * declared in this file — so `styles-motion-guards.ts` has to read that file
+ * too to see them at all; see its own updated doc for how. `.cascade-delay`
+ * carries no `animation-name` of its own (only the delay), but is named here
+ * too for the same belt-and-braces reason `pill-shimmer` gets both forms
+ * below: a `prefers-reduced-motion` media query for the OS-level preference,
+ * and a `[data-motion='reduced']` rule for this app's own explicit override,
+ * which is not itself a media feature and so is never covered by one.
+ */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .cascade-delay,
+  html:not([data-motion='full']) .animate-fade-in,
+  html:not([data-motion='full']) .animate-fade-in-up {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .cascade-delay,
+html[data-motion='reduced'] .animate-fade-in,
+html[data-motion='reduced'] .animate-fade-in-up {
+  animation: none;
+}
+
 /* Live agent count (title bar) — the `{N} agents` readout wears the rainbow
  * ramp as its TEXT, not a ring, and breathes.
  *

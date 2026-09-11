@@ -1,6 +1,8 @@
+import type { CSSProperties } from 'react';
+
 import type { ForgeIssue } from '@midnite/studio-shared';
 
-import { cascadeStyle } from '../../lib/cascade';
+import { useCascadeReveal } from '../../lib/use-cascade-reveal';
 import { UserAvatar } from '../../components/user-avatar';
 import { issueStatus, StatusPill } from '../forge/forge-status';
 import { relativeAge, sortByUpdated } from './issue-order';
@@ -16,11 +18,13 @@ import { LabelChip } from './label-chip';
  * one that does not exist.
  */
 export function IssueList({
+  repoId,
   issues,
   selectedNumber,
   now,
   onSelect,
 }: {
+  repoId: string;
   issues: readonly ForgeIssue[];
   selectedNumber: number | null;
   /** Passed in, not read from the clock — see `RunList`'s own `now` prop for why. */
@@ -28,6 +32,11 @@ export function IssueList({
   onSelect: (number: number) => void;
 }) {
   const ordered = sortByUpdated(issues);
+  // Theme K.2: this list unmounts on a view switch, so `repoId` alone gives
+  // "first mount"/"reveal after hidden" for free; a repo switch is what
+  // needs `repoId` in the key, and a query refresh (new `issues`, same
+  // `repoId`) must never re-arm the cascade.
+  const cascade = useCascadeReveal({ revealKey: repoId });
 
   return (
     <ul aria-label="Issues" className="min-h-0 flex-1 overflow-y-auto py-1">
@@ -35,10 +44,11 @@ export function IssueList({
         <li key={issue.number}>
           <IssueRow
             issue={issue}
-            index={index + 1}
             now={now}
             selected={issue.number === selectedNumber}
             onSelect={() => onSelect(issue.number)}
+            cascading={cascade.active}
+            cascadeStyle={cascade.styleFor(index + 1)}
           />
         </li>
       ))}
@@ -48,26 +58,28 @@ export function IssueList({
 
 function IssueRow({
   issue,
-  index,
   now,
   selected,
   onSelect,
+  cascading,
+  cascadeStyle,
 }: {
   issue: ForgeIssue;
-  index: number;
   now: number;
   selected: boolean;
   onSelect: () => void;
+  cascading: boolean;
+  cascadeStyle: CSSProperties;
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-current={selected ? 'true' : undefined}
-      style={cascadeStyle(index)}
-      className={`flex w-full animate-fade-in-up cascade-delay flex-col items-start gap-0.5 border-l-2 px-2 py-1.5 text-left text-[13px] transition-colors ${
-        selected ? 'border-primary bg-accent/40' : 'border-transparent hover:bg-accent/20'
-      }`}
+      style={cascadeStyle}
+      className={`flex w-full flex-col items-start gap-0.5 border-l-2 px-2 py-1.5 text-left text-[13px] transition-colors ${
+        cascading ? 'animate-fade-in-up cascade-delay' : ''
+      } ${selected ? 'border-primary bg-accent/40' : 'border-transparent hover:bg-accent/20'}`}
     >
       <span className="flex w-full min-w-0 items-center gap-1.5">
         <StatusPill status={issueStatus(issue)} />

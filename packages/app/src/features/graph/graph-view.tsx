@@ -24,8 +24,8 @@ import { firstCommitDate } from './first-commit-date';
 import { GraphDefs, avatarClipId } from './graph-defs';
 import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
 import { CommitGraphRow, formatDate, RECENCY_WINDOW_MS } from './graph-row';
-import { CASCADE_STEP_MS, cascadeStyle } from '../../lib/cascade';
 import { formatNumber } from '../../lib/format-number';
+import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import { useGraphStore } from './graph-store';
 import {
   graphThemeFor,
@@ -250,27 +250,26 @@ export function GraphView() {
   const paintedGutter = gutterWidth(theme, laneWidth, gutterLanes);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Cascading reveal: when the graph view mounts or the stream/request changes,
-  // we animate the visible rows with staggered alpha transitions (top-to-bottom).
-  // Once the initial viewport cascade settles, isCascading is set to false so
-  // scrolling and recycled virtual rows operate normally without animation overhead.
-  const [isCascading, setIsCascading] = useState(true);
-  const prevRequestId = useRef(requestId);
-  if (prevRequestId.current !== requestId) {
-    prevRequestId.current = requestId;
-    if (!isCascading) {
-      setIsCascading(true);
-    }
-  }
+  /*
+    Cascading reveal (Theme K): mount, re-reveal after being hidden — Theme
+    G's keep-alive means this same component instance can go on existing,
+    unmounted, behind another view and come back later — and a repo switch
+    all replay the stagger. A watcher-driven re-stream must NOT: it only
+    bumps the graph store's own `requestId`, which is why `revealKey` below
+    is built from `repoId` and a reveal counter instead, and never from
+    `requestId` the way this used to hand-roll it (`isCascading`/
+    `prevRequestId`, kept only in history — see `use-cascade-reveal.ts`).
 
-  useEffect(() => {
-    if (!isCascading || rows.length === 0) return;
-    const duration = (GRAPH_CASCADE_MAX_STEPS + 1) * CASCADE_STEP_MS + 250;
-    const timer = setTimeout(() => {
-      setIsCascading(false);
-    }, duration);
-    return () => clearTimeout(timer);
-  }, [isCascading, requestId, rows.length]);
+    The counter itself only needs to change on invisible-to-visible; a repo
+    switch is already covered because `repoId` is part of the key, and a
+    fresh mount already cascades for free (`useCascadeReveal` arms
+    immediately on its first call, regardless of the key's value).
+  */
+  const revealCount = useRevealCount(visible);
+  const { active: isCascading, styleFor: cascadeStyleFor } = useCascadeReveal({
+    revealKey: `${repoId}:${revealCount}`,
+    steps: GRAPH_CASCADE_MAX_STEPS,
+  });
 
   // Live ticker for recent commits. If any commit in the loaded window is still
   // inside `RECENCY_WINDOW_MS`, tick every 5 seconds so the row effects and the
@@ -451,12 +450,17 @@ export function GraphView() {
         ) : null}
 
         {/*
-          Keyed on requestId so the list resets when stream changes.
-          
-          When the graph page is visited / rendered, each commit in the visible
-          viewport reveals in a cascading alpha transition from top to bottom.
-          Once the initial viewport cascade settles, isCascading turns off so
-          scrolling through the virtualised list has zero animation interference.
+          Keyed on requestId so the list resets when stream changes — this
+          remounts every row's DOM node on a restream, but that no longer
+          replays the cascade (Theme K): `isCascading` comes from
+          `useCascadeReveal`, keyed on `repoId`/reveal-count rather than on
+          `requestId`, so a restream-driven remount finds it already settled
+          and the fresh rows carry no entrance class at all.
+
+          On a genuine reveal (mount, coming back from another view, a repo
+          switch) each commit in the visible viewport fades in top to bottom;
+          once that settles, scrolling through the virtualised list has zero
+          animation interference.
         */}
         <div
           key={requestId ?? 'empty'}
@@ -477,7 +481,7 @@ export function GraphView() {
                   }`}
                   style={{
                     transform: `translateY(${item.start}px)`,
-                    ...(isInitialCascade ? cascadeStyle(item.index, GRAPH_CASCADE_MAX_STEPS) : undefined),
+                    ...(isInitialCascade ? cascadeStyleFor(item.index) : undefined),
                   }}
                 >
                   <CommitGraphRow

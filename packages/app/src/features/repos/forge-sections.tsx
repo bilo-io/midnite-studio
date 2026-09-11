@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 
 import { GoGitPullRequest, GoIssueOpened, GoPlay } from 'react-icons/go';
 import {
@@ -15,7 +15,7 @@ import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import { TREE_INDENT } from '../../components/tree-indent';
 import { TreeSection } from '../../components/tree-section';
-import { cascadeStyle } from '../../lib/cascade';
+import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import { openLinkFromEvent, openInMidnite } from '../../services/open-in-midnite';
 import {
   useForgeIssues,
@@ -80,6 +80,17 @@ export function ActionsSection({
   const dialogs = useDialogs();
 
   const runs = data?.runs ?? [];
+  /*
+    Theme K.2: this section stays mounted across a collapse/expand (`open`
+    toggles a `<Collapse>`, not a mount) and across the sidebar's own repo
+    list churn, so its rows need an explicit reveal key rather than a free
+    ride off a remount. `useRevealCount(open)` turns "opened again" into the
+    same false-to-true reveal signal the graph uses for "visible again" —
+    closing and reopening replays the cascade, a forge poll landing while
+    already open does not.
+  */
+  const revealCount = useRevealCount(open);
+  const cascade = useCascadeReveal({ revealKey: `${repoId}:${revealCount}` });
 
   return (
     <TreeSection
@@ -113,7 +124,8 @@ export function ActionsSection({
       {runs.map((run, i) => (
         <ForgeRow
           key={run.id}
-          index={i + index}
+          cascading={cascade.active}
+          cascadeStyle={cascade.styleFor(i + index)}
           depth={(depth + 1) as 2 | 3}
           status={runStatus(run)}
           title={run.name}
@@ -265,6 +277,9 @@ export function IssuesSection({
   const dialogs = useDialogs();
 
   const issues = data?.issues ?? [];
+  // Theme K.2 — see `ActionsSection`'s own comment on the identical pattern.
+  const revealCount = useRevealCount(open);
+  const cascade = useCascadeReveal({ revealKey: `${repoId}:${revealCount}` });
 
   return (
     <TreeSection
@@ -298,7 +313,8 @@ export function IssuesSection({
       {issues.map((issue, i) => (
         <ForgeRow
           key={issue.number}
-          index={i + index}
+          cascading={cascade.active}
+          cascadeStyle={cascade.styleFor(i + index)}
           depth={(depth + 1) as 2 | 3}
           status={issueStatus(issue)}
           title={issue.title}
@@ -402,6 +418,9 @@ function ReviewsGroup({
   const dialogs = useDialogs();
 
   const pulls = data?.pulls ?? [];
+  // Theme K.2 — see `ActionsSection`'s own comment on the identical pattern.
+  const revealCount = useRevealCount(open);
+  const cascade = useCascadeReveal({ revealKey: `${repoId}:${group.scope}:${revealCount}` });
 
   return (
     <TreeSection
@@ -424,7 +443,8 @@ function ReviewsGroup({
       {pulls.map((pull, i) => (
         <ForgeRow
           key={pull.number}
-          index={i + index}
+          cascading={cascade.active}
+          cascadeStyle={cascade.styleFor(i + index)}
           depth={(depth + 1) as 3 | 4}
           status={pullStatus(pull)}
           extra={checksStatus(pull)}
@@ -557,7 +577,8 @@ const ROW_INDENT = { 2: TREE_INDENT[2], 3: TREE_INDENT[3], 4: TREE_INDENT[4] } a
 const EXPANDABLE_INDENT = { 2: TREE_INDENT[1], 3: TREE_INDENT[2], 4: TREE_INDENT[3] } as const;
 
 function ForgeRow({
-  index,
+  cascading,
+  cascadeStyle,
   depth,
   status,
   extra,
@@ -569,7 +590,10 @@ function ForgeRow({
   expand,
   children,
 }: {
-  index: number;
+  /** Theme K.2: whether the shared cascade is currently playing for this section. */
+  cascading: boolean;
+  /** Precomputed per-row stagger — `{}` while `!cascading`. */
+  cascadeStyle: CSSProperties;
   /** One rung deeper for a row inside a nested group (a Reviews scope) than for one directly under a section. */
   depth: 2 | 3 | 4;
   /*
@@ -603,8 +627,10 @@ function ForgeRow({
           event.preventDefault();
           dialogs.openMenu(event, menu);
         }}
-        style={cascadeStyle(index)}
-        className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${
+        style={cascadeStyle}
+        className={`group flex items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${
+          cascading ? 'animate-fade-in-up cascade-delay' : ''
+        } ${
           /*
             A row with a disclosure chevron puts that chevron in the glyph
             column, so it indents one rung shallower than a row whose leading

@@ -111,6 +111,7 @@ export function IssuesView() {
           </p>
         ) : (
           <IssueList
+            repoId={repoId}
             issues={rows}
             selectedNumber={selectedNumber}
             now={issues.dataUpdatedAt || Date.now()}
