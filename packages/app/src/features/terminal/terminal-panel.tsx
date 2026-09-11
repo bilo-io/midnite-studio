@@ -6,6 +6,7 @@ import { useResizable } from '../../components/resizable/use-resizable';
 import { useRevealSize } from '../../components/use-reveal';
 import { useRepos } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
+import { useMountedSessionIds } from './session-mount-policy';
 import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
 import { inMainPanel, resolveSessionAgentId, useTerminalStore } from './terminal-store';
@@ -34,6 +35,8 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   const listOpen = useUiStore((s) => s.terminalListOpen);
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
+  const keepRecent = useUiStore((s) => s.terminalKeepRecentSessions);
+  const disposeAfterMs = useUiStore((s) => s.terminalDisposeAfterMs);
 
   const { agents, status } = useAgents();
   // For the header's path: which registered checkout the cwd is standing in.
@@ -94,6 +97,20 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   };
 
   const active = sessions.find((s) => s.id === activeId) ?? null;
+  /**
+   * Which of this panel's OWN sessions still get a live xterm (Phase 84
+   * Theme E) — the active one plus a bounded, recently-viewed history,
+   * everything else disposed after sitting hidden. Scoped to `active?.id`
+   * rather than the raw `activeId`: a FAB-only session can be the store's
+   * global active id while this panel shows none of its own as current, and
+   * that must read as "nothing visible here", not as an id this policy has
+   * never heard of.
+   */
+  const mountedSessionIdSet = useMountedSessionIds(
+    sessions.map((s) => s.id),
+    active?.id ?? null,
+    { keepRecent, disposeAfterMs, seedUnvisitedAsRecent: true },
+  );
   /*
     The header's dot reports the ACTIVE session, so an idle default is the
     honest reading when nothing is open — there is no process to be alive.
@@ -178,15 +195,34 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
 
         {/* Positioned, because the stacked panes inside are absolutely placed. */}
         <div className="relative min-h-0 min-w-0 flex-1">
-          {sessions.map((session) => (
-            <LazyTerminalView
-              key={session.id}
-              session={session}
-              active={session.id === activeId}
-              initialInput={pendingInput[session.id] ?? agentInitialInput(agents, session.agentId)}
-              fitSignal={fitSignal}
-            />
-          ))}
+          {sessions.map((session) =>
+            mountedSessionIdSet.has(session.id) ? (
+              <LazyTerminalView
+                key={session.id}
+                session={session}
+                active={session.id === activeId}
+                initialInput={pendingInput[session.id] ?? agentInitialInput(agents, session.agentId)}
+                fitSignal={fitSignal}
+              />
+            ) : (
+              /*
+                Outside the mounted set (Phase 84 Theme E): no xterm, no
+                WebGL slot, nothing for `xterm-budget.ts` to ration — the
+                unmount below is what actually frees it. `key` stays the
+                session id so React tears the real `LazyTerminalView`
+                instance down (running its cleanup: dispose the terminal,
+                unsubscribe from `pty:data`, release the budget slot) rather
+                than reusing it, the moment this session drops out of the
+                mounted set. Reveal remounts a fresh xterm that replays main's
+                own scrollback — see `terminal-view.tsx`'s `stateRef.current
+                === 'open'` branch, unchanged by this theme: it already
+                snapshots and gates live output with no gap or duplicate,
+                because a StrictMode remount needed exactly that hand-off
+                first.
+              */
+              <div key={session.id} aria-hidden data-terminal-session-disposed={session.id} />
+            ),
+          )}
 
           {sessions.length === 0 ? (
             <p className="p-3 text-xs text-muted-foreground">

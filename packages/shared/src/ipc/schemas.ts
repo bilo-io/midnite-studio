@@ -1908,6 +1908,17 @@ export const BrowserZoomRequest = z.object({
   factor: z.number().min(0.25).max(5),
 });
 
+/** Phase 84 Theme F — "Keep awake", the per-tab discard opt-out. */
+export const BrowserSetKeepAwakeRequest = z.object({
+  tabId: z.string().min(1),
+  keepAwake: z.boolean(),
+});
+
+/** Phase 84 Theme F — the idle-discard threshold; `0` disables discard. */
+export const BrowserSetDiscardMsRequest = z.object({
+  ms: z.number().int().min(0),
+});
+
 /**
  * One loopback port to probe (Phase 71 Theme C).
  *

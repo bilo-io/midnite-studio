@@ -5,10 +5,15 @@ import {
   closeBrowserTab,
   createBrowserTab,
   destroyAllBrowserTabs,
+  discardBrowserTab,
+  isTabDiscardEligible,
   ownerWindowForBrowserTab,
   reparentBrowserTabs,
   resetBrowserServiceForTests,
+  runBrowserDiscardSweep,
   setBrowserBounds,
+  setBrowserDiscardMs,
+  setBrowserKeepAwake,
   setBrowserZoom,
 } from './browser-service';
 
@@ -43,6 +48,7 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     setZoomFactor = vi.fn();
     findInPage = vi.fn();
     stopFindInPage = vi.fn();
+    isCurrentlyAudible = vi.fn(() => false);
     on(event: string, handler: (...args: unknown[]) => void): this {
       const list = this.handlers.get(event) ?? [];
       list.push(handler);
@@ -120,6 +126,11 @@ function fakeWindow() {
   const handlers = new Map<string, ((...args: unknown[]) => void)[]>();
   const win = {
     isDestroyed: () => false,
+    // Phase 84 Theme F's discard sweep reads both — default to "on screen"
+    // so every pre-existing test above, which never touches discard, is
+    // unaffected.
+    isVisible: vi.fn(() => true),
+    isMinimized: vi.fn(() => false),
     contentView: { addChildView: vi.fn(), removeChildView: vi.fn() },
     webContents: {
       send: vi.fn(),
@@ -136,7 +147,11 @@ function fakeWindow() {
       for (const handler of handlers.get(event) ?? []) handler();
     },
   };
-  return win as unknown as import('electron').BrowserWindow & { emit: (event: string) => void };
+  return win as unknown as import('electron').BrowserWindow & {
+    emit: (event: string) => void;
+    isVisible: ReturnType<typeof vi.fn>;
+    isMinimized: ReturnType<typeof vi.fn>;
+  };
 }
 
 describe('browser-service lifecycle', () => {
@@ -601,5 +616,180 @@ describe('bounds, zoom and sender scoping (Theme E/G)', () => {
       expect.any(String),
       { kind: 'found', tabId: 'tab-1', matches: 4, activeMatchOrdinal: 2 },
     );
+  });
+});
+
+describe('isTabDiscardEligible (Phase 84 Theme F)', () => {
+  const base = {
+    effectiveVisible: false,
+    audible: false,
+    keepAwake: false,
+    hiddenSinceMs: 0,
+    now: 700_000,
+    discardMs: 600_000,
+  };
+
+  it('eligible once hidden at least discardMs', () => {
+    expect(isTabDiscardEligible(base)).toBe(true);
+  });
+
+  it('not yet eligible before discardMs has elapsed', () => {
+    expect(isTabDiscardEligible({ ...base, now: 500_000 })).toBe(false);
+  });
+
+  it('never eligible while visible, however long hiddenSinceMs claims', () => {
+    expect(isTabDiscardEligible({ ...base, effectiveVisible: true, hiddenSinceMs: 0 })).toBe(false);
+  });
+
+  it('never eligible while audible', () => {
+    expect(isTabDiscardEligible({ ...base, audible: true })).toBe(false);
+  });
+
+  it('never eligible with keepAwake set', () => {
+    expect(isTabDiscardEligible({ ...base, keepAwake: true })).toBe(false);
+  });
+
+  it('never eligible with discardMs of 0 (discard disabled)', () => {
+    expect(isTabDiscardEligible({ ...base, discardMs: 0 })).toBe(false);
+  });
+
+  it('not eligible if never marked hidden at all', () => {
+    expect(isTabDiscardEligible({ ...base, hiddenSinceMs: undefined })).toBe(false);
+  });
+});
+
+describe('browser tab discard (Phase 84 Theme F)', () => {
+  beforeEach(() => {
+    resetBrowserServiceForTests();
+    fakeSessions.clear();
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  function createAndGetView(win: ReturnType<typeof fakeWindow>, tabId = 'tab-1'): FakeView {
+    createBrowserTab(win, tabId, 'https://example.com');
+    return (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+  }
+
+  it('discardBrowserTab tears the view down and tells the renderer', () => {
+    const win = fakeWindow();
+    const view = createAndGetView(win);
+
+    discardBrowserTab('tab-1');
+
+    expect(win.contentView.removeChildView).toHaveBeenCalledWith(view);
+    expect(view.webContents.close).toHaveBeenCalledTimes(1);
+    expect(win.webContents.send).toHaveBeenCalledWith(expect.any(String), {
+      kind: 'discarded',
+      tabId: 'tab-1',
+    });
+  });
+
+  it('discarding an untracked or already-discarded tab is a no-op', () => {
+    expect(() => discardBrowserTab('never-existed')).not.toThrow();
+  });
+
+  it('re-creating a discarded tab id builds a fresh view — the renderer\'s own reactivation path', () => {
+    const win = fakeWindow();
+    const firstView = createAndGetView(win);
+    discardBrowserTab('tab-1');
+
+    // `use-browser-tabs.ts` calls `browser.create` unconditionally on every
+    // activation; `createBrowserTab` treats a tab id it no longer tracks as
+    // brand new, so this is the whole recreate path, tested at this layer.
+    createBrowserTab(win, 'tab-1', 'https://example.com');
+    const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
+    const secondView = calls[calls.length - 1]?.[0] as FakeView;
+
+    expect(secondView).not.toBe(firstView);
+    expect(secondView.webContents.loadURL).toHaveBeenCalledWith('https://example.com');
+
+    activateBrowserTab('tab-1');
+    expect(secondView.visible).toBe(true);
+  });
+
+  it('the sweep discards a tab hidden long enough, but not one just hidden this same tick', () => {
+    const win = fakeWindow();
+    createAndGetView(win, 'stale');
+    setBrowserDiscardMs(1000);
+
+    runBrowserDiscardSweep(); // 'stale' becomes hidden now (not yet eligible: 0ms elapsed)
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 5000);
+
+    createAndGetView(win, 'fresh'); // hidden only as of THIS (mocked) now
+    runBrowserDiscardSweep();
+
+    expect(ownerWindowForBrowserTab('stale')).toBeNull(); // aged past the 1000ms threshold
+    expect(ownerWindowForBrowserTab('fresh')).toBe(win); // just went hidden — 0ms elapsed
+    vi.restoreAllMocks();
+  });
+
+  it('the sweep never discards the active tab of a visible window', () => {
+    const win = fakeWindow();
+    const view = createAndGetView(win);
+    activateBrowserTab('tab-1'); // now the visible tab
+    setBrowserDiscardMs(1);
+
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60_000);
+    runBrowserDiscardSweep();
+
+    expect(view.webContents.close).not.toHaveBeenCalled();
+    expect(ownerWindowForBrowserTab('tab-1')).toBe(win);
+    vi.restoreAllMocks();
+  });
+
+  it('the sweep discards the active tab of a MINIMIZED window — hidden means the window too', () => {
+    const win = fakeWindow();
+    const view = createAndGetView(win);
+    activateBrowserTab('tab-1');
+    (win.isMinimized as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    setBrowserDiscardMs(1);
+
+    runBrowserDiscardSweep(); // records hiddenSince now that the window reads minimized
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60_000);
+    runBrowserDiscardSweep();
+
+    expect(view.webContents.close).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+
+  it('a keepAwake tab is never discarded by the sweep, however long it sits hidden', () => {
+    const win = fakeWindow();
+    const view = createAndGetView(win);
+    setBrowserKeepAwake('tab-1', true);
+    setBrowserDiscardMs(1);
+
+    runBrowserDiscardSweep();
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60_000);
+    runBrowserDiscardSweep();
+
+    expect(view.webContents.close).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it('an audible tab is never discarded by the sweep', () => {
+    const win = fakeWindow();
+    const view = createAndGetView(win);
+    (view.webContents.isCurrentlyAudible as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    setBrowserDiscardMs(1);
+
+    runBrowserDiscardSweep();
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60_000);
+    runBrowserDiscardSweep();
+
+    expect(view.webContents.close).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it('discardMs of 0 disables the sweep entirely', () => {
+    const win = fakeWindow();
+    const view = createAndGetView(win);
+    setBrowserDiscardMs(0);
+
+    runBrowserDiscardSweep();
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 10_000_000);
+    runBrowserDiscardSweep();
+
+    expect(view.webContents.close).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 });

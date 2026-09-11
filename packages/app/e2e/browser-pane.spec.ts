@@ -583,6 +583,16 @@ const activeTabId = (page: Page) =>
     .evaluate(() => (window as unknown as { __mstudioBrowserTabs: () => string[] }).__mstudioBrowserTabs())
     .then((ids) => ids[0]!);
 
+const browserKeepAwakeCalls = (page: Page) =>
+  page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __mstudioBrowserKeepAwakeCalls: () => Array<{ tabId: string; keepAwake: boolean }>;
+        }
+      ).__mstudioBrowserKeepAwakeCalls(),
+  );
+
 test('Mod+= zooms the active tab, and revisiting the same origin restores the factor', async ({ page }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
@@ -650,4 +660,71 @@ test('Stop replaces Reload while the active tab is loading, and calls browser.st
 
   await stopButton.click();
   expect(await browserStopCalls(page)).toEqual([{ tabId }]);
+});
+
+test('a discarded tab shows the sleeping glyph, and reactivating it clears the flag (Phase 84 Theme F)', async ({
+  page,
+}) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  await openBrowser(page);
+
+  const address = page.getByRole('textbox', { name: 'Address' });
+  await address.fill('https://example.com');
+  await address.press('Enter');
+  const tabId = await activeTabId(page);
+
+  const tab = browserTabs(page).first();
+  await expect(tab.locator('[data-tab-sleeping]')).toHaveCount(0);
+
+  // Main decided this on its own — the renderer never asked, unlike a close.
+  await page.evaluate((tabId) => {
+    (window as unknown as { __mstudioBrowserEvent: (e: unknown) => void }).__mstudioBrowserEvent({
+      kind: 'discarded',
+      tabId,
+    });
+  }, tabId);
+
+  await expect(tab.locator('[data-tab-sleeping]')).toHaveCount(1);
+
+  // Reactivating re-creates the view, whose first `loading: true` clears the
+  // glyph — exactly the sequence `use-browser-tabs.ts`'s activation effect
+  // and `browser.create`'s own `did-start-loading` produce for real.
+  await page.evaluate((tabId) => {
+    (window as unknown as { __mstudioBrowserEvent: (e: unknown) => void }).__mstudioBrowserEvent({
+      kind: 'loading',
+      tabId,
+      loading: true,
+    });
+  }, tabId);
+
+  await expect(tab.locator('[data-tab-sleeping]')).toHaveCount(0);
+});
+
+test('"Keep awake" toggles per-tab, updates the label, and tells main (Phase 84 Theme F)', async ({
+  page,
+}) => {
+  await installMockBridge(page, { ...fixtures });
+  await page.goto('/');
+  await openBrowser(page);
+
+  const address = page.getByRole('textbox', { name: 'Address' });
+  await address.fill('https://example.com');
+  await address.press('Enter');
+  const tabId = await activeTabId(page);
+
+  const tab = browserTabs(page).first();
+  await tab.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Keep awake' }).click();
+
+  expect(await browserKeepAwakeCalls(page)).toEqual([{ tabId, keepAwake: true }]);
+
+  await tab.click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Allow this tab to sleep' })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Allow this tab to sleep' }).click();
+
+  expect(await browserKeepAwakeCalls(page)).toEqual([
+    { tabId, keepAwake: true },
+    { tabId, keepAwake: false },
+  ]);
 });

@@ -1,6 +1,72 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-11 — Phase 84 Themes A/D/I — Broadcast reaches popouts, repoId is real, a liveness dot
+
+[PR #348](https://github.com/bilo-io/midnite-studio/pull/348). The "I have to reload the other
+window" bug, fixed at its actual root: main already fans `watchEvent` out to every `BrowserWindow`,
+but only `app.tsx`'s main-window mount was ever listening. `DetachedShell` now mounts
+`useWatchInvalidation(selectedRepoId)` against the popout's own `QueryClient`; the dead
+`relayWatchEvent` fallback (zero callers since Phase 55 Theme I) is deleted along with its test
+case and three stale module comments describing the old relay. `view.refresh` needed no new
+wiring — `DetachedShell` already mounts its own command dispatcher, so the palette row resolves
+against the popout's own `QueryClient` for free, proven by a dedicated test rather than assumed.
+
+`WindowDescriptor.repoId` is real: the renderer reports `selectedRepoId` over a new
+`mstudio:window:report-repo` channel on mount and on change, and `window-manager.ts` stores and
+returns it from `listWindows()` instead of a hardcoded `null`. `broadcastToWindowsOnRepo(repoId,
+channel, payload)` lands as `broadcastToAllWindows`'s scoped, fail-open sibling — not yet called
+anywhere, since this wave only made `repoId` honest; narrowing a broadcast by it is Themes B/C's
+job once they exist. A new per-window `liveness-store.ts` (`lastWatchAt`, `watcherError`), fed by
+a second independent `watch.onEvent` subscriber, backs a green/amber/red status-bar dot in the
+main window and a small dedicated footer in every popout (`DetachedWindowFrame`, which had no
+status bar to register into); a popover carries a per-window table (role, repoId, last-sync — D.3's
+originally-planned standalone diagnostics panel folded in here, since there's no other diagnostics
+UI in the app) and a **Refresh now** button.
+
+**Deferred, recorded in the phase doc:** `liveness-store.ts`'s fuller shape (`lastForgeAt`,
+`fetch`/`forge` timer state, a `syncStatus` main push) and `broadcastToWindowsOnRepo`'s first real
+caller both belong to Themes B/C, neither of which exists yet. The two-window human pass (detach
+Graph, commit in main, confirm the popout updates with no reload) and the idle/backoff amber
+liveness reasons (need B/C's own timers to fire) stay open in Verification.
+
+## 2026-09-11 — Phase 84 Themes E/F — Terminal unload/rehydrate + browser tab discard
+
+[PR #349](https://github.com/bilo-io/midnite-studio/pull/349). The "lighter when hidden" memory
+half of Phase 84: every open terminal session kept a live xterm forever, and a hidden browser tab
+kept its full renderer process alive with no ceiling.
+
+**Theme E.** `session-mount-policy.ts` is a pure function — visible session plus the 3
+most-recently-viewed stay mounted, everything else disposes after 2 minutes hidden (both
+Settings fields). `terminal-panel.tsx` swaps a disposed session's `absolute inset-0` xterm for an
+inert placeholder; `xterm-budget.ts` gained a real "dispose" rung past its existing "demote to
+DOM". Rehydrate-on-reveal turned out to already exist in shape: `terminal-view.tsx`'s
+snapshot-then-gate hand-off (built for a StrictMode remount) is the identical ordering problem as
+a dispose/reveal cycle against a still-live pty, so it was extracted into `replay-gate.ts`
+(`gateLiveWrite`/`replayLiveHandoff`) with its own test rather than reimplemented. All three
+terminal hosts — the docked panel, the detached window (for free, via the same `TerminalPanel`
+component), and Kanban card terminals (previously an instant unmount-on-scroll-away) — now consult
+the one policy; wiring the card host in surfaced and fixed a real cross-host bug in the shared
+session-history store.
+
+**Theme F.** `browser-service.ts` gained `discardBrowserTab`: snapshot `{url, title, favicon}`,
+close the `WebContentsView`, keep the tab record; reactivating recreates the view in the same
+partition (cookies/logins survive, in-page form state doesn't). Discard-eligible: hidden past 10
+minutes (`Settings ▸ Browser`, `0` = never), never the active tab, a `keepAwake` tab, an audible
+tab, or one with a download in flight. `BrowserTab` gained `state: 'live'|'sleeping'` and
+`keepAwake`; the tab strip shows a sleeping glyph, the context menu a **Keep awake** toggle. Phase
+83 apps are excluded by construction — the discard sweep only ever iterates browser-service's own
+tab map.
+
+**Deferred, recorded in `outstanding.md`:** E.4's per-session rehydrate fade (needs Theme K's
+per-reveal fade primitive, which doesn't exist yet — sizing via `fitSignal`/`safeFit` is already
+correct, only the blank-canvas flash during the snapshot round-trip remains); F.4's per-app
+browser-discard opt-in (needs `apps-service.ts` to grow hidden/visible bookkeeping it doesn't have
+today — its own small theme, not a follow-up line); browser tab navigation-history restore (the
+pinned Electron's `NavigationHistory` has no `restore()`, only `getAllEntries()`); and E.6/F.5's
+own memory numbers, which need a packaged-equivalent build this PR didn't have time to produce —
+the mechanisms themselves are unit- and e2e-tested.
+
 ## 2026-09-09 — Phase 81 Theme A — One vocabulary, one engine
 
 [PR #319](https://github.com/bilo-io/midnite-studio/pull/319). The companion's action vocabulary

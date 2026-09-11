@@ -37,6 +37,7 @@ export const PREFERENCE_KEYS = [
   'apiClientRequestTimeoutS', // api-client-page.tsx
   'autoFetchIntervalMs', // sidebar-page.tsx
   'blockedByFieldName', // projects-page.tsx
+  'browserDiscardMs', // browser-page.tsx
   'cycleDurationS', // screen-lock-page.tsx
   'disabledEcosystems', // optimizer-settings-page.tsx
   'forgeWritesEnabled', // reviews-page.tsx / git-safety-page.tsx
@@ -56,8 +57,10 @@ export const PREFERENCE_KEYS = [
   'requirePasscode', // screen-lock-page.tsx
   'sectionFilters', // sidebar-page.tsx — the "View filters" accordion
   'systemCacheConsentGiven', // optimizer-settings-page.tsx
+  'terminalDisposeAfterMs', // terminal-page.tsx
   'terminalFontFamily', // terminal-page.tsx
   'terminalFontSize', // terminal-page.tsx
+  'terminalKeepRecentSessions', // terminal-page.tsx
   'terminalLineHeight', // terminal-page.tsx
   'terminalSidebarSide', // terminal-page.tsx
   'trashEmptyConsentGiven', // trash-safety-page.tsx

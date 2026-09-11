@@ -1,6 +1,12 @@
 import { WebContentsView, screen, session, shell, type BrowserWindow, type Input } from 'electron';
 
-import { EVENT_CHANNELS, type BrowserBounds, type BrowserEvent, type CommandId } from '@midnite/studio-shared';
+import {
+  DEFAULT_BROWSER_DISCARD_MS,
+  EVENT_CHANNELS,
+  type BrowserBounds,
+  type BrowserEvent,
+  type CommandId,
+} from '@midnite/studio-shared';
 
 import { cancelDownload, checkNavigationUrl, denyAllPermissions } from './browser-security';
 import { defaultLogger } from './log';
@@ -13,6 +19,17 @@ import { defaultLogger } from './log';
  * creates views lazily on first activation (Theme C decides when that is —
  * this module just exposes `createTab`), and tears every one of them down on
  * tab close, window close and `before-quit`.
+ *
+ * Phase 84 Theme F adds a fourth teardown trigger, `discardBrowserTab`: a
+ * hidden tab past an idle threshold. It reuses `closeBrowserTab`'s exact
+ * teardown (drop the child view, close the contents, remove every listener)
+ * but keeps the `BrowserTab` record alive in the renderer's own
+ * `browser-store.ts` — main just forgets the `WebContentsView`. Reactivating
+ * a discarded tab needs no special recreate path here: `use-browser-tabs.ts`
+ * already calls `createBrowserTab` unconditionally on every activation
+ * (idempotent when a view already exists), and `createBrowserTab` treats a
+ * tab id it no longer has tracked as brand new — which, after a discard, it
+ * is.
  */
 
 const PARTITION = 'persist:browser';
@@ -37,6 +54,107 @@ const lastBounds = new Map<string, BrowserBounds>();
 /** Windows already wired for the full-screen re-push above — a guard, not a cache. */
 const fullScreenReapplyWired = new WeakSet<BrowserWindow>();
 let displayMetricsReapplyWired = false;
+
+// --- idle discard (Phase 84 Theme F) ----------------------------------------
+
+/** `Date.now()` from the moment each tracked tab last became hidden; absent = currently visible. */
+const hiddenSince = new Map<string, number>();
+/** Tabs the "Keep awake" toggle has opted out of discard — mirrored from `browser-store.ts`. */
+const keepAwakeTabIds = new Set<string>();
+/**
+ * Which tabs are currently the visible one in their window — `View` has no
+ * `getVisible()` to read back (only `setVisible`), so this mirrors every
+ * call to it through {@link markViewVisible} rather than asking Electron.
+ */
+const visibleTabIds = new Set<string>();
+
+function markViewVisible(tabId: string, view: WebContentsView, visible: boolean): void {
+  view.setVisible(visible);
+  if (visible) visibleTabIds.add(tabId);
+  else visibleTabIds.delete(tabId);
+}
+/** Renderer-owned (`Settings ▸ Browser`), mirrored here on mount and on change. `0` disables discard. */
+let discardMs = DEFAULT_BROWSER_DISCARD_MS;
+let discardSweepTimer: ReturnType<typeof setInterval> | null = null;
+
+export function setBrowserKeepAwake(tabId: string, keepAwake: boolean): void {
+  if (keepAwake) keepAwakeTabIds.add(tabId);
+  else keepAwakeTabIds.delete(tabId);
+}
+
+export function setBrowserDiscardMs(ms: number): void {
+  discardMs = ms;
+}
+
+/**
+ * Whether a tab currently eligible for the sweep to even consider should
+ * actually be discarded — pure, so the threshold math has a direct unit
+ * test the way `grantedWebglKeys`/`mountedSessionIds` do. `effectiveVisible`
+ * folds in BOTH "this tab is the one on top in its window" and "that window
+ * itself is on screen" — the doc's "hidden (`!visible`, or its owner window
+ * hidden/minimized)" — since the sweep (below) is the only caller and always
+ * has both booleans in hand already.
+ */
+export function isTabDiscardEligible(input: {
+  effectiveVisible: boolean;
+  audible: boolean;
+  keepAwake: boolean;
+  hiddenSinceMs: number | undefined;
+  now: number;
+  discardMs: number;
+}): boolean {
+  const { effectiveVisible, audible, keepAwake, hiddenSinceMs, now, discardMs: threshold } = input;
+  if (effectiveVisible || audible || keepAwake) return false;
+  if (threshold <= 0) return false;
+  if (hiddenSinceMs === undefined) return false;
+  return now - hiddenSinceMs >= threshold;
+}
+
+/**
+ * One pass over every live tab: track how long each has been hidden, and
+ * discard whatever has aged past the threshold. Downloads are not checked
+ * here — `ensureSessionConfigured`'s `will-download` handler cancels every
+ * download outright (see its own doc), so "a download in flight" cannot
+ * occur on this partition today; the day that changes, this is where a
+ * `wc.session` download-in-progress check belongs.
+ */
+/** Exported for `browser-service.test.ts` — deterministic, no fake timers needed. */
+export function runBrowserDiscardSweep(): void {
+  const now = Date.now();
+  for (const [tabId, tracked] of tabs) {
+    const { win, view } = tracked;
+    if (win.isDestroyed() || view.webContents.isDestroyed()) continue;
+    const effectiveVisible = visibleTabIds.has(tabId) && win.isVisible() && !win.isMinimized();
+
+    if (effectiveVisible) {
+      hiddenSince.delete(tabId);
+      continue;
+    }
+    if (!hiddenSince.has(tabId)) hiddenSince.set(tabId, now);
+
+    const eligible = isTabDiscardEligible({
+      effectiveVisible,
+      audible: view.webContents.isCurrentlyAudible(),
+      keepAwake: keepAwakeTabIds.has(tabId),
+      hiddenSinceMs: hiddenSince.get(tabId),
+      now,
+      discardMs,
+    });
+    if (eligible) discardBrowserTab(tabId);
+  }
+}
+
+/** Started once from `main/index.ts`, alongside `registerBrowserHandlers`. */
+export function startBrowserDiscardSweep(intervalMs = 30_000): void {
+  if (discardSweepTimer) return;
+  discardSweepTimer = setInterval(runBrowserDiscardSweep, intervalMs);
+  discardSweepTimer.unref?.();
+}
+
+export function stopBrowserDiscardSweep(): void {
+  if (discardSweepTimer) clearInterval(discardSweepTimer);
+  discardSweepTimer = null;
+}
 
 function reapplyBoundsForWindow(win: BrowserWindow): void {
   for (const [tabId, tracked] of tabs) {
@@ -136,7 +254,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   });
 
   win.contentView.addChildView(view);
-  view.setVisible(false);
+  markViewVisible(tabId, view, false);
   tabs.set(tabId, { view, win });
   ensureFullScreenReapply(win);
   ensureDisplayMetricsReapply();
@@ -285,6 +403,9 @@ export function closeBrowserTab(tabId: string): void {
   if (!tracked) return;
   tabs.delete(tabId);
   lastBounds.delete(tabId);
+  hiddenSince.delete(tabId);
+  keepAwakeTabIds.delete(tabId);
+  visibleTabIds.delete(tabId);
   if (!tracked.win.isDestroyed()) tracked.win.contentView.removeChildView(tracked.view);
   if (!tracked.view.webContents.isDestroyed()) {
     // The 13 per-tab handlers registered above (`did-navigate`,
@@ -295,6 +416,29 @@ export function closeBrowserTab(tabId: string): void {
     tracked.view.webContents.removeAllListeners();
     tracked.view.webContents.close();
   }
+}
+
+/**
+ * Tear down a hidden tab's `WebContentsView` on its own, past the idle
+ * threshold (Phase 84 Theme F) — everything `closeBrowserTab` does to the
+ * view, MINUS forgetting the tab exists: `lastBounds` and `keepAwakeTabIds`
+ * both stay, since this tab is coming back the moment it is clicked, and
+ * `hiddenSince` is cleared so a freshly-recreated view starts its idle clock
+ * over rather than reading as already-expired. The renderer is told via
+ * `discarded` — unlike a close, it never asked for this.
+ */
+export function discardBrowserTab(tabId: string): void {
+  const tracked = tabs.get(tabId);
+  if (!tracked) return;
+  tabs.delete(tabId);
+  hiddenSince.delete(tabId);
+  visibleTabIds.delete(tabId);
+  if (!tracked.win.isDestroyed()) tracked.win.contentView.removeChildView(tracked.view);
+  if (!tracked.view.webContents.isDestroyed()) {
+    tracked.view.webContents.removeAllListeners();
+    tracked.view.webContents.close();
+  }
+  send(tracked.win, { kind: 'discarded', tabId });
 }
 
 export function navigateBrowserTab(tabId: string, url: string): void {
@@ -368,7 +512,9 @@ export function setBrowserBounds(tabId: string, bounds: BrowserBounds): void {
 
 /** Closing the pane hides the view rather than destroying it — page state survives a reopen. */
 export function setBrowserVisible(tabId: string, visible: boolean): void {
-  tabs.get(tabId)?.view.setVisible(visible);
+  const tracked = tabs.get(tabId);
+  if (!tracked) return;
+  markViewVisible(tabId, tracked.view, visible);
 }
 
 /**
@@ -402,7 +548,7 @@ export function activateBrowserTab(tabId: string): void {
   const activating = tabs.get(tabId);
   if (!activating) return;
   for (const [id, tracked] of tabs) {
-    if (tracked.win === activating.win) tracked.view.setVisible(id === tabId);
+    if (tracked.win === activating.win) markViewVisible(id, tracked.view, id === tabId);
   }
 }
 
@@ -445,4 +591,9 @@ export function resetBrowserServiceForTests(): void {
   lastBounds.clear();
   securityConfigured = false;
   displayMetricsReapplyWired = false;
+  hiddenSince.clear();
+  keepAwakeTabIds.clear();
+  visibleTabIds.clear();
+  discardMs = DEFAULT_BROWSER_DISCARD_MS;
+  stopBrowserDiscardSweep();
 }

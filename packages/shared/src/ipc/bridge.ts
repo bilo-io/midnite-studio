@@ -562,6 +562,10 @@ export type MidniteStudioBridge = {
     devServerProbe: (
       req: In<typeof S.BrowserDevServerProbeRequest>,
     ) => Promise<z.infer<typeof S.BrowserDevServerProbeResponse>>;
+    /** Phase 84 Theme F — "Keep awake", opting one tab out of idle discard. */
+    setKeepAwake: (req: In<typeof S.BrowserSetKeepAwakeRequest>) => void;
+    /** Phase 84 Theme F — the idle-discard threshold; pushed on mount and on change. */
+    setDiscardMs: (req: In<typeof S.BrowserSetDiscardMsRequest>) => void;
     onEvent: (handler: (e: z.infer<typeof S.BrowserEventPayload>) => void) => Unsubscribe;
   };
 

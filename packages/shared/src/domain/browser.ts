@@ -12,6 +12,14 @@ export const BrowserTabIdSchema = z.string().min(1);
 export type BrowserTabId = z.infer<typeof BrowserTabIdSchema>;
 
 /**
+ * Default idle threshold before a hidden browser tab's `WebContentsView` is
+ * discarded (Phase 84 Theme F) — `Settings ▸ Browser`'s own field, and the
+ * default `browser-service.ts`'s discard sweep starts at before any renderer
+ * has pushed a different one over `browserSetDiscardMs`. `0` means never.
+ */
+export const DEFAULT_BROWSER_DISCARD_MS = 10 * 60 * 1000;
+
+/**
  * Live chrome state for one tab, pushed by main as the `WebContentsView`
  * navigates. `title`/`faviconUrl` default to the empty/absent case a brand
  * new tab starts in — the renderer falls back to the URL's host and a
@@ -35,6 +43,17 @@ export const BrowserTabStateSchema = z.object({
   groupId: z.string().nullable().optional(),
   /** The repo a tab was opened from, if any — drives its derived group. */
   originRepoId: z.string().optional(),
+  /**
+   * `'sleeping'` once main has discarded this tab's `WebContentsView` for
+   * sitting hidden past the idle threshold (Phase 84 Theme F); absent means
+   * live. Purely a display fact for the tab strip's glyph — the renderer's
+   * own `BrowserTab` (`browser-store.ts`) is what the app actually reads and
+   * writes this from; this schema field exists for the wire contract's own
+   * completeness.
+   */
+  state: z.enum(['live', 'sleeping']).optional(),
+  /** Opts a tab out of discard entirely — the tab strip's "Keep awake". */
+  keepAwake: z.boolean().optional(),
 });
 export type BrowserTabState = z.infer<typeof BrowserTabStateSchema>;
 
@@ -179,5 +198,15 @@ export const BrowserEventSchema = z.discriminatedUnion('kind', [
     matches: z.number().int(),
     activeMatchOrdinal: z.number().int(),
   }),
+  /**
+   * Main discarded this tab's `WebContentsView` on its own, past the idle
+   * threshold (Phase 84 Theme F) — the renderer never asked for this the way
+   * it does `browser.close`, so it needs telling, the same reason `destroyed`
+   * exists for a crash. The tab record survives; only the process behind it
+   * is gone until the tab is activated again, at which point `browser.create`
+   * (already called unconditionally on every activation — see
+   * `use-browser-tabs.ts`) recreates it from the renderer's own `tab.url`.
+   */
+  z.object({ kind: z.literal('discarded'), tabId: BrowserTabIdSchema }),
 ]);
 export type BrowserEvent = z.infer<typeof BrowserEventSchema>;
