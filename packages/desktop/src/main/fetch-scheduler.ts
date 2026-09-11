@@ -1,9 +1,10 @@
 import { fetch as gitFetch, listRefs } from '@midnite/studio-git-engine';
 import { EVENT_CHANNELS, type SyncStatusEvent } from '@midnite/studio-shared';
-import { app, BrowserWindow, powerMonitor } from 'electron';
+import { app, powerMonitor } from 'electron';
 
 import type { Logger } from './log';
 import { currentSettings, onSettingsChange } from './settings-mirror';
+import { anyWindowVisible, systemIdleState } from './window-visibility-gate';
 import { broadcastToWindowsOnRepo } from './window-manager';
 
 /**
@@ -222,15 +223,6 @@ export class FetchScheduler {
 }
 
 /**
- * How long the machine must have been idle before a tick is skipped —
- * `powerMonitor.getSystemIdleState`'s own threshold argument. Five minutes:
- * long enough that moving the mouse to check something else doesn't pause
- * the schedule, short enough that a genuinely unattended machine stops
- * spending network and disk on repos nobody is looking at.
- */
-const IDLE_THRESHOLD_S = 300;
-
-/**
  * The real wiring — Electron windows, `powerMonitor`, git-engine's `fetch`,
  * and `window-manager.ts`'s repo-scoped broadcast. `index.ts` builds exactly
  * one of these at boot and reconciles it alongside `watch-service.ts`.
@@ -244,11 +236,8 @@ export function createFetchScheduler(log: Logger): FetchScheduler {
       return timer;
     },
     clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
-    anyWindowVisible: () =>
-      BrowserWindow.getAllWindows().some(
-        (win) => !win.isDestroyed() && win.isVisible() && !win.isMinimized(),
-      ),
-    idleState: () => powerMonitor.getSystemIdleState(IDLE_THRESHOLD_S),
+    anyWindowVisible,
+    idleState: systemIdleState,
     autoFetchEnabled: () => currentSettings().autoFetchEnabled,
     autoFetchIntervalMs: () => currentSettings().autoFetchIntervalMs,
     runFetch: async (repoPath) => {

@@ -5,6 +5,7 @@ import {
   ForgePoller,
   type ForgePollerDeps,
   type PollOutcome,
+  computeForgePollGateOpen,
   hashProjection,
   looksRateLimited,
   nextForgePollBackoffMs,
@@ -30,6 +31,8 @@ function makeDeps(overrides: Partial<ForgePollerDeps> = {}) {
     clearInterval: (handle) => {
       intervals.delete(handle as string);
     },
+    anyWindowVisible: () => true,
+    idleState: () => 'active',
     resolveForge: async () => FORGE,
     poll: async (): Promise<PollOutcome> => ({ ok: true, hash: 'same' }),
     broadcastChanged: (repoId, kind) => changed.push({ repoId, kind }),
@@ -78,7 +81,32 @@ describe('hashProjection', () => {
   });
 });
 
+describe('computeForgePollGateOpen', () => {
+  it('is open only when some window is visible and the machine is not idle/locked — no enable flag of its own', () => {
+    const base = { anyWindowVisible: true, idleState: 'active' as const };
+    expect(computeForgePollGateOpen(base)).toBe(true);
+    expect(computeForgePollGateOpen({ ...base, anyWindowVisible: false })).toBe(false);
+    expect(computeForgePollGateOpen({ ...base, idleState: 'idle' })).toBe(false);
+    expect(computeForgePollGateOpen({ ...base, idleState: 'locked' })).toBe(false);
+    expect(computeForgePollGateOpen({ ...base, idleState: 'unknown' })).toBe(true);
+  });
+});
+
 describe('ForgePoller', () => {
+  it('no visible window means a tick never polls, even with an active subscriber', async () => {
+    const poll = vi.fn<() => Promise<PollOutcome>>(async () => ({ ok: true, hash: 'x' }));
+    const { deps, fireAll } = makeDeps({ poll, anyWindowVisible: () => false });
+    const poller = new ForgePoller(deps);
+
+    poller.subscribe('repo-a', 'runs', 1);
+    await Promise.resolve();
+    fireAll();
+    await Promise.resolve();
+
+    expect(poll).not.toHaveBeenCalled();
+  });
+
+
   it('starts polling on the first subscriber and stops on the last unsubscribe', () => {
     const { deps, intervals } = makeDeps();
     const poller = new ForgePoller(deps);

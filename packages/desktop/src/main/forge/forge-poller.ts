@@ -5,6 +5,7 @@ import { EVENT_CHANNELS, type Forge, type ForgeIssue, type ForgeProject, type Fo
 import type { Logger } from '../log';
 import { broadcastToWindowsOnRepo } from '../window-manager';
 import { githubForge } from '../ipc/forge-handlers';
+import { anyWindowVisible, systemIdleState } from '../window-visibility-gate';
 import { listIssues, listPulls, listRuns } from './gh-cli';
 import { listProjects } from './gh-project';
 
@@ -39,6 +40,15 @@ export function nextForgePollBackoffMs(previousMs: number): number {
 /** A poll result's `error` text naming a rate limit, the one signal `gh`'s wrapped commands expose. */
 export function looksRateLimited(message: string): boolean {
   return /rate limit|403/i.test(message);
+}
+
+/** C.3's "same visibility gate as B.2" — no `enabled` flag of its own: zero subscribers already means zero polling. */
+export function computeForgePollGateOpen(input: {
+  anyWindowVisible: boolean;
+  idleState: 'active' | 'idle' | 'locked' | 'unknown';
+}): boolean {
+  if (!input.anyWindowVisible) return false;
+  return input.idleState !== 'idle' && input.idleState !== 'locked';
 }
 
 /**
@@ -99,6 +109,9 @@ export type ForgePollerDeps = {
   now: () => number;
   setInterval: (fn: () => void, ms: number) => unknown;
   clearInterval: (handle: unknown) => void;
+  /** Same visibility/idle gate as `fetch-scheduler.ts`'s B.2 (C.3) — a paused tick is skipped, not a failure. */
+  anyWindowVisible: () => boolean;
+  idleState: () => 'active' | 'idle' | 'locked' | 'unknown';
   /** Resolve a repo's GitHub remote, or `null` when it has none. */
   resolveForge: (repoId: string) => Promise<Forge | null>;
   /** Run the one `gh` listing this kind needs and hash a compact projection of it. */
@@ -183,6 +196,17 @@ export class ForgePoller {
     const state = this.keys.get(key);
     if (!state) return;
     if (state.backoffUntil !== null && this.deps.now() < state.backoffUntil) return;
+    // A paused tick (no visible window, or the machine idle/locked) is
+    // silent, exactly like B.2's fetch-scheduler rule — not a failure, and
+    // it does not accumulate; the next interval just checks again.
+    if (
+      !computeForgePollGateOpen({
+        anyWindowVisible: this.deps.anyWindowVisible(),
+        idleState: this.deps.idleState(),
+      })
+    ) {
+      return;
+    }
 
     const forge = await this.deps.resolveForge(state.repoId);
     if (!forge) return; // No GitHub remote — nothing to poll, not a failure.
@@ -281,6 +305,8 @@ export function createForgePoller(log: Logger): ForgePoller {
       return timer;
     },
     clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
+    anyWindowVisible,
+    idleState: systemIdleState,
     resolveForge: (repoId) => githubForge(repoId),
     poll: (forge, kind) => pollOnce(forge, kind),
     broadcastChanged: (repoId, kind) => {
