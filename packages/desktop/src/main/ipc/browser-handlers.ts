@@ -14,6 +14,8 @@ import {
   ownerWindowForBrowserTab,
   reloadBrowserTab,
   setBrowserBounds,
+  setBrowserDiscardMs,
+  setBrowserKeepAwake,
   setBrowserVisible,
   setBrowserZoom,
   stopBrowserTab,
@@ -130,6 +132,16 @@ export function registerBrowserHandlers(): void {
   ipcMain.on(CHANNELS.browserZoom, (_event, raw: unknown) => {
     const parsed = schemas.BrowserZoomRequest.safeParse(raw);
     if (parsed.success) setBrowserZoom(parsed.data.tabId, parsed.data.factor);
+  });
+
+  ipcMain.on(CHANNELS.browserSetKeepAwake, (_event, raw: unknown) => {
+    const parsed = schemas.BrowserSetKeepAwakeRequest.safeParse(raw);
+    if (parsed.success) setBrowserKeepAwake(parsed.data.tabId, parsed.data.keepAwake);
+  });
+
+  ipcMain.on(CHANNELS.browserSetDiscardMs, (_event, raw: unknown) => {
+    const parsed = schemas.BrowserSetDiscardMsRequest.safeParse(raw);
+    if (parsed.success) setBrowserDiscardMs(parsed.data.ms);
   });
 
   handleBare(CHANNELS.browserClearData, async () => {
