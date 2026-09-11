@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-git-engine",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
   "description": "Pure Node/TS git layer \u2014 dugite exec, NUL-delimited parsers, commands, lane layout, watcher. No electron imports.",
   "main": "./dist/index.js",
