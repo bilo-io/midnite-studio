@@ -16,7 +16,7 @@ import { createFitCoalescer } from './fit-coalescer';
 import { createInputQueue, type InputQueue } from './input-queue';
 import { isXtermFocusReport } from './is-xterm-focus-report';
 import { parseOsc7 } from './parse-osc7';
-import { createReplayGate } from './replay-gate';
+import { createReplayGate, gateLiveWrite, replayLiveHandoff, type ReplayGate } from './replay-gate';
 import { attachTerminalLinks } from './terminal-links';
 import { agentInput } from './terminal-panel';
 import { terminalFontOptions } from './terminal-font';
@@ -218,7 +218,7 @@ export function TerminalView({
    * the live-rebind branch in `openWhenSized`, and released once that
    * snapshot has been written — see the mount effect below.
    */
-  const replayGateRef = useRef<ReturnType<typeof createReplayGate> | null>(null);
+  const replayGateRef = useRef<ReplayGate | null>(null);
 
   /*
     Phase 30 Theme G: the activity guess itself moved to main, at
@@ -234,14 +234,7 @@ export function TerminalView({
   }, []);
 
   const write = useCallback(
-    (bytes: Uint8Array) => {
-      const gate = replayGateRef.current;
-      if (gate && !gate.open) {
-        gate.hold(bytes);
-        return;
-      }
-      writeToTerm(bytes);
-    },
+    (bytes: Uint8Array) => gateLiveWrite(replayGateRef.current, bytes, writeToTerm),
     [writeToTerm],
   );
 
@@ -643,20 +636,23 @@ export function TerminalView({
        */
       if (stateRef.current === 'open') {
         const ptyId = useTerminalStore.getState().ptyIds[session.id];
-        const gate = createReplayGate();
-        replayGateRef.current = gate;
         const api = bridge();
         if (ptyId && api) {
-          void api.pty.snapshot({ ptyId }).then(({ bytes }) => {
-            if (cancelled) return;
-            if (bytes.length > 0) {
-              term.write(bytes);
-              term.write(RESET_MODES);
-            }
-            gate.release(writeToTerm);
-          });
+          replayGateRef.current = replayLiveHandoff(
+            () => api.pty.snapshot({ ptyId }).then(({ bytes }) => bytes),
+            (bytes) => {
+              if (bytes.length > 0) {
+                term.write(bytes);
+                term.write(RESET_MODES);
+              }
+            },
+            writeToTerm,
+            () => cancelled,
+          );
         } else {
+          const gate = createReplayGate();
           gate.release(writeToTerm);
+          replayGateRef.current = gate;
         }
       } else {
         /**

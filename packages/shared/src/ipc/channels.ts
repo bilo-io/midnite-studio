@@ -443,6 +443,20 @@ export const CHANNELS = {
    * from becoming a port scanner. It ANSWERS a question; it never navigates.
    */
   browserDevServerProbe: 'mstudio:browser:dev-server-probe',
+  /**
+   * Opts a tab out of the idle discard sweep (Phase 84 Theme F) — the tab
+   * strip's "Keep awake". Mirrored into main rather than derived there:
+   * `browser-store.ts` is the only place a tab's full record lives, and main
+   * tracks only the one boolean it needs to gate its own sweep.
+   */
+  browserSetKeepAwake: 'mstudio:browser:set-keep-awake',
+  /**
+   * How long a hidden tab (Phase 84 Theme F) may sit idle before its
+   * `WebContentsView` is discarded — pushed on mount and on every
+   * `Settings ▸ Browser` change, mirroring `browserZoom`'s "renderer owns
+   * it, main just needs to know" shape. `0` disables discard entirely.
+   */
+  browserSetDiscardMs: 'mstudio:browser:set-discard-ms',
 
   // --- third-party apps rail (Phase 83 Themes A/B) ---------------------------
   // One `WebContentsView` per ENABLED app, owned by `apps-service.ts` — the

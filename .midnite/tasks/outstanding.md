@@ -2,6 +2,40 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **Phase 84 Themes E.6/F.5: the memory numbers.** Both need a packaged-equivalent build
+  (`moon run app:build desktop:bundle`) and a real run of `scripts/perf/memory-report.mjs`
+  (`--action=terminal` for E's 10-sessions/1-visible number, `--action=browser-tabs` for F's
+  8-tabs/1-active number) — the PR that landed the dispose/discard mechanisms itself did not have
+  time to produce them. The mechanisms are unit- and e2e-tested (`session-mount-policy.test.ts`,
+  `replay-gate.test.ts`, `browser-service.test.ts`); only the recorded-in-`done.md` number is owed.
+
+- **Phase 84 Theme F: per-app discard opt-in, and navigation-history restore.**
+  Both were named in the theme's own doc as "if easy, else defer here." Third-party apps
+  (`apps-service.ts`, Phase 83) are excluded from the idle-discard sweep by construction — the
+  sweep only ever iterates `browser-service.ts`'s own `tabs` map, which apps never enter — so the
+  Verification bullet ("a Phase 83 app is never discarded by default") holds with zero code. What
+  is genuinely deferred is the *opt-in* half: giving Spotify/Calendar/YouTube the same idle-discard
+  treatment the browser's tabs now get, with a per-app switch beside their on/off toggle in
+  Settings. `apps-service.ts` has no visibility bookkeeping today (a disabled app is torn down
+  outright, not hidden-and-trackable the way a background browser tab is), so this is a real
+  feature addition rather than a threshold tweak — sized more like its own small theme than a
+  follow-up line. Separately, `discardBrowserTab`'s reactivation is URL-only: pinned Electron 33.4.11's
+  `WebContentsView.webContents.navigationHistory` has no `restore()` (only `getAllEntries()`,
+  checked directly against `electron.d.ts`), so back/forward history within a discarded tab does not
+  survive a discard — cookies, logins and the URL itself do. Worth a second look if a future
+  Electron bump adds a restore path.
+
+- **Phase 84 Theme E.4: the rehydrating terminal's fade.** `fitSignal`/`safeFit` already run
+  before any replayed scrollback is written, so a revived session is never mis-sized for its
+  first live frame — that half of E.4 was already true. What is genuinely deferred is "wears
+  Theme K's terminal fade rather than flashing an empty canvas": Theme K's own per-reveal fade
+  (`terminalTween` as K.4 describes it) does not exist yet — today's `terminalTween` in `app.tsx`
+  is only the whole PANEL's open/close height animation, not a per-session dispose/reveal fade.
+  Until Theme K lands, a session revived from `session-mount-policy.ts`'s dispose can show a
+  blank xterm canvas for the length of the scrollback-snapshot round trip (typically single-digit
+  milliseconds) before content pops in. Revisit once Theme K's `use-cascade-reveal.ts`/panel-fade
+  primitives exist to wire this session-level fade onto.
+
 - **Connect Phase 79's companion voice to its flow.** Themes D/E ([PR #271](https://github.com/bilo-io/midnite-studio/pull/271))
   and F/G ([PR #272](https://github.com/bilo-io/midnite-studio/pull/272)) landed in parallel, so
   three seams between them are connected in shape but not switched on. `voiceInReady()` in

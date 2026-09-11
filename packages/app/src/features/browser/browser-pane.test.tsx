@@ -34,6 +34,8 @@ beforeEach(() => {
       create: vi.fn().mockResolvedValue(undefined),
       activate: vi.fn(),
       navigate: vi.fn(),
+      setKeepAwake: vi.fn(),
+      setDiscardMs: vi.fn(),
       onEvent: vi.fn((handler: (event: unknown) => void) => {
         eventHandlers.push(handler);
         return () => {

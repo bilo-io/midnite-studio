@@ -20,6 +20,8 @@ export function BrowserPage() {
   const dialogs = useDialogs();
   const [clearing, setClearing] = useState(false);
   const linkTarget = useUiStore((s) => s.linkTarget);
+  const discardMs = useUiStore((s) => s.browserDiscardMs);
+  const setDiscardMs = useUiStore((s) => s.setBrowserDiscardMs);
   const previewDeployHosts = useBrowserStore((s) => s.previewDeployHosts);
   // Local, raw text rather than deriving straight from the store: parsing on
   // every keystroke would rejoin the list and normalise blank lines out from
@@ -101,6 +103,37 @@ export function BrowserPage() {
           >
             Save hosts
           </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs">Memory</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">Discard hidden tabs after</div>
+            <div className="text-muted-foreground text-[11px]">
+              A tab hidden this long — its own window minimized counts too — loses its process
+              until reactivated. Cookies and logins survive; unsaved form text does not. 0 never
+              discards. Per-tab "Keep awake" (tab context menu) opts a tab out entirely.
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              max={180}
+              step={1}
+              value={Math.round(discardMs / 60_000)}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                if (!Number.isFinite(next)) return;
+                setDiscardMs(Math.max(0, Math.round(next)) * 60_000);
+              }}
+              aria-label="Discard hidden tabs after (minutes)"
+              className="w-16 rounded border border-border bg-card px-2 py-1 text-xs tabular-nums"
+            />
+            <span className="text-muted-foreground">min</span>
+          </div>
         </div>
       </div>
 

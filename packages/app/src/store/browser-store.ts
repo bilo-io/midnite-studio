@@ -77,6 +77,18 @@ export type BrowserTab = {
    * in-DOM surface rather than Chromium's own unstyled one.
    */
   navError?: BrowserNavError | null;
+  /**
+   * `'sleeping'` once main has discarded this tab's `WebContentsView` for
+   * sitting hidden past `Settings ▸ Browser`'s idle threshold (Phase 84
+   * Theme F); absent (not `'live'`) means live — the tab strip's own moon
+   * glyph reads the absence, matching every other optional field here.
+   * Cleared the moment a real navigation starts again (`loading: true`),
+   * the same rule `navError` uses for "a previous failure is no longer
+   * current".
+   */
+  state?: 'sleeping';
+  /** Opts this tab out of the idle discard sweep — the tab strip's "Keep awake". */
+  keepAwake?: boolean;
 };
 
 export type BrowserTabGroup = {
@@ -644,6 +656,12 @@ export const useBrowserStore = create<BrowserState>()(
           canGoForward: false,
           crashed: false,
           navError: null,
+          // No `WebContentsView` exists for a restored tab until it is
+          // activated (see the module doc above) — it is neither live nor
+          // sleeping, so `state` itself is absent rather than persisting
+          // whatever it last read. `keepAwake` is a real preference and
+          // stays.
+          state: undefined,
         })),
       }),
     },

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import {
+  DEFAULT_BROWSER_DISCARD_MS,
   DEFAULT_COMPANION_VOLUME,
   METRICS_IDLE_INTERVAL_MS,
   VIEW_IDS,
@@ -36,6 +37,10 @@ import {
   DEFAULT_TERMINAL_FONT_SIZE,
   DEFAULT_TERMINAL_LINE_HEIGHT,
 } from '../features/terminal/terminal-font';
+import {
+  DEFAULT_KEEP_RECENT_SESSIONS,
+  DEFAULT_SESSION_DISPOSE_AFTER_MS,
+} from '../features/terminal/session-mount-policy';
 import { DEFAULT_EDITOR_FONT_SIZE, DEFAULT_EDITOR_TAB_SIZE } from '../lib/monaco/editor-prefs';
 import { EMPTY_PROJECT_ITEM_FILTER, type ProjectItemFilterState } from '../features/projects/filter';
 import { DEFAULT_GRAPH_FACETS, type ProjectGraphFacets } from '../features/projects/graph/graph-filter';
@@ -1179,6 +1184,25 @@ export type UiState = {
   terminalLineHeight: number;
   setTerminalLineHeight: (lineHeight: number) => void;
   /**
+   * Phase 84 Theme E — the terminal session mount policy's two knobs
+   * (`session-mount-policy.ts`'s `mountedSessionIds`). A hidden session
+   * outside the visible-plus-`terminalKeepRecentSessions` window, or one
+   * that has sat hidden past `terminalDisposeAfterMs` regardless of
+   * recency, loses its live xterm until revealed again.
+   */
+  terminalKeepRecentSessions: number;
+  setTerminalKeepRecentSessions: (count: number) => void;
+  /** Milliseconds; `0` never disposes a hidden session at all. */
+  terminalDisposeAfterMs: number;
+  setTerminalDisposeAfterMs: (ms: number) => void;
+  /**
+   * Phase 84 Theme F — how long a hidden browser tab (or its owner window
+   * hidden/minimized) sits idle before `browser-service.ts` discards its
+   * `WebContentsView`. `0` never discards.
+   */
+  browserDiscardMs: number;
+  setBrowserDiscardMs: (ms: number) => void;
+  /**
    * Phase 64 Theme C — the Files-view Monaco editor's own preferences,
    * mirroring the terminal font trio above exactly. `editorFontFamily: ''` is
    * this field's own "unset" state, resolved to `DEFAULT_EDITOR_FONT_FAMILY`
@@ -1601,6 +1625,9 @@ export type PersistedUi = Pick<
   | 'terminalFontFamily'
   | 'terminalFontSize'
   | 'terminalLineHeight'
+  | 'terminalKeepRecentSessions'
+  | 'terminalDisposeAfterMs'
+  | 'browserDiscardMs'
   | 'editorFontFamily'
   | 'editorFontSize'
   | 'editorMinimap'
@@ -1730,6 +1757,13 @@ export const useUiStore = create<UiState>()(
       setTerminalFontSize: (terminalFontSize) => set({ terminalFontSize }),
       terminalLineHeight: DEFAULT_TERMINAL_LINE_HEIGHT,
       setTerminalLineHeight: (terminalLineHeight) => set({ terminalLineHeight }),
+      terminalKeepRecentSessions: DEFAULT_KEEP_RECENT_SESSIONS,
+      setTerminalKeepRecentSessions: (terminalKeepRecentSessions) =>
+        set({ terminalKeepRecentSessions }),
+      terminalDisposeAfterMs: DEFAULT_SESSION_DISPOSE_AFTER_MS,
+      setTerminalDisposeAfterMs: (terminalDisposeAfterMs) => set({ terminalDisposeAfterMs }),
+      browserDiscardMs: DEFAULT_BROWSER_DISCARD_MS,
+      setBrowserDiscardMs: (browserDiscardMs) => set({ browserDiscardMs }),
       editorFontFamily: '',
       setEditorFontFamily: (editorFontFamily) => set({ editorFontFamily }),
       editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
@@ -2371,6 +2405,9 @@ export const useUiStore = create<UiState>()(
         terminalFontFamily: state.terminalFontFamily,
         terminalFontSize: state.terminalFontSize,
         terminalLineHeight: state.terminalLineHeight,
+        terminalKeepRecentSessions: state.terminalKeepRecentSessions,
+        terminalDisposeAfterMs: state.terminalDisposeAfterMs,
+        browserDiscardMs: state.browserDiscardMs,
         editorFontFamily: state.editorFontFamily,
         editorFontSize: state.editorFontSize,
         editorMinimap: state.editorMinimap,

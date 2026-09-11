@@ -1,6 +1,6 @@
 import type { AgentDefinition, SessionActivity, TerminalSession } from '@midnite/studio-shared';
 import { Accordion } from '@bilo-io/ui';
-import { LuActivity, LuBot, LuMonitor, LuSquareTerminal, LuType } from 'react-icons/lu';
+import { LuActivity, LuBot, LuMonitor, LuSquareTerminal, LuTimer, LuType } from 'react-icons/lu';
 
 import {
   isAgentRow,
@@ -136,6 +136,10 @@ export function TerminalPage() {
   const setFontSize = useUiStore((s) => s.setTerminalFontSize);
   const lineHeight = useUiStore((s) => s.terminalLineHeight);
   const setLineHeight = useUiStore((s) => s.setTerminalLineHeight);
+  const keepRecentSessions = useUiStore((s) => s.terminalKeepRecentSessions);
+  const setKeepRecentSessions = useUiStore((s) => s.setTerminalKeepRecentSessions);
+  const disposeAfterMs = useUiStore((s) => s.terminalDisposeAfterMs);
+  const setDisposeAfterMs = useUiStore((s) => s.setTerminalDisposeAfterMs);
   /*
     Through the shared hook, not a second `useQuery` on the same key. React
     Query keys by KEY, not by query function — two `['agents']` observers with
@@ -176,6 +180,53 @@ export function TerminalPage() {
             hint="The toggle chord is fixed — macOS reserves Cmd+` for window cycling."
           >
             <code className="w-fit rounded bg-muted px-1.5 py-0.5 font-mono text-xs">Ctrl+`</code>
+          </Field>
+        </div>
+      </Accordion>
+
+      <Accordion title="Memory" icon={<LuTimer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <Field
+            label="Keep recent sessions mounted"
+            hint="Besides the one you're looking at, this many recently-viewed sessions keep a live terminal. Everything else disposes once hidden past the timeout below, and rebuilds from the running shell's own history the moment you switch back — nothing is lost."
+          >
+            <input
+              type="number"
+              min={0}
+              max={20}
+              step={1}
+              value={keepRecentSessions}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                if (!Number.isFinite(next)) return;
+                setKeepRecentSessions(Math.max(0, Math.min(20, Math.round(next))));
+              }}
+              aria-label="Keep recent sessions mounted"
+              className="w-20 rounded border border-border bg-card px-2 py-1 text-xs tabular-nums"
+            />
+          </Field>
+
+          <Field
+            label="Dispose hidden sessions after"
+            hint="Minutes a session may sit outside view before its terminal is torn down. 0 never disposes one."
+          >
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={120}
+                step={1}
+                value={Math.round(disposeAfterMs / 60_000)}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  if (!Number.isFinite(next)) return;
+                  setDisposeAfterMs(Math.max(0, Math.round(next)) * 60_000);
+                }}
+                aria-label="Dispose hidden sessions after (minutes)"
+                className="w-20 rounded border border-border bg-card px-2 py-1 text-xs tabular-nums"
+              />
+              <span className="text-muted-foreground">min</span>
+            </div>
           </Field>
         </div>
       </Accordion>

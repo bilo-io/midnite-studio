@@ -12,10 +12,20 @@ function installBridge(createImpl?: ReturnType<typeof vi.fn>) {
   const setVisible = vi.fn();
   const close = vi.fn();
   const onEvent = vi.fn(() => () => {});
+  const setKeepAwake = vi.fn();
+  const setDiscardMs = vi.fn();
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
-    browser: { create, activate, setVisible, close, onEvent } as unknown as MidniteStudioBridge['browser'],
+    browser: {
+      create,
+      activate,
+      setVisible,
+      close,
+      onEvent,
+      setKeepAwake,
+      setDiscardMs,
+    } as unknown as MidniteStudioBridge['browser'],
   } as Partial<MidniteStudioBridge>;
-  return { create, activate, setVisible, close, onEvent };
+  return { create, activate, setVisible, close, onEvent, setKeepAwake, setDiscardMs };
 }
 
 /** Deferred `create()` — resolved by hand once the test has changed state under it. */

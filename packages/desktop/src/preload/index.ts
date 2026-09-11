@@ -339,6 +339,8 @@ const bridge: Pick<
     clearData: () => call(CHANNELS.browserClearData),
     zoom: (req) => ipcRenderer.send(CHANNELS.browserZoom, req),
     devServerProbe: (req) => call(CHANNELS.browserDevServerProbe, req),
+    setKeepAwake: (req) => ipcRenderer.send(CHANNELS.browserSetKeepAwake, req),
+    setDiscardMs: (req) => ipcRenderer.send(CHANNELS.browserSetDiscardMs, req),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
   },
   apps: {

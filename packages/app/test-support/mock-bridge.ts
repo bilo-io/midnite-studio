@@ -1042,6 +1042,10 @@ export function buildMockBridge(data: MockFixtures) {
   const browserZoomCalls: Array<{ tabId: string; factor: number }> = [];
   /** Every `browser.stop` call, in order — the e2e stop-button spec's assertion surface (Theme G). */
   const browserStopCalls: Array<{ tabId: string }> = [];
+  /** Every `browser.setKeepAwake` call, in order (Phase 84 Theme F). */
+  const browserKeepAwakeCalls: Array<{ tabId: string; keepAwake: boolean }> = [];
+  /** Every `browser.setDiscardMs` call, in order (Phase 84 Theme F) — pushed on mount and on Settings change. */
+  const browserDiscardMsCalls: Array<{ ms: number }> = [];
   /** Every `apps.enable`/`disable`/`activate` call, in order (Phase 83 Theme C) — the apps-rail e2e spec's assertion surface. */
   const appsEnableCalls: string[] = [];
   const appsDisableCalls: string[] = [];
@@ -2300,6 +2304,12 @@ export function buildMockBridge(data: MockFixtures) {
       clearData: ok,
       zoom: (req: { tabId: string; factor: number }) => {
         browserZoomCalls.push({ tabId: req.tabId, factor: req.factor });
+      },
+      setKeepAwake: (req: { tabId: string; keepAwake: boolean }) => {
+        browserKeepAwakeCalls.push(req);
+      },
+      setDiscardMs: (req: { ms: number }) => {
+        browserDiscardMsCalls.push(req);
       },
       onEvent: (handler: (e: unknown) => void) => {
         browserEventHandlers.push(handler);
@@ -4129,6 +4139,10 @@ export function buildMockBridge(data: MockFixtures) {
   (window as unknown as { __mstudioBrowserStopCalls: unknown }).__mstudioBrowserStopCalls = () => [
     ...browserStopCalls,
   ];
+  (window as unknown as { __mstudioBrowserKeepAwakeCalls: unknown }).__mstudioBrowserKeepAwakeCalls =
+    () => [...browserKeepAwakeCalls];
+  (window as unknown as { __mstudioBrowserDiscardMsCalls: unknown }).__mstudioBrowserDiscardMsCalls =
+    () => [...browserDiscardMsCalls];
   (window as unknown as { __mstudioAppsEnableCalls: unknown }).__mstudioAppsEnableCalls = () => [
     ...appsEnableCalls,
   ];

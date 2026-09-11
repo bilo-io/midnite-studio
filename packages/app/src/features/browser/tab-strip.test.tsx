@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
@@ -10,10 +10,11 @@ const mocks = vi.hoisted(() => ({
   windowRole: 'main' as string,
   portalTarget: null as HTMLDivElement | null,
   leadingTarget: null as HTMLDivElement | null,
+  setKeepAwake: vi.fn(),
 }));
 
 vi.mock('../../services/bridge', () => ({
-  bridge: () => ({ windowRole: mocks.windowRole }),
+  bridge: () => ({ windowRole: mocks.windowRole, browser: { setKeepAwake: mocks.setKeepAwake } }),
 }));
 
 vi.mock('../../components/detached-window-frame', () => ({
@@ -48,6 +49,7 @@ beforeEach(() => {
   mocks.windowRole = 'main';
   mocks.portalTarget = null;
   mocks.leadingTarget = null;
+  mocks.setKeepAwake.mockClear();
   useBrowserStore.setState({
     tabs: [tab('a', 'First tab'), tab('b', 'Second tab')],
     groups: [],
@@ -140,5 +142,34 @@ describe('BrowserTabStrip', () => {
     const label = tab.querySelector('span');
     expect(label?.className).toContain('min-w-0');
     expect(label?.className).toContain('truncate');
+  });
+
+  it('shows the sleeping glyph on a discarded tab, and only that one (Phase 84 Theme F)', () => {
+    useBrowserStore.setState((s) => ({
+      tabs: s.tabs.map((t) => (t.id === 'b' ? { ...t, state: 'sleeping' as const } : t)),
+    }));
+
+    renderStrip();
+
+    const awakeTab = screen.getByRole('tab', { name: 'First tab' });
+    const sleepingTab = screen.getByRole('tab', { name: 'Second tab' });
+    expect(awakeTab.closest('div')?.querySelector('[data-tab-sleeping]')).toBeNull();
+    expect(sleepingTab.closest('div')?.querySelector('[data-tab-sleeping]')).not.toBeNull();
+  });
+
+  it('the context menu offers "Keep awake", and toggling it updates the store and tells main', () => {
+    renderStrip();
+
+    fireEvent.contextMenu(screen.getByRole('tab', { name: 'First tab' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Keep awake' }));
+
+    expect(useBrowserStore.getState().tabs.find((t) => t.id === 'a')?.keepAwake).toBe(true);
+    expect(mocks.setKeepAwake).toHaveBeenCalledWith({ tabId: 'a', keepAwake: true });
+
+    fireEvent.contextMenu(screen.getByRole('tab', { name: 'First tab' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Allow this tab to sleep' }));
+
+    expect(useBrowserStore.getState().tabs.find((t) => t.id === 'a')?.keepAwake).toBe(false);
+    expect(mocks.setKeepAwake).toHaveBeenCalledWith({ tabId: 'a', keepAwake: false });
   });
 });
