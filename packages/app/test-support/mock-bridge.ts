@@ -1257,7 +1257,8 @@ export function buildMockBridge(data: MockFixtures) {
         The protocol allow-list itself is enforced in main and unit-tested there;
         what this can show is that the renderer only ever asks for https URLs.
       */
-    forge: slowed({
+    forge: {
+      ...slowed({
       cliStatus: async () => forgeCli(),
       runs: async () => ({ cli: forgeCli(), runs: data.forge?.runs ?? [], error: forgeError() }),
       pulls: async (req: { repoId?: string; scope?: 'all' | 'mine' | 'review-requested' }) => ({
@@ -1517,7 +1518,17 @@ export function buildMockBridge(data: MockFixtures) {
         recordWrite('issueSetState', req);
         return writeResult(writeError() === null);
       },
-    }),
+      }),
+      // Phase 84 Theme C — interest-based polling. One-way `send`s, not
+      // `invoke`s, so left outside `slowed()`'s async-wrapping (which would
+      // otherwise turn `onChanged`'s return value into a Promise, breaking a
+      // caller that expects the plain `Unsubscribe` function back
+      // synchronously — the same reason `watch.onEvent` below is `unsubscribe`
+      // itself rather than `slowed`-wrapped).
+      subscribe: noop,
+      unsubscribe: noop,
+      onChanged: unsubscribe,
+    },
     /*
         ProjectV2 (Phase 40 Theme G), its own IPC namespace in the real
         bridge and kept that way here too. `list`/`items` share one
