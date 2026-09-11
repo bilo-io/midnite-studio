@@ -1029,6 +1029,16 @@ export type UiState = {
 
   autoFetchIntervalMs: number | null;
   setAutoFetchIntervalMs: (ms: number | null) => void;
+  /**
+   * The on/off switch alongside the interval (Phase 84 Theme B.4) — separate
+   * from `autoFetchIntervalMs` rather than folded into it as a `null` sentinel,
+   * because the interval field is what the range/number inputs bind to and a
+   * `null` there used to mean "not yet set" as much as "off". Both push to
+   * main together over `settingsSync` (`use-settings-sync.ts`); main's own
+   * scheduler is what actually runs the fetch now.
+   */
+  autoFetchEnabled: boolean;
+  setAutoFetchEnabled: (enabled: boolean) => void;
   /** Sampling cadence with the flyout closed. Opening it always escalates. */
   metricsIdleIntervalMs: number;
   setMetricsIdleInterval: (ms: number) => void;
@@ -1600,6 +1610,7 @@ export type PersistedUi = Pick<
   | 'loopEnabled'
   | 'hiddenMetrics'
   | 'autoFetchIntervalMs'
+  | 'autoFetchEnabled'
   | 'metricsIdleIntervalMs'
   | 'forgeWritesEnabled'
   | 'activeEnvironmentByRepo'
@@ -1727,6 +1738,7 @@ export const useUiStore = create<UiState>()(
       settingsPage: 'appearance',
       hiddenMetrics: [],
       autoFetchIntervalMs: 60000,
+      autoFetchEnabled: true,
       metricsIdleIntervalMs: METRICS_IDLE_INTERVAL_MS,
       // Default off. A fresh install cannot change anything on GitHub.
       forgeWritesEnabled: false,
@@ -2302,6 +2314,7 @@ export const useUiStore = create<UiState>()(
       openAppsFlyout: (id) => set({ appsFlyoutAppId: id }),
       closeAppsFlyout: () => set({ appsFlyoutAppId: null }),
       setAutoFetchIntervalMs: (autoFetchIntervalMs) => set({ autoFetchIntervalMs }),
+      setAutoFetchEnabled: (autoFetchEnabled) => set({ autoFetchEnabled }),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
       setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),
       setActiveEnvironment: (repoId, environmentId) =>
@@ -2375,6 +2388,7 @@ export const useUiStore = create<UiState>()(
         loopEnabled: state.loopEnabled,
         hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
+        autoFetchEnabled: state.autoFetchEnabled,
         metricsIdleIntervalMs: state.metricsIdleIntervalMs,
         forgeWritesEnabled: state.forgeWritesEnabled,
         activeEnvironmentByRepo: state.activeEnvironmentByRepo,
