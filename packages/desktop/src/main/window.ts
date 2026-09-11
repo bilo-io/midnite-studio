@@ -39,8 +39,25 @@ function rendererEntry(): string {
  */
 const INITIAL_BACKGROUND = '#09090b';
 
+function appIconPath(): string | undefined {
+  const packaged = join(process.resourcesPath, 'icon.png');
+  if (app.isPackaged && existsSync(packaged)) return packaged;
+  const unpackaged = join(app.getAppPath(), 'resources', 'icon.png');
+  if (existsSync(unpackaged)) return unpackaged;
+  return undefined;
+}
+
 export function createWindow(): BrowserWindow {
   const frameless = windowFrameless();
+  const icon = appIconPath();
+
+  if (process.platform === 'darwin' && app.dock && icon) {
+    try {
+      app.dock.setIcon(icon);
+    } catch {
+      // Non-fatal if setting dock icon fails
+    }
+  }
 
   const win = new BrowserWindow({
     width: 1440,
@@ -49,6 +66,7 @@ export function createWindow(): BrowserWindow {
     minHeight: 560,
     show: false,
     backgroundColor: INITIAL_BACKGROUND,
+    ...(icon ? { icon } : {}),
     // macOS: drop the native bar and inset the traffic lights so the app-drawn
     // <TitleBar> can host them. `trafficLightPosition` y is tuned against the
     // bar's 48px height (TITLE_BAR_HEIGHT in @bilo-io/shell).
