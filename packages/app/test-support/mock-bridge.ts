@@ -2788,6 +2788,10 @@ export function buildMockBridge(data: MockFixtures) {
       // relay send is a no-op and nothing ever answers `onRelayed`.
       relay: noop,
       onRelayed: unsubscribe,
+      // Phase 84 Theme D.1: no spec here asserts on main's window registry
+      // learning a repoId, so reporting one is a no-op — same shape as
+      // `relay` above.
+      reportRepo: noop,
     },
     cli: {
       status: async () => ({ installed: false, path: null, target: null, managed: false }),

@@ -122,15 +122,6 @@ function send(kind: SyncKind, payload: Record<string, unknown>): void {
 }
 
 /**
- * Called by `watch-invalidation.ts`'s main-window-only subscriber (the single
- * watcher stays bound to main; every other window invalidates off this relay
- * rather than running a second `git status` poll of its own).
- */
-export function relayWatchEvent(repoId: string, kind: WatchKind): void {
-  send('watch', { repoId, kind });
-}
-
-/**
  * The last theme this window is known to be showing, and the palette with it.
  *
  * **Module-level, not closure-level, and that is the whole fix for the flicker.**

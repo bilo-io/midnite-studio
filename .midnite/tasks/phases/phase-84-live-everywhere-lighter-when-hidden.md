@@ -77,12 +77,12 @@ invisible to it.
 
 ## Deliverables
 
-### Theme A — The broadcast lands (S)
+### Theme A — The broadcast lands (S) — ✅ DONE (PR #TBD, 2026-09-11)
 
-- [ ] **A.1** Mount `useWatchInvalidation(repoId)` from [`services/watch-invalidation.ts`](../../../packages/app/src/services/watch-invalidation.ts) inside `DetachedShell` in [`detached-root.tsx`](../../../packages/app/src/detached-root.tsx), against the popout's own `QueryClient`. A detached page or panel now invalidates on the same `watchEvent` the main window does; its `staleTime: Infinity` stays — invalidation is the refresh path, and now it fires.
-- [ ] **A.2** Delete `relayWatchEvent` from [`broadcast-sync.ts`](../../../packages/app/src/services/broadcast-sync.ts) and its case in `broadcast-sync.test.ts` (~L255). Rewrite the three stale module comments — `broadcast-sync.ts` (describes the removed rebroadcast), `detached-root.tsx` ("a snapshot as of mount until the first relayed change"), `watch-invalidation.ts` ("Mounted in EVERY window") — so each says what the code now does.
-- [ ] **A.3** `view.refresh` (chord-free, palette/menu) reaches a popout: confirm the `menuCommand` route runs `invalidateForWatchKind(client, repoId, 'head')` + restream against the popout's client, or wire it, so a detached window has the same manual escape hatch the main window has.
-- [ ] **A.4** Test: render `DetachedRoot` for a page role under a fake bridge, emit `watch.onEvent({kind:'refs'})`, assert the popout `QueryClient` invalidates `keys.refs`/`keys.status` and the graph store requests a restream. (The e2e suite runs against a mocked bridge and cannot open a real second Electron window — same precedent as [Phase 55 F.3](phase-55-multi-window-studio.md); the real two-window check is a human pass in Verification.)
+- [x] **A.1** Mount `useWatchInvalidation(repoId)` from [`services/watch-invalidation.ts`](../../../packages/app/src/services/watch-invalidation.ts) inside `DetachedShell` in [`detached-root.tsx`](../../../packages/app/src/detached-root.tsx), against the popout's own `QueryClient`. A detached page or panel now invalidates on the same `watchEvent` the main window does; its `staleTime: Infinity` stays — invalidation is the refresh path, and now it fires.
+- [x] **A.2** Delete `relayWatchEvent` from [`broadcast-sync.ts`](../../../packages/app/src/services/broadcast-sync.ts) and its case in `broadcast-sync.test.ts` (~L255). Rewrite the three stale module comments — `broadcast-sync.ts` (describes the removed rebroadcast), `detached-root.tsx` ("a snapshot as of mount until the first relayed change"), `watch-invalidation.ts` ("Mounted in EVERY window") — so each says what the code now does.
+- [x] **A.3** `view.refresh` (chord-free, palette/menu) reaches a popout: confirm the `menuCommand` route runs `invalidateForWatchKind(client, repoId, 'head')` + restream against the popout's client, or wire it, so a detached window has the same manual escape hatch the main window has. **Confirmed already working, no wiring needed**: `DetachedShell` already mounts its own `useCommandHandlers()`/`useKeybindings()` (Phase 55), so the palette's `view.refresh` row runs against the popout's own `QueryClient` for free — proven by a dedicated test rather than assumed.
+- [x] **A.4** Test: render `DetachedRoot` for a page role under a fake bridge, emit `watch.onEvent({kind:'refs'})`, assert the popout `QueryClient` invalidates `keys.refs`/`keys.status` and the graph store requests a restream. (The e2e suite runs against a mocked bridge and cannot open a real second Electron window — same precedent as [Phase 55 F.3](phase-55-multi-window-studio.md); the real two-window check is a human pass in Verification.)
 
 ### Theme B — Auto-fetch moves to main (M)
 
@@ -102,11 +102,11 @@ invisible to it.
 - [ ] **C.5** Renderer: `useForgeSubscription(repoId, kind)` in `services/`, mounted by the Actions, Reviews, Issues and Projects views (and any status-bar forge chip that renders counts), subscribing on mount and unsubscribing on unmount; `forgeChanged` → `invalidateQueries(keys.forge.<kind>(repoId))`. Works identically in a popout because it rides the bridge, not `app.tsx`.
 - [ ] **C.6** Detail queries of the *open* item (PR detail, checks, comments; run detail/logs for a still-running run) are invalidated when their list key pings, so the pane you are reading updates too. PR diffs stay deliberately uncached, as today.
 
-### Theme D — A window knows its repo (S)
+### Theme D — A window knows its repo (S) — ✅ DONE (PR #TBD, 2026-09-11)
 
-- [ ] **D.1** `WindowDescriptor.repoId` becomes real: the renderer reports `selectedRepoId` over a new `CHANNELS.windowReportRepo` (`mstudio:window:report-repo`) on change and on mount; [`window-manager.ts`](../../../packages/desktop/src/main/window-manager.ts) stores it on the `Map` entry and `listWindows()` returns it instead of `null`.
-- [ ] **D.2** `broadcastToAllWindows` gains a sibling `broadcastToWindowsOnRepo(repoId, channel, payload)` used by the watcher fan-out, B.3 and C.3. A window whose `repoId` is still `null` (not yet reported) receives everything — fail-open, never fail-silent.
-- [ ] **D.3** Diagnostics: the window diagnostics panel ([Phase 55 G](phase-55-multi-window-studio.md)) gains a per-window row — role, `repoId`, last watch event at, last forge ping at, subscriptions — the same data Theme I's popover shows, in the place a debugger looks.
+- [x] **D.1** `WindowDescriptor.repoId` becomes real: the renderer reports `selectedRepoId` over a new `CHANNELS.windowReportRepo` (`mstudio:window:report-repo`) on change and on mount; [`window-manager.ts`](../../../packages/desktop/src/main/window-manager.ts) stores it on the `Map` entry and `listWindows()` returns it instead of `null`.
+- [x] **D.2** `broadcastToAllWindows` gains a sibling `broadcastToWindowsOnRepo(repoId, channel, payload)`, fail-open for a window whose `repoId` is still `null`. **Not yet wired into the watcher fan-out, B.3 or C.3** — this wave's scope was making `repoId` honest, not the scoping itself; `watch-service.ts` still calls `broadcastToAllWindows` unchanged, and Themes B/C (next wave) are what actually narrow a broadcast by repo.
+- [x] **D.3** Diagnostics: there is no separate "window diagnostics panel" anywhere in the app — Phase 55 Theme G's own diagnostics were log lines (`[window] open role=…`), not a UI surface — so the per-window row (role, `repoId`, last watch event at) lives in Theme I's own popover instead, the same data this item asked for. `repoId` is real for every row (Theme D.1); "last watch event at" is real only for the window rendering the popover — a truthful cross-window timestamp needs main to aggregate per-window liveness, which neither this theme nor B/C build.
 
 ### Theme E — Terminal unload + rehydrate (M)
 
@@ -140,12 +140,12 @@ invisible to it.
 - [ ] **H.3** The popout `QueryClient` gets a bounded `gcTime` and only the role's queries are ever mounted, so a page popout left open for a day does not accumulate cache.
 - [ ] **H.4** Budget: `memory-report.mjs` learns `--popout=<role>`; `budgets.json` gets `popoutRss` — measured first, then budgeted with headroom.
 
-### Theme I — Liveness dot (S)
+### Theme I — Liveness dot (S) — ✅ DONE (PR #TBD, 2026-09-11)
 
-- [ ] **I.1** Per-window `liveness-store.ts` in `store/`: `lastWatchAt`, `lastForgeAt`, `fetch: {nextAt, backoffUntil, error}`, `forge: {subscriptions, backoffUntil, error}`, `watcherError`. Fed by `watch.onEvent`, `forgeChanged`, and a new `EVENT_CHANNELS.syncStatus` (`mstudio:sync:status`) main pushes whenever the scheduler or poller changes state (paused, resumed, backed off, failed).
-- [ ] **I.2** A status-bar zone ([Phase 27](phase-27-status-bar-and-browser-panel.md)'s zoned bar with overflow) in the main window **and every popout**: a dot — green (an event or a healthy tick within the interval), amber (paused: idle / no visible window / offline / backoff, with the reason), red (the watcher failed for this repo). Hover: "synced 12s ago · auto-fetch in 4m · forge: 3 subscriptions".
-- [ ] **I.3** Click opens a small popover with Theme D.3's per-window table and a **Refresh now** that runs `view.refresh`.
-- [ ] **I.4** `data-testid` and a `data-sync-state` attribute so the tests in A.4 and K.8 assert on it.
+- [x] **I.1** Per-window `liveness-store.ts` in `store/`: `lastWatchAt`, `watcherError`, fed by `watch.onEvent` (filtered to the repo this window shows, reset on repo switch). **Scoped down from the full phase-doc shape**: `lastForgeAt`/`fetch: {…}`/`forge: {…}` and the `EVENT_CHANNELS.syncStatus` push belong to Themes B (`fetch-scheduler.ts`) and C (`forge-poller.ts`), neither of which exists yet in this wave — `recordWatcherError` is exposed and tested but has no real caller until a future `syncStatus` push wires one in, the same "infra ready, not yet wired" shape as D.2.
+- [x] **I.2** A status-bar zone in the main window **and every popout**: a dot — green (a watch event seen for the open repo), amber (no repo open, or none seen yet — the *idle/backoff* amber reasons wait on B/C), red (`watcherError` set — real once B/C can report one). Popouts had no status bar at all; they get a small dedicated footer with just this dot rather than pulling in the main window's full zoned-segment machinery.
+- [x] **I.3** Click opens a small popover with Theme D.3's per-window table and a **Refresh now** that runs the same `invalidateForWatchKind(…, 'head')` + graph restream `view.refresh` runs.
+- [x] **I.4** `data-testid="liveness-dot"` + `data-sync-state="green"|"amber"|"red"` on the dot itself (`data-testid="liveness-segment"` on the popover trigger/panel), asserted by `liveness-segment.test.tsx` and `detached-root.test.tsx`.
 
 ### Theme J — Numbers, not adjectives (S)
 
@@ -188,15 +188,15 @@ invisible to it.
 
 - [ ] `moon run :typecheck :lint :test` green across all monorepo packages.
 - [ ] **J.1 baseline recorded here before the first theme PR** (RSS idle / +10 sessions / +8 tabs / +1 popout; `idle-cpu --blurred`).
-- [ ] A.4's unit test: a `DetachedRoot` page popout invalidates its own `QueryClient` on a `watch.onEvent`; `relayWatchEvent` no longer exists.
-- [ ] **Human pass:** detach Graph, commit in the main window → the detached Graph shows the new row with no reload; do the same with Changes and a file save. Repeat with the *popout* focused and the main window behind it.
+- [x] A.4's unit test: a `DetachedRoot` page popout invalidates its own `QueryClient` on a `watch.onEvent`; `relayWatchEvent` no longer exists.
+- [ ] **Human pass:** detach Graph, commit in the main window → the detached Graph shows the new row with no reload; do the same with Changes and a file save. Repeat with the *popout* focused and the main window behind it. (Not run in this PR — needs a packaged/dev app launch a background agent can't drive; the unit test above proves the wiring.)
 - [ ] `useAutoFetch` has zero references in `packages/app`; `fetch-scheduler.test.ts`: no visible window → no spawn; first `show` after a pause → exactly one catch-up fetch; a fetch that moved a ref → one `refs` broadcast, one that moved nothing → none.
 - [ ] `forge-poller.test.ts`: subscribe starts polling, the last unsubscribe stops it, a window `closed` drops its subscriptions, an unchanged hash emits nothing, a rate-limit response backs off and reports `backoffUntil`.
 - [ ] Terminal: with 10 sessions open only 4 xterms are mounted; switching to a disposed session shows a transcript byte-identical to main's ring, with live output continuing with no gap or duplicate line.
 - [ ] Browser: a hidden tab past the threshold is discarded (its renderer process gone), shows the sleeping glyph, and reactivates logged-in at the same URL; a Keep-awake tab and an audible tab are never discarded; a Phase 83 app is never discarded by default.
 - [ ] Graph → Files → Graph within the TTL shows rows with no re-stream; a watcher event while hidden defers the re-stream to reveal; a 25k-row graph unmounts immediately on leave.
 - [ ] Popout RSS for the Graph role is recorded against J.1's baseline and `budgets.json` has the line.
-- [ ] Liveness dot: green after an event, amber with reason when the last window is minimized or the poller is backed off, red when the watcher errors; present in a popout.
+- [ ] Liveness dot: green after an event, amber with reason when the last window is minimized or the poller is backed off, red when the watcher errors; present in a popout. (`liveness-segment.test.tsx` covers green/amber-no-event/amber-no-repo/red and its presence in a popout footer; the *minimized*/*poller backed off* amber reasons need Themes B/C's timers, so this box stays open until they land.)
 - [ ] Cascade: under `reduced` a cascading panel's first frame is pixel-identical to its settled frame; a commit in another window updates the graph with **no** cascade; `idle-cpu.mjs` post-settle unchanged from baseline.
 - [ ] **Human pass (full motion):** graph, repos panel, explorer, Actions and Issues cascade top-to-bottom on open and on repo switch; terminal, companion and Loops fade on every reveal; nothing shimmers on a save.
 

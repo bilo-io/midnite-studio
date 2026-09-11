@@ -11,6 +11,7 @@ import { ChecksVerdictSegment } from './checks-verdict';
 import { ExplorerToggle } from './explorer-toggle';
 import { FilesToggle } from './files-toggle';
 import { InProgressSegment } from './in-progress';
+import { LivenessSegment } from './liveness-segment';
 import { McpIndicator } from './mcp-indicator';
 import { NotificationBell } from './notification-bell';
 import { OpProgressSegment } from './op-progress';
@@ -142,6 +143,10 @@ export const STATUS_SEGMENTS: StatusSegment[] = [
     label: 'Checks verdict',
     El: ChecksVerdictSegment,
   },
+  // Phase 84 Theme I: green/amber/red for whether this window can currently
+  // see live updates — a fact about the checkout's connection, so it sits
+  // beside the other `repo` readouts rather than in `machine`/`alerts`.
+  { id: 'liveness', zone: 'right', group: 'repo', priority: 41, label: 'Live sync', El: LivenessSegment },
   // `machine`: vitals, hard against the window edge where they do not move as
   // things are added.
   { id: 'monitor', zone: 'right', group: 'machine', priority: 42, label: 'System monitor', El: MonitorCluster },

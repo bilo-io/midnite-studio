@@ -109,8 +109,10 @@ export function invalidateForWatchKind(
  * repository, not per view, and a status refresh has to happen whether or not
  * the changes panel is currently on screen.
  *
- * Mounted in EVERY window, main and popouts alike, and each one invalidates
- * its own `QueryClient` off the event main sends it directly (Theme I). It
+ * Mounted in EVERY window, main and popouts alike (`app.tsx` for main,
+ * `DetachedShell` for every popout — Phase 84 Theme A closed the gap where
+ * only main actually called this), and each one invalidates its own
+ * `QueryClient` off the event main sends it directly (Phase 55 Theme I). It
  * used to end by rebroadcasting the event over the Theme E relay, because
  * `watch-service.ts` bound one `BrowserWindow` and main was the only window
  * that heard anything. That is gone: main fans out, so a relay here would be
