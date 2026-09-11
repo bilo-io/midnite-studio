@@ -65,6 +65,13 @@ const base: MockFixtures = {
   forge: {
     cli: { reason: 'ready' },
     runs: [
+      run({ id: '10', conclusion: 'success', createdAt: '2026-08-26T19:00:00Z', number: 137 }),
+      run({ id: '9', conclusion: 'success', createdAt: '2026-08-26T18:00:00Z', number: 136 }),
+      run({ id: '8', conclusion: 'failure', createdAt: '2026-08-26T17:00:00Z', number: 135 }),
+      run({ id: '7', conclusion: 'success', createdAt: '2026-08-26T16:00:00Z', number: 134 }),
+      run({ id: '6', conclusion: 'success', createdAt: '2026-08-26T15:00:00Z', number: 133 }),
+      run({ id: '5', conclusion: 'failure', createdAt: '2026-08-26T14:00:00Z', number: 132 }),
+      run({ id: '4', conclusion: 'success', createdAt: '2026-08-26T13:00:00Z', number: 131 }),
       run({ id: '3', conclusion: 'success', createdAt: '2026-08-26T12:00:00Z', number: 130 }),
       run({ id: '2', conclusion: 'failure', createdAt: '2026-08-26T11:00:00Z', number: 129 }),
       run({ id: '1', conclusion: 'success', createdAt: '2026-08-26T10:00:00Z', number: 128 }),
@@ -83,8 +90,8 @@ async function openActions(page: Page, reducedMotion: boolean): Promise<void> {
   await page.setViewportSize({ width: 1280, height: 1000 });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await clickRailLink(page, 'Actions');
   await waitForFonts(page);
+  await clickRailLink(page, 'Actions');
 }
 
 test('the Actions run list is pixel-identical immediately and after settling, under reduced motion', async ({
@@ -102,7 +109,7 @@ test('the Actions run list is pixel-identical immediately and after settling, un
   const immediate = await runList.screenshot();
   // Comfortably past a full cascade's settle window (K.7's ~400ms budget)
   // even before accounting for reduced motion turning it off outright.
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(800);
   const settled = await runList.screenshot();
 
   expect(immediate.equals(settled)).toBe(true);
@@ -128,7 +135,7 @@ test('the same list visibly settles under full motion — the cascade this prove
   // Captured as early as possible, mid-cascade — the whole set arms on
   // reveal (K.1) and stays mid-flight for `(steps + 1) * stepMs + 250ms`.
   const midCascade = await runList.screenshot();
-  await page.waitForTimeout(600); // past the ~484ms window for this list's row count.
+  await page.waitForTimeout(800); // past the settle window for this list's row count.
   const settled = await runList.screenshot();
 
   expect(midCascade.equals(settled)).toBe(false);
