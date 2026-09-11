@@ -18,6 +18,17 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   survive a discard — cookies, logins and the URL itself do. Worth a second look if a future
   Electron bump adds a restore path.
 
+- **Phase 84 Theme E.4: the rehydrating terminal's fade.** `fitSignal`/`safeFit` already run
+  before any replayed scrollback is written, so a revived session is never mis-sized for its
+  first live frame — that half of E.4 was already true. What is genuinely deferred is "wears
+  Theme K's terminal fade rather than flashing an empty canvas": Theme K's own per-reveal fade
+  (`terminalTween` as K.4 describes it) does not exist yet — today's `terminalTween` in `app.tsx`
+  is only the whole PANEL's open/close height animation, not a per-session dispose/reveal fade.
+  Until Theme K lands, a session revived from `session-mount-policy.ts`'s dispose can show a
+  blank xterm canvas for the length of the scrollback-snapshot round trip (typically single-digit
+  milliseconds) before content pops in. Revisit once Theme K's `use-cascade-reveal.ts`/panel-fade
+  primitives exist to wire this session-level fade onto.
+
 - **Connect Phase 79's companion voice to its flow.** Themes D/E ([PR #271](https://github.com/bilo-io/midnite-studio/pull/271))
   and F/G ([PR #272](https://github.com/bilo-io/midnite-studio/pull/272)) landed in parallel, so
   three seams between them are connected in shape but not switched on. `voiceInReady()` in
