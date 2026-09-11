@@ -25,6 +25,7 @@ import { useDialogs } from '../../components/dialog-host';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { MultiSelectMenu } from '../../components/multi-select-menu';
 import { formatNumber } from '../../lib/format-number';
+import { useCascadeReveal } from '../../lib/use-cascade-reveal';
 import {
   useForgeIssues,
   useForgePulls,
@@ -275,6 +276,7 @@ export function DashboardView() {
       </header>
 
       <Board
+        repoId={repoId}
         specs={specs}
         layout={board.layout}
         onLayoutChange={(next) => setLayout(repoId, next)}
@@ -332,18 +334,31 @@ export function DashboardView() {
 }
 
 function Board({
+  repoId,
   specs,
   layout,
   onLayoutChange,
   renderWidget,
   widgetMenu,
 }: {
+  repoId: string;
   specs: readonly { id: WidgetId; title: string; minW: number; minH: number }[];
   layout: readonly WidgetLayout[];
   onLayoutChange: (next: WidgetLayout[]) => void;
   renderWidget: (id: WidgetId) => React.ReactNode;
   widgetMenu: (id: WidgetId) => MenuItem[];
 }) {
+  /*
+    Theme K.5: `DashboardView` itself does not unmount on a repo switch (only
+    `EmptyWorkspace` ↔ this component does, when a repo goes from none to
+    one or back), so the tiles need an explicit reveal key. `react-grid-
+    layout` positions tiles by x/y grid coordinates rather than document
+    flow, so "top-to-bottom" is approximate here — `cascadeStyle`'s `--i`
+    only ever drives a stagger delay, never a position, so staggering by
+    `specs` order still reads as one board arriving together rather than a
+    literal row-by-row wipe.
+  */
+  const cascade = useCascadeReveal({ revealKey: repoId });
   /*
     The library's own container hook, not `WidthProvider`.
 
@@ -417,8 +432,12 @@ function Board({
             )
           }
         >
-          {specs.map((spec) => (
-            <div key={spec.id}>
+          {specs.map((spec, index) => (
+            <div
+              key={spec.id}
+              style={cascade.styleFor(index)}
+              className={cascade.active ? 'animate-fade-in-up cascade-delay' : ''}
+            >
               <WidgetFrame title={WIDGETS[spec.id].title} menu={widgetMenu(spec.id)}>
                 {renderWidget(spec.id)}
               </WidgetFrame>

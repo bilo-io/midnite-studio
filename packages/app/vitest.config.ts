@@ -36,8 +36,34 @@ function stylesRaw(): Plugin {
   };
 }
 
+/**
+ * Serves `tailwind.config.ts`'s own text to `styles-motion-guards.test.ts`
+ * (Phase 84 Theme K.6) — the same seam as `stylesRaw` above, and for the same
+ * reason: the guard needs to see the `keyframes` Tailwind generates at build
+ * time, which never appear in `styles.css` as literal CSS. A virtual id
+ * again, not a `?raw` import of the real path, because Vitest's CSS stub
+ * matches on extension and would otherwise answer this with `''` too — and
+ * because `tailwind.config.ts` is build config, not renderer source; reading
+ * it here rather than via `node:fs` in the test keeps that boundary in one
+ * place.
+ */
+const TAILWIND_CONFIG_RAW = 'virtual:midnite-tailwind-config-raw';
+
+function tailwindConfigRaw(): Plugin {
+  const resolved = `\0${TAILWIND_CONFIG_RAW}`;
+  return {
+    name: 'midnite:tailwind-config-raw',
+    resolveId: (id) => (id === TAILWIND_CONFIG_RAW ? resolved : null),
+    async load(id) {
+      if (id !== resolved) return null;
+      const path = fileURLToPath(new URL('./tailwind.config.ts', import.meta.url));
+      return `export default ${JSON.stringify(await readFile(path, 'utf8'))};`;
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [stylesRaw(), react()],
+  plugins: [stylesRaw(), tailwindConfigRaw(), react()],
   resolve: {
     alias: {
       // Mirrors vite.config.ts — tests must resolve the contract the same way

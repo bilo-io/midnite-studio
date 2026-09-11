@@ -13,6 +13,7 @@ import { useAllLoopStatuses, type LoopStatus } from '../features/loops/loop-stat
 import { useLoopRuns } from '../features/loops/use-loop-runs';
 import { fabCompanionState } from '../features/companion/companion-look';
 import { useTerminalStore } from '../features/terminal/terminal-store';
+import { useCascadeReveal } from '../lib/use-cascade-reveal';
 import { useWindowFocusGate } from '../lib/use-window-focus-gate';
 import { bridge } from '../services/bridge';
 import { useCompanionStore } from '../store/companion-store';
@@ -71,6 +72,15 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
   usePruneSupersededSessions(activeFabTab);
   useHydrateOnOpen(isOpen);
   useWindowFocusGate(isOpen);
+  /*
+    Theme K.4: a one-shot cascade of the tab row, distinct from the infinite
+    `.tab-loop-shimmer` each idle tab already carries. This component
+    returns `null` outright while closed (`isOpen` below), so a genuine
+    reveal is always a fresh mount — a plain, never-changing key is enough;
+    each mount is its own reveal and there is no data refresh that could
+    remount this without also being a real close-then-reopen.
+  */
+  const cascade = useCascadeReveal({ revealKey: 'fab-panel' });
 
   if (!isOpen) return null;
 
@@ -147,8 +157,11 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                 onClick={() => onTabClick(loop.id as FabTab)}
                 className={`tab-loop-button relative flex-1 flex min-w-0 flex-row items-center justify-start gap-1 overflow-hidden px-1.5 py-1.5 ${
                   isSelected ? 'is-selected' : ''
-                }`}
-                style={isLoopOn ? { backgroundColor: 'rgb(var(--fab-spec-3))' } : undefined}
+                } ${cascade.active ? 'animate-fade-in-up cascade-delay' : ''}`}
+                style={{
+                  ...(isLoopOn ? { backgroundColor: 'rgb(var(--fab-spec-3))' } : undefined),
+                  ...cascade.styleFor(index),
+                }}
                 title={loop.label}
               >
                 {/*
