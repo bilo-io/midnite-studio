@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 0/68 | `░░░░░░░░░░` | 0% | E F | A B C D G H I J K |
+| [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 0/68 | `░░░░░░░░░░` | 0% | A D E F I | B C G H J K |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | 🔄 WIP | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
 | [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 46/75 | `██████░░░░` | 61% | — | C D F G |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | ✅ DONE | — | 50/53 | `█████████░` | 94% | — | — |
@@ -197,13 +197,13 @@ the timers into main behind an any-window-visible gate, adds an interest-based f
 state main already holds, puts a liveness dot in every window, measures all of it, and lands a
 shared cascade-on-reveal primitive that never replays on a data refresh.*
 
-- ◻ **A** — The broadcast lands (`useWatchInvalidation` in `DetachedShell`, `relayWatchEvent`
+- 🔄 **A** — The broadcast lands (`useWatchInvalidation` in `DetachedShell`, `relayWatchEvent`
   deleted, `view.refresh` in a popout)
 - ◻ **B** — Auto-fetch moves to main (`fetch-scheduler.ts`, any-window-visible + idle gate, explicit
   `refs` broadcast after a fetch, `settingsSync` mirror, `useAutoFetch` deleted)
 - ◻ **C** — Forge poller, interest-based (`forgeSubscribe`/`forgeChanged`, refcounted per
   `{repoId, kind}`, hash-diffed, rate-limit back-off)
-- ◻ **D** — A window knows its repo (`WindowDescriptor.repoId` real, `broadcastToWindowsOnRepo`,
+- 🔄 **D** — A window knows its repo (`WindowDescriptor.repoId` real, `broadcastToWindowsOnRepo`,
   per-window diagnostics row)
 - 🔄 **E** — Terminal unload + rehydrate (visible + 3 recent stay mounted, dispose after 2 min, replay
   from main's scrollback with no gap)
@@ -213,7 +213,7 @@ shared cascade-on-reveal primitive that never replays on a data refresh.*
   deferred re-stream while hidden)
 - ◻ **H** — Popout diet (skip idle preloads and main-only bootstrap, bounded `QueryClient`, `popoutRss`
   budget)
-- ◻ **I** — Liveness dot (per-window `liveness-store`, `syncStatus` push, status-bar zone in every
+- 🔄 **I** — Liveness dot (per-window `liveness-store`, `syncStatus` push, status-bar zone in every
   window)
 - ◻ **J** — Numbers, not adjectives (baseline first, before/after per theme, `budgets.json` lines,
   zero subprocesses when blurred)
