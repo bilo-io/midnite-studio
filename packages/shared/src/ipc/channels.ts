@@ -220,6 +220,17 @@ export const CHANNELS = {
    */
   forgeWorkflows: 'mstudio:forge:workflows',
 
+  // --- forge polling (Phase 84 Theme C) -------------------------------------
+  // Interest-based: a window subscribes a `{repoId, kind}` pair while a forge
+  // view is mounted and unsubscribes on unmount; `forge-poller.ts` polls only
+  // the keys that have at least one subscriber, so a repo nobody is looking at
+  // costs zero `gh` calls. One-way `ipcMain.on`, mirroring `pty:subscribe` —
+  // the renderer learns the outcome from `forgeChanged`, not a return value.
+  /** Register this window's interest in one forge listing for one repo. */
+  forgeSubscribe: 'mstudio:forge:subscribe',
+  /** Drop it — also done automatically when the window closes. */
+  forgeUnsubscribe: 'mstudio:forge:unsubscribe',
+
   // --- forge projects (GitHub ProjectV2 — Phase 40) -------------------------
   //
   // Its own `forge-project:` namespace rather than folded into `forge:` above:
@@ -614,6 +625,17 @@ export const CHANNELS = {
    * `workflow.ts` until the Settings page is opened and changed.
    */
   workflowSetDefaults: 'mstudio:workflow:set-defaults',
+
+  // --- settings mirror (Phase 84 Theme B.4) ----------------------------------
+  /**
+   * Renderer → main, fire-and-forget, mirroring `workflowSetDefaults`'s own
+   * shape: `ui-store` pushes a small snapshot of the settings `fetch-
+   * scheduler.ts` needs on change and on boot, so main can run the timer
+   * without a second settings store to keep in sync. `ui-store` stays the
+   * sole owner; `settings-mirror.ts` only remembers the last snapshot it was
+   * sent.
+   */
+  settingsSync: 'mstudio:settings:sync',
 
   // --- workflow demo API (Phase 43 Theme D) ----------------------------------
   // A real `node:http` CRUD server bound to 127.0.0.1 on an EPHEMERAL port, so
@@ -1092,6 +1114,21 @@ export const EVENT_CHANNELS = {
   windowsChanged: 'mstudio:window:windows-changed',
   /** A `windowRelay` message rebroadcast to every window except its origin. */
   windowRelayed: 'mstudio:window:relayed',
+
+  /**
+   * A forge poll changed something for `{repoId, kind}` (Phase 84 Theme C) —
+   * carries no payload beyond the ping, exactly like `loopRunsChanged`: the
+   * subscriber re-fetches the listing it already holds. Sent only to windows
+   * subscribed to that key, via `broadcastToWindowsOnRepo`.
+   */
+  forgeChanged: 'mstudio:forge:changed',
+  /**
+   * One background sync source's health for a repo changed (Phase 84 Themes
+   * B/C) — a failure, a recovery, or a backoff window opening or closing.
+   * Feeds Theme I's liveness dot and its popover; sent only to windows
+   * showing `repoId`, via `broadcastToWindowsOnRepo`.
+   */
+  syncStatus: 'mstudio:sync:status',
 
   /** A batch of rows for an in-flight query stream — mirrors `logBatch`. */
   dbQueryBatch: 'mstudio:db:query-batch',
