@@ -10,6 +10,7 @@ import {
   listWindows,
   relayToOtherWindows,
   resolveWindow,
+  setWindowRepo,
   windowForRole,
 } from '../window-manager';
 import { handleBare } from './handle';
@@ -83,5 +84,16 @@ export function registerWindowHandlers(getMainWindow: () => BrowserWindow | null
     const win = resolveWindow(event.sender);
     if (!win) return;
     relayToOtherWindows(win.id, parsed.data);
+  });
+
+  // Theme D.1: a window telling main which repo it is showing right now.
+  // Resolved from `event.sender`, same distrust as `windowRelay` above — a
+  // renderer reports for itself only, never for another window's id.
+  ipcMain.on(CHANNELS.windowReportRepo, (event, raw: unknown) => {
+    const parsed = schemas.WindowReportRepoRequest.safeParse(raw);
+    if (!parsed.success) return;
+    const win = resolveWindow(event.sender);
+    if (!win) return;
+    setWindowRepo(win.id, parsed.data.repoId);
   });
 }

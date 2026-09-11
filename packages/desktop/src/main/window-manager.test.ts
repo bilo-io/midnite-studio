@@ -100,6 +100,7 @@ import { reparentAppView } from './apps-service';
 import { TRAFFIC_LIGHT_POSITION } from './window-chrome';
 import {
   boundsWithinAnyDisplay,
+  broadcastToWindowsOnRepo,
   closeAllPopouts,
   closePopoutForRedock,
   configureWindowsStore,
@@ -108,6 +109,7 @@ import {
   registerMainWindow,
   relayToOtherWindows,
   resolveRole,
+  setWindowRepo,
   windowForRole,
 } from './window-manager';
 
@@ -345,6 +347,63 @@ describe('window-manager (Phase 55)', () => {
 
       expect(win.destroyed).toBe(false);
       expect(log).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('window repo reporting (Phase 84 Theme D)', () => {
+    it('listWindows reports null until the window reports a repo', () => {
+      const win = createRoleWindow('files', log);
+      expect(listWindows().find((d) => d.id === win.id)?.repoId).toBeNull();
+    });
+
+    it('setWindowRepo updates the descriptor listWindows returns', () => {
+      const win = createRoleWindow('files', log);
+
+      setWindowRepo(win.id, 'repo-1');
+
+      expect(listWindows().find((d) => d.id === win.id)?.repoId).toBe('repo-1');
+    });
+
+    it('setWindowRepo can clear a repo back to null', () => {
+      const win = createRoleWindow('files', log);
+      setWindowRepo(win.id, 'repo-1');
+
+      setWindowRepo(win.id, null);
+
+      expect(listWindows().find((d) => d.id === win.id)?.repoId).toBeNull();
+    });
+
+    it('setWindowRepo on an unknown window id is a no-op', () => {
+      expect(() => setWindowRepo(999_999, 'repo-1')).not.toThrow();
+    });
+
+    it('broadcastToWindowsOnRepo sends only to windows reporting that repo', () => {
+      const graphWin = createRoleWindow('graph', log) as unknown as InstanceType<
+        typeof FakeBrowserWindow
+      >;
+      const filesWin = createRoleWindow('files', log) as unknown as InstanceType<
+        typeof FakeBrowserWindow
+      >;
+      setWindowRepo(graphWin.id, 'repo-1');
+      setWindowRepo(filesWin.id, 'repo-2');
+      graphWin.webContents.send.mockClear();
+      filesWin.webContents.send.mockClear();
+
+      broadcastToWindowsOnRepo('repo-1', 'test:channel', { hello: 'world' });
+
+      expect(graphWin.webContents.send).toHaveBeenCalledWith('test:channel', { hello: 'world' });
+      expect(filesWin.webContents.send).not.toHaveBeenCalled();
+    });
+
+    it('broadcastToWindowsOnRepo fails OPEN to a window that has not reported yet', () => {
+      const unreportedWin = createRoleWindow('repos', log) as unknown as InstanceType<
+        typeof FakeBrowserWindow
+      >;
+      unreportedWin.webContents.send.mockClear();
+
+      broadcastToWindowsOnRepo('repo-1', 'test:channel', null);
+
+      expect(unreportedWin.webContents.send).toHaveBeenCalledWith('test:channel', null);
     });
   });
 });

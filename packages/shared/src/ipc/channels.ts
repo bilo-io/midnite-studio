@@ -699,6 +699,15 @@ export const CHANNELS = {
    * renderers from `file://`, where origins can be opaque per window.
    */
   windowRelay: 'mstudio:window:relay',
+  /**
+   * Renderer → main, fire-and-forget: report which repo this window is
+   * currently showing (`ui-store`'s `selectedRepoId`), sent on mount and on
+   * every change (Phase 84 Theme D). Main stores it against the sender's
+   * `BrowserWindow` id so `listWindows()` can answer honestly instead of the
+   * `repoId: null` every `WindowDescriptor` carried before this — the
+   * groundwork a later phase's per-repo broadcast scoping builds on.
+   */
+  windowReportRepo: 'mstudio:window:report-repo',
   /** Subscribe this window to one pty's output — see `pty-service.ts`'s registry. */
   ptySubscribe: 'mstudio:pty:subscribe',
   ptyUnsubscribe: 'mstudio:pty:unsubscribe',

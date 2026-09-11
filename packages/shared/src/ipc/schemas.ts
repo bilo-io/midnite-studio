@@ -1793,6 +1793,16 @@ export const WindowFocusRoleRequest = z.object({ role: WindowRoleSchema });
 export const WindowsChangedEvent = z.object({ windows: z.array(WindowDescriptorSchema) });
 
 /**
+ * Phase 84 Theme D: a window telling main which repo it is showing right now
+ * — `null` while none is selected (a fresh popout, `EmptyWorkspace`, a
+ * global view). Sent on mount and on every `selectedRepoId` change; main
+ * keeps only the latest per sender, so `listWindows()` can report it back
+ * honestly instead of the hardcoded `repoId: null` every descriptor carried
+ * before this.
+ */
+export const WindowReportRepoRequest = z.object({ repoId: z.string().nullable() });
+
+/**
  * A cross-window sync message (Theme E). `payload` is intentionally
  * unstructured: it mirrors whatever slice of `ui-store`/`appearance-store`/
  * `browser-store` the sending renderer already validated against its own

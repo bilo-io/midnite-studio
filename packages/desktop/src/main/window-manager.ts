@@ -70,7 +70,15 @@ const POPOUT_MIN_SIZE = { minWidth: 360, minHeight: 320 };
 
 const INITIAL_BACKGROUND = '#09090b';
 
-type Entry = { win: BrowserWindow; role: WindowRole };
+/**
+ * `repoId` starts `null` and is filled in the moment the window's own
+ * renderer reports one over `CHANNELS.windowReportRepo` (Phase 84 Theme D) —
+ * on mount and again on every `selectedRepoId` change. Until the first
+ * report lands (or for a window that never selects a repo, like a panel
+ * popout with none open) it stays `null`, which `listWindows()` returns
+ * honestly rather than guessing.
+ */
+type Entry = { win: BrowserWindow; role: WindowRole; repoId: string | null };
 
 const windows = new Map<number, Entry>();
 
@@ -143,7 +151,20 @@ function emitWindowsChanged(): void {
 
 /** Every open window, main included, for the renderer's popout-aware chrome. */
 export function listWindows(): WindowDescriptor[] {
-  return [...windows.values()].map(({ win, role }) => ({ id: win.id, role, repoId: null }));
+  return [...windows.values()].map(({ win, role, repoId }) => ({ id: win.id, role, repoId }));
+}
+
+/**
+ * Record which repo a window's own renderer says it is showing (Theme D.1) —
+ * called from the `windowReportRepo` IPC handler on every report, resolved by
+ * `resolveWindow(event.sender)` the same way `windowRelay` is. A no-op for a
+ * window this map does not know about (closed mid-flight).
+ */
+export function setWindowRepo(windowId: number, repoId: string | null): void {
+  const entry = windows.get(windowId);
+  if (!entry) return;
+  entry.repoId = repoId;
+  emitWindowsChanged();
 }
 
 export function windowForRole(role: WindowRole): BrowserWindow | null {
@@ -170,7 +191,7 @@ export function resolveWindow(sender: WebContents): BrowserWindow | null {
 
 /** Registers the *main* window too, so `resolveRole`/`listWindows` see it. */
 export function registerMainWindow(win: BrowserWindow): void {
-  windows.set(win.id, { win, role: 'main' });
+  windows.set(win.id, { win, role: 'main', repoId: null });
   win.once('closed', () => {
     windows.delete(win.id);
   });
@@ -282,7 +303,7 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
     },
   });
 
-  windows.set(win.id, { win, role });
+  windows.set(win.id, { win, role, repoId: null });
   attachWindowChrome(win);
   bindPopoutRenderProcessGone(win, log);
   saveBoundsOnClose(win, role);
@@ -358,6 +379,29 @@ export function closeAllPopouts(): void {
 export function broadcastToAllWindows(channel: string, payload: unknown): void {
   for (const { win } of windows.values()) {
     if (!win.isDestroyed()) win.webContents.send(channel, payload);
+  }
+}
+
+/**
+ * Send `payload` on `channel` only to windows currently showing `repoId` —
+ * `broadcastToAllWindows`'s narrower sibling (Phase 84 Theme D.2), for a
+ * later phase's per-repo scoping to build on (the watcher fan-out, an
+ * explicit post-fetch `refs` broadcast, a forge-poll ping). **Not yet wired
+ * into any of those call sites** — this phase only makes `repoId` honest
+ * (D.1); actually narrowing what main sends is deliberately left to the
+ * phase that adds the timers doing the sending.
+ *
+ * Fail-OPEN, never fail-silent: a window whose `repoId` is still `null` —
+ * not yet reported, or a panel popout that never selects one — receives
+ * every call regardless of the `repoId` argument, so an unreported window is
+ * never silently starved of an update it would otherwise have gotten from
+ * `broadcastToAllWindows`.
+ */
+export function broadcastToWindowsOnRepo(repoId: string, channel: string, payload: unknown): void {
+  for (const { win, repoId: windowRepoId } of windows.values()) {
+    if (win.isDestroyed()) continue;
+    if (windowRepoId !== null && windowRepoId !== repoId) continue;
+    win.webContents.send(channel, payload);
   }
 }
 
