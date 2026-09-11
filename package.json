@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
   "description": "A desktop workspace around a repository — git client, terminal, agents, embedded browser and forge. Electron + typed IPC, Vite + React renderer",
   "packageManager": "pnpm@9.15.0",

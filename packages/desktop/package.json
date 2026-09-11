@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-desktop",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
   "description": "Electron main + preload: owns git (via git-engine) and node-pty, exposes typed IPC.",
   "main": "dist/bundle/main.js",

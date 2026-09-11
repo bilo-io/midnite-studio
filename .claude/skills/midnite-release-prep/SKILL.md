@@ -1,7 +1,7 @@
 ---
 name: midnite-release-prep
 description: Analyse the commits since the last release and prepare a release/vX.Y.Z branch — propose the version under the lockstep rule, draft the curated CHANGELOG section, bump the package.json versions, then STOP before anything irreversible (no tag, no push to main). Hand off to /midnite-release-complete.
-argument-hint: "[major | minor | patch]   (optional — override the auto-detected bump)"
+argument-hint: "[major | minor | patch | ephemeral]   (optional — override the auto-detected bump, or prepare an ephemeral test release)"
 allowed-tools: Bash, Read, Edit, Write, AskUserQuestion, Agent
 ---
 
@@ -21,7 +21,7 @@ don't invent new ones.
 ## 1 · Preconditions
 - `git fetch origin --tags --quiet`. Work from an up-to-date `main`: `git switch main && git pull --ff-only` (or note if the user is intentionally elsewhere).
 - Working tree must be **clean** — `git status --porcelain` empty. If dirty, stop and say so.
-- If `$ARGUMENTS` names a level (`major`/`minor`/`patch`), treat it as a hard override of step 3's auto-detect (still show the auto-detect reasoning so the user can sanity-check the override).
+- If `$ARGUMENTS` names a level (`major`/`minor`/`patch`/`ephemeral`), treat it as a hard override of step 3's auto-detect (still show the auto-detect reasoning so the user can sanity-check the override).
 
 ## 2 · Find the last release & gather changes
 - **Base:** latest lockstep tag — `git describe --tags --abbrev=0 --match 'v*'`. Note any scoped
@@ -72,12 +72,14 @@ release; say which commits were seen.
 Before writing anything, **AskUserQuestion** to confirm the proposed version and
 surface ambiguity:
 - the proposed level/version (recommended option first);
+- **Ephemeral test release** option — skip version bumps and changelog, plan a throwaway test tag on the current tree to test `install.sh` from other machines, to be deleted after testing;
 - any **uncategorised** commits (subjects `parseConventionalCommit` returned `null` for) — a `feat` that's really a `fix`? a stray non-conventional subject?
 - user-facing notes worth adding that the commit subjects don't capture.
 
 Honour an explicit `$ARGUMENTS` override but still show what auto-detect picked.
 
 ## 5 · Prepare the branch (draft — reversible)
+*Note: If the user chose an **ephemeral test release**, bypass this step entirely — no branch is created, no `package.json` versions are bumped, and `CHANGELOG.md` is untouched. Proceed directly to §6 targeting tag `v<currentVersion>`.*
 - Branch off the gathered `main`: `git switch -c release/vX.Y.Z` (for an independent package patch use the lockstep `vX.Y.Z` the bumped package lands on as the branch name).
 - **Bump versions:** set each affected `package.json` `"version"` to the planned value (lockstep minor/major → all packages; patch → only the changed ones). Edit the `version` field only.
 - **Draft the changelog** in [`CHANGELOG.md`](../../../CHANGELOG.md), **Keep a Changelog** style:
@@ -90,9 +92,10 @@ Honour an explicit `$ARGUMENTS` override but still show what auto-detect picked.
 
 ## 6 · Hand off
 Report, terse:
-- the proposed **version** + the bump level and what triggered it;
-- the **branch** name and that the bumps + changelog are committed as a draft;
-- a preview of the drafted changelog section;
+- the proposed **version** + the bump level and what triggered it (or **ephemeral test release** without version bump);
+- the **branch** name (or current branch/commit if ephemeral);
+- a preview of the drafted changelog section (or note that changelog is untouched for ephemeral);
 - anything still ambiguous the human should eyeball;
-- the next step: review the branch, then run **`/midnite-release-complete`** to finalise
-  (tag, push, GitHub Release). Nothing irreversible has happened yet — `git switch main && git branch -D release/vX.Y.Z` discards it cleanly.
+- the next step:
+  - **Standard release:** review the branch, then run **`/midnite-release-complete`** to finalise (tag, push, GitHub Release). Nothing irreversible has happened yet — `git switch main && git branch -D release/vX.Y.Z` discards it cleanly.
+  - **Ephemeral release:** confirm `RELEASES_REPO_TOKEN` exists in repo secrets, then run **`/midnite-release-complete ephemeral`** to cut and push the test tag.

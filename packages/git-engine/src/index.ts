@@ -6,7 +6,7 @@
  * under bare vitest so parsers, layout and commands are testable without a
  * browser or an Electron binary.
  */
-export const GIT_ENGINE_VERSION = '0.1.0' as const;
+export const GIT_ENGINE_VERSION = '0.0.1' as const;
 
 export * from './commands';
 export * from './exec/fs-activity';

@@ -1,6 +1,6 @@
 {
   "name": "@midnite/website",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
   "description": "The public marketing site: a static Vite + React build. See docs/WEBSITE.md for deploy targets.",
   "type": "module",
