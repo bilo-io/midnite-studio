@@ -2,12 +2,31 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
-- **Phase 84 Themes E.6/F.5: the memory numbers.** Both need a packaged-equivalent build
-  (`moon run app:build desktop:bundle`) and a real run of `scripts/perf/memory-report.mjs`
-  (`--action=terminal` for E's 10-sessions/1-visible number, `--action=browser-tabs` for F's
-  8-tabs/1-active number) — the PR that landed the dispose/discard mechanisms itself did not have
-  time to produce them. The mechanisms are unit- and e2e-tested (`session-mount-policy.test.ts`,
-  `replay-gate.test.ts`, `browser-service.test.ts`); only the recorded-in-`done.md` number is owed.
+- **Phase 84 Themes E.6/F.5: the RENDERER-side number.** Theme J's `--hidden-sessions`/
+  `--hidden-tabs` modes (`memory-report.mjs`) measured the main/broker floor per open-but-
+  unrendered session (8931.2 KB) and the renderer floor per open tab (~79.8 MB) — both driven at
+  the IPC layer, since this harness has no UI to click. What that cannot see is the *renderer-side
+  saving* E's dispose and F's discard actually produce: E frees a mounted xterm's WebGL/DOM canvas,
+  F tears down a `WebContentsView`'s own renderer process entirely past the 10-minute threshold,
+  and neither is exercised by a session/tab that is never rendered or never left hidden that long
+  in the first place. A true number needs the terminal panel's/tab strip's own UI driven through
+  Playwright — open 10 real terminal tabs and assert only 4 xterms mounted (E), or open 8 real
+  browser tabs, wait past the threshold, and assert the discarded ones' renderer processes are
+  gone from `ps` (F) — sized as its own follow-up, not a flag on the existing IPC-driven harness.
+
+- **Phase 84 Theme J: `retainedPerCycleKb`'s calibration gap for `terminal`/`browser-tabs`.**
+  Real `moon run app:build desktop:bundle` + `memory-report.mjs` runs (Theme J) found the
+  `terminal` action's `main`/`broker`/`other` groups and the `browser-tabs` action's `other` group
+  sit above the shared `retainedPerCycleKb: 500` budget — on *both* `543869af` (before any Phase 84
+  theme) and current `main`, at nearly identical magnitude, so this is a pre-existing measurement
+  characteristic (or a real leak that predates Phase 84 entirely), not a regression introduced by
+  any Theme A-I/B/C. `_retention`'s own note in `budgets.json` says the 500 figure was set from
+  `repo`-cycle and `browser-tabs`-cycle observations, never validated against `terminal` — this is
+  the first real run of `retention.spec.ts`'s own `terminal` assertion against a packaged build,
+  and it would currently fail `moon run app:perf` (outside `moon run :test`'s gate, so this does
+  not block CI). Needs its own investigation: either the budget needs group/action-specific
+  figures, or there is a genuine, long-standing leak in one of `repo`/`terminal`'s common code
+  paths (main's own IPC handling, `gh`/`git` subprocess bookkeeping) that predates this phase.
 
 - **Phase 84 Theme F: per-app discard opt-in, and navigation-history restore.**
   Both were named in the theme's own doc as "if easy, else defer here." Third-party apps
