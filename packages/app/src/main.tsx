@@ -1,8 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import { App } from './app';
-import { DetachedRoot } from './detached-root';
 import { markOnce } from './lib/perf';
 import { installGlobalErrorReporting } from './lib/report';
 import './styles.css';
@@ -32,6 +30,38 @@ if (!container) throw new Error('#root missing from index.html');
 // string that would not survive `loadFile` in the packaged build.
 const role = window.midniteStudio?.windowRole ?? 'main';
 
-createRoot(container).render(
-  <StrictMode>{role === 'main' ? <App /> : <DetachedRoot role={role} />}</StrictMode>,
-);
+/*
+  Which tree this window needs is known BEFORE either one is imported —
+  Phase 84 Theme H.1's "popout diet". `App` (`app.tsx`) is the main window's
+  whole shell: the title bar, the FAB, the command palette, an idle preload of
+  the terminal chunk, and the companion's voice/audio bootstrap (real
+  recorder/WAV-encoding machinery, imported for its module-scope side effect).
+  None of that is reachable from a popout, which renders `DetachedRoot` and
+  nothing else — `DetachedContent` picks exactly one panel from `role` and
+  never the multi-view `Shell`.
+
+  Before this, both `App` and `DetachedRoot` were static imports at the top of
+  this module, so EVERY window's renderer process — main and every popout
+  alike — loaded and ran all of `app.tsx`'s module-scope work regardless of
+  which tree it went on to render; a popout paid main's own boot cost and then
+  never used most of it. Branching on `role` before either `import()` resolves
+  is what makes a popout's bundle only ever pull in `detached-root.tsx`'s own,
+  much smaller module graph.
+*/
+if (role === 'main') {
+  void import('./app').then(({ App }) => {
+    createRoot(container).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+  });
+} else {
+  void import('./detached-root').then(({ DetachedRoot }) => {
+    createRoot(container).render(
+      <StrictMode>
+        <DetachedRoot role={role} />
+      </StrictMode>,
+    );
+  });
+}
