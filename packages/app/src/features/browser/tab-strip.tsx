@@ -11,7 +11,14 @@ import { restrictToHorizontalAxis, restrictToParentElement } from '@dnd-kit/modi
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { LuChevronRight, LuGlobe, LuPlus, LuSquareArrowOutUpRight, LuX } from 'react-icons/lu';
+import {
+  LuChevronRight,
+  LuGlobe,
+  LuMoon,
+  LuPlus,
+  LuSquareArrowOutUpRight,
+  LuX,
+} from 'react-icons/lu';
 
 import { ContextMenu, type MenuItem, type MenuPosition } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
@@ -364,6 +371,13 @@ function BrowserTabButton({ tab, active }: { tab: BrowserTab; active: boolean })
 
   const close = () => useBrowserStore.getState().closeTab(tab.id);
   const label = tab.title || hostOf(tab.url) || 'New Tab';
+  const sleeping = tab.state === 'sleeping';
+
+  const toggleKeepAwake = () => {
+    const keepAwake = !tab.keepAwake;
+    useBrowserStore.getState().updateTabState(tab.id, { keepAwake });
+    bridge()?.browser.setKeepAwake({ tabId: tab.id, keepAwake });
+  };
 
   const menuItems: MenuItem[] = [
     { label: 'Reload', onSelect: () => bridge()?.browser.reload({ tabId: tab.id }) },
@@ -371,6 +385,12 @@ function BrowserTabButton({ tab, active }: { tab: BrowserTab; active: boolean })
     {
       label: 'Copy URL',
       onSelect: () => void bridge()?.clipboard.writeText({ text: tab.url }),
+    },
+    {
+      // Chrome's own memory-saver wording — the tab strip's "sleeping"
+      // glyph is this same opt-out's other half (Phase 84 Theme F).
+      label: tab.keepAwake ? 'Allow this tab to sleep' : 'Keep awake',
+      onSelect: toggleKeepAwake,
     },
     {
       label: 'Move to group',
@@ -455,7 +475,7 @@ function BrowserTabButton({ tab, active }: { tab: BrowserTab; active: boolean })
           : 'text-muted-foreground hover:bg-accent/30 hover:text-foreground'
       }`}
     >
-      <Tooltip label={tab.url || label}>
+      <Tooltip label={sleeping ? `${tab.url || label} (sleeping)` : tab.url || label}>
         <button
           type="button"
           role="tab"
@@ -499,6 +519,23 @@ function BrowserTabButton({ tab, active }: { tab: BrowserTab; active: boolean })
  * falls back to a generic globe.
  */
 function TabFavicon({ tab }: { tab: BrowserTab }): ReactNode {
+  const glyph = baseTabFavicon(tab);
+  // A discarded tab's own favicon still reads as itself — Chrome's own
+  // memory-saver glyph is a badge on top, not a replacement (Phase 84
+  // Theme F). A sleeping tab is never loading, so the two never collide.
+  if (tab.state !== 'sleeping') return glyph;
+  return (
+    <span data-tab-sleeping className="relative inline-flex h-3 w-3 shrink-0">
+      {glyph}
+      <LuMoon
+        aria-hidden
+        className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-background text-muted-foreground"
+      />
+    </span>
+  );
+}
+
+function baseTabFavicon(tab: BrowserTab): ReactNode {
   if (tab.loading) {
     return (
       <span
