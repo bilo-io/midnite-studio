@@ -9,6 +9,7 @@ import { MidniteMenu } from '../features/agent/midnite-menu';
 import { ProjectActions } from '../features/agent/project-actions';
 import { RepoLifecycleActions } from '../features/repos/repo-lifecycle-actions';
 import { primaryTarget } from '../features/repos/use-repo-actions';
+import { LivenessSegment } from '../features/status-bar/liveness-segment';
 import { bridge } from '../services/bridge';
 import { useRepos } from '../services/queries';
 import { useUiStore } from '../store/ui-store';
@@ -263,6 +264,15 @@ export function DetachedWindowFrame({
           <div className="min-h-0 flex-1">{children}</div>
         </PopoutHeaderLeadingContext.Provider>
       </PopoutHeaderActionsContext.Provider>
+      {/*
+        Phase 84 Theme I: every popout gets the liveness dot too, not just
+        the main window. A popout has no `<StatusBar>` — that component's
+        whole zoned-segment apparatus is main-window furniture — so this is
+        a slim footer of its own rather than pulling that machinery in here.
+      */}
+      <footer className="flex shrink-0 items-center justify-end border-t border-border px-2 py-1">
+        <LivenessSegment />
+      </footer>
     </div>
   );
 }
