@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { bridge } from '../../services/bridge';
 import { originOf, useBrowserStore } from '../../store/browser-store';
 import { useToastStore } from '../../store/toast-store';
+import { useUiStore } from '../../store/ui-store';
 
 /**
  * Wires the browser store to the main-process engine.
@@ -39,6 +40,7 @@ import { useToastStore } from '../../store/toast-store';
 export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabReady?: () => void): void {
   const tabs = useBrowserStore((s) => s.tabs);
   const activeTabId = useBrowserStore((s) => s.activeTabId);
+  const browserDiscardMs = useUiStore((s) => s.browserDiscardMs);
   const previousActive = useRef<string | null>(null);
   // The create-set implied by the activation effect below (":120" in the
   // phase doc) — hoisted rather than duplicated, since the close-diff effect
@@ -103,8 +105,11 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
             // `did-start-loading` is the proof a previous failure's error
             // page is no longer current (Theme G) — cleared here rather
             // than only on `navigated`, since a blocked-scheme failure
-            // fires `failed` with no `navigated` ever following it.
-            ...(event.loading ? { navError: null } : {}),
+            // fires `failed` with no `navigated` ever following it. A real
+            // load starting is the same proof a discarded tab's view has
+            // come back (Phase 84 Theme F) — `createBrowserTab`'s own
+            // `loadURL` always fires `did-start-loading` first.
+            ...(event.loading ? { navError: null, state: undefined } : {}),
           });
           break;
         case 'failed':
@@ -132,6 +137,12 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
             status: 'warning',
             message: `Download blocked: ${event.filename} — the embedded browser cannot save files.`,
           });
+          break;
+        case 'discarded':
+          // Main decided this on its own — unlike `browser.close`, the
+          // renderer never asked (Phase 84 Theme F). Just a display fact:
+          // the tab record, its title and favicon are all untouched.
+          update(event.tabId, { state: 'sleeping' });
           break;
       }
     });
@@ -166,6 +177,14 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
     void api
       ?.browser.create({ tabId: tab.id, url: tab.url })
       .then(() => {
+        // The view now exists in main and is trackable by the discard
+        // sweep (Phase 84 Theme F) — sync its "Keep awake" flag the moment
+        // that becomes true, since a restored `keepAwake: true` tab is
+        // otherwise unknown to main until this fires. Unconditional on
+        // `latest.current`, unlike the activate call below: this tab's
+        // discard eligibility matters regardless of whether it is still the
+        // one the user is looking at right now.
+        if (tab.keepAwake) api?.browser.setKeepAwake({ tabId: tab.id, keepAwake: true });
         /*
           `create` is an IPC round trip, so the pane can close — or a
           different tab can become active — before it resolves. `activate`
@@ -189,4 +208,42 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
     // it has to re-run this effect for that `.then()` (this one already
     // resolved and skipped activating) to have another chance to fire.
   }, [open, settled, activeTabId, onTabReady]);
+
+  // Phase 84 Theme F: main owns the idle-discard threshold's actual timer,
+  // but `Settings ▸ Browser` is renderer state — pushed on mount and on
+  // every change, the same "renderer owns it, main just needs to know"
+  // shape `browser.zoom` already uses.
+  useEffect(() => {
+    bridge()?.browser.setDiscardMs({ ms: browserDiscardMs });
+  }, [browserDiscardMs]);
+
+  // A tab discarded while it was nominally still the active one — its
+  // owner window minimized long enough to age past the threshold — needs
+  // no `activeTabId` change to come back, so the effect above never re-runs
+  // on its own. Nothing else observes "this window is visible again" here,
+  // so this re-issues the identical create+activate call on every
+  // foreground transition rather than gating on the tab's `state` field
+  // (which would otherwise race the `discarded` event's own delivery).
+  // Idempotent either way: `browser.create` no-ops against a still-live view.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!latest.current.open || !latest.current.settled) return;
+      const id = latest.current.activeTabId;
+      if (!id) return;
+      const tab = useBrowserStore.getState().tabs.find((t) => t.id === id);
+      if (!tab || tab.kind === 'newtab') return;
+
+      void bridge()
+        ?.browser.create({ tabId: tab.id, url: tab.url })
+        .then(() => {
+          if (!latest.current.open || latest.current.activeTabId !== tab.id || !latest.current.settled) {
+            return;
+          }
+          bridge()?.browser.activate({ tabId: tab.id });
+        });
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
 }
