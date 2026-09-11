@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | ◻ TODO | — | 0/68 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
+| [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 0/68 | `░░░░░░░░░░` | 0% | E F | A B C D G H I J K |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | 🔄 WIP | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
 | [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 46/75 | `██████░░░░` | 61% | — | C D F G |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | ✅ DONE | — | 50/53 | `█████████░` | 94% | — | — |
@@ -205,9 +205,9 @@ shared cascade-on-reveal primitive that never replays on a data refresh.*
   `{repoId, kind}`, hash-diffed, rate-limit back-off)
 - ◻ **D** — A window knows its repo (`WindowDescriptor.repoId` real, `broadcastToWindowsOnRepo`,
   per-window diagnostics row)
-- ◻ **E** — Terminal unload + rehydrate (visible + 3 recent stay mounted, dispose after 2 min, replay
+- 🔄 **E** — Terminal unload + rehydrate (visible + 3 recent stay mounted, dispose after 2 min, replay
   from main's scrollback with no gap)
-- ◻ **F** — Browser tab discard (Chrome-style after 10 min hidden, sleeping glyph, Keep awake,
+- 🔄 **F** — Browser tab discard (Chrome-style after 10 min hidden, sleeping glyph, Keep awake,
   audible/active/Phase 83 apps excluded)
 - ◻ **G** — Bounded keep-alive for heavy views (`keepAlive` on `view-registry`, TTL + row ceiling,
   deferred re-stream while hidden)
