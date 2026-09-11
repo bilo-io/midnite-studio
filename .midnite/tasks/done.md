@@ -11244,3 +11244,53 @@ check, and the *idle/backoff* amber reasons that need Themes B/C's own timers to
 `moon run :typecheck :lint :test` green (4179 app tests, 1813 desktop tests — one
 `sqlite-probe.test.mjs` timeout under full-gate load that passed cleanly standalone, a pre-existing
 flake unrelated to this PR's files).
+
+## 2026-09-11 — Phase 84 Themes G, H — Bounded keep-alive for heavy views, popout diet
+
+Claimed on `.worktrees/p84-gh`, alongside sibling worktrees working Themes B/C
+(`.worktrees/p84-bc`) and E/F (`.worktrees/p84-ef`, PR #349 open at the time this landed).
+
+**Theme G** — new [`components/view-keep-alive.ts`](../../packages/app/src/components/view-keep-alive.ts)
+generalises `app.tsx`'s terminal-maximized `display:none` case: `view-registry.tsx`'s `ViewEntry`
+gains `keepAlive?: {ttlMs, maxRows?}`, and Graph/Changes opt in (5 min TTL; Graph also gets a 20k-row
+ceiling). The pure half — `nextKeptView` (at most one entry, ever: leaving a second keep-alive view
+REPLACES whichever was held) and `isKeptViewStale` (TTL or row ceiling) — is directly tested;
+`useKeptAliveView` is the untested zustand wiring, the same shape `xterm-budget.ts`/
+`session-mount-policy.ts` already use for the terminal. `app.tsx`'s `Shell()` now renders each
+keep-alive-eligible view in its own stable, `ViewId`-keyed slot alongside the ordinary swap-by-key box
+every other view still uses — switching between two keep-alive views (Graph ↔ Changes) reuses the
+same mounted instance instead of tearing it down, because both slots are genuine siblings under one
+parent and React's keyed reconciliation matches across them.
+
+`use-graph-stream.ts` gained a `visible` gate for G.2: a watcher-driven `restreamNonce` bump reaching
+a hidden (kept-alive) Graph is remembered rather than spending a `git log` subprocess, and runs
+exactly once on reveal — never on a bare reveal with nothing deferred (`use-graph-stream.test.ts`
+covers all three shapes). Changes needed no equivalent: its own queries (`useStatus`, invalidated by
+the same watch-kind map every other view rides) are already kept warm by chrome mounted regardless of
+view (`title-bar-nav.tsx`'s own `useStatus()` call), so there was no NEW subprocess cost hidden-mount
+introduced. G.3's row ceiling is `graph-view.tsx` reporting its own row count to
+`evictKeptViewIfOverRows('graph', rowCount)` whenever it is not the active view — past 20k rows the
+kept-alive slot evicts immediately rather than waiting out the TTL. **G.5's number (time-to-first-row
+before/after, heap at 20k rows) was not measured** — recorded in `outstanding.md` with why (needs a
+synthetic ≥20k-commit repo plus a new timing/heap harness, a bigger lift than H.4 below).
+
+**Theme H** — the audit: `main.tsx` statically imported both `App` and `DetachedRoot` regardless of
+`windowRole`, so every popout's renderer process loaded and ran the whole of `app.tsx`'s module graph
+(title bar, FAB, palette, `idlePreload(loadTerminalView)`, and the companion's voice/audio bootstrap —
+a `./voice-ports` side-effect import pulling in real recorder/WAV-encoding machinery) even though it
+only ever renders `DetachedRoot`. Fixed by branching on `role` **before** either tree is dynamically
+imported. The companion's voice/audio bootstrap moves into its own lazy chunk (new
+[`companion-bootstrap.tsx`](../../packages/app/src/features/companion/companion-bootstrap.tsx)),
+rendered only for `role === 'companion'` — preserving working mic/interrupt behaviour in a detached
+companion window without the other seven roles paying for it. H.2's audit found no code change
+needed: `sessions`/`workflows` are already `React.lazy` `VIEW_COMPONENT` entries and loop runs
+(`useLoopRuns()`) is a plain query hook mounted only from `fab-panel.tsx` — none of the three read a
+large payload at module-import time regardless of popout role. H.3: `detached-root.tsx`'s
+`QueryClient` gained an explicit `gcTime` (10 min) rather than TanStack Query's own default; "only the
+role's queries are ever mounted" already held by construction. H.4: `memory-report.mjs` learned
+`--popout=<role>` (`runPopoutRss`, a before/after renderer-RSS delta via `window.detach`/
+`window.list()`); measured for `role=graph` against a packaged-equivalent build — 397824 KB, ×1.15 →
+`budgets.json`'s new `popoutRss: 457500`, flagged there as a single run pending more history.
+
+`moon run :typecheck :lint :test` green (48 root, 935 shared, 26 db-engine (4 skipped), 265 website,
+524 git-engine, 4195 app, 1813 desktop (2 todo) — 23 tasks, exit 0).
