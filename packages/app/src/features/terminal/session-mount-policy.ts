@@ -185,7 +185,6 @@ export function useMountedSessionIds(
     // panel, another card) is still tracking.
     const known = new Set(useTerminalStore.getState().sessions.map((s) => s.id));
     for (const id of recentOrder) if (!known.has(id)) forget(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on every session-list change, deliberately unmemoised (see module doc)
   }, [sessionIds, recentOrder, forget]);
 
   // This caller's own slice of the shared history: an id neither visible now
