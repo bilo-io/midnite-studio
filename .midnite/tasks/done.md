@@ -1,6 +1,51 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-11 — Phase 84 Theme K — Cascading reveal, everywhere
+
+[PR #353](https://github.com/bilo-io/midnite-studio/pull/353). A shared `useCascadeReveal`
+(`lib/use-cascade-reveal.ts`) replaces the graph's own hand-rolled `isCascading`/`prevRequestId`,
+which keyed its replay on the graph store's `requestId` — a value that changes on every
+watcher-driven restream, so the graph re-cascaded on every save. The new hook arms on mount and on
+a `revealKey` change, self-clears after `(steps + 1) × stepMs + 250ms`, and returns inert styles
+under `useResolvedMotion() === 'reduced'`; a sibling `useRevealCount(visible)` turns a
+false→true visibility transition into the counter several surfaces fold into their own key. The
+graph's key is `${selectedRepoId}:${revealCount}` — never `requestId` — so mount, a repo switch,
+and coming back from another view all replay; a restream never does.
+
+The same hook now backs every other cascading list in the app: `repos-panel.tsx`'s four row
+renderers (`RepoItem`, `RefRow`, `StashRow`, `WorktreeRow`), `forge-sections.tsx`'s three sections,
+`run-list.tsx`, `issue-list.tsx`, `reviews-list.tsx`, `file-tree.tsx`'s directory listings (each
+one's own reveal — the root listing on the Files view's mount, a folder's on its own re-expand),
+and `dashboard-view.tsx`'s tiles. A new `usePanelRevealFade` (`components/use-reveal.ts`) replays
+the terminal/companion/FAB/repos panel's entrance fade off the existing size tweens' `settleCount`
+without remounting live panel state — a fresh reveal from fully closed already gets the fade for
+free from a real DOM mount, so the hook's own job is only a settle that does NOT unmount the frame
+(the terminal's maximize/restore toggle, concretely). The FAB panel's tab row gets a one-shot
+mount-keyed cascade of its own, distinct from the infinite `.tab-loop-shimmer`. A popout's first
+paint fades in through `DetachedWindowFrame`, mounted once per window life.
+
+`view-registry.tsx` gains `cascade?: true`, pinned by `view-registry.test.ts`: Graph, Actions,
+Reviews, Issues, Files and Dashboard are flagged. `styles.css` gets an app-owned reduced-motion
+rule for `.cascade-delay`/`.animate-fade-in`/`.animate-fade-in-up` instead of leaning on
+`@bilo-io/shell`'s universal reset, and `styles-motion-guards.ts` learns to read
+`tailwind.config.ts`'s own `keyframes` block (a new `virtual:midnite-tailwind-config-raw` module,
+mirroring the existing `styles.css` seam) so the guard can see Tailwind-generated animations —
+five pre-existing ambient ones it newly discovered are allowlisted with the same "the shell's
+reset already covers this" reasoning `browser-loading-sweep` uses.
+
+A new e2e spec (`cascade-reduced-motion.spec.ts`) is the pixel-diff K.8 asked for: two same-run
+screenshots of the Actions run list, no committed baseline — under `reduced` the immediate and
+settled frames are byte-identical, and under full motion the same two captures provably differ
+(the contrapositive that proves the reduced case is not vacuous).
+
+**Deferred, recorded in `outstanding.md`:** Changes (`Workbench`, whose file list lives in a
+`status-panel.tsx` this pass did not open, and which does not unmount on a repo switch), Projects
+(virtualized table, a different row-mounting model) and Sessions (two-level grouped rows) never
+got the cascade flag or its wiring. K.7's perf number (cascade settle time, `idle-cpu.mjs`
+unchanged) was not measured against a packaged build — satisfied by construction (one
+self-clearing `setTimeout`, no new interval/rAF loop) but not recorded with a number.
+
 ## 2026-09-11 — Phase 84 Themes A/D/I — Broadcast reaches popouts, repoId is real, a liveness dot
 
 [PR #348](https://github.com/bilo-io/midnite-studio/pull/348). The "I have to reload the other
