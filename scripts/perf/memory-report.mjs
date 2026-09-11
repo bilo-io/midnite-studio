@@ -20,6 +20,7 @@
  *   node scripts/perf/memory-report.mjs --action=terminal --assert   # fail on a budget breach
  *   node scripts/perf/memory-report.mjs --popout=graph               # Phase 84 Theme H.4
  *   node scripts/perf/memory-report.mjs --hidden-sessions=10         # Phase 84 Theme J.1/E.6
+ *   node scripts/perf/memory-report.mjs --hidden-tabs=8              # Phase 84 Theme J.1/F.5
  *
  * `--popout=<role>` is a different shape of measurement from `--action` above
  * it — a LEVEL (one before/after delta), not a retained-per-cycle SLOPE — so
@@ -556,6 +557,96 @@ export async function runHiddenSessionsRss({ repo, sessions = 10 }) {
   }
 }
 
+/**
+ * RSS with N browser tabs open and none active/audible, as a before/after
+ * delta (Phase 84 Theme J.1 — the owed F.5 number) — `runHiddenSessionsRss`'s
+ * sibling for tabs rather than terminal sessions. A `WebContentsView` tab is
+ * itself a `--type=renderer` Chromium process, the same group the main
+ * window's own renderer falls into (`rssSnapshotKb`'s classifier does not
+ * distinguish them), so the delta on `renderer` here is the same
+ * "before/after with N extra live-but-unfocused renderers" shape
+ * `runPopoutRss` already uses for a single popout — just N tabs instead of
+ * one window.
+ */
+export async function runHiddenTabsRss({ repo, tabs = 8 }) {
+  requireBuilt();
+
+  const profile = await seedProfile(repo, EXPECTED, { tmpPrefix: '/tmp/mstudio-perf-' });
+
+  let devtoolsUrl = null;
+  process.stderr.write(`launching with CDP for ${tabs} hidden browser tabs…\n`);
+  const run = await launch({
+    profile,
+    repo,
+    extraArgs: ['--remote-debugging-port=0'],
+    until: (marks) => EXPECTED.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    onLine: (line) => {
+      const m = DEVTOOLS_LINE.exec(line.trim());
+      if (m) devtoolsUrl = m[1];
+    },
+  });
+
+  if (!run.child.pid || !devtoolsUrl) {
+    await stop(run.child, profile);
+    discardProfile(profile);
+    throw new Error('the app did not start, or never printed a DevTools endpoint');
+  }
+
+  const browser = await chromiumModule().connectOverCDP(devtoolsUrl);
+  try {
+    const page = browser.contexts()[0]?.pages().find((p) => !p.url().startsWith('devtools://'));
+    if (!page) throw new Error('CDP connected but no app page was found');
+
+    // A repo open, same as `runPopoutRss`/`runHiddenSessionsRss` — a real
+    // session always has one, and it gives the renderer's own boot-time work
+    // (graph batch, shiki grammars) somewhere to finish before the baseline
+    // sample, instead of that work landing inside the "N tabs" delta.
+    await page.evaluate(async (path) => {
+      const opened = await window.midniteStudio.repos.open({ path });
+      if (!opened.ok) throw new Error(`repos.open (setup) failed: ${opened.message}`);
+    }, repo);
+
+    process.stderr.write('settling before the baseline sample…\n');
+    await sleep(10_000);
+    const before = rssSnapshotKb(run.child.pid);
+
+    const tabIds = Array.from({ length: tabs }, () => randomUUID());
+    await page.evaluate(async (ids) => {
+      const api = window.midniteStudio;
+      for (const tabId of ids) {
+        const created = await api.browser.create({ tabId, url: 'about:blank' });
+        if (!created.ok) throw new Error(`browser.create failed: ${created.message}`);
+      }
+    }, tabIds);
+
+    process.stderr.write(`settling with ${tabs} tabs open, one active…\n`);
+    await sleep(4_000);
+    const afterOpen = rssSnapshotKb(run.child.pid);
+
+    await page.evaluate((ids) => {
+      const api = window.midniteStudio;
+      for (const tabId of ids) api.browser.close({ tabId });
+    }, tabIds);
+
+    await sleep(2_000);
+    const afterClose = rssSnapshotKb(run.child.pid);
+
+    const heldKb = afterOpen.renderer - before.renderer;
+    return {
+      tabs,
+      before,
+      afterOpen,
+      afterClose,
+      heldKb,
+      perTabKb: heldKb / tabs,
+    };
+  } finally {
+    await browser.close();
+    await stop(run.child, profile);
+    discardProfile(profile);
+  }
+}
+
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const { flag, value } = cli(process.argv.slice(2));
@@ -563,16 +654,60 @@ if (isMain) {
   const actionName = value('action', '');
   const popoutRole = value('popout', '');
   const hiddenSessions = value('hidden-sessions', '');
+  const hiddenTabs = value('hidden-tabs', '');
   const asJson = flag('json');
   const doAssert = flag('assert');
   const repo = mainWorktree(resolve(value('repo', REPO_ROOT)));
 
-  if (!actionName && !popoutRole && !hiddenSessions) {
+  if (!actionName && !popoutRole && !hiddenSessions && !hiddenTabs) {
     console.error(
-      `--action, --popout or --hidden-sessions is required. Known actions: ` +
+      `--action, --popout, --hidden-sessions or --hidden-tabs is required. Known actions: ` +
         `${Object.keys(ACTIONS).join(', ')}`,
     );
     process.exit(2);
+  }
+
+  if (hiddenTabs) {
+    const tabs = Number(hiddenTabs);
+    if (!Number.isFinite(tabs) || tabs < 1) {
+      console.error(`--hidden-tabs must be a positive number, got '${hiddenTabs}'`);
+      process.exit(2);
+    }
+    let tabsResult;
+    try {
+      tabsResult = await runHiddenTabsRss({ repo, tabs });
+    } catch (err) {
+      console.error(err.message);
+      process.exit(2);
+    }
+    const { before, afterOpen, afterClose, heldKb, perTabKb } = tabsResult;
+
+    if (asJson) {
+      console.log(JSON.stringify({ tabs, before, afterOpen, afterClose, heldKb, perTabKb }, null, 2));
+    } else {
+      console.log(`\nhidden-tab RSS — ${tabs} tabs open, none active\n`);
+      console.log(
+        `  renderer before=${before.renderer}KB afterOpen=${afterOpen.renderer}KB ` +
+          `afterClose=${afterClose.renderer}KB`,
+      );
+      console.log(`  heldKb=${heldKb}KB  ~${perTabKb.toFixed(1)} KB/tab\n`);
+    }
+
+    if (doAssert) {
+      const budgetsPath = join(REPO_ROOT, 'scripts', 'perf', 'budgets.json');
+      const budgets = JSON.parse(readFileSync(budgetsPath, 'utf8'));
+      const limit = budgets.hiddenBrowserTabRss;
+      if (typeof limit !== 'number') {
+        console.error(`--assert needs budgets.json's hiddenBrowserTabRss, which is not set.`);
+        process.exit(2);
+      }
+      if (perTabKb > limit) {
+        console.error(`hidden-tab RSS budget breached: ${perTabKb.toFixed(1)}KB/tab > ${limit}KB/tab`);
+        process.exit(1);
+      }
+      console.log('hidden-tab RSS budget ok');
+    }
+    process.exit(0);
   }
 
   if (hiddenSessions) {
