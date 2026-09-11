@@ -158,7 +158,23 @@ export const useSessionViewHistory = create<ViewHistoryState>()((set) => ({
 export function useMountedSessionIds(
   sessionIds: readonly string[],
   visibleId: string | null,
-  options?: { keepRecent?: number; disposeAfterMs?: number },
+  options?: {
+    keepRecent?: number;
+    disposeAfterMs?: number;
+    /**
+     * Treat every one of this caller's ids that has never been individually
+     * visited as if it had been — eligible for the recency window rather
+     * than absent from it. The docked panel's own restored sessions need
+     * this: Phase 15/30's "a reload keeps live sessions live" means a
+     * session nobody has switched to yet (because the whole app just
+     * (re)started) must still get a live xterm, not read as "long hidden"
+     * for having simply never been clicked. A Kanban card's own single
+     * session deliberately leaves this off (the default): a card that has
+     * never scrolled into view should show its lightweight fallback, not
+     * eagerly mount an xterm the moment its session exists.
+     */
+    seedUnvisitedAsRecent?: boolean;
+  },
 ): Set<string> {
   const recentOrder = useSessionViewHistory((s) => s.recentOrder);
   const hiddenSince = useSessionViewHistory((s) => s.hiddenSince);
@@ -191,14 +207,12 @@ export function useMountedSessionIds(
   // nor known to THIS host's `sessionIds` has nothing to do with its budget.
   const knownHere = new Set(sessionIds);
   const trackedHere = recentOrder.filter((id) => knownHere.has(id));
-  // A session this host knows about but that has never been individually
-  // visited yet — restored on boot, or opened in the background — has no
-  // recentOrder entry at all rather than a stale one. Without this it would
-  // be silently invisible to the recency walk (never mounted, never
-  // rehydrated) despite never having been hidden for a single millisecond.
-  // Appended after the genuinely-visited ids: real recency still outranks
-  // "merely present" once there are more open sessions than fit the cap.
-  const untrackedHere = sessionIds.filter((id) => id !== visibleId && !trackedHere.includes(id));
+  // Opt-in only (see the option's own doc) — appended after the genuinely-
+  // visited ids, so real recency still outranks "merely present" once there
+  // are more open sessions than fit the cap.
+  const untrackedHere = options?.seedUnvisitedAsRecent
+    ? sessionIds.filter((id) => id !== visibleId && !trackedHere.includes(id))
+    : [];
   const scopedRecentOrder = [...trackedHere, ...untrackedHere];
 
   return mountedSessionIds({

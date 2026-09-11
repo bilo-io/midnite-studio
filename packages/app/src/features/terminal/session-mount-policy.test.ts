@@ -130,10 +130,25 @@ describe('useMountedSessionIds', () => {
     expect(result.current.has(visible)).toBe(true);
   });
 
-  it('a session nobody has switched to yet stays mounted — restored sessions all start "just opened", not "long hidden"', () => {
+  it('by default, a session nobody has switched to yet is NOT mounted — a card off-screen from the start shows its fallback', () => {
+    // The Kanban card default: a session that has never been individually
+    // visible (the card never scrolled into view) has no recentOrder entry,
+    // so it stays outside the mounted set until it actually IS visible once.
+    const ids = ['a', 'b'];
+    seedKnownSessions(ids);
+    const { result } = renderHook(
+      ({ visibleId }: { visibleId: string | null }) =>
+        useMountedSessionIds(ids, visibleId, { keepRecent: 3, disposeAfterMs: 1000 }),
+      { initialProps: { visibleId: null as string | null } },
+    );
+
+    expect(result.current).toEqual(new Set());
+  });
+
+  it('with seedUnvisitedAsRecent, a session nobody has switched to yet stays mounted — restored sessions all start "just opened", not "long hidden"', () => {
     // 'b' has never been individually visited in this render's lifetime (no
     // `markVisible` ever ran for it) — the same shape a reload's restored
-    // session list is in. It must not read as "hidden" just for existing:
+    // session list is in. Opted into by the docked panel only (not cards):
     // e2e's "a reload keeps live sessions live" restores two live sessions
     // and expects both to get a live xterm, not only whichever one happens
     // to be visible first.
@@ -141,7 +156,11 @@ describe('useMountedSessionIds', () => {
     seedKnownSessions(ids);
     const { result, rerender } = renderHook(
       ({ visibleId }: { visibleId: string }) =>
-        useMountedSessionIds(ids, visibleId, { keepRecent: 3, disposeAfterMs: 1000 }),
+        useMountedSessionIds(ids, visibleId, {
+          keepRecent: 3,
+          disposeAfterMs: 1000,
+          seedUnvisitedAsRecent: true,
+        }),
       { initialProps: { visibleId: 'a' } },
     );
 

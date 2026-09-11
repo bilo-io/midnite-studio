@@ -109,7 +109,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   const mountedSessionIdSet = useMountedSessionIds(
     sessions.map((s) => s.id),
     active?.id ?? null,
-    { keepRecent, disposeAfterMs },
+    { keepRecent, disposeAfterMs, seedUnvisitedAsRecent: true },
   );
   /*
     The header's dot reports the ACTIVE session, so an idle default is the
