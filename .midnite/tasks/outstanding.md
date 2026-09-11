@@ -2,6 +2,22 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **Phase 84 Theme F: per-app discard opt-in, and navigation-history restore.**
+  Both were named in the theme's own doc as "if easy, else defer here." Third-party apps
+  (`apps-service.ts`, Phase 83) are excluded from the idle-discard sweep by construction — the
+  sweep only ever iterates `browser-service.ts`'s own `tabs` map, which apps never enter — so the
+  Verification bullet ("a Phase 83 app is never discarded by default") holds with zero code. What
+  is genuinely deferred is the *opt-in* half: giving Spotify/Calendar/YouTube the same idle-discard
+  treatment the browser's tabs now get, with a per-app switch beside their on/off toggle in
+  Settings. `apps-service.ts` has no visibility bookkeeping today (a disabled app is torn down
+  outright, not hidden-and-trackable the way a background browser tab is), so this is a real
+  feature addition rather than a threshold tweak — sized more like its own small theme than a
+  follow-up line. Separately, `discardBrowserTab`'s reactivation is URL-only: pinned Electron 33.4.11's
+  `WebContentsView.webContents.navigationHistory` has no `restore()` (only `getAllEntries()`,
+  checked directly against `electron.d.ts`), so back/forward history within a discarded tab does not
+  survive a discard — cookies, logins and the URL itself do. Worth a second look if a future
+  Electron bump adds a restore path.
+
 - **Connect Phase 79's companion voice to its flow.** Themes D/E ([PR #271](https://github.com/bilo-io/midnite-studio/pull/271))
   and F/G ([PR #272](https://github.com/bilo-io/midnite-studio/pull/272)) landed in parallel, so
   three seams between them are connected in shape but not switched on. `voiceInReady()` in
