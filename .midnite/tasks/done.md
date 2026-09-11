@@ -11245,6 +11245,96 @@ check, and the *idle/backoff* amber reasons that need Themes B/C's own timers to
 `sqlite-probe.test.mjs` timeout under full-gate load that passed cleanly standalone, a pre-existing
 flake unrelated to this PR's files).
 
+## 2026-09-11 — Phase 84 Themes B, C — Auto-fetch moves to main, the forge poller
+
+[PR #351](https://github.com/bilo-io/midnite-studio/pull/351). Both remaining "live" timers move out
+of the renderer, following the shape Themes A/D/I already proved: one instance in main, gated on
+visibility, broadcasting a scoped ping rather than leaving every window to poll for itself.
+
+**Theme B** — new `desktop/src/main/fetch-scheduler.ts`: one `setInterval` per registered repo,
+reconciled exactly like `watch-service.ts`'s watchers (`reconcileFetchScheduler`, called from
+`index.ts`'s boot and `repo-handlers.ts`'s `syncWatchers`). Every external effect is injected
+(`FetchSchedulerDeps`) — Electron windows, `powerMonitor`, git-engine's `fetch`, the repo-scoped
+broadcast — the same seam `workflow-engine.ts` uses for its clock, so `fetch-scheduler.test.ts`
+drives the gate, the clock and the fetch result deterministically. `fetch()` already routed through
+git-engine's write queue (`sync.ts`), so B.1 needed no new plumbing there. The gate (`
+computeFetchGateOpen`) is app-wide: some window visible-and-unminimized, and
+`powerMonitor.getSystemIdleState(300)` not idle/locked; a paused tick is silently skipped, and the
+first `browser-window-focus`/`resume`/`unlock-screen` after a pause runs one catch-up fetch per repo
+(`FetchScheduler.catchUp()`). A fetch that actually moved a remote-tracking ref (`listRefs`, filtered
+to `kind: 'remoteBranch'`, before/after) broadcasts `watchEvent {kind:'refs'}` scoped to the repo's
+own windows via `broadcastToWindowsOnRepo`; one that moved nothing broadcasts nothing
+(`refShasMoved`, unit-tested). Failure backs off exponentially (30s → 10 min cap), logs once through
+the Phase 65 logger on the transition into failure (not every backed-off tick), and pushes a new
+`EVENT_CHANNELS.syncStatus` for Theme I's dot to render amber with the reason.
+
+`ui-store` gains `autoFetchEnabled` (new — there was no existing on/off switch; `autoFetchIntervalMs`
+alone gated on/off via a bare `< 10000` check with no dedicated toggle in the UI) beside the existing
+`autoFetchIntervalMs`, both surfaced in `Settings ▸ Sidebar ▸ Repository Sync`. A new `use-settings-
+sync.ts` pushes both over `CHANNELS.settingsSync` on mount and on every change; main mirrors the
+snapshot in `settings-mirror.ts` (`ui-store` stays the sole owner — no second settings store).
+`useAutoFetch` is deleted from `app.tsx` entirely.
+
+**Theme C** — new `desktop/src/main/forge/forge-poller.ts`: a refcounted subscription registry keyed
+by `{repoId, kind}` (`kind: 'runs'|'pulls'|'issues'|'projects'`), subscriber `webContents.id`s, a
+window's `closed` dropping every key it held (the `pty-service.ts` subscriber pattern). The first
+subscriber to a key arms a 60s poll (`FORGE_POLL_MS`) and polls immediately; the last unsubscribe
+stops it — zero subscribers costs zero `gh` calls. Each poll hashes a compact projection of the
+listing (`forgeProjection`/`hashProjection`) and broadcasts `EVENT_CHANNELS.forgeChanged` only when
+the hash changed, through `broadcastToWindowsOnRepo`. **Shares the same visibility/idle gate as
+Theme B** (`computeForgePollGateOpen`, both timers now built on a new shared
+`window-visibility-gate.ts`) — a paused tick is silent, never a failure. A rate-limited/failing poll
+backs off exponentially the same way the fetch scheduler does and pushes `syncStatus` for `source:
+'forge'`.
+
+The IPC contract (`CHANNELS.forgeSubscribe`/`forgeUnsubscribe`, `EVENT_CHANNELS.forgeChanged`, plus
+`CHANNELS.settingsSync`/`EVENT_CHANNELS.syncStatus` that B.4/C.4's own text needed but weren't
+separately named in C.1) lives in `shared/src/domain/sync-status.ts` + `channels.ts`/`schemas.ts`,
+with `bridge.ts`'s `forge` group gaining `subscribe`/`unsubscribe`/`onChanged` and new `settings`/
+`sync` bridge groups. Renderer side: `useForgeSubscription(repoId, kind)` (`services/`) subscribes on
+mount and unsubscribes on unmount, invalidating `queries.ts`'s new `invalidateForgeKind` helper on a
+matching `forgeChanged` — which invalidates the listing plus every open-item detail/comments/log key
+nested under its `['repos', repoId, 'forge', <kind>]` prefix (never `pull-files`, the PR diff, which
+stays deliberately uncached). Mounted in `actions-view.tsx` (`runs`), `reviews-view.tsx` (`pulls`),
+`issues-view.tsx` (`issues`), `projects-view.tsx` (`projects`), and `checks-verdict.tsx`'s status-bar
+forge chip (`pulls` — a second subscriber on the same key the Reviews view already holds, refcounted
+so it costs nothing extra).
+
+`liveness-store.ts` grows the `fetch`/`forge` slots Theme I left for this wave: `fetchStatus`/
+`forgeStatus`, fed by a new `sync.onStatus` listener in `use-liveness-tracking.ts` (filtered by
+selected repo, same as `watch.onEvent`). `computeLivenessStatus` now reports amber with the failing
+source's reason and a "retrying in Xm" detail once either is backed off, still losing to a red
+watcher error.
+
+**Recorded deviations, not silent gaps**:
+- **B.4** does not carry Theme F's discard threshold or Theme E's mount count in the `settingsSync`
+  snapshot — neither theme has landed a main-side consumer that would read them yet;
+  `SettingsSyncPayloadSchema` grows when one does.
+- **C.2** does not touch `gh-graphql.ts` (GraphQL only serves PR review threads, irrelevant to these
+  four listings) or a `gh-cache.ts` (no such module exists — `gh-cli.ts`'s inline `remember`/LRU
+  caching covers only `runDetail`/`runLog`/`listWorkflows`, none of which the poller calls).
+- **C.4** backs off on any repeated failure, including a rate limit matched from `gh`'s own stderr
+  text (`looksRateLimited`), but does not read a numeric `x-ratelimit-remaining`/`reset` pair — `gh
+  run/pr/issue/project list` are wrapped CLI subcommands, not `gh api`, and do not surface response
+  headers. Recorded in `outstanding.md`.
+- The Verification liveness-dot bullet's "amber because the last window is minimized" reason is
+  still open: B.2/C.3's pause is deliberately silent (no `syncStatus` push while merely paused, only
+  on an actual failure/recovery/backoff transition), so rendering that specific reason would need a
+  second, differently-shaped push neither theme's spec otherwise calls for. Recorded in
+  `outstanding.md` rather than invented on the spot.
+- **The shared test-support mock bridge had no `sync`/`settings` groups at all**, so
+  `use-liveness-tracking.ts`'s `sync.onStatus` and `use-settings-sync.ts`'s `settings.sync` both threw
+  "Cannot read properties of undefined" the instant any window mounted — tripping the app's top-level
+  error boundary and unmounting the whole shell. Caught by CI's `visual` job (which renders the full
+  app; the local unit gate never mounts it), not by this PR's own first push. Fixed by adding both
+  groups to `mock-bridge.ts`, with `settingsSyncCalls`/`syncStatusHandlers` tracking arrays matching
+  every other IPC mock's existing pattern.
+
+`moon run :typecheck :lint :test` green across shared (936 tests), desktop (1830 tests, 2 pre-existing
+todos) and app (4189 tests) — one `history.test.ts` failure under full-gate load (a symlink/tempdir
+race) that passed cleanly standalone, the same class of pre-existing flake Theme A/D/I's own entry
+above hit with `sqlite-probe.test.mjs`.
+
 ## 2026-09-11 — Phase 84 Themes G, H — Bounded keep-alive for heavy views, popout diet
 
 Claimed on `.worktrees/p84-gh`, alongside sibling worktrees working Themes B/C
