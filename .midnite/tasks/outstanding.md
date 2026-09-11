@@ -36,6 +36,16 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   milliseconds) before content pops in. Revisit once Theme K's `use-cascade-reveal.ts`/panel-fade
   primitives exist to wire this session-level fade onto.
 
+- **Phase 84 Theme G.5's number.** "Graph → Files → Graph time-to-first-row before/after; heap of
+  the kept-alive Graph at 20k rows" was not measured in the Theme G/H PR. Unlike H.4's `popoutRss`
+  (a before/after RSS delta reusing `memory-report.mjs`'s existing launch/CDP-attach shape almost
+  verbatim), this needs two things that do not exist yet: a synthetic repo with ≥20k commits
+  (`scripts/perf/make-big-repo.sh` builds one, but nothing wires it into a perf script's `--repo`
+  yet) and a NEW timing instrument (a `graph-first-batch`-to-visible-row latency, not RSS) plus a
+  heap-size read at a specific row count — closer to a new script than a flag on an existing one.
+  Left unticked in the phase doc rather than checked without the number, per this repo's own
+  "perf claims come with a number" rule.
+
 - **Connect Phase 79's companion voice to its flow.** Themes D/E ([PR #271](https://github.com/bilo-io/midnite-studio/pull/271))
   and F/G ([PR #272](https://github.com/bilo-io/midnite-studio/pull/272)) landed in parallel, so
   three seams between them are connected in shape but not switched on. `voiceInReady()` in

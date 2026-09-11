@@ -8,6 +8,7 @@ import { EmptyState } from '../../components/empty-state';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useDismiss } from '../../components/use-dismiss';
 import { useResizable } from '../../components/resizable/use-resizable';
+import { evictKeptViewIfOverRows } from '../../components/view-keep-alive';
 import { useRefs, useStashes } from '../../services/queries';
 import { useStatus } from '../../services/use-status';
 import { ConflictBanner } from '../status/conflict-banner';
@@ -47,6 +48,12 @@ import { useActiveAgentWorktreePaths } from './use-agent-worktrees';
  */
 export function GraphView() {
   const repoId = useUiStore((s) => s.selectedRepoId);
+  // Whether THIS mount is the one currently on screen, rather than a Theme G
+  // kept-alive hidden copy left over from switching away — the graph opts
+  // into `keepAlive` in `view-registry.tsx`, so this same component instance
+  // can go on existing, unmounted, after the user has moved to another view.
+  const activeView = useUiStore((s) => s.activeView);
+  const visible = activeView === 'graph';
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const graphSelection = useUiStore((s) => s.graphSelection);
   const selectedSha = graphSelection?.kind === 'commit' ? graphSelection.sha : null;
@@ -69,7 +76,7 @@ export function GraphView() {
     useUiStore((s) => s.graphTheme),
     useUiStore((s) => s.graphDensity),
   );
-  useGraphStream(repoId, graphRefFilter);
+  useGraphStream(repoId, graphRefFilter, undefined, visible);
 
   /*
     Esc deselects whichever the graph currently has open, commit or stash —
@@ -101,6 +108,20 @@ export function GraphView() {
   const loading = useGraphStore((s) => s.loading);
   const truncated = useGraphStore((s) => s.truncated);
   const error = useGraphStore((s) => s.error);
+
+  /**
+   * Theme G.3's row-count ceiling: a kept-alive hidden graph past
+   * `GRAPH_KEEP_ALIVE_MAX_ROWS` unmounts immediately rather than waiting out
+   * its TTL, so a 100k-commit repo cannot hold two full row buffers in
+   * memory at once. A no-op while `visible` — an active graph's own row
+   * count growing past the ceiling is normal use, not hidden waste, and
+   * `evictKeptViewIfOverRows` already ignores a call for a view that is not
+   * the currently kept one.
+   */
+  useEffect(() => {
+    if (visible) return;
+    evictKeptViewIfOverRows('graph', rowCount);
+  }, [visible, rowCount]);
 
   const { data: refs = [] } = useRefs(repoId);
   const { data: stashes = [] } = useStashes(repoId);

@@ -18,6 +18,12 @@
  *   node scripts/perf/memory-report.mjs --action=repo --cycles=10
  *   node scripts/perf/memory-report.mjs --action=browser-tabs --json
  *   node scripts/perf/memory-report.mjs --action=terminal --assert   # fail on a budget breach
+ *   node scripts/perf/memory-report.mjs --popout=graph               # Phase 84 Theme H.4
+ *
+ * `--popout=<role>` is a different shape of measurement from `--action` above
+ * it — a LEVEL (one before/after delta), not a retained-per-cycle SLOPE — so
+ * it reports and asserts against `budgets.json`'s `popoutRss` rather than
+ * `retainedPerCycleKb`. See `runPopoutRss` for what it actually drives.
  *
  * `runRetention()` below is the reusable half — `packages/app/e2e/perf/retention.spec.ts`
  * imports it directly rather than shelling out to this file, the same relationship
@@ -357,18 +363,142 @@ export async function runRetention({ actionName, cycles, repo }) {
   }
 }
 
+/**
+ * A page popout's own RSS, as a before/after delta (Phase 84 Theme H.4) —
+ * the level counterpart to `runRetention`'s slope: how much a SINGLE popout
+ * costs, not whether repeating an action leaks.
+ *
+ * `role` is one of `PAGE_WINDOW_ROLES` (`window.ts`) — `graph` is what the
+ * phase doc's own Verification section asks for, since it is the one
+ * keep-alive-eligible view (Theme G) most likely to sit open in a popout for
+ * a while. Total renderer RSS is sampled once with only the main window open
+ * (after a real repo is opened, so the delta is not measuring "opening a
+ * popout with nothing to show"), the popout is opened via `window.detach`,
+ * and sampled again once `window.list()` reports it present and a settle
+ * delay has let it finish streaming. The delta is attributed to the popout:
+ * on a single-window baseline nothing else changes total renderer RSS in
+ * between, and `rssSnapshotKb` groups every `--type=renderer` process
+ * together rather than by window, so a delta is the only way to isolate one
+ * without a second, popout-specific classifier.
+ */
+export async function runPopoutRss({ role, repo }) {
+  requireBuilt();
+
+  const profile = await seedProfile(repo, EXPECTED, { tmpPrefix: '/tmp/mstudio-perf-' });
+
+  let devtoolsUrl = null;
+  process.stderr.write(`launching with CDP for a '${role}' popout…\n`);
+  const run = await launch({
+    profile,
+    repo,
+    extraArgs: ['--remote-debugging-port=0'],
+    until: (marks) => EXPECTED.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    onLine: (line) => {
+      const m = DEVTOOLS_LINE.exec(line.trim());
+      if (m) devtoolsUrl = m[1];
+    },
+  });
+
+  if (!run.child.pid || !devtoolsUrl) {
+    await stop(run.child, profile);
+    discardProfile(profile);
+    throw new Error('the app did not start, or never printed a DevTools endpoint');
+  }
+
+  const browser = await chromiumModule().connectOverCDP(devtoolsUrl);
+  try {
+    const page = browser.contexts()[0]?.pages().find((p) => !p.url().startsWith('devtools://'));
+    if (!page) throw new Error('CDP connected but no app page was found');
+
+    await page.evaluate(async (path) => {
+      const opened = await window.midniteStudio.repos.open({ path });
+      if (!opened.ok) throw new Error(`repos.open (setup) failed: ${opened.message}`);
+    }, repo);
+
+    process.stderr.write('settling before the baseline sample…\n');
+    await sleep(3_000);
+    const before = rssSnapshotKb(run.child.pid);
+
+    await page.evaluate((r) => window.midniteStudio.window.detach({ role: r }), role);
+
+    // `window.list()` is the real signal ("the popout exists"); a fixed
+    // settle on top of it is what the retention harness's own cycles rely on
+    // too, for the same reason — a page role streams its own data once
+    // mounted, and that has no single event this script can await instead.
+    const opened = await page
+      .waitForFunction(
+        async (r) => {
+          const windows = await window.midniteStudio.window.list();
+          return windows.some((w) => w.role === r);
+        },
+        role,
+        { timeout: 15_000 },
+      )
+      .catch(() => null);
+    if (!opened) throw new Error(`popout for role '${role}' never appeared in window.list()`);
+
+    process.stderr.write('settling for the popout to finish its first render…\n');
+    await sleep(4_000);
+    const after = rssSnapshotKb(run.child.pid);
+
+    return { role, before, after, popoutRssKb: after.renderer - before.renderer };
+  } finally {
+    await browser.close();
+    await stop(run.child, profile);
+    discardProfile(profile);
+  }
+}
+
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const { flag, value } = cli(process.argv.slice(2));
   const cycles = Number(value('cycles', '20'));
   const actionName = value('action', '');
+  const popoutRole = value('popout', '');
   const asJson = flag('json');
   const doAssert = flag('assert');
   const repo = mainWorktree(resolve(value('repo', REPO_ROOT)));
 
-  if (!actionName) {
-    console.error(`--action is required. Known actions: ${Object.keys(ACTIONS).join(', ')}`);
+  if (!actionName && !popoutRole) {
+    console.error(
+      `--action or --popout is required. Known actions: ${Object.keys(ACTIONS).join(', ')}`,
+    );
     process.exit(2);
+  }
+
+  if (popoutRole) {
+    let popoutResult;
+    try {
+      popoutResult = await runPopoutRss({ role: popoutRole, repo });
+    } catch (err) {
+      console.error(err.message);
+      process.exit(2);
+    }
+    const { before, after, popoutRssKb } = popoutResult;
+
+    if (asJson) {
+      console.log(JSON.stringify({ popout: popoutRole, before, after, popoutRssKb }, null, 2));
+    } else {
+      console.log(`\npopout RSS — '${popoutRole}'\n`);
+      console.log(`  renderer before=${before.renderer}KB after=${after.renderer}KB`);
+      console.log(`  popoutRssKb ~${popoutRssKb}KB\n`);
+    }
+
+    if (doAssert) {
+      const budgetsPath = join(REPO_ROOT, 'scripts', 'perf', 'budgets.json');
+      const budgets = JSON.parse(readFileSync(budgetsPath, 'utf8'));
+      const limit = budgets.popoutRss;
+      if (typeof limit !== 'number') {
+        console.error(`--assert needs budgets.json's popoutRss, which is not set.`);
+        process.exit(2);
+      }
+      if (popoutRssKb > limit) {
+        console.error(`popout RSS budget breached: ${popoutRssKb}KB > ${limit}KB`);
+        process.exit(1);
+      }
+      console.log('popout RSS budget ok');
+    }
+    process.exit(0);
   }
 
   let result;
