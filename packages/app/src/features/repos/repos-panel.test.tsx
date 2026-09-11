@@ -194,6 +194,7 @@ describe('RepoTree', () => {
             stashes={stashes}
             statuses={statuses}
             sections={sections}
+            expanded
             refMenu={() => []}
             worktreeMenu={() => []}
             sectionMenu={() => []}

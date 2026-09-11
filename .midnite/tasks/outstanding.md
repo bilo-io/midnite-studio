@@ -29,12 +29,41 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   before any replayed scrollback is written, so a revived session is never mis-sized for its
   first live frame — that half of E.4 was already true. What is genuinely deferred is "wears
   Theme K's terminal fade rather than flashing an empty canvas": Theme K's own per-reveal fade
-  (`terminalTween` as K.4 describes it) does not exist yet — today's `terminalTween` in `app.tsx`
-  is only the whole PANEL's open/close height animation, not a per-session dispose/reveal fade.
-  Until Theme K lands, a session revived from `session-mount-policy.ts`'s dispose can show a
-  blank xterm canvas for the length of the scrollback-snapshot round trip (typically single-digit
-  milliseconds) before content pops in. Revisit once Theme K's `use-cascade-reveal.ts`/panel-fade
-  primitives exist to wire this session-level fade onto.
+  primitive now exists (`usePanelRevealFade`, `components/use-reveal.ts`, K.4) and is wired onto
+  `terminalTween` — but only at the whole-PANEL level (the panel opening, or its maximize/restore
+  toggle), the same open/close animation as before plus a replay on a settle that doesn't unmount
+  it. A per-SESSION dispose/reveal fade — the specific ask here, for a session revived from
+  `session-mount-policy.ts`'s dispose while the panel itself stays open the whole time — is still
+  unbuilt: that transcript swap happens inside `terminal-panel.tsx`'s session slots, underneath
+  the panel-level tween K.4 touched, and needs its own reveal key (something like the session id
+  plus a per-session reveal counter) rather than reusing `terminalTween.settleCount`, which never
+  changes for an in-place session swap. Until it lands, a session revived from dispose can still
+  show a blank xterm canvas for the length of the scrollback-snapshot round trip (typically
+  single-digit milliseconds) before content pops in.
+
+- **Phase 84 Theme K.5: Changes, Projects and Sessions never got the cascade flag.** All three
+  were named in the theme's own doc alongside Graph/Actions/Issues/Reviews/Files/Dashboard, all
+  five of which landed. Each of the three has a shape the theme's per-list pattern (a shared
+  `useCascadeReveal`, keyed on a repo id and — where the view doesn't unmount on its own — a
+  reveal counter) doesn't fit directly: **Changes** (`Workbench`)'s file list lives inside
+  `status-panel.tsx`, a component this pass never opened, and unlike Actions/Issues/Reviews the
+  view itself does not unmount on a repo switch (same "no free ride off a remount" reasoning the
+  graph itself needed); **Projects**' default table mode is virtualized
+  (`ProjectItemsTable`/`useVirtualizer`, absolutely-positioned rows via `transform`), a materially
+  different row-mounting model from every list this pass wired; **Sessions** groups its rows two
+  levels deep (a repo group, each with its own `Collapse`d session list), rather than the one flat
+  array every wired list has. `view-registry.tsx`'s own comments on each entry carry this same
+  reasoning; `view-registry.test.ts`'s cascade set stays exactly `['graph', 'actions', 'reviews',
+  'issues', 'files', 'dashboard']` until one of these three is actually wired.
+
+- **Phase 84 Theme K.7's perf number.** "A full cascade settles in ≤ ~400ms; no new infinite
+  animation; `idle-cpu.mjs` unchanged" was not measured against a packaged build in this PR — the
+  same "needs `moon run app:build desktop:bundle` first" gap Themes E.6/F.5/G.5/H.4 each hit.
+  Satisfied by construction in the meantime: every timer Theme K adds is the one self-clearing
+  `setTimeout` in `use-cascade-reveal.ts`, sized `(steps + 1) × stepMs + 250ms`, and no
+  `setInterval`/`requestAnimationFrame` loop exists anywhere in the new code — `idle-cpu.mjs`
+  should read exactly as it did before this theme once a cascade settles, but that has not been
+  run and recorded.
 
 - **Phase 84 Theme G.5's number.** "Graph → Files → Graph time-to-first-row before/after; heap of
   the kept-alive Graph at 20k rows" was not measured in the Theme G/H PR. Unlike H.4's `popoutRss`

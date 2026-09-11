@@ -104,6 +104,19 @@ export type ViewEntry = {
    * the same as before this theme existed.
    */
   keepAlive?: { ttlMs: number; maxRows?: number };
+  /**
+   * This view's own list-shaped content cascades top-to-bottom on mount,
+   * reveal-after-hidden and repo switch (Phase 84 Theme K) — never on a
+   * data refresh. Each such view wires `lib/use-cascade-reveal.ts`'s
+   * `useCascadeReveal` itself (a `revealKey` built from its own repo id and,
+   * where it is not otherwise remounted on a repo switch, a reveal counter);
+   * this flag is a record of *which* views made that promise, not something
+   * that drives the wiring by itself — `Component` renders with no props, so
+   * there is nothing here for a view to read. `view-registry.test.ts` pins
+   * the exact set the same way it already pins `global`, so widening or
+   * narrowing it is a deliberate test change.
+   */
+  cascade?: true;
 };
 
 /** Theme G defaults — both a `Settings` surface could tune later; neither is yet. */
@@ -130,13 +143,18 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // The landing page shows no repository, so like Settings and Councils it has
   // to be reachable ahead of the `!selectedRepoId` guard.
   landing: { Component: LandingView, global: true },
-  dashboard: { Component: DashboardView },
-  files: { Component: FilesView },
+  dashboard: { Component: DashboardView, cascade: true },
+  files: { Component: FilesView, cascade: true },
   search: { Component: SearchView },
   tests: { Component: TestsView },
   // Global too (Phase 61) — a database connection is not a property of an open
   // checkout, so the view stays reachable with no repository selected.
   database: { Component: DatabaseView, global: true },
+  // NOT flagged: Theme K.5 named this view too, but its default table mode
+  // is virtualized (`useVirtualizer`, absolutely-positioned rows) — the same
+  // reason the graph is virtualized-but-cascading only inside its own view
+  // rather than through this generic flag, and this pass did not build that
+  // wiring here. See `outstanding.md`.
   projects: { Component: ProjectsView },
   // Both keep-alive-eligible (Phase 84 Theme G): the two views a watcher-
   // driven repo re-visits most, and the two whose own state (a streamed row
@@ -145,11 +163,16 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   graph: {
     Component: GraphView,
     keepAlive: { ttlMs: VIEW_KEEP_ALIVE_TTL_MS, maxRows: GRAPH_KEEP_ALIVE_MAX_ROWS },
+    cascade: true,
   },
+  // `changes` is NOT flagged: Theme K.5 named it, but `Workbench`'s own file
+  // list lives inside `StatusPanel`, a nested component this pass did not
+  // reach — see `outstanding.md`. Its keep-alive means it needs the same
+  // explicit-key treatment `graph` got, not a free ride off a remount.
   changes: { Component: Workbench, keepAlive: { ttlMs: VIEW_KEEP_ALIVE_TTL_MS } },
-  actions: { Component: ActionsView },
-  reviews: { Component: ReviewsView },
-  issues: { Component: IssuesView },
+  actions: { Component: ActionsView, cascade: true },
+  reviews: { Component: ReviewsView, cascade: true },
+  issues: { Component: IssuesView, cascade: true },
   history: { Component: HistoryView },
   // Global, like Settings — a council is not scoped to a repo, so it renders
   // whether or not one is selected/open.
@@ -162,6 +185,10 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // history spans repos, so without the flag the empty workspace would render
   // until one is open, making every other repo's history unreachable
   // (Phase 67 Theme E).
+  // NOT flagged: Theme K.5 named this view too. Its rows are nested two
+  // levels deep (a repo group, then that group's own sessions inside a
+  // `Collapse`) rather than one flat array this pass's per-list pattern
+  // fits directly — deferred rather than rushed. See `outstanding.md`.
   sessions: { Component: SessionsView, global: true },
   /*
     Global, and the one member of that set the phase doc does not name: Phase 59

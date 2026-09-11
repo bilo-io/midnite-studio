@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 import { Tabs, type TabOption } from '@bilo-io/ui';
 import type { ForgePull, ForgePullScope } from '@midnite/studio-shared';
@@ -11,8 +11,8 @@ import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { TreeSection } from '../../components/tree-section';
 import { UserAvatar } from '../../components/user-avatar';
-import { cascadeStyle } from '../../lib/cascade';
 import { formatNumber } from '../../lib/format-number';
+import { useCascadeReveal } from '../../lib/use-cascade-reveal';
 import { useForgePulls, useRefreshForge } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useReviewsStore } from '../../store/reviews-store';
@@ -326,6 +326,15 @@ function ReviewGroupSection({
   const open = useReviewsStore((s) => s.openGroups[group.scope] ?? false);
   const toggleGroup = useReviewsStore((s) => s.toggleGroup);
   const [limit, setLimit] = useState(PULLS_PAGE_SIZE);
+  /*
+    Theme K.2: unlike `IssueList`/`RunList`, `ReviewsList` itself does NOT
+    unmount on a repo switch — only each group's own query remounts — so the
+    cascade needs its own explicit key rather than riding a natural
+    component remount. `repoId` alone: first mount and a repo switch both
+    change the effective identity this group is showing; a poll or a
+    "Load more" only changes `rows`/`limit`, never `repoId`.
+  */
+  const cascade = useCascadeReveal({ revealKey: repoId });
 
   // A page size grown for one repository is not a promise about the next.
   useEffect(() => {
@@ -412,9 +421,10 @@ function ReviewGroupSection({
             <li key={pull.number}>
               <PullRow
                 pull={pull}
-                index={index}
                 selected={pull.number === selectedNumber}
                 onSelect={() => onSelect(pull.number)}
+                cascading={cascade.active}
+                cascadeStyle={cascade.styleFor(index)}
               />
             </li>
           ))}
@@ -453,14 +463,16 @@ function ReviewGroupSection({
 
 function PullRow({
   pull,
-  index,
   selected,
   onSelect,
+  cascading,
+  cascadeStyle,
 }: {
   pull: ForgePull;
-  index: number;
   selected: boolean;
   onSelect: () => void;
+  cascading: boolean;
+  cascadeStyle: CSSProperties;
 }) {
   const checks = checksStatus(pull);
 
@@ -469,10 +481,10 @@ function PullRow({
       type="button"
       onClick={onSelect}
       aria-current={selected ? 'true' : undefined}
-      style={cascadeStyle(index)}
-      className={`flex w-full animate-fade-in-up cascade-delay flex-col items-start gap-0.5 border-l-2 px-2 py-1.5 text-left text-[13px] transition-colors ${
-        selected ? 'border-primary bg-accent/40' : 'border-transparent hover:bg-accent/20'
-      }`}
+      style={cascadeStyle}
+      className={`flex w-full flex-col items-start gap-0.5 border-l-2 px-2 py-1.5 text-left text-[13px] transition-colors ${
+        cascading ? 'animate-fade-in-up cascade-delay' : ''
+      } ${selected ? 'border-primary bg-accent/40' : 'border-transparent hover:bg-accent/20'}`}
     >
       <span className="flex w-full min-w-0 items-center gap-1.5">
         <StatusPill status={pullStatus(pull)} />

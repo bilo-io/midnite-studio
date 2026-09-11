@@ -157,7 +157,14 @@ export function DetachedWindowFrame({
 
   return (
     <div
-      className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground"
+      /*
+        Theme K.4: a popout's first paint fades in through `DetachedShell`,
+        which renders this frame exactly once for the life of the window —
+        there is no reveal/hide cycle to key off, so a permanent
+        `animate-fade-in` plays once on the window's own first paint and
+        never needs to replay.
+      */
+      className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground animate-fade-in"
       style={{ paddingTop: 'var(--titlebar-h, 0px)' }}
     >
       <TitleBar

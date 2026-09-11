@@ -67,7 +67,7 @@ import { PaletteHost } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
 import { useViewportWidth } from './components/use-viewport-width';
-import { useReveal, useRevealSize } from './components/use-reveal';
+import { useReveal, usePanelRevealFade, useRevealSize } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarAgents } from './components/title-bar-agents';
 import { TitleBarNav } from './components/title-bar-nav';
@@ -875,6 +875,23 @@ function Shell() {
     axis: 'x',
     dragging: companionPanel.dragging,
   });
+  /*
+    Theme K.4: the terminal, companion and FAB/Loops panel fade in as a whole
+    panel on every reveal, off these same tweens' `settleCount` — a repos
+    panel opening, a docked terminal opening, a companion or Loops panel
+    opening. The panel that was fully closed already gets this for free (a
+    fresh `mounted` DOM node with `animate-fade-in` already in its className
+    plays its own entrance the moment a browser paints it); this hook's own
+    job is only the settle that does NOT unmount the frame — the terminal's
+    maximize/restore toggle in particular, which changes `terminalTarget`
+    without ever taking `terminalDocked` (and so `terminalTween.mounted`)
+    false. See `usePanelRevealFade`'s own doc for why forcing a reflow is
+    what makes a browser replay it rather than no-op a class it already has.
+  */
+  usePanelRevealFade(reposTween.ref, reposTween.settleCount);
+  usePanelRevealFade(terminalTween.ref, terminalTween.settleCount);
+  usePanelRevealFade(fabPanelTween.ref, fabPanelTween.settleCount);
+  usePanelRevealFade(companionTween.ref, companionTween.settleCount);
 
   /*
     A maximized terminal covers the view — and only a terminal that is actually
@@ -1280,7 +1297,7 @@ function Shell() {
                   repository tree — rows re-truncating, the toolbar re-wrapping —
                   which reads as the sidebar rebuilding rather than moving.
                 */
-                className="shrink-0 overflow-hidden"
+                className="shrink-0 overflow-hidden animate-fade-in"
                 style={reposTween.style}
               >
                 <div className="h-full" style={{ width: repos.current }}>
@@ -1481,7 +1498,7 @@ function Shell() {
                       a frame behind. This way the shell is told its new size once,
                       at the start, and what moves is only the window onto it.
                     */
-                    className="relative z-10 shrink-0 overflow-hidden border-t border-border"
+                    className="relative z-10 shrink-0 overflow-hidden border-t border-border animate-fade-in"
                     style={terminalTween.style}
                   >
                     {/*
@@ -1549,7 +1566,7 @@ function Shell() {
               <div
                 ref={companionTween.ref}
                 data-companion-panel-frame
-                className="shrink-0 overflow-hidden h-full"
+                className="shrink-0 overflow-hidden h-full animate-fade-in"
                 style={companionTween.style}
               >
                 {/* Guards the tail of the collapse tween — see `browserColumn`'s. */}
@@ -1579,7 +1596,7 @@ function Shell() {
                 // Named for the e2e suite: this box, not the panel inside it,
                 // is the one whose width the splitter drives.
                 data-fab-panel-frame
-                className="shrink-0 overflow-hidden h-full"
+                className="shrink-0 overflow-hidden h-full animate-fade-in"
                 style={fabPanelTween.style}
               >
                 {/* Guards the tail of the collapse tween — see `browserColumn`'s. */}

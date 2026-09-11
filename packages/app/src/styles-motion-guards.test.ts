@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import css from 'virtual:midnite-styles-raw';
-import { findDuplicateKeyframes, findUnguardedKeyframes } from './styles-motion-guards';
+import tailwindConfig from 'virtual:midnite-tailwind-config-raw';
+import {
+  findDuplicateKeyframes,
+  findUnguardedKeyframes,
+  tailwindKeyframeNames,
+} from './styles-motion-guards';
 
 /**
  * Every `@keyframes` in `styles.css` is either referenced by a
@@ -56,6 +61,65 @@ describe('styles.css motion guards (Phase 46 Theme F)', () => {
 
   it('every keyframe is guarded by a reduced-motion rule, or explicitly allowlisted', () => {
     expect(findUnguardedKeyframes(css)).toEqual([]);
+  });
+});
+
+/**
+ * Phase 84 Theme K.6: the guard learns to see `tailwind.config.ts`'s own
+ * `keyframes` — Tailwind generates the real `@keyframes` rule at build time,
+ * so none of these ever show up in `styles.css` for the test above to find
+ * on its own.
+ */
+describe('tailwind.config.ts motion guards (Phase 84 Theme K.6)', () => {
+  it('finds keyframes in tailwind.config.ts — a guard on the guard', () => {
+    expect(tailwindKeyframeNames(tailwindConfig).length).toBeGreaterThan(3);
+  });
+
+  it('includes fade-in and fade-in-up — the two Theme K wires into the cascade', () => {
+    expect(tailwindKeyframeNames(tailwindConfig)).toEqual(
+      expect.arrayContaining(['fade-in', 'fade-in-up']),
+    );
+  });
+
+  it('every tailwind keyframe is guarded by a reduced-motion rule, or explicitly allowlisted', () => {
+    expect(findUnguardedKeyframes(css, undefined, tailwindConfig)).toEqual([]);
+  });
+});
+
+describe('tailwindKeyframeNames fixtures (Phase 84 Theme K.6)', () => {
+  it('reads top-level keyframe names, ignoring nested percentage steps', () => {
+    const source = `
+      keyframes: {
+        'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
+        'halo-breathe': { '0%, 100%': { opacity: '0.55' }, '50%': { opacity: '0.12' } },
+      },
+      animation: { 'fade-in': 'fade-in 160ms ease-in-out both' },
+    `;
+    expect(tailwindKeyframeNames(source)).toEqual(['fade-in', 'halo-breathe']);
+  });
+
+  it('returns nothing when there is no keyframes block at all', () => {
+    expect(tailwindKeyframeNames('animation: { "fade-in": "fade-in 160ms" }')).toEqual([]);
+  });
+});
+
+describe('findUnguardedKeyframes with a tailwind source (Phase 84 Theme K.6)', () => {
+  it('flags a tailwind keyframe whose animate-<name> class carries no guard', () => {
+    const tailwind = "keyframes: { ghost: { from: {}, to: {} } },";
+    expect(findUnguardedKeyframes('', undefined, tailwind)).toEqual(['ghost']);
+  });
+
+  it('clears a tailwind keyframe once its animate-<name> class is guarded in the CSS source', () => {
+    const tailwind = "keyframes: { ghost: { from: {}, to: {} } },";
+    const css = "@media (prefers-reduced-motion: reduce) { .animate-ghost { animation: none; } }";
+    expect(findUnguardedKeyframes(css, undefined, tailwind)).toEqual([]);
+  });
+
+  it('respects the allowlist for a tailwind keyframe too', () => {
+    const tailwind = "keyframes: { ghost: { from: {}, to: {} } },";
+    expect(findUnguardedKeyframes('', { ghost: 'allowlisted for this fixture' }, tailwind)).toEqual(
+      [],
+    );
   });
 });
 

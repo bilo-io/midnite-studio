@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   LuChevronRight,
@@ -16,6 +16,7 @@ import type { FsEntry } from '@midnite/studio-shared';
 import type { MenuItem } from '../../components/context-menu';
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
+import { useCascadeReveal } from '../../lib/use-cascade-reveal';
 import { bridge, hasBridge } from '../../services/bridge';
 import { keys, type FsScopeInput } from '../../services/queries';
 import { useRepoStatus } from '../../services/use-status';
@@ -152,6 +153,22 @@ function DirectoryChildren({
 
   const creatingHere = actions?.editing?.kind === 'create' && actions.editing.parentPath === relPath;
 
+  /*
+    Theme K.3: this component instance exists for exactly one directory
+    listing, and it is remade — never merely re-rendered — every time that
+    listing needs a fresh reveal. The root instance (`relPath === ''`) comes
+    and goes with the whole Files view, which is not kept alive (Theme G),
+    so a view switch away and back is already a fresh mount. A nested
+    directory's instance is even more direct: `TreeRow` renders it only
+    `isOpen ? <DirectoryChildren .../> : null`, so collapsing a folder
+    unmounts it and expanding it again mounts a brand new one. Either way,
+    "arms on mount, never again for this instance's lifetime" is exactly the
+    key/reveal semantics this needs — a stable `revealKey` cascades once and
+    a later data refresh (the same listing re-fetched) never remounts this
+    component, so it never re-arms.
+  */
+  const cascade = useCascadeReveal({ revealKey: 'reveal' });
+
   if (!data) {
     return (
       <p className="px-3 py-1 text-muted-foreground" style={indent(depth)}>
@@ -178,7 +195,7 @@ function DirectoryChildren({
 
   return (
     <>
-      {data.entries.map((entry) => (
+      {data.entries.map((entry, index) => (
         <TreeRow
           key={entry.name}
           entry={entry}
@@ -193,6 +210,8 @@ function DirectoryChildren({
           writable={writable}
           actions={actions}
           siblingNames={siblingNames}
+          cascading={cascade.active}
+          cascadeStyle={cascade.styleFor(index)}
         />
       ))}
       {creatingHere && actions?.editing?.kind === 'create' ? (
@@ -217,6 +236,8 @@ function TreeRow({
   writable,
   actions,
   siblingNames,
+  cascading,
+  cascadeStyle,
   ...tree
 }: FileTreeProps & {
   entry: FsEntry;
@@ -225,6 +246,9 @@ function TreeRow({
   statusIndex: FileStatusIndex | undefined;
   actions: FileActions | undefined;
   siblingNames: readonly string[];
+  /** Theme K.3: whether this row's own `DirectoryChildren` cascade is playing. */
+  cascading: boolean;
+  cascadeStyle: CSSProperties;
 }) {
   const dialogs = useDialogs();
   const isDir = entry.kind === 'dir';
@@ -282,8 +306,10 @@ function TreeRow({
         }
         className={`group flex w-full items-center gap-1.5 px-3 py-[3px] text-left transition-colors hover:bg-accent ${
           renaming ? 'cursor-default' : 'cursor-pointer'
-        } ${isSelected ? 'bg-primary/10 text-foreground' : ''} ${entry.isIgnored ? 'opacity-45' : ''}`}
-        style={indent(depth)}
+        } ${isSelected ? 'bg-primary/10 text-foreground' : ''} ${entry.isIgnored ? 'opacity-45' : ''} ${
+          cascading ? 'animate-fade-in-up cascade-delay' : ''
+        }`}
+        style={{ ...indent(depth), ...cascadeStyle }}
         title={renaming ? undefined : entry.isIgnored ? `${entry.name} — gitignored` : entry.name}
       >
         {isDir ? (

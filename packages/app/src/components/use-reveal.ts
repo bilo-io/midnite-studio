@@ -259,3 +259,53 @@ export function useRevealSize<T extends HTMLElement = HTMLElement>({
 
   return { ref, mounted, shown, settled, settleCount, style };
 }
+
+/**
+ * Replays a CSS entrance animation on `ref`'s element for every settle after
+ * the first — Theme K.4's terminal/companion/FAB/repos panel fade, off the
+ * same `settleCount` `useRevealSize` already returns.
+ *
+ * The FIRST settle needs no help: a panel that was fully closed unmounts its
+ * whole frame (`mounted` false), so reopening it creates a brand new DOM
+ * element with `className="animate-fade-in …"` already on it, and a browser
+ * always plays a fresh element's own entrance animation — the caller gets
+ * that one for free just by leaving the class on permanently, no JS
+ * involved. What this hook adds is every settle AFTER that, for a panel
+ * whose frame does NOT unmount in between — the terminal's maximize/restore
+ * toggle is the concrete case: `terminalDocked` (which gates `mounted`)
+ * never changes, only `terminalMaximized` does, so the frame persists and a
+ * browser will not replay an animation on an element that already has the
+ * class from the render before. Forcing a reflow between removing and
+ * re-adding the class is what makes the browser treat it as a new run
+ * instead of a no-op class-list update.
+ *
+ * A no-op under reduced motion (`motionMs() === 0`): forcing a reflow to
+ * replay an animation nothing plays would cost real layout work for a
+ * frame nobody sees change.
+ */
+export function usePanelRevealFade<T extends HTMLElement>(
+  ref: RefObject<T | null>,
+  signal: number,
+  className = 'animate-fade-in',
+): void {
+  const first = useRef(true);
+
+  useEffect(() => {
+    if (first.current) {
+      // The mount itself already got its entrance animation for free (see
+      // above) — replaying here too would restart it mid-flight and read as
+      // a stutter rather than one clean fade.
+      first.current = false;
+      return;
+    }
+    if (motionMs() === 0) return;
+    const el = ref.current;
+    if (!el) return;
+    el.classList.remove(className);
+    void el.offsetWidth; // Force a reflow so the re-add below is a fresh run.
+    el.classList.add(className);
+    // `ref` and `className` are stable for the panel's whole life; only a
+    // fresh `signal` (a genuine settle) should ever re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signal]);
+}
