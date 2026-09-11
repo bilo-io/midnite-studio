@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { REVEAL_MS, useReveal, useRevealSize } from './use-reveal';
+import { REVEAL_MS, useReveal, useRevealSize, useSessionRevealFade } from './use-reveal';
 
 /** Both animation frames the entrance waits for, plus whatever they schedule. */
 const frames = async () => {
@@ -300,3 +300,57 @@ describe('useRevealSize', () => {
     }
   });
 });
+
+describe('useSessionRevealFade', () => {
+  it('does not add animation class while awaiting replay', () => {
+    const el = document.createElement('div');
+    const ref = { current: el };
+
+    const { rerender } = renderHook(
+      ({ active, replayed }: { active: boolean; replayed: boolean }) =>
+        useSessionRevealFade(ref, active, replayed),
+      { initialProps: { active: true, replayed: false } },
+    );
+
+    expect(el.classList.contains('animate-fade-in')).toBe(false);
+
+    // Replay finishes -> fade triggers!
+    rerender({ active: true, replayed: true });
+    expect(el.classList.contains('animate-fade-in')).toBe(true);
+  });
+
+  it('triggers animation on session reveal when switching to active', () => {
+    const el = document.createElement('div');
+    const ref = { current: el };
+
+    const { rerender } = renderHook(
+      ({ active, replayed }: { active: boolean; replayed: boolean }) =>
+        useSessionRevealFade(ref, active, replayed),
+      { initialProps: { active: false, replayed: true } },
+    );
+
+    expect(el.classList.contains('animate-fade-in')).toBe(false);
+
+    rerender({ active: true, replayed: true });
+    expect(el.classList.contains('animate-fade-in')).toBe(true);
+  });
+
+  it('is a no-op under reduced motion', () => {
+    document.documentElement.dataset['motion'] = 'reduced';
+    try {
+      const el = document.createElement('div');
+      const ref = { current: el };
+
+      renderHook(
+        ({ active, replayed }: { active: boolean; replayed: boolean }) =>
+          useSessionRevealFade(ref, active, replayed),
+        { initialProps: { active: true, replayed: true } },
+      );
+
+      expect(el.classList.contains('animate-fade-in')).toBe(false);
+    } finally {
+      delete document.documentElement.dataset['motion'];
+    }
+  });
+});
+

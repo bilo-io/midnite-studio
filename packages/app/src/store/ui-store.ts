@@ -1438,6 +1438,14 @@ export type UiState = {
   enabledApps: AppId[];
   setAppEnabled: (id: AppId, enabled: boolean) => void;
   /**
+   * Per-app opt-in to idle discard (Phase 84 Theme F.4).
+   * Apps are excluded from discard by default so background music/playback
+   * continues. When true for an app, it is discarded after being hidden past
+   * the discard threshold.
+   */
+  appDiscardIdle: Record<AppId, boolean>;
+  setAppDiscardIdle: (id: AppId, discard: boolean) => void;
+  /**
    * Which of the three apps rail roles currently have a popout of their own
    * (Phase 83 Theme D) — the `detachedPages` shape, not the four-panel
    * `*Detached` boolean quartet: a plain array of independent instances that
@@ -1668,6 +1676,7 @@ export type PersistedUi = Pick<
   | 'trashEmptyConsentGiven'
   | 'disabledEcosystems'
   | 'enabledApps'
+  | 'appDiscardIdle'
   | 'terminalDetached'
   | 'reposDetached'
   | 'fabDetached'
@@ -1857,6 +1866,11 @@ export const useUiStore = create<UiState>()(
       disabledEcosystems: [],
       // Enabled set, not a disabled one — see the interface docblock.
       enabledApps: [],
+      appDiscardIdle: {
+        spotify: false,
+        'google-calendar': false,
+        youtube: false,
+      },
       detachedApps: [],
       appsFlyoutAppId: null,
       passcode: null,
@@ -2301,6 +2315,13 @@ export const useUiStore = create<UiState>()(
               : [...state.enabledApps, id]
             : state.enabledApps.filter((entry) => entry !== id),
         })),
+      setAppDiscardIdle: (id, discard) =>
+        set((state) => ({
+          appDiscardIdle: {
+            ...state.appDiscardIdle,
+            [id]: discard,
+          },
+        })),
       // Mirrors `setPageDetached` — add/remove from the array rather than a
       // per-role boolean field, since all three roles behave identically.
       setAppDetached: (id, detached) =>
@@ -2450,6 +2471,7 @@ export const useUiStore = create<UiState>()(
         trashEmptyConsentGiven: state.trashEmptyConsentGiven,
         disabledEcosystems: state.disabledEcosystems,
         enabledApps: state.enabledApps,
+        appDiscardIdle: state.appDiscardIdle,
         terminalDetached: state.terminalDetached,
         reposDetached: state.reposDetached,
         fabDetached: state.fabDetached,

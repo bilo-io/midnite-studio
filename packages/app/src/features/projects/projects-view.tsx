@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   LuArrowDown,
   LuArrowUp,
@@ -26,6 +26,8 @@ import { UserAvatar } from '../../components/user-avatar';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { ExternalLink } from '../markdown/external-link';
 import { bridge } from '../../services/bridge';
+import { CASCADE_MAX_STEPS } from '../../lib/cascade';
+import { useCascadeReveal } from '../../lib/use-cascade-reveal';
 import { BoardView } from './board/board-view';
 import { CardPanelStack } from './board/card-panel-stack';
 import { groupableFields, resolveGroupField } from './board/resolve-group-field';
@@ -106,6 +108,9 @@ export function ProjectsView() {
   useForgeSubscription(repoId, 'projects');
 
   const selectedProjectId = repoId !== null ? (boardByRepo[repoId] ?? null) : null;
+  const cascade = useCascadeReveal({
+    revealKey: `${repoId}:${selectedProjectId ?? ''}`,
+  });
   // One subscription for the whole canvas (Theme F) — a hook, so it is
   // called unconditionally here rather than only while `mode === 'graph'`.
   const graphAgentStates = useGraphAgentStates(selectedProjectId ?? '');
@@ -510,6 +515,8 @@ export function ProjectsView() {
           filterActive={filterActive}
           sort={view.sort}
           onSortChange={(fieldId) => setSort(nextSortState(view.sort, fieldId))}
+          cascading={cascade.active}
+          cascadeStyleFor={cascade.styleFor}
         />
       )}
     </div>
@@ -588,6 +595,8 @@ function ProjectItemsTable({
   filterActive,
   sort,
   onSortChange,
+  cascading,
+  cascadeStyleFor,
 }: {
   projectId: string;
   items: readonly ForgeProjectItem[];
@@ -596,6 +605,8 @@ function ProjectItemsTable({
   filterActive: boolean;
   sort: SortState;
   onSortChange: (fieldId: string) => void;
+  cascading?: boolean;
+  cascadeStyleFor?: (index: number) => CSSProperties;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -628,14 +639,21 @@ function ProjectItemsTable({
             const Icon = CONTENT_ICON[item.content.type];
             const title = item.content.title;
             const href = item.content.type === 'draft' ? null : item.content.url;
+            const isInitialCascade = cascading && virtualRow.index < CASCADE_MAX_STEPS;
 
             return (
               <div
                 key={item.id}
                 ref={virtualizer.measureElement}
                 data-index={virtualRow.index}
-                className="absolute left-0 top-0 flex w-full items-center border-b border-border/60 px-3 text-xs"
-                style={{ transform: `translateY(${virtualRow.start}px)`, height: ROW_HEIGHT }}
+                className={`absolute left-0 top-0 flex w-full items-center border-b border-border/60 px-3 text-xs ${
+                  isInitialCascade ? 'animate-fade-in-up cascade-delay' : ''
+                }`}
+                style={{
+                  transform: `translateY(${virtualRow.start}px)`,
+                  height: ROW_HEIGHT,
+                  ...(isInitialCascade ? cascadeStyleFor?.(virtualRow.index) : undefined),
+                }}
               >
                 <span className="w-6 shrink-0">
                   <Icon aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />

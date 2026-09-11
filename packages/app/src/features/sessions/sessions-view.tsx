@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import { Collapse } from '@bilo-io/ui';
 import type { AgentDefinition, ClosedSession } from '@midnite/studio-shared';
@@ -24,12 +24,19 @@ import { useResizable } from '../../components/resizable/use-resizable';
 import { StateDot, type DotState } from '../../components/state-dot';
 import { useDialogs } from '../../components/dialog-host';
 import { bridge } from '../../services/bridge';
+import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import { useRefreshSessionHistory, useSessionHistory } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useSessionsStore } from '../../store/sessions-store';
 import { agentLabelFor } from '../terminal/terminal-store';
 import { useAgents } from '../terminal/use-agents';
-import { formatDuration, groupSessionsByRepo, pickInitialClosedSession, relativeAge } from './session-order';
+import {
+  formatDuration,
+  groupSessionsByRepo,
+  pickInitialClosedSession,
+  relativeAge,
+  type SessionGroup,
+} from './session-order';
 import { SessionListSkeleton } from './sessions-skeletons';
 import { TranscriptView } from './transcript-view';
 
@@ -85,6 +92,8 @@ export function SessionsView() {
     axis: 'x',
     ...LAYOUT_BOUNDS.sessionsListWidth,
   });
+
+  const groupCascade = useCascadeReveal({ revealKey: 'sessions' });
 
   const history = useSessionHistory();
   const refresh = useRefreshSessionHistory();
@@ -408,50 +417,24 @@ export function SessionsView() {
           />
         ) : (
           <div role="list" aria-label="Closed sessions" className="min-h-0 flex-1 overflow-auto">
-            {groups.map((group) => {
-              const open = !collapsedRepos.has(group.repoId);
-              const bodyId = `sessions-repo-group-${group.repoId}`;
-              return (
-                <div key={group.repoId} className="border-b border-border/40 last:border-b-0">
-                  <div className="sticky top-0 z-10 flex h-7 items-center bg-background/95 px-2 text-[11px] font-medium text-muted-foreground backdrop-blur">
-                    <button
-                      type="button"
-                      onClick={() => toggleRepoCollapse(group.repoId)}
-                      aria-expanded={open}
-                      aria-controls={bodyId}
-                      aria-label={open ? `Collapse ${group.title}` : `Expand ${group.title}`}
-                      className="flex min-w-0 flex-1 items-center gap-1.5 rounded text-left transition-colors hover:text-foreground"
-                    >
-                      <LuChevronRight
-                        aria-hidden
-                        className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
-                          open ? 'rotate-90' : ''
-                        }`}
-                      />
-                      <span className="truncate font-semibold uppercase tracking-wide">
-                        {group.title}
-                      </span>
-                      <span className="tabular-nums text-muted-foreground/70">{group.sessions.length}</span>
-                    </button>
-                  </div>
-                  <Collapse open={open} id={bodyId} aria-label={group.title}>
-                    {group.sessions.map((record) => (
-                      <SessionRow
-                        key={record.id}
-                        record={record}
-                        agent={agents.find((a) => a.id === record.agentId)}
-                        agentLabel={agentLabelFor(record.agentId, agents)}
-                        selected={record.id === selectedId}
-                        onSelect={() => selectClosedSession(record.id)}
-                        onPurge={() => purgeOne(record)}
-                        checked={selectedIds.has(record.id)}
-                        onToggleChecked={() => toggleSelected(record.id)}
-                      />
-                    ))}
-                  </Collapse>
-                </div>
-              );
-            })}
+            {groups.map((group, groupIndex) => (
+              <RepoSessionsGroup
+                key={group.repoId}
+                group={group}
+                groupIndex={groupIndex}
+                open={!collapsedRepos.has(group.repoId)}
+                bodyId={`sessions-repo-group-${group.repoId}`}
+                onToggleCollapse={() => toggleRepoCollapse(group.repoId)}
+                agents={agents}
+                selectedId={selectedId}
+                selectClosedSession={selectClosedSession}
+                purgeOne={purgeOne}
+                selectedIds={selectedIds}
+                toggleSelected={toggleSelected}
+                cascading={groupCascade.active}
+                groupCascadeStyle={groupCascade.styleFor(groupIndex)}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -467,6 +450,87 @@ export function SessionsView() {
   );
 }
 
+function RepoSessionsGroup({
+  group,
+  groupIndex: _groupIndex,
+  open,
+  bodyId,
+  onToggleCollapse,
+  agents,
+  selectedId,
+  selectClosedSession,
+  purgeOne,
+  selectedIds,
+  toggleSelected,
+  cascading,
+  groupCascadeStyle,
+}: {
+  group: SessionGroup;
+  groupIndex: number;
+  open: boolean;
+  bodyId: string;
+  onToggleCollapse: () => void;
+  agents: readonly AgentDefinition[];
+  selectedId: string | null;
+  selectClosedSession: (id: string | null) => void;
+  purgeOne: (record: ClosedSession) => void;
+  selectedIds: ReadonlySet<string>;
+  toggleSelected: (id: string) => void;
+  cascading: boolean;
+  groupCascadeStyle?: CSSProperties;
+}) {
+  const revealCount = useRevealCount(open);
+  const sessionCascade = useCascadeReveal({ revealKey: `${group.repoId}:${revealCount}` });
+
+  return (
+    <div
+      className={`border-b border-border/40 last:border-b-0 ${
+        cascading ? 'animate-fade-in-up cascade-delay' : ''
+      }`}
+      style={groupCascadeStyle}
+    >
+      <div className="sticky top-0 z-10 flex h-7 items-center bg-background/95 px-2 text-[11px] font-medium text-muted-foreground backdrop-blur">
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          aria-label={open ? `Collapse ${group.title}` : `Expand ${group.title}`}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded text-left transition-colors hover:text-foreground"
+        >
+          <LuChevronRight
+            aria-hidden
+            className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-150 ease-in-out ${
+              open ? 'rotate-90' : ''
+            }`}
+          />
+          <span className="truncate font-semibold uppercase tracking-wide">
+            {group.title}
+          </span>
+          <span className="tabular-nums text-muted-foreground/70">{group.sessions.length}</span>
+        </button>
+      </div>
+      <Collapse open={open} id={bodyId} aria-label={group.title}>
+        {group.sessions.map((record, sessionIndex) => (
+          <SessionRow
+            key={record.id}
+            record={record}
+            agent={agents.find((a) => a.id === record.agentId)}
+            agentLabel={agentLabelFor(record.agentId, agents)}
+            selected={record.id === selectedId}
+            onSelect={() => selectClosedSession(record.id)}
+            onPurge={() => purgeOne(record)}
+            checked={selectedIds.has(record.id)}
+            onToggleChecked={() => toggleSelected(record.id)}
+            cascading={sessionCascade.active}
+            cascadeStyle={sessionCascade.styleFor(sessionIndex)}
+          />
+        ))}
+      </Collapse>
+    </div>
+  );
+}
+
 function SessionRow({
   record,
   agent,
@@ -476,6 +540,8 @@ function SessionRow({
   onPurge,
   checked,
   onToggleChecked,
+  cascading,
+  cascadeStyle,
 }: {
   record: ClosedSession;
   agent: AgentDefinition | undefined;
@@ -485,6 +551,8 @@ function SessionRow({
   onPurge: () => void;
   checked: boolean;
   onToggleChecked: () => void;
+  cascading?: boolean;
+  cascadeStyle?: CSSProperties;
 }) {
   const label = closedSessionLabel(record, agentLabel);
   const duration = record.closedAt - record.createdAt;
@@ -497,7 +565,8 @@ function SessionRow({
     <div
       className={`group flex items-center gap-2 border-l-2 px-2 py-1.5 text-left text-xs transition-colors ${
         selected ? 'border-primary bg-accent' : 'border-transparent hover:bg-accent/60'
-      }`}
+      } ${cascading ? 'animate-fade-in-up cascade-delay' : ''}`}
+      style={cascadeStyle}
     >
       <input
         type="checkbox"

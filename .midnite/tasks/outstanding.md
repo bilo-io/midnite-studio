@@ -28,52 +28,23 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   figures, or there is a genuine, long-standing leak in one of `repo`/`terminal`'s common code
   paths (main's own IPC handling, `gh`/`git` subprocess bookkeeping) that predates this phase.
 
-- **Phase 84 Theme F: per-app discard opt-in, and navigation-history restore.**
-  Both were named in the theme's own doc as "if easy, else defer here." Third-party apps
-  (`apps-service.ts`, Phase 83) are excluded from the idle-discard sweep by construction — the
-  sweep only ever iterates `browser-service.ts`'s own `tabs` map, which apps never enter — so the
-  Verification bullet ("a Phase 83 app is never discarded by default") holds with zero code. What
-  is genuinely deferred is the *opt-in* half: giving Spotify/Calendar/YouTube the same idle-discard
-  treatment the browser's tabs now get, with a per-app switch beside their on/off toggle in
-  Settings. `apps-service.ts` has no visibility bookkeeping today (a disabled app is torn down
-  outright, not hidden-and-trackable the way a background browser tab is), so this is a real
-  feature addition rather than a threshold tweak — sized more like its own small theme than a
-  follow-up line. Separately, `discardBrowserTab`'s reactivation is URL-only: pinned Electron 33.4.11's
-  `WebContentsView.webContents.navigationHistory` has no `restore()` (only `getAllEntries()`,
-  checked directly against `electron.d.ts`), so back/forward history within a discarded tab does not
-  survive a discard — cookies, logins and the URL itself do. Worth a second look if a future
-  Electron bump adds a restore path.
+- **Phase 84 Theme F: navigation-history restore.**
+  Third-party apps (`apps-service.ts`, Phase 83) are excluded from the idle-discard sweep by default,
+  and the per-app opt-in landed with `appDiscardIdle` in `Settings ▸ Apps`, visibility tracking in
+  `apps-service.ts`, and sweep disposal/restore. Separately, `discardBrowserTab`'s reactivation is
+  URL-only: pinned Electron 33.4.11's `WebContentsView.webContents.navigationHistory` has no
+  `restore()` (only `getAllEntries()`, checked directly against `electron.d.ts`), so back/forward
+  history within a discarded tab does not survive a discard — cookies, logins and the URL itself do.
+  Worth a second look if a future Electron bump adds a restore path.
 
-- **Phase 84 Theme E.4: the rehydrating terminal's fade.** `fitSignal`/`safeFit` already run
-  before any replayed scrollback is written, so a revived session is never mis-sized for its
-  first live frame — that half of E.4 was already true. What is genuinely deferred is "wears
-  Theme K's terminal fade rather than flashing an empty canvas": Theme K's own per-reveal fade
-  primitive now exists (`usePanelRevealFade`, `components/use-reveal.ts`, K.4) and is wired onto
-  `terminalTween` — but only at the whole-PANEL level (the panel opening, or its maximize/restore
-  toggle), the same open/close animation as before plus a replay on a settle that doesn't unmount
-  it. A per-SESSION dispose/reveal fade — the specific ask here, for a session revived from
-  `session-mount-policy.ts`'s dispose while the panel itself stays open the whole time — is still
-  unbuilt: that transcript swap happens inside `terminal-panel.tsx`'s session slots, underneath
-  the panel-level tween K.4 touched, and needs its own reveal key (something like the session id
-  plus a per-session reveal counter) rather than reusing `terminalTween.settleCount`, which never
-  changes for an in-place session swap. Until it lands, a session revived from dispose can still
-  show a blank xterm canvas for the length of the scrollback-snapshot round trip (typically
-  single-digit milliseconds) before content pops in.
+- **Phase 84 Theme E.4: rehydrating terminal fade landed.** `useSessionRevealFade` in
+  `lazy-terminal-view.tsx`/`terminal-view.tsx` now applies an entrance fade to revived sessions when
+  they re-reveal, preventing visual flash while scrollback replay and `safeFit` occur.
 
-- **Phase 84 Theme K.5: Changes, Projects and Sessions never got the cascade flag.** All three
-  were named in the theme's own doc alongside Graph/Actions/Issues/Reviews/Files/Dashboard, all
-  five of which landed. Each of the three has a shape the theme's per-list pattern (a shared
-  `useCascadeReveal`, keyed on a repo id and — where the view doesn't unmount on its own — a
-  reveal counter) doesn't fit directly: **Changes** (`Workbench`)'s file list lives inside
-  `status-panel.tsx`, a component this pass never opened, and unlike Actions/Issues/Reviews the
-  view itself does not unmount on a repo switch (same "no free ride off a remount" reasoning the
-  graph itself needed); **Projects**' default table mode is virtualized
-  (`ProjectItemsTable`/`useVirtualizer`, absolutely-positioned rows via `transform`), a materially
-  different row-mounting model from every list this pass wired; **Sessions** groups its rows two
-  levels deep (a repo group, each with its own `Collapse`d session list), rather than the one flat
-  array every wired list has. `view-registry.tsx`'s own comments on each entry carry this same
-  reasoning; `view-registry.test.ts`'s cascade set stays exactly `['graph', 'actions', 'reviews',
-  'issues', 'files', 'dashboard']` until one of these three is actually wired.
+- **Phase 84 Theme K.5: Changes, Projects and Sessions cascade wiring landed.** Changes (`StatusPanel`
+  staged/unstaged change trees), Projects (`ProjectItemsTable` virtual rows), and Sessions (nested
+  repo groups and session rows) are now wired with `useCascadeReveal` and `useRevealCount`, and
+  `view-registry.tsx` registers `cascade: true` for all three views, pinned by `view-registry.test.ts`.
 
 - **Phase 84 Theme K.7's perf number.** "A full cascade settles in ≤ ~400ms; no new infinite
   animation; `idle-cpu.mjs` unchanged" was not measured against a packaged build in this PR — the
