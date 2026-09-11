@@ -352,3 +352,38 @@ them a lettered theme:
 
 Closed as ✅ DONE in `_INDEX.md` rather than left `🔄 WIP` forever on items no agent can complete —
 matching the precedent set by Phases 22/23/24.
+
+- **Phase 84 Themes B/C — four items scoped down rather than silently skipped.**
+  - **B.4's `settingsSync` snapshot carries only `autoFetchEnabled`/`autoFetchIntervalMs`**, not
+    Theme F's browser-discard threshold or Theme E's terminal keep-recent count the phase doc's own
+    B.4 text names alongside them. Neither theme has landed the main-side consumer that would read
+    those fields yet — `SettingsSyncPayloadSchema`
+    ([`packages/shared/src/domain/sync-status.ts`](../../packages/shared/src/domain/sync-status.ts))
+    grows to carry them when Themes E/F land their own main-side timers/services.
+  - **C.4's rate-limit handling backs off on any repeated failure** (including one whose message
+    names a rate limit — `looksRateLimited` in
+    [`forge-poller.ts`](../../packages/desktop/src/main/forge/forge-poller.ts)), but does not read a
+    numeric `x-ratelimit-remaining`/`reset` pair the way the phase doc's C.4 text describes. `gh run
+    list`/`gh pr list`/`gh issue list`/`gh project list` are wrapped CLI subcommands, not `gh api` —
+    they do not surface HTTP response headers at all. Getting the real numbers would mean polling
+    `gh api rate_limit` alongside every listing (an extra subprocess per tick, on top of the listing
+    itself), which is a real design decision, not a one-line fix — parked here rather than either
+    building it unasked or silently checking the box.
+  - **C.2's "through the existing `gh-cli.ts`/`gh-graphql.ts` list calls and `gh-cache.ts`"** doesn't
+    quite match the tree: `gh-graphql.ts` serves only PR review threads (irrelevant to the
+    runs/pulls/issues/projects listings the poller hashes), and `gh-cache.ts` does not exist as a
+    separate module at all — `gh-cache.test.ts` tests caching (`remember`/LRU) that lives inline in
+    `gh-cli.ts`, and only for `runDetail`/`runLog`/`listWorkflows`, none of which the poller calls.
+    The poller instead calls the same `listRuns`/`listPulls`/`listIssues`
+    (`gh-cli.ts`)/`listProjects` (`gh-project.ts`) the renderer's own `queries.ts` already uses — the
+    doc's own module names were slightly ahead of what actually exists in this area, in the sense
+    CLAUDE.md's "phase docs cite stale line numbers" note already warns about.
+  - **The liveness dot's "amber because the last window is minimized" reason is not built.** Themes
+    B.2/C.3 both deliberately push nothing while merely paused (gate closed, no error) — a
+    `syncStatus` event only fires on an actual failure, recovery, or backoff-window change — so there
+    is no signal on the wire main could use to tell the renderer "paused, not failing" without
+    inventing a second, differently-shaped push neither theme's own spec calls for. The dot's amber
+    states that *are* built (no repo, no event yet, a backed-off fetch/forge source with a reason and
+    a "retrying in Xm" detail) all come from signals the themes already produce; "paused because
+    minimized" would need main to actively report an idle/hidden state change, which is a real (if
+    small) design decision for whichever future work picks it up, not a wiring gap.

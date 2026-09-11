@@ -15,6 +15,7 @@ import {
   worktreesFor,
 } from '../repo-registry';
 import { reconcileWatchers } from '../watch-service';
+import { reconcileFetchScheduler } from '../fetch-scheduler';
 import { handle, handleBare, handleFromSender, handleOp } from './handle';
 
 /**
@@ -37,9 +38,11 @@ export function registerRepoHandlers(getWindow: () => BrowserWindow | null): voi
     null would leave a just-opened repo unwatched for the rest of the session.
   */
   const syncWatchers = async (): Promise<void> => {
-    await reconcileWatchers(
-      (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })),
-    );
+    const repos = (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path }));
+    await reconcileWatchers(repos);
+    // Phase 84 Theme B: the fetch scheduler is reconciled the same way, right
+    // alongside the watchers it shares this list with.
+    reconcileFetchScheduler(repos);
   };
 
   handle(

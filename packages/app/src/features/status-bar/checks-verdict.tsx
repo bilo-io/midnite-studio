@@ -2,6 +2,7 @@ import { pickForgeRemote, type ForgePull } from '@midnite/studio-shared';
 
 import { useForgePulls, useRemotes } from '../../services/queries';
 import { useActiveWorktree, useRepoStatus } from '../../services/use-status';
+import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { useUiStore } from '../../store/ui-store';
 import { checksStatus, StatusPill } from '../forge/forge-status';
 
@@ -30,6 +31,10 @@ export function ChecksVerdictSegment() {
   const loaded = isPlaceholderData ? undefined : status;
 
   const pullsQuery = useForgePulls(repoId, hasForge);
+  // Phase 84 Theme C: this chip renders counts off the same listing the
+  // Reviews view subscribes to — a second subscriber on the same
+  // `{repoId, kind}` key costs no extra polling (refcounted).
+  useForgeSubscription(repoId, 'pulls', hasForge);
   // useForgePulls sets no placeholderData, so `data === undefined` is the
   // guard here rather than `isPlaceholderData`.
   const pulls = pullsQuery.data?.pulls;

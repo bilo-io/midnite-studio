@@ -17,7 +17,15 @@ import { IssuesView } from './issues-view';
 const issuesFn = vi.fn();
 
 vi.mock('../../services/bridge', () => ({
-  bridge: () => ({ forge: { issues: issuesFn } }),
+  bridge: () => ({
+    forge: {
+      issues: issuesFn,
+      // Phase 84 Theme C: `IssuesView` subscribes unconditionally now.
+      subscribe: vi.fn(),
+      unsubscribe: vi.fn(),
+      onChanged: vi.fn(() => () => {}),
+    },
+  }),
   hasBridge: () => true,
 }));
 

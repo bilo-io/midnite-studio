@@ -137,6 +137,8 @@ const bridge: Pick<
   | 'perf'
   | 'report'
   | 'watch'
+  | 'settings'
+  | 'sync'
   | 'window'
   | 'windowChrome'
   | 'windowRole'
@@ -230,6 +232,9 @@ const bridge: Pick<
     pullRequestReview: (req) => call(CHANNELS.forgePullRequestReview, req),
     pullReady: (req) => call(CHANNELS.forgePullReady, req),
     runRerun: (req) => call(CHANNELS.forgeRunRerun, req),
+    subscribe: (req) => ipcRenderer.send(CHANNELS.forgeSubscribe, req),
+    unsubscribe: (req) => ipcRenderer.send(CHANNELS.forgeUnsubscribe, req),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.forgeChanged, handler),
   },
   forgeProject: {
     list: (req) => call(CHANNELS.forgeProjectList, req),
@@ -494,6 +499,12 @@ const bridge: Pick<
   },
   watch: {
     onEvent: (handler) => subscribe(EVENT_CHANNELS.watchEvent, handler),
+  },
+  settings: {
+    sync: (req) => ipcRenderer.send(CHANNELS.settingsSync, req),
+  },
+  sync: {
+    onStatus: (handler) => subscribe(EVENT_CHANNELS.syncStatus, handler),
   },
   window: {
     minimize: () => ipcRenderer.send(CHANNELS.windowMinimize),
