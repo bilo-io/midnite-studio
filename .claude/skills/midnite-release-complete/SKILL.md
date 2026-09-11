@@ -1,15 +1,16 @@
 ---
 name: midnite-release-complete
 description: Finalise a prepped release/vX.Y.Z branch — verify preconditions, commit chore(release), create the tag(s) per the scheme, push, merge the release PR to main, and cut the GitHub Release from the changelog. The IRREVERSIBLE half of the two-step flow; run only after a human has reviewed the /midnite-release-prep branch.
-argument-hint: "(run on the release/vX.Y.Z branch that /midnite-release-prep prepared)"
+argument-hint: "[ephemeral]   (run on release/vX.Y.Z, or pass 'ephemeral' from main for a temporary test release)"
 allowed-tools: Bash, Read, Edit, AskUserQuestion, Agent
 ---
 
 Execute a prepped Midnite Studio release: the irreversible half of the two-step flow.
 Runs **after** a human has reviewed the `release/vX.Y.Z` branch that
-[`/midnite-release-prep`](../midnite-release-prep/SKILL.md) left. Tags, pushes, merges to `main`, and
-cuts a GitHub Release — so it **stops for explicit confirmation before the first
-irreversible step** and refuses to run if preconditions aren't met.
+[`/midnite-release-prep`](../midnite-release-prep/SKILL.md) left (or after selecting an ephemeral test release).
+Tags, pushes, merges to `main` (for standard releases), and cuts a GitHub Release — so it
+**stops for explicit confirmation before the first irreversible step** and refuses to run
+if preconditions aren't met.
 
 **Policy + math are fixed** — don't re-derive them (ported from midnite, Phase 53 Theme B):
 - whole plan = `planRelease` (the one entry point — it wraps the three below and is the only
@@ -22,11 +23,14 @@ irreversible step** and refuses to run if preconditions aren't met.
 
 ## 1 · Preconditions — refuse if any fail
 Gather, and **stop with a clear message** on the first failure (nothing has changed yet):
-- **On a release branch:** current branch = `release/vX.Y.Z`; derive `X.Y.Z` with `versionFromReleaseBranch` (`git rev-parse --abbrev-ref HEAD`). Not a release branch → tell the user to run `/midnite-release-prep` first.
+- **Branch / Mode:**
+  - **Standard release:** current branch = `release/vX.Y.Z`; derive `X.Y.Z` with `versionFromReleaseBranch` (`git rev-parse --abbrev-ref HEAD`). Not a release branch → tell the user to run `/midnite-release-prep` first.
+  - **Ephemeral release (`$ARGUMENTS` is `ephemeral`):** runs on current branch (`main`); derive `X.Y.Z` from root `package.json`.
 - **Clean tree:** `git status --porcelain` empty.
 - **In sync:** `git fetch origin`; the branch's `main` base isn't ahead in a way that conflicts (rebase/merge `main` first if so).
 - **Versions match the branch:** read every `package.json`; for a lockstep release every package is `X.Y.0`; for a patch the bumped package(s) are `X.Y.Z`. The lockstep MAJOR.MINOR invariant holds — run `moon run root:version-check`.
-- **Changelog ready:** this repo's `extractChangelogSection(markdown, version)` ([`release.ts`](../../../packages/shared/src/release.ts)) returns just the section body as `string | null` — no `.date` field — so check both halves directly: `extractChangelogSection(CHANGELOG.md, 'X.Y.Z')` is non-null and non-empty, AND the changelog literally has a dated heading for that version (`## [X.Y.Z] - YYYY-MM-DD`, not `## [Unreleased]` — grep the heading text). Either missing means `/midnite-release-prep` wasn't finished — stop.
+- **Changelog ready (standard release only):** this repo's `extractChangelogSection(markdown, version)` ([`release.ts`](../../../packages/shared/src/release.ts)) returns just the section body as `string | null` — no `.date` field — so check both halves directly: `extractChangelogSection(CHANGELOG.md, 'X.Y.Z')` is non-null and non-empty, AND the changelog literally has a dated heading for that version (`## [X.Y.Z] - YYYY-MM-DD`, not `## [Unreleased]` — grep the heading text). Either missing means `/midnite-release-prep` wasn't finished — stop. (Skipped for ephemeral releases.)
+- **GitHub secret present:** verify `RELEASES_REPO_TOKEN` exists via `gh secret list --repo bilo-io/midnite-studio`. If absent, stop — `.github/workflows/release.yml` will fail to publish assets to `bilo-io/midnite-apps`.
 - **Green:** `moon ci` passes. (Run it; don't trust a stale cache for the gate.)
 
 ## 2 · Plan the tags & show the go/no-go — STOP for the human
@@ -41,11 +45,15 @@ Gather, and **stop with a clear message** on the first failure (nothing has chan
   `/midnite-release-prep` will have left no version bumps for the same reason, which is correct and
   not a sign it failed: §1's *versions match the branch* check is satisfied by every package already
   reading `X.Y.Z`.
-- **AskUserQuestion** with the full plan and an explicit go/no-go (recommended option = proceed only if every precondition passed): the version, the tag(s), the changelog section that will become the GitHub Release body, and that this will tag + push + merge to `main` + publish a Release. Do **not** proceed without an affirmative.
+- **Ephemeral test release:** target tag is `vX.Y.Z` matching the current `package.json` version.
+- **AskUserQuestion** with the full plan and an explicit go/no-go (recommended option = proceed only if every precondition passed):
+  - **Standard release:** the version, the tag(s), the changelog section that will become the GitHub Release body, and that this will tag + push + merge to `main` + publish a Release.
+  - **Ephemeral release:** the version `vX.Y.Z`, the tag `vX.Y.Z`, that this will tag + push to trigger packaging to `bilo-io/midnite-apps` without opening a PR or merging to `main`, and that teardown commands will be provided to delete the release after testing.
+  Do **not** proceed without an affirmative.
 
 ## 3 · Commit + tag (first irreversible step)
-- If `/midnite-release-prep` left version bumps uncommitted (it shouldn't), or the changelog still shows `## [Unreleased]` instead of the dated section, finalise: confirm the bumps are lockstep, move `## [Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` (today). Commit `chore(release): vX.Y.Z` with the required `Co-Authored-By` trailer. (Usually the prep branch already has this commit.)
-- Create the tag(s) from `planReleaseTags`: `git tag vX.Y.Z` (annotated: `-a -m "vX.Y.Z"`), or each scoped `git tag '‹pkg›@X.Y.Z'`.
+- **Standard release:** If `/midnite-release-prep` left version bumps uncommitted (it shouldn't), or the changelog still shows `## [Unreleased]` instead of the dated section, finalise: confirm the bumps are lockstep, move `## [Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` (today). Commit `chore(release): vX.Y.Z` with the required `Co-Authored-By` trailer. (Usually the prep branch already has this commit.) Create the tag(s) from `planReleaseTags`: `git tag vX.Y.Z` (annotated: `-a -m "vX.Y.Z"`), or each scoped `git tag '‹pkg›@X.Y.Z'`.
+- **Ephemeral release:** No commit is created. Create annotated tag on HEAD: `git tag -a vX.Y.Z -m "vX.Y.Z (ephemeral test release)"`.
 
 ## 4 · Publish
 Two repos are involved, and the split matters: **this repo is private, so nothing users touch can
@@ -62,7 +70,7 @@ never a bare `vX.Y.Z`, which would collide with another app's.
   `midnite-studio/CHANGELOG.md` — **once the release job it depends on has actually published,
   never before** (a manifest committed first would point at assets that don't exist yet).
   `gh run list --workflow release.yml` / `gh run watch` to follow it rather than assuming.
-- **Merge to main:** open the release PR if one isn't open (`gh pr create --base main --title 'chore(release): vX.Y.Z' --body …`), wait for CI, then `gh pr merge` — prefer a **merge commit** here so the tagged commit stays on `main`.
+- **Merge to main (standard release only):** open the release PR if one isn't open (`gh pr create --base main --title 'chore(release): vX.Y.Z' --body …`), wait for CI, then `gh pr merge` — prefer a **merge commit** here so the tagged commit stays on `main`. (For ephemeral release, skip PR/merge entirely.)
 - **Verify, don't perform, the three propagation targets** — `release.yml` did the work; this step
   confirms it actually happened rather than assuming a green workflow means every side effect
   landed:
@@ -81,15 +89,38 @@ never a bare `vX.Y.Z`, which would collide with another app's.
     section was genuinely empty (a patch of docs/chore-only commits), `has_section=false` in the
     job's own output is the expected outcome, not a failure to chase.
 
-## 5 · Re-seed + confirm
-- Re-seed an empty `## [Unreleased]` stub above the released section in `CHANGELOG.md` and refresh the compare link (`[Unreleased]: …/compare/vX.Y.Z...HEAD`), if `/midnite-release-prep` didn't. Commit on `main` (`docs(changelog): re-seed Unreleased after vX.Y.Z`).
-- Report, terse: the **released version**, the **source tag(s)** here, the **Release URL**
-  (`gh release view 'midnite-studio/vX.Y.Z' --repo bilo-io/midnite-apps --json url`), the merge
-  commit, and that `## [Unreleased]` is reset. Also state, per §4, whether the assets attached,
-  whether `release-feed.yml` updated `version.json`, and whether the `publish-feed` job committed
-  both `latest-mac.yml` and the changelog mirror — a release missing any of the three is published
-  but not installable (or, for the changelog, installable but mute), and that must not be reported
-  as done.
+## 5 · Re-seed + confirm (or Ephemeral Teardown)
+- **Standard release:**
+  - Re-seed an empty `## [Unreleased]` stub above the released section in `CHANGELOG.md` and refresh the compare link (`[Unreleased]: …/compare/vX.Y.Z...HEAD`), if `/midnite-release-prep` didn't. Commit on `main` (`docs(changelog): re-seed Unreleased after vX.Y.Z`).
+  - Report, terse: the **released version**, the **source tag(s)** here, the **Release URL**
+    (`gh release view 'midnite-studio/vX.Y.Z' --repo bilo-io/midnite-apps --json url`), the merge
+    commit, and that `## [Unreleased]` is reset. Also state, per §4, whether the assets attached,
+    whether `release-feed.yml` updated `version.json`, and whether the `publish-feed` job committed
+    both `latest-mac.yml` and the changelog mirror — a release missing any of the three is published
+    but not installable (or, for the changelog, installable but mute), and that must not be reported
+    as done.
+- **Ephemeral release:**
+  Report, terse:
+  - The **ephemeral test release** `midnite-studio/vX.Y.Z` is published on `bilo-io/midnite-apps`.
+  - The test install command to run from target computers:
+    ```sh
+    curl -fsSL https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/install.sh | sh
+    ```
+  - The **teardown commands** to execute once testing is complete:
+    ```sh
+    # 1. Delete the GitHub Release and tag in bilo-io/midnite-apps:
+    gh release delete midnite-studio/vX.Y.Z --repo bilo-io/midnite-apps --yes --cleanup-tag
+
+    # 2. Reset version.json in bilo-io/midnite-apps:
+    gh api repos/bilo-io/midnite-apps/contents/midnite-studio/version.json \
+      -X PUT -f message="chore: reset version.json after ephemeral test release" \
+      -f content="$(echo -n '{"app":"midnite-studio","channel":"stable","version":null,"releasedAt":null,"notesUrl":null}' | base64)" \
+      -f sha="$(gh api repos/bilo-io/midnite-apps/contents/midnite-studio/version.json --jq .sha)"
+
+    # 3. Delete tag from midnite-studio (local and remote):
+    git tag -d vX.Y.Z
+    git push origin :refs/tags/vX.Y.Z
+    ```
 
 ## Notes
 - **Out of scope:** publishing packages to a registry (private monorepo) — tags + GitHub Release only.

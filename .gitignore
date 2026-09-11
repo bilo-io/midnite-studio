@@ -68,3 +68,4 @@ graphify-out/
 # actually protects a *user's* repo ships in Phase 70 Theme A, which writes
 # `.midnite/api/.gitignore` into the repository the app is opened on.
 .midnite/api/**/*.local.json
+.aider*

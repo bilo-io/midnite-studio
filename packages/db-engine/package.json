@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-db-engine",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
   "description": "Pure Node/TS database layer — Postgres/MySQL/MariaDB/MSSQL drivers behind one interface, connection pooling, schema introspection, statement sniffing. No electron imports.",
   "main": "./dist/index.js",
