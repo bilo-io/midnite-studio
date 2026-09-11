@@ -1930,6 +1930,15 @@ export const AppsSetBoundsRequest = z.object({
   id: AppIdSchema,
   bounds: BrowserBoundsSchema,
 });
+/**
+ * Which enabled app the flyout shows on top (Theme C) — mirrors
+ * `BrowserActivateRequest`, except `id` is nullable: `null` means "nothing is
+ * active," which is what the flyout closing with no app taking its place
+ * sends, so main hides whichever app's view the flyout was last showing
+ * rather than leaving a native view floating over the window with no React
+ * chrome left to explain it.
+ */
+export const AppsActivateRequest = z.object({ id: AppIdSchema.nullable() });
 
 // --- watch -----------------------------------------------------------------
 

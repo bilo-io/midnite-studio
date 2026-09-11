@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 
 import {
+  APP_IDS,
+  APP_ROLE,
   PAGE_WINDOW_ROLES,
   type CompanionIntent,
   type PanelWindowRole,
@@ -77,6 +79,14 @@ export function useWindowSync(): void {
       }
       for (const role of PAGE_WINDOW_ROLES) {
         store.setPageDetached(role, present.has(role));
+      }
+      // Phase 83 Theme D: the three apps-rail roles, tracked as an array
+      // like `detachedPages` rather than a fixed boolean per role — see
+      // `detachedApps`'s own doc for why. `present` already carries every
+      // open window's role regardless of kind, so no separate resolution
+      // step is needed here.
+      for (const id of APP_IDS) {
+        store.setAppDetached(id, present.has(APP_ROLE[id]));
       }
     };
 

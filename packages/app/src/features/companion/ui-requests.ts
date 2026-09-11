@@ -94,11 +94,11 @@ async function buildStateReply(): Promise<Extract<CompanionUiReplyResult, { ok: 
     fab: ui.fabDetached,
     companion: ui.companionDetached,
     browser: ui.browserDetached,
-    // See `navigate.ts`'s identical note: no detach affordance for the
-    // apps-rail roles until Phase 83 Theme D.
-    'apps-spotify': false,
-    'apps-google-calendar': false,
-    'apps-youtube': false,
+    // The apps-rail roles track detached-ness as an array (`detachedApps`,
+    // Theme D), mirroring `detachedPages` — see its own doc.
+    'apps-spotify': ui.detachedApps.includes('spotify'),
+    'apps-google-calendar': ui.detachedApps.includes('google-calendar'),
+    'apps-youtube': ui.detachedApps.includes('youtube'),
   };
   const detached: WindowRole[] = [
     ...ui.detachedPages,
@@ -141,11 +141,10 @@ function resolveNavigateAction(
       fab: ui.fabDetached,
       companion: ui.companionDetached,
       browser: ui.browserDetached,
-      // See `navigate.ts`'s identical note: no detach affordance for the
-      // apps-rail roles until Phase 83 Theme D.
-      'apps-spotify': false,
-      'apps-google-calendar': false,
-      'apps-youtube': false,
+      // See `navigate.ts`'s identical note.
+      'apps-spotify': ui.detachedApps.includes('spotify'),
+      'apps-google-calendar': ui.detachedApps.includes('google-calendar'),
+      'apps-youtube': ui.detachedApps.includes('youtube'),
     },
     locked: ui.screensaverLocked,
     repoId: ui.selectedRepoId,

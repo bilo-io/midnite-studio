@@ -35,7 +35,10 @@ export type PopoutRole =
   | 'reviews'
   | 'issues'
   | 'history'
-  | 'optimizer';
+  | 'optimizer'
+  | 'apps-spotify'
+  | 'apps-google-calendar'
+  | 'apps-youtube';
 
 export type MockFixtures = {
   /**
@@ -1039,6 +1042,10 @@ export function buildMockBridge(data: MockFixtures) {
   const browserZoomCalls: Array<{ tabId: string; factor: number }> = [];
   /** Every `browser.stop` call, in order — the e2e stop-button spec's assertion surface (Theme G). */
   const browserStopCalls: Array<{ tabId: string }> = [];
+  /** Every `apps.enable`/`disable`/`activate` call, in order (Phase 83 Theme C) — the apps-rail e2e spec's assertion surface. */
+  const appsEnableCalls: string[] = [];
+  const appsDisableCalls: string[] = [];
+  const appsActivateCalls: (string | null)[] = [];
 
   const bridge = {
     /*
@@ -2299,6 +2306,27 @@ export function buildMockBridge(data: MockFixtures) {
         return () => {
           browserEventHandlers.splice(browserEventHandlers.indexOf(handler), 1);
         };
+      },
+    },
+    /*
+        The third-party apps rail (Phase 83). `enable`/`disable`/`activate`
+        are all fire-and-forget as far as a spec is concerned — there is no
+        real `WebContentsView` in a browser-driven e2e run for them to show or
+        hide — so this only has to answer the shape the renderer expects and
+        keep a log a spec CAN assert against, the same posture `browser`'s
+        `setVisible` above takes for `browserVisibleCalls`.
+      */
+    apps: {
+      enable: async (req: { id: string }) => {
+        appsEnableCalls.push(req.id);
+        return { ok: true as const };
+      },
+      disable: (req: { id: string }) => {
+        appsDisableCalls.push(req.id);
+      },
+      setBounds: noop,
+      activate: (req: { id: string | null }) => {
+        appsActivateCalls.push(req.id);
       },
     },
     /*
@@ -4096,6 +4124,15 @@ export function buildMockBridge(data: MockFixtures) {
   ];
   (window as unknown as { __mstudioBrowserStopCalls: unknown }).__mstudioBrowserStopCalls = () => [
     ...browserStopCalls,
+  ];
+  (window as unknown as { __mstudioAppsEnableCalls: unknown }).__mstudioAppsEnableCalls = () => [
+    ...appsEnableCalls,
+  ];
+  (window as unknown as { __mstudioAppsDisableCalls: unknown }).__mstudioAppsDisableCalls = () => [
+    ...appsDisableCalls,
+  ];
+  (window as unknown as { __mstudioAppsActivateCalls: unknown }).__mstudioAppsActivateCalls = () => [
+    ...appsActivateCalls,
   ];
   /*
       A getter, not the array: `loopRuns` is REASSIGNED on every start and
