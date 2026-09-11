@@ -97,6 +97,14 @@ vi.mock('../features/agent/midnite-menu', () => ({
   ),
 }));
 
+// Phase 84 Theme I: this suite is about the frame's own chrome shape, not
+// about the liveness dot it now hosts in a footer — `liveness-segment.test.tsx`
+// covers that component, and it needs a real QueryClientProvider this test's
+// bare-store mocks don't set up.
+vi.mock('../features/status-bar/liveness-segment', () => ({
+  LivenessSegment: () => <div data-testid="liveness-segment-stub" />,
+}));
+
 describe('DetachedWindowFrame', () => {
   beforeEach(() => {
     vi.clearAllMocks();

@@ -508,6 +508,7 @@ const bridge: Pick<
     onWindowsChanged: (handler) => subscribe(EVENT_CHANNELS.windowsChanged, handler),
     relay: (message) => ipcRenderer.send(CHANNELS.windowRelay, message),
     onRelayed: (handler) => subscribe(EVENT_CHANNELS.windowRelayed, handler),
+    reportRepo: (req) => ipcRenderer.send(CHANNELS.windowReportRepo, req),
   },
   menu: {
     onCommand: (handler) => subscribe(EVENT_CHANNELS.menuCommand, handler),

@@ -14,7 +14,7 @@ import { useBrowserStore } from '../store/browser-store';
 import { useSessionsStore } from '../store/sessions-store';
 import { useUiStore } from '../store/ui-store';
 import { useWorkbenchStore } from '../store/workbench-store';
-import { relayWatchEvent, useBroadcastSync } from './broadcast-sync';
+import { useBroadcastSync } from './broadcast-sync';
 
 type RelayMessage = { id: string; origin: string; kind: string; payload: Record<string, unknown> };
 type RelayHandler = (message: RelayMessage) => void;
@@ -249,18 +249,6 @@ describe('useBroadcastSync (Theme E)', () => {
         kind: 'theme',
         payload: expect.objectContaining({ paletteId: 'jetbrains-darcula' }),
       }),
-    );
-  });
-
-  it('relayWatchEvent sends a watch message through the relay', () => {
-    const { relay } = installBridge();
-    mount();
-    relay.mockClear();
-
-    relayWatchEvent('repo-1', 'refs');
-
-    expect(relay).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'watch', payload: { repoId: 'repo-1', kind: 'refs' } }),
     );
   });
 

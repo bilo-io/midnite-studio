@@ -857,6 +857,8 @@ describe('window contract (Phase 55)', () => {
       windowsChanged: ['WindowsChangedEvent'],
       windowRelay: ['WindowRelayMessage'],
       windowRelayed: ['WindowRelayMessage'],
+      // Phase 84 Theme D: a window reporting which repo it shows.
+      windowReportRepo: ['WindowReportRepoRequest'],
     };
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
       key.startsWith('window'),

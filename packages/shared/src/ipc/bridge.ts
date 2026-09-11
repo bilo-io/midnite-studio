@@ -1054,6 +1054,13 @@ export type MidniteStudioBridge = {
     relay: (message: z.infer<typeof S.WindowRelayMessage>) => void;
     /** A `relay` message from another window, rebroadcast by main. */
     onRelayed: (handler: (message: z.infer<typeof S.WindowRelayMessage>) => void) => Unsubscribe;
+    /**
+     * Fire-and-forget: tell main which repo this window is showing right now
+     * (Theme D) — `null` for none. Call on mount and again on every
+     * `selectedRepoId` change; `listWindows()`/`list()` above answers with
+     * whatever this window last reported.
+     */
+    reportRepo: (req: In<typeof S.WindowReportRepoRequest>) => void;
   };
 
   /**

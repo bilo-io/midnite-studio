@@ -22,7 +22,10 @@ import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
+import { useLivenessTracking } from './services/use-liveness-tracking';
 import { useRepos } from './services/queries';
+import { useReportWindowRepo } from './services/use-report-window-repo';
+import { useWatchInvalidation } from './services/watch-invalidation';
 import { primaryTarget } from './features/repos/use-repo-actions';
 import { useAppearanceSync } from './store/appearance-store';
 import { useUiStore } from './store/ui-store';
@@ -32,9 +35,10 @@ import { useUiStore } from './store/ui-store';
  * main window's cache, so this window fetches its own (staleTime infinite,
  * no window-focus refetch, same as `app.tsx`'s own client). `useBroadcastSync`
  * (Theme E) keeps `selectedRepoId`/`selectedWorktreePath` current from the
- * moment it mounts, and relays a `watch` invalidation into this client — but a
- * popout still has no watcher of its own, so its data is a snapshot as of
- * mount until the first relayed change.
+ * moment it mounts, and `useWatchInvalidation` (Phase 84 Theme A, mounted in
+ * `DetachedShell` below) invalidates this client directly off main's
+ * `broadcastToAllWindows(watchEvent)` — no relay involved, since main already
+ * sends the event to this window along with every other one.
  */
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -178,6 +182,23 @@ function DetachedShell({ role }: { role: Exclude<WindowRole, 'main'> }) {
     `ui-store`'s persisted state and `useBroadcastSync`.
   */
   useCompanionEnabledSync();
+  // Tells main which repo THIS popout is showing (Phase 84 Theme D.1) — same
+  // hook `app.tsx` mounts for the main window.
+  useReportWindowRepo();
+  /*
+    Phase 84 Theme A: the fix for "I have to reload the other window". Main
+    fans `watchEvent` out to every window (`broadcastToAllWindows`), but until
+    this call the only subscriber was `app.tsx`'s main-window mount — a
+    detached Graph or Changes window received the event on its own
+    `webContents` and simply had nothing listening for it. `selectedRepoId`
+    comes from `ui-store`, kept current in this window by `useBroadcastSync`
+    above, so a page popout re-streams only when the event is for the repo it
+    is actually showing, exactly like the main window.
+  */
+  useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
+  // Feeds this popout's own liveness dot (Phase 84 Theme I) — same hook
+  // `app.tsx` mounts for the main window.
+  useLivenessTracking(useUiStore((s) => s.selectedRepoId));
   return (
     <DetachedWindowFrame role={role} title={ROLE_TITLE[role]}>
       <DetachedContent role={role} />

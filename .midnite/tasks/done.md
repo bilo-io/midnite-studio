@@ -11124,3 +11124,57 @@ no-`preload` construction itself is asserted in `apps-service.test.ts`, from The
 83 sits at 23/25 (92%) in `_INDEX.md` for exactly these two, following the same convention Phase
 55 (77%, F.3 open) and Phase 74 (97%, two packaged-Mac passes open) already use rather than
 rounding a genuine open human pass up to done.
+
+## 2026-09-11 — Phase 84 Themes A, D, I — The broadcast lands, a window knows its repo, the liveness dot
+
+The three themes claimed on `.worktrees/p84-adi`, landed together: the fix for "I have to reload
+the other window", `WindowDescriptor.repoId` becoming real, and the status-bar/popout liveness dot
+that rides both.
+
+**Theme A** — `detached-root.tsx`'s `DetachedShell` now mounts `useWatchInvalidation(selectedRepoId)`
+against the popout's own `QueryClient`, the one subscriber `watch-invalidation.ts` never had outside
+`app.tsx`. `relayWatchEvent` is gone from `broadcast-sync.ts` (main already fans `watchEvent` out to
+every window; a relay on top would double-invalidate and make a detached page's freshness hostage to
+the main renderer staying mounted), and the three stale module comments it left behind are rewritten.
+`view.refresh` needed no wiring at all: `DetachedShell` already mounts its own
+`useCommandHandlers()`/`useKeybindings()` (Phase 55), so the palette row resolves `queryClient` from
+the popout's own provider tree for free — proven by a dedicated `detached-root.test.tsx` case rather
+than assumed. `A.4`'s test fires a `refs` event at a mocked `DetachedRoot` and asserts the popout's
+own client invalidates and its graph store requests a restream.
+
+**Theme D** — the renderer reports `selectedRepoId` on mount and on change over a new
+`CHANNELS.windowReportRepo` (`mstudio:window:report-repo`, `use-report-window-repo.ts`, mounted in
+both `app.tsx` and `DetachedShell`); `window-manager.ts`'s `Entry` gains a real `repoId` field and
+`listWindows()` returns it instead of a hardcoded `null`. `broadcastToWindowsOnRepo(repoId, channel,
+payload)` lands as `broadcastToAllWindows`'s scoped sibling, fail-open for any window whose `repoId`
+is still `null` — **not yet called from `watch-service.ts` or anywhere else**: this wave's scope was
+making `repoId` honest, not narrowing a broadcast by it, which is Themes B/C's job. D.3's "per-window
+diagnostics row" turned out to have nowhere to land — there is no standalone window-diagnostics panel
+anywhere in the app (Phase 55 Theme G's own diagnostics were log lines) — so that row lives in Theme
+I's popover instead, described below.
+
+**Theme I** — a new per-window `liveness-store.ts` (`lastWatchAt`, `watcherError`, both reset on repo
+switch) fed by `use-liveness-tracking.ts`, a second independent `watch.onEvent` subscriber alongside
+Theme A's invalidation one. `LivenessSegment` (`features/status-bar/liveness-segment.tsx`) renders a
+green/amber/red dot — via the pure, directly-testable `computeLivenessStatus` — wired into the main
+window's status bar (`segments.ts`) and, since popouts have no status bar of their own, a small
+dedicated footer in `DetachedWindowFrame`. Its popover doubles as Theme D.3's per-window table
+(role, `repoId`, last-sync — real for every row now that D.1 makes `repoId` honest, but only the
+window rendering the popover has a real last-sync time; a truthful cross-window figure needs main to
+aggregate, which is out of this wave) plus a **Refresh now** button running the same
+`invalidateForWatchKind(…, 'head')` + restream `view.refresh` runs. `data-testid="liveness-dot"` +
+`data-sync-state` land on the dot itself, asserted by `liveness-segment.test.tsx` and
+`detached-root.test.tsx`.
+
+**Scoped down on purpose, and recorded as such in the phase doc rather than silently trimmed**:
+`liveness-store.ts` carries only the signal Theme A/D actually wired (`lastWatchAt`/`watcherError`);
+the fuller shape the phase doc sketches (`lastForgeAt`, `fetch: {…}`, `forge: {…}`, a
+`syncStatus` main push) belongs to Themes B and C, neither of which exists yet — `recordWatcherError`
+is exposed and tested but has no real caller until a future `syncStatus` push wires one in, same
+"infra ready, no caller yet" shape as `broadcastToWindowsOnRepo`. Two Verification bullets stay open
+for a human pass this background agent cannot drive: the two-window "detach Graph, commit in main"
+check, and the *idle/backoff* amber reasons that need Themes B/C's own timers to ever fire.
+
+`moon run :typecheck :lint :test` green (4179 app tests, 1813 desktop tests — one
+`sqlite-probe.test.mjs` timeout under full-gate load that passed cleanly standalone, a pre-existing
+flake unrelated to this PR's files).
