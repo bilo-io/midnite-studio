@@ -130,7 +130,13 @@ describe('useMountedSessionIds', () => {
     expect(result.current.has(visible)).toBe(true);
   });
 
-  it('records when a session goes hidden, immediately and independent of the clock tick', () => {
+  it('a session nobody has switched to yet stays mounted — restored sessions all start "just opened", not "long hidden"', () => {
+    // 'b' has never been individually visited in this render's lifetime (no
+    // `markVisible` ever ran for it) — the same shape a reload's restored
+    // session list is in. It must not read as "hidden" just for existing:
+    // e2e's "a reload keeps live sessions live" restores two live sessions
+    // and expects both to get a live xterm, not only whichever one happens
+    // to be visible first.
     const ids = ['a', 'b'];
     seedKnownSessions(ids);
     const { result, rerender } = renderHook(
@@ -139,9 +145,9 @@ describe('useMountedSessionIds', () => {
       { initialProps: { visibleId: 'a' } },
     );
 
-    expect(result.current).toEqual(new Set(['a']));
+    expect(result.current).toEqual(new Set(['a', 'b']));
 
-    act(() => rerender({ visibleId: 'b' })); // 'a' goes hidden now
+    act(() => rerender({ visibleId: 'b' })); // 'a' goes hidden now, for real this time
 
     expect(result.current).toEqual(new Set(['a', 'b']));
     expect(useSessionViewHistory.getState().hiddenSince['a']).toBeDefined();

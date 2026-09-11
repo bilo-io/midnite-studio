@@ -190,7 +190,16 @@ export function useMountedSessionIds(
   // This caller's own slice of the shared history: an id neither visible now
   // nor known to THIS host's `sessionIds` has nothing to do with its budget.
   const knownHere = new Set(sessionIds);
-  const scopedRecentOrder = recentOrder.filter((id) => knownHere.has(id));
+  const trackedHere = recentOrder.filter((id) => knownHere.has(id));
+  // A session this host knows about but that has never been individually
+  // visited yet — restored on boot, or opened in the background — has no
+  // recentOrder entry at all rather than a stale one. Without this it would
+  // be silently invisible to the recency walk (never mounted, never
+  // rehydrated) despite never having been hidden for a single millisecond.
+  // Appended after the genuinely-visited ids: real recency still outranks
+  // "merely present" once there are more open sessions than fit the cap.
+  const untrackedHere = sessionIds.filter((id) => id !== visibleId && !trackedHere.includes(id));
+  const scopedRecentOrder = [...trackedHere, ...untrackedHere];
 
   return mountedSessionIds({
     visibleId,
