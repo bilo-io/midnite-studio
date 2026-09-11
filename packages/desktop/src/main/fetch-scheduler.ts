@@ -287,3 +287,21 @@ export function createFetchScheduler(log: Logger): FetchScheduler {
   return scheduler;
 }
 
+/**
+ * The one real instance, built once at boot (`index.ts`) — module-level
+ * functions below mirror `watch-service.ts`'s own free-function shape, so
+ * `repo-handlers.ts` can reconcile both from the same `syncWatchers` call
+ * without threading an instance through.
+ */
+let singleton: FetchScheduler | null = null;
+
+export function initFetchScheduler(log: Logger): FetchScheduler {
+  singleton = createFetchScheduler(log);
+  return singleton;
+}
+
+/** Bring the scheduler's repo set in line with the registry — mirrors `reconcileWatchers`. */
+export function reconcileFetchScheduler(repos: readonly { id: string; path: string }[]): void {
+  singleton?.reconcile(repos);
+}
+
