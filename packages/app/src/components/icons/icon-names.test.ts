@@ -64,7 +64,8 @@ const SETS = [
   // Phosphor: `metric-icons.ts`'s footer glyphs and the Optimizer's broom.
   ['pi', 'Pi', Pi, 1],
   // Simple Icons: `AGENT_ICONS`' brand marks (Cline, Cursor, GitHub Copilot,
-  // Gemini, ...) plus the apps rail's three (Phase 83 Theme C).
+  // Gemini, ...) and the browser's new-tab shortcut tiles. The apps rail's
+  // own three marks moved to local SVG components (see `APP_ICON`'s note).
   ['si', 'Si', Si, 8],
 ] as const;
 

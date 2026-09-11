@@ -5,13 +5,10 @@ import {
   SiCline,
   SiCursor,
   SiGithubcopilot,
-  SiGooglecalendar,
   SiGooglegemini,
   SiMistralai,
   SiOllama,
   SiOpencode,
-  SiSpotify,
-  SiYoutube,
 } from 'react-icons/si';
 
 import type { IconComponent } from '../icon-button';
@@ -19,8 +16,11 @@ import { AiderIcon } from './aider-icon';
 import { AntigravityIcon } from './antigravity-icon';
 import { ClaudeIcon } from './claude-icon';
 import { CodexIcon } from './codex-icon';
+import { GoogleCalendarIcon } from './google-calendar-icon';
 import { KiloIcon } from './kilo-icon';
 import { OpenClaudeIcon } from './openclaude-icon';
+import { SpotifyIcon } from './spotify-icon';
+import { YoutubeIcon } from './youtube-icon';
 
 /**
  * The one place an agent's `icon` key turns into a mark.
@@ -116,9 +116,11 @@ export {
 };
 
 /**
- * The third-party apps rail's own brand marks (Phase 83 Theme C) — the same
- * curated-allow-list convention as `REACT_ICONS` above, one named import per
- * mark rather than the `react-icons/si` root barrel. A separate map from
+ * The third-party apps rail's own brand marks (Phase 83 Theme C). Originally
+ * `react-icons/si`'s monochrome `SiSpotify`/`SiGooglecalendar`/`SiYoutube`
+ * placeholders; now the real multi-colour marks as local SVG components,
+ * following the same pattern as `ClaudeIcon`/`CodexIcon`/`AntigravityIcon` —
+ * see each icon's own file for its provenance note. A separate map from
  * `AGENT_ICONS`: these three key by `AppId`, not by an agent's roster key, and
  * mixing the two domains into one lookup would make `resolveAgentIcon`'s
  * fallback rule ("an unrecognised key becomes `LuTerminal`") apply to app ids
@@ -126,7 +128,7 @@ export {
  * ids are a closed, exhaustively-typed union, never user text.
  */
 export const APP_ICON: Readonly<Record<AppId, IconComponent>> = {
-  spotify: SiSpotify,
-  'google-calendar': SiGooglecalendar,
-  youtube: SiYoutube,
+  spotify: SpotifyIcon,
+  'google-calendar': GoogleCalendarIcon,
+  youtube: YoutubeIcon,
 };
