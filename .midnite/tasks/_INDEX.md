@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 42/68 | `██████░░░░` | 62% | K | J |
+| [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 42/68 | `██████░░░░` | 62% | J K | — |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | ✅ DONE | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
 | [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 46/75 | `██████░░░░` | 61% | — | C D F G |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | ✅ DONE | — | 50/53 | `█████████░` | 94% | — | — |
