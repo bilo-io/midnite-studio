@@ -35,6 +35,7 @@ export const PREFERENCE_KEYS = [
   'allowSystemCacheClean', // optimizer-settings-page.tsx
   'allowTrashEmpty', // trash-safety-page.tsx
   'apiClientRequestTimeoutS', // api-client-page.tsx
+  'autoFetchEnabled', // sidebar-page.tsx
   'autoFetchIntervalMs', // sidebar-page.tsx
   'blockedByFieldName', // projects-page.tsx
   'browserDiscardMs', // browser-page.tsx

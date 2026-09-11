@@ -32,6 +32,7 @@ export * from './system-optimizer';
 export * from './tests';
 export * from './trash';
 export * from './view';
+export * from './sync-status';
 export * from './watch';
 export * from './battery';
 export * from './session-history';

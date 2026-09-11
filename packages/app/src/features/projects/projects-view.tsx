@@ -43,6 +43,7 @@ import { useGraphAgentStates } from './graph/use-graph-agent-states';
 import { ProjectGraphView } from './graph/project-graph-view';
 import { nextSortState, sortItems, type SortState } from './sort';
 import { useForgeProjectFields, useForgeProjectItems, useForgeProjects } from '../../services/queries';
+import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { useActiveWorktree } from '../../services/use-status';
 import { DEFAULT_PROJECT_VIEW, useUiStore } from '../../store/ui-store';
 import { PageDetachMark } from '../../components/page-detach-mark';
@@ -99,6 +100,10 @@ export function ProjectsView() {
   // forge read's `enabled` gate — see the phase doc's own acceptance test.
   const projects = useForgeProjects(repoId, true);
   const boards = projects.data?.projects ?? [];
+  // Phase 84 Theme C: main's forge poller pings the board list — items/fields
+  // are per-board rather than per-repo (see `queries.ts`'s own key comment)
+  // and are not narrowed by this subscription.
+  useForgeSubscription(repoId, 'projects');
 
   const selectedProjectId = repoId !== null ? (boardByRepo[repoId] ?? null) : null;
   // One subscription for the whole canvas (Theme F) — a hook, so it is

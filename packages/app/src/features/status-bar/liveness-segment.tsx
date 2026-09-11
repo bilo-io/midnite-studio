@@ -62,7 +62,12 @@ export function LivenessSegment() {
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const lastWatchAt = useLivenessStore((s) => s.lastWatchAt);
   const watcherError = useLivenessStore((s) => s.watcherError);
-  const status = computeLivenessStatus({ lastWatchAt, watcherError }, selectedRepoId !== null);
+  const fetchStatus = useLivenessStore((s) => s.fetchStatus);
+  const forgeStatus = useLivenessStore((s) => s.forgeStatus);
+  const status = computeLivenessStatus(
+    { lastWatchAt, watcherError, fetchStatus, forgeStatus },
+    selectedRepoId !== null,
+  );
   const windows = useWindowList();
   const thisRole = bridge()?.windowRole ?? null;
   const queryClient = useQueryClient();

@@ -18,7 +18,7 @@ import {
   type NavLinkComponent,
 } from '@bilo-io/shell';
 import { pickForgeRemote } from '@midnite/studio-shared';
-import { QueryClient, useQueryClient } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
 import type { IconType } from 'react-icons';
 import { CiPower } from 'react-icons/ci';
 import { LuChevronLeft, LuSettings } from 'react-icons/lu';
@@ -100,9 +100,10 @@ import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { useLivenessTracking } from './services/use-liveness-tracking';
-import { keys, useRemotes, useRepos } from './services/queries';
+import { useRemotes, useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useReportWindowRepo } from './services/use-report-window-repo';
+import { useSettingsSync } from './services/use-settings-sync';
 import { useWindowSync } from './services/use-window-sync';
 import { useTestsStream } from './features/tests/use-tests-stream';
 import { usePaletteSync } from './features/themes/use-palette-sync';
@@ -409,55 +410,6 @@ function useForgeGateAvailable(repoId: string | null): boolean {
 }
 
 /**
- * Background fetch, paused while nobody is looking (Phase 36 E).
- *
- * Every tick spawns one `git fetch` per open repo, so a hidden window with
- * several repos open was doing real network and disk work — and the answer it
- * produced could not be seen. Hidden ticks are skipped; on return, a catch-up
- * fetch runs immediately if a full interval has elapsed, so the data on screen
- * is never staler than the always-on version would have made it.
- */
-function useAutoFetch() {
-  const autoFetchIntervalMs = useUiStore((s) => s.autoFetchIntervalMs);
-  const { data: repos } = useRepos();
-  const client = useQueryClient();
-  const lastFetchAt = useRef<number>(Date.now());
-
-  useEffect(() => {
-    if (!autoFetchIntervalMs || autoFetchIntervalMs < 10000 || !repos || repos.length === 0) return;
-
-    const runFetch = () => {
-      const api = bridge();
-      if (!api) return;
-      lastFetchAt.current = Date.now();
-      Promise.all(repos.map((repo) => api.ops.fetch({ repoId: repo.id, worktreePath: repo.path })))
-        .then(() =>
-          Promise.all(
-            repos.map((repo) => client.invalidateQueries({ queryKey: keys.repo(repo.id) })),
-          ),
-        )
-        .catch(() => {});
-    };
-
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'hidden') return;
-      runFetch();
-    }, autoFetchIntervalMs);
-
-    const onVisible = () => {
-      if (document.visibilityState === 'hidden') return;
-      if (Date.now() - lastFetchAt.current >= autoFetchIntervalMs) runFetch();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [autoFetchIntervalMs, repos, client]);
-}
-
-/**
  * Locks the nav rail open, or hands it back to hover.
  *
  * The two modes differ in more than persistence: `auto` hover-expands as an
@@ -630,7 +582,9 @@ function Shell() {
   // broadcast — see the hook's own doc.
   useLivenessTracking(useUiStore((s) => s.selectedRepoId));
   useTestsStream();
-  useAutoFetch();
+  // Auto-fetch itself runs in main now (Phase 84 Theme B); this only keeps
+  // main's mirror of the setting current.
+  useSettingsSync();
 
   // Every shortcut, every native menu item and (Theme C+) the palette dispatch
   // through this one runtime, keyed by CommandId — see use-command-handlers.ts.

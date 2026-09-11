@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { TestPackage, TestRunResult } from '@midnite/studio-shared';
+import type { SyncStatusEvent, TestPackage, TestRunResult } from '@midnite/studio-shared';
 
 /**
  * A stand-in for the preload bridge, installed before any app code runs.
@@ -1051,6 +1051,10 @@ export function buildMockBridge(data: MockFixtures) {
   const appsDisableCalls: string[] = [];
   const appsActivateCalls: (string | null)[] = [];
 
+  /** Every `settings.sync` push, in order (Phase 84 Theme B.4) — `use-settings-sync.ts` fires one on mount and on every change. */
+  const settingsSyncCalls: Array<{ autoFetchEnabled: boolean; autoFetchIntervalMs: number }> = [];
+  const syncStatusHandlers: ((e: unknown) => void)[] = [];
+
   const bridge = {
     /*
         `/tmp` so the fixture repo at `/tmp/midnite-studio` sits inside "home" and
@@ -1257,7 +1261,8 @@ export function buildMockBridge(data: MockFixtures) {
         The protocol allow-list itself is enforced in main and unit-tested there;
         what this can show is that the renderer only ever asks for https URLs.
       */
-    forge: slowed({
+    forge: {
+      ...slowed({
       cliStatus: async () => forgeCli(),
       runs: async () => ({ cli: forgeCli(), runs: data.forge?.runs ?? [], error: forgeError() }),
       pulls: async (req: { repoId?: string; scope?: 'all' | 'mine' | 'review-requested' }) => ({
@@ -1517,7 +1522,17 @@ export function buildMockBridge(data: MockFixtures) {
         recordWrite('issueSetState', req);
         return writeResult(writeError() === null);
       },
-    }),
+      }),
+      // Phase 84 Theme C — interest-based polling. One-way `send`s, not
+      // `invoke`s, so left outside `slowed()`'s async-wrapping (which would
+      // otherwise turn `onChanged`'s return value into a Promise, breaking a
+      // caller that expects the plain `Unsubscribe` function back
+      // synchronously — the same reason `watch.onEvent` below is `unsubscribe`
+      // itself rather than `slowed`-wrapped).
+      subscribe: noop,
+      unsubscribe: noop,
+      onChanged: unsubscribe,
+    },
     /*
         ProjectV2 (Phase 40 Theme G), its own IPC namespace in the real
         bridge and kept that way here too. `list`/`items` share one
@@ -2770,6 +2785,17 @@ export function buildMockBridge(data: MockFixtures) {
     },
     watch: { onEvent: unsubscribe },
     menu: { onCommand: unsubscribe },
+    settings: {
+      sync: (req: { autoFetchEnabled: boolean; autoFetchIntervalMs: number }) => {
+        settingsSyncCalls.push(req);
+      },
+    },
+    sync: {
+      onStatus: (handler: (e: SyncStatusEvent) => void) => {
+        syncStatusHandlers.push(handler as (e: unknown) => void);
+        return () => syncStatusHandlers.splice(syncStatusHandlers.indexOf(handler as (e: unknown) => void), 1);
+      },
+    },
     window: {
       minimize: noop,
       toggleMaximize: noop,
@@ -4152,6 +4178,14 @@ export function buildMockBridge(data: MockFixtures) {
   (window as unknown as { __mstudioAppsActivateCalls: unknown }).__mstudioAppsActivateCalls = () => [
     ...appsActivateCalls,
   ];
+  (window as unknown as { __mstudioSettingsSyncCalls: unknown }).__mstudioSettingsSyncCalls = () => [
+    ...settingsSyncCalls,
+  ];
+  (window as unknown as { __mstudioEmitSyncStatus: unknown }).__mstudioEmitSyncStatus = (
+    event: SyncStatusEvent,
+  ) => {
+    for (const handler of [...syncStatusHandlers]) handler(event);
+  };
   /*
       A getter, not the array: `loopRuns` is REASSIGNED on every start and
       stop (the ledger is immutable-updated the way main's is), so a spec

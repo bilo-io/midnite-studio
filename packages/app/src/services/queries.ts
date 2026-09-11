@@ -24,6 +24,7 @@ import type {
   ForgeRunDetailResult,
   ForgeRunLogResult,
   ForgeRunsResult,
+  ForgeSubscriptionKind,
   ForgeWorkflowsResult,
   ForgeWriteResult,
   Ref,
@@ -598,6 +599,46 @@ export function useSchemaTree(connectionId: string | null, enabled: boolean) {
     enabled: enabled && connectionId !== null,
     staleTime: DB_SCHEMA_STALE_MS,
   });
+}
+
+/**
+ * Invalidate every query nested under one forge kind's prefix — the reaction
+ * to a `forgeChanged` ping (Phase 84 Theme C.5/C.6): a poll cannot know which
+ * item is open, so it invalidates the listing plus every detail/comments/log
+ * key nested under it (`forgeRunDetail`, `forgePullComments`, …), and lets
+ * React Query's own "only active queries actually refetch" rule limit the
+ * real cost to whatever pane is actually open. `pull-files` (the diff) is
+ * deliberately left out — it stays uncached, as it always has been (see
+ * `useForgePullFiles`) — and `forge-project` fields/items are not repo-scoped
+ * at all (`forgeProjectFields`/`forgeProjectItems`), so a repo-scoped ping
+ * only ever touches the board list.
+ */
+export function invalidateForgeKind(
+  client: QueryClient,
+  repoId: string,
+  kind: ForgeSubscriptionKind,
+): void {
+  switch (kind) {
+    case 'runs':
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'runs'] });
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'run-detail'] });
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'run-log'] });
+      return;
+    case 'pulls':
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'pulls'] });
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'pull-detail'] });
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'pull-comments'] });
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'pull-threads'] });
+      return;
+    case 'issues':
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'issues'] });
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'issue-detail'] });
+      void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'issue-comments'] });
+      return;
+    case 'projects':
+      void client.invalidateQueries({ queryKey: keys.forgeProjects(repoId) });
+      return;
+  }
 }
 
 /** Whether `gh` is installed and signed in. Machine state, so not repo-keyed. */

@@ -77,6 +77,10 @@ import {
 } from './terminal-service';
 import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
+import { initFetchScheduler, reconcileFetchScheduler } from './fetch-scheduler';
+import { createForgePoller } from './forge/forge-poller';
+import { registerForgePollHandlers } from './ipc/forge-poll-handlers';
+import { registerSettingsHandlers } from './ipc/settings-handlers';
 import { createConnectionsStore } from './db/connections-store';
 import { createCredentialVault } from './db/credential-vault';
 import { createTrustStore } from './diagnostics/trust-store';
@@ -344,6 +348,15 @@ if (!app.requestSingleInstanceLock()) {
     registerClipboardHandlers();
     registerForgeHandlers();
     registerForgeProjectHandlers();
+    // Phase 84 Themes B/C: auto-fetch and forge polling both move to main,
+    // one instance for the whole process regardless of how many windows are
+    // open. `initFetchScheduler` is reconciled below alongside the watchers;
+    // the forge poller needs no such reconciliation — it is entirely
+    // subscription-driven (`registerForgePollHandlers`), so a repo closing
+    // just means its views unmount and unsubscribe on their own.
+    initFetchScheduler(defaultLogger);
+    registerForgePollHandlers(createForgePoller(defaultLogger));
+    registerSettingsHandlers();
     registerDiagHandlers();
     registerSessionsHandlers();
     registerDbHandlers(getMainWindow);
@@ -684,6 +697,7 @@ if (!app.requestSingleInstanceLock()) {
     // Watch what was restored. After this the handlers reconcile on every
     // open/close, so there is exactly one place that starts a watcher at boot.
     await reconcileWatchers((await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })));
+    reconcileFetchScheduler((await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })));
 
     // macOS: clicking the dock icon with no windows open reopens one.
     app.on('activate', () => {

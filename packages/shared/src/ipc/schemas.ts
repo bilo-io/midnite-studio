@@ -71,6 +71,10 @@ import {
   ForgeRunsResultSchema,
   ForgeWorkflowsResultSchema,
   ForgeWriteResultSchema,
+  ForgeSubscriptionKindSchema,
+  ForgeChangedEventSchema,
+  SyncStatusEventSchema,
+  SettingsSyncPayloadSchema,
   GitOpResultOf,
   GitOpResultSchema,
   GraphRowSchema,
@@ -598,6 +602,18 @@ export const ForgeRunLogResponse = ForgeRunLogResultSchema;
 
 export const ForgeWorkflowsRequest = RepoId;
 export const ForgeWorkflowsResponse = ForgeWorkflowsResultSchema;
+
+// --- forge polling (Phase 84 Theme C) ---------------------------------------
+
+export const ForgeSubscribeRequest = z.object({
+  repoId: z.string().min(1),
+  kind: ForgeSubscriptionKindSchema,
+});
+export const ForgeUnsubscribeRequest = z.object({
+  repoId: z.string().min(1),
+  kind: ForgeSubscriptionKindSchema,
+});
+export const ForgeChangedEventPayload = ForgeChangedEventSchema;
 
 /**
  * A pull-request number.
@@ -1992,6 +2008,11 @@ export const RebaseStatusResponse = RebaseStatusStateSchema;
 export type RebaseStatusState = z.infer<typeof RebaseStatusStateSchema>;
 
 export const WatchEventPayload = WatchEventSchema;
+
+/** Renderer → main, one-way (Phase 84 Theme B.4) — see `CHANNELS.settingsSync`. */
+export const SettingsSyncRequest = SettingsSyncPayloadSchema;
+/** Main → renderer, one-way (Phase 84 Themes B/C) — see `CHANNELS.syncStatus`. */
+export const SyncStatusEventPayload = SyncStatusEventSchema;
 
 export type LogBatchEventPayload = z.infer<typeof LogBatchEvent>;
 export type LogDoneEventPayload = z.infer<typeof LogDoneEvent>;

@@ -730,6 +730,12 @@ describe('forge schemas', () => {
       forgeProjectSetField: ['ForgeProjectSetFieldRequest', 'ForgeProjectSetFieldResponse'],
       forgeProjectAddItem: ['ForgeProjectAddItemRequest', 'ForgeProjectAddItemResponse'],
       forgeProjectClearField: ['ForgeProjectClearFieldRequest', 'ForgeProjectClearFieldResponse'],
+      // Phase 84 Theme C — interest-based polling. `onChanged` carries no
+      // request schema of its own (it is `EVENT_CHANNELS.forgeChanged`, swept
+      // by the dedicated describe block below), so only the two subscribe
+      // verbs are covered here.
+      forgeSubscribe: ['ForgeSubscribeRequest'],
+      forgeUnsubscribe: ['ForgeUnsubscribeRequest'],
     };
     const channelKeys = Object.keys(CHANNELS).filter((key) => key.startsWith('forge'));
     expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
@@ -863,6 +869,22 @@ describe('window contract (Phase 55)', () => {
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
       key.startsWith('window'),
     );
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+    for (const names of Object.values(expected)) {
+      for (const name of names) expect(schemas).toHaveProperty(name);
+    }
+  });
+
+  it('covers the Phase 84 Theme B/C settings-sync and sync-status channels with a schema', () => {
+    const expected: Record<string, string[]> = {
+      settingsSync: ['SettingsSyncRequest'],
+      syncStatus: ['SyncStatusEventPayload'],
+      forgeChanged: ['ForgeChangedEventPayload'],
+    };
+    const channelKeys = [
+      ...Object.keys(CHANNELS).filter((key) => key === 'settingsSync'),
+      ...Object.keys(EVENT_CHANNELS).filter((key) => key === 'syncStatus' || key === 'forgeChanged'),
+    ];
     expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
     for (const names of Object.values(expected)) {
       for (const name of names) expect(schemas).toHaveProperty(name);

@@ -4,6 +4,7 @@ import type {
   ApiRunDoneEvent,
   ApiRunEvent,
   ConnectionConfig,
+  ForgeChangedEvent,
   GitOpResult,
   GraphRow,
   MetricSample,
@@ -16,6 +17,7 @@ import type {
   StashEntry,
   StatusCounts,
   StatusResult,
+  SyncStatusEvent,
   WatchEvent,
   WindowDescriptor,
   WindowRole,
@@ -320,6 +322,19 @@ export type MidniteStudioBridge = {
     issueSetState: (
       req: In<typeof S.ForgeIssueSetStateRequest>,
     ) => Promise<z.infer<typeof S.ForgeIssueSetStateResponse>>;
+
+    /*
+      Interest-based polling (Phase 84 Theme C). One-way, mirroring
+      `pty.subscribe`/`pty.unsubscribe`: the renderer learns of a change from
+      `onChanged`, not a return value, and a window's subscriptions are
+      dropped automatically when it closes — see `forge-poller.ts`.
+    */
+    /** Register this window's interest in one `{repoId, kind}` listing. */
+    subscribe: (req: In<typeof S.ForgeSubscribeRequest>) => void;
+    /** Drop it. Also implied by the window closing. */
+    unsubscribe: (req: In<typeof S.ForgeUnsubscribeRequest>) => void;
+    /** A poll changed something for `{repoId, kind}` — re-fetch, never a payload. */
+    onChanged: (handler: (e: ForgeChangedEvent) => void) => Unsubscribe;
   };
 
   /**
@@ -904,6 +919,25 @@ export type MidniteStudioBridge = {
 
   watch: {
     onEvent: (handler: (e: WatchEvent) => void) => Unsubscribe;
+  };
+
+  /**
+   * The renderer-owned settings main needs to run its own timers (Phase 84
+   * Theme B.4) — currently just auto-fetch. `ui-store` stays the sole owner;
+   * this is a one-way mirror, fire-and-forget like `workflow.setDefaults`.
+   */
+  settings: {
+    /** Push the current snapshot. Called on every change, and once on boot. */
+    sync: (req: In<typeof S.SettingsSyncRequest>) => void;
+  };
+
+  /**
+   * Background sync health (Phase 84 Themes B/C) — one push per repo per
+   * source (`fetch`'s scheduler, `forge`'s poller) whenever a failure starts,
+   * clears, or a backoff window changes. Feeds Theme I's liveness dot.
+   */
+  sync: {
+    onStatus: (handler: (e: SyncStatusEvent) => void) => Unsubscribe;
   };
 
   /** Native menu items dispatch the same CommandIds as the keybinding service. */
