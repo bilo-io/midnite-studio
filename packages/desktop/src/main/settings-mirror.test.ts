@@ -8,7 +8,16 @@ beforeEach(() => {
 
 describe('settings-mirror', () => {
   it('defaults to auto-fetch enabled at 60s before the renderer ever pushes', () => {
-    expect(currentSettings()).toEqual({ autoFetchEnabled: true, autoFetchIntervalMs: 60_000 });
+    expect(currentSettings()).toEqual({
+      autoFetchEnabled: true,
+      autoFetchIntervalMs: 60_000,
+      appDiscardIdle: {
+        spotify: false,
+        'google-calendar': false,
+        youtube: false,
+      },
+      browserDiscardMs: 10 * 60 * 1000,
+    });
   });
 
   it('applySettingsSync replaces the snapshot', () => {

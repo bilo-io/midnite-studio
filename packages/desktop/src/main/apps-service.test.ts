@@ -517,5 +517,13 @@ describe('apps idle discard and wake', () => {
     runAppsDiscardSweep();
     expect(isAppDiscarded('spotify')).toBe(false);
   });
+
+  it('discards an app directly via discardApp', () => {
+    const win = fakeWindow();
+    enableApp(win, 'spotify');
+    expect(isAppDiscarded('spotify')).toBe(false);
+    discardApp('spotify');
+    expect(isAppDiscarded('spotify')).toBe(true);
+  });
 });
 

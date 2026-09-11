@@ -34,6 +34,15 @@ const discardedApps = new Map<AppId, { win: BrowserWindow; bounds?: BrowserBound
 /** The last bounds set for each app — restored when an idle-discarded app wakes up. */
 const lastBounds = new Map<AppId, BrowserBounds>();
 
+/** Which apps are currently marked visible in their window — mirrors setVisible calls. */
+const visibleAppIds = new Set<AppId>();
+
+function markAppVisible(id: AppId, view: WebContentsView, visible: boolean): void {
+  view.setVisible(visible);
+  if (visible) visibleAppIds.add(id);
+  else visibleAppIds.delete(id);
+}
+
 let appsDiscardSweepTimer: ReturnType<typeof setInterval> | null = null;
 
 /** Partitions already configured — one session per app, guarded like `browser-service.ts`'s single one. */
@@ -109,7 +118,7 @@ export function enableApp(win: BrowserWindow, id: AppId): void {
     defaultLogger(`[apps] certificate error, refused: app=${id} url=${url}`);
   });
 
-  view.setVisible(true);
+  markAppVisible(id, view, true);
   void wc.loadURL(definition.launchUrl);
 }
 
@@ -123,6 +132,7 @@ export function disableApp(id: AppId): void {
   discardedApps.delete(id);
   hiddenSince.delete(id);
   lastBounds.delete(id);
+  visibleAppIds.delete(id);
 
   const tracked = apps.get(id);
   if (!tracked) return;
@@ -159,7 +169,7 @@ export function activateApp(win: BrowserWindow, id: AppId | null): void {
   for (const [otherId, tracked] of apps) {
     if (tracked.win === win) {
       const isVisible = id !== null && otherId === id;
-      tracked.view.setVisible(isVisible);
+      markAppVisible(otherId, tracked.view, isVisible);
       if (isVisible) {
         hiddenSince.delete(otherId);
       } else if (!hiddenSince.has(otherId)) {
@@ -192,7 +202,7 @@ export function reparentAppView(id: AppId, next: BrowserWindow, opts?: { visible
     if (!next.isDestroyed()) next.contentView.addChildView(tracked.view);
     apps.set(id, { view: tracked.view, win: next });
   }
-  tracked.view.setVisible(opts?.visible ?? true);
+  markAppVisible(id, tracked.view, opts?.visible ?? true);
 }
 
 /**
@@ -251,6 +261,7 @@ export function discardApp(id: AppId): void {
   discardedApps.set(id, { win: tracked.win, bounds: lastBounds.get(id) });
   apps.delete(id);
   hiddenSince.delete(id);
+  visibleAppIds.delete(id);
   if (!tracked.win.isDestroyed()) tracked.win.contentView.removeChildView(tracked.view);
   if (!tracked.view.webContents.isDestroyed()) {
     tracked.view.webContents.removeAllListeners();
@@ -272,7 +283,7 @@ export function runAppsDiscardSweep(): void {
   for (const [id, tracked] of apps) {
     const { win, view } = tracked;
     if (win.isDestroyed() || view.webContents.isDestroyed()) continue;
-    const effectiveVisible = view.isVisible() && win.isVisible() && !win.isMinimized();
+    const effectiveVisible = visibleAppIds.has(id) && win.isVisible() && !win.isMinimized();
 
     if (effectiveVisible) {
       hiddenSince.delete(id);
@@ -323,6 +334,7 @@ export function resetAppsServiceForTests(): void {
   hiddenSince.clear();
   discardedApps.clear();
   lastBounds.clear();
+  visibleAppIds.clear();
   stopAppsDiscardSweep();
 }
 
