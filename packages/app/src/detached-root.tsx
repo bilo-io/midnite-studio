@@ -23,6 +23,7 @@ import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { useRepos } from './services/queries';
+import { useReportWindowRepo } from './services/use-report-window-repo';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { primaryTarget } from './features/repos/use-repo-actions';
 import { useAppearanceSync } from './store/appearance-store';
@@ -180,6 +181,9 @@ function DetachedShell({ role }: { role: Exclude<WindowRole, 'main'> }) {
     `ui-store`'s persisted state and `useBroadcastSync`.
   */
   useCompanionEnabledSync();
+  // Tells main which repo THIS popout is showing (Phase 84 Theme D.1) — same
+  // hook `app.tsx` mounts for the main window.
+  useReportWindowRepo();
   /*
     Phase 84 Theme A: the fix for "I have to reload the other window". Main
     fans `watchEvent` out to every window (`broadcastToAllWindows`), but until

@@ -100,6 +100,7 @@ import { useCommandHandlers } from './services/keybindings/use-command-handlers'
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { keys, useRemotes, useRepos } from './services/queries';
 import { useWatchInvalidation } from './services/watch-invalidation';
+import { useReportWindowRepo } from './services/use-report-window-repo';
 import { useWindowSync } from './services/use-window-sync';
 import { useTestsStream } from './features/tests/use-tests-stream';
 import { usePaletteSync } from './features/themes/use-palette-sync';
@@ -537,6 +538,9 @@ function Shell() {
   // The single source of truth for the four flags above is main's own
   // window registry (Phase 55) — see the hook's own doc for why.
   useWindowSync();
+  // Tells main which repo THIS window is showing (Phase 84 Theme D.1) — see
+  // the hook's own doc.
+  useReportWindowRepo();
   // Reconciles `enabledApps` against main's apps-service on mount and on
   // every change (Phase 83 Theme C) — see the hook's own doc.
   useAppsSync();

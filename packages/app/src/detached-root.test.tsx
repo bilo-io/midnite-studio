@@ -58,6 +58,7 @@ function installBridge(): void {
       relay: vi.fn(),
       onRelayed: vi.fn(() => () => {}),
       dock: vi.fn(),
+      reportRepo: vi.fn(),
     } as unknown as MidniteStudioBridge['window'],
   };
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = bridge;
