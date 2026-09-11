@@ -4,11 +4,16 @@ import {
   activateApp,
   destroyAllApps,
   disableApp,
+  discardApp,
   enableApp,
+  isAppDiscarded,
+  isAppDiscardEligible,
   reparentAppView,
   resetAppsServiceForTests,
+  runAppsDiscardSweep,
   setAppBounds,
 } from './apps-service';
+import { applySettingsSync, resetSettingsMirrorForTests } from './settings-mirror';
 
 /**
  * `apps-service.ts` is the second file (after `browser-service.ts`) to
@@ -38,6 +43,7 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     close = vi.fn(() => {
       this.destroyed = true;
     });
+    isCurrentlyAudible = vi.fn(() => false);
   }
 
   class FakeWebContentsView {
@@ -51,6 +57,7 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     setVisible = vi.fn((v: boolean) => {
       this.visible = v;
     });
+    isVisible = vi.fn(() => this.visible);
     setBounds = vi.fn((b: unknown) => {
       this.bounds = b;
     });
@@ -94,6 +101,8 @@ type FakeView = InstanceType<typeof FakeWebContentsView>;
 function fakeWindow() {
   const win = {
     isDestroyed: () => false,
+    isVisible: vi.fn(() => true),
+    isMinimized: vi.fn(() => false),
     contentView: { addChildView: vi.fn(), removeChildView: vi.fn() },
     webContents: { getZoomFactor: vi.fn(() => 1) } as unknown,
   };
@@ -103,6 +112,7 @@ function fakeWindow() {
 describe('apps-service lifecycle', () => {
   beforeEach(() => {
     resetAppsServiceForTests();
+    resetSettingsMirrorForTests();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
@@ -408,3 +418,104 @@ describe('apps-service reparenting (Theme D)', () => {
     expect(() => reparentAppView('spotify', win)).not.toThrow();
   });
 });
+
+describe('isAppDiscardEligible', () => {
+  const base = {
+    effectiveVisible: false,
+    audible: false,
+    discardOptIn: true,
+    hiddenSinceMs: 1_000,
+    now: 1_000 + 600_000, // exactly 10 min
+    discardMs: 600_000,
+  };
+
+  it('eligible when opted-in, hidden past threshold, not audible, and not visible', () => {
+    expect(isAppDiscardEligible(base)).toBe(true);
+  });
+
+  it('excluded by default when discardOptIn is false (Phase 84 Theme F.4)', () => {
+    expect(isAppDiscardEligible({ ...base, discardOptIn: false })).toBe(false);
+  });
+
+  it('never discards when effectively visible', () => {
+    expect(isAppDiscardEligible({ ...base, effectiveVisible: true })).toBe(false);
+  });
+
+  it('never discards when audible (e.g. background music playing)', () => {
+    expect(isAppDiscardEligible({ ...base, audible: true })).toBe(false);
+  });
+
+  it('never discards when threshold is 0 (disabled)', () => {
+    expect(isAppDiscardEligible({ ...base, discardMs: 0 })).toBe(false);
+  });
+
+  it('never discards when hidden duration has not yet reached threshold', () => {
+    expect(isAppDiscardEligible({ ...base, now: base.hiddenSinceMs + 300_000 })).toBe(false);
+  });
+});
+
+describe('apps idle discard and wake', () => {
+  it('discards an idle app past threshold when opted in, and restores it on activate', () => {
+    const win = fakeWindow();
+    applySettingsSync({
+      autoFetchEnabled: true,
+      autoFetchIntervalMs: 60_000,
+      appDiscardIdle: { spotify: true, 'google-calendar': false, youtube: false },
+      browserDiscardMs: 100, // 100ms for test
+    });
+
+    enableApp(win, 'spotify');
+    setAppBounds('spotify', { x: 10, y: 20, width: 300, height: 400 });
+
+    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+
+    // Initially active in flyout
+    activateApp(win, 'spotify');
+    expect(isAppDiscarded('spotify')).toBe(false);
+
+    // Close flyout (id: null) -> app becomes hidden
+    activateApp(win, null);
+    expect(view.visible).toBe(false);
+
+    // Advance time past threshold
+    const now = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(now + 200);
+
+    runAppsDiscardSweep();
+
+    // App is now discarded to free memory
+    expect(isAppDiscarded('spotify')).toBe(true);
+    expect(win.contentView.removeChildView).toHaveBeenCalledWith(view);
+    expect(view.webContents.close).toHaveBeenCalled();
+
+    // Next time user clicks the rail toggle / activates Spotify
+    activateApp(win, 'spotify');
+    expect(isAppDiscarded('spotify')).toBe(false);
+    expect(win.contentView.addChildView).toHaveBeenCalledTimes(2);
+
+    const recreatedView = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+      .calls[1]?.[0] as FakeView;
+    expect(recreatedView.visible).toBe(true);
+    expect(recreatedView.bounds).toEqual({ x: 10, y: 20, width: 300, height: 400 });
+  });
+
+  it('does not discard an app that has NOT opted into idle discard', () => {
+    const win = fakeWindow();
+    applySettingsSync({
+      autoFetchEnabled: true,
+      autoFetchIntervalMs: 60_000,
+      appDiscardIdle: { spotify: false, 'google-calendar': false, youtube: false },
+      browserDiscardMs: 100,
+    });
+
+    enableApp(win, 'spotify');
+    activateApp(win, null);
+
+    const now = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(now + 200);
+
+    runAppsDiscardSweep();
+    expect(isAppDiscarded('spotify')).toBe(false);
+  });
+});
+

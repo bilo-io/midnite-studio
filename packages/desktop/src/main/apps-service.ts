@@ -4,6 +4,7 @@ import { APP_DEFINITIONS, type AppId, type BrowserBounds } from '@midnite/studio
 
 import { cancelDownload, checkNavigationUrl, denyAllPermissions } from './browser-security';
 import { defaultLogger } from './log';
+import { currentSettings } from './settings-mirror';
 
 /**
  * The main-process half of the third-party apps rail (Phase 83 Themes A/B).
@@ -23,6 +24,17 @@ import { defaultLogger } from './log';
 type Tracked = { view: WebContentsView; win: BrowserWindow };
 
 const apps = new Map<AppId, Tracked>();
+
+/** Timestamps when each app became hidden in its window or window minimized. */
+const hiddenSince = new Map<AppId, number>();
+
+/** Apps whose WebContentsView was torn down to free memory while idle (Phase 84 Theme F.4). */
+const discardedApps = new Map<AppId, { win: BrowserWindow; bounds?: BrowserBounds }>();
+
+/** The last bounds set for each app — restored when an idle-discarded app wakes up. */
+const lastBounds = new Map<AppId, BrowserBounds>();
+
+let appsDiscardSweepTimer: ReturnType<typeof setInterval> | null = null;
 
 /** Partitions already configured — one session per app, guarded like `browser-service.ts`'s single one. */
 const securedPartitions = new Set<string>();
@@ -53,6 +65,7 @@ function ensureAppSessionConfigured(id: AppId): void {
  */
 export function enableApp(win: BrowserWindow, id: AppId): void {
   ensureAppSessionConfigured(id);
+  discardedApps.delete(id);
   if (apps.has(id)) return;
 
   const definition = APP_DEFINITIONS[id];
@@ -107,6 +120,10 @@ export function enableApp(win: BrowserWindow, id: AppId): void {
  * lifetime, so re-enabling later restores the same session.
  */
 export function disableApp(id: AppId): void {
+  discardedApps.delete(id);
+  hiddenSince.delete(id);
+  lastBounds.delete(id);
+
   const tracked = apps.get(id);
   if (!tracked) return;
   apps.delete(id);
@@ -131,8 +148,24 @@ export function disableApp(id: AppId): void {
  * own to read a window out of.
  */
 export function activateApp(win: BrowserWindow, id: AppId | null): void {
+  if (id !== null && discardedApps.has(id)) {
+    const saved = discardedApps.get(id);
+    discardedApps.delete(id);
+    enableApp(win, id);
+    if (saved?.bounds) setAppBounds(id, saved.bounds);
+  }
+
+  const now = Date.now();
   for (const [otherId, tracked] of apps) {
-    if (tracked.win === win) tracked.view.setVisible(id !== null && otherId === id);
+    if (tracked.win === win) {
+      const isVisible = id !== null && otherId === id;
+      tracked.view.setVisible(isVisible);
+      if (isVisible) {
+        hiddenSince.delete(otherId);
+      } else if (!hiddenSince.has(otherId)) {
+        hiddenSince.set(otherId, now);
+      }
+    }
   }
 }
 
@@ -169,6 +202,7 @@ export function reparentAppView(id: AppId, next: BrowserWindow, opts?: { visible
  * `electron`, so it has no legal way to read the window's zoom factor.
  */
 export function setAppBounds(id: AppId, bounds: BrowserBounds): void {
+  lastBounds.set(id, bounds);
   const tracked = apps.get(id);
   if (!tracked) return;
   const factor = tracked.win.webContents.getZoomFactor();
@@ -180,8 +214,105 @@ export function setAppBounds(id: AppId, bounds: BrowserBounds): void {
   });
 }
 
+/**
+ * Pure policy for whether a third-party app is eligible for idle discard
+ * (Phase 84 Theme F.4).
+ *
+ * Third-party apps are excluded by default (Spotify playing music in the
+ * background is the canonical case). An app is eligible only if:
+ * 1. The user explicitly opted IN to idle discard for this specific app
+ * 2. It is not effectively visible (not active in its window's flyout, or window hidden/minimized)
+ * 3. It is not currently playing audio (`audible === false`)
+ * 4. The threshold is > 0 and the app has been hidden for at least `discardMs`
+ */
+export function isAppDiscardEligible(input: {
+  effectiveVisible: boolean;
+  audible: boolean;
+  discardOptIn: boolean;
+  hiddenSinceMs: number | undefined;
+  now: number;
+  discardMs: number;
+}): boolean {
+  const { effectiveVisible, audible, discardOptIn, hiddenSinceMs, now, discardMs: threshold } = input;
+  if (!discardOptIn) return false;
+  if (effectiveVisible || audible) return false;
+  if (threshold <= 0) return false;
+  if (hiddenSinceMs === undefined) return false;
+  return now - hiddenSinceMs >= threshold;
+}
+
+/**
+ * Discard an app: tear down its WebContentsView and renderer process while
+ * remembering it was enabled, so the next `activateApp` transparently restores it.
+ */
+export function discardApp(id: AppId): void {
+  const tracked = apps.get(id);
+  if (!tracked) return;
+  discardedApps.set(id, { win: tracked.win, bounds: lastBounds.get(id) });
+  apps.delete(id);
+  hiddenSince.delete(id);
+  if (!tracked.win.isDestroyed()) tracked.win.contentView.removeChildView(tracked.view);
+  if (!tracked.view.webContents.isDestroyed()) {
+    tracked.view.webContents.removeAllListeners();
+    tracked.view.webContents.close();
+  }
+  defaultLogger(`[apps] app discarded to free memory: app=${id}`);
+}
+
+/**
+ * One pass over every enabled app: check if any has aged past the discard
+ * threshold with opt-in enabled.
+ */
+export function runAppsDiscardSweep(): void {
+  const now = Date.now();
+  const settings = currentSettings();
+  const discardMs = settings.browserDiscardMs ?? 10 * 60 * 1000;
+  const optInMap = settings.appDiscardIdle ?? {};
+
+  for (const [id, tracked] of apps) {
+    const { win, view } = tracked;
+    if (win.isDestroyed() || view.webContents.isDestroyed()) continue;
+    const effectiveVisible = view.isVisible() && win.isVisible() && !win.isMinimized();
+
+    if (effectiveVisible) {
+      hiddenSince.delete(id);
+      continue;
+    }
+    if (!hiddenSince.has(id)) hiddenSince.set(id, now);
+
+    const eligible = isAppDiscardEligible({
+      effectiveVisible,
+      audible: view.webContents.isCurrentlyAudible(),
+      discardOptIn: Boolean(optInMap[id]),
+      hiddenSinceMs: hiddenSince.get(id),
+      now,
+      discardMs,
+    });
+    if (eligible) discardApp(id);
+  }
+}
+
+/** Start the periodic idle discard sweep. */
+export function startAppsDiscardSweep(intervalMs = 60_000): void {
+  if (appsDiscardSweepTimer) return;
+  appsDiscardSweepTimer = setInterval(runAppsDiscardSweep, intervalMs);
+  appsDiscardSweepTimer.unref?.();
+}
+
+/** Stop the periodic idle discard sweep. */
+export function stopAppsDiscardSweep(): void {
+  if (appsDiscardSweepTimer) clearInterval(appsDiscardSweepTimer);
+  appsDiscardSweepTimer = null;
+}
+
+/** Query whether an app is currently in a discarded (sleeping) state. */
+export function isAppDiscarded(id: AppId): boolean {
+  return discardedApps.has(id);
+}
+
 /** Window close, `before-quit`: destroy every tracked app view — nothing survives past the process. */
 export function destroyAllApps(): void {
+  stopAppsDiscardSweep();
   for (const [id] of apps) disableApp(id);
 }
 
@@ -189,4 +320,9 @@ export function destroyAllApps(): void {
 export function resetAppsServiceForTests(): void {
   apps.clear();
   securedPartitions.clear();
+  hiddenSince.clear();
+  discardedApps.clear();
+  lastBounds.clear();
+  stopAppsDiscardSweep();
 }
+
