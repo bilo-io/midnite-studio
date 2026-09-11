@@ -1,5 +1,5 @@
 import { LuChevronDown, LuChevronRight, LuFile as FileIcon, LuFolder } from 'react-icons/lu';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import type { ChangedFile, DirNode, FileNode, TreeNode } from './build-change-tree';
 import { formatNumber } from '../lib/format-number';
@@ -33,6 +33,8 @@ export function ChangeTree<T extends ChangedFile>({
   renderActions,
   renderDirActions,
   testId,
+  cascading = false,
+  cascadeStyleFor,
 }: {
   nodes: readonly TreeNode<T>[];
   selection: FileSelection<T>;
@@ -54,17 +56,20 @@ export function ChangeTree<T extends ChangedFile>({
   /** Same slot, one level up — a bulk action over everything under a directory. */
   renderDirActions?: (node: DirNode<T>) => ReactNode;
   testId?: string;
+  cascading?: boolean;
+  cascadeStyleFor?: (index: number) => CSSProperties;
 }) {
   const rowProps = {
     selection,
     ...(renderLeading ? { renderLeading } : {}),
     ...(renderActions ? { renderActions } : {}),
     ...(renderDirActions ? { renderDirActions } : {}),
+    cascadeStyleFor,
   };
 
   return (
     <ul className="py-1" {...(testId ? { 'data-testid': testId } : {})}>
-      {nodes.map((node) =>
+      {nodes.map((node, index) =>
         node.kind === 'dir' ? (
           <DirRow
             key={node.path}
@@ -72,10 +77,20 @@ export function ChangeTree<T extends ChangedFile>({
             depth={0}
             collapsed={collapsed}
             onToggleDir={onToggleDir}
+            cascading={cascading}
+            cascadeStyle={cascadeStyleFor?.(index)}
             {...rowProps}
           />
         ) : (
-          <FileRow key={node.path} node={node} depth={0} showPath={flat} {...rowProps} />
+          <FileRow
+            key={node.path}
+            node={node}
+            depth={0}
+            showPath={flat}
+            cascading={cascading}
+            cascadeStyle={cascadeStyleFor?.(index)}
+            {...rowProps}
+          />
         ),
       )}
     </ul>
@@ -91,6 +106,7 @@ type RowSlots<T extends ChangedFile> = {
   renderLeading?: (node: FileNode<T>) => ReactNode;
   renderActions?: (node: FileNode<T>) => ReactNode;
   renderDirActions?: (node: DirNode<T>) => ReactNode;
+  cascadeStyleFor?: (index: number) => CSSProperties;
 };
 
 function DirRow<T extends ChangedFile>({
@@ -99,12 +115,16 @@ function DirRow<T extends ChangedFile>({
   collapsed,
   onToggleDir,
   renderDirActions,
+  cascading,
+  cascadeStyle,
   ...slots
 }: RowSlots<T> & {
   node: DirNode<T>;
   depth: number;
   collapsed: ReadonlySet<string>;
   onToggleDir: (path: string) => void;
+  cascading?: boolean;
+  cascadeStyle?: CSSProperties;
 }) {
   // Collapsed is the exception set, so a commit opens fully expanded and a
   // directory that appears in a later commit is not silently already closed.
@@ -120,7 +140,12 @@ function DirRow<T extends ChangedFile>({
         own action button (which nested `group`s would, since :hover is true
         on every ancestor of whatever the pointer is actually over).
       */}
-      <div className="group flex items-center pr-2 text-xs text-muted-foreground hover:bg-accent/40">
+      <div
+        className={`group flex items-center pr-2 text-xs text-muted-foreground hover:bg-accent/40 ${
+          cascading ? 'animate-fade-in-up cascade-delay' : ''
+        }`}
+        style={cascadeStyle}
+      >
         <button
           type="button"
           onClick={() => onToggleDir(node.path)}
@@ -151,7 +176,7 @@ function DirRow<T extends ChangedFile>({
 
       {isCollapsed ? null : (
         <ul>
-          {node.children.map((child) =>
+          {node.children.map((child, childIndex) =>
             child.kind === 'dir' ? (
               <DirRow
                 key={child.path}
@@ -160,10 +185,19 @@ function DirRow<T extends ChangedFile>({
                 collapsed={collapsed}
                 onToggleDir={onToggleDir}
                 renderDirActions={renderDirActions}
+                cascading={cascading}
+                cascadeStyle={slots.cascadeStyleFor ? slots.cascadeStyleFor(childIndex) : undefined}
                 {...slots}
               />
             ) : (
-              <FileRow key={child.path} node={child} depth={depth + 1} {...slots} />
+              <FileRow
+                key={child.path}
+                node={child}
+                depth={depth + 1}
+                cascading={cascading}
+                cascadeStyle={slots.cascadeStyleFor ? slots.cascadeStyleFor(childIndex) : undefined}
+                {...slots}
+              />
             ),
           )}
         </ul>
@@ -179,11 +213,15 @@ function FileRow<T extends ChangedFile>({
   showPath = false,
   renderLeading,
   renderActions,
+  cascading,
+  cascadeStyle,
 }: RowSlots<T> & {
   node: FileNode<T>;
   depth: number;
   /** List mode shows the full path; tree mode shows the leaf name. */
   showPath?: boolean;
+  cascading?: boolean;
+  cascadeStyle?: CSSProperties;
 }) {
   const isSelected = node.path === selection.path;
   const actions = renderActions?.(node);
@@ -192,7 +230,8 @@ function FileRow<T extends ChangedFile>({
     <li
       className={`group flex items-center pr-2 text-xs ${
         isSelected ? 'bg-accent text-foreground' : 'hover:bg-accent/40'
-      }`}
+      } ${cascading ? 'animate-fade-in-up cascade-delay' : ''}`}
+      style={cascadeStyle}
     >
       <button
         type="button"

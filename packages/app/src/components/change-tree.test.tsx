@@ -124,6 +124,33 @@ describe('ChangeTree', () => {
     expect(rows[0]?.textContent).toContain('z/huge.lock');
     expect(rows[0]?.textContent).not.toBe('huge.lock');
   });
+
+  it('applies cascade classes and custom properties when cascading is active', () => {
+    const nodes = buildChangeTree([file('src/a.ts'), file('src/b.ts')]);
+    render(
+      <ChangeTree
+        nodes={nodes}
+        selection={{ path: null, onSelect: noop }}
+        collapsed={new Set()}
+        onToggleDir={noop}
+        cascading
+        cascadeStyleFor={(i) => ({ '--i': i }) as React.CSSProperties}
+        testId="tree"
+      />,
+    );
+
+    const tree = screen.getByTestId('tree');
+    // Top-level directory row
+    const dirDiv = tree.querySelector('.group.flex.items-center');
+    expect(dirDiv?.className).toContain('animate-fade-in-up');
+    expect(dirDiv?.className).toContain('cascade-delay');
+    expect(dirDiv?.getAttribute('style')).toContain('--i: 0');
+
+    // Child file row
+    const fileItem = within(tree).getByRole('button', { name: 'src/a.ts' }).closest('li');
+    expect(fileItem?.className).toContain('animate-fade-in-up');
+    expect(fileItem?.className).toContain('cascade-delay');
+  });
 });
 
 describe('ChangeTotals', () => {
