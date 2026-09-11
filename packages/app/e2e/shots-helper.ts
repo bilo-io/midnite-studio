@@ -287,6 +287,32 @@ export async function seedForgeWritesConsent(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Merges fields into `ui-store`'s persisted `midnite-studio.ui` localStorage
+ * key — additively, so this can be combined with another seeding helper
+ * (e.g. {@link seedForgeWritesConsent}) without one clobbering the other's
+ * write. `version: 18` is the current schema (`ui-store.ts`'s own `persist`
+ * config) — a real version rather than an arbitrarily old one skips every
+ * migrate arm in between, which is what the *other* seeding helpers above
+ * rely on instead (their seeded key predates this one and needs the
+ * migration chain to reach the current shape).
+ */
+export async function seedUiState(page: Page, state: Record<string, unknown>): Promise<void> {
+  await page.addInitScript((partial: Record<string, unknown>) => {
+    const raw = window.localStorage.getItem('midnite-studio.ui');
+    const parsed = raw ? (JSON.parse(raw) as { state?: Record<string, unknown> }) : {};
+    window.localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({ state: { ...parsed.state, ...partial }, version: 18 }),
+    );
+  }, state);
+}
+
+/** Seeds `enabledApps` (Phase 83) — see {@link seedUiState}. */
+export async function seedEnabledApps(page: Page, ids: readonly string[]): Promise<void> {
+  await seedUiState(page, { enabledApps: ids });
+}
+
 /* ─── Screenshot Path & Capture Helpers ────────────────────────────────── */
 
 export function shotPath(outDir: string, filename: string): string {

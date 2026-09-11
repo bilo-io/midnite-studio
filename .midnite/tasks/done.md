@@ -11064,3 +11064,63 @@ once. Theme C's flyout should default every app hidden except the one currently 
 disable→enable round trip preserving session data, navigation policy and bounds scaling. The
 icon allow-list test extension and the `MSTUDIO_SHOTS` screenshot spec are deferred to that
 follow-up, since both depend on rail UI this PR does not build.
+
+## 2026-09-11 — Phase 83 Themes C, D, E — Rail, flyout, detach, Settings
+
+[PR #347](https://github.com/bilo-io/midnite-studio/pull/347). The rest of the third-party apps
+rail on top of Theme A/B's foundation — the rail row and flyout UI, per-app detach, and the
+Settings switches.
+
+**Theme C** — `apps-rail-row.tsx` (new, `app.tsx`'s footer slot): all three app icons always
+render, a disabled one inert (`aria-disabled`, no click handler) rather than absent, pointing at
+Settings. `apps-flyout-panel.tsx` (new): a bespoke `absolute` overlay in `app.tsx`'s content row
+— not the generic `Popover`, which anchors to one trigger's rect rather than a fixed rail-edge
+column — with genuine dismiss-on-click-away via its own `pointerdown` listener (`useDismiss` only
+ever answers Escape, which C.3's own wording would have missed). A new `apps.activate` IPC verb
+drives which enabled app is on top; its `id` is nullable rather than a second verb, since hiding
+every app in a window (the flyout closing with nothing else taking its place) is the same
+"exactly one visible view" primitive with one more case, not a different one.
+`components/icons/index.ts` gained `SiSpotify`/`SiGooglecalendar`/`SiYoutube` behind a new
+`APP_ICON` map — the same curated-allow-list convention `AGENT_ICONS` already used;
+`icon-names.test.ts` gained the `si` set entirely (it had none before this phase, despite
+`AGENT_ICONS` already importing eight `Si*` names uncovered).
+
+**Theme D** — `reparentAppView` (new, `apps-service.ts`) mirrors `reparentBrowserTabs` but
+per-app-id, since each app owns its own literal window role rather than the browser's one shared
+role. Wired into `window-handlers.ts`'s detach/dock and `window-manager.ts`'s "closed by its own
+traffic light re-docks" path, exactly where the browser's own `reparentBrowserTabs` calls already
+sit. Re-docking always hides the view (`visible: false`) rather than showing it — the main
+window's flyout may already have a different app active, and a popout closing must never steal
+its spot. `detached-root.tsx`'s placeholder `null` branch now renders the real `AppPane` (a new
+shared host-div component, also used by the flyout). **`DetachedWindowFrame` needed zero
+changes**: it was already generic over any non-merged, non-page role — its existing fallback
+draws "Re-dock {title}" → `window.dock` for anything that isn't `terminal`/`repos`/`browser`/
+`graph` (merged headers) or a page role, which the three `apps-*` roles already satisfied without
+being added to either list.
+
+**Theme E** — a new dedicated "Apps" settings page (`apps-page.tsx`), per the phase doc's own
+recommendation over folding into an existing page. `use-apps-sync.ts` (new) reconciles
+`enabledApps` against main's `apps-service.ts` on mount and on change — the wiring Theme B's own
+doc note left for this follow-up. This is what let `enabledApps` leave `persisted-keys.ts`'s
+`KNOWN_ORPHANS` allow-list and its `outstanding.md` entry.
+
+**Found while building, not in the original phase doc:** the flyout's rail-icon-hover interaction
+with `@bilo-io/shell`'s nav rail. The rail hover-previews the collapsed state into a wider,
+row-layout overlay at its own `z-40` — below the flyout's `z-popover` (85) — so with the flyout
+already open, hover-expanding the (not locked-open) rail to reach a second app icon renders that
+icon UNDER the flyout, genuinely unclickable by mouse for as long as both are on screen.
+`apps-rail-shots.spec.ts` caught this for real (not a fixture artifact — a live Playwright run
+timed out on the second click); the fix seeds `navMode: 'expanded'` for that spec rather than a
+hover-then-settle workaround, since a locked-open rail is also what a user who has already
+expanded their own sidebar would see.
+
+**Left open, both already carried in the phase doc's own "Not in this phase"/Verification
+sections as human passes**: two REAL simultaneous popouts (Spotify + Calendar both floating at
+once) — same precedent as Phase 55 Theme F.3, a mocked single-tab e2e run cannot launch two real
+`BrowserWindow`s, so `apps-rail-shots.spec.ts` instead renders each app's `DetachedRoot` content
+standalone, mirroring `detached-panels-shots.spec.ts`; and a live confirmation that no embedded
+app view ever receives `window.midniteStudio` against a real Electron window (the `sandbox: true`/
+no-`preload` construction itself is asserted in `apps-service.test.ts`, from Theme A/B). Phase
+83 sits at 23/25 (92%) in `_INDEX.md` for exactly these two, following the same convention Phase
+55 (77%, F.3 open) and Phase 74 (97%, two packaged-Mac passes open) already use rather than
+rounding a genuine open human pass up to done.

@@ -94,7 +94,9 @@ vi.mock('./window-chrome', () => ({
   TRAFFIC_LIGHT_POSITION: { x: 16, y: 13 },
 }));
 vi.mock('./browser-service', () => ({ reparentBrowserTabs: vi.fn() }));
+vi.mock('./apps-service', () => ({ reparentAppView: vi.fn() }));
 
+import { reparentAppView } from './apps-service';
 import { TRAFFIC_LIGHT_POSITION } from './window-chrome';
 import {
   boundsWithinAnyDisplay,
@@ -183,6 +185,36 @@ describe('window-manager (Phase 55)', () => {
     // Isolate this test's `main` from the rest of the suite.
     main.close();
     expect(listWindows()).toEqual([]);
+  });
+
+  describe('apps-* close re-docks (Phase 83 Theme D)', () => {
+    afterEach(() => vi.clearAllMocks());
+
+    it('a Spotify popout closed by its own traffic light reparents its view back to main, hidden', () => {
+      const main = new FakeBrowserWindow({}) as unknown as InstanceType<typeof FakeBrowserWindow>;
+      registerMainWindow(main as unknown as import('electron').BrowserWindow);
+      const win = createRoleWindow('apps-spotify', log) as unknown as InstanceType<
+        typeof FakeBrowserWindow
+      >;
+
+      win.close();
+
+      expect(reparentAppView).toHaveBeenCalledWith('spotify', main, { visible: false });
+      main.close();
+    });
+
+    it('does not reparent any app for a plain panel role (terminal)', () => {
+      const main = new FakeBrowserWindow({}) as unknown as InstanceType<typeof FakeBrowserWindow>;
+      registerMainWindow(main as unknown as import('electron').BrowserWindow);
+      const win = createRoleWindow('terminal', log) as unknown as InstanceType<
+        typeof FakeBrowserWindow
+      >;
+
+      win.close();
+
+      expect(reparentAppView).not.toHaveBeenCalled();
+      main.close();
+    });
   });
 
   describe('relayToOtherWindows', () => {

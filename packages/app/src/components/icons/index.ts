@@ -1,13 +1,17 @@
+import type { AppId } from '@midnite/studio-shared';
 import { LuTerminal } from 'react-icons/lu';
 import {
   SiAnthropic,
   SiCline,
   SiCursor,
   SiGithubcopilot,
+  SiGooglecalendar,
   SiGooglegemini,
   SiMistralai,
   SiOllama,
   SiOpencode,
+  SiSpotify,
+  SiYoutube,
 } from 'react-icons/si';
 
 import type { IconComponent } from '../icon-button';
@@ -109,4 +113,20 @@ export {
   KiloIcon,
   OpenClaudeIcon,
   SiOpencode as OpenCodeIcon,
+};
+
+/**
+ * The third-party apps rail's own brand marks (Phase 83 Theme C) — the same
+ * curated-allow-list convention as `REACT_ICONS` above, one named import per
+ * mark rather than the `react-icons/si` root barrel. A separate map from
+ * `AGENT_ICONS`: these three key by `AppId`, not by an agent's roster key, and
+ * mixing the two domains into one lookup would make `resolveAgentIcon`'s
+ * fallback rule ("an unrecognised key becomes `LuTerminal`") apply to app ids
+ * too, which is not a thing that should ever happen — the app rail's three
+ * ids are a closed, exhaustively-typed union, never user text.
+ */
+export const APP_ICON: Readonly<Record<AppId, IconComponent>> = {
+  spotify: SiSpotify,
+  'google-calendar': SiGooglecalendar,
+  youtube: SiYoutube,
 };

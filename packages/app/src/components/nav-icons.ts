@@ -14,6 +14,7 @@ import {
   LuHistory,
   LuHouse,
   LuLayoutDashboard,
+  LuLayoutGrid,
   LuLock,
   LuPalette,
   LuPanelLeft,
@@ -125,6 +126,10 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
     voice, a microphone, and whether the app may talk.
   */
   companion: LuAudioLines,
+  // A grid of tiles, not one of the three brand marks the rail itself uses
+  // (`apps-icons.ts`) — this page is "third-party apps" as a category, not
+  // any one of them.
+  apps: LuLayoutGrid,
   monitor: LuActivity,
   optimizer: LuGauge,
   browser: GoGlobe,

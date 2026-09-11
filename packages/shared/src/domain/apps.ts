@@ -58,3 +58,32 @@ export const APP_DEFINITIONS: Readonly<Record<AppId, AppDefinition>> = {
 
 /** Every in-scope app id, in the rail's own display order. */
 export const APP_IDS = AppIdSchema.options;
+
+/**
+ * The literal `apps-<id>` `PanelWindowRole` for each app (Theme D) — computed
+ * once here, the same reasoning `AppDefinition.partition` gives for not
+ * string-concatenating it again at each call site (`window-manager.ts`,
+ * `window-handlers.ts`, the rail row's `focusRole` call). Typed as a template
+ * literal rather than importing `PanelWindowRole` from `domain/window.ts`: the
+ * three values already match that union's three `apps-*` literals exactly, and
+ * a plain string keeps this module free of a dependency on `window.ts`,
+ * keeping the edge one-directional.
+ */
+export const APP_ROLE: Readonly<Record<AppId, `apps-${AppId}`>> = {
+  spotify: 'apps-spotify',
+  'google-calendar': 'apps-google-calendar',
+  youtube: 'apps-youtube',
+};
+
+const ROLE_TO_APP_ID = new Map<string, AppId>(APP_IDS.map((id) => [APP_ROLE[id], id]));
+
+/**
+ * The reverse of {@link APP_ROLE} — the app id for one of the three `apps-*`
+ * window roles, or `null` for any other role (`main`, a panel, a page).
+ * Takes a plain `string` rather than `WindowRole` for the same
+ * no-cross-import reason `APP_ROLE` does; every real call site already has a
+ * `WindowRole` value, which is a `string` structurally.
+ */
+export function appIdForRole(role: string): AppId | null {
+  return ROLE_TO_APP_ID.get(role) ?? null;
+}
