@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { bridge } from '../../services/bridge';
@@ -50,7 +50,11 @@ import { IconButton } from '../../components/icon-button';
 import { Tooltip } from '../../components/tooltip';
 import { TREE_INDENT } from '../../components/tree-indent';
 import { TreeSection } from '../../components/tree-section';
-import { cascadeStyle } from '../../lib/cascade';
+import {
+  useCascadeReveal,
+  useRevealCount,
+  type CascadeReveal,
+} from '../../lib/use-cascade-reveal';
 import { useNow } from '../../lib/use-now';
 import { relativeAge } from '../actions/run-groups';
 import {
@@ -237,6 +241,15 @@ export function ReposPanel() {
   const folds = useRepoFolds();
   const { matched, favourites, ungrouped, groups } = useGroupedRepos(repos, query);
   const client = useQueryClient();
+  /*
+    Theme K.2: `ReposPanel` fully unmounts whenever the sidebar closes
+    (`app.tsx` only renders it while `reposTween.mounted`), so a plain,
+    never-changing key is enough — each remount is its own reveal, and there
+    is nothing else this panel needs to key on: it lists every registered
+    repo at once, so there is no per-repo "switch" for it to react to, and a
+    status/branch refresh changes `repos`/`matched`, never this key.
+  */
+  const cascade = useCascadeReveal({ revealKey: 'repos-panel' });
 
   const [fetchingGroupIds, setFetchingGroupIds] = useState<ReadonlySet<string>>(() => new Set());
 
@@ -524,7 +537,8 @@ export function ReposPanel() {
                       key={`fav-${repo.id}`}
                       repo={repo}
                       first={index === 0}
-                      index={index}
+                      cascading={cascade.active}
+                      cascadeStyle={cascade.styleFor(index)}
                       sections={sections}
                       expanded={!folds.collapsed(repo.id)}
                       onToggleExpanded={() => folds.toggle(repo.id)}
@@ -552,7 +566,8 @@ export function ReposPanel() {
                   key={repo.id}
                   repo={repo}
                   first={index === 0}
-                  index={index}
+                  cascading={cascade.active}
+                  cascadeStyle={cascade.styleFor(index)}
                   sections={sections}
                   expanded={!folds.collapsed(repo.id)}
                   onToggleExpanded={() => folds.toggle(repo.id)}
@@ -592,7 +607,8 @@ export function ReposPanel() {
                             key={repo.id}
                             repo={repo}
                             first={index === 0}
-                            index={index}
+                            cascading={cascade.active}
+                            cascadeStyle={cascade.styleFor(index)}
                             sections={sections}
                             expanded={!folds.collapsed(repo.id)}
                             onToggleExpanded={() => folds.toggle(repo.id)}
@@ -615,7 +631,8 @@ export function ReposPanel() {
 function RepoItem({
   repo,
   first,
-  index,
+  cascading,
+  cascadeStyle,
   sections,
   expanded,
   onToggleExpanded,
@@ -623,7 +640,10 @@ function RepoItem({
 }: {
   repo: RepoDescriptor;
   first: boolean;
-  index: number;
+  /** Theme K.2: whether `ReposPanel`'s shared cascade is currently playing. */
+  cascading: boolean;
+  /** Precomputed per-row stagger — `{}` while `!cascading`. */
+  cascadeStyle: CSSProperties;
   sections: ViewSections;
   /** Owned by `ReposPanel` — see `useRepoFolds` for why it is not local. */
   expanded: boolean;
@@ -750,8 +770,8 @@ function RepoItem({
         transform, so the two are merged rather than one replacing the other —
         a row picked up mid-cascade would otherwise snap back to its start.
       */
-      style={{ ...cascadeStyle(index), ...drag.style }}
-      className={`animate-fade-in-up cascade-delay ${drag.isDragging ? 'opacity-80' : ''} ${
+      style={{ ...cascadeStyle, ...drag.style }}
+      className={`${cascading ? 'animate-fade-in-up cascade-delay' : ''} ${drag.isDragging ? 'opacity-80' : ''} ${
         // A delimiter between repositories, not above the first one — a rule at
         // the top of a list reads as a header separator that lost its header.
         //
@@ -954,6 +974,7 @@ function RepoItem({
           stashes={stashes}
           statuses={statuses}
           sections={sections}
+          expanded={expanded}
           refMenu={refMenu}
           worktreeMenu={worktreeMenu}
           sectionMenu={sectionMenu}
@@ -1037,6 +1058,7 @@ export function RepoTree({
   stashes,
   statuses,
   sections,
+  expanded,
   refMenu,
   worktreeMenu,
   sectionMenu,
@@ -1052,6 +1074,12 @@ export function RepoTree({
   stashes: StashEntry[];
   statuses: WorktreeStatuses;
   sections: ViewSections;
+  /**
+   * Theme K.2: whether `RepoItem`'s `<Collapse>` around this tree is open —
+   * this component itself never unmounts (`Collapse` only clips it), so a
+   * re-expand needs its own reveal signal rather than a free mount/unmount.
+   */
+  expanded: boolean;
   refMenu: (ref: Ref) => MenuItem[];
   worktreeMenu: (worktree: Worktree) => MenuItem[];
   sectionMenu: (kind: RefSectionKey, refs: readonly Ref[]) => MenuItem[];
@@ -1064,6 +1092,10 @@ export function RepoTree({
   const [showAllTags, setShowAllTags] = useState(false);
   const { section, remoteGroup } = useSectionToggles(repo.id);
   const dialogs = useDialogs();
+  // Theme K.2: re-expanding replays the cascade; a status/branch refresh
+  // while already expanded (same `repo.id`, same reveal count) never does.
+  const revealCount = useRevealCount(expanded);
+  const cascade = useCascadeReveal({ revealKey: `${repo.id}:${revealCount}` });
 
   useEffect(() => subscribePointerTracking(), []);
 
@@ -1211,7 +1243,8 @@ export function RepoTree({
             key={worktree.id}
             repo={repo}
             worktree={worktree}
-            index={i}
+            cascading={cascade.active}
+            cascadeStyle={cascade.styleFor(i)}
             // Every checkout now speaks for itself. This used to be
             // `isMain`-only — the primary's status was the only one fetched,
             // so attributing it to a linked worktree would have reported the
@@ -1245,7 +1278,8 @@ export function RepoTree({
             key={ref.fullName}
             refItem={ref}
             icon={LuGitBranch}
-            index={i}
+            cascading={cascade.active}
+            cascadeStyle={cascade.styleFor(i)}
             depth={(depth + 1) as 2 | 3}
             health={branchHealth({
               ref,
@@ -1278,6 +1312,7 @@ export function RepoTree({
             originRepoId={repo.id}
             menu={refMenu}
             depth={(depth + 1) as 2 | 3}
+            cascade={cascade}
             {...remoteGroup(group.name)}
           />
         ))}
@@ -1303,7 +1338,8 @@ export function RepoTree({
             key={ref.fullName}
             refItem={ref}
             icon={LuTag}
-            index={i}
+            cascading={cascade.active}
+            cascadeStyle={cascade.styleFor(i)}
             depth={(depth + 1) as 2 | 3}
             menu={refMenu}
           />
@@ -1327,7 +1363,8 @@ export function RepoTree({
             key={entry.selector}
             repo={repo}
             entry={entry}
-            index={i}
+            cascading={cascade.active}
+            cascadeStyle={cascade.styleFor(i)}
             depth={(depth + 1) as 2 | 3}
             menu={stashMenu}
           />
@@ -1453,6 +1490,7 @@ function RemoteGroup({
   depth,
   open,
   onToggle,
+  cascade,
 }: {
   name: string;
   refs: Ref[];
@@ -1465,6 +1503,8 @@ function RemoteGroup({
   /** Fold state, lifted to the ui-store — see `useSectionToggles`'s `remoteGroup`. */
   open: boolean;
   onToggle: () => void;
+  /** Theme K.2 — the parent `RepoTree`'s own shared cascade instance. */
+  cascade: CascadeReveal;
 }) {
   const projectUrl = forge ? forgeProjectUrl(forge) : null;
 
@@ -1492,7 +1532,8 @@ function RemoteGroup({
           key={ref.fullName}
           refItem={ref}
           icon={LuGitBranch}
-          index={i}
+          cascading={cascade.active}
+          cascadeStyle={cascade.styleFor(i)}
           depth={(depth + 1) as 3 | 4}
           menu={menu}
         />
@@ -1512,7 +1553,8 @@ function RemoteGroup({
 function RefRow({
   refItem,
   icon: Icon,
-  index,
+  cascading,
+  cascadeStyle,
   depth,
   health,
   changed = 0,
@@ -1523,7 +1565,8 @@ function RefRow({
 }: {
   refItem: Ref;
   icon: typeof LuGitBranch;
-  index: number;
+  cascading: boolean;
+  cascadeStyle: CSSProperties;
   /** The `TREE_INDENT` rung this row renders at — see `tree-indent.ts`'s ladder. */
   depth: 2 | 3 | 4;
   health?: BranchHealth;
@@ -1561,8 +1604,10 @@ function RefRow({
         event.preventDefault();
         openMenu(event);
       }}
-      style={cascadeStyle(index)}
-      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${TREE_INDENT[depth]} ${elsewhere ? 'text-muted-foreground' : ''}`}
+      style={cascadeStyle}
+      className={`group flex items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${
+        cascading ? 'animate-fade-in-up cascade-delay' : ''
+      } ${TREE_INDENT[depth]} ${elsewhere ? 'text-muted-foreground' : ''}`}
     >
       <Icon aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
       <span className="truncate">{shortName(refItem)}</span>
@@ -1644,13 +1689,15 @@ function RefRow({
 function StashRow({
   repo,
   entry,
-  index,
+  cascading,
+  cascadeStyle,
   depth,
   menu,
 }: {
   repo: RepoDescriptor;
   entry: StashEntry;
-  index: number;
+  cascading: boolean;
+  cascadeStyle: CSSProperties;
   depth: 2 | 3;
   menu: (entry: StashEntry) => MenuItem[];
 }) {
@@ -1674,10 +1721,10 @@ function StashRow({
         event.preventDefault();
         openMenu(event);
       }}
-      style={cascadeStyle(index)}
-      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors ${
-        active ? 'bg-accent/60' : 'hover:bg-accent/30'
-      } ${TREE_INDENT[depth]}`}
+      style={cascadeStyle}
+      className={`group flex items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors ${
+        cascading ? 'animate-fade-in-up cascade-delay' : ''
+      } ${active ? 'bg-accent/60' : 'hover:bg-accent/30'} ${TREE_INDENT[depth]}`}
     >
       {/*
         Selecting a stash opens the graph's inspector on it (Phase 22 Theme
@@ -1719,7 +1766,8 @@ function StashRow({
 function WorktreeRow({
   repo,
   worktree,
-  index,
+  cascading,
+  cascadeStyle,
   health,
   changed,
   conflicted,
@@ -1728,7 +1776,8 @@ function WorktreeRow({
 }: {
   repo: RepoDescriptor;
   worktree: Worktree;
-  index: number;
+  cascading: boolean;
+  cascadeStyle: CSSProperties;
   health?: BranchHealth;
   changed: number;
   conflicted: number;
@@ -1767,10 +1816,10 @@ function WorktreeRow({
         event.preventDefault();
         openMenu(event);
       }}
-      style={cascadeStyle(index)}
-      className={`group flex animate-fade-in-up cascade-delay items-center gap-1.5 py-0.5 ${TREE_INDENT[2]} pr-2 text-[13px] transition-colors ${
-        active ? 'bg-accent/60' : 'hover:bg-accent/30'
-      }`}
+      style={cascadeStyle}
+      className={`group flex items-center gap-1.5 py-0.5 ${TREE_INDENT[2]} pr-2 text-[13px] transition-colors ${
+        cascading ? 'animate-fade-in-up cascade-delay' : ''
+      } ${active ? 'bg-accent/60' : 'hover:bg-accent/30'}`}
     >
       <Tooltip label={worktree.path}>
         <button

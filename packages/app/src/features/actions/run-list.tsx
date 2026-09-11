@@ -1,9 +1,11 @@
+import type { CSSProperties } from 'react';
+
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu';
 
 import type { ForgeRun } from '@midnite/studio-shared';
 
-import { cascadeStyle } from '../../lib/cascade';
 import { formatNumber } from '../../lib/format-number';
+import { useCascadeReveal } from '../../lib/use-cascade-reveal';
 import { useActionsStore } from '../../store/actions-store';
 import { runStatus, StatusPill } from '../forge/forge-status';
 import { duration, groupRuns, relativeAge } from './run-groups';
@@ -52,6 +54,16 @@ export function RunList({
   const toggleWorkflow = useActionsStore((s) => s.toggleWorkflow);
   const selectRun = useActionsStore((s) => s.selectRun);
 
+  /*
+    Theme K.2: this list fully unmounts on a view switch (it does not opt
+    into Theme G's keep-alive), so `repoId` alone is enough for `revealKey` —
+    the component's own mount already gives "first mount" and "reveal after
+    hidden" for free, and `repoId` changing is what covers a repo switch that
+    happens without an unmount in between. A run list refresh (a forge poll,
+    a query invalidation) changes `runs`, never `repoId`, so it never re-arms.
+  */
+  const cascade = useCascadeReveal({ revealKey: repoId });
+
   const groups = groupRuns(runs);
   let row = 0;
 
@@ -91,10 +103,11 @@ export function RunList({
                     <li key={run.id}>
                       <RunRow
                         run={run}
-                        index={row}
                         now={now}
                         selected={run.id === selectedRunId}
                         onSelect={() => selectRun(repoId, run.id)}
+                        cascading={cascade.active}
+                        cascadeStyle={cascade.styleFor(row)}
                       />
                     </li>
                   );
@@ -110,16 +123,18 @@ export function RunList({
 
 function RunRow({
   run,
-  index,
   now,
   selected,
   onSelect,
+  cascading,
+  cascadeStyle,
 }: {
   run: ForgeRun;
-  index: number;
   now: number;
   selected: boolean;
   onSelect: () => void;
+  cascading: boolean;
+  cascadeStyle: CSSProperties;
 }) {
   // Only a completed run has taken anything: `updatedAt` is the last state
   // change, so a running one would show a finished-looking duration.
@@ -130,10 +145,10 @@ function RunRow({
       type="button"
       onClick={onSelect}
       aria-current={selected ? 'true' : undefined}
-      style={cascadeStyle(index)}
-      className={`flex w-full animate-fade-in-up cascade-delay flex-col items-start gap-0.5 border-l-2 px-2 py-1.5 text-left text-[13px] transition-colors ${
-        selected ? 'border-primary bg-accent/40' : 'border-transparent hover:bg-accent/20'
-      }`}
+      style={cascadeStyle}
+      className={`flex w-full flex-col items-start gap-0.5 border-l-2 px-2 py-1.5 text-left text-[13px] transition-colors ${
+        cascading ? 'animate-fade-in-up cascade-delay' : ''
+      } ${selected ? 'border-primary bg-accent/40' : 'border-transparent hover:bg-accent/20'}`}
     >
       <span className="flex w-full min-w-0 items-center gap-1.5">
         <StatusPill status={runStatus(run)} />
