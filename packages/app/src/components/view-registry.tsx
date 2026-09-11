@@ -150,12 +150,8 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // Global too (Phase 61) — a database connection is not a property of an open
   // checkout, so the view stays reachable with no repository selected.
   database: { Component: DatabaseView, global: true },
-  // NOT flagged: Theme K.5 named this view too, but its default table mode
-  // is virtualized (`useVirtualizer`, absolutely-positioned rows) — the same
-  // reason the graph is virtualized-but-cascading only inside its own view
-  // rather than through this generic flag, and this pass did not build that
-  // wiring here. See `outstanding.md`.
-  projects: { Component: ProjectsView },
+  // Virtualized table rows cascade via `useCascadeReveal` (Phase 84 Theme K.5).
+  projects: { Component: ProjectsView, cascade: true },
   // Both keep-alive-eligible (Phase 84 Theme G): the two views a watcher-
   // driven repo re-visits most, and the two whose own state (a streamed row
   // buffer and scroll position; open tabs and a diff scroll position) is
@@ -165,11 +161,8 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
     keepAlive: { ttlMs: VIEW_KEEP_ALIVE_TTL_MS, maxRows: GRAPH_KEEP_ALIVE_MAX_ROWS },
     cascade: true,
   },
-  // `changes` is NOT flagged: Theme K.5 named it, but `Workbench`'s own file
-  // list lives inside `StatusPanel`, a nested component this pass did not
-  // reach — see `outstanding.md`. Its keep-alive means it needs the same
-  // explicit-key treatment `graph` got, not a free ride off a remount.
-  changes: { Component: Workbench, keepAlive: { ttlMs: VIEW_KEEP_ALIVE_TTL_MS } },
+  // Kept-alive (Theme G), with StatusPanel file rows cascading on mount/reveal/repo-switch (Theme K.5).
+  changes: { Component: Workbench, keepAlive: { ttlMs: VIEW_KEEP_ALIVE_TTL_MS }, cascade: true },
   actions: { Component: ActionsView, cascade: true },
   reviews: { Component: ReviewsView, cascade: true },
   issues: { Component: IssuesView, cascade: true },
@@ -184,12 +177,9 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // `global: true` is the substance of this entry, not decoration: session
   // history spans repos, so without the flag the empty workspace would render
   // until one is open, making every other repo's history unreachable
-  // (Phase 67 Theme E).
-  // NOT flagged: Theme K.5 named this view too. Its rows are nested two
-  // levels deep (a repo group, then that group's own sessions inside a
-  // `Collapse`) rather than one flat array this pass's per-list pattern
-  // fits directly — deferred rather than rushed. See `outstanding.md`.
-  sessions: { Component: SessionsView, global: true },
+  // (Phase 67 Theme E). Grouped repo headers and session items cascade via
+  // `useCascadeReveal` (Theme K.5).
+  sessions: { Component: SessionsView, global: true, cascade: true },
   /*
     Global, and the one member of that set the phase doc does not name: Phase 59
     added `optimizer` to the ternary above the `!selectedRepoId` guard after this

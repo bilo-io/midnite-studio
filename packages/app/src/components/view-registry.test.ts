@@ -66,16 +66,25 @@ describe('VIEW_COMPONENT', () => {
    * their own row renderers; Files does the same per directory listing
    * (Theme K.3); Dashboard cascades its tiles (staggered, not literally
    * top-to-bottom — `react-grid-layout` positions by grid coordinate, not
-   * document flow). Changes, Projects and Sessions are Theme K.5's own named
-   * targets that this pass did NOT wire (a nested `StatusPanel`, a
-   * virtualized table, and two-level grouped rows respectively) — see
-   * `outstanding.md`. Widening or narrowing this set is a deliberate test
-   * change, the same reason the `global` set above is spelled out.
+   * document flow); Changes, Projects and Sessions wire cascade on their
+   * file lists, virtualized table rows, and repo group/session rows (Theme K.5).
+   * Widening or narrowing this set is a deliberate test change, the same reason
+   * the `global` set above is spelled out.
    */
   it('marks exactly the views with a wired cascade', () => {
     const cascading = VIEW_IDS.filter((view) => VIEW_COMPONENT[view].cascade === true);
     expect(new Set(cascading)).toEqual(
-      new Set<ViewId>(['graph', 'actions', 'reviews', 'issues', 'files', 'dashboard']),
+      new Set<ViewId>([
+        'graph',
+        'actions',
+        'reviews',
+        'issues',
+        'files',
+        'dashboard',
+        'changes',
+        'projects',
+        'sessions',
+      ]),
     );
   });
 

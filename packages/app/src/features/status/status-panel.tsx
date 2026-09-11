@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import type { StatusEntry } from '@midnite/studio-shared';
 
@@ -16,6 +16,7 @@ import { ChangeTotals, ChangeTree, Counts } from '../../components/change-tree';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
+import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import {
   useActiveWorktree,
   useCommit,
@@ -59,6 +60,10 @@ const COMMIT_TEXTAREA_MAX_HEIGHT = 160;
 export function StatusPanel() {
   const target = useActiveWorktree();
   const repoId = target.repoId;
+  const activeView = useUiStore((s) => s.activeView);
+  const visible = activeView === 'changes';
+  const revealCount = useRevealCount(visible);
+  const cascade = useCascadeReveal({ revealKey: `${repoId}:${revealCount}` });
   const listWidth = useUiStore((s) => s.layout.changesListWidth);
   const setLayout = useUiStore((s) => s.setLayout);
   const fileView = useUiStore((s) => s.changesFileView);
@@ -297,6 +302,8 @@ export function StatusPanel() {
                   onClick: () => unstage.mutate(collectFilePaths(node)),
                 },
               ]}
+              cascading={cascade.active}
+              cascadeStyleFor={cascade.styleFor}
             />
           </TreeSection>
 
@@ -340,6 +347,8 @@ export function StatusPanel() {
                 { icon: LuPlus, title: 'Stage', onClick: () => stage.mutate([row.path]) },
                 { icon: LuPackage, title: 'Stash file', onClick: () => openStashDialog([row.path]) },
               ]}
+              cascading={cascade.active}
+              cascadeStyleFor={(i) => cascade.styleFor(staged.length + i)}
             />
           </TreeSection>
 
@@ -478,6 +487,8 @@ function ChangeRows({
   busy,
   actionsFor,
   dirActionsFor,
+  cascading,
+  cascadeStyleFor,
 }: {
   testId: string;
   rows: readonly ChangeRow[];
@@ -490,6 +501,8 @@ function ChangeRows({
   actionsFor: (row: ChangeRow) => RowAction[];
   /** A bulk action over every file under a directory — folder-level staging. */
   dirActionsFor?: (node: DirNode<ChangeRow>) => RowAction[];
+  cascading?: boolean;
+  cascadeStyleFor?: (index: number) => CSSProperties;
 }) {
   const nodes = view === 'tree' ? buildChangeTree(rows) : flattenBySize(rows);
 
@@ -510,6 +523,8 @@ function ChangeRows({
           ? (node) => <RowActions actions={dirActionsFor(node)} path={node.path} busy={busy} />
           : undefined
       }
+      cascading={cascading}
+      cascadeStyleFor={cascadeStyleFor}
     />
   );
 }

@@ -309,3 +309,46 @@ export function usePanelRevealFade<T extends HTMLElement>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signal]);
 }
+
+/**
+ * Replays an entrance fade class on a terminal session when it is revealed
+ * or rehydrated (Phase 84 Theme E.4 / Theme K).
+ *
+ * Distinct from `usePanelRevealFade` (which runs on whole-panel size settles):
+ * this runs at the per-session level when `active` turns true or when an
+ * in-flight scrollback snapshot finishes replaying (`replayed` turns true).
+ * While `active && !replayed`, the session canvas is held at `opacity-0`
+ * so an unpopulated xterm buffer never flashes on screen before replay content
+ * arrives.
+ *
+ * Under reduced motion (`motionMs() === 0`), the class replay is a no-op and
+ * the session displays immediately without forced reflow.
+ */
+export function useSessionRevealFade<T extends HTMLElement>(
+  ref: RefObject<T | null>,
+  active: boolean,
+  replayed = true,
+  className = 'animate-fade-in',
+): void {
+  const prevActive = useRef(false);
+  const prevReplayed = useRef(false);
+
+  useEffect(() => {
+    const wasReady = prevActive.current && prevReplayed.current;
+    const isReady = active && replayed;
+
+    prevActive.current = active;
+    prevReplayed.current = replayed;
+
+    if (!isReady || wasReady) return;
+    if (motionMs() === 0) return;
+
+    const el = ref.current;
+    if (!el) return;
+
+    el.classList.remove(className);
+    void el.offsetWidth; // Force reflow so the re-add below is a fresh animation run.
+    el.classList.add(className);
+  }, [active, replayed, className, ref]);
+}
+

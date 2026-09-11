@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { AppIdSchema } from './apps';
+
 /**
  * Phase 84 Themes B (auto-fetch) and C (the forge poller) — both timers now
  * live in main, and both need a wire shape for "how is this repo's background
@@ -59,5 +61,7 @@ export type SyncStatusEvent = z.infer<typeof SyncStatusEventSchema>;
 export const SettingsSyncPayloadSchema = z.object({
   autoFetchEnabled: z.boolean(),
   autoFetchIntervalMs: z.number().int(),
+  appDiscardIdle: z.record(AppIdSchema, z.boolean()).optional(),
+  browserDiscardMs: z.number().int().optional(),
 });
 export type SettingsSyncPayload = z.infer<typeof SettingsSyncPayloadSchema>;

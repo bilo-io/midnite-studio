@@ -37,23 +37,40 @@ export function AppsPage() {
             const Icon = APP_ICON[id];
             const definition = APP_DEFINITIONS[id];
             const enabled = enabledApps.includes(id);
+            const discardIdle = useUiStore.getState().appDiscardIdle[id] ?? false;
             return (
               <Field
                 key={id}
                 label={definition.label}
                 hint={new URL(definition.launchUrl).host}
               >
-                <label className="flex items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={enabled}
-                    onChange={(event) => useUiStore.getState().setAppEnabled(id, event.target.checked)}
-                    className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
-                    data-testid={`apps-settings-toggle-${id}`}
-                  />
-                  <Icon aria-hidden className="h-4 w-4 shrink-0" />
-                  {definition.label}
-                </label>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      onChange={(event) => useUiStore.getState().setAppEnabled(id, event.target.checked)}
+                      className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+                      data-testid={`apps-settings-toggle-${id}`}
+                    />
+                    <Icon aria-hidden className="h-4 w-4 shrink-0" />
+                    {definition.label}
+                  </label>
+                  {enabled ? (
+                    <label className="ml-5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={discardIdle}
+                        onChange={(event) =>
+                          useUiStore.getState().setAppDiscardIdle(id, event.target.checked)
+                        }
+                        className="h-3 w-3 accent-[hsl(var(--primary))]"
+                        data-testid={`apps-settings-discard-toggle-${id}`}
+                      />
+                      Discard when idle (10 min hidden)
+                    </label>
+                  ) : null}
+                </div>
               </Field>
             );
           })}

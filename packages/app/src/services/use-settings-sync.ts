@@ -18,6 +18,8 @@ import { useUiStore } from '../store/ui-store';
 export function useSettingsSync(): void {
   const autoFetchEnabled = useUiStore((s) => s.autoFetchEnabled);
   const autoFetchIntervalMs = useUiStore((s) => s.autoFetchIntervalMs);
+  const appDiscardIdle = useUiStore((s) => s.appDiscardIdle);
+  const browserDiscardMs = useUiStore((s) => s.browserDiscardMs);
 
   useEffect(() => {
     const api = bridge();
@@ -29,6 +31,8 @@ export function useSettingsSync(): void {
       // (`MIN_AUTO_FETCH_INTERVAL_MS`) re-applies the same rule, so a raw
       // fallback here just keeps the payload's type honest.
       autoFetchIntervalMs: autoFetchIntervalMs ?? 60_000,
+      appDiscardIdle,
+      browserDiscardMs,
     });
-  }, [autoFetchEnabled, autoFetchIntervalMs]);
+  }, [autoFetchEnabled, autoFetchIntervalMs, appDiscardIdle, browserDiscardMs]);
 }

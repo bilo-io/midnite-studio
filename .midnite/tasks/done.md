@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-11 — Phase 84 Themes E.4, F.4, K.5 — Terminal fade, App discard opt-in, Cascade completions
+
+Close the three unblocked deferred items from Phase 84:
+1. **Theme E.4 (Terminal rehydration fade)**: Added `useSessionRevealFade` in `terminal-view.tsx` and `lazy-terminal-view.tsx` to smoothly fade in rehydrating terminal sessions on reveal, eliminating blank canvas flashes during scrollback replay.
+2. **Theme F.4 (App idle discard opt-in)**: Third-party apps (`apps-service.ts`) gained visibility tracking and idle discard opt-in via `Settings ▸ Apps` (`appDiscardIdle`). Opted-in apps destroy their `WebContentsView` when hidden past `browserDiscardMs`, preserving bounds and restoring immediately upon activation.
+3. **Theme K.5 (Changes, Projects, Sessions cascade)**: Staggered entrance cascade wired to Changes (`StatusPanel` staged/unstaged change trees), Projects (`ProjectItemsTable` virtual rows), and Sessions (two-level repo group and session rows). Enabled `cascade: true` for `changes`, `projects`, and `sessions` in `view-registry.tsx`, pinned by `view-registry.test.ts`.
+
 ## 2026-09-11 — Phase 84 Theme J — Numbers, not adjectives
 
 [PR #352](https://github.com/bilo-io/midnite-studio/pull/352). Themes A-I and B/C's memory/perf

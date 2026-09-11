@@ -98,6 +98,7 @@ export const PREFERENCE_KEYS = [
   'editorWordWrap',
 
   'enabledApps', // apps-page.tsx
+  'appDiscardIdle', // apps-page.tsx (Phase 84 Theme F.4)
 
   // Phase 79 Theme H's page. Registered orphans between Theme A (which added
   // the five preferences) and Theme H (which built the page) — and no longer

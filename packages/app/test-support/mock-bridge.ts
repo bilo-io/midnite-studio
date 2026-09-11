@@ -1052,7 +1052,12 @@ export function buildMockBridge(data: MockFixtures) {
   const appsActivateCalls: (string | null)[] = [];
 
   /** Every `settings.sync` push, in order (Phase 84 Theme B.4) — `use-settings-sync.ts` fires one on mount and on every change. */
-  const settingsSyncCalls: Array<{ autoFetchEnabled: boolean; autoFetchIntervalMs: number }> = [];
+  const settingsSyncCalls: Array<{
+    autoFetchEnabled: boolean;
+    autoFetchIntervalMs: number;
+    appDiscardIdle?: Record<string, boolean>;
+    browserDiscardMs?: number;
+  }> = [];
   const syncStatusHandlers: ((e: unknown) => void)[] = [];
 
   const bridge = {
@@ -2786,7 +2791,12 @@ export function buildMockBridge(data: MockFixtures) {
     watch: { onEvent: unsubscribe },
     menu: { onCommand: unsubscribe },
     settings: {
-      sync: (req: { autoFetchEnabled: boolean; autoFetchIntervalMs: number }) => {
+      sync: (req: {
+        autoFetchEnabled: boolean;
+        autoFetchIntervalMs: number;
+        appDiscardIdle?: Record<string, boolean>;
+        browserDiscardMs?: number;
+      }) => {
         settingsSyncCalls.push(req);
       },
     },

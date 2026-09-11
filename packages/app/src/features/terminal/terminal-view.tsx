@@ -10,6 +10,7 @@ import { usePaletteStore } from '../themes/palette-store';
 import { resolveTerminalPalette } from '../themes/resolve-palette';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
 import { openInMidnite } from '../../services/open-in-midnite';
+import { useSessionRevealFade } from '../../components/use-reveal';
 import { useUiStore } from '../../store/ui-store';
 import { EndedStrip } from './ended-banner';
 import { createFitCoalescer } from './fit-coalescer';
@@ -251,6 +252,10 @@ export function TerminalView({
   initialInputRef.current = initialInput;
   const stateRef = useRef(connectionState);
   stateRef.current = connectionState;
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [replayed, setReplayed] = useState(connectionState !== 'open');
+  useSessionRevealFade(rootRef, active, replayed);
 
   /**
    * Flush queued input the moment this session's pty is actually ready.
@@ -645,6 +650,7 @@ export function TerminalView({
                 term.write(bytes);
                 term.write(RESET_MODES);
               }
+              setReplayed(true);
             },
             writeToTerm,
             () => cancelled,
@@ -653,6 +659,7 @@ export function TerminalView({
           const gate = createReplayGate();
           gate.release(writeToTerm);
           replayGateRef.current = gate;
+          setReplayed(true);
         }
       } else {
         /**
@@ -668,6 +675,7 @@ export function TerminalView({
           term.write(replay);
           term.write(RESET_MODES);
         }
+        setReplayed(true);
       }
 
       /**
@@ -848,7 +856,10 @@ export function TerminalView({
 
   return (
     <div
-      className={`${layoutClassName ?? 'absolute inset-0'} flex flex-col ${active ? '' : 'invisible'}`}
+      ref={rootRef}
+      className={`${layoutClassName ?? 'absolute inset-0'} flex flex-col ${
+        active ? (replayed ? '' : 'opacity-0') : 'invisible'
+      }`}
       aria-hidden={!active}
     >
       {connectionState === 'unavailable' ? (

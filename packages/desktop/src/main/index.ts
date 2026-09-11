@@ -12,7 +12,7 @@ import { readSystemHealth } from './system-health';
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
 import { allowAppAudioOnly } from './browser-security';
-import { destroyAllApps } from './apps-service';
+import { destroyAllApps, startAppsDiscardSweep } from './apps-service';
 import { destroyAllBrowserTabs, startBrowserDiscardSweep } from './browser-service';
 import { registerAppsHandlers } from './ipc/apps-handlers';
 import { registerBrowserHandlers } from './ipc/browser-handlers';
@@ -369,6 +369,7 @@ if (!app.requestSingleInstanceLock()) {
     // state at tick time, so there is nothing to reconcile per repo or per
     // window the way `watch-service.ts`'s watchers are.
     startBrowserDiscardSweep();
+    startAppsDiscardSweep();
     registerAppsHandlers(getMainWindow);
     registerWindowHandlers(getMainWindow, defaultLogger);
     // Phase 81 Theme F: `ui-bridge.ts` targets `getMainWindow()` explicitly,

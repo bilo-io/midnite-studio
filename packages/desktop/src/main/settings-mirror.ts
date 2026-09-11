@@ -14,6 +14,12 @@ import type { SettingsSyncPayload } from '@midnite/studio-shared';
 const DEFAULT_SETTINGS: SettingsSyncPayload = {
   autoFetchEnabled: true,
   autoFetchIntervalMs: 60_000,
+  appDiscardIdle: {
+    spotify: false,
+    'google-calendar': false,
+    youtube: false,
+  },
+  browserDiscardMs: 10 * 60 * 1000,
 };
 
 let current: SettingsSyncPayload = DEFAULT_SETTINGS;
