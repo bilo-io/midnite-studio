@@ -6,7 +6,10 @@ explorer, an embedded browser, multiple detachable windows, and the forge (PRs, 
 issues) — all in the same app. Plain Electron + typed IPC, a Vite + React renderer, and the
 published [`@bilo-io/ui`](https://github.com/bilo-io/midnite-ui) design system.
 
-![Midnite Studio](docs/screenshots/midnite-studio.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/midnite-studio-dark.png">
+  <img src="docs/screenshots/midnite-studio-light.png" alt="Midnite Studio">
+</picture>
 
 <sub>Running `~/Dev/midnite` — linked worktrees nested under their repository, 2,376 commits,
 live branch and sync state in the footer. The crescent and the wordmark face are the midnite
