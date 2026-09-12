@@ -471,7 +471,7 @@ jobs:
         working-directory: packages/app
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         id: pw-cache
         with:
           path: ~/.cache/ms-playwright
@@ -490,7 +490,7 @@ jobs:
       # Vite's own config and a hash of the source tree means the cache is
       # invalidated exactly when Vite would have produced different output —
       # a stale `.vite` dir from a different source tree is worse than none.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: packages/app/node_modules/.vite
           key: vite-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'packages/app/vite.config.ts', 'packages/app/src/**') }}
