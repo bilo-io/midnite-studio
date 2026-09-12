@@ -1,16 +1,35 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LuBot, LuFolderTree, LuRefreshCw, LuRepeat } from 'react-icons/lu';
+import {
+  LuBot,
+  LuExternalLink,
+  LuEye,
+  LuEyeOff,
+  LuFolderTree,
+  LuRefreshCw,
+  LuRepeat,
+  LuTerminal,
+} from 'react-icons/lu';
 
 import { Accordion } from '@bilo-io/ui';
 
-import { CLAUDE_COMMANDS, DEFAULT_LOOPS, LOOP_GROUPS, type ClaudeInfo } from '@midnite/studio-shared';
+import {
+  CLAUDE_COMMANDS,
+  DEFAULT_AGENT_MODE,
+  DEFAULT_LOOPS,
+  LOOP_GROUPS,
+  type AgentDefinition,
+  type AgentMode,
+  type AgentStatus,
+  type ClaudeInfo,
+} from '@midnite/studio-shared';
 
 import { IconButton } from '../../../components/icon-button';
 import { resolveAgentIcon } from '../../../components/icons';
 import { MidniteIcon } from '../../../components/icons/midnite-icon';
 import { bridge, hasBridge } from '../../../services/bridge';
+import { openInMidnite } from '../../../services/open-in-midnite';
 import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../../store/ui-store';
 import { AGENT_COMMANDS } from '../../agent/agent-commands';
 import { loopIcon } from '../../loops/loop-icons';
@@ -40,6 +59,26 @@ export function AgentPage() {
 
   return (
     <div className="flex flex-col gap-3">
+      <Accordion title="Agents" icon={<LuBot className="h-4 w-4" />} defaultOpen>
+        <div className="flex flex-col gap-3 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Install and manage coding agents on your machine. Configure CLI access, API keys, and update commands.
+            </p>
+            <IconButton
+              icon={LuRefreshCw}
+              label="Re-probe agents"
+              size="sm"
+              onClick={() => {
+                void queryClient.invalidateQueries({ queryKey: ['agents'] });
+                void queryClient.invalidateQueries({ queryKey: ['claude-info'] });
+              }}
+            />
+          </div>
+          <AgentsRoster />
+        </div>
+      </Accordion>
+
       <Accordion title="Claude" icon={<LuBot className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -88,6 +127,235 @@ export function AgentPage() {
           <ClaudeHomeTree />
         </div>
       </Accordion>
+    </div>
+  );
+}
+
+/**
+ * Spawns a shell in the integrated terminal and submits `command` with a trailing carriage return.
+ */
+function submitCommand(command: string, title = 'agent setup'): void {
+  if (!command) return;
+  const ui = useUiStore.getState();
+  ui.setTerminalOpen(true);
+  const cwd = ui.selectedWorktreePath ?? '.';
+  const repoId = ui.selectedRepoId ?? 'default';
+  const session = useTerminalStore.getState().openSession({
+    kind: 'shell',
+    title,
+    cwd,
+    repoId,
+  });
+  const input = command.endsWith('\r') || command.endsWith('\n') ? command : `${command}\r`;
+  useTerminalStore.getState().queueInput(session.id, input);
+}
+
+function AgentCard({
+  agent,
+  status,
+  isPrimary,
+  onSetPrimary,
+  mode,
+  onModeChange,
+  apiKey,
+  onApiKeyChange,
+}: {
+  agent: AgentDefinition;
+  status: AgentStatus | undefined;
+  isPrimary: boolean;
+  onSetPrimary: () => void;
+  mode: AgentMode;
+  onModeChange: (mode: AgentMode) => void;
+  apiKey: string;
+  onApiKeyChange: (key: string) => void;
+}) {
+  const [showKey, setShowKey] = useState(false);
+  const Icon = resolveAgentIcon(agent);
+  const isInstalled = status?.installed === true;
+  const isChecking = !status;
+
+  const runCommand = isInstalled ? (agent.update ?? agent.install) : agent.install;
+  const runLabel = isInstalled ? 'Update in Terminal' : 'Install in Terminal';
+
+  return (
+    <div
+      data-testid={`agent-card-${agent.id}`}
+      className="flex flex-col gap-2.5 rounded-lg border border-border bg-card/40 p-3 text-xs"
+    >
+      {/* Header row: Icon, Label, Command chip, Primary badge, Status, Docs */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Icon aria-hidden className="h-4 w-4 shrink-0" style={{ color: agent.accent }} />
+        <span className="font-medium text-foreground text-sm">{agent.label}</span>
+        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+          {agent.command}
+        </code>
+
+        {isPrimary ? (
+          <span className="rounded-full bg-primary/10 border border-primary/30 px-2 py-0.5 text-[10px] font-medium text-primary">
+            Primary
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onSetPrimary}
+            title="Set as primary agent for midnite menu"
+            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Set as primary
+          </button>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          {isChecking ? (
+            <span className="text-xs text-muted-foreground">Checking…</span>
+          ) : isInstalled ? (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              {status.version ? `v${status.version}` : 'Installed'}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs text-amber-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              Not installed
+            </span>
+          )}
+
+          {agent.docsUrl ? (
+            <button
+              type="button"
+              onClick={() => openInMidnite(agent.docsUrl!)}
+              title={`Open ${agent.label} documentation`}
+              className="flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <LuExternalLink className="h-3 w-3" />
+              <span>Docs</span>
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {status?.resolvedPath ? (
+        <code className="truncate font-mono text-[10px] text-muted-foreground" data-selectable>
+          {status.resolvedPath}
+        </code>
+      ) : null}
+
+      {/* Mode toggle and API Key */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 border-t border-border/50">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-medium text-muted-foreground">Mode:</span>
+          <div className="inline-flex rounded-md border border-border p-0.5 bg-muted/40 text-xs">
+            {(['both', 'cli', 'api', 'none'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => onModeChange(m)}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                  mode === m
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {m === 'both' ? 'Both' : m === 'cli' ? 'CLI' : m === 'api' ? 'API' : 'None'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-1 min-w-[220px] items-center gap-2">
+          <span className="text-[11px] font-medium text-muted-foreground shrink-0">
+            {agent.apiKeyEnvVar ?? 'API Key'}:
+          </span>
+          <div className="relative flex-1">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              placeholder={agent.apiKeyEnvVar ? `Enter ${agent.apiKeyEnvVar}` : 'Enter API Key'}
+              onChange={(e) => onApiKeyChange(e.target.value)}
+              spellCheck={false}
+              aria-label={`${agent.label} API Key`}
+              className="h-7 w-full rounded border border-input bg-background pl-2 pr-14 font-mono text-xs outline-none focus-visible:border-primary"
+            />
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+              {apiKey ? (
+                <button
+                  type="button"
+                  onClick={() => onApiKeyChange('')}
+                  title="Clear key"
+                  aria-label={`Clear ${agent.label} API Key`}
+                  className="px-1 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setShowKey((s) => !s)}
+                title={showKey ? 'Hide key' : 'Show key'}
+                aria-label={showKey ? 'Hide key' : 'Show key'}
+                className="p-1 text-muted-foreground hover:text-foreground"
+              >
+                {showKey ? <LuEyeOff className="h-3 w-3" /> : <LuEye className="h-3 w-3" />}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Terminal action: Install / Update */}
+      {runCommand ? (
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/50">
+          <button
+            type="button"
+            onClick={() =>
+              submitCommand(runCommand, `${agent.label} ${isInstalled ? 'update' : 'install'}`)
+            }
+            className={`flex items-center gap-1.5 h-6 rounded-md px-2 text-xs font-medium transition-colors ${
+              isInstalled
+                ? 'border border-border bg-accent/40 text-foreground hover:bg-accent'
+                : 'border border-primary bg-primary/10 text-primary hover:bg-primary/20'
+            }`}
+          >
+            <LuTerminal className="h-3 w-3" />
+            <span>{runLabel}</span>
+          </button>
+          <code
+            className="truncate font-mono text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded flex-1 min-w-[140px]"
+            data-selectable
+          >
+            {runCommand}
+          </code>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AgentsRoster() {
+  const { agents, status } = useAgents();
+  const statusById = useMemo(() => new Map(status.map((s) => [s.id, s])), [status]);
+  const primaryAgent = useUiStore((s) => s.primaryAgent);
+  const setPrimaryAgent = useUiStore((s) => s.setPrimaryAgent);
+  const agentModes = useUiStore((s) => s.agentModes);
+  const setAgentMode = useUiStore((s) => s.setAgentMode);
+  const agentApiKeys = useUiStore((s) => s.agentApiKeys);
+  const setAgentApiKey = useUiStore((s) => s.setAgentApiKey);
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {agents.map((agent) => (
+        <AgentCard
+          key={agent.id}
+          agent={agent}
+          status={statusById.get(agent.id)}
+          isPrimary={agent.id === primaryAgent}
+          onSetPrimary={() => setPrimaryAgent(agent.id)}
+          mode={agentModes[agent.id] ?? DEFAULT_AGENT_MODE}
+          onModeChange={(mode) => setAgentMode(agent.id, mode)}
+          apiKey={agentApiKeys[agent.id] ?? ''}
+          onApiKeyChange={(key) => setAgentApiKey(agent.id, key)}
+        />
+      ))}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   agentStatusWithin,
   buildProbeScript,
+  parseAgentVersion,
   parseProbeOutput,
   probeAgents,
   probeTarget,
@@ -166,6 +167,37 @@ describe('parseProbeOutput', () => {
     const output = frame('codex', '/opt/homebrew/bin/codex') + frame('claude', '/bin/claude');
 
     expect(parseProbeOutput(output, ROSTER).map((s) => s.id)).toEqual(['claude', 'codex']);
+  });
+
+  it('extracts version when __VER__ is present in probe output', () => {
+    const output =
+      frame('claude', '/Users/x/.local/bin/claude\n__VER__\n2.1.269 (Claude Code)') +
+      frame('agy', '/Users/x/.local/bin/agy\n__VER__\n1.2.2') +
+      frame('codex', '/opt/homebrew/bin/codex\n__VER__\ncodex-cli 0.7.0') +
+      frame('openclaude', '');
+
+    expect(parseProbeOutput(output, ROSTER)).toEqual([
+      { id: 'claude', installed: true, resolvedPath: '/Users/x/.local/bin/claude', version: '2.1.269' },
+      { id: 'agy', installed: true, resolvedPath: '/Users/x/.local/bin/agy', version: '1.2.2' },
+      { id: 'codex', installed: true, resolvedPath: '/opt/homebrew/bin/codex', version: '0.7.0' },
+      { id: 'openclaude', installed: false, resolvedPath: null },
+    ]);
+  });
+});
+
+describe('parseAgentVersion', () => {
+  it.each([
+    ['2.1.269 (Claude Code)', '2.1.269'],
+    ['1.2.2', '1.2.2'],
+    ['codex-cli 0.7.0', '0.7.0'],
+    ['2026.09.10-fd3934a', '2026.09.10-fd3934a'],
+    ['GitHub Copilot CLI 1.0.83.', '1.0.83'],
+    ['aider 0.86.2', '0.86.2'],
+    ['3.0.60', '3.0.60'],
+    ['', null],
+    ['command not found', null],
+  ])('parses %j as %j', (input, expected) => {
+    expect(parseAgentVersion(input)).toBe(expected);
   });
 });
 

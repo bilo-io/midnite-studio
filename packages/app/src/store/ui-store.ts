@@ -6,6 +6,7 @@ import {
   DEFAULT_COMPANION_VOLUME,
   METRICS_IDLE_INTERVAL_MS,
   VIEW_IDS,
+  type AgentMode,
   type AppId,
   type CompanionMicMode,
   type CompanionVoiceEngine,
@@ -1158,6 +1159,17 @@ export type UiState = {
    */
   primaryAgent: string;
   setPrimaryAgent: (id: string) => void;
+  /**
+   * Execution mode per agent: 'cli', 'api', 'both', or 'none'.
+   * An agent absent from this record falls back to 'both'.
+   */
+  agentModes: Record<string, AgentMode>;
+  setAgentMode: (agentId: string, mode: AgentMode) => void;
+  /**
+   * Provider API keys entered in settings, keyed by agent id.
+   */
+  agentApiKeys: Record<string, string>;
+  setAgentApiKey: (agentId: string, apiKey: string) => void;
 
   inactivityTimeoutS: number;
   setInactivityTimeout: (seconds: number) => void;
@@ -1628,6 +1640,8 @@ export type PersistedUi = Pick<
   | 'blockedByFieldName'
   | 'agentSkills'
   | 'primaryAgent'
+  | 'agentModes'
+  | 'agentApiKeys'
   | 'repoGroups'
   | 'repoGroupMembership'
   | 'collapsedRepoGroups'
@@ -1758,6 +1772,12 @@ export const useUiStore = create<UiState>()(
       blockedByFieldName: 'Blocked by',
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
+      agentModes: {},
+      setAgentMode: (agentId, mode) =>
+        set((state) => ({ agentModes: { ...state.agentModes, [agentId]: mode } })),
+      agentApiKeys: {},
+      setAgentApiKey: (agentId, apiKey) =>
+        set((state) => ({ agentApiKeys: { ...state.agentApiKeys, [agentId]: apiKey } })),
       inactivityTimeoutS: 900,
       setInactivityTimeout: (inactivityTimeoutS) => set({ inactivityTimeoutS }),
       // Matches `WORKFLOW_NODE_TIMEOUT_MS`/`MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW`
@@ -2365,7 +2385,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 18,
+      version: 19,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2419,6 +2439,8 @@ export const useUiStore = create<UiState>()(
         blockedByFieldName: state.blockedByFieldName,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
+        agentModes: state.agentModes,
+        agentApiKeys: state.agentApiKeys,
         repoGroups: state.repoGroups,
         repoGroupMembership: state.repoGroupMembership,
         collapsedRepoGroups: state.collapsedRepoGroups,
@@ -2644,6 +2666,10 @@ export const useUiStore = create<UiState>()(
         if (version < 18) {
           state.enabledApps = [];
         }
+        if (version < 19) {
+          state.agentModes = {};
+          state.agentApiKeys = {};
+        }
         return state as PersistedUi;
       },
       /**
@@ -2670,6 +2696,8 @@ export const useUiStore = create<UiState>()(
             which reaches the terminal as the string "undefined".
           */
           agentSkills: { ...current.agentSkills, ...saved.agentSkills },
+          agentModes: { ...current.agentModes, ...(saved.agentModes ?? {}) },
+          agentApiKeys: { ...current.agentApiKeys, ...(saved.agentApiKeys ?? {}) },
           fabSessions: { ...current.fabSessions, ...saved.fabSessions },
           loopModifierDefaults: {
             ...current.loopModifierDefaults,
