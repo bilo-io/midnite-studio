@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | ◻ TODO | — | 0/49 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 60/68 | `█████████░` | 88% | E F K | — |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | 🔄 WIP | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
 | [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 46/75 | `██████░░░░` | 61% | — | C D F G |
@@ -183,6 +184,35 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 85 — The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md)
+
+*The Memory tab's bytes and %CPU read zero on some Macs, and it is a locale bug, not an Apple
+Silicon one: `ps` prints `%CPU` through `LC_NUMERIC`, `parsePsOutput`'s six-column regex accepts a
+dot only, and on a comma locale every one of 679 rows falls through to a four-column fallback that
+hard-codes zeros — shifting the command line too, which kills `PROTECTED_PROCESS_NAMES` outright
+and makes the Optimizer's kill button reject legitimate kills. Every fixture is four-column, so no
+test could ever catch it. This phase pins `LC_ALL=C` on every parsed subprocess (never on a pty),
+deletes the inventing fallback in favour of `null` and `—` per the app's own stated rule, then
+turns to memory: heap-snapshot diffing so a retention breach names its retainer, an unattended
+soak, an attributed idle-RSS floor, a process table built on `getAppMetrics()` and footprint rather
+than a `ps` scrape, and Phase 36 Theme G's never-chased renderer+GPU burn on an untouched window.*
+
+- ◻ **A** — Every subprocess speaks C (one `parseableProcessEnv()`, seven parsed spawn sites, four
+  named pty carve-outs, a lint guard and a hostile-locale CI job)
+- ◻ **B** — A row that cannot be half-read (delete the zero-filling fallback, six-column fixtures,
+  nullable `rssBytes`/`cpuPercent` rendering `—`, and the three dead guards in `kill-service.ts`)
+- ◻ **C** — Name the retainer (CDP heap-snapshot diffing, the `other` group split by process kind,
+  an unattended `--soak`, and a verdict on the recorded `retainedPerCycleKb` breach)
+- ◻ **D** — The idle floor, attributed (an `--idle` mode reporting steady-state RSS per process,
+  then cut only what it names — the deferred main-side repo state snapshot leading — plus an
+  `idleRss` budget)
+- ◻ **E** — A monitor that reports real numbers (`app.getAppMetrics()` for our own tree, `ps` for
+  foreign, `phys_footprint` beside RSS, and each helper attributed to its tab/session/window)
+- ◻ **F** — The window nobody touched (reproduce, attribute and bound Phase 36 Theme G's episodic
+  renderer ~32% + GPU ~55% on a focused, untouched window)
+- ◻ **G** — Numbers, before and after (every budget with the run that justifies it, `README.md`'s
+  "what is not measured here" updated, and `outstanding.md`'s two stale entries resolved)
 
 ### [Phase 84 — Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md)
 
