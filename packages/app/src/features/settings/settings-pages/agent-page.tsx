@@ -6,10 +6,12 @@ import {
   LuExternalLink,
   LuEye,
   LuEyeOff,
+  LuFolder,
   LuFolderTree,
   LuRefreshCw,
   LuRepeat,
   LuTerminal,
+  LuTrash2,
 } from 'react-icons/lu';
 
 import { Accordion } from '@bilo-io/ui';
@@ -180,46 +182,36 @@ function AgentCard({
   return (
     <div
       data-testid={`agent-card-${agent.id}`}
-      className="flex flex-col gap-2.5 rounded-lg border border-border bg-card/40 p-3 text-xs"
+      className={`flex flex-col gap-2.5 rounded-lg p-3 text-xs transition-all ${
+        isPrimary ? 'primary-agent-card' : 'border border-border bg-card/40'
+      }`}
     >
-      {/* Header row: Icon, Label, Command chip, Primary badge, Status, Docs */}
+      {/* Header row: Icon, Label, Status pill, Command chip, [Docs, Make primary] on far right */}
       <div className="flex flex-wrap items-center gap-2">
         <Icon aria-hidden className="h-4 w-4 shrink-0" style={{ color: agent.accent }} />
         <span className="font-medium text-foreground text-sm">{agent.label}</span>
+
+        {isChecking ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+            Checking…
+          </span>
+        ) : isInstalled ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-500">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            {status.version ? `v${status.version}` : 'Installed'}
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-500">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            Not installed
+          </span>
+        )}
+
         <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
           {agent.command}
         </code>
 
-        {isPrimary ? (
-          <span className="rounded-full bg-primary/10 border border-primary/30 px-2 py-0.5 text-[10px] font-medium text-primary">
-            Primary
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={onSetPrimary}
-            title="Set as primary agent for midnite menu"
-            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Set as primary
-          </button>
-        )}
-
         <div className="ml-auto flex items-center gap-2">
-          {isChecking ? (
-            <span className="text-xs text-muted-foreground">Checking…</span>
-          ) : isInstalled ? (
-            <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              {status.version ? `v${status.version}` : 'Installed'}
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-xs text-amber-500">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-              Not installed
-            </span>
-          )}
-
           {agent.docsUrl ? (
             <button
               type="button"
@@ -231,13 +223,51 @@ function AgentCard({
               <span>Docs</span>
             </button>
           ) : null}
+
+          {isPrimary ? (
+            <span className="rounded-full bg-primary/10 border border-primary/30 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+              Primary
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={onSetPrimary}
+              title="Set as primary agent for midnite menu"
+              className="rounded border border-border px-2.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              Make primary
+            </button>
+          )}
         </div>
       </div>
 
       {status?.resolvedPath ? (
-        <code className="truncate font-mono text-[10px] text-muted-foreground" data-selectable>
-          {status.resolvedPath}
-        </code>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => void bridge()?.agent.revealPath({ path: status.resolvedPath! })}
+            title="Reveal in Finder"
+            aria-label="Reveal in Finder"
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded hover:bg-accent"
+          >
+            <LuFolder className="h-3.5 w-3.5" />
+          </button>
+          <span
+            role="link"
+            tabIndex={0}
+            onClick={() => void bridge()?.agent.revealPath({ path: status.resolvedPath! })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                void bridge()?.agent.revealPath({ path: status.resolvedPath! });
+              }
+            }}
+            title="Reveal in Finder"
+            className="cursor-pointer truncate font-mono text-[10px] text-muted-foreground hover:text-foreground hover:underline transition-colors"
+          >
+            {status.resolvedPath}
+          </span>
+        </div>
       ) : null}
 
       {/* Mode toggle and API Key */}
@@ -302,29 +332,46 @@ function AgentCard({
         </div>
       </div>
 
-      {/* Terminal action: Install / Update */}
-      {runCommand ? (
+      {/* Terminal action: Install / Update / Uninstall */}
+      {runCommand || (isInstalled && agent.uninstall) ? (
         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/50">
-          <button
-            type="button"
-            onClick={() =>
-              submitCommand(runCommand, `${agent.label} ${isInstalled ? 'update' : 'install'}`)
-            }
-            className={`flex items-center gap-1.5 h-6 rounded-md px-2 text-xs font-medium transition-colors ${
-              isInstalled
-                ? 'border border-border bg-accent/40 text-foreground hover:bg-accent'
-                : 'border border-primary bg-primary/10 text-primary hover:bg-primary/20'
-            }`}
-          >
-            <LuTerminal className="h-3 w-3" />
-            <span>{runLabel}</span>
-          </button>
-          <code
-            className="truncate font-mono text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded flex-1 min-w-[140px]"
-            data-selectable
-          >
-            {runCommand}
-          </code>
+          {runCommand ? (
+            <button
+              type="button"
+              onClick={() =>
+                submitCommand(runCommand, `${agent.label} ${isInstalled ? 'update' : 'install'}`)
+              }
+              className={`flex items-center gap-1.5 h-6 rounded-md px-2 text-xs font-medium transition-colors ${
+                isInstalled
+                  ? 'border border-border bg-accent/40 text-foreground hover:bg-accent'
+                  : 'border border-primary bg-primary/10 text-primary hover:bg-primary/20'
+              }`}
+            >
+              <LuTerminal className="h-3 w-3" />
+              <span>{runLabel}</span>
+            </button>
+          ) : null}
+
+          {isInstalled && agent.uninstall ? (
+            <button
+              type="button"
+              onClick={() => pasteCommand(agent.uninstall!, `${agent.label} uninstall`)}
+              title="Opens the terminal with the uninstall command pasted — you press Enter"
+              className="flex items-center gap-1.5 h-6 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-destructive hover:border-destructive/40"
+            >
+              <LuTrash2 className="h-3 w-3" />
+              <span>Uninstall…</span>
+            </button>
+          ) : null}
+
+          {runCommand ? (
+            <code
+              className="truncate font-mono text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded flex-1 min-w-[140px]"
+              data-selectable
+            >
+              {runCommand}
+            </code>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -661,17 +708,17 @@ function ClaudeCard({ info, onRefresh }: { info: ClaudeInfo | undefined; onRefre
  * NOT executed — no trailing newline anywhere in this path. The session opens
  * in the selected worktree like any other new terminal.
  */
-function pasteCommand(command: string): void {
+function pasteCommand(command: string, title = 'agent setup'): void {
+  if (!command) return;
   const ui = useUiStore.getState();
   ui.setTerminalOpen(true);
-  // No checkout selected → no cwd to spawn a shell in. The panel opens and
-  // says so, matching the + menu's own disabled state.
-  if (!ui.selectedWorktreePath || !ui.selectedRepoId) return;
+  const cwd = ui.selectedWorktreePath ?? '.';
+  const repoId = ui.selectedRepoId ?? 'default';
   const session = useTerminalStore.getState().openSession({
     kind: 'shell',
-    title: 'claude setup',
-    cwd: ui.selectedWorktreePath,
-    repoId: ui.selectedRepoId,
+    title,
+    cwd,
+    repoId,
   });
   useTerminalStore.getState().queueInput(session.id, command);
 }

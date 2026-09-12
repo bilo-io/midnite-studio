@@ -4246,3 +4246,50 @@ html[data-motion='reduced'] .optimizer-soft-glow {
   transform-origin: left;
   animation: browser-loading-sweep 1s ease-out infinite;
 }
+
+/*
+ * Primary Agent Card — Rainbow gradient border with pulsating glow.
+ * Worn by whichever coding agent is set as primary in Settings.
+ */
+@keyframes primary-agent-glow-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 10px rgba(236, 72, 153, 0.25),
+      0 0 20px rgba(59, 130, 246, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 16px rgba(236, 72, 153, 0.5),
+      0 0 28px rgba(59, 130, 246, 0.35);
+  }
+}
+
+.primary-agent-card {
+  position: relative;
+  border: 1px solid transparent;
+  background-image:
+    linear-gradient(hsl(var(--card)), hsl(var(--card))),
+    conic-gradient(
+      from var(--breadcrumb-angle, 0deg),
+      var(--rainbow-ramp)
+    );
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  animation:
+    breadcrumb-spin 4s linear infinite,
+    primary-agent-glow-pulse 2.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .primary-agent-card {
+    animation: none;
+    box-shadow: 0 0 12px rgba(236, 72, 153, 0.35);
+  }
+}
+
+html[data-motion='reduced'] .primary-agent-card {
+  animation: none;
+  box-shadow: 0 0 12px rgba(236, 72, 153, 0.35);
+}
+

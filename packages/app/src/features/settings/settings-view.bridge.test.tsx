@@ -173,7 +173,7 @@ describe('SettingsView, assembled through the real bridge', () => {
     expect(await screen.findByText('v2.1.34')).toBeTruthy();
     expect(screen.getByText('via npm')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Update Claude' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Uninstall…' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Uninstall…' }).length).toBeGreaterThanOrEqual(1);
 
     // The ~/.claude tree is lazy like the repo one.
     expect(await screen.findByRole('treeitem', { name: 'settings.json' })).toBeTruthy();

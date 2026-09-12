@@ -80,6 +80,14 @@ describe('BUILTIN_AGENTS', () => {
     },
   );
 
+  it.each(BUILTIN_AGENTS.map((agent) => [agent.id, agent] as const))(
+    '%s carries an uninstall command',
+    (_id, agent) => {
+      expect(agent.uninstall).toBeDefined();
+      expect(agent.uninstall).toMatch(/\S+/);
+    },
+  );
+
   it('defines valid agent modes and default mode', () => {
     expect(AGENT_MODES).toEqual(['cli', 'api', 'both', 'none']);
     expect(DEFAULT_AGENT_MODE).toBe('both');
