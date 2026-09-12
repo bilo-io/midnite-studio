@@ -1511,6 +1511,8 @@ export const ClaudeUpdateResponse = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(false), message: z.string() }),
 ]);
 export const ClaudeUpdateDataEvent = z.object({ chunk: z.string() });
+export const AgentRevealPathRequest = z.object({ path: z.string().min(1) });
+export const AgentRevealPathResponse = z.object({ ok: z.boolean(), message: z.string().optional() });
 
 // --- read-only filesystem (Phase 16) ----------------------------------------
 // Scoped, relative paths only: the renderer never names an absolute path, and

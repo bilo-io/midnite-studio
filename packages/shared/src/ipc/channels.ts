@@ -397,6 +397,8 @@ export const CHANNELS = {
   agentClaudeInfo: 'mstudio:agent:claude-info',
   /** Run the method-matched update command; resolves when it exits. */
   agentClaudeUpdate: 'mstudio:agent:claude-update',
+  /** Reveal an agent binary or directory in the OS file manager. */
+  agentRevealPath: 'mstudio:agent:reveal-path',
 
   // --- session history (Phase 67) ------------------------------------------
   // The sessions you *closed*. `terminal:*` above owns rows that still exist;

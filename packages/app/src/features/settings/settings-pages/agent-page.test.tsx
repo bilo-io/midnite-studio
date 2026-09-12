@@ -163,17 +163,57 @@ describe('AgentPage - Agents Roster', () => {
     expect(useUiStore.getState().agentApiKeys['claude']).toBe('');
   });
 
-  it('allows setting primary agent from card', async () => {
+  it('allows setting primary agent from card with "Make primary" and applies primary-agent-card class', async () => {
     renderView(<AgentPage />, { fixtures });
 
     const claudeCard = await screen.findByTestId('agent-card-claude');
     expect(within(claudeCard).getByText('Primary')).toBeTruthy();
+    expect(claudeCard.className).toContain('primary-agent-card');
 
     const agyCard = screen.getByTestId('agent-card-agy');
-    const setPrimaryBtn = within(agyCard).getByRole('button', { name: 'Set as primary' });
+    expect(agyCard.className).not.toContain('primary-agent-card');
+    const setPrimaryBtn = within(agyCard).getByRole('button', { name: 'Make primary' });
 
     fireEvent.click(setPrimaryBtn);
 
     expect(useUiStore.getState().primaryAgent).toBe('agy');
+    expect(agyCard.className).toContain('primary-agent-card');
+    expect(claudeCard.className).not.toContain('primary-agent-card');
+  });
+
+  it('clicking "Uninstall…" spawns a shell and pastes the uninstall command without \\r', async () => {
+    renderView(<AgentPage />, { fixtures });
+
+    const claudeCard = await screen.findByTestId('agent-card-claude');
+    const uninstallBtn = await within(claudeCard).findByRole('button', { name: 'Uninstall…' });
+
+    fireEvent.click(uninstallBtn);
+
+    const { sessions, pendingInput } = useTerminalStore.getState();
+    expect(sessions.length).toBe(1);
+    const session = sessions[0]!;
+    expect(session.kind).toBe('shell');
+    expect(session.title).toBe('Claude uninstall');
+
+    // Pasted without trailing carriage return for safety (user presses Enter to confirm)
+    expect(pendingInput[session.id]).toBe('npm rm -g @anthropic-ai/claude-code');
+  });
+
+  it('clicking "Reveal in Finder" button or path link invokes revealPath bridge', async () => {
+    renderView(<AgentPage />, { fixtures });
+
+    const { bridge } = await import('../../../services/bridge');
+    const revealSpy = vi.spyOn(bridge()!.agent, 'revealPath');
+
+    const claudeCard = await screen.findByTestId('agent-card-claude');
+    const folderBtn = await within(claudeCard).findByRole('button', { name: 'Reveal in Finder' });
+    fireEvent.click(folderBtn);
+
+    expect(revealSpy).toHaveBeenCalledWith({ path: '/Users/e2e/.local/bin/claude' });
+
+    const pathLink = await within(claudeCard).findByText('/Users/e2e/.local/bin/claude');
+    fireEvent.click(pathLink);
+
+    expect(revealSpy).toHaveBeenCalledTimes(2);
   });
 });

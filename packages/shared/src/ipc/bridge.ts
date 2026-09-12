@@ -618,6 +618,7 @@ export type MidniteStudioBridge = {
     onClaudeUpdateData: (
       handler: (e: z.infer<typeof S.ClaudeUpdateDataEvent>) => void,
     ) => Unsubscribe;
+    revealPath: (req: In<typeof S.AgentRevealPathRequest>) => Promise<z.infer<typeof S.AgentRevealPathResponse>>;
   };
 
   /**

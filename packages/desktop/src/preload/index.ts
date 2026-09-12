@@ -360,6 +360,7 @@ const bridge: Pick<
     claudeInfo: () => call(CHANNELS.agentClaudeInfo),
     claudeUpdate: () => call(CHANNELS.agentClaudeUpdate),
     onClaudeUpdateData: (handler) => subscribe(EVENT_CHANNELS.agentClaudeUpdateData, handler),
+    revealPath: (req) => call(CHANNELS.agentRevealPath, req),
   },
   council: {
     list: () => call(CHANNELS.councilList),

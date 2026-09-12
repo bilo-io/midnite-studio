@@ -147,6 +147,8 @@ export const AgentDefinitionSchema = z.object({
   install: z.string().min(1).optional(),
   /** Command to update the CLI installation. */
   update: z.string().min(1).optional(),
+  /** Command to uninstall the CLI. */
+  uninstall: z.string().min(1).optional(),
   /** Documentation URL for the agent. */
   docsUrl: z.string().min(1).optional(),
   /** The primary environment variable name for the provider's API key. */
@@ -219,6 +221,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#D97757',
     install: 'curl -fsSL https://claude.ai/install.sh | bash',
     update: 'npm i -g @anthropic-ai/claude-code',
+    uninstall: 'npm rm -g @anthropic-ai/claude-code',
     docsUrl: 'https://docs.anthropic.com/en/docs/agents-and-tools/claude-code',
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
     /*
@@ -262,6 +265,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     icon: 'antigravity',
     install: 'curl -fsSL https://antigravity.google/install.sh | bash',
     update: 'curl -fsSL https://antigravity.google/install.sh | bash',
+    uninstall: 'rm -f ~/.local/bin/agy',
     docsUrl: 'https://antigravity.google/docs',
     apiKeyEnvVar: 'GEMINI_API_KEY',
     /*
@@ -295,6 +299,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#10A37F',
     install: 'npm i -g @openai/codex',
     update: 'npm i -g @openai/codex',
+    uninstall: 'npm rm -g @openai/codex',
     docsUrl: 'https://github.com/openai/codex',
     apiKeyEnvVar: 'OPENAI_API_KEY',
     // No `activity` set — Phase 50 Theme F could not capture a real Codex
@@ -318,6 +323,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     icon: 'SiCursor',
     install: 'curl https://cursor.com/install -fsS | bash',
     update: 'curl https://cursor.com/install -fsS | bash',
+    uninstall: 'rm -f ~/.local/bin/agent',
     docsUrl: 'https://docs.cursor.com',
     apiKeyEnvVar: 'CURSOR_API_KEY',
   },
@@ -331,6 +337,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     icon: 'SiGithubcopilot',
     install: 'npm i -g @github/copilot',
     update: 'npm i -g @github/copilot',
+    uninstall: 'npm rm -g @github/copilot',
     docsUrl: 'https://docs.github.com/en/copilot',
     apiKeyEnvVar: 'GITHUB_TOKEN',
   },
@@ -342,6 +349,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#8B5CF6',
     install: 'npm i -g @gitlawb/openclaude',
     update: 'npm i -g @gitlawb/openclaude',
+    uninstall: 'npm rm -g @gitlawb/openclaude',
     docsUrl: 'https://github.com/gitlawb/openclaude',
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
   },
@@ -354,6 +362,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#03B000',
     install: 'npm i -g opencode-ai',
     update: 'npm i -g opencode-ai',
+    uninstall: 'npm rm -g opencode-ai',
     docsUrl: 'https://github.com/opencode-ai/opencode',
     apiKeyEnvVar: 'OPENAI_API_KEY',
     /*
@@ -386,6 +395,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#FF5500',
     install: 'npm i -g @kilocode/cli',
     update: 'npm i -g @kilocode/cli',
+    uninstall: 'npm rm -g @kilocode/cli',
     docsUrl: 'https://kilocode.com',
     apiKeyEnvVar: 'KILO_API_KEY',
   },
@@ -398,6 +408,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#D93838',
     install: 'curl -LsSf https://aider.chat/install.sh | sh',
     update: 'pip install -U --upgrade aider-chat',
+    uninstall: 'pip uninstall -y aider-chat',
     docsUrl: 'https://aider.chat/docs',
     apiKeyEnvVar: 'OPENAI_API_KEY',
   },
@@ -411,6 +422,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     icon: 'SiCline',
     install: 'npm i -g cline',
     update: 'npm i -g cline',
+    uninstall: 'npm rm -g cline',
     docsUrl: 'https://github.com/cline/cline',
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
   },
@@ -432,6 +444,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#000000',
     install: 'curl -fsSL https://x.ai/cli/install.sh | bash',
     update: 'curl -fsSL https://x.ai/cli/install.sh | bash',
+    uninstall: 'npm rm -g grok-cli',
     docsUrl: 'https://docs.x.ai/docs/overview',
     apiKeyEnvVar: 'XAI_API_KEY',
   },
@@ -459,6 +472,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
       'curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | bash',
     update:
       'curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | bash',
+    uninstall: 'rm -f ~/.local/bin/goose',
     docsUrl: 'https://goose-docs.ai',
     apiKeyEnvVar: 'OPENAI_API_KEY',
   },
