@@ -180,6 +180,12 @@ describe('AgentDefinitionSchema', () => {
     expect(goose?.resume).toEqual(['session', '--resume']);
   });
 
+  it('configures the install and update commands for antigravity', () => {
+    const agy = BUILTIN_AGENTS.find((a) => a.id === 'agy');
+    expect(agy?.install).toBe('curl -fsSL https://antigravity.google/cli/install.sh | bash');
+    expect(agy?.update).toBe('curl -fsSL https://antigravity.google/cli/install.sh | bash');
+  });
+
   it.each([
     ['icon', ''],
     ['install', ''],
