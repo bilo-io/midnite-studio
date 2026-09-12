@@ -260,8 +260,8 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     args: [],
     accent: '#4285F4',
     icon: 'antigravity',
-    install: 'curl -fsSL https://antigravity.google/install.sh | bash',
-    update: 'curl -fsSL https://antigravity.google/install.sh | bash',
+    install: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+    update: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
     docsUrl: 'https://antigravity.google/docs',
     apiKeyEnvVar: 'GEMINI_API_KEY',
     /*
