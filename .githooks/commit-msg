@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# Strip agent co-author trailers from every commit message.
+#
+# Coding agents (Claude Code, Antigravity, Codex, …) append a trailer such as
+#
+#   Co-Authored-By: Antigravity <antigravity@google.com>
+#
+# to the commits they help write. GitHub resolves that email to whichever
+# account has claimed it and credits the commit to THAT account in the
+# contributors graph — which is how a solo repo came to show a stranger with 19
+# "commits" and a `web-flow` bot with one (Phase 88, September 2026). None of
+# them ever pushed a byte; the trailer alone was enough.
+#
+# Turning the trailer off in each agent's own settings is the first line of
+# defence, but every agent has its own knob, some have none, and a fresh
+# machine forgets them all. This hook is the backstop that does not depend on
+# which agent wrote the message: it runs on the message file git is about to
+# commit and deletes the trailer lines, whatever their case or spelling.
+#
+# It STRIPS rather than rejects on purpose. A rejected commit makes an agent
+# retry with the same trailer, or worse, `--no-verify` its way past the
+# pre-commit identity guard beside this file. A stripped one just lands
+# clean, with a one-line note on stderr so the removal is visible.
+#
+# Like every hook in `.githooks/`, this only runs when the clone has
+# `core.hooksPath` pointed here — see the identity bullet in CLAUDE.md.
+#
+# Deliberate bypass: `git commit --no-verify`.
+
+msg_file="$1"
+
+if grep -qiE '^co-authored-by:' "$msg_file"; then
+  count=$(grep -ciE '^co-authored-by:' "$msg_file")
+  tmp="$msg_file.no-coauthor.$$"
+  grep -viE '^co-authored-by:' "$msg_file" > "$tmp" && mv "$tmp" "$msg_file"
+  # Collapse a trailing run of blank lines the removal may have left behind.
+  sed -i.bak -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$msg_file" 2>/dev/null && rm -f "$msg_file.bak"
+  printf 'commit-msg: stripped %s Co-Authored-By trailer(s) — this repo has one author\n' "$count" >&2
+fi
+
+exit 0
