@@ -252,6 +252,20 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   git config --local user.email bilo.lwabona@gmail.com
   git config --local core.hooksPath .githooks
   ```
+- **No `Co-Authored-By` trailers, from any agent — a `commit-msg` hook strips them.** Coding
+  agents append a co-author trailer to the commits they help write, and GitHub credits each
+  such commit to whichever account has claimed the trailer's email. That is how a solo repo
+  came to list a stranger with 19 "commits" (Antigravity's `antigravity@google.com`) and the
+  `web-flow` bot with one (a mistyped `noreply@github.com`) — none of them ever pushed a byte.
+  So the rule is: **never add a `Co-Authored-By`, `Signed-off-by` or any other attribution
+  trailer to a commit message in this repo.** Turn it off at the source where the agent has a
+  knob — Claude Code reads `attribution.commit`/`attribution.pr` set to `""` in
+  `~/.claude/settings.json` — and [`.githooks/commit-msg`](.githooks/commit-msg) is the
+  backstop for the agents that have none: it deletes the trailer lines from the message
+  git is about to commit and prints a one-line note, rather than rejecting the commit, so an
+  agent cannot retry its way past it or `--no-verify` past the identity guard beside it. It
+  is wired by the same `core.hooksPath .githooks` as `pre-commit`, so the three commands
+  above install both.
 
 ## Sitrep — the standing format when the user asks for status
 
