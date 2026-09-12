@@ -71,7 +71,7 @@ describe('AgentPage - Agents Roster', () => {
     expect(session.cwd).toBe('/Users/test/midnite-studio');
 
     // Must be queued with trailing carriage return to submit automatically
-    expect(pendingInput[session.id]).toBe('npm i -g openclaude\r');
+    expect(pendingInput[session.id]).toBe('npm i -g @gitlawb/openclaude\r');
   });
 
   it('clicking "Update in Terminal" spawns a shell and submits update command with \\r', async () => {
