@@ -252,14 +252,21 @@ function AgentCard({
           >
             <LuFolder className="h-3.5 w-3.5" />
           </button>
-          <button
-            type="button"
+          <span
+            role="link"
+            tabIndex={0}
             onClick={() => void bridge()?.agent.revealPath({ path: status.resolvedPath! })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                void bridge()?.agent.revealPath({ path: status.resolvedPath! });
+              }
+            }}
             title="Reveal in Finder"
-            className="truncate font-mono text-[10px] text-muted-foreground hover:text-foreground hover:underline transition-colors text-left"
+            className="cursor-pointer truncate font-mono text-[10px] text-muted-foreground hover:text-foreground hover:underline transition-colors"
           >
             {status.resolvedPath}
-          </button>
+          </span>
         </div>
       ) : null}
 
