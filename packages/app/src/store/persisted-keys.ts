@@ -31,6 +31,8 @@ export const PREFERENCE_KEYS = [
   'activityTimelineOrientation', // activity-timeline-settings.tsx
   'activityTimelineStyle', // activity-timeline-settings.tsx
   'agentSkills', // agent-page.tsx
+  'agentModes', // agent-page.tsx
+  'agentApiKeys', // agent-page.tsx
   'allowForceWithLease', // git-safety-page.tsx
   'allowSystemCacheClean', // optimizer-settings-page.tsx
   'allowTrashEmpty', // trash-safety-page.tsx

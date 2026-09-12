@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  AGENT_MODES,
   AgentDefinitionSchema,
+  AgentModeSchema,
   AgentStatusSchema,
   BUILTIN_AGENTS,
+  DEFAULT_AGENT_MODE,
   RegexSource,
   SessionActivitySchema,
   TerminalSessionSchema,
@@ -55,6 +58,37 @@ describe('BUILTIN_AGENTS', () => {
       expect(agent.install).toBeTruthy();
     },
   );
+
+  it.each(BUILTIN_AGENTS.map((agent) => [agent.id, agent] as const))(
+    '%s carries an update command',
+    (_id, agent) => {
+      expect(agent.update).toBeTruthy();
+    },
+  );
+
+  it.each(BUILTIN_AGENTS.map((agent) => [agent.id, agent] as const))(
+    '%s carries a documentation URL',
+    (_id, agent) => {
+      expect(agent.docsUrl).toMatch(/^https?:\/\//);
+    },
+  );
+
+  it.each(BUILTIN_AGENTS.map((agent) => [agent.id, agent] as const))(
+    '%s carries an API key environment variable name',
+    (_id, agent) => {
+      expect(agent.apiKeyEnvVar).toMatch(/^[A-Z0-9_]+$/);
+    },
+  );
+
+  it('defines valid agent modes and default mode', () => {
+    expect(AGENT_MODES).toEqual(['cli', 'api', 'both', 'none']);
+    expect(DEFAULT_AGENT_MODE).toBe('both');
+    expect(AgentModeSchema.safeParse('cli').success).toBe(true);
+    expect(AgentModeSchema.safeParse('api').success).toBe(true);
+    expect(AgentModeSchema.safeParse('both').success).toBe(true);
+    expect(AgentModeSchema.safeParse('none').success).toBe(true);
+    expect(AgentModeSchema.safeParse('invalid').success).toBe(false);
+  });
 
   it.each(BUILTIN_AGENTS.map((agent) => [agent.id, agent] as const))(
     '%s carries a brand accent',
@@ -342,6 +376,16 @@ describe('AgentListResponse', () => {
     const parsed = AgentStatusSchema.parse({ id: 'claude', installed: true, resolvedPath: null });
 
     expect(parsed).toEqual({ id: 'claude', installed: true, resolvedPath: null });
+  });
+
+  it('parses version on AgentStatusSchema when present', () => {
+    const parsed = AgentStatusSchema.parse({
+      id: 'claude',
+      installed: true,
+      resolvedPath: '/usr/local/bin/claude',
+      version: '2.1.269',
+    });
+    expect(parsed.version).toBe('2.1.269');
   });
 });
 

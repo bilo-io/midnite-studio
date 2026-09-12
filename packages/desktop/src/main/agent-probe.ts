@@ -72,15 +72,27 @@ const FRAMEABLE = /^[A-Za-z0-9_-]+$/;
  * cannot end the script under a shell with `set -e` in its profile — a missing
  * agent has to produce an empty frame, not a truncated batch.
  */
+/**
+ * One command line resolving the whole roster, framed per agent.
+ *
+ * `|| true` after each `command -v` so a missing binary's non-zero status
+ * cannot end the script under a shell with `set -e` in its profile — a missing
+ * agent has to produce an empty frame, not a truncated batch.
+ */
 export function buildProbeScript(agents: readonly AgentDefinition[]): string {
   return agents
     .filter((agent) => FRAMEABLE.test(agent.id))
-    .map(
-      (agent) =>
+    .map((agent) => {
+      const target = probeTarget(agent.command);
+      const quoted = shellQuote(target);
+      return (
         `printf '\\n%s\\n' ${shellQuote(frameStart(agent.id))}; ` +
-        `command -v ${shellQuote(probeTarget(agent.command))} 2>/dev/null || true; ` +
-        `printf '\\n%s\\n' ${shellQuote(frameEnd(agent.id))}`,
-    )
+        `command -v ${quoted} 2>/dev/null || true; ` +
+        `printf '__VER__\\n'; ` +
+        `${quoted} --version 2>/dev/null || true; ` +
+        `printf '\\n%s\\n' ${shellQuote(frameEnd(agent.id))}`
+      );
+    })
     .join('; ');
 }
 
@@ -102,6 +114,23 @@ export function probeTarget(command: string): string {
 function shellQuote(value: string): string {
   const escaped = value.split("'").join(`'\\''`);
   return `'${escaped}'`;
+}
+
+/**
+ * Extract a version number from agent --version output.
+ * Handles forms like:
+ * - "2.1.269 (Claude Code)" -> "2.1.269"
+ * - "1.2.2" -> "1.2.2"
+ * - "codex-cli 0.7.0" -> "0.7.0"
+ * - "2026.09.10-fd3934a" -> "2026.09.10-fd3934a"
+ * - "GitHub Copilot CLI 1.0.83." -> "1.0.83"
+ * - "aider 0.86.2" -> "0.86.2"
+ */
+export function parseAgentVersion(output: string): string | null {
+  const branded = output.match(/\b(\d+\.\d+\.\d+(?:[-+][\w.]+)?)\s*\(/i);
+  if (branded?.[1]) return branded[1];
+  const matches = output.match(/\b\d+\.\d+(?:\.\d+)?(?:[-+][\w.]+)?\b/g);
+  return matches?.[matches.length - 1] ?? null;
 }
 
 /**
@@ -128,6 +157,11 @@ export function parseProbeOutput(
     if (end === -1) continue;
 
     const body = output.slice(start + frameStart(agent.id).length, end);
+    const verMarker = '__VER__';
+    const verIndex = body.indexOf(verMarker);
+    const whichBody = verIndex === -1 ? body : body.slice(0, verIndex);
+    const verBody = verIndex === -1 ? '' : body.slice(verIndex + verMarker.length);
+
     /*
       `installed` is "the shell found SOMETHING", not "it found a file".
       `command -v` answers with a bare name for a shell function, and with
@@ -138,9 +172,16 @@ export function parseProbeOutput(
       them: the schema already allows a path-less install, and a path we did
       not get is not a path to invent.
     */
-    const answer = body.trim();
-    const resolvedPath = parseWhichOutput(body);
-    statuses.push({ id: agent.id, installed: answer.length > 0, resolvedPath });
+    const answer = whichBody.trim();
+    const resolvedPath = parseWhichOutput(whichBody);
+    const installed = answer.length > 0;
+    const version = installed && verBody.trim().length > 0 ? parseAgentVersion(verBody) : null;
+    statuses.push({
+      id: agent.id,
+      installed,
+      resolvedPath,
+      ...(version ? { version } : {}),
+    });
   }
 
   return statuses;

@@ -111,6 +111,11 @@ export const RegexSource = z
  * travels beside these objects as {@link AgentStatusSchema} — so this schema
  * stays exactly the shape `agents.json` is validated against.
  */
+export const AGENT_MODES = ['cli', 'api', 'both', 'none'] as const;
+export const AgentModeSchema = z.enum(AGENT_MODES);
+export type AgentMode = z.infer<typeof AgentModeSchema>;
+export const DEFAULT_AGENT_MODE: AgentMode = 'both';
+
 export const AgentDefinitionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -140,6 +145,12 @@ export const AgentDefinitionSchema = z.object({
    * an explanation instead.
    */
   install: z.string().min(1).optional(),
+  /** Command to update the CLI installation. */
+  update: z.string().min(1).optional(),
+  /** Documentation URL for the agent. */
+  docsUrl: z.string().min(1).optional(),
+  /** The primary environment variable name for the provider's API key. */
+  apiKeyEnvVar: z.string().min(1).optional(),
   /**
    * Two markers this agent's own TUI prints, used to guess whether it is
    * thinking or waiting on you — see main's `activity-detect.ts`. Roster data
@@ -187,6 +198,8 @@ export const AgentStatusSchema = z.object({
   installed: z.boolean(),
   /** Absolute path the command resolved to, when it resolved at all. */
   resolvedPath: z.string().min(1).nullable(),
+  /** Version string parsed from CLI probe output, when available. */
+  version: z.string().min(1).nullable().optional(),
 });
 export type AgentStatus = z.infer<typeof AgentStatusSchema>;
 
@@ -204,7 +217,10 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     args: [],
     resume: ['--continue'],
     accent: '#D97757',
-    install: 'npm i -g @anthropic-ai/claude-code',
+    install: 'curl -fsSL https://claude.ai/install.sh | bash',
+    update: 'npm i -g @anthropic-ai/claude-code',
+    docsUrl: 'https://docs.anthropic.com/en/docs/agents-and-tools/claude-code',
+    apiKeyEnvVar: 'ANTHROPIC_API_KEY',
     /*
       Two independent tells, because Claude Code's spinner row grows and
       shrinks with the width it is given and with how long the turn has run:
@@ -244,7 +260,10 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     args: [],
     accent: '#4285F4',
     icon: 'antigravity',
-    install: 'See antigravity.google/docs/cli for the Antigravity CLI',
+    install: 'curl -fsSL https://antigravity.google/install.sh | bash',
+    update: 'curl -fsSL https://antigravity.google/install.sh | bash',
+    docsUrl: 'https://antigravity.google/docs',
+    apiKeyEnvVar: 'GEMINI_API_KEY',
     /*
       Phase 50 Theme F, captured from a real session (a PTY-driven trivial
       prompt, ANSI stripped). Two independent tells for the same reason
@@ -275,6 +294,9 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     resume: ['resume', '--last'],
     accent: '#10A37F',
     install: 'npm i -g @openai/codex',
+    update: 'npm i -g @openai/codex',
+    docsUrl: 'https://github.com/openai/codex',
+    apiKeyEnvVar: 'OPENAI_API_KEY',
     // No `activity` set — Phase 50 Theme F could not capture a real Codex
     // session in this pass: the local CLI required `codex login` (an
     // interactive OAuth device flow), which is not something to drive
@@ -295,6 +317,9 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#0066FF',
     icon: 'SiCursor',
     install: 'curl https://cursor.com/install -fsS | bash',
+    update: 'curl https://cursor.com/install -fsS | bash',
+    docsUrl: 'https://docs.cursor.com',
+    apiKeyEnvVar: 'CURSOR_API_KEY',
   },
   {
     id: 'copilot',
@@ -305,6 +330,9 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#6E40C9',
     icon: 'SiGithubcopilot',
     install: 'npm i -g @github/copilot',
+    update: 'npm i -g @github/copilot',
+    docsUrl: 'https://docs.github.com/en/copilot',
+    apiKeyEnvVar: 'GITHUB_TOKEN',
   },
   {
     id: 'openclaude',
@@ -313,6 +341,9 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     args: [],
     accent: '#8B5CF6',
     install: 'npm i -g @gitlawb/openclaude',
+    update: 'npm i -g @gitlawb/openclaude',
+    docsUrl: 'https://github.com/gitlawb/openclaude',
+    apiKeyEnvVar: 'ANTHROPIC_API_KEY',
   },
   {
     id: 'opencode',
@@ -322,6 +353,9 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     resume: ['--continue'],
     accent: '#03B000',
     install: 'npm i -g opencode-ai',
+    update: 'npm i -g opencode-ai',
+    docsUrl: 'https://github.com/opencode-ai/opencode',
+    apiKeyEnvVar: 'OPENAI_API_KEY',
     /*
       Phase 50 Theme F, captured the same way as `agy`'s. OpenCode's own
       braille spinner (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`, the classic "dots" cli-spinner set —
@@ -351,6 +385,9 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     resume: ['--continue'],
     accent: '#FF5500',
     install: 'npm i -g @kilocode/cli',
+    update: 'npm i -g @kilocode/cli',
+    docsUrl: 'https://kilocode.com',
+    apiKeyEnvVar: 'KILO_API_KEY',
   },
   {
     id: 'aider',
@@ -359,7 +396,10 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     args: [],
     resume: ['--restore-chat-history'],
     accent: '#D93838',
-    install: 'pip install -U aider-chat',
+    install: 'curl -LsSf https://aider.chat/install.sh | sh',
+    update: 'pip install -U --upgrade aider-chat',
+    docsUrl: 'https://aider.chat/docs',
+    apiKeyEnvVar: 'OPENAI_API_KEY',
   },
   {
     id: 'cline',
@@ -370,6 +410,9 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#5F52FF',
     icon: 'SiCline',
     install: 'npm i -g cline',
+    update: 'npm i -g cline',
+    docsUrl: 'https://github.com/cline/cline',
+    apiKeyEnvVar: 'ANTHROPIC_API_KEY',
   },
   {
     /*
@@ -388,6 +431,9 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     resume: ['--continue'],
     accent: '#000000',
     install: 'curl -fsSL https://x.ai/cli/install.sh | bash',
+    update: 'curl -fsSL https://x.ai/cli/install.sh | bash',
+    docsUrl: 'https://docs.x.ai/docs/overview',
+    apiKeyEnvVar: 'XAI_API_KEY',
   },
   {
     /*
@@ -411,6 +457,10 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     accent: '#2E7D32',
     install:
       'curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | bash',
+    update:
+      'curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | bash',
+    docsUrl: 'https://goose-docs.ai',
+    apiKeyEnvVar: 'OPENAI_API_KEY',
   },
 ] as const;
 
