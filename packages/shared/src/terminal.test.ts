@@ -11,6 +11,7 @@ import {
   SessionActivitySchema,
   TerminalSessionSchema,
   TerminalSurfaceSchema,
+  buildResumeCommand,
   type AgentDefinition,
 } from './terminal';
 import { AgentListResponse, TerminalSaveRequest } from './ipc/schemas';
@@ -486,3 +487,82 @@ describe('the kanban surface and taskRef', () => {
     expect(parsed.session.agentConversationId).toBe('12345678-1234-1234-1234-123456789abc');
   });
 });
+
+describe('buildResumeCommand (Phase 86 Theme C)', () => {
+  const claude = BUILTIN_AGENTS.find((a) => a.id === 'claude')!;
+  const codex = BUILTIN_AGENTS.find((a) => a.id === 'codex')!;
+  const cursor = BUILTIN_AGENTS.find((a) => a.id === 'cursor')!;
+  const agy = BUILTIN_AGENTS.find((a) => a.id === 'agy')!;
+
+  describe('exact conversation ID support', () => {
+    it('returns [--resume, id] for claude when conversationId is provided', () => {
+      expect(buildResumeCommand(claude, 'b6f784d3-9702-4202-8d5e-ab7344aac211')).toEqual([
+        '--resume',
+        'b6f784d3-9702-4202-8d5e-ab7344aac211',
+      ]);
+    });
+
+    it('returns [resume, id] for codex when conversationId is provided', () => {
+      expect(buildResumeCommand(codex, 'rollout-12345678')).toEqual([
+        'resume',
+        'rollout-12345678',
+      ]);
+    });
+
+    it('trims whitespace around conversationId', () => {
+      expect(buildResumeCommand(claude, '  trimmed-uuid  ')).toEqual([
+        '--resume',
+        'trimmed-uuid',
+      ]);
+    });
+  });
+
+  describe('fallback to agent.resume args', () => {
+    it('falls back to claude.resume when conversationId is absent or blank', () => {
+      expect(buildResumeCommand(claude)).toEqual(['--continue']);
+      expect(buildResumeCommand(claude, undefined)).toEqual(['--continue']);
+      expect(buildResumeCommand(claude, null)).toEqual(['--continue']);
+      expect(buildResumeCommand(claude, '')).toEqual(['--continue']);
+      expect(buildResumeCommand(claude, '   ')).toEqual(['--continue']);
+    });
+
+    it('falls back to codex.resume when conversationId is absent or blank', () => {
+      expect(buildResumeCommand(codex)).toEqual(['resume', '--last']);
+      expect(buildResumeCommand(codex, null)).toEqual(['resume', '--last']);
+      expect(buildResumeCommand(codex, '')).toEqual(['resume', '--last']);
+    });
+
+    it('returns agent.resume for agents without exact ID support even if conversationId is given', () => {
+      expect(buildResumeCommand(cursor, 'some-uuid')).toEqual(['--continue']);
+      expect(buildResumeCommand(cursor, null)).toEqual(['--continue']);
+    });
+  });
+
+  describe('no-resume (null) case', () => {
+    it('returns null for agy which has no resume args', () => {
+      expect(buildResumeCommand(agy)).toBeNull();
+      expect(buildResumeCommand(agy, 'some-uuid')).toBeNull();
+      expect(buildResumeCommand(agy, null)).toBeNull();
+    });
+
+    it('returns null for an agent with no resume defined or empty resume array', () => {
+      const customNoResume: AgentDefinition = {
+        id: 'custom',
+        label: 'Custom',
+        command: 'custom',
+        args: [],
+        accent: '#000',
+      };
+      expect(buildResumeCommand(customNoResume)).toBeNull();
+      expect(buildResumeCommand(customNoResume, 'uuid')).toBeNull();
+
+      const customEmptyResume: AgentDefinition = {
+        ...customNoResume,
+        resume: [],
+      };
+      expect(buildResumeCommand(customEmptyResume)).toBeNull();
+      expect(buildResumeCommand(customEmptyResume, 'uuid')).toBeNull();
+    });
+  });
+});
+

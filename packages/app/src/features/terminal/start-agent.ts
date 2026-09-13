@@ -57,7 +57,7 @@ export function startAgent({
   cwd: string;
   /** The session's label in the terminal list. */
   title: string;
-  prompt: string;
+  prompt?: string;
   /** The roster entry's id (e.g. `'claude'`, `'agy'`, `'codex'`) — labels the session. */
   agentId: string;
   /** The roster entry's `command` — what's actually typed at the shell. */
@@ -110,12 +110,15 @@ export function startAgent({
   // Queued input beats the roster's own start command (see `agentInput` in
   // <TerminalPanel>), so this replaces the bare command an agent session would
   // otherwise open with rather than racing it.
-  const words = [
-    command,
-    ...extraArgs,
-    ...agentInvocationArgs(agentId, executionMode),
-    shellQuote(toAgentPrompt(prompt, agentId)),
-  ];
+  const words =
+    prompt !== undefined
+      ? [
+          command,
+          ...extraArgs,
+          ...agentInvocationArgs(agentId, executionMode),
+          shellQuote(toAgentPrompt(prompt, agentId)),
+        ]
+      : [command, ...extraArgs];
   useTerminalStore.getState().queueInput(session.id, words.join(' ') + (autoSend ? '\r' : ''));
   return session;
 }

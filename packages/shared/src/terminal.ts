@@ -478,6 +478,40 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
 ] as const;
 
 /**
+ * Build the CLI arguments needed to resume an agent conversation (Phase 86 Theme C).
+ *
+ * For agents where exact-conversation resume is supported ('claude' and 'codex')
+ * and an agent-native conversation ID is provided, returns the exact resume argv:
+ * - 'claude': ['--resume', conversationId]
+ * - 'codex': ['resume', conversationId]
+ *
+ * Otherwise, falls back to the agent's defined `resume` args (e.g. ['--continue']
+ * or ['resume', '--last']) if present and non-empty.
+ *
+ * Returns `null` if the agent has no resume mechanism configured (such as 'agy' or 'cline').
+ */
+export function buildResumeCommand(
+  agent: AgentDefinition,
+  conversationId?: string | null,
+): string[] | null {
+  const trimmedId = conversationId?.trim();
+  if (trimmedId) {
+    if (agent.id === 'claude') {
+      return ['--resume', trimmedId];
+    }
+    if (agent.id === 'codex') {
+      return ['resume', trimmedId];
+    }
+  }
+
+  if (agent.resume && agent.resume.length > 0) {
+    return [...agent.resume];
+  }
+
+  return null;
+}
+
+/**
  * The persisted half of a terminal, as written to `terminals.json`.
  *
  * Note what is *absent*: no `ptyId`, and no liveness flag. Both belong to a

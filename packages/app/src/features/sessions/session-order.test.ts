@@ -66,6 +66,16 @@ describe('mergeManagedSessions', () => {
       expect(asPlain.reason).toBe('exited');
     }
   });
+
+  it('preserves agentConversationId on both live and closed rows', () => {
+    const merged = mergeManagedSessions(
+      [live({ id: 'l1', repoId: 'r1', title: 'repo', createdAt: 1, agentConversationId: 'live-uuid' })],
+      [closed({ id: 'c1', repoId: 'r1', title: 'repo', createdAt: 1, closedAt: 2, agentConversationId: 'closed-uuid' })],
+    );
+
+    expect(merged.find((s) => s.id === 'l1')?.agentConversationId).toBe('live-uuid');
+    expect(merged.find((s) => s.id === 'c1')?.agentConversationId).toBe('closed-uuid');
+  });
 });
 
 describe('groupSessionsByRepo (merged)', () => {

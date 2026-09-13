@@ -29,16 +29,20 @@ vi.mock('./transcript-view', () => ({
 }));
 
 const purge = vi.fn().mockResolvedValue(undefined);
+const save = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../services/bridge', () => ({
-  bridge: () => ({ sessions: { purge } }),
+  bridge: () => ({
+    sessions: { purge },
+    terminal: { save },
+  }),
 }));
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  // The store is a module-level singleton — reset the three fields this
+  // The store is a module-level singleton — reset the fields this
   // view reads so one test's live session never bleeds into the next.
-  useTerminalStore.setState({ sessions: [], states: {}, activity: {} });
+  useTerminalStore.setState({ sessions: [], states: {}, activity: {}, pendingInput: {} });
 });
 
 function closedSession(
@@ -535,6 +539,144 @@ describe('SessionsView', () => {
     });
 
     expect(screen.getByTestId('transcript').textContent).toBe('sess-1');
+  });
+
+  describe('Resume action (Phase 86 Theme C)', () => {
+    it('shows resume button with exact ID tooltip when conversationId is present', () => {
+      historyResult.mockReturnValue({
+        data: [
+          closedSession({
+            id: 'c-claude',
+            repoId: 'r1',
+            title: 'repo-one',
+            name: 'claude-session',
+            kind: 'agent',
+            agentId: 'claude',
+            agentConversationId: '12345678-1234-1234-1234-123456789abc',
+            createdAt: 1000,
+            closedAt: 2000,
+          }),
+        ],
+        isPending: false,
+        isError: false,
+      });
+
+      renderView();
+
+      const expectedTooltip =
+        'Resume conversation 12345678-1234-1234-1234-123456789abc (claude --resume 12345678-1234-1234-1234-123456789abc)';
+      const resumeButton = screen.getByRole('button', { name: expectedTooltip });
+      expect(resumeButton).toBeTruthy();
+    });
+
+    it('shows resume button with directory fallback tooltip when conversationId is absent', () => {
+      historyResult.mockReturnValue({
+        data: [
+          closedSession({
+            id: 'c-claude-fallback',
+            repoId: 'r1',
+            title: 'repo-one',
+            name: 'claude-no-id',
+            kind: 'agent',
+            agentId: 'claude',
+            createdAt: 1000,
+            closedAt: 2000,
+          }),
+        ],
+        isPending: false,
+        isError: false,
+      });
+
+      renderView();
+
+      const expectedTooltip =
+        'Resume most recent conversation in this directory rather than this session (claude --continue)';
+      const resumeButton = screen.getByRole('button', { name: expectedTooltip });
+      expect(resumeButton).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /^Resume conversation/ })).toBeNull();
+    });
+
+    it('does not render resume button for agents with no resume mechanism (e.g. agy)', () => {
+      historyResult.mockReturnValue({
+        data: [
+          closedSession({
+            id: 'c-agy',
+            repoId: 'r1',
+            title: 'repo-one',
+            name: 'agy-session',
+            kind: 'agent',
+            agentId: 'agy',
+            createdAt: 1000,
+            closedAt: 2000,
+          }),
+        ],
+        isPending: false,
+        isError: false,
+      });
+
+      renderView();
+
+      const row = screen.getByText('agy-session').closest('.group');
+      expect(row?.querySelector('button[aria-label^="Resume"]')).toBeNull();
+    });
+
+    it('does not render resume button for shell sessions', () => {
+      historyResult.mockReturnValue({
+        data: [
+          closedSession({
+            id: 'c-shell',
+            repoId: 'r1',
+            title: 'repo-one',
+            name: 'shell-session',
+            kind: 'shell',
+            createdAt: 1000,
+            closedAt: 2000,
+          }),
+        ],
+        isPending: false,
+        isError: false,
+      });
+
+      renderView();
+
+      const row = screen.getByText('shell-session').closest('.group');
+      expect(row?.querySelector('button[aria-label^="Resume"]')).toBeNull();
+    });
+
+    it('clicking resume calls startAgent with autoSend: true and queued input', () => {
+      historyResult.mockReturnValue({
+        data: [
+          closedSession({
+            id: 'c-codex',
+            repoId: 'r1',
+            cwd: '/work/repo-one',
+            title: 'repo-one',
+            name: 'codex-session',
+            kind: 'agent',
+            agentId: 'codex',
+            agentConversationId: 'rollout-abc',
+            createdAt: 1000,
+            closedAt: 2000,
+          }),
+        ],
+        isPending: false,
+        isError: false,
+      });
+
+      renderView();
+
+      const resumeButton = screen.getByRole('button', {
+        name: 'Resume conversation rollout-abc (codex resume rollout-abc)',
+      });
+      fireEvent.click(resumeButton);
+
+      const store = useTerminalStore.getState();
+      expect(store.sessions).toHaveLength(1);
+      const newSession = store.sessions[0]!;
+      expect(newSession.agentId).toBe('codex');
+      expect(newSession.cwd).toBe('/work/repo-one');
+      expect(store.pendingInput[newSession.id]).toBe('codex resume rollout-abc\r');
+    });
   });
 });
 

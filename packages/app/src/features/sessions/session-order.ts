@@ -48,6 +48,7 @@ export type ManagedLiveSession = {
   repoId: string;
   createdAt: number;
   surface?: TerminalSurface;
+  agentConversationId?: string;
 };
 
 /**
@@ -83,6 +84,7 @@ export function mergeManagedSessions(
     kind: session.kind,
     liveness: session.asleep === true ? 'asleep' : 'running',
     ...(session.agentId === undefined ? {} : { agentId: session.agentId }),
+    ...(session.agentConversationId === undefined ? {} : { agentConversationId: session.agentConversationId }),
     title: session.title,
     ...(session.name === undefined ? {} : { name: session.name }),
     cwd: session.cwd,
