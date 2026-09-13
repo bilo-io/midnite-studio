@@ -1,7 +1,7 @@
 # `ps` fixtures
 
-Captured `ps -axo pid=,ppid=,stat=,args=` output, trimmed to the rows that
-matter, for `agent-process.test.ts`.
+Captured `ps -axo pid=,ppid=,stat=,rss=,pcpu=,args=` output, trimmed to the
+rows that matter, for `agent-process.test.ts`.
 
 Fixtures rather than a live process tree on purpose: the interesting cases are
 the ones a working laptop will not produce on demand — a nested agent, two
@@ -18,6 +18,15 @@ for "sleeping" and "session leader", `+` marking a process in its terminal's
 foreground process group. `foregroundOf` is the only thing that reads it; the
 agent-matching fixtures' STAT values are otherwise arbitrary since nothing else
 inspects them.
+
+Recaptured in six-column form for Phase 85 Theme B: every row now also carries
+`rss` (KB) and `pcpu` (%) between STAT and the command line, matching the
+widened `ps -axo pid=,ppid=,stat=,rss=,pcpu=,args=` this app has called since
+Phase 59. The values themselves are plausible placeholders inserted directly
+into the existing four-column captures, not re-derived from a live machine —
+this README already warned against that, since the interesting cases here
+(a nested agent, two agents at the same depth, an agent's name as an argument)
+are exactly the ones a working laptop will not reproduce on demand.
 
 The command lines are real forms observed on the machine this phase was written
 on: Claude Code and `agy` are compiled binaries invoked as a bare name, and

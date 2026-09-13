@@ -1,4 +1,4 @@
-    1     0 S+  /sbin/launchd
-    0     0 S+  kernel_task
-60000 59980 S+  /bin/zsh -l
-60200     1 S+  claude
+    1     0 S+     1024   12.5 /sbin/launchd
+    0     0 S+    19680    0.0 kernel_task
+60000 59980 S+    19680    0.0 /bin/zsh -l
+60200     1 S+    19680    0.0 claude

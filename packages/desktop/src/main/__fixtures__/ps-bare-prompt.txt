@@ -1,2 +1,2 @@
-    1     0 Ss  /sbin/launchd
-60000 59980 Ss+  /bin/zsh -l
+    1     0 Ss     1024   12.5 /sbin/launchd
+60000 59980 Ss+   19680    0.0 /bin/zsh -l

@@ -12,6 +12,7 @@ import {
   matchAgentInArgv,
   matchRunningAgent,
   parsePsOutput,
+  parsePsTable,
   type ProcessRow,
 } from './agent-process';
 
@@ -42,11 +43,13 @@ const agentOf = (name: string, rosterOverride?: readonly AgentDefinition[]): str
 
 describe('parsePsOutput', () => {
   it("reads the leading-space padding header-suppressed ps actually emits", () => {
-    const parsed = parsePsOutput('    1     0 Ss  /sbin/launchd\n60000 59980 S+  /bin/zsh -l\n');
+    const parsed = parsePsOutput(
+      '    1     0 Ss    19680   0.0 /sbin/launchd\n60000 59980 S+     1024   0.0 /bin/zsh -l\n',
+    );
 
     expect(parsed).toEqual([
-      { pid: 1, ppid: 0, stat: 'Ss', rssBytes: 0, cpuPercent: 0, args: '/sbin/launchd' },
-      { pid: 60_000, ppid: 59_980, stat: 'S+', rssBytes: 0, cpuPercent: 0, args: '/bin/zsh -l' },
+      { pid: 1, ppid: 0, stat: 'Ss', rssBytes: 19_680 * 1024, cpuPercent: 0, args: '/sbin/launchd' },
+      { pid: 60_000, ppid: 59_980, stat: 'S+', rssBytes: 1_024 * 1024, cpuPercent: 0, args: '/bin/zsh -l' },
     ]);
   });
 
@@ -75,7 +78,9 @@ describe('parsePsOutput', () => {
    * ends up wearing an agent's mark.
    */
   it('skips a line that does not start with two integers', () => {
-    expect(parsePsOutput('not a process row\n  60000 59980 S+  /bin/zsh\n')).toHaveLength(1);
+    expect(
+      parsePsOutput('not a process row\n  60000 59980 S+     1024   0.0 /bin/zsh\n'),
+    ).toHaveLength(1);
   });
 
   it('skips continuation lines when an argv contains a newline', () => {
@@ -95,6 +100,39 @@ describe('parsePsOutput', () => {
    */
   it('rejects rows without required status column', () => {
     expect(parsePsOutput('60000 59980 /bin/zsh\n')).toEqual([]);
+  });
+
+  /**
+   * Phase 85 Theme B / Finding 1: a comma-decimal `%CPU` — what a comma-locale
+   * `ps` prints for `0.7` — cannot match the six-column regex's dot-only
+   * `[\d.]+` group, so the line is skipped rather than half-read. This is the
+   * assertion that would have failed for the whole life of the locale bug.
+   */
+  it('skips a comma-decimal line rather than half-reading it', () => {
+    expect(parsePsOutput('    1     0 Ss    22560   0,7 /sbin/launchd')).toEqual([]);
+  });
+
+  /**
+   * Every line unparseable (a whole table read under a comma locale, before
+   * Theme A's `LC_ALL=C` pin) yields `{ rows: [], totalLines: N }`, not a
+   * silent empty table — the caller can tell "nothing running" apart from
+   * "I do not understand this machine's `ps`" via `PsParse.totalLines`.
+   */
+  it('reports totalLines with zero rows when every line is unparseable', () => {
+    const commaTable = Array.from(
+      { length: 679 },
+      (_, i) => `${String(i + 1).padStart(5)}     0 Ss    22560   0,7 /sbin/launchd`,
+    ).join('\n');
+
+    expect(parsePsTable(commaTable)).toEqual({ rows: [], totalLines: 679 });
+  });
+
+  /** The valid six-column line the comma-locale bug prevented from ever parsing. */
+  it('parses a valid six-column line into bytes and the untouched command line', () => {
+    const [row] = parsePsOutput('    1     0 Ss    22560   0.7 /sbin/launchd');
+
+    expect(row?.rssBytes).toBe(22_560 * 1024);
+    expect(row?.args).toBe('/sbin/launchd');
   });
 });
 
