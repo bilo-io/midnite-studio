@@ -50,6 +50,8 @@ export function agentInteractiveArgs(agentId: string): string[] {
   switch (agentId) {
     case 'agy':
       return ['--prompt-interactive'];
+    case 'codex':
+      return ['exec'];
     case 'opencode':
       return ['--prompt'];
     case 'copilot':
@@ -61,7 +63,6 @@ export function agentInteractiveArgs(agentId: string): string[] {
     case 'goose':
       return ['session', 'start', '--instruction'];
     case 'claude':
-    case 'codex':
     case 'cursor':
     case 'grok':
     case 'cline':

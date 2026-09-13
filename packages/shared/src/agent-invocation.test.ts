@@ -30,9 +30,10 @@ describe('agentInteractiveArgs', () => {
     expect(agentInteractiveArgs('openclaude')).toEqual(['chat']);
     expect(agentInteractiveArgs('goose')).toEqual(['session', 'start', '--instruction']);
 
+    expect(agentInteractiveArgs('codex')).toEqual(['exec']);
+
     // Bare / positional interactive prompt
     expect(agentInteractiveArgs('claude')).toEqual([]);
-    expect(agentInteractiveArgs('codex')).toEqual([]);
     expect(agentInteractiveArgs('cursor')).toEqual([]);
     expect(agentInteractiveArgs('grok')).toEqual([]);
     expect(agentInteractiveArgs('cline')).toEqual([]);
@@ -76,7 +77,7 @@ describe('agentInvocationArgs', () => {
     expect(agentInvocationArgs('agy')).toEqual(['--prompt-interactive']);
     expect(agentInvocationArgs('opencode')).toEqual(['--prompt']);
     expect(agentInvocationArgs('claude')).toEqual([]);
-    expect(agentInvocationArgs('codex')).toEqual([]);
+    expect(agentInvocationArgs('codex')).toEqual(['exec']);
   });
 
   it('returns headless args when mode is headless', () => {
