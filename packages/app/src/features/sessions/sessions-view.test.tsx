@@ -1,9 +1,10 @@
-import type { ClosedSession } from '@midnite/studio-shared';
+import type { ClosedSession, TerminalSession } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
+import { useTerminalStore } from '../terminal/terminal-store';
 import { SessionsView } from './sessions-view';
 
 import { BUILTIN_AGENTS } from '@midnite/studio-shared';
@@ -35,6 +36,9 @@ vi.mock('../../services/bridge', () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // The store is a module-level singleton — reset the three fields this
+  // view reads so one test's live session never bleeds into the next.
+  useTerminalStore.setState({ sessions: [], states: {}, activity: {} });
 });
 
 function closedSession(
@@ -47,6 +51,16 @@ function closedSession(
     exitCode: null,
     reason: 'closed',
     transcriptBytes: 0,
+    ...overrides,
+  };
+}
+
+function liveSession(
+  overrides: Partial<TerminalSession> & Pick<TerminalSession, 'id' | 'repoId' | 'title' | 'createdAt'>,
+): TerminalSession {
+  return {
+    kind: 'shell',
+    cwd: '/repo',
     ...overrides,
   };
 }
@@ -349,6 +363,178 @@ describe('SessionsView', () => {
 
     fireEvent.click(collapseButton);
     expect(screen.getByRole('button', { name: 'Expand repo-one' })).toBeTruthy();
+  });
+
+  it('shows a live session above a closed one in the same repo group, with no purge affordance', () => {
+    historyResult.mockReturnValue({
+      data: [closedSession({ id: 'c1', repoId: 'r1', title: 'repo-one', name: 'closed-one', createdAt: 1000, closedAt: 2000 })],
+      isPending: false,
+      isError: false,
+    });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'live-1', repoId: 'r1', title: 'repo-one', name: 'live-one', createdAt: 5000 })],
+      });
+    });
+
+    renderView();
+
+    const list = screen.getByRole('list', { name: 'Sessions' });
+    const rows = within(list).getAllByRole('button', { name: /live-one|closed-one/ });
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining('live-one'),
+      expect.stringContaining('closed-one'),
+    ]);
+
+    const liveRow = screen.getByText('live-one').closest('.group');
+    expect(liveRow?.querySelector('button[aria-label="Purge session"]')).toBeNull();
+    expect(liveRow?.querySelector('input[type="checkbox"]')).toBeNull();
+
+    const closedRow = screen.getByText('closed-one').closest('.group');
+    expect(closedRow?.querySelector('button[aria-label="Purge session"]')).toBeTruthy();
+    expect(closedRow?.querySelector('input[type="checkbox"]')).toBeTruthy();
+  });
+
+  it('places the agent icon ahead of the label rather than trailing it', () => {
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({
+          id: 'claude-s1',
+          repoId: 'r1',
+          title: 'repo-one',
+          kind: 'agent',
+          agentId: 'claude',
+          createdAt: 1000,
+          closedAt: 2000,
+        }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderView();
+
+    const row = screen.getByRole('button', { name: /Claude/ });
+    const icon = row.querySelector('svg');
+    const label = within(row).getByText('Claude');
+    expect(icon).toBeTruthy();
+    // DOCUMENT_POSITION_FOLLOWING: the label comes AFTER the icon in the DOM.
+    expect(icon!.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('names the status dot state in a focusable, keyboard-reachable tooltip', async () => {
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({ id: 'a', repoId: 'r1', title: 'repo-one', name: 'crashed', createdAt: 1000, closedAt: 2000, reason: 'exited' }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderView();
+
+    const dot = screen.getByLabelText('Exited on its own');
+    expect(dot.tabIndex).toBe(0);
+
+    fireEvent.focus(dot);
+    expect((await screen.findByRole('tooltip')).textContent).toContain('Exited on its own');
+  });
+
+  it('names a running session as such in the dot tooltip', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'live-1', repoId: 'r1', title: 'repo-one', name: 'live-one', createdAt: 5000 })],
+      });
+    });
+
+    renderView();
+
+    expect(screen.getByLabelText('Running')).toBeTruthy();
+  });
+
+  it('names an asleep session as such in the dot tooltip, and offers no purge affordance', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [
+          liveSession({ id: 'sleep-1', repoId: 'r1', title: 'repo-one', name: 'sleeping-one', createdAt: 5000, asleep: true }),
+        ],
+      });
+    });
+
+    renderView();
+
+    expect(screen.getByLabelText('Asleep — process stopped, transcript kept')).toBeTruthy();
+    const row = screen.getByText('sleeping-one').closest('.group');
+    expect(row?.querySelector('button[aria-label="Purge session"]')).toBeNull();
+  });
+
+  it('filters sessions by the liveness facet', () => {
+    historyResult.mockReturnValue({
+      data: [closedSession({ id: 'c1', repoId: 'r1', title: 'repo-one', name: 'closed-one', createdAt: 1000, closedAt: 2000 })],
+      isPending: false,
+      isError: false,
+    });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'live-1', repoId: 'r1', title: 'repo-one', name: 'live-one', createdAt: 5000 })],
+      });
+    });
+
+    renderView();
+
+    expect(screen.getByText(/closed-one/)).toBeTruthy();
+    expect(screen.getByText(/live-one/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'All states' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Running' }));
+
+    expect(screen.getByText(/live-one/)).toBeTruthy();
+    expect(screen.queryByText(/closed-one/)).toBeNull();
+  });
+
+  it('shows a placeholder notice for a selected live row instead of a transcript', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'live-1', repoId: 'r1', title: 'repo-one', name: 'live-one', createdAt: 5000 })],
+      });
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /live-one/ }));
+
+    expect(screen.getByText(/open the terminal panel to interact with it/)).toBeTruthy();
+    expect(screen.queryByTestId('transcript')).toBeNull();
+  });
+
+  it('flips a selected live row over to its transcript once the session closes while mounted', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'sess-1', repoId: 'r1', title: 'repo-one', name: 'running-one', createdAt: 5000 })],
+      });
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /running-one/ }));
+    expect(screen.getByText(/open the terminal panel to interact with it/)).toBeTruthy();
+
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({ id: 'sess-1', repoId: 'r1', title: 'repo-one', name: 'running-one', createdAt: 5000, closedAt: 6000 }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+    act(() => {
+      useTerminalStore.setState({ sessions: [] });
+    });
+
+    expect(screen.getByTestId('transcript').textContent).toBe('sess-1');
   });
 });
 
