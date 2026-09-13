@@ -83,6 +83,7 @@ function fakeSpawn(options: {
 
 const claude = BUILTIN_AGENTS.find((agent) => agent.id === 'claude') as AgentDefinition;
 const cursor = BUILTIN_AGENTS.find((agent) => agent.id === 'cursor') as AgentDefinition;
+const codex = BUILTIN_AGENTS.find((agent) => agent.id === 'codex') as AgentDefinition;
 const customNoHeadless: AgentDefinition = {
   id: 'custom-no-headless',
   label: 'Custom',
@@ -353,6 +354,20 @@ describe('askCompanion', () => {
     expect(onArgs).toHaveBeenCalledWith('claude', ['-p', expect.any(String)], '/repos/studio');
     // One argument, not a shell string — the prompt contains quotes and braces.
     expect(onArgs.mock.calls[0]?.[1]).toHaveLength(2);
+  });
+
+  it('runs whichever primary agent is configured', async () => {
+    const onArgs = vi.fn();
+    const result = await askCompanion(
+      { kind: 'route', text: 'start a swarm', repoPath: '/repos/studio', agentId: 'codex' },
+      deps({
+        agents: async () => [claude, codex],
+        spawn: fakeSpawn({ stdout: '{"say":"Running it on Codex."}', onArgs }),
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(onArgs).toHaveBeenCalledWith('codex', ['exec', expect.any(String)], '/repos/studio');
   });
 
   it('runs in the home directory when no repo is open', async () => {

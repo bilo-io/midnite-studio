@@ -71,6 +71,7 @@ import { useReveal, usePanelRevealFade, useRevealSize } from './components/use-r
 import { ThemeToggle } from './components/theme-toggle';
 import { TitleBarAgents } from './components/title-bar-agents';
 import { TitleBarNav } from './components/title-bar-nav';
+import { TitleBarPrimaryAgent } from './components/title-bar-primary-agent';
 import { TitleBarBattery } from './features/battery/battery-titlebar';
 import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
 import { ScreensaverHost } from './features/screensaver/screensaver-host';
@@ -1146,6 +1147,7 @@ function Shell() {
         from here, so the rule cannot outlive the cluster; see its header for
         why that had to be its responsibility and not this one's.
       */}
+      <TitleBarPrimaryAgent />
       <TitleBarAgents />
       <TitleBarStatus />
       <TitleBarBattery />

@@ -87,9 +87,19 @@ describe('VideoProjectDetail', () => {
     renderDetail();
 
     await screen.findByText('COP31 showreel');
+    expect(screen.getByRole('heading', { level: 3, name: 'Claude' })).toBeDefined();
     expect(screen.getByRole('button', { name: /Write editorial script/ })).toHaveProperty('disabled', true);
     expect(screen.getByRole('button', { name: /Execute editorial script/ })).toHaveProperty('disabled', true);
     expect(screen.getByRole('button', { name: 'Sync' })).toHaveProperty('disabled', true);
+  });
+
+  it('renders the configured primary agent label as the actions section header', async () => {
+    installBridge();
+    useUiStore.setState({ primaryAgent: 'codex' });
+    renderDetail();
+
+    await screen.findByText('COP31 showreel');
+    expect(screen.getByRole('heading', { level: 3, name: 'Codex' })).toBeDefined();
   });
 
   it('opens an agent session with the resolved skill when a repo is open', async () => {

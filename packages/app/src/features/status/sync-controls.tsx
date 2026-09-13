@@ -1,11 +1,12 @@
-import type { BranchStatus, GitOpResult } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, type BranchStatus, type GitOpResult } from '@midnite/studio-shared';
 import { LuRefreshCw } from 'react-icons/lu';
 import { IoCloudUploadOutline } from 'react-icons/io5';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
 import { useTargetedGitOp, type StatusTarget } from '../../services/use-status';
-import { startClaude } from '../terminal/start-claude';
+import { useUiStore } from '../../store/ui-store';
+import { startPrimaryAgent } from '../terminal/start-primary-agent';
 import { syncPlan, type SyncPlan, type SyncStep } from './sync-availability';
 import { syncResolution, type SyncFailure } from './sync-resolution';
 
@@ -102,7 +103,10 @@ export function SyncControls({
             ...(result.stderr === undefined ? {} : { stderr: result.stderr }),
           };
 
-    const resolution = syncResolution(failure, branch);
+    const primaryAgentId = useUiStore.getState().primaryAgent;
+    const agent = BUILTIN_AGENTS.find((a) => a.id === primaryAgentId) ?? BUILTIN_AGENTS[0]!;
+    const agentLabel = agent.label;
+    const resolution = syncResolution(failure, branch, agentLabel);
 
     /*
       No checkout path means no directory to open a terminal in — the sidebar
@@ -117,7 +121,7 @@ export function SyncControls({
     dialogs.confirm({
       title: resolution.title,
       body: canRepair
-        ? `${resolution.body} Claude opens in a terminal here with the prompt typed — your Return sends it.`
+        ? `${resolution.body} ${agentLabel} opens in a terminal here with the prompt typed — your Return sends it.`
         : resolution.body,
       warnings: resolution.warnings,
       // Explicitly null, not absent: the dialog reads `undefined` as "still
@@ -126,7 +130,7 @@ export function SyncControls({
       confirmLabel: canRepair ? resolution.confirmLabel : 'Close',
       onConfirm: () => {
         if (!canRepair) return;
-        startClaude({ repoId, cwd, title: resolution.title, prompt: resolution.prompt });
+        startPrimaryAgent({ repoId, cwd, title: resolution.title, prompt: resolution.prompt });
       },
     });
   };
