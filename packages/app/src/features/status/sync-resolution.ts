@@ -50,8 +50,12 @@ const STEP_VERB: Record<SyncStep, string> = { fetch: 'fetch', pull: 'pull', push
 
 const NEVER_FORCE = 'Never force-push, and never rewrite a commit that is already on the remote.';
 
-export function syncResolution(failure: SyncFailure, branch: BranchStatus): SyncResolution {
-  if (failure.kind === 'conflict') return conflictResolution(failure, branch);
+export function syncResolution(
+  failure: SyncFailure,
+  branch: BranchStatus,
+  agentLabel = 'Claude',
+): SyncResolution {
+  if (failure.kind === 'conflict') return conflictResolution(failure, branch, agentLabel);
 
   const said = `${failure.message}\n${failure.stderr ?? ''}`;
 
@@ -64,7 +68,7 @@ export function syncResolution(failure: SyncFailure, branch: BranchStatus): Sync
     return {
       title: 'The push was rejected',
       body: `${upstream} has commits your branch does not, so git refused to overwrite them. Rebasing your ${count(branch.ahead, 'commit')} on top of it makes the push a fast-forward.`,
-      confirmLabel: `Rebase onto ${upstream} and push, with Claude`,
+      confirmLabel: `Rebase onto ${upstream} and push, with ${agentLabel}`,
       warnings: gitSaid(failure),
       prompt: `A \`git push\` was rejected because ${upstream} has commits my branch does not. Rebase my ${count(branch.ahead, 'local commit')} onto ${upstream}, resolve any conflicts that come up, then push. ${NEVER_FORCE}`,
     };
@@ -74,7 +78,7 @@ export function syncResolution(failure: SyncFailure, branch: BranchStatus): Sync
     return {
       title: 'The pull would overwrite your changes',
       body: 'Git stopped rather than discard uncommitted work. The changes have to be put somewhere — stashed or committed — before the pull can land.',
-      confirmLabel: 'Stash, pull, then restore, with Claude',
+      confirmLabel: `Stash, pull, then restore, with ${agentLabel}`,
       warnings: gitSaid(failure),
       prompt:
         'A `git pull` refused to run because it would overwrite my uncommitted changes. Stash them, pull, then restore the stash and resolve any conflicts that surface. Show me what was stashed before you touch anything. ' +
@@ -90,7 +94,7 @@ export function syncResolution(failure: SyncFailure, branch: BranchStatus): Sync
     return {
       title: `The ${STEP_VERB[failure.step]} could not authenticate`,
       body: 'Git reached the remote but was refused. That is a credential or an access problem, not something in your working tree.',
-      confirmLabel: 'Diagnose the credentials with Claude',
+      confirmLabel: `Diagnose the credentials with ${agentLabel}`,
       warnings: gitSaid(failure),
       prompt: `\`git ${STEP_VERB[failure.step]}\` failed to authenticate against the remote. Work out why — check the remote URL, the SSH agent and the git credential helper — and tell me what to change. Do not change any credentials yourself.`,
     };
@@ -100,7 +104,7 @@ export function syncResolution(failure: SyncFailure, branch: BranchStatus): Sync
     return {
       title: `The ${STEP_VERB[failure.step]} could not reach the remote`,
       body: 'Nothing in the repository changed. This is worth retrying once the network is back.',
-      confirmLabel: 'Investigate the connection with Claude',
+      confirmLabel: `Investigate the connection with ${agentLabel}`,
       warnings: gitSaid(failure),
       prompt: `\`git ${STEP_VERB[failure.step]}\` could not reach the remote. Check the remote URL and whether the host is reachable, and tell me what you find.`,
     };
@@ -109,7 +113,7 @@ export function syncResolution(failure: SyncFailure, branch: BranchStatus): Sync
   return {
     title: `The ${STEP_VERB[failure.step]} failed`,
     body: 'The sync stopped here, so no later step ran. Git’s own words are below.',
-    confirmLabel: `Investigate the failed ${STEP_VERB[failure.step]} with Claude`,
+    confirmLabel: `Investigate the failed ${STEP_VERB[failure.step]} with ${agentLabel}`,
     warnings: gitSaid(failure),
     prompt: `\`git ${STEP_VERB[failure.step]}\` failed in this repository with: "${oneLine(`${failure.message} ${failure.stderr ?? ''}`)}". Work out why and fix it. Tell me what you are going to do before you change anything. ${NEVER_FORCE}`,
   };
@@ -118,6 +122,7 @@ export function syncResolution(failure: SyncFailure, branch: BranchStatus): Sync
 function conflictResolution(
   failure: Extract<SyncFailure, { kind: 'conflict' }>,
   branch: BranchStatus,
+  agentLabel = 'Claude',
 ): SyncResolution {
   // `op` is what git ACTUALLY started — a pull is a merge or a rebase depending
   // on how it was invoked — so the button names that rather than "the pull".
@@ -128,7 +133,7 @@ function conflictResolution(
   return {
     title: `The pull left ${count(n, 'file')} conflicted`,
     body: `The ${op} is still in progress. Every conflicted file has to be resolved and staged before it can continue.${branch.ahead > 0 ? ' Nothing was pushed.' : ''}`,
-    confirmLabel: `Resolve the ${n} ${op} conflict${n === 1 ? '' : 's'} with Claude`,
+    confirmLabel: `Resolve the ${n} ${op} conflict${n === 1 ? '' : 's'} with ${agentLabel}`,
     warnings: failure.files.slice(0, 8),
     prompt: `A \`git pull\` left this repository mid-${op} with ${count(n, 'conflicted file')}: ${failure.files.join(', ')}. Resolve every conflict, keeping both sides' intent rather than picking one wholesale, stage the results and complete the ${op}. Explain each resolution you are unsure about instead of guessing. ${NEVER_FORCE}`,
   };

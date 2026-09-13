@@ -27,6 +27,27 @@ describe('syncResolution', () => {
     expect(resolution.warnings).toEqual(['a.ts', 'b.ts']);
   });
 
+  it('reflects the configured agent label in the button text', () => {
+    const codexRes = syncResolution(
+      { step: 'pull', kind: 'conflict', op: 'merge', files: ['a.ts', 'b.ts'] },
+      branch({ behind: 3 }),
+      'Codex',
+    );
+    expect(codexRes.confirmLabel).toBe('Resolve the 2 merge conflicts with Codex');
+
+    const agyRes = syncResolution(
+      {
+        step: 'push',
+        kind: 'error',
+        message: 'The push was rejected.',
+        stderr: 'hint: Updates were rejected',
+      },
+      branch({ ahead: 1 }),
+      'Antigravity',
+    );
+    expect(agyRes.confirmLabel).toBe('Rebase onto origin/main and push, with Antigravity');
+  });
+
   it('follows git into a rebase rather than calling everything a merge', () => {
     const resolution = syncResolution(
       { step: 'pull', kind: 'conflict', op: 'rebase', files: ['a.ts'] },

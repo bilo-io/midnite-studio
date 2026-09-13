@@ -7,6 +7,7 @@ import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { ToastHost } from '../../components/toast-host';
 import type { StatusTarget } from '../../services/use-status';
+import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { SyncControls } from './sync-controls';
 
@@ -60,6 +61,7 @@ const syncButton = () => screen.getByRole('button', { name: /^Sync —|^Publish 
 
 beforeEach(() => {
   useTerminalStore.setState({ sessions: [], pendingInput: {} });
+  useUiStore.setState({ primaryAgent: 'claude' });
 });
 
 afterEach(cleanup);
@@ -201,6 +203,39 @@ describe('SyncControls, assembled through the real bridge', () => {
     expect(typed).toMatch(/^claude '/);
     // And NOT executed: the user's Return is the confirmation.
     expect(typed.endsWith('\r')).toBe(false);
+  });
+
+  it('hands the repair to whichever primary agent is configured (Codex)', async () => {
+    useUiStore.setState({ primaryAgent: 'codex' });
+    renderSync(
+      {
+        head: 'main',
+        oid: 'a'.repeat(40),
+        upstream: 'origin/main',
+        ahead: 2,
+        behind: 3,
+        unborn: false,
+        detached: false,
+      },
+      {
+        ...fixtures,
+        opResults: {
+          pull: { ok: false, kind: 'conflict', op: 'merge', files: ['src/a.ts'] },
+        },
+      },
+    );
+
+    fireEvent.click(syncButton());
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Resolve the 1 merge conflict with Codex' }),
+    );
+
+    await waitFor(() =>
+      expect(useTerminalStore.getState().sessions.at(-1)).toMatchObject({
+        kind: 'agent',
+        agentId: 'codex',
+      }),
+    );
   });
 
   it('offers a rebase when the push is rejected, not a force-push', async () => {

@@ -132,7 +132,7 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
       <p className="mt-0.5 text-muted-foreground">{data.composition}</p>
 
       <section className="mt-4 space-y-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Claude</h3>
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{agent.label}</h3>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"

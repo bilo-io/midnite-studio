@@ -299,7 +299,7 @@ export async function askCompanion(
 
   const outcome = await runProcess<string>(
     resolved.agent.command,
-    [...resolved.args, prompt],
+    [...(resolved.agent.args ?? []), ...resolved.args, prompt],
     cwd,
     {
       sink: textSink(),
