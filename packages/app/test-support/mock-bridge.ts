@@ -1238,7 +1238,7 @@ export function buildMockBridge(data: MockFixtures) {
       },
       // Null for an unknown sha, exactly as the real handler does — the
       // inspector's not-found state is unreachable otherwise.
-      commitDetail: async (req: { sha: string }) => data.commitDetails[req.sha] ?? null,
+      commitDetail: async (req: { sha: string }) => data.commitDetails?.[req.sha] ?? null,
       fileDiff: async (req: { path: string }) =>
         data.diffs[`wt:${req.path}`] ?? emptyDiff(req.path),
       commitFileDiff: async (req: { sha: string; path: string; context: number }) =>
