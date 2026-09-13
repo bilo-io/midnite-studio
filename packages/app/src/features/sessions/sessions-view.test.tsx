@@ -76,7 +76,7 @@ describe('SessionsView', () => {
 
     renderView();
 
-    const list = screen.getByRole('list', { name: 'Closed sessions' });
+    const list = screen.getByRole('list', { name: 'Sessions' });
     const rows = within(list).getAllByRole('button', { name: /first|second|third/ });
     // r2 (newest member closedAt=5000) sorts its group ahead of r1; within
     // r1, 'second' (3000) sorts ahead of 'first' (2000).
@@ -135,7 +135,7 @@ describe('SessionsView', () => {
 
     renderView();
 
-    expect(screen.getByText('No closed sessions')).toBeTruthy();
+    expect(screen.getByText('Nothing running, nothing closed')).toBeTruthy();
     expect(screen.queryByText('Loading closed sessions…')).toBeNull();
   });
 
