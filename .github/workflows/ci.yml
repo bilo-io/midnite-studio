@@ -233,6 +233,42 @@ jobs:
           GIT_COMMITTER_NAME: ci
           GIT_COMMITTER_EMAIL: ci@example.com
 
+  gate-locale:
+    # Phase 85 Theme A — hostile-locale CI gate. Runs desktop and git-engine tests
+    # under LC_ALL=de_DE.UTF-8 on macos-14 to ensure subprocess parsers and numeric
+    # formatting do not break under comma locales.
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test under hostile locale (desktop, git-engine)
+        run: pnpm exec moon run desktop:test git-engine:test
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LC_ALL: de_DE.UTF-8
+          # The integration tests create commits; git refuses without an identity.
+          GIT_AUTHOR_NAME: ci
+          GIT_AUTHOR_EMAIL: ci@example.com
+          GIT_COMMITTER_NAME: ci
+          GIT_COMMITTER_EMAIL: ci@example.com
+
+
   # Phase 61 Theme J / Decision 5 — the real-database driver tests
   # (packages/db-engine/src/drivers/drivers.test.ts) skip themselves
   # (`it.skipIf(!env)`) whenever `testConnectionFor` finds no

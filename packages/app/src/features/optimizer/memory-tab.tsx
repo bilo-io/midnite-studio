@@ -45,6 +45,18 @@ const DEFAULT_DIR: Record<SortKey, SortDir> = {
 };
 
 /**
+ * `null`-last in **both** directions, regardless of `sign` — a process this
+ * build could not read a number for is unknown, not zero, and unknown never
+ * outranks a real reading either way the column is sorted.
+ */
+function compareNullable(a: number | null, b: number | null): number | null {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return null;
+}
+
+/**
  * Compare on the chosen key, then always on `pid`.
  *
  * The tie-break is not cosmetic: the table re-renders every 5s off a fresh
@@ -65,12 +77,18 @@ function compareProcesses(a: ProcessInfo, b: ProcessInfo, sort: Sort): number {
     case 'type':
       primary = Number(b.ours) - Number(a.ours);
       break;
-    case 'cpu':
-      primary = a.cpuPercent - b.cpuPercent;
+    case 'cpu': {
+      const nullOrder = compareNullable(a.cpuPercent, b.cpuPercent);
+      if (nullOrder !== null) return nullOrder;
+      primary = (a.cpuPercent as number) - (b.cpuPercent as number);
       break;
-    case 'rss':
-      primary = a.rssBytes - b.rssBytes;
+    }
+    case 'rss': {
+      const nullOrder = compareNullable(a.rssBytes, b.rssBytes);
+      if (nullOrder !== null) return nullOrder;
+      primary = (a.rssBytes as number) - (b.rssBytes as number);
       break;
+    }
   }
   return primary !== 0 ? primary * sign : a.pid - b.pid;
 }
@@ -115,6 +133,7 @@ function SortHeader({
 export function MemoryTab() {
   const processes = useOptimizerStore((s) => s.processes);
   const memory = useOptimizerStore((s) => s.memory);
+  const processesError = useOptimizerStore((s) => s.processesError);
 
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<Sort>({ key: 'rss', dir: 'desc' });
@@ -352,7 +371,9 @@ export function MemoryTab() {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-xs text-muted-foreground">
-                    {query ? 'No matching processes found.' : 'No processes reported.'}
+                    {query
+                      ? 'No matching processes found.'
+                      : (processesError ?? 'No processes reported.')}
                   </td>
                 </tr>
               ) : (
@@ -389,11 +410,26 @@ export function MemoryTab() {
                           </span>
                         )}
                       </td>
+                      {/*
+                        Phase 85 Theme B: adopts `monitor-cluster.tsx`'s own
+                        rule verbatim — "A metric that is `null` renders no
+                        readout at all — no dot, no dash, no zero … a 'GPU 0%'
+                        would be a plain lie." `memory-tab.tsx` was the
+                        surface that had opted out of it.
+                      */}
                       <td className="px-3 py-2.5 text-right font-mono text-[11px] text-muted-foreground">
-                        {proc.cpuPercent.toFixed(1)}%
+                        {proc.cpuPercent === null ? (
+                          <span aria-label="unknown">—</span>
+                        ) : (
+                          `${proc.cpuPercent.toFixed(1)}%`
+                        )}
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-[11px] font-medium text-foreground">
-                        {formatBytes(proc.rssBytes)}
+                        {proc.rssBytes === null ? (
+                          <span aria-label="unknown">—</span>
+                        ) : (
+                          formatBytes(proc.rssBytes)
+                        )}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         {proc.ours ? (

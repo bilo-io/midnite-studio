@@ -1,5 +1,5 @@
-    1     0 S+  /sbin/launchd
-60000 59980 S+  /bin/zsh -l
-60130 60000 S+  claude
-60131 60130 S+  /bin/zsh -c node /opt/homebrew/bin/codex
-60132 60131 S+  node /opt/homebrew/bin/codex
+    1     0 S+     1024   12.5 /sbin/launchd
+60000 59980 S+    19680    0.0 /bin/zsh -l
+60130 60000 S+     8420    1.5 claude
+60131 60130 S+     2048    0.3 /bin/zsh -c node /opt/homebrew/bin/codex
+60132 60131 S+      512    0.0 node /opt/homebrew/bin/codex

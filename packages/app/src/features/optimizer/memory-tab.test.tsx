@@ -61,7 +61,7 @@ const pidOrder = (): string[] =>
 afterEach(() => {
   cleanup();
   delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
-  useOptimizerStore.setState({ processes: [], memory: null });
+  useOptimizerStore.setState({ processes: [], memory: null, processesError: null });
 });
 
 describe('MemoryTab — sorting', () => {
@@ -115,6 +115,42 @@ describe('MemoryTab — sorting', () => {
     render(<MemoryTab />);
 
     expect(pidOrder()).toEqual(['4', '9']);
+  });
+});
+
+describe('MemoryTab — a row that cannot be half-read (Phase 85 Theme B)', () => {
+  it('renders — with aria-label="unknown" for a null CPU/RSS reading, and sorts it last either way', () => {
+    installBridge();
+    const rows = [
+      proc({ pid: 5, name: 'known', cpuPercent: 3, rssBytes: 500 }),
+      proc({ pid: 6, name: 'unreadable', cpuPercent: null, rssBytes: null }),
+    ];
+    useOptimizerStore.setState({ processes: rows, memory: null, processesError: null });
+    render(<MemoryTab />);
+
+    const unknownCells = screen.getAllByLabelText('unknown');
+    expect(unknownCells).toHaveLength(2); // CPU cell + Memory cell
+    unknownCells.forEach((cell) => expect(cell.textContent).toBe('—'));
+
+    // Memory column opens descending — the null row sorts last, not first.
+    expect(pidOrder()).toEqual(['5', '6']);
+
+    fireEvent.click(screen.getByRole('button', { name: /Memory/ }));
+    // Reversed to ascending — the null row still sorts last.
+    expect(pidOrder()).toEqual(['5', '6']);
+  });
+
+  it("renders the process-table error in place of 'No processes reported.'", () => {
+    installBridge();
+    useOptimizerStore.setState({
+      processes: [],
+      memory: null,
+      processesError: 'Could not parse the process table (679 lines, 0 rows).',
+    });
+    render(<MemoryTab />);
+
+    expect(screen.getByText('Could not parse the process table (679 lines, 0 rows).')).toBeTruthy();
+    expect(screen.queryByText('No processes reported.')).toBeNull();
   });
 });
 

@@ -1,4 +1,4 @@
-    1     0 S+  /sbin/launchd
-60000 59980 S+  /bin/zsh -l
-60150 60000 S+  agy
-60151 60000 S+  node /opt/homebrew/bin/codex
+    1     0 S+     1024   12.5 /sbin/launchd
+60000 59980 S+    19680    0.0 /bin/zsh -l
+60150 60000 S+     6144    0.1 agy
+60151 60000 S+      256    0.0 node /opt/homebrew/bin/codex

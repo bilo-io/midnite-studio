@@ -2,6 +2,8 @@ import { execFile } from 'node:child_process';
 import { statfs } from 'node:fs/promises';
 import { promisify } from 'node:util';
 
+import { parseableProcessEnv } from '@midnite/studio-shared';
+
 import { clampPercent } from './cpu';
 
 const exec = promisify(execFile);
@@ -129,6 +131,6 @@ export async function probeDisk(
 }
 
 async function runDf(target: string): Promise<string> {
-  const { stdout } = await exec(DF, ['-k', target], { timeout: 2_000 });
+  const { stdout } = await exec(DF, ['-k', target], { timeout: 2_000, env: parseableProcessEnv() });
   return stdout;
 }

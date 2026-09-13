@@ -106,13 +106,13 @@ Fifteen call sites in `packages/desktop/src/main` and `packages/git-engine/src` 
 **One of them — `git-exec.ts` — already pins the locale.** This theme generalises that one, applies
 it to the seven that parse numbers, and leaves the four that hand a shell to a human alone.
 
-- [ ] **Measure first.** Record in the PR body the real `ps -axo pid=,ppid=,stat=,rss=,pcpu=,args=`
+- [x] **Measure first.** Record in the PR body the real `ps -axo pid=,ppid=,stat=,rss=,pcpu=,args=`
       first line under `LC_ALL=C` and under `LC_ALL=de_DE.UTF-8`, plus the six-column-vs-fallback
       match counts for each against the current `parsePsOutput`. Two minutes, and it is the evidence
       every other item in A and B cites.
       - Reproduce anywhere with `LC_ALL=de_DE.UTF-8 ps -axo pid=,ppid=,stat=,rss=,pcpu=,args= | head -1`;
         the reporter's machine reproduces it with no override at all (`LANG=en_ZA.UTF-8`).
-- [ ] **New:** [`packages/shared/src/process-env.ts`](../../../packages/shared/src/process-env.ts),
+- [x] **New:** [`packages/shared/src/process-env.ts`](../../../packages/shared/src/process-env.ts),
       exporting exactly two symbols, and re-exported from `shared`'s index alongside the other
       domain modules:
       ```ts
@@ -132,7 +132,7 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
         that re-exports `LC_NUMERIC` downstream of `LC_ALL` is cheap to defend against.
       - The docblock carries the failure it prevents, quoting the `0,7` line verbatim, and points at
         `git-exec.ts:36` as the original.
-- [ ] Applied at the **seven parsed sites**, each replacing or extending the existing options object:
+- [x] Applied at the **seven parsed sites**, each replacing or extending the existing options object:
       | File:line | Command | Today |
       |---|---|---|
       | [`agent-process.ts:147`](../../../packages/desktop/src/main/agent-process.ts) | `ps -axo …rss=,pcpu=…` | no `env:` |
@@ -145,7 +145,7 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
       - `disk.ts` and `memory.ts` parse integers only (`(\d+)`) and survive a comma today; they are
         pinned anyway, and the item says so — a thousands separator or a translated `vm_stat` label
         would break both, and the cost of pinning is zero.
-- [ ] The same pin on the **three `ps` call sites under `scripts/perf/`**, because the instruments
+- [x] The same pin on the **three `ps` call sites under `scripts/perf/`**, because the instruments
       have the identical bug and Theme F depends on one of them:
       - [`idle-cpu.mjs:98`](../../../scripts/perf/idle-cpu.mjs) — `ps -Ao pid=,ppid=,cputime=,args=`.
         **This is the one that matters**: `cputime` is `MM:SS.ss`, `Number('12,34')` is `NaN`, the
@@ -157,12 +157,12 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
         `ps -Ao pid=,ppid=,rss=,args=`. Integer RSS, so unaffected today; pinned.
       - *Acceptance:* `LC_ALL=de_DE.UTF-8 node scripts/perf/idle-cpu.mjs --seconds=15 --json` reports
         a non-zero `cpuPercentOfOneCore.total`. Today it reports `0`.
-- [ ] **`electron-run.mjs` gains a per-call env override.**
+- [x] **`electron-run.mjs` gains a per-call env override.**
       [`launchEnv(repo)`](../../../scripts/perf/electron-run.mjs) at `:100` is the single choke point
       for every perf launch's environment and accepts no override — `launch()` takes only `extraArgs`.
       Add an optional `env` to `launch({ profile, repo, until, onMark, onLine, extraArgs, env })`,
       merged after `launchEnv`'s own keys, so a hostile-locale perf run is possible at all.
-- [ ] **Explicitly not applied**, with a one-line comment at each site naming the reason:
+- [x] **Explicitly not applied**, with a one-line comment at each site naming the reason:
       [`inproc-pty.ts:115`](../../../packages/desktop/src/main/inproc-pty.ts),
       [`broker-client.ts:159`](../../../packages/desktop/src/main/broker-client.ts) (spawns the
       broker, which hosts ptys), [`login-shell.ts:42`](../../../packages/desktop/src/main/login-shell.ts)
@@ -178,9 +178,9 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
         [`companion/tts-broker.ts:104`](../../../packages/desktop/src/main/companion/tts-broker.ts)
         is an Electron `utilityProcess.fork`, not `child_process` — all three are left alone and
         listed in the allowlist below so the lint rule does not fire on them.
-- [ ] Absolute path for `ps`: `agent-process.ts` calls a bare `ps`; `/bin/ps`, carrying the same
+- [x] Absolute path for `ps`: `agent-process.ts` calls a bare `ps`; `/bin/ps`, carrying the same
       comment `metrics/memory.ts:37` already has for `/usr/bin/vm_stat`.
-- [ ] **A guard, as its own eslint block.** `no-restricted-syntax` exists **nowhere** in
+- [x] **A guard, as its own eslint block.** `no-restricted-syntax` exists **nowhere** in
       [`eslint.config.mjs`](../../../eslint.config.mjs) today and cannot ride inside the file's
       `deny(patterns)` helper at `:29` — that helper only builds `no-restricted-imports`. Add a new
       flat-config object after the `desktop` boundary block:
@@ -202,7 +202,7 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
         block immediately after, with the pty reason in a comment — the same "an entry needs a reason
         a human wrote down" shape
         [`MOTION_GUARD_ALLOWLIST`](../../../packages/app/src/styles-motion-guards.ts) uses.
-- [ ] **A hostile-locale CI job**, `gate-locale`, in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml):
+- [x] **A hostile-locale CI job**, `gate-locale`, in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml):
       - **`runs-on: macos-14`**, not ubuntu. An `ubuntu-24.04` runner does not ship `de_DE.UTF-8`
         without `locale-gen`, and `ps -o pcpu=`, `vm_stat`, `ioreg` and `df -k` are macOS paths
         anyway. Model it on the `gate-native` job at `:196`, which is the existing macOS gate.
@@ -215,12 +215,12 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
 
 ### B — A row that cannot be half-read (S)
 
-- [ ] Delete the four-column fallback at
+- [x] Delete the four-column fallback at
       [`agent-process.ts:192`](../../../packages/desktop/src/main/agent-process.ts). A line that does
       not match the six-column shape is **skipped**, exactly as an unparseable line is skipped today
       — not invented. The docblock's "backward-compatibility for 4-column test fixtures" sentence is
       replaced with the reason.
-- [ ] `parsePsOutput` returns rows only; a **new sibling** reports what it could not read, so the UI
+- [x] `parsePsOutput` returns rows only; a **new sibling** reports what it could not read, so the UI
       can distinguish "nothing running" from "I do not understand this machine's `ps`":
       ```ts
       export type PsParse = { rows: ProcessRow[]; totalLines: number };
@@ -229,7 +229,7 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
       `parsePsOutput` stays as the thin `parsePsTable(output).rows` wrapper so
       [`agent-watcher.ts:291`](../../../packages/desktop/src/main/agent-watcher.ts) and its tests are
       untouched.
-- [ ] Recapture the fixtures in
+- [x] Recapture the fixtures in
       [`__fixtures__/`](../../../packages/desktop/src/main/__fixtures__/README.md) in six-column form.
       - A `sed` inserting plausible `rss`/`pcpu` columns preserves every case they were built to
         cover — nested agent, two agents at equal depth, an agent's name as an argument, and the four
@@ -238,7 +238,7 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
         padding, both of which the README calls load-bearing.
       - The README's "Captured `ps -axo pid=,ppid=,stat=,args=`" line and its "four-column" prose are
         updated in the same commit.
-- [ ] Three new cases in
+- [x] Three new cases in
       [`agent-process.test.ts`](../../../packages/desktop/src/main/agent-process.test.ts):
       - a comma-decimal line is **skipped**, not half-read — `parsePsOutput('    1     0 Ss    22560   0,7 /sbin/launchd')`
         returns `[]`;
@@ -246,7 +246,7 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
         rather than "all zeros";
       - a valid six-column line yields `rssBytes: 22560 * 1024` and `args: '/sbin/launchd'` — the
         assertion that would have failed for the whole life of this bug.
-- [ ] The contract in [`shared/src/domain/optimizer.ts`](../../../packages/shared/src/domain/optimizer.ts):
+- [x] The contract in [`shared/src/domain/optimizer.ts`](../../../packages/shared/src/domain/optimizer.ts):
       ```ts
       rssBytes: z.number().nonnegative().nullable(),
       cpuPercent: z.number().nonnegative().nullable(),
@@ -264,13 +264,13 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
         schema a zero. It cannot today — the six-column regex needs a `stat` and an `args` that
         `kernel_task` does not supply in this field set — and a note is cheaper than a speculative
         `.nonnegative()`.
-- [ ] `getProcessTableResult` in
+- [x] `getProcessTableResult` in
       [`kill-service.ts:57`](../../../packages/desktop/src/main/optimizer/kill-service.ts) sets
       `error` from the new `PsParse`: `totalLines > 0 && rows.length === 0` →
       `` `Could not parse the process table (${totalLines} lines, 0 rows).` ``, else `null`.
       `readProcessRows()` returning `null` (a timeout or a throw) →
       `'Could not read the process table.'`
-- [ ] [`memory-tab.tsx`](../../../packages/app/src/features/optimizer/memory-tab.tsx) renders the
+- [x] [`memory-tab.tsx`](../../../packages/app/src/features/optimizer/memory-tab.tsx) renders the
       new contract:
       - the CPU cell (`:391`) and Memory cell (`:394`) render `—` for `null`, adopting
         `monitor-flyout.tsx`'s stated rule — quote it in the diff so the next reader sees the
@@ -284,14 +284,14 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
         `primary` only for two non-null values, and return `a.pid - b.pid` after a fixed
         `null`-last comparison, so the existing pid tie-break (whose docblock explains the
         row-jumping-under-the-pointer symptom) still holds.
-- [ ] Fix the three guards Finding 2 names, each with a test that would have failed while it was dead:
+- [x] Fix the three guards Finding 2 names, each with a test that would have failed while it was dead:
       - `commandName` (`:49`) — a six-column row yields `launchd`, not `22560`;
       - `PROTECTED_PROCESS_NAMES` (`:118`) — `killProcess` on a row whose args are
         `/usr/libexec/logd` is refused by *name*, which no current test exercises;
       - the PID-reuse guard (`:130`) — `expectArgv` captured from one `getProcessTableResult` still
         matches a second read taken after a simulated RSS change, proving the comparison is on a
         stable string.
-- [ ] *Acceptance, reproducible without the reporter's laptop:* launch with
+- [x] *Acceptance, reproducible without the reporter's laptop:* launch with
       `LC_ALL=de_DE.UTF-8 moon run desktop:start`, open Workspace Optimizer ▸ Memory — real byte
       figures, real command names, `—` nowhere on a healthy machine, and the Terminate button
       succeeds on a Midnite-spawned process.
@@ -545,19 +545,19 @@ exist yet.
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green after every theme; `moon run root:tracker-check` exits 0.
-- [ ] **A:** `moon run desktop:test git-engine:test` green under `LC_ALL=de_DE.UTF-8`; the new
+- [x] **A:** `moon run desktop:test git-engine:test` green under `LC_ALL=de_DE.UTF-8`; the new
       `no-restricted-syntax` rule errors on a deliberately unpinned `execFile` with an options object
       and does **not** error on the four pty carve-outs; `locale` inside a Midnite terminal matches
       `locale` in Terminal.app.
-- [ ] **A:** `LC_ALL=de_DE.UTF-8 node scripts/perf/idle-cpu.mjs --seconds=15 --json` reports a
+- [x] **A:** `LC_ALL=de_DE.UTF-8 node scripts/perf/idle-cpu.mjs --seconds=15 --json` reports a
       non-zero `cpuPercentOfOneCore.total` (it reports `0` today).
-- [ ] **B:** `expect(parsePsOutput('    1     0 Ss    22560   0,7 /sbin/launchd')).toEqual([])`;
+- [x] **B:** `expect(parsePsOutput('    1     0 Ss    22560   0,7 /sbin/launchd')).toEqual([])`;
       `expect(parsePsTable(commaTable)).toEqual({ rows: [], totalLines: 679 })`; a six-column line
       yields `rssBytes: 23101440` and `args: '/sbin/launchd'`.
-- [ ] **B:** RTL test on `memory-tab.tsx` — a `ProcessInfo` with `rssBytes: null` renders `—` with
+- [x] **B:** RTL test on `memory-tab.tsx` — a `ProcessInfo` with `rssBytes: null` renders `—` with
       `aria-label="unknown"`, sorts last under both `dir: 'asc'` and `dir: 'desc'`, and a non-null
       `error` replaces the `'No processes reported.'` string.
-- [ ] **B:** `killProcess` on a row named `logd` is refused by `PROTECTED_PROCESS_NAMES`, and
+- [x] **B:** `killProcess` on a row named `logd` is refused by `PROTECTED_PROCESS_NAMES`, and
       `expectArgv` captured from one table read still matches a second read.
 - [ ] **C:** `moon run app:perf` green including `retention.spec.ts`'s `terminal` assertion;
       `classify-process.test.mjs` pins one argv per group; the heap diff names the constructor in a

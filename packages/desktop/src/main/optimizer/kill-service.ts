@@ -6,7 +6,13 @@ import type {
   ProcessTableResult,
 } from '@midnite/studio-shared';
 
-import { isOurProcess, readProcessRows, type ProcessRow } from '../agent-process';
+import {
+  isOurProcess,
+  readProcessRows,
+  readProcessTable,
+  type ProcessRow,
+  type PsParse,
+} from '../agent-process';
 import { probeDetailedMemory } from '../metrics/memory';
 import { activePtyPids } from '../pty-service';
 
@@ -54,11 +60,27 @@ function commandName(args: string): string {
 /**
  * Reads the machine's process table, identifies Midnite-owned processes,
  * and fetches the detailed physical memory breakdown.
+ *
+ * `error` (Phase 85 Theme B) distinguishes "nothing running" from "I do not
+ * understand this machine's `ps`": a table with lines that all failed to
+ * parse reads very differently from a genuinely empty one, and the renderer
+ * has no other way to tell them apart.
+ *
+ * `mockParsed` accepts either a plain row array (the common case, and every
+ * existing caller's shape — `totalLines` defaults to the row count, so
+ * `error` comes out `null`) or a full {@link PsParse}, which is what a test
+ * exercising the "every line failed to parse" branch needs: a plain array
+ * can never express `totalLines > 0` alongside zero rows.
  */
 export async function getProcessTableResult(
-  mockRows?: ProcessRow[],
+  mockParsed?: ProcessRow[] | PsParse,
 ): Promise<ProcessTableResult> {
-  const rows = mockRows ?? (await readProcessRows()) ?? [];
+  const parsed = mockParsed
+    ? Array.isArray(mockParsed)
+      ? { rows: mockParsed, totalLines: mockParsed.length }
+      : mockParsed
+    : await readProcessTable();
+  const rows = parsed?.rows ?? [];
   const ptyPids = activePtyPids();
 
   const processes: ProcessInfo[] = rows.map((row) => ({
@@ -72,11 +94,18 @@ export async function getProcessTableResult(
   }));
 
   // Default sort: highest resident memory first
-  processes.sort((a, b) => b.rssBytes - a.rssBytes);
+  processes.sort((a, b) => (b.rssBytes ?? 0) - (a.rssBytes ?? 0));
 
   const memory = (await probeDetailedMemory()) ?? null;
 
-  return { processes, memory };
+  const error =
+    parsed === null
+      ? 'Could not read the process table.'
+      : parsed.totalLines > 0 && parsed.rows.length === 0
+        ? `Could not parse the process table (${parsed.totalLines} lines, 0 rows).`
+        : null;
+
+  return { processes, memory, error };
 }
 
 export type KillOptions = {

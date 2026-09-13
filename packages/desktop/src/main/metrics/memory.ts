@@ -2,6 +2,8 @@ import { execFile } from 'node:child_process';
 import { freemem, totalmem } from 'node:os';
 import { promisify } from 'node:util';
 
+import { parseableProcessEnv } from '@midnite/studio-shared';
+
 import { clampPercent } from './cpu';
 
 /**
@@ -224,6 +226,6 @@ export async function probeMemory(
 }
 
 async function runVmStat(): Promise<string> {
-  const { stdout } = await exec(VM_STAT, [], { timeout: 2_000 });
+  const { stdout } = await exec(VM_STAT, [], { timeout: 2_000, env: parseableProcessEnv() });
   return stdout;
 }

@@ -122,11 +122,11 @@ function launchEnv(repo) {
  * installed Midnite Studio.app is open otherwise quits instantly and reports
  * nothing at all. Isolation is a correctness requirement, not tidiness.
  */
-export function launch({ profile, repo, until, onMark, onLine, extraArgs = [] }) {
+export function launch({ profile, repo, until, onMark, onLine, extraArgs = [], env = {} }) {
   return new Promise((resolveRun) => {
     const child = spawn(electronBinary(), ['.', `--user-data-dir=${profile}`, ...extraArgs], {
       cwd: DESKTOP,
-      env: launchEnv(repo),
+      env: { ...launchEnv(repo), ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

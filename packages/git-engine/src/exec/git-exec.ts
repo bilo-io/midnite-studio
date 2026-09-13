@@ -1,5 +1,6 @@
 import type { ChildProcess } from 'node:child_process';
 
+import { POSIX_NUMERIC_ENV } from '@midnite/studio-shared';
 import { GitProcess, type IGitExecutionOptions, type IGitResult } from 'dugite';
 
 /**
@@ -49,7 +50,7 @@ export class GitExecError extends Error {
  * terminal. That's the point of shelling out.
  */
 const BASE_ENV: Readonly<Record<string, string>> = {
-  LC_ALL: 'C',
+  ...POSIX_NUMERIC_ENV,
   GIT_OPTIONAL_LOCKS: '0',
   GIT_TERMINAL_PROMPT: '0',
   GIT_CONFIG_PARAMETERS: "'core.quotepath=false'",
@@ -57,7 +58,7 @@ const BASE_ENV: Readonly<Record<string, string>> = {
 
 /** Extra env for writes, where the optional-locks suppression must NOT apply. */
 const WRITE_ENV: Readonly<Record<string, string>> = {
-  LC_ALL: 'C',
+  ...POSIX_NUMERIC_ENV,
   GIT_TERMINAL_PROMPT: '0',
   GIT_CONFIG_PARAMETERS: "'core.quotepath=false'",
 };

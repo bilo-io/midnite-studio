@@ -199,6 +199,47 @@ export default tseslint.config(
     rules: deny([NO_ELECTRON]),
   },
 
+  // --- Subprocess locale pin (Phase 85 Theme A) ------------------------------
+  // Subprocesses whose output is parsed must set env: parseableProcessEnv()
+  // so numeric outputs (like %CPU) aren't broken by comma locales.
+  {
+    files: ['packages/desktop/src/main/**/*.ts', 'packages/git-engine/src/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.name=/^(execFile|execFileSync|spawn|spawnSync)$/] > ObjectExpression:not(:has(Property[key.name='env']))",
+          message:
+            'A parsed subprocess must pass env: parseableProcessEnv() — see shared/src/process-env.ts. Interactive ptys are exempt; add the file to the allowlist below with a reason.',
+        },
+      ],
+    },
+  },
+
+  // Interactive ptys and carve-outs exempt from the locale pin guard:
+  // - inproc-pty.ts: terminal shells keep the user's ambient locale.
+  // - broker-client.ts: spawns the broker that hosts interactive terminals.
+  // - login-shell.ts: runs commands in the user's login shell with their ambient locale.
+  // - shell-path.ts: probes PATH in the user's login shell.
+  // - process-runner.ts: streams to sinks rather than parses numeric tables.
+  // - video/studio-service.ts: streams Remotion studio output to sinks.
+  // - companion/tts-broker.ts: utilityProcess.fork, not child_process.
+  {
+    files: [
+      'packages/desktop/src/main/inproc-pty.ts',
+      'packages/desktop/src/main/broker-client.ts',
+      'packages/desktop/src/main/login-shell.ts',
+      'packages/desktop/src/main/shell-path.ts',
+      'packages/desktop/src/main/process-runner.ts',
+      'packages/desktop/src/main/video/studio-service.ts',
+      'packages/desktop/src/main/companion/tts-broker.ts',
+    ],
+    rules: {
+      'no-restricted-syntax': 'off',
+    },
+  },
+
   // Dependency-free CJS/MJS scripts: require() + console ok.
   {
     files: ['**/*.cjs', '**/*.mjs'],

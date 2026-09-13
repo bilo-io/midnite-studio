@@ -112,6 +112,8 @@ export function inprocCreatePty(
   const id = randomUUID();
 
   try {
+    // Terminal pty carve-out: interactive shells keep the user's ambient locale.
+    // Forcing C would alter user date formats, ls collation, and agent output encoding.
     const child = pty.spawn(file, args, {
       name: 'xterm-256color',
       cols: options.cols,

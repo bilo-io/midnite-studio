@@ -95,7 +95,10 @@ const SETTLE_MS = 15_000;
  * the classes apart — pid order and process names are not stable.
  */
 function snapshot(root) {
-  const out = execFileSync('ps', ['-Ao', 'pid=,ppid=,cputime=,args='], { encoding: 'utf8' });
+  const out = execFileSync('ps', ['-Ao', 'pid=,ppid=,cputime=,args='], {
+    encoding: 'utf8',
+    env: { ...process.env, LC_ALL: 'C' },
+  });
   const rows = [];
   for (const line of out.split('\n')) {
     const trimmed = line.trim();
@@ -202,7 +205,10 @@ async function pollSubprocessSpawns(rootPid, deadline, intervalMs) {
   const gh = new Map();
   let samples = 0;
   while (Date.now() < deadline) {
-    const out = execFileSync('ps', ['-Ao', 'pid=,ppid=,comm=,args='], { encoding: 'utf8' });
+    const out = execFileSync('ps', ['-Ao', 'pid=,ppid=,comm=,args='], {
+      encoding: 'utf8',
+      env: { ...process.env, LC_ALL: 'C' },
+    });
     const seen = classifyGitGhSpawns(parsePsRows(out), rootPid);
     for (const [pid, args] of seen.git) git.set(pid, args);
     for (const [pid, args] of seen.gh) gh.set(pid, args);

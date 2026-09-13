@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-import { type Forge, type ForgeCliStatus } from '@midnite/studio-shared';
+import { parseableProcessEnv, type Forge, type ForgeCliStatus } from '@midnite/studio-shared';
 
 import { isAuthenticated } from './gh-parse';
 
@@ -74,7 +74,7 @@ export function runInShell(
   const combine = options.combine !== false;
   return new Promise((resolvePromise) => {
     const child = spawn(loginShell(), ['-lic', command], {
-      env: {
+      env: parseableProcessEnv({
         ...process.env,
         // `gh` paginates into a pager when it thinks it has a tty, and the
         // interactive shell is enough to convince it. A pager here would hang
@@ -84,7 +84,7 @@ export function runInShell(
         // Colour codes would land inside the JSON payload.
         NO_COLOR: '1',
         CLICOLOR: '0',
-      },
+      }),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

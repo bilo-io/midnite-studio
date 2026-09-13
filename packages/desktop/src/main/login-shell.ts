@@ -39,6 +39,7 @@ export function runInShell(
   onChunk?: (chunk: string) => void,
 ): Promise<ShellRun> {
   return new Promise((resolvePromise) => {
+    // Interactive login-shell carve-out: preserves user's ambient locale and shell configuration.
     const child = spawn(loginShell(), ['-lic', command], {
       env: { ...process.env },
       stdio: ['ignore', 'pipe', 'pipe'],

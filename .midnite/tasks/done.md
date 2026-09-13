@@ -1,6 +1,37 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-13 — Phase 85 Themes A, B — Every subprocess speaks C; a row that cannot be half-read
+
+[PR #362](https://github.com/bilo-io/midnite-studio/pull/362). The Memory tab's bytes/%CPU read
+zero on any Mac whose `LC_NUMERIC` uses a comma decimal — a locale bug, not an Apple Silicon one.
+`ps`'s `%CPU` column is locale-formatted; `parsePsOutput`'s six-column regex was dot-only, so every
+line fell through to a four-column fallback hard-coding `rssBytes: 0, cpuPercent: 0` and shifting
+the command line into `args`, which silently killed `PROTECTED_PROCESS_NAMES`, broke the PID-reuse
+guard, and mislabelled agent sessions. Measured on this machine: 686/686 lines parse under
+`LC_ALL=C`, 0/686 under `LC_ALL=de_DE.UTF-8`, against the pre-fix parser.
+
+**Theme A**: `shared/src/process-env.ts`'s `POSIX_NUMERIC_ENV`/`parseableProcessEnv()`, applied at
+the seven parsed subprocess sites plus the three `scripts/perf/` `ps` sites and `electron-run.mjs`'s
+new `env` override; four pty/shell carve-outs left alone with a named reason; the repo's first
+`no-restricted-syntax` eslint guard; a `gate-locale` CI job on `macos-14` running
+`desktop:test git-engine:test` under `LC_ALL=de_DE.UTF-8`. `LC_ALL=de_DE.UTF-8 node
+scripts/perf/idle-cpu.mjs --seconds=15 --json` now reports `cpuPercentOfOneCore.total: 213.74`
+(was `0`).
+
+**Theme B**: the four-column fallback deleted — an unparseable line is skipped, not invented — and
+`parsePsTable(output): { rows, totalLines }` added alongside the thin `parsePsOutput` wrapper.
+Fixtures recaptured from four- to six-column form, preserving every existing case. Three new parser
+tests (comma-decimal line skipped; all-comma table reports `totalLines` with zero rows; a valid
+six-column line yields real `rssBytes`/`args`). `shared/src/domain/optimizer.ts`'s
+`rssBytes`/`cpuPercent` are nullable (for Theme E's future `getAppMetrics()` merge, not this bug —
+B now skips the row entirely) and `ProcessTableResult` gained a nullable `error`.
+`kill-service.ts`'s `getProcessTableResult` sets it from the parser's `PsParse`. `memory-tab.tsx`
+adopts `monitor-cluster.tsx`'s own null-rendering rule (`—` with `aria-label="unknown"`, never a
+lying `0`/`0%`), null sorts last both directions, and the empty state renders a non-null `error` in
+place of "No processes reported." Test coverage added for the three guards Finding 2 named as dead
+(`commandName`, `PROTECTED_PROCESS_NAMES`, the PID-reuse guard).
+
 ## 2026-09-11 — Phase 84 Themes E.4, F.4, K.5 — Terminal fade, App discard opt-in, Cascade completions
 
 Close the three unblocked deferred items from Phase 84:

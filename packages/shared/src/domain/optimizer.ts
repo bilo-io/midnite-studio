@@ -117,12 +117,26 @@ export const ScanResultSchema = z.object({
 export type ScanResult = z.infer<typeof ScanResultSchema>;
 
 export const ProcessInfoSchema = z.object({
+  /**
+   * macOS `kernel_task` is pid 0, and `ps -ax` lists it — but the six-column
+   * regex in `agent-process.ts` needs a `stat` and an `args` that
+   * `kernel_task` does not supply in this field set, so pid 0 cannot reach
+   * this schema today. A future widening of the `ps` flags could change
+   * that; `.positive()` stays until it does rather than a speculative
+   * `.nonnegative()` (Phase 85 Theme B).
+   */
   pid: z.number().int().positive(),
   ppid: z.number().int().nonnegative(),
   name: z.string(),
   argv: z.string(),
-  rssBytes: z.number().nonnegative(),
-  cpuPercent: z.number().nonnegative(),
+  /**
+   * Nullable for Theme E, not the locale bug this pair used to hide: after
+   * Phase 85 Theme B a comma-locale `ps` line is skipped entirely rather
+   * than half-read into `0`, so `null` never means "unparseable" here. It
+   * means a `getAppMetrics()` row `ps` did not also see, or vice versa.
+   */
+  rssBytes: z.number().nonnegative().nullable(),
+  cpuPercent: z.number().nonnegative().nullable(),
   /** Whether this app's own pty/agent session registry spawned it — see Decision 10. */
   ours: z.boolean(),
 });
@@ -142,6 +156,8 @@ export type MemoryBreakdown = z.infer<typeof MemoryBreakdownSchema>;
 export const ProcessTableResultSchema = z.object({
   processes: z.array(ProcessInfoSchema),
   memory: MemoryBreakdownSchema.nullable(),
+  /** Non-null when `ps` produced output this build could not parse — see Phase 85 Theme B. */
+  error: z.string().nullable(),
 });
 export type ProcessTableResult = z.infer<typeof ProcessTableResultSchema>;
 

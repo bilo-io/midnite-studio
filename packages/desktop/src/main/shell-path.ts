@@ -98,6 +98,7 @@ export function resolveLoginShellPathAsync(
   return new Promise((resolveResult) => {
     let child;
     try {
+      // Interactive shell probe carve-out: probes user's login shell PATH using ambient locale and rc files.
       child = spawn(shell, args, { stdio: ['ignore', 'pipe', 'ignore'] });
     } catch {
       resolveResult(null);
