@@ -110,6 +110,9 @@ export const COMPARE_WINDOW = 5;
 /** Settle time after a cycle's action before sampling — lets a pty exit / IPC round-trip land. */
 const CYCLE_SETTLE_MS = 400;
 
+/** Settle time after launch before idle measurement — Phase 85 Theme D / Phase 36 Theme G. */
+export const SETTLE_MS = 15_000;
+
 /** `DevTools listening on ws://127.0.0.1:PORT/devtools/browser/UUID` — Electron's own line. */
 const DEVTOOLS_LINE = /^DevTools listening on (ws:\/\/\S+)$/;
 
@@ -689,6 +692,305 @@ export async function runSoak({ repo, durationS = 3600, intervalS = 60 }) {
 }
 
 /**
+ * Heap sampler log line:
+ * `[perf] ${processName} heap rss=${toMb(rss)} heapUsed=${toMb(heapUsed)} heapTotal=${toMb(heapTotal)} external=${toMb(external)} arrayBuffers=${toMb(arrayBuffers)}`
+ * Emitted by `startHeapSampler` in `heap-sampler.ts` every 10s when MSTUDIO_PERF=1.
+ */
+export const HEAP_LOG_LINE =
+  /^\[perf\] (main|broker) heap rss=(\d+) heapUsed=(\d+) heapTotal=(\d+) external=(\d+) arrayBuffers=(\d+)$/;
+
+/**
+ * Parse a heap sampler log line into structured metrics.
+ * @param {string} line
+ * @returns {{ process: 'main' | 'broker', rssMb: number, heapUsedMb: number, heapTotalMb: number, externalMb: number, arrayBuffersMb: number } | null}
+ */
+export function parseHeapLogLine(line) {
+  if (typeof line !== 'string') return null;
+  const trimmed = line.trim();
+  const m = HEAP_LOG_LINE.exec(trimmed);
+  if (!m) return null;
+  return {
+    process: m[1],
+    rssMb: Number(m[2]),
+    heapUsedMb: Number(m[3]),
+    heapTotalMb: Number(m[4]),
+    externalMb: Number(m[5]),
+    arrayBuffersMb: Number(m[6]),
+  };
+}
+
+/**
+ * Summarize an idle series of samples per process group and across the whole tree.
+ * @param {Array<{ t: number, rss: Record<string, number>, heap: { main: any, broker: any } }>} samples
+ */
+export function summarizeIdleSamples(samples) {
+  if (!Array.isArray(samples) || samples.length === 0) {
+    return {
+      groups: {},
+      total: { startKb: 0, endKb: 0, minKb: 0, maxKb: 0, medianKb: 0 },
+    };
+  }
+
+  const standardGroups = ['main', 'renderer', 'gpu', 'broker', 'other'];
+  const allGroups = new Set(standardGroups);
+  for (const s of samples) {
+    if (s.rss) {
+      for (const k of Object.keys(s.rss)) allGroups.add(k);
+    }
+  }
+
+  const groups = {};
+  for (const group of allGroups) {
+    const values = samples.map((s) => s.rss?.[group] ?? 0);
+    const startKb = values[0];
+    const endKb = values[values.length - 1];
+    const minKb = Math.min(...values);
+    const maxKb = Math.max(...values);
+    const medianKb = median(values);
+
+    let heapUsedMb = null;
+    let heapTotalMb = null;
+    if (group === 'main' || group === 'broker') {
+      const heapSamples = samples
+        .map((s) => s.heap?.[group])
+        .filter((h) => h !== null && h !== undefined && Number.isFinite(h.heapUsedMb));
+      if (heapSamples.length > 0) {
+        heapUsedMb = median(heapSamples.map((h) => h.heapUsedMb));
+        heapTotalMb = median(heapSamples.map((h) => h.heapTotalMb));
+      }
+    }
+
+    groups[group] = {
+      startKb,
+      endKb,
+      minKb,
+      maxKb,
+      medianKb,
+      heapUsedMb,
+      heapTotalMb,
+    };
+  }
+
+  const totalValues = samples.map((s) =>
+    s.rss ? Object.values(s.rss).reduce((a, b) => a + b, 0) : 0,
+  );
+  const total = {
+    startKb: totalValues[0],
+    endKb: totalValues[totalValues.length - 1],
+    minKb: Math.min(...totalValues),
+    maxKb: Math.max(...totalValues),
+    medianKb: median(totalValues),
+  };
+
+  return { groups, total };
+}
+
+/**
+ * Format per-group summary table as a readable text table.
+ */
+export function formatIdleTable(summary) {
+  const groupKeys = Object.keys(summary.groups);
+  const maxGroupLen = Math.max(11, ...groupKeys.map((k) => k.length), 'TOTAL'.length);
+  const colWidths = { start: 11, end: 11, median: 12, heapUsed: 13, heapTotal: 13 };
+  const totalWidth =
+    maxGroupLen + colWidths.start + colWidths.end + colWidths.median + colWidths.heapUsed + colWidths.heapTotal + 10;
+
+  const lines = [];
+  lines.push(
+    `  ${'Group'.padEnd(maxGroupLen)} ${'Start (KB)'.padStart(colWidths.start)} ${'End (KB)'.padStart(colWidths.end)} ` +
+      `${'Median (KB)'.padStart(colWidths.median)}   ${'V8 HeapUsed'.padStart(colWidths.heapUsed)}   ${'V8 HeapTotal'.padStart(colWidths.heapTotal)}`,
+  );
+  lines.push('  ' + '-'.repeat(totalWidth));
+  for (const [group, g] of Object.entries(summary.groups)) {
+    const heapUsed = g.heapUsedMb !== null && g.heapUsedMb !== undefined ? `${g.heapUsedMb} MB` : '—';
+    const heapTotal = g.heapTotalMb !== null && g.heapTotalMb !== undefined ? `${g.heapTotalMb} MB` : '—';
+    lines.push(
+      `  ${group.padEnd(maxGroupLen)} ${String(g.startKb).padStart(colWidths.start)} ${String(g.endKb).padStart(colWidths.end)} ` +
+        `${String(g.medianKb).padStart(colWidths.median)}   ${heapUsed.padStart(colWidths.heapUsed)}   ${heapTotal.padStart(colWidths.heapTotal)}`,
+    );
+  }
+  lines.push('  ' + '-'.repeat(totalWidth));
+  const tot = summary.total;
+  lines.push(
+    `  ${'TOTAL'.padEnd(maxGroupLen)} ${String(tot.startKb).padStart(colWidths.start)} ${String(tot.endKb).padStart(colWidths.end)} ` +
+      `${String(tot.medianKb).padStart(colWidths.median)}   ${'—'.padStart(colWidths.heapUsed)}   ${'—'.padStart(colWidths.heapTotal)}`,
+  );
+  return lines.join('\n');
+}
+
+/**
+ * Print detailed report for an idle measurement run.
+ */
+export function printIdleReport(res) {
+  const { state, seconds, interval, series, summary } = res;
+  const stateLabels = {
+    cold: 'cold with one repo open',
+    views: 'after six heavy views visited once',
+    popout: 'after detached popout',
+  };
+  const label = stateLabels[state] ?? state;
+  console.log(`\nidle memory — ${label} (${seconds}s duration, ${interval}s interval, ${series.length} samples)\n`);
+  console.log('Series:');
+  for (const s of series) {
+    const parts = Object.entries(s.rss).map(([k, v]) => `${k}=${v}KB`);
+    const totKb = Object.values(s.rss).reduce((a, b) => a + b, 0);
+    const totMb = (totKb / 1024).toFixed(1);
+    console.log(`  t=${s.t}s: ${parts.join(' ')} | TOTAL=${totKb}KB (~${totMb}MB)`);
+    const heapParts = [];
+    if (s.heap?.main) heapParts.push(`main V8: used=${s.heap.main.heapUsedMb}MB total=${s.heap.main.heapTotalMb}MB`);
+    if (s.heap?.broker) heapParts.push(`broker V8: used=${s.heap.broker.heapUsedMb}MB total=${s.heap.broker.heapTotalMb}MB`);
+    if (heapParts.length > 0) {
+      console.log(`    ${heapParts.join(' | ')}`);
+    }
+  }
+  console.log('\nPer-group summary:');
+  console.log(formatIdleTable(summary));
+  console.log(`\nTotal idle RSS (median): ${summary.total.medianKb}KB (~${(summary.total.medianKb / 1024).toFixed(1)}MB)\n`);
+}
+
+/**
+ * Idle memory mode — Phase 85 Theme D.
+ * Launch packaged app with a repo open, settle past SETTLE_MS, and sample on an interval timer for `seconds`.
+ * Supports three states: 'cold', 'views' (6 heavy views visited once), 'popout' (after detached popout).
+ */
+export async function runIdle({ repo, seconds = 60, interval = 60, state = 'cold' }) {
+  requireBuilt();
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
+
+  let devtoolsUrl = null;
+  const heapEvents = [];
+  const latestHeap = { main: null, broker: null };
+
+  process.stderr.write(
+    `launching with CDP for idle measurement (state='${state}', ${seconds}s duration, ${interval}s interval)…\n`,
+  );
+  const run = await launch({
+    profile,
+    repo,
+    extraArgs: ['--remote-debugging-port=0', '--js-flags=--expose-gc'],
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    onLine: (line) => {
+      const m = DEVTOOLS_LINE.exec(line.trim());
+      if (m) devtoolsUrl = m[1];
+      const heap = parseHeapLogLine(line);
+      if (heap) {
+        heapEvents.push({ ...heap, timestamp: Date.now() });
+        latestHeap[heap.process] = heap;
+      }
+    },
+  });
+
+  if (!run.child.pid || !devtoolsUrl) {
+    await stop(run.child, profile);
+    discardProfile(profile);
+    throw new Error('the app did not start, or never printed a DevTools endpoint');
+  }
+
+  const browser = await chromiumModule().connectOverCDP(devtoolsUrl);
+  try {
+    const page = browser.contexts()[0]?.pages().find((p) => !p.url().startsWith('devtools://'));
+    if (!page) throw new Error('CDP connected but no app page was found');
+
+    await page.evaluate(async (path) => {
+      const opened = await window.midniteStudio.repos.open({ path });
+      if (!opened.ok) throw new Error(`repos.open (setup) failed: ${opened.message}`);
+    }, repo);
+
+    process.stderr.write(`settling past SETTLE_MS (${SETTLE_MS}ms) with repo open…\n`);
+    await sleep(SETTLE_MS);
+
+    if (state === 'views') {
+      const HEAVY_VIEWS = ['graph', 'changes', 'files', 'actions', 'reviews', 'issues'];
+      for (const view of HEAVY_VIEWS) {
+        process.stderr.write(`visiting view '${view}'…\n`);
+        await page.evaluate((viewId) => {
+          const link = document.querySelector(`a[href="/${viewId}"]`);
+          if (link) {
+            link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+          }
+        }, view);
+        await sleep(2_000);
+      }
+      await page.evaluate(() => {
+        const link = document.querySelector('a[href="/graph"]');
+        if (link) link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      });
+      process.stderr.write(`settling after visiting 6 heavy views (${SETTLE_MS}ms)…\n`);
+      await sleep(SETTLE_MS);
+    } else if (state === 'popout') {
+      const role = 'graph';
+      process.stderr.write(`detaching '${role}' popout…\n`);
+      await page.evaluate((r) => window.midniteStudio.window.detach({ role: r }), role);
+      const opened = await page
+        .waitForFunction(
+          async (r) => {
+            const windows = await window.midniteStudio.window.list();
+            return windows.some((w) => w.role === r);
+          },
+          role,
+          { timeout: 15_000 },
+        )
+        .catch(() => null);
+      if (!opened) throw new Error(`popout for role '${role}' never appeared in window.list()`);
+      process.stderr.write(`settling after popout (${SETTLE_MS}ms)…\n`);
+      await sleep(SETTLE_MS);
+    }
+
+    process.stderr.write(`sampling idle RSS for ${seconds}s (interval: ${interval}s)…\n`);
+    const startTime = Date.now();
+    const series = [];
+
+    const initialRss = rssSnapshotKb(run.child.pid);
+    series.push({
+      t: 0,
+      rss: initialRss,
+      heap: {
+        main: latestHeap.main ? { ...latestHeap.main } : null,
+        broker: latestHeap.broker ? { ...latestHeap.broker } : null,
+      },
+    });
+
+    while ((Date.now() - startTime) / 1000 < seconds) {
+      const elapsedNow = (Date.now() - startTime) / 1000;
+      const nextTarget = series.length * interval;
+      const waitTimeS = Math.max(0, Math.min(nextTarget - elapsedNow, seconds - elapsedNow));
+      if (waitTimeS > 0) {
+        await sleep(waitTimeS * 1000);
+      }
+
+      const currentElapsed = Math.round((Date.now() - startTime) / 1000);
+      const sample = rssSnapshotKb(run.child.pid);
+      series.push({
+        t: currentElapsed,
+        rss: sample,
+        heap: {
+          main: latestHeap.main ? { ...latestHeap.main } : null,
+          broker: latestHeap.broker ? { ...latestHeap.broker } : null,
+        },
+      });
+
+      if (currentElapsed >= seconds) break;
+    }
+
+    const summary = summarizeIdleSamples(series);
+    return {
+      state,
+      seconds,
+      interval,
+      series,
+      summary,
+      totalRssKb: summary.total.medianKb,
+      heapEvents,
+    };
+  } finally {
+    await browser.close();
+    await stop(run.child, profile);
+    discardProfile(profile);
+  }
+}
+
+/**
  * A page popout's own RSS, as a before/after delta (Phase 84 Theme H.4) —
  * the level counterpart to `runRetention`'s slope: how much a SINGLE popout
  * costs, not whether repeating an action leaks.
@@ -982,14 +1284,15 @@ if (isMain) {
   const hiddenSessions = value('hidden-sessions', '');
   const hiddenTabs = value('hidden-tabs', '');
   const isSoak = flag('soak');
+  const isIdle = flag('idle');
   const heapDiff = flag('heap-diff');
   const asJson = flag('json');
   const doAssert = flag('assert');
   const repo = mainWorktree(resolve(value('repo', REPO_ROOT)));
 
-  if (!actionName && !popoutRole && !hiddenSessions && !hiddenTabs && !isSoak) {
+  if (!actionName && !popoutRole && !hiddenSessions && !hiddenTabs && !isSoak && !isIdle) {
     console.error(
-      `--action, --popout, --hidden-sessions, --hidden-tabs or --soak is required. Known actions: ` +
+      `--action, --popout, --hidden-sessions, --hidden-tabs, --soak or --idle is required. Known actions: ` +
         `${Object.keys(ACTIONS).join(', ')}`,
     );
     process.exit(2);
@@ -1144,6 +1447,59 @@ if (isMain) {
         );
       }
       console.log('');
+    }
+    process.exit(0);
+  }
+
+  if (isIdle) {
+    const seconds = Number(value('seconds', '60'));
+    const interval = Number(value('interval', '60'));
+    const state = value('state', 'cold');
+
+    const statesToRun = state === 'all' ? ['cold', 'views', 'popout'] : [state];
+    const results = [];
+
+    for (const s of statesToRun) {
+      let idleResult;
+      try {
+        idleResult = await runIdle({ repo, seconds, interval, state: s });
+      } catch (err) {
+        console.error(err.message);
+        process.exit(2);
+      }
+      results.push(idleResult);
+    }
+
+    if (asJson) {
+      console.log(
+        JSON.stringify(
+          results.length === 1 ? results[0] : { states: results },
+          null,
+          2,
+        ),
+      );
+    } else {
+      for (const res of results) {
+        printIdleReport(res);
+      }
+    }
+
+    if (doAssert) {
+      const budgetsPath = join(REPO_ROOT, 'scripts', 'perf', 'budgets.json');
+      const budgets = JSON.parse(readFileSync(budgetsPath, 'utf8'));
+      const limit = budgets.idleRss;
+      if (typeof limit !== 'number') {
+        console.error(`--assert needs budgets.json's idleRss, which is not set.`);
+        process.exit(2);
+      }
+      const targetResult = results.find((r) => r.state === 'cold') ?? results[0];
+      if (targetResult.totalRssKb > limit) {
+        console.error(
+          `idle RSS budget breached: ${targetResult.totalRssKb}KB > ${limit}KB`,
+        );
+        process.exit(1);
+      }
+      console.log('idle RSS budget ok');
     }
     process.exit(0);
   }

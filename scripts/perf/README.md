@@ -26,6 +26,7 @@ node scripts/perf/idle-cpu.mjs --seconds=300 --blurred # blurred idle (what the 
 node scripts/perf/broker-load.mjs --seconds=10        # broker CPU per MB under `yes`
 node scripts/perf/memory-report.mjs --action=terminal # retention: bytes retained per cycle
 node scripts/perf/memory-report.mjs --action=terminal --assert # ...and fail on a budget breach
+node scripts/perf/memory-report.mjs --idle --assert   # idle floor: sample tree RSS and fail on budget breach
 scripts/perf/make-big-repo.sh                        # ~50k-commit graph fixture
 MSTUDIO_BUNDLE_STATS=1 moon run app:build            # dist/stats.html treemap
 ```
@@ -99,5 +100,6 @@ Renderer/main/broker retention (Phase 45/85) is automated with budgets:
 the packaged-equivalent app (never Playwright's `_electron.launch` — see
 `electron-run.mjs`'s own docblock) and reports bytes retained per cycle,
 per process class. `--heap-diff` takes heap snapshots across cycles and
-reports retained constructors, and `--soak` runs multi-hour unattended sessions
-with RSS time series and linear fit.
+reports retained constructors, `--soak` runs multi-hour unattended sessions
+with RSS time series and linear fit, and `--idle` samples tree RSS with V8-heap
+splits across states to assert against `idleRss`.
