@@ -16,6 +16,7 @@ import {
   LuLayoutDashboard,
   LuLayoutGrid,
   LuLock,
+  LuNotebookPen,
   LuPalette,
   LuPanelLeft,
   LuScrollText,
@@ -55,6 +56,10 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
    */
   landing: LuHouse,
   dashboard: LuLayoutDashboard,
+  // Phase 86 Theme E — pinned directly under Dashboard, so it wears a glyph
+  // that reads as "notes" rather than the file/document mark `files` already
+  // owns.
+  notes: LuNotebookPen,
   files: LuFolderTree,
   search: LuSearch,
   tests: GoBeaker,
