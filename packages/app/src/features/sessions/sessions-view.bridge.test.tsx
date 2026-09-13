@@ -62,11 +62,11 @@ const base: MockFixtures = {
   ],
 };
 
-const list = () => screen.getByRole('list', { name: 'Closed sessions' });
+const list = () => screen.getByRole('list', { name: 'Sessions' });
 
 async function openSessions(data: MockFixtures = base): Promise<void> {
   renderView(<SessionsView />, { fixtures: data });
-  await screen.findByRole('list', { name: 'Closed sessions' });
+  await screen.findByRole('list', { name: 'Sessions' });
 }
 
 afterEach(cleanup);
@@ -131,6 +131,6 @@ describe('SessionsView, assembled through the real bridge', () => {
     fireEvent.click(screen.getByRole('button', { name: 'All endings' }));
     fireEvent.click(screen.getByRole('option', { name: 'Exited' }));
 
-    expect(await screen.findByText('No closed sessions')).toBeTruthy();
+    expect(await screen.findByText('Nothing running, nothing closed')).toBeTruthy();
   });
 });

@@ -1,3 +1,6 @@
+import { LuHistory } from 'react-icons/lu';
+
+import type { IconComponent } from '../../components/icon-button';
 import { LoadingRegion, Skeleton } from '../../components/skeleton';
 
 /**
@@ -32,3 +35,17 @@ export function SessionListSkeleton() {
     </LoadingRegion>
   );
 }
+
+/**
+ * Copy for the merged manager's genuinely-empty state (Phase 86 Theme A) —
+ * no live session and no closed one, anywhere. Kept apart from a repo-scoped
+ * view's "no repo open" empty state on purpose: Sessions is `global: true`
+ * (Phase 67 Theme E) and lists across every repo, so an empty list here
+ * means no session has ever run anywhere in this app, not that no repo is
+ * currently open — the two read very differently and share no copy.
+ */
+export const NO_SESSIONS_EMPTY: { icon: IconComponent; title: string; body: string } = {
+  icon: LuHistory,
+  title: 'Nothing running, nothing closed',
+  body: 'Open a terminal or start an agent and it shows up here — running above, closed and kept below for as long as you like.',
+};

@@ -44,7 +44,7 @@ const base: MockFixtures = {
   ],
 };
 
-const list = (page: Page) => page.getByRole('list', { name: 'Closed sessions' });
+const list = (page: Page) => page.getByRole('list', { name: /^(Sessions|Closed sessions)$/ });
 
 test('the Sessions view is reachable from the rail and lists closed sessions', async ({ page }) => {
   await installMockBridge(page, base);

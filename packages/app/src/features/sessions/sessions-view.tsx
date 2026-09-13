@@ -3,10 +3,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Collapse } from '@bilo-io/ui';
 import type { AgentDefinition, ClosedSession } from '@midnite/studio-shared';
 import {
+  LuActivity,
   LuBot,
   LuChevronRight,
   LuFilter,
-  LuHistory,
   LuRefreshCw,
   LuSearch,
   LuTerminal,
@@ -22,22 +22,27 @@ import { PageDetachMark } from '../../components/page-detach-mark';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { StateDot, type DotState } from '../../components/state-dot';
+import { Tooltip } from '../../components/tooltip';
 import { useDialogs } from '../../components/dialog-host';
 import { bridge } from '../../services/bridge';
 import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import { useRefreshSessionHistory, useSessionHistory } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useSessionsStore } from '../../store/sessions-store';
-import { agentLabelFor } from '../terminal/terminal-store';
+import { agentLabelFor, useTerminalStore, type ConnectionState, type SessionActivity } from '../terminal/terminal-store';
 import { useAgents } from '../terminal/use-agents';
 import {
   formatDuration,
   groupSessionsByRepo,
+  isClosedManagedSession,
+  mergeManagedSessions,
   pickInitialClosedSession,
   relativeAge,
+  type ManagedSession,
+  type ManagedSessionLiveness,
   type SessionGroup,
 } from './session-order';
-import { SessionListSkeleton } from './sessions-skeletons';
+import { NO_SESSIONS_EMPTY, SessionListSkeleton } from './sessions-skeletons';
 import { TranscriptView } from './transcript-view';
 
 const REASON_OPTIONS: MultiSelectOption[] = [
@@ -46,34 +51,79 @@ const REASON_OPTIONS: MultiSelectOption[] = [
   { value: 'superseded', label: 'Superseded' },
 ];
 
+const LIVENESS_OPTIONS: MultiSelectOption[] = [
+  { value: 'running', label: 'Running' },
+  { value: 'asleep', label: 'Asleep' },
+  { value: 'closed', label: 'Closed' },
+];
+
 /** Value used to represent non-agent terminal sessions in the provider filter. */
 const TERMINAL_PROVIDER_VALUE = '__terminal__';
 
-/** A closed session's own label — never `title`, which is the repo name (fact 4). */
-function closedSessionLabel(record: ClosedSession, agentLabel: string | undefined): string {
+/** A row's own label — never `title`, which is the repo name (fact 4). */
+function managedSessionLabel(record: ManagedSession, agentLabel: string | undefined): string {
   return record.name ?? agentLabel ?? (record.kind === 'agent' ? 'Agent Session' : 'Terminal');
 }
 
 /**
- * The dot a history row draws — `exited` (a hollow ring, `state-dot.tsx`) for
- * a process that ended on its own, `idle` (the shared fill) for a session
- * that ended because a user or the FAB closed it. The reason facet and the
- * exit-code column already carry the rest of the distinction; the dot is a
- * glance-only summary of the same fact.
+ * The dot a row draws.
+ *
+ * Closed half unchanged from Phase 67 Theme C: `exited` (a hollow ring,
+ * `state-dot.tsx`) for a process that ended on its own, `idle` (the shared
+ * fill) for a session that ended because a user or the FAB closed it. The
+ * live half is new (Phase 86 Theme A): `asleep` for a deliberately-slept
+ * session, and for a running one the actual pty connection state — `starting`
+ * while the process comes up, `unavailable` if the backend cannot reach it,
+ * `open` (the pulsing fill) otherwise. `connectionState` is undefined only
+ * before `terminal-store` has heard anything for this session yet, which
+ * reads the same as a freshly-opened one.
  */
-function dotStateFor(record: ClosedSession): DotState {
-  return record.reason === 'exited' ? 'exited' : 'idle';
+function dotStateFor(session: ManagedSession, connectionState: ConnectionState | undefined): DotState {
+  if (isClosedManagedSession(session)) {
+    return session.reason === 'exited' ? 'exited' : 'idle';
+  }
+  if (session.liveness === 'asleep') return 'asleep';
+  if (connectionState === 'starting') return 'starting';
+  if (connectionState === 'unavailable') return 'unavailable';
+  return 'open';
 }
 
 /**
- * The Sessions view: a history of closed agent/terminal sessions, and one
- * read in full (Phase 67 Themes C, D).
+ * The status dot's tooltip text — what a hover or keyboard-focus names,
+ * since the dot itself is a colour and a shape. Sources the live half from
+ * the already-streamed `SessionActivitySchema` (`use-agent-activity.ts`)
+ * rather than re-deriving anything: `activity` is undefined for "live, and
+ * the detector has not spoken yet", read here as a plain "Running".
+ */
+function dotTooltipFor(
+  session: ManagedSession,
+  connectionState: ConnectionState | undefined,
+  activity: SessionActivity | undefined,
+): string {
+  if (isClosedManagedSession(session)) {
+    if (session.reason === 'exited') return 'Exited on its own';
+    if (session.reason === 'superseded') return 'Superseded by a newer run';
+    return 'Closed';
+  }
+  if (session.liveness === 'asleep') return 'Asleep — process stopped, transcript kept';
+  if (connectionState === 'starting') return 'Starting…';
+  if (connectionState === 'unavailable') return 'Unavailable';
+  if (activity === 'thinking') return 'Running — thinking';
+  if (activity === 'waiting') return 'Running — waiting on you';
+  if (activity === 'idle') return 'Running — idle';
+  return 'Running';
+}
+
+/**
+ * The Sessions view: a manager for every terminal/agent session, live or
+ * closed, in one list (Phase 86 Theme A) — and a transcript reader for the
+ * closed half (Phase 67 Themes C, D).
  *
  * `issues-view.tsx`'s layout, deliberately (the phase doc's own structural
  * crib): list left, detail right, split by `useResizable` + `ResizeHandle`.
  * What differs from Issues is the shape of the list — grouped by repo under
- * a sticky header, since history spans every repo in one list rather than
- * following the sidebar's active selection (Theme E's `global: true`).
+ * a sticky header, since the manager spans every repo in one list rather
+ * than following the sidebar's active selection (Theme E's `global: true`).
  *
  * Detachable like every other page (Theme F): `'sessions'` joined
  * `PAGE_WINDOW_ROLES` once this mount was audited against the bar
@@ -98,9 +148,11 @@ export function SessionsView() {
   const history = useSessionHistory();
   const refresh = useRefreshSessionHistory();
   const { agents } = useAgents();
+  const liveSessions = useTerminalStore((s) => s.sessions);
 
   const [reasons, setReasons] = useState<ClosedSession['reason'][]>([]);
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
+  const [selectedLiveness, setSelectedLiveness] = useState<ManagedSessionLiveness[]>([]);
   const [collapsedRepos, setCollapsedRepos] = useState<ReadonlySet<string>>(() => new Set());
   const [query, setQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -121,12 +173,18 @@ export function SessionsView() {
     });
   };
 
-  const stored = useSessionsStore((s) => s.selectedClosedSessionId);
+  const storedClosed = useSessionsStore((s) => s.selectedClosedSessionId);
   const selectClosedSession = useSessionsStore((s) => s.selectClosedSession);
+  const storedLive = useSessionsStore((s) => s.selectedLiveSessionId);
+  const selectLiveSession = useSessionsStore((s) => s.selectLiveSession);
 
-  const all = useMemo(() => history.data ?? [], [history.data]);
+  const closedAll = useMemo(() => history.data ?? [], [history.data]);
+  const all = useMemo(
+    () => mergeManagedSessions(liveSessions, closedAll),
+    [liveSessions, closedAll],
+  );
 
-  // Derive distinct provider options present in closed session history
+  // Derive distinct provider options present across every session, live or closed.
   const providerOptions = useMemo<MultiSelectOption[]>(() => {
     const counts = new Map<string, number>();
     for (const record of all) {
@@ -177,11 +235,16 @@ export function SessionsView() {
     return options;
   }, [all, agents]);
 
-  // Filter rows by reasons, providers, and the search query
+  // Filter rows by liveness, reasons, providers, and the search query
   const rows = useMemo(() => {
     let filtered = all;
+    if (selectedLiveness.length > 0) {
+      filtered = filtered.filter((row) => selectedLiveness.includes(row.liveness));
+    }
     if (reasons.length > 0) {
-      filtered = filtered.filter((row) => reasons.includes(row.reason));
+      // `reason` is a closed-only concept — a live/asleep row has none, so
+      // the facet narrows the closed half only and never hides a live row.
+      filtered = filtered.filter((row) => !isClosedManagedSession(row) || reasons.includes(row.reason));
     }
     if (selectedProviders.length > 0) {
       filtered = filtered.filter((row) => {
@@ -192,24 +255,29 @@ export function SessionsView() {
     const needle = query.trim().toLowerCase();
     if (needle.length > 0) {
       filtered = filtered.filter((row) => {
-        const label = closedSessionLabel(row, agentLabelFor(row.agentId, agents)).toLowerCase();
+        const label = managedSessionLabel(row, agentLabelFor(row.agentId, agents)).toLowerCase();
         return label.includes(needle) || row.title.toLowerCase().includes(needle);
       });
     }
     return filtered;
-  }, [all, reasons, selectedProviders, query, agents]);
+  }, [all, selectedLiveness, reasons, selectedProviders, query, agents]);
+
+  // Only closed rows carry a purge affordance — a running session offers no
+  // purge affordance at all, not a disabled one, so the bulk-select story
+  // (checkbox, "N selected", select-all) is scoped to the closed subset too.
+  const purgeableRows = useMemo(() => rows.filter(isClosedManagedSession), [rows]);
 
   // A row purged elsewhere, or evicted on refetch, should drop out of the
   // bulk selection rather than linger as a phantom count.
   useEffect(() => {
     setSelectedIds((prev) => {
-      const next = new Set([...prev].filter((id) => all.some((row) => row.id === id)));
+      const next = new Set([...prev].filter((id) => closedAll.some((row) => row.id === id)));
       return next.size === prev.size ? prev : next;
     });
-  }, [all]);
+  }, [closedAll]);
 
-  const allVisibleSelected = rows.length > 0 && rows.every((row) => selectedIds.has(row.id));
-  const someVisibleSelected = rows.some((row) => selectedIds.has(row.id));
+  const allVisibleSelected = purgeableRows.length > 0 && purgeableRows.every((row) => selectedIds.has(row.id));
+  const someVisibleSelected = purgeableRows.some((row) => selectedIds.has(row.id));
   const selectAllRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (selectAllRef.current) {
@@ -221,21 +289,43 @@ export function SessionsView() {
     setSelectedIds((prev) => {
       if (allVisibleSelected) {
         const next = new Set(prev);
-        for (const row of rows) next.delete(row.id);
+        for (const row of purgeableRows) next.delete(row.id);
         return next;
       }
-      return new Set([...prev, ...rows.map((row) => row.id)]);
+      return new Set([...prev, ...purgeableRows.map((row) => row.id)]);
     });
   };
 
-  const selectedId = useMemo(() => pickInitialClosedSession(rows, stored), [rows, stored]);
+  const closedRows = useMemo(() => rows.filter(isClosedManagedSession), [rows]);
+  const selectedClosedId = useMemo(
+    () => pickInitialClosedSession(closedRows, storedClosed),
+    [closedRows, storedClosed],
+  );
+  // A stored live id wins while its row is still present in the filtered
+  // list — whatever that row's CURRENT liveness is. That is deliberate: a
+  // session that transitions running → closed while this view stays
+  // mounted keeps the same id (`closedFromSession`), so the pane flips
+  // itself from a live placeholder to the transcript with no extra wiring.
+  const selectedId = useMemo(() => {
+    if (storedLive !== null && rows.some((row) => row.id === storedLive)) return storedLive;
+    return selectedClosedId;
+  }, [storedLive, rows, selectedClosedId]);
   const selected = rows.find((row) => row.id === selectedId) ?? null;
+
+  const selectRow = (session: ManagedSession) => {
+    if (isClosedManagedSession(session)) {
+      selectLiveSession(null);
+      selectClosedSession(session.id);
+    } else {
+      selectLiveSession(session.id);
+    }
+  };
 
   const groups = useMemo(() => groupSessionsByRepo(rows), [rows]);
 
   const purgeOne = (record: ClosedSession) => {
     dialogs.confirm({
-      title: `Purge "${closedSessionLabel(record, agentLabelFor(record.agentId, agents))}"?`,
+      title: `Purge "${managedSessionLabel({ ...record, liveness: 'closed' }, agentLabelFor(record.agentId, agents))}"?`,
       confirmLabel: 'Purge',
       danger: true,
       blastRadius: null,
@@ -280,7 +370,7 @@ export function SessionsView() {
       confirmLabel: 'Clear history',
       danger: true,
       blastRadius: null,
-      warnings: [`${rows.length} sessions and their transcripts are deleted from disk. This cannot be undone.`],
+      warnings: [`${closedAll.length} sessions and their transcripts are deleted from disk. This cannot be undone.`],
       onConfirm: () => {
         void bridge()
           ?.sessions.purge({ sessionId: null })
@@ -308,6 +398,17 @@ export function SessionsView() {
           </span>
           <div className="ml-auto flex items-center gap-1">
             <MultiSelectMenu
+              options={LIVENESS_OPTIONS}
+              selected={selectedLiveness}
+              onChange={(next) => setSelectedLiveness(next as ManagedSessionLiveness[])}
+              icon={<LuActivity aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+              allLabel="All states"
+              searchPlaceholder="Filter states…"
+              emptyLabel="No state matches."
+              label="Filter sessions by liveness"
+              summarise={(n) => `${n} states`}
+            />
+            <MultiSelectMenu
               options={providerOptions}
               selected={selectedProviders}
               onChange={setSelectedProviders}
@@ -334,7 +435,7 @@ export function SessionsView() {
               icon={LuTrash2}
               label="Clear history"
               size="sm"
-              disabled={all.length === 0}
+              disabled={closedAll.length === 0}
               onClick={clearHistory}
             />
           </div>
@@ -347,7 +448,7 @@ export function SessionsView() {
               type="checkbox"
               checked={allVisibleSelected}
               onChange={toggleSelectAllVisible}
-              disabled={rows.length === 0}
+              disabled={purgeableRows.length === 0}
               aria-label={allVisibleSelected ? 'Deselect all matching sessions' : 'Select all matching sessions'}
               title={allVisibleSelected ? 'Deselect all matching sessions' : 'Select all matching sessions'}
               className="h-3 w-3 shrink-0 accent-primary"
@@ -410,13 +511,9 @@ export function SessionsView() {
         ) : history.isPending ? (
           <SessionListSkeleton />
         ) : rows.length === 0 ? (
-          <EmptyState
-            icon={LuHistory}
-            title="No closed sessions"
-            body="Sessions you close will be kept here, transcript and all."
-          />
+          <EmptyState icon={NO_SESSIONS_EMPTY.icon} title={NO_SESSIONS_EMPTY.title} body={NO_SESSIONS_EMPTY.body} />
         ) : (
-          <div role="list" aria-label="Closed sessions" className="min-h-0 flex-1 overflow-auto">
+          <div role="list" aria-label="Sessions" className="min-h-0 flex-1 overflow-auto">
             {groups.map((group, groupIndex) => (
               <RepoSessionsGroup
                 key={group.repoId}
@@ -427,7 +524,7 @@ export function SessionsView() {
                 onToggleCollapse={() => toggleRepoCollapse(group.repoId)}
                 agents={agents}
                 selectedId={selectedId}
-                selectClosedSession={selectClosedSession}
+                onSelect={selectRow}
                 purgeOne={purgeOne}
                 selectedIds={selectedIds}
                 toggleSelected={toggleSelected}
@@ -443,8 +540,14 @@ export function SessionsView() {
 
       {selected === null ? (
         <Notice>Select a session to read its transcript.</Notice>
-      ) : (
+      ) : isClosedManagedSession(selected) ? (
         <TranscriptView sessionId={selected.id} />
+      ) : (
+        <Notice>
+          {selected.liveness === 'asleep'
+            ? 'This session is asleep — no live process to show. Wake it from the terminal panel.'
+            : 'This session is running — open the terminal panel to interact with it.'}
+        </Notice>
       )}
     </div>
   );
@@ -458,7 +561,7 @@ function RepoSessionsGroup({
   onToggleCollapse,
   agents,
   selectedId,
-  selectClosedSession,
+  onSelect,
   purgeOne,
   selectedIds,
   toggleSelected,
@@ -472,7 +575,7 @@ function RepoSessionsGroup({
   onToggleCollapse: () => void;
   agents: readonly AgentDefinition[];
   selectedId: string | null;
-  selectClosedSession: (id: string | null) => void;
+  onSelect: (session: ManagedSession) => void;
   purgeOne: (record: ClosedSession) => void;
   selectedIds: ReadonlySet<string>;
   toggleSelected: (id: string) => void;
@@ -518,8 +621,8 @@ function RepoSessionsGroup({
             agent={agents.find((a) => a.id === record.agentId)}
             agentLabel={agentLabelFor(record.agentId, agents)}
             selected={record.id === selectedId}
-            onSelect={() => selectClosedSession(record.id)}
-            onPurge={() => purgeOne(record)}
+            onSelect={() => onSelect(record)}
+            onPurge={isClosedManagedSession(record) ? () => purgeOne(record) : undefined}
             checked={selectedIds.has(record.id)}
             onToggleChecked={() => toggleSelected(record.id)}
             cascading={sessionCascade.active}
@@ -543,23 +646,29 @@ function SessionRow({
   cascading,
   cascadeStyle,
 }: {
-  record: ClosedSession;
+  record: ManagedSession;
   agent: AgentDefinition | undefined;
   agentLabel: string | undefined;
   selected: boolean;
   onSelect: () => void;
-  onPurge: () => void;
+  /** Absent — not a disabled button — for anything that isn't a closed row. */
+  onPurge: (() => void) | undefined;
   checked: boolean;
   onToggleChecked: () => void;
   cascading?: boolean;
   cascadeStyle?: CSSProperties;
 }) {
-  const label = closedSessionLabel(record, agentLabel);
-  const duration = record.closedAt - record.createdAt;
+  const connectionState = useTerminalStore((s) => s.states[record.id]);
+  const activity = useTerminalStore((s) => s.activity[record.id]);
+
+  const label = managedSessionLabel(record, agentLabel);
+  const closed = isClosedManagedSession(record);
   const AgentIcon =
     record.kind === 'agent'
       ? resolveAgentIcon({ id: record.agentId ?? 'agent', icon: agent?.icon })
       : null;
+  const dotState = dotStateFor(record, connectionState);
+  const dotTooltip = dotTooltipFor(record, connectionState, activity);
 
   return (
     <div
@@ -568,20 +677,35 @@ function SessionRow({
       } ${cascading ? 'animate-fade-in-up cascade-delay' : ''}`}
       style={cascadeStyle}
     >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onToggleChecked}
-        aria-label={checked ? `Deselect ${label}` : `Select ${label}`}
-        className="h-3 w-3 shrink-0 accent-primary"
-      />
+      {/* Reserved even when empty, so a live row's label lines up with a
+          closed row's — only the closed half is purge-selectable. */}
+      <span className="flex h-3 w-3 shrink-0 items-center justify-center">
+        {closed ? (
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={onToggleChecked}
+            aria-label={checked ? `Deselect ${label}` : `Select ${label}`}
+            className="h-3 w-3 shrink-0 accent-primary"
+          />
+        ) : null}
+      </span>
       <button
         type="button"
         onClick={onSelect}
         className="flex min-w-0 flex-1 items-center gap-2 text-left"
       >
-        <StateDot state={dotStateFor(record)} />
-        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <Tooltip label={dotTooltip}>
+          <span
+            tabIndex={0}
+            aria-label={dotTooltip}
+            className="shrink-0 rounded-full outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1"
+          >
+            <StateDot state={dotState} />
+          </span>
+        </Tooltip>
+        {/* The agent icon leads the label rather than trailing it (Phase 86
+            Theme A) — ahead of the text, not after it. */}
         {AgentIcon ? (
           <AgentIcon
             aria-hidden
@@ -589,20 +713,29 @@ function SessionRow({
             style={agent?.accent ? { color: agent.accent } : undefined}
           />
         ) : null}
-        <span className="shrink-0 text-[11px] text-muted-foreground">
-          {formatDuration(duration)} · {relativeAge(record.closedAt, Date.now())}
-        </span>
-        {record.exitCode !== null && record.exitCode !== 0 ? (
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        {closed ? (
+          <span className="shrink-0 text-[11px] text-muted-foreground">
+            {formatDuration(record.closedAt - record.createdAt)} · {relativeAge(record.closedAt, Date.now())}
+          </span>
+        ) : (
+          <span className="shrink-0 text-[11px] text-muted-foreground">
+            started {relativeAge(record.createdAt, Date.now())}
+          </span>
+        )}
+        {closed && record.exitCode !== null && record.exitCode !== 0 ? (
           <span className="shrink-0 tabular-nums text-[11px] text-destructive">{record.exitCode}</span>
         ) : null}
       </button>
-      <IconButton
-        icon={LuTrash2}
-        label="Purge session"
-        size="sm"
-        className="shrink-0 opacity-0 group-hover:opacity-100"
-        onClick={onPurge}
-      />
+      {onPurge ? (
+        <IconButton
+          icon={LuTrash2}
+          label="Purge session"
+          size="sm"
+          className="shrink-0 opacity-0 group-hover:opacity-100"
+          onClick={onPurge}
+        />
+      ) : null}
     </div>
   );
 }
