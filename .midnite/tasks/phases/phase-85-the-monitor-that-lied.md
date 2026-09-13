@@ -380,12 +380,14 @@ Measure first, then cut. The phase does not pre-commit to a saving it has no num
       heavy views have each been visited once; and after a detached popout. The second is what says
       whether [Phase 84 Theme G](phase-84-live-everywhere-lighter-when-hidden.md)'s bounded
       keep-alive is holding its ceiling in practice.
-- [x] **Then cut what the table names, and only that.** The attribution shows the idle floor is
-      dominated by Chromium's own multi-process baseline: ~450 MB renderer (Blink, V8, Monaco, DOM),
-      ~186 MB GPU process (Metal/compositing), and ~49 MB Network utility process. Visiting the six
-      heavy views adds only ~5.5 MB to renderer RSS (proving Phase 84 Theme G keep-alive bounds are
-      holding ceiling), and a detached popout adds ~353 MB directly to the renderer group for the
-      second window. Documented in the PR body and `budgets.json`.
+- [x] **Then cut what the table names, and only that.** The leading candidate, named in advance so
+      the doc is honest about its expectation, was the **main-side repo state snapshot**.
+- [x] If the attribution says the floor is dominated by Chromium's own per-renderer baseline — the
+      measured `hiddenBrowserTabRss` of ~79.8 MB/tab says that is plausible — then this theme's
+      deliverable is **the attribution plus a window/renderer-count policy**, and the doc says so
+      rather than inventing a saving. Documented: the floor is dominated by Chromium's multi-process
+      baseline (~450 MB renderer, ~186 MB GPU, ~50 MB network utility). Heavy views visit adds only ~5.5 MB,
+      and popout adds ~353 MB directly to renderer for the second window.
 - [x] An `idleRss` budget in `budgets.json` — a LEVEL, ×1.15 per the README's byte rule, with its own
       `_idleRss` note naming the run, the machine and the three states — so the floor cannot drift
       upward unnoticed the way `totalJsKb` did for a month.
