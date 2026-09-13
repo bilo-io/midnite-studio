@@ -5,9 +5,7 @@ import { isPageWindowRole, type WindowRole } from '@midnite/studio-shared';
 import { FaGitAlt } from 'react-icons/fa';
 import { LuSquareArrowDownLeft, LuTerminal } from 'react-icons/lu';
 
-import { MidniteMenu } from '../features/agent/midnite-menu';
-import { ProjectActions } from '../features/agent/project-actions';
-import { RepoLifecycleActions } from '../features/repos/repo-lifecycle-actions';
+import { TitleBarMidniteMenu } from '../features/agent/title-bar-midnite-menu';
 import { primaryTarget } from '../features/repos/use-repo-actions';
 import { LivenessSegment } from '../features/status-bar/liveness-segment';
 import { bridge } from '../services/bridge';
@@ -205,27 +203,12 @@ export function DetachedWindowFrame({
               {role === 'terminal' && selectedRepo && repoCwd ? (
                 <>
                   <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <ProjectActions
-                      repoId={selectedRepo.id}
-                      repoName={selectedRepo.name}
-                      cwd={repoCwd}
-                      {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
-                    />
-                    <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
-                    <RepoLifecycleActions
-                      repoId={selectedRepo.id}
-                      repoName={selectedRepo.name}
-                      cwd={repoCwd}
-                      {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
-                    />
-                  </div>
-                  <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
-                  <MidniteMenu
+                  <TitleBarMidniteMenu
                     repo={selectedRepo}
                     repoId={selectedRepo.id}
                     repoName={selectedRepo.name}
                     cwd={repoCwd}
+                    {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
                   />
                 </>
               ) : null}

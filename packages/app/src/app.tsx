@@ -78,8 +78,7 @@ import { ScreensaverHost } from './features/screensaver/screensaver-host';
 import { CommitActivityPanel } from './features/activity/commit-activity-panel';
 import { EmptyWorkspace } from './features/empty/empty-workspace';
 import { FileEditorGuard } from './features/files/preview/file-editor-guard';
-import { ProjectActions } from './features/agent/project-actions';
-import { RepoLifecycleActions } from './features/repos/repo-lifecycle-actions';
+import { TitleBarMidniteMenu } from './features/agent/title-bar-midnite-menu';
 import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
 import { usePruneClosedRepos } from './features/repos/use-prune-closed-repos';
@@ -1149,6 +1148,18 @@ function Shell() {
       */}
       <TitleBarPrimaryAgent />
       <TitleBarAgents />
+      {selectedRepo ? (
+        <>
+          <TitleBarMidniteMenu
+            repo={selectedRepo}
+            repoId={selectedRepo.id}
+            repoName={selectedRepo.name}
+            cwd={selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path}
+            {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
+          />
+          <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
+        </>
+      ) : null}
       <TitleBarStatus />
       <TitleBarBattery />
       {/*
@@ -1159,37 +1170,6 @@ function Shell() {
       <ThemeToggle />
     </>
   );
-
-  /*
-    The repository's own tooling for whichever checkout is selected — the
-    same set the sidebar collapses behind one ellipsis per repository,
-    aimed here at "wherever you are" rather than "this repo's main
-    worktree". Absent with no repository selected: there is no checkout
-    for a guessed command to run against. Centered in the title bar.
-
-    Two clusters, not one: Setup and Update act on the checkout itself —
-    write an onboarding kit into it, replace the installed app from it —
-    while Install / Build / Test / Launch only ever type a guessed command
-    at a prompt. A hairline between them says that, and it is the same
-    divider the sidebar's menu draws between the same two halves.
-  */
-  const centerActions = selectedRepo ? (
-    <div className="flex items-center gap-1.5">
-      <ProjectActions
-        repoId={selectedRepo.id}
-        repoName={selectedRepo.name}
-        cwd={selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path}
-        {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
-      />
-      <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
-      <RepoLifecycleActions
-        repoId={selectedRepo.id}
-        repoName={selectedRepo.name}
-        cwd={selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path}
-        {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
-      />
-    </div>
-  ) : null;
 
   const titleBar = (
     <TitleBar
@@ -1207,7 +1187,7 @@ function Shell() {
           <SyncActions />
         </div>
       }
-      center={centerActions}
+      center={undefined}
       right={chrome}
     />
   );
@@ -1258,9 +1238,6 @@ function Shell() {
               <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
               <SyncActions />
             </div>
-            {centerActions ? (
-              <div className="flex min-w-0 flex-1 items-center justify-center">{centerActions}</div>
-            ) : null}
             <div className="flex items-center gap-2">{chrome}</div>
           </div>
         ) : null}
