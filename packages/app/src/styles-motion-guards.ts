@@ -224,3 +224,71 @@ export function findUnguardedKeyframes(
 
   return unguarded;
 }
+
+/**
+ * Ambient infinite loops that genuinely must always run, each with a
+ * human-written reason explaining why it does not pause at rest.
+ */
+export const LOOP_GATE_ALLOWLIST: Record<string, string> = {
+  'browser-loading-sweep':
+    'the browser tab loading progress sweep — an active user-action feedback bar that only mounts during page loads.',
+  'battery-flash':
+    'the status bar battery warning flash tier (low, critical, danger) — an urgent hardware warning indicator mounted only below threshold.',
+  'agent-count-breathe':
+    'the title bar active agent counter breathing pulse — mounted only while at least one background agent session is live.',
+  'agent-count-shimmer':
+    'the title bar active agent counter text shimmer — mounted only while at least one background agent session is live.',
+};
+
+/**
+ * Classes in rules that set `animation-play-state` (either running or paused),
+ * plus `:root` if `:root` appears in the selector.
+ */
+function playStateClasses(source: string): Set<string> {
+  const classes = new Set<string>();
+  const re = /([^{};]+)\{[^}]*?\banimation-play-state\s*:\s*([^;}]+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source))) {
+    const selector = m[1];
+    if (!selector) continue;
+    for (const c of classesIn(selector)) {
+      classes.add(c);
+    }
+  }
+  return classes;
+}
+
+/**
+ * Every `animation: … infinite` with no `animation-play-state` gate, minus the allowlist.
+ */
+export function findUngatedLoops(
+  source: string,
+  allowlist: Record<string, string> = LOOP_GATE_ALLOWLIST,
+): string[] {
+  const gatedClasses = playStateClasses(source);
+  const ungated: string[] = [];
+
+  for (const name of new Set(keyframeNames(source))) {
+    if (name in allowlist) continue;
+
+    const usageRe = new RegExp(
+      `animation(?:-name)?:\\s*([^;]*?\\b${name}\\b[^;]*?\\binfinite\\b|[^;]*?\\binfinite\\b[^;]*?\\b${name}\\b)[^;]*`,
+      'g',
+    );
+    const uses = [...source.matchAll(usageRe)];
+    if (uses.length === 0) continue;
+
+    const isGated = uses.every((use) => {
+      const selector = enclosingSelector(source, use.index);
+      const consumerClasses = classesIn(selector);
+      return [...consumerClasses].some((c) => gatedClasses.has(c));
+    });
+
+    if (!isGated) {
+      ungated.push(name);
+    }
+  }
+
+  return ungated;
+}
+

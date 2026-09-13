@@ -187,9 +187,48 @@ export function classifyGitGhSpawns(rows, rootPid) {
  * Samples the tree every `intervalMs` until `deadline`, folding each sample's
  * `classifyGitGhSpawns` into a running set — a pid seen even once counts,
  * because a subprocess that starts and exits between two samples is the
+/**
+ * Calculate per-group CPU percent of one core between two snapshots over elapsedS.
+ */
+export function computeCpuDeltas(startSnap, endSnap, elapsedS) {
+  const totals = new Map();
+  for (const [pid, end] of endSnap) {
+    const start = startSnap.get(pid);
+    if (!start) continue;
+    const pct = ((end.cpu - start.cpu) / elapsedS) * 100;
+    totals.set(end.group, (totals.get(end.group) ?? 0) + pct);
+  }
+  const round = (n) => Math.round(n * 100) / 100;
+  const groups = [
+    'main',
+    'renderer',
+    'gpu',
+    'broker',
+    ...Array.from(totals.keys()).filter(
+      (g) => !['main', 'renderer', 'gpu', 'broker', 'other'].includes(g),
+    ),
+    'other',
+  ];
+  const cpuPercentOfOneCore = Object.fromEntries(
+    groups.map((g) => [g, round(totals.get(g) ?? 0)]),
+  );
+  cpuPercentOfOneCore.total = round(
+    Object.values(cpuPercentOfOneCore).reduce((a, b) => a + b, 0),
+  );
+  return cpuPercentOfOneCore;
+}
+
+/**
+ * Subprocess census over the idle window.
+ *
+ * Samples `ps` every `intervalMs` and counts every distinct pid seen with a
+ * comm/argv matching `git` or `gh`. If `onSample` is provided, it is invoked
+ * after each census tick so caller can record periodic snapshots.
+ *
+ * Catches subprocesses that start and exit within the window — the
  * exact case a start/end CPU snapshot cannot see.
  */
-async function pollSubprocessSpawns(rootPid, deadline, intervalMs) {
+export async function pollSubprocessSpawns(rootPid, deadline, intervalMs, onSample) {
   const git = new Map();
   const gh = new Map();
   let samples = 0;
@@ -202,6 +241,7 @@ async function pollSubprocessSpawns(rootPid, deadline, intervalMs) {
     for (const [pid, args] of seen.git) git.set(pid, args);
     for (const [pid, args] of seen.gh) gh.set(pid, args);
     samples += 1;
+    if (onSample) await onSample(Date.now());
     await sleep(Math.max(0, Math.min(intervalMs, deadline - Date.now())));
   }
   return { gitSpawns: [...git.values()], ghSpawns: [...gh.values()], samples };
@@ -237,6 +277,8 @@ if (isMain) {
   const { flag, value } = cli(process.argv.slice(2));
 
   const seconds = Number(value('seconds', '300'));
+  const withSeries = flag('series');
+  const seriesIntervalS = Number(value('series-interval', '10'));
   const blurred = flag('blurred');
   const asJson = flag('json');
   const doAssert = flag('assert');
@@ -268,45 +310,54 @@ if (isMain) {
   await sleep(SETTLE_MS);
   const startedAt = Date.now();
   const before = snapshot(run.child.pid);
+  const round = (n) => Math.round(n * 100) / 100;
+
+  const series = [];
+  let lastSampleTime = startedAt;
+  let lastSampleSnap = before;
+  const onSample = withSeries
+    ? async (now) => {
+        if (now - lastSampleTime >= seriesIntervalS * 1_000) {
+          const currentSnap = snapshot(run.child.pid);
+          const intervalS = (now - lastSampleTime) / 1_000;
+          series.push({
+            elapsedSeconds: round((now - startedAt) / 1_000),
+            cpuPercentOfOneCore: computeCpuDeltas(lastSampleSnap, currentSnap, intervalS),
+          });
+          lastSampleTime = now;
+          lastSampleSnap = currentSnap;
+        }
+      }
+    : undefined;
+
   const census = await pollSubprocessSpawns(
     run.child.pid,
     startedAt + seconds * 1_000,
     POLL_INTERVAL_MS,
+    onSample,
   );
   const after = snapshot(run.child.pid);
   const elapsedS = (Date.now() - startedAt) / 1_000;
 
-  const totals = new Map();
-  for (const [pid, end] of after) {
-    const start = before.get(pid);
-    // A pid that appeared or disappeared mid-window would otherwise contribute a
-    // partial or a whole-life figure to an interval measurement.
-    if (!start) continue;
-    const pct = ((end.cpu - start.cpu) / elapsedS) * 100;
-    totals.set(end.group, (totals.get(end.group) ?? 0) + pct);
+  if (withSeries && Date.now() - lastSampleTime >= 1_000) {
+    const finalIntervalS = (Date.now() - lastSampleTime) / 1_000;
+    series.push({
+      elapsedSeconds: round((Date.now() - startedAt) / 1_000),
+      cpuPercentOfOneCore: computeCpuDeltas(lastSampleSnap, after, finalIntervalS),
+    });
   }
 
+  const cpuPercentOfOneCore = computeCpuDeltas(before, after, elapsedS);
   const mainRss = rssMb(run.child.pid);
 
   await stop(run.child, profile);
   discardProfile(profile);
 
-  const round = (n) => Math.round(n * 100) / 100;
   const report = {
     state: blurred && blurOk ? 'blurred' : 'focused',
     windowSeconds: round(elapsedS),
-    cpuPercentOfOneCore: Object.fromEntries(
-      [
-        'main',
-        'renderer',
-        'gpu',
-        'broker',
-        ...Array.from(totals.keys()).filter(
-          (g) => !['main', 'renderer', 'gpu', 'broker', 'other'].includes(g),
-        ),
-        'other',
-      ].map((g) => [g, round(totals.get(g) ?? 0)]),
-    ),
+    cpuPercentOfOneCore,
+    ...(withSeries ? { series } : {}),
     mainRssMb: mainRss,
     subprocessSpawns: {
       git: census.gitSpawns.length,
@@ -314,9 +365,6 @@ if (isMain) {
       samples: census.samples,
     },
   };
-  report.cpuPercentOfOneCore.total = round(
-    Object.values(report.cpuPercentOfOneCore).reduce((a, b) => a + b, 0),
-  );
 
   if (asJson) {
     console.log(JSON.stringify(report, null, 2));
@@ -324,6 +372,15 @@ if (isMain) {
     console.log(`\nidle CPU — ${report.state}, ${report.windowSeconds}s window, untouched\n`);
     for (const [group, pct] of Object.entries(report.cpuPercentOfOneCore)) {
       console.log(`  ${group.padEnd(9)} ${pct.toFixed(2)} %`);
+    }
+    if (withSeries && series.length > 0) {
+      console.log(`\n  per-sample series (${series.length} samples, interval ~${seriesIntervalS}s):`);
+      for (const sample of series) {
+        console.log(
+          `    [+${sample.elapsedSeconds}s] total: ${sample.cpuPercentOfOneCore.total.toFixed(2)}% ` +
+            `(renderer: ${sample.cpuPercentOfOneCore.renderer.toFixed(2)}%, gpu: ${sample.cpuPercentOfOneCore.gpu.toFixed(2)}%, main: ${sample.cpuPercentOfOneCore.main.toFixed(2)}%)`,
+        );
+      }
     }
     console.log(`\n  main RSS at end: ${mainRss === null ? 'unavailable' : `${mainRss} MB`}\n`);
     console.log(

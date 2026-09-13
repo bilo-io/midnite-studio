@@ -26,6 +26,7 @@ import { GraphHeader, graphColumnVars, useGraphColumns } from './graph-header';
 import { CommitGraphRow, formatDate, RECENCY_WINDOW_MS } from './graph-row';
 import { formatNumber } from '../../lib/format-number';
 import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
+import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
 import { useGraphStore } from './graph-store';
 import {
   graphThemeFor,
@@ -54,6 +55,7 @@ export function GraphView() {
   // can go on existing, unmounted, after the user has moved to another view.
   const activeView = useUiStore((s) => s.activeView);
   const visible = activeView === 'graph';
+  useWindowFocusGate(visible);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   const graphSelection = useUiStore((s) => s.graphSelection);
   const selectedSha = graphSelection?.kind === 'commit' ? graphSelection.sha : null;

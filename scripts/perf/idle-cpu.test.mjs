@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyGitGhSpawns, parsePsRows } from './idle-cpu.mjs';
+import { classifyGitGhSpawns, computeCpuDeltas, parsePsRows } from './idle-cpu.mjs';
 
 /** One synthetic `ps -Ao pid=,ppid=,comm=,args=` line, tab/space-agnostic like the real output. */
 function row(pid, ppid, comm, args = comm) {
@@ -78,3 +78,33 @@ describe('classifyGitGhSpawns', () => {
     expect(() => classifyGitGhSpawns(rows, 1)).not.toThrow();
   });
 });
+
+describe('computeCpuDeltas', () => {
+  it('calculates percent of one core per group and total across elapsed time', () => {
+    const start = new Map([
+      [10, { cpu: 5.0, group: 'main' }],
+      [20, { cpu: 10.0, group: 'renderer' }],
+    ]);
+    const end = new Map([
+      [10, { cpu: 6.0, group: 'main' }], // 1s CPU in 10s = 10%
+      [20, { cpu: 12.5, group: 'renderer' }], // 2.5s CPU in 10s = 25%
+    ]);
+    const deltas = computeCpuDeltas(start, end, 10);
+    expect(deltas.main).toBe(10);
+    expect(deltas.renderer).toBe(25);
+    expect(deltas.total).toBe(35);
+  });
+
+  it('drops pids that appeared or disappeared mid-window', () => {
+    const start = new Map([[10, { cpu: 5.0, group: 'main' }]]);
+    const end = new Map([
+      [10, { cpu: 6.0, group: 'main' }],
+      [30, { cpu: 2.0, group: 'other' }], // new pid
+    ]);
+    const deltas = computeCpuDeltas(start, end, 10);
+    expect(deltas.main).toBe(10);
+    expect(deltas.other).toBe(0);
+    expect(deltas.total).toBe(10);
+  });
+});
+

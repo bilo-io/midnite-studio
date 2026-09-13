@@ -5,6 +5,7 @@ import { SmartScanTab } from './smart-scan-tab';
 import { SystemTab } from './system-tab';
 import { StorageTab } from './storage-tab';
 import { useOptimizerStore } from '../../store/optimizer-store';
+import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
 import { useOptimizerScanProgress, useSystemScanProgress } from './use-optimizer';
 
 /**
@@ -12,6 +13,7 @@ import { useOptimizerScanProgress, useSystemScanProgress } from './use-optimizer
  * wiring; `OptimizerLayout` is the presentational shell around it.
  */
 export function OptimizerPage() {
+  useWindowFocusGate(true);
   const tab = useOptimizerStore((s) => s.tab);
   const setTab = useOptimizerStore((s) => s.setTab);
   useOptimizerScanProgress();
