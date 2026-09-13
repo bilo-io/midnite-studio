@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { BatteryDevice, BatteryDeviceType, BatteryReading } from '@midnite/studio-shared';
+import { parseableProcessEnv, type BatteryDevice, type BatteryDeviceType, type BatteryReading } from '@midnite/studio-shared';
 import { clampPercent } from './cpu';
 
 const exec = promisify(execFile);
@@ -241,6 +241,7 @@ async function runIoreg(args: readonly string[]): Promise<string> {
     const { stdout } = await exec(IOREG, [...args], {
       timeout: 2_000,
       maxBuffer: 4 * 1024 * 1024,
+      env: parseableProcessEnv(),
     });
     return stdout;
   } catch {

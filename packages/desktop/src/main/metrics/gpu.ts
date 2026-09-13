@@ -1,6 +1,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { parseableProcessEnv } from '@midnite/studio-shared';
+
 import { clampPercent } from './cpu';
 
 /**
@@ -117,6 +119,7 @@ async function runIoreg(): Promise<string> {
     // The dump is tens of KB on a machine with several accelerators; the
     // default 1 MB cap is ample, but say so rather than inherit it silently.
     maxBuffer: 4 * 1024 * 1024,
+    env: parseableProcessEnv(),
   });
   return stdout;
 }

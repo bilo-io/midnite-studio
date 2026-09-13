@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import { perfEnabled, type AgentDefinition } from '@midnite/studio-shared';
+import { parseableProcessEnv, perfEnabled, type AgentDefinition } from '@midnite/studio-shared';
 
 import { probeTarget } from './agent-probe';
 import { defaultLogger } from './log';
@@ -144,9 +144,11 @@ export async function readProcessRows(): Promise<ProcessRow[] | null> {
   const startedAt = performance.now();
   let ok = false;
   try {
-    const { stdout } = await exec('ps', ['-axo', 'pid=,ppid=,stat=,rss=,pcpu=,args='], {
+    // Absolute path: a Finder-launched Electron app inherits launchd's bare PATH.
+    const { stdout } = await exec('/bin/ps', ['-axo', 'pid=,ppid=,stat=,rss=,pcpu=,args='], {
       timeout: PS_TIMEOUT_MS,
       maxBuffer: PS_MAX_BUFFER,
+      env: parseableProcessEnv(),
     });
     const rows = parsePsOutput(stdout);
     ok = true;
