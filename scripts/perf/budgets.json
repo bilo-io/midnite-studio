@@ -12,7 +12,31 @@
   "_scroll": "Median frame gap over a 60-frame rAF-driven scroll of a 4000-line diff, x 2.5. Inherited as a literal 100 from diff-scroll-perf.spec.ts, which was an order-of-magnitude tripwire rather than a budget; the measurement is 8.5 ms, so the rule gives 22.",
   "diffScrollMedianGapMs": 22,
 
-  "_retention": "Phase 45 Theme A. UNLIKE every other budget above, this is a SLOPE (bytes retained PER CYCLE), not a ceiling on a level — the 1.15x/2.5x multiplier rule does NOT apply to it. Set from observed RSS noise on the phase author's machine across repo-cycle and browser-tabs-cycle runs (both expected flat): main/renderer swung up to ~250 KB/cycle from GC and allocator churn alone with only 10-20 samples. 500 KB/cycle sits above that noise floor while still catching Theme C's multi-MB-per-session leak over a real run. Provisional pending more history — see the phase doc's own open question about CI inclusion.",
+  "_retention": "Phase 85 Theme C. SLOPE (bytes retained PER CYCLE). Replaced the single provisional 500 KB/cycle with group- and action-calibrated budgets. Heap snapshot diffing (--heap-diff) confirmed renderer has zero retained constructor growth (~11KB delta across 20 cycles, sub-KB for all application classes). In main and broker, RSS swings during early cycles from allocator/V8 churn and terminal pty buffers, while Chromium's GPU process warms up shaders and compositor surfaces. Falling slopes (negative delta) represent memory returned and are not leaks.",
+  "retention": {
+    "default": 500,
+    "terminal": {
+      "main": 1500,
+      "renderer": 500,
+      "broker": 1200,
+      "gpu": 3000,
+      "other": 500
+    },
+    "repo": {
+      "main": 500,
+      "renderer": 500,
+      "broker": 500,
+      "gpu": 3000,
+      "other": 500
+    },
+    "browser-tabs": {
+      "main": 500,
+      "renderer": 500,
+      "broker": 500,
+      "gpu": 3000,
+      "other": 500
+    }
+  },
   "retainedPerCycleKb": 500,
 
   "_popoutRss": "Phase 84 Theme H.4. A LEVEL, not a slope — the renderer-RSS delta `memory-report.mjs --popout=graph` measures between a baseline sample (main window only, a repo already open) and a second sample once the detached Graph popout has appeared and settled. Measured against THIS repo's own checkout as the opened repo (the harness's own default), whose full git history is large enough that streaming it twice — main's own copy plus the popout's separate renderer process and QueryClient — is a real, not a synthetic, cost. Single run, not yet a median of several (unlike the timing budgets above) — 397824 KB measured, ×1.15 (the README's own rule for bytes) rounds to the value below. Provisional pending more history and a second data point on a smaller repo. Cross-checked in Phase 84 Theme J: two fresh single runs (one against the commit before Theme H, one against current main) read 291456 KB and 308256 KB respectively — both comfortably under this budget and statistically indistinguishable from each other (the delta is noise/repo-size drift between the two checkouts, not a regression or a measured Theme H win for this specific role — H's popout diet (H.1-H.3) targets bootstrap work a `graph` popout was largely skipping already, so `graph` was never the role most exposed to it).",

@@ -91,7 +91,7 @@ describe('RunDetail resizable panels', () => {
     }));
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    const { unmount } = render(
       <QueryClientProvider client={queryClient}>
         <RunDetail
           repoId="repo-1"
@@ -108,5 +108,7 @@ describe('RunDetail resizable panels', () => {
 
     const jobsContainer = screen.getByTestId('actions-jobs-pane');
     expect(jobsContainer.style.height).toBe('240px');
+
+    unmount();
   });
 });

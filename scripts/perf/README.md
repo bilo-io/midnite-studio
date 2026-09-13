@@ -94,9 +94,10 @@ how a performance phase gets undone a year later.
 (focused and blurred), and the script does the arithmetic but nobody can touch
 the machine while it runs.
 
-Renderer/main/broker retention (Phase 45) is now a script with a budget:
+Renderer/main/broker retention (Phase 45/85) is automated with budgets:
 `memory-report.mjs` drives a real action N times through a CDP connection to
 the packaged-equivalent app (never Playwright's `_electron.launch` — see
 `electron-run.mjs`'s own docblock) and reports bytes retained per cycle,
-per process class. What it cannot see is a multi-hour session — only a human
-measures a day; the harness measures a controlled loop of cycles.
+per process class. `--heap-diff` takes heap snapshots across cycles and
+reports retained constructors, and `--soak` runs multi-hour unattended sessions
+with RSS time series and linear fit.
