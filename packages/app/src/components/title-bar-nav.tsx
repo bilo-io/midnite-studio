@@ -32,6 +32,7 @@ import { SETTINGS_PAGE_ICON, VIEW_ICON } from './nav-icons';
 const VIEW_LABELS: Record<ViewId, string> = {
   landing: 'Home',
   dashboard: 'Dashboard',
+  notes: 'Notes',
   files: 'Explorer',
   search: 'Search',
   tests: 'Tests',

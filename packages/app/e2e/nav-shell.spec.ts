@@ -17,7 +17,7 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * `repos-panel.bridge.test.tsx` (`useUiStore.getState().setActiveView(...)`
  * standing in for a rail click, the same substitution the rest of that file
  * already uses). **4 stay**, all genuinely rail-shaped: "the rail carries all
- * sixteen views", "each view is reachable", "Actions/Reviews are absent for a
+ * seventeen views", "each view is reachable", "Actions/Reviews are absent for a
  * repository gh could never answer for" and "standing in Actions when it
  * disappears lands you on the graph" all need the actual nav rail —
  * `AppFrame` from `@bilo-io/shell`, fed the `nav` array `app.tsx` builds —
@@ -118,11 +118,12 @@ const panel = (page: Page) => page.getByRole('complementary', { name: 'Repositor
 const heading = (page: Page, name: string) =>
   panel(page).getByRole('heading', { name, exact: true });
 
-test('the rail carries all sixteen views, Dashboard ungrouped above the rest', async ({ page }) => {
+test('the rail carries all seventeen views, Dashboard ungrouped above the rest', async ({ page }) => {
   await open(page);
 
   for (const label of [
     'Dashboard',
+    'Notes',
     'Explorer',
     'Search',
     'Tests',
@@ -164,6 +165,7 @@ test('the rail carries all sixteen views, Dashboard ungrouped above the rest', a
   expect(hrefs[0]).toBe('/dashboard');
   expect(hrefs).toEqual([
     '/dashboard',
+    '/notes',
     '/files',
     '/search',
     '/tests',

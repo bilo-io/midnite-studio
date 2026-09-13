@@ -74,6 +74,8 @@ const loadSessionsView = () => import('../features/sessions/sessions-view');
 const SessionsView = lazy(() => loadSessionsView().then((m) => ({ default: m.SessionsView })));
 const loadApiClientView = () => import('../features/api-client/api-client-view');
 const ApiClientView = lazy(() => loadApiClientView().then((m) => ({ default: m.ApiClientView })));
+const loadNotesView = () => import('../features/notes/notes-view');
+const NotesView = lazy(() => loadNotesView().then((m) => ({ default: m.NotesView })));
 
 /**
  * One view, as data.
@@ -144,6 +146,11 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // to be reachable ahead of the `!selectedRepoId` guard.
   landing: { Component: LandingView, global: true },
   dashboard: { Component: DashboardView, cascade: true },
+  // Global (Phase 86 Theme E): pinned directly under Dashboard, and notes are
+  // per-repo (`notesForRepo`) but a rail row that greys out with no repo open
+  // would be a poor first impression right beside Dashboard's own. The
+  // placeholder view renders its own "no repo open" empty state for that case.
+  notes: { Component: NotesView, global: true },
   files: { Component: FilesView, cascade: true },
   search: { Component: SearchView },
   tests: { Component: TestsView },

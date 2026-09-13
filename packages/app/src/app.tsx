@@ -173,14 +173,15 @@ const queryClient = new QueryClient({
  */
 const ViewLink: NavLinkComponent = ({ href, className, children, ...rest }) => {
   const setActiveView = useUiStore((s) => s.setActiveView);
-  const chord = navChord(viewForPath(href));
+  const view = viewForPath(href);
+  const chord = navChord(view);
   const link = (
     <a
       href={href}
       className={className}
       onClick={(event) => {
         event.preventDefault();
-        setActiveView(viewForPath(href));
+        setActiveView(view);
       }}
       {...rest}
     >
@@ -201,12 +202,40 @@ const ViewLink: NavLinkComponent = ({ href, className, children, ...rest }) => {
     lands on top of the next one, which is the row the user is about to reach
     for if the tooltip just told them the wrong key.
   */
-  return chord === undefined ? (
-    link
+  const row =
+    chord === undefined ? (
+      link
+    ) : (
+      <Tooltip label={chord} side="right">
+        {link}
+      </Tooltip>
+    );
+  /*
+    Phase 86 Theme E: `NavConfig.pinned` (`@bilo-io/shell`) is a flat
+    `NavItem[]` with no separator slot of its own — `AppFrame` maps it
+    straight into rows, so the hairline between Dashboard and Notes has
+    nowhere to live except riding in with one of the two rows it separates.
+    It travels with Notes' row rather than Dashboard's for the same reason
+    `TitleBarMidniteMenu`'s hairline (`chrome`, above) travels with the
+    content it follows: a separator welded to a real row can never be
+    stranded (Phase 39 Theme B), and here that holds unconditionally —
+    Dashboard and Notes are both always-rendered pinned items, never gated
+    on a repo or a feature flag, so this line never renders without a real
+    row on both sides of it.
+
+    `self-stretch` rather than a fixed width: the rail's cross-axis alignment
+    flips between `items-center` (collapsed, icon-only) and `items-stretch`
+    (expanded), and `self-stretch` overrides either so the rule spans the
+    row's own width — a short icon-width line collapsed, the full row width
+    expanded — without reading `expanded` state here.
+  */
+  return view === 'notes' ? (
+    <>
+      <span aria-hidden className="mx-1 h-px shrink-0 self-stretch bg-border" />
+      {row}
+    </>
   ) : (
-    <Tooltip label={chord} side="right">
-      {link}
-    </Tooltip>
+    row
   );
 };
 
@@ -314,6 +343,22 @@ const PINNED_ITEM: NavItem = {
   icon: VIEW_ICON.dashboard,
 };
 
+/**
+ * Notes, pinned directly under Dashboard (Phase 86 Theme E).
+ *
+ * Same reasoning as `PINNED_ITEM`: a note is not scoped to one section of a
+ * checkout the way Files or Graph are, and `notes: { global: true }` in
+ * `view-registry.tsx` means it renders with no repo open too, so it belongs
+ * beside Dashboard rather than inside `WORKSPACE_NAV_ITEMS`. The hairline
+ * between the two rows is `ViewLink`'s job, not this list's — see its header
+ * comment for why.
+ */
+const NOTES_ITEM: NavItem = {
+  view: 'notes',
+  label: 'Notes',
+  icon: VIEW_ICON.notes,
+};
+
 /*
   Glyphs come from `components/nav-icons`, shared with the title bar's
   breadcrumbs — including the deliberate second and third icon families for
@@ -356,6 +401,7 @@ const AGENT_NAV_ITEMS: NavItem[] = [
  */
 export const ALL_NAV_ITEMS: NavItem[] = [
   PINNED_ITEM,
+  NOTES_ITEM,
   ...WORKSPACE_NAV_ITEMS,
   ...GIT_NAV_ITEMS,
   ...AGENT_NAV_ITEMS,
@@ -1030,8 +1076,10 @@ function Shell() {
 
   const nav: NavConfig = useMemo(
     () => ({
-      // Ungrouped, above the sections — the shell's own slot for exactly this.
-      pinned: [navItem(PINNED_ITEM)],
+      // Ungrouped, above the sections — the shell's own slot for exactly
+      // this. Notes rides directly under Dashboard (Phase 86 Theme E); the
+      // hairline between them is `ViewLink`'s job, not this array's.
+      pinned: [navItem(PINNED_ITEM), navItem(NOTES_ITEM)],
       sections: [
         {
           key: 'workspace',

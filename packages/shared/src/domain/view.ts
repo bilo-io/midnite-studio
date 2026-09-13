@@ -22,17 +22,19 @@
  *
  * Seven since Phase 19, and the rail is now the app's table of contents rather
  * than three ways to look at one checkout. `dashboard` is deliberately second
- * (right after `landing`): it renders through `NavConfig.pinned`, ABOVE the
- * workspace section and without a header of its own, so its position in this
- * array is the only place that ordering is written down. `landing` is first
- * for a different reason — it is the only view whose path is `/` rather than
- * `/<id>`, the app's front door rather than an entry in the rail. Nothing in
- * `app.tsx`'s nav item lists names it, so it never renders a rail row; it is
- * reached from the brand mark, the title bar wordmark and the palette.
+ * (right after `landing`), and `notes` third (Phase 86 Theme E): both render
+ * through `NavConfig.pinned`, ABOVE the workspace section and without a
+ * header of their own, so their position in this array is the only place
+ * that ordering is written down. `landing` is first for a different reason —
+ * it is the only view whose path is `/` rather than `/<id>`, the app's front
+ * door rather than an entry in the rail. Nothing in `app.tsx`'s nav item
+ * lists names it, so it never renders a rail row; it is reached from the
+ * brand mark, the title bar wordmark and the palette.
  */
 export const VIEW_IDS = [
   'landing',
   'dashboard',
+  'notes',
   'files',
   'search',
   'optimizer',
