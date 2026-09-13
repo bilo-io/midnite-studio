@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import {
   COUNCIL_OUTPUT_CAP_BYTES,
   COUNCIL_RUN_TIMEOUT_MS,
+  agentHeadlessArgs,
   agentInvocationArgs,
   failure,
   ok,
@@ -266,7 +267,7 @@ async function spawnOneShot(
 
   const words = [
     agent.command,
-    ...agentInvocationArgs(agent.id),
+    ...(agentHeadlessArgs(agent.id) ?? agentInvocationArgs(agent.id)),
     shellQuote(toAgentPrompt(promptText, agent.id)),
   ];
   const invocation = words.join(' ');

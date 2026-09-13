@@ -1,7 +1,10 @@
 import {
+  agentHeadlessArgs,
+  agentInteractiveArgs,
   agentInvocationArgs,
   shellQuote,
   toAgentPrompt,
+  type SkillExecutionMode,
   type TerminalSession,
   type TerminalSurface,
 } from '@midnite/studio-shared';
@@ -10,10 +13,16 @@ import { useTerminalStore } from './terminal-store';
 import { useUiStore } from '../../store/ui-store';
 
 // Re-exported for the handful of existing call sites (and tests) that import
-// these three from here — the implementations now live in
+// these from here — the implementations now live in
 // `@midnite/studio-shared`'s `agent-invocation.ts`, shared with
 // `council-runner.ts`, which cannot import this renderer-only module.
-export { agentInvocationArgs, shellQuote, toAgentPrompt };
+export {
+  agentHeadlessArgs,
+  agentInteractiveArgs,
+  agentInvocationArgs,
+  shellQuote,
+  toAgentPrompt,
+};
 
 /**
  * Open the terminal on a fresh agent session in `cwd`, with `prompt` typed at
@@ -42,6 +51,7 @@ export function startAgent({
   taskRef,
   extraArgs = [],
   autoSend = false,
+  mode,
 }: {
   repoId: string;
   cwd: string;
@@ -77,6 +87,11 @@ export function startAgent({
    * the confirmation the withheld Return exists to collect already happened.
    */
   autoSend?: boolean;
+  /**
+   * Execution mode: `'interactive'` (default) or `'headless'`.
+   * Falls back to `useUiStore.getState().skillExecutionMode` when absent.
+   */
+  mode?: SkillExecutionMode;
 }): TerminalSession {
   if (surface !== 'fab' && surface !== 'kanban') useUiStore.getState().setTerminalOpen(true);
 
@@ -90,13 +105,15 @@ export function startAgent({
     ...(taskRef === undefined ? {} : { taskRef }),
   });
 
+  const executionMode = mode ?? useUiStore.getState().skillExecutionMode ?? 'interactive';
+
   // Queued input beats the roster's own start command (see `agentInput` in
   // <TerminalPanel>), so this replaces the bare command an agent session would
   // otherwise open with rather than racing it.
   const words = [
     command,
     ...extraArgs,
-    ...agentInvocationArgs(agentId),
+    ...agentInvocationArgs(agentId, executionMode),
     shellQuote(toAgentPrompt(prompt, agentId)),
   ];
   useTerminalStore.getState().queueInput(session.id, words.join(' ') + (autoSend ? '\r' : ''));

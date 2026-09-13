@@ -124,4 +124,41 @@ describe('useSkillHandoff', () => {
     expect(updated.done).toBe(false);
     expect(updated.body).toBe('Original note body');
   });
+
+  it('honours the skillExecutionMode setting from ui-store', () => {
+    useUiStore.setState({
+      primaryAgent: 'agy',
+      skillExecutionMode: 'headless',
+    });
+
+    const { result } = renderHook(() => useSkillHandoff(), { wrapper });
+    const session = result.current({
+      skillId: 'execAdhoc',
+      repo: MOCK_REPO,
+      body: 'run adhoc task',
+    });
+
+    expect(session).not.toBeNull();
+    const queuedInput = useTerminalStore.getState().pendingInput[session!.id];
+    expect(queuedInput).toBe("agy -p '/midnite-exec-adhoc run adhoc task'");
+  });
+
+  it('allows explicit mode override in options', () => {
+    useUiStore.setState({
+      primaryAgent: 'agy',
+      skillExecutionMode: 'interactive',
+    });
+
+    const { result } = renderHook(() => useSkillHandoff(), { wrapper });
+    const session = result.current({
+      skillId: 'execAdhoc',
+      repo: MOCK_REPO,
+      body: 'run adhoc task',
+      mode: 'headless',
+    });
+
+    expect(session).not.toBeNull();
+    const queuedInput = useTerminalStore.getState().pendingInput[session!.id];
+    expect(queuedInput).toBe("agy -p '/midnite-exec-adhoc run adhoc task'");
+  });
 });

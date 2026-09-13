@@ -42,6 +42,7 @@ const reset = () =>
     graphTheme: 'git-graph',
     agentSkills: DEFAULT_AGENT_SKILLS,
     primaryAgent: 'claude',
+    skillExecutionMode: 'interactive',
   });
 
 describe('useUiStore', () => {
@@ -897,6 +898,35 @@ describe('the primary agent', () => {
     };
 
     expect(merged.primaryAgent).toBe('claude');
+  });
+});
+
+describe('the skill execution mode', () => {
+  beforeEach(reset);
+
+  it('defaults to interactive, and Settings can toggle to headless', () => {
+    expect(useUiStore.getState().skillExecutionMode).toBe('interactive');
+
+    useUiStore.getState().setSkillExecutionMode('headless');
+
+    expect(useUiStore.getState().skillExecutionMode).toBe('headless');
+  });
+
+  it('persists across a reload', () => {
+    useUiStore.getState().setSkillExecutionMode('headless');
+
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+    expect(saved.state.skillExecutionMode).toBe('headless');
+  });
+
+  it('falls back to interactive when the stored payload predates the field', () => {
+    const merged = useUiStore.persist.getOptions().merge?.({}, useUiStore.getState()) as {
+      skillExecutionMode: string;
+    };
+
+    expect(merged.skillExecutionMode).toBe('interactive');
   });
 });
 

@@ -10,6 +10,12 @@
  * changed. `start-agent.ts` re-exports these rather than redefining them.
  */
 
+import { z } from 'zod';
+
+export const SkillExecutionModeSchema = z.enum(['interactive', 'headless']);
+export type SkillExecutionMode = z.infer<typeof SkillExecutionModeSchema>;
+export const DEFAULT_SKILL_EXECUTION_MODE: SkillExecutionMode = 'interactive';
+
 /**
  * Translate the prompt's Claude/Antigravity `/name` skill prefix into
  * whatever the target agent actually expects.
@@ -29,30 +35,98 @@ export function toAgentPrompt(prompt: string, agentId: string): string {
 }
 
 /**
- * The flags a roster agent needs, beyond its command and the prompt, to treat
- * that prompt as a one-shot instruction rather than free text at its own
- * native REPL.
+ * The flags a roster agent needs ahead of its prompt to start an interactive
+ * session, verified in `docs/AGENTS_CLI.md`.
  *
- * Claude and OpenClaude take the prompt as a bare positional and start their
- * usual interactive session with it queued as the first message, so neither
- * needs anything here — which is also why neither is eligible as a council
- * member (see `COUNCIL_MEMBER_PROVIDERS` in `council.ts`): a council spawns
- * unattended and needs a CLI that actually exits once it has answered.
- * Antigravity's `agy` only runs a prompt non-interactively behind `-p`;
- * Codex only does it behind its `exec` subcommand; OpenCode behind
- * `--prompt`.
+ * - Antigravity (`agy`): `--prompt-interactive`
+ * - OpenCode (`opencode`): `--prompt`
+ * - Copilot (`copilot`): `suggest`
+ * - Aider (`aider`): `--message`
+ * - OpenClaude (`openclaude`): `chat`
+ * - Goose (`goose`): `session start --instruction`
+ * - Claude, Codex, Cursor, Grok, Cline, Kilo: bare positional prompt or no extra flags
  */
-export function agentInvocationArgs(agentId: string): string[] {
+export function agentInteractiveArgs(agentId: string): string[] {
   switch (agentId) {
     case 'agy':
-      return ['-p'];
+      return ['--prompt-interactive'];
     case 'codex':
       return ['exec'];
     case 'opencode':
       return ['--prompt'];
+    case 'copilot':
+      return ['suggest'];
+    case 'aider':
+      return ['--message'];
+    case 'openclaude':
+      return ['chat'];
+    case 'goose':
+      return ['session', 'start', '--instruction'];
+    case 'claude':
+    case 'cursor':
+    case 'grok':
+    case 'cline':
+    case 'kilo':
     default:
       return [];
   }
+}
+
+/**
+ * The flags that make an agent CLI answer once and **exit** — print/headless mode.
+ * Verified against `docs/AGENTS_CLI.md`.
+ *
+ * - Claude, Cursor, Grok, Antigravity (`agy`): `-p`
+ * - OpenClaude (`openclaude`): `--bg`
+ * - OpenCode (`opencode`), Kilo (`kilo`): `run`
+ * - Codex (`codex`): `exec`
+ * - Copilot (`copilot`): `explain`
+ * - Cline (`cline`): `--auto-approve true`
+ * - Aider (`aider`): `--yes-always --message`
+ * - Goose (`goose`): `run -t`
+ *
+ * `null` rather than `[]` for an unknown agent CLI with no known print mode,
+ * so callers know it cannot be run unattended.
+ */
+export function agentHeadlessArgs(agentId: string): string[] | null {
+  switch (agentId) {
+    case 'claude':
+    case 'cursor':
+    case 'grok':
+    case 'agy':
+      return ['-p'];
+    case 'openclaude':
+      return ['--bg'];
+    case 'opencode':
+    case 'kilo':
+      return ['run'];
+    case 'codex':
+      return ['exec'];
+    case 'copilot':
+      return ['explain'];
+    case 'cline':
+      return ['--auto-approve', 'true'];
+    case 'aider':
+      return ['--yes-always', '--message'];
+    case 'goose':
+      return ['run', '-t'];
+    default:
+      return null;
+  }
+}
+
+/**
+ * Flags needed to invoke an agent with a prompt, in either `'interactive'`
+ * (default) or `'headless'` mode.
+ */
+export function agentInvocationArgs(
+  agentId: string,
+  mode: SkillExecutionMode = 'interactive',
+): string[] {
+  if (mode === 'headless') {
+    return agentHeadlessArgs(agentId) ?? agentInteractiveArgs(agentId);
+  }
+  return agentInteractiveArgs(agentId);
 }
 
 /**
@@ -67,47 +141,3 @@ export function shellQuote(text: string): string {
   return `'${text.replace(/\s+/g, ' ').trim().replace(/'/g, String.raw`'\''`)}'`;
 }
 
-/**
- * The flags that make an agent CLI answer once and **exit** — print mode.
- *
- * Distinct from {@link agentInvocationArgs}, and the distinction is the whole
- * reason this exists. That function answers "how do I hand this CLI a prompt
- * to start an interactive session with", which is what a pty wants: Claude and
- * OpenClaude take the prompt as a bare positional and then sit at their own
- * REPL, so they need no flags at all and get `[]`. A *headless* caller needs
- * the opposite — a process that writes an answer to stdout and closes — and
- * for Claude that is `-p`. `council-runner.ts` works around the gap by typing
- * the command into a login shell with `; exit $?` appended, which it has to do
- * because it uses a pty; Phase 79's companion uses `runProcess` and can simply
- * ask for print mode.
- *
- * `null` rather than `[]` for an agent with no known print mode, because the
- * two answers are different facts and only one of them may be spawned: `[]`
- * would mean "run it with no flags", which for an unknown interactive CLI is a
- * process that waits for stdin it will never get (`runProcess` gives it
- * `'ignore'`, so it gets EOF and, if it is well-behaved, exits — and if it is
- * not, sits there until the deadline). A caller that gets `null` skips that
- * agent and looks for another, or tells the user there is nothing installed.
- */
-export function agentHeadlessArgs(agentId: string): string[] | null {
-  switch (agentId) {
-    // Claude Code's print mode. OpenClaude is a fork of its CLI surface and
-    // takes the same flag.
-    case 'claude':
-    case 'openclaude':
-      return ['-p'];
-    // Antigravity and OpenCode's non-interactive flags happen to be the same
-    // ones that make them one-shot, so these agree with `agentInvocationArgs`.
-    case 'agy':
-      return ['-p'];
-    case 'opencode':
-      return ['--prompt'];
-    case 'codex':
-      return ['exec'];
-    default:
-      // `cursor`, `copilot` and anything a user added through `agents.json`.
-      // Guessing `-p` at an unknown CLI is how you get a process holding a
-      // slot until the timeout fires.
-      return null;
-  }
-}

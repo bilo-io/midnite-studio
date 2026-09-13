@@ -2,6 +2,7 @@ import {
   BUILTIN_AGENTS,
   type AgentDefinition,
   type RepoDescriptor,
+  type SkillExecutionMode,
   type TerminalSession,
   type TerminalSurface,
 } from '@midnite/studio-shared';
@@ -39,6 +40,11 @@ export type SkillHandoffOptions = {
    * and an agent editing a repository.
    */
   autoSend?: boolean;
+  /**
+   * Execution mode: `'interactive'` (default) or `'headless'`.
+   * When absent, falls back to `ctx.skillExecutionMode` or user settings.
+   */
+  mode?: SkillExecutionMode;
 };
 
 /**
@@ -56,6 +62,8 @@ export type SkillHandoffContext = {
   primaryAgentId: string;
   /** The roster, from `useAgents()` or a direct `agent.list()`. */
   agents: readonly AgentDefinition[];
+  /** Execution mode preference: interactive vs headless. */
+  skillExecutionMode?: SkillExecutionMode;
 };
 
 /**
@@ -107,6 +115,7 @@ export function skillHandoff(
     command: agent.command,
     ...(opts.surface === undefined ? {} : { surface: opts.surface }),
     autoSend: opts.autoSend ?? false,
+    mode: opts.mode ?? ctx.skillExecutionMode,
   });
 }
 
@@ -117,6 +126,7 @@ export function skillHandoff(
 export function useSkillHandoff(): (opts: SkillHandoffOptions) => TerminalSession | null {
   const skills = useUiStore((s) => s.agentSkills);
   const primaryAgentId = useUiStore((s) => s.primaryAgent);
+  const skillExecutionMode = useUiStore((s) => s.skillExecutionMode);
   const { agents } = useAgents();
 
   return useCallback(
@@ -125,7 +135,8 @@ export function useSkillHandoff(): (opts: SkillHandoffOptions) => TerminalSessio
         skills: skills as Record<string, string | undefined>,
         primaryAgentId,
         agents,
+        skillExecutionMode,
       }),
-    [skills, primaryAgentId, agents],
+    [skills, primaryAgentId, agents, skillExecutionMode],
   );
 }

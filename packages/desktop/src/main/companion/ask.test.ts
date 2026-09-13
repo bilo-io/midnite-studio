@@ -83,6 +83,13 @@ function fakeSpawn(options: {
 
 const claude = BUILTIN_AGENTS.find((agent) => agent.id === 'claude') as AgentDefinition;
 const cursor = BUILTIN_AGENTS.find((agent) => agent.id === 'cursor') as AgentDefinition;
+const customNoHeadless: AgentDefinition = {
+  id: 'custom-no-headless',
+  label: 'Custom',
+  command: 'custom',
+  args: [],
+  accent: '#000',
+};
 
 const deps = (over: Partial<CompanionAskDeps> = {}): CompanionAskDeps => ({
   agents: async () => [claude],
@@ -98,14 +105,12 @@ describe('resolveHeadlessAgent', () => {
   });
 
   it('falls through to anything with a print mode when the preferred agent has none', () => {
-    // Cursor is on the roster and is the user's primary, but has no known
-    // print mode: refusing to think at all would be worse than quietly using
-    // the Claude CLI sitting right beside it.
-    expect(resolveHeadlessAgent([cursor, claude], 'cursor')?.agent.id).toBe('claude');
+    // Custom agent with no known print mode: falls through to Claude CLI.
+    expect(resolveHeadlessAgent([customNoHeadless, claude], 'custom-no-headless')?.agent.id).toBe('claude');
   });
 
   it('returns null when nothing on the roster can run headlessly', () => {
-    expect(resolveHeadlessAgent([cursor], 'cursor')).toBeNull();
+    expect(resolveHeadlessAgent([customNoHeadless], 'custom-no-headless')).toBeNull();
     expect(resolveHeadlessAgent([], undefined)).toBeNull();
   });
 });
@@ -428,7 +433,7 @@ describe('askCompanion', () => {
   it('answers an envelope when the roster has nothing headless at all', async () => {
     const result = await askCompanion(
       { kind: 'route', text: 'x', repoPath: null },
-      deps({ agents: async () => [cursor] }),
+      deps({ agents: async () => [customNoHeadless] }),
     );
     expect(result.ok === false && result.kind === 'error' && result.message).toContain(
       'No agent CLI with a headless mode is installed',
