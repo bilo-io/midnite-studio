@@ -5,6 +5,7 @@ import {
   AntigravityIcon,
   ClaudeIcon,
   CodexIcon,
+  GrokIcon,
   OpenClaudeIcon,
   OpenCodeIcon,
 } from '../../components/icons';
@@ -87,6 +88,7 @@ describe('buildAgentSections — everything installed', () => {
     expect(row(sections, 'Codex')?.icon).toBe(CodexIcon);
     expect(row(sections, 'OpenClaude')?.icon).toBe(OpenClaudeIcon);
     expect(row(sections, 'OpenCode')?.icon).toBe(OpenCodeIcon);
+    expect(row(sections, 'Grok')?.icon).toBe(GrokIcon);
   });
 
   it('paints a live row in the agent brand accent', () => {
