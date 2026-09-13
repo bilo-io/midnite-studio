@@ -504,18 +504,18 @@ on the reporter's machine.
 
 ### G — Numbers, before and after (S)
 
-- [ ] Every budget this phase adds or changes (`idleRss`, the group/action retention figures, anything
+- [x] Every budget this phase adds or changes (`idleRss`, the group/action retention figures, anything
       from F) carries its own `_`-prefixed note in
       [`budgets.json`](../../../scripts/perf/budgets.json) naming the run that justifies it, the
       machine, and whether it is a LEVEL or a SLOPE — the shape that file already uses throughout.
-- [ ] [`scripts/perf/README.md`](../../../scripts/perf/README.md)'s "What is not measured here"
+- [x] [`scripts/perf/README.md`](../../../scripts/perf/README.md)'s "What is not measured here"
       section is updated: the hour-long session it names as needing a human is now `--soak`, the
       renderer-heap gap it names is now `--heap-diff`. Whatever stays genuinely human-only stays
       listed, with this phase's additions removed from it.
-- [ ] `outstanding.md`'s Phase 84 Theme J entry (the `retainedPerCycleKb` calibration gap) and
+- [x] `outstanding.md`'s Phase 84 Theme J entry (the `retainedPerCycleKb` calibration gap) and
       Phase 45 Theme F's long-session item are resolved and removed, or re-stated with what this
       phase learned. Neither is left saying the same thing it said before.
-- [ ] One table in the final PR body: idle RSS, retention slopes per group, idle CPU/GPU, before and
+- [x] One table in the final PR body: idle RSS, retention slopes per group, idle CPU/GPU, before and
       after. The claim this phase exists to support — "the app is lighter at idle, and the monitor
       now says so truthfully" — is that table or it is not made.
 
