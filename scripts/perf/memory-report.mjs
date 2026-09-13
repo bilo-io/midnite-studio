@@ -129,7 +129,10 @@ function chromiumModule() {
  * because neither is stable across a run.
  */
 export function rssSnapshotKb(rootPid) {
-  const out = execFileSync('ps', ['-Ao', 'pid=,ppid=,rss=,args='], { encoding: 'utf8' });
+  const out = execFileSync('ps', ['-Ao', 'pid=,ppid=,rss=,args='], {
+    encoding: 'utf8',
+    env: { ...process.env, LC_ALL: 'C' },
+  });
   const rows = [];
   for (const line of out.split('\n')) {
     const trimmed = line.trim();
