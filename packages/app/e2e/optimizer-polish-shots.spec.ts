@@ -168,7 +168,7 @@ const METRICS_SAMPLES = Array.from({ length: 30 }, (_, i) => ({
   cpuInfo: { cores: 12 },
 }));
 
-const data: MockFixtures = {
+const data: Partial<MockFixtures> = {
   metricsSamples: METRICS_SAMPLES,
   optimizer: {
     scanResult: SCAN_RESULT,

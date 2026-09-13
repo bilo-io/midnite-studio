@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { SyncStatusEvent, TestPackage, TestRunResult } from '@midnite/studio-shared';
+import type { BatteryReading, SyncStatusEvent, TestPackage, TestRunResult } from '@midnite/studio-shared';
 
 /**
  * A stand-in for the preload bridge, installed before any app code runs.
@@ -528,6 +528,7 @@ export type MockFixtures = {
     memoryBytes?: { used: number; total: number };
     diskBytes?: { used: number; total: number };
     cpuInfo?: { cores: number; load1?: number };
+    battery?: BatteryReading;
   }>;
   /**
    * Repository tests (Phase 19). `packages` is what `tests.discover` answers
@@ -1237,7 +1238,7 @@ export function buildMockBridge(data: MockFixtures) {
       },
       // Null for an unknown sha, exactly as the real handler does — the
       // inspector's not-found state is unreachable otherwise.
-      commitDetail: async (req: { sha: string }) => data.commitDetails[req.sha] ?? null,
+      commitDetail: async (req: { sha: string }) => data.commitDetails?.[req.sha] ?? null,
       fileDiff: async (req: { path: string }) =>
         data.diffs[`wt:${req.path}`] ?? emptyDiff(req.path),
       commitFileDiff: async (req: { sha: string; path: string; context: number }) =>

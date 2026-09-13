@@ -825,7 +825,7 @@ test.describe('terminal panel', () => {
     const toggle = '[data-testid="terminal-toggle"]';
 
     const opening = await slide(page, toggle, frame, 'height');
-    const shown = opening[opening.length - 1];
+    const shown = opening[opening.length - 1]!;
     expect(shown).toBeGreaterThan(100);
     expect(opening).toEqual(rising(opening));
 
@@ -841,7 +841,7 @@ test.describe('terminal panel', () => {
     expect(reopening).toEqual(rising(reopening));
 
     const growing = await slide(page, '[aria-label="Expand terminal"]', frame, 'height');
-    const tall = growing[growing.length - 1];
+    const tall = growing[growing.length - 1]!;
     expect(tall).toBeGreaterThan(shown);
     expect(growing).toEqual(rising(growing));
     expect(passedThrough(growing, shown, tall)).toBe(true);
@@ -876,7 +876,7 @@ test.describe('terminal panel', () => {
     await expect(page.locator(sidebar)).toHaveCount(0);
 
     const opening = await slide(page, toggle, sidebar, 'width');
-    const wide = opening[opening.length - 1];
+    const wide = opening[opening.length - 1]!;
     // Back the width it was, which is the point of persisting it separately.
     expect(wide).toBe(full);
     expect(opening).toEqual(rising(opening));
@@ -1056,12 +1056,12 @@ test.describe('terminal panel', () => {
     await page.keyboard.press('Shift+Enter');
     await expect.poll(async () => (await ptyCalls(page)).inputs.length).toBe(1);
     const inputsAfterShift = (await ptyCalls(page)).inputs;
-    expect(inputsAfterShift[0].data).toBe('\n');
+    expect(inputsAfterShift[0]?.data).toBe('\n');
 
     await page.keyboard.press('Enter');
     await expect.poll(async () => (await ptyCalls(page)).inputs.length).toBe(2);
     const inputsAfterEnter = (await ptyCalls(page)).inputs;
-    expect(inputsAfterEnter[1].data).toBe('\r');
+    expect(inputsAfterEnter[1]?.data).toBe('\r');
   });
 
   /**

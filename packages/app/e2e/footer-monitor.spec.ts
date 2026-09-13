@@ -148,7 +148,12 @@ test.describe('footer monitor', () => {
     await open(page);
     const cadences = async () =>
       page.evaluate(
-        () => (window as unknown as { __mstudioMetrics: { intervalMs: number }[] }).__mstudioMetrics,
+        () =>
+          (
+            window as unknown as {
+              __mstudioMetrics: { intervalMs: number; freshDisk?: boolean; stopped?: boolean }[];
+            }
+          ).__mstudioMetrics,
       );
 
     expect((await cadences()).at(-1)?.intervalMs).toBe(5_000);

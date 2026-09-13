@@ -79,3 +79,13 @@ tasks:
     command: 'node scripts/visual-budget.mjs'
     options:
       cache: false
+
+  # e2e-budget: enforce the righted test pyramid (Phase 82 Theme F) — fails if
+  # declared functional E2E tests exceed the committed ratchet cap, if the
+  # visual baseline corpus exceeds its cap, or if unit tests assert wall-clock
+  # duration bounds.
+  e2e-budget:
+    command: 'node scripts/e2e-budget.mjs'
+    options:
+      cache: false
+

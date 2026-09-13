@@ -106,7 +106,7 @@ export function checkVisualBudget(fileSizes, limits = {}) {
 }
 
 /** Every `*.png` byte size under `dir`, recursively. Missing dir → empty array — a fresh checkout before the first baseline ever lands is not a failure. */
-async function collectPngSizes(dir) {
+export async function collectPngSizes(dir) {
   /** @type {number[]} */
   const sizes = [];
 

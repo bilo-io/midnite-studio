@@ -85,7 +85,18 @@ const REFS = [
 ];
 
 const FIXTURES: MockFixtures = {
-  commitDetail: { sha: sha(0), body: '', stat: '', files: [] },
+  commitDetails: {
+    [sha(0)]: {
+      sha: sha(0),
+      parents: [],
+      subject: 'the tip',
+      body: '',
+      author: { name: 'Bilo Lwabona', email: 'bilo.lwabona@gmail.com', date: 1_787_000_000 },
+      committer: { name: 'Bilo Lwabona', email: 'bilo.lwabona@gmail.com', date: 1_787_000_000 },
+      stat: '',
+      files: [],
+    },
+  },
   diffs: {},
   graphRows: [
     row(0, [sha(1)], 'the tip'),
