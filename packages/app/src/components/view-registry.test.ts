@@ -28,12 +28,14 @@ describe('VIEW_COMPONENT', () => {
    * The global set, written out — so widening it is a deliberate test change
    * rather than a silent reorder.
    *
-   * Eight, not the seven a stale comment might suggest: Phase 59 added
+   * Nine, not the eight an older comment might suggest: Phase 59 added
    * `optimizer` and Phase 61 added `database` above the `!selectedRepoId`
-   * guard in the ternary this record replaced, and Phase 67 Theme E added
+   * guard in the ternary this record replaced, Phase 67 Theme E added
    * `sessions` once its history spans every repo in one list rather than
-   * following the active checkout. Dropping any of these to repo-scoped here
-   * would be a regression disguised as fidelity to a stale list.
+   * following the active checkout, and Phase 86 Theme E added `notes` — a
+   * rail row pinned directly under Dashboard, which would grey out with no
+   * repo open otherwise. Dropping any of these to repo-scoped here would be a
+   * regression disguised as fidelity to a stale list.
    */
   it('marks exactly the repo-independent views global', () => {
     const global = VIEW_IDS.filter((view) => VIEW_COMPONENT[view].global === true);
@@ -47,6 +49,7 @@ describe('VIEW_COMPONENT', () => {
         'optimizer',
         'database',
         'sessions',
+        'notes',
       ]),
     );
   });
