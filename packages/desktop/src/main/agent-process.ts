@@ -140,7 +140,7 @@ const countPsRead: (wallMs: number, ok: boolean) => void = perfEnabled(process.e
     })()
   : () => {};
 
-export async function readProcessRows(): Promise<ProcessRow[] | null> {
+export async function readProcessTable(): Promise<PsParse | null> {
   const startedAt = performance.now();
   let ok = false;
   try {
@@ -150,15 +150,22 @@ export async function readProcessRows(): Promise<ProcessRow[] | null> {
       maxBuffer: PS_MAX_BUFFER,
       env: parseableProcessEnv(),
     });
-    const rows = parsePsOutput(stdout);
+    const parsed = parsePsTable(stdout);
     ok = true;
-    return rows;
+    return parsed;
   } catch {
     return null;
   } finally {
     countPsRead(performance.now() - startedAt, ok);
   }
 }
+
+export async function readProcessRows(): Promise<ProcessRow[] | null> {
+  const parsed = await readProcessTable();
+  return parsed ? parsed.rows : null;
+}
+
+export type PsParse = { rows: ProcessRow[]; totalLines: number };
 
 /**
  * `  1234  1200 S+  1024  0.0  /bin/zsh -l` → `{ pid: 1234, ppid: 1200, stat: 'S+', rssBytes: 1048576, cpuPercent: 0.0, args: '/bin/zsh -l' }`.
@@ -168,43 +175,35 @@ export async function readProcessRows(): Promise<ProcessRow[] | null> {
  * start with two integers and a STAT token is skipped rather than guessed
  * at — a wrapped argv or a stray banner has no pid, and inventing one would
  * attach a real command line to the wrong parent. Supports the 6-column
- * layout (`pid,ppid,stat,rss,pcpu,args`) with backward-compatibility for
- * 4-column test fixtures (`pid,ppid,stat,args`).
+ * layout (`pid,ppid,stat,rss,pcpu,args`).
+ *
+ * An unparseable line is skipped rather than invented — the 4-column fallback
+ * that previously defaulted rss and pcpu to 0 was removed in Phase 85 Theme B
+ * because inventing zeros hid locale parsing defects and shifted argv tokens.
  */
-export function parsePsOutput(output: string): ProcessRow[] {
+export function parsePsTable(output: string): PsParse {
+  const lines = output.split('\n').filter((l) => l.trim().length > 0);
   const rows: ProcessRow[] = [];
-  for (const line of output.split('\n')) {
+  for (const line of lines) {
     // 6 columns: pid, ppid, stat, rss (in KB), pcpu (percentage), args
     const match6 = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+([\d.]+)\s+(.*)$/.exec(line);
-    if (match6) {
-      const args = match6[6]?.trim() ?? '';
-      if (args === '') continue;
-      rows.push({
-        pid: Number(match6[1]),
-        ppid: Number(match6[2]),
-        stat: match6[3] ?? '',
-        rssBytes: Number(match6[4]) * 1024,
-        cpuPercent: Number(match6[5]),
-        args,
-      });
-      continue;
-    }
-
-    // 4 columns fallback: pid, ppid, stat, args
-    const match4 = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/.exec(line);
-    if (!match4) continue;
-    const args = match4[4]?.trim() ?? '';
+    if (!match6) continue;
+    const args = match6[6]?.trim() ?? '';
     if (args === '') continue;
     rows.push({
-      pid: Number(match4[1]),
-      ppid: Number(match4[2]),
-      stat: match4[3] ?? '',
-      rssBytes: 0,
-      cpuPercent: 0,
+      pid: Number(match6[1]),
+      ppid: Number(match6[2]),
+      stat: match6[3] ?? '',
+      rssBytes: Number(match6[4]) * 1024,
+      cpuPercent: Number(match6[5]),
       args,
     });
   }
-  return rows;
+  return { rows, totalLines: lines.length };
+}
+
+export function parsePsOutput(output: string): ProcessRow[] {
+  return parsePsTable(output).rows;
 }
 
 /** A descendant, and how many generations below the root it sits. */
