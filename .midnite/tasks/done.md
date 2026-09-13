@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-13 — Phase 86 Theme B — The conversation id
+
+[PR #379](https://github.com/bilo-io/midnite-studio/pull/379). Added `agentConversationId?: string` to `TerminalSessionSchema` (prior to `.superRefine()`) and `ClosedSessionSchema`, copying it cleanly in `closedFromSession()`. Created a main-process `agent-conversation/` adapter subsystem behind a common `{ locate(cwd, since, until): Promise<string | null> }` interface with read-only, best-effort adapters for Claude Code (`~/.claude/projects/<slug>/*.jsonl`) and Codex (`~/.codex/sessions/**/rollout-*.jsonl`), mtime-matched to session execution windows. Added IPC channel `mstudio:sessions:conversation-id` and exposed `conversationId` bridge method. Updated `SessionHistoryStore` and `terminal-service` to capture conversation IDs upon session termination and provide on-demand resolution for live sessions. 8 deliverables completed.
+
 ## 2026-09-13 — Phase 86 Theme E — Notes leaves the modal
 
 [PR #377](https://github.com/bilo-io/midnite-studio/pull/377). Moved Notes to a dedicated top-level view pinned directly under Dashboard in the navigation rail, separated by a hairline delimiter honouring the Phase 39 Theme B rule (a separator must never be stranded). Added `notes` to `VIEW_IDS`, registered with `LuNotebookPen` in `nav-icons.ts` and `title-bar-nav.tsx`. Created a placeholder Notes view reading `notesForRepo`/`useNotesStore` in preparation for Theme G's full editor, added palette keywords and filter handling, updated `VIEW_COMPONENT` to lazy-load Notes with `global: true`, updated `nav-shell.spec.ts` for the 17-view rail, and captured documentation screenshots (`docs/screenshots/phase-86-theme-e/`). The modal remains functional as quick-capture over the same store. 7 deliverables completed.

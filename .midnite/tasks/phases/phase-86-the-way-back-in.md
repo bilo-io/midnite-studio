@@ -115,28 +115,28 @@ keeping are already there: `handleDraftPlan` (`brainstorm`) and `handleAdhocTask
 
 ### Theme B — The conversation id (L)
 
-- [ ] `agentConversationId?: string` added to the session record in `shared`. **Note the trap:**
+- [x] `agentConversationId?: string` added to the session record in `shared`. **Note the trap:**
       `TerminalSessionSchema` ([`terminal.ts:487`](../../../packages/shared/src/terminal.ts)) closes
       with `.superRefine(agentIdMatchesKind)` and is therefore a `ZodEffects` — it **cannot be
       `.extend()`ed**. The field goes into the object literal, before the refinement.
-- [ ] The same field carried onto `ClosedSessionSchema`
+- [x] The same field carried onto `ClosedSessionSchema`
       ([`session-history.ts:31`](../../../packages/shared/src/domain/session-history.ts)) and through
       `closedFromSession()`, which stays the single narrowing point.
-- [ ] A main-process `agent-conversation/` module with one adapter per supported agent behind a
+- [x] A main-process `agent-conversation/` module with one adapter per supported agent behind a
       common `{ locate(cwd, since, until): Promise<string | null> }` seam.
-- [ ] **Claude adapter:** slugify `cwd` the way Claude Code does, list
+- [x] **Claude adapter:** slugify `cwd` the way Claude Code does, list
       `~/.claude/projects/<slug>/*.jsonl`, pick the newest whose mtime falls inside the session's
       window, return the filename UUID.
-- [ ] **Codex adapter:** walk `~/.codex/sessions/<year>/…`, match `rollout-<ISO>-<uuid>.jsonl` on the
+- [x] **Codex adapter:** walk `~/.codex/sessions/<year>/…`, match `rollout-<ISO>-<uuid>.jsonl` on the
       timestamp in the name against the session window, return the trailing UUID.
-- [ ] Both adapters are **read-only and best-effort**: a missing directory, an unreadable file or no
+- [x] Both adapters are **read-only and best-effort**: a missing directory, an unreadable file or no
       match returns `null` and is not an error. Nothing in the app fails because an agent store moved.
-- [ ] A new IPC channel pair in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts) to
+- [x] A new IPC channel pair in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts) to
       request/refresh a session's conversation id, following the existing `sessions:*` naming beside
       `sessionsHistory` (`:409`), `sessionsTranscript` (`:414`) and `sessionsPurge` (`:422`).
-- [ ] Capture happens on session end (so the id lands on the closed record) **and** on demand for a
+- [x] Capture happens on session end (so the id lands on the closed record) **and** on demand for a
       running session, so the resume button works before the session dies.
-- [ ] Fixtures for both adapters — a temp dir laid out like each agent's real store — plus the
+- [x] Fixtures for both adapters — a temp dir laid out like each agent's real store — plus the
       negative cases: empty dir, no mtime match, malformed filename.
 
 ### Theme C — Resume, in one click (M)
