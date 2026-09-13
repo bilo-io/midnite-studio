@@ -79,21 +79,9 @@ vi.mock('./title-bar-nav', () => ({
   delimiters, the terminal-only scoping, and the props it forwards — so each
   is stubbed down to a `data-testid` carrying the props it was given.
 */
-vi.mock('../features/agent/project-actions', () => ({
-  ProjectActions: (props: { repoId: string; repoName: string; cwd: string }) => (
-    <div data-testid="project-actions" data-repo-id={props.repoId} data-cwd={props.cwd} />
-  ),
-}));
-
-vi.mock('../features/repos/repo-lifecycle-actions', () => ({
-  RepoLifecycleActions: (props: { repoId: string; repoName: string; cwd: string }) => (
-    <div data-testid="repo-lifecycle-actions" data-repo-id={props.repoId} data-cwd={props.cwd} />
-  ),
-}));
-
-vi.mock('../features/agent/midnite-menu', () => ({
-  MidniteMenu: (props: { repoId: string; repoName: string; cwd: string }) => (
-    <button data-testid="midnite-menu" data-repo-id={props.repoId} data-cwd={props.cwd} />
+vi.mock('../features/agent/title-bar-midnite-menu', () => ({
+  TitleBarMidniteMenu: (props: { repoId: string; repoName: string; cwd: string }) => (
+    <button data-testid="titlebar-midnite-menu" data-repo-id={props.repoId} data-cwd={props.cwd} />
   ),
 }));
 
@@ -243,16 +231,13 @@ describe('DetachedWindowFrame', () => {
         </DetachedWindowFrame>,
       );
 
-      expect(screen.queryByTestId('project-actions')).toBeNull();
-      expect(screen.queryByTestId('repo-lifecycle-actions')).toBeNull();
-      expect(screen.queryByTestId('midnite-menu')).toBeNull();
-      // The cluster's own two delimiters plus the leading one ahead of it —
+      expect(screen.queryByTestId('titlebar-midnite-menu')).toBeNull();
       // none of `left`'s slots draw a bare `<span aria-hidden>` hairline for
       // a non-graph role, so with the cluster absent there should be zero.
       expect(container.querySelectorAll('span[aria-hidden].bg-border')).toHaveLength(0);
     });
 
-    it('renders the cluster — delimiter, ProjectActions + divider + RepoLifecycleActions, delimiter, MidniteMenu — once a repo is selected', () => {
+    it('renders the TitleBarMidniteMenu once a repo is selected', () => {
       mockUiState.selectedRepoId = 'r1';
       mockReposState.data = [REPO];
 
@@ -262,28 +247,14 @@ describe('DetachedWindowFrame', () => {
         </DetachedWindowFrame>,
       );
 
-      const projectActions = screen.getByTestId('project-actions');
-      const repoLifecycle = screen.getByTestId('repo-lifecycle-actions');
-      const midniteMenu = screen.getByTestId('midnite-menu');
+      const midniteMenu = screen.getByTestId('titlebar-midnite-menu');
 
-      for (const el of [projectActions, repoLifecycle, midniteMenu]) {
-        expect(el.getAttribute('data-repo-id')).toBe('r1');
-        // No worktree selected — falls back to the repo's primary checkout.
-        expect(el.getAttribute('data-cwd')).toBe('/repo');
-      }
+      expect(midniteMenu.getAttribute('data-repo-id')).toBe('r1');
+      // No worktree selected — falls back to the repo's primary checkout.
+      expect(midniteMenu.getAttribute('data-cwd')).toBe('/repo');
 
-      // Exactly three hairlines: ahead of the cluster, between the two repo
-      // action groups, and ahead of the midnite menu.
-      expect(container.querySelectorAll('span[aria-hidden].bg-border')).toHaveLength(3);
-
-      // Left to right: ProjectActions, then RepoLifecycleActions, then the
-      // midnite menu — ahead of the portaled terminal-header actions slot.
-      const order = Array.from(
-        container.querySelectorAll(
-          '[data-testid="project-actions"], [data-testid="repo-lifecycle-actions"], [data-testid="midnite-menu"]',
-        ),
-      ).map((el) => el.getAttribute('data-testid'));
-      expect(order).toEqual(['project-actions', 'repo-lifecycle-actions', 'midnite-menu']);
+      // Exactly one hairline ahead of the titlebar midnite menu.
+      expect(container.querySelectorAll('span[aria-hidden].bg-border')).toHaveLength(1);
     });
 
     it('prefers the selected worktree over the repo primary checkout for cwd', () => {
@@ -297,7 +268,7 @@ describe('DetachedWindowFrame', () => {
         </DetachedWindowFrame>,
       );
 
-      expect(screen.getByTestId('project-actions').getAttribute('data-cwd')).toBe(
+      expect(screen.getByTestId('titlebar-midnite-menu').getAttribute('data-cwd')).toBe(
         '/repo-worktrees/feature-x',
       );
     });
@@ -312,9 +283,7 @@ describe('DetachedWindowFrame', () => {
         </DetachedWindowFrame>,
       );
 
-      expect(screen.queryByTestId('project-actions')).toBeNull();
-      expect(screen.queryByTestId('repo-lifecycle-actions')).toBeNull();
-      expect(screen.queryByTestId('midnite-menu')).toBeNull();
+      expect(screen.queryByTestId('titlebar-midnite-menu')).toBeNull();
     });
   });
 });
