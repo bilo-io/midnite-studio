@@ -20,13 +20,16 @@ describe('toAgentPrompt', () => {
 });
 
 describe('agentInvocationArgs', () => {
-  it('adds nothing for bare interactive prompts (Claude, Codex, Cursor, Grok, Cline, Kilo)', () => {
+  it('adds nothing for bare interactive prompts (Claude, Cursor, Grok, Cline, Kilo)', () => {
     expect(agentInvocationArgs('claude')).toEqual([]);
-    expect(agentInvocationArgs('codex')).toEqual([]);
     expect(agentInvocationArgs('cursor')).toEqual([]);
     expect(agentInvocationArgs('grok')).toEqual([]);
     expect(agentInvocationArgs('cline')).toEqual([]);
     expect(agentInvocationArgs('kilo')).toEqual([]);
+  });
+
+  it('runs Codex with exec for prompt invocation', () => {
+    expect(agentInvocationArgs('codex')).toEqual(['exec']);
   });
 
   it('runs Antigravity interactively behind --prompt-interactive', () => {
