@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-13 — Phase 85 Theme F — The window nobody touched
+
+[PR #366](https://github.com/bilo-io/midnite-studio/pull/366). Closed Phase 36 Theme G. Ranked all 32 `animation: … infinite` declarations in `styles.css` by CPU cost; 28 now carry `animation-play-state: paused` at rest behind `:root:has(…)` or `[data-…]` gates (Optimizer hero while tab is open and window focused; graph glows while matching agent live; graph rows while any agent active; FAB panel while open; loop glow while Loops panel open; companion orbit while companion active; repo-row shimmer while loading). Added `--series` / `--series-interval` flags to `idle-cpu.mjs` (`computeCpuDeltas`), wired `useWindowFocusGate(visible)` in `graph-view.tsx` and `useWindowFocusGate(true)` in `optimizer-page.tsx`. Added `LOOP_GATE_ALLOWLIST` (4 entries with human-written reasons: browser-loading-sweep, battery-flash, agent-count-breathe, agent-count-shimmer) and `findUngatedLoops(source, allowlist)` to `styles-motion-guards.ts`; asserted `expect(findUngatedLoops(css, LOOP_GATE_ALLOWLIST)).toEqual([])` in `styles-motion-guards.test.ts`.
+
+## 2026-09-13 — Phase 85 Theme D — The idle floor, attributed
+
+[PR #365](https://github.com/bilo-io/midnite-studio/pull/365). Added `--idle` flag to `scripts/perf/memory-report.mjs`: launches packaged-equivalent app via `electron-run.mjs` with a repo open, settles past `SETTLE_MS`, then samples `rssSnapshotKb` on a 60s timer for `--seconds=N` using `classifyProcess` from Theme C, emitting a per-sample series plus a per-group table. Measured three states (cold, after six heavy views visited, after detached popout); floor dominated by Chromium multi-process baseline (~450 MB renderer, ~186 MB GPU, ~50 MB network utility) — heavy-views visit adds only ~5.5 MB, popout adds ~353 MB for the second renderer. Added `idleRss` LEVEL budget to `budgets.json` (×1.15 per README rule) with `_idleRss` note naming the run, machine, and three states. Added `idle-memory.test.mjs` covering sampling/aggregation logic. Consumed `[perf] main heap rss=… heapUsed=…` lines from `heap-sampler.ts` via `launch()`'s `onLine` hook.
+
 ## 2026-09-13 — Phase 85 Theme C — Name the retainer
 
 [PR #364](https://github.com/bilo-io/midnite-studio/pull/364). Shared `scripts/perf/classify-process.mjs` unified process grouping across `memory-report.mjs` and `idle-cpu.mjs` with `classify-process.test.mjs` unit tests. Added `--heap-diff` flag via CDP `HeapProfiler.takeHeapSnapshot` to diff retained constructor bytes between cycle 1 and cycle N with `heap-diff.test.mjs` coverage. Added `--soak` mode with linear slope and R² fit. Re-calibrated `scripts/perf/budgets.json` per process group, updated `packages/app/e2e/perf/retention.spec.ts` assertions to leave the suite green, and resolved retention calibration gap in `outstanding.md`.

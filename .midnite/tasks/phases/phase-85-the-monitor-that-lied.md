@@ -441,7 +441,7 @@ Measure first, then cut. The phase does not pre-commit to a saving it has no num
 theme's prerequisite**: until `idle-cpu.mjs`'s `cputime` parse is fixed, this measurement reads zero
 on the reporter's machine.
 
-- [ ] **Reproduce and bound it.** `node scripts/perf/idle-cpu.mjs --seconds=600 --json` focused,
+- [x] **Reproduce and bound it.** `node scripts/perf/idle-cpu.mjs --seconds=600 --json` focused,
       repeated three times, recording the **per-sample series** rather than the single start/end
       delta the script reports today — the Phase 36 item calls the burn *episodic* and *bimodal*, so
       an aggregate over one window is exactly the instrument that would miss it.
@@ -449,7 +449,7 @@ on the reporter's machine.
         sample-keeping to `idle-cpu.mjs`, whichever ships first. Say which in the PR.
       - If it does not reproduce on current `main`, close the Phase 36 item with the three runs. That
         is a valid outcome and this item's acceptance covers it.
-- [ ] **The suspect list is no longer a guess.** [`styles.css`](../../../packages/app/src/styles.css)
+- [x] **The suspect list is no longer a guess.** [`styles.css`](../../../packages/app/src/styles.css)
       contains **32 `animation: … infinite` declarations and exactly one carries `paused`.** Rank and
       attribute them, highest-cost first:
       - `optimizer-hero-drift-a/b/c` at `:4123`, `:4128`, `:4133` — **three** simultaneous radial
@@ -464,7 +464,7 @@ on the reporter's machine.
         `companion-orbit` `:2447`, `companion-breathe` `:2114`, `repo-row-shimmer` `:359`.
       - Each is confirmed or cleared in the PR body with a DevTools Performance trace. A list of
         suspects with no verdict does not satisfy this item.
-- [ ] **The pause idiom already exists in this file** — `styles.css:809–814`:
+- [x] **The pause idiom already exists in this file** — `styles.css:809–814`:
       ```css
       :root { animation: browser-gradient-spin 4s linear infinite paused; }
       :root:has(.browser-search-sync:focus-within) { animation-play-state: running; }
@@ -474,7 +474,7 @@ on the reporter's machine.
       tab is open *and* the window focused, the graph glows while a matching agent is live.
       `prefers-reduced-motion` guards stay exactly as they are; this is orthogonal and does not touch
       them.
-- [ ] **A guard, as a third export in the module that already guards motion.**
+- [x] **A guard, as a third export in the module that already guards motion.**
       [`styles-motion-guards.ts`](../../../packages/app/src/styles-motion-guards.ts) already exports
       `findDuplicateKeyframes(source)` (`:162`) and
       `findUnguardedKeyframes(source, allowlist, tailwindSource)` (`:194`), asserted by
@@ -493,13 +493,13 @@ on the reporter's machine.
         always run (a live-session dot, a loading sweep) is allowlisted with that sentence.
       - Asserted with `expect(findUngatedLoops(css)).toEqual([])` in the existing describe block, so
         it runs inside `moon run :test`.
-- [ ] Fix or bound what the trace names. If the cause turns out to be Chromium's own idle compositing
+- [x] Fix or bound what the trace names. If the cause turns out to be Chromium's own idle compositing
       and not ours, that is written down with the trace and the item closes as "not ours, here is the
       evidence".
-- [ ] An `idleGpuPercent` budget **only if** the number is stable. `metrics/gpu.ts` already reads a
+- [x] An `idleGpuPercent` budget **only if** the number is stable. `metrics/gpu.ts` already reads a
       load figure; measure its variance over a quiet ten-minute window first and say so. A flaky
       budget is worse than none.
-- [ ] *Acceptance:* a focused, untouched window for ten minutes stays in its low mode across three
+- [x] *Acceptance:* a focused, untouched window for ten minutes stays in its low mode across three
       runs, with the series in the PR — and Phase 36 Theme G's open item is ticked with a link here.
 
 ### G — Numbers, before and after (S)
@@ -540,7 +540,7 @@ exist yet.
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green after every theme; `moon run root:tracker-check` exits 0.
+- [x] `moon run :typecheck :lint :test` green after every theme; `moon run root:tracker-check` exits 0.
 - [x] **A:** `moon run desktop:test git-engine:test` green under `LC_ALL=de_DE.UTF-8`; the new
       `no-restricted-syntax` rule errors on a deliberately unpinned `execFile` with an options object
       and does **not** error on the four pty carve-outs; `locale` inside a Midnite terminal matches
@@ -555,15 +555,15 @@ exist yet.
       `error` replaces the `'No processes reported.'` string.
 - [x] **B:** `killProcess` on a row named `logd` is refused by `PROTECTED_PROCESS_NAMES`, and
       `expectArgv` captured from one table read still matches a second read.
-- [ ] **C:** `moon run app:perf` green including `retention.spec.ts`'s `terminal` assertion;
+- [x] **C:** `moon run app:perf` green including `retention.spec.ts`'s `terminal` assertion;
       `classify-process.test.mjs` pins one argv per group; the heap diff names the constructor in a
       deliberately leaky cycle.
-- [ ] **D:** the three-state idle attribution table is in the PR; `idleRss` is in `budgets.json` with
+- [x] **D:** the three-state idle attribution table is in the PR; `idleRss` is in `budgets.json` with
       its `_idleRss` note.
-- [ ] **E:** `mergeAppMetrics` unit test — a pid in both arrays takes Electron's CPU and `ps`'s RSS;
+- [x] **E:** `mergeAppMetrics` unit test — a pid in both arrays takes Electron's CPU and `ps`'s RSS;
       a pid only in `ps` keeps both and `ours: false`; a pid only in Electron gets `rssBytes: null`.
       The own-process `type` set matches Activity Monitor's Midnite Studio group.
-- [ ] **F:** `expect(findUngatedLoops(css)).toEqual([])` in `styles-motion-guards.test.ts`; a
+- [x] **F:** `expect(findUngatedLoops(css)).toEqual([])` in `styles-motion-guards.test.ts`; a
       ten-minute focused idle series across three runs in the PR; Phase 36 Theme G ticked or
       re-scoped with evidence.
 - [ ] **Open, for a human:** the reporter's own M1 Pro, packaged build — Memory tab reads real
