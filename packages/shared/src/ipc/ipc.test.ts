@@ -1928,10 +1928,31 @@ describe('session history (Phase 67)', () => {
 
   it('owns the mstudio:sessions:* prefix, and nothing else does', () => {
     expect(Object.values(CHANNELS).filter((n) => n.startsWith('mstudio:sessions:')).sort()).toEqual([
+      'mstudio:sessions:conversation-id',
       'mstudio:sessions:history',
       'mstudio:sessions:purge',
       'mstudio:sessions:transcript',
     ]);
+  });
+
+  it('covers the sessions:conversation-id channel pair with schemas', () => {
+    expect(
+      schemas.SessionsConversationIdRequest.parse({
+        sessionId: 'sess-1',
+      }),
+    ).toEqual({ sessionId: 'sess-1' });
+
+    expect(
+      schemas.SessionsConversationIdResponse.parse({
+        conversationId: '00000000-0000-0000-0000-000000000000',
+      }),
+    ).toEqual({ conversationId: '00000000-0000-0000-0000-000000000000' });
+
+    expect(
+      schemas.SessionsConversationIdResponse.parse({
+        conversationId: null,
+      }),
+    ).toEqual({ conversationId: null });
   });
 
   it('closedFromSession drops the fields a closed session cannot mean', () => {
@@ -1940,6 +1961,7 @@ describe('session history (Phase 67)', () => {
         id: 'sess-1',
         kind: 'agent',
         agentId: 'claude',
+        agentConversationId: 'c123',
         title: 'midnite',
         name: 'build',
         cwd: '/Users/x/Dev/midnite',
@@ -1956,7 +1978,12 @@ describe('session history (Phase 67)', () => {
     // points at a board card a closed session cannot be re-attached to.
     expect(narrowed).not.toHaveProperty('asleep');
     expect(narrowed).not.toHaveProperty('taskRef');
-    expect(narrowed).toMatchObject({ agentId: 'claude', name: 'build', surface: 'kanban' });
+    expect(narrowed).toMatchObject({
+      agentId: 'claude',
+      agentConversationId: 'c123',
+      name: 'build',
+      surface: 'kanban',
+    });
     expect(ClosedSessionSchema.parse(narrowed)).toEqual(narrowed);
   });
 
@@ -1976,6 +2003,7 @@ describe('session history (Phase 67)', () => {
       { closedAt: 1, exitCode: null, reason: 'closed', transcriptBytes: 0 },
     );
     expect(Object.keys(narrowed)).not.toContain('agentId');
+    expect(Object.keys(narrowed)).not.toContain('agentConversationId');
     expect(Object.keys(narrowed)).not.toContain('surface');
   });
 });

@@ -420,6 +420,11 @@ export const CHANNELS = {
    * This is the **only** path that unlinks an archived transcript.
    */
   sessionsPurge: 'mstudio:sessions:purge',
+  /**
+   * Request/refresh the agent conversation id (e.g. Claude or Codex UUID)
+   * for a live or closed session (Phase 86).
+   */
+  sessionsConversationId: 'mstudio:sessions:conversation-id',
 
   // --- browser (Phase 32) ---------------------------------------------------
   // A `WebContentsView` per tab, owned by `browser-service.ts`. Chrome state

@@ -4,6 +4,7 @@ import {
   nullSessionHistoryStore,
   type SessionHistoryStore,
 } from '../session-history-store';
+import { getOrLocateConversationId } from '../terminal-service';
 import { handle, handleBare } from './handle';
 
 /**
@@ -51,6 +52,13 @@ export function registerSessionsHandlers(): void {
     // Refusing to delete on a payload we could not read is the safe direction:
     // this is the only path that unlinks a transcript.
     () => undefined,
+  );
+
+  handle<typeof schemas.SessionsConversationIdRequest, { conversationId: string | null }>(
+    CHANNELS.sessionsConversationId,
+    schemas.SessionsConversationIdRequest,
+    async (req) => ({ conversationId: await getOrLocateConversationId(req.sessionId) }),
+    () => ({ conversationId: null }),
   );
 }
 

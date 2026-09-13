@@ -6,6 +6,7 @@ import {
   type TerminalSession,
 } from '@midnite/studio-shared';
 
+import { locateAgentConversation } from './agent-conversation';
 import { createAgentsStore, type AgentsStore } from './agents-store';
 import { defaultLogger, formatError } from './log';
 import {
@@ -220,12 +221,32 @@ async function archiveSession(
     const bytes = trimScrollback(readScrollback(session.id));
     if (bytes.length > 0) await store.writeScrollback(session.id, bytes);
 
-    // 2 — archive. `transcriptFrom` is null when nothing was ever written, in
+    // 2 — locate conversation id if not already resolved (Phase 86)
+    const closedAt = Date.now();
+    let conversationId = session.agentConversationId;
+    if (!conversationId && session.kind === 'agent' && session.agentId) {
+      try {
+        conversationId =
+          (await locateAgentConversation(
+            session.agentId,
+            session.cwd,
+            session.createdAt - 60_000,
+            closedAt,
+          )) ?? undefined;
+      } catch {
+        // Best-effort
+      }
+    }
+
+    // 3 — archive. `transcriptFrom` is null when nothing was ever written, in
     // which case there is no file to move and the record carries zero bytes.
     const from =
       bytes.length > 0 && dataDir !== null ? scrollbackPath(dataDir, session.id) : null;
-    const record: ClosedSession = closedFromSession(session, {
-      closedAt: Date.now(),
+    const sessionToArchive: TerminalSession = conversationId
+      ? { ...session, agentConversationId: conversationId }
+      : session;
+    const record: ClosedSession = closedFromSession(sessionToArchive, {
+      closedAt,
       exitCode: lastExit.get(session.id) ?? null,
       reason: endingFor(session.id, intent),
       transcriptBytes: bytes.length,
@@ -347,4 +368,53 @@ export function resetTerminalsForTest(): void {
 /** Seed the exit note directly. Tests only — the app fills this from the pty. */
 export function noteSessionExitForTest(sessionId: string, exitCode: number): void {
   lastExit.set(sessionId, exitCode);
+}
+
+/**
+ * Return the agent conversation id for a session (live or closed), attempting
+ * to locate it from the agent's on-disk store if not yet captured (Phase 86).
+ */
+export async function getOrLocateConversationId(sessionId: string): Promise<string | null> {
+  // 1 — Check live sessions
+  if (sessions.length === 0) sessions = await store.load();
+  const live = sessions.find((s) => s.id === sessionId);
+  if (live) {
+    if (live.agentConversationId) return live.agentConversationId;
+    if (live.kind === 'agent' && live.agentId) {
+      const id = await locateAgentConversation(
+        live.agentId,
+        live.cwd,
+        live.createdAt - 60_000,
+        Date.now(),
+      );
+      if (id) {
+        live.agentConversationId = id;
+        scheduleSave();
+        return id;
+      }
+    }
+    return null;
+  }
+
+  // 2 — Check closed session history
+  const closedSessions = await history.list();
+  const closed = closedSessions.find((s) => s.id === sessionId);
+  if (closed) {
+    if (closed.agentConversationId) return closed.agentConversationId;
+    if (closed.kind === 'agent' && closed.agentId) {
+      const id = await locateAgentConversation(
+        closed.agentId,
+        closed.cwd,
+        closed.createdAt - 60_000,
+        closed.closedAt,
+      );
+      if (id) {
+        closed.agentConversationId = id;
+        await history.update(closed);
+        return id;
+      }
+    }
+  }
+
+  return null;
 }

@@ -34,6 +34,8 @@ export type SessionHistoryStore = {
   list: () => Promise<ClosedSession[]>;
   /** `transcriptFrom` is the live scrollback path to rename in, or null if there is none. */
   append: (record: ClosedSession, transcriptFrom: string | null) => Promise<void>;
+  /** Update metadata on an existing closed session in place (e.g. captured conversation id). */
+  update: (record: ClosedSession) => Promise<void>;
   transcript: (sessionId: string) => Promise<Uint8Array>;
   /** One id, or every record when null. The only path that unlinks a transcript. */
   purge: (sessionId: string | null) => Promise<void>;
@@ -128,6 +130,15 @@ export function createSessionHistoryStore(directory: string): SessionHistoryStor
       await save(cache);
     },
 
+    update: async (record) => {
+      const closed = await load();
+      const index = closed.findIndex((r) => r.id === record.id);
+      if (index === -1) return;
+      closed[index] = record;
+      cache = closed;
+      await save(cache);
+    },
+
     transcript: async (sessionId) => {
       try {
         return new Uint8Array(await readFile(transcriptPath(directory, sessionId)));
@@ -212,6 +223,7 @@ export function parseHistoryState(value: unknown): ClosedSession[] {
 export const nullSessionHistoryStore: SessionHistoryStore = {
   list: async () => [],
   append: async () => {},
+  update: async () => {},
   transcript: async () => new Uint8Array(0),
   purge: async () => {},
 };

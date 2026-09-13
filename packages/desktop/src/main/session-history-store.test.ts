@@ -174,4 +174,20 @@ describe('session history store', () => {
     await store.append(closed({ id: evil }), await seedScrollbackFile(dir, evil, 'pwned'));
     expect(await readdir(join(dir, 'session-history'))).toEqual(['______etc_passwd.bin']);
   });
+
+  it('updates an existing record in place, e.g. for captured conversation id', async () => {
+    const dir = await tempDir();
+    const store = createSessionHistoryStore(dir);
+    await store.append(closed({ id: 'sess-1', agentId: 'claude' }), null);
+
+    await store.update(closed({ id: 'sess-1', agentId: 'claude', agentConversationId: 'uuid-123' }));
+
+    const list = await store.list();
+    expect(list).toHaveLength(1);
+    expect(list[0]?.agentConversationId).toBe('uuid-123');
+
+    // Reopened store sees the persisted update
+    const reopened = await createSessionHistoryStore(dir).list();
+    expect(reopened[0]?.agentConversationId).toBe('uuid-123');
+  });
 });

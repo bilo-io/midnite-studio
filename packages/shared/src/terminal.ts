@@ -524,6 +524,14 @@ export const TerminalSessionSchema = z
      * `ZodEffects` that cannot be extended.
      */
     taskRef: z.object({ projectId: z.string().min(1), itemId: z.string().min(1) }).optional(),
+    /**
+     * Agent-native conversation id (UUID) captured from disk, e.g. Claude Code or
+     * Codex conversation id, enabling exact-conversation resume (Phase 86).
+     *
+     * Must be listed in the object literal before `.superRefine()` —
+     * `TerminalSessionSchema` cannot be `.extend()`ed.
+     */
+    agentConversationId: z.string().optional(),
   })
   .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;

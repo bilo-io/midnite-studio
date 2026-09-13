@@ -541,6 +541,9 @@ export type MidniteStudioBridge = {
       req: In<typeof S.SessionsTranscriptRequest>,
     ) => Promise<z.infer<typeof S.SessionsTranscriptResponse>>;
     purge: (req: In<typeof S.SessionsPurgeRequest>) => Promise<void>;
+    conversationId: (
+      req: In<typeof S.SessionsConversationIdRequest>,
+    ) => Promise<z.infer<typeof S.SessionsConversationIdResponse>>;
   };
 
   /**

@@ -1407,6 +1407,8 @@ export const SessionsTranscriptRequest = z.object({ sessionId: z.string().min(1)
 export const SessionsTranscriptResponse = z.object({ bytes: z.instanceof(Uint8Array) });
 /** `sessionId: null` means every record — see the channel's own doc. */
 export const SessionsPurgeRequest = z.object({ sessionId: z.string().min(1).nullable() });
+export const SessionsConversationIdRequest = z.object({ sessionId: z.string().min(1) });
+export const SessionsConversationIdResponse = z.object({ conversationId: z.string().nullable() });
 
 /**
  * The roster, plus what main could learn about it on this machine.

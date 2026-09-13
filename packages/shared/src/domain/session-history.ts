@@ -33,6 +33,11 @@ export const ClosedSessionSchema = z.object({
   kind: TerminalSessionKindSchema,
   /** Set when `kind === 'agent'`; the roster entry that started it. */
   agentId: z.string().min(1).optional(),
+  /**
+   * Agent-native conversation id (UUID) captured from disk, e.g. Claude Code or
+   * Codex conversation id, enabling exact-conversation resume (Phase 86).
+   */
+  agentConversationId: z.string().optional(),
   /** The repo name, by default — *not* the session's own label. See `name`. */
   title: z.string(),
   /** The session's own user-set name, when it had one. */
@@ -92,6 +97,9 @@ export function closedFromSession(session: TerminalSession, ending: SessionEndin
     id: session.id,
     kind: session.kind,
     ...(session.agentId === undefined ? {} : { agentId: session.agentId }),
+    ...(session.agentConversationId === undefined
+      ? {}
+      : { agentConversationId: session.agentConversationId }),
     title: session.title,
     ...(session.name === undefined ? {} : { name: session.name }),
     cwd: session.cwd,
