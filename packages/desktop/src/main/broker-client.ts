@@ -156,6 +156,7 @@ export function createBrokerClient(deps: BrokerClientDeps): BrokerClient {
   const exitListeners = new Set<(ptyId: string, exitCode: number, signal?: number) => void>();
 
   function defaultSpawnBroker(scriptPath: string, args: string[], logFd: number): ChildProcess {
+    // Pty broker carve-out: hosts interactive terminals which must inherit the user's ambient locale.
     return spawn(process.execPath, [scriptPath, ...args], {
       detached: true,
       stdio: ['ignore', logFd, logFd],
