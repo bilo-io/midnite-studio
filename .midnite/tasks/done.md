@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-13 — Phase 85 Theme G — Numbers, before and after
+
+[PR #367](https://github.com/bilo-io/midnite-studio/pull/367). Added machine spec (`Darwin arm64`) to `_retention` note in `scripts/perf/budgets.json`; added `_retainedPerCycleKb` note explaining the key is superseded by group/action-calibrated budgets in Theme C but kept as fallback default for `retention.spec.ts`. Verified `scripts/perf/README.md`'s "What is not measured here" section is current (`--soak`/`--heap-diff`/`--idle` automated, idle %CPU still needs a human). Confirmed `outstanding.md` Phase 84 Theme J and Phase 45 Theme F stale entries were resolved by Theme C. All 4 Theme G items completed; Phase 85 stands at 56/59 (95%) with all code/doc items landed across PRs #362, #363, #364, #365, #366, and #367.
+
 ## 2026-09-13 — Phase 85 Theme F — The window nobody touched
 
 [PR #366](https://github.com/bilo-io/midnite-studio/pull/366). Closed Phase 36 Theme G. Ranked all 32 `animation: … infinite` declarations in `styles.css` by CPU cost; 28 now carry `animation-play-state: paused` at rest behind `:root:has(…)` or `[data-…]` gates (Optimizer hero while tab is open and window focused; graph glows while matching agent live; graph rows while any agent active; FAB panel while open; loop glow while Loops panel open; companion orbit while companion active; repo-row shimmer while loading). Added `--series` / `--series-interval` flags to `idle-cpu.mjs` (`computeCpuDeltas`), wired `useWindowFocusGate(visible)` in `graph-view.tsx` and `useWindowFocusGate(true)` in `optimizer-page.tsx`. Added `LOOP_GATE_ALLOWLIST` (4 entries with human-written reasons: browser-loading-sweep, battery-flash, agent-count-breathe, agent-count-shimmer) and `findUngatedLoops(source, allowlist)` to `styles-motion-guards.ts`; asserted `expect(findUngatedLoops(css, LOOP_GATE_ALLOWLIST)).toEqual([])` in `styles-motion-guards.test.ts`.
