@@ -92,6 +92,7 @@ describe('registerCompanionHandlers', () => {
       repos: 0,
       openPulls: null,
       failingChecks: null,
+      passingChecks: null,
     });
   });
 

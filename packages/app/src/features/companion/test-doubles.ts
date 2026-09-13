@@ -103,6 +103,7 @@ export const snapshotFixture = (over: Partial<CompanionSnapshot> = {}): Companio
   branch: 'main',
   openPulls: 0,
   failingChecks: 0,
+  passingChecks: 0,
   ...over,
 });
 
@@ -143,6 +144,10 @@ export function fakeConciergeDeps(over: Partial<ConciergeDeps> = {}): ConciergeD
     signal: new AbortController().signal,
     rng: () => 0,
     now: () => 1_699_600_000_000,
+    // The default fake never actually waits — a test that wants to assert on
+    // the pause itself passes its own spy (see `concierge.test.ts`'s
+    // "pauses between paragraphs" case).
+    sleep: async () => {},
     ...over,
   };
 }

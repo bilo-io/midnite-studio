@@ -3474,6 +3474,7 @@ export function buildMockBridge(data: MockFixtures) {
         sessions: { live: 0, thinking: 0, waiting: 0 },
         openPulls: 1,
         failingChecks: 0,
+        passingChecks: 2,
       }),
       digest: async () => ({
         landed: [

@@ -155,6 +155,7 @@ describe('buildCompanionSnapshot', () => {
     );
     expect(snapshot.openPulls).toBeNull();
     expect(snapshot.failingChecks).toBeNull();
+    expect(snapshot.passingChecks).toBeNull();
     // Everything else still landed — a failing forge does not empty the snapshot.
     expect(snapshot.branch).toBe('main');
   });
@@ -183,6 +184,7 @@ describe('buildCompanionSnapshot', () => {
     );
     expect(snapshot.openPulls).toBeNull();
     expect(snapshot.failingChecks).toBeNull();
+    expect(snapshot.passingChecks).toBeNull();
   });
 
   it('reports null rather than zero when the listing itself errored behind a ready CLI', async () => {
@@ -204,6 +206,7 @@ describe('buildCompanionSnapshot', () => {
     expect(snapshot.openPulls).toBeNull();
     // The other call was fine, and zero here is a claim this code does know.
     expect(snapshot.failingChecks).toBe(0);
+    expect(snapshot.passingChecks).toBe(0);
   });
 
   it('counts only the conclusions that mean CI did not pass', async () => {
@@ -230,6 +233,9 @@ describe('buildCompanionSnapshot', () => {
       }),
     );
     expect(snapshot.failingChecks).toBe(3);
+    // The one `success` run in the list — `cancelled`/`skipped`/`action_required`/
+    // `null` and the three failing conclusions all leave `passingChecks` alone.
+    expect(snapshot.passingChecks).toBe(1);
     expect(snapshot.openPulls).toBe(3);
   });
 
@@ -254,6 +260,7 @@ describe('buildCompanionSnapshot', () => {
       const snapshot = await promise;
       expect(snapshot.openPulls).toBeNull();
       expect(snapshot.failingChecks).toBeNull();
+      expect(snapshot.passingChecks).toBeNull();
       expect(snapshot.ahead).toBe(2);
     } finally {
       vi.useRealTimers();

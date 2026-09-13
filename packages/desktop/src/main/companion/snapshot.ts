@@ -157,6 +157,11 @@ export async function buildCompanionSnapshot(
       checksValue,
       (result) => result.runs.filter((run) => FAILING_CONCLUSIONS.has(run.conclusion ?? '')).length,
     ),
+    /** The `describeSnapshot` pass-percentage half of the same forge call — `success` is the one conclusion that means CI passed. */
+    passingChecks: forgeCount(
+      checksValue,
+      (result) => result.runs.filter((run) => run.conclusion === 'success').length,
+    ),
   };
 }
 
