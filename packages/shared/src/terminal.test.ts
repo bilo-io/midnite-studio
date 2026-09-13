@@ -455,4 +455,34 @@ describe('the kanban surface and taskRef', () => {
 
     expect(parsed.session.taskRef).toEqual({ projectId: 'PVT_1', itemId: 'PVTI_1' });
   });
+
+  it('parses an agent session carrying an agentConversationId', () => {
+    const parsed = TerminalSessionSchema.parse({
+      ...BASE,
+      kind: 'agent',
+      agentId: 'claude',
+      agentConversationId: '12345678-1234-1234-1234-123456789abc',
+    });
+
+    expect(parsed.agentConversationId).toBe('12345678-1234-1234-1234-123456789abc');
+  });
+
+  it('a session with no agentConversationId parses exactly as before — the field is optional', () => {
+    const parsed = TerminalSessionSchema.parse(BASE);
+
+    expect('agentConversationId' in parsed).toBe(false);
+  });
+
+  it('agentConversationId survives TerminalSaveRequest', () => {
+    const parsed = TerminalSaveRequest.parse({
+      session: {
+        ...BASE,
+        kind: 'agent',
+        agentId: 'claude',
+        agentConversationId: '12345678-1234-1234-1234-123456789abc',
+      },
+    });
+
+    expect(parsed.session.agentConversationId).toBe('12345678-1234-1234-1234-123456789abc');
+  });
 });

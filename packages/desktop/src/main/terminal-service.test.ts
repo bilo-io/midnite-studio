@@ -10,6 +10,7 @@ import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
   forgetTerminal,
+  getOrLocateConversationId,
   resetTerminalsForTest,
   saveTerminal,
   shutdownTerminals,
@@ -31,9 +32,14 @@ import {
   closes over both of these — a plain `const` here would still be in its
   temporal dead zone when the mocked module is first pulled in.
 */
-const { ring, exitHooks } = vi.hoisted(() => ({
+const { ring, exitHooks, mockLocate } = vi.hoisted(() => ({
   ring: new Map<string, Uint8Array>(),
   exitHooks: [] as ((sessionId: string, exitCode: number) => void)[],
+  mockLocate: vi.fn(),
+}));
+
+vi.mock('./agent-conversation', () => ({
+  locateAgentConversation: (...args: unknown[]) => mockLocate(...args),
 }));
 
 vi.mock('./pty-service', () => ({
@@ -90,6 +96,8 @@ const setup = async (): Promise<{ dir: string; history: ReturnType<typeof create
 beforeEach(() => {
   ring.clear();
   exitHooks.length = 0;
+  mockLocate.mockReset();
+  mockLocate.mockResolvedValue(null);
 });
 
 afterEach(async () => {
@@ -206,5 +214,101 @@ describe('forgetTerminal', () => {
 
     const archived = await readFile(join(dir, 'session-history', 'sess-1.bin'));
     expect(new Uint8Array(archived)).toEqual(bytes);
+  });
+
+  it('archives session preserving already-captured agentConversationId', async () => {
+    const { history } = await setup();
+    saveTerminal(
+      session({
+        kind: 'agent',
+        agentId: 'claude',
+        agentConversationId: 'uuid-captured-live',
+      }),
+    );
+
+    forgetTerminal('sess-1');
+    await settle();
+
+    const list = await history.list();
+    expect(list).toHaveLength(1);
+    expect(list[0]?.agentConversationId).toBe('uuid-captured-live');
+    expect(mockLocate).not.toHaveBeenCalled();
+  });
+
+  it('locates agent conversation id on session end if not already captured', async () => {
+    const { history } = await setup();
+    mockLocate.mockResolvedValueOnce('uuid-located-on-close');
+    saveTerminal(
+      session({
+        kind: 'agent',
+        agentId: 'claude',
+      }),
+    );
+
+    forgetTerminal('sess-1');
+    await settle();
+
+    const list = await history.list();
+    expect(list).toHaveLength(1);
+    expect(list[0]?.agentConversationId).toBe('uuid-located-on-close');
+    expect(mockLocate).toHaveBeenCalledWith(
+      'claude',
+      '/Users/x/Dev/midnite',
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
+
+  it('resolves conversation id on demand for a live session and caches it', async () => {
+    await setup();
+    mockLocate.mockResolvedValueOnce('uuid-live-on-demand');
+    saveTerminal(
+      session({
+        kind: 'agent',
+        agentId: 'codex',
+      }),
+    );
+
+    const id = await getOrLocateConversationId('sess-1');
+    expect(id).toBe('uuid-live-on-demand');
+    expect(mockLocate).toHaveBeenCalledWith(
+      'codex',
+      '/Users/x/Dev/midnite',
+      expect.any(Number),
+      expect.any(Number),
+    );
+
+    // Second call returns cached value without calling locator again
+    mockLocate.mockClear();
+    const cached = await getOrLocateConversationId('sess-1');
+    expect(cached).toBe('uuid-live-on-demand');
+    expect(mockLocate).not.toHaveBeenCalled();
+  });
+
+  it('resolves conversation id on demand for a closed session and updates store', async () => {
+    const { history } = await setup();
+    mockLocate.mockResolvedValueOnce('uuid-closed-on-demand');
+    await history.append(
+      {
+        id: 'sess-closed',
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'midnite',
+        cwd: '/Users/x/Dev/midnite',
+        repoId: 'repo:/Users/x/Dev/midnite',
+        createdAt: 1_000,
+        closedAt: 2_000,
+        exitCode: 0,
+        reason: 'closed',
+        transcriptBytes: 0,
+      },
+      null,
+    );
+
+    const id = await getOrLocateConversationId('sess-closed');
+    expect(id).toBe('uuid-closed-on-demand');
+
+    const updatedList = await history.list();
+    expect(updatedList[0]?.agentConversationId).toBe('uuid-closed-on-demand');
   });
 });

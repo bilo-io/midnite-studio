@@ -324,6 +324,7 @@ const bridge: Pick<
     history: () => call(CHANNELS.sessionsHistory),
     transcript: (req) => call(CHANNELS.sessionsTranscript, req),
     purge: (req) => call(CHANNELS.sessionsPurge, req),
+    conversationId: (req) => call(CHANNELS.sessionsConversationId, req),
   },
   browser: {
     create: (req) => call(CHANNELS.browserCreate, req),
