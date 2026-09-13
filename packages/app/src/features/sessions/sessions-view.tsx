@@ -681,9 +681,9 @@ function SessionRow({
   const label = managedSessionLabel(record, agentLabel);
   const closed = isClosedManagedSession(record);
   const AgentIcon =
-    record.kind === 'agent'
-      ? resolveAgentIcon({ id: record.agentId ?? 'agent', icon: agent?.icon })
-      : null;
+    record.kind === 'agent' && record.agentId
+      ? resolveAgentIcon({ id: record.agentId, icon: agent?.icon })
+      : LuTerminal;
   const dotState = dotStateFor(record, connectionState);
   const dotTooltip = dotTooltipFor(record, connectionState, activity);
 
@@ -761,7 +761,7 @@ function SessionRow({
         {AgentIcon ? (
           <AgentIcon
             aria-hidden
-            className="h-3.5 w-3.5 shrink-0"
+            className={`h-3.5 w-3.5 shrink-0 ${agent?.accent ? '' : 'text-muted-foreground'}`}
             style={agent?.accent ? { color: agent.accent } : undefined}
           />
         ) : null}

@@ -208,6 +208,32 @@ describe('SessionsView', () => {
     expect(svg?.getAttribute('style')).toContain('color: rgb(217, 119, 87)');
   });
 
+  it('defaults non-agent sessions to terminal icon with muted styling', () => {
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({
+          id: 'term-s1',
+          repoId: 'r1',
+          title: 'repo-one',
+          name: 'shell-session',
+          kind: 'shell',
+          createdAt: 1000,
+          closedAt: 2000,
+        }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderView();
+
+    const row = screen.getByRole('button', { name: /shell-session/ });
+    const svg = row.querySelector('svg');
+    expect(svg).toBeTruthy();
+    expect(svg?.getAttribute('class')).toContain('text-muted-foreground');
+    expect(svg?.getAttribute('style')).toBeNull();
+  });
+
   it('filters sessions by provider multiselect', () => {
     historyResult.mockReturnValue({
       data: [
