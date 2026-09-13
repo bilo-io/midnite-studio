@@ -9,6 +9,7 @@ import {
   COMPANION_LOCAL_VOICE_DEFAULT,
   COMPANION_LOCAL_VOICE_IDS,
   COMPANION_NEVER_AUTOSEND,
+  COMPANION_PARAGRAPH_BREAK,
   COMPANION_PHRASES,
   COMPANION_PHRASE_KINDS,
   COMPANION_STATES,
@@ -23,10 +24,12 @@ import {
   CompanionPersonalitySchema,
   CompanionSnapshotSchema,
   composeOverviewMarkdown,
+  composeOverviewSpeech,
   describeSnapshot,
   emptyCompanionSnapshot,
   escapeMarkdownInline,
   extractLastAgentTurn,
+  groupedDigestSpeech,
   interpolatePhrase,
   isCompanionLocalVoiceId,
   markdownToSpeech,
@@ -42,6 +45,7 @@ import {
   resolveDefaultBranch,
   sanitizeForSpeech,
   splitForSpeech,
+  splitSpeechParagraphs,
   summariseDigest,
   transition,
   type CompanionDigest,
@@ -296,6 +300,14 @@ describe('CompanionSnapshotSchema', () => {
         .failingChecks,
     ).toBe(0);
   });
+
+  it('distinguishes "no checks reachable" from "zero passing" for passingChecks too', () => {
+    expect(
+      CompanionSnapshotSchema.parse({ ...emptyCompanionSnapshot(), passingChecks: 0 })
+        .passingChecks,
+    ).toBe(0);
+    expect(CompanionSnapshotSchema.parse(emptyCompanionSnapshot()).passingChecks).toBeNull();
+  });
 });
 
 describe('summariseDigest', () => {
@@ -467,6 +479,150 @@ describe('summariseDigest', () => {
         'In the last 4 weeks, 6 fixes landed — including updating correct thing 0 in app.',
       );
     });
+  });
+});
+
+// --- Ad Hoc · grouped spoken digest ------------------------------------------
+
+describe('groupedDigestSpeech', () => {
+  const item = (
+    kind: CompanionDigestItem['kind'],
+    title: string,
+    ref = 'x',
+  ): CompanionDigestItem => ({ kind, title, ref, at: 0 });
+
+  it('groups same type+scope items under one header, descriptions oxford-joined', () => {
+    const items = [
+      item('pr', 'feat(agent): support primary agent selection', '#372'),
+      item('pr', 'feat(agent): extend companion, sync, and video features', '#371'),
+    ];
+    expect(groupedDigestSpeech(items)).toEqual([
+      'Feature - (agent): support primary agent selection in PR 372 and extend companion, sync, and video features in PR 371.',
+    ]);
+  });
+
+  it('maps the deps scope to "Dependencies", spoken without parentheses', () => {
+    expect(groupedDigestSpeech([item('commit', 'chore(deps): update actions/cache to v6')])).toEqual([
+      'Chore - Dependencies: update actions/cache to v6.',
+    ]);
+  });
+
+  it('renders a scope-free type as just "Type:"', () => {
+    expect(groupedDigestSpeech([item('commit', 'fix: correct the thing')])).toEqual([
+      'Fix: correct the thing.',
+    ]);
+  });
+
+  it('never mentions a ref or a SHA for a commit item, even inside a group', () => {
+    const spoken = groupedDigestSpeech([item('commit', 'fix: correct the thing', 'a1b2c3d')]);
+    expect(spoken[0]).not.toContain('a1b2c3d');
+    expect(spoken[0]).not.toContain('commit');
+  });
+
+  it('reads a pr item\'s ref as "in PR " plus the number', () => {
+    expect(groupedDigestSpeech([item('pr', 'fix: correct the thing', '#42')])).toEqual([
+      'Fix: correct the thing in PR 42.',
+    ]);
+  });
+
+  it('falls back to the raw title, individually, for anything that does not parse as a conventional commit', () => {
+    expect(groupedDigestSpeech([item('phase', '79 · Companion audio')])).toEqual([
+      '79 · Companion audio.',
+    ]);
+  });
+
+  it('falls back individually for a recognised-shape type this repo does not standardise on', () => {
+    expect(groupedDigestSpeech([item('commit', 'wip: half a thing')])).toEqual([
+      'wip: half a thing.',
+    ]);
+  });
+
+  it('keeps first-appearance order — a group sits where its first member landed, a raw item stays put', () => {
+    const items = [
+      item('commit', 'fix: correct a'),
+      item('phase', 'a tracker entry'),
+      item('commit', 'fix: correct b'),
+    ];
+    expect(groupedDigestSpeech(items)).toEqual([
+      'Fix: correct a and correct b.',
+      'a tracker entry.',
+    ]);
+  });
+
+  it('strips inline markup from a title/description without forcing a terminator mid-fragment', () => {
+    expect(groupedDigestSpeech([item('commit', 'feat: support `parseStatus` output')])).toEqual([
+      'Feature: support parseStatus output.',
+    ]);
+  });
+
+  it('returns an empty array for an empty digest section', () => {
+    expect(groupedDigestSpeech([])).toEqual([]);
+  });
+});
+
+describe('splitSpeechParagraphs', () => {
+  it('is a no-op single paragraph for text with no marker at all', () => {
+    expect(splitSpeechParagraphs('Good to see you.')).toEqual(['Good to see you.']);
+  });
+
+  it('splits on the marker and rejoins each paragraph\'s own lines with a space', () => {
+    expect(
+      splitSpeechParagraphs(`a.\nb.\n${COMPANION_PARAGRAPH_BREAK}\nc.`),
+    ).toEqual(['a. b.', 'c.']);
+  });
+
+  it('drops empty paragraphs from a leading, trailing or doubled marker', () => {
+    expect(splitSpeechParagraphs(`${COMPANION_PARAGRAPH_BREAK}\na.\n${COMPANION_PARAGRAPH_BREAK}`)).toEqual([
+      'a.',
+    ]);
+  });
+
+  it('returns an empty array for an empty string', () => {
+    expect(splitSpeechParagraphs('')).toEqual([]);
+  });
+});
+
+describe('composeOverviewSpeech', () => {
+  it('speaks the heading and facts as plain sentences, with no markdown escaping needed', () => {
+    const speech = composeOverviewSpeech(snapshotFixture({ ahead: 1 }));
+    expect(speech).toContain('You are in midnite-studio, on main.');
+    expect(speech).toContain('It is 1 commit ahead of the remote.');
+  });
+
+  it('groups the landed digest by conventional-commit prefix rather than reading raw titles', () => {
+    const speech = composeOverviewSpeech(snapshotFixture(), {
+      digest: {
+        since: Date.parse('2026-09-07T09:00:00Z'),
+        landed: [
+          { kind: 'pr', title: 'feat(agent): support primary agent selection', ref: '#372', at: 0 },
+        ],
+        inProgress: [],
+      },
+      now: Date.parse('2026-09-08T09:00:00Z'),
+    });
+    expect(speech).toContain('Feature - (agent): support primary agent selection in PR 372.');
+  });
+
+  it('separates the heading, Landed and In-progress blocks with a paragraph break', () => {
+    const speech = composeOverviewSpeech(snapshotFixture(), {
+      // A non-empty landed section, so the "clean slate" fourth block does
+      // not also appear — this is asserting the block count, not its wording.
+      digest: { since: 0, landed: [{ kind: 'commit', title: 'fix: x', ref: 'a', at: 0 }], inProgress: [] },
+    });
+    expect(speech.split(COMPANION_PARAGRAPH_BREAK)).toHaveLength(3);
+  });
+
+  it('says nothing has landed and nothing is open, exactly as the markdown does', () => {
+    const speech = composeOverviewSpeech(snapshotFixture(), {
+      digest: { since: 0, landed: [], inProgress: [] },
+    });
+    expect(speech).toContain('nothing.');
+    expect(speech).toContain('Nothing is open right now.');
+  });
+
+  it('appends the switch offer as its own paragraph', () => {
+    const speech = composeOverviewSpeech(snapshotFixture(), { offerSwitch: true });
+    expect(speech.endsWith('Want to switch to another one?')).toBe(true);
   });
 });
 
@@ -707,6 +863,7 @@ function snapshotFixture(over: Partial<CompanionSnapshot> = {}): CompanionSnapsh
     branch: 'main',
     openPulls: 0,
     failingChecks: 0,
+    passingChecks: 0,
     ...over,
   };
 }
@@ -750,14 +907,30 @@ describe('describeSnapshot', () => {
   });
 
   it('admits an unreachable forge in one sentence rather than dropping the fields', () => {
-    expect(describeSnapshot(snapshotFixture({ openPulls: null, failingChecks: null }))).toContain(
-      'I could not reach GitHub, so I have nothing on pull requests or checks.',
-    );
+    expect(
+      describeSnapshot(
+        snapshotFixture({ openPulls: null, failingChecks: null, passingChecks: null }),
+      ),
+    ).toContain('I could not reach GitHub, so I have nothing on pull requests or checks.');
   });
 
-  it('reports open pulls and failing checks when there are any', () => {
-    expect(describeSnapshot(snapshotFixture({ openPulls: 4, failingChecks: 1 }))).toContain(
-      '4 open pull requests and 1 check failing.',
+  it('reports open pulls, and both passing and failing checks with a pass percentage', () => {
+    expect(
+      describeSnapshot(
+        snapshotFixture({ openPulls: 4, failingChecks: 1, passingChecks: 12 }),
+      ),
+    ).toContain('4 open pull requests and 12 checks passing, 1 failing — 92 percent.');
+  });
+
+  it('says nothing about checks when none ran at all, even with an open pull', () => {
+    expect(
+      describeSnapshot(snapshotFixture({ openPulls: 2, failingChecks: 0, passingChecks: 0 })),
+    ).toContain('2 open pull requests.');
+  });
+
+  it('still reports a 0 percent pass rate rather than dividing by zero when every check failed', () => {
+    expect(describeSnapshot(snapshotFixture({ failingChecks: 3, passingChecks: 0 }))).toContain(
+      '0 checks passing, 3 failing — 0 percent.',
     );
   });
 
@@ -1465,6 +1638,7 @@ describe('composeOverviewMarkdown', () => {
         sessions: { live: 1, thinking: 1, waiting: 0 },
         openPulls: 3,
         failingChecks: 1,
+        passingChecks: 9,
       }),
     );
 
@@ -1474,7 +1648,7 @@ describe('composeOverviewMarkdown', () => {
     expect(markdown).toContain('- That branch is 2 commits ahead and 1 commit behind.');
     expect(markdown).toContain('- 3 changes: 1 staged, 2 unstaged.');
     expect(markdown).toContain('- 1 session running — 1 thinking.');
-    expect(markdown).toContain('- 3 open pull requests and 1 check failing.');
+    expect(markdown).toContain('- 3 open pull requests and 9 checks passing, 1 failing — 90 percent.');
     expect(markdown).not.toContain('You are in midnite-studio');
   });
 
@@ -1592,8 +1766,17 @@ describe('markdownToSpeech', () => {
     );
   });
 
-  it('drops blank lines rather than turning them into pauses of their own', () => {
-    expect(markdownToSpeech('**a**\n\n- b\n\n\n- c')).toBe('a.\nb.\nc.');
+  it('marks a blank line as a paragraph break instead of dropping it', () => {
+    expect(markdownToSpeech('**a**\n\n- b\n\n\n- c')).toBe(
+      `a.\n${COMPANION_PARAGRAPH_BREAK}\nb.\n${COMPANION_PARAGRAPH_BREAK}\nc.`,
+    );
+    // Runs of more than one blank line collapse to a single marker rather
+    // than one pause per blank line.
+    expect(markdownToSpeech('a\n\n\n\nb').split(COMPANION_PARAGRAPH_BREAK)).toHaveLength(2);
+  });
+
+  it('never opens or closes on a paragraph break — leading/trailing blank lines vanish', () => {
+    expect(markdownToSpeech('\n\na\n\n')).toBe('a.');
   });
 
   it('speaks a whole composed overview as plain sentences with no markup left', () => {
@@ -1676,6 +1859,13 @@ describe('sanitizeForSpeech', () => {
     expect(sanitizeForSpeech('Cut from release/v0.3.1.')).toBe('Cut from a branch.');
   });
 
+  it('reads a #-prefixed number as "PR " plus the number, guarded to digits right after the #', () => {
+    expect(sanitizeForSpeech('See #372 for details.')).toBe('See PR 372 for details.');
+    // A bare `#` (already stripped of its heading meaning by `markdownToSpeech`
+    // by this point) or a `#` not immediately followed by a digit is untouched.
+    expect(sanitizeForSpeech('C# is not a PR reference.')).toBe('C# is not a PR reference.');
+  });
+
   it('proves the SHA never reaches the final string, on a real digest row', () => {
     const spoken = sanitizeForSpeech(markdownToSpeech('- Fix the thing (`a1b2c3d`)'));
     expect(spoken).toBe('Fix the thing (a commit).');
@@ -1695,6 +1885,7 @@ describe('sanitizeForSpeech', () => {
       'Cut from release/v0.3.1.',
       'Merged onto main.',
       'The old logo was effaced.',
+      'See #372 for details.',
       '',
     ];
     for (const input of cases) {

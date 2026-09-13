@@ -1,4 +1,4 @@
-import { emptyCompanionSnapshot } from '@midnite/studio-shared';
+import { COMPANION_PARAGRAPH_PAUSE_MS, emptyCompanionSnapshot } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { greet, matchRepoByName, orient, say, sayMarkdown } from './concierge';
@@ -52,7 +52,10 @@ describe('greet', () => {
     await greet(fakeConciergeDeps({ store, speaker }));
 
     const spoken = speaker.spoken.join(' ');
-    expect(spoken).toContain('midnite-studio — on main.');
+    // The heading is spoken via `describeSnapshot`'s own sentence now, not
+    // `markdownToSpeech`'s projection of the bold-and-backticked heading —
+    // `composeOverviewSpeech` reaches for the plain sentence directly.
+    expect(spoken).toContain('You are in midnite-studio, on main.');
     // Not one asterisk, backtick or bracket reaches the synthesiser.
     expect(spoken).not.toMatch(/[*`[\]]/);
     // And the turn is still marked spoken — the display text differing from
@@ -207,7 +210,50 @@ describe('sayMarkdown', () => {
     await sayMarkdown(fakeConciergeDeps({ store, speaker }), markdown);
 
     expect(store.transcript[0]?.text).toBe(markdown);
-    expect(speaker.spoken).toEqual(['midnite-studio — on main.\na fix.']);
+    // Two blocks in the markdown (separated by a blank line) are two spoken
+    // paragraphs — `markdownToSpeech` marks the blank line rather than
+    // dropping it, and `say` pauses between paragraphs instead of running
+    // them into one utterance.
+    expect(speaker.spoken).toEqual(['midnite-studio — on main.', 'a fix.']);
+  });
+
+  it('pauses between paragraphs but not within one', async () => {
+    const store = fakeStore();
+    const speaker = fakeSpeaker();
+    const sleepCalls: number[] = [];
+    const markdown = '**midnite-studio** — on `main`\n\n- [a fix](https://example.test/pull/1)';
+
+    await sayMarkdown(
+      fakeConciergeDeps({
+        store,
+        speaker,
+        sleep: async (ms) => {
+          sleepCalls.push(ms);
+        },
+      }),
+      markdown,
+    );
+
+    expect(sleepCalls).toEqual([COMPANION_PARAGRAPH_PAUSE_MS]);
+  });
+
+  it('does not pause at all when the speech has no paragraph break', async () => {
+    const store = fakeStore();
+    const speaker = fakeSpeaker();
+    const sleepCalls: number[] = [];
+
+    await sayMarkdown(
+      fakeConciergeDeps({
+        store,
+        speaker,
+        sleep: async (ms) => {
+          sleepCalls.push(ms);
+        },
+      }),
+      '**midnite-studio** — on `main`',
+    );
+
+    expect(sleepCalls).toEqual([]);
   });
 });
 

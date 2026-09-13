@@ -329,6 +329,14 @@ export const CompanionSnapshotSchema = z.object({
   openPulls: z.number().int().nonnegative().nullable(),
   /** null for the same reason. Zero means "checks ran and none failed". */
   failingChecks: z.number().int().nonnegative().nullable(),
+  /**
+   * The same contract as `failingChecks`, for the conclusion that means "CI
+   * passed" (`success`) — added so `describeSnapshot` can say a pass
+   * percentage instead of only naming the failures. Null exactly when
+   * `failingChecks` is null (the same forge call fills both); zero means
+   * "checks ran and none passed".
+   */
+  passingChecks: z.number().int().nonnegative().nullable(),
 });
 export type CompanionSnapshot = z.infer<typeof CompanionSnapshotSchema>;
 
@@ -344,6 +352,7 @@ export function emptyCompanionSnapshot(repos = 0): CompanionSnapshot {
     sessions: { live: 0, thinking: 0, waiting: 0 },
     openPulls: null,
     failingChecks: null,
+    passingChecks: null,
   };
 }
 
@@ -663,6 +672,132 @@ export function summariseDigest(
 
 function capitalise(text: string): string {
   return text.length === 0 ? text : `${text[0]?.toUpperCase() ?? ''}${text.slice(1)}`;
+}
+
+// --- Ad Hoc · grouped spoken digest (companion speech overhaul) ------------
+//
+// The spoken digest used to read each bullet's raw title one at a time,
+// filling every commit SHA with "(a commit)" — accurate, but also every
+// commit's own subject line read verbatim, which is a wall of prose no voice
+// should attempt. This groups by conventional-commit `type(scope)` instead —
+// "Feature - (agent): support X and extend Y" rather than two whole subjects
+// — reusing `parseConventionalCommit` exactly as `digestCategoryFor` already
+// does, so a title that doesn't parse (or parses to a type this repo's
+// commits don't standardise on) falls back to being read individually,
+// exactly as before.
+
+/** Spoken label for a conventional-commit `type` — the vocabulary this repo's own commits use. */
+const DIGEST_TYPE_WORDS: Record<string, string> = {
+  feat: 'Feature',
+  fix: 'Fix',
+  docs: 'Docs',
+  chore: 'Chore',
+  refactor: 'Refactor',
+  test: 'Test',
+  perf: 'Perf',
+  build: 'Build',
+  ci: 'CI',
+  style: 'Style',
+  revert: 'Revert',
+};
+
+/** `deps` reads as "Dependencies"; every other scope is spoken exactly as written. */
+function digestScopeWord(scope: string): string {
+  return scope === 'deps' ? 'Dependencies' : scope;
+}
+
+/**
+ * "Feature - (agent):" / "Chore - Dependencies:" / "Fix:" — the header a
+ * group of same-`type`-same-`scope` items is announced under, once.
+ *
+ * `deps` is the one scope spoken without parentheses — its word already
+ * stands in for the scope the way "Dependencies" doesn't need "(deps)" beside
+ * it, while every other scope keeps the parenthesised form so "Feature -
+ * (agent):" still reads as "the agent feature", not two disconnected nouns.
+ */
+function digestGroupHeader(type: string, scope: string | null): string {
+  const label = DIGEST_TYPE_WORDS[type] ?? capitalise(type);
+  if (scope === null) return `${label}:`;
+  return scope === 'deps' ? `${label} - ${digestScopeWord(scope)}:` : `${label} - (${scope}):`;
+}
+
+/** Strip the inline markup a raw title/description might carry, with no terminator added — this is a fragment, not a whole sentence. */
+function stripInlineMarkupFragment(text: string): string {
+  return text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\\([\\`*_[\]<>])/g, '$1')
+    .replace(/\*\*|__/g, '')
+    .replace(/`+/g, '')
+    .trim();
+}
+
+/** `#372` → `372`, or `null` when `ref` isn't that shape. */
+function prNumber(ref: string): string | null {
+  const match = /^#(\d+)$/.exec(ref.trim());
+  return match ? (match[1] as string) : null;
+}
+
+/**
+ * "in PR 372" for a `kind: 'pr'` item, empty for everything else.
+ *
+ * A commit's own short SHA is never spoken here (Ad Hoc: "don't say 'a
+ * commit' once the group already said so") — the group header already named
+ * what kind of change it is, so a hex string adds nothing a listener can act
+ * on. A phase/tracker ref has no natural spoken form of its own either, so it
+ * is left unspoken rather than mangled.
+ */
+function digestItemRefPhrase(item: CompanionDigestItem): string {
+  if (item.kind !== 'pr') return '';
+  const number = prNumber(item.ref);
+  return number === null ? '' : ` in PR ${number}`;
+}
+
+/**
+ * One digest section (`digest.landed` or `digest.inProgress`), as the spoken
+ * sentences {@link composeOverviewSpeech} reads for it.
+ *
+ * Every item that parses as a *recognised* conventional-commit type
+ * (`parseConventionalCommit` + {@link DIGEST_TYPE_WORDS}) joins a group keyed
+ * by its `type`+`scope`, announced once as a header with every member's
+ * description oxford-joined after it. Everything else — an unparseable
+ * title, or a type this repo doesn't standardise on — is read individually,
+ * exactly as the old pipeline read every item: its own raw title, one
+ * sentence, still with a PR ref spoken naturally rather than dropped.
+ *
+ * Order is first-appearance: a group's header sits where its first member
+ * would have sat, and every later member of the same group joins that
+ * sentence rather than opening a new slot.
+ */
+export function groupedDigestSpeech(items: readonly CompanionDigestItem[]): string[] {
+  type Slot =
+    | { kind: 'group'; type: string; scope: string | null; parts: string[] }
+    | { kind: 'raw'; text: string };
+  const slots: Slot[] = [];
+
+  for (const item of items) {
+    const parsed = parseConventionalCommit(item.title);
+    if (parsed === null || !parsed.known) {
+      const title = stripInlineMarkupFragment(item.title);
+      if (title === '') continue;
+      slots.push({ kind: 'raw', text: `${title}${digestItemRefPhrase(item)}.` });
+      continue;
+    }
+
+    const description = stripInlineMarkupFragment(parsed.description) || item.title.trim();
+    const part = `${description}${digestItemRefPhrase(item)}`;
+    const group = slots.find(
+      (slot): slot is Extract<Slot, { kind: 'group' }> =>
+        slot.kind === 'group' && slot.type === parsed.type && slot.scope === parsed.scope,
+    );
+    if (group) group.parts.push(part);
+    else slots.push({ kind: 'group', type: parsed.type, scope: parsed.scope, parts: [part] });
+  }
+
+  return slots.map((slot) =>
+    slot.kind === 'raw'
+      ? slot.text
+      : `${digestGroupHeader(slot.type, slot.scope)} ${oxfordJoin(slot.parts)}.`,
+  );
 }
 
 // --- B · pure grounding helpers --------------------------------------------
@@ -1371,12 +1506,25 @@ export function describeSnapshot(snapshot: CompanionSnapshot): string[] {
     );
   }
 
-  if (snapshot.openPulls === null || snapshot.failingChecks === null) {
+  if (
+    snapshot.openPulls === null ||
+    snapshot.failingChecks === null ||
+    snapshot.passingChecks === null
+  ) {
     lines.push('I could not reach GitHub, so I have nothing on pull requests or checks.');
   } else {
+    const totalChecks = snapshot.passingChecks + snapshot.failingChecks;
     const forge = [
       snapshot.openPulls > 0 ? plural(snapshot.openPulls, 'open pull request') : '',
-      snapshot.failingChecks > 0 ? `${plural(snapshot.failingChecks, 'check')} failing` : '',
+      // Passing AND failing, plus the pass percentage, rather than only the
+      // failure count — "5 open pull requests and 1 check failing" used to
+      // say nothing about the 12 that passed. Guarded on `totalChecks > 0`
+      // for the same reason every other clause here is guarded: no checks at
+      // all is not a fact worth a sentence, and a 0/0 percentage is not a
+      // percentage.
+      totalChecks > 0
+        ? `${plural(snapshot.passingChecks, 'check')} passing, ${snapshot.failingChecks} failing — ${Math.round((snapshot.passingChecks / totalChecks) * 100)} percent`
+        : '',
     ].filter((part) => part !== '');
     if (forge.length > 0) lines.push(`${capitalise(forge.join(' and '))}.`);
   }
@@ -1541,40 +1689,102 @@ export function composeOverviewMarkdown(
  *
  * Pure, in `shared`, and unit-tested for the reason every other function in
  * this file is: it is text a human hears.
+ *
+ * **A blank line marks a paragraph boundary rather than disappearing.**
+ * {@link composeOverviewMarkdown} joins its blocks with `\n\n`, and a blank
+ * split line becomes {@link COMPANION_PARAGRAPH_BREAK} here instead of being
+ * dropped — Ad Hoc: "a brief pause between paragraphs". The marker is never
+ * itself spoken; it exists so a caller further down the pipeline (`say` in
+ * `concierge.ts`, via {@link splitSpeechParagraphs}) can still find where a
+ * block ended once every *other* newline has been joined into one string. Two
+ * or more blank lines collapse to a single marker, and a marker can never
+ * open or close the output — there is nothing to pause before the first line
+ * or after the last.
  */
 export function markdownToSpeech(markdown: string): string {
-  return markdown
-    .split('\n')
-    .map((raw) =>
-      raw
-        // A link is its text. Done before anything else, so a `[` inside the
-        // label cannot be mistaken for the start of another one.
-        .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
-        // A bare autolink still has to say something.
-        .replace(/<((?:https?|mailto):[^>]+)>/g, '$1')
-        // List markers and heading hashes are layout, not words.
-        .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '')
-        .replace(/^\s*#{1,6}\s+/, '')
-        .replace(/^\s*>\s?/, '')
-        /*
-          Un-escape *before* stripping emphasis, and after the two link passes
-          above. The order is the whole subtlety of this function. Un-escaping
-          first would turn an escaped `\[title\]` back into a link pattern
-          the pass above has already gone by; un-escaping last would leave
-          `\*\*` half-eaten by the emphasis pass and the voice saying
-          "backslash". So: links, then escapes, then markup.
-        */
-        .replace(/\\([\\`*_[\]<>])/g, '$1')
-        // Emphasis and code spans. A literal asterisk the author escaped is
-        // now indistinguishable from an emphasis marker — and dropping it is
-        // the right answer either way, because no voice should say "asterisk".
-        .replace(/\*\*|__/g, '')
-        .replace(/`+/g, '')
-        .trim(),
+  const cleaned = markdown.split('\n').map((raw) =>
+    raw
+      // A link is its text. Done before anything else, so a `[` inside the
+      // label cannot be mistaken for the start of another one.
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+      // A bare autolink still has to say something.
+      .replace(/<((?:https?|mailto):[^>]+)>/g, '$1')
+      // List markers and heading hashes are layout, not words.
+      .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '')
+      .replace(/^\s*#{1,6}\s+/, '')
+      .replace(/^\s*>\s?/, '')
+      /*
+        Un-escape *before* stripping emphasis, and after the two link passes
+        above. The order is the whole subtlety of this function. Un-escaping
+        first would turn an escaped `\[title\]` back into a link pattern
+        the pass above has already gone by; un-escaping last would leave
+        `\*\*` half-eaten by the emphasis pass and the voice saying
+        "backslash". So: links, then escapes, then markup.
+      */
+      .replace(/\\([\\`*_[\]<>])/g, '$1')
+      // Emphasis and code spans. A literal asterisk the author escaped is
+      // now indistinguishable from an emphasis marker — and dropping it is
+      // the right answer either way, because no voice should say "asterisk".
+      .replace(/\*\*|__/g, '')
+      .replace(/`+/g, '')
+      .trim(),
+  );
+
+  const lines: string[] = [];
+  for (const line of cleaned) {
+    if (line === '') {
+      if (lines.length > 0 && lines[lines.length - 1] !== COMPANION_PARAGRAPH_BREAK) {
+        lines.push(COMPANION_PARAGRAPH_BREAK);
+      }
+      continue;
+    }
+    lines.push(line);
+  }
+  while (lines.length > 0 && lines[lines.length - 1] === COMPANION_PARAGRAPH_BREAK) lines.pop();
+
+  return lines
+    .map((line) =>
+      line === COMPANION_PARAGRAPH_BREAK || /[.!?:;]$/.test(line) ? line : `${line}.`,
     )
-    .filter((line) => line !== '')
-    .map((line) => (/[.!?:;]$/.test(line) ? line : `${line}.`))
     .join('\n');
+}
+
+/**
+ * The line {@link markdownToSpeech} emits at a paragraph boundary instead of
+ * dropping it — Ad Hoc: "a brief pause between paragraphs".
+ *
+ * Not whitespace by JS regex `\s` — deliberately, so `chunkForSpeech`'s own
+ * `\s+` normalisation cannot silently eat it before a caller has had the
+ * chance to split on it with {@link splitSpeechParagraphs}. U+2063 INVISIBLE
+ * SEPARATOR: it carries no visible glyph, so it is inert if it were ever
+ * spoken by mistake, and it is not a character any real title, path or SHA
+ * would ever contain.
+ */
+export const COMPANION_PARAGRAPH_BREAK = '⁣';
+
+/** How long {@link splitSpeechParagraphs}'s pause is, once split. Roughly a third of a second — long enough to read as a breath, short enough not to read as a stall. */
+export const COMPANION_PARAGRAPH_PAUSE_MS = 350;
+
+/**
+ * Split a speech string on {@link COMPANION_PARAGRAPH_BREAK} into the
+ * paragraphs it separates, each paragraph's own lines rejoined into one
+ * flowing run of sentences. A speech string with no marker at all — every
+ * phrase-bank line, every call site that predates this — is just its own
+ * single paragraph, so this is a no-op change of shape for them.
+ */
+export function splitSpeechParagraphs(speech: string): string[] {
+  const paragraphs: string[] = [];
+  let current: string[] = [];
+  for (const line of speech.split('\n')) {
+    if (line === COMPANION_PARAGRAPH_BREAK) {
+      if (current.length > 0) paragraphs.push(current.join(' '));
+      current = [];
+      continue;
+    }
+    if (line !== '') current.push(line);
+  }
+  if (current.length > 0) paragraphs.push(current.join(' '));
+  return paragraphs;
 }
 
 /** Basenames a redacted path shouldn't bother naming — too generic to mean anything spoken aloud. */
@@ -1593,6 +1803,8 @@ const SANITIZE_GENERIC_BASENAMES = new Set([
 
 /** Lazy, so a sentence's own trailing period/comma is never swallowed into the match. */
 const SANITIZE_URL_RE = /\bhttps?:\/\/\S+?(?=[.,!?;:]*(?:\s|$))/g;
+/** `#` directly followed by digits — never a bare `#`, and never `C#`/`#define`-style text with no digits. */
+const SANITIZE_PR_REF_RE = /#(\d+)\b/g;
 /** One or more path separators, so `main`/`master` alone (no separator) never reach this pass. */
 const SANITIZE_SLASHED_TOKEN_RE = /\b[\w.-]+(?:[/\\][\w.-]+)+\b/g;
 /** A real extension, not a semver's trailing `.1` — the extension must start with a letter. */
@@ -1631,9 +1843,17 @@ const SANITIZE_REDUNDANT_REF_RE = /\b(?:commit|sha|hash|ref|revision)s?\s*$/i;
  * Pure and idempotent: every placeholder word is itself un-redactable (no
  * digits, no separator, no hex-shaped run), so calling this on its own output
  * is always a no-op.
+ *
+ * **`#123` → `PR 123`** joined the pass list in the Ad Hoc companion speech
+ * overhaul, item 3 — a general fallback for any `#`-prefixed number that
+ * reaches this function *without* having gone through
+ * {@link groupedDigestSpeech}'s own per-item PR-ref phrasing (which already
+ * says "in PR 372" and leaves no bare `#372` behind). Guarded to `#` directly
+ * followed by digits, so `C#` and a stray `#` are never touched.
  */
 export function sanitizeForSpeech(text: string): string {
   let result = text.replace(SANITIZE_URL_RE, 'a link');
+  result = result.replace(SANITIZE_PR_REF_RE, (_match, num: string) => `PR ${num}`);
 
   result = result.replace(SANITIZE_SLASHED_TOKEN_RE, (token) => {
     const hasExtension = SANITIZE_EXTENSION_RE.test(token);
@@ -1675,6 +1895,61 @@ export function sanitizeForSpeech(text: string): string {
     .filter((line) => line !== '')
     .join('\n')
     .trim();
+}
+
+/**
+ * {@link composeOverviewMarkdown}'s spoken projection — built directly from
+ * the same snapshot/digest data rather than derived from the markdown, so the
+ * digest sections can use {@link groupedDigestSpeech} in place of reading
+ * each bullet's raw title.
+ *
+ * **The on-screen markdown is untouched by this.** `describeSnapshot`'s own
+ * lines are already the plain sentences a voice should read — that is that
+ * function's whole docblock — so this reaches for them directly rather than
+ * having `composeOverviewMarkdown` escape them for markdown and then
+ * `markdownToSpeech` un-escape them again. `orient()` in `concierge.ts` calls
+ * this *alongside* `composeOverviewMarkdown`, not through it: one string for
+ * the thread, one for the voice, built from the same two inputs.
+ *
+ * Blocks are separated by {@link COMPANION_PARAGRAPH_BREAK} so `say`
+ * (`concierge.ts`) can pause between them — the heading-and-facts, the
+ * Landed section, the In-progress section and the switch offer are each
+ * their own paragraph, the same grouping {@link composeOverviewMarkdown}
+ * gives them with a blank line.
+ *
+ * `sanitizeForSpeech` runs once, over the whole joined result, exactly as it
+ * already does for a plain `markdownToSpeech` projection — it never touches
+ * a `groupedDigestSpeech` PR/commit ref (those are already resolved to
+ * either "in PR 372" or nothing), but it still redacts a stray path, URL or
+ * semver anywhere else in the overview.
+ */
+export function composeOverviewSpeech(
+  snapshot: CompanionSnapshot,
+  options: OverviewMarkdownOptions = {},
+): string {
+  const { digest = null, offerSwitch = false, now = Date.now() } = options;
+  const blocks: string[] = [describeSnapshot(snapshot).join(' ')];
+
+  if (digest !== null) {
+    const when = sinceLabel(digest.since, now);
+    blocks.push(
+      digest.landed.length === 0
+        ? `Landed ${when}: nothing.`
+        : `Landed ${when}: ${groupedDigestSpeech(digest.landed).join(' ')}`,
+    );
+    blocks.push(
+      digest.inProgress.length === 0
+        ? 'Nothing is open right now.'
+        : `In progress: ${groupedDigestSpeech(digest.inProgress).join(' ')}`,
+    );
+    if (digest.landed.length === 0 && digest.inProgress.length === 0) {
+      blocks.push('A clean slate, then.');
+    }
+  }
+
+  if (offerSwitch) blocks.push('Want to switch to another one?');
+
+  return sanitizeForSpeech(blocks.join(`\n${COMPANION_PARAGRAPH_BREAK}\n`));
 }
 
 // --- E · the intent grammar -------------------------------------------------

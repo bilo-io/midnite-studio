@@ -1,12 +1,15 @@
 import {
+  COMPANION_PARAGRAPH_PAUSE_MS,
   COMPANION_PHRASES,
   composeOverviewMarkdown,
+  composeOverviewSpeech,
   interpolatePhrase,
   markdownToSpeech,
   pickHonorific,
   pickPhrase,
   sanitizeForSpeech,
   splitForSpeech,
+  splitSpeechParagraphs,
   type CompanionDigest,
   type CompanionPhraseKind,
   type CompanionSnapshot,
@@ -82,7 +85,30 @@ export type ConciergeDeps = {
   signal: AbortSignal;
   rng?: () => number;
   now?: () => number;
+  /**
+   * Real-time pause between spoken paragraphs — Ad Hoc: "a brief pause
+   * between paragraphs, no spoken filler". Injected, defaulting to a real
+   * `setTimeout`, so a test can skip the wait instead of actually sitting
+   * through it while still asserting the duration it was asked for.
+   */
+  sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
 };
+
+/** `deps.sleep`'s default: a real wait, cut short the moment `signal` aborts. */
+async function defaultSleep(ms: number, signal: AbortSignal): Promise<void> {
+  if (ms <= 0 || signal.aborted) return;
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
 
 /**
  * Post a turn and, if there is a voice, read it out.
@@ -98,6 +124,15 @@ export type ConciergeDeps = {
  * (Theme E's 60-second cap), but posted to the thread whole: the cap exists
  * because listening to one utterance for a minute is intolerable, not because
  * the text is too long to read.
+ *
+ * **Paragraphs, not just utterances.** `speech` may carry
+ * `COMPANION_PARAGRAPH_BREAK` markers (`markdownToSpeech`'s and
+ * `composeOverviewSpeech`'s own paragraph boundaries) — `splitSpeechParagraphs`
+ * pulls them out first, and a real pause (`deps.sleep`) sits between
+ * paragraphs but never inside one, so the heading, the Landed section and the
+ * In-progress section each get a breath between them without adding a single
+ * spoken word. A speech string with no marker at all — every phrase-bank
+ * line — is just one paragraph, so this is a no-op for them.
  */
 export async function say(
   deps: ConciergeDeps,
@@ -108,9 +143,18 @@ export async function say(
   const turn = deps.store.addTurn({ role, text, spoken: false });
   if (deps.signal.aborted || deps.speaker.available !== true) return turn;
 
-  for (const utterance of splitForSpeech(speech)) {
+  const sleep = deps.sleep ?? defaultSleep;
+  const paragraphs = splitSpeechParagraphs(speech);
+  for (let index = 0; index < paragraphs.length; index += 1) {
     if (deps.signal.aborted) return turn;
-    await deps.speaker.speak(utterance, { signal: deps.signal });
+    if (index > 0) {
+      await sleep(COMPANION_PARAGRAPH_PAUSE_MS, deps.signal);
+      if (deps.signal.aborted) return turn;
+    }
+    for (const utterance of splitForSpeech(paragraphs[index] as string)) {
+      if (deps.signal.aborted) return turn;
+      await deps.speaker.speak(utterance, { signal: deps.signal });
+    }
   }
 
   if (!deps.signal.aborted) deps.store.markSpoken(turn.id);
@@ -187,13 +231,20 @@ export async function orient(deps: ConciergeDeps): Promise<void> {
   const digest = repoPath === null ? null : await deps.digest({ repoPath });
   if (deps.signal.aborted) return finish(deps);
 
-  await sayMarkdown(
+  const overviewOptions = { digest, offerSwitch: snapshot.repos > 1, now: deps.now?.() };
+  /*
+    Two projections of the same two inputs, not one derived from the other:
+    `composeOverviewMarkdown` is what the thread shows (unchanged by this),
+    `composeOverviewSpeech` is what the voice reads — grouped by
+    conventional-commit prefix rather than one bullet's raw title at a time,
+    and paragraph-paced rather than run together as `sayMarkdown`'s generic
+    `markdownToSpeech` projection would read it.
+  */
+  await say(
     deps,
-    composeOverviewMarkdown(snapshot, {
-      digest,
-      offerSwitch: snapshot.repos > 1,
-      now: deps.now?.(),
-    }),
+    composeOverviewMarkdown(snapshot, overviewOptions),
+    'companion',
+    composeOverviewSpeech(snapshot, overviewOptions),
   );
 
   /*
