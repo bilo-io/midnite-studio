@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import type { BatteryReading, SyncStatusEvent, TestPackage, TestRunResult } from '@midnite/studio-shared';
+import type { BatteryReading, Note, SyncStatusEvent, TestPackage, TestRunResult } from '@midnite/studio-shared';
 
 /**
  * A stand-in for the preload bridge, installed before any app code runs.
@@ -454,6 +454,10 @@ export type MockFixtures = {
    * way out — a fixture should not have to spell out byte arrays.
    */
   sessionTranscripts?: Record<string, string>;
+  /**
+   * Saved notes on disk (Phase 86 Theme F).
+   */
+  notes?: Record<string, unknown>[];
   /**
    * Directory listings for the Files view and the Agent page's ~/.claude
    * tree, keyed `repo:<relPath>` / `claude:<relPath>` ('' is the root).
@@ -1924,6 +1928,40 @@ export function buildMockBridge(data: MockFixtures) {
       purge: async (req: { sessionId: string | null }) => {
         closedSessions =
           req.sessionId === null ? [] : closedSessions.filter((r) => r.id !== req.sessionId);
+      },
+    },
+    notes: {
+      list: async (req?: { repoId?: string }) => {
+        const filtered = req?.repoId
+          ? notes.filter((n) => n.repoId === req.repoId)
+          : notes;
+        return { notes: [...filtered] };
+      },
+      save: (req: { note: Note }) => {
+        const idx = notes.findIndex((n) => n.id === req.note.id);
+        if (idx >= 0) {
+          notes[idx] = req.note;
+        } else {
+          notes.push(req.note);
+        }
+      },
+      delete: (req: { id: string; repoId?: string }) => {
+        notes = notes.filter((n) => n.id !== req.id);
+      },
+      reorder: (req: { repoId: string; noteIds: string[] }) => {
+        const namedSet = new Set(req.noteIds);
+        const currentRepoNotes = notes.filter((n) => n.repoId === req.repoId);
+        const otherNotes = notes.filter((n) => n.repoId !== req.repoId);
+        const byId = new Map(currentRepoNotes.map((n) => [n.id, n]));
+        const rest = currentRepoNotes
+          .filter((n) => !namedSet.has(n.id))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (b.createdAt ?? 0) - (a.createdAt ?? 0));
+        const reordered: Note[] = [];
+        [...req.noteIds, ...rest.map((n) => n.id)].forEach((id, index) => {
+          const note = byId.get(id);
+          if (note) reordered.push({ ...note, order: index });
+        });
+        notes = [...otherNotes, ...reordered];
       },
     },
     agent: {
@@ -4089,6 +4127,8 @@ export function buildMockBridge(data: MockFixtures) {
   var closedSessions = [...(data.closedSessions ?? [])]
     .reverse()
     .map((r) => r as { id: string } & Record<string, unknown>);
+  // eslint-disable-next-line no-var
+  var notes = [...((data.notes ?? []) as Note[])];
   // eslint-disable-next-line no-var
   var ptyCalls = {
     creates: [] as { ptyId: string; sessionId: string }[],

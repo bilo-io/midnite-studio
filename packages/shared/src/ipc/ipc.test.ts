@@ -1422,6 +1422,88 @@ describe('terminal and pty schemas', () => {
         ['ids as numbers', { sessionIds: [1, 2] }],
       ],
     },
+    {
+      name: 'NotesListResponse',
+      schema: schemas.NotesListResponse,
+      valid: {
+        notes: [
+          {
+            id: 'n1',
+            repoId: 'r1',
+            body: 'Note body',
+            status: 'captured',
+            done: false,
+            createdAt: 100,
+            updatedAt: 100,
+            order: 0,
+          },
+        ],
+      },
+      invalid: [
+        [
+          'invalid status',
+          {
+            notes: [
+              {
+                id: 'n1',
+                repoId: 'r1',
+                body: 'b',
+                status: 'unknown',
+                done: false,
+                createdAt: 1,
+                updatedAt: 1,
+                order: 0,
+              },
+            ],
+          },
+        ],
+      ],
+    },
+    {
+      name: 'NotesSaveRequest',
+      schema: schemas.NotesSaveRequest,
+      valid: {
+        note: {
+          id: 'n1',
+          repoId: 'r1',
+          body: 'Note body',
+          status: 'captured',
+          done: false,
+          createdAt: 100,
+          updatedAt: 100,
+          order: 0,
+        },
+      },
+      invalid: [
+        [
+          'empty note id',
+          {
+            note: {
+              id: '',
+              repoId: 'r1',
+              body: 'b',
+              status: 'captured',
+              done: false,
+              createdAt: 1,
+              updatedAt: 1,
+              order: 0,
+            },
+          },
+        ],
+      ],
+    },
+    {
+      name: 'NotesDeleteRequest',
+      schema: schemas.NotesDeleteRequest,
+      valid: { id: 'n1', repoId: 'r1' },
+      invalid: [['empty note id', { id: '' }]],
+    },
+    {
+      name: 'NotesReorderRequest',
+      schema: schemas.NotesReorderRequest,
+      valid: { repoId: 'r1', noteIds: ['n1', 'n2'] },
+      invalid: [['empty note id in list', { repoId: 'r1', noteIds: ['n1', ''] }]],
+    },
   ];
 
   for (const { name, schema, valid, invalid } of CASES) {

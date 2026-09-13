@@ -426,6 +426,16 @@ export const CHANNELS = {
    */
   sessionsConversationId: 'mstudio:sessions:conversation-id',
 
+  // --- notes (Phase 86 Theme F) --------------------------------------------
+  /** Every saved note for a repository (or all repositories when omitted). */
+  notesList: 'mstudio:notes:list',
+  /** Persist a created or updated note to disk. */
+  notesSave: 'mstudio:notes:save',
+  /** Delete a note from disk. */
+  notesDelete: 'mstudio:notes:delete',
+  /** Rewrite a repository's manual order. */
+  notesReorder: 'mstudio:notes:reorder',
+
   // --- browser (Phase 32) ---------------------------------------------------
   // A `WebContentsView` per tab, owned by `browser-service.ts`. Chrome state
   // (nav, title, favicon, loading) pushes over the single `browserEvent`
