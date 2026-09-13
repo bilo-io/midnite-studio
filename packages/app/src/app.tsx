@@ -1148,18 +1148,6 @@ function Shell() {
       */}
       <TitleBarPrimaryAgent />
       <TitleBarAgents />
-      {selectedRepo ? (
-        <>
-          <TitleBarMidniteMenu
-            repo={selectedRepo}
-            repoId={selectedRepo.id}
-            repoName={selectedRepo.name}
-            cwd={selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path}
-            {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
-          />
-          <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
-        </>
-      ) : null}
       <TitleBarStatus />
       <TitleBarBattery />
       {/*
@@ -1170,6 +1158,19 @@ function Shell() {
       <ThemeToggle />
     </>
   );
+
+  const midniteMenu = selectedRepo ? (
+    <>
+      <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
+      <TitleBarMidniteMenu
+        repo={selectedRepo}
+        repoId={selectedRepo.id}
+        repoName={selectedRepo.name}
+        cwd={selectedWorktreePath ?? primaryTarget(selectedRepo).worktreePath ?? selectedRepo.path}
+        {...(selectedWorktreePath ? { worktreePath: selectedWorktreePath } : {})}
+      />
+    </>
+  ) : null;
 
   const titleBar = (
     <TitleBar
@@ -1185,6 +1186,7 @@ function Shell() {
           <TitleBarNav />
           <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
           <SyncActions />
+          {midniteMenu}
         </div>
       }
       center={undefined}
@@ -1237,6 +1239,7 @@ function Shell() {
               <TitleBarNav />
               <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
               <SyncActions />
+              {midniteMenu}
             </div>
             <div className="flex items-center gap-2">{chrome}</div>
           </div>

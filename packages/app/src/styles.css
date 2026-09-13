@@ -4059,7 +4059,7 @@ html[data-motion='reduced'] .loop-start-gradient:focus-visible:not(:disabled) {
  * absolute-centered, preventing collision with wide left breadcrumbs / sync
  * controls on narrower viewports and letting scrollWidth reflect the full row.
  */
-.titlebar-root > div:nth-child(2) {
+.titlebar-root > div:nth-child(2):not(:last-child) {
   position: static !important;
   width: auto !important;
   min-width: 0 !important;
@@ -4070,6 +4070,11 @@ html[data-motion='reduced'] .loop-start-gradient:focus-visible:not(:disabled) {
   margin-right: auto !important;
   display: flex !important;
   justify-content: center !important;
+}
+
+.titlebar-root > div:not(:first-child):last-child {
+  margin-left: auto !important;
+  margin-right: 0 !important;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
