@@ -6,7 +6,13 @@ import type {
   ProcessTableResult,
 } from '@midnite/studio-shared';
 
-import { isOurProcess, readProcessRows, readProcessTable, type ProcessRow } from '../agent-process';
+import {
+  isOurProcess,
+  readProcessRows,
+  readProcessTable,
+  type ProcessRow,
+  type PsParse,
+} from '../agent-process';
 import { probeDetailedMemory } from '../metrics/memory';
 import { activePtyPids } from '../pty-service';
 
@@ -59,12 +65,20 @@ function commandName(args: string): string {
  * understand this machine's `ps`": a table with lines that all failed to
  * parse reads very differently from a genuinely empty one, and the renderer
  * has no other way to tell them apart.
+ *
+ * `mockParsed` accepts either a plain row array (the common case, and every
+ * existing caller's shape — `totalLines` defaults to the row count, so
+ * `error` comes out `null`) or a full {@link PsParse}, which is what a test
+ * exercising the "every line failed to parse" branch needs: a plain array
+ * can never express `totalLines > 0` alongside zero rows.
  */
 export async function getProcessTableResult(
-  mockRows?: ProcessRow[],
+  mockParsed?: ProcessRow[] | PsParse,
 ): Promise<ProcessTableResult> {
-  const parsed = mockRows
-    ? { rows: mockRows, totalLines: mockRows.length }
+  const parsed = mockParsed
+    ? Array.isArray(mockParsed)
+      ? { rows: mockParsed, totalLines: mockParsed.length }
+      : mockParsed
     : await readProcessTable();
   const rows = parsed?.rows ?? [];
   const ptyPids = activePtyPids();
