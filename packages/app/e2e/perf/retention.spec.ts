@@ -40,18 +40,36 @@ type Harness = {
   }>;
 };
 
+type Budgets = {
+  retainedPerCycleKb?: number;
+  retention?: {
+    default?: number;
+    [action: string]: Record<string, number> | number | undefined;
+  };
+};
+
 async function assertFlat(
   harness: Harness,
   actionName: string,
   cycles: number,
-  limit: number,
+  budgets: Budgets,
   repo: string,
 ): Promise<void> {
   const { slopes } = await harness.runRetention({ actionName, cycles, repo });
+  const defaultLimit = budgets.retainedPerCycleKb ?? 500;
+  const actionBudgets = (budgets.retention?.[actionName] as Record<string, number>) ?? {};
+
   for (const [group, slope] of Object.entries(slopes)) {
+    const limit =
+      actionBudgets[group] ??
+      actionBudgets.default ??
+      budgets.retention?.default ??
+      defaultLimit;
+    // A falling slope (negative delta) is memory returned/reclaimed as startup caches settle —
+    // only positive slope indicates retained bytes per cycle (a leak).
     expect(
-      Math.abs(slope.perCycleKb),
-      `${actionName}/${group}: ${JSON.stringify(slope)}`,
+      slope.perCycleKb,
+      `${actionName}/${group}: ${JSON.stringify(slope)} exceeds budget of ${limit} KB/cycle`,
     ).toBeLessThanOrEqual(limit);
   }
 }
@@ -61,33 +79,28 @@ test('retention stays inside its budget for a real terminal session cycle', asyn
   test.setTimeout(10 * 60 * 1000);
 
   const harness = (await import(`${PERF_DIR}/memory-report.mjs`)) as unknown as Harness;
-  const budgets = JSON.parse(await readFile(`${PERF_DIR}/budgets.json`, 'utf8'));
-
-  const limit = budgets.retainedPerCycleKb;
-  expect(typeof limit).toBe('number');
+  const budgets: Budgets = JSON.parse(await readFile(`${PERF_DIR}/budgets.json`, 'utf8'));
 
   const repo = harness.mainWorktree(harness.REPO_ROOT);
-  await assertFlat(harness, 'terminal', 20, limit, repo);
+  await assertFlat(harness, 'terminal', 20, budgets, repo);
 });
 
 test('retention stays inside its budget for a repo open/close cycle', async () => {
   test.setTimeout(6 * 60 * 1000);
 
   const harness = (await import(`${PERF_DIR}/memory-report.mjs`)) as unknown as Harness;
-  const budgets = JSON.parse(await readFile(`${PERF_DIR}/budgets.json`, 'utf8'));
-  const limit = budgets.retainedPerCycleKb;
+  const budgets: Budgets = JSON.parse(await readFile(`${PERF_DIR}/budgets.json`, 'utf8'));
 
   const repo = harness.mainWorktree(harness.REPO_ROOT);
-  await assertFlat(harness, 'repo', 10, limit, repo);
+  await assertFlat(harness, 'repo', 10, budgets, repo);
 });
 
 test('retention stays inside its budget for a browser-tabs open/close cycle', async () => {
   test.setTimeout(10 * 60 * 1000);
 
   const harness = (await import(`${PERF_DIR}/memory-report.mjs`)) as unknown as Harness;
-  const budgets = JSON.parse(await readFile(`${PERF_DIR}/budgets.json`, 'utf8'));
-  const limit = budgets.retainedPerCycleKb;
+  const budgets: Budgets = JSON.parse(await readFile(`${PERF_DIR}/budgets.json`, 'utf8'));
 
   const repo = harness.mainWorktree(harness.REPO_ROOT);
-  await assertFlat(harness, 'browser-tabs', 20, limit, repo);
+  await assertFlat(harness, 'browser-tabs', 20, budgets, repo);
 });

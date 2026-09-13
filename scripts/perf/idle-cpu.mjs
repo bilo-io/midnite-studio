@@ -68,6 +68,7 @@ import {
   sleep,
   stop,
 } from './electron-run.mjs';
+import { classifyProcess } from './classify-process.mjs';
 
 /** How often the subprocess census samples `ps` during the idle window. */
 const POLL_INTERVAL_MS = 2_000;
@@ -120,22 +121,10 @@ function snapshot(root) {
     byParent.get(row.ppid).push(row);
   }
 
-  const classify = (args) => {
-    // The pty broker is an Electron process too, spawned by main and carrying no
-    // `--type=`, so without this it would be counted as main's own CPU — and it
-    // is precisely the kind of thing this report exists to attribute.
-    if (args.includes('broker.js')) return 'broker';
-    const type = /--type=([\w-]+)/.exec(args)?.[1];
-    if (!type) return 'main';
-    if (type === 'renderer') return 'renderer';
-    if (type === 'gpu-process') return 'gpu';
-    return 'other';
-  };
-
   const snap = new Map();
   const walk = (pid) => {
     const self = rows.find((r) => r.pid === pid);
-    if (self) snap.set(pid, { cpu: self.cpu, group: classify(self.args) });
+    if (self) snap.set(pid, { cpu: self.cpu, group: classifyProcess(self.args) });
     for (const child of byParent.get(pid) ?? []) walk(child.pid);
   };
   walk(root);
@@ -307,7 +296,16 @@ if (isMain) {
     state: blurred && blurOk ? 'blurred' : 'focused',
     windowSeconds: round(elapsedS),
     cpuPercentOfOneCore: Object.fromEntries(
-      ['main', 'renderer', 'gpu', 'broker', 'other'].map((g) => [g, round(totals.get(g) ?? 0)]),
+      [
+        'main',
+        'renderer',
+        'gpu',
+        'broker',
+        ...Array.from(totals.keys()).filter(
+          (g) => !['main', 'renderer', 'gpu', 'broker', 'other'].includes(g),
+        ),
+        'other',
+      ].map((g) => [g, round(totals.get(g) ?? 0)]),
     ),
     mainRssMb: mainRss,
     subprocessSpawns: {

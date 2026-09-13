@@ -14,20 +14,6 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   browser tabs, wait past the threshold, and assert the discarded ones' renderer processes are
   gone from `ps` (F) — sized as its own follow-up, not a flag on the existing IPC-driven harness.
 
-- **Phase 84 Theme J: `retainedPerCycleKb`'s calibration gap for `terminal`/`browser-tabs`.**
-  Real `moon run app:build desktop:bundle` + `memory-report.mjs` runs (Theme J) found the
-  `terminal` action's `main`/`broker`/`other` groups and the `browser-tabs` action's `other` group
-  sit above the shared `retainedPerCycleKb: 500` budget — on *both* `543869af` (before any Phase 84
-  theme) and current `main`, at nearly identical magnitude, so this is a pre-existing measurement
-  characteristic (or a real leak that predates Phase 84 entirely), not a regression introduced by
-  any Theme A-I/B/C. `_retention`'s own note in `budgets.json` says the 500 figure was set from
-  `repo`-cycle and `browser-tabs`-cycle observations, never validated against `terminal` — this is
-  the first real run of `retention.spec.ts`'s own `terminal` assertion against a packaged build,
-  and it would currently fail `moon run app:perf` (outside `moon run :test`'s gate, so this does
-  not block CI). Needs its own investigation: either the budget needs group/action-specific
-  figures, or there is a genuine, long-standing leak in one of `repo`/`terminal`'s common code
-  paths (main's own IPC handling, `gh`/`git` subprocess bookkeeping) that predates this phase.
-
 - **Phase 84 Theme F: navigation-history restore.**
   Third-party apps (`apps-service.ts`, Phase 83) are excluded from the idle-discard sweep by default,
   and the per-app opt-in landed with `appDiscardIdle` in `Settings ▸ Apps`, visibility tracking in

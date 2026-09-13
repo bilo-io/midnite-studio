@@ -92,14 +92,17 @@ import {
   sleep,
   stop,
 } from './electron-run.mjs';
+import { classifyProcess } from './classify-process.mjs';
 
 // Re-exported so `retention.spec.ts` can import this module alone as its
 // harness, rather than reaching into `electron-run.mjs` for the setup it
 // needs alongside `runRetention` itself.
 export { REPO_ROOT, mainWorktree, requireBuilt };
 
-const { BOOT_MARKS, RENDERER_MARKS } = sharedMarks();
-const EXPECTED = [...BOOT_MARKS, ...RENDERER_MARKS];
+function getExpectedMarks() {
+  const { BOOT_MARKS, RENDERER_MARKS } = sharedMarks();
+  return [...BOOT_MARKS, ...RENDERER_MARKS];
+}
 
 /** How many of the oldest/newest cycles the slope compares — see the module doc. */
 export const COMPARE_WINDOW = 5;
@@ -149,21 +152,13 @@ export function rssSnapshotKb(rootPid) {
     byParent.get(row.ppid).push(row);
   }
 
-  // The broker carries no `--type=` (it is not a Chromium helper), so without
-  // naming it explicitly it would be counted as main's own RSS — exactly the
-  // attribution mistake `idle-cpu.mjs`'s own classifier was written to avoid.
-  const classify = (args) => {
-    if (args.includes('broker.js')) return 'broker';
-    const type = /--type=([\w-]+)/.exec(args)?.[1];
-    if (!type) return 'main';
-    if (type === 'renderer') return 'renderer';
-    return 'other';
-  };
-
-  const totals = { main: 0, renderer: 0, broker: 0, other: 0 };
+  const totals = { main: 0, renderer: 0, gpu: 0, broker: 0, other: 0 };
   const walk = (pid) => {
     const self = rows.find((r) => r.pid === pid);
-    if (self) totals[classify(self.args)] += self.rssKb;
+    if (self) {
+      const g = classifyProcess(self.args);
+      totals[g] = (totals[g] ?? 0) + self.rssKb;
+    }
     for (const child of byParent.get(pid) ?? []) walk(child.pid);
   };
   walk(rootPid);
@@ -180,11 +175,15 @@ export function rssSnapshotKb(rootPid) {
  * understate the slope by counting the two windows' own internal span twice.
  */
 export function retentionSlopes(samples) {
-  const groups = ['main', 'renderer', 'broker', 'other'];
+  const standardGroups = ['main', 'renderer', 'gpu', 'broker', 'other'];
+  const allGroups = new Set(standardGroups);
+  for (const s of samples) {
+    for (const k of Object.keys(s)) allGroups.add(k);
+  }
   const n = samples.length;
   const out = {};
-  for (const group of groups) {
-    const values = samples.map((s) => s[group]);
+  for (const group of allGroups) {
+    const values = samples.map((s) => s[group] ?? 0);
     const firstMedian = median(values.slice(0, COMPARE_WINDOW));
     const lastMedian = median(values.slice(-COMPARE_WINDOW));
     const deltaKb = lastMedian - firstMedian;
@@ -253,10 +252,27 @@ async function browserTabsCycle(page) {
   });
 }
 
+/** Deliberately leaky cycle for heap-diff testing: retains LeakyRetainer across cycles. */
+async function leakyCycle(page) {
+  await page.evaluate(() => {
+    class LeakyRetainer {
+      constructor() {
+        this.payload = new Array(10000).fill('leak');
+      }
+    }
+    window.__leaks = window.__leaks || [];
+    window.__leaks.push(new LeakyRetainer());
+  });
+}
+
 export const ACTIONS = {
   repo: { label: 'open/close a repo', run: repoCycle },
   terminal: { label: 'open a terminal session, run a command, close it', run: terminalCycle },
   'browser-tabs': { label: 'open and close 10 browser tabs', run: browserTabsCycle },
+  'leaky-test': {
+    label: 'deliberately leaky cycle (retains LeakyRetainer in window.__leaks across cycles)',
+    run: leakyCycle,
+  },
   /*
     Named in the phase doc, deliberately not wired to a real run here: a
     council spawns a real `claude`/`codex`/`opencode` subprocess per member,
@@ -279,13 +295,176 @@ export const ACTIONS = {
 };
 
 /**
+ * Capture a complete V8 heap snapshot over a CDP session.
+ */
+export async function captureHeapSnapshot(cdpSession) {
+  let chunks = '';
+  const onChunk = ({ chunk }) => {
+    chunks += chunk;
+  };
+  cdpSession.on('HeapProfiler.addHeapSnapshotChunk', onChunk);
+  try {
+    await cdpSession.send('HeapProfiler.takeHeapSnapshot', { captureNumericValue: false });
+  } finally {
+    cdpSession.off('HeapProfiler.addHeapSnapshotChunk', onChunk);
+  }
+  return JSON.parse(chunks);
+}
+
+/**
+ * Aggregate a parsed V8 heap snapshot by constructor name.
+ * Attributes internal hidden backing stores (e.g. array elements) to the owning object,
+ * and skips internal V8 hidden/system structures so real constructors are reported.
+ */
+export function aggregateHeapSnapshot(snapshot) {
+  if (!snapshot?.snapshot?.meta || !Array.isArray(snapshot.nodes) || !Array.isArray(snapshot.strings)) {
+    return new Map();
+  }
+  const { node_fields, node_types, edge_fields, edge_types } = snapshot.snapshot.meta;
+  const typeOffset = node_fields.indexOf('type');
+  const nameOffset = node_fields.indexOf('name');
+  const selfSizeOffset = node_fields.indexOf('self_size');
+  const edgeCountOffset = node_fields.indexOf('edge_count');
+  const nodeStep = node_fields.length;
+
+  const edgeTypeOffset = edge_fields ? edge_fields.indexOf('type') : 0;
+  const edgeToNodeOffset = edge_fields ? edge_fields.indexOf('to_node') : 2;
+  const edgeStep = edge_fields ? edge_fields.length : 3;
+
+  const hiddenNodeTypeIndex = Array.isArray(node_types?.[0]) ? node_types[0].indexOf('hidden') : 0;
+  const internalEdgeTypeIndex = Array.isArray(edge_types?.[0]) ? edge_types[0].indexOf('internal') : 3;
+  const hiddenEdgeTypeIndex = Array.isArray(edge_types?.[0]) ? edge_types[0].indexOf('hidden') : 4;
+
+  const { nodes, edges, strings } = snapshot;
+
+  const byConstructor = new Map();
+  let edgeIndex = 0;
+
+  for (let i = 0; i < nodes.length; i += nodeStep) {
+    const nodeType = nodes[i + typeOffset];
+    const nameIndex = nodes[i + nameOffset];
+    const selfSize = nodes[i + selfSizeOffset] ?? 0;
+    const edgeCount = edgeCountOffset !== -1 ? (nodes[i + edgeCountOffset] ?? 0) : 0;
+    const name = strings[nameIndex] || '(anonymous)';
+
+    let extraSize = 0;
+    if (edges && edgeCount > 0) {
+      for (let e = 0; e < edgeCount; e += 1) {
+        const currentEdge = edgeIndex + e * edgeStep;
+        const edgeType = edges[currentEdge + edgeTypeOffset];
+        if (edgeType === internalEdgeTypeIndex || edgeType === hiddenEdgeTypeIndex) {
+          const targetNode = edges[currentEdge + edgeToNodeOffset];
+          if (targetNode !== undefined && targetNode < nodes.length) {
+            const targetType = nodes[targetNode + typeOffset];
+            if (targetType === hiddenNodeTypeIndex) {
+              extraSize += nodes[targetNode + selfSizeOffset] ?? 0;
+            }
+          }
+        }
+      }
+      edgeIndex += edgeCount * edgeStep;
+    }
+
+    // Skip internal V8 hidden nodes when aggregating constructors
+    if (nodeType === hiddenNodeTypeIndex || name.startsWith('(') || name.startsWith('system /')) {
+      continue;
+    }
+
+    let entry = byConstructor.get(name);
+    if (!entry) {
+      entry = { count: 0, selfSize: 0 };
+      byConstructor.set(name, entry);
+    }
+    entry.count += 1;
+    entry.selfSize += selfSize + extraSize;
+  }
+  return byConstructor;
+}
+
+/**
+ * Diff two aggregated heap snapshots and return the top retained constructors by delta selfSize.
+ */
+export function diffHeapSnapshots(snap1, snap2, topN = 10) {
+  const agg1 = aggregateHeapSnapshot(snap1);
+  const agg2 = aggregateHeapSnapshot(snap2);
+  const diffs = [];
+
+  for (const [name, entry2] of agg2.entries()) {
+    const entry1 = agg1.get(name) ?? { count: 0, selfSize: 0 };
+    const deltaCount = entry2.count - entry1.count;
+    const deltaSize = entry2.selfSize - entry1.selfSize;
+    if (deltaSize > 0 || deltaCount > 0) {
+      diffs.push({
+        constructor: name,
+        deltaCount,
+        deltaSize,
+        size1: entry1.selfSize,
+        size2: entry2.selfSize,
+        count1: entry1.count,
+        count2: entry2.count,
+      });
+    }
+  }
+
+  diffs.sort((a, b) => b.deltaSize - a.deltaSize || b.deltaCount - a.deltaCount);
+  return diffs.slice(0, topN);
+}
+
+/**
+ * Compute linear regression slope, intercept, and R^2 for a series of { t, value } points.
+ */
+export function linearFit(points) {
+  const n = points.length;
+  if (n === 0) return { slopeKbPerSec: 0, slopeKbPerHour: 0, interceptKb: 0, r2: 0 };
+  if (n === 1) return { slopeKbPerSec: 0, slopeKbPerHour: 0, interceptKb: points[0].value, r2: 1 };
+
+  let sumX = 0;
+  let sumY = 0;
+  for (const p of points) {
+    sumX += p.t;
+    sumY += p.value;
+  }
+  const meanX = sumX / n;
+  const meanY = sumY / n;
+
+  let num = 0;
+  let den = 0;
+  let ssTot = 0;
+  for (const p of points) {
+    const dx = p.t - meanX;
+    const dy = p.value - meanY;
+    num += dx * dy;
+    den += dx * dx;
+    ssTot += dy * dy;
+  }
+
+  const slope = den !== 0 ? num / den : 0;
+  const intercept = meanY - slope * meanX;
+
+  let ssRes = 0;
+  for (const p of points) {
+    const fitY = slope * p.t + intercept;
+    const res = p.value - fitY;
+    ssRes += res * res;
+  }
+  const r2 = ssTot !== 0 ? Math.max(0, 1 - ssRes / ssTot) : 1;
+
+  return {
+    slopeKbPerSec: slope,
+    slopeKbPerHour: slope * 3600,
+    interceptKb: intercept,
+    r2,
+  };
+}
+
+/**
  * The whole measurement: launch, attach CDP, drive `cycles` of `actionName`,
  * sample RSS after each, tear down, return samples + slopes.
  *
  * The one function both the CLI below and `retention.spec.ts` call — see the
  * module doc for why the spec imports this rather than shelling out.
  */
-export async function runRetention({ actionName, cycles, repo }) {
+export async function runRetention({ actionName, cycles, repo, heapDiff = false }) {
   const action = ACTIONS[actionName];
   if (!action) {
     throw new Error(`unknown action '${actionName}'. Known actions: ${Object.keys(ACTIONS).join(', ')}`);
@@ -303,7 +482,8 @@ export async function runRetention({ actionName, cycles, repo }) {
     104-byte `sun_path` limit `broker-client.ts` checks, silently falling back
     to an in-process pty that never exercises what Theme C fixes.
   */
-  const profile = await seedProfile(repo, EXPECTED, { tmpPrefix: '/tmp/mstudio-perf-' });
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
 
   let devtoolsUrl = null;
   process.stderr.write(`launching with CDP + --expose-gc for '${action.label}' × ${cycles}…\n`);
@@ -311,7 +491,7 @@ export async function runRetention({ actionName, cycles, repo }) {
     profile,
     repo,
     extraArgs: ['--remote-debugging-port=0', '--js-flags=--expose-gc'],
-    until: (marks) => EXPECTED.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
     onLine: (line) => {
       const m = DEVTOOLS_LINE.exec(line.trim());
       if (m) devtoolsUrl = m[1];
@@ -330,6 +510,14 @@ export async function runRetention({ actionName, cycles, repo }) {
     // BrowserWindow would need a real selector, which nothing here opens.
     const page = browser.contexts()[0]?.pages().find((p) => !p.url().startsWith('devtools://'));
     if (!page) throw new Error('CDP connected but no app page was found');
+
+    let cdpSession = null;
+    let snap1 = null;
+    let snapN = null;
+    if (heapDiff) {
+      cdpSession = await page.context().newCDPSession(page);
+      await cdpSession.send('HeapProfiler.enable');
+    }
 
     const ctx = { repoPath: repo, repoId: '', cwd: repo };
     if (actionName === 'terminal') {
@@ -358,9 +546,141 @@ export async function runRetention({ actionName, cycles, repo }) {
         })
         .catch(() => {});
       samples.push(rssSnapshotKb(run.child.pid));
+
+      if (heapDiff && cdpSession) {
+        if (i === 0) {
+          process.stderr.write('taking heap snapshot after cycle 1…\n');
+          snap1 = await captureHeapSnapshot(cdpSession);
+        } else if (i === cycles - 1) {
+          process.stderr.write(`taking heap snapshot after cycle ${cycles}…\n`);
+          snapN = await captureHeapSnapshot(cdpSession);
+        }
+      }
     }
 
-    return { action, samples, slopes: retentionSlopes(samples) };
+    let diff = null;
+    if (heapDiff && snap1 && snapN) {
+      diff = diffHeapSnapshots(snap1, snapN);
+      if (cdpSession) {
+        await cdpSession.send('HeapProfiler.disable').catch(() => {});
+      }
+    }
+
+    return {
+      action,
+      samples,
+      slopes: retentionSlopes(samples),
+      ...(heapDiff ? { heapDiff: diff } : {}),
+    };
+  } finally {
+    await browser.close();
+    await stop(run.child, profile);
+    discardProfile(profile);
+  }
+}
+
+/**
+ * Soak mode: hours rather than cycles. Launch once, drive a light repeating workload,
+ * sample `rssSnapshotKb` every interval, and emit an RSS-over-time series per group plus linear fit.
+ */
+export async function runSoak({ repo, durationS = 3600, intervalS = 60 }) {
+  requireBuilt();
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
+
+  let devtoolsUrl = null;
+  process.stderr.write(
+    `launching with CDP for soak test (${durationS}s duration, ${intervalS}s interval)…\n`,
+  );
+  const run = await launch({
+    profile,
+    repo,
+    extraArgs: ['--remote-debugging-port=0', '--js-flags=--expose-gc'],
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    onLine: (line) => {
+      const m = DEVTOOLS_LINE.exec(line.trim());
+      if (m) devtoolsUrl = m[1];
+    },
+  });
+
+  if (!run.child.pid || !devtoolsUrl) {
+    await stop(run.child, profile);
+    discardProfile(profile);
+    throw new Error('the app did not start, or never printed a DevTools endpoint');
+  }
+
+  const browser = await chromiumModule().connectOverCDP(devtoolsUrl);
+  try {
+    const page = browser.contexts()[0]?.pages().find((p) => !p.url().startsWith('devtools://'));
+    if (!page) throw new Error('CDP connected but no app page was found');
+
+    const ctx = { repoPath: repo, repoId: '', cwd: repo };
+    ctx.repoId = await page.evaluate(async (path) => {
+      const opened = await window.midniteStudio.repos.open({ path });
+      if (!opened.ok) throw new Error(`repos.open failed: ${opened.message}`);
+      return opened.repo.id;
+    }, repo);
+
+    process.stderr.write('settling before soak run…\n');
+    await sleep(3_000);
+
+    const startTime = Date.now();
+    const series = [];
+
+    const initialRss = rssSnapshotKb(run.child.pid);
+    series.push({ t: 0, rss: initialRss });
+
+    let iteration = 0;
+    while ((Date.now() - startTime) / 1000 < durationS) {
+      iteration += 1;
+      const elapsedBefore = Math.round((Date.now() - startTime) / 1000);
+      process.stderr.write(`soak cycle #${iteration} (elapsed: ${elapsedBefore}s / ${durationS}s)…\n`);
+
+      await repoCycle(page, ctx).catch((err) => process.stderr.write(`repo cycle err: ${err.message}\n`));
+      await sleep(CYCLE_SETTLE_MS);
+
+      await terminalCycle(page, ctx).catch((err) =>
+        process.stderr.write(`terminal cycle err: ${err.message}\n`),
+      );
+      await sleep(CYCLE_SETTLE_MS);
+
+      await browserTabsCycle(page).catch((err) =>
+        process.stderr.write(`browser-tabs cycle err: ${err.message}\n`),
+      );
+      await sleep(CYCLE_SETTLE_MS);
+
+      await page
+        .evaluate(() => {
+          if (typeof globalThis.gc === 'function') globalThis.gc();
+        })
+        .catch(() => {});
+
+      const elapsedNow = (Date.now() - startTime) / 1000;
+      const nextTarget = series.length * intervalS;
+      const waitTimeS = Math.max(0, Math.min(nextTarget - elapsedNow, durationS - elapsedNow));
+      if (waitTimeS > 0) {
+        await sleep(waitTimeS * 1000);
+      }
+
+      const currentElapsed = Math.round((Date.now() - startTime) / 1000);
+      const sample = rssSnapshotKb(run.child.pid);
+      series.push({ t: currentElapsed, rss: sample });
+
+      if (currentElapsed >= durationS) break;
+    }
+
+    const allGroups = new Set(['main', 'renderer', 'gpu', 'broker', 'other']);
+    for (const item of series) {
+      for (const k of Object.keys(item.rss)) allGroups.add(k);
+    }
+
+    const fit = {};
+    for (const group of allGroups) {
+      const points = series.map((item) => ({ t: item.t, value: item.rss[group] ?? 0 }));
+      fit[group] = linearFit(points);
+    }
+
+    return { durationS, intervalS, series, fit };
   } finally {
     await browser.close();
     await stop(run.child, profile);
@@ -389,7 +709,8 @@ export async function runRetention({ actionName, cycles, repo }) {
 export async function runPopoutRss({ role, repo }) {
   requireBuilt();
 
-  const profile = await seedProfile(repo, EXPECTED, { tmpPrefix: '/tmp/mstudio-perf-' });
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
 
   let devtoolsUrl = null;
   process.stderr.write(`launching with CDP for a '${role}' popout…\n`);
@@ -397,7 +718,7 @@ export async function runPopoutRss({ role, repo }) {
     profile,
     repo,
     extraArgs: ['--remote-debugging-port=0'],
-    until: (marks) => EXPECTED.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
     onLine: (line) => {
       const m = DEVTOOLS_LINE.exec(line.trim());
       if (m) devtoolsUrl = m[1];
@@ -474,7 +795,8 @@ export async function runPopoutRss({ role, repo }) {
 export async function runHiddenSessionsRss({ repo, sessions = 10 }) {
   requireBuilt();
 
-  const profile = await seedProfile(repo, EXPECTED, { tmpPrefix: '/tmp/mstudio-perf-' });
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
 
   let devtoolsUrl = null;
   process.stderr.write(`launching with CDP for ${sessions} hidden terminal sessions…\n`);
@@ -482,7 +804,7 @@ export async function runHiddenSessionsRss({ repo, sessions = 10 }) {
     profile,
     repo,
     extraArgs: ['--remote-debugging-port=0'],
-    until: (marks) => EXPECTED.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
     onLine: (line) => {
       const m = DEVTOOLS_LINE.exec(line.trim());
       if (m) devtoolsUrl = m[1];
@@ -574,7 +896,8 @@ export async function runHiddenSessionsRss({ repo, sessions = 10 }) {
 export async function runHiddenTabsRss({ repo, tabs = 8 }) {
   requireBuilt();
 
-  const profile = await seedProfile(repo, EXPECTED, { tmpPrefix: '/tmp/mstudio-perf-' });
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
 
   let devtoolsUrl = null;
   process.stderr.write(`launching with CDP for ${tabs} hidden browser tabs…\n`);
@@ -582,7 +905,7 @@ export async function runHiddenTabsRss({ repo, tabs = 8 }) {
     profile,
     repo,
     extraArgs: ['--remote-debugging-port=0'],
-    until: (marks) => EXPECTED.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
     onLine: (line) => {
       const m = DEVTOOLS_LINE.exec(line.trim());
       if (m) devtoolsUrl = m[1];
@@ -658,13 +981,15 @@ if (isMain) {
   const popoutRole = value('popout', '');
   const hiddenSessions = value('hidden-sessions', '');
   const hiddenTabs = value('hidden-tabs', '');
+  const isSoak = flag('soak');
+  const heapDiff = flag('heap-diff');
   const asJson = flag('json');
   const doAssert = flag('assert');
   const repo = mainWorktree(resolve(value('repo', REPO_ROOT)));
 
-  if (!actionName && !popoutRole && !hiddenSessions && !hiddenTabs) {
+  if (!actionName && !popoutRole && !hiddenSessions && !hiddenTabs && !isSoak) {
     console.error(
-      `--action, --popout, --hidden-sessions or --hidden-tabs is required. Known actions: ` +
+      `--action, --popout, --hidden-sessions, --hidden-tabs or --soak is required. Known actions: ` +
         `${Object.keys(ACTIONS).join(', ')}`,
     );
     process.exit(2);
@@ -796,17 +1121,56 @@ if (isMain) {
     process.exit(0);
   }
 
+  if (isSoak) {
+    const durationS = Number(value('duration', value('seconds', '3600')));
+    const intervalS = Number(value('interval', '60'));
+    let soakResult;
+    try {
+      soakResult = await runSoak({ repo, durationS, intervalS });
+    } catch (err) {
+      console.error(err.message);
+      process.exit(2);
+    }
+    const { series, fit } = soakResult;
+    if (asJson) {
+      console.log(JSON.stringify({ soak: { durationS, intervalS }, series, fit }, null, 2));
+    } else {
+      console.log(`\nsoak — ${durationS}s duration, ${intervalS}s interval (${series.length} samples)\n`);
+      for (const [group, f] of Object.entries(fit)) {
+        console.log(
+          `  ${group.padEnd(9)} slope=${f.slopeKbPerHour >= 0 ? '+' : ''}${f.slopeKbPerHour.toFixed(1)} KB/h ` +
+            `(${f.slopeKbPerSec >= 0 ? '+' : ''}${f.slopeKbPerSec.toFixed(3)} KB/s) ` +
+            `intercept=${f.interceptKb.toFixed(0)}KB R²=${f.r2.toFixed(3)}`,
+        );
+      }
+      console.log('');
+    }
+    process.exit(0);
+  }
+
   let result;
   try {
-    result = await runRetention({ actionName, cycles, repo });
+    result = await runRetention({ actionName, cycles, repo, heapDiff });
   } catch (err) {
     console.error(err.message);
     process.exit(2);
   }
-  const { action, samples, slopes } = result;
+  const { action, samples, slopes, heapDiff: heapDiffResult } = result;
 
   if (asJson) {
-    console.log(JSON.stringify({ action: actionName, cycles, samples, slopes }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          action: actionName,
+          cycles,
+          samples,
+          slopes,
+          ...(heapDiffResult ? { heapDiff: heapDiffResult } : {}),
+        },
+        null,
+        2,
+      ),
+    );
   } else {
     console.log(`\nretention — '${action.label}' × ${cycles}\n`);
     for (const [group, s] of Object.entries(slopes)) {
@@ -816,19 +1180,37 @@ if (isMain) {
       );
     }
     console.log('');
+
+    if (heapDiffResult) {
+      console.log(`heap diff — top retained constructors (cycle 1 -> cycle ${cycles}):`);
+      for (const item of heapDiffResult) {
+        console.log(
+          `  ${item.constructor.padEnd(30)} Δcount=${item.deltaCount >= 0 ? '+' : ''}${item.deltaCount} ` +
+            `ΔselfSize=${item.deltaSize >= 0 ? '+' : ''}${(item.deltaSize / 1024).toFixed(1)}KB`,
+        );
+      }
+      console.log('');
+    }
   }
 
   if (doAssert) {
     const budgetsPath = join(REPO_ROOT, 'scripts', 'perf', 'budgets.json');
     const budgets = JSON.parse(readFileSync(budgetsPath, 'utf8'));
-    const limit = budgets.retainedPerCycleKb;
-    if (typeof limit !== 'number') {
-      console.error(`--assert needs budgets.json's retainedPerCycleKb, which is not set.`);
-      process.exit(2);
-    }
+    const defaultLimit = budgets.retainedPerCycleKb ?? 500;
+    const actionBudgets = budgets.retention?.[actionName] ?? {};
+
     const breaches = Object.entries(slopes)
-      .filter(([, s]) => Math.abs(s.perCycleKb) > limit)
-      .map(([group, s]) => `${group} ${s.perCycleKb.toFixed(1)} KB/cycle > ${limit} KB/cycle`);
+      .map(([group, s]) => {
+        const limit =
+          actionBudgets[group] ??
+          actionBudgets.default ??
+          budgets.retention?.default ??
+          defaultLimit;
+        return { group, perCycleKb: s.perCycleKb, limit };
+      })
+      .filter(({ perCycleKb, limit }) => perCycleKb > limit)
+      .map(({ group, perCycleKb, limit }) => `${group} ${perCycleKb.toFixed(1)} KB/cycle > ${limit} KB/cycle`);
+
     if (breaches.length > 0) {
       console.error(`retention budget breached:\n  ${breaches.join('\n  ')}`);
       process.exit(1);
