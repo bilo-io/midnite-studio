@@ -186,6 +186,10 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
    */
   landing: WORK_IN_PROGRESS,
   dashboard: WORK_IN_PROGRESS,
+  // A formality the `Record` demands, same reasoning as `landing`: notes are
+  // per-repo but the view has no sidebar section of its own to narrow
+  // (Phase 86 Theme E).
+  notes: WORK_IN_PROGRESS,
   files: WORK_IN_PROGRESS,
   search: WORK_IN_PROGRESS,
   /**
