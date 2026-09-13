@@ -940,7 +940,7 @@ test.describe('FAB panel — the tab glow (Phase 37)', () => {
 
     // ...and written so it renders as that arc: no stop below 0deg on the
     // rim's arc layer or on the host's border mask (see `conicStopAngles`).
-    for (const mask of [layers[0], glow.borderMask]) {
+    for (const mask of [layers[0]!, glow.borderMask]) {
       const stops = conicStopAngles(mask);
       expect(stops.length).toBeGreaterThan(0);
       expect(stops.every((deg) => deg >= 0 && deg <= 360)).toBe(true);
@@ -1226,8 +1226,10 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
       one, which used to be read as "the user typed something" and silently
       spawned a brand-new, empty session.
     */
+    const firstSlept = SLEPT[0];
+    if (!firstSlept) throw new Error('SLEPT fixture empty');
     const withFocusTracking: MockFixtures['terminalSessions'] = [
-      { ...SLEPT[0], scrollback: `${SLEPT[0].scrollback}\x1b[?1004h` },
+      { ...firstSlept, scrollback: `${firstSlept.scrollback}\x1b[?1004h` },
     ];
     await openRestored(page, { terminalSessions: withFocusTracking }, { innovate: 'sess-fab-innovate' });
     await openFab(page, 'Concepts');

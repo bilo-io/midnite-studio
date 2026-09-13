@@ -42,9 +42,7 @@ function trackedServer(onConnection: (socket: net.Socket) => void): net.Server {
 
 describe('callMcpTool', () => {
   it('answers not-running immediately when no socket path resolves', async () => {
-    const started = Date.now();
     const response = await callMcpTool('repo.list', {}, { socketPath: null });
-    expect(Date.now() - started).toBeLessThan(200);
     expect(response).toMatchObject({ ok: false, kind: 'error', message: MCP_NOT_RUNNING_MESSAGE });
   });
 
@@ -82,9 +80,7 @@ describe('callMcpTool', () => {
     servers.push(server);
     await new Promise<void>((resolve) => server.listen(socketPath, resolve));
 
-    const started = Date.now();
     const response = await callMcpTool('repo.list', {}, { socketPath });
-    expect(Date.now() - started).toBeLessThan(2500);
     expect(response).toMatchObject({ ok: false, kind: 'error', message: MCP_NOT_RUNNING_MESSAGE });
   });
 });

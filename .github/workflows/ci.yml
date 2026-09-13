@@ -93,6 +93,12 @@ jobs:
       - name: Package split guard
         run: pnpm exec moon run root:gate-projects-check
 
+      # Enforce the righted test pyramid (Phase 82 Theme F): fails if declared
+      # functional E2E tests exceed the ratchet, if visual baselines exceed caps,
+      # or if unit tests assert wall-clock durations.
+      - name: E2E budget and visual ratchet
+        run: pnpm exec moon run root:e2e-budget
+
       # Explicit project-scoped targets, not `:typecheck :lint :test` — that
       # form runs EVERY project, which is exactly what this split undoes.
       # `root:test` runs the repo-wide scripts/*.test.mjs suite (tracker-check,

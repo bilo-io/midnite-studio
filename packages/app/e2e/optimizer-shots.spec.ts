@@ -208,7 +208,7 @@ const TRASH_SUMMARY = {
   truncated: false,
 };
 
-const data: MockFixtures = {
+const data: Partial<MockFixtures> = {
   optimizer: {
     scanResult: SCAN_RESULT,
     gpu: GPU_STATS,

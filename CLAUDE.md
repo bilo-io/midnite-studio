@@ -138,6 +138,18 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   rather than as react-icons' `IconType`: it is what let that migration touch no call site,
   and it is what lets the app's own hand-held marks (`components/icons/`) sit beside a set
   glyph in `IconButton`, `Tooltip` and the context menus.
+- **The test pyramid is righted, and the convention stops it inverting again.**
+  (Phase 82, [`docs/TESTING.md`](docs/TESTING.md)). Tests live across three distinct layers:
+  **vitest/jsdom** is the default for all logic, store transitions, DOM text/roles, and views
+  (fast, ~18ms per test); **Playwright visual regression** (`moon run app:visual`) carries
+  appearance ("does it look right") using locator-cropped `toHaveScreenshot` capped at ~100
+  baselines / 3 MB; **Playwright functional e2e** (`moon run app:e2e`) is strictly reserved for
+  flows that genuinely require a real browser (real layout/`getBoundingClientRect`, real CSS,
+  pointer drag, xterm, canvas, focus order, or multi-view flows). **The decision rule**: a new
+  test is a vitest test unless it needs one of those browser capabilities — name which in the
+  spec's own header comment. Unit tests must never assert wall-clock bounds
+  (`expect(elapsed).toBeLessThan(...)`), which flakes under CI load. `scripts/e2e-budget.mjs`
+  enforces the ratchet on declared e2e tests and visual baselines in CI.
 - **Perf claims come with a number, from `scripts/perf/`.** `startup-report.mjs` (cold-start
   marks, `--runs=5` for the median), `bundle-report.mjs` (entry chunk / total JS, read from
   Vite's `.vite/manifest.json`) and `idle-cpu.mjs` (percent of one core over a chosen window,

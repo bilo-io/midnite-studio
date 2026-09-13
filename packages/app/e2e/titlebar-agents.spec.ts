@@ -248,7 +248,7 @@ test('the cluster sheds width before the bar can overflow', async ({ page }) => 
   );
 
   const RANK = { full: 2, compact: 1, collapsed: 0 } as const;
-  let previous = RANK.full;
+  let previous: number = RANK.full;
 
   /*
     The floor was 1060px until the title bar gave back the ~120px its wordmark

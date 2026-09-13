@@ -159,7 +159,7 @@ const DIRTY = [
 ];
 
 const FIXTURES: MockFixtures = {
-  commitDetail: { sha: sha(0), body: '', stat: '', files: [] },
+  commitDetails: { [sha(0)]: { sha: sha(0), body: '', stat: '', files: [] } },
   diffs: {},
   graphRows: ROWS,
   refs: REFS,
