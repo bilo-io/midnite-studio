@@ -402,27 +402,27 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       rather than only in the PR, on the Phase 56 Theme C/D precedent for measured
       non-adoptions.
 
-### F — Write the convention down, and ratchet it (S)
+### F — Write the convention down, and ratchet it (S) ✅ DONE (PR #368, 2026-09-13)
 
-- [ ] Add `docs/TESTING.md`: the three layers, the decision rule (a new test is a vitest test
+- [x] Add `docs/TESTING.md`: the three layers, the decision rule (a new test is a vitest test
       unless it needs real layout, real CSS, pointer coordinates, xterm, canvas, focus order or
       paint order — name which, in the spec's own header comment), how to run each layer, and
       how to regenerate visual baselines (the Theme D docker command).
-- [ ] Add the same paragraph to all three of `CLAUDE.md`, `AGENTS.md` and `GEMINI.md`, per the
+- [x] Add the same paragraph to all three of `CLAUDE.md`, `AGENTS.md` and `GEMINI.md`, per the
       repo's standing three-file sync rule.
-- [ ] Add `scripts/e2e-budget.mjs`, wired into the gate: fails if `e2e/*.spec.ts` declares more
+- [x] Add `scripts/e2e-budget.mjs`, wired into the gate: fails if `e2e/*.spec.ts` declares more
       than a committed ratchet number of tests, or if the visual baseline corpus exceeds its
       cap. Lowering the ratchet number is a deliberate commit; raising it needs a sentence
       explaining why — matching the ratchet culture Phase 38 established for `KNOWN_RED` and
       then retired once it emptied out.
-- [ ] Add `e2e/**` to [`tsconfig.json`](../../../packages/app/tsconfig.json)'s `include`
+- [x] Add `e2e/**` to [`tsconfig.json`](../../../packages/app/tsconfig.json)'s `include`
       (Finding 7) so the suite is typechecked for the first time — expect a batch of first-time
       errors surfacing on 29,753 lines that have never seen `tsc`; that is the point of the
       change, not a regression to work around.
-- [ ] Confirm `scripts/e2e-budget.mjs` fails on a deliberately added throwaway spec, then remove
+- [x] Confirm `scripts/e2e-budget.mjs` fails on a deliberately added throwaway spec, then remove
       the throwaway spec.
 
-- [ ] **A flake register, and a guard against the class that causes it.** Measured across this
+- [x] **A flake register, and a guard against the class that causes it.** Measured across this
       phase's own merges on 2026-09-09/10: **four distinct specs failed CI on PRs that could not
       have caused them**, each costing a diagnosis plus a re-run before the PR could be trusted.
       `desktop/src/mcp-shim/shim.test.ts` (twice — a 2s wall-clock bound, observed at 3746ms

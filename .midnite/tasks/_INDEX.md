@@ -11,7 +11,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
 | [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 60/68 | `█████████░` | 88% | E F K | — |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | 🔄 WIP | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
-| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 46/75 | `██████░░░░` | 61% | F | C D G |
+| [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 52/75 | `███████░░░` | 69% | — | C D G |
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 50/53 | `█████████░` | 94% | — | — |
 | [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 24/31 | `████████░░` | 77% | — | — |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | 🔄 WIP | — | 57/67 | `█████████░` | 85% | — | — |
@@ -281,7 +281,7 @@ Target: ~4 min total CI wall clock, down from 8m31s.*
 - 🔄 **C** — Migration waves: **all five landed** ([#326](https://github.com/bilo-io/midnite-studio/pull/326), [#328](https://github.com/bilo-io/midnite-studio/pull/328), [#333](https://github.com/bilo-io/midnite-studio/pull/333), [#334](https://github.com/bilo-io/midnite-studio/pull/334), [#337](https://github.com/bilo-io/midnite-studio/pull/337), [#338](https://github.com/bilo-io/midnite-studio/pull/338)) — e2e declared **976→465**, `app:test` **→4,065**. Open: a wave 6 for the four *partial*-keep files (`fab-loops`, `browser-pane`, `workflows`, `titlebar-agents`) that need per-test rather than per-file judgment, plus three jsdom traps and two harness gaps to write into `test-support/` guidance
 - ◐ **D** — A pixel-diff layer: `playwright.visual.config.ts`, determinism fixes for fonts/motion/RNG, locator-cropped `toHaveScreenshot({ maxDiffPixelRatio: 0.002 })`, a ~100-baseline/3 MB cap, Linux-only `snapshotPathTemplate`
 - ✅ **E** — Split the gate: measure per-package first, then `gate-node` (ubuntu, 1×) and `gate-native` (macOS, 10×, git-engine + desktop only) ([PR #321](https://github.com/bilo-io/midnite-studio/pull/321)): measured 6m02s→5m41s — the win is billing (~60→~38 min-equiv), not wall clock; `gate-node`'s 261s test step vs the old 264s is what Theme H exists for
-- 🔄 **F** — Write the convention down, and ratchet it: `docs/TESTING.md`, the three-file CLAUDE/AGENTS/GEMINI sync, `scripts/e2e-budget.mjs`, `e2e/**` added to `tsconfig.json`
+- ✅ **F** — Write the convention down, and ratchet it: `docs/TESTING.md`, the three-file CLAUDE/AGENTS/GEMINI sync, `scripts/e2e-budget.mjs`, `e2e/**` added to `tsconfig.json` ([PR #368](https://github.com/bilo-io/midnite-studio/pull/368))
 - ◻ **G** — Re-measure and re-tune the shards: pick shard count from data once the suite shrinks, record the numbers
 - ✅ **H** — shard `app:test` in CI ([PR #327](https://github.com/bilo-io/midnite-studio/pull/327)): `app:test` measured at 173s of gate-node's 244s test content on a real ubuntu runner; 4 shards took the gate lane 345s → 162s; Theme E measured the platform split at 261s of 264s, so the unit suite is the gate's real floor
 
