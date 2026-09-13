@@ -432,9 +432,8 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
       docs.x.ai/build/overview and docs.x.ai/build/cli/reference. `grok` with
       no arguments opens an interactive session in the cwd; `-c`/`--continue`
       resumes the most recent one for that directory, the same shape Claude
-      and Cursor already use `resume` for here. No `icon`: react-icons' `si`
-      set ships no xAI/Grok mark (checked against its full export list), and
-      CLAUDE.md's icon rule is to omit rather than invent a name.
+      and Cursor already use `resume` for here. Renders the local `GrokIcon`
+      SVG mark (circle with two eye cutouts) in the renderer.
     */
     id: 'grok',
     label: 'Grok',

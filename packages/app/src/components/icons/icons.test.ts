@@ -8,6 +8,7 @@ import {
   AntigravityIcon,
   ClaudeIcon,
   CodexIcon,
+  GrokIcon,
   KiloIcon,
   OpenClaudeIcon,
   OpenCodeIcon,
@@ -22,15 +23,13 @@ import { SiCline, SiCursor, SiGithubcopilot } from 'react-icons/si';
  */
 describe('resolveAgentIcon', () => {
   /**
-   * Grok and Goose are the one deliberate exception: neither has a mark in
+   * Goose is the one deliberate exception: it has no mark in
    * react-icons' curated `si` set (checked against its full export list —
-   * no xAI/Grok glyph, no Goose/Block one), and CLAUDE.md's rule is to omit
-   * `icon` rather than invent a name, so both fall back to the same generic
-   * `LuTerminal` glyph a roster entry with no mark at all gets. Every OTHER
-   * builtin still gets its own — this only relaxes the invariant for the two
-   * rows that were never going to have a distinct one.
+   * no Goose/Block one), and CLAUDE.md's rule is to omit `icon` rather than
+   * invent a name, so it falls back to the generic `LuTerminal` glyph a
+   * roster entry with no mark at all gets. Every OTHER builtin gets its own.
    */
-  it('gives every builtin with a mark its own — grok and goose share the generic fallback', () => {
+  it('gives every builtin with a mark its own — only goose uses the generic fallback', () => {
     const marks = BUILTIN_AGENTS.map((agent) => resolveAgentIcon(agent));
 
     expect(marks).toEqual([
@@ -44,8 +43,8 @@ describe('resolveAgentIcon', () => {
       KiloIcon,
       AiderIcon,
       SiCline,
-      LuTerminal, // grok — no icon key, no react-icons mark to name
-      LuTerminal, // goose — same
+      GrokIcon,
+      LuTerminal, // goose — no icon key, no react-icons mark to name
     ]);
 
     const named = marks.filter((mark) => mark !== LuTerminal);
@@ -59,6 +58,7 @@ describe('resolveAgentIcon', () => {
    */
   it('falls back to the id when no icon key is named', () => {
     expect(resolveAgentIcon({ id: 'claude' })).toBe(ClaudeIcon);
+    expect(resolveAgentIcon({ id: 'grok' })).toBe(GrokIcon);
     expect(resolveAgentIcon({ id: 'agy', icon: 'antigravity' })).toBe(AntigravityIcon);
   });
 

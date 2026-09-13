@@ -17,6 +17,7 @@ import { AntigravityIcon } from './antigravity-icon';
 import { ClaudeIcon } from './claude-icon';
 import { CodexIcon } from './codex-icon';
 import { GoogleCalendarIcon } from './google-calendar-icon';
+import { GrokIcon } from './grok-icon';
 import { KiloIcon } from './kilo-icon';
 import { OpenClaudeIcon } from './openclaude-icon';
 import { SpotifyIcon } from './spotify-icon';
@@ -48,6 +49,7 @@ const LOCAL_ICONS: Record<string, IconComponent> = {
   cursor: SiCursor,
   copilot: SiGithubcopilot,
   cline: SiCline,
+  grok: GrokIcon,
 };
 
 /**
@@ -110,6 +112,7 @@ export {
   AntigravityIcon,
   ClaudeIcon,
   CodexIcon,
+  GrokIcon,
   KiloIcon,
   OpenClaudeIcon,
   SiOpencode as OpenCodeIcon,
