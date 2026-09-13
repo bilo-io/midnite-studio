@@ -689,10 +689,12 @@ export type MockFixtures = {
       ppid?: number;
       name: string;
       argv?: string;
-      rssBytes: number;
-      cpuPercent: number;
+      rssBytes: number | null;
+      cpuPercent: number | null;
       ours: boolean;
     }>;
+    /** Phase 85 Theme B — surfaced by `optimizer.processes()` alongside `processes`/`memory` below. */
+    processesError?: string | null;
     memory?: {
       totalBytes: number;
       usedBytes?: number;
@@ -2972,6 +2974,7 @@ export function buildMockBridge(data: MockFixtures) {
           value: {
             processes: optimizerProcesses,
             memory: mem,
+            error: data.optimizer?.processesError ?? null,
           },
         };
       },

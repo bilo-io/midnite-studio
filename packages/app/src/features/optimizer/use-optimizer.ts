@@ -226,6 +226,7 @@ export async function loadOptimizerProcesses(): Promise<void> {
   if (response.ok) {
     useOptimizerStore.getState().setProcesses(response.value.processes);
     useOptimizerStore.getState().setMemory(response.value.memory);
+    useOptimizerStore.getState().setProcessesError(response.value.error);
   }
 }
 

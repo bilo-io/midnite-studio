@@ -56,6 +56,15 @@ export type OptimizerState = {
   setProcesses: (processes: ProcessInfo[]) => void;
   removeProcess: (pid: number) => void;
 
+  /**
+   * Non-null when the last process-table read could not be parsed at all
+   * (Phase 85 Theme B) — distinct from `processes` simply being empty, which
+   * `memory-tab.tsx`'s empty state renders in place of "No processes
+   * reported." when set.
+   */
+  processesError: string | null;
+  setProcessesError: (processesError: string | null) => void;
+
   memory: MemoryBreakdown | null;
   setMemory: (memory: MemoryBreakdown | null) => void;
 
@@ -130,6 +139,9 @@ export const useOptimizerStore = create<OptimizerState>((set) => ({
     set((state) => ({
       processes: state.processes.filter((p) => p.pid !== pid),
     })),
+
+  processesError: null,
+  setProcessesError: (processesError) => set({ processesError }),
 
   memory: null,
   setMemory: (memory) => set({ memory }),

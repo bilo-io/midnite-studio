@@ -6,7 +6,7 @@ import type {
   ProcessTableResult,
 } from '@midnite/studio-shared';
 
-import { isOurProcess, readProcessRows, type ProcessRow } from '../agent-process';
+import { isOurProcess, readProcessRows, readProcessTable, type ProcessRow } from '../agent-process';
 import { probeDetailedMemory } from '../metrics/memory';
 import { activePtyPids } from '../pty-service';
 
@@ -54,11 +54,19 @@ function commandName(args: string): string {
 /**
  * Reads the machine's process table, identifies Midnite-owned processes,
  * and fetches the detailed physical memory breakdown.
+ *
+ * `error` (Phase 85 Theme B) distinguishes "nothing running" from "I do not
+ * understand this machine's `ps`": a table with lines that all failed to
+ * parse reads very differently from a genuinely empty one, and the renderer
+ * has no other way to tell them apart.
  */
 export async function getProcessTableResult(
   mockRows?: ProcessRow[],
 ): Promise<ProcessTableResult> {
-  const rows = mockRows ?? (await readProcessRows()) ?? [];
+  const parsed = mockRows
+    ? { rows: mockRows, totalLines: mockRows.length }
+    : await readProcessTable();
+  const rows = parsed?.rows ?? [];
   const ptyPids = activePtyPids();
 
   const processes: ProcessInfo[] = rows.map((row) => ({
@@ -72,11 +80,18 @@ export async function getProcessTableResult(
   }));
 
   // Default sort: highest resident memory first
-  processes.sort((a, b) => b.rssBytes - a.rssBytes);
+  processes.sort((a, b) => (b.rssBytes ?? 0) - (a.rssBytes ?? 0));
 
   const memory = (await probeDetailedMemory()) ?? null;
 
-  return { processes, memory };
+  const error =
+    parsed === null
+      ? 'Could not read the process table.'
+      : parsed.totalLines > 0 && parsed.rows.length === 0
+        ? `Could not parse the process table (${parsed.totalLines} lines, 0 rows).`
+        : null;
+
+  return { processes, memory, error };
 }
 
 export type KillOptions = {
