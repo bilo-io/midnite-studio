@@ -302,13 +302,13 @@ it to the seven that parse numbers, and leaves the four that hand a shell to a h
 A breach cannot distinguish a leak from allocator churn, which is why the recorded one has sat
 unresolved since Phase 84.
 
-- [ ] **Measure first.** Confirm the breach still reproduces on current `main`:
+- [x] **Measure first.** Confirm the breach still reproduces on current `main`:
       `moon run app:build desktop:bundle`, then
       `node scripts/perf/memory-report.mjs --action=terminal --cycles=20 --json` and the same for
       `--action=browser-tabs`. Per-group table in the PR body. If it no longer reproduces, the
       theme's remaining items shrink to the classifier and the budget rework — a fine outcome,
       recorded.
-- [ ] **New:** `scripts/perf/classify-process.mjs`, one classifier both scripts import.
+- [x] **New:** `scripts/perf/classify-process.mjs`, one classifier both scripts import.
       [`memory-report.mjs:148–157`](../../../scripts/perf/memory-report.mjs) has four groups and
       **no `gpu`**; [`idle-cpu.mjs:120–129`](../../../scripts/perf/idle-cpu.mjs) has five and does.
       They have diverged, and Theme D needs one of them.
@@ -323,7 +323,7 @@ unresolved since Phase 84.
       - Both scripts import it; neither keeps a local copy. A unit test beside it
         (`classify-process.test.mjs`, run by `root:test` like `idle-cpu.test.mjs` already is) pins
         one argv string per group.
-- [ ] **Heap snapshot diffing** — a `--heap-diff` flag on `memory-report.mjs` that reuses the CDP
+- [x] **Heap snapshot diffing** — a `--heap-diff` flag on `memory-report.mjs` that reuses the CDP
       session it already opens at `:305–329` (`connectOverCDP(devtoolsUrl)`; the docblock explains
       why CDP and not a second launcher). Take `HeapProfiler.takeHeapSnapshot` after cycle 1 and
       after cycle N, and report the top retained constructors by delta.
@@ -334,7 +334,7 @@ unresolved since Phase 84.
         diff comes back empty.
       - *Acceptance:* a deliberately leaky cycle (retain an array in a `page.evaluate` closure across
         cycles) is reported by constructor name.
-- [ ] **A `--soak` mode**: hours rather than cycles. Launch once, drive a light repeating workload
+- [x] **A `--soak` mode**: hours rather than cycles. Launch once, drive a light repeating workload
       (one `repo` cycle, one `terminal` cycle, one `browser-tabs` cycle on a long interval), sample
       `rssSnapshotKb` every 60 s, and emit an RSS-over-time series per group plus a linear fit.
       - This is [Phase 45 Theme F](phase-45-leak-audit.md)'s never-run item — *"open the app, work
@@ -342,13 +342,13 @@ unresolved since Phase 84.
         launch"* — made unattended.
       - **Not wired into CI** (see Decisions). `test.setTimeout` in `retention.spec.ts` already runs
         to 10 minutes; a multi-hour job is a human instrument, like `idle-cpu.mjs --blurred`.
-- [ ] Land the verdict, whichever it is:
+- [x] Land the verdict, whichever it is:
       - a named leak with a fix and a flat slope after it, **or**
       - group- and action-specific budgets replacing the single `retainedPerCycleKb`, each with its
         own `_`-prefixed note naming the run that justifies it, per `budgets.json`'s own header rule.
       - A verdict of "measurement characteristic" is only acceptable with the heap diff that supports
         it.
-- [ ] Whatever the verdict, [`retention.spec.ts`](../../../packages/app/e2e/perf/retention.spec.ts)'s
+- [x] Whatever the verdict, [`retention.spec.ts`](../../../packages/app/e2e/perf/retention.spec.ts)'s
       `terminal` assertion ends this theme green, and `outstanding.md`'s entry for the gap is removed
       with the reason.
       - Two properties of `assertFlat` (`:43–57`) belong in the analysis and are noted in the item:

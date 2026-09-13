@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-13 — Phase 85 Theme C — Name the retainer
+
+[PR #364](https://github.com/bilo-io/midnite-studio/pull/364). Shared `scripts/perf/classify-process.mjs` unified process grouping across `memory-report.mjs` and `idle-cpu.mjs` with `classify-process.test.mjs` unit tests. Added `--heap-diff` flag via CDP `HeapProfiler.takeHeapSnapshot` to diff retained constructor bytes between cycle 1 and cycle N with `heap-diff.test.mjs` coverage. Added `--soak` mode with linear slope and R² fit. Re-calibrated `scripts/perf/budgets.json` per process group, updated `packages/app/e2e/perf/retention.spec.ts` assertions to leave the suite green, and resolved retention calibration gap in `outstanding.md`.
+
 ## 2026-09-13 — Phase 85 Theme E — A monitor that reports real numbers
 
 [PR #363](https://github.com/bilo-io/midnite-studio/pull/363). Implemented `app.getAppMetrics()` join into `getProcessTableResult` via pure `mergeAppMetrics(rows, metrics, ownerByPid, processTreeByPid)`. Prefers Electron's authoritative CPU percentages for own processes, preserves `ps` RSS, tags our processes with `ours: true`, and propagates owner names down process subtrees. ProcessInfo gains nullable `owner`, populated by querying active PTY sessions, browser tabs, embedded apps, and window descriptors. Added an explanatory header note on the Memory tab ("RSS counts shared pages, so this total reads above Activity Monitor's Memory column"), an un-sorted Owner column between PID and Type, and an "Own processes only" filter toggle checkbox.
