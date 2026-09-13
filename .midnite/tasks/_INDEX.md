@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 0/59 | `░░░░░░░░░░` | 0% | A B | C D E F G |
+| [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 23/59 | `████░░░░░░` | 39% | — | C D E F G |
 | [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 60/68 | `█████████░` | 88% | E F K | — |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | 🔄 WIP | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
 | [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 46/75 | `██████░░░░` | 61% | — | C D F G |
@@ -201,8 +201,8 @@ so Theme F's own instrument reads zero, that **Electron 33 cannot supply macOS `
 animations exist against exactly one `paused`** — which turns Theme F from a suspect list into a
 ranked one with a guard.*
 
-- ◻ **A** — Every parsed subprocess speaks C: a shared `POSIX_NUMERIC_ENV`/`parseableProcessEnv` in `shared`, adopted by seven main sites, `git-exec`'s own pin and all three `ps` calls under `scripts/perf/` (including `idle-cpu.mjs`'s `cputime` NaN); four named pty carve-outs; the repo's first `no-restricted-syntax` rule; a `gate-locale` job on **macos-14** (ubuntu ships no `de_DE.UTF-8`).
-- ◻ **B** — A row that cannot be half-read: the zero-filling fallback deleted, an unparseable line **skipped**, six-column fixtures, `rssBytes`/`cpuPercent` nullable rendering `—` with `aria-label="unknown"` and sorting last both ways, a new `ProcessTableResult.error`, and a test for each of the three guards the bug left dead.
+- ✅ **A** — Every parsed subprocess speaks C ([PR #362](https://github.com/bilo-io/midnite-studio/pull/362)): a shared `POSIX_NUMERIC_ENV`/`parseableProcessEnv` in `shared`, adopted by seven main sites, `git-exec`'s own pin and all three `ps` calls under `scripts/perf/` (including `idle-cpu.mjs`'s `cputime` NaN); four named pty carve-outs; the repo's first `no-restricted-syntax` rule; a `gate-locale` job on **macos-14** (ubuntu ships no `de_DE.UTF-8`).
+- ✅ **B** — A row that cannot be half-read ([PR #362](https://github.com/bilo-io/midnite-studio/pull/362)): the zero-filling fallback deleted, an unparseable line **skipped**, six-column fixtures, `rssBytes`/`cpuPercent` nullable rendering `—` with `aria-label="unknown"` and sorting last both ways, a new `ProcessTableResult.error`, and a test for each of the three guards the bug left dead.
 - ◻ **C** — Name the retainer: one shared `classify-process.mjs` (the two scripts' classifiers have diverged), CDP `HeapProfiler` snapshot diffing, an unattended `--soak`, and a verdict on the recorded `retainedPerCycleKb` breach — "measurement characteristic" only with the heap diff behind it.
 - ◻ **D** — The idle floor, attributed: an `--idle` mode on the existing `rssSnapshotKb` plus the `heap-sampler` lines `MARK_LINE` currently drops; three states measured; cut only what the table names — the deferred main-side repo snapshot leading — and an `idleRss` budget either way.
 - ◻ **E** — A monitor that reports real numbers: `app.getAppMetrics()` for our own tree via a pure `mergeAppMetrics`, `ps` for foreign, an Owner column joining pids to tabs/sessions/windows, and the RSS-vs-Activity-Monitor delta **documented** rather than chased with a subprocess.
