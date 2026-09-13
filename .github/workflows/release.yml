@@ -35,7 +35,7 @@ jobs:
     name: Build macOS arm64
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -267,7 +267,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout this repo (for CHANGELOG.md and the mirror scripts)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -299,7 +299,7 @@ jobs:
       # `release` job above, since the default GITHUB_TOKEN cannot write to a
       # different repo.
       - name: Checkout bilo-io/midnite-apps
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: bilo-io/midnite-apps
           token: ${{ secrets.RELEASES_REPO_TOKEN }}
