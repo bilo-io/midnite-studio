@@ -209,6 +209,26 @@ export function MemoryTab() {
     return [...matched].sort((a, b) => compareProcesses(a, b, sort));
   }, [processes, ownOnly, query, sort]);
 
+  const { totalRssBytes, totalCpuPercent, hasCpu } = useMemo(() => {
+    let rss = 0;
+    let cpu = 0;
+    let anyCpu = false;
+    for (const p of filtered) {
+      if (p.rssBytes !== null) {
+        rss += p.rssBytes;
+      }
+      if (p.cpuPercent !== null) {
+        cpu += p.cpuPercent;
+        anyCpu = true;
+      }
+    }
+    return {
+      totalRssBytes: rss,
+      totalCpuPercent: cpu,
+      hasCpu: anyCpu,
+    };
+  }, [filtered]);
+
   // Clicking the active column flips it; clicking another starts that column
   // at its own natural direction rather than inheriting the last one's.
   const handleSort = (key: SortKey) =>
@@ -505,6 +525,23 @@ export function MemoryTab() {
                 })
               )}
             </tbody>
+            <tfoot className="sticky bottom-0 z-10 border-t border-border bg-muted/80 text-[11px] font-medium text-foreground backdrop-blur-xs">
+              <tr>
+                <td className="px-4 py-2 font-medium text-foreground">
+                  Total ({filtered.length} {filtered.length === 1 ? 'process' : 'processes'})
+                </td>
+                <td className="px-3 py-2 text-right font-mono text-muted-foreground/60">—</td>
+                <td className="px-3 py-2 text-muted-foreground/60">—</td>
+                <td className="px-3 py-2 text-muted-foreground/60">—</td>
+                <td className="px-3 py-2 text-right font-mono text-foreground">
+                  {hasCpu ? `${totalCpuPercent.toFixed(1)}%` : '—'}
+                </td>
+                <td className="px-3 py-2 text-right font-mono font-medium text-foreground">
+                  {formatBytes(totalRssBytes)}
+                </td>
+                <td className="px-4 py-2" />
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
