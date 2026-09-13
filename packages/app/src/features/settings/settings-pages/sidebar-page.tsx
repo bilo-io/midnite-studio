@@ -25,6 +25,7 @@ import { Choice, Field } from './controls';
 const VIEW_LABELS: Record<ViewId, string> = {
   landing: 'Home',
   dashboard: 'Dashboard',
+  notes: 'Notes',
   files: 'Files',
   search: 'Search',
   tests: 'Tests',
