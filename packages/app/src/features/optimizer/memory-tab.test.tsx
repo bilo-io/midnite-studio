@@ -54,9 +54,7 @@ function renderTab() {
 
 /** The PID column, top to bottom — the cheapest stable read of row order. */
 const pidOrder = (): string[] =>
-  screen
-    .getAllByRole('row')
-    .slice(1)
+  Array.from(document.querySelectorAll('tbody tr'))
     .map((row) => row.querySelectorAll('td')[1]?.textContent ?? '');
 
 afterEach(() => {
@@ -221,6 +219,49 @@ describe('MemoryTab — Theme E additions (header note, Owner column, Own proces
     fireEvent.click(checkbox);
     expect(checkbox.checked).toBe(false);
     expect(pidOrder()).toEqual(['1', '2', '3']);
+  });
+});
+
+describe('MemoryTab — footer totals', () => {
+  it('displays the total process count and formatted RAM total for displayed processes', () => {
+    renderTab();
+    // Default PROCESSES: 3 processes, RAM: 300 + 900 + 600 = 1800 B -> 2 KB
+    const footer = document.querySelector('tfoot');
+    expect(footer).not.toBeNull();
+    const cells = footer!.querySelectorAll('td');
+    expect(cells[0]?.textContent?.trim()).toBe('Total (3 processes)');
+    expect(cells[1]?.textContent?.trim()).toBe('—');
+    expect(cells[2]?.textContent?.trim()).toBe('—');
+    expect(cells[3]?.textContent?.trim()).toBe('—');
+    expect(cells[4]?.textContent?.trim()).toBe('15.0%');
+    expect(cells[5]?.textContent?.trim()).toBe('2 KB');
+  });
+
+  it('updates totals when processes are filtered', () => {
+    renderTab();
+    const checkbox = screen.getByRole('checkbox', { name: /Own processes only/ });
+    fireEvent.click(checkbox);
+
+    // Only pid 1 (ours: true, 900 B, 1.0% CPU)
+    const footer = document.querySelector('tfoot');
+    expect(footer).not.toBeNull();
+    const cells = footer!.querySelectorAll('td');
+    expect(cells[0]?.textContent?.trim()).toBe('Total (1 process)');
+    expect(cells[4]?.textContent?.trim()).toBe('1.0%');
+    expect(cells[5]?.textContent?.trim()).toBe('900 B');
+  });
+
+  it('handles empty filtered results gracefully', () => {
+    renderTab();
+    const input = screen.getByPlaceholderText('Filter processes or PID…');
+    fireEvent.change(input, { target: { value: 'nonexistent-process-query' } });
+
+    const footer = document.querySelector('tfoot');
+    expect(footer).not.toBeNull();
+    const cells = footer!.querySelectorAll('td');
+    expect(cells[0]?.textContent?.trim()).toBe('Total (0 processes)');
+    expect(cells[4]?.textContent?.trim()).toBe('—');
+    expect(cells[5]?.textContent?.trim()).toBe('0 B');
   });
 });
 
