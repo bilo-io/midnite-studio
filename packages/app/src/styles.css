@@ -190,8 +190,12 @@
 }
 
 .pill-shimmer {
-  animation: pill-shimmer 2.4s ease-in-out infinite;
+  animation: pill-shimmer 2.4s ease-in-out infinite paused;
   animation-delay: calc((var(--pill-i, 0) - 2) * 0.4s);
+}
+
+html:not([data-window-focused='false']) .pill-shimmer {
+  animation-play-state: running;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -356,7 +360,11 @@ html[data-motion='reduced'] .agent-count-text {
     hsl(var(--accent) / 0.6) 100%
   );
   background-size: 250% 100%;
-  animation: repo-row-shimmer 24.5s ease-in-out infinite;
+  animation: repo-row-shimmer 24.5s ease-in-out infinite paused;
+}
+
+html:not([data-window-focused='false']) .repo-row-shimmer {
+  animation-play-state: running;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -850,7 +858,11 @@ html[data-motion='reduced'] :root {
   text-shadow:
     0 0 28px hsl(var(--sv-tint, var(--foreground)) / 0.58),
     0 0 60px hsl(var(--sv-tint, var(--foreground)) / 0.35);
-  animation: screensaver-sheen 6s ease-in-out infinite alternate;
+  animation: screensaver-sheen 6s ease-in-out infinite alternate paused;
+}
+
+html:not([data-window-focused='false']) .screensaver-title {
+  animation-play-state: running;
 }
 
 .screensaver-title[data-mode='active'] {
@@ -972,7 +984,7 @@ html[data-motion='reduced'] .screensaver-title {
     radial-gradient(ellipse 95% 95% at 50% 50%, transparent 50%, #000 85%);
   mask-composite: intersect;
   -webkit-mask-composite: source-in;
-  animation: loop-glow-spin 4s linear infinite;
+  animation: loop-glow-spin 4s linear infinite paused;
 }
 
 .tab-loop-active-arc::after {
@@ -1005,7 +1017,12 @@ html[data-motion='reduced'] .screensaver-title {
     radial-gradient(ellipse 95% 95% at 50% 50%, transparent 35%, #000 80%);
   mask-composite: intersect;
   -webkit-mask-composite: source-in;
-  animation: loop-glow-spin 4s linear infinite;
+  animation: loop-glow-spin 4s linear infinite paused;
+}
+
+html:not([data-window-focused='false']) .tab-loop-active-arc::before,
+html:not([data-window-focused='false']) .tab-loop-active-arc::after {
+  animation-play-state: running;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1034,9 +1051,13 @@ html[data-motion='reduced'] .tab-loop-active-arc::after {
  * than two bands sitting on screen together. Same keyframes, same per-tab
  * element, same easing — this only retimes it. */
 .tab-loop-shimmer {
-  animation: pill-shimmer 4.8s ease-in-out infinite;
+  animation: pill-shimmer 4.8s ease-in-out infinite paused;
   animation-delay: calc(var(--tab-i, 0) * 0.8s);
   opacity: 0.35;
+}
+
+html:not([data-window-focused='false']) .tab-loop-shimmer {
+  animation-play-state: running;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1074,11 +1095,12 @@ html[data-motion='reduced'] .tab-loop-shimmer {
     );
   background-origin: border-box;
   background-clip: padding-box, border-box;
-  animation: breadcrumb-spin 4s linear infinite;
+  animation: breadcrumb-spin 4s linear infinite paused;
   transition: all 0.2s ease-in-out;
 }
 
 .breadcrumb-repo-pill:hover {
+  animation-play-state: running;
   background-image: conic-gradient(
     from var(--breadcrumb-angle, 0deg),
     rgba(244, 63, 94, 0.85),
@@ -1613,7 +1635,11 @@ html[data-motion='reduced'] .landing-slide-in {
  * `[data-fab-tab]`.
  */
 .gradient-frame {
-  animation: fab-panel-spin 4s linear infinite;
+  animation: fab-panel-spin 4s linear infinite paused;
+}
+
+html:not([data-window-focused='false']) .gradient-frame:not([data-loops-running='false']) {
+  animation-play-state: running;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1894,13 +1920,17 @@ html[data-motion='reduced'] .gradient-frame {
    * are gone (see `html[data-motion='reduced']` below). */
   opacity: 0.5;
   animation:
-    fab-panel-spin 4s linear infinite,
-    fab-glow-pulse 3.2s ease-in-out infinite;
+    fab-panel-spin 4s linear infinite paused,
+    fab-glow-pulse 3.2s ease-in-out infinite paused;
   /* The same 0.5s sweep the host's border runs, so the rim's arc and the
    * ring's arc never show a different tab at the same moment. */
   transition:
     --fab-arc-from 0.5s ease,
     --fab-arc-to 0.5s ease;
+}
+
+html:not([data-window-focused='false']) .gradient-frame:not([data-loops-running='false'])::before {
+  animation-play-state: running, running;
 }
 
 /*
@@ -2111,7 +2141,7 @@ html[data-motion='reduced'] .gradient-frame {
 }
 
 .companion-face[data-companion-state='listening'] {
-  animation: companion-breathe 2.4s ease-in-out infinite;
+  animation: companion-breathe 2.4s ease-in-out infinite paused;
   box-shadow:
     0 0 var(--companion-glow) rgba(45, 212, 191, 0.6),
     inset 0 0 8px rgba(56, 189, 248, 0.35),
@@ -2154,8 +2184,8 @@ html[data-motion='reduced'] .gradient-frame {
     linear-gradient(var(--companion-fill), var(--companion-fill)),
     conic-gradient(from var(--companion-angle), var(--companion-ramp));
   animation:
-    companion-spin 3s linear infinite,
-    companion-think-pulse 1.6s ease-in-out infinite;
+    companion-spin 3s linear infinite paused,
+    companion-think-pulse 1.6s ease-in-out infinite paused;
 }
 
 /*
@@ -2168,8 +2198,12 @@ html[data-motion='reduced'] .gradient-frame {
     linear-gradient(var(--companion-fill), var(--companion-fill)),
     conic-gradient(from var(--companion-angle), var(--rainbow-ramp));
   animation:
-    companion-spin 6s linear infinite,
-    companion-think-pulse 3.2s ease-in-out infinite;
+    companion-spin 6s linear infinite paused,
+    companion-think-pulse 3.2s ease-in-out infinite paused;
+}
+
+html:not([data-window-focused='false']) .companion-face[data-companion-state] {
+  animation-play-state: running, running;
 }
 
 /*
@@ -2861,7 +2895,7 @@ html[data-motion='reduced'] .gradient-frame::before {
     );
   background-origin: border-box;
   background-clip: padding-box, border-box;
-  animation: loop-glow-spin 4s linear infinite;
+  animation: loop-glow-spin 4s linear infinite paused;
   box-shadow:
     0 0 6px rgba(236, 72, 153, 0.3),
     0 0 10px rgba(59, 130, 246, 0.2);
@@ -2906,11 +2940,15 @@ html[data-motion='reduced'] .gradient-frame::before {
     --fab-arc-to 0.5s ease;
 }
 
+html:not([data-window-focused='false']) .loop-run-glow {
+  animation-play-state: running, running;
+}
+
 /* Thinking: the glow breathes. A live-but-idle loop keeps the steady ring. */
 .loop-run-glow.is-thinking {
   animation:
-    loop-glow-spin 4s linear infinite,
-    loop-glow-pulse 2s ease-in-out infinite;
+    loop-glow-spin 4s linear infinite paused,
+    loop-glow-pulse 2s ease-in-out infinite paused;
 }
 
 /* Waiting on you: one steady amber ring, no rotation, no pulse. A full ring,
@@ -3292,7 +3330,7 @@ html[data-motion='reduced'] .dep-edge-animated {
   filter: blur(6px);
   /* The pulse's trough, and what a blurred window or reduced motion rests at. */
   opacity: 0.6;
-  animation: loop-glow-spin 4s linear infinite;
+  animation: loop-glow-spin 4s linear infinite paused;
   mask-image: conic-gradient(
     from calc(var(--loop-glow-angle, 0deg) + var(--fab-arc-from, 0deg)),
     #000 0deg,
@@ -3327,8 +3365,12 @@ html[data-motion='reduced'] .dep-edge-animated {
 
 .fab-loop-halo.is-pulsing {
   animation:
-    loop-glow-spin 4s linear infinite,
-    fab-halo-pulse 2.6s ease-in-out infinite;
+    loop-glow-spin 4s linear infinite paused,
+    fab-halo-pulse 2.6s ease-in-out infinite paused;
+}
+
+html:not([data-window-focused='false']) .fab-loop-halo {
+  animation-play-state: running, running;
 }
 
 .fab-loop-halo.is-pulsing.is-thinking {
@@ -3520,7 +3562,7 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
 
 .graph-lane-glow {
   filter: drop-shadow(0 0 3px hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.9));
-  animation: graph-lane-glow 2.4s ease-in-out infinite;
+  animation: graph-lane-glow 2.4s ease-in-out infinite paused;
   pointer-events: none;
 }
 
@@ -3538,7 +3580,7 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
 }
 
 .graph-rail-glow {
-  animation: graph-rail-glow 2.4s ease-in-out infinite;
+  animation: graph-rail-glow 2.4s ease-in-out infinite paused;
 }
 
 /* Ref badges on the lit lane. The border/glow pulses in sync with the rail and lane halo. */
@@ -3557,7 +3599,7 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
 }
 
 .graph-badge-glow {
-  animation: graph-badge-glow 2.4s ease-in-out infinite;
+  animation: graph-badge-glow 2.4s ease-in-out infinite paused;
 }
 
 /* Reduced motion keeps the highlight and drops the pulse — the glow is what
@@ -3663,7 +3705,7 @@ html[data-motion='reduced'] .graph-badge-glow {
 }
 
 .commit-text-pulse {
-  animation: commit-text-pulse 2s ease-in-out infinite;
+  animation: commit-text-pulse 2s ease-in-out infinite paused;
 }
 
 /* 'muted' (20m-30m): the same pulse, both dimensions turned down — a
@@ -3689,7 +3731,7 @@ html[data-motion='reduced'] .graph-badge-glow {
 }
 
 .commit-text-pulse-muted {
-  animation: commit-text-pulse-muted 2s ease-in-out infinite;
+  animation: commit-text-pulse-muted 2s ease-in-out infinite paused;
 }
 
 /* The row's own glow, `inset` on both stops. Rows are stacked flush in a
@@ -3710,7 +3752,7 @@ html[data-motion='reduced'] .graph-badge-glow {
 }
 
 .commit-row-glow {
-  animation: commit-row-glow 2s ease-in-out infinite;
+  animation: commit-row-glow 2s ease-in-out infinite paused;
 }
 
 @keyframes commit-row-shimmer {
@@ -3736,7 +3778,7 @@ html[data-motion='reduced'] .graph-badge-glow {
     hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0.28) 50%,
     transparent 100%
   );
-  animation: commit-row-shimmer 2.5s ease-in-out infinite;
+  animation: commit-row-shimmer 2.5s ease-in-out infinite paused;
 }
 
 /* Reduced motion keeps the colour — which is the information — and freezes the
@@ -3793,6 +3835,33 @@ html[data-motion='reduced'] .commit-row-glow {
 html[data-motion='reduced'] .commit-row-shimmer::after {
   animation: none;
   display: none;
+}
+
+html:not([data-window-focused='false']) .graph-lane-glow,
+html:not([data-window-focused='false']) .graph-rail-glow,
+html:not([data-window-focused='false']) .graph-badge-glow,
+html:not([data-window-focused='false']) .commit-text-pulse,
+html:not([data-window-focused='false']) .commit-text-pulse-muted,
+html:not([data-window-focused='false']) .commit-row-glow,
+html:not([data-window-focused='false']) .commit-row-shimmer::after {
+  animation-play-state: running;
+}
+
+html[data-window-focused='false'] .graph-lane-glow,
+html[data-window-focused='false'] .graph-rail-glow,
+html[data-window-focused='false'] .graph-badge-glow,
+html[data-window-focused='false'] .commit-text-pulse,
+html[data-window-focused='false'] .commit-text-pulse-muted,
+html[data-window-focused='false'] .commit-row-glow,
+html[data-window-focused='false'] .commit-row-shimmer::after,
+[data-view-slot='graph'].hidden .graph-lane-glow,
+[data-view-slot='graph'].hidden .graph-rail-glow,
+[data-view-slot='graph'].hidden .graph-badge-glow,
+[data-view-slot='graph'].hidden .commit-text-pulse,
+[data-view-slot='graph'].hidden .commit-text-pulse-muted,
+[data-view-slot='graph'].hidden .commit-row-glow,
+[data-view-slot='graph'].hidden .commit-row-shimmer::after {
+  animation-play-state: paused;
 }
 
 /*
@@ -3937,6 +4006,11 @@ html[data-motion='reduced'] .panel-stack-pane {
   animation:
     loop-start-orbit 3s linear infinite,
     loop-start-halo 1.8s ease-in-out infinite;
+  animation-play-state: running, running;
+}
+
+html[data-window-focused='false'] .loop-start-gradient {
+  animation-play-state: paused;
 }
 
 /*
@@ -4120,17 +4194,17 @@ html[data-motion='reduced'] .optimizer-terminate {
 
 .optimizer-hero-drift > span:nth-child(1) {
   background: radial-gradient(circle at 30% 30%, hsl(var(--primary-foreground) / 0.34), transparent 62%);
-  animation: optimizer-hero-drift-a 17s ease-in-out infinite;
+  animation: optimizer-hero-drift-a 17s ease-in-out infinite paused;
 }
 
 .optimizer-hero-drift > span:nth-child(2) {
   background: radial-gradient(circle at 70% 60%, hsl(var(--primary-foreground) / 0.2), transparent 60%);
-  animation: optimizer-hero-drift-b 23s ease-in-out infinite;
+  animation: optimizer-hero-drift-b 23s ease-in-out infinite paused;
 }
 
 .optimizer-hero-drift > span:nth-child(3) {
   background: radial-gradient(circle at 50% 80%, hsl(var(--primary-foreground) / 0.26), transparent 65%);
-  animation: optimizer-hero-drift-c 29s ease-in-out infinite;
+  animation: optimizer-hero-drift-c 29s ease-in-out infinite paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4169,7 +4243,17 @@ html[data-motion='reduced'] .optimizer-hero-drift > span {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: optimizer-text-shimmer 4.5s linear infinite;
+  animation: optimizer-text-shimmer 4.5s linear infinite paused;
+}
+
+html:not([data-window-focused='false']) .optimizer-hero-drift > span,
+html:not([data-window-focused='false']) .optimizer-text-shimmer {
+  animation-play-state: running;
+}
+
+html[data-window-focused='false'] .optimizer-hero-drift > span,
+html[data-window-focused='false'] .optimizer-text-shimmer {
+  animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4277,8 +4361,12 @@ html[data-motion='reduced'] .optimizer-soft-glow {
   background-origin: border-box;
   background-clip: padding-box, border-box;
   animation:
-    breadcrumb-spin 4s linear infinite,
-    primary-agent-glow-pulse 2.5s ease-in-out infinite;
+    breadcrumb-spin 4s linear infinite paused,
+    primary-agent-glow-pulse 2.5s ease-in-out infinite paused;
+}
+
+html:not([data-window-focused='false']) .primary-agent-card {
+  animation-play-state: running, running;
 }
 
 @media (prefers-reduced-motion: reduce) {

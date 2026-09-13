@@ -3,7 +3,9 @@ import css from 'virtual:midnite-styles-raw';
 import tailwindConfig from 'virtual:midnite-tailwind-config-raw';
 import {
   findDuplicateKeyframes,
+  findUngatedLoops,
   findUnguardedKeyframes,
+  LOOP_GATE_ALLOWLIST,
   tailwindKeyframeNames,
 } from './styles-motion-guards';
 
@@ -62,7 +64,12 @@ describe('styles.css motion guards (Phase 46 Theme F)', () => {
   it('every keyframe is guarded by a reduced-motion rule, or explicitly allowlisted', () => {
     expect(findUnguardedKeyframes(css)).toEqual([]);
   });
+
+  it('every infinite loop animation is gated by animation-play-state, or explicitly allowlisted', () => {
+    expect(findUngatedLoops(css, LOOP_GATE_ALLOWLIST)).toEqual([]);
+  });
 });
+
 
 /**
  * Phase 84 Theme K.6: the guard learns to see `tailwind.config.ts`'s own
@@ -156,3 +163,40 @@ describe('styles-motion-guards fixtures (Phase 46 Theme H)', () => {
     ]);
   });
 });
+
+describe('findUngatedLoops fixtures (Phase 85 Theme F)', () => {
+  it('flags an infinite animation with no animation-play-state gate', () => {
+    expect(findUngatedLoops('@keyframes spin{}\n.spinner{animation: spin 1s infinite;}')).toEqual([
+      'spin',
+    ]);
+  });
+
+  it('clears an infinite animation once its consuming class has an animation-play-state rule', () => {
+    const css = `
+      @keyframes spin{}
+      .spinner{animation: spin 1s infinite paused;}
+      :root:has(.active) .spinner{animation-play-state: running;}
+    `;
+    expect(findUngatedLoops(css)).toEqual([]);
+  });
+
+  it('respects LOOP_GATE_ALLOWLIST entries', () => {
+    const css = '@keyframes sweep{}\n.bar{animation: sweep 1s infinite;}';
+    expect(findUngatedLoops(css, { sweep: 'allowlisted sweep' })).toEqual([]);
+  });
+
+  it('ignores single-shot (non-infinite) animations', () => {
+    const css = '@keyframes pop{}\n.btn{animation: pop 0.2s ease-out;}';
+    expect(findUngatedLoops(css)).toEqual([]);
+  });
+
+  it('recognizes a `:root` gate with no class involved', () => {
+    const css = `
+      @keyframes gradient-spin{}
+      :root{animation: gradient-spin 4s linear infinite paused;}
+      :root:has(.active){animation-play-state: running;}
+    `;
+    expect(findUngatedLoops(css)).toEqual([]);
+  });
+});
+
