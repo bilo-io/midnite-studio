@@ -1953,7 +1953,7 @@ export function buildMockBridge(data: MockFixtures) {
             args: [],
             accent: '#4285F4',
             icon: 'antigravity',
-            install: 'curl -fsSL https://antigravity.google/install.sh | bash',
+            install: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
             update: 'agy update',
             uninstall: 'rm -f ~/.local/bin/agy',
             docsUrl: 'https://github.com/google-deepmind/antigravity',
