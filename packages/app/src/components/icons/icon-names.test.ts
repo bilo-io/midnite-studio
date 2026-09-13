@@ -1,3 +1,4 @@
+import * as Gi from 'react-icons/gi';
 import * as Go from 'react-icons/go';
 import * as Lu from 'react-icons/lu';
 import * as Pi from 'react-icons/pi';
@@ -59,6 +60,7 @@ function importedNames(set: string): Map<string, string[]> {
 
 /** `[set, prefix, module namespace, how many imports must at least be found]`. */
 const SETS = [
+  ['gi', 'Gi', Gi, 1],
   ['lu', 'Lu', Lu, 50],
   ['go', 'Go', Go, 3],
   // Phosphor: `metric-icons.ts`'s footer glyphs and the Optimizer's broom.

@@ -1,7 +1,7 @@
 import { DEFAULT_LOOPS } from '@midnite/studio-shared';
 import { useLayoutEffect, useRef, useState, type Ref } from 'react';
 
-import { BrandMark } from '../../components/brand';
+import { GiHiveMind } from 'react-icons/gi';
 import { Tooltip } from '../../components/tooltip';
 import { useWindowFocused } from '../../lib/use-window-focus';
 import { useUiStore, type FabTab } from '../../store/ui-store';
@@ -139,7 +139,7 @@ export function FabLaunchers() {
             }}
             className="flex items-center rounded px-1 opacity-45 transition-opacity hover:opacity-100"
           >
-            <BrandMark className="h-3.5 w-3.5" />
+            <GiHiveMind className="h-3.5 w-3.5" />
           </button>
         </Tooltip>
       </div>
