@@ -211,4 +211,41 @@ describe('getProcessTableResult', () => {
     expect(result.processes).toHaveLength(0);
     expect(result.error).toBe('Could not parse the process table (5 lines, 0 rows).');
   });
+
+  it('merges mockMetrics with preferred CPU and sets ours: true (Phase 85 Theme E)', async () => {
+    const sampleRows: ProcessRow[] = [
+      { pid: 100, ppid: 1, stat: 'S', rssBytes: 50_000, cpuPercent: 1.0, args: 'midnite-helper' },
+      { pid: 200, ppid: 1, stat: 'S', rssBytes: 30_000, cpuPercent: 0.5, args: 'other-app' },
+    ];
+    const mockMetrics = [
+      {
+        pid: 100,
+        type: 'Tab' as const,
+        cpu: { percentCPUUsage: 8.5, idleWakeupsPerSecond: 0 },
+        creationTime: 12345,
+        memory: { workingSetSize: 0, peakWorkingSetSize: 0 },
+      },
+    ];
+
+    const result = await getProcessTableResult(sampleRows, mockMetrics);
+    const helper = result.processes.find((p) => p.pid === 100);
+    expect(helper?.cpuPercent).toBe(8.5); // Preferred Electron CPU
+    expect(helper?.rssBytes).toBe(50_000); // Preserved ps RSS
+    expect(helper?.ours).toBe(true);
+
+    const other = result.processes.find((p) => p.pid === 200);
+    expect(other?.cpuPercent).toBe(0.5);
+    expect(other?.ours).toBe(false);
+  });
+
+  it('includes owner attribution when provided in options', async () => {
+    const sampleRows: ProcessRow[] = [
+      { pid: 100, ppid: 1, stat: 'S', rssBytes: 50_000, cpuPercent: 1.0, args: 'midnite-helper' },
+    ];
+    const owners = new Map<number, string>([[100, 'Tab: GitHub']]);
+
+    const result = await getProcessTableResult(sampleRows, { owners });
+    expect(result.processes[0]?.owner).toBe('Tab: GitHub');
+  });
 });
+

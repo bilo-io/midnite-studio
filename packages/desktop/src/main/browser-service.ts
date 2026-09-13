@@ -87,6 +87,30 @@ export function setBrowserDiscardMs(ms: number): void {
 }
 
 /**
+ * Maps OS renderer PIDs of active browser tabs to human-readable tab descriptions
+ * (Phase 85 Theme E).
+ */
+export function getBrowserTabOwners(): Map<number, string> {
+  const result = new Map<number, string>();
+  for (const [tabId, tracked] of tabs) {
+    if (!tracked.view.webContents.isDestroyed()) {
+      try {
+        const pid = tracked.view.webContents.getOSProcessId();
+        if (pid > 0) {
+          const title = tracked.view.webContents.getTitle()?.trim();
+          const url = tracked.view.webContents.getURL()?.trim();
+          const label = title || url || tabId;
+          result.set(pid, `Tab: ${label}`);
+        }
+      } catch {
+        // webContents destroyed
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * Whether a tab currently eligible for the sweep to even consider should
  * actually be discarded — pure, so the threshold math has a direct unit
  * test the way `grantedWebglKeys`/`mountedSessionIds` do. `effectiveVisible`

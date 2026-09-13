@@ -1,10 +1,9 @@
-import { basename } from 'node:path';
-
 import type {
   OptimizerVoidResult,
   ProcessInfo,
   ProcessTableResult,
 } from '@midnite/studio-shared';
+import { app, type ProcessMetric } from 'electron';
 
 import {
   isOurProcess,
@@ -13,8 +12,16 @@ import {
   type ProcessRow,
   type PsParse,
 } from '../agent-process';
+import { getAppOwners } from '../apps-service';
+import { getBrowserTabOwners } from '../browser-service';
 import { probeDetailedMemory } from '../metrics/memory';
-import { activePtyPids } from '../pty-service';
+import { activePtyPids, getPtySessionOwners } from '../pty-service';
+import { getWindowOwners } from '../window-manager';
+import {
+  commandName,
+  mergeAppMetrics,
+  propagateOwnerToDescendants,
+} from './app-metrics';
 
 /**
  * Process termination and process table provider (Phase 59 Theme D).
@@ -52,13 +59,65 @@ const PROTECTED_PROCESS_NAMES = new Set([
   'powerd',
 ]);
 
-function commandName(args: string): string {
-  const token = args.trim().split(/\s+/)[0] ?? '';
-  return basename(token);
+export type ProcessTableOptions = {
+  mockMetrics?: ProcessMetric[];
+  ptyPids?: readonly number[];
+  owners?: ReadonlyMap<number, string | null>;
+};
+
+function collectActiveOwners(rows: readonly ProcessRow[]): Map<number, string> {
+  const owners = new Map<number, string>();
+
+  // 1. Windows (main window + detached popout windows)
+  try {
+    for (const [pid, label] of getWindowOwners()) {
+      owners.set(pid, label);
+    }
+  } catch {
+    // webContents or window map not ready / in test
+  }
+
+  // 2. Browser tabs
+  try {
+    for (const [pid, label] of getBrowserTabOwners()) {
+      owners.set(pid, label);
+    }
+  } catch {
+    // browser service not initialized / in test
+  }
+
+  // 3. Embedded apps
+  try {
+    for (const [pid, label] of getAppOwners()) {
+      owners.set(pid, label);
+    }
+  } catch {
+    // apps service not initialized / in test
+  }
+
+  // 4. PTY sessions
+  try {
+    const ptyOwners = getPtySessionOwners();
+    for (const [pid, label] of ptyOwners) {
+      owners.set(pid, label);
+    }
+    // Propagate pty session labels to child processes in the pty tree
+    const propagated = propagateOwnerToDescendants(rows, ptyOwners);
+    for (const [pid, label] of propagated) {
+      if (!owners.has(pid)) {
+        owners.set(pid, label);
+      }
+    }
+  } catch {
+    // pty service not initialized / in test
+  }
+
+  return owners;
 }
 
 /**
  * Reads the machine's process table, identifies Midnite-owned processes,
+ * joins with Electron's `app.getAppMetrics()` and active registries,
  * and fetches the detailed physical memory breakdown.
  *
  * `error` (Phase 85 Theme B) distinguishes "nothing running" from "I do not
@@ -74,6 +133,7 @@ function commandName(args: string): string {
  */
 export async function getProcessTableResult(
   mockParsed?: ProcessRow[] | PsParse,
+  optionsOrMockMetrics?: ProcessMetric[] | ProcessTableOptions,
 ): Promise<ProcessTableResult> {
   const parsed = mockParsed
     ? Array.isArray(mockParsed)
@@ -81,17 +141,30 @@ export async function getProcessTableResult(
       : mockParsed
     : await readProcessTable();
   const rows = parsed?.rows ?? [];
-  const ptyPids = activePtyPids();
 
-  const processes: ProcessInfo[] = rows.map((row) => ({
-    pid: row.pid,
-    ppid: row.ppid,
-    name: commandName(row.args),
-    argv: row.args,
-    rssBytes: row.rssBytes,
-    cpuPercent: row.cpuPercent,
-    ours: isOurProcess(row.pid, rows, ptyPids),
-  }));
+  const opts: ProcessTableOptions = Array.isArray(optionsOrMockMetrics)
+    ? { mockMetrics: optionsOrMockMetrics }
+    : (optionsOrMockMetrics ?? {});
+
+  const ptyPids = opts.ptyPids ?? activePtyPids();
+
+  let metrics: ProcessMetric[] = [];
+  if (opts.mockMetrics) {
+    metrics = opts.mockMetrics;
+  } else {
+    try {
+      metrics = typeof app?.getAppMetrics === 'function' ? app.getAppMetrics() : [];
+    } catch {
+      metrics = [];
+    }
+  }
+
+  const owners = opts.owners ?? collectActiveOwners(rows);
+
+  const processes: ProcessInfo[] = mergeAppMetrics(rows, metrics, {
+    ptyPids,
+    owners,
+  });
 
   // Default sort: highest resident memory first
   processes.sort((a, b) => (b.rssBytes ?? 0) - (a.rssBytes ?? 0));

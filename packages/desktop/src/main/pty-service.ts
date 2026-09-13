@@ -19,6 +19,7 @@ import {
   inprocKillPty,
   inprocLivePtyFor,
   inprocPtySessionCount,
+  inprocPtySessionOwners,
   inprocReadScrollback,
   inprocResizePty,
   inprocScrollbackSessionIds,
@@ -634,6 +635,21 @@ export function activePtyPids(): number[] {
     return [...sessions.values()].map((s) => s.pid);
   }
   return inprocActivePtyPids();
+}
+
+/**
+ * Maps root PIDs of active PTY sessions to human-readable terminal labels
+ * (Phase 85 Theme E).
+ */
+export function getPtySessionOwners(): Map<number, string> {
+  if (brokerClient && brokerClient.getStatus().mode === 'broker') {
+    const result = new Map<number, string>();
+    for (const session of sessions.values()) {
+      result.set(session.pid, `Terminal: ${session.sessionId.slice(0, 8)}`);
+    }
+    return result;
+  }
+  return inprocPtySessionOwners();
 }
 
 export function killPty(ptyId: string): void {

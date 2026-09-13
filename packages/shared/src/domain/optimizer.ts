@@ -139,6 +139,12 @@ export const ProcessInfoSchema = z.object({
   cpuPercent: z.number().nonnegative().nullable(),
   /** Whether this app's own pty/agent session registry spawned it — see Decision 10. */
   ours: z.boolean(),
+  /**
+   * Human-readable attribution label indicating which window, browser tab,
+   * pty session, or utility service owns this process (Phase 85 Theme E).
+   * Null when not owned by or associated with any active registry.
+   */
+  owner: z.string().nullable(),
 });
 export type ProcessInfo = z.infer<typeof ProcessInfoSchema>;
 
