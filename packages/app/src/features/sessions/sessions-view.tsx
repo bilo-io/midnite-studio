@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import { Collapse } from '@bilo-io/ui';
-import type { AgentDefinition, ClosedSession } from '@midnite/studio-shared';
+import {
+  buildResumeCommand,
+  type AgentDefinition,
+  type ClosedSession,
+} from '@midnite/studio-shared';
 import {
   LuActivity,
   LuBot,
   LuChevronRight,
   LuFilter,
+  LuPlay,
   LuRefreshCw,
   LuSearch,
   LuTerminal,
@@ -30,6 +35,7 @@ import { useRefreshSessionHistory, useSessionHistory } from '../../services/quer
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useSessionsStore } from '../../store/sessions-store';
 import { agentLabelFor, useTerminalStore, type ConnectionState, type SessionActivity } from '../terminal/terminal-store';
+import { startAgent } from '../terminal/start-agent';
 import { useAgents } from '../terminal/use-agents';
 import {
   formatDuration,
@@ -130,7 +136,11 @@ function dotTooltipFor(
  * `window.ts` sets for a second live copy — it fetches a list and renders
  * it, seeds nothing, and drives no reveal, unlike `BrowserPane`.
  */
-export function SessionsView() {
+export function SessionsView({
+  onResume,
+}: {
+  onResume?: (session: ManagedSession) => void;
+} = {}) {
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
   const dialogs = useDialogs();
@@ -526,6 +536,7 @@ export function SessionsView() {
                 selectedId={selectedId}
                 onSelect={selectRow}
                 purgeOne={purgeOne}
+                onResume={onResume}
                 selectedIds={selectedIds}
                 toggleSelected={toggleSelected}
                 cascading={groupCascade.active}
@@ -563,6 +574,7 @@ function RepoSessionsGroup({
   selectedId,
   onSelect,
   purgeOne,
+  onResume,
   selectedIds,
   toggleSelected,
   cascading,
@@ -577,6 +589,7 @@ function RepoSessionsGroup({
   selectedId: string | null;
   onSelect: (session: ManagedSession) => void;
   purgeOne: (record: ClosedSession) => void;
+  onResume?: ((session: ManagedSession) => void) | undefined;
   selectedIds: ReadonlySet<string>;
   toggleSelected: (id: string) => void;
   cascading: boolean;
@@ -623,6 +636,7 @@ function RepoSessionsGroup({
             selected={record.id === selectedId}
             onSelect={() => onSelect(record)}
             onPurge={isClosedManagedSession(record) ? () => purgeOne(record) : undefined}
+            onResume={onResume ? () => onResume(record) : undefined}
             checked={selectedIds.has(record.id)}
             onToggleChecked={() => toggleSelected(record.id)}
             cascading={sessionCascade.active}
@@ -641,6 +655,7 @@ function SessionRow({
   selected,
   onSelect,
   onPurge,
+  onResume,
   checked,
   onToggleChecked,
   cascading,
@@ -653,6 +668,8 @@ function SessionRow({
   onSelect: () => void;
   /** Absent — not a disabled button — for anything that isn't a closed row. */
   onPurge: (() => void) | undefined;
+  /** Optional override for the resume action (tests, parent delegates). */
+  onResume?: (() => void) | undefined;
   checked: boolean;
   onToggleChecked: () => void;
   cascading?: boolean;
@@ -669,6 +686,41 @@ function SessionRow({
       : null;
   const dotState = dotStateFor(record, connectionState);
   const dotTooltip = dotTooltipFor(record, connectionState, activity);
+
+  const conversationId = record.agentConversationId?.trim();
+  const resumeArgs =
+    agent && record.kind === 'agent'
+      ? buildResumeCommand(agent, conversationId)
+      : null;
+
+  const resumeTooltip =
+    resumeArgs && agent
+      ? conversationId
+        ? `Resume conversation ${conversationId} (${[agent.command, ...resumeArgs].join(' ')})`
+        : `Resume most recent conversation in this directory rather than this session (${[agent.command, ...resumeArgs].join(' ')})`
+      : '';
+
+  /**
+   * Resume restores a conversation rather than acting on the repository, so it
+   * auto-sends — a deliberate exception to `startAgent`'s `autoSend: false` default.
+   */
+  const handleResume = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (onResume) {
+      onResume();
+      return;
+    }
+    if (!agent || !resumeArgs) return;
+    startAgent({
+      repoId: record.repoId,
+      cwd: record.cwd,
+      title: record.title,
+      agentId: agent.id,
+      command: agent.command,
+      extraArgs: resumeArgs,
+      autoSend: true,
+    });
+  };
 
   return (
     <div
@@ -727,12 +779,21 @@ function SessionRow({
           <span className="shrink-0 tabular-nums text-[11px] text-destructive">{record.exitCode}</span>
         ) : null}
       </button>
+      {resumeArgs ? (
+        <IconButton
+          icon={LuPlay}
+          label={resumeTooltip}
+          size="sm"
+          className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+          onClick={handleResume}
+        />
+      ) : null}
       {onPurge ? (
         <IconButton
           icon={LuTrash2}
           label="Purge session"
           size="sm"
-          className="shrink-0 opacity-0 group-hover:opacity-100"
+          className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           onClick={onPurge}
         />
       ) : null}

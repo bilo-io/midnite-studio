@@ -132,4 +132,10 @@ describe('startAgent — the words that reach the shell', () => {
     expect(queued({ autoSend: true }).endsWith('\r')).toBe(true);
     expect(queued().endsWith('\r')).toBe(false);
   });
+
+  it('omits prompt when none is provided (e.g. for resume)', () => {
+    expect(queued({ prompt: undefined, extraArgs: ['--resume', 'abcd-1234'] })).toBe(
+      'claude --resume abcd-1234',
+    );
+  });
 });
