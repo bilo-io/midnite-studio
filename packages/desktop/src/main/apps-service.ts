@@ -321,6 +321,27 @@ export function isAppDiscarded(id: AppId): boolean {
   return discardedApps.has(id);
 }
 
+/**
+ * Maps OS renderer PIDs of active embedded app views to human-readable labels
+ * (Phase 85 Theme E).
+ */
+export function getAppOwners(): Map<number, string> {
+  const result = new Map<number, string>();
+  for (const [id, tracked] of apps) {
+    if (!tracked.view.webContents.isDestroyed()) {
+      try {
+        const pid = tracked.view.webContents.getOSProcessId();
+        if (pid > 0) {
+          result.set(pid, `App: ${APP_DEFINITIONS[id]?.label ?? id}`);
+        }
+      } catch {
+        // webContents destroyed
+      }
+    }
+  }
+  return result;
+}
+
 /** Window close, `before-quit`: destroy every tracked app view — nothing survives past the process. */
 export function destroyAllApps(): void {
   stopAppsDiscardSweep();

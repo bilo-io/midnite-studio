@@ -222,4 +222,12 @@ export function inprocActivePtyPids(): number[] {
   return [...sessions.values()].map((s) => s.pty.pid);
 }
 
+export function inprocPtySessionOwners(): Map<number, string> {
+  const result = new Map<number, string>();
+  for (const session of sessions.values()) {
+    result.set(session.pty.pid, `Terminal: ${session.sessionId.slice(0, 8)}`);
+  }
+  return result;
+}
+
 export const inprocPtySessionCount = (): number => sessions.size;

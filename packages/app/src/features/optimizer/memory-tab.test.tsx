@@ -23,6 +23,7 @@ const proc = (over: Partial<ProcessInfo>): ProcessInfo => ({
   rssBytes: 1_000,
   cpuPercent: 1,
   ours: false,
+  owner: null,
   ...over,
 });
 
@@ -180,3 +181,46 @@ describe('MemoryTab — the Terminate button', () => {
     expect(screen.getByText(/Send SIGTERM to stop alpha/)).toBeTruthy();
   });
 });
+
+describe('MemoryTab — Theme E additions (header note, Owner column, Own processes only)', () => {
+  it('renders the header note explaining RSS vs Activity Monitor memory', () => {
+    renderTab();
+    expect(
+      screen.getByText(/RSS counts shared pages, so this total reads above Activity Monitor's Memory column/),
+    ).toBeTruthy();
+  });
+
+  it('renders Owner column in header and cells with attribution or dash', () => {
+    installBridge();
+    const rows = [
+      proc({ pid: 10, name: 'alpha', owner: 'Main window' }),
+      proc({ pid: 11, name: 'beta', owner: null }),
+    ];
+    useOptimizerStore.setState({ processes: rows, memory: null });
+    render(<MemoryTab />);
+
+    expect(screen.getByRole('columnheader', { name: 'Owner' })).toBeTruthy();
+    expect(screen.getByText('Main window')).toBeTruthy();
+    expect(screen.getByLabelText('none')).toBeTruthy(); // The — dash
+  });
+
+  it('filters to own processes when "Own processes only" checkbox is checked', () => {
+    renderTab();
+    // Initially all 3 processes are visible
+    expect(pidOrder()).toEqual(['1', '2', '3']);
+
+    const checkbox = screen.getByRole('checkbox', { name: /Own processes only/ }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+
+    fireEvent.click(checkbox);
+    expect(checkbox.checked).toBe(true);
+
+    // Only pid 1 has ours: true
+    expect(pidOrder()).toEqual(['1']);
+
+    fireEvent.click(checkbox);
+    expect(checkbox.checked).toBe(false);
+    expect(pidOrder()).toEqual(['1', '2', '3']);
+  });
+});
+

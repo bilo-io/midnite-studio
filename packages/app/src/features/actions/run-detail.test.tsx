@@ -1,7 +1,7 @@
 import type { ForgeJob, ForgeRun } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../store/ui-store';
 import { RunDetail } from './run-detail';
@@ -83,6 +83,10 @@ describe('RunDetail resizable panels', () => {
       workflows: [],
       error: null,
     });
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it('renders a vertical resize handle and resizable jobs pane', () => {

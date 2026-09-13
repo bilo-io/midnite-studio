@@ -136,6 +136,7 @@ export function MemoryTab() {
   const processesError = useOptimizerStore((s) => s.processesError);
 
   const [query, setQuery] = useState('');
+  const [ownOnly, setOwnOnly] = useState(false);
   const [sort, setSort] = useState<Sort>({ key: 'rss', dir: 'desc' });
   const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null);
   const [sentSigtermPids, setSentSigtermPids] = useState<Set<number>>(new Set());
@@ -191,17 +192,22 @@ export function MemoryTab() {
   };
 
   const filtered = useMemo(() => {
+    let list = processes;
+    if (ownOnly) {
+      list = list.filter((p) => p.ours);
+    }
     const q = query.trim().toLowerCase();
     const matched = !q
-      ? processes
-      : processes.filter(
+      ? list
+      : list.filter(
           (p) =>
             p.name.toLowerCase().includes(q) ||
+            Boolean(p.owner?.toLowerCase().includes(q)) ||
             p.argv.toLowerCase().includes(q) ||
             String(p.pid).includes(q),
         );
     return [...matched].sort((a, b) => compareProcesses(a, b, sort));
-  }, [processes, query, sort]);
+  }, [processes, ownOnly, query, sort]);
 
   // Clicking the active column flips it; clicking another starts that column
   // at its own natural direction rather than inheriting the last one's.
@@ -313,14 +319,29 @@ export function MemoryTab() {
       <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-border bg-card shadow-xs">
         {/* Table Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-foreground">Processes</h3>
-            <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-              {filtered.length}
-            </span>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground">Processes</h3>
+              <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                {filtered.length}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              RSS counts shared pages, so this total reads above Activity Monitor&apos;s Memory column.
+            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground select-none">
+              <input
+                type="checkbox"
+                checked={ownOnly}
+                onChange={(e) => setOwnOnly(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-input bg-background text-primary focus:ring-1 focus:ring-primary"
+              />
+              <span>Own processes only</span>
+            </label>
+
             <div className="relative flex items-center">
               <LuSearch className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <input
@@ -359,6 +380,9 @@ export function MemoryTab() {
               <tr>
                 <SortHeader label="Process" columnKey="name" sort={sort} onSort={handleSort} />
                 <SortHeader label="PID" columnKey="pid" sort={sort} onSort={handleSort} align="right" />
+                <th scope="col" className="px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Owner
+                </th>
                 <SortHeader label="Type" columnKey="type" sort={sort} onSort={handleSort} />
                 <SortHeader label="CPU" columnKey="cpu" sort={sort} onSort={handleSort} align="right" />
                 <SortHeader label="Memory" columnKey="rss" sort={sort} onSort={handleSort} align="right" />
@@ -370,7 +394,7 @@ export function MemoryTab() {
             <tbody className="divide-y divide-border font-sans">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-8 text-center text-xs text-muted-foreground">
                     {query
                       ? 'No matching processes found.'
                       : (processesError ?? 'No processes reported.')}
@@ -397,6 +421,17 @@ export function MemoryTab() {
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-[11px] text-muted-foreground">
                         {proc.pid}
+                      </td>
+                      <td className="max-w-[180px] truncate px-3 py-2.5 font-sans text-[11px] text-muted-foreground">
+                        {proc.owner ? (
+                          <span title={proc.owner} className="truncate font-medium text-foreground">
+                            {proc.owner}
+                          </span>
+                        ) : (
+                          <span aria-label="none" className="text-muted-foreground/40">
+                            —
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2.5">
                         {proc.ours ? (

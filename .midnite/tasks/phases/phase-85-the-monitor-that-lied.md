@@ -400,7 +400,7 @@ Measure first, then cut. The phase does not pre-commit to a saving it has no num
 
 `ps` is the right tool for foreign processes and the wrong one for our own.
 
-- [ ] Midnite's own process tree comes from **`app.getAppMetrics()`** — verified present in the
+- [x] Midnite's own process tree comes from **`app.getAppMetrics()`** — verified present in the
       pinned Electron 33.4.11 typings (`electron.d.ts:1079`), returning `ProcessMetric[]` with
       `pid`, `type` (`'Browser' | 'Tab' | 'Utility' | 'Zygote' | 'Sandbox helper' | 'GPU' | …`),
       `serviceName`, `name`, `cpu.percentCPUUsage` and `creationTime`. Neither `getAppMetrics` nor
@@ -413,7 +413,7 @@ Measure first, then cut. The phase does not pre-commit to a saving it has no num
         RSS (see the next item), and sets `ours: true` for every pid in the metrics array — for our
         own processes Electron simply tells us, so `isOurProcess`'s pid walk stops being the only
         answer. It still runs for pty descendants, which Electron does not own.
-- [ ] **No footprint, and the doc says why.** Electron 33 cannot supply macOS `phys_footprint`:
+- [x] **No footprint, and the doc says why.** Electron 33 cannot supply macOS `phys_footprint`:
       `ProcessMetric.memory` is `MemoryInfo`, not `ProcessMemoryInfo`, and `ProcessMemoryInfo.residentSet`
       is marked `@platform linux,win32` in the typings — so `ps -o rss=` remains the only route to a
       resident figure on darwin, which is what makes Theme A load-bearing for this theme and for D.
@@ -421,21 +421,21 @@ Measure first, then cut. The phase does not pre-commit to a saving it has no num
         total reads above Activity Monitor's Memory column"* — and the acceptance below changes from
         "within 10% of Activity Monitor" to "the delta is explained".
       - `/usr/bin/footprint` was considered and declined (see Decisions).
-- [ ] **Per-helper attribution**: each renderer and utility process labelled with what it is *for* —
+- [x] **Per-helper attribution**: each renderer and utility process labelled with what it is *for* —
       which browser tab, which detached window role, which pty session — by joining
       `getAppMetrics()`'s pids against the registries that already exist (`activePtyPids()`, the
       browser tab registry, the window descriptor list). `ProcessInfo` gains
       `owner: z.string().nullable()`; the table gains an Owner column between Name and Type.
       This is the column that turns the table from a curiosity into something that answers "why is
       the app using 2 GB".
-- [ ] The Memory tab gains an **"Own processes only"** toggle — a checkbox in the filter row beside
+- [x] The Memory tab gains an **"Own processes only"** toggle — a checkbox in the filter row beside
       the existing search input, **defaulting off**, persisted nowhere (a view filter, not a
       preference; the surrounding tab keeps no persisted state today and this phase does not start).
       Keyboard-reachable in the existing tab order, labelled `Own processes only`, and it filters on
       `proc.ours` without touching the sort.
-- [ ] `probeDetailedMemory()` and the `memory` breakdown block are **unchanged** — `vm_stat` is
+- [x] `probeDetailedMemory()` and the `memory` breakdown block are **unchanged** — `vm_stat` is
       machine-wide and correct for that panel; only the per-process half of this surface moves.
-- [ ] *Acceptance:* with the app idle, the own-process count and the set of `type` labels match
+- [x] *Acceptance:* with the app idle, the own-process count and the set of `type` labels match
       Activity Monitor's Midnite Studio group exactly; the RSS total reads above it, and the header
       note explains why. Screenshot of both in the PR.
 

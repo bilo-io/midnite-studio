@@ -155,6 +155,27 @@ export function listWindows(): WindowDescriptor[] {
 }
 
 /**
+ * Maps OS renderer PIDs of open windows to human-readable window descriptions
+ * (Phase 85 Theme E).
+ */
+export function getWindowOwners(): Map<number, string> {
+  const result = new Map<number, string>();
+  for (const { win, role } of windows.values()) {
+    if (!win.isDestroyed()) {
+      try {
+        const pid = win.webContents.getOSProcessId();
+        if (pid > 0) {
+          result.set(pid, role === 'main' ? 'Main window' : `Window: ${role}`);
+        }
+      } catch {
+        // webContents destroyed
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * Record which repo a window's own renderer says it is showing (Theme D.1) —
  * called from the `windowReportRepo` IPC handler on every report, resolved by
  * `resolveWindow(event.sender)` the same way `windowRelay` is. A no-op for a
