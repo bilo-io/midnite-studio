@@ -44,7 +44,7 @@ jobs:
     # Linux runner is both faster and a tenth of the minutes.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # moon compares against the merge base to decide what is affected.
           fetch-depth: 0
