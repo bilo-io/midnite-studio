@@ -251,14 +251,17 @@ test('the cluster sheds width before the bar can overflow', async ({ page }) => 
   let previous: number = RANK.full;
 
   /*
-    The floor was 1060px until the title bar gave back the ~120px its wordmark
-    and that wordmark's divider used to hold: the cluster now has room to stay
-    `full` down to ~960px, and only reaches `collapsed` below that. The number
-    is a floor for the walk, not an assertion about any particular width —
-    what is asserted is still the invariant at every step, plus `collapsed`
-    by the end.
+    The floor was 900px until the title bar's per-repo cluster consolidated
+    into one `TitleBarMidniteMenu` button — Setup/Update, Install/Build/Test/
+    Launch and the midnite skill menu used to draw as separate controls with
+    two dividers between them, now one button with one leading divider. The
+    freed width still lets the cluster stay `full` down to ~960px, but
+    `collapsed` now only arrives around ~880px, below the old 900px floor.
+    The number is a floor for the walk, not an assertion about any particular
+    width — what is asserted is still the invariant at every step, plus
+    `collapsed` by the end.
   */
-  for (let width = 1400; width >= 900; width -= 40) {
+  for (let width = 1400; width >= 760; width -= 40) {
     await page.setViewportSize({ width, height: 800 });
 
     /*

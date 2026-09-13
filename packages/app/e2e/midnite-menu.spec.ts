@@ -352,8 +352,9 @@ test('switching the primary agent in Settings changes which binary and prefix th
 /**
  * Setup and Update, which spent one phase as the midnite menu's sixth group
  * and now live with the repository's own tooling: heading the sidebar's
- * lifecycle ellipsis, above Install and behind a divider, and standing as two
- * more buttons ahead of the title bar's four.
+ * lifecycle ellipsis, above Install and behind a divider, and heading the
+ * title bar's single consolidated `TitleBarMidniteMenu` the same way, ahead
+ * of Install/Build/Test/Launch and the midnite skill groups.
  *
  * Neither is a skill-typing verb — Setup opens a dialog, Update types one
  * fixed shell command — so these specs stay separate from the generic "an
@@ -397,30 +398,32 @@ test.describe('Setup and Update', () => {
     await expect(menu.locator('hr')).toHaveCount(2);
   });
 
-  test('stand as two buttons ahead of the title bar cluster', async ({ page }) => {
+  test('head the title bar midnite menu, ahead of Install/Build/Test/Launch', async ({ page }) => {
     await openSidebar(page);
 
-    /*
-      Ordered, as a CSS selector list resolving in document order — the point
-      is that the pair sits *before* Install, not merely somewhere up there.
-    */
-    const labels = await page
-      .locator(
-        [
-          `button[aria-label="Set up the onboarding kit in ${REPO}"]`,
-          'button[aria-label^="Update Midnite Studio"]',
-          `button[aria-label="Install ${REPO}"]`,
-          `button[aria-label="Launch ${REPO}"]`,
-        ].join(', '),
-      )
-      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')));
+    await page.getByRole('button', { name: `Midnite actions for ${REPO}` }).click();
+    const menu = page.getByRole('menu').first();
 
-    expect(labels).toEqual([
-      `Set up the onboarding kit in ${REPO}`,
-      'Update Midnite Studio — rebuild and install this checkout',
-      `Install ${REPO}`,
-      `Launch ${REPO}`,
+    /*
+      Same pair, same order as the sidebar's lifecycle ellipsis — the two
+      surfaces share `useProjectActions`, so a repo cannot disagree with
+      itself about what Setup or Update means. No group/favourite rows here,
+      though: those are specific to the sidebar row's own ellipsis menu.
+    */
+    const labels = await menu
+      .getByRole('menuitem')
+      .evaluateAll((nodes) => nodes.map((node) => node.textContent));
+
+    expect(labels.slice(0, 6)).toEqual([
+      'Set up this repo',
+      'Update Midnite Studio',
+      'Install',
+      'Build',
+      'Test',
+      'Launch',
     ]);
+    // One rule ahead of the skill groups, one ahead of the lifecycle verbs.
+    await expect(menu.locator('hr')).toHaveCount(2);
   });
 
   test('Setup opens a dialog that renders the plan, grouped by status', async ({ page }) => {
