@@ -25,6 +25,7 @@ import {
   type AgentMode,
   type AgentStatus,
   type ClaudeInfo,
+  type SkillExecutionMode,
 } from '@midnite/studio-shared';
 
 import { IconButton } from '../../../components/icon-button';
@@ -39,7 +40,7 @@ import { useAgents } from '../../terminal/use-agents';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { FileTree } from '../../files/file-tree';
 import { FilePreview } from '../../files/preview/file-preview';
-import { Field } from './controls';
+import { Choice, Field } from './controls';
 
 /**
  * The Agent page: what `~/.claude` holds, which Claude CLI is installed, where
@@ -104,6 +105,7 @@ export function AgentPage() {
             arguments, or a plain sentence.
           </p>
           <PrimaryAgentPicker />
+          <SkillExecutionModePicker />
           <SkillFields />
         </div>
       </Accordion>
@@ -451,6 +453,28 @@ function PrimaryAgentPicker() {
         })}
       </div>
     </Field>
+  );
+}
+
+/**
+ * Execution mode when triggering skills from the midnite menu:
+ * interactive session vs headless print mode.
+ */
+function SkillExecutionModePicker() {
+  const mode = useUiStore((s) => s.skillExecutionMode);
+  const setMode = useUiStore((s) => s.setSkillExecutionMode);
+
+  return (
+    <Choice<SkillExecutionMode>
+      label="Execution mode"
+      hint="Whether triggering a skill opens an interactive session or executes headless in print mode."
+      value={mode}
+      onChange={setMode}
+      options={[
+        ['interactive', 'Interactive'],
+        ['headless', 'Headless'],
+      ]}
+    />
   );
 }
 

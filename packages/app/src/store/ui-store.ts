@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 import {
   DEFAULT_BROWSER_DISCARD_MS,
   DEFAULT_COMPANION_VOLUME,
+  DEFAULT_SKILL_EXECUTION_MODE,
   METRICS_IDLE_INTERVAL_MS,
   VIEW_IDS,
   type AgentMode,
@@ -18,6 +19,7 @@ import {
   type PageWindowRole,
   type PanelWindowRole,
   type SettingsPageId,
+  type SkillExecutionMode,
   type ViewId,
 } from '@midnite/studio-shared';
 
@@ -1170,6 +1172,11 @@ export type UiState = {
    */
   agentApiKeys: Record<string, string>;
   setAgentApiKey: (agentId: string, apiKey: string) => void;
+  /**
+   * Execution mode when triggering skills: 'interactive' (default) or 'headless'.
+   */
+  skillExecutionMode: SkillExecutionMode;
+  setSkillExecutionMode: (mode: SkillExecutionMode) => void;
 
   inactivityTimeoutS: number;
   setInactivityTimeout: (seconds: number) => void;
@@ -1642,6 +1649,7 @@ export type PersistedUi = Pick<
   | 'primaryAgent'
   | 'agentModes'
   | 'agentApiKeys'
+  | 'skillExecutionMode'
   | 'repoGroups'
   | 'repoGroupMembership'
   | 'collapsedRepoGroups'
@@ -1778,6 +1786,8 @@ export const useUiStore = create<UiState>()(
       agentApiKeys: {},
       setAgentApiKey: (agentId, apiKey) =>
         set((state) => ({ agentApiKeys: { ...state.agentApiKeys, [agentId]: apiKey } })),
+      skillExecutionMode: DEFAULT_SKILL_EXECUTION_MODE,
+      setSkillExecutionMode: (skillExecutionMode) => set({ skillExecutionMode }),
       inactivityTimeoutS: 900,
       setInactivityTimeout: (inactivityTimeoutS) => set({ inactivityTimeoutS }),
       // Matches `WORKFLOW_NODE_TIMEOUT_MS`/`MAX_STORED_WORKFLOW_RUNS_PER_WORKFLOW`
@@ -2441,6 +2451,7 @@ export const useUiStore = create<UiState>()(
         primaryAgent: state.primaryAgent,
         agentModes: state.agentModes,
         agentApiKeys: state.agentApiKeys,
+        skillExecutionMode: state.skillExecutionMode,
         repoGroups: state.repoGroups,
         repoGroupMembership: state.repoGroupMembership,
         collapsedRepoGroups: state.collapsedRepoGroups,

@@ -143,6 +143,7 @@ export function CardComposer({
     if (agentId !== 'claude') setModel('default');
   }, [agentId]);
 
+  const skillExecutionMode = useUiStore((s) => s.skillExecutionMode);
   const modelArgs = useMemo(() => loopModelArgs(agentId, model), [agentId, model]);
 
   const commandPreview = useMemo(() => {
@@ -151,10 +152,10 @@ export function CardComposer({
     return [
       agent.command,
       ...modelArgs,
-      ...agentInvocationArgs(agentId),
+      ...agentInvocationArgs(agentId, skillExecutionMode),
       shellQuote(toAgentPrompt(prompt, agentId)),
     ].join(' ');
-  }, [agents, agentId, modelArgs, prompt]);
+  }, [agents, agentId, modelArgs, prompt, skillExecutionMode]);
 
   /**
    * Shared by Start (`autoSend: false`) and Launch and run (`true`, Theme B)

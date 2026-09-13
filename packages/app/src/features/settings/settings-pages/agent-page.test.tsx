@@ -216,4 +216,23 @@ describe('AgentPage - Agents Roster', () => {
 
     expect(revealSpy).toHaveBeenCalledTimes(2);
   });
+
+  it('renders the Execution mode picker and updates skillExecutionMode on click', async () => {
+    useUiStore.setState({ skillExecutionMode: 'interactive' });
+    renderView(<AgentPage />, { fixtures });
+
+    const interactiveRadio = await screen.findByRole('radio', { name: 'Interactive' });
+    const headlessRadio = await screen.findByRole('radio', { name: 'Headless' });
+
+    expect(interactiveRadio).toBeTruthy();
+    expect(headlessRadio).toBeTruthy();
+    expect(interactiveRadio.getAttribute('aria-checked')).toBe('true');
+    expect(headlessRadio.getAttribute('aria-checked')).toBe('false');
+
+    fireEvent.click(headlessRadio);
+    expect(useUiStore.getState().skillExecutionMode).toBe('headless');
+
+    fireEvent.click(interactiveRadio);
+    expect(useUiStore.getState().skillExecutionMode).toBe('interactive');
+  });
 });

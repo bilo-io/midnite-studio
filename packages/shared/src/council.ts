@@ -11,7 +11,7 @@
  *
  * A council member's `provider` is restricted to the three roster agents that
  * already have a defined non-interactive invocation in
- * {@link agentInvocationArgs} (`agy`, `codex`, `opencode`) — every other
+ * {@link agentHeadlessArgs} (`agy`, `codex`, `opencode`) — every other
  * roster agent (including `claude` itself) has no headless flag today, so it
  * cannot be trusted to answer one prompt and exit rather than opening its own
  * interactive REPL.
@@ -25,8 +25,8 @@ import { z } from 'zod';
  *
  * Not the whole `BUILTIN_AGENTS` roster: a council member runs unattended (see
  * the auto-send note on {@link CouncilRunSchema}), so it must be one of the
- * roster ids `agentInvocationArgs` already knows how to invoke non-interactively.
- * Widening this list is a `start-agent.ts`/`agentInvocationArgs` change first,
+ * roster ids `agentHeadlessArgs` already knows how to invoke non-interactively.
+ * Widening this list is a `start-agent.ts`/`agentHeadlessArgs` change first,
  * not a councils one.
  */
 export const COUNCIL_MEMBER_PROVIDERS = ['agy', 'codex', 'opencode'] as const;
