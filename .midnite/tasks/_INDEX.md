@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 0/64 | `░░░░░░░░░░` | 0% | A E | B C D F G H |
+| [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 14/64 | `██░░░░░░░░` | 22% | — | B C D F G H |
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
 | [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 60/68 | `█████████░` | 88% | E F K | — |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | 🔄 WIP | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
@@ -204,11 +204,11 @@ found both agents that matter already keep it on disk keyed by cwd (`~/.claude/p
 why exact-id resume ships for two agents and the other ten keep their existing args. Meanwhile Notes
 is a `<textarea>` in a modal over localStorage — invisible to agents, to MCP and to a second window.*
 
-- ◻ **A** — One list, one truth: live + closed merged into one status-sorted list, live above closed; agent icon moves left of the title; the status dot gets a keyboard-reachable tooltip fed by the already-streamed `SessionActivitySchema`.
+- ✅ **A** — One list, one truth ([PR #376](https://github.com/bilo-io/midnite-studio/pull/376)): live + closed merged into one status-sorted list, live above closed; agent icon moves left of the title; the status dot gets a keyboard-reachable tooltip fed by the already-streamed `SessionActivitySchema`.
 - ◻ **B** — The conversation id: `agentConversationId` onto both session schemas (minding that `TerminalSessionSchema` is a `ZodEffects` and cannot be `.extend()`ed), a main-process adapter per agent reading Claude's and Codex's on-disk stores mtime-matched to the session window, best-effort and read-only.
 - ◻ **C** — Resume, in one click: a pure `buildResumeCommand`, an icon button + tooltip that opens a terminal prepopulated **and auto-sent** — an explicit documented exception to `startAgent`'s `autoSend: false` default — absent for `agy`/`cline`, honest about precision when there is no captured id.
 - ◻ **D** — The pane that shows a live terminal: closed → transcript, running → the real xterm, with **one xterm per pty** via `revealSession()` rather than a second mount; a store-level send-input action that does not exist today.
-- ◻ **E** — Notes leaves the modal: a `notes` ViewId and a rail row directly under Dashboard with a hairline delimiter (honouring Phase 39's "a separator must never be stranded"); the modal survives as quick-capture over the same store.
+- ✅ **E** — Notes leaves the modal ([PR #377](https://github.com/bilo-io/midnite-studio/pull/377)): a `notes` ViewId and a rail row directly under Dashboard with a hairline delimiter (honouring Phase 39's "a separator must never be stranded"); the modal survives as quick-capture over the same store.
 - ◻ **F** — Notes on disk: a main-process per-repo store under userData (never in the user's repos), a channel quartet, the `Note` shape moved to `shared`, and a localStorage→disk migration that writes-then-verifies and never deletes.
 - ◻ **G** — The Notes page proper: notes sidenav + content pane, lazy-loaded Monaco (a *third* Monaco surface — flagged against Phase 77), a markdown preview toggle over the existing `react-markdown` path, and Brainstorm / Execute-adhoc / status / delete carried across via `use-skill-handoff`.
 - ◻ **H** — Verification: merged-selector and adapter unit tests, migration paths, visual baselines for both surfaces, one e2e only for the real-xterm pane, and four human passes including a real Claude and a real Codex resume.

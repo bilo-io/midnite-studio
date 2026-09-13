@@ -89,27 +89,27 @@ keeping are already there: `handleDraftPlan` (`brainstorm`) and `handleAdhocTask
 
 ### Theme A — One list, one truth (M)
 
-- [ ] A single selector that merges live rows (`useTerminalStore`) and closed rows
+- [x] A single selector that merges live rows (`useTerminalStore`) and closed rows
       (`useSessionHistory()`) into one `ManagedSession[]`, discriminated by a `liveness:
       'running' | 'asleep' | 'closed'` field derived — never stored twice — from which store the row
       came from plus `TerminalSession.asleep`.
-- [ ] Live rows sort above closed ones; within each group the existing
+- [x] Live rows sort above closed ones; within each group the existing
       [`session-order.ts`](../../../packages/app/src/features/sessions/session-order.ts) ordering is
       preserved rather than reinvented.
-- [ ] `RepoSessionsGroup` ([`sessions-view.tsx:453`](../../../packages/app/src/features/sessions/sessions-view.tsx))
+- [x] `RepoSessionsGroup` ([`sessions-view.tsx:453`](../../../packages/app/src/features/sessions/sessions-view.tsx))
       keeps its per-repo grouping and now holds both kinds.
-- [ ] **The agent icon moves to the left of the title/name** in `SessionRow` (`:534`), ahead of the
+- [x] **The agent icon moves to the left of the title/name** in `SessionRow` (`:534`), ahead of the
       text rather than trailing it.
-- [ ] **The status dot gets a hover tooltip naming the state** — wrapped in the app's existing
+- [x] **The status dot gets a hover tooltip naming the state** — wrapped in the app's existing
       `<Tooltip>`, reading from `dotStateFor` (`:64`) extended to cover live states, and sourcing the
       live half from the already-streamed `SessionActivitySchema`
       (`'thinking' | 'waiting' | 'idle'`, [`terminal.ts:55`](../../../packages/shared/src/terminal.ts),
       delivered over `mstudio:pty:activity` and consumed by
       [`use-agent-activity.ts`](../../../packages/app/src/features/terminal/use-agent-activity.ts)).
       The dot is focusable so the tooltip is reachable by keyboard, not hover alone.
-- [ ] Purge stays closed-only; a running session offers no purge affordance at all (not a disabled
+- [x] Purge stays closed-only; a running session offers no purge affordance at all (not a disabled
       one).
-- [ ] The existing filters (`reason`, provider) grow a liveness facet, and the empty states in
+- [x] The existing filters (`reason`, provider) grow a liveness facet, and the empty states in
       [`sessions-skeletons.tsx`](../../../packages/app/src/features/sessions/sessions-skeletons.tsx)
       learn the "nothing running, nothing closed" case distinctly from "no repo open".
 
@@ -183,26 +183,26 @@ keeping are already there: `handleDraftPlan` (`brainstorm`) and `handleAdhocTask
 
 ### Theme E — Notes leaves the modal (M)
 
-- [ ] `'notes'` added to `VIEW_IDS` ([`view.ts:33`](../../../packages/shared/src/domain/view.ts)).
-- [ ] An icon in `VIEW_ICON` ([`components/nav-icons`](../../../packages/app/src/components/nav-icons.tsx)),
+- [x] `'notes'` added to `VIEW_IDS` ([`view.ts:33`](../../../packages/shared/src/domain/view.ts)).
+- [x] An icon in `VIEW_ICON` ([`components/nav-icons`](../../../packages/app/src/components/nav-icons.tsx)),
       from `react-icons/lu` per the house rule — never `lucide-react`, never the package root.
-- [ ] A rail row **directly under Dashboard**, above the `workspace` section — which means it sits
+- [x] A rail row **directly under Dashboard**, above the `workspace` section — which means it sits
       with `PINNED_ITEM` ([`app.tsx:312`](../../../packages/app/src/app.tsx)) rather than inside one
       of the three `NavItem` arrays (`:322`, `:331`, `:342`).
-- [ ] **A delimiter between Dashboard and Notes**, using the app's existing hairline idiom
+- [x] **A delimiter between Dashboard and Notes**, using the app's existing hairline idiom
       (`<span aria-hidden className="h-4 w-px shrink-0 bg-border" />`, [`app.tsx:1155`](../../../packages/app/src/app.tsx),
       rotated for a vertical rail) — and honouring the Phase 39 Theme B rule recorded at
       [`app.tsx:1128–1137`](../../../packages/app/src/app.tsx): **a separator must never be
       stranded.**
-- [ ] An entry in `VIEW_COMPONENT` ([`view-registry.tsx:142`](../../../packages/app/src/components/view-registry.tsx)) —
+- [x] An entry in `VIEW_COMPONENT` ([`view-registry.tsx:142`](../../../packages/app/src/components/view-registry.tsx)) —
       it is a `Record<ViewId, ViewEntry>`, **not** a `Partial`, so a missing entry is a typecheck
       failure, not a silent gap. Notes is `global: true` only if it can render with no repo open;
       decide that explicitly (see Decisions).
-- [ ] Palette label + keywords in
+- [x] Palette label + keywords in
       [`services/palette/providers.ts`](../../../packages/app/src/services/palette/providers.ts), and
       a popout role in `PAGE_WINDOW_ROLES` ([`window.ts`](../../../packages/shared/src/domain/window.ts))
       if Notes should detach.
-- [ ] **The modal survives as quick-capture.** The `N` leaf in
+- [x] **The modal survives as quick-capture.** The `N` leaf in
       [`quick-access-menu.tsx:62–65`](../../../packages/app/src/features/quick-access/quick-access-menu.tsx)
       still opens it; `ui-store`'s `notesOpen`/`toggleNotes` (`:582`, `:2187–2188`) are untouched.
       Both surfaces read one store, and a note added in one appears in the other without a reload.
