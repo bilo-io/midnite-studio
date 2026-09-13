@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | ◻ TODO | x1 | 0/59 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
+| [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 0/59 | `░░░░░░░░░░` | 0% | A B | C D E F G |
 | [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 60/68 | `█████████░` | 88% | E F K | — |
 | [83 · Third-party apps rail](phases/phase-83-third-party-apps-rail.md) | 🔄 WIP | — | 23/25 | `█████████░` | 92% | — | (2 human passes) |
 | [82 · The pyramid, righted](phases/phase-82-the-pyramid-righted.md) | 🔄 WIP | — | 46/75 | `██████░░░░` | 61% | — | C D F G |
