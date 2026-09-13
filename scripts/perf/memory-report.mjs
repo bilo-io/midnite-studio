@@ -99,8 +99,10 @@ import { classifyProcess } from './classify-process.mjs';
 // needs alongside `runRetention` itself.
 export { REPO_ROOT, mainWorktree, requireBuilt };
 
-const { BOOT_MARKS, RENDERER_MARKS } = sharedMarks();
-const EXPECTED = [...BOOT_MARKS, ...RENDERER_MARKS];
+function getExpectedMarks() {
+  const { BOOT_MARKS, RENDERER_MARKS } = sharedMarks();
+  return [...BOOT_MARKS, ...RENDERER_MARKS];
+}
 
 /** How many of the oldest/newest cycles the slope compares — see the module doc. */
 export const COMPARE_WINDOW = 5;
@@ -480,7 +482,8 @@ export async function runRetention({ actionName, cycles, repo, heapDiff = false 
     104-byte `sun_path` limit `broker-client.ts` checks, silently falling back
     to an in-process pty that never exercises what Theme C fixes.
   */
-  const profile = await seedProfile(repo, EXPECTED, { tmpPrefix: '/tmp/mstudio-perf-' });
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
 
   let devtoolsUrl = null;
   process.stderr.write(`launching with CDP + --expose-gc for '${action.label}' × ${cycles}…\n`);
@@ -488,7 +491,7 @@ export async function runRetention({ actionName, cycles, repo, heapDiff = false 
     profile,
     repo,
     extraArgs: ['--remote-debugging-port=0', '--js-flags=--expose-gc'],
-    until: (marks) => EXPECTED.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
     onLine: (line) => {
       const m = DEVTOOLS_LINE.exec(line.trim());
       if (m) devtoolsUrl = m[1];
@@ -582,7 +585,8 @@ export async function runRetention({ actionName, cycles, repo, heapDiff = false 
  */
 export async function runSoak({ repo, durationS = 3600, intervalS = 60 }) {
   requireBuilt();
-  const profile = await seedProfile(repo, EXPECTED, { tmpPrefix: '/tmp/mstudio-perf-' });
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
 
   let devtoolsUrl = null;
   process.stderr.write(
@@ -592,7 +596,7 @@ export async function runSoak({ repo, durationS = 3600, intervalS = 60 }) {
     profile,
     repo,
     extraArgs: ['--remote-debugging-port=0', '--js-flags=--expose-gc'],
-    until: (marks) => EXPECTED.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
     onLine: (line) => {
       const m = DEVTOOLS_LINE.exec(line.trim());
       if (m) devtoolsUrl = m[1];
@@ -705,7 +709,8 @@ export async function runSoak({ repo, durationS = 3600, intervalS = 60 }) {
 export async function runPopoutRss({ role, repo }) {
   requireBuilt();
 
-  const profile = await seedProfile(repo, EXPECTED, { tmpPrefix: '/tmp/mstudio-perf-' });
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
 
   let devtoolsUrl = null;
   process.stderr.write(`launching with CDP for a '${role}' popout…\n`);
@@ -713,7 +718,7 @@ export async function runPopoutRss({ role, repo }) {
     profile,
     repo,
     extraArgs: ['--remote-debugging-port=0'],
-    until: (marks) => EXPECTED.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
     onLine: (line) => {
       const m = DEVTOOLS_LINE.exec(line.trim());
       if (m) devtoolsUrl = m[1];
@@ -790,7 +795,8 @@ export async function runPopoutRss({ role, repo }) {
 export async function runHiddenSessionsRss({ repo, sessions = 10 }) {
   requireBuilt();
 
-  const profile = await seedProfile(repo, EXPECTED, { tmpPrefix: '/tmp/mstudio-perf-' });
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
 
   let devtoolsUrl = null;
   process.stderr.write(`launching with CDP for ${sessions} hidden terminal sessions…\n`);
@@ -798,7 +804,7 @@ export async function runHiddenSessionsRss({ repo, sessions = 10 }) {
     profile,
     repo,
     extraArgs: ['--remote-debugging-port=0'],
-    until: (marks) => EXPECTED.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
     onLine: (line) => {
       const m = DEVTOOLS_LINE.exec(line.trim());
       if (m) devtoolsUrl = m[1];
@@ -890,7 +896,8 @@ export async function runHiddenSessionsRss({ repo, sessions = 10 }) {
 export async function runHiddenTabsRss({ repo, tabs = 8 }) {
   requireBuilt();
 
-  const profile = await seedProfile(repo, EXPECTED, { tmpPrefix: '/tmp/mstudio-perf-' });
+  const expected = getExpectedMarks();
+  const profile = await seedProfile(repo, expected, { tmpPrefix: '/tmp/mstudio-perf-' });
 
   let devtoolsUrl = null;
   process.stderr.write(`launching with CDP for ${tabs} hidden browser tabs…\n`);
@@ -898,7 +905,7 @@ export async function runHiddenTabsRss({ repo, tabs = 8 }) {
     profile,
     repo,
     extraArgs: ['--remote-debugging-port=0'],
-    until: (marks) => EXPECTED.every((n) => marks.has(n)) && devtoolsUrl !== null,
+    until: (marks) => expected.every((n) => marks.has(n)) && devtoolsUrl !== null,
     onLine: (line) => {
       const m = DEVTOOLS_LINE.exec(line.trim());
       if (m) devtoolsUrl = m[1];
