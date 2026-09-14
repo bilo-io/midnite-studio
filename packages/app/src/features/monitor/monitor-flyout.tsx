@@ -82,20 +82,23 @@ export function MonitorFlyout() {
       {latest?.disk === undefined ? null : (
         <section className="mt-3 border-t border-border pt-3">
           <div className="mb-1 flex items-baseline justify-between text-[10px]">
-            <span className="flex items-center gap-1" style={{ color: metricColor('disk') }}>
+            <span
+              className="flex items-center gap-1"
+              style={{ color: metricColor('disk', latest.disk) }}
+            >
               {(() => {
                 const DiskIcon = METRIC_ICONS.disk;
                 return (
                   <DiskIcon
                     aria-hidden
                     className="h-3 w-3 shrink-0"
-                    style={{ color: metricColor('disk') }}
+                    style={{ color: metricColor('disk', latest.disk) }}
                   />
                 );
               })()}
               {METRIC_LABELS[METRIC_IDS[3]]}
             </span>
-            <span className="tabular-nums" style={{ color: metricColor('disk') }}>
+            <span className="tabular-nums" style={{ color: metricColor('disk', latest.disk) }}>
               {latest.diskBytes
                 ? formatUsage(latest.diskBytes.used, latest.diskBytes.total)
                 : `${Math.round(latest.disk)}%`}
@@ -114,7 +117,7 @@ export function MonitorFlyout() {
               className="h-full"
               style={{
                 width: `${latest.disk}%`,
-                backgroundColor: metricColor('disk'),
+                backgroundColor: metricColor('disk', latest.disk),
                 borderRadius: GAUGE_GEOMETRY.radius,
               }}
             />
@@ -126,8 +129,7 @@ export function MonitorFlyout() {
         className="mt-3 text-[10px] text-muted-foreground"
         style={{ borderTop: `1px solid ${metricFill('cpu', 0.15)}`, paddingTop: 8 }}
       >
-        Sampling every 2s while this is open. A dashed rule marks where the
-        interval changed.
+        Sampling every 2s while this is open. A dashed rule marks where the interval changed.
       </p>
     </div>
   );

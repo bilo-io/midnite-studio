@@ -44,6 +44,26 @@ describe('MonitorCluster', () => {
     expect(cpuText.style.color).toBe('rgb(52, 148, 244)');
     const memText = screen.getByText('60%');
     expect(memText.style.color).toBe('rgb(187, 103, 228)');
+    const diskText = screen.getByText('75%');
+    expect(diskText.style.color).toBe('rgb(244, 158, 37)');
+  });
+
+  it('uses the healthy disk colour across its icon, value, and donut', () => {
+    useMetricsStore.getState().push({
+      at: Date.now(),
+      disk: 5,
+    });
+
+    render(<MonitorCluster />);
+
+    const icon = screen.getByTestId('metric-icon-disk');
+    const value = screen.getByText('5%');
+    const donut = screen.getByTestId('metric-disk').querySelectorAll('circle');
+
+    expect(icon.style.color).toBe('rgb(62, 178, 52)');
+    expect(value.style.color).toBe(icon.style.color);
+    expect(donut[0]?.getAttribute('stroke')).toBe('hsl(115 55% 45% / 0.22)');
+    expect(donut[1]?.getAttribute('stroke')).toBe('hsl(115 55% 45%)');
   });
 
   it('shows tooltip on focus for metric', async () => {

@@ -44,7 +44,7 @@ export function MetricDonut({ id, percent }: { id: MetricId; percent: number }) 
         cy={centre}
         r={radius}
         fill="none"
-        stroke={metricFill(id, trackAlpha)}
+        stroke={metricFill(id, trackAlpha, percent)}
         strokeWidth={stroke}
       />
       <circle
@@ -52,7 +52,7 @@ export function MetricDonut({ id, percent }: { id: MetricId; percent: number }) 
         cy={centre}
         r={radius}
         fill="none"
-        stroke={metricColor(id)}
+        stroke={metricColor(id, percent)}
         strokeWidth={stroke}
         strokeDasharray={`${dash} ${circumference}`}
         transform={`rotate(-90 ${centre} ${centre})`}

@@ -73,11 +73,16 @@ describe('OptimizerMetrics', () => {
 
   it('draws disk as a capacity meter, never as a fourth chart', () => {
     installBridge();
-    useMetricsStore.getState().push({ at: 1_000, cpu: 40, disk: 72 });
+    useMetricsStore.getState().push({ at: 1_000, cpu: 40, disk: 5 });
     render(<OptimizerMetrics metrics={['cpu']} showDisk />);
 
     const meter = screen.getByRole('meter', { name: 'Disk capacity used' });
-    expect(meter.getAttribute('aria-valuenow')).toBe('72');
+    const diskLabel = screen.getByText('HDD').closest('span')!;
+    const diskBar = meter.firstElementChild as HTMLElement;
+
+    expect(meter.getAttribute('aria-valuenow')).toBe('5');
+    expect(diskLabel.style.color).toBe('rgb(62, 178, 52)');
+    expect(diskBar.style.backgroundColor).toBe(diskLabel.style.color);
     expect(screen.queryByRole('img', { name: /HDD over/ })).toBeNull();
   });
 });
