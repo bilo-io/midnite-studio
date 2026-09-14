@@ -66,6 +66,10 @@ export function useDialogs(): DialogApi {
   return api;
 }
 
+export function useOptionalDialogs(): DialogApi | null {
+  return useContext(DialogContext);
+}
+
 /*
   Plain module state, mirrored beside the three `useState`s below rather than
   read from them — Phase 81 Theme C's "the command's own dialogs survive

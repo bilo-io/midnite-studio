@@ -708,6 +708,7 @@ export const CHANNELS = {
   // resolves the checkout through `resolveWorkdir`, same rule as `diag*` above.
   scaffoldPlan: 'mstudio:scaffold:plan',
   scaffoldApply: 'mstudio:scaffold:apply',
+  scaffoldInstallUserSkills: 'mstudio:scaffold:install-user-skills',
 
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mstudio:window:minimize',

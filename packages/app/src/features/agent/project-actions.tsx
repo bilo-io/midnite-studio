@@ -1,14 +1,16 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
-import { LuDownload, LuWrench } from 'react-icons/lu';
+import { LuDownload, LuFolderDown, LuWrench } from 'react-icons/lu';
 
+import { useOptionalDialogs } from '../../components/dialog-host';
 import type { IconComponent } from '../../components/icon-button';
 import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { hasMidniteDir, hasPackagedBuild, isMidniteStudioCheckout } from './repo-capability';
 import { SetupDialog } from './setup-dialog';
+import { bridge } from '../../services/bridge';
 
 /**
  * Setup and Update — the two actions about the repository *itself*, rather
@@ -34,7 +36,7 @@ import { SetupDialog } from './setup-dialog';
  * agent CLI (`claude "…"`), which is exactly wrong for a literal command.
  */
 export type ProjectAction = {
-  key: 'setup' | 'update';
+  key: 'setup' | 'user-skills' | 'update';
   /** The menu row's label. */
   label: string;
   /**
@@ -76,6 +78,7 @@ export function useProjectActions(target: ProjectActionsTarget): {
   dialog: ReactNode;
 } {
   const { repoId, repoName, cwd, worktreePath } = target;
+  const dialogs = useOptionalDialogs();
   const [setupOpen, setSetupOpen] = useState(false);
   // Read once per repo, not on every menu open: both predicates are read-only
   // filesystem checks (Setup's own dialog re-reads the real plan when it
@@ -122,6 +125,35 @@ export function useProjectActions(target: ProjectActionsTarget): {
         : `Set up the onboarding kit in ${repoName}`,
       icon: LuWrench,
       onSelect: () => setSetupOpen(true),
+    },
+    {
+      key: 'user-skills',
+      label: 'Add Skills to user level',
+      buttonLabel: 'Add skills to user level (~/.claude/skills)',
+      icon: LuFolderDown,
+      onSelect: async () => {
+        const api = bridge();
+        if (!api) {
+          dialogs?.notify({
+            title: 'Add Skills to user level',
+            body: 'Cannot connect to app bridge.',
+          });
+          return;
+        }
+        const res = await api.scaffold.installUserSkills();
+        if (res.ok) {
+          const count = res.value.copied.length;
+          dialogs?.notify({
+            title: 'Skills installed',
+            body: `Successfully copied ${count} skill${count === 1 ? '' : 's'} to ${res.value.targetDir}.`,
+          });
+        } else {
+          dialogs?.notify({
+            title: 'Failed to add skills',
+            body: res.kind === 'error' ? res.message : 'Could not copy skills to user level.',
+          });
+        }
+      },
     },
     {
       key: 'update',

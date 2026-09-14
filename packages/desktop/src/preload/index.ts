@@ -492,6 +492,7 @@ const bridge: Pick<
   scaffold: {
     plan: (req) => call(CHANNELS.scaffoldPlan, req),
     apply: (req) => call(CHANNELS.scaffoldApply, req),
+    installUserSkills: (req = {}) => call(CHANNELS.scaffoldInstallUserSkills, req),
   },
   stats: {
     summary: (req) => call(CHANNELS.statsSummary, req),

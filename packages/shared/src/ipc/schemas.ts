@@ -92,6 +92,7 @@ import {
   RefSchema,
   ReflogEntrySchema,
   RemoteSchema,
+  InstallUserSkillsResultSchema,
   RebaseSequencePlanSchema,
   RepoDescriptorSchema,
   RepoStatsSchema,
@@ -1764,6 +1765,10 @@ export const ScaffoldApplyRequest = RepoId.extend({
   paths: z.array(z.string().min(1)),
 });
 export const ScaffoldApplyResponse = GitOpResultOf(ScaffoldApplyResultSchema);
+
+export const InstallUserSkillsRequest = z.object({}).default({});
+export type InstallUserSkillsRequest = z.infer<typeof InstallUserSkillsRequest>;
+export const InstallUserSkillsResponse = GitOpResultOf(InstallUserSkillsResultSchema);
 
 // --- repository statistics (Phase 19) --------------------------------------
 
