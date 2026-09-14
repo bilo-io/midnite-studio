@@ -1,0 +1,33 @@
+{
+  "artifactReviewPolicy": "always-proceed",
+  "model": "Gemini 3.8 Flash (Medium)",
+  "permissions": {
+    "allow": [
+      "command(pnpm test)",
+      "command(git status)"
+    ]
+  },
+  "runningLightSpeed": "fast",
+  "toolPermission": "always-proceed",
+  "trustedWorkspaces": [
+    "/Users/bilolwabona/Dev",
+    "/Users/bilolwabona/Dev/umbral",
+    "/Users/bilolwabona/Dev/retro-games",
+    "/Users/bilolwabona/Dev/midnite-git",
+    "/Users/bilolwabona/Dev/midnite-git/.worktrees/p30-fg",
+    "/Users/bilolwabona/Dev/midnite-git/.worktrees/p25-abc",
+    "/Users/bilolwabona/Dev/midnite",
+    "/Users/bilolwabona/Dev/ekko-videos",
+    "/Users/bilolwabona/Dev/midnite-studio/.worktrees/rename-midnite-studio",
+    "/Users/bilolwabona/Dev/ekko-v3/ekko-api",
+    "/Users/bilolwabona/Dev/midnite-studio",
+    "/Users/bilolwabona/Dev/ekko-v3/ekko-checkout",
+    "/Users/bilolwabona/Dev/midnite-studio/.worktrees/adhoc-ci-parallel",
+    "/Users/bilolwabona/Dev/midnite-studio/.worktrees/adhoc-landing-carousel",
+    "/private/tmp/claude-502/-Users-bilolwabona-Dev-midnite-studio/647d14f2-750d-46dd-8ce4-b1031860e78a/scratchpad/agy-run",
+    "/Users/bilolwabona/Dev/midnite-studio/.worktrees/p44-dfgh",
+    "/Users/bilolwabona/Dev/midnite-studio/.worktrees/adhoc-browser-ux",
+    "/Users/bilolwabona/Dev/midnite-media",
+    "/Users/bilolwabona/Dev/midnite-studio/.worktrees/adhoc-agy-prompt-interactive"
+  ]
+}
