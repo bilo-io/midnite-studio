@@ -10,6 +10,7 @@ vi.mock('../../components/dialog-host', () => ({
   useDialogs: () => ({
     openMenu: mockOpenMenu,
   }),
+  useOptionalDialogs: () => null,
 }));
 
 function createWrapper() {
@@ -50,6 +51,7 @@ describe('TitleBarMidniteMenu', () => {
 
     // Check that lifecycle actions are present
     const labels = items.map((i) => i.label ?? i.type);
+    expect(labels).toContain('Add Skills to user level');
     expect(labels).toContain('Install');
     expect(labels).toContain('Build');
     expect(labels).toContain('Test');

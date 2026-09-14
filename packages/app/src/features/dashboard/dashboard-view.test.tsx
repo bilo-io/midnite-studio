@@ -27,6 +27,7 @@ vi.mock('../../services/queries', () => ({
 
 vi.mock('../../components/dialog-host', () => ({
   useDialogs: () => ({ confirm: vi.fn(), prompt: vi.fn(), openMenu: vi.fn() }),
+  useOptionalDialogs: () => null,
 }));
 
 // The grid measures its container with a `ResizeObserver` and paints nothing at
