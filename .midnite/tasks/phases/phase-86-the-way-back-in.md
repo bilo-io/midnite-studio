@@ -141,23 +141,23 @@ keeping are already there: `handleDraftPlan` (`brainstorm`) and `handleAdhocTask
 
 ### Theme C — Resume, in one click (M)
 
-- [ ] A pure `buildResumeCommand(agent, conversationId)` in `shared`, returning the argv for that
+- [x] A pure `buildResumeCommand(agent, conversationId)` in `shared`, returning the argv for that
       agent: the exact-id form where the agent supports one, otherwise the agent's existing
       `AgentDefinition.resume` args unchanged, otherwise `null`.
-- [ ] An `IconButton` on every resumable row **with a tooltip** naming what it will run, sitting
+- [x] An `IconButton` on every resumable row **with a tooltip** naming what it will run, sitting
       beside the existing purge action in `SessionRow`.
-- [ ] Clicking it calls `startAgent({…, autoSend: true})` with the built command, opening a terminal
+- [x] Clicking it calls `startAgent({…, autoSend: true})` with the built command, opening a terminal
       **prepopulated and sent**.
-- [ ] **An explicit, documented exception to the house default.**
+- [x] **An explicit, documented exception to the house default.**
       [`start-agent.ts`](../../../packages/app/src/features/terminal/start-agent.ts) defaults
       `autoSend: false` on purpose — "the user's Return runs it". Resume restores a conversation
       rather than acting on the repo, so this phase carves the exception; the reason goes in a
       docblock at the call site, not in a commit message.
-- [ ] The button is absent — not disabled — for an agent with no resume path at all (`agy`, `cline`).
-- [ ] A row whose agent has `resume` args but **no captured id** still gets the button, with a
+- [x] The button is absent — not disabled — for an agent with no resume path at all (`agy`, `cline`).
+- [x] A row whose agent has `resume` args but **no captured id** still gets the button, with a
       tooltip that says plainly it resumes the most recent conversation in that directory rather than
       this one. The UI never implies precision it does not have.
-- [ ] Tests: one per agent shape — exact id, args-only fallback, no-resume — asserting the argv
+- [x] Tests: one per agent shape — exact id, args-only fallback, no-resume — asserting the argv
       built, and a view test asserting the tooltip text differs between the exact and fallback cases.
 
 ### Theme D — The pane that shows a live terminal (M/L)
@@ -209,27 +209,27 @@ keeping are already there: `handleDraftPlan` (`brainstorm`) and `handleAdhocTask
 
 ### Theme F — Notes on disk (L)
 
-- [ ] A main-process notes store writing per-repo files under the app's **userData** directory —
+- [x] A main-process notes store writing per-repo files under the app's **userData** directory —
       *not* inside the user's repositories, so notes are never a committed artefact. It follows
       [`session-history-store.ts`](../../../packages/desktop/src/main/session-history-store.ts)'s
       shape: a `createNotesStore(directory)` factory, an atomic write, and a `nullNotesStore` for
       tests.
-- [ ] A channel set in `channels.ts` — list / save / delete / reorder — mirroring the existing
+- [x] A channel set in `channels.ts` — list / save / delete / reorder — mirroring the existing
       `terminalList`/`terminalSave`/`terminalForget`/`terminalReorder` quartet (`:390–393`).
-- [ ] The `Note` shape moves to `shared` as a zod schema (today it is a bare TS type at
+- [x] The `Note` shape moves to `shared` as a zod schema (today it is a bare TS type at
       [`notes-store.ts:6–26`](../../../packages/app/src/store/notes-store.ts)), keeping
       `status: 'captured' | 'planned' | 'implemented'`, `done`, `order` and the timestamps.
-- [ ] **A one-way localStorage → disk migration that cannot lose a note.** It runs once, writes disk
+- [x] **A one-way localStorage → disk migration that cannot lose a note.** It runs once, writes disk
       first, verifies the read-back, and only then marks the localStorage payload migrated — it never
       deletes it. The existing v1→v2 `migrate` at `notes-store.ts:219` runs *before* this, so the
       migration reads a v2 payload.
-- [ ] Corrupt or unreadable notes file at boot degrades to an empty list plus a visible notice —
+- [x] Corrupt or unreadable notes file at boot degrades to an empty list plus a visible notice —
       never a blank view and never a crash (the Phase 65 posture).
-- [ ] Writes are debounced and serialised per repo; two windows editing the same note do not
+- [x] Writes are debounced and serialised per repo; two windows editing the same note do not
       interleave into a corrupt file.
-- [ ] `notes-store` keeps its zustand shape and its selectors (`notesForRepo`, `:53`) so
+- [x] `notes-store` keeps its zustand shape and its selectors (`notesForRepo`, `:53`) so
       `note-row.tsx` and `notes-modal.tsx` change as little as possible.
-- [ ] Tests: migration with a populated localStorage payload, migration with none, corrupt-file boot,
+- [x] Tests: migration with a populated localStorage payload, migration with none, corrupt-file boot,
       concurrent-write serialisation.
 
 ### Theme G — The Notes page proper (M)

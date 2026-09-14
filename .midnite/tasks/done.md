@@ -11536,3 +11536,23 @@ role's queries are ever mounted" already held by construction. H.4: `memory-repo
 
 `moon run :typecheck :lint :test` green (48 root, 935 shared, 26 db-engine (4 skipped), 265 website,
 524 git-engine, 4195 app, 1813 desktop (2 todo) — 23 tasks, exit 0).
+---
+
+### Phase 86 — The way back in, and somewhere to write it down · Themes A, B, C, E, F + ad-hoc fixes
+
+**Theme A** ([PR #376](https://github.com/bilo-io/midnite-studio/pull/376)) — One unified sessions list. A single `useUnifiedSessions()` selector merges live rows from `useTerminalStore` and closed rows from `useSessionHistory`, sorted live-above-closed within each repo group. The agent icon moved to the left of the title/name in `SessionRow`; the status dot gained a hover tooltip naming the state. The existing filters grew a liveness facet; purge is closed-only with no affordance on running sessions.
+
+**Theme B** ([PR #379](https://github.com/bilo-io/midnite-studio/pull/379)) — Conversation-id capture. `agentConversationId?: string` added to `TerminalSessionSchema` (in the raw shape before `.superRefine`, not via `.extend()` which would fail on `ZodEffects`) and to `ClosedSessionSchema`. A best-effort `agent-conversation/` module with per-agent adapters (Claude: `~/.claude/projects/<cwd-slug>/*.jsonl`; Codex: `~/.codex/sessions/<year>/rollout-<ISO>-<uuid>.jsonl`) resolves the conversation id at session end and on demand; both are read-only and degrade gracefully on missing dirs or unreadable files.
+
+**Theme C** ([PR #381](https://github.com/bilo-io/midnite-studio/pull/381)) — One-click resume. `buildResumeCommand(agent, conversationId)` in `shared/terminal.ts` returns the exact-id argv for Claude (`--resume <id>`) and Codex (`resume <id>`), the agent's existing `AgentDefinition.resume` args as fallback, or `null` for agents with no resume path (`agy`, `cline`). An `IconButton` with `LuPlay` sits beside the purge action on every resumable row; the tooltip names what it will run, and is honest when there is no captured id ("resumes the most recent conversation in that directory"). Clicking calls `startAgent({…, autoSend: true})` — an explicit documented exception to the house `autoSend: false` default, carved because resume restores a conversation rather than acting on the repo.
+
+**Theme E** ([PR #377](https://github.com/bilo-io/midnite-studio/pull/377)) — Notes leaves the modal. `'notes'` added to `VIEW_IDS`; a rail row directly under Dashboard with a hairline delimiter (honouring Phase 39 Theme B's "a separator must never be stranded"); an entry in `VIEW_COMPONENT`; palette label + keywords; a `notes` popout role. The modal survives as quick-capture — the `N` leaf in `quick-access-menu.tsx` still opens it, and both surfaces read one store.
+
+**Theme F** ([PR #380](https://github.com/bilo-io/midnite-studio/pull/380)) — Notes on disk. `Note` moved to `shared/src/domain/notes.ts` as a Zod schema. A `createNotesStore(userDataDirectory)` factory in `desktop` writes per-repo JSON files under `userData/notes/<repoId>.json` (never inside the user's repositories) with atomic rename-over writes, per-repo serialisation, and graceful degradation on corrupt files. Four IPC channels — `notesList`, `notesSave`, `notesDelete`, `notesReorder` — mirroring the terminal quartet. A one-way localStorage→disk migration writes, verifies read-back, marks migrated, and never deletes the raw payload. The e2e mock bridge gained sessionStorage-backed notes persistence so drag-reorder and reload-persistence tests survive `page.reload()` after the IPC migration.
+
+**Ad-hoc: titlebar layout** ([PR #378](https://github.com/bilo-io/midnite-studio/pull/378)) — Themes button and status-bar icons docked right; combined midnite menu moved to the left breadcrumb set as the rightmost item.
+
+**Ad-hoc: companion speech** ([PR #375](https://github.com/bilo-io/midnite-studio/pull/375)) — Digest speech grouped by commit type with paragraph pauses; check pass rate spoken aloud.
+
+**Ad-hoc: sessions terminal icon** ([PR #382](https://github.com/bilo-io/midnite-studio/pull/382)) — Session entries without a specific agent or provider now default to `LuTerminal` with `text-muted-foreground` instead of rendering no icon.
+
