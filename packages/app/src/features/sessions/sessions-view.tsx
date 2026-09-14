@@ -629,7 +629,7 @@ function LiveSessionDetail({
     );
   }
 
-  return <LiveSessionTerminal session={rawSession} />;
+  return <LiveSessionTerminal key={rawSession.id} session={rawSession} />;
 }
 
 function RepoSessionsGroup({
