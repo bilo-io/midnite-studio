@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
+import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { SessionsView } from './sessions-view';
 
@@ -28,6 +29,15 @@ vi.mock('./transcript-view', () => ({
   ),
 }));
 
+// Same reasoning as `TranscriptView` above — `LiveSessionTerminal` needs a
+// real xterm and a live pty subscription of its own; both get their own
+// dedicated test (`live-session-terminal.test.tsx`).
+vi.mock('./live-session-terminal', () => ({
+  LiveSessionTerminal: ({ session }: { session: { id: string } }) => (
+    <div data-testid="live-terminal">{session.id}</div>
+  ),
+}));
+
 const purge = vi.fn().mockResolvedValue(undefined);
 const save = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../services/bridge', () => ({
@@ -43,6 +53,7 @@ afterEach(() => {
   // The store is a module-level singleton — reset the fields this
   // view reads so one test's live session never bleeds into the next.
   useTerminalStore.setState({ sessions: [], states: {}, activity: {}, pendingInput: {} });
+  useUiStore.setState({ terminalOpen: false });
 });
 
 function closedSession(
@@ -524,7 +535,7 @@ describe('SessionsView', () => {
     expect(screen.queryByText(/closed-one/)).toBeNull();
   });
 
-  it('shows a placeholder notice for a selected live row instead of a transcript', () => {
+  it('embeds the live terminal for a selected running row instead of a transcript', () => {
     historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
     act(() => {
       useTerminalStore.setState({
@@ -536,8 +547,68 @@ describe('SessionsView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /live-one/ }));
 
-    expect(screen.getByText(/open the terminal panel to interact with it/)).toBeTruthy();
+    expect(screen.getByTestId('live-terminal').textContent).toBe('live-1');
     expect(screen.queryByTestId('transcript')).toBeNull();
+  });
+
+  it('names an asleep row as such in the detail pane rather than embedding a terminal', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [
+          liveSession({ id: 'sleep-1', repoId: 'r1', title: 'repo-one', name: 'sleeping-one', createdAt: 5000, asleep: true }),
+        ],
+      });
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /sleeping-one/ }));
+
+    expect(screen.getByText(/asleep — no live process to show/i)).toBeTruthy();
+    expect(screen.queryByTestId('live-terminal')).toBeNull();
+  });
+
+  it('offers a "lives in the Loops panel" notice for a running FAB-surface session', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [
+          liveSession({ id: 'fab-1', repoId: 'r1', title: 'repo-one', name: 'loop-one', createdAt: 5000, surface: 'fab' }),
+        ],
+      });
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /loop-one/ }));
+
+    expect(screen.getByText(/running in the Loops panel/)).toBeTruthy();
+    expect(screen.queryByTestId('live-terminal')).toBeNull();
+  });
+
+  it('hands off to the terminal panel instead of embedding a second live terminal while it is open', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'live-2', repoId: 'r1', title: 'repo-one', name: 'live-two', createdAt: 5000 })],
+      });
+      useUiStore.setState({ terminalOpen: true });
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /live-two/ }));
+
+    expect(screen.getByText(/already open in the terminal panel/)).toBeTruthy();
+    expect(screen.queryByTestId('live-terminal')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Focus it there' }));
+    expect(useTerminalStore.getState().activeId).toBe('live-2');
+
+    act(() => {
+      useUiStore.setState({ terminalOpen: false });
+    });
   });
 
   it('flips a selected live row over to its transcript once the session closes while mounted', () => {
@@ -551,7 +622,7 @@ describe('SessionsView', () => {
     renderView();
 
     fireEvent.click(screen.getByRole('button', { name: /running-one/ }));
-    expect(screen.getByText(/open the terminal panel to interact with it/)).toBeTruthy();
+    expect(screen.getByTestId('live-terminal').textContent).toBe('sess-1');
 
     historyResult.mockReturnValue({
       data: [

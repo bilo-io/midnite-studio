@@ -219,6 +219,18 @@ type TerminalState = {
   /** Consumed on pty creation — one paste per queue, never on a revive. */
   clearPendingInput: (sessionId: string) => void;
   /**
+   * Send bytes straight to a session's bound pty (Phase 86 Theme D).
+   *
+   * `useTerminalIpc`'s own `sendInput` only exists once a `TerminalView` for
+   * that session is mounted — fine for the terminal panel, which is the only
+   * caller today, but not for the Sessions manager, which wants to type into
+   * a session it did not itself put an xterm inside. Looked up through the
+   * store's own `ptyIds` map rather than threading a ref through: a session
+   * with no bound pty (asleep, or between `pty:exit` and a revive) is a
+   * silent no-op, not a throw.
+   */
+  sendInput: (sessionId: string, data: string) => void;
+  /**
    * Close a session for good. Main archives it — row, transcript and all — so
    * the Sessions view can show it afterwards.
    *
@@ -560,6 +572,11 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       delete pendingInput[sessionId];
       return { pendingInput };
     }),
+
+  sendInput: (sessionId, data) => {
+    const ptyId = get().ptyIds[sessionId];
+    if (ptyId) bridge()?.pty.input({ ptyId, data });
+  },
 
   reorder: (sessionIds) => {
     set((state) => {
