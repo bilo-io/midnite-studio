@@ -1,7 +1,15 @@
 import { METRIC_IDS } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { METRIC_LABELS, metricColor, metricFill, metricGlow, metricHsl, metricMuted } from './metric-palette';
+import {
+  METRIC_LABELS,
+  diskUsageHsl,
+  metricColor,
+  metricFill,
+  metricGlow,
+  metricHsl,
+  metricMuted,
+} from './metric-palette';
 
 describe('metric palette', () => {
   it('gives every metric a colour and a label', () => {
@@ -53,5 +61,18 @@ describe('metric palette', () => {
   it('builds the dot glow from the metric it belongs to', () => {
     expect(metricGlow('gpu')).toContain('0 0 8px');
     expect(metricGlow('gpu')).toContain(`hsl(${metricHsl('gpu')[0]} `);
+  });
+
+  it.each([
+    [0, [115, 55, 45]],
+    [49, [115, 55, 45]],
+    [50, [115, 55, 45]],
+    [59, [115, 55, 45]],
+    [60, [35, 90, 55]],
+    [80, [35, 90, 55]],
+    [81, [350, 70, 58]],
+    [100, [350, 70, 58]],
+  ] as const)('maps %i%% disk usage to its RAG band', (percent, expected) => {
+    expect(diskUsageHsl(percent)).toEqual(expected);
   });
 });

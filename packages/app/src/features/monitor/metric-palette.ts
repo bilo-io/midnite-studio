@@ -31,11 +31,25 @@ const METRIC_HUES: Record<MetricId, Hsl> = {
   disk: [35, 90, 55], // amber
 };
 
-export const metricHsl = (id: MetricId): Hsl => METRIC_HUES[id];
+const DISK_USAGE_HUES = {
+  green: [115, 55, 45],
+  amber: METRIC_HUES.disk,
+  red: [350, 70, 58],
+} as const satisfies Record<'green' | 'amber' | 'red', Hsl>;
+
+/** Capacity is healthy through 59%, amber from 60–80%, and red above 80%. */
+export const diskUsageHsl = (percent: number): Hsl => {
+  if (percent > 80) return DISK_USAGE_HUES.red;
+  if (percent >= 60) return DISK_USAGE_HUES.amber;
+  return DISK_USAGE_HUES.green;
+};
+
+export const metricHsl = (id: MetricId, percent?: number): Hsl =>
+  id === 'disk' && percent !== undefined ? diskUsageHsl(percent) : METRIC_HUES[id];
 
 /** The line, the dot and the legend swatch. */
-export const metricColor = (id: MetricId): string => {
-  const [h, s, l] = metricHsl(id);
+export const metricColor = (id: MetricId, percent?: number): string => {
+  const [h, s, l] = metricHsl(id, percent);
   return `hsl(${h} ${s}% ${l}%)`;
 };
 
@@ -46,8 +60,8 @@ export const metricColor = (id: MetricId): string => {
  * box, and only transparency lets an overlap read as an overlap instead of as
  * whichever series happened to paint last.
  */
-export const metricFill = (id: MetricId, alpha: number): string => {
-  const [h, s, l] = metricHsl(id);
+export const metricFill = (id: MetricId, alpha: number, percent?: number): string => {
+  const [h, s, l] = metricHsl(id, percent);
   return `hsl(${h} ${s}% ${l}% / ${alpha})`;
 };
 

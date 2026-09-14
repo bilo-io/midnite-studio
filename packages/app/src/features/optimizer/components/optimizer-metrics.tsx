@@ -124,11 +124,14 @@ export function OptimizerMetrics({
       {showDisk && latest?.disk !== undefined ? (
         <div className="mt-1 border-t border-border pt-2">
           <div className="mb-1 flex items-baseline justify-between text-[10px]">
-            <span className="flex items-center gap-1" style={{ color: metricColor('disk') }}>
+            <span
+              className="flex items-center gap-1"
+              style={{ color: metricColor('disk', latest.disk) }}
+            >
               <METRIC_ICONS.disk aria-hidden className="h-3 w-3 shrink-0" />
               {METRIC_LABELS.disk}
             </span>
-            <span className="tabular-nums" style={{ color: metricColor('disk') }}>
+            <span className="tabular-nums" style={{ color: metricColor('disk', latest.disk) }}>
               {latest.diskBytes
                 ? formatUsage(latest.diskBytes.used, latest.diskBytes.total)
                 : `${Math.round(latest.disk)}%`}
@@ -147,7 +150,7 @@ export function OptimizerMetrics({
               className="h-full"
               style={{
                 width: `${latest.disk}%`,
-                backgroundColor: metricColor('disk'),
+                backgroundColor: metricColor('disk', latest.disk),
                 borderRadius: GAUGE_GEOMETRY.radius,
               }}
             />

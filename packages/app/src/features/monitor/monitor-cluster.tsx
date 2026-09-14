@@ -101,13 +101,13 @@ function MetricReadout({
           aria-hidden
           data-testid={`metric-icon-${id}`}
           className="h-3 w-3 shrink-0"
-          style={{ color: metricColor(id) }}
+          style={{ color: metricColor(id, value) }}
         />
         {level ? <MetricDonut id={id} percent={value} /> : null}
         <span
           aria-hidden
           className="w-8 text-right tabular-nums"
-          style={{ color: metricColor(id) }}
+          style={{ color: metricColor(id, value) }}
         >
           {rounded}%
         </span>
