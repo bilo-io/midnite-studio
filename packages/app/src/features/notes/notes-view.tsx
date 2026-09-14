@@ -322,6 +322,7 @@ export function NotesView() {
                     <NoteRow
                       note={note}
                       repo={activeRepo}
+                      variant="card"
                       selected={selectedNoteId === note.id}
                       onSelect={() => setSelectedNoteId(note.id)}
                     />
