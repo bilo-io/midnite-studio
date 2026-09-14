@@ -303,6 +303,24 @@ describe('NotesView', () => {
     });
   });
 
+  // ── content pane fills its container ──────────────────────────────────────
+  it('gives the editor a flex-column parent so Monaco can resolve its height', async () => {
+    useUiStore.setState({ selectedRepoId: 'repo-1' });
+    const note = useNotesStore.getState().addNote('repo-1', 'Fill the pane');
+
+    const { getByTestId } = render(withProviders(<NotesView />));
+    fireEvent.click(getByTestId(`note-list-item-${note.id}`));
+
+    // CodeEditor's root is `min-h-0 flex-1` and Monaco inside it is 100% tall,
+    // so a block parent leaves it auto-height — the ~8px sliver this guards.
+    await waitFor(() => {
+      const pane = getByTestId('notes-content-pane');
+      expect(pane.className).toContain('flex-col');
+      expect(pane.className).toContain('flex-1');
+      expect(pane.className).toContain('min-h-0');
+    });
+  });
+
   // ── left panel list items layout ──────────────────────────────────────────
   it('renders left panel list items with fixed card height and clamped preview', async () => {
     useUiStore.setState({ selectedRepoId: 'repo-1' });
