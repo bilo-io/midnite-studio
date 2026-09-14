@@ -5,6 +5,7 @@ import {
   buildResumeCommand,
   type AgentDefinition,
   type ClosedSession,
+  type TerminalSession,
 } from '@midnite/studio-shared';
 import {
   LuActivity,
@@ -34,9 +35,11 @@ import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import { useRefreshSessionHistory, useSessionHistory } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useSessionsStore } from '../../store/sessions-store';
-import { agentLabelFor, useTerminalStore, type ConnectionState, type SessionActivity } from '../terminal/terminal-store';
+import { revealSession } from '../terminal/reveal-session';
+import { agentLabelFor, inMainPanel, useTerminalStore, type ConnectionState, type SessionActivity } from '../terminal/terminal-store';
 import { startAgent } from '../terminal/start-agent';
 import { useAgents } from '../terminal/use-agents';
+import { LiveSessionTerminal } from './live-session-terminal';
 import {
   formatDuration,
   groupSessionsByRepo,
@@ -44,6 +47,7 @@ import {
   mergeManagedSessions,
   pickInitialClosedSession,
   relativeAge,
+  type ManagedLiveSession,
   type ManagedSession,
   type ManagedSessionLiveness,
   type SessionGroup,
@@ -554,14 +558,78 @@ export function SessionsView({
       ) : isClosedManagedSession(selected) ? (
         <TranscriptView sessionId={selected.id} />
       ) : (
-        <Notice>
-          {selected.liveness === 'asleep'
-            ? 'This session is asleep — no live process to show. Wake it from the terminal panel.'
-            : 'This session is running — open the terminal panel to interact with it.'}
-        </Notice>
+        <LiveSessionDetail
+          session={selected}
+          rawSession={liveSessions.find((s) => s.id === selected.id) ?? null}
+        />
       )}
     </div>
   );
+}
+
+/**
+ * The detail pane's live half (Phase 86 Theme D) — closed rows go through
+ * `TranscriptView` above and are untouched.
+ *
+ * Three shapes, in order of precedence:
+ * 1. Asleep — no process to show at all; unchanged from before this theme.
+ * 2. Running, but on a surface `revealSession()` cannot show
+ *    (`!inMainPanel`, i.e. a FAB loop) — the row says where it lives instead
+ *    of silently doing nothing.
+ * 3. Running and on the main surface — embeds the real terminal
+ *    (`LiveSessionTerminal`), but ONLY while the terminal panel drawer is
+ *    fully closed. The drawer unmounts every `TerminalView` it owns the
+ *    moment it closes (`app.tsx`'s `terminalTween`), so "closed" is the one
+ *    condition that provably guarantees no other live xterm exists for this
+ *    session anywhere in the window — the "one xterm per pty" the phase doc
+ *    asks for. While the drawer is open, the pane hands off to it instead
+ *    of mounting a second one, via the same `revealSession()` a Kanban
+ *    card's own `>_` button already uses.
+ */
+function LiveSessionDetail({
+  session,
+  rawSession,
+}: {
+  session: ManagedLiveSession;
+  rawSession: TerminalSession | null;
+}) {
+  const terminalOpen = useUiStore((s) => s.terminalOpen);
+
+  if (session.liveness === 'asleep') {
+    return <Notice>This session is asleep — no live process to show. Wake it from the terminal panel.</Notice>;
+  }
+
+  if (!rawSession) {
+    return <Notice>This session is running — open the terminal panel to interact with it.</Notice>;
+  }
+
+  if (!inMainPanel(rawSession)) {
+    return (
+      <Notice>
+        This session is running in the Loops panel, not the terminal panel — open Loops from the
+        quick-access menu to interact with it.
+      </Notice>
+    );
+  }
+
+  if (terminalOpen) {
+    return (
+      <div className="grid min-h-0 flex-1 place-items-center p-8">
+        <div className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
+          <p>This session's terminal is already open in the terminal panel.</p>
+          <button
+            type="button"
+            onClick={() => revealSession(session.id)}
+            className="mt-2 text-primary hover:underline"
+          >
+            Focus it there
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <LiveSessionTerminal session={rawSession} />;
 }
 
 function RepoSessionsGroup({
