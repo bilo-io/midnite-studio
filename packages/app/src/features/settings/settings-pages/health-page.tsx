@@ -4,6 +4,11 @@ import { Spinner } from '../../../components/skeleton';
 import type { SystemHealth } from '@midnite/studio-shared';
 import { openExternal } from '../../../services/queries';
 import { parseGitVersion } from './git-version';
+import {
+  parseToolchainVersion,
+  TOOLCHAIN_TOOLS,
+  type ToolchainToolId,
+} from './toolchain-version';
 
 /**
  * The git row's value: `v2.39.5`, linked to that version's upstream release
@@ -46,6 +51,46 @@ function GitVersionValue({ raw, path }: { raw: string | null; path: string | nul
   );
 }
 
+function ToolchainVersionValue({
+  tool,
+  raw,
+  path,
+}: {
+  tool: ToolchainToolId;
+  raw: string | null | undefined;
+  path: string | null | undefined;
+}) {
+  const parsed = parseToolchainVersion(tool, raw);
+  const meta = TOOLCHAIN_TOOLS[tool];
+  const title = [raw, path].filter(Boolean).join(' — ') || undefined;
+
+  if (!parsed || !path) {
+    return (
+      <button
+        type="button"
+        onClick={() => openExternal(meta.docsUrl)}
+        title={`Open ${meta.name} documentation (${meta.docsUrl})`}
+        aria-label={`${meta.name} not installed — open docs`}
+        className="rounded text-xs text-muted-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:text-foreground hover:decoration-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+      >
+        Not installed
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => openExternal(parsed.url)}
+      title={title}
+      aria-label={`${meta.name} ${parsed.label} — open release`}
+      className="rounded font-mono text-xs text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+    >
+      {parsed.label}
+    </button>
+  );
+}
+
 export function HealthChecklist({ compact }: { compact?: boolean }) {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,66 +118,105 @@ export function HealthChecklist({ compact }: { compact?: boolean }) {
     );
   }
 
+  const toolchainKeys: ToolchainToolId[] = ['homebrew', 'node', 'pnpm', 'moon'];
+
   return (
-    <div className={`flex flex-col gap-3 ${compact ? 'text-xs' : 'p-3'}`}>
-      {/* Git check */}
-      <div className="flex items-center justify-between rounded border border-border/50 p-2">
-        <div className="flex items-center gap-2">
-          {health?.git.path ? (
-            <LuCheck className="h-4 w-4 text-green-500" />
-          ) : (
-            <LuX className="h-4 w-4 text-destructive" />
-          )}
-          <span className="font-medium text-xs">Git binary</span>
-        </div>
-        <GitVersionValue raw={health?.git.version ?? null} path={health?.git.path ?? null} />
-      </div>
-
-      {/* Shell check */}
-      <div className="flex items-center justify-between rounded border border-border/50 p-2">
-        <div className="flex items-center gap-2">
-          {health?.shell ? (
-            <LuCheck className="h-4 w-4 text-green-500" />
-          ) : (
-            <LuX className="h-4 w-4 text-destructive" />
-          )}
-          <span className="font-medium text-xs">Default shell</span>
-        </div>
-        <span className="text-xs text-muted-foreground">{health?.shell ?? "Couldn't detect"}</span>
-      </div>
-
-      {/* SSH Agent check */}
-      <div className="flex items-center justify-between rounded border border-border/50 p-2">
-        <div className="flex items-center gap-2">
-          {health?.sshAgent.running ? (
-            <LuCheck className="h-4 w-4 text-green-500" />
-          ) : (
-            <LuX className="h-4 w-4 text-destructive" />
-          )}
-          <span className="font-medium text-xs">SSH Agent</span>
-        </div>
-        <span className="text-xs text-muted-foreground">
-          {health?.sshAgent.running
-            ? health.sshAgent.keys > 0
-              ? `Running (${health.sshAgent.keys} keys loaded)`
-              : 'Running (no keys loaded)'
-            : 'Undetected'}
+    <div className={`flex flex-col gap-4 ${compact ? 'text-xs max-h-80 overflow-y-auto pr-1' : 'p-3'}`}>
+      {/* System Environment section */}
+      <div className="flex flex-col gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          System Environment
         </span>
+
+        {/* Git check */}
+        <div className="flex items-center justify-between rounded border border-border/50 p-2">
+          <div className="flex items-center gap-2">
+            {health?.git.path ? (
+              <LuCheck className="h-4 w-4 text-green-500" />
+            ) : (
+              <LuX className="h-4 w-4 text-destructive" />
+            )}
+            <span className="font-medium text-xs">Git binary</span>
+          </div>
+          <GitVersionValue raw={health?.git.version ?? null} path={health?.git.path ?? null} />
+        </div>
+
+        {/* Shell check */}
+        <div className="flex items-center justify-between rounded border border-border/50 p-2">
+          <div className="flex items-center gap-2">
+            {health?.shell ? (
+              <LuCheck className="h-4 w-4 text-green-500" />
+            ) : (
+              <LuX className="h-4 w-4 text-destructive" />
+            )}
+            <span className="font-medium text-xs">Default shell</span>
+          </div>
+          <span className="text-xs text-muted-foreground">{health?.shell ?? "Couldn't detect"}</span>
+        </div>
+
+        {/* SSH Agent check */}
+        <div className="flex items-center justify-between rounded border border-border/50 p-2">
+          <div className="flex items-center gap-2">
+            {health?.sshAgent.running ? (
+              <LuCheck className="h-4 w-4 text-green-500" />
+            ) : (
+              <LuX className="h-4 w-4 text-destructive" />
+            )}
+            <span className="font-medium text-xs">SSH Agent</span>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {health?.sshAgent.running
+              ? health.sshAgent.keys > 0
+                ? `Running (${health.sshAgent.keys} keys loaded)`
+                : 'Running (no keys loaded)'
+              : 'Undetected'}
+          </span>
+        </div>
+
+        {/* CLI Integration check */}
+        <div className="flex items-center justify-between rounded border border-border/50 p-2">
+          <div className="flex items-center gap-2">
+            {health?.cli.installed ? (
+              <LuCheck className="h-4 w-4 text-green-500" />
+            ) : (
+              <LuX className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className="font-medium text-xs">midnite-studio CLI</span>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {health?.cli.installed ? `Installed at ${health.cli.path}` : 'Not installed'}
+          </span>
+        </div>
       </div>
 
-      {/* CLI Integration check */}
-      <div className="flex items-center justify-between rounded border border-border/50 p-2">
-        <div className="flex items-center gap-2">
-          {health?.cli.installed ? (
-            <LuCheck className="h-4 w-4 text-green-500" />
-          ) : (
-            <LuX className="h-4 w-4 text-muted-foreground" />
-          )}
-          <span className="font-medium text-xs">midnite-studio CLI</span>
-        </div>
-        <span className="text-xs text-muted-foreground">
-          {health?.cli.installed ? `Installed at ${health.cli.path}` : 'Not installed'}
+      {/* Development Toolchain section */}
+      <div className="flex flex-col gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Toolchain
         </span>
+
+        {toolchainKeys.map((toolId) => {
+          const meta = TOOLCHAIN_TOOLS[toolId];
+          const info = health?.[toolId];
+          const isInstalled = Boolean(info?.path);
+
+          return (
+            <div
+              key={toolId}
+              className="flex items-center justify-between rounded border border-border/50 p-2"
+            >
+              <div className="flex items-center gap-2">
+                {isInstalled ? (
+                  <LuCheck className="h-4 w-4 text-green-500" />
+                ) : (
+                  <LuX className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="font-medium text-xs">{meta.name}</span>
+              </div>
+              <ToolchainVersionValue tool={toolId} raw={info?.version} path={info?.path} />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -146,7 +230,7 @@ export function HealthPage() {
           <LuStethoscope className="h-4 w-4" /> System Health & Environment
         </h2>
         <p className="text-xs text-muted-foreground">
-          Diagnostic checks for system utilities, shells, SSH agents, and CLI integration.
+          Diagnostic checks for system utilities, shells, SSH agents, and development toolchains.
         </p>
       </div>
       <HealthChecklist />
