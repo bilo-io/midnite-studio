@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(moon --version)",
+      "Bash(go version:*)",
+      "Bash(pnpm --version)",
+      "Bash(find ~/Dev/architectures -name *.yml -o -name *.yaml -o -name *.toml -o -name *.json)",
+      "Bash(moon init:*)",
+      "Bash(moon --help)",
+      "Bash(moon toolchain:*)",
+      "WebFetch(domain:moonrepo.dev)",
+      "Bash(go mod:*)",
+      "Bash(pnpm install:*)",
+      "Bash(moon projects:*)",
+      "Bash(moon tasks:*)"
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(ls)",
+      "Shell(graphify)"
+    ],
+    "deny": []
+  },
+  "version": 1,
+  "editor": {
+    "vimMode": false
+  },
+  "display": {
+    "showLineNumbers": false,
+    "showThinkingBlocks": false,
+    "showStatusIndicators": false,
+    "showStatusLineRunningTime": false,
+    "mode": "zen"
+  },
+  "notifications": true,
+  "hints": true,
+  "modelSlashCommands": true,
+  "rewind": true,
+  "model": {
+    "modelId": "auto-smart",
+    "displayModelId": "auto-smart",
+    "displayName": "Auto Balance",
+    "displayNameShort": "Auto Balance",
+    "aliases": [],
+    "maxMode": false
+  },
+  "hasChangedDefaultModel": false,
+  "modelParameters": {
+    "default": [],
+    "auto-smart": [
+      {
+        "id": "optimize_for",
+        "value": "balanced"
+      }
+    ]
+  },
+  "selectedModel": {
+    "modelId": "auto-smart",
+    "parameters": [
+      {
+        "id": "optimize_for",
+        "value": "balanced"
+      }
+    ]
+  },
+  "modelSelectionHistory": [
+    "auto-smart",
+    "default"
+  ],
+  "exploreSubagentModel": "default",
+  "network": {
+    "useHttp1ForAgent": false
+  },
+  "autoAcceptWebSearch": false,
+  "runEverythingSettingsPromptStreak": 1
+}
