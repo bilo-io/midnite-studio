@@ -403,8 +403,17 @@ export function NotesView() {
               />
             </div>
 
-            {/* Editor or preview */}
-            <div className="min-h-0 flex-1">
+            {/*
+              Editor or preview.
+
+              `flex flex-col`, not a bare block: `CodeEditor`'s own root is
+              `min-h-0 flex-1` and Monaco inside it is `height="100%"`, so the
+              editor only gets a height if its parent is a flex column that
+              hands it one. As a block parent this box is auto-height, `flex-1`
+              on the child is inert, and Monaco resolves 100% of nothing —
+              which is how the pane rendered as an ~8px sliver.
+            */}
+            <div data-testid="notes-content-pane" className="flex min-h-0 flex-1 flex-col">
               {showPreview ? (
                 <MarkdownPreview content={selectedNote.body} />
               ) : (
