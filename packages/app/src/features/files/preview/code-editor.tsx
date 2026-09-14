@@ -60,6 +60,7 @@ export function CodeEditor({
   onEscape = () => undefined,
   value,
   onChange,
+  autoFocus = true,
 }: {
   fileName: string;
   /**
@@ -83,6 +84,10 @@ export function CodeEditor({
    */
   value?: string;
   onChange?: (value: string) => void;
+  /**
+   * Whether Monaco should focus itself on mount (defaults to true).
+   */
+  autoFocus?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
@@ -114,7 +119,9 @@ export function CodeEditor({
   const handleMount: OnMount = (editor, monaco) => {
     applyStudioTheme(monaco);
     editorRef.current = editor;
-    editor.focus();
+    if (autoFocus) {
+      editor.focus();
+    }
 
     // Debounced `editor.layout()` on a `ResizeObserver` over the host
     // element, trailing-edge at 60ms, disconnected on unmount — Monaco does

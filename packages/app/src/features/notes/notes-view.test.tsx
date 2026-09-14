@@ -286,4 +286,36 @@ describe('NotesView', () => {
     // No-repo guard takes over
     await waitFor(() => expect(getByText(/no repository open/i)).not.toBeNull());
   });
+
+  // ── composer note creation selects & opens in right panel ─────────────────
+  it('selects and opens a newly created note from the composer in the right-panel editor', async () => {
+    useUiStore.setState({ selectedRepoId: 'repo-1' });
+    const { getByTestId } = render(withProviders(<NotesView />));
+
+    const composer = getByTestId('notes-composer') as HTMLTextAreaElement;
+    fireEvent.change(composer, { target: { value: 'Idea from composer' } });
+    fireEvent.keyDown(composer, { key: 'Enter', shiftKey: false });
+
+    await waitFor(() => {
+      const editor = getByTestId('monaco-editor');
+      expect(editor).not.toBeNull();
+      expect(editor.querySelector('pre')?.textContent).toBe('Idea from composer');
+    });
+  });
+
+  // ── left panel list items layout ──────────────────────────────────────────
+  it('renders left panel list items with fixed card height and clamped preview', async () => {
+    useUiStore.setState({ selectedRepoId: 'repo-1' });
+    const note = useNotesStore.getState().addNote('repo-1', 'Line 1\nLine 2\nLine 3\nLine 4');
+
+    const { getByTestId } = render(withProviders(<NotesView />));
+
+    const row = getByTestId(`note-row-${note.id}`);
+    expect(row.className).toContain('h-[96px]');
+    expect(row.className).toContain('flex-col');
+    expect(row.className).toContain('justify-between');
+
+    const body = getByTestId('note-body');
+    expect(body.className).toContain('line-clamp-3');
+  });
 });
