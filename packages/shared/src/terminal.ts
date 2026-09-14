@@ -311,19 +311,20 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
   {
     /*
       `cursor` used to type the desktop editor's own launcher into the pty —
-      it opened a GUI window, not a terminal agent. `agent` is the
-      Cursor CLI terminal binary.
+      it opened a GUI window, not a terminal agent. `cursor-agent` is the
+      Cursor CLI terminal binary (the install script also symlinks `agent`,
+      which collides with other CLIs like Grok's agent, so we use `cursor-agent`).
     */
     id: 'cursor',
     label: 'Cursor',
-    command: 'agent',
+    command: 'cursor-agent',
     args: [],
     resume: ['--continue'],
     accent: '#0066FF',
     icon: 'SiCursor',
     install: 'curl https://cursor.com/install -fsS | bash',
     update: 'curl https://cursor.com/install -fsS | bash',
-    uninstall: 'rm -f ~/.local/bin/agent',
+    uninstall: 'rm -f ~/.local/bin/cursor-agent ~/.local/bin/agent',
     docsUrl: 'https://docs.cursor.com',
     apiKeyEnvVar: 'CURSOR_API_KEY',
   },

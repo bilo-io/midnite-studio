@@ -195,6 +195,12 @@ describe('AgentDefinitionSchema', () => {
     expect(agy?.update).toBe('curl -fsSL https://antigravity.google/cli/install.sh | bash');
   });
 
+  it('uses cursor-agent as the command for cursor CLI to prevent conflicts with other agents', () => {
+    const cursor = BUILTIN_AGENTS.find((a) => a.id === 'cursor');
+    expect(cursor?.command).toBe('cursor-agent');
+    expect(cursor?.uninstall).toBe('rm -f ~/.local/bin/cursor-agent ~/.local/bin/agent');
+  });
+
   it.each([
     ['icon', ''],
     ['install', ''],
