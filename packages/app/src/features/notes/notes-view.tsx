@@ -127,6 +127,7 @@ export function NotesView() {
         const note = useNotesStore.getState().addNote(selectedRepoId, trimmed);
         setComposerText('');
         setSelectedNoteId(note.id);
+        setShowPreview(false);
       }
     }
   };
@@ -303,12 +304,6 @@ export function NotesView() {
             <div className="space-y-2 p-3">
               <SortableList ids={visibleNotes.map((note) => note.id)} onReorder={handleReorder}>
                 {visibleNotes.map((note) => (
-                  /*
-                    A thin click wrapper around NoteRow so selecting a row from the
-                    sidenav works without changing NoteRow's own API. The wrapper
-                    does not consume the event, so double-click-to-edit inside the
-                    row still fires.
-                  */
                   <div
                     key={note.id}
                     role="button"
@@ -316,14 +311,21 @@ export function NotesView() {
                     data-testid={`note-list-item-${note.id}`}
                     onClick={() => setSelectedNoteId(note.id)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') setSelectedNoteId(note.id);
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedNoteId(note.id);
+                      }
                     }}
                     aria-pressed={selectedNoteId === note.id}
-                    className={`rounded-lg transition-colors ${
-                      selectedNoteId === note.id ? 'ring-1 ring-primary/50' : ''
-                    }`}
+                    className="cursor-pointer outline-none"
                   >
-                    <NoteRow note={note} repo={activeRepo} />
+                    <NoteRow
+                      note={note}
+                      repo={activeRepo}
+                      variant="card"
+                      selected={selectedNoteId === note.id}
+                      onSelect={() => setSelectedNoteId(note.id)}
+                    />
                   </div>
                 ))}
               </SortableList>
@@ -429,6 +431,7 @@ export function NotesView() {
                     fileName={`${selectedNote.id}.md`}
                     value={selectedNote.body}
                     onChange={handleEditorChange}
+                    autoFocus
                   />
                 </Suspense>
               )}

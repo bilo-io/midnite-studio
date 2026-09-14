@@ -214,4 +214,69 @@ describe('NoteRow', () => {
 
     expect(getByTestId('note-drag-handle').getAttribute('aria-label')).toBe('Reorder note');
   });
+
+  describe('variant="card"', () => {
+    it('does not open in-place editor on double-click', () => {
+      useNotesStore.setState({ notes: { [baseNote.id]: baseNote } });
+
+      const { getByTestId, queryByTestId } = render(
+        withProviders(<NoteRow note={baseNote} repo={MOCK_REPO} variant="card" />),
+      );
+
+      fireEvent.doubleClick(getByTestId('note-body'));
+      expect(queryByTestId('note-edit-input')).toBeNull();
+    });
+
+    it('calls onSelect when clicked', () => {
+      useNotesStore.setState({ notes: { [baseNote.id]: baseNote } });
+      const onSelect = vi.fn();
+
+      const { getByTestId } = render(
+        withProviders(
+          <NoteRow note={baseNote} repo={MOCK_REPO} variant="card" onSelect={onSelect} />,
+        ),
+      );
+
+      fireEvent.click(getByTestId(`note-row-${baseNote.id}`));
+      expect(onSelect).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders selected styling when selected is true', () => {
+      useNotesStore.setState({ notes: { [baseNote.id]: baseNote } });
+
+      const { getByTestId } = render(
+        withProviders(<NoteRow note={baseNote} repo={MOCK_REPO} variant="card" selected={true} />),
+      );
+
+      const row = getByTestId(`note-row-${baseNote.id}`);
+      expect(row.className).toContain('border-primary/50');
+      expect(row.className).toContain('ring-1');
+    });
+
+    it('has consistent fixed card height and flex-col layout', () => {
+      useNotesStore.setState({ notes: { [baseNote.id]: baseNote } });
+
+      const { getByTestId } = render(
+        withProviders(<NoteRow note={baseNote} repo={MOCK_REPO} variant="card" />),
+      );
+      const row = getByTestId(`note-row-${baseNote.id}`);
+
+      expect(row.className).toContain('h-[96px]');
+      expect(row.className).toContain('flex-col');
+      expect(row.className).toContain('justify-between');
+    });
+
+    it('clamps the note body preview to 3 lines with ellipsis', () => {
+      const longNote: Note = { ...baseNote, body: 'one\ntwo\nthree\nfour\nfive' };
+      useNotesStore.setState({ notes: { [longNote.id]: longNote } });
+
+      const { getByTestId } = render(
+        withProviders(<NoteRow note={longNote} repo={MOCK_REPO} variant="card" />),
+      );
+      const body = getByTestId('note-body');
+
+      expect(body.textContent).toBe('one\ntwo\nthree\nfour\nfive');
+      expect(body.className).toContain('line-clamp-3');
+    });
+  });
 });
