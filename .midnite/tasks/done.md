@@ -11556,3 +11556,10 @@ role's queries are ever mounted" already held by construction. H.4: `memory-repo
 
 **Ad-hoc: sessions terminal icon** ([PR #382](https://github.com/bilo-io/midnite-studio/pull/382)) — Session entries without a specific agent or provider now default to `LuTerminal` with `text-muted-foreground` instead of rendering no icon.
 
+
+---
+
+### Phase 86 Theme D — The pane that shows a live terminal ([PR #387](https://github.com/bilo-io/midnite-studio/pull/387))
+
+**Theme D.** Selecting a closed session in the Sessions view still shows `transcript-view.tsx` (read-only, no WebGL). Selecting a **running** session now shows its real, interactive xterm on the right — one xterm per pty, via `revealSession(sessionId)` rather than mounting a second view of the same pty (Phases 45 and 84 not regressed). A new `sendInputToSession(id, text)` action in `terminal-store` lets the Sessions pane send input without needing a mounted `TerminalView` (which previously held the only reference to `sendInputRef`). `revealSession()` returns `false` and the row shows "lives in the ___ panel" for sessions in non-`main` surfaces (fab, kanban, board) rather than silently doing nothing. The pane tears down cleanly on view switch, repo switch and window close — asserted in e2e (real xterm, named in the spec's header per `docs/TESTING.md`).
+

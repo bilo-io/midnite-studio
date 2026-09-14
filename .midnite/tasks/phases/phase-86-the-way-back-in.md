@@ -162,23 +162,23 @@ keeping are already there: `handleDraftPlan` (`brainstorm`) and `handleAdhocTask
 
 ### Theme D — The pane that shows a live terminal (M/L)
 
-- [ ] Selecting a **closed** session keeps today's behaviour exactly:
+- [x] Selecting a **closed** session keeps today's behaviour exactly:
       [`transcript-view.tsx`](../../../packages/app/src/features/sessions/transcript-view.tsx),
       read-only, still deliberately holding no WebGL context.
-- [ ] Selecting a **running** session shows its real, interactive terminal on the right.
-- [ ] **One xterm per pty.** The pane does not mount a second view of a live process; it reuses the
+- [x] Selecting a **running** session shows its real, interactive terminal on the right.
+- [x] **One xterm per pty.** The pane does not mount a second view of a live process; it reuses the
       single instance, handing off via the existing
       [`reveal-session.ts`](../../../packages/app/src/features/terminal/reveal-session.ts)
       `revealSession(sessionId)` primitive and the `ptyIds` map in `terminal-store`. Phases
       [45](phase-45-leak-audit.md) and [84](phase-84-live-everywhere-lighter-when-hidden.md) both
       bear on this and neither is to be regressed.
-- [ ] A store-level "send input to session X" action — today `sendInput` is reachable only from
+- [x] A store-level "send input to session X" action — today `sendInput` is reachable only from
       inside a mounted `TerminalView` via `sendInputRef`
       ([`use-terminal-ipc.ts:181`](../../../packages/app/src/features/terminal/use-terminal-ipc.ts)),
       which the manager needs and does not have.
-- [ ] `revealSession()` returns `false` for non-`main` surfaces (`fab`, `kanban`, `board`) — the row
+- [x] `revealSession()` returns `false` for non-`main` surfaces (`fab`, `kanban`, `board`) — the row
       for such a session says where it actually lives instead of silently doing nothing.
-- [ ] The pane tears down cleanly on view switch, repo switch and window close, asserted rather than
+- [x] The pane tears down cleanly on view switch, repo switch and window close, asserted rather than
       assumed.
 
 ### Theme E — Notes leaves the modal (M)
