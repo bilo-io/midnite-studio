@@ -58,6 +58,8 @@ void getMonaco();
 export function CodeEditor({
   fileName,
   onEscape = () => undefined,
+  value,
+  onChange,
 }: {
   fileName: string;
   /**
@@ -67,6 +69,20 @@ export function CodeEditor({
    * exactly what the Done button does, guard dialog included.
    */
   onEscape?: () => void;
+  /**
+   * A controlled content source, bypassing `useFileEditorStore` (Phase 86
+   * Theme G) — the Notes page's content pane has no *file* to back it, and
+   * `file-editor-store`'s dirty/stale-write machinery is about a file on
+   * disk, not a note. When `value`/`onChange` are both given, this component
+   * reads its initial content from `value` and reports every keystroke to
+   * `onChange` instead of `file-editor-store`'s `edit()` — the store's own
+   * subscription (which exists to sync an external Discard/Reload back into
+   * an already-mounted editor) is skipped too, since a controlled caller
+   * owns that half itself. Both undefined (every `file-preview.tsx` call
+   * site, unchanged) is the original, uncontrolled-by-props behaviour.
+   */
+  value?: string;
+  onChange?: (value: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
@@ -117,8 +133,9 @@ export function CodeEditor({
     }
   };
 
-  const handleChange: OnChange = (value) => {
-    useFileEditorStore.getState().edit(value ?? '');
+  const handleChange: OnChange = (nextValue) => {
+    if (onChange) onChange(nextValue ?? '');
+    else useFileEditorStore.getState().edit(nextValue ?? '');
   };
 
   /*
@@ -155,18 +172,23 @@ export function CodeEditor({
   // Store → view sync, for changes that did not originate from typing here —
   // preserved as-is against `model.setValue` (Discard resets `content` to
   // `savedContent`, and a stale-write Reload replaces it outright; both are
-  // reachable from the stale-write banner and the guard dialog).
-  useEffect(
-    () =>
-      useFileEditorStore.subscribe((state, prev) => {
-        if (state.content === prev.content) return;
-        const editor = editorRef.current;
-        const model = editor?.getModel();
-        if (!editor || !model || model.getValue() === state.content) return;
-        model.setValue(state.content);
-      }),
-    [],
-  );
+  // reachable from the stale-write banner and the guard dialog). Skipped
+  // entirely for a controlled caller (`onChange` given) — there is no
+  // `file-editor-store` write for it to be reacting to.
+  useEffect(() => {
+    if (onChange) return undefined;
+    return useFileEditorStore.subscribe((state, prev) => {
+      if (state.content === prev.content) return;
+      const editor = editorRef.current;
+      const model = editor?.getModel();
+      if (!editor || !model || model.getValue() === state.content) return;
+      model.setValue(state.content);
+    });
+    // Deliberately keyed on whether a controlled `onChange` is present, not
+    // on its identity — this decides which data source owns the editor for
+    // the component's whole lifetime, not per-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     // Captured here, not read from the ref inside the cleanup below — same
@@ -190,10 +212,11 @@ export function CodeEditor({
       <Editor
         height="100%"
         width="100%"
-        // Set once — `key={editorKey}` at the call site (`file-preview.tsx`)
-        // force-remounts this whole component per file, so Monaco always gets
-        // a fresh model rather than reusing a stale one across files.
-        defaultValue={useFileEditorStore.getState().content}
+        // Set once — `key={editorKey}` at the call site (`file-preview.tsx`,
+        // and `key={note.id}` at the Notes content pane's) force-remounts
+        // this whole component per file/note, so Monaco always gets a fresh
+        // model rather than reusing a stale one.
+        defaultValue={value ?? useFileEditorStore.getState().content}
         language={language}
         onMount={handleMount}
         onChange={handleChange}

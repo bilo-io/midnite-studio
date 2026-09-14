@@ -216,6 +216,8 @@ export type LayoutSizes = {
   issuesListWidth: number;
   /** The Sessions view's closed-session list, left of the transcript pane (Phase 67 Theme C). */
   sessionsListWidth: number;
+  /** The Notes view's sidenav, left of the editor pane (Phase 86 Theme G). */
+  notesListWidth: number;
   /** The Search view's results list, left of the detail preview (Phase 25 Theme C). */
   searchResultsWidth: number;
   /** The FAB panel width, on the right side of the content area. */
@@ -311,6 +313,9 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // Matches Issues' own row width — a dot, a label, an agent icon and a
   // duration/age pair is the same footprint as a status pill, title and number.
   sessionsListWidth: 360,
+  // A checkbox, a drag handle and a body preview — narrower than Sessions'
+  // own row, which also carries a duration/age pair.
+  notesListWidth: 320,
   searchResultsWidth: 420,
   fabPanelWidth: 320,
   // Wider than the Loops panel's 320: this column holds wrapped prose the user
@@ -366,6 +371,7 @@ export const LAYOUT_BOUNDS = {
   reviewsListWidth: { min: 280, max: 640 },
   issuesListWidth: { min: 240, max: 640 },
   sessionsListWidth: { min: 240, max: 640 },
+  notesListWidth: { min: 220, max: 560 },
   searchResultsWidth: { min: 280, max: 900 },
   /*
     Max is NOT this number — see `FAB_PANEL_MAX_SHARE`. The panel's ceiling is a

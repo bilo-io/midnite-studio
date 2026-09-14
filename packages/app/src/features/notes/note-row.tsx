@@ -8,13 +8,15 @@ import { useSortableRow } from '../../components/sortable-list';
 import { Note, NoteStatus, useNotesStore } from '../../store/notes-store';
 import { useSkillHandoff } from '../agent/use-skill-handoff';
 
-const STATUS_CLASSES: Record<NoteStatus, string> = {
+/** Exported for `notes-view.tsx` (Phase 86 Theme G) — the page's own status badge stays the one row's colours. */
+export const STATUS_CLASSES: Record<NoteStatus, string> = {
   captured: 'text-muted-foreground border-border bg-muted/20',
   planned: 'text-primary border-primary/40 bg-primary/10',
   implemented: 'text-emerald-500 border-emerald-500/40 bg-emerald-500/10',
 };
 
-const NEXT_STATUS: Record<NoteStatus, NoteStatus> = {
+/** Exported for `notes-view.tsx` (Phase 86 Theme G) — the same cycle the row's own status badge uses. */
+export const NEXT_STATUS: Record<NoteStatus, NoteStatus> = {
   captured: 'planned',
   planned: 'implemented',
   implemented: 'captured',
