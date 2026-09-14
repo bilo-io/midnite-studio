@@ -507,6 +507,10 @@ export type MockFixtures = {
   scaffoldApplyResult?:
     | { ok: true; value: { written: string[]; skipped: { path: string; reason: string }[] } }
     | { ok: false; kind: 'error'; message: string };
+  /** The onboarding kit's `scaffold.installUserSkills` answer. */
+  scaffoldInstallUserSkillsResult?:
+    | { ok: true; value: { copied: string[]; targetDir: string } }
+    | { ok: false; kind: 'error'; message: string };
   /**
    * The samples `metrics.onSample` pushes, in order, one per entry.
    *
@@ -2761,6 +2765,24 @@ export function buildMockBridge(data: MockFixtures) {
         },
       apply: async () =>
         data.scaffoldApplyResult ?? { ok: true, value: { written: [], skipped: [] } },
+      installUserSkills: async () =>
+        data.scaffoldInstallUserSkillsResult ?? {
+          ok: true,
+          value: {
+            copied: [
+              'midnite-address-issue',
+              'midnite-brainstorm',
+              'midnite-exec',
+              'midnite-exec-adhoc',
+              'midnite-exec-swarm',
+              'midnite-git-cleanup',
+              'midnite-git-report',
+              'midnite-refine',
+              'midnite-triage',
+            ],
+            targetDir: '~/.claude/skills',
+          },
+        },
     },
     /*
         A live stream, not an inert one.

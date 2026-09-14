@@ -91,3 +91,10 @@ export const ScaffoldManifestSchema = z.object({
   }),
 });
 export type ScaffoldManifest = z.infer<typeof ScaffoldManifestSchema>;
+
+export const InstallUserSkillsResultSchema = z.object({
+  copied: z.array(z.string()),
+  targetDir: z.string(),
+});
+export const InstallUserSkillsResult = InstallUserSkillsResultSchema;
+export type InstallUserSkillsResult = z.infer<typeof InstallUserSkillsResultSchema>;

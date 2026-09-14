@@ -36,4 +36,5 @@
 
 export { planScaffold } from './plan';
 export { applyScaffold } from './apply';
+export { installUserSkills } from './user-skills';
 export { readManifest, writeManifest, MANIFEST_REL_PATH } from './manifest';

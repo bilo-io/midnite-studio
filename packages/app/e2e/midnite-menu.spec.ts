@@ -387,6 +387,7 @@ test.describe('Setup and Update', () => {
       'Add to group',
       'Add to Favourites',
       'Set up this repo',
+      'Add Skills to user level',
       'Update Midnite Studio',
       'Install',
       'Build',
@@ -414,8 +415,9 @@ test.describe('Setup and Update', () => {
       .getByRole('menuitem')
       .evaluateAll((nodes) => nodes.map((node) => node.textContent));
 
-    expect(labels.slice(0, 6)).toEqual([
+    expect(labels.slice(0, 7)).toEqual([
       'Set up this repo',
+      'Add Skills to user level',
       'Update Midnite Studio',
       'Install',
       'Build',

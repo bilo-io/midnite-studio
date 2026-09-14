@@ -889,6 +889,9 @@ export type MidniteStudioBridge = {
     apply: (
       req: In<typeof S.ScaffoldApplyRequest>,
     ) => Promise<z.infer<typeof S.ScaffoldApplyResponse>>;
+    installUserSkills: (
+      req?: In<typeof S.InstallUserSkillsRequest>,
+    ) => Promise<z.infer<typeof S.InstallUserSkillsResponse>>;
   };
 
   /**
