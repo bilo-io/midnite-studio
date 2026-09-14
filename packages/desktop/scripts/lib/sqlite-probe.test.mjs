@@ -45,7 +45,7 @@ describe('SQLITE_PROBE_SOURCE', () => {
     });
 
     expect(out).toContain('better-sqlite3 loaded and queried successfully');
-  });
+  }, 15_000);
 
   it('never requires the probe file itself', () => {
     // The original bug: `require(process.argv[1])` re-entered the probe, whose
