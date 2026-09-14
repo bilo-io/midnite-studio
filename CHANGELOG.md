@@ -20,6 +20,19 @@ that mirror is what the in-app release-notes popover actually reads (see
 
 ## [Unreleased]
 
-_Nothing yet._
+## [0.0.1] - 2026-09-15
 
-[Unreleased]: https://github.com/bilo-io/midnite-studio/commits/main
+### Added
+- GitKraken-inspired git graph with lanes, commit inspector, ref badges, and interactive graph actions.
+- Integrated terminal broker with session persistence across window reloads and detached execution.
+- Agent roster with automated execution, real-time activity feeds, and model/session configuration.
+- Embedded web browser with multi-tab browsing, split view, and devtools integration.
+- Forge integration for GitHub pull requests, checks, reviews, and status tracking.
+- System health and doctor setup with automatic toolchain detection for Homebrew, Node.js, pnpm, and Moon.
+- Disk usage and system resource monitor with RAG status indicators and flyout telemetry.
+- User-level skills management option accessible via the Midnite menu.
+- Full two-pane Notes manager with Monaco code editor, Markdown preview, and persistent disk storage.
+
+[Unreleased]: https://github.com/bilo-io/midnite-studio/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.1
+
