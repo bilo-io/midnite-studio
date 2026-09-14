@@ -2979,6 +2979,10 @@ export function buildMockBridge(data: MockFixtures) {
       shell: '/bin/zsh',
       sshAgent: { running: true, keys: 1 },
       cli: { installed: false, path: null, target: null, managed: false },
+      homebrew: { path: '/opt/homebrew/bin/brew', version: 'Homebrew 4.4.18' },
+      node: { path: '/Users/bilo-ekko/.proto/bin/node', version: 'v22.12.0' },
+      pnpm: { path: '/Users/bilo-ekko/.proto/shims/pnpm', version: '9.15.0' },
+      moon: { path: '/Users/bilo-ekko/.proto/bin/moon', version: 'moon 2.3.4' },
     }),
     optimizer: {
       scan: async () => {

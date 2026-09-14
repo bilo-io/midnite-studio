@@ -2104,11 +2104,21 @@ export const ReleaseNotesResponse = z.object({
 export type ReleaseNotes = z.infer<typeof ReleaseNotesResponse>;
 
 // --- system health (Phase 33) ----------------------------------------------
+export const ToolchainBinarySchema = z.object({
+  path: z.string().nullable(),
+  version: z.string().nullable(),
+});
+export type ToolchainBinary = z.infer<typeof ToolchainBinarySchema>;
+
 export const SystemHealthResponse = z.object({
-  git: z.object({ path: z.string().nullable(), version: z.string().nullable() }),
+  git: ToolchainBinarySchema,
   shell: z.string().nullable(),
   sshAgent: z.object({ running: z.boolean(), keys: z.number() }),
   cli: CliStatusResponse,
+  homebrew: ToolchainBinarySchema.optional(),
+  node: ToolchainBinarySchema.optional(),
+  pnpm: ToolchainBinarySchema.optional(),
+  moon: ToolchainBinarySchema.optional(),
 });
 export type SystemHealth = z.infer<typeof SystemHealthResponse>;
 
