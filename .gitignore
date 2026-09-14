@@ -27,9 +27,10 @@ pnpm-debug.log*
 # Git worktrees: parallel-agent checkouts live in the repo-root .worktrees/ dir
 .worktrees/
 
-# Claude Code: machine-local settings + agent worktrees (never committed)
+# Claude Code / Antigravity: machine-local settings + agent worktrees (never committed)
 .claude/settings.local.json
 .claude/worktrees/
+.gemini/
 
 # Scratch output from scripts/smoke.ts and friends
 tmp/
