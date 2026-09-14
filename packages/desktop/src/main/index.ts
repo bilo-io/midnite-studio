@@ -32,7 +32,9 @@ import { createSttCredentials } from './companion/stt/credentials';
 import { configureUiBridge } from './companion/ui-bridge';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
+import { configureNotes, registerNotesHandlers } from './ipc/notes-handlers';
 import { createSessionHistoryStore } from './session-history-store';
+import { createNotesStore } from './notes-store';
 import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
 import { registerForgeHandlers } from './ipc/forge-handlers';
 import { registerForgeProjectHandlers } from './ipc/forge-project-handlers';
@@ -359,6 +361,7 @@ if (!app.requestSingleInstanceLock()) {
     registerSettingsHandlers();
     registerDiagHandlers();
     registerSessionsHandlers();
+    registerNotesHandlers();
     registerDbHandlers(getMainWindow);
     registerScaffoldHandlers();
     registerTestsHandlers(getMainWindow);
@@ -538,6 +541,7 @@ if (!app.requestSingleInstanceLock()) {
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
     configureDb(createConnectionsStore(userData), createCredentialVault(userData));
+    configureNotes(createNotesStore(userData));
     /*
       The companion's per-repo "last greeted" mark (Phase 79 Theme B, Decision
       11) — a `companion.json` beside `mcp.json`, wired here beside every other

@@ -547,6 +547,16 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * Notes on disk under userData (Phase 86 Theme F).
+   */
+  notes: {
+    list: (req?: In<typeof S.NotesListRequest>) => Promise<z.infer<typeof S.NotesListResponse>>;
+    save: (req: In<typeof S.NotesSaveRequest>) => void;
+    delete: (req: In<typeof S.NotesDeleteRequest>) => void;
+    reorder: (req: In<typeof S.NotesReorderRequest>) => void;
+  };
+
+  /**
    * The embedded browser engine (Phase 32) — one `WebContentsView` per tab,
    * owned by main's `browser-service.ts`. Chrome state (nav, title, favicon,
    * loading) arrives on the single `onEvent` push rather than per-kind

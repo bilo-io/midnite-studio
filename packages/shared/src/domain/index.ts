@@ -35,5 +35,6 @@ export * from './view';
 export * from './sync-status';
 export * from './watch';
 export * from './battery';
+export * from './notes';
 export * from './session-history';
 export * from './window';

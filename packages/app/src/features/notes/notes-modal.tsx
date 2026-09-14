@@ -1,4 +1,4 @@
-import { KeyboardEvent, useMemo, useRef, useState } from 'react';
+import { KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { LuEllipsisVertical, LuNotebookPen, LuX } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
@@ -29,6 +29,10 @@ const COMPOSER_MIN_HEIGHT = 4 * COMPOSER_LINE_HEIGHT + COMPOSER_PADDING;
 const COMPOSER_MAX_HEIGHT = 10 * COMPOSER_LINE_HEIGHT + COMPOSER_PADDING;
 
 export function NotesModal() {
+  useEffect(() => {
+    void useNotesStore.getState().hydrate();
+  }, []);
+
   const open = useUiStore((s) => s.notesOpen);
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const reposQuery = useRepos();

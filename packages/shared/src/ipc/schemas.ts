@@ -81,6 +81,7 @@ import {
   METRICS_MAX_INTERVAL_MS,
   METRICS_MIN_INTERVAL_MS,
   MetricSampleSchema,
+  NoteSchema,
   GpuStatsSchema,
   OptimizerResultOf,
   OptimizerVoidResultSchema,
@@ -1409,6 +1410,37 @@ export const SessionsTranscriptResponse = z.object({ bytes: z.instanceof(Uint8Ar
 export const SessionsPurgeRequest = z.object({ sessionId: z.string().min(1).nullable() });
 export const SessionsConversationIdRequest = z.object({ sessionId: z.string().min(1) });
 export const SessionsConversationIdResponse = z.object({ conversationId: z.string().nullable() });
+
+// --- notes (Phase 86 Theme F) -----------------------------------------------
+
+/** Request notes for a specific repository, or all repositories when omitted. */
+export const NotesListRequest = z
+  .object({
+    repoId: z.string().optional(),
+  })
+  .optional();
+
+/** Saved notes returned from disk. */
+export const NotesListResponse = z.object({
+  notes: z.array(NoteSchema),
+});
+
+/** Persist one note to disk. */
+export const NotesSaveRequest = z.object({
+  note: NoteSchema,
+});
+
+/** Delete one note from disk. */
+export const NotesDeleteRequest = z.object({
+  id: z.string().min(1),
+  repoId: z.string().optional(),
+});
+
+/** Rewrite one repository's manual order. */
+export const NotesReorderRequest = z.object({
+  repoId: z.string(),
+  noteIds: z.array(z.string().min(1)),
+});
 
 /**
  * The roster, plus what main could learn about it on this machine.

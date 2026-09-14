@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { LuNotebookPen } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
@@ -25,6 +25,10 @@ import { useUiStore } from '../../store/ui-store';
  * `EmptyWorkspace` the way a repo-scoped view would.
  */
 export function NotesView() {
+  useEffect(() => {
+    void useNotesStore.getState().hydrate();
+  }, []);
+
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const reposQuery = useRepos();
   const activeRepo = reposQuery.data?.find((repo) => repo.id === selectedRepoId);

@@ -119,6 +119,7 @@ const bridge: Pick<
   | 'pty'
   | 'terminal'
   | 'sessions'
+  | 'notes'
   | 'browser'
   | 'apps'
   | 'agent'
@@ -325,6 +326,12 @@ const bridge: Pick<
     transcript: (req) => call(CHANNELS.sessionsTranscript, req),
     purge: (req) => call(CHANNELS.sessionsPurge, req),
     conversationId: (req) => call(CHANNELS.sessionsConversationId, req),
+  },
+  notes: {
+    list: (req) => call(CHANNELS.notesList, req),
+    save: (req) => ipcRenderer.send(CHANNELS.notesSave, req),
+    delete: (req) => ipcRenderer.send(CHANNELS.notesDelete, req),
+    reorder: (req) => ipcRenderer.send(CHANNELS.notesReorder, req),
   },
   browser: {
     create: (req) => call(CHANNELS.browserCreate, req),
