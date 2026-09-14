@@ -45,8 +45,9 @@ const ptyInputs = (page: Page) =>
   );
 
 test.beforeEach(async ({ page }) => {
-  // A clean notes store per test — it persists to localStorage, and a
-  // leftover note from a previous test would make "exactly one note" flaky.
+  // A clean notes store per test — it persists to localStorage (pre-Theme F)
+  // and to the mock bridge's sessionStorage (post-Theme F), and a leftover
+  // note from a previous test would make "exactly one note" flaky.
   //
   // Once per context, not once per load: `addInitScript` runs again on
   // `page.reload()` (`browser-pane.spec.ts` hit the same trap first), and
@@ -57,6 +58,8 @@ test.beforeEach(async ({ page }) => {
     if (sessionStorage.getItem('mstudio-e2e-notes-cleared')) return;
     sessionStorage.setItem('mstudio-e2e-notes-cleared', '1');
     localStorage.removeItem('midnite-studio.notes');
+    // Also clear the mock bridge's own notes cache so each test starts fresh.
+    sessionStorage.removeItem('mstudio-mock-notes');
   });
 });
 
