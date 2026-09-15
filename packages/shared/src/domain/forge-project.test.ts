@@ -15,6 +15,7 @@ describe('ForgeProjectSchema', () => {
       title: 'Roadmap',
       url: 'https://github.com/orgs/o/projects/7',
       closed: false,
+      linkedToRepo: false,
     };
     expect(ForgeProjectSchema.parse(project)).toEqual(project);
   });

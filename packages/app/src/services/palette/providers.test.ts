@@ -164,7 +164,14 @@ describe('palette providers', () => {
   it('creates a board entry only for boards already loaded, and only with a repo open', () => {
     const onSelect = vi.fn();
     const boards: ForgeProject[] = [
-      { id: 'PVT_1', number: 1, title: 'Roadmap', url: 'https://github.com/orgs/acme/projects/1', closed: false },
+      {
+        id: 'PVT_1',
+        number: 1,
+        title: 'Roadmap',
+        url: 'https://github.com/orgs/acme/projects/1',
+        closed: false,
+        linkedToRepo: false,
+      },
     ];
 
     const source = createProjectBoardsSource(boards, 'r1', onSelect);

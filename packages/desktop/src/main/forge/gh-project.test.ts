@@ -58,7 +58,14 @@ describe('parseProjectList', () => {
       },
     });
     expect(parseProjectList(output)).toEqual([
-      { id: 'PVT_user1', number: 3, title: 'Personal board', url: 'https://github.com/users/octocat/projects/3', closed: false },
+      {
+        id: 'PVT_user1',
+        number: 3,
+        title: 'Personal board',
+        url: 'https://github.com/users/octocat/projects/3',
+        closed: false,
+        linkedToRepo: false,
+      },
     ]);
   });
 
@@ -75,8 +82,49 @@ describe('parseProjectList', () => {
       },
     });
     expect(parseProjectList(output)).toEqual([
-      { id: 'PVT_org1', number: 7, title: 'Roadmap', url: 'https://github.com/orgs/acme/projects/7', closed: true },
+      {
+        id: 'PVT_org1',
+        number: 7,
+        title: 'Roadmap',
+        url: 'https://github.com/orgs/acme/projects/7',
+        closed: true,
+        linkedToRepo: false,
+      },
     ]);
+  });
+
+  it('marks a board linkedToRepo: true when it also appears in repository.projectsV2', () => {
+    const output = JSON.stringify({
+      data: {
+        repositoryOwner: {
+          projectsV2: {
+            nodes: [
+              { id: 'PVT_repo1', number: 1, title: 'Repo board', url: 'https://x', closed: false },
+              { id: 'PVT_org1', number: 2, title: 'Org-wide board', url: 'https://x', closed: false },
+            ],
+          },
+        },
+        repository: {
+          projectsV2: { nodes: [{ id: 'PVT_repo1' }] },
+        },
+      },
+    });
+    const projects = parseProjectList(output);
+    expect(projects.find((p) => p.id === 'PVT_repo1')?.linkedToRepo).toBe(true);
+    expect(projects.find((p) => p.id === 'PVT_org1')?.linkedToRepo).toBe(false);
+  });
+
+  it('defaults linkedToRepo to false when the repository field is absent (older response)', () => {
+    const output = JSON.stringify({
+      data: {
+        repositoryOwner: {
+          projectsV2: {
+            nodes: [{ id: 'PVT_1', number: 1, title: 'Board', url: 'https://x', closed: false }],
+          },
+        },
+      },
+    });
+    expect(parseProjectList(output)[0]?.linkedToRepo).toBe(false);
   });
 
   it('drops a board with no id rather than failing the whole listing', () => {
@@ -559,6 +607,16 @@ describe('listProjects / projectFields / projectItems — transport', () => {
     const [command] = runInShell.mock.calls[0] ?? [];
     expect(command).toContain("-f owner='acme'");
     expect(command).not.toContain('-F owner=');
+  });
+
+  it('sends repo as -f, never -F, alongside owner', async () => {
+    runInShell.mockResolvedValueOnce(
+      okShell(JSON.stringify({ data: { repositoryOwner: { projectsV2: { nodes: [] } } } })),
+    );
+    await listProjects(forge);
+    const [command] = runInShell.mock.calls[0] ?? [];
+    expect(command).toContain("-f repo='widgets'");
+    expect(command).not.toContain('-F repo=');
   });
 
   it('projectFields sends projectId as -f', async () => {

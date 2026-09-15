@@ -68,13 +68,22 @@ const DEPS_PAGE = 20;
  * plus `viewer.organizations.nodes[].projectsV2` answers "boards **I** can
  * see", not "boards **this repo's owner** has", and the two diverge for any
  * repo whose owner org the signed-in user does not belong to.
+ *
+ * Alongside that owner-rooted read, `repository(owner:,name:)` is queried too
+ * — narrower, id-only — purely so `parseProjectList` can mark which of the
+ * owner's boards are *also* linked to this specific repository
+ * (`ForgeProject.linkedToRepo`) versus org-wide or unrelated. One extra field
+ * in the same round trip, not a second request: GraphQL happily answers two
+ * unrelated root fields in one query.
  */
 const LIST_PROJECTS_QUERY = [
-  'query($owner:String!){',
+  'query($owner:String!,$repo:String!){',
   'repositoryOwner(login:$owner){',
   `... on Organization{projectsV2(first:${PROJECTS_PAGE},orderBy:{field:UPDATED_AT,direction:DESC}){nodes{id number title url closed}}}`,
   `... on User{projectsV2(first:${PROJECTS_PAGE},orderBy:{field:UPDATED_AT,direction:DESC}){nodes{id number title url closed}}}`,
-  '}}',
+  '}',
+  `repository(owner:$owner,name:$repo){projectsV2(first:${PROJECTS_PAGE}){nodes{id}}}`,
+  '}',
 ].join('');
 
 /**
@@ -154,8 +163,10 @@ export async function listProjects(forge: Forge): Promise<ForgeProjectsResult> {
     ` -f query=${shellQuote(LIST_PROJECTS_QUERY)}` +
     // `-f`, not `-F`: a String! variable sent through `-F` would have its type
     // guessed from the text, and an owner login that happens to look numeric
-    // (rare, but legal) would be posted as an Int and refused outright.
-    ` -f owner=${shellQuote(forge.owner)}`;
+    // (rare, but legal) would be posted as an Int and refused outright. Same
+    // reasoning for `repo`.
+    ` -f owner=${shellQuote(forge.owner)}` +
+    ` -f repo=${shellQuote(forge.repo)}`;
 
   const result = await runInShell(command, LIST_TIMEOUT_MS);
   if (result.exitCode !== 0) {
@@ -256,31 +267,45 @@ const asString = (value: unknown): string | null => (typeof value === 'string' ?
 const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 /**
- * `repositoryOwner.{Organization,User}.projectsV2.nodes`, as `ForgeProject[]`.
+ * `repositoryOwner.{Organization,User}.projectsV2.nodes`, as `ForgeProject[]`,
+ * each marked `linkedToRepo` when its id also appears in the query's second
+ * root field, `repository.projectsV2.nodes`.
  *
- * Only one of the two inline fragments ever has data — the owner is one kind
- * or the other — so both are walked and whichever is non-empty wins. Rows are
- * validated one at a time (the same rule every parser in this app follows) so
- * a single malformed board never costs the whole listing.
+ * Only one of the two `repositoryOwner` inline fragments ever has data — the
+ * owner is one kind or the other — so both are walked and whichever is
+ * non-empty wins. Rows are validated one at a time (the same rule every
+ * parser in this app follows) so a single malformed board never costs the
+ * whole listing. An absent `repository` key (an older cached response, or a
+ * hand-built test fixture) yields an empty linked-id set, i.e. every board
+ * defaults to `linkedToRepo: false` — the schema's own default agrees.
  */
 export function parseProjectList(output: string): ForgeProject[] {
   const payload = parseJsonPayload(output);
-  const owner = pick(pick(payload, 'data'), 'repositoryOwner');
+  const data = pick(payload, 'data');
+  const owner = pick(data, 'repositoryOwner');
   const nodes = [
     ...asArray(pick(pick(owner, 'projectsV2'), 'nodes')),
   ];
+
+  const linkedIds = new Set(
+    asArray(pick(pick(pick(data, 'repository'), 'projectsV2'), 'nodes'))
+      .map((raw) => asString(pick(raw, 'id')))
+      .filter((id): id is string => id !== null),
+  );
 
   const projects: ForgeProject[] = [];
   for (const raw of nodes) {
     if (typeof raw !== 'object' || raw === null) continue;
     const row = raw as Record<string, unknown>;
+    const id = asString(row['id']);
 
     const parsed = ForgeProjectSchema.safeParse({
-      id: asString(row['id']),
+      id,
       number: row['number'],
       title: asString(row['title']) ?? '',
       url: asString(row['url']) ?? '',
       closed: row['closed'] === true,
+      linkedToRepo: id !== null && linkedIds.has(id),
     });
     if (parsed.success) projects.push(parsed.data);
   }
