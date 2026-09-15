@@ -1,5 +1,5 @@
 import type { TerminalSession } from '@midnite/studio-shared';
-import { act, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -22,6 +22,13 @@ function seedKnownSessions(ids: readonly string[]): void {
 }
 
 afterEach(() => {
+  // `useMountedSessionIds` calls `useNow`, whose module-level timer lives only
+  // while something is subscribed. `vitest.config.ts` does not set
+  // `globals: true`, so @testing-library/react never registers its automatic
+  // cleanup — a `renderHook` left mounted keeps a subscriber, the timer keeps
+  // rescheduling past the end of this file, and the tick that lands after
+  // jsdom is torn down crashes the shard with "window is not defined".
+  cleanup();
   resetSessionViewHistoryForTests();
   useTerminalStore.setState({ sessions: [], activeId: null, states: {}, pendingInput: {} });
   vi.useRealTimers();

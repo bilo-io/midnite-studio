@@ -191,6 +191,7 @@ describe('RepoWatcher', () => {
     // The same loop as the write-queue case, for a plain fs write: save →
     // watch event → refetch the tree that the save already updated.
     await startWatching(0, 50, 200);
+    events.length = 0; // discard anything the watcher's own registration settled
 
     await withFsActivity(repo.path, async () => {
       await repo.writeFile('a.txt', 'written by the fs write path\n');
@@ -246,6 +247,12 @@ describe('RepoWatcher', () => {
 
   it('stops reporting after stop()', async () => {
     await startWatching();
+    // `beforeEach`'s commit is still settling on disk while fs.watch registers,
+    // so a `refs` event can legitimately land inside startWatching's own wait.
+    // The subject here is only what happens AFTER stop(), and `stop()` both
+    // clears the debounce timer and makes `flush` bail, so nothing emitted
+    // before this line can be confused for a post-stop report.
+    events.length = 0;
     watcher?.stop();
     watcher = null;
 
