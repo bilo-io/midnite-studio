@@ -57,6 +57,28 @@ async function land(page: Page): Promise<void> {
   await settle(page, 300);
 }
 
+/**
+ * Mirrors `status-bar.spec.ts`'s own helper — density is decided from
+ * *measured* content width, which a runner's font metrics move around, so a
+ * hard-coded pixel width drifts out from under whichever zone it was tuned
+ * against. Phase 87 made that drift concrete here: the two widths below used
+ * to trip the bar's one shared density; once the right zone got its own
+ * measurement, `900`/`780` stopped landing on its thresholds at all.
+ */
+async function narrowUntilDensity(
+  page: Page,
+  bar: import('@playwright/test').Locator,
+  target: 'compact' | 'collapsed',
+  { from, to = 320, step = 20 }: { from: number; to?: number; step?: number },
+): Promise<number> {
+  for (let width = from; width >= to; width -= step) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.waitForTimeout(50);
+    if ((await bar.getAttribute('data-density')) === target) return width;
+  }
+  throw new Error(`bar never reached density="${target}" narrowing ${from}px -> ${to}px`);
+}
+
 test.describe('status bar screenshots', () => {
   test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
 
@@ -78,18 +100,31 @@ test.describe('status bar screenshots', () => {
       await page.getByRole('button', { name: 'Toggle Repositories' }).click();
       await settle(page, 250);
 
+      // Density is measured per zone since Phase 87 — the right zone
+      // (finance, monitor, verdicts, alerts) is the heavier one, so it is
+      // what these shots are calibrated against; check it rather than the
+      // bar as a whole, which no longer carries one shared value.
+      const right = page.getByTestId('status-bar-right');
+
       // Compact — labels drop to icons.
-      await page.setViewportSize({ width: 900, height: 800 });
-      await expect(bar).toHaveAttribute('data-density', 'compact');
+      await page.setViewportSize({ width: 1600, height: 800 });
+      const compactWidth = await narrowUntilDensity(page, right, 'compact', { from: 1600 });
       await bar.screenshot({ path: shotPath(OUT, `status-bar-compact-${theme}.png`) });
 
-      // Collapsed, then the overflow popover open. A taller viewport here so
-      // the popover's full segment list — up to the checks-verdict pill at
-      // the bottom — fits in frame instead of clipping against the window.
-      await page.setViewportSize({ width: 780, height: 950 });
-      await expect(bar).toHaveAttribute('data-density', 'collapsed');
+      // Collapsed, then the overflow popover open.
+      const collapsedWidth = await narrowUntilDensity(page, right, 'collapsed', {
+        from: compactWidth - 20,
+      });
+      // A taller viewport here so the popover's full segment list — up to
+      // the checks-verdict pill at the bottom — fits in frame instead of
+      // clipping against the window.
+      await page.setViewportSize({ width: collapsedWidth, height: 950 });
       await bar.screenshot({ path: shotPath(OUT, `status-bar-collapsed-${theme}.png`) });
-      await page.getByTestId('status-overflow').click();
+      // A window this narrow is well past `@bilo-io/shell`'s `md:` (768px)
+      // breakpoint, whose mobile bottom-nav overlay then sits on top of the
+      // footer — see `shortcut-rail.spec.ts`'s identical note on its own
+      // popover test for why the trigger is dispatched to directly.
+      await page.getByTestId('status-overflow').dispatchEvent('click');
       await expect(page.getByTestId('status-overflow-panel')).toBeVisible();
       await settle(page, 200);
       await page.screenshot({ path: shotPath(OUT, `status-bar-overflow-popover-${theme}.png`) });
@@ -98,7 +133,11 @@ test.describe('status bar screenshots', () => {
       // Back to full width for the browser pane, which covers the whole
       // content row while leaving the bar visible beneath it.
       await page.setViewportSize({ width: 1280, height: 800 });
-      await page.locator('[title^="Toggle browser"]').click();
+      // `[title^="Toggle browser"]` predates `Tooltip` replacing this app's
+      // native `title=` attributes (`components/tooltip.tsx`'s own comment) —
+      // stale even before Phase 87, just never exercised since this suite
+      // only runs under `MSTUDIO_SHOTS`.
+      await page.getByTestId('browser-toggle').click();
       // The toggle raises the layout launcher first; full screen is what this
       // shot is about, and it is the pre-selected option.
       await page.getByTestId('browser-layout-full').click();

@@ -1,6 +1,33 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { fixtures, installMockBridge, SHOT_VIEWPORTS, shotPath } from './shots-helper';
+import { fixtures, installMockBridge, shotPath } from './shots-helper';
+
+/**
+ * Mirrors `shortcut-rail.spec.ts`'s own helper (that file's docblock explains
+ * why walking the width down beats a hard-coded one: density is decided from
+ * *measured* content, which a runner's font metrics move around).
+ *
+ * Phase 87 made this the only option for the rail specifically — the fixed
+ * `SHOT_VIEWPORTS.compact`/`.collapsed` values this file used before were
+ * tuned against the OLD shared bar-wide measurement, where a busy right zone
+ * pulled the rail's own threshold up into that range. Now that the rail is
+ * measured against the bar's whole width on its own, it does not need
+ * anywhere near that little room, and those two fixed widths just sat at
+ * `full` instead.
+ */
+async function narrowUntilDensity(
+  page: Page,
+  bar: Locator,
+  target: 'compact' | 'collapsed',
+  { from, to = 320, step = 20 }: { from: number; to?: number; step?: number },
+): Promise<number> {
+  for (let width = from; width >= to; width -= step) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.waitForTimeout(50);
+    if ((await bar.getAttribute('data-density')) === target) return width;
+  }
+  throw new Error(`bar never reached density="${target}" narrowing ${from}px -> ${to}px`);
+}
 
 /**
  * Phase 39 Theme G — the density × state screenshot matrix for the shortcut
@@ -49,7 +76,7 @@ async function openWide(page: Page): Promise<void> {
 
 test('full density, at rest', async ({ page }) => {
   await open(page);
-  await expect(page.getByTestId('status-bar')).toHaveAttribute('data-density', 'full');
+  await expect(page.getByTestId('status-bar-left')).toHaveAttribute('data-density', 'full');
   await page.getByTestId('status-bar-left').screenshot({ path: shotPath(OUT, 'full-inactive.png') });
 });
 
@@ -68,17 +95,23 @@ test('full density, hovered', async ({ page }) => {
 });
 
 test('compact density', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 800 });
   await openWide(page);
-  await page.setViewportSize(SHOT_VIEWPORTS.compact);
-  await expect(page.getByTestId('status-bar')).toHaveAttribute('data-density', 'compact');
+  const bar = page.getByTestId('status-bar-left');
+  await narrowUntilDensity(page, bar, 'compact', { from: 1600 });
   await page.getByTestId('status-bar-left').screenshot({ path: shotPath(OUT, 'compact.png') });
 });
 
 test('collapsed density, overflow popover open', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 800 });
   await openWide(page);
-  await page.setViewportSize(SHOT_VIEWPORTS.collapsed);
-  await expect(page.getByTestId('status-bar')).toHaveAttribute('data-density', 'collapsed');
-  await page.getByTestId('status-overflow').click();
+  const bar = page.getByTestId('status-bar-left');
+  const compactWidth = await narrowUntilDensity(page, bar, 'compact', { from: 1600 });
+  await narrowUntilDensity(page, bar, 'collapsed', { from: compactWidth - 20 });
+  // Past `@bilo-io/shell`'s `md:` (768px) breakpoint here — see
+  // `shortcut-rail.spec.ts`'s identical note on its own popover test for why
+  // the trigger is dispatched to directly rather than clicked.
+  await page.getByTestId('status-overflow').dispatchEvent('click');
   const panel = page.getByTestId('status-overflow-panel');
   await expect(panel).toBeVisible();
   await panel.screenshot({ path: shotPath(OUT, 'collapsed-popover.png') });

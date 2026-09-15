@@ -170,7 +170,10 @@ test('compact density hides every name, including an active one', async ({ page 
   await expect(repos).toHaveAttribute('aria-pressed', 'true');
   await expect(repos.locator('.status-label')).toBeVisible();
 
-  const bar = page.getByTestId('status-bar');
+  // The rail's own zone, not the whole bar (Phase 87: density is measured
+  // per zone, so a crowded right zone no longer decides when the rail goes
+  // compact).
+  const bar = page.getByTestId('status-bar-left');
   // `@linux-red` used to live on this test — it asserted `compact` at a
   // hard-coded 1080px, tuned against macOS's own font metrics. See
   // `narrowUntilDensity`'s own docblock for why walking down instead is what
@@ -187,8 +190,8 @@ test('compact density hides every name, including an active one', async ({ page 
  * The regression that made the state gate CSS rather than a `hidden` attribute.
  *
  * `overflow-popover.tsx`'s own comment states the contract: its panel portals
- * into `document.body`, outside the `<footer data-density>`, "so a segment's
- * label comes back automatically — no override needed". A JS `hidden` travelled
+ * into `document.body`, outside the zone's own `<div data-density>`, "so a
+ * segment's label comes back automatically — no override needed". A JS `hidden` travelled
  * with the element into that portal, and the popover listed five unlabelled 14px
  * glyphs with their chords — the one surface where the name is the only
  * affordance there is.
@@ -196,10 +199,19 @@ test('compact density hides every name, including an active one', async ({ page 
 test('the overflow popover shows every rail toggle’s name', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 800 });
   await openWide(page);
-  const bar = page.getByTestId('status-bar');
+  const bar = page.getByTestId('status-bar-left');
+  // Phase 87: the rail is now measured against the bar's own whole budget,
+  // not a shared one, so it takes a genuinely narrow window to force it into
+  // `collapsed` on its own — narrow enough to cross `@bilo-io/shell`'s `md:`
+  // (768px) breakpoint into its mobile bottom-nav layout, which sits on top
+  // of the footer at that width. That overlay is unrelated to what this test
+  // checks (the popover's own contract), so the trigger is dispatched to
+  // directly rather than clicked at a screen coordinate the overlay would
+  // intercept.
   await narrowUntilDensity(page, bar, 'collapsed', { from: 1600 });
 
-  await page.getByTestId('status-overflow').click();
+  const trigger = page.getByTestId('status-overflow');
+  await trigger.dispatchEvent('click');
   const panel = page.getByTestId('status-overflow-panel');
   await expect(panel).toBeVisible();
 

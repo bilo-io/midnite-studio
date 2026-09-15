@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { LuEllipsis } from 'react-icons/lu';
 
 import { Popover } from '../../components/popover';
-import type { Density } from '../../lib/density';
 import type { StatusSegment } from './segments';
 
 /**
@@ -13,24 +12,33 @@ import type { StatusSegment } from './segments';
  *
  * Renders each collapsed segment through its own `El`, restoring the CSS
  * `data-density` scope has nothing to say about a portal: `Popover` renders
- * its panel into `document.body`, outside the `<footer data-density>`
+ * its panel into `document.body`, outside the per-zone `<div data-density>`
  * element the `.status-label` rule matches against, so a segment's label
  * comes back automatically — no override needed.
+ *
+ * `anyCollapsed` rather than a single `Density` (Phase 87): each zone now
+ * collapses independently, so there is no one density value to hand this
+ * component — only whether *some* zone currently has segments to show here,
+ * which `items.length > 0` already answers by construction (`collapseFor`
+ * only ever produces `collapsed` entries at `collapsed` density). Kept as an
+ * explicit boolean rather than re-deriving it from `items` a second time
+ * inside the effect below.
  */
 export function OverflowPopover({
   items,
-  density,
+  anyCollapsed,
 }: {
   items: readonly StatusSegment[];
-  density: Density;
+  anyCollapsed: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
-  // If the bar widens back past collapsed while this is open, close it rather
-  // than let it keep listing segments that are now rendered inline again.
+  // If every zone widens back past collapsed while this is open, close it
+  // rather than let it keep listing segments that are now rendered inline
+  // again.
   useEffect(() => {
-    if (density !== 'collapsed' && open) setOpen(false);
-  }, [density, open]);
+    if (!anyCollapsed && open) setOpen(false);
+  }, [anyCollapsed, open]);
 
   if (items.length === 0) return null;
 

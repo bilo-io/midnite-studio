@@ -11,7 +11,7 @@ import {
   type RenderedKind,
 } from './segments-groups';
 import { StatusSeparator } from './status-separator';
-import { useOverflow } from './use-overflow';
+import { useZoneDensities } from './use-overflow';
 
 /**
  * The status bar: the shortcut rail and this repository's health on the left,
@@ -40,19 +40,35 @@ import { useOverflow } from './use-overflow';
  * an exact record of which segments rendered.
  *
  * Theme E's overflow sits on top of `STATUS_SEGMENTS` rather than a second
- * source of truth: `data-density` on this `<footer>` drives every segment's
- * own `.status-label` / `.status-chord` CSS (`styles.css`) — compact/collapsed
- * hide them, full does not — so a segment already using those classes earns
- * compact styling for free. `collapsed` additionally removes a zone's segments
- * from here and hands them to the one shared `OverflowPopover`.
+ * source of truth: `data-density` on each zone's own `<div>` drives that
+ * zone's segments' `.status-label` / `.status-chord` CSS (`styles.css`) —
+ * compact/collapsed hide them, full does not — so a segment already using
+ * those classes earns compact styling for free. `collapsed` additionally
+ * removes a zone's segments from here and hands them to the one shared
+ * `OverflowPopover`.
+ *
+ * **Density is measured per zone, not once for the whole bar** (Phase 87). A
+ * single shared measurement meant a crowded right zone — finance, monitor,
+ * verdicts, alerts, all of which have grown since Phase 27 — could tip the
+ * *entire* bar into `compact`, which hides a rail toggle's name **and**
+ * chord unconditionally, even though the left zone's own seven toggles would
+ * easily have fit on their own. `useZoneDensities` fixes that with a
+ * priority order rather than an even split: left and centre are each
+ * measured against the bar's whole width, as if the other zones did not
+ * exist, and right gets whatever is left over — see that hook's own comment
+ * for why an even `1fr`/`1fr` split (the first thing this was tried as) just
+ * moves the same coupling to a fixed 50/50 ratio instead of removing it.
  *
  * **Zones never shrink their children.** A default flex row lets its
  * children shrink and their text wrap, which keeps `scrollWidth` equal to
  * `clientWidth` forever — the browser silently squeezes content instead of
- * `useOverflow` ever seeing an overflow to measure. `whitespace-nowrap` plus
- * `[&>*]:shrink-0` makes a zone's min-content its full natural width, so a
- * genuine shortage of room shows up as real overflow rather than clipped
- * text nobody asked for.
+ * `useZoneDensities` ever seeing an overflow to measure. `whitespace-nowrap`
+ * plus `[&>*]:shrink-0` makes a zone's min-content its full natural width, so
+ * a genuine shortage of room shows up as real overflow rather than clipped
+ * text nobody asked for. Each zone also stays `justify-self-*` (shrink-to-fit
+ * in its grid column, not stretched) so its own `scrollWidth` is exactly its
+ * content's width — what `useZoneDensities` measures — independent of
+ * whatever the grid ends up giving it.
  */
 function zoneSegments(zone: StatusZone): StatusSegment[] {
   return STATUS_SEGMENTS.filter((s) => s.zone === zone);
@@ -102,8 +118,8 @@ function prune(el: HTMLElement): boolean {
 type ZoneRef = RefObject<HTMLDivElement | null>;
 
 /**
- * `onChange` fires whenever a prune actually changed the DOM — `useOverflow`'s
- * cue to measure again.
+ * `onChange` fires whenever a prune actually changed the DOM —
+ * `useZoneDensities`'s cue to measure again.
  *
  * Hiding a separator removes a 1px rule *and* its 12px `gap-3` slot from a zone,
  * but does not change the `<footer>`'s own `clientWidth`, so the
@@ -115,8 +131,8 @@ type ZoneRef = RefObject<HTMLDivElement | null>;
  * counter meant `setState` inside a dependency-free layout effect, which eslint
  * correctly flags as an infinite-update hazard and which cost an extra render
  * per prune. It is passed as a ref so this hook can be called *before*
- * `useOverflow` — which is what guarantees its layout effect runs first — while
- * still reaching a function `useOverflow` has not returned yet.
+ * `useZoneDensities` — which is what guarantees its layout effect runs first —
+ * while still reaching a function `useZoneDensities` has not returned yet.
  */
 function useSeparatorPruning(
   left: ZoneRef,
@@ -156,28 +172,29 @@ function useSeparatorPruning(
 }
 
 export function StatusBar() {
-  const ref = useRef<HTMLElement | null>(null);
   const leftRef = useRef<HTMLDivElement | null>(null);
   const centerRef = useRef<HTMLDivElement | null>(null);
   const rightRef = useRef<HTMLDivElement | null>(null);
   /*
-    Pruning is called BEFORE `useOverflow`, so its layout effect is registered
-    first and therefore runs first: the very first `measure()` reads a
-    `scrollWidth` with the stranded separators already gone. Ordering alone is
-    not enough afterwards — a segment can flip from `null` to visible long after
-    mount (diagnostics, once trust is granted) — so a prune that changes anything
-    asks for a re-measure through this ref. On mount that call lands before
-    `useOverflow` has installed its own `measure`, and is a deliberate no-op:
-    the hook's own first measurement follows immediately, against pruned DOM.
+    Pruning is called BEFORE `useZoneDensities` below, so its layout effect is
+    registered first and therefore runs first: the very first `measure()`
+    reads each zone's `scrollWidth` with that zone's stranded separators
+    already gone. Ordering alone is not enough afterwards — a segment can flip
+    from `null` to visible long after mount (diagnostics, once trust is
+    granted) — so a prune that changes anything asks for a re-measure through
+    this ref. On mount that call lands before `useZoneDensities` has installed
+    its own `measure`, and is a deliberate no-op: the hook's own first
+    measurement follows immediately, against pruned DOM.
   */
   const remeasure = useRef<() => void>(() => {});
   useSeparatorPruning(leftRef, centerRef, rightRef, remeasure);
-  const overflow = useOverflow(ref);
+  const footerRef = useRef<HTMLElement | null>(null);
+  const overflow = useZoneDensities(footerRef, leftRef, centerRef, rightRef);
   remeasure.current = overflow.remeasure;
-  const density = overflow.density;
+  const densityByZone = overflow.densities;
 
   const byZone = Object.fromEntries(
-    ZONES.map((zone) => [zone, collapseFor(zoneSegments(zone), density)]),
+    ZONES.map((zone) => [zone, collapseFor(zoneSegments(zone), densityByZone[zone])]),
   ) as Record<StatusZone, CollapseResult>;
 
   // Concatenated in zone order rather than re-sorted globally: priority is
@@ -197,9 +214,8 @@ export function StatusBar() {
 
   return (
     <footer
-      ref={ref}
+      ref={footerRef}
       data-testid="status-bar"
-      data-density={density}
       className="grid h-6 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-t border-border bg-card/50 px-3 text-xs text-muted-foreground"
     >
       {/*
@@ -216,6 +232,7 @@ export function StatusBar() {
       <div
         ref={leftRef}
         data-testid="status-bar-left"
+        data-density={densityByZone.left}
         className="flex items-center justify-self-start gap-3 whitespace-nowrap [&>*]:shrink-0"
       >
         {renderZone('left')}
@@ -223,6 +240,7 @@ export function StatusBar() {
       <div
         ref={centerRef}
         data-testid="status-bar-center"
+        data-density={densityByZone.center}
         className="flex items-center justify-self-center gap-3 whitespace-nowrap [&>*]:shrink-0"
       >
         {renderZone('center')}
@@ -230,10 +248,11 @@ export function StatusBar() {
       <div
         ref={rightRef}
         data-testid="status-bar-right"
+        data-density={densityByZone.right}
         className="flex items-center justify-self-end gap-2 whitespace-nowrap [&>*]:shrink-0"
       >
         {renderZone('right')}
-        <OverflowPopover items={overflowing} density={density} />
+        <OverflowPopover items={overflowing} anyCollapsed={overflowing.length > 0} />
       </div>
     </footer>
   );

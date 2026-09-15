@@ -170,6 +170,10 @@ test("the bar's left edge does not move with the repositories panel", async ({ p
  * overflow popover keeps its click behaviour — collapsing must not turn an
  * action into a label.
  *
+ * Density is measured per zone since Phase 87, so this walks the LEFT zone's
+ * own `data-density` down — see the comment at its declaration below for why
+ * that still exercises the right zone's collapse too.
+ *
  * The two transitions are found by walking the viewport down
  * (`narrowUntilDensity`, above) rather than jumping to a written-down width —
  * `@bilo-io/shell`'s own `md:` (768px) breakpoint sits well under wherever
@@ -193,7 +197,18 @@ test(
     });
     await page.goto('/');
 
-    const bar = page.getByTestId('status-bar');
+    // The rail's own zone, not the whole bar (Phase 87: density is measured
+    // per zone — see `use-overflow.ts`'s `useZoneDensities`). Left is
+    // measured against the bar's whole width, so it is the LAST of the two
+    // to give way, not the first: right (finance, monitor, verdicts, alerts)
+    // is measured against whatever is left once left's own claim is
+    // subtracted, so it degrades earlier. It can also *recover* right where
+    // left steps down a level — left giving up its claim hands right a
+    // sudden windfall — so reaching `collapsed` on the left is not proof
+    // right is still collapsed too; the second narrowing pass below checks
+    // right explicitly rather than assuming it.
+    const bar = page.getByTestId('status-bar-left');
+    const right = page.getByTestId('status-bar-right');
     await expect(bar).toHaveAttribute('data-density', 'full');
     await expect(page.getByTestId('status-segment-checks-verdict')).toBeVisible();
 
@@ -205,14 +220,24 @@ test(
     // Icon-only: the toggles' trailing labels are hidden, not removed.
     await expect(page.getByRole('button', { name: 'Toggle Repositories' })).toBeVisible();
 
-    await narrowUntilDensity(page, bar, 'collapsed', { from: compactWidth - 20 });
+    const leftCollapsedWidth = await narrowUntilDensity(page, bar, 'collapsed', {
+      from: compactWidth - 20,
+    });
+    // Left recovering right's room (see above) means right can still be
+    // showing its segments here — keep narrowing until it, too, collapses.
+    await narrowUntilDensity(page, right, 'collapsed', { from: leftCollapsedWidth });
     await expect(page.getByTestId('status-segment-checks-verdict')).toHaveCount(0);
 
     const trigger = page.getByTestId('status-overflow');
     await expect(trigger).toBeVisible();
     // `collapseFor` moves every STATUS_SEGMENTS entry into the popover at `collapsed` density
     await expect(trigger).toHaveAccessibleName(/\d+ more/);
-    await trigger.click();
+    // A window this narrow is well past `@bilo-io/shell`'s `md:` (768px)
+    // breakpoint, whose mobile bottom-nav overlay then sits on top of the
+    // footer — unrelated to what this test checks, so the trigger is
+    // dispatched to directly rather than clicked at a screen coordinate the
+    // overlay would intercept (`shortcut-rail.spec.ts` hits the same thing).
+    await trigger.dispatchEvent('click');
 
     const panel = page.getByTestId('status-overflow-panel');
     await expect(panel).toBeVisible();

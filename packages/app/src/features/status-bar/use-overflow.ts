@@ -2,110 +2,151 @@ import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from '
 
 import { densityFor, type Density } from '../../lib/density';
 
-/**
- * Measures the bar element itself, not the window — the repositories panel
- * goes to 560px (`LAYOUT_BOUNDS.reposWidth`) and the browser pane can cover
- * the whole content row, so the window's width stops predicting the bar's
- * the moment either moves. Follows `app.tsx`'s `stackHeight` pattern: a
- * `useLayoutEffect`, one measurement before the observer is attached so the
- * first paint is already correct, and the same
- * `typeof ResizeObserver === 'undefined'` guard.
- *
- * A thin wrapper by design: it owns the measuring, not the deciding — every
- * threshold and the hysteresis band live in the pure `densityFor`, which is
- * what `density.test.ts` drives directly. jsdom has no `ResizeObserver` and
- * no test file in this repo stubs one, so this hook is covered by the
- * Playwright suite (Theme H) rather than a rendered-component test.
- *
- * Returns `remeasure` alongside the density (Phase 39) for content changes the
- * `ResizeObserver` cannot see. The observer watches this element, and hiding a
- * stranded group separator does not change its `clientWidth` — so without a way
- * to ask again, the cached `lastWidths` would keep an inflated reading (a 1px
- * rule plus its 12px `gap-3` slot per pruned separator) and the bar could sit
- * one density step narrower than its content warrants until the next window
- * resize. A callback rather than a `revision` counter: a counter meant
- * `setState` inside a dependency-free layout effect, which is an infinite-update
- * hazard even when the producing function is idempotent, and it cost an extra
- * render per prune.
+type ZoneWidths = { fullWidth: number; compactWidth: number };
+type ZoneKey = 'left' | 'center' | 'right';
+export type ZoneDensities = Record<ZoneKey, Density>;
+
+/** Stamp `full`/`compact` on the zone itself and read ITS OWN `scrollWidth`
+ * — not the footer's — so the reading is that zone's natural content width,
+ * independent of whatever box the grid happens to have given it. Zones stay
+ * shrink-to-fit (`justify-self-*` in `status-bar.tsx`, no `min-w-0`)
+ * precisely so this is true: a shrink-to-fit element's `scrollWidth` already
+ * equals its content's width, with nothing to clip.
  */
-export function useOverflow(ref: RefObject<HTMLElement | null>): {
-  density: Density;
-  remeasure: () => void;
-} {
-  const [density, setDensity] = useState<Density>('full');
-  const densityRef = useRef<Density>(density);
-  densityRef.current = density;
+function measureZone(el: HTMLElement): ZoneWidths {
+  const restore = el.dataset.density;
+  el.dataset.density = 'full';
+  const fullWidth = el.scrollWidth;
+  el.dataset.density = 'compact';
+  const compactWidth = el.scrollWidth;
+  el.dataset.density = restore;
+  return { fullWidth, compactWidth };
+}
 
-  /*
-    The last `fullWidth`/`compactWidth` reading taken while every segment was
-    genuinely mounted. At `collapsed`, a zone's segments are gone from the
-    DOM (`collapseFor`), so `el.scrollWidth` no longer answers "what does the
-    full set want" — it answers "what does the empty set want", which
-    shrinks to fit `available` by construction and can never satisfy the
-    restore hysteresis. A resize that dips through `collapsed` and back
-    (real: Chromium reports intermediate widths mid-resize, not one atomic
-    jump) would otherwise get stuck collapsed forever, because removing
-    content doesn't itself change the bar's own `clientWidth` and so never
-    fires the observer again on its own. Reusing the last trustworthy
-    reading keeps the decision honest without measuring a DOM that is
-    currently lying about what it wants.
-  */
-  const lastWidths = useRef<{ fullWidth: number; compactWidth: number } | null>(null);
+function widthAt(density: Density, widths: ZoneWidths): number {
+  if (density === 'collapsed') return 0;
+  return density === 'full' ? widths.fullWidth : widths.compactWidth;
+}
 
-  /*
-    The live `measure`, so a caller outside this hook can trigger one. Held in a
-    ref because `measure` closes over the element and is rebuilt by the effect;
-    the exported `remeasure` stays a stable identity, which is what lets
-    `status-bar.tsx` hand it over during render.
-  */
+/**
+ * How much of itself each of the status bar's three zones can afford to
+ * show — decided per zone, but not symmetrically (Phase 87).
+ *
+ * Before this, one `useOverflow` measured the whole `<footer>` as a single
+ * `scrollWidth` and every zone shared its one `data-density`. Phase 27
+ * through Phase 84 grew the right zone considerably (finance, monitor, repo
+ * verdicts, alerts); once its own content plus the rail's exceeded the bar,
+ * that shared measurement tipped the *entire bar* into `compact` — which
+ * hides a rail toggle's chord and name unconditionally — even though the
+ * left zone's own seven toggles would have fit in the bar's available width
+ * on their own. That coupling, not any one segment, was the bug: a busy
+ * right zone could make the rail illegible with room to spare beside it.
+ *
+ * The fix is a priority order, not three independent measurements against
+ * an equal split of the bar. `1fr`/`1fr` grid columns divide space evenly
+ * regardless of what each side actually needs, so pinning each zone's own
+ * `clientWidth` to that even split (via `min-w-0`) would only move the same
+ * bug to a fixed 50/50 ratio — a crowded right zone would stop starving the
+ * rail and start starving it by exactly half, every time, even when the
+ * rail alone would have fit easily. Left and centre are instead measured
+ * against the bar's *whole* budget (`available`), as if each were the only
+ * thing in it; right then gets whatever is left after subtracting what left
+ * and centre actually rendered at the density that decision produced. The
+ * rail (left) and the progress readouts (centre) are protected this way;
+ * the machine's vitals and the repo's alerts (right) are what absorbs a
+ * narrow window — matching where this bar already put its "outer corner,
+ * highest-attention position" reasoning in `segments.ts`, just applied one
+ * step earlier, before those segments are even measured.
+ *
+ * Each zone gets its own `densityFor` hysteresis (`current` fed back per
+ * zone) and its own `lastWidths` cache, for the reason the retired
+ * `useOverflow` documented: at `collapsed` a zone's segments are gone from
+ * the DOM (`collapseFor`), so re-measuring would read the empty set's
+ * width, not what restoring would actually need. `ResizeObserver` watches
+ * only the footer, not each zone — the external signal that changes is the
+ * bar's own available width (a window resize, a panel opening); a zone's
+ * own content changing size is a React re-render, which `remeasure` (driven
+ * by `status-bar.tsx`'s separator pruning) already covers.
+ */
+export function useZoneDensities(
+  footerRef: RefObject<HTMLElement | null>,
+  leftRef: RefObject<HTMLDivElement | null>,
+  centerRef: RefObject<HTMLDivElement | null>,
+  rightRef: RefObject<HTMLDivElement | null>,
+): { densities: ZoneDensities; remeasure: () => void } {
+  const [densities, setDensities] = useState<ZoneDensities>({
+    left: 'full',
+    center: 'full',
+    right: 'full',
+  });
+  const densitiesRef = useRef(densities);
+  densitiesRef.current = densities;
+
+  const lastWidths = useRef<Record<ZoneKey, ZoneWidths | null>>({
+    left: null,
+    center: null,
+    right: null,
+  });
+
   const measureRef = useRef<() => void>(() => {});
 
   useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    const footerEl = footerRef.current;
+    const leftEl = leftRef.current;
+    const centerEl = centerRef.current;
+    const rightEl = rightRef.current;
+    if (!footerEl || !leftEl || !centerEl || !rightEl) return;
+
+    const els: Record<ZoneKey, HTMLElement> = { left: leftEl, center: centerEl, right: rightEl };
+
+    const widthsFor = (key: ZoneKey, current: Density): ZoneWidths => {
+      if (current === 'collapsed' && lastWidths.current[key]) return lastWidths.current[key]!;
+      const widths = measureZone(els[key]);
+      lastWidths.current[key] = widths;
+      return widths;
+    };
 
     const measure = () => {
-      const available = el.clientWidth;
-      const current = densityRef.current;
+      const available = footerEl.clientWidth;
+      const current = densitiesRef.current;
 
-      let fullWidth: number;
-      let compactWidth: number;
-      if (current === 'collapsed' && lastWidths.current) {
-        ({ fullWidth, compactWidth } = lastWidths.current);
-      } else {
-        /*
-          Read while the `compact` classes are applied — one extra layout
-          read per resize, not per frame, which at a 24px bar is not a
-          budget worth defending. `fullWidth` is read the same way rather
-          than trusted to whatever `data-density` the element already
-          carries, so a measurement taken mid-compact still gets an honest
-          number for both ends.
-        */
-        const restore = el.dataset.density;
-        el.dataset.density = 'full';
-        fullWidth = el.scrollWidth;
-        el.dataset.density = 'compact';
-        compactWidth = el.scrollWidth;
-        el.dataset.density = restore;
-        lastWidths.current = { fullWidth, compactWidth };
+      const leftWidths = widthsFor('left', current.left);
+      const centerWidths = widthsFor('center', current.center);
+      const rightWidths = widthsFor('right', current.right);
+
+      const nextLeft = densityFor(
+        { available, fullWidth: leftWidths.fullWidth, compactWidth: leftWidths.compactWidth },
+        current.left,
+      );
+      const nextCenter = densityFor(
+        { available, fullWidth: centerWidths.fullWidth, compactWidth: centerWidths.compactWidth },
+        current.center,
+      );
+
+      const reserved = widthAt(nextLeft, leftWidths) + widthAt(nextCenter, centerWidths);
+      const rightAvailable = Math.max(0, available - reserved);
+      const nextRight = densityFor(
+        { available: rightAvailable, fullWidth: rightWidths.fullWidth, compactWidth: rightWidths.compactWidth },
+        current.right,
+      );
+
+      if (nextLeft !== current.left || nextCenter !== current.center || nextRight !== current.right) {
+        setDensities({ left: nextLeft, center: nextCenter, right: nextRight });
       }
-
-      const next = densityFor({ available, fullWidth, compactWidth }, current);
-      if (next !== current) setDensity(next);
     };
 
     measureRef.current = measure;
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
-    observer.observe(el);
+    observer.observe(footerEl);
     return () => {
       observer.disconnect();
       measureRef.current = () => {};
     };
-  }, [ref]);
+  }, [footerRef, leftRef, centerRef, rightRef]);
 
   const remeasure = useCallback(() => measureRef.current(), []);
 
-  return { density, remeasure };
+  return { densities, remeasure };
 }

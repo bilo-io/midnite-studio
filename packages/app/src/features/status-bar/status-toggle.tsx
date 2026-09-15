@@ -79,8 +79,8 @@ export function StatusToggle({
 
           `hidden` was the first attempt and it broke the overflow popover.
           `overflow-popover.tsx`'s own comment states the contract: its panel
-          portals into `document.body`, outside the `<footer data-density>` the
-          `.status-label` rule matches against, "so a segment's label comes back
+          portals into `document.body`, outside the zone's own `<div data-density>`
+          the `.status-label` rule matches against, "so a segment's label comes back
           automatically — no override needed". A JS `hidden` travels with the
           element into the portal, so at `collapsed` density the popover would
           have listed five unlabelled 14px glyphs and their chords — the one
