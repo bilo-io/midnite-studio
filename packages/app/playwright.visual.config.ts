@@ -32,7 +32,14 @@ import { defineConfig, devices } from '@playwright/test';
  * exact font/fontconfig/freetype versions this repo's CI Linux runner also gets (both
  * are Ubuntu 24.04 "noble" — see the `visual` job in `.github/workflows/ci.yml`, which
  * runs the SAME image as its container rather than trusting the bare runner's own font
- * packages to match byte-for-byte):
+ * packages to match byte-for-byte). The command below now lives in
+ * `scripts/visual-regen.mjs` and is reached as:
+ *
+ *   MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen
+ *
+ * — opt-in, because macOS (arm64) is the only officially supported platform for now and
+ * these Linux baselines (and the `visual` CI lane behind them) are deferred scope. What
+ * that task runs, unchanged:
  *
  *   docker run --rm -v "$PWD:/w" -w /w mcr.microsoft.com/playwright:v1.62.1-noble bash -c "
  *     corepack enable && corepack prepare pnpm@9.15.0 --activate &&

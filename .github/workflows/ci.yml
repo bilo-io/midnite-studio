@@ -4,11 +4,57 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The opt-in switch for the deferred non-macOS lanes — see "Supported
+  # platform" below. `workflow_dispatch` is the manual half; the
+  # `cross-platform` PR label is the per-PR half, so a change that actually
+  # touches the Linux-only machinery can prove itself without a second,
+  # detached dispatch run against a branch.
+  workflow_dispatch:
+    inputs:
+      cross_platform:
+        description: 'Also run the deferred Linux-only lanes (db-integration, visual)'
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# ## Supported platform
+#
+# **macOS (arm64) is the only officially supported platform for now; Linux and
+# Windows support is deferred, not abandoned.** Every default gate therefore
+# runs on a `macos-*` runner: a red lane on a platform this project does not
+# ship is a bill and an interruption with no user behind it. This file has the
+# receipts for that being a real cost and not a hypothetical — the `e2e` job's
+# own comment records nine `palette.spec.ts` specs that burned half an hour of
+# runner time pressing a hard-coded `Meta+k` that does nothing on Linux, where
+# `Mod` is Ctrl.
+#
+# There has never been a `windows-*` runner in this file, so there is nothing
+# to gate there. Two lanes CANNOT run on macOS at all and are gated behind the
+# `cross_platform` dispatch input / `cross-platform` PR label above rather than
+# moved or deleted:
+#
+#   db-integration  GitHub `services:` containers are Docker-based and
+#                   Linux-runner-only. macOS runners have no Docker daemon, so
+#                   this job has no macOS form to move to.
+#   visual          Runs inside `mcr.microsoft.com/playwright:v1.62.1-noble` as
+#                   a job `container:` (Linux-only by construction) and asserts
+#                   against committed `-linux.png` baselines. Moving it to
+#                   macOS means regenerating the whole baseline corpus, which
+#                   is deliberately NOT done here.
+#
+# Both are skipped-by-default now rather than permanently red. The
+# `visual` job in particular was already failing on `main` (stale status-bar
+# baselines from 9bd97911/a250a01e); gating it stops that being a standing red
+# on every PR, and does not pretend the baselines are fixed.
+#
+# The trade this makes explicitly: macOS runners bill at 10x on a private repo,
+# and `gate-node`, `gate-node-app-test` and `e2e` were on ubuntu-24.04 for that
+# reason alone (Phase 82 Themes E/H). Moving them costs real money to stop
+# validating on a platform we do not ship. If the bill is the bigger problem
+# than the noise, the fix is to move those three back — not to un-defer Linux.
 jobs:
   # Phase 82 Theme E — `gate` split by platform.
   #
@@ -47,10 +93,17 @@ jobs:
   # platform-agnostic and has no business paying macOS's 10x billing rate on a
   # private repo.
   gate-node:
-    # ubuntu-24.04, 1x billing: shared, app, website, db-engine. None of these
-    # import `electron` or shell out to a real git binary in their test suites
-    # (git-engine is the one exception, and it is on gate-native below).
-    runs-on: ubuntu-24.04
+    # shared, app, website, db-engine. None of these import `electron` or shell
+    # out to a real git binary in their test suites (git-engine is the one
+    # exception, and it is on gate-native below).
+    #
+    # `macos-14`, not the `ubuntu-24.04` Phase 82 Theme E put it on: the split
+    # by CONTENT (which packages run where) is unchanged and still worth having,
+    # but the platform half of it is not — macOS is the only supported target
+    # now (see the header), so the node-portable packages get validated on the
+    # platform they ship on. The 10x billing Theme E's comment above is arguing
+    # against is the price of that, knowingly paid.
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v7
         with:
@@ -170,7 +223,11 @@ jobs:
   # ~108s late (see the `e2e` job's concurrency note) but still finished in
   # 119s of its own runtime once it started, consistent with the other three.
   gate-node-app-test:
-    runs-on: ubuntu-24.04
+    # `macos-14` for the same reason as `gate-node` above — the shard count and
+    # every number in the comment block were measured on ubuntu-24.04, so treat
+    # N=4 as inherited rather than re-derived until this lane has its own macOS
+    # timings.
+    runs-on: macos-14
     strategy:
       fail-fast: false
       matrix:
@@ -295,7 +352,19 @@ jobs:
   # `db-engine:test` only, not `:typecheck :lint :test` — this job exists for
   # the service containers, and `gate` already covers every other package's
   # suite (including db-engine's OWN non-driver tests) on every PR.
+  #
+  # DEFERRED (macOS-only policy): this job stays on `ubuntu-24.04` because it
+  # has nowhere else to go — GitHub's `services:` containers are Docker-based
+  # and macOS runners have no Docker daemon — so it is now opt-in rather than a
+  # default gate. Run it with the `cross_platform` dispatch input or by putting
+  # the `cross-platform` label on a PR that touches `packages/db-engine`. The
+  # driver tests already skip themselves with no `MSTUDIO_TEST_<PROVIDER>_*`
+  # env vars, so nothing about db-engine's own suite goes unrun by default —
+  # only the real-database pass does.
   db-integration:
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.cross_platform
+      || contains(github.event.pull_request.labels.*.name, 'cross-platform')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     services:
@@ -478,8 +547,16 @@ jobs:
   # post-Theme-C size. So: **8 shards, unchanged**, on the Phase 56 Theme C
   # `workers: 2` precedent that a measured non-adoption is a valid result of
   # this kind of theme. Re-run this measurement once Theme C's waves land.
+  #
+  # `macos-14` since the macOS-only policy (see the header). The comment above
+  # argues for ubuntu on cost, and that argument is intact — it is simply
+  # outranked now by not gating merges on a platform this project does not
+  # ship. Note this lane is the one with a *measured* Linux tax in its own
+  # history (the `Meta+k` paragraph above), so the swap buys signal as well as
+  # costing money. Shard count and `workers` are inherited from the ubuntu
+  # measurements, not re-derived.
   e2e:
-    runs-on: ubuntu-24.04
+    runs-on: macos-14
     timeout-minutes: 10
     strategy:
       # Every shard reports. Cancelling siblings on the first failure would hide
@@ -519,11 +596,13 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
 
-      # `--with-deps` only on a cache miss: it is an apt install, and re-running
-      # it against a warm browser cache is pure wall-clock.
+      # No `--with-deps`: that flag installs Linux system packages through apt
+      # and is a no-op-at-best on a macOS runner, which ships every framework
+      # chromium needs. Still cache-miss-only — a browser download against a
+      # warm cache is pure wall-clock.
       - name: Install chromium
         if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install chromium
         working-directory: packages/app
 
       # Phase 56 Theme E: the `webServer` block below starts a cold Vite dev
@@ -582,7 +661,20 @@ jobs:
   # only ever runs `shared:build` (plain `tsc`, no native code) and
   # `app:visual` (Vite + Playwright, same as `e2e`), neither of which touches
   # desktop's or git-engine's native dependencies at all.
+  #
+  # DEFERRED (macOS-only policy): opt-in, not a default gate. This lane is
+  # Linux twice over — a Linux job `container:` for font parity, and committed
+  # `-linux.png` baselines — so under a macOS-only target it is asserting the
+  # appearance of a platform we do not ship. Moving it to macOS means
+  # regenerating the whole baseline corpus, deliberately out of scope here, so
+  # it is gated rather than rewritten. Run it with the `cross_platform`
+  # dispatch input or the `cross-platform` PR label. The baseline BUDGET still
+  # runs on every PR (`root:e2e-budget` in `gate-node`), so the corpus cannot
+  # silently regrow while this lane is idle.
   visual:
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.cross_platform
+      || contains(github.event.pull_request.labels.*.name, 'cross-platform')
     runs-on: ubuntu-24.04
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
