@@ -63,7 +63,11 @@ export function BatterySegment({ side = 'bottom' }: { side?: 'top' | 'bottom' } 
             isCharging={battery?.isCharging}
             className="h-3.5 w-3.5 shrink-0"
           />
-          <span className="status-label tabular-nums">{rounded}%</span>
+          {/* Not `.status-label`: that class drops text at compact/collapsed
+              density, a footer contract this segment left behind when it
+              moved into the title bar. The percentage stays put regardless
+              of density or hover. */}
+          <span className="tabular-nums">{rounded}%</span>
         </span>
       }
     >
