@@ -47,7 +47,7 @@ Track sub-tasks with TodoWrite.
 - Implement exactly the task agreed in Stages 0–1 — don't drift scope.
 - Follow this project's own `CLAUDE.md` conventions (module/package boundaries, wire-contract validation at every I/O boundary, whatever this project's own rules are).
 - **Tests ship with the change, not after:** unit tests at the right layer, following this project's own existing conventions; a visual or flow change gets a spec in this project's own e2e suite, if it has one.
-- Small conventional commits, each ending with the required `Co-Authored-By` trailer.
+- Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email, which is how a solo repo grows contributors who never pushed a byte.
 
 ## 5 · Screenshots — whenever the change is visual
 Capture **before/after** with whatever this project's own visual-testing tooling is (a dev server + mocked backend where applicable, or the real app). Save PNGs to a temp dir, show them in this thread, and reuse them in the PR body (Stage 8).

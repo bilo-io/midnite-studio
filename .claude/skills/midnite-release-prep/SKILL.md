@@ -88,7 +88,7 @@ Honour an explicit `$ARGUMENTS` override but still show what auto-detect picked.
   - Re-seed an empty `## [Unreleased]` stub above it, and update the compare/tag link refs at the bottom (`[Unreleased]: …compare/vX.Y.Z...HEAD`, add `[X.Y.Z]: …/releases/tag/vX.Y.Z`).
   - Keep this separate from `.midnite/tasks/done.md` (phase tracker, not release notes).
 - **Sanity-check:** the lockstep invariant still holds — patches may differ, `MAJOR.MINOR` must not. Run `moon run root:version-check`.
-- **Commit the draft:** `chore(release): prepare vX.Y.Z` (changelog + version bumps), with the required `Co-Authored-By` trailer. Do **not** tag, do **not** push.
+- **Commit the draft:** `chore(release): prepare vX.Y.Z` (changelog + version bumps), with no attribution trailer. Do **not** tag, do **not** push.
 
 ## 6 · Hand off
 Report, terse:

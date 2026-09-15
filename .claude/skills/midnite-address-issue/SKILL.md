@@ -127,7 +127,7 @@ Branch prefix: `fix/` for a bug, `feature/` for an enhancement.
 - **Write the regression test before the fix and watch it fail.** That failure is the proof you found the real cause; a test written after a fix proves nothing. Report both states (red → green) in the thread.
 - Layer it right: parser/layout/engine logic → Vitest in `git-engine` (fixture strings or temp repos) · `app` component → RTL · visual/flow change → extend the Playwright suite under `packages/app/e2e/`.
 - Fix at the source per the agreed plan. Follow `CLAUDE.md` (shared = the IPC contract; zod-validate IPC payloads; `git-engine` stays electron-free; `app` never imports git-engine/electron).
-- Small conventional commits, each ending with the required `Co-Authored-By` trailer. Reference the issue in the body as `#<N>`.
+- Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email — see [`CLAUDE.md`](../../../CLAUDE.md). `.githooks/commit-msg` strips them as a backstop. Reference the issue in the body as `#<N>`.
 
 ## 9 · Verify
 

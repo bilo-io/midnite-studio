@@ -52,7 +52,7 @@ Gather, and **stop with a clear message** on the first failure (nothing has chan
   Do **not** proceed without an affirmative.
 
 ## 3 · Commit + tag (first irreversible step)
-- **Standard release:** If `/midnite-release-prep` left version bumps uncommitted (it shouldn't), or the changelog still shows `## [Unreleased]` instead of the dated section, finalise: confirm the bumps are lockstep, move `## [Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` (today). Commit `chore(release): vX.Y.Z` with the required `Co-Authored-By` trailer. (Usually the prep branch already has this commit.) Create the tag(s) from `planReleaseTags`: `git tag vX.Y.Z` (annotated: `-a -m "vX.Y.Z"`), or each scoped `git tag '‹pkg›@X.Y.Z'`.
+- **Standard release:** If `/midnite-release-prep` left version bumps uncommitted (it shouldn't), or the changelog still shows `## [Unreleased]` instead of the dated section, finalise: confirm the bumps are lockstep, move `## [Unreleased]` → `## [X.Y.Z] - YYYY-MM-DD` (today). Commit `chore(release): vX.Y.Z` with no attribution trailer. (Usually the prep branch already has this commit.) Create the tag(s) from `planReleaseTags`: `git tag vX.Y.Z` (annotated: `-a -m "vX.Y.Z"`), or each scoped `git tag '‹pkg›@X.Y.Z'`.
 - **Ephemeral release:** No commit is created. Create annotated tag on HEAD: `git tag -a vX.Y.Z -m "vX.Y.Z (ephemeral test release)"`.
 
 ## 4 · Publish

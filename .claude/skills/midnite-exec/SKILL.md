@@ -87,7 +87,7 @@ Track sub-tasks with TodoWrite — one group per theme in the batch.
 - **Tests ship with the change, not after:**
   - Logic → Vitest at the right layer (pure parsers/layout in `git-engine`; RTL for `app` components).
   - **Visual or flow change → add/extend the Playwright suite** (specs under `packages/app/e2e/`, running against the Vite dev server with a mocked `window.midniteStudio` bridge; scaffold a minimal `playwright.config.ts` if none exists yet) so the new/updated feature is genuinely covered.
-- Small conventional commits, each ending with the required `Co-Authored-By` trailer.
+- Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email — see [`CLAUDE.md`](../../../CLAUDE.md). `.githooks/commit-msg` strips them as a backstop.
 
 ## 5 · Screenshots — whenever the change is visual
 Capture **before/after with Playwright** against the Vite renderer (`moon run app:dev`, mocked bridge for pure-UI shots) or the real app via `moon run desktop:start`; `pnpm exec playwright install chromium` if the browser is missing. Save PNGs to a temp dir.

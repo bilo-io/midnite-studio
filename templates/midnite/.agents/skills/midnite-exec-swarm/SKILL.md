@@ -75,7 +75,7 @@ conversation's context) and must instruct it to:
   is the single most common way a swarm subagent stalls. On a real failure, check whether the
   failing test touches files the PR changed; if not, treat it as a pre-existing flake, re-run the
   failed job once, and re-check before escalating.
-- Attribute commits/PRs per this session's configured trailers (same ones the parent session uses).
+- **Commits carry no attribution trailer.** GitHub credits such a commit to whichever account claims the trailer's email, which is how a solo repo grows contributors who never pushed a byte. PR bodies follow whatever the parent session uses.
 - Report back its PR URL and what landed vs. what it left open, once merged.
 
 ## 6 · Sitrep — recurring, until every subagent has merged
