@@ -140,12 +140,14 @@ describe('ForgeProjectItemSchema / ForgeProjectItemContent', () => {
         f1: { fieldId: 'f1', dataType: 'text' as const, text: 'a note' },
       },
     };
-    // `dependencies` (Phase 75 Theme A) is not in the input but defaults in
-    // on parse — the whole point of `.default({})` on that field.
+    // `dependencies` (Phase 75 Theme A) and `repo` are not in the input but
+    // default in on parse — the whole point of `.default(…)` on each: a board
+    // page cached by an older build still parses.
     expect(ForgeProjectItemSchema.parse(item)).toEqual({
       ...item,
       content: {
         ...item.content,
+        repo: '',
         dependencies: {
           blockedBy: [],
           parent: null,
@@ -173,7 +175,7 @@ describe('ForgeProjectItemSchema / ForgeProjectItemContent', () => {
       },
       fieldValues: {},
     };
-    expect(ForgeProjectItemSchema.parse(item)).toEqual(item);
+    expect(ForgeProjectItemSchema.parse(item)).toEqual({ ...item, content: { ...item.content, repo: '' } });
   });
 
   /**

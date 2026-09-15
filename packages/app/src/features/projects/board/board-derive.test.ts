@@ -130,6 +130,7 @@ describe('composeCardPrompt', () => {
       type: 'issue',
       id: 'I_1',
       number: 42,
+      repo: '',
       title: 'Fix the flaky test',
       url: 'https://github.com/acme/widgets/issues/42',
       state: 'open',

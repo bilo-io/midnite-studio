@@ -175,9 +175,12 @@ export function parseBlockerRefs(body: string): ForgeIssueRef[] {
 }
 
 /** Number/repo pair a graph node keys on — the empty string means "the
- *  board's own repo", matching `ForgeIssueLink.repo`'s convention. */
-function normalizeRepo(repo: string, boardRepo: string): string {
-  const trimmed = repo.trim();
+ *  board's own repo", matching `ForgeIssueLink.repo`'s convention. Tolerates
+ *  `undefined` because an item that never passed through the zod parse (a
+ *  test's mocked bridge, a page cached before `content.repo` existed) has no
+ *  `repo` at all, and "unknown repo" means "the board's own" here too. */
+function normalizeRepo(repo: string | undefined, boardRepo: string): string {
+  const trimmed = (repo ?? '').trim();
   if (!trimmed) return '';
   return trimmed.toLowerCase() === boardRepo.trim().toLowerCase() ? '' : trimmed;
 }
@@ -299,16 +302,21 @@ export function resolveForgeGraph(
     return key;
   }
 
-  // Pass 1 — every board item becomes a node, in board order.
+  // Pass 1 — every board item becomes a node, in board order. Keyed by the
+  // item's *own* repo, not a bare number: on an org-wide board two repos'
+  // `#12`s are two different issues, and a `blockedBy` link that names one
+  // of them as `owner/name#12` has to land on that item's node — not mint a
+  // second, foreign copy of an issue the board already shows.
   for (const item of items) {
     const content = item.content;
     const number = contentNumber(content);
-    const key = content.type === 'draft' ? item.id : keyForNumber('', number as number, boardRepo);
+    const repo = content.type === 'draft' ? '' : normalizeRepo(content.repo, boardRepo);
+    const key = content.type === 'draft' ? item.id : keyForNumber(repo, number as number, boardRepo);
     itemKeyById.set(item.id, key);
     registerNode(key, {
       itemId: item.id,
       number,
-      repo: '',
+      repo,
       title: content.title,
       kind: content.type,
       state: contentState(content),

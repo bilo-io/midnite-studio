@@ -133,11 +133,11 @@ const PROJECT_ITEMS_QUERY = [
   'id ',
   'content{',
   '__typename ',
-  `... on Issue{id number title url state body assignees(first:${ASSIGNEES_PAGE}){nodes{login}} labels(first:${LABELS_PAGE}){nodes{name}} ` +
+  `... on Issue{id number title url state body repository{nameWithOwner} assignees(first:${ASSIGNEES_PAGE}){nodes{login}} labels(first:${LABELS_PAGE}){nodes{name}} ` +
     `blockedBy(first:${DEPS_PAGE}){totalCount nodes{number title state repository{nameWithOwner}}} ` +
     `parent{number title state repository{nameWithOwner}} ` +
     `subIssues(first:${DEPS_PAGE}){totalCount nodes{number title state repository{nameWithOwner}}}}`,
-  `... on PullRequest{id number title url state body assignees(first:${ASSIGNEES_PAGE}){nodes{login}} labels(first:${LABELS_PAGE}){nodes{name}}}`,
+  `... on PullRequest{id number title url state body repository{nameWithOwner} assignees(first:${ASSIGNEES_PAGE}){nodes{login}} labels(first:${LABELS_PAGE}){nodes{name}}}`,
   `... on DraftIssue{id title body assignees(first:${ASSIGNEES_PAGE}){nodes{login}}}`,
   '}',
   `fieldValues(first:${FIELDS_PAGE}){nodes{`,
@@ -520,11 +520,16 @@ function parseItemContent(
     const labels = asArray(pick(row['labels'], 'nodes'))
       .map((entry) => asString(pick(entry, 'name')))
       .filter((name): name is string => name !== null && name.length > 0);
+    // Same collapse `parseIssueLink` applies to a dependency's repo, so an
+    // item and a link naming the same issue agree on its key.
+    const nameWithOwner = asString(pick(row['repository'], 'nameWithOwner')) ?? '';
+    const repo = nameWithOwner === '' || nameWithOwner === boardRepo ? '' : nameWithOwner;
     return typename === 'Issue'
       ? {
           type: 'issue',
           id,
           number,
+          repo,
           title,
           url,
           state: state as 'open' | 'closed',
@@ -537,6 +542,7 @@ function parseItemContent(
           type: 'pull',
           id,
           number,
+          repo,
           title,
           url,
           state: state as 'open' | 'closed' | 'merged',

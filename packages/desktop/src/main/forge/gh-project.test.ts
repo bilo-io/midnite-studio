@@ -269,6 +269,7 @@ describe('parseItemsPage', () => {
       type: 'issue',
       id: 'I_1',
       number: 42,
+      repo: '',
       title: 'Fix the thing',
       url: 'https://github.com/acme/widgets/issues/42',
       state: 'open',
@@ -356,6 +357,60 @@ describe('parseItemsPage', () => {
     const { items } = parseItemsPage(output);
     expect(items[0]?.content).toMatchObject({ type: 'pull', number: 9, state: 'merged' });
     expect(items[0]?.content).not.toHaveProperty('dependencies');
+  });
+
+  describe("an item's own repository (org-wide boards)", () => {
+    const page = (content: Record<string, unknown>): string =>
+      JSON.stringify({
+        data: {
+          node: {
+            items: {
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [{ id: 'PVTI_1', content, fieldValues: { nodes: [] } }],
+            },
+          },
+        },
+      });
+    const issue = (repository: unknown): Record<string, unknown> => ({
+      __typename: 'Issue',
+      id: 'I_1',
+      number: 12,
+      title: 'Cross-repo',
+      url: 'https://github.com/acme/other/issues/12',
+      state: 'OPEN',
+      ...(repository === undefined ? {} : { repository }),
+    });
+
+    it("keeps another repo's nameWithOwner on an issue item", () => {
+      const { items } = parseItemsPage(page(issue({ nameWithOwner: 'acme/other' })), 'acme/widgets');
+      expect(items[0]?.content).toMatchObject({ type: 'issue', repo: 'acme/other' });
+    });
+
+    it("collapses the board's own repo to '' — the same rule a dependency link follows", () => {
+      const { items } = parseItemsPage(page(issue({ nameWithOwner: 'acme/widgets' })), 'acme/widgets');
+      expect(items[0]?.content).toMatchObject({ type: 'issue', repo: '' });
+    });
+
+    it("defaults to '' when the response carries no repository (older cached page)", () => {
+      const { items } = parseItemsPage(page(issue(undefined)), 'acme/widgets');
+      expect(items[0]?.content).toMatchObject({ type: 'issue', repo: '' });
+    });
+
+    it('reads it on a pull request item too', () => {
+      const { items } = parseItemsPage(
+        page({
+          __typename: 'PullRequest',
+          id: 'PR_1',
+          number: 3,
+          title: 'PR',
+          url: 'https://github.com/acme/other/pull/3',
+          state: 'OPEN',
+          repository: { nameWithOwner: 'acme/other' },
+        }),
+        'acme/widgets',
+      );
+      expect(items[0]?.content).toMatchObject({ type: 'pull', repo: 'acme/other' });
+    });
   });
 
   it('carries the next cursor when a further page exists', () => {
@@ -670,7 +725,7 @@ describe('listProjects / projectFields / projectItems — transport', () => {
     // The exact, unmodified PullRequest/DraftIssue fragments (Theme A never touched them) —
     // asserting them verbatim is what proves `blockedBy` appears nowhere inside either.
     expect(command).toContain(
-      '... on PullRequest{id number title url state body assignees(first:10){nodes{login}} labels(first:20){nodes{name}}}',
+      '... on PullRequest{id number title url state body repository{nameWithOwner} assignees(first:10){nodes{login}} labels(first:20){nodes{name}}}',
     );
     expect(command).toContain('... on DraftIssue{id title body assignees(first:10){nodes{login}}}');
     // `blockedBy` appears exactly once in the whole query — inside the Issue fragment only.

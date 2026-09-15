@@ -37,6 +37,7 @@ function itemFor(id: string, title: string): ForgeProjectItem {
       type: 'issue',
       id: `content-${id}`,
       number: 1,
+      repo: '',
       title,
       url: `https://github.com/acme/widgets/issues/${id}`,
       state: 'open',

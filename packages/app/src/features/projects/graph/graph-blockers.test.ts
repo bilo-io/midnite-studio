@@ -120,6 +120,7 @@ describe('apiFieldBlockersFor', () => {
           type: 'issue',
           id: 'I_1',
           number: 10,
+          repo: '',
           title: 'Dependent',
           url: '',
           state: 'open',
