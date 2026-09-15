@@ -54,6 +54,21 @@ function edgesWithin(edges: ForgeGraph['edges'], keys: ReadonlySet<string>): For
   return edges.filter((edge) => keys.has(edge.from) && keys.has(edge.to));
 }
 
+/** Drops every foreign node no surviving edge touches. Real nodes are left
+ *  alone — an isolated board item is `hideIsolated`'s call, not this one's. */
+function withoutOrphanedForeign(
+  keys: ReadonlySet<string>,
+  edges: ForgeGraph['edges'],
+  byKey: ReadonlyMap<string, ForgeGraph['nodes'][number]>,
+): Set<string> {
+  const touched = new Set<string>();
+  for (const edge of edges) {
+    touched.add(edge.from);
+    touched.add(edge.to);
+  }
+  return new Set([...keys].filter((key) => !byKey.get(key)?.foreign || touched.has(key)));
+}
+
 /**
  * Narrows `graph` to what the shared item filter and this graph's own facets
  * allow onto the canvas — applied after `resolveForgeGraph` and before
@@ -64,24 +79,33 @@ function edgesWithin(edges: ForgeGraph['edges'], keys: ReadonlySet<string>): For
  * 1. **Item filter.** A node naming a real board item (`itemId !== ''`) that
  *    did not survive the shared toolbar filter is dropped; a genuinely
  *    foreign node (referenced but never itself a board item) was never a
- *    candidate for that filter and always survives. An edge only ever
+ *    candidate for that filter and is not judged by it. An edge only ever
  *    renders once both its endpoints do, so a filtered-out node's own
  *    dependencies vanish cleanly instead of dangling into empty space.
  * 2. **`showContains`.** `'contains'` edges are dropped outright when off —
- *    the node set is untouched; only the edges pretending to describe
+ *    the real node set is untouched; only the edges pretending to describe
  *    epics/sub-issues disappear.
- * 3. **`depth`.** With a selection and `depth > 0`, keeps only nodes within
+ * 3. **Foreign orphans.** A foreign node exists only to be the far end of
+ *    an edge some board item drew — it has no fields, no assignee and no
+ *    status of its own, so nothing in the toolbar filter can ever describe
+ *    it. Once steps 1–2 have run, any foreign node left with no incident
+ *    edge is dropped: the item that referenced it was filtered away, or its
+ *    only relationship was a hidden `'contains'`. Without this, filtering
+ *    a busy board down to one workstream left every other workstream's
+ *    referenced-but-unlisted issues stranded on the canvas as unrelated,
+ *    status-less cards.
+ * 4. **`depth`.** With a selection and `depth > 0`, keeps only nodes within
  *    that many hops of the selected node along surviving `'blocks'` edges
  *    (both directions, so both a node's blockers and what it blocks stay
  *    visible) — the doc's own "hops along blocks edges", never `'contains'`.
  *    A no-op when nothing is selected or the selection itself did not
  *    survive an earlier step.
- * 4. **`only`.** Keeps only nodes whose own `blocked`/`ready` flag matches —
+ * 5. **`only`.** Keeps only nodes whose own `blocked`/`ready` flag matches —
  *    a structural filter, not a "keep the blockers of a match too" one: a
  *    blocked node's own unmet blocker can still disappear from view if it is
  *    itself neither blocked nor ready. Simpler than the alternative, and
  *    what the doc's own wording ("blocked only") describes literally.
- * 5. **`hideIsolated`.** Drops any node left with no incident edge once every
+ * 6. **`hideIsolated`.** Drops any node left with no incident edge once every
  *    facet above already ran — "isolated" means isolated in what is
  *    currently drawn, not isolated on the whole board.
  */
@@ -108,6 +132,8 @@ export function filterForgeGraph(
   if (!facets.showContains) {
     edges = edges.filter((edge) => edge.kind !== 'contains');
   }
+
+  keptKeys = withoutOrphanedForeign(keptKeys, edges, byKey);
 
   if (facets.depth > 0 && selectedNodeKey && keptKeys.has(selectedNodeKey)) {
     const adjacency = new Map<string, string[]>();
