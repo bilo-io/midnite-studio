@@ -73,14 +73,12 @@ The scan is read-heavy — **every** `.midnite/tasks/phases/phase-*.md` (potenti
 
 The new plan is a doc-only change and belongs in the **source of truth**, so commit it to `main` automatically (no PR needed — this matches how the other phase docs land; a trivial doc-only change going straight to `main` should already be sanctioned by this project's own `CLAUDE.md`, the way it is for the project this template was drawn from).
 
-1. **Land it on `main`.** Ensure you're committing against `main` (if the session is on a feature branch/worktree, switch to or target the primary checkout's `main`). Stage **both tracker files by explicit path** — `git add .midnite/tasks/phases/phase-N-<slug>.md .midnite/tasks/_INDEX.md` (the new doc **and** its index row/theme-key entry from Stage 5.4) — never `git add -A`/`.` (it can sweep unrelated or worktree-admin files). Commit with a conventional message ending in the required trailer:
+1. **Land it on `main`.** Ensure you're committing against `main` (if the session is on a feature branch/worktree, switch to or target the primary checkout's `main`). Stage **both tracker files by explicit path** — `git add .midnite/tasks/phases/phase-N-<slug>.md .midnite/tasks/_INDEX.md` (the new doc **and** its index row/theme-key entry from Stage 5.4) — never `git add -A`/`.` (it can sweep unrelated or worktree-admin files). Commit with a conventional message, and no attribution trailer:
    ```
    docs: add phase-N <slug> plan (+ index row)
-
-   Co-Authored-By: Claude <noreply@anthropic.com>
    ```
 
-   (Use the executing model's standard co-author trailer.)
+   **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email, which is how a solo repo grows contributors who never pushed a byte.
    Then `git push origin main`. (If the push races another loop's `_INDEX.md` edit: `git pull --rebase origin main`, reconcile the table, re-push.)
 2. **Clean up before continuing.** Remove any scratch/intermediate files the brainstorm created, and confirm a clean state with `git status` — the working tree should be clean, and both the new doc **and** its `_INDEX.md` row present on `main` (and pushed). If anything unexpected is staged or dirty, stop and show the user rather than committing it.
 3. **Drift guard — run before you report done.** Prove the new phase actually reached the index (Stage 5.4 is easy to skip; a doc with no row is invisible to `/midnite-exec` and renders as stale everywhere). This one-liner flags any `phase-*.md` with no `## Phases` row — it must print nothing:

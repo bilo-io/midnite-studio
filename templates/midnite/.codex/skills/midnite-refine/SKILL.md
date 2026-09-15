@@ -276,13 +276,13 @@ Doc-only, source-of-truth change — same landing path as `/midnite-brainstorm`.
 
    ```bash
    git add .midnite/tasks/phases/phase-N-<slug>.md .midnite/tasks/_INDEX.md
-   git commit -m "docs: refine phase-N <slug> (xN) — <areas>
-
-   Co-Authored-By: Claude <noreply@anthropic.com>"
+   git commit -m "docs: refine phase-N <slug> (xN) — <areas>"
    git push origin main
    ```
 
-   (Use the executing model's own co-author trailer. If the push races another loop's `_INDEX.md`
+   **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.**
+
+   (If the push races another loop's `_INDEX.md`
    edit: `git pull --rebase origin main`, reconcile the table, re-push.)
 2. `git status` must be clean, with only those two files changed. Remove any scratch files. If
    anything unexpected is staged, **stop and show the user** rather than committing it.

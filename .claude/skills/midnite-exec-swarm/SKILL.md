@@ -79,7 +79,7 @@ message** so they run concurrently, not serially. Each subagent's prompt must be
   checks still pending — this is the single most common way a swarm subagent stalls. On a real
   failure, check whether the failing test touches files the PR changed; if not, treat it as a
   pre-existing flake, `gh run rerun <id> --failed` once, and re-watch before escalating.
-- Attribute commits/PRs per this session's configured trailers (same ones the parent session uses).
+- **Commits carry no attribution trailer.** GitHub credits such a commit to whichever account claims the trailer's email — see [`CLAUDE.md`](../../../CLAUDE.md). `.githooks/commit-msg` strips them as a backstop. PR bodies follow whatever the parent session uses.
 - Report back its PR URL and what landed vs. what it left open, once merged.
 
 ## 6 · Sitrep — recurring, until every subagent has merged

@@ -87,7 +87,7 @@ Track sub-tasks with TodoWrite — one group per theme in the batch.
 - **Tests ship with the change, not after:**
   - Logic → unit tests at the right layer, following this project's own existing test conventions.
   - **Visual or flow change → add/extend the project's own e2e suite**, if it has one (scaffold minimal config for it if none exists yet) so the new/updated feature is genuinely covered.
-- Small conventional commits, each ending with the required `Co-Authored-By` trailer.
+- Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email, which is how a solo repo grows contributors who never pushed a byte.
 
 ## 5 · Screenshots — whenever the change is visual
 Capture **before/after** with whatever this project's own visual-testing tooling is (a Playwright or similar setup, against a dev server, mocked backend where applicable, or the real app). Save PNGs to a temp dir.

@@ -127,7 +127,7 @@ Branch prefix: `fix/` for a bug, `feature/` for an enhancement.
 - **Write the regression test before the fix and watch it fail.** That failure is the proof you found the real cause; a test written after a fix proves nothing. Report both states (red → green) in the thread.
 - Layer it right, following this project's own test conventions (unit tests for pure logic, integration/e2e for a visual or cross-module flow change).
 - Fix at the source per the agreed plan. Follow `CLAUDE.md` (this project's own module boundaries, wire-contract validation at I/O boundaries, whatever its own rules are).
-- Small conventional commits, each ending with the required `Co-Authored-By` trailer. Reference the issue in the body as `#<N>`.
+- Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email, which is how a solo repo grows contributors who never pushed a byte. Reference the issue in the body as `#<N>`.
 
 ## 9 · Verify
 
