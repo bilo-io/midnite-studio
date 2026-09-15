@@ -42,6 +42,15 @@ for (const theme of ['light', 'dark'] as const) {
     if (theme === 'dark') await setTheme(page, 'dark');
     await prepareForVisualCapture(page);
 
+    const cluster = page.getByTestId('monitor-cluster');
+    const graphs = cluster.locator('[data-status-bar-graph]');
+    await expect(graphs).toHaveCount(4);
+    for (const graph of await graphs.all()) await expect(graph).toBeHidden();
+
+    // The committed baseline is the detailed hover state; the functional
+    // assertions above separately prove that these graphs are absent idle.
+    await cluster.hover();
+    for (const graph of await graphs.all()) await expect(graph).toBeVisible();
     await expect(page.getByTestId('status-bar')).toHaveScreenshot(`status-bar-full-${theme}.png`);
   });
 }

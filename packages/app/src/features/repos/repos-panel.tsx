@@ -801,7 +801,7 @@ function RepoItem({
           sections. The grip lives in the gutter, which is what gutters are for.
         */
         className={`group flex h-8 items-center gap-1 pl-1 pr-2 text-sm transition-colors ${
-          selectedRepoId === repo.id ? 'repo-row-shimmer' : 'hover:bg-accent/30'
+          selectedRepoId === repo.id ? 'bg-accent/60' : 'hover:bg-accent/30'
         }`}
       >
         {/*

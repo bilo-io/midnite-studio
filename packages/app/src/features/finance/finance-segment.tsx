@@ -65,6 +65,7 @@ export function FinanceSegment() {
       label="Finance"
       testId="finance-segment"
       panelClassName="w-[400px] max-h-[420px] p-3"
+      triggerClassName="status-graphs-on-hover flex items-center gap-3 rounded px-1 transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
       trigger={
         <span className={`flex items-center gap-1.5 transition-colors ${colorClass}`}>
           {hasData ? (
@@ -89,7 +90,9 @@ export function FinanceSegment() {
             </>
           )}
           {currentAsset && history && history.length >= 2 ? (
-            <Sparkline points={history} up={up} width={36} height={14} />
+            <span className="status-bar-graph" data-status-bar-graph>
+              <Sparkline points={history} up={up} width={36} height={14} />
+            </span>
           ) : null}
         </span>
       }

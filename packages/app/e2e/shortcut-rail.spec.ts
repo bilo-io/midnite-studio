@@ -194,9 +194,10 @@ test('compact density hides every name, including an active one', async ({ page 
  * affordance there is.
  */
 test('the overflow popover shows every rail toggle’s name', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 800 });
   await openWide(page);
-  await page.setViewportSize({ width: 900, height: 800 });
-  await expect(page.getByTestId('status-bar')).toHaveAttribute('data-density', 'collapsed');
+  const bar = page.getByTestId('status-bar');
+  await narrowUntilDensity(page, bar, 'collapsed', { from: 1600 });
 
   await page.getByTestId('status-overflow').click();
   const panel = page.getByTestId('status-overflow-panel');

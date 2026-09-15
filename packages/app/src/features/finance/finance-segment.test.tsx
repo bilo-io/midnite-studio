@@ -70,6 +70,8 @@ describe('FinanceSegment', () => {
 
     // Check sparkline svg path is rendered
     expect(trigger.querySelector('svg path')).not.toBeNull();
+    expect(trigger.className).toContain('status-graphs-on-hover');
+    expect(trigger.querySelector('[data-status-bar-graph]')).not.toBeNull();
     // Check highlight classes
     expect(trigger.firstElementChild?.className).toContain('text-emerald-600');
   });
