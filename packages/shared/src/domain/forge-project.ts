@@ -180,6 +180,15 @@ export const ForgeProjectItemContentSchema = z.discriminatedUnion('type', [
     /** The issue's own GraphQL node id — what `addProjectV2ItemById` takes. */
     id: z.string(),
     number: z.number().int().positive(),
+    /**
+     * `owner/name` of the repo this issue lives in; `''` means "same repo as
+     * the board", the identical convention `ForgeIssueLink.repo` follows.
+     * Without it every item on an org-wide board keyed as a bare `#N` in the
+     * dependency graph, so a `blockedBy` link that named the same issue by
+     * `owner/name#N` minted a second, foreign-looking node for it — and two
+     * same-numbered issues from different repos collapsed into one.
+     */
+    repo: z.string().default(''),
     title: z.string(),
     url: z.string(),
     state: ForgeIssueStateSchema,
@@ -199,6 +208,8 @@ export const ForgeProjectItemContentSchema = z.discriminatedUnion('type', [
     type: z.literal('pull'),
     id: z.string(),
     number: z.number().int().positive(),
+    /** As on `issue`: `owner/name`, `''` for the board's own repo. */
+    repo: z.string().default(''),
     title: z.string(),
     url: z.string(),
     state: ForgePullStateSchema,

@@ -31,6 +31,8 @@ function issueItem(
     title?: string;
     state?: 'open' | 'closed';
     body?: string;
+    /** `owner/name` for an item from another repo on an org-wide board. */
+    repo?: string;
     blockedBy?: ReturnType<typeof link>[];
     parent?: ReturnType<typeof link> | null;
     subIssues?: ReturnType<typeof link>[];
@@ -45,8 +47,9 @@ function issueItem(
       type: 'issue',
       id: `I_${id}`,
       number,
+      repo: overrides.repo ?? '',
       title: overrides.title ?? `Issue ${number}`,
-      url: `https://github.com/${BOARD_REPO}/issues/${number}`,
+      url: `https://github.com/${overrides.repo || BOARD_REPO}/issues/${number}`,
       state: overrides.state ?? 'open',
       assignees: [],
       body: overrides.body ?? '',
@@ -74,6 +77,7 @@ function pullItem(
       type: 'pull',
       id: `PR_${id}`,
       number,
+      repo: '',
       title: `PR ${number}`,
       url: `https://github.com/${BOARD_REPO}/pull/${number}`,
       state: overrides.state ?? 'open',
@@ -307,6 +311,49 @@ describe('resolveForgeGraph — foreign nodes', () => {
     expect(graph.nodes).toHaveLength(2); // no separate foreign node minted
     const edge = graph.edges.find((e) => e.kind === 'blocks')!;
     expect(edge.to).toBe('#12');
+  });
+});
+
+describe('resolveForgeGraph — multi-repo (org-wide) boards', () => {
+  it('lands an api blocker naming a cross-repo board item on that item, never a foreign duplicate', () => {
+    const upstream = issueItem('up', 12, { repo: 'acme/other' });
+    const dependent = issueItem('dep', 20, { blockedBy: [link(12, { repo: 'acme/other' })] });
+    const graph = resolveForgeGraph([upstream, dependent], [], baseOptions);
+
+    expect(graph.nodes).toHaveLength(2);
+    expect(graph.nodes.filter((n) => n.foreign)).toHaveLength(0);
+    const edge = graph.edges.find((e) => e.kind === 'blocks')!;
+    expect(edge).toMatchObject({ from: '#20', to: 'acme/other#12', source: 'api' });
+    expect(graph.nodes.find((n) => n.itemId === 'up')).toMatchObject({ repo: 'acme/other', blocked: false });
+    expect(graph.nodes.find((n) => n.itemId === 'dep')).toMatchObject({ blocked: true, unmetBlockerCount: 1 });
+  });
+
+  it('keeps two same-numbered items from different repos as two nodes', () => {
+    const local = issueItem('local', 12);
+    const other = issueItem('other', 12, { repo: 'acme/other' });
+    const graph = resolveForgeGraph([local, other], [], baseOptions);
+
+    expect(graph.nodes).toHaveLength(2);
+    expect(graph.nodes.map((n) => n.itemId).sort()).toEqual(['local', 'other']);
+  });
+
+  it('lands a field/body ref written as owner/name#N on the cross-repo board item', () => {
+    const upstream = issueItem('up', 7, { repo: 'acme/other' });
+    const dependent = issueItem('dep', 20, { body: 'Blocked by acme/other#7' });
+    const graph = resolveForgeGraph([upstream, dependent], [], baseOptions);
+
+    expect(graph.nodes).toHaveLength(2);
+    expect(graph.edges).toEqual([{ from: '#20', to: 'acme/other#7', kind: 'blocks', source: 'body' }]);
+  });
+
+  it("normalizes an item's repo that spells out the board's own repo back to ''", () => {
+    const local = issueItem('local', 12, { repo: BOARD_REPO });
+    const dependent = issueItem('dep', 20, { blockedBy: [link(12)] });
+    const graph = resolveForgeGraph([local, dependent], [], baseOptions);
+
+    expect(graph.nodes).toHaveLength(2);
+    expect(graph.nodes.find((n) => n.itemId === 'local')).toMatchObject({ repo: '', foreign: false });
+    expect(graph.edges[0]?.to).toBe('#12');
   });
 });
 

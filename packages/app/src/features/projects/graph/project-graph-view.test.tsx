@@ -73,6 +73,21 @@ describe('ProjectGraphView', () => {
     expect(container.querySelectorAll('[data-edge-kind="blocks"]').length).toBe(1);
   });
 
+  it('renders a cross-repo board item exactly once when a blockedBy link names it by owner/name#N', () => {
+    // An org-wide board: the blocker lives in another repo, and GitHub's own
+    // `blockedBy` connection names it with its full `nameWithOwner`. The
+    // board view showed it once; the graph used to show it twice — the item
+    // itself, plus a "foreign" placeholder the edge pointed at.
+    const blocker = issueItem({ content: { type: 'issue', repo: 'acme/other' } as never });
+    const blockerNumber = blocker.content.type === 'issue' ? blocker.content.number : 0;
+    const dependent = withBlockedBy(issueItem(), [{ number: blockerNumber, title: '', state: 'open', repo: 'acme/other' }]);
+    const { container } = render(<Harness items={[blocker, dependent]} />);
+    expect(container.querySelectorAll('[data-graph-node]').length).toBe(2);
+    expect(container.querySelectorAll('[data-edge-kind="blocks"]').length).toBe(1);
+    expect(container.querySelectorAll(`[data-node-key="acme/other#${blockerNumber}"]`).length).toBe(1);
+    expect(container.querySelectorAll(`[data-node-key="#${blockerNumber}"]`).length).toBe(0);
+  });
+
   it('renders a closed→closed edge solid dep-done, and an open, unmet edge idle', () => {
     const blocker = issueItem({ content: { type: 'issue', state: 'closed' } as never });
     const blockerNumber = blocker.content.type === 'issue' ? blocker.content.number : 0;
