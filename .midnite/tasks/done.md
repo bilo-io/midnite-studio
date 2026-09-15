@@ -11556,6 +11556,8 @@ role's queries are ever mounted" already held by construction. H.4: `memory-repo
 
 **Ad-hoc: sessions terminal icon** ([PR #382](https://github.com/bilo-io/midnite-studio/pull/382)) — Session entries without a specific agent or provider now default to `LuTerminal` with `text-muted-foreground` instead of rendering no icon.
 
+**Ad-hoc: graph foreign orphans** ([PR #406](https://github.com/bilo-io/midnite-studio/pull/406)) — `filterForgeGraph` drops a foreign node once no surviving edge touches it, so filtering the board to one workstream no longer strands other workstreams' referenced-but-unlisted issues on the canvas as status-less cards.
+
 
 ---
 
