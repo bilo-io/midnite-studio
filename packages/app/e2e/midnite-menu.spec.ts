@@ -111,17 +111,14 @@ test('the midnite and git marks rest dimmed, at full strength on hover, and git 
   expect(gitColor).toBe('rgb(240, 80, 50)'); // #F05032, Git's brand orange
 });
 
-/**
- * The selected repo's accordion header carries a moving gradient rather than
- * the flat `bg-accent/60` tint it used to — a glance at a folded list should
- * find the one row that is "open" without reading every name first.
- */
-test('the selected repo row carries the gradient shimmer', async ({ page }) => {
+test('the selected repo row keeps a static accent with no shimmer', async ({ page }) => {
   await openSidebar(page);
 
   const row = page.locator(`button[aria-label="Git actions for ${REPO}"]`).locator('..');
   await row.getByRole('button', { name: REPO, exact: true }).click();
-  await expect(row).toHaveClass(/repo-row-shimmer/);
+  await expect(row).toHaveClass(/bg-accent\/60/);
+  await expect(row).not.toHaveClass(/shimmer/);
+  expect(await row.evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
 });
 
 /**

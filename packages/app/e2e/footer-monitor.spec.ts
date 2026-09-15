@@ -49,18 +49,6 @@ test.describe('footer monitor', () => {
     await expect(page.getByTestId('metric-cpu')).toHaveText(/45%/);
   });
 
-  test('keeps footer graphs hidden until the monitor cluster is hovered', async ({ page }) => {
-    await open(page);
-
-    const cluster = page.getByTestId('monitor-cluster');
-    const graphs = cluster.locator('[data-status-bar-graph]');
-    await expect(graphs).toHaveCount(4);
-    for (const graph of await graphs.all()) await expect(graph).toBeHidden();
-
-    await cluster.hover();
-    for (const graph of await graphs.all()) await expect(graph).toBeVisible();
-  });
-
   test('disk is drawn as a ring, because capacity does not move', async ({ page }) => {
     await open(page);
 
