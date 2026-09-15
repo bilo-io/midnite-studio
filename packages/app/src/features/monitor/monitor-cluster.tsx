@@ -55,6 +55,7 @@ export function MonitorCluster() {
       label="System monitor"
       testId="monitor-cluster"
       panelClassName="max-w-[calc(100vw-1rem)]"
+      triggerClassName="status-graphs-on-hover flex items-center gap-3 rounded px-1 transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
       trigger={present.map((id) => (
         <MetricReadout key={id} id={id} value={latest![id]!} points={series[id]} />
       ))}
@@ -103,7 +104,6 @@ function MetricReadout({
           className="h-3 w-3 shrink-0"
           style={{ color: metricColor(id, value) }}
         />
-        {level ? <MetricDonut id={id} percent={value} /> : null}
         <span
           aria-hidden
           className="w-8 text-right tabular-nums"
@@ -111,7 +111,9 @@ function MetricReadout({
         >
           {rounded}%
         </span>
-        {level ? null : <Sparkline id={id} points={points} />}
+        <span className="status-bar-graph" data-status-bar-graph>
+          {level ? <MetricDonut id={id} percent={value} /> : <Sparkline id={id} points={points} />}
+        </span>
       </span>
     </Tooltip>
   );

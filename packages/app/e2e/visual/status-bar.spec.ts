@@ -43,5 +43,10 @@ for (const theme of ['light', 'dark'] as const) {
     await prepareForVisualCapture(page);
 
     await expect(page.getByTestId('status-bar')).toHaveScreenshot(`status-bar-full-${theme}.png`);
+
+    await page.getByTestId('monitor-cluster').hover();
+    await expect(page.getByTestId('status-bar')).toHaveScreenshot(
+      `status-bar-full-hovered-${theme}.png`,
+    );
   });
 }

@@ -40,6 +40,10 @@ describe('MonitorCluster', () => {
     expect(screen.getByTestId('metric-gpu')).toBeDefined();
     expect(screen.getByTestId('metric-disk')).toBeDefined();
 
+    const cluster = screen.getByTestId('monitor-cluster');
+    expect(cluster.className).toContain('status-graphs-on-hover');
+    expect(cluster.querySelectorAll('[data-status-bar-graph]')).toHaveLength(4);
+
     const cpuText = screen.getByText('45%');
     expect(cpuText.style.color).toBe('rgb(52, 148, 244)');
     const memText = screen.getByText('60%');

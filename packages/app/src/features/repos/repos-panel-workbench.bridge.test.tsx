@@ -157,6 +157,15 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('ReposPanel workbench and rail, assembled through the real bridge', () => {
+  it('keeps the active repository header static', async () => {
+    open();
+
+    const toggle = await screen.findByRole('button', { name: 'Collapse midnite-studio' });
+    const header = toggle.parentElement;
+    expect(header?.className).toContain('bg-accent/60');
+    expect(header?.className).not.toContain('shimmer');
+  });
+
   it('a change count lands on the checkout that owns it, not the repo', async () => {
     open();
 
