@@ -1,8 +1,31 @@
 {
   "permissions": {
     "allow": [
+      "Shell(cd)",
+      "Shell(command)",
+      "Shell(echo)",
+      "Shell(eval)",
+      "Shell(find)",
+      "Shell(gh)",
+      "Shell(git -C)",
+      "Shell(git branch)",
+      "Shell(git fetch)",
+      "Shell(git log)",
+      "Shell(git worktree)",
+      "Shell(graphify)",
+      "Shell(head)",
       "Shell(ls)",
-      "Shell(graphify)"
+      "Shell(pnpm install)",
+      "Shell(printf)",
+      "Shell(proto)",
+      "Shell(pwd)",
+      "Shell(readlink)",
+      "Shell(rg)",
+      "Shell(sleep)",
+      "Shell(source)",
+      "Shell(true)",
+      "Shell(wc)",
+      "Shell(which)"
     ],
     "deny": []
   },
@@ -29,15 +52,15 @@
     "aliases": [],
     "maxMode": false
   },
-  "hasChangedDefaultModel": false,
+  "hasChangedDefaultModel": true,
   "modelParameters": {
-    "default": [],
     "auto-smart": [
       {
         "id": "optimize_for",
         "value": "balanced"
       }
-    ]
+    ],
+    "default": []
   },
   "selectedModel": {
     "modelId": "auto-smart",
@@ -56,6 +79,15 @@
   "network": {
     "useHttp1ForAgent": false
   },
+  "approvalMode": "allowlist",
   "autoAcceptWebSearch": false,
-  "runEverythingSettingsPromptStreak": 1
+  "sandbox": {
+    "mode": "disabled",
+    "networkAccess": "user_config_with_defaults"
+  },
+  "runEverythingSettingsPromptStreak": 1,
+  "attribution": {
+    "attributeCommitsToAgent": false,
+    "attributePRsToAgent": false
+  }
 }
