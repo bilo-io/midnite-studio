@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ◻ TODO | — | 0/60 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 44/64 | `███████░░░` | 69% | — | G H |
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
 | [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 60/68 | `█████████░` | 88% | E F K | — |
@@ -189,6 +190,21 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 87 — Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md)
+
+*Every graphified repo already carries a 14,881-node map of itself that only the CLI and a hook can
+see. A pinned **Knowledge** rail row beside Notes renders the active repo's own `graph.json` with
+WebGL — the full graph, not the 600-node aggregate, and never the generated `graph.html`, which
+CDN-loads vis-network from unpkg and would walk straight into Phase 76's renderer CSP.*
+
+- ◻ **A** — `packages/knowledge`: electron-free reader, lean projection, ForceAtlas2, cache keyed on `built_at_commit`
+- ◻ **B** — the IPC contract in `shared` and the main handler, with layout off the main thread
+- ◻ **C** — `'knowledge'` into `VIEW_IDS` after `'notes'`, the third pinned rail row, `SiGrapheneos`
+- ◻ **D** — the sigma + graphology WebGL canvas: zoom LOD, community colour, theme tokens, hidden-means-idle
+- ◻ **E** — click-to-open, search and focus, community filter, edge filter by relation and weight
+- ◻ **F** — repo switching, the greyed row and instructional panel, staleness reported not acted on
+- ◻ **G** — vitest for the logic, Playwright for the canvas only, and the measured numbers
 
 ### [Phase 86 — The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md)
 
