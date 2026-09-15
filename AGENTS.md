@@ -138,6 +138,23 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   rather than as react-icons' `IconType`: it is what let that migration touch no call site,
   and it is what lets the app's own hand-held marks (`components/icons/`) sit beside a set
   glyph in `IconButton`, `Tooltip` and the context menus.
+- **macOS (arm64) is the only officially supported platform for now — Linux and Windows are
+  deferred, not abandoned.** `moon run desktop:dist` already built for macOS alone; the rest of
+  the repo now matches. **Every default CI gate runs on a `macos-*` runner** — `gate-node`,
+  `gate-node-app-test` and `e2e` moved off `ubuntu-24.04`, where Phase 82 Themes E/H had put them
+  purely for the 1x billing rate. That cost argument is intact and knowingly overridden: a red
+  lane on a platform this project does not ship is an interruption with no user behind it, and
+  `ci.yml`'s own `e2e` comment records half an hour of runner time burned on nine specs pressing
+  a hard-coded `Meta+k` that does nothing on Linux. **Two lanes cannot run on macOS at all and
+  are opt-in rather than moved or deleted** — `db-integration` (GitHub `services:` containers are
+  Docker-based and Linux-runner-only) and `visual` (a Linux job `container:` diffing committed
+  `-linux.png` baselines) — reached by the `cross-platform` PR label or `ci.yml`'s
+  `cross_platform` `workflow_dispatch` input. **Nothing in the local loop starts a container**:
+  `moon run :typecheck :lint :test` never has, db-engine's driver tests skip themselves with no
+  `MSTUDIO_TEST_<PROVIDER>_*` env vars, and the one command that does — regenerating the Linux
+  visual baselines — is `MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen`, which refuses
+  without that variable (`scripts/visual-regen.mjs`). Un-deferring a platform is a decision, not
+  a drive-by: do not add a `ubuntu-*`/`windows-*` leg to a default gate without one.
 - **The test pyramid is righted, and the convention stops it inverting again.**
   (Phase 82, [`docs/TESTING.md`](docs/TESTING.md)). Tests live across three distinct layers:
   **vitest/jsdom** is the default for all logic, store transitions, DOM text/roles, and views
