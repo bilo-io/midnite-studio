@@ -141,7 +141,8 @@
   "model": "sonnet",
   "statusLine": {
     "type": "command",
-    "command": "bash /Users/bilolwabona/.claude/statusline-command.sh"
+    "command": "~/.claude/statusline.sh",
+    "padding": 0
   },
   "enabledPlugins": {
     "gitkraken-hooks@gitkraken": true,

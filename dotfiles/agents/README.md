@@ -15,14 +15,19 @@ one host has is kept.
 
 So a restore may hand a machine entries pointing at paths it does not have. That is deliberate and
 mostly harmless — an allow entry naming a directory that does not exist simply never matches — but
-three keys break rather than no-op, and were **left out** when this snapshot was applied to
+two keys break rather than no-op, and were **left out** when this snapshot was applied to
 `bilo-ekko`:
 
 | Key | Belongs to | Why it does not travel |
 |-----|-----------|------------------------|
-| `statusLine.command` | `bilolwabona` | Runs `~/.claude/statusline-command.sh`, which is **not** in this snapshot. A missing script renders as an error in the status line. |
 | `permissions.additionalDirectories` | `bilolwabona` | Grants `bilo-mono` / `ekko-web-mono` checkouts that exist only there. |
 | `extraKnownMarketplaces.gitkraken` (+ its `enabledPlugins` entry) | `bilolwabona` | A `directory` source under that home; Claude Code cannot load it if the directory is absent. The `warp` and `remotion` marketplaces are GitHub-sourced and do travel. |
+
+`statusLine.command` used to be on this list too — `bilolwabona`'s pointed at a
+`~/.claude/statusline-command.sh` that wasn't snapshotted. On 2026-09-15, `bilo-ekko` built a
+self-contained replacement (`claude/statusline.sh`, snapshotted alongside this file) with no
+machine-specific paths, and `statusLine.command` now points at it as `~/.claude/statusline.sh`. It
+travels cleanly: drop the script at that path on any machine and the setting just works.
 
 `model` is likewise per-machine taste, not something to restore blindly.
 
@@ -32,6 +37,7 @@ three keys break rather than no-op, and were **left out** when this snapshot was
 |------|------------|------|
 | **Claude Code** | User allow/deny lists, plugins, model, attribution | `~/.claude/settings.json` |
 | **Claude Code** | Extra user-local allows (merged on top) | `~/.claude/settings.local.json` |
+| **Claude Code** | Statusline script referenced by `statusLine.command` | `~/.claude/statusline.sh` |
 | **Claude Code** | Session/account state — **do not copy into git** | `~/.claude.json` |
 | **Antigravity CLI (`agy`)** | `permissions.allow` command list, `toolPermission`, trusted workspaces | `~/.gemini/antigravity-cli/settings.json` |
 | **Gemini CLI** (separate from agy) | Auth type / session retention | `~/.gemini/settings.json` |
@@ -50,6 +56,7 @@ Project overlays (already in this repo, left alone):
 |--------------|--------|------|
 | `claude/settings.json` | `~/.claude/settings.json` | 117 allow, 7 deny |
 | `claude/settings.local.json` | `~/.claude/settings.local.json` | 12 allow |
+| `claude/statusline.sh` | `~/.claude/statusline.sh` | folder/branch/PR/model/effort + ctx/5h/7d usage bars |
 | `antigravity-cli/settings.json` | `~/.gemini/antigravity-cli/settings.json` | 56 allow, 22 trusted workspaces |
 | `cursor/cli-config.json` | `~/.cursor/cli-config.json` **minus** `authInfo`, `privacyCache`, `autoReviewAvailabilityCache`, `serverConfigCache` | 25 allow |
 
@@ -66,7 +73,8 @@ Not snapshotted (secrets / noise): `~/.claude.json` (oauth + machine IDs), `~/.c
   approvals are not appearing there, they were session-only.
 - **Cursor Desktop does not use `cli-config.json`** for composer approvals — this file is the CLI
   only.
-- Restore example: `cp dotfiles/agents/claude/settings.json ~/.claude/settings.json`. Merge by hand
-  if the destination already has newer allows, and re-check the three non-travelling keys above.
+- Restore example: `cp dotfiles/agents/claude/settings.json ~/.claude/settings.json &&
+  cp dotfiles/agents/claude/statusline.sh ~/.claude/statusline.sh`. Merge the settings file by hand
+  if the destination already has newer allows, and re-check the two non-travelling keys above.
 - A live Claude Code session rewrites `~/.claude/settings.json` from its own in-memory state, so
   edit it with the CLI closed — or expect `model` to be reverted under you.
