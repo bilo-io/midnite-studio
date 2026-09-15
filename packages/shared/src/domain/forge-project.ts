@@ -26,6 +26,16 @@ export const ForgeProjectSchema = z.object({
   url: z.string(),
   /** A closed board still reads; it just does not accept new items. */
   closed: z.boolean().default(false),
+  /**
+   * Whether this board is linked to the open repository specifically, versus
+   * being visible only because it belongs to the repo's owner (an org-wide or
+   * unrelated board). Derived in `gh-project.ts` from a second, narrower
+   * `repository.projectsV2` read cross-referenced against the owner-scoped
+   * list — see that module's own note. `.default(false)` so an older response
+   * (or a hand-built test fixture that predates this field) still parses to
+   * the safe "not specifically linked" answer.
+   */
+  linkedToRepo: z.boolean().default(false),
 });
 export type ForgeProject = z.infer<typeof ForgeProjectSchema>;
 

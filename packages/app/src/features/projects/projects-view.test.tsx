@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { Remote } from '@midnite/studio-shared';
 
 import { DialogHost } from '../../components/dialog-host';
 import { ProjectsView } from './projects-view';
@@ -58,11 +60,17 @@ const setField = vi.fn();
 // graph mode both mount `CardPanelStack` → `CardDetail` → `CardComposer`,
 // which queries the agent roster the moment a card is open) — the same
 // fixtures `board-view.test.tsx`/`card-composer.test.tsx` already use.
+const remotesList = vi.fn<() => Promise<Remote[]>>(async () => []);
+
 vi.mock('../../services/bridge', () => ({
   bridge: () => ({
     forgeProject: { list, fields, items, setField },
     // Phase 84 Theme C: `useForgeSubscription('projects')` mounts unconditionally now.
     forge: { subscribe: vi.fn(), unsubscribe: vi.fn(), onChanged: vi.fn(() => () => {}) },
+    // The board picker's repo-vs-org grouping reads this via `useRemotes` —
+    // empty by default so existing fixtures below (which set no repo forge)
+    // still resolve every board into the "Organization" group unchanged.
+    remotes: { list: remotesList },
     terminal: { list: vi.fn(async () => ({ sessions: [] })), save: vi.fn() },
     agent: {
       list: vi.fn(async () => ({
@@ -189,6 +197,8 @@ describe('ProjectsView', () => {
     fields.mockReset();
     items.mockReset();
     setField.mockReset();
+    remotesList.mockReset();
+    remotesList.mockResolvedValue([]);
     boardByRepo = {};
     setProjectBoard.mockClear();
     forgeWritesEnabled = false;
@@ -216,6 +226,34 @@ describe('ProjectsView', () => {
     expect(await screen.findByText('Pick a board')).toBeDefined();
     expect(fields).not.toHaveBeenCalled();
     expect(items).not.toHaveBeenCalled();
+  });
+
+  it('groups the board picker into This repo vs Organization by linkedToRepo', async () => {
+    remotesList.mockResolvedValue([
+      {
+        name: 'origin',
+        fetchUrl: 'https://github.com/acme/widgets.git',
+        pushUrl: 'https://github.com/acme/widgets.git',
+        forge: { host: 'github.com', owner: 'acme', repo: 'widgets', kind: 'github' as const },
+      },
+    ]);
+    list.mockResolvedValue({
+      cli: CLI_READY,
+      projects: [
+        { id: 'PVT_repo', number: 1, title: 'Repo board', url: 'https://x', closed: false, linkedToRepo: true },
+        { id: 'PVT_org', number: 2, title: 'Roadmap', url: 'https://x', closed: false, linkedToRepo: false },
+      ],
+      error: null,
+      kind: 'ok',
+    });
+
+    renderWithClient();
+
+    const repoGroup = await screen.findByRole('group', { name: 'This repo' });
+    expect(within(repoGroup).getByRole('option', { name: 'Repo board' })).toBeDefined();
+
+    const orgGroup = screen.getByRole('group', { name: 'Organization: acme' });
+    expect(within(orgGroup).getByRole('option', { name: 'Roadmap' })).toBeDefined();
   });
 
   it('shows the no-boards state without ever asking for fields or items', async () => {

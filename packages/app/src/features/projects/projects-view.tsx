@@ -15,7 +15,12 @@ import {
   LuWorkflow,
 } from 'react-icons/lu';
 
-import { resolveForgeGraph, type ForgeProjectField, type ForgeProjectItem } from '@midnite/studio-shared';
+import {
+  pickForgeRemote,
+  resolveForgeGraph,
+  type ForgeProjectField,
+  type ForgeProjectItem,
+} from '@midnite/studio-shared';
 
 import { EmptyState } from '../../components/empty-state';
 import { IconButton, type IconComponent } from '../../components/icon-button';
@@ -44,7 +49,12 @@ import { DEFAULT_GRAPH_FACETS, isDefaultGraphFacets, type ProjectGraphFacets } f
 import { useGraphAgentStates } from './graph/use-graph-agent-states';
 import { ProjectGraphView } from './graph/project-graph-view';
 import { nextSortState, sortItems, type SortState } from './sort';
-import { useForgeProjectFields, useForgeProjectItems, useForgeProjects } from '../../services/queries';
+import {
+  useForgeProjectFields,
+  useForgeProjectItems,
+  useForgeProjects,
+  useRemotes,
+} from '../../services/queries';
 import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { useActiveWorktree } from '../../services/use-status';
 import { DEFAULT_PROJECT_VIEW, useUiStore } from '../../store/ui-store';
@@ -106,6 +116,17 @@ export function ProjectsView() {
   // are per-board rather than per-repo (see `queries.ts`'s own key comment)
   // and are not narrowed by this subscription.
   useForgeSubscription(repoId, 'projects');
+
+  // The board picker groups boards linked to the open repo separately from
+  // the rest of the owner's boards (org-wide or unrelated) — `linkedToRepo`
+  // comes pre-computed off a second, narrower GraphQL read in `gh-project.ts`.
+  // `useRemotes` is already the renderer's one source for a repo's forge
+  // (`use-repo-actions.ts` reads it the same way) — no new IPC channel, and
+  // react-query dedupes the fetch against any other consumer already open.
+  const remotes = useRemotes(repoId);
+  const forgeOwner = pickForgeRemote(remotes.data ?? [])?.forge?.owner ?? null;
+  const repoBoards = boards.filter((b) => b.linkedToRepo);
+  const ownerBoards = boards.filter((b) => !b.linkedToRepo);
 
   const selectedProjectId = repoId !== null ? (boardByRepo[repoId] ?? null) : null;
   const cascade = useCascadeReveal({
@@ -278,12 +299,26 @@ export function ProjectsView() {
             <option value="" disabled>
               Pick a board…
             </option>
-            {boards.map((board) => (
-              <option key={board.id} value={board.id}>
-                {board.title}
-                {board.closed ? ' (closed)' : ''}
-              </option>
-            ))}
+            {repoBoards.length > 0 && (
+              <optgroup label="This repo">
+                {repoBoards.map((board) => (
+                  <option key={board.id} value={board.id}>
+                    {board.title}
+                    {board.closed ? ' (closed)' : ''}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {ownerBoards.length > 0 && (
+              <optgroup label={forgeOwner ? `Organization: ${forgeOwner}` : 'Organization'}>
+                {ownerBoards.map((board) => (
+                  <option key={board.id} value={board.id}>
+                    {board.title}
+                    {board.closed ? ' (closed)' : ''}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </label>
 
