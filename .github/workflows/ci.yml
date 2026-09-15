@@ -205,7 +205,7 @@ jobs:
     # desktop links node-pty against Electron's native module ABI. Both are
     # meaningfully faster and cheaper to keep here than to fight for portability
     # they do not have.
-    runs-on: macos-14
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
         with:
@@ -243,7 +243,7 @@ jobs:
     # Phase 85 Theme A — hostile-locale CI gate. Runs desktop and git-engine tests
     # under LC_ALL=de_DE.UTF-8 on macos-14 to ensure subprocess parsers and numeric
     # formatting do not break under comma locales.
-    runs-on: macos-14
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
         with:
@@ -652,7 +652,7 @@ jobs:
     # symlink and native-module traps only show up in a real package.
     if: github.ref == 'refs/heads/main'
     needs: [gate-node, gate-node-app-test, gate-native]
-    runs-on: macos-14
+    runs-on: macos-26
     # A job-level `permissions:` block REPLACES the workflow default rather than
     # adding to it, so `packages: read` alone leaves `contents` at none — and
     # actions/checkout then fails to clone this PRIVATE repo with the maximally
