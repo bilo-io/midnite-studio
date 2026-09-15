@@ -1,8 +1,26 @@
 import { useEffect, useState } from 'react';
 
+import { useAppearanceStore } from '../../store/appearance-store';
 import { usePaletteStore } from './palette-store';
 import { resolveActivePalette } from './resolve-palette';
-import { STUDIO_TOKENS } from './theme-types';
+import { STUDIO_TOKENS, type StudioToken } from './theme-types';
+
+/**
+ * Tokens retinted by `@bilo-io/shell`'s `html[data-accent]` rules.
+ *
+ * A palette normally supplies these as part of its complete chrome theme, but
+ * an explicit Appearance ▸ Accent choice owns them instead. Leaving a palette
+ * value inline would outrank the shell stylesheet and make the stored accent
+ * visible in Settings without changing primary surfaces, focus rings, or the
+ * active nav row.
+ */
+const ACCENT_TOKENS = new Set<StudioToken>([
+  '--primary',
+  '--primary-foreground',
+  '--accent',
+  '--accent-foreground',
+  '--ring',
+]);
 
 const resolvedFromDom = (): 'light' | 'dark' =>
   document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -30,6 +48,7 @@ export function usePaletteSync(): void {
   const [resolved, setResolved] = useState(resolvedFromDom);
   const activePaletteId = usePaletteStore((s) => s.activePaletteId);
   const userPalettes = usePaletteStore((s) => s.userPalettes);
+  const accent = useAppearanceStore((s) => s.accent);
 
   useEffect(() => {
     if (typeof MutationObserver === 'undefined') return;
@@ -42,6 +61,10 @@ export function usePaletteSync(): void {
     const palette = resolveActivePalette(resolved);
     const root = document.documentElement.style;
     for (const token of STUDIO_TOKENS) {
+      if (accent !== 'default' && ACCENT_TOKENS.has(token)) {
+        root.removeProperty(token);
+        continue;
+      }
       const value = palette.chrome[token];
       // Clears (rather than leaves stranded) a token THIS palette does not
       // set, restoring `@bilo-io/ui`'s own value — switching from a palette
@@ -55,5 +78,5 @@ export function usePaletteSync(): void {
     // (rather than only on `resolved`) is what re-runs this effect when the
     // user or a synced popout message changes the selection without touching
     // light/dark at all.
-  }, [resolved, activePaletteId, userPalettes]);
+  }, [resolved, activePaletteId, userPalettes, accent]);
 }

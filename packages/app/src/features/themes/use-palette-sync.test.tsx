@@ -1,6 +1,7 @@
 import { act, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { useAppearanceStore } from '../../store/appearance-store';
 import type { StudioPalette } from './theme-types';
 import { usePaletteStore } from './palette-store';
 import { usePaletteSync } from './use-palette-sync';
@@ -50,6 +51,7 @@ describe('usePaletteSync — removeProperty (Phase 64 Theme B)', () => {
       editorPaletteOverride: null,
       userPalettes: [],
     });
+    useAppearanceStore.setState({ accent: 'default' });
   });
 
   afterEach(() => {
@@ -73,5 +75,35 @@ describe('usePaletteSync — removeProperty (Phase 64 Theme B)', () => {
     expect(document.documentElement.style.getPropertyValue('--ring')).toBe('');
     // The tokens the new palette DOES set still land.
     expect(document.documentElement.style.getPropertyValue('--background')).toBe('0 0% 0%');
+  });
+
+  it('leaves accent-owned tokens to the configured appearance accent', () => {
+    render(<Harness />);
+    expect(document.documentElement.style.getPropertyValue('--primary')).not.toBe('');
+
+    act(() => {
+      useAppearanceStore.getState().setAccent('violet');
+    });
+
+    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('');
+    expect(document.documentElement.style.getPropertyValue('--primary-foreground')).toBe('');
+    expect(document.documentElement.style.getPropertyValue('--accent')).toBe('');
+    expect(document.documentElement.style.getPropertyValue('--accent-foreground')).toBe('');
+    expect(document.documentElement.style.getPropertyValue('--ring')).toBe('');
+    expect(document.documentElement.style.getPropertyValue('--background')).not.toBe('');
+  });
+
+  it('restores palette accent tokens when the appearance accent returns to default', () => {
+    useAppearanceStore.setState({ accent: 'violet' });
+    render(<Harness />);
+    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('');
+
+    act(() => {
+      useAppearanceStore.getState().setAccent('default');
+    });
+
+    expect(document.documentElement.style.getPropertyValue('--primary')).not.toBe('');
+    expect(document.documentElement.style.getPropertyValue('--accent')).not.toBe('');
+    expect(document.documentElement.style.getPropertyValue('--ring')).not.toBe('');
   });
 });
