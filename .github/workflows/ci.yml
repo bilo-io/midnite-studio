@@ -643,19 +643,34 @@ jobs:
     #
     # Three shards makes the macOS set exactly 5 (gate-locale, gate-native,
     # e2e 1-3), so nothing queues at the start and `package` inherits
-    # gate-native's slot at ~3m20s instead of ~9m. Expected: main pushes
-    # ~19.5m -> ~11.5m. PRs are close to a wash -- `package` is main-only (see
-    # its `if:`), and a fatter shard costs back about what the freed slot saves
-    # -- so this is bought for main and roughly free for PRs.
+    # gate-native's slot at ~3m20s instead of ~9m.
     #
-    # The cost is per-shard runtime, and it is real: 4-way shards measured
-    # 8m08s-9m28s in that run, and this suite has scaled near-linearly with
-    # shard count so far (8-way: 3m56s-5m58s), so expect ~11-12m at 3.
+    # MEASURED, run 35102704143 (the #414 PR run itself, clean pool). The
+    # design claim holds exactly: all five macOS jobs started within 6-8s of
+    # creation -- zero queueing, against the 3m02s the sixth job waited under
+    # the 4-shard config. PR wall-clock 10m10s, against 11m40s for the 4-shard
+    # gate phase. So PRs got slightly FASTER, where this comment originally
+    # predicted "close to a wash": losing the sixth job's queue wait is worth
+    # more than the fatter shard costs.
+    #
+    # Per-shard cost came in BELOW the linear extrapolation. Predicted ~11-12m
+    # by scaling the 4-way shards' 8m08s-9m28s; measured 9m02s / 9m19s /
+    # 10m03s. Fixed per-shard overhead (VM boot + install + browser) dominates
+    # more than a content-only model assumes, so shard time grows sub-linearly
+    # as the count drops. Treat the 8-way (3m56s-5m58s) -> 4-way -> 3-way
+    # series as sub-linear, not linear, when next re-sharding.
+    #
+    # STILL UNVALIDATED: the main-push total. `package` is main-only (see its
+    # `if:`), so no PR run can exercise the slot hand-off this change is FOR,
+    # and the first post-merge run (35109430383) is not evidence either -- six
+    # Renovate PRs fired within 90s of it, putting seven runs against the
+    # 5-slot cap. The ~19.5m -> ~11.5m projection therefore remains a model.
+    # Measure it on an uncontended main push before quoting it as fact.
     runs-on: macos-14
-    # Raised from 15: a third of the suite per shard instead of a quarter,
-    # against measured 4-way shards of 8m08s-9m28s. 20 leaves headroom over the
-    # ~11-12m expected above, and the paragraph below is why a number is set at
-    # all rather than inheriting GitHub's 6-hour default.
+    # Raised from 15: a third of the suite per shard instead of a quarter.
+    # Measured 3-way shards are 9m02s-10m03s (run 35102704143), so 20 leaves
+    # roughly 2x headroom on the worst one. The paragraph below is why a number
+    # is set at all rather than inheriting GitHub's 6-hour default.
     timeout-minutes: 20
     strategy:
       # Every shard reports. Cancelling siblings on the first failure would hide
