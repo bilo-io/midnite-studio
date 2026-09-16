@@ -1,6 +1,7 @@
 import type { IconType } from 'react-icons';
 import { GoBeaker, GoGitPullRequest, GoGlobe, GoIssueOpened, GoPlay } from 'react-icons/go';
 import { IoIosGitNetwork } from 'react-icons/io';
+import { SiGrapheneos } from 'react-icons/si';
 import {
   LuActivity,
   LuAudioLines,
@@ -60,6 +61,10 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // that reads as "notes" rather than the file/document mark `files` already
   // owns.
   notes: LuNotebookPen,
+  // Phase 87 Theme C — Simple Icons' GrapheneOS mark, not a Lucide graph/node
+  // glyph: `graph` (the commit graph) already owns `IoIosGitNetwork`, and one
+  // icon per view is the whole point of this map.
+  knowledge: SiGrapheneos,
   files: LuFolderTree,
   search: LuSearch,
   tests: GoBeaker,

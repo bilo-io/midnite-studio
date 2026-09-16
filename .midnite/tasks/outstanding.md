@@ -417,3 +417,26 @@ matching the precedent set by Phases 22/23/24.
     a "retrying in Xm" detail) all come from signals the themes already produce; "paused because
     minimized" would need main to actively report an idle/hidden state change, which is a real (if
     small) design decision for whichever future work picks it up, not a wiring gap.
+
+## Phase 87 · Theme C — two pre-existing companion vocabulary collisions
+
+`longestViewMatch` (`packages/shared/src/companion.ts`) scores a view's label, its id and each word
+of its `VIEW_KEYWORDS` entry by word count, breaking a tie on **first match in `VIEW_IDS` order**. A
+keyword token that is also another view's id therefore steals that view's one-word spoken form
+whenever the view declaring it sorts earlier. Theme C tripped exactly that (`knowledge: '… graph …'`
+took "show me the graph" from the Commit Graph view, failing `companion-panel.spec.ts:451`); the fix
+dropped the token and added `services/palette/view-keywords.test.ts` as a directional guard.
+
+Two pairs predate Phase 87 and are **allowlisted in that test rather than fixed**, because changing
+them alters companion routing well outside this phase's scope:
+
+  - **`projects` → `issues`** — `projects` is `VIEW_IDS[9]`, `issues` is `[14]`, so "show me the
+    issues" routes to the Projects view rather than Issues.
+  - **`graph` → `history`** — `graph` is `[10]`, `history` is `[15]`, so "show me the history"
+    routes to the Commit Graph rather than the History view. This one may well be *intended* —
+    "history" is genuinely the commit graph's word — which is the reason it wants a deliberate
+    decision rather than a drive-by edit.
+
+Whoever picks these up should decide per pair whether the earlier view legitimately owns the word
+(then move it out of the later view's keywords, or rename) or not (then drop the token), and remove
+the corresponding entry from `KNOWN_PRE_EXISTING`.
