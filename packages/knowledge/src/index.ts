@@ -1,4 +1,4 @@
-export { GRAPHIFY_OUTPUT_RELATIVE_PATH, readGraph } from './graph-reader';
+export { GRAPHIFY_OUTPUT_RELATIVE_PATH, graphExists, readGraph } from './graph-reader';
 export { buildDetailIndex, jsonByteLength, projectGraph } from './projection';
 export {
   FORCE_ATLAS2_SETTINGS,

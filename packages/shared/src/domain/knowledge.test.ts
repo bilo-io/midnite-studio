@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  KnowledgeGraphExistsSchema,
   KnowledgeGraphPayloadSchema,
   KnowledgeNodeDetailFailureSchema,
   KnowledgeResultOf,
@@ -67,6 +68,7 @@ describe('KnowledgeResultOf', () => {
       positions: { a: { x: 0, y: 0 } },
       builtAtCommit: 'deadbeef',
       cached: false,
+      commitsBehind: 0,
     };
     expect(schema.parse({ ok: true, value: payload })).toEqual({ ok: true, value: payload });
   });
@@ -74,6 +76,37 @@ describe('KnowledgeResultOf', () => {
   it('still accepts every failure arm', () => {
     const schema = KnowledgeResultOf(KnowledgeGraphPayloadSchema);
     expect(schema.parse(knowledgeAbsent())).toEqual({ ok: false, kind: 'absent' });
+  });
+});
+
+describe('KnowledgeGraphPayloadSchema.commitsBehind', () => {
+  const base = {
+    nodes: [],
+    links: [],
+    positions: {},
+    builtAtCommit: 'deadbeef',
+    cached: false,
+  };
+
+  it('accepts null — "could not be determined", never guessed as 0', () => {
+    expect(KnowledgeGraphPayloadSchema.parse({ ...base, commitsBehind: null }).commitsBehind).toBe(
+      null,
+    );
+  });
+
+  it('accepts a nonnegative count', () => {
+    expect(KnowledgeGraphPayloadSchema.parse({ ...base, commitsBehind: 3 }).commitsBehind).toBe(3);
+  });
+
+  it('rejects a negative count', () => {
+    expect(() => KnowledgeGraphPayloadSchema.parse({ ...base, commitsBehind: -1 })).toThrow();
+  });
+});
+
+describe('KnowledgeGraphExistsSchema', () => {
+  it('is the whole answer knowledgeCheckGraph gives — a boolean, no envelope', () => {
+    expect(KnowledgeGraphExistsSchema.parse({ exists: true })).toEqual({ exists: true });
+    expect(KnowledgeGraphExistsSchema.parse({ exists: false })).toEqual({ exists: false });
   });
 });
 

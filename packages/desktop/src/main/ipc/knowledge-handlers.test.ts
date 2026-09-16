@@ -29,10 +29,11 @@ vi.mock('../repo-registry', () => ({ getRepo }));
 const { runLayoutInWorker } = vi.hoisted(() => ({ runLayoutInWorker: vi.fn() }));
 vi.mock('../knowledge/layout-runner', () => ({ runLayoutInWorker }));
 
-const { readGraph, readLayoutCache, writeLayoutCache } = vi.hoisted(() => ({
+const { readGraph, readLayoutCache, writeLayoutCache, graphExists } = vi.hoisted(() => ({
   readGraph: vi.fn(),
   readLayoutCache: vi.fn(),
   writeLayoutCache: vi.fn(async () => {}),
+  graphExists: vi.fn(async () => false),
 }));
 vi.mock('@midnite/studio-knowledge', async () => {
   const actual =
@@ -42,8 +43,17 @@ vi.mock('@midnite/studio-knowledge', async () => {
     readGraph,
     readLayoutCache,
     writeLayoutCache,
+    graphExists,
   };
 });
+
+// Theme F's staleness label (`commitsBehind`) is the one place this handler
+// shells out to git — mocked so the suite never depends on a real repo at the
+// fake `/repo` path these tests use.
+const { execGit } = vi.hoisted(() => ({
+  execGit: vi.fn(async () => ({ exitCode: 0, stdout: '0\n', stderr: '', args: [] })),
+}));
+vi.mock('@midnite/studio-git-engine', () => ({ execGit }));
 
 import { configureKnowledge, registerKnowledgeHandlers, resetKnowledge } from './knowledge-handlers';
 
@@ -79,6 +89,10 @@ describe('registerKnowledgeHandlers (Phase 87 Theme B)', () => {
     readGraph.mockReset();
     readLayoutCache.mockReset();
     writeLayoutCache.mockClear();
+    graphExists.mockReset();
+    graphExists.mockResolvedValue(false);
+    execGit.mockReset();
+    execGit.mockResolvedValue({ exitCode: 0, stdout: '0\n', stderr: '', args: [] });
     resetKnowledge();
     configureKnowledge('/tmp/knowledge-cache-test');
     registerKnowledgeHandlers();
@@ -159,6 +173,85 @@ describe('registerKnowledgeHandlers (Phase 87 Theme B)', () => {
       const result = await invoke(CHANNELS.knowledgeGetGraph, { repoId: 'repo:1' });
       expect(result).toEqual({ ok: false, kind: 'error', message: 'worker crashed' });
       expect(writeLayoutCache).not.toHaveBeenCalled();
+    });
+
+    describe('commitsBehind (Theme F staleness, reported not acted on)', () => {
+      it('is 0 when built_at_commit is HEAD, on a cache hit', async () => {
+        getRepo.mockReturnValue({ id: 'repo:1', path: '/repo' });
+        readGraph.mockResolvedValue({ ok: true, graph: RAW_GRAPH });
+        readLayoutCache.mockResolvedValue({
+          builtAtCommit: 'deadbeef',
+          projectionVersion: 1,
+          nodeCount: 2,
+          linkCount: 1,
+          positions: {},
+        });
+        execGit.mockResolvedValue({ exitCode: 0, stdout: '0\n', stderr: '', args: [] });
+
+        const result = await invoke(CHANNELS.knowledgeGetGraph, { repoId: 'repo:1' });
+
+        expect(execGit).toHaveBeenCalledWith('/repo', ['rev-list', '--count', 'deadbeef..HEAD']);
+        expect(result).toMatchObject({ ok: true, value: { commitsBehind: 0 } });
+      });
+
+      it('is a positive count when HEAD has moved on, on a cache miss', async () => {
+        getRepo.mockReturnValue({ id: 'repo:1', path: '/repo' });
+        readGraph.mockResolvedValue({ ok: true, graph: RAW_GRAPH });
+        readLayoutCache.mockResolvedValue(null);
+        runLayoutInWorker.mockResolvedValue({ ok: true, positions: {} });
+        execGit.mockResolvedValue({ exitCode: 0, stdout: '7\n', stderr: '', args: [] });
+
+        const result = await invoke(CHANNELS.knowledgeGetGraph, { repoId: 'repo:1' });
+        expect(result).toMatchObject({ ok: true, value: { commitsBehind: 7 } });
+      });
+
+      it('is null, not thrown or 0, when the commit cannot be resolved', async () => {
+        getRepo.mockReturnValue({ id: 'repo:1', path: '/repo' });
+        readGraph.mockResolvedValue({ ok: true, graph: RAW_GRAPH });
+        readLayoutCache.mockResolvedValue({
+          builtAtCommit: 'deadbeef',
+          projectionVersion: 1,
+          nodeCount: 2,
+          linkCount: 1,
+          positions: {},
+        });
+        execGit.mockResolvedValue({
+          exitCode: 128,
+          stdout: '',
+          stderr: "fatal: bad revision 'deadbeef..HEAD'",
+          args: [],
+        });
+
+        const result = await invoke(CHANNELS.knowledgeGetGraph, { repoId: 'repo:1' });
+        expect(result).toMatchObject({ ok: true, value: { commitsBehind: null } });
+      });
+    });
+  });
+
+  describe('knowledgeCheckGraph (Theme F rail greying)', () => {
+    it('answers `exists: true` without invoking readGraph or the layout worker', async () => {
+      getRepo.mockReturnValue({ id: 'repo:1', path: '/repo' });
+      graphExists.mockResolvedValue(true);
+
+      const result = await invoke(CHANNELS.knowledgeCheckGraph, { repoId: 'repo:1' });
+
+      expect(result).toEqual({ exists: true });
+      expect(readGraph).not.toHaveBeenCalled();
+      expect(runLayoutInWorker).not.toHaveBeenCalled();
+    });
+
+    it('answers `exists: false` for an un-graphified repo', async () => {
+      getRepo.mockReturnValue({ id: 'repo:1', path: '/repo' });
+      graphExists.mockResolvedValue(false);
+
+      const result = await invoke(CHANNELS.knowledgeCheckGraph, { repoId: 'repo:1' });
+      expect(result).toEqual({ exists: false });
+    });
+
+    it('answers `exists: false`, not a thrown error, for a repoId that is not open', async () => {
+      getRepo.mockReturnValue(undefined);
+      const result = await invoke(CHANNELS.knowledgeCheckGraph, { repoId: 'repo:gone' });
+      expect(result).toEqual({ exists: false });
     });
   });
 

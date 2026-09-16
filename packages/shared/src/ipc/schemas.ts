@@ -38,6 +38,7 @@ import {
   ConflictSideSchema,
   InProgressOpSchema,
   ConnectionConfigSchema,
+  KnowledgeGraphExistsSchema,
   KnowledgeGraphPayloadSchema,
   KnowledgeNodeDetailFailureSchema,
   KnowledgeNodeDetailSchema,
@@ -2488,6 +2489,15 @@ export const KnowledgeGetNodeDetailResponse = z.union([
   z.object({ ok: z.literal(true), value: KnowledgeNodeDetailSchema }),
   KnowledgeNodeDetailFailureSchema,
 ]);
+
+/**
+ * Theme F's greying check — a `stat`, not a `knowledgeGetGraph` call, so a
+ * rail row can ask "does this repo have a graph at all" without paying for a
+ * parse or, worse, a cold ForceAtlas2 layout it may never need. See
+ * `CHANNELS.knowledgeCheckGraph`'s own doc comment.
+ */
+export const KnowledgeCheckGraphRequest = RepoId;
+export const KnowledgeCheckGraphResponse = KnowledgeGraphExistsSchema;
 
 /** `{repoId, done, total}` — a cold ForceAtlas2 pass advancing (Theme D's progress bar). */
 export const KnowledgeLayoutProgressEvent = RepoId.extend({

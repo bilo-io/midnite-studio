@@ -327,6 +327,21 @@ export const keys = {
    * `forgeCli` has with `useRefreshForge`.
    */
   sessionsHistory: ['sessions', 'history'] as const,
+  /**
+   * Theme F's cheap existence check — the rail row's own "should I grey
+   * myself out" question. Deliberately NOT nested under {@link
+   * knowledgeGraph}: it is answered by a `stat` (`knowledgeCheckGraph`), not
+   * the `knowledgeGetGraph` read/layout, so the two must never share a key —
+   * invalidating one must never imply the other was ever fetched.
+   */
+  knowledgeStatus: (repoId: string) => ['repos', repoId, 'knowledge', 'status'] as const,
+  /**
+   * The active repo's lean, laid-out graph (Phase 87 Themes A/B/D/E/F) —
+   * `staleTime: Infinity` means this fires the cold ForceAtlas2 pass at most
+   * once per repo per session, which is exactly why nothing calls it outside
+   * the Knowledge view itself.
+   */
+  knowledgeGraph: (repoId: string) => ['repos', repoId, 'knowledge', 'graph'] as const,
 };
 
 /**

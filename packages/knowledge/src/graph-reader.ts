@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { RawGraph, RawGraphLink, RawGraphNode, ReadGraphResult } from './types';
@@ -94,4 +94,25 @@ export async function readGraph(repoPath: string): Promise<ReadGraphResult> {
   }
 
   return { ok: true, graph: parsed };
+}
+
+/**
+ * Does `<repo>/graphify-out/graph.json` exist — a `stat`, never a `readFile`.
+ *
+ * Theme F's rail row greys out for a repo that has never been graphified, and
+ * that check has to run every time the selected repo changes without ever
+ * triggering `readGraph`'s parse (a 21 MB file for this repo alone) or the
+ * cold ForceAtlas2 pass a full `knowledgeGetGraph` call may fall through to.
+ * Any `stat` failure — missing, a permissions problem, a directory in its
+ * place — answers `false`: greying the row is the right degrade for all three,
+ * and `readGraph` is what distinguishes them for the view someone actually
+ * opened.
+ */
+export async function graphExists(repoPath: string): Promise<boolean> {
+  try {
+    await stat(join(repoPath, GRAPHIFY_OUTPUT_RELATIVE_PATH));
+    return true;
+  } catch {
+    return false;
+  }
 }

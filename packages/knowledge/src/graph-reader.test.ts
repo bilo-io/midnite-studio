@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { readGraph } from './graph-reader';
+import { graphExists, readGraph } from './graph-reader';
 
 const VALID_GRAPH = {
   directed: false,
@@ -78,5 +78,40 @@ describe('readGraph', () => {
 
     const result = await readGraph(repoPath);
     expect(result).toMatchObject({ ok: false, kind: 'unreadable' });
+  });
+});
+
+describe('graphExists', () => {
+  let repoPath: string;
+
+  beforeEach(async () => {
+    repoPath = await mkdtemp(join(tmpdir(), 'knowledge-exists-'));
+  });
+
+  afterEach(async () => {
+    await rm(repoPath, { recursive: true, force: true });
+  });
+
+  it('is false for a repo with no graphify-out/graph.json (Theme F rail greying)', async () => {
+    expect(await graphExists(repoPath)).toBe(false);
+  });
+
+  it('is true once graph.json is on disk, without parsing it', async () => {
+    await mkdir(join(repoPath, 'graphify-out'), { recursive: true });
+    // Deliberately invalid JSON — `graphExists` is a `stat`, so a malformed
+    // file (which `readGraph` would reject) still answers `true` here. The
+    // view someone actually opens is what tells `absent` from `malformed`.
+    await writeFile(join(repoPath, 'graphify-out', 'graph.json'), '{ not json', 'utf8');
+    expect(await graphExists(repoPath)).toBe(true);
+  });
+
+  it('is true even when a directory sits where graph.json should be', async () => {
+    await mkdir(join(repoPath, 'graphify-out', 'graph.json'), { recursive: true });
+    // Deliberate: `graphExists` answers "is this repo un-graphified", not "is
+    // this a valid graph". A directory in the way is a real (if odd) problem
+    // — `readGraph` reports it as `unreadable` — but it is not the "never ran
+    // graphify" case the rail row greys out for, so the row stays active and
+    // the opened view is what surfaces the real error.
+    expect(await graphExists(repoPath)).toBe(true);
   });
 });

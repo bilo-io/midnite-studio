@@ -1031,8 +1031,8 @@ export const CHANNELS = {
 
   // --- knowledge (Phase 87) ---------------------------------------------------
   // The Knowledge view's read-only surface over `graphify-out/graph.json`. The
-  // app never runs graphify (phase doc, Decision 4) — both channels below only
-  // ever read a file that is already on disk or answer from an in-memory
+  // app never runs graphify (phase doc, Decision 4) — every channel below only
+  // ever reads a file that is already on disk or answers from an in-memory
   // cache built from it. `knowledgeGetGraph` resolves once the graph is fully
   // laid out (from Theme A's cache, or after a cold ForceAtlas2 pass in a
   // worker thread) — see `EVENT_CHANNELS.knowledgeLayoutProgress` for what
@@ -1044,6 +1044,15 @@ export const CHANNELS = {
   knowledgeGetGraph: 'mstudio:knowledge:get-graph',
   /** One node's `source_file`/`source_location`, fetched by id for a click-to-open. */
   knowledgeGetNodeDetail: 'mstudio:knowledge:get-node-detail',
+  /**
+   * Theme F's own channel: a `stat`, not a read, of whether the active repo has
+   * a `graphify-out/graph.json` at all. Deliberately separate from
+   * `knowledgeGetGraph` — that call parses the file and, on a cold cache, runs
+   * a multi-second ForceAtlas2 pass, which must never fire just from a rail
+   * row asking "should I grey myself out" every time the selected repo
+   * changes.
+   */
+  knowledgeCheckGraph: 'mstudio:knowledge:check-graph',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */

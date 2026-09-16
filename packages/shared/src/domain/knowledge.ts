@@ -44,8 +44,23 @@ export const KnowledgeGraphPayloadSchema = z.object({
   builtAtCommit: z.string(),
   /** True when the layout came from Theme A's cache rather than a fresh ForceAtlas2 pass. */
   cached: z.boolean(),
+  /**
+   * How many commits `HEAD` has moved past `builtAtCommit` (Theme F) —
+   * `rev-list --count builtAtCommit..HEAD`, computed fresh on every response
+   * (cache hit or miss alike) since it is cheap next to the read/layout this
+   * payload already paid for. `null` when it could not be determined (the
+   * commit `graph.json` was built at is no longer reachable — a rebase or a
+   * pruned history) rather than a guessed number; `0` means "up to date," not
+   * "unknown." Reported only — nothing here re-runs graphify (phase doc,
+   * Decision 4).
+   */
+  commitsBehind: z.number().int().nonnegative().nullable(),
 });
 export type KnowledgeGraphPayload = z.infer<typeof KnowledgeGraphPayloadSchema>;
+
+/** `knowledgeCheckGraph`'s whole answer — a stat, not a read, so a rail row can grey out without paying for a parse + layout it may never need. */
+export const KnowledgeGraphExistsSchema = z.object({ exists: z.boolean() });
+export type KnowledgeGraphExists = z.infer<typeof KnowledgeGraphExistsSchema>;
 
 // --- node detail (a click's "open this file" fetch) -------------------------
 
