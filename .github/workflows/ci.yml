@@ -320,7 +320,7 @@ jobs:
     # desktop links node-pty against Electron's native module ABI. Both are
     # meaningfully faster and cheaper to keep here than to fight for portability
     # they do not have.
-    runs-on: macos-14
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
         with:
@@ -358,7 +358,7 @@ jobs:
     # Phase 85 Theme A — hostile-locale CI gate. Runs desktop and git-engine tests
     # under LC_ALL=de_DE.UTF-8 on macos-14 to ensure subprocess parsers and numeric
     # formatting do not break under comma locales.
-    runs-on: macos-14
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
         with:
@@ -651,7 +651,7 @@ jobs:
     # The cost is per-shard runtime, and it is real: 4-way shards measured
     # 8m08s-9m28s in that run, and this suite has scaled near-linearly with
     # shard count so far (8-way: 3m56s-5m58s), so expect ~11-12m at 3.
-    runs-on: macos-14
+    runs-on: macos-26
     # Raised from 15: a third of the suite per shard instead of a quarter,
     # against measured 4-way shards of 8m08s-9m28s. 20 leaves headroom over the
     # ~11-12m expected above, and the paragraph below is why a number is set at
@@ -843,7 +843,7 @@ jobs:
     # symlink and native-module traps only show up in a real package.
     if: github.ref == 'refs/heads/main'
     needs: [gate-node, gate-node-app-test, gate-native]
-    runs-on: macos-14
+    runs-on: macos-26
     # A job-level `permissions:` block REPLACES the workflow default rather than
     # adding to it, so `packages: read` alone leaves `contents` at none — and
     # actions/checkout then fails to clone this PRIVATE repo with the maximally
