@@ -190,6 +190,9 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   // per-repo but the view has no sidebar section of its own to narrow
   // (Phase 86 Theme E).
   notes: WORK_IN_PROGRESS,
+  // Same formality (Phase 87 Theme C): the knowledge graph is per-repo but
+  // has no sidebar section of its own to narrow.
+  knowledge: WORK_IN_PROGRESS,
   files: WORK_IN_PROGRESS,
   search: WORK_IN_PROGRESS,
   /**

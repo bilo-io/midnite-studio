@@ -28,6 +28,7 @@ export const VIEW_LABELS: Record<ViewId, string> = {
   landing: 'Home',
   dashboard: 'Dashboard',
   notes: 'Notes',
+  knowledge: 'Knowledge',
   files: 'Explorer',
   search: 'Search Everywhere',
   database: 'Database',
@@ -53,6 +54,7 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   // `home` is the landing page's word now, so the dashboard drops it.
   dashboard: 'overview summary metrics',
   notes: 'notes todo capture brainstorm quick capture scratchpad',
+  knowledge: 'knowledge graph graphify nodes communities symbols codebase map',
   files: 'tree folder file explorer code',
   search: 'search grep find commits messages files',
   database: 'database sql connection postgres mysql mariadb mssql query schema table',

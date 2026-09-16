@@ -359,6 +359,25 @@ const NOTES_ITEM: NavItem = {
   icon: VIEW_ICON.notes,
 };
 
+/**
+ * Knowledge, pinned directly under Notes (Phase 87 Theme C).
+ *
+ * `pinned` rather than `WORKSPACE_NAV_ITEMS` for the same reason as
+ * `NOTES_ITEM`: it is one of the app's top-level "views of the whole thing",
+ * ABOVE the workspace section, not a tool scoped to one part of a checkout.
+ * Unlike Notes, though, `knowledge` is **not** `global: true` in
+ * `view-registry.tsx` (Theme C decision) — a knowledge graph is meaningless
+ * with no repo open — so with none selected it falls back to
+ * `EmptyWorkspace` exactly like Files or Graph do; Theme F is what makes the
+ * *row itself* read as disabled for a repo that exists but has never been
+ * graphified.
+ */
+const KNOWLEDGE_ITEM: NavItem = {
+  view: 'knowledge',
+  label: 'Knowledge',
+  icon: VIEW_ICON.knowledge,
+};
+
 /*
   Glyphs come from `components/nav-icons`, shared with the title bar's
   breadcrumbs — including the deliberate second and third icon families for
@@ -402,6 +421,7 @@ const AGENT_NAV_ITEMS: NavItem[] = [
 export const ALL_NAV_ITEMS: NavItem[] = [
   PINNED_ITEM,
   NOTES_ITEM,
+  KNOWLEDGE_ITEM,
   ...WORKSPACE_NAV_ITEMS,
   ...GIT_NAV_ITEMS,
   ...AGENT_NAV_ITEMS,
@@ -1077,9 +1097,10 @@ function Shell() {
   const nav: NavConfig = useMemo(
     () => ({
       // Ungrouped, above the sections — the shell's own slot for exactly
-      // this. Notes rides directly under Dashboard (Phase 86 Theme E); the
-      // hairline between them is `ViewLink`'s job, not this array's.
-      pinned: [navItem(PINNED_ITEM), navItem(NOTES_ITEM)],
+      // this. Notes rides directly under Dashboard (Phase 86 Theme E) and
+      // Knowledge directly under Notes (Phase 87 Theme C); the hairline
+      // between Dashboard and Notes is `ViewLink`'s job, not this array's.
+      pinned: [navItem(PINNED_ITEM), navItem(NOTES_ITEM), navItem(KNOWLEDGE_ITEM)],
       sections: [
         {
           key: 'workspace',

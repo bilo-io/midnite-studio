@@ -118,12 +118,13 @@ const panel = (page: Page) => page.getByRole('complementary', { name: 'Repositor
 const heading = (page: Page, name: string) =>
   panel(page).getByRole('heading', { name, exact: true });
 
-test('the rail carries all seventeen views, Dashboard ungrouped above the rest', async ({ page }) => {
+test('the rail carries all eighteen views, Dashboard ungrouped above the rest', async ({ page }) => {
   await open(page);
 
   for (const label of [
     'Dashboard',
     'Notes',
+    'Knowledge',
     'Explorer',
     'Search',
     'Tests',
@@ -166,6 +167,7 @@ test('the rail carries all seventeen views, Dashboard ungrouped above the rest',
   expect(hrefs).toEqual([
     '/dashboard',
     '/notes',
+    '/knowledge',
     '/files',
     '/search',
     '/tests',
