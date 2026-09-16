@@ -71,10 +71,11 @@ export function KnowledgeView() {
     () => (payload ? distinctCommunityNames(payload.nodes) : []),
     [payload],
   );
-  const communityByNodeId = useMemo(
-    () => new Map((payload?.nodes ?? []).map((node) => [node.id, node.communityName])),
-    [payload],
-  );
+  const communityByNodeId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const node of payload?.nodes ?? []) map.set(node.id, node.communityName);
+    return map;
+  }, [payload]);
   const visibleLinkCount = useMemo(
     () => (payload ? countVisibleLinks(payload.links, communityByNodeId, filters) : 0),
     [payload, communityByNodeId, filters],

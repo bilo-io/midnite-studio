@@ -80,7 +80,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
 
   it('shows a loading state while the graph is being fetched', () => {
     useUiStore.setState({ selectedRepoId: 'repo:1' });
-    installBridge({ getGraph: vi.fn(() => new Promise(() => {})) });
+    installBridge({ getGraph: vi.fn().mockReturnValue(new Promise(() => {})) });
 
     renderView();
 
