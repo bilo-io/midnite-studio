@@ -18,8 +18,11 @@ describe('resolveKnowledgeViewState (Phase 87 Theme F)', () => {
     expect(resolveKnowledgeViewState(true, undefined)).toEqual({ kind: 'loading' });
   });
 
-  it('is loading when no result has arrived yet, even if not marked isLoading (e.g. disabled query)', () => {
-    expect(resolveKnowledgeViewState(false, undefined)).toEqual({ kind: 'loading' });
+  it('resolves error when query is not loading and result is undefined', () => {
+    expect(resolveKnowledgeViewState(false, undefined)).toEqual({
+      kind: 'error',
+      message: 'Unable to load knowledge graph.',
+    });
   });
 
   it('resolves absent — the common, un-graphified-repo case', () => {

@@ -35,8 +35,16 @@ export function useKnowledgeGraph(repoId: string | null): {
     queryKey: keys.knowledgeGraph(repoId ?? 'none'),
     enabled: repoId !== null,
     queryFn: async (): Promise<KnowledgeResult<KnowledgeGraphPayload>> => {
-      const result = await bridge()?.knowledge.getGraph({ repoId: repoId as string });
-      return result ?? { ok: false, kind: 'error', message: 'No bridge available.' };
+      try {
+        const result = await bridge()?.knowledge.getGraph({ repoId: repoId as string });
+        return result ?? { ok: false, kind: 'error', message: 'No bridge available.' };
+      } catch (error) {
+        return {
+          ok: false,
+          kind: 'error',
+          message: error instanceof Error ? error.message : 'Unable to load knowledge graph.',
+        };
+      }
     },
   });
 

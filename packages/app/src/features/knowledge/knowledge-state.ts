@@ -41,7 +41,8 @@ export function resolveKnowledgeViewState(
   isLoading: boolean,
   result: KnowledgeResult<KnowledgeGraphPayload> | undefined,
 ): KnowledgeViewState {
-  if (isLoading || result === undefined) return { kind: 'loading' };
+  if (isLoading) return { kind: 'loading' };
+  if (result === undefined) return { kind: 'error', message: 'Unable to load knowledge graph.' };
 
   if (!result.ok) {
     switch (result.kind) {
