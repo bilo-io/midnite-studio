@@ -37,6 +37,7 @@ export const KnowledgeGraphLinkSchema = z.object({
 export type KnowledgeGraphLink = z.infer<typeof KnowledgeGraphLinkSchema>;
 
 export const KnowledgeLayoutPositionSchema = z.object({ x: z.number(), y: z.number() });
+export type KnowledgeLayoutPosition = z.infer<typeof KnowledgeLayoutPositionSchema>;
 
 /**
  * The lean projection plus Theme A's cached (or freshly computed) layout —

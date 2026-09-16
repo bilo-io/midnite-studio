@@ -16,19 +16,36 @@ export function KnowledgeCanvas({
   payload,
   filters,
   focusNodeId,
+  selectedNodeId,
+  collapsedCommunities,
   onNodeClick,
+  onNodeDoubleClick,
   paused,
 }: {
   payload: KnowledgeGraphPayload;
   filters: KnowledgeFilterState;
   focusNodeId: string | null;
+  selectedNodeId: string | null;
+  collapsedCommunities: ReadonlySet<string>;
   onNodeClick: (nodeId: string) => void;
-  /** Phase 84's visibility gate — the window is blurred; skip the camera-fly animation. */
+  /** A double-click collapses an ordinary node's community, or expands a meta-node — the caller decides which. */
+  onNodeDoubleClick: (nodeId: string) => void;
+  /** Phase 84's visibility gate — the window is blurred; skip the camera-fly and bounce animations. */
   paused: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useSigmaGraph({ containerRef, payload, filters, focusNodeId, onNodeClick, paused });
+  useSigmaGraph({
+    containerRef,
+    payload,
+    filters,
+    focusNodeId,
+    selectedNodeId,
+    collapsedCommunities,
+    onNodeClick,
+    onNodeDoubleClick,
+    paused,
+  });
 
   return (
     <div

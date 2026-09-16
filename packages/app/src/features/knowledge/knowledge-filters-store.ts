@@ -10,12 +10,28 @@ import { defaultFilterState, type KnowledgeFilterState } from './knowledge-filte
  * this phase." Surviving a view switch is free — this is an ordinary module-
  * level zustand store, so it outlives `KnowledgeView` unmounting; "per-repo"
  * is `ensureScope(repoId)`; "not persisted" is simply never wiring `persist`.
+ *
+ * The collapse set and the fly-to request joined the per-repo half; the
+ * list/tree mode of the community list is a UI preference, so it survives a
+ * repo switch on purpose.
  */
+export type CommunityListMode = 'list' | 'tree';
+
 type KnowledgeFiltersState = {
   scopeKey: string | null;
   filters: KnowledgeFilterState;
-  /** The node whose detail panel ("Explorer preview", Decision 7) is open. */
+  /** The node whose detail panel ("Explorer preview", Decision 7) is open — or a `community:` meta-node id, which opens the community panel instead. */
   selectedNodeId: string | null;
+  /** Communities folded into one meta-node each (`knowledge-community-collapse.ts`). */
+  collapsedCommunities: ReadonlySet<string>;
+  /**
+   * A node the camera should fly to, set by the tree list (and cleared by
+   * the next search keystroke, so search's own focus wins again). Separate
+   * from `selectedNodeId` because selecting from the canvas must NOT move
+   * the camera — the user just clicked the thing they are looking at.
+   */
+  flyToNodeId: string | null;
+  communityListMode: CommunityListMode;
 
   ensureScope: (scopeKey: string) => void;
   setQuery: (query: string) => void;
@@ -27,19 +43,35 @@ type KnowledgeFiltersState = {
   hideAllCommunities: (communityNames: readonly string[]) => void;
   showAllCommunities: () => void;
   selectNode: (nodeId: string | null) => void;
+  /** Select AND fly — the tree list's click. */
+  focusNode: (nodeId: string) => void;
+  toggleCollapsedCommunity: (communityName: string) => void;
+  setCommunityCollapsed: (communityName: string, collapsed: boolean) => void;
+  collapseAllCommunities: (communityNames: readonly string[]) => void;
+  expandAllCommunities: () => void;
+  setCommunityListMode: (mode: CommunityListMode) => void;
 };
 
 export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, get) => ({
   scopeKey: null,
   filters: defaultFilterState(),
   selectedNodeId: null,
+  collapsedCommunities: new Set(),
+  flyToNodeId: null,
+  communityListMode: 'list',
 
   ensureScope: (scopeKey) => {
     if (get().scopeKey === scopeKey) return;
-    set({ scopeKey, filters: defaultFilterState(), selectedNodeId: null });
+    set({
+      scopeKey,
+      filters: defaultFilterState(),
+      selectedNodeId: null,
+      collapsedCommunities: new Set(),
+      flyToNodeId: null,
+    });
   },
 
-  setQuery: (query) => set((state) => ({ filters: { ...state.filters, query } })),
+  setQuery: (query) => set((state) => ({ filters: { ...state.filters, query }, flyToNodeId: null })),
 
   toggleRelation: (relation) =>
     set((state) => {
@@ -73,4 +105,30 @@ export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, ge
     set((state) => ({ filters: { ...state.filters, hiddenCommunities: new Set() } })),
 
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
+
+  focusNode: (nodeId) => set({ selectedNodeId: nodeId, flyToNodeId: nodeId }),
+
+  toggleCollapsedCommunity: (communityName) =>
+    set((state) => {
+      const collapsedCommunities = new Set(state.collapsedCommunities);
+      if (collapsedCommunities.has(communityName)) collapsedCommunities.delete(communityName);
+      else collapsedCommunities.add(communityName);
+      return { collapsedCommunities };
+    }),
+
+  setCommunityCollapsed: (communityName, collapsed) =>
+    set((state) => {
+      if (state.collapsedCommunities.has(communityName) === collapsed) return {};
+      const collapsedCommunities = new Set(state.collapsedCommunities);
+      if (collapsed) collapsedCommunities.add(communityName);
+      else collapsedCommunities.delete(communityName);
+      return { collapsedCommunities };
+    }),
+
+  collapseAllCommunities: (communityNames) =>
+    set({ collapsedCommunities: new Set(communityNames) }),
+
+  expandAllCommunities: () => set({ collapsedCommunities: new Set() }),
+
+  setCommunityListMode: (mode) => set({ communityListMode: mode }),
 }));

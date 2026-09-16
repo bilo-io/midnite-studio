@@ -5,11 +5,21 @@ import Sigma from 'sigma';
 
 import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
 
+import { PULSES, PulseTracker } from './knowledge-bounce';
 import { alphaForWeight, withAlpha } from './knowledge-canvas-colors';
+import { drawThemedNodeHover } from './knowledge-canvas-draw';
 import { hslTripleToRgbString } from './knowledge-color-math';
+import {
+  aggregateCommunityEdges,
+  communityCentroids,
+  communityNodeId,
+  isAggregatedEdgeVisible,
+  sizeForMemberCount,
+} from './knowledge-community-collapse';
 import { communityColor, parseHslTriple } from './knowledge-community-colors';
 import { computeDegrees, sizeForDegree } from './knowledge-degree';
 import { isLinkVisible, isCommunityVisible, searchMatches, type KnowledgeFilterState } from './knowledge-filters';
+import { computeHighlightSets, edgePaint, nodePaint, type HighlightSets } from './knowledge-highlight';
 
 /**
  * Raw `sigma` + a thin local hook, per the phase doc's Decision 6 — not
@@ -20,10 +30,25 @@ import { isLinkVisible, isCommunityVisible, searchMatches, type KnowledgeFilterS
  * Split from `knowledge-canvas.tsx` (the mount point) so the imperative
  * sigma/graphology wiring — genuinely un-unit-testable under jsdom, which
  * has no WebGL — stays in one small file; every DECISION it makes (who's
- * visible, what colour, when a label shows) is a plain function imported
- * from `knowledge-filters.ts` / `knowledge-community-colors.ts` /
- * `knowledge-canvas-colors.ts` / `knowledge-degree.ts`, each covered by its
- * own vitest suite with no canvas involved.
+ * visible, what colour, when a label shows, what is lit, how far a pulse
+ * overshoots, which edges a collapsed community folds into) is a plain
+ * function imported from its own `knowledge-*.ts` module, each covered by
+ * its own vitest suite with no canvas involved.
+ *
+ * Performance shape, for a 15k-node / 36k-edge graph:
+ *   - the graph is built ONCE per payload; filters, selection, search and
+ *     collapse all flow through `liveRef` and a `refresh()`, never a rebuild;
+ *   - every reducer is O(1) — degree, community and endpoint ids are baked
+ *     into each item's own attributes at build time, so no `extremities()`
+ *     or `getNodeAttributes()` per edge per frame;
+ *   - hover and the bounce tweens repaint ONLY the items they touch, through
+ *     sigma's `partialGraph` refresh — a hover never reprocesses 36k edges;
+ *   - label level-of-detail is sigma's own `labelRenderedSizeThreshold`
+ *     (rendered pixels, re-evaluated every camera frame) crossed with a
+ *     degree floor in the reducer, so labels appear progressively as you
+ *     zoom without the reducer needing to re-run on camera moves;
+ *   - edges are hidden while the camera moves on graphs past
+ *     `HIDE_EDGES_ON_MOVE_ABOVE` edges — panning stays smooth where it counts.
  */
 
 type NodeAttrs = {
@@ -34,34 +59,82 @@ type NodeAttrs = {
   color: string;
   community: number;
   communityName: string;
+  degree: number;
+  /** `community` is a collapsed community's meta-node (`knowledge-community-collapse.ts`). */
+  kind: 'node' | 'community';
+  memberCount: number;
 };
-type EdgeAttrs = { relation: string; weight: number; confidence: number };
+type EdgeAttrs = {
+  relation: string;
+  weight: number;
+  confidence: number;
+  sourceId: string;
+  targetId: string;
+  sourceCommunity: string;
+  targetCommunity: string;
+  /** `aggregate` folds several raw links between a collapsed community and something else. */
+  kind: 'link' | 'aggregate';
+  relations: string[];
+  count: number;
+};
 
-/** Below this camera ratio (zoomed in enough), labels become eligible — the other half of the LOD is degree. */
-const LABEL_ZOOM_RATIO = 0.4;
-/** A node needs at least this many edges before a label is ever drawn for it, however zoomed in. */
+/** A node needs at least this many edges before a label is ever drawn for it, however zoomed in — unless it is lit. */
 const LABEL_DEGREE_THRESHOLD = 3;
-const DIMMED_ALPHA = 0.12;
+/** sigma's own LOD: a label is a candidate once the node renders at least this many pixels wide. */
+const LABEL_RENDERED_SIZE_THRESHOLD = 7;
+/** Past this many edges, hide them while the camera moves — the pan stays at 60fps, edges snap back on release. */
+const HIDE_EDGES_ON_MOVE_ABOVE = 15_000;
+const DIMMED_ALPHA = 0.1;
 const FOCUS_CAMERA_RATIO = 0.12;
 const FOCUS_ANIMATION_MS = 400;
+const EMPHASISED_EDGE_SCALE = 1.4;
 
 function resolveToken(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-/** `--muted-foreground`, converted for sigma the same way `communityColor` converts its own tokens. */
-function computeEdgeBaseColor(): string {
-  const parsed = parseHslTriple(resolveToken('--muted-foreground'));
-  return parsed ? hslTripleToRgbString(parsed.h, parsed.s, parsed.l) : 'rgb(136, 136, 136)';
+/** A theme token as the `rgb(...)` string sigma can paint — see `knowledge-color-math.ts` for why not `hsl()`. */
+function tokenRgb(name: string, fallback: string): string {
+  const parsed = parseHslTriple(resolveToken(name));
+  return parsed ? hslTripleToRgbString(parsed.h, parsed.s, parsed.l) : fallback;
 }
+
+type ThemeColors = {
+  /** `--muted-foreground` — an edge at rest. */
+  edgeBase: string;
+  /** `--primary` — an edge touching a lit node. */
+  accent: string;
+  /** `--foreground` — every label, node and edge alike: the theme's own text colour. */
+  label: string;
+  /** `--background` / `--border` — the hover bubble. */
+  hoverBox: string;
+  hoverBorder: string;
+};
+
+function readThemeColors(): ThemeColors {
+  return {
+    edgeBase: tokenRgb('--muted-foreground', 'rgb(136, 136, 136)'),
+    accent: tokenRgb('--primary', 'rgb(99, 102, 241)'),
+    label: tokenRgb('--foreground', 'rgb(230, 230, 230)'),
+    hoverBox: tokenRgb('--background', 'rgb(20, 20, 24)'),
+    hoverBorder: tokenRgb('--border', 'rgb(60, 60, 68)'),
+  };
+}
+
+const EMPTY_HIGHLIGHT: HighlightSets = { active: false, focusIds: new Set(), neighborIds: new Set() };
 
 export function useSigmaGraph(options: {
   containerRef: RefObject<HTMLDivElement | null>;
   payload: KnowledgeGraphPayload | null;
   filters: KnowledgeFilterState;
+  /** The node the camera flies to — search's first match, or the tree list's pick. */
   focusNodeId: string | null;
+  /** The node whose panel is open — lit with its neighbourhood, everything else dimmed. */
+  selectedNodeId: string | null;
+  collapsedCommunities: ReadonlySet<string>;
   onNodeClick: (nodeId: string) => void;
-  /** Phase 84's visibility gate — while true, skip the one animated thing this hook does (the camera fly). */
+  onNodeDoubleClick: (nodeId: string) => void;
+  /** Phase 84's visibility gate — while true, skip every animation this hook runs (the camera fly, the pulses). */
   paused: boolean;
 }): void {
   const rendererRef = useRef<Sigma<NodeAttrs, EdgeAttrs> | null>(null);
@@ -69,18 +142,38 @@ export function useSigmaGraph(options: {
   const liveRef = useRef({
     filters: options.filters,
     focusNodeId: options.focusNodeId,
-    searchMatchIds: new Set<string>(),
-    neighborIds: new Set<string>(),
+    selectedNodeId: options.selectedNodeId,
+    collapsed: options.collapsedCommunities,
+    paused: options.paused,
+    searchMatchIds: new Set<string>() as ReadonlySet<string>,
+    /** Search + selection: dims everything outside it. Recomputed in effect (2). */
+    highlight: EMPTY_HIGHLIGHT,
+    /** Hover: lights a neighbourhood WITHOUT dimming the rest, so it can be a partial repaint. */
+    hoveredNodeId: null as string | null,
+    hoverLitIds: new Set<string>() as ReadonlySet<string>,
+    hoveredEdgeId: null as string | null,
     /** Repainted in place on a theme change — see the `MutationObserver` below. */
-    edgeBaseColor: 'rgb(136, 136, 136)',
+    theme: {
+      edgeBase: 'rgb(136, 136, 136)',
+      accent: 'rgb(99, 102, 241)',
+      label: 'rgb(230, 230, 230)',
+      hoverBox: 'rgb(20, 20, 24)',
+      hoverBorder: 'rgb(60, 60, 68)',
+    } as ThemeColors,
+    pulses: new PulseTracker(),
+    pulseScales: new Map<string, number>() as ReadonlyMap<string, number>,
   });
+  liveRef.current.paused = options.paused;
   const onNodeClickRef = useRef(options.onNodeClick);
   onNodeClickRef.current = options.onNodeClick;
+  const onNodeDoubleClickRef = useRef(options.onNodeDoubleClick);
+  onNodeDoubleClickRef.current = options.onNodeDoubleClick;
 
   // (1) Build the graph and mount sigma once per payload identity — a fresh
   // `builtAtCommit` or a repo switch, never a filter/search keystroke.
-  // Filters/focus are pushed through `liveRef` + `refresh()` in effect (2)
-  // instead, so typing in the search box never rebuilds 14,881 nodes.
+  // Filters/focus/selection/collapse are pushed through `liveRef` +
+  // `refresh()` in effects (2) and (4) instead, so typing in the search box
+  // never rebuilds 14,881 nodes.
   useEffect(() => {
     const container = options.containerRef.current;
     const payload = options.payload;
@@ -88,6 +181,13 @@ export function useSigmaGraph(options: {
 
     const graph = new MultiDirectedGraph<NodeAttrs, EdgeAttrs>();
     const degrees = computeDegrees(payload.links);
+    const live = liveRef.current;
+    live.theme = readThemeColors();
+    live.pulses.clear();
+    live.pulseScales = new Map();
+    live.hoveredNodeId = null;
+    live.hoverLitIds = new Set();
+    live.hoveredEdgeId = null;
 
     for (const node of payload.nodes) {
       const pos = payload.positions[node.id] ?? { x: 0, y: 0 };
@@ -99,6 +199,9 @@ export function useSigmaGraph(options: {
         color: communityColor(node.community, resolveToken),
         community: node.community,
         communityName: node.communityName,
+        degree: degrees.get(node.id) ?? 0,
+        kind: 'node',
+        memberCount: 1,
       });
     }
     for (const link of payload.links) {
@@ -107,10 +210,15 @@ export function useSigmaGraph(options: {
         relation: link.relation,
         weight: link.weight,
         confidence: link.confidence,
+        sourceId: link.source,
+        targetId: link.target,
+        sourceCommunity: graph.getNodeAttribute(link.source, 'communityName'),
+        targetCommunity: graph.getNodeAttribute(link.target, 'communityName'),
+        kind: 'link',
+        relations: [link.relation],
+        count: 1,
       });
     }
-
-    liveRef.current.edgeBaseColor = computeEdgeBaseColor();
 
     // Declared before assignment on purpose — the reducers below close over
     // this binding and are called synchronously from inside the `new Sigma`
@@ -120,60 +228,82 @@ export function useSigmaGraph(options: {
       renderer = new Sigma<NodeAttrs, EdgeAttrs>(graph, container, {
         minCameraRatio: 0.02,
         maxCameraRatio: 4,
-        // The zoom-LOD is entirely reducer-driven (below); sigma's own
-        // built-in size threshold would fight it.
-        labelRenderedSizeThreshold: 0,
+        zIndex: true,
+        enableEdgeEvents: true,
+        renderEdgeLabels: true,
+        hideEdgesOnMove: payload.links.length > HIDE_EDGES_ON_MOVE_ABOVE,
+        labelRenderedSizeThreshold: LABEL_RENDERED_SIZE_THRESHOLD,
+        labelDensity: 0.6,
+        labelGridCellSize: 90,
+        labelFont: getComputedStyle(document.body).fontFamily || 'sans-serif',
+        labelSize: 12,
+        labelWeight: '500',
+        labelColor: { color: live.theme.label },
+        edgeLabelColor: { color: live.theme.label },
+        edgeLabelFont: getComputedStyle(document.body).fontFamily || 'sans-serif',
+        edgeLabelSize: 10,
+        defaultDrawNodeHover: (context, data, settings) =>
+          drawThemedNodeHover(context, data, settings, {
+            box: liveRef.current.theme.hoverBox,
+            border: liveRef.current.theme.hoverBorder,
+          }),
         nodeReducer: (node, data) => {
           const live = liveRef.current;
-          const nodeAttrs = graph.getNodeAttributes(node);
-          const visible = isCommunityVisible(nodeAttrs.communityName, live.filters);
-          const searching = live.searchMatchIds.size > 0;
-          const isMatch = live.searchMatchIds.has(node);
-          const isNeighbor = live.neighborIds.has(node);
-          const dimmed = searching && !isMatch && !isNeighbor;
-          // `renderer` is still unassigned the first time sigma calls this
-          // reducer — synchronously, from inside its own constructor, before
-          // `renderer = new Sigma(...)` below has returned. `?? 1` (zoomed
-          // out) is the safe default for that one call; every later call,
-          // camera-driven or `refresh()`-driven, sees the real instance.
-          const cameraRatio = renderer?.getCamera().ratio ?? 1;
-          const eligibleForLabel =
-            cameraRatio < LABEL_ZOOM_RATIO && (degrees.get(node) ?? 0) >= LABEL_DEGREE_THRESHOLD;
+          const collapsedMember = data.kind === 'node' && live.collapsed.has(data.communityName);
+          const visible = !collapsedMember && isCommunityVisible(data.communityName, live.filters);
+          const paint = nodePaint(node, live.highlight, live.selectedNodeId);
+          const hoverLit = live.hoverLitIds.has(node);
+          const dimmed = paint.dimmed && !hoverLit;
+          const lit = paint.forceLabel || hoverLit;
+          const eligibleForLabel = data.kind === 'community' || data.degree >= LABEL_DEGREE_THRESHOLD;
+          const scale = live.pulseScales.get(node) ?? 1;
           return {
             ...data,
             hidden: !visible,
-            label: eligibleForLabel || isMatch ? data.label : null,
-            color: dimmed ? withAlpha(nodeAttrs.color, DIMMED_ALPHA) : nodeAttrs.color,
-            highlighted: live.focusNodeId === node,
-            zIndex: isMatch ? 2 : 1,
+            size: data.size * scale,
+            label: dimmed ? null : eligibleForLabel || lit ? data.label : null,
+            forceLabel: lit && !dimmed,
+            color: dimmed ? withAlpha(data.color, DIMMED_ALPHA) : data.color,
+            highlighted: paint.highlighted,
+            zIndex: hoverLit ? 4 : paint.zIndex,
           };
         },
         edgeReducer: (edge, data) => {
           const live = liveRef.current;
-          const edgeAttrs = graph.getEdgeAttributes(edge);
-          const [source, target] = graph.extremities(edge);
-          const sourceAttrs = graph.getNodeAttributes(source);
-          const targetAttrs = graph.getNodeAttributes(target);
-          const visible = isLinkVisible(
-            edgeAttrs,
-            sourceAttrs.communityName,
-            targetAttrs.communityName,
-            live.filters,
-          );
-          const searching = live.searchMatchIds.size > 0;
-          const touchesFocus =
-            live.searchMatchIds.has(source) ||
-            live.searchMatchIds.has(target) ||
-            live.neighborIds.has(source) ||
-            live.neighborIds.has(target);
-          const dimmed = searching && !touchesFocus;
-          const alpha = alphaForWeight(edgeAttrs.weight);
-          const baseColor = live.edgeBaseColor;
+          const visible =
+            data.kind === 'aggregate'
+              ? isAggregatedEdgeVisible(data, data.sourceCommunity, data.targetCommunity, live.filters)
+              : !live.collapsed.has(data.sourceCommunity) &&
+                !live.collapsed.has(data.targetCommunity) &&
+                isLinkVisible(data, data.sourceCommunity, data.targetCommunity, live.filters);
+          const paint = edgePaint(data.sourceId, data.targetId, live.highlight);
+          const hoverLit =
+            live.hoveredNodeId !== null &&
+            (data.sourceId === live.hoveredNodeId || data.targetId === live.hoveredNodeId);
+          const hovered = live.hoveredEdgeId === edge;
+          const emphasised = paint.emphasised || hoverLit || hovered;
+          const dimmed = paint.dimmed && !emphasised;
+          const scale = live.pulseScales.get(edge) ?? 1;
+          const baseSize =
+            data.kind === 'aggregate' ? Math.min(6, 1 + Math.log2(data.count)) : Math.max(0.5, data.weight);
+          const theme = live.theme;
+          const color = dimmed
+            ? withAlpha(theme.edgeBase, DIMMED_ALPHA)
+            : emphasised
+              ? withAlpha(theme.accent, 0.85)
+              : withAlpha(theme.edgeBase, alphaForWeight(data.weight));
           return {
             ...data,
             hidden: !visible,
-            size: Math.max(0.5, edgeAttrs.weight),
-            color: dimmed ? withAlpha(baseColor, DIMMED_ALPHA) : withAlpha(baseColor, alpha),
+            size: baseSize * (emphasised ? EMPHASISED_EDGE_SCALE : 1) * scale,
+            color,
+            zIndex: emphasised ? 2 : paint.zIndex,
+            label: hovered
+              ? data.kind === 'aggregate'
+                ? `${data.relations.join(', ')} ×${data.count}`
+                : data.relation
+              : null,
+            forceLabel: hovered,
           };
         },
       });
@@ -183,20 +313,132 @@ export function useSigmaGraph(options: {
       // per-view `ErrorBoundary` (`view-registry.tsx`) is exactly that catch.
       throw err instanceof Error ? err : new Error('Could not start the knowledge graph canvas.');
     }
+    const sigma = renderer;
 
-    renderer.on('clickNode', ({ node }) => onNodeClickRef.current(node));
+    // --- Partial repaint helpers -------------------------------------------
+    // Everything below the fold repaints only the items it names, through
+    // sigma's `partialGraph` refresh (`skipIndexation`: x/y untouched). The
+    // full `refresh()` is reserved for the things that genuinely change every
+    // item: a filter, the selection's dimming, a collapse, a theme flip.
+    const repaint = (nodes: Iterable<string>, edges: Iterable<string>) => {
+      const nodeList = [...nodes].filter((id) => graph.hasNode(id));
+      const edgeList = [...edges].filter((id) => graph.hasEdge(id));
+      if (nodeList.length === 0 && edgeList.length === 0) return;
+      try {
+        sigma.refresh({ partialGraph: { nodes: nodeList, edges: edgeList }, skipIndexation: true });
+      } catch {
+        sigma.refresh();
+      }
+    };
+    const incidentEdges = (nodeId: string): string[] =>
+      graph.hasNode(nodeId) ? graph.edges(nodeId) : [];
+
+    // --- Bounce -------------------------------------------------------------
+    // One rAF loop, alive only while a tween is in flight. Each frame samples
+    // the tracker and repaints exactly the pulsing items. `paused` (the window
+    // is blurred, Phase 84) snaps every pulse to its resting scale instead.
+    let pulseFrame: number | null = null;
+    const pulseTick = () => {
+      pulseFrame = null;
+      const live = liveRef.current;
+      const sample = live.pulses.sample(performance.now());
+      live.pulseScales = sample.scales;
+      const touched = new Set<string>([...sample.scales.keys(), ...sample.finished]);
+      const nodes: string[] = [];
+      const edges: string[] = [];
+      for (const id of touched) {
+        if (graph.hasNode(id)) nodes.push(id);
+        else if (graph.hasEdge(id)) edges.push(id);
+      }
+      repaint(nodes, edges);
+      if (sample.animating) pulseFrame = requestAnimationFrame(pulseTick);
+    };
+    const pulse = (id: string, preset: { to: number; durationMs: number; overshoot: number }) => {
+      const live = liveRef.current;
+      live.pulses.start(id, performance.now(), live.paused ? { ...preset, durationMs: 0 } : preset);
+      if (pulseFrame === null) pulseFrame = requestAnimationFrame(pulseTick);
+    };
+
+    // --- Hover ----------------------------------------------------------------
+    // A node's hover lights its one-hop neighbourhood and incident edges — a
+    // repaint of a few hundred items at most, never the whole graph, which is
+    // what keeps sweeping the pointer across a dense cluster smooth.
+    const setHoveredNode = (nodeId: string | null) => {
+      const live = liveRef.current;
+      if (live.hoveredNodeId === nodeId) return;
+      const previous = live.hoveredNodeId;
+      const previousLit = live.hoverLitIds;
+      const previousEdges = previous ? incidentEdges(previous) : [];
+      live.hoveredNodeId = nodeId;
+      const lit = new Set<string>();
+      if (nodeId && graph.hasNode(nodeId)) {
+        lit.add(nodeId);
+        for (const neighbor of graph.neighbors(nodeId)) lit.add(neighbor);
+      }
+      live.hoverLitIds = lit;
+      repaint(new Set([...previousLit, ...lit]), [...previousEdges, ...(nodeId ? incidentEdges(nodeId) : [])]);
+    };
+
+    sigma.on('enterNode', ({ node }) => {
+      setHoveredNode(node);
+      pulse(node, PULSES.nodeHoverIn);
+    });
+    sigma.on('leaveNode', ({ node }) => {
+      setHoveredNode(null);
+      pulse(node, PULSES.nodeHoverOut);
+    });
+    // A click's SELECTION waits out sigma's double-click window; the bounce
+    // does not. Selecting opens the side panel, which narrows the canvas and
+    // re-frames the graph — so the node a user is mid-double-click on would
+    // slide out from under the pointer between their first and second click,
+    // and the second would land on empty stage. Deferring by exactly
+    // `doubleClickTimeout` (sigma's own two-clicks-make-a-double window) and
+    // cancelling when the double arrives is the standard click/dblclick
+    // disambiguation; the pulse still fires on the first click so the node
+    // reacts instantly.
+    let pendingClick: ReturnType<typeof setTimeout> | null = null;
+    sigma.on('clickNode', ({ node }) => {
+      pulse(node, PULSES.nodeClick);
+      if (pendingClick !== null) clearTimeout(pendingClick);
+      pendingClick = setTimeout(() => {
+        pendingClick = null;
+        onNodeClickRef.current(node);
+      }, sigma.getSetting('doubleClickTimeout'));
+    });
+    sigma.on('doubleClickNode', ({ node, preventSigmaDefault }) => {
+      // sigma's own double-click zooms the camera; ours collapses/expands.
+      preventSigmaDefault();
+      if (pendingClick !== null) {
+        clearTimeout(pendingClick);
+        pendingClick = null;
+      }
+      onNodeDoubleClickRef.current(node);
+    });
+    sigma.on('enterEdge', ({ edge }) => {
+      liveRef.current.hoveredEdgeId = edge;
+      pulse(edge, PULSES.edgeHoverIn);
+      container.style.cursor = 'pointer';
+    });
+    sigma.on('leaveEdge', ({ edge }) => {
+      if (liveRef.current.hoveredEdgeId === edge) liveRef.current.hoveredEdgeId = null;
+      pulse(edge, PULSES.edgeHoverOut);
+      container.style.cursor = '';
+    });
+    sigma.on('clickEdge', ({ edge }) => {
+      pulse(edge, PULSES.edgeClick);
+    });
 
     graphRef.current = graph;
-    rendererRef.current = renderer;
+    rendererRef.current = sigma;
 
     // Theme D: "reads the same CSS custom properties every other surface
     // does and repaints on theme change — no hardcoded palette." Node colour
     // is baked into each node's own attributes (not recomputed every frame,
-    // unlike the edge reducer's `live.edgeBaseColor`), so a theme flip has to
-    // walk the graph and rewrite it — the same `MutationObserver` on `<html
+    // unlike the edge reducer's `live.theme`), so a theme flip has to walk
+    // the graph and rewrite it — the same `MutationObserver` on `<html
     // class>` `app.tsx`'s `useWindowBackgroundSync` already uses for the
     // window-chrome colour, there being no theme-change event to listen for
-    // instead.
+    // instead. Label colour is a sigma setting, swapped in place.
     let repaintObserver: MutationObserver | undefined;
     if (typeof MutationObserver !== 'undefined') {
       repaintObserver = new MutationObserver(() => {
@@ -205,8 +447,11 @@ export function useSigmaGraph(options: {
         graph.forEachNode((nodeId, attrs) => {
           graph.setNodeAttribute(nodeId, 'color', communityColor(attrs.community, resolveToken));
         });
-        liveRef.current.edgeBaseColor = computeEdgeBaseColor();
-        renderer?.refresh();
+        const theme = readThemeColors();
+        liveRef.current.theme = theme;
+        sigma.setSetting('labelColor', { color: theme.label });
+        sigma.setSetting('edgeLabelColor', { color: theme.label });
+        sigma.refresh();
       });
       repaintObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     }
@@ -226,48 +471,48 @@ export function useSigmaGraph(options: {
     let containerResizeObserver: ResizeObserver | undefined;
     if (typeof ResizeObserver !== 'undefined') {
       containerResizeObserver = new ResizeObserver(() => {
-        renderer?.refresh();
+        sigma.refresh();
       });
       containerResizeObserver.observe(container);
     }
 
     return () => {
+      if (pendingClick !== null) clearTimeout(pendingClick);
+      if (pulseFrame !== null) cancelAnimationFrame(pulseFrame);
       containerResizeObserver?.disconnect();
       repaintObserver?.disconnect();
-      renderer?.kill();
+      container.style.cursor = '';
+      sigma.kill();
       graphRef.current = null;
       rendererRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- payload identity is the only intended trigger, see comment above
   }, [options.payload]);
 
-  // (2) Push filter/search updates into the live reducers without rebuilding
-  // the graph, then ask sigma to re-evaluate them.
+  // (2) Push filter/search/selection updates into the live reducers without
+  // rebuilding the graph, then ask sigma to re-evaluate them. These all
+  // change what EVERY item looks like (a filter hides edges everywhere; a
+  // selection dims everything outside its neighbourhood), so this is the
+  // one place a full `refresh()` is the right tool.
   useEffect(() => {
     const live = liveRef.current;
     live.filters = options.filters;
     live.focusNodeId = options.focusNodeId;
+    live.selectedNodeId = options.selectedNodeId;
 
     const payload = options.payload;
     const graph = graphRef.current;
-    if (payload && options.filters.query) {
-      const matches = searchMatches(payload.nodes, options.filters.query);
-      live.searchMatchIds = matches;
-      const neighbors = new Set<string>();
-      if (graph) {
-        for (const id of matches) {
-          if (!graph.hasNode(id)) continue;
-          for (const neighbor of graph.neighbors(id)) neighbors.add(neighbor);
-        }
-      }
-      live.neighborIds = neighbors;
-    } else {
-      live.searchMatchIds = new Set();
-      live.neighborIds = new Set();
-    }
+    live.searchMatchIds =
+      payload && options.filters.query ? searchMatches(payload.nodes, options.filters.query) : new Set();
+    live.highlight = computeHighlightSets({
+      searchMatchIds: live.searchMatchIds,
+      selectedNodeId: options.selectedNodeId,
+      hoveredNodeId: null,
+      neighborsOf: (id) => (graph?.hasNode(id) ? graph.neighbors(id) : []),
+    });
 
     rendererRef.current?.refresh();
-  }, [options.filters, options.focusNodeId, options.payload]);
+  }, [options.filters, options.focusNodeId, options.selectedNodeId, options.payload]);
 
   // (3) Fly the camera to the focused node. Skipped while `paused` (Phase 84
   // — the window is blurred): `camera.animate()` runs its own short rAF
@@ -303,4 +548,75 @@ export function useSigmaGraph(options: {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `paused` is read, not a trigger: a focus-node change is the only thing that should fly the camera
   }, [options.focusNodeId]);
+
+  // (4) Collapse/expand communities. Meta-nodes and their aggregated edges
+  // are the ONE thing that mutates the graph after build — added for every
+  // collapsed community, dropped for every expanded one — and they are
+  // rebuilt wholesale from `aggregateCommunityEdges` on each change rather
+  // than diffed (see that function's docblock for why). Member nodes and
+  // their raw edges are never removed: the reducers hide them while their
+  // community is collapsed, so expanding is instant and loses nothing.
+  useEffect(() => {
+    const graph = graphRef.current;
+    const renderer = rendererRef.current;
+    const payload = options.payload;
+    const live = liveRef.current;
+    live.collapsed = options.collapsedCommunities;
+    if (!graph || !renderer || !payload) return;
+
+    // Drop every existing meta-node (its aggregated edges go with it).
+    const stale: string[] = [];
+    graph.forEachNode((nodeId, attrs) => {
+      if (attrs.kind === 'community') stale.push(nodeId);
+    });
+    for (const nodeId of stale) graph.dropNode(nodeId);
+
+    if (options.collapsedCommunities.size > 0) {
+      const centroids = communityCentroids(payload.nodes, payload.positions);
+      const communityByNodeId = new Map<string, string>();
+      for (const node of payload.nodes) communityByNodeId.set(node.id, node.communityName);
+
+      for (const name of options.collapsedCommunities) {
+        const centroid = centroids.get(name);
+        if (!centroid) continue;
+        graph.addNode(communityNodeId(name), {
+          x: centroid.x,
+          y: centroid.y,
+          size: sizeForMemberCount(centroid.count),
+          label: `${name} (${centroid.count})`,
+          color: communityColor(centroid.community, resolveToken),
+          community: centroid.community,
+          communityName: name,
+          degree: Number.POSITIVE_INFINITY,
+          kind: 'community',
+          memberCount: centroid.count,
+        });
+      }
+
+      for (const edge of aggregateCommunityEdges(payload.links, communityByNodeId, options.collapsedCommunities)) {
+        if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
+        graph.addEdgeWithKey(edge.key, edge.source, edge.target, {
+          relation: edge.relations[0] ?? 'aggregate',
+          weight: edge.weight,
+          confidence: edge.confidence,
+          sourceId: edge.source,
+          targetId: edge.target,
+          sourceCommunity: graph.getNodeAttribute(edge.source, 'communityName'),
+          targetCommunity: graph.getNodeAttribute(edge.target, 'communityName'),
+          kind: 'aggregate',
+          relations: edge.relations,
+          count: edge.count,
+        });
+      }
+    }
+
+    // The highlight's neighbourhoods may now run through meta-nodes.
+    live.highlight = computeHighlightSets({
+      searchMatchIds: live.searchMatchIds,
+      selectedNodeId: live.selectedNodeId,
+      hoveredNodeId: null,
+      neighborsOf: (id) => (graph.hasNode(id) ? graph.neighbors(id) : []),
+    });
+    renderer.refresh();
+  }, [options.collapsedCommunities, options.payload]);
 }

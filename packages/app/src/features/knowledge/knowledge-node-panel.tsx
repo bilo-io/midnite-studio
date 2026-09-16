@@ -72,7 +72,12 @@ export function KnowledgeNodePanel({
         <span className="truncate text-xs font-medium text-muted-foreground">Knowledge · node</span>
         <IconButton icon={LuX} label="Close" onClick={onClose} />
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden">
+      {/*
+        `flex flex-col`, not a plain block: `FilePreview`'s root is `flex-1
+        flex-col` and only stretches inside a flex column — as a block child it
+        collapsed to its header's height, leaving the editor a few pixels tall.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {detail.status === 'loading' ? (
           <div className="p-4 text-xs text-muted-foreground">Loading…</div>
         ) : detail.status === 'not-found' ? (

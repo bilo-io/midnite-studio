@@ -16,6 +16,9 @@ describe('useKnowledgeFiltersStore', () => {
         hiddenCommunities: new Set(),
       },
       selectedNodeId: null,
+      collapsedCommunities: new Set(),
+      flyToNodeId: null,
+      communityListMode: 'list',
     });
   });
 
@@ -75,5 +78,60 @@ describe('useKnowledgeFiltersStore', () => {
     expect(useKnowledgeFiltersStore.getState().selectedNodeId).toBe('n1');
     useKnowledgeFiltersStore.getState().selectNode(null);
     expect(useKnowledgeFiltersStore.getState().selectedNodeId).toBeNull();
+  });
+
+  it('resets the collapse set and fly-to on a scope change, but keeps the list mode (a UI preference)', () => {
+    const store = useKnowledgeFiltersStore.getState();
+    store.ensureScope('repo:1');
+    store.toggleCollapsedCommunity('core');
+    store.focusNode('n1');
+    store.setCommunityListMode('tree');
+
+    store.ensureScope('repo:2');
+
+    const state = useKnowledgeFiltersStore.getState();
+    expect(state.collapsedCommunities.size).toBe(0);
+    expect(state.flyToNodeId).toBeNull();
+    expect(state.selectedNodeId).toBeNull();
+    expect(state.communityListMode).toBe('tree');
+  });
+
+  it('toggleCollapsedCommunity flips one name; setCommunityCollapsed is idempotent', () => {
+    const store = useKnowledgeFiltersStore.getState();
+    store.toggleCollapsedCommunity('core');
+    expect(useKnowledgeFiltersStore.getState().collapsedCommunities.has('core')).toBe(true);
+    store.toggleCollapsedCommunity('core');
+    expect(useKnowledgeFiltersStore.getState().collapsedCommunities.has('core')).toBe(false);
+
+    store.setCommunityCollapsed('graph', true);
+    const once = useKnowledgeFiltersStore.getState().collapsedCommunities;
+    store.setCommunityCollapsed('graph', true);
+    // No new Set allocated when nothing changed — the canvas effect keys on identity.
+    expect(useKnowledgeFiltersStore.getState().collapsedCommunities).toBe(once);
+    store.setCommunityCollapsed('graph', false);
+    expect(useKnowledgeFiltersStore.getState().collapsedCommunities.has('graph')).toBe(false);
+  });
+
+  it('collapseAll / expandAll replace the whole set', () => {
+    const store = useKnowledgeFiltersStore.getState();
+    store.collapseAllCommunities(['a', 'b']);
+    expect([...useKnowledgeFiltersStore.getState().collapsedCommunities].sort()).toEqual(['a', 'b']);
+    store.expandAllCommunities();
+    expect(useKnowledgeFiltersStore.getState().collapsedCommunities.size).toBe(0);
+  });
+
+  it('focusNode selects AND requests a fly; selectNode alone never moves the camera', () => {
+    const store = useKnowledgeFiltersStore.getState();
+    store.focusNode('n1');
+    expect(useKnowledgeFiltersStore.getState()).toMatchObject({ selectedNodeId: 'n1', flyToNodeId: 'n1' });
+    store.selectNode('n2');
+    expect(useKnowledgeFiltersStore.getState()).toMatchObject({ selectedNodeId: 'n2', flyToNodeId: 'n1' });
+  });
+
+  it('a search keystroke clears the fly-to so search’s own focus wins again', () => {
+    const store = useKnowledgeFiltersStore.getState();
+    store.focusNode('n1');
+    store.setQuery('use');
+    expect(useKnowledgeFiltersStore.getState().flyToNodeId).toBeNull();
   });
 });

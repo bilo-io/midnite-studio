@@ -21,6 +21,14 @@ vi.mock('./knowledge-node-panel', () => ({
   ),
 }));
 
+vi.mock('./knowledge-community-panel', () => ({
+  KnowledgeCommunityPanel: ({ communityName, members }: { communityName: string; members: unknown[] }) => (
+    <div data-testid="knowledge-community-panel-stub">
+      {communityName}:{members.length}
+    </div>
+  ),
+}));
+
 function installBridge(overrides: Partial<MidniteStudioBridge['knowledge']>) {
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
     knowledge: {
@@ -69,6 +77,9 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
         hiddenCommunities: new Set(),
       },
       selectedNodeId: null,
+      collapsedCommunities: new Set(),
+      flyToNodeId: null,
+      communityListMode: 'list',
     });
   });
 
@@ -237,5 +248,19 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('opens the community panel, not the node panel, when a community meta-node is selected', async () => {
+    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    installBridge({ getGraph: vi.fn().mockResolvedValue({ ok: true, value: READY_PAYLOAD }) });
+
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('knowledge-canvas-stub')).toBeDefined());
+
+    useKnowledgeFiltersStore.getState().selectNode('community:core');
+    await waitFor(() =>
+      expect(screen.getByTestId('knowledge-community-panel-stub').textContent).toBe('core:1'),
+    );
+    expect(screen.queryByTestId('knowledge-node-panel-stub')).toBeNull();
   });
 });

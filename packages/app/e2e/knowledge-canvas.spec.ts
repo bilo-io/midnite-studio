@@ -164,3 +164,53 @@ test('typing a symbol into search flies the camera to it, centring it under a fi
   await expect(nodePanel(page)).toBeVisible();
   await expect(page.getByText('src/east.ts')).toBeVisible();
 });
+
+test('a real double-click on a node folds its community into one meta-node, and the community panel explains it', async ({
+  page,
+}) => {
+  await openKnowledge(page);
+  const box = (await page.getByTestId('knowledge-canvas').boundingBox())!;
+  const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+  // sigma's own double-click would zoom the camera; ours must swallow it and
+  // collapse `hub`'s community (`core`, whose only member is `hub`, so the
+  // meta-node stands exactly where `hub` stood — the centroid of one point).
+  await page.mouse.dblclick(center.x, center.y);
+
+  const communityPanel = page.getByTestId('knowledge-community-panel');
+  await expect(communityPanel).toBeVisible();
+  await expect(communityPanel.getByText('core', { exact: true })).toBeVisible();
+  await expect(communityPanel.getByText(/1 node, collapsed into one/)).toBeVisible();
+
+  // Expanding puts `hub` back under the same pixel: a single click there
+  // opens its FILE again, proving the meta-node was swapped out for the node.
+  await communityPanel.getByText('Expand on canvas').click();
+  await expect(communityPanel).toBeHidden();
+  await page.mouse.click(center.x, center.y);
+  await expect(nodePanel(page)).toBeVisible();
+  await expect(page.getByText('src/hub.ts')).toBeVisible();
+});
+
+test('picking a member in the community tree flies the camera to it, so the centre now hits that node', async ({
+  page,
+}) => {
+  await openKnowledge(page);
+  const box = (await page.getByTestId('knowledge-canvas').boundingBox())!;
+  const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+  await page.getByRole('button', { name: /^Communities/ }).click();
+  await page.getByRole('button', { name: 'Tree', exact: true }).click();
+  await page.getByRole('button', { name: 'Expand edge', exact: true }).click();
+  // `east` (`useNowTick`) sits 100 units right of `hub`; the pick selects it
+  // (its file opens) AND flies the camera — `use-sigma-graph.ts`'s effect (3),
+  // 400ms — which only a real canvas can show landed.
+  await page.getByRole('button', { name: 'useNowTick', exact: true }).click();
+  await expect(page.getByText('src/east.ts')).toBeVisible();
+  await page.waitForTimeout(700);
+
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(nodePanel(page)).toBeHidden();
+  await page.mouse.click(center.x, center.y);
+  await expect(nodePanel(page)).toBeVisible();
+  await expect(page.getByText('src/east.ts')).toBeVisible();
+});
