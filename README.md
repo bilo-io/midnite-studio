@@ -97,7 +97,9 @@ apps (Spotify, Google Calendar, YouTube), each independently detachable. See
 
 **macOS (arm64) is the only officially supported platform for now. Linux and Windows support is
 deferred, not abandoned.** Everything follows from that: `moon run desktop:dist` builds a macOS
-arm64 dmg/zip and nothing else, and every default CI gate runs on a `macos-*` runner. The two
+arm64 dmg/zip and nothing else, and every default CI gate runs on a `macos-*` runner while the repo
+is public (the three OS-neutral lanes pick `ubuntu-24.04` automatically once it is private — see the
+*Runner selection* section of `ci.yml`'s header). The two
 lanes that are Linux by construction — `db-integration` (GitHub `services:` containers are
 Docker-based and Linux-runner-only) and `visual` (a Linux job container diffing committed
 `-linux.png` baselines) — are opt-in: the `cross-platform` label on a PR, or the

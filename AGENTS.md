@@ -140,13 +140,20 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   glyph in `IconButton`, `Tooltip` and the context menus.
 - **macOS (arm64) is the only officially supported platform for now — Linux and Windows are
   deferred, not abandoned.** `moon run desktop:dist` already built for macOS alone; the rest of
-  the repo now matches. **Every default CI gate runs on a `macos-*` runner** — `gate-node`,
-  `gate-node-app-test` and `e2e` moved off `ubuntu-24.04`, where Phase 82 Themes E/H had put them
-  purely for the 1x billing rate. **That cost argument is obsolete, not overridden: this repo is
-  public** (`gh api repos/bilo-io/midnite-studio -q .visibility`), and standard GitHub-hosted runners
-  — macOS included — are free on a public repo, so the "10x" those comments repeat is a private-repo
-  figure. `ci.yml`'s header carries the citations; read every "10x"/"1x" in that file as history.
-  The signal is real either way: `ci.yml`'s `e2e` comment records half an hour of runner time burned
+  the repo now matches. **Every default CI gate runs on a `macos-*` runner while the repo is
+  public, and the three portable lanes swing to `ubuntu-24.04` by themselves the day it goes
+  private.** `gate-node`, `gate-node-app-test` and `e2e` sat on ubuntu for Phase 82 Themes E/H purely
+  for the 1x billing rate; that argument is dormant, not wrong — standard GitHub-hosted runners,
+  macOS included, are free on a public repo (`gh api repos/bilo-io/midnite-studio -q .visibility`),
+  and the repo is due to go private once the product is marketed. So those three jobs do not
+  hard-code a runner: each reads `runs-on: ${{ (github.event.repository.private ||
+  inputs.simulate_private) && 'ubuntu-24.04' || 'macos-14' }}`, keyed on the boolean GitHub puts in
+  every trigger's payload, so `gh repo edit --visibility private` is the whole switch and no edit
+  to `ci.yml` is needed. `simulate_private` is a `workflow_dispatch` input that rehearses the
+  ubuntu form before the flip; the two per-OS spots in `e2e` (Playwright's browser-cache path,
+  `--with-deps`) are `runner.os` conditionals. `gate-native`, `gate-locale` and `package` stay on
+  macOS regardless of the bill. `ci.yml`'s header carries the citations and the rule; read every
+  "10x"/"1x" in that file as the private-repo figure it is. The signal is real either way: `ci.yml`'s `e2e` comment records half an hour of runner time burned
   on nine specs pressing a hard-coded `Meta+k` that does nothing on Linux, and the move to macOS
   immediately caught that bug's mirror image in a rail-tooltip spec. **Two lanes cannot run on
   macOS at all and

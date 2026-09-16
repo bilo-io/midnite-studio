@@ -7,7 +7,9 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   un-deferring is a revert of one commit and not an archaeology exercise: every default CI gate
   moved to a `macos-*` runner (`gate-node`, `gate-node-app-test` and `e2e` off `ubuntu-24.04`,
   which cost nothing — this repo is public and standard GitHub-hosted runners are free there,
-  macOS included, so the "10x" Phase 82 Themes E/H chose ubuntu for is a private-repo figure),
+  macOS included, so the "10x" Phase 82 Themes E/H chose ubuntu for is a private-repo figure;
+  those three lanes now key `runs-on` on `github.event.repository.private` and return to ubuntu
+  by themselves when the repo goes private — `ci.yml` header, *Runner selection*),
   and the two lanes that cannot run on macOS at all are opt-in behind the `cross-platform` PR label or
   `ci.yml`'s `cross_platform` `workflow_dispatch` input:
   **`db-integration`** (GitHub `services:` containers are Docker-based and Linux-runner-only)

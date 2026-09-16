@@ -15,6 +15,14 @@ on:
         description: 'Also run the deferred Linux-only lanes (db-integration, visual)'
         type: boolean
         default: false
+      # Rehearsal switch for the "Runner selection" rule below: pretend the repo
+      # is private for this one run, so the ubuntu form of the portable lanes can
+      # be proven green BEFORE the visibility actually changes. Never set by a
+      # push or pull_request run (`inputs` is empty there, so it reads as false).
+      simulate_private:
+        description: 'Select runners as if the repo were private (ubuntu for the portable lanes)'
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -24,8 +32,9 @@ concurrency:
 #
 # **macOS (arm64) is the only officially supported platform for now; Linux and
 # Windows support is deferred, not abandoned.** Every default gate therefore
-# runs on a `macos-*` runner: a red lane on a platform this project does not
-# ship is a bill and an interruption with no user behind it. This file has the
+# runs on a `macos-*` runner while that is free (see "Runner selection" below
+# for what happens when it is not): a red lane on a platform this project does
+# not ship is a bill and an interruption with no user behind it. This file has the
 # receipts for that being a real cost and not a hypothetical — the `e2e` job's
 # own comment records nine `palette.spec.ts` specs that burned half an hour of
 # runner time pressing a hard-coded `Meta+k` that does nothing on Linux, where
@@ -69,9 +78,37 @@ concurrency:
 # this holds for standard runners only: LARGER runners are billed even on a
 # public repo, so moving a job to one would resurrect the whole argument.
 #
-# If this repo is ever made private again, the lever is exactly the three
-# `runs-on:` lines named above — move them back to `ubuntu-24.04`. That is a cost
-# decision, and it is not the same thing as un-deferring Linux.
+# ## Runner selection follows repo visibility — automatically
+#
+# This repo WILL go private when the product starts being marketed, and at that
+# point every "10x" above stops being history and becomes the bill. So the
+# three portable lanes do not hard-code a runner; each one reads
+#
+#   runs-on: ${{ (github.event.repository.private || inputs.simulate_private) && 'ubuntu-24.04' || 'macos-14' }}
+#
+# `github.event.repository.private` is the boolean GitHub puts in the webhook
+# payload of every trigger this file uses (`push`, `pull_request`,
+# `workflow_dispatch`), so the flip is a `gh repo edit --visibility private`
+# and nothing else: the next run lands on ubuntu at 1x with no edit here. The
+# `&& ... ||` chain is the Actions idiom for a ternary — `runs-on` accepts an
+# expression, and the `github`/`inputs` contexts are both in scope for it
+# (`env` is NOT, which is why the expression is repeated three times rather
+# than named once). `inputs.simulate_private` (a `workflow_dispatch` input
+# above) forces the private branch for a rehearsal run; it is null, hence
+# false, on every push/PR run.
+#
+#   Public  → macos-14     free, and the platform we ship on. Preferred.
+#   Private → ubuntu-24.04 1x. The three lanes ran here for Phase 82 and are
+#                          OS-neutral by construction (no `electron`, no dugite,
+#                          no packaged app). Their steps carry the two spots
+#                          that DO differ per OS — the Playwright browser cache
+#                          path and `--with-deps` — as `runner.os` conditionals.
+#
+# Only the portable lanes flip. `gate-native`, `gate-locale` and `package`
+# need macOS regardless of the bill, and `db-integration`/`visual` are Linux
+# regardless and gated regardless. Flipping to ubuntu is a COST decision and
+# is still not the same thing as un-deferring Linux: the product target does
+# not change, the runner does.
 jobs:
   # Phase 82 Theme E — `gate` split by platform.
   #
@@ -114,14 +151,13 @@ jobs:
     # out to a real git binary in their test suites (git-engine is the one
     # exception, and it is on gate-native below).
     #
-    # `macos-14`, not the `ubuntu-24.04` Phase 82 Theme E put it on: the split
-    # by CONTENT (which packages run where) is unchanged and still worth having,
-    # but the platform half of it is not — macOS is the only supported target
-    # now (see the header), so the node-portable packages get validated on the
-    # platform they ship on. Theme E's comment above argues this costs 10x; on
-    # a public repo it costs nothing (see the header). It also got *faster*:
-    # 2m37s here against the ~341s that comment measured on ubuntu.
-    runs-on: macos-14
+    # `macos-14` while the repo is public, the `ubuntu-24.04` Phase 82 Theme E
+    # put it on once it is private — see "Runner selection" in the header. The
+    # split by CONTENT (which packages run where) is unchanged either way; only
+    # the platform half follows the bill. Theme E's comment above argues macOS
+    # costs 10x; on a public repo it costs nothing, and got *faster*: 2m37s
+    # against the ~341s that comment measured on ubuntu.
+    runs-on: ${{ (github.event.repository.private || inputs.simulate_private) && 'ubuntu-24.04' || 'macos-14' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -241,12 +277,12 @@ jobs:
   # ~108s late (see the `e2e` job's concurrency note) but still finished in
   # 119s of its own runtime once it started, consistent with the other three.
   gate-node-app-test:
-    # `macos-14` for the same reason as `gate-node` above, and at no extra cost
-    # on a public repo (see the header). The shard count and every number in the
-    # comment block were measured on ubuntu-24.04, so treat N=4 as inherited
-    # rather than re-derived; the macOS shards measured 2m14s-2m56s, close
+    # Same visibility-keyed runner as `gate-node` above (header, "Runner
+    # selection"). The shard count and every number in the comment block were
+    # measured on ubuntu-24.04, so N=4 is native to the private form and
+    # inherited by the public one; the macOS shards measured 2m14s-2m56s, close
     # enough to the 121-135s modelled there that the curve's shape still holds.
-    runs-on: macos-14
+    runs-on: ${{ (github.event.repository.private || inputs.simulate_private) && 'ubuntu-24.04' || 'macos-14' }}
     strategy:
       fail-fast: false
       matrix:
@@ -567,19 +603,22 @@ jobs:
   # `workers: 2` precedent that a measured non-adoption is a valid result of
   # this kind of theme. Re-run this measurement once Theme C's waves land.
   #
-  # `macos-14` since the macOS-only policy (see the header). Every cost sentence
-  # above — "10x", "1x", "affordable precisely because this lane is ubuntu" — is
-  # a private-repo figure and does not apply to this public repo; the timing
-  # measurements around them still do. This lane is also the one with a
-  # *measured* platform tax in its own history (the `Meta+k` paragraph above),
-  # and the move immediately caught its mirror image: a rail-tooltip spec that
-  # had baked in the label where the product shows the chord, green on Linux and
-  # red on macOS. Shard count and `workers` are inherited from the ubuntu
-  # measurements, not re-derived — though the 8 macOS shards came in at
-  # 3m56s-5m58s against ubuntu's 6m39s-7m30s, so if anything they are now
-  # over-sharded.
+  # `macos-14` while public, `ubuntu-24.04` once private (header, "Runner
+  # selection"). Every cost sentence above — "10x", "1x", "affordable precisely
+  # because this lane is ubuntu" — is a private-repo figure that becomes live
+  # again on the day the repo goes private; the timing measurements around them
+  # hold either way. This lane is also the one with a *measured* platform tax in
+  # its own history (the `Meta+k` paragraph above), and the move to macOS
+  # immediately caught its mirror image: a rail-tooltip spec that had baked in
+  # the label where the product shows the chord, green on Linux and red on
+  # macOS. Both have been fixed platform-neutrally, which is what lets this lane
+  # swing between the two runners at all — a spec that only passes on one OS
+  # breaks the private form, so `simulate_private` is the rehearsal. Shard count
+  # and `workers` are native to the ubuntu form — though the 8 macOS shards
+  # came in at 3m56s-5m58s against ubuntu's 6m39s-7m30s, so on macOS they are
+  # if anything over-sharded.
   e2e:
-    runs-on: macos-14
+    runs-on: ${{ (github.event.repository.private || inputs.simulate_private) && 'ubuntu-24.04' || 'macos-14' }}
     timeout-minutes: 10
     strategy:
       # Every shard reports. Cancelling siblings on the first failure would hide
@@ -613,19 +652,25 @@ jobs:
         working-directory: packages/app
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
+      # Playwright's browser cache lives at a different path per OS, and this
+      # job runs on either (header, "Runner selection"). The old fixed
+      # `~/.cache/ms-playwright` was right for ubuntu and silently a miss on
+      # every macOS run — the key already carried `runner.os`, the path did not.
       - uses: actions/cache@v6
         id: pw-cache
         with:
-          path: ~/.cache/ms-playwright
+          path: ${{ runner.os == 'macOS' && '~/Library/Caches/ms-playwright' || '~/.cache/ms-playwright' }}
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
 
-      # No `--with-deps`: that flag installs Linux system packages through apt
-      # and is a no-op-at-best on a macOS runner, which ships every framework
-      # chromium needs. Still cache-miss-only — a browser download against a
-      # warm cache is pure wall-clock.
+      # `--with-deps` on Linux only: it installs chromium's system libraries
+      # through apt, which a macOS runner neither has nor needs (it ships every
+      # framework chromium links). Cache-miss-only in both forms — a browser
+      # download against a warm cache is pure wall-clock, and ubuntu-24.04's
+      # image already carries the apt side, which is what made Phase 82's
+      # cache-hit runs work without it.
       - name: Install chromium
         if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install chromium
+        run: pnpm exec playwright install ${{ runner.os == 'Linux' && '--with-deps' || '' }} chromium
         working-directory: packages/app
 
       # Phase 56 Theme E: the `webServer` block below starts a cold Vite dev
