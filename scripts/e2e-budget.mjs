@@ -48,7 +48,16 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // Every OTHER Knowledge behaviour (filters, search matching, state
 // transitions, the empty/stale/malformed states) already has its own vitest
 // suite with the canvas mocked out.
-export const MAX_DECLARED_E2E = 436;
+//
+// Raised 436 -> 438 for the Knowledge canvas's interactivity pass (PR #428,
+// two more cases in the same `knowledge-canvas.spec.ts`): a real double-click
+// hit-tested by sigma's WebGL picking layer (collapsing a community and
+// putting the node back under the same pixel), and a camera fly proven by a
+// subsequent real click landing on the flown-to node. The decisions behind
+// both — which edges a collapsed community folds into, what lights up, the
+// tree rows, the bounce curve — are pure functions with their own vitest
+// suites; only the pixel-level outcome needs the browser.
+export const MAX_DECLARED_E2E = 438;
 
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult
