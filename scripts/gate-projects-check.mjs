@@ -28,7 +28,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // gate job actually runs. If you add a target to one of the jobs' moon
 // invocations, add its project id here too — that symmetry is what this script
 // checks.
-export const NODE_PROJECTS = ['shared', 'app', 'website', 'db-engine'];
+export const NODE_PROJECTS = ['shared', 'knowledge', 'app', 'website', 'db-engine'];
 export const NATIVE_PROJECTS = ['git-engine', 'desktop'];
 
 /**
