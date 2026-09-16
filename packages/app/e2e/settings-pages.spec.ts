@@ -128,7 +128,27 @@ test('the side-navigation lock lives on the Sidebar page, and locked closed mean
     expanded the rail and the label would be in-flow text, not a tooltip.
   */
   await page.getByRole('link', { name: 'Explorer' }).hover();
-  await expect(page.getByRole('tooltip')).toHaveText('Explorer');
+  /*
+    The tooltip's EXISTENCE is the proof, never its text.
+
+    This asserted `toHaveText('Explorer')` until the CI gates moved to macOS
+    runners, and it is the one spec in the suite that the move caught. A rail
+    tooltip carries the chord and *only* the chord (`nav-chords.ts`, and the
+    convention bullet in CLAUDE.md) — never the label — so the text here is
+    whatever `displayChord` renders for the running platform: `⌘⇧E` on macOS,
+    `Ctrl+Shift+E` everywhere else. Either way it is not "Explorer", and
+    pinning it to either spelling just moves the failure to the other
+    platform. Pinning it to the chord itself would be worse still: a rebound
+    `view.files` is supposed to move the rail's tooltip without anyone
+    remembering this spec exists, which is the whole reason `nav-chords` maps
+    to a `CommandId` rather than a chord literal.
+
+    What this test is actually about is the lock, and the sentence above says
+    so: a tooltip rendered at all means the rail is still collapsed, because
+    an expanded rail puts the label in flow and renders no bubble. That, plus
+    the absent pin below, is the assertion.
+  */
+  await expect(page.getByRole('tooltip')).toBeVisible();
   // And the expanded rail's furniture stays gone — no pin to unlock.
   await expect(page.getByRole('button', { name: 'Unlock navigation' })).toHaveCount(0);
 });
