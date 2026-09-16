@@ -267,7 +267,7 @@ export function QuickAccessMenu({ onClose }: { onClose: () => void }) {
       tabIndex={-1}
       data-testid="quick-access-menu"
       onKeyDown={onKeyDown}
-      className="fixed bottom-[4.75rem] right-4 z-popover w-64 gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-xl outline-none"
+      className="fixed bottom-24 right-4 z-popover w-64 gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-xl outline-none"
     >
       <CompanionStrip
         enabled={companionEnabled}
