@@ -36,6 +36,6 @@ describe('checkGateCoverage', () => {
     // git-engine and desktop are the only two that need dugite's bundled git /
     // node-pty; everything else is platform-agnostic and belongs on the 1x runner.
     expect(NATIVE_PROJECTS.sort()).toEqual(['desktop', 'git-engine']);
-    expect(NODE_PROJECTS.sort()).toEqual(['app', 'db-engine', 'shared', 'website']);
+    expect(NODE_PROJECTS.sort()).toEqual(['app', 'db-engine', 'knowledge', 'shared', 'website']);
   });
 });
