@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | A B C D E F G | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 44/64 | `███████░░░` | 69% | — | G H |
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
@@ -190,6 +191,23 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 88 — xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md)
+
+*`@xterm/xterm` `^5.5.0` → `6.0.0`, with `addon-fit` `0.11.0` and `addon-webgl` `0.19.0`. PR #242
+tried the addons alone and killed the terminal: those addon majors **dropped** their
+`'@xterm/xterm': ^5.0.0` peer dependency rather than widening it, so pnpm has nothing left to check
+and the lockfile can no longer catch a mismatch in either direction. #422 stopped Renovate splitting
+the family again; this phase does the migration, replaces the vanished guard with a test, and cashes
+the two debts that were parked on "the next xterm bump".*
+
+- ◻ **A** — the bump: three version lines, one lockfile, and the v6 API delta recorded
+- ◻ **B** — `terminal-view.tsx`, the only `WebglAddon` consumer; verify the `webgl | dom` fallback
+- ◻ **C** — the DOM-renderer sites: `transcript-view.tsx`, `live-session-terminal.tsx`
+- ◻ **D** — `ITheme` across the theme engine, and the VS Code importer's palette
+- ◻ **E** — the attach test that replaces the peer dependency v6 removed
+- ◻ **F** — the two parked debts: the `Viewport.syncScrollArea` unmount throw, Phase 51's fractional-cell rounding
+- ◻ **G** — verification: existing terminal e2e, entry-chunk exclusion, human pass
 
 ### [Phase 87 — Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md)
 
