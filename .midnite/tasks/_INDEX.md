@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | 🔄 WIP | — | 45/60 | `████████░░` | 75% | A B C D E F | G |
+| [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | 🔄 WIP | — | 45/60 | `████████░░` | 75% | G | — |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 44/64 | `███████░░░` | 69% | — | G H |
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
 | [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 60/68 | `█████████░` | 88% | E F K | — |
@@ -204,7 +204,7 @@ CDN-loads vis-network from unpkg and would walk straight into Phase 76's rendere
 - ✅ **D** (PR [#411](https://github.com/bilo-io/midnite-studio/pull/411)) — the sigma + graphology WebGL canvas: zoom LOD, community colour (`--tab-group-N` tokens, hue bucket × lightness tier), theme repaint via a `MutationObserver`, hidden-means-idle, entry chunk confirmed byte-identical
 - ✅ **E** (PR [#411](https://github.com/bilo-io/midnite-studio/pull/411)) — click-to-open (Explorer preview), search + focus + neighbourhood highlight, a virtualized community filter, relation/weight/confidence edge filtering (default `calls` alone — Decision 8, resolved unattended against this repo's own measured graph data)
 - ✅ **F** (PR [#410](https://github.com/bilo-io/midnite-studio/pull/410)) — repo switching, the greyed row and instructional panel, staleness reported not acted on
-- ◻ **G** — vitest for the logic, Playwright for the canvas only, and the measured numbers
+- 🔄 **G** (claimed, worktree `p87-g`) — vitest for the logic, Playwright for the canvas only, and the measured numbers
 
 ### [Phase 86 — The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md)
 
