@@ -19,6 +19,8 @@ dependsOn:
     scope: 'development'
   - id: 'db-engine'
     scope: 'development'
+  - id: 'knowledge'
+    scope: 'development'
   - id: 'app'
     scope: 'development'
 
@@ -37,6 +39,7 @@ tasks:
       - 'shared:build'
       - 'git-engine:build'
       - 'db-engine:build'
+      - 'knowledge:build'
     inputs:
       - 'src/**/*'
       - 'tsconfig.json'
@@ -44,6 +47,7 @@ tasks:
       - '/packages/shared/src/**/*'
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
+      - '/packages/knowledge/src/**/*'
 
   # Same reasoning as `typecheck`, for the same reason it bites harder here:
   # vitest RESOLVES `@midnite/studio-shared` at run time, through the package's
@@ -56,6 +60,7 @@ tasks:
       - 'shared:build'
       - 'git-engine:build'
       - 'db-engine:build'
+      - 'knowledge:build'
     inputs:
       - 'src/**/*'
       # Phase 53 Theme C: yaml-scalar.mjs's own test, picked up by
@@ -67,6 +72,7 @@ tasks:
       - '/packages/shared/src/**/*'
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
+      - '/packages/knowledge/src/**/*'
 
   lint:
     inputs:
@@ -97,6 +103,7 @@ tasks:
       - '/packages/shared/src/**/*'
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
+      - '/packages/knowledge/src/**/*'
     outputs:
       - 'dist/bundle'
 
