@@ -48,7 +48,8 @@ const FIVE_ROWS = ['Loops', 'Companion', 'Notes', 'Report Issue', 'Guided tour']
 
 test('the FAB opens the menu with the five rows, in order', async ({ page }) => {
   await open(page);
-  await page.getByRole('button', { name: 'Open quick access panel' }).click();
+  const fab = page.getByRole('button', { name: 'Open quick access panel' });
+  await fab.click();
 
   await expect(menu(page)).toBeVisible();
   await expect(menu(page).getByRole('menuitem')).toHaveCount(5);
@@ -56,6 +57,12 @@ test('the FAB opens the menu with the five rows, in order', async ({ page }) => 
   for (const [index, name] of FIVE_ROWS.entries()) {
     expect(names[index]).toContain(name);
   }
+
+  // The menu sits strictly above the FAB button without overlapping
+  const fabBox = (await fab.boundingBox())!;
+  const menuBox = (await menu(page).boundingBox())!;
+  expect(menuBox.y + menuBox.height).toBeLessThan(fabBox.y);
+  expect(fabBox.y - (menuBox.y + menuBox.height)).toBeGreaterThanOrEqual(12);
 });
 
 test('the Meta+L chord opens the same component with the same five rows', async ({ page }) => {
