@@ -16,9 +16,33 @@ on:
         type: boolean
         default: false
 
+# Cancellation is right for a branch and wrong for `main`, so it is keyed on
+# the ref rather than set flat.
+#
+# On a PR, a new push makes the previous commit irrelevant -- nobody will ever
+# ship it -- so cancelling its run frees a macOS slot that the replacement
+# commit needs. That is worth real money here: see the `e2e` job's own notes
+# on the measured 5-job macOS concurrency cap.
+#
+# On `main` every commit is a distinct artifact somebody may bisect to, deploy
+# or package, and the next push does NOT make the previous one irrelevant.
+# With a flat `cancel-in-progress: true` a rapid merge sequence silently
+# leaves commits unverified: on 2026-09-16 six Renovate PRs merged inside a
+# few minutes and `package` was CANCELLED on two consecutive main commits
+# (eb76c696 and 39f81a06, runs 35109180356 and 35109430383), having last
+# actually run on a0daf7c9.
+#
+# `package` is the job that loses most, and it is the one that can least
+# afford to: it is main-only by construction (`if: github.ref ==
+# 'refs/heads/main'`) precisely because packaging is slow, so a cancelled main
+# run is the ONLY signal it ever had. It exists to catch electron-builder,
+# pnpm-symlink and native-module breakage that no other job sees.
+#
+# The cost of not cancelling on main is queued runs during a merge burst, not
+# lost ones -- they serialise rather than disappear.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 # ## Supported platform
 #
