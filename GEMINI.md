@@ -140,12 +140,25 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   glyph in `IconButton`, `Tooltip` and the context menus.
 - **macOS (arm64) is the only officially supported platform for now — Linux and Windows are
   deferred, not abandoned.** `moon run desktop:dist` already built for macOS alone; the rest of
-  the repo now matches. **Every default CI gate runs on a `macos-*` runner** — `gate-node`,
-  `gate-node-app-test` and `e2e` moved off `ubuntu-24.04`, where Phase 82 Themes E/H had put them
-  purely for the 1x billing rate. **That cost argument is obsolete, not overridden: this repo is
-  public** (`gh api repos/bilo-io/midnite-studio -q .visibility`), and standard GitHub-hosted runners
-  — macOS included — are free on a public repo, so the "10x" those comments repeat is a private-repo
-  figure. `ci.yml`'s header carries the citations; read every "10x"/"1x" in that file as history.
+  the repo now matches. **Every CI job that exercises platform behaviour runs on a `macos-*`
+  runner** — `e2e`, `gate-native` and `gate-locale`. Phase 82 Themes E/H had put them on
+  `ubuntu-24.04` purely for the 1x billing rate. **That cost argument is obsolete, not overridden:
+  this repo is public** (`gh api repos/bilo-io/midnite-studio -q .visibility`), and standard
+  GitHub-hosted runners — macOS included — are free on a public repo, so the "10x" those comments
+  repeat is a private-repo figure. `ci.yml`'s header carries the citations; read every "10x"/"1x"
+  in that file as history.
+- **Billing is free on macOS; CONCURRENCY is the scarce thing, and it is capped at 5.** The
+  original sweep moved *every* default gate to macOS and tripled wall-clock — 13-14m to 21-42m —
+  because it scheduled 15 macOS jobs per run against a hard cap of **5 concurrent macOS jobs**
+  (measured: peak simultaneous `macos-14` jobs was exactly 5; in one run 13 of 16 macOS jobs were
+  cancelled having never started a step). Jobs drained in 3-4 sequential batches, each paying a
+  fresh macOS VM boot, and the wild variance was the tell — queueing, not slower tests. So
+  `gate-node` and `gate-node-app-test` are back on `ubuntu-24.04` and `e2e` is sharded **4 ways,
+  not 8**: past the cap, extra shards buy no parallelism and cost a VM boot, install and browser
+  download each. **This is not a partial un-deferring of Linux** — those two jobs are zod, React,
+  Vite and jsdom, where the runner OS is invisible; nothing the product depends on is validated
+  there. The rule is unchanged in the direction that matters: **never move a job that exercises
+  platform behaviour off macOS**, and when adding a macOS job, count the total against 5 first.
   The signal is real either way: `ci.yml`'s `e2e` comment records half an hour of runner time burned
   on nine specs pressing a hard-coded `Meta+k` that does nothing on Linux, and the move to macOS
   immediately caught that bug's mirror image in a rail-tooltip spec. **Two lanes cannot run on
