@@ -118,7 +118,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: website-dist
           path: packages/website/dist
@@ -146,7 +146,7 @@ jobs:
             echo "publish=yes" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: steps.guard.outputs.publish == 'yes'
         with:
           name: website-dist

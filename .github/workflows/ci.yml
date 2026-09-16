@@ -703,7 +703,7 @@ jobs:
 
       # `trace: 'retain-on-failure'` — so this only has something to upload when
       # a spec actually failed, and that is precisely when it is worth having.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report-shard-${{ matrix.shard }}
@@ -804,7 +804,7 @@ jobs:
       # `toHaveScreenshot` writes next to the actual/expected pair are worth
       # having — a reviewer can look at `*-diff.png` without re-running
       # anything.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: visual-diff-report
@@ -856,7 +856,7 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: midnite-studio-macos-arm64
           path: packages/desktop/release/*.dmg
