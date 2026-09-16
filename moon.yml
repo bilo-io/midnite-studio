@@ -80,6 +80,25 @@ tasks:
     options:
       cache: false
 
+  # visual-regen: regenerate the committed Linux visual baselines inside the
+  # official Playwright container. The ONE task in this repo that starts a
+  # container, and it is opt-in by construction — `scripts/visual-regen.mjs`
+  # refuses without `MSTUDIO_CROSS_PLATFORM=1`, because macOS (arm64) is the
+  # only officially supported platform for now and the Linux baselines are
+  # deferred scope. It exists as a task rather than a comment so it is
+  # discoverable (`moon query tasks`) instead of being copy-pasted out of
+  # `packages/app/playwright.visual.config.ts`'s header.
+  #
+  # `runInCI: false` — CI's own `visual` job IS the container, so it has no use
+  # for a task that starts one. `cache: false` and no `inputs` for the same
+  # reason `visual-budget` above has none: what it operates on is the state of
+  # `packages/app/e2e/visual/__screenshots__/` on disk, not a derived output.
+  visual-regen:
+    command: 'node scripts/visual-regen.mjs'
+    options:
+      cache: false
+      runInCI: false
+
   # e2e-budget: enforce the righted test pyramid (Phase 82 Theme F) — fails if
   # declared functional E2E tests exceed the committed ratchet cap, if the
   # visual baseline corpus exceeds its cap, or if unit tests assert wall-clock

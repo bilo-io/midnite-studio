@@ -71,13 +71,29 @@ Committed visual baselines are strictly **Linux-only** to avoid cross-platform f
   **never** on a full `Page`. A locator crop is 10–20 KB; a full-page capture is 100+ KB.
 
 ### Regenerating Baselines
-To regenerate baselines consistently without OS font divergence, run the official Playwright Docker
-container from the repo root:
+
+**This is the only thing in the repo that starts a container, and it is opt-in.** macOS (arm64)
+is the only officially supported platform for now (see the README's *Supported platform*); Linux
+and Windows are deferred, so the Linux baselines — and the `visual` CI lane that asserts against
+them — are deferred scope too. The default local loop (`moon run :typecheck :lint :test`) has
+never started a container and does not now.
+
+To regenerate baselines consistently without OS font divergence, from the repo root:
 
 ```bash
-docker run --rm -v "$PWD:/w" -w /w mcr.microsoft.com/playwright:v1.62.1-noble \
-  npx playwright test --config packages/app/playwright.visual.config.ts -u
+MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen
 ```
+
+`scripts/visual-regen.mjs` refuses without that variable, and runs the exact `docker run` recipe
+documented in `packages/app/playwright.visual.config.ts`'s header — the official
+`mcr.microsoft.com/playwright:v1.62.1-noble` image, `--ignore-scripts` on the install, and
+`pnpm exec` from `packages/app` rather than `npx` or `moon`. All three of those are load-bearing;
+that header explains why.
+
+The `visual` job in CI is gated behind the `cross-platform` PR label or the `cross_platform`
+`workflow_dispatch` input, so regenerated baselines need one of those to be verified. The
+baseline **budget** (`root:e2e-budget`) still runs on every PR, so the corpus cannot regrow while
+the lane is idle.
 
 ---
 

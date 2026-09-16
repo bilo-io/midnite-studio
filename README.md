@@ -93,6 +93,24 @@ markdown already renders; a voice-capable **AI companion**; and a rail of embedd
 apps (Spotify, Google Calendar, YouTube), each independently detachable. See
 [`.midnite/tasks/_INDEX.md`](.midnite/tasks/_INDEX.md) for the full, current list.
 
+## Supported platform
+
+**macOS (arm64) is the only officially supported platform for now. Linux and Windows support is
+deferred, not abandoned.** Everything follows from that: `moon run desktop:dist` builds a macOS
+arm64 dmg/zip and nothing else, and every default CI gate runs on a `macos-*` runner. The two
+lanes that are Linux by construction — `db-integration` (GitHub `services:` containers are
+Docker-based and Linux-runner-only) and `visual` (a Linux job container diffing committed
+`-linux.png` baselines) — are opt-in: the `cross-platform` label on a PR, or the
+`cross_platform` input on a manual CI run.
+
+Nothing in the local loop starts a container. `moon run :typecheck :lint :test` never has, and
+the one command that does — regenerating the Linux visual baselines — is behind an explicit
+switch:
+
+```sh
+MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen
+```
+
 ## Prerequisites
 
 - [proto](https://moonrepo.dev/proto) — `proto use` installs the pinned node 22.12.0 /

@@ -2,6 +2,31 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **Linux and Windows support.** macOS (arm64) is the only officially supported platform for now
+  (README, *Supported platform*). The consequences are recorded rather than removed, so
+  un-deferring is a revert of one commit and not an archaeology exercise: every default CI gate
+  moved to a `macos-*` runner (`gate-node`, `gate-node-app-test` and `e2e` off `ubuntu-24.04`,
+  which cost nothing — this repo is public and standard GitHub-hosted runners are free there,
+  macOS included, so the "10x" Phase 82 Themes E/H chose ubuntu for is a private-repo figure),
+  and the two lanes that cannot run on macOS at all are opt-in behind the `cross-platform` PR label or
+  `ci.yml`'s `cross_platform` `workflow_dispatch` input:
+  **`db-integration`** (GitHub `services:` containers are Docker-based and Linux-runner-only)
+  and **`visual`** (a Linux job `container:` diffing committed `-linux.png` baselines).
+  Three things to pick up when a platform is un-deferred:
+  1. **The Linux visual baselines are now unverified on every PR.** They are still committed, and
+     `root:e2e-budget` still caps the corpus, but nothing diffs them by default — and they were
+     already stale on `main` before this (status-bar drift from 9bd97911/a250a01e). Decide then
+     whether to regenerate them (`MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen`), or drop
+     the Linux corpus and cut macOS baselines instead — the second is only correct if the
+     `visual` lane itself moves to macOS, which means no job `container:` and so no font-version
+     pinning at all.
+  2. **The real-database driver pass runs nowhere by default.** `packages/db-engine`'s own suite
+     still runs on every PR; only the `MSTUDIO_TEST_<PROVIDER>_*` service-container tests are
+     idle. MSSQL was already a manual pass (Phase 61 Decision 5).
+  3. **The shard counts are inherited, not re-derived.** `gate-node-app-test`'s N=4 and
+     `e2e`'s N=8 were both measured on ubuntu-24.04 2-core runners. macos-14 is a different
+     machine; re-measure before trusting either number.
+
 - **Phase 84 Themes E.6/F.5: the RENDERER-side number.** Theme J's `--hidden-sessions`/
   `--hidden-tabs` modes (`memory-report.mjs`) measured the main/broker floor per open-but-
   unrendered session (8931.2 KB) and the renderer floor per open tab (~79.8 MB) — both driven at
