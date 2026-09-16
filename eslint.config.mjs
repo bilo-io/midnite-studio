@@ -9,6 +9,7 @@ import globals from 'globals';
  *
  *   shared ◀ git-engine ◀ desktop
  *   shared ◀ db-engine ◀ desktop
+ *   shared ◀ knowledge ◀ desktop
  *   shared ◀ app
  *   shared ◀ desktop
  *
@@ -18,9 +19,13 @@ import globals from 'globals';
  * - `db-engine` (Phase 61) is the same shape as `git-engine`, one dependency
  *   graph level over: plain Node/TS drivers, vitest-testable outside Electron,
  *   never importing `electron`.
+ * - `knowledge` (Phase 87) is the third instance of the same shape: a plain
+ *   Node/TS graphify reader/layout engine, vitest-testable outside Electron,
+ *   never importing `electron` — including its `worker_threads` entry point,
+ *   which runs inside a plain Node worker, not an Electron utility process.
  * - `app` is the renderer: it talks to the main process ONLY through
  *   `window.midniteStudio`, so it must never import git-engine, db-engine,
- *   desktop or electron.
+ *   knowledge, desktop or electron.
  *
  * Enforced with `no-restricted-imports` rather than a boundaries plugin so the
  * rule set stays dependency-free and the message explains the *why* at the
@@ -109,6 +114,19 @@ export default tseslint.config(
     ]),
   },
 
+  // --- Boundary: knowledge (Phase 87) -----------------------------------------
+  // Same shape as the git-engine/db-engine blocks above, package name swapped.
+  {
+    files: ['packages/knowledge/**/*.ts'],
+    rules: deny([
+      NO_ELECTRON,
+      {
+        group: ['@midnite/studio-app', '@midnite/studio-app/*', '@midnite/studio-desktop', '@midnite/studio-desktop/*'],
+        message: 'knowledge sits below app/desktop in the dependency graph.',
+      },
+    ]),
+  },
+
   // --- Boundary: app (renderer) ----------------------------------------------
   // Scoped to `src/` — the app's own build configs (vite/vitest/tailwind) run in
   // Node at build time and legitimately use node builtins.
@@ -126,11 +144,13 @@ export default tseslint.config(
           '@midnite/studio-git-engine/*',
           '@midnite/studio-db-engine',
           '@midnite/studio-db-engine/*',
+          '@midnite/studio-knowledge',
+          '@midnite/studio-knowledge/*',
           '@midnite/studio-desktop',
           '@midnite/studio-desktop/*',
         ],
         message:
-          'The renderer never imports the git or database engine directly — both run in the main process. Add an IPC channel in packages/shared/src/ipc instead.',
+          'The renderer never imports the git/database/knowledge engine directly — all run in the main process. Add an IPC channel in packages/shared/src/ipc instead.',
       },
       {
         group: ['node:*', 'fs', 'path', 'child_process'],
@@ -174,6 +194,8 @@ export default tseslint.config(
           '@midnite/studio-git-engine/*',
           '@midnite/studio-db-engine',
           '@midnite/studio-db-engine/*',
+          '@midnite/studio-knowledge',
+          '@midnite/studio-knowledge/*',
           '@midnite/studio-desktop',
           '@midnite/studio-desktop/*',
         ],

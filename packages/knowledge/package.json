@@ -1,0 +1,33 @@
+{
+  "name": "@midnite/studio-knowledge",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Pure Node/TS graphify reader — lean projection, ForceAtlas2 layout, layout cache. No electron imports.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@midnite/studio-shared": "workspace:*",
+    "graphology": "^0.25.4",
+    "graphology-layout-forceatlas2": "^0.10.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.4"
+  }
+}

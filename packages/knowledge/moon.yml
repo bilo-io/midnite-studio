@@ -1,0 +1,25 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'typescript'
+
+dependsOn:
+  - 'shared'
+
+tasks:
+  # tsc --noEmit resolves @midnite/studio-shared through a project reference but does
+  # not build it, so build upstream deps first.
+  typecheck:
+    deps:
+      - '^:build'
+
+  # vitest.config.ts aliases @midnite/studio-shared to its SOURCE, so this suite
+  # needs no build ahead of it — but moon hashes a task from its own declared
+  # inputs, and the inherited `test` knows nothing about the package next door.
+  # Without shared's sources listed here, a shared-only change leaves this a
+  # cache hit: the suite reports green against a contract it never re-read.
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
