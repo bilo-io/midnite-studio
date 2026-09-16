@@ -1171,6 +1171,9 @@ export type MidniteStudioBridge = {
    * `getNodeDetail` is the click-to-open fetch: the lean graph `getGraph`
    * returns never carries `source_file`/`source_location` for all 14,881
    * nodes, so one node's detail is its own round trip, by id, on demand.
+   * `checkGraph` (Theme F) is a `stat`, not a read — the rail row's own
+   * "should I grey myself out" question, answered without paying for a parse
+   * or a cold layout pass it may never need.
    */
   knowledge: {
     getGraph: (
@@ -1179,6 +1182,9 @@ export type MidniteStudioBridge = {
     getNodeDetail: (
       req: In<typeof S.KnowledgeGetNodeDetailRequest>,
     ) => Promise<z.infer<typeof S.KnowledgeGetNodeDetailResponse>>;
+    checkGraph: (
+      req: In<typeof S.KnowledgeCheckGraphRequest>,
+    ) => Promise<z.infer<typeof S.KnowledgeCheckGraphResponse>>;
     onLayoutProgress: (
       handler: (e: z.infer<typeof S.KnowledgeLayoutProgressEvent>) => void,
     ) => Unsubscribe;

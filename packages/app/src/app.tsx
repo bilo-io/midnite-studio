@@ -83,6 +83,7 @@ import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
 import { usePruneClosedRepos } from './features/repos/use-prune-closed-repos';
 import { primaryTarget } from './features/repos/use-repo-actions';
+import { useKnowledgeGraphExists } from './features/knowledge/use-knowledge-graph';
 
 import { SyncActions } from './features/status/sync-actions';
 import { useDeepLinks } from './services/deep-link';
@@ -603,6 +604,10 @@ function Shell() {
   const fabButtonRef = useRef<HTMLButtonElement | null>(null);
   const fabMorphRef = useFabMorphRef(fabButtonRef);
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  // Theme F: does the selected repo have a `graphify-out/graph.json` at all —
+  // a `stat`, not `knowledgeGetGraph`'s parse/layout, so selecting a repo
+  // never fires a multi-second ForceAtlas2 pass just to draw the rail.
+  const knowledgeGraphExists = useKnowledgeGraphExists(selectedRepoId);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
   // The repo's own name labels its terminals; the path is the fallback for a
   // repo that has since been closed out from under a saved session.
@@ -1100,7 +1105,29 @@ function Shell() {
       // this. Notes rides directly under Dashboard (Phase 86 Theme E) and
       // Knowledge directly under Notes (Phase 87 Theme C); the hairline
       // between Dashboard and Notes is `ViewLink`'s job, not this array's.
-      pinned: [navItem(PINNED_ITEM), navItem(NOTES_ITEM), navItem(KNOWLEDGE_ITEM)],
+      pinned: [
+        navItem(PINNED_ITEM),
+        navItem(NOTES_ITEM),
+        {
+          ...navItem(KNOWLEDGE_ITEM),
+          // Theme F: greyed, not hidden, for a repo that exists but has never
+          // been graphified — `knowledgeGraphExists === false` is a real
+          // answer from the cheap `stat`-only check (`useKnowledgeGraphExists`),
+          // not the mere absence of one. `undefined` (no repo selected, or
+          // the check hasn't resolved yet) reads as active: EmptyWorkspace,
+          // not this row, is what "no repo open" already shows, and a flash
+          // of grey before the first repo's check lands is worse than a
+          // beat of looking normal.
+          icon: (
+            <KNOWLEDGE_ITEM.icon
+              aria-hidden
+              className={`h-4 w-4 ${
+                selectedRepoId !== null && knowledgeGraphExists === false ? 'opacity-40' : ''
+              }`}
+            />
+          ),
+        },
+      ],
       sections: [
         {
           key: 'workspace',
@@ -1177,7 +1204,16 @@ function Shell() {
         </div>
       ),
     }),
-    [navMode, setNavMode, activeView, forgeAvailable, optimizerEnabled, navItem],
+    [
+      navMode,
+      setNavMode,
+      activeView,
+      forgeAvailable,
+      optimizerEnabled,
+      navItem,
+      selectedRepoId,
+      knowledgeGraphExists,
+    ],
   );
 
   // <TitleBar> renders nothing unless the bridge reports a frameless window, so

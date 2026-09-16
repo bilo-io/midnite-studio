@@ -175,21 +175,37 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] Vitest for the filter/search reducers as pure logic — no canvas needed to test what a filter
       selects.
 
-### F — Repo switching, empty and stale states (M)
+### F — Repo switching, empty and stale states (M) — ✅ DONE (PR #410, 2026-09-16)
 
-- [ ] The graph follows the active repo: switch repo, switch graph, with the previous graph's GPU
-      resources released rather than leaked.
-- [ ] **The un-graphified repo.** The rail row stays visible but **disabled/greyed**, exactly as the
-      pinned rows already grey out when they have nothing to show. Hiding the row would make the
-      feature undiscoverable.
-- [ ] Opening the disabled view explains what to do: what graphify is, the one-line install, and
-      `graphify update .`. Copy is instructions, not an error.
-- [ ] **Staleness, reported only.** Compare `built_at_commit` against the repo's `HEAD` and show
-      "N commits behind" when they differ. It is a label; nothing re-runs graphify (guardrail above).
-- [ ] A graph that fails to parse says so distinctly from one that is absent — the two have different
-      fixes.
-- [ ] Vitest for the state machine: absent / present / stale / malformed each resolve to one state,
-      and a repo switch mid-load cannot land the previous repo's graph.
+- [x] The graph follows the active repo: switch repo, switch graph, with the previous graph's GPU
+      resources released rather than leaked. The data layer's half of this is real and tested —
+      `useKnowledgeGraph`/`useKnowledgeGraphExists` key their react-query cache entries on `repoId`
+      (`keys.knowledgeGraph`/`keys.knowledgeStatus`), so a repo switch subscribes the view to a
+      brand-new cache entry immediately rather than showing the previous repo's data (see
+      `use-knowledge-graph.test.ts`'s repo-switch race test). The **GPU** half is deliberately not
+      claimed here: Theme D's sigma canvas — the thing that would hold a WebGL context to release —
+      does not exist yet on this branch, so there is nothing to leak. Left as a note for Theme D:
+      its canvas needs a cleanup effect keyed on the same `repoId`/query-key change this theme wires.
+- [x] **The un-graphified repo.** The rail row stays visible but **disabled/greyed**
+      (`app.tsx`'s pinned `KNOWLEDGE_ITEM`, dimmed via `useKnowledgeGraphExists`), exactly as the
+      pinned rows already grey out when they have nothing to show. A new `knowledgeCheckGraph`
+      channel (`stat`, not a read) answers this without ever paying for `knowledgeGetGraph`'s
+      parse or a cold ForceAtlas2 layout just from selecting a repo.
+- [x] Opening the disabled view explains what to do: what graphify is, the one-line install
+      (`pip install graphifyy`), and `graphify update .`. Copy is instructions, not an error
+      (`KnowledgeInstructions` in `knowledge-view.tsx`).
+- [x] **Staleness, reported only.** `KnowledgeGraphPayloadSchema.commitsBehind` — computed in the
+      desktop handler via `rev-list --count builtAtCommit..HEAD` — compares `built_at_commit`
+      against the repo's `HEAD` and the view shows "N commits behind" when it is positive. `null`
+      (not a guessed `0`) when the commit cannot be resolved. It is a label; nothing re-runs
+      graphify (guardrail above).
+- [x] A graph that fails to parse (`malformed`) says so distinctly from one that is absent, and
+      from one that exists but can't be read (`unreadable`) — three different messages in
+      `knowledge-view.tsx`.
+- [x] Vitest for the state machine: absent / present / stale / malformed each resolve to one state
+      (`knowledge-state.test.ts`), and a repo switch mid-load cannot land the previous repo's graph
+      (`use-knowledge-graph.test.ts`, an integration test against a real `QueryClient` with two
+      repos' promises resolving out of order).
 
 ### G — Tests and the numbers (M)
 

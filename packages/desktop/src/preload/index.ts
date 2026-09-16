@@ -601,6 +601,7 @@ const bridge: Pick<
   knowledge: {
     getGraph: (req) => call(CHANNELS.knowledgeGetGraph, req),
     getNodeDetail: (req) => call(CHANNELS.knowledgeGetNodeDetail, req),
+    checkGraph: (req) => call(CHANNELS.knowledgeCheckGraph, req),
     onLayoutProgress: (handler) => subscribe(EVENT_CHANNELS.knowledgeLayoutProgress, handler),
   },
   mcp: {

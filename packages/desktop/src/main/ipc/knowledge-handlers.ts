@@ -1,5 +1,6 @@
 import {
   buildDetailIndex,
+  graphExists,
   layoutCacheKey,
   PROJECTION_FORMAT_VERSION,
   projectGraph,
@@ -10,6 +11,7 @@ import {
   type LeanGraph,
   type NodeDetail,
 } from '@midnite/studio-knowledge';
+import { execGit } from '@midnite/studio-git-engine';
 import {
   CHANNELS,
   EVENT_CHANNELS,
@@ -30,6 +32,7 @@ import { handle, handleFromSender } from './handle';
 
 type KnowledgeGetGraphResponse = z.infer<typeof schemas.KnowledgeGetGraphResponse>;
 type KnowledgeGetNodeDetailResponse = z.infer<typeof schemas.KnowledgeGetNodeDetailResponse>;
+type KnowledgeCheckGraphResponse = z.infer<typeof schemas.KnowledgeCheckGraphResponse>;
 
 /**
  * The Knowledge view's IPC surface (Phase 87 Theme B). Read-only over the
@@ -68,6 +71,7 @@ function toPayload(
   lean: LeanGraph,
   positions: LayoutPositions,
   cached: boolean,
+  commitsBehind: number | null,
 ): KnowledgeGraphPayload {
   return {
     nodes: lean.nodes.map((node) => ({
@@ -81,7 +85,30 @@ function toPayload(
     positions,
     builtAtCommit: lean.builtAtCommit,
     cached,
+    commitsBehind,
   };
+}
+
+/**
+ * How far `HEAD` has moved past the commit `graph.json` was built at (Theme
+ * F's staleness label — "reported, never acted on", phase doc guardrail).
+ *
+ * `null`, not `0` and not a thrown error, for anything that makes the count
+ * meaningless: `builtAtCommit` no longer reachable (history rewritten since,
+ * a rebase, a squash-merge that dropped it), or the two happen to be equal —
+ * that last one IS `0`, handled by `rev-list` itself (`x..x` is an empty
+ * range). Never `throwOnError`: a bad ref is data here ("cannot tell"), not a
+ * failure worth surfacing over the read/layout this call already succeeded
+ * at.
+ */
+async function countCommitsBehindHead(
+  repoPath: string,
+  builtAtCommit: string,
+): Promise<number | null> {
+  const result = await execGit(repoPath, ['rev-list', '--count', `${builtAtCommit}..HEAD`]);
+  if (result.exitCode !== 0) return null;
+  const count = Number.parseInt(result.stdout.trim(), 10);
+  return Number.isFinite(count) ? count : null;
 }
 
 export function registerKnowledgeHandlers(): void {
@@ -106,10 +133,11 @@ export function registerKnowledgeHandlers(): void {
 
       const lean = projectGraph(readResult.graph);
       const key = layoutCacheKey(lean.builtAtCommit, PROJECTION_FORMAT_VERSION);
+      const commitsBehind = await countCommitsBehindHead(entry.path, lean.builtAtCommit);
 
       const cachedLayout = await readLayoutCache(cacheDir, req.repoId, key);
       if (cachedLayout) {
-        return knowledgeOk(toPayload(lean, cachedLayout.positions, true));
+        return knowledgeOk(toPayload(lean, cachedLayout.positions, true, commitsBehind));
       }
 
       const layoutResult = await runLayoutInWorker(
@@ -136,9 +164,20 @@ export function registerKnowledgeHandlers(): void {
         positions: layoutResult.positions,
       });
 
-      return knowledgeOk(toPayload(lean, layoutResult.positions, false));
+      return knowledgeOk(toPayload(lean, layoutResult.positions, false, commitsBehind));
     },
     (issue) => knowledgeError(issue),
+  );
+
+  handle(
+    CHANNELS.knowledgeCheckGraph,
+    schemas.KnowledgeCheckGraphRequest,
+    async (req): Promise<KnowledgeCheckGraphResponse> => {
+      const entry = getRepo(req.repoId);
+      if (!entry) return { exists: false };
+      return { exists: await graphExists(entry.path) };
+    },
+    () => ({ exists: false }),
   );
 
   handle(
