@@ -16,6 +16,15 @@
       "dependencyDashboardApproval": true
     },
     {
+      "description": "Keep @xterm/xterm and its addons in one PR. The addons declare the core as a peer dependency, so a version of one that the other does not satisfy breaks the terminal outright. The default `separateMajorMinor` is what split them in PR #242: the addons' 0.10->0.11 and 0.18->0.19 landed in the 'xterm monorepo' group while the core's 5.x->6.x, being a major, was held back as its own update. addon-fit 0.11 and addon-webgl 0.19 had dropped the '@xterm/xterm': ^5.0.0 peer dep entirely (they target 6.x), so against the core still pinned at ^5.5.0 the addons no longer bound, the terminal never mounted, and every terminal-backed e2e spec failed. Setting separateMajorMinor false keeps the whole family on one line whatever the bump type; dependencyDashboardApproval matches electron and node-pty above, because an xterm major is a migration someone schedules, not a PR that opens itself.",
+      "matchPackageNames": [
+        "@xterm/**"
+      ],
+      "groupName": "xterm",
+      "separateMajorMinor": false,
+      "dependencyDashboardApproval": true
+    },
+    {
       "matchDepTypes": [
         "devDependencies"
       ],
