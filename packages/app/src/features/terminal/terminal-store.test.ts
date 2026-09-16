@@ -27,6 +27,7 @@ const reset = () =>
     errors: {},
     activity: {},
     activityAt: {},
+    sessionsPaneSessionId: null,
   });
 
 const open = (title: string) =>
@@ -761,3 +762,31 @@ describe('exitCodes tracking', () => {
   });
 });
 
+
+describe('sessionsPaneSessionId — the one-xterm-per-pty lock the Sessions pane holds', () => {
+  beforeEach(reset);
+
+  it('starts unclaimed and records the claimed session', () => {
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBeNull();
+    useTerminalStore.getState().claimSessionsPane('s-1');
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBe('s-1');
+  });
+
+  it('releases only the session that holds the claim, so a stale cleanup cannot clear a newer one', () => {
+    useTerminalStore.getState().claimSessionsPane('s-1');
+    useTerminalStore.getState().claimSessionsPane('s-2');
+
+    // The pane switched from s-1 to s-2; s-1's late cleanup must be a no-op.
+    useTerminalStore.getState().releaseSessionsPane('s-1');
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBe('s-2');
+
+    useTerminalStore.getState().releaseSessionsPane('s-2');
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBeNull();
+  });
+
+  it('release on an unclaimed store leaves state untouched (no spurious update)', () => {
+    const before = useTerminalStore.getState();
+    useTerminalStore.getState().releaseSessionsPane('s-9');
+    expect(useTerminalStore.getState()).toBe(before);
+  });
+});

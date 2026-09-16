@@ -16,6 +16,7 @@ import { agentInitialInput } from '../terminal/terminal-panel';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { LazyTerminalView } from '../terminal/lazy-terminal-view';
 import { useAgents } from '../terminal/use-agents';
+import { YieldedToSessionsPage } from '../terminal/yielded-to-sessions-page';
 
 /**
  * One FAB tab: compose the run, start it, watch it, read what past runs were
@@ -140,6 +141,9 @@ export function LoopTab({
   const pendingInput = useTerminalStore((s) =>
     status.sessionId ? s.pendingInput[status.sessionId] : undefined,
   );
+  // Yielded to the Sessions page's own live pane — one xterm per pty, see
+  // `sessionsPaneSessionId` in `terminal-store.ts`.
+  const yielded = useTerminalStore((s) => s.sessionsPaneSessionId === status.sessionId);
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -192,7 +196,9 @@ export function LoopTab({
         <LoopHistory runs={runs} />
       </div>
       <div className="min-h-0 flex-1">
-        {session ? (
+        {session && yielded ? (
+          <YieldedToSessionsPage sessionId={session.id} layoutClassName="h-full w-full" />
+        ) : session ? (
           /*
             The same `pendingInput ?? agentInitialInput` handoff the main
             housing does — the composed command reaches the pty as its start

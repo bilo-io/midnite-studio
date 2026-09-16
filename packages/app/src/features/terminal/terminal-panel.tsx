@@ -12,6 +12,7 @@ import { TerminalSessionList } from './terminal-session-list';
 import { inMainPanel, resolveSessionAgentId, useTerminalStore } from './terminal-store';
 import { LazyTerminalView } from './lazy-terminal-view';
 import { useAgents } from './use-agents';
+import { YieldedToSessionsPage } from './yielded-to-sessions-page';
 
 /**
  * The terminal pane: chrome, the session list, and every session's xterm.
@@ -28,6 +29,12 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   // FAB panel and nowhere else, so it stays out.
   const sessions = useTerminalStore((s) => s.sessions).filter(inMainPanel);
   const activeId = useTerminalStore((s) => s.activeId);
+  /*
+    The one session the Sessions page's detail pane is hosting right now, if
+    any — this panel yields that slot to it rather than mounting a second
+    xterm on the same pty (`YieldedToSessionsPage`).
+  */
+  const sessionsPaneSessionId = useTerminalStore((s) => s.sessionsPaneSessionId);
   const hydrated = useTerminalStore((s) => s.hydrated);
   const pendingInput = useTerminalStore((s) => s.pendingInput);
   const maximized = useUiStore((s) => s.terminalMaximized);
@@ -196,7 +203,9 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
         {/* Positioned, because the stacked panes inside are absolutely placed. */}
         <div className="relative min-h-0 min-w-0 flex-1">
           {sessions.map((session) =>
-            mountedSessionIdSet.has(session.id) ? (
+            session.id === sessionsPaneSessionId ? (
+              <YieldedToSessionsPage key={session.id} sessionId={session.id} hidden={session.id !== activeId} />
+            ) : mountedSessionIdSet.has(session.id) ? (
               <LazyTerminalView
                 key={session.id}
                 session={session}
