@@ -750,7 +750,7 @@ jobs:
       || contains(github.event.pull_request.labels.*.name, 'cross-platform')
     runs-on: ubuntu-24.04
     container:
-      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
