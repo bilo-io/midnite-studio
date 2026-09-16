@@ -40,13 +40,16 @@ const isDark = (): boolean => document.documentElement.classList.contains('dark'
  * documents for the closed half of this same pane.
  *
  * **Caller's job, not this component's:** deciding whether to render this at
- * all. `sessions-view.tsx` only mounts it while the terminal panel is fully
- * closed (`!terminalOpen`) — the panel unmounts every `TerminalView` it owns
- * the moment it closes (`app.tsx`'s `terminalTween`), so "panel closed" is
- * the one condition that provably guarantees no other live xterm exists for
- * this session anywhere in the window. While the panel is open, the row
- * offers a "reveal there" hand-off instead (`revealSession`) rather than a
- * second mount here.
+ * all, and for which surface. `sessions-view.tsx` mounts it for ANY still-live
+ * session — plain terminal, Kanban-card agent, or a FAB-surface Loop —
+ * provided the session's own owning panel does not already have a live xterm
+ * mounted for it (`terminalOpen` for the first two, `fabPanelOpen ||
+ * fabDetached` for a Loop): both drawers unmount every terminal they own the
+ * moment they close, so "closed" is the one condition that provably
+ * guarantees no other live xterm exists for that session anywhere in the
+ * window. While the owning panel already has it, the pane hands off there
+ * instead of a second mount, via `revealSession`/`revealFabSession`
+ * (`reveal-session.ts`).
  */
 export function LiveSessionTerminal({ session }: { session: TerminalSession }) {
   const containerRef = useRef<HTMLDivElement>(null);

@@ -46,10 +46,16 @@ const killPty = vi.fn().mockResolvedValue(undefined);
 // Default: no loop ever launched anything — individual tests override with
 // `mockResolvedValueOnce` so the loop-icon fixture never bleeds into another.
 const loopRunsList = vi.fn().mockResolvedValue({ runs: [] });
+// `terminal.list` backs the view's own `hydrate()` call (mirroring
+// `terminal-panel.tsx`'s and `fab-panel.tsx`'s) — an empty answer, since
+// every test seeds `useTerminalStore`'s `sessions` directly and this is only
+// here so `hydrate()` has something to resolve against instead of throwing
+// on a bridge that doesn't implement it.
+const listSessions = vi.fn().mockResolvedValue({ sessions: [], broker: { mode: 'broker' } });
 vi.mock('../../services/bridge', () => ({
   bridge: () => ({
     sessions: { purge },
-    terminal: { save, forget },
+    terminal: { save, forget, list: listSessions },
     pty: { kill: killPty },
     loopRuns: { list: loopRunsList, onChanged: () => () => {} },
   }),
@@ -66,8 +72,15 @@ afterEach(() => {
     activity: {},
     pendingInput: {},
     foregroundCommand: {},
+    hydrated: false,
   });
-  useUiStore.setState({ terminalOpen: false });
+  useUiStore.setState({
+    terminalOpen: false,
+    fabPanelOpen: false,
+    fabDetached: false,
+    fabSessions: {},
+    activeFabTab: 'guard',
+  });
   useSessionsStore.setState({ selectedClosedSessionId: null, selectedLiveSessionId: null });
 });
 
@@ -107,6 +120,16 @@ function renderView() {
 }
 
 describe('SessionsView', () => {
+  it('hydrates the terminal store on its own mount, rather than depending on the terminal or Loops panel ever opening first', async () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    expect(useTerminalStore.getState().hydrated).toBe(false);
+
+    renderView();
+
+    await waitFor(() => expect(listSessions).toHaveBeenCalled());
+    await waitFor(() => expect(useTerminalStore.getState().hydrated).toBe(true));
+  });
+
   it('renders rows newest-first, grouped by repo', () => {
     historyResult.mockReturnValue({
       data: [
@@ -584,7 +607,7 @@ describe('SessionsView', () => {
     expect(screen.queryByTestId('live-terminal')).toBeNull();
   });
 
-  it('offers a "lives in the Loops panel" notice for a running FAB-surface session', () => {
+  it('embeds the live terminal for a running FAB-surface (Loop) session, with no "open Loops" dead end', () => {
     historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
     act(() => {
       useTerminalStore.setState({
@@ -598,8 +621,9 @@ describe('SessionsView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /loop-one/ }));
 
-    expect(screen.getByText(/running in the Loops panel/)).toBeTruthy();
-    expect(screen.queryByTestId('live-terminal')).toBeNull();
+    expect(screen.getByTestId('live-terminal').textContent).toBe('fab-1');
+    expect(screen.queryByText(/running in the Loops panel/)).toBeNull();
+    expect(screen.queryByText(/open Loops/)).toBeNull();
   });
 
   it('hands off to the terminal panel instead of embedding a second live terminal while it is open', () => {
@@ -754,6 +778,78 @@ describe('SessionsView', () => {
     // click never bubbled up to select the row underneath the button.
     expect(useTerminalStore.getState().sessions.some((s) => s.id === 'live-1')).toBe(false);
     expect(useSessionsStore.getState().selectedLiveSessionId).toBeNull();
+  });
+
+  it('hands off to the Loops panel instead of embedding a second live terminal while it is already open', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [
+          liveSession({ id: 'fab-2', repoId: 'r1', title: 'repo-one', name: 'loop-two', createdAt: 5000, surface: 'fab' }),
+        ],
+      });
+      useUiStore.setState({ fabPanelOpen: true, fabSessions: { guard: 'fab-2' } });
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /loop-two/ }));
+
+    expect(screen.getByText(/already open in the Loops panel/)).toBeTruthy();
+    expect(screen.queryByTestId('live-terminal')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reveal in Loops' }));
+    expect(useUiStore.getState().activeFabTab).toBe('guard');
+
+    act(() => {
+      useUiStore.setState({ fabPanelOpen: false, fabSessions: {} });
+    });
+  });
+
+  it('hands off to the Loops panel while it is detached into its own window too', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [
+          liveSession({ id: 'fab-3', repoId: 'r1', title: 'repo-one', name: 'loop-three', createdAt: 5000, surface: 'fab' }),
+        ],
+      });
+      useUiStore.setState({ fabPanelOpen: false, fabDetached: true, fabSessions: { guard: 'fab-3' } });
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /loop-three/ }));
+
+    expect(screen.getByText(/already open in the Loops panel/)).toBeTruthy();
+    expect(screen.queryByTestId('live-terminal')).toBeNull();
+
+    act(() => {
+      useUiStore.setState({ fabDetached: false, fabSessions: {} });
+    });
+  });
+
+  it('detaches the live terminal when navigating away to a different session', () => {
+    historyResult.mockReturnValue({
+      data: [closedSession({ id: 'closed-1', repoId: 'r1', title: 'repo-one', name: 'closed-one', createdAt: 1000, closedAt: 2000 })],
+      isPending: false,
+      isError: false,
+    });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'live-3', repoId: 'r1', title: 'repo-one', name: 'live-three', createdAt: 5000 })],
+      });
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /live-three/ }));
+    expect(screen.getByTestId('live-terminal').textContent).toBe('live-3');
+
+    fireEvent.click(screen.getByRole('button', { name: /closed-one/ }));
+
+    expect(screen.queryByTestId('live-terminal')).toBeNull();
+    expect(screen.getByTestId('transcript').textContent).toBe('closed-1');
   });
 
   it('flips a selected live row over to its transcript once the session closes while mounted', () => {

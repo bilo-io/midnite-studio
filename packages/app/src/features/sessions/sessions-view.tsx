@@ -37,7 +37,7 @@ import { useRefreshSessionHistory, useSessionHistory } from '../../services/quer
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useSessionsStore } from '../../store/sessions-store';
 import { closeSessionWithConfirm } from '../terminal/close-session';
-import { revealSession } from '../terminal/reveal-session';
+import { revealFabSession, revealSession } from '../terminal/reveal-session';
 import { agentLabelFor, inMainPanel, useTerminalStore, type ConnectionState, type SessionActivity } from '../terminal/terminal-store';
 import { startAgent } from '../terminal/start-agent';
 import { useAgents } from '../terminal/use-agents';
@@ -161,6 +161,20 @@ export function SessionsView({
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
   const dialogs = useDialogs();
+
+  // Restore saved sessions once, on first mount — `terminal-panel.tsx` and
+  // `fab-panel.tsx` each do the identical thing on THEIR own mount, but
+  // neither one is guaranteed to have ever mounted: a user who opens the
+  // Sessions page straight from launch, without first opening the terminal
+  // drawer or the Loops panel, would otherwise read `useTerminalStore`
+  // before anything populated it, and every still-live session below would
+  // render as if it did not exist — the exact case this page exists to
+  // cover. `hydrate()` itself guards against a second call doing the fetch
+  // twice (`if (get().hydrated) return`), so racing whichever panel gets
+  // there first costs nothing.
+  useEffect(() => {
+    void useTerminalStore.getState().hydrate();
+  }, []);
 
   const list = useResizable({
     size: layout.sessionsListWidth,
@@ -610,23 +624,40 @@ export function SessionsView({
 }
 
 /**
- * The detail pane's live half (Phase 86 Theme D) — closed rows go through
- * `TranscriptView` above and are untouched.
+ * The detail pane's live half (Phase 86 Theme D, extended by an ad hoc
+ * follow-up) — closed rows go through `TranscriptView` above and are
+ * untouched.
  *
- * Three shapes, in order of precedence:
+ * Every still-live session — plain terminal, Kanban-card agent, or a Loop
+ * running on the FAB surface — renders here by default, in `LiveSessionTerminal`.
+ * There is exactly one exception, and it is a mutual-exclusion rule rather
+ * than a surface distinction: **while the session's OWNING panel already has
+ * a live xterm mounted for it**, this pane hands off to that panel instead
+ * of mounting a second one, because two live xterms racing the same pty over
+ * `pty.resize` (not the read side — `pty:data` already fans out to any
+ * number of subscribers, see `live-session-terminal.tsx`'s own doc) is a real
+ * bug, not a theoretical one. That "owning panel already showing it" state is
+ * `terminalOpen` for a main/Kanban-surface session (the terminal drawer
+ * unmounts every `TerminalView` it owns the moment it closes — `app.tsx`'s
+ * `terminalTween`) and `fabPanelOpen || fabDetached` for a FAB-surface one
+ * (the Loops panel does the same on close via `fabPanelTween`, AND a
+ * detached Loops window always keeps its active loop's terminal mounted
+ * regardless of the main window's own `fabPanelOpen`). Whichever it is, the
+ * hand-off reuses the same two functions a Kanban card's `>_` button and the
+ * FAB button already use — `revealSession`/`revealFabSession`
+ * (`reveal-session.ts`) — rather than inventing a second navigation path.
+ *
+ * Four shapes, in order of precedence:
  * 1. Asleep — no process to show at all; unchanged from before this theme.
- * 2. Running, but on a surface `revealSession()` cannot show
- *    (`!inMainPanel`, i.e. a FAB loop) — the row says where it lives instead
- *    of silently doing nothing.
- * 3. Running and on the main surface — embeds the real terminal
- *    (`LiveSessionTerminal`), but ONLY while the terminal panel drawer is
- *    fully closed. The drawer unmounts every `TerminalView` it owns the
- *    moment it closes (`app.tsx`'s `terminalTween`), so "closed" is the one
- *    condition that provably guarantees no other live xterm exists for this
- *    session anywhere in the window — the "one xterm per pty" the phase doc
- *    asks for. While the drawer is open, the pane hands off to it instead
- *    of mounting a second one, via the same `revealSession()` a Kanban
- *    card's own `>_` button already uses.
+ * 2. No raw session — a stale/removed store entry the merged row hasn't
+ *    caught up with yet; nothing to attach to.
+ * 3. Already showing in its owning panel — hands off there instead of a
+ *    second mount (see above).
+ * 4. Otherwise — embeds the real terminal, full read/write, whichever
+ *    surface it's on. A loop-driven session gets no reduced, read-only mode:
+ *    the mutual-exclusion rule above is what makes a second writer safe (it
+ *    never coexists with the first), not a permissions distinction between
+ *    the two surfaces.
  */
 function LiveSessionDetail({
   session,
@@ -636,6 +667,8 @@ function LiveSessionDetail({
   rawSession: TerminalSession | null;
 }) {
   const terminalOpen = useUiStore((s) => s.terminalOpen);
+  const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
+  const fabDetached = useUiStore((s) => s.fabDetached);
 
   if (session.liveness === 'asleep') {
     return <Notice>This session is asleep — no live process to show. Wake it from the terminal panel.</Notice>;
@@ -645,26 +678,24 @@ function LiveSessionDetail({
     return <Notice>This session is running — open the terminal panel to interact with it.</Notice>;
   }
 
-  if (!inMainPanel(rawSession)) {
-    return (
-      <Notice>
-        This session is running in the Loops panel, not the terminal panel — open Loops from the
-        quick-access menu to interact with it.
-      </Notice>
-    );
-  }
+  const isFabSession = !inMainPanel(rawSession);
+  const shownElsewhere = isFabSession ? fabPanelOpen || fabDetached : terminalOpen;
 
-  if (terminalOpen) {
+  if (shownElsewhere) {
     return (
       <div className="grid min-h-0 flex-1 place-items-center p-8">
         <div className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
-          <p>This session's terminal is already open in the terminal panel.</p>
+          <p>
+            {isFabSession
+              ? "This session's terminal is already open in the Loops panel."
+              : "This session's terminal is already open in the terminal panel."}
+          </p>
           <button
             type="button"
-            onClick={() => revealSession(session.id)}
+            onClick={() => (isFabSession ? revealFabSession(session.id) : revealSession(session.id))}
             className="mt-2 text-primary hover:underline"
           >
-            Focus it there
+            {isFabSession ? 'Reveal in Loops' : 'Focus it there'}
           </button>
         </div>
       </div>
