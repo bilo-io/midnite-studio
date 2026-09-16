@@ -16,12 +16,25 @@ function renderPanel(overrides: Partial<Parameters<typeof KnowledgeFiltersPanel>
     onToggleCommunity: vi.fn(),
     onShowAllCommunities: vi.fn(),
     onHideAllCommunities: vi.fn(),
+    onCommunityListModeChange: vi.fn(),
+    onToggleCollapsedCommunity: vi.fn(),
+    onCollapseAllCommunities: vi.fn(),
+    onExpandAllCommunities: vi.fn(),
+    onSelectNode: vi.fn(),
   };
   render(
     <KnowledgeFiltersPanel
       filters={defaultFilterState()}
       relations={['calls', 'imports']}
       communityNames={['core', 'graph']}
+      nodesByCommunity={
+        new Map([
+          ['core', [{ id: 'a', label: 'useNow' }]],
+          ['graph', [{ id: 'b', label: 'useNowTick' }]],
+        ])
+      }
+      collapsedCommunities={new Set()}
+      communityListMode="list"
       visibleLinkCount={5}
       totalLinkCount={10}
       {...handlers}
@@ -63,5 +76,18 @@ describe('KnowledgeFiltersPanel', () => {
       filters: { ...defaultFilterState(), hiddenCommunities: new Set(['graph']) },
     });
     expect(screen.getByText('1 hidden')).toBeDefined();
+  });
+
+  it('shows the collapsed-community count beside the hidden one', () => {
+    renderPanel({
+      filters: { ...defaultFilterState(), hiddenCommunities: new Set(['graph']) },
+      collapsedCommunities: new Set(['core']),
+    });
+    expect(screen.getByText('1 hidden · 1 collapsed')).toBeDefined();
+  });
+
+  it('shows the collapsed count alone when nothing is hidden', () => {
+    renderPanel({ collapsedCommunities: new Set(['core', 'graph']) });
+    expect(screen.getByText('2 collapsed')).toBeDefined();
   });
 });

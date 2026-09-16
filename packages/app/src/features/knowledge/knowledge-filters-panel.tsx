@@ -2,8 +2,11 @@ import { useState } from 'react';
 
 import { LuSearch, LuUsers } from 'react-icons/lu';
 
+import type { KnowledgeGraphNode } from '@midnite/studio-shared';
+
 import { KnowledgeCommunityFilter } from './knowledge-community-filter';
 import type { KnowledgeFilterState } from './knowledge-filters';
+import type { CommunityListMode } from './knowledge-filters-store';
 
 /**
  * Theme E's filter chrome: search, the relation checkbox list, weight/
@@ -18,6 +21,9 @@ export function KnowledgeFiltersPanel({
   filters,
   relations,
   communityNames,
+  nodesByCommunity,
+  collapsedCommunities,
+  communityListMode,
   visibleLinkCount,
   totalLinkCount,
   onQueryChange,
@@ -27,10 +33,18 @@ export function KnowledgeFiltersPanel({
   onToggleCommunity,
   onShowAllCommunities,
   onHideAllCommunities,
+  onCommunityListModeChange,
+  onToggleCollapsedCommunity,
+  onCollapseAllCommunities,
+  onExpandAllCommunities,
+  onSelectNode,
 }: {
   filters: KnowledgeFilterState;
   relations: readonly string[];
   communityNames: readonly string[];
+  nodesByCommunity: ReadonlyMap<string, readonly Pick<KnowledgeGraphNode, 'id' | 'label'>[]>;
+  collapsedCommunities: ReadonlySet<string>;
+  communityListMode: CommunityListMode;
   visibleLinkCount: number;
   totalLinkCount: number;
   onQueryChange: (query: string) => void;
@@ -40,9 +54,25 @@ export function KnowledgeFiltersPanel({
   onToggleCommunity: (name: string) => void;
   onShowAllCommunities: () => void;
   onHideAllCommunities: (names: readonly string[]) => void;
+  onCommunityListModeChange: (mode: CommunityListMode) => void;
+  onToggleCollapsedCommunity: (name: string) => void;
+  onCollapseAllCommunities: (names: readonly string[]) => void;
+  onExpandAllCommunities: () => void;
+  /** A member picked from the tree — select it and fly the camera there. */
+  onSelectNode: (nodeId: string) => void;
 }) {
   const [communityPanelOpen, setCommunityPanelOpen] = useState(false);
   const hiddenCommunityCount = filters.hiddenCommunities.size;
+  const collapsedCount = collapsedCommunities.size;
+  const communitySummary =
+    hiddenCommunityCount > 0 || collapsedCount > 0
+      ? [
+          hiddenCommunityCount > 0 ? `${hiddenCommunityCount} hidden` : null,
+          collapsedCount > 0 ? `${collapsedCount} collapsed` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : `${communityNames.length} shown`;
 
   return (
     <div className="flex h-full min-h-0 w-72 shrink-0 flex-col gap-3 overflow-auto border-r border-border bg-background p-3 text-xs">
@@ -119,20 +149,24 @@ export function KnowledgeFiltersPanel({
             <LuUsers aria-hidden className="h-3.5 w-3.5" />
             Communities
           </span>
-          <span className="text-muted-foreground">
-            {hiddenCommunityCount > 0
-              ? `${hiddenCommunityCount} hidden`
-              : `${communityNames.length} shown`}
-          </span>
+          <span className="text-muted-foreground">{communitySummary}</span>
         </button>
         {communityPanelOpen ? (
           <div className="min-h-0 flex-1">
             <KnowledgeCommunityFilter
               communityNames={communityNames}
+              nodesByCommunity={nodesByCommunity}
               hidden={filters.hiddenCommunities}
+              collapsed={collapsedCommunities}
+              mode={communityListMode}
+              onModeChange={onCommunityListModeChange}
               onToggle={onToggleCommunity}
               onShowAll={onShowAllCommunities}
               onHideAll={onHideAllCommunities}
+              onToggleCollapsed={onToggleCollapsedCommunity}
+              onCollapseAll={onCollapseAllCommunities}
+              onExpandAll={onExpandAllCommunities}
+              onSelectNode={onSelectNode}
             />
           </div>
         ) : null}

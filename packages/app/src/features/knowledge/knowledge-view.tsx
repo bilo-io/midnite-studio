@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { LuCircleAlert, LuClock } from 'react-icons/lu';
 import { SiGrapheneos } from 'react-icons/si';
@@ -8,6 +8,13 @@ import { Spinner } from '../../components/skeleton';
 import { useWindowFocused } from '../../lib/use-window-focus';
 import { useActiveWorktree } from '../../services/use-status';
 import { KnowledgeCanvas } from './knowledge-canvas';
+import {
+  communityNameFromNodeId,
+  communityNodeId,
+  nodesByCommunity as groupNodesByCommunity,
+} from './knowledge-community-collapse';
+import { KnowledgeCommunityPanel } from './knowledge-community-panel';
+import { computeDegrees } from './knowledge-degree';
 import { KnowledgeFiltersPanel } from './knowledge-filters-panel';
 import {
   countVisibleLinks,
@@ -58,6 +65,15 @@ export function KnowledgeView() {
   const showAllCommunities = useKnowledgeFiltersStore((s) => s.showAllCommunities);
   const hideAllCommunities = useKnowledgeFiltersStore((s) => s.hideAllCommunities);
   const selectNode = useKnowledgeFiltersStore((s) => s.selectNode);
+  const focusNode = useKnowledgeFiltersStore((s) => s.focusNode);
+  const flyToNodeId = useKnowledgeFiltersStore((s) => s.flyToNodeId);
+  const collapsedCommunities = useKnowledgeFiltersStore((s) => s.collapsedCommunities);
+  const toggleCollapsedCommunity = useKnowledgeFiltersStore((s) => s.toggleCollapsedCommunity);
+  const setCommunityCollapsed = useKnowledgeFiltersStore((s) => s.setCommunityCollapsed);
+  const collapseAllCommunities = useKnowledgeFiltersStore((s) => s.collapseAllCommunities);
+  const expandAllCommunities = useKnowledgeFiltersStore((s) => s.expandAllCommunities);
+  const communityListMode = useKnowledgeFiltersStore((s) => s.communityListMode);
+  const setCommunityListMode = useKnowledgeFiltersStore((s) => s.setCommunityListMode);
 
   // Phase 84's visibility gate: `KnowledgeView` isn't `global: true` (Theme
   // C), so it fully unmounts on a view switch already — the one thing left
@@ -81,11 +97,42 @@ export function KnowledgeView() {
     () => (payload ? countVisibleLinks(payload.links, communityByNodeId, filters) : 0),
     [payload, communityByNodeId, filters],
   );
-  const focusNodeId = useMemo(() => {
+  const searchFocusNodeId = useMemo(() => {
     if (!payload || !filters.query) return null;
     const matches = searchMatches(payload.nodes, filters.query);
     return pickFocusNode(payload.nodes, matches);
   }, [payload, filters.query]);
+  // A tree-list pick wins over search's first match until the next keystroke (`setQuery` clears it).
+  const focusNodeId = flyToNodeId ?? searchFocusNodeId;
+  const nodesByCommunity = useMemo(
+    () => (payload ? groupNodesByCommunity(payload.nodes) : new Map<string, never[]>()),
+    [payload],
+  );
+  const degrees = useMemo(() => (payload ? computeDegrees(payload.links) : new Map<string, number>()), [payload]);
+
+  /**
+   * Double-click: an ordinary node folds its whole community into one meta-
+   * node (and selects that, so the panel explains what just happened); a
+   * meta-node unfolds again, leaving the panel on the node that was double-
+   * clicked — there is none, so the selection clears.
+   */
+  const handleNodeDoubleClick = useCallback(
+    (nodeId: string) => {
+      const collapsedName = communityNameFromNodeId(nodeId);
+      if (collapsedName !== null) {
+        setCommunityCollapsed(collapsedName, false);
+        selectNode(null);
+        return;
+      }
+      const communityName = communityByNodeId.get(nodeId);
+      if (communityName === undefined) return;
+      setCommunityCollapsed(communityName, true);
+      selectNode(communityNodeId(communityName));
+    },
+    [communityByNodeId, setCommunityCollapsed, selectNode],
+  );
+
+  const selectedCommunityName = selectedNodeId ? communityNameFromNodeId(selectedNodeId) : null;
 
   switch (state.kind) {
     case 'loading':
@@ -131,6 +178,9 @@ export function KnowledgeView() {
               filters={filters}
               relations={relations}
               communityNames={communityNames}
+              nodesByCommunity={nodesByCommunity}
+              collapsedCommunities={collapsedCommunities}
+              communityListMode={communityListMode}
               visibleLinkCount={visibleLinkCount}
               totalLinkCount={state.graph.links.length}
               onQueryChange={setQuery}
@@ -140,15 +190,41 @@ export function KnowledgeView() {
               onToggleCommunity={toggleCommunity}
               onShowAllCommunities={showAllCommunities}
               onHideAllCommunities={hideAllCommunities}
+              onCommunityListModeChange={setCommunityListMode}
+              onToggleCollapsedCommunity={toggleCollapsedCommunity}
+              onCollapseAllCommunities={collapseAllCommunities}
+              onExpandAllCommunities={expandAllCommunities}
+              onSelectNode={focusNode}
             />
             <KnowledgeCanvas
               payload={state.graph}
               filters={filters}
               focusNodeId={focusNodeId}
+              selectedNodeId={selectedNodeId}
+              collapsedCommunities={collapsedCommunities}
               onNodeClick={selectNode}
+              onNodeDoubleClick={handleNodeDoubleClick}
               paused={!focused}
             />
-            {selectedNodeId ? (
+            {selectedNodeId && selectedCommunityName !== null ? (
+              <KnowledgeCommunityPanel
+                communityName={selectedCommunityName}
+                members={nodesByCommunity.get(selectedCommunityName) ?? []}
+                degrees={degrees}
+                hidden={filters.hiddenCommunities.has(selectedCommunityName)}
+                onClose={() => selectNode(null)}
+                onExpand={() => {
+                  setCommunityCollapsed(selectedCommunityName, false);
+                  selectNode(null);
+                }}
+                onToggleHidden={() => toggleCommunity(selectedCommunityName)}
+                onSelectNode={(nodeId) => {
+                  // A member is only reachable on the canvas once its community is unfolded.
+                  setCommunityCollapsed(selectedCommunityName, false);
+                  focusNode(nodeId);
+                }}
+              />
+            ) : selectedNodeId ? (
               <KnowledgeNodePanel
                 repoId={repoId ?? ''}
                 worktreePath={worktreePath}
