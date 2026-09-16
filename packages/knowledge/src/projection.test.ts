@@ -52,7 +52,9 @@ describe('projectGraph', () => {
       { id: 'a', label: 'A', community: 0, community_name: 'core', file_type: 'code' },
       { id: 'b', label: 'B', community: 1, community_name: 'edge', file_type: 'code' },
     ]);
-    expect(lean.links).toEqual([{ source: 'a', target: 'b', relation: 'calls', weight: 0.5 }]);
+    expect(lean.links).toEqual([
+      { source: 'a', target: 'b', relation: 'calls', weight: 0.5, confidence: 0.85 },
+    ]);
     expect(lean.builtAtCommit).toBe('deadbeef');
   });
 
@@ -64,8 +66,20 @@ describe('projectGraph', () => {
       );
     }
     for (const link of lean.links) {
-      expect(Object.keys(link).sort()).toEqual(['relation', 'source', 'target', 'weight'].sort());
+      expect(Object.keys(link).sort()).toEqual(
+        ['confidence', 'relation', 'source', 'target', 'weight'].sort(),
+      );
     }
+  });
+
+  it('defaults a missing confidence_score to 1, same as a missing weight', () => {
+    const lean = projectGraph({
+      ...RAW_GRAPH,
+      links: [{ source: 'a', target: 'b', relation: 'calls' }],
+    });
+    expect(lean.links).toEqual([
+      { source: 'a', target: 'b', relation: 'calls', weight: 1, confidence: 1 },
+    ]);
   });
 
   it('produces a strictly smaller payload than the raw graph', () => {

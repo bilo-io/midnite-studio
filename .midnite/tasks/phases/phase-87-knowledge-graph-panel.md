@@ -139,40 +139,40 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       resolves to a defined export (the guard `icon-names.test.ts` already applies to `lu` — extend
       the idea to `si`).
 
-### D — The sigma canvas (L)
+### D — The sigma canvas (L) — ✅ DONE (PR #411, 2026-09-16)
 
-- [ ] Add `sigma` + `graphology` to `packages/app` (both MIT). Raw sigma behind a thin local hook
+- [x] Add `sigma` + `graphology` to `packages/app` (both MIT). Raw sigma behind a thin local hook
       rather than `@react-sigma/core` — Decision 6.
-- [ ] Render the full **14,881 nodes / 36,032 links** with WebGL, seeded from Theme A's cached
+- [x] Render the full **14,881 nodes / 36,032 links** with WebGL, seeded from Theme A's cached
       coordinates. No force simulation runs in the renderer.
-- [ ] **Zoom level-of-detail**: labels appear only above a zoom threshold and only for nodes above a
+- [x] **Zoom level-of-detail**: labels appear only above a zoom threshold and only for nodes above a
       degree threshold. 14,881 labels drawn at once is illegible and slow; this is the difference
       between a picture and a smear.
-- [ ] Node colour from `community`, sized by degree. Edge alpha from `weight`.
-- [ ] **App theme tokens, both schemes.** The canvas reads the same CSS custom properties every other
+- [x] Node colour from `community`, sized by degree. Edge alpha from `weight`.
+- [x] **App theme tokens, both schemes.** The canvas reads the same CSS custom properties every other
       surface does and repaints on theme change — no hardcoded palette, which is precisely what
       `graph.html` gets wrong with its baked `#0f0f1a`.
-- [ ] **Stop rendering when hidden.** Wire into Phase 84's visibility gates: no render loop, no
+- [x] **Stop rendering when hidden.** Wire into Phase 84's visibility gates: no render loop, no
       requestAnimationFrame, when the view is not visible or the window is blurred.
-- [ ] Graceful failure when WebGL context acquisition fails (a real possibility under software
+- [x] Graceful failure when WebGL context acquisition fails (a real possibility under software
       rendering) — a message inside the view's error boundary, never a blank window.
-- [ ] Record entry-chunk and total-JS deltas with
+- [x] Record entry-chunk and total-JS deltas with
       [`bundle-report.mjs`](../../../scripts/perf/bundle-report.mjs) before and after. sigma +
       graphology must be in the Knowledge view's lazy chunk, **not** the entry chunk.
 
-### E — The four interactions (M)
+### E — The four interactions (M) — ✅ DONE (PR #411, 2026-09-16)
 
-- [ ] **Click a node to open its file.** Fetch that node's `source_file` + `source_location` by id and
+- [x] **Click a node to open its file.** Fetch that node's `source_file` + `source_location` by id and
       open the Explorer preview at the line. Decision 7 records why Explorer rather than the editor.
-- [ ] **Search and focus.** Type a symbol, the camera flies to it and its neighbourhood highlights,
+- [x] **Search and focus.** Type a symbol, the camera flies to it and its neighbourhood highlights,
       everything else dims. On a 15k-node graph this is the difference between a tool and a poster.
-- [ ] **Community colour and filter.** Toggle communities on and off by `community_name`; the 600
+- [x] **Community colour and filter.** Toggle communities on and off by `community_name`; the 600
       communities need their own searchable list, not 600 checkboxes.
-- [ ] **Edge filter by `relation` and `weight`.** Show only `call` edges, or hide low-`confidence`
+- [x] **Edge filter by `relation` and `weight`.** Show only `call` edges, or hide low-`confidence`
       inferred ones. Default to whatever leaves the first paint legible, and say so in the doc.
-- [ ] Filter state is per-repo and survives a view switch, but is **not** persisted across restarts
+- [x] Filter state is per-repo and survives a view switch, but is **not** persisted across restarts
       this phase.
-- [ ] Vitest for the filter/search reducers as pure logic — no canvas needed to test what a filter
+- [x] Vitest for the filter/search reducers as pure logic — no canvas needed to test what a filter
       selects.
 
 ### F — Repo switching, empty and stale states (M) — ✅ DONE (PR #410, 2026-09-16)
@@ -261,12 +261,12 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       toast, no empty canvas, no crash.**
 - [ ] Switching repos with the view open swaps the graph, and repeated switching does not grow GPU
       memory (the leak shape [Phase 45](phase-45-the-leak-audit.md) went looking for).
-- [ ] Clicking a node opens the right file at the right line.
-- [ ] Search finds a symbol by name and the camera lands on it.
-- [ ] Theme switch repaints the canvas in both light and dark; no hardcoded colour survives.
+- [x] Clicking a node opens the right file at the right line. (PR #411)
+- [x] Search finds a symbol by name and the camera lands on it. (PR #411)
+- [x] Theme switch repaints the canvas in both light and dark; no hardcoded colour survives. (PR #411 — verified against a synthetic fixture: community colours stay distinct and legible across the flip, no black/washed-out repaint.)
 - [ ] With the view open and the window blurred, `idle-cpu.mjs --blurred` is indistinguishable from
       the same measurement with the view closed.
-- [ ] Entry chunk is **unchanged** — sigma and graphology are in the lazy chunk only.
+- [x] Entry chunk is **unchanged** — sigma and graphology are in the lazy chunk only. (PR #411 — measured: 411.7 KB → 411.7 KB, byte-identical; `graphology`/`MultiDirectedGraph` confirmed absent from the entry chunk by `grep`.)
 - [ ] **Open, for a human:** open Knowledge on a repo you know well and see whether the communities
       match your mental model of it. A graph that renders correctly and reads as nonsense is a
       failure this phase cannot assert against.

@@ -17,6 +17,7 @@ function fixtureGraph(nodeCount = 20): LeanGraph {
     target: `n${i + 1}`,
     relation: 'calls',
     weight: 1,
+    confidence: 1,
   }));
   return { nodes, links, builtAtCommit: 'deadbeef' };
 }
@@ -63,7 +64,7 @@ describe('layoutGraph', () => {
         { id: 'a', label: 'A', community: 0, community_name: 'c', file_type: 'code' },
         { id: 'b', label: 'B', community: 0, community_name: 'c', file_type: 'code' },
       ],
-      links: [{ source: 'a', target: 'ghost', relation: 'calls', weight: 1 }],
+      links: [{ source: 'a', target: 'ghost', relation: 'calls', weight: 1, confidence: 1 }],
       builtAtCommit: 'deadbeef',
     };
     expect(() => layoutGraph(graph, { totalIterations: 5, batchSize: 5 })).not.toThrow();
