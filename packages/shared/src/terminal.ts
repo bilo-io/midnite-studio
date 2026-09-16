@@ -252,6 +252,26 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
   },
   {
     /*
+      `cursor` used to type the desktop editor's own launcher into the pty —
+      it opened a GUI window, not a terminal agent. `cursor-agent` is the
+      Cursor CLI terminal binary (the install script also symlinks `agent`,
+      which collides with other CLIs like Grok's agent, so we use `cursor-agent`).
+    */
+    id: 'cursor',
+    label: 'Cursor',
+    command: 'cursor-agent',
+    args: [],
+    resume: ['--continue'],
+    accent: '#0066FF',
+    icon: 'SiCursor',
+    install: 'curl https://cursor.com/install -fsS | bash',
+    update: 'curl https://cursor.com/install -fsS | bash',
+    uninstall: 'rm -f ~/.local/bin/cursor-agent ~/.local/bin/agent',
+    docsUrl: 'https://docs.cursor.com',
+    apiKeyEnvVar: 'CURSOR_API_KEY',
+  },
+  {
+    /*
       `agy`, not `antigravity-ide`: the latter is a shim that opens the IDE,
       which is not a thing a terminal session can host. The id follows the
       command so a user reading `terminals.json` can tell what ran; the mark is
@@ -307,26 +327,6 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     // interactive OAuth device flow), which is not something to drive
     // unattended just to author a regex. Left unset rather than guessed —
     // the phase doc's own bar for excluding a marker set.
-  },
-  {
-    /*
-      `cursor` used to type the desktop editor's own launcher into the pty —
-      it opened a GUI window, not a terminal agent. `cursor-agent` is the
-      Cursor CLI terminal binary (the install script also symlinks `agent`,
-      which collides with other CLIs like Grok's agent, so we use `cursor-agent`).
-    */
-    id: 'cursor',
-    label: 'Cursor',
-    command: 'cursor-agent',
-    args: [],
-    resume: ['--continue'],
-    accent: '#0066FF',
-    icon: 'SiCursor',
-    install: 'curl https://cursor.com/install -fsS | bash',
-    update: 'curl https://cursor.com/install -fsS | bash',
-    uninstall: 'rm -f ~/.local/bin/cursor-agent ~/.local/bin/agent',
-    docsUrl: 'https://docs.cursor.com',
-    apiKeyEnvVar: 'CURSOR_API_KEY',
   },
   {
     id: 'copilot',

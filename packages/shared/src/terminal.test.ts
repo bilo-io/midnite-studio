@@ -27,9 +27,9 @@ describe('BUILTIN_AGENTS', () => {
   it('ships the terminal agents the + menu offers', () => {
     expect(BUILTIN_AGENTS.map((a) => a.id)).toEqual([
       'claude',
+      'cursor',
       'agy',
       'codex',
-      'cursor',
       'copilot',
       'openclaude',
       'opencode',

@@ -77,6 +77,7 @@ export type SiteAgent = {
  */
 export const SITE_AGENTS: readonly SiteAgent[] = [
   { id: 'claude', label: 'Claude', color: '#D97757', Icon: ClaudeIcon },
+  { id: 'cursor', label: 'Cursor', color: '#0066FF', Icon: SiCursor },
   {
     id: 'agy',
     label: 'Antigravity',
@@ -93,7 +94,6 @@ export const SITE_AGENTS: readonly SiteAgent[] = [
     multicolour: true,
   },
   { id: 'codex', label: 'Codex', color: '#10A37F', Icon: CodexIcon },
-  { id: 'cursor', label: 'Cursor', color: '#0066FF', Icon: SiCursor },
   { id: 'copilot', label: 'Copilot', color: '#6E40C9', Icon: SiGithubcopilot },
   { id: 'openclaude', label: 'OpenClaude', color: '#8B5CF6', Icon: OpenClaudeIcon },
   { id: 'opencode', label: 'OpenCode', color: '#03B000', Icon: SiOpencode },

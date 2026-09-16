@@ -34,9 +34,9 @@ describe('resolveAgentIcon', () => {
 
     expect(marks).toEqual([
       ClaudeIcon,
+      SiCursor,
       AntigravityIcon,
       CodexIcon,
-      SiCursor,
       SiGithubcopilot,
       OpenClaudeIcon,
       OpenCodeIcon,

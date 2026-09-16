@@ -182,9 +182,9 @@ describe('AGENT_ROSTER', () => {
     expect(AGENT_ROSTER).toHaveLength(10);
     expect(AGENT_ROSTER.map((agent) => agent.id)).toEqual([
       'claude',
+      'cursor',
       'agy',
       'codex',
-      'cursor',
       'copilot',
       'openclaude',
       'opencode',
