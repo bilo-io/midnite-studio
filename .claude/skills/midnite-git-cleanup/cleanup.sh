@@ -140,9 +140,16 @@ merged_pr_num() { printf '%s\n' "$MERGED_PR_MAP" | awk -F'\t' -v b="$1" '$1==b{p
 RSTALE='' RKEEP=''
 if [ "$HAS_REMOTE" -eq 1 ]; then
   RTARGET="$REMOTE/$TARGET"
-  for rb in $(git for-each-ref "refs/remotes/$REMOTE" --format='%(refname:short)'); do
+  # Match the symref on its FULL refname, not its short form. `refname:short`
+  # renders refs/remotes/origin/HEAD as bare `origin` (it resolves
+  # unambiguously), so `${rb#origin/}` strips nothing and a `[ "$b" = HEAD ]`
+  # guard never fires — the symref then sails through as a branch literally
+  # named `origin` and lands in STALE REMOTE, where --prune-remote would try to
+  # `git push --delete origin origin` a ref that does not exist.
+  for ref in $(git for-each-ref "refs/remotes/$REMOTE" --format='%(refname)'); do
+    [ "$ref" = "refs/remotes/$REMOTE/HEAD" ] && continue
+    rb=${ref#refs/remotes/}
     b=${rb#"$REMOTE/"}
-    [ "$b" = 'HEAD' ] && continue
     [ "$b" = "$TARGET" ] && continue
 
     if [ "$HAS_GH" -eq 1 ] && oid=$(merged_pr_oid "$b") && [ -n "$oid" ]; then
@@ -294,7 +301,12 @@ printf 'remaining worktrees:\n'
 git worktree list | sed 's/^/  /'
 if [ "$HAS_REMOTE" -eq 1 ]; then
   printf 'remaining %s branches:\n' "$REMOTE"
-  git for-each-ref "refs/remotes/$REMOTE" --format='  %(refname:short)' | grep -v "/HEAD\$"
+  # Same symref trap as the scan loop above: `refname:short` gives bare
+  # `origin` for refs/remotes/origin/HEAD, which `grep -v "/HEAD$"` cannot
+  # catch. Filter on the full refname instead.
+  git for-each-ref "refs/remotes/$REMOTE" --format='%(refname) %(refname:short)' \
+    | grep -v "^refs/remotes/$REMOTE/HEAD " \
+    | sed 's/^[^ ]* /  /'
 fi
 echo
 echo 'note: deleted branches leave dangling commits. `git fsck` lists them;'
