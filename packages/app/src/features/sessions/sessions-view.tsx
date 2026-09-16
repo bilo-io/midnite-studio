@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Collapse } from '@bilo-io/ui';
 import {
   buildResumeCommand,
+  DEFAULT_LOOPS,
   type AgentDefinition,
   type ClosedSession,
   type TerminalSession,
@@ -35,10 +36,13 @@ import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import { useRefreshSessionHistory, useSessionHistory } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useSessionsStore } from '../../store/sessions-store';
+import { closeSessionWithConfirm } from '../terminal/close-session';
 import { revealSession } from '../terminal/reveal-session';
 import { agentLabelFor, inMainPanel, useTerminalStore, type ConnectionState, type SessionActivity } from '../terminal/terminal-store';
 import { startAgent } from '../terminal/start-agent';
 import { useAgents } from '../terminal/use-agents';
+import { loopIcon } from '../loops/loop-icons';
+import { useLoopRuns } from '../loops/use-loop-runs';
 import { LiveSessionTerminal } from './live-session-terminal';
 import {
   formatDuration,
@@ -69,6 +73,15 @@ const LIVENESS_OPTIONS: MultiSelectOption[] = [
 
 /** Value used to represent non-agent terminal sessions in the provider filter. */
 const TERMINAL_PROVIDER_VALUE = '__terminal__';
+
+/**
+ * The one row height every list item (never a group header) honours —
+ * live, asleep, closed, with or without the loop icon or the kill button.
+ * Fixed rather than content-driven: a running agent row could otherwise grow
+ * taller than a plain closed row just because it renders a resume/kill
+ * `IconButton` (`h-6`, opacity-0 until hover) that a plain shell row does not.
+ */
+const SESSION_ROW_HEIGHT_CLASS = 'h-8';
 
 /** A row's own label — never `title`, which is the repo name (fact 4). */
 function managedSessionLabel(record: ManagedSession, agentLabel: string | undefined): string {
@@ -163,6 +176,33 @@ export function SessionsView({
   const refresh = useRefreshSessionHistory();
   const { agents } = useAgents();
   const liveSessions = useTerminalStore((s) => s.sessions);
+  const loopRuns = useLoopRuns();
+
+  /**
+   * `sessionId → loopId` for every session a loop ever launched — the same
+   * ledger the FAB tab strip's own icon (`fab-launchers.tsx`) reads off
+   * `DEFAULT_LOOPS`, so a row here draws the identical glyph rather than a
+   * second, invented "this came from a loop" mark. One run per session
+   * (`useLoopSession.start` mints a fresh session id every Start press), so
+   * last-write-wins during the `Map` build is never actually a choice.
+   */
+  const loopIdBySession = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const run of loopRuns.data) map.set(run.sessionId, run.loopId);
+    return map;
+  }, [loopRuns.data]);
+
+  /**
+   * Kill a live session from the list — the same termination path the
+   * terminal panel's own close button uses (`closeSessionWithConfirm`), so
+   * the confirm behaviour (only asked when a foreground command is still
+   * running) stays the one the user already knows rather than a second rule
+   * invented for this surface.
+   */
+  const killSession = (session: ManagedLiveSession) => {
+    const raw = liveSessions.find((s) => s.id === session.id);
+    if (raw) closeSessionWithConfirm(dialogs, raw);
+  };
 
   const [reasons, setReasons] = useState<ClosedSession['reason'][]>([]);
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
@@ -540,7 +580,9 @@ export function SessionsView({
                 selectedId={selectedId}
                 onSelect={selectRow}
                 purgeOne={purgeOne}
+                onKill={killSession}
                 onResume={onResume}
+                loopIdBySession={loopIdBySession}
                 selectedIds={selectedIds}
                 toggleSelected={toggleSelected}
                 cascading={groupCascade.active}
@@ -642,7 +684,9 @@ function RepoSessionsGroup({
   selectedId,
   onSelect,
   purgeOne,
+  onKill,
   onResume,
+  loopIdBySession,
   selectedIds,
   toggleSelected,
   cascading,
@@ -657,7 +701,9 @@ function RepoSessionsGroup({
   selectedId: string | null;
   onSelect: (session: ManagedSession) => void;
   purgeOne: (record: ClosedSession) => void;
+  onKill: (session: ManagedLiveSession) => void;
   onResume?: ((session: ManagedSession) => void) | undefined;
+  loopIdBySession: ReadonlyMap<string, string>;
   selectedIds: ReadonlySet<string>;
   toggleSelected: (id: string) => void;
   cascading: boolean;
@@ -704,7 +750,9 @@ function RepoSessionsGroup({
             selected={record.id === selectedId}
             onSelect={() => onSelect(record)}
             onPurge={isClosedManagedSession(record) ? () => purgeOne(record) : undefined}
+            onKill={isClosedManagedSession(record) ? undefined : () => onKill(record)}
             onResume={onResume ? () => onResume(record) : undefined}
+            loopId={loopIdBySession.get(record.id)}
             checked={selectedIds.has(record.id)}
             onToggleChecked={() => toggleSelected(record.id)}
             cascading={sessionCascade.active}
@@ -723,7 +771,9 @@ function SessionRow({
   selected,
   onSelect,
   onPurge,
+  onKill,
   onResume,
+  loopId,
   checked,
   onToggleChecked,
   cascading,
@@ -736,8 +786,12 @@ function SessionRow({
   onSelect: () => void;
   /** Absent — not a disabled button — for anything that isn't a closed row. */
   onPurge: (() => void) | undefined;
+  /** Absent — not a disabled button — for anything that IS a closed row. */
+  onKill: (() => void) | undefined;
   /** Optional override for the resume action (tests, parent delegates). */
   onResume?: (() => void) | undefined;
+  /** The loop that launched this session, if any (`sessionId → loopId`). */
+  loopId?: string | undefined;
   checked: boolean;
   onToggleChecked: () => void;
   cascading?: boolean;
@@ -754,6 +808,10 @@ function SessionRow({
       : LuTerminal;
   const dotState = dotStateFor(record, connectionState);
   const dotTooltip = dotTooltipFor(record, connectionState, activity);
+
+  const loop = loopId ? DEFAULT_LOOPS.find((l) => l.id === loopId) : undefined;
+  const LoopIcon = loop ? loopIcon(loop.icon) : null;
+  const loopTooltip = loop ? `Started by the ${loop.label} loop` : '';
 
   const conversationId = record.agentConversationId?.trim();
   const resumeArgs =
@@ -792,7 +850,7 @@ function SessionRow({
 
   return (
     <div
-      className={`group flex items-center gap-2 border-l-2 px-2 py-1.5 text-left text-xs transition-colors ${
+      className={`group flex ${SESSION_ROW_HEIGHT_CLASS} items-center gap-2 border-l-2 px-2 text-left text-xs transition-colors ${
         selected ? 'border-primary bg-accent' : 'border-transparent hover:bg-accent/60'
       } ${cascading ? 'animate-fade-in-up cascade-delay' : ''}`}
       style={cascadeStyle}
@@ -833,6 +891,19 @@ function SessionRow({
             style={agent?.accent ? { color: agent.accent } : undefined}
           />
         ) : null}
+        {/* A second, smaller glyph rather than swapping the provider icon —
+            a loop-launched agent session still needs to say which agent. */}
+        {LoopIcon ? (
+          <Tooltip label={loopTooltip}>
+            <span
+              tabIndex={0}
+              aria-label={loopTooltip}
+              className="shrink-0 outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1"
+            >
+              <LoopIcon aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+            </span>
+          </Tooltip>
+        ) : null}
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {closed ? (
           <span className="shrink-0 text-[11px] text-muted-foreground">
@@ -854,6 +925,18 @@ function SessionRow({
           size="sm"
           className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           onClick={handleResume}
+        />
+      ) : null}
+      {onKill ? (
+        <IconButton
+          icon={LuX}
+          label="Kill session"
+          size="sm"
+          className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation();
+            onKill();
+          }}
         />
       ) : null}
       {onPurge ? (

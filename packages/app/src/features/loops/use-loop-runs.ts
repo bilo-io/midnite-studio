@@ -33,6 +33,21 @@ export function useLoopRuns() {
     // Under vitest/jsdom and the e2e mock bridge there is no event channel;
     // an empty list is the honest answer rather than a hang.
     initialData: [],
+    /**
+     * The app's global default is `staleTime: Infinity` — freshness normally
+     * comes from precise invalidation, not polling. Combined with
+     * `initialData` above, that default would mean the FIRST-ever mount of
+     * this hook anywhere in the app (nobody has opened the FAB yet this
+     * session) treats `[]` as already fresh and never calls `queryFn` at
+     * all — so a session the Sessions list wants to mark as loop-launched
+     * would silently show no icon until some later `loopRunsChanged` event
+     * happened to land while a `useLoopRuns` instance was active. Overriding
+     * to `0` here keeps every *other* query's Infinity default untouched and
+     * makes each new observer (Sessions list, FAB panel, …) do one real
+     * fetch on mount; `onChanged` above still carries live updates the rest
+     * of the time.
+     */
+    staleTime: 0,
   });
 }
 

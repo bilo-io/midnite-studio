@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
+import { useSessionsStore } from '../../store/sessions-store';
 import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { SessionsView } from './sessions-view';
@@ -40,10 +41,17 @@ vi.mock('./live-session-terminal', () => ({
 
 const purge = vi.fn().mockResolvedValue(undefined);
 const save = vi.fn().mockResolvedValue(undefined);
+const forget = vi.fn().mockResolvedValue(undefined);
+const killPty = vi.fn().mockResolvedValue(undefined);
+// Default: no loop ever launched anything — individual tests override with
+// `mockResolvedValueOnce` so the loop-icon fixture never bleeds into another.
+const loopRunsList = vi.fn().mockResolvedValue({ runs: [] });
 vi.mock('../../services/bridge', () => ({
   bridge: () => ({
     sessions: { purge },
-    terminal: { save },
+    terminal: { save, forget },
+    pty: { kill: killPty },
+    loopRuns: { list: loopRunsList, onChanged: () => () => {} },
   }),
 }));
 
@@ -52,8 +60,15 @@ afterEach(() => {
   vi.clearAllMocks();
   // The store is a module-level singleton — reset the fields this
   // view reads so one test's live session never bleeds into the next.
-  useTerminalStore.setState({ sessions: [], states: {}, activity: {}, pendingInput: {} });
+  useTerminalStore.setState({
+    sessions: [],
+    states: {},
+    activity: {},
+    pendingInput: {},
+    foregroundCommand: {},
+  });
   useUiStore.setState({ terminalOpen: false });
+  useSessionsStore.setState({ selectedClosedSessionId: null, selectedLiveSessionId: null });
 });
 
 function closedSession(
@@ -609,6 +624,136 @@ describe('SessionsView', () => {
     act(() => {
       useUiStore.setState({ terminalOpen: false });
     });
+  });
+
+  it('shows the loop glyph only on the row a loop actually launched', async () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [
+          liveSession({ id: 'loop-sess', repoId: 'r1', title: 'repo-one', name: 'loop-launched', createdAt: 5000, surface: 'fab' }),
+          liveSession({ id: 'plain-sess', repoId: 'r1', title: 'repo-one', name: 'plain-shell', createdAt: 5000 }),
+        ],
+      });
+    });
+    loopRunsList.mockResolvedValueOnce({
+      runs: [
+        {
+          id: 'run-1',
+          loopId: 'guard',
+          sessionId: 'loop-sess',
+          startedAt: 1,
+          composedPrompt: 'x',
+          checkedModifierIds: [],
+          status: 'running',
+        },
+      ],
+    });
+
+    renderView();
+
+    const loopRow = screen.getByText('loop-launched').closest('.group');
+    const plainRow = screen.getByText('plain-shell').closest('.group');
+
+    await waitFor(() => {
+      expect(loopRow?.querySelector('[aria-label="Started by the Guard loop"]')).toBeTruthy();
+    });
+    expect(plainRow?.querySelector('[aria-label^="Started by"]')).toBeNull();
+  });
+
+  it('gives every list item the same shared row-height class — live, asleep and closed alike', () => {
+    historyResult.mockReturnValue({
+      data: [closedSession({ id: 'c1', repoId: 'r1', title: 'repo-one', name: 'closed-one', createdAt: 1000, closedAt: 2000 })],
+      isPending: false,
+      isError: false,
+    });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [
+          liveSession({ id: 'live-1', repoId: 'r1', title: 'repo-one', name: 'live-one', createdAt: 5000 }),
+          liveSession({
+            id: 'sleep-1',
+            repoId: 'r1',
+            title: 'repo-one',
+            name: 'sleeping-one',
+            createdAt: 5000,
+            asleep: true,
+          }),
+          liveSession({
+            id: 'agent-1',
+            repoId: 'r1',
+            title: 'repo-one',
+            kind: 'agent',
+            agentId: 'claude',
+            createdAt: 5000,
+          }),
+        ],
+      });
+    });
+
+    renderView();
+
+    const rowHeights = new Set(
+      ['live-one', 'sleeping-one', 'closed-one', 'Claude']
+        .map((label) => screen.getByText(label).closest('.group'))
+        .map((row) => [...(row?.classList ?? [])].find((cls) => /^h-\d+$/.test(cls))),
+    );
+    expect(rowHeights.size).toBe(1);
+    expect([...rowHeights][0]).toBeTruthy();
+  });
+
+  it('kills a live session after confirming, through the same close path the terminal panel uses', async () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'live-1', repoId: 'r1', title: 'repo-one', name: 'live-one', createdAt: 5000 })],
+        states: { 'live-1': 'open' },
+        foregroundCommand: { 'live-1': 'npm run dev' },
+      });
+    });
+
+    renderView();
+
+    const killButton = screen.getByRole('button', { name: 'Kill session' });
+    fireEvent.click(killButton);
+    expect(forget).not.toHaveBeenCalled();
+
+    // Same confirm the terminal panel's own close button shows for a live
+    // session with a foreground command running (`closeSessionWithConfirm`).
+    expect(screen.getByText('npm run dev is still running and will be killed.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Close session' }));
+
+    await waitFor(() => expect(forget).toHaveBeenCalledWith({ sessionId: 'live-1', reason: 'closed' }));
+    expect(useTerminalStore.getState().sessions.some((s) => s.id === 'live-1')).toBe(false);
+  });
+
+  it('offers no kill button on a closed row, and the kill click never reaches row selection', () => {
+    historyResult.mockReturnValue({
+      data: [closedSession({ id: 'c1', repoId: 'r1', title: 'repo-one', name: 'closed-one', createdAt: 1000, closedAt: 2000 })],
+      isPending: false,
+      isError: false,
+    });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'live-1', repoId: 'r1', title: 'repo-one', name: 'live-one', createdAt: 5000 })],
+      });
+    });
+
+    renderView();
+
+    const closedRow = screen.getByText('closed-one').closest('.group');
+    expect(closedRow?.querySelector('button[aria-label="Kill session"]')).toBeNull();
+
+    const liveRow = screen.getByText('live-one').closest('.group');
+    expect(liveRow?.querySelector('button[aria-label="Kill session"]')).toBeTruthy();
+
+    expect(useSessionsStore.getState().selectedLiveSessionId).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Kill session' }));
+    // Nothing running in the foreground on this session, so
+    // `closeSessionWithConfirm` closes immediately with no dialog — and the
+    // click never bubbled up to select the row underneath the button.
+    expect(useTerminalStore.getState().sessions.some((s) => s.id === 'live-1')).toBe(false);
+    expect(useSessionsStore.getState().selectedLiveSessionId).toBeNull();
   });
 
   it('flips a selected live row over to its transcript once the session closes while mounted', () => {
