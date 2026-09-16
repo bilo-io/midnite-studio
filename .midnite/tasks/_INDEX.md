@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | 🔄 WIP | — | 45/60 | `████████░░` | 75% | G | — |
+| [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | — | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 44/64 | `███████░░░` | 69% | — | G H |
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
 | [84 · Live everywhere, lighter when hidden](phases/phase-84-live-everywhere-lighter-when-hidden.md) | 🔄 WIP | — | 60/68 | `█████████░` | 88% | E F K | — |
@@ -204,7 +204,7 @@ CDN-loads vis-network from unpkg and would walk straight into Phase 76's rendere
 - ✅ **D** (PR [#411](https://github.com/bilo-io/midnite-studio/pull/411)) — the sigma + graphology WebGL canvas: zoom LOD, community colour (`--tab-group-N` tokens, hue bucket × lightness tier), theme repaint via a `MutationObserver`, hidden-means-idle, entry chunk confirmed byte-identical
 - ✅ **E** (PR [#411](https://github.com/bilo-io/midnite-studio/pull/411)) — click-to-open (Explorer preview), search + focus + neighbourhood highlight, a virtualized community filter, relation/weight/confidence edge filtering (default `calls` alone — Decision 8, resolved unattended against this repo's own measured graph data)
 - ✅ **F** (PR [#410](https://github.com/bilo-io/midnite-studio/pull/410)) — repo switching, the greyed row and instructional panel, staleness reported not acted on
-- 🔄 **G** (claimed, worktree `p87-g`) — vitest for the logic, Playwright for the canvas only, and the measured numbers
+- ✅ **G** (PR [#412](https://github.com/bilo-io/midnite-studio/pull/412)) — the canvas-only Playwright suite (`knowledge-canvas.spec.ts`), the measured numbers, and the clean-up pass on #411: writing a real-browser test for the canvas caught and fixed two shipped bugs — sigma's canvas never resizing when its own flex container did (the node panel's Close button was unclickable, eaten by a stale-sized canvas), and the search-and-focus camera flying to the wrong point (raw graph coordinates passed where sigma expects its own normalized "framed graph" space). Nine general Verification lines (packaged-app network trace, cache/staleness/GPU-leak checks, the view-specific idle-cpu reading, the committed Linux visual baseline — this sandbox has no docker — and one human eyeball pass) are deliberately left open; see the phase doc.
 
 ### [Phase 86 — The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md)
 

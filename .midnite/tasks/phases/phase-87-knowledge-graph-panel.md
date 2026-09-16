@@ -207,21 +207,46 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       (`use-knowledge-graph.test.ts`, an integration test against a real `QueryClient` with two
       repos' promises resolving out of order).
 
-### G — Tests and the numbers (M)
+### G — Tests and the numbers (M) — ✅ DONE (2026-09-16)
 
-- [ ] Per [Phase 82](phase-82-the-pyramid-righted.md)'s decision rule, **name the layer in each
+- [x] Per [Phase 82](phase-82-the-pyramid-righted.md)'s decision rule, **name the layer in each
       spec's header comment.** Everything in A, B, E, F is vitest — parsers, reducers, state
-      machines, envelope shapes.
-- [ ] **Playwright is for the canvas only**, and the header comment says which capability forces it:
+      machines, envelope shapes. Already true on `main`; verified by re-reading every `knowledge-*`
+      spec's own header.
+- [x] **Playwright is for the canvas only**, and the header comment says which capability forces it:
       real WebGL context, real `getBoundingClientRect` for hit-testing, real pointer drag for pan and
-      zoom. None of that is assertable under jsdom.
+      zoom. None of that is assertable under jsdom. `packages/app/e2e/knowledge-canvas.spec.ts` (3
+      tests) — real click hit-test opens the right file, a real pointer drag pans the camera so a
+      fixed screen point stops hitting the node it used to, and a real search-and-focus centres a
+      different node under that same fixed point. **This is also where this theme's clean-up pass
+      earned its keep**: writing these caught two real Theme D/E bugs that PR #411 shipped with 14 of
+      15 CI checks never having run (see the PR body / this file's own "already broken" note below) —
+      the sigma canvas never resized when its flex container did (opening the node panel left a
+      stale, oversized canvas overlapping and eating the panel's own clicks), and the search-focus
+      camera was set from raw, unnormalized node coordinates instead of sigma's own normalized
+      "framed graph" space (`renderer.getNodeDisplayData`), so it flew to the wrong point on any graph
+      whose extent doesn't coincidentally sit near sigma's default `[0,1]` frame. Both fixed in
+      `use-sigma-graph.ts`; all 3 tests green, 3/3 on a `--repeat-each=3` stability check. The
+      functional-e2e ratchet (`scripts/e2e-budget.mjs`) is raised 433 → 436 with its own justification
+      comment, since jsdom genuinely cannot run these.
 - [ ] One visual-regression baseline, locator-cropped, against the ~100-baseline / 3 MB cap
-      `scripts/e2e-budget.mjs` enforces. A deterministic layout (Theme A) is what makes this stable.
-- [ ] **No wall-clock assertions in unit tests** (`expect(elapsed).toBeLessThan(...)`), per the
-      standing rule. Timing claims belong to the perf scripts.
-- [ ] Record the real numbers in the PR: cold layout time for 14,881 nodes, warm cache open time,
+      `scripts/e2e-budget.mjs` enforces. **Left open** — see "Not in this pass" below: the repo's own
+      convention only ever commits a `-linux.png` baseline (`playwright.visual.config.ts`), generated
+      through a Docker container (`scripts/visual-regen.mjs`) that this sandbox doesn't have. Committing
+      a macOS-rendered file under that name risks a false baseline for the (opt-in, deferred-scope)
+      cross-platform lane rather than a real one.
+- [x] **No wall-clock assertions in unit tests** (`expect(elapsed).toBeLessThan(...)`), per the
+      standing rule. Timing claims belong to the perf scripts. Checked: no such assertion anywhere
+      under `packages/knowledge/src` or `packages/app/src/features/knowledge` (the one `toBeLessThan`
+      in `projection.test.ts` compares byte sizes, not elapsed time).
+- [x] Record the real numbers in the PR: cold layout time for 14,881 nodes, warm cache open time,
       lean-projection bytes vs 21.1 MB, entry-chunk delta, and idle CPU with the view open but the
-      window blurred (`idle-cpu.mjs --blurred`).
+      window blurred (`idle-cpu.mjs --blurred`). All but the last measured fresh against this repo's
+      own `graphify-out/graph.json` (14,881 nodes / 36,032 links, `built_at_commit ba6ac76a…`) — see
+      the PR body for the numbers. **Idle CPU with the Knowledge view specifically open is left
+      open**: `scripts/perf/idle-cpu.mjs` measures whatever view a seeded profile opens to, and
+      nothing in the perf harness can steer that seed to a specific `ViewId` (it seeds a repo, not a
+      view) — adding that is its own small scope, not this theme's.
 
 ---
 
@@ -247,9 +272,15 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green, and `moon run root:tracker-check` exits 0.
-- [ ] The eslint boundary actually bites: an `import` of `packages/knowledge` from `packages/app`
-      fails the build, and an `import 'electron'` inside `packages/knowledge` fails it too.
+- [x] `moon run :typecheck :lint :test` green, and `moon run root:tracker-check` exits 0. Re-run
+      fresh (`--force`, no stale moon cache) on this theme's branch: 27/27 tasks, 454 test files /
+      4513 tests, `tracker-check` prints "All phase docs and index rows agree." (warnings only, on
+      unrelated phases, pre-existing).
+- [x] The eslint boundary actually bites: an `import` of `packages/knowledge` from `packages/app`
+      fails the build, and an `import 'electron'` inside `packages/knowledge` fails it too. Verified
+      directly this pass: a throwaway `import { readGraph } from '@midnite/studio-knowledge'` dropped
+      into `packages/app/src/features/knowledge/` fails `eslint` with the exact
+      `no-restricted-imports` message from the doc's own quote above.
 - [ ] **Nothing is fetched over the network** while the view is open — verified from the packaged
       app's devtools network panel, not from source reading. This is the `graph.html` trap.
 - [ ] Opening Knowledge on this repo renders **14,881 nodes**, not 600. A panel showing the aggregate
