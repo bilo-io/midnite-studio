@@ -54,7 +54,12 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   // `home` is the landing page's word now, so the dashboard drops it.
   dashboard: 'overview summary metrics',
   notes: 'notes todo capture brainstorm quick capture scratchpad',
-  knowledge: 'knowledge graph graphify nodes communities symbols codebase map',
+  // Deliberately NOT the bare word `graph`: the companion's `longestViewMatch`
+  // scores candidates by word count and breaks a tie on first-match, and
+  // `knowledge` sits at VIEW_IDS[3], ahead of `graph`. A bare `graph` token here
+  // therefore stole "show me the graph" from the Commit Graph view. `graphify`
+  // still prefix-matches `graph` in the palette's fuzzy search.
+  knowledge: 'knowledge graphify nodes communities symbols codebase map',
   files: 'tree folder file explorer code',
   search: 'search grep find commits messages files',
   database: 'database sql connection postgres mysql mariadb mssql query schema table',
