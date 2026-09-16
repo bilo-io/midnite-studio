@@ -38,6 +38,10 @@ import {
   ConflictSideSchema,
   InProgressOpSchema,
   ConnectionConfigSchema,
+  KnowledgeGraphPayloadSchema,
+  KnowledgeNodeDetailFailureSchema,
+  KnowledgeNodeDetailSchema,
+  KnowledgeResultOf,
   DbOpResultOf,
   DbOpResultSchema,
   DiagnosticsCandidateSchema,
@@ -2461,6 +2465,34 @@ export const DbQueryDoneEvent = z.object({
   durationMs: z.number().int().nonnegative(),
   /** Set when the query failed or the connection could not be reached. */
   error: z.string().optional(),
+});
+
+// --- knowledge (Phase 87) -----------------------------------------------------
+//
+// Read-only over the active repo's own `graphify-out/graph.json` — the app
+// never runs graphify (phase doc, Decision 4). `knowledgeGetGraph` resolves
+// once with the full lean-projected, laid-out graph, from `@midnite/studio-
+// knowledge`'s cache when `built_at_commit` matches, or after a cold
+// ForceAtlas2 pass in a `worker_threads` worker otherwise (Decision 3) — the
+// cold-pass case reports progress on `EVENT_CHANNELS.knowledgeLayoutProgress`
+// while the caller's `invoke` promise is still pending, exactly as
+// `dbQueryStart` streams over `dbQueryBatch` while its own promise resolves
+// immediately — except here the single `invoke` genuinely waits for the
+// result, since Theme D has nothing paintable until a layout exists at all.
+
+export const KnowledgeGetGraphRequest = RepoId;
+export const KnowledgeGetGraphResponse = KnowledgeResultOf(KnowledgeGraphPayloadSchema);
+
+export const KnowledgeGetNodeDetailRequest = RepoId.extend({ nodeId: z.string().min(1) });
+export const KnowledgeGetNodeDetailResponse = z.union([
+  z.object({ ok: z.literal(true), value: KnowledgeNodeDetailSchema }),
+  KnowledgeNodeDetailFailureSchema,
+]);
+
+/** `{repoId, done, total}` — a cold ForceAtlas2 pass advancing (Theme D's progress bar). */
+export const KnowledgeLayoutProgressEvent = RepoId.extend({
+  done: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
 });
 
 // --- api client (Phase 66) ---------------------------------------------------

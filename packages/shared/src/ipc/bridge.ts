@@ -1162,6 +1162,29 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * The Knowledge view's read-only surface over the active repo's own
+   * `graphify-out/graph.json` (Phase 87). `getGraph` is a single `invoke`
+   * that resolves once a layout exists — from `@midnite/studio-knowledge`'s
+   * cache, or after a cold ForceAtlas2 pass — never a stream, because there is
+   * nothing paintable until the whole thing is laid out. `onLayoutProgress`
+   * fills the gap while a cold pass runs; a cache hit fires it zero times.
+   * `getNodeDetail` is the click-to-open fetch: the lean graph `getGraph`
+   * returns never carries `source_file`/`source_location` for all 14,881
+   * nodes, so one node's detail is its own round trip, by id, on demand.
+   */
+  knowledge: {
+    getGraph: (
+      req: In<typeof S.KnowledgeGetGraphRequest>,
+    ) => Promise<z.infer<typeof S.KnowledgeGetGraphResponse>>;
+    getNodeDetail: (
+      req: In<typeof S.KnowledgeGetNodeDetailRequest>,
+    ) => Promise<z.infer<typeof S.KnowledgeGetNodeDetailResponse>>;
+    onLayoutProgress: (
+      handler: (e: z.infer<typeof S.KnowledgeLayoutProgressEvent>) => void,
+    ) => Unsubscribe;
+  };
+
+  /**
    * A Postman-compatible API client (Phase 66). Collections live repo-local
    * under `.midnite/api/` in the open repository. `sendRequest` is a single
    * `invoke`, not a stream — the response body is capped before it reaches

@@ -150,6 +150,7 @@ const bridge: Pick<
   | 'optimizer'
   | 'protocol'
   | 'db'
+  | 'knowledge'
   | 'mcp'
   | 'companion'
 > = {
@@ -596,6 +597,11 @@ const bridge: Pick<
     queryCancel: (req) => call(CHANNELS.dbQueryCancel, req),
     onQueryBatch: (handler) => subscribe(EVENT_CHANNELS.dbQueryBatch, handler),
     onQueryDone: (handler) => subscribe(EVENT_CHANNELS.dbQueryDone, handler),
+  },
+  knowledge: {
+    getGraph: (req) => call(CHANNELS.knowledgeGetGraph, req),
+    getNodeDetail: (req) => call(CHANNELS.knowledgeGetNodeDetail, req),
+    onLayoutProgress: (handler) => subscribe(EVENT_CHANNELS.knowledgeLayoutProgress, handler),
   },
   mcp: {
     get: () => call(CHANNELS.mcpGet),

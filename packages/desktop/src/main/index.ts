@@ -23,6 +23,7 @@ import { registerApiClientHandlers } from './ipc/api-client-handlers';
 import { disposeScriptRunner } from './api-client/script-runner-broker';
 import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
+import { configureKnowledge, registerKnowledgeHandlers } from './ipc/knowledge-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { createCompanionStore } from './companion/companion-store';
 import { configureCompanion } from './companion/digest';
@@ -363,6 +364,7 @@ if (!app.requestSingleInstanceLock()) {
     registerSessionsHandlers();
     registerNotesHandlers();
     registerDbHandlers(getMainWindow);
+    registerKnowledgeHandlers();
     registerScaffoldHandlers();
     registerTestsHandlers(getMainWindow);
     registerPtyHandlers(getMainWindow);
@@ -541,6 +543,14 @@ if (!app.requestSingleInstanceLock()) {
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
     configureDb(createConnectionsStore(userData), createCredentialVault(userData));
+    /*
+      The Knowledge view's layout cache — keyed on `built_at_commit` plus the
+      projection format version (Phase 87, Decision 2). Its own subdirectory
+      under `userData`, never inside a repo's `graphify-out/`: that directory
+      is graphify's own, and writing into it risks a `graphify uninstall
+      --purge` deleting our cache or an incremental update misreading it.
+    */
+    configureKnowledge(join(userData, 'knowledge-cache'));
     configureNotes(createNotesStore(userData));
     /*
       The companion's per-repo "last greeted" mark (Phase 79 Theme B, Decision
