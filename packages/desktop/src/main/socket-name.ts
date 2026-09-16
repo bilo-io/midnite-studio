@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 
 /**
  * Socket naming, shared by every Unix-socket server this process runs.
@@ -33,11 +33,27 @@ export function mcpSocketName(appVersion: string, buildId: string, isPackaged: b
   return `${appVersion}-${buildId}${isPackaged ? '' : '-dev'}.sock`;
 }
 
-/** Eight hex chars of the file's size and mtime; `unknown` when it cannot be read. */
+/**
+ * Eight hex chars of the file's CONTENT hash; `unknown` when it cannot be read.
+ *
+ * Was `sha1(size:mtimeMs)` — cheap, but wrong for the one thing this is for.
+ * `desktop/scripts/bundle.mjs` re-esbuilds `main.js`/`broker.js` from scratch
+ * on every `moon run desktop:start`, and esbuild's output is byte-identical
+ * for identical input (verified: two back-to-back bundles of an unchanged
+ * source tree produced the same sha1 of file *contents*, but two different
+ * mtimes eight seconds apart). A size+mtime fingerprint therefore minted a
+ * fresh `buildId` on every dev restart of the exact same build, which made
+ * `brokerSocketName` mint a fresh socket path each time too — so
+ * `broker-client.ts`'s `connectOrSpawn` never found the previous run's
+ * broker at the *expected* path, only ever met it via `probeLegacyBrokers`,
+ * and every session it owned came back flagged `legacy: true` even though it
+ * reattached cleanly (the status bar's own "Reattached N sessions"). Hashing
+ * the bytes instead of the stat metadata makes the id follow what actually
+ * changed — the code — not when it last happened to be written to disk.
+ */
 export function fingerprintFile(path: string): string {
   try {
-    const st = statSync(path);
-    return createHash('sha1').update(`${st.size}:${Math.floor(st.mtimeMs)}`).digest('hex').slice(0, 8);
+    return createHash('sha1').update(readFileSync(path)).digest('hex').slice(0, 8);
   } catch {
     return 'unknown';
   }

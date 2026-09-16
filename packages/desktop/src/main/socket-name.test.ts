@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -25,7 +25,7 @@ describe('socket-name', () => {
     expect(mcpSocketName('1.2.3', 'abcd1234', true)).toBe(brokerSocketName('1.2.3', 'abcd1234', true));
   });
 
-  it('fingerprints a real file deterministically from its size and mtime', () => {
+  it('fingerprints a real file deterministically from its content', () => {
     const dir = mkdtempSync(join(tmpdir(), 'mstudio-socket-name-'));
     const file = join(dir, 'script.js');
     writeFileSync(file, 'console.log(1)');
@@ -33,6 +33,45 @@ describe('socket-name', () => {
     const second = fingerprintFile(file);
     expect(first).toBe(second);
     expect(first).toMatch(/^[0-9a-f]{8}$/);
+  });
+
+  /*
+   * Regression for the legacy-session banner appearing on every restart
+   * (adhoc): `desktop/scripts/bundle.mjs` re-esbuilds `broker.js` on every
+   * `moon run desktop:start`, and its output is byte-identical for an
+   * unchanged source tree, but the mtime always advances. A fingerprint keyed
+   * on stat metadata (the old implementation) therefore minted a new
+   * `buildId` — and so a new broker socket name — on every dev restart of the
+   * exact same build, which made `broker-client.ts` treat its own immediate
+   * predecessor as a stale, legacy peer every single time. This asserts the
+   * fingerprint survives a rewrite-with-identical-bytes at a different mtime,
+   * and still changes when the bytes genuinely do.
+   */
+  it('does not change when a file is rewritten with the same bytes at a later mtime', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mstudio-socket-name-'));
+    const file = join(dir, 'broker.js');
+    writeFileSync(file, 'console.log("broker")');
+    const first = fingerprintFile(file);
+
+    // Same bytes, a full minute later — what `bundle.mjs` does to `broker.js`
+    // on a dev restart with no source change at all.
+    const later = new Date(Date.now() + 60_000);
+    utimesSync(file, later, later);
+    const second = fingerprintFile(file);
+
+    expect(second).toBe(first);
+  });
+
+  it('changes the fingerprint when the file content actually changes', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mstudio-socket-name-'));
+    const file = join(dir, 'broker.js');
+    writeFileSync(file, 'console.log("broker")');
+    const first = fingerprintFile(file);
+
+    writeFileSync(file, 'console.log("broker v2")');
+    const second = fingerprintFile(file);
+
+    expect(second).not.toBe(first);
   });
 
   it('reports "unknown" for a file that does not exist', () => {
