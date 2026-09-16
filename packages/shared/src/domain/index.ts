@@ -14,6 +14,7 @@ export * from './forge';
 export * from './forge-graph';
 export * from './forge-project';
 export * from './journal';
+export * from './knowledge';
 export * from './metrics';
 export * from './optimizer';
 export * from './rebase';

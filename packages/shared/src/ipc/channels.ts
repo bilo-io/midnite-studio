@@ -1028,6 +1028,22 @@ export const CHANNELS = {
   companionSttSet: 'mstudio:companion:stt-credential-set',
   /** Run a one-second silent clip through the provider and report the round-trip. */
   companionSttTest: 'mstudio:companion:stt-credential-test',
+
+  // --- knowledge (Phase 87) ---------------------------------------------------
+  // The Knowledge view's read-only surface over `graphify-out/graph.json`. The
+  // app never runs graphify (phase doc, Decision 4) — both channels below only
+  // ever read a file that is already on disk or answer from an in-memory
+  // cache built from it. `knowledgeGetGraph` resolves once the graph is fully
+  // laid out (from Theme A's cache, or after a cold ForceAtlas2 pass in a
+  // worker thread) — see `EVENT_CHANNELS.knowledgeLayoutProgress` for what
+  // fills the gap while a cold pass runs. `knowledgeGetNodeDetail` is the
+  // click-to-open fetch: the lean graph never carries `source_file`/
+  // `source_location` for all 14,881 nodes, so one node's detail is its own
+  // round trip, by id, on demand.
+  /** The active repo's lean, laid-out graph — nodes, links, positions, `built_at_commit`. */
+  knowledgeGetGraph: 'mstudio:knowledge:get-graph',
+  /** One node's `source_file`/`source_location`, fetched by id for a click-to-open. */
+  knowledgeGetNodeDetail: 'mstudio:knowledge:get-node-detail',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -1159,6 +1175,15 @@ export const EVENT_CHANNELS = {
   /** The run finished (or was aborted) — carries the whole `ApiRunSummary`,
    *  mirroring `dbQueryDone`. */
   apiRunDone: 'mstudio:api-client:run-done',
+
+  /**
+   * A cold ForceAtlas2 pass advanced — `{repoId, done, total}` — Theme D's
+   * progress bar for the (cache-miss) case where the layout genuinely has to
+   * run. Sent only to the window that asked, mirroring `handleFromSender`'s
+   * own reasoning in `handle.ts`: a popout's own knowledge canvas must not
+   * wait forever on progress `getMainWindow()` never sends it.
+   */
+  knowledgeLayoutProgress: 'mstudio:knowledge:layout-progress',
 } as const;
 
 /**

@@ -186,6 +186,7 @@ jobs:
         run: >-
           pnpm exec moon run
           shared:typecheck shared:lint shared:test
+          knowledge:typecheck knowledge:lint knowledge:test
           app:typecheck app:lint
           website:typecheck website:lint website:test
           db-engine:typecheck db-engine:lint db-engine:test

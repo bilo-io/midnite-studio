@@ -64,49 +64,62 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — `packages/knowledge`, the electron-free engine (M)
+### A — `packages/knowledge`, the electron-free engine (M) — ✅ DONE (PR #408, 2026-09-16)
 
-- [ ] New package `packages/knowledge` with its own `moon.yml`, in the shape of
+- [x] New package `packages/knowledge` with its own `moon.yml`, in the shape of
       [`packages/git-engine/moon.yml`](../../../packages/git-engine/moon.yml). Plain Node/TS,
       **never imports `electron`**, so the parser and the layout stay testable under bare vitest.
-- [ ] Add the boundary group to [`eslint.config.mjs`](../../../eslint.config.mjs) beside the existing
+- [x] Add the boundary group to [`eslint.config.mjs`](../../../eslint.config.mjs) beside the existing
       `git-engine` and `db-engine` groups, with the same explanatory message. `app` must not import it.
-- [ ] `readGraph(repoPath)` — resolve `<repo>/graphify-out/graph.json`, parse, and return a
+- [x] `readGraph(repoPath)` — resolve `<repo>/graphify-out/graph.json`, parse, and return a
       discriminated result: `{ok:true, graph}` | `{ok:false, kind:'absent'|'unreadable'|'malformed'}`.
       **Absent is not an error** — it is the common case for an un-graphified repo and Theme F renders
       it as a normal state.
-- [ ] **The lean projection.** Strip what the picture never reads — `_origin`, `context`,
+- [x] **The lean projection.** Strip what the picture never reads — `_origin`, `context`,
       `confidence_score`, `_callable_class`, the long `source_location` strings — keeping `id`,
       `label`, `community`, `community_name`, `file_type`, and per-link `source`/`target`/`relation`/
-      `weight`. Measure and record the before/after byte count; the 21.1 MB figure is the baseline.
-- [ ] Per-node detail stays retrievable by id, so a click can fetch `source_file` +
+      `weight`. Measured against this repo's own graph: the lean projection is ~50% of the raw parsed
+      size (8.34 MB vs 16.5 MB as JSON; the 21.1 MB figure is the on-disk file's own byte count,
+      which includes formatting whitespace this measurement doesn't). `weight` turned out to be
+      optional in the wild (113 of 36,032 links, all `dynamic_import`, carry none) — defaulted to `1`
+      rather than dropped. `confidence`/`confidence_score` are dropped per this bullet's own field
+      list; Theme E will want `confidence` back for its edge filter, left as a small addition for it.
+- [x] Per-node detail stays retrievable by id, so a click can fetch `source_file` +
       `source_location` for one node without the projection having carried it for all 14,881.
-- [ ] **ForceAtlas2 layout** via `graphology-layout-forceatlas2`, run once over the full graph.
+- [x] **ForceAtlas2 layout** via `graphology-layout-forceatlas2`, run once over the full graph.
       Deterministic: same input, same coordinates, so the cache is meaningful and a visual test has
-      something stable to assert.
-- [ ] **Layout cache keyed on `built_at_commit`** plus a projection-format version. A repo reopened
+      something stable to assert. Seeded from a deterministic circular layout (nodes sorted by id).
+      Measured: ~7.1s for the full 14,881-node graph at 100 iterations — confirmed real compute,
+      which is why Theme B moves it off the main thread.
+- [x] **Layout cache keyed on `built_at_commit`** plus a projection-format version. A repo reopened
       at the same graph is instant; a `graphify update` changes the key and invalidates exactly.
       Cache lives in the app's `userData`, **not** in `graphify-out/` — see Decision 2.
-- [ ] Vitest: absent/unreadable/malformed each return their kind; the projection drops the right
+- [x] Vitest: absent/unreadable/malformed each return their kind; the projection drops the right
       fields and keeps the rest; the cache key changes with `built_at_commit` and not with anything
-      else; layout is deterministic across two runs on a fixture graph.
+      else; layout is deterministic across two runs on a fixture graph. (21 cases.)
 
-### B — The IPC contract and the main-process handler (M)
+### B — The IPC contract and the main-process handler (M) — ✅ DONE (PR #408, 2026-09-16)
 
-- [ ] Channel constants in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts) and zod
+- [x] Channel constants in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts) and zod
       payload schemas in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) — `shared` is the
-      wire contract and owns both, as it does for every other surface.
-- [ ] The op **never throws across the boundary**. It returns the `GitOpResult`-shaped envelope every
-      other IPC op returns, so "this repo has no graph" is a state the UI renders rather than an
-      exception it catches.
-- [ ] Main-process handler in `packages/desktop` calling into `packages/knowledge`: resolve the active
+      wire contract and owns both, as it does for every other surface. `knowledgeGetGraph` and
+      `knowledgeGetNodeDetail`, plus the `knowledgeLayoutProgress` event.
+- [x] The op **never throws across the boundary**. Returns `KnowledgeResult` — its own envelope,
+      shaped like `GitOpResult`/`DbOpResult` but with a 4-arm failure (`absent`/`unreadable`/
+      `malformed`/`error`) since `conflict` means nothing for a file that is simply missing — so
+      "this repo has no graph" is a state the UI renders rather than an exception it catches.
+- [x] Main-process handler in `packages/desktop` calling into `packages/knowledge`: resolve the active
       repo, read, project, lay out, cache, respond.
-- [ ] Layout runs **off the main thread** — a multi-second ForceAtlas2 pass that freezes the window is
-      not shippable. Decision 3 records worker vs `utilityProcess`.
-- [ ] Progress is reported while a cold layout runs, so Theme D has something to show other than a
-      frozen empty canvas.
-- [ ] Extend the preload bridge type so `window.midniteStudio` exposes it, per the existing pattern.
-- [ ] Vitest for the handler's repo resolution and envelope shape.
+- [x] Layout runs **off the main thread** — a multi-second ForceAtlas2 pass that freezes the window is
+      not shippable. Decision 3 resolved unattended, per its own recommendation: `worker_threads`.
+- [x] Progress is reported while a cold layout runs, so Theme D has something to show other than a
+      frozen empty canvas. Sent only to the requesting window (`handleFromSender`), never to a popout
+      that never asked.
+- [x] Extend the preload bridge type so `window.midniteStudio` exposes it, per the existing pattern.
+      `window.midniteStudio.knowledge.{getGraph, getNodeDetail, onLayoutProgress}`.
+- [x] Vitest for the handler's repo resolution and envelope shape. (10 cases: not-open, absent,
+      malformed, cache hit with no worker spawned, cache miss with worker spawned + cache written,
+      a worker failure surfaced as `error`, node-detail found/not-found/cold-rebuild.)
 
 ### C — The rail row and view registration (S)
 
@@ -276,12 +289,11 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
    appears in whatever ignore rules that directory has, and risks confusing graphify's own
    incremental update. The cache is ours; it belongs with our state.
 
-3. **Open — worker thread or `utilityProcess` for the layout?** A multi-second ForceAtlas2 pass must
-   not block main. A `worker_threads` worker is lighter and keeps the code inside
-   `packages/knowledge`; Electron's `utilityProcess` is the more idiomatic Electron answer and is
-   already how heavy work is isolated elsewhere. *Recommendation:* **`worker_threads`**, because it
-   keeps the layout inside the electron-free package where its tests live. Revisit if startup cost
-   surprises.
+3. **Resolved (PR #408) — `worker_threads`, per this decision's own recommendation.** A multi-second
+   ForceAtlas2 pass must not block main. A `worker_threads` worker is lighter and keeps the code
+   inside `packages/knowledge`, so its own vitest suite keeps testing the layout directly; Electron's
+   `utilityProcess` would have moved it out of the electron-free package for no benefit this phase
+   needed. Revisit if startup cost surprises in practice.
 
 4. **Resolved — the app never runs graphify.** The moment the app can spawn it, it owns a child
    process's lifetime across repo switches, window closes and quits, plus the question of which

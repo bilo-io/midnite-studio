@@ -23,7 +23,9 @@
       "@midnite/studio-git-engine": ["./packages/git-engine/src/index.ts"],
       "@midnite/studio-git-engine/*": ["./packages/git-engine/src/*"],
       "@midnite/studio-db-engine": ["./packages/db-engine/src/index.ts"],
-      "@midnite/studio-db-engine/*": ["./packages/db-engine/src/*"]
+      "@midnite/studio-db-engine/*": ["./packages/db-engine/src/*"],
+      "@midnite/studio-knowledge": ["./packages/knowledge/src/index.ts"],
+      "@midnite/studio-knowledge/*": ["./packages/knowledge/src/*"]
     }
   }
 }
