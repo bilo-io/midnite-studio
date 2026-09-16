@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useKnowledgeGraph, useKnowledgeGraphExists } from './use-knowledge-graph';
+import { fetchKnowledgeGraph, useKnowledgeGraph, useKnowledgeGraphExists } from './use-knowledge-graph';
 
 function graphFor(repoId: string): KnowledgeGraphPayload {
   return {
@@ -165,5 +165,103 @@ describe('useKnowledgeGraphExists (Phase 87 Theme F rail greying)', () => {
     });
 
     expect(result.current).toBeUndefined();
+  });
+});
+
+describe('fetchKnowledgeGraph — the stall guard', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function apiWith(getGraph: () => Promise<unknown>) {
+    type Progress = (event: { repoId: string; done: number; total: number }) => void;
+    const sink: { emit: Progress | null } = { emit: null };
+    const unsubscribe = vi.fn();
+    const api = {
+      getGraph: vi.fn(getGraph),
+      getNodeDetail: vi.fn(),
+      checkGraph: vi.fn(),
+      onLayoutProgress: vi.fn((handler: Progress) => {
+        sink.emit = handler;
+        return unsubscribe;
+      }),
+    } as unknown as MidniteStudioBridge['knowledge'];
+    return {
+      api,
+      progress: (done: number) => sink.emit?.({ repoId: 'repo:1', done, total: 100 }),
+      unsubscribe,
+    };
+  }
+
+  it('settles as an error once main has been silent for the stall budget', async () => {
+    vi.useFakeTimers();
+    const { api, unsubscribe } = apiWith(() => new Promise(() => {}));
+    const pending = fetchKnowledgeGraph(api, 'repo:1', 1_000);
+    await vi.advanceTimersByTimeAsync(999);
+    let settled = false;
+    void pending.then(() => (settled = true));
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    const result = await pending;
+    expect(result.ok).toBe(false);
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.kind === 'error') {
+      expect(result.message).toMatch(/No answer from the app for 1s/);
+    } else {
+      throw new Error('expected an error envelope');
+    }
+    expect(unsubscribe).toHaveBeenCalled();
+  });
+
+  it('resets the budget on every progress event for this repo, so a slow layout is not cut off', async () => {
+    vi.useFakeTimers();
+    let resolveCall: (value: unknown) => void = () => {};
+    const { api, progress } = apiWith(() => new Promise((resolve) => (resolveCall = resolve)));
+    const pending = fetchKnowledgeGraph(api, 'repo:1', 1_000);
+    for (let i = 1; i <= 5; i += 1) {
+      await vi.advanceTimersByTimeAsync(800);
+      progress(i * 20);
+    }
+    // 4 s of wall clock against a 1 s budget — alive because it kept talking.
+    resolveCall({ ok: true, value: graphFor('repo:1') });
+    const result = await pending;
+    expect(result.ok).toBe(true);
+  });
+
+  it('ignores progress for another repo when deciding whether this call is alive', async () => {
+    vi.useFakeTimers();
+    type Progress = (event: { repoId: string; done: number; total: number }) => void;
+    const sink: { emit: Progress | null } = { emit: null };
+    const api = {
+      getGraph: vi.fn(() => new Promise(() => {})),
+      getNodeDetail: vi.fn(),
+      checkGraph: vi.fn(),
+      onLayoutProgress: vi.fn((handler: Progress) => {
+        sink.emit = handler;
+        return () => {};
+      }),
+    } as unknown as MidniteStudioBridge['knowledge'];
+    const pending = fetchKnowledgeGraph(api, 'repo:1', 1_000);
+    await vi.advanceTimersByTimeAsync(900);
+    sink.emit?.({ repoId: 'repo:other', done: 50, total: 100 });
+    await vi.advanceTimersByTimeAsync(100);
+    const result = await pending;
+    expect(result.ok).toBe(false);
+  });
+
+  it('passes a prompt answer straight through and stops the clock', async () => {
+    vi.useFakeTimers();
+    const { api, unsubscribe } = apiWith(async () => ({ ok: true, value: graphFor('repo:1') }));
+    const result = await fetchKnowledgeGraph(api, 'repo:1', 1_000);
+    expect(result.ok).toBe(true);
+    expect(unsubscribe).toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(5_000);
+  });
+
+  it('turns a rejected invoke into an error envelope, never a thrown rejection', async () => {
+    const { api } = apiWith(() => Promise.reject(new Error('No handler registered')));
+    const result = await fetchKnowledgeGraph(api, 'repo:1', 1_000);
+    expect(result).toEqual({ ok: false, kind: 'error', message: 'No handler registered' });
   });
 });

@@ -4,12 +4,12 @@
 // filter selects." None of this needs a real browser.
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../store/ui-store';
 import { useKnowledgeFiltersStore } from './knowledge-filters-store';
-import { KnowledgeView } from './knowledge-view';
+import { KNOWLEDGE_SLOW_LOAD_MS, KnowledgeView } from './knowledge-view';
 
 vi.mock('./knowledge-canvas', () => ({
   KnowledgeCanvas: () => <div data-testid="knowledge-canvas-stub" />,
@@ -196,5 +196,46 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
     await waitFor(() =>
       expect(screen.getByTestId('knowledge-node-panel-stub').textContent).toBe('a'),
     );
+  });
+
+  it('offers a Retry on the error state that re-asks main, so a one-off failure is not pinned for the session', async () => {
+    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    const getGraph = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, kind: 'error', message: 'worker crashed' })
+      .mockResolvedValueOnce({ ok: true, value: READY_PAYLOAD });
+    installBridge({ getGraph });
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByText(/couldn.t load the graph/i)).toBeDefined());
+    expect(screen.getByText('worker crashed')).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    await waitFor(() => expect(screen.getByTestId('knowledge-canvas-stub')).toBeDefined());
+    expect(getGraph).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows no Retry while a load is fresh, and offers one once it has run long', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      useUiStore.setState({ selectedRepoId: 'repo:1' });
+      installBridge({ getGraph: vi.fn().mockReturnValue(new Promise(() => {})) });
+
+      renderView();
+
+      expect(screen.getByText(/reading the knowledge graph/i)).toBeDefined();
+      expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(KNOWLEDGE_SLOW_LOAD_MS + 1);
+      });
+
+      expect(screen.getByText(/taking longer than usual/i)).toBeDefined();
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

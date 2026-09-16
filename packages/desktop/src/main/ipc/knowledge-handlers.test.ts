@@ -27,7 +27,10 @@ const { getRepo } = vi.hoisted(() => ({ getRepo: vi.fn() }));
 vi.mock('../repo-registry', () => ({ getRepo }));
 
 const { runLayoutInWorker } = vi.hoisted(() => ({ runLayoutInWorker: vi.fn() }));
-vi.mock('../knowledge/layout-runner', () => ({ runLayoutInWorker }));
+vi.mock('../knowledge/layout-runner', () => ({
+  runLayoutInWorker,
+  resolveLayoutWorkerPath: () => '/mock/knowledge-layout-worker.js',
+}));
 
 const { readGraph, readLayoutCache, writeLayoutCache, graphExists } = vi.hoisted(() => ({
   readGraph: vi.fn(),
@@ -55,6 +58,7 @@ const { execGit } = vi.hoisted(() => ({
 }));
 vi.mock('@midnite/studio-git-engine', () => ({ execGit }));
 
+import { loggerFrom } from '../log';
 import { configureKnowledge, registerKnowledgeHandlers, resetKnowledge } from './knowledge-handlers';
 
 /** The `ipcMain.handle` listener main registered for `channel`, invoked the way `ipcRenderer.invoke` would. */
@@ -94,7 +98,7 @@ describe('registerKnowledgeHandlers (Phase 87 Theme B)', () => {
     execGit.mockReset();
     execGit.mockResolvedValue({ exitCode: 0, stdout: '0\n', stderr: '', args: [] });
     resetKnowledge();
-    configureKnowledge('/tmp/knowledge-cache-test');
+    configureKnowledge('/tmp/knowledge-cache-test', loggerFrom(() => {}));
     registerKnowledgeHandlers();
   });
 

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -81,6 +81,12 @@ export async function readLayoutCache(
  * second write for a different repo, since each repo has its own file) can
  * never leave a half-written, unparseable cache entry for the NEXT read to
  * trip over.
+ *
+ * The temp name carries a random suffix as well as the pid: two windows
+ * asking for the same repo's graph at once (the main window and a popout,
+ * or a Retry racing the call it retried) both reach this write from the
+ * SAME process, and a pid-only temp name had them writing one file and the
+ * second `rename` failing with ENOENT.
  */
 export async function writeLayoutCache(
   cacheDir: string,
@@ -89,7 +95,7 @@ export async function writeLayoutCache(
 ): Promise<void> {
   await mkdir(cacheDir, { recursive: true });
   const path = join(cacheDir, cacheFileName(repoId));
-  const tmpPath = `${path}.${process.pid}.tmp`;
+  const tmpPath = `${path}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
   await writeFile(tmpPath, JSON.stringify(entry), 'utf8');
   try {
     await rename(tmpPath, path);
