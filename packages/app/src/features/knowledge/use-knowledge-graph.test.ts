@@ -101,6 +101,21 @@ describe('useKnowledgeGraph (Phase 87 Theme F)', () => {
     await waitFor(() => expect(result.current.state.kind).toBe('error'));
   });
 
+  it('handles bridge exception cleanly as an error state', async () => {
+    installBridge({
+      getGraph: vi.fn().mockRejectedValue(new Error('IPC channel crashed')),
+    });
+    const client = newClient();
+    const { result } = renderHook(() => useKnowledgeGraph('repo:1'), {
+      wrapper: ({ children }) => createElement(QueryClientProvider, { client }, children),
+    });
+
+    await waitFor(() => expect(result.current.state.kind).toBe('error'));
+    if (result.current.state.kind === 'error') {
+      expect(result.current.state.message).toBe('IPC channel crashed');
+    }
+  });
+
   it('never fires a request with no repo selected', () => {
     const getGraph = vi.fn();
     installBridge({ getGraph });

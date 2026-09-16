@@ -1,22 +1,30 @@
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Worker } from 'node:worker_threads';
 
 import type { LayoutPositions, LeanGraph } from '@midnite/studio-knowledge';
 
 /**
- * Where the worker's compiled entry point lives, resolved through Node's own
- * module resolution rather than a hardcoded relative path — `require.resolve`
- * on the package's `"."` export finds `dist/index.js`, and the worker script
- * sits right beside it (Theme B, Decision 3: `worker_threads`, not
- * `utilityProcess`, so the layout stays inside the electron-free package
- * where its tests live). `@midnite/studio-knowledge`'s `package.json` exposes
- * only `"."`, so this is deliberately a sibling-file join rather than a
- * second `exports` entry — `layout-worker.js` is an implementation detail of
- * this runner, not a public subpath of the package.
+ * Where the worker's compiled entry point lives.
+ *
+ * In packaged Electron (`scripts/bundle.mjs`), `knowledge-layout-worker` is
+ * bundled directly into `dist/bundle/knowledge-layout-worker.js` alongside
+ * `main.js` so it survives packaging (where `node_modules/@midnite/**` is
+ * excluded from `app.asar`). In unbundled dev or unit test environments,
+ * `join(dirnameOverride, 'knowledge-layout-worker.js')` might not exist yet,
+ * so we fall back to resolving `layout-worker.js` from `@midnite/studio-knowledge`.
  */
-function resolveLayoutWorkerPath(): string {
-  const indexPath = require.resolve('@midnite/studio-knowledge');
-  return join(dirname(indexPath), 'layout-worker.js');
+export function resolveLayoutWorkerPath(dirnameOverride: string = __dirname): string {
+  const bundled = join(dirnameOverride, 'knowledge-layout-worker.js');
+  if (existsSync(bundled)) return bundled;
+
+  try {
+    const indexPath = require.resolve('@midnite/studio-knowledge');
+    const unbundled = join(dirname(indexPath), 'layout-worker.js');
+    if (existsSync(unbundled)) return unbundled;
+  } catch {}
+
+  return bundled;
 }
 
 export type LayoutRunResult =
