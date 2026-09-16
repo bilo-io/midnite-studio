@@ -621,22 +621,48 @@ jobs:
     # Stays on macOS: this is the job with a measured platform tax in its own
     # history (the `Meta+k` paragraph above), so it runs where the product ships.
     #
-    # 8 shards -> 4. Past the 5-job macOS concurrency cap, sharding buys no
+    # 8 shards -> 4 -> 3. Past the 5-job macOS concurrency cap, sharding buys no
     # parallelism at all and costs a VM boot + install + browser download per
     # extra shard: 8 shards ran 5-then-3, so the run was two batches deep before
     # any other job could start. At 4 they fit one batch beside gate-native and
     # gate-locale. The comment above already suspected this ("if anything they
     # are now over-sharded") on runtime grounds alone.
+    #
+    # 4 -> 3 is about `package`, and the evidence is run 35098062963 (6a35394b,
+    # main, an otherwise idle pool -- the first clean measurement of the 4-shard
+    # config). It pins the cap at exactly 5: gate-locale, gate-native and e2e
+    # shards 2/3/4 all started within 8-10s, and the SIXTH macOS job (e2e shard
+    # 1) waited 3m02s -- starting 9 seconds after gate-locale finished, i.e. the
+    # instant a slot opened. Not a coincidence; that is the cap being observed.
+    #
+    # The gate phase finished in 11m40s, but the run took 19m25s, and the whole
+    # difference is `package`. It `needs` gate-node + gate-node-app-test +
+    # gate-native -- all three done by 3m19s, and none of them e2e -- yet it sat
+    # 8m29s waiting for a macOS slot behind the e2e shards before running its
+    # own 7m36s.
+    #
+    # Three shards makes the macOS set exactly 5 (gate-locale, gate-native,
+    # e2e 1-3), so nothing queues at the start and `package` inherits
+    # gate-native's slot at ~3m20s instead of ~9m. Expected: main pushes
+    # ~19.5m -> ~11.5m. PRs are close to a wash -- `package` is main-only (see
+    # its `if:`), and a fatter shard costs back about what the freed slot saves
+    # -- so this is bought for main and roughly free for PRs.
+    #
+    # The cost is per-shard runtime, and it is real: 4-way shards measured
+    # 8m08s-9m28s in that run, and this suite has scaled near-linearly with
+    # shard count so far (8-way: 3m56s-5m58s), so expect ~11-12m at 3.
     runs-on: macos-14
-    # Raised from 10: a quarter of the suite per shard instead of an eighth.
-    # The 8-way shards ran 3m56s-5m58s, so expect roughly double that.
-    timeout-minutes: 15
+    # Raised from 15: a third of the suite per shard instead of a quarter,
+    # against measured 4-way shards of 8m08s-9m28s. 20 leaves headroom over the
+    # ~11-12m expected above, and the paragraph below is why a number is set at
+    # all rather than inheriting GitHub's 6-hour default.
+    timeout-minutes: 20
     strategy:
       # Every shard reports. Cancelling siblings on the first failure would hide
       # three quarters of a broken suite behind whichever shard happened to fail.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
 
@@ -696,8 +722,8 @@ jobs:
       # everything except a named `KNOWN_RED` list of files still being repaired;
       # Theme H emptied that list and retired the ratchet, so CI now blocks on
       # the same suite a human runs locally.
-      - name: E2E (shard ${{ matrix.shard }}/4)
-        run: pnpm exec moon run app:e2e -- --shard=${{ matrix.shard }}/4
+      - name: E2E (shard ${{ matrix.shard }}/3)
+        run: pnpm exec moon run app:e2e -- --shard=${{ matrix.shard }}/3
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
