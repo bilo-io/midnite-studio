@@ -11601,6 +11601,8 @@ role's queries are ever mounted" already held by construction. H.4: `memory-repo
 
 **Ad-hoc: graph foreign orphans** ([PR #406](https://github.com/bilo-io/midnite-studio/pull/406)) — `filterForgeGraph` drops a foreign node once no surviving edge touches it, so filtering the board to one workstream no longer strands other workstreams' referenced-but-unlisted issues on the canvas as status-less cards.
 
+**Ad-hoc: knowledge view spinner** ([PR #427](https://github.com/bilo-io/midnite-studio/pull/427)) — The Knowledge view could sit on "Reading the knowledge graph…" indefinitely with nothing in `main.log`. Now every way the layout worker can end settles `runLayoutInWorker` (a 60 s stall watchdog, a clean exit that never posted `done`, a spawn failure), every `getGraph` stage is logged through the log seam, `fetchKnowledgeGraph` gives the renderer its own 90 s progress-reset silence budget so the query settles even if main never answers, the view offers Retry on an error and after 30 s on the spinner, and the layout cache's temp file carries a random suffix so two concurrent writes for one repo no longer collide. Measured on this repo's graph (15,199 nodes / 36,772 links) in the packaged app: ~10-12 s cold, <2 s on a cache hit.
+
 
 ---
 

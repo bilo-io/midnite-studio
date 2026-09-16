@@ -1,9 +1,85 @@
-import type { KnowledgeGraphPayload, KnowledgeResult } from '@midnite/studio-shared';
+import type { KnowledgeGraphPayload, KnowledgeResult, MidniteStudioBridge } from '@midnite/studio-shared';
 import { useQuery } from '@tanstack/react-query';
 
 import { bridge } from '../../services/bridge';
 import { keys } from '../../services/queries';
 import { resolveKnowledgeViewState, type KnowledgeViewState } from './knowledge-state';
+
+/**
+ * How long the renderer waits for main to say *anything* about a `getGraph`
+ * call before giving up on it. Reset on every `knowledgeLayoutProgress`
+ * event for this repo, so it is a silence budget, not a total budget: a large
+ * graph that keeps reporting batches never trips it, a call that has stopped
+ * answering does.
+ *
+ * Measured on this repo's own graph (15,199 nodes / 36,772 links) in the
+ * packaged app: the read-and-git phase before the first progress event takes
+ * well under a second, and layout batches arrive every 2-4 s. Main's own
+ * watchdog (`layout-runner.ts`'s `LAYOUT_STALL_MS`, 60 s) is the first line;
+ * this one is deliberately longer so main's more specific error wins whenever
+ * main is alive to send it. It exists for the case where main is NOT — an
+ * `ipcRenderer.invoke` whose reply never comes has no other way to end, and
+ * react-query's `isLoading` (a spinner) is bound to exactly that promise.
+ */
+export const KNOWLEDGE_GRAPH_STALL_MS = 90_000;
+
+function errorResult(message: string): KnowledgeResult<KnowledgeGraphPayload> {
+  return { ok: false, kind: 'error', message };
+}
+
+/**
+ * `knowledge.getGraph`, guaranteed to settle. Exported for its own unit test
+ * (fake timers over a bridge whose `getGraph` never resolves); `useKnowledgeGraph`
+ * is its only production caller.
+ */
+export function fetchKnowledgeGraph(
+  api: MidniteStudioBridge['knowledge'],
+  repoId: string,
+  stallMs: number = KNOWLEDGE_GRAPH_STALL_MS,
+): Promise<KnowledgeResult<KnowledgeGraphPayload>> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = (result: KnowledgeResult<KnowledgeGraphPayload>): void => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      unsubscribe();
+      resolve(result);
+    };
+
+    const arm = (): void => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        finish(
+          errorResult(
+            `No answer from the app for ${Math.round(stallMs / 1000)}s while loading the graph. ` +
+              'Retry, or check logs/main.log for [knowledge] entries.',
+          ),
+        );
+      }, stallMs);
+    };
+
+    const unsubscribe = api.onLayoutProgress((event) => {
+      if (event.repoId === repoId) arm();
+    });
+    arm();
+
+    let call: Promise<KnowledgeResult<KnowledgeGraphPayload> | undefined>;
+    try {
+      call = Promise.resolve(api.getGraph({ repoId }));
+    } catch (error) {
+      finish(errorResult(error instanceof Error ? error.message : 'Unable to load knowledge graph.'));
+      return;
+    }
+    call.then(
+      (result) => finish(result ?? errorResult('No bridge available.')),
+      (error: unknown) =>
+        finish(errorResult(error instanceof Error ? error.message : 'Unable to load knowledge graph.')),
+    );
+  });
+}
 
 /**
  * The active repo's lean, laid-out graph (Phase 87 Themes A/B, wired here for
@@ -26,6 +102,11 @@ import { resolveKnowledgeViewState, type KnowledgeViewState } from './knowledge-
  * is reading any more. See `use-knowledge-graph.test.ts` for the integration
  * proof: a first repo's `getGraph` resolving AFTER a switch to a second repo
  * must never be observed by the hook.
+ *
+ * `refetch` is the Retry the view offers on an error (and on a load that has
+ * run long): with `staleTime: Infinity` an error envelope is cached like any
+ * other answer, so without it a one-off failure would be pinned for the
+ * renderer's lifetime.
  */
 export function useKnowledgeGraph(repoId: string | null): {
   state: KnowledgeViewState;
@@ -35,16 +116,9 @@ export function useKnowledgeGraph(repoId: string | null): {
     queryKey: keys.knowledgeGraph(repoId ?? 'none'),
     enabled: repoId !== null,
     queryFn: async (): Promise<KnowledgeResult<KnowledgeGraphPayload>> => {
-      try {
-        const result = await bridge()?.knowledge.getGraph({ repoId: repoId as string });
-        return result ?? { ok: false, kind: 'error', message: 'No bridge available.' };
-      } catch (error) {
-        return {
-          ok: false,
-          kind: 'error',
-          message: error instanceof Error ? error.message : 'Unable to load knowledge graph.',
-        };
-      }
+      const api = bridge()?.knowledge;
+      if (!api) return errorResult('No bridge available.');
+      return fetchKnowledgeGraph(api, repoId as string);
     },
   });
 

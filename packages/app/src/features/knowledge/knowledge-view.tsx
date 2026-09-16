@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { LuCircleAlert, LuClock } from 'react-icons/lu';
 import { SiGrapheneos } from 'react-icons/si';
@@ -20,6 +20,7 @@ import { useKnowledgeFiltersStore } from './knowledge-filters-store';
 import { useKnowledgeLayoutProgress } from './use-knowledge-layout-progress';
 import { KnowledgeNodePanel } from './knowledge-node-panel';
 import { useKnowledgeGraph } from './use-knowledge-graph';
+import { type KnowledgeLayoutProgress } from './use-knowledge-layout-progress';
 
 /**
  * The Knowledge view — Phase 87.
@@ -38,7 +39,7 @@ import { useKnowledgeGraph } from './use-knowledge-graph';
  */
 export function KnowledgeView() {
   const { repoId, worktreePath } = useActiveWorktree();
-  const { state } = useKnowledgeGraph(repoId);
+  const { state, refetch } = useKnowledgeGraph(repoId);
   const layoutProgress = useKnowledgeLayoutProgress(repoId, state.kind === 'loading');
 
   const scopeKey = repoId ?? '';
@@ -88,16 +89,7 @@ export function KnowledgeView() {
 
   switch (state.kind) {
     case 'loading':
-      return (
-        <div className="flex h-full flex-col items-center justify-center gap-3">
-          <Spinner size="md" />
-          <p className="text-xs text-muted-foreground">
-            {layoutProgress && layoutProgress.total > 0
-              ? `Laying out the graph… ${layoutProgress.done.toLocaleString()} / ${layoutProgress.total.toLocaleString()}`
-              : 'Reading the knowledge graph…'}
-          </p>
-        </div>
-      );
+      return <LoadingState progress={layoutProgress} onRetry={refetch} />;
 
     case 'absent':
       return <KnowledgeInstructions />;
@@ -121,7 +113,12 @@ export function KnowledgeView() {
       );
 
     case 'error':
-      return <EmptyState icon={LuCircleAlert} title="Couldn't load the graph" body={state.message} />;
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-3">
+          <EmptyState icon={LuCircleAlert} title="Couldn't load the graph" body={state.message} />
+          <RetryButton onClick={refetch} />
+        </div>
+      );
 
     case 'ready':
       return (
@@ -213,5 +210,62 @@ function StaleBanner({ commitsBehind }: { commitsBehind: number }) {
         <code className="font-mono text-foreground">graphify update .</code> to refresh it.
       </span>
     </div>
+  );
+}
+
+/**
+ * After this long on the spinner, the view stops pretending the load is
+ * routine. Measured in the packaged app on this repo's own graph: a cold load
+ * (read + ForceAtlas2 + IPC + first sigma paint) is ~12 s, a cache hit under
+ * 2 s — so 30 s is "something is wrong", not "a big graph". The Retry it
+ * offers is the same `refetch` the error state gets; the fetch itself is
+ * still bounded by `use-knowledge-graph.ts`'s stall guard, this is only the
+ * moment the user is told they need not wait for it.
+ */
+export const KNOWLEDGE_SLOW_LOAD_MS = 30_000;
+
+function LoadingState({
+  progress,
+  onRetry,
+}: {
+  progress: KnowledgeLayoutProgress;
+  onRetry: () => void;
+}) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), KNOWLEDGE_SLOW_LOAD_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3">
+      <Spinner size="md" />
+      <p className="text-xs text-muted-foreground">
+        {progress && progress.total > 0
+          ? `Laying out the graph… ${progress.done.toLocaleString()} / ${progress.total.toLocaleString()}`
+          : 'Reading the knowledge graph…'}
+      </p>
+      {slow ? (
+        <>
+          <p className="max-w-sm text-center text-xs text-muted-foreground">
+            This is taking longer than usual. A cold layout of a large graph takes about ten
+            seconds; a spinner past that usually means the request went astray.
+          </p>
+          <RetryButton onClick={onRetry} />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function RetryButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded border border-border bg-muted/40 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+    >
+      Retry
+    </button>
   );
 }

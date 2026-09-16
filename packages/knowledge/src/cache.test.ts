@@ -78,4 +78,21 @@ describe('readLayoutCache / writeLayoutCache', () => {
     const ownResult = await readLayoutCache(cacheDir, repoId, layoutCacheKey('sha1', 1));
     expect(ownResult).not.toBeNull();
   });
+
+  it('survives two concurrent writes for the same repo from one process', async () => {
+    const entry = (n: number) => ({
+      builtAtCommit: 'abc',
+      projectionVersion: 2,
+      nodeCount: n,
+      linkCount: 0,
+      positions: {},
+    });
+    await Promise.all([
+      writeLayoutCache(cacheDir, 'repo:x', entry(1)),
+      writeLayoutCache(cacheDir, 'repo:x', entry(2)),
+    ]);
+    const read = await readLayoutCache(cacheDir, 'repo:x', layoutCacheKey('abc', 2));
+    expect(read).not.toBeNull();
+    expect([1, 2]).toContain(read?.nodeCount);
+  });
 });
