@@ -72,7 +72,7 @@ describe('filterForgeGraph — item filter', () => {
     expect(result.edges).toEqual([]);
   });
 
-  it('never drops a genuinely foreign node — it was never a candidate for the item filter', () => {
+  it('keeps a foreign node whose referencing item survived — it was never a candidate for the item filter', () => {
     const foreign = foreignNode(9);
     const b = issueNode(2);
     const g = graph([b, foreign], [blocks(b, foreign)]);
@@ -82,6 +82,56 @@ describe('filterForgeGraph — item filter', () => {
 
     expect(result.nodes).toHaveLength(2);
     expect(result.edges).toHaveLength(1);
+  });
+});
+
+describe('filterForgeGraph — foreign orphans', () => {
+  it('drops a foreign node once the only item that referenced it is filtered out', () => {
+    // a is filtered away; its foreign blocker has nothing left to hang off.
+    const a = issueNode(1);
+    const b = issueNode(2);
+    const foreign = foreignNode(9);
+    const g = graph([a, b, foreign], [blocks(a, foreign)]);
+
+    const result = run(g, DEFAULT_GRAPH_FACETS, allIds([b]));
+
+    expect(result.nodes.map((n) => n.number)).toEqual([2]);
+    expect(result.edges).toEqual([]);
+  });
+
+  it('keeps a foreign node while any surviving item still references it', () => {
+    const a = issueNode(1);
+    const b = issueNode(2);
+    const foreign = foreignNode(9);
+    const g = graph([a, b, foreign], [blocks(a, foreign), blocks(b, foreign)]);
+
+    const result = run(g, DEFAULT_GRAPH_FACETS, allIds([b]));
+
+    expect(result.nodes.map((n) => n.number)).toEqual([2, 9]);
+    expect(result.edges).toHaveLength(1);
+  });
+
+  it('drops a foreign node whose only relationship is a hidden contains edge, and keeps it once showContains is on', () => {
+    const parent = issueNode(1);
+    const foreignChild = foreignNode(9);
+    const g = graph([parent, foreignChild], [contains(parent, foreignChild)]);
+
+    const off = run(g, DEFAULT_GRAPH_FACETS, allIds([parent]));
+    expect(off.nodes.map((n) => n.number)).toEqual([1]);
+
+    const on = run(g, { ...DEFAULT_GRAPH_FACETS, showContains: true }, allIds([parent]));
+    expect(on.nodes.map((n) => n.number)).toEqual([1, 9]);
+    expect(on.edges).toHaveLength(1);
+  });
+
+  it('never drops an isolated real item — that is hideIsolated\'s call', () => {
+    const lone = issueNode(1);
+    const foreign = foreignNode(9);
+    const g = graph([lone, foreign], []);
+
+    const result = run(g, DEFAULT_GRAPH_FACETS, allIds([lone]));
+
+    expect(result.nodes.map((n) => n.number)).toEqual([1]);
   });
 });
 
