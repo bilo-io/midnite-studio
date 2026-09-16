@@ -784,6 +784,29 @@ export type MockFixtures = {
     trusted?: string[];
     runResult?: TestRunResult;
   };
+  /**
+   * Phase 87 (Theme G) — the Knowledge view's IPC surface. `graph` seeds
+   * `knowledge.getGraph`'s `ready` answer directly in `KnowledgeGraphPayload`'s
+   * own wire shape (nodes/links/positions/builtAtCommit/cached/commitsBehind),
+   * so a spec states the exact laid-out graph a real sigma canvas has to
+   * render rather than a raw `graph.json` it would have to run Theme A's own
+   * projection/layout over. `undefined` answers `absent` (the un-graphified
+   * repo state Theme F already covers under vitest) — every canvas spec here
+   * sets it. `nodeDetails`, keyed by node id, is what a real pointer click's
+   * `getNodeDetail` round trip answers; an id with no entry answers
+   * `not-found`, exactly like a click racing a repo switch.
+   */
+  knowledge?: {
+    graph?: {
+      nodes: { id: string; label: string; community: number; communityName: string; fileType: string }[];
+      links: { source: string; target: string; relation: string; weight: number; confidence: number }[];
+      positions: Record<string, { x: number; y: number }>;
+      builtAtCommit?: string;
+      cached?: boolean;
+      commitsBehind?: number | null;
+    };
+    nodeDetails?: Record<string, { sourceFile: string; sourceLocation: string }>;
+  };
 };
 
 /*
@@ -1933,6 +1956,39 @@ export function buildMockBridge(data: MockFixtures) {
         closedSessions =
           req.sessionId === null ? [] : closedSessions.filter((r) => r.id !== req.sessionId);
       },
+    },
+    /**
+     * Phase 87 Theme G — the Knowledge canvas's own bridge. `getGraph`
+     * answers `ready` straight from `data.knowledge.graph` (already laid
+     * out, exactly the shape a real `KnowledgeGraphPayload` response
+     * carries) so a canvas spec drives real sigma/WebGL against a small,
+     * hand-placed fixture rather than this repo's own 14,881-node graph.
+     * No `data.knowledge` at all answers `absent` — Theme F's own state,
+     * covered under vitest, not re-proven here.
+     */
+    knowledge: {
+      getGraph: async () => {
+        const graph = data.knowledge?.graph;
+        if (!graph) return { ok: false, kind: 'absent' as const };
+        return {
+          ok: true as const,
+          value: {
+            nodes: graph.nodes,
+            links: graph.links,
+            positions: graph.positions,
+            builtAtCommit: graph.builtAtCommit ?? 'deadbeef',
+            cached: graph.cached ?? true,
+            commitsBehind: graph.commitsBehind ?? 0,
+          },
+        };
+      },
+      getNodeDetail: async (req: { nodeId: string }) => {
+        const detail = data.knowledge?.nodeDetails?.[req.nodeId];
+        if (!detail) return { ok: false, kind: 'not-found' as const };
+        return { ok: true as const, value: detail };
+      },
+      checkGraph: async () => ({ exists: data.knowledge?.graph !== undefined }),
+      onLayoutProgress: () => () => {},
     },
     notes: {
       list: async (req?: { repoId?: string }) => {

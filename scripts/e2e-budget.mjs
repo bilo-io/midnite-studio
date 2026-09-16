@@ -38,7 +38,17 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 
 // Committed ratchet cap on declared functional E2E tests (Phase 82 Theme F).
 // Lowering is routine as tests move to Vitest; raising requires justification.
-export const MAX_DECLARED_E2E = 433;
+//
+// Raised 433 -> 436 for Phase 87 Theme G's `knowledge-canvas.spec.ts` (3
+// tests): the Knowledge view's sigma/WebGL canvas is exactly the class of
+// thing this ratchet exists to let through rather than block — real WebGL
+// context acquisition, real `getBoundingClientRect` hit-testing against
+// WebGL-rendered geometry, and a real pointer drag to pan the camera, none
+// of which jsdom can do at all (see `docs/TESTING.md`'s own decision rule).
+// Every OTHER Knowledge behaviour (filters, search matching, state
+// transitions, the empty/stale/malformed states) already has its own vitest
+// suite with the canvas mocked out.
+export const MAX_DECLARED_E2E = 436;
 
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult

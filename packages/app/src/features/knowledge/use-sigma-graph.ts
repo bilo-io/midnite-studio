@@ -211,7 +211,28 @@ export function useSigmaGraph(options: {
       repaintObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     }
 
+    // Theme G finding (unverified under CI at ship time — Playwright's own
+    // `knowledge-canvas.spec.ts` caught it): sigma only re-measures its
+    // container on `render()` (`resize()` runs first thing inside it, per
+    // sigma's own source) and only *schedules* a render off a `window`
+    // `resize` event. A sibling flex item mounting or unmounting — opening
+    // `KnowledgeNodePanel` on a click, or the filters panel changing width —
+    // resizes THIS container without ever firing a window resize, so sigma's
+    // canvases kept their stale (larger) dimensions and visibly overlapped
+    // the newly-opened node panel, intercepting its own clicks. A
+    // `ResizeObserver` on the container is what a `window` listener can't
+    // be here: it fires on exactly the resize that actually happened,
+    // regardless of what caused it.
+    let containerResizeObserver: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== 'undefined') {
+      containerResizeObserver = new ResizeObserver(() => {
+        renderer?.refresh();
+      });
+      containerResizeObserver.observe(container);
+    }
+
     return () => {
+      containerResizeObserver?.disconnect();
       repaintObserver?.disconnect();
       renderer?.kill();
       graphRef.current = null;
@@ -252,13 +273,29 @@ export function useSigmaGraph(options: {
   // — the window is blurred): `camera.animate()` runs its own short rAF
   // tween, exactly the kind of "render loop while hidden" cost that phase
   // spent eleven themes removing, so a paused focus change snaps instead.
+  //
+  // Theme G finding (unverified under CI at ship time): the camera's own
+  // `x`/`y` are in sigma's NORMALIZED "framed graph" space — the graph's own
+  // bounding box rescaled/recentred so the default `{x: 0.5, y: 0.5, ratio:
+  // 1}` camera frames the whole thing (see sigma's `createNormalizationFunction`)
+  // — not the raw coordinates a node was added with. `graph.getNodeAttributes`
+  // returns those raw coordinates, so setting the camera to them points it at
+  // a location that is only ever right by coincidence (e.g. a graph whose
+  // whole extent already happens to sit inside roughly [0, 1]). `sigma`'s own
+  // node display cache (`getNodeDisplayData`) is the same data ALREADY run
+  // through that normalization for rendering — the standard, documented way
+  // to convert a node's position into camera-space — so that is what a real
+  // browser test (`knowledge-canvas.spec.ts`'s search-and-focus case) caught
+  // this on, and what it asserts stays fixed.
   useEffect(() => {
     const renderer = rendererRef.current;
     const graph = graphRef.current;
     const focusNodeId = options.focusNodeId;
     if (!renderer || !graph || !focusNodeId || !graph.hasNode(focusNodeId)) return;
 
-    const { x, y } = graph.getNodeAttributes(focusNodeId);
+    const displayData = renderer.getNodeDisplayData(focusNodeId);
+    if (!displayData) return;
+    const { x, y } = displayData;
     if (options.paused) {
       renderer.getCamera().setState({ x, y, ratio: FOCUS_CAMERA_RATIO });
     } else {
