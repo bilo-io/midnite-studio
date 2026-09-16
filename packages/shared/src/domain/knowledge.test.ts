@@ -64,7 +64,7 @@ describe('KnowledgeResultOf', () => {
     const schema = KnowledgeResultOf(KnowledgeGraphPayloadSchema);
     const payload = {
       nodes: [{ id: 'a', label: 'A', community: 0, communityName: 'core', fileType: 'code' }],
-      links: [{ source: 'a', target: 'a', relation: 'self', weight: 1 }],
+      links: [{ source: 'a', target: 'a', relation: 'self', weight: 1, confidence: 1 }],
       positions: { a: { x: 0, y: 0 } },
       builtAtCommit: 'deadbeef',
       cached: false,

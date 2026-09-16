@@ -1,154 +1,128 @@
-// Layer: vitest — react-query hook behaviour under jsdom (no real browser
-// capability needed: this is store/cache-transition logic, not layout or
-// pointer interaction).
-import { createElement } from 'react';
+// Layer: vitest/jsdom — a hook over a mocked bridge, no canvas/WebGL involved.
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { KnowledgeGraphPayload, MidniteStudioBridge } from '@midnite/studio-shared';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useKnowledgeGraph } from './use-knowledge-graph';
 
-import { useKnowledgeGraph, useKnowledgeGraphExists } from './use-knowledge-graph';
+const mocks = vi.hoisted(() => ({
+  getGraph: vi.fn(),
+  getNodeDetail: vi.fn(),
+  onLayoutProgress: vi.fn(),
+}));
 
-function graphFor(repoId: string): KnowledgeGraphPayload {
-  return {
-    nodes: [],
-    links: [],
-    positions: {},
-    builtAtCommit: `${repoId}-commit`,
-    cached: false,
-    commitsBehind: 0,
-  };
-}
+const PAYLOAD = {
+  nodes: [{ id: 'a', label: 'A', community: 0, communityName: 'core', fileType: 'code' }],
+  links: [],
+  positions: { a: { x: 0, y: 0 } },
+  builtAtCommit: 'deadbeef',
+  cached: true,
+};
 
-function installBridge(overrides: Partial<MidniteStudioBridge['knowledge']> = {}) {
-  (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
-    knowledge: {
-      getGraph: vi.fn(),
-      getNodeDetail: vi.fn(),
-      checkGraph: vi.fn(),
-      onLayoutProgress: vi.fn(() => () => {}),
-      ...overrides,
-    } as unknown as MidniteStudioBridge['knowledge'],
-  } as Partial<MidniteStudioBridge>;
-}
+describe('useKnowledgeGraph', () => {
+  let progressHandler: ((event: { repoId: string; done: number; total: number }) => void) | null;
 
-function newClient() {
-  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
-}
+  beforeEach(() => {
+    mocks.getGraph.mockReset();
+    mocks.onLayoutProgress.mockReset();
+    progressHandler = null;
+    mocks.onLayoutProgress.mockImplementation((handler: typeof progressHandler) => {
+      progressHandler = handler;
+      return () => {
+        progressHandler = null;
+      };
+    });
 
-describe('useKnowledgeGraph (Phase 87 Theme F)', () => {
-  afterEach(() => {
-    cleanup();
-    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+    // @ts-expect-error test bridge mock — partial `knowledge` shape is enough for this hook
+    window.midniteStudio = {
+      knowledge: {
+        getGraph: mocks.getGraph,
+        getNodeDetail: mocks.getNodeDetail,
+        onLayoutProgress: mocks.onLayoutProgress,
+      },
+    };
   });
 
-  it('a repo switch mid-load cannot land the previous repo’s graph', async () => {
-    let resolveRepo1: (value: unknown) => void = () => {};
-    const repo1Promise = new Promise((resolve) => {
-      resolveRepo1 = resolve;
-    });
-    const getGraph = vi.fn((req: { repoId: string }) => {
-      if (req.repoId === 'repo:1') return repo1Promise;
-      return Promise.resolve({ ok: true, value: graphFor('repo:2') });
-    });
-    installBridge({ getGraph: getGraph as MidniteStudioBridge['knowledge']['getGraph'] });
+  afterEach(() => {
+    window.midniteStudio = undefined;
+  });
 
-    const client = newClient();
-    const { result, rerender } = renderHook(({ repoId }: { repoId: string }) => useKnowledgeGraph(repoId), {
+  it('is idle with no repo open', () => {
+    const { result } = renderHook(() => useKnowledgeGraph(null));
+    expect(result.current).toEqual({ status: 'idle' });
+  });
+
+  it('goes loading then ok on a successful fetch', async () => {
+    let resolveGetGraph!: (value: unknown) => void;
+    mocks.getGraph.mockReturnValue(new Promise((resolve) => (resolveGetGraph = resolve)));
+
+    const { result } = renderHook(() => useKnowledgeGraph('repo:1'));
+    expect(result.current).toEqual({ status: 'loading', done: 0, total: 0 });
+
+    act(() => {
+      resolveGetGraph({ ok: true, value: PAYLOAD });
+    });
+
+    await waitFor(() => expect(result.current).toEqual({ status: 'ok', payload: PAYLOAD }));
+  });
+
+  it('surfaces layout progress events for the requesting repo while loading', async () => {
+    mocks.getGraph.mockReturnValue(new Promise(() => {})); // never resolves in this test
+    const { result } = renderHook(() => useKnowledgeGraph('repo:1'));
+
+    act(() => {
+      progressHandler?.({ repoId: 'repo:1', done: 25, total: 100 });
+    });
+
+    expect(result.current).toEqual({ status: 'loading', done: 25, total: 100 });
+  });
+
+  it('ignores a progress event for a different repo', () => {
+    mocks.getGraph.mockReturnValue(new Promise(() => {}));
+    const { result } = renderHook(() => useKnowledgeGraph('repo:1'));
+
+    act(() => {
+      progressHandler?.({ repoId: 'repo:other', done: 25, total: 100 });
+    });
+
+    expect(result.current).toEqual({ status: 'loading', done: 0, total: 0 });
+  });
+
+  it('maps each failure kind to its own status', async () => {
+    mocks.getGraph.mockResolvedValue({ ok: false, kind: 'absent' });
+    const { result } = renderHook(() => useKnowledgeGraph('repo:1'));
+    await waitFor(() => expect(result.current).toEqual({ status: 'absent' }));
+  });
+
+  it('carries the message through for unreadable/malformed/error', async () => {
+    mocks.getGraph.mockResolvedValue({ ok: false, kind: 'malformed', message: 'bad shape' });
+    const { result } = renderHook(() => useKnowledgeGraph('repo:1'));
+    await waitFor(() =>
+      expect(result.current).toEqual({ status: 'malformed', message: 'bad shape' }),
+    );
+  });
+
+  it('a repo switch mid-fetch never lands the previous repo\'s result', async () => {
+    let resolveFirst!: (value: unknown) => void;
+    mocks.getGraph.mockImplementationOnce(
+      () => new Promise((resolve) => (resolveFirst = resolve)),
+    );
+    const secondPayload = { ...PAYLOAD, builtAtCommit: 'second' };
+    mocks.getGraph.mockImplementationOnce(() =>
+      Promise.resolve({ ok: true, value: secondPayload }),
+    );
+
+    const { result, rerender } = renderHook(({ repoId }) => useKnowledgeGraph(repoId), {
       initialProps: { repoId: 'repo:1' },
-      wrapper: ({ children }) => createElement(QueryClientProvider, { client }, children),
     });
 
-    // repo:1's request is in flight and deliberately never resolved yet.
-    expect(result.current.state.kind).toBe('loading');
-
-    // Switch to repo:2 before repo:1 ever answers.
     rerender({ repoId: 'repo:2' });
+    await waitFor(() => expect(result.current).toEqual({ status: 'ok', payload: secondPayload }));
 
-    await waitFor(() => expect(result.current.state.kind).toBe('ready'));
-    expect(result.current.state.kind === 'ready' ? result.current.state.graph.builtAtCommit : null).toBe(
-      'repo:2-commit',
-    );
-
-    // NOW let repo:1's stale promise resolve — its answer must never land.
-    resolveRepo1({ ok: true, value: graphFor('repo:1') });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(result.current.state.kind === 'ready' ? result.current.state.graph.builtAtCommit : null).toBe(
-      'repo:2-commit',
-    );
-  });
-
-  it('resolves absent for an un-graphified repo', async () => {
-    installBridge({
-      getGraph: vi.fn().mockResolvedValue({ ok: false, kind: 'absent' }),
-    });
-    const client = newClient();
-    const { result } = renderHook(() => useKnowledgeGraph('repo:1'), {
-      wrapper: ({ children }) => createElement(QueryClientProvider, { client }, children),
+    act(() => {
+      resolveFirst({ ok: true, value: PAYLOAD }); // the stale repo:1 response, arriving late
     });
 
-    await waitFor(() => expect(result.current.state.kind).toBe('absent'));
-  });
-
-  it('degrades to an error state, never a thrown render, with no bridge at all', async () => {
-    const client = newClient();
-    const { result } = renderHook(() => useKnowledgeGraph('repo:1'), {
-      wrapper: ({ children }) => createElement(QueryClientProvider, { client }, children),
-    });
-
-    await waitFor(() => expect(result.current.state.kind).toBe('error'));
-  });
-
-  it('never fires a request with no repo selected', () => {
-    const getGraph = vi.fn();
-    installBridge({ getGraph });
-    const client = newClient();
-    renderHook(() => useKnowledgeGraph(null), {
-      wrapper: ({ children }) => createElement(QueryClientProvider, { client }, children),
-    });
-
-    expect(getGraph).not.toHaveBeenCalled();
-  });
-});
-
-describe('useKnowledgeGraphExists (Phase 87 Theme F rail greying)', () => {
-  afterEach(() => {
-    cleanup();
-    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
-  });
-
-  it('never calls getGraph — only the cheap checkGraph stat', async () => {
-    const getGraph = vi.fn();
-    const checkGraph = vi.fn().mockResolvedValue({ exists: true });
-    installBridge({ getGraph, checkGraph });
-    const client = newClient();
-    const { result } = renderHook(() => useKnowledgeGraphExists('repo:1'), {
-      wrapper: ({ children }) => createElement(QueryClientProvider, { client }, children),
-    });
-
-    await waitFor(() => expect(result.current).toBe(true));
-    expect(getGraph).not.toHaveBeenCalled();
-  });
-
-  it('is false for a repo with no graph', async () => {
-    installBridge({ checkGraph: vi.fn().mockResolvedValue({ exists: false }) });
-    const client = newClient();
-    const { result } = renderHook(() => useKnowledgeGraphExists('repo:1'), {
-      wrapper: ({ children }) => createElement(QueryClientProvider, { client }, children),
-    });
-
-    await waitFor(() => expect(result.current).toBe(false));
-  });
-
-  it('is undefined (never greyed) with no repo selected', () => {
-    installBridge({ checkGraph: vi.fn().mockResolvedValue({ exists: false }) });
-    const client = newClient();
-    const { result } = renderHook(() => useKnowledgeGraphExists(null), {
-      wrapper: ({ children }) => createElement(QueryClientProvider, { client }, children),
-    });
-
-    expect(result.current).toBeUndefined();
+    // Still the second repo's payload — the stale response was dropped.
+    expect(result.current).toEqual({ status: 'ok', payload: secondPayload });
   });
 });

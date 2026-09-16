@@ -12,7 +12,8 @@ import type { LayoutPositions } from './types';
  * when the commit hasn't moved, so a shipped code change never reads a cache
  * entry written by the version before it.
  */
-export const PROJECTION_FORMAT_VERSION = 1;
+/** `2` (Theme E): {@link LeanLink} gained `confidence` — see `projection.ts`. */
+export const PROJECTION_FORMAT_VERSION = 2;
 
 export type LayoutCacheEntry = {
   builtAtCommit: string;

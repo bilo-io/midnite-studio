@@ -1,32 +1,102 @@
+import { useEffect, useMemo } from 'react';
+
 import { LuCircleAlert, LuClock } from 'react-icons/lu';
 import { SiGrapheneos } from 'react-icons/si';
 
 import { EmptyState } from '../../components/empty-state';
+import { Spinner } from '../../components/skeleton';
+import { useWindowFocused } from '../../lib/use-window-focus';
 import { useActiveWorktree } from '../../services/use-status';
+import { KnowledgeCanvas } from './knowledge-canvas';
+import { KnowledgeFiltersPanel } from './knowledge-filters-panel';
+import {
+  countVisibleLinks,
+  distinctCommunityNames,
+  distinctRelations,
+  pickFocusNode,
+  searchMatches,
+} from './knowledge-filters';
+import { useKnowledgeFiltersStore } from './knowledge-filters-store';
+import { useKnowledgeLayoutProgress } from './use-knowledge-layout-progress';
+import { KnowledgeNodePanel } from './knowledge-node-panel';
 import { useKnowledgeGraph } from './use-knowledge-graph';
 
 /**
  * The Knowledge view — Phase 87.
  *
  * Theme C (PR #407) landed only the rail row and the view registration, with
- * a placeholder body. This theme (F) replaces that body with the real
- * empty/stale/malformed states, read from `useKnowledgeGraph` — but still NOT
- * the canvas itself: `ready` renders a placeholder for the graph Theme D's
- * sigma canvas owns, so the two themes' diffs don't collide on the same
- * region of this file. `ready`'s only real content here is the staleness
- * banner (`commitsBehind`), which is Theme F's, not Theme D's.
+ * a placeholder body. Theme F (PR #410) replaced that body with the real
+ * empty/stale/malformed states, read from `useKnowledgeGraph` (react-query,
+ * so a repo switch racing an in-flight load is react-query's own cache-key
+ * guarantee, not bespoke code here) — but deliberately left `ready` as a
+ * placeholder ("Theme D's canvas is where that progress bar belongs... so
+ * the two themes' diffs don't collide on the same region of this file").
+ * This is that replacement: `ready` now renders the sigma canvas (Theme D)
+ * and its four interactions (Theme E) instead. Every OTHER branch —
+ * loading/absent/unreadable/malformed/error, the staleness banner — is
+ * still exactly Theme F's, untouched.
  */
 export function KnowledgeView() {
-  const { repoId } = useActiveWorktree();
+  const { repoId, worktreePath } = useActiveWorktree();
   const { state } = useKnowledgeGraph(repoId);
+  const layoutProgress = useKnowledgeLayoutProgress(repoId, state.kind === 'loading');
+
+  const scopeKey = repoId ?? '';
+  const ensureScope = useKnowledgeFiltersStore((s) => s.ensureScope);
+  useEffect(() => {
+    if (repoId) ensureScope(repoId);
+  }, [repoId, ensureScope]);
+
+  const filters = useKnowledgeFiltersStore((s) => s.filters);
+  const selectedNodeId = useKnowledgeFiltersStore((s) => s.selectedNodeId);
+  const setQuery = useKnowledgeFiltersStore((s) => s.setQuery);
+  const toggleRelation = useKnowledgeFiltersStore((s) => s.toggleRelation);
+  const setMinWeight = useKnowledgeFiltersStore((s) => s.setMinWeight);
+  const setMinConfidence = useKnowledgeFiltersStore((s) => s.setMinConfidence);
+  const toggleCommunity = useKnowledgeFiltersStore((s) => s.toggleCommunity);
+  const showAllCommunities = useKnowledgeFiltersStore((s) => s.showAllCommunities);
+  const hideAllCommunities = useKnowledgeFiltersStore((s) => s.hideAllCommunities);
+  const selectNode = useKnowledgeFiltersStore((s) => s.selectNode);
+
+  // Phase 84's visibility gate: `KnowledgeView` isn't `global: true` (Theme
+  // C), so it fully unmounts on a view switch already — the one thing left
+  // to gate is a blurred-but-still-the-active-view window, which this
+  // reactive hook answers safely (it is not a permanently-mounted host).
+  const focused = useWindowFocused();
+
+  const payload = state.kind === 'ready' ? state.graph : null;
+
+  const relations = useMemo(() => (payload ? distinctRelations(payload.links) : []), [payload]);
+  const communityNames = useMemo(
+    () => (payload ? distinctCommunityNames(payload.nodes) : []),
+    [payload],
+  );
+  const communityByNodeId = useMemo(
+    () => new Map((payload?.nodes ?? []).map((node) => [node.id, node.communityName])),
+    [payload],
+  );
+  const visibleLinkCount = useMemo(
+    () => (payload ? countVisibleLinks(payload.links, communityByNodeId, filters) : 0),
+    [payload, communityByNodeId, filters],
+  );
+  const focusNodeId = useMemo(() => {
+    if (!payload || !filters.query) return null;
+    const matches = searchMatches(payload.nodes, filters.query);
+    return pickFocusNode(payload.nodes, matches);
+  }, [payload, filters.query]);
 
   switch (state.kind) {
     case 'loading':
-      // No spinner dressing: a cold layout reports progress over
-      // `knowledgeLayoutProgress` (Theme B), which Theme D's canvas is where
-      // that progress bar belongs — this state is brief on a cache hit and
-      // covered by Theme D's own loading UI once the canvas exists.
-      return <EmptyState icon={SiGrapheneos} title="Knowledge" body="Loading the graph…" />;
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-3">
+          <Spinner size="md" />
+          <p className="text-xs text-muted-foreground">
+            {layoutProgress && layoutProgress.total > 0
+              ? `Laying out the graph… ${layoutProgress.done.toLocaleString()} / ${layoutProgress.total.toLocaleString()}`
+              : 'Reading the knowledge graph…'}
+          </p>
+        </div>
+      );
 
     case 'absent':
       return <KnowledgeInstructions />;
@@ -54,16 +124,40 @@ export function KnowledgeView() {
 
     case 'ready':
       return (
-        <div className="flex h-full flex-col">
+        <div key={scopeKey} className="flex h-full min-h-0 w-full flex-col">
           {state.stale && state.commitsBehind !== null ? (
             <StaleBanner commitsBehind={state.commitsBehind} />
           ) : null}
-          <div className="flex-1">
-            <EmptyState
-              icon={SiGrapheneos}
-              title="Knowledge"
-              body={`${state.graph.nodes.length.toLocaleString()} nodes, ${state.graph.links.length.toLocaleString()} links. A WebGL view of this repo's own graphify graph — communities, call edges, click-to-open. Coming soon.`}
+          <div className="flex min-h-0 flex-1">
+            <KnowledgeFiltersPanel
+              filters={filters}
+              relations={relations}
+              communityNames={communityNames}
+              visibleLinkCount={visibleLinkCount}
+              totalLinkCount={state.graph.links.length}
+              onQueryChange={setQuery}
+              onToggleRelation={toggleRelation}
+              onMinWeightChange={setMinWeight}
+              onMinConfidenceChange={setMinConfidence}
+              onToggleCommunity={toggleCommunity}
+              onShowAllCommunities={showAllCommunities}
+              onHideAllCommunities={hideAllCommunities}
             />
+            <KnowledgeCanvas
+              payload={state.graph}
+              filters={filters}
+              focusNodeId={focusNodeId}
+              onNodeClick={selectNode}
+              paused={!focused}
+            />
+            {selectedNodeId ? (
+              <KnowledgeNodePanel
+                repoId={repoId ?? ''}
+                worktreePath={worktreePath}
+                nodeId={selectedNodeId}
+                onClose={() => selectNode(null)}
+              />
+            ) : null}
           </div>
         </div>
       );

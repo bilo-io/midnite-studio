@@ -124,7 +124,7 @@ describe('registerKnowledgeHandlers (Phase 87 Theme B)', () => {
       readGraph.mockResolvedValue({ ok: true, graph: RAW_GRAPH });
       readLayoutCache.mockResolvedValue({
         builtAtCommit: 'deadbeef',
-        projectionVersion: 1,
+        projectionVersion: 2,
         nodeCount: 2,
         linkCount: 1,
         positions: { a: { x: 1, y: 1 }, b: { x: 2, y: 2 } },

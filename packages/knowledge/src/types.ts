@@ -66,6 +66,14 @@ export type LeanLink = {
   target: string;
   relation: string;
   weight: number;
+  /**
+   * `confidence_score` on the wire, carried back in per the phase doc's own
+   * note (Theme A's field table dropped it; Theme E's edge filter needs it
+   * to "hide low-confidence inferred ones"). Missing means the same as a
+   * missing `weight` — graphify didn't score this edge — so it defaults to
+   * `1` (full confidence) rather than being dropped or zeroed.
+   */
+  confidence: number;
 };
 
 export type LeanGraph = {

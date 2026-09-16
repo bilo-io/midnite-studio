@@ -26,6 +26,13 @@ export const KnowledgeGraphLinkSchema = z.object({
   target: z.string(),
   relation: z.string(),
   weight: z.number(),
+  /**
+   * `confidence_score` on the wire, projected as `confidence` — Theme E's
+   * edge filter reads this to hide low-confidence inferred edges (the phase
+   * doc's Decision 8). Defaulted to `1` by `projectGraph` for a link
+   * graphify never scored, same as `weight`.
+   */
+  confidence: z.number(),
 });
 export type KnowledgeGraphLink = z.infer<typeof KnowledgeGraphLinkSchema>;
 

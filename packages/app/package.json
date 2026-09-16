@@ -27,6 +27,7 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
+    "graphology": "^0.25.4",
     "mdast-util-to-string": "^4.0.0",
     "monaco-editor": "0.56.0",
     "react": "^19.0.0",
@@ -38,6 +39,7 @@
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "shiki": "^4.4.3",
+    "sigma": "^3.0.3",
     "unified": "^11.0.5",
     "zod": "^3.23.8",
     "zustand": "^5.0.2"
