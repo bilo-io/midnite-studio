@@ -41,15 +41,14 @@ const isDark = (): boolean => document.documentElement.classList.contains('dark'
  *
  * **Caller's job, not this component's:** deciding whether to render this at
  * all, and for which surface. `sessions-view.tsx` mounts it for ANY still-live
- * session — plain terminal, Kanban-card agent, or a FAB-surface Loop —
- * provided the session's own owning panel does not already have a live xterm
- * mounted for it (`terminalOpen` for the first two, `fabPanelOpen ||
- * fabDetached` for a Loop): both drawers unmount every terminal they own the
- * moment they close, so "closed" is the one condition that provably
- * guarantees no other live xterm exists for that session anywhere in the
- * window. While the owning panel already has it, the pane hands off there
- * instead of a second mount, via `revealSession`/`revealFabSession`
- * (`reveal-session.ts`).
+ * session — plain terminal, Kanban-card agent, or a FAB-surface Loop — but
+ * only while it holds `terminal-store`'s `sessionsPaneSessionId` claim for
+ * that session. That claim is what keeps this the ONLY live xterm on the pty
+ * in this window: the terminal panel and the Loops tab yield the session's
+ * slot (`YieldedToSessionsPage`) for as long as it is held, and the pane
+ * offers "Focus it here" / "Focus it there" to move the one xterm between
+ * them. A panel detached into its own window has its own store and cannot be
+ * made to yield, so the pane hands off there instead of claiming.
  */
 export function LiveSessionTerminal({ session }: { session: TerminalSession }) {
   const containerRef = useRef<HTMLDivElement>(null);

@@ -624,40 +624,43 @@ export function SessionsView({
 }
 
 /**
- * The detail pane's live half (Phase 86 Theme D, extended by an ad hoc
+ * The detail pane's live half (Phase 86 Theme D, reworked by an ad hoc
  * follow-up) — closed rows go through `TranscriptView` above and are
  * untouched.
  *
  * Every still-live session — plain terminal, Kanban-card agent, or a Loop
- * running on the FAB surface — renders here by default, in `LiveSessionTerminal`.
- * There is exactly one exception, and it is a mutual-exclusion rule rather
- * than a surface distinction: **while the session's OWNING panel already has
- * a live xterm mounted for it**, this pane hands off to that panel instead
- * of mounting a second one, because two live xterms racing the same pty over
- * `pty.resize` (not the read side — `pty:data` already fans out to any
- * number of subscribers, see `live-session-terminal.tsx`'s own doc) is a real
- * bug, not a theoretical one. That "owning panel already showing it" state is
- * `terminalOpen` for a main/Kanban-surface session (the terminal drawer
- * unmounts every `TerminalView` it owns the moment it closes — `app.tsx`'s
- * `terminalTween`) and `fabPanelOpen || fabDetached` for a FAB-surface one
- * (the Loops panel does the same on close via `fabPanelTween`, AND a
- * detached Loops window always keeps its active loop's terminal mounted
- * regardless of the main window's own `fabPanelOpen`). Whichever it is, the
- * hand-off reuses the same two functions a Kanban card's `>_` button and the
- * FAB button already use — `revealSession`/`revealFabSession`
- * (`reveal-session.ts`) — rather than inventing a second navigation path.
+ * running on the FAB surface — can render here, in `LiveSessionTerminal`.
+ * The one rule is mutual exclusion, not a surface distinction: two live
+ * xterms racing the same pty over `pty.resize` (not the read side —
+ * `pty:data` already fans out to any number of subscribers, see
+ * `live-session-terminal.tsx`'s own doc) is a real bug, so a session's xterm
+ * is mounted in exactly one host at a time. `terminal-store`'s
+ * `sessionsPaneSessionId` is the lock: while this pane holds it, the
+ * terminal panel and the Loops tab render `YieldedToSessionsPage` in that
+ * session's slot instead of their own `LazyTerminalView`, and their "Focus
+ * it here" button hands it back.
+ *
+ * Whether this pane takes the lock is the user's call, made once per
+ * selected session (`LiveSessionHost`, keyed by session id):
+ * - Owning panel closed (`terminalOpen` / `fabPanelOpen` false) — nothing
+ *   else has the session mounted, so the pane embeds straight away and holds
+ *   the claim; opening the panel later yields to the pane, not the reverse.
+ * - Owning panel open and docked — the pane offers **Focus it here** (primary,
+ *   takes the claim and embeds) beside the older **Focus it there** /
+ *   **Reveal in Loops** (secondary, `revealSession`/`revealFabSession`).
+ * - Owning panel detached into its own window (`terminalDetached` /
+ *   `fabDetached`) — that window has its own store and cannot be told to
+ *   yield, so only the reveal button is offered there.
  *
  * Four shapes, in order of precedence:
  * 1. Asleep — no process to show at all; unchanged from before this theme.
  * 2. No raw session — a stale/removed store entry the merged row hasn't
  *    caught up with yet; nothing to attach to.
- * 3. Already showing in its owning panel — hands off there instead of a
- *    second mount (see above).
- * 4. Otherwise — embeds the real terminal, full read/write, whichever
- *    surface it's on. A loop-driven session gets no reduced, read-only mode:
- *    the mutual-exclusion rule above is what makes a second writer safe (it
- *    never coexists with the first), not a permissions distinction between
- *    the two surfaces.
+ * 3. Not (yet) claimed — the hand-off card above.
+ * 4. Claimed — embeds the real terminal, full read/write, whichever surface
+ *    it's on. A loop-driven session gets no reduced, read-only mode: the
+ *    mutual-exclusion rule is what makes a second writer safe (it never
+ *    coexists with the first), not a permissions distinction.
  */
 function LiveSessionDetail({
   session,
@@ -667,6 +670,7 @@ function LiveSessionDetail({
   rawSession: TerminalSession | null;
 }) {
   const terminalOpen = useUiStore((s) => s.terminalOpen);
+  const terminalDetached = useUiStore((s) => s.terminalDetached);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const fabDetached = useUiStore((s) => s.fabDetached);
 
@@ -679,30 +683,98 @@ function LiveSessionDetail({
   }
 
   const isFabSession = !inMainPanel(rawSession);
-  const shownElsewhere = isFabSession ? fabPanelOpen || fabDetached : terminalOpen;
+  const ownerDetached = isFabSession ? fabDetached : terminalDetached;
+  const ownerDocked = !ownerDetached && (isFabSession ? fabPanelOpen : terminalOpen);
 
-  if (shownElsewhere) {
-    return (
-      <div className="grid min-h-0 flex-1 place-items-center p-8">
-        <div className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
-          <p>
-            {isFabSession
-              ? "This session's terminal is already open in the Loops panel."
-              : "This session's terminal is already open in the terminal panel."}
-          </p>
+  return (
+    <LiveSessionHost
+      key={rawSession.id}
+      session={rawSession}
+      isFabSession={isFabSession}
+      ownerDocked={ownerDocked}
+      ownerDetached={ownerDetached}
+    />
+  );
+}
+
+/**
+ * One selected live session's stay in the pane — keyed by session id from
+ * `LiveSessionDetail`, so the "did the user pull it in here?" latch starts
+ * over for every row they select.
+ *
+ * The latch starts `true` when no panel has the session mounted (nothing to
+ * hand off to) and `false` otherwise; the buttons flip it. While it is set
+ * the store claim is held for exactly as long as this component is mounted
+ * for this session — the effect's cleanup releases it, scoped to the id so a
+ * late cleanup cannot clear a claim a newer selection just made. The store
+ * subscription inside the same effect is the reverse channel: when the
+ * owning panel's own "Focus it here" clears the claim, the latch drops and
+ * the pane falls back to the hand-off card without a second render cycle
+ * of embedding.
+ */
+function LiveSessionHost({
+  session,
+  isFabSession,
+  ownerDocked,
+  ownerDetached,
+}: {
+  session: TerminalSession;
+  isFabSession: boolean;
+  /** The owning panel is open in this window and would mount the session itself. */
+  ownerDocked: boolean;
+  /** The owning panel lives in another window, out of this store's reach. */
+  ownerDetached: boolean;
+}) {
+  const [focusHere, setFocusHere] = useState(() => !ownerDocked && !ownerDetached);
+  const embedding = focusHere && !ownerDetached;
+
+  useEffect(() => {
+    if (!embedding) return undefined;
+    const sessionId = session.id;
+    useTerminalStore.getState().claimSessionsPane(sessionId);
+    const unsubscribe = useTerminalStore.subscribe((s) => {
+      if (s.sessionsPaneSessionId !== sessionId) setFocusHere(false);
+    });
+    return () => {
+      unsubscribe();
+      useTerminalStore.getState().releaseSessionsPane(sessionId);
+    };
+  }, [embedding, session.id]);
+
+  if (embedding) {
+    return <LiveSessionTerminal key={session.id} session={session} />;
+  }
+
+  const where = isFabSession ? 'the Loops panel' : 'the terminal panel';
+  return (
+    <div className="grid min-h-0 flex-1 place-items-center p-8">
+      <div className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
+        <p>
+          {ownerDetached
+            ? `This session's terminal is open in ${where}, in its own window.`
+            : `This session's terminal is already open in ${where}.`}
+        </p>
+        <div className="mt-3 flex items-center justify-center gap-2">
           <button
             type="button"
             onClick={() => (isFabSession ? revealFabSession(session.id) : revealSession(session.id))}
-            className="mt-2 text-primary hover:underline"
+            className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {isFabSession ? 'Reveal in Loops' : 'Focus it there'}
           </button>
+          {ownerDetached ? null : (
+            <button
+              type="button"
+              onClick={() => setFocusHere(true)}
+              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Focus it here
+            </button>
+          )}
         </div>
       </div>
-    );
-  }
-
-  return <LiveSessionTerminal key={rawSession.id} session={rawSession} />;
+    </div>
+  );
 }
 
 function RepoSessionsGroup({

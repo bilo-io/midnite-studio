@@ -73,6 +73,7 @@ afterEach(() => {
     pendingInput: {},
     foregroundCommand: {},
     hydrated: false,
+    sessionsPaneSessionId: null,
   });
   useUiStore.setState({
     terminalOpen: false,
@@ -587,6 +588,9 @@ describe('SessionsView', () => {
 
     expect(screen.getByTestId('live-terminal').textContent).toBe('live-1');
     expect(screen.queryByTestId('transcript')).toBeNull();
+    // The embed holds the one-xterm-per-pty lock, so a terminal panel opened
+    // afterwards yields this session's slot rather than mounting over it.
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBe('live-1');
   });
 
   it('names an asleep row as such in the detail pane rather than embedding a terminal', () => {
@@ -641,12 +645,99 @@ describe('SessionsView', () => {
 
     expect(screen.getByText(/already open in the terminal panel/)).toBeTruthy();
     expect(screen.queryByTestId('live-terminal')).toBeNull();
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Focus it there' }));
+    // Primary is "here", secondary is "there" — the same right-hand-primary
+    // order `confirm-dialog.tsx` uses.
+    const here = screen.getByRole('button', { name: 'Focus it here' });
+    const there = screen.getByRole('button', { name: 'Focus it there' });
+    expect(here.className).toContain('bg-primary');
+    expect(there.className).not.toContain('bg-primary');
+    expect(here.compareDocumentPosition(there) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+
+    fireEvent.click(there);
     expect(useTerminalStore.getState().activeId).toBe('live-2');
 
     act(() => {
       useUiStore.setState({ terminalOpen: false });
+    });
+  });
+
+  it('pulls the live terminal into the pane on "Focus it here" and takes the claim the terminal panel yields to', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'live-4', repoId: 'r1', title: 'repo-one', name: 'live-four', createdAt: 5000 })],
+      });
+      useUiStore.setState({ terminalOpen: true });
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /live-four/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Focus it here' }));
+
+    expect(screen.getByTestId('live-terminal').textContent).toBe('live-4');
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBe('live-4');
+
+    // The terminal panel's own "Focus it here" clears the claim; the pane
+    // falls back to the hand-off card instead of keeping a second xterm.
+    act(() => {
+      useTerminalStore.getState().releaseSessionsPane('live-4');
+    });
+    expect(screen.queryByTestId('live-terminal')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Focus it here' })).toBeTruthy();
+
+    act(() => {
+      useUiStore.setState({ terminalOpen: false });
+    });
+  });
+
+  it('keeps the embed when the terminal panel opens afterwards — the panel yields, not the pane', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'live-5', repoId: 'r1', title: 'repo-one', name: 'live-five', createdAt: 5000 })],
+      });
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /live-five/ }));
+    expect(screen.getByTestId('live-terminal').textContent).toBe('live-5');
+
+    act(() => {
+      useUiStore.setState({ terminalOpen: true });
+    });
+    expect(screen.getByTestId('live-terminal').textContent).toBe('live-5');
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBe('live-5');
+
+    act(() => {
+      useUiStore.setState({ terminalOpen: false });
+    });
+  });
+
+  it('offers only the reveal button when the terminal panel is detached into its own window', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [liveSession({ id: 'live-6', repoId: 'r1', title: 'repo-one', name: 'live-six', createdAt: 5000 })],
+      });
+      useUiStore.setState({ terminalOpen: true, terminalDetached: true });
+    });
+
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: /live-six/ }));
+
+    expect(screen.getByText(/in its own window/)).toBeTruthy();
+    expect(screen.queryByTestId('live-terminal')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Focus it here' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Focus it there' })).toBeTruthy();
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBeNull();
+
+    act(() => {
+      useUiStore.setState({ terminalOpen: false, terminalDetached: false });
     });
   });
 
@@ -801,6 +892,10 @@ describe('SessionsView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reveal in Loops' }));
     expect(useUiStore.getState().activeFabTab).toBe('guard');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Focus it here' }));
+    expect(screen.getByTestId('live-terminal').textContent).toBe('fab-2');
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBe('fab-2');
+
     act(() => {
       useUiStore.setState({ fabPanelOpen: false, fabSessions: {} });
     });
@@ -821,8 +916,10 @@ describe('SessionsView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /loop-three/ }));
 
-    expect(screen.getByText(/already open in the Loops panel/)).toBeTruthy();
+    expect(screen.getByText(/open in the Loops panel, in its own window/)).toBeTruthy();
     expect(screen.queryByTestId('live-terminal')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Focus it here' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Reveal in Loops' })).toBeTruthy();
 
     act(() => {
       useUiStore.setState({ fabDetached: false, fabSessions: {} });
@@ -846,10 +943,14 @@ describe('SessionsView', () => {
     fireEvent.click(screen.getByRole('button', { name: /live-three/ }));
     expect(screen.getByTestId('live-terminal').textContent).toBe('live-3');
 
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBe('live-3');
+
     fireEvent.click(screen.getByRole('button', { name: /closed-one/ }));
 
     expect(screen.queryByTestId('live-terminal')).toBeNull();
     expect(screen.getByTestId('transcript').textContent).toBe('closed-1');
+    // The claim goes with the embed, so the terminal panel gets its slot back.
+    expect(useTerminalStore.getState().sessionsPaneSessionId).toBeNull();
   });
 
   it('flips a selected live row over to its transcript once the session closes while mounted', () => {

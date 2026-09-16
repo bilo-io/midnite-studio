@@ -106,6 +106,23 @@ type TerminalState = {
   broker: { mode: 'broker' | 'inproc'; reason?: string };
   /** Whether the legacy sessions banner has been dismissed for this launch. */
   legacyBannerDismissed: boolean;
+  /**
+   * The one live session whose xterm the Sessions page's detail pane is
+   * hosting right now, or `null` (ad hoc follow-up to Phase 86 Theme D).
+   *
+   * Runtime only, never persisted, and process-local — a claim is a fact
+   * about which React tree in THIS window has an xterm mounted, and a
+   * detached window has its own tree and its own copy of this store.
+   *
+   * Two live xterms on one pty race each other over `pty.resize` (the read
+   * side already fans out, see `live-session-terminal.tsx`), so exactly one
+   * host may mount a session at a time. This is the lock: while it names a
+   * session, the terminal panel (`terminal-panel.tsx`) and the Loops tab
+   * (`loop-tab.tsx`) render `YieldedToSessionsPage` in that session's slot
+   * instead of a `LazyTerminalView`, and their own "Focus it here" button
+   * releases it — the mirror of the Sessions pane's button that claims it.
+   */
+  sessionsPaneSessionId: string | null;
   /** Legacy session markers keyed by sessionId. */
   legacy: Record<string, boolean>;
 
@@ -301,6 +318,14 @@ type TerminalState = {
 
   dismissReattachedNote: () => void;
   dismissLegacyBanner: () => void;
+  /** The Sessions pane takes over a live session's xterm; other hosts yield. */
+  claimSessionsPane: (sessionId: string) => void;
+  /**
+   * Hand the xterm back to its owning panel. Scoped to `sessionId` so a
+   * stale unmount (the pane switching from A to B runs A's cleanup after
+   * B's claim) can never clear a newer claim it did not make.
+   */
+  releaseSessionsPane: (sessionId: string) => void;
   bindPty: (sessionId: string, ptyId: string) => void;
   unbindPty: (sessionId: string) => void;
   setState: (sessionId: string, state: ConnectionState, error?: string) => void;
@@ -325,6 +350,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   reattachedDismissed: false,
   broker: { mode: 'broker' },
   legacyBannerDismissed: false,
+  sessionsPaneSessionId: null,
   legacy: {},
   ptyIds: {},
   states: {},
@@ -343,6 +369,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
 
   dismissReattachedNote: () => set({ reattachedDismissed: true }),
   dismissLegacyBanner: () => set({ legacyBannerDismissed: true }),
+  claimSessionsPane: (sessionId) => set({ sessionsPaneSessionId: sessionId }),
+  releaseSessionsPane: (sessionId) =>
+    set((state) => (state.sessionsPaneSessionId === sessionId ? { sessionsPaneSessionId: null } : state)),
 
   /**
    * Load the saved sessions. Spawns nothing.
