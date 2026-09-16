@@ -123,19 +123,19 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### C — The rail row and view registration (S)
 
-- [ ] Add `'knowledge'` to `VIEW_IDS` in [`view.ts`](../../../packages/shared/src/domain/view.ts),
+- [x] Add `'knowledge'` to `VIEW_IDS` in [`view.ts`](../../../packages/shared/src/domain/view.ts),
       **directly after `'notes'`** — that array position *is* the rail order.
-- [ ] `VIEW_ICON.knowledge = SiGrapheneos` in [`nav-icons`](../../../packages/app/src/components/nav-icons.tsx),
+- [x] `VIEW_ICON.knowledge = SiGrapheneos` in [`nav-icons`](../../../packages/app/src/components/nav-icons.tsx),
       imported from `react-icons/si`. Per-set import, never the root barrel.
-- [ ] A third pinned `NavItem` in [`app.tsx`](../../../packages/app/src/app.tsx) beside `PINNED_ITEM`
+- [x] A third pinned `NavItem` in [`app.tsx`](../../../packages/app/src/app.tsx) beside `PINNED_ITEM`
       and `NOTES_ITEM`, with a header comment saying why it is pinned rather than in
       `WORKSPACE_NAV_ITEMS` — matching what `NOTES_ITEM` already documents.
-- [ ] Lazy registry entry in [`view-registry.tsx`](../../../packages/app/src/components/view-registry.tsx),
+- [x] Lazy registry entry in [`view-registry.tsx`](../../../packages/app/src/components/view-registry.tsx),
       following `loadNotesView`. **Not `global: true`** — unlike Notes, a knowledge graph is
       meaningless with no repo open.
-- [ ] No keyboard chord this phase — [`nav-chords.ts`](../../../packages/app/src/components/nav-chords.ts)
+- [x] No keyboard chord this phase — [`nav-chords.ts`](../../../packages/app/src/components/nav-chords.ts)
       gains no entry, so the rail row shows no bubble. Decision 5.
-- [ ] Vitest: the view id resolves, the rail renders the row in the right position, the icon name
+- [x] Vitest: the view id resolves, the rail renders the row in the right position, the icon name
       resolves to a defined export (the guard `icon-names.test.ts` already applies to `lu` — extend
       the idea to `si`).
 
