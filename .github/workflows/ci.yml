@@ -72,6 +72,35 @@ concurrency:
 # If this repo is ever made private again, the lever is exactly the three
 # `runs-on:` lines named above — move them back to `ubuntu-24.04`. That is a cost
 # decision, and it is not the same thing as un-deferring Linux.
+#
+# ---
+#
+# **What that sweep missed: billing is free, CONCURRENCY is not.** Two of those
+# three jobs are now back on `ubuntu-24.04` and `e2e` is sharded 4 ways instead
+# of 8. GitHub caps this account at **5 concurrent macOS jobs** — measured, not
+# quoted: peak simultaneous `macos-14` jobs on run 35080729788 was exactly 5,
+# and on run 35083265409 thirteen of sixteen macOS jobs were cancelled having
+# never started a step. The sweep had scheduled 15 macOS jobs per run against
+# that cap, so they drained in 3-4 sequential batches, each paying a fresh macOS
+# VM boot. Wall-clock, either side of the sweep landing in 676badad:
+#
+#   before  471586d1  13m      after  81ac907f  37m
+#   before  a6cfa65a  14m      after  6bdb7bdb  39m
+#   ------  676badad  20m      after  734ea262  42m
+#                              after  a1e84dd8  24m
+#                              after  885c4e4c  21m
+#
+# The variance is itself the signature: queueing, not slower tests. The fix
+# keeps every job that has real macOS behaviour to validate ON macOS — `e2e`
+# (the `Meta+k` platform tax), `gate-native` (dugite, node-pty) and
+# `gate-locale` (which runs desktop + git-engine and so needs those same native
+# modules) — and sends only the genuinely platform-agnostic jobs back to Linux.
+# That leaves 6 macOS jobs on a PR run against a cap of 5, roughly one batch.
+#
+# **This is not a partial un-deferring of Linux.** Nothing is validated on Linux
+# that the product depends on; `gate-node` and `gate-node-app-test` are zod,
+# React, Vite and jsdom, where the runner OS is invisible. The rule in CLAUDE.md
+# still stands: do not move a job that exercises platform behaviour off macOS.
 jobs:
   # Phase 82 Theme E — `gate` split by platform.
   #
@@ -114,14 +143,21 @@ jobs:
     # out to a real git binary in their test suites (git-engine is the one
     # exception, and it is on gate-native below).
     #
-    # `macos-14`, not the `ubuntu-24.04` Phase 82 Theme E put it on: the split
-    # by CONTENT (which packages run where) is unchanged and still worth having,
-    # but the platform half of it is not — macOS is the only supported target
-    # now (see the header), so the node-portable packages get validated on the
-    # platform they ship on. Theme E's comment above argues this costs 10x; on
-    # a public repo it costs nothing (see the header). It also got *faster*:
-    # 2m37s here against the ~341s that comment measured on ubuntu.
-    runs-on: macos-14
+    # Back on `ubuntu-24.04`, reversing the macOS-only sweep for THIS job only.
+    # The reason is concurrency, not cost or content. GitHub caps this account at
+    # **5 concurrent macOS jobs** (measured: peak simultaneous macos-14 jobs on
+    # run 35080729788 was exactly 5), and the sweep had put 15 macOS jobs in one
+    # run — 1 here + 4 app-test + 1 gate-native + 1 gate-locale + 8 e2e. They
+    # drained in 3-4 sequential batches, each paying a fresh macOS VM boot, and
+    # wall-clock went 13-14m -> 21-42m with the variance that queueing implies.
+    # Linux has no such cap in practice, so a platform-agnostic job costs nothing
+    # there and stops competing for a scarce macOS slot.
+    #
+    # Nothing in shared/app/website/db-engine imports `electron` or shells out to
+    # a real git binary (the package-boundary rules in CLAUDE.md guarantee it), so
+    # there is no macOS behaviour here to validate — unlike `e2e`, `gate-native`
+    # and `gate-locale`, which all stay on macOS precisely because there is.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
@@ -242,12 +278,14 @@ jobs:
   # ~108s late (see the `e2e` job's concurrency note) but still finished in
   # 119s of its own runtime once it started, consistent with the other three.
   gate-node-app-test:
-    # `macos-14` for the same reason as `gate-node` above, and at no extra cost
-    # on a public repo (see the header). The shard count and every number in the
-    # comment block were measured on ubuntu-24.04, so treat N=4 as inherited
-    # rather than re-derived; the macOS shards measured 2m14s-2m56s, close
-    # enough to the 121-135s modelled there that the curve's shape still holds.
-    runs-on: macos-14
+    # `ubuntu-24.04` for the same reason as `gate-node` above: these are jsdom
+    # unit tests with no macOS behaviour in them, and four of them held four of
+    # the five available macOS slots. The N=4 model in the comment block was
+    # measured on ubuntu-24.04 in the first place, so moving back restores the
+    # conditions those numbers were taken under. Note the comment two paragraphs
+    # up already recorded the symptom — "the fourth queued ~108s late" — before
+    # the cause was understood.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -580,14 +618,25 @@ jobs:
   # 3m56s-5m58s against ubuntu's 6m39s-7m30s, so if anything they are now
   # over-sharded.
   e2e:
+    # Stays on macOS: this is the job with a measured platform tax in its own
+    # history (the `Meta+k` paragraph above), so it runs where the product ships.
+    #
+    # 8 shards -> 4. Past the 5-job macOS concurrency cap, sharding buys no
+    # parallelism at all and costs a VM boot + install + browser download per
+    # extra shard: 8 shards ran 5-then-3, so the run was two batches deep before
+    # any other job could start. At 4 they fit one batch beside gate-native and
+    # gate-locale. The comment above already suspected this ("if anything they
+    # are now over-sharded") on runtime grounds alone.
     runs-on: macos-14
-    timeout-minutes: 10
+    # Raised from 10: a quarter of the suite per shard instead of an eighth.
+    # The 8-way shards ran 3m56s-5m58s, so expect roughly double that.
+    timeout-minutes: 15
     strategy:
       # Every shard reports. Cancelling siblings on the first failure would hide
       # three quarters of a broken suite behind whichever shard happened to fail.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
 
@@ -647,8 +696,8 @@ jobs:
       # everything except a named `KNOWN_RED` list of files still being repaired;
       # Theme H emptied that list and retired the ratchet, so CI now blocks on
       # the same suite a human runs locally.
-      - name: E2E (shard ${{ matrix.shard }}/8)
-        run: pnpm exec moon run app:e2e -- --shard=${{ matrix.shard }}/8
+      - name: E2E (shard ${{ matrix.shard }}/4)
+        run: pnpm exec moon run app:e2e -- --shard=${{ matrix.shard }}/4
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
