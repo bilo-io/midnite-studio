@@ -23,9 +23,9 @@ export type RosterAgent = {
 
 export const AGENT_ROSTER: readonly RosterAgent[] = [
   { id: 'claude', label: 'Claude' },
+  { id: 'cursor', label: 'Cursor' },
   { id: 'agy', label: 'Antigravity' },
   { id: 'codex', label: 'Codex' },
-  { id: 'cursor', label: 'Cursor' },
   { id: 'copilot', label: 'Copilot' },
   { id: 'openclaude', label: 'OpenClaude' },
   { id: 'opencode', label: 'OpenCode' },
