@@ -142,10 +142,14 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   deferred, not abandoned.** `moon run desktop:dist` already built for macOS alone; the rest of
   the repo now matches. **Every default CI gate runs on a `macos-*` runner** — `gate-node`,
   `gate-node-app-test` and `e2e` moved off `ubuntu-24.04`, where Phase 82 Themes E/H had put them
-  purely for the 1x billing rate. That cost argument is intact and knowingly overridden: a red
-  lane on a platform this project does not ship is an interruption with no user behind it, and
-  `ci.yml`'s own `e2e` comment records half an hour of runner time burned on nine specs pressing
-  a hard-coded `Meta+k` that does nothing on Linux. **Two lanes cannot run on macOS at all and
+  purely for the 1x billing rate. **That cost argument is obsolete, not overridden: this repo is
+  public** (`gh api repos/bilo-io/midnite-studio -q .visibility`), and standard GitHub-hosted runners
+  — macOS included — are free on a public repo, so the "10x" those comments repeat is a private-repo
+  figure. `ci.yml`'s header carries the citations; read every "10x"/"1x" in that file as history.
+  The signal is real either way: `ci.yml`'s `e2e` comment records half an hour of runner time burned
+  on nine specs pressing a hard-coded `Meta+k` that does nothing on Linux, and the move to macOS
+  immediately caught that bug's mirror image in a rail-tooltip spec. **Two lanes cannot run on
+  macOS at all and
   are opt-in rather than moved or deleted** — `db-integration` (GitHub `services:` containers are
   Docker-based and Linux-runner-only) and `visual` (a Linux job `container:` diffing committed
   `-linux.png` baselines) — reached by the `cross-platform` PR label or `ci.yml`'s

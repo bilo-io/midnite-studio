@@ -50,11 +50,28 @@ concurrency:
 # baselines from 9bd97911/a250a01e); gating it stops that being a standing red
 # on every PR, and does not pretend the baselines are fixed.
 #
-# The trade this makes explicitly: macOS runners bill at 10x on a private repo,
-# and `gate-node`, `gate-node-app-test` and `e2e` were on ubuntu-24.04 for that
-# reason alone (Phase 82 Themes E/H). Moving them costs real money to stop
-# validating on a platform we do not ship. If the bill is the bigger problem
-# than the noise, the fix is to move those three back — not to un-defer Linux.
+# ## The cost argument in this file is obsolete — read every "10x" below as history
+#
+# `gate-node`, `gate-node-app-test` and `e2e` sat on `ubuntu-24.04` for ONE
+# reason, which the comments below state four times: "macOS minutes bill at 10x
+# on a private repo". **`bilo-io/midnite-studio` is public** — check it with
+# `gh api repos/bilo-io/midnite-studio -q .visibility` — and GitHub charges
+# nothing for STANDARD GitHub-hosted runners on a public repository, macOS
+# included. The 10x multiplier is a private-repo figure, and the M1 macOS runner
+# is explicitly "free in public repositories":
+#
+#   https://docs.github.com/en/billing/concepts/product-billing/github-actions
+#   https://github.blog/changelog/2024-01-30-github-actions-introducing-the-new-m1-macos-runner-available-to-open-source/
+#
+# So the trade Phase 82 Themes E/H were making — platform fidelity against runner
+# minutes — is not a trade here at all. Their measurements are still good and are
+# left in place; only the billing conclusions drawn from them are wrong. Note
+# this holds for standard runners only: LARGER runners are billed even on a
+# public repo, so moving a job to one would resurrect the whole argument.
+#
+# If this repo is ever made private again, the lever is exactly the three
+# `runs-on:` lines named above — move them back to `ubuntu-24.04`. That is a cost
+# decision, and it is not the same thing as un-deferring Linux.
 jobs:
   # Phase 82 Theme E — `gate` split by platform.
   #
@@ -101,8 +118,9 @@ jobs:
     # by CONTENT (which packages run where) is unchanged and still worth having,
     # but the platform half of it is not — macOS is the only supported target
     # now (see the header), so the node-portable packages get validated on the
-    # platform they ship on. The 10x billing Theme E's comment above is arguing
-    # against is the price of that, knowingly paid.
+    # platform they ship on. Theme E's comment above argues this costs 10x; on
+    # a public repo it costs nothing (see the header). It also got *faster*:
+    # 2m37s here against the ~341s that comment measured on ubuntu.
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v7
@@ -223,10 +241,11 @@ jobs:
   # ~108s late (see the `e2e` job's concurrency note) but still finished in
   # 119s of its own runtime once it started, consistent with the other three.
   gate-node-app-test:
-    # `macos-14` for the same reason as `gate-node` above — the shard count and
-    # every number in the comment block were measured on ubuntu-24.04, so treat
-    # N=4 as inherited rather than re-derived until this lane has its own macOS
-    # timings.
+    # `macos-14` for the same reason as `gate-node` above, and at no extra cost
+    # on a public repo (see the header). The shard count and every number in the
+    # comment block were measured on ubuntu-24.04, so treat N=4 as inherited
+    # rather than re-derived; the macOS shards measured 2m14s-2m56s, close
+    # enough to the 121-135s modelled there that the curve's shape still holds.
     runs-on: macos-14
     strategy:
       fail-fast: false
@@ -548,13 +567,17 @@ jobs:
   # `workers: 2` precedent that a measured non-adoption is a valid result of
   # this kind of theme. Re-run this measurement once Theme C's waves land.
   #
-  # `macos-14` since the macOS-only policy (see the header). The comment above
-  # argues for ubuntu on cost, and that argument is intact — it is simply
-  # outranked now by not gating merges on a platform this project does not
-  # ship. Note this lane is the one with a *measured* Linux tax in its own
-  # history (the `Meta+k` paragraph above), so the swap buys signal as well as
-  # costing money. Shard count and `workers` are inherited from the ubuntu
-  # measurements, not re-derived.
+  # `macos-14` since the macOS-only policy (see the header). Every cost sentence
+  # above — "10x", "1x", "affordable precisely because this lane is ubuntu" — is
+  # a private-repo figure and does not apply to this public repo; the timing
+  # measurements around them still do. This lane is also the one with a
+  # *measured* platform tax in its own history (the `Meta+k` paragraph above),
+  # and the move immediately caught its mirror image: a rail-tooltip spec that
+  # had baked in the label where the product shows the chord, green on Linux and
+  # red on macOS. Shard count and `workers` are inherited from the ubuntu
+  # measurements, not re-derived — though the 8 macOS shards came in at
+  # 3m56s-5m58s against ubuntu's 6m39s-7m30s, so if anything they are now
+  # over-sharded.
   e2e:
     runs-on: macos-14
     timeout-minutes: 10

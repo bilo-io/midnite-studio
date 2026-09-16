@@ -5,9 +5,10 @@ Recorded here when a phase punts on something; pick these up post-MVP.
 - **Linux and Windows support.** macOS (arm64) is the only officially supported platform for now
   (README, *Supported platform*). The consequences are recorded rather than removed, so
   un-deferring is a revert of one commit and not an archaeology exercise: every default CI gate
-  moved to a `macos-*` runner (`gate-node`, `gate-node-app-test` and `e2e` off
-  `ubuntu-24.04`, giving up the 1x billing rate Phase 82 Themes E/H chose it for), and the two
-  lanes that cannot run on macOS at all are opt-in behind the `cross-platform` PR label or
+  moved to a `macos-*` runner (`gate-node`, `gate-node-app-test` and `e2e` off `ubuntu-24.04`,
+  which cost nothing — this repo is public and standard GitHub-hosted runners are free there,
+  macOS included, so the "10x" Phase 82 Themes E/H chose ubuntu for is a private-repo figure),
+  and the two lanes that cannot run on macOS at all are opt-in behind the `cross-platform` PR label or
   `ci.yml`'s `cross_platform` `workflow_dispatch` input:
   **`db-integration`** (GitHub `services:` containers are Docker-based and Linux-runner-only)
   and **`visual`** (a Linux job `container:` diffing committed `-linux.png` baselines).
