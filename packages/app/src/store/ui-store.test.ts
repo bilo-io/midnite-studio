@@ -422,6 +422,16 @@ describe('persistence', () => {
 
     expect(merged.layout.reposWidth).toBe(300);
     expect(merged.layout.terminalHeight).toBe(DEFAULT_LAYOUT.terminalHeight);
+    expect(merged.layout.knowledgeFiltersWidth).toBe(DEFAULT_LAYOUT.knowledgeFiltersWidth);
+    expect(merged.layout.knowledgeDetailWidth).toBe(DEFAULT_LAYOUT.knowledgeDetailWidth);
+  });
+
+  it('updates knowledge graph layout sizes via setLayout', () => {
+    useUiStore.getState().setLayout('knowledgeFiltersWidth', 350);
+    expect(useUiStore.getState().layout.knowledgeFiltersWidth).toBe(350);
+
+    useUiStore.getState().setLayout('knowledgeDetailWidth', 450);
+    expect(useUiStore.getState().layout.knowledgeDetailWidth).toBe(450);
   });
 
   it('persists the browser pane state and the layout it was opened in', () => {

@@ -76,4 +76,11 @@ describe('KnowledgeNodePanel', () => {
     rerender(<KnowledgeNodePanel repoId="repo:1" nodeId="b" onClose={vi.fn()} />);
     await waitFor(() => expect(mocks.getNodeDetail).toHaveBeenCalledWith({ repoId: 'repo:1', nodeId: 'b' }));
   });
+
+  it('applies custom width and style props to the root element', () => {
+    render(<KnowledgeNodePanel repoId="repo:1" nodeId="a" onClose={vi.fn()} width={400} style={{ opacity: 0.9 }} />);
+    const panel = screen.getByTestId('knowledge-node-panel');
+    expect(panel.style.width).toBe('400px');
+    expect(panel.style.opacity).toBe('0.9');
+  });
 });

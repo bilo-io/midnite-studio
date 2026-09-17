@@ -77,4 +77,11 @@ describe('KnowledgeCommunityPanel', () => {
     renderPanel({ members: many });
     expect(screen.getByText(/and 15 more/)).toBeDefined();
   });
+
+  it('applies custom width and style props to the root element', () => {
+    renderPanel({ width: 420, style: { opacity: 0.95 } });
+    const panel = screen.getByTestId('knowledge-community-panel');
+    expect(panel.style.width).toBe('420px');
+    expect(panel.style.opacity).toBe('0.95');
+  });
 });

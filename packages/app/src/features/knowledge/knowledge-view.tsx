@@ -4,9 +4,12 @@ import { LuCircleAlert, LuClock } from 'react-icons/lu';
 import { SiGrapheneos } from 'react-icons/si';
 
 import { EmptyState } from '../../components/empty-state';
+import { ResizeHandle } from '../../components/resizable/resize-handle';
+import { useResizable } from '../../components/resizable/use-resizable';
 import { Spinner } from '../../components/skeleton';
 import { useWindowFocused } from '../../lib/use-window-focus';
 import { useActiveWorktree } from '../../services/use-status';
+import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { KnowledgeCanvas } from './knowledge-canvas';
 import {
   communityNameFromNodeId,
@@ -74,6 +77,27 @@ export function KnowledgeView() {
   const expandAllCommunities = useKnowledgeFiltersStore((s) => s.expandAllCommunities);
   const communityListMode = useKnowledgeFiltersStore((s) => s.communityListMode);
   const setCommunityListMode = useKnowledgeFiltersStore((s) => s.setCommunityListMode);
+
+  const layout = useUiStore((s) => s.layout);
+  const setLayout = useUiStore((s) => s.setLayout);
+
+  const filtersResizable = useResizable({
+    size: layout.knowledgeFiltersWidth,
+    onSize: (value) => setLayout('knowledgeFiltersWidth', value),
+    initial: DEFAULT_LAYOUT.knowledgeFiltersWidth,
+    axis: 'x',
+    edge: 'start',
+    ...LAYOUT_BOUNDS.knowledgeFiltersWidth,
+  });
+
+  const detailResizable = useResizable({
+    size: layout.knowledgeDetailWidth,
+    onSize: (value) => setLayout('knowledgeDetailWidth', value),
+    initial: DEFAULT_LAYOUT.knowledgeDetailWidth,
+    axis: 'x',
+    edge: 'end',
+    ...LAYOUT_BOUNDS.knowledgeDetailWidth,
+  });
 
   // Phase 84's visibility gate: `KnowledgeView` isn't `global: true` (Theme
   // C), so it fully unmounts on a view switch already — the one thing left
@@ -174,63 +198,92 @@ export function KnowledgeView() {
             <StaleBanner commitsBehind={state.commitsBehind} />
           ) : null}
           <div className="flex min-h-0 flex-1">
-            <KnowledgeFiltersPanel
-              filters={filters}
-              relations={relations}
-              communityNames={communityNames}
-              nodesByCommunity={nodesByCommunity}
-              collapsedCommunities={collapsedCommunities}
-              communityListMode={communityListMode}
-              visibleLinkCount={visibleLinkCount}
-              totalLinkCount={state.graph.links.length}
-              onQueryChange={setQuery}
-              onToggleRelation={toggleRelation}
-              onMinWeightChange={setMinWeight}
-              onMinConfidenceChange={setMinConfidence}
-              onToggleCommunity={toggleCommunity}
-              onShowAllCommunities={showAllCommunities}
-              onHideAllCommunities={hideAllCommunities}
-              onCommunityListModeChange={setCommunityListMode}
-              onToggleCollapsedCommunity={toggleCollapsedCommunity}
-              onCollapseAllCommunities={collapseAllCommunities}
-              onExpandAllCommunities={expandAllCommunities}
-              onSelectNode={focusNode}
-            />
-            <KnowledgeCanvas
-              payload={state.graph}
-              filters={filters}
-              focusNodeId={focusNodeId}
-              selectedNodeId={selectedNodeId}
-              collapsedCommunities={collapsedCommunities}
-              onNodeClick={selectNode}
-              onNodeDoubleClick={handleNodeDoubleClick}
-              paused={!focused}
-            />
-            {selectedNodeId && selectedCommunityName !== null ? (
-              <KnowledgeCommunityPanel
-                communityName={selectedCommunityName}
-                members={nodesByCommunity.get(selectedCommunityName) ?? []}
-                degrees={degrees}
-                hidden={filters.hiddenCommunities.has(selectedCommunityName)}
-                onClose={() => selectNode(null)}
-                onExpand={() => {
-                  setCommunityCollapsed(selectedCommunityName, false);
-                  selectNode(null);
-                }}
-                onToggleHidden={() => toggleCommunity(selectedCommunityName)}
-                onSelectNode={(nodeId) => {
-                  // A member is only reachable on the canvas once its community is unfolded.
-                  setCommunityCollapsed(selectedCommunityName, false);
-                  focusNode(nodeId);
-                }}
+            <div
+              style={{ width: filtersResizable.current }}
+              className="flex h-full min-h-0 shrink-0 flex-col"
+            >
+              <KnowledgeFiltersPanel
+                width={filtersResizable.current}
+                filters={filters}
+                relations={relations}
+                communityNames={communityNames}
+                nodesByCommunity={nodesByCommunity}
+                collapsedCommunities={collapsedCommunities}
+                communityListMode={communityListMode}
+                visibleLinkCount={visibleLinkCount}
+                totalLinkCount={state.graph.links.length}
+                onQueryChange={setQuery}
+                onToggleRelation={toggleRelation}
+                onMinWeightChange={setMinWeight}
+                onMinConfidenceChange={setMinConfidence}
+                onToggleCommunity={toggleCommunity}
+                onShowAllCommunities={showAllCommunities}
+                onHideAllCommunities={hideAllCommunities}
+                onCommunityListModeChange={setCommunityListMode}
+                onToggleCollapsedCommunity={toggleCollapsedCommunity}
+                onCollapseAllCommunities={collapseAllCommunities}
+                onExpandAllCommunities={expandAllCommunities}
+                onSelectNode={focusNode}
               />
-            ) : selectedNodeId ? (
-              <KnowledgeNodePanel
-                repoId={repoId ?? ''}
-                worktreePath={worktreePath}
-                nodeId={selectedNodeId}
-                onClose={() => selectNode(null)}
+            </div>
+            <ResizeHandle
+              resizable={filtersResizable}
+              axis="x"
+              label="Resize knowledge graph filters"
+            />
+            <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+              <KnowledgeCanvas
+                payload={state.graph}
+                filters={filters}
+                focusNodeId={focusNodeId}
+                selectedNodeId={selectedNodeId}
+                collapsedCommunities={collapsedCommunities}
+                onNodeClick={selectNode}
+                onNodeDoubleClick={handleNodeDoubleClick}
+                paused={!focused}
               />
+            </div>
+            {selectedNodeId ? (
+              <>
+                <ResizeHandle
+                  resizable={detailResizable}
+                  axis="x"
+                  label="Resize knowledge graph detail"
+                />
+                <div
+                  style={{ width: detailResizable.current }}
+                  className="flex h-full min-h-0 shrink-0 flex-col"
+                >
+                  {selectedCommunityName !== null ? (
+                    <KnowledgeCommunityPanel
+                      width={detailResizable.current}
+                      communityName={selectedCommunityName}
+                      members={nodesByCommunity.get(selectedCommunityName) ?? []}
+                      degrees={degrees}
+                      hidden={filters.hiddenCommunities.has(selectedCommunityName)}
+                      onClose={() => selectNode(null)}
+                      onExpand={() => {
+                        setCommunityCollapsed(selectedCommunityName, false);
+                        selectNode(null);
+                      }}
+                      onToggleHidden={() => toggleCommunity(selectedCommunityName)}
+                      onSelectNode={(nodeId) => {
+                        // A member is only reachable on the canvas once its community is unfolded.
+                        setCommunityCollapsed(selectedCommunityName, false);
+                        focusNode(nodeId);
+                      }}
+                    />
+                  ) : (
+                    <KnowledgeNodePanel
+                      width={detailResizable.current}
+                      repoId={repoId ?? ''}
+                      worktreePath={worktreePath}
+                      nodeId={selectedNodeId}
+                      onClose={() => selectNode(null)}
+                    />
+                  )}
+                </div>
+              </>
             ) : null}
           </div>
         </div>

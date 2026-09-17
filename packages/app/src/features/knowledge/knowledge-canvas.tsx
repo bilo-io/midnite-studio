@@ -51,7 +51,7 @@ export function KnowledgeCanvas({
     <div
       ref={containerRef}
       data-testid="knowledge-canvas"
-      className="h-full min-h-0 w-full flex-1 bg-background"
+      className="h-full min-h-0 min-w-0 w-full flex-1 bg-background"
     />
   );
 }

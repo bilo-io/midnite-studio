@@ -90,4 +90,11 @@ describe('KnowledgeFiltersPanel', () => {
     renderPanel({ collapsedCommunities: new Set(['core', 'graph']) });
     expect(screen.getByText('2 collapsed')).toBeDefined();
   });
+
+  it('applies custom width and style props to the root element', () => {
+    renderPanel({ width: 320, style: { zIndex: 10 } });
+    const panel = screen.getByTestId('knowledge-filters-panel');
+    expect(panel.style.width).toBe('320px');
+    expect(panel.style.zIndex).toBe('10');
+  });
 });

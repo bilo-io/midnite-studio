@@ -263,4 +263,33 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
     );
     expect(screen.queryByTestId('knowledge-node-panel-stub')).toBeNull();
   });
+
+  it('renders resize handle for filters when ready', async () => {
+    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    installBridge({ getGraph: vi.fn().mockResolvedValue({ ok: true, value: READY_PAYLOAD }) });
+
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('knowledge-canvas-stub')).toBeDefined());
+
+    expect(screen.getByLabelText('Resize knowledge graph filters')).toBeDefined();
+    expect(screen.queryByLabelText('Resize knowledge graph detail')).toBeNull();
+  });
+
+  it('renders resize handle for detail panel when a node or community is selected', async () => {
+    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    installBridge({ getGraph: vi.fn().mockResolvedValue({ ok: true, value: READY_PAYLOAD }) });
+
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('knowledge-canvas-stub')).toBeDefined());
+
+    useKnowledgeFiltersStore.getState().selectNode('a');
+    await waitFor(() =>
+      expect(screen.getByLabelText('Resize knowledge graph detail')).toBeDefined(),
+    );
+
+    useKnowledgeFiltersStore.getState().selectNode(null);
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Resize knowledge graph detail')).toBeNull(),
+    );
+  });
 });

@@ -27,11 +27,17 @@ export function KnowledgeNodePanel({
   worktreePath,
   nodeId,
   onClose,
+  width,
+  style,
+  className = '',
 }: {
   repoId: string;
   worktreePath?: string;
   nodeId: string;
   onClose: () => void;
+  width?: number;
+  style?: React.CSSProperties;
+  className?: string;
 }) {
   const [detail, setDetail] = useState<DetailState>({ status: 'loading' });
 
@@ -67,7 +73,11 @@ export function KnowledgeNodePanel({
   }, [repoId, nodeId]);
 
   return (
-    <div className="flex h-full min-h-0 w-full max-w-md flex-col border-l border-border bg-background">
+    <div
+      data-testid="knowledge-node-panel"
+      style={{ ...(width !== undefined ? { width } : {}), ...style }}
+      className={`flex h-full min-h-0 w-full flex-col border-l border-border bg-background ${className}`}
+    >
       <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
         <span className="truncate text-xs font-medium text-muted-foreground">Knowledge · node</span>
         <IconButton icon={LuX} label="Close" onClick={onClose} />
