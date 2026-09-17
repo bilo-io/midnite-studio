@@ -1,7 +1,7 @@
 // Layer: vitest (Phase 82) — pure numeric computation, no browser/GPU capability needed.
 import { describe, expect, it } from 'vitest';
 
-import { layoutGraph, runForceAtlas2, toGraphologyGraph } from './layout';
+import { FORCE_ATLAS2_SETTINGS, layoutGraph, runForceAtlas2, toGraphologyGraph } from './layout';
 import type { LeanGraph } from './types';
 
 function fixtureGraph(nodeCount = 20): LeanGraph {
@@ -68,5 +68,11 @@ describe('layoutGraph', () => {
       builtAtCommit: 'deadbeef',
     };
     expect(() => layoutGraph(graph, { totalIterations: 5, batchSize: 5 })).not.toThrow();
+  });
+
+  it('tunes ForceAtlas2 for a sparse layout with scalingRatio 25', () => {
+    expect(FORCE_ATLAS2_SETTINGS.scalingRatio).toBe(25);
+    expect(FORCE_ATLAS2_SETTINGS.gravity).toBe(1);
+    expect(FORCE_ATLAS2_SETTINGS.barnesHutOptimize).toBe(true);
   });
 });

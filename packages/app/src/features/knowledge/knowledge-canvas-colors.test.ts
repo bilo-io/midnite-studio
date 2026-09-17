@@ -1,7 +1,14 @@
 // Layer: vitest — pure string/number math, no canvas needed.
 import { describe, expect, it } from 'vitest';
 
-import { alphaForWeight, withAlpha } from './knowledge-canvas-colors';
+import {
+  DEFAULT_NODE_ALPHA,
+  DIMMED_ALPHA,
+  NEIGHBOR_NODE_ALPHA,
+  alphaForWeight,
+  nodeColorForState,
+  withAlpha,
+} from './knowledge-canvas-colors';
 
 describe('withAlpha', () => {
   it('turns an rgb() string into a PREMULTIPLIED rgba() — sigma blends with ONE / ONE_MINUS_SRC_ALPHA', () => {
@@ -43,3 +50,30 @@ describe('alphaForWeight', () => {
     expect(alphaForWeight(0.5)).toBeCloseTo(0.475);
   });
 });
+
+describe('nodeColorForState', () => {
+  const base = 'rgb(100, 200, 50)';
+
+  it('returns semitransparent color at rest when unselected', () => {
+    expect(nodeColorForState(base, { dimmed: false, isFocus: false, isNeighbor: false })).toBe(
+      withAlpha(base, DEFAULT_NODE_ALPHA),
+    );
+  });
+
+  it('returns full base color when focused / selected', () => {
+    expect(nodeColorForState(base, { dimmed: false, isFocus: true, isNeighbor: false })).toBe(base);
+  });
+
+  it('returns neighbor alpha when node is a 1-hop neighbor of focus', () => {
+    expect(nodeColorForState(base, { dimmed: false, isFocus: false, isNeighbor: true })).toBe(
+      withAlpha(base, NEIGHBOR_NODE_ALPHA),
+    );
+  });
+
+  it('returns dimmed alpha when another node is focused and this node is dimmed', () => {
+    expect(nodeColorForState(base, { dimmed: true, isFocus: false, isNeighbor: false })).toBe(
+      withAlpha(base, DIMMED_ALPHA),
+    );
+  });
+});
+

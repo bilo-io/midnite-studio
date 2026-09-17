@@ -29,3 +29,30 @@ export function alphaForWeight(weight: number, min = 0.15, max = 0.8): number {
   const clamped = Math.min(1, Math.max(0, weight));
   return min + clamped * (max - min);
 }
+
+/** Default alpha for unselected nodes at rest — subtle semitransparency so the graph breathes. */
+export const DEFAULT_NODE_ALPHA = 0.65;
+
+/** Dimmed alpha for nodes or edges not in the active focus or neighbourhood. */
+export const DIMMED_ALPHA = 0.1;
+
+/** Alpha for 1-hop neighbours of a focused node. */
+export const NEIGHBOR_NODE_ALPHA = 0.85;
+
+/**
+ * Node colour state derived from active focus sets:
+ * - dimmed: node is not focused and not a neighbour, while something is focused -> DIMMED_ALPHA (0.1)
+ * - isFocus: node is selected, search-matched, or hovered -> 1.0 (fully opaque base colour)
+ * - isNeighbor: node is a 1-hop neighbour of a focused node -> NEIGHBOR_NODE_ALPHA (0.85)
+ * - otherwise (at rest / default / unselected) -> DEFAULT_NODE_ALPHA (0.65)
+ */
+export function nodeColorForState(
+  baseRgbColor: string,
+  state: { dimmed: boolean; isFocus: boolean; isNeighbor?: boolean },
+): string {
+  if (state.dimmed) return withAlpha(baseRgbColor, DIMMED_ALPHA);
+  if (state.isFocus) return baseRgbColor;
+  if (state.isNeighbor) return withAlpha(baseRgbColor, NEIGHBOR_NODE_ALPHA);
+  return withAlpha(baseRgbColor, DEFAULT_NODE_ALPHA);
+}
+

@@ -15,7 +15,7 @@ import type { LayoutPositions, LeanGraph } from './types';
  */
 export const FORCE_ATLAS2_SETTINGS = {
   gravity: 1,
-  scalingRatio: 10,
+  scalingRatio: 25,
   barnesHutOptimize: true,
   barnesHutTheta: 0.6,
   slowDown: 1,
