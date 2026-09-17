@@ -123,33 +123,33 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       to sigma rather than rendering nothing (Decision 1).
 - [ ] Every icon from `react-icons`, imported per set — never the package root.
 
-### B — Expand from a core (L)
+### B — Expand from a core (L) — ✅ DONE (PR #436, 2026-09-17)
 
-- [ ] `knowledge-intro.ts`: a position-channel tween beside `PulseTracker`, same pure shape (clock
+- [x] `knowledge-intro.ts`: a position-channel tween beside `PulseTracker`, same pure shape (clock
       injected, `start`/`sample`/`clear`, an `animating` flag), tweening `{x, y}` from an origin to
       each node's laid-out coordinates.
-- [ ] **The origin is the graph centroid**, computed from `payload.positions`, not `{0, 0}` — the
+- [x] **The origin is the graph centroid**, computed from `payload.positions`, not `{0, 0}` — the
       ForceAtlas2 output is not centred on the origin and a burst from the wrong point reads as a
       slide.
-- [ ] Stagger by degree, hubs first: reuse
+- [x] Stagger by degree, hubs first: reuse
       [`knowledge-degree.ts`](../../../packages/app/src/features/knowledge/knowledge-degree.ts) rather
       than recomputing. High-degree nodes land early so the shape resolves before the leaves arrive.
-- [ ] Solve the re-indexation problem explicitly and write down which way it went: `repaint()`
+- [x] Solve the re-indexation problem explicitly and write down which way it went: `repaint()`
       (`use-sigma-graph.ts:325`) passes `skipIndexation: true`, which cannot carry position changes.
       Either drive the intro through a full `refresh()` per frame, or mutate the graphology node
       attributes and re-index once per frame — **measure both on the 15,292-node graph** and keep the
       one that holds frame rate. A comment records the measurement.
-- [ ] Edges fade in behind the nodes rather than stretching from the centroid — 37,036 edges tweening
+- [x] Edges fade in behind the nodes rather than stretching from the centroid — 37,036 edges tweening
       endpoints is the expensive half and reads worse.
-- [ ] `paused` snaps: when `liveRef.current.paused` (`:165`) is set, the intro lands on frame one, the
+- [x] `paused` snaps: when `liveRef.current.paused` (`:165`) is set, the intro lands on frame one, the
       same contract `pulse()` already honours at `:360`.
-- [ ] `prefers-reduced-motion` skips the intro entirely — final positions on first paint, no
+- [x] `prefers-reduced-motion` skips the intro entirely — final positions on first paint, no
       shortened version. Assert it in a unit test against the motion policy Phase 46 established.
-- [ ] The intro plays on **payload change** — first mount, repo switch, and re-entry after the view
+- [x] The intro plays on **payload change** — first mount, repo switch, and re-entry after the view
       unmounts (Knowledge is deliberately not `global: true`,
       [`view-registry.tsx:158`](../../../packages/app/src/components/view-registry.tsx)). It does not
       replay on a filter change (Decision 3).
-- [ ] Pure tween logic covered by vitest with an injected clock, exactly as
+- [x] Pure tween logic covered by vitest with an injected clock, exactly as
       [`knowledge-bounce.test.ts`](../../../packages/app/src/features/knowledge/knowledge-bounce.test.ts)
       covers `PulseTracker`.
 
