@@ -4,6 +4,20 @@ import { fixtures } from '../test-support/fixtures';
 import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
+ * Phase 89 Theme B's expand-from-a-core intro (`knowledge-intro.ts`) moves
+ * every node from the graph's centroid to its laid-out position over ~1.25s
+ * on mount, and this suite hit-tests FIXED screen points against nodes at
+ * their FINAL laid-out coordinates the instant the canvas appears — exactly
+ * the assumption the burst breaks for that window. The intro already has an
+ * off switch, `prefers-reduced-motion` (final positions on first paint, no
+ * burst at all — see `use-sigma-graph.ts`'s `shouldAnimateIntro`), which is
+ * the right lever here: this suite is about hit-testing, not motion, so it
+ * asks for the graph to be at rest from the first frame rather than adding
+ * a wall-clock wait (`docs/TESTING.md`'s rule against exactly that).
+ */
+test.use({ reducedMotion: 'reduce' });
+
+/**
  * Playwright/real-browser: Phase 87 Theme G's own "canvas only" carve-out
  * (see the phase doc's Theme G and `docs/TESTING.md`'s decision rule). This
  * file is the ONE place the Knowledge feature needs a real browser rather
