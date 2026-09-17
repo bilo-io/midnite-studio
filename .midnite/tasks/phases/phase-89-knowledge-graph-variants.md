@@ -191,26 +191,31 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [ ] Each look respects the theme `MutationObserver` repaint (`:444-459`) in both light and dark. A
       look that only works on one theme does not ship.
 
-### E — Layout variants in the worker (M)
+### E — Layout variants in the worker (M) ✅ DONE (PR #439, 2026-09-17)
 
-- [ ] Add alternative layouts to [`packages/knowledge/src/layout.ts`](../../../packages/knowledge/src/layout.ts)
+- [x] Add alternative layouts to [`packages/knowledge/src/layout.ts`](../../../packages/knowledge/src/layout.ts)
       beside `runForceAtlas2`: **circlepack** by community, **hierarchical** by import direction, and
       **noverlap** as a post-pass over any of them. Same deterministic guarantee ForceAtlas2 already
       has — same input, same coordinates — so the cache stays meaningful.
-- [ ] The layout id joins the cache key beside `built_at_commit`
+- [x] The layout id joins the cache key beside `built_at_commit`
       ([`cache.ts`](../../../packages/knowledge/src/cache.ts)), so switching layouts twice is a cache
       hit, not two recomputations.
-- [ ] Extend the IPC payload in
+- [x] Extend the IPC payload in
       [`shared/src/domain/knowledge.ts`](../../../packages/shared/src/domain/knowledge.ts) to request
       a layout, keeping `KnowledgeGraphPayloadSchema`'s existing `positions` record shape unchanged —
       the renderer should not be able to tell which layout produced the coordinates.
-- [ ] Layout switches **tween** between coordinate sets using B's position channel, with the same
+- [x] Layout switches **tween** between coordinate sets using B's position channel, with the same
       progress reporting the first layout already has
       ([`use-knowledge-layout-progress.ts`](../../../packages/app/src/features/knowledge/use-knowledge-layout-progress.ts)).
-- [ ] The layout pills sit in the same flat bar as everything else, and a layout is only offered for
+      Theme B (PR #436) was still open when this landed, so the tween is its own small
+      `knowledge-layout-transition.ts` seam rather than a reach into B's in-flight `IntroTracker` —
+      see that file's own docblock for why the two shapes differ (one shared origin vs. per-node
+      `from`) and what would make them worth merging later.
+- [x] The layout pills sit in the same flat bar as everything else, and a layout is only offered for
       variants whose engine consumes worker coordinates (so not the d3-force live sim, which computes
-      its own).
-- [ ] `packages/knowledge` stays electron-free. Boundary unchanged, vitest coverage per layout.
+      its own). Implemented as `KnowledgeVariant.consumesWorkerLayout` (`renderer-contract.ts`), true
+      for sigma today.
+- [x] `packages/knowledge` stays electron-free. Boundary unchanged, vitest coverage per layout.
 
 ### F — force-graph (M)
 
