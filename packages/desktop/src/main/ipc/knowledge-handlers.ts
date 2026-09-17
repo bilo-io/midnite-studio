@@ -1,12 +1,15 @@
 import {
   buildDetailIndex,
+  DEFAULT_LAYOUT_ID,
   graphExists,
+  isLayoutId,
   layoutCacheKey,
   PROJECTION_FORMAT_VERSION,
   projectGraph,
   readGraph,
   readLayoutCache,
   writeLayoutCache,
+  type LayoutId,
   type LayoutPositions,
   type LeanGraph,
   type NodeDetail,
@@ -128,7 +131,13 @@ export function registerKnowledgeHandlers(): void {
     CHANNELS.knowledgeGetGraph,
     schemas.KnowledgeGetGraphRequest,
     async (req, win): Promise<KnowledgeGetGraphResponse> => {
-      const tag = `[knowledge] getGraph repo=${req.repoId}`;
+      // An unknown/stale id (a renderer build that shipped a layout this one
+      // dropped) falls back to the default rather than erroring — the same
+      // "never fail on a stale preference" rule `resolveVariant` follows on
+      // the renderer side.
+      const layoutId: LayoutId =
+        req.layoutId && isLayoutId(req.layoutId) ? req.layoutId : DEFAULT_LAYOUT_ID;
+      const tag = `[knowledge] getGraph repo=${req.repoId} layout=${layoutId}`;
       const entry = getRepo(req.repoId);
       if (!entry) {
         log.warn(`${tag} repo is not open`);
@@ -153,14 +162,14 @@ export function registerKnowledgeHandlers(): void {
       });
 
       const lean = projectGraph(readResult.graph);
-      const key = layoutCacheKey(lean.builtAtCommit, PROJECTION_FORMAT_VERSION);
+      const key = layoutCacheKey(lean.builtAtCommit, PROJECTION_FORMAT_VERSION, layoutId);
       const commitsBehind = await countCommitsBehindHead(entry.path, lean.builtAtCommit);
       log.info(
         `${tag} read ${Date.now() - readStarted}ms nodes=${lean.nodes.length} links=${lean.links.length} ` +
           `built=${lean.builtAtCommit.slice(0, 10)} behind=${commitsBehind ?? '?'}`,
       );
 
-      const cachedLayout = await readLayoutCache(cacheDir, req.repoId, key);
+      const cachedLayout = await readLayoutCache(cacheDir, req.repoId, layoutId, key);
       if (cachedLayout) {
         log.info(`${tag} layout cache hit`);
         return knowledgeOk(toPayload(lean, cachedLayout.positions, true, commitsBehind));
@@ -171,7 +180,7 @@ export function registerKnowledgeHandlers(): void {
       const layoutStarted = Date.now();
       const layoutResult = await runLayoutInWorker(
         lean,
-        { totalIterations: TOTAL_ITERATIONS, batchSize: BATCH_SIZE, workerPath },
+        { layoutId, totalIterations: TOTAL_ITERATIONS, batchSize: BATCH_SIZE, workerPath },
         (done, total) => {
           if (win && !win.isDestroyed()) {
             win.webContents.send(EVENT_CHANNELS.knowledgeLayoutProgress, {
@@ -193,6 +202,7 @@ export function registerKnowledgeHandlers(): void {
         await writeLayoutCache(cacheDir, req.repoId, {
           builtAtCommit: lean.builtAtCommit,
           projectionVersion: PROJECTION_FORMAT_VERSION,
+          layoutId,
           nodeCount: lean.nodes.length,
           linkCount: lean.links.length,
           positions: layoutResult.positions,

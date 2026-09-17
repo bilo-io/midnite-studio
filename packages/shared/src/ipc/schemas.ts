@@ -40,6 +40,7 @@ import {
   ConnectionConfigSchema,
   KnowledgeGraphExistsSchema,
   KnowledgeGraphPayloadSchema,
+  KnowledgeLayoutIdSchema,
   KnowledgeNodeDetailFailureSchema,
   KnowledgeNodeDetailSchema,
   KnowledgeResultOf,
@@ -2481,7 +2482,16 @@ export const DbQueryDoneEvent = z.object({
 // immediately — except here the single `invoke` genuinely waits for the
 // result, since Theme D has nothing paintable until a layout exists at all.
 
-export const KnowledgeGetGraphRequest = RepoId;
+export const KnowledgeGetGraphRequest = RepoId.extend({
+  /**
+   * Which worker-computed layout to use (Phase 89 Theme E) — optional so a
+   * caller from before this theme still gets ForceAtlas2 (`main`'s handler
+   * defaults it the same way `layout-worker.ts` does). Requesting the same
+   * `layoutId` twice for an unchanged graph is a cache hit, not a second
+   * cold pass — see `@midnite/studio-knowledge`'s `layoutCacheKey`.
+   */
+  layoutId: KnowledgeLayoutIdSchema.optional(),
+});
 export const KnowledgeGetGraphResponse = KnowledgeResultOf(KnowledgeGraphPayloadSchema);
 
 export const KnowledgeGetNodeDetailRequest = RepoId.extend({ nodeId: z.string().min(1) });

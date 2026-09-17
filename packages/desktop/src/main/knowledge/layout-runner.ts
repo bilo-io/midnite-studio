@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Worker } from 'node:worker_threads';
 
-import type { LayoutPositions, LeanGraph } from '@midnite/studio-knowledge';
+import type { LayoutId, LayoutPositions, LeanGraph } from '@midnite/studio-knowledge';
 
 /**
  * Where the worker's compiled entry point lives.
@@ -42,6 +42,8 @@ export type LayoutRunResult =
 export const LAYOUT_STALL_MS = 60_000;
 
 export type LayoutRunOptions = {
+  /** Which layout to compute (Phase 89 Theme E) — defaults to ForceAtlas2 inside the worker when omitted. */
+  layoutId?: LayoutId;
   totalIterations: number;
   batchSize: number;
   /** Silence budget before the run is abandoned — see {@link LAYOUT_STALL_MS}. */
@@ -80,6 +82,7 @@ export function runLayoutInWorker(
       worker = new Worker(options.workerPath ?? resolveLayoutWorkerPath(), {
         workerData: {
           lean,
+          layoutId: options.layoutId,
           totalIterations: options.totalIterations,
           batchSize: options.batchSize,
         },
