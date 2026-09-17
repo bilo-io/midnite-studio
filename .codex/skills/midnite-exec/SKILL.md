@@ -15,8 +15,12 @@ End-to-end "execute a phase slice" for **Midnite Studio**.
 - Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and Vite denies `.git/**`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) as home base.
 - **`.worktrees/` is outside `.git/`, so the full `moon run :test` runs fine inside the worktree** — no need to hop back to the primary checkout.
 
-## 1 · Scan
-Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** — the roll-up of every phase's status, progress, and which themes are `🔄 WIP` / `◻ TODO`. **Do not** read every `phase-*.md`; that's what the index replaces (saves context). Only open the individual `phase-N-*.md` for the **candidate phases** you're about to propose, to read the open theme detail. Skim `open-decisions.md`/`outstanding.md` if relevant. `gh pr list --state open` + the index's `🔄 WIP` column — anything in flight or already claimed isn't a fresh candidate. Emit a tight digest of the few candidate phases + their real open themes.
+## 1 · Scan — two passes
+**Pass 1 — `_INDEX.md` only.** Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** and nothing else under `.midnite/tasks/`. No `phase-*.md`, no `done.md`, no `outstanding.md`, no `open-decisions.md`, no Glob of `phases/`, no subagent whose job is "read the phase docs". Status, Done/%, Progress, `🔄 WIP` / `◻ TODO` letters, and Theme-key one-liners are already in that file. `gh pr list --state open` is allowed (not a phase doc). Pick up to 4 candidate phases from those columns. Anything in `🔄 WIP` or with an open PR is already claimed — not a fresh candidate. Emit the digest from the index + Theme key alone.
+
+**Pass 2 — only those candidates, after Pass 1 returns.** In a later turn (or a second tool batch once Pass 1's result is in context), open the matching `phases/phase-{N}-*.md` files — at most 4. That's where theme names, sizes, and unblocked-item detail live. Do not open any other phase file.
+
+Do **not** fold Pass 2 into Pass 1 "to save a round" — that dumps nearby phase docs into context before the candidate set exists.
 
 ## 2 · Choose — STOP for the human
 Pick up to **4 candidate phases** with open, unblocked themes (favor: doc-flagged "next" slices; small/self-contained/high-value; unblockers). Assign each theme a t-shirt size and **include it directly in the option label**: `<Theme letter>: <name> [<size> · <time>]`.
