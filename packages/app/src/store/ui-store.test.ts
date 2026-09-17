@@ -284,6 +284,23 @@ describe('phase 16 store additions', () => {
     expect(saved.state.layout.filesTreeWidth).toBe(260);
   });
 
+  it('gives the Video Studio view persisted, merge-filled project list and detail widths', () => {
+    const merged = useUiStore.persist.getOptions().merge?.(
+      { layout: { reposWidth: 300 } },
+      useUiStore.getState(),
+    ) as { layout: Record<string, number> };
+    expect(merged.layout.videoProjectListWidth).toBe(DEFAULT_LAYOUT.videoProjectListWidth);
+    expect(merged.layout.videoDetailWidth).toBe(DEFAULT_LAYOUT.videoDetailWidth);
+
+    useUiStore.getState().setLayout('videoProjectListWidth', 250);
+    useUiStore.getState().setLayout('videoDetailWidth', 350);
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+      state: { layout: Record<string, number> };
+    };
+    expect(saved.state.layout.videoProjectListWidth).toBe(250);
+    expect(saved.state.layout.videoDetailWidth).toBe(350);
+  });
+
   it('does not persist the active view — a launch starts on the graph', () => {
     useUiStore.getState().setActiveView('files');
     const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {

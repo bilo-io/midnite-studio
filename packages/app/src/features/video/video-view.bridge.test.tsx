@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { fixtures } from '../../../test-support/fixtures';
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
+import { DEFAULT_LAYOUT } from '../../store/ui-store';
 import { VideoView } from './video-view';
 
 /**
@@ -105,5 +106,20 @@ describe('VideoView, assembled through the real bridge', () => {
 
     expect(await screen.findByRole('button', { name: /My New Video/ })).toBeTruthy();
     expect(await screen.findByText("The studio isn't running.")).toBeTruthy();
+  });
+
+  it('renders resizable panels with resize handles', async () => {
+    await open();
+    const listHandle = screen.getByRole('separator', { name: 'Resize video project list' });
+    const detailHandle = screen.getByRole('separator', { name: 'Resize video project detail' });
+    expect(listHandle).toBeTruthy();
+    expect(detailHandle).toBeTruthy();
+
+    expect((listHandle.previousElementSibling as HTMLElement).style.width).toBe(
+      `${DEFAULT_LAYOUT.videoProjectListWidth}px`,
+    );
+    expect((detailHandle.nextElementSibling as HTMLElement).style.width).toBe(
+      `${DEFAULT_LAYOUT.videoDetailWidth}px`,
+    );
   });
 });
