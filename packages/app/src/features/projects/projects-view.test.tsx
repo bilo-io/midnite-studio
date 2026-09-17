@@ -39,6 +39,8 @@ beforeAll(() => {
   vi.stubGlobal('ResizeObserver', StubResizeObserver);
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, value: 1200 });
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, value: 800 });
+  window.HTMLElement.prototype.setPointerCapture = vi.fn();
+  window.HTMLElement.prototype.releasePointerCapture = vi.fn();
 });
 
 afterEach(cleanup);
@@ -943,5 +945,58 @@ describe('Phase 75 Theme H — filters and the graph’s own facets', () => {
     expect(setProjectView).toHaveBeenCalledWith('PVT_1', {
       graph: { ...DEFAULT_GRAPH_FACETS_MOCK, showContains: true, only: 'blocked' },
     });
+  });
+
+  it('renders a resizable handle and resizes the task details panel when nudged or reset', async () => {
+    renderWithClient();
+    await screen.findByTestId('project-graph-view');
+
+    // No handle initially since nothing is selected
+    expect(screen.queryByLabelText('Resize task details')).toBeNull();
+
+    // Select a node
+    fireEvent.click(screen.getByText('The blocker').closest('[data-graph-node]')!);
+
+    // Handle is now mounted
+    const handle = screen.getByRole('separator', { name: 'Resize task details' });
+    expect(handle).toBeDefined();
+    expect(handle.getAttribute('aria-valuenow')).toBe('320');
+    expect(handle.getAttribute('aria-valuemin')).toBe('260');
+    expect(handle.getAttribute('aria-valuemax')).toBe('640');
+
+    // Panel is mounted with initial width
+    const panel = screen.getByTestId('card-panel-stack');
+    expect(panel.style.width).toBe('320px');
+
+    // ArrowLeft grows the panel (because edge is 'end') by 8px
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    expect(handle.getAttribute('aria-valuenow')).toBe('328');
+    expect(panel.style.width).toBe('328px');
+
+    // Double clicking handle resets to initial 320px
+    fireEvent.doubleClick(handle);
+    expect(handle.getAttribute('aria-valuenow')).toBe('320');
+    expect(panel.style.width).toBe('320px');
+  });
+
+  it('collapses the task details panel when nudged past min bound', async () => {
+    renderWithClient();
+    await screen.findByTestId('project-graph-view');
+
+    fireEvent.click(screen.getByText('The blocker').closest('[data-graph-node]')!);
+    const handle = screen.getByRole('separator', { name: 'Resize task details' });
+    const panel = screen.getByTestId('card-panel-stack');
+
+    // Home jumps to minimum (260px)
+    fireEvent.keyDown(handle, { key: 'Home' });
+    expect(handle.getAttribute('aria-valuenow')).toBe('260');
+    expect(panel.style.width).toBe('260px');
+
+    // ArrowRight past min (with edge: 'end') triggers collapse
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+
+    // onCollapse closed the panel by clearing selectedItemId
+    expect(screen.queryByTestId('card-panel-stack')).toBeNull();
+    expect(screen.queryByRole('separator', { name: 'Resize task details' })).toBeNull();
   });
 });

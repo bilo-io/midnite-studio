@@ -60,12 +60,18 @@ function Harness({
   onSelectItem = vi.fn(),
   onClose = vi.fn(),
   blockers,
+  style,
+  width,
+  className,
 }: {
   selectedItemId: string;
   items?: ForgeProjectItem[];
   onSelectItem?: (id: string) => void;
   onClose?: () => void;
   blockers?: readonly ForgeIssueRef[];
+  style?: React.CSSProperties;
+  width?: number;
+  className?: string;
 }) {
   return (
     <CardPanelStack
@@ -78,6 +84,9 @@ function Harness({
       onSelectItem={onSelectItem}
       onClose={onClose}
       blockers={blockers}
+      style={style}
+      width={width}
+      className={className}
     />
   );
 }
@@ -181,5 +190,26 @@ describe('CardPanelStack', () => {
     const start = screen.getByTestId('card-start');
     expect(start).toHaveProperty('disabled', true);
     expect(start.getAttribute('title')).toBe('Blocked by #199');
+  });
+
+  it('renders with default w-80 class when no custom width or style is provided', () => {
+    renderStack({ selectedItemId: cardA.id });
+    const panel = screen.getByTestId('card-panel-stack');
+    expect(panel.className).toContain('w-80');
+    expect(panel.style.width).toBe('');
+  });
+
+  it('applies custom width, style, and className overrides without w-80', () => {
+    renderStack({
+      selectedItemId: cardA.id,
+      width: 480,
+      style: { opacity: 0.8 },
+      className: 'custom-panel-class',
+    });
+    const panel = screen.getByTestId('card-panel-stack');
+    expect(panel.style.width).toBe('480px');
+    expect(panel.style.opacity).toBe('0.8');
+    expect(panel.className).toContain('custom-panel-class');
+    expect(panel.className).not.toContain('w-80');
   });
 });
