@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | ◻ TODO | — | 0/89 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
 | [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | A B C D E F G | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 44/64 | `███████░░░` | 69% | — | G H |
@@ -191,6 +192,31 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 89 — Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md)
+
+*Phase 87 shipped one renderer, hard-coded: `KnowledgeCanvas` is 57 lines that call `useSigmaGraph`
+and nothing else. A pill bar above the canvas makes the renderer a named variant — sigma deepened
+first (the seam, an expand-from-a-core intro, an animated focus alpha, four looks, the worker's
+layouts), then one alternative library per theme behind its own dynamic `import()`. The grounding
+corrected three premises: **focus alpha dimming already ships** (`knowledge-canvas-colors.ts`, with a
+docblock on why the values are premultiplied — straight alpha produced no dimming at all on the dark
+theme), **the existing rAF loop cannot carry the intro** (`PulseTracker` tweens `size` only and
+repaints with `skipIndexation: true`; positions re-index on a full refresh alone), and **the graph is
+now 15,292 nodes / 37,036 links**, not the 14,881 / 36,032 three code comments still quote. Phase 87
+rejected vis-network for the CDN, not the library — Theme H says so in the code.*
+
+- ◻ **A** — the `KnowledgeRenderer` seam, the pill bar inside the canvas column, an overflow menu, a persisted `rendererVariant`
+- ◻ **B** — expand from a core: a position-channel tween, centroid origin, degree stagger, and the re-indexation problem solved out loud
+- ◻ **C** — focus alpha, animated: ramp the existing dimmed/rest/neighbour/focus states, premultiplied invariant preserved
+- ◻ **D** — four sigma looks: Atlas, Constellation, Orbit, Clusters (over the existing community-collapse machinery)
+- ◻ **E** — layout variants in the worker (circlepack, hierarchical, noverlap), layout id in the cache key, tweened transitions
+- ◻ **F** — the `force-graph` variant (WebGL; the one alternative with a shot at 15k nodes)
+- ◻ **G** — the `cytoscape.js` variant
+- ◻ **H** — the `vis-network` variant, with Phase 87's CDN-not-library rejection qualified in the code
+- ◻ **I** — `d3-force` live: a simulation you watch settle, on our own canvas, with a hard settle ceiling
+- ◻ **J** — the capability gate and the bake-off: TTFP/FPS/memory per variant on the real graph, thresholds from measurement, stale counts fixed
+- ◻ **K** — verification: pure-layer units, one seam e2e, three baselines (not nine), bundle and idle-CPU budgets, licence audit
 
 ### [Phase 88 — xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md)
 
