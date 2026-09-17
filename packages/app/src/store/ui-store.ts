@@ -1493,6 +1493,14 @@ export type UiState = {
    * `companionPanelOpen`.
    */
   appsFlyoutAppId: AppId | null;
+  /**
+   * The app most recently opened from the rail, retained after its flyout
+   * closes so the collapsed switcher can keep that one app visible.
+   *
+   * Runtime-only: app views are reconstructed on launch and there is no
+   * useful promise in restoring yesterday's flyout selection.
+   */
+  lastOpenedAppId: AppId | null;
   openAppsFlyout: (id: AppId) => void;
   closeAppsFlyout: () => void;
   passcode: string | null;
@@ -1909,6 +1917,7 @@ export const useUiStore = create<UiState>()(
       },
       detachedApps: [],
       appsFlyoutAppId: null,
+      lastOpenedAppId: null,
       passcode: null,
       setPasscode: (passcode) => set({ passcode }),
       passcodeOnlyWhenLocked: false,
@@ -2368,7 +2377,7 @@ export const useUiStore = create<UiState>()(
               : [...state.detachedApps, id]
             : state.detachedApps.filter((entry) => entry !== id),
         })),
-      openAppsFlyout: (id) => set({ appsFlyoutAppId: id }),
+      openAppsFlyout: (id) => set({ appsFlyoutAppId: id, lastOpenedAppId: id }),
       closeAppsFlyout: () => set({ appsFlyoutAppId: null }),
       setAutoFetchIntervalMs: (autoFetchIntervalMs) => set({ autoFetchIntervalMs }),
       setAutoFetchEnabled: (autoFetchEnabled) => set({ autoFetchEnabled }),
