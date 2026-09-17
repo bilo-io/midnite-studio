@@ -144,6 +144,14 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   Wants a home in `terminal-page.tsx`'s shape — an "Editor" settings page, or an accordion on
   whichever page ends up owning the Monaco surface.
 
+- **One more persisted preference with no settings page — `rendererVariant`.** Landed by
+  [Phase 89](phases/phase-89-knowledge-graph-variants.md) Theme A: which Knowledge canvas renderer
+  is active, in `ui-store.ts`, with a real control already — the Knowledge view's own pill bar
+  (`knowledge-variant-pills.tsx`) — just not one under `features/settings/`, on the identical
+  reasoning `loopEnabled` sits in `KNOWN_ORPHANS` for (its control is the FAB tab bar, not a
+  settings page). Nothing about a pill bar wants a settings-page mirror; this entry exists only so
+  `persisted-keys.test.ts`'s exhaustiveness check has somewhere to point a reader.
+
 - **Interactive rebase** — via a `GIT_SEQUENCE_EDITOR` helper binary that writes the UI's todo
   list; `GIT_EDITOR` for reword. Impossible with libgit2/isomorphic-git; CLI-only trick.
 - ~~**Proper diff viewer**~~ — ✅ landed in Phase 12 Theme D: parsed hunks over IPC, one shared

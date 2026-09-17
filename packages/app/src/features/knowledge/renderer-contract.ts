@@ -1,0 +1,141 @@
+import type { ComponentType } from 'react';
+
+import { LuNetwork } from 'react-icons/lu';
+
+import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
+
+import type { IconComponent } from '../../components/icon-button';
+import type { KnowledgeFilterState } from './knowledge-filters';
+
+/**
+ * The variant seam (Phase 89 Theme A).
+ *
+ * Every prior Knowledge PR hard-coded sigma: `KnowledgeCanvas` called
+ * `useSigmaGraph` and nothing else, so sigma's own choices (WebGL,
+ * ForceAtlas2 coordinates, its edge/node reducers) were the only ones
+ * available. This file names the seam a renderer sits behind, so switching
+ * libraries later (Themes F–I) is a new module and one registry entry, not a
+ * rewrite of `KnowledgeCanvas` or `knowledge-view.tsx`.
+ *
+ * `KnowledgeRenderer` is deliberately an IMPERATIVE interface, not a React
+ * component — `use-sigma-graph.ts`'s own four effects are exactly this
+ * shape already (build once per payload, push filter/selection updates,
+ * fly the camera, mutate on collapse), and the libraries later themes add
+ * (force-graph, cytoscape, vis-network) are themselves imperative APIs with
+ * their own mount/update/destroy lifecycle — wrapping each in a class that
+ * satisfies this interface is a much smaller adaptation than forcing them
+ * through a declarative React tree. A thin per-variant React component (the
+ * `load()` below resolves to one) owns the container `<div>` and drives a
+ * `KnowledgeRenderer` instance through `use-knowledge-renderer.ts`, the one
+ * generic hook that replaces four bespoke effects per variant with one.
+ */
+export type KnowledgeRendererCallbacks = {
+  onNodeClick: (nodeId: string) => void;
+  /** A double-click collapses an ordinary node's community, or expands a meta-node — the caller decides which. */
+  onNodeDoubleClick: (nodeId: string) => void;
+};
+
+export interface KnowledgeRenderer {
+  /**
+   * Build and mount once per payload identity (`use-sigma-graph.ts`'s effect
+   * (1), `:176`) — a fresh `builtAtCommit` or a repo switch, never a
+   * filter/search keystroke.
+   */
+  mount(container: HTMLDivElement, payload: KnowledgeGraphPayload, callbacks: KnowledgeRendererCallbacks): void;
+  /** Tear down everything `mount` created — the effect (1) cleanup, `:481`. */
+  dispose(): void;
+  /**
+   * Which nodes/edges are visible — relation/weight/confidence and hidden
+   * communities. Half of effect (2) (`:499`): the half that does not depend
+   * on search or selection.
+   */
+  applyFilters(filters: KnowledgeFilterState): void;
+  /**
+   * Which nodes are lit vs. dimmed — driven by the search query (part of
+   * `filters`, folded in here because `computeHighlightSets` combines both)
+   * and the selected node. The other half of effect (2).
+   */
+  applyHighlight(selectedNodeId: string | null): void;
+  /** Fly the camera to a node, or do nothing for `null` — effect (3), `:537`. */
+  focusNode(nodeId: string | null): void;
+  /** Collapse/expand communities into meta-nodes — effect (4), `:561`. */
+  setCollapsed(collapsedCommunities: ReadonlySet<string>): void;
+  /**
+   * The container resized. sigma today owns its own internal
+   * `ResizeObserver` (Theme G's finding, `:461-479`) and this stays a no-op
+   * passthrough to it for Theme A's no-behaviour-change bar; a library that
+   * does not self-observe (a later theme) implements it for real.
+   */
+  resize(): void;
+  /**
+   * Phase 84's visibility gate: the window is blurred, skip animation.
+   * Mirrors `liveRef.current.paused` (`:165`) — read at call time by
+   * `focusNode`'s camera choice and by pulses, never as a per-call
+   * parameter, so a blur that lands between prop updates still snaps the
+   * next thing that animates.
+   */
+  setPaused(paused: boolean): void;
+  /**
+   * The expand-from-a-core intro burst (Theme B). On the contract from
+   * Theme A (Decision 4 — every variant implements it or does not get a
+   * pill) so Theme B has a real seam to fill; sigma's own Theme A
+   * implementation is a no-op, since sigma already renders nodes at their
+   * final position with no burst.
+   */
+  playIntro(): void;
+}
+
+/** Props every variant's mounted component receives — identical to `KnowledgeCanvas`'s own today, so swapping variants is invisible to `knowledge-view.tsx`. */
+export type KnowledgeVariantProps = {
+  payload: KnowledgeGraphPayload;
+  filters: KnowledgeFilterState;
+  focusNodeId: string | null;
+  selectedNodeId: string | null;
+  collapsedCommunities: ReadonlySet<string>;
+  onNodeClick: (nodeId: string) => void;
+  onNodeDoubleClick: (nodeId: string) => void;
+  paused: boolean;
+};
+
+/** A variant id, as persisted in `ui-store.ts`. Not a literal union — see `resolveVariant`'s fallback for why. */
+export type KnowledgeVariantId = string;
+
+export type KnowledgeVariant = {
+  id: KnowledgeVariantId;
+  label: string;
+  icon: IconComponent;
+  /** Which underlying library this variant draws with — distinct from `id`: Theme D's four sigma "looks" all share `engine: 'sigma'`. */
+  engine: string;
+  /**
+   * The variant's own dynamic `import()`, resolving to a component that
+   * accepts `KnowledgeVariantProps`. Per-variant rather than one static
+   * import per engine, so opening Knowledge never pays for a library the
+   * user did not pick (Decision 2) — sigma included, so later themes'
+   * engines never share a chunk with it either.
+   */
+  load: () => Promise<{ default: ComponentType<KnowledgeVariantProps> }>;
+};
+
+/**
+ * One entry, sigma. Themes D (four sigma "looks") and F–I (one entry per
+ * library) extend this list; the pill bar and the overflow menu already
+ * treat it as flat — one id, one persisted value, one thing to test
+ * (Decision 1) — so growing this array is the whole diff those themes need
+ * here.
+ */
+export const VARIANTS: readonly KnowledgeVariant[] = [
+  {
+    id: 'sigma',
+    label: 'Sigma',
+    icon: LuNetwork,
+    engine: 'sigma',
+    load: () => import('./use-sigma-graph'),
+  },
+];
+
+export const DEFAULT_VARIANT_ID: KnowledgeVariantId = VARIANTS[0]!.id;
+
+/** An unknown or removed id (a stale localStorage value from a build that dropped a variant) falls back to the default rather than rendering nothing — Decision 1. */
+export function resolveVariant(id: KnowledgeVariantId): KnowledgeVariant {
+  return VARIANTS.find((variant) => variant.id === id) ?? VARIANTS[0]!;
+}

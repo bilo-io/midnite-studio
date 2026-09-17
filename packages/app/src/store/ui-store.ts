@@ -66,6 +66,22 @@ import { adoptRenamedPersistKey } from './persist-rename';
  */
 export type NavMode = 'auto' | 'expanded' | 'collapsed';
 
+/**
+ * A Knowledge canvas renderer's persisted id (Phase 89 Theme A).
+ *
+ * Declared here, not imported from `features/knowledge/renderer-contract.ts`,
+ * for the same reason as `NavMode` above is declared rather than imported —
+ * except the constraint here is a bundling one, not a packaging one: that
+ * file is reached only through `KnowledgeCanvas`'s own `React.lazy`/dynamic
+ * `import()`, and `ui-store.ts` sits in the app's entry bundle. A plain
+ * `string` alias keeps this store from pulling the Knowledge feature (and
+ * its `react-icons` variant-registry icons) into that bundle. Kept in sync
+ * with `renderer-contract.ts`'s own `DEFAULT_VARIANT_ID` by
+ * `knowledge-filters-store.test.ts`, which is free to import both.
+ */
+export type KnowledgeVariantId = string;
+export const DEFAULT_KNOWLEDGE_VARIANT: KnowledgeVariantId = 'sigma';
+
 /** Which edge of the terminal pane the session list docks to. */
 export type TerminalSidebarSide = 'left' | 'right';
 
@@ -899,6 +915,18 @@ export type UiState = {
   /** Which of the graph styles is drawn. A preference, so it persists. */
   graphTheme: GraphThemeId;
   /**
+   * Phase 89 Theme A: which Knowledge canvas renderer is active — sigma
+   * today, one alternative library per later theme. A plain `string`, not
+   * the feature's own `KnowledgeVariantId` union, so this store never has
+   * to statically import `features/knowledge/renderer-contract.ts` — that
+   * file's whole point is staying behind a `Suspense`/`lazy` boundary, and
+   * `ui-store.ts` is part of the app's entry bundle. `resolveVariant` (in
+   * that file) is what actually validates an id against the live registry
+   * and falls back to `DEFAULT_KNOWLEDGE_VARIANT` for an unknown or removed
+   * one (Decision 1) — this store just persists whatever string it is told.
+   */
+  rendererVariant: KnowledgeVariantId;
+  /**
    * How much vertical room a commit row takes.
    *
    * A second axis rather than five more styles: "which graph do I like" and
@@ -1045,6 +1073,7 @@ export type UiState = {
   toggleRepoGroup: (groupId: string) => void;
   toggleFavouriteRepo: (repoId: string) => void;
   setGraphTheme: (theme: GraphThemeId) => void;
+  setRendererVariant: (variant: KnowledgeVariantId) => void;
   setGraphDensity: (density: GraphDensity) => void;
   setGraphRefFilter: (refs: string[]) => void;
   setGraphAuthorFilter: (emails: string[]) => void;
@@ -1646,6 +1675,7 @@ export type PersistedUi = Pick<
   | 'diffShowOldGutter'
   | 'diffLayout'
   | 'graphTheme'
+  | 'rendererVariant'
   | 'selectedRepoId'
   | 'selectedWorktreePath'
   | 'graphDensity'
@@ -2093,6 +2123,7 @@ export const useUiStore = create<UiState>()(
       collapsedRepoGroups: [],
       favouriteRepoIds: [],
       graphTheme: DEFAULT_GRAPH_THEME,
+      rendererVariant: DEFAULT_KNOWLEDGE_VARIANT,
       graphDensity: DEFAULT_GRAPH_DENSITY,
       graphRefFilter: [],
       graphAuthorFilter: [],
@@ -2350,6 +2381,7 @@ export const useUiStore = create<UiState>()(
             : [...state.favouriteRepoIds, repoId],
         })),
       setGraphTheme: (graphTheme) => set({ graphTheme }),
+      setRendererVariant: (rendererVariant) => set({ rendererVariant }),
       setGraphDensity: (graphDensity) => set({ graphDensity }),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),
       setGraphAuthorFilter: (graphAuthorFilter) => set({ graphAuthorFilter }),
@@ -2449,6 +2481,7 @@ export const useUiStore = create<UiState>()(
         diffShowOldGutter: state.diffShowOldGutter,
         diffLayout: state.diffLayout,
         graphTheme: state.graphTheme,
+        rendererVariant: state.rendererVariant,
         selectedRepoId: state.selectedRepoId,
         selectedWorktreePath: state.selectedWorktreePath,
         graphDensity: state.graphDensity,

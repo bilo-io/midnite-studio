@@ -1,6 +1,7 @@
 // Layer: vitest — a zustand store, no DOM/canvas involved.
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { DEFAULT_KNOWLEDGE_VARIANT, useUiStore } from '../../store/ui-store';
 import { DEFAULT_RELATIONS } from './knowledge-filters';
 import { useKnowledgeFiltersStore } from './knowledge-filters-store';
 
@@ -19,7 +20,9 @@ describe('useKnowledgeFiltersStore', () => {
       collapsedCommunities: new Set(),
       flyToNodeId: null,
       communityListMode: 'list',
+      rendererVariant: DEFAULT_KNOWLEDGE_VARIANT,
     });
+    useUiStore.setState({ rendererVariant: DEFAULT_KNOWLEDGE_VARIANT });
   });
 
   it('resets to defaults on a scope (repo) change', () => {
@@ -133,5 +136,18 @@ describe('useKnowledgeFiltersStore', () => {
     store.focusNode('n1');
     store.setQuery('use');
     expect(useKnowledgeFiltersStore.getState().flyToNodeId).toBeNull();
+  });
+
+  it('rendererVariant is not reset by ensureScope — a UI preference, not repo-scoped state', () => {
+    useKnowledgeFiltersStore.getState().ensureScope('repo:1');
+    useKnowledgeFiltersStore.getState().setRendererVariant('force-graph');
+    useKnowledgeFiltersStore.getState().ensureScope('repo:2');
+    expect(useKnowledgeFiltersStore.getState().rendererVariant).toBe('force-graph');
+  });
+
+  it('setRendererVariant writes through to ui-store.ts, the actual persisted source', () => {
+    useKnowledgeFiltersStore.getState().setRendererVariant('cytoscape');
+    expect(useKnowledgeFiltersStore.getState().rendererVariant).toBe('cytoscape');
+    expect(useUiStore.getState().rendererVariant).toBe('cytoscape');
   });
 });
