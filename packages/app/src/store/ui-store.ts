@@ -182,12 +182,14 @@ export { VIEW_IDS, SETTINGS_PAGE_IDS } from '@midnite/studio-shared';
  * `collapsedSettingsGroups`) for the same reason the repositories panel's are:
  * a user who lives in one category should be able to fold the rest away.
  */
-export type SettingsGroupId = 'general' | 'tools' | 'system';
+export type SettingsGroupId = 'general' | 'git' | 'tools' | 'ai' | 'system';
 
 export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
-  { id: 'general', label: 'General' },
-  { id: 'tools', label: 'Tools' },
-  { id: 'system', label: 'System Info' },
+  { id: 'general', label: 'General & UI' },
+  { id: 'git', label: 'Git & Diff' },
+  { id: 'tools', label: 'Developer Tools' },
+  { id: 'ai', label: 'AI & Extensibility' },
+  { id: 'system', label: 'System & Maintenance' },
 ];
 
 /**
@@ -197,24 +199,24 @@ export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
  */
 export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: SettingsGroupId }[] = [
   { id: 'appearance', label: 'Appearance', group: 'general' },
-  { id: 'graph', label: 'Graph', group: 'general' },
-  { id: 'diff', label: 'Diff', group: 'general' },
   { id: 'sidebar', label: 'Sidebar', group: 'general' },
   { id: 'search', label: 'Search', group: 'general' },
   { id: 'screenLock', label: 'Screen Lock', group: 'general' },
+  { id: 'graph', label: 'Graph', group: 'git' },
+  { id: 'diff', label: 'Diff', group: 'git' },
+  { id: 'reviews', label: 'Reviews', group: 'git' },
+  { id: 'gitSafety', label: 'Git Safety', group: 'git' },
+  { id: 'trashSafety', label: 'Trash Safety', group: 'git' },
   { id: 'terminal', label: 'Terminal', group: 'tools' },
-  { id: 'agent', label: 'Agent', group: 'tools' },
-  { id: 'reviews', label: 'Reviews', group: 'tools' },
-  { id: 'projects', label: 'Projects', group: 'tools' },
-  { id: 'workflows', label: 'Workflows', group: 'tools' },
-  { id: 'video', label: 'Video Studio', group: 'tools' },
-  { id: 'gitSafety', label: 'Git Safety', group: 'tools' },
-  { id: 'trashSafety', label: 'Trash Safety', group: 'tools' },
-  { id: 'apiClient', label: 'API Client', group: 'tools' },
-  { id: 'mcp', label: 'MCP Server', group: 'tools' },
-  { id: 'companion', label: 'Companion', group: 'tools' },
   { id: 'browser', label: 'Browser', group: 'tools' },
-  { id: 'apps', label: 'Apps', group: 'tools' },
+  { id: 'apiClient', label: 'API Client', group: 'tools' },
+  { id: 'workflows', label: 'Workflows', group: 'tools' },
+  { id: 'projects', label: 'Projects', group: 'tools' },
+  { id: 'video', label: 'Video Studio', group: 'tools' },
+  { id: 'agent', label: 'Agent', group: 'ai' },
+  { id: 'companion', label: 'Companion', group: 'ai' },
+  { id: 'mcp', label: 'MCP Server', group: 'ai' },
+  { id: 'apps', label: 'Apps', group: 'ai' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
   { id: 'updates', label: 'App Updates', group: 'system' },
   { id: 'health', label: 'System Health', group: 'system' },

@@ -95,17 +95,18 @@ export function SettingsView() {
   const page = useUiStore((s) => s.settingsPage);
   const collapsed = useUiStore((s) => s.collapsedSettingsGroups);
   const toggleGroup = useUiStore((s) => s.toggleSettingsGroup);
-  const label = SETTINGS_PAGES.find((entry) => entry.id === page)?.label ?? 'Settings';
+  const activeEntry = SETTINGS_PAGES.find((entry) => entry.id === page);
+  const activeGroup = SETTINGS_GROUPS.find((group) => group.id === activeEntry?.group);
+  const label = activeEntry?.label ?? 'Settings';
 
   return (
     <div className="flex h-full min-h-0">
       <nav
         aria-label="Settings pages"
-        /* w-48, not the w-44 this was before the glyphs: an icon and its gap
-           cost ~22px, which is exactly what pushed "Monitor & Diagnostics"
-           into an ellipsis. `truncate` stays as the backstop for a longer
-           label added later. */
-        className="w-48 shrink-0 overflow-y-auto border-r border-border py-3"
+        /* w-56: widened from w-48 so the indented page list, tree guide line,
+           and granular category labels ('System & Maintenance', 'AI & Extensibility')
+           breathe comfortably without truncating labels like 'Monitor & Diagnostics'. */
+        className="w-56 shrink-0 overflow-y-auto border-r border-border py-3"
       >
         <h1 className="px-3 pb-2 text-sm font-semibold tracking-tight">Settings</h1>
         <div className="flex flex-col gap-3 px-2">
@@ -123,21 +124,30 @@ export function SettingsView() {
                   onClick={() => toggleGroup(group.id)}
                   aria-expanded={!isCollapsed}
                   aria-controls={bodyId}
-                  className="mb-0.5 flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label={group.label}
+                  className="group mb-0.5 flex w-full items-center justify-between rounded px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <LuChevronDown
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <LuChevronDown
+                      aria-hidden
+                      className={`h-3 w-3 shrink-0 transition-transform duration-150 ease-in-out ${
+                        isCollapsed ? '-rotate-90' : ''
+                      }`}
+                    />
+                    <span className="truncate">{group.label}</span>
+                  </div>
+                  <span
                     aria-hidden
-                    className={`h-3 w-3 shrink-0 transition-transform duration-150 ease-in-out ${
-                      isCollapsed ? '-rotate-90' : ''
-                    }`}
-                  />
-                  <span>{group.label}</span>
+                    className="text-[10px] font-normal tabular-nums text-muted-foreground/60 transition-colors group-hover:text-muted-foreground"
+                  >
+                    {items.length}
+                  </span>
                 </button>
                 {/* `<Collapse>` animates a 0fr → 1fr grid track and marks the
                     clipped region inert, so a folded category's buttons leave
                     the tab order instead of staying reachable while invisible. */}
                 <Collapse open={!isCollapsed} id={bodyId} aria-label={group.label}>
-                  <ul className="flex flex-col gap-0.5">
+                  <ul className="ml-3 flex flex-col gap-0.5 border-l border-border/40 py-0.5 pl-1.5">
                     {items.map((entry) => (
                       <li key={entry.id}>
                         <PageLink id={entry.id} label={entry.label} />
@@ -154,7 +164,14 @@ export function SettingsView() {
       <div className="min-w-0 flex-1 overflow-y-auto">
         {/* Keyed so switching page replays the entrance fade, like view switches. */}
         <div key={page} className="mx-auto max-w-3xl animate-fade-in px-4 py-4">
-          <h2 className="pb-3 text-lg font-semibold tracking-tight">{label}</h2>
+          <div className="pb-3">
+            {activeGroup && (
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                {activeGroup.label}
+              </p>
+            )}
+            <h2 className="text-xl font-semibold tracking-tight">{label}</h2>
+          </div>
           {PAGE_CONTENT[page]()}
         </div>
       </div>

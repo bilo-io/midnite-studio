@@ -78,11 +78,13 @@ describe('SettingsView, assembled through the real bridge', () => {
     renderView(<SettingsView />, { fixtures: settingsFixtures, uiState: UI_STATE });
     const nav = within(screen.getByRole('navigation', { name: 'Settings pages' }));
 
-    // Three categories, each a disclosure trigger over its own page list.
-    expect(nav.getByRole('button', { name: 'General' }).getAttribute('aria-expanded')).toBe('true');
-    const tools = nav.getByRole('button', { name: 'Tools' });
+    // Five categories, each a disclosure trigger over its own page list.
+    expect(nav.getByRole('button', { name: 'General & UI' }).getAttribute('aria-expanded')).toBe('true');
+    expect(nav.getByRole('button', { name: 'Git & Diff' }).getAttribute('aria-expanded')).toBe('true');
+    const tools = nav.getByRole('button', { name: 'Developer Tools' });
     expect(tools.getAttribute('aria-expanded')).toBe('true');
-    expect(nav.getByRole('button', { name: 'System Info' })).toBeTruthy();
+    expect(nav.getByRole('button', { name: 'AI & Extensibility' }).getAttribute('aria-expanded')).toBe('true');
+    expect(nav.getByRole('button', { name: 'System & Maintenance' })).toBeTruthy();
 
     /*
       Folded is asserted through `inert` on the clipped region rather than
