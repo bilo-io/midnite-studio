@@ -38,9 +38,20 @@ export function useKnowledgeRenderer(options: {
   // place. `setPaused` is a cheap, idempotent field write either way.
   options.renderer.setPaused(options.paused);
 
-  // (1) Mount once per payload identity — a fresh `builtAtCommit` or a repo
-  // switch, never a filter/search keystroke. Mirrors `use-sigma-graph.ts`'s
-  // own effect (1), `:176`.
+  // Which payload object `mount()` most recently ran with — Theme E's own
+  // seam for telling a genuine graph change (below, effect 1) apart from a
+  // layout switch under the SAME graph (effect 1b): a `getGraph({layoutId})`
+  // refetch hands back a brand-new payload object every time, even when only
+  // `positions` moved, so object identity alone can't drive `mount()` without
+  // remounting — and losing the camera and every in-flight tween — on every
+  // layout switch too.
+  const mountedPayloadRef = useRef<KnowledgeGraphPayload | null>(null);
+
+  // (1) Mount once per GRAPH identity — `builtAtCommit`, not object identity
+  // (Theme E) — a fresh commit or a repo switch, never a filter/search
+  // keystroke and never a layout switch (which keeps `builtAtCommit` and
+  // reaches effect 1b instead). Mirrors `use-sigma-graph.ts`'s own effect (1),
+  // `:176`.
   useEffect(() => {
     const container = options.containerRef.current;
     const payload = options.payload;
@@ -51,11 +62,29 @@ export function useKnowledgeRenderer(options: {
       onNodeClick: (nodeId) => onNodeClickRef.current(nodeId),
       onNodeDoubleClick: (nodeId) => onNodeDoubleClickRef.current(nodeId),
     });
+    mountedPayloadRef.current = payload;
 
     return () => {
       renderer.dispose();
+      mountedPayloadRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- payload identity (and a renderer swap) are the only intended triggers, matching use-sigma-graph.ts's own effect (1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- builtAtCommit (and a renderer swap) are the only intended triggers, matching use-sigma-graph.ts's own effect (1)
+  }, [options.renderer, options.payload?.builtAtCommit]);
+
+  // (1b) Retarget to a newly requested layout's coordinates without
+  // remounting (Theme E) — a payload whose `builtAtCommit` matches the one
+  // `mount()` last ran with, but whose object identity (and therefore
+  // `positions`) differs, is a layout switch. `mountedPayloadRef` (not
+  // `Object.is` against a stale closure) is what tells this apart from the
+  // SAME render effect (1) just mounted on — see that effect's own setup,
+  // which updates the ref before this one runs.
+  useEffect(() => {
+    const payload = options.payload;
+    const mounted = mountedPayloadRef.current;
+    if (!payload || !mounted || payload === mounted) return;
+    if (payload.builtAtCommit !== mounted.builtAtCommit) return;
+    options.renderer.retarget(payload.positions);
+    mountedPayloadRef.current = payload;
   }, [options.renderer, options.payload]);
 
   // (2) Push filter/search/selection updates without rebuilding — mirrors

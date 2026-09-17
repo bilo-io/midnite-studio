@@ -36,6 +36,7 @@ function fakeRenderer() {
     resize: vi.fn(),
     setPaused: vi.fn(),
     playIntro: vi.fn(),
+    retarget: vi.fn(),
   };
 }
 
@@ -143,6 +144,58 @@ describe('useKnowledgeRenderer', () => {
     const collapsed = new Set(['core']);
     rerender({ ...props, collapsedCommunities: collapsed });
     expect(renderer.setCollapsed).toHaveBeenCalledWith(collapsed);
+  });
+
+  describe('retarget (Phase 89 Theme E — a layout switch under the same graph)', () => {
+    it('retargets, without disposing/remounting, when builtAtCommit is unchanged but the payload object is new', () => {
+      const renderer = fakeRenderer();
+      const container = document.createElement('div');
+      const props = makeProps(renderer, container);
+      const { rerender } = renderHook((p: Props) => useKnowledgeRenderer(p), { initialProps: props });
+      expect(renderer.mount).toHaveBeenCalledTimes(1);
+      renderer.mount.mockClear();
+      renderer.dispose.mockClear();
+
+      const relaidOut: KnowledgeGraphPayload = {
+        ...PAYLOAD,
+        positions: { a: { x: 42, y: 42 } },
+      };
+      rerender({ ...props, payload: relaidOut });
+
+      expect(renderer.dispose).not.toHaveBeenCalled();
+      expect(renderer.mount).not.toHaveBeenCalled();
+      expect(renderer.retarget).toHaveBeenCalledTimes(1);
+      expect(renderer.retarget).toHaveBeenCalledWith(relaidOut.positions);
+    });
+
+    it('does not retarget on the render that just mounted', () => {
+      const renderer = fakeRenderer();
+      const container = document.createElement('div');
+      const props = makeProps(renderer, container);
+      renderHook((p: Props) => useKnowledgeRenderer(p), { initialProps: { ...props, payload: null } });
+      // First render with a real payload — both effect (1) (mount) and
+      // effect (1b) (retarget) see a payload/deps change here; only mount
+      // should fire.
+      const { rerender } = renderHook((p: Props) => useKnowledgeRenderer(p), { initialProps: props });
+      expect(renderer.mount).toHaveBeenCalledTimes(1);
+      expect(renderer.retarget).not.toHaveBeenCalled();
+      rerender(props);
+      expect(renderer.retarget).not.toHaveBeenCalled();
+    });
+
+    it('still disposes/remounts (never retargets) when builtAtCommit itself changes', () => {
+      const renderer = fakeRenderer();
+      const container = document.createElement('div');
+      const props = makeProps(renderer, container);
+      const { rerender } = renderHook((p: Props) => useKnowledgeRenderer(p), { initialProps: props });
+
+      const nextPayload: KnowledgeGraphPayload = { ...PAYLOAD, builtAtCommit: 'cafebabe' };
+      rerender({ ...props, payload: nextPayload });
+
+      expect(renderer.dispose).toHaveBeenCalledTimes(1);
+      expect(renderer.mount).toHaveBeenCalledTimes(2);
+      expect(renderer.retarget).not.toHaveBeenCalled();
+    });
   });
 
   it('setPaused mirrors every render, not just a paused change', () => {

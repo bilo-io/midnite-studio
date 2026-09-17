@@ -35,6 +35,7 @@ function errorResult(message: string): KnowledgeResult<KnowledgeGraphPayload> {
 export function fetchKnowledgeGraph(
   api: MidniteStudioBridge['knowledge'],
   repoId: string,
+  layoutId?: string,
   stallMs: number = KNOWLEDGE_GRAPH_STALL_MS,
 ): Promise<KnowledgeResult<KnowledgeGraphPayload>> {
   return new Promise((resolve) => {
@@ -68,7 +69,7 @@ export function fetchKnowledgeGraph(
 
     let call: Promise<KnowledgeResult<KnowledgeGraphPayload> | undefined>;
     try {
-      call = Promise.resolve(api.getGraph({ repoId }));
+      call = Promise.resolve(api.getGraph({ repoId, layoutId }));
     } catch (error) {
       finish(errorResult(error instanceof Error ? error.message : 'Unable to load knowledge graph.'));
       return;
@@ -108,7 +109,18 @@ export function fetchKnowledgeGraph(
  * other answer, so without it a one-off failure would be pinned for the
  * renderer's lifetime.
  */
-export function useKnowledgeGraph(repoId: string | null): {
+export function useKnowledgeGraph(
+  repoId: string | null,
+  /**
+   * The layout to request on the INITIAL load of this repo (Phase 89 Theme
+   * E) — read once per `repoId` (react-query's `queryFn` only runs again on
+   * a key change or an explicit `refetch`), so a later layout switch must go
+   * through `use-knowledge-layout-switch.ts` instead of changing this prop;
+   * changing it alone does nothing once the query has already run. Omit for
+   * the desktop handler's own default (`force-atlas2`).
+   */
+  layoutId?: string,
+): {
   state: KnowledgeViewState;
   refetch: () => void;
 } {
@@ -118,7 +130,7 @@ export function useKnowledgeGraph(repoId: string | null): {
     queryFn: async (): Promise<KnowledgeResult<KnowledgeGraphPayload>> => {
       const api = bridge()?.knowledge;
       if (!api) return errorResult('No bridge available.');
-      return fetchKnowledgeGraph(api, repoId as string);
+      return fetchKnowledgeGraph(api, repoId as string, layoutId);
     },
   });
 

@@ -82,6 +82,17 @@ export type NavMode = 'auto' | 'expanded' | 'collapsed';
 export type KnowledgeVariantId = string;
 export const DEFAULT_KNOWLEDGE_VARIANT: KnowledgeVariantId = 'sigma';
 
+/**
+ * Phase 89 Theme E: which worker-computed layout the Knowledge canvas asks
+ * for — `force-atlas2` (unchanged default), or one of the three this theme
+ * adds. A plain `string`, mirroring `KnowledgeVariantId` above and for the
+ * same reason: the desktop handler's `isLayoutId` is the actual validation,
+ * falling back to `DEFAULT_KNOWLEDGE_LAYOUT` for an unknown or removed id
+ * rather than this store having to know the live set.
+ */
+export type KnowledgeLayoutId = string;
+export const DEFAULT_KNOWLEDGE_LAYOUT: KnowledgeLayoutId = 'force-atlas2';
+
 /** Which edge of the terminal pane the session list docks to. */
 export type TerminalSidebarSide = 'left' | 'right';
 
@@ -927,6 +938,12 @@ export type UiState = {
    */
   rendererVariant: KnowledgeVariantId;
   /**
+   * Phase 89 Theme E: which worker-computed layout is active, for the same
+   * reason `rendererVariant` is persisted here rather than in
+   * `knowledge-filters-store.ts` directly — see that field's own docblock.
+   */
+  layoutId: KnowledgeLayoutId;
+  /**
    * How much vertical room a commit row takes.
    *
    * A second axis rather than five more styles: "which graph do I like" and
@@ -1074,6 +1091,7 @@ export type UiState = {
   toggleFavouriteRepo: (repoId: string) => void;
   setGraphTheme: (theme: GraphThemeId) => void;
   setRendererVariant: (variant: KnowledgeVariantId) => void;
+  setLayoutId: (layoutId: KnowledgeLayoutId) => void;
   setGraphDensity: (density: GraphDensity) => void;
   setGraphRefFilter: (refs: string[]) => void;
   setGraphAuthorFilter: (emails: string[]) => void;
@@ -1676,6 +1694,7 @@ export type PersistedUi = Pick<
   | 'diffLayout'
   | 'graphTheme'
   | 'rendererVariant'
+  | 'layoutId'
   | 'selectedRepoId'
   | 'selectedWorktreePath'
   | 'graphDensity'
@@ -2124,6 +2143,7 @@ export const useUiStore = create<UiState>()(
       favouriteRepoIds: [],
       graphTheme: DEFAULT_GRAPH_THEME,
       rendererVariant: DEFAULT_KNOWLEDGE_VARIANT,
+      layoutId: DEFAULT_KNOWLEDGE_LAYOUT,
       graphDensity: DEFAULT_GRAPH_DENSITY,
       graphRefFilter: [],
       graphAuthorFilter: [],
@@ -2382,6 +2402,7 @@ export const useUiStore = create<UiState>()(
         })),
       setGraphTheme: (graphTheme) => set({ graphTheme }),
       setRendererVariant: (rendererVariant) => set({ rendererVariant }),
+      setLayoutId: (layoutId) => set({ layoutId }),
       setGraphDensity: (graphDensity) => set({ graphDensity }),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),
       setGraphAuthorFilter: (graphAuthorFilter) => set({ graphAuthorFilter }),
@@ -2482,6 +2503,7 @@ export const useUiStore = create<UiState>()(
         diffLayout: state.diffLayout,
         graphTheme: state.graphTheme,
         rendererVariant: state.rendererVariant,
+        layoutId: state.layoutId,
         selectedRepoId: state.selectedRepoId,
         selectedWorktreePath: state.selectedWorktreePath,
         graphDensity: state.graphDensity,

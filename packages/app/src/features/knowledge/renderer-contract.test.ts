@@ -22,4 +22,8 @@ describe('renderer-contract', () => {
     expect(resolveVariant('some-retired-library').id).toBe(DEFAULT_VARIANT_ID);
     expect(resolveVariant('').id).toBe(DEFAULT_VARIANT_ID);
   });
+
+  it('sigma consumes worker-computed layout coordinates (Phase 89 Theme E, Decision 9)', () => {
+    expect(resolveVariant('sigma').consumesWorkerLayout).toBe(true);
+  });
 });

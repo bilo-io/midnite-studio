@@ -83,6 +83,18 @@ export interface KnowledgeRenderer {
    * final position with no burst.
    */
   playIntro(): void;
+  /**
+   * The SAME graph (`builtAtCommit` unchanged) under a newly requested
+   * worker layout (Phase 89 Theme E) — tweens every node from wherever it
+   * currently sits to `positions[id]`, rather than the hard rebuild `mount`
+   * does. `use-knowledge-renderer.ts`'s own effect (1b) is what tells this
+   * apart from a genuine new payload and calls it instead of `mount`+`dispose`.
+   * Offered only for a variant whose engine consumes worker coordinates in
+   * the first place (Decision 9 — `KnowledgeVariant.consumesWorkerLayout`);
+   * a variant that is never offered a layout pill may leave this a no-op,
+   * the same allowance `resize()` gets above.
+   */
+  retarget(positions: KnowledgeGraphPayload['positions']): void;
 }
 
 /** Props every variant's mounted component receives — identical to `KnowledgeCanvas`'s own today, so swapping variants is invisible to `knowledge-view.tsx`. */
@@ -107,6 +119,19 @@ export type KnowledgeVariant = {
   /** Which underlying library this variant draws with — distinct from `id`: Theme D's four sigma "looks" all share `engine: 'sigma'`. */
   engine: string;
   /**
+   * Whether this variant's canvas is driven by worker-computed `positions`
+   * (Phase 89 Theme E, Decision 9) — true for sigma and for every one of
+   * Themes F–H's planned engines (force-graph/cytoscape/vis-network all
+   * "consume `payload.positions` directly", per the phase doc), false for
+   * Theme I's live d3-force simulation, which computes its own layout and
+   * would render a layout pill that does nothing. `knowledge-view.tsx` reads
+   * this to decide whether the layout pill row has anything to control for
+   * the active variant, rather than showing one permanently and disabling it
+   * — Decision 9's own recommendation: "let the bar shrink rather than
+   * showing controls that do nothing."
+   */
+  consumesWorkerLayout: boolean;
+  /**
    * The variant's own dynamic `import()`, resolving to a component that
    * accepts `KnowledgeVariantProps`. Per-variant rather than one static
    * import per engine, so opening Knowledge never pays for a library the
@@ -129,6 +154,7 @@ export const VARIANTS: readonly KnowledgeVariant[] = [
     label: 'Sigma',
     icon: LuNetwork,
     engine: 'sigma',
+    consumesWorkerLayout: true,
     load: () => import('./use-sigma-graph'),
   },
 ];

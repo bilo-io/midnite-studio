@@ -337,9 +337,17 @@ export const keys = {
   knowledgeStatus: (repoId: string) => ['repos', repoId, 'knowledge', 'status'] as const,
   /**
    * The active repo's lean, laid-out graph (Phase 87 Themes A/B/D/E/F) —
-   * `staleTime: Infinity` means this fires the cold ForceAtlas2 pass at most
-   * once per repo per session, which is exactly why nothing calls it outside
-   * the Knowledge view itself.
+   * `staleTime: Infinity` means this fires the cold layout pass at most once
+   * per repo per session for the INITIAL load, which is exactly why nothing
+   * calls it outside the Knowledge view itself. Deliberately NOT keyed on
+   * `layoutId` (Phase 89 Theme E): a layout switch after the view is already
+   * open goes through `use-knowledge-layout-switch.ts`, which writes the new
+   * positions into this SAME cache entry via `setQueryData` rather than
+   * fetching under a new key — the point being that switching layouts must
+   * never present as this query going back to `isLoading`, which would tear
+   * down and rebuild the whole ready-state view (filters panel, canvas,
+   * detail panel) for what is, underneath, a coordinate change on an
+   * unchanged graph.
    */
   knowledgeGraph: (repoId: string) => ['repos', repoId, 'knowledge', 'graph'] as const,
 };

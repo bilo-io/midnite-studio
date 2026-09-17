@@ -43,6 +43,7 @@ import {
   introEdgeAlphaMultiplier,
   type IntroNodeSpec,
 } from './knowledge-intro';
+import { LayoutTransition } from './knowledge-layout-transition';
 import type {
   KnowledgeRenderer,
   KnowledgeRendererCallbacks,
@@ -124,9 +125,20 @@ const HIDE_EDGES_ON_MOVE_ABOVE = 15_000;
 const FOCUS_CAMERA_RATIO = 0.12;
 const FOCUS_ANIMATION_MS = 400;
 const EMPHASISED_EDGE_SCALE = 1.4;
+/** How long a layout switch's tween takes end to end (Phase 89 Theme E) — long enough to read as "the graph reorganised," short enough that switching twice in a row doesn't feel laggy. */
+const LAYOUT_TRANSITION_MS = 600;
 
 function resolveToken(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/** Phase 46's rule: reduced motion means skip entirely, not shorten — mirrors `use-title-typewriter.ts`'s own local check (no shared helper for this one call site either). */
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
 }
 
 /** A theme token as the `rgb(...)` string sigma can paint — see `knowledge-color-math.ts` for why not `hsl()`. */
@@ -248,6 +260,9 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
   private pendingClick: ReturnType<typeof setTimeout> | null = null;
   private repaintObserver: MutationObserver | undefined;
   private containerResizeObserver: ResizeObserver | undefined;
+  /** Phase 89 Theme E's layout-switch tween — one instance reused across every `retarget()` call for this mount. */
+  private layoutTransition = new LayoutTransition();
+  private layoutFrame: number | null = null;
 
   mount(
     container: HTMLDivElement,
@@ -560,6 +575,8 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     if (this.pendingClick !== null) clearTimeout(this.pendingClick);
     if (this.pulseFrame !== null) cancelAnimationFrame(this.pulseFrame);
     if (this.introFrame !== null) cancelAnimationFrame(this.introFrame);
+    if (this.layoutFrame !== null) cancelAnimationFrame(this.layoutFrame);
+    this.layoutTransition.clear();
     this.containerResizeObserver?.disconnect();
     this.repaintObserver?.disconnect();
     if (this.container) this.container.style.cursor = '';
@@ -572,6 +589,7 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     this.pulseFrame = null;
     this.introFrame = null;
     this.pendingClick = null;
+    this.layoutFrame = null;
     this.repaintObserver = undefined;
     this.containerResizeObserver = undefined;
   }
@@ -708,6 +726,44 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     // Intentionally empty.
   }
 
+  /**
+   * A layout switch under the SAME graph (Phase 89 Theme E) — tweens every
+   * node from its current `x`/`y` to `positions[id]`, then updates `payload`
+   * in place so a later `setCollapsed` (which reads `payload.positions` for
+   * its meta-node centroids) sees the new layout too, not the one this
+   * mount started with.
+   *
+   * `paused` (Phase 84: snap, don't animate) and `prefers-reduced-motion`
+   * (Phase 46: skip entirely) both write positions straight through with no
+   * rAF loop at all, exactly like `pulse()`'s own `durationMs: 0` path for
+   * `paused` — the one difference is `prefers-reduced-motion` is checked
+   * here rather than baked into a preset, since it is a global media query,
+   * not a per-call preset field.
+   */
+  retarget(positions: Readonly<Record<string, { x: number; y: number }>>): void {
+    const graph = this.graph;
+    const sigma = this.sigma;
+    if (!graph || !sigma) return;
+
+    if (this.payload) this.payload = { ...this.payload, positions };
+
+    if (this.live.paused || prefersReducedMotion()) {
+      graph.forEachNode((id) => {
+        const to = positions[id];
+        if (!to) return;
+        graph.setNodeAttribute(id, 'x', to.x);
+        graph.setNodeAttribute(id, 'y', to.y);
+      });
+      sigma.refresh();
+      return;
+    }
+
+    const from = new Map<string, { x: number; y: number }>();
+    graph.forEachNode((id, attrs) => from.set(id, { x: attrs.x, y: attrs.y }));
+    this.layoutTransition.start(from, positions, performance.now(), LAYOUT_TRANSITION_MS);
+    if (this.layoutFrame === null) this.layoutFrame = requestAnimationFrame(this.layoutTick);
+  }
+
   // --- Partial repaint helpers -------------------------------------------
   // Everything below repaints only the items it names, through sigma's
   // `partialGraph` refresh (`skipIndexation`: x/y untouched). The full
@@ -833,6 +889,37 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     live.pulses.start(id, performance.now(), live.paused ? { ...preset, durationMs: 0 } : preset);
     if (this.pulseFrame === null) this.pulseFrame = requestAnimationFrame(this.pulseTick);
   }
+
+  // One rAF loop, alive only while a layout tween is in flight (`retarget`,
+  // above). Writes x/y straight onto the graphology attributes and asks
+  // sigma to reindex — `skipIndexation: false`, unlike the pulse loop's own
+  // `repaint()`, because these ARE spatial coordinates the quadtree needs to
+  // know moved (Theme B's own measurement: `skipIndexation: false` cost
+  // 35.1ms vs 49.0ms full-refresh with ~15% of nodes moving — a partial
+  // refresh that skipped reindexing would leave hit-testing pointing at
+  // stale positions).
+  private layoutTick = (): void => {
+    this.layoutFrame = null;
+    const graph = this.graph;
+    const sigma = this.sigma;
+    if (!graph || !sigma) return;
+    const sample = this.layoutTransition.sample(performance.now());
+    const touched: string[] = [];
+    for (const [id, pos] of sample.positions) {
+      if (!graph.hasNode(id)) continue;
+      graph.setNodeAttribute(id, 'x', pos.x);
+      graph.setNodeAttribute(id, 'y', pos.y);
+      touched.push(id);
+    }
+    if (touched.length > 0) {
+      try {
+        sigma.refresh({ partialGraph: { nodes: touched, edges: [] }, skipIndexation: false });
+      } catch {
+        sigma.refresh();
+      }
+    }
+    if (sample.animating) this.layoutFrame = requestAnimationFrame(this.layoutTick);
+  };
 
   // A node's hover lights its one-hop neighbourhood and incident edges — a
   // repaint of a few hundred items at most, never the whole graph, which is
