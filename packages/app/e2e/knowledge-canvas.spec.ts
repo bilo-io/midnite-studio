@@ -14,8 +14,14 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * the right lever here: this suite is about hit-testing, not motion, so it
  * asks for the graph to be at rest from the first frame rather than adding
  * a wall-clock wait (`docs/TESTING.md`'s rule against exactly that).
+ *
+ * `contextOptions`, not a top-level `reducedMotion` — this repo's pinned
+ * Playwright (1.62.1) doesn't expose it as its own `PlaywrightTestOptions`
+ * field, only nested under the `BrowserContextOptions` passed through to
+ * `browser.newContext()`; named options like `viewport` still take priority
+ * over it, per that type's own doc comment.
  */
-test.use({ reducedMotion: 'reduce' });
+test.use({ contextOptions: { reducedMotion: 'reduce' } });
 
 /**
  * Playwright/real-browser: Phase 87 Theme G's own "canvas only" carve-out
