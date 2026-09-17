@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 
-import { DEFAULT_KNOWLEDGE_VARIANT, useUiStore, type KnowledgeVariantId } from '../../store/ui-store';
+import {
+  DEFAULT_KNOWLEDGE_LAYOUT,
+  DEFAULT_KNOWLEDGE_VARIANT,
+  useUiStore,
+  type KnowledgeLayoutId,
+  type KnowledgeVariantId,
+} from '../../store/ui-store';
 import { defaultFilterState, type KnowledgeFilterState } from './knowledge-filters';
 
 /**
@@ -48,6 +54,14 @@ type KnowledgeFiltersState = {
   communityListMode: CommunityListMode;
   /** Which Knowledge canvas renderer is active — persisted globally via `ui-store.ts`, see the docblock above. */
   rendererVariant: KnowledgeVariantId;
+  /**
+   * Which worker-computed layout is active (Phase 89 Theme E) — the same
+   * "persisted globally via `ui-store.ts`, seeded once at module init, writes
+   * through on every change" shape as `rendererVariant` immediately above,
+   * and for the identical reason: a UI preference, not per-repo scope, so it
+   * is deliberately outside `ensureScope`'s reset.
+   */
+  layoutId: KnowledgeLayoutId;
 
   ensureScope: (scopeKey: string) => void;
   setQuery: (query: string) => void;
@@ -67,6 +81,7 @@ type KnowledgeFiltersState = {
   expandAllCommunities: () => void;
   setCommunityListMode: (mode: CommunityListMode) => void;
   setRendererVariant: (variant: KnowledgeVariantId) => void;
+  setLayoutId: (layoutId: KnowledgeLayoutId) => void;
 };
 
 export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, get) => ({
@@ -81,6 +96,7 @@ export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, ge
   // read — at this store's own module-init time — already sees the
   // restored value, not the default.
   rendererVariant: useUiStore.getState().rendererVariant || DEFAULT_KNOWLEDGE_VARIANT,
+  layoutId: useUiStore.getState().layoutId || DEFAULT_KNOWLEDGE_LAYOUT,
 
   ensureScope: (scopeKey) => {
     if (get().scopeKey === scopeKey) return;
@@ -157,5 +173,10 @@ export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, ge
   setRendererVariant: (variant) => {
     set({ rendererVariant: variant });
     useUiStore.getState().setRendererVariant(variant);
+  },
+
+  setLayoutId: (layoutId) => {
+    set({ layoutId });
+    useUiStore.getState().setLayoutId(layoutId);
   },
 }));

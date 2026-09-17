@@ -196,7 +196,7 @@ describe('fetchKnowledgeGraph — the stall guard', () => {
   it('settles as an error once main has been silent for the stall budget', async () => {
     vi.useFakeTimers();
     const { api, unsubscribe } = apiWith(() => new Promise(() => {}));
-    const pending = fetchKnowledgeGraph(api, 'repo:1', 1_000);
+    const pending = fetchKnowledgeGraph(api, 'repo:1', undefined, 1_000);
     await vi.advanceTimersByTimeAsync(999);
     let settled = false;
     void pending.then(() => (settled = true));
@@ -218,7 +218,7 @@ describe('fetchKnowledgeGraph — the stall guard', () => {
     vi.useFakeTimers();
     let resolveCall: (value: unknown) => void = () => {};
     const { api, progress } = apiWith(() => new Promise((resolve) => (resolveCall = resolve)));
-    const pending = fetchKnowledgeGraph(api, 'repo:1', 1_000);
+    const pending = fetchKnowledgeGraph(api, 'repo:1', undefined, 1_000);
     for (let i = 1; i <= 5; i += 1) {
       await vi.advanceTimersByTimeAsync(800);
       progress(i * 20);
@@ -242,7 +242,7 @@ describe('fetchKnowledgeGraph — the stall guard', () => {
         return () => {};
       }),
     } as unknown as MidniteStudioBridge['knowledge'];
-    const pending = fetchKnowledgeGraph(api, 'repo:1', 1_000);
+    const pending = fetchKnowledgeGraph(api, 'repo:1', undefined, 1_000);
     await vi.advanceTimersByTimeAsync(900);
     sink.emit?.({ repoId: 'repo:other', done: 50, total: 100 });
     await vi.advanceTimersByTimeAsync(100);
@@ -253,7 +253,7 @@ describe('fetchKnowledgeGraph — the stall guard', () => {
   it('passes a prompt answer straight through and stops the clock', async () => {
     vi.useFakeTimers();
     const { api, unsubscribe } = apiWith(async () => ({ ok: true, value: graphFor('repo:1') }));
-    const result = await fetchKnowledgeGraph(api, 'repo:1', 1_000);
+    const result = await fetchKnowledgeGraph(api, 'repo:1', undefined, 1_000);
     expect(result.ok).toBe(true);
     expect(unsubscribe).toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(5_000);
@@ -261,7 +261,7 @@ describe('fetchKnowledgeGraph — the stall guard', () => {
 
   it('turns a rejected invoke into an error envelope, never a thrown rejection', async () => {
     const { api } = apiWith(() => Promise.reject(new Error('No handler registered')));
-    const result = await fetchKnowledgeGraph(api, 'repo:1', 1_000);
+    const result = await fetchKnowledgeGraph(api, 'repo:1', undefined, 1_000);
     expect(result).toEqual({ ok: false, kind: 'error', message: 'No handler registered' });
   });
 });

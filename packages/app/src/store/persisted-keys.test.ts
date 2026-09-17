@@ -95,6 +95,8 @@ describe('persisted-keys partition', () => {
         // Phase 89 Theme A's own: `rendererVariant` has a real control (the
         // Knowledge view's pill bar) but no settings page.
         'rendererVariant',
+        // Phase 89 Theme E's own, same reasoning: the layout pill row.
+        'layoutId',
       ].sort(),
     );
   });

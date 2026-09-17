@@ -9,15 +9,25 @@ import { layoutCacheKey, readLayoutCache, writeLayoutCache } from './cache';
 
 describe('layoutCacheKey', () => {
   it('changes when built_at_commit changes', () => {
-    expect(layoutCacheKey('sha1', 1)).not.toBe(layoutCacheKey('sha2', 1));
+    expect(layoutCacheKey('sha1', 1, 'force-atlas2')).not.toBe(
+      layoutCacheKey('sha2', 1, 'force-atlas2'),
+    );
   });
 
   it('changes when the projection version changes', () => {
-    expect(layoutCacheKey('sha1', 1)).not.toBe(layoutCacheKey('sha1', 2));
+    expect(layoutCacheKey('sha1', 1, 'force-atlas2')).not.toBe(
+      layoutCacheKey('sha1', 2, 'force-atlas2'),
+    );
+  });
+
+  it('changes when the layout id changes (Theme E)', () => {
+    expect(layoutCacheKey('sha1', 1, 'force-atlas2')).not.toBe(
+      layoutCacheKey('sha1', 1, 'circlepack'),
+    );
   });
 
   it('is stable for the same inputs', () => {
-    expect(layoutCacheKey('sha1', 1)).toBe(layoutCacheKey('sha1', 1));
+    expect(layoutCacheKey('sha1', 1, 'force-atlas2')).toBe(layoutCacheKey('sha1', 1, 'force-atlas2'));
   });
 });
 
@@ -34,7 +44,12 @@ describe('readLayoutCache / writeLayoutCache', () => {
   });
 
   it('returns null for a repo with no cache entry yet', async () => {
-    const result = await readLayoutCache(cacheDir, repoId, layoutCacheKey('sha1', 1));
+    const result = await readLayoutCache(
+      cacheDir,
+      repoId,
+      'force-atlas2',
+      layoutCacheKey('sha1', 1, 'force-atlas2'),
+    );
     expect(result).toBeNull();
   });
 
@@ -42,12 +57,18 @@ describe('readLayoutCache / writeLayoutCache', () => {
     const entry = {
       builtAtCommit: 'sha1',
       projectionVersion: 1,
+      layoutId: 'force-atlas2' as const,
       nodeCount: 2,
       linkCount: 1,
       positions: { a: { x: 1, y: 2 }, b: { x: 3, y: 4 } },
     };
     await writeLayoutCache(cacheDir, repoId, entry);
-    const result = await readLayoutCache(cacheDir, repoId, layoutCacheKey('sha1', 1));
+    const result = await readLayoutCache(
+      cacheDir,
+      repoId,
+      'force-atlas2',
+      layoutCacheKey('sha1', 1, 'force-atlas2'),
+    );
     expect(result).toEqual(entry);
   });
 
@@ -55,11 +76,35 @@ describe('readLayoutCache / writeLayoutCache', () => {
     await writeLayoutCache(cacheDir, repoId, {
       builtAtCommit: 'sha1',
       projectionVersion: 1,
+      layoutId: 'force-atlas2',
       nodeCount: 0,
       linkCount: 0,
       positions: {},
     });
-    const result = await readLayoutCache(cacheDir, repoId, layoutCacheKey('sha2', 1));
+    const result = await readLayoutCache(
+      cacheDir,
+      repoId,
+      'force-atlas2',
+      layoutCacheKey('sha2', 1, 'force-atlas2'),
+    );
+    expect(result).toBeNull();
+  });
+
+  it('is a miss for a different layout even under the same repo/commit (Theme E — no file written for it)', async () => {
+    await writeLayoutCache(cacheDir, repoId, {
+      builtAtCommit: 'sha1',
+      projectionVersion: 1,
+      layoutId: 'force-atlas2',
+      nodeCount: 0,
+      linkCount: 0,
+      positions: {},
+    });
+    const result = await readLayoutCache(
+      cacheDir,
+      repoId,
+      'circlepack',
+      layoutCacheKey('sha1', 1, 'circlepack'),
+    );
     expect(result).toBeNull();
   });
 
@@ -68,21 +113,33 @@ describe('readLayoutCache / writeLayoutCache', () => {
     await writeLayoutCache(cacheDir, repoId, {
       builtAtCommit: 'sha1',
       projectionVersion: 1,
+      layoutId: 'force-atlas2',
       nodeCount: 1,
       linkCount: 0,
       positions: { a: { x: 0, y: 0 } },
     });
-    const otherResult = await readLayoutCache(cacheDir, otherRepoId, layoutCacheKey('sha1', 1));
+    const otherResult = await readLayoutCache(
+      cacheDir,
+      otherRepoId,
+      'force-atlas2',
+      layoutCacheKey('sha1', 1, 'force-atlas2'),
+    );
     expect(otherResult).toBeNull();
 
-    const ownResult = await readLayoutCache(cacheDir, repoId, layoutCacheKey('sha1', 1));
+    const ownResult = await readLayoutCache(
+      cacheDir,
+      repoId,
+      'force-atlas2',
+      layoutCacheKey('sha1', 1, 'force-atlas2'),
+    );
     expect(ownResult).not.toBeNull();
   });
 
-  it('survives two concurrent writes for the same repo from one process', async () => {
+  it('survives two concurrent writes for the same repo/layout from one process', async () => {
     const entry = (n: number) => ({
       builtAtCommit: 'abc',
       projectionVersion: 2,
+      layoutId: 'force-atlas2' as const,
       nodeCount: n,
       linkCount: 0,
       positions: {},
@@ -91,8 +148,51 @@ describe('readLayoutCache / writeLayoutCache', () => {
       writeLayoutCache(cacheDir, 'repo:x', entry(1)),
       writeLayoutCache(cacheDir, 'repo:x', entry(2)),
     ]);
-    const read = await readLayoutCache(cacheDir, 'repo:x', layoutCacheKey('abc', 2));
+    const read = await readLayoutCache(
+      cacheDir,
+      'repo:x',
+      'force-atlas2',
+      layoutCacheKey('abc', 2, 'force-atlas2'),
+    );
     expect(read).not.toBeNull();
     expect([1, 2]).toContain(read?.nodeCount);
+  });
+
+  it('switching layouts twice is a cache hit, not a recomputation (Theme E)', async () => {
+    await writeLayoutCache(cacheDir, repoId, {
+      builtAtCommit: 'sha1',
+      projectionVersion: 1,
+      layoutId: 'circlepack',
+      nodeCount: 1,
+      linkCount: 0,
+      positions: { a: { x: 5, y: 5 } },
+    });
+    await writeLayoutCache(cacheDir, repoId, {
+      builtAtCommit: 'sha1',
+      projectionVersion: 1,
+      layoutId: 'hierarchical',
+      nodeCount: 1,
+      linkCount: 0,
+      positions: { a: { x: 9, y: 9 } },
+    });
+
+    // Writing `hierarchical` must not have evicted the earlier `circlepack`
+    // entry — switching back is a hit straight off disk, not a third
+    // computation.
+    const backToCirclepack = await readLayoutCache(
+      cacheDir,
+      repoId,
+      'circlepack',
+      layoutCacheKey('sha1', 1, 'circlepack'),
+    );
+    expect(backToCirclepack?.positions).toEqual({ a: { x: 5, y: 5 } });
+
+    const hierarchical = await readLayoutCache(
+      cacheDir,
+      repoId,
+      'hierarchical',
+      layoutCacheKey('sha1', 1, 'hierarchical'),
+    );
+    expect(hierarchical?.positions).toEqual({ a: { x: 9, y: 9 } });
   });
 });

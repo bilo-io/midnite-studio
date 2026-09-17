@@ -168,6 +168,74 @@ describe('registerKnowledgeHandlers (Phase 87 Theme B)', () => {
       expect(result).toMatchObject({ ok: true, value: { cached: false } });
     });
 
+    describe('layoutId (Phase 89 Theme E)', () => {
+      it('defaults to force-atlas2 when the request omits it', async () => {
+        getRepo.mockReturnValue({ id: 'repo:1', path: '/repo' });
+        readGraph.mockResolvedValue({ ok: true, graph: RAW_GRAPH });
+        readLayoutCache.mockResolvedValue(null);
+        runLayoutInWorker.mockResolvedValue({ ok: true, positions: {} });
+
+        await invoke(CHANNELS.knowledgeGetGraph, { repoId: 'repo:1' });
+
+        expect(readLayoutCache).toHaveBeenCalledWith(
+          expect.any(String),
+          'repo:1',
+          'force-atlas2',
+          expect.stringContaining(':force-atlas2'),
+        );
+        expect(runLayoutInWorker).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ layoutId: 'force-atlas2' }),
+          expect.any(Function),
+        );
+        expect(writeLayoutCache).toHaveBeenCalledWith(
+          expect.any(String),
+          'repo:1',
+          expect.objectContaining({ layoutId: 'force-atlas2' }),
+        );
+      });
+
+      it('threads a requested layout id through to the worker and the cache key', async () => {
+        getRepo.mockReturnValue({ id: 'repo:1', path: '/repo' });
+        readGraph.mockResolvedValue({ ok: true, graph: RAW_GRAPH });
+        readLayoutCache.mockResolvedValue(null);
+        runLayoutInWorker.mockResolvedValue({ ok: true, positions: {} });
+
+        await invoke(CHANNELS.knowledgeGetGraph, { repoId: 'repo:1', layoutId: 'circlepack' });
+
+        expect(readLayoutCache).toHaveBeenCalledWith(
+          expect.any(String),
+          'repo:1',
+          'circlepack',
+          expect.stringContaining(':circlepack'),
+        );
+        expect(runLayoutInWorker).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ layoutId: 'circlepack' }),
+          expect.any(Function),
+        );
+      });
+
+      it('falls back to force-atlas2 for an unknown/stale layout id rather than erroring', async () => {
+        getRepo.mockReturnValue({ id: 'repo:1', path: '/repo' });
+        readGraph.mockResolvedValue({ ok: true, graph: RAW_GRAPH });
+        readLayoutCache.mockResolvedValue(null);
+        runLayoutInWorker.mockResolvedValue({ ok: true, positions: {} });
+
+        const result = await invoke(CHANNELS.knowledgeGetGraph, {
+          repoId: 'repo:1',
+          layoutId: 'spring-embedder',
+        });
+
+        expect(result).toMatchObject({ ok: true });
+        expect(runLayoutInWorker).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ layoutId: 'force-atlas2' }),
+          expect.any(Function),
+        );
+      });
+    });
+
     it('surfaces a worker failure as `error`, never a thrown rejection', async () => {
       getRepo.mockReturnValue({ id: 'repo:1', path: '/repo' });
       readGraph.mockResolvedValue({ ok: true, graph: RAW_GRAPH });

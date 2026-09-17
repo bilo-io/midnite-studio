@@ -1,6 +1,51 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-17 — Phase 89 Theme E — Layout variants in the worker
+
+[PR #439](https://github.com/bilo-io/midnite-studio/pull/439). Three alternative worker-computed
+layouts beside `runForceAtlas2` in `packages/knowledge/src/layout.ts`: `runCirclepack` (grouped by
+`community`, `graphology-layout`'s own `circlepack` module, MIT), `runHierarchical` (layered by
+`imports`/`imports_from` edge direction only — a cycle-tolerant Kahn's-algorithm level assignment
+that peels off the smallest remaining node id whenever an import cycle leaves no zero-in-degree
+node, the same "sort, don't rely on insertion order" discipline `seedDeterministicLayout` already
+follows), and `runNoverlap` (ForceAtlas2 followed by a de-overlap pass, `graphology-layout-noverlap`,
+MIT). A fixed-seed `deterministicRng` (mulberry32) stands in for `Math.random` wherever
+`graphology-layout` would otherwise use it, so all four layouts hold "same input, same coordinates"
+— one vitest determinism test per layout, plus a `describe.each` sweep over every `LAYOUT_IDS`
+entry.
+
+`layoutCacheKey` gained a third `layoutId` segment, and — the part that actually makes "switching
+layouts twice is a cache hit" true — the on-disk cache file moved from one-per-repo to one-per-
+`(repo, layout)`; a single-file-per-repo design would have had a `circlepack` write evict an
+already-cached `force-atlas2` entry. `KnowledgeGetGraphRequest` gained an optional `layoutId`
+(`z.string()`, not an enum — `KnowledgeVariantId`'s own "not a literal union" precedent, so a
+future/stale id degrades via the desktop handler's `isLayoutId` fallback rather than failing IPC
+validation); `KnowledgeGraphPayloadSchema.positions` is unchanged, so a renderer cannot tell which
+layout produced its coordinates.
+
+App-side: a `layoutId` preference mirrors `rendererVariant`'s exact shape (`ui-store.ts` +
+`knowledge-filters-store.ts`, outside `ensureScope`'s reset), a small fixed `KnowledgeLayoutPills`
+row (offered only when the active variant's engine consumes worker coordinates —
+`KnowledgeVariant.consumesWorkerLayout`, Decision 9), and a switch path
+(`use-knowledge-layout-switch.ts`) that calls `getGraph` directly and writes the result into the
+*existing* react-query cache entry via `setQueryData` rather than adding `layoutId` to the query
+key — keying on it would have made a switch present as `isLoading`, tearing down the whole `ready`
+view for what is, underneath, a coordinate change on an unchanged graph.
+`use-knowledge-renderer.ts`'s mount effect is now keyed on `payload.builtAtCommit` rather than
+object identity, with a second effect calling the renderer's new `retarget()` when the commit is
+unchanged but the payload object is new — `SigmaKnowledgeRenderer.retarget()` tweens every node via
+a new `LayoutTransition` utility (same clock-injected shape as `PulseTracker`, kept deliberately
+separate from Theme B's in-flight `IntroTracker`, PR #436, since that class tweens from one shared
+origin rather than each node's own current position), honouring `paused` (snap) and
+`prefers-reduced-motion` (skip), reindexing sigma's spatial index each frame per Theme B's own
+measurement (`skipIndexation: false`).
+
+Stacked on [Theme A](phases/phase-89-knowledge-graph-variants.md#a--the-variant-seam-and-the-pill-bar-m)
+(PR #437, still open when this PR was opened) for the pill-row wiring; the backend
+(`packages/knowledge`, `packages/shared`, the desktop handler) was built first, off `main`, and does
+not depend on it. `moon run :typecheck :lint :test` green repo-wide.
+
 ## 2026-09-17 — Phase 89 Theme A — The variant seam and the pill bar
 
 [PR #437](https://github.com/bilo-io/midnite-studio/pull/437). Moves the Knowledge canvas's sigma

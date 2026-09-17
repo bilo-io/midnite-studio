@@ -82,6 +82,20 @@ describe('runLayoutInWorker', () => {
     expect(progress).toEqual([[1, 2], [2, 2]]);
   });
 
+  it('threads layoutId through to the worker as workerData (Phase 89 Theme E)', async () => {
+    const workerPath = workerScript(
+      'echo-layout.js',
+      `const { parentPort, workerData } = require('node:worker_threads');
+       parentPort.postMessage({ type: 'done', positions: { layoutId: { x: workerData.layoutId, y: 0 } } });`,
+    );
+    const result = await runLayoutInWorker(
+      lean,
+      { layoutId: 'circlepack', totalIterations: 1, batchSize: 1, workerPath },
+      () => {},
+    );
+    expect(result).toEqual({ ok: true, positions: { layoutId: { x: 'circlepack', y: 0 } } });
+  });
+
   it('resolves an error, not a hang, when the worker exits cleanly without ever posting done', async () => {
     const workerPath = workerScript('silent-exit.js', `// does nothing and ends`);
     const result = await runLayoutInWorker(lean, { totalIterations: 1, batchSize: 1, workerPath }, () => {});

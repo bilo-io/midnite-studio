@@ -22,7 +22,9 @@
   "dependencies": {
     "@midnite/studio-shared": "workspace:*",
     "graphology": "^0.25.4",
+    "graphology-layout": "^0.6.1",
     "graphology-layout-forceatlas2": "^0.10.1",
+    "graphology-layout-noverlap": "^0.4.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {

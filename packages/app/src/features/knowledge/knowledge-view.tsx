@@ -27,9 +27,12 @@ import {
   searchMatches,
 } from './knowledge-filters';
 import { useKnowledgeFiltersStore } from './knowledge-filters-store';
+import { KnowledgeLayoutPills } from './knowledge-layout-pills';
 import { KnowledgeVariantPills } from './knowledge-variant-pills';
 import { useKnowledgeLayoutProgress } from './use-knowledge-layout-progress';
+import { useKnowledgeLayoutSwitch } from './use-knowledge-layout-switch';
 import { KnowledgeNodePanel } from './knowledge-node-panel';
+import { resolveVariant } from './renderer-contract';
 import { useKnowledgeGraph } from './use-knowledge-graph';
 import { type KnowledgeLayoutProgress } from './use-knowledge-layout-progress';
 
@@ -50,8 +53,14 @@ import { type KnowledgeLayoutProgress } from './use-knowledge-layout-progress';
  */
 export function KnowledgeView() {
   const { repoId, worktreePath } = useActiveWorktree();
-  const { state, refetch } = useKnowledgeGraph(repoId);
-  const layoutProgress = useKnowledgeLayoutProgress(repoId, state.kind === 'loading');
+  // `layoutId` is read here only for the INITIAL fetch — a later pill click
+  // goes through `switchLayout` below, not a change to this value (Theme E:
+  // `use-knowledge-graph.ts`'s own docblock on its `layoutId` param).
+  const layoutId = useKnowledgeFiltersStore((s) => s.layoutId);
+  const setLayoutId = useKnowledgeFiltersStore((s) => s.setLayoutId);
+  const { state, refetch } = useKnowledgeGraph(repoId, layoutId);
+  const { switching: switchingLayout, switchLayout } = useKnowledgeLayoutSwitch(repoId);
+  const layoutProgress = useKnowledgeLayoutProgress(repoId, state.kind === 'loading' || switchingLayout);
 
   const scopeKey = repoId ?? '';
   const ensureScope = useKnowledgeFiltersStore((s) => s.ensureScope);
@@ -80,6 +89,22 @@ export function KnowledgeView() {
   const setCommunityListMode = useKnowledgeFiltersStore((s) => s.setCommunityListMode);
   const rendererVariant = useKnowledgeFiltersStore((s) => s.rendererVariant);
   const setRendererVariant = useKnowledgeFiltersStore((s) => s.setRendererVariant);
+  // Decision 9: the layout row is offered only for a variant whose engine
+  // actually consumes worker `positions` — d3-force's future live-sim
+  // variant (Theme I) computes its own layout, and a permanently visible
+  // layout row with disabled entries costs height on every variant to
+  // explain one, per the phase doc's own recommendation.
+  const showLayoutPills = useMemo(
+    () => resolveVariant(rendererVariant).consumesWorkerLayout,
+    [rendererVariant],
+  );
+  const handleSelectLayout = useCallback(
+    (id: string) => {
+      setLayoutId(id);
+      switchLayout(id);
+    },
+    [setLayoutId, switchLayout],
+  );
 
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
@@ -236,6 +261,11 @@ export function KnowledgeView() {
             />
             <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
               <KnowledgeVariantPills activeId={rendererVariant} onSelect={setRendererVariant} />
+              {showLayoutPills ? (
+                <div className="flex min-w-0 items-center gap-1.5 border-b border-border px-3 py-1.5">
+                  <KnowledgeLayoutPills activeId={layoutId} onSelect={handleSelectLayout} />
+                </div>
+              ) : null}
               <KnowledgeCanvas
                 rendererVariant={rendererVariant}
                 payload={state.graph}

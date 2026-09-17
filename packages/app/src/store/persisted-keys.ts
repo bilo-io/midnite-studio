@@ -126,6 +126,9 @@ export const PREFERENCE_KEYS = [
   // (`knowledge-variant-pills.tsx`) — just not one under `features/settings/`,
   // since the pill bar is not a settings page.
   'rendererVariant', // knowledge-variant-pills.tsx (Knowledge canvas's own renderer-switcher pills)
+  // Phase 89 Theme E's own, same reasoning as `rendererVariant` immediately
+  // above: a real control (the layout pill row) that is not a settings page.
+  'layoutId', // knowledge-layout-pills.tsx (Knowledge canvas's own layout-switcher pills)
 ] as const;
 
 export const SESSION_STATE_KEYS = [
@@ -196,6 +199,7 @@ export const KNOWN_ORPHANS = [
   'editorTabSize',
   'editorWordWrap',
   'rendererVariant',
+  'layoutId',
 ] as const satisfies readonly (typeof PREFERENCE_KEYS)[number][];
 
 type PartitionedKey = (typeof PREFERENCE_KEYS)[number] | (typeof SESSION_STATE_KEYS)[number];

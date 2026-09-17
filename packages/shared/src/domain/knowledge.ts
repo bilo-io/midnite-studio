@@ -40,6 +40,32 @@ export const KnowledgeLayoutPositionSchema = z.object({ x: z.number(), y: z.numb
 export type KnowledgeLayoutPosition = z.infer<typeof KnowledgeLayoutPositionSchema>;
 
 /**
+ * The worker-computed layouts a `knowledgeGetGraph` request may ask for
+ * (Phase 89 Theme E): `force-atlas2` (the only one before this theme),
+ * `circlepack` (grouped by community), `hierarchical` (layered by import
+ * direction) and `noverlap` (ForceAtlas2 plus a de-overlap post-pass). This
+ * list is `shared`'s own copy, not an import of `@midnite/studio-knowledge`'s
+ * `LAYOUT_IDS` — `shared` imports no other workspace package (the wire
+ * contract has to stand on its own), so the two lists are kept in step by
+ * hand; `knowledge.test.ts` is where that's checked.
+ *
+ * The wire schema is a bare `z.string()`, deliberately not a `z.enum` of this
+ * list — same call `renderer-contract.ts` makes for `KnowledgeVariantId`
+ * ("not a literal union — `resolveVariant` falls back on unknown ids"). A
+ * strict enum would make a request carrying a layout this build no longer
+ * ships (a stale persisted preference from an older/newer build) a
+ * *validation failure*, surfaced as `knowledgeError`, rather than the graph
+ * it always used to load. The desktop handler's own `isLayoutId` guard is
+ * where "unknown id" is actually handled, by falling back to
+ * {@link DEFAULT_KNOWLEDGE_LAYOUT_ID} — a normal, silent recovery, not an
+ * error state the view has to render.
+ */
+export const KNOWLEDGE_LAYOUT_IDS = ['force-atlas2', 'circlepack', 'hierarchical', 'noverlap'] as const;
+export const KnowledgeLayoutIdSchema = z.string();
+export type KnowledgeLayoutId = string;
+export const DEFAULT_KNOWLEDGE_LAYOUT_ID: KnowledgeLayoutId = KNOWLEDGE_LAYOUT_IDS[0];
+
+/**
  * The lean projection plus Theme A's cached (or freshly computed) layout —
  * everything a canvas needs to paint, seeded from the cache rather than
  * running a force simulation in the renderer (Theme D).
@@ -47,7 +73,13 @@ export type KnowledgeLayoutPosition = z.infer<typeof KnowledgeLayoutPositionSche
 export const KnowledgeGraphPayloadSchema = z.object({
   nodes: z.array(KnowledgeGraphNodeSchema),
   links: z.array(KnowledgeGraphLinkSchema),
-  /** Keyed by node id — `noUncheckedIndexedAccess` is on, so callers narrow before use. */
+  /**
+   * Keyed by node id — `noUncheckedIndexedAccess` is on, so callers narrow
+   * before use. Shape unchanged by Theme E's layout request: `{x, y}` per
+   * node whichever of the four layouts produced it, deliberately, so a
+   * renderer variant that only knows how to consume `positions` cannot tell
+   * (and does not need to) which one ran.
+   */
   positions: z.record(z.string(), KnowledgeLayoutPositionSchema),
   builtAtCommit: z.string(),
   /** True when the layout came from Theme A's cache rather than a fresh ForceAtlas2 pass. */

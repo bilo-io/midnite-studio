@@ -1,7 +1,7 @@
 // Layer: vitest — a zustand store, no DOM/canvas involved.
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { DEFAULT_KNOWLEDGE_VARIANT, useUiStore } from '../../store/ui-store';
+import { DEFAULT_KNOWLEDGE_LAYOUT, DEFAULT_KNOWLEDGE_VARIANT, useUiStore } from '../../store/ui-store';
 import { DEFAULT_RELATIONS } from './knowledge-filters';
 import { useKnowledgeFiltersStore } from './knowledge-filters-store';
 
@@ -21,8 +21,9 @@ describe('useKnowledgeFiltersStore', () => {
       flyToNodeId: null,
       communityListMode: 'list',
       rendererVariant: DEFAULT_KNOWLEDGE_VARIANT,
+      layoutId: DEFAULT_KNOWLEDGE_LAYOUT,
     });
-    useUiStore.setState({ rendererVariant: DEFAULT_KNOWLEDGE_VARIANT });
+    useUiStore.setState({ rendererVariant: DEFAULT_KNOWLEDGE_VARIANT, layoutId: DEFAULT_KNOWLEDGE_LAYOUT });
   });
 
   it('resets to defaults on a scope (repo) change', () => {
@@ -149,5 +150,18 @@ describe('useKnowledgeFiltersStore', () => {
     useKnowledgeFiltersStore.getState().setRendererVariant('cytoscape');
     expect(useKnowledgeFiltersStore.getState().rendererVariant).toBe('cytoscape');
     expect(useUiStore.getState().rendererVariant).toBe('cytoscape');
+  });
+
+  it('layoutId is not reset by ensureScope — a UI preference, not repo-scoped state (Theme E)', () => {
+    useKnowledgeFiltersStore.getState().ensureScope('repo:1');
+    useKnowledgeFiltersStore.getState().setLayoutId('circlepack');
+    useKnowledgeFiltersStore.getState().ensureScope('repo:2');
+    expect(useKnowledgeFiltersStore.getState().layoutId).toBe('circlepack');
+  });
+
+  it('setLayoutId writes through to ui-store.ts, the actual persisted source (Theme E)', () => {
+    useKnowledgeFiltersStore.getState().setLayoutId('hierarchical');
+    expect(useKnowledgeFiltersStore.getState().layoutId).toBe('hierarchical');
+    expect(useUiStore.getState().layoutId).toBe('hierarchical');
   });
 });
