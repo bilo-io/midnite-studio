@@ -317,6 +317,7 @@ export function ProjectGraphView({
               selected={node.itemId !== '' && node.itemId === selectedItemId}
               tabIndex={node.key === rovingKey ? 0 : -1}
               detailed={detailed}
+              projectId={projectId}
               onSelect={() => {
                 setFocusedKey(node.key);
                 if (node.itemId) onSelectItem(node.itemId);

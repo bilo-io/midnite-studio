@@ -5,6 +5,7 @@ import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared
 import type { IconComponent } from '../../../components/icon-button';
 import { UserAvatar } from '../../../components/user-avatar';
 import { formatFieldValue } from '../field-editor';
+import { fieldOptionChipStyle } from '../field-option-colors';
 import { ExternalLink } from '../../markdown/external-link';
 
 /**
@@ -82,20 +83,58 @@ export function CardFieldChips({
   fields: readonly ForgeProjectField[];
 }) {
   const chips = fields
-    .map((field) => ({ field, text: formatFieldValue(item.fieldValues[field.id]) }))
-    .filter((chip) => chip.text.length > 0);
+    .map((field) => {
+      const fieldValue = item.fieldValues[field.id];
+      const text = formatFieldValue(fieldValue);
+      if (text.length === 0) return null;
+
+      let chipStyle: ReturnType<typeof fieldOptionChipStyle> | undefined;
+      if (field.dataType === 'single_select') {
+        const option =
+          fieldValue?.dataType === 'single_select'
+            ? field.options.find((o) => o.id === fieldValue.optionId || o.name === fieldValue.name)
+            : undefined;
+        const colorName = option?.color || option?.name || text;
+        chipStyle = fieldOptionChipStyle(colorName);
+      }
+
+      return { field, text, chipStyle };
+    })
+    .filter((chip): chip is NonNullable<typeof chip> => chip !== null);
+
   if (chips.length === 0) return null;
+
   return (
     <div className="flex flex-wrap gap-1">
-      {chips.map((chip) => (
-        <span
-          key={chip.field.id}
-          data-card-chip
-          className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-        >
-          {chip.text}
-        </span>
-      ))}
+      {chips.map((chip) =>
+        chip.chipStyle ? (
+          <span
+            key={chip.field.id}
+            data-card-chip
+            style={{
+              color: chip.chipStyle.color,
+              backgroundColor: chip.chipStyle.backgroundColor,
+              borderColor: chip.chipStyle.borderColor,
+            }}
+            className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+          >
+            <span
+              aria-hidden
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: chip.chipStyle.color }}
+            />
+            {chip.text}
+          </span>
+        ) : (
+          <span
+            key={chip.field.id}
+            data-card-chip
+            className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+          >
+            {chip.text}
+          </span>
+        ),
+      )}
     </div>
   );
 }

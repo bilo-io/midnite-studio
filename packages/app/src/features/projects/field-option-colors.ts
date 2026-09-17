@@ -14,6 +14,7 @@
  */
 const SWATCH: Readonly<Record<string, string>> = {
   GRAY: '#9CA3AF',
+  DARK_GRAY: '#6B7280',
   BLUE: '#3B82F6',
   GREEN: '#22C55E',
   YELLOW: '#EAB308',
@@ -21,11 +22,57 @@ const SWATCH: Readonly<Record<string, string>> = {
   RED: '#EF4444',
   PINK: '#EC4899',
   PURPLE: '#A855F7',
+  TEAL: '#14B8A6',
+  LIME: '#84CC16',
+};
+
+/**
+ * Status name fallbacks for when an option's colour is not explicitly provided.
+ * Maps common status values to standard GitHub option colours.
+ */
+const STATUS_FALLBACKS: Readonly<Record<string, string>> = {
+  DONE: '#22C55E',
+  CLOSED: '#22C55E',
+  COMPLETE: '#22C55E',
+  COMPLETED: '#22C55E',
+  'IN PROGRESS': '#3B82F6',
+  PROGRESS: '#3B82F6',
+  DOING: '#3B82F6',
+  'IN REVIEW': '#A855F7',
+  REVIEW: '#A855F7',
+  TODO: '#9CA3AF',
+  'TO DO': '#9CA3AF',
+  BACKLOG: '#9CA3AF',
 };
 
 /** Muted-foreground grey for an option GitHub sent with no colour (or none selected). */
 const NEUTRAL = '#8B8B95';
 
-export function fieldOptionColor(color: string): string {
-  return SWATCH[color] ?? NEUTRAL;
+export function fieldOptionColor(colorOrName: string | undefined | null): string {
+  if (!colorOrName) return NEUTRAL;
+  const trimmed = colorOrName.trim();
+  if (trimmed.startsWith('#')) return trimmed;
+  const upper = trimmed.toUpperCase();
+  if (SWATCH[upper]) return SWATCH[upper];
+  if (STATUS_FALLBACKS[upper]) return STATUS_FALLBACKS[upper];
+  return NEUTRAL;
+}
+
+export interface FieldOptionChipStyle {
+  color: string;
+  backgroundColor: string;
+  borderColor: string;
+}
+
+/**
+ * Produces the background tint (with opacity), border colour and text/dot colour
+ * for a GitHub single-select chip.
+ */
+export function fieldOptionChipStyle(colorOrName: string | undefined | null): FieldOptionChipStyle {
+  const hex = fieldOptionColor(colorOrName);
+  return {
+    color: hex,
+    backgroundColor: `${hex}1A`,
+    borderColor: `${hex}55`,
+  };
 }

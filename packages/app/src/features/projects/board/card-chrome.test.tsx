@@ -76,4 +76,31 @@ describe('CardFieldChips', () => {
     const { container } = render(<CardFieldChips item={item} fields={[emptyField]} />);
     expect(container.firstChild).toBeNull();
   });
+
+  it('renders a single_select field chip styled with GitHub option color, dot and tint', () => {
+    const statusField: ForgeProjectField = {
+      id: 'f-status',
+      name: 'Status',
+      dataType: 'single_select',
+      options: [
+        { id: 'opt-done', name: 'Done', color: 'GREEN' },
+        { id: 'opt-review', name: 'In Review', color: 'PURPLE' },
+      ],
+    };
+    const itemWithStatus: ForgeProjectItem = {
+      ...item,
+      fieldValues: {
+        'f-status': { fieldId: 'f-status', dataType: 'single_select', optionId: 'opt-done', name: 'Done' },
+      },
+    };
+    render(<CardFieldChips item={itemWithStatus} fields={[statusField]} />);
+    const chip = screen.getByText('Done');
+    expect(chip.hasAttribute('data-card-chip')).toBe(true);
+    // Green option styling (#22C55E)
+    expect(chip.style.color).toBe('rgb(34, 197, 94)');
+    expect(chip.style.backgroundColor).toBe('rgba(34, 197, 94, 0.1)');
+    const dot = chip.querySelector('[aria-hidden]');
+    expect(dot).not.toBeNull();
+    expect(dot?.getAttribute('style')).toContain('background-color: rgb(34, 197, 94)');
+  });
 });

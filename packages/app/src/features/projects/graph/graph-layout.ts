@@ -32,8 +32,8 @@ export interface ForgeGraphGeometry {
 /** Numbers that move together, out of JSX and out of the arithmetic below —
  *  the same move `workflow-geometry.ts` makes for the workflow canvas. */
 export const FORGE_GRAPH_GEOMETRY: ForgeGraphGeometry = {
-  width: 200,
-  height: 64,
+  width: 240,
+  height: 80,
   rankGap: 96,
   nodeGap: 20,
 } as const;
