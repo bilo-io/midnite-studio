@@ -72,7 +72,7 @@ test('a folded category stays folded across a reload', async ({ page }) => {
   await openSettings(page);
   const nav = page.getByRole('navigation', { name: 'Settings pages' });
 
-  await nav.getByRole('button', { name: 'System Info' }).click();
+  await nav.getByRole('button', { name: 'System & Maintenance' }).click();
   await expect(page.locator('#settings-group-system > div')).toHaveAttribute('inert', '');
 
   await page.reload();
@@ -81,13 +81,13 @@ test('a folded category stays folded across a reload', async ({ page }) => {
   // be ambiguous — with the page open, that name matches both the rail item
   // and the Location breadcrumb, which is a strict-mode violation.
   const afterReload = page.getByRole('navigation', { name: 'Settings pages' });
-  await expect(afterReload.getByRole('button', { name: 'System Info' })).toHaveAttribute(
+  await expect(afterReload.getByRole('button', { name: 'System & Maintenance' })).toHaveAttribute(
     'aria-expanded',
     'false',
   );
   await expect(page.locator('#settings-group-system > div')).toHaveAttribute('inert', '');
   // Only that one — the rest come back open, not all-collapsed.
-  await expect(afterReload.getByRole('button', { name: 'General' })).toHaveAttribute(
+  await expect(afterReload.getByRole('button', { name: 'General & UI' })).toHaveAttribute(
     'aria-expanded',
     'true',
   );
