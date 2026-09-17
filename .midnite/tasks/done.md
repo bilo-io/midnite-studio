@@ -1,6 +1,26 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-17 — Phase 89 Theme D — Four sigma looks
+
+[PR #438](https://github.com/bilo-io/midnite-studio/pull/438). Four named looks over the one sigma
+instance Theme A's `SigmaKnowledgeRenderer` already seams behind `KnowledgeRenderer` — **Atlas**
+(today's rendering, registered as an explicit variant), **Constellation** (curved edges via a
+custom `EdgeCurveProgram`, a reducer-only glow pass on the payload's own top-5%-by-degree hubs
+through the same brightening path a focused node already uses, a flat ambient-edge-alpha scale,
+and tighter label density/grid settings), **Orbit** (concentric rings by community, computed
+client-side and cached, tweening between the payload's Atlas coordinates and the orbit layout via
+`beginPositionTween`, snapping instead of animating under `paused` or `prefers-reduced-motion`),
+and **Clusters** (communities collapsed to bubbles by default over the existing
+`knowledge-community-collapse.ts` meta-node machinery, expanding per-community on double-click,
+tracked locally so it never leaks into the shared `collapsedCommunities` other looks read). All
+four read the store's persisted `rendererVariant` directly (`renderer-contract.ts` carries no
+per-look field) and switch via a new `setLook` method outside the `KnowledgeRenderer` contract,
+called only from `SigmaKnowledgeCanvas`, the one place already holding the concrete class. No
+second `Sigma` instance is ever created switching looks. Preserves the premultiplied-alpha
+invariant, the community colour-per-look invariant, both themes' `MutationObserver` repaint, and
+`paused`/`prefers-reduced-motion` motion-skipping throughout.
+
 ## 2026-09-17 — Phase 89 Theme E — Layout variants in the worker
 
 [PR #439](https://github.com/bilo-io/midnite-studio/pull/439). Three alternative worker-computed

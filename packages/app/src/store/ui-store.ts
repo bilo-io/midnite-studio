@@ -80,7 +80,8 @@ export type NavMode = 'auto' | 'expanded' | 'collapsed';
  * `knowledge-filters-store.test.ts`, which is free to import both.
  */
 export type KnowledgeVariantId = string;
-export const DEFAULT_KNOWLEDGE_VARIANT: KnowledgeVariantId = 'sigma';
+/** Theme D renamed the registry's sole Theme A entry from `'sigma'` to `'atlas'` — see `renderer-contract.ts`'s own docblock for why. */
+export const DEFAULT_KNOWLEDGE_VARIANT: KnowledgeVariantId = 'atlas';
 
 /**
  * Phase 89 Theme E: which worker-computed layout the Knowledge canvas asks

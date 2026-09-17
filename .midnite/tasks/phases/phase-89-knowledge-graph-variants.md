@@ -171,24 +171,24 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       quietly fold hover into the dimming path while adding the ramp.
 - [ ] `paused` snaps, `prefers-reduced-motion` snaps. Same rule as B.
 
-### D — Four sigma looks (L)
+### D — Four sigma looks (L) ✅ DONE (PR #438, 2026-09-17)
 
-- [ ] **Atlas** — today's rendering, registered as an explicit variant so the default is a named thing
+- [x] **Atlas** — today's rendering, registered as an explicit variant so the default is a named thing
       rather than the absence of a choice.
-- [ ] **Constellation** — a dark-weighted look: curved edges, a glow pass on high-degree nodes, lower
+- [x] **Constellation** — a dark-weighted look: curved edges, a glow pass on high-degree nodes, lower
       ambient edge alpha, tighter label density. Uses sigma's own settings and a custom edge program
       where curvature needs one; no new dependency.
-- [ ] **Orbit** — concentric rings by community, positions computed client-side from the payload (not
+- [x] **Orbit** — concentric rings by community, positions computed client-side from the payload (not
       the worker), with nodes tweening from their Atlas coordinates via B's position channel.
-- [ ] **Clusters** — communities collapsed to bubbles by default, expanding on click, over the
+- [x] **Clusters** — communities collapsed to bubbles by default, expanding on click, over the
       existing
       [`knowledge-community-collapse.ts`](../../../packages/app/src/features/knowledge/knowledge-community-collapse.ts)
       and its meta-node/aggregated-edge machinery (`use-sigma-graph.ts:561`). This is the one look
       that makes the 15k-node graph legible at first paint.
-- [ ] All four share one sigma instance and differ by settings + reducers where possible; only Orbit
+- [x] All four share one sigma instance and differ by settings + reducers where possible; only Orbit
       and Clusters touch the graph's own attributes. Switching between looks must not tear down and
       rebuild the renderer — that is what the seam is for.
-- [ ] Each look respects the theme `MutationObserver` repaint (`:444-459`) in both light and dark. A
+- [x] Each look respects the theme `MutationObserver` repaint (`:444-459`) in both light and dark. A
       look that only works on one theme does not ship.
 
 ### E — Layout variants in the worker (M) ✅ DONE (PR #439, 2026-09-17)
