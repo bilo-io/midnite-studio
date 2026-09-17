@@ -10,7 +10,7 @@ You are running the **brainstorm** workflow for the **Midnite Studio** repo: an 
 ## Context you must respect
 
 - Phase plans live in **`.midnite/tasks/`** (note: *not* `docs/todo/`), one file per phase: `phase-N-<slug>.md`. `docs/INITIAL_PLAN.md` is the design source of truth; `.midnite/tasks/README.md` has the conventions; `done.md` is the append-only completed log.
-- Match the **house style** of the existing phase docs (read a couple first — e.g. [`.midnite/tasks/phases/phase-5-commit-graph.md`](../../../.midnite/tasks/phases/phase-5-commit-graph.md), [`.midnite/tasks/phases/phase-9-terminal-and-keybindings.md`](../../../.midnite/tasks/phases/phase-9-terminal-and-keybindings.md)): a `# Phase N — Title` heading; a short framing paragraph up top (what this builds on + scope guardrails); a **Deliverables** checklist (grouped into lettered Themes if the phase is parallelisable); a **Verification** checklist; crib-file references where midnite/midnite-ui already solved the problem.
+- Match the **house style** of the existing phase docs: a `# Phase N — Title` heading; a short framing paragraph up top (what this builds on + scope guardrails); a **Deliverables** checklist (grouped into lettered Themes if the phase is parallelisable); a **Verification** checklist; crib-file references where midnite/midnite-ui already solved the problem. **Do not** pre-read phase docs for this. After the index scan, as a follow-up, open **one** recent `phase-N-*.md` (highest N, or one that overlaps `$ARGUMENTS`) — never a couple of named examples, never every file.
 - Respect `CLAUDE.md` and `docs/INITIAL_PLAN.md` (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; shared is the IPC contract; git-engine stays electron-free) — proposals must fit the architecture, not fight it.
 - **Checkboxes** start unchecked (`- [ ]`) in a fresh plan — this is net-new work, nothing is done yet.
 
@@ -18,14 +18,9 @@ You are running the **brainstorm** workflow for the **Midnite Studio** repo: an 
 
 ## 🔭 Stage 1 — Scan & show the overview (do this BEFORE prompting for anything)
 
-The scan is read-heavy — **every** `.midnite/tasks/phases/phase-*.md` (a couple of dozen files) plus git/PR state — so **delegate it to a single read-only subagent** (a dedicated read-only sub-task, if your CLI supports spawning one) and keep the raw file dumps out of this conversation. You only need the digest it returns to render the table.
+**Pass 1 — `_INDEX.md` only.** Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** yourself. Do **not** read `phase-*.md`, do **not** dispatch a subagent to read them, do **not** recompute `%` by counting checkboxes in those files — Status, Done/Total, %, Theme key, and Headlines are already in the index. Git state (`git status --short`, `git branch --show-current`, `gh pr list --state open`, `git worktree list`) is allowed; map open PRs from titles against the index, not by opening phase docs.
 
-1. **Dispatch one scan subagent** with these instructions; have it return a structured per-phase digest:
-   - Read **every** `.midnite/tasks/phases/phase-*.md` (actually read them, don't guess from filenames) and skim `open-decisions.md` / `outstanding.md`. For each phase capture: number, title, a one-clause summary, theme spread, and the done-vs-outstanding split.
-   - **Compute completion per phase:** count `- [x]`/`✅` (done) vs `- [ ]` (outstanding); `completion% = round(100 × done / (done + outstanding))`. **Exclude** items marked `OUT OF SCOPE` or `deferred`/`⏳` from the denominator (not in-scope work). A phase whose items are all `✅ DONE` is 100%.
-   - **Gather git state** (part of the status picture — a phase may be further along than its checkboxes if work is committed-but-unmerged or in a PR): `git status --short`, `git branch --show-current`, `git log --oneline -15`, `gh pr list --state open`, `git worktree list`. If `gh` isn't available/authed, note it and fall back to branch + log only — don't fail. **Map each open PR / unmerged branch / worktree to the phase/theme it advances.**
-   - **Return** structured text (not raw file contents): one row per phase — `{ number, title, summary, done%, doneCount, outstandingCount, inFlight: "PR #N" | branch | "—" }` — plus a git-state line (current branch, uncommitted-work flag, open-PR count) and the highest phase number seen.
-2. **Print an overview table first thing** — before any question — from the digest, covering all phases:
+Print an overview table first thing — before any question — **from the index**, covering all phases:
 
    | Phase | Status | Summary | Done | In flight |
    |-------|--------|---------|------|-----------|
@@ -33,12 +28,12 @@ The scan is read-heavy — **every** `.midnite/tasks/phases/phase-*.md` (a coupl
    | 8 · Office fidelity | 🔄 | Sprites + movement in; assets/Tiled pending | 60% | PR #21 |
    | 11 · Public site rewrite | ⬜ | Not started — plan only | 0% | — |
 
-   - **Status icon:** `✅` complete (100%) · `🔄` in progress · `🟡` early/partial · `⬜` not started (0%). Where an open PR/branch advances a phase, prefer `🔄` + a "PR #N pending" note even if boxes aren't ticked yet.
-   - **Summary:** one terse clause — what it is + where it stands.
-   - **Done:** the computed completion %.
-   - **In flight:** the PR/branch/worktree from the digest, else `—`.
-   - Order by phase number. Keep it skimmable. Below the table, add the one-line **git note** (current branch + any uncommitted work + open-PR count) from the digest.
-3. State the **next phase number** (max existing + 1) — that's the one we're about to brainstorm. If `$ARGUMENTS` named a topic, acknowledge it as the seed.
+   - **Status / Done / Summary:** take them from the index row + Theme key / Headlines. Do not open a phase file to fill a cell.
+   - **In flight:** open PR/branch/worktree from git/`gh`, else `—`. Prefer `🔄` + a "PR #N pending" note when an open PR advances a phase even if boxes aren't ticked yet.
+   - Order by phase number. Keep it skimmable. Below the table, add a one-line **git note** (current branch + any uncommitted work + open-PR count).
+   - State the **next phase number** (max in the index + 1). If `$ARGUMENTS` named a topic, acknowledge it as the seed.
+
+**Pass 2 — only the files that matter, after Pass 1.** Once a direction is seeded or chosen, open only the overlapping `phases/phase-{X,Y,Z}.md` files (overlap, one house-style sample, a WIP neighbour). Never "every phase". Do **not** fold Pass 2 into Pass 1 "to save a round".
 
 ## 💡 Stage 2 — Seed 5 proposals
 
@@ -50,7 +45,7 @@ The scan is read-heavy — **every** `.midnite/tasks/phases/phase-*.md` (a coupl
 
 1. Take the user's pick (or their custom/combined idea) and **go deeper**: sketch the themes it would contain, surface trade-offs, name the risky/unknown bits, and propose what's in vs. out of scope.
 2. Keep it conversational and **iterate over a few rounds**, asking **5–7 follow-up questions** in total to pin down the shape — scale toward 5 for a small/simple phase and toward 7 for a complex one or a meaty multi-theme brainstorm. Each round, refine the shape and re-offer choices via a direct question to the user (e.g. "which themes are in scope?", "how far do we take X?"). **Every round, keep the "suggest your own / add to this" door open** — never force a choice from only your options.
-3. Pull in concrete repo detail to keep proposals honest — themes must reference real modules, not hand-waving. For a quick check, grep/read inline; when grounding a direction needs more than a glance, **dispatch a focused read-only subagent** (e.g. `Explore`) to research that area and return just the honest detail (real module names, boundaries, existing patterns) rather than reading swathes of code in this thread. Flag anything that would violate `CLAUDE.md` boundaries and adjust.
+3. Pull in concrete repo detail to keep proposals honest — themes must reference real modules, not hand-waving. For a quick check, grep/read inline; when grounding a direction needs more than a glance, **dispatch a focused read-only subagent** (e.g. `Explore`) to research that area and return just the honest detail (real module names, boundaries, existing patterns) rather than reading swathes of code in this thread. Phase-doc reads stay Pass 2 — only files that overlap the chosen direction. Flag anything that would violate `CLAUDE.md` boundaries and adjust.
 4. Converge when the scope, themes, and the big open decisions are clear enough to write down. Don't over-iterate — a few solid rounds, then move on.
 
 ## ✍️ Stage 4 — Confirm before writing

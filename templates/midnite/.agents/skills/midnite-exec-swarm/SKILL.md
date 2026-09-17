@@ -19,15 +19,15 @@ This skill does not reimplement `/midnite-exec` — every spawned subagent invok
 inherits its own rules (`GEMINI.md` conventions, the `.midnite/tasks/` tracker, worktree-per-batch,
 the pre-push gate, PR conventions). This skill's own job is narrower: pick *which* phases run, cap
 *how much* each one takes on, launch them in parallel, and keep watch. Read
-[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) yourself in Stage 1 the same way
-`/midnite-exec` Stage 1 does — this skill does not get to skip the scan just because it delegates
-the build.
+[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) yourself in Stage 1 — **Pass 1
+only** (`_INDEX.md`, no `phase-*.md`). Phase docs are Pass 2 inside each spawned `/midnite-exec`,
+not here. This skill does not get to skip the scan just because it delegates the build.
 
 ## 1 · Scope — a direct question to the human (skip whatever the invocation already answers)
 
 If the invocation doesn't already name which phases or tasks to run, scan `_INDEX.md` for
-candidates exactly like `/midnite-exec` Stage 1 (open, unblocked `◻ TODO`/`🔄 WIP` themes; `gh pr
-list --state open` to skip anything already in flight). Present up to 6 candidates as a grouped
+candidates exactly like `/midnite-exec` Stage 1 **Pass 1** (index columns only — do not open
+`phase-*.md` to pick the list; `gh pr list --state open` to skip anything already in flight). Present up to 6 candidates as a grouped
 multi-select — each option a phase (or a named ad hoc task, if the human describes one instead of
 a phase number). The batch is every phase/task checked. If nothing is checked, stop and ask again
 rather than guessing.
