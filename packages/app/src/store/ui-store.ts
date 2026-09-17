@@ -260,6 +260,10 @@ export type LayoutSizes = {
   videoProjectListWidth: number;
   /** The Video Studio view's project detail, right of the studio pane (Phase 44 Theme D). */
   videoDetailWidth: number;
+  /** The Workflows view's workflow list, left of the canvas (Phase 43). */
+  workflowListWidth: number;
+  /** The Workflows view's detail panel (inspector / history), right of the canvas (Phase 43). */
+  workflowDetailWidth: number;
 };
 
 
@@ -350,6 +354,9 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   videoProjectListWidth: 224,
   // Matches the project detail's old fixed `w-80`.
   videoDetailWidth: 320,
+  // Workflows (Phase 43) — list left, inspector / history right.
+  workflowListWidth: 224,
+  workflowDetailWidth: 320,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -416,6 +423,8 @@ export const LAYOUT_BOUNDS = {
   knowledgeDetailWidth: { min: 280, max: 640 },
   videoProjectListWidth: { min: 180, max: 480 },
   videoDetailWidth: { min: 260, max: 600 },
+  workflowListWidth: { min: 180, max: 480 },
+  workflowDetailWidth: { min: 260, max: 600 },
 } as const;
 
 /**

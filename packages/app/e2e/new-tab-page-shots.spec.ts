@@ -50,6 +50,8 @@ const DEFAULT_LAYOUT_JSON = {
   councilConfigWidth: 320,
   apiTreeWidth: 320,
   apiBuilderHeight: 260,
+  workflowListWidth: 224,
+  workflowDetailWidth: 320,
 };
 
 /** Seeds the pane open, side-by-side, at the 320px minimum width — before `goto`, so it hydrates on first paint. */

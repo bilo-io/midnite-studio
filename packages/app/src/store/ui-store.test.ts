@@ -441,6 +441,8 @@ describe('persistence', () => {
     expect(merged.layout.terminalHeight).toBe(DEFAULT_LAYOUT.terminalHeight);
     expect(merged.layout.knowledgeFiltersWidth).toBe(DEFAULT_LAYOUT.knowledgeFiltersWidth);
     expect(merged.layout.knowledgeDetailWidth).toBe(DEFAULT_LAYOUT.knowledgeDetailWidth);
+    expect(merged.layout.workflowListWidth).toBe(DEFAULT_LAYOUT.workflowListWidth);
+    expect(merged.layout.workflowDetailWidth).toBe(DEFAULT_LAYOUT.workflowDetailWidth);
   });
 
   it('updates knowledge graph layout sizes via setLayout', () => {

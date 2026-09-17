@@ -7,7 +7,10 @@ import { PanelHeader } from '../../components/panel-stack/panel-header';
 import { PanelStack } from '../../components/panel-stack/panel-stack';
 import { usePanelHistory } from '../../components/panel-stack/use-panel-history';
 import { EmptyState } from '../../components/empty-state';
+import { ResizeHandle } from '../../components/resizable/resize-handle';
+import { useResizable } from '../../components/resizable/use-resizable';
 import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
+import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useWorkflowRunCommandStore, type WorkflowRunHandle } from '../../store/workflow-run-command-store';
 import { useFlushableSave } from '../councils/use-flushable-save';
 import { DemoApiPill } from './demo-api-pill';
@@ -64,12 +67,28 @@ export function WorkflowsView() {
   const workflows = useWorkflows();
   const selected = workflows.data?.find((workflow) => workflow.id === selectedId) ?? null;
 
+  const layout = useUiStore((s) => s.layout);
+  const setLayout = useUiStore((s) => s.setLayout);
+
+  const list = useResizable({
+    size: layout.workflowListWidth,
+    onSize: (value) => setLayout('workflowListWidth', value),
+    initial: DEFAULT_LAYOUT.workflowListWidth,
+    axis: 'x',
+    edge: 'start',
+    ...LAYOUT_BOUNDS.workflowListWidth,
+  });
+
   return (
     <div className="flex h-full min-h-0">
-      <div className="flex w-56 shrink-0 flex-col border-r border-border">
+      <div
+        className="flex shrink-0 flex-col border-r border-border"
+        style={{ width: list.current }}
+      >
         <WorkflowList selectedId={selectedId} onSelect={setSelectedId} />
       </div>
-      <div className="min-h-0 flex-1">
+      <ResizeHandle resizable={list} axis="x" label="Resize workflows list" />
+      <div className="min-h-0 min-w-0 flex-1">
         {selected ? (
           <WorkflowEditor key={selected.id} workflow={selected} />
         ) : (
@@ -119,6 +138,18 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
   const panels = usePanelHistory<WorkflowPanelEntry>({ kind: 'inspector' }, { isSame: sameWorkflowPanelEntry });
   useRegisterActivePanel(panels, true);
 
+  const layout = useUiStore((s) => s.layout);
+  const setLayout = useUiStore((s) => s.setLayout);
+
+  const detail = useResizable({
+    size: layout.workflowDetailWidth,
+    onSize: (value) => setLayout('workflowDetailWidth', value),
+    initial: DEFAULT_LAYOUT.workflowDetailWidth,
+    axis: 'x',
+    edge: 'end',
+    ...LAYOUT_BOUNDS.workflowDetailWidth,
+  });
+
   const runs = useWorkflowRuns(workflow.id);
   const activeRunId = panels.current.kind === 'run' ? panels.current.runId : null;
   const activeRun = useWorkflowRun(activeRunId);
@@ -167,7 +198,7 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
   }, []);
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 min-w-0 flex-1">
       <WorkflowCanvas
         resetKey={workflow.id}
         graph={{ nodes: local.nodes, edges: local.edges }}
@@ -221,7 +252,11 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
           )
         }
       />
-      <div className="flex h-full w-80 shrink-0 flex-col border-l border-border">
+      <ResizeHandle resizable={detail} axis="x" label="Resize workflow detail" />
+      <div
+        className="flex h-full shrink-0 flex-col border-l border-border"
+        style={{ width: detail.current }}
+      >
         <PanelHeader
           history={panels}
           label={workflowPanelLabel}
