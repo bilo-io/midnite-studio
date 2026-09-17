@@ -6,7 +6,7 @@ import Sigma from 'sigma';
 import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
 
 import { PULSES, PulseTracker } from './knowledge-bounce';
-import { alphaForWeight, withAlpha } from './knowledge-canvas-colors';
+import { DIMMED_ALPHA, alphaForWeight, nodeColorForState, withAlpha } from './knowledge-canvas-colors';
 import { drawThemedNodeHover } from './knowledge-canvas-draw';
 import { hslTripleToRgbString } from './knowledge-color-math';
 import {
@@ -84,7 +84,6 @@ const LABEL_DEGREE_THRESHOLD = 3;
 const LABEL_RENDERED_SIZE_THRESHOLD = 7;
 /** Past this many edges, hide them while the camera moves — the pan stays at 60fps, edges snap back on release. */
 const HIDE_EDGES_ON_MOVE_ABOVE = 15_000;
-const DIMMED_ALPHA = 0.1;
 const FOCUS_CAMERA_RATIO = 0.12;
 const FOCUS_ANIMATION_MS = 400;
 const EMPHASISED_EDGE_SCALE = 1.4;
@@ -255,6 +254,9 @@ export function useSigmaGraph(options: {
           const hoverLit = live.hoverLitIds.has(node);
           const dimmed = paint.dimmed && !hoverLit;
           const lit = paint.forceLabel || hoverLit;
+          const isFocus = live.highlight.focusIds.has(node) || hoverLit;
+          const isNeighbor = live.highlight.neighborIds.has(node);
+          const color = nodeColorForState(data.color, { dimmed, isFocus, isNeighbor });
           const eligibleForLabel = data.kind === 'community' || data.degree >= LABEL_DEGREE_THRESHOLD;
           const scale = live.pulseScales.get(node) ?? 1;
           return {
@@ -263,7 +265,7 @@ export function useSigmaGraph(options: {
             size: data.size * scale,
             label: dimmed ? null : eligibleForLabel || lit ? data.label : null,
             forceLabel: lit && !dimmed,
-            color: dimmed ? withAlpha(data.color, DIMMED_ALPHA) : data.color,
+            color,
             highlighted: paint.highlighted,
             zIndex: hoverLit ? 4 : paint.zIndex,
           };
