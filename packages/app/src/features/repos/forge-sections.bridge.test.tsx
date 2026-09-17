@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { useBrowserStore } from '../../store/browser-store';
+import { useReviewsStore } from '../../store/reviews-store';
+import { useUiStore } from '../../store/ui-store';
 import { ActionsSection, IssuesSection } from './forge-sections';
 
 /**
@@ -226,4 +228,100 @@ describe('ActionsSection, assembled through the real bridge', () => {
     // than by opening a link that goes nowhere.
     expect((deployButton as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it('renders clickable PR link on top level run linking to that review in ActionsSection', async () => {
+    openActions({
+      cli: { reason: 'ready' },
+      pulls: [
+        {
+          id: 'p1',
+          number: 55,
+          title: 'Section PR',
+          state: 'open',
+          isDraft: false,
+          reviewDecision: 'APPROVED',
+          headBranch: 'feature/forge-actions',
+          author: 'tester',
+          url: 'https://github.com/bilo-io/midnite-studio/pull/55',
+          checks: 'passing',
+        },
+      ],
+      runs: [
+        {
+          ...run,
+          id: '1',
+          headBranch: 'feature/forge-actions',
+          displayTitle: 'Section PR (#55)',
+        },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+
+    const prBtn = await screen.findByRole('button', { name: 'Open review #55' });
+    expect(prBtn).toBeTruthy();
+
+    fireEvent.click(prBtn);
+    expect(useUiStore.getState().activeView).toBe('reviews');
+    expect(useReviewsStore.getState().selectedPull['repo-1']).toBe(55);
+  });
+
+  it('applies status-driven styling, glow, and shimmer in ActionsSection and RunJobs', async () => {
+    openActions({
+      cli: { reason: 'ready' },
+      runs: [
+        { ...run, id: '1', conclusion: 'failure' },
+        { ...run, id: '2', conclusion: 'success', number: 129 },
+        { ...run, id: '3', status: 'in_progress', conclusion: null, number: 130 },
+      ],
+      runDetail: {
+        '1': {
+          jobs: [
+            {
+              id: '10',
+              name: 'typecheck',
+              status: 'completed',
+              conclusion: 'success',
+              startedAt: '2026-08-26T10:00:10Z',
+              completedAt: '2026-08-26T10:01:00Z',
+              url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1/job/10',
+              steps: [],
+            },
+            {
+              id: '11',
+              name: 'test',
+              status: 'completed',
+              conclusion: 'failure',
+              startedAt: '2026-08-26T10:00:10Z',
+              completedAt: '2026-08-26T10:01:00Z',
+              url: 'https://github.com/bilo-io/midnite-studio/actions/runs/1/job/11',
+              steps: [],
+            },
+          ],
+        },
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+
+    // Top-level runs in ActionsSection
+    await screen.findByRole('button', { name: 'Jobs in CI #128' });
+
+    const [failRunTitle, okRunTitle, runningRunTitle] = screen.getAllByText('CI');
+    expect(failRunTitle?.className).toContain('actions-glow-fail');
+    expect(failRunTitle?.className).toContain('text-red-500');
+    expect(okRunTitle?.className).toContain('actions-glow-ok');
+    expect(okRunTitle?.className).toContain('text-emerald-500');
+    expect(runningRunTitle?.className).toContain('text-orange-500');
+
+    // Expand to see jobs
+    fireEvent.click(screen.getByRole('button', { name: 'Jobs in CI #128' }));
+
+    const jobSuccess = await screen.findByRole('button', { name: 'typecheck' });
+    expect(jobSuccess.className).toContain('actions-glow-ok');
+
+    const jobFail = screen.getByRole('button', { name: 'test' });
+    expect(jobFail.className).toContain('actions-glow-fail');
+  });
 });
+

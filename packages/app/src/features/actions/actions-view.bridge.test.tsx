@@ -5,6 +5,8 @@ import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { useActionsStore } from '../../store/actions-store';
 import { useBrowserStore } from '../../store/browser-store';
+import { useReviewsStore } from '../../store/reviews-store';
+import { useUiStore } from '../../store/ui-store';
 import { ActionsView } from './actions-view';
 
 /**
@@ -392,4 +394,86 @@ describe('ActionsView, assembled through the real bridge', () => {
       'Took',
     );
   });
+
+  it('renders clickable PR link on top level run linking to that review', async () => {
+    await open({
+      ...base,
+      forge: {
+        ...base.forge,
+        pulls: [
+          {
+            id: 'p1',
+            number: 42,
+            title: 'Feature PR',
+            state: 'open',
+            isDraft: false,
+            reviewDecision: 'APPROVED',
+            headBranch: 'feature/reviews',
+            author: 'tester',
+            url: 'https://github.com/bilo-io/midnite-studio/pull/42',
+            checks: 'passing',
+          },
+        ],
+        runs: [
+          run({
+            id: '10',
+            number: 140,
+            headBranch: 'feature/reviews',
+            displayTitle: 'Feature PR title (#42)',
+            conclusion: 'success',
+          }),
+        ],
+        runDetail: {
+          '10': { jobs: [job({ id: '50', name: 'lint', conclusion: 'success' })] },
+        },
+      },
+    });
+
+    const prBtn = within(runList()).getByRole('button', { name: 'Open review #42' });
+    expect(prBtn).toBeTruthy();
+
+    fireEvent.click(prBtn);
+    expect(useUiStore.getState().activeView).toBe('reviews');
+    expect(useReviewsStore.getState().selectedPull['repo-1']).toBe(42);
+  });
+
+  it('applies status-driven styling, glow, and shimmer', async () => {
+    await open({
+      ...base,
+      forge: {
+        ...base.forge,
+        runs: [
+          run({ id: '1', number: 1, conclusion: 'success' }),
+          run({ id: '2', number: 2, conclusion: 'failure' }),
+          run({ id: '3', number: 3, status: 'in_progress', conclusion: '' }),
+        ],
+        runDetail: {
+          '2': {
+            jobs: [
+              job({ id: '1', name: 'failing-job', conclusion: 'failure' }),
+              job({ id: '2', name: 'passing-job', conclusion: 'success' }),
+              job({ id: '3', name: 'running-job', status: 'in_progress', conclusion: '' }),
+            ],
+          },
+        },
+      },
+    });
+
+    const okRun = within(runList()).getByRole('button', { name: /#1\b/ });
+    expect(okRun.innerHTML).toContain('actions-glow-ok');
+
+    const failRun = within(runList()).getByRole('button', { name: /#2\b/ });
+    expect(failRun.innerHTML).toContain('actions-glow-fail');
+
+    const runningRun = within(runList()).getByRole('button', { name: /#3\b/ });
+    expect(runningRun.className).toContain('actions-item-running');
+
+    // Job tree styling
+    const failJob = within(jobs()).getByRole('button', { name: 'failing-job' });
+    expect(failJob.className).toContain('actions-glow-fail');
+
+    const passJob = within(jobs()).getByRole('button', { name: 'passing-job' });
+    expect(passJob.className).toContain('actions-glow-ok');
+  });
 });
+
