@@ -67,7 +67,14 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // feature — which icons render for a given `lastOpenedAppId`, when the labels
 // appear, the store transitions that set it, the disabled-app fallback — is in
 // `apps-rail-row.test.tsx` under vitest, which is why this is one test.
-export const MAX_DECLARED_E2E = 439;
+// Raised 439 -> 440 for the rail's overflow row height (`nav-shell.spec.ts`,
+// one test): flex-shrink against a column taller than the window is pure
+// layout, and jsdom reports every box as 0x0, so the only way to see a row
+// collapse from 36px to a single line box is to measure
+// `getBoundingClientRect` in a real engine. Nothing else about the rail needs
+// the browser — which rows render, their order and the pinned slot are all
+// already asserted in this same file without geometry.
+export const MAX_DECLARED_E2E = 440;
 
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult

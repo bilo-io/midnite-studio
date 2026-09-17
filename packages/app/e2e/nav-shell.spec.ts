@@ -243,3 +243,40 @@ test('standing in Actions when it disappears lands you on the graph', async ({ p
   await expect(rail(page, 'Actions')).toHaveCount(0);
   await expect(rail(page, 'Graph')).toHaveAttribute('aria-current', 'page');
 });
+
+test('the ungrouped rows keep their height when the rail overflows', async ({ page }) => {
+  /*
+    A real browser, because the claim is pure layout: flex-shrink against a
+    column whose content is taller than the window. jsdom reports every box as
+    0x0, so this can only be measured with `getBoundingClientRect` in a real
+    engine — the decision rule in `docs/TESTING.md`.
+
+    The bug: AppFrame gives every rail row `h-9`, but a height is not a floor.
+    A flex item's automatic minimum size is its min-content size, so once the
+    rail overflows, each row the browser *can* shrink drops to a single line
+    box. Dashboard, Notes and Knowledge are the ones it can — they are direct
+    children of the scrolling `<nav>`, while every sectioned row sits inside
+    its section's `<Collapse>` grid, which clips instead. The rail then looked
+    like the ungrouped items had lost their padding.
+  */
+  await open(page);
+  // Short enough that eighteen rows plus three section headers cannot fit —
+  // the overflow is the precondition, so assert it rather than assume it.
+  await page.setViewportSize({ width: 1280, height: 700 });
+
+  const dashboard = rail(page, 'Dashboard');
+  await dashboard.hover();
+  await expect(page.getByRole('navigation', { name: 'Views' })).toBeVisible();
+
+  const overflows = await dashboard.evaluate((link) => {
+    const nav = link.closest('nav');
+    return nav !== null && nav.scrollHeight > nav.clientHeight;
+  });
+  expect(overflows).toBe(true);
+
+  const grouped = await rail(page, 'Explorer').evaluate((el) => el.getBoundingClientRect().height);
+  for (const label of ['Dashboard', 'Notes', 'Knowledge']) {
+    const height = await rail(page, label).evaluate((el) => el.getBoundingClientRect().height);
+    expect(height, `${label} row height`).toBe(grouped);
+  }
+});
