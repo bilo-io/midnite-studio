@@ -57,7 +57,17 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // both — which edges a collapsed community folds into, what lights up, the
 // tree rows, the bounce curve — are pure functions with their own vitest
 // suites; only the pixel-level outcome needs the browser.
-export const MAX_DECLARED_E2E = 438;
+// Raised 438 -> 439 for the apps switcher's reveal (`apps-rail-reveal.spec.ts`,
+// one test): the switcher's hover region is nested inside `AppFrame`'s own
+// hover-expanding rail, so the two hover surfaces overlap and only a real
+// pointer can show the composed result — a `page.mouse.move` to a coordinate
+// outside the group collapsing it back, and a real `hover()` landing on the
+// group rather than being swallowed by the rail around it. jsdom has no
+// pointer; it can only be told `mouseenter` fired. Everything else about the
+// feature — which icons render for a given `lastOpenedAppId`, when the labels
+// appear, the store transitions that set it, the disabled-app fallback — is in
+// `apps-rail-row.test.tsx` under vitest, which is why this is one test.
+export const MAX_DECLARED_E2E = 439;
 
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult

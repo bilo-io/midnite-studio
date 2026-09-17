@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { APP_DEFINITIONS, APP_IDS, APP_ROLE, type AppId } from '@midnite/studio-shared';
 
@@ -8,10 +8,10 @@ import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
 
 /**
- * The bottom-of-rail toggle row (Phase 83 Theme C) — one icon per app,
- * always all three: a disabled icon is the "enable this in Settings"
- * affordance, not an absent one, matching E.1's "removes/disables its rail
- * icon" wording for the disable direction.
+ * The bottom-of-rail app switcher. At rest it keeps only the most recently
+ * opened app visible; hovering or moving keyboard focus into the region
+ * reveals the complete set. Before any app has been opened, all three remain
+ * visible so the switcher is discoverable.
  *
  * Three states per icon, checked in this order:
  * 1. **Disabled** (not in `enabledApps`) — inert, points at Settings.
@@ -33,13 +33,30 @@ import { useUiStore } from '../../store/ui-store';
  * lock button, Settings, the version pill) down by the difference — moving
  * them out from under a pointer that was already hovering one, which is
  * exactly the trap `nav-chord-tooltips.spec.ts`'s "gives the footer's lock
- * button its chord too" case caught. A constant height regardless of
- * `expanded` is what keeps the rest of the footer still.
+ * button its chord too" case caught. The reserved three-row height stays
+ * constant even when only the recent app is rendered, keeping the rest of the
+ * footer still as the switcher reveals and collapses.
  */
-export function AppsRailRow() {
+export function AppsRailRow({ expanded = false }: { expanded?: boolean }) {
   const enabledApps = useUiStore((s) => s.enabledApps);
   const detachedApps = useUiStore((s) => s.detachedApps);
   const flyoutAppId = useUiStore((s) => s.appsFlyoutAppId);
+  const lastOpenedAppId = useUiStore((s) => s.lastOpenedAppId);
+  /*
+    Hover and focus are tracked as two independent booleans, not one `revealed`
+    flag either can clear.
+
+    Clicking a rail icon focuses that button AND opens the flyout, which then
+    takes focus for itself — so the button blurs to a `relatedTarget` outside
+    this group while the pointer has never left it. A single flag meant that
+    blur collapsed the switcher out from under the pointer, and the very next
+    click (on a second app's icon, to switch the flyout) landed on an element
+    that no longer existed. `apps-rail-shots.spec.ts`'s "flyout switches its
+    active app on a second rail click" is what caught it.
+  */
+  const [hovered, setHovered] = useState(false);
+  const [focusWithin, setFocusWithin] = useState(false);
+  const revealed = hovered || focusWithin;
 
   // Disabling an app (Settings, Theme E) while its flyout is open must close
   // the flyout — there is no view left in this window to show. Detaching it
@@ -54,6 +71,7 @@ export function AppsRailRow() {
 
   const onClick = (id: AppId) => {
     if (detachedApps.includes(id)) {
+      useUiStore.setState({ lastOpenedAppId: id });
       bridge()?.window.focusRole({ role: APP_ROLE[id] });
       return;
     }
@@ -68,9 +86,40 @@ export function AppsRailRow() {
       .then(() => bridge()?.apps.activate({ id }));
   };
 
+  // The recent app is only worth collapsing to while it is still enabled.
+  // Disabling it in Settings (Theme E) leaves `lastOpenedAppId` naming an icon
+  // that is now inert, and a switcher whose single visible control does nothing
+  // but point at Settings is strictly worse than the discoverable all-three
+  // state — so an unenabled recent app falls back to showing everything.
+  const recentAppId =
+    lastOpenedAppId !== null && enabledApps.includes(lastOpenedAppId) ? lastOpenedAppId : null;
+  const visibleAppIds =
+    revealed || recentAppId === null ? APP_IDS : APP_IDS.filter((id) => id === recentAppId);
+
   return (
-    <div role="group" aria-label="Apps" className="flex flex-col items-center justify-center gap-1">
-      {APP_IDS.map((id) => {
+    <div
+      role="group"
+      aria-label="Apps"
+      className={`flex min-h-20 flex-col justify-center gap-1 ${
+        expanded ? 'items-stretch' : 'items-center'
+      }`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocusCapture={(event) => {
+        // `:focus-visible`, not plain focus: Chromium focuses a `<button>` on
+        // mouse-down, so a plain-focus reveal would pin the switcher open for
+        // the rest of the session after one click — the pointer leaves, the
+        // DOM focus the user cannot see stays, and it never collapses again.
+        // Tabbing in matches; clicking does not, which is exactly the split
+        // this wants. (jsdom answers `true` for a focused button, so the unit
+        // tests below still exercise the keyboard path.)
+        if (event.target.matches(':focus-visible')) setFocusWithin(true);
+      }}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setFocusWithin(false);
+      }}
+    >
+      {visibleAppIds.map((id) => {
         const definition = APP_DEFINITIONS[id];
         const enabled = enabledApps.includes(id);
         const detached = detachedApps.includes(id);
@@ -89,8 +138,11 @@ export function AppsRailRow() {
             size="sm"
             aria-pressed={enabled && !detached && flyoutAppId === id}
             data-testid={`apps-rail-${id}`}
+            className={expanded ? 'w-full justify-start px-2' : ''}
             onClick={() => onClick(id)}
-          />
+          >
+            {expanded ? <span className="truncate text-xs">{definition.label}</span> : null}
+          </IconButton>
         );
       })}
     </div>

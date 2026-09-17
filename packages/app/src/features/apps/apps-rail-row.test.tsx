@@ -25,7 +25,12 @@ function installBridge(): {
 
 describe('AppsRailRow', () => {
   beforeEach(() => {
-    useUiStore.setState({ enabledApps: [], detachedApps: [], appsFlyoutAppId: null });
+    useUiStore.setState({
+      enabledApps: [],
+      detachedApps: [],
+      appsFlyoutAppId: null,
+      lastOpenedAppId: null,
+    });
   });
 
   afterEach(() => {
@@ -38,6 +43,93 @@ describe('AppsRailRow', () => {
     render(<AppsRailRow />);
     expect(screen.getByTestId('apps-rail-spotify')).toBeDefined();
     expect(screen.getByTestId('apps-rail-google-calendar')).toBeDefined();
+    expect(screen.getByTestId('apps-rail-youtube')).toBeDefined();
+  });
+
+  it('shows only the most recently opened app until the switcher is hovered', () => {
+    useUiStore.setState({
+      enabledApps: ['spotify', 'google-calendar', 'youtube'],
+      lastOpenedAppId: 'google-calendar',
+    });
+    render(<AppsRailRow expanded={false} />);
+
+    expect(screen.queryByTestId('apps-rail-spotify')).toBeNull();
+    expect(screen.getByTestId('apps-rail-google-calendar')).toBeDefined();
+    expect(screen.queryByTestId('apps-rail-youtube')).toBeNull();
+
+    fireEvent.mouseEnter(screen.getByRole('group', { name: 'Apps' }));
+    expect(screen.getByTestId('apps-rail-spotify')).toBeDefined();
+    expect(screen.getByTestId('apps-rail-google-calendar')).toBeDefined();
+    expect(screen.getByTestId('apps-rail-youtube')).toBeDefined();
+
+    fireEvent.mouseLeave(screen.getByRole('group', { name: 'Apps' }));
+    expect(screen.queryByTestId('apps-rail-spotify')).toBeNull();
+    expect(screen.getByTestId('apps-rail-google-calendar')).toBeDefined();
+    expect(screen.queryByTestId('apps-rail-youtube')).toBeNull();
+  });
+
+  it('reveals app names beside every icon only while the expanded switcher is hovered', () => {
+    useUiStore.setState({
+      enabledApps: ['spotify', 'google-calendar', 'youtube'],
+      lastOpenedAppId: 'spotify',
+    });
+    const { rerender } = render(<AppsRailRow expanded />);
+
+    expect(screen.getByText('Spotify')).toBeDefined();
+    expect(screen.queryByText('Google Calendar')).toBeNull();
+
+    fireEvent.mouseEnter(screen.getByRole('group', { name: 'Apps' }));
+    expect(screen.getByText('Spotify')).toBeDefined();
+    expect(screen.getByText('Google Calendar')).toBeDefined();
+    expect(screen.getByText('YouTube')).toBeDefined();
+
+    rerender(<AppsRailRow expanded={false} />);
+    expect(screen.queryByText('Spotify')).toBeNull();
+    expect(screen.queryByText('Google Calendar')).toBeNull();
+    expect(screen.queryByText('YouTube')).toBeNull();
+  });
+
+  it('stays revealed when the flyout takes focus off a rail icon the pointer is still on', () => {
+    installBridge();
+    useUiStore.setState({ enabledApps: ['spotify', 'google-calendar', 'youtube'] });
+    render(<AppsRailRow />);
+
+    const group = screen.getByRole('group', { name: 'Apps' });
+    fireEvent.mouseEnter(group);
+    // Clicking an icon opens the flyout, which then takes focus for itself —
+    // a blur to a target outside this group while the pointer has never left
+    // it. Collapsing here would pull the next icon out from under the click
+    // that switches the flyout to a second app.
+    fireEvent.click(screen.getByTestId('apps-rail-spotify'));
+    fireEvent.blur(screen.getByTestId('apps-rail-spotify'), { relatedTarget: document.body });
+
+    expect(screen.getByTestId('apps-rail-google-calendar')).toBeDefined();
+    expect(screen.getByTestId('apps-rail-youtube')).toBeDefined();
+  });
+
+  it('falls back to every icon when the remembered app has since been disabled', () => {
+    useUiStore.setState({
+      enabledApps: ['spotify', 'youtube'],
+      lastOpenedAppId: 'google-calendar',
+    });
+    render(<AppsRailRow expanded={false} />);
+
+    expect(screen.getByTestId('apps-rail-spotify')).toBeDefined();
+    expect(screen.getByTestId('apps-rail-google-calendar')).toBeDefined();
+    expect(screen.getByTestId('apps-rail-youtube')).toBeDefined();
+  });
+
+  it('remembers the last app after its flyout closes', () => {
+    installBridge();
+    useUiStore.setState({ enabledApps: ['spotify', 'youtube'] });
+    render(<AppsRailRow />);
+
+    fireEvent.click(screen.getByTestId('apps-rail-youtube'));
+    fireEvent.click(screen.getByTestId('apps-rail-youtube'));
+
+    expect(useUiStore.getState().appsFlyoutAppId).toBeNull();
+    expect(useUiStore.getState().lastOpenedAppId).toBe('youtube');
+    expect(screen.queryByTestId('apps-rail-spotify')).toBeNull();
     expect(screen.getByTestId('apps-rail-youtube')).toBeDefined();
   });
 
@@ -84,6 +176,7 @@ describe('AppsRailRow', () => {
     expect(focusRole).toHaveBeenCalledWith({ role: 'apps-youtube' });
     expect(enable).not.toHaveBeenCalled();
     expect(useUiStore.getState().appsFlyoutAppId).toBeNull();
+    expect(useUiStore.getState().lastOpenedAppId).toBe('youtube');
   });
 
   it('closes its own flyout if the active app is disabled out from under it', () => {
