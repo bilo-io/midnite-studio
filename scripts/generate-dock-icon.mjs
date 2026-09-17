@@ -34,7 +34,7 @@ const TEMP_ICONSET = join(root, '.iconset-tmp.iconset');
 async function buildMasterIcon() {
   const width = 1024;
   const height = 1024;
-  const logoSize = 660; // Matches standard macOS squircle proportions
+  const logoSize = 660; // Sized to Apple's ~824px safe area within the 1024px canvas
   const left = Math.round((width - logoSize) / 2);
   const top = Math.round((height - logoSize) / 2);
 
@@ -46,14 +46,6 @@ async function buildMasterIcon() {
         <stop offset="0%" stop-color="#1c1c20" />
         <stop offset="50%" stop-color="#141417" />
         <stop offset="100%" stop-color="#0b0b0e" />
-      </linearGradient>
-
-      <!-- Apple macOS standard top-edge rim lighting -->
-      <linearGradient id="rimGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25" />
-        <stop offset="30%" stop-color="#ffffff" stop-opacity="0.08" />
-        <stop offset="70%" stop-color="#ffffff" stop-opacity="0.02" />
-        <stop offset="100%" stop-color="#ffffff" stop-opacity="0.0" />
       </linearGradient>
 
       <!-- Soft top surface sheen -->
@@ -69,14 +61,18 @@ async function buildMasterIcon() {
       </filter>
     </defs>
 
-    <!-- Base squircle (Apple macOS standard: 824x824 at 100,100 with rx=185) -->
-    <rect x="100" y="100" width="824" height="824" rx="185" ry="185" fill="url(#bgGrad)" />
-
-    <!-- Top sheen overlay clipped to squircle -->
-    <rect x="100" y="100" width="824" height="824" rx="185" ry="185" fill="url(#topSheen)" />
-
-    <!-- Inset rim highlight stroke -->
-    <rect x="100.75" y="100.75" width="822.5" height="822.5" rx="184.25" ry="184.25" fill="none" stroke="url(#rimGrad)" stroke-width="1.5" />
+    <!--
+      Full-bleed background: fills the entire 1024x1024 canvas edge-to-edge with
+      no self-drawn corner rounding. macOS (Big Sur onward, and Tahoe's Liquid
+      Glass in particular) auto-masks every bundled app icon into its own
+      rounded-square container; a source icon that already draws its own inset,
+      rounded square gets masked a second time by the OS, producing a visible
+      "double border" on the installed app that a raw dock.setIcon() render
+      (dev mode) never goes through. Filling the canvas leaves exactly one
+      rounding pass — the OS's.
+    -->
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#bgGrad)" />
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#topSheen)" />
 
     <!-- Shadow under circular coin -->
     <circle cx="512" cy="512" r="${logoSize / 2}" fill="#000000" filter="url(#coinDropShadow)" />
