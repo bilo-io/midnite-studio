@@ -142,6 +142,19 @@ can be published without bumping versions or modifying `CHANGELOG.md`:
    git tag -d v0.0.1
    git push origin :refs/tags/v0.0.1
    ```
+5. **Other clones go stale, and the next ephemeral tag will reject on fetch.** Step 4 only deletes
+   `v0.0.1` in the clone that runs it. Any other clone or worktree that had already fetched the old
+   `v0.0.1` keeps its local ref pointing at the torn-down commit. Because the tag name is always
+   `v0.0.1` (§1), the *next* ephemeral release recreates `v0.0.1` on a different commit and pushes
+   it — and every other clone's next `git fetch` then fails with
+   `! [rejected] v0.0.1 -> v0.0.1 (would clobber existing tag)`, git refusing to silently move a
+   local tag ref out from under you. This is not a real conflict: it means that clone's local
+   `v0.0.1` is simply stale. Fix it there (local-only — nothing to push, nothing to rewrite,
+   never `--force`):
+   ```sh
+   git tag -d v0.0.1
+   git fetch --tags
+   ```
 
 ## Still open
 

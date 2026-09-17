@@ -121,6 +121,13 @@ never a bare `vX.Y.Z`, which would collide with another app's.
     git tag -d vX.Y.Z
     git push origin :refs/tags/vX.Y.Z
     ```
+  - **Heads-up for other clones:** step 3 only deletes `vX.Y.Z` in *this* clone. Any other clone
+    or worktree that already fetched the old `vX.Y.Z` keeps a stale local ref, and since the tag
+    name is always `vX.Y.Z`, the next ephemeral release recreates it on a different commit and
+    pushes it — so that other clone's next `git fetch` fails with
+    `! [rejected] vX.Y.Z -> vX.Y.Z (would clobber existing tag)`. That's not a real conflict, just
+    a stale local tag; fix it there with `git tag -d vX.Y.Z && git fetch --tags` (local-only,
+    never `--force`). See [`docs/RELEASING.md`](../../../docs/RELEASING.md).
 
 ## Notes
 - **Out of scope:** publishing packages to a registry (private monorepo) — tags + GitHub Release only.
