@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 
 import {
+  DEFAULT_KNOWLEDGE_DETAIL,
   DEFAULT_KNOWLEDGE_LAYOUT,
   DEFAULT_KNOWLEDGE_VARIANT,
   useUiStore,
+  type KnowledgeDetailId,
   type KnowledgeLayoutId,
   type KnowledgeVariantId,
 } from '../../store/ui-store';
@@ -62,6 +64,12 @@ type KnowledgeFiltersState = {
    * is deliberately outside `ensureScope`'s reset.
    */
   layoutId: KnowledgeLayoutId;
+  /**
+   * The detail budget (`knowledge-detail.ts`) — how much of a large graph the
+   * canvas mounts before anything is searched for or expanded. Same persisted
+   * shape and reasoning as `layoutId` directly above.
+   */
+  detailId: KnowledgeDetailId;
 
   ensureScope: (scopeKey: string) => void;
   setQuery: (query: string) => void;
@@ -82,6 +90,7 @@ type KnowledgeFiltersState = {
   setCommunityListMode: (mode: CommunityListMode) => void;
   setRendererVariant: (variant: KnowledgeVariantId) => void;
   setLayoutId: (layoutId: KnowledgeLayoutId) => void;
+  setDetailId: (detailId: KnowledgeDetailId) => void;
 };
 
 export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, get) => ({
@@ -97,6 +106,7 @@ export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, ge
   // restored value, not the default.
   rendererVariant: useUiStore.getState().rendererVariant || DEFAULT_KNOWLEDGE_VARIANT,
   layoutId: useUiStore.getState().layoutId || DEFAULT_KNOWLEDGE_LAYOUT,
+  detailId: useUiStore.getState().knowledgeDetailId || DEFAULT_KNOWLEDGE_DETAIL,
 
   ensureScope: (scopeKey) => {
     if (get().scopeKey === scopeKey) return;
@@ -178,5 +188,10 @@ export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, ge
   setLayoutId: (layoutId) => {
     set({ layoutId });
     useUiStore.getState().setLayoutId(layoutId);
+  },
+
+  setDetailId: (detailId) => {
+    set({ detailId });
+    useUiStore.getState().setKnowledgeDetailId(detailId);
   },
 }));

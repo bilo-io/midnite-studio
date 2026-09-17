@@ -25,6 +25,8 @@ export function useKnowledgeRenderer(options: {
   onNodeClick: (nodeId: string) => void;
   onNodeDoubleClick: (nodeId: string) => void;
   paused: boolean;
+  /** The detail budget (`knowledge-detail.ts`) — a change remounts, exactly like a new graph. */
+  maxNodes: number;
 }): void {
   const onNodeClickRef = useRef(options.onNodeClick);
   onNodeClickRef.current = options.onNodeClick;
@@ -51,25 +53,32 @@ export function useKnowledgeRenderer(options: {
   // (Theme E) — a fresh commit or a repo switch, never a filter/search
   // keystroke and never a layout switch (which keeps `builtAtCommit` and
   // reaches effect 1b instead). Mirrors `use-sigma-graph.ts`'s own effect (1),
-  // `:176`.
+  // `:176`. The detail budget is the one other trigger: which nodes are on
+  // the canvas is decided at mount, so a new budget is a new mount (and a
+  // fresh intro burst — a deliberate user action, not a keystroke).
   useEffect(() => {
     const container = options.containerRef.current;
     const payload = options.payload;
     const renderer = options.renderer;
     if (!container || !payload) return;
 
-    renderer.mount(container, payload, {
-      onNodeClick: (nodeId) => onNodeClickRef.current(nodeId),
-      onNodeDoubleClick: (nodeId) => onNodeDoubleClickRef.current(nodeId),
-    });
+    renderer.mount(
+      container,
+      payload,
+      {
+        onNodeClick: (nodeId) => onNodeClickRef.current(nodeId),
+        onNodeDoubleClick: (nodeId) => onNodeDoubleClickRef.current(nodeId),
+      },
+      { maxNodes: options.maxNodes },
+    );
     mountedPayloadRef.current = payload;
 
     return () => {
       renderer.dispose();
       mountedPayloadRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- builtAtCommit (and a renderer swap) are the only intended triggers, matching use-sigma-graph.ts's own effect (1)
-  }, [options.renderer, options.payload?.builtAtCommit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- builtAtCommit, the budget (and a renderer swap) are the only intended triggers, matching use-sigma-graph.ts's own effect (1)
+  }, [options.renderer, options.payload?.builtAtCommit, options.maxNodes]);
 
   // (1b) Retarget to a newly requested layout's coordinates without
   // remounting (Theme E) — a payload whose `builtAtCommit` matches the one

@@ -63,6 +63,15 @@ describe('resolveKnowledgeViewState (Phase 87 Theme F)', () => {
     expect(resolveKnowledgeViewState(false, result)).toEqual({ kind: 'error', message: 'boom' });
   });
 
+  it('resolves error, never throws, for a foreign shape under the query key (a bare payload, as the layout switch once wrote)', () => {
+    const bare = { nodes: [], links: [], positions: {}, builtAtCommit: 'x', cached: true, commitsBehind: 0 };
+    const state = resolveKnowledgeViewState(
+      false,
+      bare as unknown as KnowledgeResult<KnowledgeGraphPayload>,
+    );
+    expect(state.kind).toBe('error');
+  });
+
   it('resolves ready, not stale, when commitsBehind is 0', () => {
     const result: KnowledgeResult<KnowledgeGraphPayload> = { ok: true, value: GRAPH };
     expect(resolveKnowledgeViewState(false, result)).toEqual({

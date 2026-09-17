@@ -54,6 +54,12 @@ export function resolveKnowledgeViewState(
         return { kind: 'malformed', message: result.message };
       case 'error':
         return { kind: 'error', message: result.message };
+      default:
+        // Not an envelope at all — something wrote a foreign shape under the
+        // graph's query key (a bare payload, once, from the layout switch).
+        // An error state with a Retry is recoverable; a throw here lands in
+        // the view's error boundary with no way back but a reload.
+        return { kind: 'error', message: 'Unexpected knowledge graph response. Retry to reload it.' };
     }
   }
 
