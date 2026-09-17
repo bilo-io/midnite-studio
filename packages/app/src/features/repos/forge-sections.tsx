@@ -36,6 +36,8 @@ import {
   StatusPill,
   type ForgeStatus,
 } from '../forge/forge-status';
+import { findRunPrNumber, getActionItemStyle, RunPrLink } from '../actions/action-status-styles';
+import { duration, relativeAge } from '../actions/run-groups';
 import { REVIEW_GROUPS, type ReviewGroup } from '../reviews/review-groups';
 
 /**
@@ -75,11 +77,13 @@ export function ActionsSection({
   */
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const { data, isFetching } = useForgeRuns(repoId, open);
+  const pulls = useForgePulls(repoId, open, 50, 'all');
   const refresh = useRefreshForge(repoId);
   const setActiveView = useUiStore((s) => s.setActiveView);
   const dialogs = useDialogs();
 
   const runs = data?.runs ?? [];
+  const now = Date.now();
   /*
     Theme K.2: this section stays mounted across a collapse/expand (`open`
     toggles a `<Collapse>`, not a mount) and across the sidebar's own repo
@@ -121,63 +125,74 @@ export function ActionsSection({
         depth={(depth + 1) as 2 | 3}
       />
 
-      {runs.map((run, i) => (
-        <ForgeRow
-          key={run.id}
-          cascading={cascade.active}
-          cascadeStyle={cascade.styleFor(i + index)}
-          depth={(depth + 1) as 2 | 3}
-          status={runStatus(run)}
-          title={run.name}
-          subtitle={[run.headBranch ?? 'detached', run.event].filter(Boolean).join(' · ')}
-          menu={forgeRowMenu(run.url, 'run', repoId)}
-          dialogs={dialogs}
-          expand={{
-            open: expandedRun === run.id,
-            /*
-              Named by run, not by workflow. Twenty rows drawn from a handful of
-              workflows means a dozen buttons called "Jobs in CI" — which a
-              screen reader cannot tell apart, and which a `getByRole` locator
-              cannot either. The run number is the thing that differs.
-            */
-            label:
-              run.number === null ? `Jobs in ${run.name}` : `Jobs in ${run.name} #${run.number}`,
-            onToggle: () => setExpandedRun((current) => (current === run.id ? null : run.id)),
-          }}
-          /*
-            The Actions view, not a Changes tab.
+      {runs.map((run, i) => {
+        const prNumber = findRunPrNumber(run, pulls.data?.pulls);
+        const took = run.status === 'completed' ? duration(run.startedAt, run.updatedAt) : null;
+        const age = relativeAge(run.createdAt, now);
+        const stamp = took ? `${took} · ${age}` : age;
+        const subtitle = [run.headBranch ?? 'detached', run.event, stamp].filter(Boolean).join(' · ');
 
-            Phase 17 opened a run into the workbench because there was nowhere
-            else for it to go. Theme E built somewhere: a run list, its job
-            tree and its log. Two places rendering the same run differently,
-            depending on how you arrived, is one place too many — so the row
-            selects the run and switches to the view that can actually read it.
-            The `run` tab kind stays in the store for any tab already open; it
-            is simply no longer created.
-          */
-          onOpen={() => {
+        return (
+          <ForgeRow
+            key={run.id}
+            cascading={cascade.active}
+            cascadeStyle={cascade.styleFor(i + index)}
+            depth={(depth + 1) as 2 | 3}
+            status={runStatus(run)}
+            title={run.name}
+            subtitle={subtitle}
+            menu={forgeRowMenu(run.url, 'run', repoId)}
+            dialogs={dialogs}
+            applyActionStyles
+            prNumber={prNumber}
+            repoId={repoId}
+            expand={{
+              open: expandedRun === run.id,
+              /*
+                Named by run, not by workflow. Twenty rows drawn from a handful of
+                workflows means a dozen buttons called "Jobs in CI" — which a
+                screen reader cannot tell apart, and which a `getByRole` locator
+                cannot either. The run number is the thing that differs.
+              */
+              label:
+                run.number === null ? `Jobs in ${run.name}` : `Jobs in ${run.name} #${run.number}`,
+              onToggle: () => setExpandedRun((current) => (current === run.id ? null : run.id)),
+            }}
             /*
-              The repository first, and it is load-bearing.
+              The Actions view, not a Changes tab.
 
-              Every repo card in the sidebar is expanded by default, so this row
-              can be clicked while a DIFFERENT repo is selected — and the
-              Actions view follows `selectedRepoId`, not the row. Without this
-              the view opens on the other repository's runs and the run you
-              clicked is nowhere in it; worse, if that repository has no GitHub
-              remote the rail hides Actions and `app.tsx` bounces you to Graph.
-              The workbench tab this replaced carried its own `repoId`, so
-              omitting it here was a regression, not a new gap.
+              Phase 17 opened a run into the workbench because there was nowhere
+              else for it to go. Theme E built somewhere: a run list, its job
+              tree and its log. Two places rendering the same run differently,
+              depending on how you arrived, is one place too many — so the row
+              selects the run and switches to the view that can actually read it.
+              The `run` tab kind stays in the store for any tab already open; it
+              is simply no longer created.
             */
-            selectRepo(repoId);
-            selectRun(repoId, run.id);
-            setActiveView('actions');
-          }}
-        >
-          {expandedRun === run.id ? (
-            <RunJobs repoId={repoId} runId={run.id} depth={(depth + 2) as 3 | 4} />
-          ) : null}
-        </ForgeRow>
-      ))}
+            onOpen={() => {
+              /*
+                The repository first, and it is load-bearing.
+
+                Every repo card in the sidebar is expanded by default, so this row
+                can be clicked while a DIFFERENT repo is selected — and the
+                Actions view follows `selectedRepoId`, not the row. Without this
+                the view opens on the other repository's runs and the run you
+                clicked is nowhere in it; worse, if that repository has no GitHub
+                remote the rail hides Actions and `app.tsx` bounces you to Graph.
+                The workbench tab this replaced carried its own `repoId`, so
+                omitting it here was a regression, not a new gap.
+              */
+              selectRepo(repoId);
+              selectRun(repoId, run.id);
+              setActiveView('actions');
+            }}
+          >
+            {expandedRun === run.id ? (
+              <RunJobs repoId={repoId} runId={run.id} depth={(depth + 2) as 3 | 4} />
+            ) : null}
+          </ForgeRow>
+        );
+      })}
     </TreeSection>
   );
 }
@@ -227,30 +242,37 @@ function RunJobs({
 
   return (
     <ul className={`${depth === 4 ? 'ml-17' : 'ml-14'} border-l border-border/60 pb-1 pl-2`}>
-      {jobs.map((job) => (
-        <li key={job.id} className="flex items-center gap-1.5 py-0.5 pr-2 text-[12px]">
-          <StatusPill status={jobStatus(job)} />
-          <button
-            type="button"
-            onClick={(event) => openLinkFromEvent(job.url, event, { originRepoId: repoId })}
-            disabled={job.url.length === 0}
-            className="min-w-0 flex-1 truncate text-left hover:underline disabled:no-underline"
-            title={job.url ? `Open ${job.name} on GitHub` : job.name}
+      {jobs.map((job) => {
+        const jStatus = jobStatus(job);
+        const jStyle = getActionItemStyle(jStatus.tone);
+        return (
+          <li
+            key={job.id}
+            className={`flex items-center gap-1.5 py-0.5 pr-2 text-[12px] rounded ${jStyle.rowClass}`}
           >
-            {job.name}
-          </button>
-          {/*
-            Step counts rather than the steps themselves: a matrix job runs
-            thirty of them, and the sidebar is 260px wide. The tree belongs in
-            the Actions view.
-          */}
-          {job.steps.length > 0 ? (
-            <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
-              {job.steps.length} steps
-            </span>
-          ) : null}
-        </li>
-      ))}
+            <StatusPill status={jStatus} />
+            <button
+              type="button"
+              onClick={(event) => openLinkFromEvent(job.url, event, { originRepoId: repoId })}
+              disabled={job.url.length === 0}
+              className={`min-w-0 flex-1 truncate text-left hover:underline disabled:no-underline ${jStyle.textClass} ${jStyle.glowClass}`}
+              title={job.url ? `Open ${job.name} on GitHub` : job.name}
+            >
+              {job.name}
+            </button>
+            {/*
+              Step counts rather than the steps themselves: a matrix job runs
+              thirty of them, and the sidebar is 260px wide. The tree belongs in
+              the Actions view.
+            */}
+            {job.steps.length > 0 ? (
+              <span className={`shrink-0 text-[10px] tabular-nums ${jStyle.subtextClass} ${jStyle.glowClass}`}>
+                {job.steps.length} steps
+              </span>
+            ) : null}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -589,6 +611,9 @@ function ForgeRow({
   onOpen,
   expand,
   children,
+  applyActionStyles,
+  prNumber,
+  repoId,
 }: {
   /** Theme K.2: whether the shared cascade is currently playing for this section. */
   cascading: boolean;
@@ -619,7 +644,12 @@ function ForgeRow({
   expand?: { open: boolean; label: string; onToggle: () => void };
   /** Rendered under the row while `expand.open`. */
   children?: React.ReactNode;
+  applyActionStyles?: boolean;
+  prNumber?: number | null;
+  repoId?: string;
 }) {
+  const actionStyle = applyActionStyles ? getActionItemStyle(status.tone) : null;
+
   return (
     <>
       <div
@@ -629,8 +659,8 @@ function ForgeRow({
         }}
         style={cascadeStyle}
         className={`group flex items-center gap-1.5 py-0.5 pr-2 text-[13px] transition-colors hover:bg-accent/30 ${
-          cascading ? 'animate-fade-in-up cascade-delay' : ''
-        } ${
+          actionStyle?.rowClass ?? ''
+        } ${cascading ? 'animate-fade-in-up cascade-delay' : ''} ${
           /*
             A row with a disclosure chevron puts that chevron in the glyph
             column, so it indents one rung shallower than a row whose leading
@@ -657,9 +687,26 @@ function ForgeRow({
           <span className="flex w-full min-w-0 items-center gap-1.5">
             <StatusPill status={status} />
             {extra ? <StatusPill status={extra} /> : null}
-            <span className="truncate">{title}</span>
+            <span
+              className={`truncate ${
+                actionStyle ? `${actionStyle.textClass} ${actionStyle.glowClass}` : ''
+              }`}
+            >
+              {title}
+            </span>
+            {prNumber !== null && prNumber !== undefined && repoId ? (
+              <RunPrLink repoId={repoId} prNumber={prNumber} />
+            ) : null}
           </span>
-          <span className="truncate text-[11px] text-muted-foreground">{subtitle}</span>
+          <span
+            className={`truncate text-[11px] ${
+              actionStyle
+                ? `${actionStyle.subtextClass} ${actionStyle.glowClass}`
+                : 'text-muted-foreground'
+            }`}
+          >
+            {subtitle}
+          </span>
         </button>
 
         <IconButton

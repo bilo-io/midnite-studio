@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import type { ForgeJob, ForgeRun } from '@midnite/studio-shared';
+import type { ForgeJob, ForgePull, ForgeRun } from '@midnite/studio-shared';
 import { LuChevronDown, LuChevronRight, LuSquareArrowOutUpRight } from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
@@ -11,6 +11,12 @@ import { openLinkFromEvent } from '../../services/open-in-midnite';
 import { useActionsStore } from '../../store/actions-store';
 import { LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { jobStatus, runStatus, StatusPill } from '../forge/forge-status';
+import {
+  type ActionItemStyle,
+  findRunPrNumber,
+  getActionItemStyle,
+  RunPrLink,
+} from './action-status-styles';
 import { LogPane } from './log-pane';
 import { jobLogFor, parseRunLogLines } from './log-model';
 import { duration, shouldExpandJob } from './run-groups';
@@ -29,12 +35,14 @@ export function RunDetail({
   jobs,
   loadingJobs,
   jobsError,
+  pulls,
 }: {
   repoId: string;
   run: ForgeRun;
   jobs: readonly ForgeJob[];
   loadingJobs: boolean;
   jobsError: string | null;
+  pulls?: readonly ForgePull[] | null;
 }) {
   const selectedJob = useActionsStore((s) => s.selectedJob[repoId] ?? null);
   const selectJob = useActionsStore((s) => s.selectJob);
@@ -109,7 +117,7 @@ export function RunDetail({
 
   return (
     <section aria-label="Run detail" className="flex min-h-0 flex-1 flex-col">
-      <RunHeader repoId={repoId} run={run} />
+      <RunHeader repoId={repoId} run={run} pulls={pulls} />
 
       {/*
         Resizable vertical pane for jobs tree, capped at 60% of the pane so
@@ -182,7 +190,15 @@ export function RunDetail({
 }
 
 /** The run's facts, and every way out of the app. */
-function RunHeader({ repoId, run }: { repoId: string; run: ForgeRun }) {
+function RunHeader({
+  repoId,
+  run,
+  pulls,
+}: {
+  repoId: string;
+  run: ForgeRun;
+  pulls?: readonly ForgePull[] | null;
+}) {
   /*
     The workflow file is the ONE thing a run listing does not carry, so it costs
     a second `gh` call — enabled here, where a link to it is actually rendered,
@@ -195,12 +211,18 @@ function RunHeader({ repoId, run }: { repoId: string; run: ForgeRun }) {
   // going — so an unfinished run would report a finished-looking "Took 4m".
   const took = run.status === 'completed' ? duration(run.startedAt, run.updatedAt) : null;
   const fileUrl = file === null ? null : workflowFileUrl(run.url, run.headBranch ?? 'HEAD', file);
+  const status = runStatus(run);
+  const style = getActionItemStyle(status.tone);
+  const prNumber = findRunPrNumber(run, pulls);
 
   return (
-    <header className="shrink-0 border-b border-border px-3 py-2">
+    <header className={`shrink-0 border-b border-border px-3 py-2 transition-colors ${style.rowClass}`}>
       <div className="flex min-w-0 items-center gap-2">
-        <StatusPill status={runStatus(run)} />
-        <h3 className="truncate text-sm font-semibold">{run.displayTitle ?? run.name}</h3>
+        <StatusPill status={status} />
+        <h3 className={`truncate text-sm font-semibold ${style.textClass} ${style.glowClass}`}>
+          {run.displayTitle ?? run.name}
+        </h3>
+        {prNumber !== null ? <RunPrLink repoId={repoId} prNumber={prNumber} /> : null}
         <IconButton
           icon={LuSquareArrowOutUpRight}
           label="Open this run on GitHub"
@@ -210,33 +232,24 @@ function RunHeader({ repoId, run }: { repoId: string; run: ForgeRun }) {
         />
       </div>
 
-      <dl className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
-        <Fact label="Workflow" value={run.workflowName ?? run.name} />
-        <Fact label="Branch" value={run.headBranch ?? 'detached'} />
-        {run.event ? <Fact label="Event" value={run.event} /> : null}
-        {/*
-          Truthiness, not `=== null`.
-
-          The contract says these are `string | null`, and through the real IPC
-          path they are — every payload is schema-parsed in main. A test double
-          or a hand-built fixture is under no such obligation, and
-          `undefined === null` is false, so an absent field would reach `.slice`
-          and take the whole view down with it. Nothing is lost either way: an
-          empty sha is not a fact worth a row.
-        */}
-        {run.headSha ? <Fact label="Commit" value={run.headSha.slice(0, 7)} /> : null}
-        {took === null ? null : <Fact label="Took" value={took} />}
+      <dl className={`mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] ${style.subtextClass}`}>
+        <Fact label="Workflow" value={run.workflowName ?? run.name} style={style} />
+        <Fact label="Branch" value={run.headBranch ?? 'detached'} style={style} />
+        {run.event ? <Fact label="Event" value={run.event} style={style} /> : null}
+        {run.headSha ? <Fact label="Commit" value={run.headSha.slice(0, 7)} style={style} /> : null}
+        {took === null ? null : <Fact label="Took" value={took} style={style} />}
         {!run.attempt || run.attempt <= 1 ? null : (
-          <Fact label="Attempt" value={String(run.attempt)} />
+          <Fact label="Attempt" value={String(run.attempt)} style={style} />
         )}
+        {prNumber !== null ? <Fact label="PR" value={`#${prNumber}`} style={style} /> : null}
         {fileUrl === null ? null : (
           <div className="flex items-center gap-1">
-            <dt className="sr-only">File</dt>
+            <dt className={`sr-only ${style.subtextClass}`}>File</dt>
             <dd>
               <button
                 type="button"
                 onClick={(event) => openLinkFromEvent(fileUrl, event, { originRepoId: repoId })}
-                className="font-mono underline-offset-2 hover:underline"
+                className={`font-mono underline-offset-2 hover:underline ${style.textClass} ${style.glowClass}`}
               >
                 {file}
               </button>
@@ -248,11 +261,21 @@ function RunHeader({ repoId, run }: { repoId: string; run: ForgeRun }) {
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({
+  label,
+  value,
+  style,
+}: {
+  label: string;
+  value: string;
+  style?: ActionItemStyle;
+}) {
   return (
     <div className="flex min-w-0 items-baseline gap-1">
-      <dt className="shrink-0 opacity-70">{label}</dt>
-      <dd className="min-w-0 truncate text-foreground/80">{value}</dd>
+      <dt className={`shrink-0 opacity-75 ${style ? style.subtextClass : ''}`}>{label}</dt>
+      <dd className={`min-w-0 truncate font-medium ${style ? `${style.textClass} ${style.glowClass}` : 'text-foreground/80'}`}>
+        {value}
+      </dd>
     </div>
   );
 }
@@ -277,13 +300,15 @@ function JobRow({
 }) {
   const [open, setOpen] = useState(() => shouldExpandJob(job));
   const took = duration(job.startedAt, job.completedAt);
+  const status = jobStatus(job);
+  const style = getActionItemStyle(status.tone);
 
   return (
     <li>
       <div
         className={`flex items-center gap-1 border-l-2 pr-2 text-[13px] transition-colors ${
-          selected ? 'border-primary bg-accent/40' : 'border-transparent hover:bg-accent/20'
-        }`}
+          style.rowClass
+        } ${selected ? 'border-primary bg-accent/40' : 'border-transparent hover:bg-accent/20'}`}
       >
         <IconButton
           icon={open ? LuChevronDown : LuChevronRight}
@@ -292,26 +317,19 @@ function JobRow({
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
         />
-        {/*
-          The pill sits OUTSIDE the button, and that is not cosmetic.
-
-          Inside, it becomes part of the button's accessible name — so the
-          control for selecting a job is called "Failed test (ubuntu-latest)"
-          and is indistinguishable, to anything matching on names, from the
-          "Steps in test (ubuntu-latest)" chevron beside it. A status is a
-          reading of the job, not part of what the control does.
-        */}
-        <StatusPill status={jobStatus(job)} />
+        <StatusPill status={status} />
         <button
           type="button"
           onClick={onSelect}
           aria-current={selected ? 'true' : undefined}
-          className="min-w-0 flex-1 truncate py-1 text-left"
+          className={`min-w-0 flex-1 truncate py-1 text-left ${style.textClass} ${style.glowClass}`}
         >
           {job.name}
         </button>
         {took === null ? null : (
-          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{took}</span>
+          <span className={`shrink-0 text-[11px] tabular-nums ${style.subtextClass} ${style.glowClass}`}>
+            {took}
+          </span>
         )}
         {job.url.length === 0 ? null : (
           <IconButton
@@ -325,23 +343,32 @@ function JobRow({
 
       {open && job.steps.length > 0 ? (
         <ul className="ml-8 border-l border-border/60 pl-2">
-          {job.steps.map((step) => (
-            <li
-              key={`${step.number}:${step.name}`}
-              className="flex items-center gap-1.5 py-0.5 text-[12px]"
-            >
-              <StatusPill status={jobStatus({ ...step, id: '', url: '', steps: [] })} />
-              <span className="min-w-0 truncate">{step.name}</span>
-              <span className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                {duration(step.startedAt, step.completedAt) ?? ''}
-              </span>
-            </li>
-          ))}
+          {job.steps.map((step) => {
+            const stepStatus = jobStatus({ ...step, id: '', url: '', steps: [] });
+            const stepStyle = getActionItemStyle(stepStatus.tone);
+            return (
+              <li
+                key={`${step.number}:${step.name}`}
+                className={`flex items-center gap-1.5 py-0.5 text-[12px] rounded ${stepStyle.rowClass}`}
+              >
+                <StatusPill status={stepStatus} />
+                <span className={`min-w-0 truncate ${stepStyle.textClass} ${stepStyle.glowClass}`}>
+                  {step.name}
+                </span>
+                <span
+                  className={`ml-auto shrink-0 text-[10px] tabular-nums ${stepStyle.subtextClass} ${stepStyle.glowClass}`}
+                >
+                  {duration(step.startedAt, step.completedAt) ?? ''}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </li>
   );
 }
+
 
 function Empty({
   children,

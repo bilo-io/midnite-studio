@@ -2,12 +2,13 @@ import type { CSSProperties } from 'react';
 
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu';
 
-import type { ForgeRun } from '@midnite/studio-shared';
+import type { ForgePull, ForgeRun } from '@midnite/studio-shared';
 
 import { formatNumber } from '../../lib/format-number';
 import { useCascadeReveal } from '../../lib/use-cascade-reveal';
 import { useActionsStore } from '../../store/actions-store';
 import { runStatus, StatusPill } from '../forge/forge-status';
+import { findRunPrNumber, getActionItemStyle, RunPrLink } from './action-status-styles';
 import { duration, groupRuns, relativeAge } from './run-groups';
 
 /** One shared empty, so an un-customised repo's selector result is stable too. */
@@ -27,6 +28,7 @@ export function RunList({
   runs,
   selectedRunId,
   now,
+  pulls,
 }: {
   repoId: string;
   runs: readonly ForgeRun[];
@@ -39,6 +41,7 @@ export function RunList({
    * untestable without faking timers.
    */
   now: number;
+  pulls?: readonly ForgePull[] | null;
 }) {
   /*
     Select the whole record, index it outside.
@@ -99,6 +102,7 @@ export function RunList({
               <ul>
                 {group.runs.map((run) => {
                   row += 1;
+                  const prNumber = findRunPrNumber(run, pulls);
                   return (
                     <li key={run.id}>
                       <RunRow
@@ -108,6 +112,8 @@ export function RunList({
                         onSelect={() => selectRun(repoId, run.id)}
                         cascading={cascade.active}
                         cascadeStyle={cascade.styleFor(row)}
+                        prNumber={prNumber}
+                        repoId={repoId}
                       />
                     </li>
                   );
@@ -128,6 +134,8 @@ function RunRow({
   onSelect,
   cascading,
   cascadeStyle,
+  prNumber,
+  repoId,
 }: {
   run: ForgeRun;
   now: number;
@@ -135,10 +143,14 @@ function RunRow({
   onSelect: () => void;
   cascading: boolean;
   cascadeStyle: CSSProperties;
+  prNumber: number | null;
+  repoId: string;
 }) {
   // Only a completed run has taken anything: `updatedAt` is the last state
   // change, so a running one would show a finished-looking duration.
   const took = run.status === 'completed' ? duration(run.startedAt, run.updatedAt) : null;
+  const status = runStatus(run);
+  const style = getActionItemStyle(status.tone);
 
   return (
     <button
@@ -147,19 +159,28 @@ function RunRow({
       aria-current={selected ? 'true' : undefined}
       style={cascadeStyle}
       className={`flex w-full flex-col items-start gap-0.5 border-l-2 px-2 py-1.5 text-left text-[13px] transition-colors ${
-        cascading ? 'animate-fade-in-up cascade-delay' : ''
-      } ${selected ? 'border-primary bg-accent/40' : 'border-transparent hover:bg-accent/20'}`}
+        style.rowClass
+      } ${cascading ? 'animate-fade-in-up cascade-delay' : ''} ${
+        selected ? 'border-primary bg-accent/40' : 'border-transparent hover:bg-accent/20'
+      }`}
     >
       <span className="flex w-full min-w-0 items-center gap-1.5">
-        <StatusPill status={runStatus(run)} />
-        <span className="truncate">{run.displayTitle ?? run.name}</span>
+        <StatusPill status={status} />
+        <span className={`truncate font-medium ${style.textClass} ${style.glowClass}`}>
+          {run.displayTitle ?? run.name}
+        </span>
+        {prNumber !== null ? <RunPrLink repoId={repoId} prNumber={prNumber} /> : null}
         {run.number === null ? null : (
-          <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
+          <span
+            className={`ml-auto shrink-0 text-[11px] tabular-nums ${style.subtextClass} ${style.glowClass}`}
+          >
             #{run.number}
           </span>
         )}
       </span>
-      <span className="flex w-full min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+      <span
+        className={`flex w-full min-w-0 items-center gap-1.5 text-[11px] ${style.subtextClass} ${style.glowClass}`}
+      >
         <span className="truncate">{run.headBranch ?? 'detached'}</span>
         {run.event === null ? null : <span className="shrink-0">· {run.event}</span>}
         <span className="ml-auto shrink-0 tabular-nums">
@@ -171,3 +192,4 @@ function RunRow({
     </button>
   );
 }
+

@@ -7,7 +7,7 @@ import { PageDetachMark } from '../../components/page-detach-mark';
 import { LoadingRegion, Skeleton } from '../../components/skeleton';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
-import { useForgeRunDetail, useForgeRuns, useRefreshForge } from '../../services/queries';
+import { useForgePulls, useForgeRunDetail, useForgeRuns, useRefreshForge } from '../../services/queries';
 import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { useActionsStore } from '../../store/actions-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
@@ -42,6 +42,7 @@ export function ActionsView() {
   });
 
   const runs = useForgeRuns(repoId, repoId !== null);
+  const pulls = useForgePulls(repoId, repoId !== null, 50, 'all');
   const refresh = useRefreshForge(repoId);
   // Phase 84 Theme C: main's forge poller pings this view's own listing —
   // `useForgeRuns`'s 60s `staleTime` stops being the only thing that refreshes it.
@@ -135,7 +136,13 @@ export function ActionsView() {
         ) : rows.length === 0 ? (
           <p className="px-2 py-3 text-xs text-muted-foreground">No workflow runs yet.</p>
         ) : (
-          <RunList repoId={repoId} runs={rows} selectedRunId={selectedRunId} now={now} />
+          <RunList
+            repoId={repoId}
+            runs={rows}
+            selectedRunId={selectedRunId}
+            now={now}
+            pulls={pulls.data?.pulls}
+          />
         )}
       </div>
 
@@ -152,6 +159,7 @@ export function ActionsView() {
           jobs={detail.data?.detail?.jobs ?? []}
           loadingJobs={detail.isFetching}
           jobsError={detail.data?.error ?? null}
+          pulls={pulls.data?.pulls}
         />
       )}
     </div>
