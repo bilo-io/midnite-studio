@@ -22,6 +22,8 @@ import {
   type ForgeProjectItem,
 } from '@midnite/studio-shared';
 
+import { ResizeHandle } from '../../components/resizable/resize-handle';
+import { useResizable } from '../../components/resizable/use-resizable';
 import { EmptyState } from '../../components/empty-state';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { ItemFilterToolbar } from '../../components/item-filter-toolbar';
@@ -107,6 +109,17 @@ export function ProjectsView() {
    * panel, so switching modes keeps it open on the same item.
    */
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [cardPanelWidth, setCardPanelWidth] = useState(320);
+  const cardPanelResizable = useResizable({
+    size: cardPanelWidth,
+    onSize: setCardPanelWidth,
+    initial: 320,
+    min: 260,
+    max: 640,
+    axis: 'x',
+    edge: 'end',
+    onCollapse: () => setSelectedItemId(null),
+  });
 
   // Fetching starts only once this view is mounted, matching every other
   // forge read's `enabled` gate — see the phase doc's own acceptance test.
@@ -523,22 +536,27 @@ export function ProjectsView() {
           {/*
             The graph mounts `CardPanelStack` on the same terms
             `board-view.tsx` does — same `projectId`/`repoId`/`worktreePath`/
-            `items`/`fields`, same sibling position (it carries its own
-            `w-80 shrink-0 border-l` chrome) — one panel component, two mount
-            sites, never two panels that could disagree (Phase 75 Theme G).
+            `items`/`fields`, same sibling position — one panel component, two mount
+            sites, never two panels that could disagree (Phase 75 Theme G), with a
+            resizable handle for flexible side-panel width in graph view.
           */}
           {selectedItemId ? (
-            <CardPanelStack
-              projectId={selectedProjectId}
-              repoId={repoId}
-              worktreePath={worktreePath}
-              items={filteredItems}
-              fields={allFields}
-              selectedItemId={selectedItemId}
-              onSelectItem={setSelectedItemId}
-              onClose={() => setSelectedItemId(null)}
-              blockers={apiFieldBlockersFor(graph, selectedItemId)}
-            />
+            <>
+              <ResizeHandle resizable={cardPanelResizable} axis="x" label="Resize task details" />
+              <CardPanelStack
+                projectId={selectedProjectId}
+                repoId={repoId}
+                worktreePath={worktreePath}
+                items={filteredItems}
+                fields={allFields}
+                selectedItemId={selectedItemId}
+                onSelectItem={setSelectedItemId}
+                onClose={() => setSelectedItemId(null)}
+                blockers={apiFieldBlockersFor(graph, selectedItemId)}
+                style={{ width: cardPanelResizable.current }}
+                className={cardPanelResizable.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}
+              />
+            </>
           ) : null}
         </div>
       ) : (

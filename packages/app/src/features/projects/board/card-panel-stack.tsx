@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 
 import type { ForgeIssueRef, ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
@@ -37,6 +37,9 @@ export function CardPanelStack({
   onSelectItem,
   onClose,
   blockers,
+  style,
+  width,
+  className = '',
 }: {
   projectId: string;
   repoId: string | null;
@@ -61,6 +64,9 @@ export function CardPanelStack({
    * button behaves exactly as before.
    */
   blockers?: readonly ForgeIssueRef[];
+  style?: CSSProperties;
+  width?: number;
+  className?: string;
 }) {
   const history = usePanelHistory<string>(selectedItemId);
 
@@ -89,8 +95,14 @@ export function CardPanelStack({
   const labelFor = (itemId: string): string =>
     items.find((i) => i.id === itemId)?.content.title ?? itemId;
 
+  const widthClass = style?.width !== undefined || width !== undefined ? '' : 'w-80';
+
   return (
-    <div className="flex h-full w-80 shrink-0 flex-col border-l border-border">
+    <div
+      data-testid="card-panel-stack"
+      style={{ width, ...style }}
+      className={`flex h-full ${widthClass} shrink-0 flex-col border-l border-border ${className}`.trim()}
+    >
       <PanelHeader history={history} label={labelFor} className="shrink-0 border-b border-border px-2 py-1.5" />
       <PanelStack
         history={history}
