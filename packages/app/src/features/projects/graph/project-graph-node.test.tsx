@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { issueItem } from '../__fixtures__/project-item';
+import { useUiStore } from '../../../store/ui-store';
+import { useTerminalStore } from '../../terminal/terminal-store';
 import type { PositionedNode } from './graph-layout';
 import { ProjectGraphNode } from './project-graph-node';
 
@@ -195,11 +197,125 @@ describe('ProjectGraphNode', () => {
 
   it('calls onSelect on click and on Enter/Space', () => {
     const onSelect = vi.fn();
-    render(<ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={onSelect} />);
-    const el = screen.getByRole('button');
+    const { container } = render(
+      <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={onSelect} />,
+    );
+    const el = container.querySelector('[data-graph-node]')!;
     fireEvent.click(el);
     fireEvent.keyDown(el, { key: 'Enter' });
     fireEvent.keyDown(el, { key: ' ' });
     expect(onSelect).toHaveBeenCalledTimes(3);
+  });
+
+  it('renders a 2.5px green border when node.state is closed', () => {
+    const closedNode = baseNode({ state: 'closed' });
+    const { container } = render(
+      <ProjectGraphNode node={closedNode} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
+    );
+    const el = container.querySelector('[data-graph-node]')!;
+    expect(el.className).toContain('border-[2.5px]');
+    expect(el.className).toContain('border-[hsl(var(--dep-done))]');
+    expect(el.className).toContain('is-closed');
+    expect(el.hasAttribute('data-closed')).toBe(true);
+  });
+
+  it('renders assignee avatar at the top right of the card', () => {
+    const item = issueItem({
+      content: {
+        type: 'issue',
+        number: 42,
+        title: 'Task with assignee',
+        assignees: ['octocat'],
+      } as never,
+    });
+    const { container } = render(
+      <ProjectGraphNode node={baseNode()} item={item} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
+    );
+    const avatar = screen.getByAltText('octocat');
+    expect(avatar).toBeDefined();
+    // Verify avatar is rendered within the header row alongside the title
+    const headerRow = container.querySelector('.flex.items-start.justify-between');
+    expect(headerRow?.contains(avatar)).toBe(true);
+  });
+
+  it('renders play button in the bottom right corner and triggers startAgent', () => {
+    const item = issueItem({
+      content: {
+        type: 'issue',
+        number: 42,
+        title: 'Task to run',
+        body: 'Do some work',
+        assignees: [],
+      } as never,
+    });
+    const onSelect = vi.fn();
+    const { container } = render(
+      <ProjectGraphNode
+        node={baseNode()}
+        item={item}
+        fields={[]}
+        glow="idle"
+        selected={false}
+        projectId="proj-1"
+        onSelect={onSelect}
+      />,
+    );
+
+    const playBtn = container.querySelector('[data-testid="graph-node-play-agent"]')!;
+    expect(playBtn).not.toBeNull();
+    expect(playBtn.getAttribute('aria-label')).toBe('Start agent');
+
+    fireEvent.click(playBtn);
+    // Clicking the play button should stop propagation and not trigger card selection
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('clicking play button reveals terminal when a session is already active', () => {
+    const item = issueItem({
+      content: {
+        type: 'issue',
+        number: 42,
+        title: 'Task to run',
+        body: 'Do some work',
+        assignees: [],
+      } as never,
+    });
+    // Add a live session bound to this card in the terminal store
+    useTerminalStore.setState({
+      sessions: [
+        {
+          id: 'sess-active',
+          repoId: 'r1',
+          cwd: '/repo',
+          title: 'Active Agent',
+          kind: 'agent',
+          surface: 'kanban',
+          taskRef: { projectId: 'proj-1', itemId: item.id },
+          createdAt: Date.now(),
+        },
+      ],
+      states: { 'sess-active': 'open' },
+    });
+
+    const onSelect = vi.fn();
+    const { container } = render(
+      <ProjectGraphNode
+        node={baseNode()}
+        item={item}
+        fields={[]}
+        glow="running"
+        selected={false}
+        projectId="proj-1"
+        onSelect={onSelect}
+      />,
+    );
+
+    const playBtn = container.querySelector('[data-testid="graph-node-play-agent"]')!;
+    expect(playBtn.getAttribute('aria-label')).toBe('Open in terminal');
+
+    fireEvent.click(playBtn);
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(useTerminalStore.getState().activeId).toBe('sess-active');
+    expect(useUiStore.getState().terminalOpen).toBe(true);
   });
 });

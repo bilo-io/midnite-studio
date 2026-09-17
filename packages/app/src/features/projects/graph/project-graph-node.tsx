@@ -1,8 +1,13 @@
-import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, type ForgeProjectField, type ForgeProjectItem } from '@midnite/studio-shared';
+import { useMemo } from 'react';
+import { LuCircleCheck, LuPlay } from 'react-icons/lu';
 
-import { LuCircleCheck } from 'react-icons/lu';
-
+import { useActiveWorktree } from '../../../services/use-status';
+import { revealSession } from '../../terminal/reveal-session';
+import { startAgent } from '../../terminal/start-agent';
+import { findCardSession, useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from '../board/card-chrome';
+import { composeCardPrompt } from '../board/board-derive';
 import type { CardGlowState } from '../board/glow-state';
 import { FORGE_GRAPH_GEOMETRY, type PositionedNode } from './graph-layout';
 
@@ -28,6 +33,7 @@ export function ProjectGraphNode({
   selected,
   tabIndex = -1,
   detailed = true,
+  projectId,
   onSelect,
 }: {
   node: PositionedNode;
@@ -48,8 +54,15 @@ export function ProjectGraphNode({
    *  its title only — chips and avatars are illegible at that size and cost
    *  a DOM subtree per node nobody can read. */
   detailed?: boolean;
+  projectId?: string | null;
   onSelect: () => void;
 }) {
+  const { repoId, worktreePath } = useActiveWorktree();
+  const sessions = useTerminalStore((s) => s.sessions);
+  const states = useTerminalStore((s) => s.states);
+  const taskRef = useMemo(() => ({ projectId: projectId ?? '', itemId: item?.id ?? '' }), [projectId, item?.id]);
+  const liveSession = item ? findCardSession(sessions, states, taskRef) : undefined;
+
   const Icon = CONTENT_ICON[node.kind];
   // A foreign node with no title of its own (the field/body layers never
   // fetch one — see the phase doc's own note) falls back to its number as
@@ -61,6 +74,17 @@ export function ProjectGraphNode({
   const href = resolveHref(node, item);
   const number = titleIsNumberFallback ? null : node.number;
 
+  const isClosed = node.state === 'closed';
+  const borderClass = isClosed
+    ? selected
+      ? 'border-[2.5px] border-primary is-closed'
+      : 'border-[2.5px] border-[hsl(var(--dep-done))] is-closed'
+    : selected
+      ? 'border border-primary'
+      : node.foreign
+        ? 'border border-dashed border-muted-foreground/50'
+        : 'border border-border';
+
   return (
     <div
       data-graph-node
@@ -68,6 +92,7 @@ export function ProjectGraphNode({
       data-blocked={node.blocked ? '' : undefined}
       data-ready={node.ready ? '' : undefined}
       data-foreign={node.foreign ? '' : undefined}
+      data-closed={isClosed ? '' : undefined}
       role="button"
       aria-pressed={selected}
       tabIndex={tabIndex}
@@ -92,8 +117,8 @@ export function ProjectGraphNode({
         // Title truncation is `CardTitleRow`'s own inner `truncate` span —
         // it never depended on this element's overflow. `relative` anchors
         // the ready badge below.
-        'project-graph-node relative flex cursor-pointer flex-col rounded border bg-background px-2 py-1.5 text-left text-xs',
-        selected ? 'border-primary' : node.foreign ? 'border-dashed border-muted-foreground/50' : 'border-border',
+        'project-graph-node relative flex cursor-pointer flex-col rounded bg-background px-2 py-1.5 text-left text-xs',
+        borderClass,
         glow === 'idle' ? '' : `agent-run-glow is-${glow}`,
       ]
         .filter(Boolean)
@@ -110,22 +135,74 @@ export function ProjectGraphNode({
         only composites the filter chain through that class.
       */}
       <div className={['flex flex-col gap-1.5', node.blocked ? 'opacity-[0.55] saturate-[.4] filter' : ''].filter(Boolean).join(' ')}>
-        <div className="flex items-start gap-1.5">
-          <CardTitleRow icon={Icon} title={title} />
+        <div className="flex items-start justify-between gap-1.5">
+          <div className="flex min-w-0 flex-1 items-start gap-1.5">
+            <CardTitleRow icon={Icon} title={title} />
+          </div>
+          {detailed && assignees.length > 0 ? (
+            <div className="-mt-0.5 shrink-0">
+              <CardAssignees assignees={assignees} />
+            </div>
+          ) : null}
         </div>
 
         {detailed ? (
           <>
-            {number !== null || assignees.length > 0 ? (
-              <div className="flex items-center justify-between gap-2">
+            {number !== null ? (
+              <div className="flex items-center justify-between gap-2 pr-6">
                 <CardNumberRow number={number} href={href} />
-                <CardAssignees assignees={assignees} />
               </div>
             ) : null}
-            {item ? <CardFieldChips item={item} fields={fields} /> : null}
+            {item ? (
+              <div className="pr-6">
+                <CardFieldChips item={item} fields={fields} />
+              </div>
+            ) : null}
           </>
         ) : null}
       </div>
+
+      {/*
+        Bottom-right Play button: triggers an agent session or reveals terminal if active.
+      */}
+      {detailed && item ? (
+        <button
+          type="button"
+          data-testid="graph-node-play-agent"
+          aria-label={liveSession ? 'Open in terminal' : 'Start agent'}
+          title={liveSession ? 'Open in terminal' : 'Start agent'}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (liveSession) {
+              revealSession(liveSession.id);
+              return;
+            }
+            const targetCwd = worktreePath ?? '';
+            const prompt = composeCardPrompt(item, targetCwd);
+            const mostRecent = sessions
+              .filter((s) => s.repoId === repoId && s.kind === 'agent' && s.agentId !== undefined)
+              .sort((a, b) => b.createdAt - a.createdAt)[0];
+            const agentId = mostRecent?.agentId ?? BUILTIN_AGENTS[0]?.id ?? 'claude';
+            const agent = BUILTIN_AGENTS.find((a) => a.id === agentId) ?? BUILTIN_AGENTS[0]!;
+
+            const session = startAgent({
+              repoId: repoId ?? '',
+              cwd: targetCwd,
+              title: item.content.title,
+              prompt,
+              agentId: agent.id,
+              command: agent.command,
+              surface: 'kanban',
+              taskRef,
+              autoSend: true,
+            });
+            revealSession(session.id);
+          }}
+          className="absolute bottom-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <LuPlay aria-hidden className="h-3 w-3 fill-current" />
+        </button>
+      ) : null}
 
       {/*
         An affirmative badge, not merely the absence of dimming — the

@@ -3097,7 +3097,11 @@ html[data-motion='reduced'] .agent-run-glow.is-running {
   gradient. `::after` rather than a second DOM element — nothing here needs
   to be inspectable, only visible, and `project-graph-node.tsx` carries no
   extra markup for it.
-*/
+.project-graph-node.is-closed {
+  border-width: 2.5px;
+  border-color: hsl(var(--dep-done));
+}
+
 .project-graph-node.agent-run-glow.is-running::after,
 .project-graph-node.agent-run-glow.is-waiting::after {
   content: '';
