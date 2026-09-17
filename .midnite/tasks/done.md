@@ -1,6 +1,35 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-17 — Phase 89 Theme A — The variant seam and the pill bar
+
+[PR #437](https://github.com/bilo-io/midnite-studio/pull/437). Moves the Knowledge canvas's sigma
+implementation behind a new `KnowledgeRenderer` contract (`renderer-contract.ts`) — an imperative
+`mount`/`dispose`/`applyFilters`/`applyHighlight`/`focusNode`/`setCollapsed`/`resize`/`setPaused`/
+`playIntro` interface derived directly from `use-sigma-graph.ts`'s own four `useEffect`s, not an
+invented shape — plus a flat `VARIANTS` registry (`{id, label, icon, engine, load}`, `load` a
+per-variant dynamic `import()`) and the generic `use-knowledge-renderer.ts` adapter hook every
+variant drives its renderer through instead of duplicating the wiring. `use-sigma-graph.ts` became
+`.tsx` (it now default-exports a mounted component, `SigmaKnowledgeCanvas`, backed by the
+`SigmaKnowledgeRenderer` class) with **no behaviour change** — every reducer, the hover/pulse
+machinery, the theme `MutationObserver`, the container `ResizeObserver`, and the camera-fly
+normalized-space fix moved as-is. `knowledge-canvas.tsx` is now a thin `React.lazy`/`Suspense`
+dispatcher. `KnowledgeVariantPills` (`filter-pill.tsx`'s `aria-pressed` shape) renders above the
+canvas inside its own column, with a real overflow-measuring `…` menu for when more variants land.
+`rendererVariant` persists in `ui-store.ts` (alongside `graphTheme`; an unknown/removed id falls
+back to sigma) and mirrors into `knowledge-filters-store.ts` on `communityListMode`'s exact
+field/setter shape, excluded from `ensureScope`'s reset; classified as a `KNOWN_ORPHANS` preference
+(`persisted-keys.ts`) on the `loopEnabled` precedent — a real control (the pill bar), no settings
+page — with a matching `outstanding.md` entry.
+
+Ships with **sigma as the only registered variant** — Themes D (four sigma looks) and F–I (one
+library each) are separate PRs. Verified via all 5 of `knowledge-canvas.spec.ts`'s real-browser
+WebGL/pointer/camera-fly/community-collapse tests passing unchanged, plus a spot-check screenshot
+pass (`knowledge-graph-shots.spec.ts`) confirming the graph rendering itself is unchanged, with the
+pill bar the only new element. `moon run :typecheck :lint :test` green repo-wide (4649 tests).
+Built in parallel with [Theme B](phases/phase-89-knowledge-graph-variants.md#b--expand-from-a-core-l)
+(`.worktrees/p89-b`), which implements `playIntro` for real against the seam this PR defines.
+
 ## 2026-09-17 — Phase 89 Theme B — Expand from a core
 
 [PR #436](https://github.com/bilo-io/midnite-studio/pull/436). `knowledge-intro.ts` (new, pure): `IntroTracker`, a position-channel tween beside `knowledge-bounce.ts`'s `PulseTracker` — same shape (clock injected, `start`/`sample`/`clear`, an `animating` flag) but tweening `{x, y}` instead of `size`. `computeCentroid()` derives the burst origin from `payload.positions` rather than `{0, 0}`, since ForceAtlas2's output isn't centred on the origin. Wired into `use-sigma-graph.ts`'s existing mount effect (`[options.payload]` deps only, so the burst plays on first open, repo switch and re-entry, and never on a filter change) with a new `introTick` rAF loop mirroring the existing `pulseTick` bounce loop; nodes are staggered hubs-first by reusing `knowledge-degree.ts`'s degree map rather than recomputing it, and edges fade in as one shared scalar (`introEdgeAlphaMultiplier`) multiplied into the existing `alphaForWeight`/`withAlpha` pipeline rather than tweening 37,036 edge endpoints individually.

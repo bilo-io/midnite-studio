@@ -121,6 +121,11 @@ export const PREFERENCE_KEYS = [
   // than ahead of them — so neither was ever an orphan.
   'companionVolume', // companion-page.tsx (Voice ▸ Companion volume)
   'companionMicMode', // companion-page.tsx (Microphone ▸ hold or tap)
+  // Phase 89 Theme A's own, on the same `loopEnabled` reasoning: it has a
+  // real control already — the Knowledge view's own pill bar
+  // (`knowledge-variant-pills.tsx`) — just not one under `features/settings/`,
+  // since the pill bar is not a settings page.
+  'rendererVariant', // knowledge-variant-pills.tsx (Knowledge canvas's own renderer-switcher pills)
 ] as const;
 
 export const SESSION_STATE_KEYS = [
@@ -190,6 +195,7 @@ export const KNOWN_ORPHANS = [
   'editorMinimap',
   'editorTabSize',
   'editorWordWrap',
+  'rendererVariant',
 ] as const satisfies readonly (typeof PREFERENCE_KEYS)[number][];
 
 type PartitionedKey = (typeof PREFERENCE_KEYS)[number] | (typeof SESSION_STATE_KEYS)[number];

@@ -27,6 +27,7 @@ import {
   searchMatches,
 } from './knowledge-filters';
 import { useKnowledgeFiltersStore } from './knowledge-filters-store';
+import { KnowledgeVariantPills } from './knowledge-variant-pills';
 import { useKnowledgeLayoutProgress } from './use-knowledge-layout-progress';
 import { KnowledgeNodePanel } from './knowledge-node-panel';
 import { useKnowledgeGraph } from './use-knowledge-graph';
@@ -77,6 +78,8 @@ export function KnowledgeView() {
   const expandAllCommunities = useKnowledgeFiltersStore((s) => s.expandAllCommunities);
   const communityListMode = useKnowledgeFiltersStore((s) => s.communityListMode);
   const setCommunityListMode = useKnowledgeFiltersStore((s) => s.setCommunityListMode);
+  const rendererVariant = useKnowledgeFiltersStore((s) => s.rendererVariant);
+  const setRendererVariant = useKnowledgeFiltersStore((s) => s.setRendererVariant);
 
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
@@ -232,7 +235,9 @@ export function KnowledgeView() {
               label="Resize knowledge graph filters"
             />
             <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+              <KnowledgeVariantPills activeId={rendererVariant} onSelect={setRendererVariant} />
               <KnowledgeCanvas
+                rendererVariant={rendererVariant}
                 payload={state.graph}
                 filters={filters}
                 focusNodeId={focusNodeId}

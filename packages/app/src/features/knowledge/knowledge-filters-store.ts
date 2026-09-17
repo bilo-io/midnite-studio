@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { DEFAULT_KNOWLEDGE_VARIANT, useUiStore, type KnowledgeVariantId } from '../../store/ui-store';
 import { defaultFilterState, type KnowledgeFilterState } from './knowledge-filters';
 
 /**
@@ -14,6 +15,19 @@ import { defaultFilterState, type KnowledgeFilterState } from './knowledge-filte
  * The collapse set and the fly-to request joined the per-repo half; the
  * list/tree mode of the community list is a UI preference, so it survives a
  * repo switch on purpose.
+ *
+ * `rendererVariant` (Phase 89 Theme A) follows `communityListMode`'s exact
+ * shape below — a field, a setter, left out of `ensureScope`'s reset — but
+ * unlike `communityListMode` it also needs to survive an app restart
+ * (Decision 1), which this store's own `create()` has no `persist`
+ * middleware for. `ui-store.ts` is the actual persisted source of truth
+ * (alongside `graphTheme`); this store's copy is seeded from it once at
+ * module init (`useUiStore`'s `persist` middleware hydrates from
+ * `localStorage` synchronously, before this module's own top-level code
+ * runs) and its setter writes through to `ui-store.ts` on every change, so
+ * every reader in the Knowledge feature can keep using this store's own
+ * selectors — the same as every other UI-state field here — without
+ * reaching into `ui-store.ts` directly.
  */
 export type CommunityListMode = 'list' | 'tree';
 
@@ -32,6 +46,8 @@ type KnowledgeFiltersState = {
    */
   flyToNodeId: string | null;
   communityListMode: CommunityListMode;
+  /** Which Knowledge canvas renderer is active — persisted globally via `ui-store.ts`, see the docblock above. */
+  rendererVariant: KnowledgeVariantId;
 
   ensureScope: (scopeKey: string) => void;
   setQuery: (query: string) => void;
@@ -50,6 +66,7 @@ type KnowledgeFiltersState = {
   collapseAllCommunities: (communityNames: readonly string[]) => void;
   expandAllCommunities: () => void;
   setCommunityListMode: (mode: CommunityListMode) => void;
+  setRendererVariant: (variant: KnowledgeVariantId) => void;
 };
 
 export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, get) => ({
@@ -59,6 +76,11 @@ export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, ge
   collapsedCommunities: new Set(),
   flyToNodeId: null,
   communityListMode: 'list',
+  // `useUiStore`'s `persist` middleware hydrates synchronously from
+  // `localStorage` (no custom async storage, no `skipHydration`), so this
+  // read — at this store's own module-init time — already sees the
+  // restored value, not the default.
+  rendererVariant: useUiStore.getState().rendererVariant || DEFAULT_KNOWLEDGE_VARIANT,
 
   ensureScope: (scopeKey) => {
     if (get().scopeKey === scopeKey) return;
@@ -131,4 +153,9 @@ export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, ge
   expandAllCommunities: () => set({ collapsedCommunities: new Set() }),
 
   setCommunityListMode: (mode) => set({ communityListMode: mode }),
+
+  setRendererVariant: (variant) => {
+    set({ rendererVariant: variant });
+    useUiStore.getState().setRendererVariant(variant);
+  },
 }));

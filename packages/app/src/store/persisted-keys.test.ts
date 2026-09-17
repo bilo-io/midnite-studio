@@ -92,6 +92,9 @@ describe('persisted-keys partition', () => {
         // look like. Phase 83 Theme A's `enabledApps` sat here the same way,
         // for exactly one phase slice, and is gone the same way: Theme E
         // built `apps-page.tsx`.
+        // Phase 89 Theme A's own: `rendererVariant` has a real control (the
+        // Knowledge view's pill bar) but no settings page.
+        'rendererVariant',
       ].sort(),
     );
   });
