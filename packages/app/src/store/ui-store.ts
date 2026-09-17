@@ -256,6 +256,10 @@ export type LayoutSizes = {
   knowledgeFiltersWidth: number;
   /** The Knowledge view's node or community detail panel (Phase 87). */
   knowledgeDetailWidth: number;
+  /** The Video Studio view's project list, left of the studio pane (Phase 44 Theme D). */
+  videoProjectListWidth: number;
+  /** The Video Studio view's project detail, right of the studio pane (Phase 44 Theme D). */
+  videoDetailWidth: number;
 };
 
 
@@ -342,6 +346,10 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   apiBuilderHeight: 260,
   knowledgeFiltersWidth: 288,
   knowledgeDetailWidth: 384,
+  // Matches the project list's old fixed `w-56`.
+  videoProjectListWidth: 224,
+  // Matches the project detail's old fixed `w-80`.
+  videoDetailWidth: 320,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -406,6 +414,8 @@ export const LAYOUT_BOUNDS = {
   apiBuilderHeight: { min: 140, max: 640 },
   knowledgeFiltersWidth: { min: 220, max: 500 },
   knowledgeDetailWidth: { min: 280, max: 640 },
+  videoProjectListWidth: { min: 180, max: 480 },
+  videoDetailWidth: { min: 260, max: 600 },
 } as const;
 
 /**

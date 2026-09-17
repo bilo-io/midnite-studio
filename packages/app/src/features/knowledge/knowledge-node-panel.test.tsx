@@ -18,6 +18,7 @@ import { KnowledgeNodePanel } from './knowledge-node-panel';
 describe('KnowledgeNodePanel', () => {
   beforeEach(() => {
     mocks.getNodeDetail.mockReset();
+    mocks.getNodeDetail.mockReturnValue(new Promise(() => {}));
     // @ts-expect-error test bridge mock — partial `knowledge` shape is enough for this component
     window.midniteStudio = { knowledge: { getNodeDetail: mocks.getNodeDetail } };
   });
