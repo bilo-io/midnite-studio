@@ -25,6 +25,9 @@ export function KnowledgeCommunityPanel({
   onExpand,
   onToggleHidden,
   onSelectNode,
+  width,
+  style,
+  className = '',
 }: {
   communityName: string;
   members: readonly Pick<KnowledgeGraphNode, 'id' | 'label'>[];
@@ -34,6 +37,9 @@ export function KnowledgeCommunityPanel({
   onExpand: () => void;
   onToggleHidden: () => void;
   onSelectNode: (nodeId: string) => void;
+  width?: number;
+  style?: React.CSSProperties;
+  className?: string;
 }) {
   const sorted = useMemo(
     () => [...members].sort((a, b) => (degrees.get(b.id) ?? 0) - (degrees.get(a.id) ?? 0)),
@@ -44,7 +50,8 @@ export function KnowledgeCommunityPanel({
 
   return (
     <div
-      className="flex h-full min-h-0 w-full max-w-md flex-col border-l border-border bg-background"
+      style={{ ...(width !== undefined ? { width } : {}), ...style }}
+      className={`flex h-full min-h-0 w-full flex-col border-l border-border bg-background ${className}`}
       data-testid="knowledge-community-panel"
     >
       <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">

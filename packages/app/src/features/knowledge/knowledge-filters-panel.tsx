@@ -38,6 +38,9 @@ export function KnowledgeFiltersPanel({
   onCollapseAllCommunities,
   onExpandAllCommunities,
   onSelectNode,
+  width,
+  style,
+  className = '',
 }: {
   filters: KnowledgeFilterState;
   relations: readonly string[];
@@ -60,6 +63,9 @@ export function KnowledgeFiltersPanel({
   onExpandAllCommunities: () => void;
   /** A member picked from the tree — select it and fly the camera there. */
   onSelectNode: (nodeId: string) => void;
+  width?: number;
+  style?: React.CSSProperties;
+  className?: string;
 }) {
   const [communityPanelOpen, setCommunityPanelOpen] = useState(false);
   const hiddenCommunityCount = filters.hiddenCommunities.size;
@@ -75,7 +81,11 @@ export function KnowledgeFiltersPanel({
       : `${communityNames.length} shown`;
 
   return (
-    <div className="flex h-full min-h-0 w-72 shrink-0 flex-col gap-3 overflow-auto border-r border-border bg-background p-3 text-xs">
+    <div
+      data-testid="knowledge-filters-panel"
+      style={{ ...(width !== undefined ? { width } : {}), ...style }}
+      className={`flex h-full min-h-0 w-full shrink-0 flex-col gap-3 overflow-auto border-r border-border bg-background p-3 text-xs ${className}`}
+    >
       <div className="flex items-center gap-2 rounded border border-border px-2 py-1.5">
         <LuSearch aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <input
