@@ -83,45 +83,45 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The variant seam and the pill bar (M)
+### A — The variant seam and the pill bar (M) ✅ DONE (PR #437, 2026-09-17)
 
-- [ ] Define `KnowledgeRenderer` in `packages/app/src/features/knowledge/renderer-contract.ts`: a
+- [x] Define `KnowledgeRenderer` in `packages/app/src/features/knowledge/renderer-contract.ts`: a
       mount/dispose lifecycle plus `applyFilters`, `applyHighlight`, `focusNode`, `setCollapsed`,
       `resize`, `setPaused`, and `playIntro`. Derive it from what
       [`use-sigma-graph.ts`](../../../packages/app/src/features/knowledge/use-sigma-graph.ts) already
       does in its four effects — build+mount (`:176`), filters/focus push (`:499`), camera fly
       (`:537`), community collapse (`:561`) — rather than inventing a shape and retrofitting sigma to
       it.
-- [ ] `playIntro` is on the contract from the start, not bolted on by Theme B. Every variant
+- [x] `playIntro` is on the contract from the start, not bolted on by Theme B. Every variant
       implements it or does not get a pill (Decision 4).
-- [ ] Declare the variant registry: `VARIANTS: readonly KnowledgeVariant[]` with `{id, label, icon,
+- [x] Declare the variant registry: `VARIANTS: readonly KnowledgeVariant[]` with `{id, label, icon,
       engine, load}`, where `load` is the per-variant dynamic `import()`. Sigma's four looks (Theme D)
       and each library (F–I) are entries in this one flat list — the pill bar has no concept of
       "renderer vs. look".
-- [ ] Refactor `KnowledgeCanvas`
+- [x] Refactor `KnowledgeCanvas`
       ([`knowledge-canvas.tsx`](../../../packages/app/src/features/knowledge/knowledge-canvas.tsx), 57
       lines) to resolve the active variant, `Suspense`-load it, and pass the same props through. The
       sigma implementation moves behind the contract **with no behaviour change** — this theme ships
       green with one variant in the list.
-- [ ] `KnowledgeVariantPills`: a pill row rendered **inside the canvas column**
+- [x] `KnowledgeVariantPills`: a pill row rendered **inside the canvas column**
       ([`knowledge-view.tsx:234`](../../../packages/app/src/features/knowledge/knowledge-view.tsx)), so
       the filters sidebar and the node panel keep their full height. Markup follows
       [`filter-pill.tsx`](../../../packages/app/src/features/optimizer/components/filter-pill.tsx) —
       `<button type="button" aria-pressed>`, `rounded-full border px-2.5 py-0.5 text-xs`, selected
       `border-primary/60 bg-primary/10`.
-- [ ] An overflow `…` menu so the bar never wraps: measure available width, show what fits, push the
+- [x] An overflow `…` menu so the bar never wraps: measure available width, show what fits, push the
       rest into the menu. Copy the disclosure/menu conventions already in the feature
       ([`knowledge-community-filter.tsx:152`](../../../packages/app/src/features/knowledge/knowledge-community-filter.tsx)),
       and keep every variant keyboard-reachable whether it is on the bar or in the menu.
-- [ ] `rendererVariant` into
+- [x] `rendererVariant` into
       [`knowledge-filters-store.ts`](../../../packages/app/src/features/knowledge/knowledge-filters-store.ts)
       following `communityListMode`'s precedent exactly: the type beside it, the field, a setter, and
       **left out of `ensureScope`'s reset** (`:63-72`) — it is a UI preference, not repo-scoped state.
-- [ ] Persist it globally, in
+- [x] Persist it globally, in
       [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) alongside `graphTheme`, including
       the `partialize` list and the persisted-key union. An unknown or removed variant id falls back
       to sigma rather than rendering nothing (Decision 1).
-- [ ] Every icon from `react-icons`, imported per set — never the package root.
+- [x] Every icon from `react-icons`, imported per set — never the package root.
 
 ### B — Expand from a core (L) — ✅ DONE (PR #436, 2026-09-17)
 
