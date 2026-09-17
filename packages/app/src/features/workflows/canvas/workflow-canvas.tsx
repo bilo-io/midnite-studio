@@ -443,7 +443,7 @@ export function WorkflowCanvas({
   const viewBoxHeight = (size.height || 1) / viewport.scale;
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
         {readOnly ? (
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
