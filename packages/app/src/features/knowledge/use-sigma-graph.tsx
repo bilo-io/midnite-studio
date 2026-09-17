@@ -1,7 +1,8 @@
-import { useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MultiDirectedGraph } from 'graphology';
 import Sigma from 'sigma';
+import type { EdgeProgramType } from 'sigma/rendering';
 
 import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
 
@@ -18,6 +19,7 @@ import { hslTripleToRgbString } from './knowledge-color-math';
 import {
   aggregateCommunityEdges,
   communityCentroids,
+  communityNameFromNodeId,
   communityNodeId,
   isAggregatedEdgeVisible,
   sizeForMemberCount,
@@ -30,6 +32,7 @@ import {
   searchMatches,
   type KnowledgeFilterState,
 } from './knowledge-filters';
+import { useKnowledgeFiltersStore } from './knowledge-filters-store';
 import {
   computeHighlightSets,
   edgePaint,
@@ -50,6 +53,8 @@ import type {
   KnowledgeVariantProps,
 } from './renderer-contract';
 import { useKnowledgeRenderer } from './use-knowledge-renderer';
+import EdgeCurveProgram from './variants/knowledge-edge-curve-program';
+import { computeOrbitPositions, type OrbitPosition } from './variants/knowledge-orbit-layout';
 
 /**
  * Raw `sigma` + a thin renderer around it, per the phase doc's Decision 6 —
@@ -128,6 +133,45 @@ const EMPHASISED_EDGE_SCALE = 1.4;
 /** How long a layout switch's tween takes end to end (Phase 89 Theme E) — long enough to read as "the graph reorganised," short enough that switching twice in a row doesn't feel laggy. */
 const LAYOUT_TRANSITION_MS = 600;
 
+/**
+ * Phase 89 Theme D — the four sigma "looks". `KnowledgeVariantProps` carries
+ * no `look` field (the registry's four entries all resolve to this same
+ * module, `renderer-contract.ts`'s own docblock explains why), so the
+ * mounted component reads it directly off the store `rendererVariant` is
+ * persisted through — the same field the pill bar itself writes.
+ */
+type LookId = 'atlas' | 'constellation' | 'orbit' | 'clusters';
+const DEFAULT_LOOK: LookId = 'atlas';
+function normalizeLook(id: string): LookId {
+  return id === 'constellation' || id === 'orbit' || id === 'clusters' ? id : 'atlas';
+}
+
+/** sigma's own defaults, named so Constellation's own values below read as a deliberate departure from them, not magic numbers. */
+const DEFAULT_LABEL_DENSITY = 0.6;
+const DEFAULT_LABEL_GRID_CELL_SIZE = 90;
+
+/** Constellation: "tighter label density" — fewer candidate cells, and a higher degree floor, so a dark, busy graph doesn't drown in text. */
+const CONSTELLATION_LABEL_DENSITY = 0.3;
+const CONSTELLATION_LABEL_GRID_CELL_SIZE = 150;
+const CONSTELLATION_LABEL_DEGREE_THRESHOLD = 6;
+/** Constellation: "lower ambient edge alpha" — a flat multiplier on the same `alphaForWeight` curve every look shares, preserving the premultiplied-alpha invariant (the scalar is scaled before `withAlpha` premultiplies it, never after). */
+const CONSTELLATION_EDGE_ALPHA_SCALE = 0.6;
+/**
+ * Constellation: "a glow pass on high-degree nodes" — reducer-only (settings
+ * + reducers, no graph mutation, per the phase doc's "only Orbit and
+ * Clusters touch the graph's own attributes"): a hub is rendered through the
+ * same brightening path a focused node already uses (`nodeColorForState`'s
+ * `isFocus`), plus a size boost, rather than a second WebGL draw pass per
+ * node — there is no bloom shader here, only "the brightest, biggest paint
+ * this file already has, unconditionally, for the graph's own top slice of
+ * hubs."
+ */
+const CONSTELLATION_GLOW_PERCENTILE = 0.95;
+const CONSTELLATION_GLOW_SIZE_SCALE = 1.18;
+
+/** Orbit's entrance tween, in ms — short enough to read as a transition, not a wait. */
+const ORBIT_TWEEN_MS = 500;
+
 function resolveToken(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
@@ -197,6 +241,10 @@ type LiveState = {
   /** 1 outside an intro; ramps 0→1 while edges fade in behind the bursting nodes. */
   introEdgeAlpha: number;
   introStartedAt: number;
+  /** Theme D's four looks — `atlas` reproduces Theme A's own rendering unchanged. */
+  look: LookId;
+  /** Constellation's glow threshold — the payload's own 95th-percentile degree, recomputed per `mount`. */
+  glowDegreeThreshold: number;
 };
 
 /** Mirrors `useResolvedMotion()` (`appearance-store.ts`) without the hook machinery — `mount()` is called imperatively, outside React's render, so it reads the store directly instead of subscribing to it. */
@@ -235,6 +283,8 @@ function initialLiveState(): LiveState {
     intro: new IntroTracker(),
     introEdgeAlpha: 1,
     introStartedAt: 0,
+    look: DEFAULT_LOOK,
+    glowDegreeThreshold: Number.POSITIVE_INFINITY,
   };
 }
 
@@ -263,6 +313,11 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
   /** Phase 89 Theme E's layout-switch tween — one instance reused across every `retarget()` call for this mount. */
   private layoutTransition = new LayoutTransition();
   private layoutFrame: number | null = null;
+  /** Orbit's "home" to tween back to — the payload's own ForceAtlas2 coordinates, captured once at `mount`. */
+  private homePositions: Map<string, OrbitPosition> | null = null;
+  /** Orbit's own layout, computed once per payload and cached — `computeOrbitPositions` is pure and deterministic, so recomputing on every look switch would be wasted work, not a different answer. */
+  private orbitPositionsCache: Map<string, OrbitPosition> | null = null;
+  private posTweenFrame: number | null = null;
 
   mount(
     container: HTMLDivElement,
@@ -284,6 +339,25 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     const live = this.live;
     live.theme = readThemeColors();
     live.reducedMotion = resolveReducedMotion();
+
+    // Constellation's glow threshold — the payload's own 95th-percentile
+    // degree, so "high-degree" scales with the repo instead of a fixed
+    // absolute count that means nothing on a 200-node repo and everything
+    // on a 15k-node one.
+    const degreeValues = [...degrees.values()].sort((a, b) => a - b);
+    live.glowDegreeThreshold =
+      degreeValues.length > 0
+        ? (degreeValues[Math.min(degreeValues.length - 1, Math.floor(degreeValues.length * CONSTELLATION_GLOW_PERCENTILE))] ??
+          Number.POSITIVE_INFINITY)
+        : Number.POSITIVE_INFINITY;
+
+    // Orbit's "home" — captured from the payload directly (not read back off
+    // the graph later, which Orbit's own tween mutates) so leaving Orbit
+    // always has an exact Atlas coordinate to return to.
+    this.homePositions = new Map(
+      payload.nodes.map((node) => [node.id, payload.positions[node.id] ?? { x: 0, y: 0 }]),
+    );
+    this.orbitPositionsCache = null;
 
     for (const node of payload.nodes) {
       const pos = payload.positions[node.id] ?? { x: 0, y: 0 };
@@ -366,8 +440,28 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
         renderEdgeLabels: true,
         hideEdgesOnMove: payload.links.length > HIDE_EDGES_ON_MOVE_ABOVE,
         labelRenderedSizeThreshold: LABEL_RENDERED_SIZE_THRESHOLD,
-        labelDensity: 0.6,
-        labelGridCellSize: 90,
+        labelDensity: DEFAULT_LABEL_DENSITY,
+        labelGridCellSize: DEFAULT_LABEL_GRID_CELL_SIZE,
+        // Registered ALONGSIDE the default `line` program (sigma's own
+        // `EdgeRectangleProgram`, merged in automatically), never in place
+        // of it — Atlas/Orbit/Clusters never route an edge through `curve`,
+        // so this costs them nothing. Constellation's own edge reducer
+        // (below) is the only thing that ever sets `type: 'curve'`; see
+        // `knowledge-edge-curve-program.ts`'s own docblock for why a `type`
+        // switch, not a settings swap, is what lets a look change without
+        // tearing down this `Sigma` instance.
+        //
+        // The cast is the same shape sigma's own `DEFAULT_EDGE_PROGRAM_CLASSES`
+        // sidesteps internally: `EdgeCurveProgram` is deliberately NOT
+        // parameterized over `NodeAttrs`/`EdgeAttrs` (its own docblock says
+        // why), so its constructor's `renderer: Sigma<Attributes, ...>`
+        // parameter is structurally wider than, not narrower than, what
+        // `Settings<NodeAttrs, EdgeAttrs>` asks for — safe to widen back,
+        // not a real type hole (every method the two classes need to agree
+        // on — `getDefinition`/`processVisibleItem`/`setUniforms` — takes no
+        // N/E/G-typed parameter at all; only the unused `renderer` field's
+        // declared type differs).
+        edgeProgramClasses: { curve: EdgeCurveProgram as unknown as EdgeProgramType<NodeAttrs, EdgeAttrs> },
         labelFont: getComputedStyle(document.body).fontFamily || 'sans-serif',
         labelSize: 12,
         labelWeight: '500',
@@ -388,12 +482,23 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
           const hoverLit = live.hoverLitIds.has(node);
           const dimmed = paint.dimmed && !hoverLit;
           const lit = paint.forceLabel || hoverLit;
-          const isFocus = live.highlight.focusIds.has(node) || hoverLit;
+          // Constellation's glow: the payload's own top slice of hubs paint
+          // through the SAME brightening path a focused node already uses
+          // (Decision: reducer-only, no second draw pass — see the constant's
+          // own docblock) — never while dimmed, so a search/selection focus
+          // elsewhere still wins.
+          const constellationGlow =
+            live.look === 'constellation' &&
+            data.kind === 'node' &&
+            data.degree >= live.glowDegreeThreshold &&
+            !dimmed;
+          const isFocus = live.highlight.focusIds.has(node) || hoverLit || constellationGlow;
           const isNeighbor = live.highlight.neighborIds.has(node);
           const color = nodeColorForState(data.color, { dimmed, isFocus, isNeighbor });
-          const eligibleForLabel =
-            data.kind === 'community' || data.degree >= LABEL_DEGREE_THRESHOLD;
-          const scale = live.pulseScales.get(node) ?? 1;
+          const labelDegreeThreshold =
+            live.look === 'constellation' ? CONSTELLATION_LABEL_DEGREE_THRESHOLD : LABEL_DEGREE_THRESHOLD;
+          const eligibleForLabel = data.kind === 'community' || data.degree >= labelDegreeThreshold;
+          const scale = (live.pulseScales.get(node) ?? 1) * (constellationGlow ? CONSTELLATION_GLOW_SIZE_SCALE : 1);
           return {
             ...data,
             hidden: !visible,
@@ -431,6 +536,11 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
               ? Math.min(6, 1 + Math.log2(data.count))
               : Math.max(0.5, data.weight);
           const theme = live.theme;
+          const isConstellation = live.look === 'constellation';
+          // The scalar is scaled BEFORE `withAlpha` premultiplies it — never
+          // the premultiplied string after — preserving the invariant
+          // `knowledge-canvas-colors.ts` documents.
+          const restAlpha = alphaForWeight(data.weight) * (isConstellation ? CONSTELLATION_EDGE_ALPHA_SCALE : 1);
           // Theme B: edges fade in behind the bursting nodes rather than
           // stretching from the centroid — one multiplier for the whole edge
           // set (`live.introEdgeAlpha`, 1 outside an intro), applied to the
@@ -443,12 +553,16 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
             ? withAlpha(theme.edgeBase, DIMMED_ALPHA * introFade)
             : emphasised
               ? withAlpha(theme.accent, 0.85 * introFade)
-              : withAlpha(theme.edgeBase, alphaForWeight(data.weight) * introFade);
+              : withAlpha(theme.edgeBase, restAlpha * introFade);
           return {
             ...data,
             hidden: !visible,
             size: baseSize * (emphasised ? EMPHASISED_EDGE_SCALE : 1) * scale,
             color,
+            // Constellation's curved edges — see `knowledge-edge-curve-program.ts`
+            // for why a per-item `type` switch, not a settings change, is
+            // what lets this happen without rebuilding the `Sigma` instance.
+            type: isConstellation ? 'curve' : 'line',
             zIndex: emphasised ? 2 : paint.zIndex,
             label: hovered
               ? data.kind === 'aggregate'
@@ -577,6 +691,7 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     if (this.introFrame !== null) cancelAnimationFrame(this.introFrame);
     if (this.layoutFrame !== null) cancelAnimationFrame(this.layoutFrame);
     this.layoutTransition.clear();
+    if (this.posTweenFrame !== null) cancelAnimationFrame(this.posTweenFrame);
     this.containerResizeObserver?.disconnect();
     this.repaintObserver?.disconnect();
     if (this.container) this.container.style.cursor = '';
@@ -592,6 +707,9 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     this.layoutFrame = null;
     this.repaintObserver = undefined;
     this.containerResizeObserver = undefined;
+    this.posTweenFrame = null;
+    this.homePositions = null;
+    this.orbitPositionsCache = null;
   }
 
   applyFilters(filters: KnowledgeFilterState): void {
@@ -606,6 +724,111 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     this.live.selectedNodeId = selectedNodeId;
     this.recomputeHighlight();
     this.sigma?.refresh();
+  }
+
+  /**
+   * Switch which of the four sigma looks is active — NOT part of the
+   * `KnowledgeRenderer` contract (`renderer-contract.ts` is unchanged by
+   * this theme, per its own docblock's invitation to grow only the registry
+   * array), so this is called directly by `SigmaKnowledgeCanvas` below, the
+   * one place that already holds a concrete `SigmaKnowledgeRenderer`
+   * instance rather than the interface. A no-op if the look hasn't actually
+   * changed (a render that reads the same store value twice is routine).
+   *
+   * `labelDensity`/`labelGridCellSize` are ordinary sigma *settings* —
+   * `setSetting` already repaints `labelColor` on a theme flip elsewhere in
+   * this file, so mutating them here at runtime is the same supported path,
+   * not a new one. `edgeProgramClasses` is deliberately NOT touched here:
+   * it is fixed at construction (`mount`, above) and switched per-ITEM by
+   * the edge reducer's own `type` field instead — see
+   * `knowledge-edge-curve-program.ts` for why.
+   */
+  setLook(nextLook: string): void {
+    const next = normalizeLook(nextLook);
+    const previous = this.live.look;
+    if (previous === next) return;
+    this.live.look = next;
+
+    const sigma = this.sigma;
+    sigma?.setSetting('labelDensity', next === 'constellation' ? CONSTELLATION_LABEL_DENSITY : DEFAULT_LABEL_DENSITY);
+    sigma?.setSetting(
+      'labelGridCellSize',
+      next === 'constellation' ? CONSTELLATION_LABEL_GRID_CELL_SIZE : DEFAULT_LABEL_GRID_CELL_SIZE,
+    );
+
+    // Orbit only ever touches the graph's own x/y attributes (Decision:
+    // "only Orbit and Clusters touch the graph's own attributes") — entering
+    // tweens from the Atlas coordinates captured at `mount`; leaving tweens
+    // straight back to them, so a user bouncing between looks always lands
+    // on the same Atlas layout Atlas itself renders.
+    if (next === 'orbit') {
+      this.beginPositionTween(this.resolveOrbitPositions());
+    } else if (previous === 'orbit') {
+      this.beginPositionTween(this.homePositions ?? new Map());
+    }
+
+    // A full (non-partial) refresh: the reducers' own output (curve `type`,
+    // glow, label density) depends on `live.look` and needs every item
+    // reprocessed, not just the handful a partial `repaint` would touch.
+    sigma?.refresh();
+  }
+
+  /** Orbit's own layout, computed once per payload and cached (`computeOrbitPositions` is pure). */
+  private resolveOrbitPositions(): Map<string, OrbitPosition> {
+    if (this.orbitPositionsCache) return this.orbitPositionsCache;
+    const payload = this.payload;
+    if (!payload) return new Map();
+    const positions = computeOrbitPositions(payload.nodes, payload.positions);
+    this.orbitPositionsCache = positions;
+    return positions;
+  }
+
+  /**
+   * Tweens every named node from its CURRENT graph position to `target`,
+   * mutating graphology's own `x`/`y` attributes and re-indexing once per
+   * frame via a plain `sigma.refresh()` (positions changed, so — unlike the
+   * pulse loop's `repaint` — this cannot pass `skipIndexation: true`).
+   * `paused` (Phase 84) and `prefers-reduced-motion` (Phase 46) both snap
+   * straight to `target` instead of animating — motion is skipped, not
+   * shortened.
+   */
+  private beginPositionTween(target: ReadonlyMap<string, OrbitPosition>): void {
+    const graph = this.graph;
+    if (!graph) return;
+    if (this.posTweenFrame !== null) {
+      cancelAnimationFrame(this.posTweenFrame);
+      this.posTweenFrame = null;
+    }
+
+    if (this.live.paused || prefersReducedMotion()) {
+      for (const [id, pos] of target) {
+        if (graph.hasNode(id)) {
+          graph.setNodeAttribute(id, 'x', pos.x);
+          graph.setNodeAttribute(id, 'y', pos.y);
+        }
+      }
+      this.sigma?.refresh();
+      return;
+    }
+
+    const from = new Map<string, OrbitPosition>();
+    graph.forEachNode((id, attrs) => {
+      if (target.has(id)) from.set(id, { x: attrs.x, y: attrs.y });
+    });
+    const start = performance.now();
+    const tick = (): void => {
+      const t = Math.min(1, (performance.now() - start) / ORBIT_TWEEN_MS);
+      const eased = 1 - Math.pow(1 - t, 3);
+      for (const [id, to] of target) {
+        if (!graph.hasNode(id)) continue;
+        const source = from.get(id) ?? to;
+        graph.setNodeAttribute(id, 'x', source.x + (to.x - source.x) * eased);
+        graph.setNodeAttribute(id, 'y', source.y + (to.y - source.y) * eased);
+      }
+      this.sigma?.refresh();
+      this.posTweenFrame = t < 1 ? requestAnimationFrame(tick) : null;
+    };
+    this.posTweenFrame = requestAnimationFrame(tick);
   }
 
   // Theme G finding (unverified under CI at ship time): the camera's own
@@ -958,13 +1181,19 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
 }
 
 /**
- * The sigma variant's own mounted component — what `renderer-contract.ts`'s
- * `load()` resolves to. A stable `SigmaKnowledgeRenderer` instance lives for
- * this component's whole lifetime (`useRef`'s lazy-init form, not
+ * The sigma variant's own mounted component — what EVERY entry in
+ * `renderer-contract.ts`'s `VARIANTS` resolves to (Theme A's own `sigma`
+ * entry, and Theme D's `atlas`/`constellation`/`orbit`/`clusters`, which all
+ * share `load: loadSigma`). A stable `SigmaKnowledgeRenderer` instance lives
+ * for this component's whole lifetime (`useRef`'s lazy-init form, not
  * `useMemo`, since a renderer must never silently disappear under React's
  * "may re-run a memo" allowance); `use-knowledge-renderer.ts` drives it
- * through the four effects it generalises from this file's own four,
- * before this move.
+ * through the four effects it generalises from this file's own four, before
+ * this move. Theme D adds a fifth: `look`, read directly off the store
+ * `KnowledgeVariantProps` carries no field for (`renderer-contract.ts`'s own
+ * docblock explains why), pushed to the renderer via `setLook` — a method
+ * outside the `KnowledgeRenderer` contract, called here because this is the
+ * one place already holding the concrete class rather than the interface.
  */
 export default function SigmaKnowledgeCanvas({
   payload,
@@ -980,6 +1209,60 @@ export default function SigmaKnowledgeCanvas({
   const rendererRef = useRef<SigmaKnowledgeRenderer | null>(null);
   if (rendererRef.current === null) rendererRef.current = new SigmaKnowledgeRenderer();
 
+  const look = normalizeLook(useKnowledgeFiltersStore((s) => s.rendererVariant));
+
+  // Clusters' own default-collapsed state — LOCAL to this component, not
+  // written through to `knowledge-filters-store.ts`'s shared
+  // `collapsedCommunities` (Decision: the phase doc's "communities collapsed
+  // by default" describes Clusters' own rendering, not a side effect that
+  // would leak into Atlas/Constellation/Orbit reading the same global set
+  // the next time the user switches back to them). Reset per payload
+  // identity, same trigger `use-knowledge-renderer.ts` mounts the renderer
+  // on.
+  const [clustersExpanded, setClustersExpanded] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    setClustersExpanded(new Set());
+  }, [payload]);
+
+  const communityByNodeId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const node of payload.nodes) map.set(node.id, node.communityName);
+    return map;
+  }, [payload]);
+  const communityNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const node of payload.nodes) names.add(node.communityName);
+    return [...names];
+  }, [payload]);
+
+  const effectiveCollapsedCommunities = useMemo(() => {
+    if (look !== 'clusters') return collapsedCommunities;
+    return new Set(communityNames.filter((name) => !clustersExpanded.has(name)));
+  }, [look, collapsedCommunities, communityNames, clustersExpanded]);
+
+  const handleNodeDoubleClick = useCallback(
+    (nodeId: string) => {
+      if (look === 'clusters') {
+        const collapsedName = communityNameFromNodeId(nodeId);
+        if (collapsedName !== null) {
+          setClustersExpanded((prev) => new Set(prev).add(collapsedName));
+        } else {
+          const communityName = communityByNodeId.get(nodeId);
+          if (communityName !== undefined) {
+            setClustersExpanded((prev) => {
+              if (!prev.has(communityName)) return prev;
+              const next = new Set(prev);
+              next.delete(communityName);
+              return next;
+            });
+          }
+        }
+      }
+      onNodeDoubleClick(nodeId);
+    },
+    [look, communityByNodeId, onNodeDoubleClick],
+  );
+
   useKnowledgeRenderer({
     containerRef,
     renderer: rendererRef.current,
@@ -987,11 +1270,21 @@ export default function SigmaKnowledgeCanvas({
     filters,
     focusNodeId,
     selectedNodeId,
-    collapsedCommunities,
+    collapsedCommunities: effectiveCollapsedCommunities,
     onNodeClick,
-    onNodeDoubleClick,
+    onNodeDoubleClick: handleNodeDoubleClick,
     paused,
   });
+
+  // Runs AFTER `useKnowledgeRenderer`'s own mount effect above (React fires
+  // effects in the order their hooks were called), so on a fresh mount or a
+  // payload/repo switch the renderer is always built at Atlas defaults
+  // first, then transitioned to whatever look is actually persisted —
+  // including Orbit's entrance tween, which is meant to play on every
+  // mount, not only a live pill click.
+  useEffect(() => {
+    rendererRef.current?.setLook(look);
+  }, [look, payload]);
 
   return (
     <div

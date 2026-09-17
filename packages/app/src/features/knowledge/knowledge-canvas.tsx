@@ -46,11 +46,16 @@ export function KnowledgeCanvas({
   paused: boolean;
 }) {
   const variant = resolveVariant(rendererVariant);
-  // Re-created only when the resolved variant identity changes, so switching
-  // between two already-resolved variants (never happens in Theme A, with
-  // only one registered) does not re-trigger `lazy`'s own module cache churn
-  // on every render.
-  const Variant = useMemo(() => lazy(variant.load), [variant]);
+  // Keyed on `variant.load` — NOT the whole `variant` object, and NOT
+  // `variant.id` — so switching between two variants that share the same
+  // `load()` (Theme D's four sigma looks all resolve to `loadSigma`,
+  // `renderer-contract.ts`) reuses the same `React.lazy` component and
+  // therefore the same mounted instance underneath it: the phase doc's own
+  // requirement that switching sigma looks "does not tear down and rebuild
+  // the renderer." Switching to a variant with a genuinely different
+  // `load()` (a different engine, Themes F–I) still creates a fresh `lazy`
+  // wrapper and remounts, exactly as before.
+  const Variant = useMemo(() => lazy(variant.load), [variant.load]);
 
   return (
     <Suspense fallback={null}>

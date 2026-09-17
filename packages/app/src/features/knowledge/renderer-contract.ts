@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import { LuNetwork } from 'react-icons/lu';
+import { LuBoxes, LuNetwork, LuOrbit, LuSparkles } from 'react-icons/lu';
 
 import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
 
@@ -142,20 +142,74 @@ export type KnowledgeVariant = {
 };
 
 /**
- * One entry, sigma. Themes D (four sigma "looks") and F–I (one entry per
- * library) extend this list; the pill bar and the overflow menu already
- * treat it as flat — one id, one persisted value, one thing to test
- * (Decision 1) — so growing this array is the whole diff those themes need
- * here.
+ * Every sigma-engine variant resolves to the SAME module — Theme D's four
+ * "looks" are one mounted component that reads which look is active off
+ * `knowledge-filters-store.ts`'s `rendererVariant` (the same field this
+ * registry entry's own `id` ends up in) rather than four separate lazy
+ * chunks. That is what lets `knowledge-canvas.tsx` key its `React.lazy`
+ * memo on `engine` instead of `id`: switching Atlas ⇄ Constellation ⇄ Orbit
+ * ⇄ Clusters never unmounts the sigma instance, which is the phase doc's
+ * own requirement ("switching between the four sigma looks does not tear
+ * down and rebuild the renderer"). A literal shared function reference
+ * (not four separate `() => import(...)` closures with identical bodies)
+ * is what makes `load` itself referentially stable across the four entries.
+ */
+const loadSigma = () => import('./use-sigma-graph');
+
+/**
+ * Four sigma looks (Theme D) plus F–I (one entry per library) extend this
+ * list; the pill bar and the overflow menu already treat it as flat — one
+ * id, one persisted value, one thing to test (Decision 1) — so growing this
+ * array is the whole diff those themes need here.
+ *
+ * Theme A shipped one entry, `id: 'sigma'`. Theme D RENAMES it to `'atlas'`
+ * rather than keeping `'sigma'` as one of the four look ids: `engine:
+ * 'sigma'` now names the shared library across all four entries, so a look
+ * ID of `'sigma'` sitting beside `'constellation'`/`'orbit'`/`'clusters'`
+ * would read as "the engine" rather than "a look", and the verification
+ * line ("opening Knowledge with no stored preference renders Atlas") only
+ * holds if `'atlas'` is `VARIANTS[0]` (`DEFAULT_VARIANT_ID` derives from
+ * it) — `resolveVariant`'s existing fallback (Decision 1) means a
+ * stale-persisted `'sigma'` value from before this PR still resolves to
+ * `VARIANTS[0]` (now Atlas) rather than rendering nothing, so no migration
+ * step is needed. `ui-store.ts`'s `DEFAULT_KNOWLEDGE_VARIANT` moves from
+ * `'sigma'` to `'atlas'` alongside this for the same reason.
  */
 export const VARIANTS: readonly KnowledgeVariant[] = [
   {
-    id: 'sigma',
-    label: 'Sigma',
+    id: 'atlas',
+    label: 'Atlas',
     icon: LuNetwork,
     engine: 'sigma',
     consumesWorkerLayout: true,
-    load: () => import('./use-sigma-graph'),
+    load: loadSigma,
+  },
+  {
+    id: 'constellation',
+    label: 'Constellation',
+    icon: LuSparkles,
+    engine: 'sigma',
+    consumesWorkerLayout: true,
+    load: loadSigma,
+  },
+  {
+    id: 'orbit',
+    label: 'Orbit',
+    icon: LuOrbit,
+    engine: 'sigma',
+    // Positions come from `computeOrbitPositions` (knowledge-orbit-layout.ts) — a pure
+    // client-side ring layout keyed on community, not from worker-computed `payload.positions`.
+    // A worker-layout pill would offer a control that does nothing here (Decision 9).
+    consumesWorkerLayout: false,
+    load: loadSigma,
+  },
+  {
+    id: 'clusters',
+    label: 'Clusters',
+    icon: LuBoxes,
+    engine: 'sigma',
+    consumesWorkerLayout: true,
+    load: loadSigma,
   },
 ];
 
