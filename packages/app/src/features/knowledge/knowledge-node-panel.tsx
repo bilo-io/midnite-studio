@@ -47,7 +47,7 @@ export function KnowledgeNodePanel({
     const b = bridge();
     if (!b) return;
 
-    void b.knowledge.getNodeDetail({ repoId, nodeId }).then((result) => {
+    void b.knowledge.getNodeDetail({ repoId, nodeId })?.then((result) => {
       if (cancelled) return;
       if (!result.ok) {
         setDetail(
