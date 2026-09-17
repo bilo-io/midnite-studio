@@ -1,11 +1,18 @@
 // Layer: vitest — pure math and bookkeeping with an injected clock, no rAF (see knowledge-intro.ts and its sibling knowledge-bounce.test.ts).
 import { describe, expect, it } from 'vitest';
 
-import { INTRO_TIMING, IntroTracker, computeCentroid, introEdgeAlphaMultiplier } from './knowledge-intro';
+import {
+  INTRO_TIMING,
+  IntroTracker,
+  computeCentroid,
+  introEdgeAlphaMultiplier,
+} from './knowledge-intro';
 
 describe('computeCentroid', () => {
   it('averages every position', () => {
-    expect(computeCentroid({ a: { x: 0, y: 0 }, b: { x: 10, y: 20 }, c: { x: 20, y: -20 } })).toEqual({
+    expect(
+      computeCentroid({ a: { x: 0, y: 0 }, b: { x: 10, y: 20 }, c: { x: 20, y: -20 } }),
+    ).toEqual({
       x: 10,
       y: 0,
     });
@@ -100,7 +107,10 @@ describe('IntroTracker', () => {
 
   it('a zero-duration start lands everything immediately and reports idle', () => {
     const tracker = new IntroTracker();
-    tracker.start([{ id: 'a', to: { x: 5, y: 5 }, degree: 1 }], 0, origin, { durationMs: 0, staggerMs: 0 });
+    tracker.start([{ id: 'a', to: { x: 5, y: 5 }, degree: 1 }], 0, origin, {
+      durationMs: 0,
+      staggerMs: 0,
+    });
     expect(tracker.animating).toBe(false);
     expect(tracker.sample(0).positions.size).toBe(0);
   });
@@ -113,7 +123,10 @@ describe('IntroTracker', () => {
 
   it('clear() drops every in-flight tween', () => {
     const tracker = new IntroTracker();
-    tracker.start([{ id: 'a', to: { x: 5, y: 5 }, degree: 1 }], 0, origin, { durationMs: 100, staggerMs: 0 });
+    tracker.start([{ id: 'a', to: { x: 5, y: 5 }, degree: 1 }], 0, origin, {
+      durationMs: 100,
+      staggerMs: 0,
+    });
     tracker.clear();
     expect(tracker.animating).toBe(false);
     expect(tracker.sample(50).positions.size).toBe(0);
@@ -121,9 +134,15 @@ describe('IntroTracker', () => {
 
   it('starting a new burst replaces an in-flight one outright, from the origin again', () => {
     const tracker = new IntroTracker();
-    tracker.start([{ id: 'a', to: { x: 100, y: 100 } , degree: 1 }], 0, origin, { durationMs: 100, staggerMs: 0 });
+    tracker.start([{ id: 'a', to: { x: 100, y: 100 }, degree: 1 }], 0, origin, {
+      durationMs: 100,
+      staggerMs: 0,
+    });
     tracker.sample(50);
-    tracker.start([{ id: 'b', to: { x: 5, y: 5 }, degree: 1 }], 50, origin, { durationMs: 100, staggerMs: 0 });
+    tracker.start([{ id: 'b', to: { x: 5, y: 5 }, degree: 1 }], 50, origin, {
+      durationMs: 100,
+      staggerMs: 0,
+    });
     const sample = tracker.sample(50);
     expect(sample.positions.has('a')).toBe(false);
     expect(sample.positions.get('b')).toEqual(origin);

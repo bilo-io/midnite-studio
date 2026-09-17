@@ -70,18 +70,30 @@ export class IntroTracker {
    * last node's start lags the first's, so the whole burst takes
    * `staggerMs + durationMs` end to end.
    */
-  start(nodes: readonly IntroNodeSpec[], now: number, origin: IntroPoint, opts: { durationMs: number; staggerMs: number }): void {
+  start(
+    nodes: readonly IntroNodeSpec[],
+    now: number,
+    origin: IntroPoint,
+    opts: { durationMs: number; staggerMs: number },
+  ): void {
     this.tweens.clear();
     this.startedAt = now;
     this.totalDurationMs = opts.staggerMs + opts.durationMs;
     this.live = nodes.length > 0 && opts.durationMs > 0;
     if (!this.live) return;
 
-    const sorted = [...nodes].sort((a, b) => b.degree - a.degree || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const sorted = [...nodes].sort(
+      (a, b) => b.degree - a.degree || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    );
     const lastIndex = Math.max(1, sorted.length - 1);
     for (const [index, node] of sorted.entries()) {
       const delay = opts.staggerMs <= 0 ? 0 : (index / lastIndex) * opts.staggerMs;
-      this.tweens.set(node.id, { startedAt: now + delay, durationMs: opts.durationMs, from: origin, to: node.to });
+      this.tweens.set(node.id, {
+        startedAt: now + delay,
+        durationMs: opts.durationMs,
+        from: origin,
+        to: node.to,
+      });
     }
   }
 
@@ -109,7 +121,10 @@ export class IntroTracker {
       positions.set(id, t < 0 ? tween.from : lerpPoint(tween.from, tween.to, easeOutCubic(t)));
     }
 
-    const progress = this.totalDurationMs <= 0 ? 1 : Math.min(1, Math.max(0, (now - this.startedAt) / this.totalDurationMs));
+    const progress =
+      this.totalDurationMs <= 0
+        ? 1
+        : Math.min(1, Math.max(0, (now - this.startedAt) / this.totalDurationMs));
     const animating = this.tweens.size > 0;
     this.live = animating;
     return { positions, progress, animating };

@@ -7,7 +7,12 @@ import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
 
 import { useResolvedMotion } from '../../store/appearance-store';
 import { PULSES, PulseTracker } from './knowledge-bounce';
-import { DIMMED_ALPHA, alphaForWeight, nodeColorForState, withAlpha } from './knowledge-canvas-colors';
+import {
+  DIMMED_ALPHA,
+  alphaForWeight,
+  nodeColorForState,
+  withAlpha,
+} from './knowledge-canvas-colors';
 import { drawThemedNodeHover } from './knowledge-canvas-draw';
 import { hslTripleToRgbString } from './knowledge-color-math';
 import {
@@ -19,9 +24,25 @@ import {
 } from './knowledge-community-collapse';
 import { communityColor, parseHslTriple } from './knowledge-community-colors';
 import { computeDegrees, sizeForDegree } from './knowledge-degree';
-import { isLinkVisible, isCommunityVisible, searchMatches, type KnowledgeFilterState } from './knowledge-filters';
-import { computeHighlightSets, edgePaint, nodePaint, type HighlightSets } from './knowledge-highlight';
-import { INTRO_TIMING, IntroTracker, computeCentroid, introEdgeAlphaMultiplier, type IntroNodeSpec } from './knowledge-intro';
+import {
+  isLinkVisible,
+  isCommunityVisible,
+  searchMatches,
+  type KnowledgeFilterState,
+} from './knowledge-filters';
+import {
+  computeHighlightSets,
+  edgePaint,
+  nodePaint,
+  type HighlightSets,
+} from './knowledge-highlight';
+import {
+  INTRO_TIMING,
+  IntroTracker,
+  computeCentroid,
+  introEdgeAlphaMultiplier,
+  type IntroNodeSpec,
+} from './knowledge-intro';
 
 /**
  * Raw `sigma` + a thin local hook, per the phase doc's Decision 6 — not
@@ -122,7 +143,11 @@ function readThemeColors(): ThemeColors {
   };
 }
 
-const EMPTY_HIGHLIGHT: HighlightSets = { active: false, focusIds: new Set(), neighborIds: new Set() };
+const EMPTY_HIGHLIGHT: HighlightSets = {
+  active: false,
+  focusIds: new Set(),
+  neighborIds: new Set(),
+};
 
 export function useSigmaGraph(options: {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -304,7 +329,8 @@ export function useSigmaGraph(options: {
           const isFocus = live.highlight.focusIds.has(node) || hoverLit;
           const isNeighbor = live.highlight.neighborIds.has(node);
           const color = nodeColorForState(data.color, { dimmed, isFocus, isNeighbor });
-          const eligibleForLabel = data.kind === 'community' || data.degree >= LABEL_DEGREE_THRESHOLD;
+          const eligibleForLabel =
+            data.kind === 'community' || data.degree >= LABEL_DEGREE_THRESHOLD;
           const scale = live.pulseScales.get(node) ?? 1;
           return {
             ...data,
@@ -321,7 +347,12 @@ export function useSigmaGraph(options: {
           const live = liveRef.current;
           const visible =
             data.kind === 'aggregate'
-              ? isAggregatedEdgeVisible(data, data.sourceCommunity, data.targetCommunity, live.filters)
+              ? isAggregatedEdgeVisible(
+                  data,
+                  data.sourceCommunity,
+                  data.targetCommunity,
+                  live.filters,
+                )
               : !live.collapsed.has(data.sourceCommunity) &&
                 !live.collapsed.has(data.targetCommunity) &&
                 isLinkVisible(data, data.sourceCommunity, data.targetCommunity, live.filters);
@@ -334,7 +365,9 @@ export function useSigmaGraph(options: {
           const dimmed = paint.dimmed && !emphasised;
           const scale = live.pulseScales.get(edge) ?? 1;
           const baseSize =
-            data.kind === 'aggregate' ? Math.min(6, 1 + Math.log2(data.count)) : Math.max(0.5, data.weight);
+            data.kind === 'aggregate'
+              ? Math.min(6, 1 + Math.log2(data.count))
+              : Math.max(0.5, data.weight);
           const theme = live.theme;
           // Theme B: edges fade in behind the bursting nodes rather than
           // stretching from the centroid — one multiplier for the whole edge
@@ -507,7 +540,10 @@ export function useSigmaGraph(options: {
         for (const neighbor of graph.neighbors(nodeId)) lit.add(neighbor);
       }
       live.hoverLitIds = lit;
-      repaint(new Set([...previousLit, ...lit]), [...previousEdges, ...(nodeId ? incidentEdges(nodeId) : [])]);
+      repaint(new Set([...previousLit, ...lit]), [
+        ...previousEdges,
+        ...(nodeId ? incidentEdges(nodeId) : []),
+      ]);
     };
 
     sigma.on('enterNode', ({ node }) => {
@@ -584,7 +620,10 @@ export function useSigmaGraph(options: {
         sigma.setSetting('edgeLabelColor', { color: theme.label });
         sigma.refresh();
       });
-      repaintObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+      repaintObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class'],
+      });
     }
 
     // Theme G finding (unverified under CI at ship time — Playwright's own
@@ -635,7 +674,9 @@ export function useSigmaGraph(options: {
     const payload = options.payload;
     const graph = graphRef.current;
     live.searchMatchIds =
-      payload && options.filters.query ? searchMatches(payload.nodes, options.filters.query) : new Set();
+      payload && options.filters.query
+        ? searchMatches(payload.nodes, options.filters.query)
+        : new Set();
     live.highlight = computeHighlightSets({
       searchMatchIds: live.searchMatchIds,
       selectedNodeId: options.selectedNodeId,
@@ -676,7 +717,9 @@ export function useSigmaGraph(options: {
     if (options.paused) {
       renderer.getCamera().setState({ x, y, ratio: FOCUS_CAMERA_RATIO });
     } else {
-      void renderer.getCamera().animate({ x, y, ratio: FOCUS_CAMERA_RATIO }, { duration: FOCUS_ANIMATION_MS });
+      void renderer
+        .getCamera()
+        .animate({ x, y, ratio: FOCUS_CAMERA_RATIO }, { duration: FOCUS_ANIMATION_MS });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `paused` is read, not a trigger: a focus-node change is the only thing that should fly the camera
   }, [options.focusNodeId]);
@@ -725,7 +768,11 @@ export function useSigmaGraph(options: {
         });
       }
 
-      for (const edge of aggregateCommunityEdges(payload.links, communityByNodeId, options.collapsedCommunities)) {
+      for (const edge of aggregateCommunityEdges(
+        payload.links,
+        communityByNodeId,
+        options.collapsedCommunities,
+      )) {
         if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
         graph.addEdgeWithKey(edge.key, edge.source, edge.target, {
           relation: edge.relations[0] ?? 'aggregate',
