@@ -62,6 +62,7 @@ function makeProps(renderer: KnowledgeRenderer, container: HTMLDivElement): Prop
     onNodeClick: vi.fn(),
     onNodeDoubleClick: vi.fn(),
     paused: false,
+    maxNodes: Number.POSITIVE_INFINITY,
   };
 }
 
@@ -77,7 +78,22 @@ describe('useKnowledgeRenderer', () => {
 
     rerender(props);
     expect(renderer.mount).toHaveBeenCalledTimes(1);
-    expect(renderer.mount).toHaveBeenCalledWith(container, PAYLOAD, expect.any(Object));
+    expect(renderer.mount).toHaveBeenCalledWith(container, PAYLOAD, expect.any(Object), {
+      maxNodes: Number.POSITIVE_INFINITY,
+    });
+  });
+
+  it('a new detail budget disposes and remounts with it — which nodes are mounted is decided at mount', () => {
+    const renderer = fakeRenderer();
+    const container = document.createElement('div');
+    const props = makeProps(renderer, container);
+    const { rerender } = renderHook((p: Props) => useKnowledgeRenderer(p), { initialProps: props });
+    expect(renderer.mount).toHaveBeenCalledTimes(1);
+
+    rerender({ ...props, maxNodes: 1_500 });
+    expect(renderer.dispose).toHaveBeenCalledTimes(1);
+    expect(renderer.mount).toHaveBeenCalledTimes(2);
+    expect(renderer.mount).toHaveBeenLastCalledWith(container, PAYLOAD, expect.any(Object), { maxNodes: 1_500 });
   });
 
   it('disposes and remounts on a new payload identity', () => {
@@ -91,7 +107,7 @@ describe('useKnowledgeRenderer', () => {
     rerender({ ...props, payload: nextPayload });
     expect(renderer.dispose).toHaveBeenCalledTimes(1);
     expect(renderer.mount).toHaveBeenCalledTimes(2);
-    expect(renderer.mount).toHaveBeenLastCalledWith(container, nextPayload, expect.any(Object));
+    expect(renderer.mount).toHaveBeenLastCalledWith(container, nextPayload, expect.any(Object), expect.any(Object));
   });
 
   it('applyFilters fires on a filters change, independently of selection', () => {

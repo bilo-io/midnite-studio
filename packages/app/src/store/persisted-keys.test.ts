@@ -97,6 +97,8 @@ describe('persisted-keys partition', () => {
         'rendererVariant',
         // Phase 89 Theme E's own, same reasoning: the layout pill row.
         'layoutId',
+        // The Knowledge canvas's detail budget, same reasoning: the detail pill row.
+        'knowledgeDetailId',
       ].sort(),
     );
   });

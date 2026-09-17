@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
 
-import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
+import type { KnowledgeGraphPayload, KnowledgeResult } from '@midnite/studio-shared';
 
 import { bridge } from '../../services/bridge';
 import { keys } from '../../services/queries';
@@ -14,8 +14,9 @@ import { keys } from '../../services/queries';
  * keyed on `repoId` alone (`keys.knowledgeGraph`'s own docblock). A later
  * pill click goes around that query entirely: this hook calls
  * `knowledge.getGraph({repoId, layoutId})` directly and, on success, writes
- * the new payload into the SAME cache entry with `queryClient.setQueryData`
- * rather than invalidating or refetching — a direct cache write never
+ * the new RESULT ENVELOPE into the SAME cache entry with
+ * `queryClient.setQueryData` rather than invalidating or refetching — a
+ * direct cache write never
  * toggles `isLoading`, so `KnowledgeView`'s `state.kind` stays `'ready'`
  * throughout and the canvas tweens (`use-knowledge-renderer.ts`'s effect
  * 1b) instead of the whole `ready` branch unmounting for a spinner.
@@ -55,9 +56,15 @@ export function useKnowledgeLayoutSwitch(repoId: string | null): {
         .then((result) => {
           if (tokenRef.current !== token) return; // superseded
           if (result?.ok) {
-            queryClient.setQueryData<KnowledgeGraphPayload>(
+            // The whole `{ok, value}` envelope, exactly what `useKnowledgeGraph`'s
+            // own `queryFn` stores under this key — `resolveKnowledgeViewState`
+            // reads `result.value.commitsBehind` off whatever is cached here, so
+            // writing the bare payload (as this once did) threw
+            // "Cannot read properties of undefined (reading 'commitsBehind')"
+            // straight into the view's error boundary on every layout switch.
+            queryClient.setQueryData<KnowledgeResult<KnowledgeGraphPayload>>(
               keys.knowledgeGraph(activeRepoId),
-              result.value,
+              result,
             );
           }
           setSwitching(false);

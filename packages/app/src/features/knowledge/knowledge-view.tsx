@@ -18,6 +18,8 @@ import {
 } from './knowledge-community-collapse';
 import { KnowledgeCommunityPanel } from './knowledge-community-panel';
 import { computeDegrees } from './knowledge-degree';
+import { offeredDetailLevels, resolveDetailLevel } from './knowledge-detail';
+import { KnowledgeDetailPills } from './knowledge-detail-pills';
 import { KnowledgeFiltersPanel } from './knowledge-filters-panel';
 import {
   countVisibleLinks,
@@ -89,6 +91,13 @@ export function KnowledgeView() {
   const setCommunityListMode = useKnowledgeFiltersStore((s) => s.setCommunityListMode);
   const rendererVariant = useKnowledgeFiltersStore((s) => s.rendererVariant);
   const setRendererVariant = useKnowledgeFiltersStore((s) => s.setRendererVariant);
+  // The detail budget (`knowledge-detail.ts`): how much of a large graph the
+  // canvas mounts before anything is searched for or expanded. Persisted the
+  // same way `layoutId` is; a change remounts the renderer
+  // (`use-knowledge-renderer.ts`'s effect (1)).
+  const detailId = useKnowledgeFiltersStore((s) => s.detailId);
+  const setDetailId = useKnowledgeFiltersStore((s) => s.setDetailId);
+  const maxNodes = resolveDetailLevel(detailId).maxNodes;
   // Decision 9: the layout row is offered only for a variant whose engine
   // actually consumes worker `positions` — d3-force's future live-sim
   // variant (Theme I) computes its own layout, and a permanently visible
@@ -161,6 +170,8 @@ export function KnowledgeView() {
     [payload],
   );
   const degrees = useMemo(() => (payload ? computeDegrees(payload.links) : new Map<string, number>()), [payload]);
+  // One level is no choice — the row only earns its height on a graph the budgets can tell apart.
+  const showDetailPills = payload ? offeredDetailLevels(payload.nodes.length).length > 1 : false;
 
   /**
    * Double-click: an ordinary node folds its whole community into one meta-
@@ -261,9 +272,20 @@ export function KnowledgeView() {
             />
             <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
               <KnowledgeVariantPills activeId={rendererVariant} onSelect={setRendererVariant} />
-              {showLayoutPills ? (
+              {showLayoutPills || showDetailPills ? (
                 <div className="flex min-w-0 items-center gap-1.5 border-b border-border px-3 py-1.5">
-                  <KnowledgeLayoutPills activeId={layoutId} onSelect={handleSelectLayout} />
+                  {showLayoutPills ? (
+                    <KnowledgeLayoutPills activeId={layoutId} onSelect={handleSelectLayout} />
+                  ) : null}
+                  {showDetailPills ? (
+                    <div className={showLayoutPills ? 'ml-auto flex min-w-0 items-center' : 'flex min-w-0 items-center'}>
+                      <KnowledgeDetailPills
+                        nodeCount={state.graph.nodes.length}
+                        activeId={detailId}
+                        onSelect={setDetailId}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               <KnowledgeCanvas
@@ -276,6 +298,7 @@ export function KnowledgeView() {
                 onNodeClick={selectNode}
                 onNodeDoubleClick={handleNodeDoubleClick}
                 paused={!focused}
+                maxNodes={maxNodes}
               />
             </div>
             {selectedNodeId ? (

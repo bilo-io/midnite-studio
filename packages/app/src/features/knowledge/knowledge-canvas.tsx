@@ -31,6 +31,7 @@ export function KnowledgeCanvas({
   onNodeClick,
   onNodeDoubleClick,
   paused,
+  maxNodes,
 }: {
   /** The persisted variant preference — `ui-store.ts`'s `rendererVariant`, mirrored per `knowledge-filters-store.ts`. */
   rendererVariant: KnowledgeVariantId;
@@ -44,6 +45,8 @@ export function KnowledgeCanvas({
   onNodeDoubleClick: (nodeId: string) => void;
   /** Phase 84's visibility gate — the window is blurred; skip the camera-fly and bounce animations. */
   paused: boolean;
+  /** The detail budget (`knowledge-detail.ts`) — how many nodes the variant mounts up front. */
+  maxNodes: number;
 }) {
   const variant = resolveVariant(rendererVariant);
   // Keyed on `variant.load` — NOT the whole `variant` object, and NOT
@@ -68,6 +71,7 @@ export function KnowledgeCanvas({
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         paused={paused}
+        maxNodes={maxNodes}
       />
     </Suspense>
   );

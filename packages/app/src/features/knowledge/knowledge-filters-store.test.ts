@@ -1,7 +1,12 @@
 // Layer: vitest — a zustand store, no DOM/canvas involved.
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { DEFAULT_KNOWLEDGE_LAYOUT, DEFAULT_KNOWLEDGE_VARIANT, useUiStore } from '../../store/ui-store';
+import {
+  DEFAULT_KNOWLEDGE_DETAIL,
+  DEFAULT_KNOWLEDGE_LAYOUT,
+  DEFAULT_KNOWLEDGE_VARIANT,
+  useUiStore,
+} from '../../store/ui-store';
 import { DEFAULT_RELATIONS } from './knowledge-filters';
 import { useKnowledgeFiltersStore } from './knowledge-filters-store';
 
@@ -22,8 +27,13 @@ describe('useKnowledgeFiltersStore', () => {
       communityListMode: 'list',
       rendererVariant: DEFAULT_KNOWLEDGE_VARIANT,
       layoutId: DEFAULT_KNOWLEDGE_LAYOUT,
+      detailId: DEFAULT_KNOWLEDGE_DETAIL,
     });
-    useUiStore.setState({ rendererVariant: DEFAULT_KNOWLEDGE_VARIANT, layoutId: DEFAULT_KNOWLEDGE_LAYOUT });
+    useUiStore.setState({
+      rendererVariant: DEFAULT_KNOWLEDGE_VARIANT,
+      layoutId: DEFAULT_KNOWLEDGE_LAYOUT,
+      knowledgeDetailId: DEFAULT_KNOWLEDGE_DETAIL,
+    });
   });
 
   it('resets to defaults on a scope (repo) change', () => {
@@ -150,6 +160,14 @@ describe('useKnowledgeFiltersStore', () => {
     useKnowledgeFiltersStore.getState().setRendererVariant('cytoscape');
     expect(useKnowledgeFiltersStore.getState().rendererVariant).toBe('cytoscape');
     expect(useUiStore.getState().rendererVariant).toBe('cytoscape');
+  });
+
+  it('detailId is not reset by ensureScope, and writes through to ui-store.ts', () => {
+    useKnowledgeFiltersStore.getState().ensureScope('repo:1');
+    useKnowledgeFiltersStore.getState().setDetailId('all');
+    useKnowledgeFiltersStore.getState().ensureScope('repo:2');
+    expect(useKnowledgeFiltersStore.getState().detailId).toBe('all');
+    expect(useUiStore.getState().knowledgeDetailId).toBe('all');
   });
 
   it('layoutId is not reset by ensureScope — a UI preference, not repo-scoped state (Theme E)', () => {

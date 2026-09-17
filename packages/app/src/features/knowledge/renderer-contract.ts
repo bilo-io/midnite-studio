@@ -35,13 +35,33 @@ export type KnowledgeRendererCallbacks = {
   onNodeDoubleClick: (nodeId: string) => void;
 };
 
+/**
+ * What `mount()` is told about how much of the payload to put on the canvas.
+ * `maxNodes` is the detail budget (`knowledge-detail.ts`): the renderer
+ * mounts at most that many nodes — the highest-degree ones — and the links
+ * among them, and pulls the rest in on demand (a focused node and its
+ * neighbourhood, search matches, a cluster the user expands). `Infinity`
+ * mounts everything, which is what every variant did before the budget
+ * existed. The FULL payload is still handed to `mount()`: the renderer owns
+ * the reveal, so it needs the whole graph to reveal from.
+ */
+export type KnowledgeMountOptions = {
+  maxNodes: number;
+};
+
 export interface KnowledgeRenderer {
   /**
    * Build and mount once per payload identity (`use-sigma-graph.ts`'s effect
    * (1), `:176`) — a fresh `builtAtCommit` or a repo switch, never a
-   * filter/search keystroke.
+   * filter/search keystroke. `options.maxNodes` is the detail budget; a
+   * change of budget is a remount too (`use-knowledge-renderer.ts`).
    */
-  mount(container: HTMLDivElement, payload: KnowledgeGraphPayload, callbacks: KnowledgeRendererCallbacks): void;
+  mount(
+    container: HTMLDivElement,
+    payload: KnowledgeGraphPayload,
+    callbacks: KnowledgeRendererCallbacks,
+    options: KnowledgeMountOptions,
+  ): void;
   /** Tear down everything `mount` created — the effect (1) cleanup, `:481`. */
   dispose(): void;
   /**
@@ -107,6 +127,8 @@ export type KnowledgeVariantProps = {
   onNodeClick: (nodeId: string) => void;
   onNodeDoubleClick: (nodeId: string) => void;
   paused: boolean;
+  /** The detail budget — see {@link KnowledgeMountOptions}. */
+  maxNodes: number;
 };
 
 /** A variant id, as persisted in `ui-store.ts`. Not a literal union — see `resolveVariant`'s fallback for why. */

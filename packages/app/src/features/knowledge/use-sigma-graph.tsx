@@ -4,7 +4,7 @@ import { MultiDirectedGraph } from 'graphology';
 import Sigma from 'sigma';
 import type { EdgeProgramType } from 'sigma/rendering';
 
-import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
+import type { KnowledgeGraphNode, KnowledgeGraphPayload } from '@midnite/studio-shared';
 
 import { resolveSystemMotion, useAppearanceStore } from '../../store/appearance-store';
 import { PULSES, PulseTracker } from './knowledge-bounce';
@@ -22,10 +22,18 @@ import {
   communityNameFromNodeId,
   communityNodeId,
   isAggregatedEdgeVisible,
+  nodesByCommunity,
   sizeForMemberCount,
 } from './knowledge-community-collapse';
 import { communityColor, parseHslTriple } from './knowledge-community-colors';
 import { computeDegrees, sizeForDegree } from './knowledge-degree';
+import {
+  MAX_FOCUS_NEIGHBOURS,
+  MAX_SEARCH_REVEAL,
+  linkIndexByNode,
+  rankNodesByDegree,
+  selectCoreNodeIds,
+} from './knowledge-detail';
 import {
   isLinkVisible,
   isCommunityVisible,
@@ -48,6 +56,7 @@ import {
 } from './knowledge-intro';
 import { LayoutTransition } from './knowledge-layout-transition';
 import type {
+  KnowledgeMountOptions,
   KnowledgeRenderer,
   KnowledgeRendererCallbacks,
   KnowledgeVariantProps,
@@ -76,11 +85,30 @@ import { computeOrbitPositions, type OrbitPosition } from './variants/knowledge-
  * covered by its own vitest suite with no canvas involved — none of that
  * moved.
  *
- * Performance shape, for a 15k-node / 36k-edge graph, is unchanged from
- * before this move:
+ * Performance shape, for a 15k-node / 37k-edge graph:
+ *   - the canvas mounts the DETAIL BUDGET, not the payload
+ *     (`knowledge-detail.ts`; `mount()`'s `options.maxNodes`): the top-N
+ *     nodes by degree and the links among them (1,500 / 8,618 for this repo
+ *     at the default level, against 15,292 / 37,036). Everything else stays
+ *     in `this.payload` and is REVEALED on demand — a focused node and its
+ *     neighbourhood (`focusNode`), search matches (`applyFilters`), the
+ *     members of a cluster the user expands (the `doubleClickNode` handler)
+ *     — through `reveal()`, which adds nodes and their links to the mounted
+ *     side incrementally. Every cost below scales with the mounted count;
  *   - the graph is built ONCE per payload; filters, selection, search and
  *     collapse all flow through `this.live` and a `refresh()`, never a
  *     rebuild;
+ *   - EVERY structural mutation of the graphology graph after mount goes
+ *     through `mutateGraph()`, which detaches sigma for the batch. sigma
+ *     answers each graphology `nodeDropped`/`edgeDropped` event with a
+ *     synchronous FULL re-index (`refresh({schedule: true})` — the render is
+ *     deferred, the reducers over every node and edge are not). Measured on
+ *     this repo in the packaged app: ~27 ms per event at 15k/37k, and a
+ *     `dropNode` on a collapsed community's meta-node fires one per
+ *     aggregated edge. Leaving the Clusters look (512 meta-nodes, 2,893
+ *     aggregate edges) therefore froze the renderer for ~90 s — long enough
+ *     for Electron to report it `unresponsive` and for the user to quit the
+ *     app. Detached, the same batch is one re-index;
  *   - every reducer is O(1) — degree, community and endpoint ids are baked
  *     into each item's own attributes at build time, so no `extremities()`
  *     or `getNodeAttributes()` per edge per frame;
@@ -174,6 +202,16 @@ const ORBIT_TWEEN_MS = 500;
 
 function resolveToken(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/** What sigma is pointed at while a batch of graph mutations runs — see `SigmaKnowledgeRenderer.mutateGraph`. Never mutated, so one shared instance is enough. */
+const DETACHED_GRAPH = new MultiDirectedGraph<NodeAttrs, EdgeAttrs>();
+
+function sameSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const value of a) if (!b.has(value)) return false;
+  return true;
 }
 
 /** Phase 46's rule: reduced motion means skip entirely, not shorten — mirrors `use-title-typewriter.ts`'s own local check (no shared helper for this one call site either). */
@@ -318,11 +356,17 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
   /** Orbit's own layout, computed once per payload and cached — `computeOrbitPositions` is pure and deterministic, so recomputing on every look switch would be wasted work, not a different answer. */
   private orbitPositionsCache: Map<string, OrbitPosition> | null = null;
   private posTweenFrame: number | null = null;
+  /** The whole payload, indexed for `reveal()` — what is NOT on the canvas has to be found in O(degree), not by a pass over 37k links. */
+  private nodeById = new Map<string, KnowledgeGraphNode>();
+  private linksByNode: ReadonlyMap<string, number[]> = new Map();
+  private degrees: ReadonlyMap<string, number> = new Map();
+  private membersByCommunity: ReadonlyMap<string, KnowledgeGraphNode[]> = new Map();
 
   mount(
     container: HTMLDivElement,
     payload: KnowledgeGraphPayload,
     callbacks: KnowledgeRendererCallbacks,
+    options: KnowledgeMountOptions,
   ): void {
     // A payload change always follows a `dispose()` from `use-knowledge-renderer.ts`'s
     // own effect cleanup, but guard anyway — a stray double-mount should
@@ -335,6 +379,13 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
 
     const graph = new MultiDirectedGraph<NodeAttrs, EdgeAttrs>();
     const degrees = computeDegrees(payload.links);
+    this.degrees = degrees;
+    this.nodeById = new Map(payload.nodes.map((node) => [node.id, node]));
+    this.linksByNode = linkIndexByNode(payload.links);
+    this.membersByCommunity = nodesByCommunity(payload.nodes);
+    // The detail budget: `null` means the whole graph fits and nothing is filtered.
+    const core = selectCoreNodeIds(payload.nodes, degrees, options.maxNodes);
+    const mountedNodes = core ? payload.nodes.filter((node) => core.has(node.id)) : payload.nodes;
     this.live = initialLiveState();
     const live = this.live;
     live.theme = readThemeColors();
@@ -355,40 +406,17 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     // the graph later, which Orbit's own tween mutates) so leaving Orbit
     // always has an exact Atlas coordinate to return to.
     this.homePositions = new Map(
-      payload.nodes.map((node) => [node.id, payload.positions[node.id] ?? { x: 0, y: 0 }]),
+      mountedNodes.map((node) => [node.id, payload.positions[node.id] ?? { x: 0, y: 0 }]),
     );
     this.orbitPositionsCache = null;
 
-    for (const node of payload.nodes) {
-      const pos = payload.positions[node.id] ?? { x: 0, y: 0 };
-      graph.addNode(node.id, {
-        x: pos.x,
-        y: pos.y,
-        size: sizeForDegree(degrees.get(node.id) ?? 0),
-        label: node.label,
-        color: communityColor(node.community, resolveToken),
-        community: node.community,
-        communityName: node.communityName,
-        degree: degrees.get(node.id) ?? 0,
-        kind: 'node',
-        memberCount: 1,
-      });
-    }
-    for (const link of payload.links) {
-      if (!graph.hasNode(link.source) || !graph.hasNode(link.target)) continue;
-      graph.addEdge(link.source, link.target, {
-        relation: link.relation,
-        weight: link.weight,
-        confidence: link.confidence,
-        sourceId: link.source,
-        targetId: link.target,
-        sourceCommunity: graph.getNodeAttribute(link.source, 'communityName'),
-        targetCommunity: graph.getNodeAttribute(link.target, 'communityName'),
-        kind: 'link',
-        relations: [link.relation],
-        count: 1,
-      });
-    }
+    for (const node of mountedNodes) this.addPayloadNode(graph, node);
+    // Links among the mounted nodes only — a link to a node outside the
+    // budget is added later by `reveal()`, if that node is ever pulled in.
+    // Keyed by link index (`addIncidentLinks` relies on `hasEdge(key)` to
+    // never add the same link twice from either endpoint).
+    for (let i = 0; i < payload.links.length; i++) this.addPayloadLink(graph, i);
+    const mountedLinkCount = graph.size;
 
     // --- Intro burst setup ---------------------------------------------------
     // Theme B: on a genuinely fresh payload (first open, repo switch, or
@@ -403,9 +431,9 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     live.introEdgeAlpha = 1;
     live.introStartedAt = 0;
     live.intro.clear();
-    const shouldAnimateIntro = !live.reducedMotion && !live.paused && payload.nodes.length > 0;
+    const shouldAnimateIntro = !live.reducedMotion && !live.paused && mountedNodes.length > 0;
     if (shouldAnimateIntro) {
-      const introNodes: IntroNodeSpec[] = payload.nodes.map((node) => ({
+      const introNodes: IntroNodeSpec[] = mountedNodes.map((node) => ({
         id: node.id,
         to: payload.positions[node.id] ?? { x: 0, y: 0 },
         degree: degrees.get(node.id) ?? 0,
@@ -438,7 +466,7 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
         zIndex: true,
         enableEdgeEvents: true,
         renderEdgeLabels: true,
-        hideEdgesOnMove: payload.links.length > HIDE_EDGES_ON_MOVE_ABOVE,
+        hideEdgesOnMove: mountedLinkCount > HIDE_EDGES_ON_MOVE_ABOVE,
         labelRenderedSizeThreshold: LABEL_RENDERED_SIZE_THRESHOLD,
         labelDensity: DEFAULT_LABEL_DENSITY,
         labelGridCellSize: DEFAULT_LABEL_GRID_CELL_SIZE,
@@ -620,6 +648,12 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
         clearTimeout(this.pendingClick);
         this.pendingClick = null;
       }
+      // Expanding a cluster is the one drill-in that should show EVERY member,
+      // budget or not — the user asked to see inside it. Revealed here, before
+      // the callback's store write comes back as `setCollapsed`, so that call
+      // finds the members already mounted and simply un-hides them.
+      const expanding = communityNameFromNodeId(node);
+      if (expanding !== null) this.revealCommunity(expanding);
       this.callbacks?.onNodeDoubleClick(node);
     });
     sigma.on('enterEdge', ({ edge }) => {
@@ -710,12 +744,35 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     this.posTweenFrame = null;
     this.homePositions = null;
     this.orbitPositionsCache = null;
+    this.nodeById = new Map();
+    this.linksByNode = new Map();
+    this.degrees = new Map();
+    this.membersByCommunity = new Map();
   }
 
   applyFilters(filters: KnowledgeFilterState): void {
     this.live.filters = filters;
     this.live.searchMatchIds =
       this.payload && filters.query ? searchMatches(this.payload.nodes, filters.query) : new Set();
+    // A search is a reason to see what it found: matches outside the budget
+    // come onto the canvas, the highest-degree first, capped so a one-letter
+    // query cannot pull the whole graph in. Only when something is actually
+    // missing — the common case (everything already mounted) stays a plain
+    // refresh with no graph mutation at all.
+    const graph = this.graph;
+    if (graph && this.live.searchMatchIds.size > 0) {
+      const missing: KnowledgeGraphNode[] = [];
+      for (const id of this.live.searchMatchIds) {
+        if (graph.hasNode(id)) continue;
+        const node = this.nodeById.get(id);
+        if (node) missing.push(node);
+      }
+      if (missing.length > 0) {
+        const chosen = rankNodesByDegree(missing, this.degrees).slice(0, MAX_SEARCH_REVEAL);
+        this.mutateGraph(() => this.reveal(chosen.map((node) => node.id)));
+        return;
+      }
+    }
     this.recomputeHighlight();
     this.sigma?.refresh();
   }
@@ -778,7 +835,9 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     if (this.orbitPositionsCache) return this.orbitPositionsCache;
     const payload = this.payload;
     if (!payload) return new Map();
-    const positions = computeOrbitPositions(payload.nodes, payload.positions);
+    // Rings over the MOUNTED nodes — a ring spaced for 844 members when 60 are
+    // on the canvas would read as mostly empty.
+    const positions = computeOrbitPositions(this.mountedNodes(), payload.positions);
     this.orbitPositionsCache = positions;
     return positions;
   }
@@ -802,10 +861,7 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
 
     if (this.live.paused || prefersReducedMotion()) {
       for (const [id, pos] of target) {
-        if (graph.hasNode(id)) {
-          graph.setNodeAttribute(id, 'x', pos.x);
-          graph.setNodeAttribute(id, 'y', pos.y);
-        }
+        if (graph.hasNode(id)) graph.mergeNodeAttributes(id, { x: pos.x, y: pos.y });
       }
       this.sigma?.refresh();
       return;
@@ -822,8 +878,10 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
       for (const [id, to] of target) {
         if (!graph.hasNode(id)) continue;
         const source = from.get(id) ?? to;
-        graph.setNodeAttribute(id, 'x', source.x + (to.x - source.x) * eased);
-        graph.setNodeAttribute(id, 'y', source.y + (to.y - source.y) * eased);
+        graph.mergeNodeAttributes(id, {
+          x: source.x + (to.x - source.x) * eased,
+          y: source.y + (to.y - source.y) * eased,
+        });
       }
       this.sigma?.refresh();
       this.posTweenFrame = t < 1 ? requestAnimationFrame(tick) : null;
@@ -847,7 +905,15 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
   focusNode(nodeId: string | null): void {
     const sigma = this.sigma;
     const graph = this.graph;
-    if (!sigma || !graph || !nodeId || !graph.hasNode(nodeId)) return;
+    if (!sigma || !graph || !nodeId) return;
+    // Outside the budget (a tree click, a community-panel member, a search
+    // whose best match was past the reveal cap): bring it in with enough
+    // neighbourhood to read, then fly. `mutateGraph` ends in a full refresh,
+    // so `getNodeDisplayData` below already sees its normalised position.
+    if (!graph.hasNode(nodeId)) {
+      if (!this.nodeById.has(nodeId)) return;
+      this.mutateGraph(() => this.reveal([nodeId, ...this.neighbourIds(nodeId, MAX_FOCUS_NEIGHBOURS)]));
+    }
 
     const displayData = sigma.getNodeDisplayData(nodeId);
     if (!displayData) return;
@@ -869,11 +935,28 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
   // removed: the reducers hide them while their community is collapsed, so
   // expanding is instant and loses nothing.
   setCollapsed(collapsedCommunities: ReadonlySet<string>): void {
-    const graph = this.graph;
-    const sigma = this.sigma;
-    const payload = this.payload;
+    const previous = this.live.collapsed;
     this.live.collapsed = collapsedCommunities;
-    if (!graph || !sigma || !payload) return;
+    if (!this.graph || !this.sigma || !this.payload) return;
+    // Same members, new Set instance — React hands one over on every render
+    // that recomputes the memo (the Clusters look does, once per payload,
+    // right after mounting with every community collapsed). Rebuilding
+    // 512 meta-nodes to arrive at the same graph is the work this skips.
+    if (sameSet(previous, collapsedCommunities)) return;
+    this.mutateGraph(() => this.rebuildCollapsed());
+  }
+
+  /**
+   * The meta-node/aggregated-edge layer for `live.collapsed`, rebuilt
+   * wholesale (see `aggregateCommunityEdges`'s docblock for why not diffed).
+   * Runs ONLY inside `mutateGraph` — the `dropNode` here is exactly the call
+   * that, with sigma attached, costs one full re-index per aggregated edge.
+   */
+  private rebuildCollapsed(): void {
+    const graph = this.graph;
+    const payload = this.payload;
+    if (!graph || !payload) return;
+    const collapsedCommunities = this.live.collapsed;
 
     // Drop every existing meta-node (its aggregated edges go with it).
     const stale: string[] = [];
@@ -882,52 +965,187 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     });
     for (const nodeId of stale) graph.dropNode(nodeId);
 
-    if (collapsedCommunities.size > 0) {
-      const centroids = communityCentroids(payload.nodes, payload.positions);
-      const communityByNodeId = new Map<string, string>();
-      for (const node of payload.nodes) communityByNodeId.set(node.id, node.communityName);
+    if (collapsedCommunities.size === 0) return;
 
-      for (const name of collapsedCommunities) {
-        const centroid = centroids.get(name);
-        if (!centroid) continue;
-        graph.addNode(communityNodeId(name), {
-          x: centroid.x,
-          y: centroid.y,
-          size: sizeForMemberCount(centroid.count),
-          label: `${name} (${centroid.count})`,
-          color: communityColor(centroid.community, resolveToken),
-          community: centroid.community,
-          communityName: name,
-          degree: Number.POSITIVE_INFINITY,
-          kind: 'community',
-          memberCount: centroid.count,
-        });
-      }
+    // Centroids and member counts come from the WHOLE payload — a collapsed
+    // community's bubble stands for all its members, mounted or not.
+    const centroids = communityCentroids(payload.nodes, payload.positions);
+    const communityByNodeId = new Map<string, string>();
+    for (const node of payload.nodes) communityByNodeId.set(node.id, node.communityName);
 
-      for (const edge of aggregateCommunityEdges(
-        payload.links,
-        communityByNodeId,
-        collapsedCommunities,
-      )) {
-        if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
-        graph.addEdgeWithKey(edge.key, edge.source, edge.target, {
-          relation: edge.relations[0] ?? 'aggregate',
-          weight: edge.weight,
-          confidence: edge.confidence,
-          sourceId: edge.source,
-          targetId: edge.target,
-          sourceCommunity: graph.getNodeAttribute(edge.source, 'communityName'),
-          targetCommunity: graph.getNodeAttribute(edge.target, 'communityName'),
-          kind: 'aggregate',
-          relations: edge.relations,
-          count: edge.count,
-        });
-      }
+    for (const name of collapsedCommunities) {
+      const centroid = centroids.get(name);
+      if (!centroid) continue;
+      graph.addNode(communityNodeId(name), {
+        x: centroid.x,
+        y: centroid.y,
+        size: sizeForMemberCount(centroid.count),
+        label: `${name} (${centroid.count})`,
+        color: communityColor(centroid.community, resolveToken),
+        community: centroid.community,
+        communityName: name,
+        degree: Number.POSITIVE_INFINITY,
+        kind: 'community',
+        memberCount: centroid.count,
+      });
     }
 
-    // The highlight's neighbourhoods may now run through meta-nodes.
-    this.recomputeHighlight();
-    sigma.refresh();
+    for (const edge of aggregateCommunityEdges(payload.links, communityByNodeId, collapsedCommunities)) {
+      // An endpoint outside the budget is simply not on the canvas (yet) — the
+      // edge joins it when `reveal()` brings that node in and rebuilds this layer.
+      if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
+      graph.addEdgeWithKey(edge.key, edge.source, edge.target, {
+        relation: edge.relations[0] ?? 'aggregate',
+        weight: edge.weight,
+        confidence: edge.confidence,
+        sourceId: edge.source,
+        targetId: edge.target,
+        sourceCommunity: graph.getNodeAttribute(edge.source, 'communityName'),
+        targetCommunity: graph.getNodeAttribute(edge.target, 'communityName'),
+        kind: 'aggregate',
+        relations: edge.relations,
+        count: edge.count,
+      });
+    }
+  }
+
+  // --- Mutation batching and on-demand reveal --------------------------------
+
+  /**
+   * Run `fn` with sigma DETACHED from the graph, then reattach and refresh
+   * once. sigma binds a listener to every graphology event and answers a
+   * `nodeDropped`/`edgeDropped` with `refresh({schedule: true})` — which
+   * schedules the RENDER but runs the re-index (both reducers over every
+   * mounted node and edge) synchronously, right there in the listener. One
+   * `dropNode` on a meta-node with 800 aggregated edges is 800 of those.
+   * `setGraph` is sigma's own public seam for rebinding: pointing it at an
+   * empty graph for the duration unbinds the listeners, pointing it back
+   * rebinds them and does the one full refresh the batch actually needs.
+   * Both `setGraph` calls render synchronously within this same task, so no
+   * frame is ever painted from the empty graph in between.
+   *
+   * The highlight is recomputed before reattaching, so the refresh that
+   * `setGraph` performs already sees neighbourhoods that run through the
+   * mutated graph (a meta-node added, a revealed node's links).
+   */
+  private mutateGraph(fn: () => void): void {
+    const sigma = this.sigma;
+    const graph = this.graph;
+    if (!sigma || !graph) {
+      fn();
+      return;
+    }
+    sigma.setGraph(DETACHED_GRAPH);
+    try {
+      fn();
+    } finally {
+      this.recomputeHighlight();
+      sigma.setGraph(graph);
+    }
+  }
+
+  /**
+   * Add `ids` (payload nodes not yet mounted) and every link from each to a
+   * node that IS mounted. Must run inside `mutateGraph`. If communities are
+   * collapsed, the meta-node layer is rebuilt afterwards so a revealed node's
+   * edges into a collapsed community fold into that community's bubble the
+   * same way an originally-mounted node's do.
+   */
+  private reveal(ids: Iterable<string>): void {
+    const graph = this.graph;
+    if (!graph) return;
+    const added: string[] = [];
+    for (const id of ids) {
+      if (graph.hasNode(id)) continue;
+      const node = this.nodeById.get(id);
+      if (!node) continue;
+      this.addPayloadNode(graph, node);
+      added.push(id);
+    }
+    if (added.length === 0) return;
+    for (const id of added) this.addIncidentLinks(graph, id);
+    if (this.live.collapsed.size > 0) this.rebuildCollapsed();
+  }
+
+  /** Every member of `communityName` onto the canvas — the drill-in a double-click on its bubble asks for. */
+  private revealCommunity(communityName: string): void {
+    const members = this.membersByCommunity.get(communityName);
+    if (!members) return;
+    const graph = this.graph;
+    if (!graph || members.every((node) => graph.hasNode(node.id))) return;
+    this.mutateGraph(() => this.reveal(members.map((node) => node.id)));
+  }
+
+  /** `nodeId`'s neighbours over the WHOLE payload (not just the mounted part), highest-degree first, at most `limit`. */
+  private neighbourIds(nodeId: string, limit: number): string[] {
+    const payload = this.payload;
+    const incident = this.linksByNode.get(nodeId);
+    if (!payload || !incident) return [];
+    const seen = new Set<string>();
+    const neighbours: KnowledgeGraphNode[] = [];
+    for (const index of incident) {
+      const link = payload.links[index]!;
+      const other = link.source === nodeId ? link.target : link.source;
+      if (other === nodeId || seen.has(other)) continue;
+      seen.add(other);
+      const node = this.nodeById.get(other);
+      if (node) neighbours.push(node);
+    }
+    return rankNodesByDegree(neighbours, this.degrees)
+      .slice(0, limit)
+      .map((node) => node.id);
+  }
+
+  /** The ordinary (non-meta) nodes currently on the canvas. */
+  private mountedNodes(): Pick<KnowledgeGraphNode, 'id' | 'communityName'>[] {
+    const out: Pick<KnowledgeGraphNode, 'id' | 'communityName'>[] = [];
+    this.graph?.forEachNode((id, attrs) => {
+      if (attrs.kind === 'node') out.push({ id, communityName: attrs.communityName });
+    });
+    return out;
+  }
+
+  private addPayloadNode(graph: MultiDirectedGraph<NodeAttrs, EdgeAttrs>, node: KnowledgeGraphNode): void {
+    const pos = this.payload?.positions[node.id] ?? { x: 0, y: 0 };
+    const degree = this.degrees.get(node.id) ?? 0;
+    graph.addNode(node.id, {
+      x: pos.x,
+      y: pos.y,
+      size: sizeForDegree(degree),
+      label: node.label,
+      color: communityColor(node.community, resolveToken),
+      community: node.community,
+      communityName: node.communityName,
+      degree,
+      kind: 'node',
+      memberCount: 1,
+    });
+  }
+
+  /** The payload link at `index`, if both its endpoints are mounted and it is not already on the canvas. */
+  private addPayloadLink(graph: MultiDirectedGraph<NodeAttrs, EdgeAttrs>, index: number): void {
+    const link = this.payload?.links[index];
+    if (!link) return;
+    const key = `l${index}`;
+    if (graph.hasEdge(key) || !graph.hasNode(link.source) || !graph.hasNode(link.target)) return;
+    graph.addEdgeWithKey(key, link.source, link.target, {
+      relation: link.relation,
+      weight: link.weight,
+      confidence: link.confidence,
+      sourceId: link.source,
+      targetId: link.target,
+      sourceCommunity: graph.getNodeAttribute(link.source, 'communityName'),
+      targetCommunity: graph.getNodeAttribute(link.target, 'communityName'),
+      kind: 'link',
+      relations: [link.relation],
+      count: 1,
+    });
+  }
+
+  private addIncidentLinks(graph: MultiDirectedGraph<NodeAttrs, EdgeAttrs>, nodeId: string): void {
+    const incident = this.linksByNode.get(nodeId);
+    if (!incident) return;
+    for (const index of incident) this.addPayloadLink(graph, index);
   }
 
   /** No-op passthrough — sigma owns its own `ResizeObserver` (`mount`, above). */
@@ -973,9 +1191,7 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     if (this.live.paused || prefersReducedMotion()) {
       graph.forEachNode((id) => {
         const to = positions[id];
-        if (!to) return;
-        graph.setNodeAttribute(id, 'x', to.x);
-        graph.setNodeAttribute(id, 'y', to.y);
+        if (to) graph.mergeNodeAttributes(id, { x: to.x, y: to.y });
       });
       sigma.refresh();
       return;
@@ -1058,8 +1274,9 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     const nodes: string[] = [];
     for (const [id, point] of sample.positions) {
       if (!graph.hasNode(id)) continue;
-      graph.setNodeAttribute(id, 'x', point.x);
-      graph.setNodeAttribute(id, 'y', point.y);
+      // One `nodeAttributesUpdated` event per node per frame, not two — sigma
+      // answers each with a reducer run for that node (`updateNodeGraphUpdate`).
+      graph.mergeNodeAttributes(id, { x: point.x, y: point.y });
       nodes.push(id);
     }
     const elapsedSinceStart = performance.now() - live.introStartedAt;
@@ -1130,8 +1347,7 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     const touched: string[] = [];
     for (const [id, pos] of sample.positions) {
       if (!graph.hasNode(id)) continue;
-      graph.setNodeAttribute(id, 'x', pos.x);
-      graph.setNodeAttribute(id, 'y', pos.y);
+      graph.mergeNodeAttributes(id, { x: pos.x, y: pos.y });
       touched.push(id);
     }
     if (touched.length > 0) {
@@ -1204,6 +1420,7 @@ export default function SigmaKnowledgeCanvas({
   onNodeClick,
   onNodeDoubleClick,
   paused,
+  maxNodes,
 }: KnowledgeVariantProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<SigmaKnowledgeRenderer | null>(null);
@@ -1274,6 +1491,7 @@ export default function SigmaKnowledgeCanvas({
     onNodeClick,
     onNodeDoubleClick: handleNodeDoubleClick,
     paused,
+    maxNodes,
   });
 
   // Runs AFTER `useKnowledgeRenderer`'s own mount effect above (React fires

@@ -94,6 +94,16 @@ export const DEFAULT_KNOWLEDGE_VARIANT: KnowledgeVariantId = 'atlas';
 export type KnowledgeLayoutId = string;
 export const DEFAULT_KNOWLEDGE_LAYOUT: KnowledgeLayoutId = 'force-atlas2';
 
+/**
+ * How much of a large knowledge graph the canvas mounts up front — one of
+ * `features/knowledge/knowledge-detail.ts`'s `DETAIL_LEVELS` (`core`,
+ * `extended`, `all`). A plain `string` for the same reason the two ids
+ * above are: `resolveDetailLevel` there is the validation, falling back to
+ * the smallest budget for an unknown or removed id.
+ */
+export type KnowledgeDetailId = string;
+export const DEFAULT_KNOWLEDGE_DETAIL: KnowledgeDetailId = 'core';
+
 /** Which edge of the terminal pane the session list docks to. */
 export type TerminalSidebarSide = 'left' | 'right';
 
@@ -945,6 +955,11 @@ export type UiState = {
    */
   layoutId: KnowledgeLayoutId;
   /**
+   * The Knowledge canvas's detail budget — persisted here, mirrored into
+   * `knowledge-filters-store.ts`, exactly as `layoutId` above is.
+   */
+  knowledgeDetailId: KnowledgeDetailId;
+  /**
    * How much vertical room a commit row takes.
    *
    * A second axis rather than five more styles: "which graph do I like" and
@@ -1093,6 +1108,7 @@ export type UiState = {
   setGraphTheme: (theme: GraphThemeId) => void;
   setRendererVariant: (variant: KnowledgeVariantId) => void;
   setLayoutId: (layoutId: KnowledgeLayoutId) => void;
+  setKnowledgeDetailId: (detailId: KnowledgeDetailId) => void;
   setGraphDensity: (density: GraphDensity) => void;
   setGraphRefFilter: (refs: string[]) => void;
   setGraphAuthorFilter: (emails: string[]) => void;
@@ -1696,6 +1712,7 @@ export type PersistedUi = Pick<
   | 'graphTheme'
   | 'rendererVariant'
   | 'layoutId'
+  | 'knowledgeDetailId'
   | 'selectedRepoId'
   | 'selectedWorktreePath'
   | 'graphDensity'
@@ -2145,6 +2162,7 @@ export const useUiStore = create<UiState>()(
       graphTheme: DEFAULT_GRAPH_THEME,
       rendererVariant: DEFAULT_KNOWLEDGE_VARIANT,
       layoutId: DEFAULT_KNOWLEDGE_LAYOUT,
+      knowledgeDetailId: DEFAULT_KNOWLEDGE_DETAIL,
       graphDensity: DEFAULT_GRAPH_DENSITY,
       graphRefFilter: [],
       graphAuthorFilter: [],
@@ -2404,6 +2422,7 @@ export const useUiStore = create<UiState>()(
       setGraphTheme: (graphTheme) => set({ graphTheme }),
       setRendererVariant: (rendererVariant) => set({ rendererVariant }),
       setLayoutId: (layoutId) => set({ layoutId }),
+      setKnowledgeDetailId: (knowledgeDetailId) => set({ knowledgeDetailId }),
       setGraphDensity: (graphDensity) => set({ graphDensity }),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),
       setGraphAuthorFilter: (graphAuthorFilter) => set({ graphAuthorFilter }),
@@ -2505,6 +2524,7 @@ export const useUiStore = create<UiState>()(
         graphTheme: state.graphTheme,
         rendererVariant: state.rendererVariant,
         layoutId: state.layoutId,
+        knowledgeDetailId: state.knowledgeDetailId,
         selectedRepoId: state.selectedRepoId,
         selectedWorktreePath: state.selectedWorktreePath,
         graphDensity: state.graphDensity,

@@ -11706,6 +11706,45 @@ role's queries are ever mounted" already held by construction. H.4: `memory-repo
 **Ad-hoc: knowledge view spinner** ([PR #427](https://github.com/bilo-io/midnite-studio/pull/427)) — The Knowledge view could sit on "Reading the knowledge graph…" indefinitely with nothing in `main.log`. Now every way the layout worker can end settles `runLayoutInWorker` (a 60 s stall watchdog, a clean exit that never posted `done`, a spawn failure), every `getGraph` stage is logged through the log seam, `fetchKnowledgeGraph` gives the renderer its own 90 s progress-reset silence budget so the query settles even if main never answers, the view offers Retry on an error and after 30 s on the spinner, and the layout cache's temp file carries a random suffix so two concurrent writes for one repo no longer collide. Measured on this repo's graph (15,199 nodes / 36,772 links) in the packaged app: ~10-12 s cold, <2 s on a cache hit.
 
 
+
+---
+
+### Ad-hoc: Knowledge view freeze on a dense graph, and a detail budget (Phase 89 follow-up)
+
+**The freeze.** Opening Knowledge on this repo's own graph (15,292 nodes / 37,036 links) with the
+Clusters look persisted — or leaving Clusters for any other look — hung the renderer for ~90 s;
+`main.log` shows `[renderer] unresponsive` ~16 s after every cache-hit `getGraph`, then the user
+quitting. Reproduced in a throwaway copy of the live profile with Playwright's `_electron` and a
+CDP `Debugger.pause` while hung: the stack was `setCollapsed → graph.dropNode → sigma's
+edgeDropped listener → refresh()`. sigma answers every graphology `nodeDropped`/`edgeDropped`
+event with a **synchronous full re-index** (both reducers over every node and edge, ~27 ms at this
+size; only the render is scheduled), and dropping a collapsed community's meta-node fires one per
+aggregated edge — 512 meta-nodes plus 2,893 aggregate edges, ~3,400 re-indexes. The Clusters look
+hit it at mount because its per-payload reset of the expanded set re-ran `setCollapsed` with an
+equal-but-new `Set`. Fix: every structural mutation in `SigmaKnowledgeRenderer` now runs inside
+`mutateGraph()`, which points sigma at an empty graph via its public `setGraph` for the batch and
+back afterwards — one re-index — and `setCollapsed` short-circuits on an equal set. Measured on
+the same profile after the fix: dropping all 512 meta-nodes at full detail is a 200 ms stall.
+
+**The layout-switch crash.** `use-knowledge-layout-switch.ts` wrote the bare payload into the
+react-query cache where `useKnowledgeGraph` stores the `{ok, value}` envelope, so every layout pill
+click threw `Cannot read properties of undefined (reading 'commitsBehind')` into the view's error
+boundary. It now writes the envelope, and `resolveKnowledgeViewState` treats a foreign shape as an
+error state with Retry rather than a throw.
+
+**The detail budget** (`knowledge-detail.ts`, `knowledge-detail-pills.tsx`). The canvas no longer
+mounts the whole graph: `mount()` takes `maxNodes` and builds the top-N nodes by degree plus the
+links among them — **Core** 1,500 / 8,618 (the default), **Extended** 5,000 / 22,463, **Everything**
+15,292 / 37,036 on this repo — with a pill row beside the layout pills (hidden for graphs that fit
+the smallest budget). What is not mounted is revealed on demand: a focused node and up to 400 of
+its neighbours (search, tree click, community panel), up to 200 search matches, and every member
+of a cluster the user double-clicks open. Persisted as `knowledgeDetailId` (ui-store, mirrored
+into the filters store like `layoutId`). Tweens now write `x`/`y` with one `mergeNodeAttributes`
+event per node instead of two. Cache-hit click-to-canvas at Core: ~1.0 s, against ~1.5 s for the
+whole graph; the intro burst, Constellation's 12-vertex edges and hover picking all scale with the
+mounted count. Theme J's per-variant `maxNodes` gate still stands — this is the user's budget, not
+the variant's ceiling.
+
 ---
 
 ### Phase 86 Theme D — The pane that shows a live terminal ([PR #387](https://github.com/bilo-io/midnite-studio/pull/387))
