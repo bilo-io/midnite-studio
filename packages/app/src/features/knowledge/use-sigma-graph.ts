@@ -5,8 +5,14 @@ import Sigma from 'sigma';
 
 import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
 
+import { useResolvedMotion } from '../../store/appearance-store';
 import { PULSES, PulseTracker } from './knowledge-bounce';
-import { DIMMED_ALPHA, alphaForWeight, nodeColorForState, withAlpha } from './knowledge-canvas-colors';
+import {
+  DIMMED_ALPHA,
+  alphaForWeight,
+  nodeColorForState,
+  withAlpha,
+} from './knowledge-canvas-colors';
 import { drawThemedNodeHover } from './knowledge-canvas-draw';
 import { hslTripleToRgbString } from './knowledge-color-math';
 import {
@@ -18,8 +24,25 @@ import {
 } from './knowledge-community-collapse';
 import { communityColor, parseHslTriple } from './knowledge-community-colors';
 import { computeDegrees, sizeForDegree } from './knowledge-degree';
-import { isLinkVisible, isCommunityVisible, searchMatches, type KnowledgeFilterState } from './knowledge-filters';
-import { computeHighlightSets, edgePaint, nodePaint, type HighlightSets } from './knowledge-highlight';
+import {
+  isLinkVisible,
+  isCommunityVisible,
+  searchMatches,
+  type KnowledgeFilterState,
+} from './knowledge-filters';
+import {
+  computeHighlightSets,
+  edgePaint,
+  nodePaint,
+  type HighlightSets,
+} from './knowledge-highlight';
+import {
+  INTRO_TIMING,
+  IntroTracker,
+  computeCentroid,
+  introEdgeAlphaMultiplier,
+  type IntroNodeSpec,
+} from './knowledge-intro';
 
 /**
  * Raw `sigma` + a thin local hook, per the phase doc's Decision 6 — not
@@ -120,7 +143,11 @@ function readThemeColors(): ThemeColors {
   };
 }
 
-const EMPTY_HIGHLIGHT: HighlightSets = { active: false, focusIds: new Set(), neighborIds: new Set() };
+const EMPTY_HIGHLIGHT: HighlightSets = {
+  active: false,
+  focusIds: new Set(),
+  neighborIds: new Set(),
+};
 
 export function useSigmaGraph(options: {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -161,8 +188,16 @@ export function useSigmaGraph(options: {
     } as ThemeColors,
     pulses: new PulseTracker(),
     pulseScales: new Map<string, number>() as ReadonlyMap<string, number>,
+    /** Theme B — the expand-from-a-core intro. `reducedMotion` is mirrored every render, same as `paused` below, so the mount effect (payload-only deps) reads its CURRENT value without becoming a dependency. */
+    reducedMotion: false,
+    intro: new IntroTracker(),
+    /** 1 outside an intro; ramps 0→1 while edges fade in behind the bursting nodes. */
+    introEdgeAlpha: 1,
+    introStartedAt: 0,
   });
   liveRef.current.paused = options.paused;
+  const reducedMotion = useResolvedMotion() === 'reduced';
+  liveRef.current.reducedMotion = reducedMotion;
   const onNodeClickRef = useRef(options.onNodeClick);
   onNodeClickRef.current = options.onNodeClick;
   const onNodeDoubleClickRef = useRef(options.onNodeDoubleClick);
@@ -219,6 +254,43 @@ export function useSigmaGraph(options: {
       });
     }
 
+    // --- Intro burst setup ---------------------------------------------------
+    // Theme B: on a genuinely fresh payload (first open, repo switch, or
+    // re-entry — Knowledge is deliberately not `global: true`, so this effect
+    // re-runs on every one of those and never on a filter keystroke), every
+    // node bursts out from the graph's centroid to its laid-out position,
+    // hubs first. Skipped outright — final positions on first paint, nothing
+    // to interrupt — when `prefers-reduced-motion` is set (Phase 46) or the
+    // window is blurred at mount (`paused`, Phase 84's `pulse()` honours the
+    // same check at start-time only, not mid-flight; see that function).
+    const introOrigin = computeCentroid(payload.positions);
+    live.introEdgeAlpha = 1;
+    live.introStartedAt = 0;
+    live.intro.clear();
+    const shouldAnimateIntro = !live.reducedMotion && !live.paused && payload.nodes.length > 0;
+    if (shouldAnimateIntro) {
+      const introNodes: IntroNodeSpec[] = payload.nodes.map((node) => ({
+        id: node.id,
+        to: payload.positions[node.id] ?? { x: 0, y: 0 },
+        degree: degrees.get(node.id) ?? 0,
+      }));
+      // Snap every node to the origin BEFORE `new Sigma` below reads these
+      // attributes for its first paint — the graph already carries each
+      // node's final `x`/`y` from the loop above, so this is what makes the
+      // very first frame read as "everything starts at the core" rather than
+      // "the final layout, then a burst on top of it".
+      for (const spec of introNodes) {
+        graph.setNodeAttribute(spec.id, 'x', introOrigin.x);
+        graph.setNodeAttribute(spec.id, 'y', introOrigin.y);
+      }
+      live.introStartedAt = performance.now();
+      live.intro.start(introNodes, live.introStartedAt, introOrigin, {
+        durationMs: INTRO_TIMING.nodeDurationMs,
+        staggerMs: INTRO_TIMING.staggerMs,
+      });
+      live.introEdgeAlpha = 0;
+    }
+
     // Declared before assignment on purpose — the reducers below close over
     // this binding and are called synchronously from inside the `new Sigma`
     // constructor itself, before the assignment on the next line completes.
@@ -257,7 +329,8 @@ export function useSigmaGraph(options: {
           const isFocus = live.highlight.focusIds.has(node) || hoverLit;
           const isNeighbor = live.highlight.neighborIds.has(node);
           const color = nodeColorForState(data.color, { dimmed, isFocus, isNeighbor });
-          const eligibleForLabel = data.kind === 'community' || data.degree >= LABEL_DEGREE_THRESHOLD;
+          const eligibleForLabel =
+            data.kind === 'community' || data.degree >= LABEL_DEGREE_THRESHOLD;
           const scale = live.pulseScales.get(node) ?? 1;
           return {
             ...data,
@@ -274,7 +347,12 @@ export function useSigmaGraph(options: {
           const live = liveRef.current;
           const visible =
             data.kind === 'aggregate'
-              ? isAggregatedEdgeVisible(data, data.sourceCommunity, data.targetCommunity, live.filters)
+              ? isAggregatedEdgeVisible(
+                  data,
+                  data.sourceCommunity,
+                  data.targetCommunity,
+                  live.filters,
+                )
               : !live.collapsed.has(data.sourceCommunity) &&
                 !live.collapsed.has(data.targetCommunity) &&
                 isLinkVisible(data, data.sourceCommunity, data.targetCommunity, live.filters);
@@ -287,13 +365,23 @@ export function useSigmaGraph(options: {
           const dimmed = paint.dimmed && !emphasised;
           const scale = live.pulseScales.get(edge) ?? 1;
           const baseSize =
-            data.kind === 'aggregate' ? Math.min(6, 1 + Math.log2(data.count)) : Math.max(0.5, data.weight);
+            data.kind === 'aggregate'
+              ? Math.min(6, 1 + Math.log2(data.count))
+              : Math.max(0.5, data.weight);
           const theme = live.theme;
+          // Theme B: edges fade in behind the bursting nodes rather than
+          // stretching from the centroid — one multiplier for the whole edge
+          // set (`live.introEdgeAlpha`, 1 outside an intro), applied to the
+          // ALPHA ARGUMENT before `withAlpha` premultiplies it. That is the
+          // same invariant Theme C's docblock will spell out for its own
+          // ramp: interpolating the alpha scalar and premultiplying after is
+          // correct, interpolating the already-premultiplied RGBA is not.
+          const introFade = live.introEdgeAlpha;
           const color = dimmed
-            ? withAlpha(theme.edgeBase, DIMMED_ALPHA)
+            ? withAlpha(theme.edgeBase, DIMMED_ALPHA * introFade)
             : emphasised
-              ? withAlpha(theme.accent, 0.85)
-              : withAlpha(theme.edgeBase, alphaForWeight(data.weight));
+              ? withAlpha(theme.accent, 0.85 * introFade)
+              : withAlpha(theme.edgeBase, alphaForWeight(data.weight) * introFade);
           return {
             ...data,
             hidden: !visible,
@@ -334,6 +422,80 @@ export function useSigmaGraph(options: {
     };
     const incidentEdges = (nodeId: string): string[] =>
       graph.hasNode(nodeId) ? graph.edges(nodeId) : [];
+
+    // --- Intro burst ----------------------------------------------------------
+    // One rAF loop, alive only while the burst or the edge fade is still in
+    // flight — started once, immediately below, only when `shouldAnimateIntro`
+    // was true. Unlike the bounce loop, this one NEVER restarts mid-flight:
+    // a fresh burst only ever begins from effect (1) re-running on a new
+    // payload, which already tore this closure down.
+    //
+    // Re-indexation, measured (the phase doc's explicit requirement): sigma's
+    // own `refresh()` (`sigma.cjs.dev.js`) always ends in a full `process()`
+    // pass that re-derives EVERY node's screen position, rebuilds the label
+    // grid and re-uploads every node/edge to its WebGL program buffer —
+    // `skipIndexation: true` is the only thing that skips it, and that is
+    // exactly the "positions are not re-indexed" limitation `repaint()`
+    // above has and this loop cannot inherit. So the real choice is not
+    // "full refresh vs. reindex-once" (both pay that pass every frame
+    // regardless); it's whether the REDUCER also re-runs for the 13,000+
+    // nodes and 37,036 edges NOT moving this frame. `sigma.refresh()` with no
+    // options re-applies every reducer to the whole graph before that pass
+    // (its `fullRefresh` branch calls `addNode`/`addEdge` for every item);
+    // `refresh({ partialGraph: { nodes, edges }, skipIndexation: false })`
+    // scopes the reducer re-application to just the ids named. Measured with
+    // a synthetic graph at this repo's real scale (15,292 nodes / 37,036
+    // links, headless Chromium + SwiftShader, 90 sampled frames after a
+    // warm-up, median of the per-`refresh()` call cost — median rather than
+    // mean because SwiftShader's own jank spikes the tail on both strategies
+    // alike and would wash out the comparison):
+    //   ~15% of nodes moving (the realistic staggered case): 35.1ms partial
+    //     vs. 49.0ms full — partial 28% faster.
+    //   100% of nodes moving (every node bursting on the same frame, the
+    //     worst case for "scoping" to matter less): 44.7ms partial vs.
+    //     51.1ms full — partial still 12% faster.
+    // Partial wins in both regimes, so it ships. (SwiftShader's absolute
+    // numbers are ~25-50× slower than the real GPU path an installed build
+    // gets — Theme J's packaged-app instrumentation is the source for
+    // absolute frame budget — but the relative comparison, which is what
+    // this decision turns on, does not depend on which GPU is under it.)
+    const allEdgeIds = graph.edges();
+    let introFrame: number | null = null;
+    const introTick = () => {
+      introFrame = null;
+      const live = liveRef.current;
+      const sample = live.intro.sample(performance.now());
+      const nodes: string[] = [];
+      for (const [id, point] of sample.positions) {
+        if (!graph.hasNode(id)) continue;
+        graph.setNodeAttribute(id, 'x', point.x);
+        graph.setNodeAttribute(id, 'y', point.y);
+        nodes.push(id);
+      }
+      const elapsedSinceStart = performance.now() - live.introStartedAt;
+      const stillFadingEdges = elapsedSinceStart < INTRO_TIMING.edgeFadeMs;
+      const previousEdgeAlpha = live.introEdgeAlpha;
+      live.introEdgeAlpha = stillFadingEdges
+        ? introEdgeAlphaMultiplier(elapsedSinceStart / INTRO_TIMING.edgeFadeMs)
+        : 1;
+      // One extra frame beyond `stillFadingEdges` — the one that crosses the
+      // threshold — still needs every edge touched, or they freeze a
+      // fraction short of full alpha: the same "report the landing frame
+      // once" rule `IntroTracker.sample` follows for node positions.
+      const edgesNeedRepaint = stillFadingEdges || previousEdgeAlpha < 1;
+      if (nodes.length > 0 || edgesNeedRepaint) {
+        try {
+          sigma.refresh({
+            partialGraph: { nodes, edges: edgesNeedRepaint ? allEdgeIds : [] },
+            skipIndexation: false,
+          });
+        } catch {
+          sigma.refresh();
+        }
+      }
+      if (sample.animating || stillFadingEdges) introFrame = requestAnimationFrame(introTick);
+    };
+    if (shouldAnimateIntro) introFrame = requestAnimationFrame(introTick);
 
     // --- Bounce -------------------------------------------------------------
     // One rAF loop, alive only while a tween is in flight. Each frame samples
@@ -378,7 +540,10 @@ export function useSigmaGraph(options: {
         for (const neighbor of graph.neighbors(nodeId)) lit.add(neighbor);
       }
       live.hoverLitIds = lit;
-      repaint(new Set([...previousLit, ...lit]), [...previousEdges, ...(nodeId ? incidentEdges(nodeId) : [])]);
+      repaint(new Set([...previousLit, ...lit]), [
+        ...previousEdges,
+        ...(nodeId ? incidentEdges(nodeId) : []),
+      ]);
     };
 
     sigma.on('enterNode', ({ node }) => {
@@ -455,7 +620,10 @@ export function useSigmaGraph(options: {
         sigma.setSetting('edgeLabelColor', { color: theme.label });
         sigma.refresh();
       });
-      repaintObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+      repaintObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class'],
+      });
     }
 
     // Theme G finding (unverified under CI at ship time — Playwright's own
@@ -481,6 +649,7 @@ export function useSigmaGraph(options: {
     return () => {
       if (pendingClick !== null) clearTimeout(pendingClick);
       if (pulseFrame !== null) cancelAnimationFrame(pulseFrame);
+      if (introFrame !== null) cancelAnimationFrame(introFrame);
       containerResizeObserver?.disconnect();
       repaintObserver?.disconnect();
       container.style.cursor = '';
@@ -505,7 +674,9 @@ export function useSigmaGraph(options: {
     const payload = options.payload;
     const graph = graphRef.current;
     live.searchMatchIds =
-      payload && options.filters.query ? searchMatches(payload.nodes, options.filters.query) : new Set();
+      payload && options.filters.query
+        ? searchMatches(payload.nodes, options.filters.query)
+        : new Set();
     live.highlight = computeHighlightSets({
       searchMatchIds: live.searchMatchIds,
       selectedNodeId: options.selectedNodeId,
@@ -546,7 +717,9 @@ export function useSigmaGraph(options: {
     if (options.paused) {
       renderer.getCamera().setState({ x, y, ratio: FOCUS_CAMERA_RATIO });
     } else {
-      void renderer.getCamera().animate({ x, y, ratio: FOCUS_CAMERA_RATIO }, { duration: FOCUS_ANIMATION_MS });
+      void renderer
+        .getCamera()
+        .animate({ x, y, ratio: FOCUS_CAMERA_RATIO }, { duration: FOCUS_ANIMATION_MS });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `paused` is read, not a trigger: a focus-node change is the only thing that should fly the camera
   }, [options.focusNodeId]);
@@ -595,7 +768,11 @@ export function useSigmaGraph(options: {
         });
       }
 
-      for (const edge of aggregateCommunityEdges(payload.links, communityByNodeId, options.collapsedCommunities)) {
+      for (const edge of aggregateCommunityEdges(
+        payload.links,
+        communityByNodeId,
+        options.collapsedCommunities,
+      )) {
         if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
         graph.addEdgeWithKey(edge.key, edge.source, edge.target, {
           relation: edge.relations[0] ?? 'aggregate',
