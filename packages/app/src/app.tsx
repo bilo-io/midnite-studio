@@ -171,6 +171,23 @@ const queryClient = new QueryClient({
  * through an injected component. There's no router here — a desktop window has
  * no address bar and no deep links — so navigation is a store write and the
  * "link" is a button that looks like one.
+ *
+ * `shrink-0` on top of the class AppFrame hands down, because the rail's rows
+ * are flex items of a column that overflows. The shell gives every row `h-9`,
+ * but `h-9` is a *height*, not a floor: a flex item's automatic minimum size is
+ * its min-content size, so once the rail's content is taller than the window
+ * the browser shrinks each row it can down to one line box — 36px to 20px.
+ *
+ * Only the ungrouped rows (Dashboard, Notes, Knowledge) actually lost the
+ * space, which is why the bug read as "the pinned items have no padding": they
+ * are direct children of the scrolling `<nav>`, while every sectioned row sits
+ * inside its section's `<Collapse>` grid, which clips rather than compresses.
+ * The rail already scrolls, so refusing to shrink costs nothing but the scroll
+ * distance the overflow was always going to need.
+ *
+ * It appears at whatever height the window and the item count happen to cross —
+ * which is why it tends to show up after an update that adds a view rather than
+ * after a resize.
  */
 const ViewLink: NavLinkComponent = ({ href, className, children, ...rest }) => {
   const setActiveView = useUiStore((s) => s.setActiveView);
@@ -179,7 +196,7 @@ const ViewLink: NavLinkComponent = ({ href, className, children, ...rest }) => {
   const link = (
     <a
       href={href}
-      className={className}
+      className={`${className ?? ''} shrink-0`}
       onClick={(event) => {
         event.preventDefault();
         setActiveView(view);
