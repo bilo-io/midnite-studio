@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
 import { useDatabaseConnectionsStore } from '../../store/database-connections-store';
+import { DEFAULT_LAYOUT, useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
 import { DatabaseView } from './database-view';
 
@@ -72,6 +73,7 @@ function reset() {
     activeQueryTabId: null,
     dirtyQueryTabIds: new Set(),
   });
+  useUiStore.setState({ layout: { ...useUiStore.getState().layout, ...DEFAULT_LAYOUT } });
 }
 
 describe('DatabaseView', () => {
@@ -147,5 +149,19 @@ describe('DatabaseView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run' }));
     await waitFor(() => expect(queryStart).toHaveBeenCalledTimes(1));
     expect(queryStart.mock.calls[0]?.[0]).toMatchObject({ connectionId: 'c1', sql: 'SELECT 1' });
+  });
+
+  it('resizes the connections list with the keyboard, and persists the width (Ad hoc)', async () => {
+    installBridge({ listConnections: vi.fn().mockResolvedValue([postgres]) });
+    renderView();
+    await screen.findByText('Local Postgres');
+
+    const handle = screen.getByRole('separator', { name: 'Resize connections list' });
+    expect(handle.getAttribute('aria-valuenow')).toBe(String(DEFAULT_LAYOUT.databaseConnectionsWidth));
+
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    const grown = DEFAULT_LAYOUT.databaseConnectionsWidth + 8;
+    expect(handle.getAttribute('aria-valuenow')).toBe(String(grown));
+    expect(useUiStore.getState().layout.databaseConnectionsWidth).toBe(grown);
   });
 });

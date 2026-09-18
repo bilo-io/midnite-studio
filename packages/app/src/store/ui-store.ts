@@ -304,6 +304,10 @@ export type LayoutSizes = {
   workflowListWidth: number;
   /** The Workflows view's detail panel (inspector / history), right of the canvas (Phase 43). */
   workflowDetailWidth: number;
+  /** The Database view's connections list, left of the query workspace (Ad hoc). */
+  databaseConnectionsWidth: number;
+  /** Settings' inner page nav, left of the active settings page (Ad hoc). */
+  settingsNavWidth: number;
 };
 
 
@@ -397,6 +401,10 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // Workflows (Phase 43) — list left, inspector / history right.
   workflowListWidth: 224,
   workflowDetailWidth: 320,
+  // Matches the connections list's old fixed w-72.
+  databaseConnectionsWidth: 288,
+  // Matches the page nav's old fixed w-56.
+  settingsNavWidth: 224,
 };
 
 export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
@@ -465,6 +473,9 @@ export const LAYOUT_BOUNDS = {
   videoDetailWidth: { min: 260, max: 600 },
   workflowListWidth: { min: 180, max: 480 },
   workflowDetailWidth: { min: 260, max: 600 },
+  // Matches the pre-resizable component's own explicit min/max (Ad hoc).
+  databaseConnectionsWidth: { min: 220, max: 480 },
+  settingsNavWidth: { min: 180, max: 360 },
 } as const;
 
 /**

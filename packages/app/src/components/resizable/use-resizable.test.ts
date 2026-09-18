@@ -15,7 +15,7 @@ const pointer = (x: number, y = 0) =>
   }) as unknown as React.PointerEvent<HTMLElement>;
 
 const key = (k: string, shiftKey = false) =>
-  ({ key: k, shiftKey, preventDefault: vi.fn() }) as unknown as React.KeyboardEvent<HTMLElement>;
+  ({ key: k, shiftKey, preventDefault: vi.fn(), stopPropagation: vi.fn() }) as unknown as React.KeyboardEvent<HTMLElement>;
 
 const setup = (overrides: Partial<Parameters<typeof useResizable>[0]> = {}) => {
   const onSize = vi.fn();
@@ -100,6 +100,24 @@ describe('useResizable', () => {
     expect(onSize).toHaveBeenLastCalledWith(180);
     act(() => hook.result.current.handleProps.onKeyDown(key('End')));
     expect(onSize).toHaveBeenLastCalledWith(560);
+  });
+
+  it('stops a handled key from bubbling to a container with its own arrow-key nav', () => {
+    // Found nesting the handle inside Board mode's own roving-tabindex card
+    // navigation: without this, resizing the task-detail panel with the
+    // keyboard also moved the focused card, since both read the same
+    // ArrowLeft/ArrowRight/Home/End keys off a shared ancestor.
+    const { hook } = setup();
+    const arrowRight = key('ArrowRight');
+    act(() => hook.result.current.handleProps.onKeyDown(arrowRight));
+    expect(arrowRight.stopPropagation).toHaveBeenCalled();
+
+    // An unhandled key (this hook reads none besides the four above) is left
+    // alone — no reason to swallow a Tab or a letter key meant for something
+    // else entirely.
+    const tab = key('Tab');
+    act(() => hook.result.current.handleProps.onKeyDown(tab));
+    expect(tab.stopPropagation).not.toHaveBeenCalled();
   });
 
   it('commits the last pointer position even when the release lands in the same frame', () => {

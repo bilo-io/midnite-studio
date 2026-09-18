@@ -2,7 +2,11 @@ import { Collapse } from '@bilo-io/ui';
 import { LuChevronDown } from 'react-icons/lu';
 
 import { SETTINGS_PAGE_ICON } from '../../components/nav-icons';
+import { ResizeHandle } from '../../components/resizable/resize-handle';
+import { useResizable } from '../../components/resizable/use-resizable';
 import {
+  DEFAULT_LAYOUT,
+  LAYOUT_BOUNDS,
   SETTINGS_GROUPS,
   SETTINGS_PAGES,
   useUiStore,
@@ -99,14 +103,27 @@ export function SettingsView() {
   const activeGroup = SETTINGS_GROUPS.find((group) => group.id === activeEntry?.group);
   const label = activeEntry?.label ?? 'Settings';
 
+  const layout = useUiStore((s) => s.layout);
+  const setLayout = useUiStore((s) => s.setLayout);
+  const nav = useResizable({
+    size: layout.settingsNavWidth,
+    onSize: (value) => setLayout('settingsNavWidth', value),
+    initial: DEFAULT_LAYOUT.settingsNavWidth,
+    axis: 'x',
+    ...LAYOUT_BOUNDS.settingsNavWidth,
+  });
+
   return (
     <div className="flex h-full min-h-0">
       <nav
         aria-label="Settings pages"
-        /* w-56: widened from w-48 so the indented page list, tree guide line,
-           and granular category labels ('System & Maintenance', 'AI & Extensibility')
-           breathe comfortably without truncating labels like 'Monitor & Diagnostics'. */
-        className="w-56 shrink-0 overflow-y-auto border-r border-border py-3"
+        /* 224 (w-56 widened from w-48 originally) so the indented page list,
+           tree guide line, and granular category labels ('System &
+           Maintenance', 'AI & Extensibility') breathe comfortably without
+           truncating labels like 'Monitor & Diagnostics' — now the drag's
+           own `initial`/`min`, not a hardcoded class. */
+        className="shrink-0 overflow-y-auto border-r border-border py-3"
+        style={{ width: nav.current }}
       >
         <h1 className="px-3 pb-2 text-sm font-semibold tracking-tight">Settings</h1>
         <div className="flex flex-col gap-3 px-2">
@@ -160,6 +177,8 @@ export function SettingsView() {
           })}
         </div>
       </nav>
+
+      <ResizeHandle resizable={nav} axis="x" label="Resize settings pages" />
 
       <div className="min-w-0 flex-1 overflow-y-auto">
         {/* Keyed so switching page replays the entrance fade, like view switches. */}

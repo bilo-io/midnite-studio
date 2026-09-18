@@ -21,6 +21,8 @@ import { useDialogs } from '../../../components/dialog-host';
 import type { MenuItem } from '../../../components/context-menu';
 import { EmptyState } from '../../../components/empty-state';
 import { VIEW_ICON } from '../../../components/nav-icons';
+import { ResizeHandle } from '../../../components/resizable/resize-handle';
+import type { Resizable } from '../../../components/resizable/use-resizable';
 import { useWindowFocusGate } from '../../../lib/use-window-focus-gate';
 import { useClearProjectItemField, useSetProjectItemField } from '../../../services/queries';
 import { useUiStore } from '../../../store/ui-store';
@@ -60,6 +62,7 @@ export function BoardView({
   onExpandColumn,
   selectedItemId,
   onSelectItem,
+  cardPanelResizable,
 }: {
   projectId: string;
   repoId: string | null;
@@ -83,6 +86,14 @@ export function BoardView({
   /** `null` clears the selection — the same contract `ProjectGraphView`'s own
    *  `onSelectItem` already uses for `Escape`. */
   onSelectItem: (itemId: string | null) => void;
+  /**
+   * Same `useResizable` instance `ProjectsView` hands `ProjectGraphView`'s
+   * own `CardPanelStack` mount (Ad hoc) — lifted rather than a second
+   * `useResizable` call here, so the width dragged in one mode is exactly
+   * the width the other opens with, off the one persisted
+   * `layout.projectsCardPanelWidth`.
+   */
+  cardPanelResizable: Resizable;
 }) {
   /**
    * Grouping by an iteration field is read-only (Phase 52 Theme B): its
@@ -417,16 +428,21 @@ export function BoardView({
         </div>
 
         {selectedItemId ? (
-          <CardPanelStack
-            projectId={projectId}
-            repoId={repoId}
-            worktreePath={worktreePath}
-            items={boardItems}
-            fields={fields}
-            selectedItemId={selectedItemId}
-            onSelectItem={onSelectItem}
-            onClose={() => onSelectItem(null)}
-          />
+          <>
+            <ResizeHandle resizable={cardPanelResizable} axis="x" label="Resize task details" />
+            <CardPanelStack
+              projectId={projectId}
+              repoId={repoId}
+              worktreePath={worktreePath}
+              items={boardItems}
+              fields={fields}
+              selectedItemId={selectedItemId}
+              onSelectItem={onSelectItem}
+              onClose={() => onSelectItem(null)}
+              style={{ width: cardPanelResizable.current }}
+              className={cardPanelResizable.dragging ? '' : 'transition-[width] duration-150 ease-in-out'}
+            />
+          </>
         ) : null}
       </div>
 

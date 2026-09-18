@@ -109,6 +109,12 @@ export function ProjectsView() {
    * panel, so switching modes keeps it open on the same item.
    */
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  // Local state, not the persisted `layout` store its sibling panels use
+  // (`filesTreeWidth` etc.) — deliberately: this width is shared between two
+  // mount sites in the SAME component (Board mode's own and Graph mode's,
+  // below), so one `useResizable` instance handed down as a prop already
+  // keeps them in lockstep without a store round-trip. See `board-view.tsx`'s
+  // own `cardPanelResizable` prop doc for the other half of this.
   const [cardPanelWidth, setCardPanelWidth] = useState(320);
   const cardPanelResizable = useResizable({
     size: cardPanelWidth,
@@ -504,6 +510,7 @@ export function ProjectsView() {
           onExpandColumn={expandColumn}
           selectedItemId={selectedItemId}
           onSelectItem={setSelectedItemId}
+          cardPanelResizable={cardPanelResizable}
         />
       ) : allItems.length === 0 ? (
         <EmptyState
@@ -537,8 +544,9 @@ export function ProjectsView() {
             The graph mounts `CardPanelStack` on the same terms
             `board-view.tsx` does — same `projectId`/`repoId`/`worktreePath`/
             `items`/`fields`, same sibling position — one panel component, two mount
-            sites, never two panels that could disagree (Phase 75 Theme G), with a
-            resizable handle for flexible side-panel width in graph view.
+            sites, never two panels that could disagree (Phase 75 Theme G). Both
+            mounts share this same `cardPanelResizable` instance (Ad hoc), so the
+            width dragged in one mode is exactly the width the other opens with.
           */}
           {selectedItemId ? (
             <>
