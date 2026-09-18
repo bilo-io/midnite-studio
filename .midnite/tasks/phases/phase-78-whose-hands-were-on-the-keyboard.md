@@ -62,27 +62,27 @@ graph does not dim, sort or hide by it unless the user filters. Attribution belo
 
 ### A — Read the trailers (M)
 
-- [ ] Extend `LOG_FORMAT` at [`log-parser.ts:20`](../../../packages/git-engine/src/parsers/log-parser.ts)
+- [x] Extend `LOG_FORMAT` at [`log-parser.ts:20`](../../../packages/git-engine/src/parsers/log-parser.ts)
       with two more NUL-separated fields: `%(trailers:key=Co-Authored-By,valueonly,separator=%x1f)`
       and `%(trailers:key=Midnite-Session,valueonly,separator=%x1f)`. `%x1f` (unit separator)
       inside a `%x00` field keeps the whole line NUL-delimited — the house rule — while allowing
       several co-authors per commit. Subjects and names still never split on whitespace.
-- [ ] `CommitSchema` gains `coAuthors: z.array(z.string())` (each `Name <email>` verbatim) and
+- [x] `CommitSchema` gains `coAuthors: z.array(z.string())` (each `Name <email>` verbatim) and
       `sessionTrailers: z.array(z.string())`. `parseLogLine` splits the two new fields on `\x1f`,
       dropping empties. Fixture tests: a commit with no trailers, one, three, a trailer whose value
       contains a NUL-free `<`/`>` pair, and a subject that *contains* the literal text
       `Co-Authored-By:` (it must not be mistaken for a trailer — git's own trailer parser handles
       this; the test proves the parser trusts git, not a regex).
-- [ ] Measure on `scripts/perf/make-big-repo.sh`'s 50k fixture: `git log` wall time and first-batch
+- [x] Measure on `scripts/perf/make-big-repo.sh`'s 50k fixture: `git log` wall time and first-batch
       bytes with and without the two tokens, in the PR body. Trailer parsing is git-side and cheap;
       the number is what makes that a fact rather than an assumption.
-- [ ] *Acceptance:* every existing `log-parser.test.ts` fixture still parses; `git log` on this
+- [x] *Acceptance:* every existing `log-parser.test.ts` fixture still parses; `git log` on this
       repository yields `coAuthors` containing `Claude <noreply@anthropic.com>` on the commits that
       carry it.
 
 ### B — A provenance vocabulary, pure and in `shared` (M)
 
-- [ ] `packages/shared/src/domain/provenance.ts` + `.test.ts`:
+- [x] `packages/shared/src/domain/provenance.ts` + `.test.ts`:
       ```ts
       export type ProvenanceSource = 'session-trailer' | 'co-author' | 'author' | 'session-window';
       export type CommitProvenance =
@@ -101,17 +101,17 @@ graph does not dim, sort or hide by it unless the user filters. Attribution belo
       matching a signature (an agent committing *as itself*); and last, the session-window join —
       `committerDate ∈ [createdAt, closedAt]` of an agent session with the same `repoId`. `mixed`
       is a human author with an agent co-author — the ordinary Claude Code commit.
-- [ ] `AgentSignatureSchema` in [`terminal.ts`](../../../packages/shared/src/terminal.ts) —
+- [x] `AgentSignatureSchema` in [`terminal.ts`](../../../packages/shared/src/terminal.ts) —
       `{ agentId, emails: string[], names: string[] }` — and a `signatures` entry on each of the five
       `BUILTIN_AGENTS`, filled from what each CLI actually writes today (`noreply@anthropic.com`
       for `claude`; the audit did not capture the others — the theme's first task is a one-commit
       probe with each installed CLI, recorded in the PR body). A user-added roster agent gets an
       empty `signatures` and an editable field in `Settings ▸ Agents`.
-- [ ] Window-join rules, tested: a session with `reason: 'superseded'` still counts; two overlapping
+- [x] Window-join rules, tested: a session with `reason: 'superseded'` still counts; two overlapping
       agent sessions on one repo yield both `agentIds` and `source: 'session-window'`; a session on
       a different `repoId` never matches even if the timestamps do; a commit older than the oldest
       session is `human` (absent any trailer).
-- [ ] *Acceptance:* 100% branch coverage on `classifyProvenance` — it is small, pure, and the
+- [x] *Acceptance:* 100% branch coverage on `classifyProvenance` — it is small, pure, and the
       thing every later theme trusts.
 
 ### C — The mark on the row (M)
@@ -228,10 +228,10 @@ graph does not dim, sort or hide by it unless the user filters. Attribution belo
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green after every theme.
-- [ ] **A:** `git log` on this repository shows `coAuthors` populated; the 50k-fixture numbers are
+- [x] `moon run :typecheck :lint :test` green after every theme.
+- [x] **A:** `git log` on this repository shows `coAuthors` populated; the 50k-fixture numbers are
       in the PR body.
-- [ ] **B:** full branch coverage on `classifyProvenance`; the probe commits from each installed
+- [x] **B:** full branch coverage on `classifyProvenance`; the probe commits from each installed
       CLI are recorded and their signatures encoded.
 - [ ] **C/D:** the Playwright crosswalk spec passes; `MSTUDIO_SHOTS` screenshots for both graph
       node styles with the mixed fixture.
