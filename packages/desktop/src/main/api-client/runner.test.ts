@@ -84,7 +84,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await rm(repoRoot, { recursive: true, force: true });
+  await rm(repoRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 });
 
 async function writeCollection(id: string, collection: PostmanCollection): Promise<void> {
