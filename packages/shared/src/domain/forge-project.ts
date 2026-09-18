@@ -163,6 +163,13 @@ export const EMPTY_ISSUE_LINK_SET: ForgeIssueLinkSet = Object.freeze({
   subIssuesTruncated: false,
 });
 
+/** A pull request linked to an issue on the board. */
+export const ForgeLinkedPullRequestSchema = z.object({
+  number: z.number().int().positive(),
+  url: z.string(),
+});
+export type ForgeLinkedPullRequest = z.infer<typeof ForgeLinkedPullRequestSchema>;
+
 /**
  * What a project item actually is, discriminated on `type`.
  *
@@ -170,7 +177,7 @@ export const EMPTY_ISSUE_LINK_SET: ForgeIssueLinkSet = Object.freeze({
  * is the one Theme A rule that most bites if skipped: a draft item is text
  * typed straight into a board with no issue or PR behind it, so it has
  * neither. Folding all three into one shape with `number: number | null` would
- * let a renderer build `<a href={\`.../issues/${number}\`}>` for a draft whose
+ * let a renderer build `<a href={`.../issues/${number}`}>` for a draft whose
  * `number` is null and ship a link to `/issues/null` — the union makes that
  * construction impossible instead of merely unlikely.
  */
@@ -203,6 +210,8 @@ export const ForgeProjectItemContentSchema = z.discriminatedUnion('type', [
      * `Issue`, never `PullRequest` or `DraftIssue` (Phase 75 Theme A).
      */
     dependencies: ForgeIssueLinkSetSchema.default({}),
+    /** PRs linked to this issue (closing references or custom pull request field). */
+    linkedPrs: z.array(ForgeLinkedPullRequestSchema).default([]),
   }),
   z.object({
     type: z.literal('pull'),

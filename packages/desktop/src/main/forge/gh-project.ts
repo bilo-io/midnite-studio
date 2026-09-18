@@ -134,6 +134,7 @@ const PROJECT_ITEMS_QUERY = [
   'content{',
   '__typename ',
   `... on Issue{id number title url state body repository{nameWithOwner} assignees(first:${ASSIGNEES_PAGE}){nodes{login}} labels(first:${LABELS_PAGE}){nodes{name}} ` +
+    'closedByPullRequestsReferences(first: 10){nodes{number url}} ' +
     `blockedBy(first:${DEPS_PAGE}){totalCount nodes{number title state repository{nameWithOwner}}} ` +
     `parent{number title state repository{nameWithOwner}} ` +
     `subIssues(first:${DEPS_PAGE}){totalCount nodes{number title state repository{nameWithOwner}}}}`,
@@ -142,6 +143,7 @@ const PROJECT_ITEMS_QUERY = [
   '}',
   `fieldValues(first:${FIELDS_PAGE}){nodes{`,
   '__typename ',
+  '... on ProjectV2ItemFieldPullRequestValue{pullRequests(first: 10){nodes{number url}} field{... on ProjectV2FieldCommon{id}}}',
   '... on ProjectV2ItemFieldTextValue{text field{... on ProjectV2FieldCommon{id}}}',
   '... on ProjectV2ItemFieldNumberValue{number field{... on ProjectV2FieldCommon{id}}}',
   '... on ProjectV2ItemFieldDateValue{date field{... on ProjectV2FieldCommon{id}}}',
@@ -423,7 +425,7 @@ function parseItem(raw: unknown, boardRepo: string): ForgeProjectItem | null {
   const id = asString(row['id']);
   if (id === null) return null;
 
-  const content = parseItemContent(row['content'], boardRepo);
+  const content = parseItemContent(row['content'], boardRepo, row['fieldValues']);
   if (content === null) return null;
 
   const parsed = ForgeProjectItemSchema.safeParse({
@@ -494,9 +496,45 @@ function parseIssueLinkSet(row: Record<string, unknown>, boardRepo: string) {
   };
 }
 
+function parseLinkedPrs(
+  issueRow: Record<string, unknown>,
+  fieldValuesRaw?: unknown,
+): { number: number; url: string }[] {
+  const linkedPrs: { number: number; url: string }[] = [];
+  const seenNumbers = new Set<number>();
+
+  const addPr = (node: unknown) => {
+    if (typeof node !== 'object' || node === null) return;
+    const row = node as Record<string, unknown>;
+    const number = row['number'];
+    const url = asString(row['url']);
+    if (typeof number === 'number' && url !== null && !seenNumbers.has(number)) {
+      seenNumbers.add(number);
+      linkedPrs.push({ number, url });
+    }
+  };
+
+  for (const node of asArray(pick(pick(issueRow, 'closedByPullRequestsReferences'), 'nodes'))) {
+    addPr(node);
+  }
+
+  for (const fv of asArray(pick(fieldValuesRaw, 'nodes'))) {
+    if (typeof fv !== 'object' || fv === null) continue;
+    const fvRow = fv as Record<string, unknown>;
+    if (asString(fvRow['__typename']) === 'ProjectV2ItemFieldPullRequestValue') {
+      for (const node of asArray(pick(pick(fvRow, 'pullRequests'), 'nodes'))) {
+        addPr(node);
+      }
+    }
+  }
+
+  return linkedPrs;
+}
+
 function parseItemContent(
   value: unknown,
   boardRepo: string,
+  fieldValuesRaw?: unknown,
 ): ForgeProjectItem['content'] | null {
   if (typeof value !== 'object' || value === null) return null;
   const row = value as Record<string, unknown>;
@@ -537,6 +575,7 @@ function parseItemContent(
           body,
           labels,
           dependencies: parseIssueLinkSet(row, boardRepo),
+          linkedPrs: parseLinkedPrs(row, fieldValuesRaw),
         }
       : {
           type: 'pull',

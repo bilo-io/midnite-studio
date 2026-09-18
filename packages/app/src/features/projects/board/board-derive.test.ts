@@ -138,6 +138,7 @@ describe('composeCardPrompt', () => {
       body: 'Steps to reproduce…',
       labels: ['bug', 'flaky'],
       dependencies: EMPTY_ISSUE_LINK_SET,
+      linkedPrs: [],
     },
     fieldValues: {},
   };

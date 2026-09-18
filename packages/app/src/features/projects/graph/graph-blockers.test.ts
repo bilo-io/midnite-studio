@@ -134,6 +134,7 @@ describe('apiFieldBlockersFor', () => {
             blockedByTruncated: false,
             subIssuesTruncated: false,
           },
+          linkedPrs: [],
         },
         fieldValues: {},
       },

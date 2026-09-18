@@ -283,6 +283,7 @@ describe('parseItemsPage', () => {
         blockedByTruncated: false,
         subIssuesTruncated: false,
       },
+      linkedPrs: [],
     });
     expect(item?.fieldValues['F_status']).toEqual({
       fieldId: 'F_status',
@@ -292,6 +293,63 @@ describe('parseItemsPage', () => {
     });
     expect(item?.fieldValues['F_num']).toEqual({ fieldId: 'F_num', dataType: 'number', number: 3 });
     expect(Object.keys(item?.fieldValues ?? {})).toHaveLength(5);
+  });
+
+  it('parses linked PRs from closedByPullRequestsReferences and ProjectV2ItemFieldPullRequestValue deduplicating by number', () => {
+    const output = JSON.stringify({
+      data: {
+        node: {
+          items: {
+            pageInfo: { hasNextPage: false, endCursor: null },
+            nodes: [
+              {
+                id: 'PVTI_linked_prs',
+                content: {
+                  __typename: 'Issue',
+                  id: 'I_1',
+                  number: 42,
+                  title: 'Issue with PRs',
+                  url: 'https://github.com/acme/widgets/issues/42',
+                  state: 'OPEN',
+                  assignees: { nodes: [] },
+                  labels: { nodes: [] },
+                  closedByPullRequestsReferences: {
+                    nodes: [
+                      { number: 10, url: 'https://github.com/acme/widgets/pull/10' },
+                      { number: 12, url: 'https://github.com/acme/widgets/pull/12' },
+                    ],
+                  },
+                },
+                fieldValues: {
+                  nodes: [
+                    {
+                      __typename: 'ProjectV2ItemFieldPullRequestValue',
+                      field: { id: 'F_pr' },
+                      pullRequests: {
+                        nodes: [
+                          { number: 12, url: 'https://github.com/acme/widgets/pull/12' },
+                          { number: 15, url: 'https://github.com/acme/widgets/pull/15' },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    const { items } = parseItemsPage(output);
+    expect(items).toHaveLength(1);
+    const content = items[0]?.content;
+    if (content?.type !== 'issue') throw new Error('expected issue content');
+    expect(content.linkedPrs).toEqual([
+      { number: 10, url: 'https://github.com/acme/widgets/pull/10' },
+      { number: 12, url: 'https://github.com/acme/widgets/pull/12' },
+      { number: 15, url: 'https://github.com/acme/widgets/pull/15' },
+    ]);
   });
 
   it('reads a draft item with no number and no url', () => {
