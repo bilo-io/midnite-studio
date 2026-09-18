@@ -214,6 +214,13 @@ export function useResizable({
       if (next === null) return;
 
       event.preventDefault();
+      // A handled key stops here — the separator is its own interactive
+      // control, not a proxy for whatever roving-tabindex nav a container
+      // happens to wrap it in (Board mode's own arrow-key card navigation,
+      // found nesting a `ResizeHandle` this way for the first time: without
+      // this, resizing the task-detail panel with the keyboard also moved
+      // the focused card).
+      event.stopPropagation();
       /*
         The keyboard's version of dragging past the bound: a nudge from a pane
         already AT its bound, asking to go further, does the snap instead — so

@@ -715,6 +715,75 @@ describe('Phase 75 Theme G — one selection, agent gate', () => {
     expect(screen.getByTestId('card-detail')).toBeDefined();
   });
 
+  it('board mode\'s card-detail panel is resizable, and the dragged width survives a switch to graph mode', async () => {
+    projectsMode = { 'repo-1': 'board' };
+    fields.mockResolvedValue({
+      cli: CLI_READY,
+      fields: [
+        { id: 'f1', name: 'Status', dataType: 'single_select', options: [{ id: 'todo', name: 'Todo', color: 'GRAY' }] },
+      ],
+      error: null,
+      kind: 'ok',
+    });
+    items.mockResolvedValue({
+      cli: CLI_READY,
+      items: [
+        {
+          id: 'item1',
+          content: {
+            type: 'issue',
+            id: 'I_1',
+            number: 30,
+            title: 'The issue card',
+            url: 'https://github.com/acme/widgets/issues/30',
+            state: 'open',
+            assignees: [],
+            body: '',
+            labels: [],
+            dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
+          },
+          fieldValues: { f1: { fieldId: 'f1', dataType: 'single_select', optionId: 'todo', name: 'Todo' } },
+        },
+      ],
+      nextCursor: null,
+      error: null,
+      kind: 'ok',
+    });
+
+    // Same `render`/`rerender` reasoning as the test above — the lifted
+    // `cardPanelResizable` is `ProjectsView`'s own state, and this asserts it
+    // survives a mode flip exactly as the shared `selectedItemId` does.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = () => (
+      <QueryClientProvider client={queryClient}>
+        <DialogHost>
+          <ProjectsView />
+        </DialogHost>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree());
+
+    await screen.findByTestId('board-view');
+    expect(screen.queryByRole('separator', { name: 'Resize task details' })).toBeNull();
+
+    fireEvent.click(screen.getByText('The issue card'));
+    const handle = await screen.findByRole('separator', { name: 'Resize task details' });
+    const panel = screen.getByTestId('card-panel-stack');
+    expect(panel.style.width).toBe('320px');
+
+    // ArrowLeft grows the panel (edge: 'end') by 8px, same as graph mode.
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    expect(handle.getAttribute('aria-valuenow')).toBe('328');
+    expect(panel.style.width).toBe('328px');
+
+    projectsMode = { 'repo-1': 'graph' };
+    rerender(tree());
+
+    await screen.findByTestId('project-graph-view');
+    const graphPanel = screen.getByTestId('card-panel-stack');
+    expect(graphPanel.style.width).toBe('328px');
+  });
+
   it('an api-sourced blocker disables Start with a title naming it; a body-sourced one leaves it enabled', async () => {
     projectsMode = { 'repo-1': 'graph' };
     fields.mockResolvedValue({ cli: CLI_READY, fields: [], error: null, kind: 'ok' });

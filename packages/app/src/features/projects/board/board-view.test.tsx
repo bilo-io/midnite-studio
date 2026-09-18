@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../../components/dialog-host';
+import { useResizable } from '../../../components/resizable/use-resizable';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { BoardView } from './board-view';
 import { resolveGroupField } from './resolve-group-field';
@@ -32,10 +33,30 @@ function Harness({
   ...rest
 }: Omit<
   React.ComponentProps<typeof BoardView>,
-  'groupField' | 'collapsedColumns' | 'onToggleColumn' | 'onExpandColumn' | 'selectedItemId' | 'onSelectItem'
+  | 'groupField'
+  | 'collapsedColumns'
+  | 'onToggleColumn'
+  | 'onExpandColumn'
+  | 'selectedItemId'
+  | 'onSelectItem'
+  | 'cardPanelResizable'
 > & { groupFieldId?: string | null }) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  // A standalone `useResizable` rather than the app's persisted `layout`
+  // store — `BoardView` only cares that it receives a `Resizable`, not where
+  // it came from, and this test file mocks no store for it to read.
+  const [cardPanelWidth, setCardPanelWidth] = useState(320);
+  const cardPanelResizable = useResizable({
+    size: cardPanelWidth,
+    onSize: setCardPanelWidth,
+    initial: 320,
+    min: 260,
+    max: 640,
+    axis: 'x',
+    edge: 'end',
+    onCollapse: () => setSelectedItemId(null),
+  });
   return (
     <BoardView
       {...rest}
@@ -53,6 +74,7 @@ function Harness({
       onExpandColumn={(id) => setCollapsed((prev) => (prev.has(id) ? new Set([...prev].filter((v) => v !== id)) : prev))}
       selectedItemId={selectedItemId}
       onSelectItem={setSelectedItemId}
+      cardPanelResizable={cardPanelResizable}
     />
   );
 }

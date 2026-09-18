@@ -5,6 +5,7 @@ import { fixtures } from '../../../test-support/fixtures';
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { ToastHost } from '../../components/toast-host';
+import { DEFAULT_LAYOUT, useUiStore } from '../../store/ui-store';
 import { ReposPanel } from '../repos/repos-panel';
 import { SettingsView } from './settings-view';
 
@@ -181,5 +182,18 @@ describe('SettingsView, assembled through the real bridge', () => {
     expect(await screen.findByRole('treeitem', { name: 'settings.json' })).toBeTruthy();
     fireEvent.click(screen.getByRole('treeitem', { name: 'skills' }));
     expect(await screen.findByRole('treeitem', { name: 'brainstorm' })).toBeTruthy();
+  });
+
+  it('the inner page nav is resizable with the keyboard, and persists the width (Ad hoc)', async () => {
+    renderView(<SettingsView />, { fixtures: settingsFixtures, uiState: UI_STATE });
+    await screen.findByRole('navigation', { name: 'Settings pages' });
+
+    const handle = screen.getByRole('separator', { name: 'Resize settings pages' });
+    expect(handle.getAttribute('aria-valuenow')).toBe(String(DEFAULT_LAYOUT.settingsNavWidth));
+
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    const grown = DEFAULT_LAYOUT.settingsNavWidth + 8;
+    expect(handle.getAttribute('aria-valuenow')).toBe(String(grown));
+    expect(useUiStore.getState().layout.settingsNavWidth).toBe(grown);
   });
 });

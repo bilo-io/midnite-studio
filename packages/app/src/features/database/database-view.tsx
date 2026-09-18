@@ -6,7 +6,10 @@ import { LuDatabase, LuPencil, LuPlus, LuTrash2 } from 'react-icons/lu';
 import { EmptyState } from '../../components/empty-state';
 import { VIEW_ICON } from '../../components/nav-icons';
 import { PageDetachMark } from '../../components/page-detach-mark';
+import { ResizeHandle } from '../../components/resizable/resize-handle';
+import { useResizable } from '../../components/resizable/use-resizable';
 import { useDatabaseConnectionsStore } from '../../store/database-connections-store';
+import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useWorkbenchStore, type WorkbenchTab } from '../../store/workbench-store';
 import { TabStrip } from '../workbench/tab-strip';
 import { ConnectionDialog } from './connection-dialog';
@@ -50,6 +53,16 @@ export function DatabaseView() {
   const load = useDatabaseConnectionsStore((s) => s.load);
 
   const [dialogFor, setDialogFor] = useState<ConnectionConfig | null | 'new'>(null);
+
+  const layout = useUiStore((s) => s.layout);
+  const setLayout = useUiStore((s) => s.setLayout);
+  const connectionsList = useResizable({
+    size: layout.databaseConnectionsWidth,
+    onSize: (value) => setLayout('databaseConnectionsWidth', value),
+    initial: DEFAULT_LAYOUT.databaseConnectionsWidth,
+    axis: 'x',
+    ...LAYOUT_BOUNDS.databaseConnectionsWidth,
+  });
 
   useEffect(() => {
     void load();
@@ -118,7 +131,7 @@ export function DatabaseView() {
             body={error ?? 'Something went wrong.'}
           />
         ) : loadingFirstTime ? (
-          <div className="flex w-72 shrink-0 flex-col border-r border-border">
+          <div className="flex shrink-0 flex-col border-r border-border" style={{ width: connectionsList.current }}>
             <ConnectionListSkeleton />
           </div>
         ) : connections.length === 0 ? (
@@ -132,7 +145,8 @@ export function DatabaseView() {
             <div
               role="region"
               aria-label="Connections"
-              className="flex w-72 shrink-0 flex-col overflow-y-auto border-r border-border"
+              className="flex shrink-0 flex-col overflow-y-auto border-r border-border"
+              style={{ width: connectionsList.current }}
             >
               <ul className="flex flex-col gap-0.5 p-1">
                 {connections.map((connection) => (
@@ -191,6 +205,8 @@ export function DatabaseView() {
                 </div>
               ) : null}
             </div>
+
+            <ResizeHandle resizable={connectionsList} axis="x" label="Resize connections list" />
 
             <div className="flex min-h-0 flex-1 flex-col">
               <TabStrip
