@@ -61,6 +61,17 @@ describe('BUILTIN_AGENTS', () => {
   );
 
   it.each(BUILTIN_AGENTS.map((agent) => [agent.id, agent] as const))(
+    '%s carries a valid signature matching its agentId',
+    (id, agent) => {
+      expect(agent.signatures).toBeDefined();
+      expect(agent.signatures?.agentId).toBe(id);
+      expect(Array.isArray(agent.signatures?.emails)).toBe(true);
+      expect(Array.isArray(agent.signatures?.names)).toBe(true);
+      expect(agent.signatures!.emails.length + agent.signatures!.names.length).toBeGreaterThan(0);
+    },
+  );
+
+  it.each(BUILTIN_AGENTS.map((agent) => [agent.id, agent] as const))(
     '%s carries an update command',
     (_id, agent) => {
       expect(agent.update).toBeTruthy();
