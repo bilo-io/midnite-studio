@@ -1,6 +1,32 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-18 — Phase 88 Themes A, E — xterm v6 upgrade (the bump + the attach test)
+
+[PR #455](https://github.com/bilo-io/midnite-studio/pull/455). `@xterm/xterm` `^5.5.0` → `^6.0.0`,
+`@xterm/addon-fit` → `^0.11.0`, `@xterm/addon-webgl` → `^0.19.0`, bumped together — [PR
+#242](https://github.com/bilo-io/midnite-studio/pull/242) bumped the two addons alone and never got
+past e2e, because those addon majors dropped their `'@xterm/xterm': ^5.0.0'` peer dependency
+entirely (they target 6.x only), leaving pnpm nothing to check the core against. **A**: confirmed
+exactly one `@xterm/xterm` resolves, no `@xterm/xterm` peer entry on either addon (expected now),
+`packages/desktop` still carries no `@xterm/*` dependency. The v6 API delta touching this repo's
+eight import sites, read from a real `xterm.d.ts` diff rather than the changelog: `ITheme` gained
+four optional keys (left unmapped in the VS Code importer — nothing in VS Code's own theme JSON
+maps to them), `ILink`/`ILinkProvider`/`IDisposable`/`FontWeight` are byte-identical, and the
+removed `overviewRulerWidth`/`windowsMode`/`fastScrollModifier` are never set here — confirmed by
+`grep`, not assumed. `moon run app:typecheck` passes with zero source edits beyond the version
+bump. **E**: `packages/app/src/features/terminal/xterm-attach.test.ts`, a vitest/jsdom test
+replacing the guard the removed peer dependency used to provide. Traced #242's actual failure from
+its own CI trace (a Playwright `pageError` in `panel-snap.spec.ts`) rather than guessing:
+`WebglAddon`'s dispose callback reads `terminal._core._store._isDisposed`, and `_store` is a field
+xterm core **6.0.0 added** (0 hits in 5.5.0's bundle, 27 in 6.0.0's, grepped both) — against the old
+core it throws the instant anything disposes the terminal. Reproduced verbatim in jsdom by
+temporarily downgrading the core locally (`TypeError: Cannot read properties of undefined (reading
+'_isDisposed')`, matching the CI trace byte-for-byte), then reverted; the committed test encodes the
+same field-shape break deterministically. Themes B (WebGL port verification), C (DOM-renderer call
+sites), D (`ITheme`/importer), F (the two parked debts) and G (full verification) remain open —
+B and F exceed this run's size cap, C and D want the bump merged first.
+
 ## 2026-09-17 — Phase 89 Theme D — Four sigma looks
 
 [PR #438](https://github.com/bilo-io/midnite-studio/pull/438). Four named looks over the one sigma
