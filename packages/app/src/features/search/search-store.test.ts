@@ -19,6 +19,8 @@ describe('useSearchStore', () => {
         authorDate: 1700000000,
         committerDate: 1700000000,
         refs: [],
+        coAuthors: [],
+        sessionTrailers: [],
       },
     ]);
 

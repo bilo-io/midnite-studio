@@ -32,6 +32,8 @@ const makeRow = (sha: string, colorIdx: number, lane = 0): GraphRow => ({
     committerDate: 1_700_000_000,
     parents: [],
     refs: [],
+    coAuthors: [],
+    sessionTrailers: [],
   },
   lane,
   colorIdx,

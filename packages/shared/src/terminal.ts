@@ -116,6 +116,17 @@ export const AgentModeSchema = z.enum(AGENT_MODES);
 export type AgentMode = z.infer<typeof AgentModeSchema>;
 export const DEFAULT_AGENT_MODE: AgentMode = 'both';
 
+/**
+ * Commit signature identity for an agent CLI (Phase 78 Theme B).
+ * Maps emails and names used in Co-Authored-By trailers or authorship to an agentId.
+ */
+export const AgentSignatureSchema = z.object({
+  agentId: z.string(),
+  emails: z.array(z.string()),
+  names: z.array(z.string()),
+});
+export type AgentSignature = z.infer<typeof AgentSignatureSchema>;
+
 export const AgentDefinitionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -153,6 +164,11 @@ export const AgentDefinitionSchema = z.object({
   docsUrl: z.string().min(1).optional(),
   /** The primary environment variable name for the provider's API key. */
   apiKeyEnvVar: z.string().min(1).optional(),
+  /**
+   * Git commit signatures (emails and display names) this agent uses in
+   * Co-Authored-By trailers or authorship (Phase 78 Theme B).
+   */
+  signatures: AgentSignatureSchema.optional(),
   /**
    * Two markers this agent's own TUI prints, used to guess whether it is
    * thinking or waiting on you — see main's `activity-detect.ts`. Roster data
@@ -224,6 +240,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'npm rm -g @anthropic-ai/claude-code',
     docsUrl: 'https://docs.anthropic.com/en/docs/agents-and-tools/claude-code',
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+    signatures: {
+      agentId: 'claude',
+      emails: ['noreply@anthropic.com'],
+      names: ['Claude', 'Claude Code'],
+    },
     /*
       Two independent tells, because Claude Code's spinner row grows and
       shrinks with the width it is given and with how long the turn has run:
@@ -269,6 +290,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'rm -f ~/.local/bin/cursor-agent ~/.local/bin/agent',
     docsUrl: 'https://docs.cursor.com',
     apiKeyEnvVar: 'CURSOR_API_KEY',
+    signatures: {
+      agentId: 'cursor',
+      emails: ['cursor@cursor.com', 'agent@cursor.com'],
+      names: ['Cursor'],
+    },
   },
   {
     /*
@@ -288,6 +314,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'rm -f ~/.local/bin/agy',
     docsUrl: 'https://antigravity.google/docs',
     apiKeyEnvVar: 'GEMINI_API_KEY',
+    signatures: {
+      agentId: 'agy',
+      emails: ['antigravity@google.com'],
+      names: ['Antigravity', 'agy'],
+    },
     /*
       Phase 50 Theme F, captured from a real session (a PTY-driven trivial
       prompt, ANSI stripped). Two independent tells for the same reason
@@ -322,6 +353,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'npm rm -g @openai/codex',
     docsUrl: 'https://github.com/openai/codex',
     apiKeyEnvVar: 'OPENAI_API_KEY',
+    signatures: {
+      agentId: 'codex',
+      emails: ['noreply@github.com', 'codex@openai.com', 'noreply@openai.com'],
+      names: ['Codex'],
+    },
     // No `activity` set — Phase 50 Theme F could not capture a real Codex
     // session in this pass: the local CLI required `codex login` (an
     // interactive OAuth device flow), which is not something to drive
@@ -341,6 +377,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'npm rm -g @github/copilot',
     docsUrl: 'https://docs.github.com/en/copilot',
     apiKeyEnvVar: 'GITHUB_TOKEN',
+    signatures: {
+      agentId: 'copilot',
+      emails: ['copilot@github.com', 'github-copilot[bot]@users.noreply.github.com'],
+      names: ['GitHub Copilot', 'Copilot'],
+    },
   },
   {
     id: 'openclaude',
@@ -353,6 +394,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'npm rm -g @gitlawb/openclaude',
     docsUrl: 'https://github.com/gitlawb/openclaude',
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+    signatures: {
+      agentId: 'openclaude',
+      emails: ['openclaude@users.noreply.github.com'],
+      names: ['OpenClaude'],
+    },
   },
   {
     id: 'opencode',
@@ -366,6 +412,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'npm rm -g opencode-ai',
     docsUrl: 'https://github.com/opencode-ai/opencode',
     apiKeyEnvVar: 'OPENAI_API_KEY',
+    signatures: {
+      agentId: 'opencode',
+      emails: ['opencode@users.noreply.github.com'],
+      names: ['OpenCode'],
+    },
     /*
       Phase 50 Theme F, captured the same way as `agy`'s. OpenCode's own
       braille spinner (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`, the classic "dots" cli-spinner set —
@@ -399,6 +450,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'npm rm -g @kilocode/cli',
     docsUrl: 'https://kilocode.com',
     apiKeyEnvVar: 'KILO_API_KEY',
+    signatures: {
+      agentId: 'kilo',
+      emails: ['kilo@kilocode.com'],
+      names: ['Kilo Code', 'Kilo'],
+    },
   },
   {
     id: 'aider',
@@ -412,6 +468,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'pip uninstall -y aider-chat',
     docsUrl: 'https://aider.chat/docs',
     apiKeyEnvVar: 'OPENAI_API_KEY',
+    signatures: {
+      agentId: 'aider',
+      emails: ['aider@aider.chat'],
+      names: ['Aider'],
+    },
   },
   {
     id: 'cline',
@@ -426,6 +487,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'npm rm -g cline',
     docsUrl: 'https://github.com/cline/cline',
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
+    signatures: {
+      agentId: 'cline',
+      emails: ['cline@cline.bot'],
+      names: ['Cline'],
+    },
   },
   {
     /*
@@ -447,6 +513,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'npm rm -g grok-cli',
     docsUrl: 'https://docs.x.ai/docs/overview',
     apiKeyEnvVar: 'XAI_API_KEY',
+    signatures: {
+      agentId: 'grok',
+      emails: ['grok@x.ai'],
+      names: ['Grok', 'Grok Build'],
+    },
   },
   {
     /*
@@ -475,6 +546,11 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     uninstall: 'rm -f ~/.local/bin/goose',
     docsUrl: 'https://goose-docs.ai',
     apiKeyEnvVar: 'OPENAI_API_KEY',
+    signatures: {
+      agentId: 'goose',
+      emails: ['goose@block.xyz', 'goose@aaif-goose.org'],
+      names: ['Goose'],
+    },
   },
 ] as const;
 

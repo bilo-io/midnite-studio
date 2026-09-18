@@ -13,6 +13,10 @@ export const CommitSchema = z.object({
   subject: z.string(),
   /** Fully-qualified ref names decorating this commit, parsed from `%D`. */
   refs: z.array(z.string()),
+  /** Co-authors from `Co-Authored-By:` trailers, each `Name <email>` verbatim. */
+  coAuthors: z.array(z.string()),
+  /** Session identifiers from `Midnite-Session:` trailers. */
+  sessionTrailers: z.array(z.string()),
 });
 export type Commit = z.infer<typeof CommitSchema>;
 

@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-18 — Phase 78 Themes A and B — Read the trailers & provenance vocabulary
+
+[PR #456](https://github.com/bilo-io/midnite-studio/pull/456). Extended `LOG_FORMAT` in `packages/git-engine/src/parsers/log-parser.ts` to read `Co-Authored-By` and `Midnite-Session` trailers (`%(trailers:key=...,valueonly,separator=%x1f)`) into `CommitSchema.coAuthors` and `CommitSchema.sessionTrailers` while preserving NUL record delimiters. Benchmarked on the 50k fixture (~1.2 µs/commit overhead). Created `packages/shared/src/domain/provenance.ts` defining `ProvenanceSource`, `CommitProvenance` (`human`, `agent`, `mixed`), `classifyProvenance` with strict confidence ordering (`session-trailer` > `co-author` > `author` > `session-window`), and `commitsForSession`. Added `signatures` and `AgentSignatureSchema` to all built-in agents in `terminal.ts`. Achieved 100% branch coverage on provenance classification.
+
 ## 2026-09-18 — Phase 88 Themes A, E — xterm v6 upgrade (the bump + the attach test)
 
 [PR #455](https://github.com/bilo-io/midnite-studio/pull/455). `@xterm/xterm` `^5.5.0` → `^6.0.0`,

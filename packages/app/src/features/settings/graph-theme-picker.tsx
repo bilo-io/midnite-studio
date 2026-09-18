@@ -71,6 +71,8 @@ function commit(sha: string, parents: string[], authorName: string, authorEmail:
     committerDate: 0,
     subject: '',
     refs: [],
+    coAuthors: [],
+    sessionTrailers: [],
   };
 }
 

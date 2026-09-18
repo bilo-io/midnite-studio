@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { chunkRecords, parseDecorations, parseLog, parseLogRecord } from './log-parser';
+import { chunkRecords, parseDecorations, parseLog, parseLogLine, parseLogRecord } from './log-parser';
 
 const SHA_A = 'a'.repeat(40);
 const SHA_B = 'b'.repeat(40);
@@ -16,6 +16,8 @@ const record = (fields: {
   ct?: string;
   decorations?: string;
   subject?: string;
+  coAuthors?: string;
+  sessionTrailers?: string;
 }) =>
   [
     fields.sha,
@@ -26,10 +28,12 @@ const record = (fields: {
     fields.ct ?? '1700000001',
     fields.decorations ?? '',
     fields.subject ?? 'subject',
+    fields.coAuthors ?? '',
+    fields.sessionTrailers ?? '',
   ].join('\x00');
 
 describe('parseLogRecord', () => {
-  it('parses a commit with two parents', () => {
+  it('parses a commit with two parents and no trailers', () => {
     const commit = parseLogRecord(
       record({ sha: SHA_A, parents: `${SHA_B} ${SHA_C}`, subject: 'Merge branch feature' }),
     );
@@ -43,7 +47,73 @@ describe('parseLogRecord', () => {
       committerDate: 1700000001,
       subject: 'Merge branch feature',
       refs: [],
+      coAuthors: [],
+      sessionTrailers: [],
     });
+  });
+
+  it('parses a commit with one co-author trailer', () => {
+    const commit = parseLogRecord(
+      record({
+        sha: SHA_A,
+        coAuthors: 'Claude <noreply@anthropic.com>',
+      }),
+    );
+
+    expect(commit?.coAuthors).toEqual(['Claude <noreply@anthropic.com>']);
+    expect(commit?.sessionTrailers).toEqual([]);
+  });
+
+  it('parses a commit with three co-author trailers separated by \\x1f', () => {
+    const commit = parseLogRecord(
+      record({
+        sha: SHA_A,
+        coAuthors: 'Alice <alice@example.com>\x1fBob <bob@example.com>\x1fCharlie <charlie@example.com>',
+      }),
+    );
+
+    expect(commit?.coAuthors).toEqual([
+      'Alice <alice@example.com>',
+      'Bob <bob@example.com>',
+      'Charlie <charlie@example.com>',
+    ]);
+  });
+
+  it('parses trailers containing < > pairs intact', () => {
+    const commit = parseLogRecord(
+      record({
+        sha: SHA_A,
+        coAuthors: 'Partner Name <partner@domain.com>',
+        sessionTrailers: '<session-uuid-123>',
+      }),
+    );
+
+    expect(commit?.coAuthors).toEqual(['Partner Name <partner@domain.com>']);
+    expect(commit?.sessionTrailers).toEqual(['<session-uuid-123>']);
+  });
+
+  it('does not mistake a subject containing literal Co-Authored-By: for a trailer', () => {
+    const subject = 'docs: mention Co-Authored-By: in commit guide';
+    const commit = parseLogRecord(record({ sha: SHA_A, subject, coAuthors: '' }));
+
+    expect(commit?.subject).toBe(subject);
+    expect(commit?.coAuthors).toEqual([]);
+  });
+
+  it('parses multiple session trailers', () => {
+    const commit = parseLogRecord(
+      record({
+        sha: SHA_A,
+        sessionTrailers: 'session-alpha\x1fsession-beta',
+      }),
+    );
+
+    expect(commit?.sessionTrailers).toEqual(['session-alpha', 'session-beta']);
+  });
+
+  it('parseLogLine alias functions identically to parseLogRecord', () => {
+    const rec = record({ sha: SHA_A, coAuthors: 'Agent <agent@example.com>' });
+    expect(parseLogLine(rec)).toEqual(parseLogRecord(rec));
   });
 
   it('gives a root commit an empty parent list, not a list holding one empty string', () => {

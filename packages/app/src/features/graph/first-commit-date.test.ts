@@ -18,6 +18,8 @@ const row = (committerDate: number, sha = Math.random().toString(36)): GraphRow 
     committerDate,
     subject: '',
     refs: [],
+    coAuthors: [],
+    sessionTrailers: [],
   },
 });
 
