@@ -102,6 +102,7 @@ import { useCommandHandlers } from './services/keybindings/use-command-handlers'
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { useLivenessTracking } from './services/use-liveness-tracking';
 import { useRemotes, useRepos } from './services/queries';
+import { useSyncRepoForgeRegistry } from './services/repo-forge-registry';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useReportWindowRepo } from './services/use-report-window-repo';
 import { useSettingsSync } from './services/use-settings-sync';
@@ -596,6 +597,14 @@ function Shell() {
   // Cross-window sync (Theme E) — mounted here too, not just in
   // `DetachedRoot`, so a change made in the main window reaches every popout.
   useBroadcastSync();
+  /*
+    Keeps `repo-forge-registry.ts`'s synchronous store in step with every
+    registered repo's forge remote — mounted once, here, so it is populated
+    before the first link is ever clicked, for every repo, not just the
+    selected one (a link-route lookup has to work for a repo the reader has
+    open but is not currently looking at). Ad hoc click-modifier theme.
+  */
+  useSyncRepoForgeRegistry();
   /*
     The setters the three splitters need for their snaps: dragging a pane past
     its own minimum closes it, and dragging the terminal past the top of the

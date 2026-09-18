@@ -10,11 +10,14 @@ import { Choice, TextArea } from './controls';
  * Browser settings.
  *
  * "Clear browsing data" landed with Phase 32 Theme B; "Link handling" is
- * Phase 71 Theme A — the one control that decides whether every hand-off link
- * in the app (a PR in Reviews, a run in Actions, a link in a rendered commit
- * message, a hyperlink a terminal emitted) opens in the pane below or leaves
- * for the system browser. "Preview deployments" is Theme D's own allowlist —
- * the hosts the Reviews view will offer to open beside a diff.
+ * Phase 71 Theme A, since the ad hoc click-modifier theme unified: Mod/Ctrl
+ * and Alt/Option are now fixed, app-wide gestures (see the section's own
+ * hint text below), and this control is what a plain click falls back to —
+ * the stored preference for a hand-off link (a PR in Reviews, a run in
+ * Actions, a link in a rendered commit message, a hyperlink a terminal
+ * emitted) whose destination Midnite has no native view for. "Preview
+ * deployments" is Theme D's own allowlist — the hosts the Reviews view will
+ * offer to open beside a diff.
  */
 export function BrowserPage() {
   const dialogs = useDialogs();
@@ -57,14 +60,25 @@ export function BrowserPage() {
       <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
         <h3 className="font-semibold text-foreground text-xs">Link handling</h3>
         {/*
-          The help text names all three modifiers verbatim, and that is the
-          point of it: a modifier nobody is told about is a modifier nobody
-          uses, and these three are what make the default cheap to reject
-          without opening this page at all.
+          The help text names every modifier verbatim, and that is the point
+          of it: a modifier nobody is told about is a modifier nobody uses.
+          Mod/Ctrl and Shift, and Alt/Option, are fixed — they are not
+          affected by the choice below, which only governs what a plain click
+          falls back to once Midnite has checked whether it has a page of its
+          own for the link (a PR opens PrDetail, an issue opens IssueDetail,
+          and so on — the link never reaches this choice at all when one of
+          those matches).
         */}
+        <p className="text-muted-foreground text-[11px] leading-relaxed">
+          Mod (Cmd/Ctrl)-click or Shift-click a link to always open it in your system browser.
+          Alt (Option)-click to always open it in the Midnite browser below, even for a link
+          Midnite has its own page for. Middle-click opens a background tab. A plain click on a
+          link Midnite recognises — a pull request, an issue, a run — opens that page instead of
+          either browser; everything else falls back to the choice here.
+        </p>
         <Choice<'in-app' | 'system'>
-          label="Open links in"
-          hint="Cmd-click opens a link in the other one. Shift-click always uses your system browser. Middle-click opens a background tab."
+          label="Fall back to"
+          hint="What a plain click on a link Midnite has no page for opens."
           value={linkTarget}
           onChange={(next) => useUiStore.getState().setLinkTarget(next)}
           options={[

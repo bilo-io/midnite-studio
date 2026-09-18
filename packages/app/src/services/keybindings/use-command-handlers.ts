@@ -240,9 +240,12 @@ export function useCommandHandlers(): CommandRuntime {
         },
     /*
       Flips `linkTarget` between the embedded browser and the system one
-      (Phase 71 Theme A). Enabled unconditionally: it needs no repo, no open
-      pane and no browser tab — it changes one persisted preference, and
-      Settings ▸ Browser shows and undoes it.
+      (Phase 71 Theme A) — the fallback a plain click on a link with no
+      native in-app view uses (ad hoc click-modifier theme); Mod/Ctrl,
+      Alt/Option and Shift stay fixed regardless of this preference. Enabled
+      unconditionally: it needs no repo, no open pane and no browser tab — it
+      changes one persisted preference, and Settings ▸ Browser shows and
+      undoes it.
     */
     'link.toggleTarget': { enabled: true, run: () => useUiStore.getState().toggleLinkTarget() },
     /*

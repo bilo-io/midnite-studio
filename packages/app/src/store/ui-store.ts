@@ -640,13 +640,16 @@ export type UiState = {
    */
   browserLayout: BrowserLayout;
   /**
-   * Where a hand-off link opens by default — see {@link LinkTarget}.
+   * What a plain click on a hand-off link falls back to when Midnite has no
+   * native view for it — see {@link LinkTarget}.
    *
    * `'in-app'` out of the box: a browser nobody's links reach is a browser
-   * nobody uses, and the three modifier escapes (`Shift` for the system
-   * browser, `Mod` for the other one, middle-click for a background tab) plus
-   * the one-click control on Settings ▸ Browser make the default cheap to
-   * reject. Read through `openInMidnite`, never inline at a call site.
+   * nobody uses. Mod/Ctrl and Shift always leave for the system browser, and
+   * Alt/Option always opens the embedded one, regardless of this value — see
+   * `open-in-midnite.ts`'s module docblock for the full precedence (ad hoc
+   * click-modifier theme, on top of Phase 71's original two-destination
+   * version of this field). Read through `openInMidnite`, never inline at a
+   * call site.
    */
   linkTarget: LinkTarget;
   /**

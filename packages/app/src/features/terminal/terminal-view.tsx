@@ -591,8 +591,17 @@ export function TerminalView({
      * in the app uses (Theme B left this one file on the bare `openExternal`
      * callback; `terminal-links.ts` itself needs no change, its opener has
      * always been injected).
+     *
+     * `preferInAppRoute: true` (ad hoc click-modifier theme): `gh`'s own
+     * output is full of PR, issue and run URLs, and Cmd/Ctrl is already spent
+     * activating the link at all here (see the module docblock on
+     * `terminal-links.ts` for why plain click cannot be) — there is no
+     * modifier left over to ask for the system browser, so the one useful
+     * upgrade left is preferring the native view when there is one.
      */
-    const links = attachTerminalLinks(term, (url) => openInMidnite(url));
+    const links = attachTerminalLinks(term, (url) =>
+      openInMidnite(url, { preferInAppRoute: true }),
+    );
 
     let dataSub: { dispose: () => void } | null = null;
     /**

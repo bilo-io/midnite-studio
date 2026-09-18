@@ -25,6 +25,7 @@ import {
   useRefreshForge,
 } from '../../services/queries';
 import { useActionsStore } from '../../store/actions-store';
+import { useIssuesStore } from '../../store/issues-store';
 import { useReviewsStore } from '../../store/reviews-store';
 import { useUiStore } from '../../store/ui-store';
 import {
@@ -297,6 +298,9 @@ export function IssuesSection({
   const { data, isFetching } = useForgeIssues(repoId, open);
   const refresh = useRefreshForge(repoId);
   const dialogs = useDialogs();
+  const selectRepo = useUiStore((s) => s.selectRepo);
+  const setActiveView = useUiStore((s) => s.setActiveView);
+  const selectIssue = useIssuesStore((s) => s.selectIssue);
 
   const issues = data?.issues ?? [];
   // Theme K.2 — see `ActionsSection`'s own comment on the identical pattern.
@@ -349,7 +353,19 @@ export function IssuesSection({
             .join(' · ')}
           menu={forgeRowMenu(issue.url, 'issue', repoId)}
           dialogs={dialogs}
-          onOpen={() => openInMidnite(issue.url, { originRepoId: repoId })}
+          /*
+            The Issues view, not a browser tab — the same move Phase 19 made
+            for Actions runs and ReviewsGroup makes for pulls, just below.
+            This row used to be the one exception (a bare `openInMidnite`,
+            Ad hoc click-modifier theme's own find): an issue link has a
+            native view exactly like a run or a pull does, and there is no
+            reason its row alone sent a reader to the forge for it.
+          */
+          onOpen={() => {
+            selectRepo(repoId);
+            selectIssue(repoId, issue.number);
+            setActiveView('issues');
+          }}
         />
       ))}
     </TreeSection>
