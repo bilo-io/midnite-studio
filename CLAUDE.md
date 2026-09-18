@@ -47,6 +47,18 @@ damage is invisible until they switch back to a dirty tree on a branch they did 
   minutes.
 - **Clean up when done**: `git worktree remove <path>` (add `--force` if the tree is dirty),
   then `git worktree prune`. Check `git worktree list` for strays from dead sessions.
+- **A worktree keeps a `SCRATCHPAD.md` at its root while the work is in flight — untracked, never
+  committed, and never in the primary checkout.** A session dies more often than anyone plans for:
+  the terminal closes, context runs out, a swarm subagent is killed. What is lost is never the code
+  — that is on disk — it is *why* the half-finished diff looks like it does. So a worktree's first
+  file, written before the first edit, is a `SCRATCHPAD.md` recording the task, the decisions
+  already taken, what is done, what is next, and what surprised it; keep it current as the work
+  moves, because a stale one is worse than none. It is **deliberately not git-ignored** — showing
+  up untracked in `git status` is precisely how the next session finds it. The cost of that is a
+  `git add -A` swallowing it, so **check before merging** (`git ls-files --error-unmatch
+  SCRATCHPAD.md`) and un-track it if it landed; a squash-merge collapses an add plus a remove to
+  nothing, so un-tracking on the branch is the whole fix. The file goes when the worktree does. One
+  in the primary checkout is a bug, not a note — delete it.
 - Only work directly in the primary checkout when the user says so in this session.
 
 ## Toolchain

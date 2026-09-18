@@ -36,12 +36,42 @@ printf '\033]0;Adhoc: %s\007' "<short-slug>"
 ```
 
 ## 3 · Worktree
+
+**First: is there an abandoned scratchpad to resume from?** A dead session leaves its code on disk
+but not its reasoning, which is what every worktree's root `SCRATCHPAD.md` is for. Look before
+making a new tree:
+```bash
+for f in .worktrees/*/SCRATCHPAD.md; do [ -e "$f" ] && { echo "── $f"; sed -n '1,25p' "$f"; }; done
+```
+If one covers this task — or is stale enough to be dead — say so and **ask the human: resume that
+worktree, or start fresh?** Resuming means `cd`-ing into it, reading the whole scratchpad, and
+continuing from its **Next** line rather than re-deriving the work. Starting fresh means tearing
+the dead tree down first (`git worktree remove --force <path>`) so it can't be picked up twice.
+
 ```bash
 git fetch origin
 git worktree add .worktrees/adhoc-<slug> -b feature/adhoc-<slug> origin/main
 cd .worktrees/adhoc-<slug> && <this project's own install command>
 ```
 Track sub-tasks with TodoWrite.
+
+**Then write `SCRATCHPAD.md` at the worktree root — before the first code edit.** It is the
+handover to whatever session picks this up after yours dies, and it is **untracked, never
+committed, and never present in the primary checkout**:
+```markdown
+# <task title>
+
+- **Branch:** <branch> · **PR:** — · **Started:** <date>
+- **Task:** what is being built, and why
+- **Decisions:** every answer the human gave, and every call made since
+- **Done:** what has actually landed in this worktree so far
+- **Next:** the immediate next step, concrete enough to act on cold
+- **Gotchas:** surprises — a failing test, a boundary rule, a rabbit hole not to re-enter
+```
+Keep it current as the work moves: after each commit, at each stage boundary, and before anything
+long-running. A stale scratchpad is worse than none. It is deliberately **not** git-ignored —
+turning up untracked in `git status` is how the next session finds it — which is also why the merge
+stage below checks it never got committed.
 
 ## 4 · Build
 - Implement exactly the task agreed in Stages 0–1 — don't drift scope.
@@ -70,6 +100,19 @@ Against, in order: fidelity to the agreed task → `CLAUDE.md` conventions → c
 
 ## 10 · Merge & wrap
 - If the branch is behind `main`, rebase it first: `git rebase origin/main`, then force-push (`git push --force-with-lease`).
+- **Retire the scratchpad.** `SCRATCHPAD.md` was never meant to be committed, but one `git add -A`
+  anywhere on the branch swallows it. **Before `gh pr ready`**, check — and un-track it if it
+  landed. A squash-merge collapses an add plus a remove to nothing, so un-tracking on the branch is
+  the whole fix:
+  ```bash
+  git ls-files --error-unmatch SCRATCHPAD.md >/dev/null 2>&1 \
+    && git rm --cached -q SCRATCHPAD.md \
+    && git commit -qm "chore: drop SCRATCHPAD.md from the branch" \
+    && git push
+  ```
+  **Then, once the merge has landed and before the teardown, `rm -f SCRATCHPAD.md`.** It has done
+  its job, and an untracked file left behind is exactly what `git worktree remove` is supposed to
+  refuse — deleting it is what keeps the teardown from needing a `--force` it shouldn't have.
 - `gh pr ready <n>` → `gh pr merge <n> --squash --delete-branch`. Always squash.
 - **Teardown + report freed space:**
   ```bash

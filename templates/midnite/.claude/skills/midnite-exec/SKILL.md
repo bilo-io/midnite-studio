@@ -77,6 +77,17 @@ So parallel `/midnite-exec` loops don't grab the same slice, **claim the whole b
 The claim must land on `main` **before** Stage 3 so the worktree branches from a tip that already carries it.
 
 ## 3 · Worktree
+
+**First: is there an abandoned scratchpad to resume from?** A dead session leaves its code on disk
+but not its reasoning, which is what every worktree's root `SCRATCHPAD.md` is for. Look before
+making a new tree:
+```bash
+for f in .worktrees/*/SCRATCHPAD.md; do [ -e "$f" ] && { echo "── $f"; sed -n '1,25p' "$f"; }; done
+```
+If one covers this task — or is stale enough to be dead — say so and **ask the human: resume that
+worktree, or start fresh?** Resuming means `cd`-ing into it, reading the whole scratchpad, and
+continuing from its **Next** line rather than re-deriving the work. Starting fresh means tearing
+the dead tree down first (`git worktree remove --force <path>`) so it can't be picked up twice.
 One worktree, one branch, for the **whole batch** — even when it spans multiple phases. Derive `<slice>` from the batch label built in 2.6 (e.g. `p9-ac-p12-b`), not from a single theme.
 ```bash
 git fetch origin                                    # picks up the WIP claim from 2.7
@@ -84,6 +95,24 @@ git worktree add .worktrees/<slice> -b feature/<slice> origin/main
 cd .worktrees/<slice> && <this project's own install command>
 ```
 Track sub-tasks with TodoWrite — one group per theme in the batch.
+
+**Then write `SCRATCHPAD.md` at the worktree root — before the first code edit.** It is the
+handover to whatever session picks this up after yours dies, and it is **untracked, never
+committed, and never present in the primary checkout**:
+```markdown
+# <task title>
+
+- **Branch:** <branch> · **PR:** — · **Started:** <date>
+- **Task:** what is being built, and why
+- **Decisions:** every answer the human gave, and every call made since
+- **Done:** what has actually landed in this worktree so far
+- **Next:** the immediate next step, concrete enough to act on cold
+- **Gotchas:** surprises — a failing test, a boundary rule, a rabbit hole not to re-enter
+```
+Keep it current as the work moves: after each commit, at each stage boundary, and before anything
+long-running. A stale scratchpad is worse than none. It is deliberately **not** git-ignored —
+turning up untracked in `git status` is how the next session finds it — which is also why the merge
+stage below checks it never got committed.
 
 ## 4 · Build
 - Implement every theme in the batch to its **phase doc + recorded decisions** — don't drift scope or reintroduce a rejected approach. Work through the themes in dependency order where one informs another; otherwise order doesn't matter.
@@ -123,6 +152,19 @@ Against, in order: fidelity to the phase doc/decisions → `CLAUDE.md` conventio
     3. **Verify before Stage 10's `gh pr ready`:** re-read every touched row and confirm its `Done`/`%`/bar **actually changed** for that phase — unchanged numbers mean you skipped this and the merge will look like no progress.
   - Commit these on the branch (`docs(todo): ...`) so the squash-merge lands docs + index + code together, for every phase at once.
 - If the branch is behind `main`, rebase it first: `git rebase origin/main` in the worktree, then force-push (`git push --force-with-lease`). If the tracker files conflict with another loop's merge, take both sides (keep every `done.md` entry; reconcile the `_INDEX.md` cells).
+- **Retire the scratchpad.** `SCRATCHPAD.md` was never meant to be committed, but one `git add -A`
+  anywhere on the branch swallows it. **Before `gh pr ready`**, check — and un-track it if it
+  landed. A squash-merge collapses an add plus a remove to nothing, so un-tracking on the branch is
+  the whole fix:
+  ```bash
+  git ls-files --error-unmatch SCRATCHPAD.md >/dev/null 2>&1 \
+    && git rm --cached -q SCRATCHPAD.md \
+    && git commit -qm "chore: drop SCRATCHPAD.md from the branch" \
+    && git push
+  ```
+  **Then, once the merge has landed and before the teardown, `rm -f SCRATCHPAD.md`.** It has done
+  its job, and an untracked file left behind is exactly what `git worktree remove` is supposed to
+  refuse — deleting it is what keeps the teardown from needing a `--force` it shouldn't have.
 - `gh pr ready <n>` → `gh pr merge <n> --squash --delete-branch`. **Always squash. Only use a merge commit if squash is genuinely impossible (e.g. protected-branch rules outside your control).** The merge now carries the doc + index updates — no separate `main` commit needed for trackers.
 - **Post-merge `_INDEX.md` sync on `main` — MANDATORY every merge, never skip.** The squash carried your in-branch `_INDEX.md` edit, but a parallel loop's merge can land between and leave it stale. Back in the primary checkout, refresh `main` and verify the index reflects reality:
   ```bash

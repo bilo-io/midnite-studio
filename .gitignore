@@ -27,6 +27,11 @@ pnpm-debug.log*
 # Git worktrees: parallel-agent checkouts live in the repo-root .worktrees/ dir
 .worktrees/
 
+# SCRATCHPAD.md is deliberately NOT ignored. A worktree in flight keeps one at its root — the note
+# a session leaves about what it was doing — and it has to show up untracked in `git status` for
+# the next session to find it. Ignoring it would hide exactly the thing it exists to surface; the
+# skills drop it from the branch before merging instead. See CLAUDE.md, "Where to work".
+
 # Claude Code / Antigravity: machine-local settings + agent worktrees (never committed)
 .claude/settings.local.json
 .claude/worktrees/
