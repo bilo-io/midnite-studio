@@ -48,11 +48,11 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ### A — The bump itself (S)
 
-- [ ] `@xterm/xterm` `^5.5.0` → `6.0.0` in [`packages/app/package.json`](../../../packages/app/package.json).
-- [ ] `@xterm/addon-fit` `^0.10.0` → `0.11.0`, `@xterm/addon-webgl` `^0.18.0` → `0.19.0`, in the same commit — never separately, for the reason the framing gives.
-- [ ] One `pnpm-lock.yaml` update. Confirm the lockfile shows the addons with **no** `@xterm/xterm` peer entry (that absence is expected now, not a red flag) and that exactly one `@xterm/xterm` version resolves — no duplicate majors.
-- [ ] `packages/desktop` has no `@xterm/*` dependency and must not gain one: xterm is renderer-only, main spawns `node-pty`. Confirm, don't assume.
-- [ ] Read the v6 release notes and record the API delta that actually touches our eight import sites in this doc's Decisions section — not a general changelog summary.
+- [x] `@xterm/xterm` `^5.5.0` → `6.0.0` in [`packages/app/package.json`](../../../packages/app/package.json).
+- [x] `@xterm/addon-fit` `^0.10.0` → `0.11.0`, `@xterm/addon-webgl` `^0.18.0` → `0.19.0`, in the same commit — never separately, for the reason the framing gives.
+- [x] One `pnpm-lock.yaml` update. Confirm the lockfile shows the addons with **no** `@xterm/xterm` peer entry (that absence is expected now, not a red flag) and that exactly one `@xterm/xterm` version resolves — no duplicate majors.
+- [x] `packages/desktop` has no `@xterm/*` dependency and must not gain one: xterm is renderer-only, main spawns `node-pty`. Confirm, don't assume.
+- [x] Read the v6 release notes and record the API delta that actually touches our eight import sites in this doc's Decisions section — not a general changelog summary.
 
 ### B — `terminal-view.tsx` and the WebGL addon (M)
 
@@ -83,9 +83,9 @@ The one place this migration escapes `features/terminal/`.
 
 The deliverable that makes #242 unrepeatable.
 
-- [ ] A vitest that constructs a `Terminal`, loads `FitAddon` and `WebglAddon`, and asserts each **actually attaches** rather than merely importing.
-- [ ] It must fail against a deliberately mismatched pair — prove the test detects the #242 condition, or it is decoration. Verify by pinning a mismatched version locally, watching it go red, then reverting.
-- [ ] jsdom, in the default `moon run :typecheck :lint :test` gate, per [Phase 82](phase-82-the-pyramid-righted.md)'s rule: proving an addon binds needs no browser capability. Seconds, against the ~20 minutes of e2e timeout #242 spent discovering the same fact.
+- [x] A vitest that constructs a `Terminal`, loads `FitAddon` and `WebglAddon`, and asserts each **actually attaches** rather than merely importing.
+- [x] It must fail against a deliberately mismatched pair — prove the test detects the #242 condition, or it is decoration. Verify by pinning a mismatched version locally, watching it go red, then reverting.
+- [x] jsdom, in the default `moon run :typecheck :lint :test` gate, per [Phase 82](phase-82-the-pyramid-righted.md)'s rule: proving an addon binds needs no browser capability. Seconds, against the ~20 minutes of e2e timeout #242 spent discovering the same fact.
 
 ### F — The two debts parked on this bump (M)
 
@@ -152,11 +152,57 @@ Both were deferred *on the assumption* that a bump would fix them. The deliverab
 - **What if v6 does not fix the parked items?** *Settled: verify, then fix or re-park with evidence.*
   The unmount throw is upstream and may not be fixable from outside the library; re-parking with a
   recorded v6 verdict is an acceptable outcome, silently leaving it is not.
-- **Open — does v6 change `ITheme`?** Unknown until Theme A reads the release notes. If it added
-  required keys, Theme D grows and the VS Code importer needs a mapping decision.
-- **Open — does v6 change WebGL context allocation?** If it allocates differently,
-  `MAX_WEBGL_CONTEXTS` may no longer mean what it meant. Report rather than retune here: the number
-  belongs to Phase 84's policy work.
-- **Open — is the phase one PR or two?** A (bump) and E (attach test) could land first as a small,
-  self-contained safety net, with B-D-F following. Recommend one PR unless the v6 delta turns out
-  larger than the API surface suggests — the bump is not independently useful without the port.
+- **Resolved — the v6 API delta, read from a real `xterm.d.ts` diff (5.5.0 vs 6.0.0), not the
+  changelog prose.** Nothing that touches our eight import sites changed in a way that requires a
+  code edit:
+  - `ITheme` gained four **optional** keys (`scrollbarSliderBackground`,
+    `scrollbarSliderHoverBackground`, `scrollbarSliderActiveBackground`, `overviewRulerBorder`) —
+    additive, nothing removed, nothing required. `theme-types.ts` and `vscode-theme-importer.ts`
+    need no change; see the resolved open question below.
+  - `ILink`, `ILinkProvider`, `IDisposable`, `FontWeight` — **zero** diff between the two `.d.ts`
+    files. `terminal-links.ts`/`terminal-font.ts` port with no edits.
+  - `ITerminalOptions.overviewRulerWidth` → `ITerminalOptions.overviewRuler: IOverviewRulerOptions`
+    (`{width, showTopBorder, showBottomBorder}`), and `windowsMode`/`fastScrollModifier` were
+    removed. `grep` across `packages/app/src` for all three: zero hits — we never set them, so
+    this is a no-op for us, confirmed rather than assumed.
+  - `@xterm/addon-fit@0.11.0`'s own source already reads `options.overviewRuler?.width` (the new
+    shape) rather than the removed `overviewRulerWidth` — one more confirmation the addon truly
+    targets 6.x, not 5.x with an option quietly ignored.
+  - `@xterm/addon-fit`/`@xterm/addon-webgl` typings themselves are unchanged function-for-function
+    across the bump (a doc-comment fix and one new `WebglAddon.onRemoveTextureAtlasCanvas` event,
+    unused here).
+  - `moon run app:typecheck` passes with **zero** source edits after the version bump alone —
+    empirical confirmation the delta is genuinely inert for this codebase's usage, not a
+    typecheck gap.
+- **Resolved — does v6 change `ITheme`?** Yes, but only by adding four optional scrollbar/ruler
+  colour keys (above). **Decision: leave them defaulted, do not map them in the VS Code
+  importer.** VS Code's own theme JSON has no equivalent concept (no overview-ruler border or a
+  distinct scrollbar-slider colour token), so there is nothing to map *from*; xterm's own defaults
+  (`foreground` at 20/40/50% opacity) already track the imported theme's foreground colour. Revisit
+  only if a real VS Code theme surfaces a scrollbar-adjacent field worth carrying over.
+- **Resolved — does v6 change WebGL context allocation?** No evidence it does. `MAX_WEBGL_CONTEXTS`
+  (`xterm-budget.ts:23`, still `12`) is untouched by this slice — Theme B's job to verify against a
+  real browser, not this one's; nothing in the typings diff or the addon source suggests the
+  context-acquisition path changed.
+- **Resolved — what actually broke in #242, concretely.** Not an activation-time throw — both
+  `FitAddon.activate()` and `WebglAddon.activate()` are structurally tolerant of a mismatched core
+  (duck-typed against `_core`'s shape; neither addon imports `@xterm/xterm` at runtime, only as an
+  erased TS type). The real failure is on **dispose**: pulled from PR #242's own CI trace
+  (`panel-snap.spec.ts`'s `pageError`), `WebglAddon.activate()` registers a teardown callback
+  reading `terminal._core._store._isDisposed` — `_store` is a field xterm core **6.0.0 added**
+  (confirmed by grepping the built bundles: 0 hits in `5.5.0`, 27 in `6.0.0`). Against the old core
+  `_store` is `undefined`, so `_isDisposed` throws the instant anything disposes the terminal —
+  which a mounted xterm does constantly (StrictMode remounts, session close, panel teardown).
+  Reproduced verbatim in jsdom by temporarily downgrading `@xterm/xterm` to `5.5.0` locally:
+  `TypeError: Cannot read properties of undefined (reading '_isDisposed')`, byte-for-byte the trace's
+  error — then reverted. Theme E's test encodes this exact field-shape break directly (deleting
+  `_core._store` under the matched pair) rather than re-installing a mismatched package at test
+  time, so it stays fast and deterministic while still failing for the real historical reason.
+- **Resolved — is the phase one PR or two?** Two, in practice: this PR lands **A and E only** — the
+  bump plus the attach test the framing itself recommended as "a small, self-contained safety net"
+  — capped to an XS-S slice for this run. B (WebGL port + budget/fallback verification, M), C (DOM
+  renderer call sites, S), D (`ITheme`/importer verification, S — mechanically low-risk given the
+  resolved delta above, but still wants the human-adjacent check the theme describes) and F (the
+  two parked debts, M) remain open, unblocked by this PR, and can land in one or more follow-up
+  PRs. G (verification) is partially covered by this PR's own gate but the full e2e/human pass
+  wants the rest of the phase landed first.

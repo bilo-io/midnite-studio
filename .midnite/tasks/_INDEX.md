@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 30/89 | `███░░░░░░░` | 34% | — | C F G H I J K |
-| [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 0/34 | `░░░░░░░░░░` | 0% | A E | B C D F G |
+| [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 8/34 | `██░░░░░░░░` | 24% | — | B C D F G |
 | [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | A B C D E F G | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 44/64 | `███████░░░` | 69% | — | G H |
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
@@ -227,11 +227,11 @@ and the lockfile can no longer catch a mismatch in either direction. #422 stoppe
 the family again; this phase does the migration, replaces the vanished guard with a test, and cashes
 the two debts that were parked on "the next xterm bump".*
 
-- ◻ **A** — the bump: three version lines, one lockfile, and the v6 API delta recorded
+- ✅ **A** (PR [#455](https://github.com/bilo-io/midnite-studio/pull/455)) — the bump: three version lines, one lockfile, and the v6 API delta recorded — a real `xterm.d.ts` diff, not the changelog; nothing touching our eight import sites, `moon run app:typecheck` green with zero source edits
 - ◻ **B** — `terminal-view.tsx`, the only `WebglAddon` consumer; verify the `webgl | dom` fallback
 - ◻ **C** — the DOM-renderer sites: `transcript-view.tsx`, `live-session-terminal.tsx`
 - ◻ **D** — `ITheme` across the theme engine, and the VS Code importer's palette
-- ◻ **E** — the attach test that replaces the peer dependency v6 removed
+- ✅ **E** (PR [#455](https://github.com/bilo-io/midnite-studio/pull/455)) — the attach test that replaces the peer dependency v6 removed: traced #242's real failure to `WebglAddon`'s dispose callback reading a `_store` field xterm core 6.0.0 added, reproduced verbatim in jsdom, then encoded deterministically
 - ◻ **F** — the two parked debts: the `Viewport.syncScrollArea` unmount throw, Phase 51's fractional-cell rounding
 - ◻ **G** — verification: existing terminal e2e, entry-chunk exclusion, human pass
 
