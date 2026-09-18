@@ -131,54 +131,58 @@ export function TerminalSessionList({
         new one. The bottom keeps its own 4px so the last row does not sit
         flush against the pane's raw edge.
       */
-      className={`shrink-0 overflow-y-auto ${border} border-border pb-1 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring`}
+      className={`flex h-full shrink-0 flex-col ${border} border-border outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring`}
       style={{ width }}
       onContextMenu={showDockMenu}
       onKeyDown={onKeyDown}
     >
-      <SortableList
-        ids={sessions.map((s) => s.id)}
-        onReorder={(ids) => useTerminalStore.getState().reorder(ids)}
-      >
-        {sessions.map((session) => (
-          <SessionRow
-            key={session.id}
-            session={session}
-            active={session.id === activeId}
-            agent={agents.find((a) => a.id === session.agentId)}
-            runningAgent={agents.find((a) => a.id === resolveSessionAgentId(session, liveAgentId))}
-            isAgentRow={isAgentRow(session, liveAgentId)}
-            legacy={Boolean(legacy[session.id])}
-          />
-        ))}
-      </SortableList>
+      <div className="min-h-0 flex-1 overflow-y-auto pb-1">
+        <SortableList
+          ids={sessions.map((s) => s.id)}
+          onReorder={(ids) => useTerminalStore.getState().reorder(ids)}
+        >
+          {sessions.map((session) => (
+            <SessionRow
+              key={session.id}
+              session={session}
+              active={session.id === activeId}
+              agent={agents.find((a) => a.id === session.agentId)}
+              runningAgent={agents.find((a) => a.id === resolveSessionAgentId(session, liveAgentId))}
+              isAgentRow={isAgentRow(session, liveAgentId)}
+              legacy={Boolean(legacy[session.id])}
+            />
+          ))}
+        </SortableList>
+      </div>
       {hasLegacy && !legacyBannerDismissed ? (
         /*
-          A footer strip below every row, not a card floating above them
+          A docked footer strip below every row, not a card floating above them
           (Phase adhoc). No `mx`/`my` — it spans the panel edge to edge like
           `conflict-banner.tsx`'s own bordered strip, with only inner padding
           keeping its text off the border. `bg-amber-500/5` rather than the
           `/10` `conflict-banner.tsx` uses for a bordered strip: this one sits
-          UNDER five session rows rather than pinned above the whole view, so
-          a lighter tint reads as attached chrome instead of another opaque
-          panel competing with the rows for attention.
+          docked at the bottom under the session rows rather than pinned above
+          the whole view, so a lighter tint reads as attached chrome instead of
+          another opaque panel competing with the rows for attention.
         */
         <div
           role="alert"
-          className="border-t border-amber-500/20 bg-amber-500/5 px-2 py-2 text-xs text-amber-200"
+          className="shrink-0 border-t border-amber-500/20 bg-amber-500/5 px-2 py-2 text-xs text-amber-200"
         >
           <p className="font-medium">From a previous version — restart sessions?</p>
           {/*
-            Dismiss is primary and comes last, Restart is secondary and comes
-            first — same order and the same primary/secondary tokens as the
-            app's own confirm dialog (`components/confirm-dialog.tsx`'s Cancel
-            … Confirm row) and this feature's own `ended-banner.tsx`: the
-            safe, low-commitment action sits first, the recommended one is
-            filled-in and rightmost. Dismiss is the safe default here — it
-            leaves every session exactly as it reattached; Restart is the one
-            that throws away and reopens a live shell.
+            Dismiss is primary and comes first (left), Restart is secondary and
+            comes second (right) — Dismiss is the safe default that leaves
+            every session as it reattached, while Restart reopens live shells.
           */}
           <div className="mt-1.5 flex gap-2">
+            <button
+              type="button"
+              onClick={dismissLegacyBanner}
+              className="rounded bg-primary px-2 py-0.5 font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Dismiss
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -200,13 +204,6 @@ export function TerminalSessionList({
               className="rounded px-2 py-0.5 font-medium text-muted-foreground hover:text-foreground"
             >
               Restart
-            </button>
-            <button
-              type="button"
-              onClick={dismissLegacyBanner}
-              className="rounded bg-primary px-2 py-0.5 font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              Dismiss
             </button>
           </div>
         </div>
