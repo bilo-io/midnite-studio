@@ -17,7 +17,7 @@ describe('search, grep, blame integration', () => {
       'log',
       '--topo-order',
       '--decorate=full',
-      '--pretty=format:%H%x00%P%x00%an%x00%ae%x00%at%x00%ct%x00%D%x00%s',
+      '--pretty=format:%H%x00%P%x00%an%x00%ae%x00%at%x00%ct%x00%D%x00%s%x00%(trailers:key=Co-Authored-By,valueonly,separator=%x1f)%x00%(trailers:key=Midnite-Session,valueonly,separator=%x1f)',
       '-z',
     ]);
 
@@ -26,7 +26,7 @@ describe('search, grep, blame integration', () => {
       'log',
       '--topo-order',
       '--decorate=full',
-      '--pretty=format:%H%x00%P%x00%an%x00%ae%x00%at%x00%ct%x00%D%x00%s',
+      '--pretty=format:%H%x00%P%x00%an%x00%ae%x00%at%x00%ct%x00%D%x00%s%x00%(trailers:key=Co-Authored-By,valueonly,separator=%x1f)%x00%(trailers:key=Midnite-Session,valueonly,separator=%x1f)',
       '-z',
       '--all',
       '-n50',

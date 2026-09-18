@@ -16,6 +16,8 @@ const commit = (sha: string, subject: string) => ({
   committerDate: 1700000000,
   parents: [],
   refs: [],
+  coAuthors: [],
+  sessionTrailers: [],
 });
 
 const row: GraphRow = {

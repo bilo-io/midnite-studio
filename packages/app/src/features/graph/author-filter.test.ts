@@ -18,6 +18,8 @@ const row = (authorName: string, authorEmail: string, sha = Math.random().toStri
     committerDate: 0,
     subject: '',
     refs: [],
+    coAuthors: [],
+    sessionTrailers: [],
   },
 });
 

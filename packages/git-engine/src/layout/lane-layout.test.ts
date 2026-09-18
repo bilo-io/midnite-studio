@@ -17,6 +17,8 @@ const commit = (sha: string, parents: string[] = []): Commit => ({
   committerDate: 0,
   subject: sha,
   refs: [],
+  coAuthors: [],
+  sessionTrailers: [],
 });
 
 /** `A -> [B, C]` reads as "A's parents are B and C". */

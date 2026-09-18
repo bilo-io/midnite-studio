@@ -15,11 +15,23 @@ const FIELD = '\x00';
  * `%ce` to the format and every later field silently shifting by one.
  *
  * Order: sha, parents, author name, author email, author date, committer date,
- * decorations, subject.
+ * decorations, subject, coAuthors, sessionTrailers.
  */
-export const LOG_FORMAT = '%H%x00%P%x00%an%x00%ae%x00%at%x00%ct%x00%D%x00%s';
+export const LOG_FORMAT =
+  '%H%x00%P%x00%an%x00%ae%x00%at%x00%ct%x00%D%x00%s%x00%(trailers:key=Co-Authored-By,valueonly,separator=%x1f)%x00%(trailers:key=Midnite-Session,valueonly,separator=%x1f)';
 
-const FIELD_COUNT = 8;
+const FIELD_COUNT = 10;
+
+/**
+ * Split a trailer field separated by `\x1f`, trimming and dropping empties.
+ */
+function splitTrailers(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split('\x1f')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
 
 /**
  * Parse one record of `git log --pretty=format:LOG_FORMAT -z`.
@@ -34,7 +46,19 @@ export function parseLogRecord(record: string): Commit | null {
   const fields = record.split(FIELD);
   if (fields.length < FIELD_COUNT) return null;
 
-  const [sha, parents, authorName, authorEmail, authorDate, committerDate, decorations] = fields as [
+  const [
+    sha,
+    parents,
+    authorName,
+    authorEmail,
+    authorDate,
+    committerDate,
+    decorations,
+    subject,
+    coAuthorsRaw,
+  ] = fields as [
+    string,
+    string,
     string,
     string,
     string,
@@ -45,10 +69,7 @@ export function parseLogRecord(record: string): Commit | null {
     ...string[],
   ];
 
-  // The subject is the LAST field, and `%s` can itself contain NULs only in
-  // pathological cases; joining the tail keeps those intact rather than
-  // truncating at the first one.
-  const subject = fields.slice(FIELD_COUNT - 1).join(FIELD);
+  const sessionTrailersRaw = fields.slice(FIELD_COUNT - 1).join(FIELD);
 
   if (!/^[0-9a-f]{40}$/.test(sha)) return null;
 
@@ -62,8 +83,13 @@ export function parseLogRecord(record: string): Commit | null {
     committerDate: Number.parseInt(committerDate, 10) || 0,
     subject,
     refs: parseDecorations(decorations),
+    coAuthors: splitTrailers(coAuthorsRaw),
+    sessionTrailers: splitTrailers(sessionTrailersRaw),
   };
 }
+
+/** Alias for parseLogRecord. */
+export const parseLogLine = parseLogRecord;
 
 /**
  * Parse `%D` — git's decoration list, e.g.
@@ -111,7 +137,7 @@ export function parseLog(payload: string): Commit[] {
  * Peel whole records off a chunk, returning the unconsumed tail so a streaming
  * caller can prepend it to the next chunk.
  *
- * A record is the text up to its 8th NUL; that 8th NUL is the separator
+ * A record is the text up to its 10th NUL; that 10th NUL is the separator
  * before the next record and is consumed here. The boundary-safety reasoning
  * — why this can't just be a `split('\x00')` — lives on
  * {@link chunkNulRecords}, which this delegates to; `git stash list` shares

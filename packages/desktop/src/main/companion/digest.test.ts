@@ -69,8 +69,10 @@ const commit = (over: Partial<Commit> & Pick<Commit, 'sha'>): Commit => ({
   authorEmail: 'b@example.test',
   authorDate: Math.floor(NOW / 1000),
   committerDate: Math.floor(NOW / 1000),
-  subject: 'a commit',
+  subject: 'feat: something',
   refs: [],
+  coAuthors: [],
+  sessionTrailers: [],
   ...over,
 });
 
