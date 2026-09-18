@@ -1,34 +1,64 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useActionsStore } from '../store/actions-store';
 import { useBrowserStore } from '../store/browser-store';
+import { useIssuesStore } from '../store/issues-store';
+import { useReviewsStore } from '../store/reviews-store';
 import { useUiStore } from '../store/ui-store';
 
-import { openInMidnite, openLinkFromEvent, resolveLinkTarget } from './open-in-midnite';
+import { forgeRegistryKey, useRepoForgeRegistry } from './repo-forge-registry';
+import {
+  navigateInAppRoute,
+  openInMidnite,
+  openLinkFromEvent,
+  resolveDestination,
+  type LinkModifiers,
+} from './open-in-midnite';
 
 const openExternal = vi.hoisted(() => vi.fn());
 vi.mock('./queries', () => ({ openExternal }));
 
-const click = (over: Partial<Parameters<typeof resolveLinkTarget>[0]> = {}) => ({
+const click = (over: Partial<LinkModifiers> = {}): LinkModifiers => ({
   metaKey: false,
   ctrlKey: false,
+  altKey: false,
   shiftKey: false,
   button: 0,
   ...over,
 });
 
+/** A PR URL for `bilo-io/midnite-studio`, registered under `repo-1` in most tests below. */
+const PR_URL = 'https://github.com/bilo-io/midnite-studio/pull/42';
+
 beforeEach(() => {
   openExternal.mockClear();
   useBrowserStore.setState({ tabs: [], groups: [], activeTabId: null, recentlyClosed: [] });
-  useUiStore.setState({ linkTarget: 'in-app', browserOpen: false });
+  useUiStore.setState({
+    linkTarget: 'in-app',
+    browserOpen: false,
+    selectedRepoId: null,
+    activeView: 'graph',
+  });
+  useRepoForgeRegistry.setState({ byForgeKey: {} });
+  useReviewsStore.setState({ selectedPull: {}, openGroups: {} });
+  useIssuesStore.setState({ selectedIssue: {} });
+  useActionsStore.setState({ selectedRun: {}, selectedJob: {}, collapsedWorkflows: {} });
 });
+
+/** Registers `bilo-io/midnite-studio` → `repo-1`, so `PR_URL` resolves to an in-app route. */
+function registerRepo1(): void {
+  useRepoForgeRegistry.setState({
+    byForgeKey: { [forgeRegistryKey('github.com', 'bilo-io', 'midnite-studio')]: 'repo-1' },
+  });
+}
 
 describe('openInMidnite', () => {
   it('opens an https URL in a browser tab and never reaches openExternal', () => {
-    openInMidnite('https://github.com/bilo-io/midnite-studio/pull/1');
+    openInMidnite('https://example.com/a');
 
     const { tabs, activeTabId } = useBrowserStore.getState();
     expect(tabs).toHaveLength(1);
-    expect(tabs[0]?.url).toBe('https://github.com/bilo-io/midnite-studio/pull/1');
+    expect(tabs[0]?.url).toBe('https://example.com/a');
     expect(activeTabId).toBe(tabs[0]?.id);
     expect(useUiStore.getState().browserOpen).toBe(true);
     expect(openExternal).not.toHaveBeenCalled();
@@ -64,7 +94,16 @@ describe('openInMidnite', () => {
     expect(useBrowserStore.getState().tabs).toHaveLength(0);
   });
 
-  it('reads the store when no target is given', () => {
+  it('a forced target bypasses in-app-route resolution entirely', () => {
+    registerRepo1();
+    openInMidnite(PR_URL, { target: 'in-app' });
+
+    // Landed as a tab, not a Reviews navigation.
+    expect(useBrowserStore.getState().tabs[0]?.url).toBe(PR_URL);
+    expect(useUiStore.getState().activeView).not.toBe('reviews');
+  });
+
+  it('reads the stored preference when no target is given and no route matches', () => {
     useUiStore.setState({ linkTarget: 'system' });
     openInMidnite('https://example.com');
 
@@ -77,6 +116,32 @@ describe('openInMidnite', () => {
     // is what reaches the engine.
     openInMidnite('https://example.com/a\n');
     expect(useBrowserStore.getState().tabs[0]?.url).toBe('https://example.com/a');
+  });
+
+  describe('preferInAppRoute', () => {
+    it('off by default: a URL with a registered route still opens a tab', () => {
+      registerRepo1();
+      openInMidnite(PR_URL);
+
+      expect(useBrowserStore.getState().tabs[0]?.url).toBe(PR_URL);
+      expect(useUiStore.getState().activeView).not.toBe('reviews');
+    });
+
+    it('on: navigates to the native view instead of opening a tab', () => {
+      registerRepo1();
+      openInMidnite(PR_URL, { preferInAppRoute: true });
+
+      expect(useBrowserStore.getState().tabs).toHaveLength(0);
+      expect(useUiStore.getState().selectedRepoId).toBe('repo-1');
+      expect(useUiStore.getState().activeView).toBe('reviews');
+      expect(useReviewsStore.getState().selectedPull['repo-1']).toBe(42);
+    });
+
+    it('on, but no route matches: falls back to the stored preference', () => {
+      openInMidnite('https://example.com', { preferInAppRoute: true });
+
+      expect(useBrowserStore.getState().tabs[0]?.url).toBe('https://example.com/');
+    });
   });
 
   describe('background', () => {
@@ -100,90 +165,114 @@ describe('openInMidnite', () => {
   });
 });
 
-describe('resolveLinkTarget', () => {
+describe('navigateInAppRoute', () => {
+  it('reviews: selects the repo, the pull, and the Reviews view', () => {
+    navigateInAppRoute({ view: 'reviews', repoId: 'repo-1', pull: 7 });
+
+    expect(useUiStore.getState().selectedRepoId).toBe('repo-1');
+    expect(useReviewsStore.getState().selectedPull['repo-1']).toBe(7);
+    expect(useUiStore.getState().activeView).toBe('reviews');
+  });
+
+  it('issues: selects the repo, the issue, and the Issues view', () => {
+    navigateInAppRoute({ view: 'issues', repoId: 'repo-1', issue: 9 });
+
+    expect(useIssuesStore.getState().selectedIssue['repo-1']).toBe(9);
+    expect(useUiStore.getState().activeView).toBe('issues');
+  });
+
+  it('actions: selects the repo, the run, and the Actions view', () => {
+    navigateInAppRoute({ view: 'actions', repoId: 'repo-1', runId: 'run-1' });
+
+    expect(useActionsStore.getState().selectedRun['repo-1']).toBe('run-1');
+    expect(useUiStore.getState().activeView).toBe('actions');
+  });
+
+  it('graph: selects the repo and the Graph view, and nothing else', () => {
+    navigateInAppRoute({ view: 'graph', repoId: 'repo-1' });
+
+    expect(useUiStore.getState().selectedRepoId).toBe('repo-1');
+    expect(useUiStore.getState().activeView).toBe('graph');
+  });
+});
+
+describe('resolveDestination — the modifier matrix', () => {
+  const opts = (preference: 'in-app' | 'system', preferInAppRoute = false) => ({
+    preference,
+    preferInAppRoute,
+  });
+
   it.each([
-    ['plain, in-app', click(), 'in-app' as const, { target: 'in-app', background: false }],
-    ['plain, system', click(), 'system' as const, { target: 'system', background: false }],
-    // Cmd/Ctrl flips, in both directions.
-    [
-      'meta, in-app',
-      click({ metaKey: true }),
-      'in-app' as const,
-      { target: 'system', background: false },
-    ],
-    [
-      'meta, system',
-      click({ metaKey: true }),
-      'system' as const,
-      { target: 'in-app', background: false },
-    ],
-    [
-      'ctrl, in-app',
-      click({ ctrlKey: true }),
-      'in-app' as const,
-      { target: 'system', background: false },
-    ],
-    [
-      'ctrl, system',
-      click({ ctrlKey: true }),
-      'system' as const,
-      { target: 'in-app', background: false },
-    ],
-    // Shift is absolute, in both directions.
-    [
-      'shift, in-app',
-      click({ shiftKey: true }),
-      'in-app' as const,
-      { target: 'system', background: false },
-    ],
-    [
-      'shift, system',
-      click({ shiftKey: true }),
-      'system' as const,
-      { target: 'system', background: false },
-    ],
-    // …and beats Cmd, deliberately: "always leave the app" is one gesture.
-    [
-      'shift+meta, in-app',
-      click({ shiftKey: true, metaKey: true }),
-      'in-app' as const,
-      { target: 'system', background: false },
-    ],
-    [
-      'shift+meta, system',
-      click({ shiftKey: true, metaKey: true }),
-      'system' as const,
-      { target: 'system', background: false },
-    ],
-    // Middle-click is orthogonal to where: it only says "not now".
-    [
-      'middle, in-app',
-      click({ button: 1 }),
-      'in-app' as const,
-      { target: 'in-app', background: true },
-    ],
-    [
-      'middle, system',
-      click({ button: 1 }),
-      'system' as const,
-      { target: 'system', background: true },
-    ],
-    // Middle beats Cmd — the flip never fires once the button rule has matched.
-    [
-      'middle+meta, in-app',
-      click({ button: 1, metaKey: true }),
-      'in-app' as const,
-      { target: 'in-app', background: true },
-    ],
-    // …but shift still beats middle, and drops the background with it.
-    [
-      'middle+shift, in-app',
-      click({ button: 1, shiftKey: true }),
-      'in-app' as const,
-      { target: 'system', background: false },
-    ],
-  ])('%s', (_name, event, preference, expected) => {
-    expect(resolveLinkTarget(event, preference)).toEqual(expected);
+    // Mod/Ctrl and Shift: always the system browser, regardless of preference.
+    ['meta', click({ metaKey: true })],
+    ['ctrl', click({ ctrlKey: true })],
+    ['shift', click({ shiftKey: true })],
+    ['meta+shift', click({ metaKey: true, shiftKey: true })],
+  ])('%s → system, for either preference', (_name, event) => {
+    expect(resolveDestination('https://example.com', event, opts('in-app'))).toEqual({
+      kind: 'system',
+    });
+    expect(resolveDestination('https://example.com', event, opts('system'))).toEqual({
+      kind: 'system',
+    });
+  });
+
+  it('alt → embedded, regardless of preference', () => {
+    expect(resolveDestination('https://example.com', click({ altKey: true }), opts('in-app'))).toEqual({
+      kind: 'embedded',
+    });
+    expect(resolveDestination('https://example.com', click({ altKey: true }), opts('system'))).toEqual({
+      kind: 'embedded',
+    });
+  });
+
+  it('alt beats a matching in-app route: the forced embedded browser wins', () => {
+    registerRepo1();
+    expect(
+      resolveDestination(PR_URL, click({ altKey: true }), opts('in-app', true)),
+    ).toEqual({ kind: 'embedded' });
+  });
+
+  it('mod beats a matching in-app route too', () => {
+    registerRepo1();
+    expect(
+      resolveDestination(PR_URL, click({ metaKey: true }), opts('in-app', true)),
+    ).toEqual({ kind: 'system' });
+  });
+
+  it('middle-click → the preference, never a route, even when one matches', () => {
+    registerRepo1();
+    expect(
+      resolveDestination(PR_URL, click({ button: 1 }), opts('in-app', true)),
+    ).toEqual({ kind: 'embedded' });
+    expect(
+      resolveDestination(PR_URL, click({ button: 1 }), opts('system', true)),
+    ).toEqual({ kind: 'system' });
+  });
+
+  it('plain click, preferInAppRoute off: honours the preference', () => {
+    expect(resolveDestination('https://example.com', click(), opts('in-app'))).toEqual({
+      kind: 'embedded',
+    });
+    expect(resolveDestination('https://example.com', click(), opts('system'))).toEqual({
+      kind: 'system',
+    });
+  });
+
+  it('plain click, preferInAppRoute on, a route matches: the route wins over either preference', () => {
+    registerRepo1();
+    const expected = {
+      kind: 'in-app-route',
+      route: { view: 'reviews', repoId: 'repo-1', pull: 42 },
+    };
+    expect(resolveDestination(PR_URL, click(), opts('in-app', true))).toEqual(expected);
+    expect(resolveDestination(PR_URL, click(), opts('system', true))).toEqual(expected);
+  });
+
+  it('plain click, preferInAppRoute on, no route matches: falls back to the preference', () => {
+    expect(resolveDestination('https://example.com', click(), opts('system', true))).toEqual({
+      kind: 'system',
+    });
   });
 });
 
@@ -200,14 +289,45 @@ describe('openLinkFromEvent', () => {
     expect(useBrowserStore.getState().tabs).toHaveLength(0);
   });
 
-  it('routes a meta-click to the opposite of the preference', () => {
+  it('routes a meta-click to the system browser regardless of the preference', () => {
+    useUiStore.setState({ linkTarget: 'system' });
     openLinkFromEvent('https://example.com', click({ metaKey: true }));
     expect(openExternal).toHaveBeenCalledWith('https://example.com');
+  });
+
+  it('routes a ctrl-click to the system browser', () => {
+    openLinkFromEvent('https://example.com', click({ ctrlKey: true }));
+    expect(openExternal).toHaveBeenCalledWith('https://example.com');
+  });
+
+  it('routes an alt-click to the embedded browser, even over a matching in-app route', () => {
+    registerRepo1();
+    openLinkFromEvent(PR_URL, click({ altKey: true }), { preferInAppRoute: true });
+
+    expect(useBrowserStore.getState().tabs[0]?.url).toBe(PR_URL);
+    expect(useUiStore.getState().activeView).not.toBe('reviews');
   });
 
   it('routes a middle-click into a background tab', () => {
     const first = useBrowserStore.getState().openTab('https://one.example');
     openLinkFromEvent('https://two.example', click({ button: 1 }));
     expect(useBrowserStore.getState().activeTabId).toBe(first);
+  });
+
+  it('a plain click with preferInAppRoute navigates to the native view', () => {
+    registerRepo1();
+    openLinkFromEvent(PR_URL, click(), { originRepoId: 'repo-1', preferInAppRoute: true });
+
+    expect(useUiStore.getState().activeView).toBe('reviews');
+    expect(useReviewsStore.getState().selectedPull['repo-1']).toBe(42);
+    expect(useBrowserStore.getState().tabs).toHaveLength(0);
+  });
+
+  it('a plain click without preferInAppRoute ignores a matching route', () => {
+    registerRepo1();
+    openLinkFromEvent(PR_URL, click(), { originRepoId: 'repo-1' });
+
+    expect(useUiStore.getState().activeView).not.toBe('reviews');
+    expect(useBrowserStore.getState().tabs[0]?.url).toBe(PR_URL);
   });
 });

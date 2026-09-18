@@ -2,20 +2,26 @@ import { useMemo } from 'react';
 
 import type { ForgeIssue, ForgePull, ForgeRun } from '@midnite/studio-shared';
 
-import { openInMidnite } from '../../../services/open-in-midnite';
+import { openLinkFromEvent } from '../../../services/open-in-midnite';
 import { checksStatus, pullStatus, runStatus, StatusPill } from '../../forge/forge-status';
 import { WidgetState } from '../widget-frame';
 
 /**
  * The three tiles that read GitHub, sharing one shape.
  *
- * Every row here links OUT — the phase's read-only rule means nothing on this
- * board merges, closes, approves or re-runs, so a row's only action is to open
- * the thing on the forge (Phase 71 Theme B: through `openInMidnite`, tagged
- * with the dashboard's own `repoId` so the tab lands in its derived group).
- * That is why they are `<button>`s rather than anchors: the renderer is a
- * `file://` origin in the packaged app, and a real `href` would either do
- * nothing or navigate the whole window out of the application.
+ * The phase's read-only rule means nothing on this board merges, closes,
+ * approves or re-runs, so a row's only action is to open the thing it names —
+ * through `openLinkFromEvent`, tagged with the dashboard's own `repoId` so a
+ * browser tab lands in its derived group (Phase 71 Theme B). Since the ad hoc
+ * click-modifier theme, that is three destinations, not two: `preferInAppRoute:
+ * true` means a plain click prefers Midnite's own view for the thing (a pull
+ * lands on `PrDetail`, an issue on `IssueDetail`, a run in Actions) exactly
+ * like `forge-sections.tsx`'s sidebar rows already do unconditionally — the
+ * dashboard's rows differ only in still reading the click event, so Mod/Ctrl
+ * still forces the system browser and Alt/Option still forces the embedded
+ * one even from a tile. That is why they are `<button>`s rather than anchors:
+ * the renderer is a `file://` origin in the packaged app, and a real `href`
+ * would either do nothing or navigate the whole window out of the application.
  */
 
 /**
@@ -70,9 +76,11 @@ export function PullsWidget({
         {pulls.map((pull) => (
           <ForgeListRow
             key={pull.number}
-            onOpen={() => openInMidnite(pull.url, { originRepoId: repoId })}
+            onOpen={(event) =>
+              openLinkFromEvent(pull.url, event, { originRepoId: repoId, preferInAppRoute: true })
+            }
             title={pull.title}
-            openLabel={`Open pull request #${pull.number} on GitHub`}
+            openLabel={`Open pull request #${pull.number}`}
             meta={<PullMeta pull={pull} />}
             subtitle={`#${pull.number} · ${pull.headBranch}${pull.author ? ` · ${pull.author}` : ''}`}
           />
@@ -122,9 +130,11 @@ export function IssuesWidget({
         {issues.map((issue) => (
           <ForgeListRow
             key={issue.number}
-            onOpen={() => openInMidnite(issue.url, { originRepoId: repoId })}
+            onOpen={(event) =>
+              openLinkFromEvent(issue.url, event, { originRepoId: repoId, preferInAppRoute: true })
+            }
             title={issue.title}
-            openLabel={`Open issue #${issue.number} on GitHub`}
+            openLabel={`Open issue #${issue.number}`}
             meta={
               <span className="flex shrink-0 items-center gap-1">
                 {issue.labels.slice(0, 3).map((label) => (
@@ -207,9 +217,14 @@ export function RunsWidget({
               {groupRuns.slice(0, 5).map((run) => (
                 <ForgeListRow
                   key={run.id}
-                  onOpen={() => openInMidnite(run.url, { originRepoId: repoId })}
+                  onOpen={(event) =>
+                    openLinkFromEvent(run.url, event, {
+                      originRepoId: repoId,
+                      preferInAppRoute: true,
+                    })
+                  }
                   title={run.headBranch ?? 'detached'}
-                  openLabel="Open run on GitHub"
+                  openLabel="Open run"
                   meta={<StatusPill status={runStatus(run)} />}
                   subtitle={new Date(run.createdAt).toLocaleString()}
                 />
@@ -240,7 +255,8 @@ function ForgeListRow({
   subtitle,
   meta,
 }: {
-  onOpen: () => void;
+  /** Reads the click's modifiers, so the shared Mod/Alt grammar reaches these rows too. */
+  onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void;
   openLabel: string;
   title: string;
   subtitle: string;
