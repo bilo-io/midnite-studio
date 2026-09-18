@@ -143,6 +143,18 @@ Track the agreed plan with TodoWrite. **Do not implement until every question is
 
 ## 7 · Worktree
 
+
+**First: is there an abandoned scratchpad to resume from?** A dead session leaves its code on disk
+but not its reasoning, which is what every worktree's root `SCRATCHPAD.md` is for. Look before
+making a new tree:
+```bash
+for f in .worktrees/*/SCRATCHPAD.md; do [ -e "$f" ] && { echo "── $f"; sed -n '1,25p' "$f"; }; done
+```
+If one covers this task — or is stale enough to be dead — say so and **ask the human: resume that
+worktree, or start fresh?** Resuming means `cd`-ing into it, reading the whole scratchpad, and
+continuing from its **Next** line rather than re-deriving the work. Starting fresh means tearing
+the dead tree down first (`git worktree remove --force <path>`) so it can't be picked up twice.
+
 ```bash
 git fetch origin
 git worktree add .worktrees/issue-<N>-<slug> -b fix/issue-<N>-<slug> origin/main
@@ -150,6 +162,24 @@ cd .worktrees/issue-<N>-<slug> && pnpm install
 ```
 
 Branch prefix: `fix/` for a bug, `feature/` for an enhancement.
+
+**Then write `SCRATCHPAD.md` at the worktree root — before the first code edit.** It is the
+handover to whatever session picks this up after yours dies, and it is **untracked, never
+committed, and never present in the primary checkout**:
+```markdown
+# <task title>
+
+- **Branch:** <branch> · **PR:** — · **Started:** <date>
+- **Task:** what is being built, and why
+- **Decisions:** every answer the human gave, and every call made since
+- **Done:** what has actually landed in this worktree so far
+- **Next:** the immediate next step, concrete enough to act on cold
+- **Gotchas:** surprises — a failing test, a boundary rule, a rabbit hole not to re-enter
+```
+Keep it current as the work moves: after each commit, at each stage boundary, and before anything
+long-running. A stale scratchpad is worse than none. It is deliberately **not** git-ignored —
+turning up untracked in `git status` is how the next session finds it — which is also why the merge
+stage below checks it never got committed.
 
 ## 8 · Build — the failing test comes first
 
@@ -184,6 +214,19 @@ Branch prefix: `fix/` for a bug, `feature/` for an enhancement.
   - The `🤖 Generated with [Claude Code]` trailer.
 - **Self-review your own diff** before marking it ready: fidelity to the agreed plan → `CLAUDE.md` conventions → correctness & coverage → anything the fix could regress elsewhere. Fix what's material, re-run Stage 9, push.
 - **Drive CI green:** `gh pr checks <n> --watch`. On failure `gh run view <id> --log-failed` → fix in the worktree → re-run the local gate → push. If genuinely stuck (flaky infra, outage, product call), stop and say exactly what's wrong.
+- **Retire the scratchpad.** `SCRATCHPAD.md` was never meant to be committed, but one `git add -A`
+  anywhere on the branch swallows it. **Before `gh pr ready`**, check — and un-track it if it
+  landed. A squash-merge collapses an add plus a remove to nothing, so un-tracking on the branch is
+  the whole fix:
+  ```bash
+  git ls-files --error-unmatch SCRATCHPAD.md >/dev/null 2>&1 \
+    && git rm --cached -q SCRATCHPAD.md \
+    && git commit -qm "chore: drop SCRATCHPAD.md from the branch" \
+    && git push
+  ```
+  **Then, once the merge has landed and before the teardown, `rm -f SCRATCHPAD.md`.** It has done
+  its job, and an untracked file left behind is exactly what `git worktree remove` is supposed to
+  refuse — deleting it is what keeps the teardown from needing a `--force` it shouldn't have.
 - `gh pr ready <n>` once green.
 
 ## 11 · Report — then STOP
@@ -248,6 +291,7 @@ A worktree is safe to remove only when **all three** hold:
 1. its PR is `MERGED` (a squash-merge means the branch is *not* an ancestor of `main`, so PR state is the oracle — never `git branch --merged`);
 2. `git rev-list --count origin/main..<branch>` is `0`;
 3. `git status --porcelain` in that worktree is **empty right now** — re-check at the moment of removal, not from a survey taken minutes earlier.
+   The one allowed exception is a lone untracked `SCRATCHPAD.md` on a worktree whose PR has **merged** — the WIP note outlived the work (a session that died after the merge never reached its own teardown). Delete it, confirm `git status --porcelain` is then genuinely empty, and remove the tree. Anything else in that output, or a PR not yet merged, and the worktree stays.
 
 ```bash
 git fetch origin -q
