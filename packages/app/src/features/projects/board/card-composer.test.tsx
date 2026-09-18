@@ -42,6 +42,7 @@ const item: ForgeProjectItem = {
     body: 'Steps to reproduce…',
     labels: ['bug'],
     dependencies: EMPTY_ISSUE_LINK_SET,
+    linkedPrs: [],
   },
   fieldValues: {},
 };

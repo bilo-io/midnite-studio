@@ -45,6 +45,7 @@ function itemFor(id: string, title: string): ForgeProjectItem {
       body: '',
       labels: [],
       dependencies: EMPTY_ISSUE_LINK_SET,
+      linkedPrs: [],
     },
     fieldValues: {},
   };

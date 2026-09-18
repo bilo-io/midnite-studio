@@ -41,6 +41,7 @@ export function CardDetail({
   const Icon = CONTENT_ICON[item.content.type];
   const href = item.content.type === 'draft' ? null : item.content.url;
   const number = item.content.type === 'draft' ? null : item.content.number;
+  const linkedPrs = item.content.type === 'issue' ? item.content.linkedPrs ?? [] : [];
 
   return (
     <div className="flex h-full flex-col" data-testid="card-detail">
@@ -48,7 +49,22 @@ export function CardDetail({
         <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{item.content.title}</p>
-          {number !== null ? (
+          {item.content.type === 'issue' ? (
+            <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span>Issue {href ? <ExternalLink href={href}>#{number}</ExternalLink> : `#${number}`}</span>
+              {linkedPrs.length > 0 ? (
+                <span>
+                  · PRs:{' '}
+                  {linkedPrs.map((pr, index) => (
+                    <span key={pr.number}>
+                      {index > 0 ? ' ' : null}
+                      <ExternalLink href={pr.url}>#{pr.number}</ExternalLink>
+                    </span>
+                  ))}
+                </span>
+              ) : null}
+            </p>
+          ) : number !== null ? (
             <p className="text-[11px] text-muted-foreground">
               {href ? <ExternalLink href={href}>#{number}</ExternalLink> : `#${number}`}
             </p>

@@ -1,12 +1,15 @@
 import { useRef } from 'react';
-import { LuSquareTerminal } from 'react-icons/lu';
+import { LuPlay } from 'react-icons/lu';
 
-import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, type ForgeProjectField, type ForgeProjectItem } from '@midnite/studio-shared';
 
-import { Tooltip } from '../../../components/tooltip';
+import { useActiveWorktree } from '../../../services/use-status';
 import { revealSession } from '../../terminal/reveal-session';
+import { startAgent } from '../../terminal/start-agent';
+import { useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from './card-chrome';
 import { CardTerminal } from './card-terminal';
+import { composeCardPrompt } from './board-derive';
 import { deriveCardGlowState } from './glow-state';
 import { useCardStatus } from './use-card-status';
 import { useCardVisible } from './use-card-visible';
@@ -54,6 +57,8 @@ export function TaskCard({
   tabIndex?: number;
   onClick?: () => void;
 }) {
+  const { repoId, worktreePath } = useActiveWorktree();
+  const sessions = useTerminalStore((s) => s.sessions);
   const Icon = CONTENT_ICON[item.content.type];
   const href = item.content.type === 'draft' ? null : item.content.url;
   const number = item.content.type === 'draft' ? null : item.content.number;
@@ -94,45 +99,69 @@ export function TaskCard({
           onClick?.();
         }
       }}
-      className={`flex w-full flex-col gap-1.5 rounded border border-border bg-background px-2 py-1.5 text-left text-xs hover:border-foreground/30 ${
+      className={`relative flex w-full flex-col gap-1.5 rounded border border-border bg-background px-2 py-1.5 text-left text-xs hover:border-foreground/30 ${
         glow === 'idle' ? '' : `agent-run-glow is-${glow}`
       }`}
     >
-      <div className="flex items-start gap-1.5">
-        <CardTitleRow icon={Icon} title={item.content.title} />
-        {/*
-          The card's own answer to "where did my agent go" — shown only once
-          this card HAS a session, so an untouched card carries no chrome for
-          a terminal that does not exist. Its own click target, stopped from
-          also opening the detail pane: the pane is the composer, and someone
-          reaching for the terminal has already launched.
-        */}
-        {sessionId !== undefined ? (
-          <Tooltip label="Open in terminal">
-            <button
-              type="button"
-              aria-label="Open in terminal"
-              data-testid="card-reveal-terminal"
-              onClick={(event) => {
-                event.stopPropagation();
-                revealSession(sessionId);
-              }}
-              className="-mr-0.5 mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <LuSquareTerminal aria-hidden className="h-3.5 w-3.5" />
-            </button>
-          </Tooltip>
-        ) : null}
-      </div>
-
-      {number !== null || item.content.assignees.length > 0 ? (
-        <div className="flex items-center justify-between gap-2">
-          <CardNumberRow number={number} href={href} />
-          <CardAssignees assignees={item.content.assignees} />
+      <div className="relative flex flex-col gap-1.5">
+        <div className="flex items-start justify-between gap-1.5">
+          <div className="flex min-w-0 flex-1 items-start gap-1.5">
+            <CardTitleRow icon={Icon} title={item.content.title} />
+          </div>
+          {item.content.assignees.length > 0 ? (
+            <div className="-mt-0.5 shrink-0">
+              <CardAssignees assignees={item.content.assignees} />
+            </div>
+          ) : null}
         </div>
-      ) : null}
 
-      <CardFieldChips item={item} fields={fields} />
+        {number !== null ? (
+          <div className="flex items-center justify-between gap-2 pr-6">
+            <CardNumberRow number={number} href={href} />
+          </div>
+        ) : null}
+
+        <div className="pr-6">
+          <CardFieldChips item={item} fields={fields} />
+        </div>
+
+        <button
+          type="button"
+          data-testid="card-play-agent"
+          aria-label={sessionId !== undefined ? 'Open in terminal' : 'Start agent'}
+          title={sessionId !== undefined ? 'Open in terminal' : 'Start agent'}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (sessionId !== undefined) {
+              revealSession(sessionId);
+              return;
+            }
+            const targetCwd = worktreePath ?? '';
+            const prompt = composeCardPrompt(item, targetCwd);
+            const mostRecent = sessions
+              .filter((s) => s.repoId === repoId && s.kind === 'agent' && s.agentId !== undefined)
+              .sort((a, b) => b.createdAt - a.createdAt)[0];
+            const agentId = mostRecent?.agentId ?? BUILTIN_AGENTS[0]?.id ?? 'claude';
+            const agent = BUILTIN_AGENTS.find((a) => a.id === agentId) ?? BUILTIN_AGENTS[0]!;
+
+            const session = startAgent({
+              repoId: repoId ?? '',
+              cwd: targetCwd,
+              title: item.content.title,
+              prompt,
+              agentId: agent.id,
+              command: agent.command,
+              surface: 'kanban',
+              taskRef: { projectId: projectId ?? '', itemId: item.id },
+              autoSend: true,
+            });
+            revealSession(session.id);
+          }}
+          className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <LuPlay aria-hidden className="h-3 w-3 fill-current" />
+        </button>
+      </div>
 
       {/*
         Theme E: only ever rendered once a session is actually running — a

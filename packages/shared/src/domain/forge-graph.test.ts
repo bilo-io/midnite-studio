@@ -61,6 +61,7 @@ function issueItem(
         blockedByTruncated: overrides.blockedByTruncated ?? false,
         subIssuesTruncated: overrides.subIssuesTruncated ?? false,
       },
+      linkedPrs: [],
     },
     fieldValues: overrides.fieldValues ?? {},
   };

@@ -25,6 +25,7 @@ const issue: ForgeProjectItem = {
     body: '',
     labels: [],
     dependencies: EMPTY_ISSUE_LINK_SET,
+    linkedPrs: [],
   },
   fieldValues: { 'f-priority': { fieldId: 'f-priority', dataType: 'text', text: 'High' } },
 };
@@ -155,18 +156,21 @@ describe('TaskCard', () => {
     });
   });
 
-  describe('the reveal-terminal button', () => {
+  describe('the play agent / reveal terminal button', () => {
     beforeEach(() => {
       useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
       useUiStore.setState({ terminalOpen: false, terminalListOpen: false });
     });
 
-    it('is absent on a card that has never launched an agent', () => {
+    it('shows "Start agent" title and aria-label on a card with no session', () => {
       render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
-      expect(screen.queryByTestId('card-reveal-terminal')).toBeNull();
+      const btn = screen.getByTestId('card-play-agent');
+      expect(btn).toBeDefined();
+      expect(btn.getAttribute('title')).toBe('Start agent');
+      expect(btn.getAttribute('aria-label')).toBe('Start agent');
     });
 
-    it('reveals the bound session in the terminal panel', () => {
+    it('shows "Open in terminal" and reveals the bound session in the terminal panel', () => {
       const session = useTerminalStore.getState().openSession({
         kind: 'agent',
         agentId: 'claude',
@@ -178,7 +182,11 @@ describe('TaskCard', () => {
       });
 
       render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
-      fireEvent.click(screen.getByTestId('card-reveal-terminal'));
+      const btn = screen.getByTestId('card-play-agent');
+      expect(btn.getAttribute('title')).toBe('Open in terminal');
+      expect(btn.getAttribute('aria-label')).toBe('Open in terminal');
+
+      fireEvent.click(btn);
 
       expect(useUiStore.getState().terminalOpen).toBe(true);
       expect(useTerminalStore.getState().activeId).toBe(session.id);
@@ -197,9 +205,17 @@ describe('TaskCard', () => {
       const onClick = vi.fn();
 
       render(<TaskCard item={issue} fields={[]} projectId="proj1" onClick={onClick} />);
-      fireEvent.click(screen.getByTestId('card-reveal-terminal'));
+      fireEvent.click(screen.getByTestId('card-play-agent'));
 
       expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it('starts an agent session when clicked on a card without an active session', () => {
+      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      fireEvent.click(screen.getByTestId('card-play-agent'));
+
+      expect(useTerminalStore.getState().sessions.length).toBe(1);
+      expect(useUiStore.getState().terminalOpen).toBe(true);
     });
   });
 

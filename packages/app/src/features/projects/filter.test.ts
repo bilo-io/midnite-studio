@@ -34,6 +34,7 @@ const issue = (
     body: '',
     labels: [],
     dependencies: EMPTY_ISSUE_LINK_SET,
+    linkedPrs: [],
     ...overrides,
   },
   fieldValues: {},

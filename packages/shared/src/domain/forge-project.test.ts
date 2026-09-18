@@ -140,9 +140,9 @@ describe('ForgeProjectItemSchema / ForgeProjectItemContent', () => {
         f1: { fieldId: 'f1', dataType: 'text' as const, text: 'a note' },
       },
     };
-    // `dependencies` (Phase 75 Theme A) and `repo` are not in the input but
-    // default in on parse — the whole point of `.default(…)` on each: a board
-    // page cached by an older build still parses.
+    // `dependencies` (Phase 75 Theme A), `repo` and `linkedPrs` are not in
+    // the input but default in on parse — the whole point of `.default(…)` on
+    // each: a board page cached by an older build still parses.
     expect(ForgeProjectItemSchema.parse(item)).toEqual({
       ...item,
       content: {
@@ -155,6 +155,37 @@ describe('ForgeProjectItemSchema / ForgeProjectItemContent', () => {
           blockedByTruncated: false,
           subIssuesTruncated: false,
         },
+        linkedPrs: [],
+      },
+    });
+  });
+
+  it('round-trips an issue item with linked pull requests', () => {
+    const item = {
+      id: 'PVTI_1_prs',
+      content: {
+        type: 'issue' as const,
+        id: 'I_1',
+        number: 42,
+        title: 'Fix the thing',
+        url: 'https://github.com/o/r/issues/42',
+        state: 'open' as const,
+        assignees: [],
+        body: '',
+        labels: [],
+        linkedPrs: [
+          { number: 10, url: 'https://github.com/o/r/pull/10' },
+          { number: 12, url: 'https://github.com/o/r/pull/12' },
+        ],
+      },
+      fieldValues: {},
+    };
+    expect(ForgeProjectItemSchema.parse(item)).toMatchObject({
+      content: {
+        linkedPrs: [
+          { number: 10, url: 'https://github.com/o/r/pull/10' },
+          { number: 12, url: 'https://github.com/o/r/pull/12' },
+        ],
       },
     });
   });

@@ -324,7 +324,7 @@ test.describe('kanban card running glow (Theme F)', () => {
  * the glow and the Stop with it.
  */
 test.describe('revealing a card session in the terminal', () => {
-  test('the card\'s >_ button opens the terminal panel on that session, and the card keeps its glow', async ({
+  test('the card\'s play button opens the terminal panel on that session, and the card keeps its glow', async ({
     page,
   }) => {
     await installMockBridge(page, { ...base, terminalSessions: [CARD_SESSION] });
@@ -339,14 +339,13 @@ test.describe('revealing a card session in the terminal', () => {
       .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
     await expect(card).toHaveClass(/is-running/);
 
-    // The untouched card has no session, so it carries no button — the
-    // control is not permanent chrome on every card.
+    // The untouched card has no active session, so its button is "Start agent"
     const otherCard = page
       .getByText('A card nobody touches')
       .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
-    await expect(otherCard.getByTestId('card-reveal-terminal')).toHaveCount(0);
+    await expect(otherCard.getByTestId('card-play-agent')).toHaveAttribute('title', 'Start agent');
 
-    await card.getByTestId('card-reveal-terminal').click();
+    await card.getByTestId('card-play-agent').click();
 
     // The panel is open, and the card's own session is the one showing —
     // named in the session list, which is what "go to that session" means.

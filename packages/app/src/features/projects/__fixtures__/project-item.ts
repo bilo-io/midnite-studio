@@ -40,6 +40,7 @@ export function issueItem(overrides: Partial<ForgeProjectItem> = {}): ForgeProje
     body: '',
     labels: [],
     dependencies: EMPTY_ISSUE_LINK_SET,
+    linkedPrs: [],
     ...(overrides.content?.type === 'issue' ? overrides.content : {}),
   };
   return {
