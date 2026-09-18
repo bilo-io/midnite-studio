@@ -11753,3 +11753,5 @@ the variant's ceiling.
 
 
 **Ad-hoc: resizable side panels everywhere** ([PR #449](https://github.com/bilo-io/midnite-studio/pull/449)) — The GitHub Projects Board view, the Database connections list, and Settings' inner page nav all gained resizable left/right side panels, plus a keyboard-propagation fix in `useResizable`.
+
+**Ad-hoc: one click-modifier contract for every link** ([PR #450](https://github.com/bilo-io/midnite-studio/pull/450)) — Cmd/Ctrl+click opens a link in the OS default browser, Alt/Option+click in Midnite's embedded browser, and a plain click prefers Midnite's own view of the destination (PR actions and reviews, issues, repos) before falling back to the embedded browser. A shared `link-route-resolver` and `repo-forge-registry` replace the scattered per-surface `onClick` handling.
