@@ -728,10 +728,16 @@ jobs:
         working-directory: packages/app
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
+      # Playwright keeps its browsers at a different path per OS, and the fixed
+      # `~/.cache/ms-playwright` here was the Linux one — left behind when this
+      # lane moved to `macos-14`, where the path is `~/Library/Caches`. The key
+      # already carried `runner.os`; the path did not, so the cache was a silent
+      # miss on every run and each shard re-downloaded chromium. Keying the path
+      # the same way the key is keyed is what stops the two drifting apart again.
       - uses: actions/cache@v6
         id: pw-cache
         with:
-          path: ~/.cache/ms-playwright
+          path: ${{ runner.os == 'macOS' && '~/Library/Caches/ms-playwright' || '~/.cache/ms-playwright' }}
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
 
       # No `--with-deps`: that flag installs Linux system packages through apt
