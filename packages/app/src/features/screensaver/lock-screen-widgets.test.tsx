@@ -70,18 +70,27 @@ describe('LockScreenWidgets', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders system monitor graphs and fintech cycle widgets', () => {
+  it('renders system monitor graphs and fintech cycle widgets with colorized metrics and without category headers', () => {
     render(<LockScreenWidgets />, { wrapper: createWrapper() });
 
     expect(screen.getByTestId('lock-screen-widgets')).toBeTruthy();
     expect(screen.getByTestId('lock-sysmon-widget')).toBeTruthy();
     expect(screen.getByTestId('lock-fintech-widget')).toBeTruthy();
 
-    expect(screen.getByText('System Monitor')).toBeTruthy();
-    expect(screen.getByText('Fintech Cycle')).toBeTruthy();
+    expect(screen.queryByText('System Monitor')).toBeNull();
+    expect(screen.queryByText('Fintech Cycle')).toBeNull();
     expect(screen.getByText('CPU')).toBeTruthy();
     expect(screen.getByText('RAM')).toBeTruthy();
     expect(screen.getByText('GPU')).toBeTruthy();
+
+    const cpuLabel = screen.getByText('CPU');
+    const ramLabel = screen.getByText('RAM');
+    const gpuLabel = screen.getByText('GPU');
+    expect(cpuLabel.style.color).toBeTruthy();
+    expect(ramLabel.style.color).toBeTruthy();
+    expect(gpuLabel.style.color).toBeTruthy();
+    expect(cpuLabel.style.color).not.toBe(ramLabel.style.color);
+    expect(ramLabel.style.color).not.toBe(gpuLabel.style.color);
   });
 
   it('color-codes ticker, price, name, and sparkline green on a gain', async () => {
@@ -196,13 +205,14 @@ describe('LockScreenBatteryWidget (Phase 46 Theme B)', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('shows the percentage and a charging glyph while plugged in', () => {
+  it('shows the percentage and a charging glyph while plugged in without a Battery label', () => {
     useMetricsStore.setState({
       latest: { at: 1, battery: { hasBattery: true, percent: 82, isCharging: true, devices: [] } },
     });
     render(<LockScreenBatteryWidget />);
     expect(screen.getByTestId('lock-battery-widget')).toBeTruthy();
     expect(screen.getByText('82%')).toBeTruthy();
+    expect(screen.queryByText('Battery')).toBeNull();
   });
 
   it('falls back to the first connected device when there is no primary percent', () => {

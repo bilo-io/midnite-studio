@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { LuActivity, LuArrowDown, LuArrowUp, LuBatteryCharging, LuTrendingUp } from 'react-icons/lu';
+import { LuArrowDown, LuArrowUp, LuBatteryCharging } from 'react-icons/lu';
 import { type MetricId } from '@midnite/studio-shared';
 
 import { BatteryIcon } from '../battery/battery-icon';
@@ -120,17 +120,14 @@ export function LockScreenBatteryWidget() {
   return (
     <div
       data-testid="lock-battery-widget"
-      className="flex min-w-[280px] items-center justify-between rounded-xl border border-transparent bg-transparent p-3.5 text-left transition-all sm:w-[320px]"
+      className="flex min-w-[280px] items-center rounded-xl border border-transparent bg-transparent p-3.5 text-left transition-all sm:w-[320px]"
     >
-      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        <BatteryIcon percent={rounded} isCharging={battery?.isCharging} className="h-3.5 w-3.5 text-primary" />
-        <span>Battery</span>
-      </div>
       <div
-        className={`flex items-center gap-1.5 font-mono text-sm font-semibold tabular-nums ${textClass} ${flashClass}`}
+        className={`flex items-center gap-2.5 font-mono text-2xl font-bold tabular-nums ${textClass} ${flashClass}`}
         style={glowStyle}
       >
-        {battery?.isCharging ? <LuBatteryCharging className="h-3.5 w-3.5" /> : null}
+        <BatteryIcon percent={rounded} isCharging={battery?.isCharging} className="h-7 w-7 text-primary" />
+        {battery?.isCharging ? <LuBatteryCharging className="h-6 w-6" /> : null}
         <span>{rounded}%</span>
       </div>
     </div>
@@ -148,17 +145,13 @@ export function LockScreenSysmonWidget() {
       data-testid="lock-sysmon-widget"
       className="flex min-w-[280px] flex-col rounded-xl border border-transparent bg-transparent p-3.5 text-left transition-all sm:w-[320px]"
     >
-      <div className="mb-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <LuActivity className="h-3.5 w-3.5 text-primary" />
-          <span>System Monitor</span>
-        </div>
-        {latest?.cpuInfo?.cores ? (
+      {latest?.cpuInfo?.cores ? (
+        <div className="mb-2 flex items-center justify-end">
           <span className="text-[10px] tabular-nums text-muted-foreground/80">
             {latest.cpuInfo.cores} cores
           </span>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-3 gap-2">
         {activeMetricIds.map((id) => {
@@ -173,14 +166,14 @@ export function LockScreenSysmonWidget() {
               className="flex flex-col rounded-lg border border-transparent bg-transparent p-2"
             >
               <div className="flex items-center justify-between text-[11px]">
-                <span className="flex items-center gap-1 font-medium text-foreground/80">
+                <span className="flex items-center gap-1 font-medium" style={{ color }}>
                   <span
                     className="h-1.5 w-1.5 rounded-full"
                     style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
                   />
                   {METRIC_LABELS[id]}
                 </span>
-                <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
+                <span className="font-mono text-xs font-semibold tabular-nums" style={{ color }}>
                   {val != null ? `${Math.round(val)}%` : '—'}
                 </span>
               </div>
@@ -254,20 +247,16 @@ export function LockScreenFintechWidget() {
       data-testid="lock-fintech-widget"
       className="flex min-w-[280px] flex-col justify-between rounded-xl border border-transparent bg-transparent p-3.5 text-left transition-all sm:w-[320px]"
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <LuTrendingUp className="h-3.5 w-3.5 text-primary" />
-          <span>Fintech Cycle</span>
-        </div>
-        {assets.length > 1 ? (
+      {assets.length > 1 ? (
+        <div className="flex items-center justify-end">
           <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
             <span className="tabular-nums">
               {activeIndex + 1}/{assets.length}
             </span>
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {hasData ? (
         <div className="my-2 flex items-center justify-between gap-3">

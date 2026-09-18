@@ -90,14 +90,14 @@ test.describe('lock screen widgets', () => {
 
     const sysmon = page.getByTestId('lock-sysmon-widget');
     await expect(sysmon).toBeVisible();
-    await expect(sysmon).toContainText('System Monitor');
+    await expect(sysmon).not.toContainText('System Monitor');
     await expect(sysmon).toContainText('CPU');
     await expect(sysmon).toContainText('RAM');
     await expect(sysmon).toContainText('GPU');
 
     const fintech = page.getByTestId('lock-fintech-widget');
     await expect(fintech).toBeVisible();
-    await expect(fintech).toContainText('Fintech Cycle');
+    await expect(fintech).not.toContainText('Fintech Cycle');
 
     // Phase 46 Theme B — battery stacks above sysmon in the same bottom-right slot.
     const battery = page.getByTestId('lock-battery-widget');
