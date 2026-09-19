@@ -70,7 +70,7 @@ export const EarlyAccess = () => {
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isValidEmail(email)) {
-      setError('That does not look like an email address — check it and try again.');
+      setError('That does not look like an email address. Check it and try again.');
       emailRef.current?.focus();
       return;
     }
@@ -93,7 +93,7 @@ export const EarlyAccess = () => {
           </Heading>
           <Lede typeIn>
             Midnite Studio is usable and unfinished. Tell us what you would point it at and which
-            agents you already run, and you go on the list — and get asked first when the thing
+            agents you already run. You go on the list and get asked first when the thing
             you asked about ships.
           </Lede>
           <p className="max-w-prose text-sm leading-relaxed text-fg-subtle">
@@ -101,7 +101,7 @@ export const EarlyAccess = () => {
             <span className="text-fg-muted">public GitHub issue</span> in{' '}
             <span className="font-mono text-xs text-fg-muted">{ISSUE_REPO}</span>, shows you
             exactly what it says, and you post it yourself. It needs a GitHub account, and the
-            issue — including the address you type — is public, the same as filing a bug.
+            issue, including the address you type, is public, the same as filing a bug.
           </p>
         </div>
 

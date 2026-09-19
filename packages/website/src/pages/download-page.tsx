@@ -53,7 +53,7 @@ const STEPS: readonly { title: string; detail: string }[] = [
   {
     title: 'Resolves the version',
     detail:
-      'Reads midnite-studio/version.json in the public releases repo — not “latest release”, which in a repo distributing several apps is whichever one shipped most recently.',
+      'Reads midnite-studio/version.json in the public releases repo, rather than trusting “latest release,” which in a repo distributing several apps is whichever one shipped most recently.',
   },
   {
     title: 'Downloads the zip with curl',
@@ -63,7 +63,7 @@ const STEPS: readonly { title: string; detail: string }[] = [
   {
     title: 'Verifies before it installs',
     detail:
-      'Unpacks to a staging directory and checks the bundle is structurally complete — Info.plist, the executable, and a full-size Electron Framework — before anything in /Applications is touched.',
+      'Unpacks to a staging directory and checks the bundle is structurally complete (Info.plist, the executable, and a full-size Electron Framework) before anything in /Applications is touched.',
   },
   {
     title: 'Swaps it in, keeping a backup',
@@ -187,8 +187,8 @@ export const DownloadPage = () => (
                 rel="noreferrer"
               >
                 a single POSIX shell script
-              </a>{' '}
-              — the very file the command above fetches, served from this site. Set{' '}
+              </a>
+              : the very file the command above fetches, served from this site. Set{' '}
               <code className="font-mono">MIDNITE_STUDIO_VERSION=0.3.1</code> to pin a version,
               or <code className="font-mono">MIDNITE_STUDIO_NO_OPEN=1</code> to skip launching
               the app afterwards.
@@ -227,14 +227,14 @@ export const DownloadPage = () => (
               <p className="mt-2 text-sm leading-relaxed text-fg-muted">
                 Every build, its notes and the bug tracker live in the public{' '}
                 <span className="font-mono text-xs">bilo-io/midnite-apps</span> repository.
-                Release tags are namespaced per app —{' '}
+                Release tags are namespaced per app, like{' '}
                 <span className="font-mono text-xs">midnite-studio/v0.3.1</span>, never a bare
-                version — because it ships more than one.
+                version, because it ships more than one.
               </p>
               <p className="mt-3 text-sm leading-relaxed text-fg-muted">
                 The installer above is served from this site, and is a verbatim copy of{' '}
                 <span className="font-mono text-xs">midnite-studio/install.sh</span> in that
-                repository — checked against it on every deploy, so the two cannot drift.
+                repository, checked against it on every deploy, so the two cannot drift.
               </p>
               <div className="mt-4 flex flex-col gap-2">
                 <Button
@@ -256,8 +256,8 @@ export const DownloadPage = () => (
               <h3 className="text-sm font-semibold text-fg">Updating</h3>
               <p className="mt-2 text-sm leading-relaxed text-fg-muted">
                 Re-running the same command installs the newest version over the old one. Builds
-                are ad-hoc signed rather than notarized today, so re-running the installer — not
-                an in-app &ldquo;restart to install&rdquo; — is the update path.
+                are ad-hoc signed rather than notarized today, so re-running the installer, not
+                an in-app &ldquo;restart to install,&rdquo; is the update path.
               </p>
             </GlowCard>
           </aside>

@@ -39,7 +39,7 @@ export const Features = () => {
             Three surfaces, one window
           </Heading>
           <Lede typeIn>
-            A git client, a workbench for agents, and a browser — sharing a window, a theme
+            A git client, a workbench for agents and a browser, sharing a window, a theme
             and the repository you have open. The UI follows that repository live, so a
             commit made in the terminal shows up in the graph without a refresh.
           </Lede>

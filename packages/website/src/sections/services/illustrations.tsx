@@ -106,7 +106,7 @@ export const KanbanArt = () => {
       data-testid="kanban-art"
       data-animated={!reduced}
       style={{ '--ws-kanban-loop': `${KANBAN_MS}ms` } as CSSProperties}
-      aria-label="Three board columns — Todo, In progress and Done. A card crosses them: plain in Todo, outlined in the site's rainbow with a lit glow and a terminal inside it while an agent works on it in In progress, then green with a tick in Done. Underneath, the same items are drawn as a chain of blocked-by dependencies."
+      aria-label="Three board columns: Todo, In progress and Done. A card crosses them: plain in Todo, outlined in the site's rainbow with a lit glow and a terminal inside it while an agent works on it in In progress, then green with a tick in Done. Underneath, the same items are drawn as a chain of blocked-by dependencies."
     >
       <defs>
         {/*
@@ -339,7 +339,7 @@ export const ChecksArt = () => {
       data-testid="checks-art"
       data-animated={!reduced}
       style={{ '--ws-checks-loop': `${CHECKS_MS}ms` } as CSSProperties}
-      aria-label="A pull request with three check runs going green in turn — the third failing first and cleared by a new commit — above a review thread whose badge flips from changes requested to approved."
+      aria-label="A pull request with three check runs going green in turn (the third failing first and cleared by a new commit) above a review thread whose badge flips from changes requested to approved."
     >
       <rect x={0.5} y={0.5} width={319} height={199} rx={12} {...FRAME} />
 

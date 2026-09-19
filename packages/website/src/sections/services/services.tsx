@@ -26,7 +26,7 @@ export const Services = () => (
           Close the loop without leaving the window
         </Heading>
         <Lede typeIn>
-          Three things the app is built to do end to end — automate a board, keep a review
+          Three things the app is built to do end to end: automate a board, keep a review
           moving, and hold the whole development loop in one frame.
         </Lede>
       </header>

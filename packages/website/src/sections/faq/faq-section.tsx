@@ -166,7 +166,7 @@ export const Faq = () => {
           The honest answers
         </Heading>
         <Lede typeIn>
-          Including the ones with no good news in them — what it does not run on, what is not
+          Including the ones with no good news in them: what it does not run on, what is not
           open source, and what has not been decided yet.
         </Lede>
       </div>
