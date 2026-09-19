@@ -559,6 +559,50 @@ describe('persistence', () => {
     expect(saved.state).not.toHaveProperty('browserSwitcherSelected');
   });
 
+  it('cycles the highlight and resets it on open — the Mod+T terminal/agent switcher', () => {
+    useUiStore.setState({ terminalSwitcherOpen: false, terminalSwitcherIndex: 0 });
+
+    // Opening always starts on "Terminal" (index 0), regardless of any prior
+    // highlight — unlike the browser switcher, there is no "current session
+    // kind" to advance past.
+    useUiStore.setState({ terminalSwitcherIndex: 2 });
+    useUiStore.getState().openTerminalSwitcher();
+    expect(useUiStore.getState()).toMatchObject({ terminalSwitcherOpen: true, terminalSwitcherIndex: 0 });
+
+    // Cycling wraps within `count`.
+    useUiStore.getState().cycleTerminalSwitcher(1, 3);
+    expect(useUiStore.getState().terminalSwitcherIndex).toBe(1);
+    useUiStore.getState().cycleTerminalSwitcher(1, 3);
+    expect(useUiStore.getState().terminalSwitcherIndex).toBe(2);
+    useUiStore.getState().cycleTerminalSwitcher(1, 3);
+    expect(useUiStore.getState().terminalSwitcherIndex).toBe(0);
+
+    // Wraps backward too.
+    useUiStore.getState().cycleTerminalSwitcher(-1, 3);
+    expect(useUiStore.getState().terminalSwitcherIndex).toBe(2);
+  });
+
+  it('jumps the highlight directly and closes without acting — the Mod+T switcher', () => {
+    useUiStore.getState().openTerminalSwitcher();
+    useUiStore.getState().setTerminalSwitcherIndex(2);
+    expect(useUiStore.getState().terminalSwitcherIndex).toBe(2);
+
+    useUiStore.getState().closeTerminalSwitcher();
+    expect(useUiStore.getState().terminalSwitcherOpen).toBe(false);
+  });
+
+  it('does not persist the Mod+T terminal/agent switcher — ephemeral HUD', () => {
+    useUiStore.getState().openTerminalSwitcher();
+
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+      state: Record<string, unknown>;
+    };
+
+    expect(useUiStore.getState().terminalSwitcherOpen).toBe(true);
+    expect(saved.state).not.toHaveProperty('terminalSwitcherOpen');
+    expect(saved.state).not.toHaveProperty('terminalSwitcherIndex');
+  });
+
   it('defaults browserOpen to false for a payload written before the key existed', () => {
     // No version bump for this key: `merge` already spreads a persisted
     // payload over the defaults, so an older blob with no `browserOpen` key

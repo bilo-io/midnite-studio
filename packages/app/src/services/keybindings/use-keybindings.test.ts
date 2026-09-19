@@ -345,3 +345,23 @@ describe('browserSwitcherOpen keyboard gating', () => {
     expect(run['palette.open']).not.toHaveBeenCalled();
   });
 });
+
+describe('terminalSwitcherOpen keyboard gating', () => {
+  it('allows terminal.new through (to cycle) while blocking other bound chords', () => {
+    // `browserSwitcherOpen` is explicitly reset here — the preceding
+    // `browserSwitcherOpen keyboard gating` block leaves it `true`, and that
+    // gate is checked BEFORE this one in `use-keybindings.ts`, so a leaked
+    // `true` would block `terminal.new` too.
+    useUiStore.setState({ browserOpen: false, browserSwitcherOpen: false, terminalSwitcherOpen: true });
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    // Mod+t passes through, to advance the switcher's highlight.
+    dispatch({ key: 't', metaKey: true });
+    expect(run['terminal.new']).toHaveBeenCalledTimes(1);
+
+    // Other chords like Mod+k (palette.open) are blocked while the HUD is up.
+    dispatch({ key: 'k', metaKey: true });
+    expect(run['palette.open']).not.toHaveBeenCalled();
+  });
+});
