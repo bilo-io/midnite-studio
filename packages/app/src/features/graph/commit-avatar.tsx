@@ -104,82 +104,62 @@ export function CommitAvatar({
 
   return (
     <g>
-      {isAgent ? (
-        <g data-testid="svg-agent-avatar">
-          <circle
-            cx={cx}
-            cy={cy}
-            r={radius}
-            fill={agent?.accent ? `${agent.accent}25` : 'hsl(var(--muted))'}
+      {/*
+        The author's face is the node, agent commit or not (Phase 78 Theme C
+        ad hoc follow-up). An agent is additional information about who else
+        touched the commit — it augments the human avatar with a corner badge
+        below, rather than replacing it, exactly as the `mixed` case has
+        always done. `agent` and `mixed` therefore share this whole block;
+        what still tells them apart is the badge below (testid, tint, and the
+        provenance tooltip elsewhere on the row).
+      */}
+      {/*
+        Drawn under both states, not just the fallback: once `status` flips to
+        'ready' the <image> still has to fetch its bytes over the network, and
+        without this the node goes transparent for that gap instead of just
+        swapping from initials to the loaded face.
+      */}
+      <circle cx={cx} cy={cy} r={radius} fill={`hsl(${hue} 45% 42%)`} />
+
+      {state.status === 'ready' ? (
+        /*
+          Translated so the image sits at the origin of its own space, which is
+          the space the shared clipPath's circle is defined in. A userSpaceOnUse
+          clip resolves against the user coordinate system in force where it is
+          REFERENCED, so without this the one shared circle would only ever line
+          up with a node in the first lane of the first row.
+        */
+        <g transform={`translate(${cx - radius} ${cy - radius})`}>
+          <image
+            // Built here, not cached, so the request tracks the ACTIVE style's
+            // node size rather than whichever style happened to ask first.
+            href={gravatarUrl(state.hash, size)}
+            x={0}
+            y={0}
+            width={size}
+            height={size}
+            clipPath={`url(#${clipId})`}
+            preserveAspectRatio="xMidYMid slice"
+            // With `d=404` a miss only announces itself here, as a load error.
+            // Recording it stops every other row by this author refetching it.
+            onError={() => markAvatarMissing(email)}
           />
-          {AgentIcon ? (
-            <foreignObject
-              x={cx - (size * 0.6) / 2}
-              y={cy - (size * 0.6) / 2}
-              width={size * 0.6}
-              height={size * 0.6}
-            >
-              <AgentIcon
-                style={{
-                  width: size * 0.6,
-                  height: size * 0.6,
-                  color: agent?.accent ?? 'hsl(var(--foreground))',
-                }}
-              />
-            </foreignObject>
-          ) : null}
         </g>
       ) : (
-        <>
-          {/*
-            Drawn under both states, not just the fallback: once `status` flips to
-            'ready' the <image> still has to fetch its bytes over the network, and
-            without this the node goes transparent for that gap instead of just
-            swapping from initials to the loaded face.
-          */}
-          <circle cx={cx} cy={cy} r={radius} fill={`hsl(${hue} 45% 42%)`} />
-
-          {state.status === 'ready' ? (
-            /*
-              Translated so the image sits at the origin of its own space, which is
-              the space the shared clipPath's circle is defined in. A userSpaceOnUse
-              clip resolves against the user coordinate system in force where it is
-              REFERENCED, so without this the one shared circle would only ever line
-              up with a node in the first lane of the first row.
-            */
-            <g transform={`translate(${cx - radius} ${cy - radius})`}>
-              <image
-                // Built here, not cached, so the request tracks the ACTIVE style's
-                // node size rather than whichever style happened to ask first.
-                href={gravatarUrl(state.hash, size)}
-                x={0}
-                y={0}
-                width={size}
-                height={size}
-                clipPath={`url(#${clipId})`}
-                preserveAspectRatio="xMidYMid slice"
-                // With `d=404` a miss only announces itself here, as a load error.
-                // Recording it stops every other row by this author refetching it.
-                onError={() => markAvatarMissing(email)}
-              />
-            </g>
-          ) : (
-            <text
-              x={cx}
-              y={cy}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize={size * 0.42}
-              fontWeight={600}
-              fill="hsl(0 0% 100%)"
-              // The row's text already names the author to assistive tech via the
-              // tooltip; initials read aloud as letters would be noise.
-              aria-hidden
-            >
-              {initialsFor(name, email)}
-            </text>
-          )}
-        </>
+        <text
+          x={cx}
+          y={cy}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={size * 0.42}
+          fontWeight={600}
+          fill="hsl(0 0% 100%)"
+          // The row's text already names the author to assistive tech via the
+          // tooltip; initials read aloud as letters would be noise.
+          aria-hidden
+        >
+          {initialsFor(name, email)}
+        </text>
       )}
 
       <circle
@@ -191,14 +171,19 @@ export function CommitAvatar({
         strokeWidth={ringWidth}
       />
 
-      {isMixed && AgentIcon ? (
-        <g data-testid="svg-mixed-badge">
+      {(isAgent || isMixed) && AgentIcon ? (
+        <g data-testid={isAgent ? 'svg-agent-avatar' : 'svg-mixed-badge'}>
           <circle
             cx={cx + radius * 0.5}
             cy={cy + radius * 0.5}
             r={radius * 0.45}
-            fill="hsl(var(--background))"
-            stroke={ring}
+            // `agent` carries a single, known author, so its badge wears that
+            // agent's own accent as a filled tint (the same tint the old
+            // full-circle replacement used) — `mixed` means more than one
+            // agent touched the commit, so it stays a neutral background
+            // ring rather than any one of theirs.
+            fill={isAgent && agent?.accent ? `${agent.accent}25` : 'hsl(var(--background))'}
+            stroke={isAgent ? (agent?.accent ?? ring) : ring}
             strokeWidth={1}
           />
           <foreignObject

@@ -395,38 +395,40 @@ function GraphRowInner({
               size={14}
             />
           ) : null}
-          {isAgent ? (
-            <div
-              className="relative flex shrink-0 items-center justify-center rounded-full"
-              style={{
-                width: 14,
-                height: 14,
-                backgroundColor: agent?.accent ? `${agent.accent}25` : 'hsl(var(--muted))',
-                color: agent?.accent ?? 'currentColor',
-              }}
-              data-testid="agent-avatar"
-            >
-              {AgentIcon ? <AgentIcon className="h-2.5 w-2.5" /> : null}
-            </div>
-          ) : (
-            <div className="relative shrink-0">
-              <UserAvatar
-                name={row.commit.authorName}
-                email={row.commit.authorEmail}
-                size={14}
-                detail={new Date(row.commit.authorDate * 1000).toLocaleString()}
-              />
-              {isMixed && AgentIcon ? (
-                <span
-                  data-testid="mixed-avatar-badge"
-                  className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-background ring-1 ring-border"
-                  style={{ width: 8, height: 8, color: agent?.accent ?? 'currentColor' }}
-                >
-                  <AgentIcon style={{ width: 6, height: 6 }} />
-                </span>
-              ) : null}
-            </div>
-          )}
+          {/*
+            The author's face, agent commit or not — an agent is additional
+            information about the commit, not a replacement for who authored
+            it, so `agent` renders exactly like `mixed`: the human avatar plus
+            a corner badge. `agent` (one known author) tints its badge with
+            that agent's own accent, the same way `commit-avatar.tsx`'s node
+            badge does; `mixed` (more than one agent) stays a neutral badge.
+          */}
+          <div className="relative shrink-0">
+            <UserAvatar
+              name={row.commit.authorName}
+              email={row.commit.authorEmail}
+              size={14}
+              detail={new Date(row.commit.authorDate * 1000).toLocaleString()}
+            />
+            {(isAgent || isMixed) && AgentIcon ? (
+              <span
+                data-testid={isAgent ? 'agent-avatar-badge' : 'mixed-avatar-badge'}
+                className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full"
+                style={{
+                  width: 8,
+                  height: 8,
+                  color: agent?.accent ?? 'currentColor',
+                  backgroundColor:
+                    isAgent && agent?.accent ? `${agent.accent}25` : 'hsl(var(--background))',
+                  // A dynamic ring colour needs an inline box-shadow — Tailwind's
+                  // `ring-*` utilities only take a fixed design-token colour.
+                  boxShadow: `0 0 0 1px ${isAgent && agent?.accent ? agent.accent : 'hsl(var(--border))'}`,
+                }}
+              >
+                <AgentIcon style={{ width: 6, height: 6 }} />
+              </span>
+            ) : null}
+          </div>
           <span className="truncate">{row.commit.authorName}</span>
         </span>
       ) : null}
