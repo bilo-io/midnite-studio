@@ -1,6 +1,21 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-19 — Phase 88 Theme C — The DOM-renderer call sites
+
+[PR #457](https://github.com/bilo-io/midnite-studio/pull/457). `transcript-view.tsx` and `live-session-terminal.tsx` — the two sites that load
+`FitAddon` only, never `WebglAddon` — needed **zero source edits** for the v6 bump: Theme A's own
+`xterm.d.ts` diff had already established `FitAddon`'s typings are unchanged function-for-function
+across the bump, and `grep` across both files confirms neither imports `@xterm/addon-webgl` (only
+doc comments asserting the DOM-only design, unchanged). Confirmed with the real installed
+versions (`@xterm/xterm@6.0.0`, `@xterm/addon-fit@0.11.0`) rather than assumed. Per the checklist's
+third item — "assert it rather than assuming it" — added one test to each existing suite
+(`transcript-view.test.tsx`, `live-session-terminal.test.tsx`) that tracks every `Terminal.loadAddon`
+call and asserts exactly one addon is ever loaded, and that it is `FitAddon` — never a `WebglAddon`
+stand-in — so a future change that made WebGL the implicit default fails this test rather than
+surfacing only as pressure on `xterm-budget.ts`'s `MAX_WEBGL_CONTEXTS`. No WebGL context is
+allocated at either site.
+
 ## 2026-09-18 — Phase 78 Themes A and B — Read the trailers & provenance vocabulary
 
 [PR #456](https://github.com/bilo-io/midnite-studio/pull/456). Extended `LOG_FORMAT` in `packages/git-engine/src/parsers/log-parser.ts` to read `Co-Authored-By` and `Midnite-Session` trailers (`%(trailers:key=...,valueonly,separator=%x1f)`) into `CommitSchema.coAuthors` and `CommitSchema.sessionTrailers` while preserving NUL record delimiters. Benchmarked on the 50k fixture (~1.2 µs/commit overhead). Created `packages/shared/src/domain/provenance.ts` defining `ProvenanceSource`, `CommitProvenance` (`human`, `agent`, `mixed`), `classifyProvenance` with strict confidence ordering (`session-trailer` > `co-author` > `author` > `session-window`), and `commitsForSession`. Added `signatures` and `AgentSignatureSchema` to all built-in agents in `terminal.ts`. Achieved 100% branch coverage on provenance classification.

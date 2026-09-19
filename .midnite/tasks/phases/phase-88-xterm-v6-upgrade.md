@@ -63,13 +63,13 @@ The main porting surface, and the **only** `WebglAddon` consumer in the repo.
 - [ ] Confirm `MAX_WEBGL_CONTEXTS` still holds: v6's context handling is the one thing that could silently change the budget's meaning. Do not retune the number here — report it if it looks wrong.
 - [ ] [`terminal-links.ts`](../../../packages/app/src/features/terminal/terminal-links.ts) — `ILink`, `ILinkProvider`, `IDisposable` — and [`terminal-font.ts`](../../../packages/app/src/features/terminal/terminal-font.ts) (`FontWeight`). Type-level, but `ILinkProvider` is a behavioural interface and deserves a real check.
 
-### C — The DOM-renderer call sites (S)
+### C — The DOM-renderer call sites (S) — ✅ DONE
 
 Two sites load `FitAddon` only, never `WebglAddon`, so they carry no WebGL risk and want lighter verification than Theme B.
 
-- [ ] [`transcript-view.tsx`](../../../packages/app/src/features/sessions/transcript-view.tsx) — read-only transcript, DOM renderer.
-- [ ] [`live-session-terminal.tsx`](../../../packages/app/src/features/sessions/live-session-terminal.tsx).
-- [ ] Confirm both still render under v6 with no WebGL context allocated — a v6 change that made WebGL the implicit default would be invisible here except as budget pressure.
+- [x] [`transcript-view.tsx`](../../../packages/app/src/features/sessions/transcript-view.tsx) — read-only transcript, DOM renderer. No source edit needed: `FitAddon`'s typings are unchanged function-for-function across the bump (Theme A's own `xterm.d.ts` diff), confirmed against the real installed `@xterm/addon-fit@0.11.0`.
+- [x] [`live-session-terminal.tsx`](../../../packages/app/src/features/sessions/live-session-terminal.tsx). Same finding, same reason.
+- [x] Confirmed both still render under v6 with no WebGL context allocated — asserted, not assumed: `grep` across both files for `@xterm/addon-webgl`/`WebglAddon` finds only the pre-existing doc comments describing the DOM-only design; a new test in each of `transcript-view.test.tsx` and `live-session-terminal.test.tsx` tracks every `Terminal.loadAddon` call and asserts exactly one is ever made, with a `FitAddon` instance — never a `WebglAddon` — so a future change that made WebGL the implicit default fails this test rather than surfacing only as pressure on `xterm-budget.ts`'s `MAX_WEBGL_CONTEXTS`.
 
 ### D — `ITheme`, and the reach into the theme engine (S)
 

@@ -20,19 +20,29 @@ vi.stubGlobal('ResizeObserver', StubResizeObserver);
  */
 type KeyEvent = { type: string; key: string; metaKey?: boolean; ctrlKey?: boolean };
 
-const { instances, FakeTerminal } = vi.hoisted(() => {
+const { instances, FakeTerminal, FakeFitAddon } = vi.hoisted(() => {
+  // A class distinct from any WebGL-addon stand-in, so
+  // `loadedAddons[0] instanceof FakeFitAddon` fails if this component ever
+  // grows a `WebglAddon` load, per Phase 88 Theme C's "assert it rather than
+  // assuming it".
+  class FakeFitAddon {
+    fit() {}
+  }
   class FakeTerminal {
     written: unknown[] = [];
     disposed = false;
     keyHandler: ((event: KeyEvent) => boolean) | null = null;
     dataHandler: ((data: string) => void) | null = null;
+    loadedAddons: unknown[] = [];
     cols = 80;
     rows = 24;
     constructor(public options: Record<string, unknown>) {
       instances.push(this);
     }
     open() {}
-    loadAddon() {}
+    loadAddon(addon: unknown) {
+      this.loadedAddons.push(addon);
+    }
     write(data: unknown) {
       this.written.push(data);
     }
@@ -48,15 +58,11 @@ const { instances, FakeTerminal } = vi.hoisted(() => {
     }
   }
   const instances: InstanceType<typeof FakeTerminal>[] = [];
-  return { instances, FakeTerminal };
+  return { instances, FakeTerminal, FakeFitAddon };
 });
 
 vi.mock('@xterm/xterm', () => ({ Terminal: FakeTerminal }));
-vi.mock('@xterm/addon-fit', () => ({
-  FitAddon: class {
-    fit() {}
-  },
-}));
+vi.mock('@xterm/addon-fit', () => ({ FitAddon: FakeFitAddon }));
 vi.mock('../themes/resolve-palette', () => ({
   resolveTerminalPalette: () => ({ terminal: {} }),
 }));
@@ -138,6 +144,18 @@ describe('LiveSessionTerminal', () => {
 
     expect(instances).toHaveLength(1);
     expect(instances[0]?.written[0]).toBe(payload);
+  });
+
+  it('loads only FitAddon under xterm v6 — no WebGL context is ever allocated on this DOM-renderer call site', async () => {
+    useTerminalStore.setState({ ptyIds: { 'sess-1': 'pty-1' }, states: { 'sess-1': 'open' } });
+    snapshot.mockResolvedValue({ bytes: new Uint8Array() });
+
+    await act(async () => {
+      render(<LiveSessionTerminal session={session()} />);
+    });
+
+    expect(instances[0]?.loadedAddons).toHaveLength(1);
+    expect(instances[0]?.loadedAddons[0]).toBeInstanceOf(FakeFitAddon);
   });
 
   it('sends a typed keystroke through terminal-store.sendInput, not a fresh IPC path of its own', async () => {

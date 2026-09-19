@@ -23,16 +23,26 @@ vi.stubGlobal('ResizeObserver', StubResizeObserver);
  */
 type KeyEvent = { type: string; key: string; metaKey?: boolean; ctrlKey?: boolean };
 
-const { instances, FakeTerminal } = vi.hoisted(() => {
+const { instances, FakeTerminal, FakeFitAddon } = vi.hoisted(() => {
+  // Real (not a doc-comment claim) — a class distinct from any WebGL-addon
+  // stand-in, so `loadedAddons[0] instanceof FakeFitAddon` fails if this
+  // component ever grows a `WebglAddon` load, per Phase 88 Theme C's "assert
+  // it rather than assuming it".
+  class FakeFitAddon {
+    fit() {}
+  }
   class FakeTerminal {
     written: unknown[] = [];
     disposed = false;
     keyHandler: ((event: KeyEvent) => boolean) | null = null;
+    loadedAddons: unknown[] = [];
     constructor(public options: Record<string, unknown>) {
       instances.push(this);
     }
     open() {}
-    loadAddon() {}
+    loadAddon(addon: unknown) {
+      this.loadedAddons.push(addon);
+    }
     write(data: unknown) {
       this.written.push(data);
     }
@@ -44,15 +54,11 @@ const { instances, FakeTerminal } = vi.hoisted(() => {
     }
   }
   const instances: InstanceType<typeof FakeTerminal>[] = [];
-  return { instances, FakeTerminal };
+  return { instances, FakeTerminal, FakeFitAddon };
 });
 
 vi.mock('@xterm/xterm', () => ({ Terminal: FakeTerminal }));
-vi.mock('@xterm/addon-fit', () => ({
-  FitAddon: class {
-    fit() {}
-  },
-}));
+vi.mock('@xterm/addon-fit', () => ({ FitAddon: FakeFitAddon }));
 vi.mock('../themes/resolve-palette', () => ({
   resolveTerminalPalette: () => ({ terminal: {} }),
 }));
@@ -111,6 +117,17 @@ describe('TranscriptView', () => {
 
     expect(screen.getByText('No transcript')).toBeTruthy();
     expect(instances).toHaveLength(0);
+  });
+
+  it('loads only FitAddon under xterm v6 — no WebGL context is ever allocated on this DOM-renderer call site', async () => {
+    transcript.mockResolvedValue({ bytes: bytesOf(10) });
+
+    await act(async () => {
+      render(<TranscriptView sessionId="s1" />);
+    });
+
+    expect(instances[0]?.loadedAddons).toHaveLength(1);
+    expect(instances[0]?.loadedAddons[0]).toBeInstanceOf(FakeFitAddon);
   });
 
   it('swallows a keystroke rather than letting it reach the emulator', async () => {
