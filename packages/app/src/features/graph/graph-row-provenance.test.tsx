@@ -1,4 +1,4 @@
-import type { AgentDefinition, ClosedSession, CommitProvenance, GraphRow } from '@midnite/studio-shared';
+import type { AgentDefinition, CommitProvenance, GraphRow } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
