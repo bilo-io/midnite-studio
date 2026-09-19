@@ -65,7 +65,7 @@ export const PILLARS: readonly Pillar[] = [
     name: 'Git',
     Icon: LuGitBranch,
     lede:
-      'The whole client, driven by the real git CLI — so your credential helpers, SSH agent and commit signing work with no configuration of ours.',
+      'The whole client, driven by the real git CLI, so your credential helpers, SSH agent and commit signing work with no configuration of ours.',
     glow: 'lane-1',
     tint: 'text-lane-1',
     bullets: [
@@ -94,7 +94,7 @@ export const PILLARS: readonly Pillar[] = [
     name: 'Agentic',
     Icon: LuBot,
     lede:
-      'Agents run where the repository already is — in your own shell, in the worktree you picked, against the task they were given.',
+      'Agents run where the repository already is: in your own shell, in the worktree you picked, against the task they were given.',
     glow: 'lane-2',
     tint: 'text-lane-2',
     bullets: [
@@ -131,19 +131,19 @@ export const PILLARS: readonly Pillar[] = [
         Icon: LuHistory,
         title: 'Session restoration',
         body:
-          'It keeps a persistent session partition of its own, with every permission denied by default — so a login to your staging environment is still a login after a relaunch, and no page gets your camera.',
+          'It keeps a persistent session partition of its own, with every permission denied by default, so a login to your staging environment is still a login after a relaunch, and no page gets your camera.',
       },
       {
         Icon: LuPanelsTopLeft,
         title: 'Side-by-side docking',
         body:
-          'Dock it beside the graph or give it the whole window, and drag the split as narrow as 320px. Links from anywhere in the app — a pull request, a check, a preview deploy — open in a tab here.',
+          'Dock it beside the graph or give it the whole window, and drag the split as narrow as 320px. Links from anywhere in the app (a pull request, a check, a preview deploy) open in a tab here.',
       },
       {
         Icon: LuScanEye,
         title: 'Lighter on a shared process',
         body:
-          'It is a view inside the window you already have open, not a second application to launch — and when something in the app covers it, the view stops rendering instead of painting underneath.',
+          'It is a view inside the window you already have open, not a second application to launch, and when something in the app covers it, the view stops rendering instead of painting underneath.',
       },
     ],
   },

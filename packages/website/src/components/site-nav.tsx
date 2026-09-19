@@ -58,7 +58,7 @@ export const SiteNav = ({ offLanding = false }: SiteNavProps) => {
         <a
           href={hrefFor('landing')}
           className="rounded-md transition duration-fast hover:opacity-80"
-          aria-label={offLanding ? 'Midnite Studio — back to the home page' : 'Midnite Studio'}
+          aria-label={offLanding ? 'Back to the Midnite Studio home page' : 'Midnite Studio'}
         >
           <Logo />
         </a>

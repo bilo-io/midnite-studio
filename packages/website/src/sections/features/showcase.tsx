@@ -417,7 +417,7 @@ export const Showcase = ({ reduced: reducedProp }: ShowcaseProps = {}) => {
               '--ws-graph-pitch': `${PITCH}px`,
             } as CSSProperties
           }
-          aria-label="A commit graph in five coloured lanes, with new commits arriving at the top: a trunk down the left, a short branch that merges back at a filled node, a long-running branch that stays open for nine commits before merging, two more branches still open with their own badges, a tagged release, and the checked-out tip — every commit's subject, date and short SHA beside it."
+          aria-label="A commit graph in five coloured lanes, with new commits arriving at the top: a trunk down the left, a short branch that merges back at a filled node, a long-running branch that stays open for nine commits before merging, two more branches still open with their own badges, a tagged release, and the checked-out tip. Every commit's subject, date and short SHA sits beside it."
         >
           <defs>
             <clipPath id={clipId}>
@@ -570,7 +570,7 @@ export const Showcase = ({ reduced: reducedProp }: ShowcaseProps = {}) => {
       </GlowCard>
       <figcaption className="mt-3 text-sm text-fg-subtle">
         The commit graph as the app lays it out: one lane per branch, a filled node where two
-        parents meet, a badge on the ref you have checked out — and the newest commits
+        parents meet, a badge on the ref you have checked out, and the newest commits
         arriving at the top as the history below them scrolls away.
       </figcaption>
     </figure>

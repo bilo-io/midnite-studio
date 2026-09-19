@@ -17,7 +17,7 @@ const ICON: Record<Theme, typeof LuSunMoon> = {
  * label already names both the current state and where the next click goes.
  *
  * The icon names the *current* state (`LuSunMoon` for "following the OS"),
- * and the `aria-label` spells out the transition — "Theme: system — switch to
+ * and the `aria-label` spells out the transition — "Theme: system, switch to
  * light" — so a screen-reader user gets the same information a sighted one
  * gets from watching the icon change.
  */
@@ -25,7 +25,7 @@ export const ThemeToggle = () => {
   const theme = useTheme();
   const next = nextTheme(theme);
   const Icon = ICON[theme];
-  const label = `Theme: ${theme} — switch to ${next}`;
+  const label = `Theme: ${theme}, switch to ${next}`;
 
   return (
     <button

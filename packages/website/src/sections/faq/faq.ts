@@ -41,7 +41,7 @@ export const FAQ: readonly FaqEntry[] = [
     slug: 'what-is-it',
     question: 'What is Midnite Studio?',
     answer: [
-      'A desktop workspace for the whole loop around a repository, in one window: a commit graph with worktrees nested under the repositories they belong to, your real login shell, an embedded browser, and the forge — pull requests, checks, reviews, project boards — beside them rather than in a browser tab you have to go and find.',
+      'A desktop workspace for the whole loop around a repository, in one window: a commit graph with worktrees nested under the repositories they belong to, your real login shell, an embedded browser, and the forge (pull requests, checks, reviews, project boards) beside them rather than in a browser tab you have to go and find.',
       'It is a git client first. Everything else in the window is there because the work you do around a commit does not happen inside a git client today, and switching applications to do it is the cost the product is trying to remove.',
     ],
   },
@@ -50,7 +50,7 @@ export const FAQ: readonly FaqEntry[] = [
     question: 'Which platforms does it run on?',
     answer: [
       'macOS on Apple silicon, and only that, today. The published build is an arm64 dmg/zip; the installer refuses anything else rather than downloading a binary that cannot run.',
-      'Nothing in the app is macOS-specific by design — it is Electron, and the git layer is the real git CLI — so Intel Macs, Linux and Windows are a build-and-test problem rather than a porting one. There is no date for them.',
+      'Nothing in the app is macOS-specific by design: it is Electron, and the git layer is the real git CLI, so Intel Macs, Linux and Windows are a build-and-test problem rather than a porting one. There is no date for them.',
     ],
     links: [{ label: 'Read install.sh before you pipe it into sh', href: `${APPS_REPO}/blob/main/midnite-studio/install.sh` }],
   },
@@ -66,7 +66,7 @@ export const FAQ: readonly FaqEntry[] = [
     slug: 'terminal',
     question: 'Does it replace my terminal?',
     answer: [
-      'No. It hosts one — your login shell, with your PATH, your prompt and your aliases — and it is the same shell whether you open it from the terminal panel, from a kanban card or from an agent launcher. Nothing is emulated and no command is intercepted.',
+      'No. It hosts one: your login shell, with your PATH, your prompt and your aliases. It is the same shell whether you open it from the terminal panel, from a kanban card or from an agent launcher. Nothing is emulated and no command is intercepted.',
       'The terminal sessions also outlive the window: they run under a broker process, so reloading the app or closing the window does not kill a build. Keep using your own terminal alongside it if you prefer; a commit you make there shows up in the graph without a refresh, because the UI follows the repository rather than its own cache.',
     ],
   },
@@ -74,8 +74,8 @@ export const FAQ: readonly FaqEntry[] = [
     slug: 'loops-and-boards',
     question: 'How do loops and the kanban board actually run agents?',
     answer: [
-      'A loop is a named, repeatable agent invocation — Guard, Concepts, Develop, Patrol, Medic, Overhaul — composed from a base prompt plus the run settings you tick before pressing Start: which jobs it does, whether it works in a worktree, whether it may open PRs or only report. Press Start and it spawns the agent in a real terminal session on an interval, and every run is recorded with the exact prompt it carried.',
-      'The board is the same mechanism aimed at one card. A card on the project board can own a terminal, so the agent runs against that card’s branch or worktree and the card shows its live state — thinking, waiting on you, or done — while it does. There is no hidden queue, no server doing the work somewhere else, and no prompt you cannot read before it is sent.',
+      'A loop is a named, repeatable agent invocation (Guard, Concepts, Develop, Patrol, Medic, Overhaul) composed from a base prompt plus the run settings you tick before pressing Start: which jobs it does, whether it works in a worktree, whether it may open PRs or only report. Press Start and it spawns the agent in a real terminal session on an interval, and every run is recorded with the exact prompt it carried.',
+      'The board is the same mechanism aimed at one card. A card on the project board can own a terminal, so the agent runs against that card’s branch or worktree and the card shows its live state (thinking, waiting on you, or done) while it does. There is no hidden queue, no server doing the work somewhere else, and no prompt you cannot read before it is sent.',
     ],
   },
   {
@@ -87,14 +87,14 @@ export const FAQ: readonly FaqEntry[] = [
     ],
     links: [
       { label: 'Releases and downloads', href: `${APPS_REPO}/releases` },
-      { label: 'Issues — bugs and feature requests', href: `${APPS_REPO}/issues` },
+      { label: 'Issues: bugs and feature requests', href: `${APPS_REPO}/issues` },
     ],
   },
   {
     slug: 'updates',
     question: 'How do updates arrive?',
     answer: [
-      'From a generic update feed published alongside the builds — a `latest-mac.yml` manifest in the public releases repo, which electron-updater reads directly. Deliberately not GitHub’s own release provider: that repo distributes several apps, and "the latest release" there is whichever app shipped most recently, which would happily hand Midnite Studio a sibling’s update.',
+      'From a generic update feed published alongside the builds: a `latest-mac.yml` manifest in the public releases repo, which electron-updater reads directly. Deliberately not GitHub’s own release provider: that repo distributes several apps, and "the latest release" there is whichever app shipped most recently, which would happily hand Midnite Studio a sibling’s update.',
       'Builds are ad-hoc signed rather than notarized today, so re-running the one-line installer is the reliable update path. It installs the newest version over the old one, verifying the new bundle before anything in /Applications is touched and keeping the previous copy until it does.',
     ],
     links: [{ label: 'The install command', href: `${APPS_REPO}/blob/main/midnite-studio/install.sh` }],

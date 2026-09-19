@@ -35,7 +35,7 @@ const PROMPTS = [
   {
     Icon: LuGithub,
     title: 'A GitHub comment',
-    body: 'Paste the comment as `quote`, set `source` to `github`, and link nothing — the quote stands alone.',
+    body: 'Paste the comment as `quote`, set `source` to `github`, and link nothing. The quote stands alone.',
   },
   {
     Icon: LuMail,
@@ -63,7 +63,7 @@ const PROMPTS = [
 export const TestimonialEmpty = () => (
   <div data-testid="testimonials-empty" className="flex flex-col gap-6">
     <p className="text-sm text-fg-subtle">
-      No quotes yet — nothing here is a placeholder for something real, because there is
+      No quotes yet. Nothing here is a placeholder for something real, because there is
       nothing real to hold a place for. Add the first one by editing{' '}
       <code className="rounded-sm bg-bg-sunken px-1.5 py-0.5 font-mono text-xs text-accent">
         {TESTIMONIALS_PATH}
@@ -103,8 +103,8 @@ export const TestimonialEmpty = () => (
       <p className="mt-3 text-xs text-fg-subtle">
         Images live in{' '}
         <code className="font-mono text-fg-muted">{TESTIMONIALS_IMG_DIR}</code> and are
-        referenced without the <code className="font-mono text-fg-muted">public/</code> —{' '}
-        <code className="font-mono text-fg-muted">img/testimonials/ana.png</code>, never with
+        referenced without the <code className="font-mono text-fg-muted">public/</code> prefix,
+        as <code className="font-mono text-fg-muted">img/testimonials/ana.png</code>, never with
         a leading slash: the deployed site is served under a path prefix. That folder&rsquo;s
         README covers consent and cropping for a screenshot.
       </p>

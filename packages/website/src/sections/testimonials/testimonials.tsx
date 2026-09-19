@@ -44,7 +44,7 @@ export const Testimonials = ({ testimonials = TESTIMONIALS }: TestimonialsProps)
         </Heading>
         <Lede typeIn>
           Midnite Studio is early, and this is the section that says so. Nothing below is
-          written by us on someone else&rsquo;s behalf — when there is a quote, it is
+          written by us on someone else&rsquo;s behalf. When there is a quote, it is
           verbatim, with the original message attached where there is one.
         </Lede>
       </div>

@@ -27,7 +27,7 @@ export const Trusted = () => (
         </Heading>
         <Lede className="text-center" typeIn>
           {SITE_AGENTS.length} coding agents ship in the roster, each one launched in a real
-          login shell in a docked terminal — so its own auth, its own config and its own
+          login shell in a docked terminal, so its own auth, its own config and its own
           resume flag all work exactly as they do outside the app. Adding one more is an edit
           to a JSON file, not a release.
         </Lede>
