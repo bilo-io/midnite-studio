@@ -99,7 +99,7 @@ export function FabSlide() {
         )}
       </div>
 
-      <div className="mt-8 grid w-full grid-cols-2 gap-2 text-left sm:grid-cols-4">
+      <div className="mt-8 grid w-full grid-cols-2 gap-2 text-left sm:grid-cols-3">
         {DEFAULT_LOOPS.map((loop) => {
           const Icon = loopIcon(loop.icon);
           const hue = loopGlowColor(loop.id);
