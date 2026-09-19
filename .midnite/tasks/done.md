@@ -11828,3 +11828,23 @@ the variant's ceiling.
 **Ad-hoc: resizable side panels everywhere** ([PR #449](https://github.com/bilo-io/midnite-studio/pull/449)) — The GitHub Projects Board view, the Database connections list, and Settings' inner page nav all gained resizable left/right side panels, plus a keyboard-propagation fix in `useResizable`.
 
 **Ad-hoc: one click-modifier contract for every link** ([PR #450](https://github.com/bilo-io/midnite-studio/pull/450)) — Cmd/Ctrl+click opens a link in the OS default browser, Alt/Option+click in Midnite's embedded browser, and a plain click prefers Midnite's own view of the destination (PR actions and reviews, issues, repos) before falling back to the embedded browser. A shared `link-route-resolver` and `repo-forge-registry` replace the scattered per-surface `onClick` handling.
+
+---
+
+### Phase 78 Theme D — The crosswalk: sessions ↔ commits ([PR #459](https://github.com/bilo-io/midnite-studio/pull/459))
+
+**Theme D.** The Sessions view's closed agent session rows now carry an "*N* commits" count from
+the inverse join (`commitsForSession`, `provenance.ts`); clicking it narrows the graph to that
+session's SHAs via new `graphSessionFilter`/`graphShaFilter` state, dimming everything else. A
+live agent session shows the same count via `commitsForLiveSession` (commits since `createdAt`),
+pulsing once when the count changes, subject to the motion policy. Commit detail's Provenance line
+(Theme C) now links the session name to `handleOpenSession`, which opens the archived transcript
+through Phase 67's reader. Landed as a merge of `main` rather than the original rebase — Theme C
+(PR #460) touched the same five files after this branch was cut. The two provenance renders in
+`CommitDetail` were unified rather than kept side by side: the graph store's per-batch
+classification (Theme C) is now the primary source so the mark on the row and the mark in the
+detail pane always agree, falling back to a direct `classifyProvenance` call (Theme D) for a
+commit whose row has not streamed into view yet; the session name is linkified in place in the one
+resulting Provenance line. Covered as a vitest bridge test per `docs/TESTING.md`'s decision rule
+rather than the phase doc's original Playwright suggestion — the flow needs no real browser
+capability.
