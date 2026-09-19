@@ -19,7 +19,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [81 · Where the companion can take you, and what it may touch](phases/phase-81-where-the-companion-can-take-you.md) | 🔄 WIP | — | 50/53 | `█████████░` | 94% | — | — |
 | [80 · What the companion says, and what you call it](phases/phase-80-what-the-companion-says-and-what-you-call-it.md) | 🔄 WIP | — | 24/31 | `████████░░` | 77% | — | — |
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | 🔄 WIP | — | 57/67 | `█████████░` | 85% | — | — |
-| [78 · Whose hands were on the keyboard](phases/phase-78-whose-hands-were-on-the-keyboard.md) | 🔄 WIP | — | 11/32 | `███░░░░░░░` | 34% | — | C D E F |
+| [78 · Whose hands were on the keyboard](phases/phase-78-whose-hands-were-on-the-keyboard.md) | 🔄 WIP | — | 11/32 | `███░░░░░░░` | 34% | C D | E F |
 | [77 · Thirteen megabytes of editor, and the lanes that never move](phases/phase-77-thirteen-megabytes-of-editor.md) | ◻ TODO | x1 | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D |
 | [76 · The renderer in a sandbox, and the headers it never sent](phases/phase-76-the-renderer-in-a-sandbox.md) | ◻ TODO | — | 0/35 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [75 · What blocks what, and the agent you point at it](phases/phase-75-what-blocks-what.md) | 🔄 WIP | x1 | 99/106 | `█████████░` | 93% | — | — |
