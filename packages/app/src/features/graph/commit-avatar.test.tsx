@@ -81,7 +81,7 @@ describe('CommitAvatar: the agent mark stays sized to, and centred on, the node'
     ['agent', 'svg-agent-avatar', agentProvenance],
     ['mixed', 'svg-mixed-badge', mixedProvenance],
   ] as const)(
-    'sizes the %s badge icon to 0.56x the badge radius, every avatar size the themes ship',
+    'sizes the %s badge icon to 0.64x the node radius, every avatar size the themes ship',
     (_label, testId, provenance) => {
       // Every `avatarSize` a real `GraphTheme` uses (`graph-themes.ts`):
       // git-graph/git-extensions 16, sourcetree 18, gitkraken 24.
@@ -92,8 +92,8 @@ describe('CommitAvatar: the agent mark stays sized to, and centred on, the node'
         expect(fo).not.toBeNull();
         const width = Number(fo?.getAttribute('width'));
         const height = Number(fo?.getAttribute('height'));
-        expect(width).toBeCloseTo(radius * 0.56);
-        expect(height).toBeCloseTo(radius * 0.56);
+        expect(width).toBeCloseTo(radius * 0.64);
+        expect(height).toBeCloseTo(radius * 0.64);
       }
     },
   );
@@ -197,18 +197,26 @@ describe('CommitAvatar: the agent mark stays sized to, and centred on, the node'
         cy: 16,
         size: 18,
       });
-      const agentBadgeCircle = agentContainer.querySelector(
+      /*
+        Two circles, in this order: an OPAQUE backdrop in the app's own surface
+        colour, then the tint over it. The backdrop is what stops the lane
+        drawn under the node showing through `agent`'s 8-bit-alpha accent fill
+        — so the tint is `[1]`, never `[0]`.
+      */
+      const agentBadgeCircles = agentContainer.querySelectorAll(
         '[data-testid="svg-agent-avatar"] circle',
       );
-      expect(agentBadgeCircle?.getAttribute('fill')).toBe(`${claudeAgent.accent}25`);
-      expect(agentBadgeCircle?.getAttribute('stroke')).toBe(claudeAgent.accent);
+      expect(agentBadgeCircles[0]?.getAttribute('fill')).toBe('hsl(var(--background))');
+      expect(agentBadgeCircles[1]?.getAttribute('fill')).toBe(`${claudeAgent.accent}25`);
+      expect(agentBadgeCircles[1]?.getAttribute('stroke')).toBe(claudeAgent.accent);
 
       const mixedContainer = renderAvatar({ provenance: mixedProvenance, cx: 40, cy: 16, size: 18 });
-      const mixedBadgeCircle = mixedContainer.querySelector(
+      const mixedBadgeCircles = mixedContainer.querySelectorAll(
         '[data-testid="svg-mixed-badge"] circle',
       );
-      expect(mixedBadgeCircle?.getAttribute('fill')).toBe('hsl(var(--background))');
-      expect(mixedBadgeCircle?.getAttribute('stroke')).not.toBe(claudeAgent.accent);
+      expect(mixedBadgeCircles[0]?.getAttribute('fill')).toBe('hsl(var(--background))');
+      expect(mixedBadgeCircles[1]?.getAttribute('fill')).toBe('hsl(var(--background))');
+      expect(mixedBadgeCircles[1]?.getAttribute('stroke')).not.toBe(claudeAgent.accent);
     });
   });
 });

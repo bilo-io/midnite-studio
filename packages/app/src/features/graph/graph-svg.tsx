@@ -11,6 +11,7 @@ import {
   type GraphTheme,
 } from './graph-themes';
 import { LANE_COLOR_COUNT, laneColor, laneVars } from './lane-colors';
+import type { ProvenanceMarkMode } from './provenance-display';
 
 /**
  * One row's worth of graph, as an SVG.
@@ -39,6 +40,7 @@ export function GraphSvg({
   glowColorIdx = null,
   provenance,
   agent,
+  markMode,
 }: {
   row: GraphRow;
   width: number;
@@ -78,6 +80,8 @@ export function GraphSvg({
   provenance?: CommitProvenance;
   /** Resolved agent definition. */
   agent?: AgentDefinition | null;
+  /** How the agent mark is drawn — see `provenance-display.ts`. */
+  markMode?: ProvenanceMarkMode;
 }) {
   const mid = theme.rowHeight / 2;
   const lane = (n: number): number => laneCentre(theme, laneWidth, n);
@@ -303,6 +307,7 @@ export function GraphSvg({
           clipId={clipId}
           provenance={provenance}
           agent={agent}
+          markMode={markMode}
         />
       ) : (
         <circle
