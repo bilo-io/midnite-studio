@@ -43,10 +43,10 @@ async function openWithAllAppsEnabled(page: import('@playwright/test').Page): Pr
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   // `enabledApps` is persisted state, hydrated from localStorage a tick after
-  // first mount — waiting for the rail icon to actually leave its disabled
-  // state is what keeps a click below from racing that hydration and landing
-  // on a still-inert (`aria-disabled`) button.
-  await expect(page.getByTestId('apps-rail-spotify')).not.toHaveAttribute('aria-disabled', 'true');
+  // first mount — a disabled app has no rail button at all, so waiting for it
+  // to become visible is what keeps a click below from racing that hydration
+  // and landing on an element that does not exist yet.
+  await expect(page.getByTestId('apps-rail-spotify')).toBeVisible();
 }
 
 test('rail row — all three apps enabled, light', async ({ page }) => {
@@ -62,15 +62,13 @@ test('rail row — all three apps enabled, dark', async ({ page }) => {
   await page.getByRole('group', { name: 'Apps' }).screenshot({ path: shotPath(OUT, 'rail-row-dark.png') });
 });
 
-test('rail row — apps not enabled render inert', async ({ page }) => {
+test('rail row — no apps enabled renders no Apps group at all', async ({ page }) => {
   await seedUiState(page, { navMode: 'expanded' });
   await installMockBridge(page, fixtures as MockFixtures);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  const spotify = page.getByTestId('apps-rail-spotify');
-  await expect(spotify).toHaveAttribute('aria-disabled', 'true');
-  await settle(page, 200);
-  await page.getByRole('group', { name: 'Apps' }).screenshot({ path: shotPath(OUT, 'rail-row-disabled.png') });
+  await expect(page.getByTestId('apps-rail-spotify')).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Apps' })).toHaveCount(0);
 });
 
 test('flyout open on one app', async ({ page }) => {

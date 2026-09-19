@@ -38,8 +38,10 @@ async function openWithSpotifyAsRecent(page: Page, navMode: 'expanded' | 'collap
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   const spotify = page.getByTestId('apps-rail-spotify');
-  // `enabledApps` hydrates from localStorage a tick after first mount.
-  await expect(spotify).not.toHaveAttribute('aria-disabled', 'true');
+  // `enabledApps` hydrates from localStorage a tick after first mount; before
+  // that tick a disabled app has no rail button at all, so wait for it to
+  // exist rather than clicking a not-yet-rendered element.
+  await expect(spotify).toBeVisible();
   await spotify.click();
   await spotify.click();
 }

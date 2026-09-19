@@ -39,11 +39,25 @@ describe('AppsRailRow', () => {
     vi.clearAllMocks();
   });
 
-  it('renders one icon per app, all three, even when none are enabled', () => {
+  it('renders one icon per enabled app, all three, when all are enabled', () => {
+    useUiStore.setState({ enabledApps: ['spotify', 'google-calendar', 'youtube'] });
     render(<AppsRailRow />);
     expect(screen.getByTestId('apps-rail-spotify')).toBeDefined();
     expect(screen.getByTestId('apps-rail-google-calendar')).toBeDefined();
     expect(screen.getByTestId('apps-rail-youtube')).toBeDefined();
+  });
+
+  it('renders no button at all for a disabled app, and no Apps group when none are enabled', () => {
+    useUiStore.setState({ enabledApps: ['spotify'] });
+    render(<AppsRailRow />);
+    expect(screen.getByTestId('apps-rail-spotify')).toBeDefined();
+    expect(screen.queryByTestId('apps-rail-google-calendar')).toBeNull();
+    expect(screen.queryByTestId('apps-rail-youtube')).toBeNull();
+
+    cleanup();
+    useUiStore.setState({ enabledApps: [] });
+    render(<AppsRailRow />);
+    expect(screen.queryByRole('group', { name: 'Apps' })).toBeNull();
   });
 
   it('shows only the most recently opened app until the switcher is hovered', () => {
@@ -107,7 +121,7 @@ describe('AppsRailRow', () => {
     expect(screen.getByTestId('apps-rail-youtube')).toBeDefined();
   });
 
-  it('falls back to every icon when the remembered app has since been disabled', () => {
+  it('falls back to every enabled icon when the remembered app has since been disabled', () => {
     useUiStore.setState({
       enabledApps: ['spotify', 'youtube'],
       lastOpenedAppId: 'google-calendar',
@@ -115,8 +129,10 @@ describe('AppsRailRow', () => {
     render(<AppsRailRow expanded={false} />);
 
     expect(screen.getByTestId('apps-rail-spotify')).toBeDefined();
-    expect(screen.getByTestId('apps-rail-google-calendar')).toBeDefined();
     expect(screen.getByTestId('apps-rail-youtube')).toBeDefined();
+    // google-calendar is disabled — it must not appear, not even as the
+    // switcher's single collapsed icon.
+    expect(screen.queryByTestId('apps-rail-google-calendar')).toBeNull();
   });
 
   it('remembers the last app after its flyout closes', () => {
@@ -131,16 +147,6 @@ describe('AppsRailRow', () => {
     expect(useUiStore.getState().lastOpenedAppId).toBe('youtube');
     expect(screen.queryByTestId('apps-rail-spotify')).toBeNull();
     expect(screen.getByTestId('apps-rail-youtube')).toBeDefined();
-  });
-
-  it('a disabled app is inert and does nothing on click', () => {
-    installBridge();
-    render(<AppsRailRow />);
-    const button = screen.getByTestId('apps-rail-spotify');
-    expect(button.getAttribute('aria-disabled')).toBe('true');
-
-    fireEvent.click(button);
-    expect(useUiStore.getState().appsFlyoutAppId).toBeNull();
   });
 
   it('clicking an enabled, docked app opens the flyout and enables + activates it', async () => {

@@ -28,10 +28,11 @@ test('the apps switcher collapses to the latest app and reveals every app on hov
 
   const apps = page.getByRole('group', { name: 'Apps' });
   const spotify = page.getByTestId('apps-rail-spotify');
-  // `enabledApps` hydrates from localStorage a tick after first mount; waiting
-  // for the icon to leave its inert state keeps the click below off a still-
-  // disabled button (the same race `apps-rail-shots.spec.ts` documents).
-  await expect(spotify).not.toHaveAttribute('aria-disabled', 'true');
+  // `enabledApps` hydrates from localStorage a tick after first mount; before
+  // that tick a disabled app has no rail button at all, so waiting for it to
+  // become visible keeps the click below off a not-yet-rendered element (the
+  // same race `apps-rail-shots.spec.ts` documents).
+  await expect(spotify).toBeVisible();
 
   // Open the flyout on Spotify and close it again: the switcher should now
   // remember Spotify without a flyout being open to explain it.

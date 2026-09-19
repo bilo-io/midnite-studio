@@ -10,16 +10,18 @@ import { useUiStore } from '../../store/ui-store';
 /**
  * The bottom-of-rail app switcher. At rest it keeps only the most recently
  * opened app visible; hovering or moving keyboard focus into the region
- * reveals the complete set. Before any app has been opened, all three remain
- * visible so the switcher is discoverable.
+ * reveals the complete set. Before any app has been opened, every enabled app
+ * remains visible so the switcher is discoverable. A disabled app (not in
+ * `enabledApps`) has no icon here at all — Settings ▸ Apps is the only place
+ * to turn one on — so the rail never shows a control that only points
+ * elsewhere.
  *
- * Three states per icon, checked in this order:
- * 1. **Disabled** (not in `enabledApps`) — inert, points at Settings.
- * 2. **Detached** — a click calls `window.focusRole`, the same
+ * Two states per icon, checked in this order:
+ * 1. **Detached** — a click calls `window.focusRole`, the same
  *    taskbar-style "bring to front" `PageDetachMark` uses for an already-open
  *    popout, rather than opening a flyout for a view that has moved out of
  *    this window entirely.
- * 3. **Docked** — a click opens the flyout on this app (enabling its view if
+ * 2. **Docked** — a click opens the flyout on this app (enabling its view if
  *    this is the first time this session) and switches the flyout's active
  *    app if a different one was already open; clicking the ALREADY-active
  *    app's icon again closes the flyout, the toggle the phase doc's own
@@ -29,13 +31,13 @@ import { useUiStore } from '../../store/ui-store';
  * which only ever shows or hides a text label beside a fixed icon. A row
  * layout while expanded was tried first and reverted: the footer sits
  * bottom-anchored, so shrinking this block's height when the rail expands
- * (three stacked icons → one row) shifts every OTHER footer control (the
- * lock button, Settings, the version pill) down by the difference — moving
- * them out from under a pointer that was already hovering one, which is
- * exactly the trap `nav-chord-tooltips.spec.ts`'s "gives the footer's lock
- * button its chord too" case caught. The reserved three-row height stays
- * constant even when only the recent app is rendered, keeping the rest of the
- * footer still as the switcher reveals and collapses.
+ * (stacked icons → one row) shifts every OTHER footer control (the lock
+ * button, Settings, the version pill) down by the difference — moving them
+ * out from under a pointer that was already hovering one, which is exactly
+ * the trap `nav-chord-tooltips.spec.ts`'s "gives the footer's lock button its
+ * chord too" case caught. The reserved height stays constant, for however
+ * many apps are enabled, even when only the recent app is rendered — keeping
+ * the rest of the footer still as the switcher reveals and collapses.
  */
 export function AppsRailRow({ expanded = false }: { expanded?: boolean }) {
   const enabledApps = useUiStore((s) => s.enabledApps);
@@ -86,23 +88,33 @@ export function AppsRailRow({ expanded = false }: { expanded?: boolean }) {
       .then(() => bridge()?.apps.activate({ id }));
   };
 
-  // The recent app is only worth collapsing to while it is still enabled.
-  // Disabling it in Settings (Theme E) leaves `lastOpenedAppId` naming an icon
-  // that is now inert, and a switcher whose single visible control does nothing
-  // but point at Settings is strictly worse than the discoverable all-three
-  // state — so an unenabled recent app falls back to showing everything.
+  // Disabled apps are filtered out of the rail entirely (below), so
+  // `lastOpenedAppId` can still name one it just disabled in Settings — the
+  // recent app is only worth collapsing to while it remains in that set.
+  // Falling through to `null` here, rather than trusting the stale id, is
+  // what stops a since-disabled app from being the switcher's single
+  // collapsed icon: `railAppIds` would filter it out anyway, but a
+  // `visibleAppIds` filter keyed on an absent id renders nothing rather than
+  // falling back to the discoverable all-apps state.
   const recentAppId =
     lastOpenedAppId !== null && enabledApps.includes(lastOpenedAppId) ? lastOpenedAppId : null;
+  const railAppIds = APP_IDS.filter((id) => enabledApps.includes(id));
+  if (railAppIds.length === 0) return null;
   const visibleAppIds =
-    revealed || recentAppId === null ? APP_IDS : APP_IDS.filter((id) => id === recentAppId);
+    revealed || recentAppId === null ? railAppIds : railAppIds.filter((id) => id === recentAppId);
+
+  // The reserved height keeps the footer still as the switcher reveals and
+  // collapses (see the doc comment above) — sized to the enabled count, not
+  // always three, now that a disabled app has no row to reserve for. 24px
+  // rows with a 4px `gap-1`: n rows is `n * 24 + (n - 1) * 4`.
+  const reservedHeight = railAppIds.length * 24 + (railAppIds.length - 1) * 4;
 
   return (
     <div
       role="group"
       aria-label="Apps"
-      className={`flex min-h-20 flex-col justify-center gap-1 ${
-        expanded ? 'items-stretch' : 'items-center'
-      }`}
+      className={`flex flex-col justify-center gap-1 ${expanded ? 'items-stretch' : 'items-center'}`}
+      style={{ minHeight: reservedHeight }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocusCapture={(event) => {
@@ -121,7 +133,6 @@ export function AppsRailRow({ expanded = false }: { expanded?: boolean }) {
     >
       {visibleAppIds.map((id) => {
         const definition = APP_DEFINITIONS[id];
-        const enabled = enabledApps.includes(id);
         const detached = detachedApps.includes(id);
         const label = detached
           ? `Focus the detached ${definition.label} window`
@@ -133,10 +144,8 @@ export function AppsRailRow({ expanded = false }: { expanded?: boolean }) {
             key={id}
             icon={APP_ICON[id]}
             label={label}
-            disabled={!enabled}
-            disabledReason={enabled ? undefined : 'turn it on in Settings ▸ Apps'}
             size="sm"
-            aria-pressed={enabled && !detached && flyoutAppId === id}
+            aria-pressed={!detached && flyoutAppId === id}
             data-testid={`apps-rail-${id}`}
             className={expanded ? 'w-full justify-start px-2' : ''}
             onClick={() => onClick(id)}
