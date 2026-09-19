@@ -54,14 +54,14 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] `packages/desktop` has no `@xterm/*` dependency and must not gain one: xterm is renderer-only, main spawns `node-pty`. Confirm, don't assume.
 - [x] Read the v6 release notes and record the API delta that actually touches our eight import sites in this doc's Decisions section — not a general changelog summary.
 
-### B — `terminal-view.tsx` and the WebGL addon (M)
+### B — `terminal-view.tsx` and the WebGL addon (M) ✅ DONE
 
 The main porting surface, and the **only** `WebglAddon` consumer in the repo.
 
-- [ ] Port [`terminal-view.tsx`](../../../packages/app/src/features/terminal/terminal-view.tsx) to the v6 API: `Terminal` construction, `FitAddon`, `WebglAddon`, `ITheme`, and the `term.open()`/`safeFit()` deferral.
-- [ ] Verify the `webgl | dom` fallback in [`xterm-budget.ts`](../../../packages/app/src/features/terminal/xterm-budget.ts) still switches correctly under v6 — the fallback is this phase's escape hatch, so it has to be exercised, not assumed.
-- [ ] Confirm `MAX_WEBGL_CONTEXTS` still holds: v6's context handling is the one thing that could silently change the budget's meaning. Do not retune the number here — report it if it looks wrong.
-- [ ] [`terminal-links.ts`](../../../packages/app/src/features/terminal/terminal-links.ts) — `ILink`, `ILinkProvider`, `IDisposable` — and [`terminal-font.ts`](../../../packages/app/src/features/terminal/terminal-font.ts) (`FontWeight`). Type-level, but `ILinkProvider` is a behavioural interface and deserves a real check.
+- [x] Port [`terminal-view.tsx`](../../../packages/app/src/features/terminal/terminal-view.tsx) to the v6 API: `Terminal` construction, `FitAddon`, `WebglAddon`, `ITheme`, and the `term.open()`/`safeFit()` deferral. **No source edit needed** — confirmed by `moon run app:typecheck` passing clean against the file as it stood before this theme, consistent with Theme A's own recorded finding that the v6 delta is inert for every one of this repo's eight import sites.
+- [x] Verify the `webgl | dom` fallback in [`xterm-budget.ts`](../../../packages/app/src/features/terminal/xterm-budget.ts) still switches correctly under v6 — the fallback is this phase's escape hatch, so it has to be exercised, not assumed. Exercised, not assumed: `xterm-webgl-fallback.test.ts` (new) mounts a real v6 `Terminal` + real `@xterm/addon-webgl` 0.19.0 `WebglAddon` (fake `WebGL2RenderingContext`, same technique as Theme E's `xterm-attach.test.ts`), dispatches a real `webglcontextlost` DOM event on the addon's own canvas, and proves `onContextLoss` still fires and the process-wide budget's `setRenderer` transition still flips to `'dom'`. Along the way this found a real, previously-undocumented-in-code timing fact: the addon does **not** fire `onContextLoss` synchronously on the browser event — it starts a ~3s internal restoration window first (confirmed from the built bundle: `setTimeout(..., 3e3)` guarding a `webglcontextrestored` counter-listener, only firing `onContextLoss` once that window elapses unrestored). `terminal-view.tsx`'s own docblock on `acquireWebglRef` already named "the addon's own ~3s internal restoration window" from institutional knowledge; this test is the first thing that actually proves it under v6 rather than assuming the comment still describes the shipped behaviour.
+- [x] Confirm `MAX_WEBGL_CONTEXTS` still holds: v6's context handling is the one thing that could silently change the budget's meaning. Do not retune the number here — report it if it looks wrong. **Confirmed unchanged, and reported as never-at-risk from this bump**: `MAX_WEBGL_CONTEXTS` (`12`) rations against Chromium's own per-process live-WebGL-context ceiling (~16), which is browser/GPU-process behaviour — neither `@xterm/xterm` 6.0.0 nor `@xterm/addon-webgl` 0.19.0 read, report or otherwise participate in that count (their own typings/source expose no context-count API at all). There is nothing about this bump the number could have drifted against; not retuned.
+- [x] [`terminal-links.ts`](../../../packages/app/src/features/terminal/terminal-links.ts) — `ILink`, `ILinkProvider`, `IDisposable` — and [`terminal-font.ts`](../../../packages/app/src/features/terminal/terminal-font.ts) (`FontWeight`). Type-level, but `ILinkProvider` is a behavioural interface and deserves a real check. **No source edit needed** (typecheck-confirmed). The "real check": `terminal-links.test.ts` gained a new `describe('attachTerminalLinks against a real v6 Terminal', …)` block that runs `attachTerminalLinks`/`findLinks` against a genuine v6 `Terminal` (not the file's existing structural stub) — registering the link provider without throwing, disposing clean, and reading a real `IBuffer`/`IBufferLine`/`IBufferCell` populated by an actual `term.write()` rather than fabricated cells. `terminal-font.ts`'s `FontWeight` usage needed no equivalent runtime check beyond the existing `terminal-font.test.ts` — the phase doc's own Decisions section already recorded a zero `.d.ts` diff for it, and it carries no behavioural contract the way `ILinkProvider` does.
 
 ### C — The DOM-renderer call sites (S) — ✅ DONE
 
@@ -114,6 +114,8 @@ Both were deferred *on the assumption* that a bump would fix them. The deliverab
 | [`features/terminal/xterm-budget.ts`](../../../packages/app/src/features/terminal/xterm-budget.ts) | Renderer switch verified, not redesigned (B) |
 | [`features/terminal/terminal-links.ts`](../../../packages/app/src/features/terminal/terminal-links.ts) | `ILink`/`ILinkProvider`/`IDisposable` (B) |
 | [`features/terminal/terminal-font.ts`](../../../packages/app/src/features/terminal/terminal-font.ts) | `FontWeight` (B) |
+| `features/terminal/xterm-webgl-fallback.test.ts` *(new)* | Exercises the real `onContextLoss` → `dom` fallback under v6 (B) |
+| [`features/terminal/terminal-links.test.ts`](../../../packages/app/src/features/terminal/terminal-links.test.ts) | New real-`Terminal` describe block, the "real check" `ILinkProvider` asked for (B) |
 | [`features/sessions/transcript-view.tsx`](../../../packages/app/src/features/sessions/transcript-view.tsx) | DOM-renderer `FitAddon` site (C) |
 | [`features/sessions/live-session-terminal.tsx`](../../../packages/app/src/features/sessions/live-session-terminal.tsx) | DOM-renderer `FitAddon` site (C) |
 | [`features/themes/theme-types.ts`](../../../packages/app/src/features/themes/theme-types.ts) | `ITheme` (D) |
@@ -206,3 +208,26 @@ Both were deferred *on the assumption* that a bump would fix them. The deliverab
   two parked debts, M) remain open, unblocked by this PR, and can land in one or more follow-up
   PRs. G (verification) is partially covered by this PR's own gate but the full e2e/human pass
   wants the rest of the phase landed first.
+- **Resolved — Theme B lands alone, unattended, no `terminal-view.tsx`/`xterm-budget.ts` source
+  edits.** Confirmed empirically before writing anything: `moon run app:typecheck` was already
+  green against every Theme B file exactly as Theme A left it — the v6 API delta really is inert
+  for this repo's usage, so "port" turned out to mean "verify", not "rewrite". The two new tests
+  (`xterm-webgl-fallback.test.ts`, and a new describe block in `terminal-links.test.ts`) are the
+  entire diff. No `ITheme` change was needed here (that's Theme D's file, untouched, per scope).
+- **Resolved — how the `webgl | dom` fallback was exercised, concretely.** `WebglAddon.onContextLoss`
+  does not fire synchronously off the browser's own `webglcontextlost` event — the addon's built
+  bundle shows a `setTimeout(..., 3e3)` started on that event, cleared only by a
+  `webglcontextrestored` counter-event, with `onContextLoss` firing when the timer elapses
+  unrestored. `xterm-webgl-fallback.test.ts` fakes only `setTimeout`/`clearTimeout` (not `Date` or
+  anything else xterm's own internals touch), dispatches a real `webglcontextlost` on the addon's
+  own canvas (found by diffing `container.querySelectorAll('canvas')` before/after `loadAddon`,
+  since the addon appends its rendering canvas straight to `screenElement` with no distinguishing
+  class), advances the fake clock past 3000ms, and asserts both that `onContextLoss` fires and that
+  `xterm-budget.ts`'s real (non-mocked) `setRenderer` transitions the session to `'dom'`. This
+  matches — and for the first time actually proves — the ~3s window `terminal-view.tsx`'s own
+  `acquireWebglRef` docblock already named from institutional knowledge.
+- **Resolved — `MAX_WEBGL_CONTEXTS` (still `12`) needs no retune.** It rations against Chromium's
+  own per-process live-WebGL-context ceiling (~16), which is browser/GPU-process behaviour;
+  neither `@xterm/xterm` 6.0.0 nor `@xterm/addon-webgl` 0.19.0 read or report that count anywhere
+  in their typings or built source. There is no mechanism by which this bump could have moved the
+  number the budget rations against, so "confirm, don't retune" resolves to "confirmed inert."

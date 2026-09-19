@@ -1,3 +1,4 @@
+import { Terminal as RealTerminal } from '@xterm/xterm';
 import type { ILink, Terminal } from '@xterm/xterm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -247,5 +248,56 @@ describe('attachTerminalLinks', () => {
     expect(stub.options.linkHandler).toBeNull();
     // No listener left behind to write into a disposed terminal.
     expect(() => window.dispatchEvent(meta(true))).not.toThrow();
+  });
+});
+
+/**
+ * Phase 88 Theme B: `ILink`/`ILinkProvider`/`IDisposable` had zero `.d.ts` diff
+ * between 5.5.0 and 6.0.0 (recorded in the phase doc's Decisions section), but
+ * that comparison was static — this is the "real check" the theme's own
+ * checklist asks for beyond a type diff, run against a genuine v6 `Terminal`
+ * rather than the structural stub every other test in this file uses. It
+ * proves two things the stub can't: `term.registerLinkProvider` still accepts
+ * our `ILinkProvider` shape without complaint, and a real `IBuffer`/
+ * `IBufferLine`/`IBufferCell` — populated by actually writing bytes, not
+ * fabricated — still satisfies `findLinks`'s narrow `LinkBuffer`/`LinkLine`/
+ * `LinkCell` structural types (`getLine`, `isWrapped`, `getCell`, `getChars`,
+ * `getWidth`). jsdom, not e2e: this is buffer/API-shape, not a rendering or
+ * pointer-interaction question (Phase 82's rule).
+ */
+describe('attachTerminalLinks against a real v6 Terminal', () => {
+  function writeSync(term: RealTerminal, data: string): Promise<void> {
+    return new Promise((resolve) => term.write(data, resolve));
+  }
+
+  it('registers against a real Terminal without throwing, and disposes clean', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const term = new RealTerminal({ cols: 40, rows: 5 });
+    term.open(container);
+    await writeSync(term, 'see https://a.io/x now\r\n');
+
+    const open = vi.fn();
+    let registration: ReturnType<typeof attachTerminalLinks> | undefined;
+    expect(() => {
+      registration = attachTerminalLinks(term, open);
+    }).not.toThrow();
+
+    expect(() => registration?.dispose()).not.toThrow();
+    expect(term.options.linkHandler).toBeNull();
+    term.dispose();
+  });
+
+  it('findLinks reads a real buffer line the same way it reads the stub', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const term = new RealTerminal({ cols: 40, rows: 5 });
+    term.open(container);
+    await writeSync(term, 'see https://a.io/x now');
+
+    const found = findLinks(term.buffer.active, 0, term.cols);
+
+    expect(found.map((link) => link.text)).toEqual(['https://a.io/x']);
+    term.dispose();
   });
 });
