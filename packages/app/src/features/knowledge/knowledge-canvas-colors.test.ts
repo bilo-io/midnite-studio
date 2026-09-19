@@ -2,11 +2,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  AlphaRampTracker,
   DEFAULT_NODE_ALPHA,
   DIMMED_ALPHA,
   NEIGHBOR_NODE_ALPHA,
   alphaForWeight,
   nodeColorForState,
+  targetAlphaForState,
   withAlpha,
 } from './knowledge-canvas-colors';
 
@@ -74,6 +76,111 @@ describe('nodeColorForState', () => {
     expect(nodeColorForState(base, { dimmed: true, isFocus: false, isNeighbor: false })).toBe(
       withAlpha(base, DIMMED_ALPHA),
     );
+  });
+});
+
+describe('targetAlphaForState', () => {
+  it('matches nodeColorForState\'s own priority — dimmed beats focus beats neighbor beats rest', () => {
+    expect(targetAlphaForState({ dimmed: true, isFocus: true, isNeighbor: true })).toBe(DIMMED_ALPHA);
+    expect(targetAlphaForState({ dimmed: false, isFocus: true, isNeighbor: true })).toBe(1);
+    expect(targetAlphaForState({ dimmed: false, isFocus: false, isNeighbor: true })).toBe(
+      NEIGHBOR_NODE_ALPHA,
+    );
+    expect(targetAlphaForState({ dimmed: false, isFocus: false, isNeighbor: false })).toBe(
+      DEFAULT_NODE_ALPHA,
+    );
+  });
+});
+
+describe('AlphaRampTracker', () => {
+  it('lands immediately on the first call — first paint never ramps from nothing', () => {
+    const tracker = new AlphaRampTracker();
+    expect(tracker.valueFor('n', DEFAULT_NODE_ALPHA, DEFAULT_NODE_ALPHA, 0)).toBeCloseTo(
+      DEFAULT_NODE_ALPHA,
+    );
+    expect(tracker.animating).toBe(false);
+  });
+
+  it('ramps toward a new target instead of snapping, and lands exactly on it', () => {
+    const tracker = new AlphaRampTracker();
+    tracker.valueFor('n', DEFAULT_NODE_ALPHA, DEFAULT_NODE_ALPHA, 0, 100);
+    // The call whose target FIRST differs starts the tween and reports its
+    // own starting point (`restValue`) — the interpolated middle only shows
+    // up on a LATER call, once time has actually passed since that start.
+    const start = tracker.valueFor('n', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 10, 100);
+    expect(start).toBeCloseTo(DEFAULT_NODE_ALPHA);
+    expect(tracker.animating).toBe(true);
+
+    const mid = tracker.valueFor('n', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 60, 100);
+    expect(mid).toBeGreaterThan(DIMMED_ALPHA);
+    expect(mid).toBeLessThan(DEFAULT_NODE_ALPHA);
+    expect(tracker.animating).toBe(true);
+
+    const landed = tracker.valueFor('n', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 110, 100);
+    expect(landed).toBeCloseTo(DIMMED_ALPHA);
+    expect(tracker.animating).toBe(false);
+  });
+
+  it('retains a resting value off the rest identity so a later idle call still reports it', () => {
+    const tracker = new AlphaRampTracker();
+    tracker.valueFor('n', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 0, 100);
+    tracker.valueFor('n', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 100, 100); // lands
+    expect(tracker.valueFor('n', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 500, 100)).toBeCloseTo(
+      DIMMED_ALPHA,
+    );
+  });
+
+  it('forgets an id once it lands back at its own rest identity', () => {
+    const tracker = new AlphaRampTracker();
+    tracker.valueFor('n', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 0, 100);
+    tracker.valueFor('n', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 100, 100); // lands dimmed
+    tracker.valueFor('n', DEFAULT_NODE_ALPHA, DEFAULT_NODE_ALPHA, 100, 100); // starts back to rest
+    tracker.valueFor('n', DEFAULT_NODE_ALPHA, DEFAULT_NODE_ALPHA, 200, 100); // lands at rest
+    expect(tracker.animating).toBe(false);
+    // No stale "dimmed" bookkeeping left for 'n' — a later call with a NEW
+    // target starts its fresh ramp from `restValue`, not from the old
+    // dimmed value, which is what "forgotten" means here.
+    expect(tracker.valueFor('n', NEIGHBOR_NODE_ALPHA, DEFAULT_NODE_ALPHA, 600, 100)).toBeCloseTo(
+      DEFAULT_NODE_ALPHA,
+    );
+  });
+
+  it('retargeting mid-flight continues from the current interpolated value, not the old tween\'s start', () => {
+    const tracker = new AlphaRampTracker();
+    tracker.valueFor('n', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 0, 100);
+    const before = tracker.valueFor('n', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 50, 100);
+    const after = tracker.valueFor('n', NEIGHBOR_NODE_ALPHA, DEFAULT_NODE_ALPHA, 50, 100);
+    expect(after).toBeCloseTo(before);
+  });
+
+  it('a duration of 0 lands immediately — the paused / reduced-motion snap', () => {
+    const tracker = new AlphaRampTracker();
+    tracker.valueFor('n', DEFAULT_NODE_ALPHA, DEFAULT_NODE_ALPHA, 0, 100);
+    expect(tracker.valueFor('n', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 10, 0)).toBeCloseTo(DIMMED_ALPHA);
+    expect(tracker.animating).toBe(false);
+  });
+
+  it('activeIds() names only ids currently mid-ramp, not resting ones', () => {
+    const tracker = new AlphaRampTracker();
+    tracker.valueFor('a', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 0, 100);
+    tracker.valueFor('a', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 100, 100); // lands, rests dimmed
+    tracker.valueFor('b', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 100, 100); // starts ramping
+    expect([...tracker.activeIds()]).toEqual(['b']);
+  });
+
+  it('clear() drops tweens and resting values alike — a post-clear call starts fresh from restValue', () => {
+    const tracker = new AlphaRampTracker();
+    tracker.valueFor('a', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 0, 100);
+    tracker.valueFor('a', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 100, 100); // lands, rests dimmed
+    tracker.clear();
+    expect(tracker.animating).toBe(false);
+    expect([...tracker.activeIds()]).toEqual([]);
+    // No memory of the old dimmed resting value — starts a fresh ramp FROM
+    // restValue rather than resuming from where it was before `clear()`.
+    expect(tracker.valueFor('a', DIMMED_ALPHA, DEFAULT_NODE_ALPHA, 200, 100)).toBeCloseTo(
+      DEFAULT_NODE_ALPHA,
+    );
+    expect(tracker.animating).toBe(true);
   });
 });
 
