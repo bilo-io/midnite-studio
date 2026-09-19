@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 30/89 | `███░░░░░░░` | 34% | — | C F G H I J K |
-| [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 11/34 | `███░░░░░░░` | 32% | B | D F G |
+| [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 15/34 | `████░░░░░░` | 44% | — | D F G |
 | [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | A B C D E F G | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 44/64 | `███████░░░` | 69% | — | G H |
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
@@ -228,7 +228,7 @@ the family again; this phase does the migration, replaces the vanished guard wit
 the two debts that were parked on "the next xterm bump".*
 
 - ✅ **A** (PR [#455](https://github.com/bilo-io/midnite-studio/pull/455)) — the bump: three version lines, one lockfile, and the v6 API delta recorded — a real `xterm.d.ts` diff, not the changelog; nothing touching our eight import sites, `moon run app:typecheck` green with zero source edits
-- ◻ **B** — `terminal-view.tsx`, the only `WebglAddon` consumer; verify the `webgl | dom` fallback
+- ✅ **B** (PR [#458](https://github.com/bilo-io/midnite-studio/pull/458)) — `terminal-view.tsx`/`xterm-budget.ts`/`terminal-links.ts`/`terminal-font.ts` needed zero source edits; the theme became verification — a new test drives a real `WebglAddon` through a `webglcontextlost` event and its ~3s restoration window, proving `onContextLoss` still fires and the budget's `setRenderer` still flips to `dom`, and `terminal-links.test.ts` gained a real-`Terminal` check for `ILinkProvider`. `MAX_WEBGL_CONTEXTS` confirmed unaffected (it rations Chromium's own context ceiling, which neither xterm package reports)
 - ✅ **C** (PR [#457](https://github.com/bilo-io/midnite-studio/pull/457)) — the DOM-renderer sites: `transcript-view.tsx`, `live-session-terminal.tsx` needed zero source edits; added a guard test at each asserting only `FitAddon` is ever loaded, never `WebglAddon`
 - ◻ **D** — `ITheme` across the theme engine, and the VS Code importer's palette
 - ✅ **E** (PR [#455](https://github.com/bilo-io/midnite-studio/pull/455)) — the attach test that replaces the peer dependency v6 removed: traced #242's real failure to `WebglAddon`'s dispose callback reading a `_store` field xterm core 6.0.0 added, reproduced verbatim in jsdom, then encoded deterministically

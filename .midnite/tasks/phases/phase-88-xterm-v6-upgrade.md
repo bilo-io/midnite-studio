@@ -54,7 +54,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] `packages/desktop` has no `@xterm/*` dependency and must not gain one: xterm is renderer-only, main spawns `node-pty`. Confirm, don't assume.
 - [x] Read the v6 release notes and record the API delta that actually touches our eight import sites in this doc's Decisions section — not a general changelog summary.
 
-### B — `terminal-view.tsx` and the WebGL addon (M) ✅ DONE
+### B — `terminal-view.tsx` and the WebGL addon (M) ✅ DONE ([PR #458](https://github.com/bilo-io/midnite-studio/pull/458))
 
 The main porting surface, and the **only** `WebglAddon` consumer in the repo.
 
