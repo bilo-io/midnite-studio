@@ -91,13 +91,24 @@ export const COMMANDS = [
   },
   { id: 'terminal.focus', label: 'Focus Terminal', group: 'terminal' },
   /**
-   * `Mod+t`/`Mod+w` for the terminal panel — a new plain shell, and closing
-   * whichever session is selected (with the same "still running" confirm the
-   * session list's own close button shows). `app` scope, same reasoning as
-   * `repos.toggle`: neither chord needs to reach through xterm itself, and
-   * doing so on non-mac platforms would steal Ctrl+W from readline's own
-   * delete-word-backward binding. See the collision note on `browser.newTab`/
-   * `browser.closeTab` below — these two chords are shared three ways.
+   * `Mod+w` closes whichever session is selected (with the same "still
+   * running" confirm the session list's own close button shows). `app`
+   * scope, same reasoning as `repos.toggle`: it needs no reach through
+   * xterm itself, and doing so on non-mac platforms would steal Ctrl+W from
+   * readline's own delete-word-backward binding.
+   *
+   * `Mod+t` is an App-Switcher-style HUD, not a one-shot action:
+   * `TerminalSwitcherOverlay` (`app/src/features/terminal/`) puts up an
+   * overlay on the first press, "Terminal" highlighted first and every
+   * INSTALLED agent after it (an agent that fails the install probe never
+   * appears here — that is the titlebar primary-agent picker's job, not
+   * this HUD's). Each further Mod+T tap while Mod stays held advances the
+   * highlight; releasing Mod commits — a plain shell for "Terminal", a new
+   * session for an agent — exactly like `browser.toggle`'s own Mod+B HUD
+   * below. A quick tap-and-release still reads as "just open a terminal",
+   * unchanged from before this overlay existed, because "Terminal" sits at
+   * index 0. See the collision note on `browser.newTab`/`browser.closeTab`
+   * below — these two chords are shared three ways.
    */
   { id: 'terminal.new', label: 'New Terminal', group: 'terminal', chord: 'Mod+t' },
   { id: 'terminal.close', label: 'Close Terminal', group: 'terminal', chord: 'Mod+w' },

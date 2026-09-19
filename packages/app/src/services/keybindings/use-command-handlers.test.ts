@@ -233,8 +233,17 @@ describe('useCommandHandlers — a repo is selected', () => {
   });
 });
 
+// The commit half (actually opening a plain shell, or an agent session) now
+// lives in `TerminalSwitcherOverlay` — see `terminal-switcher-overlay.test.tsx`.
+// `run()` here only opens or advances the HUD, mirroring `browser.toggle`'s
+// own split between the command that puts the switcher up and the overlay
+// that commits it.
 describe('useCommandHandlers — terminal.new', () => {
-  it('opens a plain shell session (no agentId) and expands a collapsed panel', () => {
+  beforeEach(() => {
+    useUiStore.setState({ terminalSwitcherOpen: false, terminalSwitcherIndex: 5 });
+  });
+
+  it('opens the Mod+T switcher HUD, highlighted on "Terminal", rather than acting immediately', () => {
     useUiStore.setState({
       selectedRepoId: REPO_ID,
       selectedWorktreePath: '/repos/demo',
@@ -247,19 +256,21 @@ describe('useCommandHandlers — terminal.new', () => {
     expect(result.current['terminal.new'].enabled).toBe(true);
     result.current['terminal.new'].run();
 
-    const { sessions } = useTerminalStore.getState();
-    expect(sessions).toHaveLength(1);
-    expect(sessions[0]?.kind).toBe('shell');
-    expect(sessions[0]?.agentId).toBeUndefined();
-    expect(sessions[0]?.cwd).toBe('/repos/demo');
-    expect(useUiStore.getState().terminalOpen).toBe(true);
+    expect(useUiStore.getState()).toMatchObject({
+      terminalSwitcherOpen: true,
+      terminalSwitcherIndex: 0,
+    });
+    // Nothing opens yet — that is the overlay's commit, on releasing Mod.
+    expect(useTerminalStore.getState().sessions).toHaveLength(0);
+    expect(useUiStore.getState().terminalOpen).toBe(false);
   });
 
-  it('leaves an already-expanded panel alone', () => {
+  it('cycles the switcher highlight instead of reopening it, while it is already up', () => {
     useUiStore.setState({
       selectedRepoId: REPO_ID,
       selectedWorktreePath: '/repos/demo',
-      terminalOpen: true,
+      terminalSwitcherOpen: true,
+      terminalSwitcherIndex: 0,
     });
     const client = new QueryClient();
     client.setQueryData(keys.repos, [{ id: REPO_ID, name: 'demo', path: '/demo', worktrees: [] }]);
@@ -267,7 +278,10 @@ describe('useCommandHandlers — terminal.new', () => {
 
     result.current['terminal.new'].run();
 
-    expect(useUiStore.getState().terminalOpen).toBe(true);
+    expect(useUiStore.getState()).toMatchObject({
+      terminalSwitcherOpen: true,
+      terminalSwitcherIndex: 1,
+    });
   });
 });
 

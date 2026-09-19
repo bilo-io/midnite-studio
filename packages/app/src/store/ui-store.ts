@@ -669,6 +669,21 @@ export type UiState = {
   browserSwitcherOpen: boolean;
   /** Currently selected layout in the Mod+B browser switcher overlay. */
   browserSwitcherSelected: BrowserLayout;
+  /**
+   * Whether the Mod+T terminal/agent switcher HUD overlay is up. Unpersisted,
+   * same as `browserSwitcherOpen` above — a HUD restored on launch is a HUD
+   * nobody asked for.
+   */
+  terminalSwitcherOpen: boolean;
+  /**
+   * Index of the highlighted option in the Mod+T switcher overlay.
+   * `TerminalSwitcherOverlay` builds the option list itself (index 0 is
+   * always "Terminal", every index after it an installed agent, in render
+   * order) — the store only tracks *where* the highlight sits, not what it
+   * points at, since the option list depends on which agents are installed
+   * on this machine and the store has no business knowing that.
+   */
+  terminalSwitcherIndex: number;
   /** Whether the Notes modal is open. Unpersisted. */
   notesOpen: boolean;
   setNotesOpen: (open: boolean) => void;
@@ -1090,6 +1105,14 @@ export type UiState = {
   commitBrowserSwitcher: () => void;
   /** Close the browser view switcher overlay without switching. */
   closeBrowserSwitcher: () => void;
+  /** Open the Mod+T terminal/agent switcher overlay, highlighted on "Terminal" (index 0). */
+  openTerminalSwitcher: () => void;
+  /** Cycle the highlighted option by `step` within `count` entries, wrapping. */
+  cycleTerminalSwitcher: (step: number, count: number) => void;
+  /** Jump the highlight straight to `index` — digit keys, mouse hover/click. */
+  setTerminalSwitcherIndex: (index: number) => void;
+  /** Close the Mod+T switcher overlay without starting anything. */
+  closeTerminalSwitcher: () => void;
   toggleFabPanel: () => void;
   setFabPanelOpen: (open: boolean) => void;
   toggleActivityTimeline: () => void;
@@ -2094,6 +2117,8 @@ export const useUiStore = create<UiState>()(
       browserLauncherOpen: false,
       browserSwitcherOpen: false,
       browserSwitcherSelected: 'full',
+      terminalSwitcherOpen: false,
+      terminalSwitcherIndex: 0,
       notesOpen: false,
       quickAccessOpen: false,
       fabPanelOpen: false,
@@ -2362,6 +2387,15 @@ export const useUiStore = create<UiState>()(
           };
         }),
       closeBrowserSwitcher: () => set({ browserSwitcherOpen: false }),
+      openTerminalSwitcher: () => set({ terminalSwitcherOpen: true, terminalSwitcherIndex: 0 }),
+      cycleTerminalSwitcher: (step, count) =>
+        set((state) => {
+          if (count <= 0) return {};
+          const next = (((state.terminalSwitcherIndex + step) % count) + count) % count;
+          return { terminalSwitcherIndex: next };
+        }),
+      setTerminalSwitcherIndex: (index) => set({ terminalSwitcherIndex: index }),
+      closeTerminalSwitcher: () => set({ terminalSwitcherOpen: false }),
       setNotesOpen: (notesOpen) => set({ notesOpen }),
       toggleNotes: () => set((state) => ({ notesOpen: !state.notesOpen })),
       setQuickAccessOpen: (quickAccessOpen) => set({ quickAccessOpen }),

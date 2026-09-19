@@ -90,6 +90,15 @@ export function useKeybindings(runtime: CommandRuntime): void {
         return;
       }
 
+      // Same gate, for the Mod+T terminal/agent switcher overlay
+      // (`TerminalSwitcherOverlay`): only `terminal.new` — its own chord —
+      // still resolves here while it is up, so repeated Mod+T taps keep
+      // advancing the highlight instead of some other bound chord firing
+      // behind the HUD's back.
+      if (useUiStore.getState().terminalSwitcherOpen && binding.command !== 'terminal.new') {
+        return;
+      }
+
       const entry = runtime[binding.command];
       // Disabled is treated as unbound: the keystroke falls through to
       // whatever default the browser would have given it, rather than being

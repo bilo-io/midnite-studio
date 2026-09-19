@@ -4,6 +4,7 @@ import type { CommandId } from '@midnite/studio-shared';
 
 import { useDialogs } from '../../components/dialog-host';
 import { activePanelBack, activePanelForward } from '../../components/panel-stack/active-panel';
+import { isAgentUnconfigured } from '../../features/agent/agent-install-status';
 import { devServerUrl } from '../../features/browser/dev-server';
 import { useDevServer } from '../../features/browser/use-dev-server';
 import { useGraphStore } from '../../features/graph/graph-store';
@@ -11,6 +12,7 @@ import { useSlidesStore } from '../../features/slides/slides-store';
 import { syncAffordances } from '../../features/status/sync-availability';
 import { closeSessionWithConfirm } from '../../features/terminal/close-session';
 import { onMainSurface, useTerminalStore } from '../../features/terminal/terminal-store';
+import { useAgents } from '../../features/terminal/use-agents';
 import {
   clampZoomFactor,
   originOf,
@@ -64,6 +66,16 @@ export function useCommandHandlers(): CommandRuntime {
 
   const selectedRepoId = useUiStore((s) => s.selectedRepoId);
   const selectedWorktreePath = useUiStore((s) => s.selectedWorktreePath);
+  // The Mod+T switcher's own option count — "Terminal" plus every INSTALLED
+  // agent, the same roster `TerminalSwitcherOverlay` renders and the same
+  // predicate the `+` picker greys a row with (`new-session-menu.ts`'s
+  // `buildAgentSections`). Read here too, rather than left to the overlay
+  // alone, because advancing the highlight on each repeated Mod+T tap has to
+  // wrap against the SAME count the overlay is about to render, or the two
+  // would cycle out of step.
+  const { agents: agentRoster, status: agentStatus } = useAgents();
+  const terminalSwitcherOptionCount =
+    1 + agentRoster.filter((a) => !isAgentUnconfigured(a, agentStatus)).length;
   const activeView = useUiStore((s) => s.activeView);
   const browserOpen = useUiStore((s) => s.browserOpen);
   const devServer = useDevServer();
@@ -155,21 +167,26 @@ export function useCommandHandlers(): CommandRuntime {
       run: () => useUiStore.getState().toggleTerminalHalfMaximized(),
     },
     'terminal.focus': { enabled: true, run: () => useUiStore.getState().setTerminalOpen(true) },
+    // Mod+T is an App-Switcher-style HUD now (`TerminalSwitcherOverlay`), the
+    // same shape `browser.toggle` uses for Mod+B: a bare tap opens the
+    // overlay highlighted on "Terminal" rather than acting immediately, and
+    // releasing Mod is what actually starts the session — see the overlay's
+    // own `commit` for that half. A REPEATED tap while the overlay is
+    // already up (held Mod, second+ press of T) advances the highlight
+    // instead of reopening it, mirroring `browser.toggle`'s own
+    // `browserSwitcherOpen` branch. The net effect for a quick tap-and-release
+    // is unchanged from before this overlay existed — a plain shell opens —
+    // because "Terminal" is index 0.
     'terminal.new': selectedRepoId && selectedWorktreePath
       ? {
           enabled: true,
           run: () => {
-            useTerminalStore.getState().openSession({
-              kind: 'shell',
-              title: selectedRepo?.name ?? 'terminal',
-              cwd: selectedWorktreePath,
-              repoId: selectedRepoId,
-            });
-            // "Not expanded at all" — a session opened onto a collapsed panel
-            // would be invisible until the user separately reached for
-            // `terminal.toggle`, which defeats the point of a "new terminal"
-            // shortcut.
-            if (!useUiStore.getState().terminalOpen) useUiStore.getState().setTerminalOpen(true);
+            const store = useUiStore.getState();
+            if (store.terminalSwitcherOpen) {
+              store.cycleTerminalSwitcher(1, terminalSwitcherOptionCount);
+            } else {
+              store.openTerminalSwitcher();
+            }
           },
         }
       : { enabled: false, disabledReason: NO_REPO, run: () => {} },
