@@ -205,6 +205,20 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * The write-side fingerprint's opt-in switch (Phase 78 Theme E) —
+   * `Settings ▸ Agents ▸ "Stamp commits with the session"`, per repo.
+   *
+   * `status` is read straight off disk on every call rather than cached: the
+   * switch's checked state must never drift from whether the hook file is
+   * actually there, which a user can delete or replace outside the app.
+   */
+  hooks: {
+    status: (req: In<typeof S.HooksStatusRequest>) => Promise<z.infer<typeof S.HooksStatusResponse>>;
+    install: (req: In<typeof S.HooksInstallRequest>) => Promise<GitOpResult>;
+    uninstall: (req: In<typeof S.HooksUninstallRequest>) => Promise<GitOpResult>;
+  };
+
+  /**
    * GitHub, read through the user's own `gh` CLI.
    *
    * Separate from `remotes` even though it is keyed off the same `Forge`,

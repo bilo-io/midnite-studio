@@ -75,6 +75,14 @@ export const CHANNELS = {
   // --- remotes -------------------------------------------------------------
   remotesList: 'mstudio:remotes:list',
 
+  // --- hooks (Phase 78 Theme E, the write-side fingerprint) -----------------
+  /** Whether the `prepare-commit-msg` stamp hook is installed for this repo, read off disk. */
+  hooksStatus: 'mstudio:hooks:status',
+  /** Installs the hook — refuses rather than overwrites a hook it did not put there. */
+  hooksInstall: 'mstudio:hooks:install',
+  /** Removes only the hook this same install put there; a no-op otherwise. */
+  hooksUninstall: 'mstudio:hooks:uninstall',
+
   // --- forge (GitHub, via the user's own `gh` CLI) --------------------------
   //
   // Reads, plus ONE deliberate and narrow exception.

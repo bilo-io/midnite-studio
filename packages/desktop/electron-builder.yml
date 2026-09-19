@@ -48,6 +48,14 @@ extraResources:
   # this phase never edits the user's shell rc itself.
   - from: resources/completions
     to: completions
+  # The Theme E write-side fingerprint's hook script (Phase 78) — installed
+  # into a *user's own repository*, never run by Electron itself, so it needs
+  # to exist as a plain file outside the asar for `main/hooks/install.ts` to
+  # `readFileSync` and copy. Read off `process.resourcesPath` in production,
+  # the source file in dev — see `main/hooks/hook-script-path.ts`, this
+  # package's own mirror of `template-path.ts`'s dev-vs-packaged split.
+  - from: src/main/hooks/prepare-commit-msg.sh
+    to: hooks/prepare-commit-msg.sh
 
 asar: true
 asarUnpack:

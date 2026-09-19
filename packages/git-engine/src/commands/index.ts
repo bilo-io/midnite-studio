@@ -5,6 +5,7 @@ export * from './conflict-hunk';
 export * from './conflict-resolve';
 export * from './diff';
 export * from './grep';
+export * from './hooks';
 export * from './ignore';
 export * from './list-files';
 export * from './log';

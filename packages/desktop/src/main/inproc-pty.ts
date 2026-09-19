@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { SCROLLBACK_BYTES } from '@midnite/studio-shared';
 
 import type { AgentWatcher } from './agent-watcher';
+import { agentFingerprintEnv } from './pty-env';
 
 type NodePtyModule = typeof import('node-pty');
 type IPty = import('node-pty').IPty;
@@ -91,6 +92,7 @@ export type InprocCreateResult = { ok: true; ptyId: string } | { ok: false; mess
 export function inprocCreatePty(
   options: {
     sessionId: string;
+    kind?: string | undefined;
     cwd: string;
     cols: number;
     rows: number;
@@ -123,6 +125,7 @@ export function inprocCreatePty(
         ...process.env,
         TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
+        ...agentFingerprintEnv(options.kind, options.sessionId, options.agentId),
       } as Record<string, string>,
     });
 

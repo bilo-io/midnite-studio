@@ -27,6 +27,7 @@ import type {
   ForgeSubscriptionKind,
   ForgeWorkflowsResult,
   ForgeWriteResult,
+  GitOpResult,
   Ref,
   ReflogEntry,
   Remote,
@@ -109,6 +110,7 @@ export const keys = {
    * rare command is not worth the extra fs traffic.
    */
   remotes: (repoId: string) => ['repos', repoId, 'remotes'] as const,
+  hookStatus: (repoId: string) => ['repos', repoId, 'hook-status'] as const,
   status: (repoId: string, worktreePath?: string) =>
     ['repos', repoId, 'status', worktreePath ?? 'main'] as const,
   /**
@@ -467,6 +469,42 @@ export function useRemotes(repoId: string | null) {
     queryFn: async () => (repoId ? ((await bridge()?.remotes.list({ repoId })) ?? []) : []),
     enabled: repoId !== null,
   });
+}
+
+/**
+ * Whether Theme E's `prepare-commit-msg` stamp hook is installed for a repo —
+ * read straight off disk on every call (main's own `hookStatus`), never
+ * cached across the toggle: the switch must reflect what is really on the
+ * user's filesystem, not the app's memory of last setting it.
+ */
+export function useHookStatus(repoId: string | null) {
+  return useQuery<boolean>({
+    queryKey: keys.hookStatus(repoId ?? ''),
+    queryFn: async () => {
+      if (!repoId) return false;
+      const result = await bridge()?.hooks.status({ repoId });
+      return result?.ok === true ? result.value.installed : false;
+    },
+    enabled: repoId !== null,
+  });
+}
+
+/**
+ * Install or remove Theme E's hook for one repo, then refetch that repo's
+ * status — an optimistic flip would show "on" through the moment `install`
+ * itself refuses because a pre-existing hook is in the way.
+ */
+export function useSetHookInstalled(): (repoId: string, installed: boolean) => Promise<GitOpResult> {
+  const client = useQueryClient();
+  return async (repoId, installed) => {
+    const api = bridge();
+    if (!api) return { ok: false, kind: 'error', message: 'No bridge available.' };
+    const result = installed
+      ? await api.hooks.install({ repoId })
+      : await api.hooks.uninstall({ repoId });
+    await client.invalidateQueries({ queryKey: keys.hookStatus(repoId) });
+    return result;
+  };
 }
 
 /**

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '../../../../test-support/fixtures';
@@ -234,5 +234,59 @@ describe('AgentPage - Agents Roster', () => {
 
     fireEvent.click(interactiveRadio);
     expect(useUiStore.getState().skillExecutionMode).toBe('interactive');
+  });
+});
+
+describe('AgentPage - Session stamping (Phase 78 Theme E)', () => {
+  it('renders a row per open repo, unchecked by default', async () => {
+    renderView(<AgentPage />, { fixtures });
+
+    const toggle = await screen.findByTestId('hook-toggle-repo-1');
+    expect(toggle).toBeTruthy();
+    expect((toggle as HTMLInputElement).checked).toBe(false);
+  });
+
+  it('reflects an already-installed hook as checked', async () => {
+    renderView(<AgentPage />, { fixtures: { ...fixtures, hookInstalledRepos: ['repo-1'] } });
+
+    const toggle = (await screen.findByTestId('hook-toggle-repo-1')) as HTMLInputElement;
+    await waitFor(() => expect(toggle.checked).toBe(true));
+  });
+
+  it('checking the box installs the hook, and the checkbox reflects it once the status refetches', async () => {
+    renderView(<AgentPage />, { fixtures });
+
+    const toggle = (await screen.findByTestId('hook-toggle-repo-1')) as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => expect(toggle.checked).toBe(true));
+  });
+
+  it('unchecking removes the hook', async () => {
+    renderView(<AgentPage />, { fixtures: { ...fixtures, hookInstalledRepos: ['repo-1'] } });
+
+    const toggle = (await screen.findByTestId('hook-toggle-repo-1')) as HTMLInputElement;
+    await waitFor(() => expect(toggle.checked).toBe(true));
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => expect(toggle.checked).toBe(false));
+  });
+
+  it('a refused install shows the refusal message and leaves the box unchecked', async () => {
+    renderView(<AgentPage />, {
+      fixtures: {
+        ...fixtures,
+        hookInstallError: { 'repo-1': 'A prepare-commit-msg hook already exists.' },
+      },
+    });
+
+    const toggle = (await screen.findByTestId('hook-toggle-repo-1')) as HTMLInputElement;
+    fireEvent.click(toggle);
+
+    expect(await screen.findByText('A prepare-commit-msg hook already exists.')).toBeTruthy();
+    expect(toggle.checked).toBe(false);
   });
 });

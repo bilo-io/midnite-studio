@@ -201,6 +201,15 @@ export type MockFixtures = {
   /** Configured remotes, as `mstudio:remotes:list` returns them (forge pre-derived). */
   remotes?: unknown[];
   /**
+   * Repo ids that start with Theme E's stamp hook already "installed" — a
+   * fixture starting point for `hooks.status`; `hooks.install`/`uninstall`
+   * mutate the same set live, exactly as the real main-process disk check
+   * would answer differently once a repo's hook file changes underneath it.
+   */
+  hookInstalledRepos?: string[];
+  /** Per-repo `hooks.install` refusal message — the "pre-existing hook" case. */
+  hookInstallError?: Record<string, string>;
+  /**
    * Overrides merged over the default `status.get` branch — ahead/behind, a
    * missing upstream, a detached HEAD.
    *
@@ -1085,6 +1094,9 @@ export function buildMockBridge(data: MockFixtures) {
   const appsDisableCalls: string[] = [];
   const appsActivateCalls: (string | null)[] = [];
 
+  /** Live install state for Theme E's stamp hook, seeded from the fixture and mutated by install/uninstall. */
+  const hookInstalledRepos = new Set<string>(data.hookInstalledRepos ?? []);
+
   /** Every `settings.sync` push, in order (Phase 84 Theme B.4) — `use-settings-sync.ts` fires one on mount and on every change. */
   const settingsSyncCalls: Array<{
     autoFetchEnabled: boolean;
@@ -1290,6 +1302,22 @@ export function buildMockBridge(data: MockFixtures) {
     },
     remotes: {
       list: async () => data.remotes ?? [],
+    },
+    hooks: {
+      status: async (req: { repoId: string }) => ({
+        ok: true as const,
+        value: { installed: hookInstalledRepos.has(req.repoId) },
+      }),
+      install: async (req: { repoId: string }) => {
+        const message = data.hookInstallError?.[req.repoId];
+        if (message) return { ok: false as const, kind: 'error' as const, message };
+        hookInstalledRepos.add(req.repoId);
+        return { ok: true as const };
+      },
+      uninstall: async (req: { repoId: string }) => {
+        hookInstalledRepos.delete(req.repoId);
+        return { ok: true as const };
+      },
     },
     /*
         Records the URL and then answers as the real handler does.
