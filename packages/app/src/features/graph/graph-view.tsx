@@ -3,13 +3,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { LuGitBranch, LuGitCommitVertical, LuUsers } from 'react-icons/lu';
 
+import { type ClosedSession, type CommitProvenance } from '@midnite/studio-shared';
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useDismiss } from '../../components/use-dismiss';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { evictKeptViewIfOverRows } from '../../components/view-keep-alive';
-import { useRefs, useStashes } from '../../services/queries';
+import { useRefs, useSessionHistory, useStashes } from '../../services/queries';
 import { useStatus } from '../../services/use-status';
 import { ConflictBanner } from '../status/conflict-banner';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
@@ -39,6 +40,9 @@ import { UncommittedRow, hasUncommittedWork } from './uncommitted-row';
 import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
 import { useActiveAgentWorktreePaths } from './use-agent-worktrees';
+import { useAgents } from '../terminal/use-agents';
+import { resolveProvenanceDetails } from './provenance-mark';
+import { matchesProvenanceFilter } from './provenance-filter';
 
 /**
  * The commit graph.
@@ -69,6 +73,37 @@ export function GraphView() {
   const graphRefFilter = useUiStore((s) => s.graphRefFilter);
   const graphAuthorFilter = useUiStore((s) => s.graphAuthorFilter);
   const graphShaFilter = useUiStore((s) => s.graphShaFilter);
+  const graphProvenanceFilter = useUiStore((s) => s.graphProvenanceFilter);
+
+  const { agents } = useAgents();
+  const { data: closedSessions } = useSessionHistory();
+  const sessions = closedSessions ?? EMPTY_SESSIONS;
+
+  const rosterSignatures = useMemo(
+    () => agents.flatMap((a) => (a.signatures ? [a.signatures] : [])),
+    [agents],
+  );
+
+  useEffect(() => {
+    useGraphStore.getState().setProvenanceContext({
+      roster: rosterSignatures,
+      sessions,
+    });
+  }, [rosterSignatures, sessions]);
+
+  const provenance = useGraphStore((s) => s.provenance);
+
+  const matchingAgents = useMemo(() => {
+    const activeAgentIds = new Set<string>();
+    for (const p of Object.values(provenance)) {
+      if (p.kind !== 'human') {
+        for (const id of p.agentIds) {
+          activeAgentIds.add(id);
+        }
+      }
+    }
+    return agents.filter((a) => activeAgentIds.has(a.id));
+  }, [agents, provenance]);
   /*
     Derived from the two settings every render, never memoised as a scaled
     theme: `scaleTheme` compounds, so holding its output and re-scaling it would
@@ -412,6 +447,7 @@ export function GraphView() {
           gutterWidth={paintedGutter}
           columns={columns}
           theme={theme}
+          matchingAgents={matchingAgents}
         />
         {/*
           Above the scroller, not inside it.
@@ -481,6 +517,15 @@ export function GraphView() {
               const row = rows[item.index];
               if (!row) return null;
               const isInitialCascade = isCascading && item.index <= GRAPH_CASCADE_MAX_STEPS;
+              const commitProv = provenance[row.commit.sha] ?? HUMAN_PROVENANCE;
+              const authorMatches =
+                highlightedEmails === null ||
+                highlightedEmails.has(row.commit.authorEmail.trim().toLowerCase());
+              const shaMatches = highlightedShas === null || highlightedShas.has(row.commit.sha);
+              const provenanceMatches = matchesProvenanceFilter(commitProv, graphProvenanceFilter);
+              const dimmed = !authorMatches || !shaMatches || !provenanceMatches;
+              const { sessionName, agent } = resolveProvenanceDetails(commitProv, agents, sessions);
+
               return (
                 <div
                   key={row.commit.sha}
@@ -500,13 +545,12 @@ export function GraphView() {
                     laneWidth={laneWidth}
                     theme={theme}
                     clipId={avatarClipId(theme)}
-                    dimmed={
-                      (highlightedEmails !== null &&
-                        !highlightedEmails.has(row.commit.authorEmail.trim().toLowerCase())) ||
-                      (highlightedShas !== null && !highlightedShas.has(row.commit.sha))
-                    }
+                    dimmed={dimmed}
                     glowColorIdx={glowColorIdx}
                     nowMs={nowMs}
+                    provenance={commitProv}
+                    sessionName={sessionName}
+                    agent={agent}
                     onSelect={selectCommit}
                     onContextMenu={onRowContextMenu}
                     onRefContextMenu={onRefContextMenu}
@@ -611,4 +655,7 @@ const GRAPH_CASCADE_MAX_STEPS = 20;
  * this the deeper lanes are simply not drawn.
  */
 const MAX_GUTTER_LANES = 12;
+
+const EMPTY_SESSIONS: ClosedSession[] = [];
+const HUMAN_PROVENANCE: CommitProvenance = { kind: 'human' };
 

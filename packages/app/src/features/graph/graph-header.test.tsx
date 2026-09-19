@@ -28,6 +28,8 @@ vi.mock('../../store/ui-store', async (importOriginal) => {
         graphShaFilter: readonly string[] | null;
         setGraphSessionFilter: (next: string | null) => void;
         setGraphShaFilter: (next: string[] | null) => void;
+        graphProvenanceFilter: string;
+        setGraphProvenanceFilter: (next: string) => void;
         detachedPages: readonly string[];
       }) => unknown,
     ) =>
@@ -42,6 +44,8 @@ vi.mock('../../store/ui-store', async (importOriginal) => {
         graphShaFilter: null,
         setGraphSessionFilter: vi.fn(),
         setGraphShaFilter: vi.fn(),
+        graphProvenanceFilter: 'all',
+        setGraphProvenanceFilter: vi.fn(),
         detachedPages: [],
       }),
   };

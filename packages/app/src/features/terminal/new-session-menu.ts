@@ -4,6 +4,7 @@ import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
 
 import type { IconComponent } from '../../components/icon-button';
 import { resolveAgentIcon } from '../../components/icons';
+import { agentInstallHint, isAgentUnconfigured } from '../agent/agent-install-status';
 
 /**
  * The `+` menu's rows, as data.
@@ -44,7 +45,22 @@ export type AgentRow = {
    * disabled row already carries is not enough to undo a saturated orange.
    */
   iconStyle: CSSProperties | undefined;
+  /**
+   * True only when there is nowhere to open a session at all (no worktree
+   * selected) — a native-disabled, unclickable row. Kept apart from
+   * `unconfigured` on purpose: a row that is merely uninstalled still has a
+   * useful click (see below), so it must never end up behind a `disabled`
+   * attribute a click handler can't reach.
+   */
   disabled: boolean;
+  /**
+   * True when the agent itself is not installed/configured on this machine.
+   * The row still renders greyed out, but stays a real, clickable button —
+   * clicking (or Enter) routes to Settings ▸ Agents instead of starting a
+   * session. Always `false` when `disabled` is true: with no worktree, the
+   * worktree reason wins and there is nothing useful to click through to yet.
+   */
+  unconfigured: boolean;
   /** The worktree reason wins when both apply — see `NO_WORKTREE`. */
   disabledReason: string | undefined;
 };
@@ -82,22 +98,22 @@ export function buildAgentSections({
   status,
   hasWorktree,
 }: BuildAgentSectionsInput): AgentSection[] {
-  const byId = new Map(status.map((s) => [s.id, s]));
-
   const toRow = (agent: AgentDefinition): AgentRow => {
-    // Absent status = unknown = assume installed. Only a probe that ran and
-    // answered may disable a row.
-    const missing = byId.get(agent.id)?.installed === false;
-    const dead = !hasWorktree || missing;
+    // The worktree reason wins: with nowhere to open a session, a row is
+    // truly inert regardless of install status.
+    const disabled = !hasWorktree;
+    const unconfigured = hasWorktree && isAgentUnconfigured(agent, status);
+    const dead = disabled || unconfigured;
 
     return {
       agent,
       icon: resolveAgentIcon(agent),
       iconStyle: dead ? undefined : { color: agent.accent },
-      disabled: dead,
+      disabled,
+      unconfigured,
       // The worktree reason wins: it is the one blocking every row, and an
       // install hint answers a question the user has not reached.
-      disabledReason: dead ? (hasWorktree ? installReason(agent) : NO_WORKTREE) : undefined,
+      disabledReason: dead ? (disabled ? NO_WORKTREE : agentInstallHint(agent)) : undefined,
     };
   };
 
@@ -112,16 +128,4 @@ export function buildAgentSections({
     sections.push({ id: 'open-source', label: 'Open Source', rows: openSource });
   }
   return sections;
-}
-
-/**
- * What a missing agent's row says instead of nothing.
- *
- * The roster's own hint when it has one — that is what `install` is for. An
- * entry without one (a user-added agent, typically) still gets a sentence,
- * because a greyed row with an empty tooltip is the most frustrating thing a
- * menu can show.
- */
-function installReason(agent: AgentDefinition): string {
-  return agent.install ?? `\`${agent.command}\` was not found on your PATH`;
 }

@@ -1,6 +1,15 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-19 — Phase 78 Theme C — The mark on the row
+
+[PR #460](https://github.com/bilo-io/midnite-studio/pull/460). Render commit provenance marks and avatar variants across the graph and commit inspector.
+- Computed provenance using `classifyProvenance` from `@midnite/studio-shared` in `graphStore.provenance` cache, updated reactively on row arrival and session/roster context changes.
+- In graph rows (`graph-row.tsx`, `commit-avatar.tsx`, `graph-svg.tsx`): rendered agent glyph in place of avatar for `agent`, agent glyph overlapping avatar corner for `mixed`, and 0 extra DOM for `human`. Tooltips assert "Co-authored by <Agent>", "Made during <session> · <Agent>", and "Probably made during <session>" for window joins.
+- Toolbar filter chip in graph header: `All · Humans · Agents` plus per-agent sub-filter when multiple agents match. Dims non-matching rows (`data-dimmed`, `opacity-40`) without modifying lane layout or topology.
+- Commit detail (`commit-detail.tsx`): rendered `Provenance` row under author in `Identities` displaying the mark and tooltip text.
+- Added comprehensive unit and acceptance tests (`provenance-mark.test.tsx`, `provenance-filter.test.tsx`, `graph-row-provenance.test.tsx`, and updated `commit-detail.bridge.test.tsx`).
+
 ## 2026-09-19 — Phase 88 Theme C — The DOM-renderer call sites
 
 [PR #457](https://github.com/bilo-io/midnite-studio/pull/457). `transcript-view.tsx` and `live-session-terminal.tsx` — the two sites that load
@@ -15,6 +24,25 @@ call and asserts exactly one addon is ever loaded, and that it is `FitAddon` —
 stand-in — so a future change that made WebGL the implicit default fails this test rather than
 surfacing only as pressure on `xterm-budget.ts`'s `MAX_WEBGL_CONTEXTS`. No WebGL context is
 allocated at either site.
+
+## 2026-09-19 — Phase 88 Theme B — xterm v6 upgrade (WebGL port verification)
+
+[PR #458](https://github.com/bilo-io/midnite-studio/pull/458). `terminal-view.tsx`, `xterm-budget.ts`,
+`terminal-links.ts` and `terminal-font.ts` needed zero source edits against `@xterm/xterm` 6.0.0 /
+`@xterm/addon-webgl` 0.19.0 — confirmed by a clean `moon run app:typecheck` before writing anything,
+consistent with Theme A's own recorded `xterm.d.ts` diff. So the theme's checklist became
+verification rather than a port. Two new tests exercise rather than assume: `xterm-webgl-fallback.test.ts`
+mounts a real v6 `Terminal` + real `WebglAddon` (fake `WebGL2RenderingContext`, Theme E's technique),
+dispatches a real `webglcontextlost` DOM event on the addon's own canvas, and proves `onContextLoss`
+still fires — after the addon's own ~3s internal restoration window (`setTimeout(...,3e3)`, confirmed
+from the built bundle, not previously proven under v6) — and that `xterm-budget.ts`'s real
+`setRenderer` still flips the session to `'dom'`. `terminal-links.test.ts` gained a real-`Terminal`
+describe block proving `ILinkProvider` registration and `findLinks`' buffer reads hold against a
+genuine v6 `Terminal`, not just the file's existing structural stub — the "real check" the theme's
+checklist asked for beyond a type diff. `MAX_WEBGL_CONTEXTS` (`12`) confirmed unaffected and not
+retuned: it rations Chromium's own per-process WebGL context ceiling, which neither xterm package
+reads or reports. Themes D (`ITheme`/importer), F (the two parked debts) and G (full verification)
+remain open.
 
 ## 2026-09-18 — Phase 78 Themes A and B — Read the trailers & provenance vocabulary
 

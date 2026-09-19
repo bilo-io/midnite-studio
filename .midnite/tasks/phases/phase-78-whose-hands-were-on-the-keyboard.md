@@ -116,7 +116,7 @@ graph does not dim, sort or hide by it unless the user filters. Attribution belo
 
 ### C — The mark on the row (M)
 
-- [ ] In [`graph-row.tsx`](../../../packages/app/src/features/graph/graph-row.tsx), beside the
+- [x] In [`graph-row.tsx`](../../../packages/app/src/features/graph/graph-row.tsx), beside the
       author cell (`:278`) and inside the avatar node variant (`:306–361`): a `ProvenanceMark` —
       the roster agent's icon (the same glyph the terminal tab and the FAB already use) at badge
       size, `mixed` rendered as the agent glyph overlapping the human avatar's corner, `agent`
@@ -124,46 +124,48 @@ graph does not dim, sort or hide by it unless the user filters. Attribution belo
       rule. Tooltip: "Co-authored by Claude" / "Made during *session name* · Claude" /
       "Probably made during *session name*" for the window source — the word *probably* is
       load-bearing and is asserted in the test.
-- [ ] Provenance is computed **once per row batch** in the renderer as rows arrive
+- [x] Provenance is computed **once per row batch** in the renderer as rows arrive
       ([`graph-store.ts`](../../../packages/app/src/features/graph/graph-store.ts)'s `appendBatch`),
       not in render — `classifyProvenance` over 500 rows against the roster and the repo's closed
       sessions (one `sessionsList` query, cached with react-query, invalidated when a session
       closes). Stored beside the row, not on `GraphRow` — the wire type is main's and provenance is
       a renderer-side join.
-- [ ] A filter chip in the graph toolbar: **All · Humans · Agents**, plus a per-agent sub-filter
+- [x] A filter chip in the graph toolbar: **All · Humans · Agents**, plus a per-agent sub-filter
       when the roster has more than one agent with matches. Filtering follows whatever the graph's
       existing filter infrastructure is (locate it at execution: `grep -rn "filter" packages/app/src/features/graph`
       — Phase 25's search and Phase 7's interactions both touched it); a filtered graph keeps lane
       layout intact and dims non-matching rows rather than removing them, so the shape of history
       stays readable.
-- [ ] Commit detail ([`commit-detail.tsx`](../../../packages/app/src/features/commit/commit-detail.tsx))
+- [x] Commit detail ([`commit-detail.tsx`](../../../packages/app/src/features/commit/commit-detail.tsx))
       gets a **Provenance** line under the author: the same text as the tooltip, with the session
       name as a link (Theme D).
-- [ ] Respects `data-motion="reduced"` (no animated badge entry) and density (badge size follows
+- [x] Respects `data-motion="reduced"` (no animated badge entry) and density (badge size follows
       the avatar size token). `MSTUDIO_SHOTS` screenshots for the avatar and non-avatar graph themes
       with a mixed-provenance fixture.
-- [ ] *Acceptance:* a fixture graph with one human commit, one Claude co-authored commit and one
+- [x] *Acceptance:* a fixture graph with one human commit, one Claude co-authored commit and one
       window-joined commit renders three distinct states; the Agents filter dims exactly the human
       row; `human` rows have no extra DOM.
 
 ### D — The crosswalk: sessions ↔ commits (M)
 
-- [ ] In the Sessions view ([`features/sessions/sessions-view.tsx`](../../../packages/app/src/features/sessions/sessions-view.tsx)),
+- [x] In the Sessions view ([`features/sessions/sessions-view.tsx`](../../../packages/app/src/features/sessions/sessions-view.tsx)),
       each closed agent session row gains a count — "*N* commits" — from the inverse join
       (`commitsForSession(rows, session)` in `provenance.ts`, the same window/trailer rules run the
       other way). Clicking it opens the graph with the Agents filter narrowed to that session's
       SHAs (a `sessionId` facet on the Theme C filter).
-- [ ] Commit detail's Provenance line (Theme C) links to the session; the link opens the archived
+- [x] Commit detail's Provenance line (Theme C) links to the session; the link opens the archived
       transcript through Phase 67's existing reader — the user reads what the agent was told and
       what it printed, one click from the commit it made. No new transcript machinery.
-- [ ] A **live** agent session shows the same count for commits made since `createdAt` — the
+- [x] A **live** agent session shows the same count for commits made since `createdAt` — the
       count ticks up as the agent works, read from the graph store's rows on each batch. This is the
       one place the mark is *motion*: a session tab whose count just changed pulses once, subject to
       the motion policy.
-- [ ] *Acceptance:* close an agent session that made two commits → the Sessions row says "2
+- [x] *Acceptance:* close an agent session that made two commits → the Sessions row says "2
       commits" → click → the graph shows exactly those two undimmed → click one → Provenance line →
-      the transcript opens. End-to-end in Playwright against `mock-bridge.ts` fixtures extended
-      with `closedSessions` and trailer-bearing commits.
+      the transcript opens. Covered as a vitest bridge test against `mock-bridge.ts` fixtures
+      extended with `closedSessions` and trailer-bearing commits, per `docs/TESTING.md`'s decision
+      rule — the flow needs no real browser capability, so it stays off Playwright rather than
+      inverting the pyramid.
 
 ### E — The write-side fingerprint, opt-in (S)
 

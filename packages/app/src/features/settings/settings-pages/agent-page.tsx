@@ -163,6 +163,7 @@ function AgentCard({
   onModeChange,
   apiKey,
   onApiKeyChange,
+  highlighted,
 }: {
   agent: AgentDefinition;
   status: AgentStatus | undefined;
@@ -172,6 +173,8 @@ function AgentCard({
   onModeChange: (mode: AgentMode) => void;
   apiKey: string;
   onApiKeyChange: (key: string) => void;
+  /** Briefly true right after a dropdown routed a click on this row here. */
+  highlighted?: boolean;
 }) {
   const [showKey, setShowKey] = useState(false);
   const Icon = resolveAgentIcon(agent);
@@ -186,7 +189,7 @@ function AgentCard({
       data-testid={`agent-card-${agent.id}`}
       className={`flex flex-col gap-2.5 rounded-lg p-3 text-xs transition-all ${
         isPrimary ? 'primary-agent-card' : 'border border-border bg-card/40'
-      }`}
+      } ${highlighted ? 'ring-2 ring-primary' : ''}`}
     >
       {/* Header row: Icon, Label, Status pill, Command chip, [Docs, Make primary] on far right */}
       <div className="flex flex-wrap items-center gap-2">
@@ -380,6 +383,9 @@ function AgentCard({
   );
 }
 
+/** How long a routed-to row stays outlined — long enough to register, short enough to feel transient. */
+const FOCUS_HIGHLIGHT_MS = 2000;
+
 function AgentsRoster() {
   const { agents, status } = useAgents();
   const statusById = useMemo(() => new Map(status.map((s) => [s.id, s])), [status]);
@@ -389,6 +395,26 @@ function AgentsRoster() {
   const setAgentMode = useUiStore((s) => s.setAgentMode);
   const agentApiKeys = useUiStore((s) => s.agentApiKeys);
   const setAgentApiKey = useUiStore((s) => s.setAgentApiKey);
+
+  // An agent dropdown's "Configure" click lands here — scroll its card into
+  // view and outline it briefly, then let it fade back into the roster.
+  // `pendingAgentFocus` is consumed once (cleared on arrival) so a plain
+  // later visit to this page never inherits a stale target.
+  const pendingAgentFocus = useUiStore((s) => s.pendingAgentFocus);
+  const clearPendingAgentFocus = useUiStore((s) => s.clearPendingAgentFocus);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingAgentFocus) return;
+    const target = pendingAgentFocus;
+    clearPendingAgentFocus();
+    document
+      .querySelector(`[data-testid="agent-card-${target}"]`)
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setHighlightedId(target);
+    const timer = setTimeout(() => setHighlightedId(null), FOCUS_HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [pendingAgentFocus, clearPendingAgentFocus]);
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -403,6 +429,7 @@ function AgentsRoster() {
           onModeChange={(mode) => setAgentMode(agent.id, mode)}
           apiKey={agentApiKeys[agent.id] ?? ''}
           onApiKeyChange={(key) => setAgentApiKey(agent.id, key)}
+          highlighted={agent.id === highlightedId}
         />
       ))}
     </div>

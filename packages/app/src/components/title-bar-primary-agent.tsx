@@ -5,9 +5,10 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react';
-import type { AgentDefinition } from '@midnite/studio-shared';
+import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
 import { LuCheck, LuSearch } from 'react-icons/lu';
 
+import { agentInstallHint, isAgentUnconfigured } from '../features/agent/agent-install-status';
 import { PROPRIETARY_IDS } from '../features/terminal/new-session-menu';
 import { useAgents } from '../features/terminal/use-agents';
 import { fuzzyMatch } from '../services/palette/fuzzy-match';
@@ -23,9 +24,10 @@ import { Tooltip } from './tooltip';
  */
 export function TitleBarPrimaryAgent() {
   const [open, setOpen] = useState(false);
-  const { agents } = useAgents();
+  const { agents, status } = useAgents();
   const primaryAgent = useUiStore((s) => s.primaryAgent);
   const setPrimaryAgent = useUiStore((s) => s.setPrimaryAgent);
+  const focusAgentInSettings = useUiStore((s) => s.focusAgentInSettings);
 
   const activeAgent = agents.find((a) => a.id === primaryAgent) ?? agents[0];
   const ActiveIcon = activeAgent ? resolveAgentIcon(activeAgent) : resolveAgentIcon({ id: 'claude' });
@@ -56,9 +58,14 @@ export function TitleBarPrimaryAgent() {
       {open ? (
         <PrimaryAgentPickerPanel
           agents={agents}
+          status={status}
           primaryAgent={primaryAgent}
           onSelect={(agentId) => {
             setPrimaryAgent(agentId);
+            setOpen(false);
+          }}
+          onConfigure={(agentId) => {
+            focusAgentInSettings(agentId);
             setOpen(false);
           }}
         />
@@ -81,12 +88,17 @@ type AgentSection = {
 
 function PrimaryAgentPickerPanel({
   agents,
+  status,
   primaryAgent,
   onSelect,
+  onConfigure,
 }: {
   agents: AgentDefinition[];
+  status: AgentStatus[];
   primaryAgent: string;
   onSelect: (agentId: string) => void;
+  /** Called instead of `onSelect` for an unconfigured agent — routes to Settings ▸ Agents. */
+  onConfigure: (agentId: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [highlighted, setHighlighted] = useState(0);
@@ -142,7 +154,8 @@ function PrimaryAgentPickerPanel({
       event.preventDefault();
       const target = flatAgents[highlighted];
       if (target) {
-        onSelect(target.id);
+        if (isAgentUnconfigured(target, status)) onConfigure(target.id);
+        else onSelect(target.id);
       }
     }
   };
@@ -186,6 +199,11 @@ function PrimaryAgentPickerPanel({
                 const isHighlighted = highlighted === itemIndex;
                 const isSelected = agent.id === primaryAgent;
                 const Icon = resolveAgentIcon(agent);
+                // Unconfigured, not disabled: the row stays a real, clickable
+                // button — clicking (or Enter) routes to Settings ▸ Agents
+                // instead of setting it primary. See `new-session-picker.tsx`
+                // for the same split in the terminal's `+` menu.
+                const unconfigured = isAgentUnconfigured(agent, status);
 
                 return (
                   <button
@@ -196,17 +214,19 @@ function PrimaryAgentPickerPanel({
                     aria-label={agent.label}
                     aria-checked={isSelected}
                     aria-selected={isHighlighted}
+                    aria-disabled={unconfigured ? true : undefined}
+                    title={unconfigured ? agentInstallHint(agent) : undefined}
                     data-testid={`primary-agent-item-${agent.id}`}
-                    onClick={() => onSelect(agent.id)}
+                    onClick={() => (unconfigured ? onConfigure(agent.id) : onSelect(agent.id))}
                     onMouseEnter={() => setHighlighted(itemIndex)}
                     className={`flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-colors ${
                       isHighlighted ? 'bg-accent text-foreground' : 'text-foreground'
-                    } ${isSelected ? 'font-medium' : ''}`}
+                    } ${isSelected ? 'font-medium' : ''} ${unconfigured ? 'opacity-40' : ''}`}
                   >
                     <Icon
                       aria-hidden
                       className="h-4 w-4 shrink-0"
-                      style={agent.accent ? { color: agent.accent } : undefined}
+                      style={agent.accent && !unconfigured ? { color: agent.accent } : undefined}
                     />
                     <span className="flex-1 truncate">{agent.label}</span>
                     {isSelected && (

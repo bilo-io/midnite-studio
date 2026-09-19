@@ -1,4 +1,4 @@
-import type { GraphRow } from '@midnite/studio-shared';
+import type { AgentDefinition, CommitProvenance, GraphRow } from '@midnite/studio-shared';
 import type { ReactElement } from 'react';
 
 import { CommitAvatar } from './commit-avatar';
@@ -37,6 +37,8 @@ export function GraphSvg({
   dimmed = false,
   connector = false,
   glowColorIdx = null,
+  provenance,
+  agent,
 }: {
   row: GraphRow;
   width: number;
@@ -72,6 +74,10 @@ export function GraphSvg({
    * so a neighbouring branch passing through the same row stays quiet.
    */
   glowColorIdx?: number | null;
+  /** Commit provenance (Phase 78 Theme C). */
+  provenance?: CommitProvenance;
+  /** Resolved agent definition. */
+  agent?: AgentDefinition | null;
 }) {
   const mid = theme.rowHeight / 2;
   const lane = (n: number): number => laneCentre(theme, laneWidth, n);
@@ -295,6 +301,8 @@ export function GraphSvg({
           ring={nodeColor}
           ringWidth={theme.ringWidth}
           clipId={clipId}
+          provenance={provenance}
+          agent={agent}
         />
       ) : (
         <circle

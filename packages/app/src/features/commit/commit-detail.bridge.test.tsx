@@ -14,6 +14,7 @@ import { renderView } from '../../../test-support/render';
 import { useBrowserStore } from '../../store/browser-store';
 import { useSessionsStore } from '../../store/sessions-store';
 import { useUiStore } from '../../store/ui-store';
+import { useGraphStore } from '../graph/graph-store';
 import { CommitDetail } from './commit-detail';
 
 /**
@@ -142,6 +143,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
 
   it('the message renders as markdown rather than preformatted text', async () => {
     open();
+    await waitForMessage();
 
     const code = await waitFor(() => message().querySelector('pre code'), { timeout: 3000 });
     expect(code?.textContent).toContain('const sha = 7c521fe;');
@@ -364,56 +366,83 @@ describe('CommitDetail, assembled through the real bridge', () => {
     expect(rows[3]?.getAttribute('aria-label')).toBe('docs/screenshots/phase-11-packaged-app.png');
   });
 
-  // --- Phase 78 Theme D: Provenance line & session transcript link -----------
+  // --- Phase 78 Themes C & D: provenance line & session transcript link -----
 
-  it('renders provenance line with clickable session link and opens transcript on click', async () => {
-    const sessionFx: MockFixtures = {
-      ...withRemote,
-      closedSessions: [
-        {
-          id: 'session-archived-1',
-          kind: 'agent',
-          agentId: 'claude',
-          title: 'midnite-studio',
-          name: 'feat-refactor',
-          cwd: '/repo',
-          repoId: 'repo-1',
-          createdAt: 1000,
-          closedAt: 2000,
-          exitCode: 0,
-          reason: 'closed',
-          transcriptBytes: 100,
+  describe('provenance line (Phase 78 Themes C & D)', () => {
+    it('human commit renders no provenance line', async () => {
+      useGraphStore.getState().reset();
+      open();
+      await waitForMessage();
+
+      const ids = identities();
+      expect(ids).not.toBeNull();
+      expect(ids?.querySelector('[data-testid="commit-provenance"]')).toBeNull();
+    });
+
+    it('agent / mixed commit renders provenance line under author', async () => {
+      useGraphStore.getState().reset();
+      useGraphStore.setState({
+        provenance: {
+          [COMMIT_SHA]: {
+            kind: 'mixed',
+            source: 'co-author',
+            agentIds: ['claude'],
+          },
         },
-      ],
-      commitDetails: {
-        ...fixtures.commitDetails,
-        [COMMIT_SHA]: {
-          ...(fixtures.commitDetails[COMMIT_SHA] as Record<string, unknown>),
-          body: 'feat: agent commit\n\nMidnite-Session: session-archived-1',
+      });
+      open();
+      await waitForMessage();
+
+      const ids = identities();
+      expect(ids).not.toBeNull();
+      const provEl = ids?.querySelector('[data-testid="commit-provenance"]');
+      expect(provEl).not.toBeNull();
+      expect(provEl?.textContent).toContain('Co-authored by Claude');
+    });
+
+    it('renders provenance line with clickable session link and opens transcript on click', async () => {
+      useGraphStore.getState().reset();
+      const sessionFx: MockFixtures = {
+        ...withRemote,
+        closedSessions: [
+          {
+            id: 'session-archived-1',
+            kind: 'agent',
+            agentId: 'claude',
+            title: 'midnite-studio',
+            name: 'feat-refactor',
+            cwd: '/repo',
+            repoId: 'repo-1',
+            createdAt: 1000,
+            closedAt: 2000,
+            exitCode: 0,
+            reason: 'closed',
+            transcriptBytes: 100,
+          },
+        ],
+        commitDetails: {
+          ...fixtures.commitDetails,
+          [COMMIT_SHA]: {
+            ...(fixtures.commitDetails[COMMIT_SHA] as Record<string, unknown>),
+            body: 'feat: agent commit\n\nMidnite-Session: session-archived-1',
+          },
         },
-      },
-    };
+      };
 
-    open(sessionFx);
-    await waitForMessage();
+      open(sessionFx);
+      await waitForMessage();
 
-    const prov = await screen.findByTestId('commit-provenance');
-    expect(prov.textContent).toContain('Made during feat-refactor · Claude');
+      const prov = await screen.findByTestId('commit-provenance');
+      expect(prov.textContent).toContain('Made during feat-refactor · Claude');
 
-    const link = within(prov).getByRole('button', { name: 'Open session feat-refactor' });
-    expect(link).toBeTruthy();
+      const link = within(prov).getByRole('button', { name: 'Open session feat-refactor' });
+      expect(link).toBeTruthy();
 
-    fireEvent.click(link);
+      fireEvent.click(link);
 
-    expect(useSessionsStore.getState().selectedClosedSessionId).toBe('session-archived-1');
-    expect(useSessionsStore.getState().selectedLiveSessionId).toBeNull();
-    expect(useUiStore.getState().activeView).toBe('sessions');
-  });
-
-  it('human commit renders no provenance line', async () => {
-    open();
-    await waitForMessage();
-
-    expect(screen.queryByTestId('commit-provenance')).toBeNull();
+      expect(useSessionsStore.getState().selectedClosedSessionId).toBe('session-archived-1');
+      expect(useSessionsStore.getState().selectedLiveSessionId).toBeNull();
+      expect(useUiStore.getState().activeView).toBe('sessions');
+    });
   });
 });

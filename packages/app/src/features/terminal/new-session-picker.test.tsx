@@ -27,6 +27,7 @@ const installed: AgentStatus[] = agents.map((a) => ({
 function setup(over: Partial<Parameters<typeof NewSessionPicker>[0]> = {}) {
   const onNewTerminal = vi.fn();
   const onNewAgent = vi.fn();
+  const onConfigure = vi.fn();
   render(
     <NewSessionPicker
       agents={agents}
@@ -34,10 +35,11 @@ function setup(over: Partial<Parameters<typeof NewSessionPicker>[0]> = {}) {
       hasWorktree
       onNewTerminal={onNewTerminal}
       onNewAgent={onNewAgent}
+      onConfigure={onConfigure}
       {...over}
     />,
   );
-  return { onNewTerminal, onNewAgent };
+  return { onNewTerminal, onNewAgent, onConfigure };
 }
 
 const openMenu = () => fireEvent.click(screen.getByLabelText('New terminal or agent'));
@@ -186,5 +188,51 @@ describe('NewSessionPicker', () => {
     const claude = screen.getByRole('menuitem', { name: 'Claude' }) as HTMLButtonElement;
     expect(claude.disabled).toBe(true);
     expect(claude.getAttribute('title')).toBe('No worktree selected');
+  });
+
+  /**
+   * An uninstalled agent is greyed out but stays real: clicking it must route
+   * to Settings ▸ Agents rather than trying (and failing) to start a session.
+   */
+  describe('an uninstalled agent', () => {
+    const uninstalled: AgentStatus[] = installed.map((s) =>
+      s.id === 'goose' ? { ...s, installed: false, resolvedPath: null } : s,
+    );
+
+    it('renders it as a real, non-native-disabled button', () => {
+      setup({ status: uninstalled });
+      openMenu();
+
+      const goose = screen.getByRole('menuitem', { name: 'Goose' }) as HTMLButtonElement;
+      expect(goose.disabled).toBe(false);
+      expect(goose.getAttribute('aria-disabled')).toBe('true');
+    });
+
+    it('routes a click to Settings instead of starting a session', () => {
+      const { onNewAgent, onConfigure } = setup({ status: uninstalled });
+      openMenu();
+
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Goose' }));
+
+      expect(onConfigure).toHaveBeenCalledWith(agents[2]);
+      expect(onNewAgent).not.toHaveBeenCalled();
+      expect(screen.queryByLabelText('Search agent CLIs')).toBeNull();
+    });
+
+    it('routes Enter on the highlighted row to Settings the same way', () => {
+      const { onNewAgent, onConfigure } = setup({ status: uninstalled });
+      openMenu();
+
+      // New Terminal -> Claude -> OpenCode -> Goose.
+      for (let i = 0; i < 3; i += 1) fireEvent.keyDown(search(), { key: 'ArrowDown' });
+      expect(screen.getByRole('menuitem', { name: 'Goose' }).getAttribute('aria-selected')).toBe(
+        'true',
+      );
+
+      fireEvent.keyDown(search(), { key: 'Enter' });
+
+      expect(onConfigure).toHaveBeenCalledWith(agents[2]);
+      expect(onNewAgent).not.toHaveBeenCalled();
+    });
   });
 });
