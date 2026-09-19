@@ -9,7 +9,17 @@ import {
   LuRows3,
   LuX,
 } from 'react-icons/lu';
-import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import { buildChangeTree, flattenBySize } from '../../components/build-change-tree';
 import { ChangeTotals, ChangeTree } from '../../components/change-tree';
@@ -20,7 +30,16 @@ import { Tooltip } from '../../components/tooltip';
 import { UserAvatar } from '../../components/user-avatar';
 import { useWorkbenchStore } from '../../store/workbench-store';
 
-import { copyText, resolveRevision, useCommitDetail, useRemotes } from '../../services/queries';
+import { copyText, resolveRevision, useCommitDetail, useRemotes, useSessionHistory } from '../../services/queries';
+import { useAgents } from '../terminal/use-agents';
+import { useSessionsStore } from '../../store/sessions-store';
+import { useGraphStore } from '../graph/graph-store';
+import {
+  classifyProvenance,
+  type AgentDefinition,
+  type AgentSignature,
+  type Commit,
+} from '@midnite/studio-shared';
 import { LAYOUT_BOUNDS, useUiStore, type CommitFileView } from '../../store/ui-store';
 import { DiffView } from '../diff/diff-view';
 import { imageDiffSources } from '../diff/image-sources';
@@ -60,6 +79,26 @@ const CommitMessage = lazy(() =>
  * question being asked of a file list — "which of these do I want to read" — is
  * one you answer by looking at the list and the diff together.
  */
+function parseTrailers(body: string, key: string): string[] {
+  const result: string[] = [];
+  const lines = body.split('\n');
+  const prefix = `${key.toLowerCase()}:`;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.toLowerCase().startsWith(prefix)) {
+      const val = trimmed.slice(prefix.length).trim();
+      if (val) result.push(val);
+    }
+  }
+  return result;
+}
+
+function getAgentName(agentId: string, agents: readonly AgentDefinition[]): string {
+  const agent = agents.find((a) => a.id === agentId);
+  if (agent?.label) return agent.label;
+  return agentId.charAt(0).toUpperCase() + agentId.slice(1);
+}
+
 export function CommitDetail({
   repoId,
   sha,
@@ -75,6 +114,91 @@ export function CommitDetail({
   const selectCommit = useUiStore((s) => s.selectCommit);
   const fileView = useUiStore((s) => s.commitFileView);
   const setFileView = useUiStore((s) => s.setCommitFileView);
+
+  const { agents } = useAgents();
+  const sessionHistory = useSessionHistory();
+  const closedSessions = useMemo(() => sessionHistory.data ?? [], [sessionHistory.data]);
+  const roster = useMemo(
+    () => agents.map((a) => a.signatures).filter(Boolean) as AgentSignature[],
+    [agents],
+  );
+
+  const rowCount = useGraphStore((s) => s.rows.length);
+  const storeCommit = useMemo(
+    () => useGraphStore.getState().rows.find((r) => r.commit.sha === data?.sha)?.commit,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rowCount, data?.sha],
+  );
+
+  const provenance = useMemo(() => {
+    if (!data) return null;
+    const commit: Commit = storeCommit ?? {
+      sha: data.sha,
+      parents: data.parents,
+      authorName: data.author.name,
+      authorEmail: data.author.email,
+      authorDate: data.author.date,
+      committerDate: data.committer.date,
+      subject: data.subject,
+      refs: [],
+      coAuthors: parseTrailers(data.body, 'Co-Authored-By'),
+      sessionTrailers: parseTrailers(data.body, 'Midnite-Session'),
+    };
+    return classifyProvenance(commit, roster, closedSessions, repoId);
+  }, [data, storeCommit, roster, closedSessions, repoId]);
+
+  const handleOpenSession = useCallback((sessionId: string) => {
+    useSessionsStore.getState().selectClosedSession(sessionId);
+    useSessionsStore.getState().selectLiveSession(null);
+    useUiStore.getState().setActiveView('sessions');
+  }, []);
+
+  const provenanceLine = useMemo(() => {
+    if (!provenance || provenance.kind === 'human') return null;
+    const agentNames = provenance.agentIds.map((id) => getAgentName(id, agents)).join(', ');
+
+    const renderSessionLink = (sessionId: string) => {
+      const session = closedSessions.find((s) => s.id === sessionId);
+      const sessionLabel = session?.name || session?.title || sessionId.slice(0, 8);
+      return (
+        <button
+          type="button"
+          onClick={() => handleOpenSession(sessionId)}
+          className="underline decoration-primary/40 underline-offset-2 hover:decoration-primary text-primary font-medium"
+          title={`Open session transcript (${sessionId})`}
+          aria-label={`Open session ${sessionLabel}`}
+        >
+          {sessionLabel}
+        </button>
+      );
+    };
+
+    if (provenance.source === 'session-trailer') {
+      return (
+        <>
+          Made during {provenance.sessionId ? renderSessionLink(provenance.sessionId) : 'session'} · {agentNames}
+        </>
+      );
+    }
+
+    if (provenance.source === 'session-window') {
+      return (
+        <>
+          Probably made during {provenance.sessionId ? renderSessionLink(provenance.sessionId) : 'agent session'}
+        </>
+      );
+    }
+
+    if (provenance.source === 'co-author') {
+      return `Co-authored by ${agentNames}`;
+    }
+
+    if (provenance.source === 'author') {
+      return `Authored by ${agentNames}`;
+    }
+
+    return null;
+  }, [provenance, agents, closedSessions, handleOpenSession]);
   /*
     Open ⇄ closed is a preference, like the tree/list choice beside it: you are
     either reading commits or scanning diffs, and you keep doing the one you
@@ -314,7 +438,11 @@ export function CommitDetail({
       {metaOpen ? (
         <div id={metaId} className="min-h-0 flex-1 overflow-auto">
           <header className="px-3 pb-2">
-            <Identities author={data.author} committer={data.committer} />
+            <Identities
+              author={data.author}
+              committer={data.committer}
+              provenanceLine={provenanceLine}
+            />
             <div className="mt-2">
               <Suspense fallback={null}>
                 <CommitMessage
@@ -534,7 +662,15 @@ type Identity = { name: string; email: string; date: number };
  * overwhelming majority of commits; comparing on email alone would hide a real
  * signal on the ones where only the name moved.
  */
-function Identities({ author, committer }: { author: Identity; committer: Identity }) {
+function Identities({
+  author,
+  committer,
+  provenanceLine,
+}: {
+  author: Identity;
+  committer: Identity;
+  provenanceLine?: ReactNode;
+}) {
   const differs = author.name !== committer.name || author.email !== committer.email;
 
   return (
@@ -543,6 +679,14 @@ function Identities({ author, committer }: { author: Identity; committer: Identi
       data-testid="commit-identities"
     >
       <IdentityRow role="author" identity={author} />
+      {provenanceLine ? (
+        <>
+          <dt className="text-muted-foreground">Provenance</dt>
+          <dd className="col-span-2 text-foreground truncate" data-testid="commit-provenance">
+            {provenanceLine}
+          </dd>
+        </>
+      ) : null}
       {differs ? <IdentityRow role="committer" identity={committer} /> : null}
     </dl>
   );

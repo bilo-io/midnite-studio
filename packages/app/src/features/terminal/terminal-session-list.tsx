@@ -1,4 +1,6 @@
-import type { AgentDefinition, TerminalSession } from '@midnite/studio-shared';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+import { commitsForLiveSession, type AgentDefinition, type TerminalSession } from '@midnite/studio-shared';
 import {
   LuChevronRight,
   LuMoon,
@@ -17,6 +19,7 @@ import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { StateDot } from '../../components/state-dot';
 import { Spinner } from '../../components/skeleton';
 import { useUiStore } from '../../store/ui-store';
+import { useGraphStore } from '../graph/graph-store';
 import { closeSessionWithConfirm } from './close-session';
 import {
   inMainPanel,
@@ -249,6 +252,37 @@ function SessionRow({
   const live = phase === 'live';
   const name = sessionLabel(session, autoName, agent?.label);
 
+  const rowCount = useGraphStore((s) => s.rows.length);
+  const commits = useMemo(
+    () => useGraphStore.getState().rows.map((r) => r.commit),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rowCount],
+  );
+
+  const sessionCommits = useMemo(
+    () => (rowIsAgent ? commitsForLiveSession(commits, session) : []),
+    [rowIsAgent, commits, session],
+  );
+  const commitCount = sessionCommits.length;
+
+  const [pulsing, setPulsing] = useState(false);
+  const prevCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!rowIsAgent || !live) return;
+    if (prevCountRef.current !== null && commitCount > prevCountRef.current) {
+      const isReduced =
+        typeof document !== 'undefined' &&
+        document.documentElement.getAttribute('data-motion') === 'reduced';
+      if (!isReduced) {
+        setPulsing(true);
+        const timer = setTimeout(() => setPulsing(false), 800);
+        return () => clearTimeout(timer);
+      }
+    }
+    prevCountRef.current = commitCount;
+  }, [commitCount, rowIsAgent, live]);
+
   const rename = () => {
     dialogs.prompt({
       title: 'Rename session',
@@ -304,7 +338,9 @@ function SessionRow({
       data-phase={phase}
       className={`group flex w-full cursor-pointer select-none items-center gap-1.5 px-2 py-1.5 text-xs ${
         active ? 'bg-accent/60' : 'hover:bg-accent/30'
-      } ${isDragging ? 'opacity-80' : ''} ${phase !== 'live' ? 'opacity-60' : ''}`}
+      } ${isDragging ? 'opacity-80' : ''} ${phase !== 'live' ? 'opacity-60' : ''} ${
+        pulsing ? 'session-row-pulse' : ''
+      }`}
       onContextMenu={showMenu}
       onClick={() => useTerminalStore.getState().setActive(session.id)}
       onDoubleClick={rename}
@@ -365,6 +401,26 @@ function SessionRow({
           {name}
         </span>
       </div>
+
+      {rowIsAgent && live && commitCount > 0 ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            useUiStore.getState().setGraphSessionFilter(session.id);
+            useUiStore.getState().setGraphShaFilter(sessionCommits.map((c) => c.sha));
+            useUiStore.getState().setActiveView('graph');
+          }}
+          data-testid="terminal-session-commit-count"
+          aria-label={`${commitCount} commit${commitCount === 1 ? '' : 's'}`}
+          title={`${commitCount} commit${commitCount === 1 ? '' : 's'} made during this session`}
+          className={`shrink-0 rounded px-1 text-[10px] tabular-nums font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
+            pulsing ? 'session-row-pulse text-primary' : ''
+          }`}
+        >
+          {commitCount}
+        </button>
+      ) : null}
 
       {/*
         Only a live agent gets one — gated on what is *running*

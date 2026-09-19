@@ -4424,4 +4424,35 @@ html[data-motion='reduced'] .actions-glow-fail {
   text-shadow: 0 0 10px rgba(239, 68, 68, 0.85);
 }
 
+/* Phase 78 Theme D: live agent session count pulse */
+@keyframes session-row-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.session-row-pulse {
+  animation: session-row-pulse 600ms ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-row-pulse {
+    animation: none !important;
+  }
+}
+
+html[data-motion='reduced'] .session-row-pulse {
+  animation: none !important;
+}
+
+
 

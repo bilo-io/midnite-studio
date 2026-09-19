@@ -68,6 +68,7 @@ export function GraphView() {
 
   const graphRefFilter = useUiStore((s) => s.graphRefFilter);
   const graphAuthorFilter = useUiStore((s) => s.graphAuthorFilter);
+  const graphShaFilter = useUiStore((s) => s.graphShaFilter);
   /*
     Derived from the two settings every render, never memoised as a scaled
     theme: `scaleTheme` compounds, so holding its output and re-scaling it would
@@ -334,6 +335,11 @@ export function GraphView() {
     [graphAuthorFilter],
   );
 
+  const highlightedShas = useMemo(
+    () => (graphShaFilter === null ? null : new Set(graphShaFilter)),
+    [graphShaFilter],
+  );
+
   const authors = useMemo(
     () => summariseAuthors(rows),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -495,8 +501,9 @@ export function GraphView() {
                     theme={theme}
                     clipId={avatarClipId(theme)}
                     dimmed={
-                      highlightedEmails !== null &&
-                      !highlightedEmails.has(row.commit.authorEmail.trim().toLowerCase())
+                      (highlightedEmails !== null &&
+                        !highlightedEmails.has(row.commit.authorEmail.trim().toLowerCase())) ||
+                      (highlightedShas !== null && !highlightedShas.has(row.commit.sha))
                     }
                     glowColorIdx={glowColorIdx}
                     nowMs={nowMs}

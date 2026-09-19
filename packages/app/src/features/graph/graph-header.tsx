@@ -143,6 +143,12 @@ export function GraphHeader({
   const setGraphRefFilter = useUiStore((s) => s.setGraphRefFilter);
   const graphAuthorFilter = useUiStore((s) => s.graphAuthorFilter);
   const setGraphAuthorFilter = useUiStore((s) => s.setGraphAuthorFilter);
+  const graphSessionFilter = useUiStore((s) => s.graphSessionFilter);
+  const graphShaFilter = useUiStore((s) => s.graphShaFilter);
+  const setGraphSessionFilter = useUiStore((s) => s.setGraphSessionFilter);
+  const setGraphShaFilter = useUiStore((s) => s.setGraphShaFilter);
+
+  const hasSessionFilter = Boolean(graphSessionFilter || (graphShaFilter && graphShaFilter.length > 0));
 
   return (
     <div className="shrink-0 border-b border-border">
@@ -154,6 +160,27 @@ export function GraphHeader({
           selected={graphAuthorFilter}
           onChange={setGraphAuthorFilter}
         />
+        {hasSessionFilter && (
+          <div
+            data-testid="session-filter-chip"
+            className="flex items-center gap-1 rounded bg-accent/60 px-1.5 py-0.5 text-xs text-foreground"
+          >
+            <span className="truncate max-w-[140px] text-[11px]">
+              {graphSessionFilter ? `Session: ${graphSessionFilter.slice(0, 8)}…` : `${graphShaFilter?.length} commits`}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setGraphSessionFilter(null);
+                setGraphShaFilter(null);
+              }}
+              aria-label="Clear session filter"
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+            >
+              <span className="text-[10px] leading-none">×</span>
+            </button>
+          </div>
+        )}
         <span className="ml-auto text-[11px] text-muted-foreground">{theme.label}</span>
       </div>
 

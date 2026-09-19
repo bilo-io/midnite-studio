@@ -7,6 +7,7 @@ import { DialogHost } from '../../components/dialog-host';
 import { useSessionsStore } from '../../store/sessions-store';
 import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from '../terminal/terminal-store';
+import { useGraphStore } from '../graph/graph-store';
 import { SessionsView } from './sessions-view';
 
 import { BUILTIN_AGENTS } from '@midnite/studio-shared';
@@ -75,12 +76,16 @@ afterEach(() => {
     hydrated: false,
     sessionsPaneSessionId: null,
   });
+  useGraphStore.setState({ rows: [] });
   useUiStore.setState({
     terminalOpen: false,
     fabPanelOpen: false,
     fabDetached: false,
     fabSessions: {},
     activeFabTab: 'guard',
+    graphSessionFilter: null,
+    graphShaFilter: null,
+    activeView: 'sessions',
   });
   useSessionsStore.setState({ selectedClosedSessionId: null, selectedLiveSessionId: null });
 });
@@ -1115,6 +1120,157 @@ describe('SessionsView', () => {
       expect(newSession.agentId).toBe('codex');
       expect(newSession.cwd).toBe('/work/repo-one');
       expect(store.pendingInput[newSession.id]).toBe('codex resume rollout-abc\r');
+    });
+  });
+
+  describe('crosswalk: sessions ↔ commits (Phase 78 Theme D)', () => {
+    it('closed agent session displays commit count matching commitsForSession and clicking navigates to Graph view', () => {
+      useGraphStore.setState({
+        rows: [
+          {
+            row: 0,
+            lane: 0,
+            colorIdx: 0,
+            edges: [],
+            laneCount: 1,
+            commit: {
+              sha: 'sha-c1',
+              parents: [],
+              authorName: 'Claude',
+              authorEmail: 'claude@anthropic.com',
+              authorDate: 1500,
+              committerDate: 1500,
+              subject: 'agent commit 1',
+              refs: [],
+              sessionTrailers: ['c-agent-1'],
+            },
+          },
+          {
+            row: 1,
+            lane: 0,
+            colorIdx: 0,
+            edges: [],
+            laneCount: 1,
+            commit: {
+              sha: 'sha-c2',
+              parents: [],
+              authorName: 'Claude',
+              authorEmail: 'claude@anthropic.com',
+              authorDate: 1600,
+              committerDate: 1600,
+              subject: 'agent commit 2',
+              refs: [],
+              sessionTrailers: ['c-agent-1'],
+            },
+          },
+          {
+            row: 2,
+            lane: 0,
+            colorIdx: 0,
+            edges: [],
+            laneCount: 1,
+            commit: {
+              sha: 'sha-h1',
+              parents: [],
+              authorName: 'Human',
+              authorEmail: 'human@example.com',
+              authorDate: 3000,
+              committerDate: 3000,
+              subject: 'human commit',
+              refs: [],
+            },
+          },
+        ],
+      });
+
+      historyResult.mockReturnValue({
+        data: [
+          closedSession({
+            id: 'c-agent-1',
+            repoId: 'r1',
+            title: 'repo-one',
+            name: 'agent-session',
+            kind: 'agent',
+            agentId: 'claude',
+            createdAt: 1000,
+            closedAt: 2000,
+          }),
+        ],
+        isPending: false,
+        isError: false,
+      });
+
+      renderView();
+
+      const countBtn = screen.getByTestId('session-commit-count');
+      expect(countBtn.textContent).toBe('2 commits');
+
+      fireEvent.click(countBtn);
+
+      expect(useUiStore.getState().graphSessionFilter).toBe('c-agent-1');
+      expect(useUiStore.getState().graphShaFilter).toEqual(['sha-c1', 'sha-c2']);
+      expect(useUiStore.getState().activeView).toBe('graph');
+    });
+
+    it('live agent session shows commits made since createdAt', () => {
+      useGraphStore.setState({
+        rows: [
+          {
+            row: 0,
+            lane: 0,
+            colorIdx: 0,
+            edges: [],
+            laneCount: 1,
+            commit: {
+              sha: 'sha-live-1',
+              parents: [],
+              authorName: 'Human',
+              authorEmail: 'human@example.com',
+              authorDate: 1500,
+              committerDate: 1500,
+              subject: 'commit during live session',
+              refs: [],
+            },
+          },
+          {
+            row: 1,
+            lane: 0,
+            colorIdx: 0,
+            edges: [],
+            laneCount: 1,
+            commit: {
+              sha: 'sha-live-old',
+              parents: [],
+              authorName: 'Human',
+              authorEmail: 'human@example.com',
+              authorDate: 500,
+              committerDate: 500,
+              subject: 'commit before live session',
+              refs: [],
+            },
+          },
+        ],
+      });
+
+      historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+
+      useTerminalStore.setState({
+        sessions: [
+          liveSession({
+            id: 'live-agent-1',
+            repoId: 'r1',
+            title: 'repo-one',
+            kind: 'agent',
+            agentId: 'claude',
+            createdAt: 1000,
+          }),
+        ],
+      });
+
+      renderView();
+
+      const countBtn = screen.getByTestId('session-commit-count');
+      expect(countBtn.textContent).toBe('1 commit');
     });
   });
 });
