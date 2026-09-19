@@ -94,10 +94,10 @@ fetches — a page that offers one script to read and pipes a different one into
 `sh` is the failure that pairing exists to prevent, and `download-page.test.tsx`
 asserts the two match.
 
-## The brand face — Kaushan Script, a re-cut of the app's
+## The brand face — Damion, an open stand-in for the app's
 
-The site sets "Midnite" in **Kaushan Script** (OFL), self-hosted from
-[`packages/website/src/fonts/kaushan-script/`](../packages/website/src/fonts/kaushan-script/).
+The site sets "Midnite" in **Damion** (OFL), self-hosted from
+[`packages/website/src/fonts/damion/`](../packages/website/src/fonts/damion/).
 The desktop app sets the same word in **Quick Kiss** and keeps it. **The two
 faces are deliberately near-identical, not identical**, and that is the whole
 design: the app's own face cannot legally be served from a public origin, so the
@@ -127,39 +127,45 @@ file itself.
 `src/fonts/`, not into `public/`, not as a `@font-face` reaching across the
 package boundary. Nothing about the substitution below relaxes that.
 
-### How Kaushan Script was chosen
+### How Damion was chosen
 
-Not by reading foundry descriptions. Twenty SIL OFL / Apache-2.0 script faces
-were fetched from the [`google/fonts`](https://github.com/google/fonts) repo and
-rendered against Quick Kiss at the three sizes the site actually uses — the
-nav's 20px, the hero's 64px and the footer's ~140px — then ranked on stroke
-character, slant, connectedness and x-height. The sheet is committed as the
-evidence:
+**By preference, over the ranking — and the ranking is still on file.** Twenty
+SIL OFL / Apache-2.0 script faces were originally fetched from the
+[`google/fonts`](https://github.com/google/fonts) repo and rendered against
+Quick Kiss at the three sizes the site actually uses — the nav's 20px, the
+hero's 64px and the footer's ~140px — then ranked on stroke character, slant,
+connectedness and x-height. The sheet is committed as the evidence:
 
 **[`docs/screenshots/website-wordmark/candidates.png`](screenshots/website-wordmark/candidates.png)**
 
-Kaushan Script wins on every axis at once: the same brush weight, the same ~15°
-slant, the same tapered stroke ends, the same lift under "nite". It is a touch
-wider and slightly lower in thick/thin contrast, and that is the whole of the
-difference. **Norican** was the runner-up — the right slant and the right
-contrast, but a lighter, more evenly-modulated hand that reads calligraphic
-where Quick Kiss reads marker. **Yellowtail** third (correct contrast, but a
-retro signage script whose looped ascenders and epsilon "e" no size hides) and
-**Damion** fourth (close construction, too light and too upright).
+That exercise put **Kaushan Script** first (closest to Quick Kiss on every axis
+at once), **Norican** second, **Yellowtail** third and **Damion** fourth —
+"close construction, too light and too upright". Damion is nonetheless what the
+site now wears: it was picked directly, as the face the mark should have, and a
+proximity-to-Quick-Kiss score is not the only thing that decides that. The
+difference the swap actually makes, at the sizes the site sets: Damion is a
+**joined, rounder, more even monoline** where Kaushan Script is a broader
+disconnected brush with visible thick/thin — so "Midnite" reads as one
+continuous signature rather than seven brush strokes, and its final `e` exits on
+a long swash that the earlier face did not have.
 
-The shortlist and the whole field are both on the sheet, so a future re-pick
-starts from rendered type rather than from this paragraph.
+**The licensing constraint is unchanged and is what actually binds**: the face
+has to be OFL or Apache, self-hosted, with upstream's licence file beside it.
+Damion satisfies that exactly as Kaushan Script did. The sheet stays committed
+so a future re-pick starts from rendered type rather than from this paragraph.
 
 ### How it is wired
 
 Four files, and the same three-part wiring the app uses:
 
-1. **The file.** `src/fonts/kaushan-script/KaushanScript-latin.woff2` — the
-   upstream TTF subset to Latin and compressed, **210 KB → 34 KB**. Upstream's
-   `OFL.txt` sits beside it verbatim, which is what clause 2 of the licence
-   requires, and the directory's own
-   [`README.md`](../packages/website/src/fonts/kaushan-script/README.md) records
-   the source URL and the exact `pyftsubset` command.
+1. **The file.** `src/fonts/damion/Damion-latin.woff2` — the upstream TTF
+   subset to Latin and compressed, **74 KB → 27 KB**. Upstream's `OFL.txt` sits
+   beside it verbatim, which is what clause 2 of the licence requires, and the
+   directory's own
+   [`README.md`](../packages/website/src/fonts/damion/README.md) records the
+   source URL and the exact `pyftsubset` command. Damion's copyright line
+   declares **no Reserved Font Name**, so the subset keeps the family name with
+   no obligation either way.
 2. **`@font-face`** in [`src/styles/site.css`](../packages/website/src/styles/site.css),
    with `font-display: swap` and a relative `url()` — so **Vite fingerprints and
    emits it**, there is no `public/` copy to keep in step, and there is no Google
@@ -175,7 +181,11 @@ Four files, and the same three-part wiring the app uses:
    request is CORS-mode, and a preload whose mode differs is a second download.
 4. **[`src/components/wordmark.tsx`](../packages/website/src/components/wordmark.tsx)**
    owns the treatment, and is the only place `font-brand` is used. `Midnite` is
-   the brand and takes the brand face at `1.35em` with `tracking-wide`; `Studio`
+   the brand and takes the brand face at `1.35em` with `tracking-wide` and
+   `pr-[0.15em]` — **headroom for the clip, and a per-face number**: Damion's
+   ink runs 0.104em past its advance box over "Midnite" where Kaushan Script's
+   ran 0.051em, and a gradient clipped to text still only paints inside the
+   element's box. A face swap re-measures it. `Studio`
    says which of midnite's apps this is and stays in the UI face one muted step
    back — setting both in a script face would read as one made-up word. That
    mirrors the app's `Wordmark` exactly.

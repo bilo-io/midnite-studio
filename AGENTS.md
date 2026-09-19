@@ -271,16 +271,20 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   rights reserved" (Billy Argel; commercial and webfont licences are sold separately). The
   private app is arguably within that; **`packages/website` is public marketing and is not**, and
   serving the TTF from a public origin hands out the file besides. So the site sets the same
-  wordmark in **Kaushan Script (SIL OFL)** — self-hosted from
-  `packages/website/src/fonts/kaushan-script/` with upstream's `OFL.txt` verbatim beside it, a
-  34 KB Latin woff2 subset, no Google Fonts `<link>` and no third-party request. It was picked by
-  rendering twenty OFL/Apache script faces against Quick Kiss at the sizes the site actually uses
-  (Norican was the runner-up); the sheet is committed at
-  [`docs/screenshots/website-wordmark/candidates.png`](docs/screenshots/website-wordmark/candidates.png).
-  **`quick-kiss.ttf` still must never be copied into `packages/website`** — the substitution is
-  what makes that unnecessary, not what relaxes it. The wordmark's split lives in one place,
-  `packages/website/src/components/wordmark.tsx`, mirroring the app's own `brand.tsx`.
-  [`docs/WEBSITE.md`](docs/WEBSITE.md) carries the licence evidence and the wiring.
+  wordmark in **Damion (SIL OFL)** — self-hosted from
+  `packages/website/src/fonts/damion/` with upstream's `OFL.txt` verbatim beside it, a
+  27 KB Latin woff2 subset, no Google Fonts `<link>` and no third-party request. **The binding
+  constraint is the licence, not the ranking**: twenty OFL/Apache script faces were once rendered
+  against Quick Kiss at the sizes the site actually uses and Kaushan Script won that sheet, with
+  Damion fourth — the site wears Damion anyway, picked directly, and the sheet stays committed at
+  [`docs/screenshots/website-wordmark/candidates.png`](docs/screenshots/website-wordmark/candidates.png)
+  so a re-pick starts from rendered type. **`quick-kiss.ttf` still must never be copied into
+  `packages/website`** — the substitution is what makes that unnecessary, not what relaxes it.
+  The wordmark's split lives in one place, `packages/website/src/components/wordmark.tsx`,
+  mirroring the app's own `brand.tsx`; its `pr-[0.15em]` is clip headroom measured **per face**
+  (Damion's ink runs 0.104em past its advance box over "Midnite"; Kaushan's ran 0.051em), so a
+  face swap re-measures it. [`docs/WEBSITE.md`](docs/WEBSITE.md) carries the licence evidence and
+  the wiring.
 - **Commits here are authored as `bilo-io` — `Bilo Lwabona <bilo.lwabona@gmail.com>`.** The
   global `~/.gitconfig` carries the *work* identity, which is correct for every other
   checkout on this machine and wrong for this one. Nothing about a clone announces that
