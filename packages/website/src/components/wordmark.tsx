@@ -8,11 +8,10 @@
  * `font-medium` and one muted step back. Setting both in a script face would
  * read as one made-up word.
  *
- * The face itself is **Kaushan Script**, not the app's Quick Kiss. Quick Kiss is
+ * The face itself is **Damion**, not the app's Quick Kiss. Quick Kiss is
  * licensed for personal use only and can never be served from a public origin;
- * Kaushan Script (OFL) is its closest open re-cut, chosen from twenty rendered
- * candidates. See `docs/WEBSITE.md` and
- * `src/fonts/kaushan-script/README.md`. The two surfaces are deliberately
+ * Damion is an OFL script in the same hand. See `docs/WEBSITE.md` and
+ * `src/fonts/damion/README.md`. The two surfaces are deliberately
  * near-identical rather than identical.
  *
  * **Three surfaces render this and none of them spells it out inline**: the
@@ -65,17 +64,20 @@ export const Wordmark = ({
       gives `drop-shadow` a box to filter — a filter on a plain inline element is
       applied per line-box, which is the same problem again.
 
-      **`pr-[0.08em]` is not spacing, it is headroom for the clip itself.**
-      Kaushan Script's glyphs are wider than their advance: measuring "Midnite"
-      on a canvas at the brand face puts its ink about 0.05em past the box
-      `inline-block` sizes to (the final `e`'s tail is the culprit). A gradient
-      clipped to *text* still only paints inside the *element's* box, so
-      without this the tail's overshoot fell outside it and read as the name
-      being cut off. `0.08em` clears that with room to spare, in the one unit
-      that scales with every size this mark is set at.
+      **`pr-[0.15em]` is not spacing, it is headroom for the clip itself.**
+      The brand face's glyphs are wider than their advance: summing "Midnite"
+      over Damion's own metrics gives a 2.896em advance against ink reaching
+      3.000em, so its ink runs **0.104em** past the box `inline-block` sizes to
+      (the final `e`'s tail is the culprit). A gradient clipped to *text* still
+      only paints inside the *element's* box, so without this the tail's
+      overshoot fell outside it and read as the name being cut off. `0.15em`
+      clears that with room to spare, in the one unit that scales with every
+      size this mark is set at. **It is a per-face number** — Kaushan Script,
+      which this replaced, overshot by only 0.051em and wanted `0.08em`, so a
+      future face swap re-measures rather than inheriting this value.
     */}
     <span
-      className={`inline-block text-[1.35em] tracking-wide pr-[0.08em] ${
+      className={`inline-block text-[1.35em] tracking-wide pr-[0.15em] ${
         tone === 'rainbow' ? 'ws-rainbow-text ws-brand-glow' : ''
       } font-brand`}
     >

@@ -1,14 +1,14 @@
 @import './tokens.css';
 
 /*
-  The brand face: Kaushan Script, the site's open-licence re-cut of the app's
+  The brand face: Damion, the site's open-licence stand-in for the app's
   Quick Kiss.
 
   The app's own face cannot ship here — it is licensed for personal use only —
-  so the site sets the same wordmark in the closest OFL face instead, picked
-  from twenty rendered candidates. The two surfaces are near-identical by
-  design, not identical. See `src/fonts/kaushan-script/README.md` for the
-  subsetting command and `docs/WEBSITE.md` for the decision.
+  so the site sets the same wordmark in an OFL face instead. The two surfaces
+  are near-identical by design, not identical. See
+  `src/fonts/damion/README.md` for the subsetting command and
+  `docs/WEBSITE.md` for the decision.
 
   **Never add a `@font-face` here for `quick-kiss.ttf`**, and never copy that
   file into this package: it would put a personal-use font on a public origin.
@@ -16,11 +16,11 @@
   Vite fingerprints and emits the woff2 from this relative `url()`, so there is
   no `public/` copy to keep in step and no Google Fonts `<link>` — the site
   makes no third-party request for its own type. `swap`, so the wordmark is
-  readable in the fallback for the one frame before the 34 KB file lands.
+  readable in the fallback for the one frame before the 27 KB file lands.
 */
 @font-face {
-  font-family: 'Kaushan Script';
-  src: url('../fonts/kaushan-script/KaushanScript-latin.woff2') format('woff2');
+  font-family: 'Damion';
+  src: url('../fonts/damion/Damion-latin.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -63,7 +63,7 @@
       a generic-script fallback keeps the swap from flashing a completely
       different kind of letter.
     */
-    --font-brand: 'Kaushan Script', cursive;
+    --font-brand: 'Damion', cursive;
   }
 
   html {

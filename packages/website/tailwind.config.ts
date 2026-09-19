@@ -98,7 +98,7 @@ const config: Config = {
           'sans-serif',
         ],
         mono: ['ui-monospace', 'SFMono-Regular', 'SF Mono', 'Menlo', 'monospace'],
-        // The wordmark face — Kaushan Script, the open-licence re-cut of the
+        // The wordmark face — Damion, the open-licence stand-in for the
         // app's Quick Kiss. Declared as a var in `styles/site.css` so the
         // `@font-face` and the utility that reaches it stay in one place; keep
         // the three in sync. Only `components/wordmark.tsx` should use it.
