@@ -25,6 +25,33 @@ import {
  */
 const SERVER_SNAPSHOT: AvatarState = { status: 'pending' };
 
+/**
+ * Why the agent glyph below is wrapped in a `<foreignObject>` rather than
+ * drawn as a plain nested `<svg>`, as every other piece of node geometry
+ * here is.
+ *
+ * A `<svg>` (`resolveAgentIcon`'s result — `claude-icon.tsx` and its
+ * siblings, or a `react-icons/si`/`react-icons/lu` glyph) nested inside
+ * ANOTHER `<svg>` — this node sits inside the row's own gutter `<svg>`,
+ * `graph-svg.tsx` — does not reliably honour `style.width`/`style.height`
+ * in Chromium: with no `width`/`height` XML ATTRIBUTE of its own, its
+ * painted size instead comes from the SVG "auto→100%" default, resolved
+ * against whatever the ANCESTOR svg's own established viewport happens to
+ * be — which varies with the gutter's width, i.e. with how many lanes the
+ * graph has open. That silent, lane-count-dependent mismatch is what
+ * shipped as Phase 78 Theme C's "orange asterisk" bug: an icon meant to
+ * read as ~0.6× the avatar rendered several times larger, off-centre (the
+ * translate math was sized for the small icon), floating off the row's own
+ * baseline and spilling into the commit-message column.
+ *
+ * A `<foreignObject>` sidesteps the whole question: its content is laid out
+ * under normal CSS box rules, exactly like the HTML-context usages of the
+ * same icons (`graph-row.tsx`'s author-column badge, `provenance-mark.tsx`,
+ * both outside any SVG and both unaffected by this), so `style.width`/
+ * `style.height` apply the way they would to any other HTML/SVG element —
+ * no assumption about the icon's own viewBox, no dependence on lane count.
+ */
+
 export function CommitAvatar({
   email,
   name,
@@ -86,7 +113,12 @@ export function CommitAvatar({
             fill={agent?.accent ? `${agent.accent}25` : 'hsl(var(--muted))'}
           />
           {AgentIcon ? (
-            <g transform={`translate(${cx - radius * 0.6}, ${cy - radius * 0.6})`}>
+            <foreignObject
+              x={cx - (size * 0.6) / 2}
+              y={cy - (size * 0.6) / 2}
+              width={size * 0.6}
+              height={size * 0.6}
+            >
               <AgentIcon
                 style={{
                   width: size * 0.6,
@@ -94,7 +126,7 @@ export function CommitAvatar({
                   color: agent?.accent ?? 'hsl(var(--foreground))',
                 }}
               />
-            </g>
+            </foreignObject>
           ) : null}
         </g>
       ) : (
@@ -169,10 +201,11 @@ export function CommitAvatar({
             stroke={ring}
             strokeWidth={1}
           />
-          <g
-            transform={`translate(${cx + radius * 0.5 - radius * 0.28}, ${
-              cy + radius * 0.5 - radius * 0.28
-            })`}
+          <foreignObject
+            x={cx + radius * 0.5 - radius * 0.28}
+            y={cy + radius * 0.5 - radius * 0.28}
+            width={radius * 0.56}
+            height={radius * 0.56}
           >
             <AgentIcon
               style={{
@@ -181,7 +214,7 @@ export function CommitAvatar({
                 color: agent?.accent ?? 'hsl(var(--foreground))',
               }}
             />
-          </g>
+          </foreignObject>
         </g>
       ) : null}
     </g>
