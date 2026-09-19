@@ -41,6 +41,7 @@ import { useGraphActions } from './use-graph-actions';
 import { useGraphStream } from './use-graph-stream';
 import { useActiveAgentWorktreePaths } from './use-agent-worktrees';
 import { useAgents } from '../terminal/use-agents';
+import { provenanceMarkMode as provenanceMarkModeOf } from './provenance-display';
 import { resolveProvenanceDetails } from './provenance-mark';
 import { matchesProvenanceFilter } from './provenance-filter';
 
@@ -74,6 +75,9 @@ export function GraphView() {
   const graphAuthorFilter = useUiStore((s) => s.graphAuthorFilter);
   const graphShaFilter = useUiStore((s) => s.graphShaFilter);
   const graphProvenanceFilter = useUiStore((s) => s.graphProvenanceFilter);
+  // Coerced rather than read raw, exactly as `graphTheme` is: a mode persisted
+  // by a future build falls back to the default instead of rendering nothing.
+  const provenanceMarkMode = provenanceMarkModeOf(useUiStore((s) => s.graphProvenanceMark));
 
   const { agents } = useAgents();
   const { data: closedSessions } = useSessionHistory();
@@ -551,6 +555,7 @@ export function GraphView() {
                     provenance={commitProv}
                     sessionName={sessionName}
                     agent={agent}
+                    markMode={provenanceMarkMode}
                     onSelect={selectCommit}
                     onContextMenu={onRowContextMenu}
                     onRefContextMenu={onRefContextMenu}

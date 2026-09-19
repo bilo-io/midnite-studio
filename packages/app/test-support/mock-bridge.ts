@@ -42,6 +42,21 @@ export type PopoutRole =
 
 export type MockFixtures = {
   /**
+   * Commit signatures to graft onto the mock agent roster, keyed by `agentId`.
+   *
+   * The roster below deliberately ships WITHOUT `signatures`, unlike
+   * `BUILTIN_AGENTS`, and ~90 specs depend on that: `classifyProvenance`
+   * matches a commit's author and its `Co-Authored-By` trailers against the
+   * roster, and the shared commit fixture carries a
+   * `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>` line — so adding
+   * Claude's real signature to the default roster silently reclassifies that
+   * commit from `human` to `mixed` for every spec that opens it.
+   *
+   * A spec that WANTS provenance to fire asks for it here instead. Absent —
+   * the default — leaves the roster exactly as it was.
+   */
+  agentSignatures?: { agentId: string; emails: string[]; names: string[] }[];
+  /**
    * Overrides `update.releaseNotes`'s canned body (Phase 29 Theme F). Absent
    * falls back to the existing canned copy every spec before this fixture
    * existed was written against, so nothing already passing changes shape —
@@ -955,6 +970,24 @@ export function buildMockBridge(data: MockFixtures) {
   const noop = () => undefined;
   const unsubscribe = () => noop;
   const ok = async () => ({ ok: true as const });
+
+  /**
+   * Graft `data.agentSignatures` onto the roster, by `agentId`.
+   *
+   * Declared inside the builder, like every other helper here, because this
+   * whole function is serialised into the page by `addInitScript` — a
+   * module-level helper would be `undefined` by the time the bridge runs.
+   */
+  const graftSignatures = <T extends { id: string }>(
+    agents: T[],
+    signatures: MockFixtures['agentSignatures'],
+  ): T[] =>
+    !signatures?.length
+      ? agents
+      : agents.map((agent) => {
+          const match = signatures.find((s) => s.agentId === agent.id);
+          return match ? { ...agent, signatures: match } : agent;
+        });
 
   /** relPath helpers for the fs write mocks — mirrors `parentOf`/`joinRelPath` in `use-file-actions.ts`. */
   const parentDirOf = (relPath: string): string => {
@@ -2064,7 +2097,7 @@ export function buildMockBridge(data: MockFixtures) {
           exactly one of the menu builder's four cases.
         */
       list: async () => ({
-        agents: [
+        agents: graftSignatures([
           {
             id: 'claude',
             label: 'Claude',
@@ -2197,7 +2230,7 @@ export function buildMockBridge(data: MockFixtures) {
             docsUrl: 'https://github.com/cline/cline',
             apiKeyEnvVar: 'ANTHROPIC_API_KEY',
           },
-        ],
+        ], data.agentSignatures),
         status: [
           { id: 'claude', installed: true, resolvedPath: '/Users/e2e/.local/bin/claude', version: '2.1.34' },
           { id: 'cursor', installed: true, resolvedPath: '/usr/local/bin/cursor-agent', version: '2026.09.10' },

@@ -37,6 +37,10 @@ import {
   type GraphThemeId,
 } from '../features/graph/graph-themes';
 import {
+  DEFAULT_PROVENANCE_MARK_MODE,
+  type ProvenanceMarkMode,
+} from '../features/graph/provenance-display';
+import {
   DEFAULT_TERMINAL_FONT_SIZE,
   DEFAULT_TERMINAL_LINE_HEIGHT,
 } from '../features/terminal/terminal-font';
@@ -996,6 +1000,16 @@ export type UiState = {
   /** Provenance filter: 'all' | 'humans' | 'agents' | `agent:${id}`; defaults to 'all' (Phase 78 Theme C). */
   graphProvenanceFilter: string;
   /**
+   * How the agent provenance mark is drawn on a graph node — corner badge,
+   * its own slot beside the node, or alternating with the author's face.
+   *
+   * A preference about appearance, so it persists alongside the style and the
+   * density; see `features/graph/provenance-display.ts` for what each mode is
+   * for. Independent of `graphProvenanceFilter`, which decides WHICH commits
+   * are lit rather than how the ones that are get drawn.
+   */
+  graphProvenanceMark: ProvenanceMarkMode;
+  /**
    * Show the pre-image line-number column in a diff.
    *
    * Off by default: the inspector is a side panel, and two monospace gutters
@@ -1137,6 +1151,7 @@ export type UiState = {
   setGraphRefFilter: (refs: string[]) => void;
   setGraphAuthorFilter: (emails: string[]) => void;
   setGraphProvenanceFilter: (filter: string) => void;
+  setGraphProvenanceMark: (mode: ProvenanceMarkMode) => void;
   toggleDiffOldGutter: () => void;
   setCommitFileView: (view: CommitFileView) => void;
   toggleCommitMeta: () => void;
@@ -1758,6 +1773,7 @@ export type PersistedUi = Pick<
   | 'selectedRepoId'
   | 'selectedWorktreePath'
   | 'graphDensity'
+  | 'graphProvenanceMark'
   | 'settingsPage'
   | 'commitFileView'
   | 'commitMetaOpen'
@@ -2212,6 +2228,7 @@ export const useUiStore = create<UiState>()(
       graphSessionFilter: null,
       graphShaFilter: null,
       graphProvenanceFilter: 'all',
+      graphProvenanceMark: DEFAULT_PROVENANCE_MARK_MODE,
       diffShowOldGutter: DIFF_PREF_DEFAULTS.diffShowOldGutter,
       diffLayout: DIFF_PREF_DEFAULTS.diffLayout,
 
@@ -2478,6 +2495,7 @@ export const useUiStore = create<UiState>()(
       setGraphSessionFilter: (graphSessionFilter) => set({ graphSessionFilter }),
       setGraphShaFilter: (graphShaFilter) => set({ graphShaFilter }),
       setGraphProvenanceFilter: (graphProvenanceFilter) => set({ graphProvenanceFilter }),
+      setGraphProvenanceMark: (graphProvenanceMark) => set({ graphProvenanceMark }),
       toggleDiffOldGutter: () =>
         set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),
       setDiffLayout: (diffLayout) => set({ diffLayout }),
@@ -2586,6 +2604,7 @@ export const useUiStore = create<UiState>()(
         selectedRepoId: state.selectedRepoId,
         selectedWorktreePath: state.selectedWorktreePath,
         graphDensity: state.graphDensity,
+        graphProvenanceMark: state.graphProvenanceMark,
         settingsPage: state.settingsPage,
         commitFileView: state.commitFileView,
         commitMetaOpen: state.commitMetaOpen,

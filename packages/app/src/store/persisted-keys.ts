@@ -46,6 +46,7 @@ export const PREFERENCE_KEYS = [
   'disabledEcosystems', // optimizer-settings-page.tsx
   'forgeWritesEnabled', // reviews-page.tsx / git-safety-page.tsx
   'graphDensity', // density-picker.tsx (via graph-page.tsx)
+  'graphProvenanceMark', // provenance-mark-picker.tsx (via graph-page.tsx)
   'graphTheme', // graph-theme-picker.tsx (via graph-page.tsx)
   'hiddenMetrics', // monitor-page.tsx
   'inactivityTimeoutS', // screen-lock-page.tsx

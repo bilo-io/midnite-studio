@@ -10,6 +10,10 @@ import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
 import { CONNECTOR_OPACITY, RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { laneColor, laneVars } from './lane-colors';
+import {
+  DEFAULT_PROVENANCE_MARK_MODE,
+  type ProvenanceMarkMode,
+} from './provenance-display';
 import { getProvenanceTooltip, ProvenanceMark } from './provenance-mark';
 import { RefBadge } from './ref-badge';
 import { badgeActions, type SyncAction } from './ref-sync';
@@ -85,6 +89,14 @@ export type GraphRowProps = {
   sessionName?: string;
   /** Resolved agent definition. */
   agent?: AgentDefinition | null;
+  /**
+   * How the agent mark is drawn — `Settings ▸ Graph ▸ Agent provenance`.
+   *
+   * A prop rather than a store read inside this component, for the same reason
+   * `theme` is one: every mounted row needs the same value, and a subscription
+   * per row would wake thirty components to learn what the list already knows.
+   */
+  markMode?: ProvenanceMarkMode;
 };
 
 function GraphRowInner({
@@ -101,6 +113,7 @@ function GraphRowInner({
   provenance,
   sessionName,
   agent,
+  markMode = DEFAULT_PROVENANCE_MARK_MODE,
   onSelect,
   onContextMenu,
   onRefContextMenu,
@@ -150,6 +163,19 @@ function GraphRowInner({
   const provenanceTooltip = provenance
     ? getProvenanceTooltip({ provenance, sessionName, agentName: agent?.label })
     : null;
+
+  /**
+   * Diameter of the `beside` slot.
+   *
+   * Scaled off the node it sits next to so it reads as its companion rather
+   * than as a second, unrelated avatar — with a floor, because the smallest
+   * styles would otherwise render an agent logo at nine pixels, which is below
+   * the size any of these marks stay legible at.
+   */
+  const besideSize = Math.max(
+    12,
+    Math.round((theme.node === 'avatar' ? theme.avatarSize : theme.nodeRadius * 2) * 0.7),
+  );
 
   return (
     <div
@@ -324,10 +350,68 @@ function GraphRowInner({
               glowColorIdx={glowColorIdx}
               provenance={provenance}
               agent={agent}
+              markMode={markMode}
             />
           </span>
         </Tooltip>
       </CommitDragHandle>
+
+      {/*
+        `beside` mode's mark: the agent glyph in its own slot, immediately right
+        of the gutter, at roughly twice the corner badge's size because nothing
+        overlaps it here.
+
+        Outside the gutter SVG rather than in it. The outermost lane's centre
+        sits exactly one node-radius from the gutter's edge (`laneOffset`) and
+        the SVG is `overflow-visible`, so a glyph drawn beside the node would
+        paint over the rail and the subject — which is the very bug PR #466
+        fixed. As a flex child it simply takes its own width and the columns
+        after it move over.
+
+        The slot is reserved on EVERY row in this mode, agent or not: a width
+        that appears only on agent commits would make the subject column jog
+        left and right as you scroll.
+      */}
+      {markMode === 'beside' ? (
+        <span
+          data-testid="provenance-slot"
+          className={`flex shrink-0 items-center justify-center transition-opacity duration-150 ease-in-out ${
+            dimmed ? 'opacity-40' : ''
+          }`}
+          style={{ width: besideSize, height: besideSize }}
+        >
+          {provenance && provenance.kind !== 'human' ? (
+            <span
+              data-testid="provenance-mark-beside"
+              className="flex items-center justify-center rounded-full"
+              style={{
+                width: besideSize,
+                height: besideSize,
+                // Opaque surface first, the agent's tint over it — the node's
+                // own backdrop rule (`commit-avatar.tsx`), applied to the mark
+                // that stands in for it.
+                backgroundColor: 'hsl(var(--background))',
+                boxShadow: `0 0 0 1px ${isAgent && agent?.accent ? agent.accent : 'hsl(var(--border))'}`,
+              }}
+            >
+              <span
+                className="flex h-full w-full items-center justify-center rounded-full"
+                style={{
+                  backgroundColor:
+                    isAgent && agent?.accent ? `${agent.accent}25` : 'hsl(var(--muted))',
+                }}
+              >
+                <ProvenanceMark
+                  provenance={provenance}
+                  sessionName={sessionName}
+                  agent={agent}
+                  size={Math.round(besideSize * 0.66)}
+                />
+              </span>
+            </span>
+          ) : null}
+        </span>
+      ) : null}
 
       {/*
         GitKraken's rail: a bar in the lane's colour standing between the graph
