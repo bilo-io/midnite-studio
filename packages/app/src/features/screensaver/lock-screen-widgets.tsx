@@ -185,6 +185,16 @@ export function LockScreenSysmonWidget() {
                     series={[{ id, points }]}
                     geometry={LOCK_CHART_GEOMETRY}
                     showBreaks={false}
+                    // `MetricChart`'s own default className is `h-16 w-full`
+                    // (64px), sized for the flyout's `CHART_GEOMETRY` — every
+                    // other geometry passed here already brings its own
+                    // matching className (see `optimizer-metrics.tsx`). This
+                    // one didn't, so the SVG rendered at 64px inside this
+                    // widget's `h-9` (36px) `overflow-hidden` wrapper, and the
+                    // real drawing on the fixed 0-100% domain was silently
+                    // clipped to whatever slice of it fell inside the visible
+                    // 36px — never the domain math, which was already correct.
+                    className="h-full w-full"
                   />
                 ) : (
                   <div
