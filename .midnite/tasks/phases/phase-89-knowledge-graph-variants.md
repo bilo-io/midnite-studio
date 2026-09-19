@@ -153,23 +153,23 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       [`knowledge-bounce.test.ts`](../../../packages/app/src/features/knowledge/knowledge-bounce.test.ts)
       covers `PulseTracker`.
 
-### C — Focus alpha, animated (M)
+### C — Focus alpha, animated (M) ✅ DONE (PR #463, 2026-09-19)
 
-- [ ] An alpha channel on the same tween machinery as B, so a node moving between dimmed / rest /
+- [x] An alpha channel on the same tween machinery as B, so a node moving between dimmed / rest /
       neighbour / focus **ramps** rather than snapping on the next `refresh()`.
-- [ ] Preserve the premultiplied-alpha invariant: every interpolated value still goes through
+- [x] Preserve the premultiplied-alpha invariant: every interpolated value still goes through
       `withAlpha()` (`knowledge-canvas-colors.ts:18`). Interpolating the *alpha scalar* and
       premultiplying after is correct; interpolating the premultiplied RGBA is not, and the docblock
       says why.
-- [ ] Retune the at-rest alpha toward the marvel-graphs read — a graph with nothing focused should
+- [x] Retune the at-rest alpha toward the marvel-graphs read — a graph with nothing focused should
       already look composed, not uniformly lit. Land the numbers with a before/after screenshot pair,
       not an assertion that it looks better.
-- [ ] Edge alpha ramps with the nodes, keeping `alphaForWeight`'s `0.15…0.8` range and
+- [x] Edge alpha ramps with the nodes, keeping `alphaForWeight`'s `0.15…0.8` range and
       `EMPHASISED_EDGE_SCALE = 1.4` (`use-sigma-graph.ts:89`) intact.
-- [ ] Hover stays a partial repaint. `computeHighlightSets` is deliberately passed `hoveredNodeId:
+- [x] Hover stays a partial repaint. `computeHighlightSets` is deliberately passed `hoveredNodeId:
       null` (`:512`, `:619`) so hover lights a neighbourhood **without** dimming the rest — do not
       quietly fold hover into the dimming path while adding the ramp.
-- [ ] `paused` snaps, `prefers-reduced-motion` snaps. Same rule as B.
+- [x] `paused` snaps, `prefers-reduced-motion` snaps. Same rule as B.
 
 ### D — Four sigma looks (L) ✅ DONE (PR #438, 2026-09-17)
 

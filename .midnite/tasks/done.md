@@ -1,6 +1,23 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-19 — Phase 89 Theme C — Focus alpha, animated
+
+[PR #463](https://github.com/bilo-io/midnite-studio/pull/463). Nodes and edges now ramp between
+dimmed / rest / neighbour / focus alpha instead of snapping on the next `refresh()`. New
+`AlphaRampTracker` (`knowledge-canvas-colors.ts`) — the same "chase from wherever it currently sits"
+shape as `PulseTracker`, but keyed by a per-id identity value (`DEFAULT_NODE_ALPHA` for nodes, each
+edge's own weight-derived rest alpha) rather than a fixed `1`, so a finished ramp back at rest drops
+its own bookkeeping. `targetAlphaForState()` pulled out of `nodeColorForState` so the ramp
+interpolates the plain alpha scalar and premultiplies once at the end, preserving `withAlpha`'s
+invariant. `use-sigma-graph.tsx`'s node/edge reducers call the tracker; a new `alphaTick` rAF loop
+(mirroring `pulseTick`) partially repaints exactly the ids `activeIds()` names until every ramp
+lands; `applyFilters`/`applyHighlight`/`mutateGraph`/`setHoveredNode` all call an idempotent
+`maybeStartAlphaLoop()`. `paused` and `prefers-reduced-motion` both snap (`durationMs: 0`), matching
+Theme B's rule; hover stays a partial repaint, untouched structurally. `DEFAULT_NODE_ALPHA` retuned
+0.65 → 0.5 toward the marvel-graphs read (before/after screenshots in the PR, under
+`docs/screenshots/phase-89-theme-c/`). 12 new unit tests for the tracker and `targetAlphaForState`.
+
 ## 2026-09-19 — Phase 78 Theme C — The mark on the row
 
 [PR #460](https://github.com/bilo-io/midnite-studio/pull/460). Render commit provenance marks and avatar variants across the graph and commit inspector.
