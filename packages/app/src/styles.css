@@ -522,17 +522,23 @@ html[data-motion='reduced'] [data-activity] * {
 [data-density='collapsed'] .status-label {
   display: none;
 }
-/* Phase 39 — the chord hint has its own class with the same rule.
- * It used to BORROW `.status-label`, which meant a toggle's name and its
- * keyboard shortcut could only ever be changed together — and they answer
- * different questions: the name is state-dependent (shown while the surface is
- * open or hovered, decided in JS by `status-toggle-label.ts`), the chord is
- * not. Two selectors in one rule keeps today's identical behaviour while making
- * them independently changeable. */
-[data-density='compact'] .status-chord,
-[data-density='collapsed'] .status-chord {
-  display: none;
-}
+/* `.status-chord` used to carry this same compact/collapsed rule (Phase 39
+ * split it into its own class purely so the name and the chord COULD be
+ * changed independently, "keeping today's identical behaviour" at the time —
+ * see that phase's entry in `.midnite/tasks/done.md`). That identical
+ * behaviour was itself the bug an ad hoc pass later closed: the rail's own
+ * premise is "at rest you read the chord" (this file's `.status-toggle`
+ * comment, `status-toggle.tsx`'s own docblock), so a chord that vanishes the
+ * moment the window narrows contradicts the one thing the rail is for. The
+ * chord now has NO density rule at all — it renders unconditionally
+ * whenever its toggle does, at every density, exactly like the icon beside
+ * it. This is safe against the oscillation the name's own rule below is
+ * guarding against (see that comment): the chord's visibility never depends
+ * on `active`/`hovered` state, so there is no toggle-driven width change that
+ * could feed back into the very measurement that sets density. `collapsed`
+ * still empties the rail into `OverflowPopover` regardless — see
+ * `status-bar.tsx` — so this rule's only live effect is at `compact`, where
+ * the toggle stays on the rail with its chord now intact. */
 /* Phase 39 — the *state* half of a rail toggle's name: shown while its surface
  * is open or the button is hovered/focused, hidden otherwise.
  *

@@ -112,10 +112,18 @@ describe('buildAgentSections — one agent uninstalled', () => {
     s.id === 'openclaude' ? { ...s, installed: false, resolvedPath: null } : s,
   );
 
-  it('disables only the missing one', () => {
+  /**
+   * A missing agent is `unconfigured`, not `disabled` — its row stays a real,
+   * clickable button (the picker routes the click to Settings ▸ Agents
+   * rather than starting a session). `disabled` is reserved for the
+   * worktree case below, where a row is truly inert.
+   */
+  it('marks only the missing one unconfigured, and disables neither', () => {
     const sections = build({ status });
 
-    expect(row(sections, 'OpenClaude')?.disabled).toBe(true);
+    expect(row(sections, 'OpenClaude')?.unconfigured).toBe(true);
+    expect(row(sections, 'OpenClaude')?.disabled).toBe(false);
+    expect(row(sections, 'Codex')?.unconfigured).toBe(false);
     expect(row(sections, 'Codex')?.disabled).toBe(false);
   });
 
@@ -161,10 +169,13 @@ describe('buildAgentSections — nothing installed', () => {
     resolvedPath: null,
   }));
 
-  it('disables every agent', () => {
+  it('marks every agent unconfigured, none disabled (a worktree is still selected)', () => {
     const sections = build({ status });
 
-    for (const a of agents) expect(row(sections, a.label)?.disabled).toBe(true);
+    for (const a of agents) {
+      expect(row(sections, a.label)?.unconfigured).toBe(true);
+      expect(row(sections, a.label)?.disabled).toBe(false);
+    }
   });
 
   it('gives each of them its own hint rather than one shared message', () => {
@@ -220,14 +231,14 @@ describe('buildAgentSections — an unprobed roster', () => {
     }
   });
 
-  it('disables only the agents the probe actually answered for', () => {
+  it('marks unconfigured only the agents the probe actually answered for', () => {
     const sections = build({
       status: [{ id: 'openclaude', installed: false, resolvedPath: null }],
     });
 
-    expect(row(sections, 'OpenClaude')?.disabled).toBe(true);
-    expect(row(sections, 'Claude')?.disabled).toBe(false);
-    expect(row(sections, 'Antigravity')?.disabled).toBe(false);
+    expect(row(sections, 'OpenClaude')?.unconfigured).toBe(true);
+    expect(row(sections, 'Claude')?.unconfigured).toBe(false);
+    expect(row(sections, 'Antigravity')?.unconfigured).toBe(false);
   });
 });
 

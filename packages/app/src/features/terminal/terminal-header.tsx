@@ -101,6 +101,11 @@ export function TerminalHeader({
         hasWorktree={hasWorktree}
         onNewTerminal={onNewTerminal}
         onNewAgent={onNewAgent}
+        // Same "route to Settings ▸ Agents" the title bar's own picker uses
+        // (`title-bar-primary-agent.tsx`) — a global action, called inline
+        // like this file's other `useUiStore.getState()` calls above rather
+        // than threaded through `TerminalHeaderProps`.
+        onConfigure={(candidate) => useUiStore.getState().focusAgentInSettings(candidate.id)}
       />
       <IconButton
         icon={maximized ? LuChevronDown : LuChevronUp}

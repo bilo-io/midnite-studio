@@ -41,17 +41,20 @@ import { useZoneDensities } from './use-overflow';
  *
  * Theme E's overflow sits on top of `STATUS_SEGMENTS` rather than a second
  * source of truth: `data-density` on each zone's own `<div>` drives that
- * zone's segments' `.status-label` / `.status-chord` CSS (`styles.css`) —
- * compact/collapsed hide them, full does not — so a segment already using
- * those classes earns compact styling for free. `collapsed` additionally
- * removes a zone's segments from here and hands them to the one shared
- * `OverflowPopover`.
+ * zone's segments' `.status-label` CSS (`styles.css`) — compact/collapsed
+ * hide it, full does not — so a segment already using that class earns
+ * compact styling for free. **The chord (`.status-chord`) is not part of
+ * that: it has no density rule at all, and renders at every density** — the
+ * rail's whole premise is "at rest you read the chord", so it must survive
+ * the one state (a narrow window) that premise exists for. `collapsed`
+ * additionally removes a zone's segments from here and hands them to the one
+ * shared `OverflowPopover`.
  *
  * **Density is measured per zone, not once for the whole bar** (Phase 87). A
  * single shared measurement meant a crowded right zone — finance, monitor,
  * verdicts, alerts, all of which have grown since Phase 27 — could tip the
- * *entire* bar into `compact`, which hides a rail toggle's name **and**
- * chord unconditionally, even though the left zone's own seven toggles would
+ * *entire* bar into `compact`, which hides a rail toggle's name
+ * unconditionally, even though the left zone's own seven toggles would
  * easily have fit on their own. `useZoneDensities` fixes that with a
  * priority order rather than an even split: left and centre are each
  * measured against the bar's whole width, as if the other zones did not
