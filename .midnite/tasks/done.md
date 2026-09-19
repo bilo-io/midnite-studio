@@ -16,6 +16,25 @@ stand-in — so a future change that made WebGL the implicit default fails this 
 surfacing only as pressure on `xterm-budget.ts`'s `MAX_WEBGL_CONTEXTS`. No WebGL context is
 allocated at either site.
 
+## 2026-09-19 — Phase 88 Theme B — xterm v6 upgrade (WebGL port verification)
+
+[PR #458](https://github.com/bilo-io/midnite-studio/pull/458). `terminal-view.tsx`, `xterm-budget.ts`,
+`terminal-links.ts` and `terminal-font.ts` needed zero source edits against `@xterm/xterm` 6.0.0 /
+`@xterm/addon-webgl` 0.19.0 — confirmed by a clean `moon run app:typecheck` before writing anything,
+consistent with Theme A's own recorded `xterm.d.ts` diff. So the theme's checklist became
+verification rather than a port. Two new tests exercise rather than assume: `xterm-webgl-fallback.test.ts`
+mounts a real v6 `Terminal` + real `WebglAddon` (fake `WebGL2RenderingContext`, Theme E's technique),
+dispatches a real `webglcontextlost` DOM event on the addon's own canvas, and proves `onContextLoss`
+still fires — after the addon's own ~3s internal restoration window (`setTimeout(...,3e3)`, confirmed
+from the built bundle, not previously proven under v6) — and that `xterm-budget.ts`'s real
+`setRenderer` still flips the session to `'dom'`. `terminal-links.test.ts` gained a real-`Terminal`
+describe block proving `ILinkProvider` registration and `findLinks`' buffer reads hold against a
+genuine v6 `Terminal`, not just the file's existing structural stub — the "real check" the theme's
+checklist asked for beyond a type diff. `MAX_WEBGL_CONTEXTS` (`12`) confirmed unaffected and not
+retuned: it rations Chromium's own per-process WebGL context ceiling, which neither xterm package
+reads or reports. Themes D (`ITheme`/importer), F (the two parked debts) and G (full verification)
+remain open.
+
 ## 2026-09-18 — Phase 78 Themes A and B — Read the trailers & provenance vocabulary
 
 [PR #456](https://github.com/bilo-io/midnite-studio/pull/456). Extended `LOG_FORMAT` in `packages/git-engine/src/parsers/log-parser.ts` to read `Co-Authored-By` and `Midnite-Session` trailers (`%(trailers:key=...,valueonly,separator=%x1f)`) into `CommitSchema.coAuthors` and `CommitSchema.sessionTrailers` while preserving NUL record delimiters. Benchmarked on the 50k fixture (~1.2 µs/commit overhead). Created `packages/shared/src/domain/provenance.ts` defining `ProvenanceSource`, `CommitProvenance` (`human`, `agent`, `mixed`), `classifyProvenance` with strict confidence ordering (`session-trailer` > `co-author` > `author` > `session-window`), and `commitsForSession`. Added `signatures` and `AgentSignatureSchema` to all built-in agents in `terminal.ts`. Achieved 100% branch coverage on provenance classification.
