@@ -156,19 +156,29 @@ test('the palette and Go-to-File live only on the rail', async ({ page }) => {
 });
 
 /**
- * Density beats state: at `compact` no toggle shows a name, active or not.
+ * Density beats state for the NAME: at `compact` no toggle shows one, active
+ * or not.
  *
  * The rule lives in one place (`.status-label` under `[data-density]`) and this
  * is the assertion that it still wins over the JS-driven state gate. An active
  * label reappearing in a narrow window could re-trigger the very overflow that
  * produced the narrow window.
+ *
+ * The CHORD is a different story on purpose: it carries no density rule at
+ * all (`styles.css`'s own comment on `.status-chord`), so narrowing the
+ * window must never take it away — "at rest you read the chord" is the
+ * rail's entire premise, and `compact` is exactly when a user needs that
+ * premise to hold.
  */
-test('compact density hides every name, including an active one', async ({ page }) => {
+test('compact density hides every name but keeps every chord, including on an active toggle', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1600, height: 800 });
   await openWide(page);
   const repos = page.getByTestId('repos-toggle');
   await expect(repos).toHaveAttribute('aria-pressed', 'true');
   await expect(repos.locator('.status-label')).toBeVisible();
+  await expect(repos.locator('.status-chord')).toBeVisible();
 
   // The rail's own zone, not the whole bar (Phase 87: density is measured
   // per zone, so a crowded right zone no longer decides when the rail goes
@@ -180,10 +190,12 @@ test('compact density hides every name, including an active one', async ({ page 
   // makes this hold on any runner's fonts.
   await narrowUntilDensity(page, bar, 'compact', { from: 1600 });
   await expect(repos.locator('.status-label')).toBeHidden();
-  await expect(repos.locator('.status-chord')).toBeHidden();
-  // Hovering must not bring it back at compact either.
+  await expect(repos.locator('.status-chord')).toBeVisible();
+  // Hovering must not bring the name back at compact either; the chord was
+  // never gone to begin with.
   await repos.hover();
   await expect(repos.locator('.status-label')).toBeHidden();
+  await expect(repos.locator('.status-chord')).toBeVisible();
 });
 
 /**

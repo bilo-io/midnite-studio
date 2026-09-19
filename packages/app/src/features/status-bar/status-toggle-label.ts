@@ -6,8 +6,9 @@ import type { Density } from '../../lib/density';
  * **Two independent axes decide whether text appears in this bar, and only one
  * of them can reach JavaScript.**
  *
- * - *Density* (`full` / `compact` / `collapsed`) is settled in CSS, by the one
- *   `.status-label` / `.status-chord` rule in `styles.css`. It has to be: the
+ * - *Density* (`full` / `compact` / `collapsed`) is settled in CSS, by the
+ *   `.status-label` rule in `styles.css` (the chord has no density rule at
+ *   all — see the bottom of this file). It has to be: the
  *   density measurement in [`use-overflow.ts`](./use-overflow.ts) works by
  *   *synchronously* stamping `data-density='full'`, reading `scrollWidth`,
  *   stamping `'compact'`, and reading it again — all inside one
@@ -63,7 +64,9 @@ export function showsNameAt(state: ToggleLabelState, density: Density): boolean 
   `.status-label`, so a toggle's name and its keyboard shortcut can no longer be
   changed together by accident — is done with the separate `.status-chord` class
   in `styles.css`. The other half would have been a function nothing could call:
-  the chord is state-independent, so its only axis is density, and density
-  cannot reach JavaScript here (see above). An exported, tested predicate with no
-  call site reads as covered when it is not.
+  the chord is state-independent AND, as of the ad hoc pass that closed the
+  compact-density gap, density-independent too — it has no axis left to gate
+  on, so a predicate answering "does the chord show" would always return
+  `true`. An exported, tested predicate with no call site reads as covered
+  when it is not.
 */
