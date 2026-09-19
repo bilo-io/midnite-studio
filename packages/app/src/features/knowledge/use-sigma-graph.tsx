@@ -9,9 +9,12 @@ import type { KnowledgeGraphNode, KnowledgeGraphPayload } from '@midnite/studio-
 import { resolveSystemMotion, useAppearanceStore } from '../../store/appearance-store';
 import { PULSES, PulseTracker } from './knowledge-bounce';
 import {
+  ALPHA_RAMP_MS,
+  AlphaRampTracker,
+  DEFAULT_NODE_ALPHA,
   DIMMED_ALPHA,
   alphaForWeight,
-  nodeColorForState,
+  targetAlphaForState,
   withAlpha,
 } from './knowledge-canvas-colors';
 import { drawThemedNodeHover } from './knowledge-canvas-draw';
@@ -283,6 +286,8 @@ type LiveState = {
   look: LookId;
   /** Constellation's glow threshold — the payload's own 95th-percentile degree, recomputed per `mount`. */
   glowDegreeThreshold: number;
+  /** Theme C — chases every node/edge's alpha toward its current paint state instead of snapping to it. */
+  alphaRamp: AlphaRampTracker;
 };
 
 /** Mirrors `useResolvedMotion()` (`appearance-store.ts`) without the hook machinery — `mount()` is called imperatively, outside React's render, so it reads the store directly instead of subscribing to it. */
@@ -323,6 +328,7 @@ function initialLiveState(): LiveState {
     introStartedAt: 0,
     look: DEFAULT_LOOK,
     glowDegreeThreshold: Number.POSITIVE_INFINITY,
+    alphaRamp: new AlphaRampTracker(),
   };
 }
 
@@ -343,6 +349,8 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
   private pulseFrame: number | null = null;
   /** Theme B — the intro burst's own rAF loop, cancelled in `dispose()` exactly like `pulseFrame`. */
   private introFrame: number | null = null;
+  /** Theme C — the alpha-ramp rAF loop, alive only while `live.alphaRamp` has a tween in flight. */
+  private alphaFrame: number | null = null;
   /** All edge ids at mount time, cached once (not recomputed per intro frame) — `introTick` needs the whole set once the edge fade crosses its threshold. */
   private introEdgeIds: string[] = [];
   private pendingClick: ReturnType<typeof setTimeout> | null = null;
@@ -522,7 +530,24 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
             !dimmed;
           const isFocus = live.highlight.focusIds.has(node) || hoverLit || constellationGlow;
           const isNeighbor = live.highlight.neighborIds.has(node);
-          const color = nodeColorForState(data.color, { dimmed, isFocus, isNeighbor });
+          // Theme C: the four states above pick a TARGET alpha, same as
+          // before; `alphaRamp` is what turns picking a new target into a
+          // ramp instead of an instant repaint. `paused`/reduced-motion pass
+          // `durationMs: 0` — land this frame, per the phase doc's "same
+          // rule as B" for both.
+          const targetAlpha = targetAlphaForState({ dimmed, isFocus, isNeighbor });
+          const rampedAlpha = live.alphaRamp.valueFor(
+            node,
+            targetAlpha,
+            DEFAULT_NODE_ALPHA,
+            performance.now(),
+            live.paused || live.reducedMotion ? 0 : ALPHA_RAMP_MS,
+          );
+          // Preserves `nodeColorForState`'s own invariant: a fully-opaque
+          // target is the plain base colour, never `rgba(r, g, b, 1)` —
+          // avoids a string allocation for the overwhelming common case of
+          // a focused/selected node.
+          const color = rampedAlpha >= 1 ? data.color : withAlpha(data.color, rampedAlpha);
           const labelDegreeThreshold =
             live.look === 'constellation' ? CONSTELLATION_LABEL_DEGREE_THRESHOLD : LABEL_DEGREE_THRESHOLD;
           const eligibleForLabel = data.kind === 'community' || data.degree >= labelDegreeThreshold;
@@ -572,16 +597,29 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
           // Theme B: edges fade in behind the bursting nodes rather than
           // stretching from the centroid — one multiplier for the whole edge
           // set (`live.introEdgeAlpha`, 1 outside an intro), applied to the
-          // ALPHA ARGUMENT before `withAlpha` premultiplies it. That is the
-          // same invariant Theme C's docblock will spell out for its own
-          // ramp: interpolating the alpha scalar and premultiplying after is
-          // correct, interpolating the already-premultiplied RGBA is not.
+          // ALPHA ARGUMENT before `withAlpha` premultiplies it — the same
+          // invariant Theme C's ramp below follows: interpolating the alpha
+          // SCALAR and premultiplying after is correct; interpolating the
+          // already-premultiplied RGBA is not.
           const introFade = live.introEdgeAlpha;
-          const color = dimmed
-            ? withAlpha(theme.edgeBase, DIMMED_ALPHA * introFade)
-            : emphasised
-              ? withAlpha(theme.accent, 0.85 * introFade)
-              : withAlpha(theme.edgeBase, restAlpha * introFade);
+          // Theme C: dimmed / emphasised / rest is a target alpha, same as
+          // the node reducer, ramped through the SAME tracker — sharing one
+          // `alphaRamp` across nodes and edges is the same id-namespace bet
+          // `live.pulses` already makes for hover bounces (`pulse()`, below).
+          // `restAlpha` — this edge's own weight-derived rest value, not a
+          // shared constant — is the identity `alphaRamp` needs to know when
+          // it can forget this edge again. The colour FAMILY (edge-base vs.
+          // accent) still switches instantly; only the alpha ramps, which is
+          // enough to read as a fade rather than a snap.
+          const targetAlpha = dimmed ? DIMMED_ALPHA : emphasised ? 0.85 : restAlpha;
+          const rampedAlpha = live.alphaRamp.valueFor(
+            edge,
+            targetAlpha,
+            restAlpha,
+            performance.now(),
+            live.paused || live.reducedMotion ? 0 : ALPHA_RAMP_MS,
+          );
+          const color = withAlpha(emphasised ? theme.accent : theme.edgeBase, rampedAlpha * introFade);
           return {
             ...data,
             hidden: !visible,
@@ -723,6 +761,7 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     if (this.pendingClick !== null) clearTimeout(this.pendingClick);
     if (this.pulseFrame !== null) cancelAnimationFrame(this.pulseFrame);
     if (this.introFrame !== null) cancelAnimationFrame(this.introFrame);
+    if (this.alphaFrame !== null) cancelAnimationFrame(this.alphaFrame);
     if (this.layoutFrame !== null) cancelAnimationFrame(this.layoutFrame);
     this.layoutTransition.clear();
     if (this.posTweenFrame !== null) cancelAnimationFrame(this.posTweenFrame);
@@ -737,6 +776,7 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     this.callbacks = null;
     this.pulseFrame = null;
     this.introFrame = null;
+    this.alphaFrame = null;
     this.pendingClick = null;
     this.layoutFrame = null;
     this.repaintObserver = undefined;
@@ -775,12 +815,14 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     }
     this.recomputeHighlight();
     this.sigma?.refresh();
+    this.maybeStartAlphaLoop();
   }
 
   applyHighlight(selectedNodeId: string | null): void {
     this.live.selectedNodeId = selectedNodeId;
     this.recomputeHighlight();
     this.sigma?.refresh();
+    this.maybeStartAlphaLoop();
   }
 
   /**
@@ -1041,6 +1083,7 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     } finally {
       this.recomputeHighlight();
       sigma.setGraph(graph);
+      this.maybeStartAlphaLoop();
     }
   }
 
@@ -1360,6 +1403,38 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     if (sample.animating) this.layoutFrame = requestAnimationFrame(this.layoutTick);
   };
 
+  // Theme C — one rAF loop, alive only while `live.alphaRamp` has a tween in
+  // flight, exactly `pulseTick`'s own shape. `activeIds()` is read BEFORE
+  // this frame's repaint (it names whichever ids a PRIOR reducer pass left
+  // mid-ramp), so the partial refresh below is what advances them for THIS
+  // frame's `now` and either lands them or keeps them going for the next.
+  // Scoped to exactly those ids — like the pulse loop, never a full
+  // `refresh()` — since a global dimming change already ran one full
+  // refresh at the call site that started this loop (`applyFilters`,
+  // `applyHighlight`, `mutateGraph`); this loop's job is only to keep
+  // advancing whatever full refresh already put in flight.
+  private alphaTick = (): void => {
+    this.alphaFrame = null;
+    const live = this.live;
+    const graph = this.graph;
+    if (!graph) return;
+    const nodes: string[] = [];
+    const edges: string[] = [];
+    for (const id of live.alphaRamp.activeIds()) {
+      if (graph.hasNode(id)) nodes.push(id);
+      else if (graph.hasEdge(id)) edges.push(id);
+    }
+    this.repaint(nodes, edges);
+    if (live.alphaRamp.animating) this.alphaFrame = requestAnimationFrame(this.alphaTick);
+  };
+
+  /** Starts `alphaTick` if `live.alphaRamp` came out of the reducer pass that just ran with a tween in flight and the loop isn't already going. Idempotent — safe to call after every refresh that might have retargeted an alpha. */
+  private maybeStartAlphaLoop(): void {
+    if (this.live.alphaRamp.animating && this.alphaFrame === null) {
+      this.alphaFrame = requestAnimationFrame(this.alphaTick);
+    }
+  }
+
   // A node's hover lights its one-hop neighbourhood and incident edges — a
   // repaint of a few hundred items at most, never the whole graph, which is
   // what keeps sweeping the pointer across a dense cluster smooth.
@@ -1381,6 +1456,7 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
       ...previousEdges,
       ...(nodeId ? this.incidentEdges(nodeId) : []),
     ]);
+    this.maybeStartAlphaLoop();
   }
 
   /** Search + selection: dims everything outside it. Hover is deliberately excluded — `hoveredNodeId: null` — so it can be a partial repaint (`repaint`, above) instead of folding into this full-graph dimming pass. */
