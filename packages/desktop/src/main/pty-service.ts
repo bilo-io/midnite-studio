@@ -11,6 +11,7 @@ import {
 } from './activity-detect';
 import type { AgentWatcher } from './agent-watcher';
 import { createBrokerClient, type BrokerClient, type BrokerStatus } from './broker-client';
+import { agentFingerprintEnv } from './pty-env';
 import {
   inprocActivePtyPids,
   inprocCreatePty,
@@ -518,6 +519,7 @@ export function getBrokerStatus(): BrokerStatus {
 
 export async function createPty(options: {
   sessionId: string;
+  kind?: string | undefined;
   cwd: string;
   cols: number;
   rows: number;
@@ -531,6 +533,7 @@ export async function createPty(options: {
         ...process.env,
         TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
+        ...agentFingerprintEnv(options.kind, options.sessionId, options.agentId),
       } as Record<string, string>,
     });
 

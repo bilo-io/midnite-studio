@@ -507,6 +507,13 @@ export const ConflictRegionsResponse = z.object({
 export const RemotesListRequest = RepoId;
 export const RemotesListResponse = z.array(RemoteSchema);
 
+// --- hooks (Phase 78 Theme E) ------------------------------------------------
+
+export const HooksStatusRequest = RepoId;
+export const HooksStatusResponse = GitOpResultOf(z.object({ installed: z.boolean() }));
+export const HooksInstallRequest = RepoId;
+export const HooksUninstallRequest = RepoId;
+
 // --- forge -----------------------------------------------------------------
 
 export const ForgeCliStatusRequest = z.object({});

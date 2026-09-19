@@ -8,6 +8,7 @@ import {
   LuEyeOff,
   LuFolder,
   LuFolderTree,
+  LuGitCommitVertical,
   LuRefreshCw,
   LuRepeat,
   LuTerminal,
@@ -33,6 +34,7 @@ import { resolveAgentIcon } from '../../../components/icons';
 import { MidniteIcon } from '../../../components/icons/midnite-icon';
 import { bridge, hasBridge } from '../../../services/bridge';
 import { openInMidnite } from '../../../services/open-in-midnite';
+import { useHookStatus, useRepos, useSetHookInstalled } from '../../../services/queries';
 import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../../store/ui-store';
 import { AGENT_COMMANDS } from '../../agent/agent-commands';
 import { loopIcon } from '../../loops/loop-icons';
@@ -79,6 +81,19 @@ export function AgentPage() {
             />
           </div>
           <AgentsRoster />
+        </div>
+      </Accordion>
+
+      <Accordion title="Session stamping" icon={<LuGitCommitVertical className="h-4 w-4" />}>
+        <div className="flex flex-col gap-3 p-3">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Installs a <code>prepare-commit-msg</code> hook into a repository&rsquo;s hooks
+            directory that adds a <code>Midnite-Session:</code> trailer when a commit is made
+            from an agent session started here. Off by default, and per repository — turning it
+            on for one never touches another, and turning it off removes only the hook this
+            switch installed.
+          </p>
+          <SessionStampingRepos />
         </div>
       </Accordion>
 
@@ -379,6 +394,61 @@ function AgentCard({
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Every open repo, each with its own Theme E switch — a hook lives in one
+ * repository's own hooks directory, so there is no single global on/off to
+ * offer here (Phase 78 Theme E).
+ */
+function SessionStampingRepos() {
+  const { data: repos } = useRepos();
+
+  if (!repos || repos.length === 0) {
+    return <p className="text-[11px] text-muted-foreground">No repositories open.</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {repos.map((repo) => (
+        <HookToggleRow key={repo.id} repoId={repo.id} repoName={repo.name} />
+      ))}
+    </div>
+  );
+}
+
+function HookToggleRow({ repoId, repoName }: { repoId: string; repoName: string }) {
+  const { data: installed, isLoading } = useHookStatus(repoId);
+  const setHookInstalled = useSetHookInstalled();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="flex items-center gap-2 text-xs">
+        <input
+          type="checkbox"
+          checked={installed ?? false}
+          disabled={isLoading || pending}
+          onChange={async (event) => {
+            const next = event.target.checked;
+            setError(null);
+            setPending(true);
+            try {
+              const result = await setHookInstalled(repoId, next);
+              if (!result.ok && result.kind === 'error') setError(result.message);
+            } finally {
+              setPending(false);
+            }
+          }}
+          className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+          data-testid={`hook-toggle-${repoId}`}
+        />
+        {repoName}
+      </label>
+      {error ? <p className="ml-5 text-[11px] text-destructive">{error}</p> : null}
     </div>
   );
 }

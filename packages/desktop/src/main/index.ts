@@ -51,6 +51,7 @@ import { registerRefHandlers } from './ipc/ref-handlers';
 import { registerRebaseHandlers } from './ipc/rebase-handlers';
 import { registerClipboardHandlers } from './ipc/clipboard-handlers';
 import { registerRemoteHandlers } from './ipc/remote-handlers';
+import { registerHooksHandlers } from './ipc/hooks-handlers';
 import { registerRepoHandlers } from './ipc/repo-handlers';
 import { registerSearchHandlers } from './ipc/search-handlers';
 import { registerStatsHandlers } from './ipc/stats-handlers';
@@ -348,6 +349,7 @@ if (!app.requestSingleInstanceLock()) {
     registerRebaseHandlers();
     registerRefHandlers();
     registerRemoteHandlers();
+    registerHooksHandlers();
     registerClipboardHandlers();
     registerForgeHandlers();
     registerForgeProjectHandlers();

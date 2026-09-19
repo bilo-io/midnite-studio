@@ -169,28 +169,45 @@ graph does not dim, sort or hide by it unless the user filters. Attribution belo
 
 ### E — The write-side fingerprint, opt-in (S)
 
-- [ ] When the broker spawns a `kind: 'agent'` pty ([`broker/server.ts`](../../../packages/desktop/src/broker/server.ts)
-      `create`), set `MSTUDIO_SESSION_ID=<session id>` and `MSTUDIO_AGENT_ID=<agentId>` in the
-      child environment. Environment only — no git config, no hook. Any agent, hook or script the
-      user already runs can read them; nothing changes if none does. Shell sessions get neither.
-- [ ] `Settings ▸ Agents ▸ Stamp commits with the session` — a switch, default **off**, whose
-      description says exactly what it does: "Installs a `prepare-commit-msg` hook into this
-      repository's hooks directory that adds a `Midnite-Session:` trailer when a commit is made from
-      an agent session started here." Per-repo, because a hook is a per-repo write.
-- [ ] The hook itself: `packages/desktop/src/main/hooks/prepare-commit-msg.sh`, POSIX `sh`,
+- [x] `MSTUDIO_SESSION_ID=<session id>` and `MSTUDIO_AGENT_ID=<agentId>` are set in an agent pty's
+      environment — **not** in `broker/server.ts`, which turned out to have no concept of `kind`
+      at all: its `create` handler takes a flat, caller-built `env` map and knows nothing about
+      agent vs. shell. The real gate is one layer up, in the two places that actually build that
+      map before it reaches the broker or the inproc fallback —
+      [`main/pty-service.ts`](../../../packages/desktop/src/main/pty-service.ts) and
+      [`main/inproc-pty.ts`](../../../packages/desktop/src/main/inproc-pty.ts) — both now call a
+      shared, pure `agentFingerprintEnv(kind, sessionId, agentId)` in the new
+      [`main/pty-env.ts`](../../../packages/desktop/src/main/pty-env.ts) (unit-tested directly,
+      since a spawned pty itself is not something a test can cheaply assert on). Environment
+      only — no git config, no hook. A shell session gets neither var.
+- [x] `Settings ▸ Agents ▸ Session stamping` — a checkbox **per open repository** (a hook lives in
+      one repo's own hooks directory, so there is no single global switch), default **off**,
+      described as: "Installs a `prepare-commit-msg` hook into a repository's hooks directory that
+      adds a `Midnite-Session:` trailer when a commit is made from an agent session started here."
+      The checkbox is not a stored preference — it reads `hooks.status` (real disk state) on every
+      render, so it can never drift from a hook a user deleted or replaced by hand.
+- [x] The hook itself: `packages/desktop/src/main/hooks/prepare-commit-msg.sh`, POSIX `sh`,
       appends `Midnite-Session: $MSTUDIO_SESSION_ID` (and `Midnite-Agent: $MSTUDIO_AGENT_ID`) via
-      `git interpret-trailers --in-place` **only if** `MSTUDIO_SESSION_ID` is set and the message
-      does not already carry one. Installed by `ensureHook(repoPath)` in a new
-      `main/hooks/install.ts`: refuses if `core.hooksPath` is unset *and* `.git/hooks/prepare-commit-msg`
-      already exists (never clobber a user's hook — offer the snippet to paste instead), otherwise
-      writes into `core.hooksPath` if set, else `.git/hooks/`. Removal is the same function in reverse,
-      and the switch off calls it.
-- [ ] Theme A's parser already reads `Midnite-Session`; Theme B ranks it strongest. With the switch
-      on, the *probably* disappears from Theme C's tooltip for every commit the hook stamped.
-- [ ] *Acceptance:* with the switch off, `env | grep MSTUDIO_` inside an agent terminal shows the
-      two variables and a commit carries no trailer; with it on, the commit carries
-      `Midnite-Session:` and the graph shows `source: 'session-trailer'`; turning it off removes
-      the hook and leaves any pre-existing user hook untouched (fixture test with a sentinel hook).
+      `git interpret-trailers --in-place` only if `MSTUDIO_SESSION_ID` is set and the message does
+      not already carry one. Installed by `ensureHookInstalled(repoPath)`/`ensureHookRemoved(repoPath)`/
+      `hookStatus(repoPath)` in new `main/hooks/install.ts` (named as three small functions rather
+      than the doc's single `ensureHook`, one per IPC channel): refuses to overwrite a
+      `prepare-commit-msg` it finds that carries no marker of its own, wherever it resolves to —
+      `core.hooksPath` when the repo has one configured (this repo's own `.githooks/` is exactly
+      that case), else `.git/hooks/`. Removal only ever deletes a file that carries the marker.
+      New `hooks.status`/`hooks.install`/`hooks.uninstall` IPC channels
+      (`mstudio:hooks:*`, [`ipc/hooks-handlers.ts`](../../../packages/desktop/src/main/ipc/hooks-handlers.ts)),
+      and a `getHooksPath(repoPath)` read added to `git-engine`'s `commands/` (real-git integration
+      test, same pattern as `remotes.ts`'s own `core.hooksPath`-adjacent config read).
+- [x] Theme A's parser already reads `Midnite-Session`; Theme B ranks it strongest. With the switch
+      on, the *probably* disappears from Theme C's tooltip for every commit the hook stamped —
+      unchanged from Theme B/C, since this theme only ever adds a trailer Theme A already parses.
+- [x] *Acceptance:* covered as vitest (the pure env-var gate, install/status/remove against a real
+      throwaway repo via `git-engine`'s `TempRepo`, including the never-clobber and
+      leaves-a-pre-existing-hook-untouched fixture cases) and a bridge test on the Settings row —
+      a real pty's `env | grep MSTUDIO_` is the one piece that would need an e2e spawn, left open
+      per `docs/TESTING.md`'s decision rule until a flow genuinely needs the real terminal rather
+      than the env-building logic, which is what the unit test already proves.
 
 ### F — Agent share, on the dashboard (S)
 

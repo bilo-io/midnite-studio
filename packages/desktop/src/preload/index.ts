@@ -110,6 +110,7 @@ const bridge: Pick<
   | 'rebase'
   | 'status'
   | 'remotes'
+  | 'hooks'
   | 'forge'
   | 'forgeProject'
   | 'shell'
@@ -208,6 +209,11 @@ const bridge: Pick<
   },
   remotes: {
     list: (req) => call(CHANNELS.remotesList, req),
+  },
+  hooks: {
+    status: (req) => call(CHANNELS.hooksStatus, req),
+    install: (req) => call(CHANNELS.hooksInstall, req),
+    uninstall: (req) => call(CHANNELS.hooksUninstall, req),
   },
   forge: {
     cliStatus: () => call(CHANNELS.forgeCliStatus),
