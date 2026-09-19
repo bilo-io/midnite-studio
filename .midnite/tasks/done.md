@@ -1,6 +1,35 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-19 — Phase 86 Theme G (retroactive) + Theme H — Notes page verification, closed
+
+[PR #464](https://github.com/bilo-io/midnite-studio/pull/464). Grounding for this PR found Theme G
+(the two-pane Notes page: sidenav, lazy-loaded Monaco, markdown preview toggle, drag-reorder,
+Brainstorm/Execute-adhoc/status/delete) had already fully landed via PR #389, #391 and #396 without
+the phase tracker catching up — checked off retroactively. Closed the remaining Theme H gaps:
+- Added `packages/app/e2e/visual/sessions-view.spec.ts` (a live row above a closed row, cropped from
+  the existing `role="list" aria-label="Sessions"` locator) and
+  `packages/app/e2e/visual/notes-view.spec.ts` (the Notes content pane in Monaco-edit and
+  markdown-preview modes, cropped from the existing `notes-content-pane` test id). Both verified
+  locally against a freshly generated baseline; per `.gitignore` only `*-linux.png` is ever
+  committed, and generating it needs Docker (`MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen`),
+  unavailable in this sandbox — no baseline is committed yet, a fast-follow with Docker access.
+- Added `packages/app/e2e/sessions-live-terminal.spec.ts` — the one Theme H item genuinely needing a
+  real browser: a real `@xterm/xterm` v6 (DOM renderer, no WebGL/Canvas addon) attached to an
+  already-running pty via the Sessions manager's own pane (`live-session-terminal.tsx`), focused and
+  round-tripping a real keystroke through `sendInput` into actual DOM text.
+- Raised `scripts/e2e-budget.mjs`'s declared-test ratchet 440 → 441 for that one new test.
+- Confirmed the rest of Theme H's unit-test items (merged session selector, `buildResumeCommand`,
+  both conversation-id adapters, the notes migration, the status-dot tooltip's keyboard
+  reachability) were already covered by tests that landed alongside Themes A–F.
+- Fixed `_INDEX.md`'s Theme key for Phase 86, which had left Themes C, D and F marked ◻/🔄 despite
+  their own PRs (#381, #387/#424/#426, #380) having landed — picked up while updating G/H in the
+  same section.
+
+Phase 86 is now 61/64 (95%). The three remaining items are marked "Open, for a human" in the phase
+doc by design — a real Claude Code resume, a real Codex resume, and a long dual-surface Notes
+editing session — and stay unchecked.
+
 ## 2026-09-19 — Phase 89 Theme C — Focus alpha, animated
 
 [PR #463](https://github.com/bilo-io/midnite-studio/pull/463). Nodes and edges now ramp between

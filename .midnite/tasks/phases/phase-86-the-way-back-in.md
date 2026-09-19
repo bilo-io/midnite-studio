@@ -260,7 +260,7 @@ keeping are already there: `handleDraftPlan` (`brainstorm`) and `handleAdhocTask
 - [x] Unsaved-edit safety: switching notes, switching views or closing the window commits the buffer
       first. No note is lost to a navigation.
 
-### Theme H — Verification (M)
+### Theme H — Verification (M) ◐ PARTIAL (PR #464 — 3 "Open, for a human" items remain)
 
 - [x] `moon run :typecheck :lint :test` green.
 - [x] Package boundaries hold: `shared` stays zod-only and electron-free, the adapters live in
