@@ -74,7 +74,17 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // `getBoundingClientRect` in a real engine. Nothing else about the rail needs
 // the browser — which rows render, their order and the pinned slot are all
 // already asserted in this same file without geometry.
-export const MAX_DECLARED_E2E = 440;
+// Raised 440 -> 441 for Phase 86 Theme H's `sessions-live-terminal.spec.ts`
+// (one test): the Sessions manager's live pane (`live-session-terminal.tsx`)
+// attaches a REAL `@xterm/xterm` instance to an already-running pty — no
+// WebGL/Canvas addon, so xterm v6's own DOM renderer is what's under test —
+// and only a real browser can prove a click focuses it, a real keystroke
+// round-trips through `sendInput` → the mock pty → `pty:data`, and the
+// result lands as actual DOM text. `live-session-terminal.test.tsx` already
+// covers the component's wiring (mount/unmount, which store calls fire, the
+// mutual-exclusion claim) against a fake `Terminal`; this is the one place
+// that needed the genuine thing.
+export const MAX_DECLARED_E2E = 441;
 
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult

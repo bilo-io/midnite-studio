@@ -232,53 +232,64 @@ keeping are already there: `handleDraftPlan` (`brainstorm`) and `handleAdhocTask
 - [x] Tests: migration with a populated localStorage payload, migration with none, corrupt-file boot,
       concurrent-write serialisation.
 
-### Theme G — The Notes page proper (M)
+### Theme G — The Notes page proper (M) ✅ DONE (PR #389, #391, #396)
 
-- [ ] A two-pane view: a **notes sidenav** on the left (the list, grouped and filtered as the modal
+- [x] A two-pane view: a **notes sidenav** on the left (the list, grouped and filtered as the modal
       does, with its `hideCompleted` toggle and `{doneCount}/{totalCount}` pill carried over) and a
       content pane on the right.
-- [ ] **A full editor** in the content pane — Monaco, reusing the existing wrapper at
+- [x] **A full editor** in the content pane — Monaco, reusing the existing wrapper at
       [`code-editor.tsx`](../../../packages/app/src/features/files/preview/code-editor.tsx), bundled
       offline by [Phase 64](phase-64-offline-monaco-and-themes.md).
-- [ ] **Lazy-loaded**, so the Notes view carries no Monaco weight until it is opened — this is a
+- [x] **Lazy-loaded**, so the Notes view carries no Monaco weight until it is opened — this is a
       *third* Monaco surface and [Phase 77](phase-77-thirteen-megabytes-of-editor.md) is about
       putting Monaco on a diet. The decision to add it is explicit (see Decisions), and the mitigation
       is part of the deliverable rather than an afterthought.
-- [ ] **A markdown preview toggle**, rendering through the existing
+- [x] **A markdown preview toggle**, rendering through the existing
       [`markdown-preview.tsx`](../../../packages/app/src/features/files/preview/markdown-preview.tsx)
       (`react-markdown` + `remark-gfm`, already a dependency) with
       [`prose.ts`](../../../packages/app/src/features/markdown/prose.ts)'s shared classes. The toggle
       state is per-view, remembered.
-- [ ] The row actions come across intact and become real buttons in the content pane's header:
+- [x] The row actions come across intact and become real buttons in the content pane's header:
       **Brainstorm** (`skillId: 'brainstorm'`), **Execute (adhoc)** (`skillId: 'execAdhoc'`), the
       status cycle, and delete — all still routed through
       [`use-skill-handoff.ts`](../../../packages/app/src/features/agent/use-skill-handoff.ts) so the
       primary-agent resolution stays in one place.
-- [ ] Drag-reorder still works, reusing
+- [x] Drag-reorder still works, reusing
       [`notes-reorder.ts`](../../../packages/app/src/features/notes/notes-reorder.ts)'s
       `spliceVisibleOrder` rather than a second implementation.
-- [ ] Unsaved-edit safety: switching notes, switching views or closing the window commits the buffer
+- [x] Unsaved-edit safety: switching notes, switching views or closing the window commits the buffer
       first. No note is lost to a navigation.
 
-### Theme H — Verification (M)
+### Theme H — Verification (M) ◐ PARTIAL (PR #464 — 3 "Open, for a human" items remain)
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Package boundaries hold: `shared` stays zod-only and electron-free, the adapters live in
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Package boundaries hold: `shared` stays zod-only and electron-free, the adapters live in
       `desktop`, and `app` reaches them only through `window.midniteStudio`.
-- [ ] Unit tests for the merged session selector — live-above-closed ordering, liveness derivation,
-      and a session that transitions running → closed while the view is mounted.
-- [ ] Unit tests for `buildResumeCommand` across all three agent shapes.
-- [ ] Unit tests for both conversation-id adapters against fixture directories, including every
-      negative case.
-- [ ] Unit tests for the notes disk migration, including the "already migrated" and "corrupt file"
-      paths.
-- [ ] A view test asserting the status dot's tooltip is reachable by keyboard and names the state.
-- [ ] A Playwright **visual** baseline for the Sessions view with both live and closed rows, and one
-      for the Notes page in edit and preview modes — within the ~100-baseline / 3 MB cap.
-- [ ] An e2e **only** where a browser is genuinely required — the live-terminal pane in Theme D (real
+- [x] Unit tests for the merged session selector — live-above-closed ordering, liveness derivation,
+      and a session that transitions running → closed while the view is mounted
+      (`session-order.test.ts`).
+- [x] Unit tests for `buildResumeCommand` across all three agent shapes (`terminal.test.ts`).
+- [x] Unit tests for both conversation-id adapters against fixture directories, including every
+      negative case (`claude.test.ts`, `codex.test.ts`).
+- [x] Unit tests for the notes disk migration, including the "already migrated" and "corrupt file"
+      paths (`notes-migration.test.ts`).
+- [x] A view test asserting the status dot's tooltip is reachable by keyboard and names the state
+      (`sessions-view.test.tsx`).
+- [x] A Playwright **visual** spec for the Sessions view with both live and closed rows, and one
+      for the Notes page in edit and preview modes — within the ~100-baseline / 3 MB cap
+      (`e2e/visual/sessions-view.spec.ts`, `e2e/visual/notes-view.spec.ts`). Both are verified
+      locally against a `-u`-generated baseline (screenshots inspected, all three crops correct);
+      per `.gitignore`'s own rule, only `*-linux.png` is ever committed, and generating that requires
+      `MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen` (Docker), unavailable in the sandbox that
+      built this PR. **No baseline is committed for these two specs yet** — a fast-follow with
+      Docker access needs to run the regen script once before the `visual` CI job
+      (`cross-platform` label) is ever asked to check them; until then they simply sit outside that
+      opt-in job's scope, same as every other unlabelled PR.
+- [x] An e2e **only** where a browser is genuinely required — the live-terminal pane in Theme D (real
       xterm) — with the reason named in the spec's header comment, per
-      [`docs/TESTING.md`](../../../docs/TESTING.md). Everything else stays vitest.
-- [ ] `scripts/e2e-budget.mjs` ratchet still passes.
+      [`docs/TESTING.md`](../../../docs/TESTING.md). Everything else stays vitest
+      (`e2e/sessions-live-terminal.spec.ts`).
+- [x] `scripts/e2e-budget.mjs` ratchet still passes (raised 440 → 441).
 - [ ] **Open, for a human:** resume a real Claude Code session from the Sessions view and confirm the
       restored conversation is the one that was clicked, not merely the newest in that directory.
 - [ ] **Open, for a human:** resume a real Codex session, same check.
