@@ -72,7 +72,7 @@ describe('checkE2eBudget', () => {
     expect(result.message).toContain('Found 1 wall-clock duration assertion(s)');
   });
 
-  it('the committed ratchet cap matches its own committed value (439 -> 440, rail overflow row height)', () => {
-    expect(MAX_DECLARED_E2E).toBe(440);
+  it('the committed ratchet cap matches its own committed value (440 -> 441, sessions live terminal)', () => {
+    expect(MAX_DECLARED_E2E).toBe(441);
   });
 });
