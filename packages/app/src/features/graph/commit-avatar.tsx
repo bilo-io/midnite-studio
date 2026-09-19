@@ -1,5 +1,7 @@
+import type { AgentDefinition, CommitProvenance } from '@midnite/studio-shared';
 import { useSyncExternalStore } from 'react';
 
+import { resolveAgentIcon } from '../../components/icons';
 import type { AvatarState } from '../../services/avatars';
 import {
   avatarFor,
@@ -32,6 +34,8 @@ export function CommitAvatar({
   ring,
   ringWidth,
   clipId,
+  provenance,
+  agent,
 }: {
   email: string;
   name: string;
@@ -49,6 +53,10 @@ export function CommitAvatar({
    * kind of thing that makes a virtualized list stop being virtual.
    */
   clipId: string;
+  /** Commit provenance (Phase 78 Theme C). */
+  provenance?: CommitProvenance;
+  /** Resolved agent definition. */
+  agent?: AgentDefinition | null;
 }) {
   // `getServerSnapshot` is a module constant for the same reason `avatarFor`
   // returns a cached object: React compares snapshots by reference.
@@ -61,55 +69,85 @@ export function CommitAvatar({
   const radius = size / 2;
   const hue = hueFor(email);
 
+  const isAgent = provenance?.kind === 'agent';
+  const isMixed = provenance?.kind === 'mixed';
+  const agentId = provenance && provenance.kind !== 'human' ? provenance.agentIds[0] : undefined;
+  const AgentIcon =
+    isAgent || isMixed ? resolveAgentIcon(agent ?? { id: agentId ?? 'claude' }) : null;
+
   return (
     <g>
-      {/*
-        Drawn under both states, not just the fallback: once `status` flips to
-        'ready' the <image> still has to fetch its bytes over the network, and
-        without this the node goes transparent for that gap instead of just
-        swapping from initials to the loaded face.
-      */}
-      <circle cx={cx} cy={cy} r={radius} fill={`hsl(${hue} 45% 42%)`} />
-
-      {state.status === 'ready' ? (
-        /*
-          Translated so the image sits at the origin of its own space, which is
-          the space the shared clipPath's circle is defined in. A userSpaceOnUse
-          clip resolves against the user coordinate system in force where it is
-          REFERENCED, so without this the one shared circle would only ever line
-          up with a node in the first lane of the first row.
-        */
-        <g transform={`translate(${cx - radius} ${cy - radius})`}>
-          <image
-            // Built here, not cached, so the request tracks the ACTIVE style's
-            // node size rather than whichever style happened to ask first.
-            href={gravatarUrl(state.hash, size)}
-            x={0}
-            y={0}
-            width={size}
-            height={size}
-            clipPath={`url(#${clipId})`}
-            preserveAspectRatio="xMidYMid slice"
-            // With `d=404` a miss only announces itself here, as a load error.
-            // Recording it stops every other row by this author refetching it.
-            onError={() => markAvatarMissing(email)}
+      {isAgent ? (
+        <g data-testid="svg-agent-avatar">
+          <circle
+            cx={cx}
+            cy={cy}
+            r={radius}
+            fill={agent?.accent ? `${agent.accent}25` : 'hsl(var(--muted))'}
           />
+          {AgentIcon ? (
+            <g transform={`translate(${cx - radius * 0.6}, ${cy - radius * 0.6})`}>
+              <AgentIcon
+                style={{
+                  width: size * 0.6,
+                  height: size * 0.6,
+                  color: agent?.accent ?? 'hsl(var(--foreground))',
+                }}
+              />
+            </g>
+          ) : null}
         </g>
       ) : (
-        <text
-          x={cx}
-          y={cy}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fontSize={size * 0.42}
-          fontWeight={600}
-          fill="hsl(0 0% 100%)"
-          // The row's text already names the author to assistive tech via the
-          // tooltip; initials read aloud as letters would be noise.
-          aria-hidden
-        >
-          {initialsFor(name, email)}
-        </text>
+        <>
+          {/*
+            Drawn under both states, not just the fallback: once `status` flips to
+            'ready' the <image> still has to fetch its bytes over the network, and
+            without this the node goes transparent for that gap instead of just
+            swapping from initials to the loaded face.
+          */}
+          <circle cx={cx} cy={cy} r={radius} fill={`hsl(${hue} 45% 42%)`} />
+
+          {state.status === 'ready' ? (
+            /*
+              Translated so the image sits at the origin of its own space, which is
+              the space the shared clipPath's circle is defined in. A userSpaceOnUse
+              clip resolves against the user coordinate system in force where it is
+              REFERENCED, so without this the one shared circle would only ever line
+              up with a node in the first lane of the first row.
+            */
+            <g transform={`translate(${cx - radius} ${cy - radius})`}>
+              <image
+                // Built here, not cached, so the request tracks the ACTIVE style's
+                // node size rather than whichever style happened to ask first.
+                href={gravatarUrl(state.hash, size)}
+                x={0}
+                y={0}
+                width={size}
+                height={size}
+                clipPath={`url(#${clipId})`}
+                preserveAspectRatio="xMidYMid slice"
+                // With `d=404` a miss only announces itself here, as a load error.
+                // Recording it stops every other row by this author refetching it.
+                onError={() => markAvatarMissing(email)}
+              />
+            </g>
+          ) : (
+            <text
+              x={cx}
+              y={cy}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={size * 0.42}
+              fontWeight={600}
+              fill="hsl(0 0% 100%)"
+              // The row's text already names the author to assistive tech via the
+              // tooltip; initials read aloud as letters would be noise.
+              aria-hidden
+            >
+              {initialsFor(name, email)}
+            </text>
+          )}
+        </>
       )}
 
       <circle
@@ -120,6 +158,32 @@ export function CommitAvatar({
         stroke={ring}
         strokeWidth={ringWidth}
       />
+
+      {isMixed && AgentIcon ? (
+        <g data-testid="svg-mixed-badge">
+          <circle
+            cx={cx + radius * 0.5}
+            cy={cy + radius * 0.5}
+            r={radius * 0.45}
+            fill="hsl(var(--background))"
+            stroke={ring}
+            strokeWidth={1}
+          />
+          <g
+            transform={`translate(${cx + radius * 0.5 - radius * 0.28}, ${
+              cy + radius * 0.5 - radius * 0.28
+            })`}
+          >
+            <AgentIcon
+              style={{
+                width: radius * 0.56,
+                height: radius * 0.56,
+                color: agent?.accent ?? 'hsl(var(--foreground))',
+              }}
+            />
+          </g>
+        </g>
+      ) : null}
     </g>
   );
 }

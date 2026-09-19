@@ -1,4 +1,11 @@
-import type { GraphRow } from '@midnite/studio-shared';
+import {
+  BUILTIN_AGENTS,
+  classifyProvenance,
+  type AgentSignature,
+  type ClosedSession,
+  type CommitProvenance,
+  type GraphRow,
+} from '@midnite/studio-shared';
 import { create } from 'zustand';
 
 /**
@@ -21,6 +28,12 @@ export type GraphState = {
   /** Which repo the rows belong to — guards against a mismatched render. */
   repoId: string | null;
   rows: GraphRow[];
+  /** Commit provenance lookup map by SHA (Phase 78 Theme C). */
+  provenance: Record<string, CommitProvenance>;
+  /** Roster signatures for provenance classification. */
+  roster: readonly AgentSignature[];
+  /** Closed sessions for window-join provenance classification. */
+  sessions: readonly ClosedSession[];
   loading: boolean;
   /** True when the log stopped at the row cap rather than at the root commit. */
   truncated: boolean;
@@ -30,6 +43,11 @@ export type GraphState = {
   begin: (repoId: string, requestId: string) => void;
   /** Append a batch — a no-op unless it belongs to the accepted stream. */
   appendBatch: (requestId: string, rows: GraphRow[]) => void;
+  /** Update roster and closed sessions context and recompute provenance. */
+  setProvenanceContext: (context: {
+    roster?: readonly AgentSignature[];
+    sessions?: readonly ClosedSession[];
+  }) => void;
   /** Mark the accepted stream finished. */
   finish: (requestId: string, info: { truncated: boolean; error?: string }) => void;
   /** Drop everything (repo closed, or no selection). */
@@ -45,10 +63,17 @@ export type GraphState = {
   restreamNonce: number;
 };
 
+const DEFAULT_ROSTER: readonly AgentSignature[] = BUILTIN_AGENTS.flatMap((a) =>
+  a.signatures ? [a.signatures] : [],
+);
+
 const EMPTY = {
   requestId: null,
   repoId: null,
   rows: [] as GraphRow[],
+  provenance: {} as Record<string, CommitProvenance>,
+  roster: DEFAULT_ROSTER,
+  sessions: [] as readonly ClosedSession[],
   loading: false,
   truncated: false,
   error: null,
@@ -59,7 +84,16 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   restreamNonce: 0,
 
   begin: (repoId, requestId) =>
-    set({ ...EMPTY, repoId, requestId, loading: true, rows: [] }),
+    set((state) => ({
+      ...EMPTY,
+      roster: state.roster,
+      sessions: state.sessions,
+      repoId,
+      requestId,
+      loading: true,
+      rows: [],
+      provenance: {},
+    })),
 
   appendBatch: (requestId, rows) => {
     const state = get();
@@ -74,8 +108,36 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     // A loop rather than `push(...rows)`: spreading a batch as call
     // arguments risks an engine argument-count limit if batching is ever
     // coarsened well past the current ~500-row size.
-    for (const row of rows) state.rows.push(row);
-    set({ rows: state.rows });
+    for (const row of rows) {
+      state.rows.push(row);
+      state.provenance[row.commit.sha] = classifyProvenance(
+        row.commit,
+        state.roster,
+        state.sessions,
+        state.repoId ?? undefined,
+      );
+    }
+    set({ rows: state.rows, provenance: state.provenance });
+  },
+
+  setProvenanceContext: ({ roster, sessions }) => {
+    const state = get();
+    const nextRoster = roster ?? state.roster;
+    const nextSessions = sessions ?? state.sessions;
+    const nextProvenance: Record<string, CommitProvenance> = {};
+    for (const row of state.rows) {
+      nextProvenance[row.commit.sha] = classifyProvenance(
+        row.commit,
+        nextRoster,
+        nextSessions,
+        state.repoId ?? undefined,
+      );
+    }
+    set({
+      roster: nextRoster,
+      sessions: nextSessions,
+      provenance: nextProvenance,
+    });
   },
 
   finish: (requestId, info) => {
@@ -83,7 +145,12 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     set({ loading: false, truncated: info.truncated, error: info.error ?? null });
   },
 
-  reset: () => set({ ...EMPTY, rows: [] }),
+  reset: () =>
+    set({
+      ...EMPTY,
+      rows: [],
+      provenance: {},
+    }),
 
   requestRestream: () => set((state) => ({ restreamNonce: state.restreamNonce + 1 })),
 }));

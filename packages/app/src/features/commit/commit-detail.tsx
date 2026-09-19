@@ -1,3 +1,4 @@
+import type { AgentDefinition, CommitProvenance } from '@midnite/studio-shared';
 import {
   LuCheck,
   LuChevronDown,
@@ -9,6 +10,13 @@ import {
   LuRows3,
   LuX,
 } from 'react-icons/lu';
+import { useGraphStore } from '../graph/graph-store';
+import {
+  ProvenanceMark,
+  getProvenanceTooltip,
+  resolveProvenanceDetails,
+} from '../graph/provenance-mark';
+import { useAgents } from '../terminal/use-agents';
 import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { buildChangeTree, flattenBySize } from '../../components/build-change-tree';
@@ -20,7 +28,7 @@ import { Tooltip } from '../../components/tooltip';
 import { UserAvatar } from '../../components/user-avatar';
 import { useWorkbenchStore } from '../../store/workbench-store';
 
-import { copyText, resolveRevision, useCommitDetail, useRemotes } from '../../services/queries';
+import { copyText, resolveRevision, useCommitDetail, useRemotes, useSessionHistory } from '../../services/queries';
 import { LAYOUT_BOUNDS, useUiStore, type CommitFileView } from '../../store/ui-store';
 import { DiffView } from '../diff/diff-view';
 import { imageDiffSources } from '../diff/image-sources';
@@ -83,6 +91,15 @@ export function CommitDetail({
   const metaOpen = useUiStore((s) => s.commitMetaOpen);
   const toggleMeta = useUiStore((s) => s.toggleCommitMeta);
   const metaId = useId();
+
+  const commitProvenance = useGraphStore((s) => s.provenance[sha]);
+  const { agents } = useAgents();
+  const { data: closedSessions } = useSessionHistory();
+  const { sessionName, agent } = resolveProvenanceDetails(
+    commitProvenance ?? { kind: 'human' },
+    agents,
+    closedSessions ?? [],
+  );
 
   // The pre-image path rides along with the selection: rename detection needs
   // both sides of the pathspec, and without it a renamed file renders as a
@@ -314,7 +331,13 @@ export function CommitDetail({
       {metaOpen ? (
         <div id={metaId} className="min-h-0 flex-1 overflow-auto">
           <header className="px-3 pb-2">
-            <Identities author={data.author} committer={data.committer} />
+            <Identities
+              author={data.author}
+              committer={data.committer}
+              provenance={commitProvenance}
+              sessionName={sessionName}
+              agent={agent}
+            />
             <div className="mt-2">
               <Suspense fallback={null}>
                 <CommitMessage
@@ -534,8 +557,24 @@ type Identity = { name: string; email: string; date: number };
  * overwhelming majority of commits; comparing on email alone would hide a real
  * signal on the ones where only the name moved.
  */
-function Identities({ author, committer }: { author: Identity; committer: Identity }) {
+function Identities({
+  author,
+  committer,
+  provenance,
+  sessionName,
+  agent,
+}: {
+  author: Identity;
+  committer: Identity;
+  provenance?: CommitProvenance | null;
+  sessionName?: string;
+  agent?: AgentDefinition | null;
+}) {
   const differs = author.name !== committer.name || author.email !== committer.email;
+  const hasProvenance = provenance && provenance.kind !== 'human';
+  const provenanceText = hasProvenance
+    ? getProvenanceTooltip({ provenance, sessionName, agentName: agent?.label })
+    : null;
 
   return (
     <dl
@@ -543,6 +582,23 @@ function Identities({ author, committer }: { author: Identity; committer: Identi
       data-testid="commit-identities"
     >
       <IdentityRow role="author" identity={author} />
+      {hasProvenance ? (
+        <>
+          <dt className="text-muted-foreground">provenance</dt>
+          <dd
+            className="col-span-2 flex min-w-0 items-center gap-1.5 truncate"
+            data-testid="commit-provenance-detail"
+          >
+            <ProvenanceMark
+              provenance={provenance}
+              sessionName={sessionName}
+              agent={agent}
+              size={14}
+            />
+            <span className="truncate text-foreground/90">{provenanceText}</span>
+          </dd>
+        </>
+      ) : null}
       {differs ? <IdentityRow role="committer" identity={committer} /> : null}
     </dl>
   );
