@@ -11865,3 +11865,23 @@ commit whose row has not streamed into view yet; the session name is linkified i
 resulting Provenance line. Covered as a vitest bridge test per `docs/TESTING.md`'s decision rule
 rather than the phase doc's original Playwright suggestion — the flow needs no real browser
 capability.
+
+---
+
+### Phase 78 Theme E — The write-side fingerprint, opt-in ([PR #465](https://github.com/bilo-io/midnite-studio/pull/465))
+
+**Theme E.** `MSTUDIO_SESSION_ID`/`MSTUDIO_AGENT_ID` now ride in an agent pty's environment always
+(harmless if nothing reads them), and a new `Settings ▸ Agents ▸ Session stamping` row per open
+repo installs a `prepare-commit-msg` hook that turns those into a `Midnite-Session:` trailer —
+which Theme A already parses and Theme B already ranks strongest, so the switch makes the
+*probably* in Theme C's tooltip disappear for every commit it stamps. **The phase doc's own
+gating location was wrong**: `broker/server.ts` turned out to have no concept of `kind`/`agentId`
+at all — its `create` handler takes a flat, caller-built `env` map — so the real decision sits one
+layer up, in the two places that build that map (`main/pty-service.ts`, `main/inproc-pty.ts`),
+both now calling a shared pure `agentFingerprintEnv` in the new `main/pty-env.ts`. The hook
+installer (`main/hooks/install.ts`) never clobbers a `prepare-commit-msg` it did not put there
+itself, wherever it resolves to (`core.hooksPath` when configured, else `.git/hooks/`) — verified
+against a real throwaway repo via `git-engine`'s `TempRepo`. The Settings checkbox reads
+`hooks.status` (live disk state) on every render rather than a remembered preference, so it can
+never drift from a hook a user deleted or replaced by hand. New `mstudio:hooks:status/install/uninstall`
+IPC channels and a `getHooksPath` read added to `git-engine`.
