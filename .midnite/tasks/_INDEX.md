@@ -229,7 +229,7 @@ the two debts that were parked on "the next xterm bump".*
 
 - ✅ **A** (PR [#455](https://github.com/bilo-io/midnite-studio/pull/455)) — the bump: three version lines, one lockfile, and the v6 API delta recorded — a real `xterm.d.ts` diff, not the changelog; nothing touching our eight import sites, `moon run app:typecheck` green with zero source edits
 - ◻ **B** — `terminal-view.tsx`, the only `WebglAddon` consumer; verify the `webgl | dom` fallback
-- ✅ **C** (PR [#TBD]) — the DOM-renderer sites: `transcript-view.tsx`, `live-session-terminal.tsx` needed zero source edits; added a guard test at each asserting only `FitAddon` is ever loaded, never `WebglAddon`
+- ✅ **C** (PR [#457](https://github.com/bilo-io/midnite-studio/pull/457)) — the DOM-renderer sites: `transcript-view.tsx`, `live-session-terminal.tsx` needed zero source edits; added a guard test at each asserting only `FitAddon` is ever loaded, never `WebglAddon`
 - ◻ **D** — `ITheme` across the theme engine, and the VS Code importer's palette
 - ✅ **E** (PR [#455](https://github.com/bilo-io/midnite-studio/pull/455)) — the attach test that replaces the peer dependency v6 removed: traced #242's real failure to `WebglAddon`'s dispose callback reading a `_store` field xterm core 6.0.0 added, reproduced verbatim in jsdom, then encoded deterministically
 - ◻ **F** — the two parked debts: the `Viewport.syncScrollArea` unmount throw, Phase 51's fractional-cell rounding

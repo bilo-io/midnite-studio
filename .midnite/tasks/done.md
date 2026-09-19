@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-19 — Phase 88 Theme C — The DOM-renderer call sites
 
-[PR #TBD]. `transcript-view.tsx` and `live-session-terminal.tsx` — the two sites that load
+[PR #457](https://github.com/bilo-io/midnite-studio/pull/457). `transcript-view.tsx` and `live-session-terminal.tsx` — the two sites that load
 `FitAddon` only, never `WebglAddon` — needed **zero source edits** for the v6 bump: Theme A's own
 `xterm.d.ts` diff had already established `FitAddon`'s typings are unchanged function-for-function
 across the bump, and `grep` across both files confirms neither imports `@xterm/addon-webgl` (only
