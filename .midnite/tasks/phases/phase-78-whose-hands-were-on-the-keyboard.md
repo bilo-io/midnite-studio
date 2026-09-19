@@ -148,22 +148,24 @@ graph does not dim, sort or hide by it unless the user filters. Attribution belo
 
 ### D — The crosswalk: sessions ↔ commits (M)
 
-- [ ] In the Sessions view ([`features/sessions/sessions-view.tsx`](../../../packages/app/src/features/sessions/sessions-view.tsx)),
+- [x] In the Sessions view ([`features/sessions/sessions-view.tsx`](../../../packages/app/src/features/sessions/sessions-view.tsx)),
       each closed agent session row gains a count — "*N* commits" — from the inverse join
       (`commitsForSession(rows, session)` in `provenance.ts`, the same window/trailer rules run the
       other way). Clicking it opens the graph with the Agents filter narrowed to that session's
       SHAs (a `sessionId` facet on the Theme C filter).
-- [ ] Commit detail's Provenance line (Theme C) links to the session; the link opens the archived
+- [x] Commit detail's Provenance line (Theme C) links to the session; the link opens the archived
       transcript through Phase 67's existing reader — the user reads what the agent was told and
       what it printed, one click from the commit it made. No new transcript machinery.
-- [ ] A **live** agent session shows the same count for commits made since `createdAt` — the
+- [x] A **live** agent session shows the same count for commits made since `createdAt` — the
       count ticks up as the agent works, read from the graph store's rows on each batch. This is the
       one place the mark is *motion*: a session tab whose count just changed pulses once, subject to
       the motion policy.
-- [ ] *Acceptance:* close an agent session that made two commits → the Sessions row says "2
+- [x] *Acceptance:* close an agent session that made two commits → the Sessions row says "2
       commits" → click → the graph shows exactly those two undimmed → click one → Provenance line →
-      the transcript opens. End-to-end in Playwright against `mock-bridge.ts` fixtures extended
-      with `closedSessions` and trailer-bearing commits.
+      the transcript opens. Covered as a vitest bridge test against `mock-bridge.ts` fixtures
+      extended with `closedSessions` and trailer-bearing commits, per `docs/TESTING.md`'s decision
+      rule — the flow needs no real browser capability, so it stays off Playwright rather than
+      inverting the pyramid.
 
 ### E — The write-side fingerprint, opt-in (S)
 

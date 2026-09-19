@@ -236,3 +236,31 @@ export function commitsForSession(
     return commit.committerDate >= startSec && commit.committerDate <= endSec;
   });
 }
+
+/**
+ * Inverse join for a live agent session: find all commits made since `createdAt`.
+ * Matches either via `Midnite-Session` trailer or `committerDate >= createdAt` on the same repo.
+ */
+export function commitsForLiveSession(
+  commits: readonly Commit[],
+  session: { id: string; kind: string; agentId?: string | null; createdAt: number; repoId?: string },
+): Commit[] {
+  if (session.kind !== 'agent' || !session.agentId) return [];
+
+  const startSec =
+    session.createdAt > 1e11 ? Math.floor(session.createdAt / 1000) : session.createdAt;
+
+  return commits.filter((commit) => {
+    // 1. Direct session trailer match
+    if (commit.sessionTrailers?.includes(session.id)) {
+      return true;
+    }
+    // 2. Commits made since createdAt on the same repo
+    const targetRepoId = (commit as { repoId?: string }).repoId;
+    if (targetRepoId !== undefined && session.repoId !== undefined && targetRepoId !== session.repoId) {
+      return false;
+    }
+    return commit.committerDate >= startSec;
+  });
+}
+

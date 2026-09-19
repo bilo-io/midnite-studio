@@ -17,7 +17,17 @@ import {
   resolveProvenanceDetails,
 } from '../graph/provenance-mark';
 import { useAgents } from '../terminal/use-agents';
-import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import { buildChangeTree, flattenBySize } from '../../components/build-change-tree';
 import { ChangeTotals, ChangeTree } from '../../components/change-tree';
@@ -29,6 +39,12 @@ import { UserAvatar } from '../../components/user-avatar';
 import { useWorkbenchStore } from '../../store/workbench-store';
 
 import { copyText, resolveRevision, useCommitDetail, useRemotes, useSessionHistory } from '../../services/queries';
+import { useSessionsStore } from '../../store/sessions-store';
+import {
+  classifyProvenance,
+  type AgentSignature,
+  type Commit,
+} from '@midnite/studio-shared';
 import { LAYOUT_BOUNDS, useUiStore, type CommitFileView } from '../../store/ui-store';
 import { DiffView } from '../diff/diff-view';
 import { imageDiffSources } from '../diff/image-sources';
@@ -68,6 +84,26 @@ const CommitMessage = lazy(() =>
  * question being asked of a file list — "which of these do I want to read" — is
  * one you answer by looking at the list and the diff together.
  */
+function parseTrailers(body: string, key: string): string[] {
+  const result: string[] = [];
+  const lines = body.split('\n');
+  const prefix = `${key.toLowerCase()}:`;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.toLowerCase().startsWith(prefix)) {
+      const val = trimmed.slice(prefix.length).trim();
+      if (val) result.push(val);
+    }
+  }
+  return result;
+}
+
+function getAgentName(agentId: string, agents: readonly AgentDefinition[]): string {
+  const agent = agents.find((a) => a.id === agentId);
+  if (agent?.label) return agent.label;
+  return agentId.charAt(0).toUpperCase() + agentId.slice(1);
+}
+
 export function CommitDetail({
   repoId,
   sha,
@@ -83,6 +119,56 @@ export function CommitDetail({
   const selectCommit = useUiStore((s) => s.selectCommit);
   const fileView = useUiStore((s) => s.commitFileView);
   const setFileView = useUiStore((s) => s.setCommitFileView);
+
+  const { agents } = useAgents();
+  const sessionHistory = useSessionHistory();
+  const closedSessions = useMemo(() => sessionHistory.data ?? [], [sessionHistory.data]);
+  const roster = useMemo(
+    () => agents.map((a) => a.signatures).filter(Boolean) as AgentSignature[],
+    [agents],
+  );
+
+  const rowCount = useGraphStore((s) => s.rows.length);
+  const storeCommit = useMemo(
+    () => useGraphStore.getState().rows.find((r) => r.commit.sha === data?.sha)?.commit,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rowCount, data?.sha],
+  );
+
+  /**
+   * The row batch already classified this sha once (Theme C, `graph-store.ts`
+   * `appendBatch`) whenever the row has streamed into view — reuse that
+   * rather than reclassifying, so the mark here always agrees with the mark
+   * on the row. A commit opened before its row has streamed in (a deep link,
+   * or a session's commit the user has not scrolled to) falls back to
+   * classifying it directly off the loaded detail plus the trailers on its
+   * own message (Theme D) — the store is a cache, not the only source.
+   */
+  const storeProvenance = useGraphStore((s) => s.provenance[sha]);
+  const provenance = useMemo(() => {
+    if (storeProvenance) return storeProvenance;
+    if (!data) return null;
+    const commit: Commit = storeCommit ?? {
+      sha: data.sha,
+      parents: data.parents,
+      authorName: data.author.name,
+      authorEmail: data.author.email,
+      authorDate: data.author.date,
+      committerDate: data.committer.date,
+      subject: data.subject,
+      refs: [],
+      coAuthors: parseTrailers(data.body, 'Co-Authored-By'),
+      sessionTrailers: parseTrailers(data.body, 'Midnite-Session'),
+    };
+    return classifyProvenance(commit, roster, closedSessions, repoId);
+  }, [storeProvenance, data, storeCommit, roster, closedSessions, repoId]);
+
+  const handleOpenSession = useCallback((sessionId: string) => {
+    useSessionsStore.getState().selectClosedSession(sessionId);
+    useSessionsStore.getState().selectLiveSession(null);
+    useUiStore.getState().setActiveView('sessions');
+  }, []);
+
   /*
     Open ⇄ closed is a preference, like the tree/list choice beside it: you are
     either reading commits or scanning diffs, and you keep doing the one you
@@ -92,14 +178,8 @@ export function CommitDetail({
   const toggleMeta = useUiStore((s) => s.toggleCommitMeta);
   const metaId = useId();
 
-  const commitProvenance = useGraphStore((s) => s.provenance[sha]);
-  const { agents } = useAgents();
-  const { data: closedSessions } = useSessionHistory();
-  const { sessionName, agent } = resolveProvenanceDetails(
-    commitProvenance ?? { kind: 'human' },
-    agents,
-    closedSessions ?? [],
-  );
+  const commitProvenance = provenance ?? { kind: 'human' as const };
+  const { sessionName, agent } = resolveProvenanceDetails(commitProvenance, agents, closedSessions);
 
   // The pre-image path rides along with the selection: rename detection needs
   // both sides of the pathspec, and without it a renamed file renders as a
@@ -337,6 +417,8 @@ export function CommitDetail({
               provenance={commitProvenance}
               sessionName={sessionName}
               agent={agent}
+              agents={agents}
+              onOpenSession={handleOpenSession}
             />
             <div className="mt-2">
               <Suspense fallback={null}>
@@ -557,24 +639,70 @@ type Identity = { name: string; email: string; date: number };
  * overwhelming majority of commits; comparing on email alone would hide a real
  * signal on the ones where only the name moved.
  */
+/**
+ * Splits `text` on the first occurrence of `needle` and wraps that occurrence
+ * in a button that opens the session's archived transcript (Theme D) — the
+ * rest of the sentence (Theme C's `getProvenanceTooltip` phrasing) renders as
+ * plain text either side of it. Falls back to plain text when the needle
+ * cannot be found (e.g. the session was since renamed).
+ */
+function linkifySessionName(
+  text: string,
+  needle: string,
+  sessionId: string,
+  onOpenSession: (sessionId: string) => void,
+): ReactNode {
+  const idx = text.indexOf(needle);
+  if (idx === -1) return text;
+  const before = text.slice(0, idx);
+  const after = text.slice(idx + needle.length);
+  return (
+    <>
+      {before}
+      <button
+        type="button"
+        onClick={() => onOpenSession(sessionId)}
+        className="underline decoration-primary/40 underline-offset-2 hover:decoration-primary text-primary font-medium"
+        title={`Open session transcript (${sessionId})`}
+        aria-label={`Open session ${needle}`}
+      >
+        {needle}
+      </button>
+      {after}
+    </>
+  );
+}
+
 function Identities({
   author,
   committer,
   provenance,
   sessionName,
   agent,
+  agents,
+  onOpenSession,
 }: {
   author: Identity;
   committer: Identity;
   provenance?: CommitProvenance | null;
   sessionName?: string;
   agent?: AgentDefinition | null;
+  agents: readonly AgentDefinition[];
+  onOpenSession?: (sessionId: string) => void;
 }) {
   const differs = author.name !== committer.name || author.email !== committer.email;
   const hasProvenance = provenance && provenance.kind !== 'human';
+  const agentName =
+    agent?.label ||
+    (hasProvenance ? provenance.agentIds.map((id) => getAgentName(id, agents)).join(', ') : undefined);
   const provenanceText = hasProvenance
-    ? getProvenanceTooltip({ provenance, sessionName, agentName: agent?.label })
+    ? getProvenanceTooltip({ provenance, sessionName, agentName })
     : null;
+  const sessionId = hasProvenance ? provenance.sessionId : undefined;
+  const provenanceContent =
+    provenanceText && sessionId && sessionName && onOpenSession
+      ? linkifySessionName(provenanceText, sessionName, sessionId, onOpenSession)
+      : provenanceText;
 
   return (
     <dl
@@ -584,10 +712,10 @@ function Identities({
       <IdentityRow role="author" identity={author} />
       {hasProvenance ? (
         <>
-          <dt className="text-muted-foreground">provenance</dt>
+          <dt className="text-muted-foreground">Provenance</dt>
           <dd
             className="col-span-2 flex min-w-0 items-center gap-1.5 truncate"
-            data-testid="commit-provenance-detail"
+            data-testid="commit-provenance"
           >
             <ProvenanceMark
               provenance={provenance}
@@ -595,7 +723,7 @@ function Identities({
               agent={agent}
               size={14}
             />
-            <span className="truncate text-foreground/90">{provenanceText}</span>
+            <span className="truncate text-foreground/90">{provenanceContent}</span>
           </dd>
         </>
       ) : null}

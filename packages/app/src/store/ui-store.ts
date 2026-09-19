@@ -987,6 +987,12 @@ export type UiState = {
   graphRefFilter: string[];
   /** Lowercased author emails to highlight; empty means every author. */
   graphAuthorFilter: string[];
+  /** Filter graph by session id; null means no session filter. */
+  graphSessionFilter: string | null;
+  /** Filter graph by explicit commit shas; null means no sha filter. */
+  graphShaFilter: string[] | null;
+  setGraphSessionFilter: (sessionId: string | null) => void;
+  setGraphShaFilter: (shas: string[] | null) => void;
   /** Provenance filter: 'all' | 'humans' | 'agents' | `agent:${id}`; defaults to 'all' (Phase 78 Theme C). */
   graphProvenanceFilter: string;
   /**
@@ -2203,6 +2209,8 @@ export const useUiStore = create<UiState>()(
       graphDensity: DEFAULT_GRAPH_DENSITY,
       graphRefFilter: [],
       graphAuthorFilter: [],
+      graphSessionFilter: null,
+      graphShaFilter: null,
       graphProvenanceFilter: 'all',
       diffShowOldGutter: DIFF_PREF_DEFAULTS.diffShowOldGutter,
       diffLayout: DIFF_PREF_DEFAULTS.diffLayout,
@@ -2263,6 +2271,8 @@ export const useUiStore = create<UiState>()(
             graphSelection: null,
             graphRefFilter: [],
             graphAuthorFilter: [],
+            graphSessionFilter: null,
+            graphShaFilter: null,
             graphProvenanceFilter: 'all',
           }),
         ),
@@ -2465,6 +2475,8 @@ export const useUiStore = create<UiState>()(
       setGraphDensity: (graphDensity) => set({ graphDensity }),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),
       setGraphAuthorFilter: (graphAuthorFilter) => set({ graphAuthorFilter }),
+      setGraphSessionFilter: (graphSessionFilter) => set({ graphSessionFilter }),
+      setGraphShaFilter: (graphShaFilter) => set({ graphShaFilter }),
       setGraphProvenanceFilter: (graphProvenanceFilter) => set({ graphProvenanceFilter }),
       toggleDiffOldGutter: () =>
         set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),

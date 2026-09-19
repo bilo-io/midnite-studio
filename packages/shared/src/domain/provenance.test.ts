@@ -5,6 +5,7 @@ import type { Commit } from './commit';
 import {
   classifyProvenance,
   CommitProvenanceSchema,
+  commitsForLiveSession,
   commitsForSession,
   extractIdentity,
   ProvenanceSourceSchema,
@@ -625,4 +626,64 @@ describe('classifyProvenance', () => {
       expect(commitsForSession([commit], session)).toEqual([]);
     });
   });
+
+  describe('commitsForLiveSession', () => {
+    it('finds commits matching by session trailer or since createdAt', () => {
+      const session = {
+        id: 'live-session-1',
+        kind: 'agent',
+        agentId: 'claude',
+        repoId: 'repo-1',
+        createdAt: 1000,
+      };
+
+      const c1 = makeCommit({
+        sha: '1'.repeat(40),
+        sessionTrailers: ['live-session-1'],
+        committerDate: 500, // before createdAt, but has trailer
+      });
+
+      const c2 = makeCommit({
+        sha: '2'.repeat(40),
+        committerDate: 1500, // after createdAt
+      });
+
+      const c3 = makeCommit({
+        sha: '3'.repeat(40),
+        committerDate: 800, // before createdAt, no trailer
+      });
+
+      const matched = commitsForLiveSession([c1, c2, c3], session);
+      expect(matched.map((c) => c.sha)).toEqual(['1'.repeat(40), '2'.repeat(40)]);
+    });
+
+    it('returns empty when given a non-agent session', () => {
+      const shellSession = {
+        id: 'shell-live',
+        kind: 'shell',
+        agentId: undefined,
+        createdAt: 1000,
+      };
+
+      expect(commitsForLiveSession([makeCommit()], shellSession)).toEqual([]);
+    });
+
+    it('rejects match when commit repoId differs from live session repoId', () => {
+      const session = {
+        id: 's-live',
+        kind: 'agent',
+        agentId: 'claude',
+        repoId: 'repo-A',
+        createdAt: 1000,
+      };
+
+      const commit = {
+        ...makeCommit({ committerDate: 1500 }),
+        repoId: 'repo-B',
+      };
+
+      expect(commitsForLiveSession([commit], session)).toEqual([]);
+    });
+  });
 });
+

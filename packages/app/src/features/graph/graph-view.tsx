@@ -72,6 +72,7 @@ export function GraphView() {
 
   const graphRefFilter = useUiStore((s) => s.graphRefFilter);
   const graphAuthorFilter = useUiStore((s) => s.graphAuthorFilter);
+  const graphShaFilter = useUiStore((s) => s.graphShaFilter);
   const graphProvenanceFilter = useUiStore((s) => s.graphProvenanceFilter);
 
   const { agents } = useAgents();
@@ -369,6 +370,11 @@ export function GraphView() {
     [graphAuthorFilter],
   );
 
+  const highlightedShas = useMemo(
+    () => (graphShaFilter === null ? null : new Set(graphShaFilter)),
+    [graphShaFilter],
+  );
+
   const authors = useMemo(
     () => summariseAuthors(rows),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -515,8 +521,9 @@ export function GraphView() {
               const authorMatches =
                 highlightedEmails === null ||
                 highlightedEmails.has(row.commit.authorEmail.trim().toLowerCase());
+              const shaMatches = highlightedShas === null || highlightedShas.has(row.commit.sha);
               const provenanceMatches = matchesProvenanceFilter(commitProv, graphProvenanceFilter);
-              const dimmed = !authorMatches || !provenanceMatches;
+              const dimmed = !authorMatches || !shaMatches || !provenanceMatches;
               const { sessionName, agent } = resolveProvenanceDetails(commitProv, agents, sessions);
 
               return (

@@ -3,9 +3,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Collapse } from '@bilo-io/ui';
 import {
   buildResumeCommand,
+  commitsForLiveSession,
+  commitsForSession,
   DEFAULT_LOOPS,
   type AgentDefinition,
   type ClosedSession,
+  type Commit,
   type TerminalSession,
 } from '@midnite/studio-shared';
 import {
@@ -36,6 +39,7 @@ import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import { useRefreshSessionHistory, useSessionHistory } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useSessionsStore } from '../../store/sessions-store';
+import { useGraphStore } from '../graph/graph-store';
 import { closeSessionWithConfirm } from '../terminal/close-session';
 import { revealFabSession, revealSession } from '../terminal/reveal-session';
 import { agentLabelFor, inMainPanel, useTerminalStore, type ConnectionState, type SessionActivity } from '../terminal/terminal-store';
@@ -205,6 +209,19 @@ export function SessionsView({
     for (const run of loopRuns.data) map.set(run.sessionId, run.loopId);
     return map;
   }, [loopRuns.data]);
+
+  const rowCount = useGraphStore((s) => s.rows.length);
+  const commits = useMemo(
+    () => useGraphStore.getState().rows.map((r) => r.commit),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rowCount],
+  );
+
+  const navigateToGraph = (session: ManagedSession, sessionCommits: Commit[]) => {
+    useUiStore.getState().setGraphSessionFilter(session.id);
+    useUiStore.getState().setGraphShaFilter(sessionCommits.map((c) => c.sha));
+    useUiStore.getState().setActiveView('graph');
+  };
 
   /**
    * Kill a live session from the list — the same termination path the
@@ -601,6 +618,8 @@ export function SessionsView({
                 toggleSelected={toggleSelected}
                 cascading={groupCascade.active}
                 groupCascadeStyle={groupCascade.styleFor(groupIndex)}
+                commits={commits}
+                onNavigateToGraph={navigateToGraph}
               />
             ))}
           </div>
@@ -794,6 +813,8 @@ function RepoSessionsGroup({
   toggleSelected,
   cascading,
   groupCascadeStyle,
+  commits,
+  onNavigateToGraph,
 }: {
   group: SessionGroup;
   groupIndex: number;
@@ -811,6 +832,8 @@ function RepoSessionsGroup({
   toggleSelected: (id: string) => void;
   cascading: boolean;
   groupCascadeStyle?: CSSProperties;
+  commits?: readonly Commit[] | undefined;
+  onNavigateToGraph?: ((session: ManagedSession, sessionCommits: Commit[]) => void) | undefined;
 }) {
   const revealCount = useRevealCount(open);
   const sessionCascade = useCascadeReveal({ revealKey: `${group.repoId}:${revealCount}` });
@@ -860,6 +883,8 @@ function RepoSessionsGroup({
             onToggleChecked={() => toggleSelected(record.id)}
             cascading={sessionCascade.active}
             cascadeStyle={sessionCascade.styleFor(sessionIndex)}
+            commits={commits}
+            onNavigateToGraph={onNavigateToGraph}
           />
         ))}
       </Collapse>
@@ -881,6 +906,8 @@ function SessionRow({
   onToggleChecked,
   cascading,
   cascadeStyle,
+  commits,
+  onNavigateToGraph,
 }: {
   record: ManagedSession;
   agent: AgentDefinition | undefined;
@@ -899,12 +926,43 @@ function SessionRow({
   onToggleChecked: () => void;
   cascading?: boolean;
   cascadeStyle?: CSSProperties;
+  commits?: readonly Commit[] | undefined;
+  onNavigateToGraph?: ((session: ManagedSession, sessionCommits: Commit[]) => void) | undefined;
 }) {
   const connectionState = useTerminalStore((s) => s.states[record.id]);
   const activity = useTerminalStore((s) => s.activity[record.id]);
 
   const label = managedSessionLabel(record, agentLabel);
   const closed = isClosedManagedSession(record);
+
+  const sessionCommits = useMemo(() => {
+    if (record.kind !== 'agent') return [];
+    const list = commits ?? [];
+    if (closed) {
+      return commitsForSession(list, record as ClosedSession);
+    }
+    return commitsForLiveSession(list, record);
+  }, [record, closed, commits]);
+
+  const commitCount = record.kind === 'agent' ? sessionCommits.length : null;
+
+  const [pulsing, setPulsing] = useState(false);
+  const prevCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (commitCount === null) return;
+    if (!closed && prevCountRef.current !== null && commitCount > prevCountRef.current) {
+      const isReduced =
+        typeof document !== 'undefined' &&
+        document.documentElement.getAttribute('data-motion') === 'reduced';
+      if (!isReduced) {
+        setPulsing(true);
+        const timer = setTimeout(() => setPulsing(false), 800);
+        return () => clearTimeout(timer);
+      }
+    }
+    prevCountRef.current = commitCount;
+  }, [commitCount, closed]);
   const AgentIcon =
     record.kind === 'agent' && record.agentId
       ? resolveAgentIcon({ id: record.agentId, icon: agent?.icon })
@@ -955,7 +1013,9 @@ function SessionRow({
     <div
       className={`group flex ${SESSION_ROW_HEIGHT_CLASS} items-center gap-2 border-l-2 px-2 text-left text-xs transition-colors ${
         selected ? 'border-primary bg-accent' : 'border-transparent hover:bg-accent/60'
-      } ${cascading ? 'animate-fade-in-up cascade-delay' : ''}`}
+      } ${cascading ? 'animate-fade-in-up cascade-delay' : ''} ${
+        pulsing ? 'session-row-pulse' : ''
+      }`}
       style={cascadeStyle}
     >
       {/* Reserved even when empty, so a live row's label lines up with a
@@ -1021,6 +1081,23 @@ function SessionRow({
           <span className="shrink-0 tabular-nums text-[11px] text-destructive">{record.exitCode}</span>
         ) : null}
       </button>
+      {commitCount !== null ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onNavigateToGraph?.(record, sessionCommits);
+          }}
+          data-testid="session-commit-count"
+          aria-label={`${commitCount} commit${commitCount === 1 ? '' : 's'}`}
+          title={`Show ${commitCount} commit${commitCount === 1 ? '' : 's'} in Graph`}
+          className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
+            pulsing ? 'session-row-pulse ring-1 ring-primary/40 text-primary' : ''
+          }`}
+        >
+          {commitCount} commit{commitCount === 1 ? '' : 's'}
+        </button>
+      ) : null}
       {resumeArgs ? (
         <IconButton
           icon={LuPlay}
