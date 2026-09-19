@@ -710,6 +710,7 @@ function Identities({
       data-testid="commit-identities"
     >
       <IdentityRow role="author" identity={author} />
+      {differs ? <IdentityRow role="committer" identity={committer} /> : null}
       {hasProvenance ? (
         <>
           <dt className="text-muted-foreground">Provenance</dt>
@@ -727,7 +728,6 @@ function Identities({
           </dd>
         </>
       ) : null}
-      {differs ? <IdentityRow role="committer" identity={committer} /> : null}
     </dl>
   );
 }

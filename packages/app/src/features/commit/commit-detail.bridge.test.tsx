@@ -398,6 +398,17 @@ describe('CommitDetail, assembled through the real bridge', () => {
       const provEl = ids?.querySelector('[data-testid="commit-provenance"]');
       expect(provEl).not.toBeNull();
       expect(provEl?.textContent).toContain('Co-authored by Claude');
+
+      /*
+        Field order: author, then committer, then agent — agent LAST.
+        `fixtures.commitDetails[COMMIT_SHA]` already carries a committer that
+        differs from the author (a squash-merge through GitHub's web UI), so
+        this one commit exercises all three rows at once. A prior version of
+        this panel put the provenance row between author and committer,
+        reading as though the agent had committed rather than authored.
+      */
+      const labels = Array.from(ids?.querySelectorAll('dt') ?? []).map((dt) => dt.textContent);
+      expect(labels).toEqual(['author', 'committer', 'Provenance']);
     });
 
     it('renders provenance line with clickable session link and opens transcript on click', async () => {
