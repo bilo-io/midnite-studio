@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { fixtures } from '../../test-support/fixtures';
 import { renderView } from '../../test-support/render';
 import { useUiStore } from '../store/ui-store';
 import { TitleBarPrimaryAgent } from './title-bar-primary-agent';
@@ -175,5 +176,62 @@ describe('TitleBarPrimaryAgent', () => {
     fireEvent.click(screen.getByTestId('titlebar-primary-agent'));
     expect(screen.getByTestId('primary-agent-check-goose')).toBeTruthy();
     expect(screen.queryByTestId('primary-agent-check-claude')).toBeNull();
+  });
+
+  /**
+   * OpenClaude is the mock bridge's own "not installed" fixture
+   * (`test-support/mock-bridge.ts`'s `agent.list` status array) — the same
+   * roster `new-session-picker.test.tsx` exercises for the terminal's `+`
+   * menu. Both dropdowns read the identical `AgentStatus[]`, so a row here
+   * greys out and routes exactly the way that one does.
+   */
+  describe('an unconfigured agent (OpenClaude)', () => {
+    /**
+     * `useAgents()` reads through TanStack Query, so the fixture's `status`
+     * (`installed: false` for OpenClaude) only lands after the `agent.list`
+     * promise resolves — a beat after the popover opens. Every assertion
+     * below awaits the row rather than reading it synchronously, or it would
+     * see the pre-resolution fallback (`UNPROBED`: empty status, "assume it
+     * works") and read as configured.
+     */
+    it('renders as a real, non-native-disabled row, greyed via aria-disabled', async () => {
+      renderView(<TitleBarPrimaryAgent />, { fixtures });
+      fireEvent.click(screen.getByTestId('titlebar-primary-agent'));
+
+      const row = (await screen.findByTestId('primary-agent-item-openclaude')) as HTMLButtonElement;
+      await vi.waitFor(() => expect(row.getAttribute('aria-disabled')).toBe('true'));
+      expect(row.disabled).toBe(false);
+    });
+
+    it('routes a click to Settings ▸ Agents instead of setting it primary', async () => {
+      renderView(<TitleBarPrimaryAgent />, { fixtures });
+      fireEvent.click(screen.getByTestId('titlebar-primary-agent'));
+
+      const row = await screen.findByTestId('primary-agent-item-openclaude');
+      await vi.waitFor(() => expect(row.getAttribute('aria-disabled')).toBe('true'));
+      fireEvent.click(row);
+
+      expect(useUiStore.getState().primaryAgent).toBe('claude');
+      expect(useUiStore.getState().activeView).toBe('settings');
+      expect(useUiStore.getState().settingsPage).toBe('agent');
+      expect(useUiStore.getState().pendingAgentFocus).toBe('openclaude');
+      // The popover closes like a normal selection would.
+      expect(screen.queryByPlaceholderText('Find an agent…')).toBeNull();
+    });
+
+    it('routes Enter on the highlighted row the same way', async () => {
+      renderView(<TitleBarPrimaryAgent />, { fixtures });
+      fireEvent.click(screen.getByTestId('titlebar-primary-agent'));
+      const input = screen.getByPlaceholderText('Find an agent…');
+
+      fireEvent.change(input, { target: { value: 'openclaude' } });
+      const row = await screen.findByTestId('primary-agent-item-openclaude');
+      await vi.waitFor(() => expect(row.getAttribute('aria-disabled')).toBe('true'));
+      fireEvent.keyDown(input, { key: 'Enter' });
+
+      expect(useUiStore.getState().primaryAgent).toBe('claude');
+      expect(useUiStore.getState().activeView).toBe('settings');
+      expect(useUiStore.getState().pendingAgentFocus).toBe('openclaude');
+    });
   });
 });

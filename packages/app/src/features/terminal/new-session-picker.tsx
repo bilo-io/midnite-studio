@@ -14,6 +14,12 @@ export type NewSessionPickerProps = {
   hasWorktree: boolean;
   onNewTerminal: () => void;
   onNewAgent: (agent: AgentDefinition) => void;
+  /**
+   * Called instead of `onNewAgent` when the clicked row is not
+   * installed/configured — routes to Settings ▸ Agents rather than trying
+   * (and failing) to start a session with it.
+   */
+  onConfigure: (agent: AgentDefinition) => void;
 };
 
 /**
@@ -35,6 +41,7 @@ export function NewSessionPicker({
   hasWorktree,
   onNewTerminal,
   onNewAgent,
+  onConfigure,
 }: NewSessionPickerProps) {
   const [open, setOpen] = useState(false);
 
@@ -70,6 +77,10 @@ export function NewSessionPicker({
             onNewAgent(agent);
             setOpen(false);
           }}
+          onConfigure={(agent) => {
+            onConfigure(agent);
+            setOpen(false);
+          }}
         />
       ) : null}
     </Popover>
@@ -93,6 +104,13 @@ function matchesQuery(query: string, agent: AgentDefinition): boolean {
   return Boolean(fuzzyMatch(query, agent.label) ?? fuzzyMatch(query, agent.command));
 }
 
+/**
+ * Whether keyboard/roving focus may land on `row` at all.
+ *
+ * An `unconfigured` agent row IS selectable — it has a real action (route to
+ * Settings), just not the one every other row has. Only a truly `disabled`
+ * row (no worktree) is skipped, the same as the pinned New Terminal row.
+ */
 function isSelectable(row: Row | undefined, hasWorktree: boolean): row is Row {
   if (!row) return false;
   return row.kind === 'terminal' ? hasWorktree : !row.row.disabled;
@@ -118,12 +136,14 @@ function PickerPanel({
   hasWorktree,
   onNewTerminal,
   onNewAgent,
+  onConfigure,
 }: {
   agents: AgentDefinition[];
   status: AgentStatus[];
   hasWorktree: boolean;
   onNewTerminal: () => void;
   onNewAgent: (agent: AgentDefinition) => void;
+  onConfigure: (agent: AgentDefinition) => void;
 }) {
   const [query, setQuery] = useState('');
   const [highlighted, setHighlighted] = useState(0);
@@ -182,6 +202,7 @@ function PickerPanel({
   const runRow = (row: Row | undefined) => {
     if (!isSelectable(row, hasWorktree)) return;
     if (row.kind === 'terminal') onNewTerminal();
+    else if (row.row.unconfigured) onConfigure(row.row.agent);
     else onNewAgent(row.row.agent);
   };
 
@@ -234,6 +255,7 @@ function PickerPanel({
           icon={LuTerminal}
           selected={highlighted === indexByKey.get('terminal')}
           disabled={!hasWorktree}
+          unconfigured={false}
           disabledReason={hasWorktree ? undefined : NO_WORKTREE}
           onSelect={() => runRow({ kind: 'terminal' })}
           onHover={() => setHighlighted(indexByKey.get('terminal') ?? 0)}
@@ -258,6 +280,7 @@ function PickerPanel({
                     iconStyle={row.iconStyle}
                     selected={highlighted === rowIndex}
                     disabled={row.disabled}
+                    unconfigured={row.unconfigured}
                     disabledReason={row.disabledReason}
                     onSelect={() => runRow({ kind: 'agent', row })}
                     onHover={() => setHighlighted(rowIndex ?? 0)}
@@ -278,6 +301,7 @@ function PickerRow({
   iconStyle,
   selected,
   disabled,
+  unconfigured,
   disabledReason,
   onSelect,
   onHover,
@@ -286,12 +310,20 @@ function PickerRow({
   icon: IconComponent;
   iconStyle?: CSSProperties;
   selected: boolean;
+  /** Truly inert — no worktree. Native `disabled`, unclickable. */
   disabled: boolean;
+  /**
+   * Greyed out like `disabled`, but a real button: `onSelect` still fires,
+   * routing to Settings ▸ Agents instead of starting a session. Never true
+   * at the same time as `disabled` — see `AgentRow`.
+   */
+  unconfigured: boolean;
   /** Shown as the row's native `title` tooltip — same surface `context-menu.tsx` uses. */
   disabledReason: string | undefined;
   onSelect: () => void;
   onHover: () => void;
 }) {
+  const greyedOut = disabled || unconfigured;
   return (
     <button
       type="button"
@@ -299,13 +331,16 @@ function PickerRow({
       tabIndex={-1}
       aria-selected={selected}
       disabled={disabled}
+      aria-disabled={unconfigured ? true : undefined}
       onMouseEnter={onHover}
       onClick={disabled ? undefined : onSelect}
       // The reason belongs on the row itself — see `context-menu.tsx`'s
       // identical choice: a greyed-out row with no explanation is the most
       // frustrating thing a menu can show.
-      title={disabled ? disabledReason : undefined}
-      className={`flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+      title={greyedOut ? disabledReason : undefined}
+      className={`flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed ${
+        greyedOut ? 'opacity-40' : ''
+      } ${unconfigured ? 'cursor-pointer' : ''} ${
         selected ? 'bg-accent text-foreground' : 'text-foreground'
       }`}
     >

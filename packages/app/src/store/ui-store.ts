@@ -1275,6 +1275,23 @@ export type UiState = {
   primaryAgent: string;
   setPrimaryAgent: (id: string) => void;
   /**
+   * Non-persisted: the Settings ▸ Agents row `AgentsRoster` should scroll to
+   * and briefly highlight next. Set by `focusAgentInSettings` when a
+   * dropdown routes a click on an unconfigured agent to that page — cleared
+   * once `AgentsRoster` consumes it, so a plain visit never inherits a stale
+   * target. Session-only on purpose: it names a UI event, not a preference.
+   */
+  pendingAgentFocus: string | null;
+  /**
+   * Navigate to Settings ▸ Agents and flag `agentId` for `AgentsRoster` to
+   * scroll to and highlight — the click target for a greyed-out row in
+   * either agent dropdown (the terminal's `+` picker, the title bar's
+   * primary-agent picker) once it is identified as not installed/configured.
+   */
+  focusAgentInSettings: (agentId: string) => void;
+  /** Consumed by `AgentsRoster` once it has scrolled to `pendingAgentFocus`. */
+  clearPendingAgentFocus: () => void;
+  /**
    * Execution mode per agent: 'cli', 'api', 'both', or 'none'.
    * An agent absent from this record falls back to 'both'.
    */
@@ -1904,6 +1921,7 @@ export const useUiStore = create<UiState>()(
       blockedByFieldName: 'Blocked by',
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
+      pendingAgentFocus: null,
       agentModes: {},
       setAgentMode: (agentId, mode) =>
         set((state) => ({ agentModes: { ...state.agentModes, [agentId]: mode } })),
@@ -2523,6 +2541,12 @@ export const useUiStore = create<UiState>()(
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
+      focusAgentInSettings: (agentId) => {
+        get().setActiveView('settings');
+        get().setSettingsPage('agent');
+        set({ pendingAgentFocus: agentId });
+      },
+      clearPendingAgentFocus: () => set({ pendingAgentFocus: null }),
     }),
     {
       name: 'midnite-studio.ui',
