@@ -71,6 +71,11 @@ conversation's context) and must instruct it to:
 - Still do Stage 2.7's claim in `_INDEX.md` on `main` before branching, and handle a push race with
   `git pull --rebase origin main`.
 - Use a worktree slug that can't collide with a sibling subagent's, e.g. `.worktrees/p<N>-<letters>`.
+- **Keep its worktree's `SCRATCHPAD.md` current** — `/midnite-exec`'s worktree stage writes one at
+  the root. An unattended subagent is the case that file exists for: when one is killed it leaves
+  nothing else behind, and the scratchpad is what lets this session or a replacement pick the phase
+  up from where it actually stopped. Update it after each commit and at each stage boundary, and
+  never commit it.
 - **Actually watch CI to completion** rather than ending its turn with checks still pending — this
   is the single most common way a swarm subagent stalls. On a real failure, check whether the
   failing test touches files the PR changed; if not, treat it as a pre-existing flake, re-run the
@@ -93,6 +98,13 @@ rebase → merge → teardown). `?` until there is a basis, `done` once merged. 
 line gives the ETA for the whole batch — parallel rows do not add, a later wave does. Bake the ETA
 column into the cron/loop prompt so every tick carries it.
 
+**Read the scratchpads before writing the table.** The **Done** and **Next** lines in
+`.worktrees/*/SCRATCHPAD.md` are the cheapest ground truth in the swarm — written by the worker,
+sitting on disk, surviving its death — and they are what turns a `Doing` cell from "building" into
+something the human can act on. They are evidence, not a claim: cross-check each against `gh pr`
+state per the next stage, and treat a scratchpad whose **Next** hasn't moved in two ticks as a
+stalled subagent, whatever it last reported.
+
 ## 7 · Babysitting a stuck subagent
 
 A background subagent can report done after genuinely doing nothing, or stop mid-poll while its
@@ -106,6 +118,9 @@ state,mergedAt`, `gh pr checks <n>`) against what it last reported:
 - If it keeps re-stalling after being resumed once or twice, stop delegating and finish the
   remaining stages yourself directly (mark the PR ready, watch/rerun CI, squash-merge, worktree
   teardown, freed-space report) rather than burning further turns bouncing messages at it.
+- If a subagent is dead and unreachable, its worktree's `SCRATCHPAD.md` is the handover it left:
+  read it end to end, then finish the remaining stages yourself from its **Next** line rather than
+  re-deriving the work or restarting the phase from scratch.
 
 ## 8 · Wrap-up
 

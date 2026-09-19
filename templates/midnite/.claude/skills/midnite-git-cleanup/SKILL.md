@@ -55,6 +55,17 @@ flagged patch-equivalent.
 
 - **The target branch** and **the current branch** — never candidates.
 - **Any branch with unique content** — reported under KEEPING with a count.
+- **An untracked `SCRATCHPAD.md` is expected WIP dirt, not a mystery** — and on a landed branch it
+  is the one dirt worth clearing rather than reporting. A worktree with work in flight keeps one at
+  its root (see `CLAUDE.md`): the note a session left about what it was in the middle of. Two cases,
+  and they part on whether the branch landed:
+  - **Branch not landed** → it is genuine WIP. It counts as dirty for the rule below, which is
+    correct and is *not* grounds for a `--force`; print its first few lines beside the BLOCKED row
+    instead, since that is exactly the explanation of why the tree isn't finished.
+  - **Branch landed and `SCRATCHPAD.md` is the *only* entry in `git status --porcelain`** → the work
+    is done and the note outlived it (its own skill deletes it at teardown; a session that died
+    after the merge never got there). Delete the file, re-check that the tree is now clean, and
+    remove it normally. Without this a merged worktree stays BLOCKED forever on its own leftovers.
 - **A stale branch whose worktree is dirty** — reported under BLOCKED and skipped.
   `git worktree remove` refusing a dirty tree is the safety check, so the script
   never passes `--force`. Commit or discard, then re-run.
