@@ -93,6 +93,27 @@ describe('LockScreenWidgets', () => {
     expect(ramLabel.style.color).not.toBe(gpuLabel.style.color);
   });
 
+  it('sizes each system-monitor chart to fill its clipping box, not the flyout default (Phase 85 regression)', () => {
+    // vitest/jsdom: this is a className/attribute assertion, not real layout —
+    // the actual pixel clipping needs a real browser and is covered by the
+    // sparkline-clip visual/e2e coverage instead.
+    render(<LockScreenWidgets />, { wrapper: createWrapper() });
+
+    const widget = screen.getByTestId('lock-sysmon-widget');
+    for (const label of ['CPU graph', 'RAM graph', 'GPU graph']) {
+      const svg = widget.querySelector(`svg[aria-label="${label}"]`);
+      expect(svg).toBeTruthy();
+      // `MetricChart`'s own default className is `h-16 w-full` (64px), sized
+      // for the flyout's `CHART_GEOMETRY`. This widget's box is `h-9` (36px)
+      // — without an explicit matching className the SVG rendered taller
+      // than its `overflow-hidden` wrapper and the chart's fixed 0-100%
+      // domain got silently clipped to whichever slice fell inside the
+      // visible height, even though the domain math itself was correct.
+      expect(svg?.getAttribute('class')).toContain('h-full');
+      expect(svg?.getAttribute('class')).not.toContain('h-16');
+    }
+  });
+
   it('color-codes ticker, price, name, and sparkline green on a gain', async () => {
     vi.useRealTimers();
     stubFinanceFetch([
