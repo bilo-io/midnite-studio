@@ -31,6 +31,7 @@ import {
 import { openInMidnite, openLinkFromEvent } from '../../services/open-in-midnite';
 import { checksStatus, pullStatus, StatusPill } from '../forge/forge-status';
 import { ExternalLink } from '../markdown/external-link';
+import { ownerRepoFromGithubUrl, resolveGithubImageSrc } from '../markdown/github-image-src';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { PrChecks } from './pr-checks';
 import { PrConversation } from './pr-conversation';
@@ -302,6 +303,24 @@ function PrOverview({
     return () => useSlidesStore.getState().setActiveMarkdown(null);
   }, [body, number]);
 
+  /*
+   * A repo-relative image path (`![before](docs/screenshots/x/before.png)`)
+   * is broken by construction in a PR body — GitHub itself shows the same
+   * broken image on github.com, since an issue/PR body has no "current
+   * directory" to resolve one against (unlike a README rendered as a repo
+   * file). `resolveGithubImageSrc` rewrites it to an absolute
+   * `raw.githubusercontent.com` URL pinned to the PR's own head sha, so it
+   * renders wherever the body is shown, not just here. An already-absolute
+   * `src` (an uploaded GitHub asset, an external image) is returned as-is.
+   */
+  const githubImageContext = useMemo(() => {
+    if (detail === null) return null;
+    const ownerRepo = ownerRepoFromGithubUrl(detail.pull.url);
+    const ref = detail.headSha ?? detail.pull.headBranch;
+    if (ownerRepo === null || ref.length === 0) return null;
+    return { ownerRepo, ref };
+  }, [detail]);
+
   if (detail === null) {
     if (isLoading) return <PrOverviewSkeleton />;
     return <Centered>No description to show.</Centered>;
@@ -317,7 +336,15 @@ function PrOverview({
         className={`max-w-none text-sm leading-relaxed ${MARKDOWN_PROSE_CLASSES}`}
       >
         {/* No `rehype-raw` — see `CommitMessage`'s note on attacker-authored text. */}
-        <Markdown remarkPlugins={[remarkGfm]} components={{ a: ExternalLink }}>
+        <Markdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            a: ExternalLink,
+            img: ({ src, ...rest }) => (
+              <img src={resolveGithubImageSrc(src, githubImageContext)} {...rest} />
+            ),
+          }}
+        >
           {body}
         </Markdown>
       </div>

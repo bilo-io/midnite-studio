@@ -129,3 +129,23 @@ describe('PrDetail — the Open-preview affordance (Phase 71 Theme D)', () => {
     ).toBeDefined();
   });
 });
+
+describe('PrDetail — Overview image src resolution', () => {
+  it('rewrites a repo-relative image path to an absolute raw.githubusercontent.com URL', async () => {
+    pullDetailBody = '![before](docs/screenshots/agent-icon-fit/before.png)';
+    renderPr();
+
+    const img = await screen.findByRole('img', { name: 'before' });
+    expect(img.getAttribute('src')).toBe(
+      `https://raw.githubusercontent.com/acme/my-app/${'a'.repeat(40)}/docs/screenshots/agent-icon-fit/before.png`,
+    );
+  });
+
+  it('leaves an already-absolute image src untouched', async () => {
+    pullDetailBody = '![before](https://user-images.githubusercontent.com/1/abc.png)';
+    renderPr();
+
+    const img = await screen.findByRole('img', { name: 'before' });
+    expect(img.getAttribute('src')).toBe('https://user-images.githubusercontent.com/1/abc.png');
+  });
+});
