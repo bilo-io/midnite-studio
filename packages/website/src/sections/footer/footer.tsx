@@ -177,12 +177,21 @@ export const Footer = () => (
         faded *into* the page. Letting the component re-fan the full-strength
         ramp inside it — with a glow — would turn the texture back into a mark
         and put a second gradient box inside the first.
+
+        **The clamp is roughly half its original `2.5rem`/`11vw`/`9rem`.** The
+        floor moved to `1.5rem` rather than a literal half (`1.25rem`), because
+        at phone width `1.25rem` read as an afterthought beside the columns
+        above it — `1.5rem` is still unmistakably smaller than before while
+        staying legible as the same texture. The `Wordmark` component itself is
+        untouched: its `1.35em` split is relative to *this* element's font size,
+        so halving the clamp halves both faces together without touching
+        `wordmark.tsx`.
       */}
       <Reveal className="mt-16">
         <p
           aria-hidden="true"
           data-testid="footer-wordmark"
-          className="select-none bg-clip-text text-[clamp(2.5rem,11vw,9rem)] font-semibold leading-[0.9] tracking-tight text-transparent"
+          className="select-none bg-clip-text text-[clamp(1.5rem,5.5vw,4.5rem)] font-semibold leading-[0.9] tracking-tight text-transparent"
           style={{
             backgroundImage:
               'linear-gradient(100deg,' +
