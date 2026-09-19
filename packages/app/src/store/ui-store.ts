@@ -987,6 +987,8 @@ export type UiState = {
   graphRefFilter: string[];
   /** Lowercased author emails to highlight; empty means every author. */
   graphAuthorFilter: string[];
+  /** Provenance filter: 'all' | 'humans' | 'agents' | `agent:${id}`; defaults to 'all' (Phase 78 Theme C). */
+  graphProvenanceFilter: string;
   /**
    * Show the pre-image line-number column in a diff.
    *
@@ -1128,6 +1130,7 @@ export type UiState = {
   setGraphDensity: (density: GraphDensity) => void;
   setGraphRefFilter: (refs: string[]) => void;
   setGraphAuthorFilter: (emails: string[]) => void;
+  setGraphProvenanceFilter: (filter: string) => void;
   toggleDiffOldGutter: () => void;
   setCommitFileView: (view: CommitFileView) => void;
   toggleCommitMeta: () => void;
@@ -2200,6 +2203,7 @@ export const useUiStore = create<UiState>()(
       graphDensity: DEFAULT_GRAPH_DENSITY,
       graphRefFilter: [],
       graphAuthorFilter: [],
+      graphProvenanceFilter: 'all',
       diffShowOldGutter: DIFF_PREF_DEFAULTS.diffShowOldGutter,
       diffLayout: DIFF_PREF_DEFAULTS.diffLayout,
 
@@ -2259,6 +2263,7 @@ export const useUiStore = create<UiState>()(
             graphSelection: null,
             graphRefFilter: [],
             graphAuthorFilter: [],
+            graphProvenanceFilter: 'all',
           }),
         ),
       selectWorktree: (selectedWorktreePath) =>
@@ -2460,6 +2465,7 @@ export const useUiStore = create<UiState>()(
       setGraphDensity: (graphDensity) => set({ graphDensity }),
       setGraphRefFilter: (graphRefFilter) => set({ graphRefFilter }),
       setGraphAuthorFilter: (graphAuthorFilter) => set({ graphAuthorFilter }),
+      setGraphProvenanceFilter: (graphProvenanceFilter) => set({ graphProvenanceFilter }),
       toggleDiffOldGutter: () =>
         set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),
       setDiffLayout: (diffLayout) => set({ diffLayout }),

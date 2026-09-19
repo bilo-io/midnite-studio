@@ -1,6 +1,15 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-19 — Phase 78 Theme C — The mark on the row
+
+[PR #460](https://github.com/bilo-io/midnite-studio/pull/460). Render commit provenance marks and avatar variants across the graph and commit inspector.
+- Computed provenance using `classifyProvenance` from `@midnite/studio-shared` in `graphStore.provenance` cache, updated reactively on row arrival and session/roster context changes.
+- In graph rows (`graph-row.tsx`, `commit-avatar.tsx`, `graph-svg.tsx`): rendered agent glyph in place of avatar for `agent`, agent glyph overlapping avatar corner for `mixed`, and 0 extra DOM for `human`. Tooltips assert "Co-authored by <Agent>", "Made during <session> · <Agent>", and "Probably made during <session>" for window joins.
+- Toolbar filter chip in graph header: `All · Humans · Agents` plus per-agent sub-filter when multiple agents match. Dims non-matching rows (`data-dimmed`, `opacity-40`) without modifying lane layout or topology.
+- Commit detail (`commit-detail.tsx`): rendered `Provenance` row under author in `Identities` displaying the mark and tooltip text.
+- Added comprehensive unit and acceptance tests (`provenance-mark.test.tsx`, `provenance-filter.test.tsx`, `graph-row-provenance.test.tsx`, and updated `commit-detail.bridge.test.tsx`).
+
 ## 2026-09-19 — Phase 88 Theme C — The DOM-renderer call sites
 
 [PR #457](https://github.com/bilo-io/midnite-studio/pull/457). `transcript-view.tsx` and `live-session-terminal.tsx` — the two sites that load

@@ -87,4 +87,104 @@ describe('graph stream reducer', () => {
     useGraphStore.getState().appendBatch('q1', [row(0, 'a')]);
     expect(useGraphStore.getState().rows).toEqual([]);
   });
+
+  describe('provenance computation (Phase 78 Theme C)', () => {
+    it('computes provenance for rows as batches arrive', () => {
+      useGraphStore.getState().begin('repo-a', 'q1');
+
+      const humanRow = row(0, 'human-sha');
+
+      const claudeRow = row(1, 'claude-sha');
+      claudeRow.commit.coAuthors = ['Claude <noreply@anthropic.com>'];
+
+      const trailerRow = row(2, 'trailer-sha');
+      trailerRow.commit.sessionTrailers = ['sess-1'];
+
+      useGraphStore.getState().setProvenanceContext({
+        sessions: [
+          {
+            id: 'sess-1',
+            kind: 'agent',
+            agentId: 'claude',
+            title: 'feature',
+            cwd: '/repo',
+            repoId: 'repo-a',
+            createdAt: 1000,
+            closedAt: 2000,
+            exitCode: 0,
+            reason: 'closed',
+            transcriptBytes: 100,
+          },
+        ],
+      });
+
+      useGraphStore.getState().appendBatch('q1', [humanRow, claudeRow, trailerRow]);
+
+      const { provenance } = useGraphStore.getState();
+      expect(provenance['human-sha']).toEqual({ kind: 'human' });
+      expect(provenance['claude-sha']).toEqual({
+        kind: 'mixed',
+        agentIds: ['claude'],
+        source: 'co-author',
+      });
+      expect(provenance['trailer-sha']).toEqual({
+        kind: 'agent',
+        agentIds: ['claude'],
+        source: 'session-trailer',
+        sessionId: 'sess-1',
+      });
+    });
+
+    it('recomputes provenance when setProvenanceContext updates sessions or roster', () => {
+      useGraphStore.getState().begin('repo-a', 'q1');
+
+      const windowRow = row(0, 'window-sha');
+      windowRow.commit.committerDate = 1500;
+
+      useGraphStore.getState().appendBatch('q1', [windowRow]);
+      // Initially no matching session window, so classified as human
+      expect(useGraphStore.getState().provenance['window-sha']).toEqual({ kind: 'human' });
+
+      // Sessions arrive later
+      useGraphStore.getState().setProvenanceContext({
+        sessions: [
+          {
+            id: 'sess-window',
+            kind: 'agent',
+            agentId: 'codex',
+            title: 'bugfix',
+            cwd: '/repo',
+            repoId: 'repo-a',
+            createdAt: 1000,
+            closedAt: 2000,
+            exitCode: 0,
+            reason: 'closed',
+            transcriptBytes: 50,
+          },
+        ],
+      });
+
+      expect(useGraphStore.getState().provenance['window-sha']).toEqual({
+        kind: 'agent',
+        agentIds: ['codex'],
+        source: 'session-window',
+        sessionId: 'sess-window',
+      });
+    });
+
+    it('clears provenance on begin and reset', () => {
+      useGraphStore.getState().begin('repo-a', 'q1');
+      useGraphStore.getState().appendBatch('q1', [row(0, 'sha-1')]);
+      expect(useGraphStore.getState().provenance['sha-1']).toBeDefined();
+
+      useGraphStore.getState().begin('repo-b', 'q2');
+      expect(useGraphStore.getState().provenance).toEqual({});
+
+      useGraphStore.getState().appendBatch('q2', [row(0, 'sha-2')]);
+      expect(useGraphStore.getState().provenance['sha-2']).toBeDefined();
+
+      useGraphStore.getState().reset();
+      expect(useGraphStore.getState().provenance).toEqual({});
+    });
+  });
 });

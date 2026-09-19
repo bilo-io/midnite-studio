@@ -1,7 +1,8 @@
-import type { GraphRow, Ref } from '@midnite/studio-shared';
+import type { AgentDefinition, CommitProvenance, GraphRow, Ref } from '@midnite/studio-shared';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { resolveAgentIcon } from '../../components/icons';
 import { Tooltip } from '../../components/tooltip';
 import { useOccluder } from '../../components/use-occluder';
 import { UserAvatar } from '../../components/user-avatar';
@@ -9,6 +10,7 @@ import { useCommitDnd, useRefDnd } from './graph-dnd';
 import { GraphSvg } from './graph-svg';
 import { CONNECTOR_OPACITY, RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
 import { laneColor, laneVars } from './lane-colors';
+import { getProvenanceTooltip, ProvenanceMark } from './provenance-mark';
 import { RefBadge } from './ref-badge';
 import { badgeActions, type SyncAction } from './ref-sync';
 
@@ -77,6 +79,12 @@ export type GraphRowProps = {
   isAgentActive?: (ref: Ref) => boolean;
   /** Current timestamp (ms) for live recency calculations. */
   nowMs?: number;
+  /** Commit provenance (Phase 78 Theme C). */
+  provenance?: CommitProvenance;
+  /** Session name for provenance tooltip. */
+  sessionName?: string;
+  /** Resolved agent definition. */
+  agent?: AgentDefinition | null;
 };
 
 function GraphRowInner({
@@ -90,6 +98,9 @@ function GraphRowInner({
   dimmed,
   glowColorIdx = null,
   nowMs = Date.now(),
+  provenance,
+  sessionName,
+  agent,
   onSelect,
   onContextMenu,
   onRefContextMenu,
@@ -131,10 +142,20 @@ function GraphRowInner({
     .filter(Boolean)
     .join(' ');
 
+  const isAgent = provenance?.kind === 'agent';
+  const isMixed = provenance?.kind === 'mixed';
+  const agentId = provenance && provenance.kind !== 'human' ? provenance.agentIds[0] : undefined;
+  const AgentIcon =
+    isAgent || isMixed ? resolveAgentIcon(agent ?? { id: agentId ?? 'claude' }) : null;
+  const provenanceTooltip = provenance
+    ? getProvenanceTooltip({ provenance, sessionName, agentName: agent?.label })
+    : null;
+
   return (
     <div
       role="row"
       aria-selected={selected}
+      data-dimmed={dimmed ? '' : undefined}
       tabIndex={-1}
       onClick={() => onSelect(row.commit.sha)}
       onContextMenu={(event) => {
@@ -279,6 +300,14 @@ function GraphRowInner({
               <span className="block text-muted-foreground">
                 {new Date(row.commit.authorDate * 1000).toLocaleString()}
               </span>
+              {provenanceTooltip ? (
+                <span
+                  data-testid="node-provenance-tooltip"
+                  className="mt-1 block font-medium text-primary"
+                >
+                  {provenanceTooltip}
+                </span>
+              ) : null}
             </span>
           }
         >
@@ -293,6 +322,8 @@ function GraphRowInner({
               dimmed={dimmed}
               connector={refs.length > 0}
               glowColorIdx={glowColorIdx}
+              provenance={provenance}
+              agent={agent}
             />
           </span>
         </Tooltip>
@@ -356,12 +387,46 @@ function GraphRowInner({
           }`}
           style={{ width: 'var(--col-author)' }}
         >
-          <UserAvatar
-            name={row.commit.authorName}
-            email={row.commit.authorEmail}
-            size={14}
-            detail={new Date(row.commit.authorDate * 1000).toLocaleString()}
-          />
+          {provenance && provenance.kind !== 'human' ? (
+            <ProvenanceMark
+              provenance={provenance}
+              sessionName={sessionName}
+              agent={agent}
+              size={14}
+            />
+          ) : null}
+          {isAgent ? (
+            <div
+              className="relative flex shrink-0 items-center justify-center rounded-full"
+              style={{
+                width: 14,
+                height: 14,
+                backgroundColor: agent?.accent ? `${agent.accent}25` : 'hsl(var(--muted))',
+                color: agent?.accent ?? 'currentColor',
+              }}
+              data-testid="agent-avatar"
+            >
+              {AgentIcon ? <AgentIcon className="h-2.5 w-2.5" /> : null}
+            </div>
+          ) : (
+            <div className="relative shrink-0">
+              <UserAvatar
+                name={row.commit.authorName}
+                email={row.commit.authorEmail}
+                size={14}
+                detail={new Date(row.commit.authorDate * 1000).toLocaleString()}
+              />
+              {isMixed && AgentIcon ? (
+                <span
+                  data-testid="mixed-avatar-badge"
+                  className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-background ring-1 ring-border"
+                  style={{ width: 8, height: 8, color: agent?.accent ?? 'currentColor' }}
+                >
+                  <AgentIcon style={{ width: 6, height: 6 }} />
+                </span>
+              ) : null}
+            </div>
+          )}
           <span className="truncate">{row.commit.authorName}</span>
         </span>
       ) : null}

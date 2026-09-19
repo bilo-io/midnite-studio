@@ -12,7 +12,9 @@ import {
 import { bridge } from '../../services/bridge';
 import { AuthorFilter, type AuthorSummary } from './author-filter';
 import { RAIL_WIDTH, showsAuthorColumn, type GraphTheme } from './graph-themes';
+import { ProvenanceFilter } from './provenance-filter';
 import { RefFilter } from './ref-filter';
+import type { AgentDefinition } from '@midnite/studio-shared';
 
 export type GraphColumnResizables = Record<keyof GraphColumns, Resizable>;
 
@@ -120,6 +122,7 @@ export function GraphHeader({
   gutterWidth,
   columns,
   theme,
+  matchingAgents = [],
 }: {
   refs: readonly Ref[];
   authors: readonly AuthorSummary[];
@@ -132,6 +135,7 @@ export function GraphHeader({
   gutterWidth: number;
   columns: GraphColumnResizables;
   theme: GraphTheme;
+  matchingAgents?: readonly AgentDefinition[];
 }) {
   // This exact header renders inside the Graph popout too (`DetachedRoot`
   // reuses the view verbatim) — once detached, `DetachedWindowFrame`'s merged
@@ -143,6 +147,8 @@ export function GraphHeader({
   const setGraphRefFilter = useUiStore((s) => s.setGraphRefFilter);
   const graphAuthorFilter = useUiStore((s) => s.graphAuthorFilter);
   const setGraphAuthorFilter = useUiStore((s) => s.setGraphAuthorFilter);
+  const graphProvenanceFilter = useUiStore((s) => s.graphProvenanceFilter);
+  const setGraphProvenanceFilter = useUiStore((s) => s.setGraphProvenanceFilter);
 
   return (
     <div className="shrink-0 border-b border-border">
@@ -153,6 +159,11 @@ export function GraphHeader({
           authors={authors}
           selected={graphAuthorFilter}
           onChange={setGraphAuthorFilter}
+        />
+        <ProvenanceFilter
+          selected={graphProvenanceFilter}
+          onChange={setGraphProvenanceFilter}
+          matchingAgents={matchingAgents}
         />
         <span className="ml-auto text-[11px] text-muted-foreground">{theme.label}</span>
       </div>

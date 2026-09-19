@@ -116,7 +116,7 @@ graph does not dim, sort or hide by it unless the user filters. Attribution belo
 
 ### C — The mark on the row (M)
 
-- [ ] In [`graph-row.tsx`](../../../packages/app/src/features/graph/graph-row.tsx), beside the
+- [x] In [`graph-row.tsx`](../../../packages/app/src/features/graph/graph-row.tsx), beside the
       author cell (`:278`) and inside the avatar node variant (`:306–361`): a `ProvenanceMark` —
       the roster agent's icon (the same glyph the terminal tab and the FAB already use) at badge
       size, `mixed` rendered as the agent glyph overlapping the human avatar's corner, `agent`
@@ -124,25 +124,25 @@ graph does not dim, sort or hide by it unless the user filters. Attribution belo
       rule. Tooltip: "Co-authored by Claude" / "Made during *session name* · Claude" /
       "Probably made during *session name*" for the window source — the word *probably* is
       load-bearing and is asserted in the test.
-- [ ] Provenance is computed **once per row batch** in the renderer as rows arrive
+- [x] Provenance is computed **once per row batch** in the renderer as rows arrive
       ([`graph-store.ts`](../../../packages/app/src/features/graph/graph-store.ts)'s `appendBatch`),
       not in render — `classifyProvenance` over 500 rows against the roster and the repo's closed
       sessions (one `sessionsList` query, cached with react-query, invalidated when a session
       closes). Stored beside the row, not on `GraphRow` — the wire type is main's and provenance is
       a renderer-side join.
-- [ ] A filter chip in the graph toolbar: **All · Humans · Agents**, plus a per-agent sub-filter
+- [x] A filter chip in the graph toolbar: **All · Humans · Agents**, plus a per-agent sub-filter
       when the roster has more than one agent with matches. Filtering follows whatever the graph's
       existing filter infrastructure is (locate it at execution: `grep -rn "filter" packages/app/src/features/graph`
       — Phase 25's search and Phase 7's interactions both touched it); a filtered graph keeps lane
       layout intact and dims non-matching rows rather than removing them, so the shape of history
       stays readable.
-- [ ] Commit detail ([`commit-detail.tsx`](../../../packages/app/src/features/commit/commit-detail.tsx))
+- [x] Commit detail ([`commit-detail.tsx`](../../../packages/app/src/features/commit/commit-detail.tsx))
       gets a **Provenance** line under the author: the same text as the tooltip, with the session
       name as a link (Theme D).
-- [ ] Respects `data-motion="reduced"` (no animated badge entry) and density (badge size follows
+- [x] Respects `data-motion="reduced"` (no animated badge entry) and density (badge size follows
       the avatar size token). `MSTUDIO_SHOTS` screenshots for the avatar and non-avatar graph themes
       with a mixed-provenance fixture.
-- [ ] *Acceptance:* a fixture graph with one human commit, one Claude co-authored commit and one
+- [x] *Acceptance:* a fixture graph with one human commit, one Claude co-authored commit and one
       window-joined commit renders three distinct states; the Agents filter dims exactly the human
       row; `human` rows have no extra DOM.
 

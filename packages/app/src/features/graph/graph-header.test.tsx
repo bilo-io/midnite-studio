@@ -24,6 +24,8 @@ vi.mock('../../store/ui-store', async (importOriginal) => {
         setGraphRefFilter: (next: string[]) => void;
         graphAuthorFilter: readonly string[];
         setGraphAuthorFilter: (next: string[]) => void;
+        graphProvenanceFilter: string;
+        setGraphProvenanceFilter: (next: string) => void;
         detachedPages: readonly string[];
       }) => unknown,
     ) =>
@@ -34,6 +36,8 @@ vi.mock('../../store/ui-store', async (importOriginal) => {
         setGraphRefFilter: vi.fn(),
         graphAuthorFilter: [],
         setGraphAuthorFilter: vi.fn(),
+        graphProvenanceFilter: 'all',
+        setGraphProvenanceFilter: vi.fn(),
         detachedPages: [],
       }),
   };

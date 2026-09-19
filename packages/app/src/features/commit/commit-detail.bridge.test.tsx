@@ -13,6 +13,7 @@ import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { useBrowserStore } from '../../store/browser-store';
 import { useUiStore } from '../../store/ui-store';
+import { useGraphStore } from '../graph/graph-store';
 import { CommitDetail } from './commit-detail';
 
 /**
@@ -135,6 +136,7 @@ describe('CommitDetail, assembled through the real bridge', () => {
 
   it('the message renders as markdown rather than preformatted text', async () => {
     open();
+    await waitForMessage();
 
     const code = await waitFor(() => message().querySelector('pre code'), { timeout: 3000 });
     expect(code?.textContent).toContain('const sha = 7c521fe;');
@@ -355,5 +357,38 @@ describe('CommitDetail, assembled through the real bridge', () => {
     expect(rows[0]?.getAttribute('aria-label')).toBe('pnpm-lock.yaml');
     expect(rows[1]?.getAttribute('aria-label')).toBe('packages/desktop/src/main/window.ts');
     expect(rows[3]?.getAttribute('aria-label')).toBe('docs/screenshots/phase-11-packaged-app.png');
+  });
+
+  describe('provenance line (Phase 78 Theme C)', () => {
+    it('human commit renders no provenance line', async () => {
+      useGraphStore.getState().reset();
+      open();
+      await waitForMessage();
+
+      const ids = identities();
+      expect(ids).not.toBeNull();
+      expect(ids?.querySelector('[data-testid="commit-provenance-detail"]')).toBeNull();
+    });
+
+    it('agent / mixed commit renders provenance line under author', async () => {
+      useGraphStore.getState().reset();
+      useGraphStore.setState({
+        provenance: {
+          [COMMIT_SHA]: {
+            kind: 'mixed',
+            source: 'co-author',
+            agentIds: ['claude'],
+          },
+        },
+      });
+      open();
+      await waitForMessage();
+
+      const ids = identities();
+      expect(ids).not.toBeNull();
+      const provEl = ids?.querySelector('[data-testid="commit-provenance-detail"]');
+      expect(provEl).not.toBeNull();
+      expect(provEl?.textContent).toContain('Co-authored by Claude');
+    });
   });
 });
