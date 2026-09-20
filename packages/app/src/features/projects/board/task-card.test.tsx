@@ -1,13 +1,21 @@
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../../components/dialog-host';
 import { useUiStore } from '../../../store/ui-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { TaskCard } from './task-card';
 
 afterEach(cleanup);
+
+/** `useCardPlay` (Theme A/D) reaches `useDialogs()` unconditionally, so
+ *  every render needs the host it expects in the real app tree. */
+function renderCard(ui: ReactElement) {
+  return render(<DialogHost>{ui}</DialogHost>);
+}
 
 const priorityField: ForgeProjectField = { id: 'f-priority', name: 'Priority', dataType: 'text' };
 
@@ -38,7 +46,7 @@ const draft: ForgeProjectItem = {
 
 describe('TaskCard', () => {
   it('renders the title, and the issue number linked to github.com', () => {
-    render(<TaskCard item={issue} fields={[priorityField]} />);
+    renderCard(<TaskCard item={issue} fields={[priorityField]} />);
 
     expect(screen.getByText('Fix the flaky test')).toBeDefined();
     const link = screen.getByText('#42').closest('a');
@@ -46,14 +54,14 @@ describe('TaskCard', () => {
   });
 
   it('a draft item has no number and no link — never a dead one', () => {
-    render(<TaskCard item={draft} fields={[]} />);
+    renderCard(<TaskCard item={draft} fields={[]} />);
 
     expect(screen.getByText('Write the design doc')).toBeDefined();
     expect(screen.queryByText(/^#/)).toBeNull();
   });
 
   it('renders an avatar per assignee, by GitHub login', () => {
-    render(<TaskCard item={issue} fields={[]} />);
+    renderCard(<TaskCard item={issue} fields={[]} />);
 
     const avatar = screen.getByAltText('octocat') as HTMLImageElement;
     expect(avatar.src).toContain('github.com/octocat.png');
@@ -61,14 +69,14 @@ describe('TaskCard', () => {
 
   it('renders a chip for each field with a value, skipping empty ones', () => {
     const emptyField: ForgeProjectField = { id: 'f-empty', name: 'Empty', dataType: 'text' };
-    render(<TaskCard item={issue} fields={[priorityField, emptyField]} />);
+    renderCard(<TaskCard item={issue} fields={[priorityField, emptyField]} />);
 
     expect(screen.getByText('High')).toBeDefined();
   });
 
   it('calls onClick when the card is clicked', () => {
     const onClick = vi.fn();
-    render(<TaskCard item={issue} fields={[]} onClick={onClick} />);
+    renderCard(<TaskCard item={issue} fields={[]} onClick={onClick} />);
 
     fireEvent.click(screen.getByText('Fix the flaky test'));
 
@@ -81,12 +89,12 @@ describe('TaskCard', () => {
     });
 
     it('no glow class with no projectId — a card with no board context stays plain', () => {
-      const { container } = render(<TaskCard item={issue} fields={[]} />);
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} />);
       expect(container.querySelector('.agent-run-glow')).toBeNull();
     });
 
     it('no glow class with a projectId but no bound session', () => {
-      const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
       expect(container.querySelector('.agent-run-glow')).toBeNull();
     });
 
@@ -101,14 +109,14 @@ describe('TaskCard', () => {
         taskRef: { projectId: 'proj1', itemId: issue.id },
       });
 
-      const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
       const card = container.querySelector('.agent-run-glow');
       expect(card).not.toBeNull();
       expect(card?.className).toContain('is-running');
     });
 
     it('no glow for an open pane with no session ever launched — plain browsing, not a left-open terminal', () => {
-      const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" isOpen />);
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" isOpen />);
       expect(container.querySelector('.agent-run-glow')).toBeNull();
     });
 
@@ -124,7 +132,7 @@ describe('TaskCard', () => {
       });
       useTerminalStore.getState().setState(session.id, 'exited');
 
-      const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" isOpen />);
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" isOpen />);
       const card = container.querySelector('.agent-run-glow');
       expect(card?.className).toContain('is-open');
     });
@@ -149,7 +157,7 @@ describe('TaskCard', () => {
         taskRef: { projectId: 'proj1', itemId: issue.id },
       });
 
-      const { container } = render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
       const card = container.querySelector('.agent-run-glow') as HTMLElement;
       expect(card.style.getPropertyValue('--card-glow-color')).toBe('');
       expect(card.getAttribute('style')).toBeNull();
@@ -159,11 +167,11 @@ describe('TaskCard', () => {
   describe('the play agent / reveal terminal button', () => {
     beforeEach(() => {
       useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
-      useUiStore.setState({ terminalOpen: false, terminalListOpen: false });
+      useUiStore.setState({ terminalOpen: false, terminalListOpen: false, cardSkillByTask: {} });
     });
 
     it('shows "Start agent" title and aria-label on a card with no session', () => {
-      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
       const btn = screen.getByTestId('card-play-agent');
       expect(btn).toBeDefined();
       expect(btn.getAttribute('title')).toBe('Start agent');
@@ -181,7 +189,7 @@ describe('TaskCard', () => {
         taskRef: { projectId: 'proj1', itemId: issue.id },
       });
 
-      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
       const btn = screen.getByTestId('card-play-agent');
       expect(btn.getAttribute('title')).toBe('Open in terminal');
       expect(btn.getAttribute('aria-label')).toBe('Open in terminal');
@@ -204,18 +212,41 @@ describe('TaskCard', () => {
       });
       const onClick = vi.fn();
 
-      render(<TaskCard item={issue} fields={[]} projectId="proj1" onClick={onClick} />);
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" onClick={onClick} />);
       fireEvent.click(screen.getByTestId('card-play-agent'));
 
       expect(onClick).not.toHaveBeenCalled();
     });
 
-    it('starts an agent session when clicked on a card without an active session', () => {
-      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+    it('starts an agent session directly when a skill is already set for this card (Theme D)', () => {
+      useUiStore.setState({ cardSkillByTask: { 'proj1:item1': 'execAdhoc' } });
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
       fireEvent.click(screen.getByTestId('card-play-agent'));
 
       expect(useTerminalStore.getState().sessions.length).toBe(1);
       expect(useUiStore.getState().terminalOpen).toBe(true);
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
+
+    it('opens a fallback menu with exactly Exec, Brainstorm, Refine when no skill is set (Theme D)', () => {
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      fireEvent.click(screen.getByTestId('card-play-agent'));
+
+      expect(screen.getByRole('menuitem', { name: 'Exec' })).toBeDefined();
+      expect(screen.getByRole('menuitem', { name: 'Brainstorm' })).toBeDefined();
+      expect(screen.getByRole('menuitem', { name: 'Refine' })).toBeDefined();
+      // No launch until a menu entry is actually picked.
+      expect(useTerminalStore.getState().sessions.length).toBe(0);
+    });
+
+    it('picking a fallback menu entry launches with it and persists the choice (Theme D)', () => {
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      fireEvent.click(screen.getByTestId('card-play-agent'));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Brainstorm' }));
+
+      expect(useTerminalStore.getState().sessions.length).toBe(1);
+      expect(useUiStore.getState().terminalOpen).toBe(true);
+      expect(useUiStore.getState().cardSkillByTask['proj1:item1']).toBe('brainstorm');
     });
   });
 
@@ -240,7 +271,7 @@ describe('TaskCard', () => {
         taskRef: { projectId: 'proj1', itemId: issue.id },
       });
 
-      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
 
       expect(screen.getByText('Running')).toBeDefined();
     });
@@ -257,14 +288,14 @@ describe('TaskCard', () => {
       });
       const onClick = vi.fn();
 
-      render(<TaskCard item={issue} fields={[]} projectId="proj1" onClick={onClick} />);
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" onClick={onClick} />);
       fireEvent.click(screen.getByText('Running'));
 
       expect(onClick).toHaveBeenCalled();
     });
 
     it('renders neither for a card with no session', () => {
-      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
       expect(screen.queryByText('Running')).toBeNull();
     });
 
@@ -280,7 +311,7 @@ describe('TaskCard', () => {
       });
       useTerminalStore.getState().setState(session.id, 'exited');
 
-      render(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
 
       expect(screen.queryByText('Running')).toBeNull();
     });

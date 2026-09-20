@@ -20,9 +20,16 @@ vi.mock('../../../services/bridge', () => ({
 }));
 
 let forgeWritesEnabled = true;
+const setCardSkill = vi.fn();
+let cardSkillByTask: Record<string, string> = {};
 vi.mock('../../../store/ui-store', () => ({
-  useUiStore: (selector: (state: { forgeWritesEnabled: boolean }) => unknown) =>
-    selector({ forgeWritesEnabled }),
+  useUiStore: (
+    selector: (state: {
+      forgeWritesEnabled: boolean;
+      cardSkillByTask: Record<string, string>;
+      setCardSkill: typeof setCardSkill;
+    }) => unknown,
+  ) => selector({ forgeWritesEnabled, cardSkillByTask, setCardSkill }),
 }));
 
 const statusField: ForgeProjectField = {
@@ -91,7 +98,9 @@ function renderDetail(
 describe('CardDetail', () => {
   beforeEach(() => {
     setField.mockReset();
+    setCardSkill.mockReset();
     forgeWritesEnabled = true;
+    cardSkillByTask = {};
   });
 
   it('renders the title, the number linked to github.com, and assignees', () => {
@@ -159,5 +168,64 @@ describe('CardDetail', () => {
     const start = screen.getByTestId('card-start');
     expect(start).toHaveProperty('disabled', true);
     expect(start.getAttribute('title')).toBe('Blocked by #199');
+  });
+
+  describe('the Skill picker (Phase 92 Theme C)', () => {
+    it('shows "Not set" with no skill chosen', () => {
+      renderDetail();
+      expect(screen.getByText('Not set')).toBeDefined();
+    });
+
+    it('shows the card’s own already-chosen skill', () => {
+      cardSkillByTask = { 'PVT_1:item1': 'brainstorm' };
+      renderDetail();
+      expect(screen.getByText('Brainstorm')).toBeDefined();
+    });
+
+    it('picking a skill persists it under the composite `projectId:itemId` key', () => {
+      renderDetail();
+
+      fireEvent.mouseDown(screen.getByLabelText('Skill'));
+      fireEvent.click(screen.getByText('Adhoc Task'));
+
+      expect(setCardSkill).toHaveBeenCalledWith('PVT_1:item1', 'execAdhoc');
+    });
+
+    it('"Not set" clears the entry rather than writing an empty string', () => {
+      cardSkillByTask = { 'PVT_1:item1': 'execAdhoc' };
+      renderDetail();
+
+      fireEvent.mouseDown(screen.getByLabelText('Skill'));
+      fireEvent.click(screen.getByText('Not set'));
+
+      expect(setCardSkill).toHaveBeenCalledWith('PVT_1:item1', undefined);
+    });
+
+    it('offers only the six task-launching skills, never the loop/review/release ones', () => {
+      renderDetail();
+
+      fireEvent.mouseDown(screen.getByLabelText('Skill'));
+
+      expect(screen.getByText('Adhoc Task')).toBeDefined();
+      expect(screen.getByText('Backlog Task')).toBeDefined();
+      expect(screen.getByText('Address Issue')).toBeDefined();
+      expect(screen.getByText('Brainstorm')).toBeDefined();
+      expect(screen.getByText('Refine Plan')).toBeDefined();
+      expect(screen.getByText('Swarm')).toBeDefined();
+      expect(screen.queryByText('PR Review')).toBeNull();
+      expect(screen.queryByText('Loop: Guard')).toBeNull();
+    });
+
+    it("shows each card's own choice independently, keyed by item id", () => {
+      cardSkillByTask = { 'PVT_1:item1': 'brainstorm' };
+      renderDetail();
+      expect(screen.getByText('Brainstorm')).toBeDefined();
+      cleanup();
+
+      const otherItem: ForgeProjectItem = { ...item, id: 'item2' };
+      cardSkillByTask = { 'PVT_1:item1': 'brainstorm', 'PVT_1:item2': 'refine' };
+      renderDetail(vi.fn(), { item: otherItem });
+      expect(screen.getByText('Refine Plan')).toBeDefined();
+    });
   });
 });

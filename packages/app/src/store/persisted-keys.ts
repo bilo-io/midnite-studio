@@ -139,6 +139,7 @@ export const SESSION_STATE_KEYS = [
   'activityTimelineOpen', // whether a panel is currently showing
   'browserDetached', // runtime popout state, corrected from main's window registry
   'browserOpen', // whether a panel is currently showing
+  'cardSkillByTask', // last-chosen skill per Projects card, set from the card itself — not a settings form
   'collapsedNavSections', // folded-section ids — disclosure state
   'collapsedRepoGroups', // folded-section ids — disclosure state
   'collapsedRepoSections', // folded-section ids — disclosure state

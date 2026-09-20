@@ -43,6 +43,52 @@ locally instead — see the PR body for the exact `moon run :typecheck :lint :te
 (`/midnite-address-issue` scanning both boards) is left for a later wave; its checkboxes are
 untouched in the phase doc. Phase now at Themes A–D landed, E open.
 
+## 2026-09-20 — Phase 92 Themes C, D — A per-card skill and a Play that asks
+
+[PR #481](https://github.com/bilo-io/midnite-studio/pull/481). Builds on Themes A/B (PR #478):
+`useCardPlay` and `composeSkillLaunchPrompt` existed but nothing chose a skill or read one.
+
+Theme C: `cardSkillByTask: Record<string, AgentCommandId>` in `ui-store.ts`, keyed by the same
+composite `` `${projectId}:${itemId}` `` `useCardPlay`'s own `taskRef` already carries — renderer-
+local state, not a `ForgeProjectField` (no schema change, no IPC). Added to `PersistedUi`,
+`partialize`, `merge` and a new v19→v20 migration seeding an empty map. Bounded by a new
+`card-skill-lru.ts`'s `touchCardSkill`, mirroring `project-view-lru.ts`'s own insertion-order
+trick (cap 200). Registered in `persisted-keys.ts` as a `SESSION_STATE_KEYS` entry. A "Skill"
+`IconSelect` picker landed in `card-detail.tsx` between the assignees block and the fields loop,
+fed `AGENT_COMMANDS.filter(c => c.category === 'tasks')` (six options) plus a real, distinct
+"Not set" that clears the map entry rather than writing an empty string — `CardDetail` is the one
+component both board and dependency-graph modes render through, so one picker reaches both.
+
+Theme D: `useCardPlay`'s `onPlay` now forks on `cardSkillByTask[key]`. Set: composes via
+`composeSkillLaunchPrompt` with that skill's resolved template (`agentSkills[id] ??
+DEFAULT_AGENT_SKILLS[id]`, the same resolution `skillHandoff` already uses) and launches
+immediately, same as before — no menu. Unset: opens a pointer-anchored `ContextMenu` (the same
+`useDialogs().openMenu` call `board-view.tsx`'s "Move to ▸" already makes) offering exactly three
+entries — **Exec** (`execAdhoc`, not `execBacklog` — a card is already a specific, identified
+task), **Brainstorm**, **Refine**. Picking one launches with that skill *and* persists it via
+`setCardSkill`, so a second Play on the same card skips the menu from then on. The
+already-running → reveal branch is untouched.
+
+Decisions taken in place of asking (unattended run): `agentSkills` overrides apply to the fallback
+menu's three skills too, matching `skillHandoff`'s own resolution; the Skill picker renders
+regardless of `repoId`/`worktreePath` — the choice is meaningful with no repo open, only the
+eventual Play needs them. Both match the phase doc's own *Recommendation* under each open question.
+
+CI is still hard-blocked account-wide (Actions spending limit); verified locally instead —
+`moon run :typecheck :lint :test` green across all 13 workspace tasks (488 app test files, 4950
+tests). New `card-skill-lru.test.ts`, `use-card-play.test.tsx` Theme D cases, `card-detail.test.tsx`
+Skill-picker cases, `ui-store.test.ts` `cardSkillByTask`/migration cases; extended
+`task-card.test.tsx` and `project-graph-node.test.tsx` for the menu-vs-direct-launch fork. Every
+render that reaches `useCardPlay` now needs a `<DialogHost>` ancestor (`useDialogs()` is called
+unconditionally) — wrapped in `project-graph-node.test.tsx` and `project-graph-view.test.tsx`,
+which previously had none.
+
+**The `e2e/kanban.spec.ts`/`project-graph-view` e2e half of Theme D's own test bullet is deferred,
+not built** — GitHub Actions is hard-blocked this batch and Playwright is out of reach locally per
+the human's ruling for it (full local gate, merge on green); the jsdom coverage above satisfies
+`docs/TESTING.md`'s vitest-first rule in the meantime. Theme E (verification coverage) is left for
+a sibling wave — phase now 21/36 (58%).
+
 ## 2026-09-20 — Phase 92 Themes A, B — One Play hook and a skill-launch prompt
 
 [PR #478](https://github.com/bilo-io/midnite-studio/pull/478). The kanban card's Play button and

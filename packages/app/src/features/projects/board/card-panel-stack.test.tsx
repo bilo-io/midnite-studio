@@ -24,8 +24,13 @@ vi.mock('../../../services/bridge', () => ({
 }));
 
 vi.mock('../../../store/ui-store', () => ({
-  useUiStore: (selector: (state: { forgeWritesEnabled: boolean }) => unknown) =>
-    selector({ forgeWritesEnabled: true }),
+  useUiStore: (
+    selector: (state: {
+      forgeWritesEnabled: boolean;
+      cardSkillByTask: Record<string, string>;
+      setCardSkill: (taskKey: string, skillId: string | undefined) => void;
+    }) => unknown,
+  ) => selector({ forgeWritesEnabled: true, cardSkillByTask: {}, setCardSkill: vi.fn() }),
 }));
 
 const fields: ForgeProjectField[] = [];

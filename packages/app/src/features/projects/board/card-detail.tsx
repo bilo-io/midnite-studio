@@ -1,11 +1,31 @@
 import type { ForgeIssueRef, ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { LuX } from 'react-icons/lu';
 
+import { IconSelect, type IconSelectOption } from '../../../components/select/icon-select';
 import { UserAvatar } from '../../../components/user-avatar';
+import { AGENT_COMMANDS } from '../../agent/agent-commands';
 import { ExternalLink } from '../../markdown/external-link';
+import { type AgentCommandId, useUiStore } from '../../../store/ui-store';
 import { CardComposer } from './card-composer';
 import { CONTENT_ICON } from './card-chrome';
 import { ProjectFieldCell } from '../field-editor';
+
+/**
+ * The real, distinct "Not set" — Theme D's fork on whether a skill is chosen
+ * reads `cardSkillByTask[key]`'s absence, so this id (never persisted) is
+ * only ever the picker's own placeholder for that absence, translated back
+ * to `setCardSkill(key, undefined)` the moment anything else is chosen.
+ */
+const NOT_SET_OPTION_ID = '__not-set__';
+
+/** The six task-launching skills (Phase 92 Theme C) — the same catalogue the
+ *  fallback menu (Theme D) draws its three from, never a wider one. */
+const SKILL_OPTIONS: readonly IconSelectOption[] = [
+  { id: NOT_SET_OPTION_ID, label: 'Not set' },
+  ...AGENT_COMMANDS.filter((command) => command.category === 'tasks').map(
+    (command): IconSelectOption => ({ id: command.id, label: command.label, icon: command.icon }),
+  ),
+];
 
 /**
  * A card's detail (Phase 41 Theme B): the item's body, assignees and every
@@ -42,6 +62,12 @@ export function CardDetail({
   const href = item.content.type === 'draft' ? null : item.content.url;
   const number = item.content.type === 'draft' ? null : item.content.number;
   const linkedPrs = item.content.type === 'issue' ? item.content.linkedPrs ?? [] : [];
+
+  // Composite key mirrors `useCardPlay`'s own `taskRef` — there is no single
+  // id that identifies a task across a possible cross-repo project.
+  const taskKey = `${projectId}:${item.id}`;
+  const skillId = useUiStore((state) => state.cardSkillByTask[taskKey]);
+  const setCardSkill = useUiStore((state) => state.setCardSkill);
 
   return (
     <div className="flex h-full flex-col" data-testid="card-detail">
@@ -94,6 +120,18 @@ export function CardDetail({
             </div>
           </div>
         ) : null}
+
+        <div className="mb-3">
+          <p className="mb-1 text-[11px] font-medium text-muted-foreground">Skill</p>
+          <IconSelect
+            ariaLabel="Skill"
+            options={SKILL_OPTIONS}
+            value={skillId ?? NOT_SET_OPTION_ID}
+            onChange={(id) =>
+              setCardSkill(taskKey, id === NOT_SET_OPTION_ID ? undefined : (id as AgentCommandId))
+            }
+          />
+        </div>
 
         <div className="flex flex-col gap-2.5">
           {fields.map((field) => (

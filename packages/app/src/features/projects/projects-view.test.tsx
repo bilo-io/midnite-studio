@@ -133,6 +133,17 @@ let blockedByFieldName = 'Blocked by';
 const setBlockedByFieldName = vi.fn((name: string) => {
   blockedByFieldName = name;
 });
+// `useCardPlay` (Phase 92 Theme D) and `CardDetail`'s own Skill picker
+// (Theme C) both read/write these — a board-mode card is rendered here too.
+let cardSkillByTask: Record<string, string> = {};
+const setCardSkill = vi.fn((taskKey: string, skillId: string | undefined) => {
+  if (skillId === undefined) {
+    const { [taskKey]: _dropped, ...rest } = cardSkillByTask;
+    cardSkillByTask = rest;
+  } else {
+    cardSkillByTask = { ...cardSkillByTask, [taskKey]: skillId };
+  }
+});
 
 vi.mock('../../store/ui-store', () => ({
   DEFAULT_PROJECT_VIEW: DEFAULT_PROJECT_VIEW_MOCK,
@@ -149,6 +160,9 @@ vi.mock('../../store/ui-store', () => ({
         blockedByFieldName: string;
         setBlockedByFieldName: typeof setBlockedByFieldName;
         detachedPages: readonly string[];
+        cardSkillByTask: Record<string, string>;
+        setCardSkill: typeof setCardSkill;
+        agentSkills: Record<string, string | undefined>;
       }) => unknown,
     ) =>
       selector({
@@ -164,6 +178,9 @@ vi.mock('../../store/ui-store', () => ({
         // The view's header carries a `<PageDetachMark>`, which reads this to
         // decide between "detach" and "focus the window you already have".
         detachedPages: [],
+        cardSkillByTask,
+        setCardSkill,
+        agentSkills: {},
       }),
     {
       /*
@@ -210,6 +227,8 @@ describe('ProjectsView', () => {
     setProjectView.mockClear();
     blockedByFieldName = 'Blocked by';
     setBlockedByFieldName.mockClear();
+    cardSkillByTask = {};
+    setCardSkill.mockClear();
   });
 
   it('issues zero item fetches when no board has been picked', async () => {
