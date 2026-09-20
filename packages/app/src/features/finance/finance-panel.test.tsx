@@ -5,10 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FinancePanel } from './finance-panel';
 import { useFinanceStore } from './finance-store';
 
-function jsonResponse(body: unknown): Response {
-  return { ok: true, status: 200, statusText: 'OK', json: async () => body } as Response;
-}
-
 function renderPanel() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -19,7 +15,7 @@ function renderPanel() {
 }
 
 beforeEach(() => {
-  useFinanceStore.setState({ assets: [], twelveDataApiKey: '' });
+  useFinanceStore.setState({ assets: [], twelveDataKeyConfigured: false, secretsHydrated: true });
 });
 
 afterEach(() => {
@@ -34,34 +30,28 @@ describe('FinancePanel', () => {
   });
 
   it('adds a searched coin to the watchlist and then renders its row', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: string | URL) => {
-        const url = String(input);
-        if (url.includes('/search')) {
-          return jsonResponse({ coins: [{ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }] });
-        }
-        if (url.includes('/market_chart')) {
-          return jsonResponse({
-            prices: [
-              [1000, 100],
-              [2000, 110],
+    Object.assign(window, {
+      midniteStudio: {
+        secrets: {
+          get: vi.fn(async () => ({ value: null })),
+          set: vi.fn(async () => {}),
+        },
+        finance: {
+          search: vi.fn(async () => ({
+            ok: true as const,
+            value: [{ kind: 'crypto' as const, symbol: 'bitcoin', name: 'Bitcoin (BTC)' }],
+          })),
+          quote: vi.fn(async () => ({ ok: true as const, value: { price: 50000, currency: 'USD' } })),
+          history: vi.fn(async () => ({
+            ok: true as const,
+            value: [
+              { t: 1000, c: 100 },
+              { t: 2000, c: 110 },
             ],
-          });
-        }
-        // /coins/:id quote lookup
-        return jsonResponse({
-          name: 'Bitcoin',
-          market_data: {
-            current_price: { usd: 50000 },
-            high_24h: { usd: 51000 },
-            low_24h: { usd: 49000 },
-            price_change_24h: 500,
-            price_change_percentage_24h: 1.01,
-          },
-        });
-      }),
-    );
+          })),
+        },
+      },
+    });
 
     renderPanel();
 
@@ -82,16 +72,16 @@ describe('FinancePanel', () => {
     expect(screen.getByText('+10.00%')).not.toBeNull();
   });
 
-  it('blocks stock search until an API key is entered', () => {
+  it('blocks stock search until an API key is entered', async () => {
     renderPanel();
 
     fireEvent.click(screen.getByRole('button', { name: 'Stocks' }));
     expect(screen.queryByPlaceholderText('Search stocks…')).toBeNull();
     expect(screen.getByPlaceholderText('Paste your Twelve Data API key')).not.toBeNull();
 
-    fireEvent.change(screen.getByPlaceholderText('Paste your Twelve Data API key'), {
-      target: { value: 'key123' },
-    });
-    expect(screen.getByPlaceholderText('Search stocks…')).not.toBeNull();
+    const keyInput = screen.getByPlaceholderText('Paste your Twelve Data API key');
+    fireEvent.change(keyInput, { target: { value: 'key123' } });
+    fireEvent.blur(keyInput);
+    await waitFor(() => expect(screen.getByPlaceholderText('Search stocks…')).not.toBeNull());
   });
 });

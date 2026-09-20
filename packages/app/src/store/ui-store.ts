@@ -204,6 +204,7 @@ export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
  */
 export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: SettingsGroupId }[] = [
   { id: 'appearance', label: 'Appearance', group: 'general' },
+  { id: 'privacy', label: 'Privacy', group: 'general' },
   { id: 'sidebar', label: 'Sidebar', group: 'general' },
   { id: 'search', label: 'Search', group: 'general' },
   { id: 'screenLock', label: 'Screen Lock', group: 'general' },
@@ -1453,6 +1454,9 @@ export type UiState = {
    */
   allowForceWithLease: boolean;
   setAllowForceWithLease: (allow: boolean) => void;
+  /** Phase 76 Theme D — IP geolocation for title-bar weather; default off. */
+  locateByIpEnabled: boolean;
+  setLocateByIpEnabled: (enabled: boolean) => void;
   /**
    * "Launch and run" (Phase 50 Theme B) — same shape as `forgeWritesEnabled`
    * and `allowForceWithLease`: default off, so a fresh install cannot send a
@@ -1886,6 +1890,7 @@ export type PersistedUi = Pick<
   | 'passcode'
   | 'passcodeOnlyWhenLocked'
   | 'allowForceWithLease'
+  | 'locateByIpEnabled'
   | 'launchAndRunEnabled'
   | 'companionEnabled'
   | 'companionHandsFree'
@@ -2042,6 +2047,8 @@ export const useUiStore = create<UiState>()(
       // force-push anything until someone deliberately turns it on.
       allowForceWithLease: false,
       setAllowForceWithLease: (allowForceWithLease) => set({ allowForceWithLease }),
+      locateByIpEnabled: false,
+      setLocateByIpEnabled: (locateByIpEnabled) => set({ locateByIpEnabled }),
       // Default off, same reasoning: a fresh install cannot send a
       // remote-composed prompt to an agent until someone deliberately turns
       // it on.
@@ -2742,6 +2749,7 @@ export const useUiStore = create<UiState>()(
         passcode: state.passcode,
         passcodeOnlyWhenLocked: state.passcodeOnlyWhenLocked,
         allowForceWithLease: state.allowForceWithLease,
+        locateByIpEnabled: state.locateByIpEnabled,
         launchAndRunEnabled: state.launchAndRunEnabled,
         companionEnabled: state.companionEnabled,
         companionHandsFree: state.companionHandsFree,

@@ -23,7 +23,8 @@ export function WeatherSection() {
   const setWeatherUnits = useTitlebarStatusStore((s) => s.setWeatherUnits);
   const setWeatherLocation = useTitlebarStatusStore((s) => s.setWeatherLocation);
 
-  const { data, isLoading, isError, refetch, isFetching, coords } = useWeather(weatherLocation);
+  const { data, isLoading, isError, refetch, isFetching, coords, needsLocation } =
+    useWeather(weatherLocation);
   const [searching, setSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<WeatherGeocodeResult[]>([]);
@@ -130,7 +131,7 @@ export function WeatherSection() {
               className="flex items-center gap-1.5 rounded px-2 py-1 text-left text-xs text-primary hover:bg-accent"
             >
               <LuLocate className="h-3.5 w-3.5" />
-              <span>Use automatic geolocation / IP</span>
+              <span>Use automatic geolocation</span>
             </button>
           )}
 
@@ -155,6 +156,17 @@ export function WeatherSection() {
               ))}
             </div>
           )}
+        </div>
+      ) : needsLocation && !data ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-6 text-center text-xs text-muted-foreground">
+          <p>Set a location to see weather here.</p>
+          <button
+            type="button"
+            onClick={() => setSearching(true)}
+            className="text-[11px] font-medium text-primary underline"
+          >
+            Set a location
+          </button>
         </div>
       ) : isLoading && !data ? (
         <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">

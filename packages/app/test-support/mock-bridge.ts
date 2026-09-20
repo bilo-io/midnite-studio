@@ -2470,6 +2470,15 @@ export function buildMockBridge(data: MockFixtures) {
       status: async () =>
         demoApiRunning ? { running: true as const, port: 54321 } : { running: false as const },
     },
+    secrets: {
+      get: async () => ({ value: null }),
+      set: async () => {},
+    },
+    finance: {
+      search: async () => ({ ok: true as const, value: [] }),
+      quote: async () => ({ ok: true as const, value: { price: 0, currency: 'USD' } }),
+      history: async () => ({ ok: true as const, value: [] }),
+    },
     loopRuns: {
       list: async () => ({ runs: loopRuns }),
       start: async (req: {

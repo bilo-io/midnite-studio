@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
+import { useUiStore } from '../../store/ui-store';
 import type { WeatherLocation, WeatherResponse } from './titlebar-status-types';
 import { getWeather, locateByIp } from './weather-api';
 
@@ -45,25 +46,36 @@ function askBrowser(): Promise<{ coords: WeatherLocation | null; denied: boolean
 }
 
 export function useWeather(locationOverride: WeatherLocation | null) {
+  const locateByIpEnabled = useUiStore((s) => s.locateByIpEnabled);
   const [resolvedCoords, setResolvedCoords] = useState<WeatherLocation | null>(() => {
     if (locationOverride) return locationOverride;
     return readCachedCoords();
   });
   const [resolving, setResolving] = useState(!resolvedCoords);
+  const [needsLocation, setNeedsLocation] = useState(false);
 
   useEffect(() => {
     if (locationOverride) {
       setResolvedCoords(locationOverride);
       setResolving(false);
+      setNeedsLocation(false);
       saveCachedCoords(locationOverride);
       return;
     }
 
     let cancelled = false;
     setResolving(true);
+    setNeedsLocation(false);
 
     void (async () => {
-      // 1. Try browser geolocation
+      const cached = readCachedCoords();
+      if (cached) {
+        if (cancelled) return;
+        setResolvedCoords(cached);
+        setResolving(false);
+        return;
+      }
+
       const { coords: browserCoords } = await askBrowser();
       if (cancelled) return;
       if (browserCoords) {
@@ -73,7 +85,12 @@ export function useWeather(locationOverride: WeatherLocation | null) {
         return;
       }
 
-      // 2. Try IP geolocation fallback
+      if (!locateByIpEnabled) {
+        setNeedsLocation(true);
+        setResolving(false);
+        return;
+      }
+
       try {
         const ipLocation = await locateByIp();
         if (cancelled) return;
@@ -85,7 +102,7 @@ export function useWeather(locationOverride: WeatherLocation | null) {
         setResolvedCoords(coords);
         saveCachedCoords(coords);
       } catch {
-        // Fallback default (e.g. London or null)
+        setNeedsLocation(true);
       } finally {
         if (!cancelled) setResolving(false);
       }
@@ -94,7 +111,7 @@ export function useWeather(locationOverride: WeatherLocation | null) {
     return () => {
       cancelled = true;
     };
-  }, [locationOverride]);
+  }, [locationOverride, locateByIpEnabled]);
 
   const query = useQuery<WeatherResponse | null>({
     queryKey: ['weather', resolvedCoords?.lat, resolvedCoords?.lon],
@@ -111,5 +128,6 @@ export function useWeather(locationOverride: WeatherLocation | null) {
     ...query,
     coords: resolvedCoords,
     resolving,
+    needsLocation,
   };
 }

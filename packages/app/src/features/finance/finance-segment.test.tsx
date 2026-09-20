@@ -5,8 +5,40 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FinanceSegment } from './finance-segment';
 import { useFinanceStore } from './finance-store';
 
-function jsonResponse(body: unknown): Response {
-  return { ok: true, status: 200, statusText: 'OK', json: async () => body } as Response;
+function stubFinance(options?: {
+  quote?: { price: number; currency: string };
+  history?: { t: number; c: number }[];
+  quoteBySymbol?: Record<string, { price: number; currency: string }>;
+  historyBySymbol?: Record<string, { t: number; c: number }[]>;
+}): void {
+  vi.stubGlobal('window', {
+    midniteStudio: {
+      secrets: {
+        get: vi.fn(async () => ({ value: null })),
+        set: vi.fn(async () => {}),
+      },
+      finance: {
+        search: vi.fn(async () => ({ ok: true as const, value: [] })),
+        quote: vi.fn(async (req: { symbol: string }) => ({
+          ok: true as const,
+          value:
+            options?.quoteBySymbol?.[req.symbol] ??
+            options?.quote ??
+            { price: 50000, currency: 'USD' },
+        })),
+        history: vi.fn(async (req: { symbol: string }) => ({
+          ok: true as const,
+          value:
+            options?.historyBySymbol?.[req.symbol] ??
+            options?.history ??
+            [
+              { t: 1000, c: 40000 },
+              { t: 2000, c: 50000 },
+            ],
+        })),
+      },
+    },
+  });
 }
 
 function renderSegment() {
@@ -19,7 +51,8 @@ function renderSegment() {
 }
 
 beforeEach(() => {
-  useFinanceStore.setState({ assets: [], twelveDataApiKey: '' });
+  useFinanceStore.setState({ assets: [], twelveDataKeyConfigured: false, secretsHydrated: true });
+  stubFinance();
 });
 
 afterEach(() => {
@@ -36,25 +69,6 @@ describe('FinanceSegment', () => {
   });
 
   it('renders ticker, price, sparkline, and green highlight when quote and history are positive', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: string | URL) => {
-        const url = String(input);
-        if (url.includes('/market_chart')) {
-          return jsonResponse({
-            prices: [
-              [1000, 40000],
-              [2000, 50000],
-            ],
-          });
-        }
-        return jsonResponse({
-          name: 'Bitcoin',
-          market_data: { current_price: { usd: 50000 } },
-        });
-      }),
-    );
-
     useFinanceStore.setState({
       assets: [{ kind: 'crypto', symbol: 'bitcoin', name: 'Bitcoin (BTC)' }],
     });
@@ -68,33 +82,19 @@ describe('FinanceSegment', () => {
       expect(trigger.textContent).toContain('+25.00%');
     });
 
-    // Check sparkline svg path is rendered
     expect(trigger.querySelector('svg path')).not.toBeNull();
     expect(trigger.className).toContain('status-graphs-on-hover');
     expect(trigger.querySelector('[data-status-bar-graph]')).not.toBeNull();
-    // Check highlight classes
     expect(trigger.firstElementChild?.className).toContain('text-emerald-600');
   });
 
   it('renders red highlight when price has decreased', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: string | URL) => {
-        const url = String(input);
-        if (url.includes('/market_chart')) {
-          return jsonResponse({
-            prices: [
-              [1000, 60000],
-              [2000, 50000],
-            ],
-          });
-        }
-        return jsonResponse({
-          name: 'Bitcoin',
-          market_data: { current_price: { usd: 50000 } },
-        });
-      }),
-    );
+    stubFinance({
+      history: [
+        { t: 1000, c: 60000 },
+        { t: 2000, c: 50000 },
+      ],
+    });
 
     useFinanceStore.setState({
       assets: [{ kind: 'crypto', symbol: 'bitcoin', name: 'Bitcoin (BTC)' }],
@@ -111,28 +111,22 @@ describe('FinanceSegment', () => {
   });
 
   it('cycles across tickers every 5 seconds', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: string | URL) => {
-        const url = String(input);
-        if (url.includes('bitcoin')) {
-          return jsonResponse({
-            market_data: { current_price: { usd: 50000 } },
-            prices: [
-              [1, 45000],
-              [2, 50000],
-            ],
-          });
-        }
-        return jsonResponse({
-          market_data: { current_price: { usd: 3000 } },
-          prices: [
-            [1, 2800],
-            [2, 3000],
-          ],
-        });
-      }),
-    );
+    stubFinance({
+      quoteBySymbol: {
+        bitcoin: { price: 50000, currency: 'USD' },
+        ethereum: { price: 3000, currency: 'USD' },
+      },
+      historyBySymbol: {
+        bitcoin: [
+          { t: 1, c: 45000 },
+          { t: 2, c: 50000 },
+        ],
+        ethereum: [
+          { t: 1, c: 2800 },
+          { t: 2, c: 3000 },
+        ],
+      },
+    });
 
     useFinanceStore.setState({
       assets: [
@@ -150,7 +144,6 @@ describe('FinanceSegment', () => {
       expect(trigger.textContent).toContain('BTC');
     });
 
-    // Fast-forward 5 seconds
     act(() => {
       vi.advanceTimersByTime(5000);
     });
@@ -159,7 +152,6 @@ describe('FinanceSegment', () => {
       expect(trigger.textContent).toContain('ETH');
     });
 
-    // Fast-forward another 5 seconds (cycles back to BTC)
     act(() => {
       vi.advanceTimersByTime(5000);
     });
@@ -170,25 +162,6 @@ describe('FinanceSegment', () => {
   });
 
   it('types out ticker, price, and percentage via typewriter effect', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: string | URL) => {
-        const url = String(input);
-        if (url.includes('/market_chart')) {
-          return jsonResponse({
-            prices: [
-              [1000, 40000],
-              [2000, 50000],
-            ],
-          });
-        }
-        return jsonResponse({
-          name: 'Bitcoin',
-          market_data: { current_price: { usd: 50000 } },
-        });
-      }),
-    );
-
     useFinanceStore.setState({
       assets: [{ kind: 'crypto', symbol: 'bitcoin', name: 'Bitcoin (BTC)' }],
     });
@@ -198,7 +171,6 @@ describe('FinanceSegment', () => {
 
     const trigger = screen.getByTestId('finance-segment');
 
-    // Initially typewriter states start at length 0 or minimal chars, then advance to full text
     await vi.waitFor(() => {
       expect(trigger.textContent).toBeDefined();
     });

@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-20 — Phase 76 Theme D — secrets vault, finance proxy, IP privacy
+
+[PR #485](https://github.com/bilo-io/midnite-studio/pull/485). Twelve Data key moves from renderer
+`localStorage` into a `safeStorage` vault behind enum-keyed `secretsGet`/`secretsSet` IPC; finance
+provider fetches proxy through main so keys never cross back into the renderer; `ipwho.is` is
+opt-in via **Settings ▸ Privacy ▸ Locate me by IP** (default off) with a one-shot migration and
+e2e `privacy-network.spec.ts` asserting zero external requests before consent.
+
 ## 2026-09-20 — Phase 76 Theme B — sandboxed preload
 
 [PR #484](https://github.com/bilo-io/midnite-studio/pull/484). Both app windows flip to

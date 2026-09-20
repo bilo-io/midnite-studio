@@ -58,9 +58,9 @@ export function FinancePanel() {
 }
 
 function TickerRow({ asset }: { asset: FinanceAsset }) {
-  const apiKey = useFinanceStore((s) => s.twelveDataApiKey);
-  const { data: quote, error: quoteError } = useFinanceQuote(asset, apiKey);
-  const { data: history } = useFinanceHistory(asset, apiKey);
+  const keyConfigured = useFinanceStore((s) => s.twelveDataKeyConfigured);
+  const { data: quote, error: quoteError } = useFinanceQuote(asset, keyConfigured);
+  const { data: history } = useFinanceHistory(asset, keyConfigured);
 
   const points = history ?? [];
   const { pct, up } = historyChange(points);
@@ -110,8 +110,10 @@ function WatchlistEditor() {
   const assets = useFinanceStore((s) => s.assets);
   const addAsset = useFinanceStore((s) => s.addAsset);
   const removeAsset = useFinanceStore((s) => s.removeAsset);
-  const apiKey = useFinanceStore((s) => s.twelveDataApiKey);
+  const keyConfigured = useFinanceStore((s) => s.twelveDataKeyConfigured);
   const setApiKey = useFinanceStore((s) => s.setApiKey);
+  const hydrateSecrets = useFinanceStore((s) => s.hydrateSecrets);
+  const [draftKey, setDraftKey] = useState('');
 
   const [kind, setKind] = useState<AssetKind>('crypto');
   const [query, setQuery] = useState('');
@@ -119,11 +121,15 @@ function WatchlistEditor() {
   const atCap = assets.length >= FINANCE_WATCHLIST_MAX;
 
   useEffect(() => {
+    void hydrateSecrets();
+  }, [hydrateSecrets]);
+
+  useEffect(() => {
     const id = setTimeout(() => setDebounced(query), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(id);
   }, [query]);
 
-  const { data: results, isFetching, error } = useFinanceSearch(kind, debounced, apiKey);
+  const { data: results, isFetching, error } = useFinanceSearch(kind, debounced, keyConfigured);
 
   const onAdd = (r: AssetSearchResult) => {
     addAsset({ kind: r.kind, symbol: r.symbol, name: r.name });
@@ -181,15 +187,20 @@ function WatchlistEditor() {
               <span className="text-[11px] text-muted-foreground">Twelve Data API key</span>
               <input
                 type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Paste your Twelve Data API key"
+                value={draftKey}
+                onChange={(e) => setDraftKey(e.target.value)}
+                onBlur={() => {
+                  if (draftKey.trim()) void setApiKey(draftKey.trim());
+                }}
+                placeholder={
+                  keyConfigured ? 'Key saved — enter to replace' : 'Paste your Twelve Data API key'
+                }
                 className="w-full rounded-md border border-border/60 bg-transparent px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </label>
           )}
 
-          {(kind === 'crypto' || apiKey.trim() !== '') && (
+          {(kind === 'crypto' || keyConfigured || draftKey.trim() !== '') && (
             <div className="space-y-1">
               <div className="flex items-center gap-1.5">
                 <LuPlus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />

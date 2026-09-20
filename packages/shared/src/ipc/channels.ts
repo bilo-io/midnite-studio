@@ -1047,6 +1047,20 @@ export const CHANNELS = {
   /** Run a one-second silent clip through the provider and report the round-trip. */
   companionSttTest: 'mstudio:companion:stt-credential-test',
 
+  // --- secrets (Phase 76 Theme D) -------------------------------------------
+  /** Read one enum-keyed secret from main's `safeStorage` vault. */
+  secretsGet: 'mstudio:secrets:get',
+  /** Write or clear one enum-keyed secret — never crosses back to the renderer on read. */
+  secretsSet: 'mstudio:secrets:set',
+
+  // --- finance proxy (Phase 76 Theme D) -------------------------------------
+  /** Search crypto/stock symbols — provider fetches run in main. */
+  financeSearch: 'mstudio:finance:search',
+  /** Live quote for one asset — Twelve Data key stays in main. */
+  financeQuote: 'mstudio:finance:quote',
+  /** Seven-day history for one asset. */
+  financeHistory: 'mstudio:finance:history',
+
   // --- knowledge (Phase 87) ---------------------------------------------------
   // The Knowledge view's read-only surface over `graphify-out/graph.json`. The
   // app never runs graphify (phase doc, Decision 4) — every channel below only

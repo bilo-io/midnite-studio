@@ -97,7 +97,12 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // launches and persists is already covered under vitest in
 // `use-card-play.test.tsx`; these four prove the same fork survives contact
 // with the real board and graph surfaces it is mounted on.
-export const MAX_DECLARED_E2E = 445;
+// Raised 445 -> 446 for Phase 76 Theme D's `privacy-network.spec.ts` (one
+// test): the phase acceptance criterion is zero third-party network requests
+// on a fresh profile before the user sets a location or flips the IP switch —
+// only a real `page.on('request')` over a full page load can observe that;
+// vitest cannot intercept renderer network at all.
+export const MAX_DECLARED_E2E = 446;
 
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult

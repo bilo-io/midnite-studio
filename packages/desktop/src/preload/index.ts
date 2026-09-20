@@ -135,6 +135,8 @@ const bridge: Pick<
   | 'loopRuns'
   | 'workflow'
   | 'demoApi'
+  | 'secrets'
+  | 'finance'
   | 'apiClient'
   | 'video'
   | 'fs'
@@ -415,6 +417,15 @@ const bridge: Pick<
     start: () => call(CHANNELS.demoApiStart),
     stop: () => call(CHANNELS.demoApiStop),
     status: () => call(CHANNELS.demoApiStatus),
+  },
+  secrets: {
+    get: (req) => call(CHANNELS.secretsGet, req),
+    set: (req) => call(CHANNELS.secretsSet, req),
+  },
+  finance: {
+    search: (req) => call(CHANNELS.financeSearch, req),
+    quote: (req) => call(CHANNELS.financeQuote, req),
+    history: (req) => call(CHANNELS.financeHistory, req),
   },
   apiClient: {
     listCollections: (req) => call(CHANNELS.apiListCollections, req),

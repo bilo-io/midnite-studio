@@ -22,6 +22,9 @@ import { registerCouncilHandlers } from './ipc/council-handlers';
 import { registerApiClientHandlers } from './ipc/api-client-handlers';
 import { disposeScriptRunner } from './api-client/script-runner-broker';
 import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
+import { registerFinanceHandlers } from './ipc/finance-handlers';
+import { configureSecrets, registerSecretsHandlers } from './ipc/secrets-handlers';
+import { createSecretsVault } from './secrets-vault';
 import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
 import { configureKnowledge, registerKnowledgeHandlers } from './ipc/knowledge-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
@@ -423,6 +426,8 @@ if (!app.requestSingleInstanceLock()) {
     registerWorkflowHandlers();
     registerVideoHandlers();
     registerDemoApiHandlers();
+    registerSecretsHandlers();
+    registerFinanceHandlers();
     registerApiClientHandlers(getMainWindow);
     registerMcpHandlers();
     registerCompanionHandlers();
@@ -545,6 +550,7 @@ if (!app.requestSingleInstanceLock()) {
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
     configureDb(createConnectionsStore(userData), createCredentialVault(userData));
+    configureSecrets(createSecretsVault(userData));
     /*
       The Knowledge view's layout cache — keyed on `built_at_commit` plus the
       projection format version (Phase 87, Decision 2). Its own subdirectory

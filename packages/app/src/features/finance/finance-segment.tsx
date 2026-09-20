@@ -20,7 +20,12 @@ export function FinanceSegment() {
   const [open, setOpen] = useState(false);
   const [tickerIndex, setTickerIndex] = useState(0);
   const assets = useFinanceStore((s) => s.assets);
-  const apiKey = useFinanceStore((s) => s.twelveDataApiKey);
+  const keyConfigured = useFinanceStore((s) => s.twelveDataKeyConfigured);
+  const hydrateSecrets = useFinanceStore((s) => s.hydrateSecrets);
+
+  useEffect(() => {
+    void hydrateSecrets();
+  }, [hydrateSecrets]);
 
   useEffect(() => {
     if (assets.length <= 1) {
@@ -36,8 +41,8 @@ export function FinanceSegment() {
   const activeIndex = assets.length > 0 ? tickerIndex % assets.length : 0;
   const currentAsset = assets[activeIndex] ?? null;
 
-  const { data: quote } = useFinanceQuote(currentAsset, apiKey);
-  const { data: history } = useFinanceHistory(currentAsset, apiKey);
+  const { data: quote } = useFinanceQuote(currentAsset, keyConfigured);
+  const { data: history } = useFinanceHistory(currentAsset, keyConfigured);
   const { pct, up } = historyChange(history ?? []);
   const price = quote?.price ?? history?.at(-1)?.c;
 
