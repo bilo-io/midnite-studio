@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-20 — Phase 93 Themes C, D — An in-app issue composer over the existing redaction path
 
-[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD). Themes A and B (PR #479) built the
+[PR #480](https://github.com/bilo-io/midnite-studio/pull/480). Themes A and B (PR #479) built the
 fixed-target write and its IPC surface; this PR is the dialog that actually calls it, plus the
 verification that redaction still has exactly one path.
 - **Theme C** — new `packages/app/src/components/report-issue-dialog.tsx`

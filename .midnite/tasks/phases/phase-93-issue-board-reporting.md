@@ -132,7 +132,7 @@ in [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts) takes
 - [x] Tests: schema round-trip beside the existing `ErrorReportSchema` tests; a handler test
       asserting an invalid payload resolves an error rather than throwing.
 
-### C — The composer dialog (M) — ✅ DONE (PR #TBD, 2026-09-20)
+### C — The composer dialog (M) — ✅ DONE (PR #480, 2026-09-20)
 
 - [x] New `packages/app/src/components/report-issue-dialog.tsx` (+ `.test.tsx`) — a form inside
       [`Modal`](../../../packages/app/src/components/modal.tsx) (`size="md"`), living beside
@@ -180,7 +180,7 @@ in [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts) takes
       `inert`, height-0 CSS — rather than unmounting it). Both wiring sites also got focused
       coverage: `crash-reporting.test.tsx` (extended) and a new `version-notes-panel.test.tsx`.
 
-### D — Redaction stays the single source, and nothing leaves silently (S) — ✅ DONE (PR #TBD, 2026-09-20)
+### D — Redaction stays the single source, and nothing leaves silently (S) — ✅ DONE (PR #480, 2026-09-20)
 
 - [x] The composer never calls `redactPaths` itself — it renders whatever
       `mstudio:report:bundle` already returned, so there is exactly one redaction path in the

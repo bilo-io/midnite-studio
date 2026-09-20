@@ -256,8 +256,8 @@ uses, and reusing `redactPaths` verbatim rather than a second redaction path.*
 
 - ✅ **A** (PR #479) — the fixed target (`bilo-io/midnite-apps`, never the active repo) and `gh-app-issue.ts`'s command construction
 - ✅ **B** (PR #479) — the IPC surface: `mstudio:report:submit-issue`, extending the existing `report` bridge group
-- ✅ **C** (PR #TBD) — the composer dialog: bug/feature toggle, prefilled diagnostics, the "open in browser" fallback unchanged
-- ✅ **D** (PR #TBD) — redaction stays the single path; no new secret pattern, no settings toggle, no telemetry
+- ✅ **C** (PR #480) — the composer dialog: bug/feature toggle, prefilled diagnostics, the "open in browser" fallback unchanged
+- ✅ **D** (PR #480) — redaction stays the single path; no new secret pattern, no settings toggle, no telemetry
 - ◻ **E** — `/midnite-address-issue` learns to scan both boards and use cross-repo `Fixes owner/repo#N`
 
 ### [Phase 92 — Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md)
