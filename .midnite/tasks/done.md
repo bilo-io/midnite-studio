@@ -37,6 +37,32 @@ write path, that split needs building for.
   candidate from each board at once (needs the apps board to actually receive traffic first).
   32/34, 94% — see [`_INDEX.md`](../_INDEX.md).
 
+## 2026-09-20 — Phase 92 Theme E — Verification coverage, and the phase closes out
+
+[PR #483](https://github.com/bilo-io/midnite-studio/pull/483). Themes A-D (PR #478, PR #481) built
+the shared `useCardPlay` hook, the shrunk skill-launch prompt, `cardSkillByTask` local state with
+its `CardDetail` picker, and the Play-button fork onto a three-entry fallback menu. This theme is
+the phase's own verification checklist, worked item by item rather than assumed: the vitest
+coverage for `composeSkillLaunchPrompt`, `touchCardSkill`, the `cardSkillByTask` store round-trip
+(`partialize`/`merge`/migration/LRU-through-the-store-action) and both `card-detail.test.tsx` /
+`use-card-play.test.tsx` suites had all already landed with Themes B-D — confirmed present and
+passing rather than rewritten. The one genuinely new piece: two Playwright cases per surface
+(`e2e/kanban.spec.ts`, `e2e/project-graph.spec.ts`) proving the fork end to end against the mock
+bridge — an unset card/node opens the fallback menu with exactly Exec/Brainstorm/Refine and one
+click on an entry both launches (asserted on the real `pty:create` `initialInput`, which
+`use-card-play.test.tsx`'s isolated hook render cannot prove reaches the assembled
+`DialogHost`/`TerminalPanel` tree) and closes the menu with no second click; a card/node with a
+skill already set never shows the menu at all. The graph half only reaches this because Phase 75
+Theme G already mounts `CardPanelStack` beside the canvas — verified rather than assumed before
+writing the spec. Raised `scripts/e2e-budget.mjs`'s `MAX_DECLARED_E2E` ratchet 441 → 445 with a
+committed justification (four new declared tests), and updated `e2e-budget.test.mjs`'s own
+literal-value assertion to match. GitHub Actions' spending-limit block, which had forced earlier
+themes in this batch to defer their Playwright half and merge on the local gate alone, had cleared
+by the time this theme landed — confirmed live and used normally: pushed, opened the PR, and
+watched `gh pr checks --watch` to completion rather than skipping CI. Local gate green throughout
+(`moon run :typecheck :lint :test`, all 27 tasks, exit 0; `app:test` 490 files / 4963 tests). Phase
+92 is now 36/36 (100%), all five themes landed.
+
 ## 2026-09-20 — Phase 93 Themes C, D — An in-app issue composer over the existing redaction path
 
 [PR #480](https://github.com/bilo-io/midnite-studio/pull/480). Themes A and B (PR #479) built the

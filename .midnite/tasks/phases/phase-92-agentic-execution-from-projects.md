@@ -174,27 +174,35 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 - [x] Tests: `use-card-play.test.tsx` — skill set launches directly with the shrunk prompt and no
       menu; skill unset opens the menu with exactly the three entries; selecting one launches with
       the right skill's template *and* persists it; a second Play on the same card after that no
-      longer opens the menu. **The `e2e/kanban.spec.ts`/`project-graph-view` e2e half is deferred**,
-      not built: GitHub Actions is hard-blocked account-wide this batch (exhausted spending limit)
-      and the human's ruling for it was to run the full *local* gate and merge on that, which does
-      not reach Playwright e2e/visual at all — see [`docs/TESTING.md`](../../../docs/TESTING.md)'s
-      own vitest-first rule, satisfied here by the jsdom coverage above; the e2e cases remain to add
-      once CI (or a local Playwright run) is reachable again.
+      longer opens the menu. **The `e2e/kanban.spec.ts`/`project-graph.spec.ts` e2e half landed with
+      Theme E** (below) rather than here — GitHub Actions' spending-limit block, which was live when
+      this theme merged, has since cleared, and Theme E is where those two cases were actually added.
 
-### E — Verification coverage (M)
+### E — Verification coverage (M) — ✅ DONE (PR #482, 2026-09-20)
 
-- [ ] Vitest for every pure function this phase adds: `composeSkillLaunchPrompt` (issue, pull,
-      draft, empty-template), `touchCardSkill` (eviction order).
-- [ ] Vitest for the store round-trip: `cardSkillByTask` survives `partialize`/`merge`, the migration
+- [x] Vitest for every pure function this phase adds: `composeSkillLaunchPrompt` (issue, pull,
+      draft, empty-template), `touchCardSkill` (eviction order). Both landed with Themes B/C
+      (`board-derive.test.ts`, `card-skill-lru.test.ts`) — verified present and passing, not
+      rewritten.
+- [x] Vitest for the store round-trip: `cardSkillByTask` survives `partialize`/`merge`, the migration
       seeds an empty map for an existing install, and the LRU cap is enforced through the store
-      action, not only in the pure helper.
-- [ ] `card-detail.test.tsx` and `use-card-play.test.tsx` per their own themes above.
-- [ ] Playwright: one case per surface (`e2e/kanban.spec.ts`, the graph view's own e2e file) proving
+      action, not only in the pure helper. Landed with Theme C (`ui-store.test.ts`'s
+      `cardSkillByTask`/`v19 -> v20 migration` describes) — verified present and passing.
+- [x] `card-detail.test.tsx` and `use-card-play.test.tsx` per their own themes above — landed with
+      Themes C/D, verified present and passing.
+- [x] Playwright: one case per surface (`e2e/kanban.spec.ts`, `e2e/project-graph.spec.ts`) proving
       the fork end to end against the mock bridge — skill unset opens the menu, a selection both
-      launches and closes it with no second click needed.
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] Boundary lint clean — nothing here reaches outside `packages/app`; no new `shared/` type, no
-      new IPC channel.
+      launches and closes it with no second click needed. **New in this theme**: two cases per file
+      (unset → menu → launch-and-close; already-set → no menu), asserting the real `pty:create`
+      `initialInput` the mock bridge records rather than the jsdom `pendingInput` store slice
+      `use-card-play.test.tsx` already reads — the assembled `DialogHost`/`ContextMenu` portal and
+      `TerminalPanel` reveal are what only a real browser proves. Raised the e2e ratchet
+      (`scripts/e2e-budget.mjs`) 441 → 445 with a committed justification; `e2e-budget.test.mjs`'s
+      own literal-value test updated to match.
+- [x] `moon run :typecheck :lint :test` green.
+- [x] Boundary lint clean — nothing here reaches outside `packages/app`; no new `shared/` type, no
+      new IPC channel. Confirmed: this theme touched only `e2e/kanban.spec.ts`,
+      `e2e/project-graph.spec.ts`, `scripts/e2e-budget.mjs` and `scripts/e2e-budget.test.mjs`.
 
 ## Files this phase touches
 
@@ -207,28 +215,39 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 | Renderer, store | [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts) — `cardSkillByTask` in `PersistedUi`, `partialize` **and** `merge`, version bump + migration (C); [`persisted-keys.ts`](../../../packages/app/src/store/persisted-keys.ts) — `SESSION_STATE_KEYS` entry (C) |
 | Renderer, reused unchanged | [`use-skill-handoff.ts`](../../../packages/app/src/features/agent/use-skill-handoff.ts) (the resolution idiom this phase mirrors, not calls directly), [`agent-commands.ts`](../../../packages/app/src/features/agent/agent-commands.ts), [`context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx), [`dialog-host.tsx`](../../../packages/app/src/components/dialog-host.tsx)'s `useDialogs().openMenu`, [`start-agent.ts`](../../../packages/app/src/features/terminal/start-agent.ts), [`icon-select.tsx`](../../../packages/app/src/components/select/icon-select.tsx) |
 | Main / contract | **Unchanged.** No new IPC channel, no `shared/` schema change — stated here because a diff touching either means a theme drifted out of scope |
-| Tests | `use-card-play.test.tsx` *(new)*; `board-derive.test.ts`, `card-detail.test.tsx`, `ui-store.test.ts`, `card-skill-lru.test.ts` *(new)*, `task-card.test.tsx`, `project-graph-node.test.tsx` (extended); `e2e/kanban.spec.ts` and the graph view's e2e spec (extended) |
+| Tests | `use-card-play.test.tsx` *(new)*; `board-derive.test.ts`, `card-detail.test.tsx`, `ui-store.test.ts`, `card-skill-lru.test.ts` *(new)*, `task-card.test.tsx`, `project-graph-node.test.tsx` (extended); `e2e/kanban.spec.ts` and `e2e/project-graph.spec.ts` (extended, Theme E) |
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
-- [ ] A card with no skill set: clicking Play opens a menu at the pointer with exactly Exec,
+- [x] `moon run :typecheck :lint :test` green.
+- [x] A card with no skill set: clicking Play opens a menu at the pointer with exactly Exec,
       Brainstorm, Refine — never more, never fewer, never the full six-entry `tasks` category.
-- [ ] A card with a skill set in the detail pane: clicking Play never shows a menu — it launches
-      immediately with that skill's template and the issue's link, not its body.
-- [ ] The composed prompt for a skill-launch is `<skill template> <issue url>` — never the title,
+      Asserted at both layers: `use-card-play.test.tsx` (jsdom) and, new in Theme E,
+      `e2e/kanban.spec.ts`/`e2e/project-graph.spec.ts` against the real `ContextMenu` portal.
+- [x] A card with a skill set in the detail pane: clicking Play never shows a menu — it launches
+      immediately with that skill's template and the issue's link, not its body. Same two-layer
+      coverage as above.
+- [x] The composed prompt for a skill-launch is `<skill template> <issue url>` — never the title,
       assignees, labels or body that `composeCardPrompt` still includes for the manual composer.
-- [ ] `CardComposer`'s own Start/Launch-and-run flow (Theme B of this phase leaves it alone) still
+      `board-derive.test.ts` asserts the pure composition; the Theme E e2e cases assert the same
+      string on the real `pty:create` `initialInput`.
+- [x] `CardComposer`'s own Start/Launch-and-run flow (Theme B of this phase leaves it alone) still
       composes the full prompt exactly as before — this phase changes what the *quick* Play button
-      sends, not what a human reviews in the composer.
-- [ ] Selecting a skill from the fallback menu persists it: a second Play on the same card skips the
-      menu and launches directly with that skill.
-- [ ] A draft item's Play button still produces a sensible prompt (falls back to the full compose,
-      since a draft has no link to shrink to).
-- [ ] The same `cardSkillByTask` state and the same Skill picker work identically from the board
+      sends, not what a human reviews in the composer. Untouched by this phase; `card-composer.test.tsx`
+      is unchanged and still green.
+- [x] Selecting a skill from the fallback menu persists it: a second Play on the same card skips the
+      menu and launches directly with that skill. `use-card-play.test.tsx`'s own case for this is the
+      authoritative one — the e2e cases prove the fork's two branches individually rather than
+      re-deriving the same session-list timing race the isolated hook test controls directly.
+- [x] A draft item's Play button still produces a sensible prompt (falls back to the full compose,
+      since a draft has no link to shrink to). `board-derive.test.ts`'s draft case.
+- [x] The same `cardSkillByTask` state and the same Skill picker work identically from the board
       surface and the dependency-graph surface, since both render through the one `CardDetail`.
-- [ ] `cardSkillByTask` round-trips through a version bump on an existing installed profile (seeded
-      empty, not dropped).
+      Confirmed directly in Theme E: the same `cardSkillByTask` seed and the same three-entry menu
+      behave identically in `e2e/kanban.spec.ts` and `e2e/project-graph.spec.ts`, the latter only
+      reachable because Phase 75 Theme G already mounts `CardPanelStack` beside the graph canvas.
+- [x] `cardSkillByTask` round-trips through a version bump on an existing installed profile (seeded
+      empty, not dropped). `ui-store.test.ts`'s `v19 -> v20 migration` describe.
 
 ## Not in this phase
 
