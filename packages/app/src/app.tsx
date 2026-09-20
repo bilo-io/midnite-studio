@@ -180,7 +180,7 @@ const queryClient = new QueryClient({
  * its min-content size, so once the rail's content is taller than the window
  * the browser shrinks each row it can down to one line box — 36px to 20px.
  *
- * Only the ungrouped rows (Dashboard, Notes, Knowledge) actually lost the
+ * Only the ungrouped rows (Dashboard, Notes, Knowledge, Sessions) actually lost the
  * space, which is why the bug read as "the pinned items have no padding": they
  * are direct children of the scrolling `<nav>`, while every sectioned row sits
  * inside its section's `<Collapse>` grid, which clips rather than compresses.
@@ -398,6 +398,20 @@ const KNOWLEDGE_ITEM: NavItem = {
   icon: VIEW_ICON.knowledge,
 };
 
+/**
+ * Sessions, pinned directly under Knowledge (adhoc sidenav reorder).
+ *
+ * Same slot as `KNOWLEDGE_ITEM` and `NOTES_ITEM`: a top-level view of agent
+ * work across the repo, not a tool scoped to one checkout section. It stays
+ * out of `AGENT_NAV_ITEMS` so the Agents section header does not sit between
+ * Knowledge and Sessions.
+ */
+const SESSIONS_ITEM: NavItem = {
+  view: 'sessions',
+  label: 'Sessions',
+  icon: VIEW_ICON.sessions,
+};
+
 /*
   Glyphs come from `components/nav-icons`, shared with the title bar's
   breadcrumbs — including the deliberate second and third icon families for
@@ -426,7 +440,6 @@ const AGENT_NAV_ITEMS: NavItem[] = [
   { view: 'councils', label: 'Councils', icon: VIEW_ICON.councils },
   { view: 'workflows', label: 'Workflows', icon: VIEW_ICON.workflows },
   { view: 'video', label: 'Video', icon: VIEW_ICON.video },
-  { view: 'sessions', label: 'Sessions', icon: VIEW_ICON.sessions },
 ];
 
 /**
@@ -442,6 +455,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [
   PINNED_ITEM,
   NOTES_ITEM,
   KNOWLEDGE_ITEM,
+  SESSIONS_ITEM,
   ...WORKSPACE_NAV_ITEMS,
   ...GIT_NAV_ITEMS,
   ...AGENT_NAV_ITEMS,
@@ -1129,8 +1143,9 @@ function Shell() {
   const nav: NavConfig = useMemo(
     () => ({
       // Ungrouped, above the sections — the shell's own slot for exactly
-      // this. Notes rides directly under Dashboard (Phase 86 Theme E) and
-      // Knowledge directly under Notes (Phase 87 Theme C); the hairline
+      // this. Notes rides directly under Dashboard (Phase 86 Theme E),
+      // Knowledge directly under Notes (Phase 87 Theme C), and Sessions
+      // directly under Knowledge (adhoc sidenav reorder); the hairline
       // between Dashboard and Notes is `ViewLink`'s job, not this array's.
       pinned: [
         navItem(PINNED_ITEM),
@@ -1154,6 +1169,7 @@ function Shell() {
             />
           ),
         },
+        navItem(SESSIONS_ITEM),
       ],
       sections: [
         {
