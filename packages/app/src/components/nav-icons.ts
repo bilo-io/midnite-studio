@@ -23,6 +23,7 @@ import {
   LuScrollText,
   LuSearch,
   LuSend,
+  LuShield,
   LuServer,
   LuSettings,
   LuShieldAlert,
@@ -108,6 +109,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
  */
 export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   appearance: LuPalette,
+  privacy: LuShield,
   graph: IoIosGitNetwork,
   diff: LuDiff,
   sidebar: LuPanelLeft,

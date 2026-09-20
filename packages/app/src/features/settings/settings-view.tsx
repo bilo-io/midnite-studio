@@ -26,6 +26,7 @@ import { HealthPage } from './settings-pages/health-page';
 import { McpSettingsPage } from './settings-pages/mcp-page';
 import { MonitorPage } from './settings-pages/monitor-page';
 import { OptimizerSettingsPage } from './settings-pages/optimizer-settings-page';
+import { PrivacyPage } from './settings-pages/privacy-page';
 import { ProjectsPage } from './settings-pages/projects-page';
 import { ReviewsPage } from './settings-pages/reviews-page';
 import { ScreenLockPage } from './settings-pages/screen-lock-page';
@@ -47,6 +48,7 @@ import { WorkflowsPage } from './settings-pages/workflows-page';
  */
 const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   appearance: () => <AppearancePage />,
+  privacy: () => <PrivacyPage />,
   graph: () => <GraphPage />,
   diff: () => <DiffPage />,
   sidebar: () => <SidebarPage />,

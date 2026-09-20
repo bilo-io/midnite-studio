@@ -3208,3 +3208,55 @@ export const CompanionSttTestRequest = z.object({ providerId: SttProviderIdSchem
 export const CompanionSttTestResponse = GitOpResultOf(
   z.object({ ms: z.number(), text: z.string() }),
 );
+
+// --- secrets (Phase 76 Theme D) ---------------------------------------------
+
+export const SecretKeySchema = z.enum(['finance.twelveData']);
+
+export const SecretsGetRequest = z.object({ key: SecretKeySchema });
+export const SecretsGetResponse = z.object({ value: z.string().nullable() });
+
+export const SecretsSetRequest = z.object({
+  key: SecretKeySchema,
+  value: z.string(),
+});
+
+// --- finance proxy (Phase 76 Theme D) -----------------------------------------
+
+const FinanceAssetKindSchema = z.enum(['crypto', 'stock']);
+
+export const FinanceSearchResultSchema = z.object({
+  kind: FinanceAssetKindSchema,
+  symbol: z.string(),
+  name: z.string(),
+  exchange: z.string().optional(),
+});
+
+export const FinanceQuoteSchema = z.object({
+  price: z.number(),
+  currency: z.string(),
+});
+
+export const FinanceHistoryPointSchema = z.object({
+  t: z.number(),
+  c: z.number(),
+});
+
+export const FinanceSearchRequest = z.object({
+  kind: FinanceAssetKindSchema,
+  query: z.string(),
+});
+
+export const FinanceQuoteRequest = z.object({
+  kind: FinanceAssetKindSchema,
+  symbol: z.string(),
+});
+
+export const FinanceHistoryRequest = z.object({
+  kind: FinanceAssetKindSchema,
+  symbol: z.string(),
+});
+
+export const FinanceSearchResponse = GitOpResultOf(z.array(FinanceSearchResultSchema));
+export const FinanceQuoteResponse = GitOpResultOf(FinanceQuoteSchema);
+export const FinanceHistoryResponse = GitOpResultOf(z.array(FinanceHistoryPointSchema));

@@ -1,40 +1,24 @@
-import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-
-import { safeStorage } from 'electron';
 
 import type { ConnectionConfig } from '@midnite/studio-shared';
 
+import {
+  createSecureJsonStore,
+  decryptSecret,
+  encryptSecret,
+  isSafeStorageAvailable,
+} from '../secure-store';
+
 /**
- * Where a saved connection's password actually lives — the one module here
- * importing `electron`: `safeStorage.encryptString`/`decryptString`, keyed
- * per connection id, the encrypted blob stored **alongside, not inside**
+ * Where a saved connection's password actually lives — `safeStorage` keyed per
+ * connection id, the encrypted blob stored **alongside, not inside**
  * `db-connections.json` (a separate `db-connections.vault.json`).
  *
- * This is the first real use of `safeStorage` in this repo. It is not the
- * first time the app has handled a secret, though, and it matters which of
- * the two existing ways this fixes: the GitHub token is never stored at all
- * — everything shells out through
- * [`forge/gh-shell.ts`](../forge/gh-shell.ts) — while
- * [`finance-store.ts`](../../../app/src/features/finance/finance-store.ts)
- * persists an API key in **plaintext renderer localStorage**, in a docstring
- * that names `safeStorage` as the thing it deliberately skipped (fetching
- * straight from the renderer rather than proxying through main). This vault
- * is the fix for that pattern, not a claim that nothing here handled a
- * secret before.
+ * The app secrets vault (`secrets-vault.ts`) uses the same `secure-store`
+ * helpers for the Twelve Data key (Phase 76 Theme D).
  *
- * **Degrades rather than blocks** when `safeStorage.isEncryptionAvailable()`
- * is `false`: the connection still saves, and the password is prompted per
- * session instead of persisted. This is a dev-machine case, not a release
- * blocker — the only ship target is mac arm64, where `safeStorage` backs
- * onto Keychain and is available.
- *
- * **Editing a connection's host/database revokes its stored password**,
- * the same pattern `trust-store.ts` uses for a changed diagnostics command:
- * each entry carries a fingerprint of the connection's non-secret fields, and
- * `reconcile()` drops the stored password the moment that fingerprint stops
- * matching — a connection that now points somewhere else does not silently
- * reuse a secret that was typed in for the old target.
+ * **Degrades rather than blocks** when encryption is unavailable: the
+ * connection still saves, and the password is prompted per session instead.
  */
 export type CredentialVault = {
   isAvailable: () => boolean;
@@ -47,15 +31,13 @@ export type CredentialVault = {
 };
 
 type VaultEntry = { fingerprint: string; encrypted: string };
-type StoredState = { version: 1; entries: Record<string, VaultEntry> };
 
 const FILE_NAME = 'db-connections.vault.json';
 
 /**
  * NUL-joined for the same reason `diagnostics/trust-store.ts`'s
  * `commandFingerprint` is: any printable separator makes two different
- * connections fingerprint alike, and this value decides whether a stored
- * password gets reused.
+ * connections fingerprint alike.
  */
 export function connectionFingerprint(config: ConnectionConfig): string {
   return [
@@ -66,76 +48,6 @@ export function connectionFingerprint(config: ConnectionConfig): string {
     config.username ?? '',
     config.sqlitePath ?? '',
   ].join('\0');
-}
-
-export function createCredentialVault(directory: string): CredentialVault {
-  const file = join(directory, FILE_NAME);
-  let cache: Record<string, VaultEntry> | null = null;
-
-  const load = async (): Promise<Record<string, VaultEntry>> => {
-    if (cache) return cache;
-    try {
-      cache = parseVaultState(JSON.parse(await readFile(file, 'utf8')));
-    } catch {
-      cache = {};
-    }
-    return cache;
-  };
-
-  const persist = async (entries: Record<string, VaultEntry>): Promise<void> => {
-    const state: StoredState = { version: 1, entries };
-    try {
-      await writeFile(file, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-    } catch {
-      // A read-only data dir must not take the app down — the password holds
-      // for this session and is asked for again next launch.
-    }
-  };
-
-  return {
-    isAvailable: () => safeStorage.isEncryptionAvailable(),
-
-    get: async (id) => {
-      if (!safeStorage.isEncryptionAvailable()) return null;
-      const entry = (await load())[id];
-      if (!entry) return null;
-      try {
-        return safeStorage.decryptString(Buffer.from(entry.encrypted, 'base64'));
-      } catch {
-        // The OS keychain entry is gone or unreadable (a migrated machine, a
-        // reset keychain). Treat as "no password saved" rather than throwing.
-        return null;
-      }
-    },
-
-    set: async (config, password) => {
-      // Degrade rather than throw: the connection itself still saved through
-      // `connections-store.ts`, and the caller re-prompts for a password next
-      // session instead of persisting one.
-      if (!safeStorage.isEncryptionAvailable()) return;
-      const entries = await load();
-      entries[config.id] = {
-        fingerprint: connectionFingerprint(config),
-        encrypted: safeStorage.encryptString(password).toString('base64'),
-      };
-      await persist(entries);
-    },
-
-    delete: async (id) => {
-      const entries = await load();
-      delete entries[id];
-      await persist(entries);
-    },
-
-    reconcile: async (config) => {
-      const entries = await load();
-      const entry = entries[config.id];
-      if (entry && entry.fingerprint !== connectionFingerprint(config)) {
-        delete entries[config.id];
-        await persist(entries);
-      }
-    },
-  };
 }
 
 function parseVaultState(value: unknown): Record<string, VaultEntry> {
@@ -152,6 +64,44 @@ function parseVaultState(value: unknown): Record<string, VaultEntry> {
     }
   }
   return out;
+}
+
+export function createCredentialVault(directory: string): CredentialVault {
+  const store = createSecureJsonStore<VaultEntry>(directory, FILE_NAME, parseVaultState);
+
+  return {
+    isAvailable: isSafeStorageAvailable,
+
+    get: async (id) => {
+      const entry = await store.get(id);
+      if (!entry) return null;
+      return decryptSecret(entry.encrypted);
+    },
+
+    set: async (config, password) => {
+      if (!isSafeStorageAvailable()) return;
+      await store.set(config.id, {
+        fingerprint: connectionFingerprint(config),
+        encrypted: encryptSecret(password),
+      });
+    },
+
+    delete: async (id) => {
+      await store.delete(id);
+    },
+
+    reconcile: async (config) => {
+      const entry = await store.get(config.id);
+      if (entry && entry.fingerprint !== connectionFingerprint(config)) {
+        await store.delete(config.id);
+      }
+    },
+  };
+}
+
+/** Resolve the on-disk path — tests assert contents without reaching into the vault. */
+export function credentialVaultPath(directory: string): string {
+  return join(directory, FILE_NAME);
 }
 
 /** Stores nothing and remembers nothing — the fallback before one is configured. */

@@ -35,6 +35,7 @@ export const PREFERENCE_KEYS = [
   'agentApiKeys', // agent-page.tsx
   'skillExecutionMode', // agent-page.tsx
   'allowForceWithLease', // git-safety-page.tsx
+  'locateByIpEnabled', // privacy-page.tsx (Phase 76 Theme D)
   'allowSystemCacheClean', // optimizer-settings-page.tsx
   'allowTrashEmpty', // trash-safety-page.tsx
   'apiClientRequestTimeoutS', // api-client-page.tsx

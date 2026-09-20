@@ -215,7 +215,7 @@ export function LockScreenSysmonWidget() {
 
 export function LockScreenFintechWidget() {
   const assets = useFinanceStore((s) => s.assets);
-  const apiKey = useFinanceStore((s) => s.twelveDataApiKey);
+  const keyConfigured = useFinanceStore((s) => s.twelveDataKeyConfigured);
   const [tickerIndex, setTickerIndex] = useState(0);
 
   useEffect(() => {
@@ -232,8 +232,8 @@ export function LockScreenFintechWidget() {
   const activeIndex = assets.length > 0 ? tickerIndex % assets.length : 0;
   const currentAsset = assets[activeIndex] ?? null;
 
-  const { data: quote } = useFinanceQuote(currentAsset, apiKey);
-  const { data: history } = useFinanceHistory(currentAsset, apiKey);
+  const { data: quote } = useFinanceQuote(currentAsset, keyConfigured);
+  const { data: history } = useFinanceHistory(currentAsset, keyConfigured);
   const { pct, up } = historyChange(history ?? []);
   const price = quote?.price ?? history?.at(-1)?.c;
 

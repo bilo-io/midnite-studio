@@ -7,24 +7,24 @@ import { useFinanceStore } from '../finance/finance-store';
 import { useWeatherStore } from '../weather/weather-store';
 import { LockScreenBatteryWidget, LockScreenWeatherWidget, LockScreenWidgets } from './lock-screen-widgets';
 
-function jsonResponse(body: unknown): Response {
-  return { ok: true, status: 200, statusText: 'OK', json: async () => body } as Response;
-}
-
-function stubFinanceFetch(prices: [number, number][]) {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: string | URL) => {
-      const url = String(input);
-      if (url.includes('/market_chart')) {
-        return jsonResponse({ prices });
-      }
-      return jsonResponse({
-        name: 'Bitcoin',
-        market_data: { current_price: { usd: prices.at(-1)?.[1] } },
-      });
-    }),
-  );
+function stubFinanceBridge(prices: [number, number][]) {
+  const history = prices.map(([t, c]) => ({ t, c }));
+  Object.assign(window, {
+    midniteStudio: {
+      secrets: {
+        get: vi.fn(async () => ({ value: null })),
+        set: vi.fn(async () => {}),
+      },
+      finance: {
+        search: vi.fn(async () => ({ ok: true as const, value: [] })),
+        quote: vi.fn(async () => ({
+          ok: true as const,
+          value: { price: prices.at(-1)?.[1] ?? 0, currency: 'USD' },
+        })),
+        history: vi.fn(async () => ({ ok: true as const, value: history })),
+      },
+    },
+  });
 }
 
 function createWrapper() {
@@ -60,7 +60,8 @@ describe('LockScreenWidgets', () => {
         { kind: 'crypto', symbol: 'bitcoin', name: 'Bitcoin (BTC)' },
         { kind: 'crypto', symbol: 'ethereum', name: 'Ethereum (ETH)' },
       ],
-      twelveDataApiKey: 'test-api-key',
+      twelveDataKeyConfigured: true,
+      secretsHydrated: true,
     });
   });
 
@@ -116,13 +117,14 @@ describe('LockScreenWidgets', () => {
 
   it('color-codes ticker, price, name, and sparkline green on a gain', async () => {
     vi.useRealTimers();
-    stubFinanceFetch([
+    stubFinanceBridge([
       [1000, 40000],
       [2000, 50000],
     ]);
     useFinanceStore.setState({
       assets: [{ kind: 'crypto', symbol: 'bitcoin', name: 'Bitcoin (BTC)' }],
-      twelveDataApiKey: '',
+      twelveDataKeyConfigured: false,
+      secretsHydrated: true,
     });
 
     render(<LockScreenWidgets />, { wrapper: createWrapper() });
@@ -142,13 +144,14 @@ describe('LockScreenWidgets', () => {
 
   it('color-codes ticker, price, name, and sparkline red on a loss', async () => {
     vi.useRealTimers();
-    stubFinanceFetch([
+    stubFinanceBridge([
       [1000, 60000],
       [2000, 50000],
     ]);
     useFinanceStore.setState({
       assets: [{ kind: 'crypto', symbol: 'bitcoin', name: 'Bitcoin (BTC)' }],
-      twelveDataApiKey: '',
+      twelveDataKeyConfigured: false,
+      secretsHydrated: true,
     });
 
     render(<LockScreenWidgets />, { wrapper: createWrapper() });

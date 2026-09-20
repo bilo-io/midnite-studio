@@ -24,6 +24,7 @@ export * from './remote';
 export * from './repo';
 export * from './result';
 export * from './scaffold';
+export * from './secrets';
 export * from './search';
 export * from './stash';
 export * from './statement-kind';

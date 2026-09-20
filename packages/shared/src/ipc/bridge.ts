@@ -820,6 +820,26 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * Enum-keyed secrets in main's `safeStorage` vault (Phase 76 Theme D). Values
+   * never cross back on read — the finance proxy reads the Twelve Data key
+   * internally.
+   */
+  secrets: {
+    get: (req: In<typeof S.SecretsGetRequest>) => Promise<z.infer<typeof S.SecretsGetResponse>>;
+    set: (req: In<typeof S.SecretsSetRequest>) => Promise<void>;
+  };
+
+  /**
+   * Finance provider fetches proxied through main (Phase 76 Theme D) so API
+   * keys and CoinGecko/Twelve Data hosts stay out of the renderer.
+   */
+  finance: {
+    search: (req: In<typeof S.FinanceSearchRequest>) => Promise<z.infer<typeof S.FinanceSearchResponse>>;
+    quote: (req: In<typeof S.FinanceQuoteRequest>) => Promise<z.infer<typeof S.FinanceQuoteResponse>>;
+    history: (req: In<typeof S.FinanceHistoryRequest>) => Promise<z.infer<typeof S.FinanceHistoryResponse>>;
+  };
+
+  /**
    * Video Studio (Phase 44) — global, not per-repo, and this app ships no
    * Remotion dependency anywhere; see `video.ts`. Projects are discovered
    * from disk, not registered, so there is no `save` — only `create` (copy
