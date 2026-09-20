@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | ◻ TODO | — | 0/87 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
-| [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E |
+| [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | 🔄 WIP | — | 0/34 | `░░░░░░░░░░` | 0% | A B | C D E |
 | [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | 🔄 WIP | — | 0/36 | `░░░░░░░░░░` | 0% | A B | C D E |
 | [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | ◻ TODO | — | 0/95 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | ◻ TODO | — | 0/101 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
