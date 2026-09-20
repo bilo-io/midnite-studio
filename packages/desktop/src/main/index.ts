@@ -12,6 +12,7 @@ import { readSystemHealth } from './system-health';
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
 import { allowAppAudioOnly } from './browser-security';
+import { installCsp } from './csp';
 import { destroyAllApps, startAppsDiscardSweep } from './apps-service';
 import { destroyAllBrowserTabs, startBrowserDiscardSweep } from './browser-service';
 import { registerAppsHandlers } from './ipc/apps-handlers';
@@ -338,12 +339,15 @@ if (!app.requestSingleInstanceLock()) {
       merely unused — `loadRenderer` in `window.ts` makes the same choice from
       the same two conditions.
     */
-    allowAppAudioOnly(
-      session.defaultSession,
+    const devServerOrigin =
       !app.isPackaged && process.env['MSTUDIO_USE_BUILT_RENDERER'] !== '1'
         ? (process.env['MSTUDIO_RENDERER_URL'] ?? 'http://localhost:5173')
-        : null,
-    );
+        : null;
+    allowAppAudioOnly(session.defaultSession, devServerOrigin);
+    installCsp(session.defaultSession, {
+      dev: devServerOrigin !== null,
+      devServerOrigin,
+    });
     registerWindowChrome();
     registerRepoHandlers(getMainWindow);
     registerSearchHandlers();

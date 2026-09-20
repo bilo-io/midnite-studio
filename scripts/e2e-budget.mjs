@@ -102,7 +102,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // on a fresh profile before the user sets a location or flips the IP switch —
 // only a real `page.on('request')` over a full page load can observe that;
 // vitest cannot intercept renderer network at all.
-export const MAX_DECLARED_E2E = 446;
+// Raised 446 -> 448 for Phase 76 Theme C's `csp.spec.ts` (two tests): CSP
+// enforcement and the external-link contract need real `securitypolicyviolation`
+// events and a live document URL — vitest cannot supply either.
+export const MAX_DECLARED_E2E = 448;
 
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult

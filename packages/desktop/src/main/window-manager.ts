@@ -15,6 +15,7 @@ import {
 } from '@midnite/studio-shared';
 import { BrowserWindow, app, screen, shell, type Display, type WebContents } from 'electron';
 
+import { bindAppNavigationGuard } from './app-navigation';
 import { reparentAppView } from './apps-service';
 import { reparentBrowserTabs } from './browser-service';
 import type { Logger } from './log';
@@ -340,6 +341,11 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
     if (url.startsWith('http://') || url.startsWith('https://')) void shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  bindAppNavigationGuard(
+    win.webContents,
+    !app.isPackaged && process.env['MSTUDIO_USE_BUILT_RENDERER'] !== '1' ? DEV_SERVER_URL : null,
+  );
 
   // A.6: a popout closed by its own traffic light re-docks — the same
   // outcome as pressing the re-dock button, not a way to lose the panel. For
