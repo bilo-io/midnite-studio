@@ -9,6 +9,12 @@
 remotes normalise `owner` to `{org}/{project}`; `githubForge` becomes `repoForge` for any supported
 kind; `hasGithubForge` becomes `hasSupportedForge`.
 
+## 2026-09-20 — Phase 90 Theme J — the pricing page
+
+Third static website route at `/pricing` (Free / Individual $8 / Team $12/seat, 5-seat minimum).
+No checkout. Unwired `subscription.ts` entitlement vocabulary in shared. Nothing links to the
+private studio repo.
+
 ## 2026-09-20 — Phase 76 Theme C — renderer CSP and navigation guard
 
 [PR #487](https://github.com/bilo-io/midnite-studio/pull/487). Header-based CSP from pure

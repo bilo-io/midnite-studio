@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { SiteNav } from './components/site-nav';
 import { useHashLanding } from './hooks/use-hash-landing';
 import { DownloadPage } from './pages/download-page';
+import { PricingPage } from './pages/pricing-page';
 import { routeFor, type Route } from './routes';
 import { SECTIONS } from './sections/registry';
 
@@ -33,14 +34,15 @@ const Landing = () => {
 };
 
 /**
- * The site's two pages.
+ * The site's pages.
  *
- * Both are real HTML files on disk (`index.html`, `download/index.html`), so the
- * initial route comes from the URL the server already resolved and no history
- * rewriting is needed — every link between them is a plain `<a>` and a full
- * navigation. `popstate` is still handled, because the browser's Back button
- * after such a navigation can restore this document from the page cache, and a
- * component that only read the path once would then render the wrong page.
+ * Each is a real HTML file on disk (`index.html`, `download/index.html`,
+ * `pricing/index.html`), so the initial route comes from the URL the server
+ * already resolved and no history rewriting is needed — every link between them
+ * is a plain `<a>` and a full navigation. `popstate` is still handled, because
+ * the browser's Back button after such a navigation can restore this document
+ * from the page cache, and a component that only read the path once would then
+ * render the wrong page.
  */
 export const App = () => {
   const [route, setRoute] = useState<Route>(() =>
@@ -53,5 +55,7 @@ export const App = () => {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  return route === 'download' ? <DownloadPage /> : <Landing />;
+  if (route === 'download') return <DownloadPage />;
+  if (route === 'pricing') return <PricingPage />;
+  return <Landing />;
 };

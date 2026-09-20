@@ -1,16 +1,17 @@
 /**
- * The site's two pages, and how a URL becomes one.
+ * The site's pages, and how a URL becomes one.
  *
- * There is no router dependency here on purpose. Two static pages need a
+ * There is no router dependency here on purpose. Three static pages need a
  * comparison, not a route table, and the deployment shape does the rest: each
- * page is a real HTML file (`index.html`, `download/index.html`), so any static
- * host serves a deep link directly and no client-side history rewriting has to
- * exist. What this module does is (a) tell the already-loaded page which of the
- * two it is, and (b) build hrefs that survive whatever `base` prefix the
- * deployed site carries — see the note on `base` in `vite.config.ts`.
+ * page is a real HTML file (`index.html`, `download/index.html`,
+ * `pricing/index.html`), so any static host serves a deep link directly and no
+ * client-side history rewriting has to exist. What this module does is (a) tell
+ * the already-loaded page which one it is, and (b) build hrefs that survive
+ * whatever `base` prefix the deployed site carries — see the note on `base` in
+ * `vite.config.ts`.
  */
 
-export type Route = 'landing' | 'download';
+export type Route = 'landing' | 'download' | 'pricing';
 
 /**
  * `import.meta.env.BASE_URL` always ends in `/` (Vite normalises it), so this
@@ -32,12 +33,19 @@ const withoutBase = (pathname: string): string => {
  * that renders an error, and a static tree has no way to give us a real one
  * anyway.
  */
-export const routeFor = (pathname: string): Route =>
-  withoutBase(pathname) === 'download' ? 'download' : 'landing';
+export const routeFor = (pathname: string): Route => {
+  const rest = withoutBase(pathname);
+  if (rest === 'download') return 'download';
+  if (rest === 'pricing') return 'pricing';
+  return 'landing';
+};
 
-/** A base-aware href for one of the two pages. */
-export const hrefFor = (route: Route): string =>
-  route === 'download' ? `${baseUrl()}download/` : baseUrl();
+/** A base-aware href for one of the pages. */
+export const hrefFor = (route: Route): string => {
+  if (route === 'download') return `${baseUrl()}download/`;
+  if (route === 'pricing') return `${baseUrl()}pricing/`;
+  return baseUrl();
+};
 
 /** A base-aware href for an on-page anchor, usable from either page. */
 export const anchorHref = (id: string): string => `${baseUrl()}#${id}`;

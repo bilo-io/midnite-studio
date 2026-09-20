@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- No-flash: apply a stored/system theme before first paint. Mirrors src/theme.ts's applyTheme(). -->
+    <script>(function(){try{var t=localStorage.getItem('midnite-studio.website.theme'),d=document.documentElement;t==='light'||t==='dark'?d.setAttribute('data-theme',t):matchMedia('(prefers-color-scheme: light)').matches&&d.classList.add('ws-auto-light')}catch(e){}})();</script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../favicon.png" />
+    <link rel="apple-touch-icon" href="../favicon.png" />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/src/fonts/damion/Damion-latin.woff2"
+    />
+    <title>Pricing — Midnite Studio</title>
+    <meta
+      name="description"
+      content="Midnite Studio pricing: public repositories are free; private repositories unlock on Individual and Team plans. No checkout yet — join early access."
+    />
+    <meta name="theme-color" content="#0d0d14" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Midnite Studio pricing" />
+    <meta
+      property="og:description"
+      content="Free for public repos. Individual and Team plans for private work."
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

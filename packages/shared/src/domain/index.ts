@@ -27,6 +27,7 @@ export * from './scaffold';
 export * from './secrets';
 export * from './search';
 export * from './stash';
+export * from './subscription';
 export * from './statement-kind';
 export * from './stats';
 export * from './status';
