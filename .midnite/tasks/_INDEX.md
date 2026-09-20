@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | ◻ TODO | — | 0/87 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | ◻ TODO | — | 0/36 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | ◻ TODO | — | 0/95 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
@@ -224,6 +225,25 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
 
+### [Phase 94 — AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md)
+
+*Four named disciplines — skill, loop, graph and harness engineering — and the app already ships an
+embryo of each. The grounding found they share one gap: **the feedback edge**. A loop is a sentence
+(`loopScheduleFragment` composes the cadence into the prompt; nothing in main reads a schedule), the
+sensor is fully built and unused (`testing/runner.ts` returns a parsed `TestRunResult` and no agent
+path calls it), four run ledgers disagree and none records an outcome, the three skill mirrors have
+silently diverged (13 of 23 files, including an unported `cleanup.sh` bug fix), and the 15,570-node
+knowledge graph is readable by humans only. One slice: make a run a checked, comparable fact, then
+let the loop, the skill catalogue and the graph read it.*
+
+- ◻ **A** — the run record in `shared`: `AgentRun`, `AgentRunVerdict`, adapters over the four existing ledgers, `AgentCommandId` lifted out of the renderer
+- ◻ **B** — the sensor: a loop iteration verified by the repo's own trusted test suite, through the runner that already exists
+- ◻ **C** — the decide: a main-process loop driver owns the cadence, the stop conditions and the failure re-prompt
+- ◻ **D** — Runs: four ledgers as one list, in the Sessions view, with the commits each run produced
+- ◻ **E** — skill identity and the three-way mirror drift gate (`scripts/skills-sync-check.mjs`, normalised, in CI)
+- ◻ **F** — which skills actually leave the repo green: a tally, never a score
+- ◻ **G** — `knowledge.find` / `knowledge.neighbours` as read-only MCP tools, and a run's footprint on the graph
+- ◻ **H** — verification, tests, and the two perf numbers a main-process timer owes
 ### [Phase 93 — Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md)
 
 *`bilo-io/midnite-apps` is the confirmed, verified destination — public, `has_issues: true`,
