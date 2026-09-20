@@ -1845,11 +1845,20 @@ export const TestsResultEvent = z.object({
 
 // --- window chrome ---------------------------------------------------------
 
+/** Payload-free one-way IPC — renderer calls `send(channel)` with no body. */
+export const SendVoidSchema = z.void();
+
 export const WindowStateSchema = z.object({
   maximized: z.boolean(),
   fullScreen: z.boolean(),
   focused: z.boolean(),
 });
+
+/** `true` bypasses the HTTP cache; omitted/`false` is an ordinary reload. */
+export const WindowReloadRequest = z.boolean().optional();
+
+/** Electron `setBackgroundColor` — `#rrggbb` only. */
+export const WindowSetBackgroundRequest = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 /** The host window's own zoom (Phase 32 Theme G) — see `windowZoom`'s channel comment. */
 export const WindowZoomRequest = z.object({ action: z.enum(['in', 'out', 'reset']) });

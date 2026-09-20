@@ -2,7 +2,7 @@ import { unlinkSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 
 import { EVENT_CHANNELS, CHANNELS, perfEnabled } from '@midnite/studio-shared';
-import { BrowserWindow, app, ipcMain, session } from 'electron';
+import { BrowserWindow, app, session } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
@@ -40,6 +40,7 @@ import { configureNotes, registerNotesHandlers } from './ipc/notes-handlers';
 import { createSessionHistoryStore } from './session-history-store';
 import { createNotesStore } from './notes-store';
 import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
+import { handleBare } from './ipc/handle';
 import { registerForgeHandlers } from './ipc/forge-handlers';
 import { registerForgeProjectHandlers } from './ipc/forge-project-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
@@ -433,7 +434,7 @@ if (!app.requestSingleInstanceLock()) {
     registerCompanionHandlers();
     registerUpdater(getMainWindow);
     registerReleaseNotesHandlers();
-    ipcMain.handle(CHANNELS.systemHealth, () => readSystemHealth());
+    handleBare(CHANNELS.systemHealth, () => readSystemHealth());
     registerOptimizerHandlers(getMainWindow);
     registerTrashHandlers();
     registerPerfHandlers();

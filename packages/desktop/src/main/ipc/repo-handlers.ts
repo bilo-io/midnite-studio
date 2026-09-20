@@ -2,8 +2,8 @@ import { BrowserWindow, dialog } from 'electron';
 
 import { addWorktree, readCommitDetail, removeWorktree, revParse } from '@midnite/studio-git-engine';
 import { CHANNELS, failure, schemas } from '@midnite/studio-shared';
-import { ipcMain } from 'electron';
 
+import { defaultLogger } from '../log';
 import { cancelLog, startLog } from '../log-service';
 import {
   closeRepo,
@@ -16,7 +16,7 @@ import {
 } from '../repo-registry';
 import { reconcileWatchers } from '../watch-service';
 import { reconcileFetchScheduler } from '../fetch-scheduler';
-import { handle, handleBare, handleFromSender, handleOp } from './handle';
+import { handle, handleBare, handleFromSender, handleOp, handleSend } from './handle';
 
 /**
  * Repository IPC surface: open, list, close, and the two derived reads
@@ -202,9 +202,10 @@ export function registerRepoHandlers(getWindow: () => BrowserWindow | null): voi
   });
   // One-way: ordering is a preference, and the next drag rewrites the whole
   // list anyway, so there is nothing worth a round trip.
-  ipcMain.on(CHANNELS.repoReorder, (_event, raw: unknown) => {
-    const parsed = schemas.RepoReorderRequest.safeParse(raw);
-    if (parsed.success) void reorderRepos(parsed.data.repoIds);
-  });
-
+  handleSend(
+    CHANNELS.repoReorder,
+    schemas.RepoReorderRequest,
+    ({ repoIds }) => void reorderRepos(repoIds),
+    (issue) => defaultLogger.warn(issue),
+  );
 }

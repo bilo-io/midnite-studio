@@ -1,6 +1,9 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow } from 'electron';
 
 import { CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
+
+import { defaultLogger } from './log';
+import { handleBareFromSender, handleSendFromSender } from './ipc/handle';
 
 /**
  * Window chrome for the app-drawn title bar.
@@ -25,9 +28,6 @@ export function windowFrameless(): boolean {
  * resolving the vertical offset where `y: 16` placed them noticeably low.
  */
 export const TRAFFIC_LIGHT_POSITION = { x: 16, y: 13 } as const;
-
-/** `#rrggbb` only — anything else is dropped rather than handed to Electron. */
-const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 /**
  * Forward the window's fullscreen/focus/maximize transitions to the renderer.
@@ -63,6 +63,10 @@ const pushState = (win: BrowserWindow): void => {
   if (!win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.windowStateChanged, stateOf(win));
 };
 
+const warnInvalid = (issue: string): void => {
+  defaultLogger.warn(issue);
+};
+
 /**
  * Register the renderer → main half of the chrome bridge.
  *
@@ -75,15 +79,19 @@ const pushState = (win: BrowserWindow): void => {
  * to the main window regardless of which one was actually clicked.
  */
 export function registerWindowChrome(): void {
-  const withSender = (fn: (win: BrowserWindow) => void) => (event: { sender: BrowserWindow['webContents'] }) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win && !win.isDestroyed()) fn(win);
-  };
-
-  ipcMain.on(CHANNELS.windowMinimize, withSender((win) => win.minimize()));
-  ipcMain.on(
+  handleSendFromSender(
+    CHANNELS.windowMinimize,
+    schemas.SendVoidSchema,
+    (_payload, win) => {
+      if (win && !win.isDestroyed()) win.minimize();
+    },
+    warnInvalid,
+  );
+  handleSendFromSender(
     CHANNELS.windowMaximizeToggle,
-    withSender((win) => {
+    schemas.SendVoidSchema,
+    (_payload, win) => {
+      if (!win || win.isDestroyed()) return;
       // A frameless window has no native title bar for macOS to apply the
       // double-click-to-zoom gesture to, so the renderer reports the
       // double-click and the zoom happens here. Fullscreen is left alone —
@@ -91,15 +99,27 @@ export function registerWindowChrome(): void {
       if (win.isFullScreen()) return;
       if (win.isMaximized()) win.unmaximize();
       else win.maximize();
-    }),
+    },
+    warnInvalid,
   );
-  ipcMain.on(CHANNELS.windowClose, withSender((win) => win.close()));
-  ipcMain.on(CHANNELS.windowReload, (event, hard: unknown) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (!win || win.isDestroyed()) return;
-    if (hard === true) win.webContents.reloadIgnoringCache();
-    else win.webContents.reload();
-  });
+  handleSendFromSender(
+    CHANNELS.windowClose,
+    schemas.SendVoidSchema,
+    (_payload, win) => {
+      if (win && !win.isDestroyed()) win.close();
+    },
+    warnInvalid,
+  );
+  handleSendFromSender(
+    CHANNELS.windowReload,
+    schemas.WindowReloadRequest,
+    (hard, win) => {
+      if (!win || win.isDestroyed()) return;
+      if (hard === true) win.webContents.reloadIgnoringCache();
+      else win.webContents.reload();
+    },
+    warnInvalid,
+  );
 
   /**
    * The host window's own zoom (Phase 32 Theme G) — `Mod+=`/`Mod+-`/`Mod+0`
@@ -108,37 +128,40 @@ export function registerWindowChrome(): void {
    * chord. `0.5` per step matches Electron's own role-based zoom increment,
    * so the behaviour is identical to the accelerator this replaces.
    */
-  ipcMain.on(CHANNELS.windowZoom, (event, raw: unknown) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (!win || win.isDestroyed()) return;
-    const parsed = schemas.WindowZoomRequest.safeParse(raw);
-    if (!parsed.success) return;
-    switch (parsed.data.action) {
-      case 'in':
-        win.webContents.setZoomLevel(win.webContents.getZoomLevel() + 0.5);
-        break;
-      case 'out':
-        win.webContents.setZoomLevel(win.webContents.getZoomLevel() - 0.5);
-        break;
-      case 'reset':
-        win.webContents.setZoomLevel(0);
-        break;
-    }
-  });
+  handleSendFromSender(
+    CHANNELS.windowZoom,
+    schemas.WindowZoomRequest,
+    ({ action }, win) => {
+      if (!win || win.isDestroyed()) return;
+      switch (action) {
+        case 'in':
+          win.webContents.setZoomLevel(win.webContents.getZoomLevel() + 0.5);
+          break;
+        case 'out':
+          win.webContents.setZoomLevel(win.webContents.getZoomLevel() - 0.5);
+          break;
+        case 'reset':
+          win.webContents.setZoomLevel(0);
+          break;
+      }
+    },
+    warnInvalid,
+  );
 
-  ipcMain.handle(CHANNELS.windowState, (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    return win && !win.isDestroyed()
+  handleBareFromSender(CHANNELS.windowState, (win) =>
+    win && !win.isDestroyed()
       ? stateOf(win)
-      : { maximized: false, fullScreen: false, focused: false };
-  });
+      : { maximized: false, fullScreen: false, focused: false },
+  );
 
   // Retint the native window backing when the app theme changes, so resize
-  // flashes and the rounded-corner backing stay seamless with the UI. Never
-  // trust the payload — anything that isn't `#rrggbb` is dropped.
-  ipcMain.on(CHANNELS.windowSetBackground, (event, color: unknown) => {
-    if (typeof color !== 'string' || !HEX_RE.test(color)) return;
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win && !win.isDestroyed()) win.setBackgroundColor(color);
-  });
+  // flashes and the rounded-corner backing stay seamless with the UI.
+  handleSendFromSender(
+    CHANNELS.windowSetBackground,
+    schemas.WindowSetBackgroundRequest,
+    (color, win) => {
+      if (win && !win.isDestroyed()) win.setBackgroundColor(color);
+    },
+    warnInvalid,
+  );
 }

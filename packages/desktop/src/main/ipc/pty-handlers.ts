@@ -1,8 +1,7 @@
 import { CHANNELS, SCROLLBACK_BYTES, schemas } from '@midnite/studio-shared';
-import { ipcMain, type BrowserWindow } from 'electron';
+import type { BrowserWindow } from 'electron';
 
 import { defaultLogger } from '../log';
-import { resolveWindow } from '../window-manager';
 import {
   createPty,
   fetchScrollbackSnapshot,
@@ -14,7 +13,11 @@ import {
   writePty,
 } from '../pty-service';
 import { trimScrollback } from '../terminal-store';
-import { handle } from './handle';
+import { handle, handleSend, handleSendFromSender } from './handle';
+
+const warnInvalid = (issue: string): void => {
+  defaultLogger.warn(issue);
+};
 
 /**
  * Terminal IPC.
@@ -34,26 +37,21 @@ export function registerPtyHandlers(_getWindow: () => BrowserWindow | null): voi
     (issue) => ({ ok: false as const, message: issue }),
   );
 
-  ipcMain.on(CHANNELS.ptyInput, (_event, raw: unknown) => {
-    const parsed = schemas.PtyInputRequest.safeParse(raw);
-    if (parsed.success) {
-      writePty(parsed.data.ptyId, parsed.data.data);
-    } else {
-      // A malformed payload here is a bug somewhere upstream — logged
-      // through the one log seam instead of vanishing (Phase 51 Theme F).
-      defaultLogger(`[pty] rejected malformed ptyInput payload: ${parsed.error.message}`);
-    }
-  });
+  handleSend(
+    CHANNELS.ptyInput,
+    schemas.PtyInputRequest,
+    ({ ptyId, data }) => writePty(ptyId, data),
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.ptyResize, (_event, raw: unknown) => {
-    const parsed = schemas.PtyResizeRequest.safeParse(raw);
-    if (parsed.success) resizePty(parsed.data.ptyId, parsed.data.cols, parsed.data.rows);
-  });
+  handleSend(
+    CHANNELS.ptyResize,
+    schemas.PtyResizeRequest,
+    ({ ptyId, cols, rows }) => resizePty(ptyId, cols, rows),
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.ptyKill, (_event, raw: unknown) => {
-    const parsed = schemas.PtyKillRequest.safeParse(raw);
-    if (parsed.success) killPty(parsed.data.ptyId);
-  });
+  handleSend(CHANNELS.ptyKill, schemas.PtyKillRequest, ({ ptyId }) => killPty(ptyId), warnInvalid);
 
   handle(
     CHANNELS.ptySnapshot,
@@ -71,15 +69,21 @@ export function registerPtyHandlers(_getWindow: () => BrowserWindow | null): voi
   // ptyId's output, so `ptyData`/`ptyExit` reach every window rendering that
   // session rather than only the main window — see the registry in
   // `pty-service.ts`.
-  ipcMain.on(CHANNELS.ptySubscribe, (event, raw: unknown) => {
-    const parsed = schemas.PtySubscribeRequest.safeParse(raw);
-    const win = resolveWindow(event.sender);
-    if (parsed.success && win) subscribeWindowToPty(parsed.data.ptyId, win);
-  });
+  handleSendFromSender(
+    CHANNELS.ptySubscribe,
+    schemas.PtySubscribeRequest,
+    ({ ptyId }, win) => {
+      if (win) subscribeWindowToPty(ptyId, win);
+    },
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.ptyUnsubscribe, (event, raw: unknown) => {
-    const parsed = schemas.PtyUnsubscribeRequest.safeParse(raw);
-    const win = resolveWindow(event.sender);
-    if (parsed.success && win) unsubscribeWindowFromPty(parsed.data.ptyId, win);
-  });
+  handleSendFromSender(
+    CHANNELS.ptyUnsubscribe,
+    schemas.PtyUnsubscribeRequest,
+    ({ ptyId }, win) => {
+      if (win) unsubscribeWindowFromPty(ptyId, win);
+    },
+    warnInvalid,
+  );
 }

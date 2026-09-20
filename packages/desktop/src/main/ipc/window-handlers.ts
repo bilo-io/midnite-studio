@@ -1,5 +1,5 @@
 import { appIdForRole, CHANNELS, schemas, type WindowRole } from '@midnite/studio-shared';
-import { ipcMain, type BrowserWindow } from 'electron';
+import type { BrowserWindow } from 'electron';
 
 import type { Logger } from '../log';
 import { reparentAppView } from '../apps-service';
@@ -9,11 +9,10 @@ import {
   createRoleWindow,
   listWindows,
   relayToOtherWindows,
-  resolveWindow,
   setWindowRepo,
   windowForRole,
 } from '../window-manager';
-import { handleBare } from './handle';
+import { handleBare, handleSend, handleSendFromSender } from './handle';
 
 const isPopoutRole = (role: WindowRole): role is Exclude<WindowRole, 'main'> => role !== 'main';
 
@@ -27,50 +26,64 @@ const isPopoutRole = (role: WindowRole): role is Exclude<WindowRole, 'main'> => 
  * is at most one window per role, so nothing here needs the sender.
  */
 export function registerWindowHandlers(getMainWindow: () => BrowserWindow | null, log: Logger): void {
-  ipcMain.on(CHANNELS.windowDetach, (_event, raw: unknown) => {
-    const parsed = schemas.WindowDetachRequest.safeParse(raw);
-    if (!parsed.success || !isPopoutRole(parsed.data.role)) return;
-    const win = createRoleWindow(parsed.data.role, log);
-    // The Embedded Browser moves its WebContentsViews with it — detaching is
-    // reparenting, not spinning up a second copy of every tab.
-    if (parsed.data.role === 'browser') reparentBrowserTabs(win);
-    // Each third-party app (Theme D) moves independently, unlike the
-    // browser's tabs which all move together — Spotify detaching must never
-    // touch Calendar's window. Shown immediately: a popout hosts exactly one
-    // app, so there is no "which one is active" question to answer here.
-    const detachingAppId = appIdForRole(parsed.data.role);
-    if (detachingAppId) reparentAppView(detachingAppId, win, { visible: true });
-  });
+  const warnInvalid = (issue: string): void => {
+    log.warn(issue);
+  };
 
-  ipcMain.on(CHANNELS.windowDock, (_event, raw: unknown) => {
-    const parsed = schemas.WindowDockRequest.safeParse(raw);
-    if (!parsed.success) return;
-    const win = windowForRole(parsed.data.role);
-    if (!win || win.isDestroyed()) return;
-    if (parsed.data.role === 'browser') {
-      const main = getMainWindow();
-      if (main && !main.isDestroyed()) reparentBrowserTabs(main);
-    }
-    const dockingAppId = appIdForRole(parsed.data.role);
-    if (dockingAppId) {
-      const main = getMainWindow();
-      // Hidden, not shown: the main window's flyout may already have a
-      // different app active, and re-docking must never steal its spot. The
-      // next `apps.activate` (a rail click, or `use-window-sync.ts`'s own
-      // reconciliation) decides what shows.
-      if (main && !main.isDestroyed()) reparentAppView(dockingAppId, main, { visible: false });
-    }
-    closePopoutForRedock(win);
-  });
+  handleSend(
+    CHANNELS.windowDetach,
+    schemas.WindowDetachRequest,
+    ({ role }) => {
+      if (!isPopoutRole(role)) return;
+      const win = createRoleWindow(role, log);
+      // The Embedded Browser moves its WebContentsViews with it — detaching is
+      // reparenting, not spinning up a second copy of every tab.
+      if (role === 'browser') reparentBrowserTabs(win);
+      // Each third-party app (Theme D) moves independently, unlike the
+      // browser's tabs which all move together — Spotify detaching must never
+      // touch Calendar's window. Shown immediately: a popout hosts exactly one
+      // app, so there is no "which one is active" question to answer here.
+      const detachingAppId = appIdForRole(role);
+      if (detachingAppId) reparentAppView(detachingAppId, win, { visible: true });
+    },
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.windowFocusRole, (_event, raw: unknown) => {
-    const parsed = schemas.WindowFocusRoleRequest.safeParse(raw);
-    if (!parsed.success) return;
-    const win = windowForRole(parsed.data.role);
-    if (!win || win.isDestroyed()) return;
-    if (win.isMinimized()) win.restore();
-    win.focus();
-  });
+  handleSend(
+    CHANNELS.windowDock,
+    schemas.WindowDockRequest,
+    ({ role }) => {
+      const win = windowForRole(role);
+      if (!win || win.isDestroyed()) return;
+      if (role === 'browser') {
+        const main = getMainWindow();
+        if (main && !main.isDestroyed()) reparentBrowserTabs(main);
+      }
+      const dockingAppId = appIdForRole(role);
+      if (dockingAppId) {
+        const main = getMainWindow();
+        // Hidden, not shown: the main window's flyout may already have a
+        // different app active, and re-docking must never steal its spot. The
+        // next `apps.activate` (a rail click, or `use-window-sync.ts`'s own
+        // reconciliation) decides what shows.
+        if (main && !main.isDestroyed()) reparentAppView(dockingAppId, main, { visible: false });
+      }
+      closePopoutForRedock(win);
+    },
+    warnInvalid,
+  );
+
+  handleSend(
+    CHANNELS.windowFocusRole,
+    schemas.WindowFocusRoleRequest,
+    ({ role }) => {
+      const win = windowForRole(role);
+      if (!win || win.isDestroyed()) return;
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    },
+    warnInvalid,
+  );
 
   handleBare(CHANNELS.windowList, () => listWindows());
 
@@ -78,22 +91,26 @@ export function registerWindowHandlers(getMainWindow: () => BrowserWindow | null
   // from `event.sender` rather than a field in the payload — a renderer
   // cannot claim to be a window it isn't, the same reason `handleFromSender`
   // exists for the invoke handlers.
-  ipcMain.on(CHANNELS.windowRelay, (event, raw: unknown) => {
-    const parsed = schemas.WindowRelayMessage.safeParse(raw);
-    if (!parsed.success) return;
-    const win = resolveWindow(event.sender);
-    if (!win) return;
-    relayToOtherWindows(win.id, parsed.data);
-  });
+  handleSendFromSender(
+    CHANNELS.windowRelay,
+    schemas.WindowRelayMessage,
+    (message, win) => {
+      if (!win) return;
+      relayToOtherWindows(win.id, message);
+    },
+    warnInvalid,
+  );
 
   // Theme D.1: a window telling main which repo it is showing right now.
   // Resolved from `event.sender`, same distrust as `windowRelay` above — a
   // renderer reports for itself only, never for another window's id.
-  ipcMain.on(CHANNELS.windowReportRepo, (event, raw: unknown) => {
-    const parsed = schemas.WindowReportRepoRequest.safeParse(raw);
-    if (!parsed.success) return;
-    const win = resolveWindow(event.sender);
-    if (!win) return;
-    setWindowRepo(win.id, parsed.data.repoId);
-  });
+  handleSendFromSender(
+    CHANNELS.windowReportRepo,
+    schemas.WindowReportRepoRequest,
+    ({ repoId }, win) => {
+      if (!win) return;
+      setWindowRepo(win.id, repoId);
+    },
+    warnInvalid,
+  );
 }

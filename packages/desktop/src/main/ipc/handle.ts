@@ -1,4 +1,4 @@
-import { ipcMain, type BrowserWindow } from 'electron';
+import { ipcMain, type BrowserWindow, type IpcMainEvent } from 'electron';
 import type { z } from 'zod';
 
 import { failure, type GitOpResult } from '@midnite/studio-shared';
@@ -103,6 +103,38 @@ export function handleSend<S extends z.ZodTypeAny>(
 /** A handler taking no payload. */
 export function handleBare<R>(channel: string, handler: () => Promise<R> | R): void {
   ipcMain.handle(channel, () => handler());
+}
+
+/**
+ * {@link handleSend} for channels whose handler needs the sending window
+ * (Phase 55/76) — same distrust as {@link handleFromSender}.
+ */
+export function handleSendFromSender<S extends z.ZodTypeAny>(
+  channel: string,
+  schema: S,
+  handler: (payload: z.output<S>, win: BrowserWindow | null, event: IpcMainEvent) => void,
+  onInvalid: (issue: string) => void,
+): void {
+  ipcMain.on(channel, (event, raw: unknown) => {
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      onInvalid(`${channel}: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);
+      return;
+    }
+    try {
+      handler(parsed.data, resolveWindow(event.sender), event);
+    } catch (error) {
+      onInvalid(`${channel}: handler threw: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  });
+}
+
+/** {@link handleBare} resolved from the sending window (Phase 76). */
+export function handleBareFromSender<R>(
+  channel: string,
+  handler: (win: BrowserWindow | null) => Promise<R> | R,
+): void {
+  ipcMain.handle(channel, (event) => handler(resolveWindow(event.sender)));
 }
 
 /**

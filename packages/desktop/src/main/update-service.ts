@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
-import { app, ipcMain, BrowserWindow } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
-import { CHANNELS, EVENT_CHANNELS, UpdateSetChannelRequest } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
 import {
   checkingState,
   availableState,
@@ -13,6 +13,8 @@ import {
   type UpdateState,
 } from '../updates/update-state.js';
 import { feedChannelFor, type UpdateChannel } from '../updates/feed-channel.js';
+import { defaultLogger } from './log';
+import { handleSend } from './ipc/handle';
 
 function isAdHocSigned(): boolean {
   if (!app.isPackaged) return true;
@@ -23,6 +25,10 @@ function isAdHocSigned(): boolean {
     return true;
   }
 }
+
+const warnInvalid = (issue: string): void => {
+  defaultLogger.warn(issue);
+};
 
 export function registerUpdater(getWindow: () => BrowserWindow | null): void {
   const manualInstall = isAdHocSigned();
@@ -37,10 +43,10 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
   };
 
   if (!app.isPackaged) {
-    ipcMain.on(CHANNELS.updateCheck, () => pushState(currentState));
-    ipcMain.on(CHANNELS.updateDownload, () => {});
-    ipcMain.on(CHANNELS.updateRestart, () => {});
-    ipcMain.on(CHANNELS.updateSetChannel, () => {});
+    handleSend(CHANNELS.updateCheck, schemas.SendVoidSchema, () => pushState(currentState), warnInvalid);
+    handleSend(CHANNELS.updateDownload, schemas.SendVoidSchema, () => {}, warnInvalid);
+    handleSend(CHANNELS.updateRestart, schemas.SendVoidSchema, () => {}, warnInvalid);
+    handleSend(CHANNELS.updateSetChannel, schemas.SendVoidSchema, () => {}, warnInvalid);
     return;
   }
 
@@ -76,30 +82,48 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
     pushState(errorState(err.message ?? 'Update check failed', currentState.version));
   });
 
-  ipcMain.on(CHANNELS.updateCheck, () => {
-    autoUpdater.checkForUpdates().catch((err) => {
-      pushState(errorState(err.message ?? 'Failed to check for updates'));
-    });
-  });
+  handleSend(
+    CHANNELS.updateCheck,
+    schemas.SendVoidSchema,
+    () => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        pushState(errorState(err.message ?? 'Failed to check for updates'));
+      });
+    },
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.updateDownload, () => {
-    if (manualInstall) return;
-    autoUpdater.downloadUpdate().catch((err) => {
-      pushState(errorState(err.message ?? 'Failed to download update'));
-    });
-  });
+  handleSend(
+    CHANNELS.updateDownload,
+    schemas.SendVoidSchema,
+    () => {
+      if (manualInstall) return;
+      autoUpdater.downloadUpdate().catch((err) => {
+        pushState(errorState(err.message ?? 'Failed to download update'));
+      });
+    },
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.updateRestart, () => {
-    if (manualInstall) return;
-    autoUpdater.quitAndInstall();
-  });
+  handleSend(
+    CHANNELS.updateRestart,
+    schemas.SendVoidSchema,
+    () => {
+      if (manualInstall) return;
+      autoUpdater.quitAndInstall();
+    },
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.updateSetChannel, (_, req) => {
-    const parse = UpdateSetChannelRequest.safeParse(req);
-    if (!parse.success) return;
-    const channelConfig = feedChannelFor(parse.data.channel as UpdateChannel);
-    autoUpdater.channel = channelConfig.channel;
-    autoUpdater.allowPrerelease = channelConfig.allowPrerelease;
-    autoUpdater.allowDowngrade = channelConfig.allowDowngrade;
-  });
+  handleSend(
+    CHANNELS.updateSetChannel,
+    schemas.UpdateSetChannelRequest,
+    ({ channel }) => {
+      const channelConfig = feedChannelFor(channel as UpdateChannel);
+      autoUpdater.channel = channelConfig.channel;
+      autoUpdater.allowPrerelease = channelConfig.allowPrerelease;
+      autoUpdater.allowDowngrade = channelConfig.allowDowngrade;
+    },
+    warnInvalid,
+  );
 }

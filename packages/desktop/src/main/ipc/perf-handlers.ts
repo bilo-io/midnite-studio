@@ -1,7 +1,7 @@
 import { MSTUDIO_PERF_MARK, PerfMarkSchema } from '@midnite/studio-shared';
-import { ipcMain } from 'electron';
 
 import { defaultLogger, type Logger } from '../log';
+import { handleSend } from './handle';
 
 /**
  * Renderer marks, logged next to main's own — Phase 36 Theme A.
@@ -17,9 +17,14 @@ import { defaultLogger, type Logger } from '../log';
  * want. Logging `[perf] renderer undefined NaN` would poison the table instead.
  */
 export function registerPerfHandlers(log: Logger = defaultLogger): void {
-  ipcMain.on(MSTUDIO_PERF_MARK, (_event, raw: unknown) => {
-    const parsed = PerfMarkSchema.safeParse(raw);
-    if (!parsed.success) return;
-    log(`[perf] renderer ${parsed.data.name} ${Math.round(parsed.data.tMs)}`);
-  });
+  handleSend(
+    MSTUDIO_PERF_MARK,
+    PerfMarkSchema,
+    ({ name, tMs }) => {
+      log(`[perf] renderer ${name} ${Math.round(tMs)}`);
+    },
+    () => {
+      // Malformed perf marks stay dropped — see module header.
+    },
+  );
 }

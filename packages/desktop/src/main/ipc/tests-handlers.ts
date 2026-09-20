@@ -10,11 +10,12 @@ import {
   type TestSuite,
   type TestTrustStatus,
 } from '@midnite/studio-shared';
-import { ipcMain, type BrowserWindow } from 'electron';
+import type { BrowserWindow } from 'electron';
 
+import { defaultLogger } from '../log';
 import { resolveWorkdir } from '../repo-registry';
 import { nullTestTrustStore, runTestSuite, type TestTrustStore } from '../testing';
-import { handle } from './handle';
+import { handle, handleSend } from './handle';
 
 /**
  * The tests channels — discovery, per-suite trust, and execution.
@@ -140,11 +141,10 @@ export function registerTestsHandlers(getWindow: () => BrowserWindow | null): vo
     (issue) => ({ ok: false, reason: issue }),
   );
 
-  // One-way, like `pty:kill`: cancelling has nothing to report back, and the
-  // run's own completion arrives on `testsResult` regardless of how it ended.
-  ipcMain.on(CHANNELS.testsCancel, (_event, raw: unknown) => {
-    const parsed = schemas.TestsCancelRequest.safeParse(raw);
-    if (!parsed.success) return;
-    inFlight.get(parsed.data.runId)?.kill();
-  });
+  handleSend(
+    CHANNELS.testsCancel,
+    schemas.TestsCancelRequest,
+    ({ runId }) => inFlight.get(runId)?.kill(),
+    (issue) => defaultLogger.warn(issue),
+  );
 }
