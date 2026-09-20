@@ -1,7 +1,8 @@
-import { ipcMain, type IpcMainEvent } from 'electron';
+import type { IpcMainEvent } from 'electron';
 
 import { CHANNELS, ok, schemas } from '@midnite/studio-shared';
 
+import { defaultLogger } from '../log';
 import {
   activateBrowserTab,
   backBrowserTab,
@@ -24,7 +25,11 @@ import {
 } from '../browser-service';
 import { probeLoopbackPort } from '../dev-server-probe';
 import { resolveWindow } from '../window-manager';
-import { handle, handleBare, handleFromSender } from './handle';
+import { handle, handleBare, handleFromSender, handleSend, handleSendFromSender } from './handle';
+
+const warnInvalid = (issue: string): void => {
+  defaultLogger.warn(issue);
+};
 
 /**
  * Drops a bounds/visibility push whose sender is not the tab's current
@@ -65,84 +70,93 @@ export function registerBrowserHandlers(): void {
     (issue) => ({ ok: false as const, message: issue }),
   );
 
-  ipcMain.on(CHANNELS.browserClose, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserCloseRequest.safeParse(raw);
-    if (parsed.success) closeBrowserTab(parsed.data.tabId);
-  });
+  handleSend(
+    CHANNELS.browserClose,
+    schemas.BrowserCloseRequest,
+    ({ tabId }) => closeBrowserTab(tabId),
+    warnInvalid,
+  );
+  handleSend(
+    CHANNELS.browserNavigate,
+    schemas.BrowserNavigateRequest,
+    ({ tabId, url }) => navigateBrowserTab(tabId, url),
+    warnInvalid,
+  );
+  handleSend(CHANNELS.browserBack, schemas.BrowserBackRequest, ({ tabId }) => backBrowserTab(tabId), warnInvalid);
+  handleSend(
+    CHANNELS.browserForward,
+    schemas.BrowserForwardRequest,
+    ({ tabId }) => forwardBrowserTab(tabId),
+    warnInvalid,
+  );
+  handleSend(
+    CHANNELS.browserReload,
+    schemas.BrowserReloadRequest,
+    ({ tabId }) => reloadBrowserTab(tabId),
+    warnInvalid,
+  );
+  handleSend(CHANNELS.browserStop, schemas.BrowserStopRequest, ({ tabId }) => stopBrowserTab(tabId), warnInvalid);
 
-  ipcMain.on(CHANNELS.browserNavigate, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserNavigateRequest.safeParse(raw);
-    if (parsed.success) navigateBrowserTab(parsed.data.tabId, parsed.data.url);
-  });
+  handleSendFromSender(
+    CHANNELS.browserSetBounds,
+    schemas.BrowserSetBoundsRequest,
+    ({ tabId, bounds }, _win, event) => {
+      if (isFromOwningWindow(event, tabId)) setBrowserBounds(tabId, bounds);
+    },
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.browserBack, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserBackRequest.safeParse(raw);
-    if (parsed.success) backBrowserTab(parsed.data.tabId);
-  });
+  handleSendFromSender(
+    CHANNELS.browserSetVisible,
+    schemas.BrowserSetVisibleRequest,
+    ({ tabId, visible }, _win, event) => {
+      if (isFromOwningWindow(event, tabId)) setBrowserVisible(tabId, visible);
+    },
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.browserForward, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserForwardRequest.safeParse(raw);
-    if (parsed.success) forwardBrowserTab(parsed.data.tabId);
-  });
-
-  ipcMain.on(CHANNELS.browserReload, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserReloadRequest.safeParse(raw);
-    if (parsed.success) reloadBrowserTab(parsed.data.tabId);
-  });
-
-  ipcMain.on(CHANNELS.browserStop, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserStopRequest.safeParse(raw);
-    if (parsed.success) stopBrowserTab(parsed.data.tabId);
-  });
-
-  ipcMain.on(CHANNELS.browserSetBounds, (event, raw: unknown) => {
-    const parsed = schemas.BrowserSetBoundsRequest.safeParse(raw);
-    if (parsed.success && isFromOwningWindow(event, parsed.data.tabId)) {
-      setBrowserBounds(parsed.data.tabId, parsed.data.bounds);
-    }
-  });
-
-  ipcMain.on(CHANNELS.browserSetVisible, (event, raw: unknown) => {
-    const parsed = schemas.BrowserSetVisibleRequest.safeParse(raw);
-    if (parsed.success && isFromOwningWindow(event, parsed.data.tabId)) {
-      setBrowserVisible(parsed.data.tabId, parsed.data.visible);
-    }
-  });
-
-  ipcMain.on(CHANNELS.browserActivate, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserActivateRequest.safeParse(raw);
-    if (parsed.success) activateBrowserTab(parsed.data.tabId);
-  });
-
-  ipcMain.on(CHANNELS.browserDevtools, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserDevtoolsRequest.safeParse(raw);
-    if (parsed.success) toggleBrowserDevTools(parsed.data.tabId, parsed.data.mode);
-  });
-
-  ipcMain.on(CHANNELS.browserFind, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserFindRequest.safeParse(raw);
-    if (parsed.success) findInBrowserTab(parsed.data.tabId, parsed.data.text, parsed.data.forward);
-  });
-
-  ipcMain.on(CHANNELS.browserFindStop, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserFindStopRequest.safeParse(raw);
-    if (parsed.success) stopFindInBrowserTab(parsed.data.tabId);
-  });
-
-  ipcMain.on(CHANNELS.browserZoom, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserZoomRequest.safeParse(raw);
-    if (parsed.success) setBrowserZoom(parsed.data.tabId, parsed.data.factor);
-  });
-
-  ipcMain.on(CHANNELS.browserSetKeepAwake, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserSetKeepAwakeRequest.safeParse(raw);
-    if (parsed.success) setBrowserKeepAwake(parsed.data.tabId, parsed.data.keepAwake);
-  });
-
-  ipcMain.on(CHANNELS.browserSetDiscardMs, (_event, raw: unknown) => {
-    const parsed = schemas.BrowserSetDiscardMsRequest.safeParse(raw);
-    if (parsed.success) setBrowserDiscardMs(parsed.data.ms);
-  });
+  handleSend(
+    CHANNELS.browserActivate,
+    schemas.BrowserActivateRequest,
+    ({ tabId }) => activateBrowserTab(tabId),
+    warnInvalid,
+  );
+  handleSend(
+    CHANNELS.browserDevtools,
+    schemas.BrowserDevtoolsRequest,
+    ({ tabId, mode }) => toggleBrowserDevTools(tabId, mode),
+    warnInvalid,
+  );
+  handleSend(
+    CHANNELS.browserFind,
+    schemas.BrowserFindRequest,
+    ({ tabId, text, forward }) => findInBrowserTab(tabId, text, forward),
+    warnInvalid,
+  );
+  handleSend(
+    CHANNELS.browserFindStop,
+    schemas.BrowserFindStopRequest,
+    ({ tabId }) => stopFindInBrowserTab(tabId),
+    warnInvalid,
+  );
+  handleSend(
+    CHANNELS.browserZoom,
+    schemas.BrowserZoomRequest,
+    ({ tabId, factor }) => setBrowserZoom(tabId, factor),
+    warnInvalid,
+  );
+  handleSend(
+    CHANNELS.browserSetKeepAwake,
+    schemas.BrowserSetKeepAwakeRequest,
+    ({ tabId, keepAwake }) => setBrowserKeepAwake(tabId, keepAwake),
+    warnInvalid,
+  );
+  handleSend(
+    CHANNELS.browserSetDiscardMs,
+    schemas.BrowserSetDiscardMsRequest,
+    ({ ms }) => setBrowserDiscardMs(ms),
+    warnInvalid,
+  );
 
   handleBare(CHANNELS.browserClearData, async () => {
     await clearBrowserData();

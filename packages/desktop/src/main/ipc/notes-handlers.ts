@@ -1,7 +1,10 @@
-import { CHANNELS, schemas } from '@midnite/studio-shared';
-import { ipcMain } from 'electron';
+import { z } from 'zod';
 
+import { CHANNELS, schemas } from '@midnite/studio-shared';
+
+import { defaultLogger } from '../log';
 import { nullNotesStore, type NotesStore } from '../notes-store';
+import { handle, handleSend } from './handle';
 
 /**
  * IPC handlers for notes persisted on disk (Phase 86 Theme F).
@@ -19,33 +22,46 @@ export function configureNotes(next: NotesStore): void {
   store = next;
 }
 
+const NotesListRequestLoose = z.preprocess(
+  (raw) => raw ?? {},
+  schemas.NotesListRequest.catch({}),
+) as z.ZodType<{ repoId?: string }>;
+
+const warnInvalid = (issue: string): void => {
+  defaultLogger.warn(issue);
+};
+
 export function registerNotesHandlers(): void {
-  ipcMain.handle(CHANNELS.notesList, async (_event, raw: unknown) => {
-    const parsed = schemas.NotesListRequest.safeParse(raw ?? {});
-    const repoId = parsed.success ? parsed.data?.repoId : undefined;
-    return { notes: await store.list(repoId) };
-  });
+  handle(
+    CHANNELS.notesList,
+    NotesListRequestLoose,
+    async (req) => ({ notes: await store.list(req.repoId) }),
+    (issue) => {
+      warnInvalid(issue);
+      return { notes: [] };
+    },
+  );
 
-  ipcMain.on(CHANNELS.notesSave, (_event, raw: unknown) => {
-    const parsed = schemas.NotesSaveRequest.safeParse(raw);
-    if (parsed.success) {
-      void store.save(parsed.data.note);
-    }
-  });
+  handleSend(
+    CHANNELS.notesSave,
+    schemas.NotesSaveRequest,
+    ({ note }) => void store.save(note),
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.notesDelete, (_event, raw: unknown) => {
-    const parsed = schemas.NotesDeleteRequest.safeParse(raw);
-    if (parsed.success) {
-      void store.delete(parsed.data.id, parsed.data.repoId);
-    }
-  });
+  handleSend(
+    CHANNELS.notesDelete,
+    schemas.NotesDeleteRequest,
+    ({ id, repoId }) => void store.delete(id, repoId),
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.notesReorder, (_event, raw: unknown) => {
-    const parsed = schemas.NotesReorderRequest.safeParse(raw);
-    if (parsed.success) {
-      void store.reorder(parsed.data.repoId, parsed.data.noteIds);
-    }
-  });
+  handleSend(
+    CHANNELS.notesReorder,
+    schemas.NotesReorderRequest,
+    ({ repoId, noteIds }) => void store.reorder(repoId, noteIds),
+    warnInvalid,
+  );
 }
 
 /** Reset module state. Tests only. */

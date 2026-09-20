@@ -1,6 +1,6 @@
 import { CHANNELS, schemas } from '@midnite/studio-shared';
-import { ipcMain } from 'electron';
 
+import { defaultLogger } from '../log';
 import { agentStatusWithin } from '../agent-probe';
 import { getBrokerStatus } from '../pty-service';
 import {
@@ -10,7 +10,11 @@ import {
   reorderTerminals,
   saveTerminal,
 } from '../terminal-service';
-import { handleBare } from './handle';
+import { handleBare, handleSend } from './handle';
+
+const warnInvalid = (issue: string): void => {
+  defaultLogger.warn(issue);
+};
 
 /**
  * The durable half of the terminal — session rows, not processes.
@@ -39,18 +43,24 @@ export function registerTerminalHandlers(): void {
     return { agents, status: await agentStatusWithin(agents) };
   });
 
-  ipcMain.on(CHANNELS.terminalSave, (_event, raw: unknown) => {
-    const parsed = schemas.TerminalSaveRequest.safeParse(raw);
-    if (parsed.success) saveTerminal(parsed.data.session);
-  });
+  handleSend(
+    CHANNELS.terminalSave,
+    schemas.TerminalSaveRequest,
+    ({ session }) => saveTerminal(session),
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.terminalForget, (_event, raw: unknown) => {
-    const parsed = schemas.TerminalForgetRequest.safeParse(raw);
-    if (parsed.success) forgetTerminal(parsed.data.sessionId, parsed.data.reason ?? 'closed');
-  });
+  handleSend(
+    CHANNELS.terminalForget,
+    schemas.TerminalForgetRequest,
+    ({ sessionId, reason }) => forgetTerminal(sessionId, reason ?? 'closed'),
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.terminalReorder, (_event, raw: unknown) => {
-    const parsed = schemas.TerminalReorderRequest.safeParse(raw);
-    if (parsed.success) reorderTerminals(parsed.data.sessionIds);
-  });
+  handleSend(
+    CHANNELS.terminalReorder,
+    schemas.TerminalReorderRequest,
+    ({ sessionIds }) => reorderTerminals(sessionIds),
+    warnInvalid,
+  );
 }

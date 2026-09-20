@@ -1,7 +1,13 @@
 import { CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
-import { ipcMain, type BrowserWindow } from 'electron';
+import type { BrowserWindow } from 'electron';
 
+import { defaultLogger } from '../log';
 import { createMetricsService, type MetricsService } from '../metrics/metrics-service';
+import { handleSend } from './handle';
+
+const warnInvalid = (issue: string): void => {
+  defaultLogger.warn(issue);
+};
 
 /**
  * System-metrics IPC.
@@ -27,15 +33,14 @@ export function registerMetricsHandlers(getWindow: () => BrowserWindow | null): 
     },
   });
 
-  ipcMain.on(CHANNELS.metricsStart, (_event, raw: unknown) => {
-    const parsed = schemas.MetricsStartRequest.safeParse(raw);
-    if (!parsed.success) return;
-    service.start(parsed.data.intervalMs, { freshDisk: parsed.data.freshDisk ?? false });
-  });
+  handleSend(
+    CHANNELS.metricsStart,
+    schemas.MetricsStartRequest,
+    ({ intervalMs, freshDisk }) => service.start(intervalMs, { freshDisk: freshDisk ?? false }),
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.metricsStop, () => {
-    service.stop();
-  });
+  handleSend(CHANNELS.metricsStop, schemas.SendVoidSchema, () => service.stop(), warnInvalid);
 
   return service;
 }

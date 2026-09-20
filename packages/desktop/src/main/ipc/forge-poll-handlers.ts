@@ -1,14 +1,19 @@
 import { CHANNELS, schemas } from '@midnite/studio-shared';
-import { ipcMain, type BrowserWindow } from 'electron';
+import type { BrowserWindow } from 'electron';
 
 import type { ForgePoller } from '../forge/forge-poller';
-import { resolveWindow } from '../window-manager';
+import { defaultLogger } from '../log';
+import { handleSendFromSender } from './handle';
 
 // One 'closed' listener per window, mirroring `pty-service.ts`'s
 // `closedListenerBound` — a window that subscribes/unsubscribes across many
 // forge views over its lifetime must not accumulate a second listener per
 // call.
 const closedListenerBound = new Set<number>();
+
+const warnInvalid = (issue: string): void => {
+  defaultLogger.warn(issue);
+};
 
 /**
  * Phase 84 Theme C — a window registers (and drops) interest in one
@@ -26,18 +31,24 @@ export function registerForgePollHandlers(poller: ForgePoller): void {
     });
   };
 
-  ipcMain.on(CHANNELS.forgeSubscribe, (event, raw: unknown) => {
-    const parsed = schemas.ForgeSubscribeRequest.safeParse(raw);
-    const win = resolveWindow(event.sender);
-    if (!parsed.success || !win) return;
-    bindClosedCleanup(win);
-    poller.subscribe(parsed.data.repoId, parsed.data.kind, win.id);
-  });
+  handleSendFromSender(
+    CHANNELS.forgeSubscribe,
+    schemas.ForgeSubscribeRequest,
+    ({ repoId, kind }, win) => {
+      if (!win) return;
+      bindClosedCleanup(win);
+      poller.subscribe(repoId, kind, win.id);
+    },
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.forgeUnsubscribe, (event, raw: unknown) => {
-    const parsed = schemas.ForgeUnsubscribeRequest.safeParse(raw);
-    const win = resolveWindow(event.sender);
-    if (!parsed.success || !win) return;
-    poller.unsubscribe(parsed.data.repoId, parsed.data.kind, win.id);
-  });
+  handleSendFromSender(
+    CHANNELS.forgeUnsubscribe,
+    schemas.ForgeUnsubscribeRequest,
+    ({ repoId, kind }, win) => {
+      if (!win) return;
+      poller.unsubscribe(repoId, kind, win.id);
+    },
+    warnInvalid,
+  );
 }

@@ -239,6 +239,23 @@ export default tseslint.config(
     },
   },
 
+  // Phase 76 Theme E — IPC registration goes through ipc/handle.ts helpers only.
+  {
+    files: ['packages/desktop/src/main/**/*.ts'],
+    ignores: ['packages/desktop/src/main/ipc/handle.ts', 'packages/desktop/src/main/**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "MemberExpression[object.name='ipcMain'][property.name=/^(on|handle)$/]",
+          message:
+            'Register IPC through handle(), handleSend(), handleBare(), handleBareFromSender(), handleFromSender() or handleSendFromSender() in ipc/handle.ts — raw ipcMain.on/handle bypass validation.',
+        },
+      ],
+    },
+  },
+
   // Interactive ptys and carve-outs exempt from the locale pin guard:
   // - inproc-pty.ts: terminal shells keep the user's ambient locale.
   // - broker-client.ts: spawns the broker that hosts interactive terminals.

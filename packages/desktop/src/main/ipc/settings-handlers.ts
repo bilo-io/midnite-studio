@@ -1,7 +1,8 @@
 import { CHANNELS, schemas } from '@midnite/studio-shared';
-import { ipcMain } from 'electron';
 
+import { defaultLogger } from '../log';
 import { applySettingsSync } from '../settings-mirror';
+import { handleSend } from './handle';
 
 /**
  * Phase 84 Theme B.4 — `ui-store` pushes its auto-fetch settings here on
@@ -13,8 +14,10 @@ import { applySettingsSync } from '../settings-mirror';
  * before sending it.
  */
 export function registerSettingsHandlers(): void {
-  ipcMain.on(CHANNELS.settingsSync, (_event, raw: unknown) => {
-    const parsed = schemas.SettingsSyncRequest.safeParse(raw);
-    if (parsed.success) applySettingsSync(parsed.data);
-  });
+  handleSend(
+    CHANNELS.settingsSync,
+    schemas.SettingsSyncRequest,
+    (payload) => applySettingsSync(payload),
+    (issue) => defaultLogger.warn(issue),
+  );
 }

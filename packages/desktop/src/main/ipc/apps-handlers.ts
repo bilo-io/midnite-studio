@@ -1,10 +1,14 @@
-import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
 import { activateApp, disableApp, enableApp, setAppBounds } from '../apps-service';
-import { handle } from './handle';
+import { defaultLogger } from '../log';
+import { handle, handleSend } from './handle';
+
+const warnInvalid = (issue: string): void => {
+  defaultLogger.warn(issue);
+};
 
 /**
  * Registers the `mstudio:apps:*` channels over `apps-service.ts`.
@@ -32,20 +36,22 @@ export function registerAppsHandlers(getMainWindow: () => BrowserWindow | null):
     (issue) => ({ ok: false as const, message: issue }),
   );
 
-  ipcMain.on(CHANNELS.appsDisable, (_event, raw: unknown) => {
-    const parsed = schemas.AppsDisableRequest.safeParse(raw);
-    if (parsed.success) disableApp(parsed.data.id);
-  });
+  handleSend(CHANNELS.appsDisable, schemas.AppsDisableRequest, ({ id }) => disableApp(id), warnInvalid);
 
-  ipcMain.on(CHANNELS.appsSetBounds, (_event, raw: unknown) => {
-    const parsed = schemas.AppsSetBoundsRequest.safeParse(raw);
-    if (parsed.success) setAppBounds(parsed.data.id, parsed.data.bounds);
-  });
+  handleSend(
+    CHANNELS.appsSetBounds,
+    schemas.AppsSetBoundsRequest,
+    ({ id, bounds }) => setAppBounds(id, bounds),
+    warnInvalid,
+  );
 
-  ipcMain.on(CHANNELS.appsActivate, (_event, raw: unknown) => {
-    const parsed = schemas.AppsActivateRequest.safeParse(raw);
-    if (!parsed.success) return;
-    const win = getMainWindow();
-    if (win) activateApp(win, parsed.data.id);
-  });
+  handleSend(
+    CHANNELS.appsActivate,
+    schemas.AppsActivateRequest,
+    ({ id }) => {
+      const win = getMainWindow();
+      if (win) activateApp(win, id);
+    },
+    warnInvalid,
+  );
 }

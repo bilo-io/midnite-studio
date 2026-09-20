@@ -798,7 +798,7 @@ describe('metrics schemas', () => {
     const expected: Record<string, string[]> = {
       metricsStart: ['MetricsStartRequest'],
       // `stop` carries no payload at all — there is nothing to validate.
-      metricsStop: [],
+      metricsStop: ['SendVoidSchema'],
       metricsSample: ['MetricsSampleEvent'],
     };
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
@@ -847,12 +847,12 @@ describe('window contract (Phase 55)', () => {
     const expected: Record<string, string[]> = {
       // Pre-existing chrome channels (Phase 81) — no payload of their own
       // except `windowState`'s response and `windowStateChanged`'s event.
-      windowMinimize: [],
-      windowMaximizeToggle: [],
-      windowClose: [],
+      windowMinimize: ['SendVoidSchema'],
+      windowMaximizeToggle: ['SendVoidSchema'],
+      windowClose: ['SendVoidSchema'],
       windowState: ['WindowStateSchema'],
-      windowSetBackground: [],
-      windowReload: [],
+      windowSetBackground: ['WindowSetBackgroundRequest'],
+      windowReload: ['WindowReloadRequest'],
       windowZoom: ['WindowZoomRequest'],
       windowStateChanged: ['WindowStateSchema'],
       // Multi-window (Phase 55).
