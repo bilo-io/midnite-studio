@@ -572,6 +572,9 @@ const bridge: Pick<
     // Deliberately argument-free — main reveals the file it owns. See
     // `CHANNELS.reportReveal`.
     reveal: () => call(CHANNELS.reportReveal),
+    // `invoke`-shaped, unlike `error` above — a submission has a real answer
+    // (the created issue's URL, or why it failed) worth awaiting.
+    submitIssue: (r) => call(CHANNELS.reportSubmitIssue, r),
   },
   systemHealth: () => call(CHANNELS.systemHealth),
   optimizer: {

@@ -1,4 +1,4 @@
-import { CHANNELS, type ErrorReport } from '@midnite/studio-shared';
+import { CHANNELS, type AppIssueSubmitResult, type ErrorReport } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { loggerFrom } from '../log';
@@ -7,11 +7,14 @@ import { formatBundle, formatReport, registerReportHandlers, setBootLine } from 
 
 // `vi.hoisted` because vitest lifts `vi.mock` above the imports — the factory
 // has to close over spies that already exist by then.
-const { on, handle, showItemInFolder, getPath } = vi.hoisted(() => ({
+const { on, handle, showItemInFolder, getPath, createAppIssue } = vi.hoisted(() => ({
   on: vi.fn(),
   handle: vi.fn(),
   showItemInFolder: vi.fn(),
   getPath: vi.fn(() => '/Users/tester'),
+  createAppIssue: vi.fn<
+    (fields: { title: string; body: string; kind: 'bug' | 'feature' }) => Promise<AppIssueSubmitResult>
+  >(),
 }));
 vi.mock('electron', () => ({
   ipcMain: { on, handle },
@@ -22,6 +25,9 @@ vi.mock('electron', () => ({
 // module does not use; stubbing it keeps the whole window graph out of a unit
 // test about payload validation.
 vi.mock('../window-manager', () => ({ resolveWindow: () => null }));
+// The fixed-target write itself is `gh-app-issue.test.ts`'s job — this file
+// tests only that the handler validates, delegates, and never throws.
+vi.mock('../forge/gh-app-issue', () => ({ createAppIssue }));
 
 /** Invoke the one-way listener the way `ipcRenderer.send` would. */
 function send(raw: unknown): void {
@@ -30,11 +36,11 @@ function send(raw: unknown): void {
   (listener as (event: unknown, raw: unknown) => void)({}, raw);
 }
 
-/** Invoke one `ipcMain.handle` listener by channel. */
-async function invoke(channel: string): Promise<unknown> {
+/** Invoke one `ipcMain.handle` listener by channel, with a payload. */
+async function invoke(channel: string, raw: unknown = undefined): Promise<unknown> {
   const [, listener] = handle.mock.calls.find(([name]) => name === channel) ?? [];
   if (typeof listener !== 'function') throw new Error(`no handler on ${channel}`);
-  return (listener as (event: unknown, raw: unknown) => Promise<unknown>)({}, undefined);
+  return (listener as (event: unknown, raw: unknown) => Promise<unknown>)({}, raw);
 }
 
 function fakeSink(records: LogRecord[] = []): LogSink {
@@ -115,6 +121,40 @@ describe('report handlers (Phase 65 Theme B)', () => {
     const result = (await invoke(CHANNELS.reportReveal)) as { ok: boolean };
     expect(result.ok).toBe(false);
     expect(showItemInFolder).not.toHaveBeenCalled();
+  });
+
+  it('submits a well-formed issue and returns createAppIssue’s own result', async () => {
+    createAppIssue.mockReset();
+    const answer: AppIssueSubmitResult = {
+      ok: true,
+      cli: { reason: 'ready', binPath: '/usr/bin/gh', hint: '' },
+      error: null,
+      url: 'https://github.com/bilo-io/midnite-apps/issues/9',
+    };
+    createAppIssue.mockResolvedValue(answer);
+    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => null });
+
+    const request = { title: '[bug] it crashed', body: 'diagnostics', kind: 'bug' as const };
+    await expect(invoke(CHANNELS.reportSubmitIssue, request)).resolves.toEqual(answer);
+    expect(createAppIssue).toHaveBeenCalledWith(request);
+  });
+
+  it('resolves an error rather than throwing on an invalid submit-issue payload', async () => {
+    createAppIssue.mockReset();
+    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => null });
+
+    const result = (await invoke(CHANNELS.reportSubmitIssue, { title: '', body: 'b', kind: 'bug' })) as {
+      ok: boolean;
+      error: string | null;
+      url: string | null;
+    };
+    expect(result.ok).toBe(false);
+    expect(result.error).toBeTruthy();
+    expect(result.url).toBeNull();
+    expect(createAppIssue).not.toHaveBeenCalled();
+
+    // Not just an empty title — a payload missing shape entirely resolves too.
+    await expect(invoke(CHANNELS.reportSubmitIssue, undefined)).resolves.toMatchObject({ ok: false });
   });
 
   it('bundles the boot line above the tail, with no home directory left in it', async () => {

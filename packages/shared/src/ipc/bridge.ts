@@ -1037,6 +1037,17 @@ export type MidniteStudioBridge = {
     bundle: () => Promise<z.infer<typeof S.ReportBundleResponse>>;
     /** Takes no path — main reveals the file it already knows. */
     reveal: () => Promise<GitOpResult>;
+    /**
+     * File an issue on the app's own public tracker — Phase 93.
+     *
+     * Always targets `bilo-io/midnite-apps` (`APP_ISSUES_REPO`), never the
+     * active repo — see `gh-app-issue.ts`. `invoke`-shaped, unlike `error`
+     * above: a submission has a real answer (the created issue's URL, or why
+     * it failed) that a composer dialog waits on.
+     */
+    submitIssue: (
+      req: In<typeof S.AppIssueSubmitRequestSchema>,
+    ) => Promise<z.infer<typeof S.AppIssueSubmitResultSchema>>;
   };
 
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;

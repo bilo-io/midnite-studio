@@ -25,6 +25,40 @@ and `project-graph-node.test.tsx` pass unchanged, proving the extraction. Themes
 `cardSkillByTask` picker, the Play fork, and their verification coverage) are left for a sibling
 wave — phase now 8/36 (22%).
 
+## 2026-09-20 — Phase 93 Themes A, B — File issues to the public board over IPC
+
+[PR #TBD]. Themes A and B of a five-theme phase — the composer dialog (C), the redaction
+verification (D) and the `midnite-address-issue` dual-board scan (E) are explicitly left for a
+sibling wave; this PR is only the write and its wire, and both are independently testable without
+a UI.
+- **Theme A** — `APP_ISSUES_REPO = 'bilo-io/midnite-apps'` added to `release.ts`. New
+  `packages/desktop/src/main/forge/gh-app-issue.ts`, the one write in `forge/` with no `Forge`
+  parameter: `createAppIssueCommand({title, body, labels})` builds a pure `gh issue create -R
+  'bilo-io/midnite-apps' --title … --body … --label …` string, and `createAppIssue({title, body,
+  kind})` runs it through the existing `ghStatus`/`runInShell`/`describeFailure` primitives,
+  mapping `kind` to the verified `bug`+`app: midnite-studio` / `enhancement`+`app: midnite-studio`
+  label pairs and parsing the created issue's URL defensively out of `gh`'s stdout (a parse miss
+  degrades to "filed, no link" rather than a reported failure). 12 new tests in
+  `gh-app-issue.test.ts`, none of which ever calls the real `gh` CLI or files a real issue.
+- **Theme B** — `mstudio:report:submit-issue` added beside the other three `mstudio:report:*`
+  channels; `AppIssueSubmitRequestSchema`/`AppIssueSubmitResultSchema` in `schemas.ts`
+  (the result extends `ForgeWriteResultSchema` with a nullable `url`); `report.submitIssue` on the
+  bridge; a handler in `report-handlers.ts` using the generic `handle` helper (not `handleOp`,
+  since the response is `ForgeWriteResult`-shaped rather than `GitOpResult`); preload wiring; and
+  `useSubmitAppIssue()` in `queries.ts`. Extended `ipc.test.ts`'s crash-reporting contract block
+  and `report-handlers.test.ts`, plus a `queries.test.ts` no-bridge fallback test.
+- **Decisions taken without a human in the loop** (this ran unattended): the label-to-`kind`
+  mapping lives in `gh-app-issue.ts` rather than the IPC handler, since it is part of "the write's
+  odd shape" Theme A already owns; the generic `handle` helper was used over `handleOp` because
+  `AppIssueSubmitResult` is not `GitOpResult`-shaped; and the URL-parse regex
+  (`https://github\.com/\S+/issues/\d+`) follows the phase doc's own recorded recommendation for
+  a defensive, non-failing parse.
+- Local gate only — GitHub Actions is hard-blocked account-wide on this repo's Actions spending
+  limit (every job fails in seconds with zero steps run). `moon run :typecheck :lint :test` ran
+  green in a fresh worktree: 12 completed tasks, desktop 1999/2001 passed (2 pre-existing todo),
+  shared 1114/1114 passed (`ipc.test.ts` at 214), app 4915/4915 passed. No Playwright e2e or
+  visual regression attempted per the human's ruling for this batch.
+
 ## 2026-09-19 — Phase 86 Theme G (retroactive) + Theme H — Notes page verification, closed
 
 [PR #464](https://github.com/bilo-io/midnite-studio/pull/464). Grounding for this PR found Theme G

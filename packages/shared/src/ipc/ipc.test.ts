@@ -1942,7 +1942,66 @@ describe('crash reporting contract (Phase 65)', () => {
       'mstudio:diag:trust-status',
       'mstudio:diag:untrust',
     ]);
-    expect(Object.values(CHANNELS).filter((name) => name.startsWith('mstudio:report:'))).toHaveLength(4);
+    expect(Object.values(CHANNELS).filter((name) => name.startsWith('mstudio:report:'))).toHaveLength(5);
+  });
+});
+
+describe('app issue submission contract (Phase 93)', () => {
+  const request = { title: '[bug] it crashed', body: 'diagnostics here', kind: 'bug' as const };
+
+  it('round-trips a valid request', () => {
+    expect(schemas.AppIssueSubmitRequestSchema.parse(request)).toEqual(request);
+  });
+
+  it('admits exactly two kinds', () => {
+    expect(schemas.AppIssueSubmitRequestSchema.shape.kind.options).toEqual(['bug', 'feature']);
+  });
+
+  it('refuses an empty or missing title', () => {
+    expect(() => schemas.AppIssueSubmitRequestSchema.parse({ ...request, title: '' })).toThrow();
+    expect(() => schemas.AppIssueSubmitRequestSchema.parse({ ...request, title: '   ' })).toThrow();
+  });
+
+  it('caps title and body, so a misbehaving renderer cannot send an unbounded one', () => {
+    expect(() =>
+      schemas.AppIssueSubmitRequestSchema.parse({ ...request, title: 'x'.repeat(1025) }),
+    ).toThrow();
+    expect(() =>
+      schemas.AppIssueSubmitRequestSchema.parse({ ...request, body: 'x'.repeat(schemas.FORGE_BODY_MAX + 1) }),
+    ).toThrow();
+  });
+
+  it('extends ForgeWriteResult with a nullable url, defaulting to null', () => {
+    expect(
+      schemas.AppIssueSubmitResultSchema.parse({
+        ok: true,
+        cli: { reason: 'ready', binPath: '/usr/bin/gh', hint: '' },
+        url: 'https://github.com/bilo-io/midnite-apps/issues/9',
+      }),
+    ).toEqual({
+      ok: true,
+      cli: { reason: 'ready', binPath: '/usr/bin/gh', hint: '' },
+      error: null,
+      url: 'https://github.com/bilo-io/midnite-apps/issues/9',
+    });
+
+    expect(
+      schemas.AppIssueSubmitResultSchema.parse({
+        ok: false,
+        cli: { reason: 'not-installed', binPath: null, hint: '' },
+        error: 'not authenticated',
+      }),
+    ).toEqual({
+      ok: false,
+      cli: { reason: 'not-installed', binPath: null, hint: '' },
+      error: 'not authenticated',
+      url: null,
+    });
+  });
+
+  it('never collides with mstudio:diag:* or a future per-repo mstudio:issues:*', () => {
+    expect(CHANNELS.reportSubmitIssue).toBe('mstudio:report:submit-issue');
+    expect(Object.values(CHANNELS)).not.toContain('mstudio:issues:submit');
   });
 });
 

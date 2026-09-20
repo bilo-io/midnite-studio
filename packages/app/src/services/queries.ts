@@ -1,4 +1,6 @@
 import type {
+  AppIssueSubmitRequest,
+  AppIssueSubmitResult,
   ClosedSession,
   DiagnosticsCandidate,
   DiagnosticsCommand,
@@ -1323,6 +1325,25 @@ export function useCommentPull(repoId: string | null, number: number | null) {
   });
 }
 
+/**
+ * File an issue on the app's own public tracker — Phase 93.
+ *
+ * Unlike every other write above, this one takes **no `repoId`**: it always
+ * targets `bilo-io/midnite-apps` (see `gh-app-issue.ts`), independent of
+ * whichever repo is open in the git client, or whether one is open at all. No
+ * cache to invalidate either — there is no local listing of that board's
+ * issues for a success here to affect.
+ */
+export function useSubmitAppIssue() {
+  return useMutation({
+    mutationFn: async (input: AppIssueSubmitRequest): Promise<AppIssueSubmitResult> => {
+      const api = bridge();
+      if (!api) return NO_APP_ISSUE_WRITE;
+      return api.report.submitIssue(input);
+    },
+  });
+}
+
 /** Merge the pull request. The dialog confirms before this is reached. */
 export function useMergePull(repoId: string | null, number: number | null) {
   const client = useQueryClient();
@@ -1523,6 +1544,8 @@ const EMPTY_PROJECT_ITEMS_PAGE: ForgeProjectItemsPage = {
 const NO_FORGE_WRITE: ForgeWriteResult = { ok: false, cli: EMPTY_CLI, error: null };
 /** Same reasoning as `NO_FORGE_WRITE`, for the `ForgeProjectWriteResult` shape. */
 const NO_FORGE_PROJECT_WRITE: ForgeProjectWriteResult = { ok: false, kind: 'error', message: '' };
+/** Same reasoning as `NO_FORGE_WRITE`, for `AppIssueSubmitResult`'s extra `url` field. */
+const NO_APP_ISSUE_WRITE: AppIssueSubmitResult = { ok: false, cli: EMPTY_CLI, error: null, url: null };
 
 /** Re-run the forge listings for one repo, on the user's say-so. */
 export function useRefreshForge(repoId: string | null) {
