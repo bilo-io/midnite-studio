@@ -33,12 +33,26 @@ export function parseRemoteUrl(raw: string): Forge | null {
   const { host, path } = parts;
   if (host.length === 0) return null;
 
-  const segments = path
+  const kind = kindFor(host);
+
+  let segments = path
     .split('/')
     .filter((s) => s.length > 0)
     // `~user/repo.git` is a valid ssh path; the tilde is addressing, not owner.
     .map((s, i) => (i === 0 ? s.replace(/^~/, '') : s))
     .filter((s) => s.length > 0);
+
+  if (kind === 'azure') {
+    segments = normalizeAzureSegments(segments);
+    // Legacy `{org}.visualstudio.com/{project}/_git/{repo}` — the org is the
+    // leading host label, not a path segment. Theme A wants `owner` to carry
+    // `{org}/{project}` for every Azure grammar, including this one.
+    const vs = /^([^.]+)\.visualstudio\.com$/i.exec(host);
+    const org = vs?.[1];
+    if (org && segments[0]?.toLowerCase() !== org.toLowerCase()) {
+      segments = [org, ...segments];
+    }
+  }
 
   if (segments.length < 2) return null;
 
@@ -46,12 +60,27 @@ export function parseRemoteUrl(raw: string): Forge | null {
   const owner = segments.slice(0, -1).join('/');
   if (repo.length === 0 || owner.length === 0) return null;
 
-  return { host, owner, repo, kind: kindFor(host) };
+  return { host, owner, repo, kind };
+}
+
+/**
+ * Azure DevOps addressing segments that are not part of owner/repo.
+ *
+ * HTTPS remotes carry a `_git` segment; SSH remotes carry a leading `v3/`.
+ * Both are stripped the same way the parser already strips a leading `~`.
+ */
+function normalizeAzureSegments(segments: readonly string[]): string[] {
+  let segs = [...segments];
+  if (segs[0] === 'v3') segs = segs.slice(1);
+  return segs.filter((s) => s !== '_git');
 }
 
 const CANONICAL: readonly (readonly [ForgeKind, string])[] = [
   ['github', 'github.com'],
   ['gitlab', 'gitlab.com'],
+  ['bitbucket', 'bitbucket.org'],
+  ['azure', 'dev.azure.com'],
+  ['azure', 'ssh.dev.azure.com'],
 ];
 
 /**
@@ -80,9 +109,18 @@ function kindFor(host: string): ForgeKind {
   for (const [kind, canonical] of CANONICAL) {
     if (lower === canonical || lower.endsWith(`.${canonical}`)) return kind;
 
+    // Azure's canonical hosts start with `dev` / `ssh`, not a product label —
+    // applying the self-hosted heuristic would classify `dev.example.com` as
+    // Azure. Legacy `{org}.visualstudio.com` is handled below instead.
+    if (kind === 'azure') continue;
+
     const label = canonical.slice(0, canonical.indexOf('.'));
     if (lower.startsWith(`${label}.`) && !lower.startsWith(`${canonical}.`)) return kind;
   }
+
+  // Legacy Azure DevOps host — `contoso.visualstudio.com` has no leading `azure`
+  // label for the self-hosted heuristic to catch.
+  if (lower.endsWith('.visualstudio.com')) return 'azure';
 
   return 'unknown';
 }

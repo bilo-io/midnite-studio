@@ -1,6 +1,7 @@
 import { listRemotes } from '@midnite/studio-git-engine';
 import {
   CHANNELS,
+  isSupportedForgeKind,
   pickForgeRemote,
   schemas,
   type Forge,
@@ -64,16 +65,16 @@ import { handle, handleBare } from './handle';
  * means the only thing crossing is a `repoId`.
  */
 
-/** No GitHub remote at all — a permanent, non-error condition for a repo. */
-const NO_FORGE = 'This repository has no GitHub remote.';
+/** No supported forge remote at all — a permanent, non-error condition for a repo. */
+const NO_FORGE = 'This repository has no supported forge remote.';
 
-export async function githubForge(repoId: string): Promise<Forge | null> {
+export async function repoForge(repoId: string): Promise<Forge | null> {
   const cwd = await resolveWorkdir(repoId);
   if (!cwd) return null;
   const forge = pickForgeRemote(await listRemotes(cwd))?.forge ?? null;
-  // `gh` speaks GitHub only. A GitLab remote is not a failure to report — it
-  // is a repository this feature has nothing to say about.
-  return forge?.kind === 'github' ? forge : null;
+  // A NAS path or Gerrit host is not a failure to report — it is a repository
+  // this feature has nothing to say about until an adapter exists for its kind.
+  return forge !== null && isSupportedForgeKind(forge.kind) ? forge : null;
 }
 
 /**
@@ -104,7 +105,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeRuns,
     schemas.ForgeRunsRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), runs: [], error: null };
       return listRuns(forge, {
         limit: req.limit,
@@ -118,7 +119,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePulls,
     schemas.ForgePullsRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), pulls: [], error: null };
       return listPulls(forge, { limit: req.limit, state: req.state, scope: req.scope });
     },
@@ -136,7 +137,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullDetail,
     schemas.ForgePullDetailRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), detail: null, error: null };
       return pullDetail(forge, req.number);
     },
@@ -147,7 +148,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullFiles,
     schemas.ForgePullFilesRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), files: null, error: null };
       return pullFiles(forge, req.number);
     },
@@ -158,7 +159,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullComments,
     schemas.ForgePullCommentsRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), comments: [], error: null };
       return pullComments(forge, req.number);
     },
@@ -169,7 +170,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullThreads,
     schemas.ForgePullThreadsRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), threads: [], error: null };
       return pullThreads(forge, req.number);
     },
@@ -198,7 +199,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeReviewComment,
     schemas.ForgeReviewCommentRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return noForgeWrite();
       return addReviewComment(forge, {
         number: req.number,
@@ -217,7 +218,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeReviewReply,
     schemas.ForgeReviewReplyRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return noForgeWrite();
       return replyToReviewComment(forge, {
         number: req.number,
@@ -232,7 +233,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeResolveThread,
     schemas.ForgeResolveThreadRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return noForgeWrite();
       return setThreadResolved(forge, { threadId: req.threadId, resolved: req.resolved });
     },
@@ -243,7 +244,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullReview,
     schemas.ForgePullReviewRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return noForgeWrite();
       return reviewPull(forge, req.number, req.event, req.body);
     },
@@ -254,7 +255,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullComment,
     schemas.ForgePullCommentRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return noForgeWrite();
       return commentPull(forge, req.number, req.body);
     },
@@ -265,7 +266,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullMerge,
     schemas.ForgePullMergeRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return noForgeWrite();
       return mergePull(forge, req.number, req.method);
     },
@@ -276,7 +277,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullRequestReview,
     schemas.ForgePullRequestReviewRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return noForgeWrite();
       return requestReview(forge, req.number, req.reviewers);
     },
@@ -287,7 +288,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullReady,
     schemas.ForgePullReadyRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return noForgeWrite();
       return markReady(forge, req.number);
     },
@@ -311,7 +312,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeRunRerun,
     schemas.ForgeRunRerunRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return noForgeWrite();
       const result = await rerunChecks(forge, req.runId, req.failedOnly);
       if (result.ok) forgetRun(forge, req.runId);
@@ -324,7 +325,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeIssues,
     schemas.ForgeIssuesRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       // No GitHub remote is not "issues are disabled" — the repository has no
       // issue tracker to have an opinion about, which the `cli` reason says.
       if (!forge) return { cli: noForgeStatus(), issues: [], disabled: false, error: null };
@@ -344,7 +345,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeIssueDetail,
     schemas.ForgeIssueDetailRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), issue: null, error: null };
       return issueDetail(forge, req.number);
     },
@@ -355,7 +356,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeIssueComments,
     schemas.ForgeIssueCommentsRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), comments: [], error: null };
       return issueComments(forge, req.number);
     },
@@ -373,7 +374,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeIssueComment,
     schemas.ForgeIssueCommentRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return noForgeWrite();
       return commentIssue(forge, req.number, req.body);
     },
@@ -384,7 +385,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeIssueSetState,
     schemas.ForgeIssueSetStateRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return noForgeWrite();
       return setIssueState(forge, req.number, req.state);
     },
@@ -395,7 +396,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeRunDetail,
     schemas.ForgeRunDetailRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), detail: null, error: null };
       return runDetail(forge, req.runId);
     },
@@ -406,7 +407,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeRunLog,
     schemas.ForgeRunLogRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), log: null, pending: false, error: null };
       return runLog(forge, req.runId, {
         ...(req.jobId ? { jobId: req.jobId } : {}),
@@ -420,7 +421,7 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeWorkflows,
     schemas.ForgeWorkflowsRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), workflows: [], error: null };
       return listWorkflows(forge);
     },

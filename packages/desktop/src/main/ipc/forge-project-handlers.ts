@@ -9,7 +9,7 @@ import {
 
 import { addItemToProject, clearItemFieldValue, setItemFieldValue } from '../forge/gh-project-write';
 import { listProjects, projectFields, projectItems } from '../forge/gh-project';
-import { githubForge, noForgeStatus } from './forge-handlers';
+import { noForgeStatus, repoForge } from './forge-handlers';
 import { handle } from './handle';
 
 /**
@@ -30,7 +30,7 @@ export function registerForgeProjectHandlers(): void {
     CHANNELS.forgeProjectList,
     schemas.ForgeProjectListRequest,
     async (req) => {
-      const forge = await githubForge(req.repoId);
+      const forge = await repoForge(req.repoId);
       if (!forge) return { cli: noForgeStatus(), projects: [], error: null, kind: 'ok' };
       return listProjects(forge);
     },
