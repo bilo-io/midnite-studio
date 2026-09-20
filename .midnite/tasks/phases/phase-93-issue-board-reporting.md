@@ -70,65 +70,66 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Themes
 
-### A — The fixed target, and the write's odd shape (S)
+### A — The fixed target, and the write's odd shape (S) — ✅ DONE (PR #479, 2026-09-20)
 
 The write this theme adds is architecturally unlike every other write in `forge/`: every function
 in [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts) takes
 `(forge: Forge, …)`, derived from whatever repo is open. This one never does — it always targets
 `bilo-io/midnite-apps`, independent of the active repo, or whether there even is one.
 
-- [ ] Add `APP_ISSUES_REPO = 'bilo-io/midnite-apps'` to
+- [x] Add `APP_ISSUES_REPO = 'bilo-io/midnite-apps'` to
       [`release.ts`](../../../packages/shared/src/release.ts), beside `NEW_ISSUE_URL`/`ISSUES_URL`
       — a bare `owner/repo` slug for `gh issue create -R`, not a URL to parse at call time.
-- [ ] New `packages/desktop/src/main/forge/gh-app-issue.ts`. A docblock stating plainly, up top,
+- [x] New `packages/desktop/src/main/forge/gh-app-issue.ts`. A docblock stating plainly, up top,
       that this file is the one write in the directory with **no `Forge` parameter** and why —
       so the next person adding a write here does not copy this one's shape by accident.
-- [ ] `createAppIssueCommand({title, body, labels}): string` — a pure function returning the full
+- [x] `createAppIssueCommand({title, body, labels}): string` — a pure function returning the full
       `gh issue create -R 'bilo-io/midnite-apps' --title '…' --body '…' --label '…'` command
       line, built with [`shellQuote`](../../../packages/desktop/src/main/forge/gh-shell.ts) per
       argument, the same shape `gh-write.ts`'s `*Command()` functions already use for a plain `gh`
       subcommand (not `gh api`, not `--input -` — there is no JSON payload here, same reasoning
       [Phase 54 Theme G](phase-54-issues-view.md#g--two-writes-and-only-two-m--✅-done-2026-09-04)
       already landed for `gh issue comment`).
-- [ ] `createAppIssue(fields): Promise<ForgeWriteResult & {url: string | null}>` — runs the command
+- [x] `createAppIssue(fields): Promise<ForgeWriteResult & {url: string | null}>` — runs the command
       through [`runInShell`](../../../packages/desktop/src/main/forge/gh-shell.ts), parses the
       created issue's URL from `gh issue create`'s stdout (it prints the URL on success and
       nothing else), and reuses `describeFailure` for the error message on failure, exactly the
       pattern every `gh-write.ts` function already follows.
-- [ ] Tests: `gh-app-issue.test.ts` — the command string (flags, quoting, ordering, the fixed
+- [x] Tests: `gh-app-issue.test.ts` — the command string (flags, quoting, ordering, the fixed
       `-R`), a successful create returning the parsed URL, and a `gh`-not-authenticated failure
       surfacing `cli`'s existing probe result rather than a generic error string.
 
-### B — The IPC surface, extending `report`, not inventing `issues` (S)
+### B — The IPC surface, extending `report`, not inventing `issues` (S) — ✅ DONE (PR #479, 2026-09-20)
 
-- [ ] `mstudio:report:submit-issue` in
+- [x] `mstudio:report:submit-issue` in
       [`channels.ts`](../../../packages/shared/src/ipc/channels.ts), beside the other three
       `mstudio:report:*` invoke channels Phase 65 Theme B added — this is bug-reporting, not a
       second domain, and it must never collide with `mstudio:diag:*`
       ([`channels.ts:430-438`](../../../packages/shared/src/ipc/channels.ts), already owned) or
       any future `mstudio:issues:*` Phase 54 might add for its own, different, per-repo creation.
-- [ ] `AppIssueSubmitRequestSchema` in
+- [x] `AppIssueSubmitRequestSchema` in
       [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) — `title` (capped, the same
       1 KB `perf.ts`/`ErrorReportSchema` convention), `body` (capped, generous — a diagnostics
       bundle plus a description), `kind: 'bug' | 'feature'` (picks the label pair and the default
       title prefix). `AppIssueSubmitResultSchema = ForgeWriteResultSchema.extend({ url:
       z.string().nullable().default(null) })` — reusing the existing `{ok, cli, error}` envelope
       rather than a new one, with `url` added for the composer's "View issue" link on success.
-- [ ] `report.submitIssue` on the `report` bridge group in
+- [x] `report.submitIssue` on the `report` bridge group in
       [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) (`:1034`), an `invoke`-shaped
       method beside the existing `send`-shaped `error`.
-- [ ] Handler in
+- [x] Handler in
       [`main/ipc/report-handlers.ts`](../../../packages/desktop/src/main/ipc/report-handlers.ts),
-      registered beside the other three, calling `createAppIssue` from Theme A. Uses `handleOp`
-      (or the `GitOpResult`-adjacent pattern the other three invoke channels already use) so a
-      failure resolves rather than throws across the boundary, per CLAUDE.md's IPC rule.
-- [ ] Preload wiring: `submitIssue: (r) => call(CHANNELS.reportSubmitIssue, r)` in
+      registered beside the other three, calling `createAppIssue` from Theme A. Uses the generic
+      `handle` helper (not `handleOp`, since the result extends `ForgeWriteResult` rather than
+      `GitOpResult`) so a failure resolves rather than throws across the boundary, per CLAUDE.md's
+      IPC rule.
+- [x] Preload wiring: `submitIssue: (r) => call(CHANNELS.reportSubmitIssue, r)` in
       [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts) (`:566-575`, beside
       `error`/`logPath`/`bundle`/`reveal`).
-- [ ] `useSubmitAppIssue()` mutation hook in
+- [x] `useSubmitAppIssue()` mutation hook in
       [`queries.ts`](../../../packages/app/src/services/queries.ts), matching the shape of the
       other `report.*`-backed hooks already there.
-- [ ] Tests: schema round-trip beside the existing `ErrorReportSchema` tests; a handler test
+- [x] Tests: schema round-trip beside the existing `ErrorReportSchema` tests; a handler test
       asserting an invalid payload resolves an error rather than throwing.
 
 ### C — The composer dialog (M)

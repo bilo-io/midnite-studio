@@ -822,6 +822,16 @@ export const CHANNELS = {
    * channel with nothing to defend.
    */
   reportReveal: 'mstudio:report:reveal',
+  /**
+   * File an issue on the app's own public tracker — Phase 93.
+   *
+   * Extends this same `mstudio:report:*` group rather than a new `mstudio:
+   * issues:*` domain: this is bug/feature reporting, always against the fixed
+   * `bilo-io/midnite-apps` (`APP_ISSUES_REPO` in `release.ts`), never the
+   * per-repo issue creation a future Phase 54 follow-up might add under its
+   * own, different, channel prefix.
+   */
+  reportSubmitIssue: 'mstudio:report:submit-issue',
 
   // --- api client (Phase 66) ---------------------------------------------------
   // A Postman-compatible client. Collections live repo-local, under

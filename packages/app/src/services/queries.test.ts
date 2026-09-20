@@ -4,7 +4,7 @@ import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it } from 'vitest';
 
-import { keys, reorderByIds, useReorderRepos } from './queries';
+import { keys, reorderByIds, useReorderRepos, useSubmitAppIssue } from './queries';
 
 describe('reorderByIds', () => {
   it('applies a new id order to the matching items', () => {
@@ -58,5 +58,28 @@ describe('useReorderRepos', () => {
     result.current(['a', 'b']);
 
     expect(client.getQueryData(keys.repos)).toBeUndefined();
+  });
+});
+
+describe('useSubmitAppIssue (Phase 93)', () => {
+  /**
+   * Under vitest/jsdom there is no preload, so `bridge()` is null — exactly
+   * the same "nothing failed, nothing was attempted" state `NO_FORGE_WRITE`
+   * models for every other forge write. `url` stays `null` alongside it,
+   * matching `AppIssueSubmitResult`'s own extra field.
+   */
+  it('resolves a no-op result rather than throwing when there is no bridge', async () => {
+    const client = new QueryClient();
+    const { result } = renderHook(() => useSubmitAppIssue(), {
+      wrapper: ({ children }) => createElement(QueryClientProvider, { client }, children),
+    });
+
+    const answer = await result.current.mutateAsync({
+      title: '[bug] it crashed',
+      body: 'diagnostics here',
+      kind: 'bug',
+    });
+
+    expect(answer).toEqual({ ok: false, cli: expect.any(Object), error: null, url: null });
   });
 });

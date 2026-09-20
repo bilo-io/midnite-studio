@@ -2794,6 +2794,38 @@ export const ReportLogPathResponse = z.object({ path: z.string().nullable() });
 /** The diagnostics block, already redacted. Empty when there is nothing to report. */
 export const ReportBundleResponse = z.object({ text: z.string() });
 
+/**
+ * File an issue on `bilo-io/midnite-apps` — Phase 93.
+ *
+ * `title` is capped the same 1 KB `ErrorReportSchema.message` is; `body` reuses
+ * `FORGE_BODY_MAX` (65,536), the same generous ceiling every other forge write
+ * body carries, since it is a description plus a diagnostics block rather than
+ * a short line. `kind` picks the label pair (`gh-app-issue.ts`) and the
+ * composer's default title prefix — it never reaches `gh` as a flag of its own.
+ */
+export const AppIssueSubmitRequestSchema = z.object({
+  title: z.string().trim().min(1, 'a title is required').max(1024),
+  body: z.string().max(FORGE_BODY_MAX),
+  kind: z.enum(['bug', 'feature']),
+});
+export type AppIssueSubmitRequest = z.infer<typeof AppIssueSubmitRequestSchema>;
+
+/**
+ * What filing an app issue answers with.
+ *
+ * Extends {@link ForgeWriteResultSchema} rather than introducing a new result
+ * shape — this write can fail exactly the way every other `gh` write can (not
+ * installed, not authenticated, refused), so the envelope that already covers
+ * that earns its keep here too. `url` is the one addition: `gh issue create`
+ * prints the created issue's URL on success, parsed defensively, so a parse
+ * miss on some future `gh` version is a missing convenience link, not a
+ * reported failure for an issue that was in fact filed.
+ */
+export const AppIssueSubmitResultSchema = ForgeWriteResultSchema.extend({
+  url: z.string().nullable().default(null),
+});
+export type AppIssueSubmitResult = z.infer<typeof AppIssueSubmitResultSchema>;
+
 // --- MCP server (Phase 57 Themes E, F) --------------------------------------
 //
 // The tool contract itself (`MCP_TOOLS`, `McpRequest`/`McpResponse`) lives in

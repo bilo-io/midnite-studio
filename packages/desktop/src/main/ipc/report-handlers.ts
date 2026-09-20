@@ -1,9 +1,11 @@
 import {
+  AppIssueSubmitRequestSchema,
   CHANNELS,
   ErrorReportSchema,
   failure,
   ok,
   redactPaths,
+  type AppIssueSubmitResult,
   type ErrorReport,
   type GitOpResult,
 } from '@midnite/studio-shared';
@@ -11,7 +13,8 @@ import { app, shell } from 'electron';
 
 import { defaultLogger, getLogSink, type Logger } from '../log';
 import type { LogSink } from '../log-sink';
-import { handleBare, handleSend } from './handle';
+import { createAppIssue } from '../forge/gh-app-issue';
+import { handle, handleBare, handleSend } from './handle';
 
 /**
  * The renderer's crash channel, and the two clicks that get a user at it —
@@ -121,4 +124,20 @@ export function registerReportHandlers(deps: ReportDeps = {}): void {
     shell.showItemInFolder(sink.path);
     return ok();
   });
+
+  handle(
+    CHANNELS.reportSubmitIssue,
+    AppIssueSubmitRequestSchema,
+    (req) => createAppIssue(req),
+    // Not `GitOpResult` — `AppIssueSubmitResult` extends `ForgeWriteResult`,
+    // so an invalid payload gets the same "nothing was attempted" shape
+    // `gh-write.ts`'s `notReady` and `forge-handlers.ts`'s per-write
+    // `onInvalid` callbacks already use, `url` included as `null`.
+    (issue): AppIssueSubmitResult => ({
+      ok: false,
+      cli: { reason: 'not-installed', binPath: null, hint: '' },
+      error: issue,
+      url: null,
+    }),
+  );
 }
