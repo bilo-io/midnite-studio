@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-20 — Phase 76 Theme B — sandboxed preload
+
+[PR #484](https://github.com/bilo-io/midnite-studio/pull/484). Both app windows flip to
+`sandbox: true` now that `scripts/bundle.mjs` inlines `shared` and the preload's only Node touch
+(`node:os` for `homedir`/`hostname`) is replaced by `HOME_DIR_ARG`/`HOSTNAME_ARG` via
+`additionalArguments` from main. `preload-bundle.test.ts` guards the esbuild output against
+`require('node:…')` reintroduction; `desktop:test` depends on `desktop:bundle`.
+
 ## 2026-09-20 — Phase 93 Theme E — midnite-address-issue scans both boards
 
 [PR #482](https://github.com/bilo-io/midnite-studio/pull/482). The last open theme

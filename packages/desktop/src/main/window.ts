@@ -1,9 +1,15 @@
 import { existsSync } from 'node:fs';
+import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 
 import { BrowserWindow, app, shell } from 'electron';
 
-import { APP_VERSION_ARG, WINDOW_FRAMELESS_ARG } from '@midnite/studio-shared';
+import {
+  APP_VERSION_ARG,
+  HOME_DIR_ARG,
+  HOSTNAME_ARG,
+  WINDOW_FRAMELESS_ARG,
+} from '@midnite/studio-shared';
 
 import { maybeCapture } from './capture';
 import { bootMark } from './perf-marks';
@@ -79,18 +85,18 @@ export function createWindow(): BrowserWindow {
       preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      // The preload requires `@midnite/studio-shared` for the channel constants,
-      // which a sandboxed preload cannot do (it only gets a polyfilled subset of
-      // require). contextIsolation + nodeIntegration:false remain the actual
-      // security boundary for THIS window's own renderer, which still only
-      // ever loads local content (the built app, or the Vite dev server).
+      // The preload is bundled by `scripts/bundle.mjs` with `@midnite/studio-shared`
+      // inlined — no runtime `require` of workspace packages. It uses no Node
+      // builtin: only `contextBridge`, `ipcRenderer`, `process.argv` and
+      // `process.platform`. Host facts (`homedir`, `hostname`, version, role)
+      // arrive via `additionalArguments` from main, which can import `node:os`.
       //
       // Remote content is a separate story: Phase 32's browser tabs load
       // arbitrary web pages, but each one lives in its own `WebContentsView`
       // on the `persist:browser` partition — never this window's own
       // WebContents — with `sandbox: true` and NO preload of its own. See
       // `browser-service.ts`, the only file that constructs one.
-      sandbox: false,
+      sandbox: true,
       // Single-sourced from the window options above so the preload never
       // re-derives it. See WINDOW_FRAMELESS_ARG.
       additionalArguments: [
@@ -98,6 +104,8 @@ export function createWindow(): BrowserWindow {
         // Only main can ask Electron for it, and the rail's version pill wants
         // it on first paint. See APP_VERSION_ARG.
         `${APP_VERSION_ARG}${app.getVersion()}`,
+        `${HOME_DIR_ARG}${homedir()}`,
+        `${HOSTNAME_ARG}${hostname()}`,
       ],
     },
   });

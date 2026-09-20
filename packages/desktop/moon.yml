@@ -61,8 +61,10 @@ tasks:
       - 'git-engine:build'
       - 'db-engine:build'
       - 'knowledge:build'
+      - '~:bundle'
     inputs:
       - 'src/**/*'
+      - 'scripts/bundle.mjs'
       # Phase 53 Theme C: yaml-scalar.mjs's own test, picked up by
       # vitest.config.ts's `scripts/**/*.test.mjs` include.
       - 'scripts/**/*.test.mjs'
