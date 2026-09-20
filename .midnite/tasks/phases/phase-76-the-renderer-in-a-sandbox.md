@@ -120,6 +120,32 @@ fingerprint). Sequenced first because everything after it is tested against the 
 
 ✅ **DONE** (PR #484, 2026-09-20)
 
+- [x] Add `HOME_DIR_ARG` and `HOSTNAME_ARG` beside `WINDOW_FRAMELESS_ARG`/`APP_VERSION_ARG`/
+      `WINDOW_ROLE_ARG` in `shared` (wherever those three are declared — `grep -rn WINDOW_ROLE_ARG
+      packages/shared/src`), and pass `os.homedir()`/`os.hostname()` through `additionalArguments`
+      from both [`window.ts`](../../../packages/desktop/src/main/window.ts) and
+      [`window-manager.ts:266`](../../../packages/desktop/src/main/window-manager.ts). Main already
+      imports `node:os` elsewhere; the preload stops.
+- [x] Delete `import { homedir, hostname } from 'node:os'` at
+      [`preload/index.ts:1`](../../../packages/desktop/src/preload/index.ts) and read the two values
+      from `process.argv` exactly the way `versionArg`/`roleArg` are read (`:49–60`). `process.argv`
+      and `process.platform` remain available to a sandboxed preload; `node:os` does not.
+- [x] Flip `sandbox: false` → `sandbox: true` at [`window.ts:75`](../../../packages/desktop/src/main/window.ts)
+      and [`window-manager.ts:265`](../../../packages/desktop/src/main/window-manager.ts) in the same
+      commit, and **rewrite the comment** at `window.ts:63–68` to state the new fact: the preload is
+      bundled by `scripts/bundle.mjs`, uses no Node builtin, and the only things it reads from the
+      host are `contextBridge`, `ipcRenderer`, `process.argv` and `process.platform`.
+- [x] Grep the preload for every other Node touch a sandbox refuses: `Buffer`, `process.env`,
+      `setImmediate`, `require(`. The audit found none beyond `node:os`, but the grep is the
+      acceptance test, not the audit.
+- [x] A vitest under `packages/desktop/src/preload/` that imports the built `dist/preload.js` as
+      text and asserts it contains no `require("node:` / `require('node:` — the guard that keeps a
+      future contributor from silently reintroducing the dependency and getting a blank window in
+      production only.
+- [x] *Acceptance:* the app boots, `window.midniteStudio.homeDir` and `.hostname` return the same
+      values as before, a popout opens, and Playwright's existing `mock-bridge.ts` fixtures are
+      untouched (they never ran under the real preload).
+
 ### C — A Content-Security-Policy, and a `will-navigate` guard for the app's own window (M)
 
 - [ ] Add the policy in **main**, via `session.defaultSession.webRequest.onHeadersReceived`, not a
@@ -161,7 +187,9 @@ fingerprint). Sequenced first because everything after it is tested against the 
 
 ### D — Widget credentials leave `localStorage`, and the IP lookup asks first (M)
 
-- [ ] Move the Twelve Data key out of [`finance-store.ts`](../../../packages/app/src/features/finance/finance-store.ts)'s
+✅ **DONE** (PR #485, 2026-09-20)
+
+- [x] Move the Twelve Data key out of [`finance-store.ts`](../../../packages/app/src/features/finance/finance-store.ts)'s
       persisted slice and into main behind two channels — `secretsGet`/`secretsSet` in
       [`shared/src/ipc/channels.ts`](../../../packages/shared/src/ipc/channels.ts) with a
       `{ key: z.enum(['finance.twelveData']) }` schema (an enum, so the vault can never become a
@@ -169,21 +197,21 @@ fingerprint). Sequenced first because everything after it is tested against the 
       `credential-vault.ts`'s encrypt/decrypt/degrade shape verbatim. `credential-vault.ts` stays
       DB-specific; extract its `safeStorage` plumbing into `main/secure-store.ts` and have both
       vaults call it.
-- [ ] One-shot migration on first read: if the legacy `localStorage` entry still carries a
+- [x] One-shot migration on first read: if the legacy `localStorage` entry still carries a
       non-empty `twelveDataApiKey`, write it to the vault, then blank the persisted field — through
       `persist-rename.ts`'s existing migration seam, not a new one.
-- [ ] Drop `https://api.twelvedata.com` and `https://api.coingecko.com` from Theme C's
+- [x] Drop `https://api.twelvedata.com` and `https://api.coingecko.com` from Theme C's
       `connect-src` by moving the two `fetch` calls in
       [`finance-api.ts`](../../../packages/app/src/features/finance/finance-api.ts) behind a
       `financeQuote` invoke in main — the key then never crosses back into the renderer at all,
       which is the stronger property, and it is the exact "proxy through main" the store's own
       comment names as the alternative it skipped.
-- [ ] [`titlebar-status/weather-api.ts:9`](../../../packages/app/src/features/titlebar-status/weather-api.ts)'s
+- [x] [`titlebar-status/weather-api.ts:9`](../../../packages/app/src/features/titlebar-status/weather-api.ts)'s
       `ipwho.is` lookup becomes **opt-in**: a `Settings ▸ Privacy ▸ Locate me by IP` switch,
       default **off**, with the title-bar weather showing a "Set a location" affordance instead of
       silently geolocating. The Open-Meteo calls (which take a lat/lon the user typed or chose) are
       unaffected. When the switch is off, `https://ipwho.is` leaves `connect-src` too.
-- [ ] *Acceptance:* `localStorage` after a fresh boot with a saved key contains no string longer
+- [x] *Acceptance:* `localStorage` after a fresh boot with a saved key contains no string longer
       than 20 characters under `midnite-studio.finance`; the vault file exists at `0o600`; a fresh
       profile makes **zero** network requests until the user either sets a location or flips the
       switch (asserted with `page.on('request')` in e2e).

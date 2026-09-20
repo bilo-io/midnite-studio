@@ -30,7 +30,7 @@ describe('FinancePanel', () => {
   });
 
   it('adds a searched coin to the watchlist and then renders its row', async () => {
-    vi.stubGlobal('window', {
+    Object.assign(window, {
       midniteStudio: {
         secrets: {
           get: vi.fn(async () => ({ value: null })),

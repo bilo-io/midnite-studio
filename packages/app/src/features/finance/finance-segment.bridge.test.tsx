@@ -51,7 +51,7 @@ describe('the finance footer, assembled through a real render', () => {
 
     fireEvent.click(screen.getByTestId('finance-segment'));
     const panel = screen.getByTestId('finance-segment-panel');
-    fireEvent.click(within(panel).getByRole('button', { name: 'Edit watchlist' }));
+    // Empty watchlist opens straight into the editor — no "Edit watchlist" click needed.
 
     const input = within(panel).getByPlaceholderText('Search coins…');
     fireEvent.change(input, { target: { value: 'bit' } });
