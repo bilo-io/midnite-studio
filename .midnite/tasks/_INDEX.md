@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | ◻ TODO | — | 0/36 | `░░░░░░░░░░` | 0% | — | A B C D E |
 | [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | ◻ TODO | — | 0/95 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | ◻ TODO | — | 0/101 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
 | [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 36/89 | `████░░░░░░` | 40% | — | F G H I J K |
@@ -107,6 +108,29 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 **Headlines:**
 
+- **[Phase 92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md)**
+  (0% · 0/36) — **Planned, not started.** A kanban card's Play button and the dependency graph
+  node's own copy of it (`task-card.tsx:128-163`, `project-graph-node.tsx:168-205`) both
+  auto-send a prompt built from the issue's full title, URL, assignees, labels and body — capped
+  at 4 000 characters, but otherwise the whole remote issue, unread by a human, to whichever
+  agent last ran — via `composeCardPrompt` (Phase 41 Theme G). This phase adds a per-card skill
+  choice and shrinks that prompt to a link plus the chosen skill. **A** extracts the two
+  copy-pasted Play-button implementations into one `useCardPlay` hook; **B** adds
+  `composeSkillLaunchPrompt` (`<skill template> <issue url>`), leaving `composeCardPrompt` itself
+  untouched since it still backs `CardComposer`'s own human-reviewed textarea; **C** adds
+  `cardSkillByTask`, local renderer-only state (not a GitHub Projects field — no schema change,
+  no new IPC) keyed like `projectViewByProject` already is, with an `IconSelect` picker in
+  `CardDetail` sourced from the app's own `AgentCommandId` catalogue
+  (`agent-commands.ts`/`DEFAULT_AGENT_SKILLS`), confirmed as the source of truth over a
+  `.claude/skills/` directory scan (nothing in the app does that today, and `agent-page.tsx`'s own
+  comment argues against it); **D** forks Play on whether that state is set — set, launch directly
+  with the shrunk prompt; unset, a `ContextMenu` at the pointer (the same `useDialogs().openMenu`
+  pattern `board-view.tsx`'s "Move to ▸" already uses) offering exactly Exec (`execAdhoc`),
+  Brainstorm, Refine, with the pick both launching and persisting for next time. Named but
+  deliberately not fixed: neither Play button today checks `blockers`, and both already bypass
+  Phase 50 Theme B's `launchAndRunEnabled` gate and confirm dialog with a hardcoded `autoSend:
+  true` — this phase's link-only prompt narrows the risk of the second gap without closing either.
+  36 items, five themes, no new dependency, no new IPC channel.
 - **[Phase 90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md)** (0% · 0/101) — **Planned, not started.** Two GO-LIVE requirements merged, because they share one provider/credential abstraction: GitHub-equivalent Actions/Issues/Reviews/Projects for GitLab, Bitbucket and Azure DevOps, and an active-user avatar whose switch rescopes the repo list and runs `gh auth switch`. The grounding found the seam is two symbols wide — `githubForge()` and `hasGithubForge` — and that the credential decision is already precedented by `db/credential-vault.ts`. Billing is **out**: a pricing page ships on the website, a tier vocabulary ships unwired.
 
 - **[Phase 86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md)** (95% · 61/64, [PR #376](https://github.com/bilo-io/midnite-studio/pull/376), [PR #377](https://github.com/bilo-io/midnite-studio/pull/377), [PR #379](https://github.com/bilo-io/midnite-studio/pull/379), [PR #380](https://github.com/bilo-io/midnite-studio/pull/380), [PR #381](https://github.com/bilo-io/midnite-studio/pull/381), [PR #387](https://github.com/bilo-io/midnite-studio/pull/387), [PR #389](https://github.com/bilo-io/midnite-studio/pull/389), [PR #391](https://github.com/bilo-io/midnite-studio/pull/391), [PR #396](https://github.com/bilo-io/midnite-studio/pull/396), [PR #424](https://github.com/bilo-io/midnite-studio/pull/424), [PR #426](https://github.com/bilo-io/midnite-studio/pull/426), [PR #464](https://github.com/bilo-io/midnite-studio/pull/464)) — **Themes A-H all landed; only three human-only verification passes are left open** (a real Claude resume, a real Codex resume, and a long dual-surface Notes editing session — see the phase doc's Theme H). Two asks in one breath: make Sessions an actual manager you can still talk to, with a one-click way back into an agent conversation, and give Notes a page instead of a modal. The grounding changed what the first half means. [Phase 67](phases/phase-67-the-sessions-you-closed.md) built Sessions *deliberately* as a history browser for the dead — `sessions-view.tsx:83` renders only `ClosedSession` rows from `useSessionHistory()`, and `SessionRow:534` has exactly two actions, select-to-read and Purge — while live sessions live in a separate store behind `terminal-session-list.tsx`. So "flesh out Sessions" is **merging two lists across two stores**, one renderer-only and live, one main-persisted JSON (`session-history-store.ts`). The resume ask is three-quarters built already: `AgentDefinition.resume` exists and is populated for ten of the twelve `BUILTIN_AGENTS` (`claude → --continue`, `codex → resume --last`, `goose → session --resume`; **`agy` and `cline` have none**), and `initialInput`/`queueInput`/`startAgent({autoSend})` are the well-trodden "open a terminal with a command typed" path. The missing quarter is the hard part and the reason this is an **L**: nothing in this repo captures the agent's *own* conversation id — `sessionId` always means Midnite's, and no code parses a UUID out of pty output. The brainstorm verified on the reporter's machine that both agents that matter already keep it **on disk, keyed by cwd**: `~/.claude/projects/<cwd-slug>/<uuid>.jsonl` (312 files for this repo alone) and `~/.codex/sessions/<year>/…/rollout-<ISO>-<uuid>.jsonl`, recoverable by mtime-matching the newest file to the session's window with no scraping and surviving a restart — which is why exact-id resume ships for **two** agents and the other ten keep their existing args rather than ten guesses. **A** merges the lists status-sorted, moves the agent icon left of the title and gives the status dot a keyboard-reachable tooltip off the already-streamed `SessionActivitySchema`; **B** adds `agentConversationId` to both schemas (minding that `TerminalSessionSchema` closes with `.superRefine` and is a `ZodEffects` that **cannot be `.extend()`ed**) behind a best-effort read-only adapter seam; **C** builds the per-agent resume argv and auto-sends it — an explicit, documented exception to `startAgent`'s deliberate `autoSend: false`, carved because resume restores a conversation rather than acting on the repo — and stays honest in the tooltip when there is no captured id; **D** shows the real xterm for a running session and the transcript for a closed one, **one xterm per pty** via `revealSession()` so Phases 45 and 84 are not regressed. Half two: Notes is a `<textarea>` in a modal over localStorage, per-repo and renderer-only, so a note is invisible to every agent, to Phase 57's MCP tools and to a second window. **E** gives it a `notes` ViewId and a rail row directly under Dashboard with a hairline delimiter honouring Phase 39's "a separator must never be stranded", keeping the modal as quick-capture; **F** puts notes in per-repo files under **userData — never inside the user's repositories** — behind a channel quartet, with a migration that writes, verifies the read-back, and never deletes the localStorage payload; **G** builds the two-pane page with **lazy-loaded** Monaco (a *third* Monaco surface, flagged against [Phase 77](phases/phase-77-thirteen-megabytes-of-editor.md)'s diet rather than added silently), a markdown preview toggle over the existing `react-markdown` path, and Brainstorm / Execute-adhoc / status / delete carried across through `use-skill-handoff`. 64 items, eight themes, no new dependency. Explicitly out: notes as committed `.md` in each repo, MCP tools over notes, pty-scraped ids, a second xterm per pty, and Phase 67's own 20 open verification items — which this phase will re-open several of.
@@ -197,6 +221,19 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
 
+### [Phase 92 — Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md)
+
+*A kanban card's Play button and the dependency graph node's copy of it both auto-send the whole
+issue — title, URL, assignees, labels, capped body — via `composeCardPrompt`, unread. This phase
+gives a card a chosen skill (local state, not a GitHub field) and shrinks the launched prompt to
+that skill plus the issue link; unset, Play opens a three-entry menu (Exec/Brainstorm/Refine)
+instead of guessing.*
+
+- ◻ **A** — extract the two copy-pasted Play-button implementations into one `useCardPlay` hook
+- ◻ **B** — `composeSkillLaunchPrompt` (skill + issue link); `composeCardPrompt` itself untouched
+- ◻ **C** — `cardSkillByTask` local state + an `IconSelect` picker in `CardDetail`
+- ◻ **D** — Play forks on whether a skill is set: launch directly, or a pointer-anchored menu
+- ◻ **E** — verification coverage
 ### [Phase 91 — Security hardening and CVE readiness](phases/phase-91-security-hardening.md)
 
 *Passes two and three over [`.midnite/security/scan_opus_5.md`](../security/scan_opus_5.md), which
