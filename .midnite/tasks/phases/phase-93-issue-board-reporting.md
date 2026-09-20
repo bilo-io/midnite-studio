@@ -204,7 +204,7 @@ in [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts) takes
       Decision 2 below records why a separate settings toggle was rejected. Unchanged from Theme
       C's implementation — nothing in this theme introduced a background path.
 
-### E — The execution skill's gap, and only the gap (S) — ✅ DONE (PR #<PR_NUMBER>, 2026-09-20)
+### E — The execution skill's gap, and only the gap (S) — ✅ DONE (PR #482, 2026-09-20)
 
 [`.claude/skills/midnite-address-issue/SKILL.md`](../../../.claude/skills/midnite-address-issue/SKILL.md)
 already covers "execute the issue tasks" end to end — scan, score, claim, reproduce, plan, build,

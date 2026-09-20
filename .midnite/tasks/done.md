@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-20 — Phase 93 Theme E — midnite-address-issue scans both boards
 
-[PR #<PR_NUMBER>](https://github.com/bilo-io/midnite-studio/pull/<PR_NUMBER>). The last open theme
+[PR #482](https://github.com/bilo-io/midnite-studio/pull/482). The last open theme
 of Phase 93 — closes the gap the skill's own header used to name and decline to build for:
 *"Issues and code live in the same repo … This differs from midnite's two-repo split — don't
 import those habits."* Now that Themes A-D (PR #479, #480) give `bilo-io/midnite-apps` a real
