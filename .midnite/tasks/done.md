@@ -1,6 +1,42 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-20 — Phase 93 Theme E — midnite-address-issue scans both boards
+
+[PR #<PR_NUMBER>](https://github.com/bilo-io/midnite-studio/pull/<PR_NUMBER>). The last open theme
+of Phase 93 — closes the gap the skill's own header used to name and decline to build for:
+*"Issues and code live in the same repo … This differs from midnite's two-repo split — don't
+import those habits."* Now that Themes A-D (PR #479, #480) give `bilo-io/midnite-apps` a real
+write path, that split needs building for.
+- **Stage 1** scans both boards: this repo's own `gh issue list` unchanged, plus
+  `gh issue list -R bilo-io/midnite-apps --label "app: midnite-studio" --state open …` — scoped to
+  that label since the apps board is shared across every app in the portfolio. The digest tags
+  each surviving candidate `[studio|apps]`, since a stranger's in-app report carries different
+  reporter-cost weight than an internal backlog item.
+- **Stage 4** claims a `midnite-apps` candidate with an explicit `-R bilo-io/midnite-apps` on both
+  the claim comment and the size-label edit — neither defaults to that repo.
+- **Stage 10/12** close a `midnite-apps` issue with the cross-repo keyword,
+  `Fixes bilo-io/midnite-apps#<N>`, which auto-closes on merge only because both repos share the
+  `bilo-io` owner and the PR author has write access to both — documented as a fallback-if-that-
+  ever-changes, not assumed to hold forever. The Stage 12 wrap-up comment carries the same `-R`.
+- Verified against the real boards, read-only: `bilo-io/midnite-apps` carries `bug`, `enhancement`
+  and `app: midnite-studio` (plus `size/*`, `needs-triage`) and has zero open issues today;
+  `bilo-io/midnite-studio` has its real internal backlog (`#83`-`#141`). No issue was filed,
+  closed or commented on by this PR's own work.
+- Ported to all three mirrors (`.claude`, `.agents`, `.codex`) in each one's own idiom — the
+  `AskUserQuestion`/"a direct question to the user" and `TodoWrite`/"a running task list"
+  translations were already present and left untouched; `.agents` and `.codex` stayed
+  byte-identical to each other before and after this change, so no drift found in this skill's
+  mirrors this pass.
+- Also ticked two Verification items left open from Themes A/B (PR #479) that this pass confirmed
+  are already satisfied by the merged code: `createAppIssueCommand` always emits
+  `-R 'bilo-io/midnite-apps'` (asserted by `gh-app-issue.test.ts`), and the real `midnite-apps`
+  label set (`gh label list`) matches what `createAppIssue`'s `KIND_LABELS` sends. Two
+  Verification items remain open and are deliberately not this pass's to close: a human filing a
+  real bug report and feature request from a packaged app, and observing the Stage 1 digest list a
+  candidate from each board at once (needs the apps board to actually receive traffic first).
+  32/34, 94% — see [`_INDEX.md`](../_INDEX.md).
+
 ## 2026-09-20 — Phase 93 Themes C, D — An in-app issue composer over the existing redaction path
 
 [PR #480](https://github.com/bilo-io/midnite-studio/pull/480). Themes A and B (PR #479) built the
