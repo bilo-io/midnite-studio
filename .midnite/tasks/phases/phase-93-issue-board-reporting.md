@@ -204,7 +204,7 @@ in [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts) takes
       Decision 2 below records why a separate settings toggle was rejected. Unchanged from Theme
       C's implementation — nothing in this theme introduced a background path.
 
-### E — The execution skill's gap, and only the gap (S)
+### E — The execution skill's gap, and only the gap (S) — ✅ DONE (PR #482, 2026-09-20)
 
 [`.claude/skills/midnite-address-issue/SKILL.md`](../../../.claude/skills/midnite-address-issue/SKILL.md)
 already covers "execute the issue tasks" end to end — scan, score, claim, reproduce, plan, build,
@@ -216,13 +216,13 @@ landing in `bilo-io/midnite-apps`, a different repo from the one the fix is buil
 (`bilo-io/midnite-studio`) — and every `gh issue`/`gh pr` call in the skill today has no `-R`
 flag, so it cannot see them.
 
-- [ ] Extend Stage 1 ("Scan the board") to scan **two** boards, not one: this repo's own issues
+- [x] Extend Stage 1 ("Scan the board") to scan **two** boards, not one: this repo's own issues
       (internal/engineering, unchanged — `gh issue list --state open …` exactly as today) **and**
       `gh issue list -R bilo-io/midnite-apps --label "app: midnite-studio" --state open …` (the
       new user-facing stream this phase's composer feeds). Keep them visually distinct in the
       digest — a user-filed report and an internal backlog item carry different reporter-cost
       weight in Stage 2's scoring.
-- [ ] Stage 4's claim comment and Stage 10's `Fixes #<N>` change shape for a `midnite-apps` issue:
+- [x] Stage 4's claim comment and Stage 10's `Fixes #<N>` change shape for a `midnite-apps` issue:
       **`Fixes bilo-io/midnite-apps#<N>`**, GitHub's cross-repo closing keyword syntax, which
       auto-closes on merge only because both repos share the `bilo-io` owner and the PR author
       (`bilo-io`) has write access to both — true today, and worth a one-line comment in the
@@ -230,8 +230,8 @@ flag, so it cannot see them.
       changes. Every `gh issue comment`/`gh issue edit` call for a `midnite-apps` issue needs an
       explicit `-R bilo-io/midnite-apps` — nothing there defaults to the right repo the way a
       same-repo `gh` call does.
-- [ ] Stage 12's post-merge wrap-up comment targets the same `-R`, for the same reason.
-- [ ] **Not rewritten:** Stages 2, 3, 5–9, 11, 13 need no change — they operate on a single issue
+- [x] Stage 12's post-merge wrap-up comment targets the same `-R`, for the same reason.
+- [x] **Not rewritten:** Stages 2, 3, 5–9, 11, 13 need no change — they operate on a single issue
       once found, and nothing about which repo it came from changes reproduction, scoring, the
       worktree, the build, or the sweep.
 
@@ -253,14 +253,17 @@ flag, so it cannot see them.
 
 - [x] `moon run :typecheck :lint :test` green (local — see PR body for the exact run; CI is
       account-wide blocked this batch, see that same PR).
-- [ ] `createAppIssueCommand` always emits `-R 'bilo-io/midnite-apps'`, never the active repo's
+- [x] `createAppIssueCommand` always emits `-R 'bilo-io/midnite-apps'`, never the active repo's
       slug, regardless of which repo is open when the dialog is used — a mock-bridge test with a
-      different repo selected. (Theme A's own verification, `gh-app-issue.test.ts`, PR #479.)
-- [ ] A successful submit surfaces the created issue's URL, and the composer's labels match
+      different repo selected. (Theme A's own verification, `gh-app-issue.test.ts`, PR #479 —
+      confirmed this pass: `never emits the active repo's slug` in that suite asserts exactly
+      this.)
+- [x] A successful submit surfaces the created issue's URL, and the composer's labels match
       `kind` (`bug`+`app: midnite-studio` vs `enhancement`+`app: midnite-studio`) — verified
-      against the real label set already on `bilo-io/midnite-apps` (`gh label list`, checked this
-      phase, no creation step needed). (Theme A/B, PR #479 — `createAppIssue`'s own `KIND_LABELS`
-      mapping; the composer added in Theme C sends `kind` through unmodified.)
+      against the real label set already on `bilo-io/midnite-apps` (`gh label list`, re-checked
+      this pass: `bug`, `enhancement`, `app: midnite-studio` all present). (Theme A/B, PR #479 —
+      `createAppIssue`'s own `KIND_LABELS` mapping; the composer added in Theme C sends `kind`
+      through unmodified.)
 - [x] `cli.reason !== 'ready'` (not installed / not authenticated) shows the fallback, and "Open in
       browser instead" fires the exact `NEW_ISSUE_URL` today's button already uses — the
       pre-this-phase path is never regressed, only supplemented. Checked proactively via
