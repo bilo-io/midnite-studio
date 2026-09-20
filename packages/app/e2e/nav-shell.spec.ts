@@ -168,6 +168,7 @@ test('the rail carries all eighteen views, Dashboard ungrouped above the rest', 
     '/dashboard',
     '/notes',
     '/knowledge',
+    '/sessions',
     '/files',
     '/search',
     '/tests',
@@ -183,7 +184,6 @@ test('the rail carries all eighteen views, Dashboard ungrouped above the rest', 
     '/councils',
     '/workflows',
     '/video',
-    '/sessions',
   ]);
 });
 
