@@ -118,31 +118,7 @@ fingerprint). Sequenced first because everything after it is tested against the 
 
 ### B — `sandbox: true`, because the reason for `false` no longer exists (M)
 
-- [ ] Add `HOME_DIR_ARG` and `HOSTNAME_ARG` beside `WINDOW_FRAMELESS_ARG`/`APP_VERSION_ARG`/
-      `WINDOW_ROLE_ARG` in `shared` (wherever those three are declared — `grep -rn WINDOW_ROLE_ARG
-      packages/shared/src`), and pass `os.homedir()`/`os.hostname()` through `additionalArguments`
-      from both [`window.ts`](../../../packages/desktop/src/main/window.ts) and
-      [`window-manager.ts:266`](../../../packages/desktop/src/main/window-manager.ts). Main already
-      imports `node:os` elsewhere; the preload stops.
-- [ ] Delete `import { homedir, hostname } from 'node:os'` at
-      [`preload/index.ts:1`](../../../packages/desktop/src/preload/index.ts) and read the two values
-      from `process.argv` exactly the way `versionArg`/`roleArg` are read (`:49–60`). `process.argv`
-      and `process.platform` remain available to a sandboxed preload; `node:os` does not.
-- [ ] Flip `sandbox: false` → `sandbox: true` at [`window.ts:75`](../../../packages/desktop/src/main/window.ts)
-      and [`window-manager.ts:265`](../../../packages/desktop/src/main/window-manager.ts) in the same
-      commit, and **rewrite the comment** at `window.ts:63–68` to state the new fact: the preload is
-      bundled by `scripts/bundle.mjs`, uses no Node builtin, and the only things it reads from the
-      host are `contextBridge`, `ipcRenderer`, `process.argv` and `process.platform`.
-- [ ] Grep the preload for every other Node touch a sandbox refuses: `Buffer`, `process.env`,
-      `setImmediate`, `require(`. The audit found none beyond `node:os`, but the grep is the
-      acceptance test, not the audit.
-- [ ] A vitest under `packages/desktop/src/preload/` that imports the built `dist/preload.js` as
-      text and asserts it contains no `require("node:` / `require('node:` — the guard that keeps a
-      future contributor from silently reintroducing the dependency and getting a blank window in
-      production only.
-- [ ] *Acceptance:* the app boots, `window.midniteStudio.homeDir` and `.hostname` return the same
-      values as before, a popout opens, and Playwright's existing `mock-bridge.ts` fixtures are
-      untouched (they never ran under the real preload).
+✅ **DONE** (PR #484, 2026-09-20)
 
 ### C — A Content-Security-Policy, and a `will-navigate` guard for the app's own window (M)
 
