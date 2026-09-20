@@ -1,10 +1,19 @@
 import { resolveForgeGraph, type ForgeProjectField, type ForgeProjectItem } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../../components/dialog-host';
 import { draftItem, issueItem, pullItem, resetProjectItemSeq, withBlockedBy } from '../__fixtures__/project-item';
 import { DEFAULT_GRAPH_FACETS, type ProjectGraphFacets } from './graph-filter';
 import { ProjectGraphView } from './project-graph-view';
+
+/** `useCardPlay` (Theme A/D), reached by each node's own Play button, calls
+ *  `useDialogs()` unconditionally — every render needs the host it expects
+ *  in the real app tree. */
+function renderGraph(ui: ReactElement) {
+  return render(ui, { wrapper: DialogHost });
+}
 
 /**
  * jsdom implements no `ResizeObserver`, no `CSS.escape`, and reports a fixed
@@ -68,7 +77,7 @@ describe('ProjectGraphView', () => {
   it('renders one [data-graph-node] per item and at least one edge for a real dependency', () => {
     const blocker = issueItem();
     const dependent = withBlockedBy(issueItem(), [{ number: blocker.content.type === 'issue' ? blocker.content.number : 0, title: '', state: 'open', repo: '' }]);
-    const { container } = render(<Harness items={[blocker, dependent]} />);
+    const { container } = renderGraph(<Harness items={[blocker, dependent]} />);
     expect(container.querySelectorAll('[data-graph-node]').length).toBe(2);
     expect(container.querySelectorAll('[data-edge-kind="blocks"]').length).toBe(1);
   });
@@ -81,7 +90,7 @@ describe('ProjectGraphView', () => {
     const blocker = issueItem({ content: { type: 'issue', repo: 'acme/other' } as never });
     const blockerNumber = blocker.content.type === 'issue' ? blocker.content.number : 0;
     const dependent = withBlockedBy(issueItem(), [{ number: blockerNumber, title: '', state: 'open', repo: 'acme/other' }]);
-    const { container } = render(<Harness items={[blocker, dependent]} />);
+    const { container } = renderGraph(<Harness items={[blocker, dependent]} />);
     expect(container.querySelectorAll('[data-graph-node]').length).toBe(2);
     expect(container.querySelectorAll('[data-edge-kind="blocks"]').length).toBe(1);
     expect(container.querySelectorAll(`[data-node-key="acme/other#${blockerNumber}"]`).length).toBe(1);
@@ -94,7 +103,7 @@ describe('ProjectGraphView', () => {
     const dependent = withBlockedBy(issueItem({ content: { type: 'issue', state: 'closed' } as never }), [
       { number: blockerNumber, title: '', state: 'closed', repo: '' },
     ]);
-    const { container } = render(<Harness items={[blocker, dependent]} />);
+    const { container } = renderGraph(<Harness items={[blocker, dependent]} />);
     const edge = container.querySelector('[data-edge-kind="blocks"]')!;
     expect(edge.getAttribute('class')).toContain('dep-edge-done');
     expect(edge.getAttribute('class')).not.toContain('dep-edge-animated');
@@ -104,7 +113,7 @@ describe('ProjectGraphView', () => {
     const blocker = issueItem();
     const blockerNumber = blocker.content.type === 'issue' ? blocker.content.number : 0;
     const dependent = withBlockedBy(issueItem(), [{ number: blockerNumber, title: '', state: 'open', repo: '' }]);
-    const { container } = render(<Harness items={[blocker, dependent]} />);
+    const { container } = renderGraph(<Harness items={[blocker, dependent]} />);
     const edge = container.querySelector('[data-edge-kind="blocks"]')!;
     expect(edge.getAttribute('class')).toContain('dep-edge-idle');
   });
@@ -120,36 +129,36 @@ describe('ProjectGraphView', () => {
       chain.push(item);
       previous = item;
     }
-    const { container } = render(<Harness items={chain} />);
+    const { container } = renderGraph(<Harness items={chain} />);
     expect(container.querySelectorAll('[data-graph-node]').length).toBeLessThan(60);
   });
 
   it('an isolated item (no dependencies at all) still renders as a node', () => {
-    const { container } = render(<Harness items={[issueItem()]} />);
+    const { container } = renderGraph(<Harness items={[issueItem()]} />);
     expect(container.querySelectorAll('[data-graph-node]').length).toBe(1);
   });
 
   it('shows the truncated banner naming the true total when the graph says so', () => {
-    render(<Harness items={[issueItem()]} />);
+    renderGraph(<Harness items={[issueItem()]} />);
     // No banner for an untruncated graph.
     expect(screen.queryByText(/Showing the first/)).toBeNull();
   });
 
   it('all-drafts-or-PRs renders the dedicated empty state, not a canvas', () => {
-    render(<Harness items={[draftItem(), pullItem()]} />);
+    renderGraph(<Harness items={[draftItem(), pullItem()]} />);
     expect(screen.getByText('Dependencies live on issues. This board has none.')).toBeDefined();
     expect(screen.queryByTestId('project-graph-view')).toBeNull();
   });
 
   it('items with zero edges still render as nodes, plus the "nothing to draw yet" banner', () => {
-    render(<Harness items={[issueItem(), issueItem()]} />);
+    renderGraph(<Harness items={[issueItem(), issueItem()]} />);
     expect(screen.getByText(/No dependencies found/)).toBeDefined();
     expect(screen.getAllByText(/No dependencies found/)[0]?.textContent).toContain('not on this board');
   });
 
   it('drops chips at low zoom (level of detail) and restores them back at 1×', () => {
     const item = issueItem({ content: { type: 'issue', assignees: ['octocat'] } as never });
-    const { container } = render(<Harness items={[item]} />);
+    const { container } = renderGraph(<Harness items={[item]} />);
     const canvas = screen.getByRole('application');
 
     fireEvent.wheel(canvas, { ctrlKey: true, deltaY: 500, clientX: 100, clientY: 100 });
@@ -161,7 +170,7 @@ describe('ProjectGraphView', () => {
   });
 
   it('Home re-fits after a zoom/pan without throwing', () => {
-    render(<Harness items={[issueItem(), issueItem()]} />);
+    renderGraph(<Harness items={[issueItem(), issueItem()]} />);
     const canvas = screen.getByRole('application');
     fireEvent.wheel(canvas, { ctrlKey: true, deltaY: 200, clientX: 50, clientY: 50 });
     fireEvent.keyDown(canvas, { key: 'Home' });
@@ -171,7 +180,7 @@ describe('ProjectGraphView', () => {
   it('Escape clears the selection', () => {
     const onSelectItem = vi.fn();
     const item = issueItem();
-    render(
+    renderGraph(
       <ProjectGraphView
         graph={graphFor([item])}
         items={[item]}
@@ -189,7 +198,7 @@ describe('ProjectGraphView', () => {
   it('clicking a node calls onSelectItem with its item id', () => {
     const onSelectItem = vi.fn();
     const item = issueItem();
-    const { container } = render(
+    const { container } = renderGraph(
       <ProjectGraphView
         graph={graphFor([item])}
         items={[item]}
@@ -209,7 +218,7 @@ describe('ProjectGraphView', () => {
     const dependent = withBlockedBy(issueItem(), [
       { number: blocker.content.type === 'issue' ? blocker.content.number : 0, title: '', state: 'open', repo: '' },
     ]);
-    render(<Harness items={[blocker, dependent]} />);
+    renderGraph(<Harness items={[blocker, dependent]} />);
     const dependentKey = `#${dependent.content.type === 'issue' ? dependent.content.number : 0}`;
     const dependentNode = document.querySelector(`[data-node-key="${dependentKey}"]`) as HTMLElement;
     // A click both selects and records the graph's own `focusedKey` — the
@@ -230,7 +239,7 @@ describe('ProjectGraphView — Theme H facets', () => {
     // `items` (the full graph) carries both; `filteredItems` (what the view
     // narrows to) carries only the dependent — the blocker did not survive
     // the shared toolbar filter.
-    const { container } = render(<Harness items={[blocker, dependent]} filteredItems={[dependent]} />);
+    const { container } = renderGraph(<Harness items={[blocker, dependent]} filteredItems={[dependent]} />);
     expect(container.querySelectorAll('[data-graph-node]').length).toBe(1);
     expect(container.querySelectorAll('[data-edge-kind]').length).toBe(0);
   });
@@ -245,18 +254,18 @@ describe('ProjectGraphView — Theme H facets', () => {
       } as never,
     });
 
-    const { container: hidden } = render(<Harness items={[parent, child]} />);
+    const { container: hidden } = renderGraph(<Harness items={[parent, child]} />);
     expect(hidden.querySelectorAll('[data-edge-kind="contains"]').length).toBe(0);
 
     cleanup();
-    const { container: shown } = render(
+    const { container: shown } = renderGraph(
       <Harness items={[parent, child]} facets={{ ...DEFAULT_GRAPH_FACETS, showContains: true }} />,
     );
     expect(shown.querySelectorAll('[data-edge-kind="contains"]').length).toBe(1);
   });
 
   it('hideIsolated with a genuinely zero-edge graph still shows the zero-edge banner, not the canvas gone blank', () => {
-    render(<Harness items={[issueItem(), issueItem()]} facets={{ ...DEFAULT_GRAPH_FACETS, hideIsolated: true }} />);
+    renderGraph(<Harness items={[issueItem(), issueItem()]} facets={{ ...DEFAULT_GRAPH_FACETS, hideIsolated: true }} />);
     expect(screen.getByText(/No dependencies found/)).toBeDefined();
   });
 
@@ -265,7 +274,7 @@ describe('ProjectGraphView — Theme H facets', () => {
     const dependent = withBlockedBy(issueItem(), [
       { number: blocker.content.type === 'issue' ? blocker.content.number : 0, title: '', state: 'open', repo: '' },
     ]);
-    const { container } = render(<Harness items={[blocker, dependent]} facets={{ ...DEFAULT_GRAPH_FACETS, only: 'blocked' }} />);
+    const { container } = renderGraph(<Harness items={[blocker, dependent]} facets={{ ...DEFAULT_GRAPH_FACETS, only: 'blocked' }} />);
     expect(container.querySelectorAll('[data-graph-node][data-blocked]').length).toBe(1);
     expect(container.querySelectorAll('[data-graph-node]').length).toBe(1);
   });
@@ -274,7 +283,7 @@ describe('ProjectGraphView — Theme H facets', () => {
     const a = issueItem();
     const b = withBlockedBy(issueItem(), [{ number: a.content.type === 'issue' ? a.content.number : 0, title: '', state: 'open', repo: '' }]);
     const c = withBlockedBy(issueItem(), [{ number: b.content.type === 'issue' ? b.content.number : 0, title: '', state: 'open', repo: '' }]);
-    const { container } = render(
+    const { container } = renderGraph(
       <Harness items={[a, b, c]} selectedItemId={b.id} facets={{ ...DEFAULT_GRAPH_FACETS, depth: 1 }} />,
     );
     expect(container.querySelectorAll('[data-graph-node]').length).toBe(3); // a, b, c all one hop from b

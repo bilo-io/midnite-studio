@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../../components/dialog-host';
 import { issueItem } from '../__fixtures__/project-item';
 import { useUiStore } from '../../../store/ui-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
@@ -8,6 +10,13 @@ import type { PositionedNode } from './graph-layout';
 import { ProjectGraphNode } from './project-graph-node';
 
 afterEach(cleanup);
+
+/** `useCardPlay` (Theme A/D) reaches `useDialogs()` unconditionally, so
+ *  every render needs the host it expects in the real app tree — passed as
+ *  RTL's own `wrapper` option so `rerender` keeps it too. */
+function renderNode(ui: ReactElement) {
+  return render(ui, { wrapper: DialogHost });
+}
 
 function baseNode(overrides: Partial<PositionedNode> = {}): PositionedNode {
   return {
@@ -41,7 +50,7 @@ describe('ProjectGraphNode', () => {
         assignees: ['octocat'],
       } as never,
     });
-    render(
+    renderNode(
       <ProjectGraphNode node={baseNode()} item={item} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
     );
     expect(screen.getByText('Fix the flaky test')).toBeDefined();
@@ -52,7 +61,7 @@ describe('ProjectGraphNode', () => {
 
   it('renders a foreign node with no item — the number as its title, no chips, dashed border, no repeated number row', () => {
     const node = baseNode({ itemId: '', foreign: true, title: '', repo: 'acme/other', number: 7, key: 'acme/other#7' });
-    const { container } = render(
+    const { container } = renderNode(
       <ProjectGraphNode node={node} item={undefined} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
     );
     expect(screen.getAllByText('#7')).toHaveLength(1); // title only — no redundant number row
@@ -62,13 +71,13 @@ describe('ProjectGraphNode', () => {
 
   it('falls back to "Unknown issue" when a foreign node has neither a title nor a number', () => {
     const node = baseNode({ itemId: '', foreign: true, title: '', number: null, key: 'x' });
-    render(<ProjectGraphNode node={node} item={undefined} fields={[]} glow="idle" selected={false} onSelect={() => {}} />);
+    renderNode(<ProjectGraphNode node={node} item={undefined} fields={[]} glow="idle" selected={false} onSelect={() => {}} />);
     expect(screen.getByText('Unknown issue')).toBeDefined();
   });
 
   it('drops chips and assignees when detailed is false', () => {
     const item = issueItem({ content: { type: 'issue', assignees: ['octocat'] } as never });
-    const { container } = render(
+    const { container } = renderNode(
       <ProjectGraphNode
         node={baseNode()}
         item={item}
@@ -84,7 +93,7 @@ describe('ProjectGraphNode', () => {
   });
 
   it('applies agent-run-glow is-running only when glow is not idle', () => {
-    const { container, rerender } = render(
+    const { container, rerender } = renderNode(
       <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
     );
     expect(container.querySelector('[data-graph-node]')?.className).not.toContain('agent-run-glow');
@@ -98,7 +107,7 @@ describe('ProjectGraphNode', () => {
   });
 
   it('waiting and open each get their own distinct class, same as the card (Theme F deferred item)', () => {
-    const { container, rerender } = render(
+    const { container, rerender } = renderNode(
       <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="waiting" selected={false} onSelect={() => {}} />,
     );
     let el = container.querySelector('[data-graph-node]')!;
@@ -118,7 +127,7 @@ describe('ProjectGraphNode', () => {
   });
 
   it('marks selected via aria-pressed, independent of tabIndex', () => {
-    const { container, rerender } = render(
+    const { container, rerender } = renderNode(
       <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
     );
     let el = container.querySelector('[data-graph-node]')!;
@@ -134,7 +143,7 @@ describe('ProjectGraphNode', () => {
   });
 
   it('the roving tab stop is a separate, explicit prop from selected', () => {
-    const { container } = render(
+    const { container } = renderNode(
       <ProjectGraphNode
         node={baseNode()}
         item={issueItem()}
@@ -149,7 +158,7 @@ describe('ProjectGraphNode', () => {
   });
 
   it('carries data-blocked/data-ready/data-foreign only when the node says so', () => {
-    const { container } = render(
+    const { container } = renderNode(
       <ProjectGraphNode
         node={baseNode({ blocked: true, ready: false, foreign: true })}
         item={undefined}
@@ -166,7 +175,7 @@ describe('ProjectGraphNode', () => {
   });
 
   it('dims the inner content, not the outer glow-bearing element, when blocked', () => {
-    const { container } = render(
+    const { container } = renderNode(
       <ProjectGraphNode node={baseNode({ blocked: true })} item={issueItem()} fields={[]} glow="running" selected={false} onSelect={() => {}} />,
     );
     const outer = container.querySelector('[data-graph-node]')!;
@@ -177,14 +186,14 @@ describe('ProjectGraphNode', () => {
   });
 
   it('applies no dimming when not blocked', () => {
-    const { container } = render(
+    const { container } = renderNode(
       <ProjectGraphNode node={baseNode({ blocked: false })} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
     );
     expect(container.querySelector('.opacity-\\[0\\.55\\]')).toBeNull();
   });
 
   it('renders an affirmative ready badge only when the node is ready', () => {
-    const { container, rerender } = render(
+    const { container, rerender } = renderNode(
       <ProjectGraphNode node={baseNode({ ready: false })} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
     );
     expect(screen.queryByRole('img', { name: 'Ready to start' })).toBeNull();
@@ -197,7 +206,7 @@ describe('ProjectGraphNode', () => {
 
   it('calls onSelect on click and on Enter/Space', () => {
     const onSelect = vi.fn();
-    const { container } = render(
+    const { container } = renderNode(
       <ProjectGraphNode node={baseNode()} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={onSelect} />,
     );
     const el = container.querySelector('[data-graph-node]')!;
@@ -209,7 +218,7 @@ describe('ProjectGraphNode', () => {
 
   it('renders a 2.5px green border when node.state is closed', () => {
     const closedNode = baseNode({ state: 'closed' });
-    const { container } = render(
+    const { container } = renderNode(
       <ProjectGraphNode node={closedNode} item={issueItem()} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
     );
     const el = container.querySelector('[data-graph-node]')!;
@@ -228,7 +237,7 @@ describe('ProjectGraphNode', () => {
         assignees: ['octocat'],
       } as never,
     });
-    const { container } = render(
+    const { container } = renderNode(
       <ProjectGraphNode node={baseNode()} item={item} fields={[]} glow="idle" selected={false} onSelect={() => {}} />,
     );
     const avatar = screen.getByAltText('octocat');
@@ -238,7 +247,7 @@ describe('ProjectGraphNode', () => {
     expect(headerRow?.contains(avatar)).toBe(true);
   });
 
-  it('renders play button in the bottom right corner and triggers startAgent', () => {
+  it('renders play button in the bottom right corner and opens the fallback menu with no skill set (Theme D)', () => {
     const item = issueItem({
       content: {
         type: 'issue',
@@ -249,7 +258,7 @@ describe('ProjectGraphNode', () => {
       } as never,
     });
     const onSelect = vi.fn();
-    const { container } = render(
+    const { container } = renderNode(
       <ProjectGraphNode
         node={baseNode()}
         item={item}
@@ -268,6 +277,44 @@ describe('ProjectGraphNode', () => {
     fireEvent.click(playBtn);
     // Clicking the play button should stop propagation and not trigger card selection
     expect(onSelect).not.toHaveBeenCalled();
+    // No skill set for this (freshly-minted) item — the pointer-anchored
+    // fallback menu offers exactly Exec, Brainstorm, Refine, nothing launches yet.
+    expect(screen.getByRole('menuitem', { name: 'Exec' })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: 'Brainstorm' })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: 'Refine' })).toBeDefined();
+    expect(useTerminalStore.getState().sessions).toHaveLength(0);
+  });
+
+  it('starts an agent directly, no menu, once a skill is set for this card (Theme D)', () => {
+    const item = issueItem({
+      content: {
+        type: 'issue',
+        number: 42,
+        title: 'Task to run',
+        body: 'Do some work',
+        assignees: [],
+      } as never,
+    });
+    useUiStore.setState({ cardSkillByTask: { [`proj-1:${item.id}`]: 'execAdhoc' } });
+    const onSelect = vi.fn();
+    const { container } = renderNode(
+      <ProjectGraphNode
+        node={baseNode()}
+        item={item}
+        fields={[]}
+        glow="idle"
+        selected={false}
+        projectId="proj-1"
+        onSelect={onSelect}
+      />,
+    );
+
+    const playBtn = container.querySelector('[data-testid="graph-node-play-agent"]')!;
+    fireEvent.click(playBtn);
+
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(useTerminalStore.getState().sessions).toHaveLength(1);
   });
 
   it('clicking play button reveals terminal when a session is already active', () => {
@@ -298,7 +345,7 @@ describe('ProjectGraphNode', () => {
     });
 
     const onSelect = vi.fn();
-    const { container } = render(
+    const { container } = renderNode(
       <ProjectGraphNode
         node={baseNode()}
         item={item}

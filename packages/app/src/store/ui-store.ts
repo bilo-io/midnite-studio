@@ -52,6 +52,7 @@ import { DEFAULT_EDITOR_FONT_SIZE, DEFAULT_EDITOR_TAB_SIZE } from '../lib/monaco
 import { EMPTY_PROJECT_ITEM_FILTER, type ProjectItemFilterState } from '../features/projects/filter';
 import { DEFAULT_GRAPH_FACETS, type ProjectGraphFacets } from '../features/projects/graph/graph-filter';
 import { touchProjectView } from '../features/projects/project-view-lru';
+import { touchCardSkill } from '../features/projects/board/card-skill-lru';
 import type { SortState } from '../features/projects/sort';
 import { useFileEditorStore } from './file-editor-store';
 
@@ -1290,6 +1291,22 @@ export type UiState = {
   blockedByFieldName: string;
   setBlockedByFieldName: (blockedByFieldName: string) => void;
   /**
+   * Which skill a Projects card's own Play button launches (Phase 92 Theme
+   * C), keyed by the same composite `` `${projectId}:${itemId}` `` string
+   * `useCardPlay`'s `taskRef` already carries — there is no single id that
+   * identifies a task across a possible cross-repo project, the identical
+   * trap `projectViewByProject` is keyed around `projectId` for. Renderer-
+   * local, deliberately: no `ForgeProjectField`, no GitHub write, no IPC
+   * channel (see the phase doc's own Decisions). Absent for a key is the one
+   * true "unset" — Theme D's fork on whether a skill is chosen reads the key's
+   * absence, not an empty string, so "Not set" in the picker clears the entry
+   * rather than writing one. Bounded by `touchCardSkill`'s LRU
+   * (`card-skill-lru.ts`) for the same reason `projectViewByProject` is.
+   */
+  cardSkillByTask: Record<string, AgentCommandId>;
+  /** `skillId` of `undefined` clears the entry — the real "Not set", not an empty string written in its place. */
+  setCardSkill: (taskKey: string, skillId: AgentCommandId | undefined) => void;
+  /**
    * Which skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
@@ -1833,6 +1850,7 @@ export type PersistedUi = Pick<
   | 'projectBoardByRepo'
   | 'projectsMode'
   | 'projectViewByProject'
+  | 'cardSkillByTask'
   | 'blockedByFieldName'
   | 'agentSkills'
   | 'primaryAgent'
@@ -1966,6 +1984,7 @@ export const useUiStore = create<UiState>()(
       projectBoardByRepo: {},
       projectsMode: {},
       projectViewByProject: {},
+      cardSkillByTask: {},
       blockedByFieldName: 'Blocked by',
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
@@ -2608,6 +2627,14 @@ export const useUiStore = create<UiState>()(
           };
         }),
       setBlockedByFieldName: (blockedByFieldName) => set({ blockedByFieldName }),
+      setCardSkill: (taskKey, skillId) =>
+        set((state) => {
+          if (skillId === undefined) {
+            const { [taskKey]: _dropped, ...rest } = state.cardSkillByTask;
+            return { cardSkillByTask: rest };
+          }
+          return { cardSkillByTask: touchCardSkill(state.cardSkillByTask, taskKey, skillId) };
+        }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
@@ -2620,7 +2647,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 19,
+      version: 20,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2675,6 +2702,7 @@ export const useUiStore = create<UiState>()(
         projectBoardByRepo: state.projectBoardByRepo,
         projectsMode: state.projectsMode,
         projectViewByProject: state.projectViewByProject,
+        cardSkillByTask: state.cardSkillByTask,
         blockedByFieldName: state.blockedByFieldName,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
@@ -2788,6 +2816,10 @@ export const useUiStore = create<UiState>()(
        * shape to carry forward — the apps rail did not exist before this
        * version — and `[]` is also the fresh-install default, per the
        * interface docblock's "opt in, not opt out" reasoning.
+       * v19 → v20: seed `cardSkillByTask = {}` (Phase 92 Theme C). No prior
+       * shape to carry forward — a card's Play button had no per-card skill
+       * before this version — so a pre-v20 blob and a fresh install land on
+       * the identical empty map.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -2828,6 +2860,7 @@ export const useUiStore = create<UiState>()(
           companionMusicOffer?: boolean;
           companionVolume?: number;
           companionMicMode?: CompanionMicMode;
+          cardSkillByTask?: Record<string, AgentCommandId>;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -2910,6 +2943,9 @@ export const useUiStore = create<UiState>()(
           state.agentModes = {};
           state.agentApiKeys = {};
         }
+        if (version < 20) {
+          state.cardSkillByTask = {};
+        }
         return state as PersistedUi;
       },
       /**
@@ -2956,6 +2992,7 @@ export const useUiStore = create<UiState>()(
           projectBoardByRepo: { ...current.projectBoardByRepo, ...saved.projectBoardByRepo },
           projectsMode: { ...current.projectsMode, ...saved.projectsMode },
           projectViewByProject: { ...current.projectViewByProject, ...saved.projectViewByProject },
+          cardSkillByTask: { ...current.cardSkillByTask, ...saved.cardSkillByTask },
         };
       },
     },

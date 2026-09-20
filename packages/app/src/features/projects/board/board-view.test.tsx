@@ -113,6 +113,11 @@ const uiState = {
   // a plain selector function has no `.getState` unless this attaches one.
   incrementOccluders: vi.fn(),
   decrementOccluders: vi.fn(),
+  // `useCardPlay` (Phase 92 Theme D) and `CardDetail`'s own Skill picker
+  // (Theme C) both read/write these.
+  cardSkillByTask: {} as Record<string, string>,
+  setCardSkill: vi.fn(),
+  agentSkills: {} as Record<string, string | undefined>,
 };
 function useUiStoreMock<T>(selector: (state: typeof uiState) => T): T {
   return selector(uiState);

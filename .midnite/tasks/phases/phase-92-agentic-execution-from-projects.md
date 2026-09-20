@@ -108,9 +108,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `composeSkillLaunchPrompt`, plus the empty-`skillTemplate` case (should not happen once Theme C
       lands, but a pure function is tested against its own inputs, not its caller's promises).
 
-### C — A skill lives on the card, chosen in its detail pane (M)
+### C — A skill lives on the card, chosen in its detail pane (M) — ✅ DONE (PR #481, 2026-09-20)
 
-- [ ] `cardSkillByTask: Record<string, AgentCommandId>` in
+- [x] `cardSkillByTask: Record<string, AgentCommandId>` in
       [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts), keyed by a composite
       `` `${projectId}:${itemId}` `` string (there is no single id that already identifies a task
       across a possible cross-repo project) — added to `PersistedUi`, `partialize` **and** the
@@ -118,18 +118,18 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       [Phase 52 Theme D](phase-52-projects-navigation.md)'s own reminder that `merge` is the one a
       forgotten key silently drops on the next app version. Version bump from the current **19**,
       with a migration seeding an empty map.
-- [ ] An LRU cap mirroring
+- [x] An LRU cap mirroring
       [`project-view-lru.ts`](../../../packages/app/src/features/projects/project-view-lru.ts)'s
       `touchProjectView` — a new `card-skill-lru.ts`'s `touchCardSkill`, relying on the same
       insertion-order-of-a-plain-object trick rather than a second bookkeeping array. A user who
       assigns skills across many cards over time should not accumulate an unbounded map any more
       than one who opens many projects should.
-- [ ] Registered in [`persisted-keys.ts`](../../../packages/app/src/store/persisted-keys.ts) as a
+- [x] Registered in [`persisted-keys.ts`](../../../packages/app/src/store/persisted-keys.ts) as a
       `SESSION_STATE_KEYS` entry, not `PREFERENCE_KEYS` — the same classification
       `projectViewByProject` already carries ("last-viewed view per project"; here, "last-chosen
       skill per card"). It has no Settings-page control by design — it is set from the card, not a
       settings form — which is exactly what `SESSION_STATE_KEYS` requires a one-clause reason for.
-- [ ] A "Skill" picker in
+- [x] A "Skill" picker in
       [`card-detail.tsx`](../../../packages/app/src/features/projects/board/card-detail.tsx),
       between the assignees block and the generic fields loop — reusing
       [`IconSelect`](../../../packages/app/src/components/select/icon-select.tsx), the same control
@@ -138,44 +138,48 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       Address Issue, Brainstorm, Refine Plan, Swarm) with each option's own icon and label. **Not**
       a `ForgeProjectField`-backed control — see Decisions for why this is local state, not a
       GitHub-side write.
-- [ ] "Not set" is a real, distinct option (not merely "whatever is first in the list") — clearing
+- [x] "Not set" is a real, distinct option (not merely "whatever is first in the list") — clearing
       it removes the map entry rather than writing an empty string, so `cardSkillByTask[key]` being
       absent is the one true "unset" this phase's Theme D forks on.
-- [ ] Because `CardDetail` is the single component both
+- [x] Because `CardDetail` is the single component both
       [`card-panel-stack.tsx`](../../../packages/app/src/features/projects/board/card-panel-stack.tsx)
       call sites render (board mode and the dependency-graph mode both wrap it), this one picker
       reaches both surfaces with no second implementation.
-- [ ] Tests: `card-skill-lru.test.ts` (eviction, oldest-first, matching `project-view-lru.test.ts`'s
+- [x] Tests: `card-skill-lru.test.ts` (eviction, oldest-first, matching `project-view-lru.test.ts`'s
       own cases), `ui-store.test.ts` (partialize/merge round-trip, migration seeds an empty map),
       `card-detail.test.tsx` (picking a skill persists it under the composite key; "Not set" clears
       it; switching cards shows each card's own independent choice).
 
-### D — Play, forked on whether a skill is set (M)
+### D — Play, forked on whether a skill is set (M) — ✅ DONE (PR #481, 2026-09-20)
 
-- [ ] `useCardPlay` (Theme A) reads `cardSkillByTask[`${projectId}:${item.id}`]` from `ui-store`. If
+- [x] `useCardPlay` (Theme A) reads `cardSkillByTask[`${projectId}:${item.id}`]` from `ui-store`. If
       set, it composes via Theme B's `composeSkillLaunchPrompt` with that skill's template (`agentSkills[id]
       ?? DEFAULT_AGENT_SKILLS[id]`, the same resolution `skillHandoff` already does) and calls
       `startAgent` immediately — no menu, no change in *when* it launches, only in what it sends.
       This is the common case once a card has been used once: click Play, it runs.
-- [ ] If unset, clicking Play opens a `ContextMenu` at the button's own position — `{ clientX:
+- [x] If unset, clicking Play opens a `ContextMenu` at the button's own position — `{ clientX:
       event.clientX, clientY: event.clientY }` from the button's click event, through
       `useDialogs().openMenu`, the identical call [`board-view.tsx:667`](../../../packages/app/src/features/projects/board/board-view.tsx)
       already makes for "Move to ▸" — offering exactly three entries: **Exec** (`execAdhoc`),
       **Brainstorm** (`brainstorm`), **Refine** (`refine`). See Decisions for why "Exec" resolves to
       `execAdhoc` rather than `execBacklog`.
-- [ ] Selecting an entry does two things in one action: launches immediately with that skill (Theme
+- [x] Selecting an entry does two things in one action: launches immediately with that skill (Theme
       B's composed prompt), and writes it into `cardSkillByTask` (Theme C) so the next Play on the
       same card skips the menu — see Decisions for the "persist vs one-off" call.
-- [ ] **The context menu never appears once a skill is set in the detail pane.** This is the literal
+- [x] **The context menu never appears once a skill is set in the detail pane.** This is the literal
       requirement from the brief, and the fork above is written so there is exactly one condition
       (`cardSkillByTask[key] !== undefined`) deciding it — not two paths that could drift.
-- [ ] The "already running → reveal" branch is untouched by any of this: a card with a live session
+- [x] The "already running → reveal" branch is untouched by any of this: a card with a live session
       still reveals it on Play regardless of whether a skill is set, exactly as today.
-- [ ] Tests: `use-card-play.test.tsx` — skill set launches directly with the shrunk prompt and no
+- [x] Tests: `use-card-play.test.tsx` — skill set launches directly with the shrunk prompt and no
       menu; skill unset opens the menu with exactly the three entries; selecting one launches with
       the right skill's template *and* persists it; a second Play on the same card after that no
-      longer opens the menu. `e2e/kanban.spec.ts` and a `project-graph-view` e2e case for the same
-      three behaviours through a real render, on both surfaces.
+      longer opens the menu. **The `e2e/kanban.spec.ts`/`project-graph-view` e2e half is deferred**,
+      not built: GitHub Actions is hard-blocked account-wide this batch (exhausted spending limit)
+      and the human's ruling for it was to run the full *local* gate and merge on that, which does
+      not reach Playwright e2e/visual at all — see [`docs/TESTING.md`](../../../docs/TESTING.md)'s
+      own vitest-first rule, satisfied here by the jsdom coverage above; the e2e cases remain to add
+      once CI (or a local Playwright run) is reachable again.
 
 ### E — Verification coverage (M)
 

@@ -1297,3 +1297,92 @@ describe('setAppEnabled (Phase 83 Theme A)', () => {
     expect(useUiStore.getState().enabledApps).toEqual(['youtube']);
   });
 });
+
+describe('cardSkillByTask (Phase 92 Theme C)', () => {
+  beforeEach(() => {
+    reset();
+    useUiStore.setState({ cardSkillByTask: {} });
+  });
+
+  it('has no entry until a card has ever had a skill set', () => {
+    expect(useUiStore.getState().cardSkillByTask['proj-1:item-1']).toBeUndefined();
+  });
+
+  it('setCardSkill records the choice under the composite key', () => {
+    useUiStore.getState().setCardSkill('proj-1:item-1', 'execAdhoc');
+    expect(useUiStore.getState().cardSkillByTask['proj-1:item-1']).toBe('execAdhoc');
+  });
+
+  it('setCardSkill with undefined clears the entry — the real "Not set"', () => {
+    useUiStore.getState().setCardSkill('proj-1:item-1', 'execAdhoc');
+    useUiStore.getState().setCardSkill('proj-1:item-1', undefined);
+    expect('proj-1:item-1' in useUiStore.getState().cardSkillByTask).toBe(false);
+  });
+
+  it('holds independent state per card', () => {
+    useUiStore.getState().setCardSkill('proj-1:item-1', 'brainstorm');
+    useUiStore.getState().setCardSkill('proj-1:item-2', 'refine');
+
+    expect(useUiStore.getState().cardSkillByTask['proj-1:item-1']).toBe('brainstorm');
+    expect(useUiStore.getState().cardSkillByTask['proj-1:item-2']).toBe('refine');
+  });
+
+  it('persists the map', () => {
+    useUiStore.getState().setCardSkill('proj-1:item-1', 'execAdhoc');
+
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+      state: { cardSkillByTask: Record<string, string> };
+    };
+    expect(saved.state.cardSkillByTask['proj-1:item-1']).toBe('execAdhoc');
+  });
+
+  it('a payload predating the key merges in as an empty map, not undefined', () => {
+    const merged = useUiStore.persist.getOptions().merge?.({}, useUiStore.getState()) as {
+      cardSkillByTask: Record<string, unknown>;
+    };
+    expect(merged.cardSkillByTask).toEqual({});
+  });
+
+  it('the LRU evicts oldest-first once past the cap', () => {
+    for (let i = 0; i < 201; i += 1) {
+      useUiStore.getState().setCardSkill(`p1:item-${i}`, 'execAdhoc');
+    }
+
+    const keys = Object.keys(useUiStore.getState().cardSkillByTask);
+    expect(keys).toHaveLength(200);
+    expect(keys).not.toContain('p1:item-0');
+    expect(keys).toContain('p1:item-200');
+  });
+});
+
+describe('v19 -> v20 migration (Phase 92 Theme C: cardSkillByTask)', () => {
+  // `merge` re-spreads `current.cardSkillByTask` under `saved.cardSkillByTask`
+  // (the same pattern `projectViewByProject` uses), so a live store left with
+  // entries by a sibling test (the LRU-cap test above, in particular) would
+  // otherwise survive a rehydrate whose payload has none — reset first, the
+  // same way the "project view state" describe's own `beforeEach` does.
+  beforeEach(() => {
+    reset();
+    useUiStore.setState({ cardSkillByTask: {} });
+  });
+
+  it('seeds cardSkillByTask as an empty map — no prior shape to carry forward', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({}, 19) as { cardSkillByTask: Record<string, unknown> };
+    expect(migrated.cardSkillByTask).toEqual({});
+  });
+
+  it('a persisted v19 blob round-trips through the real store with cardSkillByTask seeded empty', () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({
+        state: { primaryAgent: 'claude' },
+        version: 19,
+      }),
+    );
+    void useUiStore.persist.rehydrate();
+    expect(useUiStore.getState().cardSkillByTask).toEqual({});
+    // Untouched by this migration.
+    expect(useUiStore.getState().primaryAgent).toBe('claude');
+  });
+});
