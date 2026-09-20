@@ -9,11 +9,26 @@ End-to-end "fix a reported issue" for **Midnite Studio**, driven by the repo's i
 
 **Conversation style — enforced.** Be terse to save time and tokens. No preamble, no recap of these instructions, no narrating what you're *about* to do. Report results, not intentions; bullets over prose. Stay silent on no-op stages. Spend tokens on the root cause, the diff, and the decisions — not commentary.
 
-## The board — read this first
+## The boards — read this first
 
-- **Issues and code live in the same repo**, so `Fixes #N` in a PR body **auto-closes** the issue on merge, bare `gh` commands hit the right repo, and cross-references show up on the issue. (This differs from midnite's two-repo split — don't import those habits.)
-- Still comment the claim on the issue (Stage 4) and a human-readable wrap-up after merge (Stage 12) — auto-close tells the reporter *that* it closed, not *what* changed for them.
-- If `gh` says *"Could not resolve repository"*, the active account flipped: `gh auth switch --user bilo-io`.
+Two boards, two audiences — this skill now scans and writes to both:
+
+- **`bilo-io/midnite-studio` (this repo) — the internal engineering backlog.** Issues and code
+  live in the same repo here, so a bare `gh issue`/`gh pr` call hits the right repo with no `-R`,
+  and `Fixes #N` in a PR body **auto-closes** the issue on merge.
+- **`bilo-io/midnite-apps` (public) — the user-facing board.** Real bug/feature reports filed by
+  the in-app "Report a bug"/"Request a feature" composer land *here*, not in this repo. Every `gh`
+  call against it needs an explicit **`-R bilo-io/midnite-apps`** — nothing defaults to it the
+  way a same-repo call does — and the closing keyword is the cross-repo form,
+  **`Fixes bilo-io/midnite-apps#<N>`**. That auto-closes on merge only because both repos share
+  the `bilo-io` owner and the PR author has write access to both — true today; if that ever stops
+  holding, fall back to a manual `gh issue close -R bilo-io/midnite-apps <N>` plus the Stage 12
+  wrap-up comment instead of relying on the keyword.
+
+Still comment the claim on the issue (Stage 4) and a human-readable wrap-up after merge
+(Stage 12) — auto-close tells the reporter *that* it closed, not *what* changed for them.
+
+If `gh` says *"Could not resolve repository"*, the active account flipped: `gh auth switch --user bilo-io`.
 
 ## Respect
 
@@ -22,22 +37,33 @@ End-to-end "fix a reported issue" for **Midnite Studio**, driven by the repo's i
 - **Every writing tool call must be rooted at the worktree path** — absolute paths rooted at the primary checkout silently edit the wrong tree, and the local gate then passes on stale code.
 - `.midnite/tasks/` is the *roadmap* tracker and is **not** the driver here — the issue board is. Only touch `.midnite/tasks/` if the fix happens to close out an existing phase item, and say so if it does.
 
-## 1 · Scan the board
+## 1 · Scan both boards
 
 ```bash
 gh issue list --state open --limit 50 \
   --json number,title,labels,createdAt,updatedAt,comments,author,url
+gh issue list -R bilo-io/midnite-apps --label "app: midnite-studio" --state open --limit 50 \
+  --json number,title,labels,createdAt,updatedAt,comments,author,url
 ```
 
-Then read the **body** of every plausible candidate (`gh issue view <n> --comments`) — the reporter's environment details (app version, OS, repo size/shape) are the reproduction recipe.
+The second call is scoped to `app: midnite-studio` — `midnite-apps` is shared across every app
+in that portfolio, and an unfiltered list would pull in reports for apps this skill can't fix.
+
+Then read the **body** of every plausible candidate — `gh issue view <n> --comments` for a
+same-repo issue, `gh issue view <n> -R bilo-io/midnite-apps --comments` for one from the apps
+board — the reporter's environment details (app version, OS, repo size/shape) are the
+reproduction recipe.
 
 Filter out, silently:
 
 - `wontfix` · `duplicate` · `invalid` · `question` with no defect behind it.
-- **Already claimed / in flight.** Check both sides: a claim comment on the issue, *and* an open PR that names it — `gh pr list --state open --search "#<n>"` plus a plain `gh pr list --state open` skim. A claim comment is **not a lock**: re-check recently merged PRs (`gh pr list --state merged --limit 15`) before starting, since a parallel session may have already shipped it.
+- **Already claimed / in flight.** Check both sides: a claim comment on the issue, *and* an open PR that names it — `gh pr list --state open --search "#<n>"` plus a plain `gh pr list --state open` skim (add `-R bilo-io/midnite-apps` for that board's candidates). A claim comment is **not a lock**: re-check recently merged PRs (`gh pr list --state merged --limit 15`) before starting, since a parallel session may have already shipped it.
 - Anything already fixed on `main` but not yet released — verify against the code before believing a stale report. Say so and move on if that's the case.
 
-Emit a tight digest: one line per surviving candidate (`#N · title · labels · age · reporter signal`).
+Emit a tight digest: one line per surviving candidate, tagged with its board so a user-filed
+report and an internal backlog item read distinctly — `#N · title · labels · age · reporter
+signal · [studio|apps]`. A `midnite-apps` candidate carries different reporter-cost weight in
+Stage 2's scoring: it's a stranger who filed through the in-app composer, not an internal note.
 
 ## 2 · Score for impact
 
@@ -85,7 +111,10 @@ Mark the recommendation `(Recommended)` and say in one line *why it beats the ot
    gh issue edit <N> --add-label "size/<S>"   # create the label first if absent
    ```
 
-   Add the label only if it exists or you create it (`gh label create size/M --color 5D9801`); never let a missing label abort the run.
+   For a `midnite-apps` candidate, add `-R bilo-io/midnite-apps` to **both** calls — neither
+   defaults to that repo.
+
+   Add the label only if it exists or you create it (`gh label create size/M --color 5D9801`, same `-R` if it's an apps-board issue); never let a missing label abort the run.
 3. Don't self-assign unless the user asks — assignment reads as a commitment.
 
 ## 5 · Reproduce & find the root cause — before any plan
@@ -146,7 +175,9 @@ Branch prefix: `fix/` for a bug, `feature/` for an enhancement.
 - Push, then `gh pr create --draft --base main`.
 - **Title:** `fix(<pkg>): <what> [<size> · <time>]`
 - **Body:**
-  - **Issue:** `Fixes #<N>` on its own line — same repo, so it **will** auto-close on merge.
+  - **Issue:** `Fixes #<N>` on its own line for a same-repo issue — it **will** auto-close on
+    merge. For a `midnite-apps` candidate, use the cross-repo keyword instead:
+    **`Fixes bilo-io/midnite-apps#<N>`** — see "The boards" above for why that still auto-closes.
   - **Root cause** in 1–3 bullets with `file:line` refs — the *why*, not a list of touched files.
   - **The proof:** the regression test and what it asserts.
   - Embedded before/after screenshots for a visual change. Commit the PNGs on the branch under `docs/screenshots/issue-<N>/` and reference them with **commit-pinned** raw URLs (`https://github.com/<owner>/<repo>/raw/<sha>/docs/screenshots/...`) so they survive a squash-merge + branch delete.
@@ -183,12 +214,15 @@ If the session ends before it fires, nothing is lost — Stage 13's sweep catche
 
 ## 12 · Only if the user says merge
 
-- `gh pr merge <n> --squash --delete-branch` (always squash). `Fixes #<N>` auto-closes the issue.
+- `gh pr merge <n> --squash --delete-branch` (always squash). `Fixes #<N>` (or
+  `Fixes bilo-io/midnite-apps#<N>`) auto-closes the issue.
 - **Still leave a human-readable wrap-up comment** on the issue — auto-close doesn't tell the reporter what changed:
 
   ```bash
   gh issue comment <N> --body "Fixed in <PR title> — merged to \`main\`. <one line on what changed for the user.> Ships in the next release."
   ```
+
+  Add `-R bilo-io/midnite-apps` if the issue lives there — this call doesn't default to it either.
 
   Keep it written for the reporter: what was wrong, what they'll see now, when. No internal jargon.
 - Consider a `CHANGELOG.md` entry under the unreleased section if the fix is user-facing.
