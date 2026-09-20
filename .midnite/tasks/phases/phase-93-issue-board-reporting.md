@@ -132,58 +132,77 @@ in [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts) takes
 - [x] Tests: schema round-trip beside the existing `ErrorReportSchema` tests; a handler test
       asserting an invalid payload resolves an error rather than throwing.
 
-### C — The composer dialog (M)
+### C — The composer dialog (M) — ✅ DONE (PR #TBD, 2026-09-20)
 
-- [ ] New `packages/app/src/components/report-issue-dialog.tsx` (+ `.test.tsx`) — a form inside
+- [x] New `packages/app/src/components/report-issue-dialog.tsx` (+ `.test.tsx`) — a form inside
       [`Modal`](../../../packages/app/src/components/modal.tsx) (`size="md"`), living beside
       `confirm-dialog.tsx`/`prompt-dialog.tsx` because it is triggered from two unrelated features
       (`monitor-page.tsx`'s Diagnostics accordion and `version-notes-panel.tsx`), not owned by
       either.
-- [ ] Fields, mirroring `bug.yml`/`feature.yml`'s own shape so a report filed from the app answers
+- [x] Fields, mirroring `bug.yml`/`feature.yml`'s own shape so a report filed from the app answers
       the same questions the web form would ask: a **Bug / Feature** toggle (picks `kind`), a
       **title** input (prefilled `[bug] `/`[feat] ` per the templates' own convention), a **What
       happened / What's the problem** textarea, and a **read-only diagnostics block** — the exact
       text `mstudio:report:bundle` already returns, already redacted, shown so the user can see
       what is about to be sent rather than trusting a "Copy diagnostics" button they pressed
       earlier and can no longer see.
-- [ ] The diagnostics block is **collapsible but on by default for a bug report, off by default
+- [x] The diagnostics block is **collapsible but on by default for a bug report, off by default
       for a feature request** — a feature request has no crash to attach, and showing an empty or
-      irrelevant log block first is the wrong default for that path.
-- [ ] Submit calls `useSubmitAppIssue()`; on success, shows the created issue's URL as a link
+      irrelevant log block first is the wrong default for that path. Implemented with `@bilo-io/ui`'s
+      `Accordion`, keyed on `kind` so toggling the Bug/Feature radio remounts it at the new
+      default rather than carrying over the other kind's open/closed state.
+- [x] Submit calls `useSubmitAppIssue()`; on success, shows the created issue's URL as a link
       (`openExternal`, same protocol-restricted path every other outbound link in this app uses)
       and closes; on failure, renders `gh`'s own words from `ForgeWriteResult.error`, the same
-      posture `gh-write.ts`'s docblock argues for everywhere else in this app.
-- [ ] **The fallback path is not a dead end.** When `cli.status !== 'ok'` (not installed, not
-      authenticated, wrong host), the dialog does not offer a disabled Submit button and nothing
-      else — it shows why, and a one-click "Open in browser instead" that does exactly what
-      today's button does (`openExternal(NEW_ISSUE_URL)`), with the diagnostics block still
-      offering its own "Copy" action so the user is no worse off than before this phase.
-- [ ] Wire both trigger sites: `CrashReporting()` in
+      posture `gh-write.ts`'s docblock argues for everywhere else in this app. **Decision, not
+      asked:** the "closes" is the link click itself — clicking "View issue" both opens the
+      browser and dismisses the dialog in one action, rather than an unattended auto-close that
+      would hide the link before it could be read.
+- [x] **The fallback path is not a dead end.** `cli.reason` (the schema's actual field —
+      `'ready' | 'not-installed' | 'not-authenticated'`, not the doc's shorthand `cli.status`)
+      is checked proactively via `useForgeCli()` before Submit is ever offered, not only after a
+      failed write. When it isn't `'ready'` the dialog shows why (`cli.hint`, or a generic
+      sentence per reason) and a one-click "Open in browser instead" that does exactly what
+      today's button did (`openExternal(NEW_ISSUE_URL)`), with the diagnostics block still
+      offering its own view so the user is no worse off than before this phase.
+- [x] Wire both trigger sites: `CrashReporting()` in
       [`monitor-page.tsx`](../../../packages/app/src/features/settings/settings-pages/monitor-page.tsx)
       (`:201-286`) and the "Report a bug" link in
       [`version-notes-panel.tsx`](../../../packages/app/src/features/version/version-notes-panel.tsx)
-      now open this dialog instead of calling `openExternal` directly.
-- [ ] Tests: `report-issue-dialog.test.tsx` — bug vs feature toggle changes labels/title/prefill,
-      a successful submit shows the issue link, a `cli`-not-ok result shows the fallback and the
+      now open this dialog instead of calling `openExternal` directly. `version-notes-panel.tsx`'s
+      `PanelLink` gained an optional `onClick` override (dropping its trailing chevron when used)
+      rather than a second link component, since the other two rows there still just navigate.
+- [x] Tests: `report-issue-dialog.test.tsx` — bug vs feature toggle changes labels/title/prefill,
+      a successful submit shows the issue link, a `cli`-not-ready result shows the fallback and the
       "Open in browser" path fires the same `NEW_ISSUE_URL` today's button does, and the
-      diagnostics block's default-open state per `kind`.
+      diagnostics block's default-open state per `kind` (read off the accordion header's
+      `aria-expanded`, since `@bilo-io/ui`'s `Accordion` keeps a collapsed body mounted —
+      `inert`, height-0 CSS — rather than unmounting it). Both wiring sites also got focused
+      coverage: `crash-reporting.test.tsx` (extended) and a new `version-notes-panel.test.tsx`.
 
-### D — Redaction stays the single source, and nothing leaves silently (S)
+### D — Redaction stays the single source, and nothing leaves silently (S) — ✅ DONE (PR #TBD, 2026-09-20)
 
-- [ ] The composer never calls `redactPaths` itself — it renders whatever
+- [x] The composer never calls `redactPaths` itself — it renders whatever
       `mstudio:report:bundle` already returned, so there is exactly one redaction path in the
       app, matching Phase 65 Decision 7 ("redaction lives in `shared`, and runs on the way in").
-- [ ] `AppIssueSubmitRequestSchema`'s `body` field, if the composer ever concatenates the user's
-      free text with the diagnostics block before sending (rather than sending them as two
-      sections `gh` joins), is capped the same way `ErrorReportSchema`'s fields are — an unbounded
-      string from a renderer that may itself be misbehaving is still a second failure mode here.
-- [ ] Confirm, with a test fixture, that `SECRET_PATTERNS` in
+      Verified with a test asserting the rendered block is byte-identical to the mocked
+      `bundle()` response.
+- [x] `AppIssueSubmitRequestSchema`'s `body` field (already capped to `FORGE_BODY_MAX` in Theme B)
+      — the composer does concatenate the user's free text with the diagnostics block before
+      sending (`composeIssueBody`, a two-section markdown join, not a re-formatting of either
+      side), and that function additionally clamps its own output to `FORGE_BODY_MAX` client-side,
+      on top of the schema's own cap — a renderer bug that produced a runaway string should not
+      depend on the main process to notice.
+- [x] Confirmed, with a test fixture, that `SECRET_PATTERNS` in
       [`redact.ts`](../../../packages/shared/src/redact.ts) needs no new entry for this phase — no
-      new credential shape is introduced (the composer requests no token, stores none), so this is
-      a verification bullet, not a build one.
-- [ ] Every submission requires the user to have the dialog open and press Submit. No
+      new credential shape is introduced (the composer requests no token, stores none). Added one
+      test to `redact.test.ts` running a realistic composer-built body (description + a
+      `## Diagnostics` section containing a foreign home directory and a GitHub PAT-shaped
+      string) through the unchanged `redactPaths` and asserting both are still caught.
+- [x] Every submission requires the user to have the dialog open and press Submit. No
       auto-submission on crash, no background retry queue. The dialog **is** the consent gate;
-      Decision 2 below records why a separate settings toggle was rejected.
+      Decision 2 below records why a separate settings toggle was rejected. Unchanged from Theme
+      C's implementation — nothing in this theme introduced a background path.
 
 ### E — The execution skill's gap, and only the gap (S)
 
@@ -228,22 +247,25 @@ flag, so it cannot see them.
 | Renderer, queries | [`services/queries.ts`](../../../packages/app/src/services/queries.ts) — `useSubmitAppIssue()` (B) |
 | Redaction (unchanged, verified) | [`redact.ts`](../../../packages/shared/src/redact.ts) — no new pattern needed (D) |
 | Skill | [`.claude/skills/midnite-address-issue/SKILL.md`](../../../.claude/skills/midnite-address-issue/SKILL.md) — Stage 1 dual-board scan, Stage 4/10/12 cross-repo `-R` + `Fixes owner/repo#N` (E) |
-| Tests | `gh-app-issue.test.ts`, `report-issue-dialog.test.tsx` (new); `channels`/`schemas`/`bridge` ipc tests, `queries.test.ts` (extended) |
+| Tests | `gh-app-issue.test.ts`, `report-issue-dialog.test.tsx` (new); `channels`/`schemas`/`bridge` ipc tests, `queries.test.ts` (extended); `redact.test.ts` — one composer-shaped body case (extended, D); `crash-reporting.test.tsx` — updated for the dialog wiring, `version-notes-panel.test.tsx` — new, both trigger sites (C) |
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green.
+- [x] `moon run :typecheck :lint :test` green (local — see PR body for the exact run; CI is
+      account-wide blocked this batch, see that same PR).
 - [ ] `createAppIssueCommand` always emits `-R 'bilo-io/midnite-apps'`, never the active repo's
       slug, regardless of which repo is open when the dialog is used — a mock-bridge test with a
-      different repo selected.
+      different repo selected. (Theme A's own verification, `gh-app-issue.test.ts`, PR #479.)
 - [ ] A successful submit surfaces the created issue's URL, and the composer's labels match
       `kind` (`bug`+`app: midnite-studio` vs `enhancement`+`app: midnite-studio`) — verified
       against the real label set already on `bilo-io/midnite-apps` (`gh label list`, checked this
-      phase, no creation step needed).
-- [ ] `cli.status !== 'ok'` (not installed / not authenticated) shows the fallback, and "Open in
+      phase, no creation step needed). (Theme A/B, PR #479 — `createAppIssue`'s own `KIND_LABELS`
+      mapping; the composer added in Theme C sends `kind` through unmodified.)
+- [x] `cli.reason !== 'ready'` (not installed / not authenticated) shows the fallback, and "Open in
       browser instead" fires the exact `NEW_ISSUE_URL` today's button already uses — the
-      pre-this-phase path is never regressed, only supplemented.
-- [ ] The diagnostics block shown in the dialog is byte-identical to what `mstudio:report:bundle`
+      pre-this-phase path is never regressed, only supplemented. Checked proactively via
+      `useForgeCli()`, not only after a failed submit.
+- [x] The diagnostics block shown in the dialog is byte-identical to what `mstudio:report:bundle`
       returns — no second redaction, no re-formatting that could reintroduce something
       `redactPaths` already stripped.
 - [ ] **Human pass, packaged build:** file one real bug report and one real feature request

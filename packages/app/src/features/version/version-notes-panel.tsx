@@ -1,15 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { LuBug, LuExternalLink, LuFileText, LuLoaderCircle } from 'react-icons/lu';
 
-import {
-  NEW_ISSUE_URL,
-  RELEASE_CHANGELOG_PAGE_URL,
-  RELEASE_LIST_URL,
-  releasePageUrl,
-} from '@midnite/studio-shared';
+import { RELEASE_CHANGELOG_PAGE_URL, RELEASE_LIST_URL, releasePageUrl } from '@midnite/studio-shared';
 
+import { ReportIssueDialog } from '../../components/report-issue-dialog';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { openExternal } from '../../services/queries';
@@ -20,6 +16,7 @@ import { useReleaseNotes } from './release-notes';
 export function VersionNotesPanel({ version }: { version: string }) {
   const { data, isLoading } = useReleaseNotes(version);
   const label = `Release ${version}`;
+  const [reportOpen, setReportOpen] = useState(false);
 
   // A single document-level body — claims `activeMarkdown` (Phase 29 Theme F,
   // the rule stated in `slides-store.ts`). Release notes are the one surface
@@ -72,7 +69,10 @@ export function VersionNotesPanel({ version }: { version: string }) {
         {/*
           The third of the links that stand whether or not the notes arrived
           (Phase 65 Theme E). Before it there was no way to report a bug from
-          inside the app at all.
+          inside the app at all. Phase 93 Theme C: opens the same in-app
+          composer `monitor-page.tsx`'s "Report a bug" does, rather than
+          `openExternal` directly — no `href`, so `PanelLink` skips the
+          external-link chevron it wears for the other two rows.
 
           **Packaged-only, by way of this panel.** `version-pill.tsx` hides
           itself on `'0.0.0'`, so in a dev build nothing opens this panel and
@@ -81,8 +81,10 @@ export function VersionNotesPanel({ version }: { version: string }) {
           renders in every build, so the affordance exists either way and this
           one is simply the convenient copy beside the release notes.
         */}
-        <PanelLink icon={LuBug} label="Report a bug" href={NEW_ISSUE_URL} />
+        <PanelLink icon={LuBug} label="Report a bug" onClick={() => setReportOpen(true)} />
       </div>
+
+      <ReportIssueDialog open={reportOpen} onClose={() => setReportOpen(false)} />
     </div>
   );
 }
@@ -91,23 +93,30 @@ function PanelLink({
   icon: Icon,
   label,
   href,
+  onClick,
 }: {
   icon: typeof LuFileText;
   label: string;
-  href: string;
+  /** Omit alongside `onClick` for an action that isn't a plain external navigation. */
+  href?: string;
+  /** Overrides the default `openExternal(href)` click — and drops the trailing chevron, since the action no longer just opens a link. */
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
-      // Deliberately `openExternal`, not `openInMidnite` (Phase 71 Theme B):
-      // release notes are read once and never returned to.
-      onClick={() => openExternal(href)}
-      title={href}
+      // Deliberately `openExternal`, not `openInMidnite` (Phase 71 Theme B),
+      // for the two rows that still just open a link: release notes are read
+      // once and never returned to.
+      onClick={onClick ?? (() => href && openExternal(href))}
+      title={href ?? label}
       className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
     >
       <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       {label}
-      <LuExternalLink aria-hidden className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" />
+      {href && !onClick ? (
+        <LuExternalLink aria-hidden className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" />
+      ) : null}
     </button>
   );
 }

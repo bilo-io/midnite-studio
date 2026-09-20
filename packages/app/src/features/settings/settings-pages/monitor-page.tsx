@@ -7,7 +7,6 @@ import {
   METRICS_ACTIVE_INTERVAL_MS,
   METRICS_IDLE_INTERVAL_MS,
   METRIC_IDS,
-  NEW_ISSUE_URL,
   commandLine,
   type MetricId,
 } from '@midnite/studio-shared';
@@ -19,7 +18,7 @@ import {
   useUntrustDiagnostics,
 } from '../../../services/queries';
 import { bridge } from '../../../services/bridge';
-import { openExternal } from '../../../services/queries';
+import { ReportIssueDialog } from '../../../components/report-issue-dialog';
 import { useActiveWorktree } from '../../../services/use-status';
 import { useUiStore } from '../../../store/ui-store';
 import { METRIC_LABELS, metricColor } from '../../monitor/metric-palette';
@@ -204,6 +203,7 @@ function CrashReporting() {
   const [logPath, setLogPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   useEffect(() => {
     if (!api) return;
@@ -264,10 +264,10 @@ function CrashReporting() {
         <button
           type="button"
           disabled={!hasBridge}
-          // Deliberately `openExternal`, not `openInMidnite` (Phase 71 Theme B):
-          // filing a bug means typing credentials and a report into GitHub, and
-          // an in-app tab has no password manager to fill any of that in.
-          onClick={() => openExternal(NEW_ISSUE_URL)}
+          // Phase 93 Theme C: opens the in-app composer rather than
+          // `openExternal(NEW_ISSUE_URL)` directly — that call still exists,
+          // as the dialog's own fallback when `gh` is missing or signed out.
+          onClick={() => setReportOpen(true)}
           className="rounded border border-border px-2 py-1 transition-colors hover:bg-accent disabled:opacity-50"
         >
           Report a bug
@@ -281,6 +281,8 @@ function CrashReporting() {
       ) : null}
 
       {error ? <p className="text-[11px] text-destructive">{error}</p> : null}
+
+      <ReportIssueDialog open={reportOpen} onClose={() => setReportOpen(false)} />
     </div>
   );
 }
