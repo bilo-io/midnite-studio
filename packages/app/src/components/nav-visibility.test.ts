@@ -4,7 +4,14 @@ import {
   COMMAND_NAV_VIEW,
   isNavViewVisible,
   navCommandDisabledReason,
+  RAIL_VIEW_IDS,
 } from './nav-visibility';
+
+describe('RAIL_VIEW_IDS', () => {
+  it('lists Sessions immediately after Knowledge, matching the pinned rail', () => {
+    expect(RAIL_VIEW_IDS.indexOf('sessions')).toBe(RAIL_VIEW_IDS.indexOf('knowledge') + 1);
+  });
+});
 
 describe('isNavViewVisible', () => {
   it('defaults every rail view to visible', () => {
