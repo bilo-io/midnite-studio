@@ -23,7 +23,9 @@ function normaliseOrigin(raw: string): string {
 
 /** Builds the CSP header value for the app renderer. */
 export function buildCsp(opts: CspBuildOptions): string {
-  const scriptSrc = ["'self'"];
+  // index.html's no-flash theme script is intentionally inline and runs before
+  // the bundle — same accepted weakening as `style-src 'unsafe-inline'`.
+  const scriptSrc = ["'self'", "'unsafe-inline'"];
   const connectSrc = [
     "'self'",
     'mstudio-file:',

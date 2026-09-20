@@ -11,6 +11,7 @@ describe('buildCsp', () => {
   it('packaged policy blocks broad img https and omits finance hosts after Theme D', () => {
     const csp = buildCsp({ dev: false });
     expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("script-src 'self' 'unsafe-inline'");
     expect(csp).toContain("img-src 'self' data: blob: mstudio-file: https:");
     expect(csp).toContain("style-src 'self' 'unsafe-inline'");
     expect(csp).toContain("worker-src 'self' blob: data:");
@@ -24,7 +25,7 @@ describe('buildCsp', () => {
 
   it('dev policy adds Vite HMR script and websocket origins', () => {
     const csp = buildCsp({ dev: true, devServerOrigin: 'http://localhost:5173/' });
-    expect(csp).toContain('script-src \'self\' http://localhost:5173');
+    expect(csp).toContain("script-src 'self' 'unsafe-inline' http://localhost:5173");
     expect(csp).toContain('connect-src');
     expect(csp).toContain('http://localhost:5173');
     expect(csp).toContain('ws://localhost:5173');
