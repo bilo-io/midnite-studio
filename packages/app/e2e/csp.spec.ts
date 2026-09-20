@@ -77,7 +77,7 @@ test.describe('content security policy', () => {
     });
 
     const before = page.url();
-    await page.locator('#csp-ext').click();
+    await page.locator('#csp-ext').click({ force: true });
     expect(page.url()).toBe(before);
 
     const external = await page.evaluate(

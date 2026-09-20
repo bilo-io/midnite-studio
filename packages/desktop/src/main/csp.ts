@@ -25,7 +25,8 @@ function normaliseOrigin(raw: string): string {
 export function buildCsp(opts: CspBuildOptions): string {
   // index.html's no-flash theme script is intentionally inline and runs before
   // the bundle — same accepted weakening as `style-src 'unsafe-inline'`.
-  const scriptSrc = ["'self'", "'unsafe-inline'"];
+  // Shiki's WASM engine needs `wasm-unsafe-eval` (Phase 64 / diff-view e2e).
+  const scriptSrc = ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'"];
   const connectSrc = [
     "'self'",
     'mstudio-file:',
