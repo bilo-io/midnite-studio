@@ -1249,5 +1249,22 @@ export const APP_VERSION_ARG = '--mstudio-app-version=';
  */
 export const WINDOW_ROLE_ARG = '--mstudio-window-role=';
 
+/**
+ * CLI switch carrying `os.homedir()` from main into the preload.
+ *
+ * Same route as `APP_VERSION_ARG`: a plain value the terminal header needs on
+ * first paint, and only main can read from the host OS. A sandboxed preload
+ * cannot import `node:os`.
+ */
+export const HOME_DIR_ARG = '--mstudio-home-dir=';
+
+/**
+ * CLI switch carrying `os.hostname()` from main into the preload.
+ *
+ * Same route as `HOME_DIR_ARG` — the hostname badge in the terminal header
+ * wants it synchronously, and `node:os` is unavailable under `sandbox: true`.
+ */
+export const HOSTNAME_ARG = '--mstudio-hostname=';
+
 export type ChannelName = (typeof CHANNELS)[keyof typeof CHANNELS];
 export type EventChannelName = (typeof EVENT_CHANNELS)[keyof typeof EVENT_CHANNELS];

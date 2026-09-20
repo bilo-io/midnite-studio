@@ -1,11 +1,11 @@
-import { homedir, hostname } from 'node:os';
-
 import { contextBridge, ipcRenderer } from 'electron';
 
 import {
   APP_VERSION_ARG,
   CHANNELS,
   EVENT_CHANNELS,
+  HOME_DIR_ARG,
+  HOSTNAME_ARG,
   MSTUDIO_PERF_MARK,
   WINDOW_FRAMELESS_ARG,
   WINDOW_ROLE_ARG,
@@ -68,6 +68,13 @@ const appVersion = versionArg?.slice(APP_VERSION_ARG.length) || '0.0.0';
 const roleArg = process.argv.find((a) => a.startsWith(WINDOW_ROLE_ARG));
 const parsedRole = WindowRoleSchema.safeParse(roleArg?.slice(WINDOW_ROLE_ARG.length));
 const windowRole: WindowRole = parsedRole.success ? parsedRole.data : 'main';
+
+// Same route as the three above: only main can read from the host OS, and a
+// sandboxed preload cannot import `node:os` (see HOME_DIR_ARG/HOSTNAME_ARG).
+const homeDirArg = process.argv.find((a) => a.startsWith(HOME_DIR_ARG));
+const homeDir = homeDirArg?.slice(HOME_DIR_ARG.length) ?? '';
+const hostnameArg = process.argv.find((a) => a.startsWith(HOSTNAME_ARG));
+const hostname = hostnameArg?.slice(HOSTNAME_ARG.length) ?? '';
 
 /**
  * The `@bilo-io/shell` WindowChromeBridge implementation backing <TitleBar>.
@@ -160,8 +167,8 @@ const bridge: Pick<
     and the terminal header needs it during its first render to `~`-collapse a
     path. An async fetch would paint the raw path and then rewrite it.
   */
-  homeDir: homedir(),
-  hostname: hostname(),
+  homeDir,
+  hostname,
   appVersion,
 
   repos: {

@@ -1,8 +1,11 @@
 import { existsSync } from 'node:fs';
+import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 
 import {
   APP_VERSION_ARG,
+  HOME_DIR_ARG,
+  HOSTNAME_ARG,
   appIdForRole,
   EVENT_CHANNELS,
   WINDOW_FRAMELESS_ARG,
@@ -315,11 +318,13 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
       preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
       additionalArguments: [
         `${WINDOW_FRAMELESS_ARG}${frameless ? '1' : '0'}`,
         `${APP_VERSION_ARG}${app.getVersion()}`,
         `${WINDOW_ROLE_ARG}${role}`,
+        `${HOME_DIR_ARG}${homedir()}`,
+        `${HOSTNAME_ARG}${hostname()}`,
       ],
     },
   });
