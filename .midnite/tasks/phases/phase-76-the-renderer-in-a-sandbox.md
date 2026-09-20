@@ -218,23 +218,25 @@ fingerprint). Sequenced first because everything after it is tested against the 
 
 ### E — Forty-five channels onto `handleSend`, and two onto `handle` (M)
 
+✅ **DONE** (PR #486, 2026-09-20)
+
 The mechanical sweep Phase 65 Theme B described and left. Pure refactor: no channel changes shape,
 no behaviour changes — the point is that after this theme, "does main validate that?" has one answer.
 
-- [ ] Migrate every `ipcMain.on(` in the ten files listed in finding 5 onto
+- [x] Migrate every `ipcMain.on(` in the ten files listed in finding 5 onto
       [`handleSend`](../../../packages/desktop/src/main/ipc/handle.ts) with the channel's existing
       `shared` schema. Where a channel has **no** schema in `shared/src/ipc/` today, add one — that
       is the finding, and it goes in the PR body as a list. Payload-free channels use a
       `z.undefined()`/`z.null()` schema rather than staying on raw `ipcMain.on`.
-- [ ] `onInvalid` for every migrated channel is `log.warn` through the one log seam
+- [x] `onInvalid` for every migrated channel is `log.warn` through the one log seam
       ([`main/log.ts`](../../../packages/desktop/src/main/log.ts)) — Phase 65's own precedent, never
       a throw and never silent.
-- [ ] Migrate the two raw `ipcMain.handle(` calls outside `handle.ts` onto `handle`/`handleBare`.
-- [ ] An eslint `no-restricted-syntax` rule in [`eslint.config.mjs`](../../../eslint.config.mjs)
+- [x] Migrate the two raw `ipcMain.handle(` calls outside `handle.ts` onto `handle`/`handleBare`.
+- [x] An eslint `no-restricted-syntax` rule in [`eslint.config.mjs`](../../../eslint.config.mjs)
       for the `desktop` package: `ipcMain.on(` and `ipcMain.handle(` may appear only in
       `src/main/ipc/handle.ts`, with the message naming the four helpers. The rule is what keeps the
       count at zero; the sweep only gets it there.
-- [ ] *Acceptance:* `grep -rn "ipcMain.on(\|ipcMain.handle(" packages/desktop/src/main | grep -v
+- [x] *Acceptance:* `grep -rn "ipcMain.on(\|ipcMain.handle(" packages/desktop/src/main | grep -v
       ipc/handle.ts` returns nothing; every existing handler test still passes; the e2e suite is
       unchanged.
 

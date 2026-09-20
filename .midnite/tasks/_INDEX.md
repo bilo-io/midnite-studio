@@ -26,7 +26,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [79 · The companion that answers back](phases/phase-79-the-companion-that-answers-back.md) | 🔄 WIP | — | 57/67 | `█████████░` | 85% | — | — |
 | [78 · Whose hands were on the keyboard](phases/phase-78-whose-hands-were-on-the-keyboard.md) | 🔄 WIP | — | 26/32 | `████████░░` | 81% | — | F |
 | [77 · Thirteen megabytes of editor, and the lanes that never move](phases/phase-77-thirteen-megabytes-of-editor.md) | ◻ TODO | x1 | 0/42 | `░░░░░░░░░░` | 0% | — | A B C D |
-| [76 · The renderer in a sandbox, and the headers it never sent](phases/phase-76-the-renderer-in-a-sandbox.md) | 🔄 WIP | — | 11/35 | `███░░░░░░░` | 31% | C E | A |
+| [76 · The renderer in a sandbox, and the headers it never sent](phases/phase-76-the-renderer-in-a-sandbox.md) | 🔄 WIP | — | 16/35 | `█████░░░░░` | 46% | C | A |
 | [75 · What blocks what, and the agent you point at it](phases/phase-75-what-blocks-what.md) | 🔄 WIP | x1 | 99/106 | `█████████░` | 93% | — | — |
 | [74 · Media caches and the Trash](phases/phase-74-media-caches-and-the-trash.md) | 🔄 WIP | x1 | 68/70 | `██████████` | 97% | — | E (2 packaged-Mac human passes) |
 | [73 · The optimizer leaves the repo](phases/phase-73-the-optimizer-leaves-the-repo.md) | 🔄 WIP | x1 | 64/68 | `█████████░` | 94% | — | — |
@@ -595,7 +595,7 @@ channels still hand-rolling validation. Theme A is human-run; nothing touches Re
 - ✅ **B** — `sandbox: true` on both windows: `homedir`/`hostname` via `additionalArguments`, `node:os` out of the preload, a bundle test that keeps `node:` out. (PR #484)
 - ◻ **C** — A header-based CSP from a pure `buildCsp()` (dev/packaged, `persist:browser` skipped) and a `will-navigate`/`will-redirect` guard on the app window; zero violations across `app:e2e`.
 - ✅ **D** — The Twelve Data key into a `safeStorage` vault behind an enum-keyed `secrets` channel, finance fetches proxied through main, `ipwho.is` behind a default-off Privacy switch ([PR #485](https://github.com/bilo-io/midnite-studio/pull/485)).
-- ◻ **E** — 45 `ipcMain.on` sites onto `handleSend`, two raw `ipcMain.handle` onto `handle`, an eslint rule confining both to `ipc/handle.ts`.
+- ✅ **E** — 45 `ipcMain.on` sites onto `handleSend`, two raw `ipcMain.handle` onto `handle`, an eslint rule confining both to `ipc/handle.ts` ([PR #486](https://github.com/bilo-io/midnite-studio/pull/486)).
 
 ### [Phase 75 — What blocks what, and the agent you point at it](phases/phase-75-what-blocks-what.md)
 

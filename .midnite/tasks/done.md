@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-20 — Phase 76 Theme E — IPC onto handleSend
+
+[PR #486](https://github.com/bilo-io/midnite-studio/pull/486). Every one-way `ipcMain.on` and the
+two raw `ipcMain.handle` calls outside `ipc/handle.ts` now register through `handleSend`,
+`handleSendFromSender`, `handleBare` or `handleBareFromSender` with zod at the boundary;
+`SendVoidSchema`, `WindowReloadRequest` and `WindowSetBackgroundRequest` close schema gaps; an
+eslint rule keeps raw `ipcMain.on`/`handle` confined to `ipc/handle.ts`.
+
 ## 2026-09-20 — Phase 76 Theme D — secrets vault, finance proxy, IP privacy
 
 [PR #485](https://github.com/bilo-io/midnite-studio/pull/485). Twelve Data key moves from renderer
