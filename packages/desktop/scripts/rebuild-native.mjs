@@ -17,9 +17,10 @@
  * Needed after an Electron version bump, and after a fresh install on a machine
  * whose prebuilt native modules target a different ABI.
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
@@ -27,6 +28,34 @@ const here = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(here, '..');
 
 const electronVersion = require('electron/package.json').version;
+
+const ensured = spawnSync(process.execPath, [resolve(here, '../../../scripts/ensure-electron.mjs')], {
+  stdio: 'inherit',
+  cwd: projectRoot,
+  env: { ...process.env },
+});
+if (ensured.status) process.exit(ensured.status);
+
+/**
+ * Electron 42's node-gyp still passes `-mmacosx-version-min=10.7`. Linking
+ * against the Command Line Tools' default MacOSX 26/27 SDK then fails
+ * (`unknown architecture arm64e.x1` in the TBD files). Prefer an SDK 15
+ * tree when present; GitHub `macos-14` runners already have a compatible SDK.
+ */
+function darwinLinkEnv() {
+  if (process.platform !== 'darwin') return {};
+  if (process.env['SDKROOT']) return {};
+  const sdks = '/Library/Developer/CommandLineTools/SDKs';
+  for (const name of ['MacOSX15.4.sdk', 'MacOSX15.sdk', 'MacOSX14.sdk']) {
+    const path = join(sdks, name);
+    if (existsSync(path)) {
+      return { SDKROOT: path, MACOSX_DEPLOYMENT_TARGET: '13.0' };
+    }
+  }
+  return { MACOSX_DEPLOYMENT_TARGET: '13.0' };
+}
+
+const env = { ...process.env, ...darwinLinkEnv() };
 
 // The list of native modules to rebuild against Electron's ABI — node-pty
 // (main-process pty spawning) and better-sqlite3 (Phase 61 Theme C's SQLite
@@ -48,7 +77,7 @@ const child = spawn(
     '--only',
     NATIVE_MODULES.join(','),
   ],
-  { stdio: 'inherit', cwd: projectRoot, env: { ...process.env } },
+  { stdio: 'inherit', cwd: projectRoot, env },
 );
 
 child.on('exit', (code) => process.exit(code ?? 0));
