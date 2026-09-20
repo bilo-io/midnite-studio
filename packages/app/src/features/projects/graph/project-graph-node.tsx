@@ -1,14 +1,12 @@
-import { BUILTIN_AGENTS, type ForgeProjectField, type ForgeProjectItem } from '@midnite/studio-shared';
+import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { useMemo } from 'react';
 import { LuCircleCheck, LuPlay } from 'react-icons/lu';
 
 import { useActiveWorktree } from '../../../services/use-status';
-import { revealSession } from '../../terminal/reveal-session';
-import { startAgent } from '../../terminal/start-agent';
 import { findCardSession, useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from '../board/card-chrome';
-import { composeCardPrompt } from '../board/board-derive';
 import type { CardGlowState } from '../board/glow-state';
+import { useCardPlay } from '../board/use-card-play';
 import { FORGE_GRAPH_GEOMETRY, type PositionedNode } from './graph-layout';
 
 /**
@@ -62,6 +60,7 @@ export function ProjectGraphNode({
   const states = useTerminalStore((s) => s.states);
   const taskRef = useMemo(() => ({ projectId: projectId ?? '', itemId: item?.id ?? '' }), [projectId, item?.id]);
   const liveSession = item ? findCardSession(sessions, states, taskRef) : undefined;
+  const { onPlay } = useCardPlay({ item, repoId, worktreePath, taskRef, sessionId: liveSession?.id });
 
   const Icon = CONTENT_ICON[node.kind];
   // A foreign node with no title of its own (the field/body layers never
@@ -171,33 +170,7 @@ export function ProjectGraphNode({
           data-testid="graph-node-play-agent"
           aria-label={liveSession ? 'Open in terminal' : 'Start agent'}
           title={liveSession ? 'Open in terminal' : 'Start agent'}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (liveSession) {
-              revealSession(liveSession.id);
-              return;
-            }
-            const targetCwd = worktreePath ?? '';
-            const prompt = composeCardPrompt(item, targetCwd);
-            const mostRecent = sessions
-              .filter((s) => s.repoId === repoId && s.kind === 'agent' && s.agentId !== undefined)
-              .sort((a, b) => b.createdAt - a.createdAt)[0];
-            const agentId = mostRecent?.agentId ?? BUILTIN_AGENTS[0]?.id ?? 'claude';
-            const agent = BUILTIN_AGENTS.find((a) => a.id === agentId) ?? BUILTIN_AGENTS[0]!;
-
-            const session = startAgent({
-              repoId: repoId ?? '',
-              cwd: targetCwd,
-              title: item.content.title,
-              prompt,
-              agentId: agent.id,
-              command: agent.command,
-              surface: 'kanban',
-              taskRef,
-              autoSend: true,
-            });
-            revealSession(session.id);
-          }}
+          onClick={onPlay}
           className="absolute bottom-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <LuPlay aria-hidden className="h-3 w-3 fill-current" />

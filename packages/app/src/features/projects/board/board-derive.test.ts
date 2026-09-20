@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   composeCardPrompt,
+  composeSkillLaunchPrompt,
   CONCURRENT_CARD_SESSION_SOFT_LIMIT,
   countLiveCardSessions,
   deriveColumns,
@@ -181,6 +182,73 @@ describe('composeCardPrompt', () => {
     const noBody: ForgeProjectItem = { ...issue, content: { ...issue.content, body: '' } };
     const prompt = composeCardPrompt(noBody, '/repo/widgets');
     expect(prompt.trim().endsWith('Repo: /repo/widgets')).toBe(true);
+  });
+});
+
+describe('composeSkillLaunchPrompt (Phase 92 Theme B)', () => {
+  const issue: ForgeProjectItem = {
+    id: 'item1',
+    content: {
+      type: 'issue',
+      id: 'I_1',
+      number: 42,
+      repo: '',
+      title: 'Fix the flaky test',
+      url: 'https://github.com/acme/widgets/issues/42',
+      state: 'open',
+      assignees: ['octocat'],
+      body: 'Steps to reproduce…',
+      labels: ['bug', 'flaky'],
+      dependencies: EMPTY_ISSUE_LINK_SET,
+      linkedPrs: [],
+    },
+    fieldValues: {},
+  };
+
+  const pull: ForgeProjectItem = {
+    id: 'item3',
+    content: {
+      type: 'pull',
+      id: 'PR_1',
+      number: 7,
+      repo: '',
+      title: 'Add the thing',
+      url: 'https://github.com/acme/widgets/pull/7',
+      state: 'open',
+      assignees: [],
+      body: 'A pull body nobody should see here',
+      labels: [],
+    },
+    fieldValues: {},
+  };
+
+  const draftItem: ForgeProjectItem = {
+    id: 'item2',
+    content: { type: 'draft', id: 'DI_1', title: 'Untriaged idea', assignees: [], body: 'Some notes' },
+    fieldValues: {},
+  };
+
+  it('an issue composes as "<skill template> <issue url>" — never the title, assignees, labels or body', () => {
+    const prompt = composeSkillLaunchPrompt(issue, '/midnite-exec-adhoc');
+    expect(prompt).toBe('/midnite-exec-adhoc https://github.com/acme/widgets/issues/42');
+    expect(prompt).not.toContain('Fix the flaky test');
+    expect(prompt).not.toContain('octocat');
+    expect(prompt).not.toContain('Steps to reproduce');
+  });
+
+  it('a pull composes the same way, off its own url', () => {
+    const prompt = composeSkillLaunchPrompt(pull, '/midnite-brainstorm');
+    expect(prompt).toBe('/midnite-brainstorm https://github.com/acme/widgets/pull/7');
+  });
+
+  it('a draft has no url — falls back to composeCardPrompt\'s draft-safe output', () => {
+    const prompt = composeSkillLaunchPrompt(draftItem, '/midnite-refine');
+    expect(prompt).toBe(composeCardPrompt(draftItem, ''));
+    expect(prompt).not.toContain('/midnite-refine');
+  });
+
+  it('an empty skill template still composes — a pure function is tested against its own inputs', () => {
+    expect(composeSkillLaunchPrompt(issue, '')).toBe(' https://github.com/acme/widgets/issues/42');
   });
 });
 

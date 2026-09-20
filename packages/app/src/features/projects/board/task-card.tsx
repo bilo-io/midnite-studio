@@ -1,16 +1,13 @@
 import { useRef } from 'react';
 import { LuPlay } from 'react-icons/lu';
 
-import { BUILTIN_AGENTS, type ForgeProjectField, type ForgeProjectItem } from '@midnite/studio-shared';
+import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
 import { useActiveWorktree } from '../../../services/use-status';
-import { revealSession } from '../../terminal/reveal-session';
-import { startAgent } from '../../terminal/start-agent';
-import { useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from './card-chrome';
 import { CardTerminal } from './card-terminal';
-import { composeCardPrompt } from './board-derive';
 import { deriveCardGlowState } from './glow-state';
+import { useCardPlay } from './use-card-play';
 import { useCardStatus } from './use-card-status';
 import { useCardVisible } from './use-card-visible';
 
@@ -58,7 +55,6 @@ export function TaskCard({
   onClick?: () => void;
 }) {
   const { repoId, worktreePath } = useActiveWorktree();
-  const sessions = useTerminalStore((s) => s.sessions);
   const Icon = CONTENT_ICON[item.content.type];
   const href = item.content.type === 'draft' ? null : item.content.url;
   const number = item.content.type === 'draft' ? null : item.content.number;
@@ -85,6 +81,14 @@ export function TaskCard({
   // line (free, from the store, regardless of mount state) otherwise.
   const cardRef = useRef<HTMLDivElement>(null);
   const visible = useCardVisible(cardRef);
+
+  const { onPlay } = useCardPlay({
+    item,
+    repoId,
+    worktreePath,
+    taskRef: { projectId: projectId ?? '', itemId: item.id },
+    sessionId,
+  });
 
   return (
     <div
@@ -130,33 +134,7 @@ export function TaskCard({
           data-testid="card-play-agent"
           aria-label={sessionId !== undefined ? 'Open in terminal' : 'Start agent'}
           title={sessionId !== undefined ? 'Open in terminal' : 'Start agent'}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (sessionId !== undefined) {
-              revealSession(sessionId);
-              return;
-            }
-            const targetCwd = worktreePath ?? '';
-            const prompt = composeCardPrompt(item, targetCwd);
-            const mostRecent = sessions
-              .filter((s) => s.repoId === repoId && s.kind === 'agent' && s.agentId !== undefined)
-              .sort((a, b) => b.createdAt - a.createdAt)[0];
-            const agentId = mostRecent?.agentId ?? BUILTIN_AGENTS[0]?.id ?? 'claude';
-            const agent = BUILTIN_AGENTS.find((a) => a.id === agentId) ?? BUILTIN_AGENTS[0]!;
-
-            const session = startAgent({
-              repoId: repoId ?? '',
-              cwd: targetCwd,
-              title: item.content.title,
-              prompt,
-              agentId: agent.id,
-              command: agent.command,
-              surface: 'kanban',
-              taskRef: { projectId: projectId ?? '', itemId: item.id },
-              autoSend: true,
-            });
-            revealSession(session.id);
-          }}
+          onClick={onPlay}
           className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <LuPlay aria-hidden className="h-3 w-3 fill-current" />
