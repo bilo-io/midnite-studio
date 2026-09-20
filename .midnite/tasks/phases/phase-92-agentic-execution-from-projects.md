@@ -64,9 +64,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — One launch path, not two copies (S)
+### A — One launch path, not two copies (S) — ✅ DONE (PR #478, 2026-09-20)
 
-- [ ] Extract the Play button's logic — resolve the most-recently-used agent, compose a prompt,
+- [x] Extract the Play button's logic — resolve the most-recently-used agent, compose a prompt,
       call `startAgent`, then `revealSession` — out of
       [`task-card.tsx:133-159`](../../../packages/app/src/features/projects/board/task-card.tsx) and
       [`project-graph-node.tsx:174-200`](../../../packages/app/src/features/projects/graph/project-graph-node.tsx)
@@ -75,36 +75,36 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       already read the identical five things from the store (`sessions`, the most-recent-agent scan,
       `BUILTIN_AGENTS`, `startAgent`, `revealSession`) — this makes it one read, not two, and gives
       Theme D exactly one place to fork on "is a skill set".
-- [ ] Both call sites' "already running" branch (`sessionId`/`liveSession` → `revealSession`) folds
+- [x] Both call sites' "already running" branch (`sessionId`/`liveSession` → `revealSession`) folds
       into the same hook, unchanged in behaviour — `TaskCard` derives its session through
       `useCardStatus`, `ProjectGraphNode` through `findCardSession` directly; the hook takes
       whichever the caller already has rather than re-deriving it, so this theme changes no test's
       assertions about *when* the button reveals versus launches.
-- [ ] `data-testid="card-play-agent"` and `data-testid="graph-node-play-agent"` stay on their own
+- [x] `data-testid="card-play-agent"` and `data-testid="graph-node-play-agent"` stay on their own
       `<button>` elements, unrenamed — existing tests (`task-card.test.tsx`,
       `project-graph-node.test.tsx`) key off them and this theme is a pure extraction, not a
       behaviour change yet.
-- [ ] Tests: `use-card-play.test.tsx` (or folded into the two existing component test files) —
+- [x] Tests: `use-card-play.test.tsx` (or folded into the two existing component test files) —
       the extraction is proven by the two existing suites passing unchanged, plus one new case
       confirming both callers produce byte-identical `startAgent` calls for the same inputs.
 
-### B — The prompt shrinks: a link, not the issue (S)
+### B — The prompt shrinks: a link, not the issue (S) — ✅ DONE (PR #478, 2026-09-20)
 
-- [ ] A new pure function, `composeSkillLaunchPrompt(item: ForgeProjectItem, skillTemplate:
+- [x] A new pure function, `composeSkillLaunchPrompt(item: ForgeProjectItem, skillTemplate:
       string): string` in [`board-derive.ts`](../../../packages/app/src/features/projects/board/board-derive.ts),
       returning `` `${skillTemplate} ${content.url}` `` for an issue or pull item. Mirrors
       `skillHandoff`'s own `` `${skillTemplate} ${body}` `` composition (`use-skill-handoff.ts:104`)
       with the issue URL standing in for `body` — the skill itself is expected to fetch whatever it
       needs from that link, which is the whole point of handing it a link instead of a paste.
-- [ ] **`composeCardPrompt` is untouched.** It keeps composing title, URL, assignees, labels and the
+- [x] **`composeCardPrompt` is untouched.** It keeps composing title, URL, assignees, labels and the
       capped body, and keeps backing `CardComposer`'s own textarea
       ([`card-composer.tsx:136`](../../../packages/app/src/features/projects/board/card-composer.tsx))
       — a human opens that pane on purpose and reads the prompt before Start, which is exactly the
       case Phase 41 built it for. Only the two Play buttons' composition changes.
-- [ ] A **draft** item (`content.type === 'draft'`) has no `url` — nothing to hand a skill as a link.
+- [x] A **draft** item (`content.type === 'draft'`) has no `url` — nothing to hand a skill as a link.
       `composeSkillLaunchPrompt` falls back to `composeCardPrompt`'s existing draft-safe output in
       that case (title + body, same as today) rather than composing a linkless, meaningless prompt.
-- [ ] Tests: `board-derive.test.ts` — an issue, a pull, and a draft item each through
+- [x] Tests: `board-derive.test.ts` — an issue, a pull, and a draft item each through
       `composeSkillLaunchPrompt`, plus the empty-`skillTemplate` case (should not happen once Theme C
       lands, but a pure function is tested against its own inputs, not its caller's promises).
 
