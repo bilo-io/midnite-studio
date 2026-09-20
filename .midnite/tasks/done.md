@@ -3,6 +3,8 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-20 — Phase 90 Theme A — the forge seam
 
+[PR #490](https://github.com/bilo-io/midnite-studio/pull/490).
+
 `ForgeKind` widens to github/gitlab/bitbucket/azure/unknown; Azure `_git`/`v3`/`visualstudio.com`
 remotes normalise `owner` to `{org}/{project}`; `githubForge` becomes `repoForge` for any supported
 kind; `hasGithubForge` becomes `hasSupportedForge`.
