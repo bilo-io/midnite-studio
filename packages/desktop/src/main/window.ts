@@ -11,6 +11,7 @@ import {
   WINDOW_FRAMELESS_ARG,
 } from '@midnite/studio-shared';
 
+import { bindAppNavigationGuard } from './app-navigation';
 import { maybeCapture } from './capture';
 import { bootMark } from './perf-marks';
 import { attachWindowChrome, TRAFFIC_LIGHT_POSITION, windowFrameless } from './window-chrome';
@@ -128,6 +129,11 @@ export function createWindow(): BrowserWindow {
     if (url.startsWith('http://') || url.startsWith('https://')) void shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  bindAppNavigationGuard(
+    win.webContents,
+    !app.isPackaged && process.env['MSTUDIO_USE_BUILT_RENDERER'] !== '1' ? DEV_SERVER_URL : null,
+  );
 
   void loadRenderer(win);
   return win;

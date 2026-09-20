@@ -904,7 +904,21 @@ export function seedOnboardedProfile(): void {
   }
 }
 
-export async function installMockBridge(page: Page, fixtures: MockFixtures): Promise<void> {
+export type InstallMockBridgeOptions = {
+  /** When true (default), fail the test on CSP console errors. */
+  cspGuard?: boolean;
+};
+
+export async function installMockBridge(
+  page: Page,
+  fixtures: MockFixtures,
+  options: InstallMockBridgeOptions = {},
+): Promise<void> {
+  if (options.cspGuard !== false) {
+    const { installCspConsoleGuard } = await import('./csp-console-guard');
+    await installCspConsoleGuard(page);
+  }
+
   await page.addInitScript(pinPlatform);
 
   if (!fixtures.firstRun) {

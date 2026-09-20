@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 
+import { midniteCspPlugin } from './vite-csp-plugin';
+
 /**
  * Phase 36 Theme A: the chunk graph, on demand.
  *
@@ -17,6 +19,7 @@ const bundleStats = process.env['MSTUDIO_BUNDLE_STATS'] === '1';
 
 export default defineConfig({
   plugins: [
+    midniteCspPlugin(),
     react(),
     ...(bundleStats
       ? [visualizer({ filename: 'dist/stats.html', gzipSize: true, brotliSize: true })]

@@ -148,13 +148,15 @@ fingerprint). Sequenced first because everything after it is tested against the 
 
 ### C — A Content-Security-Policy, and a `will-navigate` guard for the app's own window (M)
 
-- [ ] Add the policy in **main**, via `session.defaultSession.webRequest.onHeadersReceived`, not a
+✅ **DONE** (PR #487, 2026-09-20)
+
+- [x] Add the policy in **main**, via `session.defaultSession.webRequest.onHeadersReceived`, not a
       `<meta>` tag — a header covers popouts and any future window for free, and a `<meta>` CSP
       cannot express `frame-ancestors` or be varied between dev and packaged. New module
       `packages/desktop/src/main/csp.ts` + `.test.ts` exporting a pure `buildCsp({ dev, hosts })`
       string builder (testable without Electron, like `browser-security.ts`) and an
       `installCsp(session, opts)` installer.
-- [ ] The packaged policy, derived from the audit's inventory of what the renderer actually loads:
+- [x] The packaged policy, derived from the audit's inventory of what the renderer actually loads:
       `default-src 'self'` · `script-src 'self'` · `style-src 'self' 'unsafe-inline'` (Tailwind's
       runtime and Monaco both set inline styles — record this as the one accepted weakening) ·
       `img-src 'self' data: blob: mstudio-file: https:` (avatars come from the forge's own CDN
@@ -166,22 +168,22 @@ fingerprint). Sequenced first because everything after it is tested against the 
       `base-uri 'self'` · `frame-ancestors 'none'`. The `connect-src` host list is the *complete*
       set of renderer-side `fetch` targets found in `features/weather`, `features/finance` and
       `features/titlebar-status`; Theme D shrinks it.
-- [ ] The dev policy: identical, plus `connect-src ws://localhost:5173 http://localhost:5173` and
+- [x] The dev policy: identical, plus `connect-src ws://localhost:5173 http://localhost:5173` and
       `script-src http://localhost:5173` for Vite's HMR client — gated on the same
       `DEV_SERVER_URL` branch [`window.ts:13,112`](../../../packages/desktop/src/main/window.ts)
       already takes, never on `NODE_ENV`.
-- [ ] Scope the header to the app's own documents: match on the `mstudio-file:`/`file:`/dev-server
+- [x] Scope the header to the app's own documents: match on the `mstudio-file:`/`file:`/dev-server
       URL of the main frame and **skip** the `persist:browser` partition entirely — an embedded
       page's CSP is its own site's business, and `browser-security.ts` is that partition's policy.
-- [ ] `win.webContents.on('will-navigate', …)` on the app window in `window.ts` and
+- [x] `win.webContents.on('will-navigate', …)` on the app window in `window.ts` and
       `window-manager.ts`: allow only the app's own origin (the `file:`/`mstudio-file:` bundle or
       `DEV_SERVER_URL`); `event.preventDefault()` everything else and hand `http(s)` to
       `shell.openExternal` through the same http/https gate `setWindowOpenHandler` already uses at
       `window.ts:102`. Same for `will-redirect`.
-- [ ] A Playwright e2e that loads the built renderer, injects `<img src="https://example.invalid/x">`
+- [x] A Playwright e2e that loads the built renderer, injects `<img src="https://example.invalid/x">`
       and an `<a href="https://example.com">` click, and asserts via `page.on('console')` that the
       first is refused by CSP and the second is *not* a navigation (the document URL is unchanged).
-- [ ] *Acceptance:* zero CSP violations in the console across the full `app:e2e` suite — the suite
+- [x] *Acceptance:* zero CSP violations in the console across the full `app:e2e` suite — the suite
       is the inventory of everything the renderer loads, and a violation it triggers is a resource
       the policy above forgot.
 
@@ -276,7 +278,7 @@ no behaviour changes — the point is that after this theme, "does main validate
 - [ ] `moon run :typecheck :lint :test` green after every theme.
 - [ ] **B:** packaged app boots with `sandbox: true`; `window.midniteStudio.homeDir` matches
       `os.homedir()`; the preload-bundle test fails if `node:os` is reintroduced (prove by mutating).
-- [ ] **C:** the full `app:e2e` suite runs with zero `Refused to …` CSP console lines; the
+- [x] **C:** the full `app:e2e` suite runs with zero `Refused to …` CSP console lines; the
       `will-navigate` spec shows the document URL unchanged after an external-link click and the
       link opened via `shell.openExternal` (mocked in e2e).
 - [ ] **D:** `strings ~/Library/Application\ Support/midnite-studio/Local\ Storage/leveldb/*` shows

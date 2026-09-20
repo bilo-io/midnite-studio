@@ -156,8 +156,15 @@ test.describe('commit selection colour', () => {
     await row.click();
     await expect(row).toHaveAttribute('aria-selected', 'true');
 
-    const after = await row.evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(after).not.toBe(before);
+    // Lane tint composites asynchronously — reading backgroundColor in the same tick
+    // flakes when the stylesheet hasn't repainted yet (macOS CI, ~40% locally).
+    let after = before;
+    await expect
+      .poll(async () => {
+        after = await row.evaluate((el) => getComputedStyle(el).backgroundColor);
+        return after !== before;
+      })
+      .toBe(true);
 
     /*
       The lane colour, faithfully. Lane 1 is the emerald `hsl(144 72% 45%)`, so

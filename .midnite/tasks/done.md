@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-20 — Phase 76 Theme C — renderer CSP and navigation guard
+
+[PR #487](https://github.com/bilo-io/midnite-studio/pull/487). Header-based CSP from pure
+`buildCsp()` on `defaultSession` only (dev HMR widenings, `persist:browser` skipped); app-window
+`will-navigate`/`will-redirect` guard delegating http(s) to `shell.openExternal`; Vite dev-server
+middleware mirrors the policy for Playwright; suite-wide `csp-console-guard` and `csp.spec.ts` with
+zero violations across `app:e2e`.
+
 ## 2026-09-20 — Phase 76 Theme E — IPC onto handleSend
 
 [PR #486](https://github.com/bilo-io/midnite-studio/pull/486). Every one-way `ipcMain.on` and the
