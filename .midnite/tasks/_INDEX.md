@@ -254,8 +254,8 @@ reach. Phase 65 built the report machine end to end and stopped at one `openExte
 phase adds the write, reusing the `gh` CLI delegation every other forge call in this app already
 uses, and reusing `redactPaths` verbatim rather than a second redaction path.*
 
-- ✅ **A** (PR #TBD) — the fixed target (`bilo-io/midnite-apps`, never the active repo) and `gh-app-issue.ts`'s command construction
-- ✅ **B** (PR #TBD) — the IPC surface: `mstudio:report:submit-issue`, extending the existing `report` bridge group
+- ✅ **A** (PR #479) — the fixed target (`bilo-io/midnite-apps`, never the active repo) and `gh-app-issue.ts`'s command construction
+- ✅ **B** (PR #479) — the IPC surface: `mstudio:report:submit-issue`, extending the existing `report` bridge group
 - ◻ **C** — the composer dialog: bug/feature toggle, prefilled diagnostics, the "open in browser" fallback unchanged
 - ◻ **D** — redaction stays the single path; no new secret pattern, no settings toggle, no telemetry
 - ◻ **E** — `/midnite-address-issue` learns to scan both boards and use cross-repo `Fixes owner/repo#N`

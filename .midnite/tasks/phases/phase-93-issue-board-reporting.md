@@ -70,7 +70,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Themes
 
-### A — The fixed target, and the write's odd shape (S) — ✅ DONE (PR #TBD, 2026-09-20)
+### A — The fixed target, and the write's odd shape (S) — ✅ DONE (PR #479, 2026-09-20)
 
 The write this theme adds is architecturally unlike every other write in `forge/`: every function
 in [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts) takes
@@ -99,7 +99,7 @@ in [`gh-write.ts`](../../../packages/desktop/src/main/forge/gh-write.ts) takes
       `-R`), a successful create returning the parsed URL, and a `gh`-not-authenticated failure
       surfacing `cli`'s existing probe result rather than a generic error string.
 
-### B — The IPC surface, extending `report`, not inventing `issues` (S) — ✅ DONE (PR #TBD, 2026-09-20)
+### B — The IPC surface, extending `report`, not inventing `issues` (S) — ✅ DONE (PR #479, 2026-09-20)
 
 - [x] `mstudio:report:submit-issue` in
       [`channels.ts`](../../../packages/shared/src/ipc/channels.ts), beside the other three

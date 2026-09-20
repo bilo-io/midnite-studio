@@ -27,7 +27,7 @@ wave — phase now 8/36 (22%).
 
 ## 2026-09-20 — Phase 93 Themes A, B — File issues to the public board over IPC
 
-[PR #TBD]. Themes A and B of a five-theme phase — the composer dialog (C), the redaction
+[PR #479](https://github.com/bilo-io/midnite-studio/pull/479). Themes A and B of a five-theme phase — the composer dialog (C), the redaction
 verification (D) and the `midnite-address-issue` dual-board scan (E) are explicitly left for a
 sibling wave; this PR is only the write and its wire, and both are independently testable without
 a UI.
