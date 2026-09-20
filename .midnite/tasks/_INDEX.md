@@ -327,7 +327,7 @@ hard-coded rows — so the optional step and its Skip need the step frame built 
 - ◻ **G** — Azure DevOps: PRs, **work items** (not issues), Pipelines, threads and the numeric vote scale, Azure Boards
 - ◻ **H** — the tri-state capability matrix, exhaustive over `ForgeKind`, read by `FORGE_GATED_VIEWS` instead of a boolean
 - ◻ **I** — the step frame on `onboarding-modal.tsx`, Back/Skip/Continue, the optional "Connect your forges" step, and the hard-coded rows made real
-- ✅ **J** — the pricing page: a third static route, three columns, $8/mo individual and $12/seat team, no checkout, nothing linking to this private repo
+- ✅ **J** (PR [#491](https://github.com/bilo-io/midnite-studio/pull/491)) — the pricing page: a third static route, three columns, $8/mo individual and $12/seat team, no checkout, nothing linking to this private repo
 - ◻ **K** — verification: fixture-driven mapper tests per provider, the no-token-on-the-wire assertion, the cache-bleed switch test, one e2e and one baseline
 
 ### [Phase 89 — Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md)

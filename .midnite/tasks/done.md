@@ -11,6 +11,8 @@ kind; `hasGithubForge` becomes `hasSupportedForge`.
 
 ## 2026-09-20 — Phase 90 Theme J — the pricing page
 
+[PR #491](https://github.com/bilo-io/midnite-studio/pull/491).
+
 Third static website route at `/pricing` (Free / Individual $8 / Team $12/seat, 5-seat minimum).
 No checkout. Unwired `subscription.ts` entitlement vocabulary in shared. Nothing links to the
 private studio repo.
