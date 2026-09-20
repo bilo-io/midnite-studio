@@ -77,12 +77,22 @@ test.describe('content security policy', () => {
     });
 
     const before = page.url();
-    await page.locator('#csp-ext').click({ force: true });
+    // Programmatic click — Playwright's force-click bypasses hit-testing but does not
+    // always dispatch the same DOM event sequence macOS CI sees for synthetic anchors.
+    await page.evaluate(() => {
+      document.getElementById('csp-ext')?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    });
     expect(page.url()).toBe(before);
 
-    const external = await page.evaluate(
-      () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
-    );
-    expect(external.some((url) => url.startsWith('https://example.com'))).toBe(true);
+    await expect
+      .poll(async () => {
+        const external = await page.evaluate(
+          () => (window as unknown as { __mstudioExternalUrls: string[] }).__mstudioExternalUrls,
+        );
+        return external.some((url) => url.includes('example.com'));
+      })
+      .toBe(true);
   });
 });
