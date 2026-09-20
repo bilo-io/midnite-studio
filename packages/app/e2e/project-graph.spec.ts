@@ -86,8 +86,22 @@ const base: MockFixtures = {
   },
 };
 
-async function openGraph(page: Page): Promise<void> {
-  await installMockBridge(page, base);
+/**
+ * The pty traffic that crossed the bridge — mirrors `kanban.spec.ts`'s own
+ * `ptyCalls` helper (itself mirroring `terminal.spec.ts`'s). `initialInput`
+ * is what a `useCardPlay` (Phase 92 Theme D) launch actually typed into the
+ * fresh session.
+ */
+const ptyCalls = (page: Page) =>
+  page.evaluate(
+    () =>
+      (window as unknown as {
+        __mstudioPty: { creates: { ptyId: string; sessionId: string; initialInput?: string }[] };
+      }).__mstudioPty,
+  );
+
+async function openGraph(page: Page, data: MockFixtures = base): Promise<void> {
+  await installMockBridge(page, data);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   await clickRailLink(page, 'Projects');
@@ -135,5 +149,60 @@ test.describe('the dependency graph (Theme D)', () => {
 
     // No throw, and the nodes are still on screen — `Home` recovered the view.
     await expect(page.locator('[data-graph-node]').first()).toBeVisible();
+  });
+});
+
+/**
+ * Phase 92 Theme D's fork, on this graph-node surface — `ProjectGraphNode`
+ * shares the identical `useCardPlay` hook `TaskCard` does (Theme A), and
+ * Phase 75 Theme G mounted the same `CardPanelStack`/`DialogHost` tree
+ * alongside the canvas, so the fork's own menu and launch reach this surface
+ * with no second implementation. `kanban.spec.ts` proves the board half.
+ */
+test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
+  test('an unset node: Play opens the fallback menu, and one click on an entry both launches and closes it', async ({
+    page,
+  }) => {
+    await openGraph(page);
+
+    const node = page.locator('[data-graph-node]', { hasText: 'Land the write path' });
+    await node.getByTestId('graph-node-play-agent').click();
+
+    await expect(page.getByRole('menu')).toBeVisible();
+    await expect(page.getByRole('menuitem')).toHaveText(['Exec', 'Brainstorm', 'Refine']);
+
+    await page.getByRole('menuitem', { name: 'Refine' }).click();
+    await expect(page.getByRole('menu')).toHaveCount(0);
+
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+    const create = (await ptyCalls(page)).creates[0]!;
+    expect(create.initialInput).toContain('/midnite-refine https://github.com/bilo-io/midnite-studio/issues/40');
+    expect(create.initialInput).not.toContain('Land the write path');
+
+    // The node was never selected by that click — `onPlay`'s own
+    // `stopPropagation` keeps it from also opening the detail pane.
+    await expect(node).not.toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('a node with a skill already set in the detail pane: Play never shows a menu', async ({ page }) => {
+    // `cardSkillByTask` (Phase 92 Theme C) keyed by `${projectId}:${itemId}`
+    // — seeded here the way `CardDetail`'s own picker (or a previous trip
+    // through the fallback menu) would have persisted it, mirroring
+    // `kanban.spec.ts`'s own `cardSkillByTask` seed.
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        'midnite-studio.ui',
+        JSON.stringify({ state: { cardSkillByTask: { 'PVT_1:PVTI_2': 'execAdhoc' } }, version: 20 }),
+      );
+    });
+    await openGraph(page);
+
+    const dependent = page.locator('[data-graph-node]', { hasText: 'Build the settings page on top of it' });
+    await dependent.getByTestId('graph-node-play-agent').click();
+
+    expect(await page.getByRole('menu').count()).toBe(0);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+    const create = (await ptyCalls(page)).creates[0]!;
+    expect(create.initialInput).toContain('/midnite-exec-adhoc https://github.com/bilo-io/midnite-studio/issues/41');
   });
 });

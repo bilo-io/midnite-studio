@@ -84,7 +84,20 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // covers the component's wiring (mount/unmount, which store calls fire, the
 // mutual-exclusion claim) against a fake `Terminal`; this is the one place
 // that needed the genuine thing.
-export const MAX_DECLARED_E2E = 441;
+// Raised 441 -> 445 for Phase 92 Theme E's Play-button fork, one case per
+// surface plus one for each surface's "skill already set" branch
+// (`kanban.spec.ts`, `project-graph.spec.ts`; two tests each): the fork
+// (Theme D) opens a real pointer-anchored `ContextMenu` through
+// `useDialogs().openMenu` — a portal rendered at a real click coordinate, not
+// a jsdom synthetic click — and a picked entry's launch is only observable
+// through the real pty bridge (`initialInput` on `pty:create`), which
+// `use-card-play.test.tsx`'s isolated hook render cannot prove reaches the
+// assembled `DialogHost`/`TerminalPanel` tree at all. Everything about which
+// three entries the menu offers, what each composes, and that a pick both
+// launches and persists is already covered under vitest in
+// `use-card-play.test.tsx`; these four prove the same fork survives contact
+// with the real board and graph surfaces it is mounted on.
+export const MAX_DECLARED_E2E = 445;
 
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult

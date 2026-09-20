@@ -114,6 +114,20 @@ type WriteCall = { channel: string; request: Record<string, unknown> };
 const recorded = (page: Page): Promise<WriteCall[]> =>
   page.evaluate(() => (window as unknown as { __mstudioWrites?: WriteCall[] }).__mstudioWrites ?? []);
 
+/**
+ * The pty traffic that crossed the bridge — mirrors `terminal.spec.ts`'s own
+ * `ptyCalls` helper. `initialInput` is what a `useCardPlay` (Phase 92 Theme
+ * D) launch actually typed into the fresh session; xterm's canvas cannot be
+ * queried for it, so this is the only place a spec can read it.
+ */
+const ptyCalls = (page: Page) =>
+  page.evaluate(
+    () =>
+      (window as unknown as {
+        __mstudioPty: { creates: { ptyId: string; sessionId: string; initialInput?: string }[] };
+      }).__mstudioPty,
+  );
+
 /** Land on the Projects view, in Board mode, with the one seeded board picked. */
 async function openBoard(page: Page, data: MockFixtures, options: { writes?: boolean } = {}): Promise<void> {
   if (options.writes === true) {
@@ -402,5 +416,62 @@ test.describe('card-detail panel history (Theme D)', () => {
 
     await page.getByTestId('board-view').getByRole('button', { name: 'Back' }).click();
     await expect(page.getByTestId('card-detail').last()).toContainText('Wire the write path');
+  });
+});
+
+/**
+ * Phase 92 Theme D's fork, proved against the real assembled app rather than
+ * the isolated `use-card-play.test.tsx` hook — `board-view.tsx` mounts the
+ * one `DialogHost` this menu actually opens through, and only the assembled
+ * app can show a click landing on it and the session that follows.
+ */
+test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
+  test('an unset card: Play opens the fallback menu, and one click on an entry both launches and closes it', async ({
+    page,
+  }) => {
+    await openBoard(page, base);
+
+    const card = page
+      .getByText('Wire the write path')
+      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+    await card.getByTestId('card-play-agent').click();
+
+    // Exactly three entries — never the full six-entry `tasks` category.
+    await expect(page.getByRole('menu')).toBeVisible();
+    await expect(page.getByRole('menuitem')).toHaveText(['Exec', 'Brainstorm', 'Refine']);
+
+    // One click: no second confirm, no second click needed.
+    await page.getByRole('menuitem', { name: 'Exec' }).click();
+    await expect(page.getByRole('menu')).toHaveCount(0);
+
+    // It launched — a fresh pty came up with the shrunk skill+link prompt,
+    // never the title/assignees/labels/body `composeCardPrompt` would send.
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+    const create = (await ptyCalls(page)).creates[0]!;
+    expect(create.initialInput).toContain('/midnite-exec-adhoc https://github.com/bilo-io/midnite-studio/issues/42');
+    expect(create.initialInput).not.toContain('Wire the write path');
+
+    // And the terminal panel opened on it — `revealSession`'s own job.
+    await expect(page.locator('[data-terminal-panel]')).toBeVisible();
+  });
+
+  test('a card with a skill already set in the detail pane: Play never shows a menu', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        'midnite-studio.ui',
+        JSON.stringify({ state: { cardSkillByTask: { 'PVT_1:PVTI_2': 'brainstorm' } }, version: 20 }),
+      );
+    });
+    await openBoard(page, base);
+
+    const otherCard = page
+      .getByText('A card nobody touches')
+      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+    await otherCard.getByTestId('card-play-agent').click();
+
+    expect(await page.getByRole('menu').count()).toBe(0);
+    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
+    const create = (await ptyCalls(page)).creates[0]!;
+    expect(create.initialInput).toContain('/midnite-brainstorm https://github.com/bilo-io/midnite-studio/issues/43');
   });
 });
