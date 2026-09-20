@@ -196,6 +196,20 @@ test('each view is reachable and none of them answers as the graph', async ({ pa
   }
 });
 
+test('hidden sidenav destinations are omitted from the rail', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({ state: { navVisibility: { graph: false, sessions: false } }, version: 21 }),
+    );
+  });
+  await open(page);
+
+  await expect(rail(page, 'Graph')).toHaveCount(0);
+  await expect(rail(page, 'Sessions')).toHaveCount(0);
+  await expect(rail(page, 'Dashboard')).toBeVisible();
+});
+
 test('Actions and Reviews are absent for a repository gh could never answer for', async ({
   page,
 }) => {

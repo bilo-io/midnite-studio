@@ -56,6 +56,7 @@ export const PREFERENCE_KEYS = [
   'loopModifierDefaults', // agent-page.tsx — the Loops accordion
   'metricsIdleIntervalMs', // monitor-page.tsx
   'navMode', // sidebar-page.tsx
+  'navVisibility', // sidebar-page.tsx — Sidenav toggles
   'optimizerEnabled', // optimizer-settings-page.tsx
   'passcode', // screen-lock-page.tsx
   'passcodeOnlyWhenLocked', // screen-lock-page.tsx

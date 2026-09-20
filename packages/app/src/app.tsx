@@ -41,6 +41,7 @@ import { VIEW_ICON } from './components/nav-icons';
 import { VIEW_COMPONENT } from './components/view-registry';
 import { useKeptAliveView } from './components/view-keep-alive';
 import { navChord } from './components/nav-chords';
+import { isNavViewVisible } from './components/nav-visibility';
 import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
@@ -667,6 +668,7 @@ function Shell() {
 
   const forgeAvailable = useForgeGateAvailable(selectedRepoId);
   const optimizerEnabled = useUiStore((s) => s.optimizerEnabled);
+  const navVisibility = useUiStore((s) => s.navVisibility);
 
   /**
    * Never leave the user standing in a view the rail no longer offers.
@@ -684,11 +686,12 @@ function Shell() {
   useEffect(() => {
     if (
       (FORGE_GATED_VIEWS.includes(activeView) && !forgeAvailable) ||
-      (activeView === 'optimizer' && !optimizerEnabled)
+      (activeView === 'optimizer' && !optimizerEnabled) ||
+      !isNavViewVisible(navVisibility, activeView)
     ) {
       useUiStore.getState().setActiveView('graph');
     }
-  }, [activeView, forgeAvailable, optimizerEnabled]);
+  }, [activeView, forgeAvailable, optimizerEnabled, navVisibility]);
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
   // Feeds the status bar's liveness dot (Phase 84 Theme I) off the same
   // broadcast — see the hook's own doc.
@@ -1140,6 +1143,24 @@ function Shell() {
     [],
   );
 
+  const visibleNavItem = useCallback(
+    (item: NavItem) => (isNavViewVisible(navVisibility, item.view) ? navItem(item) : null),
+    [navItem, navVisibility],
+  );
+
+  const filterNavItems = useCallback(
+    (items: NavItem[]) =>
+      items
+        .filter(
+          (item) =>
+            isNavViewVisible(navVisibility, item.view) &&
+            (!FORGE_GATED_VIEWS.includes(item.view) || forgeAvailable) &&
+            (item.view !== 'optimizer' || optimizerEnabled),
+        )
+        .map(navItem),
+    [navItem, navVisibility, forgeAvailable, optimizerEnabled],
+  );
+
   const nav: NavConfig = useMemo(
     () => ({
       // Ungrouped, above the sections — the shell's own slot for exactly
@@ -1148,52 +1169,46 @@ function Shell() {
       // directly under Knowledge (adhoc sidenav reorder); the hairline
       // between Dashboard and Notes is `ViewLink`'s job, not this array's.
       pinned: [
-        navItem(PINNED_ITEM),
-        navItem(NOTES_ITEM),
-        {
-          ...navItem(KNOWLEDGE_ITEM),
-          // Theme F: greyed, not hidden, for a repo that exists but has never
-          // been graphified — `knowledgeGraphExists === false` is a real
-          // answer from the cheap `stat`-only check (`useKnowledgeGraphExists`),
-          // not the mere absence of one. `undefined` (no repo selected, or
-          // the check hasn't resolved yet) reads as active: EmptyWorkspace,
-          // not this row, is what "no repo open" already shows, and a flash
-          // of grey before the first repo's check lands is worse than a
-          // beat of looking normal.
-          icon: (
-            <KNOWLEDGE_ITEM.icon
-              aria-hidden
-              className={`h-4 w-4 ${
-                selectedRepoId !== null && knowledgeGraphExists === false ? 'opacity-40' : ''
-              }`}
-            />
-          ),
-        },
-        navItem(SESSIONS_ITEM),
-      ],
+        visibleNavItem(PINNED_ITEM),
+        visibleNavItem(NOTES_ITEM),
+        visibleNavItem(KNOWLEDGE_ITEM)
+          ? {
+              ...navItem(KNOWLEDGE_ITEM),
+              // Theme F: greyed, not hidden, for a repo that exists but has never
+              // been graphified — `knowledgeGraphExists === false` is a real
+              // answer from the cheap `stat`-only check (`useKnowledgeGraphExists`),
+              // not the mere absence of one. `undefined` (no repo selected, or
+              // the check hasn't resolved yet) reads as active: EmptyWorkspace,
+              // not this row, is what "no repo open" already shows, and a flash
+              // of grey before the first repo's check lands is worse than a
+              // beat of looking normal.
+              icon: (
+                <KNOWLEDGE_ITEM.icon
+                  aria-hidden
+                  className={`h-4 w-4 ${
+                    selectedRepoId !== null && knowledgeGraphExists === false ? 'opacity-40' : ''
+                  }`}
+                />
+              ),
+            }
+          : null,
+        visibleNavItem(SESSIONS_ITEM),
+      ].filter((item): item is NonNullable<typeof item> => item !== null),
       sections: [
         {
           key: 'workspace',
           title: 'Workspace',
-          items: WORKSPACE_NAV_ITEMS.filter(
-            (item) =>
-              (!FORGE_GATED_VIEWS.includes(item.view) || forgeAvailable) &&
-              (item.view !== 'optimizer' || optimizerEnabled),
-          ).map(navItem),
+          items: filterNavItems(WORKSPACE_NAV_ITEMS),
         },
         {
           key: 'git',
           title: 'Git',
-          items: GIT_NAV_ITEMS.filter(
-            (item) => !FORGE_GATED_VIEWS.includes(item.view) || forgeAvailable,
-          ).map(navItem),
+          items: filterNavItems(GIT_NAV_ITEMS),
         },
         {
           key: 'agents',
           title: 'Agents',
-          items: AGENT_NAV_ITEMS.filter(
-            (item) => !FORGE_GATED_VIEWS.includes(item.view) || forgeAvailable,
-          ).map(navItem),
+          items: filterNavItems(AGENT_NAV_ITEMS),
         },
       ],
       // Collapsed, the rail shows the mark alone — the wordmark would be
@@ -1254,6 +1269,8 @@ function Shell() {
       forgeAvailable,
       optimizerEnabled,
       navItem,
+      visibleNavItem,
+      filterNavItems,
       selectedRepoId,
       knowledgeGraphExists,
     ],

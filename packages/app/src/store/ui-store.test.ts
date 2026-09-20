@@ -255,6 +255,46 @@ describe('phase 19 store additions', () => {
   });
 });
 
+describe('navVisibility (sidenav feature flags)', () => {
+  beforeEach(reset);
+
+  it('starts with every destination visible — no entry means shown', () => {
+    expect(useUiStore.getState().navVisibility).toEqual({});
+  });
+
+  it('stores only hidden views and drops an entry when shown again', () => {
+    useUiStore.getState().setNavViewVisible('graph', false);
+    expect(useUiStore.getState().navVisibility).toEqual({ graph: false });
+
+    useUiStore.getState().setNavViewVisible('graph', true);
+    expect(useUiStore.getState().navVisibility).toEqual({});
+  });
+
+  it('persists hidden destinations', () => {
+    useUiStore.getState().setNavViewVisible('sessions', false);
+
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+      state: { navVisibility: Record<string, boolean> };
+    };
+    expect(saved.state.navVisibility).toEqual({ sessions: false });
+  });
+
+  it('v20 → v21 migration seeds an empty map', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({}, 20) as { navVisibility: Record<string, boolean> };
+    expect(migrated.navVisibility).toEqual({});
+  });
+
+  it('merge sanitizes unknown keys through parseNavVisibility', () => {
+    const merged = useUiStore.persist.getOptions().merge?.(
+      { navVisibility: { graph: false, files: true, bogus: false } },
+      useUiStore.getState(),
+    ) as { navVisibility: Record<string, boolean> };
+
+    expect(merged.navVisibility).toEqual({ graph: false });
+  });
+});
+
 describe('phase 16 store additions', () => {
   beforeEach(reset);
 

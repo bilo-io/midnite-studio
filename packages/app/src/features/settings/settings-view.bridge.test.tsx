@@ -113,6 +113,25 @@ describe('SettingsView, assembled through the real bridge', () => {
     expect(toolsBody.hasAttribute('inert')).toBe(false);
   });
 
+  it('the Sidebar page toggles sidenav destinations on and off', async () => {
+    renderView(<SettingsView />, {
+      fixtures: settingsFixtures,
+      uiState: { ...UI_STATE, settingsPage: 'sidebar', activeView: 'settings' },
+    });
+    expect(await screen.findByRole('heading', { name: 'Sidebar' })).toBeTruthy();
+
+    const graphToggle = screen.getByRole('checkbox', { name: 'Show Graph in the sidenav' });
+    expect((graphToggle as HTMLInputElement).checked).toBe(true);
+
+    fireEvent.click(graphToggle);
+    expect((graphToggle as HTMLInputElement).checked).toBe(false);
+    expect(useUiStore.getState().navVisibility).toEqual({ graph: false });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all destinations' }));
+    expect(useUiStore.getState().navVisibility).toEqual({});
+    expect((graphToggle as HTMLInputElement).checked).toBe(true);
+  });
+
   it("reads every view's narrowing, edits it live, and resets it", async () => {
     renderView(
       // `ReposPanel`'s own action menu reaches `useToasts()` through
