@@ -23,6 +23,15 @@ vi.mock('../../../services/queries', () => ({
   useRepos: () => ({ data: [] }),
   useRunDiagnostics: () => ({ mutate: vi.fn(), isPending: false }),
   useUntrustDiagnostics: () => ({ mutate: vi.fn() }),
+  // `ReportIssueDialog` (Phase 93 Theme C) reads these two through the same
+  // module. Plain mocks rather than the real `useQuery`/`useMutation`
+  // hooks — this file's own scope is reachability (Phase 65 Theme E), not
+  // the composer's own behaviour, which `report-issue-dialog.test.tsx`
+  // already covers in full — so a real `QueryClientProvider` is unneeded
+  // here. `not-installed` keeps every render on the fallback branch, which
+  // is all the one composer-touching test below exercises.
+  useForgeCli: () => ({ data: { reason: 'not-installed', binPath: null, hint: '' } }),
+  useSubmitAppIssue: () => ({ mutate: vi.fn(), isPending: false, data: undefined, reset: vi.fn() }),
 }));
 
 vi.mock('../../../services/use-status', () => ({
@@ -76,11 +85,17 @@ describe('Diagnostics ▸ crash reporting', () => {
     This copy of Report a bug is the one that matters: `version-pill.tsx` hides
     itself on '0.0.0', so the release-notes panel's link is unreachable in a dev
     build. This accordion renders in every build.
+
+    Phase 93 Theme C: the click now opens the in-app composer rather than
+    calling `openExternal` directly — that call still exists, as the
+    composer's own fallback when `gh` is not ready (mocked `not-installed`
+    above), which is what this test now exercises end to end.
   */
-  it('opens the pre-labelled new-issue URL externally', async () => {
+  it('opens the composer, whose fallback opens the pre-labelled new-issue URL externally', async () => {
     render(<MonitorPage />);
 
     fireEvent.click(screen.getByText('Report a bug'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open in browser instead' }));
 
     expect(mocks.openExternal).toHaveBeenCalledWith(
       expect.stringContaining('midnite-apps/issues/new'),

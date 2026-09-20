@@ -1,6 +1,48 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-20 — Phase 93 Themes C, D — An in-app issue composer over the existing redaction path
+
+[PR #480](https://github.com/bilo-io/midnite-studio/pull/480). Themes A and B (PR #479) built the
+fixed-target write and its IPC surface; this PR is the dialog that actually calls it, plus the
+verification that redaction still has exactly one path.
+- **Theme C** — new `packages/app/src/components/report-issue-dialog.tsx`
+  (`ReportIssueDialog`/`composeIssueBody`), living beside `confirm-dialog.tsx`/`prompt-dialog.tsx`
+  since it's triggered from two unrelated features with no local state of their own to host it in.
+  A Bug/Feature toggle picks `kind` and re-prefills the title (`[bug] `/`[feat] `, matching
+  `bug.yml`/`feature.yml`) unless the user already edited it away from the bare prefix; a
+  description textarea; and a `@bilo-io/ui` `Accordion` diagnostics block, keyed on `kind` so it
+  remounts at the right default (open for a bug, closed for a feature) instead of carrying over
+  the other kind's state — its contents are `mstudio:report:bundle`'s response rendered verbatim,
+  fetched fresh on every open. `useForgeCli()` gates the whole form proactively: `cli.reason !==
+  'ready'` swaps Submit for why (`cli.hint`) and a working "Open in browser instead"
+  (`openExternal(NEW_ISSUE_URL)`, today's exact pre-phase behaviour) rather than only surfacing
+  that after a failed write. On success, "View issue" opens the created URL and closes the dialog
+  in the same click — clicking is the exit, not a detour before one. Both trigger sites
+  (`monitor-page.tsx`'s `CrashReporting()`, `version-notes-panel.tsx`'s "Report a bug") now open
+  this dialog instead of calling `openExternal` directly; `PanelLink` gained an optional `onClick`
+  override for the latter rather than a second link component.
+- **Theme D** — confirmed, not built: the composer never calls `redactPaths` itself, only renders
+  what `report.bundle()` already returned (a test asserts the rendered block is byte-identical to
+  the mocked response). `composeIssueBody` concatenates the user's description with that
+  diagnostics text as two markdown sections and clamps its own output to `FORGE_BODY_MAX`
+  client-side, on top of the schema's existing cap. A new `redact.test.ts` case runs a realistic
+  composer-built body (a description plus a `## Diagnostics` section carrying a foreign home
+  directory and a GitHub-PAT-shaped string) through the unchanged `SECRET_PATTERNS`/
+  `FOREIGN_HOMES` sets and confirms both still get caught — no new pattern needed.
+
+Decisions made without asking (unattended run; recorded in the PR body): dialog state is local
+`useState` per trigger site (no `DialogHost` entry, no global store) — it owns a multi-step form
+`confirm`/`notify`/`openMenu`'s one-shot request shape doesn't fit; the diagnostics collapsible
+reuses the same `Accordion` `monitor-page.tsx` already uses elsewhere; "and closes" (Theme C's own
+wording) is read as the "View issue" link's own action, not an unattended auto-dismiss that would
+hide the link before it could be clicked.
+
+CI was hard-blocked (Actions spending limit exhausted account-wide) for this whole batch; verified
+locally instead — see the PR body for the exact `moon run :typecheck :lint :test` output. Theme E
+(`/midnite-address-issue` scanning both boards) is left for a later wave; its checkboxes are
+untouched in the phase doc. Phase now at Themes A–D landed, E open.
+
 ## 2026-09-20 — Phase 92 Themes A, B — One Play hook and a skill-launch prompt
 
 [PR #478](https://github.com/bilo-io/midnite-studio/pull/478). The kanban card's Play button and

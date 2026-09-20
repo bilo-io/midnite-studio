@@ -66,4 +66,41 @@ describe('redactPaths', () => {
     );
     expect(out).toEqual({ message: 'boom at ~/x', at: 12, ok: true });
   });
+
+  /**
+   * Phase 93 Theme D — a verification bullet, not a build one. The in-app
+   * issue composer (`report-issue-dialog.tsx`) introduces no new credential
+   * shape: it never asks for a token and never stores one, it only wraps
+   * the diagnostics text `mstudio:report:bundle` already returned (already
+   * redacted, main-side) inside a markdown section alongside the user's own
+   * free-text description. This proves that concatenation still ends up
+   * fully redacted by the existing `SECRET_PATTERNS`/`FOREIGN_HOMES` sets
+   * with no new pattern added for this phase — the shapes below are exactly
+   * what such a composer-built body looks like once `gh issue create --body`
+   * would receive it.
+   */
+  it('a composer-built issue body (description + diagnostics section) needs no new secret pattern', () => {
+    const body = [
+      'Clicked sync and it spun forever.',
+      '',
+      '---',
+      '',
+      '## Diagnostics',
+      '',
+      '```',
+      'boot v0.3.1',
+      '2026-01-01T00:00:00.000Z ERROR /Users/bilolwabona/Dev/midnite-studio failed: ghp_0123456789abcdefghijABCDEF',
+      'Authorization: Bearer abcdefghijklmnopqrstuvwxyz',
+      '```',
+    ].join('\n');
+
+    const out = redactPaths(body, '/Users/bilolwabona');
+
+    expect(out).toContain('Clicked sync and it spun forever.');
+    expect(out).toContain('## Diagnostics');
+    expect(out).not.toContain('bilolwabona');
+    expect(out).not.toContain('ghp_0123456789abcdefghijABCDEF');
+    expect(out).not.toContain('abcdefghijklmnopqrstuvwxyz');
+    expect(out).toContain('<redacted>');
+  });
 });
