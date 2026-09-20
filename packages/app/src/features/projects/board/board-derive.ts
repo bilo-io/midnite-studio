@@ -142,6 +142,27 @@ export function composeCardPrompt(item: ForgeProjectItem, repoPath: string): str
 }
 
 /**
+ * The Play button's shrunk prompt (Phase 92 Theme B) — a skill template plus
+ * the issue's own link, not the whole issue. Mirrors `skillHandoff`'s own
+ * `` `${skillTemplate} ${body}` `` composition (`use-skill-handoff.ts:104`)
+ * with the issue URL standing in for `body`: the skill itself is expected to
+ * fetch whatever it needs from that link, which is the point of handing it a
+ * link instead of a paste.
+ *
+ * **`composeCardPrompt` above is untouched** — it keeps backing
+ * `CardComposer`'s own human-reviewed textarea; this is a separate, smaller
+ * composition for the quick Play button's own skill-launch path.
+ *
+ * A draft item has no `url` — nothing to hand a skill as a link — so this
+ * falls back to `composeCardPrompt`'s existing draft-safe output (title +
+ * body) rather than composing a linkless, meaningless prompt.
+ */
+export function composeSkillLaunchPrompt(item: ForgeProjectItem, skillTemplate: string): string {
+  if (item.content.type === 'draft') return composeCardPrompt(item, '');
+  return `${skillTemplate} ${item.content.url}`;
+}
+
+/**
  * Kanban sessions whose card no longer exists on the currently-open board
  * (Phase 41 Theme H) — the item was moved off this board, or the board
  * switched entirely. Pure so the reconciliation itself is a unit test: the

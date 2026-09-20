@@ -1,6 +1,30 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-20 — Phase 92 Themes A, B — One Play hook and a skill-launch prompt
+
+[PR #478](https://github.com/bilo-io/midnite-studio/pull/478). The kanban card's Play button and
+the dependency-graph node's copy of it (`task-card.tsx`, `project-graph-node.tsx`) were duplicated
+verbatim, down to the `BUILTIN_AGENTS`-scanning most-recent-agent fallback. Extracted both into one
+shared hook, `useCardPlay({ item, repoId, worktreePath, taskRef, sessionId })` (new
+`board/use-card-play.ts`), returning `{ onPlay }` — each caller still derives its own live-session
+id the way it always did (`TaskCard` via `useCardStatus`, `ProjectGraphNode` via `findCardSession`)
+and hands it in rather than the hook re-deriving it, so the "reveal vs. launch" behaviour is
+byte-for-byte unchanged. `data-testid="card-play-agent"` / `data-testid="graph-node-play-agent"`
+untouched.
+
+Also added `composeSkillLaunchPrompt(item, skillTemplate)` to `board-derive.ts` — the shrunk
+prompt (`<skill template> <issue url>`) that a later theme will wire into the Play button, falling
+back to `composeCardPrompt`'s draft-safe output for a draft item (no url to shrink to).
+`composeCardPrompt` itself is untouched and still backs `CardComposer`'s human-reviewed textarea.
+
+CI was hard-blocked (Actions spending limit exhausted account-wide); verified locally instead —
+`moon run :typecheck :lint :test` green (487 test files, 4923 tests). New `use-card-play.test.tsx`
+plus new `composeSkillLaunchPrompt` cases in `board-derive.test.ts`; existing `task-card.test.tsx`
+and `project-graph-node.test.tsx` pass unchanged, proving the extraction. Themes C, D, E (the
+`cardSkillByTask` picker, the Play fork, and their verification coverage) are left for a sibling
+wave — phase now 8/36 (22%).
+
 ## 2026-09-19 — Phase 86 Theme G (retroactive) + Theme H — Notes page verification, closed
 
 [PR #464](https://github.com/bilo-io/midnite-studio/pull/464). Grounding for this PR found Theme G
