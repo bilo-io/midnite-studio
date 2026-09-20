@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 |-------|--------|---------|------|----------|---|--------|--------|
 | [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | ◻ TODO | — | 0/87 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E |
-| [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | ◻ TODO | — | 0/36 | `░░░░░░░░░░` | 0% | — | A B C D E |
+| [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | 🔄 WIP | — | 0/36 | `░░░░░░░░░░` | 0% | A B | C D E |
 | [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | ◻ TODO | — | 0/95 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | ◻ TODO | — | 0/101 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J K |
 | [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 36/89 | `████░░░░░░` | 40% | — | F G H I J K |
@@ -268,8 +268,8 @@ gives a card a chosen skill (local state, not a GitHub field) and shrinks the la
 that skill plus the issue link; unset, Play opens a three-entry menu (Exec/Brainstorm/Refine)
 instead of guessing.*
 
-- ◻ **A** — extract the two copy-pasted Play-button implementations into one `useCardPlay` hook
-- ◻ **B** — `composeSkillLaunchPrompt` (skill + issue link); `composeCardPrompt` itself untouched
+- 🔄 **A** — extract the two copy-pasted Play-button implementations into one `useCardPlay` hook
+- 🔄 **B** — `composeSkillLaunchPrompt` (skill + issue link); `composeCardPrompt` itself untouched
 - ◻ **C** — `cardSkillByTask` local state + an `IconSelect` picker in `CardDetail`
 - ◻ **D** — Play forks on whether a skill is set: launch directly, or a pointer-anchored menu
 - ◻ **E** — verification coverage
