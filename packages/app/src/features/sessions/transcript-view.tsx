@@ -8,6 +8,7 @@ import { LuHistory } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
 import { bridge } from '../../services/bridge';
+import { disableSynchronizedOutput } from '../terminal/disable-synchronized-output';
 import { resolveTerminalPalette } from '../themes/resolve-palette';
 import { terminalFontOptions } from '../terminal/terminal-font';
 import { useUiStore } from '../../store/ui-store';
@@ -19,7 +20,7 @@ import { useUiStore } from '../../store/ui-store';
  * that mode.
  */
 const RESET_MODES =
-  '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?25h';
+  '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?25h\x1b[?2026l';
 
 const isDark = (): boolean => document.documentElement.classList.contains('dark');
 
@@ -127,6 +128,7 @@ function TranscriptTerminal({ bytes }: { bytes: Uint8Array }) {
     term.loadAddon(fit);
     term.open(container);
     fit.fit();
+    disableSynchronizedOutput(term);
     term.write(bytes);
     term.write(RESET_MODES);
 
