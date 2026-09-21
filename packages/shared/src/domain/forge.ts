@@ -11,6 +11,15 @@ import { FileDiffSchema } from './diff';
  * story would mean a settings page for a PAT, a keychain decision, and a token
  * that silently expires — for data that is decoration on a git client.
  *
+ * **That argument was written about one forge, and does not survive four.**
+ * Phase 90 pays all three of the costs this paragraph names — GitLab,
+ * Bitbucket and Azure DevOps have no equivalent of `gh`, so each needs a
+ * settings page for a PAT, a keychain decision (`forge-account-vault.ts`) and
+ * a credential the app itself now holds. GitHub is the one exception this
+ * paragraph stays true for: its account is `delegated: 'gh'`, holds no
+ * token, and reads through this same subprocess path unchanged — see
+ * `forge-account.ts`'s `ForgeAccountSchema` docblock.
+ *
  * Every field that the forge can legitimately withhold is nullable, and each
  * `null` has a distinct meaning spelled out below. A run that has not finished
  * has no conclusion; a pull request nobody has reviewed has no decision. Those

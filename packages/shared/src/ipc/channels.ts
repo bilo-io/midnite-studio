@@ -239,6 +239,26 @@ export const CHANNELS = {
   /** Drop it — also done automatically when the window closes. */
   forgeUnsubscribe: 'mstudio:forge:unsubscribe',
 
+  // --- forge accounts (Phase 90 Theme B) -------------------------------------
+  //
+  // The "who am I" concept this app has never had. Every channel here is
+  // repo-agnostic — an account is a machine-wide identity, not something a
+  // `repoId` scopes — which is why the request shapes below carry a `kind`
+  // and a `host` rather than a repo. `add` doubles as validation: a PAT that
+  // cannot answer `whoami` is never stored, so a successful response IS the
+  // account. See `shared/src/domain/forge-account.ts` for the contract.
+  /** Every stored account, non-secret. */
+  forgeAccounts: 'mstudio:forge:accounts',
+  /** Validate a credential against the provider's `whoami`, then store it. */
+  forgeAccountAdd: 'mstudio:forge:account-add',
+  /** Forget an account and its vaulted token, if any. */
+  forgeAccountRemove: 'mstudio:forge:account-remove',
+  /** Change which account is active. Theme C is what makes that mean
+   *  anything beyond the stored pointer this channel writes. */
+  forgeAccountSwitch: 'mstudio:forge:account-switch',
+  /** What this provider kind can do — a placeholder matrix until Theme H. */
+  forgeCapabilities: 'mstudio:forge:capabilities',
+
   // --- forge projects (GitHub ProjectV2 — Phase 40) -------------------------
   //
   // Its own `forge-project:` namespace rather than folded into `forge:` above:

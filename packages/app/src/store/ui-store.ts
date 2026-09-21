@@ -13,6 +13,7 @@ import {
   type CompanionVoiceEngine,
   type CompanionVoiceSelection,
   type Ecosystem,
+  type ForgeAccount,
   type LoopModel,
   type LoopSchedule,
   type MetricId,
@@ -224,6 +225,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'companion', label: 'Companion', group: 'ai' },
   { id: 'mcp', label: 'MCP Server', group: 'ai' },
   { id: 'apps', label: 'Apps', group: 'ai' },
+  { id: 'accounts', label: 'Accounts', group: 'general' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
   { id: 'updates', label: 'App Updates', group: 'system' },
   { id: 'health', label: 'System Health', group: 'system' },
@@ -1375,6 +1377,22 @@ export type UiState = {
    */
   agentApiKeys: Record<string, string>;
   setAgentApiKey: (agentId: string, apiKey: string) => void;
+  /** Drops the key entirely rather than setting it to `''` — used by the
+   *  `agentApiKeys['github']` → forge-account-vault migration (Phase 90
+   *  Theme B), which absorbs that one slot and wants it gone, not blank. */
+  removeAgentApiKey: (agentId: string) => void;
+  /**
+   * Non-secret mirror of main's account registry (Phase 90 Theme B) — main
+   * owns the authoritative copy; this is what lets the title-bar avatar and
+   * Settings ▸ Accounts render without an IPC round trip on every paint.
+   * `useForgeAccounts` (`services/queries.ts`) is what keeps it in sync.
+   */
+  forgeAccounts: ForgeAccount[];
+  setForgeAccounts: (accounts: ForgeAccount[]) => void;
+  /** The active account's id, or `null` when none is active. Theme C reads
+   *  this to rescope the repo list; Theme B only ever writes it. */
+  forgeActiveAccountId: string | null;
+  setForgeActiveAccountId: (id: string | null) => void;
   /**
    * Execution mode when triggering skills: 'interactive' (default) or 'headless'.
    */
@@ -1859,6 +1877,8 @@ export type PersistedUi = Pick<
   | 'autoFetchEnabled'
   | 'metricsIdleIntervalMs'
   | 'forgeWritesEnabled'
+  | 'forgeAccounts'
+  | 'forgeActiveAccountId'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
   | 'projectsMode'
@@ -2009,6 +2029,15 @@ export const useUiStore = create<UiState>()(
       agentApiKeys: {},
       setAgentApiKey: (agentId, apiKey) =>
         set((state) => ({ agentApiKeys: { ...state.agentApiKeys, [agentId]: apiKey } })),
+      removeAgentApiKey: (agentId) =>
+        set((state) => {
+          const { [agentId]: _dropped, ...rest } = state.agentApiKeys;
+          return { agentApiKeys: rest };
+        }),
+      forgeAccounts: [],
+      setForgeAccounts: (forgeAccounts) => set({ forgeAccounts }),
+      forgeActiveAccountId: null,
+      setForgeActiveAccountId: (forgeActiveAccountId) => set({ forgeActiveAccountId }),
       skillExecutionMode: DEFAULT_SKILL_EXECUTION_MODE,
       setSkillExecutionMode: (skillExecutionMode) => set({ skillExecutionMode }),
       inactivityTimeoutS: 900,
@@ -2675,7 +2704,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 21,
+      version: 22,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2737,6 +2766,8 @@ export const useUiStore = create<UiState>()(
         primaryAgent: state.primaryAgent,
         agentModes: state.agentModes,
         agentApiKeys: state.agentApiKeys,
+        forgeAccounts: state.forgeAccounts,
+        forgeActiveAccountId: state.forgeActiveAccountId,
         skillExecutionMode: state.skillExecutionMode,
         repoGroups: state.repoGroups,
         repoGroupMembership: state.repoGroupMembership,
@@ -2850,6 +2881,11 @@ export const useUiStore = create<UiState>()(
        * shape to carry forward — a card's Play button had no per-card skill
        * before this version — so a pre-v20 blob and a fresh install land on
        * the identical empty map.
+       * v21 → v22: seed `forgeAccounts = []` and `forgeActiveAccountId =
+       * null` (Phase 90 Theme B) — the account registry did not exist before
+       * this version. The one-time `agentApiKeys['github']` → vault
+       * migration is a separate, IPC-connected step run at startup, not
+       * here — `migrate` is synchronous and cannot await main's response.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -2891,6 +2927,8 @@ export const useUiStore = create<UiState>()(
           companionVolume?: number;
           companionMicMode?: CompanionMicMode;
           cardSkillByTask?: Record<string, AgentCommandId>;
+          forgeAccounts?: ForgeAccount[];
+          forgeActiveAccountId?: string | null;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -2978,6 +3016,14 @@ export const useUiStore = create<UiState>()(
         }
         if (version < 21) {
           state.navVisibility = {};
+        }
+        if (version < 22) {
+          // The mirror is new; the migration that populates it from a real
+          // account (Phase 90 Theme B's `agentApiKeys['github']` absorption)
+          // runs at IPC-connected startup, not here — see
+          // `store/migrate-forge-github-key.ts`.
+          state.forgeAccounts = [];
+          state.forgeActiveAccountId = null;
         }
         return state as PersistedUi;
       },

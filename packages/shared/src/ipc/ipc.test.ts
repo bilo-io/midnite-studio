@@ -736,6 +736,13 @@ describe('forge schemas', () => {
       // verbs are covered here.
       forgeSubscribe: ['ForgeSubscribeRequest'],
       forgeUnsubscribe: ['ForgeUnsubscribeRequest'],
+      // The account registry (Phase 90 Theme B) — repo-agnostic, machine-wide
+      // identity, but still swept here since every key starts with `forge`.
+      forgeAccounts: ['ForgeAccountsRequest', 'ForgeAccountsResponse'],
+      forgeAccountAdd: ['ForgeAccountAddRequest', 'ForgeAccountAddResponse'],
+      forgeAccountRemove: ['ForgeAccountRemoveRequest', 'ForgeAccountRemoveResponse'],
+      forgeAccountSwitch: ['ForgeAccountSwitchRequest', 'ForgeAccountSwitchResponse'],
+      forgeCapabilities: ['ForgeCapabilitiesRequest', 'ForgeCapabilitiesResponse'],
     };
     const channelKeys = Object.keys(CHANNELS).filter((key) => key.startsWith('forge'));
     expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());

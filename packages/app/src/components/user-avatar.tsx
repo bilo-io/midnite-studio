@@ -20,6 +20,14 @@ export interface UserAvatarProps {
   name?: string | null;
   /** Email address (used for Gravatar lookup when present) */
   email?: string | null;
+  /**
+   * An image URL supplied directly by the caller — GitLab/Bitbucket/Azure
+   * whoami results, say (Phase 90 Theme B), none of which are Gravatar or a
+   * `github.com/<login>.png` guess. Takes priority over both of those paths
+   * when present and non-empty; falls through to them (then initials) on a
+   * load error or when omitted, so every existing caller is unaffected.
+   */
+  src?: string | null;
   /** Avatar diameter in pixels (default 16) */
   size?: number;
   /** Extra CSS classes for the avatar container/image */
@@ -45,6 +53,7 @@ export function UserAvatar({
   login,
   name,
   email,
+  src,
   size = 16,
   className = '',
   withTooltip = true,
@@ -54,8 +63,10 @@ export function UserAvatar({
   const cleanLogin = login?.trim() || null;
   const cleanEmail = email?.trim() || null;
   const cleanName = name?.trim() || null;
+  const cleanSrc = src?.trim() || null;
 
   const [githubImgFailed, setGithubImgFailed] = useState(false);
+  const [srcFailed, setSrcFailed] = useState(false);
 
   // Email-based Gravatar state (only queried when email is available and no login is active)
   const gravatarState = useSyncExternalStore(
@@ -71,7 +82,17 @@ export function UserAvatar({
 
   let avatarElement: ReactNode;
 
-  if (cleanLogin && !githubImgFailed) {
+  if (cleanSrc && !srcFailed) {
+    avatarElement = (
+      <img
+        src={cleanSrc}
+        alt={cleanName || cleanLogin || ''}
+        style={style}
+        className={`shrink-0 rounded-full object-cover ${className}`}
+        onError={() => setSrcFailed(true)}
+      />
+    );
+  } else if (cleanLogin && !githubImgFailed) {
     avatarElement = (
       <img
         src={`https://github.com/${cleanLogin}.png?size=${Math.round(size * 2)}`}

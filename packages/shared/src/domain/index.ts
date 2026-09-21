@@ -11,6 +11,7 @@ export * from './database';
 export * from './diagnostics';
 export * from './diff';
 export * from './forge';
+export * from './forge-account';
 export * from './forge-graph';
 export * from './forge-project';
 export * from './journal';
