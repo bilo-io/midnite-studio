@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /**
  * `ViewId`/`VIEW_IDS` and `SettingsPageId`/`SETTINGS_PAGE_IDS` — the app's
  * navigable ids, moved here from `packages/app/src/store/ui-store.ts` (Phase
@@ -93,3 +95,26 @@ export const SETTINGS_PAGE_IDS = [
   'apps',
 ] as const;
 export type SettingsPageId = (typeof SETTINGS_PAGE_IDS)[number];
+
+/**
+ * Settings ▸ Sidebar's sidenav visibility map — sparse, same semantics as
+ * `NavVisibility` in `app`: absent/`true` = shown, `false` = hidden.
+ */
+export type NavVisibility = Partial<Record<ViewId, boolean>>;
+
+/** Drop unknown view ids and non-booleans from a persisted blob. */
+export function parseNavVisibility(raw: unknown): NavVisibility {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const record = raw as Record<string, unknown>;
+  const out: NavVisibility = {};
+  for (const view of VIEW_IDS) {
+    if (record[view] === false) out[view] = false;
+  }
+  return out;
+}
+
+/** Runtime validator for IPC or other wire paths that carry the map whole. */
+export const NavVisibilitySchema = z.custom<NavVisibility>(
+  (value) => parseNavVisibility(value) !== undefined,
+  'navVisibility must be a record of view ids to booleans',
+);

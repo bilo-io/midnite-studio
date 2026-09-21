@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { CommandId } from '@midnite/studio-shared';
 
 import { useDialogs } from '../../components/dialog-host';
+import { navCommandDisabledReason } from '../../components/nav-visibility';
 import { activePanelBack, activePanelForward } from '../../components/panel-stack/active-panel';
 import { isAgentUnconfigured } from '../../features/agent/agent-install-status';
 import { devServerUrl } from '../../features/browser/dev-server';
@@ -44,6 +45,16 @@ export type CommandRuntime = Record<CommandId, CommandEntry>;
 
 const NO_REPO = 'Open a repository first';
 
+function withNavVisibility(
+  navVisibility: ReturnType<typeof useUiStore.getState>['navVisibility'],
+  commandId: CommandId,
+  entry: CommandEntry,
+): CommandEntry {
+  const reason = navCommandDisabledReason(navVisibility, commandId);
+  if (reason === undefined) return entry;
+  return { ...entry, enabled: false, disabledReason: reason };
+}
+
 // Views that can ever register a `panel-stack` instance (`active-panel.ts`)
 // — Councils (Phase 42) and, since Phase 50 Theme D, a board's card detail.
 // `Mod+[`/`Mod+]` stay disabled everywhere else rather than firing a silent
@@ -77,6 +88,7 @@ export function useCommandHandlers(): CommandRuntime {
   const terminalSwitcherOptionCount =
     1 + agentRoster.filter((a) => !isAgentUnconfigured(a, agentStatus)).length;
   const activeView = useUiStore((s) => s.activeView);
+  const navVisibility = useUiStore((s) => s.navVisibility);
   const browserOpen = useUiStore((s) => s.browserOpen);
   const devServer = useDevServer();
   const terminalOpen = useUiStore((s) => s.terminalOpen);
@@ -369,7 +381,10 @@ export function useCommandHandlers(): CommandRuntime {
           },
         }),
     },
-    'search.open': { enabled: true, run: () => useUiStore.getState().setActiveView('search') },
+    'search.open': withNavVisibility(navVisibility, 'search.open', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('search'),
+    }),
 
     /*
       Always enabled, like `search.open` — it just opens Workflows if nothing
@@ -378,13 +393,13 @@ export function useCommandHandlers(): CommandRuntime {
       is a harmless no-op the rest of the time rather than a second gate this
       runtime would need its own state to compute.
     */
-    'workflow.run': {
+    'workflow.run': withNavVisibility(navVisibility, 'workflow.run', {
       enabled: true,
       run: () => {
         useUiStore.getState().setActiveView('workflows');
         useWorkflowRunCommandStore.getState().handle?.run();
       },
-    },
+    }),
 
     'repo.open': {
       enabled: true,
@@ -434,13 +449,34 @@ export function useCommandHandlers(): CommandRuntime {
     'app.reload': { enabled: true, run: () => bridge()?.window.reload(false) },
     'app.hardReload': { enabled: true, run: () => bridge()?.window.reload(true) },
 
-    'view.graph': { enabled: true, run: () => useUiStore.getState().setActiveView('graph') },
-    'view.files': { enabled: true, run: () => useUiStore.getState().setActiveView('files') },
-    'view.issues': { enabled: true, run: () => useUiStore.getState().setActiveView('issues') },
-    'view.video': { enabled: true, run: () => useUiStore.getState().setActiveView('video') },
-    'view.apiClient': { enabled: true, run: () => useUiStore.getState().setActiveView('apiClient') },
-    'graph.focus': { enabled: true, run: () => useUiStore.getState().setActiveView('graph') },
-    'status.focus': { enabled: true, run: () => useUiStore.getState().setActiveView('changes') },
+    'view.graph': withNavVisibility(navVisibility, 'view.graph', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('graph'),
+    }),
+    'view.files': withNavVisibility(navVisibility, 'view.files', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('files'),
+    }),
+    'view.issues': withNavVisibility(navVisibility, 'view.issues', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('issues'),
+    }),
+    'view.video': withNavVisibility(navVisibility, 'view.video', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('video'),
+    }),
+    'view.apiClient': withNavVisibility(navVisibility, 'view.apiClient', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('apiClient'),
+    }),
+    'graph.focus': withNavVisibility(navVisibility, 'graph.focus', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('graph'),
+    }),
+    'status.focus': withNavVisibility(navVisibility, 'status.focus', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('changes'),
+    }),
     'status.commit':
       selectedRepoId && onWorkingTree
         ? { enabled: true, run: () => useCommitBoxStore.getState().handle?.run() }

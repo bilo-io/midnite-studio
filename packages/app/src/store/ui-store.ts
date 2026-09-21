@@ -20,6 +20,7 @@ import {
   type PanelWindowRole,
   type SettingsPageId,
   type SkillExecutionMode,
+  parseNavVisibility,
   type ViewId,
 } from '@midnite/studio-shared';
 
@@ -958,6 +959,13 @@ export type UiState = {
    * decisions, and one flag for both would make each undo the other.
    */
   sectionFilters: Partial<Record<ViewId, boolean>>;
+  /**
+   * Which rail views are hidden — Settings ▸ Sidebar ▸ Sidenav. Sparse: absent
+   * means visible (default on for every view). Only `false` entries persist.
+   */
+  navVisibility: Partial<Record<ViewId, boolean>>;
+  setNavViewVisible: (view: ViewId, visible: boolean) => void;
+  resetNavVisibility: () => void;
   /** Ordered list of user-created repo groups. */
   repoGroups: RepoGroup[];
   /**
@@ -1808,6 +1816,7 @@ export type PersistedUi = Pick<
   | 'collapsedSettingsGroups'
   | 'collapsedRepoSections'
   | 'sectionFilters'
+  | 'navVisibility'
   | 'diffShowOldGutter'
   | 'diffLayout'
   | 'graphTheme'
@@ -2265,6 +2274,18 @@ export const useUiStore = create<UiState>()(
       collapsedSettingsGroups: [],
       collapsedRepoSections: {},
       sectionFilters: {},
+      navVisibility: {},
+      setNavViewVisible: (view, visible) =>
+        set((state) => {
+          if (visible) {
+            if (!(view in state.navVisibility)) return {};
+            const { [view]: _dropped, ...rest } = state.navVisibility;
+            return { navVisibility: rest };
+          }
+          if (state.navVisibility[view] === false) return {};
+          return { navVisibility: { ...state.navVisibility, [view]: false } };
+        }),
+      resetNavVisibility: () => set({ navVisibility: {} }),
       repoGroups: [],
       repoGroupMembership: {},
       collapsedRepoGroups: [],
@@ -2654,7 +2675,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 20,
+      version: 21,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2663,6 +2684,7 @@ export const useUiStore = create<UiState>()(
         collapsedSettingsGroups: state.collapsedSettingsGroups,
         collapsedRepoSections: state.collapsedRepoSections,
         sectionFilters: state.sectionFilters,
+        navVisibility: state.navVisibility,
         diffShowOldGutter: state.diffShowOldGutter,
         diffLayout: state.diffLayout,
         graphTheme: state.graphTheme,
@@ -2954,6 +2976,9 @@ export const useUiStore = create<UiState>()(
         if (version < 20) {
           state.cardSkillByTask = {};
         }
+        if (version < 21) {
+          state.navVisibility = {};
+        }
         return state as PersistedUi;
       },
       /**
@@ -2973,6 +2998,7 @@ export const useUiStore = create<UiState>()(
           layout: { ...current.layout, ...saved.layout },
           graphColumns: { ...current.graphColumns, ...saved.graphColumns },
           sectionFilters: { ...current.sectionFilters, ...saved.sectionFilters },
+          navVisibility: parseNavVisibility(saved.navVisibility ?? current.navVisibility),
           /*
             Re-spread for the reason the comment above gives, and one more: a
             blob written before a later menu entry existed would otherwise

@@ -1,6 +1,7 @@
 import { Accordion } from '@bilo-io/ui';
-import { LuFilter, LuPanelLeft, LuRefreshCw } from 'react-icons/lu';
+import { LuFilter, LuLayoutList, LuPanelLeft, LuRefreshCw } from 'react-icons/lu';
 
+import { isNavViewVisible, RAIL_VIEW_IDS } from '../../../components/nav-visibility';
 import { useUiStore, VIEW_IDS, type NavMode, type ViewId } from '../../../store/ui-store';
 import {
   ALL_SECTIONS,
@@ -110,6 +111,25 @@ function describeNarrowed(view: ViewId): string {
   return filter.dirtyOnly ? `${names} only, and only checkouts with changes` : `${names} only`;
 }
 
+function SidenavRow({ view, label }: { view: ViewId; label: string }) {
+  const navVisibility = useUiStore((s) => s.navVisibility);
+  const setNavViewVisible = useUiStore((s) => s.setNavViewVisible);
+  const visible = isNavViewVisible(navVisibility, view);
+
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-2 text-xs">
+      <span className="min-w-0 truncate">{label}</span>
+      <input
+        type="checkbox"
+        checked={visible}
+        onChange={(e) => setNavViewVisible(view, e.target.checked)}
+        className="accent-[hsl(var(--primary))]"
+        aria-label={`Show ${label} in the sidenav`}
+      />
+    </label>
+  );
+}
+
 function ViewRow({ view }: { view: ViewId }) {
   const override = useUiStore((s) => s.sectionFilters[view]);
   const setSectionFilter = useUiStore((s) => s.setSectionFilter);
@@ -179,9 +199,42 @@ export function SidebarPage() {
   const setAutoFetchIntervalMs = useUiStore((s) => s.setAutoFetchIntervalMs);
   const autoFetchEnabled = useUiStore((s) => s.autoFetchEnabled);
   const setAutoFetchEnabled = useUiStore((s) => s.setAutoFetchEnabled);
+  const navVisibility = useUiStore((s) => s.navVisibility);
+  const resetNavVisibility = useUiStore((s) => s.resetNavVisibility);
+  const hiddenNavCount = Object.values(navVisibility).filter((v) => v === false).length;
 
   return (
     <div className="flex flex-col gap-3">
+      <Accordion
+        title="Sidenav"
+        icon={<LuLayoutList className="h-4 w-4" />}
+        count={hiddenNavCount || undefined}
+        defaultOpen
+      >
+        <div className="flex flex-col gap-4 p-3">
+          <Field
+            label="Rail destinations"
+            hint="Show or hide each view in the left rail. Hidden views are not reachable from their keyboard shortcuts either. Settings stays in the rail footer."
+          >
+            <div className="flex flex-col gap-1.5">
+              {RAIL_VIEW_IDS.map((view) => (
+                <SidenavRow key={view} view={view} label={VIEW_LABELS[view]} />
+              ))}
+            </div>
+          </Field>
+          <Field label="Reset" hint="Show every rail destination again.">
+            <button
+              type="button"
+              onClick={resetNavVisibility}
+              disabled={hiddenNavCount === 0}
+              className="h-6 w-fit rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Show all destinations
+            </button>
+          </Field>
+        </div>
+      </Accordion>
+
       <Accordion title="Navigation" icon={<LuPanelLeft className="h-4 w-4" />} defaultOpen>
         <div className="p-3">
           <Choice<NavMode>

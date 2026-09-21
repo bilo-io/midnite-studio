@@ -18,6 +18,7 @@ import { isPaletteSafe } from '../../features/palette/safety';
 import { startAgent } from '../../features/terminal/start-agent';
 import { agentLabelFor, sessionLabel, useTerminalStore } from '../../features/terminal/terminal-store';
 import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';
+import { isNavViewVisible } from '../../components/nav-visibility';
 import { useUiStore, VIEW_IDS, SETTINGS_PAGES, type ViewId } from '../../store/ui-store';
 import { chordOf, groupCommands } from '../../store/palette-store';
 import { useFilesStore } from '../../features/files/files-store';
@@ -160,7 +161,10 @@ export function createViewsSource(onSelect: () => void): PaletteSource {
   return {
     key: 'views',
     items: () => {
-      const viewItems: PaletteItem[] = VIEW_IDS.map((viewId): PaletteItem => ({
+      const navVisibility = useUiStore.getState().navVisibility;
+      const viewItems: PaletteItem[] = VIEW_IDS.filter((viewId) =>
+        isNavViewVisible(navVisibility, viewId),
+      ).map((viewId): PaletteItem => ({
         id: `view:${viewId}`,
         label: VIEW_LABELS[viewId],
         group: 'Views',
