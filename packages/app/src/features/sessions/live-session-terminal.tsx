@@ -8,7 +8,6 @@ import '@xterm/xterm/css/xterm.css';
 import { bridge } from '../../services/bridge';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
 import { resolveTerminalPalette } from '../themes/resolve-palette';
-import { disableSynchronizedOutput } from '../terminal/disable-synchronized-output';
 import { enableUnicode11 } from '../terminal/enable-unicode11';
 import { terminalFontOptions } from '../terminal/terminal-font';
 import { createReplayGate, gateLiveWrite, replayLiveHandoff, type ReplayGate } from '../terminal/replay-gate';
@@ -85,8 +84,6 @@ export function LiveSessionTerminal({ session }: { session: TerminalSession }) {
       allowProposedApi: true,
     });
     enableUnicode11(term);
-
-    disableSynchronizedOutput(term);
 
     term.attachCustomKeyEventHandler((event) => {
       if (event.type !== 'keydown') return true;

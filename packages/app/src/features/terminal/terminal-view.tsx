@@ -13,7 +13,6 @@ import { openLinkFromEvent } from '../../services/open-in-midnite';
 import { useSessionRevealFade } from '../../components/use-reveal';
 import { useUiStore } from '../../store/ui-store';
 import { EndedStrip } from './ended-banner';
-import { disableSynchronizedOutput } from './disable-synchronized-output';
 import { enableUnicode11 } from './enable-unicode11';
 import { createFitCoalescer } from './fit-coalescer';
 import { createInputQueue, type InputQueue } from './input-queue';
@@ -524,8 +523,6 @@ export function TerminalView({
       }, OSC7_QUIET_MS);
       return false;
     });
-
-    disableSynchronizedOutput(term);
 
     /**
      * Which keystrokes escape the terminal.
