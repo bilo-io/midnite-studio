@@ -1,4 +1,4 @@
-import { LuHistory } from 'react-icons/lu';
+import { PiTerminalDuotone } from 'react-icons/pi';
 
 import type { IconComponent } from '../../components/icon-button';
 import { LoadingRegion, Skeleton } from '../../components/skeleton';
@@ -45,7 +45,7 @@ export function SessionListSkeleton() {
  * currently open — the two read very differently and share no copy.
  */
 export const NO_SESSIONS_EMPTY: { icon: IconComponent; title: string; body: string } = {
-  icon: LuHistory,
+  icon: PiTerminalDuotone,
   title: 'Nothing running, nothing closed',
   body: 'Open a terminal or start an agent and it shows up here — running above, closed and kept below for as long as you like.',
 };
