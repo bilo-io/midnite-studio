@@ -72,7 +72,13 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/*.test.{ts,tsx}'],
+    /*
+      `src/**` is the renderer. The second glob is for the build config's own
+      tests — `vite-xterm-decrqm-plugin.test.ts` guards a bug that only exists
+      in built output, so it cannot live under `src/` and be honest about what
+      it tests.
+    */
+    include: ['src/**/*.test.{ts,tsx}', 'vite-*.test.ts'],
     environment: 'jsdom',
     setupFiles: ['./src/vitest-setup.ts'],
   },
