@@ -5,6 +5,10 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 
 import { midniteCspPlugin } from './vite-csp-plugin';
+import {
+  undeclaredWriteGuardPlugin,
+  xtermDecrqmFixPlugin,
+} from './vite-xterm-decrqm-plugin';
 
 /**
  * Phase 36 Theme A: the chunk graph, on demand.
@@ -19,11 +23,19 @@ const bundleStats = process.env['MSTUDIO_BUNDLE_STATS'] === '1';
 
 export default defineConfig({
   plugins: [
+    /*
+      Both are build-only and both exist for the same bug — see
+      `vite-xterm-decrqm-plugin.ts`. The fix goes first (`enforce: 'pre'`, so it
+      rewrites xterm before anything else reads it); the guard runs last, over
+      the emitted chunks, and is deliberately not scoped to xterm.
+    */
+    xtermDecrqmFixPlugin(),
     midniteCspPlugin(),
     react(),
     ...(bundleStats
       ? [visualizer({ filename: 'dist/stats.html', gzipSize: true, brotliSize: true })]
       : []),
+    undeclaredWriteGuardPlugin(),
   ],
   // Relative asset URLs: production loads index.html off disk via file://, where
   // an absolute `/assets/...` would resolve to the filesystem root.
