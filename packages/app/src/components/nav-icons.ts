@@ -1,6 +1,7 @@
 import type { IconType } from 'react-icons';
 import { GoBeaker, GoGitPullRequest, GoGlobe, GoIssueOpened, GoPlay } from 'react-icons/go';
 import { IoIosGitNetwork } from 'react-icons/io';
+import { PiTerminalDuotone } from 'react-icons/pi';
 import { SiGrapheneos } from 'react-icons/si';
 import {
   LuActivity,
@@ -12,7 +13,6 @@ import {
   LuDownload,
   LuFolderTree,
   LuGauge,
-  LuHistory,
   LuHouse,
   LuLayoutDashboard,
   LuLayoutGrid,
@@ -85,17 +85,16 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
    * icon names the view's eventual whole rather than today's one mode.
    */
   projects: LuSquareKanban,
-  /**
-   * `LuScrollText`, not `LuHistory` — `sessions` already wears that glyph,
-   * and one icon per view is the whole point of this map.
-   */
   history: LuScrollText,
   // Lucide's `circle-pile`, not in the installed react-icons `lu` set — see
   // `icons/circle-pile-icon.tsx` for why it's a local mark instead.
   councils: CirclePileIcon,
   workflows: LuWorkflow,
   video: LuClapperboard,
-  sessions: LuHistory,
+  // A duotone terminal, not a Lucide glyph — Sessions is the live/closed
+  // terminal roster, and the duotone fill reads more distinctly from
+  // `SETTINGS_PAGE_ICON.terminal`'s plain `LuTerminal` at rail size.
+  sessions: PiTerminalDuotone,
   optimizer: LuGauge,
   apiClient: LuSend,
   settings: LuSettings,
