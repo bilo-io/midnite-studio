@@ -12,7 +12,7 @@ import type {
   StatusResult,
   Worktree,
 } from '@midnite/studio-shared';
-import { forgeProjectUrl, pickForgeRemote } from '@midnite/studio-shared';
+import { forgeProjectUrl, isSupportedForgeKind, pickForgeRemote } from '@midnite/studio-shared';
 import {
   LuArrowRightLeft,
   LuChevronRight,
@@ -1107,15 +1107,17 @@ export function RepoTree({
   );
 
   /**
-   * Whether Forge's whole subtree has anything to say — `gh` speaks GitHub
-   * only, so Actions/Reviews/Issues/Tests are all, uniformly, a question about
-   * a GitHub remote this repo does not have without one. Computed once here
-   * rather than inside each child (Theme F): the generic parent-wrapping walk
-   * in `renderSection` has no way to tell, after the fact, whether a child it
-   * rendered actually produced content, so the forge node is skipped before
-   * the walk ever reaches it.
+   * Whether Forge's whole subtree has anything to say — until Theme H lands,
+   * "supported kind" is the gate; after it, the capability matrix decides.
+   * Computed once here rather than inside each child (Theme F): the generic
+   * parent-wrapping walk in `renderSection` has no way to tell, after the
+   * fact, whether a child it rendered actually produced content, so the forge
+   * node is skipped before the walk ever reaches it.
    */
-  const hasGithubForge = pickForgeRemote(remotes)?.forge?.kind === 'github';
+  const hasSupportedForge = (() => {
+    const kind = pickForgeRemote(remotes)?.forge?.kind;
+    return kind !== undefined && isSupportedForgeKind(kind);
+  })();
 
   // The main worktree is listed alongside the linked ones: git models it as a
   // worktree too, so the list is uniform with the primary checkout flagged.
@@ -1396,7 +1398,7 @@ export function RepoTree({
    */
   function renderSection(node: SectionNode, depth: 1 | 2): ReactNode {
     if (!sections.visible(node.key)) return null;
-    if (node.key === 'forge' && !hasGithubForge) return null;
+    if (node.key === 'forge' && !hasSupportedForge) return null;
     const body = SECTION_BODY[node.key];
     if (body) return <Fragment key={node.key}>{body(depth)}</Fragment>;
     if (node.children && node.children.length > 0) {

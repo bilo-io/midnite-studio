@@ -15,6 +15,7 @@ import {
 import {
   checksVerdict,
   DIFF_LINE_CAP,
+  isSupportedForgeKind,
   pickForgeRemote,
   UI_TOOLS_OFF_MESSAGE,
   type CompanionUiReplyResult,
@@ -119,10 +120,10 @@ async function resolveRegisteredRepo(
   return { ok: true, repo: { repoRoot, mainRoot, descriptor: registered } };
 }
 
-/** The repo's GitHub remote, resolved from its worktree — same rule `githubForge` (`ipc/forge-handlers.ts`) applies from a `repoId`, applied here from a path since an MCP caller has no id. */
-async function githubForgeFor(repoRoot: string): Promise<Forge | null> {
+/** The repo's forge remote, resolved from its worktree — same rule `repoForge` (`ipc/forge-handlers.ts`) applies from a `repoId`, applied here from a path since an MCP caller has no id. */
+async function repoForgeFor(repoRoot: string): Promise<Forge | null> {
   const forge = pickForgeRemote(await listRemotes(repoRoot))?.forge ?? null;
-  return forge?.kind === 'github' ? forge : null;
+  return forge !== null && isSupportedForgeKind(forge.kind) ? forge : null;
 }
 
 export async function repoList(): Promise<RepoDescriptor[]> {
@@ -196,7 +197,7 @@ export async function forgePulls(input: McpToolInput<'forge.pulls'>): Promise<Mc
   const resolved = await resolveRegisteredRepo(input.repoPath);
   if (!resolved.ok) throw resolved.error;
 
-  const forge = await githubForgeFor(resolved.repo.repoRoot);
+  const forge = await repoForgeFor(resolved.repo.repoRoot);
   if (!forge) {
     throw new McpToolError('not-found', 'This repository has no recognised GitHub remote.');
   }
@@ -211,7 +212,7 @@ export async function forgeChecks(input: McpToolInput<'forge.checks'>): Promise<
   const resolved = await resolveRegisteredRepo(input.repoPath);
   if (!resolved.ok) throw resolved.error;
 
-  const forge = await githubForgeFor(resolved.repo.repoRoot);
+  const forge = await repoForgeFor(resolved.repo.repoRoot);
   if (!forge) {
     throw new McpToolError('not-found', 'This repository has no recognised GitHub remote.');
   }

@@ -4,7 +4,7 @@ import { EVENT_CHANNELS, type Forge, type ForgeIssue, type ForgeProject, type Fo
 
 import type { Logger } from '../log';
 import { broadcastToWindowsOnRepo } from '../window-manager';
-import { githubForge } from '../ipc/forge-handlers';
+import { repoForge } from '../ipc/forge-handlers';
 import { anyWindowVisible, systemIdleState } from '../window-visibility-gate';
 import { listIssues, listPulls, listRuns } from './gh-cli';
 import { listProjects } from './gh-project';
@@ -307,7 +307,7 @@ export function createForgePoller(log: Logger): ForgePoller {
     clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
     anyWindowVisible,
     idleState: systemIdleState,
-    resolveForge: (repoId) => githubForge(repoId),
+    resolveForge: (repoId) => repoForge(repoId),
     poll: (forge, kind) => pollOnce(forge, kind),
     broadcastChanged: (repoId, kind) => {
       broadcastToWindowsOnRepo(repoId, EVENT_CHANNELS.forgeChanged, { repoId, kind, at: Date.now() });

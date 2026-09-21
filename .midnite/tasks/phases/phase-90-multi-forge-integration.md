@@ -97,21 +97,21 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Deliverables
 
-### A — The seam: `ForgeKind` widens, and `githubForge` becomes `repoForge` (M)
+### A — The seam: `ForgeKind` widens, and `githubForge` becomes `repoForge` (M) ✅ DONE
 
 The load-bearing change, and it is deliberately a compile error at every call site rather than a
 silent widening. Every `switch (forge.kind)` in `remote.ts` is exhaustive today, so adding two
 members to the enum makes TypeScript name each place that has to decide what the new kinds mean.
 
-- [ ] Widen `ForgeKindSchema` in [`remote.ts`](../../../packages/shared/src/domain/remote.ts) to
+- [x] Widen `ForgeKindSchema` in [`remote.ts`](../../../packages/shared/src/domain/remote.ts) to
       `['github', 'gitlab', 'bitbucket', 'azure', 'unknown']`. `unknown` stays a first-class answer
       for the reasons its existing docblock gives — a NAS path or a Gerrit host is still not a
       failure.
-- [ ] Add `bitbucket.org` and `dev.azure.com` to the `CANONICAL` table in
+- [x] Add `bitbucket.org` and `dev.azure.com` to the `CANONICAL` table in
       [`remote-url.ts`](../../../packages/git-engine/src/parsers/remote-url.ts), plus the legacy
       `*.visualstudio.com` host, which the existing leading-label heuristic does **not** catch (it
       keys on a label named `github`/`gitlab`, and `contoso.visualstudio.com` has neither).
-- [ ] **Azure DevOps breaks the `owner/repo` grammar and needs its own normaliser.** Its HTTPS remote
+- [x] **Azure DevOps breaks the `owner/repo` grammar and needs its own normaliser.** Its HTTPS remote
       is `https://dev.azure.com/{org}/{project}/_git/{repo}`, its SSH remote is
       `git@ssh.dev.azure.com:v3/{org}/{project}/{repo}`, and the legacy form is
       `https://{org}.visualstudio.com/{project}/_git/{repo}`. The `_git` segment and the `v3/`
@@ -119,10 +119,10 @@ members to the enum makes TypeScript name each place that has to decide what the
       `~` from an ssh path — and let `owner` carry `{org}/{project}`, which is exactly what its
       docblock already says `owner` is for (*"carries any intermediate path segments … which is why
       it is a string rather than a single segment"*).
-- [ ] Extend `forgeProjectUrl`, `forgeIssueUrl`, `forgePullsUrl` and `forgeActionsUrl` for the two
+- [x] Extend `forgeProjectUrl`, `forgeIssueUrl`, `forgePullsUrl` and `forgeActionsUrl` for the two
       new kinds, and add the fifth that four views now need: `forgeBoardsUrl`. Bitbucket returns
       `null` from it — see Theme F.
-- [ ] Rename `githubForge(repoId)` →
+- [x] Rename `githubForge(repoId)` →
       `repoForge(repoId)` in [`forge-handlers.ts`](../../../packages/desktop/src/main/ipc/forge-handlers.ts),
       returning the `Forge` for any *supported* kind rather than GitHub alone, and update its 24 call
       sites in that file plus the ones in
@@ -131,12 +131,12 @@ members to the enum makes TypeScript name each place that has to decide what the
       [`mcp/tools.ts`](../../../packages/desktop/src/main/mcp/tools.ts). Keep the comment that
       explains *why* a null is not an error — it is still true, it just now means "no supported forge"
       rather than "not GitHub".
-- [ ] Replace `hasGithubForge` in
+- [x] Replace `hasGithubForge` in
       [`repos-panel.tsx`](../../../packages/app/src/features/repos/repos-panel.tsx) (the
       `pickForgeRemote(remotes)?.forge?.kind === 'github'` gate, and the `node.key === 'forge'`
       early-return that reads it) with a capability-aware check. Until Theme H lands, "supported
       kind" is the check; after it, it is "this provider can do at least one of the four".
-- [ ] `remote-url.test.ts` gains the Azure shapes (both remotes, plus the legacy host), the Bitbucket
+- [x] `remote-url.test.ts` gains the Azure shapes (both remotes, plus the legacy host), the Bitbucket
       shapes, and a lookalike case per new kind (`bitbucket.org.evil.example`,
       `dev.azure.com.evil.example`) mirroring the defence the file already has.
 

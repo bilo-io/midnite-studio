@@ -9,8 +9,13 @@ import { z } from 'zod';
  * plain text rather than to invent a link that 404s. Every consumer therefore has
  * to handle `unknown`, which is exactly the point of spelling it out in the type.
  */
-export const ForgeKindSchema = z.enum(['github', 'gitlab', 'unknown']);
+export const ForgeKindSchema = z.enum(['github', 'gitlab', 'bitbucket', 'azure', 'unknown']);
 export type ForgeKind = z.infer<typeof ForgeKindSchema>;
+
+/** Whether this forge kind is one the app integrates with (everything except `unknown`). */
+export function isSupportedForgeKind(kind: ForgeKind): boolean {
+  return kind !== 'unknown';
+}
 
 /**
  * A remote URL, normalised into the three parts a link needs.
@@ -20,6 +25,9 @@ export type ForgeKind = z.infer<typeof ForgeKindSchema>;
  * owner `platform/infra`). That is why it is a string rather than a single
  * segment: re-joining split segments at every call site is how a subgroup URL
  * ends up missing its middle.
+ *
+ * For Azure DevOps, `owner` carries `{org}/{project}` — see the parser in
+ * `git-engine/src/parsers/remote-url.ts`.
  */
 export const ForgeSchema = z.object({
   /** Hostname only — no scheme, no port, no credentials. */
@@ -74,9 +82,17 @@ export function pickForgeRemote(remotes: readonly Remote[]): Remote | null {
 }
 
 /** The forge's own project page. */
-export function forgeProjectUrl(forge: Forge): string | null {
+function forgeRepoBaseUrl(forge: Forge): string | null {
   if (forge.kind === 'unknown') return null;
+  if (forge.kind === 'azure') {
+    return `https://${forge.host}/${forge.owner}/_git/${forge.repo}`;
+  }
   return `https://${forge.host}/${forge.owner}/${forge.repo}`;
+}
+
+/** The forge's own project page. */
+export function forgeProjectUrl(forge: Forge): string | null {
+  return forgeRepoBaseUrl(forge);
 }
 
 /**
@@ -86,7 +102,7 @@ export function forgeProjectUrl(forge: Forge): string | null {
  * project's own routes can never collide with a subgroup named `issues`.
  */
 export function forgeIssueUrl(forge: Forge, issue: number): string | null {
-  const base = forgeProjectUrl(forge);
+  const base = forgeRepoBaseUrl(forge);
   if (base === null || !Number.isSafeInteger(issue) || issue <= 0) return null;
 
   switch (forge.kind) {
@@ -94,6 +110,10 @@ export function forgeIssueUrl(forge: Forge, issue: number): string | null {
       return `${base}/issues/${issue}`;
     case 'gitlab':
       return `${base}/-/issues/${issue}`;
+    case 'bitbucket':
+      return `${base}/issues/${issue}`;
+    case 'azure':
+      return `https://${forge.host}/${forge.owner}/_workitems/edit/${issue}`;
     default:
       return null;
   }
@@ -101,13 +121,17 @@ export function forgeIssueUrl(forge: Forge, issue: number): string | null {
 
 /** The forge's open-PRs (GitHub) / merge-requests (GitLab) list — Phase 32 Theme F's repo row. */
 export function forgePullsUrl(forge: Forge): string | null {
-  const base = forgeProjectUrl(forge);
+  const base = forgeRepoBaseUrl(forge);
   if (base === null) return null;
   switch (forge.kind) {
     case 'github':
       return `${base}/pulls`;
     case 'gitlab':
       return `${base}/-/merge_requests`;
+    case 'bitbucket':
+      return `${base}/pull-requests`;
+    case 'azure':
+      return `${base}/pullrequests`;
     default:
       return null;
   }
@@ -115,13 +139,37 @@ export function forgePullsUrl(forge: Forge): string | null {
 
 /** The forge's own CI run list — Phase 32 Theme F's repo row. */
 export function forgeActionsUrl(forge: Forge): string | null {
-  const base = forgeProjectUrl(forge);
+  const base = forgeRepoBaseUrl(forge);
   if (base === null) return null;
   switch (forge.kind) {
     case 'github':
       return `${base}/actions`;
     case 'gitlab':
       return `${base}/-/pipelines`;
+    case 'bitbucket':
+      return `${base}/pipelines`;
+    case 'azure':
+      return `https://${forge.host}/${forge.owner}/_build`;
+    default:
+      return null;
+  }
+}
+
+/** The forge's project-board surface — Phase 90 Theme A. Bitbucket has no boards. */
+export function forgeBoardsUrl(forge: Forge): string | null {
+  if (forge.kind === 'unknown') return null;
+  switch (forge.kind) {
+    case 'github':
+      // ProjectV2 has no stable repo-scoped web URL — the Projects view uses the API.
+      return null;
+    case 'gitlab': {
+      const base = forgeRepoBaseUrl(forge);
+      return base === null ? null : `${base}/-/boards`;
+    }
+    case 'bitbucket':
+      return null;
+    case 'azure':
+      return `https://${forge.host}/${forge.owner}/_boards`;
     default:
       return null;
   }

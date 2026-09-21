@@ -35,6 +35,46 @@ describe('parseRemoteUrl', () => {
     });
   });
 
+  it('recognises bitbucket.org', () => {
+    expect(parseRemoteUrl('git@bitbucket.org:acme/widgets.git')).toEqual({
+      host: 'bitbucket.org',
+      owner: 'acme',
+      repo: 'widgets',
+      kind: 'bitbucket',
+    });
+  });
+
+  it('normalises Azure DevOps HTTPS remotes', () => {
+    expect(parseRemoteUrl('https://dev.azure.com/contoso/MyProject/_git/MyRepo')).toEqual({
+      host: 'dev.azure.com',
+      owner: 'contoso/MyProject',
+      repo: 'MyRepo',
+      kind: 'azure',
+    });
+  });
+
+  it('normalises Azure DevOps SSH remotes', () => {
+    expect(parseRemoteUrl('git@ssh.dev.azure.com:v3/contoso/MyProject/MyRepo')).toEqual({
+      host: 'ssh.dev.azure.com',
+      owner: 'contoso/MyProject',
+      repo: 'MyRepo',
+      kind: 'azure',
+    });
+  });
+
+  it('normalises the legacy Azure DevOps visualstudio.com host', () => {
+    expect(parseRemoteUrl('https://contoso.visualstudio.com/MyProject/_git/MyRepo')).toEqual({
+      host: 'contoso.visualstudio.com',
+      owner: 'contoso/MyProject',
+      repo: 'MyRepo',
+      kind: 'azure',
+    });
+  });
+
+  it('does not treat a host whose first label is only `dev` as Azure', () => {
+    expect(parseRemoteUrl('https://dev.example.com/o/r.git')?.kind).toBe('unknown');
+  });
+
   it('keeps every subgroup segment in owner for a self-hosted GitLab', () => {
     // The failure this guards against is a subgroup URL losing its middle: an
     // `owner` of just `platform` builds a link to a project that does not exist.
@@ -58,6 +98,8 @@ describe('parseRemoteUrl', () => {
     // needs an explicit exclusion rather than falling out of the suffix check.
     ['a host prefixed with the canonical domain', 'github.com.evil.example'],
     ['the same trick on gitlab', 'gitlab.com.evil.example'],
+    ['the same trick on bitbucket', 'bitbucket.org.evil.example'],
+    ['the same trick on azure', 'dev.azure.com.evil.example'],
   ])('does not treat %s as a forge', (_label, host) => {
     expect(parseRemoteUrl(`https://${host}/o/r.git`)?.kind).toBe('unknown');
   });

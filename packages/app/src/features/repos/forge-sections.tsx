@@ -46,8 +46,8 @@ import { REVIEW_GROUPS, type ReviewGroup } from '../reviews/review-groups';
  * (Phase 28 Theme F), rendered by `RepoTree`'s generic section walk exactly
  * like `TestsSection`, rather than through the opaque pair this file used to
  * export as `ForgeSections`. `RepoTree` has already decided the repo has a
- * GitHub remote before this ever mounts, so there is no gate here — see
- * `hasGithubForge` at its one call site.
+ * supported forge remote before this ever mounts, so there is no gate here —
+ * see `hasSupportedForge` at its one call site.
  *
  * Lazy on its own fold state: an unopened section issues no query, and a
  * query is a `gh` subprocess plus an API request against the user's rate
