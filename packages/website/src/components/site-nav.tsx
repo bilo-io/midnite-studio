@@ -85,6 +85,9 @@ export const SiteNav = ({ offLanding = false }: SiteNavProps) => {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          <Button href={hrefFor('pricing')} variant="ghost" size="md">
+            Pricing
+          </Button>
           <Button href={hrefFor('download')} size="md">
             Download
           </Button>

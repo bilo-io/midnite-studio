@@ -29,12 +29,13 @@ import { defineConfig } from 'vite';
  *   set this to origin + prefix, or the pasted command 404s. See
  *   `src/site-origin.ts`.
  *
- * - **Two HTML entries, not one.** The site is served as a static tree with no
- *   rewrite rules — true of GitHub Pages, and true of any other static host —
- *   so a single-page app's `/download` deep link would 404.
- *   `download/index.html` is a real file in the source tree, a *directory*
- *   index rather than a sibling `download.html`, so both `/download` and
- *   `/download/` resolve without relying on a host's extension-stripping.
+ * - **Three HTML entries, not one.** The site is served as a static tree with
+ *   no rewrite rules — true of GitHub Pages, and true of any other static host
+ *   — so a single-page app's `/download` or `/pricing` deep link would 404.
+ *   Each route is a real directory index (`download/index.html`,
+ *   `pricing/index.html`) rather than a sibling `.html` file, so both
+ *   `/download` and `/download/` resolve without relying on a host's
+ *   extension-stripping.
  */
 const base = process.env['WEBSITE_BASE'] ?? '/';
 
@@ -95,6 +96,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         download: fileURLToPath(new URL('./download/index.html', import.meta.url)),
+        pricing: fileURLToPath(new URL('./pricing/index.html', import.meta.url)),
       },
     },
   },

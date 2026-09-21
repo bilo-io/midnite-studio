@@ -448,27 +448,27 @@ There is no wizard, so this theme builds one — narrowly.
       its entirety, and [Phase 62](phase-62-one-escape-one-dismissal.md)'s one-Escape rule governs
       which layer consumes the key.
 
-### J — The pricing page (M)
+### J — The pricing page (M) ✅ DONE ✅ DONE
 
 Independent of every other theme, and the one piece of this phase the human explicitly scoped: *"Don't
 do anything here yet, just prepare the pricing page."*
 
-- [ ] A third route in [`routes.ts`](../../../packages/website/src/routes.ts): `Route` becomes
+- [x] A third route in [`routes.ts`](../../../packages/website/src/routes.ts): `Route` becomes
       `'landing' | 'download' | 'pricing'`, with a real `packages/website/pricing/index.html` beside
       `download/index.html` and a third `rollupOptions.input` entry in
       [`vite.config.ts`](../../../packages/website/vite.config.ts) — the existing pattern exactly, for
       the reason the file already documents: a static host serves the deep link with no client-side
       history rewriting.
-- [ ] `src/pages/pricing-page.tsx` with three columns — **Free**, **Individual** and **Team**. Public
+- [x] `src/pages/pricing-page.tsx` with three columns — **Free**, **Individual** and **Team**. Public
       repos free; **private repos are what the paid tiers unlock**, which is the actual product
       boundary the human described. Individual **$5–10/month**; Team **minimum 5 seats at $10–20 per
       seat**. Pick one number in each band and put it on the page — a range on a pricing page reads as
       indecision — and record the pick in Decisions so it is a choice, not a default.
-- [ ] A `Pricing` link in [`site-nav.tsx`](../../../packages/website/src/components/site-nav.tsx).
+- [x] A `Pricing` link in [`site-nav.tsx`](../../../packages/website/src/components/site-nav.tsx).
       The nav builds its anchor list from `NAV_SECTIONS` (landing-page fragments); Pricing is a
       *page*, so it goes beside the existing `Download` button via `hrefFor`, not into the section
       registry.
-- [ ] **Nothing on the page links to `bilo-io/midnite-studio`.** [`docs/WEBSITE.md`](../../../docs/WEBSITE.md)
+- [x] **Nothing on the page links to `bilo-io/midnite-studio`.** [`docs/WEBSITE.md`](../../../docs/WEBSITE.md)
       is binding: this repo is private — **verified, not quoted** (`gh api repos/bilo-io/midnite-studio
       -q .visibility` returned `private` on 2026-09-20; note that
       [`CLAUDE.md`](../../../CLAUDE.md)'s CI/billing bullet asserts the opposite and one of the two is
@@ -476,17 +476,17 @@ do anything here yet, just prepare the pricing page."*
       link resolves to `bilo-io/midnite-apps`. And the page imports only `react`, `react-dom`, `react-icons` and its
       own files — the off-graph rule in [`CLAUDE.md`](../../../CLAUDE.md) is what lets the site move
       out of this repo later.
-- [ ] Existing tokens and components only: `Section`, `Container`, `GlowCard`, `Button`, `Text`,
+- [x] Existing tokens and components only: `Section`, `Container`, `GlowCard`, `Button`, `Text`,
       `Reveal`, and colours from [`tokens.css`](../../../packages/website/src/styles/tokens.css)
       through `tailwind.config.ts`'s `channel()` indirection — no `dark:` prefixes, because the site
       follows `prefers-color-scheme` natively and has no dark-mode strategy configured.
-- [ ] **No payment link, no checkout, no Stripe, no waitlist capture beyond the existing
+- [x] **No payment link, no checkout, no Stripe, no waitlist capture beyond the existing
       `EarlyAccess` section.** The call to action is the early-access form the site already has.
-- [ ] A `subscription.ts` vocabulary in [`shared`](../../../packages/shared/src/domain/) —
+- [x] A `subscription.ts` vocabulary in [`shared`](../../../packages/shared/src/domain/) —
       `SubscriptionTierSchema` and a `TierEntitlements` record — that **nothing reads**. It exists so
       the later billing work inherits a name, and so this doc's forward constraint has somewhere to
       point. Its docblock must say it is unwired, or a future session will assume it is a gate.
-- [ ] **Forward constraint, recorded not built:** Councils, Workflows and the Video Editor are
+- [x] **Forward constraint, recorded not built:** Councils, Workflows and the Video Editor are
       expected to sit behind a tier *above* Individual later. That means the tier model must be an
       **entitlement set keyed by feature**, not an ordinal comparison — `tier >= 'individual'` is the
       shape that cannot express "Team gets seats, Pro gets Councils" without a rewrite. The pricing

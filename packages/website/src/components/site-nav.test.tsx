@@ -57,6 +57,11 @@ describe('SiteNav', () => {
     );
   });
 
+  it('offers Pricing beside Download, linked to the pricing page', () => {
+    render(<SiteNav />);
+    expect(screen.getByRole('link', { name: 'Pricing' })).toHaveProperty('pathname', '/pricing/');
+  });
+
   it('marks nothing current before a section reaches the band', () => {
     render(withSections(<SiteNav />));
     expect(currentLinks()).toHaveLength(0);

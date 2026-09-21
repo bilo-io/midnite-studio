@@ -173,10 +173,10 @@ Four files, and the same three-part wiring the app uses:
    same file declares `--font-brand`, and `tailwind.config.ts` maps
    `fontFamily.brand` onto that var rather than naming the family itself. Keep
    the three in step.
-3. **Preloaded** from both `index.html` and `download/index.html` by source
-   path, which Vite rewrites to the one fingerprinted asset with `base` applied.
-   The mark is above the fold on both pages and is otherwise discovered only
-   after the CSS has parsed and matched an element — three round trips for the
+3. **Preloaded** from `index.html`, `download/index.html` and `pricing/index.html`
+   by source path, which Vite rewrites to the one fingerprinted asset with `base`
+   applied. The mark is above the fold on every page and is otherwise discovered
+   only after the CSS has parsed and matched an element — three round trips for the
    first word on the page. `crossorigin` is mandatory even same-origin: a font
    request is CORS-mode, and a preload whose mode differs is a second download.
 4. **[`src/components/wordmark.tsx`](../packages/website/src/components/wordmark.tsx)**
@@ -241,8 +241,9 @@ Other details the file settles:
 
 - **`base` is `/`.** `WEBSITE_BASE` stays unset on Vercel; the `/midnite-apps/…`
   prefix is only for the Pages target below.
-- **`/download` needs no rewrite.** The page is emitted as
-  `dist/download/index.html`, a directory index, so Vercel serves it as-is.
+- **`/download` and `/pricing` need no rewrite.** Each page is emitted as a
+  directory index (`dist/download/index.html`, `dist/pricing/index.html`), so
+  Vercel serves them as-is.
 - **`ignoreCommand`** skips a build when the commit touched neither
   `packages/website/**`, the lockfile nor the root eslint config. If the diff
   cannot be computed (no `HEAD^` in a shallow clone) it exits non-zero and the
@@ -372,6 +373,7 @@ directory too deep.
 | `src/styles/tokens.css` | Every colour, radius, glow and duration. Dark-first: `:root` *is* the dark theme and light is one `prefers-color-scheme` block redefining the same names, so no component carries a `dark:` prefix. |
 | `src/sections/hero/` | The hero: the pointer-reactive canvas backdrop, the typewriter headline, and the video slot. |
 | `src/pages/download-page.tsx` | `/download` — the install command, the version feed, what the script does. The command curls the site's own `public/install.sh`; see above. |
+| `src/pages/pricing-page.tsx` | `/pricing` — three columns (Free, Individual, Team). Public repos free; private repos are the paid boundary. No checkout — CTAs route to the early-access form. Prices are constants in this file ($8/mo Individual, $12/seat Team with a 5-seat minimum). |
 | `src/site-origin.ts` | `SITE_ORIGIN`, the site's absolute public root — for text a visitor pastes into a terminal, which `BASE_URL` cannot serve. |
 | `src/sections/faq/` | The FAQ. `faq.ts` holds the answers as data — the slugs are published URL fragments (`#faq-<slug>`), so they have a test rather than only a convention; `faq-section.tsx` is the tablist and the cross-fading panel. |
 | `src/sections/early-access/` | The sign-up. `issue-url.ts` composes the GitHub issue (and owns `ISSUE_TEMPLATE`, see above); `roster.ts` is the ten agent names as site copy, hard-coded rather than imported from `shared` so a marketing bundle does not pull zod in for ten strings. |

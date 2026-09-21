@@ -15,6 +15,11 @@ describe('routeFor', () => {
     expect(routeFor('/download/')).toBe('download');
   });
 
+  it('resolves the pricing page with and without a trailing slash', () => {
+    expect(routeFor('/pricing')).toBe('pricing');
+    expect(routeFor('/pricing/')).toBe('pricing');
+  });
+
   it('resolves the landing page from the root', () => {
     expect(routeFor('/')).toBe('landing');
     expect(routeFor('')).toBe('landing');
@@ -29,9 +34,10 @@ describe('routeFor', () => {
 });
 
 describe('href helpers', () => {
-  it('builds page hrefs with a trailing slash on /download/', () => {
+  it('builds page hrefs with a trailing slash on nested routes', () => {
     expect(hrefFor('landing')).toBe('/');
     expect(hrefFor('download')).toBe('/download/');
+    expect(hrefFor('pricing')).toBe('/pricing/');
   });
 
   it('builds anchors against the landing page, so they work from either page', () => {
