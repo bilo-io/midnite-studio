@@ -147,11 +147,11 @@ had: a logged-in identity. Grounding confirmed the absence is total — no `view
 `currentUser`, no `whoami`; every `login` field on `ForgePull`/`ForgeIssue`/`ForgeComment` is
 *somebody else's*.
 
-- [ ] New [`shared/src/domain/forge-account.ts`](../../../packages/shared/src/domain/): a
+- [x] New [`shared/src/domain/forge-account.ts`](../../../packages/shared/src/domain/): a
       `ForgeAccountSchema` of `{id, kind, host, login, displayName, avatarUrl, addedAt, hasToken}`.
       **`hasToken` is a boolean, never the token** — the renderer is told a credential exists, never
       what it is.
-- [ ] Generalise [`credential-vault.ts`](../../../packages/desktop/src/main/db/credential-vault.ts)
+- [x] Generalise [`credential-vault.ts`](../../../packages/desktop/src/main/db/credential-vault.ts)
       into `main/secrets/secret-vault.ts`: the same `safeStorage` encrypt/decrypt, the same
       fingerprint-and-`reconcile()` revocation, parameterised on the sidecar filename and the
       fingerprint function. `db/credential-vault.ts` becomes a thin binding of it over
@@ -166,21 +166,21 @@ had: a logged-in identity. Grounding confirmed the absence is total — no `view
     `stt/credentials.ts`'s behaviour, not `credential-vault.ts`'s silent drop.
   - **The vault key is constrained, not `z.string()`.** `${provider}:${host}:${login}`, branded or
     refined, so the vault cannot become a general-purpose KV store by accident.
-- [ ] **`main/secrets/secret-vault.ts` is a shared path with
+- [x] **`main/secrets/secret-vault.ts` is a shared path with
       [Phase 76 Theme D](phase-76-the-renderer-in-a-sandbox.md)**, which specifies the identical
       extraction out of the same file under the name `main/secure-store.ts`. The collision was raised
       and resolved on the Phase 90/91 board: **this path wins**, and whichever phase executes first
       creates the module while the other consumes it. It must be provider-agnostic from line one for
       that to work. Update Phase 76 Theme D's bullet to name this path when this lands first.
-- [ ] `main/forge/forge-accounts.ts`: the account registry, persisted as non-secret records in
+- [x] `main/forge/forge-accounts.ts`: the account registry, persisted as non-secret records in
       `forge-accounts.json` with the tokens in `forge-accounts.vault.json` beside it, structured like
       [`repo-registry.ts`](../../../packages/desktop/src/main/repo-registry.ts)/`repo-store.ts` —
       registry in memory, store on disk.
-- [ ] **GitHub accounts hold no token.** A GitHub account record is discovered from `gh auth status`
+- [x] **GitHub accounts hold no token.** A GitHub account record is discovered from `gh auth status`
       and carries `hasToken: false` with a `delegated: 'gh'` marker; `gh` remains its credential, so
       nothing about the GitHub path regresses. This is what keeps the existing docblock's argument
       intact for the one provider it was written about.
-- [ ] Five channels in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts), following the
+- [x] Five channels in [`channels.ts`](../../../packages/shared/src/ipc/channels.ts), following the
       house `mstudio:forge:…` convention: `forgeAccounts: 'mstudio:forge:accounts'`,
       `forgeAccountAdd: 'mstudio:forge:account-add'`,
       `forgeAccountRemove: 'mstudio:forge:account-remove'`,
@@ -189,19 +189,19 @@ had: a logged-in identity. Grounding confirmed the absence is total — no `view
       [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts) and the methods on the `forge` block
       of [`bridge.ts`](../../../packages/shared/src/ipc/bridge.ts) + the 1:1 mapping in
       [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts).
-- [ ] `whoami` per provider — the first identity resolution this app has ever done. GitLab
+- [x] `whoami` per provider — the first identity resolution this app has ever done. GitLab
       `GET /user`, Bitbucket `GET /user`, Azure DevOps `GET /_apis/profile/profiles/me` plus an
       accounts call for the org list, GitHub `gh api user`. Each returns `{login, displayName,
       avatarUrl}`, and **adding an account is the same call as validating its token** — a PAT that
       cannot answer `whoami` is not stored.
-- [ ] The active-account avatar in the title bar. `UserAvatar`
+- [x] The active-account avatar in the title bar. `UserAvatar`
       ([`user-avatar.tsx`](../../../packages/app/src/components/user-avatar.tsx)) already takes
       `{login, name, email, size}` and falls back to initials over a hashed hue — but it resolves its
       image from **Gravatar by email hash**
       ([`avatars.ts`](../../../packages/app/src/services/avatars.ts)), which is the wrong source for a
       forge profile picture. Add an `src` escape hatch so a caller can supply a URL directly, leaving
       the Gravatar path and its cache exactly as it is for the commit-author case it was built for.
-- [ ] **Settings ▸ Accounts**, a new `SettingsPageId` `'accounts'` in
+- [x] **Settings ▸ Accounts**, a new `SettingsPageId` `'accounts'` in
       [`view.ts`](../../../packages/shared/src/domain/view.ts) and a new
       `settings-pages/accounts-page.tsx`: one row per account with its avatar, kind, host and login;
       add/remove; the active marker; a PAT field per new provider with the exact scopes each one
@@ -215,7 +215,7 @@ had: a logged-in identity. Grounding confirmed the absence is total — no `view
       only**, and main owns the authoritative copy. `zustand`'s `persist()` writes that blob to the
       renderer's LevelDB in plaintext, readable by any local process, which is precisely why the
       token is not in it.
-- [ ] **Absorb `ui-store.ts`'s `agentApiKeys['github']` slot, and disown the other five.** That
+- [x] **Absorb `ui-store.ts`'s `agentApiKeys['github']` slot, and disown the other five.** That
       record already holds a `GITHUB_TOKEN`-shaped value in plaintext localStorage and
       [`persisted-keys.ts`](../../../packages/app/src/store/persisted-keys.ts) classifies it as an
       ordinary preference. A forge token belongs in the account vault, so migrate that one key on

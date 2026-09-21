@@ -1,6 +1,27 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-22 — Phase 90 Theme B — accounts, the forge credential vault, the avatar
+
+[PR #501](https://github.com/bilo-io/midnite-studio/pull/501).
+
+The app's first logged-in identity. `ForgeAccountSchema` in shared carries `hasToken` as a boolean —
+the renderer is told a credential exists, never what it is — and `delegated: 'gh'` for a GitHub
+account discovered from `gh auth status`, which holds no token at all. `main/forge/forge-account-vault.ts`
+is a third binding over `main/secure-store.ts` rather than the doc's proposed `main/secrets/secret-vault.ts`:
+Phase 76 Theme D had already landed that extraction, so the collision was resolved in Theme D's favour.
+It degrades loudly and session-only, unlike `credential-vault.ts`'s silent drop. Five
+`mstudio:forge:*` channels, `whoami.ts` per provider, the title-bar avatar (click-through to Settings,
+not a switcher), Settings ▸ Accounts, and a migration absorbing `ui-store.ts`'s plaintext
+`agentApiKeys['github']` slot into the vault while leaving the five LLM keys alone.
+
+Landed 10 of 13 items. Open: `forge.activeAccountId` never reached `ui-store.ts` (the active pointer
+lives in main only); the per-provider redaction patterns are deferred to Themes E/F/G by their own
+checklist text; the `shell.openExternal` scheme check is unimplemented. Also open, found during the
+build: `test-support/mock-bridge.ts` has no `forgeAccounts`, so every e2e spec rendering the full
+Shell now has a silently-erroring `useForgeAccounts` query — harmless (react-query swallows it, the
+store degrades to `[]`) but a real coverage gap for Theme C's e2e spec.
+
 ## 2026-09-20 — Phase 90 Theme A — the forge seam
 
 [PR #490](https://github.com/bilo-io/midnite-studio/pull/490).
