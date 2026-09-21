@@ -13,6 +13,7 @@ import { openInMidnite } from '../../services/open-in-midnite';
 import { useSessionRevealFade } from '../../components/use-reveal';
 import { useUiStore } from '../../store/ui-store';
 import { EndedStrip } from './ended-banner';
+import { disableSynchronizedOutput } from './disable-synchronized-output';
 import { createFitCoalescer } from './fit-coalescer';
 import { createInputQueue, type InputQueue } from './input-queue';
 import { isXtermFocusReport } from './is-xterm-focus-report';
@@ -139,7 +140,7 @@ const isDark = (): boolean => document.documentElement.classList.contains('dark'
  * nothing needs resetting.
  */
 const RESET_MODES =
-  '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?25h';
+  '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?25h\x1b[?2026l';
 
 export function TerminalView({
   session,
@@ -520,6 +521,8 @@ export function TerminalView({
       return false;
     });
 
+    disableSynchronizedOutput(term);
+
     /**
      * Which keystrokes escape the terminal.
      *
@@ -657,7 +660,6 @@ export function TerminalView({
             (bytes) => {
               if (bytes.length > 0) {
                 term.write(bytes);
-                term.write(RESET_MODES);
               }
               setReplayed(true);
             },

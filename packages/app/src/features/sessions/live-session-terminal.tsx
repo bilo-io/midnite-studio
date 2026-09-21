@@ -8,15 +8,12 @@ import '@xterm/xterm/css/xterm.css';
 import { bridge } from '../../services/bridge';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
 import { resolveTerminalPalette } from '../themes/resolve-palette';
+import { disableSynchronizedOutput } from '../terminal/disable-synchronized-output';
 import { terminalFontOptions } from '../terminal/terminal-font';
 import { createReplayGate, gateLiveWrite, replayLiveHandoff, type ReplayGate } from '../terminal/replay-gate';
 import { useTerminalIpc } from '../terminal/use-terminal-ipc';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { useUiStore } from '../../store/ui-store';
-
-/** Same pairing `transcript-view.tsx` and `terminal-view.tsx` both write after a replay. */
-const RESET_MODES =
-  '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?25h';
 
 const isDark = (): boolean => document.documentElement.classList.contains('dark');
 
@@ -85,6 +82,8 @@ export function LiveSessionTerminal({ session }: { session: TerminalSession }) {
       }),
     });
 
+    disableSynchronizedOutput(term);
+
     term.attachCustomKeyEventHandler((event) => {
       if (event.type !== 'keydown') return true;
       return !shouldEscapeTerminal(event);
@@ -107,7 +106,6 @@ export function LiveSessionTerminal({ session }: { session: TerminalSession }) {
         (bytes) => {
           if (bytes.length > 0) {
             term.write(bytes);
-            term.write(RESET_MODES);
           }
         },
         (bytes) => term.write(bytes),
