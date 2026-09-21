@@ -65,4 +65,35 @@ describe('UserAvatar', () => {
     expect(screen.getByText('@bilo')).not.toBeNull();
     expect(screen.getByText('Reviewer')).not.toBeNull();
   });
+
+  // The escape hatch Phase 90 Theme B adds for a forge profile picture that
+  // is neither Gravatar nor a `github.com/<login>.png` guess (GitLab,
+  // Bitbucket, Azure DevOps whoami results).
+  describe('src', () => {
+    it('takes priority over the GitHub-login image guess', () => {
+      const { container } = render(
+        <UserAvatar login="octocat" src="https://gitlab.com/avatar.png" size={24} />,
+      );
+      const img = container.querySelector('img');
+      expect(img?.getAttribute('src')).toBe('https://gitlab.com/avatar.png');
+    });
+
+    it('falls back to the login/initials path on a load error', () => {
+      const { container } = render(
+        <UserAvatar login="octocat" src="https://gitlab.com/avatar.png" size={24} />,
+      );
+      fireEvent.error(container.querySelector('img')!);
+      // Falls through to the GitHub-login guess, not straight to initials.
+      expect(container.querySelector('img')?.getAttribute('src')).toBe(
+        'https://github.com/octocat.png?size=48',
+      );
+    });
+
+    it('leaves every existing caller unaffected when omitted', () => {
+      const { container } = render(<UserAvatar login="octocat" size={24} />);
+      expect(container.querySelector('img')?.getAttribute('src')).toBe(
+        'https://github.com/octocat.png?size=48',
+      );
+    });
+  });
 });

@@ -26,6 +26,9 @@ import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
 import { configureSecrets, registerSecretsHandlers } from './ipc/secrets-handlers';
 import { createSecretsVault } from './secrets-vault';
+import { createForgeAccountVault } from './forge/forge-account-vault';
+import { createForgeAccountsStore } from './forge/forge-accounts-store';
+import { configureForgeAccounts } from './forge/forge-accounts';
 import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
 import { configureKnowledge, registerKnowledgeHandlers } from './ipc/knowledge-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
@@ -43,6 +46,7 @@ import { createNotesStore } from './notes-store';
 import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
 import { handleBare } from './ipc/handle';
 import { registerForgeHandlers } from './ipc/forge-handlers';
+import { registerForgeAccountHandlers } from './ipc/forge-account-handlers';
 import { registerForgeProjectHandlers } from './ipc/forge-project-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
 import { registerFsSearchHandlers } from './ipc/fs-search-handlers';
@@ -360,6 +364,7 @@ if (!app.requestSingleInstanceLock()) {
     registerHooksHandlers();
     registerClipboardHandlers();
     registerForgeHandlers();
+    registerForgeAccountHandlers();
     registerForgeProjectHandlers();
     // Phase 84 Themes B/C: auto-fetch and forge polling both move to main,
     // one instance for the whole process regardless of how many windows are
@@ -556,6 +561,13 @@ if (!app.requestSingleInstanceLock()) {
     configureTests(createTestTrustStore(userData));
     configureDb(createConnectionsStore(userData), createCredentialVault(userData));
     configureSecrets(createSecretsVault(userData));
+    /*
+      The account registry (Phase 90 Theme B) — wired here beside every other
+      userData store. `configureForgeAccounts` itself kicks off the on-disk
+      load without blocking boot on it; `forge-accounts.ts`'s own `ensureLoaded`
+      is what a handler awaits if it fires before that resolves.
+    */
+    configureForgeAccounts(createForgeAccountsStore(userData), createForgeAccountVault(userData));
     /*
       The Knowledge view's layout cache — keyed on `built_at_commit` plus the
       projection format version (Phase 87, Decision 2). Its own subdirectory

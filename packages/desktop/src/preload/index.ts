@@ -119,6 +119,7 @@ const bridge: Pick<
   | 'remotes'
   | 'hooks'
   | 'forge'
+  | 'forgeAccounts'
   | 'forgeProject'
   | 'shell'
   | 'clipboard'
@@ -252,6 +253,13 @@ const bridge: Pick<
     subscribe: (req) => ipcRenderer.send(CHANNELS.forgeSubscribe, req),
     unsubscribe: (req) => ipcRenderer.send(CHANNELS.forgeUnsubscribe, req),
     onChanged: (handler) => subscribe(EVENT_CHANNELS.forgeChanged, handler),
+  },
+  forgeAccounts: {
+    list: (req) => call(CHANNELS.forgeAccounts, req),
+    add: (req) => call(CHANNELS.forgeAccountAdd, req),
+    remove: (req) => call(CHANNELS.forgeAccountRemove, req),
+    switch: (req) => call(CHANNELS.forgeAccountSwitch, req),
+    capabilities: (req) => call(CHANNELS.forgeCapabilities, req),
   },
   forgeProject: {
     list: (req) => call(CHANNELS.forgeProjectList, req),

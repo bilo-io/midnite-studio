@@ -7,6 +7,7 @@ import {
   LuActivity,
   LuAudioLines,
   LuBot,
+  LuCircleUserRound,
   LuClapperboard,
   LuDatabase,
   LuDiff,
@@ -141,6 +142,10 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   // (`apps-icons.ts`) — this page is "third-party apps" as a category, not
   // any one of them.
   apps: LuLayoutGrid,
+  // The "who am I" page (Phase 90 Theme B) — a circled person, not a plain
+  // `LuUser`, so it reads as an identity/account glyph rather than the
+  // generic person mark a "your profile" link elsewhere might reuse.
+  accounts: LuCircleUserRound,
   monitor: LuActivity,
   optimizer: LuGauge,
   browser: GoGlobe,

@@ -317,6 +317,18 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   is wired by the same `core.hooksPath .githooks` as `pre-commit`, so the three commands
   above install both.
 
+- **A forge credential lives in `main/forge/forge-account-vault.ts`, never in renderer
+  `localStorage`.** Phase 90 Theme B gave the app its first logged-in identity — a GitHub, GitLab,
+  Bitbucket or Azure DevOps personal access token, encrypted behind Electron `safeStorage` and
+  keyed `${provider}:${host}:${login}`, the third binding over `main/secure-store.ts` beside
+  `db/credential-vault.ts` and `secrets-vault.ts` (Phase 76 Theme D). `ForgeAccountSchema`'s
+  `hasToken` is a boolean on the wire — the renderer is told a credential exists, never what it
+  is. A GitHub account discovered from `gh auth status` holds no token at all (`delegated: 'gh'`):
+  `gh` remains its credential, unchanged. The one plaintext forge-token slot this app ever had —
+  `ui-store.ts`'s `agentApiKeys['github']` — is migrated into the vault on first run and removed
+  from the persisted blob; the five LLM keys beside it are untouched, and stay `agentApiKeys`'
+  problem, not this one's.
+
 ## Sitrep — the standing format when the user asks for status
 
 **"sitrep"** (situation report) is a fixed request, not a free-form one. Whenever the user types it —

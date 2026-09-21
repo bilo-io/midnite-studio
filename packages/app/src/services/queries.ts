@@ -6,6 +6,9 @@ import type {
   DiagnosticsCommand,
   DiagnosticsRun,
   DiagnosticsTrustStatus,
+  ForgeAccount,
+  ForgeCapability,
+  ForgeKind,
   ForgeIssueCommentsResult,
   ForgeIssueDetailResult,
   ForgeIssuesResult,
@@ -44,6 +47,7 @@ import type {
 } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
+import { useUiStore } from '../store/ui-store';
 import { bridge } from './bridge';
 
 /**
@@ -234,6 +238,11 @@ export const keys = {
     ['repos', repoId, 'forge', 'pull-threads', number] as const,
   /** Whether `gh` is installed and signed in. Not repo-scoped — it is machine state. */
   forgeCli: ['forge', 'cli'] as const,
+  /** The account registry (Phase 90 Theme B). Not repo-scoped — an account
+   *  is a machine-wide identity, like `forgeCli` above. */
+  forgeAccounts: ['forge', 'accounts'] as const,
+  /** A provider kind's capability matrix — a placeholder until Theme H. */
+  forgeCapabilities: (kind: string) => ['forge', 'capabilities', kind] as const,
   /**
    * The ProjectV2 boards visible to the open repo's owner (Phase 40 Theme C).
    *
@@ -715,6 +724,83 @@ export function useForgeCli() {
         hint: '',
       },
     staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * Every stored account (Phase 90 Theme B). Mirrored into `ui-store.ts`'s
+ * `forgeAccounts`/`forgeActiveAccountId` on every successful fetch, so the
+ * title-bar avatar can render from the store on first paint rather than
+ * waiting on this query's own first resolution.
+ */
+export function useForgeAccounts() {
+  const setForgeAccounts = useUiStore((s) => s.setForgeAccounts);
+  return useQuery<ForgeAccount[]>({
+    queryKey: keys.forgeAccounts,
+    queryFn: async () => {
+      const accounts = (await bridge()?.forgeAccounts.list({})) ?? [];
+      setForgeAccounts(accounts);
+      return accounts;
+    },
+  });
+}
+
+/** Validates the token against the provider's `whoami`, then stores it — a
+ *  rejected token surfaces as `{ok: false, error}`, not a thrown mutation. */
+export function useAddForgeAccount() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { kind: ForgeKind; host: string; token?: string }) => {
+      const api = bridge();
+      if (!api) return { ok: false as const, error: 'Desktop bridge unavailable.' };
+      return api.forgeAccounts.add(input);
+    },
+    onSuccess: (result) => {
+      if (result.ok) void client.invalidateQueries({ queryKey: keys.forgeAccounts });
+    },
+  });
+}
+
+export function useRemoveForgeAccount() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await bridge()?.forgeAccounts.remove({ id })) ?? { ok: false },
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.forgeAccounts }),
+  });
+}
+
+/**
+ * Moves the active-account pointer. Theme B's whole scope for "switching" —
+ * see `forgeAccounts.switch`'s own bridge docblock for what Theme C adds on
+ * top of this same call.
+ */
+export function useSwitchForgeAccount() {
+  const client = useQueryClient();
+  const setForgeActiveAccountId = useUiStore((s) => s.setForgeActiveAccountId);
+  return useMutation({
+    mutationFn: async (id: string | null) =>
+      (await bridge()?.forgeAccounts.switch({ id })) ?? { ok: false, activeAccountId: null },
+    onSuccess: (result) => {
+      if (result.ok) setForgeActiveAccountId(result.activeAccountId);
+      void client.invalidateQueries({ queryKey: keys.forgeAccounts });
+    },
+  });
+}
+
+export function useForgeCapabilities(kind: ForgeKind) {
+  return useQuery<ForgeCapability>({
+    queryKey: keys.forgeCapabilities(kind),
+    queryFn: async () =>
+      (await bridge()?.forgeAccounts.capabilities({ kind })) ?? {
+        pulls: 'none',
+        issues: 'none',
+        checks: 'none',
+        projects: 'none',
+        threadResolution: 'none',
+        requestChanges: 'none',
+        repoListing: 'none',
+      },
+    staleTime: Infinity,
   });
 }
 

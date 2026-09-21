@@ -352,6 +352,38 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * The account registry (Phase 90 Theme B) — its own group rather than a
+   * widening of `forge` above, because every method here is repo-agnostic:
+   * an account is a machine-wide identity, and every `forge.*` method above
+   * takes a `repoId`. Main owns the authoritative copy; every response here
+   * is non-secret by schema (`ForgeAccountSchema` has no token field).
+   */
+  forgeAccounts: {
+    /** Every stored account. */
+    list: (
+      req: In<typeof S.ForgeAccountsRequest>,
+    ) => Promise<z.infer<typeof S.ForgeAccountsResponse>>;
+    /** Validates against the provider's `whoami` before storing anything —
+     *  a rejected token never reaches the vault. */
+    add: (req: In<typeof S.ForgeAccountAddRequest>) => Promise<z.infer<typeof S.ForgeAccountAddResponse>>;
+    /** Forgets the account and its vaulted token, if any. */
+    remove: (
+      req: In<typeof S.ForgeAccountRemoveRequest>,
+    ) => Promise<z.infer<typeof S.ForgeAccountRemoveResponse>>;
+    /** Moves the active-account pointer. Theme C is what makes switching
+     *  rescope the repo list and run `gh auth switch`; this call alone only
+     *  changes which account Settings ▸ Accounts marks active. */
+    switch: (
+      req: In<typeof S.ForgeAccountSwitchRequest>,
+    ) => Promise<z.infer<typeof S.ForgeAccountSwitchResponse>>;
+    /** A placeholder matrix (`'full'` for GitHub, `'none'` elsewhere) until
+     *  Theme H builds the real one. */
+    capabilities: (
+      req: In<typeof S.ForgeCapabilitiesRequest>,
+    ) => Promise<z.infer<typeof S.ForgeCapabilitiesResponse>>;
+  };
+
+  /**
    * GitHub ProjectV2 (Phase 40 Theme A), read through the same `gh` CLI
    * escape hatch as `forge` above and kept as its own group for the same
    * reason it is its own IPC namespace: ProjectV2 is GraphQL-only, served by

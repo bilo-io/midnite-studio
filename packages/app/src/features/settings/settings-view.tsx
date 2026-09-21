@@ -12,6 +12,7 @@ import {
   useUiStore,
   type SettingsPageId,
 } from '../../store/ui-store';
+import { AccountsPage } from './settings-pages/accounts-page';
 import { AgentPage } from './settings-pages/agent-page';
 import { ApiClientPage } from './settings-pages/api-client-page';
 import { AppearancePage } from './settings-pages/appearance-page';
@@ -68,6 +69,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,
   apps: () => <AppsPage />,
+  accounts: () => <AccountsPage />,
   cli: () => <CliPage />,
   updates: () => <UpdatesPage />,
   health: () => <HealthPage />,

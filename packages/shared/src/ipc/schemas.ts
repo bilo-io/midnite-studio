@@ -98,6 +98,11 @@ import {
   RefSchema,
   ReflogEntrySchema,
   RemoteSchema,
+  ForgeAccountAddResultSchema,
+  ForgeAccountSchema,
+  ForgeCapabilitySchema,
+  ForgeKindSchema,
+  SupportedForgeKindSchema,
   InstallUserSkillsResultSchema,
   RebaseSequencePlanSchema,
   RepoDescriptorSchema,
@@ -629,6 +634,40 @@ export const ForgeUnsubscribeRequest = z.object({
   kind: ForgeSubscriptionKindSchema,
 });
 export const ForgeChangedEventPayload = ForgeChangedEventSchema;
+
+// --- forge accounts (Phase 90 Theme B) --------------------------------------
+
+export const ForgeAccountsRequest = z.object({});
+export const ForgeAccountsResponse = z.array(ForgeAccountSchema);
+
+/**
+ * `token` is optional only for `kind: 'github'` — a GitHub account is
+ * discovered from `gh auth status` when no token is given, and never stores
+ * one (`delegated: 'gh'`). Every other kind requires a non-empty token; the
+ * handler rejects the request with `ok: false` rather than the schema, since
+ * "required for this kind, optional for that one" is exactly what zod's own
+ * error message cannot phrase as well as a human sentence in the response.
+ */
+export const ForgeAccountAddRequest = z.object({
+  kind: SupportedForgeKindSchema,
+  host: z.string().min(1),
+  token: z.string().min(1).optional(),
+});
+
+export const ForgeAccountAddResponse = ForgeAccountAddResultSchema;
+
+export const ForgeAccountRemoveRequest = z.object({ id: z.string().min(1) });
+export const ForgeAccountRemoveResponse = z.object({ ok: z.boolean() });
+
+/** `id: null` clears the active account — the state after the last one is removed. */
+export const ForgeAccountSwitchRequest = z.object({ id: z.string().min(1).nullable() });
+export const ForgeAccountSwitchResponse = z.object({
+  ok: z.boolean(),
+  activeAccountId: z.string().nullable(),
+});
+
+export const ForgeCapabilitiesRequest = z.object({ kind: ForgeKindSchema });
+export const ForgeCapabilitiesResponse = ForgeCapabilitySchema;
 
 /**
  * A pull-request number.

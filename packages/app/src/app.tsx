@@ -71,6 +71,7 @@ import { useResizable } from './components/resizable/use-resizable';
 import { useViewportWidth } from './components/use-viewport-width';
 import { useReveal, usePanelRevealFade, useRevealSize } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
+import { TitleBarAccount } from './components/title-bar-account';
 import { TitleBarAgents } from './components/title-bar-agents';
 import { TitleBarNav } from './components/title-bar-nav';
 import { TitleBarPrimaryAgent } from './components/title-bar-primary-agent';
@@ -108,6 +109,7 @@ import { useSyncRepoForgeRegistry } from './services/repo-forge-registry';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useReportWindowRepo } from './services/use-report-window-repo';
 import { useSettingsSync } from './services/use-settings-sync';
+import { migrateLegacyGithubAgentKey } from './store/migrate-forge-github-key';
 import { useWindowSync } from './services/use-window-sync';
 import { useTestsStream } from './features/tests/use-tests-stream';
 import { usePaletteSync } from './features/themes/use-palette-sync';
@@ -700,6 +702,14 @@ function Shell() {
   // Auto-fetch itself runs in main now (Phase 84 Theme B); this only keeps
   // main's mirror of the setting current.
   useSettingsSync();
+  // The `agentApiKeys['github']` → forge-account-vault migration (Phase 90
+  // Theme B) — a one-time, IPC-connected step that `ui-store.ts`'s own
+  // synchronous `migrate()` cannot do; see the function's own docblock.
+  // Naturally idempotent (it deletes the source key), so no guard is needed
+  // beyond React's own "runs once per mount" for an empty dependency array.
+  useEffect(() => {
+    void migrateLegacyGithubAgentKey();
+  }, []);
 
   // Every shortcut, every native menu item and (Theme C+) the palette dispatch
   // through this one runtime, keyed by CommandId — see use-command-handlers.ts.
@@ -1315,6 +1325,12 @@ function Shell() {
       <TitleBarAgents />
       <TitleBarStatus />
       <TitleBarBattery />
+      {/*
+        The active-account avatar (Phase 90 Theme B) — the title bar's first
+        identity element. Draws its own leading hairline and renders nothing
+        with no account added, mirroring `TitleBarBattery` immediately above.
+      */}
+      <TitleBarAccount />
       {/*
         The theme toggle is an app preference, not a status readout, so it
         gets a hairline rather than sitting flush against the status pill.
