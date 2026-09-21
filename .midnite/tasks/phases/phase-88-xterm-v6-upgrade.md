@@ -230,7 +230,9 @@ Both were deferred *on the assumption* that a bump would fix them. The deliverab
   as "the CLI hangs on startup" — which is what [PR #496](https://github.com/bilo-io/midnite-studio/pull/496)
   went after, on a synchronized-output theory that a raw-pty capture disproves (`agy` balances
   every `?2026h` with a `?2026l`, and `SynchronizedOutputHandler` has a 1s watchdog besides).
-  Intercepting DECRQM 2026 routed one of the two queries around the throw; 2027 still hit it.
+  Intercepting DECRQM 2026 routed one of the two queries around the throw; 2027 still hit it —
+  and that interception has since been removed in full, so xterm answers every mode query
+  itself again and synchronized output works as v6 intended.
   Fixed in `packages/app/vite-xterm-decrqm-plugin.ts` by deleting the dead initialiser before
   Rollup sees it, with a second plugin failing any build that emits the corruption from any
   dependency. **The lesson for this phase's Theme G:** nothing in the gate looks at built output —
