@@ -448,7 +448,7 @@ There is no wizard, so this theme builds one — narrowly.
       its entirety, and [Phase 62](phase-62-one-escape-one-dismissal.md)'s one-Escape rule governs
       which layer consumes the key.
 
-### J — The pricing page (M) ✅ DONE ✅ DONE
+### J — The pricing page (M) ✅ DONE
 
 Independent of every other theme, and the one piece of this phase the human explicitly scoped: *"Don't
 do anything here yet, just prepare the pricing page."*
