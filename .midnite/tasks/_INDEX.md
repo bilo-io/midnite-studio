@@ -12,7 +12,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | 🔄 WIP | — | 32/34 | `█████████░` | 94% | — | (2 human/live-board passes) |
 | [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | ✅ DONE | — | 36/36 | `██████████` | 100% | — | — |
 | [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | ◻ TODO | — | 0/95 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
-| [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | 🔄 WIP | — | 25/101 | `██░░░░░░░░` | 25% | B | C D E F G H I K |
+| [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | 🔄 WIP | — | 25/101 | `██░░░░░░░░` | 25% | B D H | C E F G I K |
 | [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 36/89 | `████░░░░░░` | 40% | — | F G H I J K |
 | [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 15/34 | `████░░░░░░` | 44% | — | D F G |
 | [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | A B C D E F G | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
@@ -321,11 +321,11 @@ hard-coded rows — so the optional step and its Skip need the step frame built 
 - ✅ **A** (PR [#490](https://github.com/bilo-io/midnite-studio/pull/490)) — the seam: `ForgeKind` widens to five, Azure's `_git`/`v3` URL grammar, `githubForge` → `repoForge` across 24 call sites
 - 🔄 **B** (PR [#501](https://github.com/bilo-io/midnite-studio/pull/501)) — accounts, the vault as a third binding over `main/secure-store.ts` (Phase 76 Theme D had already extracted it, so no `secret-vault.ts` was created), `whoami` per provider, five `mstudio:forge:*` channels, the title-bar avatar, Settings ▸ Accounts, and the `agentApiKeys['github']` → vault migration. **Three items open**: `forge.activeAccountId` never reached `ui-store.ts` (the active pointer lives in main only); the per-provider redaction patterns are deferred to E/F/G by their own checklist text; and the `shell.openExternal` scheme check is unimplemented
 - ◻ **C** — switching the active user: repos hidden not closed, the reachable-repo listing, `gh auth switch` behind a default-on setting
-- ◻ **D** — `ForgeAdapter` and `registry.ts`, with the existing `gh-*.ts` moved behind `createGitHubAdapter()` and no behaviour change
+- 🔄 **D** — `ForgeAdapter` and `registry.ts`, with the existing `gh-*.ts` moved behind `createGitHubAdapter()` and no behaviour change
 - ◻ **E** — GitLab: MRs (`iid`, not `id`), issues, pipelines, discussions, approvals with no `CHANGES_REQUESTED`, Issue Boards as the kanban
 - ◻ **F** — Bitbucket Cloud: PRs, Pipelines, approvals; the issue tracker is opt-in and usually off; **no boards at all** — Jira is the board, and this phase does not invent one
 - ◻ **G** — Azure DevOps: PRs, **work items** (not issues), Pipelines, threads and the numeric vote scale, Azure Boards
-- ◻ **H** — the tri-state capability matrix, exhaustive over `ForgeKind`, read by `FORGE_GATED_VIEWS` instead of a boolean
+- 🔄 **H** — the tri-state capability matrix, exhaustive over `ForgeKind`, read by `FORGE_GATED_VIEWS` instead of a boolean
 - ◻ **I** — the step frame on `onboarding-modal.tsx`, Back/Skip/Continue, the optional "Connect your forges" step, and the hard-coded rows made real
 - ✅ **J** (PR [#491](https://github.com/bilo-io/midnite-studio/pull/491)) — the pricing page: a third static route, three columns, $8/mo individual and $12/seat team, no checkout, nothing linking to this private repo
 - ◻ **K** — verification: fixture-driven mapper tests per provider, the no-token-on-the-wire assertion, the cache-bleed switch test, one e2e and one baseline
