@@ -330,35 +330,42 @@ The behaviour the human asked for, in three parts: reveal, hide, and `gh auth sw
       free the moment a repo is hidden. Left as a documented consequence rather than a second,
       redundant unsubscribe path.
 
-### D — `ForgeAdapter`: the interface, and GitHub as its first implementation (L)
+### D — `ForgeAdapter`: the interface, and GitHub as its first implementation (L) ◐ PARTIAL (PR #502, 2026-09-22)
 
 A pure refactor with no behaviour change and no new provider. Its acceptance criterion is that the
 existing forge tests pass untouched.
 
-- [ ] `main/forge/adapter.ts` declares `ForgeAdapter`: the read surface (`listRuns`, `runDetail`,
+- [x] `main/forge/adapter.ts` declares `ForgeAdapter`: the read surface (`listRuns`, `runDetail`,
       `runLog`, `listWorkflows`, `listPulls`, `pullDetail`, `pullFiles`, `pullComments`,
       `pullThreads`, `listIssues`, `issueDetail`, `issueComments`, `listBoards`, `boardFields`,
-      `boardItems`), the bounded write surface (`comment`, `review`, `setIssueState`, `setItemField`),
-      `whoami`, `listRepos`, and `capabilities()`. Every method returns the house
-      `{cli, <data>, error}` envelope that
+      `boardItems`), a write surface named per the existing `gh-write.ts` exports rather than
+      collapsed to `comment`/`review`/`setIssueState`/`setItemField` (collapsing eleven working writes
+      into four generic ones is a real design change this theme's own "no behaviour change" criterion
+      rules out — see the module's own docblock), `whoami`, and `capabilities()`. `listRepos` is
+      optional and left unimplemented for GitHub — no consumer exists yet; Theme C ended up building
+      `main/forge/reachable-repos.ts` as its own read, not through this interface. Every method returns
+      the house `{cli, <data>, error}` envelope that
       [`forge.ts`](../../../packages/shared/src/domain/forge.ts) already establishes.
-- [ ] `main/forge/github/` — the existing `gh-*.ts` files, **moved, not rewritten**, behind a
+- [x] `main/forge/github/` — the existing `gh-*.ts` files, **moved, not rewritten**, behind a
       `createGitHubAdapter()` that binds them. One git rename per file plus one new binding module; if
       a diff in this theme changes a `gh` command string, something has gone wrong.
-- [ ] `main/forge/registry.ts` — `adapterFor(forge: Forge, account: ForgeAccount | null)`, the single
-      dispatch point. `forge-handlers.ts`'s 24 handlers call it instead of calling `gh-cli.ts`
+- [x] `main/forge/registry.ts` — `adapterFor(forge: Forge, account: ForgeAccount | null)`, the single
+      dispatch point. `forge-handlers.ts`'s handlers call it instead of calling `gh-cli.ts`
       directly, and the handlers themselves become provider-blind.
 - [ ] `main/forge/http.ts` — the shared HTTP client the three new adapters use: bearer/basic auth per
       provider, a JSON envelope, `Retry-After` honoured, a per-host request budget. It is a **sibling
       of `gh-shell.ts`, not a replacement** — GitHub keeps its subprocess path. Model it on
       [`api-client/send.ts`](../../../packages/desktop/src/main/api-client/send.ts) and
       [`workflow/executors/http.ts`](../../../packages/desktop/src/main/workflow/executors/http.ts),
-      which already do HTTP in main, rather than adding a fourth style.
+      which already do HTTP in main, rather than adding a fourth style. **Deferred**: no consumer
+      exists in this batch (Themes E-G); building it unused would be speculative. The next provider
+      theme builds it against its own first real caller.
 - [ ] `ForgeCliStatus`'s three reasons (`ready`, `not-installed`, `not-authenticated`) are `gh`'s
       vocabulary. They keep working for GitHub; for an HTTP adapter `not-installed` is impossible and
       `not-authenticated` means "no account, or its token was rejected". Say that in the schema's
       docblock rather than growing a fourth arm — the same argument `noForgeStatus()` already makes
-      for reusing `not-installed`.
+      for reusing `not-installed`. **Deferred alongside `http.ts`** — the same "no HTTP adapter exists
+      yet" reason.
 
 ### E — GitLab (XL)
 
@@ -459,25 +466,29 @@ Good coverage behind an entirely different vocabulary, which is the interesting 
       the three new providers. Queries and backlogs are out of scope.
 - [ ] Writes: comment on a PR or work item, vote, resolve a thread, transition a work item's state.
 
-### H — The capability matrix, and saying "this provider can't" honestly (M)
+### H — The capability matrix, and saying "this provider can't" honestly (M) ◐ PARTIAL (PR #502, 2026-09-22)
 
 Four providers with four different feature sets need one place that says which is which, and four
 views that read it rather than each guessing.
 
-- [ ] `ForgeCapabilitySchema` in
+- [x] `ForgeCapabilitySchema` in
       [`forge-account.ts`](../../../packages/shared/src/domain/): a record of
       `{pulls, issues, checks, projects, threadResolution, requestChanges, repoListing}` over
-      `'full' | 'partial' | 'none'`, served by `adapter.capabilities()` over
-      `CHANNELS.forgeCapabilities`. **Tri-state, not boolean**, because "Bitbucket's issue tracker is
+      `'full' | 'partial' | 'none'` (Theme B had already declared the schema; this theme made
+      `capabilitiesFor` a compiler-enforced `Record<ForgeKind, ForgeCapability>` rather than a
+      `kind === 'github'` ternary). **Tri-state, not boolean**, because "Bitbucket's issue tracker is
       usually off" and "Bitbucket has no boards" are different facts that a boolean would flatten.
-- [ ] The nav rail and the sidebar Forge node read it. A view whose capability is `'none'` is
-      **hidden** for that repo, exactly as `FORGE_GATED_VIEWS` in
-      [`app.tsx`](../../../packages/app/src/app.tsx) already hides all four when there is no forge —
-      the mechanism exists, this extends its input from a boolean to a matrix.
+- [x] The nav rail reads it. `app.tsx`'s `FORGE_GATED_VIEWS` gate now reads the matrix per field
+      (`useForgeViewAvailability`, a `FORGE_VIEW_CAPABILITY` map: `actions → checks`, `reviews →
+      pulls`, `issues → issues`, `projects → projects`) instead of one boolean gating all four
+      together. The sidebar Forge node (`forge-sections.tsx`) is not touched — out of scope for this
+      PR, left for whichever theme first lands a `'partial'`-capability provider.
 - [ ] A `'partial'` capability shows its limits in place, once, where the limit bites: GitLab's
       missing `CHANGES_REQUESTED`, Azure's work-item vocabulary, Bitbucket's flattened threads. One
-      sentence each, in the view, not a docs link.
-- [ ] `capabilities.test.ts` asserts the matrix is **exhaustive over `ForgeKind`** — a fifth provider
+      sentence each, in the view, not a docs link. **Deferred** — no provider in this batch (Themes
+      E/F/G, out of scope) can ever report `'partial'` yet; every kind but `github` still reads
+      `'none'`, honestly, until a real adapter exists to earn a `'partial'` row.
+- [x] `capabilities.test.ts` asserts the matrix is **exhaustive over `ForgeKind`** — a fifth provider
       added later fails the build until it declares what it can do.
 
 ### I — The step frame, the forge step, and the Skip button (L)
