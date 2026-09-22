@@ -24,7 +24,13 @@ import {
 import { useUiStore } from '../../../store/ui-store';
 import { Choice, Field, TextField } from './controls';
 
-type SupportedKind = Exclude<ForgeKind, 'unknown'>;
+/**
+ * Exported for `onboarding/steps/forge-connect-step.tsx` (Phase 90 Theme I):
+ * the wizard's "Connect your forges" step is the same add-account action as
+ * this page's own form, so it reads the identical host/label/scope text
+ * rather than keeping a second copy that can drift from this one.
+ */
+export type SupportedKind = Exclude<ForgeKind, 'unknown'>;
 
 /**
  * No self-hosted host picker — Theme B's own scope guardrail (matching
@@ -33,14 +39,14 @@ type SupportedKind = Exclude<ForgeKind, 'unknown'>;
  * self-hosted instance is recognised by the URL parser (Theme A) and
  * declared `unsupported` by the capability matrix rather than offered here.
  */
-const PROVIDER_HOST: Record<SupportedKind, string> = {
+export const PROVIDER_HOST: Record<SupportedKind, string> = {
   github: 'github.com',
   gitlab: 'gitlab.com',
   bitbucket: 'bitbucket.org',
   azure: 'dev.azure.com',
 };
 
-const PROVIDER_LABEL: Record<SupportedKind, string> = {
+export const PROVIDER_LABEL: Record<SupportedKind, string> = {
   github: 'GitHub',
   gitlab: 'GitLab',
   bitbucket: 'Bitbucket',
@@ -49,7 +55,7 @@ const PROVIDER_LABEL: Record<SupportedKind, string> = {
 
 /** The exact scopes each provider needs, spelled out — `projects-page.tsx`'s
  *  own style for `gh auth refresh -s project`. */
-const PROVIDER_TOKEN_HINT: Record<SupportedKind, string> = {
+export const PROVIDER_TOKEN_HINT: Record<SupportedKind, string> = {
   github:
     'Leave this blank to use the GitHub CLI (`gh auth login`) — the same credential every other GitHub read in this app already uses. Paste a personal access token only to add a second GitHub identity.',
   gitlab: 'A personal access token with the `read_api` scope (Settings ▸ Access Tokens on gitlab.com).',
@@ -88,6 +94,16 @@ export function AccountsPage() {
   const setScopeReposToActiveAccount = useUiStore((s) => s.setForgeScopeReposToActiveAccount);
   const syncGhAuthSwitch = useUiStore((s) => s.forgeSyncGhAuthSwitch);
   const setSyncGhAuthSwitch = useUiStore((s) => s.setForgeSyncGhAuthSwitch);
+  /*
+    The onboarding wizard's "Connect your forges" step (Phase 90 Theme I,
+    `onboarding-steps.ts`'s `id: 'forges'`) records itself here on Skip. A
+    literal id rather than an import of `ONBOARDING_STEPS`: that module
+    already imports this file (`forge-connect-step.tsx` reads
+    `PROVIDER_HOST`/`PROVIDER_LABEL`/`PROVIDER_TOKEN_HINT` below), so
+    importing it back would be a cycle for one string.
+  */
+  const skippedForgeStep = useUiStore((s) => s.onboardingSkippedStepIds.includes('forges'));
+  const clearSkippedForgeStep = useUiStore((s) => s.setOnboardingStepSkipped);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -99,6 +115,18 @@ export function AccountsPage() {
 
   return (
     <div className="flex flex-col gap-3">
+      {skippedForgeStep ? (
+        <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+          <span>You skipped connecting a forge during setup — add one below whenever you're ready.</span>
+          <button
+            type="button"
+            onClick={() => clearSkippedForgeStep('forges', false)}
+            className="shrink-0 rounded px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            Got it
+          </button>
+        </div>
+      ) : null}
       <Accordion title="Accounts" icon={<LuCircleUserRound className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           {accounts.length === 0 ? (
