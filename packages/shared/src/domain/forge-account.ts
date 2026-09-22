@@ -180,6 +180,35 @@ const NO_CAPABILITY: ForgeCapability = {
 };
 
 /**
+ * GitLab's row (Phase 90 Theme E) — the first provider to make `'partial'`
+ * reachable, and the phase doc's own reasoning for each field that is not
+ * `'full'`:
+ *
+ * - `requestChanges: 'none'` — GitLab has no `CHANGES_REQUESTED` at all (the
+ *   phase doc's own Decisions); `reviewPull`'s `REQUEST_CHANGES` maps onto an
+ *   unapprove-plus-comment, which is a real action but not a distinct,
+ *   queryable verdict the way GitHub's is.
+ * - `projects: 'partial'` — Issue Boards are a real kanban
+ *   (`gitlab/gitlab-board.ts`), but through one synthetic label-backed field
+ *   rather than ProjectV2's typed custom fields, and Epics are out (GitLab
+ *   Premium). This is the `'partial'` row Theme H's own checklist left open
+ *   pending a provider that could report one — see that theme's "here's the
+ *   limit" per-view sentence, still unbuilt; noted rather than built here,
+ *   since surfacing it in the four views is explicitly Theme H's scope.
+ * - Every other field is `full`: pulls, issues, checks (pipelines) and
+ *   thread resolution (MR discussions are genuinely resolvable) are complete.
+ */
+const GITLAB_CAPABILITY: ForgeCapability = {
+  pulls: 'full',
+  issues: 'full',
+  checks: 'full',
+  projects: 'partial',
+  threadResolution: 'full',
+  requestChanges: 'none',
+  repoListing: 'full',
+};
+
+/**
  * The tri-state capability matrix (Phase 90 Theme H), keyed by `ForgeKind`
  * through a `Record` rather than a boolean or an `if`/`else` — so **adding a
  * fifth `ForgeKind` fails the build** until this object grows a matching key,
@@ -188,15 +217,16 @@ const NO_CAPABILITY: ForgeCapability = {
  * surprise a view discovers by rendering `undefined`.
  *
  * GitHub reports `full` because its adapter (`main/forge/github/`, Theme D)
- * already implements every read and write this schema describes. GitLab and
- * Azure DevOps still report `none` — not because they lack the capability,
- * but because no adapter exists yet to serve them: Themes E and G are what
- * turn each into a real row here. `unknown` reports `none` too, since it is
- * never a supported-account kind. `capabilities.test.ts` is what asserts
- * this exhaustiveness at the value level, not just the type level — a
- * `Record` can still be filled in wrong.
+ * already implements every read and write this schema describes. GitLab
+ * reports its own row (Theme E) now that a real adapter exists to serve it —
+ * see {@link GITLAB_CAPABILITY}. Azure DevOps still reports `none` — not
+ * because it lacks the capability, but because no adapter exists yet to
+ * serve it: Theme G is what turns it into a real row here. `unknown` reports
+ * `none` too, since it is never a supported-account kind. `capabilities.test.ts`
+ * is what asserts this exhaustiveness at the value level, not just the type
+ * level — a `Record` can still be filled in wrong.
  *
- * **Bitbucket (Theme F) is the first provider to land a genuinely mixed
+ * **Bitbucket (Theme F) is the second provider to land a genuinely mixed
  * row**, which is what Theme H's own deferred item was waiting on — a
  * `'partial'` capability now reaches a real view. `threadResolution` is
  * `'partial'`: Bitbucket has no thread object at all, only a flat list of
@@ -218,7 +248,7 @@ const BITBUCKET_CAPABILITY: ForgeCapability = {
 
 const CAPABILITIES_BY_KIND: Record<ForgeKind, ForgeCapability> = {
   github: FULL_CAPABILITY,
-  gitlab: NO_CAPABILITY,
+  gitlab: GITLAB_CAPABILITY,
   bitbucket: BITBUCKET_CAPABILITY,
   azure: NO_CAPABILITY,
   unknown: NO_CAPABILITY,

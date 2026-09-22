@@ -88,10 +88,20 @@ async function fetchJson(
   }
 }
 
-/** GitLab `GET /user` — a PAT's own identity. `PRIVATE-TOKEN`, not `Bearer`:
- *  the header GitLab's REST API has documented for a personal access token
- *  since before `Authorization: Bearer` was accepted as an alternative. */
-async function gitlabWhoami(host: string, token: string): Promise<WhoamiResult | null> {
+/**
+ * GitLab `GET /user` — a PAT's own identity. `PRIVATE-TOKEN`, not `Bearer`:
+ * the header GitLab's REST API has documented for a personal access token
+ * since before `Authorization: Bearer` was accepted as an alternative.
+ *
+ * Exported so `gitlab/create-gitlab-adapter.ts` (Phase 90 Theme E) can bind
+ * it as `ForgeAdapter.whoami` and reuse it for the `review-requested` scope
+ * lookup in `gitlab/gitlab-read.ts` — the same "reuse the per-kind
+ * implementation rather than a second one" rule `adapter.ts`'s own docblock
+ * states for `whoami`. Left as a plain `fetch` rather than moved onto
+ * `http.ts`: this file's own docblock already scopes that migration to when
+ * `http.ts` lands, not to whichever theme happens to add a second caller.
+ */
+export async function gitlabWhoami(host: string, token: string): Promise<WhoamiResult | null> {
   const row = await fetchJson(`https://${host}/api/v4/user`, { 'PRIVATE-TOKEN': token });
   const login = row && asString(row['username']);
   if (!row || !login) return null;

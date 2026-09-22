@@ -36,6 +36,10 @@ describe('redactPaths', () => {
       'sk-ant-api03-abcdefghijklmnop',
       'xoxb-123456789012-abcdefghij',
       'ATATT3xFfGF0abcdefghijklmnopqrstuvwxyz0123456789',
+      // GitLab personal access token, deploy token, runner token.
+      'glpat-0123456789abcdefghijABCD',
+      'gldt-0123456789abcdefghijABCD',
+      'glrt-0123456789abcdefghijABCD',
     ];
     for (const secret of secrets) {
       const out = redactPaths(`failed with ${secret}`, '/Users/me');

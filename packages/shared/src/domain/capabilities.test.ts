@@ -34,9 +34,22 @@ describe('capabilitiesFor — exhaustive over ForgeKind', () => {
     expect(Object.values(capability).every((level) => level === 'full')).toBe(true);
   });
 
+  it('reports a real, non-`none` row for gitlab — Theme E shipped its adapter', () => {
+    const capability = capabilitiesFor('gitlab');
+    expect(capability.pulls).toBe('full');
+    expect(capability.issues).toBe('full');
+    expect(capability.checks).toBe('full');
+    expect(capability.threadResolution).toBe('full');
+    expect(capability.repoListing).toBe('full');
+    // GitLab has no `CHANGES_REQUESTED` at all — the phase doc's own Decisions.
+    expect(capability.requestChanges).toBe('none');
+    // Issue Boards are real but narrower than ProjectV2 — one synthetic field.
+    expect(capability.projects).toBe('partial');
+  });
+
   it('reports no capability for every kind with no adapter yet', () => {
     for (const kind of ForgeKindSchema.options) {
-      if (kind === 'github' || kind === 'bitbucket') continue;
+      if (kind === 'github' || kind === 'gitlab' || kind === 'bitbucket') continue;
       const capability = capabilitiesFor(kind);
       expect(Object.values(capability).every((level) => level === 'none')).toBe(true);
     }
