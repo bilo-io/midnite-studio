@@ -1,6 +1,31 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-22 — Phase 88 Theme D — `ITheme` verified against v6, no source edit needed
+
+[PR #509](https://github.com/bilo-io/midnite-studio/pull/509).
+
+Diffed v6's real `xterm.d.ts`/`ThemeService.ts` (not the changelog) against `theme-types.ts` and
+`vscode-theme-importer.ts` — confirmed the only `ITheme` change is the four new **optional**
+scrollbar/overview-ruler keys Theme A's own Decisions had already recorded
+(`scrollbarSliderBackground`, `scrollbarSliderHoverBackground`, `scrollbarSliderActiveBackground`,
+`overviewRulerBorder`); nothing removed or renamed among the keys either file actually reads or
+writes. Neither file needed a source edit — the same "port turned out to mean verify" shape
+Themes B and C already found elsewhere in this phase.
+
+What this theme adds is the runtime half `typecheck` can't provide, since every `ITheme` field is
+optional: a future xterm major could silently rename or stop reading a key we set and every type
+check would stay green. New `itheme-conformance.test.ts` constructs a real v6 `Terminal`, reads
+xterm's own (non-public) `ThemeService.colors` back out, and proves (1) every documented `ITheme`
+key — core colours, all 16 ANSI slots, the four new v6 keys — set to a distinct sentinel colour,
+is the key xterm's real `ThemeService` actually applies, and (2) `importVsCodeTheme`'s own output,
+against the real `synthwave-84.json` fixture, threads correctly into that same real `ThemeService`
+end to end — the phase doc's "confirm a VS Code theme import still produces a valid terminal
+palette end to end" item.
+
+Theme F (the two parked debts) landed separately by a parallel session; Theme G (full-phase
+verification) stays open until it does.
+
 ## 2026-09-22 — Phase 90 Themes B and D — closed out, no code change for B
 
 [PR #508](https://github.com/bilo-io/midnite-studio/pull/508).
