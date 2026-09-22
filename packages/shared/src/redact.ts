@@ -47,6 +47,13 @@ const SECRET_PATTERNS: RegExp[] = [
   /\b(?:Bearer|Basic|token)\s+[A-Za-z0-9._~+/=-]{12,}/gi,
   // JWTs — three base64url segments.
   /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g,
+  // Atlassian API tokens (Phase 90 Theme F) — the shape Bitbucket Cloud
+  // issues for a workspace/repository access token, and the credential this
+  // app's own Bitbucket adapter stores. A legacy Bitbucket **App Password**
+  // has no equivalent fixed prefix — it is an opaque random string — so it
+  // is not matched here; the generic `Bearer|Basic|token` pattern above
+  // still catches one echoed inside an `Authorization` header.
+  /\bATATT3[A-Za-z0-9_=-]{20,}/g,
 ];
 
 /**

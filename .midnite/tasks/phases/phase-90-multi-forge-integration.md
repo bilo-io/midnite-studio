@@ -401,38 +401,48 @@ The closest to parity, and the one where nothing has to be explained away.
 - [ ] Writes: comment on an MR or issue, approve/unapprove, resolve a discussion, close/reopen an
       issue. Nothing that needs a picker.
 
-### F — Bitbucket Cloud (XL)
+### F — Bitbucket Cloud (XL) ✅ DONE (PR #504, 2026-09-22)
 
 The provider with the largest honest gaps, and the doc names them instead of inventing equivalents.
 
-- [ ] `main/forge/bitbucket/` over REST 2.0 with an **App Password or a workspace API token**
+- [x] `main/forge/bitbucket/` over REST 2.0 with an **App Password or a workspace API token**
       (Bitbucket's PAT equivalent), Basic auth with the username — note that this differs from the
       bearer-token shape the other two use, which is why `http.ts` takes auth as a strategy rather
       than a header string.
-- [ ] Pull requests → `ForgePull`, `GET /repositories/{workspace}/{repo}/pullrequests`. Diff from
+- [x] Pull requests → `ForgePull`, `GET /repositories/{workspace}/{repo}/pullrequests`. Diff from
       `/diff`, which returns a unified diff and can therefore go straight through git-engine's
       `parseMultiFileDiff`, exactly as `pullFiles` already does for `gh pr diff`.
-- [ ] Pipelines → `ForgeRun`, `GET /repositories/{ws}/{repo}/pipelines` and `/steps` for jobs, logs
+- [x] Pipelines → `ForgeRun`, `GET /repositories/{ws}/{repo}/pipelines` and `/steps` for jobs, logs
       from `/steps/{uuid}/log`. Bitbucket's `state.name`/`result.name` vocabulary
       (`PENDING`/`IN_PROGRESS`/`COMPLETED` × `SUCCESSFUL`/`FAILED`/`STOPPED`/`ERROR`) maps onto the
       GitHub-shaped enums with a tested table.
-- [ ] PR comments and approvals → `ForgeComment` / `reviewDecision`. Bitbucket has **approve** and
+- [x] PR comments and approvals → `ForgeComment` / `reviewDecision`. Bitbucket has **approve** and
       **request-changes** and inline comments, so both arms are reachable. Its inline comments have a
       `parent` and can be marked resolved, so `setThreadResolved` works — but the thread model is
-      flatter than GitHub's, so the mapper synthesises threads from `parent` chains.
-- [ ] **Issues: present but usually absent.** Bitbucket's issue tracker is a per-repository *opt-in*
+      flatter than GitHub's, so the mapper synthesises threads from `parent` chains. This is the
+      `threadResolution: 'partial'` row on the capability matrix — the first provider to reach Theme
+      H's own deferred "`'partial'` shows its limits in place" item, noted rather than built here.
+- [x] **Issues: present but usually absent.** Bitbucket's issue tracker is a per-repository *opt-in*
       feature and most teams use Jira instead. `GET /repositories/{ws}/{repo}/issues` returns 404 when
       it is off — and the Issues view **already has a disabled state for exactly this**, built in
       [Phase 54](phase-54-issues-view.md) for GitHub repos with issues turned off. Reuse it; do not
       add a second empty state.
-- [ ] **Projects/boards: `none`. There is no equivalent, and this phase does not invent one.**
+- [x] **Projects/boards: `none`. There is no equivalent, and this phase does not invent one.**
       Bitbucket Cloud has "Projects" as a *folder for repositories*, not a board — mapping it onto
       `ForgeProject` would put a kanban surface in front of a directory listing. Jira is Bitbucket's
       board, and Jira is a different product with a different API, different auth and a different
       phase. `forgeBoardsUrl` returns `null`, `capabilities().projects` is `'none'`, and the Projects
-      view is hidden for Bitbucket repos with a one-line explanation rather than an error.
-- [ ] Writes: comment, approve/unapprove, request-changes, resolve an inline thread, close an issue
-      where the tracker exists.
+      view is hidden for Bitbucket repos with a one-line explanation rather than an error — this
+      already fell out of Theme H's existing `useForgeViewAvailability`/`FORGE_GATED_VIEWS` gating
+      (per-field, `'none'` hides the view), so no new app-side code was needed.
+- [x] Writes: comment, approve/unapprove, request-changes, resolve an inline thread, close an issue
+      where the tracker exists. **Scoped to exactly this list** — `mergePull`/`requestReview`/
+      `markReady`/`rerunChecks`/`setItemField` are implemented (the `ForgeAdapter` interface requires
+      them) but answer an honest "not supported" `ForgeWriteResult` rather than a guess at
+      undocumented Bitbucket API behaviour, the same narrower-than-the-interface posture Theme E's own
+      checklist takes ("nothing that needs a picker"). "Unapprove" has no verb in
+      `ForgeReviewEventSchema` at all — a gap this interface already had for GitHub, not one Bitbucket
+      introduces.
 
 ### G — Azure DevOps (XL)
 

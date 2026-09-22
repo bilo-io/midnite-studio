@@ -188,18 +188,38 @@ const NO_CAPABILITY: ForgeCapability = {
  * surprise a view discovers by rendering `undefined`.
  *
  * GitHub reports `full` because its adapter (`main/forge/github/`, Theme D)
- * already implements every read and write this schema describes. GitLab,
- * Bitbucket and Azure DevOps report `none` — not because they lack the
- * capability, but because no adapter exists yet to serve them: Themes E, F
- * and G are what turn each into a real (frequently `'partial'`) row here.
- * `unknown` reports `none` too, since it is never a supported-account kind.
- * `capabilities.test.ts` is what asserts this exhaustiveness at the value
- * level, not just the type level — a `Record` can still be filled in wrong.
+ * already implements every read and write this schema describes. GitLab and
+ * Azure DevOps still report `none` — not because they lack the capability,
+ * but because no adapter exists yet to serve them: Themes E and G are what
+ * turn each into a real row here. `unknown` reports `none` too, since it is
+ * never a supported-account kind. `capabilities.test.ts` is what asserts
+ * this exhaustiveness at the value level, not just the type level — a
+ * `Record` can still be filled in wrong.
+ *
+ * **Bitbucket (Theme F) is the first provider to land a genuinely mixed
+ * row**, which is what Theme H's own deferred item was waiting on — a
+ * `'partial'` capability now reaches a real view. `threadResolution` is
+ * `'partial'`: Bitbucket has no thread object at all, only a flat list of
+ * inline comments chained by `parent.id` (see `bitbucket-map.ts`'s
+ * `synthesizeThreads`), flatter than GitHub's own GraphQL threads. `projects`
+ * is `'none'` — Bitbucket Cloud has no board, and this phase does not invent
+ * one (Jira is Bitbucket's real board, and it is a different phase). Every
+ * other field is `'full'`: the *provider-level* capability exists even where
+ * a given repository's answer varies — Bitbucket's issue tracker is
+ * per-repository opt-in and often off, but that is `ForgeIssuesResult`'s
+ * existing `disabled` flag doing its job (the same one GitHub repos with
+ * issues turned off already use), not a capability gap.
  */
+const BITBUCKET_CAPABILITY: ForgeCapability = {
+  ...FULL_CAPABILITY,
+  projects: 'none',
+  threadResolution: 'partial',
+};
+
 const CAPABILITIES_BY_KIND: Record<ForgeKind, ForgeCapability> = {
   github: FULL_CAPABILITY,
   gitlab: NO_CAPABILITY,
-  bitbucket: NO_CAPABILITY,
+  bitbucket: BITBUCKET_CAPABILITY,
   azure: NO_CAPABILITY,
   unknown: NO_CAPABILITY,
 };
