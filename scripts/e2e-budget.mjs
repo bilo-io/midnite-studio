@@ -105,7 +105,14 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // Raised 446 -> 448 for Phase 76 Theme C's `csp.spec.ts` (two tests): CSP
 // enforcement and the external-link contract need real `securitypolicyviolation`
 // events and a live document URL — vitest cannot supply either.
-export const MAX_DECLARED_E2E = 448;
+// Raised 448 -> 449 for Phase 90 Theme K's `onboarding-wizard.spec.ts` (one
+// test): `OnboardingModal` and `FirstRunModal` are both fixed full-screen
+// overlays that mount simultaneously on a fresh profile, and which one is
+// interactive depends on real DOM paint order plus two independent
+// `useFocusTrap` instances — neither is observable under jsdom. Every other
+// onboarding behaviour (step content, the skip-records-itself store
+// transition) already has its own vitest coverage.
+export const MAX_DECLARED_E2E = 449;
 
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult
