@@ -1,6 +1,41 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-22 — Phase 90 Theme B (remainder) + Theme C — account switching
+
+[PR #503](https://github.com/bilo-io/midnite-studio/pull/503).
+
+Closes two of Theme B's three items left open by #501. `forge.scopeReposToActiveAccount` and
+`forge.syncGhAuthSwitch` join the persisted settings in `ui-store.ts` (v23, both default on), with
+toggles in Settings ▸ Accounts ▸ Account switching — `forgeAccounts`/`forgeActiveAccountId` had
+already reached the store with #501. The `shell.openExternal` scheme-check gap turned out to be the
+account `host` field: every renderer click already went through `remote-handlers.ts`'s
+`normalizeExternalUrl` allowlist, but `ForgeAccountAddRequest.host` took any string and every
+`whoami`/reachable-repos call interpolates it into its own `https://` URL. `normalizeForgeAccountHost`
+(`shared/src/domain/forge-account.ts`) closes it — bare host or `https://` base URL only. The third
+item, per-provider redaction patterns, stays open: genuinely deferred to Themes E/F/G by the
+checklist's own text, logged in `outstanding.md`.
+
+Theme C, all five checklist items. **Repos hidden, not closed** on an account switch —
+`isRepoVisibleForAccount` (`features/repos/forge-account-scope.ts`) hides on a host mismatch always,
+and on an owner mismatch only once the reachable-repos listing has positively ruled it unreachable,
+so an org repo with no listing loaded yet stays visible rather than risking a false hide.
+**Reachable-repos listing**, GitHub-only (`main/forge/reachable-repos.ts`, `gh repo list`) — matches
+`capabilitiesFor(kind).repoListing: 'none'` for GitLab/Bitbucket/Azure until Themes E-G land real
+adapters — surfaced in Settings ▸ Accounts as a clone-or-open list; the clone half is new
+(`cloneRepo()` in git-engine, `repos.clone` IPC, a native destination picker).
+**`gh auth switch`**, gated behind `forge.syncGhAuthSwitch` and run only for a `delegated: 'gh'`
+account (a PAT-based second GitHub identity was never one of `gh`'s own logged-in users),
+fire-and-forget after the switch IPC has already answered. The `@me` docblock in `gh-cli.ts`
+corrected — the app now both notices and causes a `gh auth switch`. **Cache poisoning**: built as
+`client.cancelQueries()` then `invalidateQueries()` over every `forge`/`forge-project` query key on a
+successful switch, rather than embedding `accountId` in all 16 forge query-key builders and their call
+sites across five view files — smaller, and clear of Theme D/H's concurrent edits to the same views.
+`use-switch-forge-account.test.tsx` proves the race directly: an in-flight fetch seeded before the
+switch never lands its payload in the cache once it resolves afterward. **Poller resubscribe**: no new
+code in `forge-poller.ts` — hiding a repo unmounts its whole subtree, and
+`use-forge-subscription.ts`'s existing unsubscribe-on-unmount already fires for free.
+
 ## 2026-09-22 — Phase 90 Theme B — accounts, the forge credential vault, the avatar
 
 [PR #501](https://github.com/bilo-io/midnite-studio/pull/501).
