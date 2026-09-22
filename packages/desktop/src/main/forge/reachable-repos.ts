@@ -1,8 +1,11 @@
-import type { ForgeAccount, ReachableRepo, ReachableReposResult } from '@midnite/studio-shared';
+import type { Forge, ForgeAccount, ReachableRepo, ReachableReposResult } from '@midnite/studio-shared';
 
+import { azGet } from './azure/azure-client';
+import { forgeAccountToken } from './forge-accounts';
 import { describeFailure, runInShell, shellQuote, LIST_TIMEOUT_MS } from './github/gh-shell';
 import { parseJsonPayload } from './github/gh-parse';
 import { glGet } from './gitlab/gitlab-client';
+import { forgeHttpRequest } from './http';
 
 /**
  * "Repositories I can reach" — the repo picker's clone-or-open listing
@@ -11,16 +14,17 @@ import { glGet } from './gitlab/gitlab-client';
  * the user pointed it at (`repo-handlers.ts`'s `repoClone` is the separate,
  * explicit write this listing feeds).
  *
- * **GitHub and GitLab today.** `capabilitiesFor(kind).repoListing` reports
- * `'full'` for both — GitLab's row as of Phase 90 Theme E, which is the
- * "next theme lands a real client" this module's own docblock anticipated.
- * Bitbucket and Azure DevOps still report `'none'`, and building a real
- * listing for either here would be building the adapter Themes F/G own, one
- * read early — `unsupported` stays the honest answer for them until then.
+ * **GitHub, GitLab and Azure DevOps today.** `capabilitiesFor(kind).repoListing`
+ * reports `'full'` for all three — Azure's row as of Phase 90 Theme G, which
+ * is the "next theme lands a real client" this module's own docblock
+ * anticipated for the last of them. Bitbucket still reports `'none'`
+ * (Theme F's own scoped-down write surface left it there); building a real
+ * listing for it here would be building work Theme F itself declined.
  */
 export async function listReachableRepos(account: ForgeAccount): Promise<ReachableReposResult> {
   if (account.kind === 'github') return githubReachableRepos(account);
   if (account.kind === 'gitlab') return gitlabReachableRepos(account);
+  if (account.kind === 'azure') return azureReachableRepos(account);
   return { ok: false, reason: 'unsupported' };
 }
 
@@ -105,6 +109,92 @@ async function gitlabReachableRepos(account: ForgeAccount): Promise<ReachableRep
       url,
       private: r['visibility'] !== 'public',
     });
+  }
+  return { ok: true, repos };
+}
+
+const ACCOUNTS_LIST_TIMEOUT_MS = 15_000;
+
+/**
+ * Every organization the PAT's own owner belongs to — resolved once here
+ * because, unlike GitHub/GitLab, **an Azure DevOps account has no org in it
+ * at all**: `ForgeAccount.host` is the bare `dev.azure.com` every account
+ * adds under (`accounts-page.tsx`'s `PROVIDER_LABEL`), and `login` is the
+ * profile's email, not an org-qualified handle — Theme B's own `whoami`
+ * never asked Azure "which org", because a PAT's identity is genuinely
+ * tenant-wide, not org-scoped, until a specific `{org}/{project}` route is
+ * called. `GET .../_apis/accounts` (Basic PAT auth, no `memberId` — it
+ * defaults to the caller) is Azure's own answer to "which orgs can this
+ * token see", and reachable-repos is the one place that gap has to be
+ * closed to list anything at all.
+ */
+async function azureOrganizations(token: string): Promise<string[] | null> {
+  const result = await forgeHttpRequest<{ value?: Array<Record<string, unknown>> }>({
+    method: 'GET',
+    url: 'https://app.vssps.visualstudio.com/_apis/accounts?api-version=7.1',
+    auth: { kind: 'basic', username: '', password: token },
+    timeoutMs: ACCOUNTS_LIST_TIMEOUT_MS,
+  });
+  if (!result.ok) return null;
+  return (result.data.value ?? [])
+    .map((row) => (typeof row === 'object' && row !== null ? row : null))
+    .filter((row): row is Record<string, unknown> => row !== null)
+    .map((row) => row['accountName'])
+    .filter((name): name is string => typeof name === 'string' && name.length > 0);
+}
+
+/** Caps how much this listing will fan out — a person in dozens of
+ *  organizations should still get a fast, bounded picker rather than this
+ *  call blocking on the slowest one. */
+const MAX_ORGS = 10;
+const MAX_PROJECTS_PER_ORG = 25;
+
+/**
+ * Every git repository across every project in every org the account's PAT
+ * can see. Azure has no single "repositories I can reach" endpoint the way
+ * `gh repo list`/GitLab's `GET /projects` do — this walks orgs → projects →
+ * repositories, matching the `{org}/{project}` two-level structure Theme A's
+ * parser already carries in `Forge.owner`.
+ */
+async function azureReachableRepos(account: ForgeAccount): Promise<ReachableReposResult> {
+  const token = await forgeAccountToken(account);
+  if (!token) return { ok: false, reason: 'no-account' };
+
+  const orgs = await azureOrganizations(token);
+  if (orgs === null) return { ok: false, reason: 'error', message: 'Could not list this account’s Azure DevOps organizations.' };
+
+  const repos: ReachableRepo[] = [];
+  for (const org of orgs.slice(0, MAX_ORGS)) {
+    const projectsForge: Forge = { host: account.host, owner: org, repo: '', kind: 'azure' };
+    const projects = await azGet<{ value?: Array<Record<string, unknown>> }>(
+      projectsForge,
+      account,
+      'projects',
+      { $top: MAX_PROJECTS_PER_ORG },
+      { orgScoped: true },
+    );
+    if (!projects.ok) continue; // An org this token cannot list projects for — skip rather than fail the whole listing.
+
+    for (const raw of projects.data.value ?? []) {
+      if (typeof raw !== 'object' || raw === null) continue;
+      const project = raw as Record<string, unknown>;
+      const projectName = typeof project['name'] === 'string' ? project['name'] : null;
+      if (!projectName) continue;
+      const isPrivate = project['visibility'] !== 'public';
+
+      const repoForge: Forge = { host: account.host, owner: `${org}/${projectName}`, repo: '', kind: 'azure' };
+      const result = await azGet<{ value?: Array<Record<string, unknown>> }>(repoForge, account, 'git/repositories');
+      if (!result.ok) continue;
+
+      for (const rawRepo of result.data.value ?? []) {
+        if (typeof rawRepo !== 'object' || rawRepo === null) continue;
+        const r = rawRepo as Record<string, unknown>;
+        const name = typeof r['name'] === 'string' ? r['name'] : null;
+        const url = typeof r['remoteUrl'] === 'string' ? r['remoteUrl'] : null;
+        if (!name || !url) continue;
+        repos.push({ owner: `${org}/${projectName}`, name, fullName: `${org}/${projectName}/${name}`, url, private: isPrivate });
+      }
+    }
   }
   return { ok: true, repos };
 }

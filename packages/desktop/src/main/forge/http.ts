@@ -40,6 +40,15 @@ export type ForgeHttpRequest = {
   /** JSON-serialised onto the body with `Content-Type: application/json`.
    *  Omit for a bodyless request. */
   json?: unknown;
+  /**
+   * Overrides the `Content-Type` a `json` body is sent with — default
+   * `application/json`. Exists for Azure DevOps's work-item PATCH, which
+   * takes a JSON Patch array and, per its own documented contract, wants
+   * `application/json-patch+json` rather than the plain JSON every other
+   * provider's write accepts (`azure-client.ts`'s `azPatch`). No other
+   * caller sets this.
+   */
+  contentType?: string;
   /** `'json'` (default) parses the body; `'text'` is for a log/patch endpoint
    *  that answers with plain text rather than a JSON envelope. */
   responseType?: 'json' | 'text';
@@ -153,7 +162,7 @@ async function sendOnce(req: ForgeHttpRequest, target: URL): Promise<Response> {
   applyAuth(req.auth, headers);
   let body: string | undefined;
   if (req.json !== undefined) {
-    headers['Content-Type'] = 'application/json';
+    headers['Content-Type'] = req.contentType ?? 'application/json';
     body = JSON.stringify(req.json);
   }
 

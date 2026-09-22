@@ -24,8 +24,11 @@ describe('adapterFor', () => {
     expect(adapterFor(forge('bitbucket'), null)?.kind).toBe('bitbucket');
   });
 
-  it('returns null for a kind with no adapter yet', () => {
-    expect(adapterFor(forge('azure'), null)).toBeNull();
+  it('always returns an Azure DevOps adapter, for the identical reason — Theme G is the last of the three', () => {
+    expect(adapterFor(forge('azure'), null)?.kind).toBe('azure');
+  });
+
+  it('returns null only for a kind with no adapter at all', () => {
     expect(adapterFor(forge('unknown'), null)).toBeNull();
   });
 });

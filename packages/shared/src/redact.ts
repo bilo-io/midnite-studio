@@ -63,6 +63,30 @@ const SECRET_PATTERNS: RegExp[] = [
 ];
 
 /**
+ * **Azure DevOps (Phase 90 Theme G) — deliberately no dedicated pattern, and
+ * this is the last of the three providers this phase deferred a redaction
+ * entry to** (Theme B's own note: "the per-provider redaction patterns …
+ * genuinely deferred to Themes E/F/G by the checklist's own wording").
+ * A PAT Azure's web UI issues is a 52-character base64 string with **no
+ * fixed prefix at all** — unlike GitHub's `ghp_`/`github_pat_`, GitLab's
+ * `glpat-` or Bitbucket's Atlassian-issued token, there is no shape here a
+ * pattern could key on without either matching ordinary base64 data (a
+ * commit sha is not base64, but plenty of other 52-character strings in a
+ * stack trace are) or missing real PATs whose shape changes without notice.
+ * This is the identical gap {@link SECRET_PATTERNS}' own Bitbucket App
+ * Password note already accepts for the same reason — an opaque random
+ * string with no fixed prefix is not a shape `redactPaths` can key on safely.
+ * It is still caught in the one place it is likely to actually appear: the
+ * `Basic base64(":" + pat)` header `azure-client.ts` builds for every
+ * request, via the generic `Bearer|Basic|token` pattern above, and via
+ * {@link URL_CREDENTIAL} if it were ever echoed inside a URL. This app never
+ * stores the raw PAT anywhere `redactPaths` would be asked to scrub it from
+ * outside those two paths — it lives behind `safeStorage` in
+ * `forge-account-vault.ts` and crosses no IPC boundary (`ForgeAccountSchema`'s
+ * `hasToken` boolean, not the token itself).
+ */
+
+/**
  * A credential embedded in a URL: `https://user:secret@host/…`.
  *
  * Kept out of {@link SECRET_PATTERNS} because it is the one pattern with a

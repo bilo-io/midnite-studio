@@ -88,3 +88,60 @@ describe('listReachableRepos — gitlab', () => {
     expect(result).toEqual({ ok: false, reason: 'error', message: '401 Unauthorized' });
   });
 });
+
+function azureAccount(overrides: Partial<ForgeAccount> = {}): ForgeAccount {
+  return account({ kind: 'azure', id: 'azure:dev.azure.com:me@contoso.com', host: 'dev.azure.com', ...overrides });
+}
+
+describe('listReachableRepos — azure', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('reports no-account when the vault has no token', async () => {
+    vi.mocked(forgeAccountToken).mockResolvedValue(null);
+    const result = await listReachableRepos(azureAccount());
+    expect(result).toEqual({ ok: false, reason: 'no-account' });
+  });
+
+  it('walks orgs → projects → repositories and flattens them', async () => {
+    vi.mocked(forgeAccountToken).mockResolvedValue('azure-pat');
+    const fetchMock = vi.fn().mockImplementation((url: URL | string) => {
+      const href = url.toString();
+      if (href.includes('app.vssps.visualstudio.com/_apis/accounts')) {
+        return Promise.resolve(jsonResponse(200, { value: [{ accountName: 'contoso' }] }));
+      }
+      if (href.includes('/contoso/_apis/projects')) {
+        return Promise.resolve(jsonResponse(200, { value: [{ name: 'platform', visibility: 'private' }] }));
+      }
+      if (href.includes('/contoso/platform/_apis/git/repositories')) {
+        return Promise.resolve(
+          jsonResponse(200, { value: [{ name: 'infra', remoteUrl: 'https://dev.azure.com/contoso/platform/_git/infra' }] }),
+        );
+      }
+      return Promise.resolve(jsonResponse(404, {}));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await listReachableRepos(azureAccount());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.repos).toEqual([
+      {
+        owner: 'contoso/platform',
+        name: 'infra',
+        fullName: 'contoso/platform/infra',
+        url: 'https://dev.azure.com/contoso/platform/_git/infra',
+        private: true,
+      },
+    ]);
+  });
+
+  it('reports an error when the organizations listing itself fails', async () => {
+    vi.mocked(forgeAccountToken).mockResolvedValue('azure-pat');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(401, { message: 'Unauthorized' })));
+
+    const result = await listReachableRepos(azureAccount());
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('error');
+  });
+});

@@ -47,9 +47,9 @@ describe('capabilitiesFor — exhaustive over ForgeKind', () => {
     expect(capability.projects).toBe('partial');
   });
 
-  it('reports no capability for every kind with no adapter yet', () => {
+  it('reports no capability for every kind with no adapter at all', () => {
     for (const kind of ForgeKindSchema.options) {
-      if (kind === 'github' || kind === 'gitlab' || kind === 'bitbucket') continue;
+      if (kind === 'github' || kind === 'gitlab' || kind === 'bitbucket' || kind === 'azure') continue;
       const capability = capabilitiesFor(kind);
       expect(Object.values(capability).every((level) => level === 'none')).toBe(true);
     }
@@ -66,6 +66,20 @@ describe('capabilitiesFor — exhaustive over ForgeKind', () => {
     const rest = { ...capability };
     delete (rest as Record<string, unknown>)['projects'];
     delete (rest as Record<string, unknown>)['threadResolution'];
+    expect(Object.values(rest).every((level) => level === 'full')).toBe(true);
+  });
+
+  /**
+   * Azure DevOps (Theme G) is the third provider to land, and the third
+   * `'partial'` case — a real numeric review vote with no attached review
+   * body of its own, see `AZURE_CAPABILITY`'s own docblock.
+   */
+  it('reports Azure DevOps as mostly full, with a partial request-changes model', () => {
+    const capability = capabilitiesFor('azure');
+    expect(capability.requestChanges).toBe('partial');
+    expect(capability.projects).toBe('full');
+    const rest = { ...capability };
+    delete (rest as Record<string, unknown>)['requestChanges'];
     expect(Object.values(rest).every((level) => level === 'full')).toBe(true);
   });
 });

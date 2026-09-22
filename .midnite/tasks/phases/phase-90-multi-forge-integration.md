@@ -445,37 +445,37 @@ The provider with the largest honest gaps, and the doc names them instead of inv
       `ForgeReviewEventSchema` at all — a gap this interface already had for GitHub, not one Bitbucket
       introduces.
 
-### G — Azure DevOps (XL)
+### G — Azure DevOps (XL) ✅ DONE (PR #506, 2026-09-22)
 
 Good coverage behind an entirely different vocabulary, which is the interesting part.
 
-- [ ] `main/forge/azure/` over REST 7.1 with a PAT (Basic auth, empty username, base64 `:PAT` — a
+- [x] `main/forge/azure/` over REST 7.1 with a PAT (Basic auth, empty username, base64 `:PAT` — a
       third auth shape, which is the justification for `http.ts`'s strategy parameter). Scopes: Code
       (read), Work Items (read/write), Build (read).
-- [ ] The `{org}/{project}` split from Theme A's parser threads through every call: Azure's routes are
+- [x] The `{org}/{project}` split from Theme A's parser threads through every call: Azure's routes are
       `/{org}/{project}/_apis/…`, so `Forge.owner` carrying both segments is what makes
       `repoFlag`-equivalent construction possible without a second lookup.
-- [ ] Pull requests → `ForgePull`, `GET /_apis/git/repositories/{repo}/pullRequests`. `pullRequestId`
+- [x] Pull requests → `ForgePull`, `GET /_apis/git/repositories/{repo}/pullRequests`. `pullRequestId`
       is the number; `mergeStatus` and `isDraft` map onto the existing fields.
-- [ ] **Work items, not issues.** `POST /_apis/wit/wiql` runs a query, `GET /_apis/wit/workitems`
+- [x] **Work items, not issues.** `POST /_apis/wit/wiql` runs a query, `GET /_apis/wit/workitems`
       hydrates it. A work item has a *type* (Bug, Task, User Story, Epic) and a *state* from a
       per-project workflow, neither of which `ForgeIssue` models. Map `System.State`'s category
       (`Proposed`/`InProgress` → `open`, `Completed`/`Removed` → `closed`) rather than the state name,
       and carry the type as a label chip — [`label-chip.tsx`](../../../packages/app/src/features/issues/label-chip.tsx)
       already renders one. **Say in the UI that these are work items**, because calling a Bug an Issue
       is the kind of lie that costs a user twenty minutes.
-- [ ] Pipelines → `ForgeRun`, `GET /_apis/build/builds` (+ `/_apis/pipelines` for the definitions that
+- [x] Pipelines → `ForgeRun`, `GET /_apis/build/builds` (+ `/_apis/pipelines` for the definitions that
       map to `ForgeWorkflow`), timeline records → `ForgeJob`/`ForgeStep`, logs from
       `/_apis/build/builds/{id}/logs/{logId}`.
-- [ ] PR threads and votes → `ForgeReviewThread` / `reviewDecision`. `GET /pullRequests/{id}/threads`
+- [x] PR threads and votes → `ForgeReviewThread` / `reviewDecision`. `GET /pullRequests/{id}/threads`
       is properly threaded with a `status` that includes `fixed`/`closed`, so resolution works.
       Reviewer `vote` is a number — `10` approved, `5` approved-with-suggestions, `0` no vote, `-5`
       waiting, `-10` rejected — which maps onto `APPROVED`/`CHANGES_REQUESTED`/`REVIEW_REQUIRED` with
       the `5` and `-5` cases being the ones a naive mapper gets wrong.
-- [ ] **Azure Boards → `ForgeProject`.** `GET /_apis/work/boards` and its columns are a real kanban
+- [x] **Azure Boards → `ForgeProject`.** `GET /_apis/work/boards` and its columns are a real kanban
       over work items, and the column field is a genuine single-select — the best board fidelity of
       the three new providers. Queries and backlogs are out of scope.
-- [ ] Writes: comment on a PR or work item, vote, resolve a thread, transition a work item's state.
+- [x] Writes: comment on a PR or work item, vote, resolve a thread, transition a work item's state.
 
 ### H — The capability matrix, and saying "this provider can't" honestly (M) ◐ PARTIAL (PR #502, 2026-09-22)
 
