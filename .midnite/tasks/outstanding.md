@@ -478,3 +478,23 @@ pattern; the existing generic `Bearer|Basic|token …` pattern still catches one
 **GitLab's slice closed with Theme E** (PR #505): `glpat-`/`gldt-`/`glrt-` landed in `redact.ts` in
 the same PR as `main/forge/gitlab/`. Only Azure DevOps (a bare base64 PAT with no recognisable shape
 at all) remains open, in Theme G.
+
+- **The Reviews view never reads `requestChanges` from the capability matrix.** Phase 90 Theme H
+  (PR #507) added the "here's the limit" sentence for the two `'partial'` capabilities that existed
+  in its own scope — GitLab's `projects` and Bitbucket's `threadResolution`. Theme G (PR #506)
+  landed the same day and gave Azure a third real `'partial'` row,
+  `AZURE_CAPABILITY.requestChanges: 'partial'` (a real reject vote, but a bare number with no
+  attached review body the way GitHub's `REQUEST_CHANGES` carries one — see that capability's own
+  docblock in `forge-account.ts`). Nothing in `pr-detail.tsx`/`review-action-bar.tsx` reads
+  `requestChanges` at all today — the "Request Changes" control is not gated by capability for any
+  provider, `'none'` included — so there is no existing view-level sentinel Theme H's sentence
+  could attach to; building that gate is its own PR, not a punt of Theme H's checklist item.
+
+- **Two first-run modals render simultaneously on a genuinely first run.** Found while building
+  Phase 90 Theme I (PR #507): `onboarding-modal.tsx` (gated on `showOnboarding`, the one that theme
+  turned into a step frame) and `first-run-modal.tsx` (gated on `onboardedAt`, a *separate* modal
+  that already shows real `HealthChecklist` diagnostics) are both mounted in `app.tsx` and both
+  default to open. Neither reads the other's flag. Not Theme I's checklist to fix — it names
+  `onboarding-modal.tsx` only — but worth resolving before either modal changes shape again:
+  probably one of the two should absorb the other rather than the app carrying two "welcome"
+  screens with two different gates.

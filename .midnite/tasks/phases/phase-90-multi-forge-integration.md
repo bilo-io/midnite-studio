@@ -477,7 +477,7 @@ Good coverage behind an entirely different vocabulary, which is the interesting 
       the three new providers. Queries and backlogs are out of scope.
 - [x] Writes: comment on a PR or work item, vote, resolve a thread, transition a work item's state.
 
-### H — The capability matrix, and saying "this provider can't" honestly (M) ◐ PARTIAL (PR #502, 2026-09-22)
+### H — The capability matrix, and saying "this provider can't" honestly (M) ✅ DONE (PR #502, PR #507, 2026-09-22)
 
 Four providers with four different feature sets need one place that says which is which, and four
 views that read it rather than each guessing.
@@ -494,39 +494,61 @@ views that read it rather than each guessing.
       pulls`, `issues → issues`, `projects → projects`) instead of one boolean gating all four
       together. The sidebar Forge node (`forge-sections.tsx`) is not touched — out of scope for this
       PR, left for whichever theme first lands a `'partial'`-capability provider.
-- [ ] A `'partial'` capability shows its limits in place, once, where the limit bites: GitLab's
-      missing `CHANGES_REQUESTED`, Azure's work-item vocabulary, Bitbucket's flattened threads. One
-      sentence each, in the view, not a docs link. **Deferred** — no provider in this batch (Themes
-      E/F/G, out of scope) can ever report `'partial'` yet; every kind but `github` still reads
-      `'none'`, honestly, until a real adapter exists to earn a `'partial'` row.
+- [x] A `'partial'` capability shows its limits in place, once, where the limit bites (PR #507).
+      Landed against the two `'partial'` rows this PR's own scope named — GitLab's
+      `projects: 'partial'` (a one-line note under the Projects view's header: Issue Boards mapped
+      through one synthetic label-backed field, not ProjectV2's typed custom fields) and Bitbucket's
+      `threadResolution: 'partial'` (a one-line note above the Files tab's thread list: no thread
+      object, only a flat `parent.id` chain, so resolving one comment resolves the whole chain).
+      **A third real case exists and is not yet covered:** Theme G (PR #506, same day) landed
+      `AZURE_CAPABILITY.requestChanges: 'partial'` — a real reject vote exists, but it is a bare
+      number with no attached review body the way GitHub's `REQUEST_CHANGES` carries one (see that
+      capability's own docblock) — but nothing in the Reviews view reads `requestChanges` at all
+      yet, gated or not, so there is no existing sentinel to attach a sentence to; that is new scope
+      (gating the Request Changes control itself), not this bullet's, and is recorded in
+      `outstanding.md`.
 - [x] `capabilities.test.ts` asserts the matrix is **exhaustive over `ForgeKind`** — a fifth provider
       added later fails the build until it declares what it can do.
 
-### I — The step frame, the forge step, and the Skip button (L)
+### I — The step frame, the forge step, and the Skip button (L) ✅ DONE (PR #507, 2026-09-22)
 
 There is no wizard, so this theme builds one — narrowly.
 
-- [ ] Turn [`onboarding-modal.tsx`](../../../packages/app/src/features/onboarding/onboarding-modal.tsx)
+- [x] Turn [`onboarding-modal.tsx`](../../../packages/app/src/features/onboarding/onboarding-modal.tsx)
       into a stepped first-run flow. **It, not
       [`setup-dialog.tsx`](../../../packages/app/src/features/agent/setup-dialog.tsx)** — see
       Decisions. It keeps its focus trap and its `role`/`aria-modal` skeleton, which Phase 68 Theme D
       put there and which `setup-dialog.tsx` is the source of.
-- [ ] A `WizardStep` model: `{id, title, optional, Component}` in a flat ordered array, the same shape
+- [x] A `WizardStep` model: `{id, title, optional, Component}` in a flat ordered array
+      (`onboarding/wizard-step.ts`, `onboarding-steps.ts`), the same shape
       [`sections/registry.ts`](../../../packages/website/src/sections/registry.ts) and
       `AGENT_COMMAND_GROUPS` already use — a step is added by appending, never by editing the shell.
-- [ ] Footer controls: **Back**, **Skip** and **Continue**, with **Skip rendered only when
+- [x] Footer controls: **Back**, **Skip** and **Continue**, with **Skip rendered only when
       `optional` is true** and sitting at the bottom of the panel as asked. Skipping records the step
-      as skipped rather than as done, so the Accounts settings page can say "you skipped this" and
-      offer it again — a skip the app forgets is a step the user can never find.
-- [ ] Step one is the existing welcome screen, **and its three hard-coded rows become real** — "Git
+      as skipped (`ui-store.ts`'s `onboardingSkippedStepIds`) rather than as done, so the Accounts
+      settings page says "you skipped this" and offers it again — a skip the app forgets is a step
+      the user can never find.
+- [x] Step one is the existing welcome screen, **and its three hard-coded rows become real** — "Git
       Binary / System / Dugite", "/bin/zsh" and the CLI name are literals in the current component,
       and a first-run screen that asserts a shell the user does not have is worse than no screen.
-      Read them from the diagnostics the app already has.
-- [ ] Step two, **optional**: "Connect your forges" — the four provider cards, `gh` detection for
-      GitHub, a PAT field for the other three, each validated by the `whoami` call from Theme B.
-- [ ] Escape and the close button behave as "skip the rest", not "cancel" — the flow is optional in
+      Read from `window.midniteStudio.systemHealth()` by reusing `HealthChecklist`
+      (`settings/settings-pages/health-page.tsx`) rather than re-deriving the same facts a second
+      way — the same component `first-run-modal.tsx` already shows in `compact` mode.
+- [x] Step two, **optional**: "Connect your forges" — the four provider cards, `gh` detection for
+      GitHub, a PAT field for the other three, each validated by the `whoami` call from Theme B
+      (`onboarding/steps/forge-connect-step.tsx`, reusing `accounts-page.tsx`'s own
+      `useAddForgeAccount`/`PROVIDER_HOST`/`PROVIDER_LABEL`/`PROVIDER_TOKEN_HINT`, now exported so
+      the two surfaces can't drift).
+- [x] Escape and the close button behave as "skip the rest", not "cancel" — the flow is optional in
       its entirety, and [Phase 62](phase-62-one-escape-one-dismissal.md)'s one-Escape rule governs
-      which layer consumes the key.
+      which layer consumes the key (`useDismiss`, `dialog` layer, blocking — `onboarding-modal.tsx`
+      was not on `useDismiss` at all before this PR).
+
+> **Landed note.** `first-run-modal.tsx` — a SECOND first-run modal, gated on `onboardedAt` rather
+> than `showOnboarding` — was found to render simultaneously with this one on a genuinely first run.
+> Not this theme's checklist to fix (it names `onboarding-modal.tsx` only), and the two do not visibly
+> collide in the screenshots this PR captured, but it is a real pre-existing overlap. Filed as a
+> finding in `outstanding.md`, not fixed here.
 
 ### J — The pricing page (M) ✅ DONE
 
