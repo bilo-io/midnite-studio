@@ -228,19 +228,19 @@ had: a logged-in identity. Grounding confirmed the absence is total — no `view
       blob) and leave the five LLM keys exactly where they are — they are agent credentials, they are
       Phase 76/91's to move, and a phase that quietly rehomed them would be doing a security migration
       under a multi-forge heading. Say both halves in the migration's docblock.
-- [ ] **Add a redaction pattern per provider shipped.** — **genuinely deferred to Themes E/F/G, not a
-      Theme B gap.** Re-grounded when finishing Theme B's remaining items: this bullet's own text
-      already says each pattern "lands in the same PR as its provider", and Theme B ships zero new
-      *providers* (GitLab/Bitbucket/Azure DevOps are accounts-only until D-G land their adapters) — so
-      there is no new token shape for it to cover yet. Left unchecked here on purpose rather than
-      half-built against a shape no adapter has confirmed; logged in
-      [`outstanding.md`](../outstanding.md) so a later pass doesn't read this as a missed Theme B item.
-      [`shared/src/redact.ts`](../../../packages/shared/src/redact.ts) covers `gh[pousr]_`,
-      `github_pat_`, `sk-ant-`, `Bearer …` and URL userinfo; it covers **none** of GitLab's
-      `glpat-`/`gloas-`, Bitbucket's `ATBB`/`ATCTT` and app passwords, or Azure DevOps' PATs. Each
-      pattern lands **in the same PR as its provider** (E, F, G), so a provider can never ship with
-      its token shape unredacted in a log. Phase 91 Theme G adds the test that fails when a shipped
-      provider has no pattern.
+- [x] **Add a redaction pattern per provider shipped.** — landed across E, F and G, not Theme B
+      itself, exactly as this bullet's own text always said ("lands in the same PR as its
+      provider"). **GitLab** (`glpat-`/`gldt-`/`glrt-`) landed with Theme E (PR #505); **Bitbucket**
+      (the Atlassian `ATATT3x…` token, correcting this bullet's earlier unconfirmed `ATBB`/`ATCTT`
+      guess) landed with Theme F (PR #504). **Azure DevOps (Theme G, PR #506) deliberately adds no
+      dedicated pattern** — a PAT there is a 52-character base64 string with no fixed prefix, so a
+      pattern would either miss real PATs or eat ordinary base64 data; `redact.ts`'s own docblock
+      records the decision and the generic `Bearer|Basic|token …`/URL-userinfo patterns still catch
+      one echoed in a header or URL, the same gap already accepted for a legacy Bitbucket App
+      Password. Verified on close-out (no code change needed for this item): all four providers are
+      genuinely covered in [`shared/src/redact.ts`](../../../packages/shared/src/redact.ts) —
+      GitHub's own four shapes plus the three above — and `redact.test.ts` exercises every landed
+      pattern. `outstanding.md`'s note is now stale and closed out alongside this checkbox.
 - [x] **Every URL that reaches `shell.openExternal` from a forge response is scheme-checked** —
       `http:`/`https:` only. A `javascript:` or `file:` URL in an API field is a live vector, and
       three new providers means three new sources of one. Likewise, any user-supplied host or base URL
@@ -361,12 +361,16 @@ existing forge tests pass untouched.
       against its own first real caller, exactly as this note anticipated — auth as a strategy
       (`bearer`/`basic`/`header`), not a header string, so Bitbucket's Basic and Azure's
       empty-username Basic (Themes F/G) drop in without a second client.
-- [ ] `ForgeCliStatus`'s three reasons (`ready`, `not-installed`, `not-authenticated`) are `gh`'s
+- [x] `ForgeCliStatus`'s three reasons (`ready`, `not-installed`, `not-authenticated`) are `gh`'s
       vocabulary. They keep working for GitHub; for an HTTP adapter `not-installed` is impossible and
       `not-authenticated` means "no account, or its token was rejected". Say that in the schema's
       docblock rather than growing a fourth arm — the same argument `noForgeStatus()` already makes
-      for reusing `not-installed`. **Deferred alongside `http.ts`** — the same "no HTTP adapter exists
-      yet" reason.
+      for reusing `not-installed`. Landed now that all three HTTP adapters exist (E, F, G):
+      `ForgeCliStatusSchema`'s docblock in
+      [`forge.ts`](../../../packages/shared/src/domain/forge.ts) describes what it means today — three
+      of four providers reach their forge over HTTP with a vaulted PAT (`binPath` always `null`,
+      `not-installed` unreachable) and only GitHub still delegates to `gh` (`delegated: 'gh'`). A
+      docs-accuracy edit; the type itself is unchanged.
 
 ### E — GitLab (XL) ✅ DONE (PR #505, 2026-09-22)
 
