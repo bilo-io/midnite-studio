@@ -1,6 +1,66 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-22 — Phase 90 Theme G — the Azure DevOps adapter, and the last of the three
+
+[PR #506](https://github.com/bilo-io/midnite-studio/pull/506).
+
+All 8 checklist items, `main/forge/azure/` over REST 7.1 with a PAT (Basic auth, empty username,
+`base64(":" + pat)` — the third auth shape, and the reason `http.ts`'s `ForgeHttpAuth` takes auth as a
+strategy rather than a header string). Conforms to the shape Themes E/F already settled rather than
+redesigning it: `ForgeAdapter` stays untouched, `registry.ts`'s `adapterFor` stays synchronous closing
+over `account`, and `setThreadResolved`'s thread id folds the PR number in (`"${prNumber}:${threadId}"`)
+the same way GitLab/Bitbucket's own interface-shaped workarounds already do.
+
+**Work items, honestly not issues** — a WIQL query + hydrate, mapping `System.State`'s *category*
+(`Proposed`/`InProgress`→open, `Completed`/`Removed`→closed) rather than the state name, since state
+names are a per-project, per-process-template vocabulary and categories are the fixed five-value set
+every template maps onto (`azure-client.ts`'s `stateCategoriesFor`, cached per type). The work item's
+own type (`Bug`/`Task`/`User Story`) rides as the first label chip, so the UI reads as work items, not
+GitHub issues, per the phase doc's own instruction.
+
+**The numeric review vote, mapped per the phase doc's own warning about the cases a naive mapper gets
+wrong**: `10`/`5` both count as `APPROVED` ("approved with suggestions" is still an approval), only
+`-10` maps to `CHANGES_REQUESTED` (`-5`, "waiting for author", is a soft nudge, not a block), and a
+required reviewer sitting at `0`/`-5` reports `REVIEW_REQUIRED`. Landed as the phase's third genuinely
+mixed capability row: `requestChanges: 'partial'` — the vote is real, but it is a bare number with no
+attached review body the way GitHub's own `REQUEST_CHANGES` carries.
+
+**Azure Boards → `ForgeProject`** — the best board fidelity of the three new providers, per the phase
+doc: a Kanban column's `stateMappings` (`{workItemType: stateName}`) is read directly off the Boards
+Columns API, so an item's column is computed from its own type/state with no per-item lookup and no
+GitLab-style label rewrite. Scoped to the project's default team (`defaultTeamFor`) — a genuinely
+multi-team project would need a picker this theme does not build.
+
+**`pullFiles`** — Azure's Git API has no unified-diff endpoint at all (only a change list + raw blob
+content, unlike GitLab/Bitbucket's real diff calls). Added `azure-diff.ts`, a small tested O(n·m) LCS
+line differ capped at ~4M cells, that synthesises the same unified-diff text those two adapters hand
+over directly, fed through the existing `parseMultiFileDiff` rather than a fourth `FileDiff` builder.
+
+Writes: comment (PR + work item), vote, resolve/reopen a thread, transition a work item's state (picks
+the first state in the target category), mark-ready, merge (respecting Azure's required
+`lastMergeSourceCommit` concurrency guard). `requestReview`/`rerunChecks` report an honest
+`unsupportedWrite` — an identity picker and a selective-retry endpoint Azure's public API does not
+have — mirroring Bitbucket's identical precedent for its own out-of-scope writes.
+
+`reachable-repos.ts` gained the Azure branch. Discovered along the way: unlike GitHub/GitLab, an Azure
+account carries **no organization at all** in its own schema (`ForgeAccount.host` is the bare
+`dev.azure.com` every account adds under; `login` is the profile's email) — resolved by calling Azure's
+own `GET .../_apis/accounts` (defaults to the caller with no `memberId`) to list every org the PAT can
+see, then walking org→project→repo.
+
+`redact.ts` gained a documented, deliberate **no dedicated pattern** for Azure PATs (a 52-char opaque
+base64 string with no fixed prefix, unlike `ghp_`/`glpat-`/Atlassian's `ATATT3`) — the identical gap
+already accepted for Bitbucket's legacy App Password, caught by the existing generic
+`Bearer|Basic|token` pattern instead. This closes out the per-provider redaction work Theme B deferred
+across E/F/G.
+
+Also touched: `http.ts` gained an optional `contentType` override on `ForgeHttpRequest` — one genuine
+extension, for Azure's work-item `PATCH`, which requires `application/json-patch+json` rather than the
+plain JSON every other write in this app sends.
+
+77 new tests across `packages/desktop/src/main/forge/azure/`.
+
 ## 2026-09-22 — Phase 90 Theme F — the Bitbucket Cloud adapter
 
 [PR #504](https://github.com/bilo-io/midnite-studio/pull/504).
