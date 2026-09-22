@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ForgePull, ForgePullDetail } from '@midnite/studio-shared';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
@@ -10,6 +10,16 @@ import { PrDetail } from './pr-detail';
 afterEach(() => {
   cleanup();
   useUiStore.setState({ forgeWritesEnabled: false });
+  remotesFixture = [];
+  capabilityFixture = {
+    pulls: 'full',
+    issues: 'full',
+    checks: 'full',
+    projects: 'full',
+    threadResolution: 'full',
+    requestChanges: 'full',
+    repoListing: 'full',
+  };
 });
 
 function pull(overrides: Partial<ForgePull> = {}): ForgePull {
@@ -57,6 +67,24 @@ function detailOf(body: string): ForgePullDetail {
  */
 let pullDetailBody = '';
 
+/*
+  Both read by `useActiveForgeCapability` (`services/queries.ts`), which
+  `PrDetail` now calls for Phase 90 Theme H's "here's the limit" sentence.
+  Defaulted to no remote / a full capability, so every test above this line
+  that never touches the Files tab keeps seeing exactly what it did before
+  this hook existed.
+*/
+let remotesFixture: Array<{ name: string; forge: { host: string; owner: string; repo: string; kind: string } | null }> = [];
+let capabilityFixture = {
+  pulls: 'full',
+  issues: 'full',
+  checks: 'full',
+  projects: 'full',
+  threadResolution: 'full',
+  requestChanges: 'full',
+  repoListing: 'full',
+};
+
 vi.mock('../../services/bridge', () => ({
   bridge: () => ({
     forge: {
@@ -70,9 +98,9 @@ vi.mock('../../services/bridge', () => ({
         detail: detailOf(pullDetailBody),
         error: null,
       })),
-      pullFiles: vi.fn(),
+      pullFiles: vi.fn(async () => ({ cli: { reason: 'ready', hint: '' }, files: null, error: null })),
       pullComments: vi.fn(),
-      pullThreads: vi.fn(),
+      pullThreads: vi.fn(async () => ({ cli: { reason: 'ready', hint: '' }, threads: [], error: null })),
       pullReview: vi.fn(),
       pullComment: vi.fn(),
       pullRequestReview: vi.fn(),
@@ -83,6 +111,8 @@ vi.mock('../../services/bridge', () => ({
       resolveThread: vi.fn(),
     },
     forgeProject: { list: vi.fn().mockResolvedValue({ cli: { reason: 'ready', hint: '' }, projects: [], error: null }) },
+    remotes: { list: vi.fn(async () => remotesFixture) },
+    forgeAccounts: { capabilities: vi.fn(async () => capabilityFixture) },
   }),
   hasBridge: () => true,
 }));
@@ -147,5 +177,40 @@ describe('PrDetail — Overview image src resolution', () => {
 
     const img = await screen.findByRole('img', { name: 'before' });
     expect(img.getAttribute('src')).toBe('https://user-images.githubusercontent.com/1/abc.png');
+  });
+});
+
+/**
+ * Phase 90 Theme H's own deferred item — "a `'partial'` capability shows its
+ * limits in place, once, where the limit bites" — unblocked now that
+ * Bitbucket (Theme F) can report `threadResolution: 'partial'`.
+ */
+describe('PrDetail — the partial-capability thread note (Phase 90 Theme H)', () => {
+  it('shows the Bitbucket flat-chain note once the Files tab is open', async () => {
+    pullDetailBody = 'No links here.';
+    remotesFixture = [
+      { name: 'origin', forge: { host: 'bitbucket.org', owner: 'acme', repo: 'widgets', kind: 'bitbucket' } },
+    ];
+    capabilityFixture = { ...capabilityFixture, threadResolution: 'partial' };
+    renderPr();
+
+    await screen.findByRole('heading', { name: /Add a widget/ });
+    fireEvent.click(screen.getByRole('tab', { name: 'Files' }));
+
+    expect(await screen.findByTestId('thread-partial-capability-note')).toBeTruthy();
+  });
+
+  it('says nothing when the forge is github (full thread resolution)', async () => {
+    pullDetailBody = 'No links here.';
+    remotesFixture = [
+      { name: 'origin', forge: { host: 'github.com', owner: 'acme', repo: 'widgets', kind: 'github' } },
+    ];
+    renderPr();
+
+    await screen.findByRole('heading', { name: /Add a widget/ });
+    fireEvent.click(screen.getByRole('tab', { name: 'Files' }));
+
+    await screen.findByText('No diff to show for this pull request.');
+    expect(screen.queryByTestId('thread-partial-capability-note')).toBeNull();
   });
 });

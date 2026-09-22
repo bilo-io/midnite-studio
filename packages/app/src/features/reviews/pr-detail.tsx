@@ -19,6 +19,7 @@ import { matchPreviewDeploy } from '../browser/preview-deploy';
 import { useSlidesStore } from '../slides/slides-store';
 import { PresentButton } from '../slides/present-button';
 import {
+  useActiveForgeCapability,
   useAddReviewComment,
   useForgePullComments,
   useForgePullDetail,
@@ -113,6 +114,15 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
   // Same tab gate as the patch it decorates: threads are only ever drawn on the
   // Files tab, so a reader who opens a PR onto Checks pays for no GraphQL call.
   const threads = useForgePullThreads(repoId, number, tab === 'files');
+  /*
+    Phase 90 Theme H's own deferred item, unblocked now that a real adapter
+    can report `threadResolution: 'partial'` — Bitbucket has no thread object
+    at all, only a flat list of inline comments chained by `parent.id`
+    (`forge-account.ts`'s own `BITBUCKET_CAPABILITY` docblock,
+    `bitbucket-map.ts`'s `synthesizeThreads`). Read here, shown once above the
+    Files tab's thread list, not per-thread.
+  */
+  const { capability } = useActiveForgeCapability(repoId);
 
   /*
     The three writes, and one visible failure between them.
@@ -227,34 +237,45 @@ export function PrDetail({ repoId, number }: { repoId: string; number: number })
         {tab === 'overview' ? (
           <PrOverview detail={detail} isLoading={detailQuery.isLoading} number={pull.number} />
         ) : tab === 'files' ? (
-          <PrFiles
-            files={files.data?.files ?? null}
-            isLoading={files.isLoading}
-            error={files.data?.error ?? null}
-            notReady={notReady(files.data?.cli)}
-            pullUrl={pull.url}
-            threads={threads.data?.threads ?? []}
-            repoId={repoId}
-            baseSha={detail?.baseSha ?? null}
-            review={{
-              headSha: detail?.headSha ?? null,
-              /*
-                The two text-bearing writes answer whether they landed, so the
-                composer that holds the text can decide whether to close. A
-                fire-and-forget `mutate` here is what made a refused comment
-                disappear along with the paragraph somebody had just typed.
-                `mutateAsync` is safe to await because the mutation function
-                never throws — a refusal is an `ok: false` result.
-              */
-              onComment: async (input) => (await addComment.mutateAsync(input)).ok,
-              onReply: async (input) => (await reply.mutateAsync(input)).ok,
-              // Resolve carries no text, so there is nothing to lose and
-              // nothing to wait for — the panel re-reads its state either way.
-              onResolve: (input) => resolve.mutate(input),
-              busy,
-              error: writeError,
-            }}
-          />
+          <>
+            {capability?.threadResolution === 'partial' ? (
+              <p
+                data-testid="thread-partial-capability-note"
+                className="border-b border-border bg-muted/30 px-3 py-1.5 text-[11px] leading-relaxed text-muted-foreground"
+              >
+                Bitbucket has no thread objects — these are a flat chain of replies, so resolving
+                one resolves the whole chain rather than a single reply.
+              </p>
+            ) : null}
+            <PrFiles
+              files={files.data?.files ?? null}
+              isLoading={files.isLoading}
+              error={files.data?.error ?? null}
+              notReady={notReady(files.data?.cli)}
+              pullUrl={pull.url}
+              threads={threads.data?.threads ?? []}
+              repoId={repoId}
+              baseSha={detail?.baseSha ?? null}
+              review={{
+                headSha: detail?.headSha ?? null,
+                /*
+                  The two text-bearing writes answer whether they landed, so the
+                  composer that holds the text can decide whether to close. A
+                  fire-and-forget `mutate` here is what made a refused comment
+                  disappear along with the paragraph somebody had just typed.
+                  `mutateAsync` is safe to await because the mutation function
+                  never throws — a refusal is an `ok: false` result.
+                */
+                onComment: async (input) => (await addComment.mutateAsync(input)).ok,
+                onReply: async (input) => (await reply.mutateAsync(input)).ok,
+                // Resolve carries no text, so there is nothing to lose and
+                // nothing to wait for — the panel re-reads its state either way.
+                onResolve: (input) => resolve.mutate(input),
+                busy,
+                error: writeError,
+              }}
+            />
+          </>
         ) : tab === 'conversation' ? (
           <PrConversation
             comments={comments.data?.comments ?? []}

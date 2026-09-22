@@ -52,6 +52,7 @@ import { useGraphAgentStates } from './graph/use-graph-agent-states';
 import { ProjectGraphView } from './graph/project-graph-view';
 import { nextSortState, sortItems, type SortState } from './sort';
 import {
+  useActiveForgeCapability,
   useForgeProjectFields,
   useForgeProjectItems,
   useForgeProjects,
@@ -144,6 +145,15 @@ export function ProjectsView() {
   // react-query dedupes the fetch against any other consumer already open.
   const remotes = useRemotes(repoId);
   const forgeOwner = pickForgeRemote(remotes.data ?? [])?.forge?.owner ?? null;
+  /*
+    Phase 90 Theme H's own deferred item, unblocked now that a real adapter
+    can report `projects: 'partial'` — GitLab's Issue Boards, mapped through
+    one synthetic label-backed field rather than ProjectV2's typed custom
+    fields (`forge-account.ts`'s own `GITLAB_CAPABILITY` docblock). Shown once
+    in the header, not per-column: the limit is a property of the board's
+    data model, not of any one item in it.
+  */
+  const { capability } = useActiveForgeCapability(repoId);
   const repoBoards = boards.filter((b) => b.linkedToRepo);
   const ownerBoards = boards.filter((b) => !b.linkedToRepo);
 
@@ -366,6 +376,17 @@ export function ProjectsView() {
           ))}
         </div>
       </header>
+
+      {capability?.projects === 'partial' ? (
+        <p
+          data-testid="projects-partial-capability-note"
+          className="shrink-0 border-b border-border bg-muted/30 px-4 py-1.5 text-[11px] leading-relaxed text-muted-foreground"
+        >
+          This board mirrors GitLab Issue Boards through one synthetic label-backed field, not
+          ProjectV2&rsquo;s typed custom fields — grouping works, but per-field types and Epics
+          (GitLab Premium) aren&rsquo;t available.
+        </p>
+      ) : null}
 
       {dataReady ? (
         <ItemFilterToolbar
