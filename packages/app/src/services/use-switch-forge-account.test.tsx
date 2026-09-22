@@ -122,4 +122,47 @@ describe('useSwitchForgeAccount — cache poisoning', () => {
     expect(useUiStore.getState().forgeActiveAccountId).toBe('acc-a');
     expect(client.getQueryState(statusKey)?.isInvalidated).toBe(false);
   });
+
+  /*
+    Phase 90 Theme C's own settled decision: switching calls `cancelQueries`
+    plus a broad `invalidateQueries` predicate rather than threading a
+    literal `accountId` segment through all sixteen forge query-key builders
+    (see CLAUDE.md's own count). The two tests above spot-check exactly one
+    of those sixteen (`forgeProjectFields`) plus one non-forge control. This
+    extends that into a table over every one of them, so a future builder
+    added to `keys` without a `'forge'`/`'forge-project'` segment in its own
+    key — the one thing that would silently fall outside the broad predicate
+    — fails here rather than only showing up as a live cache-bleed bug.
+  */
+  const FORGE_DATA_KEYS: Array<[name: string, key: readonly unknown[]]> = [
+    ['forge', keys.forge('repo-1')],
+    ['forgeRuns', keys.forgeRuns('repo-1')],
+    ['forgePulls', keys.forgePulls('repo-1')],
+    ['forgeIssues', keys.forgeIssues('repo-1')],
+    ['forgeIssueDetail', keys.forgeIssueDetail('repo-1', 1)],
+    ['forgeIssueComments', keys.forgeIssueComments('repo-1', 1)],
+    ['forgeRunDetail', keys.forgeRunDetail('repo-1', 'run-1')],
+    ['forgeRunLog', keys.forgeRunLog('repo-1', 'run-1', false)],
+    ['forgeWorkflows', keys.forgeWorkflows('repo-1')],
+    ['forgePullDetail', keys.forgePullDetail('repo-1', 1)],
+    ['forgePullFiles', keys.forgePullFiles('repo-1', 1)],
+    ['forgePullComments', keys.forgePullComments('repo-1', 1)],
+    ['forgePullThreads', keys.forgePullThreads('repo-1', 1)],
+    ['forgeProjects', keys.forgeProjects('repo-1')],
+    ['forgeProjectFields', keys.forgeProjectFields('board-1')],
+    ['forgeProjectItems', keys.forgeProjectItems('board-1')],
+  ];
+
+  it.each(FORGE_DATA_KEYS)('invalidates every forge data key — %s', async (_name, key) => {
+    const client = new QueryClient();
+    installBridge({ ok: true, activeAccountId: 'acc-b' });
+    client.setQueryData(key, { stale: true });
+
+    const { result } = renderHook(() => useSwitchForgeAccount(), { wrapper: wrapper(client) });
+    await act(async () => {
+      await result.current.mutateAsync('acc-b');
+    });
+
+    expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+  });
 });
