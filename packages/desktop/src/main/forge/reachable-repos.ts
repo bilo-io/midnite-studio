@@ -2,6 +2,8 @@ import type { ForgeAccount, ReachableRepo, ReachableReposResult } from '@midnite
 
 import { describeFailure, runInShell, shellQuote, LIST_TIMEOUT_MS } from './github/gh-shell';
 import { parseJsonPayload } from './github/gh-parse';
+import { glGet } from './gitlab/gitlab-client';
+import { forgeAccountToken } from './forge-accounts';
 
 /**
  * "Repositories I can reach" — the repo picker's clone-or-open listing
@@ -10,17 +12,17 @@ import { parseJsonPayload } from './github/gh-parse';
  * the user pointed it at (`repo-handlers.ts`'s `repoClone` is the separate,
  * explicit write this listing feeds).
  *
- * **GitHub only, deliberately.** `capabilitiesFor(kind).repoListing` already
- * reports `'none'` for GitLab, Bitbucket and Azure DevOps — Theme B shipped
- * accounts, not adapters, and building a real listing for the other three
- * kinds here would be building the adapter Themes E-G own, one read early.
- * `unsupported` is the honest answer until one of those lands a real client.
+ * **GitHub and GitLab today.** `capabilitiesFor(kind).repoListing` reports
+ * `'full'` for both — GitLab's row as of Phase 90 Theme E, which is the
+ * "next theme lands a real client" this module's own docblock anticipated.
+ * Bitbucket and Azure DevOps still report `'none'`, and building a real
+ * listing for either here would be building the adapter Themes F/G own, one
+ * read early — `unsupported` stays the honest answer for them until then.
  */
 export async function listReachableRepos(account: ForgeAccount): Promise<ReachableReposResult> {
-  if (account.kind !== 'github') {
-    return { ok: false, reason: 'unsupported' };
-  }
-  return githubReachableRepos(account);
+  if (account.kind === 'github') return githubReachableRepos(account);
+  if (account.kind === 'gitlab') return gitlabReachableRepos(account);
+  return { ok: false, reason: 'unsupported' };
 }
 
 /**
@@ -54,6 +56,48 @@ async function githubReachableRepos(account: ForgeAccount): Promise<ReachableRep
       fullName,
       url,
       private: r['isPrivate'] === true,
+    });
+  }
+  return { ok: true, repos };
+}
+
+/**
+ * `GET /projects?membership=true` — every project the token's owner is a
+ * member of, across every namespace, the same "everything I can reach"
+ * scope `gh repo list` gives for GitHub. `simple=true` trims the response to
+ * the handful of fields this listing actually reads, which matters more here
+ * than for `gh`'s own JSON: a full project payload carries statistics and
+ * settings this call has no use for.
+ */
+async function gitlabReachableRepos(account: ForgeAccount): Promise<ReachableReposResult> {
+  const token = await forgeAccountToken(account);
+  if (!token) return { ok: false, reason: 'no-account' };
+
+  const result = await glGet<unknown[]>(
+    { host: account.host, token },
+    'projects',
+    { membership: true, simple: true, per_page: 100, order_by: 'last_activity_at' },
+  );
+  if (!result.ok) return { ok: false, reason: 'error', message: result.error };
+
+  const repos: ReachableRepo[] = [];
+  for (const raw of result.data) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const r = raw as Record<string, unknown>;
+    const fullName = typeof r['path_with_namespace'] === 'string' ? r['path_with_namespace'] : null;
+    const url = typeof r['http_url_to_repo'] === 'string' ? r['http_url_to_repo'] : null;
+    if (!fullName || !url) continue;
+    const slash = fullName.lastIndexOf('/');
+    if (slash <= 0 || slash === fullName.length - 1) continue;
+    repos.push({
+      // GitLab's `path` (the last segment) as `name`, and everything before
+      // it — a group, or `group/subgroup` — as `owner`, matching
+      // `remote.ts`'s own convention for a GitLab `Forge.owner`.
+      owner: fullName.slice(0, slash),
+      name: fullName.slice(slash + 1),
+      fullName,
+      url,
+      private: r['visibility'] !== 'public',
     });
   }
   return { ok: true, repos };

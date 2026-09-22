@@ -39,6 +39,12 @@ const SECRET_PATTERNS: RegExp[] = [
   /\bgh[pousr]_[A-Za-z0-9]{16,}/g,
   // GitHub fine-grained PAT.
   /\bgithub_pat_[A-Za-z0-9_]{20,}/g,
+  // GitLab: `glpat-` (personal/project/group access token — what this app's
+  // GitLab adapter itself asks a user to paste, Phase 90 Theme E), `gldt-`
+  // (deploy token) and `glrt-` (runner authentication token). Three of
+  // GitLab's own documented prefixes; others exist but are not credentials
+  // this app's own code path can produce or receive.
+  /\bgl(?:pat|dt|rt)-[\w-]{20,}/g,
   // Anthropic / OpenAI style keys.
   /\bsk-(?:ant-)?[A-Za-z0-9_-]{16,}/g,
   // Slack.
