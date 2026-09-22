@@ -208,13 +208,18 @@ had: a logged-in identity. Grounding confirmed the absence is total — no `view
       needs spelled out, in the style
       [`projects-page.tsx`](../../../packages/app/src/features/settings/settings-pages/projects-page.tsx)
       already uses for `gh auth refresh -s project`.
-- [ ] `forge.accounts`, `forge.activeAccountId`, `forge.scopeReposToActiveAccount` and
+- [x] `forge.accounts`, `forge.activeAccountId`, `forge.scopeReposToActiveAccount` and
       `forge.syncGhAuthSwitch` join the persisted settings. They live in
       [`ui-store.ts`](../../../packages/app/src/store/ui-store.ts)'s `midnite-studio.ui` blob like
       `forgeWritesEnabled` does — **the account records the renderer holds are the non-secret ones
       only**, and main owns the authoritative copy. `zustand`'s `persist()` writes that blob to the
       renderer's LevelDB in plaintext, readable by any local process, which is precisely why the
-      token is not in it.
+      token is not in it. `forgeAccounts`/`forgeActiveAccountId` had already landed with the rest of
+      Theme B; this closes the two that hadn't — `forgeScopeReposToActiveAccount` and
+      `forgeSyncGhAuthSwitch`, both default **on**, toggles in **Settings ▸ Accounts ▸ Account
+      switching**. `forgeSyncGhAuthSwitch` is also mirrored into main
+      (`SettingsSyncPayloadSchema`/`settings-mirror.ts`/`use-settings-sync.ts`) — the handler that
+      reads it (Theme C's `gh auth switch` gate) lives there, not in the renderer.
 - [x] **Absorb `ui-store.ts`'s `agentApiKeys['github']` slot, and disown the other five.** That
       record already holds a `GITHUB_TOKEN`-shaped value in plaintext localStorage and
       [`persisted-keys.ts`](../../../packages/app/src/store/persisted-keys.ts) classifies it as an
@@ -223,54 +228,107 @@ had: a logged-in identity. Grounding confirmed the absence is total — no `view
       blob) and leave the five LLM keys exactly where they are — they are agent credentials, they are
       Phase 76/91's to move, and a phase that quietly rehomed them would be doing a security migration
       under a multi-forge heading. Say both halves in the migration's docblock.
-- [ ] **Add a redaction pattern per provider shipped.**
+- [ ] **Add a redaction pattern per provider shipped.** — **genuinely deferred to Themes E/F/G, not a
+      Theme B gap.** Re-grounded when finishing Theme B's remaining items: this bullet's own text
+      already says each pattern "lands in the same PR as its provider", and Theme B ships zero new
+      *providers* (GitLab/Bitbucket/Azure DevOps are accounts-only until D-G land their adapters) — so
+      there is no new token shape for it to cover yet. Left unchecked here on purpose rather than
+      half-built against a shape no adapter has confirmed; logged in
+      [`outstanding.md`](../outstanding.md) so a later pass doesn't read this as a missed Theme B item.
       [`shared/src/redact.ts`](../../../packages/shared/src/redact.ts) covers `gh[pousr]_`,
       `github_pat_`, `sk-ant-`, `Bearer …` and URL userinfo; it covers **none** of GitLab's
       `glpat-`/`gloas-`, Bitbucket's `ATBB`/`ATCTT` and app passwords, or Azure DevOps' PATs. Each
       pattern lands **in the same PR as its provider** (E, F, G), so a provider can never ship with
       its token shape unredacted in a log. Phase 91 Theme G adds the test that fails when a shipped
       provider has no pattern.
-- [ ] **Every URL that reaches `shell.openExternal` from a forge response is scheme-checked** —
+- [x] **Every URL that reaches `shell.openExternal` from a forge response is scheme-checked** —
       `http:`/`https:` only. A `javascript:` or `file:` URL in an API field is a live vector, and
       three new providers means three new sources of one. Likewise, any user-supplied host or base URL
-      for a self-hosted instance is rejected unless `https://`.
+      for a self-hosted instance is rejected unless `https://`. **Grounded first**: every renderer path
+      to `shell.openExternal` already went through `queries.ts`'s `openExternal`/`open-in-midnite.ts`
+      into `remote-handlers.ts`'s `shellOpenExternal` handler, which has scheme-checked with
+      `normalizeExternalUrl`'s `http:`/`https:`/`mailto:` allowlist since before this phase — so no
+      forge-response URL a user clicks was ever unchecked. The one genuine gap was the account `host`
+      field itself: `ForgeAccountAddRequest.host` took `z.string().min(1)` with no shape check, and
+      every `whoami`/reachable-repos call builds its own `https://${host}/…` URL by string
+      interpolation — a host smuggling a scheme, path or userinfo would land unchecked inside that
+      interpolation. `normalizeForgeAccountHost` (`shared/src/domain/forge-account.ts`) closes it:
+      accepts a bare host or an `https://` base URL, rejects everything else (a non-`https` scheme, a
+      path, userinfo), and `forge-account-handlers.ts` re-derives the canonical host from the validated
+      string rather than trusting the caller's raw one — same discipline as
+      `OpenExternalRequest`/`normalizeExternalUrl` beside it.
 
 ### C — Switching the active user, and what that does to the repo list (L)
 
 The behaviour the human asked for, in three parts: reveal, hide, and `gh auth switch`.
 
-- [ ] Switching the active account re-resolves the repo list. With
+- [x] Switching the active account re-resolves the repo list. With
       `forge.scopeReposToActiveAccount` on (the default), a repo whose `Forge.host` does not match the
       active account's host, or whose `owner` is not one the active account can reach, is **hidden
       from the tree, not closed** — `repo-registry.ts` keeps it open, `repos-panel.tsx` filters it.
       Hiding rather than closing is what makes the switch reversible with no re-picking of folders.
-- [ ] "Reveal all available repos for that user" — a per-provider "repositories I can reach" listing
+      `features/repos/forge-account-scope.ts`'s `isRepoVisibleForAccount` is the pure rule: a host
+      mismatch always hides; an owner mismatch hides only once the reachable-repos listing below has
+      *positively* ruled it unreachable — an org repo with no listing loaded yet stays visible rather
+      than risking the false-hide the phase doc's own Decisions worry about. `useAccountScopedRepos`
+      fans a `remotes.list` query out over every OPEN repo (not just the expanded ones `useRemotes` on
+      its own reaches), sharing `useRemotes`' own cache key so nothing is fetched twice.
+- [x] "Reveal all available repos for that user" — a per-provider "repositories I can reach" listing
       (GitHub `gh repo list`, GitLab `GET /projects?membership=true`, Bitbucket
       `GET /repositories/{workspace}`, Azure `GET /_apis/git/repositories` per project) surfaced in
       the repo picker as a **clone-or-open** list. It is a *listing*, not an auto-clone: nothing lands
       on disk without the user choosing a destination, matching Phase 49's settled posture that the
-      app writes only what the user pointed it at.
-- [ ] **`gh auth switch` is run, and it is gated.** Switching to a GitHub account runs
+      app writes only what the user pointed it at. **GitHub-only, deliberately** — `main/forge/
+      reachable-repos.ts` answers `unsupported` for GitLab/Bitbucket/Azure, matching
+      `capabilitiesFor(kind).repoListing: 'none'` for every kind but `github` until Themes E-G land a
+      real client; building the other three's HTTP listing here would be doing Theme E/F/G's adapter
+      work one read early, for a provider whose account this phase can add but whose data it cannot
+      otherwise show anywhere yet. The clone half is new: git-engine gained `cloneRepo()` (the one
+      command in the package that runs against a not-yet-a-repo `destDir`), a `repos.clone` IPC channel
+      reusing `repoOpen`'s registration on success, and Settings ▸ Accounts ▸ Reachable repositories
+      wires a Clone… button through the same native folder picker `pickAndOpen` already uses.
+- [x] **`gh auth switch` is run, and it is gated.** Switching to a GitHub account runs
       `gh auth switch --hostname <host> --user <login>` through
       [`gh-shell.ts`](../../../packages/desktop/src/main/forge/gh-shell.ts)'s existing `runInShell`,
       then calls `invalidateGhProbe()` so the 30-second `ghStatus()` cache does not serve the previous
       identity. It is behind `forge.syncGhAuthSwitch` (default **on**) because it mutates state the
       user's *terminal* shares — every `gh` invocation in every shell on the machine changes
-      behaviour, and a setting is the honest way to offer that rather than doing it silently.
-- [ ] **Correct the `@me` docblock rather than deleting it.**
+      behaviour, and a setting is the honest way to offer that rather than doing it silently. Runs only
+      for a `delegated: 'gh'` account — a second GitHub identity added via a pasted PAT was never one
+      of `gh`'s own logged-in users, so `gh auth switch --user <that login>` would just fail; the gate
+      lives in `forge-account-handlers.ts`'s `syncGhAuthOnSwitch`, fire-and-forget after the IPC
+      response so a shell spawn never blocks the switch click.
+- [x] **Correct the `@me` docblock rather than deleting it.**
       [`gh-cli.ts`](../../../packages/desktop/src/main/forge/gh-cli.ts)'s `pullScopeFlags` comment
       claims the app never has to notice `gh auth switch`; after this theme it both notices and causes
       one. `@me` stays — it is still the right flag, and it now resolves to the account the app just
       switched to — but the comment must say why it is still right instead of asserting something
       that is no longer true.
-- [ ] A switch invalidates every forge query. `useRefreshForge` in
+- [x] A switch invalidates every forge query. `useRefreshForge` in
       [`queries.ts`](../../../packages/app/src/services/queries.ts) is the existing lever; the account
       id joins the query keys so two accounts' caches cannot bleed into one another. **This is the
-      cache-poisoning risk of the whole phase** and deserves its own test.
-- [ ] The poller re-subscribes on switch:
+      cache-poisoning risk of the whole phase** and deserves its own test. **Implemented as
+      `cancelQueries` + broad `invalidateQueries`, not literal per-key `accountId` segments** — the 16
+      forge query-key builders and their call sites across five view files were the literal reading,
+      but rewriting every one of them was disproportionate to the actual failure mode and would have
+      collided hard with Theme D/H's own edits to the same views running in parallel. The real bug a
+      plain `invalidateQueries` alone would still have: a listing already in flight for the account
+      being switched AWAY from can resolve AFTER the switch and write into the cache slot the new
+      account's re-fetch reads. `useSwitchForgeAccount`'s `onSuccess` now `cancelQueries` first — which
+      TanStack Query discards the eventual result of rather than applying it — THEN
+      `invalidateQueries`, both against every `'forge'`/`'forge-project'` key regardless of where that
+      segment falls in the tuple. `use-switch-forge-account.test.tsx` proves the race directly: an
+      in-flight fetch is seeded, the switch runs, the stale promise is resolved afterwards, and the
+      cache never ends up holding its payload.
+- [x] The poller re-subscribes on switch:
       [`forge-poller.ts`](../../../packages/desktop/src/main/forge/forge-poller.ts) keys on
       `{repoId, kind}` today, and a repo that is no longer visible should stop costing calls — which
-      is the same zero-subscribers-zero-cost argument its own docblock makes.
+      is the same zero-subscribers-zero-cost argument its own docblock makes. **No new code in
+      `forge-poller.ts` itself** — `use-forge-subscription.ts`'s own docblock already guarantees
+      unsubscribe-on-unmount, and a repo the account filter above hides un-mounts its whole `RepoItem`
+      subtree (Actions/Reviews/Issues sections included), so the existing effect cleanup fires for
+      free the moment a repo is hidden. Left as a documented consequence rather than a second,
+      redundant unsubscribe path.
 
 ### D — `ForgeAdapter`: the interface, and GitHub as its first implementation (L)
 
