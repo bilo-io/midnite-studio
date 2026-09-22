@@ -1,6 +1,32 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-22 — Phase 90 Themes B and D — closed out, no code change for B
+
+[PR #508](https://github.com/bilo-io/midnite-studio/pull/508).
+
+Both themes had one open checklist item left, each deferred to a later theme by its own text.
+Verified rather than assumed, per the deferral notes' own instruction to check back once E/F/G
+landed.
+
+**Theme B's "add a redaction pattern per provider"** turned out to already be complete: GitLab's
+`glpat-`/`gldt-`/`glrt-` landed with Theme E (PR #505), Bitbucket's Atlassian `ATATT3x…` token
+landed with Theme F (PR #504, correcting this note's own earlier unconfirmed `ATBB`/`ATCTT`
+guess), and Azure DevOps (Theme G, PR #506) made a **deliberate decision to add no dedicated
+pattern** — a PAT there is an opaque 52-character base64 string with no fixed prefix, so a pattern
+would either miss real PATs or eat ordinary base64 data in a stack trace; the generic
+`Bearer|Basic|token …` pattern and `redact.ts`'s own docblock already cover and document that gap,
+the same one already accepted for a legacy Bitbucket App Password. `redact.test.ts` exercises every
+landed pattern. No code changed for this item — closing it out in the trackers is the whole PR.
+
+**Theme D's `ForgeCliStatus` docblock** was written when `gh` was the only credential path this app
+had, and still read that way after GitLab, Bitbucket and Azure DevOps each got a real HTTP adapter
+(`main/forge/http.ts`'s `forgeHttpRequest`/`ForgeHttpAuth`) authenticated with a vaulted personal
+access token. Rewrote `ForgeCliStatusSchema`'s docblock (`shared/src/domain/forge.ts`) to say so:
+`binPath` stays `gh`-only (always `null` for the three HTTP adapters), `not-installed` is
+unreachable for them — there is nothing to install — and only GitHub still delegates to `gh`
+(`delegated: 'gh'`). A documentation-accuracy edit; `ForgeCliStatus`'s shape is unchanged.
+
 ## 2026-09-22 — Phase 90 Theme I — the onboarding wizard, and Theme H's deferred "here's the limit" sentence
 
 [PR #507](https://github.com/bilo-io/midnite-studio/pull/507).

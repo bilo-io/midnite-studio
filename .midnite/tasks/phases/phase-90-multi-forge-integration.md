@@ -140,7 +140,7 @@ members to the enum makes TypeScript name each place that has to decide what the
       shapes, and a lookalike case per new kind (`bitbucket.org.evil.example`,
       `dev.azure.com.evil.example`) mirroring the defence the file already has.
 
-### B — Accounts, the vault, and the avatar the app has never had (XL)
+### B — Accounts, the vault, and the avatar the app has never had (XL) ✅ DONE (PR #501, #503, #508, 2026-09-22)
 
 This is the phase's biggest single piece, and it introduces a concept the app has genuinely never
 had: a logged-in identity. Grounding confirmed the absence is total — no `viewer` query, no
@@ -330,7 +330,7 @@ The behaviour the human asked for, in three parts: reveal, hide, and `gh auth sw
       free the moment a repo is hidden. Left as a documented consequence rather than a second,
       redundant unsubscribe path.
 
-### D — `ForgeAdapter`: the interface, and GitHub as its first implementation (L) ◐ PARTIAL (PR #502, 2026-09-22)
+### D — `ForgeAdapter`: the interface, and GitHub as its first implementation (L) ✅ DONE (PR #502, #504, #508, 2026-09-22)
 
 A pure refactor with no behaviour change and no new provider. Its acceptance criterion is that the
 existing forge tests pass untouched.
