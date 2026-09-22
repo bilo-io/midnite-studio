@@ -1,6 +1,49 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-22 — Phase 90 Theme F — the Bitbucket Cloud adapter
+
+[PR #504](https://github.com/bilo-io/midnite-studio/pull/504).
+
+All 7 checklist items. `main/forge/bitbucket/` over REST 2.0, Basic auth (the account's own login as
+username, its vaulted App Password/workspace token as password — Bitbucket's own PAT shape, and the
+provider that justified `http.ts` taking auth as a strategy rather than a header string). Pull
+requests, pipelines (`state.name`/`result.name` mapped onto the GitHub-shaped run/conclusion enums
+with a tested table), the opt-in issue tracker (reusing Phase 54's existing disabled state on a 404
+rather than a second empty state), and inline-comment threads **synthesised** from Bitbucket's flat
+`parent`-chained comment list — the provider's own thread model, flatter than GitHub's. Projects/
+boards stay `'none'`, deliberately: Bitbucket's "Projects" is a repo folder, not a board, and Jira —
+Bitbucket's real board — is a different product, a different phase.
+
+Built `main/forge/http.ts`, the provider-neutral HTTP client Theme D deferred ("the next provider
+theme builds it against its own first real caller") — auth-as-strategy, a per-host sliding-window
+budget, one bounded retry on 429 honouring `Retry-After`. Kept provider-neutral rather than
+Bitbucket-shaped so Themes E/G can adopt it. **Left for whoever merges second against Theme E**: both
+themes independently wrote this file: adopt Theme E's version and port this adapter's call sites onto
+it, rather than hand-merging two structurally similar clients.
+
+`capabilitiesFor('bitbucket')` is the phase's first genuinely mixed capability row — `projects: 'none'`,
+`threadResolution: 'partial'` (Bitbucket has no thread object at all), everything else `'full'`. First
+provider to reach Theme H's own deferred `'partial'`-capability item; noted here rather than built —
+the per-view "here's the limit" sentence stays Theme H's to add. No app-side change was needed at all:
+`app.tsx`'s existing `useForgeViewAvailability`/`FORGE_GATED_VIEWS` already hides a `'none'`-capability
+view generically, so Bitbucket's hidden Projects tab fell out of code Theme H had already shipped.
+
+Write surface scoped to exactly the checklist's list (comment, approve/unapprove, request-changes,
+resolve a thread, close an issue) — `mergePull`/`requestReview`/`markReady`/`rerunChecks`/
+`setItemField` are implemented (the interface requires them) but answer an honest "not supported"
+`ForgeWriteResult` rather than guessing at unverified API behaviour, mirroring GitLab's own
+narrower-than-the-interface write scope. `setThreadResolved` only receives `{threadId, resolved}` — no
+PR number, fine for GitHub's global GraphQL id, not fine for Bitbucket's
+`/pullrequests/{number}/comments/{id}/resolve` — solved by folding the number into the thread id this
+adapter itself hands out (`"{number}:{commentId}"`), no interface change. `commitCount`/`commits` (the
+merge confirm's blast-radius numbers) are fetched for real via `/commits` rather than stubbed, because
+CLAUDE.md's blast-radius convention makes a `0` there actively wrong rather than merely incomplete.
+
+Also added: the Atlassian API token pattern (`ATATT3x…`) to `redact.ts` — the shape Bitbucket issues
+for a workspace/repository access token — correcting `outstanding.md`'s earlier unconfirmed guess
+(`ATBB`/`ATCTT`).
+
 ## 2026-09-22 — Phase 90 Theme D + Theme H — the ForgeAdapter seam and the capability matrix
 
 [PR #502](https://github.com/bilo-io/midnite-studio/pull/502).
