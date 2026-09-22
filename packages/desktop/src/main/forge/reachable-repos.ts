@@ -1,7 +1,7 @@
 import type { ForgeAccount, ReachableRepo, ReachableReposResult } from '@midnite/studio-shared';
 
-import { describeFailure, runInShell, shellQuote, LIST_TIMEOUT_MS } from './gh-shell';
-import { parseJsonPayload } from './gh-parse';
+import { describeFailure, runInShell, shellQuote, LIST_TIMEOUT_MS } from './github/gh-shell';
+import { parseJsonPayload } from './github/gh-parse';
 
 /**
  * "Repositories I can reach" — the repo picker's clone-or-open listing

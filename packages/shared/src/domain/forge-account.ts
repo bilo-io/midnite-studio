@@ -180,19 +180,32 @@ const NO_CAPABILITY: ForgeCapability = {
 };
 
 /**
- * **A placeholder, not Theme H's matrix.** GitHub reports `full` because its
- * adapter (`gh-*.ts`) already implements every read and write this schema
- * describes. GitLab, Bitbucket and Azure DevOps report `none` — not because
- * they lack the capability, but because Theme B ships *accounts*, not
- * adapters: Themes D through G are what build the readers/writers this
- * matrix will honestly describe once they land. `unknown` also reports
- * `none`, since it is never a supported-account kind.
+ * The tri-state capability matrix (Phase 90 Theme H), keyed by `ForgeKind`
+ * through a `Record` rather than a boolean or an `if`/`else` — so **adding a
+ * fifth `ForgeKind` fails the build** until this object grows a matching key,
+ * which is the whole point: a provider this app knows the URL grammar for but
+ * has never declared a capability record for is a build error, not a runtime
+ * surprise a view discovers by rendering `undefined`.
  *
- * Theme H's `capabilities.test.ts` is what turns this into a real matrix
- * asserted exhaustive over `ForgeKind`; nothing here is that assertion yet.
+ * GitHub reports `full` because its adapter (`main/forge/github/`, Theme D)
+ * already implements every read and write this schema describes. GitLab,
+ * Bitbucket and Azure DevOps report `none` — not because they lack the
+ * capability, but because no adapter exists yet to serve them: Themes E, F
+ * and G are what turn each into a real (frequently `'partial'`) row here.
+ * `unknown` reports `none` too, since it is never a supported-account kind.
+ * `capabilities.test.ts` is what asserts this exhaustiveness at the value
+ * level, not just the type level — a `Record` can still be filled in wrong.
  */
+const CAPABILITIES_BY_KIND: Record<ForgeKind, ForgeCapability> = {
+  github: FULL_CAPABILITY,
+  gitlab: NO_CAPABILITY,
+  bitbucket: NO_CAPABILITY,
+  azure: NO_CAPABILITY,
+  unknown: NO_CAPABILITY,
+};
+
 export function capabilitiesFor(kind: ForgeKind): ForgeCapability {
-  return kind === 'github' ? FULL_CAPABILITY : NO_CAPABILITY;
+  return CAPABILITIES_BY_KIND[kind];
 }
 
 // --- reachable repos (Phase 90 Theme C) -------------------------------------

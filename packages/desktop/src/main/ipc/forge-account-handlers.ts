@@ -10,7 +10,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { currentSettings } from '../settings-mirror';
-import { switchGhAccount } from '../forge/gh-shell';
+import { switchGhAccount } from '../forge/github/gh-shell';
 import { listReachableRepos } from '../forge/reachable-repos';
 import {
   addForgeAccount,

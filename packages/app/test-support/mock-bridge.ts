@@ -1,5 +1,13 @@
 import { expect, type Page } from '@playwright/test';
-import type { BatteryReading, Note, SyncStatusEvent, TestPackage, TestRunResult } from '@midnite/studio-shared';
+import {
+  capabilitiesFor,
+  type BatteryReading,
+  type ForgeKind,
+  type Note,
+  type SyncStatusEvent,
+  type TestPackage,
+  type TestRunResult,
+} from '@midnite/studio-shared';
 
 /**
  * A stand-in for the preload bridge, installed before any app code runs.
@@ -1646,6 +1654,22 @@ export function buildMockBridge(data: MockFixtures) {
       subscribe: noop,
       unsubscribe: noop,
       onChanged: unsubscribe,
+    },
+    /*
+        The account registry's IPC surface (Phase 90 Theme B), repo-agnostic
+        like the real `forge-account-handlers.ts`. Only `capabilities` has a
+        caller today (`app.tsx`'s `FORGE_GATED_VIEWS` gate, Theme H) — it
+        mirrors the real handler exactly (`capabilitiesFor(kind)`, the same
+        exhaustive matrix `packages/shared` ships) rather than reading a
+        fixture, so a spec never has to seed a capability record for a repo
+        it already declared a `forge`/`remotes` fixture for.
+      */
+    forgeAccounts: {
+      list: async () => [],
+      add: async () => ({ ok: false as const, error: 'not implemented in the mock bridge' }),
+      remove: async () => ({ ok: false }),
+      switch: async () => ({ ok: false, activeAccountId: null }),
+      capabilities: async (req: { kind: ForgeKind }) => capabilitiesFor(req.kind),
     },
     /*
         ProjectV2 (Phase 40 Theme G), its own IPC namespace in the real
