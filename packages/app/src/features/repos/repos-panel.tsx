@@ -79,6 +79,7 @@ import { BranchDot } from './branch-dot';
 import { branchHealth, worktreeHealth, type BranchHealth } from './branch-health';
 import { checksVerdict } from './checks-verdict';
 import { ActionsSection, IssuesSection, ReviewsSection } from './forge-sections';
+import { useAccountScopedRepos } from './forge-account-scope';
 import { TestsSection } from '../tests/tests-section';
 import {
   ALL_SECTIONS,
@@ -239,7 +240,17 @@ export function ReposPanel() {
   const [query, setQuery] = useState('');
   const sections = useViewSections();
   const folds = useRepoFolds();
-  const { matched, favourites, ungrouped, groups } = useGroupedRepos(repos, query);
+  /*
+    Phase 90 Theme C: a repo whose remote doesn't belong to the active
+    account is hidden here, not closed — `repo-registry.ts`'s own list
+    (`repos` above) is untouched, so switching back needs no re-picking of
+    folders. Every OTHER read of `repos` in this component (toolbar button
+    visibility, the "no repos open" empty state) deliberately stays on the
+    unscoped list: those answer "is anything registered at all", which
+    account scoping has no opinion on.
+  */
+  const { visible: scopedRepos } = useAccountScopedRepos(repos);
+  const { matched, favourites, ungrouped, groups } = useGroupedRepos(scopedRepos, query);
   const client = useQueryClient();
   /*
     Theme K.2: `ReposPanel` fully unmounts whenever the sidebar closes
