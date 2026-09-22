@@ -109,6 +109,9 @@ export type MidniteStudioBridge = {
     reorder: (req: In<typeof S.RepoReorderRequest>) => void;
     /** Native directory picker. Resolves to null when the user cancels. */
     pickDirectory: () => Promise<string | null>;
+    /** `git clone` into a user-chosen destination, then register it like
+     *  `open` — the reachable-repos picker's clone half (Theme C). */
+    clone: (req: In<typeof S.RepoCloneRequest>) => Promise<z.infer<typeof S.RepoCloneResponse>>;
     /**
      * Resolve an abbreviated hex revision to its full commit sha.
      *
@@ -381,6 +384,12 @@ export type MidniteStudioBridge = {
     capabilities: (
       req: In<typeof S.ForgeCapabilitiesRequest>,
     ) => Promise<z.infer<typeof S.ForgeCapabilitiesResponse>>;
+    /** The repos this account can reach — the repo picker's clone-or-open
+     *  listing (Theme C). `{ok: false, reason: 'unsupported'}` for every
+     *  kind but `github` until Themes E-G land a real adapter. */
+    reachableRepos: (
+      req: In<typeof S.ForgeAccountReachableReposRequest>,
+    ) => Promise<z.infer<typeof S.ForgeAccountReachableReposResponse>>;
   };
 
   /**

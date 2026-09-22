@@ -448,3 +448,21 @@ them alters companion routing well outside this phase's scope:
 Whoever picks these up should decide per pair whether the earlier view legitimately owns the word
 (then move it out of the later view's keywords, or rename) or not (then drop the token), and remove
 the corresponding entry from `KNOWN_PRE_EXISTING`.
+
+## Phase 90 · Theme B — the redaction pattern is genuinely deferred to Themes E/F/G
+
+Theme B's own checklist carries a bullet — "Add a redaction pattern per provider shipped" — that
+reads, on its own, like a Theme B deliverable. Re-grounded while closing out Theme B's other two
+open items (the `ui-store.ts` settings and the `shell.openExternal` scheme check): it isn't one, and
+the bullet's own text already says why — "each pattern lands **in the same PR as its provider** (E,
+F, G)". Theme B ships zero new *providers*; GitLab, Bitbucket and Azure DevOps get accounts and a
+`whoami` call, but their adapters (and therefore their real token shapes reaching a log) don't exist
+until Themes D-G land. `shared/src/redact.ts` today covers exactly the shapes the app can actually
+produce (`gh[pousr]_`, `github_pat_`, `sk-ant-`, `Bearer …`, URL userinfo) — adding a `glpat-`/
+`gloas-`/`ATBB`/`ATCTT` pattern now would be guessing at a shape no adapter has confirmed, against a
+provider whose write surface doesn't emit anything to redact yet.
+
+Left as an open checklist item on Theme B's doc rather than checked or half-built. Whoever lands
+Theme E, F or G should add that provider's own pattern to `shared/src/redact.ts` **in the same PR**,
+per the phase doc's existing instruction — Phase 91 Theme G is what turns "every shipped provider
+has a pattern" into an assertion rather than a convention.

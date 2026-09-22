@@ -48,6 +48,8 @@ export const PREFERENCE_KEYS = [
   'forgeWritesEnabled', // reviews-page.tsx / git-safety-page.tsx
   'forgeAccounts', // accounts-page.tsx
   'forgeActiveAccountId', // accounts-page.tsx
+  'forgeScopeReposToActiveAccount', // accounts-page.tsx
+  'forgeSyncGhAuthSwitch', // accounts-page.tsx
   'graphDensity', // density-picker.tsx (via graph-page.tsx)
   'graphProvenanceMark', // provenance-mark-picker.tsx (via graph-page.tsx)
   'graphTheme', // graph-theme-picker.tsx (via graph-page.tsx)

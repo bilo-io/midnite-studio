@@ -128,9 +128,17 @@ export async function listRuns(
  *
  * `@me` rather than a login this process looked up: `gh` resolves it against
  * whichever account is authenticated for that host, including an enterprise
- * one, so the app never has to hold a username or notice that the user ran
- * `gh auth switch` in the terminal beside it.
+ * one, so this call site never has to hold a username of its own. That used
+ * to mean the app never had to *notice* `gh auth switch` either — true before
+ * Phase 90 Theme C, false after: switching the active account now both
+ * notices a switch already run in a terminal beside the app (any listing
+ * reads whichever identity `gh` currently holds) and can cause one itself
+ * (`gh-shell.ts`'s `switchGhAccount`, gated behind `forge.syncGhAuthSwitch`).
+ * `@me` stays exactly right either way — it always resolves to "whoever `gh`
+ * is signed in as right now," which is precisely the account Theme C just
+ * switched to.
  *
+
  * `--author` is a real flag; "review requested from me" is not, and goes
  * through `--search` — the same query `gh pr status` builds for its own
  * requested-review block. Nothing here is user input, so nothing needs

@@ -743,6 +743,12 @@ describe('forge schemas', () => {
       forgeAccountRemove: ['ForgeAccountRemoveRequest', 'ForgeAccountRemoveResponse'],
       forgeAccountSwitch: ['ForgeAccountSwitchRequest', 'ForgeAccountSwitchResponse'],
       forgeCapabilities: ['ForgeCapabilitiesRequest', 'ForgeCapabilitiesResponse'],
+      // The reachable-repos listing (Theme C) — the repo picker's
+      // clone-or-open list.
+      forgeAccountReachableRepos: [
+        'ForgeAccountReachableReposRequest',
+        'ForgeAccountReachableReposResponse',
+      ],
     };
     const channelKeys = Object.keys(CHANNELS).filter((key) => key.startsWith('forge'));
     expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());

@@ -20,6 +20,9 @@ export const CHANNELS = {
   repoWorktreeRemove: 'mstudio:repo:worktree-remove',
   /** User-defined sidebar order; re-persisted to `repos.json`. */
   repoReorder: 'mstudio:repo:reorder',
+  /** `git clone <url>` into a user-chosen destination, then register it like
+   *  `repoOpen` — the repo picker's clone half (Phase 90 Theme C). */
+  repoClone: 'mstudio:repo:clone',
   /**
    * Resolve an abbreviated revision to its full 40-char commit sha.
    *
@@ -258,6 +261,10 @@ export const CHANNELS = {
   forgeAccountSwitch: 'mstudio:forge:account-switch',
   /** What this provider kind can do — a placeholder matrix until Theme H. */
   forgeCapabilities: 'mstudio:forge:capabilities',
+  /** The repos one account can reach — the repo picker's clone-or-open
+   *  listing (Theme C). `unsupported` for every kind but `github` until
+   *  Themes E-G land a real adapter. */
+  forgeAccountReachableRepos: 'mstudio:forge:account-reachable-repos',
 
   // --- forge projects (GitHub ProjectV2 — Phase 40) -------------------------
   //

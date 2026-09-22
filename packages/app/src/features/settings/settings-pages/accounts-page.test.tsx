@@ -36,6 +36,7 @@ function installBridge(overrides: Partial<MidniteStudioBridge['forgeAccounts']> 
     remove: vi.fn().mockResolvedValue({ ok: true }),
     switch: vi.fn().mockResolvedValue({ ok: true, activeAccountId: null }),
     capabilities: vi.fn(),
+    reachableRepos: vi.fn().mockResolvedValue({ ok: false, reason: 'unsupported' }),
     ...overrides,
   } as MidniteStudioBridge['forgeAccounts'];
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
@@ -47,7 +48,12 @@ function installBridge(overrides: Partial<MidniteStudioBridge['forgeAccounts']> 
 afterEach(() => {
   cleanup();
   delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
-  useUiStore.setState({ forgeAccounts: [], forgeActiveAccountId: null });
+  useUiStore.setState({
+    forgeAccounts: [],
+    forgeActiveAccountId: null,
+    forgeScopeReposToActiveAccount: true,
+    forgeSyncGhAuthSwitch: true,
+  });
 });
 
 describe('AccountsPage', () => {
@@ -103,5 +109,67 @@ describe('AccountsPage', () => {
     render(<AccountsPage />, { wrapper: createWrapper() });
     fireEvent.click(await screen.findByLabelText('Remove The Octocat'));
     await waitFor(() => expect(remove).toHaveBeenCalledWith({ id: gitlabAccount.id }));
+  });
+
+  // Phase 90 Theme C — the two account-switching settings this page is
+  // `persisted-keys.ts`'s named home for.
+  it('toggles forgeScopeReposToActiveAccount', async () => {
+    installBridge();
+    render(<AccountsPage />, { wrapper: createWrapper() });
+    const checkbox = (await screen.findByText(
+      "Hide repos that don't belong to the active account",
+    )).previousSibling as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+
+    fireEvent.click(checkbox);
+    expect(useUiStore.getState().forgeScopeReposToActiveAccount).toBe(false);
+  });
+
+  it('toggles forgeSyncGhAuthSwitch', async () => {
+    installBridge();
+    render(<AccountsPage />, { wrapper: createWrapper() });
+    const checkbox = (await screen.findByText(
+      'Run `gh auth switch` when the active GitHub account changes',
+    )).previousSibling as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+
+    fireEvent.click(checkbox);
+    expect(useUiStore.getState().forgeSyncGhAuthSwitch).toBe(false);
+  });
+
+  it('shows no reachable-repos section with no active account', async () => {
+    installBridge({ list: vi.fn().mockResolvedValue([gitlabAccount]) });
+    render(<AccountsPage />, { wrapper: createWrapper() });
+    await screen.findByText('The Octocat');
+    expect(screen.queryByText('Reachable repositories')).toBeNull();
+  });
+
+  it("shows an unsupported message for the active account's kind", async () => {
+    installBridge({
+      list: vi.fn().mockResolvedValue([gitlabAccount]),
+      reachableRepos: vi.fn().mockResolvedValue({ ok: false, reason: 'unsupported' }),
+    });
+    useUiStore.setState({ forgeActiveAccountId: gitlabAccount.id });
+    render(<AccountsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Reachable repositories' }));
+    expect(await screen.findByText(/isn't available for GitLab yet/)).toBeTruthy();
+  });
+
+  it('lists the active account’s reachable repos with a Clone button each', async () => {
+    const githubAccount: ForgeAccount = { ...gitlabAccount, id: 'github:github.com:octocat', kind: 'github' };
+    installBridge({
+      list: vi.fn().mockResolvedValue([githubAccount]),
+      reachableRepos: vi.fn().mockResolvedValue({
+        ok: true,
+        repos: [
+          { owner: 'octocat', name: 'hello-world', fullName: 'octocat/hello-world', url: 'https://github.com/octocat/hello-world.git', private: false },
+        ],
+      }),
+    });
+    useUiStore.setState({ forgeActiveAccountId: githubAccount.id });
+    render(<AccountsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Reachable repositories' }));
+    expect(await screen.findByText('octocat/hello-world')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Clone…' })).toBeTruthy();
   });
 });

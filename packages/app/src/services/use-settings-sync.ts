@@ -20,6 +20,10 @@ export function useSettingsSync(): void {
   const autoFetchIntervalMs = useUiStore((s) => s.autoFetchIntervalMs);
   const appDiscardIdle = useUiStore((s) => s.appDiscardIdle);
   const browserDiscardMs = useUiStore((s) => s.browserDiscardMs);
+  // Phase 90 Theme C: the account-switch handler that reads this lives in
+  // main (`forge-account-handlers.ts`), so the setting has to cross the same
+  // way `autoFetchEnabled` does — mirrored, not asked-for on demand.
+  const forgeSyncGhAuthSwitch = useUiStore((s) => s.forgeSyncGhAuthSwitch);
 
   useEffect(() => {
     const api = bridge();
@@ -33,6 +37,13 @@ export function useSettingsSync(): void {
       autoFetchIntervalMs: autoFetchIntervalMs ?? 60_000,
       appDiscardIdle,
       browserDiscardMs,
+      forgeSyncGhAuthSwitch,
     });
-  }, [autoFetchEnabled, autoFetchIntervalMs, appDiscardIdle, browserDiscardMs]);
+  }, [
+    autoFetchEnabled,
+    autoFetchIntervalMs,
+    appDiscardIdle,
+    browserDiscardMs,
+    forgeSyncGhAuthSwitch,
+  ]);
 }

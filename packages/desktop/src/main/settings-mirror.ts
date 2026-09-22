@@ -20,6 +20,10 @@ const DEFAULT_SETTINGS: SettingsSyncPayload = {
     youtube: false,
   },
   browserDiscardMs: 10 * 60 * 1000,
+  // Phase 90 Theme C: matches `ui-store.ts`'s own default — on, per the
+  // phase doc's Decisions — so an account switch that happens before the
+  // renderer's first sync still runs `gh auth switch`.
+  forgeSyncGhAuthSwitch: true,
 };
 
 let current: SettingsSyncPayload = DEFAULT_SETTINGS;

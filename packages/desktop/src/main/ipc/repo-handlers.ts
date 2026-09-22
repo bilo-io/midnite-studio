@@ -1,6 +1,12 @@
 import { BrowserWindow, dialog } from 'electron';
 
-import { addWorktree, readCommitDetail, removeWorktree, revParse } from '@midnite/studio-git-engine';
+import {
+  addWorktree,
+  cloneRepo,
+  readCommitDetail,
+  removeWorktree,
+  revParse,
+} from '@midnite/studio-git-engine';
 import { CHANNELS, failure, schemas } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
@@ -50,6 +56,26 @@ export function registerRepoHandlers(getWindow: () => BrowserWindow | null): voi
     schemas.RepoOpenRequest,
     async ({ path }) => {
       const result = await openRepo(path);
+      await syncWatchers();
+      return result;
+    },
+    (issue) => ({ ok: false as const, message: issue }),
+  );
+
+  /**
+   * `git clone` into a user-chosen destination, then register it exactly
+   * like `repoOpen` (Phase 90 Theme C) — the repo picker's clone half of
+   * "clone-or-open". `destDir` already exists and was already chosen by the
+   * user via `repoPickDirectory` before this is ever called; nothing here
+   * picks a location of its own.
+   */
+  handle(
+    CHANNELS.repoClone,
+    schemas.RepoCloneRequest,
+    async ({ destDir, url, name }) => {
+      const cloned = await cloneRepo(destDir, url, name);
+      if (!cloned.ok) return { ok: false as const, message: cloned.message };
+      const result = await openRepo(cloned.path);
       await syncWatchers();
       return result;
     },

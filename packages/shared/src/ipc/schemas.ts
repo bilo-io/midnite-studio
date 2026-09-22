@@ -102,7 +102,9 @@ import {
   ForgeAccountSchema,
   ForgeCapabilitySchema,
   ForgeKindSchema,
+  ReachableReposResultSchema,
   SupportedForgeKindSchema,
+  isValidForgeAccountHost,
   InstallUserSkillsResultSchema,
   RebaseSequencePlanSchema,
   RepoDescriptorSchema,
@@ -187,6 +189,24 @@ export const RepoOpenResponse = z.discriminatedUnion('ok', [
 ]);
 
 export const RepoListResponse = z.array(RepoDescriptorSchema);
+
+/**
+ * `git clone <url>` into `destDir`, then open it exactly like `RepoOpenRequest`
+ * — the repo picker's clone-or-open listing (Theme C). `url` is only ever the
+ * clone URL a provider's own listing already returned (`reachable-repos.ts`),
+ * never renderer-composed, so there is no scheme to gate here the way
+ * `OpenExternalRequest` gates `shell.openExternal` — this reaches `git`, not
+ * the OS's URL handler.
+ */
+export const RepoCloneRequest = z.object({
+  destDir: z.string().min(1),
+  url: z.string().min(1),
+  name: z.string().min(1),
+});
+export const RepoCloneResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), repo: RepoDescriptorSchema }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
 export const RepoCloseRequest = RepoId;
 export const RepoRefsRequest = RepoId;
 export const RepoRefsResponse = z.array(RefSchema);
@@ -650,7 +670,14 @@ export const ForgeAccountsResponse = z.array(ForgeAccountSchema);
  */
 export const ForgeAccountAddRequest = z.object({
   kind: SupportedForgeKindSchema,
-  host: z.string().min(1),
+  // A bare hostname, or an `https://` base URL for a self-hosted instance —
+  // `normalizeForgeAccountHost` rejects anything else (a scheme other than
+  // `https:`, a path, userinfo). The handler re-derives the canonical
+  // hostname from this same validated string, same discipline as
+  // `OpenExternalRequest`/`normalizeExternalUrl` beside it.
+  host: z.string().min(1).refine(isValidForgeAccountHost, {
+    message: 'Enter a bare host, or an https:// base URL for a self-hosted instance.',
+  }),
   token: z.string().min(1).optional(),
 });
 
@@ -668,6 +695,9 @@ export const ForgeAccountSwitchResponse = z.object({
 
 export const ForgeCapabilitiesRequest = z.object({ kind: ForgeKindSchema });
 export const ForgeCapabilitiesResponse = ForgeCapabilitySchema;
+
+export const ForgeAccountReachableReposRequest = z.object({ accountId: z.string().min(1) });
+export const ForgeAccountReachableReposResponse = ReachableReposResultSchema;
 
 /**
  * A pull-request number.

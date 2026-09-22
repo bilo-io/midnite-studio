@@ -1,13 +1,23 @@
 import { Accordion } from '@bilo-io/ui';
 import { useState } from 'react';
-import { LuCircleUserRound, LuInfo, LuPlus, LuTrash2 } from 'react-icons/lu';
+import {
+  LuArrowRightLeft,
+  LuCircleUserRound,
+  LuCloudDownload,
+  LuInfo,
+  LuLock,
+  LuPlus,
+  LuTrash2,
+} from 'react-icons/lu';
 
-import type { ForgeAccount, ForgeKind } from '@midnite/studio-shared';
+import type { ForgeAccount, ForgeKind, ReachableRepo } from '@midnite/studio-shared';
 
 import { UserAvatar } from '../../../components/user-avatar';
 import {
   useAddForgeAccount,
+  useCloneReachableRepo,
   useForgeAccounts,
+  useReachableRepos,
   useRemoveForgeAccount,
   useSwitchForgeAccount,
 } from '../../../services/queries';
@@ -73,6 +83,11 @@ export function AccountsPage() {
   const [token, setToken] = useState('');
 
   const activeId = useUiStore((s) => s.forgeActiveAccountId);
+  const activeAccount = accounts.find((a) => a.id === activeId) ?? null;
+  const scopeReposToActiveAccount = useUiStore((s) => s.forgeScopeReposToActiveAccount);
+  const setScopeReposToActiveAccount = useUiStore((s) => s.setForgeScopeReposToActiveAccount);
+  const syncGhAuthSwitch = useUiStore((s) => s.forgeSyncGhAuthSwitch);
+  const setSyncGhAuthSwitch = useUiStore((s) => s.setForgeSyncGhAuthSwitch);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -144,6 +159,45 @@ export function AccountsPage() {
         </form>
       </Accordion>
 
+      <Accordion
+        title="Account switching"
+        icon={<LuArrowRightLeft className="h-4 w-4" />}
+        defaultOpen
+      >
+        <div className="flex flex-col gap-3 p-3">
+          <Field
+            label="Hide other accounts' repos"
+            hint="When on, an open repo whose remote doesn't belong to the active account is hidden from the sidebar rather than closed — switch back and it reappears exactly as you left it."
+          >
+            <label className="flex cursor-pointer items-start gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={scopeReposToActiveAccount}
+                onChange={(event) => setScopeReposToActiveAccount(event.target.checked)}
+                className="mt-0.5 accent-[hsl(var(--primary))]"
+              />
+              <span>Hide repos that don't belong to the active account</span>
+            </label>
+          </Field>
+          <Field
+            label="Sync gh auth switch"
+            hint="Switching to a GitHub account also runs `gh auth switch` in a shell beside the app, so every `gh` invocation on this machine — including in your own terminal — follows the same identity. Off leaves your terminal's `gh` session untouched."
+          >
+            <label className="flex cursor-pointer items-start gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={syncGhAuthSwitch}
+                onChange={(event) => setSyncGhAuthSwitch(event.target.checked)}
+                className="mt-0.5 accent-[hsl(var(--primary))]"
+              />
+              <span>Run `gh auth switch` when the active GitHub account changes</span>
+            </label>
+          </Field>
+        </div>
+      </Accordion>
+
+      {activeAccount ? <ReachableReposSection account={activeAccount} /> : null}
+
       <Accordion title="How this works" icon={<LuInfo className="h-4 w-4" />}>
         <div className="flex flex-col gap-2 p-3 text-[11px] leading-relaxed text-muted-foreground">
           <p>
@@ -203,5 +257,78 @@ function AccountRow({
         <LuTrash2 className="h-3.5 w-3.5" />
       </button>
     </div>
+  );
+}
+
+/**
+ * "Repositories I can reach" for the active account (Phase 90 Theme C) — a
+ * listing, not an auto-clone: nothing lands on disk until the user picks a
+ * destination via the native folder dialog `useCloneReachableRepo` opens.
+ *
+ * `unsupported` for every kind but `github` reads plainly rather than as an
+ * empty list, matching `capabilitiesFor`'s own `repoListing: 'none'` for
+ * GitLab, Bitbucket and Azure DevOps until Themes E-G land a real adapter —
+ * this page never pretends a listing it cannot produce.
+ */
+function ReachableReposSection({ account }: { account: ForgeAccount }) {
+  const { data: result, isLoading } = useReachableRepos(account.id);
+  const { pickAndClone, isPending } = useCloneReachableRepo();
+  const [cloningFullName, setCloningFullName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const clone = async (repo: ReachableRepo) => {
+    setError(null);
+    setCloningFullName(repo.fullName);
+    const outcome = await pickAndClone(repo.url, repo.name);
+    setCloningFullName(null);
+    if (outcome && !outcome.ok) setError(outcome.message);
+  };
+
+  return (
+    <Accordion
+      title="Reachable repositories"
+      icon={<LuCloudDownload className="h-4 w-4" />}
+    >
+      <div className="flex flex-col gap-2 p-3">
+        {isLoading ? (
+          <p className="text-[11px] text-muted-foreground">Loading…</p>
+        ) : !result || !result.ok ? (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {!result || result.reason === 'unsupported'
+              ? `Reachable-repo listing isn't available for ${PROVIDER_LABEL[account.kind as SupportedKind] ?? account.kind} yet.`
+              : (result.message ?? 'Could not load this account’s repositories.')}
+          </p>
+        ) : result.repos.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">
+            No repositories found for {account.login}.
+          </p>
+        ) : (
+          result.repos.map((repo) => (
+            <div
+              key={repo.fullName}
+              className="flex items-center gap-2 rounded-md border border-border/60 bg-card/50 px-2 py-1.5"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium">{repo.fullName}</p>
+              </div>
+              {repo.private ? <LuLock className="h-3 w-3 shrink-0 text-muted-foreground" /> : null}
+              <button
+                type="button"
+                onClick={() => void clone(repo)}
+                disabled={isPending && cloningFullName === repo.fullName}
+                className="h-6 shrink-0 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isPending && cloningFullName === repo.fullName ? 'Cloning…' : 'Clone…'}
+              </button>
+            </div>
+          ))
+        )}
+        {error ? (
+          <p role="alert" className="text-[11px] text-red-500">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </Accordion>
   );
 }
