@@ -1,12 +1,12 @@
 import { expect, type Page } from '@playwright/test';
-import {
-  capabilitiesFor,
-  type BatteryReading,
-  type ForgeKind,
-  type Note,
-  type SyncStatusEvent,
-  type TestPackage,
-  type TestRunResult,
+import type {
+  BatteryReading,
+  ForgeCapability,
+  ForgeKind,
+  Note,
+  SyncStatusEvent,
+  TestPackage,
+  TestRunResult,
 } from '@midnite/studio-shared';
 
 /**
@@ -1659,17 +1659,34 @@ export function buildMockBridge(data: MockFixtures) {
         The account registry's IPC surface (Phase 90 Theme B), repo-agnostic
         like the real `forge-account-handlers.ts`. Only `capabilities` has a
         caller today (`app.tsx`'s `FORGE_GATED_VIEWS` gate, Theme H) — it
-        mirrors the real handler exactly (`capabilitiesFor(kind)`, the same
-        exhaustive matrix `packages/shared` ships) rather than reading a
-        fixture, so a spec never has to seed a capability record for a repo
-        it already declared a `forge`/`remotes` fixture for.
+        answers with the same two rows the real `capabilitiesFor` matrix
+        does (`'full'` for github, `'none'` for every other kind, until
+        Themes E-G ship real adapters) rather than reading a fixture, so a
+        spec never has to seed a capability record for a repo it already
+        declared a `forge`/`remotes` fixture for.
+        Reimplemented rather than imported: `@midnite/studio-shared` is a
+        CommonJS package, and this file's e2e specs run under Node's own
+        ESM loader outside Vite's bundler, which cannot resolve a named
+        export off a CJS module here the way `app.tsx`'s Vite-bundled
+        import of the same function can.
       */
     forgeAccounts: {
       list: async () => [],
       add: async () => ({ ok: false as const, error: 'not implemented in the mock bridge' }),
       remove: async () => ({ ok: false }),
       switch: async () => ({ ok: false, activeAccountId: null }),
-      capabilities: async (req: { kind: ForgeKind }) => capabilitiesFor(req.kind),
+      capabilities: async (req: { kind: ForgeKind }): Promise<ForgeCapability> => {
+        const level = req.kind === 'github' ? ('full' as const) : ('none' as const);
+        return {
+          pulls: level,
+          issues: level,
+          checks: level,
+          projects: level,
+          threadResolution: level,
+          requestChanges: level,
+          repoListing: level,
+        };
+      },
     },
     /*
         ProjectV2 (Phase 40 Theme G), its own IPC namespace in the real
