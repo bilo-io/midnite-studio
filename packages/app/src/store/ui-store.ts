@@ -912,6 +912,16 @@ export type UiState = {
   setOnboardedAt: (timestamp: string | null) => void;
   showOnboarding: boolean;
   setShowOnboarding: (show: boolean) => void;
+  /**
+   * Which optional onboarding wizard steps (Phase 90 Theme I) the user chose
+   * Skip on, by `WizardStep['id']`. Not cleared once the modal closes —
+   * `accounts-page.tsx` reads it to say "you skipped this" and offer the
+   * step again, and a skip the app forgets is a step the user can never
+   * find. Cleared per-step by `setOnboardingStepSkipped(id, false)` once the
+   * user acts on the offer (connects a forge, or dismisses the notice).
+   */
+  onboardingSkippedStepIds: string[];
+  setOnboardingStepSkipped: (stepId: string, skipped: boolean) => void;
   /** Councils' right configuration panel, collapsed to a rail (Phase 42 Theme B). */
   councilConfigCollapsed: boolean;
   setCouncilConfigCollapsed: (collapsed: boolean) => void;
@@ -1921,6 +1931,7 @@ export type PersistedUi = Pick<
   | 'updateChannel'
   | 'onboardedAt'
   | 'showOnboarding'
+  | 'onboardingSkippedStepIds'
   | 'councilConfigCollapsed'
   | 'inactivityTimeoutS'
   | 'workflowDefaultTimeoutS'
@@ -2321,6 +2332,15 @@ export const useUiStore = create<UiState>()(
       setOnboardedAt: (onboardedAt) => set({ onboardedAt }),
       showOnboarding: true,
       setShowOnboarding: (showOnboarding) => set({ showOnboarding }),
+      onboardingSkippedStepIds: [],
+      setOnboardingStepSkipped: (stepId, skipped) =>
+        set((state) => ({
+          onboardingSkippedStepIds: skipped
+            ? state.onboardingSkippedStepIds.includes(stepId)
+              ? state.onboardingSkippedStepIds
+              : [...state.onboardingSkippedStepIds, stepId]
+            : state.onboardingSkippedStepIds.filter((id) => id !== stepId),
+        })),
       councilConfigCollapsed: false,
       setCouncilConfigCollapsed: (councilConfigCollapsed) => set({ councilConfigCollapsed }),
 
@@ -2811,6 +2831,7 @@ export const useUiStore = create<UiState>()(
          * written down means it is re-raised over the whole app on every single
          * launch — and the only way past it is to dismiss it again. */
         showOnboarding: state.showOnboarding,
+        onboardingSkippedStepIds: state.onboardingSkippedStepIds,
         councilConfigCollapsed: state.councilConfigCollapsed,
         inactivityTimeoutS: state.inactivityTimeoutS,
         cycleDurationS: state.cycleDurationS,

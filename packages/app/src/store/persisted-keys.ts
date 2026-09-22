@@ -159,6 +159,7 @@ export const SESSION_STATE_KEYS = [
   'graphColumns', // drag-resized pixel widths, clamped at runtime by useGraphColumns — a measurement, not a visibility choice
   'layout', // drag-resized pane pixel sizes — a measurement, not a visibility choice
   'onboardedAt', // one-way first-run lifecycle latch
+  'onboardingSkippedStepIds', // wizard skip history — surfaced read-only by accounts-page.tsx's banner, not itself a setting
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo
   'projectViewByProject', // last-viewed view per project

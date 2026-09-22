@@ -1,6 +1,53 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-22 — Phase 90 Theme I — the onboarding wizard, and Theme H's deferred "here's the limit" sentence
+
+[PR #507](https://github.com/bilo-io/midnite-studio/pull/507).
+
+**Theme I** — there was no setup wizard anywhere in this app; `onboarding-modal.tsx` was a single
+first-run screen with three hard-coded status rows and one "Get Started" button. Built the step frame
+first, narrowly, as the phase doc's own grounding required: a `WizardStep` model (`{id, title,
+optional, Component}`, `onboarding/wizard-step.ts` + `onboarding-steps.ts`) in the same flat-array
+shape `sections/registry.ts`/`AGENT_COMMAND_GROUPS` already use, Back/Skip/Continue footer controls
+with Skip rendered only on `optional` steps, and Escape/the close button now behave as "skip the
+rest" via `useDismiss` (`onboarding-modal.tsx` had never joined Phase 62's dismissal stack before
+this PR). A skip is remembered — `ui-store.ts`'s new `onboardingSkippedStepIds` (persisted,
+`SESSION_STATE_KEYS`) — and `accounts-page.tsx` now shows "you skipped connecting a forge during
+setup" with a dismiss, so a skip the app forgot is no longer a step the user can never find.
+
+Step one's three literal rows ("Git Binary / System / Dugite", "/bin/zsh", "midnite-studio") became
+real by reusing `HealthChecklist` (`settings/settings-pages/health-page.tsx`) rather than re-deriving
+the same `window.midniteStudio.systemHealth()` facts a second way — the same component
+`first-run-modal.tsx` already shows in `compact` mode. Step two, optional, is "Connect your forges":
+four provider cards (`onboarding/steps/forge-connect-step.tsx`) reusing `accounts-page.tsx`'s own
+`useAddForgeAccount`/`PROVIDER_HOST`/`PROVIDER_LABEL`/`PROVIDER_TOKEN_HINT` (now exported so the two
+surfaces read identical scope text rather than a copy that can drift), GitHub needing no token
+(`gh` detection), the other three taking a pasted PAT validated by Theme B's `whoami` call.
+
+**Found along the way, not fixed here:** a second first-run modal, `first-run-modal.tsx` (gated on
+`onboardedAt` rather than `showOnboarding`), renders simultaneously with this one on a genuinely
+first run — recorded in `outstanding.md`.
+
+**Theme H's remaining item** — "a `'partial'` capability shows its limits in place, once, where the
+limit bites" was deferred when that theme landed (PR #502) because no provider could report
+`'partial'` yet. Bitbucket (#504) and GitLab (#505) since landed the phase's first two genuinely
+mixed capability rows, unblocking it: a one-line note under the Projects view's header for GitLab's
+`projects: 'partial'` (Issue Boards mapped through one synthetic label-backed field, not ProjectV2's
+typed custom fields) and a one-line note above the PR Files tab's thread list for Bitbucket's
+`threadResolution: 'partial'` (no thread object, only a flat `parent.id` chain, so resolving one
+comment resolves the whole chain) — both worded directly off `forge-account.ts`'s own
+`GITLAB_CAPABILITY`/`BITBUCKET_CAPABILITY` docblocks rather than invented text. New
+`useActiveForgeCapability(repoId)` in `services/queries.ts` composes `useRemotes` +
+`useForgeCapabilities` — the same pairing `app.tsx`'s nav gate already does inline — so the two views
+share one hook.
+
+**Found along the way, not fixed here:** Theme G (PR #506) landed the same day and gave Azure a third
+real `'partial'` row, `requestChanges: 'partial'` — but nothing in the Reviews view reads
+`requestChanges` at all yet, so there is no existing sentinel to attach a sentence to. Recorded in
+`outstanding.md` as its own follow-up (gating the Request Changes control itself), not folded into
+this PR's scope.
+
 ## 2026-09-22 — Phase 90 Theme G — the Azure DevOps adapter, and the last of the three
 
 [PR #506](https://github.com/bilo-io/midnite-studio/pull/506).

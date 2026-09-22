@@ -46,6 +46,7 @@ import type {
   TestTrustStatus,
   Worktree,
 } from '@midnite/studio-shared';
+import { pickForgeRemote } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useUiStore } from '../store/ui-store';
@@ -885,6 +886,22 @@ export function useForgeCapabilities(kind: ForgeKind) {
       },
     staleTime: Infinity,
   });
+}
+
+/**
+ * The active repo's forge kind and its capability matrix, composed from
+ * `useRemotes` + `useForgeCapabilities` — the same two-query pairing
+ * `app.tsx`'s `useForgeViewAvailability` already does inline for the nav
+ * gate. Factored out here because Phase 90 Theme H's "here's the limit"
+ * sentence needs it in two views (`ProjectsView`, `PrDetail`) instead of one,
+ * and `app.tsx`'s own copy stays inline — it answers a different question
+ * (a boolean per view) and isn't `capabilitiesFor`'s to touch.
+ */
+export function useActiveForgeCapability(repoId: string | null) {
+  const remotes = useRemotes(repoId);
+  const kind = pickForgeRemote(remotes.data ?? [])?.forge?.kind ?? null;
+  const capabilities = useForgeCapabilities(kind ?? 'unknown');
+  return { kind, capability: capabilities.data };
 }
 
 /**
