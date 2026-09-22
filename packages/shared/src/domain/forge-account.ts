@@ -219,10 +219,10 @@ const GITLAB_CAPABILITY: ForgeCapability = {
  * GitHub reports `full` because its adapter (`main/forge/github/`, Theme D)
  * already implements every read and write this schema describes. GitLab
  * reports its own row (Theme E) now that a real adapter exists to serve it —
- * see {@link GITLAB_CAPABILITY}. Azure DevOps still reports `none` — not
- * because it lacks the capability, but because no adapter exists yet to
- * serve it: Theme G is what turns it into a real row here. `unknown` reports
- * `none` too, since it is never a supported-account kind. `capabilities.test.ts`
+ * see {@link GITLAB_CAPABILITY}. Azure DevOps reports its own row (Theme G) —
+ * see {@link AZURE_CAPABILITY} — the third and last of the HTTP-backed
+ * providers this phase adds. `unknown` reports `none`, since it is never a
+ * supported-account kind. `capabilities.test.ts`
  * is what asserts this exhaustiveness at the value level, not just the type
  * level — a `Record` can still be filled in wrong.
  *
@@ -246,11 +246,31 @@ const BITBUCKET_CAPABILITY: ForgeCapability = {
   threadResolution: 'partial',
 };
 
+/**
+ * Azure DevOps's row (Phase 90 Theme G) — the third provider, and the one
+ * that reports `projects: 'full'` for the first time: Boards Columns'
+ * `stateMappings` gives a genuine per-column, per-work-item-type state
+ * table (`azure-board.ts`), a real kanban with no synthetic label rewrite
+ * the way GitLab's `'partial'` row needs. `requestChanges` is honestly
+ * `'partial'` rather than `'full'` or `'none'` — Azure's reviewer vote *does*
+ * carry a real reject (`-10`), so the capability exists, but it is a single
+ * numeric vote with no attached review body of its own the way GitHub's
+ * `REQUEST_CHANGES` review carries one (the vote and the comment are two
+ * separate writes here — see `azure-writes.ts`'s `reviewPull`). Every other
+ * field is `'full'`: pull requests, work items (mapped honestly as work
+ * items, not issues — see `azure-reads.ts`), pipelines and PR thread
+ * resolution are all complete reads and writes.
+ */
+const AZURE_CAPABILITY: ForgeCapability = {
+  ...FULL_CAPABILITY,
+  requestChanges: 'partial',
+};
+
 const CAPABILITIES_BY_KIND: Record<ForgeKind, ForgeCapability> = {
   github: FULL_CAPABILITY,
   gitlab: GITLAB_CAPABILITY,
   bitbucket: BITBUCKET_CAPABILITY,
-  azure: NO_CAPABILITY,
+  azure: AZURE_CAPABILITY,
   unknown: NO_CAPABILITY,
 };
 

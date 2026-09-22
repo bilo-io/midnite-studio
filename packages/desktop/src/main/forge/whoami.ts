@@ -137,7 +137,13 @@ async function bitbucketWhoami(token: string): Promise<WhoamiResult | null> {
  * no traditional login: identity there is the profile's email, so that is
  * what this reports as `login`.
  */
-async function azureWhoami(token: string): Promise<WhoamiResult | null> {
+/**
+ * Exported so `azure/create-azure-adapter.ts` (Phase 90 Theme G) can bind it
+ * as `ForgeAdapter.whoami` and reuse it — the same "reuse the per-kind
+ * implementation rather than a second one" rule `gitlabWhoami`'s own
+ * docblock already follows for GitLab.
+ */
+export async function azureWhoami(token: string): Promise<WhoamiResult | null> {
   const basic = Buffer.from(`:${token}`, 'utf8').toString('base64');
   const row = await fetchJson(
     'https://vssps.dev.azure.com/_apis/profile/profiles/me?api-version=7.1',
