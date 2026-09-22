@@ -71,13 +71,13 @@ Two sites load `FitAddon` only, never `WebglAddon`, so they carry no WebGL risk 
 - [x] [`live-session-terminal.tsx`](../../../packages/app/src/features/sessions/live-session-terminal.tsx). Same finding, same reason.
 - [x] Confirmed both still render under v6 with no WebGL context allocated — asserted, not assumed: `grep` across both files for `@xterm/addon-webgl`/`WebglAddon` finds only the pre-existing doc comments describing the DOM-only design; a new test in each of `transcript-view.test.tsx` and `live-session-terminal.test.tsx` tracks every `Terminal.loadAddon` call and asserts exactly one is ever made, with a `FitAddon` instance — never a `WebglAddon` — so a future change that made WebGL the implicit default fails this test rather than surfacing only as pressure on `xterm-budget.ts`'s `MAX_WEBGL_CONTEXTS`.
 
-### D — `ITheme`, and the reach into the theme engine (S)
+### D — `ITheme`, and the reach into the theme engine (S) — ✅ DONE
 
 The one place this migration escapes `features/terminal/`.
 
-- [ ] Diff v6's `ITheme` against ours and update [`theme-types.ts`](../../../packages/app/src/features/themes/theme-types.ts) and [`vscode-theme-importer.ts`](../../../packages/app/src/features/themes/importers/vscode-theme-importer.ts).
-- [ ] Confirm a VS Code theme import still produces a valid terminal palette end to end — the blast radius is type-only, but a dropped or renamed colour key is exactly what typecheck passes and the eye catches.
-- [ ] If v6 added `ITheme` keys, decide whether the importer should map them or leave them defaulted, and record it in Decisions.
+- [x] Diff v6's `ITheme` against ours and update [`theme-types.ts`](../../../packages/app/src/features/themes/theme-types.ts) and [`vscode-theme-importer.ts`](../../../packages/app/src/features/themes/importers/vscode-theme-importer.ts). **No source edit needed** — confirmed against the real installed `xterm.d.ts`: v6 adds exactly the four optional keys Theme A's Decisions already recorded (`scrollbarSliderBackground`, `scrollbarSliderHoverBackground`, `scrollbarSliderActiveBackground`, `overviewRulerBorder`), nothing removed or renamed among the keys either file uses (`background`, `foreground`, `cursor`, `selectionBackground`, the 16 ANSI keys). `theme-types.ts`'s `ANSI_KEYS` still `satisfies readonly (keyof ITheme)[]`.
+- [x] Confirm a VS Code theme import still produces a valid terminal palette end to end — the blast radius is type-only, but a dropped or renamed colour key is exactly what typecheck passes and the eye catches. **Confirmed with a runtime check, not just typecheck**: new `itheme-conformance.test.ts` constructs a real v6 `Terminal`, feeds it `importVsCodeTheme`'s own output for a real fixture (`synthwave-84.json`), and reads xterm's real (non-public) `ThemeService.colors` back out — proving every ANSI/background/foreground key `mapTerminal` produces is the key xterm actually applies, not merely a key that type-checks.
+- [x] If v6 added `ITheme` keys, decide whether the importer should map them or leave them defaulted, and record it in Decisions. **Already resolved in this doc's Decisions section** (leave the four new keys defaulted — VS Code's theme JSON has no equivalent concept for any of them); this theme adds no new decision, only the runtime confirmation above.
 
 ### E — The attach test, replacing the guard v6 removed (S)
 
@@ -118,8 +118,9 @@ Both were deferred *on the assumption* that a bump would fix them. The deliverab
 | [`features/terminal/terminal-links.test.ts`](../../../packages/app/src/features/terminal/terminal-links.test.ts) | New real-`Terminal` describe block, the "real check" `ILinkProvider` asked for (B) |
 | [`features/sessions/transcript-view.tsx`](../../../packages/app/src/features/sessions/transcript-view.tsx) | DOM-renderer `FitAddon` site (C) |
 | [`features/sessions/live-session-terminal.tsx`](../../../packages/app/src/features/sessions/live-session-terminal.tsx) | DOM-renderer `FitAddon` site (C) |
-| [`features/themes/theme-types.ts`](../../../packages/app/src/features/themes/theme-types.ts) | `ITheme` (D) |
-| [`features/themes/importers/vscode-theme-importer.ts`](../../../packages/app/src/features/themes/importers/vscode-theme-importer.ts) | `ITheme` (D) |
+| [`features/themes/theme-types.ts`](../../../packages/app/src/features/themes/theme-types.ts) | `ITheme` (D) — verified, no edit |
+| [`features/themes/importers/vscode-theme-importer.ts`](../../../packages/app/src/features/themes/importers/vscode-theme-importer.ts) | `ITheme` (D) — verified, no edit |
+| `features/themes/itheme-conformance.test.ts` *(new)* | Real-`Terminal` `ThemeService` check: every documented `ITheme` key, plus a real VS Code import, end to end (D) |
 | `features/terminal/xterm-attach.test.ts` *(new)* | The replacement guard (E) |
 | [`.midnite/tasks/outstanding.md`](../outstanding.md) | Delete or re-park the unmount-throw entry (F) |
 
@@ -251,3 +252,22 @@ Both were deferred *on the assumption* that a bump would fix them. The deliverab
   neither `@xterm/xterm` 6.0.0 nor `@xterm/addon-webgl` 0.19.0 read or report that count anywhere
   in their typings or built source. There is no mechanism by which this bump could have moved the
   number the budget rations against, so "confirm, don't retune" resolves to "confirmed inert."
+- **Resolved — Theme D lands alone, unattended, no `theme-types.ts`/`vscode-theme-importer.ts`
+  source edits.** Confirmed empirically against the real installed `@xterm/xterm@6.0.0`
+  `xterm.d.ts` and `ThemeService.ts` (not the changelog): the only `ITheme` delta is the four new
+  optional keys Theme A's own Decisions bullet above already named
+  (`scrollbarSliderBackground`/`scrollbarSliderHoverBackground`/`scrollbarSliderActiveBackground`/
+  `overviewRulerBorder`) — additive, nothing removed or renamed among `background`, `foreground`,
+  `cursor`, `selectionBackground` or the 16 ANSI keys either file reads or writes. "Diff v6's
+  `ITheme` against ours" turned out to mean "verify," the same shape Theme B's own resolution
+  found for `terminal-view.tsx`. The one genuinely new thing this theme adds is a runtime guard
+  typecheck cannot provide: `itheme-conformance.test.ts` constructs a real v6 `Terminal`, reads
+  xterm's own (non-public) `ThemeService.colors` back out — `browser/services/ThemeService.ts`'s
+  `_setTheme` reads each `ITheme` key by name into `colors.*`/`colors.ansi[0..15]` — and asserts,
+  for a full synthetic `ITheme` (one sentinel colour per key, core + all 16 ANSI + the four new
+  v6 keys) and separately for `importVsCodeTheme`'s real output against the `synthwave-84.json`
+  fixture, that every key our theme engine and the VS Code importer set is the key xterm actually
+  applied. A future major that silently stopped reading, or renamed, one of these keys would
+  still satisfy `ITheme`'s type (everything on it is optional) and pass `typecheck` clean; this
+  is what would catch it instead — the same class of "the lockfile/type system can no longer tell
+  us" gap Theme E's attach test closes for the addon/core binding itself.
