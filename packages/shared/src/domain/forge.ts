@@ -214,12 +214,24 @@ export const ForgePullScopeSchema = z.enum(['all', 'mine', 'review-requested']);
 export type ForgePullScope = z.infer<typeof ForgePullScopeSchema>;
 
 /**
- * Whether the `gh` CLI can answer at all, and why not when it can't.
+ * Whether this account can currently reach its forge, and why not when it can't.
  *
- * Modelled as a reason code plus a message rather than a bare boolean because
- * the three failures need three different sentences in the UI: "install gh",
- * "run gh auth login", and "gh is there but the call failed". A single
- * `available: false` would collapse them into an unactionable "unavailable".
+ * Written when `gh` was the only credential path this app had; that stopped
+ * being true once Phase 90 gave GitLab, Bitbucket and Azure DevOps their own
+ * HTTP adapters (all three built over `main/forge/http.ts`'s
+ * `forgeHttpRequest`/`ForgeHttpAuth`) authenticated with a vaulted personal
+ * access token rather than a local binary. Only GitHub still delegates to the
+ * `gh` CLI (`delegated: 'gh'`); the other three never shell out at all, so
+ * `not-installed` is unreachable for them — there is nothing to install — and
+ * each adapter's own `*CliStatus` (`gitlabCliStatus`, `bitbucketCliStatus`,
+ * `azureCliStatus`) collapses straight to `ready`/`not-authenticated`, the
+ * same overload `noForgeStatus()` already makes for a forge kind with no
+ * adapter at all. `not-authenticated` covers two cases for every provider —
+ * "no account is active" and "the stored credential was rejected" — a
+ * single `available: false` would collapse all of this into an unactionable
+ * "unavailable". `binPath` stays `gh`'s alone: always `null` for the three
+ * HTTP adapters, populated only when GitHub's own probe (`ghStatus` in
+ * `gh-shell.ts`) resolves the binary.
  */
 export const ForgeCliReasonSchema = z.enum(['ready', 'not-installed', 'not-authenticated']);
 export type ForgeCliReason = z.infer<typeof ForgeCliReasonSchema>;

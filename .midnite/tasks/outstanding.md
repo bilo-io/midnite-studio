@@ -449,36 +449,6 @@ Whoever picks these up should decide per pair whether the earlier view legitimat
 (then move it out of the later view's keywords, or rename) or not (then drop the token), and remove
 the corresponding entry from `KNOWN_PRE_EXISTING`.
 
-## Phase 90 · Theme B — the redaction pattern is genuinely deferred to Themes E/F/G
-
-Theme B's own checklist carries a bullet — "Add a redaction pattern per provider shipped" — that
-reads, on its own, like a Theme B deliverable. Re-grounded while closing out Theme B's other two
-open items (the `ui-store.ts` settings and the `shell.openExternal` scheme check): it isn't one, and
-the bullet's own text already says why — "each pattern lands **in the same PR as its provider** (E,
-F, G)". Theme B ships zero new *providers*; GitLab, Bitbucket and Azure DevOps get accounts and a
-`whoami` call, but their adapters (and therefore their real token shapes reaching a log) don't exist
-until Themes D-G land. `shared/src/redact.ts` today covers exactly the shapes the app can actually
-produce (`gh[pousr]_`, `github_pat_`, `sk-ant-`, `Bearer …`, URL userinfo) — adding a `glpat-`/
-`gloas-`/`ATBB`/`ATCTT` pattern now would be guessing at a shape no adapter has confirmed, against a
-provider whose write surface doesn't emit anything to redact yet.
-
-Left as an open checklist item on Theme B's doc rather than checked or half-built. Whoever lands
-Theme E, F or G should add that provider's own pattern to `shared/src/redact.ts` **in the same PR**,
-per the phase doc's existing instruction — Phase 91 Theme G is what turns "every shipped provider
-has a pattern" into an assertion rather than a convention.
-
-**Theme F landed its pattern** (PR #504): an Atlassian API token — `ATATT3x…` — is the shape
-Bitbucket Cloud issues for a workspace/repository access token, and the credential this adapter's
-`bitbucket-client.ts` stores and sends as the Basic-auth password. This corrects this note's own
-earlier guess (`ATBB`/`ATCTT`, never confirmed against a real token). A legacy Bitbucket **App
-Password** has no fixed prefix — it is an opaque random string — so it is not matched by a dedicated
-pattern; the existing generic `Bearer|Basic|token …` pattern still catches one echoed inside an
-`Authorization` header.
-
-**GitLab's slice closed with Theme E** (PR #505): `glpat-`/`gldt-`/`glrt-` landed in `redact.ts` in
-the same PR as `main/forge/gitlab/`. Only Azure DevOps (a bare base64 PAT with no recognisable shape
-at all) remains open, in Theme G.
-
 - **The Reviews view never reads `requestChanges` from the capability matrix.** Phase 90 Theme H
   (PR #507) added the "here's the limit" sentence for the two `'partial'` capabilities that existed
   in its own scope — GitLab's `projects` and Bitbucket's `threadResolution`. Theme G (PR #506)
