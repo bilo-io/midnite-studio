@@ -352,14 +352,15 @@ existing forge tests pass untouched.
 - [x] `main/forge/registry.ts` — `adapterFor(forge: Forge, account: ForgeAccount | null)`, the single
       dispatch point. `forge-handlers.ts`'s handlers call it instead of calling `gh-cli.ts`
       directly, and the handlers themselves become provider-blind.
-- [ ] `main/forge/http.ts` — the shared HTTP client the three new adapters use: bearer/basic auth per
+- [x] `main/forge/http.ts` — the shared HTTP client the three new adapters use: bearer/basic auth per
       provider, a JSON envelope, `Retry-After` honoured, a per-host request budget. It is a **sibling
       of `gh-shell.ts`, not a replacement** — GitHub keeps its subprocess path. Model it on
       [`api-client/send.ts`](../../../packages/desktop/src/main/api-client/send.ts) and
       [`workflow/executors/http.ts`](../../../packages/desktop/src/main/workflow/executors/http.ts),
-      which already do HTTP in main, rather than adding a fourth style. **Deferred**: no consumer
-      exists in this batch (Themes E-G); building it unused would be speculative. The next provider
-      theme builds it against its own first real caller.
+      which already do HTTP in main, rather than adding a fourth style. Built by Theme E (PR #505)
+      against its own first real caller, exactly as this note anticipated — auth as a strategy
+      (`bearer`/`basic`/`header`), not a header string, so Bitbucket's Basic and Azure's
+      empty-username Basic (Themes F/G) drop in without a second client.
 - [ ] `ForgeCliStatus`'s three reasons (`ready`, `not-installed`, `not-authenticated`) are `gh`'s
       vocabulary. They keep working for GitHub; for an HTTP adapter `not-installed` is impossible and
       `not-authenticated` means "no account, or its token was rejected". Say that in the schema's
@@ -367,38 +368,38 @@ existing forge tests pass untouched.
       for reusing `not-installed`. **Deferred alongside `http.ts`** — the same "no HTTP adapter exists
       yet" reason.
 
-### E — GitLab (XL)
+### E — GitLab (XL) ✅ DONE (PR #505, 2026-09-22)
 
 The closest to parity, and the one where nothing has to be explained away.
 
-- [ ] `main/forge/gitlab/` over REST v4 with a PAT (`api` scope; `read_api` is enough for the reads
+- [x] `main/forge/gitlab/` over REST v4 with a PAT (`api` scope; `read_api` is enough for the reads
       and is what the settings page should recommend first). **`glab` is deliberately not used** —
       see Decisions.
-- [ ] Merge requests → `ForgePull`. `GET /projects/:id/merge_requests`; `iid` is the number a user
+- [x] Merge requests → `ForgePull`. `GET /projects/:id/merge_requests`; `iid` is the number a user
       sees, `id` is global, and confusing the two is the classic GitLab integration bug — carry `iid`
       as `number` and the global id as the node id.
-- [ ] Issues → `ForgeIssue`, `GET /projects/:id/issues`. Vocabulary maps cleanly (`opened`/`closed`
+- [x] Issues → `ForgeIssue`, `GET /projects/:id/issues`. Vocabulary maps cleanly (`opened`/`closed`
       → `open`/`closed`).
-- [ ] Pipelines and jobs → `ForgeRun`/`ForgeJob`, `GET /projects/:id/pipelines` +
+- [x] Pipelines and jobs → `ForgeRun`/`ForgeJob`, `GET /projects/:id/pipelines` +
       `/pipelines/:id/jobs`, with logs from `/jobs/:id/trace`. GitLab's statuses
       (`created`, `waiting_for_resource`, `preparing`, `pending`, `running`, `success`, `failed`,
       `canceled`, `skipped`, `manual`, `scheduled`) map onto
       `ForgeRunStatusSchema`/`ForgeRunConclusionSchema`'s GitHub vocabulary — the mapping table is
       code with a test, not a comment.
-- [ ] MR discussions → `ForgeReviewThread`. `GET /merge_requests/:iid/discussions` is genuinely
+- [x] MR discussions → `ForgeReviewThread`. `GET /merge_requests/:iid/discussions` is genuinely
       threaded and genuinely resolvable, so `setThreadResolved` has a real implementation here —
       unlike two of the other three.
-- [ ] Approvals → `reviewDecision`. `GET /merge_requests/:iid/approvals` gives approved-by and rules;
+- [x] Approvals → `reviewDecision`. `GET /merge_requests/:iid/approvals` gives approved-by and rules;
       map to `APPROVED` / `REVIEW_REQUIRED`. **GitLab has no `CHANGES_REQUESTED`** — an unapproval is
       not a request for changes — so that arm is unreachable, and the mapper should say so rather than
       guess.
-- [ ] **Issue Boards → `ForgeProject`.** `GET /projects/:id/boards` and its lists are a real kanban
+- [x] **Issue Boards → `ForgeProject`.** `GET /projects/:id/boards` and its lists are a real kanban
       and the closest analogue to ProjectV2. Its "fields" are label-backed lists rather than typed
       custom fields, so `ForgeProjectField` carries a single synthetic single-select field whose
       options are the board's lists — honest, and enough to drive the existing
       [`board-view.tsx`](../../../packages/app/src/features/projects/board/board-view.tsx).
       Epics are **out** (GitLab Premium).
-- [ ] Writes: comment on an MR or issue, approve/unapprove, resolve a discussion, close/reopen an
+- [x] Writes: comment on an MR or issue, approve/unapprove, resolve a discussion, close/reopen an
       issue. Nothing that needs a picker.
 
 ### F — Bitbucket Cloud (XL) ✅ DONE (PR #504, 2026-09-22)

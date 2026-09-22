@@ -18,9 +18,10 @@ Bitbucket's real board — is a different product, a different phase.
 Built `main/forge/http.ts`, the provider-neutral HTTP client Theme D deferred ("the next provider
 theme builds it against its own first real caller") — auth-as-strategy, a per-host sliding-window
 budget, one bounded retry on 429 honouring `Retry-After`. Kept provider-neutral rather than
-Bitbucket-shaped so Themes E/G can adopt it. **Left for whoever merges second against Theme E**: both
-themes independently wrote this file: adopt Theme E's version and port this adapter's call sites onto
-it, rather than hand-merging two structurally similar clients.
+Bitbucket-shaped so Themes E/G can adopt it. **This PR merged first**, so its `http.ts` is the one
+that stuck: Theme E (PR #505, landing right after) had independently written a near-identical client
+under the same path and reconciled onto this one instead, porting `gitlab/gitlab-client.ts`'s calls
+onto `forgeHttpRequest` rather than the two clients hand-merging.
 
 `capabilitiesFor('bitbucket')` is the phase's first genuinely mixed capability row — `projects: 'none'`,
 `threadResolution: 'partial'` (Bitbucket has no thread object at all), everything else `'full'`. First
@@ -43,6 +44,46 @@ CLAUDE.md's blast-radius convention makes a `0` there actively wrong rather than
 Also added: the Atlassian API token pattern (`ATATT3x…`) to `redact.ts` — the shape Bitbucket issues
 for a workspace/repository access token — correcting `outstanding.md`'s earlier unconfirmed guess
 (`ATBB`/`ATCTT`).
+
+## 2026-09-22 — Phase 90 Theme E — GitLab, the third `ForgeAdapter`
+
+[PR #505](https://github.com/bilo-io/midnite-studio/pull/505).
+
+All 8 checklist items, over REST v4 with a PAT (`glab` deliberately not used — the phase doc's own
+decision: one HTTP path for every non-GitHub provider beats a third architecture for GitLab alone).
+`main/forge/gitlab/` — pipelines/jobs → `ForgeRun`/`ForgeJob` (GitLab's `created`/`pending`/`running`/
+`success`/`failed`/`canceled`/`skipped`/`manual`/`scheduled` mapped onto GitHub's vocabulary, a table
+with a test in `gitlab-mappers.ts`); merge requests → `ForgePull`, carrying `iid` as `number` and the
+global `id` as the node id, with `checks` read off the embedded `pipeline.status` for free; issues →
+`ForgeIssue`; MR discussions split into top-level conversation vs. diff-anchored threads; approvals →
+`reviewDecision` (`APPROVED`/`REVIEW_REQUIRED` only — GitLab has no `CHANGES_REQUESTED`, so that arm
+is unreachable by construction); Issue Boards → `ForgeProject` via one synthetic label-backed
+`single_select` field, written by rewriting the issue's labels. `reachable-repos.ts` gained a GitLab
+branch for the account picker, matching that module's own docblock naming this as Theme E's job.
+
+**`main/forge/http.ts` was independently built twice** — this branch wrote its own copy before
+discovering Theme F (PR #504) had already built and landed the provider-neutral client Theme D
+deferred, with the identical auth-as-a-strategy shape. Reconciled onto #504's version rather than
+carrying two: `gitlab-client.ts` calls `forgeHttpRequest` the same way `bitbucket-client.ts` does, and
+this branch's own `http.ts` was dropped. `registry.ts`'s `adapterFor` stayed the synchronous shape
+#504 had already settled on — closing over `account: ForgeAccount | null` and letting each adapter
+resolve its own vaulted token lazily per call, rather than the eager `async`/pre-resolved-token
+version this branch had built before that pattern existed on `main`. `forge-account.ts` gained
+GitLab's capability row: `full` on pulls, issues, checks, thread resolution and repo listing;
+`partial` on projects (a real kanban, but one synthetic field vs. ProjectV2's typed custom fields,
+Epics out); `none` on requestChanges. `redact.ts` gained `glpat-`/`gldt-`/`glrt-` token patterns.
+
+**One interface-shaped workaround, not a reshaping of `ForgeAdapter`.** `setThreadResolved(forge,
+{threadId, resolved})` carries no MR number — GitHub's GraphQL thread id is globally addressable,
+GitLab's REST resolve endpoint is a three-part key (`project/mr_iid/discussion_id`). Rather than widen
+the shared interface for one provider, the adapter encodes the MR number into the thread id it itself
+hands out (`${mrNumber}:${discussionId}`) and decodes it back in `gitlab-write.ts`.
+
+Left open, deliberately: `listPulls` leaves `reviewDecision` null (GitHub's list call gets it free;
+GitLab's does not, and paying one `/approvals` call per row wasn't worth it — `pullDetail` computes
+it); `runLog` with no `jobId` concatenates every job's trace, since GitLab has no single
+whole-pipeline-log endpoint; `mergePull('rebase')` waits a fixed 1.5s after kicking off GitLab's async
+rebase rather than polling for completion.
 
 ## 2026-09-22 — Phase 90 Theme D + Theme H — the ForgeAdapter seam and the capability matrix
 
