@@ -36,9 +36,23 @@ describe('capabilitiesFor — exhaustive over ForgeKind', () => {
 
   it('reports no capability for every kind with no adapter yet', () => {
     for (const kind of ForgeKindSchema.options) {
-      if (kind === 'github') continue;
+      if (kind === 'github' || kind === 'bitbucket') continue;
       const capability = capabilitiesFor(kind);
       expect(Object.values(capability).every((level) => level === 'none')).toBe(true);
     }
+  });
+
+  /**
+   * Bitbucket (Theme F) is the first provider to land a genuinely mixed row
+   * — the `'partial'` capability Theme H's own deferred item was waiting on.
+   */
+  it('reports Bitbucket as mostly full, with no boards and a partial thread model', () => {
+    const capability = capabilitiesFor('bitbucket');
+    expect(capability.projects).toBe('none');
+    expect(capability.threadResolution).toBe('partial');
+    const rest = { ...capability };
+    delete (rest as Record<string, unknown>)['projects'];
+    delete (rest as Record<string, unknown>)['threadResolution'];
+    expect(Object.values(rest).every((level) => level === 'full')).toBe(true);
   });
 });

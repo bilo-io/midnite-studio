@@ -35,6 +35,7 @@ describe('redactPaths', () => {
       'github_pat_11ABCDEFG0abcdefghijklmnop',
       'sk-ant-api03-abcdefghijklmnop',
       'xoxb-123456789012-abcdefghij',
+      'ATATT3xFfGF0abcdefghijklmnopqrstuvwxyz0123456789',
     ];
     for (const secret of secrets) {
       const out = redactPaths(`failed with ${secret}`, '/Users/me');

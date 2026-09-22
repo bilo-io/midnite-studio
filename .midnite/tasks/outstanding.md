@@ -466,3 +466,12 @@ Left as an open checklist item on Theme B's doc rather than checked or half-buil
 Theme E, F or G should add that provider's own pattern to `shared/src/redact.ts` **in the same PR**,
 per the phase doc's existing instruction — Phase 91 Theme G is what turns "every shipped provider
 has a pattern" into an assertion rather than a convention.
+
+**Theme F landed its pattern** (this PR): an Atlassian API token — `ATATT3x…` — is the shape
+Bitbucket Cloud issues for a workspace/repository access token, and the credential this adapter's
+`bitbucket-client.ts` stores and sends as the Basic-auth password. This corrects this note's own
+earlier guess (`ATBB`/`ATCTT`, never confirmed against a real token). A legacy Bitbucket **App
+Password** has no fixed prefix — it is an opaque random string — so it is not matched by a dedicated
+pattern; the existing generic `Bearer|Basic|token …` pattern still catches one echoed inside an
+`Authorization` header. GitLab (`glpat-`/`gloas-`) and Azure DevOps (a bare base64 PAT with no
+recognisable shape at all) remain open for Themes E and G.
