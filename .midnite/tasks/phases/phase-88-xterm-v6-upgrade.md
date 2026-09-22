@@ -87,7 +87,7 @@ The deliverable that makes #242 unrepeatable.
 - [x] It must fail against a deliberately mismatched pair — prove the test detects the #242 condition, or it is decoration. Verify by pinning a mismatched version locally, watching it go red, then reverting.
 - [x] jsdom, in the default `moon run :typecheck :lint :test` gate, per [Phase 82](phase-82-the-pyramid-righted.md)'s rule: proving an addon binds needs no browser capability. Seconds, against the ~20 minutes of e2e timeout #242 spent discovering the same fact.
 
-### F — The two debts parked on this bump (M) — ✅ DONE (PR #TBD)
+### F — The two debts parked on this bump (M) — ✅ DONE (PR #510)
 
 Both were deferred *on the assumption* that a bump would fix them. The deliverable is the finding, not a guaranteed fix.
 

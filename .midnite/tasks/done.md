@@ -26,6 +26,58 @@ palette end to end" item.
 Theme F (the two parked debts) landed separately by a parallel session; Theme G (full-phase
 verification) stays open until it does.
 
+## 2026-09-22 — Phase 88 Theme F — the two parked debts, checked against real v6 and neither fixed by it
+
+[PR #510](https://github.com/bilo-io/midnite-studio/pull/510).
+
+Both debts were deferred *on the assumption* that a v6 bump would fix them (Theme A landed the
+bump itself, PR #455). Checked against the real, shipped v6 source rather than assumed — the
+deliverable was the finding, and for both, the finding is "not fixed, for a specific reason,"
+proven with a deterministic test rather than a defensive guard.
+
+**The `Viewport.syncScrollArea` unmount throw is still reachable.** v6 rewrote `Viewport` onto
+`vs/base`'s `Scrollable`/`SmoothScrollableElement` machinery and renamed the method the original
+trace named, `syncScrollArea`, to a private `_sync` — so a fresh trace no longer reads "at
+`Viewport.syncScrollArea`". The defect it throws from is unchanged in kind:
+`RenderService.get dimensions()` still does `this._renderer.value!.dimensions`, a non-null
+assertion against a `MutableDisposable<IRenderer>` whose `.value` getter starts answering
+`undefined` (not throwing, not retaining the last value) the instant `MutableDisposable.dispose()`
+runs, and `Viewport._sync`'s own guard checks only whether the *service reference* is falsy —
+never true post-construction — not whether the service has been disposed.
+`xterm-viewport-dispose.test.ts` reproduces this deterministically: disposing the real v6
+`RenderService` xterm itself constructed, then calling the real, unmodified `Viewport._sync`,
+throws the identical `TypeError: Cannot read properties of undefined (reading 'dimensions')` the
+original trace recorded — no StrictMode/rAF race needed, the same technique Theme E used for the
+`_core._store` defect. Upstream and unpatchable from this side of the boundary without forking the
+library; `outstanding.md`'s entry is re-parked with this v6 verdict, replacing "worth revisiting on
+the next xterm bump" now that the bump has happened.
+
+**Phase 51's "fractional cell height the WebGL renderer rounds per row" never existed as
+described.** `WebglRenderer._updateDimensions()` computes exactly one `device.cell.height` per
+dimension recalculation (`Math.floor(char.height * lineHeight)`), and every row's draw position is
+that single integer times the row index (`renderLayer/BaseRenderLayer.ts`) — no rounding call
+exists anywhere in the per-row path, so no two rows can ever get a different height or accumulate
+drift. Confirmed byte-identical between `addon-webgl@0.18.0`/`xterm@5.5.0` (the pre-bump pairing)
+and `0.19.0`/`6.0.0` by diffing the two packages' shipped `WebglRenderer.ts` — the bump changed
+nothing here because there was nothing in this mechanism to change. `xterm-webgl-cell-rounding.test.ts`
+proves this against the real v6 `WebglRenderer` across four fractional font-size/line-height
+combinations, asserting an integer cell height and `canvas.height === rows * cell.height` exactly
+every time. The real "uneven text" symptom Phase 51 observed already has its own, already-shipped
+explanation — that phase's own Theme B landing note already suspected as much ("not yet the fix
+for the uneven baselines themselves — closer to Theme C's WebGL story") — and Theme C's fix (a
+pane silently, permanently falling from the WebGL renderer to the DOM renderer on context loss,
+with nothing re-acquiring one) is a real, structural cause of "two panes render differently" that
+is visually indistinguishable from "uneven rounding" absent checking which renderer each pane is
+actually on. No `outstanding.md` entry existed for this one (it lived only in Phase 51's own doc
+and this log), so the finding is recorded in Phase 88's own Decisions section rather than as a
+deletion.
+
+Both new specs are vitest/jsdom, per Phase 82's rule: both defects are reachable with a real
+`Terminal` + jsdom container + a fake WebGL2 context (construction-only, never asked to draw a
+pixel) — no real GPU, layout or browser capability needed for either. Neither finding required (or
+admits) a product-code fix, so no `terminal-view.tsx`/rendering source changed and there is
+nothing for a screenshot to show.
+
 ## 2026-09-22 — Phase 90 Themes B and D — closed out, no code change for B
 
 [PR #508](https://github.com/bilo-io/midnite-studio/pull/508).
