@@ -36,7 +36,7 @@ vi.mock('../forge/forge-accounts', () => ({
 }));
 
 const { switchGhAccount } = vi.hoisted(() => ({ switchGhAccount: vi.fn() }));
-vi.mock('../forge/gh-shell', () => ({ switchGhAccount }));
+vi.mock('../forge/github/gh-shell', () => ({ switchGhAccount }));
 
 const { listReachableRepos } = vi.hoisted(() => ({ listReachableRepos: vi.fn() }));
 vi.mock('../forge/reachable-repos', () => ({ listReachableRepos }));

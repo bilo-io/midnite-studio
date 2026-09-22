@@ -6,7 +6,7 @@ import { TempRepo, writeQueue } from '@midnite/studio-git-engine';
 import { ForgeRunSchema, MCP_TOOLS } from '@midnite/studio-shared';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import * as ghCli from '../forge/gh-cli';
+import * as ghCli from '../forge/github/gh-cli';
 import { configureRegistry, openRepo, resetRegistry } from '../repo-registry';
 import { nullRepoStore } from '../repo-store';
 import {
@@ -23,8 +23,8 @@ import {
   statusGet,
 } from './tools';
 
-vi.mock('../forge/gh-cli', async () => {
-  const actual = await vi.importActual<typeof ghCli>('../forge/gh-cli');
+vi.mock('../forge/github/gh-cli', async () => {
+  const actual = await vi.importActual<typeof ghCli>('../forge/github/gh-cli');
   return { ...actual, listPulls: vi.fn(), listRuns: vi.fn() };
 });
 

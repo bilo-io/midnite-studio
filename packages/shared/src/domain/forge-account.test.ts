@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ForgeAccountSchema,
-  capabilitiesFor,
   forgeAccountId,
   forgeAccountVaultKey,
   normalizeForgeAccountHost,
@@ -99,19 +98,5 @@ describe('normalizeForgeAccountHost', () => {
   it('rejects empty input', () => {
     expect(normalizeForgeAccountHost('')).toBeNull();
     expect(normalizeForgeAccountHost('   ')).toBeNull();
-  });
-});
-
-describe('capabilitiesFor', () => {
-  it('reports full capability for github', () => {
-    const capability = capabilitiesFor('github');
-    expect(Object.values(capability).every((level) => level === 'full')).toBe(true);
-  });
-
-  it('reports no capability for every other kind — Theme B ships accounts, not adapters', () => {
-    for (const kind of ['gitlab', 'bitbucket', 'azure', 'unknown'] as const) {
-      const capability = capabilitiesFor(kind);
-      expect(Object.values(capability).every((level) => level === 'none')).toBe(true);
-    }
   });
 });

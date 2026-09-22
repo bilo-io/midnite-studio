@@ -28,7 +28,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { requestUiAction } from '../companion/ui-bridge';
-import { listPulls, listRuns } from '../forge/gh-cli';
+import { listPulls, listRuns } from '../forge/github/gh-cli';
 import { listRepos } from '../repo-registry';
 import { McpToolError } from './errors';
 import { getMcpAllowUi } from './ui-gate';

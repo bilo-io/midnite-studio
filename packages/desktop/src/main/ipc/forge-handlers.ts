@@ -21,48 +21,27 @@ import {
   type ForgeWriteResult,
 } from '@midnite/studio-shared';
 
-import {
-  issueComments,
-  issueDetail,
-  listIssues,
-  listPulls,
-  listRuns,
-  listWorkflows,
-  pullComments,
-  pullDetail,
-  forgetRun,
-  pullFiles,
-  runDetail,
-  runLog,
-} from '../forge/gh-cli';
-import { ghStatus } from '../forge/gh-shell';
-import { pullThreads } from '../forge/gh-graphql';
-import {
-  addReviewComment,
-  commentIssue,
-  commentPull,
-  markReady,
-  mergePull,
-  replyToReviewComment,
-  requestReview,
-  rerunChecks,
-  reviewPull,
-  setIssueState,
-  setThreadResolved,
-} from '../forge/gh-write';
+import type { ForgeAdapter } from '../forge/adapter';
+import { activeAccountFor } from '../forge/forge-accounts';
+import { ghStatus } from '../forge/github/gh-shell';
+import { adapterFor } from '../forge/registry';
 import { resolveWorkdir } from '../repo-registry';
 import { handle, handleBare } from './handle';
 
 /**
- * GitHub listings, read through the user's own `gh` CLI.
+ * Forge listings and writes, dispatched through `registry.ts`'s `adapterFor`
+ * rather than calling `gh-*.ts` directly (Phase 90 Theme D). Every handler
+ * below is provider-blind: it resolves a repo's forge and its adapter, and
+ * calls the same method name regardless of which provider answers it.
  *
- * The repo's GitHub identity is resolved HERE rather than sent from the
+ * The repo's forge identity is resolved HERE rather than sent from the
  * renderer. The renderer could compute it — it already has `Remote.forge` for
- * the sidebar — but then the owner/repo pair reaching a subprocess would be a
- * value chosen by the renderer, and the whole point of parsing payloads at
- * this boundary is that main does not take the renderer's word for arguments
- * it is about to execute with. Deriving it from `.git/config` on this side
- * means the only thing crossing is a `repoId`.
+ * the sidebar — but then the owner/repo pair reaching a subprocess (or, for a
+ * future HTTP adapter, a request) would be a value chosen by the renderer,
+ * and the whole point of parsing payloads at this boundary is that main does
+ * not take the renderer's word for arguments it is about to act on. Deriving
+ * it from `.git/config` on this side means the only thing crossing is a
+ * `repoId`.
  */
 
 /** No supported forge remote at all — a permanent, non-error condition for a repo. */
@@ -82,7 +61,10 @@ export async function repoForge(repoId: string): Promise<Forge | null> {
  *
  * Reuses `not-installed` deliberately rather than growing a fourth arm: from
  * the sidebar's point of view "there is nothing here to show" is one state,
- * and the `hint` carries the difference in words.
+ * and the `hint` carries the difference in words. Also the reason code for a
+ * forge kind this app recognises but has no adapter for yet (GitLab,
+ * Bitbucket, Azure DevOps until Themes E-G land) — `resolveAdapter` below
+ * treats "no adapter" exactly like "no forge".
  */
 export const noForgeStatus = (): ForgeCliStatus => ({
   reason: 'not-installed',
@@ -98,6 +80,24 @@ export const noForgeStatus = (): ForgeCliStatus => ({
  */
 const noForgeWrite = (): ForgeWriteResult => ({ ok: false, cli: noForgeStatus(), error: null });
 
+/**
+ * The one place a handler turns a `repoId` into a `{forge, adapter}` pair —
+ * `registry.ts`'s single dispatch point, with the account lookup Theme C
+ * will start populating (`activeAccountFor` returns `null` for every host
+ * until then, which is exactly GitHub's own pre-refactor behaviour: `gh`
+ * itself is the credential, not an account record).
+ */
+async function resolveAdapter(
+  repoId: string,
+): Promise<{ forge: Forge; adapter: ForgeAdapter } | null> {
+  const forge = await repoForge(repoId);
+  if (!forge) return null;
+  const account = await activeAccountFor(forge);
+  const adapter = adapterFor(forge, account);
+  if (!adapter) return null;
+  return { forge, adapter };
+}
+
 export function registerForgeHandlers(): void {
   handleBare(CHANNELS.forgeCliStatus, () => ghStatus());
 
@@ -105,9 +105,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeRuns,
     schemas.ForgeRunsRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return { cli: noForgeStatus(), runs: [], error: null };
-      return listRuns(forge, {
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return { cli: noForgeStatus(), runs: [], error: null };
+      return resolved.adapter.listRuns(resolved.forge, {
         limit: req.limit,
         ...(req.branch ? { branch: req.branch } : {}),
       });
@@ -119,9 +119,13 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePulls,
     schemas.ForgePullsRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return { cli: noForgeStatus(), pulls: [], error: null };
-      return listPulls(forge, { limit: req.limit, state: req.state, scope: req.scope });
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return { cli: noForgeStatus(), pulls: [], error: null };
+      return resolved.adapter.listPulls(resolved.forge, {
+        limit: req.limit,
+        state: req.state,
+        scope: req.scope,
+      });
     },
     (issue) => ({ cli: noForgeStatus(), pulls: [], error: issue }),
   );
@@ -137,9 +141,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullDetail,
     schemas.ForgePullDetailRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return { cli: noForgeStatus(), detail: null, error: null };
-      return pullDetail(forge, req.number);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return { cli: noForgeStatus(), detail: null, error: null };
+      return resolved.adapter.pullDetail(resolved.forge, req.number);
     },
     (issue) => ({ cli: noForgeStatus(), detail: null, error: issue }),
   );
@@ -148,9 +152,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullFiles,
     schemas.ForgePullFilesRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return { cli: noForgeStatus(), files: null, error: null };
-      return pullFiles(forge, req.number);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return { cli: noForgeStatus(), files: null, error: null };
+      return resolved.adapter.pullFiles(resolved.forge, req.number);
     },
     (issue) => ({ cli: noForgeStatus(), files: null, error: issue }),
   );
@@ -159,9 +163,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullComments,
     schemas.ForgePullCommentsRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return { cli: noForgeStatus(), comments: [], error: null };
-      return pullComments(forge, req.number);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return { cli: noForgeStatus(), comments: [], error: null };
+      return resolved.adapter.pullComments(resolved.forge, req.number);
     },
     (issue) => ({ cli: noForgeStatus(), comments: [], error: issue }),
   );
@@ -170,9 +174,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullThreads,
     schemas.ForgePullThreadsRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return { cli: noForgeStatus(), threads: [], error: null };
-      return pullThreads(forge, req.number);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return { cli: noForgeStatus(), threads: [], error: null };
+      return resolved.adapter.pullThreads(resolved.forge, req.number);
     },
     (issue) => ({ cli: noForgeStatus(), threads: [], error: issue }),
   );
@@ -187,9 +191,9 @@ export function registerForgeHandlers(): void {
 
     - Owner and repo are still resolved from `.git/config` on THIS side. A
       write is exactly the wrong operation to let the renderer aim.
-    - A repo with no GitHub remote answers `ok: false` with a null error — the
-      same "nothing to say" shape the reads use. Not a failure: there was
-      nothing to write to.
+    - A repo with no adapter to write through answers `ok: false` with a null
+      error — the same "nothing to say" shape the reads use. Not a failure:
+      there was nothing to write to.
     - A rejected payload lands in the `(issue) =>` arm as `ok: false` plus the
       validation text, so a malformed request from a stale renderer is a
       message beside the button, never a thrown handler.
@@ -199,9 +203,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeReviewComment,
     schemas.ForgeReviewCommentRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return noForgeWrite();
-      return addReviewComment(forge, {
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.addReviewComment(resolved.forge, {
         number: req.number,
         commitId: req.commitId,
         path: req.path,
@@ -218,9 +222,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeReviewReply,
     schemas.ForgeReviewReplyRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return noForgeWrite();
-      return replyToReviewComment(forge, {
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.replyToReviewComment(resolved.forge, {
         number: req.number,
         commentId: req.commentId,
         body: req.body,
@@ -233,9 +237,12 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeResolveThread,
     schemas.ForgeResolveThreadRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return noForgeWrite();
-      return setThreadResolved(forge, { threadId: req.threadId, resolved: req.resolved });
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.setThreadResolved(resolved.forge, {
+        threadId: req.threadId,
+        resolved: req.resolved,
+      });
     },
     (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
   );
@@ -244,9 +251,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullReview,
     schemas.ForgePullReviewRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return noForgeWrite();
-      return reviewPull(forge, req.number, req.event, req.body);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.reviewPull(resolved.forge, req.number, req.event, req.body);
     },
     (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
   );
@@ -255,9 +262,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullComment,
     schemas.ForgePullCommentRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return noForgeWrite();
-      return commentPull(forge, req.number, req.body);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.commentPull(resolved.forge, req.number, req.body);
     },
     (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
   );
@@ -266,9 +273,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullMerge,
     schemas.ForgePullMergeRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return noForgeWrite();
-      return mergePull(forge, req.number, req.method);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.mergePull(resolved.forge, req.number, req.method);
     },
     (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
   );
@@ -277,9 +284,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullRequestReview,
     schemas.ForgePullRequestReviewRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return noForgeWrite();
-      return requestReview(forge, req.number, req.reviewers);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.requestReview(resolved.forge, req.number, req.reviewers);
     },
     (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
   );
@@ -288,9 +295,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgePullReady,
     schemas.ForgePullReadyRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return noForgeWrite();
-      return markReady(forge, req.number);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.markReady(resolved.forge, req.number);
     },
     (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
   );
@@ -303,7 +310,9 @@ export function registerForgeHandlers(): void {
     on the reasonable assumption that a finished run is finished; a re-run breaks
     exactly that assumption for exactly one key. So `forgetRun` drops it here, in
     the handler, rather than leaving the renderer to invalidate a query whose
-    answer main would serve from a stale map anyway.
+    answer main would serve from a stale map anyway. It is an optional adapter
+    method — GitHub-cache-specific housekeeping, not part of every provider's
+    contract — so the call is a no-op for an adapter that has none.
 
     The renderer still invalidates the run *listing* — that is where the reset
     status and the new attempt count show up.
@@ -312,10 +321,10 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeRunRerun,
     schemas.ForgeRunRerunRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return noForgeWrite();
-      const result = await rerunChecks(forge, req.runId, req.failedOnly);
-      if (result.ok) forgetRun(forge, req.runId);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      const result = await resolved.adapter.rerunChecks(resolved.forge, req.runId, req.failedOnly);
+      if (result.ok) resolved.adapter.forgetRun?.(resolved.forge, req.runId);
       return result;
     },
     (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
@@ -325,11 +334,11 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeIssues,
     schemas.ForgeIssuesRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      // No GitHub remote is not "issues are disabled" — the repository has no
+      const resolved = await resolveAdapter(req.repoId);
+      // No adapter is not "issues are disabled" — the repository has no
       // issue tracker to have an opinion about, which the `cli` reason says.
-      if (!forge) return { cli: noForgeStatus(), issues: [], disabled: false, error: null };
-      return listIssues(forge, { limit: req.limit, state: req.state });
+      if (!resolved) return { cli: noForgeStatus(), issues: [], disabled: false, error: null };
+      return resolved.adapter.listIssues(resolved.forge, { limit: req.limit, state: req.state });
     },
     (issue) => ({ cli: noForgeStatus(), issues: [], disabled: false, error: issue }),
   );
@@ -345,9 +354,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeIssueDetail,
     schemas.ForgeIssueDetailRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return { cli: noForgeStatus(), issue: null, error: null };
-      return issueDetail(forge, req.number);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return { cli: noForgeStatus(), issue: null, error: null };
+      return resolved.adapter.issueDetail(resolved.forge, req.number);
     },
     (error) => ({ cli: noForgeStatus(), issue: null, error }),
   );
@@ -356,9 +365,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeIssueComments,
     schemas.ForgeIssueCommentsRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return { cli: noForgeStatus(), comments: [], error: null };
-      return issueComments(forge, req.number);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return { cli: noForgeStatus(), comments: [], error: null };
+      return resolved.adapter.issueComments(resolved.forge, req.number);
     },
     (error) => ({ cli: noForgeStatus(), comments: [], error }),
   );
@@ -374,9 +383,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeIssueComment,
     schemas.ForgeIssueCommentRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return noForgeWrite();
-      return commentIssue(forge, req.number, req.body);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.commentIssue(resolved.forge, req.number, req.body);
     },
     (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
   );
@@ -385,9 +394,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeIssueSetState,
     schemas.ForgeIssueSetStateRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return noForgeWrite();
-      return setIssueState(forge, req.number, req.state);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.setIssueState(resolved.forge, req.number, req.state);
     },
     (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
   );
@@ -396,9 +405,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeRunDetail,
     schemas.ForgeRunDetailRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return { cli: noForgeStatus(), detail: null, error: null };
-      return runDetail(forge, req.runId);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return { cli: noForgeStatus(), detail: null, error: null };
+      return resolved.adapter.runDetail(resolved.forge, req.runId);
     },
     (issue) => ({ cli: noForgeStatus(), detail: null, error: issue }),
   );
@@ -407,9 +416,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeRunLog,
     schemas.ForgeRunLogRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return { cli: noForgeStatus(), log: null, pending: false, error: null };
-      return runLog(forge, req.runId, {
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return { cli: noForgeStatus(), log: null, pending: false, error: null };
+      return resolved.adapter.runLog(resolved.forge, req.runId, {
         ...(req.jobId ? { jobId: req.jobId } : {}),
         ...(req.full ? { full: true } : {}),
       });
@@ -421,9 +430,9 @@ export function registerForgeHandlers(): void {
     CHANNELS.forgeWorkflows,
     schemas.ForgeWorkflowsRequest,
     async (req) => {
-      const forge = await repoForge(req.repoId);
-      if (!forge) return { cli: noForgeStatus(), workflows: [], error: null };
-      return listWorkflows(forge);
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return { cli: noForgeStatus(), workflows: [], error: null };
+      return resolved.adapter.listWorkflows(resolved.forge);
     },
     (issue) => ({ cli: noForgeStatus(), workflows: [], error: issue }),
   );

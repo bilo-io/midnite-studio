@@ -1,7 +1,7 @@
 import type { ForgeKind } from '@midnite/studio-shared';
 
-import { runInShell } from './gh-shell';
-import { parseJsonPayload } from './gh-parse';
+import { runInShell } from './github/gh-shell';
+import { parseJsonPayload } from './github/gh-parse';
 
 /**
  * "Who am I" — the first identity resolution this app has ever done (Phase 90

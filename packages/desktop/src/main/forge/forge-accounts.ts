@@ -9,7 +9,7 @@ import {
 
 import { nullForgeAccountVault, type ForgeAccountVault } from './forge-account-vault';
 import { nullForgeAccountsStore, type ForgeAccountsStore } from './forge-accounts-store';
-import { ghStatus } from './gh-shell';
+import { ghStatus } from './github/gh-shell';
 import { whoami } from './whoami';
 
 /**

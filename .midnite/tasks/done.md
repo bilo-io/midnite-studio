@@ -1,6 +1,43 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-22 — Phase 90 Theme D + Theme H — the ForgeAdapter seam and the capability matrix
+
+[PR #502](https://github.com/bilo-io/midnite-studio/pull/502).
+
+**Theme D**, 3 of 5 items. `main/forge/adapter.ts` declares `ForgeAdapter` — the full read/write
+surface `forge-handlers.ts` already exercised, named per existing `gh-write.ts` export rather than
+collapsed to the phase doc's four-verb shorthand (`comment`/`review`/`setIssueState`/`setItemField`),
+since collapsing eleven working writes into four generic ones is a real design change Theme D's own
+"no behaviour change" acceptance criterion rules out. `main/forge/github/` holds the moved `gh-*.ts`
+files verbatim, bound behind `createGitHubAdapter()`; every moved `gh-*.test.ts` passes unchanged.
+`main/forge/registry.ts`'s `adapterFor(forge, account)` is `forge-handlers.ts`'s single dispatch
+point, replacing 23 direct `gh-cli.ts`/`gh-write.ts`/`gh-graphql.ts` imports — a disclosed, minor
+behaviour improvement along the way: a GitLab/Bitbucket/Azure repo (`isSupportedForgeKind` already
+widened to all four by Theme A) now reports "no forge" honestly instead of running `gh` against the
+wrong owner/repo. Two items left open, both genuinely blocked on a real second adapter existing:
+`main/forge/http.ts` (no consumer yet — Themes E/F/G build it against their own first caller) and the
+`ForgeCliStatus` docblock note about an HTTP adapter's vocabulary.
+
+**Theme H**, 3 of 4 items. `capabilitiesFor` (`shared/src/domain/forge-account.ts`) is now a
+`Record<ForgeKind, ForgeCapability>` rather than a `kind === 'github'` ternary, so a fifth `ForgeKind`
+fails `moon run :typecheck` until it gets a matching row; `capabilities.test.ts` asserts the same
+exhaustiveness at the value level. `app.tsx`'s `FORGE_GATED_VIEWS` gate now reads the matrix per field
+through `useForgeCapabilities` (`useForgeViewAvailability`, a `FORGE_VIEW_CAPABILITY` map: `actions →
+checks`, `reviews → pulls`, `issues → issues`, `projects → projects`) instead of one boolean gating
+all four together. Left open: the `'partial'`-capability "here's the limit" sentence in each view —
+no provider in this batch can ever report `'partial'` yet, since GitLab/Bitbucket/Azure all still read
+`'none'` until Themes E/F/G ship real adapters.
+
+Found during the build, fixed in the same PR: `packages/app` is `"type": "module"`, so Playwright's
+e2e specs load `test-support/mock-bridge.ts` through Node's native ESM loader rather than Vite's
+bundler, which cannot resolve a named export off `@midnite/studio-shared`'s CommonJS build the way
+Vite's CJS interop can — every e2e spec failed to load with "Named export 'capabilitiesFor' not
+found" until the mock reimplemented the two-row matrix inline instead of importing the function. Also
+fixed: the mock bridge had no `forgeAccounts` namespace at all (the gap PR #501's own done.md entry
+flagged), so `app.tsx`'s new per-view capability read would have hidden Actions/Reviews/Issues/Projects
+in every e2e spec; `forgeAccounts.capabilities` now mirrors the real handler.
+
 ## 2026-09-22 — Phase 90 Theme B (remainder) + Theme C — account switching
 
 [PR #503](https://github.com/bilo-io/midnite-studio/pull/503).

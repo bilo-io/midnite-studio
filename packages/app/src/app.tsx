@@ -17,7 +17,7 @@ import {
   type NavConfig,
   type NavLinkComponent,
 } from '@bilo-io/shell';
-import { pickForgeRemote } from '@midnite/studio-shared';
+import { pickForgeRemote, type ForgeCapability, type ForgeKind } from '@midnite/studio-shared';
 import { QueryClient } from '@tanstack/react-query';
 import type { IconType } from 'react-icons';
 import { CiPower } from 'react-icons/ci';
@@ -104,7 +104,7 @@ import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
 import { useLivenessTracking } from './services/use-liveness-tracking';
-import { useRemotes, useRepos } from './services/queries';
+import { useForgeCapabilities, useRemotes, useRepos } from './services/queries';
 import { useSyncRepoForgeRegistry } from './services/repo-forge-registry';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useReportWindowRepo } from './services/use-report-window-repo';
@@ -465,29 +465,45 @@ export const ALL_NAV_ITEMS: NavItem[] = [
 ];
 
 /**
- * Views that exist only because a repository has a GitHub remote — gated by
- * the one `useForgeGateAvailable` check below, in the nav filter, and in the
- * redirect effect that follows. One list rather than three separate literal
- * comparisons, so a future forge-gated view (Theme C's PR detail among them)
- * is one array entry, not three call sites to remember to update together.
+ * Views that exist only because a repository has a forge remote — gated by
+ * the one `useForgeViewAvailability` check below, in the nav filter, and in
+ * the redirect effect that follows. One list rather than three separate
+ * literal comparisons, so a future forge-gated view (Theme C's PR detail
+ * among them) is one array entry, not three call sites to remember to update
+ * together.
  */
 const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews', 'issues', 'projects'];
 
 /**
- * Whether the Actions and Reviews views have anything they could ever show.
+ * Which capability matrix field decides each gated view's visibility (Phase
+ * 90 Theme H) — the boolean `useForgeGateAvailable` used to answer with a
+ * bare "does this repo have a GitHub remote" now reads the tri-state matrix
+ * `capabilitiesFor` builds per `ForgeKind`, so a repo whose forge reports
+ * `'none'` for one field (Bitbucket's Projects, say) hides only that view
+ * rather than all four moving together as one GitHub-shaped unit.
+ */
+const FORGE_VIEW_CAPABILITY: Partial<Record<ViewId, keyof ForgeCapability>> = {
+  actions: 'checks',
+  reviews: 'pulls',
+  issues: 'issues',
+  projects: 'projects',
+};
+
+/**
+ * Per-view forge availability, keyed off the active repo's forge kind and its
+ * capability matrix rather than a single "is this GitHub" boolean.
  *
- * `gh` speaks GitHub only, so for a repository with a GitLab remote, a
- * local-path remote or no remote at all both views are permanently empty —
- * and a rail item that can only say "not applicable" is worse than no rail
- * item. The same rule already governs the sidebar's forge sections, and it is
- * the same `pickForgeRemote` all three ask — Actions and Reviews share one
- * answer because the question is about the repository's remote, not about
- * which forge surface is asking.
+ * A view outside `FORGE_VIEW_CAPABILITY` (everything not forge-gated) is
+ * always available — this hook only ever narrows the four rail items above.
+ * `'none'` hides a view; `'partial'` and `'full'` both show it, because a
+ * partial capability is rendered *in* the view (one sentence where the limit
+ * bites), not by hiding the view outright.
  *
  * "Still loading" is deliberately NOT "no". It answers with whatever it last
- * knew until the remotes arrive, which matters more than it looks: a rail
- * item disappearing is wired to a redirect, so a momentary "no" while switching
- * between two GitHub repositories would throw the user out of the very view
+ * knew until the remotes (and, once they resolve, the capability query)
+ * arrive, which matters more than it looks: a rail item disappearing is
+ * wired to a redirect, so a momentary "no" while switching between two
+ * forge-connected repositories would throw the user out of the very view
  * they are standing in and then put the item back a frame later.
  *
  * That held answer is a guess about a DIFFERENT repository, and deliberately
@@ -495,21 +511,30 @@ const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews', 'issues', 'p
  * query resolves. A cold "no" would be wrong for the same paint AND take the
  * view down with it.
  */
-function useForgeGateAvailable(repoId: string | null): boolean {
+function useForgeViewAvailability(repoId: string | null): (view: ViewId) => boolean {
   const { data: remotes } = useRemotes(repoId);
-  const lastKnown = useRef(false);
+  const lastKnownKind = useRef<ForgeKind | null>(null);
 
   // No repo selected is a real "no", not a gap in the data — there is nothing
   // for the query to be loading, so there is nothing to hold an answer for.
   if (repoId === null) {
-    lastKnown.current = false;
-    return false;
+    lastKnownKind.current = null;
+  } else if (remotes !== undefined) {
+    lastKnownKind.current = pickForgeRemote(remotes)?.forge?.kind ?? null;
   }
 
-  if (remotes === undefined) return lastKnown.current;
+  const kind = lastKnownKind.current;
+  const { data: capability } = useForgeCapabilities(kind ?? 'unknown');
 
-  lastKnown.current = pickForgeRemote(remotes)?.forge?.kind === 'github';
-  return lastKnown.current;
+  return useCallback(
+    (view: ViewId) => {
+      const field = FORGE_VIEW_CAPABILITY[view];
+      if (!field) return true;
+      if (kind === null || !capability) return false;
+      return capability[field] !== 'none';
+    },
+    [kind, capability],
+  );
 }
 
 /**
@@ -668,32 +693,33 @@ function Shell() {
   useDefaultSelection();
   usePruneClosedRepos();
 
-  const forgeAvailable = useForgeGateAvailable(selectedRepoId);
+  const isForgeViewAvailable = useForgeViewAvailability(selectedRepoId);
   const optimizerEnabled = useUiStore((s) => s.optimizerEnabled);
   const navVisibility = useUiStore((s) => s.navVisibility);
 
   /**
    * Never leave the user standing in a view the rail no longer offers.
    *
-   * Selecting a repository with no GitHub remote takes the Actions and
-   * Reviews items away; without this the pane one of them named would stay
-   * mounted with no way back to it and no entry showing as current, which
-   * reads as the rail having lost its selection rather than as the view
-   * having gone. Switching the Workspace Optimizer setting off strands the
-   * `optimizer` view the same way, so it redirects on the same rule.
+   * Selecting a repository whose forge capability matrix reports `'none'`
+   * for a gated view's field takes that item away; without this the pane it
+   * named would stay mounted with no way back to it and no entry showing as
+   * current, which reads as the rail having lost its selection rather than
+   * as the view having gone. Switching the Workspace Optimizer setting off
+   * strands the `optimizer` view the same way, so it redirects on the same
+   * rule.
    *
    * Graph is the fallback because it is the app's default view — the one a
    * launch already lands on.
    */
   useEffect(() => {
     if (
-      (FORGE_GATED_VIEWS.includes(activeView) && !forgeAvailable) ||
+      (FORGE_GATED_VIEWS.includes(activeView) && !isForgeViewAvailable(activeView)) ||
       (activeView === 'optimizer' && !optimizerEnabled) ||
       !isNavViewVisible(navVisibility, activeView)
     ) {
       useUiStore.getState().setActiveView('graph');
     }
-  }, [activeView, forgeAvailable, optimizerEnabled, navVisibility]);
+  }, [activeView, isForgeViewAvailable, optimizerEnabled, navVisibility]);
   useWatchInvalidation(useUiStore((s) => s.selectedRepoId));
   // Feeds the status bar's liveness dot (Phase 84 Theme I) off the same
   // broadcast — see the hook's own doc.
@@ -1164,11 +1190,11 @@ function Shell() {
         .filter(
           (item) =>
             isNavViewVisible(navVisibility, item.view) &&
-            (!FORGE_GATED_VIEWS.includes(item.view) || forgeAvailable) &&
+            (!FORGE_GATED_VIEWS.includes(item.view) || isForgeViewAvailable(item.view)) &&
             (item.view !== 'optimizer' || optimizerEnabled),
         )
         .map(navItem),
-    [navItem, navVisibility, forgeAvailable, optimizerEnabled],
+    [navItem, navVisibility, isForgeViewAvailable, optimizerEnabled],
   );
 
   const nav: NavConfig = useMemo(
@@ -1276,8 +1302,6 @@ function Shell() {
       navMode,
       setNavMode,
       activeView,
-      forgeAvailable,
-      optimizerEnabled,
       navItem,
       visibleNavItem,
       filterNavItems,

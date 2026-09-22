@@ -7,8 +7,8 @@ import {
   type ForgeProjectWriteResult,
 } from '@midnite/studio-shared';
 
-import { addItemToProject, clearItemFieldValue, setItemFieldValue } from '../forge/gh-project-write';
-import { listProjects, projectFields, projectItems } from '../forge/gh-project';
+import { addItemToProject, clearItemFieldValue, setItemFieldValue } from '../forge/github/gh-project-write';
+import { listProjects, projectFields, projectItems } from '../forge/github/gh-project';
 import { noForgeStatus, repoForge } from './forge-handlers';
 import { handle } from './handle';
 

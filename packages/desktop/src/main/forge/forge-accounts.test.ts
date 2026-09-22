@@ -5,7 +5,7 @@ import type { ForgeAccountsStore } from './forge-accounts-store';
 import type { ForgeAccountVault } from './forge-account-vault';
 
 const { ghStatusMock } = vi.hoisted(() => ({ ghStatusMock: vi.fn() }));
-vi.mock('./gh-shell', () => ({ ghStatus: ghStatusMock }));
+vi.mock('./github/gh-shell', () => ({ ghStatus: ghStatusMock }));
 
 const { whoamiMock } = vi.hoisted(() => ({ whoamiMock: vi.fn() }));
 vi.mock('./whoami', () => ({ whoami: whoamiMock }));
