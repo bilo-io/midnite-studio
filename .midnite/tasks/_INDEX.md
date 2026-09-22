@@ -14,7 +14,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | ◻ TODO | — | 0/95 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | 🔄 WIP | — | 72/101 | `███████░░░` | 71% | K | — |
 | [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 36/89 | `████░░░░░░` | 40% | — | F G H I J K |
-| [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 15/34 | `████░░░░░░` | 44% | D | F G |
+| [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 15/34 | `████░░░░░░` | 44% | D F | G |
 | [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | A B C D E F G | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 61/64 | `██████████` | 95% | — | (3 human passes) |
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
