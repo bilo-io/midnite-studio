@@ -468,3 +468,25 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   `onboarding-modal.tsx` only — but worth resolving before either modal changes shape again:
   probably one of the two should absorb the other rather than the app carrying two "welcome"
   screens with two different gates.
+
+## Phase 90 · Theme K — two genuinely-blocked verification items
+
+- **The pricing page's committed Linux visual baseline was not generated.** `pricing-page.spec.ts`
+  (`packages/app/e2e/visual/`) is written, wired into `playwright.visual.config.ts`'s second
+  `webServer` entry (the website's own `vite` dev server on its fixed port), and verified locally
+  against a `-darwin.png` run — the crop, the locator, the reduced-motion/font-ready waits are all
+  proven correct. What it does not have is the committed `-linux.png` baseline
+  `docs/TESTING.md`/`scripts/visual-regen.mjs` require, because that regeneration only runs inside
+  the official `mcr.microsoft.com/playwright:v1.62.1-noble` Docker image
+  (`MSTUDIO_CROSS_PLATFORM=1 moon run root:visual-regen`), and this session's sandbox has neither
+  `docker` nor network access to install it (`brew`'s own formulae endpoint was unreachable).
+  Whoever has Docker available: run that command, confirm `pricing-columns-desktop-linux.png`
+  lands under `packages/app/e2e/visual/__screenshots__/pricing-page.spec.ts/`, and commit it — the
+  spec itself needs no further change. Until then the `visual` CI lane (opt-in via the
+  `cross-platform` label) would fail on this one baseline if triggered; it was not triggered for
+  Phase 90 Theme K's own PR.
+- **Live-credential human passes.** Per the phase doc's own Verification section: a real GitLab
+  repo, a real Bitbucket repo and a real Azure DevOps repo, each with a real PAT, each showing its
+  four views in whatever state its capability matrix declares — and a live `gh auth switch`
+  round-trip observed from a terminal beside the app. No fixture substitutes for either; none of
+  the four adapters has been exercised against a real non-GitHub account since Phase 90 began.
