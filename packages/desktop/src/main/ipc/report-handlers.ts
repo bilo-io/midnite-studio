@@ -13,7 +13,7 @@ import { app, shell } from 'electron';
 
 import { defaultLogger, getLogSink, type Logger } from '../log';
 import type { LogSink } from '../log-sink';
-import { createAppIssue } from '../forge/gh-app-issue';
+import { createAppIssue } from '../forge/github/gh-app-issue';
 import { handle, handleBare, handleSend } from './handle';
 
 /**

@@ -6,8 +6,8 @@ import type { Logger } from '../log';
 import { broadcastToWindowsOnRepo } from '../window-manager';
 import { repoForge } from '../ipc/forge-handlers';
 import { anyWindowVisible, systemIdleState } from '../window-visibility-gate';
-import { listIssues, listPulls, listRuns } from './gh-cli';
-import { listProjects } from './gh-project';
+import { listIssues, listPulls, listRuns } from './github/gh-cli';
+import { listProjects } from './github/gh-project';
 
 /**
  * Interest-based forge polling (Phase 84 Theme C).

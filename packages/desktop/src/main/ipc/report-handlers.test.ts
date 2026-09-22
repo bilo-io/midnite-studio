@@ -27,7 +27,7 @@ vi.mock('electron', () => ({
 vi.mock('../window-manager', () => ({ resolveWindow: () => null }));
 // The fixed-target write itself is `gh-app-issue.test.ts`'s job — this file
 // tests only that the handler validates, delegates, and never throws.
-vi.mock('../forge/gh-app-issue', () => ({ createAppIssue }));
+vi.mock('../forge/github/gh-app-issue', () => ({ createAppIssue }));
 
 /** Invoke the one-way listener the way `ipcRenderer.send` would. */
 function send(raw: unknown): void {

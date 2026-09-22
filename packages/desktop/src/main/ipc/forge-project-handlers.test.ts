@@ -25,14 +25,14 @@ const { listProjects, projectFields, projectItems } = vi.hoisted(() => ({
   projectFields: vi.fn(),
   projectItems: vi.fn(),
 }));
-vi.mock('../forge/gh-project', () => ({ listProjects, projectFields, projectItems }));
+vi.mock('../forge/github/gh-project', () => ({ listProjects, projectFields, projectItems }));
 
 const { setItemFieldValue, addItemToProject, clearItemFieldValue } = vi.hoisted(() => ({
   setItemFieldValue: vi.fn(),
   addItemToProject: vi.fn(),
   clearItemFieldValue: vi.fn(),
 }));
-vi.mock('../forge/gh-project-write', () => ({ setItemFieldValue, addItemToProject, clearItemFieldValue }));
+vi.mock('../forge/github/gh-project-write', () => ({ setItemFieldValue, addItemToProject, clearItemFieldValue }));
 
 const OK_CLI = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
 const githubRemote = {
