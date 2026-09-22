@@ -5,6 +5,7 @@ import {
   capabilitiesFor,
   forgeAccountId,
   forgeAccountVaultKey,
+  normalizeForgeAccountHost,
 } from './forge-account';
 
 const account = {
@@ -61,6 +62,43 @@ describe('forgeAccountId / forgeAccountVaultKey', () => {
 
   it('forgeAccountVaultKey matches the same shape', () => {
     expect(forgeAccountVaultKey('gitlab', 'gitlab.com', 'octocat')).toBe('gitlab:gitlab.com:octocat');
+  });
+});
+
+describe('normalizeForgeAccountHost', () => {
+  it('accepts a bare host unchanged', () => {
+    expect(normalizeForgeAccountHost('gitlab.com')).toBe('gitlab.com');
+    expect(normalizeForgeAccountHost('  gitlab.example.com  ')).toBe('gitlab.example.com');
+  });
+
+  it('accepts an https:// base URL and reduces it to the bare host', () => {
+    expect(normalizeForgeAccountHost('https://gitlab.example.com')).toBe('gitlab.example.com');
+    expect(normalizeForgeAccountHost('https://gitlab.example.com/')).toBe('gitlab.example.com');
+  });
+
+  it('rejects a non-https scheme on a base URL', () => {
+    expect(normalizeForgeAccountHost('http://gitlab.example.com')).toBeNull();
+    expect(normalizeForgeAccountHost('javascript:alert(1)')).toBeNull();
+    expect(normalizeForgeAccountHost('file:///etc/passwd')).toBeNull();
+  });
+
+  it('rejects a base URL carrying a path, since `host` is hostname-only', () => {
+    expect(normalizeForgeAccountHost('https://gitlab.example.com/some/path')).toBeNull();
+  });
+
+  it('rejects a base URL carrying userinfo', () => {
+    expect(normalizeForgeAccountHost('https://user:pass@gitlab.example.com')).toBeNull();
+  });
+
+  it('rejects a bare host smuggling a path, userinfo or whitespace', () => {
+    expect(normalizeForgeAccountHost('gitlab.example.com/evil')).toBeNull();
+    expect(normalizeForgeAccountHost('user@gitlab.example.com')).toBeNull();
+    expect(normalizeForgeAccountHost('gitlab example.com')).toBeNull();
+  });
+
+  it('rejects empty input', () => {
+    expect(normalizeForgeAccountHost('')).toBeNull();
+    expect(normalizeForgeAccountHost('   ')).toBeNull();
   });
 });
 

@@ -63,5 +63,12 @@ export const SettingsSyncPayloadSchema = z.object({
   autoFetchIntervalMs: z.number().int(),
   appDiscardIdle: z.record(AppIdSchema, z.boolean()).optional(),
   browserDiscardMs: z.number().int().optional(),
+  /**
+   * Phase 90 Theme C: whether switching the active GitHub account also runs
+   * `gh auth switch`. Optional so an older renderer (or a test payload that
+   * never set it) still validates — `settings-mirror.ts`'s own default
+   * (`true`) is what a handler reads before the first sync ever lands.
+   */
+  forgeSyncGhAuthSwitch: z.boolean().optional(),
 });
 export type SettingsSyncPayload = z.infer<typeof SettingsSyncPayloadSchema>;
