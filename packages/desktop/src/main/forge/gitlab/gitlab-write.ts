@@ -1,6 +1,13 @@
-import type { Forge, ForgeMergeMethod, ForgeReviewEvent, ForgeWriteResult } from '@midnite/studio-shared';
+import type {
+  Forge,
+  ForgeAccount,
+  ForgeCliStatus,
+  ForgeMergeMethod,
+  ForgeReviewEvent,
+  ForgeWriteResult,
+} from '@midnite/studio-shared';
 
-import { gitlabCliStatus, glGet, glPost, glPut, projectId, type GitLabContext } from './gitlab-client';
+import { gitlabCliStatus, glGet, glPost, glPut, projectId } from './gitlab-client';
 import { asArray, asString, asStringLoose, row } from './gitlab-json';
 
 /**
@@ -17,39 +24,39 @@ import { asArray, asString, asStringLoose, row } from './gitlab-json';
  * genuine GitLab equivalents, documented as such at each one.
  */
 
-function notReady(cli: ReturnType<typeof gitlabCliStatus>): ForgeWriteResult {
+function notReady(cli: ForgeCliStatus): ForgeWriteResult {
   return { ok: false, cli, error: cli.hint || null };
 }
 
-function fromResult(cli: ReturnType<typeof gitlabCliStatus>, ok: boolean, error: string | null): ForgeWriteResult {
+function fromResult(cli: ForgeCliStatus, ok: boolean, error: string | null): ForgeWriteResult {
   return { ok, cli, error };
 }
 
 // ─── Comments ────────────────────────────────────────────────────────────
 
-export async function commentPull(ctx: GitLabContext, forge: Forge, number: number, body: string): Promise<ForgeWriteResult> {
-  const cli = gitlabCliStatus(ctx);
+export async function commentPull(forge: Forge, account: ForgeAccount | null, number: number, body: string): Promise<ForgeWriteResult> {
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return notReady(cli);
-  const result = await glPost(ctx, `projects/${projectId(forge)}/merge_requests/${number}/notes`, { body });
+  const result = await glPost(forge, account, `projects/${projectId(forge)}/merge_requests/${number}/notes`, { body });
   return fromResult(cli, result.ok, result.ok ? null : result.error);
 }
 
-export async function commentIssue(ctx: GitLabContext, forge: Forge, number: number, body: string): Promise<ForgeWriteResult> {
-  const cli = gitlabCliStatus(ctx);
+export async function commentIssue(forge: Forge, account: ForgeAccount | null, number: number, body: string): Promise<ForgeWriteResult> {
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return notReady(cli);
-  const result = await glPost(ctx, `projects/${projectId(forge)}/issues/${number}/notes`, { body });
+  const result = await glPost(forge, account, `projects/${projectId(forge)}/issues/${number}/notes`, { body });
   return fromResult(cli, result.ok, result.ok ? null : result.error);
 }
 
 export async function setIssueState(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
   state: 'open' | 'closed',
 ): Promise<ForgeWriteResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return notReady(cli);
-  const result = await glPut(ctx, `projects/${projectId(forge)}/issues/${number}`, {
+  const result = await glPut(forge, account, `projects/${projectId(forge)}/issues/${number}`, {
     state_event: state === 'closed' ? 'close' : 'reopen',
   });
   return fromResult(cli, result.ok, result.ok ? null : result.error);
@@ -71,23 +78,23 @@ export async function setIssueState(
  * - `COMMENT` → a plain note, identical to `commentPull`.
  */
 export async function reviewPull(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
   event: ForgeReviewEvent,
   body: string,
 ): Promise<ForgeWriteResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return notReady(cli);
 
-  if (event === 'COMMENT') return commentPull(ctx, forge, number, body);
+  if (event === 'COMMENT') return commentPull(forge, account, number, body);
 
   const verb = event === 'APPROVE' ? 'approve' : 'unapprove';
-  const verdict = await glPost(ctx, `projects/${projectId(forge)}/merge_requests/${number}/${verb}`);
+  const verdict = await glPost(forge, account, `projects/${projectId(forge)}/merge_requests/${number}/${verb}`);
   if (!verdict.ok) return fromResult(cli, false, verdict.error);
 
   if (body.trim().length > 0) {
-    const note = await glPost(ctx, `projects/${projectId(forge)}/merge_requests/${number}/notes`, { body });
+    const note = await glPost(forge, account, `projects/${projectId(forge)}/merge_requests/${number}/notes`, { body });
     if (!note.ok) {
       // The verdict itself landed; only the note failed. Report the actual
       // partial state rather than an `ok: false` that would suggest neither did.
@@ -100,12 +107,12 @@ export async function reviewPull(
 // ─── Merge, reviewers, draft, re-run ────────────────────────────────────────
 
 export async function mergePull(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
   method: ForgeMergeMethod,
 ): Promise<ForgeWriteResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return notReady(cli);
 
   if (method === 'rebase') {
@@ -113,14 +120,14 @@ export async function mergePull(
     // operation. Kick it off, give it a moment to land, then merge without
     // squash. A rebase that has not finished by then surfaces as an honest
     // merge failure rather than this call silently downgrading to `merge`.
-    const rebase = await glPut(ctx, `projects/${projectId(forge)}/merge_requests/${number}/rebase`);
+    const rebase = await glPut(forge, account, `projects/${projectId(forge)}/merge_requests/${number}/rebase`);
     if (!rebase.ok) return fromResult(cli, false, rebase.error);
     await new Promise((resolve) => setTimeout(resolve, 1500));
-    const merged = await glPut(ctx, `projects/${projectId(forge)}/merge_requests/${number}/merge`, { squash: false });
+    const merged = await glPut(forge, account, `projects/${projectId(forge)}/merge_requests/${number}/merge`, { squash: false });
     return fromResult(cli, merged.ok, merged.ok ? null : merged.error);
   }
 
-  const merged = await glPut(ctx, `projects/${projectId(forge)}/merge_requests/${number}/merge`, {
+  const merged = await glPut(forge, account, `projects/${projectId(forge)}/merge_requests/${number}/merge`, {
     squash: method === 'squash',
   });
   return fromResult(cli, merged.ok, merged.ok ? null : merged.error);
@@ -133,20 +140,20 @@ export async function mergePull(
  * "request a review" rather than "replace the reviewer list".
  */
 export async function requestReview(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
   reviewers: string[],
 ): Promise<ForgeWriteResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return notReady(cli);
   if (reviewers.length === 0) return fromResult(cli, true, null);
 
   const [mr, resolved] = await Promise.all([
-    glGet<Record<string, unknown>>(ctx, `projects/${projectId(forge)}/merge_requests/${number}`),
+    glGet<Record<string, unknown>>(forge, account, `projects/${projectId(forge)}/merge_requests/${number}`),
     Promise.all(
       reviewers.map(async (username) => {
-        const found = await glGet<unknown[]>(ctx, 'users', { username });
+        const found = await glGet<unknown[]>(forge, account, 'users', { username });
         const first = found.ok ? asArray(found.data)[0] : null;
         const id = first ? row(first)?.['id'] : null;
         return typeof id === 'number' ? id : null;
@@ -165,7 +172,7 @@ export async function requestReview(
   }
 
   const reviewerIds = [...new Set([...existing, ...newIds])];
-  const result = await glPut(ctx, `projects/${projectId(forge)}/merge_requests/${number}`, {
+  const result = await glPut(forge, account, `projects/${projectId(forge)}/merge_requests/${number}`, {
     reviewer_ids: reviewerIds,
   });
   return fromResult(cli, result.ok, result.ok ? null : result.error);
@@ -176,18 +183,18 @@ export async function requestReview(
  * still true across API versions, unlike a dedicated boolean field. Marking
  * ready strips whichever prefix the title carries.
  */
-export async function markReady(ctx: GitLabContext, forge: Forge, number: number): Promise<ForgeWriteResult> {
-  const cli = gitlabCliStatus(ctx);
+export async function markReady(forge: Forge, account: ForgeAccount | null, number: number): Promise<ForgeWriteResult> {
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return notReady(cli);
 
-  const mr = await glGet<Record<string, unknown>>(ctx, `projects/${projectId(forge)}/merge_requests/${number}`);
+  const mr = await glGet<Record<string, unknown>>(forge, account, `projects/${projectId(forge)}/merge_requests/${number}`);
   if (!mr.ok) return fromResult(cli, false, mr.error);
 
   const title = asStringLoose(mr.data['title']);
   const stripped = title.replace(/^(draft|wip)\s*:\s*/i, '');
   if (stripped === title) return fromResult(cli, true, null);
 
-  const result = await glPut(ctx, `projects/${projectId(forge)}/merge_requests/${number}`, { title: stripped });
+  const result = await glPut(forge, account, `projects/${projectId(forge)}/merge_requests/${number}`, { title: stripped });
   return fromResult(cli, result.ok, result.ok ? null : result.error);
 }
 
@@ -198,20 +205,20 @@ export async function markReady(ctx: GitLabContext, forge: Forge, number: number
  * retries every job in the pipeline individually.
  */
 export async function rerunChecks(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   runId: string,
   failedOnly: boolean,
 ): Promise<ForgeWriteResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return notReady(cli);
 
   if (failedOnly) {
-    const result = await glPost(ctx, `projects/${projectId(forge)}/pipelines/${runId}/retry`);
+    const result = await glPost(forge, account, `projects/${projectId(forge)}/pipelines/${runId}/retry`);
     return fromResult(cli, result.ok, result.ok ? null : result.error);
   }
 
-  const jobs = await glGet<unknown[]>(ctx, `projects/${projectId(forge)}/pipelines/${runId}/jobs`, {
+  const jobs = await glGet<unknown[]>(forge, account, `projects/${projectId(forge)}/pipelines/${runId}/jobs`, {
     per_page: 100,
   });
   if (!jobs.ok) return fromResult(cli, false, jobs.error);
@@ -220,7 +227,7 @@ export async function rerunChecks(
     .map((j) => row(j)?.['id'])
     .filter((id): id is number | string => typeof id === 'number' || typeof id === 'string');
   const outcomes = await Promise.all(
-    ids.map((id) => glPost(ctx, `projects/${projectId(forge)}/jobs/${id}/retry`)),
+    ids.map((id) => glPost(forge, account, `projects/${projectId(forge)}/jobs/${id}/retry`)),
   );
   const failed = outcomes.filter((o) => !o.ok);
   if (failed.length > 0) {
@@ -235,22 +242,23 @@ export async function rerunChecks(
  *  onto the current diff — the one extra read `addReviewComment` pays that
  *  GitHub's `commit_id`-only REST form does not. */
 export async function addReviewComment(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   request: { number: number; commitId: string; path: string; line: number; side: 'RIGHT'; body: string },
 ): Promise<ForgeWriteResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return notReady(cli);
 
   const mr = await glGet<Record<string, unknown>>(
-    ctx,
+    forge,
+    account,
     `projects/${projectId(forge)}/merge_requests/${request.number}`,
   );
   if (!mr.ok) return fromResult(cli, false, mr.error);
   const diffRefs = row(mr.data['diff_refs']);
   if (!diffRefs) return fromResult(cli, false, 'This merge request has no diff to comment on.');
 
-  const result = await glPost(ctx, `projects/${projectId(forge)}/merge_requests/${request.number}/discussions`, {
+  const result = await glPost(forge, account, `projects/${projectId(forge)}/merge_requests/${request.number}/discussions`, {
     body: request.body,
     position: {
       position_type: 'text',
@@ -266,14 +274,15 @@ export async function addReviewComment(
 }
 
 export async function replyToReviewComment(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   request: { number: number; commentId: string; body: string },
 ): Promise<ForgeWriteResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return notReady(cli);
   const result = await glPost(
-    ctx,
+    forge,
+    account,
     `projects/${projectId(forge)}/merge_requests/${request.number}/discussions/${request.commentId}/notes`,
     { body: request.body },
   );
@@ -283,11 +292,11 @@ export async function replyToReviewComment(
 /** Decodes the `${mrNumber}:${discussionId}` id `gitlab-read.ts` builds — see
  *  its own note on why the number has to ride inside the id here. */
 export async function setThreadResolved(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   request: { threadId: string; resolved: boolean },
 ): Promise<ForgeWriteResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return notReady(cli);
 
   const separator = request.threadId.indexOf(':');
@@ -299,7 +308,8 @@ export async function setThreadResolved(
   }
 
   const result = await glPut(
-    ctx,
+    forge,
+    account,
     `projects/${projectId(forge)}/merge_requests/${number}/discussions/${discussionId}`,
     { resolved: request.resolved },
   );

@@ -1,6 +1,7 @@
 import {
   EMPTY_ISSUE_LINK_SET,
   type Forge,
+  type ForgeAccount,
   type ForgeProject,
   type ForgeProjectField,
   type ForgeProjectFieldsResult,
@@ -11,7 +12,7 @@ import {
   type ForgeProjectWriteResult,
 } from '@midnite/studio-shared';
 
-import { gitlabCliStatus, glGet, glPut, nextPageCursor, projectId, type GitLabContext } from './gitlab-client';
+import { gitlabCliStatus, glGet, glPut, nextPageCursor, projectId } from './gitlab-client';
 import { asArray, asId, asNumber, asString, asStringLoose, row } from './gitlab-json';
 import { mapIssueState } from './gitlab-mappers';
 
@@ -34,11 +35,11 @@ const ITEMS_PER_PAGE = 50;
 type GitLabList = { id: number; name: string; color: string };
 
 async function fetchLabelLists(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   boardId: string,
 ): Promise<GitLabList[] | null> {
-  const result = await glGet<unknown[]>(ctx, `projects/${projectId(forge)}/boards/${boardId}/lists`, {
+  const result = await glGet<unknown[]>(forge, account, `projects/${projectId(forge)}/boards/${boardId}/lists`, {
     per_page: 100,
   });
   if (!result.ok) return null;
@@ -60,11 +61,11 @@ async function fetchLabelLists(
   return lists;
 }
 
-export async function listBoards(ctx: GitLabContext, forge: Forge): Promise<ForgeProjectsResult> {
-  const cli = gitlabCliStatus(ctx);
+export async function listBoards(forge: Forge, account: ForgeAccount | null): Promise<ForgeProjectsResult> {
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, projects: [], error: null, kind: 'ok' };
 
-  const result = await glGet<unknown[]>(ctx, `projects/${projectId(forge)}/boards`, { per_page: 100 });
+  const result = await glGet<unknown[]>(forge, account, `projects/${projectId(forge)}/boards`, { per_page: 100 });
   if (!result.ok) {
     if (result.status === 401 || result.status === 403) {
       return { cli, projects: [], error: result.error, kind: 'insufficient-scope' };
@@ -93,14 +94,14 @@ export async function listBoards(ctx: GitLabContext, forge: Forge): Promise<Forg
 }
 
 export async function boardFields(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   boardId: string,
 ): Promise<ForgeProjectFieldsResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, fields: [], error: null, kind: 'ok' };
 
-  const lists = await fetchLabelLists(ctx, forge, boardId);
+  const lists = await fetchLabelLists(forge, account, boardId);
   if (lists === null) return { cli, fields: [], error: 'Could not load this board’s lists.', kind: 'error' };
 
   const field: ForgeProjectField = {
@@ -113,15 +114,15 @@ export async function boardFields(
 }
 
 export async function boardItems(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   boardId: string,
   cursor?: string,
 ): Promise<ForgeProjectItemsResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, items: [], nextCursor: null, error: null, kind: 'ok' };
 
-  const lists = await fetchLabelLists(ctx, forge, boardId);
+  const lists = await fetchLabelLists(forge, account, boardId);
   if (lists === null) {
     return { cli, items: [], nextCursor: null, error: 'Could not load this board’s lists.', kind: 'error' };
   }
@@ -139,7 +140,8 @@ export async function boardItems(
 
   const list = lists[listIndex]!;
   const result = await glGet<unknown[]>(
-    ctx,
+    forge,
+    account,
     `projects/${projectId(forge)}/boards/${boardId}/lists/${list.id}/issues`,
     { page: Number.isFinite(page) && page > 0 ? page : 1, per_page: ITEMS_PER_PAGE },
   );
@@ -182,8 +184,7 @@ export async function boardItems(
       };
     });
 
-  const cursorHeaders = result.headers;
-  const nextPage = nextPageCursor(cursorHeaders);
+  const nextPage = nextPageCursor(result.headers);
   const nextCursor = nextPage !== null ? `${listIndex}:${nextPage}` : listIndex + 1 < lists.length ? `${listIndex + 1}:1` : null;
 
   return { cli, items, nextCursor, error: null, kind: 'ok' };
@@ -196,8 +197,8 @@ export async function boardItems(
  * the label *is* the field.
  */
 export async function setItemField(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   request: { projectId: string; itemId: string; fieldId: string; value: ForgeProjectFieldValue },
 ): Promise<ForgeProjectWriteResult> {
   const value = request.value;
@@ -205,31 +206,31 @@ export async function setItemField(
     return { ok: false, kind: 'error', message: 'GitLab boards only support setting the List field.' };
   }
 
-  const lists = await fetchLabelLists(ctx, forge, request.projectId);
+  const lists = await fetchLabelLists(forge, account, request.projectId);
   if (lists === null) return { ok: false, kind: 'error', message: 'Could not load this board’s lists.' };
   const targetList = lists.find((l) => String(l.id) === value.optionId);
   if (!targetList) return { ok: false, kind: 'error', message: 'Unknown list.' };
 
-  const issue = await glGet<Record<string, unknown>>(ctx, `projects/${projectId(forge)}/issues/${request.itemId}`);
+  const issue = await glGet<Record<string, unknown>>(forge, account, `projects/${projectId(forge)}/issues/${request.itemId}`);
   if (!issue.ok) {
     if (issue.status === 401 || issue.status === 403) {
       return { ok: false, kind: 'insufficient-scope', hint: 'This GitLab token needs the `api` scope.' };
     }
-    return { ok: false, kind: 'error', message: issue.error };
+    return { ok: false, kind: 'error', message: issue.error ?? 'Could not load this issue.' };
   }
 
   const listLabelNames = new Set(lists.map((l) => l.name));
   const currentLabels = asArray(issue.data['labels']).filter((v): v is string => typeof v === 'string');
   const nextLabels = [...currentLabels.filter((name) => !listLabelNames.has(name)), targetList.name];
 
-  const updated = await glPut(ctx, `projects/${projectId(forge)}/issues/${request.itemId}`, {
+  const updated = await glPut(forge, account, `projects/${projectId(forge)}/issues/${request.itemId}`, {
     labels: nextLabels.join(','),
   });
   if (!updated.ok) {
     if (updated.status === 401 || updated.status === 403) {
       return { ok: false, kind: 'insufficient-scope', hint: 'This GitLab token needs the `api` scope.' };
     }
-    return { ok: false, kind: 'error', message: updated.error };
+    return { ok: false, kind: 'error', message: updated.error ?? 'Could not update this issue’s labels.' };
   }
   return { ok: true, kind: 'ok' };
 }

@@ -1,10 +1,25 @@
-import type { Forge } from '@midnite/studio-shared';
+import type { Forge, ForgeAccount } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { gitlabCliStatus, glGet, glPost, glPut, nextPageCursor, projectId } from './gitlab-client';
 
 function forge(overrides: Partial<Forge> = {}): Forge {
   return { host: 'gitlab.com', owner: 'group/subgroup', repo: 'project', kind: 'gitlab', ...overrides };
+}
+
+function account(overrides: Partial<ForgeAccount> = {}): ForgeAccount {
+  return {
+    id: 'gitlab:gitlab.com:me',
+    kind: 'gitlab',
+    host: 'gitlab.com',
+    login: 'me',
+    displayName: 'Me',
+    avatarUrl: null,
+    addedAt: 0,
+    hasToken: true,
+    delegated: null,
+    ...overrides,
+  };
 }
 
 describe('projectId', () => {
@@ -14,22 +29,30 @@ describe('projectId', () => {
   });
 });
 
+vi.mock('../forge-accounts', () => ({ forgeAccountToken: vi.fn().mockResolvedValue('glpat-token') }));
+
+function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
+}
+
 describe('gitlabCliStatus', () => {
-  it('is not-authenticated with no token, and gives an actionable hint', () => {
-    const status = gitlabCliStatus({ host: 'gitlab.com', token: '' });
+  it('is not-authenticated with no account, and gives an actionable hint', async () => {
+    const status = await gitlabCliStatus(null);
     expect(status.reason).toBe('not-authenticated');
     expect(status.binPath).toBeNull();
     expect(status.hint.length).toBeGreaterThan(0);
   });
 
-  it('is ready once a token is present', () => {
-    expect(gitlabCliStatus({ host: 'gitlab.com', token: 'glpat-x' }).reason).toBe('ready');
+  it('is ready once an account with a resolvable token is present', async () => {
+    const status = await gitlabCliStatus(account());
+    expect(status.reason).toBe('ready');
+  });
+
+  it('is not-authenticated for a delegated account — it holds no token of its own', async () => {
+    const status = await gitlabCliStatus(account({ delegated: 'gh' }));
+    expect(status.reason).toBe('not-authenticated');
   });
 });
-
-function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
-}
 
 describe('glGet / glPost / glPut', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -38,18 +61,19 @@ describe('glGet / glPost / glPut', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { id: 1 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await glGet({ host: 'gitlab.com', token: 't' }, 'projects/1/issues', { state: 'opened' });
+    const result = await glGet(forge(), account(), `projects/${projectId(forge())}/issues`, { state: 'opened' });
     expect(result.ok).toBe(true);
     const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
-    expect(url.href).toBe('https://gitlab.com/api/v4/projects/1/issues?state=opened');
-    expect((init.headers as Record<string, string>)['PRIVATE-TOKEN']).toBe('t');
+    expect(url.href).toContain('https://gitlab.com/api/v4/projects/');
+    expect(url.searchParams.get('state')).toBe('opened');
+    expect((init.headers as Record<string, string>)['PRIVATE-TOKEN']).toBe('glpat-token');
   });
 
   it('POSTs a JSON body', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(201, { ok: true }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await glPost({ host: 'gitlab.com', token: 't' }, 'projects/1/merge_requests/2/notes', { body: 'hi' });
+    await glPost(forge(), account(), 'projects/1/merge_requests/2/notes', { body: 'hi' });
     const [, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
     expect(init.method).toBe('POST');
     expect(init.body).toBe(JSON.stringify({ body: 'hi' }));
@@ -59,9 +83,18 @@ describe('glGet / glPost / glPut', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { ok: true }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await glPut({ host: 'gitlab.com', token: 't' }, 'projects/1/issues/2', { state_event: 'close' });
+    await glPut(forge(), account(), 'projects/1/issues/2', { state_event: 'close' });
     const [, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
     expect(init.method).toBe('PUT');
+  });
+
+  it('reports not-authenticated with no account, without a network call', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await glGet(forge(), null, 'user');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.cli.reason).toBe('not-authenticated');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

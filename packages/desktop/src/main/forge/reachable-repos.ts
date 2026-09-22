@@ -3,7 +3,6 @@ import type { ForgeAccount, ReachableRepo, ReachableReposResult } from '@midnite
 import { describeFailure, runInShell, shellQuote, LIST_TIMEOUT_MS } from './github/gh-shell';
 import { parseJsonPayload } from './github/gh-parse';
 import { glGet } from './gitlab/gitlab-client';
-import { forgeAccountToken } from './forge-accounts';
 
 /**
  * "Repositories I can reach" — the repo picker's clone-or-open listing
@@ -70,15 +69,22 @@ async function githubReachableRepos(account: ForgeAccount): Promise<ReachableRep
  * settings this call has no use for.
  */
 async function gitlabReachableRepos(account: ForgeAccount): Promise<ReachableReposResult> {
-  const token = await forgeAccountToken(account);
-  if (!token) return { ok: false, reason: 'no-account' };
-
-  const result = await glGet<unknown[]>(
-    { host: account.host, token },
-    'projects',
-    { membership: true, simple: true, per_page: 100, order_by: 'last_activity_at' },
-  );
-  if (!result.ok) return { ok: false, reason: 'error', message: result.error };
+  // `GET /projects` is account-wide, not repo-scoped — there is no real
+  // `Forge` to build one from. `glGet` only reads `forge.host` for this
+  // call (`projects` needs no `owner`/`repo`), so a synthetic one carrying
+  // just the account's host is honest rather than a stand-in for a repo
+  // that does not exist yet.
+  const forge = { host: account.host, owner: '', repo: '', kind: 'gitlab' as const };
+  const result = await glGet<unknown[]>(forge, account, 'projects', {
+    membership: true,
+    simple: true,
+    per_page: 100,
+    order_by: 'last_activity_at',
+  });
+  if (!result.ok) {
+    if (result.cli.reason === 'not-authenticated') return { ok: false, reason: 'no-account' };
+    return { ok: false, reason: 'error', message: result.error ?? undefined };
+  }
 
   const repos: ReachableRepo[] = [];
   for (const raw of result.data) {

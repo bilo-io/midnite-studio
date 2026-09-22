@@ -5,6 +5,7 @@ import {
   PULL_PATCH_BYTE_CAP,
   type FileDiff,
   type Forge,
+  type ForgeAccount,
   type ForgeComment,
   type ForgeIssue,
   type ForgeIssueCommentsResult,
@@ -32,7 +33,7 @@ import {
 import { capPatch, stripPatchPreamble } from '../github/gh-cli';
 import { parseRunLog } from '../github/gh-parse';
 import { gitlabWhoami } from '../whoami';
-import { gitlabCliStatus, glGet, glTrace, projectId, type GitLabContext } from './gitlab-client';
+import { gitlabCliStatus, glGet, glTrace, projectId, resolveToken } from './gitlab-client';
 import { asArray, asBool, asId, asNumber, asString, asStringLoose, row } from './gitlab-json';
 import { mapApprovalDecision, mapChecksRollup, mapIssueState, mapMergeRequestState, mapPipelineStatus } from './gitlab-mappers';
 
@@ -90,17 +91,17 @@ function mapRun(raw: GitLabPipelineRow): ForgeRun {
 }
 
 export async function listRuns(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   options: { limit: number; branch?: string; workflow?: string },
 ): Promise<ForgeRunsResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, runs: [], error: null };
 
   // GitLab pipelines carry no named-workflow concept to filter `options.workflow`
   // against — one project has one `.gitlab-ci.yml`, unlike a GitHub repo's many
   // workflow files — so that filter is a no-op here, not an unsupported error.
-  const result = await glGet<GitLabPipelineRow[]>(ctx, `projects/${projectId(forge)}/pipelines`, {
+  const result = await glGet<GitLabPipelineRow[]>(forge, account, `projects/${projectId(forge)}/pipelines`, {
     per_page: Math.min(options.limit, LIST_LIMIT_CAP),
     order_by: 'id',
     sort: 'desc',
@@ -112,17 +113,17 @@ export async function listRuns(
 }
 
 export async function runDetail(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   runId: string,
 ): Promise<ForgeRunDetailResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, detail: null, error: null };
 
-  const pipeline = await glGet<GitLabPipelineRow>(ctx, `projects/${projectId(forge)}/pipelines/${runId}`);
+  const pipeline = await glGet<GitLabPipelineRow>(forge, account, `projects/${projectId(forge)}/pipelines/${runId}`);
   if (!pipeline.ok) return { cli, detail: null, error: pipeline.error };
 
-  const jobs = await glGet<unknown[]>(ctx, `projects/${projectId(forge)}/pipelines/${runId}/jobs`, {
+  const jobs = await glGet<unknown[]>(forge, account, `projects/${projectId(forge)}/pipelines/${runId}/jobs`, {
     per_page: LIST_LIMIT_CAP,
   });
   const jobRows = jobs.ok ? asArray(jobs.data) : [];
@@ -152,15 +153,15 @@ export async function runDetail(
   return { cli, detail, error: null };
 }
 
-export async function listWorkflows(ctx: GitLabContext, forge: Forge): Promise<ForgeWorkflowsResult> {
-  const cli = gitlabCliStatus(ctx);
+export async function listWorkflows(forge: Forge, account: ForgeAccount | null): Promise<ForgeWorkflowsResult> {
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, workflows: [], error: null };
 
   // GitLab has one CI config file per project rather than GitHub's many
   // `.github/workflows/*.yml` — `ci_config_path` on the project resource
   // (defaulting to `.gitlab-ci.yml`) is the one synthetic "workflow" this
   // adapter can resolve a file path for.
-  const project = await glGet<Record<string, unknown>>(ctx, `projects/${projectId(forge)}`);
+  const project = await glGet<Record<string, unknown>>(forge, account, `projects/${projectId(forge)}`);
   if (!project.ok) return { cli, workflows: [], error: project.error };
 
   const path = asString(project.data['ci_config_path']) ?? '.gitlab-ci.yml';
@@ -169,16 +170,16 @@ export async function listWorkflows(ctx: GitLabContext, forge: Forge): Promise<F
 }
 
 export async function runLog(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   runId: string,
   options: { jobId?: string; full?: boolean } = {},
 ): Promise<ForgeRunLogResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, log: null, pending: false, error: null };
 
   if (options.jobId) {
-    const trace = await glTrace(ctx, `projects/${projectId(forge)}/jobs/${options.jobId}/trace`);
+    const trace = await glTrace(forge, account, `projects/${projectId(forge)}/jobs/${options.jobId}/trace`);
     if (!trace.ok) return { cli, log: null, pending: false, error: trace.error };
     return { cli, log: parseRunLog(trace.data, { full: options.full }), pending: false, error: null };
   }
@@ -188,7 +189,7 @@ export async function runLog(
   // every job's trace and concatenates them under the same `job\tstep\t`
   // prefix convention `log-model.ts` already parses (GitLab jobs have no
   // steps, so the step field is left empty).
-  const jobsResult = await glGet<unknown[]>(ctx, `projects/${projectId(forge)}/pipelines/${runId}/jobs`, {
+  const jobsResult = await glGet<unknown[]>(forge, account, `projects/${projectId(forge)}/pipelines/${runId}/jobs`, {
     per_page: LIST_LIMIT_CAP,
   });
   if (!jobsResult.ok) return { cli, log: null, pending: false, error: jobsResult.error };
@@ -204,7 +205,7 @@ export async function runLog(
     // A job that has not run yet has no trace to fetch — skip it rather than
     // surface a 404 as this whole call's error.
     if (status === 'created' || status === 'pending' || status === 'manual' || status === 'scheduled') continue;
-    const trace = await glTrace(ctx, `projects/${projectId(forge)}/jobs/${id}/trace`);
+    const trace = await glTrace(forge, account, `projects/${projectId(forge)}/jobs/${id}/trace`);
     if (!trace.ok) continue;
     const prefixed = trace.data
       .split('\n')
@@ -256,30 +257,36 @@ function mapPull(raw: GitLabMrRow): ForgePull {
   };
 }
 
-async function scopeParams(ctx: GitLabContext, scope: ForgePullScope | undefined): Promise<Record<string, string>> {
+async function scopeParams(
+  forge: Forge,
+  account: ForgeAccount | null,
+  scope: ForgePullScope | undefined,
+): Promise<Record<string, string>> {
   if (!scope || scope === 'all') return {};
   if (scope === 'mine') return { scope: 'created_by_me' };
   // 'review-requested' — GitLab filters by a specific reviewer's username
   // rather than a "me" shorthand, so this resolves it once via `whoami`.
-  const me = await gitlabWhoami(ctx.host, ctx.token);
+  const token = await resolveToken(account);
+  if (!token) return {};
+  const me = await gitlabWhoami(forge.host, token);
   return me ? { reviewer_username: me.login } : {};
 }
 
 export async function listPulls(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   options: { limit: number; state: 'open' | 'closed' | 'merged' | 'all'; scope?: ForgePullScope },
 ): Promise<ForgePullsResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, pulls: [], error: null };
 
   const stateParam = options.state === 'open' ? 'opened' : options.state;
-  const result = await glGet<GitLabMrRow[]>(ctx, `projects/${projectId(forge)}/merge_requests`, {
+  const result = await glGet<GitLabMrRow[]>(forge, account, `projects/${projectId(forge)}/merge_requests`, {
     state: stateParam,
     per_page: Math.min(options.limit, LIST_LIMIT_CAP),
     order_by: 'updated_at',
     sort: 'desc',
-    ...(await scopeParams(ctx, options.scope)),
+    ...(await scopeParams(forge, account, options.scope)),
   });
   if (!result.ok) return { cli, pulls: [], error: result.error };
 
@@ -287,11 +294,11 @@ export async function listPulls(
 }
 
 async function fetchMrDiff(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
 ): Promise<{ files: FileDiff[]; truncated: boolean; omittedFiles: number; totalBytes: number } | null> {
-  const diffs = await glGet<unknown[]>(ctx, `projects/${projectId(forge)}/merge_requests/${number}/diffs`, {
+  const diffs = await glGet<unknown[]>(forge, account, `projects/${projectId(forge)}/merge_requests/${number}/diffs`, {
     per_page: LIST_LIMIT_CAP,
   });
   if (!diffs.ok) return null;
@@ -327,28 +334,28 @@ async function fetchMrDiff(
 }
 
 export async function pullFiles(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
 ): Promise<ForgePullFilesResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, files: null, error: null };
 
-  const built = await fetchMrDiff(ctx, forge, number);
+  const built = await fetchMrDiff(forge, account, number);
   if (!built) return { cli, files: null, error: 'Could not load this merge request’s diff.' };
 
   return { cli, files: built, error: null };
 }
 
 export async function pullDetail(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
 ): Promise<ForgePullDetailResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, detail: null, error: null };
 
-  const mr = await glGet<Record<string, unknown>>(ctx, `projects/${projectId(forge)}/merge_requests/${number}`);
+  const mr = await glGet<Record<string, unknown>>(forge, account, `projects/${projectId(forge)}/merge_requests/${number}`);
   if (!mr.ok) return { cli, detail: null, error: mr.error };
   const raw = mr.data;
 
@@ -356,7 +363,7 @@ export async function pullDetail(
   const mergeStatus = asString(raw['merge_status']);
   const mergeable = mergeStatus === 'can_be_merged' ? 'MERGEABLE' : mergeStatus === 'cannot_be_merged' ? 'CONFLICTING' : 'UNKNOWN';
 
-  const diff = await fetchMrDiff(ctx, forge, number);
+  const diff = await fetchMrDiff(forge, account, number);
   const changedFiles = diff ? diff.files.length : Number.parseInt(asStringLoose(raw['changes_count']), 10) || 0;
   let additions = 0;
   let deletions = 0;
@@ -366,7 +373,8 @@ export async function pullDetail(
   }
 
   const commitsResult = await glGet<unknown[]>(
-    ctx,
+    forge,
+    account,
     `projects/${projectId(forge)}/merge_requests/${number}/commits`,
     { per_page: LIST_LIMIT_CAP },
   );
@@ -386,7 +394,8 @@ export async function pullDetail(
   // `listPulls`' rows leave `reviewDecision` null rather than paying it once
   // per row in a listing — see that function's own note.
   const approvals = await glGet<Record<string, unknown>>(
-    ctx,
+    forge,
+    account,
     `projects/${projectId(forge)}/merge_requests/${number}/approvals`,
   );
   const reviewDecision = approvals.ok
@@ -438,16 +447,17 @@ function noteAuthor(note: GitLabNote): string {
 }
 
 async function fetchDiscussions(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
 ): Promise<GitLabDiscussion[] | null> {
   const result = await glGet<GitLabDiscussion[]>(
-    ctx,
+    forge,
+    account,
     `projects/${projectId(forge)}/merge_requests/${number}/discussions`,
     { per_page: LIST_LIMIT_CAP },
   );
-  return result.ok ? asArray(result.data) as GitLabDiscussion[] : null;
+  return result.ok ? (asArray(result.data) as GitLabDiscussion[]) : null;
 }
 
 /**
@@ -537,28 +547,28 @@ function splitDiscussions(
 }
 
 export async function pullComments(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
 ): Promise<ForgePullCommentsResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, comments: [], error: null };
 
-  const discussions = await fetchDiscussions(ctx, forge, number);
+  const discussions = await fetchDiscussions(forge, account, number);
   if (discussions === null) return { cli, comments: [], error: 'Could not load this merge request’s discussion.' };
 
   return { cli, comments: splitDiscussions(discussions, number).comments, error: null };
 }
 
 export async function pullThreads(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
 ): Promise<ForgePullThreadsResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, threads: [], error: null };
 
-  const discussions = await fetchDiscussions(ctx, forge, number);
+  const discussions = await fetchDiscussions(forge, account, number);
   if (discussions === null) return { cli, threads: [], error: 'Could not load this merge request’s threads.' };
 
   return { cli, threads: splitDiscussions(discussions, number).threads, error: null };
@@ -604,15 +614,15 @@ function mapIssue(raw: GitLabIssueRow): ForgeIssue {
 }
 
 export async function listIssues(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   options: { limit: number; state: 'open' | 'closed' | 'all' },
 ): Promise<ForgeIssuesResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, issues: [], disabled: false, error: null };
 
   const stateParam = options.state === 'open' ? 'opened' : options.state;
-  const result = await glGet<GitLabIssueRow[]>(ctx, `projects/${projectId(forge)}/issues`, {
+  const result = await glGet<GitLabIssueRow[]>(forge, account, `projects/${projectId(forge)}/issues`, {
     state: stateParam,
     per_page: Math.min(options.limit, LIST_LIMIT_CAP),
     order_by: 'updated_at',
@@ -631,14 +641,14 @@ export async function listIssues(
 }
 
 export async function issueDetail(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
 ): Promise<ForgeIssueDetailResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, issue: null, error: null };
 
-  const result = await glGet<Record<string, unknown>>(ctx, `projects/${projectId(forge)}/issues/${number}`, {
+  const result = await glGet<Record<string, unknown>>(forge, account, `projects/${projectId(forge)}/issues/${number}`, {
     with_labels_details: true,
   });
   if (!result.ok) return { cli, issue: null, error: result.error };
@@ -651,14 +661,14 @@ export async function issueDetail(
 }
 
 export async function issueComments(
-  ctx: GitLabContext,
   forge: Forge,
+  account: ForgeAccount | null,
   number: number,
 ): Promise<ForgeIssueCommentsResult> {
-  const cli = gitlabCliStatus(ctx);
+  const cli = await gitlabCliStatus(account);
   if (cli.reason !== 'ready') return { cli, comments: [], error: null };
 
-  const result = await glGet<unknown[]>(ctx, `projects/${projectId(forge)}/issues/${number}/notes`, {
+  const result = await glGet<unknown[]>(forge, account, `projects/${projectId(forge)}/issues/${number}/notes`, {
     per_page: LIST_LIMIT_CAP,
     order_by: 'created_at',
     sort: 'asc',

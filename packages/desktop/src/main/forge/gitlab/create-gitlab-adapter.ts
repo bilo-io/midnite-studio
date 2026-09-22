@@ -1,9 +1,9 @@
-import { capabilitiesFor, type Forge } from '@midnite/studio-shared';
+import { capabilitiesFor, type Forge, type ForgeAccount } from '@midnite/studio-shared';
 
 import type { ForgeAdapter } from '../adapter';
 import { gitlabWhoami } from '../whoami';
 import { boardFields, boardItems, listBoards, setItemField } from './gitlab-board';
-import type { GitLabContext } from './gitlab-client';
+import { resolveToken } from './gitlab-client';
 import {
   issueComments,
   issueDetail,
@@ -33,57 +33,61 @@ import {
 } from './gitlab-write';
 
 /**
- * GitLab's `ForgeAdapter` (Phase 90 Theme E) — every method binds `ctx`
- * (the account's token, resolved once by `registry.ts`) ahead of the
- * `(forge, …)` signature the interface declares, mirroring
- * `github/create-github-adapter.ts`'s role for GitHub's `gh` binding.
+ * GitLab's `ForgeAdapter` (Phase 90 Theme E) — bound to one `account` closed
+ * over here, matching `create-bitbucket-adapter.ts`'s shape: `registry.ts`
+ * resolves the account once per repo before dispatch, and every read/write
+ * below resolves that account's vaulted token lazily, per call
+ * (`gitlab-client.ts`'s `resolveToken`), rather than eagerly up front.
  *
  * `forgetRun` is omitted — GitLab pipelines are read fresh on every call
  * (no in-process cache the way `gh-cache.ts` keeps for GitHub's run list),
  * so there is nothing to evict after a re-run. `listRepos` is omitted for
  * the same reason Theme D left it off GitHub's adapter: no caller reaches
- * it through this interface yet — `reachable-repos.ts` is where Theme E's
+ * it through this interface yet — `reachable-repos.ts` is where GitLab's
  * own repo listing lives instead (see that module's docblock).
  */
-export function createGitLabAdapter(ctx: GitLabContext): ForgeAdapter {
+export function createGitLabAdapter(account: ForgeAccount | null): ForgeAdapter {
   return {
     kind: 'gitlab',
 
-    listRuns: (forge, options) => listRuns(ctx, forge, options),
-    runDetail: (forge, runId) => runDetail(ctx, forge, runId),
-    runLog: (forge, runId, options) => runLog(ctx, forge, runId, options),
-    listWorkflows: (forge) => listWorkflows(ctx, forge),
+    listRuns: (forge, options) => listRuns(forge, account, options),
+    runDetail: (forge, runId) => runDetail(forge, account, runId),
+    runLog: (forge, runId, options) => runLog(forge, account, runId, options),
+    listWorkflows: (forge) => listWorkflows(forge, account),
 
-    listPulls: (forge, options) => listPulls(ctx, forge, options),
-    pullDetail: (forge, number) => pullDetail(ctx, forge, number),
-    pullFiles: (forge, number) => pullFiles(ctx, forge, number),
-    pullComments: (forge, number) => pullComments(ctx, forge, number),
-    pullThreads: (forge, number) => pullThreads(ctx, forge, number),
+    listPulls: (forge, options) => listPulls(forge, account, options),
+    pullDetail: (forge, number) => pullDetail(forge, account, number),
+    pullFiles: (forge, number) => pullFiles(forge, account, number),
+    pullComments: (forge, number) => pullComments(forge, account, number),
+    pullThreads: (forge, number) => pullThreads(forge, account, number),
 
-    listIssues: (forge, options) => listIssues(ctx, forge, options),
-    issueDetail: (forge, number) => issueDetail(ctx, forge, number),
-    issueComments: (forge, number) => issueComments(ctx, forge, number),
+    listIssues: (forge, options) => listIssues(forge, account, options),
+    issueDetail: (forge, number) => issueDetail(forge, account, number),
+    issueComments: (forge, number) => issueComments(forge, account, number),
 
-    listBoards: (forge) => listBoards(ctx, forge),
-    boardFields: (forge, projectId) => boardFields(ctx, forge, projectId),
-    boardItems: (forge, projectId, cursor) => boardItems(ctx, forge, projectId, cursor),
+    listBoards: (forge) => listBoards(forge, account),
+    boardFields: (forge, projectId) => boardFields(forge, account, projectId),
+    boardItems: (forge, projectId, cursor) => boardItems(forge, account, projectId, cursor),
 
-    addReviewComment: (forge, request) => addReviewComment(ctx, forge, request),
-    replyToReviewComment: (forge, request) => replyToReviewComment(ctx, forge, request),
-    setThreadResolved: (forge, request) => setThreadResolved(ctx, forge, request),
-    reviewPull: (forge, number, event, body) => reviewPull(ctx, forge, number, event, body),
-    commentPull: (forge, number, body) => commentPull(ctx, forge, number, body),
-    mergePull: (forge, number, method) => mergePull(ctx, forge, number, method),
-    requestReview: (forge, number, reviewers) => requestReview(ctx, forge, number, reviewers),
-    markReady: (forge, number) => markReady(ctx, forge, number),
-    rerunChecks: (forge, runId, failedOnly) => rerunChecks(ctx, forge, runId, failedOnly),
+    addReviewComment: (forge, request) => addReviewComment(forge, account, request),
+    replyToReviewComment: (forge, request) => replyToReviewComment(forge, account, request),
+    setThreadResolved: (forge, request) => setThreadResolved(forge, account, request),
+    reviewPull: (forge, number, event, body) => reviewPull(forge, account, number, event, body),
+    commentPull: (forge, number, body) => commentPull(forge, account, number, body),
+    mergePull: (forge, number, method) => mergePull(forge, account, number, method),
+    requestReview: (forge, number, reviewers) => requestReview(forge, account, number, reviewers),
+    markReady: (forge, number) => markReady(forge, account, number),
+    rerunChecks: (forge, runId, failedOnly) => rerunChecks(forge, account, runId, failedOnly),
 
-    commentIssue: (forge, number, body) => commentIssue(ctx, forge, number, body),
-    setIssueState: (forge, number, state) => setIssueState(ctx, forge, number, state),
+    commentIssue: (forge, number, body) => commentIssue(forge, account, number, body),
+    setIssueState: (forge, number, state) => setIssueState(forge, account, number, state),
 
-    setItemField: (forge, request) => setItemField(ctx, forge, request),
+    setItemField: (forge, request) => setItemField(forge, account, request),
 
-    whoami: (forge: Forge) => gitlabWhoami(forge.host, ctx.token),
+    whoami: async (forge: Forge) => {
+      const token = await resolveToken(account);
+      return token ? gitlabWhoami(forge.host, token) : null;
+    },
 
     capabilities: () => capabilitiesFor('gitlab'),
   };

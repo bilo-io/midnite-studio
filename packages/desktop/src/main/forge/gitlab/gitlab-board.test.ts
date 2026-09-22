@@ -1,10 +1,25 @@
-import type { Forge } from '@midnite/studio-shared';
+import type { Forge, ForgeAccount } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { boardFields, boardItems, listBoards, setItemField } from './gitlab-board';
 
 const forge: Forge = { host: 'gitlab.com', owner: 'group', repo: 'project', kind: 'gitlab' };
-const ctx = { host: 'gitlab.com', token: 't' };
+function account(overrides: Partial<ForgeAccount> = {}): ForgeAccount {
+  return {
+    id: 'gitlab:gitlab.com:me',
+    kind: 'gitlab',
+    host: 'gitlab.com',
+    login: 'me',
+    displayName: 'Me',
+    avatarUrl: null,
+    addedAt: 0,
+    hasToken: true,
+    delegated: null,
+    ...overrides,
+  };
+}
+
+vi.mock('../forge-accounts', () => ({ forgeAccountToken: vi.fn().mockResolvedValue('glpat-token') }));
 
 function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
@@ -22,14 +37,14 @@ describe('listBoards', () => {
 
   it('maps boards, every one linked to this repo', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, [{ id: 9, name: 'Main board' }])));
-    const result = await listBoards(ctx, forge);
+    const result = await listBoards(forge, account());
     expect(result.kind).toBe('ok');
     expect(result.projects[0]).toMatchObject({ id: '9', title: 'Main board', linkedToRepo: true, closed: false });
   });
 
   it('reports insufficient-scope on a 403', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(403, { message: '403 Forbidden' })));
-    const result = await listBoards(ctx, forge);
+    const result = await listBoards(forge, account());
     expect(result.kind).toBe('insufficient-scope');
   });
 });
@@ -39,7 +54,7 @@ describe('boardFields', () => {
 
   it('builds one synthetic single_select field, skipping backlog/closed system lists', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, LISTS)));
-    const result = await boardFields(ctx, forge, '9');
+    const result = await boardFields(forge, account(), '9');
     expect(result.fields).toHaveLength(1);
     const field = result.fields[0]!;
     expect(field.dataType).toBe('single_select');
@@ -65,7 +80,7 @@ describe('boardItems', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await boardItems(ctx, forge, '9');
+    const result = await boardItems(forge, account(), '9');
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({ id: '1' });
     expect(result.items[0]?.fieldValues['list']).toMatchObject({ optionId: '2', name: 'To Do' });
@@ -79,7 +94,7 @@ describe('boardItems', () => {
       vi.fn().mockResolvedValueOnce(jsonResponse(200, LISTS)).mockResolvedValueOnce(jsonResponse(200, [], { 'x-next-page': '' })),
     );
     // Ask for the last list directly.
-    const result = await boardItems(ctx, forge, '9', '1:1');
+    const result = await boardItems(forge, account(), '9', '1:1');
     expect(result.nextCursor).toBeNull();
   });
 });
@@ -95,7 +110,7 @@ describe('setItemField', () => {
       .mockResolvedValueOnce(jsonResponse(200, {})); // PUT issue
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await setItemField(ctx, forge, {
+    const result = await setItemField(forge, account(), {
       projectId: '9',
       itemId: '1',
       fieldId: 'list',
@@ -109,7 +124,7 @@ describe('setItemField', () => {
   });
 
   it('refuses a field other than the synthetic List field', async () => {
-    const result = await setItemField(ctx, forge, {
+    const result = await setItemField(forge, account(), {
       projectId: '9',
       itemId: '1',
       fieldId: 'not-list',

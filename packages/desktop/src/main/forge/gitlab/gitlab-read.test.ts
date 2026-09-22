@@ -1,4 +1,4 @@
-import type { Forge } from '@midnite/studio-shared';
+import type { Forge, ForgeAccount } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -12,7 +12,22 @@ import {
 } from './gitlab-read';
 
 const forge: Forge = { host: 'gitlab.com', owner: 'group', repo: 'project', kind: 'gitlab' };
-const ctx = { host: 'gitlab.com', token: 't' };
+function account(overrides: Partial<ForgeAccount> = {}): ForgeAccount {
+  return {
+    id: 'gitlab:gitlab.com:me',
+    kind: 'gitlab',
+    host: 'gitlab.com',
+    login: 'me',
+    displayName: 'Me',
+    avatarUrl: null,
+    addedAt: 0,
+    hasToken: true,
+    delegated: null,
+    ...overrides,
+  };
+}
+
+vi.mock('../forge-accounts', () => ({ forgeAccountToken: vi.fn().mockResolvedValue('glpat-token') }));
 
 function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
@@ -24,7 +39,7 @@ describe('listRuns', () => {
   it('reports not-authenticated with no token, without a network call', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    const result = await listRuns({ host: 'gitlab.com', token: '' }, forge, { limit: 20 });
+    const result = await listRuns(forge, null, { limit: 20 });
     expect(result.cli.reason).toBe('not-authenticated');
     expect(result.runs).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -48,7 +63,7 @@ describe('listRuns', () => {
         ]),
       ),
     );
-    const result = await listRuns(ctx, forge, { limit: 20 });
+    const result = await listRuns(forge, account(), { limit: 20 });
     expect(result.error).toBeNull();
     expect(result.runs).toHaveLength(1);
     expect(result.runs[0]).toMatchObject({
@@ -85,7 +100,7 @@ describe('listPulls', () => {
         ]),
       ),
     );
-    const result = await listPulls(ctx, forge, { limit: 20, state: 'open' });
+    const result = await listPulls(forge, account(), { limit: 20, state: 'open' });
     expect(result.pulls[0]).toMatchObject({
       number: 3,
       title: 'Add feature',
@@ -102,7 +117,7 @@ describe('listIssues', () => {
 
   it('reports disabled, not error, on a 404 — issues turned off', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(404, { message: '404 Project Not Found' })));
-    const result = await listIssues(ctx, forge, { limit: 20, state: 'open' });
+    const result = await listIssues(forge, account(), { limit: 20, state: 'open' });
     expect(result.disabled).toBe(true);
     expect(result.error).toBeNull();
     expect(result.issues).toEqual([]);
@@ -129,7 +144,7 @@ describe('listIssues', () => {
         ]),
       ),
     );
-    const result = await listIssues(ctx, forge, { limit: 20, state: 'open' });
+    const result = await listIssues(forge, account(), { limit: 20, state: 'open' });
     expect(result.issues[0]).toMatchObject({
       number: 7,
       title: 'Bug',
@@ -155,7 +170,7 @@ describe('issueComments', () => {
         ]),
       ),
     );
-    const result = await issueComments(ctx, forge, 7);
+    const result = await issueComments(forge, account(), 7);
     expect(result.comments).toHaveLength(1);
     expect(result.comments[0]).toMatchObject({ author: 'dave', body: 'A real comment', kind: 'comment' });
   });
@@ -189,14 +204,14 @@ describe('pullComments / pullThreads', () => {
 
   it('routes plain discussions into comments and diff-anchored ones into threads', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, discussions)));
-    const comments = await pullComments(ctx, forge, 3);
+    const comments = await pullComments(forge, account(), 3);
     expect(comments.comments).toHaveLength(1);
     expect(comments.comments[0]).toMatchObject({ author: 'eve', body: 'General comment' });
   });
 
   it('builds a thread id that encodes the merge request number', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, discussions)));
-    const threads = await pullThreads(ctx, forge, 3);
+    const threads = await pullThreads(forge, account(), 3);
     expect(threads.threads).toHaveLength(1);
     expect(threads.threads[0]?.id).toBe('3:disc-2');
     expect(threads.threads[0]?.path).toBe('src/a.ts');
@@ -231,7 +246,7 @@ describe('pullDetail', () => {
       .mockResolvedValueOnce(jsonResponse(200, { approved: false, approvals_required: 2 })); // approvals
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await pullDetail(ctx, forge, 3);
+    const result = await pullDetail(forge, account(), 3);
     expect(result.detail?.pull.reviewDecision).toBe('REVIEW_REQUIRED');
     expect(result.detail?.mergeable).toBe('MERGEABLE');
     expect(result.detail?.baseSha).toBe('base');
