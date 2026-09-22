@@ -17,6 +17,7 @@ describe('settings-mirror', () => {
         youtube: false,
       },
       browserDiscardMs: 10 * 60 * 1000,
+      forgeSyncGhAuthSwitch: true,
     });
   });
 

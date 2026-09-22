@@ -168,6 +168,35 @@ export function invalidateGhProbe(): void {
   probeCache = null;
 }
 
+/**
+ * `gh auth switch --hostname <host> --user <login>` (Phase 90 Theme C) —
+ * the one write this module makes, and the one deliberate exception to
+ * "read-only shell" the rest of it is. Run only for a GitHub account that is
+ * itself one of `gh`'s own logged-in identities (`delegated: 'gh'` —
+ * `forge-account-handlers.ts` is the caller and holds that gate); a second
+ * GitHub identity added here via a pasted PAT was never logged into `gh` in
+ * the first place, and asking `gh` to switch to a user it has never heard of
+ * would just fail.
+ *
+ * `invalidateGhProbe()` runs unconditionally after, success or failure: even
+ * a failed switch is worth re-probing, since `gh auth status` is the signal
+ * every other read in this app trusts, and a stale `ready` reading here would
+ * silently keep serving the account this call just failed to leave.
+ */
+export async function switchGhAccount(
+  host: string,
+  login: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const hostFlag = host === 'github.com' ? '' : ` --hostname ${shellQuote(host)}`;
+  const command = `gh auth switch${hostFlag} --user ${shellQuote(login)}`;
+  const result = await runInShell(command, PROBE_TIMEOUT_MS);
+  invalidateGhProbe();
+  if (result.exitCode !== 0) {
+    return { ok: false, message: describeFailure(result.output) };
+  }
+  return { ok: true };
+}
+
 export const slug = (forge: Forge): string => `${forge.owner}/${forge.repo}`;
 
 /**

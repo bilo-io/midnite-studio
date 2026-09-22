@@ -183,6 +183,7 @@ const bridge: Pick<
     worktreeAdd: (req) => call(CHANNELS.repoWorktreeAdd, req),
     worktreeRemove: (req) => call(CHANNELS.repoWorktreeRemove, req),
     pickDirectory: () => call(CHANNELS.repoPickDirectory),
+    clone: (req) => call(CHANNELS.repoClone, req),
     revParse: (req) => call(CHANNELS.repoRevParse, req),
     reorder: (req) => ipcRenderer.send(CHANNELS.repoReorder, req),
   },
@@ -260,6 +261,7 @@ const bridge: Pick<
     remove: (req) => call(CHANNELS.forgeAccountRemove, req),
     switch: (req) => call(CHANNELS.forgeAccountSwitch, req),
     capabilities: (req) => call(CHANNELS.forgeCapabilities, req),
+    reachableRepos: (req) => call(CHANNELS.forgeAccountReachableRepos, req),
   },
   forgeProject: {
     list: (req) => call(CHANNELS.forgeProjectList, req),
