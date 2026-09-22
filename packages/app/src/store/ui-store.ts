@@ -1394,6 +1394,27 @@ export type UiState = {
   forgeActiveAccountId: string | null;
   setForgeActiveAccountId: (id: string | null) => void;
   /**
+   * Whether switching the active account hides repos that don't belong to
+   * it — the tree stays untouched underneath (`repo-registry.ts` keeps them
+   * open), this only filters what `repos-panel.tsx` renders. Default **on**:
+   * the human's own phrasing ("hide all repos that do not belong to that
+   * user") is the phase doc's own Decisions recommendation for the default.
+   */
+  forgeScopeReposToActiveAccount: boolean;
+  setForgeScopeReposToActiveAccount: (value: boolean) => void;
+  /**
+   * Whether switching to a GitHub account also runs `gh auth switch` in a
+   * shell beside the app. Default **on**, per the phase doc's Decisions: it
+   * mutates state the user's own terminal shares, which is exactly the class
+   * of side effect that gets a switch in this repo (compare `Settings ▸ Git
+   * Safety ▸ Allow force-push`) — but the human explicitly asked for the
+   * behaviour, so the switch defaults to honouring it rather than to safety.
+   * Mirrored into main via `use-settings-sync.ts`/`settings-mirror.ts`,
+   * because the account-switch handler that acts on it lives there.
+   */
+  forgeSyncGhAuthSwitch: boolean;
+  setForgeSyncGhAuthSwitch: (value: boolean) => void;
+  /**
    * Execution mode when triggering skills: 'interactive' (default) or 'headless'.
    */
   skillExecutionMode: SkillExecutionMode;
@@ -1879,6 +1900,8 @@ export type PersistedUi = Pick<
   | 'forgeWritesEnabled'
   | 'forgeAccounts'
   | 'forgeActiveAccountId'
+  | 'forgeScopeReposToActiveAccount'
+  | 'forgeSyncGhAuthSwitch'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
   | 'projectsMode'
@@ -2038,6 +2061,11 @@ export const useUiStore = create<UiState>()(
       setForgeAccounts: (forgeAccounts) => set({ forgeAccounts }),
       forgeActiveAccountId: null,
       setForgeActiveAccountId: (forgeActiveAccountId) => set({ forgeActiveAccountId }),
+      forgeScopeReposToActiveAccount: true,
+      setForgeScopeReposToActiveAccount: (forgeScopeReposToActiveAccount) =>
+        set({ forgeScopeReposToActiveAccount }),
+      forgeSyncGhAuthSwitch: true,
+      setForgeSyncGhAuthSwitch: (forgeSyncGhAuthSwitch) => set({ forgeSyncGhAuthSwitch }),
       skillExecutionMode: DEFAULT_SKILL_EXECUTION_MODE,
       setSkillExecutionMode: (skillExecutionMode) => set({ skillExecutionMode }),
       inactivityTimeoutS: 900,
@@ -2704,7 +2732,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 22,
+      version: 23,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2768,6 +2796,8 @@ export const useUiStore = create<UiState>()(
         agentApiKeys: state.agentApiKeys,
         forgeAccounts: state.forgeAccounts,
         forgeActiveAccountId: state.forgeActiveAccountId,
+        forgeScopeReposToActiveAccount: state.forgeScopeReposToActiveAccount,
+        forgeSyncGhAuthSwitch: state.forgeSyncGhAuthSwitch,
         skillExecutionMode: state.skillExecutionMode,
         repoGroups: state.repoGroups,
         repoGroupMembership: state.repoGroupMembership,
@@ -2886,6 +2916,10 @@ export const useUiStore = create<UiState>()(
        * this version. The one-time `agentApiKeys['github']` → vault
        * migration is a separate, IPC-connected step run at startup, not
        * here — `migrate` is synchronous and cannot await main's response.
+       * v22 → v23: seed `forgeScopeReposToActiveAccount = true` and
+       * `forgeSyncGhAuthSwitch = true` (Phase 90 Theme C) — both default on,
+       * matching a fresh install, since neither setting existed before this
+       * version for a pre-v23 blob to have turned off.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -2929,6 +2963,8 @@ export const useUiStore = create<UiState>()(
           cardSkillByTask?: Record<string, AgentCommandId>;
           forgeAccounts?: ForgeAccount[];
           forgeActiveAccountId?: string | null;
+          forgeScopeReposToActiveAccount?: boolean;
+          forgeSyncGhAuthSwitch?: boolean;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -3024,6 +3060,10 @@ export const useUiStore = create<UiState>()(
           // `store/migrate-forge-github-key.ts`.
           state.forgeAccounts = [];
           state.forgeActiveAccountId = null;
+        }
+        if (version < 23) {
+          state.forgeScopeReposToActiveAccount = true;
+          state.forgeSyncGhAuthSwitch = true;
         }
         return state as PersistedUi;
       },

@@ -9,6 +9,7 @@ import type {
   ForgeAccount,
   ForgeCapability,
   ForgeKind,
+  ReachableReposResult,
   ForgeIssueCommentsResult,
   ForgeIssueDetailResult,
   ForgeIssuesResult,
@@ -243,6 +244,10 @@ export const keys = {
   forgeAccounts: ['forge', 'accounts'] as const,
   /** A provider kind's capability matrix — a placeholder until Theme H. */
   forgeCapabilities: (kind: string) => ['forge', 'capabilities', kind] as const,
+  /** One account's reachable-repos listing (Theme C) — keyed by account id,
+   *  not repo-scoped, like `forgeAccounts` above. */
+  forgeAccountReachableRepos: (accountId: string) =>
+    ['forge', 'accounts', accountId, 'reachable-repos'] as const,
   /**
    * The ProjectV2 boards visible to the open repo's owner (Phase 40 Theme C).
    *
@@ -605,6 +610,36 @@ export function usePickAndOpenRepo() {
   };
 }
 
+/**
+ * Clone one of the active account's reachable repos (Theme C) — the picker
+ * asks for a destination FOLDER via the same native dialog `pickAndOpen`
+ * uses (its "Open Repository" wording is a minor mismatch here, not worth a
+ * second dialog contract), then clones `name` into it. Resolves to null when
+ * the user cancels the destination picker, same contract as `pickAndOpen`.
+ */
+export function useCloneReachableRepo() {
+  const client = useQueryClient();
+  const clone = useMutation({
+    mutationFn: async (input: { destDir: string; url: string; name: string }) => {
+      const api = bridge();
+      if (!api) return { ok: false as const, message: 'Desktop bridge unavailable.' };
+      return api.repos.clone(input);
+    },
+    onSuccess: (result) => {
+      if (result.ok) void client.invalidateQueries({ queryKey: keys.repos });
+    },
+  });
+  return {
+    ...clone,
+    /** Resolves to null when the user cancels the destination picker. */
+    pickAndClone: async (url: string, name: string) => {
+      const destDir = await bridge()?.repos.pickDirectory();
+      if (!destDir) return null;
+      return clone.mutateAsync({ destDir, url, name });
+    },
+  };
+}
+
 export function useCloseRepo() {
   const client = useQueryClient();
   return useMutation({
@@ -770,6 +805,16 @@ export function useRemoveForgeAccount() {
 }
 
 /**
+ * Every forge-data query key — the `'forge'`/`'forge-project'` segment
+ * both the repo-scoped (`['repos', repoId, 'forge', …]`) and the
+ * board-scoped (`['forge-project', projectId, …]`) families share, wherever
+ * it falls in the tuple. `useSwitchForgeAccount` is the one caller: it needs
+ * "every query whose data could differ by active account", not one prefix.
+ */
+const isForgeDataQuery = (queryKey: readonly unknown[]): boolean =>
+  queryKey.includes('forge') || queryKey.includes('forge-project');
+
+/**
  * Moves the active-account pointer. Theme B's whole scope for "switching" —
  * see `forgeAccounts.switch`'s own bridge docblock for what Theme C adds on
  * top of this same call.
@@ -780,10 +825,48 @@ export function useSwitchForgeAccount() {
   return useMutation({
     mutationFn: async (id: string | null) =>
       (await bridge()?.forgeAccounts.switch({ id })) ?? { ok: false, activeAccountId: null },
-    onSuccess: (result) => {
-      if (result.ok) setForgeActiveAccountId(result.activeAccountId);
+    onSuccess: async (result) => {
+      if (result.ok) {
+        setForgeActiveAccountId(result.activeAccountId);
+        /*
+          Phase 90 Theme C: the cache-poisoning risk the phase doc names as
+          the one this phase would most regret shipping without a test for.
+          A pull/issue/run listing already in flight for the account being
+          switched AWAY from can resolve AFTER this switch and write into
+          the same cache slot the new account's re-fetch reads — plain
+          `invalidateQueries` alone does not stop that, because it races the
+          still-settling old fetch rather than pre-empting it.
+
+          `cancelQueries` first, so every in-flight forge fetch is marked
+          cancelled and TanStack Query discards its eventual result instead
+          of writing it in (the documented behaviour a cancelled query's
+          resolution is dropped, not applied) — THEN `invalidateQueries`
+          marks every one of them stale so the account's own re-mounted
+          sections re-fetch clean, under the new account.
+        */
+        await client.cancelQueries({ predicate: (query) => isForgeDataQuery(query.queryKey) });
+        await client.invalidateQueries({ predicate: (query) => isForgeDataQuery(query.queryKey) });
+      }
       void client.invalidateQueries({ queryKey: keys.forgeAccounts });
     },
+  });
+}
+
+/**
+ * The active account's reachable-repos listing (Theme C) — the repo picker's
+ * clone-or-open list. `enabled` only once an id is known: there is nothing
+ * to ask main for with no active account.
+ */
+export function useReachableRepos(accountId: string | null) {
+  return useQuery<ReachableReposResult>({
+    queryKey: keys.forgeAccountReachableRepos(accountId ?? ''),
+    queryFn: async () =>
+      (await bridge()?.forgeAccounts.reachableRepos({ accountId: accountId ?? '' })) ?? {
+        ok: false,
+        reason: 'no-account',
+      },
+    enabled: accountId !== null,
+    staleTime: FORGE_STALE_MS,
   });
 }
 
