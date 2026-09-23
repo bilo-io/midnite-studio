@@ -28,6 +28,40 @@ shared-key merge-on-write), `activity-page.test.tsx` (7, every status row render
 rewrites the store, per-status and page-level Reset both restore defaults). `moon run :typecheck
 :lint :test` green.
 
+## 2026-09-23 — Phase 95 Theme C — the glow everywhere, with who is doing it
+
+[PR #527](https://github.com/bilo-io/midnite-studio/pull/527).
+
+The one hook every "something is happening" surface now reads through — `useActivityGlow(input)`
+([`use-activity-glow.ts`](../../packages/app/src/features/activity/use-activity-glow.ts)), a pure
+`resolveActivityGlow` plus a thin hook wrapper, replacing each consumer's own ad hoc
+`running`/`waiting` read of the terminal store. Precedence across a target's live sessions:
+`waiting > agent > thinking > shell` (a live session with no activity guess yet defaults to
+`agent` — "actively working", per `SessionActivity`'s own doc comment), then a caller's
+`fallbackStatus` (a run-state `ActivityStatus`, for a future workflow node), then `fallbackColor`
+(a raw CSS colour — a card's own status-pill colour). Badges via a new
+[`ActivityBadgeStack`](../../packages/app/src/features/activity/activity-badge.tsx): the agent's
+own icon (`resolveAgentIcon`, tracking the *live*-probed agent id) or `LuSquareTerminal` for a
+plain shell, capped at three with a `+N` chip, hover-labelled, click reveals the session
+(`revealSession`). Wired into all four buildable surfaces: kanban cards (badge on the corner; an
+idle card now shows a static ring in its own status-pill colour, `fieldOptionColor(column.color)`
+threaded from `board-view.tsx`), project graph nodes (`use-graph-agent-states.ts` now returns a
+`GraphNodeActivity` — `{glow, badges}` — per item, one whole-canvas subscription), terminal
+session rows and the Sessions view (the row's own existing leading icon wears the glow ring
+directly, since it already is the identity mark there). **Three decisions, unattended run.**
+Workflow canvas nodes are not wired — Theme I (the node view this hook would attach to) has not
+landed; that wiring is already named in Theme I's own checklist. Kanban cards and graph nodes keep
+their existing `.agent-run-glow`/`is-running|is-waiting|is-open` ring paint rather than switching
+to `.activity-glow`'s Brand-preset ring — `useActivityGlow` is the real decision layer for both now
+(`cardGlowStateFromActivity`, a new bridge in `glow-state.ts`, maps its richer status back onto the
+legacy three-state family), but repainting the ring itself is a visual product call Theme A's own
+note flagged as its own pass, since it would re-baseline `kanban-card.spec.ts`'s two committed
+screenshots and rewrite `kanban.spec.ts`'s class assertions for a colour change alone with no human
+looking at the result; terminal rows and the Sessions view had no legacy ring to preserve, so they
+wear the real `.activity-glow` ring today. No separate badge on terminal/session rows — the row's
+own leading icon already names the agent/shell, so Theme C's addition there is the ring around it,
+not a second mark beside it. `moon run :typecheck :lint :test` green (514 files, 5176 tests).
+
 ## 2026-09-23 — Phase 95 Theme A — one activity palette, one glow
 
 [PR #524](https://github.com/bilo-io/midnite-studio/pull/524).

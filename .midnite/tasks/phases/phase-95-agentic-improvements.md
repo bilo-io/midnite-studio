@@ -161,7 +161,7 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
       Plus: `resolveActivePalette` composition precedence (override > style mode > preset),
       persisted-store migration from a pre-Theme-B profile, and the shared-key merge-on-write.
 
-### C — The glow everywhere, with who is doing it (M) — ✅ DONE (2026-09-23)
+### C — The glow everywhere, with who is doing it (M) — ✅ DONE (PR #527, 2026-09-23)
 
 - [x] One hook, `useActivityGlow(target)`, that resolves a target's `ActivityStatus` in one place:
       an agent **actively working** on it → `agent` (or `thinking`); an agent waiting on input →
