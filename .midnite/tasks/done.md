@@ -1,6 +1,44 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-23 — Phase 95 Theme A — one activity palette, one glow
+
+[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/0).
+
+The one status vocabulary every "something is happening" surface now paints through — Theme A of
+the ten-theme Phase 95 doc, landed alone since every later theme reads its tokens.
+`shared/src/activity-palette.ts` adds `ActivityStatusSchema` (`agent | shell | thinking | waiting
+| running | queued | done | failed | idle`) and `ActivityPaletteSchema` (a solid colour or an
+ordered gradient stop list per status, plus speed/intensity), with five built-in presets —
+**Brand** (default: an approximated `--brand-gradient` hue journey for `agent`, theme-derived
+`hsl(var(--token))` solids for the rest), **Rainbow** (`--rainbow-ramp`, byte-identical — proven
+by a token-level equivalence test), **Ocean**, **Ember**, **Mono** — where only the two *identity*
+rings (`agent`'s gradient and `thinking`'s breathing variant of it) vary per preset; the other
+seven statuses are the same across all five, since flipping `failed` away from red because the
+user picked Ocean would fight the severity colours every other status pill in the app already
+uses. `resolve-activity-tokens.ts` turns a resolved palette into
+`--activity-<status>[-from|-via|-to|-ramp|-speed|-intensity]` custom properties;
+`useActivityPaletteSync` (`app.tsx`, beside Phase 64's `usePaletteSync`) writes them to `:root`.
+One new CSS family, `.activity-glow` + nine `[data-activity-status=…]` variants, shares one
+`@property --activity-angle` and one parameterised `activity-glow-pulse` keyframe (via
+`--activity-ring-color`, set per rule) rather than nine near-duplicate animations; `shell` wears a
+fixed silver conic sweep (`#f5f5f5 → #9ca3af → #e5e7eb → #6b7280 → #f5f5f5`, every preset, per the
+phase doc) that spins but never pulses. `.agent-run-glow`/`.loop-run-glow` are deliberately left
+byte-for-byte unchanged rather than rewritten in place — Brand's default differs visually from the
+old always-rainbow ring, so rewiring them now would have silently moved `kanban-card.spec.ts`'s
+committed baselines before Theme C ever points a real card at `.activity-glow`; they are documented
+as this family's Rainbow-pinned legacy aliases instead, with the equivalence proven at the token
+level. Three of the phase doc's six hardcoded status maps are fully migrated onto
+`var(--activity-<status>)` through a small per-domain map plus a new `activityStatusVar()` helper —
+`STATUS_TONE` (`run-node-detail.tsx`), `STATUS_COLOR` (`loop-history.tsx`), `STATUS_COLORS`
+(`notification-bell.tsx`); `loop-glow.ts`'s `LOOP_WAITING_COLOR` now imports the shared
+`ACTIVITY_WAITING_AMBER` literal instead of restating `#f59e0b` a fourth time. The remaining two —
+`loop-glow.ts`'s per-loop-*identity* `LOOP_GLOW` and `field-option-colors.ts`'s
+`STATUS_FALLBACKS`/`note-row.tsx`'s `STATUS_CLASSES` (both build a colour triplet by
+string-concatenating an alpha suffix onto a *hex*, which a `hsl(var(--token))` expression cannot
+survive) — are left as documented exceptions rather than force-migrated; each file carries the
+reasoning inline. `moon run :typecheck :lint :test` green.
+
 ## 2026-09-23 — Phase 90 (ad hoc, follow-up to Theme L) — the account-switch toast
 
 [PR #518](https://github.com/bilo-io/midnite-studio/pull/518).

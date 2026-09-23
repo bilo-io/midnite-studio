@@ -1,6 +1,8 @@
-import type { LoopRunRecord } from '@midnite/studio-shared';
+import type { ActivityStatus, LoopRunRecord } from '@midnite/studio-shared';
 import { useState } from 'react';
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu';
+
+import { activityStatusVar } from '../activity/activity-status-color';
 
 /**
  * One loop's past runs, collapsed by default.
@@ -60,7 +62,9 @@ function HistoryRow({ run }: { run: LoopRunRecord }) {
         aria-expanded={open}
         className="flex w-full items-center gap-2 text-left text-[11px] text-muted-foreground transition-colors hover:text-foreground"
       >
-        <span className={`shrink-0 ${STATUS_COLOR[run.status]}`}>●</span>
+        <span className="shrink-0" style={{ color: activityStatusVar(STATUS_TO_ACTIVITY[run.status]) }}>
+          ●
+        </span>
         <span className="shrink-0 font-mono">{clock(run.startedAt)}</span>
         <span className="shrink-0">{duration(run)}</span>
         <span className="min-w-0 flex-1 truncate text-right">{outcome(run)}</span>
@@ -74,10 +78,24 @@ function HistoryRow({ run }: { run: LoopRunRecord }) {
   );
 }
 
-const STATUS_COLOR: Record<LoopRunRecord['status'], string> = {
-  running: 'text-green-500',
-  stopped: 'text-muted-foreground',
-  exited: 'text-blue-500',
+/**
+ * A run's own three-state lifecycle, mapped onto the shared
+ * {@link ActivityStatus} vocabulary (Phase 95 Theme A) — `stopped` stays
+ * `queued` rather than `idle`: `idle`'s colour is `transparent` (a ring's
+ * "nothing to show" rule), which would render this dot invisible, and
+ * `queued`'s muted grey is the literal colour `stopped` already wore
+ * (`text-muted-foreground`). `running`/`exited` swap from this file's own
+ * ad hoc green/blue to the shared `running` (primary)/`done` (success)
+ * tokens — a deliberate colour change: "a run finished" reading as the same
+ * success green every other `done` pill uses is the whole point of this
+ * migration, even though `exited` here doesn't distinguish an exit code
+ * (unchanged from before — `outcome()` below already reports the code in
+ * text for that).
+ */
+const STATUS_TO_ACTIVITY: Record<LoopRunRecord['status'], ActivityStatus> = {
+  running: 'running',
+  stopped: 'queued',
+  exited: 'done',
 };
 
 function clock(at: number): string {

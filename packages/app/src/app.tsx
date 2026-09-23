@@ -113,6 +113,7 @@ import { migrateLegacyGithubAgentKey } from './store/migrate-forge-github-key';
 import { useWindowSync } from './services/use-window-sync';
 import { useTestsStream } from './features/tests/use-tests-stream';
 import { usePaletteSync } from './features/themes/use-palette-sync';
+import { useActivityPaletteSync } from './features/activity/use-activity-palette-sync';
 import { useAppearanceStore, useAppearanceSync } from './store/appearance-store';
 import { useCompanionStore } from './store/companion-store';
 import { useFileEditorStore } from './store/file-editor-store';
@@ -2039,6 +2040,9 @@ export function App() {
   // Phase 64 Theme B: the studio palette layer, orthogonal to light/dark —
   // beside the appearance sync above, per the phase doc.
   usePaletteSync();
+  // Phase 95 Theme A: the activity-glow palette (agent/shell/run-state
+  // rings) — its own token namespace, synced the same way, right beside it.
+  useActivityPaletteSync();
   useUnsavedCloseGuard();
   // The window-lifetime `pty:activity` subscription — the session list's
   // glyphs must keep tracking rung changes while every TerminalView is
