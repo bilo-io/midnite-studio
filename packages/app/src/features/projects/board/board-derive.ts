@@ -226,6 +226,42 @@ export function resolveDragSkillLink(
   return { url: item.content.url, usedIssueFallback: false };
 }
 
+/** What a drop into a column should do next (Theme G) — the whole fork
+ *  `board-view.tsx`'s `maybeStartColumnSkill` reads, pulled out as its own
+ *  pure function so the decision itself (as opposed to the toast/timer/
+ *  `startAgent` machinery around it, which needs a real DOM drag to exercise
+ *  — `docs/TESTING.md`'s own pointer-drag rule) is a plain unit test. */
+export type ColumnSkillAction =
+  | { kind: 'none' }
+  | { kind: 'reveal'; sessionId: string }
+  | { kind: 'skip' }
+  | { kind: 'launch'; skillTemplate: string; url: string; usedIssueFallback: boolean };
+
+/**
+ * `columnName` has no mapped skill → `'none'` (today's plain status-only
+ * drop). A LIVE session already bound to this card → `'reveal'` — the phase
+ * doc's own "respects an existing live session… reveal, don't double-launch"
+ * — checked before the link, since there is nothing left to launch either
+ * way once a session already exists. A draft with a mapped skill but no
+ * link to hand it → `'skip'`. Otherwise → `'launch'`, the toast-then-
+ * `startAgent` path.
+ */
+export function decideColumnSkillAction(
+  item: ForgeProjectItem,
+  columnName: string,
+  overrides: Readonly<Record<string, string>> | undefined,
+  existingLiveSessionId: string | undefined,
+): ColumnSkillAction {
+  const skillTemplate = resolveColumnSkill(columnName, overrides);
+  if (!skillTemplate) return { kind: 'none' };
+  if (existingLiveSessionId !== undefined) return { kind: 'reveal', sessionId: existingLiveSessionId };
+
+  const link = resolveDragSkillLink(item);
+  if (!link) return { kind: 'skip' };
+
+  return { kind: 'launch', skillTemplate, url: link.url, usedIssueFallback: link.usedIssueFallback };
+}
+
 /**
  * Kanban sessions whose card no longer exists on the currently-open board
  * (Phase 41 Theme H) — the item was moved off this board, or the board

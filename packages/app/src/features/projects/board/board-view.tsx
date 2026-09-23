@@ -42,11 +42,9 @@ import {
 import { applyOptimisticMove, type CardDragPayload, type ColumnDropPayload } from './board-dnd';
 import { CardPanelStack } from './card-panel-stack';
 import {
-  columnSkillKey,
+  decideColumnSkillAction,
   deriveColumns,
   NO_STATUS_COLUMN_ID,
-  resolveColumnSkill,
-  resolveDragSkillLink,
   resolveMostRecentAgentId,
   sessionsToRehome,
   type BoardColumn,
@@ -457,27 +455,22 @@ export function BoardView({
     left to offer Undo over, the card was already running before the drop.
   */
   const maybeStartColumnSkill = (item: ForgeProjectItem, fromColumnId: string, columnName: string): void => {
-    const skillTemplate = resolveColumnSkill(columnName, columnSkillOverrides);
-    if (!skillTemplate || !repoId) return;
+    if (!repoId) return;
 
     const existingLive = findCardSession(sessions, states, { projectId, itemId: item.id });
-    if (existingLive) {
-      revealSession(existingLive.id);
+    const action = decideColumnSkillAction(item, columnName, columnSkillOverrides, existingLive?.id);
+
+    if (action.kind === 'none' || action.kind === 'skip') return;
+    if (action.kind === 'reveal') {
+      revealSession(action.sessionId);
       return;
     }
 
-    const link = resolveDragSkillLink(item);
-    if (!link) return; // a draft has no issue/PR link to hand the skill
-
-    const isReviewColumn = columnSkillKey(columnName) === 'in review';
-    const fallbackNote =
-      isReviewColumn && item.content.type === 'issue' && item.content.linkedPrs.length === 0
-        ? ' — no PR yet, using the issue link'
-        : '';
+    const fallbackNote = action.usedIssueFallback ? ' — no PR yet, using the issue link' : '';
     const label = item.content.type === 'draft' ? item.content.title : `#${item.content.number}`;
 
     const toastId = toasts.show({
-      message: `${skillTemplate} on ${label} in 5s${fallbackNote}`,
+      message: `${action.skillTemplate} on ${label} in 5s${fallbackNote}`,
       action: {
         label: 'Undo',
         onAction: () => {
@@ -493,7 +486,7 @@ export function BoardView({
 
     const timeoutId = setTimeout(() => {
       pendingSkillLaunches.current.delete(item.id);
-      launchColumnSkill(item, skillTemplate, link.url);
+      launchColumnSkill(item, action.skillTemplate, action.url);
       toasts.dismiss(toastId);
     }, 5000);
 
