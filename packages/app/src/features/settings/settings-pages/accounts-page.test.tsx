@@ -211,5 +211,18 @@ describe('AccountsPage', () => {
       expect(gitlabOption.style.background).toContain('color-mix');
       expect(gitlabOption.style.background).toContain('var(--forge-brand)');
     });
+
+    it("renders each provider's own brand icon, tinted with --forge-brand, inside its picker option", async () => {
+      installBridge();
+      render(<AccountsPage />, { wrapper: createWrapper() });
+
+      for (const label of Object.values(PROVIDER_LABEL)) {
+        const option = await screen.findByRole('radio', { name: label });
+        const icon = option.querySelector('svg');
+        expect(icon, `${label} option should render an svg icon`).toBeTruthy();
+        expect(icon!.getAttribute('aria-hidden')).toBe('true');
+        expect(icon!.getAttribute('style')).toContain('var(--forge-brand)');
+      }
+    });
   });
 });
