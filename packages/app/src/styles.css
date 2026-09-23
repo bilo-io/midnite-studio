@@ -3163,6 +3163,187 @@ html[data-motion='reduced'] .project-graph-node.agent-run-glow.is-running::after
   animation: none;
 }
 
+/* ---------------------------------------------------------------------------
+ * Activity glow (Phase 95 Theme A) — the one status vocabulary every
+ * "something is happening" surface paints through, replacing the six
+ * hardcoded colour maps the phase doc's *Builds on* note lists. Tokens come
+ * from `shared/src/activity-palette.ts` via `useActivityPaletteSync`
+ * (`--activity-<status>[-from|-via|-to|-ramp|-speed|-intensity]`,
+ * `resolve-activity-tokens.ts`); the nine `[data-activity-status]` values
+ * below are `agent | shell | thinking | waiting | running | queued | done |
+ * failed | idle` — exactly `ActivityStatusSchema`. `useActivityGlow` (Theme
+ * C) is what decides which one a target wears; this file only paints it.
+ *
+ * `.agent-run-glow` and `.loop-run-glow` above are DELIBERATELY left
+ * byte-for-byte unchanged rather than rewritten onto this system: both
+ * always painted `--rainbow-ramp`, and the Rainbow preset below reproduces
+ * that ramp exactly (`activity-palette.test.ts`'s equivalence assertion), so
+ * treat them as this family's Rainbow-pinned legacy aliases — same visual
+ * contract, same DOM, zero risk to `kanban-card.spec.ts`'s committed
+ * baselines or `fab-loops.spec.ts`/`kanban.spec.ts`'s class assertions
+ * before Theme C ever points a real card or node at `.activity-glow`.
+ * -------------------------------------------------------------------------*/
+
+@property --activity-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes activity-glow-spin {
+  to {
+    --activity-angle: 360deg;
+  }
+}
+
+/* One shared pulse for every status: `--activity-ring-color`, set per
+ * `[data-activity-status]` rule below, is what makes a single keyframe work
+ * for all of them rather than nine near-identical copies. */
+@keyframes activity-glow-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 6px var(--activity-ring-color, transparent),
+      0 0 10px var(--activity-ring-color, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 12px var(--activity-ring-color, transparent),
+      0 0 20px var(--activity-ring-color, transparent);
+  }
+}
+
+.activity-glow {
+  position: relative;
+  border: 1px solid transparent;
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  transition: border-color 0.18s ease;
+}
+
+/* `agent` — the active preset's identity gradient, spinning and pulsing:
+ * a session is actively driving this target. */
+.activity-glow[data-activity-status='agent'] {
+  --activity-ring-color: var(--activity-agent);
+  border-color: transparent !important;
+  background-image:
+    linear-gradient(hsl(var(--background)), hsl(var(--background))),
+    conic-gradient(from var(--activity-angle), var(--activity-agent-ramp, var(--activity-agent)));
+  animation:
+    activity-glow-spin var(--activity-agent-speed, 4s) linear infinite paused,
+    activity-glow-pulse 2s ease-in-out infinite paused;
+}
+
+/* `shell` — the fixed metallic ring (`METAL_RING` in `activity-palette.ts`):
+ * a plain terminal, no agent. Spins to read as brushed metal catching the
+ * light; never pulses — a bare shell is not "doing" anything to pulse about. */
+.activity-glow[data-activity-status='shell'] {
+  border-color: transparent !important;
+  background-image:
+    linear-gradient(hsl(var(--background)), hsl(var(--background))),
+    conic-gradient(from var(--activity-angle), var(--activity-shell-ramp, var(--activity-shell)));
+  animation: activity-glow-spin var(--activity-shell-speed, 4s) linear infinite paused;
+  box-shadow: 0 0 4px rgba(156, 163, 175, 0.35);
+}
+
+/* `thinking` — the same ramp `agent` wears, held at a fixed angle (no spin)
+ * and breathing instead: an agent between turns, not actively streaming. */
+.activity-glow[data-activity-status='thinking'] {
+  --activity-ring-color: var(--activity-thinking);
+  border-color: transparent !important;
+  background-image:
+    linear-gradient(hsl(var(--background)), hsl(var(--background))),
+    conic-gradient(from 0deg, var(--activity-thinking-ramp, var(--activity-thinking)));
+  animation: activity-glow-pulse 2s ease-in-out infinite paused;
+}
+
+/* `waiting` — one steady amber ring, no rotation, no pulse (the phase doc's
+ * own rule: "the existing amber rule's intent"). Identical across every
+ * preset — see `activity-palette.ts`'s `semanticStatuses`. */
+.activity-glow[data-activity-status='waiting'] {
+  border-color: var(--activity-waiting);
+  box-shadow: 0 0 10px var(--activity-waiting);
+  animation: none;
+}
+
+/* `running` — a target's own live run state with no agent attached (a
+ * workflow node executing on its own, a loop mid-run): a steady solid ring
+ * that breathes, distinct from `waiting`'s unanimated one. */
+.activity-glow[data-activity-status='running'] {
+  --activity-ring-color: var(--activity-running);
+  border-color: var(--activity-running);
+  animation: activity-glow-pulse 2s ease-in-out infinite paused;
+}
+
+/* `queued` / `done` / `failed` — steady rings, no animation: a state you
+ * read at a glance, not one that needs motion to be noticed. */
+.activity-glow[data-activity-status='queued'] {
+  border-color: var(--activity-queued);
+}
+
+.activity-glow[data-activity-status='done'] {
+  border-color: var(--activity-done);
+}
+
+.activity-glow[data-activity-status='failed'] {
+  border-color: var(--activity-failed);
+}
+
+/* `idle` — `CardGlowState`'s own rule carried over: no glow at all. */
+.activity-glow[data-activity-status='idle'] {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* Focus-gated exactly like `.agent-run-glow`/`.loop-run-glow` above: a
+ * blurred window pays for none of these animations. */
+html:not([data-window-focused='false']) .activity-glow[data-activity-status='agent'],
+html:not([data-window-focused='false']) .activity-glow[data-activity-status='thinking'],
+html:not([data-window-focused='false']) .activity-glow[data-activity-status='running'] {
+  animation-play-state: running, running;
+}
+
+html:not([data-window-focused='false']) .activity-glow[data-activity-status='shell'] {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .activity-glow[data-activity-status='agent'] {
+    animation: none;
+    box-shadow: 0 0 8px var(--activity-agent);
+  }
+  html:not([data-motion='full']) .activity-glow[data-activity-status='shell'] {
+    animation: none;
+  }
+  html:not([data-motion='full']) .activity-glow[data-activity-status='thinking'] {
+    animation: none;
+    box-shadow: 0 0 8px var(--activity-thinking);
+  }
+  html:not([data-motion='full']) .activity-glow[data-activity-status='running'] {
+    animation: none;
+    box-shadow: 0 0 8px var(--activity-running);
+  }
+}
+
+html[data-motion='reduced'] .activity-glow[data-activity-status='agent'] {
+  animation: none;
+  box-shadow: 0 0 8px var(--activity-agent);
+}
+
+html[data-motion='reduced'] .activity-glow[data-activity-status='shell'] {
+  animation: none;
+}
+
+html[data-motion='reduced'] .activity-glow[data-activity-status='thinking'] {
+  animation: none;
+  box-shadow: 0 0 8px var(--activity-thinking);
+}
+
+html[data-motion='reduced'] .activity-glow[data-activity-status='running'] {
+  animation: none;
+  box-shadow: 0 0 8px var(--activity-running);
+}
+
 /*
   Dependency edge states (Phase 75 Theme E) — `edge-appearance.ts` picks
   these classes off two endpoints (plus, for the fourth row, the same glow

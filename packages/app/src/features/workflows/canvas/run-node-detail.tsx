@@ -1,7 +1,8 @@
-import type { WorkflowNodeRun } from '@midnite/studio-shared';
+import type { ActivityStatus, WorkflowNodeRun } from '@midnite/studio-shared';
 import { LuTriangleAlert } from 'react-icons/lu';
 
 import { EmptyState } from '../../../components/empty-state';
+import { activityStatusVar } from '../../activity/activity-status-color';
 import { NODE_KIND_META } from './node-kind-meta';
 
 const STATUS_LABEL: Record<WorkflowNodeRun['status'], string> = {
@@ -13,13 +14,23 @@ const STATUS_LABEL: Record<WorkflowNodeRun['status'], string> = {
   skipped: 'Skipped',
 };
 
-const STATUS_TONE: Record<WorkflowNodeRun['status'], string> = {
-  pending: 'text-muted-foreground',
-  running: 'text-blue-500',
-  succeeded: 'text-green-500',
-  failed: 'text-destructive',
-  timeout: 'text-destructive',
-  skipped: 'text-muted-foreground',
+/**
+ * A node run's own five-state lifecycle, mapped onto the shared
+ * {@link ActivityStatus} vocabulary (Phase 95 Theme A) — `timeout` reads as
+ * `failed` (both are terminal-bad). `skipped` stays `queued` rather than
+ * `idle`: `idle`'s own colour is `transparent` (the "no ring at all" rule
+ * for a card with nothing to show), which would render this label
+ * invisible — `queued`'s muted grey is what `pending`/`skipped` both wore
+ * before this map existed (`text-muted-foreground` for each), so parity is
+ * kept, not the literal name.
+ */
+const STATUS_TO_ACTIVITY: Record<WorkflowNodeRun['status'], ActivityStatus> = {
+  pending: 'queued',
+  running: 'running',
+  succeeded: 'done',
+  failed: 'failed',
+  timeout: 'failed',
+  skipped: 'queued',
 };
 
 function formatDuration(ms: number): string {
@@ -56,7 +67,10 @@ export function RunNodeDetail({ node }: { node: WorkflowNodeRun | null }) {
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-xs font-medium">{node.label}</span>
-        <span className={`shrink-0 text-[11px] font-medium ${STATUS_TONE[node.status]}`}>
+        <span
+          className="shrink-0 text-[11px] font-medium"
+          style={{ color: activityStatusVar(STATUS_TO_ACTIVITY[node.status]) }}
+        >
           {STATUS_LABEL[node.status]}
         </span>
       </div>

@@ -29,6 +29,20 @@ const SWATCH: Readonly<Record<string, string>> = {
 /**
  * Status name fallbacks for when an option's colour is not explicitly provided.
  * Maps common status values to standard GitHub option colours.
+ *
+ * Phase 95 Theme A left this literal rather than sourcing it from
+ * `shared/src/activity-palette.ts`, on purpose: every built-in preset's
+ * semantic statuses resolve through `hsl(var(--success))` /
+ * `hsl(var(--destructive))` / etc (Decision, Brand preset: "theme-derived
+ * solids elsewhere"), and `fieldOptionChipStyle` below builds its background
+ * tint and border by string-concatenating an alpha suffix onto a *hex*
+ * (`${hex}1A`) — `"hsl(var(--success))1A"` is not a colour. A GitHub
+ * "DONE"/"IN PROGRESS" board-column name is also a lifecycle label, not a
+ * live run state; collapsing it onto `ActivityStatus` would still need a
+ * concrete hex to survive this concatenation, so there is nothing this
+ * migration could move without inventing a second, hex-only shadow palette
+ * — left as its own map for the same reason `loop-glow.ts`'s `LOOP_GLOW`
+ * stays its own map (see that file's comment).
  */
 const STATUS_FALLBACKS: Readonly<Record<string, string>> = {
   DONE: '#22C55E',

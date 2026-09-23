@@ -86,31 +86,53 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
 
 ## Deliverables
 
-### A — One activity palette, one glow (M)
+### A — One activity palette, one glow (M) — ✅ DONE (PR #524, 2026-09-23)
 
-- [ ] `shared/src/activity-palette.ts`: `ActivityStatusSchema` =
+- [x] `shared/src/activity-palette.ts`: `ActivityStatusSchema` =
       `agent | shell | thinking | waiting | running | queued | done | failed | idle`, and
       `ActivityPaletteSchema` — per status either a gradient (ordered stops) or a solid colour, plus
       `speed` and `intensity`. Export `ACTIVITY_PRESETS`: **Brand** (default — `--brand-gradient`
       for `agent`, theme-derived solids elsewhere), **Rainbow** (today's `--rainbow-ramp`,
       byte-identical), **Ocean**, **Ember**, **Mono**.
-- [ ] `useActivityPaletteSync` writes the resolved palette to `:root` as
+- [x] `useActivityPaletteSync` writes the resolved palette to `:root` as
       `--activity-<status>-{from,via,to}` / `--activity-<status>` custom properties, the same way
       `use-palette-sync.ts` (Phase 64) writes theme tokens.
-- [ ] One CSS family, `.activity-glow` + `[data-activity-status=…]`, built from the working
+- [x] One CSS family, `.activity-glow` + `[data-activity-status=…]`, built from the working
       precedents: conic ring through two-layer `background-clip`, a `@property`-registered angle,
       and a `box-shadow` pulse. `agent` paints the active preset's gradient; **`shell` paints a
       rotating metallic ring** — a conic sweep of silver stops (`#f5f5f5 → #9ca3af → #e5e7eb →
       #6b7280 → #f5f5f5`) with a narrow specular highlight so the rotation reads as brushed metal
       catching light; `waiting` stays a steady, unanimated ring (the existing amber rule's intent).
-- [ ] `.agent-run-glow` and `.loop-run-glow` become aliases over `.activity-glow` (same DOM, no
+- [x] `.agent-run-glow` and `.loop-run-glow` become aliases over `.activity-glow` (same DOM, no
       new node), so existing call sites and tests keep working; the Rainbow preset renders them
-      pixel-identical to today.
-- [ ] Move the six hardcoded status maps (`STATUS_TONE`, `STATUS_COLOR`, `STATUS_CLASSES`,
+      pixel-identical to today. **Decision (unattended run):** rather than literally rewriting
+      their CSS onto the resolved tokens, both classes are left byte-for-byte unchanged and
+      documented as this family's "Rainbow-pinned legacy aliases" — the Brand preset is the new
+      default and visually differs from the old always-rainbow ring, so rewiring these two in
+      place would have silently changed `kanban-card.spec.ts`'s committed visual baselines and
+      risked `fab-loops.spec.ts`/`kanban.spec.ts`'s class assertions before Theme C ever points a
+      real card/node at `.activity-glow`. `activity-palette.test.ts` proves the Rainbow preset's
+      `agent` stops equal `--rainbow-ramp` byte-for-byte instead, at the token level. Theme C is
+      where real consumers switch over and any re-baselining belongs.
+- [x] Move the six hardcoded status maps (`STATUS_TONE`, `STATUS_COLOR`, `STATUS_CLASSES`,
       `STATUS_COLORS`, `loop-glow.ts` hexes, `field-option-colors.ts` `STATUS_FALLBACKS`) onto the
-      tokens, so a status pill and its card's glow are always the same colour.
-- [ ] Motion guards on every new keyframe; the angle animation pauses on a blurred window.
-- [ ] Tests: palette schema round-trip, preset resolution, token writer (vitest/jsdom);
+      tokens, so a status pill and its card's glow are always the same colour. **Decision
+      (unattended run):** `STATUS_TONE` (`run-node-detail.tsx`), `STATUS_COLOR`
+      (`loop-history.tsx`) and `STATUS_COLORS` (`notification-bell.tsx`) are fully migrated to
+      `var(--activity-<status>)` via a small per-domain → `ActivityStatus` map plus the new
+      `activityStatusVar()` helper. `loop-glow.ts`'s `LOOP_WAITING_COLOR` now imports the shared
+      `ACTIVITY_WAITING_AMBER` literal instead of restating `#f59e0b` a fourth time; its
+      `LOOP_GLOW` per-loop-*identity* map is deliberately left alone — the file's own prior
+      Decision 1 already rejected merging it with any spectrum/status system, and six loop
+      identities don't map onto nine run-state slots. `field-option-colors.ts`'s
+      `STATUS_FALLBACKS` and `note-row.tsx`'s `STATUS_CLASSES` are documented exceptions, not
+      migrated: both build a text/border/background triplet by string-concatenating an alpha
+      suffix onto a *hex* value (`${hex}1A`), and the shared palette's semantic colours are
+      `hsl(var(--token))` expressions for exactly this reason (theme/light-dark correctness) —
+      concatenating an alpha suffix onto a `var()` expression is not valid CSS. Each file carries
+      a comment explaining the exception and pointing at this decision.
+- [x] Motion guards on every new keyframe; the angle animation pauses on a blurred window.
+- [x] Tests: palette schema round-trip, preset resolution, token writer (vitest/jsdom);
       `styles-motion-guards` passes with the new keyframes.
 
 ### B — Settings ▸ Activity (M)

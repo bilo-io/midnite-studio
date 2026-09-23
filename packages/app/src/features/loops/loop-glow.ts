@@ -1,3 +1,5 @@
+import { ACTIVITY_WAITING_AMBER } from '@midnite/studio-shared';
+
 /**
  * A loop's colour, as something CSS can actually paint with (Phase 39).
  *
@@ -19,6 +21,16 @@
  * ordered spectrum whose stops are positions, this is a lookup keyed by loop
  * id. Merging them would make each loop's colour a function of its index in
  * `DEFAULT_LOOPS`, which Phase 37's own decision 1 rejects.
+ *
+ * Phase 95 Theme A left this map as-is, on purpose: it is keyed by loop
+ * *identity* (which of six loops this is), not by *status* — the phase doc's
+ * "move the six hardcoded status maps onto the tokens" note lists this file,
+ * but the only genuinely status-shaped value in it is `LOOP_WAITING_COLOR`
+ * below, which now reads from `shared/src/activity-palette.ts`'s single
+ * amber literal instead of restating it. Forcing `LOOP_GLOW` itself onto the
+ * nine-value `ActivityStatus` vocabulary would fight this file's own
+ * Decision 1 above for no shared-token benefit — six loop identities were
+ * never going to fit nine run-state slots.
  */
 const LOOP_GLOW: Record<string, string> = {
   guard: '#22c55e', // green-500  — text-green-500
@@ -32,11 +44,12 @@ const LOOP_GLOW: Record<string, string> = {
 /**
  * Amber, for a loop that is waiting on you.
  *
- * The same `#f59e0b` as `.loop-run-glow.is-waiting`, the FAB tab dot and
- * `fab-loop-halo.tsx`. A loop with a question on screen is the one you need,
- * and it has to look identical wherever it is shown.
+ * The same amber as `.loop-run-glow.is-waiting`, the FAB tab dot,
+ * `fab-loop-halo.tsx` and now `ActivityStatusSchema`'s own `waiting` status
+ * (`ACTIVITY_WAITING_AMBER`) — a loop with a question on screen is the one
+ * you need, and it has to look identical wherever it is shown.
  */
-export const LOOP_WAITING_COLOR = '#f59e0b';
+export const LOOP_WAITING_COLOR = ACTIVITY_WAITING_AMBER;
 
 /**
  * An unknown id resolves to `currentColor` rather than throwing, mirroring

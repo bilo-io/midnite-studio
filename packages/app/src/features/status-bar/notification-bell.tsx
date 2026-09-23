@@ -1,14 +1,26 @@
 import { useState } from 'react';
 import { LuBell } from 'react-icons/lu';
 
+import type { ActivityStatus } from '@midnite/studio-shared';
+
 import { Popover } from '../../components/popover';
 import { useToastStore, type ToastStatus } from '../../store/toast-store';
+import { activityStatusVar } from '../activity/activity-status-color';
 
-const STATUS_COLORS: Record<ToastStatus, string> = {
-  info: 'text-blue-500',
-  success: 'text-green-500',
-  warning: 'text-yellow-500',
-  error: 'text-red-500',
+/**
+ * A toast's own severity, mapped onto the shared {@link ActivityStatus}
+ * vocabulary (Phase 95 Theme A) — `info`/`success`/`warning`/`error` are a
+ * *severity* axis, not a run-state one, but the closest activity colour for
+ * each keeps this bell's palette in step with every other status pill:
+ * `info` → `running` (the same blue as "in progress"), `warning` → `waiting`
+ * (the app's one existing amber), `error` → `failed` (the same red
+ * `--destructive` every other failure uses).
+ */
+const STATUS_TO_ACTIVITY: Record<ToastStatus, ActivityStatus> = {
+  info: 'running',
+  success: 'done',
+  warning: 'waiting',
+  error: 'failed',
 };
 
 export function NotificationBell() {
@@ -49,7 +61,8 @@ export function NotificationBell() {
           toasts.map((toast) => (
             <div
               key={toast.id}
-              className={`rounded border border-border bg-card p-3 text-sm shadow-sm ${STATUS_COLORS[toast.status]}`}
+              className="rounded border border-border bg-card p-3 text-sm shadow-sm"
+              style={{ color: activityStatusVar(STATUS_TO_ACTIVITY[toast.status]) }}
             >
               {toast.message}
               {/*

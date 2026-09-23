@@ -8,7 +8,19 @@ import { useSortableRow } from '../../components/sortable-list';
 import { Note, NoteStatus, useNotesStore } from '../../store/notes-store';
 import { useSkillHandoff } from '../agent/use-skill-handoff';
 
-/** Exported for `notes-view.tsx` (Phase 86 Theme G) — the page's own status badge stays the one row's colours. */
+/**
+ * Exported for `notes-view.tsx` (Phase 86 Theme G) — the page's own status
+ * badge stays the one row's colours.
+ *
+ * Phase 95 Theme A left this as its own map rather than sourcing it from
+ * `shared/src/activity-palette.ts`: `captured → planned → implemented` is a
+ * note's *lifecycle* stage, not a live run state, and each value here is a
+ * text/border/background triplet built from one Tailwind colour+opacity
+ * family (`emerald-500`, `emerald-500/40`, `emerald-500/10`) — the shared
+ * palette only carries one flat colour per status (often
+ * `hsl(var(--token))`, which a Tailwind opacity suffix cannot apply to).
+ * Same reasoning as `field-option-colors.ts`'s `STATUS_FALLBACKS`.
+ */
 export const STATUS_CLASSES: Record<NoteStatus, string> = {
   captured: 'text-muted-foreground border-border bg-muted/20',
   planned: 'text-primary border-primary/40 bg-primary/10',
