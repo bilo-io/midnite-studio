@@ -125,6 +125,7 @@ import { registerWindowChrome } from './window-chrome';
 import { closeAllPopouts, configureWindowsStore, registerMainWindow } from './window-manager';
 import { registerWindowHandlers } from './ipc/window-handlers';
 import { createWindowsStore } from './windows-store';
+import { configureGitlabLanguageCache, createGitlabLanguageCacheStore } from './forge/gitlab/gitlab-languages';
 
 /**
  * Electron main entry point.
@@ -532,6 +533,8 @@ if (!app.requestSingleInstanceLock()) {
     // three parallel chains below for data with no reader yet.
     const windowsStore = createWindowsStore(userData);
     void windowsStore.load().then((initial) => configureWindowsStore(windowsStore, initial));
+    // Loaded lazily on the first GitLab reachable-repos listing, not here.
+    configureGitlabLanguageCache(createGitlabLanguageCacheStore(userData));
     /*
       One store, two consumers, and the order matters: `configureSessions` hands
       it to the IPC handlers so the renderer can read the archive, and
