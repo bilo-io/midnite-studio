@@ -215,30 +215,57 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
 - [x] Tests: `useActivityGlow` precedence table (agent-working beats run state beats pill);
       badge renders the right icon per session kind and stacks past three.
 
-### D — Forge issue and project CRUD (L)
+### D — Forge issue and project CRUD (L) — ✅ DONE (PR #528, 2026-09-23)
 
-- [ ] Extend `ForgeAdapter` with `createIssue`, `editIssue` (title, body, labels, assignees,
+- [x] Extend `ForgeAdapter` with `createIssue`, `editIssue` (title, body, labels, assignees,
       milestone), `deleteIssue`, `createProject`, `editProject`, `deleteProject`, `addProjectItem`
       (existing issue or draft), `removeProjectItem`, `linkIssues({kind: 'blockedBy'|'subIssue'})`
       and `unlinkIssues`. Payload schemas in `shared`.
-- [ ] Per-operation capability: extend `capabilitiesFor(kind)` with an `ops` record
+- [x] Per-operation capability: extend `capabilitiesFor(kind)` with an `ops` record
       (`createIssue`, `deleteIssue`, `createProject`, `linkBlockedBy`, `linkSubIssue`, …) so the UI
       hides what a provider cannot do rather than failing on click.
-- [ ] GitHub: `gh issue create/edit/delete`, `gh project create/edit/delete/item-add/item-delete`,
-      and the GraphQL `addBlockedBy` / `addSubIssue` mutations (and their removes), in
+- [x] GitHub: `gh api` issue create/edit (`gh issue delete` for delete — a real, structured-output-
+      free CLI subcommand), `createProjectV2`/`updateProjectV2`/`deleteProjectV2`/
+      `addProjectV2ItemById`/`addProjectV2DraftIssue`/`deleteProjectV2Item`, and the GraphQL
+      `addBlockedBy`/`addSubIssue` mutations (and their `remove*` inverses, in a new
+      [`gh-issue-links.ts`](../../../packages/desktop/src/main/forge/github/gh-issue-links.ts)), in
       [`gh-write.ts`](../../../packages/desktop/src/main/forge/github/gh-write.ts) /
-      `gh-project-write.ts` — through the write queue's forge equivalent, one mutation at a time.
-- [ ] GitLab / Azure DevOps / Bitbucket: implement what each API allows (issue CRUD at least);
-      where a provider has no native dependency link, `linkIssues` falls back to appending a
-      `Blocked by #N` line to the issue body — which `resolveForgeGraph` already parses — and
-      reports `{ok:true, via:'body'}`.
-- [ ] Route [`forge-project-handlers.ts`](../../../packages/desktop/src/main/ipc/forge-project-handlers.ts)
+      `gh-project-write.ts`. **Decision (unattended run):** no forge write queue exists in this
+      codebase (`git-engine/src/exec/write-queue.ts` is git-only) — every existing forge write
+      (`commentPull`, `mergePull`, `setIssueState`, …) is a plain awaited async call with no
+      queueing, and these new writes follow that identical, already-established pattern rather
+      than inventing a forge-write queue this phase did not otherwise ask for.
+- [x] GitLab / Azure DevOps / Bitbucket: issue create/edit/delete implemented against each API
+      (GitLab REST issues, Bitbucket Cloud issues, Azure work items via JSON-Patch — `'Issue'` is
+      Azure's own best-effort default work-item type, documented as unverified against a live
+      organization the same way `azure-writes.ts`'s `reviewPull` already flags its own reviewer-id
+      assumption). Project/board CRUD and item add/remove are honest `unsupportedWrite`s for all
+      three (`ops` reports `false`) — none had a board-item write to fold onto before this theme,
+      and building one is out of this theme's own scope. `linkIssues`/`unlinkIssues` fall back to
+      the `Blocked by #N` / `Blocked by owner/name#N` body line for `kind: 'blockedBy'`
+      (`body-link-fallback.ts`, shared across the three adapters, idempotent both ways) and report
+      `kind: 'subIssue'` as unsupported — a parent/child relation has no body-text grammar
+      `resolveForgeGraph` parses.
+- [x] Route [`forge-project-handlers.ts`](../../../packages/desktop/src/main/ipc/forge-project-handlers.ts)
       through the adapter registry instead of `GITHUB_COM_FORGE`, and fold `addItemToProject` /
-      `clearItemFieldValue` onto the adapter.
-- [ ] Delete issue / delete project go through the blast-radius confirm (issue count on the board,
-      linked items).
-- [ ] Tests: command construction per provider (argv snapshots, no network); capability matrix;
-      body-fallback link writes idempotently (no duplicate `Blocked by` lines).
+      `clearItemFieldValue` onto the adapter (`addProjectItem`, and a new optional
+      `clearItemFieldValue?` adapter method). `list`/`create` resolve the repo's own forge and
+      adapter (so a GitLab/Azure/Bitbucket repo's board listing reaches its own provider, not
+      always GitHub); `fields`/`items`/`set-field`/`add-item`/`add-draft-item`/`clear-field`/
+      `remove-item` stay pinned to GitHub's own adapter — Theme A froze their request shape to
+      `{projectId, ...}` with no `repoId` to resolve a different provider's account from at all,
+      documented in the handler file's own docblock rather than silently worked around.
+- [◐] Delete issue / delete project go through the blast-radius confirm (issue count on the board,
+      linked items) — **deferred to Theme E.** Theme D's own scope (see "Files this phase
+      touches") is `ForgeAdapter`/main/`shared` only, no renderer; the confirm dialog itself is
+      Theme E's `IssueDialog`/`ProjectDialog` work. `deleteIssue`/`deleteProject` are wired and
+      tested end-to-end at the adapter/IPC layer, ready for that dialog to call once a human has
+      already confirmed.
+- [x] Tests: command construction per provider (argv/body snapshots, no network) for every new
+      GitHub/GitLab/Bitbucket/Azure write; the extended capability matrix
+      (`capabilities.test.ts`); `body-link-fallback.test.ts` proves the `Blocked by` line is
+      idempotent in both directions (add, remove, and a same-numbered issue in a different repo
+      is never confused with the local one).
 
 ### E — Issue and project dialogs, with a magic wand (L)
 
