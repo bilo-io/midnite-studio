@@ -135,21 +135,31 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
 - [x] Tests: palette schema round-trip, preset resolution, token writer (vitest/jsdom);
       `styles-motion-guards` passes with the new keyframes.
 
-### B — Settings ▸ Activity (M)
+### B — Settings ▸ Activity (M) — ✅ DONE (PR #526, 2026-09-23)
 
-- [ ] New `activity` entry in `SETTINGS_PAGE_IDS` / `SETTINGS_PAGES`
+- [x] New `activity` entry in `SETTINGS_PAGE_IDS` / `SETTINGS_PAGES`
       ([`ui-store.ts:218-258`](../../../packages/app/src/store/ui-store.ts)) beside `appearance`,
       with `settings-pages/activity-page.tsx` mapped in
       [`settings-view.tsx`](../../../packages/app/src/features/settings/settings-view.tsx)'s `PAGE_CONTENT`.
-- [ ] A preset picker (Brand first, then Rainbow, Ocean, Ember, Mono) as swatch buttons.
-- [ ] Per-status overrides: one row per `ActivityStatus` with a colour/gradient editor and a reset.
-- [ ] An **agent style** / **shell style** pair (gradient vs metallic, with a "match agent" option
-      for shells), plus speed and intensity sliders.
-- [ ] A live preview strip rendering one sample card, graph node, workflow node and terminal row
+- [x] A preset picker (Brand first, then Rainbow, Ocean, Ember, Mono) as swatch buttons.
+- [x] Per-status overrides: one row per `ActivityStatus` with a colour/gradient editor and a reset.
+- [x] An **agent style** / **shell style** pair (gradient vs metallic, with a "match agent" option
+      for shells), plus speed and intensity sliders. **Decision (unattended run):** the style-mode
+      picker lives once, in its own "Agent & shell style" section, rather than duplicated inside
+      the `agent`/`shell` rows of "Status colours" (those two rows carry a "Style set above" note
+      instead) — the doc's bullet reads as one control pair, not three copies of it.
+      `shellStyle: 'gradient'` reads the preset's own *raw* agent ring, independent of any
+      `agentStyle`/per-status `agent` override, so "Gradient" and "Match agent" stay two
+      genuinely different choices once Agent has been customized.
+- [x] A live preview strip rendering one sample card, graph node, workflow node and terminal row
       per status, driven by the same `.activity-glow` classes.
-- [ ] Persist via `appearance-store.ts`'s `'midnite.settings'` store (shared settings storage), not
-      `ui-store`, so it lives beside accent and motion.
-- [ ] Tests: page renders every status row; picking a preset rewrites the tokens; reset restores.
+- [x] Persist via `appearance-store.ts`'s `'midnite.settings'` store (shared settings storage), not
+      `ui-store`, so it lives beside accent and motion. `activity-palette-store.ts` (Theme A's
+      in-memory-only store) is what now carries this persistence — its existing consumer
+      (`use-activity-palette-sync.ts`) needed no call-site change.
+- [x] Tests: page renders every status row; picking a preset rewrites the tokens; reset restores.
+      Plus: `resolveActivePalette` composition precedence (override > style mode > preset),
+      persisted-store migration from a pre-Theme-B profile, and the shared-key merge-on-write.
 
 ### C — The glow everywhere, with who is doing it (M)
 

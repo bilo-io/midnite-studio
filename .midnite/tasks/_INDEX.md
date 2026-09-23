@@ -8,7 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [95 · Agentic improvements](phases/phase-95-agentic-improvements.md) | 🔄 WIP | — | 7/76 | `█░░░░░░░░░` | 9% | B C D | E F G H I J |
+| [95 · Agentic improvements](phases/phase-95-agentic-improvements.md) | 🔄 WIP | — | 14/76 | `██░░░░░░░░` | 18% | C D | E F G H I J |
 | [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | ◻ TODO | — | 0/87 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | 🔄 WIP | — | 32/34 | `█████████░` | 94% | — | (2 human/live-board passes) |
 | [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | ✅ DONE | — | 36/36 | `██████████` | 100% | — | — |
@@ -240,7 +240,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 before work exists, an Auto-mate that keeps going, and a kill switch that stops it at any scope.*
 
 - ✅ **A** (PR #524) — one activity palette in `shared` (Brand/Rainbow/Ocean/Ember/Mono presets) and one `.activity-glow` family; metallic silver ring for shells; hardcoded status maps onto tokens
-- 🔄 **B** — Settings ▸ Activity page: presets, per-status overrides, agent vs shell style, speed/intensity, live preview
+- ✅ **B** (PR #526) — Settings ▸ Activity page: presets, per-status overrides, agent vs shell style, speed/intensity, live preview
 - ◻ **C** — `useActivityGlow` on cards, graph nodes, workflow nodes, terminal rows and Sessions, plus an agent-icon / terminal-glyph identity badge
 - ◻ **D** — `ForgeAdapter` issue + project CRUD, blocked-by / sub-issue link writes, per-operation capabilities, body-ref fallback
 - ◻ **E** — issue / project dialogs with a magic wand (cheap model, headless CLI) and a per-provider model registry

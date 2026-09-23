@@ -1,6 +1,33 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-23 — Phase 95 Theme B — Settings ▸ Activity
+
+[PR #526](https://github.com/bilo-io/midnite-studio/pull/526).
+
+The Settings surface for Theme A's activity palette: a new `activity` page beside Appearance
+(`SETTINGS_PAGE_IDS`/`SETTINGS_PAGES`, `LuSparkles` in the rail — `LuActivity` was already taken
+by Monitor & Diagnostics). A preset picker (Brand/Rainbow/Ocean/Ember/Mono swatch buttons); a
+per-status override row for each of the nine `ActivityStatus` values with a solid/gradient colour
+editor (2–6 stops, add/remove), speed + intensity sliders and a per-row Reset; an agent/shell style
+pair — Agent: Gradient (default) or Metallic, Shell: Metallic (default), Gradient (the preset's own
+agent ring) or Match agent (mirrors whatever Agent resolves to, override included) — living once in
+its own accordion rather than duplicated into the `agent`/`shell` status rows; a live preview strip
+rendering a card/graph-node/workflow-node/terminal-row sample per status through the real
+`.activity-glow` classes, so it always reflects the synced tokens; and a page-level Reset. New
+`features/activity/resolve-active-palette.ts` composes preset + per-status overrides + the two
+style pickers into one `ActivityPalette` before Theme A's token writer ever sees it, keeping that
+writer exactly as pure as it was. `activity-palette-store.ts` moves from Theme A's in-memory-only
+store to a `zustand/persist` one sharing `appearance-store.ts`'s `'midnite.settings'` key via
+`sharedSettingsStorage` — the same shape `palette-store.ts` (Phase 64) already uses — with a
+migration seeding every field from defaults for a pre-Theme-B profile. `METAL_RING` is now exported
+from `shared/src/activity-palette.ts` so the "Metallic" style option reuses Theme A's exact ring
+rather than a second copy. New tests: `resolve-active-palette.test.ts` (8, the composition
+precedence table), `activity-palette-store.test.ts` (8, including the migration and the
+shared-key merge-on-write), `activity-page.test.tsx` (7, every status row renders, preset pick
+rewrites the store, per-status and page-level Reset both restore defaults). `moon run :typecheck
+:lint :test` green.
+
 ## 2026-09-23 — Phase 95 Theme A — one activity palette, one glow
 
 [PR #524](https://github.com/bilo-io/midnite-studio/pull/524).
