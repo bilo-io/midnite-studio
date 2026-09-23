@@ -86,6 +86,9 @@ importers:
       '@xterm/addon-fit':
         specifier: ^0.11.0
         version: 0.11.0
+      '@xterm/addon-unicode11':
+        specifier: ^0.9.0
+        version: 0.9.0
       '@xterm/addon-webgl':
         specifier: ^0.19.0
         version: 0.19.0
@@ -2270,6 +2273,9 @@ packages:
 
   '@xterm/addon-fit@0.11.0':
     resolution: {integrity: sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g==}
+
+  '@xterm/addon-unicode11@0.9.0':
+    resolution: {integrity: sha512-FxDnYcyuXhNl+XSqGZL/t0U9eiNb/q3EWT5rYkQT/zuig8Gz/VagnQANKHdDWFM2lTMk9ly0EFQxxxtZUoRetw==}
 
   '@xterm/addon-webgl@0.19.0':
     resolution: {integrity: sha512-b3fMOsyLVuCeNJWxolACEUED0vm7qC0cy4wRvf3oURSzDTYVQiGPhTnhWZwIHdvC48Y+oLhvYXnY4XDXPoJo6A==}
@@ -4905,6 +4911,7 @@ packages:
 
   sherpa-onnx-darwin-arm64@1.13.7:
     resolution: {integrity: sha512-5NCE50hAvr3n2pdett0SgfPBJXaFZE0bqHwbHyiq+IKZ8Ids0l4M0VrG+ImGYIafCwie+oC3uAJ+pKj9xg/k+w==}
+    cpu: [arm64]
     os: [darwin]
 
   sherpa-onnx-darwin-x64@1.13.7:
@@ -7379,6 +7386,8 @@ snapshots:
   '@xmldom/xmldom@0.9.12': {}
 
   '@xterm/addon-fit@0.11.0': {}
+
+  '@xterm/addon-unicode11@0.9.0': {}
 
   '@xterm/addon-webgl@0.19.0': {}
 

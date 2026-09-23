@@ -14,6 +14,7 @@ import { useSessionRevealFade } from '../../components/use-reveal';
 import { useUiStore } from '../../store/ui-store';
 import { EndedStrip } from './ended-banner';
 import { disableSynchronizedOutput } from './disable-synchronized-output';
+import { enableUnicode11 } from './enable-unicode11';
 import { createFitCoalescer } from './fit-coalescer';
 import { createInputQueue, type InputQueue } from './input-queue';
 import { isXtermFocusReport } from './is-xterm-focus-report';
@@ -472,7 +473,10 @@ export function TerminalView({
       // The scrollback a real terminal has; the default 1000 loses the top of a
       // long build log, which is exactly the part you want.
       scrollback: 10_000,
+      // `term.unicode`, for `enableUnicode11` below.
+      allowProposedApi: true,
     });
+    enableUnicode11(term);
 
     /**
      * A session's own idea of its name, from the OSC 0/2 "set window title"
