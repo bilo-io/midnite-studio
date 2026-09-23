@@ -72,7 +72,7 @@ describe('checkE2eBudget', () => {
     expect(result.message).toContain('Found 1 wall-clock duration assertion(s)');
   });
 
-  it('the committed ratchet cap matches its own committed value (448 -> 449, Phase 90 Theme K onboarding-wizard)', () => {
-    expect(MAX_DECLARED_E2E).toBe(449);
+  it('the committed ratchet cap matches its own committed value (449 -> 454, Phase 95 Theme G drag-to-skill)', () => {
+    expect(MAX_DECLARED_E2E).toBe(454);
   });
 });

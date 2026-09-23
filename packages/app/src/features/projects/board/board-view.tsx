@@ -221,6 +221,23 @@ export function BoardView({
     };
   }, []);
 
+  /*
+    `moveItemToColumn` (defined below, past this component's two early
+    returns) is redefined every render, closing over that render's own
+    `boardItems` — fine for every EXISTING caller, which always invokes it
+    synchronously within the same render pass that created it (a drop, a
+    "Move to ▸" click). The Undo toast's own `onAction` is the first caller
+    that can fire an arbitrary number of renders later — after the drag's
+    own optimistic move already landed — so a closure captured at drop time
+    would still see the PRE-drop column and no-op against
+    `moveItemToColumn`'s own "already there" guard. Declared here, ahead of
+    the early returns, because `useRef` itself must run unconditionally on
+    every render (`react-hooks/rules-of-hooks`); the ref is only ASSIGNED
+    past that point, once `moveItemToColumn` exists, which is an ordinary
+    statement and skips harmlessly on the early-return path.
+  */
+  const moveItemToColumnRef = useRef<((itemId: string, toColumnId: string) => void) | null>(null);
+
   const boardItems = optimisticItems ?? items;
   const columns = useMemo(() => deriveColumns(groupField, boardItems), [groupField, boardItems]);
 
@@ -417,20 +434,8 @@ export function BoardView({
     setField.mutate({ itemId, fieldId: groupField.id, value }, { onSuccess: onSettled });
   };
 
-  /*
-    `moveItemToColumn` is redefined every render, closing over that render's
-    own `boardItems` — fine for every EXISTING caller, which always invokes
-    it synchronously within the same render pass that created it (a drop, a
-    "Move to ▸" click). The Undo toast's own `onAction` (below) is the first
-    caller that can fire an arbitrary number of renders later — after the
-    drag's own optimistic move already landed — so a closure captured at
-    drop time would still see the PRE-drop column and no-op against
-    `moveItemToColumn`'s own "already there" guard (`currentColumnId ===
-    toColumnId`), exactly the bug this ref exists to avoid. Reassigned in the
-    render body itself (no effect needed for a plain ref write) so Undo
-    always calls the version that reads the board as it stands right now.
-  */
-  const moveItemToColumnRef = useRef(moveItemToColumn);
+  // Keeps `moveItemToColumnRef` (declared above the early returns) pointing
+  // at THIS render's closure — see that declaration's own comment.
   moveItemToColumnRef.current = moveItemToColumn;
 
   /*
@@ -495,7 +500,7 @@ export function BoardView({
             clearTimeout(pending.timeoutId);
             pendingSkillLaunches.current.delete(item.id);
           }
-          moveItemToColumnRef.current(item.id, fromColumnId);
+          moveItemToColumnRef.current?.(item.id, fromColumnId);
         },
       },
     });
