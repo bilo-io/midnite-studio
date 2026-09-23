@@ -1,6 +1,34 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-22 — Phase 90 Theme K — verification
+
+[PR #511](https://github.com/bilo-io/midnite-studio/pull/511).
+
+Per-provider mapper tests against **committed fixture payloads**, run end to end through each
+adapter's real read surface (`parsePullList`/`listPulls`), not a private mapper called directly —
+one `__fixtures__/*-pr-list.json` per provider (GitHub, GitLab, Bitbucket, Azure DevOps) — plus a
+cross-provider comparison test proving the same three PR scenarios (open, merged, draft) map to
+the same `ForgePull.state`/`isDraft` across all four adapters. `secret-vault.test.ts` was dropped
+as its own item: `forge-account-vault.ts`'s docblock shows Phase 76 Theme D's
+`main/secure-store.ts` landed first and `credential-vault.ts` is already an unchanged thin binding
+over it, so there is nothing separate to extract or test. The no-token-on-the-wire assertion is
+`forge-account-no-token-wire.test.ts`, wiring the *real* account registry behind the *real* IPC
+handler for all four providers, beside the pre-existing schema-shape check. The cache-bleed switch
+test (`use-switch-forge-account.test.tsx`) was extended from two spot-checked query keys to a table
+over all sixteen forge data query keys — Theme C's own named risk. One functional e2e
+(`onboarding-wizard.spec.ts`, e2e ratchet 448→449) proves the wizard's optional step is skippable
+despite a genuinely-simultaneous second modal (`FirstRunModal`) stacking underneath it by real DOM
+paint order. One visual baseline (`pricing-page.spec.ts`) reaches into `packages/website`'s own dev
+server via a second `webServer` entry in `playwright.visual.config.ts`; the committed Linux
+baseline itself needs the Docker regen recipe, unavailable in this session's sandbox — left in
+`outstanding.md` for whoever next has Docker, alongside the phase's own human-only live-credential
+passes (a real GitLab/Bitbucket/Azure DevOps repo with a real PAT each, and a live `gh auth switch`
+round-trip). Also found and fixed along the way: `bitbucket-reads.ts` and `azure-reads.ts`'s own
+`listPulls` orchestration had zero test coverage beyond their pure mapper-table tests — Theme K's
+fixtures are their first. `moon run :typecheck :lint :test` green; `scripts/e2e-budget.mjs` passes
+with one added e2e test and one added baseline.
+
 ## 2026-09-22 — Phase 88 Theme D — `ITheme` verified against v6, no source edit needed
 
 [PR #509](https://github.com/bilo-io/midnite-studio/pull/509).
