@@ -39,10 +39,18 @@ import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import { useRefreshSessionHistory, useSessionHistory } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useSessionsStore } from '../../store/sessions-store';
+import { useActivityGlow, type ActivityGlowSessionInput } from '../activity/use-activity-glow';
 import { useGraphStore } from '../graph/graph-store';
 import { closeSessionWithConfirm } from '../terminal/close-session';
 import { revealFabSession, revealSession } from '../terminal/reveal-session';
-import { agentLabelFor, inMainPanel, useTerminalStore, type ConnectionState, type SessionActivity } from '../terminal/terminal-store';
+import {
+  agentLabelFor,
+  inMainPanel,
+  resolveSessionAgentId,
+  useTerminalStore,
+  type ConnectionState,
+  type SessionActivity,
+} from '../terminal/terminal-store';
 import { startAgent } from '../terminal/start-agent';
 import { useAgents } from '../terminal/use-agents';
 import { loopIcon } from '../loops/loop-icons';
@@ -86,6 +94,9 @@ const TERMINAL_PROVIDER_VALUE = '__terminal__';
  * `IconButton` (`h-6`, opacity-0 until hover) that a plain shell row does not.
  */
 const SESSION_ROW_HEIGHT_CLASS = 'h-8';
+
+/** A stable empty `sessions` array for a closed row's `useActivityGlow` call — see `terminal-session-list.tsx`'s identical constant. */
+const EMPTY_GLOW_SESSIONS: readonly ActivityGlowSessionInput[] = [];
 
 /** A row's own label — never `title`, which is the repo name (fact 4). */
 function managedSessionLabel(record: ManagedSession, agentLabel: string | undefined): string {
@@ -931,6 +942,7 @@ function SessionRow({
 }) {
   const connectionState = useTerminalStore((s) => s.states[record.id]);
   const activity = useTerminalStore((s) => s.activity[record.id]);
+  const liveAgentId = useTerminalStore((s) => s.liveAgentId);
 
   const label = managedSessionLabel(record, agentLabel);
   const closed = isClosedManagedSession(record);
@@ -969,6 +981,26 @@ function SessionRow({
       : LuTerminal;
   const dotState = dotStateFor(record, connectionState);
   const dotTooltip = dotTooltipFor(record, connectionState, activity);
+
+  // Phase 95 Theme C — the same ring `terminal-session-list.tsx`'s own
+  // `SessionIcon` wears, around this row's identical leading mark. `closed`
+  // rows never glow (`isClosedManagedSession`'s own liveness tag), matching
+  // `ManagedSession`'s design — a closed row's icon is a plain provenance
+  // mark, not something to ring for.
+  const rowActivity = useActivityGlow(
+    closed
+      ? { sessions: EMPTY_GLOW_SESSIONS }
+      : {
+          sessions: [
+            {
+              sessionId: record.id,
+              agentId: resolveSessionAgentId(record, liveAgentId),
+              activity,
+              running: record.liveness === 'running',
+            },
+          ],
+        },
+  );
 
   const loop = loopId ? DEFAULT_LOOPS.find((l) => l.id === loopId) : undefined;
   const LoopIcon = loop ? loopIcon(loop.icon) : null;
@@ -1046,13 +1078,30 @@ function SessionRow({
           </span>
         </Tooltip>
         {/* The agent icon leads the label rather than trailing it (Phase 86
-            Theme A) — ahead of the text, not after it. */}
+            Theme A) — ahead of the text, not after it. Wrapped in the
+            shared activity glow ring (Phase 95 Theme C) whenever this row
+            is live — `terminal-session-list.tsx`'s own `SessionIcon` wears
+            the identical ring around the identical leading mark. */}
         {AgentIcon ? (
-          <AgentIcon
-            aria-hidden
-            className={`h-3.5 w-3.5 shrink-0 ${agent?.accent ? '' : 'text-muted-foreground'}`}
-            style={agent?.accent ? { color: agent.accent } : undefined}
-          />
+          rowActivity.status === 'idle' ? (
+            <AgentIcon
+              aria-hidden
+              className={`h-3.5 w-3.5 shrink-0 ${agent?.accent ? '' : 'text-muted-foreground'}`}
+              style={agent?.accent ? { color: agent.accent } : undefined}
+            />
+          ) : (
+            <span
+              data-activity-status={rowActivity.status}
+              data-testid="session-row-icon-glow"
+              className="activity-glow flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+            >
+              <AgentIcon
+                aria-hidden
+                className={`h-3.5 w-3.5 shrink-0 ${agent?.accent ? '' : 'text-muted-foreground'}`}
+                style={agent?.accent ? { color: agent.accent } : undefined}
+              />
+            </span>
+          )
         ) : null}
         {/* A second, smaller glyph rather than swapping the provider icon —
             a loop-launched agent session still needs to say which agent. */}

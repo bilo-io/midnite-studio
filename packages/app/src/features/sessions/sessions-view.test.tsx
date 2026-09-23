@@ -289,6 +289,48 @@ describe('SessionsView', () => {
     expect(svg?.getAttribute('style')).toBeNull();
   });
 
+  it('wears the activity glow ring on a live agent row (Phase 95 Theme C)', () => {
+    historyResult.mockReturnValue({ data: [], isPending: false, isError: false });
+    act(() => {
+      useTerminalStore.setState({
+        sessions: [
+          liveSession({ id: 'live-1', repoId: 'r1', title: 'repo-one', name: 'live-one', createdAt: 5000, kind: 'agent', agentId: 'claude' }),
+        ],
+      });
+    });
+
+    renderView();
+
+    const row = screen.getByRole('button', { name: /live-one/ });
+    const glow = row.querySelector('[data-testid="session-row-icon-glow"]');
+    expect(glow).not.toBeNull();
+    expect(glow?.getAttribute('data-activity-status')).toBe('agent');
+  });
+
+  it('never wears the glow ring on a closed row', () => {
+    historyResult.mockReturnValue({
+      data: [
+        closedSession({
+          id: 'claude-s1',
+          repoId: 'r1',
+          title: 'repo-one',
+          name: 'closed-agent',
+          kind: 'agent',
+          agentId: 'claude',
+          createdAt: 1000,
+          closedAt: 2000,
+        }),
+      ],
+      isPending: false,
+      isError: false,
+    });
+
+    renderView();
+
+    const row = screen.getByRole('button', { name: /closed-agent/ });
+    expect(row.querySelector('[data-testid="session-row-icon-glow"]')).toBeNull();
+  });
+
   it('filters sessions by provider multiselect', () => {
     historyResult.mockReturnValue({
       data: [
