@@ -302,6 +302,15 @@ export const ReachableRepoSchema = z.object({
   /** The provider's own id for the repo, where a command needs it rather
    *  than the name — Azure's repository GUID (`az repos delete --id`). */
   id: z.string().min(1).optional(),
+  /** Optional metadata, each present only where the provider's own listing
+   *  call already returns it — never an extra request per repo. */
+  /** ISO timestamp of the last push/activity (GitHub `pushedAt`, GitLab
+   *  `last_activity_at`). */
+  updatedAt: z.string().optional(),
+  stars: z.number().int().nonnegative().optional(),
+  defaultBranch: z.string().optional(),
+  /** Bytes per language (GitHub `languages` edges), largest first. */
+  languages: z.array(z.object({ name: z.string().min(1), size: z.number().nonnegative() })).optional(),
 });
 export type ReachableRepo = z.infer<typeof ReachableRepoSchema>;
 

@@ -28,6 +28,48 @@ export async function listReachableRepos(account: ForgeAccount): Promise<Reachab
   return { ok: false, reason: 'unsupported' };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/**
+ * The optional `ReachableRepo` metadata, keeping only well-typed values — a
+ * key is absent rather than `undefined` when the provider did not return it,
+ * so the wire payload stays as small as the listing it came from.
+ */
+function optionalMeta(raw: {
+  updatedAt?: unknown;
+  stars?: unknown;
+  defaultBranch?: unknown;
+  languages?: ReachableRepo['languages'];
+}): Partial<ReachableRepo> {
+  const meta: Partial<ReachableRepo> = {};
+  if (typeof raw.updatedAt === 'string' && raw.updatedAt.length > 0) meta.updatedAt = raw.updatedAt;
+  if (typeof raw.stars === 'number' && Number.isInteger(raw.stars) && raw.stars >= 0) meta.stars = raw.stars;
+  if (typeof raw.defaultBranch === 'string' && raw.defaultBranch.length > 0) meta.defaultBranch = raw.defaultBranch;
+  if (raw.languages && raw.languages.length > 0) meta.languages = raw.languages;
+  return meta;
+}
+
+/**
+ * `gh repo list --json languages` is GraphQL's `languages` connection
+ * flattened to `[{size, node: {name}}]` — in the same one listing call, so
+ * the language bar costs no request per repo. Sorted largest-first here so
+ * the renderer can draw it as-is.
+ */
+function githubLanguages(raw: unknown): ReachableRepo['languages'] {
+  if (!Array.isArray(raw)) return undefined;
+  const out: NonNullable<ReachableRepo['languages']> = [];
+  for (const edge of raw) {
+    if (!isRecord(edge) || !isRecord(edge['node'])) continue;
+    const name = edge['node']['name'];
+    const size = edge['size'];
+    if (typeof name !== 'string' || name.length === 0 || typeof size !== 'number' || size < 0) continue;
+    out.push({ name, size });
+  }
+  return out.sort((a, b) => b.size - a.size);
+}
+
 /**
  * `gh repo list` — exactly the call the phase doc names. No `--hostname`
  * flag exists on this subcommand (unlike `gh api`'s), so a non-default host
@@ -37,7 +79,7 @@ export async function listReachableRepos(account: ForgeAccount): Promise<Reachab
  */
 async function githubReachableRepos(account: ForgeAccount): Promise<ReachableReposResult> {
   const hostEnv = account.host === 'github.com' ? '' : `env GH_HOST=${shellQuote(account.host)} `;
-  const command = `${hostEnv}gh repo list --json nameWithOwner,url,isPrivate --limit 100`;
+  const command = `${hostEnv}gh repo list --json nameWithOwner,url,isPrivate,pushedAt,stargazerCount,defaultBranchRef,languages --limit 100`;
   const result = await runInShell(command, LIST_TIMEOUT_MS);
   const payload = parseJsonPayload(result.output);
   if (payload === null || !Array.isArray(payload)) {
@@ -61,6 +103,12 @@ async function githubReachableRepos(account: ForgeAccount): Promise<ReachableRep
       private: r['isPrivate'] === true,
       // `gh repo list --json url` is the repo's web page, not a clone URL.
       webUrl: url,
+      ...optionalMeta({
+        updatedAt: r['pushedAt'],
+        stars: r['stargazerCount'],
+        defaultBranch: isRecord(r['defaultBranchRef']) ? r['defaultBranchRef']['name'] : undefined,
+        languages: githubLanguages(r['languages']),
+      }),
     });
   }
   return { ok: true, repos };
@@ -112,6 +160,11 @@ async function gitlabReachableRepos(account: ForgeAccount): Promise<ReachableRep
       url,
       private: r['visibility'] !== 'public',
       ...(webUrl ? { webUrl } : {}),
+      ...optionalMeta({
+        updatedAt: r['last_activity_at'],
+        stars: r['star_count'],
+        defaultBranch: r['default_branch'],
+      }),
     });
   }
   return { ok: true, repos };
@@ -198,6 +251,7 @@ async function azureReachableRepos(account: ForgeAccount): Promise<ReachableRepo
         if (!name || !url) continue;
         const webUrl = typeof r['webUrl'] === 'string' ? r['webUrl'] : undefined;
         const id = typeof r['id'] === 'string' ? r['id'] : undefined;
+        const defaultBranch = typeof r['defaultBranch'] === 'string' ? r['defaultBranch'].replace(/^refs\/heads\//, '') : undefined;
         repos.push({
           owner: `${org}/${projectName}`,
           name,
@@ -206,6 +260,7 @@ async function azureReachableRepos(account: ForgeAccount): Promise<ReachableRepo
           private: isPrivate,
           ...(webUrl ? { webUrl } : {}),
           ...(id ? { id } : {}),
+          ...optionalMeta({ defaultBranch }),
         });
       }
     }
