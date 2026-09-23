@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [95 · Agentic improvements](phases/phase-95-agentic-improvements.md) | ◻ TODO | — | 0/76 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | ◻ TODO | — | 0/87 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | 🔄 WIP | — | 32/34 | `█████████░` | 94% | — | (2 human/live-board passes) |
 | [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | ✅ DONE | — | 36/36 | `██████████` | 100% | — | — |
@@ -109,6 +110,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 <!-- Newest-first, mirroring the ## Phases table above. Headlines belong underneath the table so the progress table stays right at the top of the file. -->
 
 **Headlines:**
+
+- **[Phase 95 · Agentic improvements](phases/phase-95-agentic-improvements.md)** (0% · 0/76) — **Planned 2026-09-23, brainstormed with the user.** Ten themes: one activity palette + glow (with a metallic ring for plain shells and an agent-icon / terminal badge wherever it shows) and its own Settings ▸ Activity page (A–C); forge issue/project CRUD with dependency-link writes (D); a magic-wand field rewrite and a Plan-with-AI blueprint that only touches the forge on Confirm (E–F); card controls and drag-to-skill (G); Auto-mate and a five-scope kill switch (H); and workflow editor parity with midnite on lazy-loaded React Flow, with agent/script nodes grouped per run in the terminal (I–J). A lands first; the rest swarm.
 
 - **[Phase 93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md)** (94% · 32/34) — **All five themes landed** (2026-09-20). Confirmed, not assumed: two issue boards exist. `bilo-io/midnite-studio` (this repo) carries a real but internal engineering backlog no external user can reach; `bilo-io/midnite-apps` is public, `has_issues: true`, ships issue-form templates and a label set (`bug`, `enhancement`, `app: midnite-studio`, `needs-triage`) built for exactly this. [Phase 65](phases/phase-65-somewhere-for-a-crash-to-go.md) already built the whole machine this phase completes — a redacted diagnostics bundle, a rotating log, a "Copy diagnostics" button — and stopped one function short: `CrashReporting()`'s "Report a bug" was `openExternal(NEW_ISSUE_URL)`, nothing more. This phase adds the missing write: a `gh issue create -R bilo-io/midnite-apps` call (`gh-app-issue.ts` — the one write in `forge/` with no `Forge` parameter) behind a composer dialog that prefills title, body and the existing redacted diagnostics block, applies the right labels itself, and falls back to today's exact browser-open behaviour when `gh` is missing or signed out. **A** the fixed-target write and its command construction; **B** the IPC surface, extending the existing `report` bridge group; **C** the composer dialog, wired from both existing "Report a bug" entry points; **D** confirms redaction stays the single path; **E** teaches `/midnite-address-issue` to scan both boards and use cross-repo `Fixes bilo-io/midnite-apps#N` syntax (PR #482). Two verification items remain and are deliberately not closed by an agent: filing a real bug report and a real feature request from a packaged app against the public `bilo-io/midnite-apps` board (a human pass), and observing `/midnite-address-issue`'s Stage 1 digest list a candidate from each board at once (needs the apps board to actually receive traffic first, which Themes A-D are what makes possible). 34 items, five themes, no new dependency.
 
@@ -230,6 +233,22 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 <!-- Each phase currently carries a single theme A = its full deliverables checklist. Split into
      lettered themes if a phase gets parallelised. -->
+
+### [Phase 95 — Agentic improvements](phases/phase-95-agentic-improvements.md)
+
+*One visual language for who is working on what, forge CRUD the app can finally write, AI planning
+before work exists, an Auto-mate that keeps going, and a kill switch that stops it at any scope.*
+
+- ◻ **A** — one activity palette in `shared` (Brand/Rainbow/Ocean/Ember/Mono presets) and one `.activity-glow` family; metallic silver ring for shells; hardcoded status maps onto tokens
+- ◻ **B** — Settings ▸ Activity page: presets, per-status overrides, agent vs shell style, speed/intensity, live preview
+- ◻ **C** — `useActivityGlow` on cards, graph nodes, workflow nodes, terminal rows and Sessions, plus an agent-icon / terminal-glyph identity badge
+- ◻ **D** — `ForgeAdapter` issue + project CRUD, blocked-by / sub-issue link writes, per-operation capabilities, body-ref fallback
+- ◻ **E** — issue / project dialogs with a magic wand (cheap model, headless CLI) and a per-provider model registry
+- ◻ **F** — Plan with AI: editable blueprint sheet, re-plan, confirm creates project + issues + links (or sub-issues)
+- ◻ **G** — start / stop / `>_` controls on cards and nodes; drag-to-column fires the mapped skill behind an Undo toast
+- ◻ **H** — session attribution refs, Auto-mate (next unblocked, cap default 1), and the five-scope kill-switch modal
+- ◻ **I** — workflow editor parity with midnite on lazy-loaded React Flow: palette, panels, bottom run panel, toolbar, live run state
+- ◻ **J** — agent and script workflow nodes in real ptys, grouped per run in a terminal accordion, glow by run state
 
 ### [Phase 94 — AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md)
 
