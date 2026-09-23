@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 
-import { ACTIVITY_PRESETS, DEFAULT_ACTIVITY_PALETTE_ID } from '@midnite/studio-shared';
-
 import { useActivityPaletteStore } from './activity-palette-store';
+import { resolveActivePalette } from './resolve-active-palette';
 import { activityTokenNames, resolveActivityTokens } from './resolve-activity-tokens';
 
 /**
@@ -17,14 +16,19 @@ import { activityTokenNames, resolveActivityTokens } from './resolve-activity-to
  * `--activity-done` can hold the literal string `"hsl(var(--success))"` and
  * the browser re-resolves it through light/dark for free, the same way
  * `field-option-colors.ts`'s callers already lean on nested `var()`
- * resolution. This hook only re-runs when the active preset id changes.
+ * resolution. This hook re-runs whenever any Settings ▸ Activity field
+ * changes (Theme B) — the preset id, a per-status override, or the agent/
+ * shell style pickers — `resolveActivePalette` is where those compose into
+ * one `ActivityPalette` before this hook ever touches the DOM.
  */
 export function useActivityPaletteSync(): void {
   const activePaletteId = useActivityPaletteStore((s) => s.activePaletteId);
+  const statusOverrides = useActivityPaletteStore((s) => s.statusOverrides);
+  const agentStyle = useActivityPaletteStore((s) => s.agentStyle);
+  const shellStyle = useActivityPaletteStore((s) => s.shellStyle);
 
   useEffect(() => {
-    const palette = ACTIVITY_PRESETS[activePaletteId] ?? ACTIVITY_PRESETS[DEFAULT_ACTIVITY_PALETTE_ID];
-    if (!palette) return;
+    const palette = resolveActivePalette(activePaletteId, statusOverrides, agentStyle, shellStyle);
     const root = document.documentElement.style;
     const tokens = resolveActivityTokens(palette);
     for (const name of activityTokenNames()) {
@@ -32,5 +36,5 @@ export function useActivityPaletteSync(): void {
       if (value === null || value === undefined) root.removeProperty(name);
       else root.setProperty(name, value);
     }
-  }, [activePaletteId]);
+  }, [activePaletteId, statusOverrides, agentStyle, shellStyle]);
 }

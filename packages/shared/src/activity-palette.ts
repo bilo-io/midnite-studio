@@ -119,8 +119,13 @@ const gradient = (stops: string[], speed = 4, intensity = 0.5): ActivityStatusSt
  * terminal with no agent in it is chrome, not brand, in every preset —
  * `Settings ▸ Activity`'s "match agent" option (Theme B) is the opt-out for
  * a user who wants otherwise, not a fifth copy of this literal.
+ *
+ * Exported (Theme B) so `features/activity/resolve-active-palette.ts` can
+ * build the same stop list for an explicit "Metallic" agent-style choice —
+ * the one other place a caller legitimately wants this exact ring, not a
+ * reason to duplicate the array.
  */
-const METAL_RING = ['#f5f5f5', '#9ca3af', '#e5e7eb', '#6b7280', '#f5f5f5'];
+export const METAL_RING = ['#f5f5f5', '#9ca3af', '#e5e7eb', '#6b7280', '#f5f5f5'];
 
 /**
  * The app's one amber literal — `waiting` in every preset below, plus the

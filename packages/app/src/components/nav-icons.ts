@@ -29,6 +29,7 @@ import {
   LuSettings,
   LuShieldAlert,
   LuShieldCheck,
+  LuSparkles,
   LuSquareKanban,
   LuSquareTerminal,
   LuStethoscope,
@@ -109,6 +110,10 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
  */
 export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   appearance: LuPalette,
+  // Sparkles, not `LuActivity` (`monitor` already owns that pulse glyph) —
+  // this page is the glow/shimmer preset and per-status colour editor
+  // (Phase 95 Theme B), so a "shine" mark reads truer than a heartbeat.
+  activity: LuSparkles,
   privacy: LuShield,
   graph: IoIosGitNetwork,
   diff: LuDiff,

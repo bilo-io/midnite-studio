@@ -13,6 +13,7 @@ import {
   type SettingsPageId,
 } from '../../store/ui-store';
 import { AccountsPage } from './settings-pages/accounts-page';
+import { ActivityPage } from './settings-pages/activity-page';
 import { AgentPage } from './settings-pages/agent-page';
 import { ApiClientPage } from './settings-pages/api-client-page';
 import { AppearancePage } from './settings-pages/appearance-page';
@@ -49,6 +50,7 @@ import { WorkflowsPage } from './settings-pages/workflows-page';
  */
 const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   appearance: () => <AppearancePage />,
+  activity: () => <ActivityPage />,
   privacy: () => <PrivacyPage />,
   graph: () => <GraphPage />,
   diff: () => <DiffPage />,
