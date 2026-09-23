@@ -255,7 +255,7 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
       `remove-item` stay pinned to GitHub's own adapter — Theme A froze their request shape to
       `{projectId, ...}` with no `repoId` to resolve a different provider's account from at all,
       documented in the handler file's own docblock rather than silently worked around.
-- [◐] Delete issue / delete project go through the blast-radius confirm (issue count on the board,
+- [ ] Delete issue / delete project go through the blast-radius confirm (issue count on the board,
       linked items) — **deferred to Theme E.** Theme D's own scope (see "Files this phase
       touches") is `ForgeAdapter`/main/`shared` only, no renderer; the confirm dialog itself is
       Theme E's `IssueDialog`/`ProjectDialog` work. `deleteIssue`/`deleteProject` are wired and
