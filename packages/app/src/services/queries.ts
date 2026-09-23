@@ -11,6 +11,7 @@ import type {
   ForgeKind,
   ReachableReposResult,
   ForgeIssueCommentsResult,
+  ForgeIssueCreateResult,
   ForgeIssueDetailResult,
   ForgeIssuesResult,
   ForgePullCommentsResult,
@@ -19,6 +20,7 @@ import type {
   ForgePullScope,
   ForgePullsResult,
   ForgeMergeMethod,
+  ForgeProjectCreateResult,
   ForgeProjectFieldsResult,
   ForgeProjectFieldValue,
   ForgeProjectItem,
@@ -1741,6 +1743,165 @@ export function useSetIssueState(repoId: string | null, number: number | null) {
   });
 }
 
+// --- issue and project CRUD, and the wand (Phase 95 Theme E) ----------------
+
+/**
+ * Create an issue (`IssueDialog`'s create mode). Invalidates every listing
+ * key for this repo — `keys.forgeIssues` is keyed by limit AND state, and the
+ * sidebar section, dashboard widget and Issues view each ask with different
+ * values, the same prefix match `invalidateIssueState` above already uses.
+ */
+export function useCreateIssue(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      title: string;
+      body?: string;
+      labels?: string[];
+      assignees?: string[];
+      milestone?: string;
+    }): Promise<ForgeIssueCreateResult> => {
+      const api = bridge();
+      if (!api || !repoId) return NO_FORGE_ISSUE_CREATE;
+      return api.forge.issueCreate({ repoId, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId) {
+        void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'issues'] });
+      }
+    },
+  });
+}
+
+/** A partial edit (`IssueDialog`'s edit mode) — every field optional, an
+ *  absent one left unchanged, matching `ForgeIssueEditInput`'s own shape. */
+export function useEditIssue(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      title?: string;
+      body?: string;
+      labels?: string[];
+      assignees?: string[];
+      milestone?: string | null;
+    }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.issueEdit({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId && number !== null) invalidateIssueState(client, repoId, number);
+    },
+  });
+}
+
+/**
+ * Delete an issue outright — the caller (`IssueDialog`) is the one that
+ * raised the blast-radius confirm; this mutation only ever runs once a human
+ * has already agreed to it.
+ */
+export function useDeleteIssue(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { number: number }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId) return NO_FORGE_WRITE;
+      return api.forge.issueDelete({ repoId, number: input.number });
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId) {
+        void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'issues'] });
+      }
+    },
+  });
+}
+
+/** Create a board (`ProjectDialog`'s create mode). */
+export function useCreateProject(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { title: string }): Promise<ForgeProjectCreateResult> => {
+      const api = bridge();
+      if (!api || !repoId) return NO_FORGE_PROJECT_CREATE;
+      return api.forgeProject.create({ repoId, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId) {
+        void client.invalidateQueries({ queryKey: keys.forgeProjects(repoId) });
+      }
+    },
+  });
+}
+
+/** Rename a board, or close/reopen it (`ProjectDialog`'s edit mode).
+ *  `repoId` is only for invalidating the picker's own listing — the write
+ *  itself addresses the board by `projectId`, like every other `forgeProject`
+ *  write. */
+export function useEditProject(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      projectId: string;
+      title?: string;
+      closed?: boolean;
+    }): Promise<ForgeProjectWriteResult> => {
+      const api = bridge();
+      if (!api) return NO_FORGE_PROJECT_WRITE;
+      return api.forgeProject.edit(input);
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId) {
+        void client.invalidateQueries({ queryKey: keys.forgeProjects(repoId) });
+      }
+    },
+  });
+}
+
+/**
+ * Delete a board outright. The caller (`ProjectDialog`) raised the
+ * blast-radius confirm (item count) before this ever runs — GitHub's own
+ * project deletion is irreversible.
+ */
+export function useDeleteProject(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { projectId: string }): Promise<ForgeProjectWriteResult> => {
+      const api = bridge();
+      if (!api) return NO_FORGE_PROJECT_WRITE;
+      return api.forgeProject.delete(input);
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId) {
+        void client.invalidateQueries({ queryKey: keys.forgeProjects(repoId) });
+      }
+    },
+  });
+}
+
+/**
+ * The wand — rewrite one field's text through the roster's cheapest headless
+ * CLI (`main/ai/improve-field.ts`). Not tied to a repo/issue/project id: the
+ * dialog hands over exactly the text worth sending, and the mutation carries
+ * no cache to invalidate — a rewrite is a suggestion the dialog applies to
+ * its own local draft, never a write to the forge.
+ */
+export function useImproveField() {
+  return useMutation({
+    mutationFn: async (input: {
+      agentId?: string;
+      repoPath?: string | null;
+      repoName: string;
+      fieldName: string;
+      fieldValue: string;
+      otherFields?: Record<string, string>;
+    }): Promise<GitOpResult<{ text: string }>> => {
+      const api = bridge();
+      if (!api) return { ok: false, kind: 'error', message: '' };
+      return api.ai.improveField(input);
+    },
+  });
+}
+
 /**
  * The bridge-less answer, shaped like a repository with no GitHub remote.
  *
@@ -1801,6 +1962,10 @@ const EMPTY_PROJECT_ITEMS_PAGE: ForgeProjectItemsPage = {
 const NO_FORGE_WRITE: ForgeWriteResult = { ok: false, cli: EMPTY_CLI, error: null };
 /** Same reasoning as `NO_FORGE_WRITE`, for the `ForgeProjectWriteResult` shape. */
 const NO_FORGE_PROJECT_WRITE: ForgeProjectWriteResult = { ok: false, kind: 'error', message: '' };
+/** Same reasoning, for the `ForgeIssueCreateResult` shape. */
+const NO_FORGE_ISSUE_CREATE: ForgeIssueCreateResult = { ok: false, cli: EMPTY_CLI, error: null };
+/** Same reasoning, for the `ForgeProjectCreateResult` shape. */
+const NO_FORGE_PROJECT_CREATE: ForgeProjectCreateResult = { ok: false, kind: 'error', message: '' };
 /** Same reasoning as `NO_FORGE_WRITE`, for `AppIssueSubmitResult`'s extra `url` field. */
 const NO_APP_ISSUE_WRITE: AppIssueSubmitResult = { ok: false, cli: EMPTY_CLI, error: null, url: null };
 
