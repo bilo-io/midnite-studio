@@ -730,6 +730,23 @@ describe('forge schemas', () => {
       forgeProjectSetField: ['ForgeProjectSetFieldRequest', 'ForgeProjectSetFieldResponse'],
       forgeProjectAddItem: ['ForgeProjectAddItemRequest', 'ForgeProjectAddItemResponse'],
       forgeProjectClearField: ['ForgeProjectClearFieldRequest', 'ForgeProjectClearFieldResponse'],
+      /*
+        Phase 95 Theme D — issue and project CRUD, and the dependency link
+        (native where a provider has one, a `Blocked by #N` body line where
+        it does not). Every one of these dispatches through `ForgeAdapter`,
+        never `gh-*.ts` directly — see `forge-handlers.ts`/
+        `forge-project-handlers.ts`'s own docblocks.
+      */
+      forgeIssueCreate: ['ForgeIssueCreateRequest', 'ForgeIssueCreateResponse'],
+      forgeIssueEdit: ['ForgeIssueEditRequest', 'ForgeIssueEditResponse'],
+      forgeIssueDelete: ['ForgeIssueDeleteRequest', 'ForgeIssueDeleteResponse'],
+      forgeIssuesLink: ['ForgeIssuesLinkRequest', 'ForgeIssuesLinkResponse'],
+      forgeIssuesUnlink: ['ForgeIssuesUnlinkRequest', 'ForgeIssuesUnlinkResponse'],
+      forgeProjectCreate: ['ForgeProjectCreateRequest', 'ForgeProjectCreateResponse'],
+      forgeProjectEdit: ['ForgeProjectEditRequest', 'ForgeProjectEditResponse'],
+      forgeProjectDelete: ['ForgeProjectDeleteRequest', 'ForgeProjectDeleteResponse'],
+      forgeProjectAddDraftItem: ['ForgeProjectAddDraftItemRequest', 'ForgeProjectAddDraftItemResponse'],
+      forgeProjectRemoveItem: ['ForgeProjectRemoveItemRequest', 'ForgeProjectRemoveItemResponse'],
       // Phase 84 Theme C — interest-based polling. `onChanged` carries no
       // request schema of its own (it is `EVENT_CHANNELS.forgeChanged`, swept
       // by the dedicated describe block below), so only the two subscribe

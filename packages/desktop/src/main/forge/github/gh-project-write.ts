@@ -1,5 +1,8 @@
 import {
+  ForgeProjectSchema,
   type Forge,
+  type ForgeProjectAddItemInput,
+  type ForgeProjectCreateResult,
   type ForgeProjectFieldValue,
   type ForgeProjectWriteResult,
 } from '@midnite/studio-shared';
@@ -151,6 +154,26 @@ async function runMutation(
   query: string,
   variables: Record<string, unknown>,
 ): Promise<ForgeProjectWriteResult> {
+  const result = await runMutationRaw(forge, query, variables);
+  if (!result.ok) return result.failure;
+  return { ok: true, kind: 'ok' };
+}
+
+/**
+ * `runMutation`'s own body, minus the "throw the response away" part — Theme
+ * D's create-shaped mutations (`createProjectV2`, and `gh-issue-links.ts`'s
+ * `addSubIssue`/`addBlockedBy`) need the parsed JSON response, not just
+ * ok/error, so this is the one place the `gh api graphql --input -` shell-out
+ * lives; `runMutation` above is the thin wrapper every other write already
+ * called it through, unchanged.
+ */
+async function runMutationRaw(
+  forge: Forge,
+  query: string,
+  variables: Record<string, unknown>,
+): Promise<
+  { ok: true; payload: unknown } | { ok: false; failure: Extract<ForgeProjectWriteResult, { ok: false }> }
+> {
   const command =
     `printf %s ${shellQuote(JSON.stringify({ query, variables }))} |` +
     ` gh api graphql${apiHostFlag(forge)} --input -`;
@@ -159,9 +182,154 @@ async function runMutation(
   if (result.exitCode !== 0) {
     invalidateGhProbe();
     const kind = scopeErrorKind(result.output);
-    return kind === 'insufficient-scope'
-      ? { ok: false, kind, hint: 'gh auth refresh -s project' }
-      : { ok: false, kind: 'error', message: describeGraphqlFailure(result.output) };
+    const failure: ForgeProjectWriteResult =
+      kind === 'insufficient-scope'
+        ? { ok: false, kind, hint: 'gh auth refresh -s project' }
+        : { ok: false, kind: 'error', message: describeGraphqlFailure(result.output) };
+    return { ok: false, failure };
   }
-  return { ok: true, kind: 'ok' };
+
+  const brace = result.output.indexOf('{');
+  if (brace < 0) {
+    return { ok: false, failure: { ok: false, kind: 'error', message: 'The response could not be read.' } };
+  }
+  try {
+    return { ok: true, payload: JSON.parse(result.output.slice(brace)) as unknown };
+  } catch {
+    return { ok: false, failure: { ok: false, kind: 'error', message: 'The response could not be read.' } };
+  }
+}
+
+/** Digs `data.<path[0]>.<path[1]>…` out of a parsed GraphQL response, or `null`. */
+function dig(payload: unknown, path: string[]): unknown {
+  let cursor: unknown = payload;
+  for (const key of path) {
+    if (typeof cursor !== 'object' || cursor === null) return null;
+    cursor = (cursor as Record<string, unknown>)[key];
+  }
+  return cursor ?? null;
+}
+
+/*
+  ─── Phase 95 Theme D: board CRUD, item add/remove ─────────────────────────
+*/
+
+/**
+ * `repositoryOwner(login:).id` — `createProjectV2` takes an *owner id*, not a
+ * login, and the open repository's owner is the only sensible default (the
+ * phase doc scopes board creation to "create a board", not "pick an owner");
+ * a future org-picker would widen this, not replace it.
+ */
+async function resolveOwnerId(forge: Forge): Promise<string | null> {
+  const query = 'query($login:String!){repositoryOwner(login:$login){id}}';
+  const command =
+    `gh api graphql${apiHostFlag(forge)}` +
+    ` -f query=${shellQuote(query)}` +
+    ` -f login=${shellQuote(forge.owner)}`;
+  const result = await runInShell(command, LIST_TIMEOUT_MS);
+  if (result.exitCode !== 0) return null;
+  const brace = result.output.indexOf('{');
+  if (brace < 0) return null;
+  try {
+    const payload = JSON.parse(result.output.slice(brace)) as unknown;
+    const id = dig(payload, ['data', 'repositoryOwner', 'id']);
+    return typeof id === 'string' && id.length > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/** `createProjectV2` — a new board owned by the open repository's owner. */
+export async function createProject(forge: Forge, title: string): Promise<ForgeProjectCreateResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: 'gh is not ready.' };
+
+  const ownerId = await resolveOwnerId(forge);
+  if (ownerId === null) {
+    return { ok: false, kind: 'error', message: `Could not resolve the owner "${forge.owner}".` };
+  }
+
+  const query =
+    'mutation($input:CreateProjectV2Input!){' +
+    'createProjectV2(input:$input){projectV2{id number title url closed}}}';
+  const result = await runMutationRaw(forge, query, { input: { ownerId, title } });
+  if (!result.ok) return result.failure;
+
+  const raw = dig(result.payload, ['data', 'createProjectV2', 'projectV2']);
+  const parsed =
+    typeof raw === 'object' && raw !== null
+      ? ForgeProjectSchema.safeParse({ ...(raw as Record<string, unknown>), linkedToRepo: false })
+      : null;
+  if (!parsed || !parsed.success) {
+    return { ok: false, kind: 'error', message: 'The board was created, but could not be read back.' };
+  }
+  return { ok: true, kind: 'ok', project: parsed.data };
+}
+
+/** `updateProjectV2` — rename a board, or close/reopen it. */
+export async function editProject(
+  forge: Forge,
+  request: { projectId: string; title?: string; closed?: boolean },
+): Promise<ForgeProjectWriteResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: 'gh is not ready.' };
+
+  const input: Record<string, unknown> = { projectId: request.projectId };
+  if (request.title !== undefined) input['title'] = request.title;
+  if (request.closed !== undefined) input['closed'] = request.closed;
+
+  const query = 'mutation($input:UpdateProjectV2Input!){updateProjectV2(input:$input){projectV2{id}}}';
+  return runMutation(forge, query, { input });
+}
+
+/** `deleteProjectV2` — irreversible on GitHub. The caller's blast-radius
+ *  confirm has already run by the time this is called. */
+export async function deleteProject(forge: Forge, projectId: string): Promise<ForgeProjectWriteResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: 'gh is not ready.' };
+
+  const query = 'mutation($input:DeleteProjectV2Input!){deleteProjectV2(input:$input){projectV2{id}}}';
+  return runMutation(forge, query, { input: { projectId } });
+}
+
+/**
+ * An existing issue/PR (`contentId`, `addProjectV2ItemById`) or a brand-new
+ * draft (`draftTitle`/`draftBody`, `addProjectV2DraftIssue`) — the union
+ * `ForgeProjectAddItemInputSchema` declares, narrowed here to pick the
+ * matching mutation rather than guessing which was meant.
+ */
+export async function addProjectItem(
+  forge: Forge,
+  request: { projectId: string } & ForgeProjectAddItemInput,
+): Promise<ForgeProjectWriteResult> {
+  if ('contentId' in request) {
+    return addItemToProject(forge, { projectId: request.projectId, contentId: request.contentId });
+  }
+
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: 'gh is not ready.' };
+
+  const query =
+    'mutation($input:AddProjectV2DraftIssueInput!){' +
+    'addProjectV2DraftIssue(input:$input){projectItem{id}}}';
+  const variables = {
+    input: { projectId: request.projectId, title: request.draftTitle, body: request.draftBody },
+  };
+  return runMutation(forge, query, variables);
+}
+
+/** `deleteProjectV2Item` — removes a row from the board, not the issue/PR it
+ *  points at. The inverse of `addProjectItem` above. */
+export async function removeProjectItem(
+  forge: Forge,
+  request: { projectId: string; itemId: string },
+): Promise<ForgeProjectWriteResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: 'gh is not ready.' };
+
+  const query =
+    'mutation($input:DeleteProjectV2ItemInput!){deleteProjectV2Item(input:$input){deletedItemId}}';
+  return runMutation(forge, query, {
+    input: { projectId: request.projectId, itemId: request.itemId },
+  });
 }

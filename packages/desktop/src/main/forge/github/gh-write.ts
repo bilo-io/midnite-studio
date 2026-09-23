@@ -1,10 +1,13 @@
 import type {
   Forge,
+  ForgeIssueCreateResult,
+  ForgeIssueEditInput,
   ForgeMergeMethod,
   ForgeReviewEvent,
   ForgeWriteResult,
 } from '@midnite/studio-shared';
 
+import { issueDetail } from './gh-cli';
 import {
   apiHostFlag,
   describeFailure,
@@ -533,4 +536,157 @@ export function setIssueState(
   state: 'open' | 'closed',
 ): Promise<ForgeWriteResult> {
   return runWrite(issueSetStateCommand(forge, number, state));
+}
+
+/*
+  ─── Phase 95 Theme D: issue CRUD ───────────────────────────────────────────
+
+  REST, not `gh issue create`/`gh issue edit` — the CLI verbs exist, but
+  `create` only ever prints the new issue's URL as plain text (no `--json`)
+  and `edit`'s `--add-label`/`--remove-label` pair is a delta, not the "set
+  this exact list" write the contract asks for. `gh api --method POST/PATCH`
+  gives both a structured response and a full-replace `labels`/`assignees`
+  array in one call, the same `apiPost`-style JSON-on-stdin shape this file
+  already uses for `addReviewComment`.
+*/
+
+/** `--milestone` on `create`/`edit` takes a title in a *lookup* index rather
+ *  than the numeric id the REST body wants — resolved with one extra read,
+ *  cached nowhere (an edit is rare enough that re-reading the list each time
+ *  is not worth a cache to invalidate). `null` for "not found", which the
+ *  caller treats as "milestone left unset" rather than a write failure: a
+ *  typo'd title should not sink the rest of the edit. */
+async function resolveMilestoneNumber(forge: Forge, title: string): Promise<number | null> {
+  const command = `gh api repos/${slug(forge)}/milestones${apiHostFlag(forge)} -f state=all`;
+  const result = await runInShell(command, LIST_TIMEOUT_MS);
+  if (result.exitCode !== 0) return null;
+
+  const brace = result.output.indexOf('[');
+  if (brace < 0) return null;
+  try {
+    const payload = JSON.parse(result.output.slice(brace)) as unknown;
+    if (!Array.isArray(payload)) return null;
+    for (const raw of payload) {
+      if (typeof raw !== 'object' || raw === null) continue;
+      const row = raw as Record<string, unknown>;
+      if (row['title'] === title && typeof row['number'] === 'number') return row['number'];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** One `gh api` write with a JSON body on stdin, returning the parsed
+ *  response on success — `apiPost`'s own shape, plus the payload, because
+ *  `createIssue`/`editIssue` both need the response body: the former to
+ *  learn the new issue's number, the latter is fine without it but shares
+ *  the helper rather than duplicating it for one field. */
+async function apiWrite(
+  forge: Forge,
+  method: 'POST' | 'PATCH',
+  endpoint: string,
+  body: Record<string, unknown>,
+): Promise<{ ok: true; payload: unknown } | { ok: false; error: string }> {
+  const command =
+    `printf %s ${shellQuote(JSON.stringify(body))} |` +
+    ` gh api --method ${method} ${shellQuote(endpoint)}${apiHostFlag(forge)} --input -`;
+
+  const result = await runInShell(command, WRITE_TIMEOUT_MS);
+  if (result.exitCode !== 0) {
+    invalidateGhProbe();
+    return { ok: false, error: describeApiFailure(result.output) };
+  }
+  const brace = result.output.indexOf('{');
+  if (brace < 0) return { ok: false, error: 'The response could not be read.' };
+  try {
+    return { ok: true, payload: JSON.parse(result.output.slice(brace)) as unknown };
+  } catch {
+    return { ok: false, error: 'The response could not be read.' };
+  }
+}
+
+/**
+ * `POST repos/{o}/{r}/issues`, then a read-back through `issueDetail` — see
+ * this interface method's own docblock (`adapter.ts`) for why the read-back
+ * exists rather than hand-mapping the REST create response: every provider
+ * returns the exact `ForgeIssue` shape its own listing already produces,
+ * with one parser to keep correct instead of two.
+ */
+export async function createIssue(
+  forge: Forge,
+  request: { title: string; body?: string; labels?: string[]; assignees?: string[]; milestone?: string },
+): Promise<ForgeIssueCreateResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return { ok: false, cli, error: null };
+
+  const body: Record<string, unknown> = { title: request.title, body: request.body ?? '' };
+  if (request.labels && request.labels.length > 0) body['labels'] = request.labels;
+  if (request.assignees && request.assignees.length > 0) body['assignees'] = request.assignees;
+  if (request.milestone) {
+    const milestoneNumber = await resolveMilestoneNumber(forge, request.milestone);
+    if (milestoneNumber !== null) body['milestone'] = milestoneNumber;
+  }
+
+  const created = await apiWrite(forge, 'POST', `repos/${slug(forge)}/issues`, body);
+  if (!created.ok) return { ok: false, cli, error: created.error };
+
+  const number =
+    typeof created.payload === 'object' && created.payload !== null
+      ? (created.payload as Record<string, unknown>)['number']
+      : undefined;
+  if (typeof number !== 'number') {
+    return { ok: false, cli, error: 'Issue created, but its number could not be read.' };
+  }
+
+  const detail = await issueDetail(forge, number);
+  if (!detail.issue) {
+    return { ok: false, cli, error: detail.error ?? 'Issue created, but could not be read back.' };
+  }
+  return { ok: true, cli, issue: detail.issue.issue };
+}
+
+/**
+ * `PATCH repos/{o}/{r}/issues/{n}` — a partial update. Only the fields the
+ * request actually carries are sent, matching `ForgeIssueEditInputSchema`'s
+ * own `undefined` = "leave alone" convention; `milestone: null` (present,
+ * explicitly null) clears it, which is exactly what GitHub's REST PATCH does
+ * with a `null` `milestone` field.
+ */
+export async function editIssue(
+  forge: Forge,
+  number: number,
+  request: ForgeIssueEditInput,
+): Promise<ForgeWriteResult> {
+  const cli = await ghStatus();
+  if (cli.reason !== 'ready') return notReady(cli);
+
+  const body: Record<string, unknown> = {};
+  if (request.title !== undefined) body['title'] = request.title;
+  if (request.body !== undefined) body['body'] = request.body;
+  if (request.labels !== undefined) body['labels'] = request.labels;
+  if (request.assignees !== undefined) body['assignees'] = request.assignees;
+  if (request.milestone !== undefined) {
+    body['milestone'] = request.milestone === null ? null : await resolveMilestoneNumber(forge, request.milestone);
+  }
+  if (Object.keys(body).length === 0) return { ok: true, cli, error: null };
+
+  const result = await apiWrite(forge, 'PATCH', `repos/${slug(forge)}/issues/${number}`, body);
+  return result.ok ? { ok: true, cli, error: null } : { ok: false, cli, error: result.error };
+}
+
+/**
+ * `gh issue delete <n> --repo … --yes` — a real `gh` subcommand, unlike
+ * create/edit above: it needs no structured response, so there is nothing
+ * REST buys here that the CLI verb does not already give more simply.
+ * `--yes` skips the interactive confirmation prompt this app's own
+ * blast-radius confirm already replaces.
+ */
+export function issueDeleteCommand(forge: Forge, number: number): string {
+  return `gh issue delete ${number} ${repoFlag(forge)} --yes`;
+}
+
+/** Delete an issue outright. The caller's blast-radius confirm has already run. */
+export function deleteIssue(forge: Forge, number: number): Promise<ForgeWriteResult> {
+  return runWrite(issueDeleteCommand(forge, number));
 }

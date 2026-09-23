@@ -17,12 +17,24 @@ import {
   runLog,
 } from './gh-cli';
 import { pullThreads } from './gh-graphql';
+import { linkIssues, unlinkIssues } from './gh-issue-links';
 import { listProjects, projectFields, projectItems } from './gh-project';
-import { setItemFieldValue } from './gh-project-write';
+import {
+  addProjectItem,
+  clearItemFieldValue,
+  createProject,
+  deleteProject,
+  editProject,
+  removeProjectItem,
+  setItemFieldValue,
+} from './gh-project-write';
 import {
   addReviewComment,
   commentIssue,
   commentPull,
+  createIssue,
+  deleteIssue,
+  editIssue,
   markReady,
   mergePull,
   replyToReviewComment,
@@ -80,6 +92,21 @@ export function createGitHubAdapter(): ForgeAdapter {
     setIssueState,
 
     setItemField: (forge, request) => setItemFieldValue(forge, request),
+
+    createIssue,
+    editIssue,
+    deleteIssue,
+
+    createProject: (forge, title) => createProject(forge, title),
+    editProject,
+    deleteProject: (forge, projectId) => deleteProject(forge, projectId),
+
+    addProjectItem,
+    removeProjectItem,
+    clearItemFieldValue: (forge, request) => clearItemFieldValue(forge, request),
+
+    linkIssues,
+    unlinkIssues,
 
     whoami: (forge: Forge) => githubWhoami(forge.host),
 

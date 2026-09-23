@@ -186,6 +186,26 @@ export async function azWorkItemPatch<T = unknown>(
   });
 }
 
+/**
+ * `POST .../wit/workitems/${'$' + type}` — work item *creation* (Phase 95
+ * Theme D), `azWorkItemPatch`'s own sibling for `POST` rather than `PATCH`:
+ * the same JSON-Patch document and the same `application/json-patch+json`
+ * content type, against the one endpoint that creates instead of updating.
+ * The literal `$` before the type name is part of Azure's own route, not a
+ * template artefact — `$Task`, `$Issue`, `$Bug`.
+ */
+export async function azWorkItemCreate<T = unknown>(
+  forge: Forge,
+  account: ForgeAccount | null,
+  workItemType: string,
+  ops: Array<{ op: 'add' | 'replace'; path: string; value: unknown }>,
+): Promise<AzureResult<T>> {
+  return azureRequest<T>(forge, account, 'POST', `wit/workitems/$${encodeURIComponent(workItemType)}`, {
+    json: ops,
+    contentType: 'application/json-patch+json',
+  });
+}
+
 /** `{repositoryId or name}` path segment for a git-scoped call. */
 export function repoSegment(forge: Forge): string {
   return encodeURIComponent(forge.repo);

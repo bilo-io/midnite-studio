@@ -2,13 +2,21 @@ import type {
   Forge,
   ForgeAccount,
   ForgeCliStatus,
+  ForgeIssueCreateResult,
+  ForgeIssueEditInput,
+  ForgeLinkWriteResult,
   ForgeMergeMethod,
+  ForgeProjectAddItemInput,
+  ForgeProjectCreateResult,
+  ForgeProjectWriteResult,
   ForgeReviewEvent,
   ForgeWriteResult,
 } from '@midnite/studio-shared';
 
-import { gitlabCliStatus, glGet, glPost, glPut, projectId } from './gitlab-client';
+import { withBlockedByLine, withoutBlockedByLine } from '../body-link-fallback';
+import { gitlabCliStatus, glGet, glPost, glPut, glRequest, projectId } from './gitlab-client';
 import { asArray, asString, asStringLoose, row } from './gitlab-json';
+import { issueDetail } from './gitlab-read';
 
 /**
  * GitLab's write surface — the same bounded set `gh-write.ts` documents for
@@ -314,4 +322,201 @@ export async function setThreadResolved(
     { resolved: request.resolved },
   );
   return fromResult(cli, result.ok, result.ok ? null : result.error);
+}
+
+// ─── Phase 95 Theme D: issue CRUD and the body-fallback dependency link ────
+
+/** `GET users?username=` for each login, keeping only the ones GitLab
+ *  resolves — the same best-effort posture `requestReview` above already
+ *  takes for a reviewer login it cannot find: a typo'd assignee should not
+ *  sink the rest of the write. */
+async function resolveAssigneeIds(forge: Forge, account: ForgeAccount | null, usernames: string[]): Promise<number[]> {
+  const resolved = await Promise.all(
+    usernames.map(async (username) => {
+      const found = await glGet<unknown[]>(forge, account, 'users', { username });
+      const first = found.ok ? asArray(found.data)[0] : null;
+      const id = first ? row(first)?.['id'] : null;
+      return typeof id === 'number' ? id : null;
+    }),
+  );
+  return resolved.filter((id): id is number => id !== null);
+}
+
+/** GitLab's issue/edit body wants a milestone *id*, not the title this
+ *  contract carries — resolved with one search call, the same "no cache,
+ *  edits are rare" posture `gh-write.ts`'s own `resolveMilestoneNumber` takes. */
+async function resolveMilestoneId(forge: Forge, account: ForgeAccount | null, title: string): Promise<number | null> {
+  const found = await glGet<unknown[]>(forge, account, `projects/${projectId(forge)}/milestones`, { search: title });
+  if (!found.ok) return null;
+  for (const raw of asArray(found.data)) {
+    const r = row(raw);
+    if (r && r['title'] === title && typeof r['id'] === 'number') return r['id'];
+  }
+  return null;
+}
+
+export async function createIssue(
+  forge: Forge,
+  account: ForgeAccount | null,
+  request: { title: string; body?: string; labels?: string[]; assignees?: string[]; milestone?: string },
+): Promise<ForgeIssueCreateResult> {
+  const cli = await gitlabCliStatus(account);
+  if (cli.reason !== 'ready') return { ok: false, cli, error: cli.hint || null };
+
+  const payload: Record<string, unknown> = { title: request.title };
+  if (request.body !== undefined) payload['description'] = request.body;
+  if (request.labels && request.labels.length > 0) payload['labels'] = request.labels.join(',');
+  if (request.assignees && request.assignees.length > 0) {
+    const ids = await resolveAssigneeIds(forge, account, request.assignees);
+    if (ids.length > 0) payload['assignee_ids'] = ids;
+  }
+  if (request.milestone) {
+    const milestoneId = await resolveMilestoneId(forge, account, request.milestone);
+    if (milestoneId !== null) payload['milestone_id'] = milestoneId;
+  }
+
+  const created = await glPost<Record<string, unknown>>(forge, account, `projects/${projectId(forge)}/issues`, payload);
+  if (!created.ok) return { ok: false, cli, error: created.error };
+
+  const iid = created.data['iid'];
+  if (typeof iid !== 'number') {
+    return { ok: false, cli, error: 'Issue created, but its number could not be read.' };
+  }
+  const detail = await issueDetail(forge, account, iid);
+  if (!detail.issue) {
+    return { ok: false, cli, error: detail.error ?? 'Issue created, but could not be read back.' };
+  }
+  return { ok: true, cli, issue: detail.issue.issue };
+}
+
+export async function editIssue(
+  forge: Forge,
+  account: ForgeAccount | null,
+  number: number,
+  request: ForgeIssueEditInput,
+): Promise<ForgeWriteResult> {
+  const cli = await gitlabCliStatus(account);
+  if (cli.reason !== 'ready') return notReady(cli);
+
+  const payload: Record<string, unknown> = {};
+  if (request.title !== undefined) payload['title'] = request.title;
+  if (request.body !== undefined) payload['description'] = request.body;
+  if (request.labels !== undefined) payload['labels'] = request.labels.join(',');
+  if (request.assignees !== undefined) {
+    payload['assignee_ids'] = request.assignees.length > 0 ? await resolveAssigneeIds(forge, account, request.assignees) : [];
+  }
+  if (request.milestone !== undefined) {
+    payload['milestone_id'] = request.milestone === null ? null : await resolveMilestoneId(forge, account, request.milestone);
+  }
+  if (Object.keys(payload).length === 0) return { ok: true, cli, error: null };
+
+  const result = await glPut(forge, account, `projects/${projectId(forge)}/issues/${number}`, payload);
+  return fromResult(cli, result.ok, result.ok ? null : result.error);
+}
+
+/** `DELETE projects/:id/issues/:iid` — requires the reporter/owner role
+ *  GitLab itself gates issue deletion behind; a `403` surfaces as an honest
+ *  write failure through the same `result.error` every other write here uses. */
+export async function deleteIssue(forge: Forge, account: ForgeAccount | null, number: number): Promise<ForgeWriteResult> {
+  const cli = await gitlabCliStatus(account);
+  if (cli.reason !== 'ready') return notReady(cli);
+  const result = await glRequest(forge, account, 'DELETE', `projects/${projectId(forge)}/issues/${number}`);
+  return fromResult(cli, result.ok, result.ok ? null : result.error);
+}
+
+/** No board-write this theme implements for GitLab (its own Issue Board is a
+ *  synthetic label-backed field, not a ProjectV2-shaped resource) — an honest
+ *  `unsupportedWrite`, the same posture this file already takes for
+ *  `requestReview`/`markReady`/`rerunChecks` where GitLab genuinely has no
+ *  equivalent, matching `capabilitiesFor('gitlab').ops`'s `false` rows. */
+async function unsupportedProjectWrite(account: ForgeAccount | null, message: string): Promise<ForgeProjectWriteResult> {
+  const cli = await gitlabCliStatus(account);
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: cli.hint || 'Not authenticated.' };
+  return { ok: false, kind: 'error', message };
+}
+
+export async function createProject(account: ForgeAccount | null): Promise<ForgeProjectCreateResult> {
+  const cli = await gitlabCliStatus(account);
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: cli.hint || 'Not authenticated.' };
+  return { ok: false, kind: 'error', message: 'GitLab boards are not created through this app yet.' };
+}
+
+export function editProject(account: ForgeAccount | null): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'GitLab boards are not edited through this app yet.');
+}
+
+export function deleteProject(account: ForgeAccount | null): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'GitLab boards are not deleted through this app yet.');
+}
+
+export function addProjectItem(
+  account: ForgeAccount | null,
+  _request: { projectId: string } & ForgeProjectAddItemInput,
+): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'GitLab has no board-item-add write in this app yet.');
+}
+
+export function removeProjectItem(account: ForgeAccount | null): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'GitLab has no board-item-remove write in this app yet.');
+}
+
+/**
+ * `kind: 'blockedBy'` — the text-fallback link, since GitLab's own Issue
+ * Links API is a separate, still-unimplemented surface this theme does not
+ * reach for (the phase doc's own scope: "where a provider has no native
+ * dependency link, `linkIssues` falls back to appending a `Blocked by #N`
+ * line"). `kind: 'subIssue'` has no fallback — a parent/child relation has no
+ * body-text grammar this app parses — so it is an honest unsupported write.
+ */
+export async function linkIssues(
+  forge: Forge,
+  account: ForgeAccount | null,
+  request: { kind: 'blockedBy' | 'subIssue'; number: number; targetNumber: number; targetRepo?: string },
+): Promise<ForgeLinkWriteResult> {
+  const cli = await gitlabCliStatus(account);
+  if (cli.reason !== 'ready') return { ok: false, cli, error: cli.hint || null };
+  if (request.kind === 'subIssue') {
+    return { ok: false, cli, error: 'GitLab has no sub-issue relation this app writes yet.' };
+  }
+
+  const detail = await issueDetail(forge, account, request.number);
+  if (!detail.issue) return { ok: false, cli, error: detail.error ?? 'Could not read the issue to link.' };
+
+  const { body: nextBody, changed } = withBlockedByLine(detail.issue.body, {
+    repo: request.targetRepo ?? '',
+    number: request.targetNumber,
+  });
+  if (!changed) return { ok: true, cli, error: null, via: 'body' };
+
+  const result = await glPut(forge, account, `projects/${projectId(forge)}/issues/${request.number}`, {
+    description: nextBody,
+  });
+  return result.ok ? { ok: true, cli, error: null, via: 'body' } : { ok: false, cli, error: result.error };
+}
+
+/** The inverse of {@link linkIssues} — removes the same `Blocked by` line. */
+export async function unlinkIssues(
+  forge: Forge,
+  account: ForgeAccount | null,
+  request: { kind: 'blockedBy' | 'subIssue'; number: number; targetNumber: number; targetRepo?: string },
+): Promise<ForgeLinkWriteResult> {
+  const cli = await gitlabCliStatus(account);
+  if (cli.reason !== 'ready') return { ok: false, cli, error: cli.hint || null };
+  if (request.kind === 'subIssue') {
+    return { ok: false, cli, error: 'GitLab has no sub-issue relation this app writes yet.' };
+  }
+
+  const detail = await issueDetail(forge, account, request.number);
+  if (!detail.issue) return { ok: false, cli, error: detail.error ?? 'Could not read the issue to unlink.' };
+
+  const { body: nextBody, changed } = withoutBlockedByLine(detail.issue.body, {
+    repo: request.targetRepo ?? '',
+    number: request.targetNumber,
+  });
+  if (!changed) return { ok: true, cli, error: null, via: 'body' };
+
+  const result = await glPut(forge, account, `projects/${projectId(forge)}/issues/${request.number}`, {
+    description: nextBody,
+  });
+  return result.ok ? { ok: true, cli, error: null, via: 'body' } : { ok: false, cli, error: result.error };
 }

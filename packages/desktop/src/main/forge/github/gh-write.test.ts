@@ -5,8 +5,12 @@ import { parseCommitSample } from './gh-parse';
 import {
   addReviewComment,
   commentCommand,
+  createIssue,
+  deleteIssue,
   describeApiFailure,
+  editIssue,
   issueCommentCommand,
+  issueDeleteCommand,
   issueSetStateCommand,
   mergeCommand,
   readyCommand,
@@ -470,5 +474,116 @@ describe('parseCommitSample', () => {
     expect(parseCommitSample(undefined)).toEqual([]);
     expect(parseCommitSample(null)).toEqual([]);
     expect(parseCommitSample('nope')).toEqual([]);
+  });
+});
+
+/**
+ * Phase 95 Theme D — issue CRUD. `createIssue`/`editIssue` go through
+ * `gh api --method POST/PATCH`, the same JSON-on-stdin shape every
+ * structured write in this file uses; `deleteIssue` is a plain `gh issue
+ * delete` subcommand, asserted as a pure string like `issueSetStateCommand`
+ * above it.
+ */
+describe('issue CRUD (Phase 95 Theme D)', () => {
+  const forge = { host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio', kind: 'github' as const };
+
+  const issueViewPayload = {
+    id: 'I_kwABC',
+    number: 5,
+    title: 'A new issue',
+    state: 'open',
+    author: { login: 'octocat' },
+    labels: [{ name: 'bug', color: 'ff0000' }],
+    assignees: [{ login: 'octocat' }],
+    updatedAt: '2026-01-01T00:00:00Z',
+    createdAt: '2026-01-01T00:00:00Z',
+    url: 'https://github.com/bilo-io/midnite-studio/issues/5',
+    milestone: null,
+    body: 'The body.',
+  };
+  const issueView = { output: JSON.stringify(issueViewPayload), stdout: '', stderr: '', exitCode: 0 };
+  const createdIssue = { output: JSON.stringify({ number: 5, id: 'I_kwABC' }), stdout: '', stderr: '', exitCode: 0 };
+
+  describe('createIssue', () => {
+    it('POSTs title/body/labels/assignees, then reads the issue back by number', async () => {
+      runInShell.mockResolvedValueOnce(createdIssue).mockResolvedValueOnce(issueView);
+
+      const result = await createIssue(forge, {
+        title: 'A new issue',
+        body: 'The body.',
+        labels: ['bug'],
+        assignees: ['octocat'],
+      });
+
+      expect(runInShell).toHaveBeenCalledTimes(2);
+      expect(runInShell.mock.calls[0]?.[0]).toContain(
+        "gh api --method POST 'repos/bilo-io/midnite-studio/issues'",
+      );
+      expect(bodyOf(0)).toEqual({ title: 'A new issue', body: 'The body.', labels: ['bug'], assignees: ['octocat'] });
+      // The read-back is a plain `gh issue view`, not a second API POST.
+      expect(runInShell.mock.calls[1]?.[0]).toContain('gh issue view 5');
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.issue.number).toBe(5);
+        expect(result.issue.title).toBe('A new issue');
+      }
+    });
+
+    it('omits empty labels/assignees rather than sending empty arrays', async () => {
+      runInShell.mockResolvedValueOnce(createdIssue).mockResolvedValueOnce(issueView);
+      await createIssue(forge, { title: 'A new issue' });
+      expect(bodyOf(0)).toEqual({ title: 'A new issue', body: '' });
+    });
+
+    it('reports a failed create as an envelope, never a throw', async () => {
+      runInShell.mockResolvedValueOnce(fail('{"message":"Validation Failed"}'));
+      const result = await createIssue(forge, { title: 'A new issue' });
+      expect(result.ok).toBe(false);
+      expect(runInShell).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('editIssue', () => {
+    it('PATCHes only the fields the request carries', async () => {
+      runInShell.mockResolvedValueOnce(ok);
+      const result = await editIssue(forge, 5, { title: 'Renamed' });
+
+      expect(result.ok).toBe(true);
+      expect(runInShell.mock.calls[0]?.[0]).toContain(
+        "gh api --method PATCH 'repos/bilo-io/midnite-studio/issues/5'",
+      );
+      expect(bodyOf(0)).toEqual({ title: 'Renamed' });
+    });
+
+    it('sends a full-replace labels/assignees array, not a delta', async () => {
+      runInShell.mockResolvedValueOnce(ok);
+      await editIssue(forge, 5, { labels: ['a', 'b'], assignees: [] });
+      expect(bodyOf(0)).toEqual({ labels: ['a', 'b'], assignees: [] });
+    });
+
+    it('is a no-op — no subprocess at all — when the request carries no field', async () => {
+      const result = await editIssue(forge, 5, {});
+      expect(result.ok).toBe(true);
+      expect(runInShell).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('issueDeleteCommand / deleteIssue', () => {
+    it('builds `gh issue delete <n> --repo … --yes`', () => {
+      expect(issueDeleteCommand(forge, 5)).toBe(
+        "gh issue delete 5 --repo 'bilo-io/midnite-studio' --yes",
+      );
+    });
+
+    it('skips the interactive confirmation prompt this app’s own confirm replaces', () => {
+      expect(issueDeleteCommand(forge, 5)).toContain('--yes');
+    });
+
+    it('reports the write through the same envelope as every other write', async () => {
+      runInShell.mockResolvedValueOnce(ok);
+      const result = await deleteIssue(forge, 5);
+      expect(result.ok).toBe(true);
+    });
   });
 });

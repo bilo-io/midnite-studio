@@ -882,3 +882,60 @@ export const ForgeWriteResultSchema = z.object({
   error: z.string().nullable().default(null),
 });
 export type ForgeWriteResult = z.infer<typeof ForgeWriteResultSchema>;
+
+// --- issue and dependency-link CRUD (Phase 95 Theme D) ----------------------
+
+/**
+ * What `createIssue` answers with — `ForgeWriteResult`'s own shape is not
+ * enough here, the same reason `ForgeProjectWriteResultSchema` is not reused
+ * for a project *create*: a create has a resource to hand back (the number, id
+ * and url the caller needs to navigate to or link against), and folding that
+ * onto a boolean-`ok` envelope would mean a second round trip just to read
+ * back what this call already produced. `ForgeAdapter.createIssue` is
+ * implemented by reading the issue back through the adapter's own
+ * `issueDetail` immediately after a successful write, so every provider
+ * returns the exact same `ForgeIssue` shape a listing would.
+ */
+export const ForgeIssueCreateResultSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), cli: ForgeCliStatusSchema, issue: ForgeIssueSchema }),
+  z.object({ ok: z.literal(false), cli: ForgeCliStatusSchema, error: z.string().nullable().default(null) }),
+]);
+export type ForgeIssueCreateResult = z.infer<typeof ForgeIssueCreateResultSchema>;
+
+/** A field edit on an existing issue. Every field is optional — an absent one
+ *  is left unchanged, matching `gh api --method PATCH`'s own partial-update
+ *  semantics rather than requiring the caller to resend the whole issue.
+ *  `milestone: null` (present, explicitly null) clears it; `undefined`
+ *  (absent) leaves it alone — the same three-state convention
+ *  `ForgeProjectItemContentSchema`'s siblings use for "unset" vs "empty". */
+export const ForgeIssueEditInputSchema = z.object({
+  title: z.string().min(1).optional(),
+  body: z.string().optional(),
+  labels: z.array(z.string()).optional(),
+  assignees: z.array(z.string()).optional(),
+  milestone: z.string().min(1).nullable().optional(),
+});
+export type ForgeIssueEditInput = z.infer<typeof ForgeIssueEditInputSchema>;
+
+/**
+ * The two dependency relations Phase 75 already reads (`blockedBy`,
+ * `subIssues` — see `forge-graph.ts`) and Theme D is the first to write.
+ * `blocks`/`parent` are deliberately absent, matching `resolveForgeGraph`'s
+ * own note that the inverse relation is never consumed.
+ */
+export const ForgeLinkKindSchema = z.enum(['blockedBy', 'subIssue']);
+export type ForgeLinkKind = z.infer<typeof ForgeLinkKindSchema>;
+
+/**
+ * What `linkIssues`/`unlinkIssues` answer with — `ForgeWriteResult` plus one
+ * field: which mechanism actually carried the edge. `via: 'api'` is a real
+ * provider-native relation (GitHub's `addSubIssue`/blocked-by mutations);
+ * `via: 'body'` is the text-fallback `Blocked by #N` line
+ * `parseBlockerRefs` (`forge-graph.ts`) already parses on every provider that
+ * has no native dependency link. Optional, and absent on a failed write —
+ * nothing was written, so nothing carried it.
+ */
+export const ForgeLinkWriteResultSchema = ForgeWriteResultSchema.extend({
+  via: z.enum(['api', 'body']).optional(),
+});
+export type ForgeLinkWriteResult = z.infer<typeof ForgeLinkWriteResultSchema>;

@@ -7,8 +7,10 @@ import {
   type Forge,
   type ForgeCliStatus,
   type ForgeIssueCommentsResult,
+  type ForgeIssueCreateResult,
   type ForgeIssueDetailResult,
   type ForgeIssuesResult,
+  type ForgeLinkWriteResult,
   type ForgePullCommentsResult,
   type ForgePullDetailResult,
   type ForgePullFilesResult,
@@ -79,6 +81,13 @@ export const noForgeStatus = (): ForgeCliStatus => ({
  * failed, because nothing was attempted. The `cli` hint says which.
  */
 const noForgeWrite = (): ForgeWriteResult => ({ ok: false, cli: noForgeStatus(), error: null });
+
+/** The `ForgeLinkWriteResult`-shaped twin of {@link noForgeWrite} — no `via`,
+ *  since nothing was attempted. */
+const noForgeLinkWrite = (): ForgeLinkWriteResult => ({ ok: false, cli: noForgeStatus(), error: null });
+
+/** The `ForgeIssueCreateResult`-shaped twin of {@link noForgeWrite}. */
+const noForgeIssueCreate = (): ForgeIssueCreateResult => ({ ok: false, cli: noForgeStatus(), error: null });
 
 /**
  * The one place a handler turns a `repoId` into a `{forge, adapter}` pair —
@@ -435,5 +444,95 @@ export function registerForgeHandlers(): void {
       return resolved.adapter.listWorkflows(resolved.forge);
     },
     (issue) => ({ cli: noForgeStatus(), workflows: [], error: issue }),
+  );
+
+  /*
+    ─── Issue and dependency-link CRUD (Phase 95 Theme D) ────────────────────
+
+    Same discipline as every write above: owner/repo resolved from
+    `.git/config` on this side, never sent; no adapter for the repo's forge
+    answers `ok: false` with a null error (nothing was attempted); a rejected
+    payload lands as `ok: false` plus the validation text. `capabilitiesFor
+    (kind).ops` (read by the UI, not enforced here) says which of these a
+    given repo's forge actually implements — an adapter with no real write
+    for an op still answers through the same envelope (an honest
+    `unsupportedWrite`), never a channel that does not exist.
+  */
+
+  handle<typeof schemas.ForgeIssueCreateRequest, ForgeIssueCreateResult>(
+    CHANNELS.forgeIssueCreate,
+    schemas.ForgeIssueCreateRequest,
+    async (req) => {
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeIssueCreate();
+      return resolved.adapter.createIssue(resolved.forge, {
+        title: req.title,
+        body: req.body,
+        labels: req.labels,
+        assignees: req.assignees,
+        ...(req.milestone === undefined ? {} : { milestone: req.milestone }),
+      });
+    },
+    (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
+  );
+
+  handle<typeof schemas.ForgeIssueEditRequest, ForgeWriteResult>(
+    CHANNELS.forgeIssueEdit,
+    schemas.ForgeIssueEditRequest,
+    async (req) => {
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.editIssue(resolved.forge, req.number, {
+        ...(req.title === undefined ? {} : { title: req.title }),
+        ...(req.body === undefined ? {} : { body: req.body }),
+        ...(req.labels === undefined ? {} : { labels: req.labels }),
+        ...(req.assignees === undefined ? {} : { assignees: req.assignees }),
+        ...(req.milestone === undefined ? {} : { milestone: req.milestone }),
+      });
+    },
+    (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
+  );
+
+  handle<typeof schemas.ForgeIssueDeleteRequest, ForgeWriteResult>(
+    CHANNELS.forgeIssueDelete,
+    schemas.ForgeIssueDeleteRequest,
+    async (req) => {
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeWrite();
+      return resolved.adapter.deleteIssue(resolved.forge, req.number);
+    },
+    (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
+  );
+
+  handle<typeof schemas.ForgeIssuesLinkRequest, ForgeLinkWriteResult>(
+    CHANNELS.forgeIssuesLink,
+    schemas.ForgeIssuesLinkRequest,
+    async (req) => {
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeLinkWrite();
+      return resolved.adapter.linkIssues(resolved.forge, {
+        kind: req.kind,
+        number: req.number,
+        targetNumber: req.targetNumber,
+        targetRepo: req.targetRepo,
+      });
+    },
+    (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
+  );
+
+  handle<typeof schemas.ForgeIssuesUnlinkRequest, ForgeLinkWriteResult>(
+    CHANNELS.forgeIssuesUnlink,
+    schemas.ForgeIssuesUnlinkRequest,
+    async (req) => {
+      const resolved = await resolveAdapter(req.repoId);
+      if (!resolved) return noForgeLinkWrite();
+      return resolved.adapter.unlinkIssues(resolved.forge, {
+        kind: req.kind,
+        number: req.number,
+        targetNumber: req.targetNumber,
+        targetRepo: req.targetRepo,
+      });
+    },
+    (issue) => ({ ok: false, cli: noForgeStatus(), error: issue }),
   );
 }

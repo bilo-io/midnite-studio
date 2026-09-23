@@ -1,6 +1,49 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-23 — Phase 95 Theme D — Forge issue and project CRUD
+
+[PR #528](https://github.com/bilo-io/midnite-studio/pull/528).
+
+`ForgeAdapter` gains issue and project CRUD, dependency links, and a per-operation capability
+matrix — the app can now write to a forge beyond comments/reviews/status. Shared: `createIssue`/
+`editIssue`/`deleteIssue`, `createProject`/`editProject`/`deleteProject`, `addProjectItem` (a
+union — an existing issue/PR by node id, or a brand-new draft), `removeProjectItem`, and
+`linkIssues`/`unlinkIssues({kind: 'blockedBy'|'subIssue'})` on the `ForgeAdapter` interface, with
+payload schemas and ten new IPC channels in `shared`. `forge-account.ts`'s `ForgeCapability` gains
+an `ops` boolean record (`createIssue`, `linkBlockedBy`, …) beside its existing tri-state fields,
+so the UI can hide an unsupported op rather than fail on click; GitHub's row is all-`true`, the
+three HTTP-backed providers get issue CRUD + body-fallback `linkBlockedBy` but no board-item write.
+
+GitHub: issue create/edit via `gh api POST/PATCH` (full-replace `labels`/`assignees`, a
+`resolveMilestoneNumber` lookup for milestone-by-title), `gh issue delete --yes` for delete;
+`createProjectV2`/`updateProjectV2`/`deleteProjectV2`/`addProjectV2ItemById`/
+`addProjectV2DraftIssue`/`deleteProjectV2Item` in `gh-project-write.ts`; a new
+`gh-issue-links.ts` resolves both issues' node ids (including cross-repo) then sends
+`addBlockedBy`/`addSubIssue`/`removeBlockedBy`/`removeSubIssue`. GitLab/Bitbucket/Azure: real
+issue CRUD against each API (GitLab REST, Bitbucket Cloud issues, Azure work items via
+JSON-Patch — `'Issue'` as Azure's own best-effort default type, flagged unverified the same way
+`azure-writes.ts` already flags its reviewer-id assumption); project ops are honest
+`unsupportedWrite`s (no board-item write existed to fold onto, building one is out of scope); a
+new provider-agnostic `body-link-fallback.ts` writes/removes the canonical `Blocked by #N` /
+`Blocked by owner/name#N` line `resolveForgeGraph` already parses, idempotently in both
+directions — the mechanism every non-native `linkIssues kind: 'blockedBy'` shares.
+
+`forge-project-handlers.ts` now dispatches through `registry.ts`'s `adapterFor` instead of
+importing `gh-project.ts`/`gh-project-write.ts` directly (folding `addItemToProject`/
+`clearItemFieldValue` onto the adapter, the latter as a new optional `ForgeAdapter` method);
+`list`/`create` resolve the repo's own forge so a non-GitHub repo's board reaches its own
+provider, while the five channels Theme A froze to `{projectId, ...}` (no `repoId`) stay pinned
+to GitHub's adapter, documented rather than silently worked around. Blast-radius confirm UI for
+delete is deferred to Theme E's dialogs — this theme's own scope is `ForgeAdapter`/main/`shared`
+only; the delete ops are wired and tested end to end, ready for that dialog to call.
+
+New tests: `body-link-fallback.test.ts` (10), `gh-write.test.ts` (+9), `gh-project-write.test.ts`
+(+18), `gh-issue-links.test.ts` (5, new), `gitlab-write.test.ts` (+8), `bitbucket-writes.test.ts`
+(9, new), `azure-writes.test.ts` (+7), `forge-project-handlers.test.ts` (+7), plus the extended
+`capabilities.test.ts` matrix and the `ipc.test.ts` schema-exhaustiveness guard. `moon run
+:typecheck :lint :test` green across every package.
+
 ## 2026-09-23 — Phase 95 Theme B — Settings ▸ Activity
 
 [PR #526](https://github.com/bilo-io/midnite-studio/pull/526).

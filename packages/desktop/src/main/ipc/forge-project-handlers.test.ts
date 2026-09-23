@@ -27,12 +27,25 @@ const { listProjects, projectFields, projectItems } = vi.hoisted(() => ({
 }));
 vi.mock('../forge/github/gh-project', () => ({ listProjects, projectFields, projectItems }));
 
-const { setItemFieldValue, addItemToProject, clearItemFieldValue } = vi.hoisted(() => ({
-  setItemFieldValue: vi.fn(),
-  addItemToProject: vi.fn(),
-  clearItemFieldValue: vi.fn(),
+const { setItemFieldValue, addProjectItem, clearItemFieldValue, createProject, editProject, deleteProject, removeProjectItem } =
+  vi.hoisted(() => ({
+    setItemFieldValue: vi.fn(),
+    addProjectItem: vi.fn(),
+    clearItemFieldValue: vi.fn(),
+    createProject: vi.fn(),
+    editProject: vi.fn(),
+    deleteProject: vi.fn(),
+    removeProjectItem: vi.fn(),
+  }));
+vi.mock('../forge/github/gh-project-write', () => ({
+  setItemFieldValue,
+  addProjectItem,
+  clearItemFieldValue,
+  createProject,
+  editProject,
+  deleteProject,
+  removeProjectItem,
 }));
-vi.mock('../forge/github/gh-project-write', () => ({ setItemFieldValue, addItemToProject, clearItemFieldValue }));
 
 const OK_CLI = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
 const githubRemote = {
@@ -56,8 +69,12 @@ beforeEach(() => {
   projectFields.mockReset();
   projectItems.mockReset();
   setItemFieldValue.mockReset();
-  addItemToProject.mockReset();
+  addProjectItem.mockReset();
   clearItemFieldValue.mockReset();
+  createProject.mockReset();
+  editProject.mockReset();
+  deleteProject.mockReset();
+  removeProjectItem.mockReset();
 });
 
 afterEach(() => {
@@ -181,15 +198,15 @@ describe('forgeProjectSetField / forgeProjectAddItem (Theme E)', () => {
     expect(result).toMatchObject({ ok: false, kind: 'error' });
   });
 
-  it('forwards a well-formed add-item request to addItemToProject', async () => {
-    addItemToProject.mockResolvedValue({ ok: true, kind: 'ok' });
+  it('forwards a well-formed add-item request to addProjectItem', async () => {
+    addProjectItem.mockResolvedValue({ ok: true, kind: 'ok' });
     const registered = await loadHandlers();
 
     const result = await registered
       .get('mstudio:forge-project:add-item')
       ?.(null, { projectId: 'PVT_abc', contentId: 'I_abc' });
 
-    expect(addItemToProject).toHaveBeenCalledWith(expect.objectContaining({ host: 'github.com' }), {
+    expect(addProjectItem).toHaveBeenCalledWith(expect.objectContaining({ host: 'github.com' }), {
       projectId: 'PVT_abc',
       contentId: 'I_abc',
     });
@@ -202,8 +219,89 @@ describe('forgeProjectSetField / forgeProjectAddItem (Theme E)', () => {
       .get('mstudio:forge-project:add-item')
       ?.(null, { projectId: 'PVT_abc', contentId: '; rm -rf /' });
 
-    expect(addItemToProject).not.toHaveBeenCalled();
+    expect(addProjectItem).not.toHaveBeenCalled();
     expect(result).toMatchObject({ ok: false, kind: 'error' });
+  });
+});
+
+describe('forge project CRUD and drafts (Phase 95 Theme D)', () => {
+  it('resolves the repo forge for create, like list does', async () => {
+    resolveWorkdir.mockResolvedValue('/repo');
+    listRemotes.mockResolvedValue([githubRemote]);
+    createProject.mockResolvedValue({ ok: true, kind: 'ok', project: { id: 'P1', number: 1, title: 'T', url: 'https://x', closed: false, linkedToRepo: false } });
+
+    const registered = await loadHandlers();
+    const result = await registered.get('mstudio:forge-project:create')?.(null, { repoId: 'r1', title: 'T' });
+
+    expect(createProject).toHaveBeenCalledWith(githubRemote.forge, 'T');
+    expect(result).toMatchObject({ ok: true, kind: 'ok' });
+  });
+
+  it('answers no-forge for create on a repo with no supported remote', async () => {
+    resolveWorkdir.mockResolvedValue('/repo');
+    listRemotes.mockResolvedValue([]);
+
+    const registered = await loadHandlers();
+    const result = await registered.get('mstudio:forge-project:create')?.(null, { repoId: 'r1', title: 'T' });
+
+    expect(createProject).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: false, kind: 'error' });
+  });
+
+  it('forwards edit to editProject against the fixed GitHub target', async () => {
+    editProject.mockResolvedValue({ ok: true, kind: 'ok' });
+    const registered = await loadHandlers();
+
+    const result = await registered
+      .get('mstudio:forge-project:edit')
+      ?.(null, { projectId: 'PVT_abc', title: 'New title' });
+
+    expect(editProject).toHaveBeenCalledWith(expect.objectContaining({ host: 'github.com' }), {
+      projectId: 'PVT_abc',
+      title: 'New title',
+    });
+    expect(result).toEqual({ ok: true, kind: 'ok' });
+  });
+
+  it('forwards delete to deleteProject', async () => {
+    deleteProject.mockResolvedValue({ ok: true, kind: 'ok' });
+    const registered = await loadHandlers();
+
+    const result = await registered.get('mstudio:forge-project:delete')?.(null, { projectId: 'PVT_abc' });
+
+    expect(deleteProject).toHaveBeenCalledWith(expect.objectContaining({ host: 'github.com' }), 'PVT_abc');
+    expect(result).toEqual({ ok: true, kind: 'ok' });
+  });
+
+  it('forwards a draft-item add to addProjectItem with draftTitle/draftBody', async () => {
+    addProjectItem.mockResolvedValue({ ok: true, kind: 'ok' });
+    const registered = await loadHandlers();
+
+    const result = await registered
+      .get('mstudio:forge-project:add-draft-item')
+      ?.(null, { projectId: 'PVT_abc', title: 'A draft', body: 'body text' });
+
+    expect(addProjectItem).toHaveBeenCalledWith(expect.objectContaining({ host: 'github.com' }), {
+      projectId: 'PVT_abc',
+      draftTitle: 'A draft',
+      draftBody: 'body text',
+    });
+    expect(result).toEqual({ ok: true, kind: 'ok' });
+  });
+
+  it('forwards remove-item to removeProjectItem', async () => {
+    removeProjectItem.mockResolvedValue({ ok: true, kind: 'ok' });
+    const registered = await loadHandlers();
+
+    const result = await registered
+      .get('mstudio:forge-project:remove-item')
+      ?.(null, { projectId: 'PVT_abc', itemId: 'PVTI_abc' });
+
+    expect(removeProjectItem).toHaveBeenCalledWith(expect.objectContaining({ host: 'github.com' }), {
+      projectId: 'PVT_abc',
+      itemId: 'PVTI_abc',
+    });
+    expect(result).toEqual({ ok: true, kind: 'ok' });
   });
 });
 
