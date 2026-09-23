@@ -289,7 +289,7 @@ export function NotesView() {
         </div>
 
         {/* Note list */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto">
           {repoNotes.length === 0 ? (
             <EmptyState
               icon={LuNotebookPen}

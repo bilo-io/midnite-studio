@@ -24,7 +24,7 @@ export function NotificationBell() {
       align="end"
       label="Notifications"
       testId="notification-bell"
-      panelClassName="w-[300px] max-h-[400px] overflow-y-auto p-2"
+      panelClassName="hide-scrollbar w-[300px] max-h-[400px] overflow-y-auto p-2"
       trigger={
         <div className="relative flex items-center">
           <LuBell aria-hidden className="h-3.5 w-3.5" />

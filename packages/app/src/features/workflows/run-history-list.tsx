@@ -89,7 +89,7 @@ export function RunHistoryList({
           <EmptyState bodySize="xs" title="No matches" body="No run matches this status filter." />
         </div>
       ) : (
-        <div role="list" aria-label="Runs" className="min-h-0 flex-1 overflow-auto">
+        <div role="list" aria-label="Runs" className="hide-scrollbar min-h-0 flex-1 overflow-auto">
           {rows
             .slice()
             .reverse()

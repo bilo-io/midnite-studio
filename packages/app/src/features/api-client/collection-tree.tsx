@@ -57,7 +57,7 @@ export function CollectionTree({ repoId }: { repoId: string }) {
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className="hide-scrollbar min-h-0 flex-1 overflow-auto">
       {collections.map((summary) => (
         <CollectionSection key={summary.id} repoId={repoId} summary={summary} />
       ))}

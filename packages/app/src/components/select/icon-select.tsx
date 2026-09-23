@@ -48,7 +48,7 @@ const BASE_CLASS_NAMES: ClassNamesConfig<IconSelectOption, boolean> = {
   clearIndicator: () => 'px-1 hover:text-foreground',
   indicatorSeparator: () => 'bg-border',
   menu: () => 'z-20 mt-1 overflow-hidden rounded-md border border-border bg-popover shadow-lg',
-  menuList: () => 'max-h-56 overflow-y-auto py-1',
+  menuList: () => 'hide-scrollbar max-h-56 overflow-y-auto py-1',
   option: ({ isFocused, isSelected, isDisabled }) =>
     `flex cursor-pointer items-center gap-1.5 px-2 py-1.5 text-xs ${
       isDisabled

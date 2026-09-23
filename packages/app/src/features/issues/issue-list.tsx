@@ -39,7 +39,7 @@ export function IssueList({
   const cascade = useCascadeReveal({ revealKey: repoId });
 
   return (
-    <ul aria-label="Issues" className="min-h-0 flex-1 overflow-y-auto py-1">
+    <ul aria-label="Issues" className="hide-scrollbar min-h-0 flex-1 overflow-y-auto py-1">
       {ordered.map((issue, index) => (
         <li key={issue.number}>
           <IssueRow

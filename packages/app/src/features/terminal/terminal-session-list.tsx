@@ -139,7 +139,7 @@ export function TerminalSessionList({
       onContextMenu={showDockMenu}
       onKeyDown={onKeyDown}
     >
-      <div className="min-h-0 flex-1 overflow-y-auto pb-1">
+      <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto pb-1">
         <SortableList
           ids={sessions.map((s) => s.id)}
           onReorder={(ids) => useTerminalStore.getState().reorder(ids)}

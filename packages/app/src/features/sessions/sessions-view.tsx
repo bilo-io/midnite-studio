@@ -598,7 +598,7 @@ export function SessionsView({
         ) : rows.length === 0 ? (
           <EmptyState icon={NO_SESSIONS_EMPTY.icon} title={NO_SESSIONS_EMPTY.title} body={NO_SESSIONS_EMPTY.body} />
         ) : (
-          <div role="list" aria-label="Sessions" className="min-h-0 flex-1 overflow-auto">
+          <div role="list" aria-label="Sessions" className="hide-scrollbar min-h-0 flex-1 overflow-auto">
             {groups.map((group, groupIndex) => (
               <RepoSessionsGroup
                 key={group.repoId}

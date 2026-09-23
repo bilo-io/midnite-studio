@@ -363,7 +363,7 @@ export function Palette() {
           ref={scrollRef}
           id="palette-results"
           role="listbox"
-          className="max-h-96 overflow-auto p-1"
+          className="hide-scrollbar max-h-96 overflow-auto p-1"
         >
           {placeholder ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">{placeholder}</p>

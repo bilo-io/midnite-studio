@@ -91,7 +91,7 @@ export function KnowledgeCommunityPanel({
           </button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto py-1">
+      <div className="hide-scrollbar min-h-0 flex-1 overflow-auto py-1">
         {shown.map((member) => (
           <button
             key={member.id}

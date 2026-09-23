@@ -23,7 +23,7 @@ export function SuiteList({
   onSelect: (suiteId: string) => void;
 }) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto py-1">
+    <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto py-1">
       {packages.map((pkg) => (
         <div key={pkg.path || '.'}>
           <h3 className="truncate px-2 py-1 text-[11px] font-medium text-muted-foreground/80">

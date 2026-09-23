@@ -75,7 +75,7 @@ export function VideoProjectList({
         <IconButton icon={LuPlus} label="New project" size="sm" className="ml-auto" onClick={createProject} />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="hide-scrollbar min-h-0 flex-1 overflow-auto">
         {projects.isError ? (
           <EmptyState
             icon={LuClapperboard}

@@ -65,6 +65,15 @@ describe('WorkflowList', () => {
     expect(await screen.findByText('No workflows yet')).toBeDefined();
   });
 
+  it('hides its own scrollbar chrome — a narrow rail, not primary content', async () => {
+    installBridge();
+    renderList();
+    await screen.findByText('No workflows yet');
+    expect(document.querySelector('.min-h-0.flex-1.overflow-auto')?.className).toContain(
+      'hide-scrollbar',
+    );
+  });
+
   it('lists workflows and selects one on click', async () => {
     installBridge({ list: vi.fn().mockResolvedValue({ workflows: [workflow()] }) });
     const { onSelect } = renderList();

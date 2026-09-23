@@ -127,7 +127,7 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-auto p-3 text-xs">
+    <div className="hide-scrollbar flex h-full min-h-0 flex-col overflow-auto p-3 text-xs">
       <h2 className="text-sm font-semibold text-foreground">{data.title}</h2>
       <p className="mt-0.5 text-muted-foreground">{data.composition}</p>
 

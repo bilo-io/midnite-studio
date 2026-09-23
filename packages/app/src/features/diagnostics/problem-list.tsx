@@ -24,7 +24,7 @@ export function ProblemList({ run }: { run: Extract<DiagnosticsRun, { ok: true }
 
   return (
     <>
-      <ul className="max-h-64 overflow-y-auto">
+      <ul className="hide-scrollbar max-h-64 overflow-y-auto">
         {run.rows.map((row, index) => (
           <ProblemRow key={`${row.file}:${row.line}:${row.ruleId}:${index}`} row={row} />
         ))}
