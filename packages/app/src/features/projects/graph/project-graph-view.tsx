@@ -13,12 +13,12 @@ import {
   zoomAtPointer,
   type Rect,
 } from '../../workflows/canvas/workflow-path';
-import type { CardGlowState } from '../board/glow-state';
 import { edgeAppearance } from './edge-appearance';
 import { DEFAULT_GRAPH_FACETS, filterForgeGraph, type ProjectGraphFacets } from './graph-filter';
 import { moveAlongEdge, moveWithinRank } from './graph-keyboard';
 import { FORGE_GRAPH_GEOMETRY, layoutForgeGraph, nodeKey, topAlignedViewport, type PositionedNode } from './graph-layout';
 import { ProjectGraphNode } from './project-graph-node';
+import { idleGraphNodeActivity, type GraphNodeActivity } from './use-graph-agent-states';
 
 /** How far outside the viewport a node's bounds may sit and still mount —
  *  one node width, the same margin `workflow-canvas.tsx` uses for its own
@@ -60,7 +60,7 @@ export interface ProjectGraphViewProps {
   /** One `useGraphAgentStates(projectId)` map for the whole canvas (Theme F)
    *  — computed by the caller, not this component, so a store subscription
    *  never lives inside a canvas this deeply testable without one. */
-  agentStates: ReadonlyMap<string, CardGlowState>;
+  agentStates: ReadonlyMap<string, GraphNodeActivity>;
   /** Graph-only facets (Theme H), narrowing what `filterForgeGraph` allows
    *  onto the canvas — optional and defaulted so every existing caller
    *  (every test in this suite included) keeps compiling unchanged, the same
@@ -292,8 +292,8 @@ export function ProjectGraphView({
               // `edgeAppearance`'s own `source`/`target` naming is the
               // blocker/dependent pair, the reverse of this edge's own
               // `to`/`from` — see that module's doc comment.
-              const sourceGlow = to.itemId ? agentStates.get(to.itemId) ?? 'idle' : 'idle';
-              const appearance = edgeAppearance(edge, to, from, sourceGlow);
+              const sourceGlow = (to.itemId ? agentStates.get(to.itemId) : undefined) ?? idleGraphNodeActivity();
+              const appearance = edgeAppearance(edge, to, from, sourceGlow.glow);
               return (
                 <path
                   key={`${edge.kind}|${edge.from}|${edge.to}`}
@@ -307,23 +307,27 @@ export function ProjectGraphView({
             })}
           </svg>
 
-          {visibleNodes.map((node) => (
-            <ProjectGraphNode
-              key={node.key}
-              node={node}
-              item={itemById.get(node.itemId)}
-              fields={fields}
-              glow={node.itemId ? agentStates.get(node.itemId) ?? 'idle' : 'idle'}
-              selected={node.itemId !== '' && node.itemId === selectedItemId}
-              tabIndex={node.key === rovingKey ? 0 : -1}
-              detailed={detailed}
-              projectId={projectId}
-              onSelect={() => {
-                setFocusedKey(node.key);
-                if (node.itemId) onSelectItem(node.itemId);
-              }}
-            />
-          ))}
+          {visibleNodes.map((node) => {
+            const nodeActivity = (node.itemId ? agentStates.get(node.itemId) : undefined) ?? idleGraphNodeActivity();
+            return (
+              <ProjectGraphNode
+                key={node.key}
+                node={node}
+                item={itemById.get(node.itemId)}
+                fields={fields}
+                glow={nodeActivity.glow}
+                badges={nodeActivity.badges}
+                selected={node.itemId !== '' && node.itemId === selectedItemId}
+                tabIndex={node.key === rovingKey ? 0 : -1}
+                detailed={detailed}
+                projectId={projectId}
+                onSelect={() => {
+                  setFocusedKey(node.key);
+                  if (node.itemId) onSelectItem(node.itemId);
+                }}
+              />
+            );
+          })}
         </div>
       </div>
     </div>

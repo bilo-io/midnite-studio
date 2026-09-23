@@ -39,6 +39,7 @@ import {
 import { applyOptimisticMove, type CardDragPayload, type ColumnDropPayload } from './board-dnd';
 import { CardPanelStack } from './card-panel-stack';
 import { deriveColumns, NO_STATUS_COLUMN_ID, sessionsToRehome, type BoardColumn } from './board-derive';
+import { fieldOptionColor } from '../field-option-colors';
 import { TaskCard } from './task-card';
 
 /**
@@ -664,6 +665,9 @@ function DraggableCard({
     disabled: !writesEnabled,
   });
   const dialogs = useDialogs();
+  // The card's own column colour (Phase 95 Theme C) — its idle-state ring,
+  // once `TaskCard` has no live session to show instead.
+  const statusColor = fieldOptionColor(columns.find((c) => c.id === currentColumnId)?.color);
 
   const openMoveMenu = (event: { clientX: number; clientY: number }): void => {
     if (!writesEnabled) return;
@@ -728,6 +732,7 @@ function DraggableCard({
         fields={fields}
         projectId={projectId}
         isOpen={isOpen}
+        statusColor={statusColor}
         tabIndex={tabIndex}
         onClick={onClick}
       />
