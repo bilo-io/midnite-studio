@@ -328,7 +328,7 @@ export function AccountsPage() {
 }
 
 const SWITCHER_PLACEMENT_LABEL: Record<ForgeSwitcherPlacement, string> = {
-  'titlebar-right': 'Title bar — right, beside the sync controls',
+  'titlebar-right': 'Title bar — right, beside the theme toggle',
   'titlebar-left': 'Title bar — left, after back/forward and reload',
   'rail-top': 'Sidebar — top, under the logo',
   'rail-bottom': 'Sidebar — bottom, above the lock button',

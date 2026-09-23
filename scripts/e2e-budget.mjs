@@ -114,6 +114,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // transition) already has its own vitest coverage.
 export const MAX_DECLARED_E2E = 449;
 
+// Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
+// here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four
+// (10 -> 14): the open menu at titlebar-right, the closed switcher at
+// titlebar-left and rail-bottom, and the zero-account placeholder. Its
+// `account-switcher-shots.spec.ts` is PR-body screenshots only and, like
+// every `-shots.spec.ts`, is not counted.
+
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult
  * @typedef {{ file: string, line: number, lineContent: string }} TimingViolation
