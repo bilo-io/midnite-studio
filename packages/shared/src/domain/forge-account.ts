@@ -311,7 +311,9 @@ export const ReachableRepoSchema = z.object({
   stars: z.number().int().nonnegative().optional(),
   defaultBranch: z.string().optional(),
   /** Bytes per language (GitHub `languages` edges), largest first.
-   *  Bitbucket reports one `language` only — a single `size: 1` entry. */
+   *  GitLab's are percentages (`/projects/:id/languages`), Bitbucket reports
+   *  one `language` only — a single `size: 1` entry. Only relative size
+   *  matters: the row's bar normalises to shares. */
   languages: z.array(z.object({ name: z.string().min(1), size: z.number().nonnegative() })).optional(),
 });
 export type ReachableRepo = z.infer<typeof ReachableRepoSchema>;

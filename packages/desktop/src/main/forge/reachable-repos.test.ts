@@ -1,8 +1,15 @@
 import type { ForgeAccount } from '@midnite/studio-shared';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { forgeAccountToken } from './forge-accounts';
 import { runInShell } from './github/gh-shell';
+import {
+  __resetGitlabLanguageCacheForTests,
+  configureGitlabLanguageCache,
+  gitlabProjectLanguages,
+  type GitlabLanguageCacheStore,
+} from './gitlab/gitlab-languages';
+import { __resetForgeHttpBudgetForTests } from './http';
 import { listReachableRepos } from './reachable-repos';
 
 vi.mock('./forge-accounts', () => ({ forgeAccountToken: vi.fn() }));
@@ -111,6 +118,177 @@ describe('listReachableRepos — gitlab', () => {
 
     const result = await listReachableRepos(account());
     expect(result).toEqual({ ok: false, reason: 'error', message: '401 Unauthorized' });
+  });
+});
+
+function glProject(id: number, lastActivityAt: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id,
+    path_with_namespace: `group/p${id}`,
+    http_url_to_repo: `https://gitlab.example/group/p${id}.git`,
+    visibility: 'private',
+    last_activity_at: lastActivityAt,
+    ...extra,
+  };
+}
+
+/** Routes `GET /projects` to `projects` and `/projects/:id/languages` to `languages(id)`. */
+function gitlabFetch(projects: unknown[], languages: (id: number) => Promise<Response> | Response) {
+  return vi.fn().mockImplementation((url: URL | string) => {
+    const href = url.toString();
+    const match = /\/projects\/(\d+)\/languages/.exec(href);
+    if (match) return Promise.resolve(languages(Number(match[1])));
+    return Promise.resolve(jsonResponse(200, projects));
+  });
+}
+
+function languageCalls(fetchMock: ReturnType<typeof vi.fn>): string[] {
+  return fetchMock.mock.calls.map((c) => String(c[0])).filter((href) => href.includes('/languages'));
+}
+
+describe('listReachableRepos — gitlab languages', () => {
+  beforeEach(() => {
+    __resetGitlabLanguageCacheForTests();
+    __resetForgeHttpBudgetForTests();
+    vi.mocked(forgeAccountToken).mockResolvedValue('glpat-x');
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('maps the percentage object to languages, largest first', async () => {
+    const fetchMock = gitlabFetch([glProject(1, '2026-09-01T00:00:00Z')], () =>
+      jsonResponse(200, { CSS: 20.1, TypeScript: 66.7, Shell: 13.2, Bogus: 'x' }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await listReachableRepos(account());
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.repos[0]?.languages).toEqual([
+      { name: 'TypeScript', size: 66.7 },
+      { name: 'CSS', size: 20.1 },
+      { name: 'Shell', size: 13.2 },
+    ]);
+    expect(languageCalls(fetchMock)).toEqual(['https://gitlab.example/api/v4/projects/1/languages']);
+  });
+
+  it('reuses the cache while last_activity_at is unchanged, and refetches when it moves', async () => {
+    const languages = vi.fn(() => jsonResponse(200, { Go: 100 }));
+    let fetchMock = gitlabFetch([glProject(7, '2026-09-01T00:00:00Z')], languages);
+    vi.stubGlobal('fetch', fetchMock);
+    await listReachableRepos(account());
+    expect(languages).toHaveBeenCalledTimes(1);
+
+    const second = await listReachableRepos(account());
+    expect(languages).toHaveBeenCalledTimes(1);
+    if (!second.ok) throw new Error('expected ok');
+    expect(second.repos[0]?.languages).toEqual([{ name: 'Go', size: 100 }]);
+
+    fetchMock = gitlabFetch([glProject(7, '2026-09-02T00:00:00Z')], languages);
+    vi.stubGlobal('fetch', fetchMock);
+    await listReachableRepos(account());
+    expect(languages).toHaveBeenCalledTimes(2);
+  });
+
+  it('keys the cache per account', async () => {
+    const languages = vi.fn(() => jsonResponse(200, { Go: 100 }));
+    vi.stubGlobal('fetch', gitlabFetch([glProject(7, '2026-09-01T00:00:00Z')], languages));
+    await listReachableRepos(account());
+    await listReachableRepos(account({ id: 'gitlab:gitlab.example:other', login: 'other' }));
+    expect(languages).toHaveBeenCalledTimes(2);
+  });
+
+  it('omits languages for a project whose request fails, without failing the listing', async () => {
+    vi.stubGlobal(
+      'fetch',
+      gitlabFetch([glProject(1, 'a'), glProject(2, 'b'), glProject(3, 'c')], (id) => {
+        if (id === 2) return jsonResponse(404, { message: '404 Project Not Found' });
+        if (id === 3) return Promise.reject(new Error('socket hang up'));
+        return jsonResponse(200, { Rust: 100 });
+      }),
+    );
+
+    const result = await listReachableRepos(account());
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.repos.map((r) => r.languages)).toEqual([[{ name: 'Rust', size: 100 }], undefined, undefined]);
+  });
+
+  it('does not cache a failure — the next open retries it', async () => {
+    let fail = true;
+    const languages = vi.fn(() => (fail ? jsonResponse(500, { message: 'boom' }) : jsonResponse(200, { Go: 1 })));
+    vi.stubGlobal('fetch', gitlabFetch([glProject(1, 'a')], languages));
+    await listReachableRepos(account());
+    fail = false;
+    const result = await listReachableRepos(account());
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.repos[0]?.languages).toEqual([{ name: 'Go', size: 1 }]);
+  });
+
+  it('fetches only the first 30 projects, at most 4 at a time', async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const projects = Array.from({ length: 40 }, (_, i) => glProject(i + 1, 't'));
+    const fetchMock = gitlabFetch(projects, async () => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight -= 1;
+      return jsonResponse(200, { Go: 1 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await listReachableRepos(account());
+    if (!result.ok) throw new Error('expected ok');
+    expect(languageCalls(fetchMock)).toHaveLength(30);
+    expect(peak).toBe(4);
+    expect(result.repos.filter((r) => r.languages).length).toBe(30);
+    expect(result.repos[30]?.languages).toBeUndefined();
+  });
+
+  it('returns what resolved when the language budget expires, and caches the stragglers', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.stubGlobal(
+      'fetch',
+      gitlabFetch([], async (id) => {
+        if (id === 2) await gate;
+        return jsonResponse(200, { [`L${id}`]: 1 });
+      }),
+    );
+    const forge = { host: 'gitlab.example', owner: '', repo: '', kind: 'gitlab' as const };
+    const projects = [
+      { id: 1, lastActivityAt: 't' },
+      { id: 2, lastActivityAt: 't' },
+    ];
+
+    const first = await gitlabProjectLanguages(forge, account(), projects, { budgetMs: 20 });
+    expect([...first.keys()]).toEqual([1]);
+
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const second = await gitlabProjectLanguages(forge, account(), projects, { budgetMs: 20 });
+    expect([...second.keys()].sort()).toEqual([1, 2]);
+  });
+
+  it('seeds from and writes back to the configured store', async () => {
+    const saved: Array<Record<string, unknown>> = [];
+    const store: GitlabLanguageCacheStore = {
+      load: async () => ({
+        'gitlab:gitlab.example:me:1': { lastActivityAt: 'a', languages: [{ name: 'Elixir', size: 100 }] },
+      }),
+      save: async (entries) => {
+        saved.push(entries);
+      },
+    };
+    configureGitlabLanguageCache(store);
+    const languages = vi.fn(() => jsonResponse(200, { Go: 1 }));
+    vi.stubGlobal('fetch', gitlabFetch([glProject(1, 'a'), glProject(2, 'b')], languages));
+
+    const result = await listReachableRepos(account());
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.repos[0]?.languages).toEqual([{ name: 'Elixir', size: 100 }]);
+    expect(languages).toHaveBeenCalledTimes(1);
+    expect(Object.keys(saved.at(-1) ?? {}).sort()).toEqual(['gitlab:gitlab.example:me:1', 'gitlab:gitlab.example:me:2']);
   });
 });
 
