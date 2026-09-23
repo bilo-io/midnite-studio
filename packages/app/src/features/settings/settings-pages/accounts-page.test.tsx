@@ -4,7 +4,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../../store/ui-store';
-import { AccountsPage } from './accounts-page';
+import { AccountsPage, PROVIDER_BRAND_COLOR, PROVIDER_ICON, PROVIDER_LABEL } from './accounts-page';
+
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -171,5 +173,56 @@ describe('AccountsPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Reachable repositories' }));
     expect(await screen.findByText('octocat/hello-world')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Clone…' })).toBeTruthy();
+  });
+
+  // Ad hoc: brand-coloured forge provider picker.
+  describe('provider brand colours', () => {
+    it('defines a light and dark colour, plus an icon, for every supported provider', () => {
+      for (const kind of Object.keys(PROVIDER_LABEL) as (keyof typeof PROVIDER_LABEL)[]) {
+        const brand = PROVIDER_BRAND_COLOR[kind];
+        expect(brand.light).toMatch(HEX_COLOR);
+        expect(brand.dark).toMatch(HEX_COLOR);
+        expect(PROVIDER_ICON[kind]).toBeTruthy();
+      }
+    });
+
+    it("swaps GitHub's near-black for a light fallback in dark mode, unlike the other providers", () => {
+      expect(PROVIDER_BRAND_COLOR.github.light).not.toBe(PROVIDER_BRAND_COLOR.github.dark);
+      expect(PROVIDER_BRAND_COLOR.gitlab.light).toBe(PROVIDER_BRAND_COLOR.gitlab.dark);
+      expect(PROVIDER_BRAND_COLOR.bitbucket.light).toBe(PROVIDER_BRAND_COLOR.bitbucket.dark);
+      expect(PROVIDER_BRAND_COLOR.azure.light).toBe(PROVIDER_BRAND_COLOR.azure.dark);
+    });
+
+    it('carries each provider’s brand colour as CSS custom properties on its picker option, tinted only when selected', async () => {
+      installBridge();
+      render(<AccountsPage />, { wrapper: createWrapper() });
+
+      const gitlabOption = await screen.findByRole('radio', { name: 'GitLab' });
+      expect(gitlabOption.style.getPropertyValue('--brand-light')).toBe(PROVIDER_BRAND_COLOR.gitlab.light);
+      expect(gitlabOption.style.getPropertyValue('--brand-dark')).toBe(PROVIDER_BRAND_COLOR.gitlab.dark);
+      // Unselected by default (GitHub is): no brand-tinted border/background yet.
+      expect(gitlabOption.style.borderColor).toBe('');
+      expect(gitlabOption.style.background).toBe('');
+
+      fireEvent.click(gitlabOption);
+      expect(gitlabOption.getAttribute('aria-checked')).toBe('true');
+      expect(gitlabOption.style.borderColor).toContain('color-mix');
+      expect(gitlabOption.style.borderColor).toContain('var(--forge-brand)');
+      expect(gitlabOption.style.background).toContain('color-mix');
+      expect(gitlabOption.style.background).toContain('var(--forge-brand)');
+    });
+
+    it("renders each provider's own brand icon, tinted with --forge-brand, inside its picker option", async () => {
+      installBridge();
+      render(<AccountsPage />, { wrapper: createWrapper() });
+
+      for (const label of Object.values(PROVIDER_LABEL)) {
+        const option = await screen.findByRole('radio', { name: label });
+        const icon = option.querySelector('svg');
+        expect(icon, `${label} option should render an svg icon`).toBeTruthy();
+        expect(icon!.getAttribute('aria-hidden')).toBe('true');
+        expect(icon!.getAttribute('style')).toContain('var(--forge-brand)');
+      }
+    });
   });
 });

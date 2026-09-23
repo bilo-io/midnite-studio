@@ -1,4 +1,5 @@
 import { Accordion } from '@bilo-io/ui';
+import type { CSSProperties } from 'react';
 import { useState } from 'react';
 import {
   LuArrowRightLeft,
@@ -9,9 +10,12 @@ import {
   LuPlus,
   LuTrash2,
 } from 'react-icons/lu';
+import { SiBitbucket, SiGithub, SiGitlab } from 'react-icons/si';
+import { VscAzureDevops } from 'react-icons/vsc';
 
 import type { ForgeAccount, ForgeKind, ReachableRepo } from '@midnite/studio-shared';
 
+import type { IconComponent } from '../../../components/icon-button';
 import { UserAvatar } from '../../../components/user-avatar';
 import {
   useAddForgeAccount,
@@ -22,7 +26,7 @@ import {
   useSwitchForgeAccount,
 } from '../../../services/queries';
 import { useUiStore } from '../../../store/ui-store';
-import { Choice, Field, TextField } from './controls';
+import { Field, TextField } from './controls';
 
 /**
  * Exported for `onboarding/steps/forge-connect-step.tsx` (Phase 90 Theme I):
@@ -51,6 +55,46 @@ export const PROVIDER_LABEL: Record<SupportedKind, string> = {
   gitlab: 'GitLab',
   bitbucket: 'Bitbucket',
   azure: 'Azure DevOps',
+};
+
+/** Each provider's own logo, not a generic forge glyph — the same reasoning
+ *  `CLAUDE.md`'s icon convention gives for `react-icons` fronting ~30 sets:
+ *  the brand mark reads as "GitHub" at a glance in a way a shared git-forge
+ *  icon can't. Simple Icons (`si`) carries GitHub/GitLab/Bitbucket; Simple
+ *  Icons has no Azure DevOps mark, so that one comes from VS Code's icon set
+ *  (`vsc`) instead — still a per-set `react-icons` import, just a different
+ *  set for the one brand the other doesn't have. */
+export const PROVIDER_ICON: Record<SupportedKind, IconComponent> = {
+  github: SiGithub,
+  gitlab: SiGitlab,
+  bitbucket: SiBitbucket,
+  azure: VscAzureDevops,
+};
+
+/**
+ * Each provider's brand colour, one place, beside the rest of the provider
+ * definitions above. `light`/`dark` are almost always the same value —
+ * GitLab's orange, Bitbucket's and Azure DevOps' blues are saturated enough
+ * to read against both the app's light and dark surfaces unchanged. GitHub
+ * is the one exception: its brand colour is a near-black (#181717), which
+ * all but disappears against this app's dark theme, so `dark` swaps it for
+ * GitHub's own light-on-dark foreground (`#f0f6fc`, the colour GitHub's own
+ * dark theme uses for text against black) instead of inventing a new one.
+ * Consumed via the `--brand-light`/`--brand-dark` custom properties and the
+ * `.forge-provider-option` rule in `styles.css`, which is what lets the
+ * button pick the right one per theme without this file knowing which theme
+ * is active.
+ */
+export interface ForgeBrandColor {
+  light: string;
+  dark: string;
+}
+
+export const PROVIDER_BRAND_COLOR: Record<SupportedKind, ForgeBrandColor> = {
+  github: { light: '#181717', dark: '#f0f6fc' },
+  gitlab: { light: '#FC6D26', dark: '#FC6D26' },
+  bitbucket: { light: '#0052CC', dark: '#0052CC' },
+  azure: { light: '#0078D7', dark: '#0078D7' },
 };
 
 /** The exact scopes each provider needs, spelled out — `projects-page.tsx`'s
@@ -151,18 +195,7 @@ export function AccountsPage() {
 
       <Accordion title="Add an account" icon={<LuPlus className="h-4 w-4" />} defaultOpen>
         <form className="flex flex-col gap-3 p-3" onSubmit={submit}>
-          <Choice<SupportedKind>
-            label="Provider"
-            hint="Which forge this identity belongs to."
-            value={kind}
-            onChange={setKind}
-            options={[
-              ['github', PROVIDER_LABEL.github],
-              ['gitlab', PROVIDER_LABEL.gitlab],
-              ['bitbucket', PROVIDER_LABEL.bitbucket],
-              ['azure', PROVIDER_LABEL.azure],
-            ]}
-          />
+          <ForgeProviderPicker value={kind} onChange={setKind} />
           <Field label="Personal access token" hint={PROVIDER_TOKEN_HINT[kind]}>
             <TextField
               value={token}
@@ -240,6 +273,79 @@ export function AccountsPage() {
         </div>
       </Accordion>
     </div>
+  );
+}
+
+const PROVIDER_KINDS: readonly SupportedKind[] = ['github', 'gitlab', 'bitbucket', 'azure'];
+
+/**
+ * The "Provider" field on the add-account form — a `Choice`-style segmented
+ * control, not `Choice` itself: `Choice` is generic over plain `[value,
+ * label]` string tuples shared with every other settings page, and has no
+ * room for a per-option icon or colour without teaching that shared control
+ * about brand colours it has no other consumer for. So this stays a small
+ * one-off beside `PROVIDER_ICON`/`PROVIDER_BRAND_COLOR` above, matching
+ * `Choice`'s own layout (`Field` wrapper, `role="radiogroup"`) so the swap
+ * reads as the same control with icons, not a different one.
+ */
+function ForgeProviderPicker({
+  value,
+  onChange,
+}: {
+  value: SupportedKind;
+  onChange: (next: SupportedKind) => void;
+}) {
+  return (
+    <Field label="Provider" hint="Which forge this identity belongs to.">
+      <div role="radiogroup" aria-label="Provider" className="flex flex-wrap gap-1">
+        {PROVIDER_KINDS.map((providerKind) => {
+          const Icon = PROVIDER_ICON[providerKind];
+          const brand = PROVIDER_BRAND_COLOR[providerKind];
+          const selected = value === providerKind;
+          return (
+            <button
+              key={providerKind}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onChange(providerKind)}
+              /*
+                `--brand-light`/`--brand-dark` are the only theme-aware bit —
+                `.forge-provider-option` in styles.css picks the right one
+                into `--forge-brand` per `.dark`, so the `color-mix()` below
+                never has to know which theme is active. Selected-only border
+                and wash; the icon carries its brand colour regardless of
+                selection, which is the "tint the icon" half of the ask.
+              */
+              style={
+                {
+                  '--brand-light': brand.light,
+                  '--brand-dark': brand.dark,
+                  ...(selected
+                    ? {
+                        borderColor: 'color-mix(in srgb, var(--forge-brand) 55%, transparent)',
+                        background: 'color-mix(in srgb, var(--forge-brand) 14%, transparent)',
+                      }
+                    : {}),
+                } as CSSProperties
+              }
+              className={`forge-provider-option flex h-6 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors ${
+                selected
+                  ? 'text-foreground'
+                  : 'border-border text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              <Icon
+                aria-hidden
+                className="h-3.5 w-3.5 shrink-0"
+                style={{ color: 'var(--forge-brand)' }}
+              />
+              {PROVIDER_LABEL[providerKind]}
+            </button>
+          );
+        })}
+      </div>
+    </Field>
   );
 }
 
