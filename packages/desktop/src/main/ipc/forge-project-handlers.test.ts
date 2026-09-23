@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /*
   Same arrangement `fs-handlers.test.ts` uses: `ipcMain.handle` is captured so
@@ -47,6 +47,21 @@ vi.mock('../forge/github/gh-project-write', () => ({
   removeProjectItem,
 }));
 
+/*
+  The rest of `forge-handlers.ts`'s import graph, stubbed. `repoForge` and
+  `noForgeStatus` — the only two things `forge-project-handlers.ts` takes from
+  it — need none of these, but importing the module for real transforms and
+  evaluates every forge adapter behind `registry.ts` (GitHub, GitLab, Bitbucket,
+  Azure), the account store and vault, and `window-manager`. Cold, that was
+  over a second of the first test's budget on an idle machine, and on a loaded
+  one it ran the first test past vitest's 5 s timeout. None of them is under
+  test here.
+*/
+vi.mock('../forge/registry', () => ({ adapterFor: vi.fn(() => null) }));
+vi.mock('../forge/forge-accounts', () => ({ activeAccountFor: vi.fn(async () => null) }));
+vi.mock('../forge/github/gh-shell', () => ({ ghStatus: vi.fn() }));
+vi.mock('../window-manager', () => ({ resolveWindow: vi.fn(() => null) }));
+
 const OK_CLI = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
 const githubRemote = {
   name: 'origin',
@@ -55,8 +70,16 @@ const githubRemote = {
   forge: { host: 'github.com', owner: 'acme', repo: 'widgets', kind: 'github' as const },
 };
 
-async function loadHandlers() {
-  const { registerForgeProjectHandlers } = await import('./forge-project-handlers');
+// Imported once for the file rather than once per test behind
+// `vi.resetModules()`: the module holds no state of its own (every seam it
+// touches is a hoisted mock reset below), and re-evaluating its import graph
+// per test only multiplied the cold-import cost this file used to time out on.
+let registerForgeProjectHandlers: () => void;
+beforeAll(async () => {
+  ({ registerForgeProjectHandlers } = await import('./forge-project-handlers'));
+});
+
+function loadHandlers() {
   registerForgeProjectHandlers();
   return handlers;
 }
@@ -77,17 +100,13 @@ beforeEach(() => {
   removeProjectItem.mockReset();
 });
 
-afterEach(() => {
-  vi.resetModules();
-});
-
 describe('forgeProjectList', () => {
   it('resolves the repo forge from repoId and forwards to listProjects', async () => {
     resolveWorkdir.mockResolvedValue('/repo');
     listRemotes.mockResolvedValue([githubRemote]);
     listProjects.mockResolvedValue({ cli: OK_CLI, projects: [], error: null, kind: 'ok' });
 
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const result = await registered.get('mstudio:forge-project:list')?.(null, { repoId: 'r1' });
 
     expect(listProjects).toHaveBeenCalledWith(githubRemote.forge);
@@ -98,7 +117,7 @@ describe('forgeProjectList', () => {
     resolveWorkdir.mockResolvedValue('/repo');
     listRemotes.mockResolvedValue([]);
 
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const result = await registered.get('mstudio:forge-project:list')?.(null, { repoId: 'r1' });
 
     expect(listProjects).not.toHaveBeenCalled();
@@ -106,7 +125,7 @@ describe('forgeProjectList', () => {
   });
 
   it('rejects a malformed repoId at the boundary rather than reaching listProjects', async () => {
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const result = await registered.get('mstudio:forge-project:list')?.(null, {});
 
     expect(listProjects).not.toHaveBeenCalled();
@@ -117,7 +136,7 @@ describe('forgeProjectList', () => {
 describe('forgeProjectFields / forgeProjectItems — node id validation', () => {
   it('accepts a well-formed, url-safe-base64 projectId', async () => {
     projectFields.mockResolvedValue({ cli: OK_CLI, fields: [], error: null, kind: 'ok' });
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const result = await registered
       .get('mstudio:forge-project:fields')
       ?.(null, { projectId: 'PVT_abc123-_=' });
@@ -130,7 +149,7 @@ describe('forgeProjectFields / forgeProjectItems — node id validation', () => 
   });
 
   it('refuses a projectId carrying shell metacharacters', async () => {
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const result = await registered
       .get('mstudio:forge-project:fields')
       ?.(null, { projectId: "PVT_abc; rm -rf /" });
@@ -147,7 +166,7 @@ describe('forgeProjectFields / forgeProjectItems — node id validation', () => 
       error: null,
       kind: 'ok',
     });
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     await registered
       .get('mstudio:forge-project:items')
       ?.(null, { projectId: 'PVT_abc', cursor: 'cursor-1' });
@@ -156,7 +175,7 @@ describe('forgeProjectFields / forgeProjectItems — node id validation', () => 
   });
 
   it('refuses an items cursor carrying shell metacharacters', async () => {
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const result = await registered
       .get('mstudio:forge-project:items')
       ?.(null, { projectId: 'PVT_abc', cursor: '$(rm -rf /)' });
@@ -169,7 +188,7 @@ describe('forgeProjectFields / forgeProjectItems — node id validation', () => 
 describe('forgeProjectSetField / forgeProjectAddItem (Theme E)', () => {
   it('forwards a well-formed set-field request to setItemFieldValue', async () => {
     setItemFieldValue.mockResolvedValue({ ok: true, kind: 'ok' });
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const value = { fieldId: 'f1', dataType: 'text' as const, text: 'hello' };
 
     const result = await registered
@@ -186,7 +205,7 @@ describe('forgeProjectSetField / forgeProjectAddItem (Theme E)', () => {
   });
 
   it('refuses a set-field request whose itemId carries shell metacharacters', async () => {
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const result = await registered.get('mstudio:forge-project:set-field')?.(null, {
       projectId: 'PVT_abc',
       itemId: '$(rm -rf /)',
@@ -200,7 +219,7 @@ describe('forgeProjectSetField / forgeProjectAddItem (Theme E)', () => {
 
   it('forwards a well-formed add-item request to addProjectItem', async () => {
     addProjectItem.mockResolvedValue({ ok: true, kind: 'ok' });
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
 
     const result = await registered
       .get('mstudio:forge-project:add-item')
@@ -214,7 +233,7 @@ describe('forgeProjectSetField / forgeProjectAddItem (Theme E)', () => {
   });
 
   it('refuses an add-item request whose contentId carries shell metacharacters', async () => {
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const result = await registered
       .get('mstudio:forge-project:add-item')
       ?.(null, { projectId: 'PVT_abc', contentId: '; rm -rf /' });
@@ -230,7 +249,7 @@ describe('forge project CRUD and drafts (Phase 95 Theme D)', () => {
     listRemotes.mockResolvedValue([githubRemote]);
     createProject.mockResolvedValue({ ok: true, kind: 'ok', project: { id: 'P1', number: 1, title: 'T', url: 'https://x', closed: false, linkedToRepo: false } });
 
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const result = await registered.get('mstudio:forge-project:create')?.(null, { repoId: 'r1', title: 'T' });
 
     expect(createProject).toHaveBeenCalledWith(githubRemote.forge, 'T');
@@ -241,7 +260,7 @@ describe('forge project CRUD and drafts (Phase 95 Theme D)', () => {
     resolveWorkdir.mockResolvedValue('/repo');
     listRemotes.mockResolvedValue([]);
 
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const result = await registered.get('mstudio:forge-project:create')?.(null, { repoId: 'r1', title: 'T' });
 
     expect(createProject).not.toHaveBeenCalled();
@@ -250,7 +269,7 @@ describe('forge project CRUD and drafts (Phase 95 Theme D)', () => {
 
   it('forwards edit to editProject against the fixed GitHub target', async () => {
     editProject.mockResolvedValue({ ok: true, kind: 'ok' });
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
 
     const result = await registered
       .get('mstudio:forge-project:edit')
@@ -265,7 +284,7 @@ describe('forge project CRUD and drafts (Phase 95 Theme D)', () => {
 
   it('forwards delete to deleteProject', async () => {
     deleteProject.mockResolvedValue({ ok: true, kind: 'ok' });
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
 
     const result = await registered.get('mstudio:forge-project:delete')?.(null, { projectId: 'PVT_abc' });
 
@@ -275,7 +294,7 @@ describe('forge project CRUD and drafts (Phase 95 Theme D)', () => {
 
   it('forwards a draft-item add to addProjectItem with draftTitle/draftBody', async () => {
     addProjectItem.mockResolvedValue({ ok: true, kind: 'ok' });
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
 
     const result = await registered
       .get('mstudio:forge-project:add-draft-item')
@@ -291,7 +310,7 @@ describe('forge project CRUD and drafts (Phase 95 Theme D)', () => {
 
   it('forwards remove-item to removeProjectItem', async () => {
     removeProjectItem.mockResolvedValue({ ok: true, kind: 'ok' });
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
 
     const result = await registered
       .get('mstudio:forge-project:remove-item')
@@ -308,7 +327,7 @@ describe('forge project CRUD and drafts (Phase 95 Theme D)', () => {
 describe('forgeProjectClearField (Phase 50 Theme C)', () => {
   it('forwards a well-formed clear-field request to clearItemFieldValue', async () => {
     clearItemFieldValue.mockResolvedValue({ ok: true, kind: 'ok' });
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
 
     const result = await registered
       .get('mstudio:forge-project:clear-field')
@@ -323,7 +342,7 @@ describe('forgeProjectClearField (Phase 50 Theme C)', () => {
   });
 
   it('refuses a clear-field request whose fieldId carries shell metacharacters', async () => {
-    const registered = await loadHandlers();
+    const registered = loadHandlers();
     const result = await registered.get('mstudio:forge-project:clear-field')?.(null, {
       projectId: 'PVT_abc',
       itemId: 'PVTI_abc',
