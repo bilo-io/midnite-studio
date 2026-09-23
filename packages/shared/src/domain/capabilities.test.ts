@@ -61,6 +61,8 @@ describe('capabilitiesFor — exhaustive over ForgeKind', () => {
    */
   it('reports Bitbucket as mostly full, with no boards and a partial thread model', () => {
     const capability = capabilitiesFor('bitbucket');
+    // The Settings ▸ Accounts reachable-repo listing reads this row.
+    expect(capability.repoListing).toBe('full');
     expect(capability.projects).toBe('none');
     expect(capability.threadResolution).toBe('partial');
     const rest = { ...capability };

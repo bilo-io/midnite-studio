@@ -459,10 +459,10 @@ function AccountRow({
  * listing, not an auto-clone: nothing lands on disk until the user picks a
  * destination via the native folder dialog `useCloneReachableRepo` opens.
  *
- * `unsupported` for every kind but `github` reads plainly rather than as an
- * empty list, matching `capabilitiesFor`'s own `repoListing: 'none'` for
- * GitLab, Bitbucket and Azure DevOps until Themes E-G land a real adapter —
- * this page never pretends a listing it cannot produce.
+ * `unsupported` (a kind whose `capabilitiesFor(kind).repoListing` is
+ * `'none'` — none of the four supported providers today) reads plainly
+ * rather than as an empty list: this page never pretends a listing it cannot
+ * produce.
  */
 function ReachableReposSection({ account }: { account: ForgeAccount }) {
   const { data: result, isLoading } = useReachableRepos(account.id);

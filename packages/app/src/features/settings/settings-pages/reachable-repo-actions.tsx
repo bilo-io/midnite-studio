@@ -33,7 +33,9 @@ export function ReachableRepoActions({ account, repo }: { account: ForgeAccount;
         size="sm"
         tone="danger"
         tooltipSide="top"
-        label={`Delete ${repo.fullName}… (typed into a terminal, not run)`}
+        // The "typed into a terminal" note only describes a command that exists;
+        // a disabled button's tooltip is the label plus its reason instead.
+        label={del.ok ? `Delete ${repo.fullName}… (typed into a terminal, not run)` : `Delete ${repo.fullName}`}
         disabled={!del.ok}
         {...(del.ok ? {} : { disabledReason: del.reason })}
         onClick={() => {
