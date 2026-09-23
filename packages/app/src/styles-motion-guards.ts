@@ -244,6 +244,8 @@ export const LOOP_GATE_ALLOWLIST: Record<string, string> = {
     'the Actions status glow pulse for a passing run — mounted only on a row whose run just completed successfully.',
   'actions-glow-pulse-fail':
     'the Actions status glow pulse for a failing run — mounted only on a row whose run just completed with a failure.',
+  'wf-node-pulse':
+    'the workflow canvas node run-state ring (Phase 95 Theme I) — mounted only on a node whose `WorkflowNodeStatus` is actively `running`.',
 };
 
 /**

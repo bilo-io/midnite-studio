@@ -105,6 +105,22 @@
     --tab-group-6: 215 70% 55%; /* blue */
     --tab-group-7: 265 55% 55%; /* purple */
     --tab-group-8: 330 60% 60%; /* pink */
+
+    /* The workflow canvas's node category hues (Phase 95 Theme I, ported from
+     * midnite's `app/globals.css`) — tint a node card's header by what kind
+     * of step it is, independent of `ActivityStatus`'s run-state colours
+     * (Phase 95 Theme A/C), which answer a different question ("is something
+     * live on this node right now") and are layered on top rather than
+     * replacing these. This MVP's five node kinds
+     * (`shared/src/workflow.ts`'s `WORKFLOW_NODE_KINDS`) each map onto one
+     * category in `node-kind-meta.ts`; `--node-trigger` has no mapped kind
+     * yet — the MVP's runs are manual-only, so nothing here IS a trigger —
+     * and stays defined for the agent/script nodes Phase 95 Theme J adds. */
+    --node-trigger: 280 60% 58%; /* violet — starts a run */
+    --node-action: 217 85% 58%; /* blue — matches --dep-active's "something is happening" hue */
+    --node-logic: 38 85% 50%; /* amber — matches --health-warn's "a branch point" hue */
+    --node-data: 158 55% 42%; /* teal-green — matches --cal-*'s data-shaping hue */
+    --node-storage: 330 55% 55%; /* rose — a note/comment persisted alongside the flow */
   }
 
   .dark {
@@ -129,6 +145,14 @@
     --cal-2: 158 50% 38%;
     --cal-3: 158 60% 52%;
     --cal-4: 158 68% 66%;
+
+    /* Lifted for the same reason every other category hue above is —
+     * mid-tones read muddy against a near-black canvas. */
+    --node-trigger: 280 65% 70%;
+    --node-action: 217 91% 68%;
+    --node-logic: 38 95% 58%;
+    --node-data: 158 60% 55%;
+    --node-storage: 330 60% 68%;
 
     /* Lifted for contrast against a near-black background, same reasoning as
      * --health-warn above. */
@@ -4678,5 +4702,43 @@ html[data-motion='reduced'] .session-row-pulse {
   --forge-brand: var(--brand-dark);
 }
 
+/* Workflow canvas (Phase 95 Theme I) — the React Flow node's "a run is
+ * actively touching this node" pulse, ported from midnite's `.node-running`
+ * (`app/globals.css:1355-1406`). Deliberately its own small class rather than
+ * `.activity-glow` (Phase 95 Theme A): that family's real workflow-canvas
+ * consumer is Theme C's `useActivityGlow` (in flight concurrently with this
+ * theme, per the phase doc's own dependency note), and wiring a second
+ * consumer onto it here — ahead of Theme C landing — is exactly the kind of
+ * concurrent-edit collision the phase doc's themes are split to avoid. This
+ * class answers only "what is this node's `WorkflowNodeStatus` doing right
+ * now" via `activityStatusVar` (`features/activity/activity-status-color.ts`,
+ * already merged in Theme A), the same mapping `run-node-detail.tsx` already
+ * uses — so the colour is never a second answer to a question Theme A/C
+ * already answered, only a new place asking it. */
+@keyframes wf-node-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--activity-running) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--activity-running) 25%, transparent);
+  }
+}
+
+.wf-node-running {
+  animation: wf-node-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-node-running {
+    animation: none !important;
+    box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--activity-running) 55%, transparent);
+  }
+}
+
+html[data-motion='reduced'] .wf-node-running {
+  animation: none !important;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--activity-running) 55%, transparent);
+}
 
 
