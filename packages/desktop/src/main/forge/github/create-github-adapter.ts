@@ -21,6 +21,7 @@ import { linkIssues, unlinkIssues } from './gh-issue-links';
 import { listProjects, projectFields, projectItems } from './gh-project';
 import {
   addProjectItem,
+  clearItemFieldValue,
   createProject,
   deleteProject,
   editProject,
@@ -102,6 +103,7 @@ export function createGitHubAdapter(): ForgeAdapter {
 
     addProjectItem,
     removeProjectItem,
+    clearItemFieldValue: (forge, request) => clearItemFieldValue(forge, request),
 
     linkIssues,
     unlinkIssues,

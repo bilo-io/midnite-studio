@@ -178,6 +178,19 @@ export interface ForgeAdapter {
   ): Promise<ForgeProjectWriteResult>;
 
   /**
+   * `clearProjectV2ItemFieldValue` (Phase 50 Theme C) — empties a cell
+   * entirely, which `setItemField`'s own value input cannot express (none of
+   * its `text`/`number`/`date`/`singleSelectOptionId` arms means "no
+   * value"). Optional, like `listRepos`/`forgetRun` below: it is a
+   * GitHub-ProjectV2-specific write with no equivalent on a provider that
+   * has no board-item write at all (every non-GitHub adapter today).
+   */
+  clearItemFieldValue?(
+    forge: Forge,
+    request: { projectId: string; itemId: string; fieldId: string },
+  ): Promise<ForgeProjectWriteResult>;
+
+  /**
    * `number` gains a dependency on `targetNumber` (`blockedBy`) or gains it
    * as a child (`subIssue`). `targetRepo` is `''` for the board's own repo,
    * `owner/name` for a cross-repo target — see `ForgeIssuesLinkRequest`'s own

@@ -1,7 +1,16 @@
 import type { Forge, ForgeProjectFieldValue } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { addItemToProject, clearItemFieldValue, setItemFieldValue } from './gh-project-write';
+import {
+  addItemToProject,
+  addProjectItem,
+  clearItemFieldValue,
+  createProject,
+  deleteProject,
+  editProject,
+  removeProjectItem,
+  setItemFieldValue,
+} from './gh-project-write';
 
 /* Same arrangement `gh-project.test.ts` uses — see its own note. */
 const { runInShell } = vi.hoisted(() => ({
@@ -185,5 +194,141 @@ describe('clearItemFieldValue (Phase 50 Theme C)', () => {
     const result = await clearItemFieldValue(forge, { projectId: 'p1', itemId: 'i1', fieldId: 'f1' });
 
     expect(result).toEqual({ ok: false, kind: 'insufficient-scope', hint: 'gh auth refresh -s project' });
+  });
+});
+
+/** Phase 95 Theme D — board CRUD, item add/remove. */
+describe('createProject', () => {
+  const ownerIdShell = {
+    output: JSON.stringify({ data: { repositoryOwner: { id: 'O_owner1' } } }),
+    stdout: '',
+    stderr: '',
+    exitCode: 0,
+  };
+  const createdShell = {
+    output: JSON.stringify({
+      data: { createProjectV2: { projectV2: { id: 'PVT_1', number: 7, title: 'Roadmap', url: 'https://x', closed: false } } },
+    }),
+    stdout: '',
+    stderr: '',
+    exitCode: 0,
+  };
+
+  it('resolves the owner id first, then sends ownerId + title as the mutation body', async () => {
+    runInShell.mockResolvedValueOnce(ownerIdShell).mockResolvedValueOnce(createdShell);
+
+    const result = await createProject(forge, 'Roadmap');
+
+    expect(runInShell).toHaveBeenCalledTimes(2);
+    // Owner resolution uses `-f` flags for its two String! variables — a
+    // plain lookup query, not a polymorphic value, so `-f`'s "everything is
+    // a string" behaviour is exactly right here.
+    expect(runInShell.mock.calls[0]?.[0]).toContain('-f login=');
+    expect(runInShell.mock.calls[1]?.[0]).toContain('gh api graphql --input -');
+    expect(runInShell.mock.calls[1]?.[0]).toContain('createProjectV2');
+
+    expect(result).toEqual({
+      ok: true,
+      kind: 'ok',
+      project: { id: 'PVT_1', number: 7, title: 'Roadmap', url: 'https://x', closed: false, linkedToRepo: false },
+    });
+  });
+
+  it('never reaches the mutation when the owner cannot be resolved', async () => {
+    runInShell.mockResolvedValueOnce({ output: '{}', stdout: '', stderr: '', exitCode: 1 });
+
+    const result = await createProject(forge, 'Roadmap');
+
+    expect(runInShell).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ ok: false, kind: 'error' });
+  });
+});
+
+describe('editProject / deleteProject', () => {
+  const okMutation = (field: string) => ({
+    output: JSON.stringify({ data: { [field]: { projectV2: { id: 'PVT_1' } } } }),
+    stdout: '',
+    stderr: '',
+    exitCode: 0,
+  });
+
+  it('editProject sends only the fields given, never an unset closed/title', async () => {
+    runInShell.mockResolvedValue(okMutation('updateProjectV2'));
+    await editProject(forge, { projectId: 'PVT_1', title: 'New name' });
+
+    const [command] = runInShell.mock.calls[0]!;
+    expect(command).toContain('updateProjectV2');
+    expect(command).toContain('"title":"New name"');
+    expect(command).not.toContain('"closed"');
+  });
+
+  it('editProject can close a board with no title change', async () => {
+    runInShell.mockResolvedValue(okMutation('updateProjectV2'));
+    await editProject(forge, { projectId: 'PVT_1', closed: true });
+
+    const [command] = runInShell.mock.calls[0]!;
+    expect(command).toContain('"closed":true');
+    expect(command).not.toContain('"title"');
+  });
+
+  it('deleteProject sends the projectId to deleteProjectV2', async () => {
+    runInShell.mockResolvedValue(okMutation('deleteProjectV2'));
+    const result = await deleteProject(forge, 'PVT_1');
+
+    const [command] = runInShell.mock.calls[0]!;
+    expect(command).toContain('deleteProjectV2');
+    expect(command).toContain('"projectId":"PVT_1"');
+    expect(result).toEqual({ ok: true, kind: 'ok' });
+  });
+});
+
+describe('addProjectItem — existing issue or a brand-new draft', () => {
+  it('an existing issue/PR (contentId) reaches addProjectV2ItemById', async () => {
+    runInShell.mockResolvedValue({
+      output: JSON.stringify({ data: { addProjectV2ItemById: { item: { id: 'i2' } } } }),
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+    });
+
+    const result = await addProjectItem(forge, { projectId: 'p1', contentId: 'c1' });
+
+    expect(runInShell.mock.calls[0]?.[0]).toContain('addProjectV2ItemById');
+    expect(result).toEqual({ ok: true, kind: 'ok' });
+  });
+
+  it('a draft (draftTitle/draftBody) reaches addProjectV2DraftIssue instead', async () => {
+    runInShell.mockResolvedValue({
+      output: JSON.stringify({ data: { addProjectV2DraftIssue: { projectItem: { id: 'i3' } } } }),
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+    });
+
+    const result = await addProjectItem(forge, { projectId: 'p1', draftTitle: 'A draft', draftBody: 'notes' });
+
+    const [command] = runInShell.mock.calls[0]!;
+    expect(command).toContain('addProjectV2DraftIssue');
+    expect(command).toContain('"title":"A draft"');
+    expect(command).toContain('"body":"notes"');
+    expect(result).toEqual({ ok: true, kind: 'ok' });
+  });
+});
+
+describe('removeProjectItem', () => {
+  it('sends projectId + itemId to deleteProjectV2Item', async () => {
+    runInShell.mockResolvedValue({
+      output: JSON.stringify({ data: { deleteProjectV2Item: { deletedItemId: 'i1' } } }),
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+    });
+
+    const result = await removeProjectItem(forge, { projectId: 'p1', itemId: 'i1' });
+
+    const [command] = runInShell.mock.calls[0]!;
+    expect(command).toContain('deleteProjectV2Item');
+    expect(command).toContain('"itemId":"i1"');
+    expect(result).toEqual({ ok: true, kind: 'ok' });
   });
 });
