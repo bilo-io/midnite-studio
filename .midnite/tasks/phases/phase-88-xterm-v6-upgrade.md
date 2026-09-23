@@ -87,14 +87,14 @@ The deliverable that makes #242 unrepeatable.
 - [x] It must fail against a deliberately mismatched pair — prove the test detects the #242 condition, or it is decoration. Verify by pinning a mismatched version locally, watching it go red, then reverting.
 - [x] jsdom, in the default `moon run :typecheck :lint :test` gate, per [Phase 82](phase-82-the-pyramid-righted.md)'s rule: proving an addon binds needs no browser capability. Seconds, against the ~20 minutes of e2e timeout #242 spent discovering the same fact.
 
-### F — The two debts parked on this bump (M)
+### F — The two debts parked on this bump (M) — ✅ DONE (PR #510)
 
 Both were deferred *on the assumption* that a bump would fix them. The deliverable is the finding, not a guaranteed fix.
 
-- [ ] **The `Viewport.syncScrollArea` unmount throw** ([`outstanding.md`](../outstanding.md), cited again from [Phase 41](phase-41-agentic-kanban.md) and Phase 51's guardrails): `dimensions` read off an already-disposed renderer, so every `term.dispose()` can leave a queued callback firing against nothing. StrictMode-only, dev-server-only. Check against v6.
-- [ ] **Phase 51's fractional-cell rounding**: xterm computes a fractional cell height that the WebGL renderer rounds *per row*, giving visibly uneven text. Check against v6.
-- [ ] For each: if v6 fixed it, tick it and **delete the `outstanding.md` entry**. If v6 did not, fix it locally where we can, or re-park it with a note recording that v6 `6.0.0` was checked and did not resolve it.
-- [ ] Either way, the words "worth revisiting on the next xterm bump" must not survive this phase pointing at an event that has already happened. That phrasing is what made these items invisible.
+- [x] **The `Viewport.syncScrollArea` unmount throw** ([`outstanding.md`](../outstanding.md), cited again from [Phase 41](phase-41-agentic-kanban.md) and Phase 51's guardrails): `dimensions` read off an already-disposed renderer, so every `term.dispose()` can leave a queued callback firing against nothing. StrictMode-only, dev-server-only. Check against v6. **Still present, checked against real v6 source, not assumed.** `Viewport` was rewritten on top of `vs/base`'s `Scrollable` machinery and the trace's named method, `syncScrollArea`, is gone — renamed to a private `_sync` — but the underlying defect is unchanged in kind: `RenderService.get dimensions()` still does `this._renderer.value!.dimensions`, a non-null assertion against a `MutableDisposable` whose `.value` starts returning `undefined` (not throwing) the instant it disposes, and `Viewport._sync`'s only guard checks whether the *service reference* is falsy (never true once constructed), not whether the service has been disposed. Reproduced deterministically — no StrictMode/rAF race needed — in `xterm-viewport-dispose.test.ts`: disposing the real v6 `RenderService` and then calling the real, unmodified `Viewport._sync` throws the identical `TypeError: Cannot read properties of undefined (reading 'dimensions')`. Upstream, unpatchable from this side of the boundary without forking the library; re-parked in `outstanding.md` with this verdict.
+- [x] **Phase 51's fractional-cell rounding**: xterm computes a fractional cell height that the WebGL renderer rounds *per row*, giving visibly uneven text. Check against v6. **The mechanism as described does not exist, under v6 or under the pre-bump 5.5.0 / addon-webgl 0.18.0 pairing.** `WebglRenderer._updateDimensions()` computes exactly one `device.cell.height` per recalculation — `Math.floor(char.height * lineHeight)` — and every row's y-position is `y * that one integer` (`BaseRenderLayer`), with no rounding call anywhere in the per-row path: cell height is quantized to a whole device pixel once, so no two rows can ever receive a different height or accumulate drift. Confirmed byte-identical between `addon-webgl@0.18.0` (paired with `xterm@5.5.0`) and `0.19.0` (paired with `xterm@6.0.0`) by diffing the two packages' shipped `WebglRenderer.ts` — the bump did not fix this because there was nothing in this specific mechanism to fix. Proven empirically, not just read, in `xterm-webgl-cell-rounding.test.ts`: four fractional font-size/line-height combinations against the real v6 `WebglRenderer`, each asserting an integer cell height and `canvas.height === rows * cell.height` exactly. The real "uneven text" symptom Phase 51 observed already has its own shipped explanation — Theme B's own landing note already suspected as much ("not yet the fix for the uneven baselines themselves — closer to Theme C's WebGL story"), and Theme C's fix (panes silently, permanently falling from WebGL to the DOM renderer once Chromium evicted their context, with nothing re-acquiring one) is a real, structural cause of "two panes render differently" that reads as "uneven rounding" until you check which renderer each pane is actually on. Nothing to fix in this repo or upstream; no `outstanding.md` entry existed for this one to delete (it lived only in Phase 51's own doc and `done.md`), so this doc's own paragraph above is the recorded verdict.
+- [x] For each: if v6 fixed it, tick it and **delete the `outstanding.md` entry**. If v6 did not, fix it locally where we can, or re-park it with a note recording that v6 `6.0.0` was checked and did not resolve it. Neither was fixable from this repo's side (both are internal to `@xterm/xterm`/`@xterm/addon-webgl`); the unmount throw is re-parked in `outstanding.md` with the v6 verdict above, and the fractional-cell-rounding finding is recorded in this checklist item since it never had a standalone `outstanding.md` entry to begin with.
+- [x] Either way, the words "worth revisiting on the next xterm bump" must not survive this phase pointing at an event that has already happened. That phrasing is what made these items invisible. `outstanding.md`'s unmount-throw entry no longer carries it — replaced with "worth revisiting again only if a future xterm major guards `RenderService.dimensions` against a disposed renderer, or exposes a way to cancel a queued `Viewport` sync from outside the library."
 
 ### G — Verification (S)
 
@@ -122,7 +122,9 @@ Both were deferred *on the assumption* that a bump would fix them. The deliverab
 | [`features/themes/importers/vscode-theme-importer.ts`](../../../packages/app/src/features/themes/importers/vscode-theme-importer.ts) | `ITheme` (D) — verified, no edit |
 | `features/themes/itheme-conformance.test.ts` *(new)* | Real-`Terminal` `ThemeService` check: every documented `ITheme` key, plus a real VS Code import, end to end (D) |
 | `features/terminal/xterm-attach.test.ts` *(new)* | The replacement guard (E) |
-| [`.midnite/tasks/outstanding.md`](../outstanding.md) | Delete or re-park the unmount-throw entry (F) |
+| [`.midnite/tasks/outstanding.md`](../outstanding.md) | Re-parked the unmount-throw entry with the v6 verdict (F) |
+| `features/terminal/xterm-viewport-dispose.test.ts` *(new)* | Deterministic reproduction of the `Viewport`/`RenderService` unmount throw under v6 (F) |
+| `features/terminal/xterm-webgl-cell-rounding.test.ts` *(new)* | Proves `WebglRenderer`'s cell-height math has no per-row rounding under v6 (F) |
 
 ## Verification
 
@@ -271,3 +273,36 @@ Both were deferred *on the assumption* that a bump would fix them. The deliverab
   still satisfy `ITheme`'s type (everything on it is optional) and pass `typecheck` clean; this
   is what would catch it instead — the same class of "the lockfile/type system can no longer tell
   us" gap Theme E's attach test closes for the addon/core binding itself.
+- **Resolved — Theme F, the unmount throw: still present under v6, verdict recorded, nothing to
+  patch from this side.** `Viewport` was rewritten on top of `vs/base`'s
+  `Scrollable`/`SmoothScrollableElement` for v6 and the trace's named method, `syncScrollArea`,
+  no longer exists — renamed to a private `_sync`. But `RenderService.get dimensions()`
+  (`browser/services/RenderService.ts`) still does `this._renderer.value!.dimensions`: a
+  non-null assertion against a `MutableDisposable<IRenderer>` whose `.value` getter starts
+  answering `undefined` (not throwing, not retaining the last value) the instant
+  `MutableDisposable.dispose()` runs, and `Viewport._sync`'s own guard
+  (`if (!this._renderService || this._isSyncing) return;`) checks only whether the *service
+  reference* is falsy — never true post-construction — not whether the service has been
+  disposed. `RenderDebouncer.dispose()` does cancel its pending `requestAnimationFrame` handle,
+  which is exactly why this stays StrictMode-only: only a synchronous mount → unmount → mount
+  racing an already-scheduled `queueSync()` against the first mount's teardown can land a
+  `_sync` call after disposal. Both the non-null assertion and the presence-only guard are
+  internal to `@xterm/xterm`, so there is no fix on this repo's side of the boundary — re-parked
+  in `outstanding.md` with this verdict, replacing the "worth revisiting on the next xterm bump"
+  phrasing that pointed at an event that has now happened.
+- **Resolved — Theme F, the fractional-cell rounding: the mechanism described was never real,
+  checked against real v6 source and proven against a real v6 `WebglRenderer`, not assumed.**
+  `WebglRenderer._updateDimensions()` computes one `device.cell.height` per dimension
+  recalculation (`Math.floor(char.height * lineHeight)`) and every row's draw position is that
+  single integer times the row index (`renderLayer/BaseRenderLayer.ts`) — no rounding call
+  exists anywhere in the per-row path, so no mechanism can make two rows disagree on height or
+  accumulate drift. Byte-identical between `addon-webgl@0.18.0`/`xterm@5.5.0` (the pre-bump
+  pairing) and `0.19.0`/`6.0.0` — the bump changed nothing here because there was nothing to
+  change. Phase 51's own Theme B landing note already suspected the real cause lay elsewhere
+  ("not yet the fix for the uneven baselines themselves — closer to Theme C's WebGL story"):
+  Theme C's fix (a pane silently, permanently falling from the WebGL renderer to the DOM
+  renderer on context loss, with nothing re-acquiring one) is a real, already-shipped structural
+  cause of "two panes render differently" that is visually indistinguishable from "uneven
+  rounding" absent checking which renderer each pane is on. Nothing to fix, upstream or here;
+  since no standalone `outstanding.md` entry existed for this one (it lived only in Phase 51's
+  own doc and `done.md`), this paragraph is the recorded verdict rather than a deletion.

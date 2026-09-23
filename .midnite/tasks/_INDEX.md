@@ -14,7 +14,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | ◻ TODO | — | 0/95 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
 | [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | 🔄 WIP | — | 72/110 | `███████░░░` | 65% | K, L | — |
 | [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 36/89 | `████░░░░░░` | 40% | — | F G H I J K |
-| [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 18/34 | `█████░░░░░` | 53% | F | G |
+| [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 22/34 | `██████░░░░` | 65% | — | G |
 | [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | A B C D E F G | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
 | [86 · The way back in, and somewhere to write it down](phases/phase-86-the-way-back-in.md) | 🔄 WIP | — | 61/64 | `██████████` | 95% | — | (3 human passes) |
 | [85 · The monitor that lied, and the memory it hid](phases/phase-85-the-monitor-that-lied.md) | 🔄 WIP | x1 | 56/59 | `█████████░` | 95% | — | (3 human passes) |
@@ -370,7 +370,7 @@ the two debts that were parked on "the next xterm bump".*
 - ✅ **C** (PR [#457](https://github.com/bilo-io/midnite-studio/pull/457)) — the DOM-renderer sites: `transcript-view.tsx`, `live-session-terminal.tsx` needed zero source edits; added a guard test at each asserting only `FitAddon` is ever loaded, never `WebglAddon`
 - ✅ **D** (PR [#509](https://github.com/bilo-io/midnite-studio/pull/509)) — `ITheme` across the theme engine, and the VS Code importer's palette: v6's only delta is four new optional keys, `theme-types.ts`/`vscode-theme-importer.ts` needed zero source edits; new `itheme-conformance.test.ts` reads a real v6 `Terminal`'s own `ThemeService.colors` back out, proving every key our theme engine and the VS Code importer set is the key xterm actually applies
 - ✅ **E** (PR [#455](https://github.com/bilo-io/midnite-studio/pull/455)) — the attach test that replaces the peer dependency v6 removed: traced #242's real failure to `WebglAddon`'s dispose callback reading a `_store` field xterm core 6.0.0 added, reproduced verbatim in jsdom, then encoded deterministically
-- ◻ **F** — the two parked debts: the `Viewport.syncScrollArea` unmount throw, Phase 51's fractional-cell rounding
+- ✅ **F** (PR [#510](https://github.com/bilo-io/midnite-studio/pull/510)) — the two parked debts, checked against real v6 source and proven with deterministic tests, neither fixed by the bump: the `Viewport`/`RenderService` unmount throw still reproduces (renamed internally from `syncScrollArea` to `_sync`, same `MutableDisposable`-post-dispose defect), re-parked in `outstanding.md` with the v6 verdict; Phase 51's "fractional cell height rounded per row" never existed as described — `WebglRenderer` quantizes cell height to one integer per resize, byte-identical pre- and post-bump, with the real uneven-text symptom already explained by that phase's own Theme C
 - ◻ **G** — verification: existing terminal e2e, entry-chunk exclusion, human pass
 
 ### [Phase 87 — Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md)

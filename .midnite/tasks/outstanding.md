@@ -278,8 +278,9 @@ it" stops being true.
 
 ## xterm throws on unmount under the dev server
 
-`Viewport.syncScrollArea` reads `dimensions` off a renderer the terminal has already disposed,
-so every `term.dispose()` can leave one queued callback firing against nothing:
+**Checked against `@xterm/xterm` 6.0.0 ([Phase 88](phases/phase-88-xterm-v6-upgrade.md) Theme
+F) — still present, confirmed from the real v6 source, not assumed.** The originally observed
+trace:
 
 ```
 TypeError: Cannot read properties of undefined (reading 'dimensions')
@@ -287,11 +288,34 @@ TypeError: Cannot read properties of undefined (reading 'dimensions')
     at Viewport.syncScrollArea (@xterm/xterm)
 ```
 
-Upstream, inside `@xterm/xterm`'s own teardown — not the WebGL addon, which was the first guess
-and disposing it first changes nothing. Reachable only through StrictMode's mount → unmount →
-mount, so it fires for every pane opened under `moon run desktop:start` and never in a packaged
-build. Harmless beyond the console noise, and worth revisiting on the next xterm bump rather than
-worked around from outside the library.
+v6 rewrote `Viewport` on top of the `vs/base` `Scrollable`/`SmoothScrollableElement` machinery
+and renamed the method the trace names, `syncScrollArea`, to a private `_sync` — so a fresh trace
+would no longer read "at `Viewport.syncScrollArea`". The defect it throws from is unchanged in
+kind: `RenderService.get dimensions()` (`browser/services/RenderService.ts`) still reads
+`this._renderer.value!.dimensions` — a non-null assertion against a `MutableDisposable<IRenderer>`
+whose `.value` getter starts returning `undefined`, not throwing and not staying pinned to the
+last value, the instant `MutableDisposable.dispose()` runs. `Viewport._sync` (queued through
+`RenderService.addRefreshCallback`, itself a thin wrapper over `RenderDebouncer`'s shared
+animation-frame handle) reads `this._renderService.dimensions` unconditionally once it runs — its
+own guard (`if (!this._renderService || this._isSyncing) return;`) checks whether the *service
+reference* is falsy, which it never is once constructed, not whether the service has been
+disposed. `RenderDebouncer.dispose()` does cancel its own pending `requestAnimationFrame` handle,
+which is why this stays StrictMode-only rather than a permanent crash: only StrictMode's
+synchronous mount → unmount → mount, racing an already-scheduled `queueSync()` against the first
+mount's teardown, can land a `_sync` call after `RenderService` has already been disposed.
+Reproduced deterministically (no StrictMode/rAF race needed) in
+[`xterm-viewport-dispose.test.ts`](../../packages/app/src/features/terminal/xterm-viewport-dispose.test.ts):
+disposing the real `RenderService` xterm itself constructed and then calling the real,
+unmodified v6 `Viewport._sync` throws the identical `TypeError` shape.
+
+Upstream, inside `@xterm/xterm`'s own dispose ordering — not the WebGL addon, which was the
+first guess and disposing it first changes nothing, and not something this repo's code can patch
+without forking the library. Fires for every pane opened under `moon run desktop:start` and
+never in a packaged build (no StrictMode there). Harmless beyond the console noise. Re-parked
+here with this v6 verdict rather than "worth revisiting on the next xterm bump" — that bump
+already happened and did not resolve it; worth revisiting again only if a future xterm major
+guards `RenderService.dimensions` against a disposed renderer, or exposes a way to cancel a
+queued `Viewport` sync from outside the library.
 
 ## ~60 KB of `lucide-react` ships via `@bilo-io/ui` and `@bilo-io/shell` (Phase 36 Theme C)
 
