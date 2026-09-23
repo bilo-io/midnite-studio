@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { useUiStore } from '../../../store/ui-store';
 import { ProjectsPage } from './projects-page';
@@ -27,5 +27,64 @@ describe('ProjectsPage — dependency graph field name (Phase 75 Theme H)', () =
     render(<ProjectsPage />);
     fireEvent.change(screen.getByLabelText('Blocked-by field name'), { target: { value: '' } });
     expect(useUiStore.getState().blockedByFieldName).toBe('');
+  });
+});
+
+describe('ProjectsPage — column → skill map (Phase 95 Theme G)', () => {
+  beforeEach(() => {
+    useUiStore.setState({ selectedRepoId: null, projectBoardByRepo: {}, columnSkillByProject: {} });
+  });
+
+  it('asks the user to open a board first when no project is currently active', () => {
+    render(<ProjectsPage />);
+    expect(screen.getByText(/Open a project board first/)).toBeDefined();
+    expect(screen.queryByLabelText('Skill for column "in progress"')).toBeNull();
+  });
+
+  it('shows the two built-in defaults, pre-filled, for the currently active project', () => {
+    useUiStore.setState({ selectedRepoId: 'r1', projectBoardByRepo: { r1: 'PVT_1' } });
+    render(<ProjectsPage />);
+
+    expect((screen.getByLabelText('Skill for column "in progress"') as HTMLInputElement).value).toBe(
+      '/midnite-create',
+    );
+    expect((screen.getByLabelText('Skill for column "in review"') as HTMLInputElement).value).toBe(
+      '/midnite-review',
+    );
+  });
+
+  it('editing a row writes a per-project override, normalised to lower case', () => {
+    useUiStore.setState({ selectedRepoId: 'r1', projectBoardByRepo: { r1: 'PVT_1' } });
+    render(<ProjectsPage />);
+
+    fireEvent.change(screen.getByLabelText('Skill for column "in progress"'), {
+      target: { value: '/midnite-create-adhoc' },
+    });
+
+    expect(useUiStore.getState().columnSkillByProject['PVT_1']?.['in progress']).toBe('/midnite-create-adhoc');
+  });
+
+  it('adding a new column name maps a column beyond the two defaults', () => {
+    useUiStore.setState({ selectedRepoId: 'r1', projectBoardByRepo: { r1: 'PVT_1' } });
+    render(<ProjectsPage />);
+
+    fireEvent.change(screen.getByLabelText('New column name'), { target: { value: 'Backlog' } });
+    fireEvent.change(screen.getByLabelText("New column's skill"), { target: { value: '/midnite-ideate' } });
+    fireEvent.click(screen.getByText('Add'));
+
+    expect(useUiStore.getState().columnSkillByProject['PVT_1']?.['backlog']).toBe('/midnite-ideate');
+    expect((screen.getByLabelText('Skill for column "backlog"') as HTMLInputElement).value).toBe('/midnite-ideate');
+  });
+
+  it('a different active project shows its own, independent map', () => {
+    useUiStore.setState({
+      selectedRepoId: 'r1',
+      projectBoardByRepo: { r1: 'PVT_1' },
+      columnSkillByProject: { PVT_1: { 'in progress': '/midnite-create-adhoc' } },
+    });
+    render(<ProjectsPage />);
+    expect((screen.getByLabelText('Skill for column "in progress"') as HTMLInputElement).value).toBe(
+      '/midnite-create-adhoc',
+    );
   });
 });

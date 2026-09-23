@@ -1449,3 +1449,92 @@ describe('v19 -> v20 migration (Phase 92 Theme C: cardSkillByTask)', () => {
     expect(useUiStore.getState().primaryAgent).toBe('claude');
   });
 });
+
+describe('columnSkillByProject (Phase 95 Theme G)', () => {
+  beforeEach(() => {
+    reset();
+    useUiStore.setState({ columnSkillByProject: {} });
+  });
+
+  it('has no override until one has ever been set for that project', () => {
+    expect(useUiStore.getState().columnSkillByProject['proj-1']).toBeUndefined();
+  });
+
+  it('setColumnSkill records an override under the project, keyed by the normalised column name', () => {
+    useUiStore.getState().setColumnSkill('proj-1', 'In Progress', '/midnite-create-adhoc');
+    expect(useUiStore.getState().columnSkillByProject['proj-1']?.['in progress']).toBe('/midnite-create-adhoc');
+  });
+
+  it('setColumnSkill with undefined removes the override, falling back to the default', () => {
+    useUiStore.getState().setColumnSkill('proj-1', 'In progress', '/midnite-create-adhoc');
+    useUiStore.getState().setColumnSkill('proj-1', 'In progress', undefined);
+    expect('in progress' in (useUiStore.getState().columnSkillByProject['proj-1'] ?? {})).toBe(false);
+  });
+
+  it('setColumnSkill with an empty string keeps the key — explicitly un-mapped, not removed', () => {
+    useUiStore.getState().setColumnSkill('proj-1', 'In progress', '');
+    expect(useUiStore.getState().columnSkillByProject['proj-1']?.['in progress']).toBe('');
+  });
+
+  it('holds independent overrides per project', () => {
+    useUiStore.getState().setColumnSkill('proj-1', 'In progress', '/midnite-create-adhoc');
+    useUiStore.getState().setColumnSkill('proj-2', 'In progress', '/midnite-swarm');
+
+    expect(useUiStore.getState().columnSkillByProject['proj-1']?.['in progress']).toBe('/midnite-create-adhoc');
+    expect(useUiStore.getState().columnSkillByProject['proj-2']?.['in progress']).toBe('/midnite-swarm');
+  });
+
+  it('persists the map', () => {
+    useUiStore.getState().setColumnSkill('proj-1', 'In progress', '/midnite-create-adhoc');
+
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+      state: { columnSkillByProject: Record<string, Record<string, string>> };
+    };
+    expect(saved.state.columnSkillByProject['proj-1']?.['in progress']).toBe('/midnite-create-adhoc');
+  });
+
+  it('a payload predating the key merges in as an empty map, not undefined', () => {
+    const merged = useUiStore.persist.getOptions().merge?.({}, useUiStore.getState()) as {
+      columnSkillByProject: Record<string, unknown>;
+    };
+    expect(merged.columnSkillByProject).toEqual({});
+  });
+
+  it('the LRU (touchProjectView, cap 20) evicts the oldest project first', () => {
+    for (let i = 0; i < 21; i += 1) {
+      useUiStore.getState().setColumnSkill(`proj-${i}`, 'In progress', '/midnite-create-adhoc');
+    }
+
+    const keys = Object.keys(useUiStore.getState().columnSkillByProject);
+    expect(keys).toHaveLength(20);
+    expect(keys).not.toContain('proj-0');
+    expect(keys).toContain('proj-20');
+  });
+});
+
+describe('v24 -> v25 migration (Phase 95 Theme G: columnSkillByProject)', () => {
+  beforeEach(() => {
+    reset();
+    useUiStore.setState({ columnSkillByProject: {} });
+  });
+
+  it('seeds columnSkillByProject as an empty map — no prior shape to carry forward', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.({}, 24) as { columnSkillByProject: Record<string, unknown> };
+    expect(migrated.columnSkillByProject).toEqual({});
+  });
+
+  it('a persisted v24 blob round-trips through the real store with columnSkillByProject seeded empty', () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({
+        state: { primaryAgent: 'claude' },
+        version: 24,
+      }),
+    );
+    void useUiStore.persist.rehydrate();
+    expect(useUiStore.getState().columnSkillByProject).toEqual({});
+    // Untouched by this migration.
+    expect(useUiStore.getState().primaryAgent).toBe('claude');
+  });
+});
