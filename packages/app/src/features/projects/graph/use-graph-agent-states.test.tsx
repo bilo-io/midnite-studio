@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useTerminalStore } from '../../terminal/terminal-store';
 import type { CardGlowState } from '../board/glow-state';
-import { useGraphAgentStates } from './use-graph-agent-states';
+import { idleGraphNodeActivity, useGraphAgentStates } from './use-graph-agent-states';
 
 const PROJECT_ID = 'proj1';
 
@@ -40,7 +40,10 @@ describe('useGraphAgentStates', () => {
     useTerminalStore.getState().setState(session.id, 'open');
 
     const { result } = renderHook(() => useGraphAgentStates(PROJECT_ID));
-    expect(result.current.get('item-1')).toBe('running');
+    expect(result.current.get('item-1')?.glow).toBe('running');
+    expect(result.current.get('item-1')?.badges).toEqual([
+      { sessionId: session.id, kind: 'agent', agentId: 'claude', label: 'claude' },
+    ]);
   });
 
   it('waiting once the bound session has a question on screen', () => {
@@ -57,7 +60,7 @@ describe('useGraphAgentStates', () => {
     useTerminalStore.getState().setActivity(session.id, 'waiting');
 
     const { result } = renderHook(() => useGraphAgentStates(PROJECT_ID));
-    expect(result.current.get('item-1')).toBe('waiting');
+    expect(result.current.get('item-1')?.glow).toBe('waiting');
   });
 
   it('ignores a session bound to a different project — foreign boards never bleed through', () => {
@@ -101,7 +104,8 @@ describe('useGraphAgentStates', () => {
     useTerminalStore.getState().setState(session.id, 'exited');
 
     const { result } = renderHook(() => useGraphAgentStates(PROJECT_ID));
-    expect(result.current.get('item-1')).toBe('idle');
+    expect(result.current.get('item-1')?.glow).toBe('idle');
+    expect(result.current.get('item-1')?.badges).toEqual([]);
   });
 
   /**
@@ -125,7 +129,7 @@ describe('useGraphAgentStates', () => {
       return (
         <>
           {itemIds.map((id) => (
-            <SpyNode key={id} glow={states.get(id) ?? 'idle'} />
+            <SpyNode key={id} glow={(states.get(id) ?? idleGraphNodeActivity()).glow} />
           ))}
         </>
       );
