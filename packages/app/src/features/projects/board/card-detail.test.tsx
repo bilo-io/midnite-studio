@@ -179,7 +179,7 @@ describe('CardDetail', () => {
     it('shows the card’s own already-chosen skill', () => {
       cardSkillByTask = { 'PVT_1:item1': 'brainstorm' };
       renderDetail();
-      expect(screen.getByText('Brainstorm')).toBeDefined();
+      expect(screen.getByText('Ideate')).toBeDefined();
     });
 
     it('picking a skill persists it under the composite `projectId:itemId` key', () => {
@@ -209,7 +209,7 @@ describe('CardDetail', () => {
       expect(screen.getByText('Adhoc Task')).toBeDefined();
       expect(screen.getByText('Backlog Task')).toBeDefined();
       expect(screen.getByText('Address Issue')).toBeDefined();
-      expect(screen.getByText('Brainstorm')).toBeDefined();
+      expect(screen.getByText('Ideate')).toBeDefined();
       expect(screen.getByText('Refine Plan')).toBeDefined();
       expect(screen.getByText('Swarm')).toBeDefined();
       expect(screen.queryByText('PR Review')).toBeNull();
@@ -219,7 +219,7 @@ describe('CardDetail', () => {
     it("shows each card's own choice independently, keyed by item id", () => {
       cardSkillByTask = { 'PVT_1:item1': 'brainstorm' };
       renderDetail();
-      expect(screen.getByText('Brainstorm')).toBeDefined();
+      expect(screen.getByText('Ideate')).toBeDefined();
       cleanup();
 
       const otherItem: ForgeProjectItem = { ...item, id: 'item2' };

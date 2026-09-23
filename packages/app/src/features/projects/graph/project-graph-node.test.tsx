@@ -278,9 +278,9 @@ describe('ProjectGraphNode', () => {
     // Clicking the play button should stop propagation and not trigger card selection
     expect(onSelect).not.toHaveBeenCalled();
     // No skill set for this (freshly-minted) item — the pointer-anchored
-    // fallback menu offers exactly Exec, Brainstorm, Refine, nothing launches yet.
+    // fallback menu offers exactly Exec, Ideate, Refine, nothing launches yet.
     expect(screen.getByRole('menuitem', { name: 'Exec' })).toBeDefined();
-    expect(screen.getByRole('menuitem', { name: 'Brainstorm' })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: 'Ideate' })).toBeDefined();
     expect(screen.getByRole('menuitem', { name: 'Refine' })).toBeDefined();
     expect(useTerminalStore.getState().sessions).toHaveLength(0);
   });

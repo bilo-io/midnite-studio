@@ -57,7 +57,7 @@ export function LoopTab({
 
   /*
     The loop's base prompt comes from the midnite-menu registry it names, so
-    the FAB and the menu can never disagree about what `/loop /midnite-exec`
+    the FAB and the menu can never disagree about what `/loop /midnite-create`
     is — the duplicate copies in `FAB_TABS` are what this replaces. The cast
     is the boundary between a shared schema whose `agentCommandId` is a plain
     string and a renderer union: an id naming no entry falls through to the

@@ -228,12 +228,12 @@ describe('TaskCard', () => {
       expect(screen.queryByRole('menu')).toBeNull();
     });
 
-    it('opens a fallback menu with exactly Exec, Brainstorm, Refine when no skill is set (Theme D)', () => {
+    it('opens a fallback menu with exactly Exec, Ideate, Refine when no skill is set (Theme D)', () => {
       renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
       fireEvent.click(screen.getByTestId('card-play-agent'));
 
       expect(screen.getByRole('menuitem', { name: 'Exec' })).toBeDefined();
-      expect(screen.getByRole('menuitem', { name: 'Brainstorm' })).toBeDefined();
+      expect(screen.getByRole('menuitem', { name: 'Ideate' })).toBeDefined();
       expect(screen.getByRole('menuitem', { name: 'Refine' })).toBeDefined();
       // No launch until a menu entry is actually picked.
       expect(useTerminalStore.getState().sessions.length).toBe(0);
@@ -242,7 +242,7 @@ describe('TaskCard', () => {
     it('picking a fallback menu entry launches with it and persists the choice (Theme D)', () => {
       renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
       fireEvent.click(screen.getByTestId('card-play-agent'));
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Brainstorm' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Ideate' }));
 
       expect(useTerminalStore.getState().sessions.length).toBe(1);
       expect(useUiStore.getState().terminalOpen).toBe(true);

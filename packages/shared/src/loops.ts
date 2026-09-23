@@ -735,7 +735,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     color: 'text-cyan-500',
     agentId: 'claude',
     agentCommandId: 'loopBrainstorm',
-    fallbackPrompt: '/loop /midnite-brainstorm',
+    fallbackPrompt: '/loop /midnite-ideate',
     requiresModifier: false,
     modifiers: [
       {
@@ -805,7 +805,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     color: 'text-blue-500',
     agentId: 'claude',
     agentCommandId: 'loopExecBacklog',
-    fallbackPrompt: '/loop /midnite-exec',
+    fallbackPrompt: '/loop /midnite-create',
     requiresModifier: false,
     modifiers: [
       {
@@ -1033,7 +1033,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     color: 'text-orange-500',
     agentId: 'claude',
     agentCommandId: 'loopOverhaul',
-    fallbackPrompt: '/loop /midnite-exec',
+    fallbackPrompt: '/loop /midnite-create',
     requiresModifier: false,
     modifiers: [
       {

@@ -9,7 +9,7 @@ You are running the **refine** workflow for **this project**. It takes one *exis
 `.midnite/tasks/phases/phase-N-*.md` and makes it **deeper**, not longer for its own sake — the goal is a plan whose
 every item can be built by a model with no access to this conversation.
 
-`/midnite-brainstorm` invents a phase. `/midnite-exec` builds a slice of one. **`/midnite-refine` sits between them** and is
+`/midnite-ideate` invents a phase. `/midnite-create` builds a slice of one. **`/midnite-refine` sits between them** and is
 run *separately from* an exec run: it never writes code, never opens a PR, never ticks a checkbox.
 
 ## The bar this skill exists to clear — the Sonnet test
@@ -47,7 +47,7 @@ only to vagueness.
   validation rule, whatever conventions it documents). A refinement that would need a boundary
   exception is wrong — refine it into a proper interface instead.
 - **Never tick a box.** Everything you write stays `- [ ]`. Never touch `done.md`.
-- **This is doc-only work and lands on `main`** — like `/midnite-brainstorm`. Do not ask the worktree
+- **This is doc-only work and lands on `main`** — like `/midnite-ideate`. Do not ask the worktree
   question, do not open a PR.
 
 ---
@@ -61,12 +61,12 @@ A phase is **refineable** if it has open (`- [ ]`) in-scope items — i.e. Statu
 `🔄 WIP` and `%` < 100. Rank candidates:
 
 1. `◻ TODO` at 0% — planned but unstarted. **Best candidates**: refining costs nothing and pays off
-   on every future `/midnite-exec`.
+   on every future `/midnite-create`.
 2. `🔄 WIP` with whole themes still in `◻ TODO`. Refineable, but **only the untouched themes**.
 3. `🔄 WIP` whose remainder is "N manual checks" — usually *not* worth refining; say so.
 
 Check what is in flight before proposing anything: `gh pr list --state open` and the index's `🔄 WIP`
-column. **Refining a theme another `/midnite-exec` loop has claimed will collide** — flag any such theme and
+column. **Refining a theme another `/midnite-create` loop has claimed will collide** — flag any such theme and
 exclude it from scope by default.
 
 Print a short table of the refineable phases only:
@@ -156,7 +156,7 @@ executor can settle from the codebase alone.
 - **Every option must be grounded** — quote the real symbol, file, or number from Stage 3. An option
   reading "use a virtualizer" is useless; "reuse the existing virtualization hook the way `<real
   file>` does, fixed 22px rows" is a decision.
-- **Tag every option** the way `/midnite-exec` does — a single dominant-nature tag plus effort:
+- **Tag every option** the way `/midnite-create` does — a single dominant-nature tag plus effort:
   `[recommended · S]` · `[performance · M]` · `[simplicity · XS]` · `[future-proof · M]` ·
   `[scope+ · L]` · `[minimal · XS]` · `[DX · S]`.
 - **Recommended option first**, and say *why* in its description in one clause.
@@ -269,7 +269,7 @@ count — leaves every progress number wrong.
 
 ## ✅ Stage 10 — Commit to `main` & report
 
-Doc-only, source-of-truth change — same landing path as `/midnite-brainstorm`. No PR.
+Doc-only, source-of-truth change — same landing path as `/midnite-ideate`. No PR.
 
 1. Commit against `main`, staging **by explicit path** (never `git add -A` — it sweeps worktree admin
    files and other loops' work):
@@ -287,7 +287,7 @@ Doc-only, source-of-truth change — same landing path as `/midnite-brainstorm`.
 2. `git status` must be clean, with only those two files changed. Remove any scratch files. If
    anything unexpected is staged, **stop and show the user** rather than committing it.
 3. Report, terse: the doc path · `Refined: xN` · items `before → after` per theme · the opens
-   resolved · the commit/push result · and the one line that matters — **what a `/midnite-exec` run can now
+   resolved · the commit/push result · and the one line that matters — **what a `/midnite-create` run can now
    do without asking a question it would have had to ask before**.
 
 ---

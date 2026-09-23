@@ -18,7 +18,7 @@ const PLAN = {
   targetRoot: '/tmp/repo',
   templateVersion: '1.0.0',
   entries: [
-    { path: '.claude/skills/midnite-exec/SKILL.md', status: 'create' as const, bytes: 10 },
+    { path: '.claude/skills/midnite-create/SKILL.md', status: 'create' as const, bytes: 10 },
     { path: '.midnite/tasks/_INDEX.md', status: 'stale' as const, bytes: 20 },
     { path: 'CLAUDE.md', status: 'locally-edited' as const, bytes: 30 },
     { path: 'AGENTS.md', status: 'unchanged' as const, bytes: 40 },
@@ -40,7 +40,7 @@ describe('SetupDialog', () => {
     );
 
     expect(screen.getByText(/Reading the template/)).toBeDefined();
-    expect(await screen.findByText('.claude/skills/midnite-exec/SKILL.md')).toBeDefined();
+    expect(await screen.findByText('.claude/skills/midnite-create/SKILL.md')).toBeDefined();
     expect(screen.getByText('.midnite/tasks/_INDEX.md')).toBeDefined();
     expect(screen.getByText('CLAUDE.md')).toBeDefined();
     expect(screen.getByText('AGENTS.md')).toBeDefined();
@@ -78,7 +78,7 @@ describe('SetupDialog', () => {
 
     expect(apply).toHaveBeenCalledWith({
       repoId: 'r1',
-      paths: ['.claude/skills/midnite-exec/SKILL.md', '.midnite/tasks/_INDEX.md'],
+      paths: ['.claude/skills/midnite-create/SKILL.md', '.midnite/tasks/_INDEX.md'],
     });
   });
 
@@ -88,7 +88,7 @@ describe('SetupDialog', () => {
     apply.mockResolvedValue({
       ok: true,
       value: {
-        written: ['.claude/skills/midnite-exec/SKILL.md'],
+        written: ['.claude/skills/midnite-create/SKILL.md'],
         skipped: [{ path: '.midnite/tasks/_INDEX.md', reason: 'changed on disk since the plan was read' }],
       },
     });

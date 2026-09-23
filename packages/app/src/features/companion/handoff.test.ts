@@ -68,7 +68,7 @@ describe('the companion command list', () => {
     for (const id of COMPANION_COMMAND_IDS) {
       expect(COMMAND_SPOKEN_NAMES[id]).toBeTruthy();
       // Never the raw id or the skill string — `execAdhoc` read aloud is
-      // nonsense and `/midnite-exec-adhoc` is worse.
+      // nonsense and `/midnite-create-adhoc` is worse.
       expect(COMMAND_SPOKEN_NAMES[id]).not.toBe(id);
       expect(COMMAND_SPOKEN_NAMES[id]).not.toContain('/');
     }

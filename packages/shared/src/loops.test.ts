@@ -79,7 +79,7 @@ const loop: Pick<LoopDefinition, 'modifiers' | 'choices'> = {
 
 describe('composeLoopPrompt', () => {
   it('returns the base prompt alone when nothing is set', () => {
-    expect(composeLoopPrompt('/loop /midnite-exec', loop, {})).toBe('/loop /midnite-exec');
+    expect(composeLoopPrompt('/loop /midnite-create', loop, {})).toBe('/loop /midnite-create');
   });
 
   it('defaults every argument — an empty selection is a legal selection', () => {
@@ -674,7 +674,7 @@ describe('LoopRunRecordSchema', () => {
     loopId: 'automate',
     sessionId: 's1',
     startedAt: 1,
-    composedPrompt: '/loop /midnite-exec',
+    composedPrompt: '/loop /midnite-create',
     checkedModifierIds: [],
     status: 'running' as const,
   };

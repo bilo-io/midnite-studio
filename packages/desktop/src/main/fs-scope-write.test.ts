@@ -208,8 +208,8 @@ describe('ensureConfinedDirs', () => {
   it('creates every missing intermediate directory', async () => {
     root = await realpath(await mkdtemp(join(tmpdir(), 'mstudio-ensure-dirs-')));
 
-    expect(await ensureConfinedDirs(root, '.claude/skills/midnite-exec/SKILL.md')).toBe(true);
-    expect((await lstat(join(root, '.claude', 'skills', 'midnite-exec'))).isDirectory()).toBe(true);
+    expect(await ensureConfinedDirs(root, '.claude/skills/midnite-create/SKILL.md')).toBe(true);
+    expect((await lstat(join(root, '.claude', 'skills', 'midnite-create'))).isDirectory()).toBe(true);
   });
 
   it('is a no-op for a top-level path with no parent to create', async () => {

@@ -238,16 +238,16 @@ describe('applyScaffold', () => {
 
   it('writes files under directories that do not exist yet', async () => {
     const templateRoot = await track(
-      await makeTemplate({ '.claude/skills/midnite-exec/SKILL.md': 'the skill' }),
+      await makeTemplate({ '.claude/skills/midnite-create/SKILL.md': 'the skill' }),
     );
     const targetRoot = await track(await makeTarget());
 
     const result = await applyScaffold(templateRoot, targetRoot, [
-      '.claude/skills/midnite-exec/SKILL.md',
+      '.claude/skills/midnite-create/SKILL.md',
     ]);
 
-    expect(result.written).toEqual(['.claude/skills/midnite-exec/SKILL.md']);
-    expect(await readFile(join(targetRoot, '.claude/skills/midnite-exec/SKILL.md'), 'utf8')).toBe(
+    expect(result.written).toEqual(['.claude/skills/midnite-create/SKILL.md']);
+    expect(await readFile(join(targetRoot, '.claude/skills/midnite-create/SKILL.md'), 'utf8')).toBe(
       'the skill',
     );
   });

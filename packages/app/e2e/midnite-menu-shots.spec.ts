@@ -62,7 +62,7 @@ test('the Setup dialog, previewing a plan', async ({ page }) => {
         targetRoot: '/tmp/repo',
         templateVersion: '1.0.0',
         entries: [
-          { path: '.claude/skills/midnite-exec/SKILL.md', status: 'create', bytes: 512 },
+          { path: '.claude/skills/midnite-create/SKILL.md', status: 'create', bytes: 512 },
           { path: '.midnite/tasks/_INDEX.md', status: 'stale', bytes: 340 },
           { path: 'CLAUDE.md', status: 'locally-edited', bytes: 900 },
           { path: 'README.md', status: 'unchanged', bytes: 120 },

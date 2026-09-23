@@ -14,8 +14,8 @@ import { composeCardPrompt, composeSkillLaunchPrompt } from './board-derive';
 /**
  * The fallback menu's three entries (Phase 92 Theme D), in menu order.
  *
- * "Exec" resolves to `execAdhoc` (`/midnite-exec-adhoc`), not `execBacklog`
- * (`/midnite-exec`) — a Projects card is already a specific, identified
+ * "Exec" resolves to `execAdhoc` (`/midnite-create-adhoc`), not `execBacklog`
+ * (`/midnite-create`) — a Projects card is already a specific, identified
  * task, which is `execAdhoc`'s own brief ("build a one-off task described up
  * front"); `execBacklog`'s ("pick up the next unblocked backlog task")
  * presumes a `.midnite/tasks/` phase tracker a GitHub-only repo may not even
@@ -23,7 +23,7 @@ import { composeCardPrompt, composeSkillLaunchPrompt } from './board-derive';
  */
 const FALLBACK_MENU_SKILLS: readonly { id: AgentCommandId; label: string }[] = [
   { id: 'execAdhoc', label: 'Exec' },
-  { id: 'brainstorm', label: 'Brainstorm' },
+  { id: 'brainstorm', label: 'Ideate' },
   { id: 'refine', label: 'Refine' },
 ];
 
@@ -44,7 +44,7 @@ const FALLBACK_MENU_SKILLS: readonly { id: AgentCommandId; label: string }[] = [
  *    used once. No menu, no change in *when* it launches, only in what it
  *    sends.
  *  - **Unset:** opens a pointer-anchored `ContextMenu` with exactly three
- *    entries (Exec / Brainstorm / Refine). Picking one both launches with
+ *    entries (Exec / Ideate / Refine). Picking one both launches with
  *    that skill and persists it, so a second Play on the same card skips the
  *    menu from then on — the menu is how an unset card gets its first
  *    choice, not a prompt shown every time.

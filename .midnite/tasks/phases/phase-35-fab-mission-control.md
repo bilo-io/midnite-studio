@@ -61,8 +61,8 @@ The spine every other theme reads off; lands first.
       (a token, not a component — the renderer maps it), `color`, `agentId` (fixed `'claude'`
       this phase), `basePrompt`, and `modifiers: LoopModifier[]` where a modifier is
       `{ id, label, promptFragment, defaultOn }`.
-- [x] `DEFAULT_LOOPS` — the four existing tabs as data: Innovate (`/loop /midnite-brainstorm`),
-      Automate (`/loop /midnite-exec`), Watchdog (`/loop /midnite-address-issue`), Medic
+- [x] `DEFAULT_LOOPS` — the four existing tabs as data: Innovate (`/loop /midnite-ideate`),
+      Automate (`/loop /midnite-create`), Watchdog (`/loop /midnite-address-issue`), Medic
       (`/loop /pr-review`), each with its first honest modifiers — e.g. Watchdog: *"Watch
       dependabot PRs"*; Medic: *"Auto-approve PRs that pass review"*; Automate: *"Auto-merge
       approved PRs"*. Fragments are plain imperative sentences appended to the base prompt.

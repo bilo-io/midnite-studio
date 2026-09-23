@@ -20,7 +20,7 @@ slash-command template (`ctx.skills[id] ?? DEFAULT_AGENT_SKILLS[id]`) and compos
 is declared in [`ui-store.ts:1698`](../../../packages/app/src/store/ui-store.ts), labelled and
 iconed in [`agent-commands.ts`](../../../packages/app/src/features/agent/agent-commands.ts), and
 defaulted in [`DEFAULT_AGENT_SKILLS`](../../../packages/app/src/store/ui-store.ts) (`:1742`) —
-`execAdhoc: '/midnite-exec-adhoc'`, `brainstorm: '/midnite-brainstorm'`, `refine: '/midnite-refine'`
+`execAdhoc: '/midnite-create-adhoc'`, `brainstorm: '/midnite-ideate'`, `refine: '/midnite-refine'`
 among them. This is this app's **own, already-curated** skill catalogue; nothing reads
 `.claude/skills/` on disk to build one (confirmed — see Decisions), and
 [`agent-page.tsx:576-583`](../../../packages/app/src/features/settings/settings-pages/agent-page.tsx)'s
@@ -271,8 +271,8 @@ overrides of which three skills the fallback menu offers.
   ("enumerating `~/.claude/skills` would catch a typo, but it would also refuse every legitimate
   value that is not a bare skill"). Reusing `AgentCommandId` also means the detail-pane picker and
   the fallback menu draw from one list, never two that can drift.
-- **Resolved — "Exec" in the fallback menu resolves to `execAdhoc` (`/midnite-exec-adhoc`), not
-  `execBacklog` (`/midnite-exec`).** A Projects card is already a specific, identified task — the
+- **Resolved — "Exec" in the fallback menu resolves to `execAdhoc` (`/midnite-create-adhoc`), not
+  `execBacklog` (`/midnite-create`).** A Projects card is already a specific, identified task — the
   brief for `execAdhoc` is literally "build a one-off task described up front," while `execBacklog`'s
   is "pick up the *next unblocked* backlog task," which presumes a `.midnite/tasks/` phase tracker a
   GitHub-only repo may not even have. The card already picked the task; adhoc's own semantics match

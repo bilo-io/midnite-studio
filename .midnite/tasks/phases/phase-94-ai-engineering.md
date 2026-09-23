@@ -113,7 +113,7 @@ fact**, and let the loop, the skill catalogue and the graph all read it.
 > carries a symref fix (match `%(refname)`, not `%(refname:short)`, so `refs/remotes/origin/HEAD` is
 > not misread as a branch named `origin` **and pushed for deletion**) that
 > `.agents/skills/midnite-git-cleanup/cleanup.sh:143` and `.codex`'s copy still lack; and
-> [`.claude/skills/midnite-exec/SKILL.md:14`](../../../.claude/skills/midnite-exec/SKILL.md) points
+> [`.claude/skills/midnite-create/SKILL.md:14`](../../../.claude/skills/midnite-create/SKILL.md) points
 > at `.midnite/tasks/phases/` while the mirrors still point at the flat path the tracker abandoned.
 > **Nothing checks any of this** — no script, no moon task, no CI step, no test mentions `.codex` or
 > `.agents/skills` at all.
@@ -405,7 +405,7 @@ not a registry, a gate.
       *algorithm*, not its module — the script cannot import from `packages/desktop`. Hash the
       normalised body, not the file.
 - [ ] Fix the drift the gate will find on its first run, in this theme's PR: port the `cleanup.sh`
-      symref fix into `.agents` and `.codex`; port `midnite-exec`'s `.midnite/tasks/phases/` path and
+      symref fix into `.agents` and `.codex`; port `midnite-create`'s `.midnite/tasks/phases/` path and
       the dropped `open-decisions.md` reference. **List each ported fix in the PR body** — a silent
       mass re-sync is how a real behavioural difference gets flattened.
 - [ ] `templates/midnite/.template-version` is `1.0.0` and has been touched once, in `f3658b07`,
@@ -571,7 +571,7 @@ becomes context an agent can fetch and a run can be plotted on.
 - [`packages/app/src/features/knowledge/knowledge-filters-store.ts`](../../../packages/app/src/features/knowledge/knowledge-filters-store.ts) — the run-footprint highlight set (G).
 - [`packages/app/src/features/quick-access/quick-access-menu.tsx`](../../../packages/app/src/features/quick-access/quick-access-menu.tsx) — "four agent loops" → six (E).
 - [`moon.yml`](../../../moon.yml) · [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) — the `skills-check` task and its gate step (E).
-- [`.agents/skills/`](../../../.agents/skills) · [`.codex/skills/`](../../../.codex/skills) — the ported `cleanup.sh` symref fix and the `midnite-exec` path (E).
+- [`.agents/skills/`](../../../.agents/skills) · [`.codex/skills/`](../../../.codex/skills) — the ported `cleanup.sh` symref fix and the `midnite-create` path (E).
 - [`templates/midnite/README.md`](../../../templates/midnite/README.md) · `templates/midnite/.template-version` — twelve → thirteen, `1.0.0` → next (E).
 - [`CLAUDE.md`](../../../CLAUDE.md) · [`AGENTS.md`](../../../AGENTS.md) · [`GEMINI.md`](../../../GEMINI.md) — one new convention bullet, all three (H).
 

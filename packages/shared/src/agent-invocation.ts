@@ -21,7 +21,7 @@ export const DEFAULT_SKILL_EXECUTION_MODE: SkillExecutionMode = 'interactive';
  * whatever the target agent actually expects.
  *
  * Claude and Antigravity's `agy` both auto-import a project skill as a `/name`
- * slash command, so a stored prompt like `/midnite-exec` or `/loop /midnite-exec`
+ * slash command, so a stored prompt like `/midnite-create` or `/loop /midnite-create`
  * needs no change for either. Codex is the odd one out — it doesn't recognise
  * `/name` for a custom skill at all, only `$name` — so this rewrites every
  * leading `/token` to `$token` before it reaches a Codex session. Anything that

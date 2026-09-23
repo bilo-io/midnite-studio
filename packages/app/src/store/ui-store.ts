@@ -60,6 +60,7 @@ import { useFileEditorStore } from './file-editor-store';
 
 import { cycleBrowserLayout } from '../features/browser/browser-layouts';
 import { adoptRenamedPersistKey } from './persist-rename';
+import { renameLegacySkillsIn } from './migrate-skill-renames';
 
 /**
  * Collapse/expand/lock behaviour of the nav rail, mirroring `AppFrame`'s
@@ -1355,18 +1356,18 @@ export type UiState = {
    *
    * A setting rather than a constant because a skill is a *file in the user's
    * `~/.claude`* (or its `.agents`/`.codex` siblings)*, not something this app
-   * ships: `/midnite-exec`, `/midnite-brainstorm`, `/midnite-refine`,
+   * ships: `/midnite-create`, `/midnite-ideate`, `/midnite-refine`,
    * `/midnite-release-prep` and `/midnite-release-complete` are this
    * repository's own project skills, `/loop-pr-reviews` and `/loop-pr-feedback`
-   * are personal commands, and `/loop /midnite-exec` / `/loop /midnite-brainstorm`
+   * are personal commands, and `/loop /midnite-create` / `/loop /midnite-ideate`
    * wrap the generic `/loop` skill around two of the entries above — any of
    * them can be renamed, forked or replaced without the app knowing.
    * Hard-coding them would make the menu silently open a terminal on a command
    * that no longer exists.
    *
    * The values are whole prompts, not bare skill names, so a caller can point
-   * an entry at anything the agent accepts — `/midnite-exec`,
-   * `/midnite-exec --dry-run`, or a plain sentence — and the menu keeps
+   * an entry at anything the agent accepts — `/midnite-create`,
+   * `/midnite-create --dry-run`, or a plain sentence — and the menu keeps
    * working. Stored with the Claude/Antigravity `/name` prefix; when
    * {@link primaryAgent} is Codex, `startAgent` (`features/terminal/
    * start-agent.ts`) rewrites the leading `/` of each token to Codex's `$name`
@@ -1849,12 +1850,12 @@ export type RepoGroup = {
  * actually have. Settings → Agent can point any of them somewhere else.
  */
 export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
-  execBacklog: '/midnite-exec',
-  execAdhoc: '/midnite-exec-adhoc',
+  execBacklog: '/midnite-create',
+  execAdhoc: '/midnite-create-adhoc',
   addressIssue: '/midnite-address-issue',
-  brainstorm: '/midnite-brainstorm',
+  brainstorm: '/midnite-ideate',
   refine: '/midnite-refine',
-  execSwarm: '/midnite-exec-swarm',
+  execSwarm: '/midnite-swarm',
   prReview: '/pr-review',
   prFeedback: '/pr-feedback',
   triage: '/midnite-triage',
@@ -1871,11 +1872,11 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   loopPatrol: '/loop',
   loopPrReview: '/loop /pr-review',
   loopPrFeedback: '/loop /pr-feedback',
-  loopExecBacklog: '/loop /midnite-exec',
-  loopExecAdhoc: '/loop /midnite-exec-adhoc',
+  loopExecBacklog: '/loop /midnite-create',
+  loopExecAdhoc: '/loop /midnite-create-adhoc',
   loopAddressIssue: '/loop /midnite-address-issue',
-  loopBrainstorm: '/loop /midnite-brainstorm',
-  loopOverhaul: '/loop /midnite-exec',
+  loopBrainstorm: '/loop /midnite-ideate',
+  loopOverhaul: '/loop /midnite-create',
 };
 
 /**
@@ -2786,7 +2787,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 23,
+      version: 24,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2976,6 +2977,9 @@ export const useUiStore = create<UiState>()(
        * `forgeSyncGhAuthSwitch = true` (Phase 90 Theme C) — both default on,
        * matching a fresh install, since neither setting existed before this
        * version for a pre-v23 blob to have turned off.
+       * v23 → v24: rewrite `agentSkills` prompts naming the renamed midnite
+       * skills (`midnite-exec` → `midnite-create` and siblings) — see
+       * `store/migrate-skill-renames.ts`.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3120,6 +3124,9 @@ export const useUiStore = create<UiState>()(
         if (version < 23) {
           state.forgeScopeReposToActiveAccount = true;
           state.forgeSyncGhAuthSwitch = true;
+        }
+        if (version < 24) {
+          state.agentSkills = renameLegacySkillsIn(state.agentSkills);
         }
         return state as PersistedUi;
       },

@@ -2968,10 +2968,10 @@ export function buildMockBridge(data: MockFixtures) {
           value: {
             copied: [
               'midnite-address-issue',
-              'midnite-brainstorm',
-              'midnite-exec',
-              'midnite-exec-adhoc',
-              'midnite-exec-swarm',
+              'midnite-ideate',
+              'midnite-create',
+              'midnite-create-adhoc',
+              'midnite-swarm',
               'midnite-git-cleanup',
               'midnite-git-report',
               'midnite-refine',

@@ -148,7 +148,7 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
   },
   {
     id: 'brainstorm',
-    label: 'Brainstorm',
+    label: 'Ideate',
     icon: LuLightbulb,
     category: 'tasks',
     hint: 'Riff on a new phase and write the doc for it.',
@@ -271,7 +271,7 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
   },
   {
     id: 'loopBrainstorm',
-    label: 'Loop: Brainstorm',
+    label: 'Loop: Ideate',
     icon: LuListTodo,
     category: 'loops',
     hint: 'Riff on a new phase and write the doc for it, on a loop.',

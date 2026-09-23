@@ -30,7 +30,7 @@ const record = (over: Partial<LoopRunRecord> = {}): LoopRunRecord => ({
   loopId: 'automate',
   sessionId: 's1',
   startedAt: 1,
-  composedPrompt: '/loop /midnite-exec',
+  composedPrompt: '/loop /midnite-create',
   checkedModifierIds: [],
   status: 'running',
   ...over,
@@ -65,7 +65,7 @@ describe('the in-memory ledger is capped, not just the disk copy (Phase 45 Theme
       await startLoopRun({
         loopId: 'automate',
         sessionId: `s-${i}`,
-        composedPrompt: '/loop /midnite-exec',
+        composedPrompt: '/loop /midnite-create',
         checkedModifierIds: [],
       });
     }
@@ -126,7 +126,7 @@ describe('noteSessionExit', () => {
     await startLoopRun({
       loopId: 'automate',
       sessionId: 's-loop',
-      composedPrompt: '/loop /midnite-exec',
+      composedPrompt: '/loop /midnite-create',
       checkedModifierIds: [],
     });
 
@@ -142,7 +142,7 @@ describe('a Stop racing the pty exit it causes', () => {
     await startLoopRun({
       loopId: 'innovate',
       sessionId: 's-innovate',
-      composedPrompt: '/loop /midnite-brainstorm',
+      composedPrompt: '/loop /midnite-ideate',
       checkedModifierIds: [],
     });
 

@@ -5,7 +5,7 @@ carry a recommendation.
 
 Every agent surface in this app is a terminal you type into. The FAB opens four loops
 ([Phase 35](phase-35-fab-mission-control.md)), the quick-access menu opens Loops and Notes
-([Phase 58](phase-58-notes-and-the-menu.md)), a note hands itself to `/midnite-exec-adhoc`, a board
+([Phase 58](phase-58-notes-and-the-menu.md)), a note hands itself to `/midnite-create-adhoc`, a board
 card runs an agent ([Phase 41](phase-41-agentic-kanban.md)), and the status bar has a popover whose
 whole body is still the string *"Midnite Assistant Menu (Blank for now)"*. All of it is silent, and
 all of it waits for a keyboard.
@@ -311,8 +311,8 @@ From "start a swarm" to hearing what the swarm did.
       verb, plus negatives ("swarm of bees" is freeform).
 - [x] `kind: 'command'` → `useSkillHandoff()({ skillId: id, repo, body, title })`. The returned
       `TerminalSession.id` is stored as `activeHandoff`, the companion speaks the command it typed
-      ("I've typed `/midnite-exec-adhoc` in a new session — press Return when you're ready", or
-      with hands-free on, "running `/midnite-exec-swarm` now") and transitions to `handoff`.
+      ("I've typed `/midnite-create-adhoc` in a new session — press Return when you're ready", or
+      with hands-free on, "running `/midnite-swarm` now") and transitions to `handoff`.
       `autoSend` is `companionHandsFree && providerConfigured` and never otherwise.
 - [x] `kind: 'freeform'` → a **headless summariser/router call** through a new
       `mstudio:companion:ask` channel handled in `main/companion/ask.ts` with `runProcess` on the
