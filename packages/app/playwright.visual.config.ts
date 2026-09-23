@@ -82,6 +82,22 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const PORT = Number(process.env.MSTUDIO_VISUAL_PORT ?? 5276);
 
+/**
+ * `packages/website`'s own fixed dev port (`vite.config.ts`'s `server.port`,
+ * `strictPort: true`) — Phase 90 Theme K's `pricing-page.spec.ts` is the one
+ * visual baseline the phase asks for, and the pricing page lives on the
+ * public marketing site, not in this package. The website is deliberately
+ * off the app's dependency graph (see CLAUDE.md's package-boundaries
+ * section — no shared runtime, no shared bridge, no shared build), but that
+ * boundary is about *source* imports, not about which `webServer` a test
+ * config starts: `scripts/visual-budget.mjs` counts baselines under
+ * `packages/app/e2e/visual/__screenshots__` specifically, so the committed
+ * corpus and its ~100/3MB cap stay in the one place `visual-budget.mjs` and
+ * the `visual` CI job already know to look, rather than a second, uncounted
+ * screenshots directory under `packages/website`.
+ */
+const WEBSITE_PORT = Number(process.env.MSTUDIO_VISUAL_WEBSITE_PORT ?? 5174);
+
 export default defineConfig({
   testDir: './e2e/visual',
   /*
@@ -120,12 +136,24 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    command: `pnpm exec vite --port ${PORT} --strictPort`,
-    url: `http://localhost:${PORT}`,
-    // Never reuse a server this config did not start — the same collision
-    // hazard the functional and perf configs both guard against.
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: `pnpm exec vite --port ${PORT} --strictPort`,
+      url: `http://localhost:${PORT}`,
+      // Never reuse a server this config did not start — the same collision
+      // hazard the functional and perf configs both guard against.
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      // `cwd` resolves relative to this config file's own directory
+      // (`packages/app`), so `../website` is `packages/website` — its own
+      // `dev` script, unmodified, on its own fixed port.
+      command: 'pnpm run dev',
+      cwd: '../website',
+      url: `http://localhost:${WEBSITE_PORT}`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+  ],
 });

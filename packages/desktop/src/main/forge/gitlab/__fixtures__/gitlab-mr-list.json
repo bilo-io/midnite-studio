@@ -1,0 +1,71 @@
+[
+  {
+    "id": 88213,
+    "iid": 214,
+    "project_id": 5501,
+    "title": "Add rate limiter to fetch pipeline",
+    "description": "Caps concurrent fetches per host.",
+    "state": "opened",
+    "draft": false,
+    "work_in_progress": false,
+    "target_branch": "main",
+    "source_branch": "feature/fetch-rate-limiter",
+    "author": { "id": 901, "username": "bilo", "name": "Bilo Lwabona" },
+    "web_url": "https://gitlab.com/midnite/studio/-/merge_requests/214",
+    "merged_at": null,
+    "closed_at": null,
+    "created_at": "2026-09-10T14:03:21.000Z",
+    "updated_at": "2026-09-11T09:12:40.000Z",
+    "head_pipeline": {
+      "id": 55021,
+      "status": "success",
+      "source": "push"
+    }
+  },
+  {
+    "id": 88109,
+    "iid": 207,
+    "project_id": 5501,
+    "title": "Fix flaky retry backoff test",
+    "description": "",
+    "state": "merged",
+    "draft": false,
+    "work_in_progress": false,
+    "target_branch": "main",
+    "source_branch": "fix/retry-backoff-flake",
+    "author": { "id": 733, "username": "someone-else", "name": "Someone Else" },
+    "web_url": "https://gitlab.com/midnite/studio/-/merge_requests/207",
+    "merged_at": "2026-09-06T17:45:11.000Z",
+    "closed_at": "2026-09-06T17:45:11.000Z",
+    "created_at": "2026-09-05T08:00:00.000Z",
+    "updated_at": "2026-09-06T17:45:11.000Z",
+    "head_pipeline": {
+      "id": 54890,
+      "status": "success",
+      "source": "push"
+    }
+  },
+  {
+    "id": 87990,
+    "iid": 199,
+    "project_id": 5501,
+    "title": "WIP: experimental cache layer",
+    "description": "Draft — do not merge.",
+    "state": "closed",
+    "draft": true,
+    "work_in_progress": true,
+    "target_branch": "main",
+    "source_branch": "experiment/cache-layer",
+    "author": { "id": 901, "username": "bilo", "name": "Bilo Lwabona" },
+    "web_url": "https://gitlab.com/midnite/studio/-/merge_requests/199",
+    "merged_at": null,
+    "closed_at": "2026-08-29T16:00:00.000Z",
+    "created_at": "2026-08-20T11:22:00.000Z",
+    "updated_at": "2026-08-29T16:00:00.000Z",
+    "head_pipeline": {
+      "id": 54501,
+      "status": "failed",
+      "source": "push"
+    }
+  }
+]

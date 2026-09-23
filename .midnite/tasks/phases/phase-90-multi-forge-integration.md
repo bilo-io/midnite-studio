@@ -599,35 +599,45 @@ do anything here yet, just prepare the pricing page."*
       page shows three columns and a single "more in higher tiers, coming later" footnote; it does
       **not** invent a priced fourth column for features that do not ship behind a paywall today.
 
-### K — Verification (L)
+### K — Verification (L) ✅ DONE (PR #511, 2026-09-22)
 
-- [ ] Per-provider mapper tests against **committed fixture payloads** — one captured response per
+- [x] Per-provider mapper tests against **committed fixture payloads** — one captured response per
       endpoint per provider, in `__fixtures__/` beside each adapter, the way
       [`gh-parse.test.ts`](../../../packages/desktop/src/main/forge/gh-parse.test.ts) already works.
       The mapping tables (statuses, conclusions, review decisions, work-item state categories) are
       where this phase's bugs will live, and they are pure functions, so they are vitest tests and
       nothing else. **Per [`docs/TESTING.md`](../../../docs/TESTING.md), none of this is e2e.**
-- [ ] `secret-vault.test.ts` for the extracted primitive, plus the untouched
+      Landed as `__fixtures__/*-pr-list.json` per provider run end to end through the real read
+      surface (`parsePullList`/`listPulls`), plus a cross-provider comparison test — see `done.md`.
+- [x] `secret-vault.test.ts` for the extracted primitive, plus the untouched
       `credential-vault.test.ts` as the proof the extraction was behaviour-preserving.
-- [ ] A test that **no token ever crosses the bridge**: assert the `ForgeAccount` schema has no token
+      **Superseded before Theme K began**, per `forge-account-vault.ts`'s own docblock: Phase 76
+      Theme D's `main/secure-store.ts` landed first and `credential-vault.ts` is already a thin
+      binding over it, unchanged — there is no separate `secret-vault.ts` to extract or test.
+- [x] A test that **no token ever crosses the bridge**: assert the `ForgeAccount` schema has no token
       field and that the accounts handler's response parses against it. Cheap, and it is the one
       invariant a careless later change would break silently.
-- [ ] A store-level test for the switch: two accounts, two repos, switch, and assert the query keys
+      Landed as `forge-account-no-token-wire.test.ts`, wiring the *real* registry behind the *real*
+      handler for all four providers, plus the pre-existing schema-shape assertion.
+- [x] A store-level test for the switch: two accounts, two repos, switch, and assert the query keys
       and the visible repo set both move — the cache-bleed case Theme C names as the phase's main
-      risk.
-- [ ] One **functional e2e** and one only: the first-run wizard's optional step is skippable and the
+      risk. Extended `use-switch-forge-account.test.tsx` to a table over all 16 forge data query keys.
+- [x] One **functional e2e** and one only: the first-run wizard's optional step is skippable and the
       app reaches its normal state afterwards. It qualifies under the decision rule because it is a
       multi-view flow with focus order and a modal — name that in the spec's header comment.
-- [ ] One **visual baseline** and one only: the pricing page at its three-column breakpoint. It is
+      Landed as `onboarding-wizard.spec.ts`.
+- [x] One **visual baseline** and one only: the pricing page at its three-column breakpoint. It is
       appearance, which is what `moon run app:visual` is for, and it is one baseline against the ~100
-      cap.
-- [ ] `moon run :typecheck :lint :test` green; `scripts/e2e-budget.mjs` still passes with one added
+      cap. Landed as `pricing-page.spec.ts` (`playwright.visual.config.ts` gains a second `webServer`
+      for the website's own dev server); the committed `-linux.png` itself needs the Docker regen
+      recipe this session's sandbox could not run — see `outstanding.md`.
+- [x] `moon run :typecheck :lint :test` green; `scripts/e2e-budget.mjs` still passes with one added
       e2e test and one added baseline.
 - [ ] **Human pass, three parts:** a real GitLab repo, a real Bitbucket repo and a real Azure DevOps
       repo, each with a real PAT, each showing its four views in whatever state its capability matrix
-      declares. No fixture substitutes for this.
+      declares. No fixture substitutes for this. **Deferred — see `outstanding.md`.**
 - [ ] **Human pass:** `gh auth switch` from inside the app changes what `gh auth status` reports in a
-      terminal beside it, and switching back restores it.
+      terminal beside it, and switching back restores it. **Deferred — see `outstanding.md`.**
 
 ### L — The account switcher, and where it lives (M)
 
