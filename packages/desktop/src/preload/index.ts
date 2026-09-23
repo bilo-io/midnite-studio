@@ -121,6 +121,7 @@ const bridge: Pick<
   | 'forge'
   | 'forgeAccounts'
   | 'forgeProject'
+  | 'ai'
   | 'shell'
   | 'clipboard'
   | 'ops'

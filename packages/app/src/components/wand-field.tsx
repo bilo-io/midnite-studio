@@ -78,7 +78,10 @@ export function WandField({
             setUndoValue(before);
             onChange(result.value.text);
           } else {
-            setError(result.message || 'The wand had nothing to say.');
+            // `improveField` only ever answers `{ok:false, kind:'error'}` —
+            // never `'conflict'` (there is no git op here) — but the shared
+            // `GitOpResult` envelope carries both arms, so this still guards.
+            setError(result.kind === 'error' ? result.message : 'The wand had nothing to say.');
           }
         },
         onError: () => {
