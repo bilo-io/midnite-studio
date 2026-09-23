@@ -69,6 +69,7 @@ export type ViewId = (typeof VIEW_IDS)[number];
  */
 export const SETTINGS_PAGE_IDS = [
   'appearance',
+  'activity',
   'privacy',
   'graph',
   'diff',

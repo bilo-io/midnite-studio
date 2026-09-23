@@ -230,6 +230,7 @@ export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
  */
 export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: SettingsGroupId }[] = [
   { id: 'appearance', label: 'Appearance', group: 'general' },
+  { id: 'activity', label: 'Activity', group: 'general' },
   { id: 'privacy', label: 'Privacy', group: 'general' },
   { id: 'sidebar', label: 'Sidebar', group: 'general' },
   { id: 'search', label: 'Search', group: 'general' },
