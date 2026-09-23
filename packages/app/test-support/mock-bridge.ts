@@ -1696,6 +1696,10 @@ export function buildMockBridge(data: MockFixtures) {
       switch: async (req: { id: string | null }) => ({ ok: true, activeAccountId: req.id }),
       capabilities: async (req: { kind: ForgeKind }): Promise<ForgeCapability> => {
         const level = req.kind === 'github' ? ('full' as const) : ('none' as const);
+        // Phase 95 Theme D's per-operation matrix — mirrors `level`: every op
+        // on for `github`, off otherwise, matching `FULL_OPS`/`NO_OPS` in
+        // `forge-account.ts`.
+        const on = level === 'full';
         return {
           pulls: level,
           issues: level,
@@ -1704,6 +1708,18 @@ export function buildMockBridge(data: MockFixtures) {
           threadResolution: level,
           requestChanges: level,
           repoListing: level,
+          ops: {
+            createIssue: on,
+            editIssue: on,
+            deleteIssue: on,
+            createProject: on,
+            editProject: on,
+            deleteProject: on,
+            addProjectItem: on,
+            removeProjectItem: on,
+            linkBlockedBy: on,
+            linkSubIssue: on,
+          },
         };
       },
       reachableRepos: async () =>

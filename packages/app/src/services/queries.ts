@@ -940,6 +940,20 @@ export function useForgeCapabilities(kind: ForgeKind) {
         threadResolution: 'none',
         requestChanges: 'none',
         repoListing: 'none',
+        // Phase 95 Theme D's per-operation matrix — every op off, matching
+        // `NO_CAPABILITY`'s own row for a kind with no adapter at all.
+        ops: {
+          createIssue: false,
+          editIssue: false,
+          deleteIssue: false,
+          createProject: false,
+          editProject: false,
+          deleteProject: false,
+          addProjectItem: false,
+          removeProjectItem: false,
+          linkBlockedBy: false,
+          linkSubIssue: false,
+        },
       },
     staleTime: Infinity,
   });
