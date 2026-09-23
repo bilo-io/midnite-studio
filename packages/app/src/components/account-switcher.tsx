@@ -29,7 +29,8 @@ import { UserAvatar } from './user-avatar';
  * `app.tsx` mounts exactly one of these, at the slot `forgeSwitcherPlacement`
  * names. The menu is the shared `ContextMenu` — no new menu primitive — and
  * a row's click is `useSwitchForgeAccount`, so Theme C's cancel-then-
- * invalidate, repo scoping and gated `gh auth switch` all come with it.
+ * invalidate, repo scoping, gated `gh auth switch` and the Decisions
+ * section's "toast what it hid, with an undo" all come with it.
  *
  * With no account at all it is an "Add account" placeholder rather than
  * nothing: this is the one path to adding an account outside Settings, and

@@ -48,7 +48,10 @@ import type {
 } from '@midnite/studio-shared';
 import { pickForgeRemote } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 
+import { useToasts } from '../components/toast-host';
+import { countHiddenReposForAccount } from '../features/repos/repo-visibility';
 import { useUiStore } from '../store/ui-store';
 import { bridge } from './bridge';
 
@@ -818,15 +821,41 @@ const isForgeDataQuery = (queryKey: readonly unknown[]): boolean =>
 /**
  * Moves the active-account pointer. Theme B's whole scope for "switching" —
  * see `forgeAccounts.switch`'s own bridge docblock for what Theme C adds on
- * top of this same call.
+ * top of this same call, and the Decisions section on
+ * `forge.scopeReposToActiveAccount` (`.midnite/tasks/phases/phase-90-…md`)
+ * for the toast below, which Theme L shipped the switch without.
+ *
+ * The toast logic lives in this HOOK-LEVEL `onSuccess` rather than in a
+ * per-call `mutate(id, { onSuccess })` at each of the three call sites
+ * (`account-switcher.tsx`, `accounts-page.tsx`, `palette.tsx`) — and that is
+ * not a style choice. `AccountSwitcherMenu`'s row click closes the menu
+ * (`onSelect(); onClose();`, `context-menu.tsx`) in the same tick, which
+ * unmounts the component that called `.mutate()` before this mutation's
+ * promise ever settles. TanStack Query's per-call callbacks are gated on the
+ * observer still having a listener (`MutationObserver#notify`'s
+ * `this.hasListeners()` check) — a hook-level `onSuccess`, baked into the
+ * `Mutation` itself at `.mutate()` time, is not, and fires regardless of
+ * which component (if any) is still mounted to hear it.
  */
 export function useSwitchForgeAccount() {
   const client = useQueryClient();
   const setForgeActiveAccountId = useUiStore((s) => s.setForgeActiveAccountId);
-  return useMutation({
+  const toasts = useToasts();
+  // Set true immediately before an Undo action re-invokes `mutation.mutate`
+  // below, and read (then cleared) by `onMutate` — the one signal that
+  // reaches hook-level `onSuccess` reliably regardless of which component is
+  // still mounted, which is what keeps an undone switch from re-toasting.
+  const silentRef = useRef(false);
+
+  const mutation = useMutation({
     mutationFn: async (id: string | null) =>
       (await bridge()?.forgeAccounts.switch({ id })) ?? { ok: false, activeAccountId: null },
-    onSuccess: async (result) => {
+    onMutate: () => {
+      const silent = silentRef.current;
+      silentRef.current = false;
+      return { previousId: useUiStore.getState().forgeActiveAccountId, silent };
+    },
+    onSuccess: async (result, _id, mutateContext) => {
       if (result.ok) {
         setForgeActiveAccountId(result.activeAccountId);
         /*
@@ -847,10 +876,38 @@ export function useSwitchForgeAccount() {
         */
         await client.cancelQueries({ predicate: (query) => isForgeDataQuery(query.queryKey) });
         await client.invalidateQueries({ predicate: (query) => isForgeDataQuery(query.queryKey) });
+
+        if (!mutateContext?.silent && result.activeAccountId) {
+          const account = useUiStore
+            .getState()
+            .forgeAccounts.find((a) => a.id === result.activeAccountId);
+          if (account) {
+            const hiddenCount = await countHiddenReposForAccount(account);
+            if (hiddenCount > 0) {
+              const noun = hiddenCount === 1 ? 'repository' : 'repositories';
+              const previousId = mutateContext?.previousId ?? null;
+              toasts.show({
+                message: `Switched to ${account.login} (${account.kind}) · ${hiddenCount} ${noun} hidden`,
+                action: {
+                  label: 'Undo',
+                  // Straight back through this same mutation, not a fresh
+                  // one — Theme C's cancel/invalidate applies to the undo
+                  // too. `silentRef` is what keeps this one un-toasted.
+                  onAction: () => {
+                    silentRef.current = true;
+                    mutation.mutate(previousId);
+                  },
+                },
+              });
+            }
+          }
+        }
       }
       void client.invalidateQueries({ queryKey: keys.forgeAccounts });
     },
   });
+
+  return mutation;
 }
 
 /**

@@ -1,6 +1,37 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-23 — Phase 90 (ad hoc, follow-up to Theme L) — the account-switch toast
+
+[PR #518](https://github.com/bilo-io/midnite-studio/pull/518).
+
+Theme L (PR #516) shipped the switch and the hidden-repos line but not the toast the phase doc's
+Decisions section asks for ("should toast what it hid, once, with an undo") — that line's own log
+entry said so plainly: "Not built: a 'what the switch hid' toast — the spec said 'still toasts',
+but none exists." This PR builds it, in `useSwitchForgeAccount`'s own hook-level `onSuccess`
+(`services/queries.ts`) rather than a per-call callback at each of the three switch entry points
+(the account-switcher menu, Settings ▸ Accounts' "Make active", the palette's "Switch to…" rows) —
+deliberately: `AccountSwitcherMenu`'s row click closes the menu in the same tick
+(`onSelect(); onClose();`, `context-menu.tsx`), unmounting the component that called `.mutate()`
+before the mutation settles, and TanStack Query only fires a *per-call* `mutate(id, { onSuccess })`
+while the observer still has a listener — a hook-level `onSuccess`, baked into the `Mutation` at
+call time, fires regardless. The toast reads "Switched to `<login>` (`<kind>`) · N repositories
+hidden", shown only for N > 0, N computed by a new `countHiddenReposForAccount` (a leaf module,
+`features/repos/repo-visibility.ts`, split out of `forge-account-scope.ts` so `services/queries.ts`
+could depend on it without a cycle — `forge-account-scope.ts` still re-exports
+`isRepoVisibleForAccount`/`ReachableSlug` for its own existing importers). Undo re-invokes the same
+mutation with the previous account id, silenced by a `useRef` flag read inside `onMutate` so the
+undo itself never re-toasts; "once" means once per switch, not once ever — switching back and forth
+toasts again each time. `test-support/mock-bridge.ts`'s `forgeAccounts.switch` actually moves the
+pointer now (echoing the id back as `ok: true`) instead of an unconditional stub failure, and
+`reachableRepos` answers `unsupported`, both previously untested by any `.bridge.test.tsx` file —
+needed to exercise a real switch through the palette's own harness. Tests: a dedicated
+`useSwitchForgeAccount` describe block (fires with the right count and pluralisation, silent at
+N = 0, Undo restores the previous account without re-toasting, toasts again on a second switch,
+silent on a failed switch) plus one integration test per entry point
+(`account-switcher.test.tsx`, `accounts-page.test.tsx`, `palette.bridge.test.tsx`) proving the real
+component wiring, not just the hook in isolation.
+
 ## 2026-09-23 — Phase 90 Theme L — the account switcher, and where it lives
 
 [PR #516](https://github.com/bilo-io/midnite-studio/pull/516).

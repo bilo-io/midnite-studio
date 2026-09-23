@@ -658,8 +658,12 @@ is already on the bridge.
       `gh auth switch` from Theme C all come for free).
 - [x] **A hidden-repos line** under the account rows: "N repositories hidden for this account" with a
       toggle bound to `forge.scopeReposToActiveAccount`, reusing the same visibility count
-      `useAccountScopedRepos` already computes. Rendered only when N > 0; the switch still toasts what
-      it hid, per the scoping decision below.
+      `useAccountScopedRepos` already computes. Rendered only when N > 0. **The switch's own toast —
+      "per the scoping decision below" — did not actually land with this theme**, despite the line
+      above once claiming it did; it shipped as a follow-up ad hoc PR (`useSwitchForgeAccount`'s own
+      `onSuccess`, `services/queries.ts`), landed once per switch across all three entry points
+      (this menu, Settings ▸ Accounts, the palette rows below), with an Undo back to the previous
+      account. See the Decisions section's now-resolved entry.
 - [x] **Footer actions**: `Add account…` (opens Settings ▸ Accounts with the add form focused) and
       `Manage accounts…` (opens Settings ▸ Accounts) — today's click-through, demoted to a menu item.
 - [x] **Zero-account state: an `Add account` affordance**, not nothing. A neutral placeholder avatar
@@ -877,10 +881,13 @@ what was rejected, and on what evidence.
   work repo under one identity beside a personal one, both argue for pinning an account to a repo.
   *Recommendation:* **no, not in this phase.** It doubles the switching model's state and the global
   switch covers the case the human actually described. Revisit only if a real repo demands it.
-- **Open — should `forge.scopeReposToActiveAccount` default on or off?** *Recommendation:* **on**,
-  because "hide all repos that do not belong to that user" is the human's own phrasing. But it is the
-  setting most likely to surprise someone who opened ten repos across two identities, so the switch
-  should toast what it hid, once, with an undo.
+- **Resolved — `forge.scopeReposToActiveAccount` defaults on**, because "hide all repos that do not
+  belong to that user" is the human's own phrasing. It is the setting most likely to surprise someone
+  who opened ten repos across two identities, so the switch was meant to toast what it hid, once, with
+  an undo — Theme L shipped the switch and the hidden-repos line but not the toast itself; it landed
+  as a follow-up ad hoc PR, in `useSwitchForgeAccount`'s own `onSuccess` (`services/queries.ts`), so
+  every entry point (the account-switcher menu, Settings ▸ Accounts, the palette's "Switch to…" rows)
+  gets it for free.
 - **Resolved (Theme L, 2026-09-23) — the user chooses:** `forge.switcherPlacement`, default `titlebar-right`, with `titlebar-left`, `rail-top`, `rail-bottom` and `hidden`. The original question, kept for context: **where does the active-account avatar actually live?** *Recommendation:* the title bar,
   right cluster, beside the existing sync controls — it is global state, and the rail is per-view.
   Worth one screenshot before committing to it; `titlebar-status/` is about CI, not identity, so this

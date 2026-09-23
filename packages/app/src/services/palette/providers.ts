@@ -240,7 +240,8 @@ export function createProjectBoardsSource(
  * are is not an action.
  *
  * `onSwitch` is the caller's `useSwitchForgeAccount().mutate`, so a palette
- * switch takes exactly the path a menu click does.
+ * switch takes exactly the path a menu click does — cancel-then-invalidate,
+ * repo scoping, gated `gh auth switch` and the hidden-repos toast included.
  */
 export function createForgeAccountsSource(
   accounts: readonly ForgeAccount[],
