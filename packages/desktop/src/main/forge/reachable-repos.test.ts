@@ -2,9 +2,14 @@ import type { ForgeAccount } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { forgeAccountToken } from './forge-accounts';
+import { runInShell } from './github/gh-shell';
 import { listReachableRepos } from './reachable-repos';
 
 vi.mock('./forge-accounts', () => ({ forgeAccountToken: vi.fn() }));
+vi.mock('./github/gh-shell', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./github/gh-shell')>()),
+  runInShell: vi.fn(),
+}));
 
 function account(overrides: Partial<ForgeAccount> = {}): ForgeAccount {
   return {
@@ -50,6 +55,9 @@ describe('listReachableRepos — gitlab', () => {
             http_url_to_repo: 'https://gitlab.example/group/subgroup/project.git',
             web_url: 'https://gitlab.example/group/subgroup/project',
             visibility: 'private',
+            last_activity_at: '2026-08-30T08:00:00.000Z',
+            star_count: 3,
+            default_branch: 'develop',
           },
           {
             path_with_namespace: 'someone/public-repo',
@@ -71,6 +79,9 @@ describe('listReachableRepos — gitlab', () => {
         url: 'https://gitlab.example/group/subgroup/project.git',
         private: true,
         webUrl: 'https://gitlab.example/group/subgroup/project',
+        updatedAt: '2026-08-30T08:00:00.000Z',
+        stars: 3,
+        defaultBranch: 'develop',
       },
       {
         owner: 'someone',
@@ -156,5 +167,62 @@ describe('listReachableRepos — azure', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe('error');
+  });
+});
+
+describe('listReachableRepos — github', () => {
+  const gh = account({ kind: 'github', id: 'github:github.com:me', host: 'github.com', delegated: 'gh', hasToken: false });
+
+  function shellOutput(payload: unknown) {
+    const output = JSON.stringify(payload);
+    return { output, stdout: output, stderr: '', exitCode: 0 };
+  }
+
+  it('asks gh for the metadata fields in the same one listing call', async () => {
+    vi.mocked(runInShell).mockResolvedValue(shellOutput([]));
+    await listReachableRepos(gh);
+    const command = vi.mocked(runInShell).mock.calls[0]?.[0] ?? '';
+    expect(command).toContain('gh repo list --json nameWithOwner,url,isPrivate,pushedAt,stargazerCount,defaultBranchRef,languages');
+  });
+
+  it('maps pushedAt, stars, default branch and languages (largest first)', async () => {
+    vi.mocked(runInShell).mockResolvedValue(
+      shellOutput([
+        {
+          nameWithOwner: 'me/app',
+          url: 'https://github.com/me/app',
+          isPrivate: true,
+          pushedAt: '2026-09-01T10:00:00Z',
+          stargazerCount: 12,
+          defaultBranchRef: { name: 'main' },
+          languages: [
+            { size: 100, node: { name: 'CSS' } },
+            { size: 900, node: { name: 'TypeScript' } },
+            { size: 5, node: {} },
+          ],
+        },
+        // An empty repo: no default branch, no languages — the optional keys stay absent.
+        { nameWithOwner: 'me/empty', url: 'https://github.com/me/empty', isPrivate: false, defaultBranchRef: null, languages: [] },
+      ]),
+    );
+    const result = await listReachableRepos(gh);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.repos[0]).toEqual({
+      owner: 'me',
+      name: 'app',
+      fullName: 'me/app',
+      url: 'https://github.com/me/app',
+      private: true,
+      webUrl: 'https://github.com/me/app',
+      updatedAt: '2026-09-01T10:00:00Z',
+      stars: 12,
+      defaultBranch: 'main',
+      languages: [
+        { name: 'TypeScript', size: 900 },
+        { name: 'CSS', size: 100 },
+      ],
+    });
+    expect(Object.keys(result.repos[1] ?? {}).sort()).toEqual(['fullName', 'name', 'owner', 'private', 'url', 'webUrl']);
   });
 });

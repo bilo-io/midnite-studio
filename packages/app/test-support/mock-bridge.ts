@@ -2,6 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import type {
   BatteryReading,
   ForgeAccount,
+  ReachableRepo,
   ForgeCapability,
   ForgeKind,
   Note,
@@ -616,6 +617,9 @@ export type MockFixtures = {
    * `seedUiState({ forgeActiveAccountId })`.
    */
   forgeAccounts?: ForgeAccount[];
+  /** Rows `forgeAccounts.reachableRepos` answers with, for any account.
+   *  Omitted, it answers `unsupported` (see the `forgeAccounts` mock). */
+  reachableRepos?: ReachableRepo[];
   /**
    * Seeds the workflows domain's initial roster (Phase 43), read once into
    * the mock's own mutable array the way `terminalSessions` is. Named
@@ -1702,7 +1706,10 @@ export function buildMockBridge(data: MockFixtures) {
           repoListing: level,
         };
       },
-      reachableRepos: async () => ({ ok: false as const, reason: 'unsupported' as const }),
+      reachableRepos: async () =>
+        data.reachableRepos
+          ? { ok: true as const, repos: data.reachableRepos }
+          : { ok: false as const, reason: 'unsupported' as const },
     },
     /*
         ProjectV2 (Phase 40 Theme G), its own IPC namespace in the real

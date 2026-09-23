@@ -6,7 +6,6 @@ import {
   LuCircleUserRound,
   LuCloudDownload,
   LuInfo,
-  LuLock,
   LuPlus,
   LuTrash2,
 } from 'react-icons/lu';
@@ -33,6 +32,7 @@ import {
 } from '../../../store/ui-store';
 import { Field, TextField } from './controls';
 import { ReachableRepoActions } from './reachable-repo-actions';
+import { ReachableRepoRow } from './reachable-repo-row';
 
 /**
  * Exported for `onboarding/steps/forge-connect-step.tsx` (Phase 90 Theme I):
@@ -498,14 +498,12 @@ function ReachableReposSection({ account }: { account: ForgeAccount }) {
           </p>
         ) : (
           result.repos.map((repo) => (
-            <div
+            <ReachableRepoRow
               key={repo.fullName}
-              className="flex items-center gap-2 rounded-md border border-border/60 bg-card/50 px-2 py-1.5"
+              repo={repo}
+              providerIcon={PROVIDER_ICON[account.kind as SupportedKind] ?? LuCloudDownload}
+              providerLabel={PROVIDER_LABEL[account.kind as SupportedKind] ?? account.kind}
             >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium">{repo.fullName}</p>
-              </div>
-              {repo.private ? <LuLock className="h-3 w-3 shrink-0 text-muted-foreground" /> : null}
               <button
                 type="button"
                 onClick={() => void clone(repo)}
@@ -515,7 +513,7 @@ function ReachableReposSection({ account }: { account: ForgeAccount }) {
                 {isPending && cloningFullName === repo.fullName ? 'Cloning…' : 'Clone…'}
               </button>
               <ReachableRepoActions account={account} repo={repo} />
-            </div>
+            </ReachableRepoRow>
           ))
         )}
         {error ? (
