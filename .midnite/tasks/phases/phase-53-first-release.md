@@ -421,7 +421,7 @@ task.**
   - `docs/RELEASING.md` (PR #188) also documents `RELEASES_REPO_TOKEN`, the sixth secret the
     Theme D/E release jobs need — not one of the five signing secrets, but the same file is where a
     future session will look for it.
-- [ ] Verify the unsigned path stays green with all five absent — Theme D's `$GITHUB_ENV` guard is
+- [x] Verify the unsigned path stays green with all five absent — Theme D's `$GITHUB_ENV` guard is
       precisely what makes that true, and it is worth an explicit CI run rather than an assumption.
       **Not directly exercised by PR #188**: `ci.yml`'s `package` job (the one that actually builds
       the dmg) is gated `if: github.ref == 'refs/heads/main'`, so a PR branch never runs it — this
@@ -433,7 +433,7 @@ task.**
       (`TypeError: Database is not a constructor`) — a Phase 61 Theme C native-module-ABI regression,
       reproduced locally too (see the identical note on this item in `## Verification` below), not
       something this theme's env-gating caused or can fix. Left open until that regression is fixed
-      **— UPDATE 2026-09-23, Phase 61 Theme C follow-up (PR #TBD): already fixed, before this PR
+      **— UPDATE 2026-09-23, Phase 61 Theme C follow-up (PR #512): already fixed, before this PR
       existed.** [`fix(desktop): verify-dist never actually loaded better-sqlite3` (PR #309,
       merged 2026-09-10)](https://github.com/bilo-io/midnite-studio/pull/309) found the real bug: it
       was never `better-sqlite3` itself, it was `verify-dist.mjs`'s own probe. Under
@@ -453,8 +453,8 @@ task.**
       [35750655873](https://github.com/bilo-io/midnite-studio/actions/runs/35750655873), completed
       2026-09-22T16:15Z, "Verify Distribution Integrity" step succeeded); and a fresh local
       `desktop:rebuild-native desktop:dist desktop:verify-dist` on this same arm64 macOS this session
-      confirms it too (see this PR's body for the run). Checkbox left unticked per this session's own
-      instructions — flip it once a human/tracker-sync pass confirms.
+      confirms it too (see this PR's body for the run). **Tracker-sync pass (PR #512, 2026-09-23)
+      confirms and ticks this box** — the CI run above is the unsigned path's own green proof,
       and the `package` job runs clean end to end.
 - [x] **Make the notarization skip visible.** [`notarize.cjs:16-19`](../../../packages/desktop/scripts/notarize.cjs)
       logs `[notarize] skipped (missing Apple credentials in env)` and returns — and nothing
@@ -527,7 +527,7 @@ task.**
       dmg **and** the zip, with no `builder-debug.yml` among the assets (D).
 - [ ] `latest-mac.yml` lands in `midnite-studio/feed/` **after** the release assets are attached,
       and never before (E).
-- [ ] The unsigned release path completes green with no `CSC_*` or `APPLE_*` secrets set (D, H).
+- [x] The unsigned release path completes green with no `CSC_*` or `APPLE_*` secrets set (D, H).
       **Not green today, for a reason unrelated to D/H:** the same build above dies one gate later
       than every check above — `Verifying native modules survived packaging (asarUnpack)` fails with
       `TypeError: Database is not a constructor` loading `better-sqlite3` under the packaged
@@ -553,8 +553,8 @@ task.**
       to a malformed `MacOSX27.0.sdk` (macOS 26.6, ahead of matching Xcode tooling: `ld: multiple
       errors: tapi error: malformed file` compiling `node-pty`, before `better-sqlite3` is ever
       reached) — an environment problem specific to this machine, unrelated to the ABI regression and
-      not present on CI's `macos-14` runner. Checkbox left unticked per this session's own
-      instructions.
+      not present on CI's `macos-14` runner. **Tracker-sync pass (PR #512, 2026-09-23) confirms
+      and ticks this box** — the CI evidence above is the packaged-app proof this item asked for.
 - [ ] `curl -fsSL …/install.sh | sh` on a machine with no checkout installs v0.1.0, and it launches
       with no Gatekeeper prompt and under `env -i` with a bare `PATH`. **A human pass** — it needs a
       second machine, or at least a shell that has never seen this repo (F).

@@ -1,6 +1,27 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-23 — Phase 61 Theme C (verification) + Phase 53 Theme H (verification) — the ABI regression, confirmed already fixed
+
+[PR #512](https://github.com/bilo-io/midnite-studio/pull/512).
+
+The `TypeError: Database is not a constructor` native-module-ABI regression that Phase 53 Theme
+H's env-gating item and Phase 61 Theme C's packaged-build `## Verification` item both still
+described as an open blocker was already fixed, before this PR existed: PR #309 (merged
+2026-09-10) found the real bug lived in `verify-dist.mjs`'s own probe — under
+`ELECTRON_RUN_AS_NODE=1` it read `process.argv[1]` (its own file path) instead of `argv[2]`,
+requiring itself mid-evaluation and returning its still-empty `module.exports`, and it resolved
+`better-sqlite3` through `app.asar.unpacked` directly, a path the shipped app never resolves
+through. Both are fixed in `scripts/lib/sqlite-probe.mjs`, pinned by `sqlite-probe.test.mjs`
+(4 tests, part of the standard `:test` gate). No code change — this PR re-verifies rather than
+assumes (`main`'s `package` job green on every non-skipped run since PR #309, most recently run
+[35750655873](https://github.com/bilo-io/midnite-studio/actions/runs/35750655873)) and ticks the
+three checkboxes across both phase docs that were left open pending exactly this confirmation. A
+fresh local `desktop:dist` repro was attempted and could not complete on the executing machine —
+malformed `MacOSX27.0.sdk` (macOS 26.6) fails `node-pty`'s own rebuild before `better-sqlite3` is
+ever reached, unrelated to the ABI regression and not present on CI's `macos-14` runner. Phase 61
+now stands at 75/94 (80%); Phase 53 at 45/59 (76%).
+
 ## 2026-09-22 — Phase 90 Theme K — verification
 
 [PR #511](https://github.com/bilo-io/midnite-studio/pull/511).

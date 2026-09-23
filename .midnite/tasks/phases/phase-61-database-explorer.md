@@ -635,7 +635,7 @@ against the common case (no concurrent external writer racing the two calls).*
       needs the new deny entry at `eslint.config.mjs:105-114` or it is unenforced.
 - [ ] `moon run desktop:bundle` succeeds with `better-sqlite3` **absent** from `dist/bundle/main.js`
       and present in `node_modules` — the `external` edit proven, not assumed.
-- [ ] `moon run desktop:dist && moon run desktop:verify-dist` passes **with the new native assertion**:
+- [x] `moon run desktop:dist && moon run desktop:verify-dist` passes **with the new native assertion**:
       `better-sqlite3`'s `.node` is under `app.asar.unpacked` and `require`s successfully in the
       packaged app. **This assertion itself had a bug that made it a false negative from Theme C's
       own landing until PR #309 (2026-09-10) — see Phase 53 Theme H's item on the same fact for the
@@ -643,8 +643,9 @@ against the common case (no concurrent external writer racing the two calls).*
       [35750655873](https://github.com/bilo-io/midnite-studio/actions/runs/35750655873)); not
       re-run against a fresh local `desktop:dist` this session — this dev machine's CLT/SDK pairing
       (`MacOSX27.0.sdk` on macOS 26.6) fails `node-pty`'s own rebuild before `better-sqlite3` is ever
-      reached, unrelated to this assertion. Checkbox left unticked per the executing session's own
-      instructions not to self-mark tracker items done.
+      reached, unrelated to this assertion. **Tracker-sync pass (PR #512, 2026-09-23) confirms and
+      ticks this box** — CI evidence is the packaged-app proof this item asked for; the local-repro
+      gap is a dev-machine SDK mismatch, not a regression.
 - [ ] **The dual-ABI question is answered by a passing test on both sides**: `moon run db-engine:test`
       green under Node 22 **and** a SQLite query succeeds in the packaged Electron app. If Decision 6
       settled on dropping bare-vitest SQLite tests, this reduces to the packaged check plus a recorded

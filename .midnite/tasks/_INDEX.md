@@ -41,7 +41,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [64 · Offline Monaco Editor & Cross-Surface Theme Engine](phases/phase-64-offline-monaco-and-themes.md) | 🔄 WIP | x1 | 66/72 | `█████████░` | 92% | — | G (3 human passes, jsdelivr string, 5-surface frame) |
 | [63 · The preferences with nowhere to live](phases/phase-63-settings-diff-and-orphan-preferences.md) | ✅ DONE | x1 | 32/32 | `██████████` | 100% | — | — |
 | [62 · One Escape, one dismissal](phases/phase-62-one-escape-one-dismissal.md) | 🔄 WIP | — | 29/33 | `█████████░` | 88% | — | — |
-| [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 74/94 | `████████░░` | 79% | — | Verification (human passes) |
+| [61 · Database Explorer](phases/phase-61-database-explorer.md) | 🔄 WIP | x1 | 75/94 | `████████░░` | 80% | — | Verification (human passes) |
 | [60 · A window that never goes blank](phases/phase-60-view-registry-and-error-boundaries.md) | 🔄 WIP | — | 28/34 | `████████░░` | 82% | — | — |
 | [59 · Workspace Optimizer](phases/phase-59-workspace-optimizer.md) | ✅ DONE | x1 | 70/70 | `██████████` | 100% | — | — |
 | [58 · Notes, and the menu that holds them](phases/phase-58-notes-and-the-menu.md) | 🔄 WIP | x1 | 76/78 | `██████████` | 97% | — | — |
@@ -49,7 +49,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [56 · E2E Suite Speed Run](phases/phase-56-e2e-speed-run.md) | 🔄 WIP | — | 27/29 | `█████████░` | 93% | — | D |
 | [55 · Multi-Window Studio & Detachable Panels](phases/phase-55-multi-window-studio.md) | 🔄 WIP | x1 | 50/65 | `████████░░` | 77% | — | F.3 (human pass) |
 | [54 · An Issues view](phases/phase-54-issues-view.md) | 🔄 WIP | — | 43/45 | `██████████` | 96% | — | Verification (2 human passes) |
-| [53 · The first release](phases/phase-53-first-release.md) | 🔄 WIP | x1 | 43/59 | `███████░░░` | 73% | — | — |
+| [53 · The first release](phases/phase-53-first-release.md) | 🔄 WIP | x1 | 45/59 | `████████░░` | 76% | — | — |
 | [52 · Projects, the Board, and Workflows, navigable](phases/phase-52-projects-navigation.md) | 🔄 WIP | — | 40/43 | `█████████░` | 93% | — | Verification (3 human passes) |
 | [51 · The terminal, made steady](phases/phase-51-terminal-steadiness.md) | 🔄 WIP | — | 31/37 | `████████░░` | 84% | — | human verification pass (6 items) |
 | [50 · Kanban & Projects, Follow-Through](phases/phase-50-kanban-projects-followthrough.md) | 🔄 WIP | — | 15/17 | `█████████░` | 88% | — | F (codex human pass), Verification (2 human passes) |
