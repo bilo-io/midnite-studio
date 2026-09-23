@@ -361,7 +361,7 @@ doc or a file. Sitrep rows then have something real to report, and the orchestra
 worker — owns the shared files (`_INDEX.md`, the git commit) so parallel writers cannot race.
 
 A multi-phase fan-out is exactly the case this format is for:
-[`midnite-exec-swarm`](.agents/skills/midnite-exec-swarm/SKILL.md) launches one subagent per phase
+[`midnite-swarm`](.agents/skills/midnite-swarm/SKILL.md) launches one subagent per phase
 and drives this same recurring-table report until every one of them has merged.
 
 ## Phase workflow

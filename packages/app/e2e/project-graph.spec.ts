@@ -169,7 +169,7 @@ test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
     await node.getByTestId('graph-node-play-agent').click();
 
     await expect(page.getByRole('menu')).toBeVisible();
-    await expect(page.getByRole('menuitem')).toHaveText(['Exec', 'Brainstorm', 'Refine']);
+    await expect(page.getByRole('menuitem')).toHaveText(['Exec', 'Ideate', 'Refine']);
 
     await page.getByRole('menuitem', { name: 'Refine' }).click();
     await expect(page.getByRole('menu')).toHaveCount(0);
@@ -203,6 +203,6 @@ test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
     expect(await page.getByRole('menu').count()).toBe(0);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
     const create = (await ptyCalls(page)).creates[0]!;
-    expect(create.initialInput).toContain('/midnite-exec-adhoc https://github.com/bilo-io/midnite-studio/issues/41');
+    expect(create.initialInput).toContain('/midnite-create-adhoc https://github.com/bilo-io/midnite-studio/issues/41');
   });
 });

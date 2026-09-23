@@ -464,7 +464,7 @@ decisions, not as preferences.*
 - **Resolved (refine x1) — the leftover verification work is a theme (G), not a checkbox list.**
   Every artifact the original Verification section asked for already exists on disk, so the eight
   unticked boxes read as "nothing has been done" when the truth is "nothing has been *run*". A
-  theme is also what `/midnite-exec` can actually pick up — with zero open themes, this phase was
+  theme is also what `/midnite-create` can actually pick up — with zero open themes, this phase was
   invisible to the exec workflow despite having real work left.
 - **Resolved (refine x1) — the fenced-heading parser case is the one gap worth closing.** Of every
   input the 8 existing parser cases miss, a ` ```md ` block containing `## …` is the only one that

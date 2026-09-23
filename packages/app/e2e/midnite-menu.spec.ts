@@ -162,7 +162,7 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
     'Backlog Task',
     'Adhoc Task',
     'Address Issue',
-    'Brainstorm',
+    'Ideate',
     'Refine Plan',
     'Swarm',
   ]);
@@ -185,7 +185,7 @@ test('the top level is the five groups, each opening its own verbs', async ({ pa
     'Loop: Backlog Task',
     'Loop: Adhoc Task',
     'Loop: Address Issue',
-    'Loop: Brainstorm',
+    'Loop: Ideate',
     'Loop: Overhaul',
   ]);
 
@@ -297,7 +297,7 @@ test('an entry opens a Claude session with its skill typed, not run', async ({ p
   await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
 
   await expect(page.locator('[data-terminal-panel]')).toBeVisible();
-  await expect.poll(() => ptyInputs(page)).toEqual(["claude '/midnite-exec'"]);
+  await expect.poll(() => ptyInputs(page)).toEqual(["claude '/midnite-create'"]);
   // No trailing newline anywhere in this path. Pressing Return is the
   // confirmation, so a mis-clicked menu cannot set an agent loose on a repo.
   const inputs = await ptyInputs(page);
@@ -312,7 +312,7 @@ test('pointing the entry at another skill in Settings changes what it sends', as
   await page.getByRole('button', { name: 'Agent', exact: true }).click();
 
   const field = page.getByRole('textbox', { name: 'Skill for Backlog Task' });
-  await expect(field).toHaveValue('/midnite-exec');
+  await expect(field).toHaveValue('/midnite-create');
   await field.fill('/midnite-address-issue');
 
   // The reset link is the "this has drifted from the default" signal, so it
@@ -341,9 +341,9 @@ test('switching the primary agent in Settings changes which binary and prefix th
   await page.getByRole('menuitem', { name: 'Backlog Task', exact: true }).click();
 
   // Codex doesn't recognise `/name` for a custom skill, only `$name` — so the
-  // stored `/midnite-exec` prompt gets its prefix translated on the way out.
+  // stored `/midnite-create` prompt gets its prefix translated on the way out.
   // It also only runs a prompt non-interactively behind `exec`.
-  await expect.poll(() => ptyInputs(page)).toEqual(["codex exec '$midnite-exec'"]);
+  await expect.poll(() => ptyInputs(page)).toEqual(["codex exec '$midnite-create'"]);
 });
 
 /**
@@ -434,7 +434,7 @@ test.describe('Setup and Update', () => {
           targetRoot: '/tmp/repo',
           templateVersion: '1.0.0',
           entries: [
-            { path: '.claude/skills/midnite-exec/SKILL.md', status: 'create', bytes: 10 },
+            { path: '.claude/skills/midnite-create/SKILL.md', status: 'create', bytes: 10 },
             { path: 'CLAUDE.md', status: 'locally-edited', bytes: 20 },
           ],
         },
@@ -448,7 +448,7 @@ test.describe('Setup and Update', () => {
 
     const dialog = page.getByRole('dialog', { name: 'Set up this repo' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText('.claude/skills/midnite-exec/SKILL.md')).toBeVisible();
+    await expect(dialog.getByText('.claude/skills/midnite-create/SKILL.md')).toBeVisible();
     await expect(dialog.getByText('CLAUDE.md')).toBeVisible();
     // No terminal opened — Setup previews, it never blindly writes.
     await expect(page.locator('[data-terminal-panel]')).toHaveCount(0);

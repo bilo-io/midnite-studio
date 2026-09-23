@@ -285,6 +285,29 @@ describe('navVisibility (sidenav feature flags)', () => {
     expect(migrated.navVisibility).toEqual({});
   });
 
+  it('v23 → v24 migration points saved prompts at the renamed midnite skills', () => {
+    const migrate = useUiStore.persist.getOptions().migrate;
+    const migrated = migrate?.(
+      {
+        agentSkills: {
+          execBacklog: '/midnite-exec',
+          execAdhoc: '/midnite-exec-adhoc',
+          execSwarm: '/midnite-exec-swarm',
+          loopBrainstorm: '/loop /midnite-brainstorm',
+          prReview: '/pr-review',
+        },
+      },
+      23,
+    ) as { agentSkills: Record<string, string> };
+    expect(migrated.agentSkills).toEqual({
+      execBacklog: '/midnite-create',
+      execAdhoc: '/midnite-create-adhoc',
+      execSwarm: '/midnite-swarm',
+      loopBrainstorm: '/loop /midnite-ideate',
+      prReview: '/pr-review',
+    });
+  });
+
   it('merge sanitizes unknown keys through parseNavVisibility', () => {
     const merged = useUiStore.persist.getOptions().merge?.(
       { navVisibility: { graph: false, files: true, bogus: false } },
@@ -945,7 +968,7 @@ describe('the midnite menu\'s skills', () => {
   beforeEach(reset);
 
   it('points each entry at a default that Settings can move', () => {
-    expect(useUiStore.getState().agentSkills.execBacklog).toBe('/midnite-exec');
+    expect(useUiStore.getState().agentSkills.execBacklog).toBe('/midnite-create');
 
     useUiStore.getState().setAgentSkill('execBacklog', '/midnite-address-issue');
 
@@ -957,14 +980,14 @@ describe('the midnite menu\'s skills', () => {
   });
 
   it('persists the whole record, so a launch reads back what was configured', () => {
-    useUiStore.getState().setAgentSkill('brainstorm', '/midnite-brainstorm --wide');
+    useUiStore.getState().setAgentSkill('brainstorm', '/midnite-ideate --wide');
 
     const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: Record<string, unknown>;
     };
     expect(saved.state.agentSkills).toEqual({
       ...DEFAULT_AGENT_SKILLS,
-      brainstorm: '/midnite-brainstorm --wide',
+      brainstorm: '/midnite-ideate --wide',
     });
   });
 

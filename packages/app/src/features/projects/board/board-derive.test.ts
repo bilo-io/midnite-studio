@@ -229,16 +229,16 @@ describe('composeSkillLaunchPrompt (Phase 92 Theme B)', () => {
   };
 
   it('an issue composes as "<skill template> <issue url>" — never the title, assignees, labels or body', () => {
-    const prompt = composeSkillLaunchPrompt(issue, '/midnite-exec-adhoc');
-    expect(prompt).toBe('/midnite-exec-adhoc https://github.com/acme/widgets/issues/42');
+    const prompt = composeSkillLaunchPrompt(issue, '/midnite-create-adhoc');
+    expect(prompt).toBe('/midnite-create-adhoc https://github.com/acme/widgets/issues/42');
     expect(prompt).not.toContain('Fix the flaky test');
     expect(prompt).not.toContain('octocat');
     expect(prompt).not.toContain('Steps to reproduce');
   });
 
   it('a pull composes the same way, off its own url', () => {
-    const prompt = composeSkillLaunchPrompt(pull, '/midnite-brainstorm');
-    expect(prompt).toBe('/midnite-brainstorm https://github.com/acme/widgets/pull/7');
+    const prompt = composeSkillLaunchPrompt(pull, '/midnite-ideate');
+    expect(prompt).toBe('/midnite-ideate https://github.com/acme/widgets/pull/7');
   });
 
   it('a draft has no url — falls back to composeCardPrompt\'s draft-safe output', () => {

@@ -60,8 +60,8 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       `.midnite/tasks/_INDEX.md` (headers + an empty `## Phases` table), `.midnite/tasks/done.md`,
       `.midnite/tasks/outstanding.md`, `.midnite/tasks/phases/` (empty but for a README explaining
       the naming convention — git can't track a truly empty directory), and `.midnite/_features.md`.
-- [x] The repo-agnostic skills under `templates/midnite/.claude/skills/`: `midnite-brainstorm`,
-      `midnite-exec`, `midnite-exec-adhoc`, `midnite-refine`, `midnite-address-issue`,
+- [x] The repo-agnostic skills under `templates/midnite/.claude/skills/`: `midnite-ideate`,
+      `midnite-create`, `midnite-create-adhoc`, `midnite-refine`, `midnite-address-issue`,
       `midnite-triage`, `midnite-git-report`, `midnite-git-cleanup` — genericized (every
       "Midnite Studio"/package-path/org/personal-timezone mention replaced with generic phrasing or
       a placeholder), keeping every workflow mechanic verbatim. `midnite-setup` and
@@ -212,7 +212,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
   - **Corrected, found building it: `startAgent` is the wrong mechanism.** It always composes
     `command + agentInvocationArgs(agentId) + shellQuote(toAgentPrompt(prompt, agentId))` — every
     existing leaf's `prompt` is a natural-language instruction TO an agent CLI, wrapped as its
-    argument (e.g. `claude '/midnite-exec'`). Routing Update's literal command through it would
+    argument (e.g. `claude '/midnite-create'`). Routing Update's literal command through it would
     have typed `claude 'moon run desktop:install-local'` — asking Claude to interpret that string,
     not running it. `repo-lifecycle.ts`'s `runLifecycleAction` is the actual "type, don't run"
     precedent this item points at: a plain `kind: 'shell'` session with the command queued raw, no

@@ -682,7 +682,7 @@ function commandLabel(intent: Extract<CompanionIntent, { kind: 'command' }>): st
  * How each command is named in speech.
  *
  * Not the `AgentCommandId` (`execAdhoc` read aloud is nonsense) and not the
- * skill string either (`/midnite-exec-adhoc` is worse). These are what a
+ * skill string either (`/midnite-create-adhoc` is worse). These are what a
  * person would call the thing they just asked for, which is what a
  * confirmation has to say back for the user to know they were understood.
  */
@@ -690,7 +690,7 @@ export const COMMAND_SPOKEN_NAMES: Record<CompanionCommandId, string> = {
   execAdhoc: 'an ad hoc task',
   execBacklog: 'the next backlog task',
   execSwarm: 'a swarm',
-  brainstorm: 'a brainstorm',
+  brainstorm: 'an ideation',
   refine: 'a refinement',
   addressIssue: 'an issue fix',
   prReview: 'a PR review',

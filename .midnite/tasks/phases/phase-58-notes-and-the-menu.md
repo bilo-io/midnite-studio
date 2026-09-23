@@ -10,8 +10,8 @@ app is about work that already exists; nothing catches work that doesn't yet.
 This phase adds **Notes**: a per-repository list of freeform notes in a centred, gradient-ringed
 modal, persisted to `localStorage` and editable in place. And because a note about a repository is
 usually the *first draft of a task*, each one carries two icon buttons that hand it straight to the
-workflow this repo already runs — **Draft plan** seeds `/midnite-brainstorm`, **Adhoc task** seeds
-`/midnite-exec-adhoc` — in a terminal session cwd'd to the note's own repository. The note is never
+workflow this repo already runs — **Draft plan** seeds `/midnite-ideate`, **Adhoc task** seeds
+`/midnite-create-adhoc` — in a terminal session cwd'd to the note's own repository. The note is never
 consumed by that: it flips to `planned`, then `implemented`, and you tick it off yourself when you
 agree.
 
@@ -23,8 +23,8 @@ already renders a menu of skill verbs that each call `startAgent(...)` cwd'd to 
 not sent, resolving the primary agent with a Claude→builtin fallback (`:61-65`) and disabling a row
 with a `disabledReason` when its skill string is empty (`:84-86`). The skill strings themselves are
 **user-configurable settings, not constants** — `DEFAULT_AGENT_SKILLS` at
-[`ui-store.ts:1101`](../../../packages/app/src/store/ui-store.ts) (`execAdhoc: '/midnite-exec-adhoc'`,
-`brainstorm: '/midnite-brainstorm'`), overridable through persisted `agentSkills` from
+[`ui-store.ts:1101`](../../../packages/app/src/store/ui-store.ts) (`execAdhoc: '/midnite-create-adhoc'`,
+`brainstorm: '/midnite-ideate'`), overridable through persisted `agentSkills` from
 Settings ▸ Agent. And [`agent-commands.ts:132`/`:146`](../../../packages/app/src/features/agent/agent-commands.ts)
 already carries `execAdhoc` and `brainstorm` registry entries with their label, icon, hint and
 category. Theme D as first drafted would have been a **second, forked implementation** that
@@ -273,7 +273,7 @@ than a second implementation**.
       `useUiStore.getState().agentSkills?.[skillId] ?? DEFAULT_AGENT_SKILLS[skillId]`
       ([`ui-store.ts:1101`](../../../packages/app/src/store/ui-store.ts)). A user who re-points
       `brainstorm` in Settings ▸ Agent must have the Notes button follow them; hard-coding
-      `/midnite-brainstorm` is the exact drift `midnite-menu.tsx:75` already guards against.
+      `/midnite-ideate` is the exact drift `midnite-menu.tsx:75` already guards against.
 - [x] `useSkillHandoff` calls `startAgent({ repoId, cwd, title, prompt, agentId, command, autoSend: false })`
       with `cwd = primaryTarget(repo).worktreePath ?? repo.path`
       ([`use-repo-actions.ts:84`](../../../packages/app/src/features/repos/use-repo-actions.ts)) and
@@ -283,7 +283,7 @@ than a second implementation**.
       [`start-agent.ts:96-102`](../../../packages/app/src/features/terminal/start-agent.ts) builds
       `[command, ...extraArgs, ...agentInvocationArgs(agentId), shellQuote(toAgentPrompt(prompt, agentId))]`.
       So `prompt` is `` `${skill} ${body}` `` as a **plain string with no backticks** — the first
-      draft's `` /midnite-brainstorm `<body>` `` would be passed through `shellQuote` and arrive with
+      draft's `` /midnite-ideate `<body>` `` would be passed through `shellQuote` and arrive with
       literal backticks in it. A body containing quotes or newlines is `shellQuote`'s problem and is
       already handled; do not pre-escape.
 - [x] Two `IconButton`s per row ([`icon-button.tsx:101`](../../../packages/app/src/components/icon-button.tsx)),

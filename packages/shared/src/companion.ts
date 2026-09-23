@@ -2045,7 +2045,7 @@ export const COMPANION_VERBS: Readonly<Record<CompanionCommandId, readonly strin
   execAdhoc: ['ad hoc task', 'adhoc task', 'ad-hoc task', 'ad hoc', 'adhoc', 'ad-hoc', 'one off'],
   execSwarm: ['exec swarm', 'swarm'],
   execBacklog: ['next task', 'backlog', 'next phase', 'next theme'],
-  brainstorm: ['brainstorm', 'brain storm', 'new phase'],
+  brainstorm: ['ideate', 'ideation', 'brainstorm', 'brain storm', 'new phase'],
   refine: ['refine'],
   addressIssue: [
     'address an issue',

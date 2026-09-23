@@ -1130,7 +1130,7 @@ test.describe('FAB loop console — rehydration (Theme I)', () => {
         createdAt: 1_787_000_000,
         surface: 'fab',
       },
-      scrollback: '$ claude /loop /midnite-brainstorm\r\nPhase 37 candidates:\r\n',
+      scrollback: '$ claude /loop /midnite-ideate\r\nPhase 37 candidates:\r\n',
       // No `live`: the pty did not survive the quit, which is the whole point.
     },
   ];

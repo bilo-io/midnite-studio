@@ -34,13 +34,13 @@ that wants a human; a counter that disagrees with itself is a bug, and this is t
   other fourteen got here.
 
 **Why this matters more than tidiness.** [`_INDEX.md`](../_INDEX.md) is not a report — it is the
-input `/midnite-exec` reads to pick work, and the `%` it picks by is computed from numbers that are
+input `/midnite-create` reads to pick work, and the `%` it picks by is computed from numbers that are
 wrong for 22% of the tracker. A phase the index calls done that has 64 open items will never be
 picked; a phase whose theme letters disagree will have the wrong theme claimed.
 
 **Builds on.**
 - The three skills' existing drift guard —
-  [`midnite-brainstorm`](../../.claude/skills/midnite-brainstorm/SKILL.md) Stage 6.3,
+  [`midnite-ideate`](../../.claude/skills/midnite-ideate/SKILL.md) Stage 6.3,
   [`midnite-refine`](../../.claude/skills/midnite-refine/SKILL.md) Stage 9.5 — a shell one-liner per
   phase file asserting `grep -qE "^\| \[$n ·"`. It checks **presence only**. This phase is that guard
   finishing its job.
@@ -132,7 +132,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       not more complete.
 - [x] Add a line to the three skills' drift-guard steps pointing at `moon run root:tracker-check`
       instead of restating a shell one-liner —
-      [`midnite-brainstorm`](../../.claude/skills/midnite-brainstorm/SKILL.md) Stage 6.3 and
+      [`midnite-ideate`](../../.claude/skills/midnite-ideate/SKILL.md) Stage 6.3 and
       [`midnite-refine`](../../.claude/skills/midnite-refine/SKILL.md) Stage 9.5. **Six files**, since
       `.claude/`, `.agents/` and `.codex/` each carry a copy and
       [`CLAUDE.md`](../../../CLAUDE.md)'s three-way sync rule applies.
@@ -151,8 +151,8 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 | [`.midnite/tasks/phases/phase-25-search-everywhere.md`](phase-25-search-everywhere.md) · [`phase-35-fab-mission-control.md`](phase-35-fab-mission-control.md) | theme-letter reconciliation (B) |
 | [`.midnite/tasks/_INDEX.md`](../_INDEX.md) | fifteen rows' counts, bars and `%`; nine `Status` cells; two theme keys (B, C) |
 | [`.midnite/tasks/outstanding.md`](../outstanding.md) | the three entries re-described now that the doc is the accurate record (C) |
-| `.claude/`, `.agents/`, `.codex/` × `midnite-brainstorm`, `midnite-refine` | the drift-guard step points at the task — six files, per CLAUDE.md's sync rule (C) |
-| [`.claude/skills/midnite-exec/SKILL.md`](../../.claude/skills/midnite-exec/SKILL.md) | (**unchanged**) — it reads the index; this phase makes what it reads true (C) |
+| `.claude/`, `.agents/`, `.codex/` × `midnite-ideate`, `midnite-refine` | the drift-guard step points at the task — six files, per CLAUDE.md's sync rule (C) |
+| [`.claude/skills/midnite-create/SKILL.md`](../../.claude/skills/midnite-create/SKILL.md) | (**unchanged**) — it reads the index; this phase makes what it reads true (C) |
 
 ---
 
@@ -174,7 +174,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
       hot path is a check somebody caches wrongly.
 - [x] `grep -rn "grep -qE" .claude/skills .agents/skills .codex/skills` no longer finds the drift
       one-liner in six places.
-- [ ] **Open, for a human:** run `/midnite-exec` and confirm the phase it proposes is one that
+- [ ] **Open, for a human:** run `/midnite-create` and confirm the phase it proposes is one that
       actually has open work. That is the whole point, and it is not assertable from a script.
 
 ---

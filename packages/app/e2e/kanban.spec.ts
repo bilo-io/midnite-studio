@@ -438,7 +438,7 @@ test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
 
     // Exactly three entries — never the full six-entry `tasks` category.
     await expect(page.getByRole('menu')).toBeVisible();
-    await expect(page.getByRole('menuitem')).toHaveText(['Exec', 'Brainstorm', 'Refine']);
+    await expect(page.getByRole('menuitem')).toHaveText(['Exec', 'Ideate', 'Refine']);
 
     // One click: no second confirm, no second click needed.
     await page.getByRole('menuitem', { name: 'Exec' }).click();
@@ -448,7 +448,7 @@ test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
     // never the title/assignees/labels/body `composeCardPrompt` would send.
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
     const create = (await ptyCalls(page)).creates[0]!;
-    expect(create.initialInput).toContain('/midnite-exec-adhoc https://github.com/bilo-io/midnite-studio/issues/42');
+    expect(create.initialInput).toContain('/midnite-create-adhoc https://github.com/bilo-io/midnite-studio/issues/42');
     expect(create.initialInput).not.toContain('Wire the write path');
 
     // And the terminal panel opened on it — `revealSession`'s own job.
@@ -472,6 +472,6 @@ test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
     expect(await page.getByRole('menu').count()).toBe(0);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
     const create = (await ptyCalls(page)).creates[0]!;
-    expect(create.initialInput).toContain('/midnite-brainstorm https://github.com/bilo-io/midnite-studio/issues/43');
+    expect(create.initialInput).toContain('/midnite-ideate https://github.com/bilo-io/midnite-studio/issues/43');
   });
 });

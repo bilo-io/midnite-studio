@@ -23,7 +23,7 @@ describe('ScaffoldStatusSchema', () => {
 
 describe('ScaffoldEntrySchema', () => {
   it('round-trips a valid entry', () => {
-    const entry = { path: '.claude/skills/midnite-exec/SKILL.md', status: 'create', bytes: 512 };
+    const entry = { path: '.claude/skills/midnite-create/SKILL.md', status: 'create', bytes: 512 };
     expect(ScaffoldEntrySchema.parse(entry)).toEqual(entry);
   });
 
@@ -47,7 +47,7 @@ describe('ScaffoldPlanSchema', () => {
       templateVersion: '1.0.0',
       entries: [
         { path: '.midnite/tasks/_INDEX.md', status: 'unchanged', bytes: 10 },
-        { path: '.claude/skills/midnite-exec/SKILL.md', status: 'stale', bytes: 20 },
+        { path: '.claude/skills/midnite-create/SKILL.md', status: 'stale', bytes: 20 },
         { path: 'CLAUDE.md', status: 'locally-edited', bytes: 30 },
       ],
     };

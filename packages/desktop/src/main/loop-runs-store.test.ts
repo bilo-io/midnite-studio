@@ -30,7 +30,7 @@ function makeRun(id: string): LoopRunRecord {
     loopId: 'automate',
     sessionId: `s-${id}`,
     startedAt: 1,
-    composedPrompt: '/loop /midnite-exec',
+    composedPrompt: '/loop /midnite-create',
     checkedModifierIds: [],
     status: 'exited',
     endedAt: 2,

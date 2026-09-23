@@ -373,7 +373,7 @@ export function NotesView() {
                 onClick={() => setShowPreview((p) => !p)}
               />
 
-              {/* Brainstorm */}
+              {/* Ideate */}
               <IconButton
                 icon={LuLightbulb}
                 label="Draft plan"

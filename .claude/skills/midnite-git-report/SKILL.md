@@ -25,7 +25,7 @@ Echo the resolved range back in one line before the report.
 
 The gathering is independent, so once `START`/`END` are resolved **dispatch two read-only subagents in a single message** so they run concurrently. Pass the resolved `START`/`END` into each prompt. Each returns a compact structured digest — keep the raw JSON and file dumps out of this thread; you compose the report from the digests.
 
-**Context discipline (enforced):** the report's phase-progress data comes from **`.midnite/tasks/_INDEX.md` only** — the pre-computed roll-up `/midnite-exec` keeps current. **Never read the individual `.midnite/tasks/phases/phase-*.md` files** (that's the whole point of the index — ~30 reads collapse to one). Sources are: GitHub/`gh` (PRs, status mix), `git log` (commits, file-touch mapping — `--name-only`, never reading the doc bodies), `.midnite/tasks/_INDEX.md` (phase progress + themes), and a date-filtered grep of `.midnite/tasks/done.md` (items shipped in range).
+**Context discipline (enforced):** the report's phase-progress data comes from **`.midnite/tasks/_INDEX.md` only** — the pre-computed roll-up `/midnite-create` keeps current. **Never read the individual `.midnite/tasks/phases/phase-*.md` files** (that's the whole point of the index — ~30 reads collapse to one). Sources are: GitHub/`gh` (PRs, status mix), `git log` (commits, file-touch mapping — `--name-only`, never reading the doc bodies), `.midnite/tasks/_INDEX.md` (phase progress + themes), and a date-filtered grep of `.midnite/tasks/done.md` (items shipped in range).
 
 **Subagent A — GitHub / PR data:**
 - **Merged PRs in range** (the spine of the report) — pin the window to SAST with a `+02:00` offset on both bounds so the search brackets the **SAST** day, not the UTC day:

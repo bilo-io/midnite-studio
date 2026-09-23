@@ -81,10 +81,10 @@ describe('useCompanionStore', () => {
 
   it('tracks and clears the active hand-off', () => {
     const { setActiveHandoff } = useCompanionStore.getState();
-    setActiveHandoff({ sessionId: 's1', command: '/midnite-exec-adhoc' });
+    setActiveHandoff({ sessionId: 's1', command: '/midnite-create-adhoc' });
     expect(useCompanionStore.getState().activeHandoff).toEqual({
       sessionId: 's1',
-      command: '/midnite-exec-adhoc',
+      command: '/midnite-create-adhoc',
     });
     setActiveHandoff(null);
     expect(useCompanionStore.getState().activeHandoff).toBeNull();

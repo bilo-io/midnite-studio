@@ -5,13 +5,13 @@ import { useTerminalStore } from './terminal-store';
 
 describe('toAgentPrompt', () => {
   it('leaves the prompt untouched for Claude and Antigravity — both read /name directly', () => {
-    expect(toAgentPrompt('/midnite-exec', 'claude')).toBe('/midnite-exec');
-    expect(toAgentPrompt('/midnite-exec', 'agy')).toBe('/midnite-exec');
+    expect(toAgentPrompt('/midnite-create', 'claude')).toBe('/midnite-create');
+    expect(toAgentPrompt('/midnite-create', 'agy')).toBe('/midnite-create');
   });
 
   it("rewrites every leading /token to $token for Codex, which doesn't recognise /name", () => {
-    expect(toAgentPrompt('/midnite-exec', 'codex')).toBe('$midnite-exec');
-    expect(toAgentPrompt('/loop /midnite-exec', 'codex')).toBe('$loop $midnite-exec');
+    expect(toAgentPrompt('/midnite-create', 'codex')).toBe('$midnite-create');
+    expect(toAgentPrompt('/loop /midnite-create', 'codex')).toBe('$loop $midnite-create');
   });
 
   it('leaves a plain-sentence prompt untouched for any agent', () => {

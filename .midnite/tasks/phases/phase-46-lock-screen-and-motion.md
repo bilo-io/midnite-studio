@@ -348,7 +348,7 @@ they did.
 ### H — The verification residue, as work (S) — ✅ DONE (PR #264, 2026-09-07)
 
 Themes A–G all landed, and everything still open in this phase sat under `## Verification` — which
-[`/midnite-exec`](../../../.claude/skills/midnite-exec/SKILL.md) never reads. That is the same shape
+[`/midnite-create`](../../../.claude/skills/midnite-create/SKILL.md) never reads. That is the same shape
 Phases 24 and 29 were found in: real work, invisible to the workflow that would have done it. This
 theme is that residue, triaged. Three of the eleven verification lines turned out to be genuinely
 machine-executable and are lifted here; four were already covered by tests that landed with Themes

@@ -61,7 +61,7 @@ describe('useSkillHandoff', () => {
     // Must not end with \r (autoSend: false)
     expect(queuedInput?.endsWith('\r')).toBe(false);
     // Must contain the skill and body without literal backticks
-    expect(queuedInput).toContain('/midnite-brainstorm Refactor the caching layer');
+    expect(queuedInput).toContain('/midnite-ideate Refactor the caching layer');
     expect(queuedInput).not.toContain('`');
   });
 
@@ -140,7 +140,7 @@ describe('useSkillHandoff', () => {
 
     expect(session).not.toBeNull();
     const queuedInput = useTerminalStore.getState().pendingInput[session!.id];
-    expect(queuedInput).toBe("agy -p '/midnite-exec-adhoc run adhoc task'");
+    expect(queuedInput).toBe("agy -p '/midnite-create-adhoc run adhoc task'");
   });
 
   it('allows explicit mode override in options', () => {
@@ -159,6 +159,6 @@ describe('useSkillHandoff', () => {
 
     expect(session).not.toBeNull();
     const queuedInput = useTerminalStore.getState().pendingInput[session!.id];
-    expect(queuedInput).toBe("agy -p '/midnite-exec-adhoc run adhoc task'");
+    expect(queuedInput).toBe("agy -p '/midnite-create-adhoc run adhoc task'");
   });
 });

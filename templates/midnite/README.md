@@ -26,10 +26,10 @@ copies this tree into a target repo; re-running it there is an upgrade, not a fr
 ## Why these nine skills, and not the other three
 
 Of the twelve skills this repo has, nine are the workflow core and ship here:
-`midnite-brainstorm`, `midnite-exec`, `midnite-exec-swarm`, `midnite-exec-adhoc`, `midnite-refine`,
+`midnite-ideate`, `midnite-create`, `midnite-swarm`, `midnite-create-adhoc`, `midnite-refine`,
 `midnite-address-issue`, `midnite-triage`, `midnite-git-report`, `midnite-git-cleanup`.
-`midnite-exec-swarm` holds true of any target repo — it is a pure orchestration layer over
-`midnite-exec` with no credentials or product-specific assumptions of its own, so it passes the
+`midnite-swarm` holds true of any target repo — it is a pure orchestration layer over
+`midnite-create` with no credentials or product-specific assumptions of its own, so it passes the
 test below and ships alongside it. Three are deliberately excluded:
 
 - **`midnite-setup`** — the bootstrapper itself. A repo that has just been onboarded does not need
@@ -40,7 +40,7 @@ test below and ships alongside it. Three are deliberately excluded:
   the first time someone actually ran it somewhere else.
 
 If a future onboarding pass wants to add a tenth skill, ask whether it holds true of *any* target
-repo or only of this one — that's the test these three failed (and the test `midnite-exec-swarm`
+repo or only of this one — that's the test these three failed (and the test `midnite-swarm`
 passed).
 
 ## What Setup does not do
