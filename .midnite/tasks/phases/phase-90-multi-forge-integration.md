@@ -629,6 +629,59 @@ do anything here yet, just prepare the pricing page."*
 - [ ] **Human pass:** `gh auth switch` from inside the app changes what `gh auth status` reports in a
       terminal beside it, and switching back restores it.
 
+### L — The account switcher, and where it lives (M)
+
+Theme B shipped the avatar and Theme C shipped the switch, but the two never met: `TitleBarAccount`
+([`title-bar-account.tsx`](../../../packages/app/src/components/title-bar-account.tsx)) is a
+click-through to Settings ▸ Accounts, and `useSwitchForgeAccount` has exactly one caller,
+`accounts-page.tsx`. Switching identity therefore costs a trip through Settings. This theme turns the
+avatar into a switcher, lets the user choose where it sits, and resolves the "where does the avatar
+live" decision below. **Renderer-only** — no new IPC channel, no new main code; everything it needs
+is already on the bridge.
+
+- [ ] **One `AccountSwitcher` component**, replacing `TitleBarAccount`'s body, rendered through the
+      existing [`context-menu.tsx`](../../../packages/app/src/components/context-menu.tsx) (no new menu
+      primitive). The menu, top to bottom: one row per account — avatar (`UserAvatar` with `src`), the
+      provider glyph in its brand colour from the forge provider map PR #515 added beside
+      `accounts-page.tsx`, `displayName || login`, and the host — a check on the active row, and a click
+      that calls `useSwitchForgeAccount` (so the cancel-then-invalidate, repo scoping and gated
+      `gh auth switch` from Theme C all come for free).
+- [ ] **A hidden-repos line** under the account rows: "N repositories hidden for this account" with a
+      toggle bound to `forge.scopeReposToActiveAccount`, reusing the same visibility count
+      `useAccountScopedRepos` already computes. Rendered only when N > 0; the switch still toasts what
+      it hid, per the scoping decision below.
+- [ ] **Footer actions**: `Add account…` (opens Settings ▸ Accounts with the add form focused) and
+      `Manage accounts…` (opens Settings ▸ Accounts) — today's click-through, demoted to a menu item.
+- [ ] **Zero-account state: an `Add account` affordance**, not nothing. A neutral placeholder avatar
+      (`LuUserPlus`) whose click goes straight to the add form. This replaces Theme B's "no account, no
+      control" rule for this one element — the switcher is now the only discoverable path to adding an
+      account outside Settings, so hiding it on a fresh install hides the feature.
+- [ ] **Placement setting `forge.switcherPlacement`**: `'titlebar-right'` (default — beside the sync
+      controls, where the avatar is today) · `'titlebar-left'` (immediately after
+      [`title-bar-nav.tsx`](../../../packages/app/src/components/title-bar-nav.tsx)'s reload and
+      back/forward cluster) · `'rail-top'` · `'rail-bottom'` (in the rail footer, above the lock
+      button) · `'hidden'`. A persisted `ui-store.ts` key beside the other `forge.*` settings, added to
+      `persisted-keys.ts`, and surfaced as a select on **Settings ▸ Accounts**. `app.tsx` mounts the one
+      component at whichever slot the setting names, never two at once.
+- [ ] **Two layouts, one component.** Title bar: the 24px icon button it is today. Rail: a row in the
+      rail's own icon + label shape, the label (`displayName || login`) appearing as the rail expands.
+      It has no chord, so per the rail convention in [`CLAUDE.md`](../../../CLAUDE.md) it gets **no**
+      hover tooltip while the label is on screen; collapsed, it shows the account name.
+- [ ] **Palette commands, no chord.** `account.switcher.open` in `COMMANDS`
+      ([`keybindings.ts`](../../../packages/shared/src/keybindings.ts)) opening the menu wherever it is
+      mounted (falling back to Settings ▸ Accounts when placement is `'hidden'`), plus one dynamic
+      "Switch to <login> (<kind>)" palette entry per non-active account. No chord: nothing to clash with
+      `TERMINAL_YIELD_COMMANDS`, and a menu or palette label comes from `COMMANDS`, not
+      `DEFAULT_KEYMAP`.
+- [ ] **Tests (vitest)**: menu rows and the active check; switch fires `useSwitchForgeAccount` with the
+      right id; hidden-repos line appears only for N > 0 and its toggle flips the setting; the
+      zero-account affordance; each placement mounts exactly one switcher in the right slot and
+      `'hidden'` mounts none; the palette entries. Per [`docs/TESTING.md`](../../../docs/TESTING.md), none
+      of this needs a browser.
+- [ ] **Visual baselines, four**: the open menu at `titlebar-right`, the closed switcher at
+      `titlebar-left` and `rail-bottom`, and the zero-account affordance — four against the ~100 cap,
+      `scripts/e2e-budget.mjs` updated to match.
+
 ## Files this phase touches
 
 | Area | Path |
@@ -646,6 +699,7 @@ do anything here yet, just prepare the pricing page."*
 | Main — gh auth | [`gh-shell.ts`](../../../packages/desktop/src/main/forge/gh-shell.ts) — `gh auth switch`, `invalidateGhProbe()` on switch (C); [`gh-cli.ts`](../../../packages/desktop/src/main/forge/gh-cli.ts) — the corrected `pullScopeFlags` docblock (C) |
 | Preload | [`preload/index.ts`](../../../packages/desktop/src/preload/index.ts) — five mechanical mappings in the `forge:` object (B) |
 | Renderer — accounts UI | `features/settings/settings-pages/accounts-page.tsx` (B); [`user-avatar.tsx`](../../../packages/app/src/components/user-avatar.tsx) — an `src` escape hatch beside the Gravatar path (B); [`avatars.ts`](../../../packages/app/src/services/avatars.ts) — untouched (B) |
+| Renderer — account switcher | [`title-bar-account.tsx`](../../../packages/app/src/components/title-bar-account.tsx) → `AccountSwitcher`; [`app.tsx`](../../../packages/app/src/app.tsx) — the placement slots; [`title-bar-nav.tsx`](../../../packages/app/src/components/title-bar-nav.tsx) — the left-slot neighbour, untouched; [`keybindings.ts`](../../../packages/shared/src/keybindings.ts) — `account.switcher.open`; `ui-store.ts`/`persisted-keys.ts` — `forge.switcherPlacement` (L) |
 | Renderer — repo scoping | [`repos-panel.tsx`](../../../packages/app/src/features/repos/repos-panel.tsx) — `hasGithubForge` → capability-aware, active-account filtering (A, C); [`forge-sections.tsx`](../../../packages/app/src/features/repos/forge-sections.tsx) (H) |
 | Renderer — queries & gating | [`queries.ts`](../../../packages/app/src/services/queries.ts) — account id in the query keys (C); [`use-forge-subscription.ts`](../../../packages/app/src/services/use-forge-subscription.ts) (C); [`app.tsx`](../../../packages/app/src/app.tsx) — `FORGE_GATED_VIEWS` reads the matrix (H) |
 | Renderer — the four views | [`reviews-view.tsx`](../../../packages/app/src/features/reviews/reviews-view.tsx), [`actions-view.tsx`](../../../packages/app/src/features/actions/actions-view.tsx), [`issues-view.tsx`](../../../packages/app/src/features/issues/issues-view.tsx), [`projects-view.tsx`](../../../packages/app/src/features/projects/projects-view.tsx) + [`board-view.tsx`](../../../packages/app/src/features/projects/board/board-view.tsx) — one capability note each, no structural change (H) |
@@ -817,7 +871,7 @@ what was rejected, and on what evidence.
   because "hide all repos that do not belong to that user" is the human's own phrasing. But it is the
   setting most likely to surprise someone who opened ten repos across two identities, so the switch
   should toast what it hid, once, with an undo.
-- **Open — where does the active-account avatar actually live?** *Recommendation:* the title bar,
+- **Resolved (Theme L, 2026-09-23) — the user chooses:** `forge.switcherPlacement`, default `titlebar-right`, with `titlebar-left`, `rail-top`, `rail-bottom` and `hidden`. The original question, kept for context: **where does the active-account avatar actually live?** *Recommendation:* the title bar,
   right cluster, beside the existing sync controls — it is global state, and the rail is per-view.
   Worth one screenshot before committing to it; `titlebar-status/` is about CI, not identity, so this
   would be its first identity element.
