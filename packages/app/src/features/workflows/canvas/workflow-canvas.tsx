@@ -164,11 +164,21 @@ function WorkflowCanvasInner({
 
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
+      // `emitSelection` (which calls the parent's `onSelectionChange` — a
+      // DIFFERENT component's setState) must never run *inside* the
+      // `setNodes` updater passed below: React runs that updater as part of
+      // reconciling this component's own state, and a nested cross-component
+      // setState from there is exactly what the "Cannot update a component
+      // while rendering a different component" warning means. `next` is
+      // captured here and read once the updater has actually run (it does,
+      // synchronously, for this dispatcher call) so the parent notification
+      // happens as its own, separate step afterward.
+      let next: Node[] = [];
       setNodes((prev) => {
-        const next = applyNodeChanges(changes, prev);
-        if (changes.some((c) => c.type === 'select')) emitSelection(next);
+        next = applyNodeChanges(changes, prev);
         return next;
       });
+      if (changes.some((c) => c.type === 'select')) emitSelection(next);
 
       const drag = changes.find((c): c is Extract<NodeChange, { type: 'position' }> => c.type === 'position');
       if (!readOnly && drag && drag.dragging === false && drag.position) {
