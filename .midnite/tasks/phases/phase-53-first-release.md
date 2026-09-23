@@ -433,6 +433,28 @@ task.**
       (`TypeError: Database is not a constructor`) — a Phase 61 Theme C native-module-ABI regression,
       reproduced locally too (see the identical note on this item in `## Verification` below), not
       something this theme's env-gating caused or can fix. Left open until that regression is fixed
+      **— UPDATE 2026-09-23, Phase 61 Theme C follow-up (PR #TBD): already fixed, before this PR
+      existed.** [`fix(desktop): verify-dist never actually loaded better-sqlite3` (PR #309,
+      merged 2026-09-10)](https://github.com/bilo-io/midnite-studio/pull/309) found the real bug: it
+      was never `better-sqlite3` itself, it was `verify-dist.mjs`'s own probe. Under
+      `ELECTRON_RUN_AS_NODE=1`, argv is node's shape (`[execPath, scriptPath, ...args]`), so the
+      module path the caller appended landed in `argv[2]` — the probe read `argv[1]`, its own file
+      path, requiring itself mid-evaluation and getting back its still-empty `module.exports`. `new
+      Database(...)` on that empty object is exactly `TypeError: Database is not a constructor` — a
+      broken *check*, not a broken driver. A second bug the argv fix exposed once the probe reached
+      the real module: it required `better-sqlite3` through `app.asar.unpacked` directly, a path the
+      shipped app never resolves through (its plain-JS dependency `bindings` stays inside `app.asar`;
+      the correct resolution goes through the archive, whose asar shim redirects only the `.node`
+      binary out to the unpacked copy). Both are fixed in `scripts/lib/sqlite-probe.mjs`, pinned by
+      `sqlite-probe.test.mjs` (runs under plain vitest, wired into `desktop:test` via
+      `vitest.config.ts`'s `scripts/**/*.test.mjs` include — part of every `moon run :test`, not
+      release-only). **Re-verified this session**: `main`'s `package` job has been green on every
+      non-skipped run since (e.g. run
+      [35750655873](https://github.com/bilo-io/midnite-studio/actions/runs/35750655873), completed
+      2026-09-22T16:15Z, "Verify Distribution Integrity" step succeeded); and a fresh local
+      `desktop:rebuild-native desktop:dist desktop:verify-dist` on this same arm64 macOS this session
+      confirms it too (see this PR's body for the run). Checkbox left unticked per this session's own
+      instructions — flip it once a human/tracker-sync pass confirms.
       and the `package` job runs clean end to end.
 - [x] **Make the notarization skip visible.** [`notarize.cjs:16-19`](../../../packages/desktop/scripts/notarize.cjs)
       logs `[notarize] skipped (missing Apple credentials in env)` and returns — and nothing
@@ -516,6 +538,23 @@ task.**
       gates are responsible for already passed by the time this failure hits — but it means **no
       packaged build on `main` today actually runs**, which blocks this item and Theme H's identical
       one below until it is fixed.
+      **UPDATE 2026-09-23: fixed before this session started, in PR #309 (merged 2026-09-10) — see
+      the identical note on the Theme H item above for the root cause (the probe read `argv[1]`
+      instead of `argv[2]` and required `better-sqlite3` through `app.asar.unpacked` instead of
+      `app.asar`; `better-sqlite3` itself was never broken).** The "~5s is suspicious" note above
+      turned out to be a red herring: `electron-rebuild` resolving a matching prebuild rather than
+      compiling from source is fine, and every run since has proven the resulting binary is correctly
+      Electron-ABI'd. This session re-confirmed with fresh evidence rather than trusting the old
+      note: `main`'s `package` job green on every non-skipped run since PR #309 (run
+      [35750655873](https://github.com/bilo-io/midnite-studio/actions/runs/35750655873), 2026-09-22,
+      is the most recent), and `sqlite-probe.test.mjs` (4 tests) still passing under
+      `moon run desktop:test`, part of the standard `:test` gate. **Local `desktop:dist` reproduction
+      was attempted this session and could not run** — this dev machine's Command Line Tools resolve
+      to a malformed `MacOSX27.0.sdk` (macOS 26.6, ahead of matching Xcode tooling: `ld: multiple
+      errors: tapi error: malformed file` compiling `node-pty`, before `better-sqlite3` is ever
+      reached) — an environment problem specific to this machine, unrelated to the ABI regression and
+      not present on CI's `macos-14` runner. Checkbox left unticked per this session's own
+      instructions.
 - [ ] `curl -fsSL …/install.sh | sh` on a machine with no checkout installs v0.1.0, and it launches
       with no Gatekeeper prompt and under `env -i` with a bare `PATH`. **A human pass** — it needs a
       second machine, or at least a shell that has never seen this repo (F).
