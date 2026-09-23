@@ -1,4 +1,4 @@
-import type { TerminalSession } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, type TerminalSession } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -172,6 +172,87 @@ describe('TerminalSessionList — legacy banner docking and actions', () => {
 
     expect(useTerminalStore.getState().legacyBannerDismissed).toBe(true);
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('TerminalSessionList — the row icon wears the activity glow (Phase 95 Theme C)', () => {
+  const claude = BUILTIN_AGENTS.find((a) => a.id === 'claude')!;
+
+  const agentSession = (id: string): TerminalSession => ({
+    id,
+    kind: 'agent',
+    agentId: 'claude',
+    title: 'agent',
+    cwd: '/repo',
+    repoId: 'repo:1',
+    createdAt: 0,
+  });
+
+  const shellSession = (id: string): TerminalSession => ({
+    id,
+    kind: 'shell',
+    title: 'shell',
+    cwd: '/repo',
+    repoId: 'repo:1',
+    createdAt: 0,
+  });
+
+  it('no glow on an idle (not live) row', () => {
+    useTerminalStore.setState({ sessions: [agentSession('s1')], states: { s1: 'exited' } });
+
+    const { container } = render(
+      <DialogHost>
+        <TerminalSessionList agents={[claude]} width={220} />
+      </DialogHost>,
+    );
+
+    expect(container.querySelector('[data-testid="session-icon-glow"]')).toBeNull();
+  });
+
+  it('a live agent row wears the agent ring', () => {
+    useTerminalStore.setState({ sessions: [agentSession('s1')], states: { s1: 'open' } });
+
+    const { container } = render(
+      <DialogHost>
+        <TerminalSessionList agents={[claude]} width={220} />
+      </DialogHost>,
+    );
+
+    const glow = container.querySelector('[data-testid="session-icon-glow"]');
+    expect(glow).not.toBeNull();
+    expect(glow?.getAttribute('data-activity-status')).toBe('agent');
+  });
+
+  it('a live plain shell row wears the metallic shell ring', () => {
+    useTerminalStore.setState({ sessions: [shellSession('s1')], states: { s1: 'open' } });
+
+    const { container } = render(
+      <DialogHost>
+        <TerminalSessionList agents={[]} width={220} />
+      </DialogHost>,
+    );
+
+    const glow = container.querySelector('[data-testid="session-icon-glow"]');
+    expect(glow).not.toBeNull();
+    expect(glow?.getAttribute('data-activity-status')).toBe('shell');
+  });
+
+  it('a waiting agent row wears the waiting ring', () => {
+    useTerminalStore.setState({
+      sessions: [agentSession('s1')],
+      states: { s1: 'open' },
+      activity: { s1: 'waiting' },
+    });
+
+    const { container } = render(
+      <DialogHost>
+        <TerminalSessionList agents={[claude]} width={220} />
+      </DialogHost>,
+    );
+
+    expect(container.querySelector('[data-testid="session-icon-glow"]')?.getAttribute('data-activity-status')).toBe(
+      'waiting',
+    );
   });
 });
 

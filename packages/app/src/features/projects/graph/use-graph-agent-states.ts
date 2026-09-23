@@ -1,7 +1,16 @@
 import { useEffect, useMemo } from 'react';
 
-import { deriveCardGlowState, type CardGlowState } from '../board/glow-state';
-import { sessionPhase, useTerminalStore } from '../../terminal/terminal-store';
+import { cardGlowStateFromActivity, type CardGlowState } from '../board/glow-state';
+import { resolveActivityGlow, type ActivityGlowBadge } from '../../activity/use-activity-glow';
+import { resolveSessionAgentId, sessionPhase, useTerminalStore } from '../../terminal/terminal-store';
+
+/** One node's resolved ring plus its identity badge(s) — Phase 95 Theme C. */
+export type GraphNodeActivity = {
+  glow: CardGlowState;
+  badges: ActivityGlowBadge[];
+};
+
+const IDLE_ACTIVITY: GraphNodeActivity = { glow: 'idle', badges: [] };
 
 /**
  * One `agent-run-glow` state per graph node, for the whole dependency canvas
@@ -35,11 +44,21 @@ import { sessionPhase, useTerminalStore } from '../../terminal/terminal-store';
  * once a future theme threads it through; until then this hook only ever
  * answers "is an agent running or waiting on this node", which is exactly
  * what is renderable before any node exists to render it on.
+ *
+ * `useActivityGlow`'s `resolveActivityGlow` (Phase 95 Theme C) is now what
+ * decides the ring — this hook's own job shrank to "one cheap whole-canvas
+ * pass building its input", the same relationship `TaskCard` has to it. The
+ * ring itself is still painted through the legacy `CardGlowState`/
+ * `.agent-run-glow` family (`cardGlowStateFromActivity`'s own doc comment
+ * explains why the paint is not migrating in this theme); what is new here
+ * is each node's identity badge, read straight off `resolveActivityGlow`'s
+ * own badge list.
  */
-export function useGraphAgentStates(projectId: string): ReadonlyMap<string, CardGlowState> {
+export function useGraphAgentStates(projectId: string): ReadonlyMap<string, GraphNodeActivity> {
   const sessions = useTerminalStore((s) => s.sessions);
   const states = useTerminalStore((s) => s.states);
   const activity = useTerminalStore((s) => s.activity);
+  const liveAgentId = useTerminalStore((s) => s.liveAgentId);
 
   /*
     Without this, this hook's glow is inert on a fresh boot — `board-view.tsx`
@@ -61,7 +80,7 @@ export function useGraphAgentStates(projectId: string): ReadonlyMap<string, Card
   }, []);
 
   return useMemo(() => {
-    const map = new Map<string, CardGlowState>();
+    const map = new Map<string, GraphNodeActivity>();
     const seen = new Set<string>();
 
     for (const session of sessions) {
@@ -71,12 +90,28 @@ export function useGraphAgentStates(projectId: string): ReadonlyMap<string, Card
       if (seen.has(taskRef.itemId)) continue;
       seen.add(taskRef.itemId);
 
-      const phase = sessionPhase(session, states[session.id]);
-      const running = phase === 'live';
-      const waiting = running && activity[session.id] === 'waiting';
-      map.set(taskRef.itemId, deriveCardGlowState({ running, waiting, isOpen: false }));
+      const running = sessionPhase(session, states[session.id]) === 'live';
+      const activityGlow = resolveActivityGlow({
+        sessions: [
+          {
+            sessionId: session.id,
+            agentId: resolveSessionAgentId(session, liveAgentId),
+            activity: activity[session.id],
+            running,
+          },
+        ],
+      });
+      map.set(taskRef.itemId, {
+        glow: cardGlowStateFromActivity(activityGlow.status, false),
+        badges: activityGlow.badges,
+      });
     }
 
     return map;
-  }, [sessions, states, activity, projectId]);
+  }, [sessions, states, activity, liveAgentId, projectId]);
+}
+
+/** The idle entry every unmapped node falls back to — a stable reference so `ProjectGraphNode` never re-renders off a fresh `{glow:'idle', badges:[]}` literal. */
+export function idleGraphNodeActivity(): GraphNodeActivity {
+  return IDLE_ACTIVITY;
 }

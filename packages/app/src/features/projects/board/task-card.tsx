@@ -4,12 +4,16 @@ import { LuPlay } from 'react-icons/lu';
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
 import { useActiveWorktree } from '../../../services/use-status';
+import { ActivityBadgeStack } from '../../activity/activity-badge';
+import { useActivityGlow, type ActivityGlowSessionInput } from '../../activity/use-activity-glow';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from './card-chrome';
 import { CardTerminal } from './card-terminal';
-import { deriveCardGlowState } from './glow-state';
+import { cardGlowStateFromActivity } from './glow-state';
 import { useCardPlay } from './use-card-play';
 import { useCardStatus } from './use-card-status';
 import { useCardVisible } from './use-card-visible';
+
+const NO_SESSIONS: readonly ActivityGlowSessionInput[] = [];
 
 /**
  * One card (Phase 41 Theme B): title, type glyph, `#number` where the item
@@ -31,6 +35,7 @@ export function TaskCard({
   fields,
   projectId,
   isOpen = false,
+  statusColor,
   tabIndex = -1,
   onClick,
 }: {
@@ -45,6 +50,14 @@ export function TaskCard({
   projectId?: string;
   /** Whether this card's detail pane is the one currently open (Theme F). */
   isOpen?: boolean;
+  /**
+   * The card's own column colour (`fieldOptionColor(column.color)`, Phase 95
+   * Theme C) — painted as a static ring once no live session is bound, so an
+   * idle card still reads its own status at a glance instead of going bare.
+   * `undefined` when the card is rendered with no board context (the drag
+   * overlay) or the column carries no colour.
+   */
+  statusColor?: string;
   /**
    * Roving tabindex (Phase 52 Theme G): exactly one card on the board is `0`
    * at a time — the board's own single Tab stop — every other card (and the
@@ -61,20 +74,36 @@ export function TaskCard({
 
   // No board, no session to bind to — falls out of `useCardStatus` as idle.
   const status = useCardStatus(projectId ? { projectId, itemId: item.id } : { projectId: '', itemId: '' });
-  // "Open" only means something once there is a session to point the ring
-  // at — an item pane opened with no agent ever launched on it is plain
-  // browsing, not a terminal left open.
-  const glow = projectId
-    ? deriveCardGlowState({
-        running: status.running,
-        waiting: status.waiting,
-        isOpen: isOpen && status.sessionId !== undefined,
-      })
-    : 'idle';
   // Narrowed once, here — `status.sessionId` is read twice below (the button's
   // existence and its click), and a property read cannot narrow across a JSX
   // callback boundary.
   const sessionId = status.sessionId;
+
+  // `useActivityGlow` (Phase 95 Theme C) is the one place "who is doing what
+  // to this card" gets decided — replacing this card's own ad hoc
+  // running/waiting read of the terminal store. A card carries at most one
+  // bound session today, so this is a one-element list; `NO_SESSIONS` keeps
+  // that array reference stable when there is none, so the hook (which does
+  // no memoising of its own) never sees a "new" input on every render.
+  const activityGlow = useActivityGlow(
+    projectId && sessionId !== undefined
+      ? {
+          sessions: [
+            {
+              sessionId,
+              agentId: status.liveAgentId,
+              activity: status.activity,
+              running: status.running,
+            },
+          ],
+          fallbackColor: statusColor,
+        }
+      : { sessions: NO_SESSIONS, fallbackColor: projectId ? statusColor : undefined },
+  );
+  // "Open" only means something once there is a session to point the ring
+  // at — an item pane opened with no agent ever launched on it is plain
+  // browsing, not a terminal left open.
+  const glow = projectId ? cardGlowStateFromActivity(activityGlow.status, isOpen && sessionId !== undefined) : 'idle';
 
   // Theme E: the card's own viewport-mount signal — a running card mounts
   // its xterm only while scrolled into view, and shows the last activity
@@ -106,7 +135,17 @@ export function TaskCard({
       className={`relative flex w-full flex-col gap-1.5 rounded border border-border bg-background px-2 py-1.5 text-left text-xs hover:border-foreground/30 ${
         glow === 'idle' ? '' : `agent-run-glow is-${glow}`
       }`}
+      // A static ring in the card's own status-pill colour, once idle with
+      // nothing else to show — never applied while a real glow class is
+      // active above, so it can never fight the ramp/amber ring for the
+      // same border. Inline because the colour is board data, not a
+      // Tailwind class this stylesheet has ever seen (`CardFieldChips`'
+      // own chips make the identical trade).
+      style={glow === 'idle' && activityGlow.ringColor ? { borderColor: activityGlow.ringColor } : undefined}
     >
+      {activityGlow.badges.length > 0 ? (
+        <ActivityBadgeStack badges={activityGlow.badges} className="absolute -right-1 -top-1 z-10" />
+      ) : null}
       <div className="relative flex flex-col gap-1.5">
         <div className="flex items-start justify-between gap-1.5">
           <div className="flex min-w-0 flex-1 items-start gap-1.5">

@@ -3,6 +3,8 @@ import { useMemo } from 'react';
 import { LuCircleCheck, LuPlay } from 'react-icons/lu';
 
 import { useActiveWorktree } from '../../../services/use-status';
+import { ActivityBadgeStack } from '../../activity/activity-badge';
+import type { ActivityGlowBadge } from '../../activity/use-activity-glow';
 import { findCardSession, useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from '../board/card-chrome';
 import type { CardGlowState } from '../board/glow-state';
@@ -23,11 +25,14 @@ import { FORGE_GRAPH_GEOMETRY, type PositionedNode } from './graph-layout';
  * `useGraphAgentStates` (one subscription for the whole canvas, Theme F),
  * never a per-node store read.
  */
+const EMPTY_BADGES: readonly ActivityGlowBadge[] = [];
+
 export function ProjectGraphNode({
   node,
   item,
   fields,
   glow,
+  badges = EMPTY_BADGES,
   selected,
   tabIndex = -1,
   detailed = true,
@@ -40,6 +45,8 @@ export function ProjectGraphNode({
   item: ForgeProjectItem | undefined;
   fields: readonly ForgeProjectField[];
   glow: CardGlowState;
+  /** The node's live-session identity badge(s) (Phase 95 Theme C) — `useGraphAgentStates`'s own entry, defaulted so every existing caller (every test in this suite included) keeps compiling unchanged. */
+  badges?: readonly ActivityGlowBadge[];
   /** Whether this node's detail pane is the one currently open — a visual
    *  ring, distinct from keyboard focus (`tabIndex` below). Mirrors
    *  `TaskCard`'s own `isOpen`/roving-`tabIndex` split. */
@@ -123,6 +130,9 @@ export function ProjectGraphNode({
         .filter(Boolean)
         .join(' ')}
     >
+      {badges.length > 0 ? (
+        <ActivityBadgeStack badges={badges} className="absolute -left-1.5 -top-1.5 z-10" />
+      ) : null}
       {/*
         Theme E's dimming lives on this inner wrapper, never the outer
         element above — the outer one is what carries `agent-run-glow`, and

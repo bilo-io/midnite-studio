@@ -161,25 +161,58 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
       Plus: `resolveActivePalette` composition precedence (override > style mode > preset),
       persisted-store migration from a pre-Theme-B profile, and the shared-key merge-on-write.
 
-### C — The glow everywhere, with who is doing it (M)
+### C — The glow everywhere, with who is doing it (M) — ✅ DONE (PR #527, 2026-09-23)
 
-- [ ] One hook, `useActivityGlow(target)`, that resolves a target's `ActivityStatus` in one place:
+- [x] One hook, `useActivityGlow(target)`, that resolves a target's `ActivityStatus` in one place:
       an agent **actively working** on it → `agent` (or `thinking`); an agent waiting on input →
       `waiting`; a plain shell → `shell`; otherwise the target's own state (card status pill,
       workflow node run state). Replaces `deriveCardGlowState`'s callers.
-- [ ] Apply to: kanban cards ([`task-card.tsx`](../../../packages/app/src/features/projects/board/task-card.tsx)),
+      [`use-activity-glow.ts`](../../../packages/app/src/features/activity/use-activity-glow.ts) —
+      a pure `resolveActivityGlow` plus a thin `useActivityGlow` wrapper; precedence across several
+      live sessions on one target is `waiting > agent > thinking > shell`, then the caller's
+      `fallbackStatus` (a run-state `ActivityStatus`), then `fallbackColor` (a raw CSS colour —
+      see the pill-colour item below).
+- [x] Apply to: kanban cards ([`task-card.tsx`](../../../packages/app/src/features/projects/board/task-card.tsx)),
       project graph nodes ([`project-graph-node.tsx`](../../../packages/app/src/features/projects/graph/project-graph-node.tsx)),
       workflow canvas nodes (Theme I's node view), terminal session rows
       ([`terminal-session-list.tsx`](../../../packages/app/src/features/terminal/terminal-session-list.tsx))
       and the Sessions view ([`sessions-view.tsx`](../../../packages/app/src/features/sessions/sessions-view.tsx)).
-- [ ] When no session is on a card, its glow matches its **status pill's** colour (`done`, `in
+      **Decision (unattended run):** workflow canvas nodes are **not** wired — Theme I (the node
+      view this hook would attach to) has not landed yet; the current canvas is still hand-rolled
+      SVG with its own `STATUS_STROKE`, nothing `useActivityGlow` can point at. Theme I's own
+      checklist item ("Node glow… follow the global Activity settings") is where that wiring
+      belongs once the node view exists. The other four surfaces are wired. **Decision (unattended
+      run), kanban cards and graph nodes:** `useActivityGlow` is the new decision layer (both now
+      call it instead of an ad hoc `running`/`waiting` read of the terminal store), but the *ring
+      paint* stays on the existing, already-baselined `.agent-run-glow`/`is-running|is-waiting|
+      is-open` classes rather than switching to `.activity-glow`'s Brand-preset ring — a new
+      `cardGlowStateFromActivity` bridge in `glow-state.ts` maps the richer status back onto that
+      three-state family. Switching the ring itself is a visual product call (this phase's own
+      Theme A note flags it as exactly that) that would re-baseline `kanban-card.spec.ts`'s two
+      committed screenshots and rewrite `kanban.spec.ts`'s `is-running` class assertions for a
+      colour change alone — left for a dedicated pass with a human looking at the result, not made
+      silently here. Terminal rows and the Sessions view have no such legacy ring to preserve, so
+      they wear the real `.activity-glow` ring directly, around the row's own leading icon.
+- [x] When no session is on a card, its glow matches its **status pill's** colour (`done`, `in
       review`, …) as a static ring; the animated ring is reserved for live work.
-- [ ] **Identity badge.** Wherever a glow is showing, a small badge sits on the element's corner:
+      `board-view.tsx` threads each column's `fieldOptionColor(column.color)` into `TaskCard` as
+      `statusColor`, which `useActivityGlow` returns as `ringColor` once idle; the card paints it
+      as an inline `border-color`, never fighting the animated ring since the two are mutually
+      exclusive by construction (`glow === 'idle'` is exactly when there is nothing live). Graph
+      nodes keep their own existing closed/ready border-colour language instead — a second,
+      independent idle-colour source on the same element would just be two systems arguing over
+      one border.
+- [x] **Identity badge.** Wherever a glow is showing, a small badge sits on the element's corner:
       the **agent's own icon** via `resolveAgentIcon(liveAgentId ?? agentId)` for agent sessions
       (tracking the live agent, so `claude` typed into a plain shell flips the badge), or a
       **terminal glyph** (`LuSquareTerminal`) for a plain shell. Several sessions on one target
       stack, capped at three with `+N`. Hover names the agent/shell; click reveals the session.
-- [ ] Tests: `useActivityGlow` precedence table (agent-working beats run state beats pill);
+      [`activity-badge.tsx`](../../../packages/app/src/features/activity/activity-badge.tsx)'s
+      `ActivityBadgeStack`, on kanban cards' and graph nodes' corners. On terminal session rows and
+      the Sessions view, the row's own existing leading icon (`SessionIcon`/`AgentIcon`) already
+      *is* this identity mark — Theme C's addition there is the glow ring around it, not a second,
+      redundant badge beside it.
+- [x] Tests: `useActivityGlow` precedence table (agent-working beats run state beats pill);
       badge renders the right icon per session kind and stacks past three.
 
 ### D — Forge issue and project CRUD (L)
