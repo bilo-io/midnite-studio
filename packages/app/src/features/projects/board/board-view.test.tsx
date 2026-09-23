@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../../components/dialog-host';
+import { ToastHost } from '../../../components/toast-host';
 import { useResizable } from '../../../components/resizable/use-resizable';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { BoardView } from './board-view';
@@ -118,6 +119,9 @@ const uiState = {
   cardSkillByTask: {} as Record<string, string>,
   setCardSkill: vi.fn(),
   agentSkills: {} as Record<string, string | undefined>,
+  // Drag-to-skill's own column → skill map (Phase 95 Theme G) — `BoardView`
+  // reads this unconditionally now.
+  columnSkillByProject: {} as Record<string, Record<string, string>>,
 };
 function useUiStoreMock<T>(selector: (state: typeof uiState) => T): T {
   return selector(uiState);
@@ -129,11 +133,15 @@ vi.mock('../../../store/ui-store', () => ({
 
 function renderWithClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  // `DraggableCard`'s "Move to ▸" menu reaches `useDialogs()` (Theme C) —
-  // every render needs the host it expects in the real app tree.
+  // `DraggableCard`'s "Move to ▸" menu reaches `useDialogs()` (Theme C), and
+  // `BoardView` itself now reaches `useToasts()` unconditionally for
+  // drag-to-skill's own Undo toast (Phase 95 Theme G) — every render needs
+  // both hosts the real app tree provides.
   return render(
     <QueryClientProvider client={queryClient}>
-      <DialogHost>{ui}</DialogHost>
+      <ToastHost>
+        <DialogHost>{ui}</DialogHost>
+      </ToastHost>
     </QueryClientProvider>,
   );
 }
@@ -600,9 +608,11 @@ describe('board keyboard navigation (Phase 52 Theme G)', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const tree = (items: ForgeProjectItem[]) => (
       <QueryClientProvider client={queryClient}>
-        <DialogHost>
-          <Harness projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={items} />
-        </DialogHost>
+        <ToastHost>
+          <DialogHost>
+            <Harness projectId="PVT_1" repoId="repo-1" worktreePath="/repo" fields={[statusField]} items={items} />
+          </DialogHost>
+        </ToastHost>
       </QueryClientProvider>
     );
 

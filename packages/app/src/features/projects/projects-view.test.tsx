@@ -5,6 +5,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import type { Remote } from '@midnite/studio-shared';
 
 import { DialogHost } from '../../components/dialog-host';
+import { ToastHost } from '../../components/toast-host';
 import { ProjectsView } from './projects-view';
 
 /**
@@ -163,6 +164,10 @@ vi.mock('../../store/ui-store', () => ({
         cardSkillByTask: Record<string, string>;
         setCardSkill: typeof setCardSkill;
         agentSkills: Record<string, string | undefined>;
+        // Drag-to-skill's own column → skill map (Phase 95 Theme G) —
+        // `BoardView` reads this unconditionally now, so the mock needs the
+        // key even though no test here drives a real drag.
+        columnSkillByProject: Record<string, Record<string, string>>;
       }) => unknown,
     ) =>
       selector({
@@ -181,6 +186,7 @@ vi.mock('../../store/ui-store', () => ({
         cardSkillByTask,
         setCardSkill,
         agentSkills: {},
+        columnSkillByProject: {},
       }),
     {
       /*
@@ -198,12 +204,16 @@ vi.mock('../../store/ui-store', () => ({
 function renderWithClient() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   // Board mode's cards reach `useDialogs()` for their "Move to ▸" menu
-  // (Phase 41 Theme C) — the host every render needs, matching the real tree.
+  // (Phase 41 Theme C), and `BoardView` itself now reaches `useToasts()`
+  // unconditionally for drag-to-skill's own Undo toast (Phase 95 Theme G) —
+  // both hosts every render needs, matching the real tree.
   return render(
     <QueryClientProvider client={queryClient}>
-      <DialogHost>
-        <ProjectsView />
-      </DialogHost>
+      <ToastHost>
+        <DialogHost>
+          <ProjectsView />
+        </DialogHost>
+      </ToastHost>
     </QueryClientProvider>,
   );
 }
@@ -716,9 +726,11 @@ describe('Phase 75 Theme G — one selection, agent gate', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const tree = () => (
       <QueryClientProvider client={queryClient}>
-        <DialogHost>
-          <ProjectsView />
-        </DialogHost>
+        <ToastHost>
+          <DialogHost>
+            <ProjectsView />
+          </DialogHost>
+        </ToastHost>
       </QueryClientProvider>
     );
     const { rerender } = render(tree());
@@ -775,9 +787,11 @@ describe('Phase 75 Theme G — one selection, agent gate', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const tree = () => (
       <QueryClientProvider client={queryClient}>
-        <DialogHost>
-          <ProjectsView />
-        </DialogHost>
+        <ToastHost>
+          <DialogHost>
+            <ProjectsView />
+          </DialogHost>
+        </ToastHost>
       </QueryClientProvider>
     );
     const { rerender } = render(tree());
