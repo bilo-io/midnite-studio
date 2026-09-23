@@ -1,18 +1,24 @@
-import type { ForgeAccount, MidniteStudioBridge } from '@midnite/studio-shared';
+import type { ForgeAccount, MidniteStudioBridge, RepoDescriptor } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useAccountSwitcherStore } from '../../../components/account-switcher-store';
+import { ToastHost } from '../../../components/toast-host';
 import { useUiStore } from '../../../store/ui-store';
 import { AccountsPage, PROVIDER_BRAND_COLOR, PROVIDER_ICON, PROVIDER_LABEL } from './accounts-page';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
+// Wrapped in `<ToastHost>`: `useSwitchForgeAccount`'s own `onSuccess` (the
+// follow-up to Theme L that toasts what a switch hid) reaches `useToasts()`,
+// which throws "must be used inside <ToastHost>" on mount otherwise.
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <ToastHost>{children}</ToastHost>
+    </QueryClientProvider>
   );
 }
 
@@ -28,7 +34,30 @@ const gitlabAccount: ForgeAccount = {
   delegated: null,
 };
 
-function installBridge(overrides: Partial<MidniteStudioBridge['forgeAccounts']> = {}) {
+const githubAccount: ForgeAccount = {
+  id: 'github:github.com:bilo-io',
+  kind: 'github',
+  host: 'github.com',
+  login: 'bilo-io',
+  displayName: '',
+  avatarUrl: null,
+  addedAt: 0,
+  hasToken: false,
+  delegated: 'gh',
+};
+
+const repo = (id: string): RepoDescriptor => ({
+  id,
+  path: `/r/${id}`,
+  name: id,
+  headRef: 'main',
+  worktrees: [],
+});
+
+function installBridge(
+  overrides: Partial<MidniteStudioBridge['forgeAccounts']> = {},
+  extra: { repos?: RepoDescriptor[]; remotes?: Record<string, { host: string; owner: string; kind: 'github' | 'gitlab' }> } = {},
+) {
   // `overrides` is spread last, so build the object once and hand back THAT
   // object's own methods — returning the pre-override locals instead (as a
   // first draft of this helper did) silently tracks the discarded default
@@ -37,13 +66,32 @@ function installBridge(overrides: Partial<MidniteStudioBridge['forgeAccounts']> 
     list: vi.fn().mockResolvedValue([]),
     add: vi.fn(),
     remove: vi.fn().mockResolvedValue({ ok: true }),
-    switch: vi.fn().mockResolvedValue({ ok: true, activeAccountId: null }),
+    switch: vi.fn(async ({ id }: { id: string | null }) => ({ ok: true, activeAccountId: id })),
     capabilities: vi.fn(),
     reachableRepos: vi.fn().mockResolvedValue({ ok: false, reason: 'unsupported' }),
     ...overrides,
   } as MidniteStudioBridge['forgeAccounts'];
+  const remotesByRepo = extra.remotes ?? {};
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
     forgeAccounts,
+    repos: {
+      list: vi.fn().mockResolvedValue(extra.repos ?? []),
+    } as unknown as MidniteStudioBridge['repos'],
+    remotes: {
+      list: vi.fn(async ({ repoId }: { repoId: string }) => {
+        const r = remotesByRepo[repoId];
+        if (!r) return [];
+        const url = `https://${r.host}/${r.owner}/${repoId}.git`;
+        return [
+          {
+            name: 'origin',
+            fetchUrl: url,
+            pushUrl: url,
+            forge: { host: r.host, owner: r.owner, repo: repoId, kind: r.kind },
+          },
+        ];
+      }),
+    } as unknown as MidniteStudioBridge['remotes'],
   } as Partial<MidniteStudioBridge>;
   return forgeAccounts;
 }
@@ -263,6 +311,40 @@ describe('AccountsPage', () => {
       render(<AccountsPage />, { wrapper: createWrapper() });
       await screen.findByRole('radio', { name: 'GitHub' });
       expect(document.activeElement).toBe(document.body);
+    });
+  });
+
+  // The follow-up to Theme L (PR #516): the switch itself shipped without
+  // the "toast what it hid, with an undo" the phase doc's Decisions section
+  // asks for. `useSwitchForgeAccount` (`services/queries.ts`) owns the
+  // toast, so `AccountsPage`'s "Make active" button is one of its three
+  // entry points, not a re-implementation.
+  describe('account-switch toast', () => {
+    it('Make active toasts the hidden-repos count, with an Undo back to the previous account', async () => {
+      installBridge(
+        { list: vi.fn().mockResolvedValue([gitlabAccount, githubAccount]) },
+        {
+          repos: [repo('on-a'), repo('on-b')],
+          remotes: {
+            'on-a': { host: 'gitlab.com', owner: 'octocat', kind: 'gitlab' },
+            'on-b': { host: 'github.com', owner: 'bilo-io', kind: 'github' },
+          },
+        },
+      );
+      useUiStore.setState({ forgeActiveAccountId: gitlabAccount.id });
+      render(<AccountsPage />, { wrapper: createWrapper() });
+
+      // Only the non-active account (github) has a "Make active" button —
+      // gitlab's own row reads "Active" instead.
+      await screen.findByText('bilo-io');
+      fireEvent.click(screen.getByRole('button', { name: 'Make active' }));
+
+      const toast = await screen.findByRole('status');
+      expect(toast.textContent).toContain('Switched to bilo-io (github) · 1 repository hidden');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+      await waitFor(() => expect(useUiStore.getState().forgeActiveAccountId).toBe(gitlabAccount.id));
+      await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
     });
   });
 });

@@ -1666,13 +1666,19 @@ export function buildMockBridge(data: MockFixtures) {
     },
     /*
         The account registry's IPC surface (Phase 90 Theme B), repo-agnostic
-        like the real `forge-account-handlers.ts`. Only `capabilities` has a
-        caller today (`app.tsx`'s `FORGE_GATED_VIEWS` gate, Theme H) — it
-        answers with the same two rows the real `capabilitiesFor` matrix
-        does (`'full'` for github, `'none'` for every other kind, until
-        Themes E-G ship real adapters) rather than reading a fixture, so a
-        spec never has to seed a capability record for a repo it already
-        declared a `forge`/`remotes` fixture for.
+        like the real `forge-account-handlers.ts`. `capabilities` answers
+        with the same two rows the real `capabilitiesFor` matrix does
+        (`'full'` for github, `'none'` for every other kind, until Themes
+        E-G ship real adapters) rather than reading a fixture, so a spec
+        never has to seed a capability record for a repo it already
+        declared a `forge`/`remotes` fixture for. `reachableRepos` answers
+        `unsupported` the same way, for the same reason — no spec needs a
+        real reachable-repos listing yet, only the "no evidence either way"
+        shape `isRepoVisibleForAccount` already treats as "stay visible".
+        `switch` actually moves the pointer (echoing the requested id back
+        as `ok: true`) rather than the earlier stub's unconditional
+        failure — the account-switch toast (Phase 90's Decisions section)
+        is the first caller that needs a switch to actually succeed here.
         Reimplemented rather than imported: `@midnite/studio-shared` is a
         CommonJS package, and this file's e2e specs run under Node's own
         ESM loader outside Vite's bundler, which cannot resolve a named
@@ -1683,7 +1689,7 @@ export function buildMockBridge(data: MockFixtures) {
       list: async () => data.forgeAccounts ?? [],
       add: async () => ({ ok: false as const, error: 'not implemented in the mock bridge' }),
       remove: async () => ({ ok: false }),
-      switch: async () => ({ ok: false, activeAccountId: null }),
+      switch: async (req: { id: string | null }) => ({ ok: true, activeAccountId: req.id }),
       capabilities: async (req: { kind: ForgeKind }): Promise<ForgeCapability> => {
         const level = req.kind === 'github' ? ('full' as const) : ('none' as const);
         return {
@@ -1696,6 +1702,7 @@ export function buildMockBridge(data: MockFixtures) {
           repoListing: level,
         };
       },
+      reachableRepos: async () => ({ ok: false as const, reason: 'unsupported' as const }),
     },
     /*
         ProjectV2 (Phase 40 Theme G), its own IPC namespace in the real

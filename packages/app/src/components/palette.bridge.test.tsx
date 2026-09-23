@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { ForgeAccount } from '@midnite/studio-shared';
+
 import { fixtures } from '../../test-support/fixtures';
 import type { MockFixtures } from '../../test-support/mock-bridge';
 import { renderView } from '../../test-support/render';
@@ -111,7 +113,10 @@ beforeEach(() => {
   usePaletteStore.setState({ isOpen: false, mode: 'all', query: '', selectedIndex: 0 });
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  useUiStore.setState({ forgeAccounts: [], forgeActiveAccountId: null });
+});
 
 describe('Palette, assembled through the real bridge', () => {
   it('Meta+k opens the palette and Escape closes it', () => {
@@ -269,5 +274,67 @@ describe('Palette, assembled through the real bridge', () => {
     const goToFileContainer = palette().querySelector(':scope > div');
     expect(goToFileContainer?.className).toContain('gradient-border');
     expect(goToFileContainer?.className).toContain('gradient-border--always');
+  });
+
+  // The follow-up to Phase 90 Theme L (PR #516): the switch itself shipped
+  // without the "toast what it hid, with an undo" the phase doc's
+  // Decisions section asks for. The toast lives in `useSwitchForgeAccount`
+  // (`services/queries.ts`), so this "Switch to…" row is one of its three
+  // entry points, not a re-implementation — `Harness` already wraps
+  // `<ToastHost>`.
+  it('a "Switch to…" row toasts the hidden-repos count, with an Undo action', async () => {
+    const octocat: ForgeAccount = {
+      id: 'gitlab:gitlab.com:octocat',
+      kind: 'gitlab',
+      host: 'gitlab.com',
+      login: 'octocat',
+      displayName: '',
+      avatarUrl: null,
+      addedAt: 0,
+      hasToken: true,
+      delegated: null,
+    };
+    const biloIo: ForgeAccount = {
+      id: 'github:github.com:bilo-io',
+      kind: 'github',
+      host: 'github.com',
+      login: 'bilo-io',
+      displayName: '',
+      avatarUrl: null,
+      addedAt: 0,
+      hasToken: false,
+      delegated: 'gh',
+    };
+
+    renderView(<Harness />, {
+      fixtures: {
+        ...paletteFixtures,
+        forgeAccounts: [octocat, biloIo],
+        // `repo-1`'s only remote — on gitlab.com, a host mismatch once
+        // `biloIo` (github.com) becomes active, which is what hides it.
+        remotes: [
+          {
+            name: 'origin',
+            fetchUrl: 'https://gitlab.com/octocat/repo-1.git',
+            pushUrl: 'https://gitlab.com/octocat/repo-1.git',
+            forge: { host: 'gitlab.com', owner: 'octocat', repo: 'repo-1', kind: 'gitlab' },
+          },
+        ],
+      },
+      // The palette reads the store mirror directly (its own doc comment:
+      // "opening the palette asks main for nothing"), which `AccountSwitcher`
+      // populates in the real app via `useForgeAccounts()` — nothing here
+      // mounts that, so it is seeded directly.
+      uiState: { ...UI_STATE, forgeAccounts: [octocat, biloIo], forgeActiveAccountId: octocat.id },
+    });
+
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    fireEvent.change(search(), { target: { value: 'switch to bilo-io' } });
+    fireEvent.click(await screen.findByRole('option', { name: /Switch to bilo-io \(github\)/ }));
+
+    expect(screen.queryByRole('dialog', { name: 'Command Palette' })).toBeNull();
+    const toast = await screen.findByRole('status');
+    expect(toast.textContent).toContain('Switched to bilo-io (github) · 1 repository hidden');
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy();
   });
 });

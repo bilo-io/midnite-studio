@@ -6,17 +6,25 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FORGE_SWITCHER_PLACEMENTS, useUiStore, type ForgeSwitcherPlacement } from '../store/ui-store';
 import { AccountSwitcher, AccountSwitcherSlot } from './account-switcher';
 import { openAccountsSettings, useAccountSwitcherStore } from './account-switcher-store';
+import { ToastHost } from './toast-host';
 
 /**
  * Phase 90 Theme L — the account switcher. All jsdom: rows, roles, store
  * writes and slot selection are DOM facts, not layout ones (docs/TESTING.md).
  * Appearance is the visual lane's (`e2e/visual/account-switcher.visual.ts`).
+ *
+ * Wrapped in `<ToastHost>`: `useSwitchForgeAccountToast` (the follow-up to
+ * Theme L that wires the "what did this hide" toast) reaches `useToasts()`,
+ * which throws "must be used inside <ToastHost>" on mount otherwise — the
+ * same reason `repo-favourites.bridge.test.tsx` wraps `ReposPanel`.
  */
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <ToastHost>{children}</ToastHost>
+    </QueryClientProvider>
   );
 }
 
@@ -168,6 +176,24 @@ describe('AccountSwitcher — the menu', () => {
     const menu = await openMenu();
     fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'The Octocat' }));
     expect(api.switch).not.toHaveBeenCalled();
+  });
+
+  it('toasts what the switch hid, with an Undo back to the previous account', async () => {
+    installBridge({ repos: [repo('on-github'), repo('on-gitlab')] });
+    setAccounts([gitlab, github], gitlab.id);
+    render(<AccountSwitcher layout="titlebar" />, { wrapper: createWrapper() });
+
+    const menu = await openMenu();
+    fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'bilo-io' }));
+    await waitFor(() => expect(useUiStore.getState().forgeActiveAccountId).toBe(github.id));
+
+    const toast = await screen.findByRole('status');
+    expect(toast.textContent).toContain('Switched to bilo-io (github) · 1 repository hidden');
+
+    fireEvent.click(within(toast).getByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(useUiStore.getState().forgeActiveAccountId).toBe(gitlab.id));
+    // The clicked toast dismisses itself, and undoing never queues its own.
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
   });
 
   it('ends with Add account… (add form requested) and Manage accounts…', async () => {
