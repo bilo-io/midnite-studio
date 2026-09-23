@@ -18,8 +18,8 @@ import { WidgetState } from '../widget-frame';
  * lands on `PrDetail`, an issue on `IssueDetail`, a run in Actions) exactly
  * like `forge-sections.tsx`'s sidebar rows already do unconditionally — the
  * dashboard's rows differ only in still reading the click event, so Mod/Ctrl
- * still forces the system browser and Alt/Option still forces the embedded
- * one even from a tile. That is why they are `<button>`s rather than anchors:
+ * still forces the system browser, Mod+Shift the native view (else the
+ * embedded browser), and Alt/Option the embedded one even from a tile. That is why they are `<button>`s rather than anchors:
  * the renderer is a `file://` origin in the packaged app, and a real `href`
  * would either do nothing or navigate the whole window out of the application.
  */

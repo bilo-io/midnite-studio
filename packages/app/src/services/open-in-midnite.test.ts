@@ -203,11 +203,11 @@ describe('resolveDestination — the modifier matrix', () => {
   });
 
   it.each([
-    // Mod/Ctrl and Shift: always the system browser, regardless of preference.
+    // Mod/Ctrl and Shift on their own: always the system browser, regardless of preference.
     ['meta', click({ metaKey: true })],
     ['ctrl', click({ ctrlKey: true })],
     ['shift', click({ shiftKey: true })],
-    ['meta+shift', click({ metaKey: true, shiftKey: true })],
+    ['meta+alt', click({ metaKey: true, altKey: true })],
   ])('%s → system, for either preference', (_name, event) => {
     expect(resolveDestination('https://example.com', event, opts('in-app'))).toEqual({
       kind: 'system',
@@ -231,6 +231,29 @@ describe('resolveDestination — the modifier matrix', () => {
     expect(
       resolveDestination(PR_URL, click({ altKey: true }), opts('in-app', true)),
     ).toEqual({ kind: 'embedded' });
+  });
+
+  it.each([
+    ['meta+shift', click({ metaKey: true, shiftKey: true })],
+    ['ctrl+shift', click({ ctrlKey: true, shiftKey: true })],
+  ])('%s, a route matches → the route, even with preferInAppRoute off', (_name, event) => {
+    registerRepo1();
+    const expected = {
+      kind: 'in-app-route',
+      route: { view: 'reviews', repoId: 'repo-1', pull: 42 },
+    };
+    expect(resolveDestination(PR_URL, event, opts('system'))).toEqual(expected);
+    expect(resolveDestination(PR_URL, event, opts('in-app', true))).toEqual(expected);
+  });
+
+  it('meta+shift, no route matches → the embedded browser, never the system one', () => {
+    const event = click({ metaKey: true, shiftKey: true });
+    expect(resolveDestination('https://example.com', event, opts('system'))).toEqual({
+      kind: 'embedded',
+    });
+    expect(resolveDestination('https://example.com', event, opts('in-app', true))).toEqual({
+      kind: 'embedded',
+    });
   });
 
   it('mod beats a matching in-app route too', () => {

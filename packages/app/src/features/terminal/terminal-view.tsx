@@ -9,7 +9,7 @@ import { bridge } from '../../services/bridge';
 import { usePaletteStore } from '../themes/palette-store';
 import { resolveTerminalPalette } from '../themes/resolve-palette';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
-import { openInMidnite } from '../../services/open-in-midnite';
+import { openLinkFromEvent } from '../../services/open-in-midnite';
 import { useSessionRevealFade } from '../../components/use-reveal';
 import { useUiStore } from '../../store/ui-store';
 import { EndedStrip } from './ended-banner';
@@ -591,23 +591,23 @@ export function TerminalView({
      *
      * Registered before `open()` on purpose: a link provider is a parser-side
      * concern, and the rows a session replays are already in the buffer by the
-     * time anything is hovered. `openInMidnite` rather than a bare navigation
+     * time anything is hovered. `openLinkFromEvent` rather than a bare navigation
      * for the same reason `ExternalLink` avoids one — the renderer is a
      * `file://` origin with no browser chrome to come back from — and, since
      * Phase 71 Theme D, routed through the same entry point every other link
      * in the app uses (Theme B left this one file on the bare `openExternal`
-     * callback; `terminal-links.ts` itself needs no change, its opener has
-     * always been injected).
+     * callback; `terminal-links.ts`'s opener has always been injected).
      *
-     * `preferInAppRoute: true` (ad hoc click-modifier theme): `gh`'s own
-     * output is full of PR, issue and run URLs, and Cmd/Ctrl is already spent
-     * activating the link at all here (see the module docblock on
-     * `terminal-links.ts` for why plain click cannot be) — there is no
-     * modifier left over to ask for the system browser, so the one useful
-     * upgrade left is preferring the native view when there is one.
+     * The click goes through `openLinkFromEvent`, the same modifier grammar
+     * every other link in the app uses. Cmd/Ctrl is what activates a terminal
+     * link at all (see `terminal-links.ts` for why a plain click cannot), so
+     * the two gestures that reach here are Cmd+click — the system browser —
+     * and Cmd+Shift+click — `gh`'s PR, issue and run URLs on their native
+     * view, anything else in the Midnite browser. Not Alt: xterm spends
+     * Alt+click on moving the shell cursor.
      */
-    const links = attachTerminalLinks(term, (url) =>
-      openInMidnite(url, { preferInAppRoute: true }),
+    const links = attachTerminalLinks(term, (url, event) =>
+      openLinkFromEvent(url, event, { preferInAppRoute: true }),
     );
 
     let dataSub: { dispose: () => void } | null = null;

@@ -155,8 +155,21 @@ describe('attachTerminalLinks', () => {
     link?.activate(new MouseEvent('click', { button: 0 }), link.text);
     expect(open).not.toHaveBeenCalled();
 
-    link?.activate(new MouseEvent('click', { button: 0, metaKey: true }), link.text);
-    expect(open).toHaveBeenCalledWith('https://a.io/x');
+    const click = new MouseEvent('click', { button: 0, metaKey: true });
+    link?.activate(click, link.text);
+    expect(open).toHaveBeenCalledWith('https://a.io/x', click);
+  });
+
+  it('hands the opener the click, so Cmd+Shift can pick a different destination', () => {
+    const stub = stubTerminal([row('https://a.io/x', 40)]);
+    const open = vi.fn();
+    attachTerminalLinks(stub.term, open);
+
+    const link = linksOn(stub, 1)[0];
+    link?.activate(new MouseEvent('click', { button: 0, metaKey: true, shiftKey: true }), link.text);
+
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(open.mock.calls[0]?.[1]).toMatchObject({ metaKey: true, shiftKey: true });
   });
 
   it('ignores a Cmd+click from any button but the primary one', () => {
@@ -237,7 +250,7 @@ describe('attachTerminalLinks', () => {
       start: { x: 1, y: 1 },
       end: { x: 1, y: 1 },
     });
-    expect(open).toHaveBeenCalledWith('https://b.io');
+    expect(open).toHaveBeenCalledWith('https://b.io', expect.any(MouseEvent));
   });
 
   it('unhooks everything on dispose', () => {
