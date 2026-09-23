@@ -25,6 +25,8 @@ import { DemoApiPill } from './demo-api-pill';
 import { NodeInspector } from './canvas/node-inspector';
 import { NodePalette } from './canvas/node-palette';
 import { RunNodeDetail } from './canvas/run-node-detail';
+import { RunReplayControls } from './canvas/run-replay-controls';
+import { nodeStatusesAtStep } from './canvas/run-replay';
 import { WorkflowCanvas, type WorkflowGraph } from './canvas/workflow-canvas';
 import { cloneWorkflowWithFreshIds, createNode } from './workflow-io';
 import { RunHistoryList } from './run-history-list';
@@ -187,6 +189,15 @@ function WorkflowEditor({
   const mode: 'edit' | 'run' = panels.current.kind === 'run' ? 'run' : 'edit';
 
   /**
+   * Step-through replay (Theme I's own checklist item, `run-replay.ts`) —
+   * `null` means "the run's real final state", which is also what picking a
+   * *different* run resets back to: a step position from the last run
+   * viewed has nothing to do with this one's own node count.
+   */
+  const [replayStep, setReplayStep] = useState<number | null>(null);
+  useEffect(() => setReplayStep(null), [activeRunId]);
+
+  /**
    * The live `workflowRunChanged` payload (Phase 95 Theme I —
    * `use-workflow-run.ts`'s `useLiveWorkflowRun`), read straight off the IPC
    * event rather than waiting on `useWorkflowRuns`' invalidate-then-refetch
@@ -223,16 +234,25 @@ function WorkflowEditor({
   const selectedIssue = selectedNode ? issues.find((issue) => issue.nodeId === selectedNode.id) : undefined;
   const selectedRunNode = selectedId ? (activeRun.data?.nodes.find((n) => n.nodeId === selectedId) ?? null) : null;
 
+  // In run mode with a step chosen, the replay's "as of step N" view wins
+  // over the run's own final statuses — that is the whole point of a
+  // scrubber. Editing mode (a live run painting the canvas, or nothing)
+  // never has a `replayStep` to read: `RunReplayControls` only mounts in
+  // the canvas toolbar for `mode === 'run'`.
+  const runForReplay = mode === 'run' ? activeRun.data : undefined;
+  const replayed = runForReplay && replayStep !== null ? nodeStatusesAtStep(runForReplay, replayStep) : null;
+
   const nodeStatuses = useMemo<ReadonlyMap<string, WorkflowNodeStatus> | undefined>(
-    () => (focusedRun ? new Map(focusedRun.nodes.map((n) => [n.nodeId, n.status])) : undefined),
-    [focusedRun],
+    () => replayed?.statuses ?? (focusedRun ? new Map(focusedRun.nodes.map((n) => [n.nodeId, n.status])) : undefined),
+    [replayed, focusedRun],
   );
   const nodeErrors = useMemo<ReadonlyMap<string, string> | undefined>(
     () =>
-      focusedRun
+      replayed?.errors ??
+      (focusedRun
         ? new Map(focusedRun.nodes.filter((n): n is typeof n & { error: string } => n.error !== undefined).map((n) => [n.nodeId, n.error]))
-        : undefined,
-    [focusedRun],
+        : undefined),
+    [replayed, focusedRun],
   );
 
   const commitLocal = (updated: Workflow) => {
@@ -341,6 +361,12 @@ function WorkflowEditor({
                         changeNode({ ...selectedNode, config: { ...selectedNode.config, url: baseUrl } });
                       }
                     }}
+                  />
+                ) : activeRun.data ? (
+                  <RunReplayControls
+                    run={activeRun.data}
+                    step={replayStep ?? activeRun.data.nodes.length}
+                    onStepChange={setReplayStep}
                   />
                 ) : null
               }

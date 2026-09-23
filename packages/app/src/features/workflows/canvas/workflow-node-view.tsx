@@ -77,7 +77,7 @@ const CATEGORY_VAR: Record<NodeCategory, string> = {
  * wins) without losing the "this is the selected one" affordance entirely —
  * the ring width is what carries selection when the colour is already taken.
  */
-export function WorkflowNodeView({ data, selected }: NodeProps) {
+export function WorkflowNodeView({ id, data, selected }: NodeProps) {
   const { node, invalid, status, error, readOnly } = data as unknown as WorkflowNodeData;
   const meta = NODE_KIND_META[node.kind];
   const Icon = meta.icon;
@@ -88,6 +88,7 @@ export function WorkflowNodeView({ data, selected }: NodeProps) {
 
   return (
     <div
+      data-node-id={id}
       data-node-kind={node.kind}
       data-status={status}
       style={{ width: 200 }}
