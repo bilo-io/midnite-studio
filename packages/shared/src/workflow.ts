@@ -182,10 +182,26 @@ export const WorkflowSchema = z.object({
   description: z.string().optional(),
   nodes: z.array(WorkflowNodeSchema),
   edges: z.array(WorkflowEdgeSchema),
+  /**
+   * The editor's own pause switch (Phase 95 Theme I, midnite's "enabled"
+   * toggle). Left `optional()` rather than `.default(true)` on purpose — a
+   * `.default()` would make it a *required* field on the inferred `Workflow`
+   * type, and every existing `Workflow` object literal across this package's
+   * (and `desktop`'s) tests would need updating for a field their fixtures
+   * never cared about. `isWorkflowEnabled` below is the one place that reads
+   * "missing" as "on", so every pre-Theme-I workflow keeps running exactly as
+   * it does today, and nothing here forces a migration pass.
+   */
+  enabled: z.boolean().optional(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
 });
 export type Workflow = z.infer<typeof WorkflowSchema>;
+
+/** `enabled` unset (every workflow saved before Theme I) reads as on. */
+export function isWorkflowEnabled(workflow: Pick<Workflow, 'enabled'>): boolean {
+  return workflow.enabled !== false;
+}
 
 // --- runs --------------------------------------------------------------------
 
