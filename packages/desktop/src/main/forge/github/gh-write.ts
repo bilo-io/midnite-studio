@@ -643,7 +643,7 @@ export async function createIssue(
   if (!detail.issue) {
     return { ok: false, cli, error: detail.error ?? 'Issue created, but could not be read back.' };
   }
-  return { ok: true, cli, issue: detail.issue };
+  return { ok: true, cli, issue: detail.issue.issue };
 }
 
 /**

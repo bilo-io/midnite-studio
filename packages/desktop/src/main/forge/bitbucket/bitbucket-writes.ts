@@ -2,13 +2,20 @@ import type {
   Forge,
   ForgeAccount,
   ForgeCliStatus,
+  ForgeIssueCreateResult,
+  ForgeIssueEditInput,
+  ForgeLinkWriteResult,
   ForgeMergeMethod,
+  ForgeProjectAddItemInput,
+  ForgeProjectCreateResult,
   ForgeProjectWriteResult,
   ForgeReviewEvent,
   ForgeWriteResult,
 } from '@midnite/studio-shared';
 
+import { withBlockedByLine, withoutBlockedByLine } from '../body-link-fallback';
 import { bitbucketCliStatus, bitbucketRequest, repoPath } from './bitbucket-client';
+import { issueDetail } from './bitbucket-reads';
 
 /**
  * The write half of Bitbucket Cloud's adapter.
@@ -220,4 +227,174 @@ export async function setIssueState(
     json: { state: state === 'open' ? 'open' : 'resolved' },
   });
   return writeResult(result);
+}
+
+// ─── Phase 95 Theme D: issue CRUD and the body-fallback dependency link ────
+
+/**
+ * `POST .../issues`, then a read-back through `issueDetail` — the same
+ * "return the exact `ForgeIssue` shape a listing would" posture every
+ * provider's `createIssue` takes (`adapter.ts`'s own docblock).
+ *
+ * **`assignees`/`labels` are lossy on Bitbucket.** Its classic issue tracker
+ * has one `assignee` (a single user), not a list, and no free-form labels at
+ * all — only a fixed `kind`/`priority` vocabulary this contract has no field
+ * for. Only `request.assignees[0]` is sent; the rest, and every label, are
+ * silently dropped rather than refusing the whole create over a field this
+ * provider cannot represent.
+ */
+export async function createIssue(
+  forge: Forge,
+  account: ForgeAccount | null,
+  request: { title: string; body?: string; labels?: string[]; assignees?: string[]; milestone?: string },
+): Promise<ForgeIssueCreateResult> {
+  const cli = await bitbucketCliStatus(account);
+  if (cli.reason !== 'ready') return { ok: false, cli, error: null };
+
+  const json: Record<string, unknown> = {
+    title: request.title,
+    content: { raw: request.body ?? '', markup: 'markdown' },
+  };
+  if (request.assignees && request.assignees[0]) json['assignee'] = { username: request.assignees[0] };
+  if (request.milestone) json['milestone'] = { name: request.milestone };
+
+  const created = await bitbucketRequest<Record<string, unknown>>(account, 'POST', repoPath(forge, '/issues'), { json });
+  if (!created.ok) return { ok: false, cli: created.cli, error: created.error };
+
+  const id = created.data['id'];
+  if (typeof id !== 'number') {
+    return { ok: false, cli: created.cli, error: 'Issue created, but its number could not be read.' };
+  }
+  const detail = await issueDetail(forge, account, id);
+  if (!detail.issue) {
+    return { ok: false, cli: detail.cli, error: detail.error ?? 'Issue created, but could not be read back.' };
+  }
+  return { ok: true, cli: detail.cli, issue: detail.issue.issue };
+}
+
+/** `PUT .../issues/{n}` — a partial update. `assignees`/`labels` share
+ *  `createIssue`'s own lossy limitation; `assignees: []` clears the single
+ *  assignee, matching the `undefined`/`null`/value convention every other
+ *  provider's `editIssue` follows for "leave alone" vs "clear". */
+export async function editIssue(
+  forge: Forge,
+  account: ForgeAccount | null,
+  number: number,
+  request: ForgeIssueEditInput,
+): Promise<ForgeWriteResult> {
+  const json: Record<string, unknown> = {};
+  if (request.title !== undefined) json['title'] = request.title;
+  if (request.body !== undefined) json['content'] = { raw: request.body, markup: 'markdown' };
+  if (request.assignees !== undefined) {
+    json['assignee'] = request.assignees[0] ? { username: request.assignees[0] } : null;
+  }
+  if (request.milestone !== undefined) {
+    json['milestone'] = request.milestone === null ? null : { name: request.milestone };
+  }
+  if (Object.keys(json).length === 0) {
+    const cli = await bitbucketCliStatus(account);
+    return { ok: true, cli, error: null };
+  }
+
+  const result = await bitbucketRequest(account, 'PUT', repoPath(forge, `/issues/${number}`), { json });
+  return writeResult(result);
+}
+
+/** `DELETE .../issues/{n}`. */
+export async function deleteIssue(forge: Forge, account: ForgeAccount | null, number: number): Promise<ForgeWriteResult> {
+  const result = await bitbucketRequest(account, 'DELETE', repoPath(forge, `/issues/${number}`));
+  return writeResult(result);
+}
+
+/** Bitbucket Cloud has no project board at all — `capabilities().projects`
+ *  is `'none'`, and this theme does not invent one (the phase doc's own
+ *  instruction, echoed in `create-bitbucket-adapter.ts`'s own note on its
+ *  `listBoards`/`boardFields`/`boardItems`). Honest `unsupportedWrite`s,
+ *  matching `capabilitiesFor('bitbucket').ops`'s `false` rows. */
+async function unsupportedProjectWrite(account: ForgeAccount | null, message: string): Promise<ForgeProjectWriteResult> {
+  const cli = await bitbucketCliStatus(account);
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: 'Not authenticated.' };
+  return { ok: false, kind: 'error', message };
+}
+
+export async function createProject(account: ForgeAccount | null): Promise<ForgeProjectCreateResult> {
+  const cli = await bitbucketCliStatus(account);
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: 'Not authenticated.' };
+  return { ok: false, kind: 'error', message: 'Bitbucket has no project boards.' };
+}
+
+export function editProject(account: ForgeAccount | null): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'Bitbucket has no project boards.');
+}
+
+export function deleteProject(account: ForgeAccount | null): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'Bitbucket has no project boards.');
+}
+
+export function addProjectItem(
+  account: ForgeAccount | null,
+  _request: { projectId: string } & ForgeProjectAddItemInput,
+): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'Bitbucket has no project boards.');
+}
+
+export function removeProjectItem(account: ForgeAccount | null): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'Bitbucket has no project boards.');
+}
+
+/** `kind: 'blockedBy'` via the text fallback; `kind: 'subIssue'` is an honest
+ *  unsupported write — see `body-link-fallback.ts`'s own module docblock. */
+export async function linkIssues(
+  forge: Forge,
+  account: ForgeAccount | null,
+  request: { kind: 'blockedBy' | 'subIssue'; number: number; targetNumber: number; targetRepo?: string },
+): Promise<ForgeLinkWriteResult> {
+  if (request.kind === 'subIssue') {
+    const cli = await bitbucketCliStatus(account);
+    return { ok: false, cli, error: 'Bitbucket has no sub-issue relation this app writes yet.' };
+  }
+
+  const detail = await issueDetail(forge, account, request.number);
+  if (!detail.issue) return { ok: false, cli: detail.cli, error: detail.error ?? 'Could not read the issue to link.' };
+
+  const { body: nextBody, changed } = withBlockedByLine(detail.issue.body, {
+    repo: request.targetRepo ?? '',
+    number: request.targetNumber,
+  });
+  if (!changed) return { ok: true, cli: detail.cli, error: null, via: 'body' };
+
+  const result = await bitbucketRequest(account, 'PUT', repoPath(forge, `/issues/${request.number}`), {
+    json: { content: { raw: nextBody, markup: 'markdown' } },
+  });
+  return result.ok
+    ? { ok: true, cli: result.cli, error: null, via: 'body' }
+    : { ok: false, cli: result.cli, error: result.error };
+}
+
+/** The inverse of {@link linkIssues}. */
+export async function unlinkIssues(
+  forge: Forge,
+  account: ForgeAccount | null,
+  request: { kind: 'blockedBy' | 'subIssue'; number: number; targetNumber: number; targetRepo?: string },
+): Promise<ForgeLinkWriteResult> {
+  if (request.kind === 'subIssue') {
+    const cli = await bitbucketCliStatus(account);
+    return { ok: false, cli, error: 'Bitbucket has no sub-issue relation this app writes yet.' };
+  }
+
+  const detail = await issueDetail(forge, account, request.number);
+  if (!detail.issue) return { ok: false, cli: detail.cli, error: detail.error ?? 'Could not read the issue to unlink.' };
+
+  const { body: nextBody, changed } = withoutBlockedByLine(detail.issue.body, {
+    repo: request.targetRepo ?? '',
+    number: request.targetNumber,
+  });
+  if (!changed) return { ok: true, cli: detail.cli, error: null, via: 'body' };
+
+  const result = await bitbucketRequest(account, 'PUT', repoPath(forge, `/issues/${request.number}`), {
+    json: { content: { raw: nextBody, markup: 'markdown' } },
+  });
+  return result.ok
+    ? { ok: true, cli: result.cli, error: null, via: 'body' }
+    : { ok: false, cli: result.cli, error: result.error };
 }

@@ -34,7 +34,8 @@ async function resolveIssueNodeId(forge: Forge, number: number, targetRepo: stri
   const target = targetRepo ? crossRepoForge(forge, targetRepo) : forge;
   if (target === null) return null;
   const detail = await issueDetail(target, number);
-  return detail.issue && detail.issue.id.length > 0 ? detail.issue.id : null;
+  const id = detail.issue?.issue.id ?? '';
+  return id.length > 0 ? id : null;
 }
 
 /** The mutation name and input-type name for each kind, in each direction. */

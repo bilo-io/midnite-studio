@@ -18,17 +18,27 @@ import {
   runLog,
 } from './azure-reads';
 import {
+  addProjectItem,
   addReviewComment,
   commentIssue,
   commentPull,
+  createIssue,
+  createProject,
+  deleteIssue,
+  deleteProject,
+  editIssue,
+  editProject,
+  linkIssues,
   markReady,
   mergePull,
+  removeProjectItem,
   replyToReviewComment,
   requestReview,
   rerunChecks,
   reviewPull,
   setIssueState,
   setThreadResolved,
+  unlinkIssues,
 } from './azure-writes';
 import { azureWhoami } from '../whoami';
 
@@ -82,6 +92,20 @@ export function createAzureAdapter(account: ForgeAccount | null): ForgeAdapter {
     setIssueState: (forge, number, state) => setIssueState(forge, account, number, state),
 
     setItemField: (forge, request) => boardSetItemField(forge, account, request),
+
+    createIssue: (forge, request) => createIssue(forge, account, request),
+    editIssue: (forge, number, request) => editIssue(forge, account, number, request),
+    deleteIssue: (forge, number) => deleteIssue(forge, account, number),
+
+    createProject: () => createProject(account),
+    editProject: () => editProject(account),
+    deleteProject: () => deleteProject(account),
+
+    addProjectItem: (_forge, request) => addProjectItem(account, request),
+    removeProjectItem: () => removeProjectItem(account),
+
+    linkIssues: (forge, request) => linkIssues(forge, account, request),
+    unlinkIssues: (forge, request) => unlinkIssues(forge, account, request),
 
     whoami: async () => {
       const token = await resolveAzureToken(account);

@@ -2,14 +2,32 @@ import type {
   Forge,
   ForgeAccount,
   ForgeCliStatus,
+  ForgeIssueCreateResult,
+  ForgeIssueEditInput,
+  ForgeLinkWriteResult,
   ForgeMergeMethod,
+  ForgeProjectAddItemInput,
+  ForgeProjectCreateResult,
   ForgeProjectWriteResult,
   ForgeReviewEvent,
   ForgeWriteResult,
 } from '@midnite/studio-shared';
 
-import { azGet, azPatch, azPost, azPut, azWorkItemPatch, azureCliStatus, repoSegment, stateCategoriesFor } from './azure-client';
+import { withBlockedByLine, withoutBlockedByLine } from '../body-link-fallback';
+import {
+  azGet,
+  azPatch,
+  azPost,
+  azPut,
+  azureCliStatus,
+  azureRequest,
+  azWorkItemCreate,
+  azWorkItemPatch,
+  repoSegment,
+  stateCategoriesFor,
+} from './azure-client';
 import { asStringLoose, fields, row } from './azure-json';
+import { issueDetail } from './azure-reads';
 
 /**
  * The write half of Azure DevOps's adapter — the phase doc's own scope:
@@ -285,4 +303,194 @@ export async function setIssueState(
     { op: 'add', path: '/fields/System.State', value: targetState },
   ]);
   return fromResult(cli, result.ok, result.ok ? null : result.error);
+}
+
+// ─── Phase 95 Theme D: issue CRUD and the body-fallback dependency link ────
+
+/**
+ * `POST wit/workitems/$Issue`, then a read-back through `issueDetail` — the
+ * same posture every provider's `createIssue` takes.
+ *
+ * **`workItemType` is a best-effort default, not a resolved fact** — the
+ * same "unverified against a live organization" honesty `reviewPull`'s own
+ * docblock above already carries for this file: Azure's work item types are
+ * per-project, per-process-template (`stateCategoriesFor` exists precisely
+ * because state names vary the same way), and this contract's
+ * `createIssue` request has no field for one. `'Issue'` is the Basic
+ * process's own name for its bug/task-tracker type; an Agile/Scrum project
+ * with no `Issue` type reports the create as a normal write failure — Azure
+ * itself refuses an unknown type — rather than this app guessing further.
+ *
+ * `milestone` (an iteration) is not set here — resolving a bare leaf name to
+ * its full `System.IterationPath` needs the project's iteration tree, a
+ * lookup this theme does not add; the field is accepted on the request and
+ * silently unused, the same lossy posture `createIssue`'s Bitbucket sibling
+ * documents for `labels`.
+ */
+export async function createIssue(
+  forge: Forge,
+  account: ForgeAccount | null,
+  request: { title: string; body?: string; labels?: string[]; assignees?: string[]; milestone?: string },
+): Promise<ForgeIssueCreateResult> {
+  const cli = await azureCliStatus(account);
+  if (cli.reason !== 'ready') return { ok: false, cli, error: null };
+
+  const workItemType = 'Issue';
+  const ops: Array<{ op: 'add' | 'replace'; path: string; value: unknown }> = [
+    { op: 'add', path: '/fields/System.Title', value: request.title },
+  ];
+  if (request.body) ops.push({ op: 'add', path: '/fields/System.Description', value: request.body });
+  if (request.assignees && request.assignees[0]) {
+    ops.push({ op: 'add', path: '/fields/System.AssignedTo', value: request.assignees[0] });
+  }
+  if (request.labels && request.labels.length > 0) {
+    ops.push({ op: 'add', path: '/fields/System.Tags', value: request.labels.join('; ') });
+  }
+
+  const created = await azWorkItemCreate<Record<string, unknown>>(forge, account, workItemType, ops);
+  if (!created.ok) return { ok: false, cli, error: created.error };
+
+  const id = created.data['id'];
+  if (typeof id !== 'number') {
+    return { ok: false, cli, error: 'Issue created, but its number could not be read.' };
+  }
+  const detail = await issueDetail(forge, account, id);
+  if (!detail.issue) {
+    return { ok: false, cli, error: detail.error ?? 'Issue created, but could not be read back.' };
+  }
+  return { ok: true, cli, issue: detail.issue.issue };
+}
+
+/** `PATCH wit/workitems/{n}` — a partial update via JSON Patch. `'add'`
+ *  throughout, matching `setIssueState`'s own op above: Azure's own PATCH
+ *  treats `add` as an upsert for a simple field, whether or not it already
+ *  has a value, which sidesteps having to know in advance which is true. */
+export async function editIssue(
+  forge: Forge,
+  account: ForgeAccount | null,
+  number: number,
+  request: ForgeIssueEditInput,
+): Promise<ForgeWriteResult> {
+  const cli = await azureCliStatus(account);
+  if (cli.reason !== 'ready') return notReady(cli);
+
+  const ops: Array<{ op: 'add' | 'replace'; path: string; value: unknown }> = [];
+  if (request.title !== undefined) ops.push({ op: 'add', path: '/fields/System.Title', value: request.title });
+  if (request.body !== undefined) ops.push({ op: 'add', path: '/fields/System.Description', value: request.body });
+  if (request.assignees !== undefined) {
+    ops.push({ op: 'add', path: '/fields/System.AssignedTo', value: request.assignees[0] ?? null });
+  }
+  if (request.labels !== undefined) {
+    ops.push({ op: 'add', path: '/fields/System.Tags', value: request.labels.join('; ') });
+  }
+  if (ops.length === 0) return { ok: true, cli, error: null };
+
+  const result = await azWorkItemPatch(forge, account, `wit/workitems/${number}`, ops);
+  return fromResult(cli, result.ok, result.ok ? null : result.error);
+}
+
+/** `DELETE wit/workitems/{n}` — a soft delete (Azure's own recycle bin),
+ *  not `?destroy=true`: this app's own blast-radius confirm already covers
+ *  the "you are about to lose this" step, and a soft delete stays
+ *  recoverable from Azure Boards' own UI besides, which a hard destroy would
+ *  not be. */
+export async function deleteIssue(forge: Forge, account: ForgeAccount | null, number: number): Promise<ForgeWriteResult> {
+  const cli = await azureCliStatus(account);
+  if (cli.reason !== 'ready') return notReady(cli);
+  const result = await azureRequest(forge, account, 'DELETE', `wit/workitems/${number}`);
+  return fromResult(cli, result.ok, result.ok ? null : result.error);
+}
+
+/** Azure Boards Columns give a real per-column state table
+ *  (`capabilities().projects` is `'full'` — see `AZURE_CAPABILITY`'s own
+ *  docblock), but that is a *read* fact about the board this app already
+ *  renders, not a board-create/item-add write this theme implements. Honest
+ *  `unsupportedWrite`s, matching `capabilitiesFor('azure').ops`'s `false` rows. */
+async function unsupportedProjectWrite(account: ForgeAccount | null, message: string): Promise<ForgeProjectWriteResult> {
+  const cli = await azureCliStatus(account);
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: 'Not authenticated.' };
+  return { ok: false, kind: 'error', message };
+}
+
+export async function createProject(account: ForgeAccount | null): Promise<ForgeProjectCreateResult> {
+  const cli = await azureCliStatus(account);
+  if (cli.reason !== 'ready') return { ok: false, kind: 'error', message: 'Not authenticated.' };
+  return { ok: false, kind: 'error', message: 'Azure Boards are not created through this app yet.' };
+}
+
+export function editProject(account: ForgeAccount | null): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'Azure Boards are not edited through this app yet.');
+}
+
+export function deleteProject(account: ForgeAccount | null): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'Azure Boards are not deleted through this app yet.');
+}
+
+export function addProjectItem(
+  account: ForgeAccount | null,
+  _request: { projectId: string } & ForgeProjectAddItemInput,
+): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'Azure has no board-item-add write in this app yet.');
+}
+
+export function removeProjectItem(account: ForgeAccount | null): Promise<ForgeProjectWriteResult> {
+  return unsupportedProjectWrite(account, 'Azure has no board-item-remove write in this app yet.');
+}
+
+/** `kind: 'blockedBy'` via the text fallback, written into
+ *  `System.Description` (HTML in Azure's own schema, but plain text stores
+ *  and reads back through `htmlToText` fine for a single marker line — see
+ *  `azure-reads.ts`'s `issueDetail`); `kind: 'subIssue'` is an honest
+ *  unsupported write. */
+export async function linkIssues(
+  forge: Forge,
+  account: ForgeAccount | null,
+  request: { kind: 'blockedBy' | 'subIssue'; number: number; targetNumber: number; targetRepo?: string },
+): Promise<ForgeLinkWriteResult> {
+  const cli = await azureCliStatus(account);
+  if (cli.reason !== 'ready') return notReady(cli);
+  if (request.kind === 'subIssue') {
+    return { ok: false, cli, error: 'Azure DevOps has no sub-issue relation this app writes yet.' };
+  }
+
+  const detail = await issueDetail(forge, account, request.number);
+  if (!detail.issue) return { ok: false, cli, error: detail.error ?? 'Could not read the issue to link.' };
+
+  const { body: nextBody, changed } = withBlockedByLine(detail.issue.body, {
+    repo: request.targetRepo ?? '',
+    number: request.targetNumber,
+  });
+  if (!changed) return { ok: true, cli, error: null, via: 'body' };
+
+  const result = await azWorkItemPatch(forge, account, `wit/workitems/${request.number}`, [
+    { op: 'add', path: '/fields/System.Description', value: nextBody },
+  ]);
+  return { ok: result.ok, cli, error: result.ok ? null : result.error, via: 'body' };
+}
+
+/** The inverse of {@link linkIssues}. */
+export async function unlinkIssues(
+  forge: Forge,
+  account: ForgeAccount | null,
+  request: { kind: 'blockedBy' | 'subIssue'; number: number; targetNumber: number; targetRepo?: string },
+): Promise<ForgeLinkWriteResult> {
+  const cli = await azureCliStatus(account);
+  if (cli.reason !== 'ready') return notReady(cli);
+  if (request.kind === 'subIssue') {
+    return { ok: false, cli, error: 'Azure DevOps has no sub-issue relation this app writes yet.' };
+  }
+
+  const detail = await issueDetail(forge, account, request.number);
+  if (!detail.issue) return { ok: false, cli, error: detail.error ?? 'Could not read the issue to unlink.' };
+
+  const { body: nextBody, changed } = withoutBlockedByLine(detail.issue.body, {
+    repo: request.targetRepo ?? '',
+    number: request.targetNumber,
+  });
+  if (!changed) return { ok: true, cli, error: null, via: 'body' };
+
+  const result = await azWorkItemPatch(forge, account, `wit/workitems/${request.number}`, [
+    { op: 'add', path: '/fields/System.Description', value: nextBody },
+  ]);
+  return { ok: result.ok, cli, error: result.ok ? null : result.error, via: 'body' };
 }

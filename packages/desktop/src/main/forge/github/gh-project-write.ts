@@ -171,7 +171,9 @@ async function runMutationRaw(
   forge: Forge,
   query: string,
   variables: Record<string, unknown>,
-): Promise<{ ok: true; payload: unknown } | { ok: false; failure: ForgeProjectWriteResult }> {
+): Promise<
+  { ok: true; payload: unknown } | { ok: false; failure: Extract<ForgeProjectWriteResult, { ok: false }> }
+> {
   const command =
     `printf %s ${shellQuote(JSON.stringify({ query, variables }))} |` +
     ` gh api graphql${apiHostFlag(forge)} --input -`;
