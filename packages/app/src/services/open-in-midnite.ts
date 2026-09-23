@@ -24,7 +24,16 @@ export type { InAppRoute } from './link-route-resolver';
  * system one; this theme adds a third — the app's own native view for
  * whatever the link points at — and a fixed modifier grammar that reaches it:
  *
- * - **Mod (Cmd/Ctrl) or Shift** → the system browser, unconditionally. Two
+ * - **Mod+Shift (Cmd+Shift/Ctrl+Shift)** → *into* the app, deliberately: the
+ *   native view {@link resolveInAppRoute} has for the link if it has one,
+ *   else the embedded browser — never the system one, and never the stored
+ *   preference. Tried even where `preferInAppRoute` is off, because the
+ *   gesture is an explicit ask that outranks an "Open on GitHub" label. It is
+ *   Mod+Shift rather than Alt because the terminal already spends Alt+click
+ *   on moving the shell cursor (xterm's `altClickMovesCursor`), and the one
+ *   "open it here" gesture has to mean the same thing in the terminal as
+ *   everywhere else.
+ * - **Mod (Cmd/Ctrl) or Shift** on its own → the system browser. Two
  *   spellings of "leave the app" on purpose: Shift predates this theme and
  *   Settings ▸ Browser still documents it, so it stays a synonym rather than
  *   a removed escape hatch.
@@ -156,14 +165,16 @@ type Destination =
  *
  * Precedence, highest first:
  *
- * 1. `shiftKey || metaKey || ctrlKey` → the system browser, unconditionally.
- *    "Leave the app" has to be one unambiguous gesture, so these three beat
- *    everything else.
- * 2. `altKey` → the embedded browser, unconditionally — bypasses
+ * 1. `(metaKey || ctrlKey) && shiftKey` → {@link resolveInAppRoute} if it
+ *    matches, else the embedded browser — whatever `preferInAppRoute` and the
+ *    preference say. "Open it here" is as explicit as "leave the app".
+ * 2. `shiftKey || metaKey || ctrlKey` → the system browser. Every other
+ *    combination of these three is "leave the app", so they beat the rest.
+ * 3. `altKey` → the embedded browser, unconditionally — bypasses
  *    {@link resolveInAppRoute} on purpose (see {@link OpenInMidniteOptions}).
- * 3. `button === 1` (middle) → the stored preference, in the background.
+ * 4. `button === 1` (middle) → the stored preference, in the background.
  *    Never a route: see the module docblock.
- * 4. Otherwise (a plain click) → {@link resolveInAppRoute} when
+ * 5. Otherwise (a plain click) → {@link resolveInAppRoute} when
  *    `preferInAppRoute` is set and it matches; else the stored preference.
  */
 export function resolveDestination(
@@ -171,6 +182,10 @@ export function resolveDestination(
   event: LinkModifiers,
   options: { preference: LinkTarget; preferInAppRoute: boolean },
 ): Destination {
+  if ((event.metaKey || event.ctrlKey) && event.shiftKey) {
+    const route = resolveInAppRoute(url);
+    return route ? { kind: 'in-app-route', route } : { kind: 'embedded' };
+  }
   if (event.shiftKey || event.metaKey || event.ctrlKey) return { kind: 'system' };
   if (event.altKey) return { kind: 'embedded' };
   if (event.button === 1) return preferenceDestination(options.preference);

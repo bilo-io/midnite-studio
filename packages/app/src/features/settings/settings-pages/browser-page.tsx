@@ -10,8 +10,8 @@ import { Choice, TextArea } from './controls';
  * Browser settings.
  *
  * "Clear browsing data" landed with Phase 32 Theme B; "Link handling" is
- * Phase 71 Theme A, since the ad hoc click-modifier theme unified: Mod/Ctrl
- * and Alt/Option are now fixed, app-wide gestures (see the section's own
+ * Phase 71 Theme A, since the ad hoc click-modifier theme unified: Mod/Ctrl,
+ * Mod+Shift and Alt/Option are now fixed, app-wide gestures (see the section's own
  * hint text below), and this control is what a plain click falls back to —
  * the stored preference for a hand-off link (a PR in Reviews, a run in
  * Actions, a link in a rendered commit message, a hyperlink a terminal
@@ -62,7 +62,7 @@ export function BrowserPage() {
         {/*
           The help text names every modifier verbatim, and that is the point
           of it: a modifier nobody is told about is a modifier nobody uses.
-          Mod/Ctrl and Shift, and Alt/Option, are fixed — they are not
+          Mod/Ctrl and Shift, Mod+Shift, and Alt/Option, are fixed — they are not
           affected by the choice below, which only governs what a plain click
           falls back to once Midnite has checked whether it has a page of its
           own for the link (a PR opens PrDetail, an issue opens IssueDetail,
@@ -70,9 +70,11 @@ export function BrowserPage() {
           those matches).
         */}
         <p className="text-muted-foreground text-[11px] leading-relaxed">
-          Mod (Cmd/Ctrl)-click or Shift-click a link to always open it in your system browser.
-          Alt (Option)-click to always open it in the Midnite browser below, even for a link
-          Midnite has its own page for. Middle-click opens a background tab. A plain click on a
+          Mod (Cmd/Ctrl)-click or Shift-click a link to always open it in your system browser —
+          in the terminal too. Mod+Shift-click to open it inside Midnite: on Midnite&apos;s own
+          page for it when there is one, otherwise in the Midnite browser below. Alt
+          (Option)-click to always open it in the Midnite browser, even for a link Midnite has
+          its own page for (not in the terminal, where Alt-click moves the cursor). Middle-click opens a background tab. A plain click on a
           link Midnite recognises — a pull request, an issue, a run — opens that page instead of
           either browser; everything else falls back to the choice here.
         </p>

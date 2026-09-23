@@ -22,7 +22,10 @@ import { isMac } from '../../services/keybindings/chord';
  *
  * Activation is Cmd+click (Ctrl elsewhere), the same contract VS Code's terminal
  * uses, because a bare click in a terminal already means "place the selection" —
- * and a stray click on a build log should never launch a browser. The underline
+ * and a stray click on a build log should never launch a browser. Where it
+ * opens is the opener's call, so the click itself is handed over with the URL:
+ * `terminal-view` resolves it with the app-wide grammar, so Cmd+click leaves for
+ * the system browser and Cmd+Shift+click opens it inside Midnite. The underline
  * follows the modifier rather than the mouse: hovering decorates nothing until
  * the modifier goes down, at which point the link under the cursor underlines
  * and the cursor turns into a pointer. That is the affordance — it says "this
@@ -208,10 +211,14 @@ function hasOpenModifier(event: MouseEvent | KeyboardEvent): boolean {
  * Wire clickable links into one terminal. Dispose with the terminal.
  *
  * `open` is injected rather than imported so this module stays independent of
- * how the app opens a URL — the renderer hands it `openExternal`, a test hands
- * it a spy.
+ * how the app opens a URL — the renderer hands it `openLinkFromEvent`, a test
+ * hands it a spy. It receives the activating click, so the modifiers held on
+ * top of the open gesture (Shift, today) can pick the destination.
  */
-export function attachTerminalLinks(term: Terminal, open: (url: string) => void): IDisposable {
+export function attachTerminalLinks(
+  term: Terminal,
+  open: (url: string, event: MouseEvent) => void,
+): IDisposable {
   let modifierDown = false;
   /**
    * The link the mouse is currently over, if any.
@@ -243,7 +250,7 @@ export function attachTerminalLinks(term: Terminal, open: (url: string) => void)
 
   const activate = (event: MouseEvent, url: string): void => {
     if (event.button !== 0 || !hasOpenModifier(event)) return;
-    open(url);
+    open(url, event);
   };
 
   const provider: ILinkProvider = {

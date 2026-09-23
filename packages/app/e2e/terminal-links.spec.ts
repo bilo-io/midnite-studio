@@ -11,10 +11,12 @@ import { installMockBridge, type MockFixtures } from '../test-support/mock-bridg
  * our provider, and that what it answers reaches the screen: the pointer cursor
  * appears the moment the modifier goes down over a link — the DOM-visible half
  * of the same decoration that draws the underline — and the click that follows
- * reaches `openInMidnite`, which opens an `https:` link in the embedded browser
- * rather than handing it to `shell.openExternal` (Phase 71 Theme D — see
- * `link-routing.spec.ts` for the same assertion pattern against a different call
- * site). A provider registered but never consulted, or one whose ranges are off
+ * reaches `openLinkFromEvent` with its modifiers intact: Cmd+click hands an
+ * `https:` link to `shell.openExternal`, Cmd+Shift+click opens it in the
+ * embedded browser instead (see `link-routing.spec.ts` for the same assertion
+ * pattern against a different call site). Real xterm matters for the second
+ * one in particular: Shift+click is also xterm's extend-selection gesture, and
+ * only a real terminal shows that it does not swallow the activation. A provider registered but never consulted, or one whose ranges are off
  * by a column, looks identical from the outside.
  */
 
@@ -98,7 +100,7 @@ const screenClasses = (page: Page) =>
     .then((value) => value ?? '');
 
 test.describe('terminal links', () => {
-  test('Cmd+click opens a URL in the embedded browser; a bare click does not', async ({
+  test('Cmd+click opens a URL in the system browser, Cmd+Shift+click in Midnite; a bare click neither', async ({
     page,
   }) => {
     await open(page);
@@ -121,13 +123,27 @@ test.describe('terminal links', () => {
     await page.mouse.up();
     await page.keyboard.up('Meta');
 
-    // `openInMidnite`'s default preference is 'in-app' (see
-    // `link-routing.spec.ts`'s "no seeding needed" note), so the link opens a
-    // tab in the embedded browser and never reaches `shell.openExternal`.
+    // Cmd alone is "leave the app", even though the stored preference is
+    // 'in-app' — so the link reaches `shell.openExternal`, and no tab opens.
+    await expect.poll(() => externalUrls(page)).toEqual([URL]);
+    await expect(browserTabs(page)).toHaveCount(0);
+    await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
+
+    // Same link, Shift added on top: "open it here" rather than "leave".
+    await page.keyboard.down('Meta');
+    await page.keyboard.down('Shift');
+    await expect.poll(() => screenClasses(page)).toContain('xterm-cursor-pointer');
+
+    await page.mouse.down();
+    await page.mouse.up();
+    await page.keyboard.up('Shift');
+    await page.keyboard.up('Meta');
+
+    // `example.com` has no native view, so "open it here" lands in the
+    // embedded browser — never the system one.
     await expect(browserTabs(page)).toHaveCount(1);
     await expect(browserTabs(page)).toHaveAccessibleName(/example\.com/);
-    expect(await externalUrls(page)).toEqual([]);
-    await expect.poll(() => screenClasses(page)).not.toContain('xterm-cursor-pointer');
+    expect(await externalUrls(page)).toEqual([URL]);
   });
 
   test('leaves output that is not a link alone', async ({ page }) => {
