@@ -41,8 +41,11 @@ export function resolveActivePalette(
   agentStyle: AgentStyleMode,
   shellStyle: ShellStyleMode,
 ): ActivityPalette {
+  // The Brand fallback is guaranteed present — it's a literal key of the
+  // built-in `ACTIVITY_PRESETS` map — so the `!` only stands in for what
+  // `Record<string, T>`'s index signature can't express statically.
   const preset =
-    ACTIVITY_PRESETS[activePaletteId] ?? ACTIVITY_PRESETS[DEFAULT_ACTIVITY_PALETTE_ID];
+    ACTIVITY_PRESETS[activePaletteId] ?? ACTIVITY_PRESETS[DEFAULT_ACTIVITY_PALETTE_ID]!;
 
   const resolvedAgent: ActivityStatusStyle =
     statusOverrides.agent ??
