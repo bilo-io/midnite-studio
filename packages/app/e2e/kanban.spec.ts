@@ -62,15 +62,18 @@ const ITEM = {
     assignees: [],
     /*
       Neither optional nor decoration. `ForgeProjectItemContentSchema` gives
-      `body` and `labels` a `.default([])`/`.default('')`, so a real payload
-      always carries both — and `composeCardPrompt` reads
-      `content.labels.length` and `content.body.trim()` unguarded on that
+      `body`, `labels` and `linkedPrs` a `.default([])`/`.default('')`, so a
+      real payload always carries all three — and `composeCardPrompt` reads
+      `content.labels.length`/`content.body.trim()`, `resolveDragSkillLink`
+      (Phase 95 Theme G) reads `content.linkedPrs[0]`, both unguarded on that
       guarantee. The mock bridge hands these fixtures back VERBATIM, with no
-      schema parse, so omitting either here throws on the detail pane's first
-      render. Which is what it did, silently, until a test finally opened one.
+      schema parse, so omitting any of the three here throws — on the detail
+      pane's first render for the first two, on the first drag-to-skill drop
+      for the third.
     */
     body: '',
     labels: [],
+    linkedPrs: [],
   },
   fieldValues: {
     FIELD_status: { fieldId: 'FIELD_status', dataType: 'single_select' as const, optionId: 'OPT_todo', name: 'Todo' },
@@ -89,6 +92,7 @@ const OTHER_ITEM = {
     assignees: [],
     body: '',
     labels: [],
+    linkedPrs: [],
   },
   fieldValues: {
     FIELD_status: { fieldId: 'FIELD_status', dataType: 'single_select' as const, optionId: 'OPT_todo', name: 'Todo' },
@@ -306,17 +310,20 @@ test.describe('drag-to-skill (Phase 95 Theme G)', () => {
     await expect(page.getByText('/midnite-create on #42 in 5s')).toBeVisible();
     await page.getByRole('button', { name: 'Undo' }).click();
 
-    // Long enough to prove the 5s timer really was cancelled, not merely
-    // not-yet-fired.
-    await page.waitForTimeout(5500);
-    expect((await ptyCalls(page)).creates).toHaveLength(0);
-
     // And the move itself reverted — a second real write back to Todo, not
     // a client-only rollback.
+    await expect
+      .poll(async () => (await recorded(page)).filter((call) => call.channel === 'forgeProjectSetField').length)
+      .toBeGreaterThanOrEqual(2);
     const setFieldCalls = (await recorded(page)).filter((call) => call.channel === 'forgeProjectSetField');
     expect(setFieldCalls.at(-1)?.request).toMatchObject({
       value: { fieldId: STATUS_FIELD.id, dataType: 'single_select', optionId: 'OPT_todo', name: 'Todo' },
     });
+
+    // Long enough to prove the 5s timer really was cancelled, not merely
+    // not-yet-fired.
+    await page.waitForTimeout(5500);
+    expect((await ptyCalls(page)).creates).toHaveLength(0);
   });
 
   test('leaving the toast alone starts the mapped skill after 5s, sent — not just typed', async ({ page }) => {

@@ -418,6 +418,22 @@ export function BoardView({
   };
 
   /*
+    `moveItemToColumn` is redefined every render, closing over that render's
+    own `boardItems` — fine for every EXISTING caller, which always invokes
+    it synchronously within the same render pass that created it (a drop, a
+    "Move to ▸" click). The Undo toast's own `onAction` (below) is the first
+    caller that can fire an arbitrary number of renders later — after the
+    drag's own optimistic move already landed — so a closure captured at
+    drop time would still see the PRE-drop column and no-op against
+    `moveItemToColumn`'s own "already there" guard (`currentColumnId ===
+    toColumnId`), exactly the bug this ref exists to avoid. Reassigned in the
+    render body itself (no effect needed for a plain ref write) so Undo
+    always calls the version that reads the board as it stands right now.
+  */
+  const moveItemToColumnRef = useRef(moveItemToColumn);
+  moveItemToColumnRef.current = moveItemToColumn;
+
+  /*
     Drag-to-skill's own launch (Phase 95 Theme G) — the agent-resolution half
     of `useCardPlay`'s `launchWithSkill`, pulled out to `resolveMostRecentAgentId`
     (`board-derive.ts`) so this and the card's own Play button share it rather
@@ -479,7 +495,7 @@ export function BoardView({
             clearTimeout(pending.timeoutId);
             pendingSkillLaunches.current.delete(item.id);
           }
-          moveItemToColumn(item.id, fromColumnId);
+          moveItemToColumnRef.current(item.id, fromColumnId);
         },
       },
     });
