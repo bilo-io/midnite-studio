@@ -2513,6 +2513,24 @@ export const WorkflowRunsGetRequest = z.object({ runId: z.string().min(1) });
 export const WorkflowRunsGetResponse = z.object({ run: WorkflowRunSchema.nullable() });
 
 /**
+ * `workflowRunChanged`'s payload (Phase 95 Theme I) — the run itself, not a
+ * bare ping. Every `emitChanged` call site in `workflow-engine.ts` already
+ * has the just-mutated `WorkflowRun` in hand (it is what it just
+ * `saveRun`'d), so carrying it costs nothing extra to produce and is what
+ * lets the editing canvas show **live per-node status while a run is in
+ * flight** — Theme G's history view already re-fetches by id on any ping;
+ * this is what the *editing* canvas (Theme I) reads instead, without a
+ * second round trip per settle. `workflowId` is redundant with
+ * `run.workflowId` but kept top-level so a listener can filter by it without
+ * reaching into the payload's own shape first.
+ */
+export const WorkflowRunChangedEventSchema = z.object({
+  workflowId: z.string().min(1),
+  run: WorkflowRunSchema,
+});
+export type WorkflowRunChangedEvent = z.infer<typeof WorkflowRunChangedEventSchema>;
+
+/**
  * The Workflows settings page (Theme I), one-way like `updateSetChannel` —
  * `ipcMain.on`, not `invoke`. Bounded here too, not just in the UI: a
  * mistyped value must fail to parse rather than park every run for ten

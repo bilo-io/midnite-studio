@@ -960,6 +960,12 @@ export type UiState = {
   /** Councils' right configuration panel, collapsed to a rail (Phase 42 Theme B). */
   councilConfigCollapsed: boolean;
   setCouncilConfigCollapsed: (collapsed: boolean) => void;
+  /** The Workflows canvas's node palette, collapsed to a rail (Phase 95 Theme I). */
+  workflowPaletteCollapsed: boolean;
+  setWorkflowPaletteCollapsed: (collapsed: boolean) => void;
+  /** The Workflows canvas's bottom run panel, collapsed to its header bar (Phase 95 Theme I). */
+  workflowRunPanelCollapsed: boolean;
+  setWorkflowRunPanelCollapsed: (collapsed: boolean) => void;
 
   layout: LayoutSizes;
   graphColumns: GraphColumns;
@@ -2008,6 +2014,8 @@ export type PersistedUi = Pick<
   | 'showOnboarding'
   | 'onboardingSkippedStepIds'
   | 'councilConfigCollapsed'
+  | 'workflowPaletteCollapsed'
+  | 'workflowRunPanelCollapsed'
   | 'inactivityTimeoutS'
   | 'workflowDefaultTimeoutS'
   | 'workflowRunHistoryCap'
@@ -2421,6 +2429,10 @@ export const useUiStore = create<UiState>()(
         })),
       councilConfigCollapsed: false,
       setCouncilConfigCollapsed: (councilConfigCollapsed) => set({ councilConfigCollapsed }),
+      workflowPaletteCollapsed: false,
+      setWorkflowPaletteCollapsed: (workflowPaletteCollapsed) => set({ workflowPaletteCollapsed }),
+      workflowRunPanelCollapsed: true,
+      setWorkflowRunPanelCollapsed: (workflowRunPanelCollapsed) => set({ workflowRunPanelCollapsed }),
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,
@@ -2928,6 +2940,8 @@ export const useUiStore = create<UiState>()(
         showOnboarding: state.showOnboarding,
         onboardingSkippedStepIds: state.onboardingSkippedStepIds,
         councilConfigCollapsed: state.councilConfigCollapsed,
+        workflowPaletteCollapsed: state.workflowPaletteCollapsed,
+        workflowRunPanelCollapsed: state.workflowRunPanelCollapsed,
         inactivityTimeoutS: state.inactivityTimeoutS,
         cycleDurationS: state.cycleDurationS,
         workflowDefaultTimeoutS: state.workflowDefaultTimeoutS,

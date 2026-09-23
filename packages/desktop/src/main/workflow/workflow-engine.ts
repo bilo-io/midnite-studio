@@ -54,8 +54,13 @@ export type EngineDeps = {
   saveRun: (run: WorkflowRun) => Promise<void>;
   /** Read a run back. The engine never caches it — the store is the truth. */
   getRun: (runId: string) => Promise<WorkflowRun | null>;
-  /** One bare `workflowRunChanged` ping. Never a payload — see `channels.ts`. */
-  emitChanged: () => void;
+  /**
+   * The run, as it stands right after the write that just triggered this
+   * call — never a bare ping (Phase 95 Theme I; see `channels.ts` and
+   * `schemas.ts`'s `WorkflowRunChangedEventSchema`). Every call site below
+   * has just `saveRun`'d this exact object, so passing it costs nothing.
+   */
+  emitChanged: (run: WorkflowRun) => void;
   executors?: ExecutorRegistry;
   /**
    * The timer seam. Injected rather than reached for globally so the 120-second
@@ -216,7 +221,7 @@ export async function startWorkflowRun(
   // Persisted before anything launches: this is the frozen snapshot, and a
   // settle that landed before the run existed would have nowhere to write.
   await deps.saveRun(run);
-  deps.emitChanged();
+  deps.emitChanged(run);
 
   const state: InFlight = { cancelled: false, done: Promise.resolve() };
   inFlight.set(run.id, state);
@@ -362,7 +367,7 @@ async function drive(
         }
         if (claimed.length > 0 || mutated) {
           await deps.saveRun(run);
-          deps.emitChanged();
+          deps.emitChanged(run);
         }
         return claimed;
       });
@@ -423,9 +428,9 @@ async function finalizeRun(
   driveError: string | null,
 ): Promise<void> {
   const clock = deps.clock ?? realClock;
-  await withRunLock(runId, async () => {
+  const run = await withRunLock(runId, async () => {
     const run = await deps.getRun(runId);
-    if (!run) return;
+    if (!run) return null;
     if (state.cancelled) {
       for (const node of run.nodes) {
         if (TERMINAL.has(node.status)) continue;
@@ -450,8 +455,11 @@ async function finalizeRun(
     }
     run.endedAt = clock.now();
     await deps.saveRun(run);
+    return run;
   });
-  deps.emitChanged();
+  // `run` is `null` only when the run vanished from the store between
+  // `drive`'s loop exiting and this write — nothing left to announce.
+  if (run) deps.emitChanged(run);
 }
 
 function timeoutFor(node: WorkflowNode, deps: EngineDeps): number {
@@ -574,14 +582,14 @@ async function settleNode(
   deps: EngineDeps,
 ): Promise<void> {
   const clock = deps.clock ?? realClock;
-  await withRunLock(runId, async () => {
+  const run = await withRunLock(runId, async () => {
     const run = await deps.getRun(runId);
-    if (!run) return;
+    if (!run) return null;
     const node = run.nodes.find((n) => n.nodeId === nodeId);
-    if (!node) return;
+    if (!node) return null;
     // The idempotence guard, INSIDE the lock: a cancel can race a real settle,
     // and whichever landed first is the one that counts.
-    if (node.status !== 'running') return;
+    if (node.status !== 'running') return null;
 
     node.status = outcome.status;
     node.endedAt = clock.now();
@@ -606,6 +614,9 @@ async function settleNode(
     }
 
     await deps.saveRun(run);
+    return run;
   });
-  deps.emitChanged();
+  // `null` on a not-found run/node or a settle that lost the idempotence
+  // race — nothing changed, so nothing to announce.
+  if (run) deps.emitChanged(run);
 }

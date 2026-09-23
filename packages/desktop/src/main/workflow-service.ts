@@ -80,11 +80,13 @@ export function configureWorkflows(
   runsLoading = null;
 }
 
-function emitChanged(): void {
+function emitChanged(run: WorkflowRun): void {
   const win = getWindowThunk();
   // A send to a destroyed window throws, and main going down because a run
   // finished after the window closed would be an absurd way to lose the app.
-  if (win && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.workflowRunChanged);
+  if (win && !win.isDestroyed()) {
+    win.webContents.send(EVENT_CHANNELS.workflowRunChanged, { workflowId: run.workflowId, run });
+  }
 }
 
 async function ensureWorkflowsLoaded(): Promise<void> {

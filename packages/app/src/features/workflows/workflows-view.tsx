@@ -1,6 +1,13 @@
-import { validateWorkflow, type Workflow, type WorkflowNode, type WorkflowNodeStatus } from '@midnite/studio-shared';
+import {
+  isWorkflowEnabled,
+  validateWorkflow,
+  type Workflow,
+  type WorkflowNode,
+  type WorkflowNodeKind,
+  type WorkflowNodeStatus,
+} from '@midnite/studio-shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LuHistory, LuWorkflow, LuX } from 'react-icons/lu';
+import { LuWorkflow } from 'react-icons/lu';
 
 import { useRegisterActivePanel } from '../../components/panel-stack/active-panel';
 import { PanelHeader } from '../../components/panel-stack/panel-header';
@@ -10,17 +17,22 @@ import { EmptyState } from '../../components/empty-state';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
 import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
+import { useToastStore } from '../../store/toast-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useWorkflowRunCommandStore, type WorkflowRunHandle } from '../../store/workflow-run-command-store';
 import { useFlushableSave } from '../councils/use-flushable-save';
 import { DemoApiPill } from './demo-api-pill';
 import { NodeInspector } from './canvas/node-inspector';
+import { NodePalette } from './canvas/node-palette';
 import { RunNodeDetail } from './canvas/run-node-detail';
 import { WorkflowCanvas, type WorkflowGraph } from './canvas/workflow-canvas';
+import { cloneWorkflowWithFreshIds, createNode } from './workflow-io';
 import { RunHistoryList } from './run-history-list';
-import { useRunWorkflow, useWorkflowRun, useWorkflowRuns } from './use-workflow-run';
+import { RunOutputPanel } from './run-output-panel';
+import { useLiveWorkflowRun, useRunWorkflow, useWorkflowRun, useWorkflowRuns } from './use-workflow-run';
 import { useSaveWorkflow, useWorkflows } from './use-workflow';
 import { WorkflowList } from './workflow-list';
+import { WorkflowToolbar } from './workflow-toolbar';
 
 /**
  * The right-hand panel's own navigation (Phase 52 Theme F) — `NodeInspector`
@@ -90,7 +102,7 @@ export function WorkflowsView() {
       <ResizeHandle resizable={list} axis="x" label="Resize workflows list" />
       <div className="min-h-0 min-w-0 flex-1">
         {selected ? (
-          <WorkflowEditor key={selected.id} workflow={selected} />
+          <WorkflowEditor key={selected.id} workflow={selected} onWorkflowSaved={setSelectedId} />
         ) : (
           <EmptyState
             icon={LuWorkflow}
@@ -125,7 +137,14 @@ export function WorkflowsView() {
  * background. Seeded once per mount — `key={workflow.id}` on the caller
  * already remounts (and reseeds) this on a workflow switch.
  */
-function WorkflowEditor({ workflow }: { workflow: Workflow }) {
+function WorkflowEditor({
+  workflow,
+  onWorkflowSaved,
+}: {
+  workflow: Workflow;
+  /** "Save as template" (Theme I) lands a brand-new workflow — this is how the caller selects it. */
+  onWorkflowSaved: (id: string) => void;
+}) {
   const save = useSaveWorkflow();
   const runWorkflow = useRunWorkflow();
   const { schedule } = useFlushableSave<Workflow>((next) => save.mutate(next), SAVE_DEBOUNCE_MS);
@@ -140,6 +159,10 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
 
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
+  const paletteCollapsed = useUiStore((s) => s.workflowPaletteCollapsed);
+  const setPaletteCollapsed = useUiStore((s) => s.setWorkflowPaletteCollapsed);
+  const runPanelCollapsed = useUiStore((s) => s.workflowRunPanelCollapsed);
+  const setRunPanelCollapsed = useUiStore((s) => s.setWorkflowRunPanelCollapsed);
 
   const detail = useResizable({
     size: layout.workflowDetailWidth,
@@ -149,18 +172,49 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
     edge: 'end',
     ...LAYOUT_BOUNDS.workflowDetailWidth,
   });
+  const runPanel = useResizable({
+    size: layout.workflowRunPanelHeight,
+    onSize: (value) => setLayout('workflowRunPanelHeight', value),
+    initial: DEFAULT_LAYOUT.workflowRunPanelHeight,
+    axis: 'y',
+    edge: 'end',
+    ...LAYOUT_BOUNDS.workflowRunPanelHeight,
+  });
 
   const runs = useWorkflowRuns(workflow.id);
   const activeRunId = panels.current.kind === 'run' ? panels.current.runId : null;
   const activeRun = useWorkflowRun(activeRunId);
   const mode: 'edit' | 'run' = panels.current.kind === 'run' ? 'run' : 'edit';
 
+  /**
+   * The live `workflowRunChanged` payload (Phase 95 Theme I —
+   * `use-workflow-run.ts`'s `useLiveWorkflowRun`), read straight off the IPC
+   * event rather than waiting on `useWorkflowRuns`' invalidate-then-refetch
+   * round trip. `null` once the run settles (its own last event already
+   * carried the terminal status, but this hook clears on a workflow switch
+   * only — a finished run's last-known state stays visible until history is
+   * opened or a new run starts, matching `hasRunningRun`'s own read below).
+   */
+  const liveRun = useLiveWorkflowRun(workflow.id);
   // A pulsing history button costs a permanently-mounted animation the
   // instant a run is in flight — gated the way `BoardView`'s `agent-run-glow`
   // is, by calling the shared hook itself rather than waiting on a hoist:
   // `useWindowFocusGate` already supports concurrent hosts.
-  const hasRunningRun = runs.data?.some((run) => run.status === 'running') ?? false;
+  const hasRunningRun = liveRun?.status === 'running' || (runs.data?.some((run) => run.status === 'running') ?? false);
   useWindowFocusGate(hasRunningRun);
+
+  /**
+   * "Live run state on the editing canvas" (Theme I) — the run whose node
+   * statuses paint the canvas is the one being viewed in history (`mode ===
+   * 'run'`), or, while editing, the live run event for this workflow (still
+   * showing its last-known state after it settles, until a new run starts or
+   * history is opened). Either way editing itself never locks: `readOnly`
+   * below still keys only off `mode`, so a workflow keeps being editable
+   * while its own run animates across it — the SVG canvas's Theme G
+   * read-only mode was never about "can't edit during a run", only "this
+   * pane is showing history, not the live graph".
+   */
+  const focusedRun = mode === 'run' ? (activeRun.data ?? null) : liveRun;
 
   const issues = validateWorkflow(local);
   const invalidNodeIds = new Set(issues.map((issue) => issue.nodeId).filter((id): id is string => id !== undefined));
@@ -170,14 +224,45 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
   const selectedRunNode = selectedId ? (activeRun.data?.nodes.find((n) => n.nodeId === selectedId) ?? null) : null;
 
   const nodeStatuses = useMemo<ReadonlyMap<string, WorkflowNodeStatus> | undefined>(
-    () => (activeRun.data ? new Map(activeRun.data.nodes.map((n) => [n.nodeId, n.status])) : undefined),
-    [activeRun.data],
+    () => (focusedRun ? new Map(focusedRun.nodes.map((n) => [n.nodeId, n.status])) : undefined),
+    [focusedRun],
+  );
+  const nodeErrors = useMemo<ReadonlyMap<string, string> | undefined>(
+    () =>
+      focusedRun
+        ? new Map(focusedRun.nodes.filter((n): n is typeof n & { error: string } => n.error !== undefined).map((n) => [n.nodeId, n.error]))
+        : undefined,
+    [focusedRun],
   );
 
-  const changeNode = (next: WorkflowNode) => {
-    const updated = { ...local, nodes: local.nodes.map((node) => (node.id === next.id ? next : node)), updatedAt: Date.now() };
+  const commitLocal = (updated: Workflow) => {
     setLocal(updated);
     schedule(updated);
+  };
+
+  const changeNode = (next: WorkflowNode) => {
+    commitLocal({ ...local, nodes: local.nodes.map((node) => (node.id === next.id ? next : node)), updatedAt: Date.now() });
+  };
+
+  const addNodeFromPalette = (kind: WorkflowNodeKind) => {
+    // A simple cascade — each new node offset from the last so a run of
+    // clicks (rather than drags, which the canvas positions at the drop
+    // point) never stacks nodes exactly on top of one another.
+    const offset = (local.nodes.length % 8) * 24;
+    const node = createNode(kind, 80 + offset, 80 + offset);
+    commitLocal({ ...local, nodes: [...local.nodes, node], updatedAt: Date.now() });
+  };
+
+  const saveAsTemplate = () => {
+    const clone = cloneWorkflowWithFreshIds(local, Date.now(), `${local.name} (template)`);
+    save.mutate(clone, {
+      onSuccess: (result) => {
+        if (result.ok) {
+          useToastStore.getState().addToast({ message: `Saved "${clone.name}" as a new workflow.`, status: 'success' });
+          onWorkflowSaved(clone.id);
+        }
+      },
+    });
   };
 
   /**
@@ -189,7 +274,10 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
    */
   const runRef = useRef<() => void>(() => {});
   runRef.current = () => {
-    if (mode === 'edit' && issues.length === 0) runWorkflow.mutate(local.id);
+    if (mode === 'edit' && issues.length === 0 && isWorkflowEnabled(local)) {
+      runWorkflow.mutate(local.id);
+      setRunPanelCollapsed(false);
+    }
   };
   useEffect(() => {
     const handle: WorkflowRunHandle = { run: () => runRef.current() };
@@ -198,65 +286,80 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1">
-      <WorkflowCanvas
-        resetKey={workflow.id}
-        graph={{ nodes: local.nodes, edges: local.edges }}
-        onSelectionChange={setSelection}
-        onChange={
-          mode === 'edit'
-            ? (next: WorkflowGraph) => {
-                const updated = { ...local, ...next, updatedAt: Date.now() };
-                setLocal(updated);
-                schedule(updated);
-              }
-            : () => {}
-        }
-        invalidNodeIds={mode === 'edit' ? invalidNodeIds : undefined}
-        onRun={mode === 'edit' ? () => runWorkflow.mutate(local.id) : undefined}
-        runDisabledReason={mode === 'edit' ? issues[0]?.message : undefined}
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      <WorkflowToolbar
+        workflow={local}
+        onRename={(name) => commitLocal({ ...local, name, updatedAt: Date.now() })}
+        onDescriptionChange={(description) => commitLocal({ ...local, description, updatedAt: Date.now() })}
+        enabled={isWorkflowEnabled(local)}
+        onToggleEnabled={(on) => commitLocal({ ...local, enabled: on, updatedAt: Date.now() })}
+        onOpenHistory={() => panels.push({ kind: 'history' })}
+        hasRunningRun={hasRunningRun}
+        onSaveAsTemplate={saveAsTemplate}
+        saveState={save.isPending ? 'saving' : 'saved'}
+        mode={mode}
+        onBackToEditing={() => panels.reset()}
+        onRun={mode === 'edit' ? () => runRef.current() : undefined}
+        runDisabledReason={issues[0]?.message}
         isRunning={runWorkflow.isPending}
-        readOnly={mode === 'run'}
-        nodeStatuses={mode === 'run' ? nodeStatuses : undefined}
-        toolbarExtra={
-          mode === 'run' ? (
-            <button
-              type="button"
-              onClick={() => panels.reset()}
-              className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <LuX aria-hidden className="h-3 w-3" />
-              Back to editing
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => panels.push({ kind: 'history' })}
-                aria-label="Run history"
-                className={`flex h-6 w-6 items-center justify-center rounded-md border border-transparent hover:bg-accent ${
-                  hasRunningRun ? 'agent-run-glow is-running' : ''
-                }`}
-              >
-                <LuHistory aria-hidden className="h-3.5 w-3.5" />
-              </button>
-              <DemoApiPill
-                selectedNode={selectedNode}
-                onInsertUrl={(baseUrl) => {
-                  if (selectedNode?.kind === 'http') {
-                    changeNode({ ...selectedNode, config: { ...selectedNode.config, url: baseUrl } });
-                  }
-                }}
-              />
-            </>
-          )
-        }
       />
-      <ResizeHandle resizable={detail} axis="x" label="Resize workflow detail" />
-      <div
-        className="flex h-full shrink-0 flex-col border-l border-border"
-        style={{ width: detail.current }}
-      >
+
+      <div className="flex min-h-0 flex-1">
+        <div
+          className="shrink-0"
+          style={{ width: paletteCollapsed ? undefined : layout.workflowPaletteWidth }}
+        >
+          <NodePalette
+            collapsed={paletteCollapsed}
+            onToggleCollapsed={() => setPaletteCollapsed(!paletteCollapsed)}
+            onAddNode={addNodeFromPalette}
+            disabled={mode === 'run'}
+          />
+        </div>
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1">
+            <WorkflowCanvas
+              resetKey={workflow.id}
+              graph={{ nodes: local.nodes, edges: local.edges }}
+              onSelectionChange={setSelection}
+              onChange={
+                mode === 'edit'
+                  ? (next: WorkflowGraph) => commitLocal({ ...local, ...next, updatedAt: Date.now() })
+                  : () => {}
+              }
+              invalidNodeIds={mode === 'edit' ? invalidNodeIds : undefined}
+              nodeStatuses={nodeStatuses}
+              nodeErrors={nodeErrors}
+              readOnly={mode === 'run'}
+              toolbarExtra={
+                mode === 'edit' ? (
+                  <DemoApiPill
+                    selectedNode={selectedNode}
+                    onInsertUrl={(baseUrl) => {
+                      if (selectedNode?.kind === 'http') {
+                        changeNode({ ...selectedNode, config: { ...selectedNode.config, url: baseUrl } });
+                      }
+                    }}
+                  />
+                ) : null
+              }
+            />
+          </div>
+          {runPanelCollapsed ? null : <ResizeHandle resizable={runPanel} axis="y" label="Resize run output panel" />}
+          <RunOutputPanel
+            run={focusedRun}
+            collapsed={runPanelCollapsed}
+            onToggleCollapsed={() => setRunPanelCollapsed(!runPanelCollapsed)}
+            height={runPanel.current}
+          />
+        </div>
+
+        <ResizeHandle resizable={detail} axis="x" label="Resize workflow detail" />
+        <div
+          className="flex h-full shrink-0 flex-col border-l border-border"
+          style={{ width: detail.current }}
+        >
         <PanelHeader
           history={panels}
           label={workflowPanelLabel}
@@ -292,6 +395,7 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
             }
           }}
         />
+        </div>
       </div>
     </div>
   );
