@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { commitsForLiveSession, type AgentDefinition, type TerminalSession } from '@midnite/studio-shared';
+import {
+  commitsForLiveSession,
+  type ActivityStatus,
+  type AgentDefinition,
+  type TerminalSession,
+} from '@midnite/studio-shared';
 import {
   LuChevronRight,
   LuMoon,
@@ -19,6 +24,7 @@ import { SortableList, useSortableRow } from '../../components/sortable-list';
 import { StateDot } from '../../components/state-dot';
 import { Spinner } from '../../components/skeleton';
 import { useUiStore } from '../../store/ui-store';
+import { useActivityGlow, type ActivityGlowSessionInput } from '../activity/use-activity-glow';
 import { useGraphStore } from '../graph/graph-store';
 import { closeSessionWithConfirm } from './close-session';
 import {
@@ -30,6 +36,9 @@ import {
   useTerminalStore,
   type SessionActivity,
 } from './terminal-store';
+
+/** A stable empty `sessions` array — `useActivityGlow` does no memoising of its own, so a fresh `[]` literal every render would defeat nothing here, but a shared reference costs nothing to reach for either. */
+const EMPTY_GLOW_SESSIONS: readonly ActivityGlowSessionInput[] = [];
 
 /**
  * The list of open terminals, VS Code style.
@@ -151,6 +160,7 @@ export function TerminalSessionList({
               active={session.id === activeId}
               agent={agents.find((a) => a.id === session.agentId)}
               runningAgent={agents.find((a) => a.id === resolveSessionAgentId(session, liveAgentId))}
+              resolvedAgentId={resolveSessionAgentId(session, liveAgentId)}
               isAgentRow={isAgentRow(session, liveAgentId)}
               legacy={Boolean(legacy[session.id])}
             />
@@ -220,6 +230,7 @@ function SessionRow({
   active,
   agent,
   runningAgent,
+  resolvedAgentId,
   isAgentRow: rowIsAgent,
   legacy,
 }: {
@@ -236,6 +247,14 @@ function SessionRow({
   agent: AgentDefinition | undefined;
   /** What is *actually running*, from main's process probe. Drives the mark. */
   runningAgent: AgentDefinition | undefined;
+  /**
+   * `resolveSessionAgentId(session, liveAgentId)` — the same resolved id
+   * `runningAgent` was looked up from, kept apart because `useActivityGlow`
+   * (Phase 95 Theme C) wants the bare id even when the roster has no
+   * matching `AgentDefinition` for it (`runningAgent` would be `undefined`
+   * either way, and that must not read as "plain shell").
+   */
+  resolvedAgentId: string | undefined;
   /** `isAgentRow(session, liveAgentId)` — gates the activity glyph. */
   isAgentRow: boolean;
   /** Whether a legacy broker peer answered this session's `list` — provenance, not lifecycle. */
@@ -251,6 +270,15 @@ function SessionRow({
   const phase = sessionPhase(session, state);
   const live = phase === 'live';
   const name = sessionLabel(session, autoName, agent?.label);
+
+  // Phase 95 Theme C — the row's own icon wears the ring, not the whole
+  // row: `SessionIcon` already IS this row's identity badge (its mark), so
+  // the addition here is only the glow around it, sized down to the icon.
+  const rowActivity = useActivityGlow(
+    live
+      ? { sessions: [{ sessionId: session.id, agentId: resolvedAgentId, activity, running: live }] }
+      : { sessions: EMPTY_GLOW_SESSIONS },
+  );
 
   const rowCount = useGraphStore((s) => s.rows.length);
   const commits = useMemo(
@@ -346,7 +374,7 @@ function SessionRow({
       onDoubleClick={rename}
     >
       <div className="flex min-w-0 flex-1 items-center gap-1 text-left">
-        <SessionIcon agent={runningAgent} live={live} />
+        <SessionIcon agent={runningAgent} live={live} activityStatus={rowActivity.status} />
         {
           // Provenance, not state (Phase 51 Theme G) — a legacy session can be
           // live (see `sessionPhase`'s own note), so this checks `legacy`
@@ -556,17 +584,36 @@ function UnknownDot() {
  * exactly one entry in it and would have put Claude's face on Codex the moment
  * it had two.
  */
-function SessionIcon({ agent, live }: { agent: AgentDefinition | undefined; live: boolean }) {
+function SessionIcon({
+  agent,
+  live,
+  activityStatus,
+}: {
+  agent: AgentDefinition | undefined;
+  live: boolean;
+  /** `useActivityGlow`'s own status (Phase 95 Theme C) — wraps this mark in the shared glow ring, `'idle'` painting none at all. */
+  activityStatus: ActivityStatus;
+}) {
   const className = `size-3.5 shrink-0 ${live ? '' : 'opacity-50'}`;
-  if (!agent) return <LuTerminal className={className} />;
-
-  const Icon = resolveAgentIcon(agent);
-  return (
-    <Icon
+  const Mark = agent ? resolveAgentIcon(agent) : LuTerminal;
+  const icon = (
+    <Mark
       className={className}
       // Inline because the accent is data from the roster, not a Tailwind class
-      // — a user-added agent brings a colour Tailwind has never seen.
-      style={{ color: agent.accent }}
+      // — a user-added agent brings a colour Tailwind has never seen. `agent`
+      // is `undefined` for the plain-shell glyph, so this is `undefined` too.
+      style={agent ? { color: agent.accent } : undefined}
     />
+  );
+
+  if (activityStatus === 'idle') return icon;
+  return (
+    <span
+      data-activity-status={activityStatus}
+      data-testid="session-icon-glow"
+      className="activity-glow flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+    >
+      {icon}
+    </span>
   );
 }
