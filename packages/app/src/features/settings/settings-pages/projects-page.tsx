@@ -1,7 +1,8 @@
 import { Accordion } from '@bilo-io/ui';
 import { useState } from 'react';
-import { LuCheck, LuCopy, LuGitFork, LuInfo, LuPlay, LuShieldAlert } from 'react-icons/lu';
+import { LuCheck, LuColumns3, LuCopy, LuGitFork, LuInfo, LuPlay, LuShieldAlert } from 'react-icons/lu';
 
+import { DEFAULT_COLUMN_SKILLS, resolveColumnSkill } from '../../projects/board/board-derive';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { Field, TextField } from './controls';
@@ -105,6 +106,107 @@ export function ProjectsPage() {
           </Field>
         </div>
       </Accordion>
+
+      <Accordion title="Column → skill" icon={<LuColumns3 className="h-4 w-4" />}>
+        <ColumnSkillMapSection />
+      </Accordion>
+    </div>
+  );
+}
+
+/**
+ * Drag-to-skill's own column → skill map (Phase 95 Theme G) — dropping a
+ * card into a mapped column moves it, then starts the mapped skill on the
+ * card's issue or PR link behind a 5s Undo toast. `In progress` and `In
+ * review` are mapped out of the box (`DEFAULT_COLUMN_SKILLS`,
+ * `board-derive.ts`); every other column keeps today's status-only drop.
+ *
+ * **Editable per project, for whichever board is open right now** —
+ * `selectedRepoId` → `projectBoardByRepo[repoId]`, the identical "no picker
+ * here, follows the Projects view" rule `ProjectsPage`'s own docblock
+ * already states for the default-board memory just above. Switching boards
+ * in the Projects view switches which project's map this section edits, the
+ * same way it already does for "Default board" and the dependency graph's
+ * own facets.
+ */
+function ColumnSkillMapSection() {
+  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
+  const projectBoardByRepo = useUiStore((s) => s.projectBoardByRepo);
+  const projectId = selectedRepoId ? projectBoardByRepo[selectedRepoId] : undefined;
+  const overrides = useUiStore((s) => (projectId ? s.columnSkillByProject[projectId] : undefined)) ?? {};
+  const setColumnSkill = useUiStore((s) => s.setColumnSkill);
+  const [newColumn, setNewColumn] = useState('');
+  const [newSkill, setNewSkill] = useState('');
+
+  if (!projectId) {
+    return (
+      <p className="p-3 text-[11px] leading-relaxed text-muted-foreground">
+        Open a project board first — like the default board above, this map is edited per project,
+        for whichever board is currently open.
+      </p>
+    );
+  }
+
+  const rowKeys = Array.from(new Set([...Object.keys(DEFAULT_COLUMN_SKILLS), ...Object.keys(overrides)])).sort();
+
+  return (
+    <div className="flex flex-col gap-2 p-3">
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Dropping a card into a mapped column starts that skill on the card&apos;s issue or PR link,
+        behind a 5s Undo toast that cancels before the skill is sent. Clear a row to turn off a
+        default without picking a replacement; a column not listed here keeps today&apos;s
+        status-only drop.
+      </p>
+
+      {rowKeys.map((key) => {
+        const effective = resolveColumnSkill(key, overrides) ?? '';
+        return (
+          <div key={key} className="flex items-center gap-2">
+            <span className="w-24 shrink-0 truncate text-xs capitalize" title={key}>
+              {key}
+            </span>
+            <input
+              type="text"
+              aria-label={`Skill for column "${key}"`}
+              value={effective}
+              placeholder="Not mapped"
+              onChange={(event) => setColumnSkill(projectId, key, event.target.value)}
+              className="h-7 flex-1 rounded border border-border bg-background px-2 text-xs outline-none"
+            />
+          </div>
+        );
+      })}
+
+      <div className="mt-1 flex items-center gap-2 border-t border-border/50 pt-2">
+        <input
+          type="text"
+          aria-label="New column name"
+          value={newColumn}
+          onChange={(event) => setNewColumn(event.target.value)}
+          placeholder="Column name"
+          className="h-7 w-24 shrink-0 rounded border border-border bg-background px-2 text-xs outline-none"
+        />
+        <input
+          type="text"
+          aria-label="New column's skill"
+          value={newSkill}
+          onChange={(event) => setNewSkill(event.target.value)}
+          placeholder="/skill-name"
+          className="h-7 flex-1 rounded border border-border bg-background px-2 text-xs outline-none"
+        />
+        <button
+          type="button"
+          disabled={newColumn.trim() === '' || newSkill.trim() === ''}
+          onClick={() => {
+            setColumnSkill(projectId, newColumn, newSkill);
+            setNewColumn('');
+            setNewSkill('');
+          }}
+          className="h-7 shrink-0 rounded-md border border-border px-2 text-[11px] font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Add
+        </button>
+      </div>
     </div>
   );
 }

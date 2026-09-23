@@ -9,7 +9,7 @@ import { AGENT_COMMANDS } from '../../agent/agent-commands';
 import { revealSession } from '../../terminal/reveal-session';
 import { startAgent } from '../../terminal/start-agent';
 import { useTerminalStore } from '../../terminal/terminal-store';
-import { composeCardPrompt, composeSkillLaunchPrompt } from './board-derive';
+import { composeCardPrompt, composeSkillLaunchPrompt, resolveMostRecentAgentId } from './board-derive';
 
 /**
  * The fallback menu's three entries (Phase 92 Theme D), in menu order.
@@ -94,10 +94,7 @@ export function useCardPlay({
         skillTemplate === ''
           ? composeCardPrompt(item, targetCwd)
           : composeSkillLaunchPrompt(item, skillTemplate);
-      const mostRecent = sessions
-        .filter((s) => s.repoId === repoId && s.kind === 'agent' && s.agentId !== undefined)
-        .sort((a, b) => b.createdAt - a.createdAt)[0];
-      const agentId = mostRecent?.agentId ?? BUILTIN_AGENTS[0]?.id ?? 'claude';
+      const agentId = resolveMostRecentAgentId(sessions, repoId);
       const agent = BUILTIN_AGENTS.find((a) => a.id === agentId) ?? BUILTIN_AGENTS[0]!;
 
       const session = startAgent({
