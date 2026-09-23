@@ -49,7 +49,7 @@ export function BatterySegment({ side = 'bottom' }: { side?: 'top' | 'bottom' } 
       align="end"
       label={`Battery ${rounded}%`}
       testId="battery-segment"
-      panelClassName="w-[320px] max-h-[380px] p-3 overflow-y-auto"
+      panelClassName="hide-scrollbar w-[320px] max-h-[380px] p-3 overflow-y-auto"
       trigger={
         <span
           className={`flex items-center gap-1.5 font-medium transition-colors ${textClass} ${flashClass}`}

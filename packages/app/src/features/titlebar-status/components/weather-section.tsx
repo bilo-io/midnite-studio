@@ -138,7 +138,7 @@ export function WeatherSection() {
           {isSearching && <p className="text-[11px] text-muted-foreground">Searching locations…</p>}
 
           {searchResults.length > 0 && (
-            <div className="max-h-36 overflow-y-auto rounded border border-border/40 divide-y divide-border/20">
+            <div className="hide-scrollbar max-h-36 overflow-y-auto rounded border border-border/40 divide-y divide-border/20">
               {searchResults.map((hit) => (
                 <button
                   key={hit.id}

@@ -250,7 +250,7 @@ export function ReviewsList({ repoId }: { repoId: string }) {
           own copy of the same three groups — both are on screen in this view,
           with the same headings, and the collapsed one is still in the DOM.
         */}
-        <div data-testid="reviews-groups" className="min-h-0 flex-1 overflow-y-auto py-1">
+        <div data-testid="reviews-groups" className="hide-scrollbar min-h-0 flex-1 overflow-y-auto py-1">
           {REVIEW_GROUPS.map((group) => (
             <ReviewGroupSection
               key={group.scope}

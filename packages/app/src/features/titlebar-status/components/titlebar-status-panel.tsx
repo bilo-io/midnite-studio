@@ -43,7 +43,10 @@ export function TitlebarStatusPanel({ onClose }: { onClose?: () => void }) {
   const [activeView, setActiveView] = useState<PanelView>('time');
 
   return (
-    <div className="flex flex-col w-[360px] sm:w-[420px] max-h-[85vh] p-3 overflow-y-auto" data-testid="titlebar-status-panel">
+    <div
+      className="hide-scrollbar flex flex-col w-[360px] sm:w-[420px] max-h-[85vh] p-3 overflow-y-auto"
+      data-testid="titlebar-status-panel"
+    >
       {/* Header: tabs, settings, close — all on one line */}
       <div className="flex shrink-0 items-center justify-between border-b border-border pb-2.5 mb-3">
         <div className="flex items-center gap-1" role="tablist" aria-label="Status panel view">

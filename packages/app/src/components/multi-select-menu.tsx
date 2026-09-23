@@ -146,7 +146,7 @@ export function MultiSelectMenu({
             />
           </div>
 
-          <div className="max-h-64 overflow-y-auto py-1">
+          <div className="hide-scrollbar max-h-64 overflow-y-auto py-1">
             <button
               type="button"
               role="option"

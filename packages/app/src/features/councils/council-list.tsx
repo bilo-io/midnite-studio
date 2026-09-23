@@ -35,7 +35,7 @@ export function CouncilList({
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="hide-scrollbar min-h-0 flex-1 overflow-auto">
         {councils.isLoading ? (
           <p className="px-2 py-3 text-xs text-muted-foreground">Loading…</p>
         ) : rows.length === 0 ? (

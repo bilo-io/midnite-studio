@@ -170,7 +170,7 @@ export function WorldClocksSection() {
           <p>No world clocks configured.</p>
         </div>
       ) : (
-        <div className="max-h-48 overflow-y-auto divide-y divide-border/20">
+        <div className="hide-scrollbar max-h-48 overflow-y-auto divide-y divide-border/20">
           {worldClockZones.map((zone: WorldClockZone, i: number) => {
             const relOffset = offsetLabel(now, zone.tz);
             return (

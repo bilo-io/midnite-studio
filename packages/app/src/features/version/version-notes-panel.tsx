@@ -38,7 +38,7 @@ export function VersionNotesPanel({ version }: { version: string }) {
         ) : null}
       </div>
 
-      <div className="max-h-[min(60vh,20rem)] overflow-auto px-3 py-2 text-xs leading-relaxed">
+      <div className="hide-scrollbar max-h-[min(60vh,20rem)] overflow-auto px-3 py-2 text-xs leading-relaxed">
         {isLoading ? (
           <p className="flex items-center gap-2 py-1 text-muted-foreground">
             <LuLoaderCircle aria-hidden className="h-3.5 w-3.5 animate-spin" />

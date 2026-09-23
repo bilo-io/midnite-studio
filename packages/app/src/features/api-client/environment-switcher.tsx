@@ -56,7 +56,7 @@ export function EnvironmentSwitcher({ repoId }: { repoId: string }) {
           </>
         }
       >
-        <div className="flex max-h-72 flex-col gap-0.5 overflow-auto">
+        <div className="hide-scrollbar flex max-h-72 flex-col gap-0.5 overflow-auto">
           <button
             type="button"
             onClick={() => {

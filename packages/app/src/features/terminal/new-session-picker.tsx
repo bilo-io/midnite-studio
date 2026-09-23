@@ -249,7 +249,7 @@ function PickerPanel({
         search box get added without touching a single existing assertion
         about the roster itself.
       */}
-      <div role="menu" aria-orientation="vertical" className="max-h-80 overflow-auto p-1">
+      <div role="menu" aria-orientation="vertical" className="hide-scrollbar max-h-80 overflow-auto p-1">
         <PickerRow
           label="New Terminal"
           icon={LuTerminal}

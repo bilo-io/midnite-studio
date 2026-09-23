@@ -395,6 +395,28 @@ html[data-motion='reduced'] .battery-flash-fast {
   display: none;
 }
 
+/*
+ * The nav rail (`app.tsx`'s `<AppFrame navLabel="Views">`) is the narrowest
+ * scroller in the app — a 56px icon strip, or ~256px expanded — where a
+ * track-width scrollbar visibly eats into the row. It can't take
+ * `.hide-scrollbar` as a class: the `<nav>` itself is `@bilo-io/shell`'s
+ * AppFrame, an external package with no className passthrough for that inner
+ * element (only the outer `<aside>` and the whole component take one). So
+ * this reaches it the same way any consumer skins a third-party component it
+ * doesn't own — a selector on the one prop AppFrame threads onto the node,
+ * `navLabel`, which app.tsx sets to `"Views"`. Same hidden-but-scrollable
+ * rules as `.hide-scrollbar` above; wheel, trackpad and keyboard scrolling
+ * are untouched.
+ */
+nav[aria-label='Views'] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+nav[aria-label='Views']::-webkit-scrollbar {
+  display: none;
+}
+
 /* ---------------------------------------------------------------------------
  * react-grid-layout, retinted.
  *

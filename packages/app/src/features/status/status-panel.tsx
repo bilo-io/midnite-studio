@@ -266,7 +266,7 @@ export function StatusPanel() {
           <ViewToggle view={fileView} onChange={setFileView} />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto">
           <TreeSection
             title="Staged"
             count={staged.length}

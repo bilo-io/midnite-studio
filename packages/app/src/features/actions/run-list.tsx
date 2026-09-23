@@ -76,7 +76,7 @@ export function RunList({
       run and job names. A landmark per pane is what lets a screen-reader user
       — and a test — say WHICH "CI" they mean.
     */
-    <ul aria-label="Workflow runs" className="min-h-0 flex-1 overflow-y-auto py-1">
+    <ul aria-label="Workflow runs" className="hide-scrollbar min-h-0 flex-1 overflow-y-auto py-1">
       {groups.map((group) => {
         const open = !collapsed.includes(group.key);
         return (

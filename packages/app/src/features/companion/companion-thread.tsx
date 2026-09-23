@@ -132,7 +132,7 @@ export function CompanionThread({ turns }: { turns: readonly CompanionTurn[] }) 
         ref={scrollRef}
         onScroll={onScroll}
         data-testid="companion-thread"
-        className="h-full overflow-y-auto px-3 py-2"
+        className="hide-scrollbar h-full overflow-y-auto px-3 py-2"
       >
         <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
           {virtualizer.getVirtualItems().map((item) => {

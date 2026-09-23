@@ -140,7 +140,7 @@ export function WorkflowList({
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="hide-scrollbar min-h-0 flex-1 overflow-auto">
         {workflows.isLoading ? (
           <p className="px-2 py-3 text-xs text-muted-foreground">Loading…</p>
         ) : all.length === 0 ? (

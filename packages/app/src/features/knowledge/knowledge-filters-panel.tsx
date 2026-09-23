@@ -84,7 +84,7 @@ export function KnowledgeFiltersPanel({
     <div
       data-testid="knowledge-filters-panel"
       style={{ ...(width !== undefined ? { width } : {}), ...style }}
-      className={`flex h-full min-h-0 w-full shrink-0 flex-col gap-3 overflow-auto border-r border-border bg-background p-3 text-xs ${className}`}
+      className={`hide-scrollbar flex h-full min-h-0 w-full shrink-0 flex-col gap-3 overflow-auto border-r border-border bg-background p-3 text-xs ${className}`}
     >
       <div className="flex items-center gap-2 rounded border border-border px-2 py-1.5">
         <LuSearch aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

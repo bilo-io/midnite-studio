@@ -182,7 +182,7 @@ function PrimaryAgentPickerPanel({
         role="menu"
         aria-label="Select primary agent"
         aria-orientation="vertical"
-        className="max-h-80 overflow-auto p-1"
+        className="hide-scrollbar max-h-80 overflow-auto p-1"
       >
         {noMatches ? (
           <p className="px-2.5 py-6 text-center text-xs text-muted-foreground">

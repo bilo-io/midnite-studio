@@ -166,7 +166,11 @@ export function KnowledgeCommunityFilter({
           Expand all
         </button>
       </div>
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto" data-testid="knowledge-community-rows">
+      <div
+        ref={scrollRef}
+        className="hide-scrollbar min-h-0 flex-1 overflow-auto"
+        data-testid="knowledge-community-rows"
+      >
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map((row) => {
             const item = rows[row.index];
