@@ -9,6 +9,7 @@ import { bridge } from '../../services/bridge';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
 import { resolveTerminalPalette } from '../themes/resolve-palette';
 import { disableSynchronizedOutput } from '../terminal/disable-synchronized-output';
+import { enableUnicode11 } from '../terminal/enable-unicode11';
 import { terminalFontOptions } from '../terminal/terminal-font';
 import { createReplayGate, gateLiveWrite, replayLiveHandoff, type ReplayGate } from '../terminal/replay-gate';
 import { useTerminalIpc } from '../terminal/use-terminal-ipc';
@@ -80,7 +81,10 @@ export function LiveSessionTerminal({ session }: { session: TerminalSession }) {
         fontSize: font.terminalFontSize,
         lineHeight: font.terminalLineHeight,
       }),
+      // `term.unicode`, for `enableUnicode11` below.
+      allowProposedApi: true,
     });
+    enableUnicode11(term);
 
     disableSynchronizedOutput(term);
 

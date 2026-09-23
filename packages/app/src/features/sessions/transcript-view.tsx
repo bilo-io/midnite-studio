@@ -9,6 +9,7 @@ import { LuHistory } from 'react-icons/lu';
 import { EmptyState } from '../../components/empty-state';
 import { bridge } from '../../services/bridge';
 import { disableSynchronizedOutput } from '../terminal/disable-synchronized-output';
+import { enableUnicode11 } from '../terminal/enable-unicode11';
 import { resolveTerminalPalette } from '../themes/resolve-palette';
 import { terminalFontOptions } from '../terminal/terminal-font';
 import { useUiStore } from '../../store/ui-store';
@@ -112,7 +113,10 @@ function TranscriptTerminal({ bytes }: { bytes: Uint8Array }) {
         fontSize: font.terminalFontSize,
         lineHeight: font.terminalLineHeight,
       }),
+      // `term.unicode`, for `enableUnicode11` below.
+      allowProposedApi: true,
     });
+    enableUnicode11(term);
 
     // Selection and copy/select-all stay live; every other keystroke is
     // swallowed rather than reaching a process that does not exist.
