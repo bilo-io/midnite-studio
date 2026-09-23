@@ -18,7 +18,7 @@ export function reachableRepoWebUrl(account: ForgeAccount, repo: ReachableRepo):
 }
 
 export type DeleteCommand =
-  | { ok: true; command: string; note: string }
+  | { ok: true; command: string }
   | { ok: false; reason: string };
 
 /**
@@ -29,8 +29,7 @@ export type DeleteCommand =
  *
  * Never carries a credential either — a vault token (`forge-account-vault.ts`)
  * must not be echoed into a terminal's scrollback. So a token-backed account's
- * command runs as whatever that CLI is itself signed in as, and says so in
- * `note`; a `gh`-delegated account pins the exact `gh` login it came from.
+ * command runs as whatever that CLI is itself signed in as; a `gh`-delegated account pins the exact `gh` login it came from.
  */
 export function reachableRepoDeleteCommand(account: ForgeAccount, repo: ReachableRepo): DeleteCommand {
   switch (account.kind) {
@@ -48,10 +47,6 @@ export function reachableRepoDeleteCommand(account: ForgeAccount, repo: Reachabl
       return {
         ok: true,
         command: [...env, 'gh repo delete', shellQuote(repo.fullName)].join(' '),
-        note:
-          account.delegated === 'gh'
-            ? `Runs as gh's ${account.login} login`
-            : "Runs as gh's signed-in account",
       };
     }
     case 'gitlab': {
@@ -59,7 +54,6 @@ export function reachableRepoDeleteCommand(account: ForgeAccount, repo: Reachabl
       return {
         ok: true,
         command: [...env, 'glab repo delete', shellQuote(repo.fullName)].join(' '),
-        note: "Runs as glab's signed-in account",
       };
     }
     case 'azure': {
@@ -77,7 +71,6 @@ export function reachableRepoDeleteCommand(account: ForgeAccount, repo: Reachabl
           '--project',
           shellQuote(project),
         ].join(' '),
-        note: "Runs as az's signed-in account",
       };
     }
     case 'bitbucket':

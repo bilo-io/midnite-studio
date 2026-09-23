@@ -33,7 +33,7 @@ export function ReachableRepoActions({ account, repo }: { account: ForgeAccount;
         size="sm"
         tone="danger"
         tooltipSide="top"
-        label={del.ok ? `Delete ${repo.fullName}… (${del.note}; typed into a terminal, not run)` : `Delete ${repo.fullName}`}
+        label={`Delete ${repo.fullName}… (typed into a terminal, not run)`}
         disabled={!del.ok}
         {...(del.ok ? {} : { disabledReason: del.reason })}
         onClick={() => {
