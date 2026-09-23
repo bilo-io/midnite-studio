@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-24 — Phase 95 Theme G — Card/node controls and drag-to-skill
 
-[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD).
+[PR #532](https://github.com/bilo-io/midnite-studio/pull/532).
 
 Kanban cards and graph nodes get Start/Stop/`>_` in place of the old single Play-or-reveal
 button — Start is unchanged (`useCardPlay`'s own onPlay), Stop calls `closeSessionWithConfirm`,

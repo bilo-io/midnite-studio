@@ -311,7 +311,7 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
 - [ ] Tests: blueprint schema; confirm sequencing and partial-failure report; edit lock while
       generating.
 
-### G — Card and node controls, and drag-to-skill (M) — ✅ DONE (PR #TBD, 2026-09-24)
+### G — Card and node controls, and drag-to-skill (M) — ✅ DONE (PR #532, 2026-09-24)
 
 - [x] On kanban cards and graph nodes: **Start** (today's Play via `useCardPlay`), **Stop** (ends
       the card's live session through `closeSessionWithConfirm`), and a **`>_` toggle** that shows /
