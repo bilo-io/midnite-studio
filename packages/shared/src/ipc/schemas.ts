@@ -56,8 +56,12 @@ import {
   FileDiffSchema,
   ForgeCliStatusSchema,
   ForgeIssueCommentsResultSchema,
+  ForgeIssueCreateResultSchema,
   ForgeIssueDetailResultSchema,
+  ForgeIssueEditInputSchema,
   ForgeIssuesResultSchema,
+  ForgeLinkKindSchema,
+  ForgeLinkWriteResultSchema,
   ForgeMergeMethodSchema,
   ForgePullCommentsResultSchema,
   ForgePullDetailResultSchema,
@@ -65,6 +69,7 @@ import {
   ForgePullScopeSchema,
   ForgePullsResultSchema,
   ForgePullThreadsResultSchema,
+  ForgeProjectCreateResultSchema,
   ForgeProjectFieldsResultSchema,
   ForgeProjectFieldValueSchema,
   ForgeProjectItemsResultSchema,
@@ -990,6 +995,128 @@ export const ForgeProjectClearFieldRequest = z.object({
   fieldId: ProjectNodeId,
 });
 export const ForgeProjectClearFieldResponse = ForgeProjectWriteResultSchema;
+
+// --- forge issue and project CRUD (Phase 95 Theme D) ------------------------
+
+/** A label or an assignee login, loosely — bounded by length rather than by
+ *  one provider's own username grammar (`Login` above is GitHub-specific;
+ *  these three writes reach GitLab, Bitbucket and Azure too), and inert
+ *  either way once it reaches `shellQuote` or a JSON request body. */
+const IssueLabel = z.string().min(1).max(100);
+const IssueAssignee = z.string().min(1).max(100);
+const MilestoneTitle = z.string().min(1).max(200);
+
+/**
+ * Create an issue. `body` defaults to `''` rather than being required —
+ * GitHub's own "New issue" form accepts a title alone, and requiring a body
+ * here would refuse a request the forge itself would accept.
+ */
+export const ForgeIssueCreateRequest = RepoId.extend({
+  title: z.string().trim().min(1, 'an issue needs a title'),
+  body: ForgeBody.default(''),
+  labels: z.array(IssueLabel).max(50).default([]),
+  assignees: z.array(IssueAssignee).max(50).default([]),
+  milestone: MilestoneTitle.optional(),
+});
+export const ForgeIssueCreateResponse = ForgeIssueCreateResultSchema;
+
+/**
+ * A partial edit. Every field optional and independently omittable — see
+ * `ForgeIssueEditInputSchema`'s own docblock for the three-state
+ * `undefined`/`null`/value convention `milestone` uses. `.refine` rejects a
+ * request that names no field at all: that is a bug in the caller, not a
+ * legitimate "change nothing" write worth a subprocess.
+ */
+export const ForgeIssueEditRequest = ForgeIssueRequest.extend({
+  title: z.string().trim().min(1).optional(),
+  body: ForgeBody.optional(),
+  labels: z.array(IssueLabel).max(50).optional(),
+  assignees: z.array(IssueAssignee).max(50).optional(),
+  milestone: MilestoneTitle.nullable().optional(),
+}).refine(
+  (req) =>
+    req.title !== undefined ||
+    req.body !== undefined ||
+    req.labels !== undefined ||
+    req.assignees !== undefined ||
+    req.milestone !== undefined,
+  { message: 'an edit needs at least one changed field' },
+);
+export const ForgeIssueEditResponse = ForgeWriteResultSchema;
+
+/** `gh issue delete --yes` (or the provider's own delete call). The
+ *  blast-radius confirm is the caller's job — see `CHANNELS.forgeIssueDelete`. */
+export const ForgeIssueDeleteRequest = ForgeIssueRequest;
+export const ForgeIssueDeleteResponse = ForgeWriteResultSchema;
+
+/**
+ * A dependency edge between two issues, `number` → `targetNumber`.
+ * `targetRepo` is `''` for the common same-repo case (matching every other
+ * `repo: ''` convention in this file's domain — `ForgeIssueLink.repo`,
+ * `ForgeProjectItemContent`'s own `repo`) and `owner/name` for a cross-repo
+ * target; GitHub's native mutations resolve either, and the body fallback's
+ * `Blocked by owner/name#N` line is exactly what `parseBlockerRefs`
+ * (`forge-graph.ts`) already reads for a foreign reference.
+ */
+export const ForgeIssuesLinkRequest = RepoId.extend({
+  kind: ForgeLinkKindSchema,
+  number: IssueNumber,
+  targetNumber: IssueNumber,
+  targetRepo: z
+    .string()
+    .regex(/^[\w.-]+\/[\w.-]+$/, 'targetRepo is owner/name')
+    .default(''),
+});
+export const ForgeIssuesLinkResponse = ForgeLinkWriteResultSchema;
+
+/** The inverse of {@link ForgeIssuesLinkRequest} — same shape, opposite write. */
+export const ForgeIssuesUnlinkRequest = ForgeIssuesLinkRequest;
+export const ForgeIssuesUnlinkResponse = ForgeLinkWriteResultSchema;
+
+/** A new ProjectV2 board (or the provider's own board-create call). */
+export const ForgeProjectCreateRequest = RepoId.extend({
+  title: z.string().trim().min(1, 'a board needs a title'),
+});
+export const ForgeProjectCreateResponse = ForgeProjectCreateResultSchema;
+
+/** Rename a board, or close/reopen it. At least one of the two, the same
+ *  "no-op write is a caller bug" rule {@link ForgeIssueEditRequest} enforces. */
+export const ForgeProjectEditRequest = z
+  .object({
+    projectId: ProjectNodeId,
+    title: z.string().trim().min(1).optional(),
+    closed: z.boolean().optional(),
+  })
+  .refine((req) => req.title !== undefined || req.closed !== undefined, {
+    message: 'an edit needs at least one changed field',
+  });
+export const ForgeProjectEditResponse = ForgeProjectWriteResultSchema;
+
+/** Delete a board outright — irreversible on GitHub. Blast-radius confirm is
+ *  the caller's job, as {@link ForgeIssueDeleteRequest} documents above. */
+export const ForgeProjectDeleteRequest = z.object({ projectId: ProjectNodeId });
+export const ForgeProjectDeleteResponse = ForgeProjectWriteResultSchema;
+
+/**
+ * `addProjectV2DraftIssue` — a new draft item typed straight onto the board,
+ * with no issue behind it. `ForgeProjectAddItemRequest` above stays the
+ * channel for attaching an *existing* issue or PR by node id; this is its
+ * sibling for the other half of "existing issue or draft" the phase doc asks
+ * `addProjectItem` to cover.
+ */
+export const ForgeProjectAddDraftItemRequest = z.object({
+  projectId: ProjectNodeId,
+  title: z.string().trim().min(1, 'a draft needs a title'),
+  body: ForgeBody.default(''),
+});
+export const ForgeProjectAddDraftItemResponse = ForgeProjectWriteResultSchema;
+
+/** `deleteProjectV2Item` — remove a row from the board, not the issue/PR it points at. */
+export const ForgeProjectRemoveItemRequest = z.object({
+  projectId: ProjectNodeId,
+  itemId: ProjectNodeId,
+});
+export const ForgeProjectRemoveItemResponse = ForgeProjectWriteResultSchema;
 
 // --- shell -----------------------------------------------------------------
 

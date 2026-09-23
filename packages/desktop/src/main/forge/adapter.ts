@@ -2,10 +2,16 @@ import type {
   Forge,
   ForgeCapability,
   ForgeIssueCommentsResult,
+  ForgeIssueCreateResult,
   ForgeIssueDetailResult,
+  ForgeIssueEditInput,
   ForgeIssuesResult,
   ForgeKind,
+  ForgeLinkKind,
+  ForgeLinkWriteResult,
   ForgeMergeMethod,
+  ForgeProjectAddItemInput,
+  ForgeProjectCreateResult,
   ForgeProjectFieldsResult,
   ForgeProjectFieldValue,
   ForgeProjectItemsResult,
@@ -126,6 +132,69 @@ export interface ForgeAdapter {
     forge: Forge,
     request: { projectId: string; itemId: string; fieldId: string; value: ForgeProjectFieldValue },
   ): Promise<ForgeProjectWriteResult>;
+
+  // --- issue and project CRUD, and dependency links (Phase 95 Theme D) ----
+  //
+  // `capabilities().ops` says which of these a given adapter actually
+  // answers with a real write — an unsupported op still has to implement this
+  // interface (the same "every method has a real function, even an honest
+  // `unsupportedWrite`" posture `gitlab-write.ts`/`bitbucket-writes.ts`/
+  // `azure-writes.ts` already take for their own PR-review writes), it just
+  // never returns `ok: true`.
+
+  /** Reads the created issue back through `issueDetail` on success, so every
+   *  provider returns the identical `ForgeIssue` shape a listing would. */
+  createIssue(
+    forge: Forge,
+    request: {
+      title: string;
+      body?: string;
+      labels?: string[];
+      assignees?: string[];
+      milestone?: string;
+    },
+  ): Promise<ForgeIssueCreateResult>;
+  editIssue(forge: Forge, number: number, request: ForgeIssueEditInput): Promise<ForgeWriteResult>;
+  deleteIssue(forge: Forge, number: number): Promise<ForgeWriteResult>;
+
+  createProject(forge: Forge, title: string): Promise<ForgeProjectCreateResult>;
+  editProject(
+    forge: Forge,
+    request: { projectId: string; title?: string; closed?: boolean },
+  ): Promise<ForgeProjectWriteResult>;
+  deleteProject(forge: Forge, projectId: string): Promise<ForgeProjectWriteResult>;
+
+  /** An existing issue/PR (`contentId`) or a brand-new draft (`draftTitle` +
+   *  optional `draftBody`) — see `ForgeProjectAddItemInputSchema`'s own note
+   *  on why this is a union rather than one shape with optional fields. */
+  addProjectItem(
+    forge: Forge,
+    request: { projectId: string } & ForgeProjectAddItemInput,
+  ): Promise<ForgeProjectWriteResult>;
+  /** Removes a row from the board — not the issue/PR it points at. */
+  removeProjectItem(
+    forge: Forge,
+    request: { projectId: string; itemId: string },
+  ): Promise<ForgeProjectWriteResult>;
+
+  /**
+   * `number` gains a dependency on `targetNumber` (`blockedBy`) or gains it
+   * as a child (`subIssue`). `targetRepo` is `''` for the board's own repo,
+   * `owner/name` for a cross-repo target — see `ForgeIssuesLinkRequest`'s own
+   * note. Reports `via: 'api'` for a native provider mutation, `via: 'body'`
+   * for the `Blocked by #N`/`Blocked by owner/name#N` text fallback every
+   * provider with no native relation falls back to — `resolveForgeGraph`
+   * (`forge-graph.ts`) already parses that line on read.
+   */
+  linkIssues(
+    forge: Forge,
+    request: { kind: ForgeLinkKind; number: number; targetNumber: number; targetRepo?: string },
+  ): Promise<ForgeLinkWriteResult>;
+  /** The inverse of `linkIssues` — removes the same edge the same way it was written. */
+  unlinkIssues(
+    forge: Forge,
+    request: { kind: ForgeLinkKind; number: number; targetNumber: number; targetRepo?: string },
+  ): Promise<ForgeLinkWriteResult>;
 
   // --- identity, and the capability matrix Theme H reads ------------------
 

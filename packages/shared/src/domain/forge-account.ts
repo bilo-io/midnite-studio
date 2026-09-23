@@ -148,6 +148,38 @@ export function forgeAccountVaultKey(
 export const ForgeCapabilityLevelSchema = z.enum(['full', 'partial', 'none']);
 export type ForgeCapabilityLevel = z.infer<typeof ForgeCapabilityLevelSchema>;
 
+/**
+ * Per-operation capability (Phase 95 Theme D) — a boolean record beside the
+ * tri-state `ForgeCapability` above rather than folded into it: `projects`/
+ * `issues` answer "can this provider's surface be *read and shown* at all",
+ * which is a coarser question than "can this specific write be attempted".
+ * GitLab reads issues fully (`issues: 'full'`) but has no board-item-add
+ * mutation this app implements (`ops.addProjectItem: false`) — a single
+ * tri-state field cannot carry both facts at once, and the UI's own job here
+ * ("hide what a provider cannot do rather than failing on click" — the
+ * phase doc's own words) needs the finer one. `linkBlockedBy` is `true` for
+ * every supported kind, including the three with no native dependency
+ * relation: `linkIssues` never fails for lack of one, it falls back to the
+ * `Blocked by #N` body line `parseBlockerRefs` (`forge-graph.ts`) already
+ * parses, and reports `via: 'body'` rather than `via: 'api'`. `linkSubIssue`
+ * has no such fallback — a parent/child relation has no body-text grammar
+ * this app parses — so it is `true` only where a provider adapter implements
+ * the native mutation (GitHub today).
+ */
+export const ForgeCapabilityOpsSchema = z.object({
+  createIssue: z.boolean(),
+  editIssue: z.boolean(),
+  deleteIssue: z.boolean(),
+  createProject: z.boolean(),
+  editProject: z.boolean(),
+  deleteProject: z.boolean(),
+  addProjectItem: z.boolean(),
+  removeProjectItem: z.boolean(),
+  linkBlockedBy: z.boolean(),
+  linkSubIssue: z.boolean(),
+});
+export type ForgeCapabilityOps = z.infer<typeof ForgeCapabilityOpsSchema>;
+
 export const ForgeCapabilitySchema = z.object({
   pulls: ForgeCapabilityLevelSchema,
   issues: ForgeCapabilityLevelSchema,
@@ -156,8 +188,56 @@ export const ForgeCapabilitySchema = z.object({
   threadResolution: ForgeCapabilityLevelSchema,
   requestChanges: ForgeCapabilityLevelSchema,
   repoListing: ForgeCapabilityLevelSchema,
+  ops: ForgeCapabilityOpsSchema,
 });
 export type ForgeCapability = z.infer<typeof ForgeCapabilitySchema>;
+
+/** Every op, on — GitHub's row (Theme D implements every one against a real
+ *  `gh`/GraphQL call). */
+const FULL_OPS: ForgeCapabilityOps = {
+  createIssue: true,
+  editIssue: true,
+  deleteIssue: true,
+  createProject: true,
+  editProject: true,
+  deleteProject: true,
+  addProjectItem: true,
+  removeProjectItem: true,
+  linkBlockedBy: true,
+  linkSubIssue: true,
+};
+
+/** Every op, off — `unknown`'s row, and the base a partial row spreads over. */
+const NO_OPS: ForgeCapabilityOps = {
+  createIssue: false,
+  editIssue: false,
+  deleteIssue: false,
+  createProject: false,
+  editProject: false,
+  deleteProject: false,
+  addProjectItem: false,
+  removeProjectItem: false,
+  linkBlockedBy: false,
+  linkSubIssue: false,
+};
+
+/**
+ * Issue CRUD, no board CRUD (Theme D implements no board-create/item-add
+ * mutation for the three HTTP-backed providers — GitLab's own board is a
+ * synthetic label-backed field, not a ProjectV2-shaped resource this app
+ * creates or adds items to), body-fallback `blockedBy`, no native `subIssue`.
+ * Shared by GitLab, Bitbucket and Azure's rows below — the three take an
+ * identical ops shape even though their tri-state `projects` level differs
+ * (`'partial'`/`'none'`/`'full'`), because that level describes *reading* a
+ * board, and none of the three gets a *write* to one from this theme.
+ */
+const ISSUE_ONLY_OPS: ForgeCapabilityOps = {
+  ...NO_OPS,
+  createIssue: true,
+  editIssue: true,
+  deleteIssue: true,
+  linkBlockedBy: true,
+};
 
 const FULL_CAPABILITY: ForgeCapability = {
   pulls: 'full',
@@ -167,6 +247,7 @@ const FULL_CAPABILITY: ForgeCapability = {
   threadResolution: 'full',
   requestChanges: 'full',
   repoListing: 'full',
+  ops: FULL_OPS,
 };
 
 const NO_CAPABILITY: ForgeCapability = {
@@ -177,6 +258,7 @@ const NO_CAPABILITY: ForgeCapability = {
   threadResolution: 'none',
   requestChanges: 'none',
   repoListing: 'none',
+  ops: NO_OPS,
 };
 
 /**
@@ -206,6 +288,7 @@ const GITLAB_CAPABILITY: ForgeCapability = {
   threadResolution: 'full',
   requestChanges: 'none',
   repoListing: 'full',
+  ops: ISSUE_ONLY_OPS,
 };
 
 /**
@@ -244,6 +327,7 @@ const BITBUCKET_CAPABILITY: ForgeCapability = {
   ...FULL_CAPABILITY,
   projects: 'none',
   threadResolution: 'partial',
+  ops: ISSUE_ONLY_OPS,
 };
 
 /**
@@ -264,6 +348,7 @@ const BITBUCKET_CAPABILITY: ForgeCapability = {
 const AZURE_CAPABILITY: ForgeCapability = {
   ...FULL_CAPABILITY,
   requestChanges: 'partial',
+  ops: ISSUE_ONLY_OPS,
 };
 
 const CAPABILITIES_BY_KIND: Record<ForgeKind, ForgeCapability> = {

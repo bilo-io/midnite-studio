@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { capabilitiesFor, ForgeCapabilityLevelSchema, ForgeCapabilitySchema } from './forge-account';
+import {
+  capabilitiesFor,
+  ForgeCapabilityLevelSchema,
+  ForgeCapabilityOpsSchema,
+  ForgeCapabilitySchema,
+} from './forge-account';
 import { ForgeKindSchema } from './remote';
+
+/** `ForgeCapability`'s tri-state fields — everything but `ops` (Phase 95
+ *  Theme D), which is its own boolean record and not a `ForgeCapabilityLevel`. */
+function levelFields(capability: ReturnType<typeof capabilitiesFor>): Record<string, unknown> {
+  const { ops: _ops, ...rest } = capability;
+  return rest;
+}
 
 /**
  * Phase 90 Theme H's own acceptance criterion: "the capability matrix is
@@ -21,17 +33,24 @@ describe('capabilitiesFor — exhaustive over ForgeKind', () => {
     }
   });
 
-  it('every field of every capability is a real tri-state level', () => {
+  it('every tri-state field of every capability is a real level', () => {
     for (const kind of ForgeKindSchema.options) {
-      for (const level of Object.values(capabilitiesFor(kind))) {
+      for (const level of Object.values(levelFields(capabilitiesFor(kind)))) {
         expect(ForgeCapabilityLevelSchema.safeParse(level).success).toBe(true);
       }
     }
   });
 
+  it('every capability carries a well-formed per-operation ops record', () => {
+    for (const kind of ForgeKindSchema.options) {
+      expect(ForgeCapabilityOpsSchema.safeParse(capabilitiesFor(kind).ops).success).toBe(true);
+    }
+  });
+
   it('reports full capability for github — Theme D shipped its adapter', () => {
     const capability = capabilitiesFor('github');
-    expect(Object.values(capability).every((level) => level === 'full')).toBe(true);
+    expect(Object.values(levelFields(capability)).every((level) => level === 'full')).toBe(true);
+    expect(Object.values(capability.ops).every((op) => op === true)).toBe(true);
   });
 
   it('reports a real, non-`none` row for gitlab — Theme E shipped its adapter', () => {
@@ -51,7 +70,8 @@ describe('capabilitiesFor — exhaustive over ForgeKind', () => {
     for (const kind of ForgeKindSchema.options) {
       if (kind === 'github' || kind === 'gitlab' || kind === 'bitbucket' || kind === 'azure') continue;
       const capability = capabilitiesFor(kind);
-      expect(Object.values(capability).every((level) => level === 'none')).toBe(true);
+      expect(Object.values(levelFields(capability)).every((level) => level === 'none')).toBe(true);
+      expect(Object.values(capability.ops).every((op) => op === false)).toBe(true);
     }
   });
 
@@ -63,10 +83,20 @@ describe('capabilitiesFor — exhaustive over ForgeKind', () => {
     const capability = capabilitiesFor('bitbucket');
     expect(capability.projects).toBe('none');
     expect(capability.threadResolution).toBe('partial');
-    const rest = { ...capability };
+    const rest = levelFields(capability);
     delete (rest as Record<string, unknown>)['projects'];
     delete (rest as Record<string, unknown>)['threadResolution'];
     expect(Object.values(rest).every((level) => level === 'full')).toBe(true);
+    // Issue CRUD and the body-fallback link, nothing board-shaped (Theme D).
+    expect(capability.ops).toMatchObject({
+      createIssue: true,
+      editIssue: true,
+      deleteIssue: true,
+      linkBlockedBy: true,
+      createProject: false,
+      addProjectItem: false,
+      linkSubIssue: false,
+    });
   });
 
   /**
@@ -78,8 +108,35 @@ describe('capabilitiesFor — exhaustive over ForgeKind', () => {
     const capability = capabilitiesFor('azure');
     expect(capability.requestChanges).toBe('partial');
     expect(capability.projects).toBe('full');
-    const rest = { ...capability };
+    const rest = levelFields(capability);
     delete (rest as Record<string, unknown>)['requestChanges'];
     expect(Object.values(rest).every((level) => level === 'full')).toBe(true);
+    // `projects: 'full'` is a *read* fact (Boards Columns) — Theme D still
+    // ships no board-write for Azure, only issue CRUD and the body fallback.
+    expect(capability.ops).toMatchObject({
+      createIssue: true,
+      editIssue: true,
+      deleteIssue: true,
+      linkBlockedBy: true,
+      createProject: false,
+      addProjectItem: false,
+      linkSubIssue: false,
+    });
+  });
+
+  it("GitLab's ops mirror Bitbucket/Azure — issue CRUD and body-fallback links, no board writes", () => {
+    const capability = capabilitiesFor('gitlab');
+    expect(capability.ops).toMatchObject({
+      createIssue: true,
+      editIssue: true,
+      deleteIssue: true,
+      linkBlockedBy: true,
+      createProject: false,
+      editProject: false,
+      deleteProject: false,
+      addProjectItem: false,
+      removeProjectItem: false,
+      linkSubIssue: false,
+    });
   });
 });

@@ -287,6 +287,46 @@ export const CHANNELS = {
   /** `clearProjectV2ItemFieldValue` — empty a cell, e.g. dropping a card on "No status". */
   forgeProjectClearField: 'mstudio:forge-project:clear-field',
 
+  // --- forge issue and project CRUD (Phase 95 Theme D) -----------------------
+  //
+  // `ForgeAdapter.createIssue`/`editIssue`/`deleteIssue` and their project
+  // siblings, dispatched through `registry.ts`'s `adapterFor` exactly like
+  // every channel above — `forge-project-handlers.ts`'s own three writes
+  // (`set-field`/`add-item`/`clear-field`) move onto that same dispatch in
+  // this theme too, replacing the hardcoded `GITHUB_COM_FORGE` they used
+  // before an adapter for every kind existed. Every provider's `ops`
+  // capability (`capabilitiesFor(kind).ops`, `forge-account.ts`) says which of
+  // these a given repo's forge actually answers — an unsupported op is a
+  // rendered `ok: false`, never a channel that does not exist.
+  /** `POST repos/{o}/{r}/issues` (or the provider's own create call). */
+  forgeIssueCreate: 'mstudio:forge:issue-create',
+  /** A partial edit — every field optional, an absent one left unchanged. */
+  forgeIssueEdit: 'mstudio:forge:issue-edit',
+  /** `gh issue delete --yes` (or the provider's own delete call). Blast-radius
+   *  confirm is the caller's job (Theme E's dialog) — this channel only ever
+   *  runs once a human has already confirmed. */
+  forgeIssueDelete: 'mstudio:forge:issue-delete',
+  /** `addSubIssue`/a native `blockedBy` mutation where one exists; a
+   *  `Blocked by #N` body line everywhere else — see `ForgeLinkWriteResult`. */
+  forgeIssuesLink: 'mstudio:forge:issues-link',
+  /** The inverse of `forgeIssuesLink` — removes the same edge the same way it
+   *  was written. */
+  forgeIssuesUnlink: 'mstudio:forge:issues-unlink',
+  /** A new ProjectV2 board (or the provider's own board-create call, where one exists). */
+  forgeProjectCreate: 'mstudio:forge-project:create',
+  /** Rename a board, or close/reopen it. */
+  forgeProjectEdit: 'mstudio:forge-project:edit',
+  /** Delete a board outright — irreversible on GitHub. Blast-radius confirm
+   *  is the caller's job, as `forgeIssueDelete` documents above. */
+  forgeProjectDelete: 'mstudio:forge-project:delete',
+  /** `addProjectV2DraftIssue` — a new draft item typed straight onto the
+   *  board, with no issue behind it. `forgeProjectAddItem` above stays the
+   *  channel for attaching an *existing* issue or PR. */
+  forgeProjectAddDraftItem: 'mstudio:forge-project:add-draft-item',
+  /** `deleteProjectV2Item` — remove a row from the board (not the issue it
+   *  points at). The inverse of `forgeProjectAddItem`/`-add-draft-item`. */
+  forgeProjectRemoveItem: 'mstudio:forge-project:remove-item',
+
   // --- shell ---------------------------------------------------------------
   /**
    * Hand a URL to the OS browser. Protocol-restricted at both ends — see the

@@ -338,3 +338,38 @@ export const ForgeProjectWriteResultSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 export type ForgeProjectWriteResult = z.infer<typeof ForgeProjectWriteResultSchema>;
+
+/**
+ * What `createProject` answers with (Phase 95 Theme D) — the same three-arm
+ * shape `ForgeProjectWriteResultSchema` already gives every other ProjectV2
+ * write, plus the created board on the success arm, for the identical reason
+ * `ForgeIssueCreateResultSchema` carries the created issue: the caller needs
+ * the new board's id and number to navigate to it or add items to it, and a
+ * bare `ok: true` would force a second `listProjects` round trip to find it.
+ */
+export const ForgeProjectCreateResultSchema = z.discriminatedUnion('kind', [
+  z.object({ ok: z.literal(true), kind: z.literal('ok'), project: ForgeProjectSchema }),
+  z.object({
+    ok: z.literal(false),
+    kind: z.literal('insufficient-scope'),
+    hint: z.string().default('gh auth refresh -s project'),
+  }),
+  z.object({ ok: z.literal(false), kind: z.literal('error'), message: z.string() }),
+]);
+export type ForgeProjectCreateResult = z.infer<typeof ForgeProjectCreateResultSchema>;
+
+/**
+ * `addProjectItem`'s own request (Phase 95 Theme D) — a union rather than one
+ * shape with optional fields, the same discriminated-input rule this file's
+ * `ForgeProjectItemContentSchema` follows: attaching an existing issue/PR
+ * needs its node id and nothing else; creating a draft needs a title (and an
+ * optional body) and has no `contentId` to give. A shape that offered both
+ * would let a caller send neither, or both, and leave `addProjectV2ItemById`
+ * vs `addProjectV2DraftIssue` — genuinely different mutations — to guess
+ * which one was meant.
+ */
+export const ForgeProjectAddItemInputSchema = z.union([
+  z.object({ contentId: z.string().min(1) }),
+  z.object({ draftTitle: z.string().min(1), draftBody: z.string().default('') }),
+]);
+export type ForgeProjectAddItemInput = z.infer<typeof ForgeProjectAddItemInputSchema>;
