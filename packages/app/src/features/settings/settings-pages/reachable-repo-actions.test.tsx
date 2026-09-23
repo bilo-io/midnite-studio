@@ -56,6 +56,8 @@ describe('ReachableRepoActions', () => {
     render(<ReachableRepoActions account={{ ...account, kind: 'bitbucket', host: 'bitbucket.org' }} repo={repo} />);
     const del = screen.getByRole('button', { name: /Delete octocat\/hello/ });
     expect(del.getAttribute('aria-disabled')).toBe('true');
+    // No "typed into a terminal" promise on a button that types nothing.
+    expect(del.getAttribute('aria-label') ?? '').not.toMatch(/typed into a terminal/);
     const before = Object.keys(useTerminalStore.getState().pendingInput).length;
     fireEvent.click(del);
     expect(Object.keys(useTerminalStore.getState().pendingInput).length).toBe(before);

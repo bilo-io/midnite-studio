@@ -105,7 +105,8 @@ describe('reachableRepoDeleteCommand', () => {
   });
 
   it('Bitbucket is unavailable', () => {
-    expect(reachableRepoDeleteCommand(account({ kind: 'bitbucket', host: 'bitbucket.org' }), repo()).ok).toBe(false);
+    const result = reachableRepoDeleteCommand(account({ kind: 'bitbucket', host: 'bitbucket.org' }), repo());
+    expect(result).toEqual({ ok: false, reason: expect.stringMatching(/no official CLI.*on Bitbucket/) });
   });
 
   it('quotes a name carrying shell metacharacters', () => {

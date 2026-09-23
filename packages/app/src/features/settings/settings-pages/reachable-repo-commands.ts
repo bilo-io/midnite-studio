@@ -74,7 +74,9 @@ export function reachableRepoDeleteCommand(account: ForgeAccount, repo: Reachabl
       };
     }
     case 'bitbucket':
-      return { ok: false, reason: 'Bitbucket has no official CLI to delete a repository with' };
+      // No official CLI to type a command for — the tooltip points at the
+      // row's own "open on Bitbucket" action, where Settings ▸ Delete lives.
+      return { ok: false, reason: 'Bitbucket has no official CLI to delete a repository with; delete it from its page on Bitbucket' };
     default:
       return { ok: false, reason: 'No delete command for this provider' };
   }

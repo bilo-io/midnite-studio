@@ -33,8 +33,8 @@ function jsonResponse(status: number, body: unknown): Response {
 describe('listReachableRepos — gitlab', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('reports unsupported for a kind with no adapter yet', async () => {
-    const result = await listReachableRepos(account({ kind: 'bitbucket', id: 'bitbucket:x:me' }));
+  it('reports unsupported for a kind with no adapter', async () => {
+    const result = await listReachableRepos(account({ kind: 'unknown', id: 'unknown:x:me' }));
     expect(result).toEqual({ ok: false, reason: 'unsupported' });
   });
 
@@ -236,5 +236,155 @@ describe('listReachableRepos — github', () => {
       ],
     });
     expect(Object.keys(result.repos[1] ?? {}).sort()).toEqual(['fullName', 'name', 'owner', 'private', 'url', 'webUrl']);
+  });
+});
+
+function bitbucketAccount(overrides: Partial<ForgeAccount> = {}): ForgeAccount {
+  return account({ kind: 'bitbucket', id: 'bitbucket:bitbucket.org:me', host: 'bitbucket.org', ...overrides });
+}
+
+function bitbucketRepo(slug: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    uuid: `{${slug}-uuid}`,
+    slug,
+    full_name: `acme/${slug}`,
+    workspace: { slug: 'acme' },
+    is_private: true,
+    links: {
+      html: { href: `https://bitbucket.org/acme/${slug}` },
+      clone: [
+        { name: 'ssh', href: `git@bitbucket.org:acme/${slug}.git` },
+        { name: 'https', href: `https://me@bitbucket.org/acme/${slug}.git` },
+      ],
+    },
+    ...overrides,
+  };
+}
+
+describe('listReachableRepos — bitbucket', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('reports no-account when the vault has no token', async () => {
+    vi.mocked(forgeAccountToken).mockResolvedValue(null);
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await listReachableRepos(bitbucketAccount());
+    expect(result).toEqual({ ok: false, reason: 'no-account' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('maps every field, taking the https clone link and one language segment', async () => {
+    vi.mocked(forgeAccountToken).mockResolvedValue('app-password');
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, {
+        values: [
+          bitbucketRepo('api', {
+            updated_on: '2026-09-01T10:00:00.000000+00:00',
+            mainbranch: { name: 'develop', type: 'branch' },
+            language: 'typescript',
+          }),
+          // Public, empty language, no main branch — the optional keys stay absent.
+          bitbucketRepo('site', { is_private: false, language: '', mainbranch: null }),
+        ],
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await listReachableRepos(bitbucketAccount());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.repos).toEqual([
+      {
+        owner: 'acme',
+        name: 'api',
+        fullName: 'acme/api',
+        url: 'https://me@bitbucket.org/acme/api.git',
+        private: true,
+        webUrl: 'https://bitbucket.org/acme/api',
+        id: '{api-uuid}',
+        updatedAt: '2026-09-01T10:00:00.000000+00:00',
+        defaultBranch: 'develop',
+        languages: [{ name: 'typescript', size: 1 }],
+      },
+      {
+        owner: 'acme',
+        name: 'site',
+        fullName: 'acme/site',
+        url: 'https://me@bitbucket.org/acme/site.git',
+        private: false,
+        webUrl: 'https://bitbucket.org/acme/site',
+        id: '{site-uuid}',
+      },
+    ]);
+
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    const requested = new URL(String(url));
+    expect(requested.origin + requested.pathname).toBe('https://api.bitbucket.org/2.0/repositories');
+    expect(requested.searchParams.get('role')).toBe('member');
+    expect(requested.searchParams.get('pagelen')).toBe('100');
+    expect(requested.searchParams.get('sort')).toBe('-updated_on');
+    // Basic auth: the account login plus the vaulted token.
+    const headers = new Headers((init as RequestInit | undefined)?.headers);
+    expect(headers.get('authorization')).toBe(`Basic ${Buffer.from('me:app-password').toString('base64')}`);
+  });
+
+  it('reads a repo with no is_private flag as private, and skips one with no https clone link', async () => {
+    vi.mocked(forgeAccountToken).mockResolvedValue('app-password');
+    const unflagged = bitbucketRepo('unflagged');
+    delete unflagged['is_private'];
+    const sshOnly = bitbucketRepo('ssh-only', {
+      links: { clone: [{ name: 'ssh', href: 'git@bitbucket.org:acme/ssh-only.git' }] },
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, { values: [unflagged, sshOnly] })));
+
+    const result = await listReachableRepos(bitbucketAccount());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.repos.map((repo) => [repo.fullName, repo.private])).toEqual([['acme/unflagged', true]]);
+  });
+
+  it('follows `next` pagination, stopping after three pages', async () => {
+    vi.mocked(forgeAccountToken).mockResolvedValue('app-password');
+    let page = 0;
+    const fetchMock = vi.fn().mockImplementation(() => {
+      page += 1;
+      const values = Array.from({ length: 100 }, (_, index) => bitbucketRepo(`p${page}-r${index}`));
+      return Promise.resolve(
+        jsonResponse(200, { values, next: `https://api.bitbucket.org/2.0/repositories?role=member&page=${page + 1}` }),
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await listReachableRepos(bitbucketAccount());
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('page=2');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.repos).toHaveLength(300);
+    expect(result.repos[0]?.name).toBe('p1-r0');
+    expect(result.repos[299]?.name).toBe('p3-r99');
+  });
+
+  it('reports the API error rather than throwing', async () => {
+    vi.mocked(forgeAccountToken).mockResolvedValue('app-password');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse(401, { type: 'error', error: { message: 'Invalid credentials' } })),
+    );
+
+    const result = await listReachableRepos(bitbucketAccount());
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('error');
+  });
+
+  it('reports a network failure as an error rather than throwing', async () => {
+    vi.mocked(forgeAccountToken).mockResolvedValue('app-password');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
+
+    const result = await listReachableRepos(bitbucketAccount());
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('error');
   });
 });
