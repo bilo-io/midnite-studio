@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-23 — Phase 90 (ad hoc, follow-up to Theme L) — the account-switch toast
 
-[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD).
+[PR #518](https://github.com/bilo-io/midnite-studio/pull/518).
 
 Theme L (PR #516) shipped the switch and the hidden-repos line but not the toast the phase doc's
 Decisions section asks for ("should toast what it hid, once, with an undo") — that line's own log
