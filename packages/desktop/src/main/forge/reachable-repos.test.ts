@@ -48,6 +48,7 @@ describe('listReachableRepos — gitlab', () => {
           {
             path_with_namespace: 'group/subgroup/project',
             http_url_to_repo: 'https://gitlab.example/group/subgroup/project.git',
+            web_url: 'https://gitlab.example/group/subgroup/project',
             visibility: 'private',
           },
           {
@@ -69,6 +70,7 @@ describe('listReachableRepos — gitlab', () => {
         fullName: 'group/subgroup/project',
         url: 'https://gitlab.example/group/subgroup/project.git',
         private: true,
+        webUrl: 'https://gitlab.example/group/subgroup/project',
       },
       {
         owner: 'someone',
@@ -114,7 +116,16 @@ describe('listReachableRepos — azure', () => {
       }
       if (href.includes('/contoso/platform/_apis/git/repositories')) {
         return Promise.resolve(
-          jsonResponse(200, { value: [{ name: 'infra', remoteUrl: 'https://dev.azure.com/contoso/platform/_git/infra' }] }),
+          jsonResponse(200, {
+            value: [
+              {
+                id: '5b1c2d3e-0000-4000-8000-000000000001',
+                name: 'infra',
+                remoteUrl: 'https://dev.azure.com/contoso/platform/_git/infra',
+                webUrl: 'https://dev.azure.com/contoso/platform/_git/infra',
+              },
+            ],
+          }),
         );
       }
       return Promise.resolve(jsonResponse(404, {}));
@@ -131,6 +142,8 @@ describe('listReachableRepos — azure', () => {
         fullName: 'contoso/platform/infra',
         url: 'https://dev.azure.com/contoso/platform/_git/infra',
         private: true,
+        webUrl: 'https://dev.azure.com/contoso/platform/_git/infra',
+        id: '5b1c2d3e-0000-4000-8000-000000000001',
       },
     ]);
   });

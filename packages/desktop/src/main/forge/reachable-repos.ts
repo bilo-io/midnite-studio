@@ -59,6 +59,8 @@ async function githubReachableRepos(account: ForgeAccount): Promise<ReachableRep
       fullName,
       url,
       private: r['isPrivate'] === true,
+      // `gh repo list --json url` is the repo's web page, not a clone URL.
+      webUrl: url,
     });
   }
   return { ok: true, repos };
@@ -97,6 +99,7 @@ async function gitlabReachableRepos(account: ForgeAccount): Promise<ReachableRep
     const fullName = typeof r['path_with_namespace'] === 'string' ? r['path_with_namespace'] : null;
     const url = typeof r['http_url_to_repo'] === 'string' ? r['http_url_to_repo'] : null;
     if (!fullName || !url) continue;
+    const webUrl = typeof r['web_url'] === 'string' ? r['web_url'] : undefined;
     const slash = fullName.lastIndexOf('/');
     if (slash <= 0 || slash === fullName.length - 1) continue;
     repos.push({
@@ -108,6 +111,7 @@ async function gitlabReachableRepos(account: ForgeAccount): Promise<ReachableRep
       fullName,
       url,
       private: r['visibility'] !== 'public',
+      ...(webUrl ? { webUrl } : {}),
     });
   }
   return { ok: true, repos };
@@ -192,7 +196,17 @@ async function azureReachableRepos(account: ForgeAccount): Promise<ReachableRepo
         const name = typeof r['name'] === 'string' ? r['name'] : null;
         const url = typeof r['remoteUrl'] === 'string' ? r['remoteUrl'] : null;
         if (!name || !url) continue;
-        repos.push({ owner: `${org}/${projectName}`, name, fullName: `${org}/${projectName}/${name}`, url, private: isPrivate });
+        const webUrl = typeof r['webUrl'] === 'string' ? r['webUrl'] : undefined;
+        const id = typeof r['id'] === 'string' ? r['id'] : undefined;
+        repos.push({
+          owner: `${org}/${projectName}`,
+          name,
+          fullName: `${org}/${projectName}/${name}`,
+          url,
+          private: isPrivate,
+          ...(webUrl ? { webUrl } : {}),
+          ...(id ? { id } : {}),
+        });
       }
     }
   }
