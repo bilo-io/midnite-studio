@@ -4459,5 +4459,21 @@ html[data-motion='reduced'] .session-row-pulse {
   animation: none !important;
 }
 
+/* Ad hoc: Settings ▸ Accounts forge provider picker — brand-coloured icon and
+   selected-state accent (`accounts-page.tsx`'s `ForgeProviderPicker`,
+   `PROVIDER_BRAND_COLOR`). The component sets `--brand-light`/`--brand-dark`
+   inline per button; this is the one place that knows which theme is active,
+   so it resolves them to `--forge-brand` here rather than the component
+   reading `document.documentElement.classList` itself. Same shape as the
+   graph rail's `--lane-*` variables (`ref-badge.tsx`) for the same reason:
+   the colour needs to flip with the theme, and only the stylesheet knows
+   which theme that is. */
+.forge-provider-option {
+  --forge-brand: var(--brand-light);
+}
+.dark .forge-provider-option {
+  --forge-brand: var(--brand-dark);
+}
+
 
 
