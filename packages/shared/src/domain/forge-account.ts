@@ -295,6 +295,13 @@ export const ReachableRepoSchema = z.object({
   /** The clone URL the provider itself returned. */
   url: z.string().min(1),
   private: z.boolean(),
+  /** The repo's page in a browser, as the provider returned it (GitHub's
+   *  `url`, GitLab's `web_url`, Azure's `webUrl`). Optional: a renderer
+   *  falls back to `reachableRepoWebUrl`'s host + `fullName` build. */
+  webUrl: z.string().min(1).optional(),
+  /** The provider's own id for the repo, where a command needs it rather
+   *  than the name — Azure's repository GUID (`az repos delete --id`). */
+  id: z.string().min(1).optional(),
 });
 export type ReachableRepo = z.infer<typeof ReachableRepoSchema>;
 

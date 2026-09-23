@@ -32,6 +32,7 @@ import {
   type ForgeSwitcherPlacement,
 } from '../../../store/ui-store';
 import { Field, TextField } from './controls';
+import { ReachableRepoActions } from './reachable-repo-actions';
 
 /**
  * Exported for `onboarding/steps/forge-connect-step.tsx` (Phase 90 Theme I):
@@ -513,6 +514,7 @@ function ReachableReposSection({ account }: { account: ForgeAccount }) {
               >
                 {isPending && cloningFullName === repo.fullName ? 'Cloning…' : 'Clone…'}
               </button>
+              <ReachableRepoActions account={account} repo={repo} />
             </div>
           ))
         )}
