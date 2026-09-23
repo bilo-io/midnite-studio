@@ -1,6 +1,47 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-24 — Phase 95 Theme G — Card/node controls and drag-to-skill
+
+[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD).
+
+Kanban cards and graph nodes get Start/Stop/`>_` in place of the old single Play-or-reveal
+button — Start is unchanged (`useCardPlay`'s own onPlay), Stop calls `closeSessionWithConfirm`,
+and `>_` differs by surface: `TaskCard` toggles its own embedded `CardTerminal` (defaulted open,
+so a running card looks exactly as it did before this theme until collapsed by hand);
+`ProjectGraphNode` has no embedded terminal, so its `>_` calls `revealSession` — the main dock
+panel, exactly what the old button already did there.
+
+Drag-to-skill: `board-derive.ts` gains `DEFAULT_COLUMN_SKILLS` (`in progress` → `/midnite-create`,
+`in review` → `/midnite-review`), `resolveColumnSkill` (case-insensitive, per-project override
+aware), `resolveDragSkillLink` (prefers an issue's linked PR over its own url) and
+`decideColumnSkillAction` — the pure fork `board-view.tsx`'s `maybeStartColumnSkill` reads
+(`none`/`reveal`/`skip`/`launch`). A drop into a mapped column moves the card (unconditional,
+today's write) then shows a 5s Undo toast naming the skill and the card; letting it run starts
+the skill on the issue/PR link only (`autoSend: true`); an existing live session on the card
+reveals instead of double-launching. `columnSkillByProject` (a new `ui-store.ts` field, v24→v25
+migration, bounded by the existing `touchProjectView` LRU) holds per-project overrides, edited
+from a new "Column → skill" section in Settings ▸ Projects that reads/writes today's *active*
+project (`selectedRepoId` → `projectBoardByRepo`) rather than a new project-picker UI — the same
+"no picker here, follows the Projects view" rule that page's own "Default board" section already
+states.
+
+Two decisions, both unattended-run calls recorded in the phase doc: the PR-over-issue link
+preference and its toast fallback note are generic (any mapped column), not gated on the column
+being literally named "In review"; and `resolveMostRecentAgentId` was hoisted out of
+`use-card-play.ts` into `board-derive.ts` so the drag-to-skill launch and the card's own Play
+button share one agent-resolution rule instead of a third inline copy.
+
+New/extended tests: `board-derive.test.ts` (+38, covering `resolveColumnSkill`/
+`resolveDragSkillLink`/`decideColumnSkillAction`/`resolveMostRecentAgentId`), `ui-store.test.ts`
+(+16, `columnSkillByProject` + its migration), `projects-page.test.tsx` (+5, the new settings
+section), `task-card.test.tsx`/`project-graph-node.test.tsx` (updated for the Start/Stop/`>_`
+split), and five new `kanban.spec.ts` Playwright cases for the real pointer-drag path (Undo
+cancels and reverts; the 5s timer elapses and launches, sent not typed; an existing session
+reveals; an unmapped column stays plain; the `>_` toggle hides/re-shows the embedded terminal) —
+`docs/TESTING.md`'s own pointer-drag rule, so the e2e ratchet cap moves 449 → 454
+(`scripts/e2e-budget.mjs`). `moon run :typecheck :lint :test` green across every package.
+
 ## 2026-09-23 — Phase 95 Theme D — Forge issue and project CRUD
 
 [PR #528](https://github.com/bilo-io/midnite-studio/pull/528).

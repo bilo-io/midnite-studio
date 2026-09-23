@@ -311,22 +311,43 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
 - [ ] Tests: blueprint schema; confirm sequencing and partial-failure report; edit lock while
       generating.
 
-### G — Card and node controls, and drag-to-skill (M)
+### G — Card and node controls, and drag-to-skill (M) — ✅ DONE (PR #TBD, 2026-09-24)
 
-- [ ] On kanban cards and graph nodes: **Start** (today's Play via `useCardPlay`), **Stop** (ends
+- [x] On kanban cards and graph nodes: **Start** (today's Play via `useCardPlay`), **Stop** (ends
       the card's live session through `closeSessionWithConfirm`), and a **`>_` toggle** that shows /
       hides the card's session (terminal panel reveal, or `card-terminal.tsx`'s embedded xterm).
-- [ ] A column → skill map in Settings ▸ Projects, defaulting to **In progress →
+      **Decision (unattended run):** the two surfaces split which mechanism `>_` uses, per the
+      checklist's own "or" — `TaskCard` already embeds a `CardTerminal` (Theme E), so its `>_`
+      toggles that xterm's visibility, defaulted `true` (no regression from before this theme);
+      `ProjectGraphNode` has no embedded terminal at all, so its `>_` calls `revealSession`
+      (opens the main dock panel) — exactly what the old single Play/reveal button already did
+      there.
+- [x] A column → skill map in Settings ▸ Projects, defaulting to **In progress →
       `/midnite-create`** and **In review → `/midnite-review`**, editable per project; unmapped
-      columns keep today's status-only drop.
-- [ ] On a drop into a mapped column: move the card (today's optimistic write), then start the
+      columns keep today's status-only drop. **Decision (unattended run):** "editable per
+      project" reads off today's *active* project — `selectedRepoId` → `projectBoardByRepo`,
+      the identical "no picker here, follows the Projects view" rule this same settings page
+      already states for its default-board memory — rather than a new project-picker UI, which
+      would need a fresh repo-scoped query this settings page has never had.
+- [x] On a drop into a mapped column: move the card (today's optimistic write), then start the
       mapped skill with **only the issue or PR link** as its argument (`composeSkillLaunchPrompt`),
       behind a **5 s toast with Undo** that cancels before the prompt is sent (and reverts the move
       if chosen). Respects an existing live session on the card (reveal, don't double-launch).
-- [ ] The In review trigger resolves the card's linked PR URL; with no PR, it falls back to the
-      issue URL and says so in the toast.
-- [ ] Tests: drop → skill mapping; Undo within the window sends nothing; existing session is
-      revealed, not duplicated.
+- [x] The In review trigger resolves the card's linked PR URL; with no PR, it falls back to the
+      issue URL and says so in the toast. **Decision (unattended run):** both the PR-over-issue
+      preference (`resolveDragSkillLink`) and the toast's own fallback note are generic — applied
+      to any mapped column's drop, not gated on the column being literally named "In review" —
+      since a linked PR is simply the more specific, more relevant link whenever one exists, and
+      naming which link was actually used is honest information regardless of which column it
+      landed in. "In review" (the doc's own example) is the case this matters for most, not the
+      only case it fires for.
+- [x] Tests: drop → skill mapping; Undo within the window sends nothing; existing session is
+      revealed, not duplicated. Split across layers per `docs/TESTING.md`'s own rule: the
+      decision logic (`decideColumnSkillAction`, unmapped/mapped/existing-session/draft, the
+      "In review" PR-fallback flag) is a pure-function vitest suite in `board-derive.test.ts`;
+      the real pointer drag, the real Undo toast and the real 5s timer either cancelling or
+      reaching `startAgent` (`autoSend: true`, a trailing `\r`) are Playwright cases in
+      `kanban.spec.ts` — pointer drag is a real-browser capability jsdom cannot supply.
 
 ### H — Auto-mate, and the kill switch (L)
 
