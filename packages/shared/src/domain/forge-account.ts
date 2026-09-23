@@ -296,30 +296,31 @@ export const ReachableRepoSchema = z.object({
   url: z.string().min(1),
   private: z.boolean(),
   /** The repo's page in a browser, as the provider returned it (GitHub's
-   *  `url`, GitLab's `web_url`, Azure's `webUrl`). Optional: a renderer
+   *  `url`, GitLab's `web_url`, Azure's `webUrl`, Bitbucket's `links.html`). Optional: a renderer
    *  falls back to `reachableRepoWebUrl`'s host + `fullName` build. */
   webUrl: z.string().min(1).optional(),
   /** The provider's own id for the repo, where a command needs it rather
-   *  than the name — Azure's repository GUID (`az repos delete --id`). */
+   *  than the name — Azure's repository GUID (`az repos delete --id`);
+   *  Bitbucket's `{uuid}`. */
   id: z.string().min(1).optional(),
   /** Optional metadata, each present only where the provider's own listing
    *  call already returns it — never an extra request per repo. */
   /** ISO timestamp of the last push/activity (GitHub `pushedAt`, GitLab
-   *  `last_activity_at`). */
+   *  `last_activity_at`, Bitbucket `updated_on`). */
   updatedAt: z.string().optional(),
   stars: z.number().int().nonnegative().optional(),
   defaultBranch: z.string().optional(),
-  /** Bytes per language (GitHub `languages` edges), largest first. */
+  /** Bytes per language (GitHub `languages` edges), largest first.
+   *  Bitbucket reports one `language` only — a single `size: 1` entry. */
   languages: z.array(z.object({ name: z.string().min(1), size: z.number().nonnegative() })).optional(),
 });
 export type ReachableRepo = z.infer<typeof ReachableRepoSchema>;
 
 /**
- * `unsupported` for a provider whose adapter does not exist yet — the same
- * boundary `capabilitiesFor`'s `repoListing: 'none'` already draws for every
- * kind but `github` until Themes E-G land. Never a thrown error: an
- * unreachable network or an expired token is `error`, with a message a
- * settings page can show as-is.
+ * `unsupported` for a provider with no listing — today only `unknown`, since
+ * `capabilitiesFor`'s `repoListing` is `'full'` for all four supported kinds.
+ * Never a thrown error: an unreachable network or an expired token is
+ * `error`, with a message a settings page can show as-is.
  */
 export const ReachableReposResultSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), repos: z.array(ReachableRepoSchema) }),

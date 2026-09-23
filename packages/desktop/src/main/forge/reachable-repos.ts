@@ -1,6 +1,7 @@
 import type { Forge, ForgeAccount, ReachableRepo, ReachableReposResult } from '@midnite/studio-shared';
 
 import { azGet } from './azure/azure-client';
+import { bitbucketPaginate } from './bitbucket/bitbucket-client';
 import { forgeAccountToken } from './forge-accounts';
 import { describeFailure, runInShell, shellQuote, LIST_TIMEOUT_MS } from './github/gh-shell';
 import { parseJsonPayload } from './github/gh-parse';
@@ -14,17 +15,19 @@ import { forgeHttpRequest } from './http';
  * the user pointed it at (`repo-handlers.ts`'s `repoClone` is the separate,
  * explicit write this listing feeds).
  *
- * **GitHub, GitLab and Azure DevOps today.** `capabilitiesFor(kind).repoListing`
- * reports `'full'` for all three — Azure's row as of Phase 90 Theme G, which
- * is the "next theme lands a real client" this module's own docblock
- * anticipated for the last of them. Bitbucket still reports `'none'`
- * (Theme F's own scoped-down write surface left it there); building a real
- * listing for it here would be building work Theme F itself declined.
+ * **All four supported providers.** `capabilitiesFor(kind).repoListing`
+ * reports `'full'` for GitHub, GitLab, Azure DevOps (Phase 90 Theme G) and
+ * Bitbucket Cloud. Theme F's scoped-down write surface originally left
+ * Bitbucket out of this listing; it now reuses that adapter's own client
+ * (`bitbucket/bitbucket-client.ts` — Basic auth, `next`-URL pagination), so
+ * nothing about Theme F's surface changed to add it. Only `unknown` is
+ * `unsupported`.
  */
 export async function listReachableRepos(account: ForgeAccount): Promise<ReachableReposResult> {
   if (account.kind === 'github') return githubReachableRepos(account);
   if (account.kind === 'gitlab') return gitlabReachableRepos(account);
   if (account.kind === 'azure') return azureReachableRepos(account);
+  if (account.kind === 'bitbucket') return bitbucketReachableRepos(account);
   return { ok: false, reason: 'unsupported' };
 }
 
@@ -263,6 +266,80 @@ async function azureReachableRepos(account: ForgeAccount): Promise<ReachableRepo
         });
       }
     }
+  }
+  return { ok: true, repos };
+}
+
+/** `pagelen` is Bitbucket's own per-page maximum; three pages bounds the
+ *  listing at 300 repos, so a member of a huge workspace still gets a fast
+ *  picker (the same reasoning as Azure's `MAX_ORGS`). */
+const BITBUCKET_PAGE_LEN = 100;
+const BITBUCKET_MAX_PAGES = 3;
+
+function stringAt(record: unknown, key: string): string | undefined {
+  if (!isRecord(record)) return undefined;
+  const value = record[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+/** The `https` entry of Bitbucket's `links.clone` array (the other is `ssh`). */
+function bitbucketHttpsClone(links: unknown): string | undefined {
+  if (!isRecord(links) || !Array.isArray(links['clone'])) return undefined;
+  for (const entry of links['clone']) {
+    if (stringAt(entry, 'name') === 'https') return stringAt(entry, 'href');
+  }
+  return undefined;
+}
+
+/**
+ * `GET /2.0/repositories?role=member` — every repository the account is a
+ * member of, across every workspace, newest activity first: Bitbucket's own
+ * "everything I can reach", the counterpart of GitLab's
+ * `GET /projects?membership=true`. Bitbucket reports one `language` string
+ * per repo, not a byte breakdown, so a non-empty one becomes a single
+ * `size: 1` segment and the row's language bar draws one colour.
+ */
+async function bitbucketReachableRepos(account: ForgeAccount): Promise<ReachableReposResult> {
+  const result = await bitbucketPaginate<unknown>(
+    account,
+    '/repositories',
+    { role: 'member', pagelen: BITBUCKET_PAGE_LEN, sort: '-updated_on' },
+    BITBUCKET_PAGE_LEN * BITBUCKET_MAX_PAGES,
+  );
+  if (!result.ok) {
+    if (result.cli.reason === 'not-authenticated') return { ok: false, reason: 'no-account' };
+    return { ok: false, reason: 'error', message: result.error ?? undefined };
+  }
+
+  const repos: ReachableRepo[] = [];
+  for (const raw of result.data) {
+    if (!isRecord(raw)) continue;
+    const fullName = stringAt(raw, 'full_name');
+    const url = bitbucketHttpsClone(raw['links']);
+    if (!fullName || !url) continue;
+    const slash = fullName.indexOf('/');
+    const owner = stringAt(raw['workspace'], 'slug') ?? (slash > 0 ? fullName.slice(0, slash) : undefined);
+    const name = stringAt(raw, 'slug') ?? (slash > 0 ? fullName.slice(slash + 1) : undefined);
+    if (!owner || !name) continue;
+    const webUrl = isRecord(raw['links']) ? stringAt(raw['links']['html'], 'href') : undefined;
+    const id = stringAt(raw, 'uuid');
+    const language = stringAt(raw, 'language');
+    repos.push({
+      owner,
+      name,
+      fullName,
+      url,
+      // Anything but an explicit `false` reads as private — never show a
+      // private repo as public because a field went missing.
+      private: raw['is_private'] !== false,
+      ...(webUrl ? { webUrl } : {}),
+      ...(id ? { id } : {}),
+      ...optionalMeta({
+        updatedAt: raw['updated_on'],
+        defaultBranch: stringAt(raw['mainbranch'], 'name'),
+        languages: language ? [{ name: language, size: 1 }] : undefined,
+      }),
+    });
   }
   return { ok: true, repos };
 }
