@@ -14,6 +14,7 @@ import {
   LuDownload,
   LuFolderTree,
   LuGauge,
+  LuHistory,
   LuHouse,
   LuLayoutDashboard,
   LuLayoutGrid,
@@ -21,7 +22,6 @@ import {
   LuNotebookPen,
   LuPalette,
   LuPanelLeft,
-  LuScrollText,
   LuSearch,
   LuSend,
   LuShield,
@@ -86,7 +86,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
    * icon names the view's eventual whole rather than today's one mode.
    */
   projects: LuSquareKanban,
-  history: LuScrollText,
+  history: LuHistory,
   // Lucide's `circle-pile`, not in the installed react-icons `lu` set — see
   // `icons/circle-pile-icon.tsx` for why it's a local mark instead.
   councils: CirclePileIcon,
