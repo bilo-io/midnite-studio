@@ -58,7 +58,6 @@ import {
   ForgeIssueCommentsResultSchema,
   ForgeIssueCreateResultSchema,
   ForgeIssueDetailResultSchema,
-  ForgeIssueEditInputSchema,
   ForgeIssuesResultSchema,
   ForgeLinkKindSchema,
   ForgeLinkWriteResultSchema,
