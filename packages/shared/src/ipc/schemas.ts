@@ -1117,6 +1117,39 @@ export const ForgeProjectRemoveItemRequest = z.object({
 });
 export const ForgeProjectRemoveItemResponse = ForgeProjectWriteResultSchema;
 
+// --- the wand: ai:improveField (Phase 95 Theme E) ---------------------------
+
+/**
+ * `agentId` names the roster entry to prefer — the renderer's own
+ * `primaryAgent` (`ui-store.ts`), the same "renderer preference travels
+ * because main has no copy of it" reasoning `CompanionAskRequest.agentId`
+ * already documents. Falls back to the first roster entry with a known
+ * headless mode when absent or unrunnable, and to a `{ok:false}` envelope
+ * when none exists.
+ *
+ * `fieldValue`/`otherFields` are capped defensively at the IPC boundary —
+ * `IssueDialog`/`ProjectDialog` never let a field grow this large through
+ * normal typing, but a runaway paste should not reach a subprocess uncapped.
+ */
+export const AiImproveFieldRequest = z.object({
+  agentId: z.string().min(1).optional(),
+  /** Where to run the CLI. `null`/absent runs it in the home directory. */
+  repoPath: z.string().min(1).nullable().optional(),
+  /** Named in the prompt, e.g. "owner/name" — not used as a `cwd`. */
+  repoName: z.string().max(200).default(''),
+  fieldName: z.string().trim().min(1).max(60),
+  fieldValue: z.string().max(8000),
+  otherFields: z.record(z.string().max(60), z.string().max(2000)).default({}),
+});
+
+/**
+ * `{ok:false}` is what "no agent CLI with a headless mode is installed", "it
+ * timed out" and "it answered with nothing" all come back as — the wand
+ * renders each as the message beside the field, never an exception that
+ * would strand the in-flight edit. See `main/ai/improve-field.ts`.
+ */
+export const AiImproveFieldResponse = GitOpResultOf(z.object({ text: z.string() }));
+
 // --- shell -----------------------------------------------------------------
 
 /**
