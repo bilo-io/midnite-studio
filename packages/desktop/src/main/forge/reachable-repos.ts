@@ -117,10 +117,10 @@ async function githubReachableRepos(account: ForgeAccount): Promise<ReachableRep
 /**
  * `GET /projects?membership=true` — every project the token's owner is a
  * member of, across every namespace, the same "everything I can reach"
- * scope `gh repo list` gives for GitHub. `simple=true` trims the response to
- * the handful of fields this listing actually reads, which matters more here
- * than for `gh`'s own JSON: a full project payload carries statistics and
- * settings this call has no use for.
+ * scope `gh repo list` gives for GitHub. Deliberately **not** `simple=true`:
+ * GitLab's simple representation drops `visibility`, and with it absent every
+ * project read as private. The full payload is heavier, but at `per_page: 100`
+ * that is one response, not a request per project.
  */
 async function gitlabReachableRepos(account: ForgeAccount): Promise<ReachableReposResult> {
   // `GET /projects` is account-wide, not repo-scoped — there is no real
@@ -131,7 +131,6 @@ async function gitlabReachableRepos(account: ForgeAccount): Promise<ReachableRep
   const forge = { host: account.host, owner: '', repo: '', kind: 'gitlab' as const };
   const result = await glGet<unknown[]>(forge, account, 'projects', {
     membership: true,
-    simple: true,
     per_page: 100,
     order_by: 'last_activity_at',
   });

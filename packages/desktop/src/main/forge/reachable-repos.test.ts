@@ -93,6 +93,18 @@ describe('listReachableRepos — gitlab', () => {
     ]);
   });
 
+  it('asks for the full project representation, which carries visibility', async () => {
+    // `simple=true` omits `visibility`, so every project read as private.
+    vi.mocked(forgeAccountToken).mockResolvedValue('glpat-x');
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, []));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listReachableRepos(account());
+    const requested = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requested).toContain('membership=true');
+    expect(requested).not.toContain('simple=');
+  });
+
   it('reports the API error rather than throwing', async () => {
     vi.mocked(forgeAccountToken).mockResolvedValue('glpat-x');
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(401, { message: '401 Unauthorized' })));
