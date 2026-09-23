@@ -47,12 +47,22 @@ const STATUS_ICON: Record<WorkflowNodeStatus, typeof LuCircleCheck> = {
   skipped: LuMinus,
 };
 
+/**
+ * `--node-<category>` (`styles.css`) is a bare `<h> <s>% <l>%` triple, the
+ * same convention `--dep-active`/`--health-warn` already use — every
+ * consumer wraps it in `hsl(...)` at the usage site rather than baking the
+ * function into the token, so the same custom property still composes with
+ * `color-mix()` below. A bare `var(--node-action)` handed straight to a
+ * `color`/`background` value is not a colour at all and silently fails to
+ * apply (the declaration is invalid at computed-value time), which is what
+ * this wrapping avoids.
+ */
 const CATEGORY_VAR: Record<NodeCategory, string> = {
-  trigger: 'var(--node-trigger)',
-  action: 'var(--node-action)',
-  logic: 'var(--node-logic)',
-  data: 'var(--node-data)',
-  storage: 'var(--node-storage)',
+  trigger: 'hsl(var(--node-trigger))',
+  action: 'hsl(var(--node-action))',
+  logic: 'hsl(var(--node-logic))',
+  data: 'hsl(var(--node-data))',
+  storage: 'hsl(var(--node-storage))',
 };
 
 /**

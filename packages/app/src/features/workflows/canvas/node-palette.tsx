@@ -92,9 +92,9 @@ export function NodePalette({
                 <span
                   aria-hidden
                   className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded"
-                  style={{ background: `color-mix(in srgb, var(--node-${meta.category}) 24%, transparent)` }}
+                  style={{ background: `color-mix(in srgb, hsl(var(--node-${meta.category})) 24%, transparent)` }}
                 >
-                  <Icon aria-hidden className="h-3 w-3" style={{ color: `var(--node-${meta.category})` }} />
+                  <Icon aria-hidden className="h-3 w-3" style={{ color: `hsl(var(--node-${meta.category}))` }} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs font-medium text-foreground">{meta.label}</span>

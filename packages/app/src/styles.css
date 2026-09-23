@@ -4729,6 +4729,12 @@ html[data-motion='reduced'] .session-row-pulse {
   animation: wf-node-pulse 1.6s ease-in-out infinite;
 }
 
+/* Same focus gate as `.activity-glow`/`.agent-run-glow` above — a blurred
+ * window pays for none of these animations either. */
+html[data-window-focused='false'] .wf-node-running {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wf-node-running {
     animation: none !important;

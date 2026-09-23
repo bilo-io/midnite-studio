@@ -178,6 +178,8 @@ export const SESSION_STATE_KEYS = [
   'terminalListOpen', // whether a panel is currently showing
   'terminalMaximized', // transient "terminal fills the window" mode
   'terminalOpen', // whether a panel is currently showing
+  'workflowPaletteCollapsed', // accordion/rail open state — disclosure state
+  'workflowRunPanelCollapsed', // accordion/rail open state — disclosure state
 ] as const;
 
 /**
