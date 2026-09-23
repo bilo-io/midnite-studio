@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { useAccountSwitcherStore } from '../../../components/account-switcher-store';
 import { useUiStore } from '../../../store/ui-store';
 import { AccountsPage, PROVIDER_BRAND_COLOR, PROVIDER_ICON, PROVIDER_LABEL } from './accounts-page';
 
@@ -55,7 +56,9 @@ afterEach(() => {
     forgeActiveAccountId: null,
     forgeScopeReposToActiveAccount: true,
     forgeSyncGhAuthSwitch: true,
+    forgeSwitcherPlacement: 'titlebar-right',
   });
+  useAccountSwitcherStore.setState({ addFormPending: false });
 });
 
 describe('AccountsPage', () => {
@@ -223,6 +226,43 @@ describe('AccountsPage', () => {
         expect(icon!.getAttribute('aria-hidden')).toBe('true');
         expect(icon!.getAttribute('style')).toContain('var(--forge-brand)');
       }
+    });
+  });
+
+  // Phase 90 Theme L.
+  describe('account switcher', () => {
+    it('offers every placement and writes the chosen one to forgeSwitcherPlacement', async () => {
+      installBridge();
+      render(<AccountsPage />, { wrapper: createWrapper() });
+      const select = (await screen.findByRole('combobox', {
+        name: 'Account switcher placement',
+      })) as HTMLSelectElement;
+      expect(select.value).toBe('titlebar-right');
+      expect(Array.from(select.options).map((o) => o.value)).toEqual([
+        'titlebar-right',
+        'titlebar-left',
+        'rail-top',
+        'rail-bottom',
+        'hidden',
+      ]);
+      fireEvent.change(select, { target: { value: 'rail-bottom' } });
+      expect(useUiStore.getState().forgeSwitcherPlacement).toBe('rail-bottom');
+    });
+
+    it('focuses the add form when the switcher asked for it, and consumes the request', async () => {
+      installBridge();
+      useAccountSwitcherStore.getState().requestAddForm();
+      render(<AccountsPage />, { wrapper: createWrapper() });
+      const selected = await screen.findByRole('radio', { name: 'GitHub' });
+      await waitFor(() => expect(document.activeElement).toBe(selected));
+      expect(useAccountSwitcherStore.getState().addFormPending).toBe(false);
+    });
+
+    it('leaves focus alone when no add-form request is pending', async () => {
+      installBridge();
+      render(<AccountsPage />, { wrapper: createWrapper() });
+      await screen.findByRole('radio', { name: 'GitHub' });
+      expect(document.activeElement).toBe(document.body);
     });
   });
 });

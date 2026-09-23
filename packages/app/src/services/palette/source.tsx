@@ -27,7 +27,8 @@ export type PaletteSourceKey =
   | 'files'
   | 'sessions'
   | 'agents'
-  | 'project-boards';
+  | 'project-boards'
+  | 'forge-accounts';
 
 export type PaletteSource = {
   key: PaletteSourceKey;
@@ -49,6 +50,7 @@ export const SOURCE_WEIGHTS: Record<PaletteSourceKey, number> = {
   sessions: 0.9,
   agents: 1.0,
   'project-boards': 1.0,
+  'forge-accounts': 1.0,
 };
 
 export type ScoredPaletteItem = {

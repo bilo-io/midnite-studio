@@ -821,7 +821,12 @@ jobs:
       || contains(github.event.pull_request.labels.*.name, 'cross-platform')
     runs-on: ubuntu-24.04
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      # Pinned to the image matching the LOCKED `@playwright/test` (1.62.1,
+      # and `scripts/visual-regen.mjs`'s own IMAGE): an image one minor ahead
+      # of the package ships a browser build the package cannot find, and
+      # every test fails at `browserType.launch` before a pixel is compared.
+      # Bump this and the package together, never one alone.
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7

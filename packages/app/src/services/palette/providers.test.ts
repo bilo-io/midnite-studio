@@ -1,5 +1,6 @@
 import type {
   AgentDefinition,
+  ForgeAccount,
   ForgeProject,
   RepoDescriptor,
   TerminalSession,
@@ -10,6 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';
 import {
   createCommandSource,
+  createForgeAccountsSource,
   createProjectBoardsSource,
   createReposSource,
   createTerminalSource,
@@ -194,5 +196,55 @@ describe('palette providers', () => {
     expect(scoredRepo).not.toBeNull();
     // Commands weight is 1.2 vs Repos weight 1.0
     expect(scoredCmd!.score).toBeGreaterThan(scoredRepo!.score);
+  });
+
+  // Phase 90 Theme L.
+  it('offers "Switch to <login> (<kind>)" for every non-active forge account', () => {
+    const account = (id: string, kind: ForgeAccount['kind'], login: string): ForgeAccount => ({
+      id,
+      kind,
+      host: `${kind}.com`,
+      login,
+      displayName: '',
+      avatarUrl: null,
+      addedAt: 0,
+      hasToken: true,
+      delegated: null,
+    });
+    const accounts = [
+      account('a', 'github', 'bilo-io'),
+      account('b', 'gitlab', 'octocat'),
+      account('c', 'bitbucket', 'atlassian'),
+    ];
+    const onSwitch = vi.fn();
+    const onSelect = vi.fn();
+
+    const source = createForgeAccountsSource(accounts, 'a', onSwitch, onSelect);
+    expect(source.key).toBe('forge-accounts');
+    const items = source.items();
+    expect(items.map((i) => i.label)).toEqual([
+      'Switch to octocat (gitlab)',
+      'Switch to atlassian (bitbucket)',
+    ]);
+    expect(items.every((i) => i.chord === undefined)).toBe(true);
+
+    items[1]!.run();
+    expect(onSelect).toHaveBeenCalled();
+    expect(onSwitch).toHaveBeenCalledWith('c');
+
+    // No active account: every account is a switch target.
+    expect(createForgeAccountsSource(accounts, null, onSwitch, onSelect).items()).toHaveLength(3);
+  });
+
+  it('lists account.switcher.open as a chord-free palette command', () => {
+    const runtime = new Proxy(
+      {},
+      { get: () => ({ enabled: true, run: vi.fn() }) },
+    ) as unknown as CommandRuntime;
+    const item = createCommandSource(runtime, vi.fn())
+      .items()
+      .find((i) => i.id === 'command:account.switcher.open');
+    expect(item?.label).toBe('Switch Forge Account…');
+    expect(item?.chord).toBeUndefined();
   });
 });

@@ -206,7 +206,9 @@ function chain(
  * elements most likely to want a tooltip.
  */
 function assignRef(child: ReactElement, node: HTMLElement | null): void {
-  const ref = (child as unknown as { ref?: unknown }).ref;
+  // React 19 moved `ref` onto props; reading `element.ref` still works but
+  // logs a removal warning on every trigger that carries one.
+  const ref = (child.props as { ref?: unknown }).ref;
   if (typeof ref === 'function') (ref as (n: HTMLElement | null) => void)(node);
   else if (ref && typeof ref === 'object') {
     (ref as { current: HTMLElement | null }).current = node;

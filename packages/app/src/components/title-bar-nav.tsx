@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 
 import type { IconType } from 'react-icons';
 import {
@@ -368,11 +368,18 @@ export function Breadcrumbs() {
  * slot. There is no leading divider any more for the same reason: it was
  * separating this cluster from the brand, not opening the bar.
  */
-export function TitleBarNav() {
+export function TitleBarNav({ afterControls }: { afterControls?: ReactNode } = {}) {
   return (
     <div className="flex min-w-0 items-center">
       <HistoryButtons />
       <ReloadButton />
+      {/*
+        The account switcher's `'titlebar-left'` slot (Phase 90 Theme L):
+        straight after the reload and history cluster, ahead of the divider
+        that opens the breadcrumbs — so it reads as one more control, not as
+        the first crumb.
+      */}
+      {afterControls}
       <div aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
       <Breadcrumbs />
     </div>

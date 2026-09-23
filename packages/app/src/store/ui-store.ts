@@ -137,6 +137,29 @@ export type BrowserLayout = 'full' | 'left' | 'right';
  */
 export type LinkTarget = 'in-app' | 'system';
 
+/**
+ * Where the forge account switcher mounts (Phase 90 Theme L). The title-bar
+ * pair sit on either side of the bar — right beside the sync controls (where
+ * Theme B's avatar lived), left straight after `title-bar-nav.tsx`'s reload
+ * and history cluster; the rail pair under the brand mark or in the footer
+ * above the lock button. `'hidden'` mounts nothing, and the palette's
+ * `account.switcher.open` falls back to Settings ▸ Accounts.
+ */
+export type ForgeSwitcherPlacement =
+  | 'titlebar-right'
+  | 'titlebar-left'
+  | 'rail-top'
+  | 'rail-bottom'
+  | 'hidden';
+
+export const FORGE_SWITCHER_PLACEMENTS: readonly ForgeSwitcherPlacement[] = [
+  'titlebar-right',
+  'titlebar-left',
+  'rail-top',
+  'rail-bottom',
+  'hidden',
+];
+
 /** Active tab in the FAB panel. */
 export type FabTab = 'guard' | 'innovate' | 'automate' | 'watchdog' | 'medic' | 'overhaul';
 
@@ -1413,6 +1436,14 @@ export type UiState = {
   forgeScopeReposToActiveAccount: boolean;
   setForgeScopeReposToActiveAccount: (value: boolean) => void;
   /**
+   * Where the account switcher (Phase 90 Theme L, `account-switcher.tsx`)
+   * mounts — `app.tsx` renders the one component at whichever slot this
+   * names, never two at once. Default `'titlebar-right'`, where Theme B's
+   * avatar already sat, so an upgrade moves nothing.
+   */
+  forgeSwitcherPlacement: ForgeSwitcherPlacement;
+  setForgeSwitcherPlacement: (value: ForgeSwitcherPlacement) => void;
+  /**
    * Whether switching to a GitHub account also runs `gh auth switch` in a
    * shell beside the app. Default **on**, per the phase doc's Decisions: it
    * mutates state the user's own terminal shares, which is exactly the class
@@ -1911,6 +1942,7 @@ export type PersistedUi = Pick<
   | 'forgeAccounts'
   | 'forgeActiveAccountId'
   | 'forgeScopeReposToActiveAccount'
+  | 'forgeSwitcherPlacement'
   | 'forgeSyncGhAuthSwitch'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
@@ -2075,6 +2107,8 @@ export const useUiStore = create<UiState>()(
       forgeScopeReposToActiveAccount: true,
       setForgeScopeReposToActiveAccount: (forgeScopeReposToActiveAccount) =>
         set({ forgeScopeReposToActiveAccount }),
+      forgeSwitcherPlacement: 'titlebar-right',
+      setForgeSwitcherPlacement: (forgeSwitcherPlacement) => set({ forgeSwitcherPlacement }),
       forgeSyncGhAuthSwitch: true,
       setForgeSyncGhAuthSwitch: (forgeSyncGhAuthSwitch) => set({ forgeSyncGhAuthSwitch }),
       skillExecutionMode: DEFAULT_SKILL_EXECUTION_MODE,
@@ -2817,6 +2851,7 @@ export const useUiStore = create<UiState>()(
         forgeAccounts: state.forgeAccounts,
         forgeActiveAccountId: state.forgeActiveAccountId,
         forgeScopeReposToActiveAccount: state.forgeScopeReposToActiveAccount,
+        forgeSwitcherPlacement: state.forgeSwitcherPlacement,
         forgeSyncGhAuthSwitch: state.forgeSyncGhAuthSwitch,
         skillExecutionMode: state.skillExecutionMode,
         repoGroups: state.repoGroups,

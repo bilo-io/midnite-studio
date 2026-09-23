@@ -12,7 +12,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
-import { LuChevronRight } from 'react-icons/lu';
+import { LuCheck, LuChevronRight } from 'react-icons/lu';
 
 import type { IconComponent } from './icon-button';
 import { useDismiss } from './use-dismiss';
@@ -68,6 +68,22 @@ type MenuEntryBase = {
    * distinguishable from the box without printing a path on every row.
    */
   keywords?: string;
+  /**
+   * A checkable row — `true` draws a trailing check, and either value turns
+   * the row into a `menuitemradio`/`menuitemcheckbox` (per `checkKind`)
+   * carrying `aria-checked`. Omitted, the row is a plain `menuitem` exactly
+   * as before. The account switcher (Phase 90 Theme L) is the first caller:
+   * a radio per account, the active one checked, and a checkbox for its
+   * hidden-repos toggle.
+   */
+  checked?: boolean;
+  /** `'radio'` for one-of-many rows, `'checkbox'` (default) for a toggle. */
+  checkKind?: 'radio' | 'checkbox';
+  /**
+   * React key for the row, when `label` alone is not unique — two accounts
+   * that share a display name across providers, say. Defaults to `label`.
+   */
+  id?: string;
 };
 
 /**
@@ -457,7 +473,7 @@ export function ContextMenu({
           <hr key={`sep-${index}`} className="my-1 border-border" />
         ) : (
           <MenuRow
-            key={item.label}
+            key={item.id ?? item.label}
             item={item}
             iconed={iconed}
             open={openSubmenu === index}
@@ -625,7 +641,7 @@ function Submenu({
           <hr key={`sub-sep-${index}`} className="my-1 border-border" />
         ) : (
           <MenuItemButton
-            key={sub.label}
+            key={sub.id ?? sub.label}
             item={sub}
             iconed={iconed}
             onSelect={() => sub.onSelect?.()}
@@ -687,11 +703,19 @@ function MenuItemButton({
     if (focused) buttonRef.current?.focus({ preventScroll: true });
   }, [focused]);
 
+  const checkable = item.checked !== undefined;
+  const role = !checkable
+    ? 'menuitem'
+    : item.checkKind === 'radio'
+      ? 'menuitemradio'
+      : 'menuitemcheckbox';
+
   return (
     <button
       ref={buttonRef}
       type="button"
-      role="menuitem"
+      role={role}
+      {...(checkable ? { 'aria-checked': item.checked } : {})}
       // Roving: exactly one row in the menu is a tab stop, and it is the one
       // the arrow keys have moved to. The rest stay reachable programmatically.
       tabIndex={focused ? 0 : -1}
@@ -741,6 +765,18 @@ function MenuItemButton({
           </span>
         ) : null}
       </span>
+      {checkable ? (
+        // Reserved even when unchecked, so a checked row's label does not
+        // sit narrower than its unchecked neighbours.
+        item.checked ? (
+          <LuCheck
+            aria-hidden
+            className={`h-3.5 w-3.5 shrink-0 text-primary ${described ? 'mt-0.5' : ''}`}
+          />
+        ) : (
+          <span aria-hidden className="h-3.5 w-3.5 shrink-0" />
+        )
+      ) : null}
       {item.submenu ? (
         <LuChevronRight
           aria-hidden

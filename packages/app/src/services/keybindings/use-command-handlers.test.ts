@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { BranchStatus, StatusResult } from '@midnite/studio-shared';
 
+import { useAccountSwitcherStore } from '../../components/account-switcher-store';
 import { DialogHost } from '../../components/dialog-host';
 import { ToastHost } from '../../components/toast-host';
 import { useSlidesStore } from '../../features/slides/slides-store';
@@ -526,5 +527,29 @@ describe('useCommandHandlers — the reload pair', () => {
   it('is a no-op rather than a throw with no preload bridge', () => {
     const { result } = withProviders(new QueryClient());
     expect(() => result.current['app.reload'].run()).not.toThrow();
+  });
+});
+
+describe('useCommandHandlers — account.switcher.open (Phase 90 Theme L)', () => {
+  it('asks the mounted switcher to open wherever it is placed', () => {
+    useUiStore.setState({ forgeSwitcherPlacement: 'rail-bottom' });
+    useAccountSwitcherStore.setState({ openRequest: 0 });
+    const { result } = withProviders(new QueryClient());
+    const command = result.current['account.switcher.open'];
+    expect(command.enabled).toBe(true);
+    command.run();
+    expect(useAccountSwitcherStore.getState().openRequest).toBe(1);
+    expect(useUiStore.getState().activeView).toBe('graph');
+  });
+
+  it("falls back to Settings ▸ Accounts when the placement is 'hidden'", () => {
+    useUiStore.setState({ forgeSwitcherPlacement: 'hidden' });
+    useAccountSwitcherStore.setState({ openRequest: 0 });
+    const { result } = withProviders(new QueryClient());
+    result.current['account.switcher.open'].run();
+    expect(useAccountSwitcherStore.getState().openRequest).toBe(0);
+    expect(useUiStore.getState().activeView).toBe('settings');
+    expect(useUiStore.getState().settingsPage).toBe('accounts');
+    useUiStore.setState({ forgeSwitcherPlacement: 'titlebar-right' });
   });
 });

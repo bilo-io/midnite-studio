@@ -183,6 +183,18 @@ export const COMMANDS = [
    */
   { id: 'link.toggleTarget', label: 'Toggle Where Links Open', group: 'view' },
   /**
+   * Open the forge account switcher (Phase 90 Theme L) wherever
+   * `forgeSwitcherPlacement` has mounted it — the title bar or the rail — and
+   * Settings ▸ Accounts when the placement is `'hidden'`. Chord-free: switching
+   * identity is a deliberate act a few times a day, not a reflex worth a
+   * global chord, and with no chord there is nothing that could fight the
+   * terminal for a keystroke (`TERMINAL_YIELD_COMMANDS`). The per-account
+   * "Switch to <login>" rows beside it are dynamic palette entries
+   * (`createForgeAccountsSource`), not commands — an account id is runtime
+   * data this array cannot name.
+   */
+  { id: 'account.switcher.open', label: 'Switch Forge Account…', group: 'view' },
+  /**
    * Open the dev server detected for the active repository (Phase 71 Theme C).
    * Absent from the palette's own list when nothing is listening — detection
    * is a hint, and a disabled row teaches nothing an absent one does not.
