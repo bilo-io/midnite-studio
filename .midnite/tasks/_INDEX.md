@@ -12,7 +12,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | 🔄 WIP | — | 32/34 | `█████████░` | 94% | — | (2 human/live-board passes) |
 | [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | ✅ DONE | — | 36/36 | `██████████` | 100% | — | — |
 | [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | ◻ TODO | — | 0/95 | `░░░░░░░░░░` | 0% | — | A B C D E F G H I J |
-| [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | 🔄 WIP | — | 72/110 | `███████░░░` | 65% | K | L |
+| [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | 🔄 WIP | — | 72/110 | `███████░░░` | 65% | K, L | — |
 | [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 36/89 | `████░░░░░░` | 40% | — | F G H I J K |
 | [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 18/34 | `█████░░░░░` | 53% | F | G |
 | [87 · Knowledge: the graph the repo already has](phases/phase-87-knowledge-graph-panel.md) | ✅ DONE | — | 51/60 | `█████████░` | 85% | A B C D E F G | (9 verification lines — packaged-app network trace, cache/staleness/GPU-leak checks, the Knowledge-view-specific idle-cpu reading, the committed visual baseline, one human eyeball pass — deferred, non-blocking) |
