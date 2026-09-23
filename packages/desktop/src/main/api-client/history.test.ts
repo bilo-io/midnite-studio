@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { ApiHistoryEntry } from '@midnite/studio-shared';
+
 import { clearHistory, listHistory, MAX_HISTORY_ENTRIES, recordHistoryEntry, type HistoryRecordInput } from './history';
 
 function makeInput(overrides: Partial<HistoryRecordInput> = {}): HistoryRecordInput {
@@ -107,11 +109,44 @@ describe('history', () => {
 
   describe('the 200-entry cap', () => {
     it('evicts the oldest row first once more than 200 entries have been recorded', async () => {
-      for (let i = 0; i < MAX_HISTORY_ENTRIES + 5; i += 1) {
-        await recordHistoryEntry(repoRoot, makeInput({ url: `https://api.example.com/${i}`, secretValues: {} }));
+      // Captured, not read through the shared `repoRoot` binding: should this
+      // test ever overrun its timeout, `afterEach` deletes the directory and
+      // the next `beforeEach` reassigns `repoRoot` while the writes below are
+      // still in flight — and a loop reading the live binding would carry on
+      // writing into the NEXT test's repo (the ENOTEMPTY/EEXIST cascade this
+      // file used to produce under load).
+      const root = repoRoot;
+
+      // Seed a full history in one write rather than recording 200 rows one
+      // at a time. Each `recordHistoryEntry` is a confined read + rewrite of
+      // the whole file, so 205 of them was ~200 × (realpath walk, open,
+      // truncate, a JSON rewrite of up to 200 rows) — over a second idle and
+      // past the 5 s timeout on a loaded machine. The eviction under test only
+      // needs the file to be full when the real write path runs.
+      const seeded: ApiHistoryEntry[] = [];
+      for (let i = MAX_HISTORY_ENTRIES - 1; i >= 0; i -= 1) {
+        seeded.push({
+          id: `seed-${i}`,
+          at: i,
+          method: 'GET',
+          url: `https://api.example.com/${i}`,
+          status: 200,
+          durationMs: 1,
+          sizeBytes: 1,
+          collectionId: null,
+          itemPath: null,
+          environmentId: null,
+        });
+      }
+      await mkdir(join(root, '.midnite', 'api'), { recursive: true });
+      await writeFile(join(root, '.midnite', 'api', 'history.local.json'), JSON.stringify(seeded), 'utf8');
+
+      // Five more through the real path: each one must evict the oldest row.
+      for (let i = MAX_HISTORY_ENTRIES; i < MAX_HISTORY_ENTRIES + 5; i += 1) {
+        await recordHistoryEntry(root, makeInput({ url: `https://api.example.com/${i}`, secretValues: {} }));
       }
 
-      const listed = await listHistory(repoRoot);
+      const listed = await listHistory(root);
       expect(listed.ok).toBe(true);
       if (!listed.ok) return;
       expect(listed.value).toHaveLength(MAX_HISTORY_ENTRIES);
