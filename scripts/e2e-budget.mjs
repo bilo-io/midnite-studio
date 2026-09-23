@@ -128,7 +128,19 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // policy that `task-card.test.tsx`'s jsdom suite already documents it cannot
 // observe for the identical reason (see that file's own "the in-card
 // terminal" describe block).
-export const MAX_DECLARED_E2E = 454;
+// Raised 454 -> 456 for Phase 95 Theme I's workflow editor port onto React
+// Flow (`workflows.spec.ts`, two tests, exactly the phase doc's own named
+// exception — "e2e only for drag-from-palette and panel-resize"): a real
+// HTML5 drag-and-drop gesture from `NodePalette`'s `draggable` row through
+// `WorkflowCanvas`'s `onDrop`/`screenToFlowPosition`, and a real pointer drag
+// on `useResizable`'s handle reading actual `getBoundingClientRect()`/
+// `clientX` values (always `{0,0,0,0}`/0 under jsdom — the same reason
+// `nav-shell.spec.ts`'s overflow-row case above needed the browser).
+// Everything else about the port — node kinds, palette search/filter, the
+// bottom run panel's tabs, dagre layout, the position-migration adapter —
+// has its own vitest coverage; `workflows.spec.ts`'s pre-existing cases were
+// only adapted to the new DOM, not multiplied.
+export const MAX_DECLARED_E2E = 456;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

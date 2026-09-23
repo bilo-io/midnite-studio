@@ -34,14 +34,28 @@ async function createWorkflow(page: Page): Promise<void> {
   await expect(canvas(page)).toBeVisible();
 }
 
+/**
+ * A palette row (Phase 95 Theme I) is a real `<button>`, but wears
+ * `role="listitem"` under its `role="list"` container (`node-palette.tsx`)
+ * so the palette reads as an accessible list rather than a button toolbar —
+ * an explicit `role` overrides an element's implicit one, so `getByRole`
+ * has to ask for "listitem" here, not "button".
+ */
 async function addNode(page: Page, label: string): Promise<void> {
-  await page.getByRole('button', { name: `Add ${label} node` }).click();
+  await page.getByRole('listitem', { name: `Add ${label} node` }).click();
 }
 
-/** Drags a node's body by a fixed offset so two newly-added nodes (which land on the same spot) separate. */
+/**
+ * Drags a node's own card by a fixed offset so two newly-added nodes (which
+ * land on the same spot) separate — the drag target is the card `div`
+ * itself (Phase 95 Theme I's React Flow port; the old hand-rolled SVG
+ * canvas's own `<rect>` child no longer exists), which sits inside React
+ * Flow's own `.react-flow__node` wrapper and still starts that wrapper's
+ * drag on a plain mousedown/move/up.
+ */
 async function dragNodeBy(page: Page, nodeId: string, dx: number, dy: number): Promise<void> {
-  const rect = page.locator(`[data-node-id="${nodeId}"] rect`);
-  const box = await rect.boundingBox();
+  const node = page.locator(`[data-node-id="${nodeId}"]`);
+  const box = await node.boundingBox();
   if (!box) throw new Error(`node ${nodeId} has no bounding box`);
   const startX = box.x + box.width / 2;
   const startY = box.y + box.height / 2;
@@ -52,20 +66,24 @@ async function dragNodeBy(page: Page, nodeId: string, dx: number, dy: number): P
 }
 
 /**
- * Drags from the source node's out-port to a point just inside the target
- * node's body (rather than the in-port's exact edge coordinate) — the drop
- * check is "inside the target node's bounding box", and landing exactly on a
- * boundary risks a sub-pixel rounding miss between screen and graph space.
+ * Drags from the source node's right (source) Handle to the target node's
+ * left (target) Handle — React Flow's default `connectionMode: 'strict'`
+ * (never overridden here) requires landing on a compatible Handle exactly,
+ * not merely inside the target node's body, unlike the old SVG canvas's own
+ * "anywhere near the in-port" tolerance. `data-nodeid`/`data-handlepos` are
+ * `@xyflow/react`'s own `Handle` attributes (`workflow-node-view.tsx`'s
+ * `Handle type="source" position={Position.Right}`, etc.) — not this app's
+ * `data-node-id`, which only ever names the *card*.
  */
 async function connect(page: Page, fromNodeId: string, toNodeId: string): Promise<void> {
-  const outPort = page.locator(`[data-node-id="${fromNodeId}"] [data-port="out"]`);
-  const targetRect = page.locator(`[data-node-id="${toNodeId}"] rect`);
-  const outBox = await outPort.boundingBox();
-  const targetBox = await targetRect.boundingBox();
-  if (!outBox || !targetBox) throw new Error('port or node has no bounding box');
+  const outHandle = page.locator(`[data-nodeid="${fromNodeId}"][data-handlepos="right"]`);
+  const inHandle = page.locator(`[data-nodeid="${toNodeId}"][data-handlepos="left"]`);
+  const outBox = await outHandle.boundingBox();
+  const inBox = await inHandle.boundingBox();
+  if (!outBox || !inBox) throw new Error('handle has no bounding box');
   await page.mouse.move(outBox.x + outBox.width / 2, outBox.y + outBox.height / 2);
   await page.mouse.down();
-  await page.mouse.move(targetBox.x + 20, targetBox.y + targetBox.height / 2, { steps: 8 });
+  await page.mouse.move(inBox.x + inBox.width / 2, inBox.y + inBox.height / 2, { steps: 8 });
   await page.mouse.up();
 }
 
@@ -289,4 +307,57 @@ test('the demo API pill starts the server and inserts its URL into the selected 
   await page.getByRole('button', { name: 'stop' }).click();
   await expect(page.getByText('Demo API · stopped')).toBeVisible();
   await expect(page.getByTitle('Insert base URL into the selected node')).toHaveCount(0);
+});
+
+/**
+ * Drag-from-palette (Phase 95 Theme I) — the phase doc names this as one of
+ * the two flows that genuinely need a real browser (real pointer + native
+ * HTML5 drag-and-drop, which `node-palette.test.tsx`'s jsdom `fireEvent`
+ * coverage only fakes the `dataTransfer` payload for, never a real drag
+ * gesture) rather than a vitest/jsdom test. `NodePalette`'s row carries a
+ * real `draggable` attribute and `workflow-canvas.tsx`'s `onDrop` reads
+ * `event.clientX/Y` through `screenToFlowPosition` — both only mean anything
+ * under a real compositor.
+ */
+test('drag-from-palette: dragging a node kind onto the canvas adds it where it was dropped', async ({
+  page,
+}) => {
+  await open(page);
+  await createWorkflow(page);
+
+  const source = page.getByRole('listitem', { name: 'Add Condition node' });
+  const target = canvas(page);
+  await source.dragTo(target, { targetPosition: { x: 260, y: 160 } });
+
+  await expect(page.locator('[data-node-id]')).toHaveCount(1);
+  await expect(canvas(page).getByText('CONDITION', { exact: true })).toBeVisible();
+});
+
+/**
+ * Panel-resize (Phase 95 Theme I) — the second of the phase doc's two
+ * real-browser-only flows: `useResizable`'s pointer math reads real
+ * `getBoundingClientRect()`/`clientX` values, which are always `{0,0,0,0}`/0
+ * under jsdom (`workflows-resizable.test.tsx` covers this hook's keyboard
+ * path instead, deliberately, for exactly that reason). This exercises the
+ * bottom run panel's own resize handle — the one surface this theme adds —
+ * with a real pointer drag, not a keyboard nudge.
+ */
+test('panel-resize: dragging the run panel handle changes its height', async ({ page }) => {
+  await open(page);
+  await createWorkflow(page);
+
+  await page.getByText('Run output').click();
+
+  const handle = page.getByRole('separator', { name: 'Resize run output panel' });
+  const before = await handle.boundingBox();
+  if (!before) throw new Error('resize handle has no bounding box');
+
+  await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(before.x + before.width / 2, before.y - 60, { steps: 8 });
+  await page.mouse.up();
+
+  const after = await handle.boundingBox();
+  if (!after) throw new Error('resize handle lost its bounding box after dragging');
+  expect(after.y).not.toBeCloseTo(before.y, 0);
 });
