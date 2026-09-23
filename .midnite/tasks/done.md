@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-23 — Phase 95 Theme A — one activity palette, one glow
 
-[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/0).
+[PR #524](https://github.com/bilo-io/midnite-studio/pull/524).
 
 The one status vocabulary every "something is happening" surface now paints through — Theme A of
 the ten-theme Phase 95 doc, landed alone since every later theme reads its tokens.

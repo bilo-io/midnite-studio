@@ -86,7 +86,7 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
 
 ## Deliverables
 
-### A — One activity palette, one glow (M) — ✅ DONE (PR #TBD, 2026-09-23)
+### A — One activity palette, one glow (M) — ✅ DONE (PR #524, 2026-09-23)
 
 - [x] `shared/src/activity-palette.ts`: `ActivityStatusSchema` =
       `agent | shell | thinking | waiting | running | queued | done | failed | idle`, and
