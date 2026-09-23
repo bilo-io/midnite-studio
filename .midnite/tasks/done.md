@@ -1,6 +1,27 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-23 — Phase 90 Theme L — the account switcher, and where it lives
+
+[PR #516](https://github.com/bilo-io/midnite-studio/pull/516).
+
+The title-bar avatar is now a switcher (`components/account-switcher.tsx`, replacing
+`TitleBarAccount`), drawn through the existing `ContextMenu`: one row per account (avatar with the
+provider mark badged in its brand colour from PR #515's map, `displayName || login`, host, a check on
+the active one; a click is `useSwitchForgeAccount`), a hidden-repos toggle bound to
+`forgeScopeReposToActiveAccount` shown when N > 0, then Add account… / Manage accounts…. With no
+accounts it is an `LuUserPlus` "Add account" placeholder that opens Settings ▸ Accounts with the add
+form focused. `forgeSwitcherPlacement` (titlebar-right default · titlebar-left · rail-top ·
+rail-bottom · hidden) is a persisted preference with a select on Settings ▸ Accounts; `app.tsx`
+renders four `AccountSwitcherSlot`s and only the named one mounts. Palette: chord-free
+`account.switcher.open` (falls back to Settings ▸ Accounts when hidden) plus a dynamic "Switch to
+<login> (<kind>)" row per non-active account. `ContextMenu` gained optional `checked`/`checkKind`/`id`.
+The hidden-repos line stays reachable with scoping off (`useAccountScopedRepos({ evaluateWhenOff })`),
+so the menu can turn scoping back on. Four Linux visual baselines (10 → 14), produced by the
+`visual` lane in the pinned container — which first needed its image pinned back to the locked
+Playwright 1.62.1 (Renovate had bumped it to 1.63.0 alone, so every visual test failed at browser
+launch). Not built: a "what the switch hid" toast — the spec said "still toasts", but none exists.
+
 ## 2026-09-23 — Phase 61 Theme C (verification) + Phase 53 Theme H (verification) — the ABI regression, confirmed already fixed
 
 [PR #512](https://github.com/bilo-io/midnite-studio/pull/512).
