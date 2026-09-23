@@ -2,6 +2,7 @@ import type {
   AgentDefinition,
   CommandGroup,
   CommandId,
+  ForgeAccount,
   ForgeProject,
   Ref,
   RepoDescriptor,
@@ -9,7 +10,7 @@ import type {
   Worktree,
 } from '@midnite/studio-shared';
 import { COMMANDS } from '@midnite/studio-shared';
-import { LuFile, LuFolder, LuGitBranch, LuGitCommitHorizontal, LuSquareTerminal, LuTag } from 'react-icons/lu';
+import { LuArrowRightLeft, LuFile, LuFolder, LuGitBranch, LuGitCommitHorizontal, LuSquareTerminal, LuTag } from 'react-icons/lu';
 
 import { resolveAgentIcon } from '../../components/icons';
 import { SETTINGS_PAGE_ICON, VIEW_ICON } from '../../components/nav-icons';
@@ -227,6 +228,45 @@ export function createProjectBoardsSource(
         }),
       );
     },
+  };
+}
+
+/**
+ * One "Switch to <login> (<kind>)" row per NON-active forge account (Phase 90
+ * Theme L) — the palette half of the account switcher, beside the chord-free
+ * `account.switcher.open` command that opens its menu. Dynamic rather than a
+ * command per account because an account id is runtime data `COMMANDS`
+ * cannot name. The active account has no row: switching to where you already
+ * are is not an action.
+ *
+ * `onSwitch` is the caller's `useSwitchForgeAccount().mutate`, so a palette
+ * switch takes exactly the path a menu click does.
+ */
+export function createForgeAccountsSource(
+  accounts: readonly ForgeAccount[],
+  activeId: string | null,
+  onSwitch: (id: string) => void,
+  onSelect: () => void,
+): PaletteSource {
+  return {
+    key: 'forge-accounts',
+    items: () =>
+      accounts
+        .filter((account) => account.id !== activeId)
+        .map(
+          (account): PaletteItem => ({
+            id: `forge-account:${account.id}`,
+            label: `Switch to ${account.login} (${account.kind})`,
+            group: 'Accounts',
+            icon: LuArrowRightLeft,
+            detail: account.host,
+            keywords: `account identity forge ${account.displayName ?? ''} ${account.host}`,
+            run: () => {
+              onSelect();
+              onSwitch(account.id);
+            },
+          }),
+        ),
   };
 }
 

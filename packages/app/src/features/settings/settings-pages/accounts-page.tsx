@@ -1,6 +1,6 @@
 import { Accordion } from '@bilo-io/ui';
 import type { CSSProperties } from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   LuArrowRightLeft,
   LuCircleUserRound,
@@ -16,6 +16,7 @@ import { VscAzureDevops } from 'react-icons/vsc';
 import type { ForgeAccount, ForgeKind, ReachableRepo } from '@midnite/studio-shared';
 
 import type { IconComponent } from '../../../components/icon-button';
+import { useAccountSwitcherStore } from '../../../components/account-switcher-store';
 import { UserAvatar } from '../../../components/user-avatar';
 import {
   useAddForgeAccount,
@@ -25,7 +26,11 @@ import {
   useRemoveForgeAccount,
   useSwitchForgeAccount,
 } from '../../../services/queries';
-import { useUiStore } from '../../../store/ui-store';
+import {
+  FORGE_SWITCHER_PLACEMENTS,
+  useUiStore,
+  type ForgeSwitcherPlacement,
+} from '../../../store/ui-store';
 import { Field, TextField } from './controls';
 
 /**
@@ -136,6 +141,8 @@ export function AccountsPage() {
   const activeAccount = accounts.find((a) => a.id === activeId) ?? null;
   const scopeReposToActiveAccount = useUiStore((s) => s.forgeScopeReposToActiveAccount);
   const setScopeReposToActiveAccount = useUiStore((s) => s.setForgeScopeReposToActiveAccount);
+  const switcherPlacement = useUiStore((s) => s.forgeSwitcherPlacement);
+  const setSwitcherPlacement = useUiStore((s) => s.setForgeSwitcherPlacement);
   const syncGhAuthSwitch = useUiStore((s) => s.forgeSyncGhAuthSwitch);
   const setSyncGhAuthSwitch = useUiStore((s) => s.setForgeSyncGhAuthSwitch);
   /*
@@ -148,6 +155,26 @@ export function AccountsPage() {
   */
   const skippedForgeStep = useUiStore((s) => s.onboardingSkippedStepIds.includes('forges'));
   const clearSkippedForgeStep = useUiStore((s) => s.setOnboardingStepSkipped);
+
+  /*
+    The account switcher's "Add account…" (Phase 90 Theme L) lands here with
+    the add form focused: a pending request, consumed on sight — usually made
+    from another view, before this page mounted. Focus goes to the selected
+    provider, the form's first control, and the form scrolls into view.
+  */
+  const addFormRef = useRef<HTMLFormElement>(null);
+  const addFormPending = useAccountSwitcherStore((s) => s.addFormPending);
+  const consumeAddForm = useAccountSwitcherStore((s) => s.consumeAddForm);
+  useEffect(() => {
+    if (!addFormPending) return;
+    consumeAddForm();
+    const form = addFormRef.current;
+    if (!form) return;
+    form.scrollIntoView?.({ block: 'nearest' });
+    form
+      .querySelector<HTMLElement>('[role="radio"][aria-checked="true"], input, button')
+      ?.focus({ preventScroll: true });
+  }, [addFormPending, consumeAddForm]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -194,7 +221,12 @@ export function AccountsPage() {
       </Accordion>
 
       <Accordion title="Add an account" icon={<LuPlus className="h-4 w-4" />} defaultOpen>
-        <form className="flex flex-col gap-3 p-3" onSubmit={submit}>
+        <form
+          ref={addFormRef}
+          aria-label="Add an account"
+          className="flex flex-col gap-3 p-3"
+          onSubmit={submit}
+        >
           <ForgeProviderPicker value={kind} onChange={setKind} />
           <Field label="Personal access token" hint={PROVIDER_TOKEN_HINT[kind]}>
             <TextField
@@ -226,6 +258,25 @@ export function AccountsPage() {
         defaultOpen
       >
         <div className="flex flex-col gap-3 p-3">
+          <Field
+            label="Account switcher"
+            hint="Where the account switcher sits. Hidden removes it from the window; the command palette's “Switch Forge Account…” then opens this page instead."
+          >
+            <select
+              value={switcherPlacement}
+              onChange={(event) =>
+                setSwitcherPlacement(event.target.value as ForgeSwitcherPlacement)
+              }
+              aria-label="Account switcher placement"
+              className="w-full rounded-md border border-input bg-background px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-ring"
+            >
+              {FORGE_SWITCHER_PLACEMENTS.map((placement) => (
+                <option key={placement} value={placement}>
+                  {SWITCHER_PLACEMENT_LABEL[placement]}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field
             label="Hide other accounts' repos"
             hint="When on, an open repo whose remote doesn't belong to the active account is hidden from the sidebar rather than closed — switch back and it reappears exactly as you left it."
@@ -275,6 +326,14 @@ export function AccountsPage() {
     </div>
   );
 }
+
+const SWITCHER_PLACEMENT_LABEL: Record<ForgeSwitcherPlacement, string> = {
+  'titlebar-right': 'Title bar — right, beside the sync controls',
+  'titlebar-left': 'Title bar — left, after back/forward and reload',
+  'rail-top': 'Sidebar — top, under the logo',
+  'rail-bottom': 'Sidebar — bottom, above the lock button',
+  hidden: 'Hidden',
+};
 
 const PROVIDER_KINDS: readonly SupportedKind[] = ['github', 'gitlab', 'bitbucket', 'azure'];
 

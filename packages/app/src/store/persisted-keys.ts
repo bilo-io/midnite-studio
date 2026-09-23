@@ -49,6 +49,7 @@ export const PREFERENCE_KEYS = [
   'forgeAccounts', // accounts-page.tsx
   'forgeActiveAccountId', // accounts-page.tsx
   'forgeScopeReposToActiveAccount', // accounts-page.tsx
+  'forgeSwitcherPlacement', // accounts-page.tsx — the "Account switcher" placement select
   'forgeSyncGhAuthSwitch', // accounts-page.tsx
   'graphDensity', // density-picker.tsx (via graph-page.tsx)
   'graphProvenanceMark', // provenance-mark-picker.tsx (via graph-page.tsx)

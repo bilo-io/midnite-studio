@@ -32,6 +32,9 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   // recoverability class as `theme.select` below, and one click in
   // Settings ▸ Browser undoes it.
   'link.toggleTarget',
+  // Opens the account switcher's menu (Phase 90 Theme L) — opening a menu is
+  // recoverable by definition; the switch itself is a row the user picks.
+  'account.switcher.open',
   // Opens a browser tab on a port already listening on loopback. Navigation
   // only, and the same class as `browser.toggle` above.
   'browser.openDevServer',
@@ -158,6 +161,7 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   // Closing itself mid-sentence — Decision 5's `never`.
   'companion.toggle': 'never',
   'link.toggleTarget': 'direct',
+  'account.switcher.open': 'direct',
   'browser.openDevServer': 'direct',
   'activity.toggle': 'direct',
   'browser.newTab': 'direct',

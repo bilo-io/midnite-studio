@@ -71,7 +71,7 @@ import { useResizable } from './components/resizable/use-resizable';
 import { useViewportWidth } from './components/use-viewport-width';
 import { useReveal, usePanelRevealFade, useRevealSize } from './components/use-reveal';
 import { ThemeToggle } from './components/theme-toggle';
-import { TitleBarAccount } from './components/title-bar-account';
+import { AccountSwitcherSlot } from './components/account-switcher';
 import { TitleBarAgents } from './components/title-bar-agents';
 import { TitleBarNav } from './components/title-bar-nav';
 import { TitleBarPrimaryAgent } from './components/title-bar-primary-agent';
@@ -686,6 +686,13 @@ function Shell() {
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
   const navMode = useUiStore((s) => s.navMode);
+  /*
+    Phase 90 Theme L: the account switcher is mounted at exactly one of four
+    `AccountSwitcherSlot`s (or none, for `'hidden'`) — each slot reads the
+    setting itself. Read here too only because `'rail-top'` changes the
+    brand slot's own layout around it.
+  */
+  const switcherPlacement = useUiStore((s) => s.forgeSwitcherPlacement);
   const setNavMode = useUiStore((s) => s.setNavMode);
   const collapsedNavSections = useUiStore((s) => s.collapsedNavSections);
   const toggleNavSection = useUiStore((s) => s.toggleNavSection);
@@ -1249,20 +1256,37 @@ function Shell() {
       ],
       // Collapsed, the rail shows the mark alone — the wordmark would be
       // clipped to a couple of letters, which reads as a rendering bug.
-      brand: ({ expanded }) => (
-        <div className="flex min-w-0 flex-1 items-center gap-1">
-          <BrandHomeButton className="px-1">
-            <Brand showWordmark={expanded} />
-          </BrandHomeButton>
-          {/*
-            The pin only exists while the rail is expanded. Collapsed, the rail
-            is 3.5rem of icons with nowhere to put it — and it would be asking
-            the user to lock open a rail they cannot currently see the contents
-            of.
-          */}
-          {expanded ? <NavLockToggle navMode={navMode} onChange={setNavMode} /> : null}
-        </div>
-      ),
+      brand: ({ expanded }) => {
+        const brandRow = (
+          <div className="flex min-w-0 flex-1 items-center gap-1">
+            <BrandHomeButton className="px-1">
+              <Brand showWordmark={expanded} />
+            </BrandHomeButton>
+            {/*
+              The pin only exists while the rail is expanded. Collapsed, the rail
+              is 3.5rem of icons with nowhere to put it — and it would be asking
+              the user to lock open a rail they cannot currently see the contents
+              of.
+            */}
+            {expanded ? <NavLockToggle navMode={navMode} onChange={setNavMode} /> : null}
+          </div>
+        );
+        if (switcherPlacement !== 'rail-top') return brandRow;
+        /*
+          `'rail-top'`: the switcher rides under the mark, inside the brand
+          slot — the shell has no slot between the header and the pinned
+          rows, and the header is where "who am I" reads as belonging to the
+          whole rail rather than to the first view in it.
+        */
+        return (
+          <div
+            className={`flex min-w-0 flex-1 flex-col gap-2 ${expanded ? 'items-stretch' : 'items-center'}`}
+          >
+            {brandRow}
+            <AccountSwitcherSlot slot="rail-top" expanded={expanded} />
+          </div>
+        );
+      },
       /*
         Settings, pinned to the bottom of the rail (Phase 16). The footer slot
         is the shell's own bottom cluster, so no spacer hacks — but it is
@@ -1273,6 +1297,7 @@ function Shell() {
         // rail's own `py-3`: the strip is absolutely positioned and claims no
         // space, so without it the Settings row would sit on the hairline.
         <div className="flex w-full flex-col gap-1 pb-3">
+          <AccountSwitcherSlot slot="rail-bottom" expanded={expanded} />
           <RailLockButton expanded={expanded} />
           <AppsRailRow expanded={expanded} />
           <button
@@ -1307,6 +1332,7 @@ function Shell() {
       filterNavItems,
       selectedRepoId,
       knowledgeGraphExists,
+      switcherPlacement,
     ],
   );
 
@@ -1350,11 +1376,12 @@ function Shell() {
       <TitleBarStatus />
       <TitleBarBattery />
       {/*
-        The active-account avatar (Phase 90 Theme B) — the title bar's first
-        identity element. Draws its own leading hairline and renders nothing
-        with no account added, mirroring `TitleBarBattery` immediately above.
+        The account switcher's default slot (Phase 90 Theme L;
+        `'titlebar-right'`), where Theme B's avatar sat — the title bar's first
+        identity element. Draws its own leading hairline, so the rule goes
+        wherever the switcher does.
       */}
-      <TitleBarAccount />
+      <AccountSwitcherSlot slot="titlebar-right" />
       {/*
         The theme toggle is an app preference, not a status readout, so it
         gets a hairline rather than sitting flush against the status pill.
@@ -1388,7 +1415,7 @@ function Shell() {
             space the breadcrumbs need — and the rail's own mark is on screen
             at every width, so the way home is not lost with it.
           */}
-          <TitleBarNav />
+          <TitleBarNav afterControls={<AccountSwitcherSlot slot="titlebar-left" />} />
           <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
           <SyncActions />
           {midniteMenu}
@@ -1441,7 +1468,7 @@ function Shell() {
         {framed ? (
           <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
             <div className="flex min-w-0 items-center">
-              <TitleBarNav />
+              <TitleBarNav afterControls={<AccountSwitcherSlot slot="titlebar-left" />} />
               <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
               <SyncActions />
               {midniteMenu}

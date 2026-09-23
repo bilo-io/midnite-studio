@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import type {
   BatteryReading,
+  ForgeAccount,
   ForgeCapability,
   ForgeKind,
   Note,
@@ -607,6 +608,14 @@ export type MockFixtures = {
    * Every other spec is seeded as already-onboarded — see `installMockBridge`.
    */
   firstRun?: boolean;
+  /**
+   * Stored forge accounts `forgeAccounts.list` answers with (Phase 90 Theme
+   * L's account-switcher baselines). Omitted, the list is empty — the
+   * zero-account state every other spec renders. The active id is not a
+   * bridge fixture: it lives in the renderer store, so seed it with
+   * `seedUiState({ forgeActiveAccountId })`.
+   */
+  forgeAccounts?: ForgeAccount[];
   /**
    * Seeds the workflows domain's initial roster (Phase 43), read once into
    * the mock's own mutable array the way `terminalSessions` is. Named
@@ -1671,7 +1680,7 @@ export function buildMockBridge(data: MockFixtures) {
         import of the same function can.
       */
     forgeAccounts: {
-      list: async () => [],
+      list: async () => data.forgeAccounts ?? [],
       add: async () => ({ ok: false as const, error: 'not implemented in the mock bridge' }),
       remove: async () => ({ ok: false }),
       switch: async () => ({ ok: false, activeAccountId: null }),

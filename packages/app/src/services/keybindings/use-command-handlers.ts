@@ -24,6 +24,10 @@ import {
 import { useCommitBoxStore } from '../../store/commit-box-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useThemeImportCommandStore } from '../../features/themes/theme-import-command-store';
+import {
+  openAccountsSettings,
+  useAccountSwitcherStore,
+} from '../../components/account-switcher-store';
 import { usePaletteStore } from '../../store/palette-store';
 import { isCompanionPanelDocked, isFabPanelDocked, useUiStore, type ViewId } from '../../store/ui-store';
 import { useWorkbenchStore } from '../../store/workbench-store';
@@ -277,6 +281,21 @@ export function useCommandHandlers(): CommandRuntime {
       undoes it.
     */
     'link.toggleTarget': { enabled: true, run: () => useUiStore.getState().toggleLinkTarget() },
+    /*
+      Phase 90 Theme L. Opens the account switcher wherever
+      `forgeSwitcherPlacement` mounted it — the switcher itself answers the
+      request (`account-switcher-store.ts`), anchoring the menu to its own
+      button. `'hidden'` mounts no switcher to answer, so it goes to
+      Settings ▸ Accounts instead — the same page the menu's "Manage
+      accounts…" opens.
+    */
+    'account.switcher.open': {
+      enabled: true,
+      run: () => {
+        if (useUiStore.getState().forgeSwitcherPlacement === 'hidden') openAccountsSettings();
+        else useAccountSwitcherStore.getState().requestOpen();
+      },
+    },
     /*
       Phase 71 Theme C. Forced `target: 'in-app'` and tagged with the repo it
       was detected for: a dev server is the one URL whose whole point is the

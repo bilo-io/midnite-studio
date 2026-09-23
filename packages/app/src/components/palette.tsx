@@ -3,7 +3,14 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { LuSearch } from 'react-icons/lu';
 
-import { useForgeProjects, useRepoFiles, useRepos, useRefs, useWorktrees } from '../services/queries';
+import {
+  useForgeProjects,
+  useRepoFiles,
+  useRepos,
+  useRefs,
+  useSwitchForgeAccount,
+  useWorktrees,
+} from '../services/queries';
 import { useAgents } from '../features/terminal/use-agents';
 import { useTerminalStore } from '../features/terminal/terminal-store';
 import { useUiStore } from '../store/ui-store';
@@ -20,6 +27,7 @@ import {
 import {
   createCommandSource,
   createFilesSource,
+  createForgeAccountsSource,
   createProjectBoardsSource,
   createRefsSource,
   createReposSource,
@@ -99,6 +107,11 @@ export function Palette() {
   const projectsQuery = useForgeProjects(selectedRepoId, false);
   const { agents } = useAgents();
   const sessions = useTerminalStore((s) => s.sessions);
+  // Phase 90 Theme L: "Switch to <login>" rows — the store mirror, so opening
+  // the palette asks main for nothing.
+  const forgeAccounts = useUiStore((s) => s.forgeAccounts);
+  const forgeActiveAccountId = useUiStore((s) => s.forgeActiveAccountId);
+  const { mutate: switchForgeAccount } = useSwitchForgeAccount();
 
   const repos = useMemo(() => reposQuery.data ?? [], [reposQuery.data]);
   const activeRepo = useMemo(
@@ -191,6 +204,13 @@ export function Palette() {
       list.push(createTerminalSource(sessions, agents, activeRepo, close));
     }
 
+    // Forge accounts — alongside the commands, since a switch is an action.
+    if (mode === 'all' || mode === 'commands') {
+      list.push(
+        createForgeAccountsSource(forgeAccounts, forgeActiveAccountId, switchForgeAccount, close),
+      );
+    }
+
     return list;
   }, [
     mode,
@@ -207,6 +227,9 @@ export function Palette() {
     files,
     sessions,
     agents,
+    forgeAccounts,
+    forgeActiveAccountId,
+    switchForgeAccount,
   ]);
 
   const scoredResults = useMemo(() => {

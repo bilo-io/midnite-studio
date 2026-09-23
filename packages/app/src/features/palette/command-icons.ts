@@ -4,6 +4,7 @@ import { GoIssueOpened } from 'react-icons/go';
 import { IoIosGitNetwork } from 'react-icons/io';
 import {
   LuActivity,
+  LuArrowRightLeft,
   LuBot,
   LuChevronLeft,
   LuChevronRight,
@@ -60,6 +61,7 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   // A link, not a globe: the command is about WHERE a link goes, and every
   // other `browser.*` row already wears the globe.
   'link.toggleTarget': LuLink,
+  'account.switcher.open': LuArrowRightLeft,
   'browser.openDevServer': LuServer,
   'activity.toggle': LuActivity,
   'browser.newTab': LuGlobe,
