@@ -119,7 +119,6 @@ function WorkflowCanvasInner({
   // Overlay-only resync — run status/validity/error changes shouldn't rebuild positions.
   useEffect(() => {
     setNodes((prev) => decorate(prev, invalidNodeIds, nodeStatuses, nodeErrors));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invalidNodeIds, nodeStatuses, nodeErrors]);
 
   useEffect(() => {
