@@ -12,7 +12,7 @@ copies this tree into a target repo; re-running it there is an upgrade, not a fr
   phase table), `tasks/done.md`, `tasks/outstanding.md`, an empty `tasks/phases/`, and
   `_features.md`.
 - **`.claude/skills/`, `.agents/skills/`, `.codex/skills/`** — three verbatim mirrors of the same
-  nine skills, because each CLI (Claude Code, Codex, Antigravity/Gemini) reads its own path.
+  ten skills, because each CLI (Claude Code, Codex, Antigravity/Gemini) reads its own path.
   Symlinks were considered and rejected: zero drift by construction, but broken the moment the
   repo is cloned onto another machine, since a symlink target under `~/.claude/skills/` is
   machine-local. Three copies plus the eventual hash manifest solves the same drift problem
@@ -23,14 +23,16 @@ copies this tree into a target repo; re-running it there is an upgrade, not a fr
   left as a marked `<!-- TODO -->` placeholder. A stub that reads as a template is honest; a copy
   that names this repo's own package boundaries in someone else's repo is not.
 
-## Why these nine skills, and not the other three
+## Why these ten skills, and not the other three
 
-Of the twelve skills this repo has, nine are the workflow core and ship here:
+Of the thirteen skills this repo has, ten are the workflow core and ship here:
 `midnite-ideate`, `midnite-create`, `midnite-swarm`, `midnite-create-adhoc`, `midnite-refine`,
-`midnite-address-issue`, `midnite-triage`, `midnite-git-report`, `midnite-git-cleanup`.
+`midnite-address-issue`, `midnite-triage`, `midnite-git-report`, `midnite-git-cleanup`,
+`midnite-retro`.
 `midnite-swarm` holds true of any target repo — it is a pure orchestration layer over
 `midnite-create` with no credentials or product-specific assumptions of its own, so it passes the
-test below and ships alongside it. Three are deliberately excluded:
+test below and ships alongside it. So does `midnite-retro`: it reads
+whatever GitHub org or repo the user names and assumes nothing about the one it runs in. Three are deliberately excluded:
 
 - **`midnite-setup`** — the bootstrapper itself. A repo that has just been onboarded does not need
   the skill that onboards repos; shipping it would be circular.
@@ -39,9 +41,9 @@ test below and ships alongside it. Three are deliberately excluded:
   is true of an arbitrary target repo, and a skill that assumes it would fail (or worse, half-work)
   the first time someone actually ran it somewhere else.
 
-If a future onboarding pass wants to add a tenth skill, ask whether it holds true of *any* target
-repo or only of this one — that's the test these three failed (and the test `midnite-swarm`
-passed).
+If a future onboarding pass wants to add an eleventh skill, ask whether it holds true of *any* target
+repo or only of this one — that's the test these three failed (and the test `midnite-swarm` and
+`midnite-retro` passed).
 
 ## What Setup does not do
 
