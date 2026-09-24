@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { agentInvocationArgs, startAgent, toAgentPrompt } from './start-agent';
 import { useTerminalStore } from './terminal-store';
+import { useUiStore } from '../../store/ui-store';
 
 describe('toAgentPrompt', () => {
   it('leaves the prompt untouched for Claude and Antigravity — both read /name directly', () => {
@@ -137,5 +138,76 @@ describe('startAgent — the words that reach the shell', () => {
     expect(queued({ prompt: undefined, extraArgs: ['--resume', 'abcd-1234'] })).toBe(
       'claude --resume abcd-1234',
     );
+  });
+});
+
+describe('startAgent — Ollama binding resolution (Phase 96 Theme H)', () => {
+  beforeEach(() => {
+    useTerminalStore.setState({ sessions: [], activeId: null, states: {}, pendingInput: {} });
+    useUiStore.setState({ agentBackends: {} });
+  });
+
+  it('a native (or absent) binding changes nothing about the composed words', () => {
+    const session = startAgent({
+      repoId: 'r1',
+      cwd: '/repo',
+      title: 'Patrol',
+      prompt: 'hello',
+      agentId: 'claude',
+      command: 'claude',
+      surface: 'fab',
+    });
+    expect(useTerminalStore.getState().pendingInput[session.id]).toBe("claude 'hello'");
+    expect(session.backend).toBeUndefined();
+    expect(session.ollamaModel).toBeUndefined();
+  });
+
+  it('an Ollama binding inserts the recipe args ahead of the prompt and stamps session identity', () => {
+    useUiStore.setState({ agentBackends: { claude: { backend: 'ollama', model: 'qwen3:14b' } } });
+    const session = startAgent({
+      repoId: 'r1',
+      cwd: '/repo',
+      title: 'Patrol',
+      prompt: 'hello',
+      agentId: 'claude',
+      command: 'claude',
+      surface: 'fab',
+    });
+    expect(useTerminalStore.getState().pendingInput[session.id]).toBe(
+      "claude --model qwen3:14b 'hello'",
+    );
+    expect(session.backend).toBe('ollama');
+    expect(session.ollamaModel).toBe('qwen3:14b');
+  });
+
+  it('cline resolves through ollama launch, replacing the typed command', () => {
+    useUiStore.setState({ agentBackends: { cline: { backend: 'ollama', model: 'qwen3:14b' } } });
+    const session = startAgent({
+      repoId: 'r1',
+      cwd: '/repo',
+      title: 'Patrol',
+      prompt: 'hello',
+      agentId: 'cline',
+      command: 'cline',
+      surface: 'fab',
+    });
+    expect(useTerminalStore.getState().pendingInput[session.id]).toBe(
+      "ollama launch cline --model qwen3:14b --yes -- 'hello'",
+    );
+  });
+
+  it('an Ollama binding with no model picked yet resolves as native', () => {
+    useUiStore.setState({ agentBackends: { claude: { backend: 'ollama' } } });
+    const session = startAgent({
+      repoId: 'r1',
+      cwd: '/repo',
+      title: 'Patrol',
+      prompt: 'hello',
+      agentId: 'claude',
+      command: 'claude',
+      surface: 'fab',
+    });
+    expect(useTerminalStore.getState().pendingInput[session.id]).toBe("claude 'hello'");
+    expect(session.backend).toBeUndefined();
   });
 });

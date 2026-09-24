@@ -17,6 +17,7 @@ vi.mock('./council-service', () => ({
 import { getCouncil, getRun, saveRun } from './council-service';
 import { retryMember, runLocksSizeForTests, skipMember, startRun } from './council-runner';
 import { createPty, killPty, offPty, onPty } from './pty-service';
+import { applySettingsSync, resetSettingsMirrorForTests } from './settings-mirror';
 import { listAgents } from './terminal-service';
 
 const AGENTS: AgentDefinition[] = [
@@ -47,6 +48,7 @@ const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetSettingsMirrorForTests();
   store = {};
   ptyCounter = 0;
   listeners = new Map();
@@ -173,6 +175,45 @@ describe('runLocks (Phase 45 Theme E)', () => {
 
     expect(store[result.value.id]!.status).toBe('completed');
     expect(runLocksSizeForTests()).toBe(0);
+  });
+});
+
+describe('Ollama binding (Phase 96 Theme H)', () => {
+  it('a member bound to Ollama in the mirrored settings launches through the recipe', async () => {
+    applySettingsSync({
+      autoFetchEnabled: true,
+      autoFetchIntervalMs: 60_000,
+      agentBackends: { codex: { backend: 'ollama', model: 'qwen3:14b' } },
+    });
+
+    const result = await startRun('c1', 'topic');
+    expect(result.ok).toBe(true);
+    await flush();
+
+    const calls = vi.mocked(createPty).mock.calls.map(([opts]) => opts);
+    const codexCall = calls.find((c) => c.initialInput?.includes('--oss'));
+    expect(codexCall?.initialInput).toContain('codex --oss -m qwen3:14b exec');
+    // codex's own recipe row carries no env — this asserts createPty is
+    // never handed an empty env object as noise.
+    expect(codexCall?.env).toBeUndefined();
+
+    const agyCall = calls.find((c) => c.initialInput?.startsWith('agy '));
+    expect(agyCall?.initialInput).toBe(agyCall?.initialInput); // agy has no binding — unaffected
+    expect(agyCall?.env).toBeUndefined();
+  });
+
+  it('an unbound member is unaffected by another agent’s binding', async () => {
+    applySettingsSync({
+      autoFetchEnabled: true,
+      autoFetchIntervalMs: 60_000,
+      agentBackends: { codex: { backend: 'ollama', model: 'qwen3:14b' } },
+    });
+
+    await startRun('c1', 'topic');
+    await flush();
+
+    const calls = vi.mocked(createPty).mock.calls.map(([opts]) => opts.initialInput);
+    expect(calls.some((c) => c?.startsWith('agy -p '))).toBe(true);
   });
 });
 

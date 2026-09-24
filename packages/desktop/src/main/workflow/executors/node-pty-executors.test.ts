@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AgentDefinition, SessionActivity, WorkflowNode } from '@midnite/studio-shared';
 
+import { applySettingsSync, resetSettingsMirrorForTests } from '../../settings-mirror';
 import type { ExecutorContext, NodeOutcome } from '../executor-registry';
 import { createAgentExecutor } from './agent';
 import type { AgentNodeOutput } from './agent';
@@ -19,6 +20,7 @@ import type { ScriptNodeOutput } from './script';
 
 beforeEach(() => {
   vi.useFakeTimers();
+  resetSettingsMirrorForTests();
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -222,5 +224,51 @@ describe('agent executor', () => {
     const outcome = await executor(agentNode('not-installed', 'Do it'), context([]));
     expect(outcome.ok).toBe(false);
     expect(started).not.toHaveBeenCalled();
+  });
+
+  it('an Ollama-bound agent id (Phase 96 Theme H) composes the recipe and passes its env through', async () => {
+    applySettingsSync({
+      autoFetchEnabled: true,
+      autoFetchIntervalMs: 60_000,
+      agentBackends: { claude: { backend: 'ollama', model: 'qwen3:14b' } },
+    });
+
+    const fake = fakePty();
+    const started = vi.fn(fake.deps.startSession);
+    const executor = createAgentExecutor({ ...fake.deps, startSession: started });
+    const promise = executor(agentNode('claude', 'Do the thing'), context([]));
+
+    await vi.advanceTimersByTimeAsync(0);
+    fake.emitData('MIDNITE_WORKFLOW_NODE_DONE: ok\n');
+    await vi.advanceTimersByTimeAsync(150);
+    await promise;
+
+    expect(started).toHaveBeenCalledTimes(1);
+    const params = started.mock.calls[0]![0];
+    expect(params.initialInput).toContain('claude --model qwen3:14b');
+    expect(params.env).toEqual({
+      ANTHROPIC_BASE_URL: 'http://127.0.0.1:11434',
+      ANTHROPIC_AUTH_TOKEN: 'ollama',
+      ANTHROPIC_API_KEY: '',
+    });
+    expect(params.backend).toBe('ollama');
+    expect(params.ollamaModel).toBe('qwen3:14b');
+  });
+
+  it('a native (unbound) agent id passes no env and no backend fields', async () => {
+    const fake = fakePty();
+    const started = vi.fn(fake.deps.startSession);
+    const executor = createAgentExecutor({ ...fake.deps, startSession: started });
+    const promise = executor(agentNode('claude', 'Do the thing'), context([]));
+
+    await vi.advanceTimersByTimeAsync(0);
+    fake.emitData('MIDNITE_WORKFLOW_NODE_DONE: ok\n');
+    await vi.advanceTimersByTimeAsync(150);
+    await promise;
+
+    const params = started.mock.calls[0]![0];
+    expect(params.env).toBeUndefined();
+    expect(params.backend).toBeUndefined();
+    expect(params.ollamaModel).toBeUndefined();
   });
 });

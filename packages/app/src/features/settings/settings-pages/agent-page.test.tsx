@@ -24,6 +24,7 @@ beforeEach(() => {
   useUiStore.setState({
     agentModes: {},
     agentApiKeys: {},
+    agentBackends: {},
     primaryAgent: 'claude',
     selectedWorktreePath: '/Users/test/midnite-studio',
     selectedRepoId: 'repo-1',
@@ -288,5 +289,52 @@ describe('AgentPage - Session stamping (Phase 78 Theme E)', () => {
 
     expect(await screen.findByText('A prepare-commit-msg hook already exists.')).toBeTruthy();
     expect(toggle.checked).toBe(false);
+  });
+});
+
+describe('AgentPage - Ollama backend (Phase 96 Theme H)', () => {
+  it('offers a Backend picker only on the five agents this theme wires', async () => {
+    renderView(<AgentPage />, { fixtures });
+
+    const claudeCard = await screen.findByTestId('agent-card-claude');
+    expect(within(claudeCard).getByText('Backend:')).toBeTruthy();
+
+    // Cursor is not one of the five Ollama-backed agents.
+    const cursorCard = await screen.findByTestId('agent-card-cursor');
+    expect(within(cursorCard).queryByText('Backend:')).toBeNull();
+  });
+
+  it('defaults to Native, with no model picker shown', async () => {
+    renderView(<AgentPage />, { fixtures });
+
+    const claudeCard = await screen.findByTestId('agent-card-claude');
+    const nativeBtn = within(claudeCard).getByRole('button', { name: 'Native' });
+    expect(nativeBtn.className).toContain('bg-background');
+    expect(within(claudeCard).queryByLabelText('Claude Ollama model')).toBeNull();
+  });
+
+  it('switching to Ollama reveals the model picker, populated from ollama.list()', async () => {
+    renderView(<AgentPage />, {
+      fixtures: { ...fixtures, ollamaModels: [{ name: 'qwen3:14b' }, { name: 'llama3.1' }] },
+    });
+
+    const claudeCard = await screen.findByTestId('agent-card-claude');
+    fireEvent.click(within(claudeCard).getByRole('button', { name: 'Ollama' }));
+
+    const select = (await within(claudeCard).findByLabelText(
+      'Claude Ollama model',
+    )) as HTMLSelectElement;
+    await waitFor(() => {
+      expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(
+        expect.arrayContaining(['qwen3:14b', 'llama3.1']),
+      );
+    });
+
+    fireEvent.change(select, { target: { value: 'qwen3:14b' } });
+
+    expect(useUiStore.getState().agentBackends['claude']).toEqual({
+      backend: 'ollama',
+      model: 'qwen3:14b',
+    });
   });
 });
