@@ -56,8 +56,14 @@ export const GitOpFailureSchema = z.discriminatedUnion('kind', [
      * answers when the lease itself was rejected: someone else pushed to the
      * branch between the lease being read and the push landing, and the fix
      * is "fetch and look again," not "try the same lease again."
+     *
+     * `'parse'` (Phase 96 Theme D) is Ollama library search's own: a
+     * non-empty `ollama.com/search` page that yields zero parsed rows means
+     * the scraper's markup assumptions broke, not that the search had no
+     * results — the Discover tab needs to tell those two apart to fall back
+     * to pull-by-name instead of rendering a false empty state.
      */
-    code: z.enum(['stale-write', 'non-fast-forward', 'stale-lease']).optional(),
+    code: z.enum(['stale-write', 'non-fast-forward', 'stale-lease', 'parse']).optional(),
   }),
 ]);
 
@@ -83,7 +89,7 @@ export const conflict = <T = void>(op: ConflictOp, files: string[]): GitOpResult
 export const failure = <T = void>(
   message: string,
   stderr?: string,
-  code?: 'stale-write' | 'non-fast-forward' | 'stale-lease',
+  code?: 'stale-write' | 'non-fast-forward' | 'stale-lease' | 'parse',
 ): GitOpResult<T> => ({
   ok: false,
   kind: 'error',

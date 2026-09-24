@@ -179,21 +179,24 @@ independent and can start at once). **I** needs **E** and **H**.
       `settings-service.ts`) — Theme B's client resolved only `OLLAMA_HOST`/the hardcoded default
       and explicitly deferred a configurable override to this theme's own Settings page.
 
-### D — Discover: library search (M)
+### D — Discover: library search (M) — ✅ DONE (PR #547, 2026-09-24)
 
-- [ ] Main-side `ollama/library-search.ts`: fetch `https://ollama.com/search?q=<q>` and
+- [x] Main-side `ollama/library-search.ts`: fetch `https://ollama.com/search?q=<q>` and
       `?c=cloud&q=<q>`, parse name, description, capability tags (tools / thinking / vision /
       embedding / cloud), size variants, pull count and updated date into `OllamaSearchResult[]`.
-- [ ] Cache results per query for about an hour in main; a failed fetch serves the stale cache
+- [x] Cache results per query for about an hour in main; a failed fetch serves the stale cache
       with a "last updated" note.
-- [ ] Parser tested against a **committed HTML fixture** (`__fixtures__/ollama-search.html`, and one
-      cloud-filtered page). A parse that yields zero rows from a non-empty page returns
-      `{ok:false, kind:'error', reason:'parse'}`, and the view falls back to pull-by-name with a link
-      out to ollama.com/search.
-- [ ] **Discover** tab: search field (debounced), Local / Cloud filter, capability filter chips,
-      results as cards; a variant picker (`:8b`, `:14b`, `:cloud` …) that pulls, or for a cloud
-      variant marks it usable without downloading.
-- [ ] Already-installed results show "Installed" instead of Pull.
+- [x] Parser tested against **committed HTML fixtures** (`__fixtures__/ollama-search.html`,
+      `ollama-search-cloud.html`, `ollama-search-empty.html` — all three fetched live from
+      ollama.com on 2026-09-24). **Correction:** the zero-row/non-empty-page failure code is
+      `'parse'` (widening `GitOpFailureSchema`'s closed `code` enum in `domain/result.ts`), not the
+      `reason:'parse'` shorthand this doc originally sketched — the repo's own envelope has no
+      `reason` field, only `code`. The view falls back to pull-by-name with a link out to
+      ollama.com/search.
+- [x] **Discover** tab: search field (debounced 300ms), Local / Cloud scope toggle, capability
+      filter chips, results as cards; a variant picker that pulls (`name:variant`), or for a cloud
+      result appends the `-cloud` suffix (`toOllamaCloudModelName`) instead of downloading.
+- [x] Already-installed results show "Installed" instead of Pull.
 
 ### E — Model detail modal (M) — ✅ DONE (PR #548, 2026-09-24)
 
@@ -222,21 +225,33 @@ independent and can start at once). **I** needs **E** and **H**.
       not installed opening the modal with search data and a Pull button instead of the `show`-backed
       sections — left for whichever of D/F/I lands next, per the correction above.
 
-### F — Cloud models and account (M)
+### F — Cloud models and account (M) — ✅ DONE (PR #547, 2026-09-24)
 
-- [ ] Widen `SECRET_KEYS` with `ollama.apiKey`; Settings ▸ Ollama sets and clears it through the
-      vault. The wire shows `hasKey` only.
-- [ ] Sign-in detection: whether the local daemon can reach a cloud model (a cheap probe, e.g.
-      `show` on a known `:cloud` name), rendered as "Signed in via `ollama signin`" / "Not signed
-      in — run `ollama signin`" with a button that runs it in a pty.
-- [ ] **Cloud** tab: the catalogue from `https://ollama.com/api/tags` (key-authenticated when a key
-      is set), with the same card and detail modal as Discover.
-- [ ] Naming normalised in one helper in `shared/src/ollama.ts`: `:cloud` / `-cloud` for the local
-      daemon; the bare name for direct `ollama.com` calls. Tested both ways.
-- [ ] A cloud model is used through the local daemon when it is signed in, and through
-      `https://ollama.com` with the vault key otherwise (Theme H decides per agent which base URL it
-      injects).
-- [ ] Settings ▸ Ollama links to ollama.com/settings/keys and to the pricing page; the app never
+- [x] Widen `SECRET_KEYS` with `ollama.apiKey`; Settings ▸ Ollama sets and clears it through the
+      vault. The wire shows `hasKey` only — via a new `secrets.has`/`mstudio:secrets:has` channel,
+      since the existing `secrets.get` returns the plaintext value (fine for `finance.twelveData`,
+      not for this key).
+- [x] Sign-in detection: whether the local daemon can reach a cloud model (a cheap probe, `show`
+      on `qwen3.5:cloud` — verified live on ollama.com the day this was written), rendered as
+      "Signed in via `ollama signin`" / "Not signed in" with a button that runs `ollama signin` in
+      a pty (reusing `agent-page.tsx`'s `submitCommand()` precedent — no new IPC channel needed
+      for the button itself).
+- [x] **Cloud** tab: the catalogue from `https://ollama.com/api/tags` (key-authenticated when a key
+      is set), with the same card styling as Discover. **Correction:** no detail modal exists yet
+      (Theme E, unbuilt) — both tabs' cards take an `onOpenDetail` no-op prop, matching
+      `ModelRow`'s own convention, for Theme E to wire into later.
+- [x] Naming normalised in `shared/src/ollama.ts`: `toOllamaCloudModelName`/`toOllamaBareModelName`/
+      `isOllamaCloudModelName` — `:cloud`/`-cloud` for the local daemon, the bare name for direct
+      `ollama.com` calls. Tested both ways plus a round-trip.
+- [x] A cloud model is used through the local daemon when it is signed in, and through
+      `https://ollama.com` with the vault key otherwise — `use-terminal-ipc.ts`'s `start()` checks
+      `ollama.signInStatus()` + `secrets.has()` and switches `base` + sets a `useOllamaKey` marker
+      accordingly. **This also closes Theme H's one open checkbox** (PR #542 left it explicitly for
+      this theme): `PtyCreateRequest.useOllamaKey`, resolved only in main
+      (`pty-service.ts#withResolvedOllamaKey`) into `ollamaLaunchRecipe`'s `authToken` — the key
+      never crosses the bridge. `council-runner.ts` and the workflow agent executor run in main
+      already, so they resolve the vault key directly with no marker needed.
+- [x] Settings ▸ Ollama links to ollama.com/settings/keys and to the pricing page; the app never
       shows credit balances it cannot read.
 
 ### G — The context-length fix (S) — ✅ DONE (PR #548, 2026-09-24)

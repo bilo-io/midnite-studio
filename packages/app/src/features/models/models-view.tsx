@@ -1,6 +1,16 @@
-import type { OllamaModel, OllamaRunningModel } from '@midnite/studio-shared';
-import { useState, type ReactNode } from 'react';
-import { LuDownload, LuPlay, LuSquare, LuTrash2, LuX } from 'react-icons/lu';
+import type { OllamaModel, OllamaRunningModel, OllamaSearchResultItem } from '@midnite/studio-shared';
+import { isOllamaCloudModelName, toOllamaCloudModelName } from '@midnite/studio-shared';
+import { useEffect, useState, type ReactNode } from 'react';
+import {
+  LuDownload,
+  LuExternalLink,
+  LuPlay,
+  LuSearch,
+  LuSquare,
+  LuTerminal,
+  LuTrash2,
+  LuX,
+} from 'react-icons/lu';
 import { SiOllama } from 'react-icons/si';
 
 import { useDialogs } from '../../components/dialog-host';
@@ -8,15 +18,21 @@ import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
 import { LoadingRegion, Skeleton, Spinner } from '../../components/skeleton';
 import { bridge } from '../../services/bridge';
+import { openExternal } from '../../services/queries';
+import { useUiStore } from '../../store/ui-store';
 import { formatBytes } from '../monitor/format-bytes';
 import { submitCommand } from '../settings/settings-pages/health-page';
 import { ModelDetailModal } from './model-detail';
 import { useModelsPullQueueStore, type PullEntry } from './models-pull-queue-store';
 import {
   useDeleteModel,
+  useOllamaApiKeyHasKey,
+  useOllamaCloudList,
   useOllamaModels,
   useOllamaRunning,
+  useOllamaSearch,
   useOllamaShow,
+  useOllamaSignInStatus,
   useOllamaStatus,
   usePullCancel,
   usePullModel,
@@ -25,19 +41,25 @@ import {
   useUnloadModel,
 } from './use-models';
 
+/** ~300ms, matching `finance-panel.tsx`'s own search debounce. */
+const SEARCH_DEBOUNCE_MS = 300;
+
+type ModelsTab = 'installed' | 'discover' | 'cloud';
+
 /**
- * Models (Phase 96 Theme C) — global, not per-repo, like Video Studio: an
- * Ollama daemon and its installed models are a property of the machine, not
- * of an open checkout.
+ * Models (Phase 96 Themes C, D, F) — global, not per-repo, like Video Studio:
+ * an Ollama daemon and its installed models are a property of the machine,
+ * not of an open checkout.
  *
- * The whole view is one pane rather than the eventual Installed/Discover/
- * Cloud tab strip the phase doc lays out — Discover (Theme D) and Cloud
- * (Theme F) do not exist yet in this PR, and a tab strip with two disabled
- * placeholders is exactly the "dead wiring" Theme B's own scope note argues
- * against for an unbacked channel. The tab strip lands with Theme D.
+ * Three tabs: **Installed** (Theme C), **Discover** (Theme D — scraped
+ * `ollama.com/search`) and **Cloud** (Theme F — `ollama.com/api/tags`). Theme
+ * C shipped Installed alone deliberately (a tab strip with two disabled
+ * placeholders is the "dead wiring" Theme B's own scope note argues against
+ * for an unbacked channel) — this is where Discover and Cloud land.
  */
 export function ModelsView() {
   const status = useOllamaStatus();
+  const [tab, setTab] = useState<ModelsTab>('installed');
   useRefetchModelsOnPullDone();
   useRefetchModelsOnFocus();
 
@@ -66,9 +88,47 @@ export function ModelsView() {
         </span>
       </header>
 
-      <PullByNameField />
-      <PullQueuePanel />
-      <InstalledList />
+      <TabStrip tab={tab} onChange={setTab} />
+
+      {tab === 'installed' ? (
+        <>
+          <PullByNameField />
+          <PullQueuePanel />
+          <InstalledList />
+        </>
+      ) : tab === 'discover' ? (
+        <DiscoverTab />
+      ) : (
+        <CloudTab />
+      )}
+    </div>
+  );
+}
+
+function TabStrip({ tab, onChange }: { tab: ModelsTab; onChange: (tab: ModelsTab) => void }) {
+  const tabs: { id: ModelsTab; label: string }[] = [
+    { id: 'installed', label: 'Installed' },
+    { id: 'discover', label: 'Discover' },
+    { id: 'cloud', label: 'Cloud' },
+  ];
+  return (
+    <div role="tablist" className="flex items-center gap-1 border-b border-border/60">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          aria-selected={tab === t.id}
+          onClick={() => onChange(t.id)}
+          className={`-mb-px border-b-2 px-2.5 py-1.5 text-xs font-medium transition-colors ${
+            tab === t.id
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -370,14 +430,376 @@ function ModelRow({
   );
 }
 
-function Chip({ children, tone = 'muted' }: { children: ReactNode; tone?: 'muted' | 'accent' }) {
+function Chip({
+  children,
+  tone = 'muted',
+}: {
+  children: ReactNode;
+  tone?: 'muted' | 'accent' | 'selected';
+}) {
   return (
     <span
       className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-        tone === 'accent' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+        tone === 'accent'
+          ? 'bg-primary/10 text-primary'
+          : tone === 'selected'
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-muted text-muted-foreground'
       }`}
     >
       {children}
     </span>
+  );
+}
+
+// --- Discover (Phase 96 Theme D) ---------------------------------------------
+
+/** `name:variant`, or the bare name for a variant-less result — and the
+ *  `-cloud` suffix a cloud result's own variant tags need (`gpt-oss:120b-cloud`,
+ *  per the phase doc's own "Ollama facts"), never a bare `:cloud` on a sized tag. */
+function searchResultPullTarget(item: OllamaSearchResultItem, variant: string | null): string {
+  const tagged = variant ? `${item.name}:${variant}` : item.name;
+  return item.cloud ? toOllamaCloudModelName(tagged) : tagged;
+}
+
+/** Whether a search/cloud result (or one of its variants) is already installed. */
+function isResultInstalled(item: OllamaSearchResultItem, installed: Set<string>, variant: string | null): boolean {
+  return installed.has(searchResultPullTarget(item, variant));
+}
+
+function DiscoverTab() {
+  const [query, setQuery] = useState('');
+  const [debounced, setDebounced] = useState('');
+  const [scope, setScope] = useState<'local' | 'cloud'>('local');
+  const [capabilityFilter, setCapabilityFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(query), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [query]);
+
+  const search = useOllamaSearch(debounced, scope);
+  const installedModels = useOllamaModels();
+  const installed = new Set((installedModels.data ?? []).map((m) => m.model));
+
+  const items = search.data?.items ?? [];
+  const capabilities = Array.from(new Set(items.flatMap((item) => item.capabilities ?? []))).sort();
+  const filtered = capabilityFilter
+    ? items.filter((item) => (item.capabilities ?? []).includes(capabilityFilter))
+    : items;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <LuSearch
+            aria-hidden
+            className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+          />
+          <input
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search ollama.com — qwen, llama, embedding…"
+            className="h-7 w-full rounded-md border border-border bg-card pl-7 pr-2 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+          />
+        </div>
+        <div className="flex items-center gap-1 rounded-md border border-border p-0.5 text-[11px]">
+          {(['local', 'cloud'] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              aria-pressed={scope === s}
+              onClick={() => setScope(s)}
+              className={`rounded px-2 py-0.5 font-medium capitalize transition-colors ${
+                scope === s ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {capabilities.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {capabilities.map((cap) => (
+            <button key={cap} type="button" onClick={() => setCapabilityFilter((f) => (f === cap ? null : cap))}>
+              <Chip tone={capabilityFilter === cap ? 'selected' : 'accent'}>{cap}</Chip>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {debounced.length === 0 ? (
+        <EmptyState
+          icon={SiOllama}
+          title="Search ollama.com"
+          body="Find a model by name or capability — local and cloud results, both filterable."
+        />
+      ) : search.isLoading ? (
+        <LoadingRegion label="Searching ollama.com">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </LoadingRegion>
+      ) : search.data?.parseFailed ? (
+        <SearchFallback query={debounced} />
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={SiOllama} title="No results" body={`No models matched "${debounced}" on ollama.com.`} />
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {search.data?.stale ? (
+            <p className="text-[11px] text-muted-foreground">
+              Showing a cached result — ollama.com could not be reached just now.
+            </p>
+          ) : null}
+          {filtered.map((item) => (
+            <SearchResultCard key={item.name} item={item} installed={installed} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The Discover checklist's own fallback for `{kind:'error', code:'parse'}` —
+ *  a link out plus the always-visible pull-by-name field above the tab strip. */
+function SearchFallback({ query }: { query: string }) {
+  return (
+    <EmptyState
+      icon={SiOllama}
+      title="Couldn't read ollama.com's results"
+      body="The Installed tab's pull-by-name field always works, or open the search on ollama.com directly."
+      action={
+        <button
+          type="button"
+          onClick={() => openExternal(`https://ollama.com/search?q=${encodeURIComponent(query)}`)}
+          className="flex items-center gap-1.5 rounded-md border border-border bg-accent/40 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+        >
+          <LuExternalLink className="h-3 w-3" />
+          Open ollama.com/search
+        </button>
+      }
+    />
+  );
+}
+
+/**
+ * `onOpenDetail` — same no-op-by-default hook `ModelRow`'s Installed row
+ * takes, so Theme E's model-detail modal has one consistent place to wire
+ * into across all three tabs rather than plumbing it through fresh here.
+ */
+function SearchResultCard({
+  item,
+  installed,
+  onOpenDetail = () => {},
+}: {
+  item: OllamaSearchResultItem;
+  installed: Set<string>;
+  onOpenDetail?: (model: string) => void;
+}) {
+  const variants = item.variants ?? [];
+  const [variant, setVariant] = useState<string | null>(variants[0] ?? null);
+  const pull = usePullModel();
+  const queued = useModelsPullQueueStore((s) => s.queued);
+
+  const alreadyInstalled = isResultInstalled(item, installed, variant);
+
+  const doPull = () => {
+    const target = searchResultPullTarget(item, variant);
+    pull.mutate(target, {
+      onSuccess: (result) => {
+        if (result.ok) queued(result.value.pullId, result.value.model);
+      },
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-md border border-border/60 p-2">
+      <div className="flex items-start gap-2">
+        <SiOllama aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        <button
+          type="button"
+          onClick={() => onOpenDetail(searchResultPullTarget(item, variant))}
+          className="min-w-0 flex-1 text-left"
+        >
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-mono text-xs font-medium">{item.name}</span>
+            {item.cloud ? <Chip tone="accent">cloud</Chip> : null}
+            {(item.capabilities ?? []).map((cap) => (
+              <Chip key={cap}>{cap}</Chip>
+            ))}
+          </div>
+          {item.description ? (
+            <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{item.description}</p>
+          ) : null}
+          <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+            {item.pulls ? <span>{item.pulls} pulls</span> : null}
+            {item.updatedAt ? <span>updated {item.updatedAt}</span> : null}
+          </div>
+        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {alreadyInstalled ? (
+            <Chip tone="accent">Installed</Chip>
+          ) : (
+            <button
+              type="button"
+              onClick={doPull}
+              disabled={pull.isPending}
+              className="flex h-6 items-center gap-1 rounded-md border border-primary bg-primary/10 px-2 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+            >
+              {pull.isPending ? <Spinner className="h-3 w-3" /> : <LuDownload className="h-3 w-3" />}
+              {item.cloud ? 'Use' : 'Pull'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {variants.length > 1 ? (
+        <div className="flex flex-wrap gap-1 pl-6">
+          {variants.map((v) => (
+            <button key={v} type="button" onClick={() => setVariant(v)}>
+              <Chip tone={variant === v ? 'selected' : 'muted'}>{v}</Chip>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// --- Cloud (Phase 96 Theme F) -------------------------------------------------
+
+function CloudTab() {
+  const signIn = useOllamaSignInStatus();
+  const hasKey = useOllamaApiKeyHasKey();
+  const signedIn = signIn.data?.signedIn ?? false;
+  const canList = signedIn || (hasKey.data?.hasKey ?? false);
+  const cloud = useOllamaCloudList(canList);
+  const installedModels = useOllamaModels();
+  const installed = new Set((installedModels.data ?? []).map((m) => m.model));
+
+  if (signIn.isLoading || hasKey.isLoading) {
+    return (
+      <LoadingRegion label="Checking cloud access">
+        <Skeleton className="h-16 w-full" />
+      </LoadingRegion>
+    );
+  }
+
+  if (!canList) {
+    return <CloudSignedOutState />;
+  }
+
+  if (cloud.isLoading) {
+    return (
+      <LoadingRegion label="Loading the cloud catalogue">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </LoadingRegion>
+    );
+  }
+
+  const models = cloud.data ?? [];
+  if (models.length === 0) {
+    return (
+      <EmptyState
+        icon={SiOllama}
+        title="No cloud models"
+        body="ollama.com/api/tags returned nothing right now."
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {models.map((model) => (
+        <CloudModelRow key={model.digest} model={model} installed={installed} />
+      ))}
+    </div>
+  );
+}
+
+function CloudSignedOutState() {
+  const goToSettings = () => {
+    useUiStore.getState().setActiveView('settings');
+    useUiStore.getState().setSettingsPage('ollama');
+  };
+
+  return (
+    <EmptyState
+      icon={SiOllama}
+      title="Not signed in to ollama.com"
+      body="Sign in from a terminal, or add a cloud API key in Settings ▸ Ollama, to browse the cloud catalogue."
+      action={
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => submitCommand('ollama signin', 'ollama sign in')}
+            className="flex items-center gap-1.5 rounded-md border border-border bg-accent/40 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            <LuTerminal className="h-3 w-3" />
+            Run ollama signin
+          </button>
+          <button
+            type="button"
+            onClick={goToSettings}
+            className="flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+          >
+            Settings ▸ Ollama
+          </button>
+        </div>
+      }
+    />
+  );
+}
+
+function CloudModelRow({
+  model,
+  installed,
+  onOpenDetail = () => {},
+}: {
+  model: OllamaModel;
+  installed: Set<string>;
+  onOpenDetail?: (model: string) => void;
+}) {
+  const pull = usePullModel();
+  const queued = useModelsPullQueueStore((s) => s.queued);
+  const target = isOllamaCloudModelName(model.model) ? model.model : toOllamaCloudModelName(model.model);
+  const alreadyInstalled = installed.has(target);
+
+  const doPull = () => {
+    pull.mutate(target, {
+      onSuccess: (result) => {
+        if (result.ok) queued(result.value.pullId, result.value.model);
+      },
+    });
+  };
+
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-border/60 p-2">
+      <SiOllama aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <button
+        type="button"
+        onClick={() => onOpenDetail(target)}
+        className="min-w-0 flex-1 truncate text-left font-mono text-xs font-medium"
+      >
+        {model.name}
+      </button>
+      {model.details?.parameterSize ? <Chip>{model.details.parameterSize}</Chip> : null}
+      {alreadyInstalled ? (
+        <Chip tone="accent">Installed</Chip>
+      ) : (
+        <button
+          type="button"
+          onClick={doPull}
+          disabled={pull.isPending}
+          className="flex h-6 items-center gap-1 rounded-md border border-primary bg-primary/10 px-2 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+        >
+          {pull.isPending ? <Spinner className="h-3 w-3" /> : <LuDownload className="h-3 w-3" />}
+          Use
+        </button>
+      )}
+    </div>
   );
 }

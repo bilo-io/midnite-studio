@@ -6,6 +6,7 @@ import {
   agentHeadlessArgs,
   agentInvocationArgs,
   failure,
+  isOllamaCloudModelName,
   ok,
   resolveAgentLaunch,
   shellQuote,
@@ -18,6 +19,7 @@ import {
 import { appendCapped, cleanCapturedOutput } from './council-output';
 import { buildMemberPrompt, buildSynthesisPrompt, type CouncilSynthesisEntry } from './council-prompts';
 import { getCouncil, getRun, saveRun } from './council-service';
+import { readOllamaApiKey } from './ipc/secrets-handlers';
 import { resolveOllamaBaseUrl } from './ollama/client';
 import { createPty, killPty, offPty, onPty } from './pty-service';
 import { currentSettings } from './settings-mirror';
@@ -272,10 +274,18 @@ async function spawnOneShot(
   // resolves the same way any other launch of this agent id would — the
   // binding is mirrored from the renderer (`settings-mirror.ts`), never
   // re-read from a store this process cannot see.
+  const binding = currentSettings().agentBackends?.[agent.id];
+  // Phase 96 Theme F: this runs in main already, so a cloud-model binding
+  // resolves the vault key directly into `authToken` — no `useOllamaKey`
+  // marker needed (that exists only for the renderer, which cannot read the
+  // vault; see `pty-service.ts#withResolvedOllamaKey`).
+  const authToken =
+    binding?.model && isOllamaCloudModelName(binding.model) ? await readOllamaApiKey() : null;
   const launch = resolveAgentLaunch(
     agent,
-    currentSettings().agentBackends?.[agent.id],
+    binding,
     resolveOllamaBaseUrl(),
+    authToken ?? undefined,
   );
 
   const words = [

@@ -425,6 +425,25 @@ export const CHANNELS = {
   /** Theme C — the persisted host override + default model; see `ollama/settings-store.ts`. */
   ollamaSettingsGet: 'mstudio:ollama:settings-get',
   ollamaSettingsSet: 'mstudio:ollama:settings-set',
+  /**
+   * Ollama library search (Phase 96 Theme D) — scrapes `ollama.com/search`
+   * (no official search API exists); see `ollama/library-search.ts`. Cached
+   * ~1h in main; a failed fetch serves the stale cache rather than an error.
+   */
+  ollamaSearch: 'mstudio:ollama:search',
+  /**
+   * The cloud catalogue (Phase 96 Theme F) — `GET https://ollama.com/api/tags`,
+   * key-authenticated from the vault when `ollama.apiKey` is set.
+   */
+  ollamaCloudList: 'mstudio:ollama:cloud-list',
+  /**
+   * Whether the local daemon can already reach a `:cloud` model via `ollama
+   * signin` — a cheap `show` probe on a known cloud model name. The "run
+   * `ollama signin`" button itself needs no new channel: it reuses
+   * `agent-page.tsx`'s `submitCommand()` precedent (open a shell pty, queue
+   * the command), entirely renderer-side.
+   */
+  ollamaSignInStatus: 'mstudio:ollama:sign-in-status',
 
   // --- optimizer (Phase 59) ---------------------------------------------------
   /** Smart Scan across every registered repo/worktree, plus one optional extra root. */
@@ -1158,6 +1177,14 @@ export const CHANNELS = {
   secretsGet: 'mstudio:secrets:get',
   /** Write or clear one enum-keyed secret — never crosses back to the renderer on read. */
   secretsSet: 'mstudio:secrets:set',
+  /**
+   * Whether a secret is set, without ever returning it (Phase 96 Theme F).
+   * `secretsGet` already exists and DOES return the plaintext value — that
+   * is fine for `finance.twelveData` (the renderer calls the finance API
+   * directly), but `ollama.apiKey` must never cross the bridge at all, so
+   * its Settings page calls this instead of `secretsGet`.
+   */
+  secretsHas: 'mstudio:secrets:has',
 
   // --- finance proxy (Phase 76 Theme D) -------------------------------------
   /** Search crypto/stock symbols — provider fetches run in main. */

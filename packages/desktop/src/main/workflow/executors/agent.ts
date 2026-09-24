@@ -4,12 +4,14 @@ import {
   WORKFLOW_AGENT_DONE_MARKER_PATTERN,
   agentInteractiveArgs,
   agentNodeDonePrompt,
+  isOllamaCloudModelName,
   resolveAgentLaunch,
   shellQuote,
   toAgentPrompt,
 } from '@midnite/studio-shared';
 
 import { appendCapped, cleanCapturedOutput } from '../../council-output';
+import { readOllamaApiKey } from '../../ipc/secrets-handlers';
 import { resolveOllamaBaseUrl } from '../../ollama/client';
 import { currentSettings } from '../../settings-mirror';
 import type { NodeExecutor, NodeOutcome } from '../executor-registry';
@@ -65,11 +67,13 @@ export function createAgentExecutor(deps: NodePtyDeps = defaultNodePtyDeps): Nod
     // launch`'s config-file selection) replaces the node's native `--model`
     // field — the two select a model on two different backends, and only
     // one backend is actually running.
-    const launch = resolveAgentLaunch(
-      agent,
-      currentSettings().agentBackends?.[agent.id],
-      resolveOllamaBaseUrl(),
-    );
+    const binding = currentSettings().agentBackends?.[agent.id];
+    // Phase 96 Theme F: main-side already, so a cloud-model binding resolves
+    // the vault key straight into `authToken` — see the identical comment in
+    // `council-runner.ts`.
+    const authToken =
+      binding?.model && isOllamaCloudModelName(binding.model) ? await readOllamaApiKey() : null;
+    const launch = resolveAgentLaunch(agent, binding, resolveOllamaBaseUrl(), authToken ?? undefined);
 
     const prompt = agentNodeDonePrompt(config.prompt);
     const words = [

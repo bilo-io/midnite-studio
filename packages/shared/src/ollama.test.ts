@@ -14,6 +14,9 @@ import {
   deriveEmbeddingLength,
   deriveNumCtx,
   effectiveContextLength,
+  isOllamaCloudModelName,
+  toOllamaBareModelName,
+  toOllamaCloudModelName,
 } from './ollama';
 
 describe('deriveContextLength', () => {
@@ -224,5 +227,52 @@ describe('agentFitness', () => {
   it('treats an undefined capabilities list as no tools', () => {
     const result = agentFitness({}, AGENT_MIN_CONTEXT_LENGTH);
     expect(result.reasons).toContain('no tool calling');
+  });
+});
+
+describe('toOllamaCloudModelName', () => {
+  it('appends :cloud to a bare name', () => {
+    expect(toOllamaCloudModelName('qwen3.5')).toBe('qwen3.5:cloud');
+  });
+
+  it('is idempotent on a name that already has :cloud', () => {
+    expect(toOllamaCloudModelName('qwen3.5:cloud')).toBe('qwen3.5:cloud');
+  });
+
+  it('is idempotent on a name that already has the older -cloud suffix', () => {
+    expect(toOllamaCloudModelName('qwen3.5-cloud')).toBe('qwen3.5-cloud');
+  });
+
+  it('does not touch a mid-name "cloud" (e.g. a size variant)', () => {
+    expect(toOllamaCloudModelName('cloud-assistant')).toBe('cloud-assistant:cloud');
+  });
+});
+
+describe('toOllamaBareModelName', () => {
+  it('strips a :cloud suffix', () => {
+    expect(toOllamaBareModelName('qwen3.5:cloud')).toBe('qwen3.5');
+  });
+
+  it('strips the older -cloud suffix', () => {
+    expect(toOllamaBareModelName('gpt-oss:120b-cloud')).toBe('gpt-oss:120b');
+  });
+
+  it('is idempotent on a name with no cloud suffix', () => {
+    expect(toOllamaBareModelName('qwen3.5')).toBe('qwen3.5');
+  });
+
+  it('round-trips through toOllamaCloudModelName', () => {
+    expect(toOllamaBareModelName(toOllamaCloudModelName('qwen3.5'))).toBe('qwen3.5');
+  });
+});
+
+describe('isOllamaCloudModelName', () => {
+  it('is true for :cloud and -cloud suffixes', () => {
+    expect(isOllamaCloudModelName('qwen3.5:cloud')).toBe(true);
+    expect(isOllamaCloudModelName('gpt-oss:120b-cloud')).toBe(true);
+  });
+
+  it('is false for a local model name', () => {
+    expect(isOllamaCloudModelName('qwen3.5:14b')).toBe(false);
   });
 });

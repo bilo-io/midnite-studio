@@ -956,6 +956,8 @@ export type MidniteStudioBridge = {
   secrets: {
     get: (req: In<typeof S.SecretsGetRequest>) => Promise<z.infer<typeof S.SecretsGetResponse>>;
     set: (req: In<typeof S.SecretsSetRequest>) => Promise<void>;
+    /** Whether a key is set, without the value (Phase 96 Theme F) — use this for `ollama.apiKey`. */
+    has: (req: In<typeof S.SecretsHasRequest>) => Promise<z.infer<typeof S.SecretsHasResponse>>;
   };
 
   /**
@@ -1230,6 +1232,12 @@ export type MidniteStudioBridge = {
         req: In<typeof S.OllamaSettingsSetRequest>,
       ) => Promise<z.infer<typeof S.OllamaSettingsSetResponse>>;
     };
+    /** Scrapes `ollama.com/search` (Theme D) — cached ~1h in main, stale-served on failure. */
+    search: (req: In<typeof S.OllamaSearchRequest>) => Promise<z.infer<typeof S.OllamaSearchResponse>>;
+    /** The cloud catalogue (Theme F) — `ollama.com/api/tags`, key-authenticated when set. */
+    cloudList: () => Promise<z.infer<typeof S.OllamaCloudListResponse>>;
+    /** Whether the local daemon can already reach a `:cloud` model. */
+    signInStatus: () => Promise<z.infer<typeof S.OllamaSignInStatusResponse>>;
   };
 
   /**

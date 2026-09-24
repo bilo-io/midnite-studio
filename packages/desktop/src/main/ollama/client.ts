@@ -118,6 +118,19 @@ function mapTagsRow(raw: Record<string, unknown>): OllamaModel | null {
   };
 }
 
+function mapTagsBody(body: unknown): OllamaModel[] {
+  const rows = asRecord(body)?.models;
+  if (!Array.isArray(rows)) return [];
+  const models: OllamaModel[] = [];
+  for (const row of rows) {
+    const record = asRecord(row);
+    if (!record) continue;
+    const mapped = mapTagsRow(record);
+    if (mapped) models.push(mapped);
+  }
+  return models;
+}
+
 /** Throws on a transport failure; degrade-to-null is the caller's job (the
  *  IPC handler wraps this and returns a `GitOpResult` failure). */
 export async function ollamaVersion(
@@ -138,17 +151,57 @@ export async function ollamaTags(
   const baseUrl = opts.baseUrl ?? resolveOllamaBaseUrl();
   const res = await fetchWithTimeout(`${baseUrl}/api/tags`, {}, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   if (!res.ok) throw new Error(`Ollama /api/tags returned ${res.status}.`);
-  const body = (await res.json()) as unknown;
-  const rows = asRecord(body)?.models;
-  if (!Array.isArray(rows)) return [];
-  const models: OllamaModel[] = [];
-  for (const row of rows) {
-    const record = asRecord(row);
-    if (!record) continue;
-    const mapped = mapTagsRow(record);
-    if (mapped) models.push(mapped);
+  return mapTagsBody(await res.json());
+}
+
+/** ollama.com itself — separate origin from the local daemon's own `OLLAMA_HOST`. */
+const CLOUD_ORIGIN = 'https://ollama.com';
+
+/**
+ * The cloud catalogue (Phase 96 Theme F) — `GET https://ollama.com/api/tags`,
+ * the same shape as the local daemon's own `/api/tags`, so it reuses
+ * {@link mapTagsBody}. Key-authenticated when `apiKey` is given (the vault's
+ * `ollama.apiKey`, resolved by the IPC handler, never read here).
+ */
+export async function ollamaCloudTags(
+  opts: { apiKey?: string; timeoutMs?: number } = {},
+): Promise<OllamaModel[]> {
+  const res = await fetchWithTimeout(
+    `${CLOUD_ORIGIN}/api/tags`,
+    { headers: opts.apiKey ? { authorization: `Bearer ${opts.apiKey}` } : {} },
+    opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+  );
+  if (!res.ok) throw new Error(`ollama.com/api/tags returned ${res.status}.`);
+  return mapTagsBody(await res.json());
+}
+
+/**
+ * A model this app expects ollama.com's cloud catalogue to keep carrying —
+ * verified present when this was written (Phase 96, 2026-09-24). Used only
+ * as {@link ollamaSignedIn}'s cheap probe target, never pulled or run.
+ */
+export const OLLAMA_SIGNIN_PROBE_MODEL = 'qwen3.5:cloud';
+
+/**
+ * Sign-in detection (Phase 96 Theme F) — "can the local daemon already reach
+ * a cloud model" is exactly what a `show` on a known `:cloud` name answers:
+ * signed out, the daemon's own error names that; signed in, `show` resolves
+ * (or fails for an unrelated reason, which this treats as "can't tell,
+ * assume not signed in" — the false negative costs a `run ollama signin`
+ * suggestion the user didn't need, not a broken launch).
+ */
+export async function ollamaSignedIn(
+  opts: { baseUrl?: string; timeoutMs?: number; probeModel?: string } = {},
+): Promise<boolean> {
+  try {
+    await ollamaShow(opts.probeModel ?? OLLAMA_SIGNIN_PROBE_MODEL, {
+      baseUrl: opts.baseUrl,
+      timeoutMs: opts.timeoutMs,
+    });
+    return true;
+  } catch {
+    return false;
   }
-  return models;
 }
 
 export async function ollamaShow(

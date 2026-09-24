@@ -1,5 +1,6 @@
 import {
   OLLAMA_DEFAULT_BASE_URL,
+  isOllamaCloudModelName,
   ollamaLaunchRecipe,
   type TerminalSession,
 } from '@midnite/studio-shared';
@@ -162,9 +163,31 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
         falls back to that same default rather than blocking the launch.
       */
       let env: Record<string, string> | undefined;
+      /*
+        Phase 96 Theme F: a cloud-model binding either rides the local
+        daemon's own `ollama signin` session (no key needed — `base` stays
+        the daemon) or, signed out with a vault key set, targets
+        `https://ollama.com` directly with that key. The renderer cannot
+        read the vault, so it never puts the real key in `env` itself — it
+        sends `useOllamaKey: true` and main substitutes it into the
+        recipe's `ANTHROPIC_AUTH_TOKEN` sentinel right before spawning (see
+        `pty-service.ts#withResolvedOllamaKey`). Signed in, or with no vault
+        key at all, this resolves exactly as Theme H shipped it.
+      */
+      let useOllamaKey = false;
       if (session.kind === 'agent' && session.backend === 'ollama' && session.ollamaModel && session.agentId) {
         const status = await api.ollama.status().catch(() => null);
-        const base = status?.host ?? OLLAMA_DEFAULT_BASE_URL;
+        let base = status?.host ?? OLLAMA_DEFAULT_BASE_URL;
+        if (isOllamaCloudModelName(session.ollamaModel)) {
+          const [signIn, hasKey] = await Promise.all([
+            api.ollama.signInStatus().catch(() => ({ signedIn: false })),
+            api.secrets.has({ key: 'ollama.apiKey' }).catch(() => ({ hasKey: false })),
+          ]);
+          if (!signIn.signedIn && hasKey.hasKey) {
+            base = 'https://ollama.com';
+            useOllamaKey = true;
+          }
+        }
         const recipe = ollamaLaunchRecipe(session.agentId, session.ollamaModel, base);
         if (recipe && Object.keys(recipe.env).length > 0) env = recipe.env;
       }
@@ -179,6 +202,7 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
         rows,
         ...(initialInput === undefined ? {} : { initialInput }),
         ...(env === undefined ? {} : { env }),
+        ...(useOllamaKey ? { useOllamaKey: true } : {}),
       });
 
       if (!result.ok) {

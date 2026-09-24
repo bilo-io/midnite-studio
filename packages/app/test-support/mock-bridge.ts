@@ -2597,6 +2597,7 @@ export function buildMockBridge(data: MockFixtures) {
     secrets: {
       get: async () => ({ value: null }),
       set: async () => {},
+      has: async () => ({ hasKey: false }),
     },
     finance: {
       search: async () => ({ ok: true as const, value: [] }),
@@ -2740,6 +2741,13 @@ export function buildMockBridge(data: MockFixtures) {
           },
         };
       },
+      // Phase 96 Themes D, F — Discover/Cloud tabs and the sign-in/cloud-key
+      // flow. Empty/false by default so an unrelated spec exercising a
+      // cloud-model session (`use-terminal-ipc.ts`) sees "signed out, no
+      // key" and falls back to the local daemon exactly as before.
+      search: async () => ({ ok: true as const, value: { items: [], stale: false, updatedAt: '' } }),
+      cloudList: async () => ({ ok: true as const, value: { models: [] } }),
+      signInStatus: async () => ({ signedIn: false }),
     },
     video: {
       project: {

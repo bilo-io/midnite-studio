@@ -261,3 +261,40 @@ export function agentFitness(
   }
   return { fit: reasons.length === 0, reasons };
 }
+
+// --- cloud model name normalisation (Phase 96 Theme F) ----------------------
+
+/**
+ * Matches Ollama's cloud suffix on a model name — `:cloud` is current,
+ * `-cloud` is the older form some catalogue entries still carry (see the
+ * phase doc's own "Ollama facts"). Anchored to the end so it never touches a
+ * `:cloud` that happens to appear mid-name.
+ */
+const CLOUD_SUFFIX_RE = /(?::cloud|-cloud)$/i;
+
+/**
+ * `bare-name` → `bare-name:cloud`, idempotent on a name that already carries
+ * either cloud suffix. For calls through the **local daemon**, which
+ * disambiguates a cloud model from its local counterpart by this suffix
+ * alone (Theme H's `ollamaLaunchRecipe` and the Cloud tab's "run locally"
+ * path both need this before handing a name to `ollamaShow`/`ollamaPull`).
+ */
+export function toOllamaCloudModelName(name: string): string {
+  return CLOUD_SUFFIX_RE.test(name) ? name : `${name}:cloud`;
+}
+
+/**
+ * `bare-name:cloud` / `bare-name-cloud` → `bare-name`, idempotent on a name
+ * that already has neither suffix. For calls made **directly against
+ * `ollama.com`** (Theme F's `ollamaCloudTags`, and any request carrying the
+ * vault's `ollama.apiKey`), whose own catalogue keys models by their bare
+ * name — the cloud daemon suffix is a local-daemon-only disambiguator.
+ */
+export function toOllamaBareModelName(name: string): string {
+  return name.replace(CLOUD_SUFFIX_RE, '');
+}
+
+/** Whether a model name already carries either cloud suffix. */
+export function isOllamaCloudModelName(name: string): boolean {
+  return CLOUD_SUFFIX_RE.test(name);
+}

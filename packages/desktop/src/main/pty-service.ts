@@ -11,6 +11,7 @@ import {
 } from './activity-detect';
 import type { AgentWatcher } from './agent-watcher';
 import { createBrokerClient, type BrokerClient, type BrokerStatus } from './broker-client';
+import { readOllamaApiKey } from './ipc/secrets-handlers';
 import { agentFingerprintEnv } from './pty-env';
 import {
   inprocActivePtyPids,
@@ -517,6 +518,30 @@ export function getBrokerStatus(): BrokerStatus {
   return brokerClient ? brokerClient.getStatus() : { mode: 'inproc', reason: 'uninitialized' };
 }
 
+/**
+ * Phase 96 Theme F: `useOllamaKey` is a marker, never a value — the renderer
+ * cannot read the vault (see `PtyCreateRequest`'s own doc comment), so it
+ * asks main to substitute the real `ollama.apiKey` for the recipe's
+ * `ANTHROPIC_AUTH_TOKEN` sentinel (`'ollama'`, from `OLLAMA_LOCAL_AUTH_TOKEN`)
+ * right here — the one place both the broker and inproc paths merge env, and
+ * the last thing that touches it before it reaches a real process. Only
+ * `ANTHROPIC_AUTH_TOKEN` is resolved: `ollamaLaunchRecipe`'s copilot case
+ * does not thread its `authToken` param through to `COPILOT_PROVIDER_API_KEY`
+ * (a separate, pre-existing gap in Theme H's own recipe table, not this
+ * marker's job to paper over). Council and workflow launches run in main
+ * already and resolve the key directly into `resolveAgentLaunch`'s
+ * `authToken` param instead — no marker needed there.
+ */
+async function withResolvedOllamaKey(
+  env: Record<string, string> | undefined,
+  useOllamaKey: boolean | undefined,
+): Promise<Record<string, string> | undefined> {
+  if (!useOllamaKey || !env || !('ANTHROPIC_AUTH_TOKEN' in env)) return env;
+  const apiKey = await readOllamaApiKey();
+  if (!apiKey) return env;
+  return { ...env, ANTHROPIC_AUTH_TOKEN: apiKey };
+}
+
 export async function createPty(options: {
   sessionId: string;
   kind?: string | undefined;
@@ -527,7 +552,11 @@ export async function createPty(options: {
   initialInput?: string | undefined;
   /** Per-session env overrides (Phase 96 Theme H) — merged in last, so these always win. */
   env?: Record<string, string> | undefined;
+  /** See {@link withResolvedOllamaKey} (Phase 96 Theme F). */
+  useOllamaKey?: boolean | undefined;
 }): Promise<CreateResult> {
+  const resolvedEnv = await withResolvedOllamaKey(options.env, options.useOllamaKey);
+
   if (brokerClient && brokerClient.getStatus().mode === 'broker' && brokerClient.isAlive()) {
     const result = await brokerClient.createPty({
       ...options,
@@ -536,7 +565,7 @@ export async function createPty(options: {
         TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
         ...agentFingerprintEnv(options.kind, options.sessionId, options.agentId),
-        ...options.env,
+        ...resolvedEnv,
       } as Record<string, string>,
     });
 
@@ -560,7 +589,7 @@ export async function createPty(options: {
 
   // Fallback to inproc
   const inprocRes = inprocCreatePty(
-    options,
+    { ...options, env: resolvedEnv },
     (ptyId, bytes) => {
       noteActivity(ptyId, bytes);
       ptyDataListeners.get(ptyId)?.(bytes);

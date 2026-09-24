@@ -166,6 +166,7 @@ import {
   OllamaModelSchema,
   OllamaPullProgressEventSchema,
   OllamaRunningModelSchema,
+  OllamaSearchResultItemSchema,
   OllamaSettingsSchema,
 } from '../ollama';
 import {
@@ -1551,6 +1552,15 @@ export const PtyCreateRequest = z
      * `.optional()` string elsewhere in this file might be tempted to.
      */
     env: z.record(z.string().regex(/^[A-Z_][A-Z0-9_]*$/), z.string()).optional(),
+    /**
+     * Phase 96 Theme F: "use the vault's `ollama.apiKey` for this Ollama
+     * launch's auth token." A marker, never the key itself — the renderer
+     * cannot read the vault, so it sends this bool and main resolves the
+     * real value (`ollamaLaunchRecipe`'s `authToken` param) inside
+     * `createPty`, after this request has already crossed the bridge. Only
+     * meaningful when `env` was built from a `backend: 'ollama'` binding.
+     */
+    useOllamaKey: z.boolean().optional(),
   })
   .superRefine(agentIdMatchesKind);
 export const PtyCreateResponse = z.discriminatedUnion('ok', [
@@ -2486,6 +2496,32 @@ export const OllamaSettingsSetRequest = z.object({
   defaultModel: z.string().nullable().optional(),
 });
 export const OllamaSettingsSetResponse = GitOpResultOf(OllamaSettingsSchema);
+
+// --- ollama search + cloud (Phase 96 Themes D, F) ----------------------------
+
+const OllamaSearchScopeSchema = z.enum(['local', 'cloud']);
+
+export const OllamaSearchRequest = z.object({
+  query: z.string(),
+  /** `'local'` fetches `ollama.com/search?q=`; `'cloud'` adds `&c=cloud` — the
+   *  same capability checkbox the page's own filter chips use. */
+  scope: OllamaSearchScopeSchema.default('local'),
+});
+export const OllamaSearchResponse = GitOpResultOf(
+  z.object({
+    items: z.array(OllamaSearchResultItemSchema),
+    /** True when this is a stale-cache fallback served after a failed live fetch. */
+    stale: z.boolean(),
+    /** ISO timestamp of the data actually being served. */
+    updatedAt: z.string(),
+  }),
+);
+
+/** `GET https://ollama.com/api/tags`, key-authenticated when a vault key is set. */
+export const OllamaCloudListResponse = GitOpResultOf(z.object({ models: z.array(OllamaModelSchema) }));
+
+/** A cheap `show` probe against a known `:cloud` model, through the local daemon. */
+export const OllamaSignInStatusResponse = z.object({ signedIn: z.boolean() });
 
 // --- optimizer (Phase 59) ---------------------------------------------------
 
@@ -3600,7 +3636,7 @@ export const CompanionSttTestResponse = GitOpResultOf(
 
 // --- secrets (Phase 76 Theme D) ---------------------------------------------
 
-export const SecretKeySchema = z.enum(['finance.twelveData']);
+export const SecretKeySchema = z.enum(['finance.twelveData', 'ollama.apiKey']);
 
 export const SecretsGetRequest = z.object({ key: SecretKeySchema });
 export const SecretsGetResponse = z.object({ value: z.string().nullable() });
@@ -3609,6 +3645,14 @@ export const SecretsSetRequest = z.object({
   key: SecretKeySchema,
   value: z.string(),
 });
+
+/**
+ * Whether a secret is set, without the value ever crossing back to the
+ * renderer (Phase 96 Theme F) — `ollama.apiKey`'s own Settings page uses
+ * this, never `secretsGet`.
+ */
+export const SecretsHasRequest = z.object({ key: SecretKeySchema });
+export const SecretsHasResponse = z.object({ hasKey: z.boolean() });
 
 // --- finance proxy (Phase 76 Theme D) -----------------------------------------
 
