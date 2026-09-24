@@ -1,6 +1,53 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-24 — Phase 96 Themes D, F — Discover search, cloud models and the vault key
+
+[PR #543](https://github.com/bilo-io/midnite-studio/pull/543).
+
+**Theme D — the scraper.** New `desktop/src/main/ollama/library-search.ts`: no official Ollama
+search API exists, so it scrapes the same server-rendered `ollama.com/search?q=<q>` (and
+`?q=<q>&c=cloud`) a browser gets, with a per-query ~1h cache and stale-on-failure fallback.
+Fixtures (`__fixtures__/ollama-search{,-cloud,-empty}.html`) were fetched live from ollama.com the
+day this was written, and the parser is a handful of targeted regexes rather than a new DOM-parser
+dependency — the markup is simple, consistent, htmx-rendered Tailwind. A non-empty page that yields
+zero rows is `{ok:false, kind:'error', code:'parse'}` — required widening `GitOpFailureSchema`'s
+closed `code` enum (`domain/result.ts`) with `'parse'`, alongside its three existing values. New
+`mstudio:ollama:search` channel/bridge method reuses the `OllamaSearchResultItemSchema` PR #540
+already declared. The Models view gets an Installed/Discover/Cloud tab strip (Theme C shipped
+Installed alone on purpose, deferring the strip here); Discover: debounced search, Local/Cloud
+scope toggle, capability filter chips, a per-result variant picker, "Installed" badges, and a
+parse-failure fallback linking out to ollama.com/search.
+
+**Theme F — cloud + the vault key.** `SECRET_KEYS` widened with `ollama.apiKey`; a new
+`mstudio:secrets:has` channel (`{hasKey: boolean}` only — the existing `secrets.get` returns the
+plaintext value, fine for `finance.twelveData`, not for this key) backs Settings ▸ Ollama's
+set/clear control. `ollama/client.ts` gains `ollamaCloudTags` (`GET https://ollama.com/api/tags`,
+Bearer-authed when a key is given) and `ollamaSignedIn` (a cheap `show` probe against
+`qwen3.5:cloud`, a real cloud model verified live the day this was written) behind new
+`mstudio:ollama:cloud-list`/`mstudio:ollama:sign-in-status` channels. The Cloud tab lists the
+catalogue, gated behind sign-in-or-key with a "Run ollama signin" button (reusing
+`agent-page.tsx`'s `submitCommand()` pty precedent — no new channel needed for the button itself).
+`toOllamaCloudModelName`/`toOllamaBareModelName`/`isOllamaCloudModelName` in `shared/src/ollama.ts`
+normalise the `:cloud`/`-cloud` ↔ bare-name split, tested both directions plus a round-trip.
+
+**Closes Theme H's one open checkbox.** `PtyCreateRequest` gains `useOllamaKey?: boolean` — a
+marker, never the key itself, since the renderer cannot read the vault. Resolved only in main,
+in `pty-service.ts#withResolvedOllamaKey`, which substitutes the vault's real key into the
+recipe's `ANTHROPIC_AUTH_TOKEN` sentinel right before either pty path (broker or inproc) spawns.
+`council-runner.ts` and the workflow agent executor run in main already, so they resolve the vault
+key directly into `resolveAgentLaunch`'s `authToken` param — no marker needed there.
+`use-terminal-ipc.ts`'s `start()` sets the marker and switches `base` to `https://ollama.com` only
+when a cloud-model binding is signed out locally AND a vault key is set (checked via
+`ollama.signInStatus()` + `secrets.has()`); otherwise it resolves exactly as Theme H shipped it.
+**Known, pre-existing gap, not touched here:** `ollamaLaunchRecipe`'s copilot case hardcodes
+`COPILOT_PROVIDER_API_KEY: ''` and never reads `authToken` (a Theme H gap), so the marker only
+ever overrides `ANTHROPIC_AUTH_TOKEN` (claude).
+
+**Left for Theme E:** both new tabs' result cards take an `onOpenDetail` no-op prop, matching
+`ModelRow`'s own convention, so the model-detail modal has one consistent place to wire into
+across all three tabs once it exists.
+
 ## 2026-09-24 — Phase 96 Themes E, G — Model detail modal + the context-length fix
 
 [PR #548](https://github.com/bilo-io/midnite-studio/pull/548).

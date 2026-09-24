@@ -584,7 +584,20 @@ function SearchFallback({ query }: { query: string }) {
   );
 }
 
-function SearchResultCard({ item, installed }: { item: OllamaSearchResultItem; installed: Set<string> }) {
+/**
+ * `onOpenDetail` — same no-op-by-default hook `ModelRow`'s Installed row
+ * takes, so Theme E's model-detail modal has one consistent place to wire
+ * into across all three tabs rather than plumbing it through fresh here.
+ */
+function SearchResultCard({
+  item,
+  installed,
+  onOpenDetail = () => {},
+}: {
+  item: OllamaSearchResultItem;
+  installed: Set<string>;
+  onOpenDetail?: (model: string) => void;
+}) {
   const variants = item.variants ?? [];
   const [variant, setVariant] = useState<string | null>(variants[0] ?? null);
   const pull = usePullModel();
@@ -605,7 +618,11 @@ function SearchResultCard({ item, installed }: { item: OllamaSearchResultItem; i
     <div className="flex flex-col gap-1.5 rounded-md border border-border/60 p-2">
       <div className="flex items-start gap-2">
         <SiOllama aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => onOpenDetail(searchResultPullTarget(item, variant))}
+          className="min-w-0 flex-1 text-left"
+        >
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="font-mono text-xs font-medium">{item.name}</span>
             {item.cloud ? <Chip tone="accent">cloud</Chip> : null}
@@ -620,7 +637,7 @@ function SearchResultCard({ item, installed }: { item: OllamaSearchResultItem; i
             {item.pulls ? <span>{item.pulls} pulls</span> : null}
             {item.updatedAt ? <span>updated {item.updatedAt}</span> : null}
           </div>
-        </div>
+        </button>
         <div className="flex shrink-0 items-center gap-1.5">
           {alreadyInstalled ? (
             <Chip tone="accent">Installed</Chip>
@@ -737,7 +754,15 @@ function CloudSignedOutState() {
   );
 }
 
-function CloudModelRow({ model, installed }: { model: OllamaModel; installed: Set<string> }) {
+function CloudModelRow({
+  model,
+  installed,
+  onOpenDetail = () => {},
+}: {
+  model: OllamaModel;
+  installed: Set<string>;
+  onOpenDetail?: (model: string) => void;
+}) {
   const pull = usePullModel();
   const queued = useModelsPullQueueStore((s) => s.queued);
   const target = isOllamaCloudModelName(model.model) ? model.model : toOllamaCloudModelName(model.model);
@@ -754,7 +779,13 @@ function CloudModelRow({ model, installed }: { model: OllamaModel; installed: Se
   return (
     <div className="flex items-center gap-2 rounded-md border border-border/60 p-2">
       <SiOllama aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium">{model.name}</span>
+      <button
+        type="button"
+        onClick={() => onOpenDetail(target)}
+        className="min-w-0 flex-1 truncate text-left font-mono text-xs font-medium"
+      >
+        {model.name}
+      </button>
       {model.details?.parameterSize ? <Chip>{model.details.parameterSize}</Chip> : null}
       {alreadyInstalled ? (
         <Chip tone="accent">Installed</Chip>
