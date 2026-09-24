@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-09-24 — Phase 96 Themes D, F — Discover search, cloud models and the vault key
 
-[PR #543](https://github.com/bilo-io/midnite-studio/pull/543).
+[PR #547](https://github.com/bilo-io/midnite-studio/pull/547).
 
 **Theme D — the scraper.** New `desktop/src/main/ollama/library-search.ts`: no official Ollama
 search API exists, so it scrapes the same server-rendered `ollama.com/search?q=<q>` (and

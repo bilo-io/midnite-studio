@@ -179,7 +179,7 @@ independent and can start at once). **I** needs **E** and **H**.
       `settings-service.ts`) — Theme B's client resolved only `OLLAMA_HOST`/the hardcoded default
       and explicitly deferred a configurable override to this theme's own Settings page.
 
-### D — Discover: library search (M) — ✅ DONE (PR #543, 2026-09-24)
+### D — Discover: library search (M) — ✅ DONE (PR #547, 2026-09-24)
 
 - [x] Main-side `ollama/library-search.ts`: fetch `https://ollama.com/search?q=<q>` and
       `?c=cloud&q=<q>`, parse name, description, capability tags (tools / thinking / vision /
@@ -225,7 +225,7 @@ independent and can start at once). **I** needs **E** and **H**.
       not installed opening the modal with search data and a Pull button instead of the `show`-backed
       sections — left for whichever of D/F/I lands next, per the correction above.
 
-### F — Cloud models and account (M) — ✅ DONE (PR #543, 2026-09-24)
+### F — Cloud models and account (M) — ✅ DONE (PR #547, 2026-09-24)
 
 - [x] Widen `SECRET_KEYS` with `ollama.apiKey`; Settings ▸ Ollama sets and clears it through the
       vault. The wire shows `hasKey` only — via a new `secrets.has`/`mstudio:secrets:has` channel,
