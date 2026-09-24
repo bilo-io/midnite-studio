@@ -4708,4 +4708,54 @@ html[data-motion='reduced'] .session-row-pulse {
  * ring class lives here: Theme C's own CSS family and motion guards already
  * cover it, and a workflow card is just its newest consumer. */
 
+/* Ad hoc: sidenav category icons — a decorative glyph on each rail section
+   header (Workspace / Git / Agents). `@bilo-io/shell`'s `AppFrame` renders
+   those headers from a single `NavSection.title: string`, which also backs
+   two `aria-label`s (the collapsed toggle button's own, and the collapsible
+   region's) — there is no slot for a `ReactNode` here without corrupting an
+   accessible name, so the icon rides in as a `::before` instead, which is
+   invisible to assistive tech by construction. `title` itself is untouched.
+
+   `--nav-workspace-icon`/`--nav-agents-icon`/`--nav-git-icon` are CSS mask
+   images (`use-nav-category-icon-vars.ts`, `nav-category-icons.ts`) — solid
+   shapes, no baked-in colour, painted here via `background-color` so Git's
+   icon can recolour itself per forge without re-rendering the glyph. Every
+   `nav-section-*` id below is one of `app.tsx`'s own `sections[].key`s, and
+   the same button renders whichever variant is current (expanded or
+   collapsed both carry the identical `aria-controls`), so one rule covers
+   both: the icon sits before the chevron in either state, which keeps it
+   "to the left of the label" when expanded and still visible on the
+   collapsed row itself rather than hidden until the header's own hover
+   tooltip appears. */
+[aria-controls='nav-section-workspace'] {
+  --nav-cat-icon: var(--nav-workspace-icon);
+  --nav-cat-color: currentColor;
+}
+[aria-controls='nav-section-git'] {
+  --nav-cat-icon: var(--nav-git-icon);
+  --nav-cat-color: var(--nav-git-icon-color, currentColor);
+}
+[aria-controls='nav-section-agents'] {
+  --nav-cat-icon: var(--nav-agents-icon);
+  --nav-cat-color: currentColor;
+}
+[aria-controls^='nav-section-']::before {
+  content: '';
+  display: inline-block;
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-right: 0.375rem;
+  -webkit-mask-image: var(--nav-cat-icon, none);
+  mask-image: var(--nav-cat-icon, none);
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  background-color: var(--nav-cat-color, currentColor);
+  vertical-align: -2px;
+}
+
 
