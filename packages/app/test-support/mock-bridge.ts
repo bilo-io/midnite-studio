@@ -72,8 +72,19 @@ export type MockFixtures = {
    * means no models installed, not "daemon unreachable" — nothing here
    * exercises the daemon-down path, which is main's own `ollamaStatus`
    * concern, not this fixture's.
+   *
+   * `capabilities`/`contextLength`/`numCtx` back `ollama.show()` (Phase 96
+   * Theme G's fit-for-agents warning on this same picker) — defaulted to a
+   * fit model (`tools` + 128k) so no existing spec's picker starts showing a
+   * warning it never asked for; a spec exercising the warning sets them.
    */
-  ollamaModels?: { name: string; size?: number }[];
+  ollamaModels?: {
+    name: string;
+    size?: number;
+    capabilities?: string[];
+    contextLength?: number;
+    numCtx?: number;
+  }[];
   /**
    * Overrides `update.releaseNotes`'s canned body (Phase 29 Theme F). Absent
    * falls back to the existing canned copy every spec before this fixture
@@ -2715,6 +2726,20 @@ export function buildMockBridge(data: MockFixtures) {
         },
       }),
       status: async () => ({ reachable: true, version: '0.1.0', host: 'http://127.0.0.1:11434' }),
+      // Theme G's fit-for-agents check on the Settings ▸ Agent picker
+      // (`agent-page.tsx`'s `OllamaBackendRow`) is the only caller in specs
+      // today — defaults to a fit model per the fixture's own doc comment.
+      show: async (req: { model: string }) => {
+        const found = (data.ollamaModels ?? []).find((m) => m.name === req.model);
+        return {
+          ok: true as const,
+          value: {
+            capabilities: found?.capabilities ?? ['completion', 'tools'],
+            contextLength: found?.contextLength ?? 131072,
+            parameters: found?.numCtx ? `num_ctx ${found.numCtx}` : 'num_ctx 65536',
+          },
+        };
+      },
     },
     video: {
       project: {

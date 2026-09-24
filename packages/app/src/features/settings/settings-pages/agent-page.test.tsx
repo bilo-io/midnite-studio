@@ -338,3 +338,37 @@ describe('AgentPage - Ollama backend (Phase 96 Theme H)', () => {
     });
   });
 });
+
+describe('AgentPage - Ollama fit-for-agents warning (Phase 96 Theme G)', () => {
+  it('shows no warning once a fit model (tools + >= 64k) is picked', async () => {
+    renderView(<AgentPage />, {
+      fixtures: { ...fixtures, ollamaModels: [{ name: 'qwen3.5:14b' }] },
+    });
+
+    const claudeCard = await screen.findByTestId('agent-card-claude');
+    fireEvent.click(within(claudeCard).getByRole('button', { name: 'Ollama' }));
+    const select = await within(claudeCard).findByLabelText('Claude Ollama model');
+    fireEvent.change(select, { target: { value: 'qwen3.5:14b' } });
+
+    await waitFor(() =>
+      expect(useUiStore.getState().agentBackends['claude']?.model).toBe('qwen3.5:14b'),
+    );
+    expect(within(claudeCard).queryByText(/not agent-ready/)).toBeNull();
+  });
+
+  it('warns when the picked model has no tool calling or too little context', async () => {
+    renderView(<AgentPage />, {
+      fixtures: {
+        ...fixtures,
+        ollamaModels: [{ name: 'tiny:1b', capabilities: ['completion'], numCtx: 4096 }],
+      },
+    });
+
+    const claudeCard = await screen.findByTestId('agent-card-claude');
+    fireEvent.click(within(claudeCard).getByRole('button', { name: 'Ollama' }));
+    const select = await within(claudeCard).findByLabelText('Claude Ollama model');
+    fireEvent.change(select, { target: { value: 'tiny:1b' } });
+
+    expect(await within(claudeCard).findByText(/not agent-ready/)).toBeTruthy();
+  });
+});
