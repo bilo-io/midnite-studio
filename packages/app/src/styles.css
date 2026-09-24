@@ -4627,6 +4627,28 @@ html[data-motion='reduced'] .primary-agent-card {
   }
 }
 
+/*
+ * Phase: fix — queued/requested/pending/waiting runs and jobs are held up,
+ * not moving, so they get a slow opacity fade rather than `.actions-item-running`'s
+ * shimmer, which used to be shared with every unfinished status regardless of
+ * whether it was actually in progress. Slow and shallow on purpose (0.55–1
+ * over ~2.75s): the shimmer already reads as "working", so the pulse's whole
+ * job is to read as "waiting" instead, at a glance across a run list.
+ */
+@keyframes actions-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.actions-item-queued {
+  animation: actions-pulse 2.75s ease-in-out infinite;
+}
+
 @keyframes actions-glow-pulse-ok {
   0%, 100% {
     opacity: 1;
@@ -4670,9 +4692,13 @@ html[data-motion='reduced'] .primary-agent-card {
 
 @media (prefers-reduced-motion: reduce) {
   .actions-item-running,
+  .actions-item-queued,
   .actions-glow-ok,
   .actions-glow-fail {
     animation: none !important;
+  }
+  .actions-item-queued {
+    opacity: 0.75;
   }
   .actions-glow-ok {
     text-shadow: 0 0 6px rgba(34, 197, 94, 0.45);
@@ -4683,9 +4709,13 @@ html[data-motion='reduced'] .primary-agent-card {
 }
 
 html[data-motion='reduced'] .actions-item-running,
+html[data-motion='reduced'] .actions-item-queued,
 html[data-motion='reduced'] .actions-glow-ok,
 html[data-motion='reduced'] .actions-glow-fail {
   animation: none !important;
+}
+html[data-motion='reduced'] .actions-item-queued {
+  opacity: 0.75;
 }
 html[data-motion='reduced'] .actions-glow-ok {
   text-shadow: 0 0 6px rgba(34, 197, 94, 0.45);

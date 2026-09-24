@@ -95,6 +95,17 @@ export type ForgeStatus = {
   withLabel?: true;
   /** Turn the glyph, for the states that are genuinely in flight. */
   spin?: true;
+  /**
+   * Fade the row slowly, for the states that are held up rather than moving.
+   *
+   * Distinct from `spin`: a queued/requested/pending run or job is not doing
+   * anything yet, so a spinning glyph or a shimmering row would both claim
+   * activity that is not happening — it is a machine waiting on a free
+   * runner (or, for `waiting`, on a person). `spin` and `pulse` are mutually
+   * exclusive across every arm below; a consumer that ever set both would be
+   * asking for two different stories about the same row.
+   */
+  pulse?: true;
 };
 
 /**
@@ -105,13 +116,26 @@ export type ForgeStatus = {
  * same call to action `action_required` makes, and rendering it as "Running"
  * would tell the user to wait for a machine that is waiting for them. It is
  * also why it is one of the three statuses that keeps its words.
+ *
+ * Only `in_progress` is actually running — the other four are held up, not
+ * moving, so they get `pulse` (a slow opacity fade) rather than `spin` or the
+ * shimmer `spin` drives in `getActionItemStyle`. GitHub reports a job stuck
+ * behind a busy runner as `queued` with no `started_at` even while its parent
+ * run is `in_progress`, so this distinction is read off the run/job's own
+ * `status`, never inherited from the parent.
  */
 const UNFINISHED: Record<Exclude<ForgeRun['status'], 'completed'>, ForgeStatus> = {
-  queued: { tone: 'busy', label: 'Queued', icon: LuClock },
+  queued: { tone: 'busy', label: 'Queued', icon: LuClock, pulse: true },
   in_progress: { tone: 'busy', label: 'Running', icon: LuLoaderCircle, spin: true },
-  requested: { tone: 'busy', label: 'Requested', icon: LuCircleDashed },
-  pending: { tone: 'busy', label: 'Pending', icon: LuEllipsis },
-  waiting: { tone: 'warn', label: 'Waiting for approval', icon: LuShieldAlert, withLabel: true },
+  requested: { tone: 'busy', label: 'Requested', icon: LuCircleDashed, pulse: true },
+  pending: { tone: 'busy', label: 'Pending', icon: LuEllipsis, pulse: true },
+  waiting: {
+    tone: 'warn',
+    label: 'Waiting for approval',
+    icon: LuShieldAlert,
+    withLabel: true,
+    pulse: true,
+  },
 };
 
 /**

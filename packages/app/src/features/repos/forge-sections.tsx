@@ -245,7 +245,7 @@ function RunJobs({
     <ul className={`${depth === 4 ? 'ml-17' : 'ml-14'} border-l border-border/60 pb-1 pl-2`}>
       {jobs.map((job) => {
         const jStatus = jobStatus(job);
-        const jStyle = getActionItemStyle(jStatus.tone);
+        const jStyle = getActionItemStyle(jStatus);
         return (
           <li
             key={job.id}
@@ -664,7 +664,7 @@ function ForgeRow({
   prNumber?: number | null;
   repoId?: string;
 }) {
-  const actionStyle = applyActionStyles ? getActionItemStyle(status.tone) : null;
+  const actionStyle = applyActionStyles ? getActionItemStyle(status) : null;
 
   return (
     <>

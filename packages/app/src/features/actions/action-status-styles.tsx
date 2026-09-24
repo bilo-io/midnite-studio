@@ -4,7 +4,7 @@ import { LuGitPullRequest } from 'react-icons/lu';
 
 import { useReviewsStore } from '../../store/reviews-store';
 import { useUiStore } from '../../store/ui-store';
-import type { ForgeTone } from '../forge/forge-status';
+import type { ForgeStatus } from '../forge/forge-status';
 
 export type ActionItemStyle = {
   textClass: string;
@@ -13,35 +13,49 @@ export type ActionItemStyle = {
   rowClass: string;
 };
 
-export function getActionItemStyle(tone: ForgeTone): ActionItemStyle {
+/**
+ * The row/glyph treatment for a run, job or step's status.
+ *
+ * Takes the whole `ForgeStatus` rather than just its `tone`: `tone` alone
+ * cannot tell a running row from a queued one — `busy` covers both — and
+ * `warn` covers both a queued-family `waiting` run and an unrelated,
+ * completed-run `action_required` verdict. `spin`/`pulse` are what actually
+ * carry "is this in flight or just held up", read off the same `ForgeStatus`
+ * `StatusPill` already renders, so the two never disagree about a row.
+ */
+export function getActionItemStyle(status: Pick<ForgeStatus, 'tone' | 'spin' | 'pulse'>): ActionItemStyle {
+  const { tone, spin, pulse } = status;
+  // Only a genuinely in-progress run/job shimmers; a queued/requested/
+  // pending/waiting one pulses instead, and anything settled gets neither.
+  const rowClass = spin ? 'actions-item-running' : pulse ? 'actions-item-queued' : '';
   switch (tone) {
     case 'ok':
       return {
         textClass: 'text-emerald-500 dark:text-emerald-400',
         subtextClass: 'text-emerald-500/80 dark:text-emerald-400/80',
         glowClass: 'actions-glow-ok',
-        rowClass: '',
+        rowClass,
       };
     case 'fail':
       return {
         textClass: 'text-red-500 dark:text-red-400',
         subtextClass: 'text-red-500/80 dark:text-red-400/80',
         glowClass: 'actions-glow-fail',
-        rowClass: '',
+        rowClass,
       };
     case 'busy':
       return {
         textClass: 'text-orange-500 dark:text-orange-400',
         subtextClass: 'text-orange-500/80 dark:text-orange-400/80',
         glowClass: '',
-        rowClass: 'actions-item-running',
+        rowClass,
       };
     case 'warn':
       return {
         textClass: 'text-amber-500 dark:text-amber-400',
         subtextClass: 'text-amber-500/80 dark:text-amber-400/80',
         glowClass: '',
-        rowClass: '',
+        rowClass,
       };
     case 'idle':
     default:
@@ -49,7 +63,7 @@ export function getActionItemStyle(tone: ForgeTone): ActionItemStyle {
         textClass: 'text-muted-foreground',
         subtextClass: 'text-muted-foreground/80',
         glowClass: '',
-        rowClass: '',
+        rowClass,
       };
   }
 }
