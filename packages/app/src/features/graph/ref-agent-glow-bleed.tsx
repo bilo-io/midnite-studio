@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import type { PaletteStyle } from './graph-themes';
+import { laneVars } from './lane-colors';
+
 /**
  * The agent-session halo, portalled past the two clipping ancestors a ref
  * badge sits inside — the BRANCH/TAG cell's `overflow-hidden` and each
@@ -9,17 +12,24 @@ import { createPortal } from 'react-dom';
  * (`ref-badge.tsx`) and `RefAgentAvatar` (`ref-agent-avatar.tsx`) already
  * document and route around.
  *
- * In-row, `.ref-badge-agent-glow`'s `box-shadow` pulse is inherently
- * symmetric — CSS paints a shadow's blur on all four sides equally — but a
- * ref badge sits in a row barely taller than the chip itself, so most of
- * that blur had nowhere to go: clipped down to whatever sliver of padding
- * the row's own line-height left around the chip, which read as a thin
- * stripe down the chip's sides rather than a halo around the whole thing.
- * This element is the same halo — same identity colour, same
- * `ref-badge-agent-glow-pulse` keyframe (`styles.css`) — sized and
- * positioned from the real chip's `getBoundingClientRect()` and painted at
- * `document.body`, where nothing clips it and the blur can spend its full
- * radius bleeding into the rows above and below.
+ * In-row, a symmetric halo — `box-shadow` blur painted on all four sides
+ * equally — has nowhere to go in a row barely taller than the chip itself:
+ * clipped down to whatever sliver of padding the row's own line-height left
+ * around the chip, which read as a thin stripe down the chip's sides rather
+ * than a halo around the whole thing. This element paints the same orbiting
+ * arc `HeadGlow`'s in-row `.ref-badge-agent-arc-ring` does — same
+ * `--arc-angle` orbit, same lane hue band, via the shared `.ref-badge-agent-
+ * arc-glow` gradient in `styles.css` — sized and positioned from the real
+ * chip's `getBoundingClientRect()` and painted at `document.body`, where
+ * nothing clips it and the blur can spend its full radius bleeding into the
+ * rows above and below.
+ *
+ * `colorIdx`/`palette` are this branch's lane colour — the same pair
+ * `ref-badge.tsx` feeds `laneVars()` for the chip itself. The portal is NOT
+ * a DOM descendant of the chip (it appends to `document.body` as a
+ * sibling), so the `--lane-h/s/l` custom properties the chip sets via its
+ * own inline style cannot cascade here; this component sets its own copy,
+ * the same way `SyncOverlay` (`ref-badge.tsx`) already does for its strip.
  *
  * Repositioned rather than closed on scroll/resize — `SyncOverlay` and
  * `RefAgentAvatar`'s hover strip both close instead, because those are
@@ -29,20 +39,29 @@ import { createPortal } from 'react-dom';
  * would read as the glow breaking rather than a deliberate dismissal.
  * Recompute is `requestAnimationFrame`-throttled to at most once per frame.
  *
- * No fill of its own, `pointer-events: none` — it paints only the halo
- * (`box-shadow`, which never touches the box's own interior) around an
- * otherwise fully transparent, exactly-chip-sized box, so it can sit on top
- * of the real chip (portalled content paints after everything already in
- * the DOM) without ever obscuring the branch name or the ahead/behind
- * counts under it. Contrast is never a function of glow intensity: the
- * readable layer and the glowing layer are two different elements.
+ * The outer span itself stays fully transparent, exactly chip-sized and
+ * `pointer-events: none` — the actual gradient paints on a `::before`
+ * pseudo-element (`inset: -10px` in `styles.css`), so the bleed comes from
+ * the pseudo's own larger box rather than from inflating this element's
+ * measured rect, and this component's positioning contract (what
+ * `ref-agent-glow-bleed.test.tsx` exercises) stays exactly the live chip's
+ * own rect. It can sit on top of the real chip (portalled content paints
+ * after everything already in the DOM) without ever obscuring the branch
+ * name or the ahead/behind counts under it: contrast is never a function of
+ * glow intensity, because the readable layer and the glowing layer are two
+ * different elements.
  */
 export function RefAgentGlowBleed({
   anchor,
   active,
+  colorIdx,
+  palette,
 }: {
   anchor: React.RefObject<HTMLElement | null>;
   active: boolean;
+  /** Lane colour index of the ref this badge belongs to — see `laneVars`. */
+  colorIdx: number;
+  palette: PaletteStyle;
 }) {
   const [rect, setRect] = useState<{ x: number; y: number; width: number; height: number } | null>(
     null,
@@ -87,8 +106,8 @@ export function RefAgentGlowBleed({
     <span
       aria-hidden
       data-testid="ref-agent-glow-bleed"
-      className="ref-badge-agent-glow-bleed pointer-events-none fixed z-[46] rounded-[3px]"
-      style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
+      className="ref-badge-agent-arc-glow pointer-events-none fixed z-[46] rounded-[3px]"
+      style={{ ...laneVars(colorIdx, palette), left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
     />,
     document.body,
   );

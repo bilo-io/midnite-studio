@@ -38,7 +38,7 @@ describe('RefBadge with agentActive glow', () => {
     expect((badge as HTMLElement).style.boxShadow).toBe('');
   });
 
-  it('renders RefBadge with the shared AI-agent pulsating glow class when agentActive is true', () => {
+  it('renders RefBadge with no chip-level glow class when agentActive is true — the effect lives on HeadGlow and the portalled bleed instead', () => {
     const ref = makeRef('feature/active-agent');
     const { container } = render(
       <RefBadge
@@ -53,15 +53,15 @@ describe('RefBadge with agentActive glow', () => {
       '[data-ref="refs/heads/feature/active-agent"]',
     ) as HTMLElement;
     expect(badge).toBeDefined();
-    // The animated ring is CSS-driven (`.ref-badge-agent-glow`, `styles.css`
-    // — the shared `activity-glow-pulse` keyframe and `--activity-agent`
-    // token, Phase 95 Theme A's "AI agent" identity colour) rather than an
-    // inline box-shadow, so a CSS animation can own the whole property.
-    expect(badge.className).toContain('ref-badge-agent-glow');
+    // The border ring and the bleeding halo are the whole effect now — see
+    // `.ref-badge-agent-arc-ring` (in-row, `HeadGlow`) and
+    // `.ref-badge-agent-arc-glow` (portalled, `RefAgentGlowBleed`) below.
+    expect(badge.className).not.toContain('ref-badge-agent-glow');
+    expect(badge.className).not.toContain('graph-badge-glow');
     expect(badge.style.boxShadow).toBe('');
   });
 
-  it('renders HeadGlow sweep animation when agentActive is true even if not head', () => {
+  it('renders the orbiting arc ring (not the lane sweep) when agentActive is true even if not head', () => {
     const ref = makeRef('feature/active-agent');
     const { container } = render(
       <RefBadge
@@ -72,8 +72,18 @@ describe('RefBadge with agentActive glow', () => {
       />,
     );
 
-    const sweep = container.querySelector('.animate-lane-sweep');
-    expect(sweep).not.toBeNull();
+    expect(container.querySelector('.ref-badge-agent-arc-ring')).not.toBeNull();
+    expect(container.querySelector('.animate-lane-sweep')).toBeNull();
+  });
+
+  it('renders the plain lane sweep (not the arc ring) on the checked-out chip when no agent is active', () => {
+    const ref = makeRef('feature/checked-out', true);
+    const { container } = render(
+      <RefBadge refItem={ref} colorIdx={1} palette={theme.palette} agentActive={false} />,
+    );
+
+    expect(container.querySelector('.animate-lane-sweep')).not.toBeNull();
+    expect(container.querySelector('.ref-badge-agent-arc-ring')).toBeNull();
   });
 });
 
