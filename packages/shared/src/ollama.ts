@@ -77,6 +77,20 @@ export function deriveContextLength(modelInfo: Record<string, unknown> | undefin
   return null;
 }
 
+/**
+ * Same key-scan as {@link deriveContextLength}, for `"<arch>.embedding_length"`
+ * — Theme E's stat grid shows it "where present": most generation models
+ * don't report one (`null`, not shown), embedding models do.
+ */
+export function deriveEmbeddingLength(modelInfo: Record<string, unknown> | undefined): number | null {
+  if (!modelInfo) return null;
+  for (const [key, value] of Object.entries(modelInfo)) {
+    if (!key.endsWith('.embedding_length')) continue;
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
+  }
+  return null;
+}
+
 // --- `/api/ps` — one running model row --------------------------------------
 
 export const OllamaRunningModelSchema = z.object({
@@ -168,3 +182,82 @@ export const OllamaSettingsSchema = z.object({
   defaultModel: z.string().nullable(),
 });
 export type OllamaSettings = z.infer<typeof OllamaSettingsSchema>;
+
+// --- fitness (Theme G) --------------------------------------------------------
+
+/**
+ * Ollama's own documented default context window when nothing overrides it
+ * (`OLLAMA_CONTEXT_LENGTH`, unset) — see the phase doc's "Ollama facts". A
+ * model that reports a much larger {@link OllamaModelDetail.contextLength}
+ * (its architecture's own maximum) still *runs* at this size unless a
+ * `num_ctx` parameter says otherwise, which is exactly the gap this theme
+ * exists to surface and fix.
+ */
+export const OLLAMA_DEFAULT_CONTEXT_LENGTH = 4096;
+
+/** Every agent CLI integration this phase targets asks for at least this
+ *  much context (phase doc, "Ollama facts"). */
+export const AGENT_MIN_CONTEXT_LENGTH = 65536;
+
+/**
+ * Extracts a `num_ctx` override from `/api/show`'s `parameters` field — a
+ * plain-text block, one `PARAMETER` key/value pair per line (`"num_ctx
+ * 65536\nstop  <|im_start|>"`, the same grammar a Modelfile writes and Ollama
+ * echoes back verbatim). Returns `null` when no `num_ctx` line is present,
+ * meaning the model runs at {@link OLLAMA_DEFAULT_CONTEXT_LENGTH}.
+ */
+export function deriveNumCtx(parameters: string | null | undefined): number | null {
+  if (!parameters) return null;
+  for (const line of parameters.split('\n')) {
+    const match = /^\s*num_ctx\s+(\d+)\s*$/.exec(line);
+    if (!match) continue;
+    const value = Number(match[1]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return null;
+}
+
+/**
+ * The context length a model actually runs at — its own `num_ctx` override
+ * when its Modelfile sets one, else Ollama's default. Distinct from
+ * {@link OllamaModelDetail.contextLength} (that model's own architectural
+ * maximum, from `model_info`), which can be far larger than what it is
+ * actually served with — the exact distinction Theme E's stat grid shows
+ * both halves of.
+ */
+export function effectiveContextLength(detail: Pick<OllamaModelDetail, 'parameters'>): number {
+  return deriveNumCtx(detail.parameters) ?? OLLAMA_DEFAULT_CONTEXT_LENGTH;
+}
+
+export type AgentFitness = {
+  fit: boolean;
+  /** Human-readable, e.g. `"no tool calling"`, `"context 4096 — agents need
+   *  64k"` — the phase doc's own wording, shown as-is in Theme E's verdict
+   *  and (via Theme I, later) the agent/per-launch pickers. Empty when
+   *  `fit`. */
+  reasons: string[];
+};
+
+/**
+ * Theme G — "is this model actually usable by an agent CLI". Pure and unit
+ * tested: every agent integration this phase targets needs tool calling
+ * (Ollama's own `capabilities` list) and at least {@link
+ * AGENT_MIN_CONTEXT_LENGTH} of *effective* context — not the model's raw
+ * maximum, which `effectiveCtx` (typically {@link effectiveContextLength}'s
+ * result) already accounts for. A cloud model has no local `num_ctx` to
+ * derive one from; per the phase doc's "cloud models count as fit by
+ * default" decision, a caller for one passes a large sentinel unless its own
+ * catalogue entry says otherwise — this function itself has no opinion on
+ * local vs. cloud.
+ */
+export function agentFitness(
+  detail: Pick<OllamaModelDetail, 'capabilities'>,
+  effectiveCtx: number,
+): AgentFitness {
+  const reasons: string[] = [];
+  if (!(detail.capabilities ?? []).includes('tools')) reasons.push('no tool calling');
+  if (effectiveCtx < AGENT_MIN_CONTEXT_LENGTH) {
+    reasons.push(`context ${effectiveCtx} — agents need 64k`);
+  }
+  return { fit: reasons.length === 0, reasons };
+}

@@ -22,6 +22,8 @@ import {
   DEFAULT_AGENT_MODE,
   DEFAULT_LOOPS,
   LOOP_GROUPS,
+  agentFitness,
+  effectiveContextLength,
   type AgentDefinition,
   type AgentMode,
   type AgentStatus,
@@ -404,14 +406,17 @@ function AgentCard({
  * Backend select + model picker for an agent that lists `'ollama'` in its
  * roster `backends` (Phase 96 Theme H) — Native (the agent's own CLI/API) or
  * Ollama, and once Ollama is picked, which installed model. Installed models
- * only: the cloud catalogue and the "fit for agents" verdict are Theme F/G's
- * own scope, not built here — a model this list has no context-length
- * warning for is not necessarily a good fit, just an installed one.
+ * only: the cloud catalogue is Theme F's own scope, not built here.
+ *
+ * The fit-for-agents warning (Theme G) is fetched lazily for whichever model
+ * is currently selected — one `show` call, not one per row in the dropdown,
+ * since a `<select>` can't badge its own closed options anyway.
  */
 function OllamaBackendRow({ agent }: { agent: AgentDefinition }) {
   const binding = useUiStore((s) => s.agentBackends[agent.id]);
   const setAgentBackend = useUiStore((s) => s.setAgentBackend);
   const backend = binding?.backend ?? 'native';
+  const selectedModel = binding?.model;
 
   const { data: models, isLoading } = useQuery({
     queryKey: ['ollama-models'],
@@ -421,6 +426,20 @@ function OllamaBackendRow({ agent }: { agent: AgentDefinition }) {
     },
     enabled: hasBridge() && backend === 'ollama',
   });
+
+  const { data: selectedDetail } = useQuery({
+    queryKey: ['ollama-model-detail', selectedModel],
+    queryFn: async () => {
+      const result = await bridge()!.ollama.show({ model: selectedModel! });
+      return result.ok ? result.value : null;
+    },
+    enabled: hasBridge() && backend === 'ollama' && Boolean(selectedModel),
+  });
+
+  const fitness =
+    selectedDetail && backend === 'ollama' && selectedModel
+      ? agentFitness(selectedDetail, effectiveContextLength(selectedDetail))
+      : null;
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 border-t border-border/50">
@@ -462,6 +481,14 @@ function OllamaBackendRow({ agent }: { agent: AgentDefinition }) {
               </option>
             ))}
           </select>
+          {fitness && !fitness.fit ? (
+            <span
+              title={fitness.reasons.join('; ')}
+              className="shrink-0 text-[10px] font-medium text-amber-600 dark:text-amber-400"
+            >
+              ⚠ not agent-ready
+            </span>
+          ) : null}
         </div>
       ) : null}
     </div>
