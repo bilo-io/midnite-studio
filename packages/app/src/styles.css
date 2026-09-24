@@ -3406,6 +3406,86 @@ html[data-motion='reduced'] .ref-badge-agent-glow {
   box-shadow: 0 0 8px var(--activity-agent);
 }
 
+/* One shared, stronger pulse for the bleeding halo below — bigger blur AND
+ * spread than `activity-glow-pulse`, and layered with `color-mix()` rather
+ * than one opaque shadow, so raising "intensity" means raising alpha and
+ * reach together instead of just a wider blur on the same solid ring. Kept
+ * as its own keyframe rather than widening `activity-glow-pulse` itself,
+ * which nine other `[data-activity-status]` targets across the app share —
+ * this one effect wanting to read as louder than all of them is not a reason
+ * to turn every one of those up too. */
+@keyframes ref-badge-agent-glow-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px var(--activity-agent),
+      0 0 12px 2px color-mix(in srgb, var(--activity-agent) 80%, transparent),
+      0 0 24px 6px color-mix(in srgb, var(--activity-agent) 50%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1.5px var(--activity-agent),
+      0 0 20px 5px color-mix(in srgb, var(--activity-agent) 95%, transparent),
+      0 0 38px 11px color-mix(in srgb, var(--activity-agent) 65%, transparent);
+  }
+}
+
+/*
+  The bleeding halo (`ref-agent-glow-bleed.tsx`'s `RefAgentGlowBleed`) —
+  portalled to `document.body` and positioned from the live chip's own
+  `getBoundingClientRect()`, the same pattern `SyncOverlay` above and
+  `ref-agent-avatar.tsx`'s `RefAgentAvatar` already use to escape the
+  identical pair of traps: the BRANCH/TAG cell is `overflow-hidden`, and each
+  virtualized row carries a `transform`, which makes it the containing block
+  AND stacking context for anything `fixed`.
+
+  `.ref-badge-agent-glow` above is a real halo too, but it is painted INSIDE
+  the row it glows on — box-shadow blur is symmetric by construction, but a
+  ref badge sits in a row barely taller than the chip itself, so most of that
+  blur had nowhere to go and was clipped down to a couple of px of padding.
+  On screen that read as a thin stripe down the chip's sides where the
+  column had lateral room, with nothing above or below it — not "the whole
+  chip glowing". This element is not a recoloured copy of that ring; it is
+  the same identity colour and the same shared `ref-badge-agent-glow-pulse`
+  keyframe, sized and positioned to paint with nothing clipping it, so the
+  blur can spend its full radius — which now reaches past the row's own
+  bounds into the rows above and below it.
+
+  No fill of its own and `pointer-events: none`: `box-shadow` never touches
+  an element's own interior, so a fully transparent box painting only its
+  halo can sit on top of the real chip (portalled content paints after
+  everything already in the DOM) without ever covering the branch name or
+  the ahead/behind counts under it — contrast is never a function of how
+  intense this glow is, because the readable layer and the glowing layer are
+  two different elements.
+*/
+.ref-badge-agent-glow-bleed {
+  animation: ref-badge-agent-glow-pulse 2s ease-in-out infinite paused;
+  /* A static (never animated) saturation lift — the motion guard only bars
+   * animating `filter: blur()`; this is `saturate()`, held constant. */
+  filter: saturate(1.35);
+}
+
+html:not([data-window-focused='false']) .ref-badge-agent-glow-bleed {
+  animation-play-state: running;
+}
+
+html[data-window-focused='false'] .ref-badge-agent-glow-bleed {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .ref-badge-agent-glow-bleed {
+    animation: none;
+    box-shadow: 0 0 16px 3px var(--activity-agent);
+  }
+}
+
+html[data-motion='reduced'] .ref-badge-agent-glow-bleed {
+  animation: none;
+  box-shadow: 0 0 16px 3px var(--activity-agent);
+}
+
 /*
   Dependency edge states (Phase 75 Theme E) — `edge-appearance.ts` picks
   these classes off two endpoints (plus, for the fourth row, the same glow

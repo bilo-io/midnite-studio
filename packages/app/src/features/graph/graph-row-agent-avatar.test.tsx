@@ -1,4 +1,4 @@
-import type { GraphRow, Ref, TerminalSession } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, type GraphRow, type Ref, type TerminalSession } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,6 +9,10 @@ import type { ActiveAgentWorktreeSession } from './use-agent-worktrees';
 const revealSessionMock = vi.fn((_sessionId: string) => true);
 vi.mock('../terminal/reveal-session', () => ({
   revealSession: (sessionId: string) => revealSessionMock(sessionId),
+}));
+
+vi.mock('../terminal/use-agents', () => ({
+  useAgents: () => ({ agents: [...BUILTIN_AGENTS] }),
 }));
 
 const theme = graphThemeFor('default', 'comfortable');

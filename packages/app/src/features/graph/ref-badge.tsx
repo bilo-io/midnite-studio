@@ -10,6 +10,7 @@ import type { ActiveAgentWorktreeSession } from './use-agent-worktrees';
 import type { PaletteStyle } from './graph-themes';
 import { laneInk, laneVars } from './lane-colors';
 import { RefAgentAvatar } from './ref-agent-avatar';
+import { RefAgentGlowBleed } from './ref-agent-glow-bleed';
 import type { SyncAction } from './ref-sync';
 
 /**
@@ -214,7 +215,7 @@ export function RefBadge({
         dnd?.isOver ? 'ring-2 ring-primary ring-offset-1 ring-offset-background' : ''
       } ${dnd?.isDragging ? 'opacity-40' : ''}`}
     >
-      {current || agentActive ? <HeadGlow /> : null}
+      {current || agentActive ? <HeadGlow agentActive={agentActive} /> : null}
       <RefIcon refItem={refItem} />
       <span className="truncate">{refItem.name}</span>
       {/* Ahead/behind belongs on the badge: it's the answer to "do I need to
@@ -242,23 +243,34 @@ export function RefBadge({
     <RefAgentAvatar session={agentSession.session} agentId={agentSession.agentId} />
   ) : null;
 
+  // Portalled past the cell's `overflow-hidden` and the row's own
+  // `transform` — see `RefAgentGlowBleed`'s own comment for why it bleeds
+  // into neighbouring rows where the in-row `.ref-badge-agent-glow` ring
+  // above cannot. `active` is `agentActive` alone (not `agentSession`):
+  // the ring on the chip already keys off the same boolean.
+  const glowBleed = <RefAgentGlowBleed anchor={chipRef} active={agentActive} />;
+
   if (!expandable) {
     if (!avatar) {
       return (
-        <Tooltip label={<RefTooltip refItem={refItem} />}>
-          {/*
-            The wrapper is `contents`-free on purpose: Tooltip clones its child
-            and needs a real element to hang a ref and handlers on, and the chip
-            IS that element.
-          */}
-          {chip}
-        </Tooltip>
+        <>
+          <Tooltip label={<RefTooltip refItem={refItem} />}>
+            {/*
+              The wrapper is `contents`-free on purpose: Tooltip clones its child
+              and needs a real element to hang a ref and handlers on, and the chip
+              IS that element.
+            */}
+            {chip}
+          </Tooltip>
+          {glowBleed}
+        </>
       );
     }
     return (
       <span className={`flex w-fit min-w-0 shrink items-center gap-1 ${share}`}>
         <Tooltip label={<RefTooltip refItem={refItem} />}>{chip}</Tooltip>
         {avatar}
+        {glowBleed}
       </span>
     );
   }
@@ -284,6 +296,7 @@ export function RefBadge({
         />
       ) : null}
       {avatar}
+      {glowBleed}
     </span>
   );
 }
@@ -477,24 +490,36 @@ const STRIP_GAP = 3;
  * with, costs no layout, and needs no stacking context to reason about. It is
  * also static here — the sweep is the only animated layer — so the usual
  * objection to animating `box-shadow` does not apply.
+ *
+ * `agentActive` recolours the sweep from the checked-out chip's lane-hue/white
+ * highlight to the shared `--activity-agent` identity colour, and widens the
+ * band from 1px to 1.5px — this is the "full border" half of the agent glow:
+ * unlike the halo (`.ref-badge-agent-glow`/`RefAgentGlowBleed`), this sweep
+ * was never clipped (it oversteps the chip by only a page or two), so the fix
+ * here is not escaping a clipping ancestor, it is making the border agree
+ * with the halo's colour and read as one effect rather than a lane-tinted
+ * ring around an agent-tinted glow.
  */
-function HeadGlow() {
+function HeadGlow({ agentActive = false }: { agentActive?: boolean }) {
   return (
     <>
       {/*
-        The moving layer: a 200%-wide gradient sliding across a 1px frame.
+        The moving layer: a 200%-wide gradient sliding across a 1-1.5px frame.
 
         `padding-box`/`border-box` masking is what makes a gradient BORDER
         rather than a gradient fill — the two backgrounds are composited with
-        `xor`, so the gradient survives only in the 1px band between the two
+        `xor`, so the gradient survives only in the band between the two
         boxes and the chip's own fill shows through the middle untouched.
       */}
       <span
         aria-hidden
-        className="pointer-events-none absolute -inset-px animate-lane-sweep rounded-[4px] p-px"
+        className={`pointer-events-none absolute animate-lane-sweep rounded-[4px] ${
+          agentActive ? '-inset-[1.5px] p-[1.5px]' : '-inset-px p-px'
+        }`}
         style={{
-          background:
-            'linear-gradient(90deg, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 0%, hsl(0 0% 100% / 0.85) 25%, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 50%, hsl(0 0% 100% / 0.85) 75%, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 100%)',
+          background: agentActive
+            ? 'linear-gradient(90deg, color-mix(in srgb, var(--activity-agent) 0%, transparent) 0%, color-mix(in srgb, var(--activity-agent) 55%, white 45%) 25%, color-mix(in srgb, var(--activity-agent) 0%, transparent) 50%, color-mix(in srgb, var(--activity-agent) 55%, white 45%) 75%, color-mix(in srgb, var(--activity-agent) 0%, transparent) 100%)'
+            : 'linear-gradient(90deg, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 0%, hsl(0 0% 100% / 0.85) 25%, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 50%, hsl(0 0% 100% / 0.85) 75%, hsl(var(--lane-h) var(--lane-s) var(--lane-l) / 0) 100%)',
           backgroundSize: '200% 100%',
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',

@@ -7,6 +7,7 @@ import { resolveAgentIcon } from '../../components/icons';
 import { Tooltip } from '../../components/tooltip';
 import { useOccluder } from '../../components/use-occluder';
 import { revealSession } from '../terminal/reveal-session';
+import { useAgents } from '../terminal/use-agents';
 import { useHoverGroup } from './ref-badge';
 
 /**
@@ -47,7 +48,14 @@ export function RefAgentAvatar({
   session: TerminalSession;
   agentId: string | undefined;
 }) {
-  const Icon = resolveAgentIcon({ id: agentId ?? 'claude' });
+  // Same roster lookup `SessionIcon` (`terminal-session-list.tsx`) does for
+  // the identical mark-plus-accent pairing: `resolveAgentIcon` only needs the
+  // id/icon key, but the COLOUR is roster data (`AgentDefinition.accent`),
+  // not something the icon registry carries on its own.
+  const { agents } = useAgents();
+  const resolvedId = agentId ?? 'claude';
+  const agent = agents.find((a) => a.id === resolvedId);
+  const Icon = resolveAgentIcon(agent ?? { id: resolvedId });
   const anchorRef = useRef<HTMLSpanElement | null>(null);
   const { hovered, enter, leave } = useHoverGroup();
   const [placed, setPlaced] = useState<{ x: number; y: number } | null>(null);
@@ -91,11 +99,31 @@ export function RefAgentAvatar({
           style={{
             width: AVATAR_SIZE,
             height: AVATAR_SIZE,
+            // Opaque fill plus a slightly stronger ring than before (was
+            // `0 0 0 1px`) — a solid backdrop of its own so the circle stays
+            // legible sitting on top of the intensified agent glow behind
+            // it (see `.ref-badge-agent-glow-bleed` in styles.css) rather
+            // than the colour underneath bleeding through.
             backgroundColor: 'hsl(var(--muted))',
-            boxShadow: '0 0 0 1px hsl(var(--border))',
+            boxShadow: '0 0 0 1.5px hsl(var(--border))',
           }}
         >
-          <Icon aria-hidden style={{ width: AVATAR_SIZE * 0.62, height: AVATAR_SIZE * 0.62 }} />
+          <Icon
+            aria-hidden
+            style={{
+              width: AVATAR_SIZE * 0.62,
+              height: AVATAR_SIZE * 0.62,
+              // Roster data, not a Tailwind class — a user-added agent
+              // brings a colour Tailwind has never seen. `undefined` when
+              // the id resolves to no roster entry, same as `SessionIcon`'s
+              // fallback: the ambient `text-foreground` above still applies
+              // through `currentColor`. A future multi-colour brand mark
+              // that paints its own fills (rather than `fill="currentColor"`,
+              // as every local mark does today) simply ignores this, the
+              // same way `GrokIcon` already ignores a caller `color`.
+              color: agent?.accent,
+            }}
+          />
         </span>
       </Tooltip>
 
