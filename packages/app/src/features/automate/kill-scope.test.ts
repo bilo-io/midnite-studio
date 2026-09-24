@@ -5,7 +5,13 @@ import { describe, expect, it } from 'vitest';
 
 import type { TerminalSession } from '@midnite/studio-shared';
 
-import { EMPTY_KILL_SCOPE_CONTEXT, sessionMatchesScope, sessionsForScope, type KillScopeContext } from './kill-scope';
+import {
+  EMPTY_KILL_SCOPE_CONTEXT,
+  projectIdsToDisableForScope,
+  sessionMatchesScope,
+  sessionsForScope,
+  type KillScopeContext,
+} from './kill-scope';
 
 function session(overrides: Partial<TerminalSession> & Pick<TerminalSession, 'id'>): TerminalSession {
   return {
@@ -88,5 +94,34 @@ describe('sessionsForScope', () => {
   it('an asleep session never counts, even if otherwise live-looking', () => {
     const sessions = [session({ id: 'live1', asleep: true })];
     expect(sessionsForScope(sessions, states, 'global', EMPTY_KILL_SCOPE_CONTEXT)).toHaveLength(0);
+  });
+});
+
+describe('projectIdsToDisableForScope', () => {
+  const enabled = { 'proj-1': true, 'proj-2': false, 'proj-3': true };
+
+  it('project scope disables only the named project, if it is on', () => {
+    const on = { ...EMPTY_KILL_SCOPE_CONTEXT, project: { projectId: 'proj-1' } };
+    const off = { ...EMPTY_KILL_SCOPE_CONTEXT, project: { projectId: 'proj-2' } };
+    expect(projectIdsToDisableForScope('project', on, enabled, null)).toEqual(['proj-1']);
+    expect(projectIdsToDisableForScope('project', off, enabled, null)).toEqual([]);
+  });
+
+  it('repo scope disables only the board remembered for that repo, if it is on', () => {
+    expect(projectIdsToDisableForScope('repo', EMPTY_KILL_SCOPE_CONTEXT, enabled, 'proj-1')).toEqual(['proj-1']);
+    expect(projectIdsToDisableForScope('repo', EMPTY_KILL_SCOPE_CONTEXT, enabled, 'proj-2')).toEqual([]);
+    expect(projectIdsToDisableForScope('repo', EMPTY_KILL_SCOPE_CONTEXT, enabled, null)).toEqual([]);
+  });
+
+  it('global scope disables every project currently on', () => {
+    expect(projectIdsToDisableForScope('global', EMPTY_KILL_SCOPE_CONTEXT, enabled, null).sort()).toEqual([
+      'proj-1',
+      'proj-3',
+    ]);
+  });
+
+  it('flow and forgeUser scopes never disable a board — Auto-mate has no toggle at that level', () => {
+    expect(projectIdsToDisableForScope('flow', EMPTY_KILL_SCOPE_CONTEXT, enabled, 'proj-1')).toEqual([]);
+    expect(projectIdsToDisableForScope('forgeUser', EMPTY_KILL_SCOPE_CONTEXT, enabled, 'proj-1')).toEqual([]);
   });
 });

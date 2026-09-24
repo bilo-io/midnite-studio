@@ -69,3 +69,44 @@ export function sessionsForScope(
     return sessionMatchesScope(session, scope, context);
   });
 }
+
+/**
+ * Which project boards Confirm should flip Auto-mate off for (Phase 95
+ * Theme H) — deliberately narrower than "every session this scope kills",
+ * because Auto-mate is a per-project-board toggle and the app tracks no
+ * project↔repo reverse index beyond `projectBoardByRepo`'s single
+ * "last board opened for this repo" memory:
+ *
+ * - `project` turns off the named board, if Auto-mate is even on for it.
+ * - `repo` turns off only the board `projectBoardByRepo` remembers for this
+ *   repo — the one project↔repo association the app persists. A board
+ *   Auto-mate'd under a *different* repo selection keeps running; its own
+ *   sessions still stop if they carry this `repoId`, which the session-level
+ *   filter above handles regardless.
+ * - `global` turns off every board that is currently on.
+ * - `flow`/`forgeUser` turn off nothing — Auto-mate has no workflow- or
+ *   forge-account-level toggle of its own, only a project-board one, so
+ *   these two scopes only ever stop matching *sessions*.
+ */
+export function projectIdsToDisableForScope(
+  scope: KillScope,
+  context: KillScopeContext,
+  automateEnabledByProject: Readonly<Record<string, boolean>>,
+  repoBoardProjectId: string | null,
+): string[] {
+  switch (scope) {
+    case 'project':
+      return context.project && automateEnabledByProject[context.project.projectId]
+        ? [context.project.projectId]
+        : [];
+    case 'repo':
+      return repoBoardProjectId && automateEnabledByProject[repoBoardProjectId] ? [repoBoardProjectId] : [];
+    case 'global':
+      return Object.entries(automateEnabledByProject)
+        .filter(([, enabled]) => enabled)
+        .map(([projectId]) => projectId);
+    case 'flow':
+    case 'forgeUser':
+      return [];
+  }
+}
