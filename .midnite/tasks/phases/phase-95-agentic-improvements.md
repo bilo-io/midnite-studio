@@ -390,7 +390,7 @@ parallel. **E** and **F** need **D**. **G** needs **C**. **H** needs **G** and t
       reaching `startAgent` (`autoSend: true`, a trailing `\r`) are Playwright cases in
       `kanban.spec.ts` — pointer drag is a real-browser capability jsdom cannot supply.
 
-### H — Auto-mate, and the kill switch (L) — ✅ DONE (PR #536, 2026-09-24)
+### H — Auto-mate, and the kill switch (L) — ✅ DONE (PR #535, 2026-09-24)
 
 - [x] **Session attribution.** Add optional `projectRef {projectId, forge}`, `workflowRunRef
       {workflowId, runId, nodeId}` and `forgeAccountKey` to `TerminalSessionSchema` (in the object

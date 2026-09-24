@@ -39,7 +39,7 @@ Theme G's concurrent 449 → 454 raise) with the file's own committed-justificat
 
 ## 2026-09-24 — Phase 95 Theme H — Auto-mate, and the kill switch
 
-[PR #536](https://github.com/bilo-io/midnite-studio/pull/536).
+[PR #535](https://github.com/bilo-io/midnite-studio/pull/535).
 
 Session attribution: `TerminalSessionSchema` gains optional `projectRef {projectId, forge}`,
 `workflowRunRef {workflowId, runId, nodeId}` and `forgeAccountKey`, stamped at launch by
