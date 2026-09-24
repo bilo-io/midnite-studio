@@ -9,6 +9,7 @@ import {
   METRICS_IDLE_INTERVAL_MS,
   VIEW_IDS,
   type AgentMode,
+  type AgentOllamaBinding,
   type AppId,
   type CompanionMicMode,
   type CompanionVoiceEngine,
@@ -1502,6 +1503,18 @@ export type UiState = {
    *  Theme B), which absorbs that one slot and wants it gone, not blank. */
   removeAgentApiKey: (agentId: string) => void;
   /**
+   * Per-agent Ollama binding (Phase 96 Theme H) — `{backend: 'native' |
+   * 'ollama', model?: string}`, keyed by roster agent id. Lives here rather
+   * than in `agents.json`, per the phase doc's own recommendation: a picked
+   * backend is a user preference, not roster data, and a hand-edited roster
+   * file should never be rewritten by a Settings pick. Mirrored into main
+   * (`use-settings-sync.ts` → `settings-mirror.ts`) since `council-runner.ts`
+   * and workflow `executors/agent.ts` resolve this with no renderer round
+   * trip.
+   */
+  agentBackends: Record<string, AgentOllamaBinding>;
+  setAgentBackend: (agentId: string, binding: AgentOllamaBinding) => void;
+  /**
    * Non-secret mirror of main's account registry (Phase 90 Theme B) — main
    * owns the authoritative copy; this is what lets the title-bar avatar and
    * Settings ▸ Accounts render without an IPC round trip on every paint.
@@ -2044,6 +2057,7 @@ export type PersistedUi = Pick<
   | 'primaryAgent'
   | 'agentModes'
   | 'agentApiKeys'
+  | 'agentBackends'
   | 'skillExecutionMode'
   | 'repoGroups'
   | 'repoGroupMembership'
@@ -2197,6 +2211,9 @@ export const useUiStore = create<UiState>()(
           const { [agentId]: _dropped, ...rest } = state.agentApiKeys;
           return { agentApiKeys: rest };
         }),
+      agentBackends: {},
+      setAgentBackend: (agentId, binding) =>
+        set((state) => ({ agentBackends: { ...state.agentBackends, [agentId]: binding } })),
       forgeAccounts: [],
       setForgeAccounts: (forgeAccounts) => set({ forgeAccounts }),
       forgeActiveAccountId: null,
@@ -2977,6 +2994,7 @@ export const useUiStore = create<UiState>()(
         primaryAgent: state.primaryAgent,
         agentModes: state.agentModes,
         agentApiKeys: state.agentApiKeys,
+        agentBackends: state.agentBackends,
         forgeAccounts: state.forgeAccounts,
         forgeActiveAccountId: state.forgeActiveAccountId,
         forgeScopeReposToActiveAccount: state.forgeScopeReposToActiveAccount,
@@ -3306,6 +3324,7 @@ export const useUiStore = create<UiState>()(
           agentSkills: { ...current.agentSkills, ...saved.agentSkills },
           agentModes: { ...current.agentModes, ...(saved.agentModes ?? {}) },
           agentApiKeys: { ...current.agentApiKeys, ...(saved.agentApiKeys ?? {}) },
+          agentBackends: { ...current.agentBackends, ...(saved.agentBackends ?? {}) },
           fabSessions: { ...current.fabSessions, ...saved.fabSessions },
           loopModifierDefaults: {
             ...current.loopModifierDefaults,

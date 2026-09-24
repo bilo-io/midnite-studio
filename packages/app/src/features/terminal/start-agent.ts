@@ -1,7 +1,9 @@
 import {
+  OLLAMA_DEFAULT_BASE_URL,
   agentHeadlessArgs,
   agentInteractiveArgs,
   agentInvocationArgs,
+  resolveAgentLaunch,
   shellQuote,
   toAgentPrompt,
   type SkillExecutionMode,
@@ -102,6 +104,22 @@ export function startAgent({
 }): TerminalSession {
   if (surface !== 'fab' && surface !== 'kanban') useUiStore.getState().setTerminalOpen(true);
 
+  /*
+    Phase 96 Theme H — the ONE resolver, called with the binding this session
+    launches with right now (`ui-store.ts`'s `agentBackends`, read
+    synchronously: it is already in-memory renderer state, no IPC needed).
+    `base` is the compile-time default rather than a live read of the daemon's
+    actual host: the renderer cannot read `OLLAMA_HOST` (only main can), and
+    there is no Settings ▸ Ollama host-override page yet (Theme C's own
+    scope) — see `OLLAMA_DEFAULT_BASE_URL`'s own doc comment. Only the
+    recipe's `argsBefore`/`commandOverride` are used here; its `env` is
+    resolved again, with the daemon's REAL host, by `use-terminal-ipc.ts`'s
+    `start()` right before `pty.create` — the one point in this flow that is
+    already async.
+  */
+  const binding = useUiStore.getState().agentBackends[agentId];
+  const launch = resolveAgentLaunch({ id: agentId, command }, binding, OLLAMA_DEFAULT_BASE_URL);
+
   const session = useTerminalStore.getState().openSession({
     kind: 'agent',
     agentId,
@@ -113,6 +131,7 @@ export function startAgent({
     ...(projectRef === undefined ? {} : { projectRef }),
     ...(workflowRunRef === undefined ? {} : { workflowRunRef }),
     ...(forgeAccountKey === undefined ? {} : { forgeAccountKey }),
+    ...(launch.backend === 'ollama' ? { backend: launch.backend, ollamaModel: launch.model } : {}),
   });
 
   const executionMode = mode ?? useUiStore.getState().skillExecutionMode ?? 'interactive';
@@ -123,12 +142,13 @@ export function startAgent({
   const words =
     prompt !== undefined
       ? [
-          command,
+          launch.command,
+          ...launch.argsBefore,
           ...extraArgs,
           ...agentInvocationArgs(agentId, executionMode),
           shellQuote(toAgentPrompt(prompt, agentId)),
         ]
-      : [command, ...extraArgs];
+      : [launch.command, ...launch.argsBefore, ...extraArgs];
   useTerminalStore.getState().queueInput(session.id, words.join(' ') + (autoSend ? '\r' : ''));
   return session;
 }

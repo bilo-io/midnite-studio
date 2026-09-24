@@ -24,6 +24,10 @@ export function useSettingsSync(): void {
   // main (`forge-account-handlers.ts`), so the setting has to cross the same
   // way `autoFetchEnabled` does — mirrored, not asked-for on demand.
   const forgeSyncGhAuthSwitch = useUiStore((s) => s.forgeSyncGhAuthSwitch);
+  // Phase 96 Theme H: `council-runner.ts` and workflow `executors/agent.ts`
+  // both run in main with no renderer store to read, so the binding has to
+  // cross the same way `forgeSyncGhAuthSwitch` does.
+  const agentBackends = useUiStore((s) => s.agentBackends);
 
   useEffect(() => {
     const api = bridge();
@@ -38,6 +42,7 @@ export function useSettingsSync(): void {
       appDiscardIdle,
       browserDiscardMs,
       forgeSyncGhAuthSwitch,
+      agentBackends,
     });
   }, [
     autoFetchEnabled,
@@ -45,5 +50,6 @@ export function useSettingsSync(): void {
     appDiscardIdle,
     browserDiscardMs,
     forgeSyncGhAuthSwitch,
+    agentBackends,
   ]);
 }

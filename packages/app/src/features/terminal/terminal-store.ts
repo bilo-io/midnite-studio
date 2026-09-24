@@ -86,6 +86,9 @@ export type NewSessionRequest = {
   projectRef?: { projectId: string; forge: string };
   workflowRunRef?: { workflowId: string; runId: string; nodeId: string };
   forgeAccountKey?: string;
+  /** Session identity for an Ollama-backed launch (Phase 96 Theme H) — see `TerminalSessionSchema`'s own doc. */
+  backend?: 'native' | 'ollama';
+  ollamaModel?: string;
 };
 
 type TerminalState = {
@@ -528,6 +531,8 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       ...(request.projectRef === undefined ? {} : { projectRef: request.projectRef }),
       ...(request.workflowRunRef === undefined ? {} : { workflowRunRef: request.workflowRunRef }),
       ...(request.forgeAccountKey === undefined ? {} : { forgeAccountKey: request.forgeAccountKey }),
+      ...(request.backend === undefined ? {} : { backend: request.backend }),
+      ...(request.ollamaModel === undefined ? {} : { ollamaModel: request.ollamaModel }),
     };
 
     set((state) => ({

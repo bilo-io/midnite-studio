@@ -98,6 +98,8 @@ export function inprocCreatePty(
     rows: number;
     agentId?: string | undefined;
     initialInput?: string | undefined;
+    /** Per-session env overrides (Phase 96 Theme H) — merged in last, so these always win. */
+    env?: Record<string, string> | undefined;
   },
   onData: (ptyId: string, bytes: Uint8Array) => void,
   onExit: (ptyId: string, exitCode: number, signal?: number | undefined) => void,
@@ -126,6 +128,7 @@ export function inprocCreatePty(
         TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
         ...agentFingerprintEnv(options.kind, options.sessionId, options.agentId),
+        ...options.env,
       } as Record<string, string>,
     });
 

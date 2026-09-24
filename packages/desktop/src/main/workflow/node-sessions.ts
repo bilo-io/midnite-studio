@@ -63,6 +63,11 @@ export type StartNodeSessionParams = {
   cwd: string;
   /** Typed into the shell once it is up, WITH the trailing `\r` — a workflow run is unattended by definition, the same auto-send exception `council-runner.ts` takes. */
   initialInput: string;
+  /** Per-session env overrides (Phase 96 Theme H) — an Ollama-bound agent node's recipe env. */
+  env?: Record<string, string>;
+  /** Session identity for an Ollama-backed node (Phase 96 Theme H) — see `TerminalSessionSchema`'s own doc. */
+  backend?: 'native' | 'ollama';
+  ollamaModel?: string;
 };
 
 export type StartNodeSessionResult =
@@ -85,6 +90,7 @@ export async function startNodeSession(params: StartNodeSessionParams): Promise<
     rows: NODE_SESSION_ROWS,
     ...(params.agentId === undefined ? {} : { agentId: params.agentId }),
     initialInput: params.initialInput,
+    ...(params.env === undefined ? {} : { env: params.env }),
   });
   if (!createResult.ok) return { ok: false, message: createResult.message };
 
@@ -98,6 +104,8 @@ export async function startNodeSession(params: StartNodeSessionParams): Promise<
     repoId: WORKFLOW_SESSION_REPO_ID,
     createdAt: Date.now(),
     workflowRunRef: { workflowId: params.workflowId, runId: params.runId, nodeId: params.nodeId },
+    ...(params.backend === undefined ? {} : { backend: params.backend }),
+    ...(params.ollamaModel === undefined ? {} : { ollamaModel: params.ollamaModel }),
   };
   saveTerminal(session);
 
