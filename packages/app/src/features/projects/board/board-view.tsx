@@ -29,6 +29,7 @@ import { useClearProjectItemField, useSetProjectItemField } from '../../../servi
 import { useUiStore } from '../../../store/ui-store';
 import { useToastStore } from '../../../store/toast-store';
 import { revealSession } from '../../terminal/reveal-session';
+import { resolveSessionAttribution } from '../../terminal/session-attribution';
 import { startAgent } from '../../terminal/start-agent';
 import { findCardSession, useTerminalStore } from '../../terminal/terminal-store';
 import {
@@ -461,6 +462,7 @@ export function BoardView({
       command: agent.command,
       surface: 'kanban',
       taskRef: { projectId, itemId: item.id },
+      ...resolveSessionAttribution(projectId),
       autoSend: true,
     });
     revealSession(session.id);

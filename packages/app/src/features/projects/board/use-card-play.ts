@@ -6,6 +6,7 @@ import { useDialogs } from '../../../components/dialog-host';
 import type { MenuItem } from '../../../components/context-menu';
 import { DEFAULT_AGENT_SKILLS, useUiStore, type AgentCommandId } from '../../../store/ui-store';
 import { AGENT_COMMANDS } from '../../agent/agent-commands';
+import { resolveSessionAttribution } from '../../terminal/session-attribution';
 import { revealSession } from '../../terminal/reveal-session';
 import { startAgent } from '../../terminal/start-agent';
 import { useTerminalStore } from '../../terminal/terminal-store';
@@ -106,6 +107,7 @@ export function useCardPlay({
         command: agent.command,
         surface: 'kanban',
         taskRef,
+        ...resolveSessionAttribution(taskRef.projectId),
         autoSend: true,
       });
       revealSession(session.id);
