@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import type { IconComponent } from './icon-button';
 
 /**
@@ -16,12 +18,16 @@ export function EmptyState({
   title,
   body,
   bodySize = 'sm',
+  action,
 }: {
   icon?: IconComponent;
   title: string;
   body?: string;
   /** `xs` matches the file preview's original `FallbackCard` caption size. */
   bodySize?: 'xs' | 'sm';
+  /** An optional control below the body — e.g. the Models Discover tab's
+   *  "open ollama.com/search" fallback link (Phase 96 Theme D). */
+  action?: ReactNode;
 }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
@@ -32,6 +38,7 @@ export function EmptyState({
           {body}
         </p>
       ) : null}
+      {action ? <div className="mt-1">{action}</div> : null}
     </div>
   );
 }

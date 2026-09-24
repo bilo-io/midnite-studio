@@ -1,4 +1,4 @@
-import type { OllamaSettings } from '@midnite/studio-shared';
+import type { OllamaModel, OllamaSearchResultItem, OllamaSettings } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
@@ -26,6 +26,10 @@ const MODELS_KEYS = {
   running: ['ollama-running'] as const,
   detail: (model: string) => ['ollama-model-detail', model] as const,
   settings: ['ollama-settings'] as const,
+  search: (scope: string, query: string) => ['ollama-search', scope, query] as const,
+  cloudList: ['ollama-cloud-list'] as const,
+  signInStatus: ['ollama-sign-in-status'] as const,
+  apiKeyHas: ['ollama-api-key-has'] as const,
 };
 
 export function useOllamaStatus() {
@@ -195,4 +199,94 @@ export function useRefetchModelsOnFocus(): void {
     return () => window.removeEventListener('focus', onFocus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+}
+
+// --- search + cloud (Phase 96 Themes D, F) -----------------------------------
+
+export type OllamaSearchQueryResult = {
+  items: OllamaSearchResultItem[];
+  stale: boolean;
+  updatedAt: string | null;
+  /**
+   * `true` only for `{kind:'error', code:'parse'}` — a non-empty ollama.com
+   * page this app's scraper failed to read. The Discover tab needs this
+   * distinguished from an ordinary network failure (silently swallowed to
+   * `[]`, like every other list query here) so it can fall back to
+   * pull-by-name with a link out, per the phase doc.
+   */
+  parseFailed: boolean;
+};
+
+/** Debounced by the caller (`models-view.tsx`), exactly like `useFinanceSearch`. */
+export function useOllamaSearch(query: string, scope: 'local' | 'cloud') {
+  const trimmed = query.trim();
+  return useQuery({
+    queryKey: MODELS_KEYS.search(scope, trimmed),
+    queryFn: async (): Promise<OllamaSearchQueryResult> => {
+      const result = await bridge()?.ollama.search({ query: trimmed, scope });
+      if (!result) return { items: [], stale: false, updatedAt: null, parseFailed: false };
+      if (result.ok) {
+        return {
+          items: result.value.items,
+          stale: result.value.stale,
+          updatedAt: result.value.updatedAt,
+          parseFailed: false,
+        };
+      }
+      return {
+        items: [],
+        stale: false,
+        updatedAt: null,
+        parseFailed: result.kind === 'error' && result.code === 'parse',
+      };
+    },
+    enabled: trimmed.length > 0,
+    // The server (`library-search.ts`) already caches per query for ~1h; a
+    // shorter client-side staleTime just avoids re-hitting main on every
+    // debounce tick for the SAME query while the tab stays open.
+    staleTime: 60_000,
+  });
+}
+
+/** The cloud catalogue (Theme F) — only fetched once the tab is actually open. */
+export function useOllamaCloudList(enabled: boolean) {
+  return useQuery({
+    queryKey: MODELS_KEYS.cloudList,
+    queryFn: async (): Promise<OllamaModel[]> => {
+      const result = await bridge()?.ollama.cloudList();
+      return result?.ok ? result.value.models : [];
+    },
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+export function useOllamaSignInStatus() {
+  return useQuery({
+    queryKey: MODELS_KEYS.signInStatus,
+    queryFn: async () => (await bridge()?.ollama.signInStatus()) ?? { signedIn: false },
+    staleTime: 30_000,
+  });
+}
+
+/** Whether `ollama.apiKey` is set in the vault — never the value itself. */
+export function useOllamaApiKeyHasKey() {
+  return useQuery({
+    queryKey: MODELS_KEYS.apiKeyHas,
+    queryFn: async () => (await bridge()?.secrets.has({ key: 'ollama.apiKey' })) ?? { hasKey: false },
+    staleTime: 0,
+  });
+}
+
+/** An empty string clears the key (`secrets-handlers.ts`'s own convention). */
+export function useSetOllamaApiKey() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (value: string) => {
+      await bridge()?.secrets.set({ key: 'ollama.apiKey', value });
+    },
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: MODELS_KEYS.apiKeyHas });
+    },
+  });
 }

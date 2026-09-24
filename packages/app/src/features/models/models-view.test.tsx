@@ -1,6 +1,6 @@
-import type { MidniteStudioBridge, OllamaModel } from '@midnite/studio-shared';
+import type { MidniteStudioBridge, OllamaModel, OllamaSearchResultItem } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
@@ -19,9 +19,26 @@ function model(over: Partial<OllamaModel> = {}): OllamaModel {
   };
 }
 
+function searchResult(over: Partial<OllamaSearchResultItem> = {}): OllamaSearchResultItem {
+  return {
+    name: 'llama3.1',
+    description: 'Llama 3.1 from Meta.',
+    capabilities: ['tools'],
+    variants: ['8b', '70b'],
+    pulls: '119.8M',
+    updatedAt: '1 year ago',
+    ...over,
+  };
+}
+
 function installBridge(over: {
   reachable?: boolean;
   models?: OllamaModel[];
+  searchItems?: OllamaSearchResultItem[];
+  searchParseFailed?: boolean;
+  cloudModels?: OllamaModel[];
+  signedIn?: boolean;
+  hasKey?: boolean;
 } = {}) {
   const reachable = over.reachable ?? true;
   const status = vi.fn().mockResolvedValue({
@@ -32,24 +49,39 @@ function installBridge(over: {
   const list = vi.fn().mockResolvedValue({ ok: true, value: { models: over.models ?? [] } });
   const ps = vi.fn().mockResolvedValue({ ok: true, value: { models: [] } });
   const show = vi.fn().mockResolvedValue({ ok: true, value: { capabilities: [] } });
+  const pull = vi.fn().mockResolvedValue({ ok: true, value: { pullId: 'p1', model: 'llama3.1:8b' } });
+  const search = vi.fn().mockResolvedValue(
+    over.searchParseFailed
+      ? { ok: false, kind: 'error', message: 'parse failed', code: 'parse' }
+      : { ok: true, value: { items: over.searchItems ?? [], stale: false, updatedAt: 'now' } },
+  );
+  const cloudList = vi
+    .fn()
+    .mockResolvedValue({ ok: true, value: { models: over.cloudModels ?? [] } });
+  const signInStatus = vi.fn().mockResolvedValue({ signedIn: over.signedIn ?? false });
+  const secretsHas = vi.fn().mockResolvedValue({ hasKey: over.hasKey ?? false });
   const bridge: Partial<MidniteStudioBridge> = {
     ollama: {
       status,
       list,
       ps,
       show,
-      pull: vi.fn(),
+      pull,
       pullCancel: vi.fn(),
       delete: vi.fn().mockResolvedValue({ ok: true }),
       create: vi.fn(),
       unload: vi.fn().mockResolvedValue({ ok: true }),
       onPullProgress: vi.fn(() => () => {}),
       settings: { get: vi.fn(), set: vi.fn() },
+      search,
+      cloudList,
+      signInStatus,
     } as unknown as MidniteStudioBridge['ollama'],
+    secrets: { get: vi.fn(), set: vi.fn(), has: secretsHas } as unknown as MidniteStudioBridge['secrets'],
     systemHealth: vi.fn().mockResolvedValue({}),
   };
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = bridge;
-  return { status, list, ps, show };
+  return { status, list, ps, show, pull, search, cloudList, signInStatus, secretsHas };
 }
 
 function renderView() {
@@ -98,5 +130,80 @@ describe('ModelsView — installed list', () => {
     expect(screen.getByText('qwen3')).toBeTruthy();
     expect(screen.getByText('14B')).toBeTruthy();
     expect(screen.getByText('Q4_K_M')).toBeTruthy();
+  });
+});
+
+describe('ModelsView — Discover tab', () => {
+  it('searches ollama.com on typing (debounced) and renders results', async () => {
+    const { search } = installBridge({ reachable: true, searchItems: [searchResult()] });
+    renderView();
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Discover' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('tab', { name: 'Discover' }));
+    fireEvent.change(screen.getByPlaceholderText(/search ollama.com/i), {
+      target: { value: 'llama' },
+    });
+
+    await waitFor(() => expect(screen.getByText('llama3.1')).toBeTruthy(), { timeout: 2000 });
+    expect(search).toHaveBeenCalledWith({ query: 'llama', scope: 'local' });
+    expect(screen.getByText('Llama 3.1 from Meta.')).toBeTruthy();
+  });
+
+  it('marks an already-installed result as Installed instead of offering Pull', async () => {
+    installBridge({
+      reachable: true,
+      models: [model({ name: 'llama3.1:8b', model: 'llama3.1:8b' })],
+      searchItems: [searchResult()],
+    });
+    renderView();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Discover' }));
+    fireEvent.change(screen.getByPlaceholderText(/search ollama.com/i), {
+      target: { value: 'llama' },
+    });
+
+    await waitFor(() => expect(screen.getByText('Installed')).toBeTruthy(), { timeout: 2000 });
+    expect(screen.queryByRole('button', { name: /^pull$/i })).toBeNull();
+  });
+
+  it('falls back to a pull-by-name link when the scraper cannot parse the page', async () => {
+    installBridge({ reachable: true, searchParseFailed: true });
+    renderView();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Discover' }));
+    fireEvent.change(screen.getByPlaceholderText(/search ollama.com/i), {
+      target: { value: 'llama' },
+    });
+
+    await waitFor(() => expect(screen.getByText(/couldn't read ollama.com/i)).toBeTruthy(), {
+      timeout: 2000,
+    });
+    expect(screen.getByRole('button', { name: /open ollama.com\/search/i })).toBeTruthy();
+  });
+});
+
+describe('ModelsView — Cloud tab', () => {
+  it('shows a sign-in prompt when neither signed in nor an API key is set', async () => {
+    installBridge({ reachable: true, signedIn: false, hasKey: false });
+    renderView();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Cloud' }));
+
+    await waitFor(() => expect(screen.getByText(/not signed in to ollama.com/i)).toBeTruthy());
+    expect(screen.getByRole('button', { name: /run ollama signin/i })).toBeTruthy();
+  });
+
+  it('lists the cloud catalogue once signed in', async () => {
+    const { cloudList } = installBridge({
+      reachable: true,
+      signedIn: true,
+      cloudModels: [model({ name: 'qwen3.5', model: 'qwen3.5' })],
+    });
+    renderView();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Cloud' }));
+
+    await waitFor(() => expect(screen.getByText('qwen3.5')).toBeTruthy());
+    expect(cloudList).toHaveBeenCalled();
   });
 });
