@@ -195,6 +195,15 @@ export const AgentDefinitionSchema = z.object({
       awaitingInput: RegexSource.optional(),
     })
     .optional(),
+  /**
+   * Which alternate backends this agent can be pointed at, beyond its own
+   * native CLI/API — today only `'ollama'` exists (Phase 96 Theme H). Absent
+   * or empty means the agent only ever runs natively; Settings ▸ Agent shows
+   * a backend/model picker only for an agent that lists one here. The recipe
+   * for each backend lives in `ollama-launch.ts`, not on this schema — this
+   * field is just "is it offered", not "how".
+   */
+  backends: z.array(z.enum(['ollama'])).optional(),
 });
 export type AgentDefinition = z.infer<typeof AgentDefinitionSchema>;
 
@@ -234,6 +243,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     command: 'claude',
     args: [],
     resume: ['--continue'],
+    backends: ['ollama'],
     accent: '#D97757',
     install: 'curl -fsSL https://claude.ai/install.sh | bash',
     update: 'npm i -g @anthropic-ai/claude-code',
@@ -347,6 +357,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     command: 'codex',
     args: [],
     resume: ['resume', '--last'],
+    backends: ['ollama'],
     accent: '#10A37F',
     install: 'npm i -g @openai/codex',
     update: 'npm i -g @openai/codex',
@@ -370,6 +381,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     command: 'copilot',
     args: [],
     resume: ['--continue'],
+    backends: ['ollama'],
     accent: '#6E40C9',
     icon: 'SiGithubcopilot',
     install: 'npm i -g @github/copilot',
@@ -406,6 +418,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     command: 'opencode',
     args: [],
     resume: ['--continue'],
+    backends: ['ollama'],
     accent: '#03B000',
     install: 'npm i -g opencode-ai',
     update: 'npm i -g opencode-ai',
@@ -480,6 +493,7 @@ export const BUILTIN_AGENTS: readonly AgentDefinition[] = [
     command: 'cline',
     args: [],
     resume: ['--continue'],
+    backends: ['ollama'],
     accent: '#5F52FF',
     icon: 'SiCline',
     install: 'npm i -g cline',
@@ -676,6 +690,20 @@ export const TerminalSessionSchema = z
      * user that started it" means until that changes.
      */
     forgeAccountKey: z.string().min(1).optional(),
+    /**
+     * Session identity for an Ollama-backed launch (Phase 96 Theme H),
+     * stamped once at `openSession()` time from the binding resolved then —
+     * a running session keeps what it launched with even if the binding is
+     * changed afterward in Settings. Absent means native, the same
+     * "omitted field = default" convention every other optional field on
+     * this schema follows. `ollamaModel` is only ever set alongside
+     * `backend: 'ollama'`.
+     *
+     * Must be listed in the object literal, not added via `.extend()` — see
+     * this schema's own closing `.superRefine()` note.
+     */
+    backend: z.enum(['native', 'ollama']).optional(),
+    ollamaModel: z.string().min(1).optional(),
   })
   .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;

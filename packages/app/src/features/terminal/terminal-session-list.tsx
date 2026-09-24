@@ -16,6 +16,7 @@ import {
   LuTerminal,
   LuX,
 } from 'react-icons/lu';
+import { SiOllama } from 'react-icons/si';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
@@ -374,7 +375,12 @@ function SessionRow({
       onDoubleClick={rename}
     >
       <div className="flex min-w-0 flex-1 items-center gap-1 text-left">
-        <SessionIcon agent={runningAgent} live={live} activityStatus={rowActivity.status} />
+        <SessionIcon
+          agent={runningAgent}
+          live={live}
+          activityStatus={rowActivity.status}
+          ollamaBacked={session.backend === 'ollama'}
+        />
         {
           // Provenance, not state (Phase 51 Theme G) — a legacy session can be
           // live (see `sessionPhase`'s own note), so this checks `legacy`
@@ -588,22 +594,34 @@ function SessionIcon({
   agent,
   live,
   activityStatus,
+  ollamaBacked,
 }: {
   agent: AgentDefinition | undefined;
   live: boolean;
   /** `useActivityGlow`'s own status (Phase 95 Theme C) — wraps this mark in the shared glow ring, `'idle'` painting none at all. */
   activityStatus: ActivityStatus;
+  /** Session identity (Phase 96 Theme H) — `session.backend === 'ollama'`. */
+  ollamaBacked?: boolean;
 }) {
   const className = `size-3.5 shrink-0 ${live ? '' : 'opacity-50'}`;
   const Mark = agent ? resolveAgentIcon(agent) : LuTerminal;
   const icon = (
-    <Mark
-      className={className}
-      // Inline because the accent is data from the roster, not a Tailwind class
-      // — a user-added agent brings a colour Tailwind has never seen. `agent`
-      // is `undefined` for the plain-shell glyph, so this is `undefined` too.
-      style={agent ? { color: agent.accent } : undefined}
-    />
+    <span className="relative inline-flex shrink-0">
+      <Mark
+        className={className}
+        // Inline because the accent is data from the roster, not a Tailwind class
+        // — a user-added agent brings a colour Tailwind has never seen. `agent`
+        // is `undefined` for the plain-shell glyph, so this is `undefined` too.
+        style={agent ? { color: agent.accent } : undefined}
+      />
+      {ollamaBacked ? (
+        <SiOllama
+          aria-label="Running on Ollama"
+          title="Running on Ollama"
+          className="absolute -bottom-1 -right-1 size-2 rounded-full bg-background text-foreground"
+        />
+      ) : null}
+    </span>
   );
 
   if (activityStatus === 'idle') return icon;

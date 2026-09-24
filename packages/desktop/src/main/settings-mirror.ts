@@ -24,6 +24,10 @@ const DEFAULT_SETTINGS: SettingsSyncPayload = {
   // phase doc's Decisions — so an account switch that happens before the
   // renderer's first sync still runs `gh auth switch`.
   forgeSyncGhAuthSwitch: true,
+  // Phase 96 Theme H: matches `ui-store.ts`'s own default — nothing bound
+  // yet, so a council or workflow agent node run before the renderer's
+  // first sync resolves every agent as native, same as after it.
+  agentBackends: {},
 };
 
 let current: SettingsSyncPayload = DEFAULT_SETTINGS;

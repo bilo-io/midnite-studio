@@ -4,11 +4,14 @@ import {
   WORKFLOW_AGENT_DONE_MARKER_PATTERN,
   agentInteractiveArgs,
   agentNodeDonePrompt,
+  resolveAgentLaunch,
   shellQuote,
   toAgentPrompt,
 } from '@midnite/studio-shared';
 
 import { appendCapped, cleanCapturedOutput } from '../../council-output';
+import { resolveOllamaBaseUrl } from '../../ollama/client';
+import { currentSettings } from '../../settings-mirror';
 import type { NodeExecutor, NodeOutcome } from '../executor-registry';
 import { defaultNodePtyDeps, NODE_PTY_POLL_MS, type NodePtyDeps } from './node-pty-deps';
 
@@ -56,10 +59,22 @@ export function createAgentExecutor(deps: NodePtyDeps = defaultNodePtyDeps): Nod
     const agent = roster.find((a) => a.id === config.agentId);
     if (!agent) return { ok: false, error: `Agent "${config.agentId}" is not in the roster.` };
 
+    // Phase 96 Theme H: an agent node whose agent id is bound to Ollama in
+    // Settings ▸ Agent resolves through the same table every other launch
+    // path does. When bound, the recipe's own `--model` (or `ollama
+    // launch`'s config-file selection) replaces the node's native `--model`
+    // field — the two select a model on two different backends, and only
+    // one backend is actually running.
+    const launch = resolveAgentLaunch(
+      agent,
+      currentSettings().agentBackends?.[agent.id],
+      resolveOllamaBaseUrl(),
+    );
+
     const prompt = agentNodeDonePrompt(config.prompt);
     const words = [
-      agent.command,
-      ...(config.model ? ['--model', config.model] : []),
+      launch.command,
+      ...(launch.backend === 'ollama' ? launch.argsBefore : config.model ? ['--model', config.model] : []),
       ...agentInteractiveArgs(agent.id),
       shellQuote(toAgentPrompt(prompt, agent.id)),
     ];
@@ -74,6 +89,8 @@ export function createAgentExecutor(deps: NodePtyDeps = defaultNodePtyDeps): Nod
       nodeLabel: node.label,
       cwd: homedir(),
       initialInput: `${invocation}\r`,
+      ...(Object.keys(launch.env).length > 0 ? { env: launch.env } : {}),
+      ...(launch.backend === 'ollama' ? { backend: launch.backend, ollamaModel: launch.model } : {}),
     });
     if (!started.ok) return { ok: false, error: started.message };
     await context.reportSessionId(started.session.id);

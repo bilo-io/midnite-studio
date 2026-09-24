@@ -18,6 +18,7 @@ describe('settings-mirror', () => {
       },
       browserDiscardMs: 10 * 60 * 1000,
       forgeSyncGhAuthSwitch: true,
+      agentBackends: {},
     });
   });
 

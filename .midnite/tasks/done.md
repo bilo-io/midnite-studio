@@ -1,6 +1,58 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-09-24 — Phase 96 Theme H — Agents on Ollama
+
+[PR #542](https://github.com/bilo-io/midnite-studio/pull/542).
+
+**The ONE resolver.** New `shared/src/ollama-launch.ts`: `ollamaLaunchRecipe(agentId, model, base,
+authToken?)` is the pure per-agent table (claude env `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN`/
+`ANTHROPIC_API_KEY=''` + `--model`; copilot's `COPILOT_PROVIDER_*` env only; codex `--oss -m <m>`;
+cline/opencode → `commandOverride: 'ollama'` + `argsBefore: ['launch', agentId, '--model', m,
+'--yes', '--']`), and `resolveAgentLaunch(agent, binding, base, authToken?)` is the resolver every
+launch path calls — `start-agent.ts` (which is also every loop, card, companion and sessions-view
+launch, since all of them go through `startAgent()`), `council-runner.ts`, and workflow
+`executors/agent.ts` → `node-sessions.ts`. A binding that is native, absent, modelless, or names an
+agent this phase doesn't wire all resolve identically to "no override" — no caller special-cases
+"not bound."
+
+**Per-session pty env**, the phase doc's own first bullet: `PtyCreateRequest` gains an optional
+`env` (shouty-snake keys, `.optional()` on the whole field rather than per-value, so an empty
+string — `ANTHROPIC_API_KEY: ''` — survives a zod parse), merged in `createPty` after
+`agentFingerprintEnv` in both the broker and inproc branches. The broker path needed no separate
+change: main builds the full env object before it ever reaches `brokerClient.createPty`.
+
+**The binding** — `{backend: 'native' | 'ollama', model?: string}` — is `ui-store.ts`'s persisted
+`agentBackends`, per the phase doc's own recommendation, not `agents.json`. Mirrored into main via
+`SettingsSyncPayload.agentBackends` → `settings-mirror.ts`, since `council-runner.ts` and workflow
+`executors/agent.ts` run in main with no renderer store to read.
+
+**Split composition, one call site each.** `argsBefore`/`commandOverride` need only the binding
+(no network) and are resolved synchronously in `start-agent.ts` when a session opens; `env` needs
+the daemon's real host, resolved separately in `use-terminal-ipc.ts`'s already-`async` `start()`
+right before `pty.create` (`bridge().ollama.status().host`, falling back to the compile-time
+`OLLAMA_DEFAULT_BASE_URL` — the renderer cannot read `OLLAMA_HOST`, and there is no Settings ▸
+Ollama host-override page yet). Main-side launch paths use the real, env-aware
+`resolveOllamaBaseUrl()`.
+
+**Settings ▸ Agent** gets a Backend (Native/Ollama) select + an installed-model picker
+(`window.midniteStudio.ollama.list()`) on each of the five agents' cards — no fit badge (Theme G
+isn't built) and no cloud catalogue (Theme F's scope). **Session identity**:
+`TerminalSession.backend`/`ollamaModel`, stamped at `openSession()` time, with a small `SiOllama`
+corner mark on the session row's agent icon.
+
+**Left open, on purpose:** the vault-key `useOllamaKey` marker (blocked on Theme F, unmerged —
+`ollamaLaunchRecipe`'s `authToken` parameter is already reserved for it); `companion/ask.ts`'s
+one-shot headless ask, a fourth launch path that spawns via `runProcess` rather than a pty and
+isn't one of the phase doc's four named paths; the cline/opencode one-time "this writes a config
+file" notice.
+
+**Caught by the tests, not guessed at:** `test-support/mock-bridge.ts`'s hand-rolled agent roster
+fixture is independent of `BUILTIN_AGENTS` and was silently dropping the new `backends` field the
+moment `useAgents()`'s query resolved (a few milliseconds after mount) — hiding the whole
+Backend/model row for every agent after the very first async tick. Fixed in the fixture, caught by
+`agent-page.test.tsx`'s new coverage before it ever reached review.
+
 ## 2026-09-24 — Phase 96 Themes B, A — Ollama client, IPC, and a Health page row
 
 [PR #540](https://github.com/bilo-io/midnite-studio/pull/540).

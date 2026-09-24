@@ -1539,6 +1539,17 @@ export const PtyCreateRequest = z
      * at a prompt when the agent exits instead of at a dead pane.
      */
     initialInput: z.string().optional(),
+    /**
+     * Per-session environment overrides (Phase 96 Theme H), merged over
+     * `process.env` in `createPty` AFTER the fingerprint env
+     * (`agentFingerprintEnv`) so these always win. Keys are shouty-snake —
+     * the shape every env var in this app already is — never an arbitrary
+     * string, so this cannot smuggle a non-env option through the pty
+     * boundary. An empty string is a real value (`ANTHROPIC_API_KEY: ''`
+     * depends on it) and must never be dropped by validation the way an
+     * `.optional()` string elsewhere in this file might be tempted to.
+     */
+    env: z.record(z.string().regex(/^[A-Z_][A-Z0-9_]*$/), z.string()).optional(),
   })
   .superRefine(agentIdMatchesKind);
 export const PtyCreateResponse = z.discriminatedUnion('ok', [

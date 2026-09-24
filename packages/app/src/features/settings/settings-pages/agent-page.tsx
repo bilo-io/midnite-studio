@@ -352,6 +352,8 @@ function AgentCard({
         </div>
       </div>
 
+      {agent.backends?.includes('ollama') ? <OllamaBackendRow agent={agent} /> : null}
+
       {/* Terminal action: Install / Update / Uninstall */}
       {runCommand || (isInstalled && agent.uninstall) ? (
         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/50">
@@ -392,6 +394,74 @@ function AgentCard({
               {runCommand}
             </code>
           ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Backend select + model picker for an agent that lists `'ollama'` in its
+ * roster `backends` (Phase 96 Theme H) — Native (the agent's own CLI/API) or
+ * Ollama, and once Ollama is picked, which installed model. Installed models
+ * only: the cloud catalogue and the "fit for agents" verdict are Theme F/G's
+ * own scope, not built here — a model this list has no context-length
+ * warning for is not necessarily a good fit, just an installed one.
+ */
+function OllamaBackendRow({ agent }: { agent: AgentDefinition }) {
+  const binding = useUiStore((s) => s.agentBackends[agent.id]);
+  const setAgentBackend = useUiStore((s) => s.setAgentBackend);
+  const backend = binding?.backend ?? 'native';
+
+  const { data: models, isLoading } = useQuery({
+    queryKey: ['ollama-models'],
+    queryFn: async () => {
+      const result = await bridge()!.ollama.list();
+      return result.ok ? result.value.models : [];
+    },
+    enabled: hasBridge() && backend === 'ollama',
+  });
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 border-t border-border/50">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-medium text-muted-foreground">Backend:</span>
+        <div className="inline-flex rounded-md border border-border p-0.5 bg-muted/40 text-xs">
+          {(['native', 'ollama'] as const).map((b) => (
+            <button
+              key={b}
+              type="button"
+              onClick={() => setAgentBackend(agent.id, { backend: b, model: binding?.model })}
+              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                backend === b
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {b === 'native' ? 'Native' : 'Ollama'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {backend === 'ollama' ? (
+        <div className="flex flex-1 min-w-[220px] items-center gap-2">
+          <span className="text-[11px] font-medium text-muted-foreground shrink-0">Model:</span>
+          <select
+            value={binding?.model ?? ''}
+            onChange={(e) => setAgentBackend(agent.id, { backend: 'ollama', model: e.target.value || undefined })}
+            aria-label={`${agent.label} Ollama model`}
+            className="h-7 flex-1 rounded border border-input bg-background px-2 text-xs outline-none focus-visible:border-primary"
+          >
+            <option value="">
+              {isLoading ? 'Loading models…' : models && models.length > 0 ? 'Select a model…' : 'No models installed'}
+            </option>
+            {(models ?? []).map((m) => (
+              <option key={m.name} value={m.name}>
+                {m.name}
+              </option>
+            ))}
+          </select>
         </div>
       ) : null}
     </div>

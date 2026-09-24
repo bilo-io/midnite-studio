@@ -67,6 +67,14 @@ export type MockFixtures = {
    */
   agentSignatures?: { agentId: string; emails: string[]; names: string[] }[];
   /**
+   * Installed Ollama models `ollama.list()` answers with (Phase 96 Theme H) —
+   * the Settings ▸ Agent backend/model picker's own model source. Absent
+   * means no models installed, not "daemon unreachable" — nothing here
+   * exercises the daemon-down path, which is main's own `ollamaStatus`
+   * concern, not this fixture's.
+   */
+  ollamaModels?: { name: string; size?: number }[];
+  /**
    * Overrides `update.releaseNotes`'s canned body (Phase 29 Theme F). Absent
    * falls back to the existing canned copy every spec before this fixture
    * existed was written against, so nothing already passing changes shape —
@@ -2198,6 +2206,7 @@ export function buildMockBridge(data: MockFixtures) {
             command: 'claude',
             args: [],
             resume: ['--continue'],
+            backends: ['ollama'],
             accent: '#D97757',
             install: 'curl -fsSL https://claude.ai/install.sh | bash',
             update: 'claude update',
@@ -2238,6 +2247,7 @@ export function buildMockBridge(data: MockFixtures) {
             command: 'codex',
             args: [],
             resume: ['resume', '--last'],
+            backends: ['ollama'],
             accent: '#10A37F',
             install: 'npm i -g @openai/codex',
             update: 'npm update -g @openai/codex',
@@ -2251,6 +2261,7 @@ export function buildMockBridge(data: MockFixtures) {
             command: 'copilot',
             args: [],
             resume: ['--continue'],
+            backends: ['ollama'],
             accent: '#6E40C9',
             icon: 'SiGithubcopilot',
             install: 'npm i -g @github/copilot',
@@ -2277,6 +2288,7 @@ export function buildMockBridge(data: MockFixtures) {
             command: 'opencode',
             args: [],
             resume: ['--continue'],
+            backends: ['ollama'],
             accent: '#03B000',
             install: 'npm i -g opencode-ai',
             update: 'npm update -g opencode-ai',
@@ -2316,6 +2328,7 @@ export function buildMockBridge(data: MockFixtures) {
             command: 'cline',
             args: [],
             resume: ['--continue'],
+            backends: ['ollama'],
             accent: '#5F52FF',
             icon: 'SiCline',
             install: 'npm i -g cline',
@@ -2682,6 +2695,27 @@ export function buildMockBridge(data: MockFixtures) {
         unused indirection; `onStudioChanged`/`onRenderProgress` stay inert
         subscriptions, same posture as `update.onState` below.
       */
+    // Phase 96 Theme H — the Settings ▸ Agent backend/model picker's only
+    // bridge dependency. Minimal by design: `status`/`show`/`pull`/etc. have
+    // no spec that needs them yet (Theme C's own Models view is what would
+    // add those), and this file's own convention (see the inferred-return-type
+    // note above) is to grow a namespace when a real spec needs it, not ahead
+    // of one.
+    ollama: {
+      list: async () => ({
+        ok: true as const,
+        value: {
+          models: (data.ollamaModels ?? []).map((m) => ({
+            name: m.name,
+            model: m.name,
+            modifiedAt: null,
+            size: m.size ?? 0,
+            digest: 'sha256:mock',
+          })),
+        },
+      }),
+      status: async () => ({ reachable: true, version: '0.1.0', host: 'http://127.0.0.1:11434' }),
+    },
     video: {
       project: {
         list: async () => ({ projects: videoProjects }),

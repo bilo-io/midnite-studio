@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { AgentOllamaBindingSchema } from '../ollama-launch';
 import { AppIdSchema } from './apps';
 
 /**
@@ -70,5 +71,15 @@ export const SettingsSyncPayloadSchema = z.object({
    * (`true`) is what a handler reads before the first sync ever lands.
    */
   forgeSyncGhAuthSwitch: z.boolean().optional(),
+  /**
+   * Phase 96 Theme H: the renderer-owned per-agent Ollama binding
+   * (`ui-store.ts`'s `agentBackends`), mirrored so the two launch paths that
+   * run entirely in main — `council-runner.ts` and workflow
+   * `executors/agent.ts` — can resolve the same backend a terminal session
+   * would, with no renderer round trip. Optional for the same reason every
+   * other field here is: an older renderer, or a test payload, that never
+   * set it still validates.
+   */
+  agentBackends: z.record(z.string(), AgentOllamaBindingSchema).optional(),
 });
 export type SettingsSyncPayload = z.infer<typeof SettingsSyncPayloadSchema>;

@@ -7,6 +7,7 @@ import {
   agentInvocationArgs,
   failure,
   ok,
+  resolveAgentLaunch,
   shellQuote,
   toAgentPrompt,
   type CouncilMemberProvider,
@@ -17,7 +18,9 @@ import {
 import { appendCapped, cleanCapturedOutput } from './council-output';
 import { buildMemberPrompt, buildSynthesisPrompt, type CouncilSynthesisEntry } from './council-prompts';
 import { getCouncil, getRun, saveRun } from './council-service';
+import { resolveOllamaBaseUrl } from './ollama/client';
 import { createPty, killPty, offPty, onPty } from './pty-service';
+import { currentSettings } from './settings-mirror';
 import { listAgents } from './terminal-service';
 
 /**
@@ -265,8 +268,19 @@ async function spawnOneShot(
   const agent = agents.find((a) => a.id === provider);
   if (!agent) return { ok: false, message: `Agent "${provider}" is not in the roster.` };
 
+  // Phase 96 Theme H: a council member bound to Ollama in Settings ▸ Agent
+  // resolves the same way any other launch of this agent id would — the
+  // binding is mirrored from the renderer (`settings-mirror.ts`), never
+  // re-read from a store this process cannot see.
+  const launch = resolveAgentLaunch(
+    agent,
+    currentSettings().agentBackends?.[agent.id],
+    resolveOllamaBaseUrl(),
+  );
+
   const words = [
-    agent.command,
+    launch.command,
+    ...launch.argsBefore,
     ...(agentHeadlessArgs(agent.id) ?? agentInvocationArgs(agent.id)),
     shellQuote(toAgentPrompt(promptText, agent.id)),
   ];
@@ -290,6 +304,7 @@ async function spawnOneShot(
     cols: COUNCIL_PTY_COLS,
     rows: COUNCIL_PTY_ROWS,
     initialInput: `${typed}\r`,
+    ...(Object.keys(launch.env).length > 0 ? { env: launch.env } : {}),
   });
   if (!result.ok) return result;
   // `invocation` here is what the pty actually echoes back — see

@@ -525,6 +525,8 @@ export async function createPty(options: {
   rows: number;
   agentId?: string | undefined;
   initialInput?: string | undefined;
+  /** Per-session env overrides (Phase 96 Theme H) — merged in last, so these always win. */
+  env?: Record<string, string> | undefined;
 }): Promise<CreateResult> {
   if (brokerClient && brokerClient.getStatus().mode === 'broker' && brokerClient.isAlive()) {
     const result = await brokerClient.createPty({
@@ -534,6 +536,7 @@ export async function createPty(options: {
         TERM_PROGRAM: 'midnite-studio',
         GIT_TERMINAL_PROMPT: '1',
         ...agentFingerprintEnv(options.kind, options.sessionId, options.agentId),
+        ...options.env,
       } as Record<string, string>,
     });
 

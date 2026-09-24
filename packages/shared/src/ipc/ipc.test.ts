@@ -1599,6 +1599,35 @@ describe('terminal and pty schemas', () => {
   });
 
   /**
+   * Per-session env (Phase 96 Theme H) — `ollamaLaunchRecipe`'s
+   * `ANTHROPIC_API_KEY: ''` depends on an empty string surviving a zod
+   * parse unchanged, since `.optional()` on the whole field (not a
+   * per-value default) is what would otherwise be tempted to drop it.
+   */
+  it('defaults to no env override, and keeps an empty string when one is set', () => {
+    expect(schemas.PtyCreateRequest.parse(ptyCreate).env).toBeUndefined();
+
+    const withEnv = schemas.PtyCreateRequest.parse({
+      ...ptyCreate,
+      env: { ANTHROPIC_API_KEY: '', ANTHROPIC_BASE_URL: 'http://127.0.0.1:11434' },
+    });
+    expect(withEnv.env).toEqual({
+      ANTHROPIC_API_KEY: '',
+      ANTHROPIC_BASE_URL: 'http://127.0.0.1:11434',
+    });
+    expect('ANTHROPIC_API_KEY' in (withEnv.env ?? {})).toBe(true);
+  });
+
+  it('rejects an env key that is not shouty-snake-case', () => {
+    expect(
+      schemas.PtyCreateRequest.safeParse({ ...ptyCreate, env: { 'not-an-env-key': 'x' } }).success,
+    ).toBe(false);
+    expect(
+      schemas.PtyCreateRequest.safeParse({ ...ptyCreate, env: { lowercase: 'x' } }).success,
+    ).toBe(false);
+  });
+
+  /**
    * The one channel in this family that crosses without a zod schema.
    *
    * `pty:data` is a firehose — one message per chunk of shell output, which for

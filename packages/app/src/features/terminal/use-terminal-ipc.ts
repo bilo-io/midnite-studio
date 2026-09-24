@@ -1,4 +1,8 @@
-import type { TerminalSession } from '@midnite/studio-shared';
+import {
+  OLLAMA_DEFAULT_BASE_URL,
+  ollamaLaunchRecipe,
+  type TerminalSession,
+} from '@midnite/studio-shared';
 import { useCallback, useEffect, useRef } from 'react';
 
 import { bridge } from '../../services/bridge';
@@ -147,6 +151,24 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
 
       store.awakeSession(session.id);
       store.setState(session.id, 'starting');
+
+      /*
+        Phase 96 Theme H: `session.backend`/`ollamaModel` were stamped at
+        `openSession()` time (`start-agent.ts`) from the SAME resolver this
+        recomputes here — recomputed rather than carried on the session
+        record because this is the one point already async, so it can read
+        the daemon's real host (`ollama.status()`) instead of the compile-time
+        default `startAgent()` had to use. A daemon that cannot be reached
+        falls back to that same default rather than blocking the launch.
+      */
+      let env: Record<string, string> | undefined;
+      if (session.kind === 'agent' && session.backend === 'ollama' && session.ollamaModel && session.agentId) {
+        const status = await api.ollama.status().catch(() => null);
+        const base = status?.host ?? OLLAMA_DEFAULT_BASE_URL;
+        const recipe = ollamaLaunchRecipe(session.agentId, session.ollamaModel, base);
+        if (recipe && Object.keys(recipe.env).length > 0) env = recipe.env;
+      }
+
       const result = await api.pty.create({
         sessionId: session.id,
         kind: session.kind,
@@ -156,6 +178,7 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
         cols,
         rows,
         ...(initialInput === undefined ? {} : { initialInput }),
+        ...(env === undefined ? {} : { env }),
       });
 
       if (!result.ok) {
@@ -175,7 +198,15 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
       // `agentInput`, not this map, and SHOULD re-run on revive.
       next.clearPendingInput(session.id);
     },
-    [session.id, session.kind, session.agentId, session.repoId, session.cwd],
+    [
+      session.id,
+      session.kind,
+      session.agentId,
+      session.repoId,
+      session.cwd,
+      session.backend,
+      session.ollamaModel,
+    ],
   );
 
   const sendInput = useCallback((data: string) => {

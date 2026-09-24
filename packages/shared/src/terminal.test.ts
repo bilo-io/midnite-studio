@@ -583,3 +583,75 @@ describe('buildResumeCommand (Phase 86 Theme C)', () => {
   });
 });
 
+describe('backends (Phase 96 Theme H)', () => {
+  const OLLAMA_BACKED = ['claude', 'codex', 'cline', 'opencode', 'copilot'];
+
+  it('lists ollama on exactly the five agents this theme wires', () => {
+    for (const agent of BUILTIN_AGENTS) {
+      if (OLLAMA_BACKED.includes(agent.id)) {
+        expect(agent.backends).toEqual(['ollama']);
+      } else {
+        expect(agent.backends).toBeUndefined();
+      }
+    }
+  });
+
+  it('AgentDefinitionSchema rejects a backend outside the known set', () => {
+    const invalid = {
+      id: 'x',
+      label: 'X',
+      command: 'x',
+      args: [],
+      accent: '#000',
+      backends: ['vllm'],
+    };
+    expect(AgentDefinitionSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it('TerminalSessionSchema accepts an Ollama-backed session', () => {
+    const session = {
+      id: 's1',
+      kind: 'agent' as const,
+      agentId: 'claude',
+      title: 'midnite-studio',
+      cwd: '/repo',
+      repoId: 'r1',
+      createdAt: 0,
+      backend: 'ollama' as const,
+      ollamaModel: 'qwen3:14b',
+    };
+    expect(TerminalSessionSchema.safeParse(session).success).toBe(true);
+  });
+
+  it('TerminalSessionSchema still accepts a session with neither field (native, the default)', () => {
+    const session = {
+      id: 's1',
+      kind: 'shell' as const,
+      title: 'midnite-studio',
+      cwd: '/repo',
+      repoId: 'r1',
+      createdAt: 0,
+    };
+    const parsed = TerminalSessionSchema.safeParse(session);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.backend).toBeUndefined();
+      expect(parsed.data.ollamaModel).toBeUndefined();
+    }
+  });
+
+  it('TerminalSessionSchema rejects an unknown backend value', () => {
+    const session = {
+      id: 's1',
+      kind: 'agent' as const,
+      agentId: 'claude',
+      title: 'midnite-studio',
+      cwd: '/repo',
+      repoId: 'r1',
+      createdAt: 0,
+      backend: 'vllm',
+    };
+    expect(TerminalSessionSchema.safeParse(session).success).toBe(false);
+  });
+});
+
