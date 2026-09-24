@@ -55,6 +55,7 @@ import { EMPTY_PROJECT_ITEM_FILTER, type ProjectItemFilterState } from '../featu
 import { DEFAULT_GRAPH_FACETS, type ProjectGraphFacets } from '../features/projects/graph/graph-filter';
 import { touchProjectView } from '../features/projects/project-view-lru';
 import { touchCardSkill } from '../features/projects/board/card-skill-lru';
+import { columnSkillKey } from '../features/projects/board/board-derive';
 import type { SortState } from '../features/projects/sort';
 import { useFileEditorStore } from './file-editor-store';
 
@@ -1353,6 +1354,36 @@ export type UiState = {
   /** `skillId` of `undefined` clears the entry — the real "Not set", not an empty string written in its place. */
   setCardSkill: (taskKey: string, skillId: AgentCommandId | undefined) => void;
   /**
+   * The column → skill map behind a drag-to-skill drop (Phase 95 Theme G),
+   * keyed by `projectId` (so "editable per project" reads off whichever
+   * board's `Settings ▸ Projects` section is showing today's active
+   * project, the same "no board picker here, follows the Projects view"
+   * rule `ProjectsPage`'s own docblock already states — see
+   * `resolveActiveColumnSkillProjectId` in `projects-page.tsx`), then by
+   * `columnSkillKey(columnName)` (`board-derive.ts`) — case-insensitive, the
+   * same normalisation `blockedByFieldName`'s own matching uses.
+   *
+   * A key's value is a free-form skill template exactly like `agentSkills`'
+   * own values, not an `AgentCommandId` — `/midnite-review` (this theme's
+   * own default for "In review") is not one of this app's six task skills,
+   * so the map has to accept anything a user types, the same reason
+   * `agentSkills` does.
+   *
+   * `''` is the real "explicitly un-mapped", overriding
+   * `DEFAULT_COLUMN_SKILLS`' own default for that column name without
+   * picking a replacement; the key being absent instead falls through to
+   * the default (`resolveColumnSkill`, `board-derive.ts`, is the one place
+   * that distinction is read). Bounded by `touchProjectView`'s LRU, reused
+   * here rather than a fourth copy of the identical eviction logic —
+   * `project-view-lru.ts`'s own `touchProjectView<T>` is already generic
+   * over the stored value, and this map is keyed by `projectId` the same
+   * way `projectViewByProject` is.
+   */
+  columnSkillByProject: Record<string, Record<string, string>>;
+  /** `template` of `undefined` removes the override, falling back to
+   *  `DEFAULT_COLUMN_SKILLS`; `''` keeps the key but disables it. */
+  setColumnSkill: (projectId: string, columnName: string, template: string | undefined) => void;
+  /**
    * Which skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
@@ -1951,6 +1982,7 @@ export type PersistedUi = Pick<
   | 'projectsMode'
   | 'projectViewByProject'
   | 'cardSkillByTask'
+  | 'columnSkillByProject'
   | 'blockedByFieldName'
   | 'agentSkills'
   | 'primaryAgent'
@@ -2087,6 +2119,7 @@ export const useUiStore = create<UiState>()(
       projectsMode: {},
       projectViewByProject: {},
       cardSkillByTask: {},
+      columnSkillByProject: {},
       blockedByFieldName: 'Blocked by',
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
@@ -2776,6 +2809,21 @@ export const useUiStore = create<UiState>()(
           }
           return { cardSkillByTask: touchCardSkill(state.cardSkillByTask, taskKey, skillId) };
         }),
+      setColumnSkill: (projectId, columnName, template) =>
+        set((state) => {
+          const key = columnSkillKey(columnName);
+          const current = state.columnSkillByProject[projectId] ?? {};
+          const nextColumns =
+            template === undefined
+              ? (() => {
+                  const { [key]: _dropped, ...rest } = current;
+                  return rest;
+                })()
+              : { ...current, [key]: template };
+          return {
+            columnSkillByProject: touchProjectView(state.columnSkillByProject, projectId, nextColumns),
+          };
+        }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
@@ -2788,7 +2836,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 24,
+      version: 25,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -2845,6 +2893,7 @@ export const useUiStore = create<UiState>()(
         projectsMode: state.projectsMode,
         projectViewByProject: state.projectViewByProject,
         cardSkillByTask: state.cardSkillByTask,
+        columnSkillByProject: state.columnSkillByProject,
         blockedByFieldName: state.blockedByFieldName,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
@@ -2981,6 +3030,10 @@ export const useUiStore = create<UiState>()(
        * v23 → v24: rewrite `agentSkills` prompts naming the renamed midnite
        * skills (`midnite-exec` → `midnite-create` and siblings) — see
        * `store/migrate-skill-renames.ts`.
+       * v24 → v25: seed `columnSkillByProject = {}` (Phase 95 Theme G) —
+       * drag-to-skill's per-project override map did not exist before this
+       * version, so a pre-v25 blob and a fresh install land on the identical
+       * empty map and every board reads `DEFAULT_COLUMN_SKILLS` unmodified.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3022,6 +3075,7 @@ export const useUiStore = create<UiState>()(
           companionVolume?: number;
           companionMicMode?: CompanionMicMode;
           cardSkillByTask?: Record<string, AgentCommandId>;
+          columnSkillByProject?: Record<string, Record<string, string>>;
           forgeAccounts?: ForgeAccount[];
           forgeActiveAccountId?: string | null;
           forgeScopeReposToActiveAccount?: boolean;
@@ -3129,6 +3183,9 @@ export const useUiStore = create<UiState>()(
         if (version < 24) {
           state.agentSkills = renameLegacySkillsIn(state.agentSkills);
         }
+        if (version < 25) {
+          state.columnSkillByProject = {};
+        }
         return state as PersistedUi;
       },
       /**
@@ -3177,6 +3234,7 @@ export const useUiStore = create<UiState>()(
           projectsMode: { ...current.projectsMode, ...saved.projectsMode },
           projectViewByProject: { ...current.projectViewByProject, ...saved.projectViewByProject },
           cardSkillByTask: { ...current.cardSkillByTask, ...saved.cardSkillByTask },
+          columnSkillByProject: { ...current.columnSkillByProject, ...saved.columnSkillByProject },
         };
       },
     },

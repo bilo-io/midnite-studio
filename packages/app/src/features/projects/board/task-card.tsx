@@ -1,11 +1,14 @@
-import { useRef } from 'react';
-import { LuPlay } from 'react-icons/lu';
+import { useRef, useState } from 'react';
+import { LuCircleStop, LuPlay, LuSquareTerminal } from 'react-icons/lu';
 
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 
+import { useDialogs } from '../../../components/dialog-host';
 import { useActiveWorktree } from '../../../services/use-status';
 import { ActivityBadgeStack } from '../../activity/activity-badge';
 import { useActivityGlow, type ActivityGlowSessionInput } from '../../activity/use-activity-glow';
+import { closeSessionWithConfirm } from '../../terminal/close-session';
+import { useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from './card-chrome';
 import { CardTerminal } from './card-terminal';
 import { cardGlowStateFromActivity } from './glow-state';
@@ -119,6 +122,26 @@ export function TaskCard({
     sessionId,
   });
 
+  /*
+    Start / Stop / `>_` (Phase 95 Theme G) split the old single Play-or-
+    reveal button into three: Start (unchanged `useCardPlay.onPlay`, shown
+    only once there is no session to launch a second one over — the phase
+    doc's own "a card already running shows Stop, never a second Start" rule,
+    already established for `CardComposer`'s detail-pane copy of this same
+    fork), Stop (`closeSessionWithConfirm`, the identical confirm-gated close
+    the terminal list's own row uses), and `>_` — a plain, local, un-persisted
+    toggle over this card's OWN embedded `CardTerminal`, defaulted `true` so
+    a running card looks exactly as it did before this theme until a user
+    deliberately collapses it back. `CardTerminal` already carries a "pop out
+    to Terminal view" button of its own (`revealSession`), so nothing is lost
+    by not also wiring `>_` to the main dock panel here — that is
+    `ProjectGraphNode`'s own `>_` (Theme G), which has no embedded terminal of
+    its own to toggle.
+  */
+  const [terminalOpen, setTerminalOpen] = useState(true);
+  const session = useTerminalStore((s) => (sessionId ? s.sessions.find((row) => row.id === sessionId) : undefined));
+  const dialogs = useDialogs();
+
   return (
     <div
       ref={cardRef}
@@ -168,16 +191,50 @@ export function TaskCard({
           <CardFieldChips item={item} fields={fields} />
         </div>
 
-        <button
-          type="button"
-          data-testid="card-play-agent"
-          aria-label={sessionId !== undefined ? 'Open in terminal' : 'Start agent'}
-          title={sessionId !== undefined ? 'Open in terminal' : 'Start agent'}
-          onClick={onPlay}
-          className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <LuPlay aria-hidden className="h-3 w-3 fill-current" />
-        </button>
+        <div className="absolute bottom-0 right-0 flex items-center gap-0.5">
+          {sessionId !== undefined ? (
+            <>
+              <button
+                type="button"
+                data-testid="card-terminal-toggle"
+                aria-label={terminalOpen ? 'Hide terminal' : 'Show terminal'}
+                title={terminalOpen ? 'Hide terminal' : 'Show terminal'}
+                aria-pressed={terminalOpen}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setTerminalOpen((open) => !open);
+                }}
+                className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <LuSquareTerminal aria-hidden className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                data-testid="card-stop-agent"
+                aria-label="Stop agent"
+                title="Stop agent"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (session) closeSessionWithConfirm(dialogs, session);
+                }}
+                className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <LuCircleStop aria-hidden className="h-3 w-3" />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              data-testid="card-play-agent"
+              aria-label="Start agent"
+              title="Start agent"
+              onClick={onPlay}
+              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <LuPlay aria-hidden className="h-3 w-3 fill-current" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/*
@@ -196,7 +253,7 @@ export function TaskCard({
         hidden session's xterm alive a little past that, exactly like the
         docked panel's own sessions.
       */}
-      {sessionId !== undefined && status.running ? (
+      {sessionId !== undefined && status.running && terminalOpen ? (
         <CardTerminal sessionId={sessionId} visible={visible} activity={status.activity} />
       ) : null}
     </div>

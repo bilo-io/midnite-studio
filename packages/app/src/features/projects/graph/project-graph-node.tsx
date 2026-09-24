@@ -1,10 +1,13 @@
 import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
 import { useMemo } from 'react';
-import { LuCircleCheck, LuPlay } from 'react-icons/lu';
+import { LuCircleCheck, LuCircleStop, LuPlay, LuSquareTerminal } from 'react-icons/lu';
 
+import { useDialogs } from '../../../components/dialog-host';
 import { useActiveWorktree } from '../../../services/use-status';
 import { ActivityBadgeStack } from '../../activity/activity-badge';
 import type { ActivityGlowBadge } from '../../activity/use-activity-glow';
+import { closeSessionWithConfirm } from '../../terminal/close-session';
+import { revealSession } from '../../terminal/reveal-session';
 import { findCardSession, useTerminalStore } from '../../terminal/terminal-store';
 import { CardAssignees, CardFieldChips, CardNumberRow, CardTitleRow, CONTENT_ICON } from '../board/card-chrome';
 import type { CardGlowState } from '../board/glow-state';
@@ -68,6 +71,7 @@ export function ProjectGraphNode({
   const taskRef = useMemo(() => ({ projectId: projectId ?? '', itemId: item?.id ?? '' }), [projectId, item?.id]);
   const liveSession = item ? findCardSession(sessions, states, taskRef) : undefined;
   const { onPlay } = useCardPlay({ item, repoId, worktreePath, taskRef, sessionId: liveSession?.id });
+  const dialogs = useDialogs();
 
   const Icon = CONTENT_ICON[node.kind];
   // A foreign node with no title of its own (the field/body layers never
@@ -172,19 +176,64 @@ export function ProjectGraphNode({
       </div>
 
       {/*
-        Bottom-right Play button: triggers an agent session or reveals terminal if active.
+        Bottom-right Start / Stop / `>_` (Phase 95 Theme G) — the identical
+        fork `TaskCard`'s own copy makes, minus a `>_` toggle over an
+        embedded terminal: a graph node never mounts one (Theme C's own
+        note — the canvas is still hand-rolled SVG with no node view to
+        attach a `CardTerminal` to), so `>_` here is exactly what
+        `revealSession` already did for the old single Play/reveal button —
+        open the main dock panel on this session.
       */}
       {detailed && item ? (
-        <button
-          type="button"
-          data-testid="graph-node-play-agent"
-          aria-label={liveSession ? 'Open in terminal' : 'Start agent'}
-          title={liveSession ? 'Open in terminal' : 'Start agent'}
-          onClick={onPlay}
-          className="absolute bottom-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <LuPlay aria-hidden className="h-3 w-3 fill-current" />
-        </button>
+        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5">
+          {liveSession ? (
+            <>
+              <button
+                type="button"
+                data-testid="graph-node-terminal-toggle"
+                aria-label="Open in terminal"
+                title="Open in terminal"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  revealSession(liveSession.id);
+                }}
+                className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <LuSquareTerminal aria-hidden className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                data-testid="graph-node-stop-agent"
+                aria-label="Stop agent"
+                title="Stop agent"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  // `findCardSession` narrows its return to a `Pick` of the
+                  // fields the glow/status callers need; `closeSessionWithConfirm`
+                  // wants the full `TerminalSession`, so this re-finds it by id
+                  // off the same `sessions` list rather than widening the
+                  // shared lookup's own return type for one caller.
+                  const full = sessions.find((s) => s.id === liveSession.id);
+                  if (full) closeSessionWithConfirm(dialogs, full);
+                }}
+                className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <LuCircleStop aria-hidden className="h-3 w-3" />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              data-testid="graph-node-play-agent"
+              aria-label="Start agent"
+              title="Start agent"
+              onClick={onPlay}
+              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <LuPlay aria-hidden className="h-3 w-3 fill-current" />
+            </button>
+          )}
+        </div>
       ) : null}
 
       {/*

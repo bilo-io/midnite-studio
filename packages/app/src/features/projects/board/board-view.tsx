@@ -15,7 +15,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { LuChevronRight } from 'react-icons/lu';
 
-import type { ForgeProjectField, ForgeProjectItem, ForgeProjectWriteResult } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, type ForgeProjectField, type ForgeProjectItem, type ForgeProjectWriteResult } from '@midnite/studio-shared';
 
 import { useDialogs } from '../../../components/dialog-host';
 import type { MenuItem } from '../../../components/context-menu';
@@ -23,11 +23,14 @@ import { EmptyState } from '../../../components/empty-state';
 import { VIEW_ICON } from '../../../components/nav-icons';
 import { ResizeHandle } from '../../../components/resizable/resize-handle';
 import type { Resizable } from '../../../components/resizable/use-resizable';
+import { useToasts } from '../../../components/toast-host';
 import { useWindowFocusGate } from '../../../lib/use-window-focus-gate';
 import { useClearProjectItemField, useSetProjectItemField } from '../../../services/queries';
 import { useUiStore } from '../../../store/ui-store';
 import { useToastStore } from '../../../store/toast-store';
-import { useTerminalStore } from '../../terminal/terminal-store';
+import { revealSession } from '../../terminal/reveal-session';
+import { startAgent } from '../../terminal/start-agent';
+import { findCardSession, useTerminalStore } from '../../terminal/terminal-store';
 import {
   findCardPosition,
   flattenCardIds,
@@ -38,7 +41,14 @@ import {
 } from './board-keyboard';
 import { applyOptimisticMove, type CardDragPayload, type ColumnDropPayload } from './board-dnd';
 import { CardPanelStack } from './card-panel-stack';
-import { deriveColumns, NO_STATUS_COLUMN_ID, sessionsToRehome, type BoardColumn } from './board-derive';
+import {
+  decideColumnSkillAction,
+  deriveColumns,
+  NO_STATUS_COLUMN_ID,
+  resolveMostRecentAgentId,
+  sessionsToRehome,
+  type BoardColumn,
+} from './board-derive';
 import { fieldOptionColor } from '../field-option-colors';
 import { TaskCard } from './task-card';
 
@@ -195,12 +205,48 @@ export function BoardView({
     }
   }, [items]);
 
+  /*
+    Drag-to-skill's own pending timers (Phase 95 Theme G), keyed by itemId —
+    a drop into a mapped column moves the card immediately (the optimistic
+    move above) but delays the actual skill launch 5s behind an Undo toast
+    (`maybeStartColumnSkill` below). Cleared on unmount so a board switch or
+    view change never fires a launch nobody can see cancelled.
+  */
+  const pendingSkillLaunches = useRef(new Map<string, { timeoutId: ReturnType<typeof setTimeout>; toastId: string }>());
+  useEffect(() => {
+    const pending = pendingSkillLaunches.current;
+    return () => {
+      for (const { timeoutId } of pending.values()) clearTimeout(timeoutId);
+      pending.clear();
+    };
+  }, []);
+
+  /*
+    `moveItemToColumn` (defined below, past this component's two early
+    returns) is redefined every render, closing over that render's own
+    `boardItems` — fine for every EXISTING caller, which always invokes it
+    synchronously within the same render pass that created it (a drop, a
+    "Move to ▸" click). The Undo toast's own `onAction` is the first caller
+    that can fire an arbitrary number of renders later — after the drag's
+    own optimistic move already landed — so a closure captured at drop time
+    would still see the PRE-drop column and no-op against
+    `moveItemToColumn`'s own "already there" guard. Declared here, ahead of
+    the early returns, because `useRef` itself must run unconditionally on
+    every render (`react-hooks/rules-of-hooks`); the ref is only ASSIGNED
+    past that point, once `moveItemToColumn` exists, which is an ordinary
+    statement and skips harmlessly on the early-return path.
+  */
+  const moveItemToColumnRef = useRef<((itemId: string, toColumnId: string) => void) | null>(null);
+
   const boardItems = optimisticItems ?? items;
   const columns = useMemo(() => deriveColumns(groupField, boardItems), [groupField, boardItems]);
 
   const setField = useSetProjectItemField(projectId);
   const clearField = useClearProjectItemField(projectId);
   const addToast = useToastStore((s) => s.addToast);
+  const states = useTerminalStore((s) => s.states);
+  const toasts = useToasts();
+  const columnSkillOverrides = useUiStore((s) => s.columnSkillByProject[projectId]);
 
   const [activeItem, setActiveItem] = useState<ForgeProjectItem | null>(null);
 
@@ -388,12 +434,100 @@ export function BoardView({
     setField.mutate({ itemId, fieldId: groupField.id, value }, { onSuccess: onSettled });
   };
 
+  // Keeps `moveItemToColumnRef` (declared above the early returns) pointing
+  // at THIS render's closure — see that declaration's own comment.
+  moveItemToColumnRef.current = moveItemToColumn;
+
+  /*
+    Drag-to-skill's own launch (Phase 95 Theme G) — the agent-resolution half
+    of `useCardPlay`'s `launchWithSkill`, pulled out to `resolveMostRecentAgentId`
+    (`board-derive.ts`) so this and the card's own Play button share it rather
+    than drifting apart. Always `autoSend: true`: unlike Play's own
+    type-but-don't-send default, a drag INTO a mapped column already passed
+    through the 5s Undo window below — by the time this runs, the user chose
+    not to cancel a launch the toast named in full.
+  */
+  const launchColumnSkill = (item: ForgeProjectItem, skillTemplate: string, url: string): void => {
+    if (!repoId) return;
+    const targetCwd = worktreePath ?? '';
+    const agentId = resolveMostRecentAgentId(sessions, repoId);
+    const agent = BUILTIN_AGENTS.find((a) => a.id === agentId) ?? BUILTIN_AGENTS[0]!;
+    const session = startAgent({
+      repoId,
+      cwd: targetCwd,
+      title: item.content.title,
+      prompt: `${skillTemplate} ${url}`,
+      agentId: agent.id,
+      command: agent.command,
+      surface: 'kanban',
+      taskRef: { projectId, itemId: item.id },
+      autoSend: true,
+    });
+    revealSession(session.id);
+  };
+
+  /*
+    A drop into a column with a mapped skill (Theme G): the card has already
+    moved (the caller's own `moveItemToColumn`, unconditional) — this is
+    purely the "and also start the mapped skill" half, behind a 5s Undo
+    toast. Respects an existing LIVE session on the card by revealing it
+    instead — "reveal, don't double-launch" is the phase doc's own words —
+    which also means no toast and no timer for that case: there is nothing
+    left to offer Undo over, the card was already running before the drop.
+  */
+  const maybeStartColumnSkill = (item: ForgeProjectItem, fromColumnId: string, columnName: string): void => {
+    if (!repoId) return;
+
+    const existingLive = findCardSession(sessions, states, { projectId, itemId: item.id });
+    const action = decideColumnSkillAction(item, columnName, columnSkillOverrides, existingLive?.id);
+
+    if (action.kind === 'none' || action.kind === 'skip') return;
+    if (action.kind === 'reveal') {
+      revealSession(action.sessionId);
+      return;
+    }
+
+    const fallbackNote = action.usedIssueFallback ? ' — no PR yet, using the issue link' : '';
+    const label = item.content.type === 'draft' ? item.content.title : `#${item.content.number}`;
+
+    const toastId = toasts.show({
+      message: `${action.skillTemplate} on ${label} in 5s${fallbackNote}`,
+      action: {
+        label: 'Undo',
+        onAction: () => {
+          const pending = pendingSkillLaunches.current.get(item.id);
+          if (pending) {
+            clearTimeout(pending.timeoutId);
+            pendingSkillLaunches.current.delete(item.id);
+          }
+          moveItemToColumnRef.current?.(item.id, fromColumnId);
+        },
+      },
+    });
+
+    const timeoutId = setTimeout(() => {
+      pendingSkillLaunches.current.delete(item.id);
+      launchColumnSkill(item, action.skillTemplate, action.url);
+      toasts.dismiss(toastId);
+    }, 5000);
+
+    pendingSkillLaunches.current.set(item.id, { timeoutId, toastId });
+  };
+
   const handleDragEnd = (event: DragEndEvent): void => {
     setActiveItem(null);
     const source = event.active.data.current as CardDragPayload | undefined;
     const target = event.over?.data.current as ColumnDropPayload | undefined;
     if (!source || !target) return;
+
+    const item = boardItems.find((i) => i.id === source.itemId);
+    const fromColumnId = item ? columnIdFor(groupField, item) : null;
     moveItemToColumn(source.itemId, target.optionId);
+
+    if (item && fromColumnId !== null && fromColumnId !== target.optionId) {
+      const column = columns.find((c) => c.id === target.optionId);
+      if (column) maybeStartColumnSkill(item, fromColumnId, column.name);
+    }
   };
 
   return (

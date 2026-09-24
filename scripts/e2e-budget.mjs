@@ -112,7 +112,23 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // `useFocusTrap` instances — neither is observable under jsdom. Every other
 // onboarding behaviour (step content, the skip-records-itself store
 // transition) already has its own vitest coverage.
-export const MAX_DECLARED_E2E = 449;
+// Raised 449 -> 454 for Phase 95 Theme G's drag-to-skill (`kanban.spec.ts`,
+// five new cases): `decideColumnSkillAction`'s own decision logic (unmapped/
+// mapped/existing-session/draft, and the "In review" PR-fallback flag) is
+// already a full vitest suite in `board-derive.test.ts` — what only the
+// assembled app can show is a real pointer drag reaching the real
+// `DndContext`, the real Undo toast landing at the right text, and the real
+// 5s timer either cancelling (Undo, reverted) or reaching `startAgent` with
+// `autoSend: true` (the trailing `\r` on `pty:create`'s own `initialInput`).
+// One case per: Undo cancels and reverts; the timer elapses and launches,
+// sent not typed; an existing live session reveals instead of double-
+// launching; an unmapped column stays plain. The fifth is the card's own
+// `>_` toggle (the Start/Stop/`>_` split this theme also makes) hiding and
+// re-showing its embedded terminal — `IntersectionObserver`-driven mount
+// policy that `task-card.test.tsx`'s jsdom suite already documents it cannot
+// observe for the identical reason (see that file's own "the in-card
+// terminal" describe block).
+export const MAX_DECLARED_E2E = 454;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

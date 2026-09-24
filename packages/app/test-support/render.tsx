@@ -13,6 +13,7 @@ import {
 import { ThemeProvider } from '@bilo-io/ui/theme';
 
 import { DialogHost } from '../src/components/dialog-host';
+import { ToastHost } from '../src/components/toast-host';
 import { useUiStore, type UiState } from '../src/store/ui-store';
 import { installMockBridgeJsdom } from './mock-bridge';
 import type { MockFixtures } from './mock-bridge';
@@ -80,14 +81,16 @@ function wrap(queryClient: QueryClient) {
     return (
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <DialogHost>{children}</DialogHost>
+          <ToastHost>
+            <DialogHost>{children}</DialogHost>
+          </ToastHost>
         </ThemeProvider>
       </QueryClientProvider>
     );
   };
 }
 
-/** Renders `ui` inside `QueryClientProvider` + `ThemeProvider` + `DialogHost`. */
+/** Renders `ui` inside `QueryClientProvider` + `ThemeProvider` + `ToastHost` + `DialogHost`. */
 export function renderView(ui: ReactElement, options: RenderViewOptions = {}): RenderResult {
   const { fixtures, uiState, queryClient, ...renderOptions } = options;
 

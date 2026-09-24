@@ -43,6 +43,7 @@ export const PREFERENCE_KEYS = [
   'autoFetchIntervalMs', // sidebar-page.tsx
   'blockedByFieldName', // projects-page.tsx
   'browserDiscardMs', // browser-page.tsx
+  'columnSkillByProject', // projects-page.tsx — drag-to-skill's column → skill map (Phase 95 Theme G)
   'cycleDurationS', // screen-lock-page.tsx
   'disabledEcosystems', // optimizer-settings-page.tsx
   'forgeWritesEnabled', // reviews-page.tsx / git-safety-page.tsx

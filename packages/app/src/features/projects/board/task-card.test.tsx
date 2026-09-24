@@ -178,8 +178,8 @@ describe('TaskCard', () => {
       expect(btn.getAttribute('aria-label')).toBe('Start agent');
     });
 
-    it('shows "Open in terminal" and reveals the bound session in the terminal panel', () => {
-      const session = useTerminalStore.getState().openSession({
+    it('shows Stop and a `>_` toggle instead of Start once a session is bound (Theme G)', () => {
+      useTerminalStore.getState().openSession({
         kind: 'agent',
         agentId: 'claude',
         title: 'card',
@@ -190,14 +190,56 @@ describe('TaskCard', () => {
       });
 
       renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
-      const btn = screen.getByTestId('card-play-agent');
-      expect(btn.getAttribute('title')).toBe('Open in terminal');
-      expect(btn.getAttribute('aria-label')).toBe('Open in terminal');
 
-      fireEvent.click(btn);
+      expect(screen.queryByTestId('card-play-agent')).toBeNull();
+      const stopBtn = screen.getByTestId('card-stop-agent');
+      expect(stopBtn.getAttribute('title')).toBe('Stop agent');
+      const toggleBtn = screen.getByTestId('card-terminal-toggle');
+      expect(toggleBtn.getAttribute('aria-pressed')).toBe('true');
+    });
 
-      expect(useUiStore.getState().terminalOpen).toBe(true);
-      expect(useTerminalStore.getState().activeId).toBe(session.id);
+    it('the `>_` toggle hides the card\'s own embedded terminal (Theme G)', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      // No IntersectionObserver in jsdom, so `CardTerminal` renders its
+      // off-screen fallback — the "Running" activity line — when open,
+      // exactly as `the in-card terminal (Theme E)`'s own suite already
+      // asserts for the default-open case.
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      expect(screen.getByText('Running')).toBeDefined();
+
+      fireEvent.click(screen.getByTestId('card-terminal-toggle'));
+
+      expect(screen.getByTestId('card-terminal-toggle').getAttribute('aria-pressed')).toBe('false');
+      expect(screen.queryByText('Running')).toBeNull();
+    });
+
+    it('Stop closes the session, confirming first when it is still live', () => {
+      const session = useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      useTerminalStore.getState().setState(session.id, 'open');
+
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      fireEvent.click(screen.getByTestId('card-stop-agent'));
+
+      // No foreground command recorded for this session, so
+      // `closeSessionWithConfirm` closes it directly with no dialog.
+      expect(useTerminalStore.getState().sessions.find((s) => s.id === session.id)).toBeUndefined();
     });
 
     it('does not also open the detail pane — the click stops at the button', () => {
@@ -213,7 +255,7 @@ describe('TaskCard', () => {
       const onClick = vi.fn();
 
       renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" onClick={onClick} />);
-      fireEvent.click(screen.getByTestId('card-play-agent'));
+      fireEvent.click(screen.getByTestId('card-stop-agent'));
 
       expect(onClick).not.toHaveBeenCalled();
     });

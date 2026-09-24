@@ -66,8 +66,12 @@ describe('TerminalSwitcherOverlay', () => {
 
   it('renders nothing when terminalSwitcherOpen is false', () => {
     useUiStore.setState({ terminalSwitcherOpen: false });
-    const { container } = renderView(<TerminalSwitcherOverlay />, { queryClient: createTestQueryClient() });
-    expect(container.firstChild).toBeNull();
+    // Not `container.firstChild` (Phase 95 Theme G): `renderView`'s shared
+    // provider stack now includes `ToastHost`, which always renders its own
+    // (empty) fixed wrapper regardless of whether any toast is up — so the
+    // overlay's OWN root is what "renders nothing" has to mean here.
+    renderView(<TerminalSwitcherOverlay />, { queryClient: createTestQueryClient() });
+    expect(screen.queryByTestId('terminal-switcher-overlay')).toBeNull();
   });
 
   it('renders "Terminal" first, then every INSTALLED agent — never a not-installed one', () => {

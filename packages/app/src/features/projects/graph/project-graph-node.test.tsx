@@ -317,7 +317,7 @@ describe('ProjectGraphNode', () => {
     expect(useTerminalStore.getState().sessions).toHaveLength(1);
   });
 
-  it('clicking play button reveals terminal when a session is already active', () => {
+  it('clicking the `>_` toggle reveals terminal when a session is already active (Theme G)', () => {
     const item = issueItem({
       content: {
         type: 'issue',
@@ -357,10 +357,16 @@ describe('ProjectGraphNode', () => {
       />,
     );
 
-    const playBtn = container.querySelector('[data-testid="graph-node-play-agent"]')!;
-    expect(playBtn.getAttribute('aria-label')).toBe('Open in terminal');
+    // No more "Play" button once a session is live — Start is replaced by
+    // the `>_` toggle and Stop (Theme G).
+    expect(container.querySelector('[data-testid="graph-node-play-agent"]')).toBeNull();
 
-    fireEvent.click(playBtn);
+    const toggleBtn = container.querySelector('[data-testid="graph-node-terminal-toggle"]')!;
+    expect(toggleBtn.getAttribute('aria-label')).toBe('Open in terminal');
+    const stopBtn = container.querySelector('[data-testid="graph-node-stop-agent"]')!;
+    expect(stopBtn.getAttribute('aria-label')).toBe('Stop agent');
+
+    fireEvent.click(toggleBtn);
     expect(onSelect).not.toHaveBeenCalled();
     expect(useTerminalStore.getState().activeId).toBe('sess-active');
     expect(useUiStore.getState().terminalOpen).toBe(true);

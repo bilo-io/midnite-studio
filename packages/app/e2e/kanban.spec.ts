@@ -62,15 +62,18 @@ const ITEM = {
     assignees: [],
     /*
       Neither optional nor decoration. `ForgeProjectItemContentSchema` gives
-      `body` and `labels` a `.default([])`/`.default('')`, so a real payload
-      always carries both — and `composeCardPrompt` reads
-      `content.labels.length` and `content.body.trim()` unguarded on that
+      `body`, `labels` and `linkedPrs` a `.default([])`/`.default('')`, so a
+      real payload always carries all three — and `composeCardPrompt` reads
+      `content.labels.length`/`content.body.trim()`, `resolveDragSkillLink`
+      (Phase 95 Theme G) reads `content.linkedPrs[0]`, both unguarded on that
       guarantee. The mock bridge hands these fixtures back VERBATIM, with no
-      schema parse, so omitting either here throws on the detail pane's first
-      render. Which is what it did, silently, until a test finally opened one.
+      schema parse, so omitting any of the three here throws — on the detail
+      pane's first render for the first two, on the first drag-to-skill drop
+      for the third.
     */
     body: '',
     labels: [],
+    linkedPrs: [],
   },
   fieldValues: {
     FIELD_status: { fieldId: 'FIELD_status', dataType: 'single_select' as const, optionId: 'OPT_todo', name: 'Todo' },
@@ -89,6 +92,7 @@ const OTHER_ITEM = {
     assignees: [],
     body: '',
     labels: [],
+    linkedPrs: [],
   },
   fieldValues: {
     FIELD_status: { fieldId: 'FIELD_status', dataType: 'single_select' as const, optionId: 'OPT_todo', name: 'Todo' },
@@ -260,6 +264,116 @@ test.describe('kanban board drag (Theme C)', () => {
   });
 });
 
+/**
+ * Drag-to-skill (Phase 95 Theme G) — a real pointer drag is the only way to
+ * exercise this: `pointer drag` is on `docs/TESTING.md`'s own list of things
+ * that need a genuine browser, so `decideColumnSkillAction`'s own decision
+ * logic (unmapped/mapped/existing-session/draft) is the Vitest suite
+ * (`board-derive.test.ts`) and this is what only the assembled app can show
+ * — a drop landing on the real `DndContext`, the real Undo toast, and the
+ * real 5s timer either cancelling or reaching `startAgent`.
+ */
+const STATUS_FIELD_WITH_PROGRESS = {
+  ...STATUS_FIELD,
+  options: [
+    { id: 'OPT_todo', name: 'Todo', color: 'GRAY' },
+    { id: 'OPT_progress', name: 'In progress', color: 'YELLOW' },
+    { id: 'OPT_done', name: 'Done', color: 'GREEN' },
+  ],
+};
+
+const dragToSkillBase: MockFixtures = {
+  ...base,
+  forgeProject: {
+    ...base.forgeProject,
+    fields: { [BOARD.id]: [STATUS_FIELD_WITH_PROGRESS] },
+    items: { [BOARD.id]: [structuredClone(ITEM), structuredClone(OTHER_ITEM)] },
+  },
+};
+
+test.describe('drag-to-skill (Phase 95 Theme G)', () => {
+  test('a drop onto a mapped column shows an Undo toast; Undo sends nothing and reverts the move', async ({
+    page,
+  }) => {
+    await openBoard(page, dragToSkillBase, { writes: true });
+
+    const card = page.getByText('Wire the write path');
+    const progressColumn = page.getByRole('button', { name: 'Collapse In progress' });
+    await dragOnto(page, card, progressColumn);
+
+    // The card moved — today's plain status write, unconditional.
+    await expect
+      .poll(async () => (await recorded(page)).map((call) => call.channel))
+      .toContain('forgeProjectSetField');
+
+    // The Undo toast names the mapped skill and the card, in full.
+    await expect(page.getByText('/midnite-create on #42 in 5s')).toBeVisible();
+    await page.getByRole('button', { name: 'Undo' }).click();
+
+    // And the move itself reverted — a second real write back to Todo, not
+    // a client-only rollback.
+    await expect
+      .poll(async () => (await recorded(page)).filter((call) => call.channel === 'forgeProjectSetField').length)
+      .toBeGreaterThanOrEqual(2);
+    const setFieldCalls = (await recorded(page)).filter((call) => call.channel === 'forgeProjectSetField');
+    expect(setFieldCalls.at(-1)?.request).toMatchObject({
+      value: { fieldId: STATUS_FIELD.id, dataType: 'single_select', optionId: 'OPT_todo', name: 'Todo' },
+    });
+
+    // Long enough to prove the 5s timer really was cancelled, not merely
+    // not-yet-fired.
+    await page.waitForTimeout(5500);
+    expect((await ptyCalls(page)).creates).toHaveLength(0);
+  });
+
+  test('leaving the toast alone starts the mapped skill after 5s, sent — not just typed', async ({ page }) => {
+    await openBoard(page, dragToSkillBase, { writes: true });
+
+    const card = page.getByText('Wire the write path');
+    const progressColumn = page.getByRole('button', { name: 'Collapse In progress' });
+    await dragOnto(page, card, progressColumn);
+
+    await expect(page.getByText('/midnite-create on #42 in 5s')).toBeVisible();
+
+    await expect.poll(async () => (await ptyCalls(page)).creates.length, { timeout: 8000 }).toBe(1);
+    const create = (await ptyCalls(page)).creates[0]!;
+    expect(create.initialInput).toContain('/midnite-create https://github.com/bilo-io/midnite-studio/issues/42');
+    // `autoSend: true` — the trailing `\r` is what tells a typed prompt from
+    // a sent one; Play's own default composes the identical words with none.
+    expect(create.initialInput?.endsWith('\r')).toBe(true);
+  });
+
+  test('a card with an existing live session reveals it — no toast, no second launch', async ({ page }) => {
+    await openBoard(
+      page,
+      { ...dragToSkillBase, terminalSessions: [CARD_SESSION] },
+      { writes: true },
+    );
+
+    const card = page.getByText('Wire the write path');
+    const progressColumn = page.getByRole('button', { name: 'Collapse In progress' });
+    await dragOnto(page, card, progressColumn);
+
+    await expect(page.locator('[data-terminal-panel]')).toBeVisible();
+    await expect(page.getByText('in 5s')).toHaveCount(0);
+    // Still just the one, pre-seeded session — never a second launch.
+    expect((await ptyCalls(page)).creates).toHaveLength(0);
+  });
+
+  test('an unmapped column keeps today\'s plain status-only drop — no toast at all', async ({ page }) => {
+    await openBoard(page, dragToSkillBase, { writes: true });
+
+    const card = page.getByText('Wire the write path');
+    const doneColumn = page.getByRole('button', { name: 'Collapse Done' });
+    await dragOnto(page, card, doneColumn);
+
+    await expect
+      .poll(async () => (await recorded(page)).map((call) => call.channel))
+      .toContain('forgeProjectSetField');
+    await expect(page.getByText(/in 5s/)).toHaveCount(0);
+  });
+});
+
 /** The seeded live `'kanban'` session a restart would restore, bound to `ITEM`. */
 const CARD_SESSION = {
   session: {
@@ -328,8 +442,13 @@ test.describe('kanban card running glow (Theme F)', () => {
 });
 
 /**
- * The card's `>_` button (this change) — the answer to "I started a session
- * and I have no idea where its terminal is".
+ * The card's `>_` toggle and Stop (Phase 95 Theme G split the old single
+ * Play-or-reveal button into three: Start, Stop, `>_`) — the answer to "I
+ * started a session and I have no idea where its terminal is" now lives
+ * inline on the card itself by default (the embedded `CardTerminal` Theme E
+ * already built, `>_` merely shows/hides it), with its own "pop out to
+ * Terminal view" button still reaching the main dock panel for whoever wants
+ * that instead.
  *
  * Two halves, both needed: the panel had to start LISTING `'kanban'`
  * sessions (`inMainPanel`) before there was anywhere to send anyone, and the
@@ -338,7 +457,7 @@ test.describe('kanban card running glow (Theme F)', () => {
  * the glow and the Stop with it.
  */
 test.describe('revealing a card session in the terminal', () => {
-  test('the card\'s play button opens the terminal panel on that session, and the card keeps its glow', async ({
+  test('a running card shows Stop and `>_` (never Start), and the embedded terminal pops out to the main panel', async ({
     page,
   }) => {
     await installMockBridge(page, { ...base, terminalSessions: [CARD_SESSION] });
@@ -352,6 +471,9 @@ test.describe('revealing a card session in the terminal', () => {
       .getByText('Wire the write path')
       .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
     await expect(card).toHaveClass(/is-running/);
+    await expect(card.getByTestId('card-play-agent')).toHaveCount(0);
+    await expect(card.getByTestId('card-stop-agent')).toBeVisible();
+    await expect(card.getByTestId('card-terminal-toggle')).toHaveAttribute('aria-pressed', 'true');
 
     // The untouched card has no active session, so its button is "Start agent"
     const otherCard = page
@@ -359,7 +481,10 @@ test.describe('revealing a card session in the terminal', () => {
       .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
     await expect(otherCard.getByTestId('card-play-agent')).toHaveAttribute('title', 'Start agent');
 
-    await card.getByTestId('card-play-agent').click();
+    // The embedded terminal is open by default (Theme G's `>_` starts
+    // `true`, matching what this card looked like before this theme) — its
+    // own pop-out button is what reaches the main dock panel.
+    await card.getByLabel('Pop out to Terminal view').click();
 
     // The panel is open, and the card's own session is the one showing —
     // named in the session list, which is what "go to that session" means.
@@ -371,6 +496,27 @@ test.describe('revealing a card session in the terminal', () => {
 
     // And the card is still bound: same glow, still running.
     await expect(card).toHaveClass(/is-running/);
+  });
+
+  test('the `>_` toggle hides and re-shows the card\'s embedded terminal (Theme G)', async ({ page }) => {
+    await installMockBridge(page, { ...base, terminalSessions: [CARD_SESSION] });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
+    await clickRailLink(page, 'Projects');
+    await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+    await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
+
+    const card = page
+      .getByText('Wire the write path')
+      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+    await expect(card.locator('.xterm-screen')).toBeVisible();
+
+    await card.getByTestId('card-terminal-toggle').click();
+    await expect(card.getByTestId('card-terminal-toggle')).toHaveAttribute('aria-pressed', 'false');
+    await expect(card.locator('.xterm-screen')).toHaveCount(0);
+
+    await card.getByTestId('card-terminal-toggle').click();
+    await expect(card.locator('.xterm-screen')).toBeVisible();
   });
 
   test('the detail pane offers the same jump beside Stop', async ({ page }) => {
