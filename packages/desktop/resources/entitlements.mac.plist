@@ -12,5 +12,23 @@
   <true/>
   <key>com.apple.security.automation.apple-events</key>
   <true/>
+  <!--
+    Ad Hoc: companion input + voice improvements. Under Hardened Runtime,
+    macOS gates hardware access behind these "Resource Access" entitlements
+    REGARDLESS of whether App Sandbox is also on — `automation.apple-events`
+    two lines up is the proof this app already needed one of them without
+    being sandboxed. Missing this one is what let the mic keep "already
+    granted" in System Settings ▸ Privacy & Security (the TCC database entry
+    from the first `getUserMedia` prompt, which never goes away on its own)
+    while the *signed, packaged* build's own code signature still lacked the
+    entitlement macOS actually checks before handing audio to a
+    Hardened-Runtime process — so `getUserMedia` kept failing with the same
+    `NotAllowedError` `recorder.ts` classifies as `denied`, and the app kept
+    telling the user to go re-check a setting that was never the problem. A
+    dev build (`moon run desktop:start`, unsigned, no Hardened Runtime) never
+    showed this, which is why it read as "already granted and working."
+  -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
 </dict>
 </plist>

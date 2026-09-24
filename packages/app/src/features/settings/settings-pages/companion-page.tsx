@@ -87,6 +87,8 @@ export function CompanionPage() {
   const setCompanionVolume = useUiStore((s) => s.setCompanionVolume);
   const companionMicMode = useUiStore((s) => s.companionMicMode);
   const setCompanionMicMode = useUiStore((s) => s.setCompanionMicMode);
+  const companionSttEngine = useUiStore((s) => s.companionSttEngine);
+  const setCompanionSttEngine = useUiStore((s) => s.setCompanionSttEngine);
 
   const [showAllVoices, setShowAllVoices] = useState(false);
   const voices = useSpeechVoices();
@@ -386,9 +388,10 @@ export function CompanionPage() {
       <Accordion title="Microphone" icon={<LuMic className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Chromium&apos;s recogniser doesn&apos;t work in Electron, so the mic uses a built-in
-            offline engine instead — no key, no account, just a small one-time download. OpenAI
-            Whisper below is an optional cloud alternative for anyone who already has a key.
+            Chromium&apos;s recogniser doesn&apos;t reliably work in Electron, so the mic uses a
+            built-in offline engine by default — no key, no account, just a small one-time
+            download. OpenAI Whisper below is an optional cloud alternative for anyone who already
+            has a key.
           </p>
 
           <SttCredentialFields disabled={!companionEnabled} />
@@ -401,6 +404,21 @@ export function CompanionPage() {
             options={[
               ['push', 'Hold to talk', 'Records while the mic button (or Space) is held down'],
               ['toggle', 'Tap to toggle', 'One tap starts recording, the next one stops it'],
+            ]}
+          />
+
+          <Choice<'server' | 'webSpeech'>
+            label="Recognition engine"
+            hint="The browser's built-in recogniser usually fails with a network error inside Electron — it depends on a Google service and a key this app doesn't ship. Leave this on the offline/cloud engine unless you're specifically testing the browser one."
+            value={companionSttEngine}
+            onChange={setCompanionSttEngine}
+            options={[
+              ['server', 'Offline / OpenAI Whisper', 'The engine above — recommended, and the default'],
+              [
+                'webSpeech',
+                "Browser built-in (experimental)",
+                'Runs entirely on-device with no IPC round trip, when it works at all in this build',
+              ],
             ]}
           />
         </div>

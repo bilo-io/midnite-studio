@@ -43,17 +43,22 @@ export function CompanionPanel({
 }: {
   width?: number;
   /**
-   * Whether this column is the rightmost thing on screen, and so has the FAB
-   * floating over its bottom-right corner.
+   * Whether this column is the rightmost thing on screen AND the round FAB
+   * button is actually floating over its bottom-right corner right now.
    *
    * The FAB is `absolute bottom-4 right-4` inside the whole content row, not
    * inside any one column, so it lands on top of whichever right-docked panel
-   * is last. The Loops panel answers that by *hiding* the FAB while it is
-   * open (`app.tsx`), and the companion deliberately does not: watching the
-   * FAB run listening → thinking → handoff → speaking is Theme H's entire
-   * point, and it would be visible only while the panel was shut. So the
-   * input bar gives the button its 56px of corner back instead — which is
-   * cheaper than a second FAB position and keeps both controls clickable.
+   * is last — but only while it is rendered at all: `app.tsx` hides the round
+   * button whenever EITHER this panel or the Loops panel is docked (it morphs
+   * into the statusbar's `AssistantMenu` instead), so the two panels are
+   * symmetric here, not opposites. `app.tsx` passes `!fabPanelDocked &&
+   * !companionDocked` — the same condition that gates the button itself — so
+   * this stays `true` only for the moment the panel is opening/closing and
+   * the button has not finished morphing (Ad Hoc: companion input fixes;
+   * passing `!fabPanelDocked` alone left 56px of dead space to the right of
+   * the send button for as long as the panel stayed docked, reserved for a
+   * button that had already left the corner). Cheaper than a second FAB
+   * position and keeps both controls clickable during that transition.
    */
   reserveFabSpace?: boolean;
 }) {

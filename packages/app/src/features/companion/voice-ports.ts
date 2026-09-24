@@ -17,6 +17,7 @@ import {
   transcribe,
 } from './recorder';
 import { companionTtsSpeaker } from './speaker';
+import { startWebSpeechRecognition, webSpeechSupported, type WebSpeechSession } from './web-speech';
 
 /**
  * Where Themes F and G plug into Theme C's panel.
@@ -85,6 +86,15 @@ const micListeners = new Set<() => void>();
  * first time it's pressed.
  */
 let localModelState: 'idle' | 'downloading' | 'ready' | 'failed' | null = null;
+
+/**
+ * The live Web Speech session, while `companionSttEngine === 'webSpeech'`
+ * and a press is in progress. `null` otherwise — including for the server
+ * engine, which never sets it. `stopAll`/`micPressEnd` read it before
+ * `isRecording()` so the two engines can never both think they own the
+ * gesture.
+ */
+let webSpeechSession: WebSpeechSession | null = null;
 
 function setMicStatus(next: MicAvailabilityStatus): void {
   if (next === micStatus) return;
@@ -158,12 +168,22 @@ export function refreshMicAvailability(): Promise<boolean> {
 }
 
 function micAvailable(): boolean {
+  // The Web Speech engine needs no key, no provider and no `sttStatus()`
+  // round trip at all — its only precondition is that this Chromium build
+  // exposes the constructor (see `web-speech.ts`'s own module doc for why
+  // that is necessary but not sufficient).
+  if (useUiStore.getState().companionSttEngine === 'webSpeech') return webSpeechSupported();
   if (micStatus === 'checking' && micProbe === null) void refreshMicAvailability();
   return micStatus === 'available';
 }
 
 /** `CompanionPorts['micUnavailableReason']`. */
 function micUnavailableReason(): string {
+  if (useUiStore.getState().companionSttEngine === 'webSpeech') {
+    return webSpeechSupported()
+      ? 'Hold to talk'
+      : "Hold to talk — this build's browser has no built-in speech recognition. Switch to the offline engine in Settings ▸ Companion ▸ Microphone";
+  }
   switch (micStatus) {
     case 'available':
       // Still worth a real sentence rather than the bare default: a one-time
@@ -225,17 +245,22 @@ function reportVoiceError(text: string): void {
  */
 async function micPressStart(): Promise<void> {
   const mode = useUiStore.getState().companionMicMode;
-  if (mode === 'toggle' && isRecording()) {
-    await finishRecording();
+  if (mode === 'toggle' && (isRecording() || webSpeechSession !== null)) {
+    await finishCapture();
     return;
   }
-  if (isRecording()) return;
+  if (isRecording() || webSpeechSession !== null) return;
 
   // A press is the user taking the floor — the same rule the textarea's first
   // keystroke follows.
   companionTtsSpeaker.cancel();
   stopCompanionPersonality();
   useCompanionStore.getState().send('listen');
+
+  if (useUiStore.getState().companionSttEngine === 'webSpeech') {
+    startWebSpeech();
+    return;
+  }
 
   try {
     await startRecording();
@@ -250,7 +275,54 @@ async function micPressStart(): Promise<void> {
 async function micPressEnd(): Promise<void> {
   // In toggle mode the release is not the end of anything; the next press is.
   if (useUiStore.getState().companionMicMode === 'toggle') return;
+  await finishCapture();
+}
+
+/**
+ * Route the release to whichever engine actually has a capture in flight.
+ * The two are mutually exclusive by construction (`micPressStart` never
+ * starts one while the other is active), so at most one branch does
+ * anything.
+ */
+async function finishCapture(): Promise<void> {
+  if (webSpeechSession !== null) {
+    webSpeechSession.stop();
+    return;
+  }
   await finishRecording();
+}
+
+/**
+ * Start a Web Speech session (Ad Hoc). Unlike the server engine, the
+ * transcript arrives from the engine's own callback rather than from an
+ * explicit stop-then-await, so this has no return value for `micPressStart`
+ * to `await` — `finishCapture` calls `stop()` on the same session and the
+ * result still arrives through `onDone` below.
+ */
+function startWebSpeech(): void {
+  const session = startWebSpeechRecognition((result) => {
+    webSpeechSession = null;
+    // Out of `listening` either way, matching `finishRecording`'s own rule.
+    useCompanionStore.getState().send('interrupt');
+    if (!result.ok) {
+      reportVoiceError(result.message);
+      return;
+    }
+    if (result.text.length === 0) {
+      reportVoiceError('I did not catch that. Try again, a little closer to the microphone.');
+      return;
+    }
+    companionPorts().transcriptSink(result.text);
+  });
+
+  if (!session) {
+    useCompanionStore.getState().send('interrupt');
+    reportVoiceError(
+      "Hold to talk — this build's browser has no built-in speech recognition. Switch to the offline engine in Settings ▸ Companion ▸ Microphone.",
+    );
+    return;
+  }
+  webSpeechSession = session;
 }
 
 /**
@@ -351,6 +423,17 @@ export function watchCompanionSilence(): () => void {
     if (previous.companionPanelOpen && !state.companionPanelOpen) stopAll();
     // Turning the feature off has to silence it mid-sentence.
     if (previous.companionEnabled && !state.companionEnabled) stopAll();
+    /*
+      The mic button's tooltip and enabled state are `micAvailable()`/
+      `micUnavailableReason()`, both engine-aware — but neither is itself a
+      store subscription, so nothing tells `useSyncExternalStore` to read
+      them again when Settings flips the engine switch. This is that signal,
+      reusing the one subscription already watching `useUiStore` here rather
+      than adding a second one purely for this.
+    */
+    if (previous.companionSttEngine !== state.companionSttEngine) {
+      for (const listener of micListeners) listener();
+    }
   });
 
   const onVisibility = (): void => {
@@ -372,6 +455,10 @@ function stopAll(): void {
   companionTtsSpeaker.cancel();
   stopCompanionPersonality();
   if (isRecording()) cancelRecording();
+  if (webSpeechSession !== null) {
+    webSpeechSession.cancel();
+    webSpeechSession = null;
+  }
 }
 
 registerVoicePorts();
@@ -388,6 +475,7 @@ export function __resetVoicePortsForTest(): void {
   micStatus = 'checking';
   micProbe = null;
   localModelState = null;
+  webSpeechSession = null;
   micListeners.clear();
   moduleWatcher?.();
   moduleWatcher = null;

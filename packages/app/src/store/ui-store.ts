@@ -12,6 +12,7 @@ import {
   type AgentOllamaBinding,
   type AppId,
   type CompanionMicMode,
+  type CompanionSttEngine,
   type CompanionVoiceEngine,
   type CompanionVoiceSelection,
   type Ecosystem,
@@ -1777,6 +1778,18 @@ export type UiState = {
    */
   companionMicMode: CompanionMicMode;
   setCompanionMicMode: (mode: CompanionMicMode) => void;
+  /**
+   * Which engine `voice-ports.ts` reaches for on a mic press (Ad Hoc:
+   * companion input + voice improvements) — `server` (Theme F's original
+   * `MediaRecorder` + IPC path) or `webSpeech` (the browser's own
+   * `SpeechRecognition`, opt-in only). `server` is the default and what every
+   * migrated install keeps: Web Speech's own docblock
+   * (`features/companion/web-speech.ts`) explains why it usually fails with a
+   * `network` error inside Electron, which is exactly why flipping this is a
+   * deliberate choice rather than the thing a fresh install lands on.
+   */
+  companionSttEngine: CompanionSttEngine;
+  setCompanionSttEngine: (engine: CompanionSttEngine) => void;
   setCompanionMusicOffer: (offer: boolean) => void;
   /**
    * Phase 59 Theme A — same shape as `allowForceWithLease`: default off, so
@@ -2104,6 +2117,7 @@ export type PersistedUi = Pick<
   | 'companionMusicOffer'
   | 'companionVolume'
   | 'companionMicMode'
+  | 'companionSttEngine'
   | 'optimizerEnabled'
   | 'allowSystemCacheClean'
   | 'systemCacheConsentGiven'
@@ -2315,6 +2329,8 @@ export const useUiStore = create<UiState>()(
         set({ companionVolume: Math.min(1, Math.max(0, companionVolume)) }),
       companionMicMode: 'push',
       setCompanionMicMode: (companionMicMode) => set({ companionMicMode }),
+      companionSttEngine: 'server',
+      setCompanionSttEngine: (companionSttEngine) => set({ companionSttEngine }),
       // Default off, same reasoning: a fresh install cannot scan or delete
       // anything, or list/kill a system process, until someone deliberately
       // turns the optimizer on.
@@ -2929,7 +2945,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 26,
+      version: 27,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         graphColumns: state.graphColumns,
@@ -3050,6 +3066,7 @@ export const useUiStore = create<UiState>()(
         companionMusicOffer: state.companionMusicOffer,
         companionVolume: state.companionVolume,
         companionMicMode: state.companionMicMode,
+        companionSttEngine: state.companionSttEngine,
         optimizerEnabled: state.optimizerEnabled,
         allowSystemCacheClean: state.allowSystemCacheClean,
         systemCacheConsentGiven: state.systemCacheConsentGiven,
@@ -3137,6 +3154,11 @@ export const useUiStore = create<UiState>()(
        * exist before this version, so a pre-v26 blob and a fresh install
        * land on the identical empty maps and every board reads the default
        * (off, cap 1) unmodified.
+       * v26 → v27: seed `companionSttEngine = 'server'` (Ad Hoc: companion
+       * input + voice improvements) — the Web Speech opt-in did not exist
+       * before this version, and `'server'` is also the fresh-install
+       * default, so a pre-v27 blob and a fresh install land on the same
+       * engine.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3177,6 +3199,7 @@ export const useUiStore = create<UiState>()(
           companionMusicOffer?: boolean;
           companionVolume?: number;
           companionMicMode?: CompanionMicMode;
+          companionSttEngine?: CompanionSttEngine;
           cardSkillByTask?: Record<string, AgentCommandId>;
           columnSkillByProject?: Record<string, Record<string, string>>;
           automateEnabledByProject?: Record<string, boolean>;
@@ -3294,6 +3317,9 @@ export const useUiStore = create<UiState>()(
         if (version < 26) {
           state.automateEnabledByProject = {};
           state.automateCapByProject = {};
+        }
+        if (version < 27) {
+          state.companionSttEngine = 'server';
         }
         return state as PersistedUi;
       },

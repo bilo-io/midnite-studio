@@ -10,10 +10,56 @@ import { LuMic, LuMicOff, LuSendHorizontal } from 'react-icons/lu';
 import { GRADIENT_FIELD_CLASSES } from '../../components/gradient-field';
 import { Tooltip } from '../../components/tooltip';
 import { useCompanionStore } from '../../store/companion-store';
+import {
+  useCompanionSpeakingLevelBars,
+  useMicLevelBars,
+  type LevelBars,
+} from './audio/waveform';
 import { companionPorts, setCompanionPorts } from './companion-ports';
+import {
+  filterSlashCommands,
+  runSlashCommand,
+  slashInsertText,
+  type SlashCommandItem,
+} from './slash-commands';
+
+/**
+ * The mic/companion level meter — nine thin bars, each height-scaled 0..1
+ * from {@link LevelBars}. Deliberately not a `<canvas>`: nine `<span>`s with
+ * an inline `height` cost nothing to lay out at this size and need no
+ * device-pixel-ratio handling, and the "never animate `filter: blur()`"
+ * motion rule has nothing to say about a plain height change.
+ */
+function LevelMeterBars({ bars, label }: { bars: LevelBars; label: string }) {
+  return (
+    <div
+      role="img"
+      aria-label={label}
+      data-testid="companion-level-meter"
+      className="flex h-4 w-6 shrink-0 items-end justify-center gap-px"
+    >
+      {bars.map((level, index) => (
+        <span
+          key={index}
+          className="w-0.5 rounded-full bg-primary/70"
+          style={{ height: `${Math.max(2, Math.round(level * 16))}px` }}
+        />
+      ))}
+    </div>
+  );
+}
 
 /** How tall the textarea may grow before it starts scrolling instead. */
 const MAX_TEXTAREA_HEIGHT = 160;
+
+/**
+ * The "/" popover's own trigger grammar: the *whole* textarea value is a
+ * slash plus a run of non-space characters — no leading text, no space yet.
+ * `Text before it ("please /exec")` and `text after a completed token
+ * ("/exec ")` both fall through to plain typing, which is what closes the
+ * popover the instant a skill's inserted phrase gets its own trailing word.
+ */
+const SLASH_TRIGGER = /^\/(\S*)$/;
 
 /**
  * The docked bar at the bottom of the companion panel (Phase 79 Theme C).
@@ -61,7 +107,41 @@ export function CompanionInputBar({
 }) {
   const [value, setValue] = useState('');
   const [micHeld, setMicHeld] = useState(false);
+  const [slashIndex, setSlashIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  /*
+    Derived from `value` on every render rather than a second piece of state
+    kept in sync with it — `value` already changes from three places (typing,
+    `transcriptSink`, `send`/Escape clearing it), and a query string that
+    read stale after any one of them would be a bug all its own. Cheap:
+    `filterSlashCommands` scores at most a few dozen items.
+  */
+  const slashQuery = SLASH_TRIGGER.exec(value)?.[1] ?? null;
+  const slashItems = slashQuery === null ? [] : filterSlashCommands(slashQuery);
+  const slashOpen = slashItems.length > 0;
+  const slashSelected = Math.min(slashIndex, Math.max(slashItems.length - 1, 0));
+
+  // A fresh filter always highlights its own top match, not wherever the
+  // previous (longer or shorter) list happened to leave the cursor.
+  useEffect(() => {
+    setSlashIndex(0);
+  }, [slashQuery]);
+
+  const acceptSlashItem = (item: SlashCommandItem): void => {
+    const insert = slashInsertText(item);
+    if (insert === null) {
+      // `command`/`control`: runs now, through the same ports a typed or
+      // spoken line already reaches — nothing is left in the box.
+      setValue('');
+      runSlashCommand(item);
+      return;
+    }
+    // `skill`: still needs a free-text argument, so it replaces the "/query"
+    // token with the canonical phrase and a trailing space, unsent.
+    setValue(insert);
+    textareaRef.current?.focus();
+  };
   const micAvailable = useSyncExternalStore(
     (listener) => companionPorts().onMicAvailabilityChange(listener),
     () => companionPorts().micAvailable(),
@@ -77,6 +157,17 @@ export function CompanionInputBar({
     (listener) => companionPorts().onMicAvailabilityChange(listener),
     () => companionPorts().micUnavailableReason(),
   );
+  /*
+    The two level meters (Ad Hoc: companion input + voice improvements) —
+    mutually exclusive in practice (a mic press already interrupts any
+    speech, `onInterrupt` above), but read independently rather than as one
+    "active engine" union so each stays a one-line call at its own render
+    site. See `audio/waveform.ts`'s module doc for the reduced-motion, window-
+    focus and system-TTS-engine fallbacks both already apply.
+  */
+  const speaking = useCompanionStore((state) => state.state === 'speaking');
+  const micLevels = useMicLevelBars(micHeld);
+  const speakingLevels = useCompanionSpeakingLevelBars(speaking);
 
   /*
     Autogrow. Reset to `auto` before reading `scrollHeight` — without it the
@@ -114,6 +205,42 @@ export function CompanionInputBar({
   };
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    /*
+      The "/" popover's own keyboard surface, checked before any of the
+      textarea's own bindings below — while it is open, Up/Down/Tab/Enter
+      belong to the list, not to sending or newlining, and Escape closes only
+      the popover (the repo's one-Escape-per-surface convention, Phase 62):
+      it does not also clear the draft or interrupt speech the way a bare
+      Escape does. Typing keeps re-filtering through `slashQuery`/`slashItems`
+      above; nothing here needs to touch `value` for that.
+    */
+    if (slashOpen) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setSlashIndex((current) => Math.min(current + 1, slashItems.length - 1));
+        return;
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setSlashIndex((current) => Math.max(current - 1, 0));
+        return;
+      }
+      if (event.key === 'Tab' || event.key === 'Enter') {
+        event.preventDefault();
+        const item = slashItems[slashSelected];
+        if (item) acceptSlashItem(item);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        // Closing is just "stop matching" — deleting back past the slash
+        // (or past the query) already does that on its own; this covers the
+        // case where the user wants the "/…" text itself gone too.
+        setValue('');
+        return;
+      }
+    }
     if (event.key === 'Escape') {
       /*
         Stop the propagation, always — `useDismiss` (Phase 62) puts a
@@ -212,10 +339,69 @@ export function CompanionInputBar({
 
   return (
     <div
-      className={`shrink-0 border-t border-border bg-card/40 p-2 ${
+      className={`relative shrink-0 border-t border-border bg-card/40 p-2 ${
         reserveFabSpace ? 'pr-14' : ''
       }`}
     >
+      {/*
+        The "/" popover — anchored to this bar (not the textarea directly,
+        which grows) and opening upward: the bar is docked at the panel's own
+        bottom, so a downward list would run off the panel. Small and capped
+        at `filterSlashCommands`' own `limit` (8), per the ad hoc's own
+        "keep them small and inline" instruction — this is a combobox for a
+        docked textarea, not the `Mod+K` palette, so it is not built from
+        that component: `Popover` (`components/popover.tsx`) owns a click
+        trigger and a focus trap, both wrong here — the textarea must keep
+        focus and keyboard input the whole time this is open. The visual
+        language (gradient border, `bg-popover`, `z-popover`) is copied from
+        it anyway, and the row layout/labels mirror `components/palette.tsx`'s.
+      */}
+      {slashOpen ? (
+        <div
+          role="listbox"
+          aria-label="Slash commands"
+          data-testid="companion-slash-popover"
+          className="gradient-border gradient-border--always absolute bottom-full left-2 right-2 z-popover mb-1 max-h-64 animate-fade-in overflow-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl"
+        >
+          {slashItems.map((item, index) => (
+            <div
+              key={item.id}
+              role="option"
+              aria-selected={index === slashSelected}
+              data-testid={`companion-slash-item-${item.id}`}
+              onMouseEnter={() => setSlashIndex(index)}
+              // `onMouseDown` + `preventDefault`, not `onClick`: a click fires
+              // after the browser has already tried to move focus off the
+              // textarea to this (unfocusable) row, and on some platforms
+              // that alone blurs it before `onClick` runs. Preventing default
+              // on `mousedown` is what keeps focus — and the caret position
+              // `acceptSlashItem` relies on — right where it was.
+              onMouseDown={(event) => {
+                event.preventDefault();
+                acceptSlashItem(item);
+              }}
+              className={`flex cursor-pointer items-center justify-between gap-3 rounded px-2 py-1 text-xs transition-colors ${
+                index === slashSelected
+                  ? 'bg-accent text-foreground'
+                  : 'text-foreground hover:bg-accent/60'
+              }`}
+            >
+              {/*
+                `shrink-0` on the label, `min-w-0 flex-1` on the description:
+                without an explicit basis, a flex row's default `shrink` is
+                equal on both children, and truncation was landing on the
+                short label — "Backlog Task" cut to "Backlog …" — while the
+                long description had barely started giving up space. The
+                label is the thing a row is picked by; it never truncates.
+              */}
+              <span className="shrink-0 font-medium">{item.label}</span>
+              <span className="min-w-0 flex-1 truncate text-right text-[11px] text-muted-foreground">
+                {item.description}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="flex items-end gap-1.5">
         {/*
           The same `.gradient-border` treatment as the repos panel's own
@@ -248,6 +434,16 @@ export function CompanionInputBar({
           />
         </div>
         <div className="flex shrink-0 items-center gap-0.5 pb-0.5">
+          {/*
+            The level meter — mic while held, the companion's own reply
+            while it plays. Rendered inside the same button cluster (not a
+            fourth control) so it never reflows the row when it appears.
+          */}
+          {micHeld ? (
+            <LevelMeterBars bars={micLevels} label="Microphone level" />
+          ) : speaking ? (
+            <LevelMeterBars bars={speakingLevels} label="Companion speaking level" />
+          ) : null}
           {/*
             Plain buttons wrapped in `Tooltip` rather than `IconButton`, and
             only because of the gesture: push-to-talk needs `onPointerDown`,
