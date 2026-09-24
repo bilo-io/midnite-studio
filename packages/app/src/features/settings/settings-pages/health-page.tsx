@@ -1,14 +1,172 @@
-import { useState, useEffect } from 'react';
-import { LuStethoscope, LuCheck, LuX } from 'react-icons/lu';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { LuStethoscope, LuCheck, LuX, LuPlay } from 'react-icons/lu';
 import { Spinner } from '../../../components/skeleton';
 import type { SystemHealth } from '@midnite/studio-shared';
 import { openExternal } from '../../../services/queries';
+import { useUiStore } from '../../../store/ui-store';
+import { useTerminalStore } from '../../terminal/terminal-store';
 import { parseGitVersion } from './git-version';
 import {
   parseToolchainVersion,
   TOOLCHAIN_TOOLS,
   type ToolchainToolId,
 } from './toolchain-version';
+
+/**
+ * Spawns a shell in the integrated terminal and submits `command` with a
+ * trailing carriage return. Mirrors `agent-page.tsx`'s own `submitCommand` —
+ * no shared helper exists yet for two settings pages doing the identical
+ * "run this in a pty" thing, so this is a deliberate, small duplication
+ * rather than a from-scratch extraction this phase did not ask for.
+ */
+function submitCommand(command: string, title = 'ollama'): void {
+  if (!command) return;
+  const ui = useUiStore.getState();
+  ui.setTerminalOpen(true);
+  const cwd = ui.selectedWorktreePath ?? '.';
+  const repoId = ui.selectedRepoId ?? 'default';
+  const session = useTerminalStore.getState().openSession({
+    kind: 'shell',
+    title,
+    cwd,
+    repoId,
+  });
+  const input = command.endsWith('\r') || command.endsWith('\n') ? command : `${command}\r`;
+  useTerminalStore.getState().queueInput(session.id, input);
+}
+
+/** Bounded re-probe after Install/Update/Start — up to ~15s, since a fresh
+ *  `ollama serve` or the app finishing its own launch is not instant. */
+const REPROBE_ATTEMPTS = 10;
+const REPROBE_INTERVAL_MS = 1500;
+
+function OllamaRow({
+  binary,
+  daemon,
+  onHealthRefreshed,
+}: {
+  binary: SystemHealth['ollama'];
+  daemon: SystemHealth['ollamaDaemon'];
+  onHealthRefreshed: (health: SystemHealth) => void;
+}) {
+  const [busy, setBusy] = useState<'install' | 'update' | 'start' | null>(null);
+  const reprobeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (reprobeTimer.current) clearTimeout(reprobeTimer.current);
+    },
+    [],
+  );
+
+  const reprobe = useCallback(
+    (attemptsLeft: number) => {
+      if (!window.midniteStudio?.systemHealth) {
+        setBusy(null);
+        return;
+      }
+      window.midniteStudio
+        .systemHealth()
+        .then((next) => {
+          onHealthRefreshed(next);
+          if (next.ollamaDaemon?.reachable || attemptsLeft <= 1) {
+            setBusy(null);
+            return;
+          }
+          reprobeTimer.current = setTimeout(() => reprobe(attemptsLeft - 1), REPROBE_INTERVAL_MS);
+        })
+        .catch(() => setBusy(null));
+    },
+    [onHealthRefreshed],
+  );
+
+  const isInstalled = Boolean(binary?.path);
+  const isReachable = Boolean(daemon?.reachable);
+  const isAppBundle = Boolean(binary?.path?.includes('/Applications/Ollama.app'));
+
+  const install = () => {
+    setBusy('install');
+    submitCommand('brew install --cask ollama-app', 'Ollama install');
+    reprobeTimer.current = setTimeout(() => reprobe(REPROBE_ATTEMPTS), REPROBE_INTERVAL_MS);
+  };
+  const update = () => {
+    setBusy('update');
+    submitCommand('brew upgrade --cask ollama-app', 'Ollama update');
+    reprobeTimer.current = setTimeout(() => reprobe(REPROBE_ATTEMPTS), REPROBE_INTERVAL_MS);
+  };
+  const start = () => {
+    setBusy('start');
+    // The app bundle, when present, is the friendlier launch (menu bar icon,
+    // survives a terminal closing); otherwise a detached `ollama serve` in
+    // its own shell. Never a stop/restart control — see the phase doc's
+    // "never quit the user's daemon" guardrail.
+    submitCommand(isAppBundle ? 'open -a Ollama' : 'ollama serve &', 'Start Ollama');
+    reprobeTimer.current = setTimeout(() => reprobe(REPROBE_ATTEMPTS), REPROBE_INTERVAL_MS);
+  };
+
+  const statusIcon = isInstalled && isReachable ? (
+    <LuCheck className="h-4 w-4 text-green-500" />
+  ) : isInstalled ? (
+    <LuCheck className="h-4 w-4 text-yellow-500" />
+  ) : (
+    <LuX className="h-4 w-4 text-muted-foreground" />
+  );
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded border border-border/50 p-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {statusIcon}
+          <span className="font-medium text-xs">Ollama</span>
+        </div>
+        <ToolchainVersionValue tool="ollama" raw={binary?.version} path={binary?.path} />
+      </div>
+      <div className="flex items-center justify-between pl-6">
+        <span className="text-[11px] text-muted-foreground">
+          {isReachable
+            ? `Daemon reachable${daemon?.version ? ` (v${daemon.version})` : ''} at ${daemon?.host ?? ''}`
+            : isInstalled
+              ? 'Daemon not reachable'
+              : 'Not installed'}
+        </span>
+        <div className="flex items-center gap-1.5">
+          {!isInstalled ? (
+            <button
+              type="button"
+              onClick={install}
+              disabled={busy !== null}
+              className="flex h-6 items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+            >
+              {busy === 'install' ? <Spinner className="h-3 w-3" /> : null}
+              Install
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={update}
+              disabled={busy !== null}
+              className="flex h-6 items-center gap-1.5 rounded-md border border-border bg-accent/40 px-2 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+            >
+              {busy === 'update' ? <Spinner className="h-3 w-3" /> : null}
+              Update
+            </button>
+          )}
+          {isInstalled && !isReachable ? (
+            <button
+              type="button"
+              onClick={start}
+              disabled={busy !== null}
+              className="flex h-6 items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+            >
+              {busy === 'start' ? <Spinner className="h-3 w-3" /> : <LuPlay className="h-3 w-3" />}
+              Start Ollama
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * The git row's value: `v2.39.5`, linked to that version's upstream release
@@ -217,6 +375,11 @@ export function HealthChecklist({ compact }: { compact?: boolean }) {
             </div>
           );
         })}
+
+        {/* Ollama — a bespoke row, not folded into `toolchainKeys`: it carries
+            a binary-vs-daemon distinction none of the four rows above have,
+            plus install/update/start actions the others don't offer. */}
+        <OllamaRow binary={health?.ollama} daemon={health?.ollamaDaemon} onHealthRefreshed={setHealth} />
       </div>
     </div>
   );

@@ -6,10 +6,32 @@ import { HealthChecklist, HealthPage } from './health-page';
 const mocks = vi.hoisted(() => ({
   openExternal: vi.fn(),
   systemHealth: vi.fn(),
+  setTerminalOpen: vi.fn(),
+  openSession: vi.fn(() => ({ id: 'session-1' })),
+  queueInput: vi.fn(),
 }));
 
 vi.mock('../../../services/queries', () => ({
   openExternal: mocks.openExternal,
+}));
+
+vi.mock('../../../store/ui-store', () => ({
+  useUiStore: {
+    getState: () => ({
+      setTerminalOpen: mocks.setTerminalOpen,
+      selectedWorktreePath: '.',
+      selectedRepoId: 'default',
+    }),
+  },
+}));
+
+vi.mock('../../terminal/terminal-store', () => ({
+  useTerminalStore: {
+    getState: () => ({
+      openSession: mocks.openSession,
+      queueInput: mocks.queueInput,
+    }),
+  },
 }));
 
 const mockHealthData: SystemHealth = {
@@ -27,6 +49,9 @@ describe('HealthChecklist', () => {
   beforeEach(() => {
     mocks.openExternal.mockReset();
     mocks.systemHealth.mockReset();
+    mocks.setTerminalOpen.mockReset();
+    mocks.openSession.mockReset().mockReturnValue({ id: 'session-1' });
+    mocks.queueInput.mockReset();
     mocks.systemHealth.mockResolvedValue(mockHealthData);
 
     // @ts-expect-error test bridge mock
@@ -94,12 +119,86 @@ describe('HealthChecklist', () => {
       expect(screen.getByText('Toolchain')).toBeDefined();
     });
 
+    // Homebrew, moon, and Ollama (absent from `mockHealthData` entirely, so
+    // every case is effectively "not installed") each render one.
     const notInstalledButtons = screen.getAllByRole('button', { name: /not installed/i });
-    expect(notInstalledButtons.length).toBe(2);
+    expect(notInstalledButtons.length).toBe(3);
 
     // Click Homebrew's not installed button
     fireEvent.click(screen.getByRole('button', { name: /Homebrew not installed/i }));
     expect(mocks.openExternal).toHaveBeenCalledWith('https://brew.sh');
+  });
+});
+
+describe('OllamaRow', () => {
+  beforeEach(() => {
+    mocks.openExternal.mockReset();
+    mocks.systemHealth.mockReset();
+    mocks.setTerminalOpen.mockReset();
+    mocks.openSession.mockReset().mockReturnValue({ id: 'session-1' });
+    mocks.queueInput.mockReset();
+    // @ts-expect-error test bridge mock
+    window.midniteStudio = { systemHealth: mocks.systemHealth };
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('offers Install when the binary is absent', async () => {
+    mocks.systemHealth.mockResolvedValue(mockHealthData); // no `ollama`/`ollamaDaemon`
+    render(<HealthChecklist />);
+    await waitFor(() => expect(screen.getByText('Ollama')).toBeDefined());
+
+    expect(screen.getByRole('button', { name: /Ollama not installed/i })).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }));
+    expect(mocks.setTerminalOpen).toHaveBeenCalledWith(true);
+    expect(mocks.openSession).toHaveBeenCalled();
+    expect(mocks.queueInput).toHaveBeenCalledWith('session-1', 'brew install --cask ollama-app\r');
+  });
+
+  it('offers Start Ollama when installed but the daemon is unreachable', async () => {
+    mocks.systemHealth.mockResolvedValue({
+      ...mockHealthData,
+      ollama: { path: '/opt/homebrew/bin/ollama', version: 'ollama version is 0.4.2' },
+      ollamaDaemon: { reachable: false, version: null, host: 'http://127.0.0.1:11434' },
+    });
+    render(<HealthChecklist />);
+    await waitFor(() => expect(screen.getByText('Ollama')).toBeDefined());
+
+    expect(screen.getByText('Daemon not reachable')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: /Start Ollama/i }));
+    expect(mocks.queueInput).toHaveBeenCalledWith('session-1', 'ollama serve &\r');
+  });
+
+  it('uses `open -a Ollama` when the binary resolved through the app bundle', async () => {
+    mocks.systemHealth.mockResolvedValue({
+      ...mockHealthData,
+      ollama: {
+        path: '/Applications/Ollama.app/Contents/Resources/ollama',
+        version: 'ollama version is 0.4.2',
+      },
+      ollamaDaemon: { reachable: false, version: null, host: 'http://127.0.0.1:11434' },
+    });
+    render(<HealthChecklist />);
+    await waitFor(() => expect(screen.getByText('Ollama')).toBeDefined());
+
+    fireEvent.click(screen.getByRole('button', { name: /Start Ollama/i }));
+    expect(mocks.queueInput).toHaveBeenCalledWith('session-1', 'open -a Ollama\r');
+  });
+
+  it('shows the reachable daemon and offers Update, not Start, once running', async () => {
+    mocks.systemHealth.mockResolvedValue({
+      ...mockHealthData,
+      ollama: { path: '/opt/homebrew/bin/ollama', version: 'ollama version is 0.4.2' },
+      ollamaDaemon: { reachable: true, version: '0.4.2', host: 'http://127.0.0.1:11434' },
+    });
+    render(<HealthChecklist />);
+    await waitFor(() => expect(screen.getByText(/Daemon reachable/)).toBeDefined());
+
+    expect(screen.queryByRole('button', { name: /Start Ollama/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Update' }));
+    expect(mocks.queueInput).toHaveBeenCalledWith('session-1', 'brew upgrade --cask ollama-app\r');
   });
 });
 

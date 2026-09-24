@@ -19,6 +19,9 @@ describe('toolchainReleaseUrl', () => {
     expect(toolchainReleaseUrl('moon', '2.3.4')).toBe(
       'https://github.com/moonrepo/moon/releases/tag/v2.3.4',
     );
+    expect(toolchainReleaseUrl('ollama', '0.4.2')).toBe(
+      'https://github.com/ollama/ollama/releases/tag/v0.4.2',
+    );
   });
 });
 
@@ -55,6 +58,14 @@ describe('parseToolchainVersion', () => {
     });
   });
 
+  it('parses ollama version output', () => {
+    expect(parseToolchainVersion('ollama', 'ollama version is 0.4.2')).toEqual({
+      number: '0.4.2',
+      label: 'v0.4.2',
+      url: 'https://github.com/ollama/ollama/releases/tag/v0.4.2',
+    });
+  });
+
   it('handles empty or missing version gracefully', () => {
     expect(parseToolchainVersion('node', null)).toBeNull();
     expect(parseToolchainVersion('node', undefined)).toBeNull();
@@ -66,7 +77,7 @@ describe('parseToolchainVersion', () => {
 describe('TOOLCHAIN_TOOLS metadata', () => {
   it('has valid documentation and repository URLs for every tool', () => {
     const keys = Object.keys(TOOLCHAIN_TOOLS) as (keyof typeof TOOLCHAIN_TOOLS)[];
-    expect(keys).toEqual(['homebrew', 'node', 'pnpm', 'moon']);
+    expect(keys).toEqual(['homebrew', 'node', 'pnpm', 'moon', 'ollama']);
     for (const key of keys) {
       const meta = TOOLCHAIN_TOOLS[key];
       expect(meta.name.length).toBeGreaterThan(0);
