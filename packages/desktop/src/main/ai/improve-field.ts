@@ -13,6 +13,7 @@ import {
 import { OUTPUT_TAIL_CAP, runProcess, type ProcessSink, type SpawnFn } from '../process-runner';
 import { listAgents } from '../terminal-service';
 import { resolveHeadlessAgent } from '../companion/ask';
+import { runOllamaPrompt, type OllamaHeadlessDeps } from './ollama-headless';
 
 /**
  * The wand (Phase 95 Theme E) — one field's text, rewritten by the roster's
@@ -60,6 +61,8 @@ export type AiImproveFieldInput = {
   fieldName: string;
   fieldValue: string;
   otherFields?: Record<string, string> | undefined;
+  /** Phase 96 Theme I — run on this Ollama model via `/api/chat`, not a CLI. */
+  ollamaModel?: string | undefined;
 };
 
 export type AiImproveFieldDeps = {
@@ -70,6 +73,7 @@ export type AiImproveFieldDeps = {
   timeoutMs?: number | undefined;
   /** Injected only so a test need not touch `$HOME`. */
   home?: (() => string) | undefined;
+  ollama?: OllamaHeadlessDeps | undefined;
 };
 
 export const defaultAiImproveFieldDeps: AiImproveFieldDeps = { agents: listAgents };
@@ -135,6 +139,18 @@ export async function improveField(
   input: AiImproveFieldInput,
   deps: AiImproveFieldDeps = defaultAiImproveFieldDeps,
 ): Promise<GitOpResult<{ text: string }>> {
+  if (input.ollamaModel) {
+    const reply = await runOllamaPrompt(
+      input.ollamaModel,
+      buildImproveFieldPrompt(input),
+      deps.timeoutMs ?? AI_IMPROVE_FIELD_TIMEOUT_MS,
+      deps.ollama,
+    );
+    if (!reply.ok) return failure(reply.message);
+    const text = reply.data.trim();
+    return text.length === 0 ? failure(`${input.ollamaModel} answered with nothing.`) : ok({ text });
+  }
+
   const roster = await deps.agents();
   const resolved = resolveHeadlessAgent(roster, input.agentId);
   if (!resolved) {

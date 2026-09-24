@@ -1900,9 +1900,19 @@ export function useImproveField() {
     }): Promise<GitOpResult<{ text: string }>> => {
       const api = bridge();
       if (!api) return { ok: false, kind: 'error', message: '' };
-      return api.ai.improveField(input);
+      return api.ai.improveField(withHeadlessAiModel(input));
     },
   });
+}
+
+/**
+ * Phase 96 Theme I — Settings ▸ Agent ▸ "Headless AI features use". Read at
+ * call time rather than threaded through every wand/Plan caller, so one
+ * setting reroutes both without touching a dialog.
+ */
+function withHeadlessAiModel<T extends object>(input: T): T & { ollamaModel?: string } {
+  const model = useUiStore.getState().headlessAiOllamaModel;
+  return model ? { ...input, ollamaModel: model } : input;
 }
 
 /**
@@ -1922,7 +1932,7 @@ export function usePlanBlueprint() {
     }): Promise<GitOpResult<{ blueprint: AiPlanBlueprint }>> => {
       const api = bridge();
       if (!api) return { ok: false, kind: 'error', message: '' };
-      return api.ai.planBlueprint(input);
+      return api.ai.planBlueprint(withHeadlessAiModel(input));
     },
   });
 }

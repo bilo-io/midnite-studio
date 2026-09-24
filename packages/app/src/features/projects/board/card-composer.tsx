@@ -1,6 +1,8 @@
 import {
   LOOP_MODELS,
   loopModelArgs,
+  OLLAMA_DEFAULT_BASE_URL,
+  resolveAgentLaunch,
   type ForgeIssueRef,
   type ForgeProjectItem,
   type LoopModel,
@@ -27,6 +29,12 @@ import {
   useTerminalStore,
 } from '../../terminal/terminal-store';
 import { useAgents } from '../../terminal/use-agents';
+import {
+  launchOverrideFor,
+  ollamaModelFromOption,
+  useOllamaLaunchFit,
+  useOllamaLaunchOptions,
+} from '../../models/launch-options';
 import { composeCardPrompt, CONCURRENT_CARD_SESSION_SOFT_LIMIT, countLiveCardSessions } from './board-derive';
 
 /**
@@ -134,28 +142,44 @@ export function CardComposer({
     return mostRecent?.agentId ?? agents[0]?.id ?? '';
   });
   const [prompt, setPrompt] = useState(() => composeCardPrompt(item, worktreePath));
-  const [model, setModel] = useState<LoopModel>('default');
+  /** A `LoopModel` token, or an `ollama:<name>` pick (Phase 96 Theme I). */
+  const [model, setModel] = useState<string>('default');
 
   // A model chosen for one agent means nothing for another — `loopModelArgs`
-  // is Claude-only, so switching away from `claude` drops back to the neutral
-  // choice rather than carrying a `--model` flag it would refuse to apply.
+  // is Claude-only and an Ollama pick is per-agent-capability, so switching
+  // agent drops back to the neutral choice.
   useEffect(() => {
-    if (agentId !== 'claude') setModel('default');
+    setModel('default');
   }, [agentId]);
 
   const skillExecutionMode = useUiStore((s) => s.skillExecutionMode);
-  const modelArgs = useMemo(() => loopModelArgs(agentId, model), [agentId, model]);
+  const ollamaModel = ollamaModelFromOption(model);
+  const ollamaOptions = useOllamaLaunchOptions(agentId);
+  const ollamaFit = useOllamaLaunchFit(model);
+  const modelOptions = useMemo(
+    () => [...(agentId === 'claude' ? MODEL_OPTIONS : MODEL_OPTIONS.slice(0, 1)), ...ollamaOptions],
+    [agentId, ollamaOptions],
+  );
+  const modelArgs = useMemo(
+    () => (ollamaModel ? [] : loopModelArgs(agentId, model as LoopModel)),
+    [agentId, model, ollamaModel],
+  );
 
   const commandPreview = useMemo(() => {
     const agent = agents.find((a) => a.id === agentId);
     if (!agent) return '';
+    // An Ollama pick previews the recipe's own words (e.g. `ollama launch cline …`).
+    const launch = ollamaModel
+      ? resolveAgentLaunch(agent, { backend: 'ollama', model: ollamaModel }, OLLAMA_DEFAULT_BASE_URL)
+      : null;
     return [
-      agent.command,
+      launch?.command ?? agent.command,
+      ...(launch?.argsBefore ?? []),
       ...modelArgs,
       ...agentInvocationArgs(agentId, skillExecutionMode),
       shellQuote(toAgentPrompt(prompt, agentId)),
     ].join(' ');
-  }, [agents, agentId, modelArgs, prompt, skillExecutionMode]);
+  }, [agents, agentId, modelArgs, ollamaModel, prompt, skillExecutionMode]);
 
   /**
    * Shared by Start (`autoSend: false`) and Launch and run (`true`, Theme B)
@@ -190,6 +214,7 @@ export function CardComposer({
       surface: 'kanban',
       taskRef,
       extraArgs: modelArgs,
+      modelOverride: launchOverrideFor(model),
       autoSend,
     });
   }
@@ -286,11 +311,19 @@ export function CardComposer({
               <p className="mb-1 text-[10px] font-medium text-muted-foreground">Model</p>
               <IconSelect
                 ariaLabel="Model"
-                options={MODEL_OPTIONS}
+                options={modelOptions}
                 value={model}
-                onChange={(id) => setModel(id as LoopModel)}
-                isDisabled={agentId !== 'claude'}
+                onChange={setModel}
+                isDisabled={modelOptions.length <= 1}
               />
+              {ollamaFit && !ollamaFit.fit ? (
+                <p
+                  title={ollamaFit.reasons.join('; ')}
+                  className="mt-1 text-[10px] font-medium text-amber-600 dark:text-amber-400"
+                >
+                  ⚠ not agent-ready
+                </p>
+              ) : null}
             </div>
           </div>
           <textarea

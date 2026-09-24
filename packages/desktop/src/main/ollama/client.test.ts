@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  ollamaChat,
   ollamaDelete,
   ollamaPs,
   ollamaPull,
@@ -304,5 +305,84 @@ describe('ollamaPull', () => {
     // Give the server a tick to observe the aborted connection.
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(closed).toBe(true);
+  });
+});
+
+describe('ollamaChat', () => {
+  it('sends stream:false and returns the reply content', async () => {
+    let receivedBody: unknown;
+    const { server, origin } = await startThrowawayServer((req, res) => {
+      let raw = '';
+      req.on('data', (chunk) => (raw += chunk));
+      req.on('end', () => {
+        receivedBody = JSON.parse(raw);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ message: { role: 'assistant', content: 'A rewritten body.' } }));
+      });
+    });
+    activeServer = server;
+
+    const text = await ollamaChat(
+      { model: 'qwen3.5', messages: [{ role: 'user', content: 'rewrite this' }] },
+      { baseUrl: origin },
+    );
+
+    expect(text).toBe('A rewritten body.');
+    expect(receivedBody).toEqual({
+      model: 'qwen3.5',
+      messages: [{ role: 'user', content: 'rewrite this' }],
+      stream: false,
+    });
+  });
+
+  it('throws when nothing is listening (daemon down)', async () => {
+    await expect(
+      ollamaChat(
+        { model: 'qwen3.5', messages: [{ role: 'user', content: 'x' }] },
+        { baseUrl: 'http://127.0.0.1:1', timeoutMs: 500 },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('throws on a timeout rather than hanging', async () => {
+    const { server, origin } = await startThrowawayServer(() => {
+      // Never responds.
+    });
+    activeServer = server;
+    await expect(
+      ollamaChat(
+        { model: 'qwen3.5', messages: [{ role: 'user', content: 'x' }] },
+        { baseUrl: origin, timeoutMs: 100 },
+      ),
+    ).rejects.toThrow(/timed out/);
+  });
+
+  it('throws when the response carries no message content', async () => {
+    const { server, origin } = await startThrowawayServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ done: true }));
+    });
+    activeServer = server;
+    await expect(
+      ollamaChat(
+        { model: 'qwen3.5', messages: [{ role: 'user', content: 'x' }] },
+        { baseUrl: origin },
+      ),
+    ).rejects.toThrow(/no message content/);
+  });
+
+  it('aborts when the signal fires', async () => {
+    const { server, origin } = await startThrowawayServer(() => {
+      // Never responds — the test asserts the client gives up.
+    });
+    activeServer = server;
+
+    const controller = new AbortController();
+    const chatPromise = ollamaChat(
+      { model: 'qwen3.5', messages: [{ role: 'user', content: 'x' }] },
+      { baseUrl: origin, signal: controller.signal },
+    );
+    controller.abort();
+    await expect(chatPromise).rejects.toThrow(/cancelled/);
   });
 });

@@ -6,6 +6,7 @@ import {
   resolveAgentLaunch,
   shellQuote,
   toAgentPrompt,
+  type AgentOllamaBinding,
   type SkillExecutionMode,
   type TerminalSession,
   type TerminalSurface,
@@ -25,6 +26,38 @@ export {
   shellQuote,
   toAgentPrompt,
 };
+
+/**
+ * A per-launch model pick (Phase 96 Theme I) — the card composer's and loop's
+ * model picker, once it grows an "Ollama" group beside `LOOP_MODELS`, and
+ * "Launch with…" from the model detail modal.
+ *
+ * **Precedence: when present, this always wins over the persisted
+ * `agentBackends[agentId]` default for that one launch — never layered on
+ * top of it.** `{backend: 'native'}` forces the launch to run natively even
+ * if the agent's own Settings ▸ Agent default is Ollama (the caller then
+ * supplies its own `--model` via `extraArgs`, e.g. `loopModelArgs`).
+ * `{backend: 'ollama', model}` forces the launch onto that model even if the
+ * agent's default is native or a different model — "whatever the agent's
+ * default is", per the phase doc. Omitting this param entirely (every call
+ * site before this phase) falls back to the persisted default exactly as
+ * Theme H left it.
+ */
+export type StartAgentModelOverride = { backend: 'native' } | { backend: 'ollama'; model: string };
+
+/** Removes one `--model <value>` pair from `args`, if present.
+ *
+ * The defence-in-depth half of the fix: even a caller that still computes
+ * `extraArgs` from `loopModelArgs` (Claude's own native `--model` picker)
+ * cannot double up a `--model` flag once the launch resolves to Ollama —
+ * `ollamaLaunchRecipe`'s own `argsBefore` is always the one that wins,
+ * because it is what actually matches `ANTHROPIC_BASE_URL`/the daemon.
+ */
+function stripModelFlag(args: string[]): string[] {
+  const i = args.indexOf('--model');
+  if (i === -1) return args;
+  return [...args.slice(0, i), ...args.slice(i + 2)];
+}
 
 /**
  * Open the terminal on a fresh agent session in `cwd`, with `prompt` typed at
@@ -57,6 +90,7 @@ export function startAgent({
   extraArgs = [],
   autoSend = false,
   mode,
+  modelOverride,
 }: {
   repoId: string;
   cwd: string;
@@ -101,6 +135,8 @@ export function startAgent({
    * Falls back to `useUiStore.getState().skillExecutionMode` when absent.
    */
   mode?: SkillExecutionMode;
+  /** Per-launch backend pick; see `StartAgentModelOverride`. */
+  modelOverride?: StartAgentModelOverride;
 }): TerminalSession {
   if (surface !== 'fab' && surface !== 'kanban') useUiStore.getState().setTerminalOpen(true);
 
@@ -117,8 +153,15 @@ export function startAgent({
     `start()` right before `pty.create` — the one point in this flow that is
     already async.
   */
-  const binding = useUiStore.getState().agentBackends[agentId];
+  const binding: AgentOllamaBinding | undefined =
+    modelOverride === undefined
+      ? useUiStore.getState().agentBackends[agentId]
+      : modelOverride.backend === 'native'
+        ? { backend: 'native' }
+        : { backend: 'ollama', model: modelOverride.model };
   const launch = resolveAgentLaunch({ id: agentId, command }, binding, OLLAMA_DEFAULT_BASE_URL);
+  // An Ollama launch's recipe owns `--model`; a caller's native pick is dropped.
+  const callerArgs = launch.backend === 'ollama' ? stripModelFlag(extraArgs) : extraArgs;
 
   const session = useTerminalStore.getState().openSession({
     kind: 'agent',
@@ -144,11 +187,11 @@ export function startAgent({
       ? [
           launch.command,
           ...launch.argsBefore,
-          ...extraArgs,
+          ...callerArgs,
           ...agentInvocationArgs(agentId, executionMode),
           shellQuote(toAgentPrompt(prompt, agentId)),
         ]
-      : [launch.command, ...launch.argsBefore, ...extraArgs];
+      : [launch.command, ...launch.argsBefore, ...callerArgs];
   useTerminalStore.getState().queueInput(session.id, words.join(' ') + (autoSend ? '\r' : ''));
   return session;
 }

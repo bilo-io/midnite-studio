@@ -1151,6 +1151,11 @@ export const AiImproveFieldRequest = z.object({
   fieldName: z.string().trim().min(1).max(60),
   fieldValue: z.string().max(8000),
   otherFields: z.record(z.string().max(60), z.string().max(2000)).default({}),
+  /**
+   * Phase 96 Theme I — when set, main calls this Ollama model's `/api/chat`
+   * instead of a headless CLI (Settings ▸ Agent ▸ "Headless AI features use").
+   */
+  ollamaModel: z.string().min(1).max(200).optional(),
 });
 
 /**
@@ -1187,6 +1192,11 @@ export const AiPlanBlueprintRequest = z.object({
       title: z.string().max(200),
     })
     .optional(),
+  /**
+   * Phase 96 Theme I — when set, main calls this Ollama model's `/api/chat`
+   * instead of a headless CLI (Settings ▸ Agent ▸ "Headless AI features use").
+   */
+  ollamaModel: z.string().min(1).max(200).optional(),
 });
 
 /**

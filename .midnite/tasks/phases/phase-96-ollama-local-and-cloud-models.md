@@ -320,18 +320,26 @@ independent and can start at once). **I** needs **E** and **H**.
       preservation. The vault-key-never-in-a-renderer-payload test doesn't apply yet — no vault key
       is wired in this PR (see the Theme F dependency above).
 
-### I — Launch surfaces (M)
+### I — Launch surfaces (M) — ✅ DONE (PR #549, 2026-09-24)
 
-- [ ] **Per-launch override**: the card composer's and loop's model picker gains an "Ollama" group
+- [x] **Per-launch override**: the card composer's and loop's model picker gains an "Ollama" group
       (installed + cloud, fit badge) beside `LOOP_MODELS`; picking one runs that launch on Ollama
       whatever the agent's default is.
-- [ ] **Launch with…** from the detail modal: pick a supported agent and a repo, then open a new
+      **Correction:** the card composer has it: installed models (pulled `:cloud` ones included),
+      plus a ⚠ fit badge. `startAgent`'s `modelOverride` wins over `agentBackends` and strips the
+      caller's own `--model`, so the two never stack. The loop composer does not: its model is a
+      persisted `LoopModel` enum, and loops already run on the agent's Ollama default. That, and the
+      not-yet-pulled cloud catalogue in the picker, are follow-ups.
+- [x] **Launch with…** from the detail modal: pick a supported agent and a repo, then open a new
       interactive session through the same resolver.
-- [ ] **Wand and Plan-with-AI on Ollama**: `ai-models.ts` gains an `ollama` provider entry, and
+- [x] **Wand and Plan-with-AI on Ollama**: `ai-models.ts` gains an `ollama` provider entry, and
       `ai:improveField` / `ai:planBlueprint` accept it — calling `/api/chat` through Theme B's
       client (see Decisions), with the same timeout, cancel and one-retry-on-bad-JSON behaviour the
       CLI path has.
-- [ ] Settings ▸ Agent: "Headless AI features use" → primary agent (today) or an Ollama model.
+      **Correction:** there is no `ai-models.ts` row. Both requests take an optional `ollamaModel`
+      instead, run by `main/ai/ollama-headless.ts#runOllamaPrompt` over `ollamaChat`, because an
+      Ollama model is picked explicitly rather than tiered as cheap or fast.
+- [x] Settings ▸ Agent: "Headless AI features use" → primary agent (today) or an Ollama model.
 
 ## Files this phase touches
 

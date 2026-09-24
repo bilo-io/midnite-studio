@@ -123,6 +123,7 @@ export function AgentPage() {
           </p>
           <PrimaryAgentPicker />
           <SkillExecutionModePicker />
+          <HeadlessAiModelPicker />
           <SkillFields />
         </div>
       </Accordion>
@@ -492,6 +493,47 @@ function OllamaBackendRow({ agent }: { agent: AgentDefinition }) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Settings ▸ Agent ▸ "Headless AI features use" (Phase 96 Theme I) — the wand
+ * and Plan with AI run on the primary agent's CLI by default, or on one
+ * installed Ollama model through its `/api/chat` (routed in `queries.ts`'s
+ * `withHeadlessAiModel`).
+ */
+function HeadlessAiModelPicker() {
+  const model = useUiStore((s) => s.headlessAiOllamaModel);
+  const setModel = useUiStore((s) => s.setHeadlessAiOllamaModel);
+  const { data: models } = useQuery({
+    queryKey: ['ollama-models'],
+    queryFn: async () => {
+      const result = await bridge()!.ollama.list();
+      return result.ok ? result.value.models : [];
+    },
+    enabled: hasBridge(),
+  });
+
+  return (
+    <label className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="text-[11px] font-medium text-muted-foreground">Headless AI features use:</span>
+      <select
+        value={model ?? ''}
+        onChange={(e) => setModel(e.target.value || null)}
+        aria-label="Headless AI features use"
+        className="h-7 min-w-[220px] rounded border border-input bg-background px-2 text-xs outline-none focus-visible:border-primary"
+      >
+        <option value="">Primary agent</option>
+        {model && !(models ?? []).some((m) => m.name === model) ? (
+          <option value={model}>{model} (not installed)</option>
+        ) : null}
+        {(models ?? []).map((m) => (
+          <option key={m.name} value={m.name}>
+            Ollama · {m.name}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
